@@ -789,9 +789,7 @@ impl CoreRuntime {
     /// reconnect work running without a live runtime. A runtime with no
     /// transport calls it directly.
     ///
-    /// Idempotent: a second call while the services run does nothing. The
-    /// long-lived service loops (cron, channels, login-gated services, the
-    /// update checker) are tracked and stopped by
+    /// Idempotent while they run; the long-lived loops stop with
     /// [`stop_services`](Self::stop_services) or when this runtime drops.
     pub async fn start_services(&self) {
         crate::core::runtime::services::start_selected_services(
@@ -803,10 +801,9 @@ impl CoreRuntime {
         .await;
     }
 
-    /// Stop the background services [`start_services`](Self::start_services)
-    /// started. They may be started again afterwards. Also runs on drop.
+    /// Stop the services [`start_services`](Self::start_services) started
+    /// (they may be restarted). Also runs on drop.
     pub fn stop_services(&self) {
-        log::debug!("[core-runtime] stop_services");
         self.service_tasks.stop();
     }
 }
