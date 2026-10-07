@@ -17,11 +17,16 @@ pub mod copy;
 pub mod host;
 pub mod job;
 pub mod map;
+pub mod service;
 pub mod state;
+
+#[cfg(test)]
+mod test_host;
 
 pub use cleanup::cleanup;
 pub use copy::{copy, legacy_present, Engines};
 pub use host::LayoutHost;
 pub use job::{run, Outcome, Trigger};
 pub use map::{FlowPlacement, Placement};
+pub use service::{retry, scan, start, status, tick, MigrationStatus, ScanView};
 pub use state::{MigrationState, Phase};
