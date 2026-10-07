@@ -387,3 +387,121 @@ async fn a_turn_pack_stays_within_its_budget_against_a_large_store() {
     );
     assert!(repeated_lines(&pack.markdown).is_empty());
 }
+
+#[tokio::test]
+async fn a_resumed_session_pack_stays_within_one_budget_and_repeats_nothing() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    fill_with_learnings(&engine, 1500).await;
+    let identity = MemoryIdentity::agent("orchestrator").resolve(&config);
+    // Earlier turns of the thread, logged the way a session logs them. Each
+    // line is distinct, so a repeat can only be one item injected twice.
+    for turn in 0..6u32 {
+        let _ = pre_turn(
+            &config,
+            &identity,
+            input(
+                "t-resumed",
+                turn * 2,
+                &format!("how is Lisbon release step {turn} going?"),
+            ),
+        )
+        .await;
+        post_turn(
+            &config,
+            &identity,
+            reply(
+                "t-resumed",
+                turn * 2 + 1,
+                &format!("Step {turn} is done; it ships on Thursday."),
+            ),
+        )
+        .await;
+    }
+
+    let mut resumed = input("t-resumed", 12, "when does the Lisbon release ship?");
+    resumed.resumed_after_compaction = true;
+    resumed.in_prompt_from = 12;
+    let pack = pre_turn(&config, &identity, resumed).await.expect("a pack");
+    eprintln!(
+        "resumed session: pack {} tokens (budget {}), repeated lines {}",
+        pack.tokens,
+        budget(&config),
+        repeated_lines(&pack.markdown).len()
+    );
+    assert!(
+        pack.refusal.is_none(),
+        "not a refusal notice: {}",
+        pack.markdown
+    );
+    // The compacted-out turns lead the pack, so the session can resume.
+    assert!(
+        pack.markdown.contains("it ships on Thursday."),
+        "{}",
+        pack.markdown
+    );
+    assert!(
+        pack.tokens <= budget(&config),
+        "{} > {}",
+        pack.tokens,
+        budget(&config)
+    );
+    let repeated = repeated_lines(&pack.markdown);
+    assert!(repeated.is_empty(), "lines injected twice: {repeated:?}");
+}
+
+#[tokio::test]
+async fn a_resumed_session_without_logging_still_opens_with_the_thread() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = config_in(&tmp);
+    let _engine = bind_reference(&config);
+    let identity = MemoryIdentity::agent("orchestrator").resolve(&config);
+    let _ = pre_turn(
+        &config,
+        &identity,
+        input("t-quiet", 0, "where is the Lisbon offsite?"),
+    )
+    .await;
+    post_turn(
+        &config,
+        &identity,
+        reply("t-quiet", 1, "The offsite is at the Alfama hotel."),
+    )
+    .await;
+
+    config.memory.conversations.enabled = false;
+    let reader = MemoryIdentity::agent("orchestrator").resolve(&config);
+    let mut resumed = input("t-quiet", 2, "remind me where the offsite is");
+    resumed.resumed_after_compaction = true;
+    resumed.in_prompt_from = 2;
+    let pack = pre_turn(&config, &reader, resumed).await.expect("a pack");
+    assert!(pack.markdown.contains("Alfama hotel"), "{}", pack.markdown);
+    assert!(repeated_lines(&pack.markdown).is_empty());
+}
+
+#[tokio::test]
+async fn a_blank_turn_is_refused_without_a_pack_with_or_without_logging() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    let identity = MemoryIdentity::agent("orchestrator").resolve(&config);
+    assert!(pre_turn(&config, &identity, input("t-blank", 0, "   "))
+        .await
+        .is_none());
+    assert!(
+        stored(&engine, MetaFilter::kinds([ItemKind::Conversation]))
+            .await
+            .is_empty(),
+        "a refused turn logs nothing"
+    );
+
+    config.memory.conversations.enabled = false;
+    let reader = MemoryIdentity::agent("orchestrator").resolve(&config);
+    assert!(pre_turn(&config, &reader, input("t-blank", 2, "   "))
+        .await
+        .is_none());
+    let mut resumed = input("  ", 4, "where were we?");
+    resumed.resumed_after_compaction = true;
+    assert!(pre_turn(&config, &reader, resumed).await.is_none());
+}
