@@ -3936,6 +3936,16 @@ async fn json_rpc_web_chat_routing_cases_use_expected_backend_models_inner() {
             Some(*expected_model),
             "case={model_override} request={request:?}"
         );
+        assert_eq!(
+            request.get("path").and_then(Value::as_str),
+            Some("/openai/v1/chat/completions"),
+            "valid managed route should reach the managed backend: case={model_override} request={request:?}"
+        );
+        assert_eq!(
+            request.get("authorization").and_then(Value::as_str),
+            Some("Bearer e2e-test-jwt"),
+            "valid managed route should use the stored backend session credential: case={model_override} request={request:?}"
+        );
     }
 
     // An unknown qualified provider must fail during the real core turn
@@ -3975,10 +3985,26 @@ async fn json_rpc_web_chat_routing_cases_use_expected_backend_models_inner() {
         Some("chat_error"),
         "unknown provider route should fail at the core boundary: {unknown_event}"
     );
-    assert_eq!(
-        with_chat_completion_requests(|requests| requests.len()),
-        0,
-        "unknown provider route must not fall back to the configured backend"
+    let unknown_turn_requests = with_chat_completion_requests(|requests| {
+        requests
+            .iter()
+            .filter(|request| {
+                request["body"]["messages"]
+                    .as_array()
+                    .is_some_and(|messages| {
+                        messages.iter().any(|entry| {
+                            entry["content"]
+                                .as_str()
+                                .is_some_and(|content| content.contains("unknown provider route"))
+                        })
+                    })
+            })
+            .cloned()
+            .collect::<Vec<_>>()
+    });
+    assert!(
+        unknown_turn_requests.is_empty(),
+        "unknown selected route must emit chat_error without an inference request attributable to its user message; captured requests={unknown_turn_requests:?}"
     );
 
     mock_join.abort();
@@ -4054,6 +4080,19 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
     )
     .await;
     assert_no_jsonrpc_error(&update, "update_model_settings");
+
+    let initial_config_get =
+        post_json_rpc(&rpc_base, 6999, "openhuman.config_get", json!({})).await;
+    let initial_config_result = assert_no_jsonrpc_error(&initial_config_get, "initial config_get");
+    let initial_config_payload = peel_logs_envelope(initial_config_result);
+    let initial_config = initial_config_payload
+        .get("config")
+        .unwrap_or(initial_config_payload);
+    assert_eq!(
+        initial_config.get("default_model").and_then(Value::as_str),
+        Some("openai:gpt-4.1-mini"),
+        "config_get must expose the authoritative configured BYOK default before any turn override"
+    );
 
     let store_provider = post_json_rpc(
         &rpc_base,
@@ -4308,11 +4347,11 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
     )
     .await;
     let config_get = post_json_rpc(&rpc_base, 6009, "openhuman.config_get", json!({})).await;
-    let config_outer = assert_no_jsonrpc_error(&config_get, "config_get after managed override");
-    let config_payload = config_outer.get("result").unwrap_or(config_outer);
+    let config_result = assert_no_jsonrpc_error(&config_get, "config_get after managed override");
+    let config_payload = peel_logs_envelope(config_result);
     let config = config_payload.get("config").unwrap_or(config_payload);
     assert_eq!(
-        config.get("chat_provider").and_then(Value::as_str),
+        config.get("default_model").and_then(Value::as_str),
         Some("openai:gpt-4.1-nano"),
         "a per-turn managed selection must not replace the configured BYOK provider"
     );

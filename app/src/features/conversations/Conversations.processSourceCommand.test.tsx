@@ -682,9 +682,9 @@ describe('composer model routing', () => {
       method: 'openhuman.channel_web_chat',
       params: { model_override: 'huggingface:org/model' },
     });
-    const resolverCalls = vi.mocked(callCoreRpc).mock.calls.filter(
-      ([request]) => request.method === 'openhuman.inference_resolve_model'
-    );
+    const resolverCalls = vi
+      .mocked(callCoreRpc)
+      .mock.calls.filter(([request]) => request.method === 'openhuman.inference_resolve_model');
     expect(resolverCalls.at(-1)?.[0]).toMatchObject({
       method: 'openhuman.inference_resolve_model',
       params: { hint: 'huggingface:org/model' },
@@ -745,6 +745,12 @@ describe('composer model routing', () => {
       method: 'openhuman.channel_web_chat',
       params: { model_override: 'unknown-provider:model' },
     });
-    expect(screen.getByRole('textbox')).toHaveTextContent('unknown provider route');
+    await waitFor(() => {
+      expect(screen.getByRole('textbox')).toHaveTextContent('unknown provider route');
+      expect(screen.getByTestId('chat-send-error')).toHaveAttribute(
+        'data-chat-send-error-code',
+        'cloud_send_failed'
+      );
+    });
   });
 });

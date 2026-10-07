@@ -1316,6 +1316,11 @@ const Conversations = ({
       } else {
         setSendError(chatSendError('cloud_send_failed', msg));
       }
+      // assistant-ui clears its composer after `onNew` resolves. Restore the
+      // draft when the core rejects the send so the user can correct and retry.
+      preserveSendErrorForRestoredDraftRef.current = true;
+      setInputValue(normalized);
+      setAttachments(pendingAttachments);
       dispatch(clearRuntimeForThread({ threadId: sendingThreadId }));
       dispatch(clearThreadInferenceActive(sendingThreadId));
       pendingSendsRef.current.delete(sendingThreadId);
