@@ -16,6 +16,13 @@ const api = vi.hoisted(() => ({
 
 vi.mock('../../../services/api/liveVoiceApi', () => api);
 
+const toastAdd = vi.hoisted(() => vi.fn());
+vi.mock('../../ui/Toast', () => ({ toast: { add: toastAdd } }));
+
+/** Wait for a toast whose fields include `fields`. */
+const expectToast = (fields: Record<string, unknown>) =>
+  waitFor(() => expect(toastAdd).toHaveBeenCalledWith(expect.objectContaining(fields)));
+
 const PROVIDERS = (sarvamConfigured = false): LiveVoiceProviders => ({
   default_provider: 'gemini-hosted',
   providers: [
@@ -112,7 +119,7 @@ describe('LiveVoicePanel', () => {
         default_provider: 'elevenlabs-hosted',
       })
     );
-    await screen.findByText('Voice agent switched');
+    await expectToast({ type: 'success', title: 'Voice agent switched' });
     expect(screen.getByTestId('live-voice-vendor-elevenlabs')).toHaveAttribute(
       'data-in-use',
       'true'
@@ -137,7 +144,7 @@ describe('LiveVoicePanel', () => {
       expect(api.updateLiveVoiceSettings).toHaveBeenCalledWith({ default_provider: 'gemini' })
     );
     await within(modal).findByTestId('live-voice-in-use-gemini');
-    expect(within(modal).getByText('Voice agent switched')).toBeInTheDocument();
+    await expectToast({ type: 'success', title: 'Voice agent switched' });
 
     fireEvent.click(within(modal).getByTestId('live-voice-modal-close'));
     expect(screen.queryByTestId('live-voice-modal')).not.toBeInTheDocument();
@@ -162,7 +169,7 @@ describe('LiveVoicePanel', () => {
     await waitFor(() =>
       expect(api.saveLiveVoiceProviderKey).toHaveBeenCalledWith('sarvam', 'sk-sarvam')
     );
-    await within(modal).findByText('API key added');
+    await expectToast({ type: 'success', title: 'API key added' });
     expect(api.fetchLiveVoiceProviders).toHaveBeenCalledTimes(2);
     // Once stored, the key collapses to a summary and the option becomes usable.
     expect(within(modal).getByText('API key saved')).toBeInTheDocument();
@@ -187,7 +194,7 @@ describe('LiveVoicePanel', () => {
     const modal = openSettings('gemini');
     fireEvent.click(within(modal).getByTestId('live-voice-clear-key-gemini'));
     await waitFor(() => expect(api.clearLiveVoiceProviderKey).toHaveBeenCalledWith('google'));
-    await within(modal).findByText('API key removed');
+    await expectToast({ type: 'success', title: 'API key removed' });
   });
 
   it('surfaces a key-save failure', async () => {
@@ -199,7 +206,7 @@ describe('LiveVoicePanel', () => {
       target: { value: 'k' },
     });
     fireEvent.click(within(modal).getByTestId('live-voice-save-key-gemini'));
-    await within(modal).findByText(/Couldn't save: keyring locked/);
+    await expectToast({ type: 'error', description: 'keyring locked' });
   });
 
   it('surfaces a key-removal failure', async () => {
@@ -207,7 +214,7 @@ describe('LiveVoicePanel', () => {
     await renderPanel();
     const modal = openSettings('gemini');
     fireEvent.click(within(modal).getByTestId('live-voice-clear-key-gemini'));
-    await within(modal).findByText(/Couldn't save: nope/);
+    await expectToast({ type: 'error', description: 'nope' });
   });
 
   it('runs a provider test and shows latency, then a failure', async () => {
@@ -291,59 +298,43 @@ describe('LiveVoicePanel', () => {
     expect(within(modal).queryByText('Voice settings')).not.toBeInTheDocument();
   });
 
-  it('shows a save error on the page', async () => {
+  it('reports a save error as a toast', async () => {
     api.updateLiveVoiceSettings.mockRejectedValueOnce(new Error('disk full'));
     await renderPanel();
     fireEvent.click(screen.getByTestId('live-voice-use-vendor-elevenlabs'));
-    await screen.findByText(/Couldn't save: disk full/);
+    await expectToast({
+      type: 'error',
+      title: "Couldn't save your changes",
+      description: 'disk full',
+    });
   });
 
-  it('reports saves and failures through onToast when the page provides it', async () => {
-    const onToast = vi.fn();
-    renderWithProviders(<LiveVoicePanel onToast={onToast} />);
-    await screen.findByTestId('live-voice-providers');
-
+  it('toasts a switch and a new key with the vendor named and its logo', async () => {
+    await renderPanel();
     fireEvent.click(screen.getByTestId('live-voice-use-vendor-elevenlabs'));
-    await waitFor(() =>
-      expect(onToast).toHaveBeenCalledWith({
-        type: 'success',
-        title: 'Voice agent switched',
-        message: 'ElevenLabs now answers when you talk to your assistant.',
-      })
-    );
+    await expectToast({
+      type: 'success',
+      title: 'Voice agent switched',
+      description: 'ElevenLabs now answers when you talk to your assistant.',
+    });
+    expect(toastAdd.mock.lastCall?.[0].data.icon).toBeTruthy();
 
     const modal = openSettings('sarvam');
     fireEvent.change(within(modal).getByTestId('live-voice-language-sarvam'), {
       target: { value: 'ta-IN' },
     });
-    await waitFor(() =>
-      expect(onToast).toHaveBeenCalledWith({ type: 'success', title: 'Voice settings updated' })
-    );
+    await expectToast({ type: 'success', title: 'Voice settings updated' });
 
     api.fetchLiveVoiceProviders.mockResolvedValueOnce(PROVIDERS(true));
     fireEvent.change(within(modal).getByTestId('live-voice-key-sarvam'), {
       target: { value: 'sk' },
     });
     fireEvent.click(within(modal).getByTestId('live-voice-save-key-sarvam'));
-    await waitFor(() =>
-      expect(onToast).toHaveBeenCalledWith({
-        type: 'success',
-        title: 'API key added',
-        message: 'Sarvam AI is ready to use.',
-      })
-    );
-
-    api.updateLiveVoiceSettings.mockRejectedValueOnce(new Error('disk full'));
-    fireEvent.click(within(modal).getByTestId('live-voice-use-sarvam'));
-    await waitFor(() =>
-      expect(onToast).toHaveBeenCalledWith({
-        type: 'error',
-        title: "Couldn't save your changes",
-        message: 'disk full',
-      })
-    );
-    // Nothing is duplicated inline when toasts carry the result.
-    expect(screen.queryByText(/Couldn't save:/)).not.toBeInTheDocument();
+    await expectToast({
+      type: 'success',
+      title: 'API key added',
+      description: 'Sarvam AI is ready to use.',
+    });
   });
 
   it('shows a load error', async () => {
