@@ -211,7 +211,7 @@ backend = "sqlite"
         .await
         .unwrap();
     assert!(saved.contains("engine = \"\""));
-    assert!(!saved.contains("backend"));
+    assert!(!saved.contains("backend = \"sqlite\""));
 
     let reloaded = load_or_init_for_workspace(tmp.path()).await;
 

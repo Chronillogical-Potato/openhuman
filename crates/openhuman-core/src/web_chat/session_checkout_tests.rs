@@ -373,6 +373,7 @@ async fn a_thread_binds_one_stable_session_across_cold_boots() {
 fn sample_fingerprint() -> SessionCacheFingerprint {
     SessionCacheFingerprint {
         model_override: Some("hint:chat".to_string()),
+        effective_model: "openrouter/author/model".to_string(),
         temperature: Some(0.7),
         target_agent_id: "orchestrator".to_string(),
         provider_binding: "openhuman".to_string(),

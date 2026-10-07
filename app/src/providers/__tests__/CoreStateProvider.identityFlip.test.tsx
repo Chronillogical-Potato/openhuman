@@ -11,6 +11,7 @@ import { socketService } from '../../services/socketService';
 import { store } from '../../store';
 import { addAccount } from '../../store/accountsSlice';
 import { resetUserScopedState } from '../../store/resetActions';
+import { consumeIdentityFlipSeed } from '../../utils/bootstrapActiveUser';
 import CoreStateProvider, { useCoreState } from '../CoreStateProvider';
 
 vi.mock('../../services/coreStateApi');
@@ -108,6 +109,8 @@ describe('CoreStateProvider — identity flip cleanup (#900)', () => {
     resetCoreStateStore();
     store.dispatch(resetUserScopedState());
     userScopedStorage.setActiveUserId(null);
+    // Drop any flip marker a previous case left in localStorage.
+    consumeIdentityFlipSeed();
   });
 
   it('cold bootstrap on a fresh device (seed=null, nextId=A): sets activeUserId without restart (#3107)', async () => {
@@ -341,6 +344,42 @@ describe('CoreStateProvider — identity flip cleanup (#900)', () => {
     expect(store.getState().accounts.order).not.toContain('acct-A');
 
     setActiveSpy.mockRestore();
+    disconnectSpy.mockRestore();
+  });
+
+  it('records the identity-flip seed for the NEXT user before restartApp runs (#4545 loop guard)', async () => {
+    userScopedStorage.setActiveUserId('A');
+    fetchSnapshot.mockResolvedValue(makeSnapshot({ userId: 'A', sessionToken: 'tokA' }));
+    const disconnectSpy = vi.spyOn(socketService, 'disconnect').mockImplementation(() => {});
+
+    let ctx: CoreStateContextValue | undefined;
+    render(
+      <CoreStateProvider>
+        <Consumer captureCtx={c => (ctx = c)} />
+      </CoreStateProvider>
+    );
+    await act(async () => {
+      await ctx!.refresh();
+    });
+    // Warm launch on A writes no marker.
+    expect(consumeIdentityFlipSeed()).toBeNull();
+
+    // The relaunched process reads the marker on boot, so what matters is
+    // what is in storage at the moment the restart is requested.
+    let seedAtRestart: string | null = null;
+    restartApp.mockImplementation(async () => {
+      seedAtRestart = consumeIdentityFlipSeed();
+    });
+
+    fetchSnapshot.mockResolvedValue(makeSnapshot({ userId: 'B', sessionToken: 'tokB' }));
+    await act(async () => {
+      await ctx!.refresh();
+      await Promise.resolve();
+    });
+
+    expect(restartApp).toHaveBeenCalledTimes(1);
+    expect(seedAtRestart).toBe('B');
+
     disconnectSpy.mockRestore();
   });
 });

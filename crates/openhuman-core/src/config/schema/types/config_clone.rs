@@ -95,6 +95,7 @@ impl Clone for Config {
             voice_live: self.voice_live.clone(),
             stt_provider: self.stt_provider.clone(),
             tts_provider: self.tts_provider.clone(),
+            voice_live: self.voice_live.clone(),
             integrations: self.integrations.clone(),
             update: self.update.clone(),
             dictation: self.dictation.clone(),

@@ -78,7 +78,7 @@ describe('CoreConnectionPanel', () => {
 
     await waitFor(() => expect(screen.getByText('Connected to local core')).toBeInTheDocument());
     // Remote toggle is off in local mode → no URL field.
-    expect(screen.queryByLabelText(/Runtime URL/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Address/i)).not.toBeInTheDocument();
   });
 
   test('cloud mode surfaces the remote URL and remote connected status', async () => {
@@ -117,12 +117,10 @@ describe('CoreConnectionPanel', () => {
     // Flip the remote toggle on to reveal the form.
     fireEvent.click(screen.getByTestId('core-use-remote-toggle'));
 
-    fireEvent.change(screen.getByLabelText(/Runtime URL/i), {
+    fireEvent.change(screen.getByLabelText(/Address/i), {
       target: { value: 'https://core.example.com/rpc' },
     });
-    fireEvent.change(screen.getByLabelText(/Auth Token/i), {
-      target: { value: 'remote-token-xyz' },
-    });
+    fireEvent.change(screen.getByLabelText(/^Token/i), { target: { value: 'remote-token-xyz' } });
 
     fireEvent.click(screen.getByTestId('core-save-btn'));
 
@@ -203,10 +201,10 @@ describe('CoreConnectionPanel', () => {
 
     // Empty URL → invalid-URL error.
     fireEvent.click(screen.getByText('Test Connection'));
-    await waitFor(() => expect(screen.getByText(/enter a runtime URL/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/enter an address/i)).toBeInTheDocument());
 
     // Valid URL but empty token → token-required error.
-    fireEvent.change(screen.getByLabelText(/Runtime URL/i), {
+    fireEvent.change(screen.getByLabelText(/Address/i), {
       target: { value: 'https://core.example.com/rpc' },
     });
     fireEvent.click(screen.getByText('Test Connection'));

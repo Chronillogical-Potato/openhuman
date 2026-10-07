@@ -59,6 +59,18 @@ describe('I18nProvider', () => {
     expect(screen.getByTestId('missing-key')).toHaveTextContent('this.key.does.not.exist');
   });
 
+  it('serves Japanese translations with the existing unknown-key fallback', () => {
+    renderWithLocale('ja');
+
+    expect(screen.getByTestId('locale')).toHaveTextContent('ja');
+    expect(screen.getByText('言語')).toBeInTheDocument();
+    expect(screen.getByText('アプリデータを削除')).toBeInTheDocument();
+    expect(screen.getByText('終了')).toBeInTheDocument();
+    expect(screen.getByTestId('missing-key')).toHaveTextContent('this.key.does.not.exist');
+    expect(document.documentElement.lang).toBe('ja');
+    expect(document.documentElement.dir).toBe('ltr');
+  });
+
   it('serves German translations from the registered locale map', () => {
     renderWithLocale('de');
 

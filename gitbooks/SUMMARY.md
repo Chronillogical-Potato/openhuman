@@ -11,6 +11,7 @@
 - [Guides](guides/README.md)
   - [Create my personal AI assistant](guides/personal-assistant.md)
   - [Use OpenHuman with a local model](guides/local-model.md)
+  - [Use multiple local LLM servers](guides/multiple-local-llm-servers.md)
   - [Keep sensitive data private](guides/privacy-sensitive-data.md)
   - [Recover from a failed installation](guides/recover-failed-installation.md)
   - [Move OpenHuman to a new PC](guides/move-to-new-pc.md)

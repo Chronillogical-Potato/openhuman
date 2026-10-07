@@ -34,6 +34,7 @@ async fn saves_into_the_thread_store() {
             parent_thread_id: None,
             labels: None,
             personality_id: None,
+            working_dir: None,
         },
     )
     .await
