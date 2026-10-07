@@ -86,19 +86,53 @@ pub struct BrowserConfig {
     pub max_task_steps: usize,
     #[serde(default = "default_task_timeout_secs")]
     pub task_timeout_secs: u64,
+    /// Gated browser action kinds a trusted unattended turn (a cron job, a
+    /// background job, or a workflow without `require_approval`) may take
+    /// without the interactive host approval it cannot get. Empty, the
+    /// default, keeps every such action behind the approval gate. Known names
+    /// are [`UNATTENDED_BROWSER_ACTIONS`]; any other entry is ignored with a
+    /// warning. Chat, channel and unlabelled turns are never affected.
     #[serde(default)]
     pub unattended_actions: Vec<String>,
 }
 
-pub const UNATTENDED_BROWSER_ACTIONS: &[&str] = &[];
+/// Action kinds `[browser] unattended_actions` may name: the gated direct
+/// actions, by their TinyComputer wire names, plus `task_step` for a browser
+/// task paused at `needs_approval`.
+pub const UNATTENDED_BROWSER_ACTIONS: &[&str] = &[
+    "click",
+    "double_click",
+    "fill",
+    "type",
+    "press",
+    "select",
+    "check",
+    "task_step",
+];
+
+fn normalized_action(raw: &str) -> String {
+    raw.trim().to_ascii_lowercase()
+}
 
 impl BrowserConfig {
-    pub fn allows_unattended(&self, _kind: &str) -> bool {
-        false
+    /// Whether `kind` is a known gated action listed in `unattended_actions`.
+    /// Says nothing about the turn; callers check its origin separately.
+    pub fn allows_unattended(&self, kind: &str) -> bool {
+        UNATTENDED_BROWSER_ACTIONS.contains(&kind)
+            && self
+                .unattended_actions
+                .iter()
+                .any(|listed| normalized_action(listed) == kind)
     }
 
+    /// Entries of `unattended_actions` that name no known action kind. They
+    /// allow nothing; the loader reports them so a typo is not silent.
     pub fn unknown_unattended_actions(&self) -> Vec<String> {
-        Vec::new()
+        self.unattended_actions
+            .iter()
+            .filter(|listed| !UNATTENDED_BROWSER_ACTIONS.contains(&normalized_action(listed).as_str()))
+            .cloned()
+            .collect()
     }
 }
 
