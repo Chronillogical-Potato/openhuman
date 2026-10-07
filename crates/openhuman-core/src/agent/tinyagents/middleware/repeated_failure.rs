@@ -368,8 +368,12 @@ pub(super) fn recovery_policy(
     // program: the classifier files `No such file or directory (os error 2)`
     // under `MissingApp`, which is right for a shell command and fatal for
     // `file_read`. One bad relative path ended a whole turn after two calls.
+    // Any tool, not only the file tools: `use_skill` forwarding a screenshot
+    // from a path that did not exist ("image forwarding failed: Failed to
+    // resolve path …: No such file or directory") halted a one-hour task after
+    // 92 seconds. A shell command's own "No such file" arrives as an exit
+    // report, which never reaches this table.
     if class == "unsupported"
-        && is_path_tool(tool)
         && error
             .to_ascii_lowercase()
             .contains("no such file or directory")
@@ -417,14 +421,6 @@ fn is_optional_service(tool: &str) -> bool {
     matches!(
         crate::tools::ops::tool_group(tool),
         DomainGroup::Integrations | DomainGroup::Memory | DomainGroup::Hosted
-    )
-}
-
-/// Tools whose first argument is a filesystem path the model typed.
-fn is_path_tool(tool: &str) -> bool {
-    matches!(
-        tool,
-        "file_read" | "file_write" | "apply_patch" | "list_files" | "list" | "grep" | "glob"
     )
 }
 

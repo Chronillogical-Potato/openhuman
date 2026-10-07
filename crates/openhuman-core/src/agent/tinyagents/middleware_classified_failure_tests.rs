@@ -459,6 +459,34 @@ fn an_unknown_tool_is_a_correctable_call_not_a_blocker() {
     );
 }
 
+#[tokio::test]
+async fn a_missing_file_from_any_tool_is_a_correctable_call() {
+    // install-windows-3.11, 2026-10-08: the agent dumped a QEMU screenshot to
+    // one path and asked the vision skill to read it from another; the
+    // "No such file or directory" was filed under `unsupported` (zero
+    // retries) and the turn ended 92 s into an hour.
+    let error = "image forwarding failed: Failed to resolve path '/app/qemu-shots/screen1.png': No such file or directory (os error 2)";
+    assert_eq!(
+        super::super::repeated_failure::recovery_policy("use_skill", error, false),
+        Some(("not_found", 1))
+    );
+    let handle = SteeringHandle::allow_all();
+    let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
+    let mut call = TaToolCall::new(
+        "skill-1",
+        "use_skill",
+        serde_json::json!({"skill": "media", "args": {"image_paths": ["qemu-shots/screen1.png"]}}),
+    );
+    mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
+    let mut result = failing_result("use_skill", error);
+    mw.after_tool(&mut ctx(), &(), &invocation("skill-1", "use_skill"), &mut result)
+        .await
+        .unwrap();
+    assert_eq!(drain_pause_count(&handle), 0, "one wrong path never halts");
+    assert!(slot.lock().unwrap().is_none());
+}
+
 #[test]
 fn a_mistyped_file_path_is_a_correctable_call_not_a_missing_program() {
     let error = "Failed to resolve path 'mailbox/2026-09-18-flight.txt': No such file or directory (os error 2)";
