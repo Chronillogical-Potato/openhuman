@@ -1280,6 +1280,52 @@ async fn sources_add_sync_list_and_remove() {
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
+async fn local_files_and_text_file_under_the_files_source() {
+    let f = Fixture::new(true).await;
+    let path = f.home.path().join("handbook.md");
+    std::fs::write(&path, "# Handbook\n\nExpenses are filed by the fifth.").expect("write");
+
+    // Neither names a source: a file of any format, and pasted text, are
+    // local files, not a per-format source.
+    let file = f
+        .ok(
+            "openhuman.memory_brain_ingest",
+            json!({ "path": path.display().to_string() }),
+        )
+        .await;
+    assert_eq!(file["source"], json!("files"), "{file}");
+    let text = f
+        .ok(
+            "openhuman.memory_brain_ingest",
+            json!({ "text": "Payroll runs on the last Friday", "title": "Payroll" }),
+        )
+        .await;
+    assert_eq!(text["source"], json!("files"), "{text}");
+
+    let sources = f.ok("openhuman.memory_brain_sources", json!({})).await;
+    let listed: Vec<(String, u64)> = sources["sources"]
+        .as_array()
+        .expect("sources")
+        .iter()
+        .map(|s| {
+            (
+                s["source"].as_str().unwrap_or_default().to_string(),
+                s["documents"].as_u64().unwrap_or_default(),
+            )
+        })
+        .collect();
+    assert_eq!(listed, [("files".to_string(), 2)], "{sources}");
+
+    let found = f
+        .ok(
+            "openhuman.memory_brain_search",
+            json!({ "query": "expenses", "source": "files" }),
+        )
+        .await;
+    assert_eq!(found["hits"].as_array().unwrap().len(), 1, "{found}");
+}
+
+#[tokio::test]
 async fn brain_pack_preview_and_jobs_round_trip() {
     let f = Fixture::new(true).await;
 
