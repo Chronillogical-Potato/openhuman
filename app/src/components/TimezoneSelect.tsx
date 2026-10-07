@@ -34,6 +34,7 @@ const TimezoneSelect = ({ ariaLabel }: TimezoneSelectProps) => {
   const { t } = useT();
   const [settings, setSettings] = useState<UserTimezoneSettings | null>(null);
   const [failed, setFailed] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -60,13 +61,25 @@ const TimezoneSelect = ({ ariaLabel }: TimezoneSelectProps) => {
     const previous = settings;
     setSettings(current => (current ? { ...current, timezone } : current));
     setFailed(false);
+    // The picker is disabled until this save settles, so two picks cannot
+    // race and land out of order.
+    setSaving(true);
     try {
-      await openhumanUpdateUserTimezone(timezone);
-      const refreshed = await openhumanGetUserTimezone();
-      setSettings(refreshed.result);
-    } catch {
-      setSettings(previous);
-      setFailed(true);
+      try {
+        await openhumanUpdateUserTimezone(timezone);
+      } catch {
+        setSettings(previous);
+        setFailed(true);
+        return;
+      }
+      // Saved. A failed re-read leaves the chosen zone shown: it is stored.
+      try {
+        setSettings((await openhumanGetUserTimezone()).result);
+      } catch {
+        // keep the optimistic value
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -76,7 +89,7 @@ const TimezoneSelect = ({ ariaLabel }: TimezoneSelectProps) => {
       <select
         value={settings?.timezone ?? FOLLOW_DEVICE}
         onChange={e => void change(e.target.value)}
-        disabled={!settings}
+        disabled={!settings || saving}
         aria-label={ariaLabel ?? t('settings.timezone')}
         data-testid="timezone-select"
         className={SELECT_CLASS}>

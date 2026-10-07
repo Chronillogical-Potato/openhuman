@@ -359,7 +359,7 @@ const messages: TranslationMap = {
   'settings.navGroups.data': 'البيانات',
   'settings.languageDesc': 'لغة عرض واجهة التطبيق',
   'settings.timezone': 'المنطقة الزمنية',
-  'settings.timezoneDesc': 'المنطقة التي يفسّر بها المساعد التواريخ مثل «أمس» أو «السبت الماضي».',
+  'settings.timezoneDesc': 'منطقتك الزمنية المحلية. تتبع افتراضيًا منطقة هذا الجهاز.',
   'settings.timezoneDevice': 'استخدام المنطقة الزمنية للجهاز ({zone})',
   'settings.timezoneUnknownDevice': 'غير معروفة',
   'settings.timezoneSaveFailed': 'تعذّر حفظ المنطقة الزمنية. حاول مرة أخرى.',

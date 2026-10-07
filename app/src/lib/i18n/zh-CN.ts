@@ -335,7 +335,7 @@ const messages: TranslationMap = {
   'settings.navGroups.data': '数据',
   'settings.languageDesc': '应用界面显示语言',
   'settings.timezone': '时区',
-  'settings.timezoneDesc': '助手理解“昨天”“上周六”等日期时使用的时区。',
+  'settings.timezoneDesc': '你的本地时区。默认跟随此设备。',
   'settings.timezoneDevice': '使用设备时区（{zone}）',
   'settings.timezoneUnknownDevice': '未知',
   'settings.timezoneSaveFailed': '无法保存时区，请重试。',

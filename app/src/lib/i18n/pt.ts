@@ -376,8 +376,7 @@ const messages: TranslationMap = {
   'settings.navGroups.data': 'Dados',
   'settings.languageDesc': 'Idioma de exibição da interface do app',
   'settings.timezone': 'Fuso horário',
-  'settings.timezoneDesc':
-    'O fuso em que o assistente interpreta datas como “ontem” ou “sábado passado”.',
+  'settings.timezoneDesc': 'Seu fuso horário local. Por padrão, segue o deste dispositivo.',
   'settings.timezoneDevice': 'Usar o fuso horário do dispositivo ({zone})',
   'settings.timezoneUnknownDevice': 'desconhecido',
   'settings.timezoneSaveFailed': 'Não foi possível salvar o fuso horário. Tente novamente.',

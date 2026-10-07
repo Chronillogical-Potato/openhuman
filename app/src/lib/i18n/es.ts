@@ -381,7 +381,7 @@ const messages: TranslationMap = {
   'settings.languageDesc': 'Idioma de visualización de la interfaz de la app',
   'settings.timezone': 'Zona horaria',
   'settings.timezoneDesc':
-    'La zona en la que el asistente interpreta fechas como «ayer» o «el sábado pasado».',
+    'Tu zona horaria local. De forma predeterminada sigue la de este dispositivo.',
   'settings.timezoneDevice': 'Usar la zona horaria del dispositivo ({zone})',
   'settings.timezoneUnknownDevice': 'desconocida',
   'settings.timezoneSaveFailed': 'No se pudo guardar la zona horaria. Inténtalo de nuevo.',

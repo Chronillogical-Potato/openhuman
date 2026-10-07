@@ -375,8 +375,7 @@ const messages: TranslationMap = {
   'settings.navGroups.data': 'Data',
   'settings.languageDesc': 'Bahasa tampilan untuk antarmuka aplikasi',
   'settings.timezone': 'Zona waktu',
-  'settings.timezoneDesc':
-    'Zona yang dipakai asisten untuk memahami tanggal seperti “kemarin” atau “Sabtu lalu”.',
+  'settings.timezoneDesc': 'Zona waktu lokal Anda. Secara default mengikuti perangkat ini.',
   'settings.timezoneDevice': 'Gunakan zona waktu perangkat ({zone})',
   'settings.timezoneUnknownDevice': 'tidak diketahui',
   'settings.timezoneSaveFailed': 'Zona waktu tidak dapat disimpan. Coba lagi.',

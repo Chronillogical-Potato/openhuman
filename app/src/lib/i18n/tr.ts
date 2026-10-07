@@ -210,8 +210,7 @@ const messages: TranslationMap = {
   'settings.navGroups.data': 'Veriler',
   'settings.languageDesc': 'Uygulama arayüzünün görüntüleme dili',
   'settings.timezone': 'Saat dilimi',
-  'settings.timezoneDesc':
-    'Asistanın “dün” veya “geçen cumartesi” gibi tarihleri yorumladığı saat dilimi.',
+  'settings.timezoneDesc': 'Yerel saat diliminiz. Varsayılan olarak bu cihazınkini izler.',
   'settings.timezoneDevice': 'Cihazın saat dilimini kullan ({zone})',
   'settings.timezoneUnknownDevice': 'bilinmiyor',
   'settings.timezoneSaveFailed': 'Saat dilimi kaydedilemedi. Tekrar deneyin.',

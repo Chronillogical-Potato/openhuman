@@ -225,8 +225,7 @@ const en: TranslationMap = {
   'settings.navGroups.data': 'Data',
   'settings.languageDesc': 'Display language for the app interface',
   'settings.timezone': 'Time zone',
-  'settings.timezoneDesc':
-    'The zone the assistant reads dates in, such as “yesterday” or “last Saturday”.',
+  'settings.timezoneDesc': 'Your local time zone. By default it follows this device.',
   'settings.timezoneDevice': 'Use device time zone ({zone})',
   'settings.timezoneUnknownDevice': 'unknown',
   'settings.timezoneSaveFailed': 'Couldn’t save the time zone. Try again.',

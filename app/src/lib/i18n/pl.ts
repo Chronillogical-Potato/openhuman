@@ -379,8 +379,7 @@ const messages: TranslationMap = {
   'settings.navGroups.data': 'Dane',
   'settings.languageDesc': 'Język wyświetlania interfejsu aplikacji',
   'settings.timezone': 'Strefa czasowa',
-  'settings.timezoneDesc':
-    'Strefa, w której asystent rozumie daty takie jak „wczoraj” czy „w zeszłą sobotę”.',
+  'settings.timezoneDesc': 'Twoja lokalna strefa czasowa. Domyślnie zgodna z tym urządzeniem.',
   'settings.timezoneDevice': 'Użyj strefy czasowej urządzenia ({zone})',
   'settings.timezoneUnknownDevice': 'nieznana',
   'settings.timezoneSaveFailed': 'Nie udało się zapisać strefy czasowej. Spróbuj ponownie.',

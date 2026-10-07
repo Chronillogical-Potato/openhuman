@@ -384,8 +384,7 @@ const messages: TranslationMap = {
   'settings.navGroups.data': 'Données',
   'settings.languageDesc': "Langue d'affichage de l'interface",
   'settings.timezone': 'Fuseau horaire',
-  'settings.timezoneDesc':
-    'Le fuseau dans lequel l’assistant lit les dates comme « hier » ou « samedi dernier ».',
+  'settings.timezoneDesc': 'Votre fuseau horaire local. Par défaut, il suit celui de cet appareil.',
   'settings.timezoneDevice': 'Utiliser le fuseau horaire de l’appareil ({zone})',
   'settings.timezoneUnknownDevice': 'inconnu',
   'settings.timezoneSaveFailed': 'Impossible d’enregistrer le fuseau horaire. Réessayez.',

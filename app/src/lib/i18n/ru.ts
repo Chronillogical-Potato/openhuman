@@ -377,7 +377,7 @@ const messages: TranslationMap = {
   'settings.languageDesc': 'Язык отображения интерфейса',
   'settings.timezone': 'Часовой пояс',
   'settings.timezoneDesc':
-    'Пояс, в котором ассистент понимает даты вроде «вчера» или «в прошлую субботу».',
+    'Ваш местный часовой пояс. По умолчанию совпадает с поясом этого устройства.',
   'settings.timezoneDevice': 'Использовать часовой пояс устройства ({zone})',
   'settings.timezoneUnknownDevice': 'неизвестен',
   'settings.timezoneSaveFailed': 'Не удалось сохранить часовой пояс. Попробуйте ещё раз.',

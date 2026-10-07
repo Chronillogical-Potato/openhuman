@@ -387,8 +387,7 @@ const messages: TranslationMap = {
   'settings.navGroups.data': 'Daten',
   'settings.languageDesc': 'Anzeigesprache für die App-Oberfläche',
   'settings.timezone': 'Zeitzone',
-  'settings.timezoneDesc':
-    'Die Zone, in der der Assistent Angaben wie „gestern“ oder „letzten Samstag“ versteht.',
+  'settings.timezoneDesc': 'Ihre lokale Zeitzone. Standardmäßig folgt sie diesem Gerät.',
   'settings.timezoneDevice': 'Zeitzone des Geräts verwenden ({zone})',
   'settings.timezoneUnknownDevice': 'unbekannt',
   'settings.timezoneSaveFailed':

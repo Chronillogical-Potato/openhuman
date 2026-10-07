@@ -147,27 +147,26 @@ test.describe('Settings - Account Preferences', () => {
   });
 
   test('persists the time zone picked on the account page to core config', async ({ page }) => {
-    type TimezoneResult = { result?: { timezone?: string | null; effective?: string } };
-    await gotoSettingsRoute(page, '/settings/account');
-    const select = page.getByTestId('timezone-select');
-    await expect(select).toBeEnabled();
+    type TimezoneResult = { result?: { timezone?: string | null } };
+    const readZone = async () =>
+      (await callCoreRpc<TimezoneResult>('openhuman.config_get_user_timezone', {})).result
+        ?.timezone;
+    const original = await readZone();
+    try {
+      await gotoSettingsRoute(page, '/settings/account');
+      const select = page.getByTestId('timezone-select');
+      await expect(select).toBeEnabled();
 
-    await select.selectOption('Pacific/Auckland');
-    await expect
-      .poll(async () => {
-        const read = await callCoreRpc<TimezoneResult>('openhuman.config_get_user_timezone', {});
-        return read.result?.timezone ?? null;
-      })
-      .toBe('Pacific/Auckland');
+      await select.selectOption('Pacific/Auckland');
+      await expect.poll(readZone).toBe('Pacific/Auckland');
 
-    // Back to following the device: the setting is cleared, not set to a name.
-    await select.selectOption('');
-    await expect
-      .poll(async () => {
-        const read = await callCoreRpc<TimezoneResult>('openhuman.config_get_user_timezone', {});
-        return read.result?.timezone ?? null;
-      })
-      .toBeNull();
+      // Back to following the device: core stores an explicit null, not a name.
+      await expect(select).toBeEnabled();
+      await select.selectOption('');
+      await expect.poll(readZone).toBeNull();
+    } finally {
+      await callCoreRpc('openhuman.config_update_user_timezone', { timezone: original ?? null });
+    }
   });
 
   test('opens the billing route and settles the redirect status copy', async ({ page }) => {

@@ -369,7 +369,8 @@ const messages: TranslationMap = {
   'settings.navGroups.data': 'ডেটা',
   'settings.languageDesc': 'অ্যাপ ইন্টারফেসের প্রদর্শন ভাষা',
   'settings.timezone': 'সময় অঞ্চল',
-  'settings.timezoneDesc': 'যে অঞ্চলে সহকারী “গতকাল” বা “গত শনিবার”-এর মতো তারিখ বোঝে।',
+  'settings.timezoneDesc':
+    'আপনার স্থানীয় সময় অঞ্চল। ডিফল্টভাবে এটি এই ডিভাইসের সময় অঞ্চল অনুসরণ করে।',
   'settings.timezoneDevice': 'ডিভাইসের সময় অঞ্চল ব্যবহার করুন ({zone})',
   'settings.timezoneUnknownDevice': 'অজানা',
   'settings.timezoneSaveFailed': 'সময় অঞ্চল সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।',

@@ -365,7 +365,7 @@ const messages: TranslationMap = {
   'settings.navGroups.data': '데이터',
   'settings.languageDesc': '앱 인터페이스 표시 언어',
   'settings.timezone': '시간대',
-  'settings.timezoneDesc': '어시스턴트가 “어제”, “지난 토요일” 같은 날짜를 해석하는 시간대입니다.',
+  'settings.timezoneDesc': '현지 시간대입니다. 기본적으로 이 기기의 시간대를 따릅니다.',
   'settings.timezoneDevice': '기기 시간대 사용 ({zone})',
   'settings.timezoneUnknownDevice': '알 수 없음',
   'settings.timezoneSaveFailed': '시간대를 저장하지 못했습니다. 다시 시도하세요.',

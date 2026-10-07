@@ -72,6 +72,35 @@ describe('TimezoneSelect', () => {
     expect(select.value).toBe('Europe/Berlin');
   });
 
+  it('a failed re-read after a successful save keeps the new zone, without an error', async () => {
+    getMock
+      .mockResolvedValueOnce(settings('Europe/Berlin'))
+      .mockRejectedValueOnce(new Error('core offline'));
+    updateMock.mockResolvedValue({ result: {}, logs: [] });
+    render();
+    const select = (await screen.findByTestId('timezone-select')) as HTMLSelectElement;
+    await waitFor(() => expect(select.value).toBe('Europe/Berlin'));
+    fireEvent.change(select, { target: { value: 'Asia/Tokyo' } });
+    await waitFor(() => expect(getMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(select.disabled).toBe(false));
+    expect(select.value).toBe('Asia/Tokyo');
+    expect(screen.queryByTestId('timezone-error')).toBeNull();
+  });
+
+  it('is disabled while a save is in flight, so picks cannot overlap', async () => {
+    getMock.mockResolvedValue(settings('Europe/Berlin'));
+    let finish: (value: unknown) => void = () => {};
+    updateMock.mockReturnValue(new Promise(resolve => (finish = resolve)));
+    render();
+    const select = (await screen.findByTestId('timezone-select')) as HTMLSelectElement;
+    await waitFor(() => expect(select.disabled).toBe(false));
+    fireEvent.change(select, { target: { value: 'Asia/Tokyo' } });
+    await waitFor(() => expect(select.disabled).toBe(true));
+    finish({ result: {}, logs: [] });
+    await waitFor(() => expect(select.disabled).toBe(false));
+    expect(updateMock).toHaveBeenCalledTimes(1);
+  });
+
   it('a core that cannot be read leaves the picker disabled, not broken', async () => {
     getMock.mockRejectedValue(new Error('core offline'));
     render();

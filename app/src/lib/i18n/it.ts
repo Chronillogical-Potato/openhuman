@@ -381,7 +381,7 @@ const messages: TranslationMap = {
   'settings.languageDesc': "Lingua di visualizzazione dell'interfaccia dell'app",
   'settings.timezone': 'Fuso orario',
   'settings.timezoneDesc':
-    'Il fuso in cui l’assistente interpreta date come “ieri” o “sabato scorso”.',
+    'Il tuo fuso orario locale. Per impostazione predefinita segue quello di questo dispositivo.',
   'settings.timezoneDevice': 'Usa il fuso orario del dispositivo ({zone})',
   'settings.timezoneUnknownDevice': 'sconosciuto',
   'settings.timezoneSaveFailed': 'Impossibile salvare il fuso orario. Riprova.',

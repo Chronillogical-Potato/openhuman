@@ -260,6 +260,10 @@ vi.mock('../utils/tauriCommands', () => ({
     .fn()
     .mockResolvedValue({ result: { state: 'NotInstalled' }, logs: [] }),
   openhumanAgentServerStatus: vi.fn().mockResolvedValue({ result: { running: true }, logs: [] }),
+  openhumanGetUserTimezone: vi
+    .fn()
+    .mockResolvedValue({ result: { timezone: null, device: 'UTC', effective: 'UTC' }, logs: [] }),
+  openhumanUpdateUserTimezone: vi.fn().mockResolvedValue({ result: {}, logs: [] }),
   openhumanUpdateMeetSettings: vi
     .fn()
     .mockResolvedValue({

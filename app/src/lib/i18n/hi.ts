@@ -372,7 +372,8 @@ const messages: TranslationMap = {
   'settings.navGroups.data': 'डेटा',
   'settings.languageDesc': 'ऐप इंटरफेस की डिस्प्ले भाषा',
   'settings.timezone': 'समय क्षेत्र',
-  'settings.timezoneDesc': 'वह क्षेत्र जिसमें सहायक “कल” या “पिछले शनिवार” जैसी तारीखें समझता है।',
+  'settings.timezoneDesc':
+    'आपका स्थानीय समय क्षेत्र। डिफ़ॉल्ट रूप से यह इस डिवाइस का अनुसरण करता है।',
   'settings.timezoneDevice': 'डिवाइस का समय क्षेत्र इस्तेमाल करें ({zone})',
   'settings.timezoneUnknownDevice': 'अज्ञात',
   'settings.timezoneSaveFailed': 'समय क्षेत्र सहेजा नहीं जा सका। फिर से प्रयास करें।',
