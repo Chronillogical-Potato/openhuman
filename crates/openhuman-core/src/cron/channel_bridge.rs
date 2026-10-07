@@ -105,6 +105,7 @@ pub async fn send_to_channel(
     reply_target: &str,
     thread_id: Option<&str>,
     text: &str,
+    idempotency_key: &str,
 ) -> Result<(), String> {
     let Some(bridge) = current() else {
         return Err("channel runtime is not running".to_string());
@@ -113,7 +114,12 @@ pub async fn send_to_channel(
     let Some(ch) = bridge.channels.get(&key) else {
         return Err(format!("channel '{key}' is not available"));
     };
-    let message = SendMessage::new(text, reply_target).in_thread(thread_id.map(str::to_string));
+    // Run-specific key: a retry after an ambiguous send must not duplicate the
+    // reminder, while identical reminders from different runs must not collide
+    // (the content-derived default key would reuse one key for both).
+    let mut message =
+        SendMessage::new(text, reply_target).in_thread(thread_id.map(str::to_string));
+    message.idempotency_key = Some(idempotency_key.to_string());
     ch.send(&message)
         .await
         .map_err(|e| format!("channel send failed: {e}"))

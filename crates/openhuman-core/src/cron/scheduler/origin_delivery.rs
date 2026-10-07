@@ -156,8 +156,14 @@ pub(crate) async fn deliver_to_origin(
             ..
         } => {
             let text = strip_openhuman_link_markup(text);
-            channel_bridge::send_to_channel(channel, reply_target, thread_id.as_deref(), &text)
-                .await
+            channel_bridge::send_to_channel(
+                channel,
+                reply_target,
+                thread_id.as_deref(),
+                &text,
+                &origin_request_id(&job.id, run_id),
+            )
+            .await
                 .map_err(|e| anyhow!(e))?;
             channel_bridge::append_assistant_message(history_key, &text);
             tracing::debug!(
