@@ -65,6 +65,10 @@ pub struct DomainSet {
     pub modules: bool,
     /// Everything not in a named family — always on in `full()`.
     pub platform: bool,
+    /// The SaaS operator plane (`user_agents.*`). Off in every preset but
+    /// `DomainSet::saas()`, `full()` included: a single-user core has no
+    /// users to provision.
+    pub operator: bool,
 }
 
 impl DomainSet {
@@ -92,6 +96,7 @@ impl DomainSet {
             hosted: true,
             modules: true,
             platform: true,
+            operator: false,
         }
     }
 
@@ -120,6 +125,7 @@ impl DomainSet {
             hosted: false,
             modules: false,
             platform: false,
+            operator: false,
         }
     }
 
@@ -165,6 +171,7 @@ impl DomainSet {
             hosted: false,
             modules: false,
             platform: true,
+            operator: false,
         }
     }
 
@@ -199,6 +206,7 @@ impl DomainSet {
             hosted: false,
             modules: false,
             platform: false,
+            operator: false,
         }
     }
 
@@ -225,6 +233,7 @@ impl DomainSet {
             hosted: false,
             modules: false,
             platform: false,
+            operator: false,
         }
     }
 
@@ -251,6 +260,7 @@ impl DomainSet {
             DomainGroup::Hosted => self.hosted,
             DomainGroup::Modules => self.modules,
             DomainGroup::Platform => self.platform,
+            DomainGroup::Operator => self.operator,
         }
     }
 
@@ -285,6 +295,7 @@ impl DomainSet {
             hosted: self.hosted && other.hosted,
             modules: self.modules && other.modules,
             platform: self.platform && other.platform,
+            operator: self.operator && other.operator,
         }
     }
 }

@@ -128,10 +128,13 @@ impl ServiceSet {
 }
 
 impl DomainSet {
-    /// The domain families a SaaS core serves. None yet: each family opens as
-    /// its per-user isolation lands.
+    /// The domain families a SaaS core serves: the operator plane. No user
+    /// family yet; each opens as its per-user isolation lands.
     pub fn saas() -> Self {
-        Self::none()
+        Self {
+            operator: true,
+            ..Self::none()
+        }
     }
 }
 
