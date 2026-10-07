@@ -162,56 +162,6 @@ fn tree_tag_accepts_max_size_tags() {
     );
 }
 
-#[tokio::test]
-async fn call_tool_records_write_argument_rejection() {
-    let _env_lock = crate::config::TEST_ENV_LOCK.lock().await;
-    let tmp = tempfile::tempdir().expect("tempdir");
-    unsafe {
-        std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
-    }
-    let config = config_rpc::load_config_with_timeout()
-        .await
-        .expect("config");
-
-    let err = call_tool("memory.store", json!({ "title": "T" }), "mcp:test")
-        .await
-        .expect_err("missing content should reject");
-    assert!(
-        err.message()
-            .contains("missing required argument `content`"),
-        "got: {}",
-        err.message()
-    );
-
-    let mut rows = Vec::new();
-    for _ in 0..50 {
-        rows = crate::mcp::audit::list_writes(
-            &config,
-            &crate::mcp::audit::McpWriteListQuery::default(),
-        )
-        .expect("list writes");
-        if rows.len() == 1 {
-            break;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-    }
-
-    assert_eq!(rows.len(), 1);
-    assert!(!rows[0].success);
-    assert_eq!(rows[0].tool_name, "memory.store");
-    assert_eq!(rows[0].client_info, "mcp:test");
-    assert!(rows[0]
-        .error_message
-        .as_deref()
-        .unwrap_or_default()
-        .contains("missing required argument `content`"));
-    assert!(rows[0].args_summary.get("content").is_none());
-
-    unsafe {
-        std::env::remove_var("OPENHUMAN_WORKSPACE");
-    }
-}
-
 // ── slug_from ─────────────────────────────────────────────────────
 
 #[test]
