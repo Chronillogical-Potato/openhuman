@@ -102,12 +102,12 @@ fn next_user_error(
 mod classifier_and_delivery_tests;
 #[path = "scheduler_dispatch_tests.rs"]
 mod dispatch_tests;
-#[path = "scheduler_host_agent_tests.rs"]
-mod host_agent_tests;
 #[path = "scheduler_frequency_tests.rs"]
 mod frequency_tests;
 #[path = "scheduler_halt_and_persist_tests.rs"]
 mod halt_and_persist_tests;
+#[path = "scheduler_host_agent_tests.rs"]
+mod host_agent_tests;
 #[path = "scheduler_transcript_isolation_tests.rs"]
 mod transcript_isolation_tests;
 

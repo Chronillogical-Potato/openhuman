@@ -353,7 +353,10 @@ fn build_cron_agent(
                 agent_id = %agent_id,
                 "[cron] built scheduled job agent from definition"
             );
-            Ok(BuiltCronAgent { agent, context: None })
+            Ok(BuiltCronAgent {
+                agent,
+                context: None,
+            })
         }
         Err(e) => {
             tracing::warn!(
@@ -362,11 +365,12 @@ fn build_cron_agent(
                 error = %e,
                 "[cron] failed to build agent from definition; falling back to canonical orchestrator"
             );
-            OpenHumanSessionHost::from_config_for_agent(config, "orchestrator")
-                .map(|agent| BuiltCronAgent {
+            OpenHumanSessionHost::from_config_for_agent(config, "orchestrator").map(|agent| {
+                BuiltCronAgent {
                     agent,
                     context: None,
-                })
+                }
+            })
         }
     }
 }

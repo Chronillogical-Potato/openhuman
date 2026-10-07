@@ -290,7 +290,10 @@ fn refuse_if_single_flight_running(config: &Config, job_id: &str) -> Result<(), 
     if crate::cron::scheduler::in_flight::is_running(job_id)
         && crate::cron::policy::policy_or_default(config, job_id).single_flight
     {
-        tracing::debug!(job_id, "[cron_run] single-flight job already running; refused");
+        tracing::debug!(
+            job_id,
+            "[cron_run] single-flight job already running; refused"
+        );
         return Err(format!("cron job '{job_id}' is already running"));
     }
     Ok(())

@@ -36,10 +36,11 @@ impl HostAgentResolver for Host {
         if agent_id != "cron-host-agent" {
             return None;
         }
-        let mut definition = crate::agent::harness::definition::AgentDefinitionRegistry::builtins_only()
-            .get("orchestrator")
-            .cloned()
-            .unwrap();
+        let mut definition =
+            crate::agent::harness::definition::AgentDefinitionRegistry::builtins_only()
+                .get("orchestrator")
+                .cloned()
+                .unwrap();
         definition.id = agent_id.to_string();
         let builds = Arc::clone(&self.belt_builds);
         Some(HostAgent {
@@ -50,7 +51,10 @@ impl HostAgentResolver for Host {
                 builds.fetch_add(1, Ordering::SeqCst);
                 crate::agent::HostTurnTools::advertised(vec![Box::new(Marker)])
             })),
-            context: CoreContext::for_test(DomainSet::full(), Some(self.config.workspace_dir.clone())),
+            context: CoreContext::for_test(
+                DomainSet::full(),
+                Some(self.config.workspace_dir.clone()),
+            ),
         })
     }
 }
@@ -79,8 +83,14 @@ async fn a_cron_job_for_a_host_agent_builds_with_its_host_tools_and_context() {
     host_agents::clear_if(&installed);
     let built = built.expect("the host agent builds");
 
-    assert!(built.context.is_some(), "the turn runs in the host agent's context");
-    assert!(belt_builds.load(Ordering::SeqCst) > 0, "the host belt was built");
+    assert!(
+        built.context.is_some(),
+        "the turn runs in the host agent's context"
+    );
+    assert!(
+        belt_builds.load(Ordering::SeqCst) > 0,
+        "the host belt was built"
+    );
     assert!(built
         .agent
         .visible_tool_specs_arc()

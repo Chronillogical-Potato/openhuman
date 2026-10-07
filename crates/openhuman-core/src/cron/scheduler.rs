@@ -31,11 +31,11 @@ use run_record::*;
 #[allow(unused_imports)]
 use shell_job::*;
 
-pub(crate) use dispatch::JobDispatcher;
 pub use delivery::deliver_job;
+pub(crate) use dispatch::JobDispatcher;
+pub use retry::execute_job_now;
 pub use slot::is_running;
 pub(crate) use slot::SchedulerSlot;
-pub use retry::execute_job_now;
 
 use crate::config::Config;
 use crate::core::bus::BUS;
@@ -52,7 +52,9 @@ const MIN_POLL_SECONDS: u64 = 5;
 pub async fn run(config: Config) -> Result<()> {
     // One poll loop per process: two would each see the same due rows.
     let Some(_slot) = SchedulerSlot::acquire() else {
-        tracing::warn!("[cron:scheduler] a scheduler loop is already running; not starting another");
+        tracing::warn!(
+            "[cron:scheduler] a scheduler loop is already running; not starting another"
+        );
         return Ok(());
     };
     // Ensure the global event bus is initialized so cron delivery events
@@ -84,7 +86,13 @@ pub async fn run(config: Config) -> Result<()> {
 
     loop {
         interval.tick().await;
-        tick_once(&config, &security, &mut last_emitted_health, &mut dispatcher).await;
+        tick_once(
+            &config,
+            &security,
+            &mut last_emitted_health,
+            &mut dispatcher,
+        )
+        .await;
     }
 }
 
@@ -210,4 +218,3 @@ pub(super) async fn execute_and_persist_job(
 
     (job.id.clone(), success, failure_message)
 }
-

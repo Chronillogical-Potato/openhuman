@@ -28,7 +28,10 @@ fn shell_job(config: &Config, name: &str) -> String {
 fn a_job_without_a_policy_row_gets_the_default() {
     let tmp = TempDir::new().unwrap();
     let config = config(&tmp);
-    assert_eq!(get_policy(&config, "no-such-job").unwrap(), JobPolicy::default());
+    assert_eq!(
+        get_policy(&config, "no-such-job").unwrap(),
+        JobPolicy::default()
+    );
 }
 
 #[test]

@@ -7,14 +7,16 @@ use crate::core::runtime::DomainSet;
 static SLOT: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 pub(crate) fn lock() -> std::sync::MutexGuard<'static, ()> {
-    SLOT.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    SLOT.lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 fn definition(id: &str) -> AgentDefinition {
-    let mut definition = crate::agent::harness::definition::AgentDefinitionRegistry::builtins_only()
-        .get("orchestrator")
-        .cloned()
-        .expect("the orchestrator is built in");
+    let mut definition =
+        crate::agent::harness::definition::AgentDefinitionRegistry::builtins_only()
+            .get("orchestrator")
+            .cloned()
+            .expect("the orchestrator is built in");
     definition.id = id.to_string();
     definition
 }
@@ -72,7 +74,10 @@ fn clear_if_leaves_a_replacement_installed_by_someone_else() {
     install(Arc::clone(&first));
     let previous = install(Arc::clone(&second));
     assert!(previous.is_some_and(|previous| Arc::ptr_eq(&previous, &first)));
-    assert!(!clear_if(&first), "the first owner no longer holds the slot");
+    assert!(
+        !clear_if(&first),
+        "the first owner no longer holds the slot"
+    );
     assert!(resolve("host-agents-second").is_some());
     assert!(clear_if(&second));
     assert!(resolve("host-agents-second").is_none());

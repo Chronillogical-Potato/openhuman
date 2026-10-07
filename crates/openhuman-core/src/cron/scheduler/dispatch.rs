@@ -84,9 +84,8 @@ impl JobDispatcher {
                 BUS.publish(DomainEvent::HealthChanged {
                     component: "scheduler".to_string(),
                     healthy: success,
-                    message: (!success).then(|| {
-                        failure_message.unwrap_or_else(|| format!("job {job_id} failed"))
-                    }),
+                    message: (!success)
+                        .then(|| failure_message.unwrap_or_else(|| format!("job {job_id} failed"))),
                 });
             }));
         }
@@ -152,7 +151,15 @@ fn skip_in_flight(config: &Config, job: &CronJob) {
     }
     tracing::info!(job_id = %job.id, "[cron:dispatch] single-flight job still running; slot skipped");
     let now = Utc::now();
-    if let Err(error) = record_run(config, &job.id, now, now, "skipped", Some(SKIPPED_OUTPUT), 0) {
+    if let Err(error) = record_run(
+        config,
+        &job.id,
+        now,
+        now,
+        "skipped",
+        Some(SKIPPED_OUTPUT),
+        0,
+    ) {
         tracing::warn!(job_id = %job.id, %error, "[cron:dispatch] recording the skipped run failed");
     }
     if next_run_for_schedule(&job.schedule, now).is_ok() {

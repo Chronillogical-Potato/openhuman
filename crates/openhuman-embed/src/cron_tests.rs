@@ -74,13 +74,21 @@ fn targets_are_read_back_from_agent_and_system_rows_only() {
             name: "digest".into()
         })
     );
-    assert_eq!(JobTarget::from_job(&core_job(JobType::Flow, "flow-123")), None);
+    assert_eq!(
+        JobTarget::from_job(&core_job(JobType::Flow, "flow-123")),
+        None
+    );
     assert_eq!(JobTarget::from_job(&core_job(JobType::Shell, "echo")), None);
 }
 
 #[test]
 fn specs_carry_their_defaults_and_overrides() {
-    let spec = JobSpec::agent("hourly", "teeny", "check in", JobSchedule::Every { ms: 3_600_000 });
+    let spec = JobSpec::agent(
+        "hourly",
+        "teeny",
+        "check in",
+        JobSchedule::Every { ms: 3_600_000 },
+    );
     assert!(spec.enabled);
     assert!(!spec.single_flight);
     assert_eq!(spec.retries, None);
@@ -89,7 +97,12 @@ fn specs_carry_their_defaults_and_overrides() {
     assert!(spec.single_flight);
     assert!(!spec.enabled);
     let system = JobSpec::system("digest", "digest", JobSchedule::Every { ms: 60_000 });
-    assert_eq!(system.target, JobTarget::System { name: "digest".into() });
+    assert_eq!(
+        system.target,
+        JobTarget::System {
+            name: "digest".into()
+        }
+    );
 }
 
 #[test]
@@ -102,7 +115,10 @@ fn blank_names_and_targets_are_refused() {
         JobSpec::system("n", "", every.clone()),
         JobSpec::system("n", "has:colon", every.clone()),
     ] {
-        assert!(matches!(spec.validate(), Err(CronError::Invalid(_))), "{spec:?}");
+        assert!(
+            matches!(spec.validate(), Err(CronError::Invalid(_))),
+            "{spec:?}"
+        );
     }
     assert!(JobSpec::agent("n", "teeny", "p", every).validate().is_ok());
 }

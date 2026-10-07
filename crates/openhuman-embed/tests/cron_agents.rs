@@ -233,7 +233,11 @@ fn background_services_drive_the_scheduler_and_stop_with_the_runtime() {
                 .build()
                 .await
                 .expect("runtime builds");
-            wait_for("the scheduler to start", openhuman_core::cron::scheduler::is_running).await;
+            wait_for(
+                "the scheduler to start",
+                openhuman_core::cron::scheduler::is_running,
+            )
+            .await;
 
             let fired = Arc::new(Mutex::new(0usize));
             let sink = Arc::clone(&fired);
@@ -251,7 +255,10 @@ fn background_services_drive_the_scheduler_and_stop_with_the_runtime() {
                     JobSchedule::Every { ms: 1_000 },
                 ))
                 .unwrap();
-            wait_for("the scheduler to fire the job", || *fired.lock().unwrap() > 0).await;
+            wait_for("the scheduler to fire the job", || {
+                *fired.lock().unwrap() > 0
+            })
+            .await;
 
             assert!(matches!(
                 Runtime::builder().build().await,
@@ -265,7 +272,11 @@ fn background_services_drive_the_scheduler_and_stop_with_the_runtime() {
             })
             .await;
             runtime.start_services().await;
-            wait_for("the scheduler to restart", openhuman_core::cron::scheduler::is_running).await;
+            wait_for(
+                "the scheduler to restart",
+                openhuman_core::cron::scheduler::is_running,
+            )
+            .await;
 
             drop(runtime);
             wait_for("the scheduler to stop with the runtime", || {

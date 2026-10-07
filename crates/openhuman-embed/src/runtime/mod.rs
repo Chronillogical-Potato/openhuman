@@ -163,9 +163,8 @@ pub(crate) struct CoreGuard {
     /// this runtime's agents; removed with the runtime.
     host_agents: Arc<dyn openhuman_core::agent::host_agents::HostAgentResolver>,
     /// Handlers registered with [`Runtime::on_system_job`], by job name.
-    system_jobs: Mutex<
-        HashMap<String, openhuman_core::cron::system_job_handlers::SystemJobRegistration>,
-    >,
+    system_jobs:
+        Mutex<HashMap<String, openhuman_core::cron::system_job_handlers::SystemJobRegistration>>,
 }
 
 impl Drop for CoreGuard {

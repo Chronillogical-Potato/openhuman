@@ -146,11 +146,11 @@ impl JobTarget {
                     .unwrap_or_else(|| "orchestrator".to_string()),
                 prompt: job.prompt.clone().unwrap_or_default(),
             }),
-            JobType::Flow => openhuman_core::cron::system_jobs::system_job_name(job).map(|name| {
-                Self::System {
+            JobType::Flow => {
+                openhuman_core::cron::system_jobs::system_job_name(job).map(|name| Self::System {
                     name: name.to_string(),
-                }
-            }),
+                })
+            }
             JobType::Shell => None,
         }
     }
@@ -539,7 +539,8 @@ fn create(
         JobTarget::System { name: system } => {
             // One row per system job: the store keys it by its command.
             let command = format!("{SYSTEM_COMMAND_PREFIX}{system}");
-            let job = openhuman_core::cron::add_flow_schedule_job(config, &command, schedule.clone())?;
+            let job =
+                openhuman_core::cron::add_flow_schedule_job(config, &command, schedule.clone())?;
             Ok(openhuman_core::cron::update_job(
                 config,
                 &job.id,

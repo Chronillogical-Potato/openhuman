@@ -552,7 +552,9 @@ fn single_flight_system_job(config: &Config, name: &str) -> CronJob {
     let job = crate::cron::system_jobs::ensure_system_job(
         config,
         name,
-        Schedule::Every { every_ms: 3_600_000 },
+        Schedule::Every {
+            every_ms: 3_600_000,
+        },
     )
     .unwrap();
     crate::cron::policy::set_policy(
@@ -583,7 +585,10 @@ async fn run_job_now_runs_and_records_the_handler_result() {
     assert_eq!(runs.len(), 1);
     assert_eq!(runs[0].status, "error");
     assert_eq!(
-        cron::get_job(&config, &job.id).unwrap().last_status.as_deref(),
+        cron::get_job(&config, &job.id)
+            .unwrap()
+            .last_status
+            .as_deref(),
         Some("error")
     );
 }

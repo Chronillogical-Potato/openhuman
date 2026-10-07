@@ -212,7 +212,8 @@ impl AgentRunner for OpenHumanAgentRunner {
                 // A shipped/TOML harness definition has no `entry.model` — the
                 // definition's own `ModelSpec` (already applied by the session
                 // builder) is the only model pin in play here.
-                self.run_via_harness(agent_ref, request, conn, None, None).await
+                self.run_via_harness(agent_ref, request, conn, None, None)
+                    .await
             }
             AgentRoute::RegistryFallback => {
                 // `route_for_agent_ref` only consults the harness
@@ -357,7 +358,9 @@ impl OpenHumanAgentRunner {
         // `hint:<role>` form the session builder routes on.
         // A host-registered agent starts from its own config (its provider
         // model and route), not the flow runner's.
-        let base: &Config = host.as_ref().map_or(self.config.as_ref(), |host| &host.config);
+        let base: &Config = host
+            .as_ref()
+            .map_or(self.config.as_ref(), |host| &host.config);
         let effective: Cow<'_, Config> = match node_model.as_deref() {
             Some(model) => {
                 let mut config = base.clone();
@@ -455,7 +458,10 @@ impl OpenHumanAgentRunner {
         // groups, session store); the origin task-local is untouched.
         let run: std::pin::Pin<
             Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send>,
-        > = match host.as_ref().map(|host| std::sync::Arc::clone(&host.context)) {
+        > = match host
+            .as_ref()
+            .map(|host| std::sync::Arc::clone(&host.context))
+        {
             Some(context) => Box::pin(crate::core::runtime::CoreContext::scope(context, run)),
             None => run,
         };

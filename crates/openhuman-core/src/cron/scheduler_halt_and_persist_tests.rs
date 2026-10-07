@@ -397,7 +397,9 @@ async fn scheduler_flow_runs_active_hours_job_and_reschedules_inside_window() {
         &config.workspace_dir,
     ));
     let mut dispatcher = JobDispatcher::new(1);
-    dispatcher.dispatch(&config, &security, vec![job.clone()]).await;
+    dispatcher
+        .dispatch(&config, &security, vec![job.clone()])
+        .await;
     dispatcher.drain().await;
 
     let stored = cron::get_job(&config, &job.id).unwrap();

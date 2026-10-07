@@ -42,9 +42,7 @@ impl ServiceTasks {
     /// Claim the start; `false` when the services already started and have
     /// not been stopped since.
     pub fn begin(&self) -> bool {
-        !self
-            .started
-            .swap(true, std::sync::atomic::Ordering::AcqRel)
+        !self.started.swap(true, std::sync::atomic::Ordering::AcqRel)
     }
 
     /// Track a service task so [`stop`](Self::stop) can abort it.

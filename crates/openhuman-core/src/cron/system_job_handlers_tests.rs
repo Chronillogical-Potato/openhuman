@@ -53,7 +53,10 @@ async fn dropping_the_registration_unregisters_the_handler() {
 async fn a_replaced_registration_does_not_remove_its_replacement() {
     let first_calls = Arc::new(AtomicUsize::new(0));
     let second_calls = Arc::new(AtomicUsize::new(0));
-    let first = register("handlers-replaced", answering(Ok(()), Arc::clone(&first_calls)));
+    let first = register(
+        "handlers-replaced",
+        answering(Ok(()), Arc::clone(&first_calls)),
+    );
     let second = register(
         "handlers-replaced",
         answering(Err("second".into()), Arc::clone(&second_calls)),
