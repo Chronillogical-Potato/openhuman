@@ -570,6 +570,10 @@ async fn retry_run(workspace_dir: &Path, bound: &BoundEngine, mut file: ImportFi
                     Ok(_) => {
                         file.failed.retain(|failed| failed.id != id);
                         file.state.imported += 1;
+                        file.state.failed = file.failed.len() as u64;
+                        // Persisted per item, so a quit mid-retry keeps what
+                        // was stored off the list instead of sending it again.
+                        write_file(workspace_dir, &file);
                     }
                     Err(error) if skips_item(&error) => {
                         let again = FailedItem::new(&item, error);
