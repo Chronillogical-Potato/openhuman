@@ -53,6 +53,39 @@ pub fn brain_source(kind: MemorySourceKind, target: &str) -> BrainSource {
     }
 }
 
+/// The brain source a document filed under the old per-type layout belongs
+/// to now, for the migration that moves it: `old_source_id` is the id of
+/// the `source:<id>` node it sits at, `item` the document itself.
+///
+/// - Per-format nodes (`pdf`, `markdown`, `docx`, `xlsx`, `pptx`, `code`,
+///   `other`) held local files: `files`.
+/// - `web` held links and feeds, but also HTML files from a folder or an
+///   upload; a document with a file kind or a file path is a file.
+/// - Any other node was a connector: its canonical slug (`google_drive`
+///   becomes `googledrive`), so `notion`, `github` and `gmail` stay put.
+#[must_use]
+pub fn legacy_brain_node(old_source_id: &str, item: &StoreItem) -> BrainSource {
+    let id = crate::integrations::composio::tools::canonicalize_toolkit_slug(old_source_id);
+    match id.as_str() {
+        "files" | "pdf" | "markdown" | "md" | "docx" | "xlsx" | "pptx" | "code" | "other" => {
+            files_source()
+        }
+        "web" => {
+            let meta = item.meta();
+            let file = matches!(
+                meta.source.kind,
+                tinymemory_api::SourceKind::File | tinymemory_api::SourceKind::Folder
+            ) || meta.file_path.is_some();
+            if file {
+                files_source()
+            } else {
+                BrainSource::Web
+            }
+        }
+        _ => id.parse().unwrap_or_else(|_| files_source()),
+    }
+}
+
 /// The repository a GitHub document belongs to, as the collection id
 /// `<owner>--<repo>` (lowercase, as GitHub's names are case-insensitive):
 /// from its `repo` (`owner/name` or a URL), else its URL. An owner name
