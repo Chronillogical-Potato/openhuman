@@ -86,6 +86,20 @@ pub struct BrowserConfig {
     pub max_task_steps: usize,
     #[serde(default = "default_task_timeout_secs")]
     pub task_timeout_secs: u64,
+    #[serde(default)]
+    pub unattended_actions: Vec<String>,
+}
+
+pub const UNATTENDED_BROWSER_ACTIONS: &[&str] = &[];
+
+impl BrowserConfig {
+    pub fn allows_unattended(&self, _kind: &str) -> bool {
+        false
+    }
+
+    pub fn unknown_unattended_actions(&self) -> Vec<String> {
+        Vec::new()
+    }
 }
 
 fn default_viewport_width() -> u32 {
@@ -136,6 +150,11 @@ impl Default for BrowserConfig {
             download_dir: None,
             max_task_steps: default_max_task_steps(),
             task_timeout_secs: default_task_timeout_secs(),
+            unattended_actions: Vec::new(),
         }
     }
 }
+
+#[cfg(test)]
+#[path = "browser_tests.rs"]
+mod tests;
