@@ -151,18 +151,20 @@ turn** may take without that approval:
 | `select`, `check`       | Choosing an option, ticking a box                                                                           |
 | `task_step`             | A browser `task` paused at `needs_approval` before an irreversible step, approved through `confirm_pending` |
 
+- The tool reads the turn origin from the per-turn `CoreContext` that the
+  cron, background-job and workflow entry points scope around their turn.
 - **Only** turns whose origin is `TrustedAutomation` with source `Cron`,
   `Background`, or `Workflow { require_approval: false }` qualify.
 - WebChat, external channels (Telegram, Slack, …), CLI and direct chat,
   unlabelled turns, and workflows with `require_approval = true` keep the
   forced gate exactly as before, even for a listed action.
 - The default is an empty list, which changes nothing.
-- An unknown name allows nothing and is reported at load with a
-  `[config][browser] unattended_actions entries name no known action` warning.
-- Each allowed action is logged at `info` as `[browser] unattended action
-allowed by [browser] unattended_actions` with the action kind, the first 12
-  hex characters of its digest and the origin class. Selectors, typed values
-  and page content are never logged.
+- An unknown name allows nothing. At load the core logs a warning with the
+  number of unknown entries (never their text) and the list of known names.
+- Each allowed action is logged at `info` with the action kind, the first 12
+  hex characters of its digest and the origin class. Selectors, typed values,
+  page content and the job id are never logged. Grep for
+  `[browser] unattended action allowed`.
 - Payment checkpoints are not `needs_approval` pauses. A task still stops
   there whatever this list says.
 
