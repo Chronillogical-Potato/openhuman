@@ -62,6 +62,8 @@ interface FakeOptions {
   importFound?: boolean;
   /** An earlier import stopped with this error (e.g. credits ran out) after 7 of 20 items. */
   importStoppedWith?: string;
+  /** An earlier import finished with this many items the engine refused. */
+  importFinishedWithFailed?: number;
   /**
    * Methods (without `openhuman.`) answered with a JSON-RPC error instead,
    * shaped like the core's memory error (`data.code` / `data.kind`).
@@ -117,8 +119,22 @@ async function installMemoryFake(page: Page, opts: FakeOptions): Promise<MemoryF
   const sources: Array<Record<string, unknown>> = [];
   let nextId = 1;
   let importState = opts.importStoppedWith
-    ? { phase: 'error', imported: 7, total: 20, error: opts.importStoppedWith as string | null }
-    : { phase: 'idle', imported: 0, total: 0, error: null as string | null };
+    ? {
+        phase: 'error',
+        imported: 7,
+        total: 20,
+        error: opts.importStoppedWith as string | null,
+        failed: 0,
+      }
+    : opts.importFinishedWithFailed !== undefined
+      ? {
+          phase: 'done',
+          imported: 20 - opts.importFinishedWithFailed,
+          total: 20,
+          error: null as string | null,
+          failed: opts.importFinishedWithFailed,
+        }
+      : { phase: 'idle', imported: 0, total: 0, error: null as string | null, failed: 0 };
 
   const policy = {
     log_conversations: true,
@@ -290,14 +306,24 @@ async function installMemoryFake(page: Page, opts: FakeOptions): Promise<MemoryF
           : { found: false, counts: null };
       case 'memory_import_start':
         // A restart resumes from the persisted progress.
-        importState = { phase: 'running', imported: importState.imported, total: 20, error: null };
+        importState = {
+          phase: 'running',
+          imported: importState.imported,
+          total: 20,
+          error: null,
+          failed: 0,
+        };
+        return { state: importState };
+      case 'memory_import_retry_failed':
+        // The refused items go again; the next poll sees them stored.
+        importState = { ...importState, phase: 'running', error: null };
         return { state: importState };
       case 'memory_import_status': {
         const current = importState;
         // A running import finishes on the next poll, so the page walks
         // idle -> running -> done without the spec waiting on real work.
         if (importState.phase === 'running') {
-          importState = { phase: 'done', imported: 20, total: 20, error: null };
+          importState = { phase: 'done', imported: 20, total: 20, error: null, failed: 0 };
         }
         return { state: current };
       }
@@ -485,6 +511,31 @@ test.describe('Memory v2 — engine active', () => {
       page.getByTestId('memory-import-running').or(page.getByTestId('memory-import-done'))
     ).toBeVisible();
     await expect(page.getByTestId('memory-import-done')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('a finished import retries the items it could not store', async ({ page }) => {
+    const fake = await installMemoryFake(page, {
+      engineOn: true,
+      importFound: true,
+      importFinishedWithFailed: 2,
+    });
+    await bootAuthenticatedPage(page, 'pw-memory-v2-import-retry');
+    await openMemory(page, '&brain=ask');
+
+    // Finished, with the refused items counted and a retry beside them.
+    await expect(page.getByTestId('memory-import-failed-items')).toContainText('imported: 2', {
+      timeout: 20_000,
+    });
+    await page.getByTestId('memory-import-retry-failed').click();
+    // The click resolves before the RPC reaches the fake: wait for it.
+    await expect.poll(() => fake.paramsOf('memory_import_retry_failed')).toEqual([{}]);
+    expect(fake.paramsOf('memory_import_start')).toEqual([]);
+
+    // Running, then done with nothing left to retry.
+    await expect(page.getByTestId('memory-import-done')).toContainText('20 of 20', {
+      timeout: 15_000,
+    });
+    await expect(page.getByTestId('memory-import-retry-failed')).toHaveCount(0);
   });
 
   test('a stopped import resumes only after consent', async ({ page }) => {

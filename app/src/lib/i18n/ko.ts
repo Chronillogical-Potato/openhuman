@@ -5256,6 +5256,8 @@ const messages: TranslationMap = {
   'memoryPage.import.done': '이전 메모리를 가져왔습니다',
   'memoryPage.import.failed': '가져오기에 실패했습니다',
   'memoryPage.import.resume': '가져오기 재개',
+  'memoryPage.import.failedItems': '가져오지 못한 항목: {count}',
+  'memoryPage.import.retryFailed': '실패한 항목 다시 시도',
   'memoryPage.import.progress': '{total}개 중 {imported}개 항목을 가져왔습니다',
   // Live voice agents
   'voice.live.mute': '마이크 음소거',

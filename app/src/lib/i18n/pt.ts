@@ -5377,6 +5377,8 @@ const messages: TranslationMap = {
   'memoryPage.import.done': 'Memória anterior importada',
   'memoryPage.import.failed': 'Falha na importação',
   'memoryPage.import.resume': 'Retomar importação',
+  'memoryPage.import.failedItems': 'Itens que não puderam ser importados: {count}.',
+  'memoryPage.import.retryFailed': 'Tentar novamente os itens com falha',
   'memoryPage.import.progress': '{imported} de {total} itens importados',
   // Live voice agents
   'voice.live.mute': 'Silenciar microfone',

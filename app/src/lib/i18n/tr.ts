@@ -5314,6 +5314,8 @@ const messages: TranslationMap = {
   'memoryPage.import.done': 'Önceki bellek içe aktarıldı',
   'memoryPage.import.failed': 'İçe aktarma başarısız oldu',
   'memoryPage.import.resume': 'İçe aktarmayı sürdür',
+  'memoryPage.import.failedItems': 'İçe aktarılamayan öğeler: {count}.',
+  'memoryPage.import.retryFailed': 'Başarısız öğeleri yeniden dene',
   'memoryPage.import.progress': '{imported}/{total} öğe içe aktarıldı',
   'voice.live.mute': 'Mikrofonu sessize al',
   'voice.live.unmute': 'Mikrofonun sesini aç',

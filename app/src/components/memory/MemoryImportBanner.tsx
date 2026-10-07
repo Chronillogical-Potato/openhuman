@@ -15,6 +15,7 @@ import {
   type ImportScan,
   type ImportState,
   memoryErrorMessage,
+  memoryImportRetryFailed,
   memoryImportScan,
   memoryImportStart,
   memoryImportStatus,
@@ -93,6 +94,23 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
     }
   };
 
+  // Re-sends only the items the engine refused; no new local data leaves the
+  // device beyond what the user already consented to import.
+  const retryFailed = async () => {
+    setStarting(true);
+    setError(null);
+    try {
+      const res = await memoryImportRetryFailed();
+      log('retrying failed items: phase=%s failed=%d', res.state.phase, res.state.failed ?? 0);
+      setState(res.state);
+    } catch (err) {
+      log('retry of failed items failed: %o', err);
+      setError(memoryErrorMessage(err, t));
+    } finally {
+      setStarting(false);
+    }
+  };
+
   const showOffer = scan?.found && (!state || state.phase === 'idle');
   if (!showOffer && !state) return null;
 
@@ -154,6 +172,24 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
                     total: state.total,
                   })}
             </AlertDescription>
+            {state.phase === 'done' && (state.failed ?? 0) > 0 && (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm" data-testid="memory-import-failed-items">
+                  {fill(t('memoryPage.import.failedItems'), { count: state.failed ?? 0 })}
+                  {/* A retry the engine or account stopped says why; Retry again works. */}
+                  {state.error ? ` ${state.error}` : ''}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={starting}
+                  data-testid="memory-import-retry-failed"
+                  onClick={() => void retryFailed()}>
+                  {t('memoryPage.import.retryFailed')}
+                </Button>
+              </div>
+            )}
             {state.phase === 'error' && (
               // The core keeps the checkpoint, so starting again resumes where
               // the import stopped; it still goes through the consent dialog.
