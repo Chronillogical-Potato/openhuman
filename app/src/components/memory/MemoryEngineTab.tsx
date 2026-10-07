@@ -1,23 +1,22 @@
 /**
- * Memory → Provider: where memory is stored. All three providers run on
- * CortexDB, shown as cards (like Connections → Voice agents), each with a
- * Settings modal:
+ * Memory → Provider: memory runs on CortexDB, shown as one CortexDB card with a
+ * chip per way to reach it (like Gemini on Connections → Voice agents):
  *
- * - TinyHumans Memory (`builtin`): the `tinyhumans` engine, the TinyHumans
- *   backend's `/memory/*` API (CortexDB hosted per account), authenticated by
- *   sign-in. Included with TinyHumans; Basic and Pro plans ingest for free
- *   under the fair-use terms the modal states. Signed out (or on a local
+ * - TinyHumans (`builtin`, the default): the `tinyhumans` engine, the
+ *   TinyHumans backend's `/memory/*` API (CortexDB hosted per account),
+ *   authenticated by sign-in. Free; Basic and Pro plans ingest at no extra
+ *   cost under the fair-use terms the panel states. Signed out (or on a local
  *   session) it cannot be selected.
- * - CortexDB Cloud (`apikey`): the `cortexdb` engine on CortexDB's managed
- *   API. The endpoint is fixed; only the key is entered.
- * - CortexDB Local (`selfhost`): the `cortexdb` engine on a server on this
- *   computer. Local is loopback only (a product rule); either scheme is fine
- *   there. The core itself allows https to any host and cleartext http only to
- *   loopback, so this check is the stricter of the two.
+ * - Your API key (`apikey`): the `cortexdb` engine on CortexDB's managed API.
+ *   The endpoint is fixed; only the key is entered.
+ * - Local (`selfhost`): the `cortexdb` engine on a server on this computer.
+ *   Local is loopback only (a product rule); either scheme is fine there. The
+ *   core itself allows https to any host and cleartext http only to loopback,
+ *   so this check is the stricter of the two.
  *
- * Which card is active is derived from `memory_engine_get`: `tinyhumans` is
- * TinyHumans, and `cortexdb` is Local when its endpoint is loopback, else
- * Cloud. Engines that are not supported yet are listed as coming soon.
+ * Which chip is in use is derived from `memory_engine_get`: `tinyhumans` is
+ * TinyHumans, and `cortexdb` is Local when its endpoint is loopback, else your
+ * API key. Engines that are not supported yet are listed as coming soon.
  *
  * debug logging: DEBUG=openhuman:memory:engine
  */
@@ -34,7 +33,7 @@ import {
   memoryErrorMessage,
 } from '../../services/api/memoryApi';
 import { isLocalSessionToken } from '../../utils/localSession';
-import { Alert, AlertDescription, AlertTitle, type BadgeVariant } from '../ui';
+import { Alert, AlertDescription, AlertTitle } from '../ui';
 import { CenteredLoadingState } from '../ui/LoadingState';
 import { toast } from '../ui/Toast';
 import MemoryComingSoon from './MemoryComingSoon';

@@ -38,7 +38,12 @@ export default function MemoryCortexCard({
 }: MemoryCortexCardProps) {
   const { t } = useT();
 
-  const chip = (option: MemoryProviderOption, icon: ReactNode, label: string, extra?: ReactNode) => (
+  const chip = (
+    option: MemoryProviderOption,
+    icon: ReactNode,
+    label: string,
+    extra?: ReactNode
+  ) => (
     <span className="inline-flex items-center gap-1.5">
       {icon}
       {label}
