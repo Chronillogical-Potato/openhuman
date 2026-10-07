@@ -8,6 +8,7 @@
 //!   [`run_message_dispatch_loop`]) and approval-surface gate.
 
 mod helpers;
+pub(crate) mod host_agent;
 mod processor;
 mod routing;
 
