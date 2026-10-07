@@ -161,3 +161,29 @@ export async function handleAuth(ctx) {
 
   return false;
 }
+
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/**
+ * The provider-login callback for an http loopback `redirectUri`, or `null`
+ * when the request carries none (or a non-loopback one). Exported for tests.
+ */
+export function loopbackSignInRedirect(url) {
+  const query = new URL(url, "http://mock.invalid").searchParams;
+  const redirectUri = query.get("redirectUri");
+  if (!redirectUri) return null;
+  let target;
+  try {
+    target = new URL(redirectUri);
+  } catch {
+    return null;
+  }
+  if (target.protocol !== "http:" || !LOOPBACK_HOSTS.has(target.hostname)) {
+    return null;
+  }
+  target.searchParams.set("token", MOCK_JWT);
+  target.searchParams.set("key", "auth");
+  const state = query.get("state");
+  if (state) target.searchParams.set("state", state);
+  return target.toString();
+}
