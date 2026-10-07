@@ -29,7 +29,18 @@ pub fn publish_web_channel_event(mut event: WebChannelEvent) {
     if event.ts.is_none() {
         event.ts = Some(crate::web_chat::progress_bridge::unix_epoch_ms());
     }
+    if event.agent.is_none() {
+        event.agent = crate::core::runtime::CoreContext::current()
+            .and_then(|context| context.session_agent().map(str::to_owned));
+    }
     let _ = EVENT_BUS.send(event);
+}
+
+/// Whether a SaaS user agent's stream may carry `event`: only events stamped
+/// with that agent. An unstamped event (published outside any agent scope) is
+/// dropped rather than guessed at.
+pub fn event_belongs_to(event: &WebChannelEvent, agent: &str) -> bool {
+    event.agent.as_deref() == Some(agent)
 }
 
 static APPROVAL_SURFACE_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();

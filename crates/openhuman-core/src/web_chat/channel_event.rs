@@ -13,6 +13,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct WebChannelEvent {
+    /// The agent whose work produced this event (`CoreContext::session_agent`),
+    /// stamped at publish time. Never serialized: it routes the event to its
+    /// owner's stream in SaaS mode and is not part of the wire payload.
+    #[serde(skip)]
+    pub agent: Option<String>,
     /// The event name (e.g., `chat_message`, `tool_call`).
     pub event: String,
     /// Unique identifier for the Socket.IO client.
