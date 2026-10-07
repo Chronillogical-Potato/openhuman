@@ -416,3 +416,13 @@ fn env_overlay_runtime_python_flags_respect_bool_parser() {
     assert_eq!(cfg.runtime_python.managed_release_tag, "");
     assert_eq!(cfg.runtime_python.preferred_command, "");
 }
+
+#[test]
+fn env_overlay_keeps_unattended_browser_actions_and_unknown_names_allow_nothing() {
+    let mut cfg = Config::default();
+    cfg.browser.unattended_actions = vec!["click".into(), "navigate".into()];
+    cfg.apply_env_overlay_with(&HashMapEnv::new());
+    assert_eq!(cfg.browser.unattended_actions, vec!["click", "navigate"]);
+    assert!(cfg.browser.allows_unattended("click"));
+    assert!(!cfg.browser.allows_unattended("navigate"));
+}

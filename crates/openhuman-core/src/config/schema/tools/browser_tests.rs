@@ -18,7 +18,8 @@ fn unattended_actions_default_to_none() {
 
 #[test]
 fn unattended_actions_parse_from_toml_and_default_when_absent() {
-    let parsed: BrowserConfig = toml::from_str(r#"unattended_actions = ["click", "press"]"#).unwrap();
+    let parsed: BrowserConfig =
+        toml::from_str(r#"unattended_actions = ["click", "press"]"#).unwrap();
     assert_eq!(parsed.unattended_actions, vec!["click", "press"]);
     let absent: BrowserConfig = toml::from_str("enabled = true").unwrap();
     assert!(absent.unattended_actions.is_empty());

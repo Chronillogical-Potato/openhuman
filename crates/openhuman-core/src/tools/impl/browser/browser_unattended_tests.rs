@@ -94,8 +94,15 @@ fn interactive_remote_and_unlabelled_turns_never_skip_the_gate() {
 async fn the_current_turn_origin_decides() {
     let _serial = ALLOW_PATH.lock().await;
     let browser = listing(&["press"]);
-    assert!(turn_origin::with_origin(cron(), async { allow_current(&browser, "press", "abc") }).await);
-    assert!(!turn_origin::with_origin(web_chat(), async { allow_current(&browser, "press", "abc") }).await);
+    assert!(
+        turn_origin::with_origin(cron(), async { allow_current(&browser, "press", "abc") }).await
+    );
+    assert!(
+        !turn_origin::with_origin(web_chat(), async {
+            allow_current(&browser, "press", "abc")
+        })
+        .await
+    );
     assert!(!allow_current(&browser, "press", "abc"));
 }
 
@@ -123,9 +130,11 @@ async fn a_listed_task_step_is_approved_for_cron_without_a_gate() {
 async fn an_unlisted_or_untrusted_task_step_still_needs_the_gate() {
     // With no interactive gate this errors; with one, the forced gate denies a
     // non-WebChat turn. Either way the step is not approved.
-    let unlisted =
-        turn_origin::with_origin(cron(), approve_task_action(&pending(), &listing(&["click"])))
-            .await;
+    let unlisted = turn_origin::with_origin(
+        cron(),
+        approve_task_action(&pending(), &listing(&["click"])),
+    )
+    .await;
     assert!(!matches!(unlisted, Ok(true)));
     let remote = turn_origin::with_origin(
         external_channel(),
@@ -164,9 +173,11 @@ async fn a_listed_direct_action_runs_for_cron_without_reading_the_page() {
     let _serial = ALLOW_PATH.lock().await;
     let client = offline_client(&["click"]);
     let session = SessionId::new("s-1");
-    let outcome =
-        turn_origin::with_origin(cron(), approve_browser_action(&client, &session, &click(), false))
-            .await;
+    let outcome = turn_origin::with_origin(
+        cron(),
+        approve_browser_action(&client, &session, &click(), false),
+    )
+    .await;
     assert!(outcome.is_ok(), "{outcome:?}");
 }
 
@@ -221,17 +232,26 @@ async fn an_allowed_action_is_logged_by_kind_and_digest_without_its_input() {
         value: "hunter2-password".into(),
     };
     let session = SessionId::new("s-1");
-    turn_origin::with_origin(cron(), approve_browser_action(&client, &session, &fill, false))
-        .await
-        .unwrap();
+    turn_origin::with_origin(
+        cron(),
+        approve_browser_action(&client, &session, &fill, false),
+    )
+    .await
+    .unwrap();
     let text = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
     let line = text
         .lines()
         .find(|line| line.contains("[browser] unattended action allowed"))
         .unwrap_or_else(|| panic!("no unattended log line in {text:?}"));
-    assert!(line.contains("action=\"fill\"") || line.contains("action=fill"), "{line}");
+    assert!(
+        line.contains("action=\"fill\"") || line.contains("action=fill"),
+        "{line}"
+    );
     assert!(line.contains("action_digest="), "{line}");
     assert!(line.contains("TrustedAutomation(Cron)"), "{line}");
-    assert!(!line.contains("hunter2-password") && !line.contains("#secret-field"), "{line}");
+    assert!(
+        !line.contains("hunter2-password") && !line.contains("#secret-field"),
+        "{line}"
+    );
     assert!(!line.contains("job-1"), "{line}");
 }

@@ -130,7 +130,9 @@ impl BrowserConfig {
     pub fn unknown_unattended_actions(&self) -> Vec<String> {
         self.unattended_actions
             .iter()
-            .filter(|listed| !UNATTENDED_BROWSER_ACTIONS.contains(&normalized_action(listed).as_str()))
+            .filter(|listed| {
+                !UNATTENDED_BROWSER_ACTIONS.contains(&normalized_action(listed).as_str())
+            })
             .cloned()
             .collect()
     }
