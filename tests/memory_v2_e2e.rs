@@ -272,7 +272,13 @@ impl Fixture {
             if done(&result) || std::time::Instant::now() >= deadline {
                 return result;
             }
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            // Never start a call the deadline leaves no time for: the sleep
+            // may cross it, and the last result is then the answer.
+            let pause = std::time::Duration::from_millis(100);
+            if std::time::Instant::now() + pause >= deadline {
+                return result;
+            }
+            tokio::time::sleep(pause).await;
         }
     }
 

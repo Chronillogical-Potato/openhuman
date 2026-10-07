@@ -89,7 +89,12 @@ pub async fn store_records(
             &config.workspace_dir,
             connection_id,
             &layout.root().to_string(),
-        );
+        )
+        .map_err(|error| {
+            MemoryError::Engine(format!(
+                "recording the connection's memory root failed: {error}"
+            ))
+        })?;
     }
     super::sync::store_all(
         config,
@@ -184,8 +189,9 @@ pub async fn forget_connection(
         Err(MemoryError::Off(_)) => return Ok(0),
         Err(error) => return Err(error),
     };
+    let recorded = super::roots::of(&config.workspace_dir, connection_id);
     let reaches = match toolkit {
-        Some(toolkit) => toolkit_reaches(config, connection_id, toolkit)?,
+        Some(toolkit) => toolkit_reaches(config, toolkit, &recorded)?,
         None => {
             tracing::warn!(
                 connection_id = %connection_id,
@@ -228,23 +234,23 @@ pub async fn forget_connection(
             .await?
             .forgotten;
     }
-    super::roots::drop_connection(&config.workspace_dir, connection_id);
+    super::roots::forget(&config.workspace_dir, connection_id, &recorded);
     Ok(forgotten)
 }
 
-/// `source:<toolkit>` under the current root and under every root
-/// `connection_id` filed items under.
+/// `source:<toolkit>` under the current root and under every `recorded`
+/// root.
 fn toolkit_reaches(
     config: &Config,
-    connection_id: &str,
     toolkit: &str,
+    recorded: &std::collections::BTreeSet<String>,
 ) -> MemoryResult<Vec<tinymemory_api::Reach>> {
     let source = crate::memory::brain::brain_source(
         crate::config::schema::MemorySourceKind::Composio,
         toolkit,
     );
     let current = super::layout_of(config, &source_id_for_toolkit(config, toolkit));
-    let mut roots = super::roots::of(&config.workspace_dir, connection_id);
+    let mut roots = recorded.clone();
     roots.insert(current.root().to_string());
     let mut reaches = Vec::with_capacity(roots.len());
     for root in roots {
