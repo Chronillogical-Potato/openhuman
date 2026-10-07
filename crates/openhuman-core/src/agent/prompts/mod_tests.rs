@@ -87,6 +87,8 @@ mod grounding_spec_check_tests;
 mod subagent_render_tests;
 #[path = "mod_tests_tools_sections_tests.rs"]
 mod tools_sections_tests;
+#[path = "mod_tests_user_files_reflections_tests.rs"]
+mod user_files_reflections_tests;
 
 #[test]
 fn tool_call_format_maps_to_the_dialect_and_harness_vocabulary() {
