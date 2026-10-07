@@ -536,7 +536,7 @@ pub(super) fn always(paused: bool) -> PauseCheck {
 }
 
 /// Waits until no import run is live for `config`'s workspace.
-async fn wait_until_no_live_run(config: &Config) {
+pub(super) async fn wait_until_no_live_run(config: &Config) {
     for _ in 0..400 {
         let live = RUNNING.lock().unwrap().contains(&config.workspace_dir);
         if !live {

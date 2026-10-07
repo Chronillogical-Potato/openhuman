@@ -5,7 +5,7 @@
 
 use super::tests::{
     after_document, always, billing, bind_failing, legacy_workspace, out_of_credits,
-    wait_until_settled,
+    wait_until_no_live_run, wait_until_settled,
 };
 use super::*;
 use crate::memory::error::INVALID_REQUEST;
@@ -409,19 +409,32 @@ async fn a_resumed_retry_stops_when_background_work_is_paused() {
     let paused: PauseCheck =
         std::sync::Arc::new(move || seen.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 0);
     assert!(resume_interrupted_with(&config, paused, billing(false)).await);
-    for _ in 0..200 {
-        if !RUNNING
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .contains(&config.workspace_dir)
-        {
-            break;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-    }
+    wait_until_no_live_run(&config).await;
     let file = read_file(&config.workspace_dir);
     assert_eq!(file.state.phase, ImportPhase::Running);
     assert!(file.retrying);
     assert_eq!(file.failed.len(), 1);
     assert!(stored(&engine, MetaFilter::default()).await.is_empty());
+}
+
+#[tokio::test]
+async fn retry_is_accepted_for_a_retry_the_app_quit_during() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    let engine = bind_reference(&config);
+    quit_mid_retry(&config);
+
+    // The user presses Retry before the background job got to it.
+    retry_failed(&config).await.unwrap();
+    let done = wait_until_settled(&config).await;
+    assert_eq!(
+        (done.phase, done.failed),
+        (ImportPhase::Done, 0),
+        "{done:?}"
+    );
+    assert!(stored(&engine, MetaFilter::default())
+        .await
+        .iter()
+        .any(|item| item.text.contains("oolong")));
 }
