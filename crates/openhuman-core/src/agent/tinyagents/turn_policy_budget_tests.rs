@@ -31,9 +31,15 @@ fn stream_timeout_env_overrides_parse() {
     assert_eq!(parse_stream_idle_timeout_ms(Some("30")), Some(30_000));
     assert_eq!(parse_stream_idle_timeout_ms(Some("0")), None);
     assert_eq!(parse_stream_idle_timeout_ms(Some("junk")), Some(120_000));
-    assert_eq!(parse_stream_first_event_timeout_ms(Some("45")), Some(45_000));
+    assert_eq!(
+        parse_stream_first_event_timeout_ms(Some("45")),
+        Some(45_000)
+    );
     assert_eq!(parse_stream_first_event_timeout_ms(Some("0")), None);
     assert_eq!(parse_stream_first_event_timeout_ms(None), None);
     assert_eq!(parse_max_consecutive_stream_idle_timeouts(Some("0")), None);
-    assert_eq!(parse_max_consecutive_stream_idle_timeouts(Some("2")), Some(2));
+    assert_eq!(
+        parse_max_consecutive_stream_idle_timeouts(Some("2")),
+        Some(2)
+    );
 }

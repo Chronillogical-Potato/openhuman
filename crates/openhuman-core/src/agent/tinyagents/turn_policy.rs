@@ -133,9 +133,7 @@ pub(super) fn parse_stream_first_event_timeout_ms(env_value: Option<&str>) -> Op
 
 /// Pure core of the idle-timeout breaker:
 /// `OPENHUMAN_MAX_CONSECUTIVE_STREAM_IDLE_TIMEOUTS`, `0` disables.
-pub(super) fn parse_max_consecutive_stream_idle_timeouts(
-    env_value: Option<&str>,
-) -> Option<usize> {
+pub(super) fn parse_max_consecutive_stream_idle_timeouts(env_value: Option<&str>) -> Option<usize> {
     let n = env_value
         .and_then(|v| v.trim().parse::<usize>().ok())
         .unwrap_or(DEFAULT_MAX_CONSECUTIVE_STREAM_IDLE_TIMEOUTS);
