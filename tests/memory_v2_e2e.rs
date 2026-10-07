@@ -1326,6 +1326,65 @@ async fn local_files_and_text_file_under_the_files_source() {
 }
 
 #[tokio::test]
+async fn legacy_brain_nodes_stay_readable_and_aliased_toolkits_are_one_source() {
+    let f = Fixture::new(true).await;
+
+    // A document at a per-format node from before (`source:pdf`) stays
+    // listed, searchable and forgettable beside `files`, until the
+    // migration re-files it.
+    let legacy = f
+        .ok(
+            "openhuman.memory_brain_ingest",
+            json!({ "text": "The old vendor code is PV-7023", "source": "pdf" }),
+        )
+        .await;
+    assert_eq!(legacy["source"], json!("pdf"), "{legacy}");
+    f.ok(
+        "openhuman.memory_brain_ingest",
+        json!({ "text": "The new vendor code is PV-9000" }),
+    )
+    .await;
+    let sources = f.ok("openhuman.memory_brain_sources", json!({})).await;
+    let mut listed: Vec<String> = sources["sources"]
+        .as_array()
+        .expect("sources")
+        .iter()
+        .map(|s| s["source"].as_str().unwrap_or_default().to_string())
+        .collect();
+    listed.sort();
+    assert_eq!(listed, ["files", "pdf"], "{sources}");
+    let found = f
+        .ok(
+            "openhuman.memory_brain_search",
+            json!({ "query": "vendor code", "source": "pdf" }),
+        )
+        .await;
+    assert_eq!(found["hits"].as_array().unwrap().len(), 1, "{found}");
+    let gone = f
+        .ok("openhuman.memory_brain_forget", json!({ "source": "pdf" }))
+        .await;
+    assert_eq!(gone["forgotten"], json!(1), "{gone}");
+
+    // A toolkit added under an alias is stored under the slug Composio uses,
+    // and adding it again under that slug is a duplicate.
+    let drive = f
+        .ok(
+            "openhuman.memory_sources_add",
+            json!({ "kind": "composio", "target": "Google_Drive" }),
+        )
+        .await;
+    assert_eq!(drive["source"]["target"], json!("googledrive"), "{drive}");
+    assert_eq!(
+        f.code(
+            "openhuman.memory_sources_add",
+            json!({ "kind": "composio", "target": "googledrive" })
+        )
+        .await,
+        "INVALID_REQUEST"
+    );
+}
+
+#[tokio::test]
 async fn brain_pack_preview_and_jobs_round_trip() {
     let f = Fixture::new(true).await;
 
