@@ -5304,7 +5304,7 @@ const messages: TranslationMap = {
   'connections.voiceAgents.use': 'ব্যবহার করুন',
   'connections.voiceAgents.connection': 'কীভাবে সংযোগ করবেন',
   'connections.voiceAgents.optionManaged': 'TinyHumans দ্বারা পরিচালিত',
-  'connections.voiceAgents.optionManagedDesc': 'TinyHumans-এর সাথে অন্তর্ভুক্ত। কোনো কী লাগবে না।',
+  'connections.voiceAgents.optionManagedDesc': 'কোনো কী বা সেটআপ লাগবে না।',
   'connections.voiceAgents.optionOwnKey': 'আপনার নিজের API কী',
   'connections.voiceAgents.optionOwnKeyDesc':
     'আপনার নিজের প্রদানকারী অ্যাকাউন্ট ও বিলিং ব্যবহার করে।',

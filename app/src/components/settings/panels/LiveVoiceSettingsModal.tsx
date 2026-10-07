@@ -226,17 +226,17 @@ const LiveVoiceSettingsModal = ({
                 <Check className="h-4 w-4" aria-hidden />
                 {t('connections.voiceAgents.badgeInUse')}
               </span>
-            ) : (
+            ) : provider.configured ? (
               <Button
                 size="sm"
                 variant="secondary"
                 analyticsId="live-voice-use-provider"
                 data-testid={`live-voice-use-${provider.id}`}
-                disabled={saving || !provider.configured}
+                disabled={saving}
                 onClick={() => onUse(provider.id)}>
                 {t('connections.voiceAgents.use')}
               </Button>
-            )}
+            ) : null}
           </div>
         </div>
         {(testBody || keyBody) && (

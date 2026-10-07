@@ -5429,7 +5429,7 @@ const messages: TranslationMap = {
   'connections.voiceAgents.use': 'Utiliser',
   'connections.voiceAgents.connection': 'Mode de connexion',
   'connections.voiceAgents.optionManaged': 'Géré par TinyHumans',
-  'connections.voiceAgents.optionManagedDesc': 'Inclus avec TinyHumans. Aucune clé requise.',
+  'connections.voiceAgents.optionManagedDesc': 'Aucune clé ni configuration requise.',
   'connections.voiceAgents.optionOwnKey': 'Votre propre clé API',
   'connections.voiceAgents.optionOwnKeyDesc':
     'Utilise votre propre compte fournisseur et sa facturation.',

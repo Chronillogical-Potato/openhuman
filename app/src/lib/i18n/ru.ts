@@ -5357,7 +5357,7 @@ const messages: TranslationMap = {
   'connections.voiceAgents.use': 'Использовать',
   'connections.voiceAgents.connection': 'Способ подключения',
   'connections.voiceAgents.optionManaged': 'Под управлением TinyHumans',
-  'connections.voiceAgents.optionManagedDesc': 'Входит в TinyHumans. Ключ не нужен.',
+  'connections.voiceAgents.optionManagedDesc': 'Ключ и настройка не нужны.',
   'connections.voiceAgents.optionOwnKey': 'Свой API-ключ',
   'connections.voiceAgents.optionOwnKeyDesc': 'Использует ваш аккаунт и оплату у провайдера.',
   'connections.voiceAgents.voiceSettings': 'Настройки голоса',

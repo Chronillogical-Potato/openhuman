@@ -5593,7 +5593,7 @@ const messages: TranslationMap = {
   'connections.voiceAgents.use': '使う',
   'connections.voiceAgents.connection': '接続方法',
   'connections.voiceAgents.optionManaged': 'TinyHumans が管理',
-  'connections.voiceAgents.optionManagedDesc': 'TinyHumans に含まれます。キーは不要です。',
+  'connections.voiceAgents.optionManagedDesc': 'キーも設定も不要です。',
   'connections.voiceAgents.optionOwnKey': '自分の API キー',
   'connections.voiceAgents.optionOwnKeyDesc': 'ご自身のプロバイダーアカウントと請求を使います。',
   'connections.voiceAgents.voiceSettings': '音声設定',

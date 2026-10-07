@@ -5256,8 +5256,7 @@ const messages: TranslationMap = {
   'connections.voiceAgents.use': '사용',
   'connections.voiceAgents.connection': '연결 방법',
   'connections.voiceAgents.optionManaged': 'TinyHumans에서 관리',
-  'connections.voiceAgents.optionManagedDesc':
-    'TinyHumans에 포함되어 있습니다. 키가 필요 없습니다.',
+  'connections.voiceAgents.optionManagedDesc': '키나 설정이 필요 없습니다.',
   'connections.voiceAgents.optionOwnKey': '내 API 키',
   'connections.voiceAgents.optionOwnKeyDesc': '본인의 제공업체 계정과 결제를 사용합니다.',
   'connections.voiceAgents.voiceSettings': '음성 설정',

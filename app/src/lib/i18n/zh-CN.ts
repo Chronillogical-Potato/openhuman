@@ -5017,7 +5017,7 @@ const messages: TranslationMap = {
   'connections.voiceAgents.use': '使用',
   'connections.voiceAgents.connection': '连接方式',
   'connections.voiceAgents.optionManaged': '由 TinyHumans 托管',
-  'connections.voiceAgents.optionManagedDesc': 'TinyHumans 内含，无需密钥。',
+  'connections.voiceAgents.optionManagedDesc': '无需密钥，也无需设置。',
   'connections.voiceAgents.optionOwnKey': '你自己的 API 密钥',
   'connections.voiceAgents.optionOwnKeyDesc': '使用你自己的服务商账户和计费。',
   'connections.voiceAgents.voiceSettings': '语音设置',

@@ -5348,7 +5348,7 @@ const messages: TranslationMap = {
   'connections.voiceAgents.use': 'Gunakan',
   'connections.voiceAgents.connection': 'Cara menghubungkan',
   'connections.voiceAgents.optionManaged': 'Dikelola oleh TinyHumans',
-  'connections.voiceAgents.optionManagedDesc': 'Termasuk di TinyHumans. Tidak perlu kunci.',
+  'connections.voiceAgents.optionManagedDesc': 'Tanpa kunci atau pengaturan.',
   'connections.voiceAgents.optionOwnKey': 'Kunci API sendiri',
   'connections.voiceAgents.optionOwnKeyDesc': 'Memakai akun dan penagihan penyedia milik Anda.',
   'connections.voiceAgents.voiceSettings': 'Pengaturan suara',

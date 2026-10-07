@@ -5388,7 +5388,7 @@ const messages: TranslationMap = {
   'connections.voiceAgents.use': 'Usa',
   'connections.voiceAgents.connection': 'Come connettersi',
   'connections.voiceAgents.optionManaged': 'Gestito da TinyHumans',
-  'connections.voiceAgents.optionManagedDesc': 'Incluso con TinyHumans. Nessuna chiave necessaria.',
+  'connections.voiceAgents.optionManagedDesc': 'Nessuna chiave né configurazione necessaria.',
   'connections.voiceAgents.optionOwnKey': 'La tua chiave API',
   'connections.voiceAgents.optionOwnKeyDesc': 'Usa il tuo account e la fatturazione del fornitore.',
   'connections.voiceAgents.voiceSettings': 'Impostazioni voce',

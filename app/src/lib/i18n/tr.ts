@@ -5313,7 +5313,7 @@ const messages: TranslationMap = {
   'connections.voiceAgents.use': 'Kullan',
   'connections.voiceAgents.connection': 'Bağlanma şekli',
   'connections.voiceAgents.optionManaged': 'TinyHumans tarafından yönetilir',
-  'connections.voiceAgents.optionManagedDesc': 'TinyHumans ile birlikte gelir. Anahtar gerekmez.',
+  'connections.voiceAgents.optionManagedDesc': 'Anahtar veya kurulum gerekmez.',
   'connections.voiceAgents.optionOwnKey': 'Kendi API anahtarın',
   'connections.voiceAgents.optionOwnKeyDesc':
     'Kendi sağlayıcı hesabını ve faturalandırmanı kullanır.',

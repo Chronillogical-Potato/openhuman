@@ -5403,7 +5403,7 @@ const messages: TranslationMap = {
   'connections.voiceAgents.use': 'Usar',
   'connections.voiceAgents.connection': 'Cómo conectar',
   'connections.voiceAgents.optionManaged': 'Gestionado por TinyHumans',
-  'connections.voiceAgents.optionManagedDesc': 'Incluido con TinyHumans. No necesitas clave.',
+  'connections.voiceAgents.optionManagedDesc': 'Sin clave ni configuración.',
   'connections.voiceAgents.optionOwnKey': 'Tu propia clave de API',
   'connections.voiceAgents.optionOwnKeyDesc': 'Usa tu propia cuenta y facturación del proveedor.',
   'connections.voiceAgents.voiceSettings': 'Ajustes de voz',

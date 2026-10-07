@@ -5208,7 +5208,7 @@ const messages: TranslationMap = {
   'connections.voiceAgents.use': 'استخدام',
   'connections.voiceAgents.connection': 'طريقة الاتصال',
   'connections.voiceAgents.optionManaged': 'تديره TinyHumans',
-  'connections.voiceAgents.optionManagedDesc': 'مضمّن مع TinyHumans. لا حاجة إلى مفتاح.',
+  'connections.voiceAgents.optionManagedDesc': 'لا حاجة إلى مفتاح أو إعداد.',
   'connections.voiceAgents.optionOwnKey': 'مفتاح API الخاص بك',
   'connections.voiceAgents.optionOwnKeyDesc': 'يستخدم حسابك وفوترتك لدى المزوّد.',
   'connections.voiceAgents.voiceSettings': 'إعدادات الصوت',

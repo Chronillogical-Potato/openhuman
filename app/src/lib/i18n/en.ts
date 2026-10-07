@@ -5583,7 +5583,7 @@ const en: TranslationMap = {
   'connections.voiceAgents.use': 'Use',
   'connections.voiceAgents.connection': 'How to connect',
   'connections.voiceAgents.optionManaged': 'Managed by TinyHumans',
-  'connections.voiceAgents.optionManagedDesc': 'Included with TinyHumans. No key needed.',
+  'connections.voiceAgents.optionManagedDesc': 'No key or setup needed.',
   'connections.voiceAgents.optionOwnKey': 'Your own API key',
   'connections.voiceAgents.optionOwnKeyDesc': 'Uses your own provider account and billing.',
   'connections.voiceAgents.voiceSettings': 'Voice settings',
