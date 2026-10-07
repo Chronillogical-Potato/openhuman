@@ -1,10 +1,10 @@
 use super::*;
 use crate::core::runtime::{CoreContext, DomainSet, SaasConfig};
 use crate::memory::lifecycle::jobs::enqueue;
-use tinymemory_tools::BackgroundJob;
 use crate::user_agents::layout::agent_config;
 use crate::user_agents::UserAgentId;
 use tinymemory_api::{ConsolidateRequest, ItemKind, Namespace, Reach};
+use tinymemory_tools::BackgroundJob;
 
 fn host(tmp: &tempfile::TempDir, idle_secs: u64) -> AgentHost {
     let mut saas = SaasConfig::new(tmp.path());
@@ -27,7 +27,10 @@ async fn nothing_to_do_does_nothing() {
     let id = UserAgentId::for_user(&format!("idle-{}", uuid::Uuid::new_v4())).unwrap();
     host.provision(&id).unwrap();
     assert_eq!(tick(&host).await, TickReport::default());
-    assert!(!host.is_open(&id), "an agent with no queued work is not opened");
+    assert!(
+        !host.is_open(&id),
+        "an agent with no queued work is not opened"
+    );
 }
 
 #[tokio::test]
@@ -46,7 +49,10 @@ async fn only_agents_with_queued_memory_jobs_are_run() {
 
     let report = tick(&host).await;
     assert_eq!(report.ran, 1, "{report:?}");
-    assert!(host.is_open(&busy), "the busy agent was opened to run its jobs");
+    assert!(
+        host.is_open(&busy),
+        "the busy agent was opened to run its jobs"
+    );
     assert!(!host.is_open(&quiet), "the quiet agent was left closed");
 }
 
