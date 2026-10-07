@@ -6,9 +6,9 @@
  * upstream:
  * - `cn` import path (`@/components/assistant-ui/lib/utils`), matching every
  *   other vendored element in this directory.
- * No hard-coded user-facing copy — every string (`label`, `meta`, `elapsed`,
- * `result`) is a caller-supplied prop, so there is nothing to route through
- * `useT()` here.
+ * - the screen-reader state label goes through `useT()` instead of echoing the
+ *   raw state id. Every other string (`label`, `meta`, `elapsed`, `result`) is a
+ *   caller-supplied prop.
  */
 import { cn } from '@/components/assistant-ui/lib/utils';
 import {
@@ -19,6 +19,7 @@ import {
   Loader2Icon,
   XIcon,
 } from 'lucide-react';
+import { useT } from '@/lib/i18n/I18nContext';
 import { Children, type ComponentProps, type ReactNode, useState } from 'react';
 
 import { mono, paper } from './surfaces';
@@ -116,7 +117,7 @@ export function TaskCard({
         onClick={toggle}
         className="hover:enabled:bg-foreground/[0.03] flex items-center gap-2.5 px-3.5 py-2.5 text-start transition-colors disabled:cursor-default">
         <TaskStateIcon state={state} />
-        <span className="sr-only">{state}</span>
+        <span className="sr-only">{t(`conversations.taskCard.state.${state}`)}</span>
         <span className="min-w-0 flex-1 truncate text-[13.5px]">{label}</span>
         {meta !== undefined && (
           <span className={cn(mono, 'text-foreground/35 max-w-24 shrink-0 truncate')}>{meta}</span>

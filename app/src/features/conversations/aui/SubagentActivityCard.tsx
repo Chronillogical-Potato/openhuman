@@ -149,6 +149,7 @@ export function SubagentActivityCard({ activity }: { activity: SubagentActivity 
       <div className="flex flex-col gap-2.5">
         {incomplete ? (
           <p
+            role="status"
             data-testid="subagent-incomplete"
             className="text-[12px] font-medium text-amber-800 dark:text-amber-200">
             {t('conversations.subagent.incompleteTitle')}
