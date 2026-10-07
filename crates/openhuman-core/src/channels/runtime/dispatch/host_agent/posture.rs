@@ -18,19 +18,50 @@ use crate::config::Config;
 /// The most a host agent may do on a turn from `origin`; `None` leaves the
 /// agent's own limits alone.
 pub(crate) fn tool_ceiling(origin: &AgentTurnOrigin) -> Option<PermissionLevel> {
-    let _ = origin;
-    None
+    match origin {
+        AgentTurnOrigin::ExternalChannel { .. } => Some(PermissionLevel::ReadOnly),
+        _ => None,
+    }
 }
 
 /// Cap `channel` at `ceiling` in this turn's `config`.
+///
+/// The session's tool-policy snapshot reads this map, so every tool on the
+/// belt -- built-in or host -- above the ceiling is denied before it runs,
+/// per call. Only ever narrows: an operator's `none` is kept.
 pub(crate) fn cap_channel(config: &mut Config, channel: &str, ceiling: PermissionLevel) {
-    let _ = (config, channel, ceiling);
+    let entry = config
+        .agent
+        .channel_permissions
+        .entry(channel.to_string())
+        .or_default();
+    if entry.trim().eq_ignore_ascii_case("none") {
+        return;
+    }
+    *entry = permission_token(ceiling).to_string();
+}
+
+/// The `channel_permissions` spelling of `level`.
+fn permission_token(level: PermissionLevel) -> &'static str {
+    match level {
+        PermissionLevel::None => "none",
+        PermissionLevel::ReadOnly => "readonly",
+        PermissionLevel::Write => "write",
+        PermissionLevel::Execute => "execute",
+        PermissionLevel::Dangerous => "dangerous",
+    }
 }
 
 /// `host` with every tool it builds refusing calls above `ceiling`.
 pub(crate) fn guard_host_tools(host: HostTools, ceiling: PermissionLevel) -> HostTools {
-    let _ = ceiling;
-    host
+    std::sync::Arc::new(move |turn| {
+        let mut belt = host(turn);
+        belt.tools = std::mem::take(&mut belt.tools)
+            .into_iter()
+            .map(|tool| Box::new(CeilingGuard::new(tool, ceiling)) as Box<dyn Tool>)
+            .collect();
+        belt
+    })
 }
 
 /// A tool that refuses calls above its ceiling instead of running them.
@@ -42,6 +73,29 @@ pub(crate) struct CeilingGuard {
 impl CeilingGuard {
     pub(crate) fn new(inner: Box<dyn Tool>, ceiling: PermissionLevel) -> Self {
         Self { inner, ceiling }
+    }
+
+    /// The refusal for a call with `args`, or `None` when it may run.
+    fn refusal(&self, args: &serde_json::Value) -> Option<tinytools::ToolResult> {
+        let required = self.inner.permission_level_with_args(args);
+        let effect = self.inner.external_effect_with_args(args);
+        if required <= self.ceiling && !effect {
+            return None;
+        }
+        let name = self.inner.name();
+        tracing::info!(
+            tool = name,
+            %required,
+            external_effect = effect,
+            ceiling = %self.ceiling,
+            "[channels::dispatch::host_agent] refused tool call on an external channel turn"
+        );
+        Some(tinytools::ToolResult::error(format!(
+            "Tool '{name}' is not available in this chat: messages here come from people \
+             outside this deployment, so actions that change anything (required: {required}, \
+             allowed: {}) are refused. Answer with what you can do without it.",
+            self.ceiling
+        )))
     }
 }
 

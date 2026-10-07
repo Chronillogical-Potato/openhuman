@@ -22,6 +22,9 @@ impl Tool for CeilingGuard {
         self.inner.parameters_schema()
     }
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        if let Some(refused) = self.refusal(&args) {
+            return Ok(refused);
+        }
         self.inner.execute(args).await
     }
     async fn execute_with_options(
@@ -29,6 +32,9 @@ impl Tool for CeilingGuard {
         args: Value,
         options: ToolCallOptions,
     ) -> anyhow::Result<ToolResult> {
+        if let Some(refused) = self.refusal(&args) {
+            return Ok(refused);
+        }
         self.inner.execute_with_options(args, options).await
     }
     async fn execute_with_context(
@@ -37,6 +43,9 @@ impl Tool for CeilingGuard {
         options: ToolCallOptions,
         context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
+        if let Some(refused) = self.refusal(&args) {
+            return Ok(refused);
+        }
         self.inner.execute_with_context(args, options, context).await
     }
     fn policy(&self) -> ToolPolicy {
@@ -69,11 +78,14 @@ impl Tool for CeilingGuard {
     fn is_concurrency_safe(&self, args: &Value) -> bool {
         self.inner.is_concurrency_safe(args)
     }
+    // The guard answers an external-effect call itself (by refusing it), so
+    // it reports none: the approval gate must not park a call that will be
+    // refused anyway.
     fn external_effect(&self) -> bool {
-        self.inner.external_effect()
+        false
     }
-    fn external_effect_with_args(&self, args: &Value) -> bool {
-        self.inner.external_effect_with_args(args)
+    fn external_effect_with_args(&self, _args: &Value) -> bool {
+        false
     }
     fn max_result_size_chars(&self) -> Option<usize> {
         self.inner.max_result_size_chars()
