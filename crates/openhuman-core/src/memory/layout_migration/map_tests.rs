@@ -169,3 +169,9 @@ fn a_hosts_root_is_kept_below_the_wire_root() {
         "a node outside the host's root is not its brain"
     );
 }
+
+#[cfg(feature = "flows")]
+#[test]
+fn the_workflow_tag_is_the_one_flows_writes() {
+    assert_eq!(FLOWS_TAG, crate::flows::FLOWS_TAG);
+}

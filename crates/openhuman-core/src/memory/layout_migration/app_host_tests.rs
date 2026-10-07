@@ -101,3 +101,22 @@ fn every_account_on_a_self_hosted_engine_shares_one_claim() {
     let hosted = signed_in(&tmp);
     assert!(AppHost.legacy_claim(&hosted).unwrap().is_none());
 }
+
+#[tokio::test]
+async fn the_switch_writes_the_migrated_persons_own_config_fresh() {
+    let tmp = tempfile::tempdir().unwrap();
+    let snapshot = signed_in(&tmp);
+    std::fs::create_dir_all(snapshot.config_path.parent().unwrap()).unwrap();
+    // A setting changed on disk after the run took its copy.
+    let mut later = snapshot.clone();
+    later.memory.agent_id = Some("changed-later".to_string());
+    later.save().await.unwrap();
+
+    AppHost.switch(&snapshot).await.unwrap();
+
+    let saved = Config::load_from_config_path(&snapshot.config_path, &snapshot.workspace_dir)
+        .await
+        .unwrap();
+    assert!(crate::memory::scope::layout_is_v3(&saved));
+    assert_eq!(saved.memory.agent_id.as_deref(), Some("changed-later"));
+}

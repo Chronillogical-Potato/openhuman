@@ -35,9 +35,10 @@ pub trait LayoutHost: Send + Sync {
     fn is_switched(&self, config: &Config) -> bool;
 
     /// Moves reads and writes to the per-user tree: persists the layout
-    /// setting and drops the cached engines. The real host awaits
-    /// `memory::scope::switch_to_v3()`, which loads the config fresh, so a
-    /// setting the user changed during a long migration is never reverted.
+    /// setting and drops the cached engines. The real host loads the migrated
+    /// person's own config file fresh, so a setting changed during a long
+    /// migration is never reverted and an account switch mid-move never
+    /// writes another person's config.
     ///
     /// # Errors
     ///

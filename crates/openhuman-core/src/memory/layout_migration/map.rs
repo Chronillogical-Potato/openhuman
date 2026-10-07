@@ -17,9 +17,13 @@
 use tinymemory_api::{ItemKind, Namespace, SegmentKind, StoreItem};
 use tinymemory_tools::MemoryLayout;
 
-use crate::flows::FLOWS_TAG;
 use crate::memory::brain::{file_into, legacy_brain_node};
 use crate::memory::error::MemoryResult;
+
+/// The tag every workflow item carries (`crate::flows::FLOWS_TAG`). Kept here
+/// rather than imported: legacy items carry it whatever features this build
+/// has, so placing them must not depend on the `flows` feature.
+const FLOWS_TAG: &str = "flows";
 
 /// Where workflow items go.
 #[derive(Clone, Copy)]

@@ -44,8 +44,10 @@ impl LayoutHost for AppHost {
         scope::layout_is_v3(config)
     }
 
-    async fn switch(&self, _config: &Config) -> MemoryResult<()> {
-        scope::switch_to_v3().await
+    async fn switch(&self, config: &Config) -> MemoryResult<()> {
+        // This person's own config file, loaded fresh: never the active
+        // account's (someone else's after an account switch mid-move).
+        scope::switch_to_v3(config).await
     }
 
     async fn free_now(&self, config: &Config) -> bool {
