@@ -179,13 +179,18 @@ pub(crate) fn locale_reply_directive(locale: &str) -> Option<String> {
     let language = match locale.trim() {
         "ar" => "Arabic",
         "bn" => "Bengali",
+        "de" => "German",
         "es" => "Spanish",
         "fr" => "French",
         "hi" => "Hindi",
         "id" => "Indonesian",
         "it" => "Italian",
+        "ja" => "Japanese",
+        "ko" => "Korean",
+        "pl" => "Polish",
         "pt" => "Portuguese",
         "ru" => "Russian",
+        "tr" => "Turkish",
         "zh-CN" | "zh" => "Simplified Chinese",
         _ => return None,
     };
