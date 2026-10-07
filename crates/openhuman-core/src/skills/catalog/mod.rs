@@ -24,7 +24,12 @@ pub mod store;
 #[cfg(feature = "skills")]
 pub mod tools;
 #[cfg(feature = "skills")]
+mod transport;
+#[cfg(feature = "skills")]
 pub mod types;
+
+#[cfg(feature = "skills")]
+pub use transport::ReqwestTransport;
 
 #[cfg(feature = "skills")]
 pub use schemas::{
