@@ -1133,6 +1133,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
           thread_id: 'asking-thread',
           request_id: 'cron:job-1:run-1',
           full_response: 'time to drink water',
+          persisted_message_id: 'agent:cron:job-1:run-1',
         });
       });
 
@@ -1144,6 +1145,30 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       );
       expect(threadApi.createNewThread).not.toHaveBeenCalled();
       expect(store.getState().thread.selectedThreadId).toBe('other-thread');
+    });
+
+    it('generates its own id for a real-thread proactive message the core did not persist', async () => {
+      store.dispatch(
+        loadThreads.fulfilled(
+          { threads: [{ id: 'real-thread', title: 'x', messageCount: 2 }] as never, count: 1 },
+          'req-id',
+          undefined
+        )
+      );
+      store.dispatch(setSelectedThread('real-thread'));
+      const listeners = renderProvider();
+
+      await act(async () => {
+        listeners.onProactiveMessage?.({
+          thread_id: 'real-thread',
+          request_id: 'turn-1',
+          full_response: 'first',
+        });
+      });
+
+      await waitFor(() => expect(threadApi.appendMessage).toHaveBeenCalled());
+      const sent = vi.mocked(threadApi.appendMessage).mock.calls.at(-1)?.[1] as { id: string };
+      expect(sent.id).not.toBe('agent:turn-1');
     });
 
     it('creates a new thread when no visible thread exists for proactive handoff', async () => {

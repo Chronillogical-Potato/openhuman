@@ -217,6 +217,7 @@ async fn deliver_to_web_thread(
         request_id: request_id.clone(),
         full_response: Some(text.to_string()),
         success: Some(true),
+        persisted_message_id: Some(crate::threads::store::run_reply_message_id(&request_id)),
         ..Default::default()
     });
 

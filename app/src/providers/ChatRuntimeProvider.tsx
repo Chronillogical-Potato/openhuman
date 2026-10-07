@@ -340,13 +340,17 @@ function deliveredReplyMessageId(event: {
  * Message id for a proactive message addressed to a real thread.
  *
  * Origin-bound cron delivery persists its reply into the conversation that
- * asked for it under `agent:<request_id>` before emitting `proactive_message`
- * with that thread id. Reusing the id collapses our append onto the core's
- * row. Synthetic `proactive:*` ids have no core row, so they keep generated ids.
+ * asked for it and names that row in `persisted_message_id` before emitting
+ * `proactive_message`. Reusing the id collapses our append onto the core's
+ * row. Without the field no row exists (a turn id is not unique per message),
+ * so a generated id is used.
  */
-function proactiveMessageId(event: { thread_id: string; request_id?: string }): string | undefined {
-  if (event.thread_id.startsWith('proactive:') || !event.request_id) return undefined;
-  return `agent:${event.request_id}`;
+function proactiveMessageId(event: {
+  thread_id: string;
+  persisted_message_id?: string;
+}): string | undefined {
+  if (event.thread_id.startsWith('proactive:')) return undefined;
+  return event.persisted_message_id || undefined;
 }
 
 /**
