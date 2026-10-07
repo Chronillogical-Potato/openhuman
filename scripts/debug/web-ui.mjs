@@ -189,6 +189,11 @@ async function main() {
   browser = await chromium.launch({
     headless: !opts.headed,
     args: ["--disable-dev-shm-usage"],
+    // Playwright's own signal handlers close the browser and exit the
+    // process, which would skip `shutdown` and leak the core and Vite.
+    handleSIGINT: false,
+    handleSIGTERM: false,
+    handleSIGHUP: false,
   });
   const context = await browser.newContext({ viewport: { width: 1300, height: 900 } });
   const browserLog = fs.createWriteStream(path.join(logDir, "browser.log"));
