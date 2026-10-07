@@ -333,8 +333,6 @@ pub(crate) fn spawn_progress_bridge(
         std::sync::Mutex<Option<super::turn_timing::TurnTimingSnapshot>>,
     > = std::sync::Arc::new(std::sync::Mutex::new(None));
     let timing_snapshot_for_task = timing_snapshot.clone();
-    // Scoped: every event this bridge publishes must carry the agent of the
-    // turn it reports on, or a SaaS user's stream would drop it.
     crate::core::runtime::spawn_scoped(async move {
         log::debug!(
             "[web_channel][bridge] spawned client_id={} thread_id={} request_id={} speak_reply={:?} source={:?} session_id={:?}",

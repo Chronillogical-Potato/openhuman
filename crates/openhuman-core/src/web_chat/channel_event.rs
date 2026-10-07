@@ -224,6 +224,15 @@ pub struct WebChannelEvent {
     pub superseded_by: Option<String>,
 }
 
+impl WebChannelEvent {
+    /// Whether a SaaS user agent's stream may carry this event: only one
+    /// stamped with that agent. An unstamped event (published outside any
+    /// agent scope) is dropped rather than guessed at.
+    pub fn belongs_to(&self, agent: &str) -> bool {
+        self.agent.as_deref() == Some(agent)
+    }
+}
+
 /// Time-to-first-visible timing summary for a completed turn. See
 /// `web_chat::turn_timing::TurnTiming`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

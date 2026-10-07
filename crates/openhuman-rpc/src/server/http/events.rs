@@ -118,7 +118,7 @@ pub(super) async fn events_handler(
                 return None;
             }
             if let Some(agent) = saas_agent.as_deref() {
-                if !openhuman_core::web_chat::event_belongs_to(&event, agent) {
+                if !event.belongs_to(agent) {
                     return None;
                 }
             }

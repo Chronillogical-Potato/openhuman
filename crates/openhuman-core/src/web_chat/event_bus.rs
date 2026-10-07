@@ -36,12 +36,6 @@ pub fn publish_web_channel_event(mut event: WebChannelEvent) {
     let _ = EVENT_BUS.send(event);
 }
 
-/// Whether a SaaS user agent's stream may carry `event`: only events stamped
-/// with that agent. An unstamped event (published outside any agent scope) is
-/// dropped rather than guessed at.
-pub fn event_belongs_to(event: &WebChannelEvent, agent: &str) -> bool {
-    event.agent.as_deref() == Some(agent)
-}
 
 static APPROVAL_SURFACE_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
 
