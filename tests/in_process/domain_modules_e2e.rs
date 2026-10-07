@@ -156,14 +156,22 @@ async fn target_domain_schemas_are_exposed_over_http_schema_catalog() {
 #[tokio::test]
 async fn legacy_memory_backend_is_off_and_persisted_through_json_rpc() {
     let _lock = env_lock_async().await;
-    let harness = setup_with_config(Some(
+    let harness = setup().await;
+    // A signed-out core reads the local user's config, not the top-level one.
+    let config_path = harness
+        ._tmp
+        .path()
+        .join(".openhuman/users/local/config.toml");
+    std::fs::create_dir_all(config_path.parent().expect("config dir")).expect("create config dir");
+    std::fs::write(
+        &config_path,
         r#"
 [memory]
 backend = "sqlite"
 embedding_model = "local-embedding"
 "#,
-    ))
-    .await;
+    )
+    .expect("write config");
 
     let engine = rpc(
         &harness.rpc_base,
@@ -190,7 +198,7 @@ embedding_model = "local-embedding"
     .await;
     assert_eq!(payload(&saved_config, "save migrated config"), &json!(true));
 
-    let saved = tokio::fs::read_to_string(harness._tmp.path().join(".openhuman/config.toml"))
+    let saved = tokio::fs::read_to_string(&config_path)
         .await
         .expect("read migrated config");
     let saved_config: toml::Value = toml::from_str(&saved).unwrap();
