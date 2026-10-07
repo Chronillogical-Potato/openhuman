@@ -204,10 +204,7 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       checks: [
         {
           name: "pnpm-install",
-          // ex63: also for a core change, so rust-core-coverage's mock backend
-          // (scripts/mock-api-server.mjs imports `ws`) can start when no
-          // frontend file changed. One install per VM: lanes share a checkout.
-          when: areas.frontend || areas.i18n || areas.scripts || (ex63 && core),
+          when: areas.frontend || areas.i18n || areas.scripts,
           run: "pnpm install --frozen-lockfile",
         },
         {
@@ -291,13 +288,6 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       targetDir: targetDir("cov"),
       env: covEnv,
       checks: [
-        // hosted: rust-cov has a runner of its own, so it installs the node
-        // deps the mock backend needs itself (ex63 reuses frontend's install).
-        {
-          name: "pnpm-install",
-          when: !ex63 && core,
-          run: "pnpm install --frozen-lockfile",
-        },
         {
           name: "test-modules",
           when: core,
@@ -313,10 +303,7 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
         {
           name: "rust-core-coverage",
           when: core,
-          needs: [
-            "test-modules",
-            ex63 ? "frontend:pnpm-install" : "pnpm-install",
-          ],
+          needs: ["test-modules"],
           // Doctests and tui coverage run on pushes to main instead (see above).
           // ex63: the core's unit tests run under cargo-nextest, one process
           // per test and in parallel (the guest image ships cargo-nextest).

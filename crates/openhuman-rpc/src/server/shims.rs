@@ -151,6 +151,10 @@ async fn run_server_with_services(
         builder = builder.port(port);
     }
 
+    // The desktop app and the CLI keep conversations in the classic on-disk
+    // layout; the core itself carries no storage. Installed before boot so
+    // its recovery sweep runs.
+    crate::session_store::install();
     let runtime = builder.build().await?;
     super::serve::serve(&runtime, ready_tx, shutdown_token).await
 }

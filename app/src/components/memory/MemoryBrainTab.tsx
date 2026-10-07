@@ -27,7 +27,6 @@ import { Alert, AlertDescription, Button, Card, ConfirmDialog } from '../ui';
 import { CenteredLoadingState } from '../ui/LoadingState';
 import MemoryBrainIngestDialog from './MemoryBrainIngestDialog';
 import MemoryBrainSearch from './MemoryBrainSearch';
-import MemoryErrorAlert from './MemoryErrorAlert';
 import { fill } from './memoryFormat';
 import { brainSourceLabel } from './memoryLifecycleLabels';
 import MemorySyncedSources from './MemorySyncedSources';
@@ -52,10 +51,10 @@ export default function MemoryBrainTab() {
       setError(null);
     } catch (err) {
       log('brain_sources failed: %o', err);
-      setError(memoryErrorMessage(err, t));
+      setError(memoryErrorMessage(err));
       setBrain(prev => prev ?? { root: '', sources: [], unfiled: 0 });
     }
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,13 +67,13 @@ export default function MemoryBrainTab() {
       .catch(err => {
         if (cancelled) return;
         log('brain_sources failed: %o', err);
-        setError(memoryErrorMessage(err, t));
+        setError(memoryErrorMessage(err));
         setBrain({ root: '', sources: [], unfiled: 0 });
       });
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, []);
 
   const ingest = async (req: BrainIngestRequest): Promise<boolean> => {
     setSaving(true);
@@ -92,7 +91,7 @@ export default function MemoryBrainTab() {
       return true;
     } catch (err) {
       log('brain_ingest failed: %o', err);
-      setAddError(memoryErrorMessage(err, t));
+      setAddError(memoryErrorMessage(err));
       return false;
     } finally {
       setSaving(false);
@@ -118,7 +117,7 @@ export default function MemoryBrainTab() {
       await reload();
     } catch (err) {
       log('brain_forget failed: %o', err);
-      setError(memoryErrorMessage(err, t));
+      setError(memoryErrorMessage(err));
       setForgetTarget(null);
     } finally {
       setSaving(false);
@@ -129,7 +128,11 @@ export default function MemoryBrainTab() {
 
   return (
     <div className="space-y-4 animate-fade-up" data-testid="memory-brain-tab">
-      {error !== null && <MemoryErrorAlert message={error} data-testid="memory-brain-error" />}
+      {error !== null && (
+        <Alert variant="destructive" data-testid="memory-brain-error">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
       {notice !== null && (
         <Alert variant="success" data-testid="memory-brain-notice">
           <AlertDescription>{notice}</AlertDescription>

@@ -71,66 +71,6 @@ pub(crate) fn provider_role_for_model_override(model_override: Option<&str>) -> 
     }
 }
 
-/// Build the in-memory config for one web-chat turn. Concrete picker values
-/// may include their provider (`ollama:model`, `huggingface:org/model`) while
-/// managed catalog ids use OpenRouter's `openrouter/...` form. The selected
-/// route belongs only to this clone; saved chat settings and sibling workload
-/// roles remain untouched.
-fn effective_session_config(
-    config: &Config,
-    model_override: Option<&str>,
-    temperature: Option<f64>,
-) -> Config {
-    let mut effective = config.clone();
-    if let Some(model) = model_override
-        .map(str::trim)
-        .filter(|model| !model.is_empty())
-    {
-        effective.default_model = Some(model.to_string());
-    }
-
-    // Resolve the effective model even when there was no per-turn override:
-    // persisted defaults must restore their provider after a restart too.
-    if let Some(model) = effective
-        .default_model
-        .as_deref()
-        .map(str::trim)
-        .filter(|model| crate::inference::provider::factory::is_raw_passthrough_model(model))
-    {
-        if model.starts_with("openrouter/") {
-            // The managed backend accepts catalog ids verbatim. This also
-            // clears a stale local/BYOK chat route from the effective clone.
-            effective.chat_provider = Some("openhuman".to_string());
-        } else if let Some((provider, model_suffix)) = model.split_once(':') {
-            let provider = provider.trim();
-            let local_route = tinyinference_local::profile::is_local_provider_string(model);
-            let built_in_route = matches!(provider, "claude-code" | "claude_agent_sdk");
-            if local_route || built_in_route {
-                // Keep the complete selected value for local and built-in routes.
-                effective.chat_provider = Some(model.to_string());
-            } else if let Some(entry) = effective
-                .cloud_providers
-                .iter()
-                .find(|entry| entry.slug.eq_ignore_ascii_case(provider))
-            {
-                // The factory matches configured slugs exactly; preserve its canonical slug
-                // while keeping the full selected model suffix, including extra colons.
-                effective.chat_provider = Some(format!("{}:{model_suffix}", entry.slug));
-            } else {
-                // Keep an unknown qualified selection on an invalid route so
-                // factory construction fails explicitly instead of silently
-                // using the previous chat provider.
-                effective.chat_provider = Some(model.to_string());
-            }
-        }
-    }
-
-    if let Some(temp) = temperature {
-        effective.default_temperature = temp;
-    }
-    effective
-}
-
 pub(super) fn build_session_agent(
     config: &Config,
     client_id: &str,
@@ -140,8 +80,14 @@ pub(super) fn build_session_agent(
     temperature: Option<f64>,
     locale: Option<&str>,
 ) -> Result<OpenHumanSessionHost, String> {
-    let effective = effective_session_config(config, model_override.as_deref(), temperature);
+    let mut effective = config.clone();
+    if let Some(model) = model_override {
+        effective.default_model = Some(model);
+    }
     let provider_role = provider_role_for_model_override(effective.default_model.as_deref());
+    if let Some(temp) = temperature {
+        effective.default_temperature = temp;
+    }
 
     log::info!(
         "[web-channel] routing chat turn to '{}' provider_role='{}' (client_id={}, thread_id={})",
@@ -270,12 +216,6 @@ pub(super) fn fingerprint_diff(
             prior.model_override, next.model_override
         ));
     }
-    if prior.effective_model != next.effective_model {
-        diff.push(format!(
-            "effective_model: {} -> {}",
-            prior.effective_model, next.effective_model
-        ));
-    }
     if prior.temperature != next.temperature {
         diff.push(format!(
             "temperature: {:?} -> {:?}",
@@ -318,15 +258,10 @@ pub(super) fn build_session_fingerprint(
     target_agent_id: String,
     provider_role: &str,
 ) -> SessionCacheFingerprint {
-    let effective = effective_session_config(config, model_override.as_deref(), temperature);
     SessionCacheFingerprint {
         model_override,
-        effective_model: crate::inference::provider::factory::resolve_model_for_hint(
-            &format!("hint:{provider_role}"),
-            &effective,
-        ),
         temperature,
-        provider_binding: crate::inference::provider::provider_for_role(provider_role, &effective),
+        provider_binding: crate::inference::provider::provider_for_role(provider_role, config),
         target_agent_id,
         autonomy_signature: autonomy_signature(config),
         model_registry_signature: model_registry_signature(config),
@@ -381,8 +316,7 @@ pub(crate) async fn checkout_session_agent(
 ) -> Result<CheckedOutSession, String> {
     let map_key = super::ops::key_for(thread_id);
     let target_agent_id = pick_target_agent_id(config);
-    let effective = effective_session_config(config, model_override.as_deref(), temperature);
-    let provider_role = provider_role_for_model_override(effective.default_model.as_deref());
+    let provider_role = provider_role_for_model_override(model_override.as_deref());
     let fingerprint = build_session_fingerprint(
         config,
         model_override.clone(),
@@ -517,7 +451,3 @@ pub(crate) async fn checkin_session_agent_if_vacant(
 #[cfg(test)]
 #[path = "session_checkout_tests.rs"]
 mod session_checkout_tests;
-
-#[cfg(test)]
-#[path = "session_routing_tests.rs"]
-mod session_routing_tests;

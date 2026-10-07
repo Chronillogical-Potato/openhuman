@@ -188,6 +188,13 @@ desktop app and CLI use, resolved the usual way
 (`OPENHUMAN_WORKSPACE`, `active_user.toml`, `~/.openhuman/...`); an inherited
 workspace is the operator's, so the harness will not copy skills into it.
 
+`Workspace::stateless()` keeps nothing durable on disk: every agent's
+transcripts, turn journal, run status, goals and todos go through the
+runtime's session store (`RuntimeBuilder::session_store`, required), a
+`SessionStoreProvider` the host implements over its own database and scopes
+by agent id. It is the shape for a cloud host serving many users from one
+process; see the embed crate's README, "Conversations in a host store".
+
 ## Tool scopes and sandbox modes
 
 `AgentDefinitionSpec::tools(ToolScopeSpec::Wildcard)` exposes every

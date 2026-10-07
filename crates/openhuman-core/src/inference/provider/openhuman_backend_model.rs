@@ -170,7 +170,9 @@ impl OpenHumanBackendModel {
     }
 
     fn resolve_bearer(&self) -> anyhow::Result<String> {
-        use crate::security::credentials::session_support::classify_session_token;
+        use crate::security::credentials::session_support::{
+            classify_session_token, SessionTokenCheck,
+        };
 
         // A stored API key (library runtime) is the bearer outright: the
         // OpenAI-compatible managed endpoint accepts it as `Bearer <key>`,
@@ -215,8 +217,23 @@ impl OpenHumanBackendModel {
         // stored token and let the 401 come back — but an expired session can
         // also surface upstream as a misleading "model unavailable", which is a
         // core symptom of #5503 (all tiers "die" over a long session). Failing
-        // fast as `session_expired` routes the user to re-auth instead.
-        managed_bearer(classify_session_token(profile.as_ref(), chrono::Utc::now()))
+        // fast as `session_expired` routes the user to re-auth instead. Offline
+        // / local sessions (`is_local_session_token`) and `exp`-less tokens
+        // carry no recorded expiry, so `classify_session_token` returns `Live`
+        // for them — their behaviour is unchanged and the post-call 401 net
+        // still covers a server-side revocation.
+        match classify_session_token(profile.as_ref(), chrono::Utc::now()) {
+            SessionTokenCheck::Live(token) => Ok(token),
+            SessionTokenCheck::Expired => {
+                maybe_publish_local_session_expiry();
+                anyhow::bail!(
+                    "SESSION_EXPIRED: backend session token expired locally — re-authentication required"
+                )
+            }
+            SessionTokenCheck::Absent => {
+                anyhow::bail!("No backend session: store a JWT via auth (app-session)")
+            }
+        }
     }
 
     /// The managed OpenAI-compatible endpoint, from the installed backend
@@ -492,45 +509,6 @@ fn with_thread_id(request: ModelRequest, thread_id: Option<&str>) -> ModelReques
         );
     }
     request.with_provider_options(options)
-}
-
-/// The bearer a classified app-session token yields for managed inference.
-///
-/// Separate from [`OpenHumanBackendModel::resolve_bearer`] so the decision is
-/// testable without an on-disk auth profile.
-///
-/// `exp`-less tokens carry no recorded expiry, so `classify_session_token`
-/// reports them `Live`; the offline local session is one of those, and it
-/// authenticates no TinyHumans account. Sending it anyway earned a backend
-/// `401 "Invalid token"`, which published `SessionExpired` and told a user who
-/// was signed in locally that their session had expired (#6932). Refusing here
-/// mirrors the arm `resolve_backend_credential` already applies to every
-/// backend REST caller, and keeps the local credential intact.
-fn managed_bearer(
-    check: crate::security::credentials::session_support::SessionTokenCheck,
-) -> anyhow::Result<String> {
-    use crate::security::credentials::session_support::{
-        is_local_session_token, SessionTokenCheck, LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE,
-    };
-
-    match check {
-        SessionTokenCheck::Live(token) if is_local_session_token(&token) => {
-            log::debug!(
-                "[providers][openhuman-backend] refusing managed inference for the offline local session"
-            );
-            anyhow::bail!(LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE)
-        }
-        SessionTokenCheck::Live(token) => Ok(token),
-        SessionTokenCheck::Expired => {
-            maybe_publish_local_session_expiry();
-            anyhow::bail!(
-                "SESSION_EXPIRED: backend session token expired locally — re-authentication required"
-            )
-        }
-        SessionTokenCheck::Absent => {
-            anyhow::bail!("No backend session: store a JWT via auth (app-session)")
-        }
-    }
 }
 
 /// Publish a `SessionExpired` event when the local `exp` precheck in

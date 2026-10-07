@@ -1,12 +1,11 @@
 import { configureStore } from '@reduxjs/toolkit';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { I18nProvider } from '../../../lib/i18n/I18nContext';
 import type { Locale } from '../../../lib/i18n/types';
-import { CoreStateContext } from '../../../providers/coreStateContext';
 import localeReducer from '../../../store/localeSlice';
 import CustomSearchPage from './CustomSearchPage';
 
@@ -43,12 +42,9 @@ function renderPage() {
   return render(
     <Provider store={store}>
       <MemoryRouter>
-        <CoreStateContext.Provider
-          value={{ snapshot: { sessionToken: 'header.payload.local' } } as never}>
-          <I18nProvider>
-            <CustomSearchPage />
-          </I18nProvider>
-        </CoreStateContext.Provider>
+        <I18nProvider>
+          <CustomSearchPage />
+        </I18nProvider>
       </MemoryRouter>
     </Provider>
   );
@@ -60,19 +56,11 @@ describe('CustomSearchPage', () => {
     setDraftMock.mockReset();
   });
 
-  it('renders the configuration panel directly with no default/configure chooser', () => {
+  it('forces configure mode and hides the default/configure chooser for local sessions', () => {
     renderPage();
 
     expect(screen.getByTestId('search-panel')).toBeInTheDocument();
     expect(screen.queryByTestId('onboarding-custom-search-step-default')).not.toBeInTheDocument();
     expect(screen.queryByTestId('onboarding-custom-search-step-configure')).not.toBeInTheDocument();
-  });
-
-  it('skip navigates to the vault step without requiring a key', () => {
-    renderPage();
-
-    fireEvent.click(screen.getByTestId('onboarding-search-skip'));
-
-    expect(navigateMock).toHaveBeenCalledWith('/onboarding/custom/vault');
   });
 });

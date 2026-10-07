@@ -5,23 +5,7 @@ use crate::security::approval::{ApprovalGate, GateOutcome};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
-use tinycomputer_bus::agent::{TaskStatus, TaskView};
 use tinycomputer_bus::browser::{Action, LocateBy, Locator, ScrollDirection, Target, WaitState};
-
-/// What the host adds to a task report the agent cannot act on alone: a
-/// task that failed because Chrome was not found says where the user sets
-/// its path, rather than leaving the agent to install a browser.
-pub(super) fn host_hint(view: &TaskView) -> Option<&'static str> {
-    match &view.status {
-        TaskStatus::Failed { reason, hint, .. }
-            if crate::modules::browser::chrome_not_found(reason)
-                || crate::modules::browser::chrome_not_found(hint) =>
-        {
-            Some(crate::modules::browser::CHROME_NOT_FOUND_HINT)
-        }
-        _ => None,
-    }
-}
 
 pub(super) fn task_inputs(args: &Value) -> anyhow::Result<BTreeMap<String, String>> {
     args["inputs"].as_object().map_or_else(

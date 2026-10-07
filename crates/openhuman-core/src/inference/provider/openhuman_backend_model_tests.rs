@@ -360,8 +360,163 @@ async fn probe_readiness_fails_open_on_timeout_or_5xx() {
     );
 }
 
-#[path = "openhuman_backend_model_reasoning_tests.rs"]
-mod reasoning_tests;
+// ── reasoning-off hint ───────────────────────────────────────────────────
+
+#[test]
+fn reasoning_hint_becomes_disabled_reasoning_on_the_managed_wire() {
+    let request = apply_reasoning_hint(without_reasoning(ModelRequest::new(vec![Message::user(
+        "hi",
+    )])));
+    assert_eq!(
+        request.provider_options["reasoning"],
+        serde_json::json!({ "enabled": false })
+    );
+}
+
+#[test]
+fn no_hint_leaves_provider_options_untouched() {
+    let request = apply_reasoning_hint(ModelRequest::new(vec![Message::user("hi")]));
+    assert!(request.provider_options.get("reasoning").is_none());
+}
+
+#[test]
+fn request_reasoning_effort_becomes_the_managed_reasoning_object() {
+    use tinyinference_llm::model::{ReasoningConfig, ReasoningEffort};
+    let request = apply_reasoning_hint(
+        ModelRequest::new(vec![Message::user("hi")])
+            .with_reasoning(ReasoningConfig::effort(ReasoningEffort::High)),
+    );
+    assert_eq!(
+        request.provider_options["reasoning"],
+        serde_json::json!({ "effort": "high" })
+    );
+    assert!(
+        request.reasoning.is_none(),
+        "the neutral field is consumed so the transport sends no second `reasoning_effort`"
+    );
+}
+
+#[test]
+fn request_reasoning_none_disables_reasoning_on_the_managed_wire() {
+    use tinyinference_llm::model::{ReasoningConfig, ReasoningEffort};
+    let request = apply_reasoning_hint(
+        ModelRequest::new(vec![Message::user("hi")])
+            .with_reasoning(ReasoningConfig::effort(ReasoningEffort::None)),
+    );
+    assert_eq!(
+        request.provider_options["reasoning"],
+        serde_json::json!({ "enabled": false })
+    );
+}
+
+#[test]
+fn request_reasoning_budget_becomes_max_tokens() {
+    use tinyinference_llm::model::{ReasoningConfig, ReasoningEffort};
+    let request = apply_reasoning_hint(
+        ModelRequest::new(vec![Message::user("hi")]).with_reasoning(ReasoningConfig {
+            effort: Some(ReasoningEffort::High),
+            budget_tokens: Some(8_000),
+            summary: None,
+        }),
+    );
+    assert_eq!(
+        request.provider_options["reasoning"],
+        serde_json::json!({ "max_tokens": 8000 })
+    );
+}
+
+#[test]
+fn suggestion_off_hint_wins_over_request_reasoning() {
+    use tinyinference_llm::model::{ReasoningConfig, ReasoningEffort};
+    let request = apply_reasoning_hint(
+        without_reasoning(ModelRequest::new(vec![Message::user("hi")]))
+            .with_reasoning(ReasoningConfig::effort(ReasoningEffort::Low)),
+    );
+    assert_eq!(
+        request.provider_options["reasoning"],
+        serde_json::json!({ "enabled": false })
+    );
+}
+
+#[test]
+fn explicit_reasoning_option_wins_over_the_hint() {
+    let request = without_reasoning(ModelRequest::new(vec![Message::user("hi")]))
+        .with_provider_options(serde_json::json!({ "reasoning": { "effort": "high" } }));
+    let request = apply_reasoning_hint(request);
+    assert_eq!(
+        request.provider_options["reasoning"],
+        serde_json::json!({ "effort": "high" })
+    );
+}
+
+/// Captures the JSON body of every chat-completions request it receives.
+async fn spawn_capturing_chat_server() -> (String, std::sync::Arc<std::sync::Mutex<Vec<Value>>>) {
+    let bodies = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let seen = bodies.clone();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind");
+    let addr = listener.local_addr().expect("local_addr").to_string();
+    let app = axum::Router::new().route(
+        "/openai/v1/chat/completions",
+        axum::routing::post(move |axum::Json(body): axum::Json<Value>| {
+            let seen = seen.clone();
+            async move {
+                seen.lock().unwrap().push(body);
+                axum::Json(serde_json::json!({
+                    "id": "chatcmpl-capture",
+                    "object": "chat.completion",
+                    "created": 1,
+                    "model": "reasoning-v1",
+                    "choices": [{
+                        "index": 0,
+                        "message": { "role": "assistant", "content": "[]" },
+                        "finish_reason": "stop"
+                    }],
+                    "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 }
+                }))
+            }
+        }),
+    );
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.expect("serve");
+    });
+    (addr, bodies)
+}
+
+#[tokio::test]
+async fn managed_call_sends_reasoning_disabled_only_when_hinted() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    seed_app_session(tmp.path());
+    let (addr, bodies) = spawn_capturing_chat_server().await;
+    let backend = backend_pointed_at(&addr, tmp.path());
+
+    backend
+        .invoke(
+            &(),
+            without_reasoning(ModelRequest::new(vec![Message::user("suggest")])),
+        )
+        .await
+        .expect("hinted call");
+    backend
+        .invoke(&(), ModelRequest::new(vec![Message::user("chat")]))
+        .await
+        .expect("plain call");
+
+    let bodies = bodies.lock().unwrap();
+    assert_eq!(bodies.len(), 2);
+    assert_eq!(
+        bodies[0]["reasoning"],
+        serde_json::json!({ "enabled": false })
+    );
+    assert!(
+        bodies[1].get("reasoning").is_none(),
+        "an unhinted call must not change reasoning: {}",
+        bodies[1]
+    );
+    // The hint itself never reaches the wire.
+    assert!(!bodies[0].to_string().contains("openhuman_reasoning_off"));
+}
 
 // ── shared pooled client (time to first token) ──────────────────────────
 
@@ -429,8 +584,16 @@ async fn consecutive_managed_calls_reuse_one_connection() {
     );
 }
 
+// ── resolve_bearer local-expiry precheck (#5503, part e) ───────────────
+
 #[test]
 fn resolve_bearer_fast_fails_session_expired_on_expired_token() {
+    // An app-session JWT whose recorded `exp` is in the past must fail the
+    // precheck as a `SESSION_EXPIRED` sentinel BEFORE any request is built —
+    // so the web-chat classifier routes it to `session_expired` (actionable
+    // re-auth) instead of a doomed request that can surface as a misleading
+    // "model unavailable" (#5503). No backend is stood up: a correct
+    // precheck never reaches the network.
     let tmp = tempfile::TempDir::new().unwrap();
     let past = (chrono::Utc::now() - chrono::Duration::hours(1)).to_rfc3339();
     seed_app_session_with_expiry(tmp.path(), &past);
@@ -452,6 +615,8 @@ fn resolve_bearer_fast_fails_session_expired_on_expired_token() {
 
 #[test]
 fn resolve_bearer_returns_token_when_expiry_in_future() {
+    // A recorded `exp` comfortably in the future resolves normally — the
+    // precheck only rejects the past-expiry case.
     let tmp = tempfile::TempDir::new().unwrap();
     let future = (chrono::Utc::now() + chrono::Duration::hours(1)).to_rfc3339();
     seed_app_session_with_expiry(tmp.path(), &future);
@@ -462,6 +627,8 @@ fn resolve_bearer_returns_token_when_expiry_in_future() {
         .expect("a live (future-exp) managed JWT must resolve");
     assert_eq!(token, "test.session.jwt");
 }
+
+// ── managed-bearer transport safety for a stored API key (CWE-319) ─────
 
 fn backend_with_api_key(api_url: &str, dir: &std::path::Path) -> OpenHumanBackendModel {
     crate::security::credentials::api_key::store_api_key_in(dir, false, "th_test_key")
@@ -518,6 +685,8 @@ fn resolve_bearer_rejects_foreign_https_for_api_key() {
 
 #[test]
 fn resolve_bearer_sends_a_stored_api_key_over_plain_loopback() {
+    // Plain HTTP to loopback stays allowed — the same local-testing
+    // allowance `openhuman_embed::turn::is_safe_endpoint_for_bearer` makes.
     let tmp = tempfile::TempDir::new().unwrap();
     let backend = backend_with_api_key("http://127.0.0.1:9999", tmp.path());
 
@@ -529,6 +698,10 @@ fn resolve_bearer_sends_a_stored_api_key_over_plain_loopback() {
 
 #[test]
 fn resolve_bearer_returns_token_for_exp_less_offline_session() {
+    // Offline / local sessions record no `exp`, so the precheck falls
+    // through to presence-only and their behaviour is unchanged (the
+    // post-call 401 net still covers a server-side revocation). Guards the
+    // #5503 precheck against breaking the offline path.
     let tmp = tempfile::TempDir::new().unwrap();
     seed_app_session(tmp.path());
     let backend = backend_pointed_at("127.0.0.1:9", tmp.path());
@@ -538,10 +711,5 @@ fn resolve_bearer_returns_token_for_exp_less_offline_session() {
         .expect("an exp-less offline session must resolve (presence-only)");
     assert_eq!(token, "test.session.jwt");
 }
-#[path = "openhuman_backend_model_auth_tests.rs"]
-mod auth_tests;
 #[path = "openhuman_backend_model_endpoint_tests.rs"]
 mod endpoint_tests;
-
-#[path = "openhuman_backend_model_offline_session_tests.rs"]
-mod offline_session_tests;

@@ -30,9 +30,8 @@ import {
   memoryItemsList,
   type PathStep,
 } from '../../services/api/memoryApi';
-import { Button, Card, NativeSelect } from '../ui';
+import { Alert, AlertDescription, Button, Card, NativeSelect } from '../ui';
 import { CenteredLoadingState } from '../ui/LoadingState';
-import MemoryErrorAlert from './MemoryErrorAlert';
 import { facetLabel, facetValueLabel, isMonoFacet, nextFacet } from './memoryFacetLabels';
 import { fill } from './memoryFormat';
 import MemoryHitRow from './MemoryHitRow';
@@ -73,12 +72,12 @@ export default function MemoryExplorerTab() {
       .catch(err => {
         if (cancelled) return;
         log('explore failed: %o', err);
-        setError(memoryErrorMessage(err, t));
+        setError(memoryErrorMessage(err));
       });
     return () => {
       cancelled = true;
     };
-  }, [facet, path, reloadKey, t]);
+  }, [facet, path, reloadKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,13 +90,13 @@ export default function MemoryExplorerTab() {
       .catch(err => {
         if (cancelled) return;
         log('list failed: %o', err);
-        setError(memoryErrorMessage(err, t));
+        setError(memoryErrorMessage(err));
         setItems([]);
       });
     return () => {
       cancelled = true;
     };
-  }, [path, reloadKey, t]);
+  }, [path, reloadKey]);
 
   const goTo = useCallback((next: PathStep[]) => {
     setError(null);
@@ -115,7 +114,7 @@ export default function MemoryExplorerTab() {
       setItems(prev => [...(prev ?? []), ...(next.items ?? [])]);
       setCursor(next.next_cursor ?? null);
     } catch (err) {
-      setError(memoryErrorMessage(err, t));
+      setError(memoryErrorMessage(err));
     } finally {
       setLoadingMore(false);
     }
@@ -160,14 +159,21 @@ export default function MemoryExplorerTab() {
       </nav>
 
       {error !== null && (
-        <MemoryErrorAlert
-          message={error}
-          data-testid="memory-explorer-error"
-          onRetry={() => {
-            setError(null);
-            setReloadKey(k => k + 1);
-          }}
-        />
+        <Alert variant="destructive" data-testid="memory-explorer-error">
+          <AlertDescription>
+            <span>{error}</span>{' '}
+            <Button
+              type="button"
+              variant="tertiary"
+              size="xs"
+              onClick={() => {
+                setError(null);
+                setReloadKey(k => k + 1);
+              }}>
+              {t('common.retry')}
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       <Card

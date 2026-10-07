@@ -29,7 +29,6 @@ import {
   canUseManaged,
   directNeedsSetup,
   hasBaseUrl,
-  isStrandedManaged,
   rolesSummary,
   SearchProviderSwatch,
   STATUS_VARIANT,
@@ -53,8 +52,6 @@ interface Props {
   managedUnavailable: boolean;
   updateProvider: (id: string, patch: SearchProviderUpdate) => Promise<boolean>;
   t: Translate;
-  /** Wizard mode: the Routing/Websites tabs are hidden, so do not cite them. */
-  hideTabChrome?: boolean;
 }
 
 /** The secondary line under a connected provider's name. */
@@ -73,18 +70,11 @@ const SearchPanelProviders = ({
   saving,
   managedUnavailable,
   updateProvider,
-  hideTabChrome = false,
   t,
 }: Props) => {
   const [dialog, setDialog] = useState<DialogState | null>(null);
-  // A provider enabled only over the managed route is not connected when this
-  // session has no account behind that route — see `isStrandedManaged`.
-  const connected = settings.providers.filter(
-    p => p.enabled && !isStrandedManaged(p, managedUnavailable)
-  );
-  const available = settings.providers.filter(
-    p => !p.enabled || isStrandedManaged(p, managedUnavailable)
-  );
+  const connected = settings.providers.filter(p => p.enabled);
+  const available = settings.providers.filter(p => !p.enabled);
   const viaTinyHumans = available.filter(p => canUseManaged(p, managedUnavailable));
   const ownKey = available.filter(p => !canUseManaged(p, managedUnavailable));
   const dialogProvider = dialog ? settings.providers.find(p => p.id === dialog.id) : undefined;
@@ -187,10 +177,7 @@ const SearchPanelProviders = ({
     <div className="flex w-full flex-col gap-4">
       <ProviderGroup
         title={t('settings.search.connectedTitle')}
-        /* The copy ends "the Routing tab decides which one is tried first".
-           The onboarding wizard hides that tab, so it points at something the
-           reader cannot see. */
-        description={hideTabChrome ? undefined : t('settings.search.connectedDesc')}
+        description={t('settings.search.connectedDesc')}
         card
         data-testid="search-providers">
         {connected.length === 0 && (

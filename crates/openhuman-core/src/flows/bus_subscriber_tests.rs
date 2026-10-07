@@ -361,11 +361,6 @@ async fn digest_writes_run_digest_entry_for_completed_run() {
     let entry = &digests[0];
     assert_eq!(entry.meta.source.kind, tinymemory_api::SourceKind::Agent);
     assert!(entry.meta.tags.contains(&crate::flows::flow_tag("f-ok")));
-    assert_eq!(
-        entry.meta.derive,
-        Some(false),
-        "nothing derived from a digest"
-    );
     assert!(entry.text.contains("f-ok"));
     assert!(entry.text.contains("completed"));
     assert!(entry.text.contains("n1"));

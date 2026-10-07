@@ -37,13 +37,3 @@ fn resolve_script_path_rejects_escapes() {
         std::path::Path::new("/ws/scripts/run.py")
     );
 }
-
-/// `python_exec` clears the child environment, so its allow-list must carry the
-/// Windows process-bootstrap set — a child without them fails to start.
-#[test]
-fn safe_env_vars_cover_windows_bootstrap() {
-    crate::agent::platform_shell::assert_forwards_windows_bootstrap(
-        SAFE_ENV_VARS,
-        "python_exec::SAFE_ENV_VARS",
-    );
-}

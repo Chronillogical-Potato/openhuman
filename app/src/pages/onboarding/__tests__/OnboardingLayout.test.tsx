@@ -15,12 +15,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import socketReducer from '../../../store/socketSlice';
 import threadReducer from '../../../store/threadSlice';
-import { primeActiveUserId } from '../../../store/userScopedStorage';
 import { useOnboardingContext } from '../OnboardingContext';
-
-// The layout parks its draft in userScopedStorage, whose reads and writes wait
-// on the boot-time prime that main.tsx performs in the real app.
-primeActiveUserId('test-user');
 
 // ── Module-level mocks ─────────────────────────────────────────────────────
 
@@ -177,17 +172,6 @@ describe('OnboardingLayout — Joyride walkthrough integration (#1123)', () => {
 
     // [#1123] Welcome thread creation is no longer part of the flow
     expect(mockCreateNewThreadArg).not.toHaveBeenCalled();
-  });
-
-  it('clears the persisted onboarding draft on completion', async () => {
-    localStorage.setItem('test-user:onboarding_draft', JSON.stringify({ connectedSources: [] }));
-    await setupLayout();
-
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('complete-btn'));
-    });
-
-    expect(localStorage.getItem('test-user:onboarding_draft')).toBeNull();
   });
 
   it('calls setOnboardingCompletedFlag(true) during completeAndExit', async () => {

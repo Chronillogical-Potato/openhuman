@@ -184,9 +184,7 @@ pub enum Selection {
 }
 
 /// Runs the selected jobs. Returns the runs it recorded. A job that fails is
-/// kept with its error and retried on a later run, up to a few attempts; an
-/// account-wide refusal does not count as one. The run that gives up says so
-/// in its reason.
+/// kept with its error and retried on a later run, up to a few attempts.
 pub async fn run(config: &Config, selection: Selection) -> MemoryResult<Vec<JobRun>> {
     let bound = engine::resolve(config).engine()?;
     let _guard = LOCK.lock().await;
@@ -268,31 +266,19 @@ pub async fn run(config: &Config, selection: Selection) -> MemoryResult<Vec<JobR
                 );
             }
             Err(error) => {
-                // A refusal of the whole account (no credits, a rejected
-                // credential, an unreachable engine) says nothing about the
-                // job, so it keeps its attempts and waits: dropping it would
-                // leave a permanent gap in the beliefs (#6718).
-                let account_wide = MemoryError::from(error.clone()).is_account_wide();
-                if !account_wide {
-                    queued.attempts += 1;
-                }
+                queued.attempts += 1;
                 queued.last_error = Some(error.to_string());
                 record.outcome = "failed".to_string();
+                record.reason = Some(error.to_string());
                 tracing::warn!(
                     id = %queued.id,
                     job = %name,
                     attempts = queued.attempts,
-                    account_wide,
                     %error,
                     "[memory:jobs] run failed"
                 );
                 if queued.attempts < MAX_ATTEMPTS {
-                    record.reason = Some(error.to_string());
                     queue.pending.push(queued);
-                } else {
-                    record.reason = Some(format!(
-                        "dropped after {MAX_ATTEMPTS} failed attempts: {error}"
-                    ));
                 }
             }
         }

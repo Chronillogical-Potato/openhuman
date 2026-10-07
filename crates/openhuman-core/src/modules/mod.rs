@@ -42,7 +42,6 @@
 pub mod boot;
 pub mod browser;
 pub mod browser_task;
-mod browser_task_report;
 pub mod computer;
 pub mod computer_config;
 pub mod connectors;
