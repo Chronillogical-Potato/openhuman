@@ -55,6 +55,7 @@ let shuttingDown = false;
 async function shutdown(code) {
   if (shuttingDown) return;
   shuttingDown = true;
+  log(`shutting down (exit ${code})`);
   await browser?.close().catch(() => {});
   for (const child of children) {
     // Each child leads its own process group, so pnpm/node grandchildren go too.
