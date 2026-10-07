@@ -287,35 +287,6 @@ const messages: TranslationMap = {
   'welcome.privacyPolicy': 'Gizlilik Politikası',
   'welcome.termsOutro': '.',
   'welcome.connect': 'Test et',
-  'welcome.hero.subtitle': 'Belleği, sesi ve tüm web erişimiyle yapay zekânız.',
-  'welcome.th.title': 'TinyHumans ile devam et',
-  'welcome.th.promise': 'Tek hesap. Her şey dahil. Yapılandırılacak bir şey yok.',
-  'welcome.th.featureInference': 'Çıkarım',
-  'welcome.th.featureSearch': 'Web araması',
-  'welcome.th.featureVoice': 'Ses',
-  'welcome.th.featureMemory': 'Bellek',
-  'welcome.th.featureEmbeddings': 'Embedding',
-  'welcome.th.featureBilling': 'Faturalandırma',
-  'welcome.th.credit': 'Başlangıç için 5 $ kredi',
-  'welcome.th.cta': 'TinyHumans ile devam et',
-  'welcome.th.providers': 'Google, GitHub veya X ile oturum açın',
-  'welcome.self.title': 'Kendim kuracağım',
-  'welcome.self.promise': 'Kendi API anahtarlarınızı ve uç noktalarınızı kullanın.',
-  'welcome.self.listLabel': 'Kuracaklarınız:',
-  'welcome.self.step1': 'Çıkarım',
-  'welcome.self.step2': 'Web araması',
-  'welcome.self.step3': 'Bellek',
-  'welcome.self.time': "Yaklaşık 3 dakika. Her şeyi daha sonra Ayarlar'dan değiştirebilirsiniz.",
-  'welcome.self.cta': 'Kendim kuracağım',
-  'welcome.serverPrompt': "OpenHuman'ı zaten bir sunucuda mı çalıştırıyorsunuz?",
-  'welcome.serverCta': 'Ona bağlanın.',
-  'welcome.handoff.title': 'Oturum açma tarayıcınızda tamamlanıyor',
-  'welcome.handoff.body': 'tinyhumans.ai sayfasını açtık. İşiniz bitince buraya dönün.',
-  'welcome.handoff.reopen': 'Sayfayı yeniden aç',
-  'welcome.handoff.failedTitle': 'Oturum açma işleminden dönüş olmadı',
-  'welcome.handoff.failedBody': "Tarayıcı, OpenHuman'a geri dönüşü engellemiş olabilir.",
-  'welcome.handoff.retry': 'Yeniden dene',
-  'welcome.handoff.fallbackSelf': 'Bunun yerine kendim kuracağım',
   'home.askAssistant': 'Asistanınıza her şeyi sorun...',
   'home.statusOk': 'Asistanınız hazır. Başlamak için aşağıya bir şey yazın.',
   'home.statusBackendOnly':
@@ -607,12 +578,6 @@ const messages: TranslationMap = {
   'memory.noResults': 'Anı bulunamadı',
   'memory.empty':
     'Henüz bellek kaydı yok. Bellek kayıtları siz etkileşimde bulundukça otomatik olarak oluşturulur.',
-  'memory.error.insufficientCredits':
-    'Bellek kullanılamıyor: hesabınızın kredisi bitti. Geri yüklemek için kredi ekleyin; saklanan hiçbir şey kaybolmadı.',
-  'memory.error.unavailable':
-    'Belleğe şu anda ulaşılamıyor. Saklanan hiçbir şey kaybolmadı; birazdan yeniden deneyin.',
-  'memory.outOfCredits.title': 'Kredi tükendi',
-  'memory.outOfCredits.action': 'Kredi yükle',
   'memory.tab.memory': 'Bellek',
   'memory.tab.agents': 'Kitaplık',
   'memory.tab.council': 'Konsey',
@@ -773,10 +738,6 @@ const messages: TranslationMap = {
     'Web araması kutudan çıktığı gibi çalışır: Exa ve Gemini TinyHumans ile birlikte gelir, API anahtarı gerekmez.',
   'onboarding.custom.search.configureDesc':
     'Exa ve Gemini dahildir. Ayarlar › Araçlar bölümünden kendi API anahtarınızla daha fazla arama sağlayıcısı ekleyin.',
-  'onboarding.custom.search.skipForNow': 'Şimdilik atla',
-  'onboarding.custom.search.ready': 'Web araması hazır.',
-  'onboarding.custom.search.notReady':
-    "OpenHuman'ın web'de arama yapabilmesi için aşağıdan bir sağlayıcı ekleyin.",
   'onboarding.custom.embeddings.title': 'Embedding',
   'onboarding.custom.embeddings.subtitle':
     "OpenHuman'ın anlamsal bellek araması için vektör embedding'lerini nasıl oluşturduğu.",
@@ -793,9 +754,6 @@ const messages: TranslationMap = {
     'Kasa sahipliğini şimdi inceleyin, sağlık kontrolleri çalıştırın ve bellek ayarlarını düzenleyin.',
   'onboarding.custom.vault.localDisabledReason':
     'Yönetilen kurulum OpenHuman oturumu gerektirir ve yerel modda kullanılamaz.',
-  'onboarding.custom.localDefaultDisabledReason':
-    'Yönetilen kurulum bir OpenHuman hesabı gerektirir. Yerel oturumda her hizmeti kendiniz yapılandırırsınız.',
-  'onboarding.custom.unsavedChanges': 'Devam etmeden önce değişikliklerinizi kaydedin.',
   'onboarding.custom.vault.exitError': 'Kurulum tamamlanamadı. Lütfen yeniden deneyin.',
   'onboarding.custom.memory.title': 'Bellek',
   'onboarding.custom.memory.subtitle':
@@ -3786,8 +3744,6 @@ const messages: TranslationMap = {
     'Mevcut entegrasyonlarınız (OpenHuman üzerinden bağlanan Gmail, Slack, GitHub vb.) görünmez: bunlar OpenHuman tarafından yönetilen Composio kiracısında bulunur.',
   'settings.composio.intro':
     "Composio, 250'den fazla harici uygulamayı ajanınızın çağırabileceği araçlar olarak entegre eder. Bu araç çağrılarının nasıl yönlendirileceğini seçin.",
-  'settings.composio.directOnlyDesc':
-    'Yönetilen Composio kimlik doğrulaması burada kullanılamıyor. Kendi Composio API anahtarınızı girin veya şimdilik bunu atlayın.',
   'settings.composio.modeDirect': 'Doğrudan (kendi API anahtarınızı kullanın)',
   'settings.composio.modeDirectDesc':
     "Çağrılar doğrudan backend.composio.dev adresine gider. Bağımsız ve çevrimdışı kullanıma uygun. Araç yürütme eşzamanlı çalışır; gerçek zamanlı tetikleyici webhook'ları Doğrudan modda henüz yönlendirilmez (takip eden bir sorun kaydı var).",
@@ -4828,8 +4784,6 @@ const messages: TranslationMap = {
     'Codex oturumunuzun süresi doldu. Lütfen Ayarlar → Entegrasyonlar bölümünden yeniden bağlayın.',
   'chat_error.session_expired':
     'OpenHuman oturumunuzun süresi doldu. Devam etmek için lütfen yeniden oturum açın.',
-  'chat_error.local_session_managed_unavailable':
-    'Arkasında bir OpenHuman hesabı olmayan yerel çevrimdışı profili kullanıyorsunuz, bu yüzden yönetilen (bulut) model çalışamıyor. Yönetilen modelleri kullanmak için oturum açın ya da Bağlantılar → API anahtarları → LLM bölümünden yönlendirmeyi "Kendi modellerinizi kullanın" olarak değiştirip kendi sağlayıcınızı ekleyin.',
   'chat_error.action_budget':
     "OpenHuman'ın saatlik eylem bütçesine ulaştınız. Bu, yapay zekâ sağlayıcınızın değil, yerel bir güvenlik sınırıdır. Süre penceresi kademeli olarak yenilenir; bu sohbet dizisinde sohbete devam edebilirsiniz ve araç yoğun adımlar bütçe doldukça yeniden başlar.",
   'chat_error.max_iterations':
@@ -4983,33 +4937,12 @@ const messages: TranslationMap = {
   'memoryPage.engine.keySavedPlaceholder': 'Kaydedildi. Değiştirmek için yeni bir anahtar girin',
   'memoryPage.engine.keySavedHint':
     'Zaten kayıtlı bir anahtar var. Korumak için bu alanı boş bırakın.',
-  'memoryPage.engine.badgeDegraded': 'Performans düşük',
-  'memoryPage.engine.badgeDown': 'Erişilemiyor',
-  'memoryPage.engine.connecting': 'Bağlanıyor…',
-  'memoryPage.engine.save': 'Kaydet',
-  'memoryPage.engine.builtin.title': 'Yerleşik CortexDB',
-  'memoryPage.engine.builtin.detail': 'TinyHumans hesabınıza dahildir',
-  'memoryPage.engine.builtin.signInRequired': 'Kullanmak için oturum açın',
-  'memoryPage.engine.builtin.description':
-    'TinyHumans tarafından barındırılan ve hesabınıza dahil olan CortexDB. Kullanmak için oturum açmanız yeterli; kurulacak bir şey yok.',
-  'memoryPage.engine.builtin.enrichmentNote':
-    'Yeni bellek kayıtları hemen kaydedilir. Bunlardan çıkarılan bilgiler ve inançlar sonraki birkaç dakika içinde tamamlanır.',
-  'memoryPage.engine.builtin.signInHint':
-    "Yerleşik CortexDB'yi kullanmak için TinyHumans hesabınızda oturum açın.",
-  'memoryPage.engine.apiKeyOption.title': 'API anahtarınızla CortexDB',
-  'memoryPage.engine.apiKeyOption.description':
-    'Kendi CortexDB hesabınızı kullanın. Anahtar, yapılandırma dosyasında değil, bu bilgisayarda güvenli şekilde saklanır.',
-  'memoryPage.engine.selfHost.title': "CortexDB'yi kendiniz barındırın",
-  'memoryPage.engine.selfHost.detail': 'Bu bilgisayardaki bir CortexDB sunucusu',
-  'memoryPage.engine.selfHost.step1':
-    'Kılavuzu izleyerek bu bilgisayarda bir CortexDB sunucusu çalıştırın:',
-  'memoryPage.engine.selfHost.docsLink': 'CortexDB kendi kendine barındırma kılavuzu',
-  'memoryPage.engine.selfHost.step2':
-    'Sunucuyu bir API anahtarıyla (CORTEX_API_KEY) başlatın. Uygulama bu anahtarla bağlanır.',
-  'memoryPage.engine.selfHost.step3':
-    'Sunucunun yerel adresini ve anahtarı aşağıya girin, ardından bağlanın.',
-  'memoryPage.engine.selfHost.notLocal':
-    'Kendi kendine barındırma yalnızca yerel olarak çalışır. http://localhost:3141 gibi bu bilgisayardaki bir adres kullanın.',
+  'memoryPage.engine.loadError': 'Bellek motorları yüklenemedi',
+  'memoryPage.engine.edit': 'Düzenle',
+  'memoryPage.engine.signInRequired': 'Oturum açmanız gerekiyor',
+  'memoryPage.engine.hostedDetail': 'TinyHumans tarafından barındırılıyor',
+  'memoryPage.engine.selfHostedDetail': 'Kendi uç noktanız ve API anahtarınız',
+  'memoryPage.engine.connectTitle': '{engine} bağla',
   'memoryPage.ask.questionLabel': 'Sorunuz',
   'memoryPage.ask.queryLabel': 'Arama sorgusu',
   'memoryPage.ask.placeholder': 'Lansman planı hakkında ne karar vermiştik?',
@@ -5040,8 +4973,6 @@ const messages: TranslationMap = {
   'memoryPage.learnings.listTitle': 'Öğrenilenler',
   'memoryPage.learnings.empty':
     'Henüz öğrenilen yok. Yukarıdan bir tane ekleyin veya ajanınız sizinle çalıştıkça bunları ekleyecektir.',
-  'memoryPage.learnings.deriving':
-    'Burada henüz bir şey yok. Bellek, son sohbetlerinizden inançlar oluşturmaya devam ediyor; bunlar bir sonraki arka plan çalıştırmasından sonra burada görünür.',
   'memoryPage.learnings.delete': 'Öğrenileni sil',
   'memoryPage.conversations.turns': '{count} tur',
   'memoryPage.documents.listDescription':
@@ -5218,7 +5149,6 @@ const messages: TranslationMap = {
   'memoryPage.import.running': 'Önceki bellek içe aktarılıyor…',
   'memoryPage.import.done': 'Önceki bellek içe aktarıldı',
   'memoryPage.import.failed': 'İçe aktarma başarısız oldu',
-  'memoryPage.import.resume': 'İçe aktarmayı sürdür',
   'memoryPage.import.progress': '{imported}/{total} öğe içe aktarıldı',
 };
 
