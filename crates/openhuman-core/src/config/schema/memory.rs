@@ -56,6 +56,7 @@
 //! backend credential.
 
 use std::collections::BTreeMap;
+use std::fmt;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -66,6 +67,17 @@ pub const MEMORY_CORTEXDB_KEY_NAME: &str = "memory-cortexdb";
 /// Engine a fresh config selects.
 pub const DEFAULT_MEMORY_ENGINE: &str = "tinyhumans";
 
+/// A legacy backend is retained only long enough to recognize migration input;
+/// its debug representation must not expose user-provided configuration text.
+#[derive(Clone, Deserialize, PartialEq, Eq)]
+pub(crate) struct LegacyBackend(String);
+
+impl fmt::Debug for LegacyBackend {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("<redacted>")
+    }
+}
+
 /// The `[memory]` section.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
@@ -74,7 +86,7 @@ pub struct MemoryConfig {
     pub engine: String,
     #[serde(rename = "backend", default, skip_serializing)]
     #[schemars(skip)]
-    pub(crate) legacy_backend: Option<String>,
+    pub(crate) legacy_backend: Option<LegacyBackend>,
     /// Whether a retired v1 backend was found and disabled during migration.
     /// This marker is safe to persist and keeps the diagnostic after reload.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
