@@ -30,9 +30,8 @@ pub(super) async fn dispatch_bus_turn(
     // the channel layer free of direct harness imports and makes the
     // agent side mockable in unit tests via a handler override.
     //
-    // The agent handler owns the history vector — we `mem::take` the
-    // local one to avoid an unnecessary clone; `history` is not read
-    // again below.
+    // The agent handler owns the history vector, taken here by value.
+    //
     // Pick the active agent for this turn (always orchestrator) and
     // synthesise its delegation tool surface. Fresh disk read of
     // `Config::onboarding_completed` happens inside `resolve_target_agent`.
