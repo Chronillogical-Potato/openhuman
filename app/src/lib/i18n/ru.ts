@@ -5079,7 +5079,7 @@ const messages: TranslationMap = {
     'Движок памяти с ранжированным поиском и обоснованными ответами.',
   'memoryPage.engine.chip.label': 'Как подключить CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': 'Бесплатно',
+  'memoryPage.engine.chip.free': 'Безлимит',
   'memoryPage.engine.chip.apikey': 'Ваш API-ключ',
   'memoryPage.engine.chip.selfhost': 'Локально',
   'memoryPage.engine.fairUse.summary': 'Действует добросовестное использование',
@@ -5090,9 +5090,8 @@ const messages: TranslationMap = {
     'Управляемый сервис CortexDB в вашем собственном аккаунте CortexDB.',
   'memoryPage.engine.selfHost.cardDescription':
     'Сервер CortexDB, который вы запускаете сами. Память хранится на этом компьютере.',
-  'memoryPage.engine.freeIngestion.notePlan': 'Бесплатная загрузка в память на тарифе {plan}',
-  'memoryPage.engine.freeIngestion.noteUpgrade':
-    'Бесплатная загрузка в память на тарифах Basic и Pro',
+  'memoryPage.engine.freeIngestion.notePlan': 'Безлимитная память на тарифе {plan}',
+  'memoryPage.engine.freeIngestion.noteUpgrade': 'Безлимитная память на тарифах Basic и Pro',
   'memoryPage.engine.fairUse.own': 'Загружайте свой контент для собственного использования.',
   'memoryPage.engine.fairUse.noAbuse':
     'Никаких автоматических массовых загрузок, скрейпинга и загрузки от имени других людей или сервисов.',

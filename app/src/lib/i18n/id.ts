@@ -5068,7 +5068,7 @@ const messages: TranslationMap = {
     'Mesin memori dengan pemanggilan berperingkat dan jawaban berdasar.',
   'memoryPage.engine.chip.label': 'Cara menghubungkan CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': 'Gratis',
+  'memoryPage.engine.chip.free': 'Tanpa batas',
   'memoryPage.engine.chip.apikey': 'Kunci API Anda',
   'memoryPage.engine.chip.selfhost': 'Lokal',
   'memoryPage.engine.fairUse.summary': 'Berlaku penggunaan wajar',
@@ -5079,8 +5079,8 @@ const messages: TranslationMap = {
     'Layanan terkelola CortexDB, di akun CortexDB Anda sendiri.',
   'memoryPage.engine.selfHost.cardDescription':
     'Server CortexDB yang Anda jalankan sendiri. Memori disimpan di komputer ini.',
-  'memoryPage.engine.freeIngestion.notePlan': 'Penyerapan memori gratis di paket {plan} Anda',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Penyerapan memori gratis di paket Basic dan Pro',
+  'memoryPage.engine.freeIngestion.notePlan': 'Memori tanpa batas di paket {plan} Anda',
+  'memoryPage.engine.freeIngestion.noteUpgrade': 'Memori tanpa batas di paket Basic dan Pro',
   'memoryPage.engine.fairUse.own': 'Serap konten Anda sendiri, untuk penggunaan sendiri.',
   'memoryPage.engine.fairUse.noAbuse':
     'Tanpa unggahan massal otomatis, scraping, atau penyerapan atas nama orang atau layanan lain.',

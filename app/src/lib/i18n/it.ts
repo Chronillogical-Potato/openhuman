@@ -5106,7 +5106,7 @@ const messages: TranslationMap = {
     'Motore di memoria con richiamo ordinato e risposte fondate.',
   'memoryPage.engine.chip.label': 'Come connettere CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': 'Gratis',
+  'memoryPage.engine.chip.free': 'Illimitata',
   'memoryPage.engine.chip.apikey': 'La tua chiave API',
   'memoryPage.engine.chip.selfhost': 'Locale',
   'memoryPage.engine.fairUse.summary': 'Vale l’uso equo',
@@ -5117,10 +5117,8 @@ const messages: TranslationMap = {
     'Il servizio gestito di CortexDB, con il tuo account CortexDB.',
   'memoryPage.engine.selfHost.cardDescription':
     'Un server CortexDB gestito da te. La memoria è salvata su questo computer.',
-  'memoryPage.engine.freeIngestion.notePlan':
-    'Acquisizione di memoria gratuita con il piano {plan}',
-  'memoryPage.engine.freeIngestion.noteUpgrade':
-    'Acquisizione di memoria gratuita con i piani Basic e Pro',
+  'memoryPage.engine.freeIngestion.notePlan': 'Memoria illimitata con il piano {plan}',
+  'memoryPage.engine.freeIngestion.noteUpgrade': 'Memoria illimitata con i piani Basic e Pro',
   'memoryPage.engine.fairUse.own': 'Acquisisci i tuoi contenuti, per uso personale.',
   'memoryPage.engine.fairUse.noAbuse':
     'Niente caricamenti massivi automatici, scraping o acquisizioni per conto di altre persone o servizi.',

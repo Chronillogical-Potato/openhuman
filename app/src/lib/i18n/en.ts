@@ -5306,7 +5306,7 @@ const en: TranslationMap = {
   'memoryPage.engine.cortex.description': 'Memory engine with ranked recall and grounded answers.',
   'memoryPage.engine.chip.label': 'How to connect CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': 'Free',
+  'memoryPage.engine.chip.free': 'Unlimited',
   'memoryPage.engine.chip.apikey': 'Your API key',
   'memoryPage.engine.chip.selfhost': 'Local',
   'memoryPage.engine.fairUse.summary': 'Fair use applies',
@@ -5316,8 +5316,8 @@ const en: TranslationMap = {
     "CortexDB's managed service, on your own CortexDB account.",
   'memoryPage.engine.selfHost.cardDescription':
     'A CortexDB server you run yourself. Memory is stored on this computer.',
-  'memoryPage.engine.freeIngestion.notePlan': 'Free memory ingestion on your {plan} plan',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Free memory ingestion on Basic and Pro plans',
+  'memoryPage.engine.freeIngestion.notePlan': 'Unlimited memory on your {plan} plan',
+  'memoryPage.engine.freeIngestion.noteUpgrade': 'Unlimited memory on Basic and Pro plans',
   'memoryPage.engine.fairUse.own': 'Ingest your own content, for your own use.',
   'memoryPage.engine.fairUse.noAbuse':
     'No automated bulk uploads, scraping, or ingesting on behalf of other people or services.',

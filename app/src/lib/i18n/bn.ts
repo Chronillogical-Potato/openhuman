@@ -5028,7 +5028,7 @@ const messages: TranslationMap = {
     'র‍্যাঙ্ক করা রিকল ও প্রমাণভিত্তিক উত্তরসহ মেমোরি ইঞ্জিন।',
   'memoryPage.engine.chip.label': 'CortexDB কীভাবে সংযুক্ত করবেন',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': 'বিনামূল্যে',
+  'memoryPage.engine.chip.free': 'সীমাহীন',
   'memoryPage.engine.chip.apikey': 'আপনার API কী',
   'memoryPage.engine.chip.selfhost': 'লোকাল',
   'memoryPage.engine.fairUse.summary': 'ন্যায্য ব্যবহার প্রযোজ্য',
@@ -5039,8 +5039,8 @@ const messages: TranslationMap = {
     'আপনার নিজের CortexDB অ্যাকাউন্টে CortexDB-এর পরিচালিত সেবা।',
   'memoryPage.engine.selfHost.cardDescription':
     'আপনি নিজে চালানো একটি CortexDB সার্ভার। মেমোরি এই কম্পিউটারে থাকে।',
-  'memoryPage.engine.freeIngestion.notePlan': 'আপনার {plan} প্ল্যানে বিনামূল্যে মেমোরি ইনজেশন',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic ও Pro প্ল্যানে বিনামূল্যে মেমোরি ইনজেশন',
+  'memoryPage.engine.freeIngestion.notePlan': 'আপনার {plan} প্ল্যানে সীমাহীন মেমোরি',
+  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic ও Pro প্ল্যানে সীমাহীন মেমোরি',
   'memoryPage.engine.fairUse.own': 'নিজের কনটেন্ট, নিজের ব্যবহারের জন্য যোগ করুন।',
   'memoryPage.engine.fairUse.noAbuse':
     'স্বয়ংক্রিয় বাল্ক আপলোড, স্ক্র্যাপিং বা অন্যদের হয়ে ইনজেশন নয়।',

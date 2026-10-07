@@ -5034,7 +5034,7 @@ const messages: TranslationMap = {
     'Sıralı geri çağırma ve kaynaklı yanıtlar sunan bellek motoru.',
   'memoryPage.engine.chip.label': 'CortexDB nasıl bağlanır',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': 'Ücretsiz',
+  'memoryPage.engine.chip.free': 'Sınırsız',
   'memoryPage.engine.chip.apikey': 'API anahtarın',
   'memoryPage.engine.chip.selfhost': 'Yerel',
   'memoryPage.engine.fairUse.summary': 'Adil kullanım geçerlidir',
@@ -5045,9 +5045,8 @@ const messages: TranslationMap = {
     'CortexDB’nin yönetilen hizmeti, kendi CortexDB hesabınla.',
   'memoryPage.engine.selfHost.cardDescription':
     'Kendin çalıştırdığın bir CortexDB sunucusu. Bellek bu bilgisayarda saklanır.',
-  'memoryPage.engine.freeIngestion.notePlan': '{plan} planında ücretsiz bellek aktarımı',
-  'memoryPage.engine.freeIngestion.noteUpgrade':
-    'Basic ve Pro planlarında ücretsiz bellek aktarımı',
+  'memoryPage.engine.freeIngestion.notePlan': '{plan} planında sınırsız bellek',
+  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic ve Pro planlarında sınırsız bellek',
   'memoryPage.engine.fairUse.own': 'Kendi içeriğini, kendi kullanımın için aktar.',
   'memoryPage.engine.fairUse.noAbuse':
     'Otomatik toplu yükleme, kazıma veya başka kişiler ya da hizmetler adına aktarım yok.',

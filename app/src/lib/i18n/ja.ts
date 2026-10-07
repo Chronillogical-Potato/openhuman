@@ -5345,7 +5345,7 @@ const messages: TranslationMap = {
     'ランク付きの想起と根拠のある回答を備えたメモリエンジン。',
   'memoryPage.engine.chip.label': 'CortexDB の接続方法',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': '無料',
+  'memoryPage.engine.chip.free': '無制限',
   'memoryPage.engine.chip.apikey': '自分の API キー',
   'memoryPage.engine.chip.selfhost': 'ローカル',
   'memoryPage.engine.fairUse.summary': 'フェアユースが適用されます',
@@ -5355,8 +5355,8 @@ const messages: TranslationMap = {
     'ご自身の CortexDB アカウントで使う CortexDB のマネージドサービス。',
   'memoryPage.engine.selfHost.cardDescription':
     'ご自身で動かす CortexDB サーバー。記憶はこのコンピューターに保存されます。',
-  'memoryPage.engine.freeIngestion.notePlan': '{plan} プランでメモリ取り込みが無料',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic・Pro プランでメモリ取り込みが無料',
+  'memoryPage.engine.freeIngestion.notePlan': '{plan} プランでメモリ無制限',
+  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic・Pro プランでメモリ無制限',
   'memoryPage.engine.fairUse.own': 'ご自身のコンテンツを、ご自身の用途で取り込んでください。',
   'memoryPage.engine.fairUse.noAbuse':
     '自動の一括アップロード、スクレイピング、他の人やサービスのための取り込みは禁止です。',

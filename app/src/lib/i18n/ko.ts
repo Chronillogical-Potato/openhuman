@@ -4982,7 +4982,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.cortex.description': '순위 기반 회상과 근거 있는 답변을 제공하는 메모리 엔진.',
   'memoryPage.engine.chip.label': 'CortexDB 연결 방법',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': '무료',
+  'memoryPage.engine.chip.free': '무제한',
   'memoryPage.engine.chip.apikey': '내 API 키',
   'memoryPage.engine.chip.selfhost': '로컬',
   'memoryPage.engine.fairUse.summary': '공정 사용 적용',
@@ -4993,8 +4993,8 @@ const messages: TranslationMap = {
     '내 CortexDB 계정으로 쓰는 CortexDB 관리형 서비스.',
   'memoryPage.engine.selfHost.cardDescription':
     '직접 실행하는 CortexDB 서버. 메모리는 이 컴퓨터에 저장됩니다.',
-  'memoryPage.engine.freeIngestion.notePlan': '{plan} 요금제에서 메모리 수집 무료',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic 및 Pro 요금제에서 메모리 수집 무료',
+  'memoryPage.engine.freeIngestion.notePlan': '{plan} 요금제에서 메모리 무제한',
+  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic 및 Pro 요금제에서 메모리 무제한',
   'memoryPage.engine.fairUse.own': '본인 콘텐츠를 본인 용도로 수집하세요.',
   'memoryPage.engine.fairUse.noAbuse':
     '자동 대량 업로드, 스크래핑, 다른 사람이나 서비스를 대신한 수집은 금지됩니다.',

@@ -115,7 +115,7 @@ describe('MemoryEngineTab', () => {
       'aria-selected',
       'true'
     );
-    expect(within(card).getByText('Free')).toBeInTheDocument();
+    expect(within(card).getByText('Unlimited')).toBeInTheDocument();
     expect(screen.getByTestId('memory-engine-panel-builtin')).toBeInTheDocument();
     // Nothing configured: no status badge, no chip marked in use.
     expect(screen.queryByTestId('memory-engine-status')).not.toBeInTheDocument();
@@ -224,7 +224,7 @@ describe('MemoryEngineTab', () => {
       hoisted.plan = 'PRO';
       renderTab(BUILTIN_ON);
       expect(screen.getByTestId('memory-engine-builtin-note')).toHaveTextContent(
-        'Free memory ingestion on your Pro plan'
+        'Unlimited memory on your Pro plan'
       );
       const terms = screen.getByTestId('memory-engine-fair-use');
       expect(terms).toHaveTextContent('Fair use applies');
@@ -239,7 +239,7 @@ describe('MemoryEngineTab', () => {
       hoisted.plan = 'FREE';
       renderTab();
       expect(screen.getByTestId('memory-engine-builtin-note')).toHaveTextContent(
-        'Free memory ingestion on Basic and Pro plans'
+        'Unlimited memory on Basic and Pro plans'
       );
     });
   });

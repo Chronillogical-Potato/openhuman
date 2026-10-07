@@ -4936,7 +4936,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.cortex.description': 'محرك ذاكرة باسترجاع مرتّب وإجابات موثّقة.',
   'memoryPage.engine.chip.label': 'طريقة ربط CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': 'مجاني',
+  'memoryPage.engine.chip.free': 'غير محدودة',
   'memoryPage.engine.chip.apikey': 'مفتاح API الخاص بك',
   'memoryPage.engine.chip.selfhost': 'محلي',
   'memoryPage.engine.fairUse.summary': 'يسري الاستخدام العادل',
@@ -4946,8 +4946,8 @@ const messages: TranslationMap = {
     'خدمة CortexDB المُدارة على حساب CortexDB الخاص بك.',
   'memoryPage.engine.selfHost.cardDescription':
     'خادم CortexDB تشغّله بنفسك. تُخزَّن الذاكرة على هذا الكمبيوتر.',
-  'memoryPage.engine.freeIngestion.notePlan': 'إدخال مجاني للذاكرة في خطة {plan}',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'إدخال مجاني للذاكرة في خطتي Basic وPro',
+  'memoryPage.engine.freeIngestion.notePlan': 'ذاكرة غير محدودة في خطة {plan}',
+  'memoryPage.engine.freeIngestion.noteUpgrade': 'ذاكرة غير محدودة في خطتي Basic وPro',
   'memoryPage.engine.fairUse.own': 'أدخل محتواك الخاص لاستخدامك الشخصي.',
   'memoryPage.engine.fairUse.noAbuse':
     'لا رفع جماعي آلي ولا كشط ولا إدخال نيابةً عن أشخاص أو خدمات أخرى.',
