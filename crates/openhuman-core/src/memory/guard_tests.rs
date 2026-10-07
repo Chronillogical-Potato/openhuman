@@ -45,3 +45,90 @@ async fn every_write_path_is_scrubbed() {
     );
     assert_eq!(guarded.descriptor().id, reference.descriptor().id);
 }
+
+#[test]
+fn a_timed_call_reports_ok_or_the_error_code() {
+    assert_eq!(outcome(&Ok::<(), _>(())), "ok");
+    let refused: Result<()> = Err(tinymemory_api::Error::Unauthorized("bad key".into()));
+    assert_eq!(outcome(&refused), "UNAUTHORIZED");
+}
+
+#[tokio::test]
+async fn every_read_passes_through_the_timer_unchanged() {
+    let reference = Arc::new(ReferenceEngine::new());
+    let guarded = ScrubbingEngine::wrap(reference.clone());
+    let id = guarded
+        .store(StoreItem::document("oolong tea", MemoryMeta::default()))
+        .await
+        .unwrap()
+        .id;
+    let reach = tinymemory_api::Reach::subtree(tinymemory_api::Namespace::ROOT);
+
+    assert_eq!(guarded.health().await, reference.health().await);
+    assert_eq!(
+        guarded
+            .recall(RecallRequest::new("oolong", 5))
+            .await
+            .unwrap(),
+        reference
+            .recall(RecallRequest::new("oolong", 5))
+            .await
+            .unwrap()
+    );
+    let fetch = || FetchRequest::new("oolong", tinymemory_api::FetchMode::Keyword, 5);
+    assert_eq!(
+        guarded.fetch(fetch()).await.unwrap(),
+        reference.fetch(fetch()).await.unwrap()
+    );
+    let get = || GetRequest {
+        ids: vec![id.clone()],
+        reach: None,
+    };
+    assert_eq!(guarded.get(get()).await.unwrap().len(), 1);
+    let explore = || ExploreRequest::new(tinymemory_api::Facet::Kind, 5);
+    assert_eq!(
+        guarded.explore(explore()).await.ok(),
+        reference.explore(explore()).await.ok()
+    );
+    assert_eq!(
+        guarded
+            .consolidate(ConsolidateRequest::new(reach.clone()))
+            .await
+            .ok(),
+        reference
+            .consolidate(ConsolidateRequest::new(reach.clone()))
+            .await
+            .ok()
+    );
+    assert_eq!(
+        guarded
+            .beliefs(BeliefsRequest::new(reach.clone(), 5))
+            .await
+            .ok(),
+        reference.beliefs(BeliefsRequest::new(reach, 5)).await.ok()
+    );
+    assert_eq!(
+        guarded
+            .forget(ForgetTarget::Ids(vec![id]))
+            .await
+            .unwrap()
+            .forgotten,
+        1
+    );
+}
+
+#[test]
+fn scrubbing_keeps_the_page_breaks_a_document_is_chunked_by() {
+    let body = format!("Page one key={SECRET}\u{c}Page two.\u{c}Page three.");
+    let scrubbed = scrub(StoreItem::document(body, MemoryMeta::default()));
+    let StoreItem::Document {
+        body: tinymemory_api::DocumentBody::Text(text),
+        ..
+    } = scrubbed
+    else {
+        panic!("a document");
+    };
+    assert!(!text.contains(SECRET), "{text}");
+    assert_eq!(text.matches('\u{c}').count(), 2, "{text:?}");
+    assert!(text.ends_with("\u{c}Page two.\u{c}Page three."), "{text:?}");
+}

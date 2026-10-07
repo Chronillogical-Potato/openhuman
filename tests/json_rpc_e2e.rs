@@ -4049,7 +4049,7 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
                 "endpoint": mock_origin,
                 "auth_style": "bearer"
             }],
-            "chat_provider": "openai:gpt-4.1-mini"
+            "default_model": "openai:gpt-4.1-mini"
         }),
     )
     .await;
@@ -4132,7 +4132,7 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
         6005,
         "openhuman.update_model_settings",
         json!({
-            "chat_provider": "openai:gpt-4.1-nano"
+            "default_model": "openai:gpt-4.1-nano"
         }),
     )
     .await;
