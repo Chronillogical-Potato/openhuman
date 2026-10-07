@@ -70,10 +70,10 @@ async function shutdown(code) {
 process.on("SIGINT", () => void shutdown(130));
 process.on("SIGTERM", () => void shutdown(143));
 
-function startChild(name, command, args, env) {
+function startChild(name, command, args, env, cwd = repo) {
   const out = fs.openSync(path.join(logDir, `${name}.log`), "a");
   const child = spawn(command, args, {
-    cwd: repo,
+    cwd,
     env: { ...process.env, ...env },
     stdio: ["ignore", out, out],
     detached: true,
@@ -175,7 +175,8 @@ async function main() {
       VITE_BACKEND_URL: mockUrl,
       VITE_DEV_SKIP_ONBOARDING: "true",
     },
-  ).spawnargs; // cwd for vite must be app/
+    path.join(repo, "app"),
+  );
   await waitFor(async () => (await fetch(appOrigin)).ok, {
     timeoutMs: 120_000,
     what: "Vite",
