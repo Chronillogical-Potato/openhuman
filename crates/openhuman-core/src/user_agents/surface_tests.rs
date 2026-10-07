@@ -3,7 +3,10 @@ use super::*;
 #[test]
 fn single_user_processes_are_not_narrowed() {
     let unlisted = "openhuman.config_update_autonomy_settings";
-    assert!(visible_in(false, false, unlisted, false), "single-user core");
+    assert!(
+        visible_in(false, false, unlisted, false),
+        "single-user core"
+    );
     assert!(visible_in(false, true, unlisted, false), "embedded agent");
 }
 
@@ -11,11 +14,28 @@ fn single_user_processes_are_not_narrowed() {
 fn the_saas_planes_never_overlap() {
     let provision = "openhuman.user_agents_provision";
     let threads = "openhuman.threads_list";
-    assert!(visible_in(true, false, provision, true), "operator reaches its plane");
-    assert!(!visible_in(true, false, threads, false), "operator never serves user methods");
-    assert!(visible_in(true, true, threads, false), "user reaches the allowlist");
-    assert!(!visible_in(true, true, provision, true), "user never reaches the operator plane");
-    assert!(!visible_in(true, true, "openhuman.config_get_config", false));
+    assert!(
+        visible_in(true, false, provision, true),
+        "operator reaches its plane"
+    );
+    assert!(
+        !visible_in(true, false, threads, false),
+        "operator never serves user methods"
+    );
+    assert!(
+        visible_in(true, true, threads, false),
+        "user reaches the allowlist"
+    );
+    assert!(
+        !visible_in(true, true, provision, true),
+        "user never reaches the operator plane"
+    );
+    assert!(!visible_in(
+        true,
+        true,
+        "openhuman.config_get_config",
+        false
+    ));
 }
 
 #[test]
@@ -37,7 +57,10 @@ fn every_listed_method_is_registered() {
             .map(|c| c.rpc_method_name())
             .collect();
     for method in USER_METHODS {
-        assert!(registered.contains(*method), "{method} is not a registered method");
+        assert!(
+            registered.contains(*method),
+            "{method} is not a registered method"
+        );
     }
 }
 
