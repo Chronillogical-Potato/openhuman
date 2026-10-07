@@ -17,8 +17,6 @@ import {
   stopMockServer,
 } from '../mock-server';
 
-const STEP_LOG_PREFIX = '[onboarding-modes]';
-
 async function clickTestId(testId: string, timeout = 10_000): Promise<boolean> {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
