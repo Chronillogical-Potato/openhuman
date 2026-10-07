@@ -5303,6 +5303,58 @@ const messages: TranslationMap = {
   'memoryPage.import.done': 'Memoria anterior importada',
   'memoryPage.import.failed': 'Error al importar',
   'memoryPage.import.progress': '{imported} de {total} elementos importados',
+  // Live voice agents
+  'voice.live.mute': 'Silenciar micrófono',
+  'voice.live.unmute': 'Activar micrófono',
+  'voice.live.muted': 'Silenciado',
+  'voice.live.retry': 'Reintentar',
+  'voice.live.error.micDenied':
+    'Se denegó el acceso al micrófono. Permítelo en la configuración del sistema e inténtalo de nuevo.',
+  'voice.live.error.micUnavailable': 'No hay ningún micrófono disponible.',
+  'voice.live.error.connection': 'No se pudo conectar con el agente de voz.',
+  'voice.live.toolRunning': 'Ejecutando {name}',
+  'voice.live.toolOk': '{name} completado',
+  'voice.live.toolFailed': '{name} falló',
+  'voice.live.toolCancelled': '{name} cancelado',
+  'voice.live.captionsLabel': 'Subtítulos en directo',
+  'voice.live.providerLabel': 'Proveedor de voz: {provider}',
+  'connections.tabs.voiceAgents': 'Agentes de voz',
+  'connections.header.voiceAgents':
+    'Habla en voz alta con tu asistente. Elige quién pone su voz y añade claves de tus propias cuentas.',
+  'connections.voiceAgents.defaultLabel': 'Agente de voz predeterminado',
+  'connections.voiceAgents.needsKeyOption': '{label} (requiere clave)',
+  'connections.voiceAgents.kindHosted': 'Incluido',
+  'connections.voiceAgents.kindByok': 'Tu clave',
+  'connections.voiceAgents.badgeDefault': 'Predeterminado',
+  'connections.voiceAgents.badgeReady': 'Listo',
+  'connections.voiceAgents.badgeNeedsKey': 'Falta la clave',
+  'connections.voiceAgents.descGeminiHosted':
+    'Gemini Live a través de TinyHumans. No necesita clave.',
+  'connections.voiceAgents.descElevenlabsHosted':
+    'Voz conversacional de ElevenLabs a través de TinyHumans. No necesita clave.',
+  'connections.voiceAgents.descGemini':
+    'Gemini Live con tu propia clave de API de Google AI Studio.',
+  'connections.voiceAgents.descSarvam':
+    'Sarvam AI para idiomas de la India, con tu propia clave de API.',
+  'connections.voiceAgents.test': 'Probar',
+  'connections.voiceAgents.testing': 'Probando…',
+  'connections.voiceAgents.testOk': 'Funciona · {ms} ms',
+  'connections.voiceAgents.testOkNoLatency': 'Funciona',
+  'connections.voiceAgents.testFailed': 'La prueba falló: {error}',
+  'connections.voiceAgents.apiKey': 'Clave de API',
+  'connections.voiceAgents.apiKeyPlaceholder': 'Pega tu clave de API',
+  'connections.voiceAgents.saveKey': 'Guardar clave',
+  'connections.voiceAgents.clearKey': 'Quitar clave',
+  'connections.voiceAgents.keySaved': 'Clave guardada.',
+  'connections.voiceAgents.keyCleared': 'Clave eliminada.',
+  'connections.voiceAgents.voice': 'Voz',
+  'connections.voiceAgents.speaker': 'Locutor',
+  'connections.voiceAgents.language': 'Idioma',
+  'connections.voiceAgents.providerDefault': 'Predeterminado del proveedor',
+  'connections.voiceAgents.loadFailed': 'No se pudieron cargar los ajustes de los agentes de voz',
+  'connections.voiceAgents.saveFailed': 'No se pudo guardar: {error}',
+  'connections.voiceAgents.saved': 'Guardado.',
+  'connections.voiceAgents.saving': 'Guardando…',
 };
 
 export default messages;

@@ -84,6 +84,22 @@ Capability {
         privacy: DERIVED_TO_BACKEND,
     },
 Capability {
+        id: "voice.live_agent",
+        name: "Live voice agent",
+        domain: "voice",
+        category: CapabilityCategory::Conversation,
+        description: "Talk with Tiny out loud in real time: click the mascot in the composer and \
+                      speak. Tiny answers by voice, can be interrupted mid-sentence, and uses \
+                      the same tools, tool policy and approval prompts as typed chat. What both \
+                      sides say is saved to the open conversation. Providers: Gemini Live \
+                      through TinyHumans (default, no key), the TinyHumans ElevenLabs agent, \
+                      Gemini Live with your own Google key, or Sarvam AI with your own key.",
+        how_to: "Click Tiny in the chat composer to start; choose the provider, voice and \
+                 language under Connections → Voice agents.",
+        status: CapabilityStatus::Beta,
+        privacy: DERIVED_TO_BACKEND,
+    },
+Capability {
         id: "conversation.copy_messages",
         name: "Copy Messages",
         domain: "conversation",

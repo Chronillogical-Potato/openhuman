@@ -5350,6 +5350,58 @@ const messages: TranslationMap = {
   'memoryPage.import.done': 'Früheres Gedächtnis importiert',
   'memoryPage.import.failed': 'Import fehlgeschlagen',
   'memoryPage.import.progress': '{imported} von {total} Elementen importiert',
+  // Live voice agents
+  'voice.live.mute': 'Mikrofon stummschalten',
+  'voice.live.unmute': 'Stummschaltung aufheben',
+  'voice.live.muted': 'Stummgeschaltet',
+  'voice.live.retry': 'Erneut versuchen',
+  'voice.live.error.micDenied':
+    'Der Mikrofonzugriff wurde verweigert. Erlaube ihn in den Systemeinstellungen und versuche es erneut.',
+  'voice.live.error.micUnavailable': 'Kein Mikrofon verfügbar.',
+  'voice.live.error.connection': 'Verbindung zum Sprachagenten fehlgeschlagen.',
+  'voice.live.toolRunning': '{name} läuft',
+  'voice.live.toolOk': '{name} abgeschlossen',
+  'voice.live.toolFailed': '{name} fehlgeschlagen',
+  'voice.live.toolCancelled': '{name} abgebrochen',
+  'voice.live.captionsLabel': 'Live-Untertitel',
+  'voice.live.providerLabel': 'Sprachanbieter: {provider}',
+  'connections.tabs.voiceAgents': 'Sprachagenten',
+  'connections.header.voiceAgents':
+    'Sprich laut mit deinem Assistenten. Wähle, wer seine Stimme liefert, und hinterlege Schlüssel für deine eigenen Konten.',
+  'connections.voiceAgents.defaultLabel': 'Standard-Sprachagent',
+  'connections.voiceAgents.needsKeyOption': '{label} (Schlüssel erforderlich)',
+  'connections.voiceAgents.kindHosted': 'Inklusive',
+  'connections.voiceAgents.kindByok': 'Eigener Schlüssel',
+  'connections.voiceAgents.badgeDefault': 'Standard',
+  'connections.voiceAgents.badgeReady': 'Bereit',
+  'connections.voiceAgents.badgeNeedsKey': 'Schlüssel fehlt',
+  'connections.voiceAgents.descGeminiHosted': 'Gemini Live über TinyHumans. Kein Schlüssel nötig.',
+  'connections.voiceAgents.descElevenlabsHosted':
+    'Dialogstimme von ElevenLabs über TinyHumans. Kein Schlüssel nötig.',
+  'connections.voiceAgents.descGemini':
+    'Gemini Live mit deinem eigenen Google-AI-Studio-API-Schlüssel.',
+  'connections.voiceAgents.descSarvam':
+    'Sarvam AI für indische Sprachen, mit deinem eigenen API-Schlüssel.',
+  'connections.voiceAgents.test': 'Testen',
+  'connections.voiceAgents.testing': 'Wird getestet…',
+  'connections.voiceAgents.testOk': 'Funktioniert · {ms} ms',
+  'connections.voiceAgents.testOkNoLatency': 'Funktioniert',
+  'connections.voiceAgents.testFailed': 'Test fehlgeschlagen: {error}',
+  'connections.voiceAgents.apiKey': 'API-Schlüssel',
+  'connections.voiceAgents.apiKeyPlaceholder': 'API-Schlüssel einfügen',
+  'connections.voiceAgents.saveKey': 'Schlüssel speichern',
+  'connections.voiceAgents.clearKey': 'Schlüssel entfernen',
+  'connections.voiceAgents.keySaved': 'Schlüssel gespeichert.',
+  'connections.voiceAgents.keyCleared': 'Schlüssel entfernt.',
+  'connections.voiceAgents.voice': 'Stimme',
+  'connections.voiceAgents.speaker': 'Sprecher',
+  'connections.voiceAgents.language': 'Sprache',
+  'connections.voiceAgents.providerDefault': 'Standard des Anbieters',
+  'connections.voiceAgents.loadFailed':
+    'Einstellungen der Sprachagenten konnten nicht geladen werden',
+  'connections.voiceAgents.saveFailed': 'Speichern fehlgeschlagen: {error}',
+  'connections.voiceAgents.saved': 'Gespeichert.',
+  'connections.voiceAgents.saving': 'Wird gespeichert…',
 };
 
 export default messages;

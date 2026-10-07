@@ -97,7 +97,7 @@ fn is_public_path(path: &str) -> bool {
 /// Add new entries here only for SSE / WebSocket routes whose clients cannot
 /// send headers and that carry per-user data. The follow-up approvals stream
 /// (#1339) is the next planned addition.
-const QUERY_TOKEN_PATHS: &[&str] = &["/events/webhooks", "/ws/dictation"];
+const QUERY_TOKEN_PATHS: &[&str] = &["/events/webhooks", "/ws/dictation", "/ws/live-voice"];
 
 /// Axum middleware: enforce `Authorization: Bearer <token>` on all protected
 /// endpoints.
