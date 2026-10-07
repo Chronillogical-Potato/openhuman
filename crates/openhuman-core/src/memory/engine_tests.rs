@@ -196,3 +196,80 @@ fn an_installed_test_engine_wins_and_is_reported_on() {
     assert_eq!(bound.id, "reference");
     assert!(format!("{bound:?}").contains("reference"));
 }
+
+/// A config living where a signed-in user's does: `<tmp>/users/<id>/`.
+fn user_config(tmp: &tempfile::TempDir, user: &str) -> Config {
+    let dir = tmp.path().join("users").join(user);
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut config = config_in(tmp);
+    config.config_path = dir.join("config.toml");
+    config
+}
+
+#[test]
+fn layout_v3_binds_its_own_engine_beside_legacy() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = user_config(&tmp, "6512ab0f6512ab0f6512ab0f");
+    config.memory.engine = CORTEXDB_ENGINE.to_string();
+    store_cortexdb_key(&config, "cdb-key-layout").unwrap();
+
+    let legacy = resolve(&config).engine().expect("legacy bound");
+    config.memory.layout = crate::config::MemoryLayoutMode::V3;
+    let v3 = resolve(&config).engine().expect("v3 bound");
+    assert!(
+        !Arc::ptr_eq(&legacy.engine, &v3.engine),
+        "each layout has its own engine"
+    );
+
+    // The migration holds both at once, whatever the setting says.
+    let explicit_legacy = bind_with_root(&config, None).unwrap();
+    let explicit_v3 = bind_with_root(&config, Some("user:6512ab0f6512ab0f6512ab0f")).unwrap();
+    assert!(Arc::ptr_eq(&explicit_legacy.engine, &legacy.engine));
+    assert!(Arc::ptr_eq(&explicit_v3.engine, &v3.engine));
+}
+
+#[test]
+fn layout_v3_before_anyone_signs_in_is_off() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = user_config(&tmp, crate::config::PRE_LOGIN_USER_ID);
+    config.memory.engine = CORTEXDB_ENGINE.to_string();
+    config.memory.layout = crate::config::MemoryLayoutMode::V3;
+    let reason = off_reason(resolve(&config));
+    assert!(reason.contains("sign in"), "{reason}");
+}
+
+#[test]
+fn an_installed_engine_has_one_layout_unless_one_is_installed_per_root() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    install_test_engine(
+        &config.workspace_dir,
+        Arc::new(tinymemory_api::conformance::ReferenceEngine::new()),
+    );
+    assert!(bind_with_root(&config, Some("user:42")).is_err());
+
+    install_test_engine_for_root(
+        &config.workspace_dir,
+        Some("user:42"),
+        Arc::new(tinymemory_api::conformance::ReferenceEngine::new()),
+    );
+    install_test_engine_for_root(
+        &config.workspace_dir,
+        None,
+        Arc::new(tinymemory_api::conformance::ReferenceEngine::new()),
+    );
+    let v3 = bind_with_root(&config, Some("user:42")).unwrap();
+    let legacy = bind_with_root(&config, None).unwrap();
+    assert!(!Arc::ptr_eq(&v3.engine, &legacy.engine));
+}
+
+#[test]
+fn a_root_sets_the_scope_root_its_owner_and_the_cache_key() {
+    let (settings, key) = rooted(EngineSettings::default(), Some("user:42"));
+    assert_eq!(settings.scope_root.as_deref(), Some("user:42"));
+    assert_eq!(settings.scope_owner.as_deref(), Some("user:42"));
+    assert_eq!(key, "|root=user:42");
+    let (settings, key) = rooted(EngineSettings::default(), None);
+    assert_eq!(settings.scope_root, None);
+    assert_eq!(key, "|root=legacy");
+}

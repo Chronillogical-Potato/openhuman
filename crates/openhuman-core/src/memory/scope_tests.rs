@@ -111,3 +111,59 @@ fn validate_root_accepts_nodes_and_refuses_junk() {
     assert!(validate_root("not a namespace").is_err());
     assert!(validate_root("company:acme").is_err());
 }
+
+#[test]
+fn a_user_root_is_the_account_id_or_a_hashed_local_id() {
+    assert_eq!(
+        user_root_for("6512AB0F6512ab0f6512ab0f").as_deref(),
+        Some("user:6512ab0f6512ab0f6512ab0f")
+    );
+    let local = user_root_for("local-megamind-macbook").unwrap();
+    assert!(local.starts_with("user:local-"), "{local}");
+    assert_eq!(local.len(), "user:local-".len() + 16);
+    assert!(!local.contains("megamind"), "no device name: {local}");
+    assert_eq!(Some(local), user_root_for("local-megamind-macbook"));
+    assert_eq!(user_root_for(crate::config::PRE_LOGIN_USER_ID), None);
+    assert_eq!(user_root_for(""), None);
+}
+
+#[test]
+fn the_user_root_is_read_from_where_the_config_lives() {
+    let mut config = Config::default();
+    config.config_path = "/h/.openhuman/users/6512ab0f6512ab0f6512ab0f/config.toml".into();
+    assert_eq!(
+        user_root(&config).as_deref(),
+        Some("user:6512ab0f6512ab0f6512ab0f")
+    );
+    config.config_path = "/h/.openhuman/users/local/config.toml".into();
+    assert_eq!(user_root(&config), None);
+    config.config_path = "/somewhere/else/config.toml".into();
+    assert_eq!(user_root(&config), None);
+}
+
+#[test]
+fn layout_v3_pools_every_agents_chats_at_ws_main() {
+    let mut config = Config::default();
+    let legacy = MemoryIdentity::agent("researcher").resolve(&config);
+    assert_eq!(
+        legacy.layout.conversations("researcher").unwrap(),
+        ns("agent:researcher")
+    );
+    assert!(!layout_is_v3(&config));
+
+    config.memory.layout = MemoryLayoutMode::V3;
+    assert!(layout_is_v3(&config));
+    let researcher = MemoryIdentity::agent("researcher").resolve(&config);
+    let coder = MemoryIdentity::agent("coder").resolve(&config);
+    assert_eq!(
+        researcher.layout.conversations("researcher").unwrap(),
+        ns("ws:main")
+    );
+    assert_eq!(coder.layout.conversations("coder").unwrap(), ns("ws:main"));
+    assert_eq!(chat_node(&researcher.layout), ns("ws:main"));
+    let history = researcher.layout.conversations_filter(Some("researcher"));
+    assert_eq!(history.agent_id.as_deref(), Some("researcher"));
+
+    let team = MemoryIdentity::team_member("acme", "writer").resolve(&config);
+    assert_eq!(chat_node(&team.layout), ns("team:acme/ws:main"));
+}
