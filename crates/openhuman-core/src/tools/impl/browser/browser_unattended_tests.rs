@@ -206,6 +206,9 @@ async fn an_allowed_action_is_logged_by_kind_and_digest_without_its_input() {
         .with_ansi(false)
         .finish();
     let _guard = tracing::subscriber::set_default(subscriber);
+    // A sibling test may have registered the callsite before this subscriber
+    // existed; recompute its interest so this thread sees the event.
+    tracing::callsite::rebuild_interest_cache();
     let client = offline_client(&["fill"]);
     let fill = Action::Fill {
         target: Target::selector("#secret-field"),
