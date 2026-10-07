@@ -154,6 +154,7 @@ struct Probe {
     name: &'static str,
     level: PermissionLevel,
     runs: Arc<AtomicUsize>,
+    origins: Arc<Mutex<Vec<Option<crate::agent::turn_origin::AgentTurnOrigin>>>>,
 }
 
 #[async_trait::async_trait]
@@ -172,6 +173,10 @@ impl Tool for Probe {
     }
     async fn execute(&self, _args: Value) -> anyhow::Result<ToolResult> {
         self.runs.fetch_add(1, Ordering::SeqCst);
+        self.origins
+            .lock()
+            .unwrap()
+            .push(CoreContext::current_turn_origin());
         Ok(ToolResult::success(format!("{} ran", self.name)))
     }
 }
@@ -180,6 +185,7 @@ struct OneHostAgent {
     config: Config,
     reads: Arc<AtomicUsize>,
     writes: Arc<AtomicUsize>,
+    origins: Arc<Mutex<Vec<Option<crate::agent::turn_origin::AgentTurnOrigin>>>>,
 }
 
 impl HostAgentResolver for OneHostAgent {
@@ -201,6 +207,7 @@ impl HostAgentResolver for OneHostAgent {
             "teeny_write".into(),
         ]);
         let (reads, writes) = (Arc::clone(&self.reads), Arc::clone(&self.writes));
+        let origins = Arc::clone(&self.origins);
         Some(HostAgent {
             definition,
             config: self.config.clone(),
@@ -210,11 +217,13 @@ impl HostAgentResolver for OneHostAgent {
                         name: "teeny_read",
                         level: PermissionLevel::ReadOnly,
                         runs: Arc::clone(&reads),
+                        origins: Arc::clone(&origins),
                     }),
                     Box::new(Probe {
                         name: "teeny_write",
                         level: PermissionLevel::Write,
                         runs: Arc::clone(&writes),
+                        origins: Arc::clone(&origins),
                     }),
                 ])
             })),
@@ -296,10 +305,12 @@ async fn bound_channel_runs_its_host_agent() {
     .unwrap();
     crate::config::schema::ephemeral_route::apply(&mut agent_config, route);
     let (reads, writes) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicUsize::new(0)));
+    let origins = Arc::new(Mutex::new(Vec::new()));
     let resolver: Arc<dyn HostAgentResolver> = Arc::new(OneHostAgent {
         config: agent_config,
         reads: Arc::clone(&reads),
         writes: Arc::clone(&writes),
+        origins: Arc::clone(&origins),
     });
     let channel = Arc::new(Telegram::default());
     let ctx = context(Arc::clone(&channel), config(&tmp, Some("teeny-chat")));
@@ -336,5 +347,15 @@ async fn bound_channel_runs_its_host_agent() {
     assert!(
         chats[2].contains("teeny_write") && !chats[2].contains("teeny_write ran"),
         "the write call came back as a refusal"
+    );
+    eprintln!("WRITE-REFUSAL-REQUEST: {}", chats[2]);
+    let origins = origins.lock().unwrap().clone();
+    assert!(
+        matches!(
+            origins.as_slice(),
+            [Some(crate::agent::turn_origin::AgentTurnOrigin::ExternalChannel { channel, .. })]
+                if channel == "telegram"
+        ),
+        "the read-only tool ran under the channel's origin: {origins:?}"
     );
 }
