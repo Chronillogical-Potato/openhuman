@@ -651,6 +651,32 @@ export async function openhumanGetAnalyticsSettings(): Promise<
   });
 }
 
+/** The user's time zone setting (Settings → Account), the device's zone, and the one in effect. */
+export interface UserTimezoneSettings {
+  /** IANA zone the user chose; `null` follows the device. */
+  timezone: string | null;
+  /** The device's IANA zone, when the core can resolve one. */
+  device: string | null;
+  /** The zone dates are read in: the user's, else the device's, else `UTC`. */
+  effective: string;
+}
+
+export async function openhumanGetUserTimezone(): Promise<CommandResponse<UserTimezoneSettings>> {
+  return await callCoreRpc<CommandResponse<UserTimezoneSettings>>({
+    method: CORE_RPC_METHODS.configGetUserTimezone,
+  });
+}
+
+/** Set the user's IANA time zone; `null` follows the device again. */
+export async function openhumanUpdateUserTimezone(
+  timezone: string | null
+): Promise<CommandResponse<ConfigSnapshot>> {
+  return await callCoreRpc<CommandResponse<ConfigSnapshot>>({
+    method: CORE_RPC_METHODS.configUpdateUserTimezone,
+    params: { timezone },
+  });
+}
+
 /** Capability role a search provider can serve; each role is one agent tool. */
 export type SearchRole = 'search' | 'answer' | 'contents';
 

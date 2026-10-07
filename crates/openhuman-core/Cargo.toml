@@ -388,6 +388,8 @@ futures = "0.3"
 rusqlite = { version = "=0.40.2", features = ["bundled"] }
 chrono = { version = "0.4", features = ["serde"] }
 iana-time-zone = "0.1"
+# Validates the user's IANA time zone setting (`Config::time_zone`).
+chrono-tz = "0.10"
 futures-util = "0.3"
 directories = "6"
 toml = "1.0"

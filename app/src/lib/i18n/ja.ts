@@ -228,6 +228,11 @@ const messages: TranslationMap = {
   'settings.face.menuDesc': 'アシスタントの顔とマスコットカラーを選択',
   'settings.navGroups.data': 'データ',
   'settings.languageDesc': 'アプリインターフェースの表示言語',
+  'settings.timezone': 'タイムゾーン',
+  'settings.timezoneDesc': '現地のタイムゾーンです。既定ではこのデバイスに従います。',
+  'settings.timezoneDevice': 'デバイスのタイムゾーンを使う（{zone}）',
+  'settings.timezoneUnknownDevice': '不明',
+  'settings.timezoneSaveFailed': 'タイムゾーンを保存できませんでした。もう一度お試しください。',
 
   // Settings: Account: IA revamp group items (SettingsHome.tsx)
 

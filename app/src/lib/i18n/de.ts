@@ -386,6 +386,12 @@ const messages: TranslationMap = {
   'settings.face.menuDesc': 'Wähle das Gesicht deines Assistenten und die Maskottchenfarbe',
   'settings.navGroups.data': 'Daten',
   'settings.languageDesc': 'Anzeigesprache für die App-Oberfläche',
+  'settings.timezone': 'Zeitzone',
+  'settings.timezoneDesc': 'Ihre lokale Zeitzone. Standardmäßig folgt sie diesem Gerät.',
+  'settings.timezoneDevice': 'Zeitzone des Geräts verwenden ({zone})',
+  'settings.timezoneUnknownDevice': 'unbekannt',
+  'settings.timezoneSaveFailed':
+    'Die Zeitzone konnte nicht gespeichert werden. Bitte erneut versuchen.',
   'settings.account.session': 'Sitzung',
   'settings.account.manageBilling': 'Tarif & Abrechnung',
   'settings.account.manageBillingDesc': 'Verwalte dein Abonnement, Guthaben und Rechnungen',

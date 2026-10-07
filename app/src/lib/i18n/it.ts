@@ -379,6 +379,12 @@ const messages: TranslationMap = {
   'settings.face.menuDesc': 'Scegli il volto del tuo assistente e il colore della mascotte',
   'settings.navGroups.data': 'Dati',
   'settings.languageDesc': "Lingua di visualizzazione dell'interfaccia dell'app",
+  'settings.timezone': 'Fuso orario',
+  'settings.timezoneDesc':
+    'Il tuo fuso orario locale. Per impostazione predefinita segue quello di questo dispositivo.',
+  'settings.timezoneDevice': 'Usa il fuso orario del dispositivo ({zone})',
+  'settings.timezoneUnknownDevice': 'sconosciuto',
+  'settings.timezoneSaveFailed': 'Impossibile salvare il fuso orario. Riprova.',
   'settings.account.session': 'Sessione',
   'settings.account.manageBilling': 'Piano e fatturazione',
   'settings.account.manageBillingDesc': 'Gestisci abbonamento, crediti e fatture',

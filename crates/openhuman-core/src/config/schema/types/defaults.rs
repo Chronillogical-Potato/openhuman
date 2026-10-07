@@ -41,6 +41,7 @@ impl Default for Config {
             default_model: Some(DEFAULT_MODEL.to_string()),
             default_temperature: DEFAULT_TEMPERATURE,
             output_language: None,
+            user_timezone: None,
             temperature_unsupported_models: default_temperature_unsupported_models(),
             observability: ObservabilityConfig::default(),
             dashboard: DashboardConfig::default(),

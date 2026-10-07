@@ -224,6 +224,11 @@ const en: TranslationMap = {
   'settings.face.menuDesc': "Pick your assistant's face and mascot colour",
   'settings.navGroups.data': 'Data',
   'settings.languageDesc': 'Display language for the app interface',
+  'settings.timezone': 'Time zone',
+  'settings.timezoneDesc': 'Your local time zone. By default it follows this device.',
+  'settings.timezoneDevice': 'Use device time zone ({zone})',
+  'settings.timezoneUnknownDevice': 'unknown',
+  'settings.timezoneSaveFailed': 'Couldn’t save the time zone. Try again.',
 
   // Settings: Account: IA revamp group items (SettingsHome.tsx)
 
