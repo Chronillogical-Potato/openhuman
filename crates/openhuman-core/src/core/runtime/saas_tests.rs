@@ -80,7 +80,14 @@ fn the_operator_plane_lives_under_the_root() {
 
 #[test]
 fn the_saas_presets_are_closed() {
-    assert_eq!(DomainSet::saas(), DomainSet::none());
+    assert_eq!(
+        DomainSet::saas(),
+        DomainSet {
+            operator: true,
+            ..DomainSet::none()
+        },
+        "only the operator plane until user families are isolated"
+    );
     let services = ServiceSet::saas();
     assert!(services.rpc_http);
     assert_eq!(
