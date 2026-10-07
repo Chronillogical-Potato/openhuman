@@ -438,3 +438,49 @@ async fn retry_is_accepted_for_a_retry_the_app_quit_during() {
         .iter()
         .any(|item| item.text.contains("oolong")));
 }
+
+/// An import stopped by exhausted credits, waiting for memory work to be free.
+fn paused_for_credits(config: &Config) {
+    let mut file = ImportFile::default();
+    file.state = ImportState {
+        phase: ImportPhase::Error,
+        imported: 1,
+        total: 5,
+        error: Some("not enough credits".into()),
+        failed: 0,
+    };
+    file.checkpoint = after_document("d1");
+    file.paused_for_credits = true;
+    write_file(&config.workspace_dir, &file);
+}
+
+#[tokio::test]
+async fn the_background_job_resumes_a_credits_pause_while_memory_work_is_free() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    // Not the hosted engine: `billing::free_period_active` reports free.
+    let engine = bind_reference(&config);
+    paused_for_credits(&config);
+
+    assert!(resume_interrupted(&config).await);
+    let done = wait_until_settled(&config).await;
+    assert_eq!(done.phase, ImportPhase::Done, "{done:?}");
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 4);
+}
+
+#[tokio::test]
+async fn the_background_job_leaves_a_credits_pause_while_memory_work_is_not_free() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    // Memory is off here, which `billing::free_period_active` reads as not
+    // free: the pause is left as it is, not tried (a tried resume that
+    // fails would clear the pause).
+    paused_for_credits(&config);
+
+    assert!(!resume_interrupted(&config).await);
+    let file = read_file(&config.workspace_dir);
+    assert_eq!(file.state.phase, ImportPhase::Error);
+    assert!(file.paused_for_credits);
+}
