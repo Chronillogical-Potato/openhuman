@@ -38,17 +38,15 @@ import { Alert, AlertDescription, AlertTitle, type BadgeVariant } from '../ui';
 import { CenteredLoadingState } from '../ui/LoadingState';
 import { toast } from '../ui/Toast';
 import MemoryComingSoon from './MemoryComingSoon';
-import MemoryProviderCard from './MemoryProviderCard';
+import MemoryConnectionPanel from './MemoryConnectionPanel';
+import MemoryCortexCard from './MemoryCortexCard';
 import MemoryProviderLogo, { type MemoryProviderOption } from './MemoryProviderLogo';
-import MemoryProviderModal from './MemoryProviderModal';
 
-export { CORTEXDB_SELF_HOST_DOCS_URL } from './MemoryProviderModal';
+export { CORTEXDB_SELF_HOST_DOCS_URL } from './MemoryConnectionPanel';
 
 const log = debug('openhuman:memory:engine');
 
 type EngineOption = MemoryProviderOption;
-
-const OPTIONS: EngineOption[] = ['builtin', 'apikey', 'selfhost'];
 
 /**
  * True for an http(s) URL whose host is this computer (localhost, 127.x, ::1).
@@ -93,7 +91,10 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
   const active = optionOf(state);
   const on = isMemoryOn(state);
 
-  const [openOption, setOpenOption] = useState<EngineOption | null>(null);
+  // The chip the user picked; until then, the configured connection, else
+  // TinyHumans (the free, zero-setup default).
+  const [picked, setPicked] = useState<EngineOption | null>(null);
+  const selected: EngineOption = picked ?? active ?? 'builtin';
   const [saving, setSaving] = useState<EngineOption | null>(null);
   const [errors, setErrors] = useState<Partial<Record<EngineOption, string>>>({});
   const [cloudKey, setCloudKey] = useState('');
@@ -135,7 +136,6 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
                 data: { icon: <MemoryProviderLogo option={option} className="h-5 w-5" /> },
               }
         );
-        setOpenOption(null);
         return true;
       } catch (err) {
         log('engine set (%s) failed: %o', option, err);
@@ -183,23 +183,17 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
     return null;
   })();
 
-  const statusOf = (option: EngineOption): { variant: BadgeVariant; label: string } => {
-    if (option === active) {
-      if (!on) return { variant: 'warning', label: t('memoryPage.engine.statusOff') };
-      if (state.status === 'down')
-        return { variant: 'danger', label: t('memoryPage.engine.badgeDown') };
-      if (state.status === 'degraded') {
-        return { variant: 'warning', label: t('memoryPage.engine.badgeDegraded') };
-      }
-      return { variant: 'primary', label: t('memoryPage.engine.inUse') };
+  const status = (() => {
+    if (!active) return null;
+    if (!on) return { variant: 'warning' as const, label: t('memoryPage.engine.statusOff') };
+    if (state.status === 'down') {
+      return { variant: 'danger' as const, label: t('memoryPage.engine.badgeDown') };
     }
-    if (option === 'builtin') {
-      return signedIn
-        ? { variant: 'success', label: t('memoryPage.engine.badgeReady') }
-        : { variant: 'neutral', label: t('memoryPage.engine.builtin.signInRequired') };
+    if (state.status === 'degraded') {
+      return { variant: 'warning' as const, label: t('memoryPage.engine.badgeDegraded') };
     }
-    return { variant: 'neutral', label: t('memoryPage.engine.badgeNotConnected') };
-  };
+    return { variant: 'primary' as const, label: t('memoryPage.engine.inUse') };
+  })();
 
   // TinyHumans: one click when signed in.
   const useBuiltin = () => void select('builtin', { engine: 'tinyhumans' });
@@ -229,71 +223,23 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
     if (await select('selfhost', req)) setLocalKey('');
   };
 
-  const actionOf = (option: EngineOption) => {
-    if (option === active && (on || option !== 'builtin')) return undefined;
-    if (option === 'builtin') {
-      return {
-        label:
-          saving === 'builtin' ? t('memoryPage.engine.connecting') : t('memoryPage.engine.use'),
-        onClick: useBuiltin,
-        disabled: saving !== null || !signedIn,
-      };
-    }
-    return { label: t('memoryPage.engine.connect'), onClick: () => setOpenOption(option) };
-  };
-
-  const freeNote =
-    plan === 'BASIC' || plan === 'PRO'
-      ? t('memoryPage.engine.freeIngestion.notePlan').replace(
-          '{plan}',
-          plan === 'PRO' ? 'Pro' : 'Basic'
-        )
-      : t('memoryPage.engine.freeIngestion.noteUpgrade');
-
   return (
     <div
-      className={`@container ${embedded ? 'space-y-5' : 'mx-auto w-full max-w-5xl space-y-6 animate-fade-up'}`}
+      className={`@container ${embedded ? 'space-y-5' : 'mx-auto w-full max-w-3xl space-y-6 animate-fade-up'}`}
       data-testid="memory-engine-tab">
       {statusBanner}
 
-      <section className="flex flex-col gap-2.5">
-        <header>
-          <h3 className="text-sm font-semibold text-content">{t('memoryPage.engine.listTitle')}</h3>
-          <p className="text-xs text-content-muted">{t('memoryPage.engine.listDescription')}</p>
-        </header>
-        <div
-          className="grid items-stretch gap-3 @xl:grid-cols-2 @4xl:grid-cols-3"
-          data-testid="memory-engines">
-          {OPTIONS.map(option => (
-            <MemoryProviderCard
-              key={option}
-              option={option}
-              title={titles[option]}
-              description={descriptions[option]}
-              active={option === active}
-              status={statusOf(option)}
-              action={actionOf(option)}
-              note={option === 'builtin' ? freeNote : undefined}
-              onOpenSettings={() => setOpenOption(option)}
-            />
-          ))}
-        </div>
-      </section>
-
-      {/* Onboarding embeds this tab to pick a provider; upcoming engines are noise there. */}
-      {!embedded && <MemoryComingSoon />}
-
-      {openOption && (
-        <MemoryProviderModal
-          option={openOption}
-          title={titles[openOption]}
-          description={descriptions[openOption]}
+      <MemoryCortexCard selected={selected} onSelect={setPicked} active={active} status={status}>
+        <MemoryConnectionPanel
+          key={selected}
+          option={selected}
+          description={descriptions[selected]}
           state={state}
-          active={openOption === active}
+          active={selected === active}
           signedIn={signedIn}
           plan={plan}
           saving={saving}
-          error={errors[openOption]}
+          error={errors[selected]}
           cloudKey={cloudKey}
           onCloudKey={setCloudKey}
           localEndpoint={localEndpoint}
@@ -302,22 +248,24 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
           localKey={localKey}
           onLocalKey={setLocalKey}
           canSubmit={
-            openOption === 'builtin'
+            selected === 'builtin'
               ? saving === null && signedIn
-              : openOption === 'apikey'
+              : selected === 'apikey'
                 ? canSubmitCloud
                 : canSubmitLocal
           }
           onSubmit={
-            openOption === 'builtin'
+            selected === 'builtin'
               ? useBuiltin
-              : openOption === 'apikey'
+              : selected === 'apikey'
                 ? () => void submitCloud()
                 : () => void submitLocal()
           }
-          onClose={() => setOpenOption(null)}
         />
-      )}
+      </MemoryCortexCard>
+
+      {/* Onboarding embeds this tab to pick a provider; upcoming engines are noise there. */}
+      {!embedded && <MemoryComingSoon />}
     </div>
   );
 }
