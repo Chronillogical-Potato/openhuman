@@ -132,7 +132,7 @@ pub fn spawn_login_gated_services(embedded_core: bool) -> tokio::task::JoinHandl
                 log::warn!("[core] config load failed, skipping service startup: {err}");
             }
         }
-    });
+    })
 }
 
 /// Periodic self-update checker (default: every 1 hour).
@@ -146,7 +146,7 @@ pub fn spawn_update_scheduler() -> tokio::task::JoinHandle<()> {
                 log::warn!("[core] config load failed, skipping update scheduler: {err}");
             }
         }
-    });
+    })
 }
 
 /// Boot-time flow-run reconciliation (bug B42): reconciles any `flow_runs` row
