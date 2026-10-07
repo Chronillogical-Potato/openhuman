@@ -116,7 +116,7 @@ pub(crate) async fn store_all(
     let mut last_error = None;
     let mut touched = std::collections::BTreeSet::new();
     for item in items {
-        let brain_source = crate::memory::brain::brain_source(kind, target, &item);
+        let brain_source = crate::memory::brain::brain_source(kind, target);
         let item = crate::memory::brain::file_into(layout, &brain_source, item)?;
         match store_on(bound, item).await {
             Ok(_) => {

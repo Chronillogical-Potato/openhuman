@@ -17,48 +17,32 @@ fn document(mime: Option<&str>, path: Option<&str>) -> StoreItem {
 }
 
 #[test]
-fn synced_items_are_filed_by_what_they_read() {
-    let plain = document(None, Some("notes/a.md"));
-    assert_eq!(
-        brain_source(MemorySourceKind::Github, "o/r", &plain),
-        BrainSource::Github
-    );
-    assert_eq!(
-        brain_source(MemorySourceKind::Link, "https://x", &plain),
-        BrainSource::Web
-    );
-    assert_eq!(
-        brain_source(MemorySourceKind::Rss, "https://x/feed", &plain),
-        BrainSource::Web
-    );
-    assert_eq!(
-        brain_source(MemorySourceKind::Composio, "Notion", &plain),
-        BrainSource::Notion
-    );
-    assert_eq!(
-        brain_source(MemorySourceKind::Composio, "gmail", &plain),
-        BrainSource::Other("gmail".into())
-    );
-    assert_eq!(
-        brain_source(MemorySourceKind::Folder, "/n", &plain),
-        BrainSource::Markdown
-    );
-    assert_eq!(
-        brain_source(
-            MemorySourceKind::File,
-            "/n",
-            &document(None, Some("deck/Q3.PDF"))
+fn synced_items_are_filed_by_their_connector() {
+    for (kind, target, want) in [
+        (MemorySourceKind::Github, "o/r", BrainSource::Github),
+        (MemorySourceKind::Link, "https://x", BrainSource::Web),
+        (MemorySourceKind::Rss, "https://x/feed", BrainSource::Web),
+        (MemorySourceKind::Composio, "Notion", BrainSource::Notion),
+        // The Composio toolkit and the GitHub reader share one source.
+        (MemorySourceKind::Composio, "github", BrainSource::Github),
+        (
+            MemorySourceKind::Composio,
+            "gmail",
+            BrainSource::Other("gmail".into()),
         ),
-        BrainSource::Pdf
-    );
-    assert_eq!(
-        brain_source(
-            MemorySourceKind::Folder,
-            "/n",
-            &document(Some("text/html"), None)
+        // An alias files under the slug Composio itself uses.
+        (
+            MemorySourceKind::Composio,
+            "google_drive",
+            BrainSource::Other("googledrive".into()),
         ),
-        BrainSource::Web
-    );
+        // Local files, whatever their format, share one source.
+        (MemorySourceKind::Folder, "/n", files_source()),
+        (MemorySourceKind::File, "/n/deck/Q3.PDF", files_source()),
+    ] {
+        assert_eq!(brain_source(kind, target), want, "{kind:?} {target}");
+    }
+    assert_eq!(files_source().to_string(), "files");
 }
 
 #[test]
@@ -184,7 +168,7 @@ async fn ingest_refuses_bad_input() {
 }
 
 #[tokio::test]
-async fn a_file_is_converted_and_filed_by_its_format() {
+async fn a_file_is_converted_and_filed_under_files() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
     let engine = bind_reference(&config);
@@ -201,9 +185,9 @@ async fn a_file_is_converted_and_filed_by_its_format() {
     )
     .await
     .unwrap();
-    assert_eq!(ingested.source, "markdown");
+    assert_eq!(ingested.source, "files");
     let docs = stored(&engine, MetaFilter::kinds([ItemKind::Document])).await;
-    assert_eq!(docs[0].meta.namespace.to_string(), "source:markdown");
+    assert_eq!(docs[0].meta.namespace.to_string(), "source:files");
 }
 
 #[tokio::test]
