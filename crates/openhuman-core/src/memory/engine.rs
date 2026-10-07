@@ -245,7 +245,6 @@ fn resolve_tinyhumans(config: &Config) -> Binding {
         EngineSettings {
             endpoint: Some(endpoint),
             headers,
-            ..EngineSettings::default()
         },
         fingerprint,
         EngineCredential::Dynamic(source),

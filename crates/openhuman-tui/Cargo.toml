@@ -17,7 +17,7 @@ path = "src/main.rs"
 
 [dependencies]
 openhuman-core.workspace = true
-openhuman-rpc.workspace = true
+openhuman-rpc = { workspace = true, features = ["session-store"] }
 openhuman-tinyhumans.workspace = true
 anyhow = "1"
 base64 = "0.22"

@@ -77,6 +77,7 @@ impl From<crate::RuntimeError> for HarnessError {
             R::AlreadyRunning => Self::AlreadyRunning,
             R::Invalid(msg) => Self::Invalid(msg),
             R::BlankApiKey => Self::Invalid(err_text(&R::BlankApiKey)),
+            R::NoSessionStore => Self::Invalid(err_text(&R::NoSessionStore)),
         }
     }
 }

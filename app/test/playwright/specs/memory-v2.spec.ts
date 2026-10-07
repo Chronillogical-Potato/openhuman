@@ -2,8 +2,6 @@ import { expect, type Page, type Request, type Route, test } from '@playwright/t
 
 import {
   bootAuthenticatedPage,
-  bootRuntimeReadyGuestPage,
-  callCoreRpc,
   dismissWalkthroughIfPresent,
   waitForAppReady,
 } from '../helpers/core-rpc';
@@ -60,26 +58,7 @@ interface FakeOptions {
   engineOn: boolean;
   /** `memory_import_scan` finds v1 data to import. */
   importFound?: boolean;
-  /** An earlier import stopped with this error (e.g. credits ran out) after 7 of 20 items. */
-  importStoppedWith?: string;
-  /**
-   * Methods (without `openhuman.`) answered with a JSON-RPC error instead,
-   * shaped like the core's memory error (`data.code` / `data.kind`).
-   */
-  failWith?: Record<string, RpcFailure>;
 }
-
-interface RpcFailure {
-  code: string;
-  message: string;
-}
-
-/** The core's refusal for an exhausted credit balance (memory/error.rs). */
-const OUT_OF_CREDITS: RpcFailure = {
-  code: 'INSUFFICIENT_CREDITS',
-  message:
-    'insufficient credits: [USER_INSUFFICIENT_CREDITS] memory API recall: the account has insufficient credits (HTTP 402)',
-};
 
 interface RpcCall {
   method: string;
@@ -116,9 +95,7 @@ async function installMemoryFake(page: Page, opts: FakeOptions): Promise<MemoryF
   ];
   const sources: Array<Record<string, unknown>> = [];
   let nextId = 1;
-  let importState = opts.importStoppedWith
-    ? { phase: 'error', imported: 7, total: 20, error: opts.importStoppedWith as string | null }
-    : { phase: 'idle', imported: 0, total: 0, error: null as string | null };
+  let importState = { phase: 'idle', imported: 0, total: 0, error: null as string | null };
 
   const policy = {
     log_conversations: true,
@@ -158,12 +135,9 @@ async function installMemoryFake(page: Page, opts: FakeOptions): Promise<MemoryF
       case 'memory_engine_get':
         return engineState();
       case 'memory_engine_set':
-        // Echo what was set, so the tab marks the option it maps to as active
-        // (a loopback endpoint is Self-host, none is the API-key option).
         return {
           engine: params.engine,
-          ...(params.endpoint ? { endpoint: params.endpoint } : {}),
-          has_key: Boolean(params.api_key),
+          has_key: false,
           status: 'ok',
           fetch_modes: ['keyword', 'vector'],
         };
@@ -289,8 +263,7 @@ async function installMemoryFake(page: Page, opts: FakeOptions): Promise<MemoryF
           ? { found: true, counts: { documents: 12, conversations: 3, learnings: 5 } }
           : { found: false, counts: null };
       case 'memory_import_start':
-        // A restart resumes from the persisted progress.
-        importState = { phase: 'running', imported: importState.imported, total: 20, error: null };
+        importState = { phase: 'running', imported: 0, total: 20, error: null };
         return { state: importState };
       case 'memory_import_status': {
         const current = importState;
@@ -321,24 +294,6 @@ async function installMemoryFake(page: Page, opts: FakeOptions): Promise<MemoryF
     }
     const method = full.slice('openhuman.'.length);
     const params = body.params ?? {};
-    const failure = opts.failWith?.[method];
-    if (failure) {
-      calls.push({ method, params });
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: body.id,
-          error: {
-            code: -32000,
-            message: failure.message,
-            data: { code: failure.code, kind: failure.code },
-          },
-        }),
-      });
-      return;
-    }
     const result = handle(method, params);
     if (result === undefined) {
       // Not part of the v2 surface: let the real core answer it.
@@ -360,15 +315,8 @@ async function installMemoryFake(page: Page, opts: FakeOptions): Promise<MemoryF
 }
 
 async function openMemory(page: Page, query = '') {
-  const url = `${MEMORY_URL}${query}`;
-  await page.goto(url);
+  await page.goto(`${MEMORY_URL}${query}`);
   await waitForAppReady(page);
-  // The shell can restore its persisted chat route once it is ready (the race
-  // bootAuthenticatedPage also handles); reapply the Memory route if it did.
-  if (!(await page.evaluate(() => window.location.hash)).startsWith('#/connections')) {
-    await page.goto(url);
-    await waitForAppReady(page);
-  }
   await dismissWalkthroughIfPresent(page);
   await expect(page.getByTestId('memory-page')).toBeVisible({ timeout: 30_000 });
 }
@@ -389,14 +337,13 @@ test.describe('Memory v2 — engine active', () => {
     });
     await expect(page.getByTestId('memory-ask-tab')).toBeVisible();
 
-    // Engine chip: the three CortexDB options, Built-in (tinyhumans) active.
+    // Engine chip lists both engines from memory_engines_list.
     await page.getByTestId('brain-tab-engine').click();
     await expect.poll(() => hash(page)).toContain('brain=engine');
     await expect(page.getByTestId('memory-engines')).toBeVisible();
-    await expect(page.getByTestId('memory-engine-builtin')).toBeVisible();
-    await expect(page.getByTestId('memory-engine-apikey')).toBeVisible();
-    await expect(page.getByTestId('memory-engine-selfhost')).toBeVisible();
-    await expect(page.getByTestId('memory-engine-builtin-active')).toBeVisible();
+    await expect(page.getByTestId('memory-engine-tinyhumans')).toBeVisible();
+    await expect(page.getByTestId('memory-engine-cortexdb')).toBeVisible();
+    await expect(page.getByTestId('memory-engine-tinyhumans-active')).toBeVisible();
 
     // 2. Ask: the recall answer and its citation render.
     await page.getByTestId('brain-tab-ask').click();
@@ -486,41 +433,6 @@ test.describe('Memory v2 — engine active', () => {
     await expect(page.getByTestId('memory-import-done')).toBeVisible({ timeout: 15_000 });
   });
 
-  test('a stopped import resumes only after consent', async ({ page }) => {
-    const stopped =
-      'not enough credits to import your memory; top up, then resume the import to continue where it stopped';
-    const fake = await installMemoryFake(page, {
-      engineOn: true,
-      importFound: true,
-      importStoppedWith: stopped,
-    });
-    await bootAuthenticatedPage(page, 'pw-memory-v2-import-resume');
-    await openMemory(page, '&brain=ask');
-
-    // The stopped import shows its reason and a Resume control, not the fresh offer.
-    const failed = page.getByTestId('memory-import-error');
-    await expect(failed).toBeVisible({ timeout: 20_000 });
-    await expect(failed).toContainText('not enough credits');
-    await expect(page.getByTestId('memory-import-open')).toHaveCount(0);
-
-    // Resume asks again; nothing restarts until the user confirms.
-    await page.getByTestId('memory-import-resume').click();
-    const consent = page.getByTestId('memory-import-consent');
-    await expect(consent).toBeVisible();
-    expect(fake.paramsOf('memory_import_start')).toEqual([]);
-
-    await page.getByTestId('memory-import-confirm').click();
-    await expect(consent).toBeHidden();
-    expect(fake.paramsOf('memory_import_start')).toEqual([{ consent: true }]);
-
-    // It picks up from the stored progress and finishes.
-    await expect(
-      page.getByTestId('memory-import-running').or(page.getByTestId('memory-import-done'))
-    ).toBeVisible();
-    await expect(page.getByTestId('memory-import-done')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByTestId('memory-import-resume')).toHaveCount(0);
-  });
-
   test('legacy Brain and settings links land on their v2 chips', async ({ page }) => {
     await installMemoryFake(page, { engineOn: true });
     await bootAuthenticatedPage(page, 'pw-memory-v2-legacy');
@@ -566,166 +478,5 @@ test.describe('Memory v2 — memory off', () => {
     // With memory off the page never offers an import or lists sources.
     expect(fake.paramsOf('memory_import_scan')).toEqual([]);
     expect(fake.paramsOf('memory_sources_list')).toEqual([]);
-  });
-});
-
-/**
- * A session token as the core stores it. The `local` signature marks the
- * offline "Set it up myself" session (`isLocalSessionToken`), which has no
- * TinyHumans account, so Built-in memory must not be selectable for it.
- */
-function sessionToken(userId: string, signature: string): string {
-  const payload = Buffer.from(
-    JSON.stringify({ sub: userId, userId, exp: Math.floor(Date.now() / 1000) + 3600 })
-  ).toString('base64url');
-  return `eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.${payload}.${signature}`;
-}
-
-test.describe('Memory v2 — Engine tab connect flows', () => {
-  test('Built-in connects with one click when signed in', async ({ page }) => {
-    const fake = await installMemoryFake(page, { engineOn: false });
-    await bootAuthenticatedPage(page, 'pw-memory-engine-builtin');
-    // Stay on Engine: with no `?brain=` the page moves to Ask once memory is on.
-    await openMemory(page, '&brain=engine');
-
-    // Nothing connected: Built-in is open and selectable.
-    const use = page.getByTestId('memory-engine-builtin-use');
-    await expect(use).toBeEnabled({ timeout: 20_000 });
-    await use.click();
-    await expect.poll(() => fake.paramsOf('memory_engine_set')).toEqual([{ engine: 'tinyhumans' }]);
-    await expect(page.getByTestId('memory-engine-builtin-active')).toHaveText('Active');
-  });
-
-  test('API key connects CortexDB cloud with only a key', async ({ page }) => {
-    const fake = await installMemoryFake(page, { engineOn: false });
-    await bootAuthenticatedPage(page, 'pw-memory-engine-apikey');
-    // Stay on Engine: with no `?brain=` the page moves to Ask once memory is on.
-    await openMemory(page, '&brain=engine');
-
-    await page.getByTestId('memory-engine-apikey-trigger').click();
-    await expect(page.getByTestId('memory-engine-apikey-trigger')).toContainText(
-      'https://api-v1.cortexdb.ai'
-    );
-    const submit = page.getByTestId('memory-engine-apikey-submit');
-    await expect(submit).toBeDisabled(); // a key is required
-    await page.getByTestId('memory-engine-apikey-key').fill('pw-cortex-key');
-    await submit.click();
-    // A blank endpoint clears any custom one, so the managed API is used.
-    await expect
-      .poll(() => fake.paramsOf('memory_engine_set'))
-      .toEqual([{ engine: 'cortexdb', endpoint: '', api_key: 'pw-cortex-key' }]);
-    await expect(page.getByTestId('memory-engine-apikey-active')).toHaveText('Active');
-  });
-
-  test('Self-host refuses a non-local endpoint and connects a local one', async ({ page }) => {
-    const fake = await installMemoryFake(page, { engineOn: false });
-    await bootAuthenticatedPage(page, 'pw-memory-engine-selfhost');
-    // Stay on Engine: with no `?brain=` the page moves to Ask once memory is on.
-    await openMemory(page, '&brain=engine');
-
-    await page.getByTestId('memory-engine-selfhost-trigger').click();
-    await expect(page.getByTestId('memory-engine-selfhost-docs')).toBeVisible();
-    await page.getByTestId('memory-engine-selfhost-key').fill('pw-local-key');
-
-    // Not on this computer: refused before any RPC.
-    await page.getByTestId('memory-engine-selfhost-endpoint').fill('http://192.168.1.10:3141');
-    await expect(page.getByTestId('memory-engine-selfhost-endpoint-error')).toContainText(
-      'Self-hosting is local only'
-    );
-    await expect(page.getByTestId('memory-engine-selfhost-submit')).toBeDisabled();
-    expect(fake.paramsOf('memory_engine_set')).toEqual([]);
-
-    // Loopback: accepted and sent with the key.
-    await page.getByTestId('memory-engine-selfhost-endpoint').fill('http://localhost:3141');
-    await expect(page.getByTestId('memory-engine-selfhost-endpoint-error')).toHaveCount(0);
-    await page.getByTestId('memory-engine-selfhost-submit').click();
-    await expect
-      .poll(() => fake.paramsOf('memory_engine_set'))
-      .toEqual([
-        { engine: 'cortexdb', endpoint: 'http://localhost:3141', api_key: 'pw-local-key' },
-      ]);
-    await expect(page.getByTestId('memory-engine-selfhost-active')).toHaveText('Active');
-  });
-
-  test('Built-in is not selectable without a TinyHumans account', async ({ page }) => {
-    const fake = await installMemoryFake(page, { engineOn: false });
-    // A "Set it up myself" (local) session that finished onboarding.
-    await bootRuntimeReadyGuestPage(page);
-    // The core requires the local user payload, as Welcome's "Set it up
-    // myself" stores it (utils/localSession.ts LOCAL_SESSION_USER).
-    await callCoreRpc('openhuman.auth_store_session', {
-      token: sessionToken('local', 'local'),
-      user: { _id: 'local', id: 'local', name: 'Local User', email: 'local@openhuman.local' },
-    });
-    await callCoreRpc('openhuman.config_set_onboarding_completed', { value: true });
-    await page.goto(`${MEMORY_URL}&brain=engine`);
-    await page.reload();
-    await waitForAppReady(page);
-    // The shell restores its persisted chat route once ready; reapply the
-    // Memory route afterwards, as bootAuthenticatedPage does.
-    await page.goto(`${MEMORY_URL}&brain=engine`);
-    await waitForAppReady(page);
-    await dismissWalkthroughIfPresent(page);
-    await expect(page.getByTestId('memory-page')).toBeVisible({ timeout: 30_000 });
-
-    await expect(page.getByTestId('memory-engine-builtin-trigger')).toContainText(
-      'Sign in to use',
-      { timeout: 20_000 }
-    );
-    await expect(page.getByTestId('memory-engine-builtin-sign-in')).toBeVisible();
-    await expect(page.getByTestId('memory-engine-builtin-use')).toBeDisabled();
-    expect(fake.paramsOf('memory_engine_set')).toEqual([]);
-  });
-});
-
-test.describe('Memory v2 — out of credits', () => {
-  test('a recall out of credits prompts a top-up that lands on billing', async ({ page }) => {
-    const fake = await installMemoryFake(page, {
-      engineOn: true,
-      failWith: { memory_recall: OUT_OF_CREDITS },
-    });
-    await bootAuthenticatedPage(page, 'pw-memory-v2-credits-ask');
-    await openMemory(page);
-
-    await page.getByTestId('brain-tab-ask').click();
-    await page.getByTestId('memory-ask-input').fill('When does Atlas migrate?');
-    await page.getByTestId('memory-ask-submit').click();
-
-    // A prompt, not an error: warning variant, the top-up explanation, no raw 402.
-    const prompt = page.getByTestId('memory-ask-error');
-    await expect(prompt).toHaveAttribute('data-kind', 'out-of-credits', { timeout: 20_000 });
-    await expect(prompt).toHaveAttribute('data-variant', 'warning');
-    await expect(prompt).toContainText('Out of credits');
-    await expect(prompt).toContainText('nothing stored has been lost');
-    await expect(prompt).not.toContainText('HTTP 402');
-    expect(fake.paramsOf('memory_recall')).toEqual([{ question: 'When does Atlas migrate?' }]);
-
-    // Top up goes to the billing page.
-    await page.getByTestId('memory-top-up').click();
-    await expect.poll(() => hash(page)).toContain('#/settings/account');
-  });
-
-  test('the Explorer keeps Try again beside Top up', async ({ page }) => {
-    const fake = await installMemoryFake(page, {
-      engineOn: true,
-      failWith: { memory_explore: OUT_OF_CREDITS },
-    });
-    await bootAuthenticatedPage(page, 'pw-memory-v2-credits-explorer');
-    await openMemory(page, '&brain=explorer');
-
-    const prompt = page.getByTestId('memory-explorer-error');
-    await expect(prompt).toHaveAttribute('data-kind', 'out-of-credits', { timeout: 20_000 });
-    await expect(prompt.getByTestId('memory-top-up')).toBeVisible();
-    const retry = prompt.getByRole('button', { name: 'Try again' });
-    await expect(retry).toBeVisible();
-
-    // Try again re-runs the load (it fails again here: still out of credits).
-    const before = fake.paramsOf('memory_explore').length;
-    await retry.click();
-    await expect.poll(() => fake.paramsOf('memory_explore').length).toBeGreaterThan(before);
-    await expect(page.getByTestId('memory-explorer-error')).toHaveAttribute(
-      'data-kind',
-      'out-of-credits'
-    );
   });
 });

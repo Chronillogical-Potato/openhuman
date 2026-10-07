@@ -522,8 +522,6 @@ export type MemoryErrorCode =
   | 'UNSUPPORTED'
   | 'INVALID_REQUEST'
   | 'UNAUTHORIZED'
-  | 'INSUFFICIENT_CREDITS'
-  | 'UNAVAILABLE'
   | 'ENGINE';
 
 const MEMORY_ERROR_CODES: readonly MemoryErrorCode[] = [
@@ -531,8 +529,6 @@ const MEMORY_ERROR_CODES: readonly MemoryErrorCode[] = [
   'UNSUPPORTED',
   'INVALID_REQUEST',
   'UNAUTHORIZED',
-  'INSUFFICIENT_CREDITS',
-  'UNAVAILABLE',
   'ENGINE',
 ];
 
@@ -591,58 +587,19 @@ export function memoryErrorCode(err: unknown): MemoryErrorCode | null {
   }
   const message = (err as { message?: unknown }).message;
   if (typeof message === 'string') {
-    const match =
-      /^\s*(MEMORY_OFF|UNSUPPORTED|INVALID_REQUEST|UNAUTHORIZED|INSUFFICIENT_CREDITS|UNAVAILABLE|ENGINE)\b/.exec(
-        message
-      );
+    const match = /^\s*(MEMORY_OFF|UNSUPPORTED|INVALID_REQUEST|UNAUTHORIZED|ENGINE)\b/.exec(
+      message
+    );
     if (match) return match[1] as MemoryErrorCode;
   }
   return null;
 }
 
-/**
- * The account-wide refusals whose raw message is engine detail, each told
- * apart from an engine fault and from an empty memory: out of credits means
- * "top up", unreachable means "try again". `UNAUTHORIZED` keeps its own
- * message, which names the rejected key or session.
- */
-const REFUSAL_KEYS: Partial<Record<MemoryErrorCode, string>> = {
-  INSUFFICIENT_CREDITS: 'memory.error.insufficientCredits',
-  UNAVAILABLE: 'memory.error.unavailable',
-};
-
-/**
- * Human-readable text of any thrown value. Given `t`, an account-wide refusal
- * reads as its translated explanation instead of the engine's raw message.
- */
-export function memoryErrorMessage(
-  err: unknown,
-  t?: (key: string, fallback?: string) => string
-): string {
-  const code = memoryErrorCode(err);
-  const key = code ? REFUSAL_KEYS[code] : undefined;
-  if (t && key) return t(key);
+/** Human-readable text of any thrown value. */
+export function memoryErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (err && typeof err === 'object' && 'message' in err) return String(err.message);
   return String(err);
-}
-
-/**
- * True when `message` is the out-of-credits explanation `memoryErrorMessage`
- * produced (with `t`). That translated text is returned for
- * `INSUFFICIENT_CREDITS` and for nothing else, so the views that keep only the
- * message can still offer a top-up instead of an error.
- *
- * Known edge: a message produced in one language no longer matches after the
- * user switches language, so that stale message falls back to the error alert
- * (it still explains the top-up). The next failed action re-derives it.
- */
-export function isOutOfCreditsMessage(
-  message: string | null,
-  t: (key: string, fallback?: string) => string
-): boolean {
-  const key = REFUSAL_KEYS.INSUFFICIENT_CREDITS;
-  return message !== null && key !== undefined && message === t(key);
 }
 
 /** True when the engine state means memory is usable (an engine is set and not off). */

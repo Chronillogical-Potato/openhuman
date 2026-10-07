@@ -43,6 +43,10 @@ tinymemory-api = { path = "../../vendor/tinymemory/crates/tinymemory-api" }
 tinymemory-tools = { path = "../../vendor/tinymemory/crates/tinymemory-tools" }
 # Construct the owned wire config directly; core adds host disclosure policy.
 tinymcp-bus = { path = "../../vendor/tinymcp/crates/tinymcp-bus" }
+# The session store port (`SessionStoreProvider`) a host implements to keep
+# conversations in its own database, and the in-memory provider; same path as
+# the core's so one copy resolves.
+tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
 url = "2"
 uuid = { version = "1", features = ["v4"] }

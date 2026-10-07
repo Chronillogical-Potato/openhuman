@@ -749,10 +749,7 @@ inference = ["tinycomputer-accessibility/microphone-probe"]
 # reference instead of extracted text
 # (`agent::multimodal::extract_pdf_text`). Slim / headless builds opt out via
 # `--no-default-features --features "<explicit list without documents>"`.
-# `tinymemory-integrations/documents-office`: memory's brain and file sources
-# read PDF, DOCX, PPTX and XLSX (memory::convert). Kept behind `documents` so
-# the parsers stay off the always-on path (kernel floor).
-documents = ["modules", "dep:tinydocs-bus", "tinymemory-integrations/documents-office"]
+documents = ["modules", "dep:tinydocs-bus"]
 # Hosting: the `hosting_*` agent tools that put a workspace on a real hosting
 # provider — a site, a managed database wired into it, its environment, its
 # domains, its deployments and the traffic they served. Default-OFF,

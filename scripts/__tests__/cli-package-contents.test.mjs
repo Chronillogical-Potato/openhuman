@@ -116,23 +116,7 @@ test("package-manager consumers install and expose the TUI", () => {
   );
 });
 
-// packages/deb/build.sh shells out to dpkg-deb, which Debian-family hosts
-// and the Linux CI runners have and macOS/Windows developer machines do not.
-// Without it the build exits 127 and the red reads as a packaging defect.
-function dpkgDebAvailable() {
-  try {
-    execFileSync("dpkg-deb", ["--version"], { stdio: "ignore" });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-test("Debian packages install both commands", (t) => {
-  if (!dpkgDebAvailable()) {
-    t.skip("dpkg-deb not on PATH");
-    return;
-  }
+test("Debian packages install both commands", () => {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), "openhuman-deb-package-"));
   const core = path.join(work, "core-fixture");
   const tui = path.join(work, "tui-fixture");

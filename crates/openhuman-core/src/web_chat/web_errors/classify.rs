@@ -150,31 +150,6 @@ pub(super) fn classified_plain(
     )
 }
 
-/// Whether `err` says nothing except that the offline local session cannot
-/// reach managed inference (#6932).
-///
-/// A fallback aggregate concatenates every attempt, so the sentinel being
-/// present does not mean it is the whole story: one leg can be this refusal
-/// while another is a BYO provider failing on its own key. Only an error whose
-/// every attempt is the refusal is explained by the local profile.
-fn only_local_session_refused(err: &str) -> bool {
-    const AGGREGATE: &str = "All providers/models failed";
-    let sentinel =
-        crate::security::credentials::session_support::LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE;
-    if !err.contains(sentinel) {
-        return false;
-    }
-    match err.split_once(AGGREGATE) {
-        // Not a chain aggregate: the refusal is the only failure there is.
-        None => true,
-        Some((_, attempts)) => attempts
-            .split(';')
-            .map(str::trim)
-            .filter(|attempt| !attempt.is_empty())
-            .all(|attempt| attempt.contains(sentinel)),
-    }
-}
-
 pub(crate) fn classify_inference_error(err: &str) -> ClassifiedError {
     use FailureClass as C;
     let lower = err.to_lowercase();
@@ -209,26 +184,7 @@ pub(crate) fn classify_inference_error(err: &str) -> ClassifiedError {
     // "iteration", so they MUST be checked before the generic provider-429
     // branch — otherwise users see a confusing "your AI provider is
     // rate-limiting you" message for limits OpenHuman itself enforced (#2364).
-    let classified = if only_local_session_refused(err) {
-        // #6932: `resolve_bearer` refuses the offline local session before the
-        // request, so the backend `401 "Invalid token"` that
-        // `is_session_expired_message` claims — and that told a locally
-        // signed-in user their session had expired — never comes back.
-        //
-        // Leads the ladder, because the aggregate wrapper's own words defeat
-        // the arms below: "All providers/models failed" supplies "models" and
-        // the sentinel supplies "unavailable", which is exactly
-        // `is_model_unavailable_text`, so a refusal reaching the lower arms
-        // gets told to check its model settings. The gate is what keeps that
-        // lead honest — a chain that refused managed and then failed a BYO
-        // provider on its own key is NOT claimed here and reports that key
-        // instead.
-        classified_plain(
-            C::LocalSessionManagedUnavailable,
-            provider,
-            fallback_available,
-        )
-    } else if is_codex_token_expired_text(&err.to_ascii_lowercase()) {
+    let classified = if is_codex_token_expired_text(&err.to_ascii_lowercase()) {
         // Codex OAuth refresh failed (#5869): the user must reconnect Codex in
         // Settings → Integrations, NOT sign into OpenHuman. Checked before
         // `is_session_expired_message` because the sentinel contains

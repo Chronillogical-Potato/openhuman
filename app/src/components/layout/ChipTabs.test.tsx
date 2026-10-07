@@ -44,9 +44,6 @@ describe('ChipTabs', () => {
   // pre-interaction, so this one cannot be restored — not because jsdom can't
   // traverse focus, but because the behavior it asserted no longer exists.
   //
-  // Real Tab entry, arrows, Home/End and both wraps are covered by
-  // app/test/e2e/specs/chip-tabs-keyboard.spec.ts on the Search settings row.
-  //
   // The other three tests below — the arrow-key it.each and the wrap test —
   // are NOT a coverage gap: they're restored using `userEvent.keyboard(...)`
   // rather than raw `fireEvent.keyDown` + manual `.focus()`. The raw-event

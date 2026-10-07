@@ -22,6 +22,7 @@ use tinyagents_runtime::{
 use tinyagents_session::transcript::TranscriptMeta;
 use tinyinference_llm::message::Message;
 
+use crate::agent::session_store::transcripts_or_files;
 use crate::agent::{
     message_convert::{user_message_from_text, user_text_with_markers},
     session_host::{
@@ -1424,9 +1425,10 @@ impl OpenHumanSessionHost {
         }
         self.session_history_locator_memo
             .get_or_init(|| {
-                Arc::new(tinyagents_session::transcript::FileTranscriptLocator::new(
-                    self.workspace_dir.clone(),
-                ))
+                let session_agent_id = crate::core::runtime::CoreContext::current()
+                    .and_then(|context| context.session_agent().map(str::to_owned))
+                    .unwrap_or_else(|| self.agent_definition_id.clone());
+                transcripts_or_files(&session_agent_id, &self.workspace_dir)
             })
             .clone()
     }

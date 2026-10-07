@@ -162,6 +162,8 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         domains,
         tool_groups,
         user_skill_roots: parts.include_user_skills,
+        // A host session store keeps each agent's conversations apart by id.
+        session_agent: Some(id.to_string()),
     };
     let ctx = runtime.core_runtime().context().derive_with(overlay);
 

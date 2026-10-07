@@ -187,7 +187,6 @@ describe('desktopDeepLinkListener', () => {
     expect(windowControls.setFocus).toHaveBeenCalledTimes(1);
     expect(getDeepLinkAuthState()).toEqual({
       isProcessing: false,
-      awaitingCallback: false,
       // Literal copy, not a key: only the localized failures carry one.
       errorMessageKey: null,
       errorMessage:

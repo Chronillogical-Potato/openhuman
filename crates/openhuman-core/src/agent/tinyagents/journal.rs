@@ -56,6 +56,7 @@ use tinyagents_harness::observability::{
     HarnessStatusStore, JournalSink, RedactingSink, StoreEventJournal,
 };
 
+use tinyagents_harness::store::{AppendStore, Store};
 use tinyagents_session::transcript::import::ops::open_session_stores;
 
 /// Best-effort live request → durable tinyagents journal stream map. The web
@@ -98,6 +99,20 @@ async fn resolve_workspace() -> anyhow::Result<PathBuf> {
         .await
         .map_err(|e| anyhow::anyhow!("[journal] load config for workspace: {e}"))?;
     Ok(config.workspace_dir)
+}
+
+/// The journal and key-value stores a turn's events and status go to: the
+/// current agent's host session store when one is installed
+/// ([`crate::agent::session_store::current`]), else the workspace's
+/// `tinyagents_store/`.
+async fn journal_stores() -> anyhow::Result<(Arc<dyn AppendStore>, Arc<dyn Store>)> {
+    if let Some(stores) = crate::agent::session_store::current() {
+        log::debug!("[journal] using the host session store");
+        return Ok((stores.journal, stores.kv));
+    }
+    let workspace = resolve_workspace().await?;
+    let stores = open_session_stores(&workspace);
+    Ok((Arc::new(stores.journal), Arc::new(stores.kv)))
 }
 
 /// A live handle to a turn's durable journal + status snapshot.
@@ -178,22 +193,20 @@ pub(crate) async fn attach_turn_journal(
     run_id: RunId,
     thread_id: Option<ThreadId>,
 ) -> Option<TurnJournal> {
-    let workspace = match resolve_workspace().await {
-        Ok(dir) => dir,
+    let (journal_store, kv) = match journal_stores().await {
+        Ok(stores) => stores,
         Err(err) => {
             log::debug!("[journal] skipping journal attach; {err}");
             return None;
         }
     };
 
-    let stores = open_session_stores(&workspace);
-
     // Event journal: crate StoreEventJournal over the 04-sessions JsonlAppendStore
     // (stream key = run id). Wrapped in a JournalSink (stamps run lineage) and a
     // RedactingSink (masks process credentials) before persisting. Because
     // `events` was seeded with `with_stream_id(run_id)`, every persisted
     // observation's `event_id` is the stable `{run_id}-evt-{offset}`.
-    let journal: Arc<dyn HarnessEventJournal> = Arc::new(StoreEventJournal::new(stores.journal));
+    let journal: Arc<dyn HarnessEventJournal> = Arc::new(StoreEventJournal::new(journal_store));
     let journal_sink = Arc::new(JournalSink::new(journal, run_id.clone()));
     let redacting = RedactingSink::new(journal_sink.clone(), process_env_secrets());
 
@@ -205,7 +218,7 @@ pub(crate) async fn attach_turn_journal(
 
     // Status store: durable, Store-backed. Seed an initial `running` snapshot,
     // recording the thread (when known) so list_by_thread answers at run start.
-    let status_store = Arc::new(FileStatusStore::new(stores.kv));
+    let status_store = Arc::new(FileStatusStore::over(kv));
     let mut status = HarnessRunStatus::new(run_id.clone(), ComponentId::new(model.to_string()));
     if let Some(thread_id) = thread_id {
         status = status.with_thread(thread_id);
@@ -243,9 +256,8 @@ pub(crate) async fn read_run_events(
     run_id: &str,
     from_offset: u64,
 ) -> anyhow::Result<Vec<AgentObservation>> {
-    let workspace = resolve_workspace().await?;
-    let stores = open_session_stores(&workspace);
-    let journal = StoreEventJournal::new(stores.journal);
+    let (journal_store, _) = journal_stores().await?;
+    let journal = StoreEventJournal::new(journal_store);
     journal
         .read_from(run_id, from_offset)
         .await
