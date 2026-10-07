@@ -2,6 +2,9 @@
 //!
 //! Sub-modules:
 //! * [`helpers`]   — small stateless helpers (context block, ACK reaction, typing, workers).
+//! * [`host_agent`] — channels bound to a host-registered agent
+//!   (`agent.channel_agents`): routing, the refusal for a missing agent, the
+//!   turn runner and the external-channel posture.
 //! * [`routing`]   — agent selection and tool-scoping ([`AgentScoping`],
 //!   [`resolve_target_agent`], [`build_visible_tool_set`]).
 //! * [`processor`] — core message pipeline ([`process_channel_message`],
