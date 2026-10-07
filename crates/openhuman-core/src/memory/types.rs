@@ -96,6 +96,20 @@ pub struct RecallParams {
     /// Most citations to return.
     #[serde(default)]
     pub limit: Option<usize>,
+    /// The local days the question is about: memories from them rank
+    /// first, nothing is dropped. Read in the user's time zone.
+    #[serde(default)]
+    pub refers_to: Option<RefersTo>,
+}
+
+/// Local calendar days (`YYYY-MM-DD`), inclusive; `to` defaults to `from`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct RefersTo {
+    /// First day.
+    pub from: chrono::NaiveDate,
+    /// Last day; the same as `from` for a single day.
+    #[serde(default)]
+    pub to: Option<chrono::NaiveDate>,
 }
 
 /// `memory_recall` result.
@@ -127,6 +141,9 @@ pub struct FetchParams {
     /// Engine cursor from a previous page.
     #[serde(default)]
     pub cursor: Option<String>,
+    /// The local days the query is about (see [`RecallParams::refers_to`]).
+    #[serde(default)]
+    pub refers_to: Option<RefersTo>,
 }
 
 /// `memory_fetch` result.

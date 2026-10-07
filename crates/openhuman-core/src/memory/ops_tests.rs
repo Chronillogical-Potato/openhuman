@@ -21,6 +21,7 @@ async fn every_engine_operation_reports_memory_off_without_an_engine() {
     let recall_error = recall(
         &config,
         RecallParams {
+            refers_to: None,
             question: "anything?".into(),
             filter: None,
             limit: None,
@@ -33,6 +34,7 @@ async fn every_engine_operation_reports_memory_off_without_an_engine() {
     let fetch_error = fetch(
         &config,
         FetchParams {
+            refers_to: None,
             query: "x".into(),
             mode: None,
             filter: None,
@@ -94,6 +96,7 @@ async fn learn_recall_fetch_list_and_forget_round_trip() {
     let answer = recall(
         &config,
         RecallParams {
+            refers_to: None,
             question: "coffee".into(),
             filter: None,
             limit: Some(5),
@@ -106,6 +109,7 @@ async fn learn_recall_fetch_list_and_forget_round_trip() {
     let page = fetch(
         &config,
         FetchParams {
+            refers_to: None,
             query: "coffee".into(),
             mode: None,
             filter: Some(MetaFilter {
@@ -335,6 +339,7 @@ async fn fetch_refuses_a_mode_the_engine_does_not_declare() {
     let error = fetch(
         &config,
         FetchParams {
+            refers_to: None,
             query: "x".into(),
             mode: Some(FetchMode::Keyword),
             filter: None,
