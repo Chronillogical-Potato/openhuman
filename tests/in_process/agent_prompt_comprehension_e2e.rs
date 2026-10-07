@@ -1076,32 +1076,47 @@ fn last_user_text(request: &Value) -> String {
         .unwrap_or_default()
 }
 
-/// The web chat's interface locale reaches the model: a Spanish turn's user
-/// message carries the Spanish reply instruction, and after the user switches
-/// the app to English the next turn carries an English one that supersedes it.
-/// Drives the real JSON-RPC chat path against a scripted upstream.
+/// The web chat's interface locale reaches the model on every turn of one
+/// thread, over the real JSON-RPC chat path against a scripted upstream:
+/// Spanish gets the Spanish instruction; switching to English sends an English
+/// one that supersedes it; Hindi re-arms Hindi; a turn that sends no locale
+/// (as host-authored turns do) carries none.
 #[test]
 fn the_interface_locale_reaches_the_model_on_every_turn() {
     run_on_agent_stack("interface_locale_directive", || async {
         let _lock = env_lock_async().await;
-        reset_script(vec![text_completion("Hola."), text_completion("Hello.")]);
+        reset_script(vec![
+            text_completion("Hola."),
+            text_completion("Hello."),
+            text_completion("Namaste."),
+            text_completion("Ok."),
+        ]);
         let stack = boot_stack("").await;
         let client_id = "locale-directive";
         let (mut events, ready) =
             spawn_sse_collector(format!("{}/events?client_id={client_id}", stack.rpc_base));
         wait_for_sse_ready(ready).await;
-        for (id, (message, locale)) in [("hola", "es"), ("and now?", "en")].into_iter().enumerate() {
+        let turns = [
+            ("hola", Some("es")),
+            ("and now?", Some("en")),
+            ("namaste ji", Some("hi")),
+            ("no locale here", None),
+        ];
+        for (id, (message, locale)) in turns.into_iter().enumerate() {
+            let mut params = json!({
+                "client_id": client_id,
+                "thread_id": "thread-locale",
+                "message": message,
+                "model_override": "e2e-mock-model",
+            });
+            if let Some(locale) = locale {
+                params["locale"] = json!(locale);
+            }
             let resp = post_json_rpc(
                 &stack.rpc_base,
                 20 + id as i64,
                 "openhuman.channel_web_chat",
-                json!({
-                    "client_id": client_id,
-                    "thread_id": "thread-locale",
-                    "message": message,
-                    "model_override": "e2e-mock-model",
-                    "locale": locale,
-                }),
+                params,
             )
             .await;
             assert_no_jsonrpc_error(&resp, "channel_web_chat");
@@ -1124,5 +1139,10 @@ fn the_interface_locale_reaches_the_model_on_every_turn() {
         let english = turn("and now?");
         assert!(english.contains("Respond in English"), "{english}");
         assert!(!english.contains("Respond in Spanish"), "{english}");
+        let hindi = turn("namaste ji");
+        assert!(hindi.contains("Respond in Hindi"), "{hindi}");
+        let none = turn("no locale here");
+        assert!(!none.contains("User language:"), "{none}");
+        assert!(none.contains("Current Date & Time:"), "fixture: the clock line is there: {none}");
     });
 }
