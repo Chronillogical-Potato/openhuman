@@ -80,6 +80,20 @@ describe('TimezoneSelect', () => {
     expect(screen.queryByRole('option', { name: 'EST' })).toBeNull();
   });
 
+  it('shows the old zone until the save succeeds', async () => {
+    getMock.mockResolvedValue(settings('Europe/Berlin'));
+    let finish: (value: unknown) => void = () => {};
+    updateMock.mockReturnValue(new Promise(resolve => (finish = resolve)));
+    render();
+    const select = (await screen.findByTestId('timezone-select')) as HTMLSelectElement;
+    await waitFor(() => expect(select.value).toBe('Europe/Berlin'));
+    fireEvent.change(select, { target: { value: 'Asia/Tokyo' } });
+    await waitFor(() => expect(select.disabled).toBe(true));
+    expect(select.value).toBe('Europe/Berlin');
+    finish({ result: {}, logs: [] });
+    await waitFor(() => expect(select.value).toBe('Asia/Tokyo'));
+  });
+
   it('is disabled while a save is in flight, so picks cannot overlap', async () => {
     getMock.mockResolvedValue(settings('Europe/Berlin'));
     let finish: (value: unknown) => void = () => {};

@@ -64,25 +64,18 @@ const TimezoneSelect = ({ ariaLabel }: TimezoneSelectProps) => {
 
   const change = async (value: string) => {
     const timezone = value === FOLLOW_DEVICE ? null : value;
-    const previous = settings;
-    setSettings(current => (current ? { ...current, timezone } : current));
     setFailed(false);
     // The picker is disabled until this save settles, so two picks cannot
-    // race and land out of order.
+    // race and land out of order. Nothing is shown as chosen until core has
+    // stored it, and then exactly what it stored (no re-read).
     setSaving(true);
     try {
-      try {
-        await openhumanUpdateUserTimezone(timezone);
-      } catch {
-        setSettings(previous);
-        setFailed(true);
-        return;
-      }
-      // Saved: show exactly what was stored. No re-read, so a late or
-      // stale read can never put the previous zone back on screen.
+      await openhumanUpdateUserTimezone(timezone);
       setSettings(current =>
         current ? { ...current, timezone, effective: timezone ?? current.device ?? 'UTC' } : current
       );
+    } catch {
+      setFailed(true);
     } finally {
       setSaving(false);
     }
