@@ -17,3 +17,7 @@ pub(crate) fn bound_agent_id<'a>(config: &'a Config, channel: &str) -> Option<&'
 #[cfg(test)]
 #[path = "mod_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "dispatch_tests.rs"]
+mod dispatch_tests;
