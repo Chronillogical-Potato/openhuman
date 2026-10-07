@@ -142,7 +142,13 @@ pub(crate) async fn start(
         thread_id.clone(),
     )
     .await
-    .unwrap_or_default();
+    .unwrap_or_else(|error| {
+        tracing::warn!(
+            session_id,
+            "[voice-live] could not load thread context: {error}"
+        );
+        Vec::new()
+    });
     let mut live = providers::live_config(
         &config,
         &provider,

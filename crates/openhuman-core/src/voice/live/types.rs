@@ -1,6 +1,6 @@
 //! Wire types for live voice sessions: RPC payloads and WebSocket frames.
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 pub use crate::config::schema::voice_live::{
     ElevenLabsLiveSettings, GeminiLiveSettings, LiveVoiceConfig, SarvamLiveSettings,
@@ -49,11 +49,48 @@ pub struct LiveSettingsPatch {
     #[serde(default)]
     pub default_provider: Option<String>,
     #[serde(default)]
-    pub gemini: Option<GeminiLiveSettings>,
+    pub gemini: Option<GeminiLiveSettingsPatch>,
     #[serde(default)]
-    pub sarvam: Option<SarvamLiveSettings>,
+    pub sarvam: Option<SarvamLiveSettingsPatch>,
     #[serde(default)]
-    pub elevenlabs: Option<ElevenLabsLiveSettings>,
+    pub elevenlabs: Option<ElevenLabsLiveSettingsPatch>,
+}
+
+/// A provider patch distinguishes an omitted field from an explicit `null`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GeminiLiveSettingsPatch {
+    #[serde(default, deserialize_with = "deserialize_double_option")]
+    pub model: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_double_option")]
+    pub voice: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_double_option")]
+    pub language: Option<Option<String>>,
+}
+
+/// A provider patch distinguishes an omitted field from an explicit `null`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SarvamLiveSettingsPatch {
+    #[serde(default, deserialize_with = "deserialize_double_option")]
+    pub language: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_double_option")]
+    pub speaker: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_double_option")]
+    pub model: Option<Option<String>>,
+}
+
+/// A provider patch distinguishes an omitted field from an explicit `null`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ElevenLabsLiveSettingsPatch {
+    #[serde(default, deserialize_with = "deserialize_double_option")]
+    pub voice_id: Option<Option<String>>,
+}
+
+fn deserialize_double_option<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Ok(Some(Option::<T>::deserialize(deserializer)?))
 }
 
 /// `voice.live_test_provider` result.

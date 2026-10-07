@@ -4965,7 +4965,7 @@ const messages: TranslationMap = {
   'connections.voiceAgents.keySaved': '密钥已保存。',
   'connections.voiceAgents.keyCleared': '密钥已移除。',
   'connections.voiceAgents.voice': '音色',
-  'connections.voiceAgents.speaker': '播音员',
+  'connections.voiceAgents.speaker': '发音人',
   'connections.voiceAgents.language': '语言',
   'connections.voiceAgents.providerDefault': '提供方默认',
   'connections.voiceAgents.loadFailed': '无法加载语音助手设置',

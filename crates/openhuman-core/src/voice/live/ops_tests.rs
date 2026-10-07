@@ -1,5 +1,5 @@
 use super::*;
-use crate::config::schema::voice_live::{SarvamLiveSettings, LIVE_PROVIDER_SARVAM};
+use crate::config::schema::voice_live::LIVE_PROVIDER_SARVAM;
 
 #[test]
 fn providers_and_settings_reflect_the_config() {
@@ -21,10 +21,9 @@ fn patches_apply_only_the_given_fields_and_validate_ids() {
         &mut config,
         LiveSettingsPatch {
             default_provider: Some(LIVE_PROVIDER_SARVAM.into()),
-            sarvam: Some(SarvamLiveSettings {
-                language: Some("hi-IN".into()),
-                speaker: None,
-                model: None,
+            sarvam: Some(SarvamLiveSettingsPatch {
+                language: Some(Some("hi-IN".into())),
+                ..SarvamLiveSettingsPatch::default()
             }),
             ..LiveSettingsPatch::default()
         },
@@ -36,7 +35,7 @@ fn patches_apply_only_the_given_fields_and_validate_ids() {
     apply_patch(
         &mut config,
         LiveSettingsPatch {
-            gemini: Some(Default::default()),
+            gemini: Some(GeminiLiveSettingsPatch::default()),
             elevenlabs: Some(Default::default()),
             ..LiveSettingsPatch::default()
         },
@@ -51,6 +50,49 @@ fn patches_apply_only_the_given_fields_and_validate_ids() {
     )
     .unwrap_err();
     assert!(err.contains("nope"));
+}
+
+#[test]
+fn provider_patches_preserve_omitted_fields_and_clear_explicit_nulls() {
+    let mut config = Config::default();
+    apply_patch(
+        &mut config,
+        LiveSettingsPatch {
+            gemini: Some(GeminiLiveSettingsPatch {
+                voice: Some(Some("Puck".into())),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    apply_patch(
+        &mut config,
+        LiveSettingsPatch {
+            gemini: Some(GeminiLiveSettingsPatch {
+                language: Some(Some("en-US".into())),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(config.voice_live.gemini.voice.as_deref(), Some("Puck"));
+    assert_eq!(config.voice_live.gemini.language.as_deref(), Some("en-US"));
+
+    apply_patch(
+        &mut config,
+        LiveSettingsPatch {
+            gemini: Some(GeminiLiveSettingsPatch {
+                voice: Some(None),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(config.voice_live.gemini.voice, None);
+    assert_eq!(config.voice_live.gemini.language.as_deref(), Some("en-US"));
 }
 
 #[tokio::test]

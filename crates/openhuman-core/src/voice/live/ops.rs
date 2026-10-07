@@ -7,7 +7,10 @@ use tinyagents_live::tinyliveagents::LiveEvent;
 use super::error::LiveVoiceError;
 use super::providers;
 use super::session;
-use super::types::{LiveProvidersResponse, LiveSettingsPatch, LiveTestResult, LiveVoiceConfig};
+use super::types::{
+    ElevenLabsLiveSettingsPatch, GeminiLiveSettingsPatch, LiveProvidersResponse, LiveSettingsPatch,
+    LiveTestResult, LiveVoiceConfig, SarvamLiveSettingsPatch,
+};
 use crate::config::schema::voice_live::is_live_provider;
 use crate::config::Config;
 use crate::core::Outcome;
@@ -40,15 +43,47 @@ pub(crate) fn apply_patch(config: &mut Config, patch: LiveSettingsPatch) -> Resu
         config.voice_live.default_provider = provider;
     }
     if let Some(gemini) = patch.gemini {
-        config.voice_live.gemini = gemini;
+        merge_gemini(&mut config.voice_live.gemini, gemini);
     }
     if let Some(sarvam) = patch.sarvam {
-        config.voice_live.sarvam = sarvam;
+        merge_sarvam(&mut config.voice_live.sarvam, sarvam);
     }
     if let Some(elevenlabs) = patch.elevenlabs {
-        config.voice_live.elevenlabs = elevenlabs;
+        if let Some(value) = elevenlabs.voice_id {
+            config.voice_live.elevenlabs.voice_id = value;
+        }
     }
     Ok(())
+}
+
+fn merge_gemini(
+    settings: &mut crate::config::schema::voice_live::GeminiLiveSettings,
+    patch: GeminiLiveSettingsPatch,
+) {
+    if let Some(value) = patch.model {
+        settings.model = value;
+    }
+    if let Some(value) = patch.voice {
+        settings.voice = value;
+    }
+    if let Some(value) = patch.language {
+        settings.language = value;
+    }
+}
+
+fn merge_sarvam(
+    settings: &mut crate::config::schema::voice_live::SarvamLiveSettings,
+    patch: SarvamLiveSettingsPatch,
+) {
+    if let Some(value) = patch.language {
+        settings.language = value;
+    }
+    if let Some(value) = patch.speaker {
+        settings.speaker = value;
+    }
+    if let Some(value) = patch.model {
+        settings.model = value;
+    }
 }
 
 /// Updates and saves the live voice settings.
