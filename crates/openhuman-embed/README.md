@@ -351,15 +351,18 @@ Other invariants worth knowing before wiring any entry point:
 ## Feature flags
 
 Every feature on this crate is a pass-through to the same-named feature on
-`openhuman-core` (package `openhuman`): `default`, `http-server`,
+`openhuman-core` (package `openhuman`); `default` also turns on `channels`,
+which core's default already enables: `default`, `http-server`,
 `inference`, `documents`, `hosting`, `modules`, `voice`, `web3`,
 `runtime-node`, `contacts`, `media`, `flows`, `skills`, `mcp`,
 `crash-reporting`, `channels`,
 `sandbox-bubblewrap`, `browser-native`, `whatsapp-web`,
 `file-logging`, `scheduler-gate`.
 
-Two of them also gate items on this crate's own public surface:
+Three of them also gate items on this crate's own public surface:
 
+- `channels`: `Runtime::channels`, `Channels`, `TelegramChannelSpec`,
+  `ChannelListener`, `ChannelError` and `StreamMode`.
 - `mcp`: `HttpHeader`, `McpAuthConfig`, `McpServer`, `AgentSpec::mcp` and
   `HarnessBuilder::mcp`.
 - `skills`: `AgentSpec::skills_dir` and `HarnessBuilder::skills_dir`.
