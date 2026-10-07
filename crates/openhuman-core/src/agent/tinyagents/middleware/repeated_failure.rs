@@ -92,9 +92,31 @@ pub(crate) struct RepeatedToolFailureMiddleware {
     /// history, where it replays as a stale instruction on every later turn
     /// (#6725).
     pending_nudges: Arc<Mutex<Vec<String>>>,
+    /// call_id → a one-line rendering of the call (a shell command verbatim,
+    /// any other tool's arguments as compact JSON), captured in `before_tool`
+    /// so a halt can say what was tried and not only how the last attempt
+    /// ended.
+    recent_calls: std::sync::Mutex<std::collections::HashMap<String, String>>,
+    /// The consecutive failures the ladder is counting, oldest first, each as
+    /// its rendered call and first error line. Any success clears it. A halt
+    /// summary carrying only the last error left the failing commands
+    /// unrecoverable: one run was stopped after six different submissions and
+    /// kept no record of what any of them sent.
+    recent_failures: std::sync::Mutex<std::collections::VecDeque<String>>,
 }
 
 impl RepeatedToolFailureMiddleware {
+    /// `summary` with the calls the ladder counted appended (see
+    /// [`with_failing_calls`]).
+    fn halt_with(&self, summary: String) -> String {
+        let failures = self
+            .recent_failures
+            .lock()
+            .map(|failures| failures.clone())
+            .unwrap_or_default();
+        with_failing_calls(summary, &failures)
+    }
+
     /// Build the breaker. `identical_threshold` (the identical-signature retry
     /// ceiling) is handed straight to [`NoProgressTracker::new`], which clamps it
     /// so a nudge always precedes a halt (a single failure is never a loop).
@@ -108,6 +130,8 @@ impl RepeatedToolFailureMiddleware {
             halt_summary,
             tracker: NoProgressTracker::new(identical_threshold),
             classified: ClassifiedFailureTracker::default(),
+            recent_calls: std::sync::Mutex::default(),
+            recent_failures: std::sync::Mutex::default(),
             step: AtomicUsize::new(0),
             arg_sigs: std::sync::Mutex::new(std::collections::HashMap::new()),
             target_scopes: std::sync::Mutex::new(std::collections::HashMap::new()),
@@ -186,6 +210,91 @@ impl RepeatedToolFailureMiddleware {
         }
         None
     }
+}
+
+/// Longest rendering of one call kept for a halt summary.
+const RENDERED_CALL_CHARS: usize = 200;
+/// How many consecutive failures a halt summary lists.
+const RENDERED_FAILURES: usize = 8;
+
+/// One line naming what a call did, safe for a halt summary the model reads
+/// and the session persists: a `command` argument verbatim (the shell tools),
+/// anything else as compact JSON. Secrets are redacted the way the approval
+/// card redacts them, every URL loses its query and fragment (a fetch is
+/// identified by host and path; a query can carry a token or a user's words),
+/// API-key shapes in free text are scrubbed, and the result is
+/// whitespace-collapsed and bounded so a heredoc or payload cannot swamp it.
+fn render_call(tool: &str, arguments: &serde_json::Value) -> String {
+    let raw = match arguments.get("command").and_then(serde_json::Value::as_str) {
+        Some(command) => command.to_owned(),
+        None if arguments.is_null() => tool.to_owned(),
+        None => strip_url_queries(&crate::security::approval::redact_args(arguments)).to_string(),
+    };
+    let without_queries = raw
+        .split_whitespace()
+        .map(|word| {
+            let core = word.trim_start_matches(['\'', '"', '(', '<']);
+            if core.starts_with("http://") || core.starts_with("https://") {
+                word.split(['?', '#']).next().unwrap_or(word).to_owned()
+            } else {
+                word.to_owned()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    let scrubbed = crate::security::scrub::sanitize_text(&without_queries).value;
+    crate::util::truncate_with_ellipsis(&scrubbed, RENDERED_CALL_CHARS).to_string()
+}
+
+/// `value` with every URL-shaped string cut at its query or fragment.
+fn strip_url_queries(value: &serde_json::Value) -> serde_json::Value {
+    use serde_json::Value;
+    match value {
+        Value::String(s) if s.starts_with("http://") || s.starts_with("https://") => {
+            Value::String(s.split(['?', '#']).next().unwrap_or(s).to_owned())
+        }
+        Value::Array(items) => Value::Array(items.iter().map(strip_url_queries).collect()),
+        Value::Object(map) => Value::Object(
+            map.iter()
+                .map(|(k, v)| (k.clone(), strip_url_queries(v)))
+                .collect(),
+        ),
+        other => other.clone(),
+    }
+}
+
+/// The first line of a failure, plus the first stderr line when the text is a
+/// command exit report -- that is where a program's own reason tends to be.
+fn first_error_line(text: &str) -> String {
+    let first = text
+        .lines()
+        .find(|l| !l.trim().is_empty())
+        .unwrap_or("")
+        .trim();
+    let stderr = text
+        .split_once("[stderr]\n")
+        .and_then(|(_, tail)| tail.lines().find(|l| !l.trim().is_empty()))
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && *l != first);
+    let line = match stderr {
+        Some(err) => format!("{first} — {err}"),
+        None => first.to_owned(),
+    };
+    line.chars().take(RENDERED_CALL_CHARS).collect()
+}
+
+/// `summary` with the consecutive failing calls appended, oldest first, so the
+/// report says what was tried and not only how the last attempt ended.
+fn with_failing_calls(summary: String, failures: &std::collections::VecDeque<String>) -> String {
+    if failures.is_empty() {
+        return summary;
+    }
+    let mut out = summary;
+    out.push_str("\n\nFailing calls, oldest first:");
+    for (i, failure) in failures.iter().enumerate() {
+        out.push_str(&format!("\n{}. {failure}", i + 1));
+    }
+    out
 }
 
 /// A stable, bounded fingerprint of a tool call's arguments for the identical-
@@ -463,6 +572,9 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         if let Ok(mut scopes) = self.target_scopes.lock() {
             scopes.insert(call.id.clone(), failure_scope(&call.name, &call.arguments));
         }
+        if let Ok(mut calls) = self.recent_calls.lock() {
+            calls.insert(call.id.clone(), render_call(&call.name, &call.arguments));
+        }
         Ok(())
     }
 
@@ -517,6 +629,28 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         };
         let heuristic_failure_text = heuristic_text(tool_name, &failure_text);
 
+        // What this call was, for a halt summary; the consecutive-failure list
+        // mirrors the ladder: it grows on every failure and empties on any success.
+        let rendered = self
+            .recent_calls
+            .lock()
+            .ok()
+            .and_then(|mut calls| calls.remove(&invocation.call_id().to_string()))
+            .unwrap_or_else(|| tool_name.to_owned());
+        if let Ok(mut failures) = self.recent_failures.lock() {
+            if result.is_error || body_level_failure {
+                failures.push_back(format!(
+                    "`{tool_name}`: {rendered} → {}",
+                    first_error_line(&failure_text)
+                ));
+                while failures.len() > RENDERED_FAILURES {
+                    failures.pop_front();
+                }
+            } else {
+                failures.clear();
+            }
+        }
+
         if !result.is_error && !body_level_failure {
             // Only a successful observation against this operation and scope
             // demonstrates that its blocker changed. Unrelated successes do not.
@@ -553,7 +687,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                         summary.push_str(" The action may already have happened; reconcile its external state before any retry.");
                     }
                     if let Ok(mut slot) = self.halt_summary.lock() {
-                        *slot = Some(summary);
+                        *slot = Some(self.halt_with(summary));
                     }
                     self.handle.send(SteeringCommand::Pause);
                     self.tracker.reset();
@@ -606,11 +740,11 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                     "[tinyagents::mw] terminal delegated-inference failure — halting on first occurrence with root cause"
                 );
                 if let Ok(mut slot) = self.halt_summary.lock() {
-                    *slot = Some(terminal_inference_halt_summary(
+                    *slot = Some(self.halt_with(terminal_inference_halt_summary(
                         kind,
                         tool_name,
                         &failure_text,
-                    ));
+                    )));
                 }
                 self.handle.send(SteeringCommand::Pause);
                 self.tracker.reset();
@@ -671,7 +805,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                     "[tinyagents::mw] recoverable-failure headroom exhausted — halting run so the root cause surfaces"
                 );
                 if let Ok(mut slot) = self.halt_summary.lock() {
-                    *slot = Some(summary);
+                    *slot = Some(self.halt_with(summary));
                 }
                 self.handle.send(SteeringCommand::Pause);
                 self.reset_recoverable_streak();
@@ -737,7 +871,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                     "[tinyagents::mw] repeated tool failure — halting run so the root cause surfaces"
                 );
                 if let Ok(mut slot) = self.halt_summary.lock() {
-                    *slot = Some(summary);
+                    *slot = Some(self.halt_with(summary));
                 }
                 // Pause at the top of the next iteration (before the next model
                 // call), matching the stop-hook / cap pause path. Reset so a

@@ -210,3 +210,147 @@ async fn a_repeat_guard_result_never_feeds_the_failure_ladder() {
     assert_eq!(drain_pause_count(&handle), 0);
     assert!(slot.lock().unwrap().is_none());
 }
+
+/// A halt that names only the last error leaves the failing commands
+/// unrecoverable: one run was stopped after six different submissions and kept
+/// no record of what any of them sent. The summary must list the calls it
+/// counted, oldest first, each with its own error.
+#[tokio::test]
+async fn a_no_progress_halt_lists_the_calls_it_counted() {
+    let handle = SteeringHandle::allow_all();
+    let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
+    let report =
+        tinytools::render_command_failure(Some(1), "", "Expecting value: line 1 column 1 (char 0)");
+    for i in 0..6 {
+        run_shell(
+            &mw,
+            &format!("post-{i}"),
+            &format!("python3 submit.py --claim CLM-26{i:02}"),
+            failing_result("shell", &report),
+        )
+        .await;
+    }
+    let summary = slot
+        .lock()
+        .unwrap()
+        .clone()
+        .expect("six different failing calls halt the run");
+    assert!(
+        summary.contains("Failing calls, oldest first:"),
+        "{summary}"
+    );
+    assert!(
+        summary.contains("1. `shell`: python3 submit.py --claim CLM-2600"),
+        "the oldest counted call is listed first: {summary}"
+    );
+    assert!(
+        summary.contains("6. `shell`: python3 submit.py --claim CLM-2605"),
+        "the call that tripped the halt is listed last: {summary}"
+    );
+    assert!(
+        summary.matches("Expecting value").count() >= 6,
+        "each entry carries the program's own error line: {summary}"
+    );
+}
+
+/// A success empties the list: only the failures the ladder is still counting
+/// belong in a halt, and a long list of stale ones would misdirect the reader.
+#[tokio::test]
+async fn a_success_between_failures_clears_the_listed_calls() {
+    let handle = SteeringHandle::allow_all();
+    let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
+    let report = tinytools::render_command_failure(Some(1), "", "boom");
+    for i in 0..3 {
+        run_shell(
+            &mw,
+            &format!("a-{i}"),
+            &format!("false-a-{i}"),
+            failing_result("shell", &report),
+        )
+        .await;
+    }
+    run_shell(&mw, "ok", "true", TaToolResult::success("fine")).await;
+    for i in 0..6 {
+        run_shell(
+            &mw,
+            &format!("b-{i}"),
+            &format!("false-b-{i}"),
+            failing_result("shell", &report),
+        )
+        .await;
+    }
+    let summary = slot
+        .lock()
+        .unwrap()
+        .clone()
+        .expect("halts on the second streak");
+    assert!(
+        !summary.contains("false-a-"),
+        "the pre-success streak is gone: {summary}"
+    );
+    assert!(
+        summary.contains("false-b-0") && summary.contains("false-b-5"),
+        "{summary}"
+    );
+}
+
+/// The listed calls are read by the model and persisted with the session, so
+/// they carry what identifies a call and nothing that should not travel: a
+/// URL's query (which can hold a token or the user's own words) and API-key
+/// shapes in a command are both gone, while host, path and command remain.
+#[tokio::test]
+async fn listed_calls_carry_no_query_strings_or_secrets() {
+    let handle = SteeringHandle::allow_all();
+    let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
+    // Built here, not written as a literal: a key-shaped literal in source
+    // trips secret scanners, and the scrubber only sees the runtime string.
+    let fake_key = format!("sk-ant-{}{}", "abcdefghijklmnopqrstuvwxyz0123456789", "ABCDEF");
+    run_shell(
+        &mw,
+        "key-0",
+        &format!("curl -H 'x-api-key: {fake_key}' https://api.example.test/v1/run?debug=1"),
+        failing_result("shell", "boom"),
+    )
+    .await;
+    for i in 1..6 {
+        let id = format!("fetch-{i}");
+        let mut call = TaToolCall::new(
+            &id,
+            "web_fetch",
+            json!({ "url": format!("https://example.test/p{i}?token=abc{i}") }),
+        );
+        mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
+        let mut result = failing_result("web_fetch", "boom");
+        mw.after_tool(&mut ctx(), &(), &invocation(&id, "web_fetch"), &mut result)
+            .await
+            .unwrap();
+    }
+    let summary = slot
+        .lock()
+        .unwrap()
+        .clone()
+        .expect("six varied failures halt");
+    assert!(
+        summary.contains("https://example.test/p1"),
+        "host and path kept: {summary}"
+    );
+    assert!(
+        !summary.contains("token=abc"),
+        "query strings dropped: {summary}"
+    );
+    assert!(
+        !summary.contains("?debug=1"),
+        "query dropped inside a command too: {summary}"
+    );
+    assert!(
+        !summary.contains("abcdefghijklmnopqrstuvwxyz0123456789"),
+        "key scrubbed: {summary}"
+    );
+    assert!(
+        summary.contains("curl -H"),
+        "the command itself is still named: {summary}"
+    );
+}
