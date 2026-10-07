@@ -5092,6 +5092,7 @@ const messages: TranslationMap = {
   'memoryPage.brain.forgetBody': 'ستُزال كل مستندات {source} من الدماغ. لا يمكن التراجع عن ذلك.',
   'memoryPage.brain.forgotten': 'تم نسيان {count} مستندًا من {source}.',
   'memoryPage.brain.source.pdf': 'PDF',
+  'memoryPage.brain.source.files': 'الملفات',
   'memoryPage.brain.source.markdown': 'Markdown',
   'memoryPage.brain.source.notion': 'Notion',
   'memoryPage.brain.source.github': 'GitHub',

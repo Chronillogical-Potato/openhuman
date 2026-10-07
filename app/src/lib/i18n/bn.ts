@@ -5188,6 +5188,7 @@ const messages: TranslationMap = {
     '{source}-এর সব ডকুমেন্ট ব্রেন থেকে সরিয়ে ফেলা হবে। এটি পূর্বাবস্থায় ফেরানো যাবে না।',
   'memoryPage.brain.forgotten': '{source}-এর {count}টি ডকুমেন্ট ভুলে যাওয়া হয়েছে।',
   'memoryPage.brain.source.pdf': 'PDF',
+  'memoryPage.brain.source.files': 'ফাইল',
   'memoryPage.brain.source.markdown': 'Markdown',
   'memoryPage.brain.source.notion': 'Notion',
   'memoryPage.brain.source.github': 'GitHub',

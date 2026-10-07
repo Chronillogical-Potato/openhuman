@@ -4908,6 +4908,7 @@ const messages: TranslationMap = {
   'memoryPage.brain.forgetBody': '所有 {source} 文档都将从大脑中移除。此操作无法撤销。',
   'memoryPage.brain.forgotten': '已忘记 {count} 份 {source} 文档。',
   'memoryPage.brain.source.pdf': 'PDF',
+  'memoryPage.brain.source.files': '文件',
   'memoryPage.brain.source.markdown': 'Markdown',
   'memoryPage.brain.source.notion': 'Notion',
   'memoryPage.brain.source.github': 'GitHub',

@@ -5140,6 +5140,7 @@ const messages: TranslationMap = {
     '{source} 문서가 모두 브레인에서 삭제됩니다. 이 작업은 되돌릴 수 없습니다.',
   'memoryPage.brain.forgotten': '{source} 문서 {count}개를 잊었습니다.',
   'memoryPage.brain.source.pdf': 'PDF',
+  'memoryPage.brain.source.files': '파일',
   'memoryPage.brain.source.markdown': 'Markdown',
   'memoryPage.brain.source.notion': 'Notion',
   'memoryPage.brain.source.github': 'GitHub',

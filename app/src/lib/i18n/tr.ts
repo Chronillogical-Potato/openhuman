@@ -5197,6 +5197,7 @@ const messages: TranslationMap = {
     'Kaynak türü {source} olan tüm belgeler beyinden kaldırılacak. Bu işlem geri alınamaz.',
   'memoryPage.brain.forgotten': '{count} belge unutuldu (kaynak: {source}).',
   'memoryPage.brain.source.pdf': 'PDF',
+  'memoryPage.brain.source.files': 'Dosyalar',
   'memoryPage.brain.source.markdown': 'Markdown',
   'memoryPage.brain.source.notion': 'Notion',
   'memoryPage.brain.source.github': 'GitHub',
