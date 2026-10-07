@@ -147,4 +147,4 @@ pub fn resolve(agent_id: &str) -> Option<HostAgent> {
 
 #[cfg(test)]
 #[path = "host_agents_tests.rs"]
-mod tests;
+pub(crate) mod tests;

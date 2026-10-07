@@ -130,7 +130,7 @@ pub(super) async fn run_agent_job(
                 "[cron] building isolated agent for scheduled job"
             );
             match build_agent_for_cron_job(&effective, job) {
-                Ok(BuiltCronAgent { mut agent }) => {
+                Ok(BuiltCronAgent { mut agent, .. }) => {
                     // Tag events so downstream subscribers can correlate
                     // cron-triggered turns. `cron` is the channel so the
                     // event bus can filter from other flows (`cli`, `web`…).
@@ -279,6 +279,9 @@ pub(super) fn cron_turn_overrides() -> crate::agent::session_host::TurnOverrides
 
 pub(super) struct BuiltCronAgent {
     pub(crate) agent: OpenHumanSessionHost,
+    /// The host agent's context the turn must run in, when `job.agent_id`
+    /// named a host-registered agent (`agent::host_agents`).
+    pub(crate) context: Option<std::sync::Arc<crate::core::runtime::CoreContext>>,
 }
 
 pub(super) fn build_agent_for_cron_job(
@@ -293,7 +296,7 @@ pub(super) fn build_agent_for_cron_job(
                 agent_id = %agent_id,
                 "[cron] built scheduled job agent from definition"
             );
-            Ok(BuiltCronAgent { agent })
+            Ok(BuiltCronAgent { agent, context: None })
         }
         Err(e) => {
             tracing::warn!(
@@ -303,7 +306,10 @@ pub(super) fn build_agent_for_cron_job(
                 "[cron] failed to build agent from definition; falling back to canonical orchestrator"
             );
             OpenHumanSessionHost::from_config_for_agent(config, "orchestrator")
-                .map(|agent| BuiltCronAgent { agent })
+                .map(|agent| BuiltCronAgent {
+                    agent,
+                    context: None,
+                })
         }
     }
 }

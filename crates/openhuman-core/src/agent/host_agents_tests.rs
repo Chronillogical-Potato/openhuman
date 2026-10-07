@@ -2,10 +2,11 @@ use super::*;
 use crate::agent::harness::definition::AgentDefinition;
 use crate::core::runtime::DomainSet;
 
-/// The resolver slot is process-wide; tests that install one take turns.
+/// The resolver slot is process-wide; every test in the crate that installs
+/// one takes its turn through this lock.
 static SLOT: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-fn lock() -> std::sync::MutexGuard<'static, ()> {
+pub(crate) fn lock() -> std::sync::MutexGuard<'static, ()> {
     SLOT.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
