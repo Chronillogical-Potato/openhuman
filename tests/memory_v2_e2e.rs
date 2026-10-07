@@ -257,8 +257,9 @@ impl Fixture {
     }
 
     /// [`Self::ok`] repeated until `done` holds for the result, or ten
-    /// seconds pass (the last result is returned): for reads of a write the
-    /// engine may index after it answers.
+    /// seconds pass, when the last result is returned: for reads of a write
+    /// the engine may index after it answers. A call still unanswered at the
+    /// deadline panics.
     async fn ok_until(&self, method: &str, params: Value, done: impl Fn(&Value) -> bool) -> Value {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
         loop {
