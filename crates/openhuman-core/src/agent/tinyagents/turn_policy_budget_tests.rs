@@ -17,3 +17,23 @@ async fn per_turn_tool_limit_reaches_the_execution_policy() {
 fn tool_results_carry_their_duration() {
     assert!(run_policy_for(10, false).tool_result_durations);
 }
+
+#[test]
+fn stream_timeouts_are_set_explicitly_with_first_event_off() {
+    let limits = run_policy_for(10, false).limits;
+    assert_eq!(limits.stream_idle_timeout_ms, Some(120_000));
+    assert_eq!(limits.stream_first_event_timeout_ms, None);
+    assert_eq!(limits.max_consecutive_stream_idle_timeouts, Some(5));
+}
+
+#[test]
+fn stream_timeout_env_overrides_parse() {
+    assert_eq!(parse_stream_idle_timeout_ms(Some("30")), Some(30_000));
+    assert_eq!(parse_stream_idle_timeout_ms(Some("0")), None);
+    assert_eq!(parse_stream_idle_timeout_ms(Some("junk")), Some(120_000));
+    assert_eq!(parse_stream_first_event_timeout_ms(Some("45")), Some(45_000));
+    assert_eq!(parse_stream_first_event_timeout_ms(Some("0")), None);
+    assert_eq!(parse_stream_first_event_timeout_ms(None), None);
+    assert_eq!(parse_max_consecutive_stream_idle_timeouts(Some("0")), None);
+    assert_eq!(parse_max_consecutive_stream_idle_timeouts(Some("2")), Some(2));
+}

@@ -103,6 +103,49 @@ pub(super) fn parse_model_call_wall_clock_ms(env_value: Option<&str>) -> Option<
     (secs > 0).then(|| secs.saturating_mul(1_000))
 }
 
+/// Default silence allowed between output events of a streaming model call,
+/// in seconds, once the first output has arrived. Matches the harness default
+/// but is set explicitly so a harness bump cannot silently change it.
+pub(super) const DEFAULT_STREAM_IDLE_TIMEOUT_SECS: u64 = 120;
+
+/// Default circuit breaker: consecutive stream idle timeouts on one model
+/// before retrying that model stops.
+pub(super) const DEFAULT_MAX_CONSECUTIVE_STREAM_IDLE_TIMEOUTS: usize = 5;
+
+/// Pure core of the stream idle ceiling: `OPENHUMAN_STREAM_IDLE_TIMEOUT_SECS`
+/// in seconds, `0` disables, absent/unparseable falls back to the default.
+pub(super) fn parse_stream_idle_timeout_ms(env_value: Option<&str>) -> Option<u64> {
+    let secs = env_value
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .unwrap_or(DEFAULT_STREAM_IDLE_TIMEOUT_SECS);
+    (secs > 0).then(|| secs.saturating_mul(1_000))
+}
+
+/// Pure core of the first-event ceiling: `OPENHUMAN_STREAM_FIRST_EVENT_TIMEOUT_SECS`.
+/// Off (`None`) unless set to a positive value: reasoning-hidden providers and
+/// local models legitimately stay silent for minutes before the first token.
+pub(super) fn parse_stream_first_event_timeout_ms(env_value: Option<&str>) -> Option<u64> {
+    env_value
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .filter(|secs| *secs > 0)
+        .map(|secs| secs.saturating_mul(1_000))
+}
+
+/// Pure core of the idle-timeout breaker:
+/// `OPENHUMAN_MAX_CONSECUTIVE_STREAM_IDLE_TIMEOUTS`, `0` disables.
+pub(super) fn parse_max_consecutive_stream_idle_timeouts(
+    env_value: Option<&str>,
+) -> Option<usize> {
+    let n = env_value
+        .and_then(|v| v.trim().parse::<usize>().ok())
+        .unwrap_or(DEFAULT_MAX_CONSECUTIVE_STREAM_IDLE_TIMEOUTS);
+    (n > 0).then_some(n)
+}
+
+fn env_str(name: &str) -> Option<String> {
+    std::env::var(name).ok()
+}
+
 /// Build the harness [`RunPolicy`] for an openhuman turn.
 ///
 /// The loop enforces limits from `self.policy.limits` (not the per-run
@@ -168,6 +211,19 @@ pub(crate) fn run_policy_for(max_iterations: usize, response_cache_enabled: bool
     // delegations) are exempt in the harness and keep the remainder-only
     // budget. Env-overridable, `0` disables.
     policy.limits.max_model_call_ms = model_call_wall_clock_ms();
+    // Stream silence bounds, explicit so a harness default change cannot
+    // alter them. The idle window applies only after the first output event;
+    // the first-event bound is OFF by default because local and hidden-
+    // reasoning models stay silent for minutes before the first token. The
+    // breaker stops retrying a model that keeps stalling.
+    policy.limits.stream_idle_timeout_ms =
+        parse_stream_idle_timeout_ms(env_str("OPENHUMAN_STREAM_IDLE_TIMEOUT_SECS").as_deref());
+    policy.limits.stream_first_event_timeout_ms = parse_stream_first_event_timeout_ms(
+        env_str("OPENHUMAN_STREAM_FIRST_EVENT_TIMEOUT_SECS").as_deref(),
+    );
+    policy.limits.max_consecutive_stream_idle_timeouts = parse_max_consecutive_stream_idle_timeouts(
+        env_str("OPENHUMAN_MAX_CONSECUTIVE_STREAM_IDLE_TIMEOUTS").as_deref(),
+    );
     // Each executed tool row ends with `[took 12.3s]` (#6953). Without it the
     // model cannot tell a fifteen-minute command from a fast one, so it cannot
     // budget the rest of the turn against the ceiling above.
