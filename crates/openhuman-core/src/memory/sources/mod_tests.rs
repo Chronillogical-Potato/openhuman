@@ -55,6 +55,10 @@ fn normalize_target_accepts_each_kinds_shape() {
         normalize_target(MemorySourceKind::Composio, "GMail").unwrap(),
         "gmail"
     );
+    assert_eq!(
+        normalize_target(MemorySourceKind::Composio, "Google_Drive").unwrap(),
+        "googledrive"
+    );
 }
 
 #[test]
