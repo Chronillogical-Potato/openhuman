@@ -94,10 +94,6 @@ fn a_stateless_runtime_keeps_every_conversation_in_its_session_store() {
             // ── asha: two turns on one thread ─────────────────────────────
             let asha = runtime.agent(spec("asha")).expect("asha instantiates");
             let ravi = runtime.agent(spec("ravi")).expect("ravi instantiates");
-            // Runtime initialization and agent construction create required
-            // configuration/scaffolding files. Snapshot that legitimate
-            // baseline, then ensure turns add no durable files of any kind.
-            let baseline: HashSet<_> = files_under(&scratch).into_iter().collect();
             let first = asha
                 .turn("remember the table is for two")
                 .send()
@@ -105,6 +101,11 @@ fn a_stateless_runtime_keeps_every_conversation_in_its_session_store() {
                 .expect("first turn");
             assert_eq!(first.reply, "noted");
             let thread = first.session_id.clone();
+            // Runtime initialization and the first turn create required
+            // configuration/scaffolding files. Snapshot that legitimate
+            // baseline, then ensure subsequent turns add no durable files of
+            // any kind.
+            let baseline: HashSet<_> = files_under(&scratch).into_iter().collect();
             asha.turn("and at eight")
                 .session(&thread)
                 .send()
