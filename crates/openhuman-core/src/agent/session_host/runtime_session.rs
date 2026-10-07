@@ -54,6 +54,10 @@ pub(super) struct OpenHumanSessionState {
     required_output: Option<tinyagents_harness::config::RequiredOutput>,
     pub(crate) pending_turn_overrides: super::types::TurnOverrides,
     pub(super) active_turn_overrides: super::types::TurnOverrides,
+    /// The reply-language instruction for the user's interface locale, sent
+    /// on every user message until the host changes it. Not part of the
+    /// cached system prompt, so a locale change takes effect on the next turn.
+    pub(super) reply_language_directive: Option<String>,
     prelude: Option<OpenHumanTurnPrelude>,
 }
 
@@ -530,6 +534,7 @@ impl OpenHumanTurnPrelude {
         &self,
         original_user_message: &str,
         overrides: &super::types::TurnOverrides,
+        reply_language_directive: Option<&str>,
         run_context: &mut OpenHumanRunContext,
     ) -> String {
         let mut context = String::new();
@@ -633,10 +638,11 @@ impl OpenHumanTurnPrelude {
             self.tool_dispatcher.tool_call_format(),
         )
         .harness_dispatcher();
-        format!(
-            "{}\n\n{enriched}",
-            crate::agent::prompts::current_datetime_line()
-        )
+        let now = crate::agent::prompts::current_datetime_line();
+        match reply_language_directive {
+            Some(directive) => format!("{now}\n{directive}\n\n{enriched}"),
+            None => format!("{now}\n\n{enriched}"),
+        }
     }
 
     fn parent_context(&self) -> crate::agent::harness::ParentExecutionContext {
@@ -1130,18 +1136,22 @@ impl OpenHumanSessionHost {
                             .context_window = context_window;
                         let original_user_message = user_text_with_markers(&request.input);
                         prelude.begin_user_effects(request);
-                        let overrides = std::mem::take(
-                            &mut state
+                        let (overrides, reply_language_directive) = {
+                            let mut state = state
                                 .lock()
-                                .unwrap_or_else(|poisoned| poisoned.into_inner())
-                                .active_turn_overrides,
-                        );
+                                .unwrap_or_else(|poisoned| poisoned.into_inner());
+                            (
+                                std::mem::take(&mut state.active_turn_overrides),
+                                state.reply_language_directive.clone(),
+                            )
+                        };
                         let current_input =
                             view.history.last().filter(|last| **last == request.input);
                         let (enriched, memory_turn) = futures::join!(
                             prelude.enrich_request(
                                 &original_user_message,
                                 &overrides,
+                                reply_language_directive.as_deref(),
                                 &mut options.run_context.data,
                             ),
                             // Boxed: the hook's future (config load, engine

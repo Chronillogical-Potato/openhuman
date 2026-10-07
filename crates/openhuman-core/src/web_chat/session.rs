@@ -138,7 +138,6 @@ pub(super) fn build_session_agent(
     target_agent_id: &str,
     model_override: Option<String>,
     temperature: Option<f64>,
-    locale: Option<&str>,
 ) -> Result<OpenHumanSessionHost, String> {
     let effective = effective_session_config(config, model_override.as_deref(), temperature);
     let provider_role = provider_role_for_model_override(effective.default_model.as_deref());
@@ -150,17 +149,6 @@ pub(super) fn build_session_agent(
         client_id,
         thread_id
     );
-
-    let locale_directive = locale.and_then(locale_reply_directive);
-    if let Some(s) = locale_directive.as_deref() {
-        log::info!(
-            "[web-channel] injecting locale directive client={} thread={} locale={} directive={:?}",
-            client_id,
-            thread_id,
-            locale.unwrap_or(""),
-            s
-        );
-    }
 
     let agent_result = OpenHumanSessionHost::from_config_for_agent(&effective, target_agent_id);
 
@@ -442,7 +430,6 @@ pub(crate) async fn checkout_session_agent(
                     &target_agent_id,
                     model_override,
                     temperature,
-                    locale,
                 )?,
                 fingerprint,
             )
@@ -455,11 +442,25 @@ pub(crate) async fn checkout_session_agent(
                 &target_agent_id,
                 model_override,
                 temperature,
-                locale,
             )?,
             fingerprint,
         ),
     };
+
+    // Every checkout re-arms the reply language from this turn's locale: a
+    // reused agent may have been built under a different one, and `None`
+    // (English, or no locale sent) must clear a stale instruction.
+    let mut agent = agent;
+    let directive = locale.and_then(locale_reply_directive);
+    if directive.is_some() {
+        log::info!(
+            "[web-channel] reply language directive armed client={} thread={} locale={}",
+            client_id,
+            thread_id,
+            locale.unwrap_or("")
+        );
+    }
+    agent.set_reply_language_directive(directive);
 
     // Cold-boot resume needs no seeding here. `set_thread_id` binds the
     // session's durable identity and the turn resumes by it, reading the one
