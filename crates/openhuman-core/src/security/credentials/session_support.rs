@@ -536,8 +536,8 @@ pub fn session_token_from_profile(profile: Option<&AuthProfile>) -> Option<Strin
 /// when there is one; a host that discovers its config from disk has no API
 /// key by construction (it is only ever installed by a library runtime).
 pub fn ambient_config_has_api_key() -> bool {
-    crate::core::runtime::CoreContext::current_embedder_config()
-        .is_some_and(|config| super::api_key::has_api_key(&config))
+    crate::core::runtime::CoreContext::with_current_embedder_config(super::api_key::has_api_key)
+        .unwrap_or(false)
 }
 
 #[cfg(test)]
