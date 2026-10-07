@@ -210,7 +210,7 @@ pub(crate) fn telegram_config(base: &Config, spec: &TelegramChannelSpec) -> Conf
         .expect("a TelegramConfig with its required fields deserializes");
     telegram.chat_id = spec.chat_id.clone();
     telegram.mention_only = spec.mention_only;
-    telegram.stream_mode = spec.stream_mode.clone();
+    telegram.stream_mode = spec.stream_mode;
     config.channels_config = openhuman_core::config::schema::ChannelsConfig {
         telegram: Some(telegram),
         message_timeout_secs: base.channels_config.message_timeout_secs,
