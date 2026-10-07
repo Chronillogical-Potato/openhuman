@@ -71,6 +71,32 @@ struct BatchOutcome {
     /// Whether `fatal` is the account's credits running out: the run is
     /// paused until automatic runs are allowed again ([`BillingCheck`]).
     credits: bool,
+    /// Items the engine refused, skipped so the rest could go on.
+    failed: Vec<FailedItem>,
+}
+
+/// One legacy item the engine refused, kept with the reason so a user can
+/// see it and retry it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+struct FailedItem {
+    /// The item's legacy id (`memory_docs:<id>`, `episodic_log:<session>`, …).
+    id: String,
+    /// Why the engine refused it.
+    reason: String,
+}
+
+impl FailedItem {
+    fn new(item: &tinymemory_api::StoreItem, error: tinymemory_api::Error) -> Self {
+        Self {
+            id: legacy_id(item),
+            reason: MemoryError::from(error).to_string(),
+        }
+    }
+}
+
+/// The legacy id the importer gave `item` (its `source.id`).
+fn legacy_id(item: &tinymemory_api::StoreItem) -> String {
+    item.meta().source.id.clone().unwrap_or_default()
 }
 
 /// Runs `call` again after each of [`RETRY_DELAYS`] while it fails with a
@@ -178,9 +204,10 @@ async fn store_batch(bound: &BoundEngine, batch: Vec<ImportedItem>) -> BatchOutc
             }
             Err(error) => {
                 tracing::debug!(
-                    code = MemoryError::from(error).code(),
+                    code = MemoryError::from(error.clone()).code(),
                     "[memory:import] item skipped"
                 );
+                outcome.failed.push(FailedItem::new(&imported.item, error));
             }
         }
         outcome.checkpoint = Some(imported.checkpoint);
@@ -199,6 +226,9 @@ struct ImportFile {
     /// background job resumes it once automatic runs are allowed.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     paused_for_credits: bool,
+    /// Items the engine refused, for `retry_failed`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    failed: Vec<FailedItem>,
     #[serde(default)]
     checkpoint: Checkpoint,
 }
@@ -465,6 +495,102 @@ async fn start_with(
     Ok(state)
 }
 
+/// `memory_import_retry_failed`: stores again the items a finished import
+/// skipped because the engine refused them. Items that now store leave the
+/// list; ones refused again stay, with the new reason.
+pub async fn retry_failed(config: &Config) -> MemoryResult<ImportState> {
+    let bound = engine::resolve(config).engine()?;
+    let workspace_dir = config.workspace_dir.clone();
+    let mut file = read_file(&workspace_dir);
+    if file.state.phase != ImportPhase::Done || file.failed.is_empty() {
+        return Err(MemoryError::invalid(
+            "no failed items to retry: the import has not finished or skipped nothing",
+        ));
+    }
+    let claimed = RUNNING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(workspace_dir.clone());
+    if !claimed {
+        return Ok(status(config));
+    }
+    file.state.phase = ImportPhase::Running;
+    file.state.error = None;
+    write_file(&workspace_dir, &file);
+    let state = file.state.clone();
+    tracing::info!(
+        failed = file.failed.len(),
+        "[memory:import] retrying failed items"
+    );
+    tokio::spawn(async move {
+        retry_run(&workspace_dir, &bound, file).await;
+        RUNNING
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(&workspace_dir);
+    });
+    Ok(state)
+}
+
+async fn retry_run(workspace_dir: &Path, bound: &BoundEngine, mut file: ImportFile) {
+    let wanted: HashSet<String> = file.failed.iter().map(|failed| failed.id.clone()).collect();
+    let reader_dir = workspace_dir.to_path_buf();
+    let items = tokio::task::spawn_blocking(move || {
+        let workspace = LegacyWorkspace::open(&reader_dir).map_err(|error| error.to_string())?;
+        workspace
+            .items()
+            .filter_map(|imported| match imported {
+                Ok(imported) if wanted.contains(&legacy_id(&imported.item)) => {
+                    Some(Ok(imported.item))
+                }
+                Ok(_) => None,
+                Err(error) => Some(Err(error.to_string())),
+            })
+            .collect::<Result<Vec<_>, String>>()
+    })
+    .await
+    .map_err(|error| error.to_string())
+    .and_then(|items| items);
+    let mut failure = None;
+    match items {
+        Err(error) => failure = Some(format!("reading the legacy store failed: {error}")),
+        Ok(items) => {
+            for item in items {
+                let id = legacy_id(&item);
+                match with_retries(|| bound.engine.store(item.clone())).await {
+                    Ok(_) => {
+                        file.failed.retain(|failed| failed.id != id);
+                        file.state.imported += 1;
+                    }
+                    Err(error) if skips_item(&error) => {
+                        let again = FailedItem::new(&item, error);
+                        if let Some(failed) = file.failed.iter_mut().find(|f| f.id == id) {
+                            *failed = again;
+                        }
+                    }
+                    Err(error) => {
+                        failure = Some(fatal_message(error));
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    file.state.failed = file.failed.len() as u64;
+    // The import itself is finished either way; a stopped retry says why.
+    file.state.phase = if failure.is_some() {
+        ImportPhase::Error
+    } else {
+        ImportPhase::Done
+    };
+    file.state.error = failure;
+    tracing::info!(
+        still_failed = file.failed.len(),
+        "[memory:import] retry of failed items finished"
+    );
+    write_file(workspace_dir, &file);
+}
+
 async fn run(
     workspace_dir: &Path,
     bound: &BoundEngine,
@@ -519,6 +645,8 @@ async fn run(
         }
         let outcome = store_batch(bound, std::mem::take(&mut batch)).await;
         file.state.imported += outcome.stored;
+        file.failed.extend(outcome.failed);
+        file.state.failed = file.failed.len() as u64;
         if let Some(checkpoint) = outcome.checkpoint {
             file.checkpoint = checkpoint;
         }

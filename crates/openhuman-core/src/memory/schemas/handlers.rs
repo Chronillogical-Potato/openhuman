@@ -283,3 +283,15 @@ pub(super) fn import_status(params: Map<String, Value>) -> ControllerFuture {
         }))
     })
 }
+
+pub(super) fn import_retry_failed(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        parse::<EmptyParams>(params)?;
+        let config = load().await?;
+        finish(
+            import::retry_failed(&config)
+                .await
+                .map(|state| ImportStateView { state }),
+        )
+    })
+}

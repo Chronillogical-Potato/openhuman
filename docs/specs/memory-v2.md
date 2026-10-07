@@ -233,6 +233,7 @@ memory.
 | `memory_import_scan` | `{}` | `{found, counts?: {documents, conversations, learnings}}` |
 | `memory_import_start` | `{consent: true}` | `{state: ImportState}` |
 | `memory_import_status` | `{}` | `{state: ImportState}` |
+| `memory_import_retry_failed` | `{}` | `{state: ImportState}`; stores again the items a finished import skipped because the engine refused them (`ImportState.failed` counts them) |
 
 `memory_context_*` and `memory_conversations_get/set` are retired.
 

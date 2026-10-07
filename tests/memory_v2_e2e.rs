@@ -1776,6 +1776,7 @@ async fn memory_v2_registers_exactly_the_documented_methods() {
         "import_scan",
         "import_start",
         "import_status",
+        "import_retry_failed",
     ]
     .iter()
     .map(|m| format!("openhuman.memory_{m}"))

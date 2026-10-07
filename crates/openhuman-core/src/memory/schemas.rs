@@ -56,6 +56,7 @@ fn handler_for(function: &str) -> crate::core::all::ControllerHandler {
         "jobs_run" => handlers::jobs_run,
         "import_scan" => handlers::import_scan,
         "import_start" => handlers::import_start,
+        "import_retry_failed" => handlers::import_retry_failed,
         _ => handlers::import_status,
     }
 }

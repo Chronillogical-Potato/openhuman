@@ -165,11 +165,13 @@ async fn an_interrupted_import_resumes_from_its_checkpoint() {
         &config.workspace_dir,
         &ImportFile {
             paused_for_credits: false,
+            failed: Vec::new(),
             state: ImportState {
                 phase: ImportPhase::Error,
                 imported: 1,
                 total: 5,
                 error: Some("unauthorized: sign in".into()),
+                failed: 0,
             },
             checkpoint: Checkpoint {
                 documents: Some("d1".into()),
@@ -201,11 +203,13 @@ fn a_running_state_with_no_live_import_reads_as_interrupted() {
         &config.workspace_dir,
         &ImportFile {
             paused_for_credits: false,
+            failed: Vec::new(),
             state: ImportState {
                 phase: ImportPhase::Running,
                 imported: 3,
                 total: 9,
                 error: None,
+                failed: 0,
             },
             checkpoint: Checkpoint::default(),
         },
@@ -408,11 +412,13 @@ async fn an_import_the_app_quit_during_resumes_on_its_own() {
         &config.workspace_dir,
         &ImportFile {
             paused_for_credits: false,
+            failed: Vec::new(),
             state: ImportState {
                 phase: ImportPhase::Running,
                 imported: 1,
                 total: 5,
                 error: None,
+                failed: 0,
             },
             checkpoint: Checkpoint {
                 documents: Some("d1".into()),
@@ -441,11 +447,13 @@ async fn a_stopped_or_finished_import_is_not_resumed_on_its_own() {
             &config.workspace_dir,
             &ImportFile {
                 paused_for_credits: false,
+                failed: Vec::new(),
                 state: ImportState {
                     phase,
                     imported: 0,
                     total: 5,
                     error: None,
+                    failed: 0,
                 },
                 checkpoint: Checkpoint::default(),
             },
@@ -462,11 +470,13 @@ fn quit_mid_import(config: &Config) {
         &config.workspace_dir,
         &ImportFile {
             paused_for_credits: false,
+            failed: Vec::new(),
             state: ImportState {
                 phase: ImportPhase::Running,
                 imported: 1,
                 total: 5,
                 error: None,
+                failed: 0,
             },
             checkpoint: Checkpoint {
                 documents: Some("d1".into()),
@@ -614,11 +624,13 @@ async fn a_resumed_import_keeps_its_total_instead_of_rescanning() {
         &config.workspace_dir,
         &ImportFile {
             paused_for_credits: false,
+            failed: Vec::new(),
             state: ImportState {
                 phase: ImportPhase::Error,
                 imported: 1,
                 total: 99,
                 error: Some("unavailable".into()),
+                failed: 0,
             },
             checkpoint: Checkpoint {
                 documents: Some("d1".into()),
@@ -641,11 +653,13 @@ fn the_import_state_is_written_whole_and_leaves_no_staging_file() {
     let tmp = tempfile::tempdir().unwrap();
     let file = ImportFile {
         paused_for_credits: false,
+        failed: Vec::new(),
         state: ImportState {
             phase: ImportPhase::Running,
             imported: 3,
             total: 7,
             error: None,
+            failed: 0,
         },
         checkpoint: Checkpoint {
             documents: Some("d9".into()),
@@ -767,5 +781,76 @@ fn only_a_self_hosted_engine_runs_automatically_until_the_free_period_check_land
     assert!(
         !automatic_run_allowed(&config),
         "unknown free period is not free"
+    );
+}
+
+/// Whether a refusing engine still refuses the "Ideas" document.
+static REFUSE_IDEAS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+
+fn refuse_ideas(item: &tinymemory_api::StoreItem) -> Option<tinymemory_api::Error> {
+    let ideas = matches!(item, tinymemory_api::StoreItem::Document { title: Some(title), .. } if title == "Ideas");
+    (ideas && REFUSE_IDEAS.load(std::sync::atomic::Ordering::SeqCst))
+        .then(|| tinymemory_api::Error::InvalidRequest("item too large".into()))
+}
+
+#[tokio::test]
+async fn a_refused_item_is_kept_and_a_retry_stores_it() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    REFUSE_IDEAS.store(true, std::sync::atomic::Ordering::SeqCst);
+    let engine = bind_failing(&config, refuse_ideas);
+
+    start(&config, true).await.unwrap();
+    let done = wait_until_settled(&config).await;
+    assert_eq!(
+        (done.phase, done.imported, done.failed),
+        (ImportPhase::Done, 4, 1)
+    );
+    let file = read_file(&config.workspace_dir);
+    assert_eq!(file.failed.len(), 1);
+    assert_eq!(file.failed[0].id, "memory_docs:d2");
+    assert!(
+        file.failed[0].reason.contains("item too large"),
+        "{:?}",
+        file.failed
+    );
+
+    // Still refused: kept, with the reason.
+    retry_failed(&config).await.unwrap();
+    let again = wait_until_settled(&config).await;
+    assert_eq!(
+        (again.phase, again.failed),
+        (ImportPhase::Done, 1),
+        "{again:?}"
+    );
+
+    // The engine takes it now: the list empties and the item is stored.
+    REFUSE_IDEAS.store(false, std::sync::atomic::Ordering::SeqCst);
+    retry_failed(&config).await.unwrap();
+    let fixed = wait_until_settled(&config).await;
+    assert_eq!(
+        (fixed.phase, fixed.imported, fixed.failed),
+        (ImportPhase::Done, 5, 0),
+        "{fixed:?}"
+    );
+    assert!(read_file(&config.workspace_dir).failed.is_empty());
+    let items = stored(&engine, MetaFilter::default()).await;
+    assert!(items.iter().any(|item| item.text.contains("oolong")));
+}
+
+#[tokio::test]
+async fn retrying_needs_a_finished_import_with_failed_items() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    bind_reference(&config);
+    let error = retry_failed(&config).await.unwrap_err();
+    assert_eq!(error.code(), INVALID_REQUEST);
+    start(&config, true).await.unwrap();
+    assert_eq!(wait_until_settled(&config).await.failed, 0);
+    assert_eq!(
+        retry_failed(&config).await.unwrap_err().code(),
+        INVALID_REQUEST
     );
 }

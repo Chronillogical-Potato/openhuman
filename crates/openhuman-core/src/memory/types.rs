@@ -368,6 +368,10 @@ pub struct ImportState {
     /// Why it stopped.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// Items the engine refused (malformed, too large), kept so they can be
+    /// retried (`memory_import_retry_failed`).
+    #[serde(default)]
+    pub failed: u64,
 }
 
 /// `memory_import_start` / `_status` result.
