@@ -157,6 +157,7 @@ test.describe('Japanese UI locale', () => {
   }) => {
     await localSettings(page, 'pw-japanese-composio-local');
     await browserElements(page).selectLanguage('Language', 'ja');
+    await expect.poll(() => persistedBrowserLocale(page)).toBe('ja');
     await page.goto('/#/connections?tab=composio-key');
     await expect(
       browserElements(page).text(
