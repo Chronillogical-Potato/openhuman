@@ -79,6 +79,11 @@ impl AgentHost {
         }
     }
 
+    /// The operator's settings this host runs with.
+    pub fn saas(&self) -> &SaasConfig {
+        &self.saas
+    }
+
     fn layout(&self, id: &UserAgentId) -> UserAgentLayout {
         UserAgentLayout::new(&self.saas.root, id)
     }
