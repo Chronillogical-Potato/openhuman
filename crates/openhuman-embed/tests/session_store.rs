@@ -164,6 +164,10 @@ fn a_stateless_runtime_keeps_every_conversation_in_its_session_store() {
                 .into_iter()
                 .filter(|path| {
                     let lower = path.to_lowercase();
+                    // Migration markers are process-local caches.
+                    if lower.contains("migrations") {
+                        return false;
+                    }
                     [
                         "transcript",
                         "session",
