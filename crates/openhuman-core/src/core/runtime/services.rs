@@ -93,6 +93,45 @@ impl Drop for ServiceTasks {
     }
 }
 
+/// The body of [`CoreRuntime::start_services`](crate::core::runtime::CoreRuntime::start_services):
+/// start what `services` selects once, tracking the long-lived loops in `tasks`.
+pub(crate) async fn start_selected_services(
+    tasks: &ServiceTasks,
+    services: ServiceSet,
+    config: Option<&Config>,
+    ctx: &std::sync::Arc<crate::core::runtime::CoreContext>,
+) {
+    if !tasks.begin() {
+        log::debug!("[core-runtime] start_services: already started; skipped");
+        return;
+    }
+    log::debug!("[core-runtime] start_services services={services:?}");
+    super::bootstrap::start_core_runtime_services(services, config).await;
+    if services.login_gated {
+        tasks.track(
+            "login_gated",
+            spawn_login_gated_services(ctx.host_kind().is_desktop_shell()),
+        );
+    }
+    if services.update_scheduler {
+        tasks.track("update_scheduler", spawn_update_scheduler());
+    }
+    if services.cron {
+        tasks.track("cron", spawn_cron_service(std::sync::Arc::clone(ctx)));
+    }
+    // Flow-run boot reconciliation is selected by the flows *domain*, not by
+    // a background service — runs can be started without cron in the
+    // ServiceSet, so their orphans must be reconcilable without it too.
+    if ctx.domains().flows {
+        spawn_flows_boot_reconcile();
+    }
+    if services.channels {
+        if let Some(handle) = spawn_channels_service() {
+            tasks.track("channels", handle);
+        }
+    }
+}
+
 /// Background bootstrap for login-gated services (local AI, voice, screen
 /// intelligence, autocomplete).
 ///

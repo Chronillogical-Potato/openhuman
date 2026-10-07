@@ -794,39 +794,13 @@ impl CoreRuntime {
     /// update checker) are tracked and stopped by
     /// [`stop_services`](Self::stop_services) or when this runtime drops.
     pub async fn start_services(&self) {
-        use crate::core::runtime::services;
-        if !self.service_tasks.begin() {
-            log::debug!("[core-runtime] start_services: already started; skipped");
-            return;
-        }
-        log::debug!("[core-runtime] start_services services={:?}", self.services);
-        super::bootstrap::start_core_runtime_services(self.services, self.config.as_ref()).await;
-
-        if self.services.login_gated {
-            self.service_tasks.track(
-                "login_gated",
-                services::spawn_login_gated_services(self.ctx.host_kind().is_desktop_shell()),
-            );
-        }
-        if self.services.update_scheduler {
-            self.service_tasks
-                .track("update_scheduler", services::spawn_update_scheduler());
-        }
-        if self.services.cron {
-            self.service_tasks
-                .track("cron", services::spawn_cron_service(Arc::clone(&self.ctx)));
-        }
-        // Flow-run boot reconciliation is selected by the flows *domain*, not by
-        // a background service — runs can be started without cron in the
-        // ServiceSet, so their orphans must be reconcilable without it too.
-        if self.ctx.domains().flows {
-            services::spawn_flows_boot_reconcile();
-        }
-        if self.services.channels {
-            if let Some(handle) = services::spawn_channels_service() {
-                self.service_tasks.track("channels", handle);
-            }
-        }
+        crate::core::runtime::services::start_selected_services(
+            &self.service_tasks,
+            self.services,
+            self.config.as_ref(),
+            &self.ctx,
+        )
+        .await;
     }
 
     /// Stop the background services [`start_services`](Self::start_services)

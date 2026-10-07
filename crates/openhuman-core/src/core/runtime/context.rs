@@ -550,9 +550,8 @@ impl CoreContext {
         CURRENT_CONTEXT.scope(ctx, fut).await
     }
 
-    /// [`scope`](Self::scope) for a synchronous closure: `f` runs with `ctx`
-    /// as [`CoreContext::current`]. For blocking work that reads the ambient
-    /// context, such as building a session for a host-registered agent.
+    /// [`scope`](Self::scope) for a synchronous closure, e.g. building a
+    /// session for a host-registered agent under its own context.
     pub fn sync_scope<R>(ctx: Arc<CoreContext>, f: impl FnOnce() -> R) -> R {
         CURRENT_CONTEXT.sync_scope(ctx, f)
     }
