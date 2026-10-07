@@ -322,7 +322,17 @@ pub(crate) async fn resolve_runtime_config_dirs(
 /// revision separately: a switch between those two reads pairs workspace A
 /// with B's revision, and a receiver comparing revisions then ranks the stale
 /// A above the B it should yield to.
-pub async fn active_workspace_snapshot() -> Result<(PathBuf, u64)> {
+/// Returned boxed and `#[inline(never)]` on purpose: other crates await this
+/// (`openhuman-rpc`, `openhuman-embed`), and an `async fn` body is otherwise
+/// re-instantiated inside every calling crate's state machine. Boxing here
+/// keeps one copy, compiled in this crate.
+#[inline(never)]
+pub fn active_workspace_snapshot(
+) -> futures::future::BoxFuture<'static, Result<(PathBuf, u64)>> {
+    Box::pin(active_workspace_snapshot_inner())
+}
+
+async fn active_workspace_snapshot_inner() -> Result<(PathBuf, u64)> {
     // An embedding host that supplied its own `Config` is authoritative, and
     // `config::ops::load_config_with_timeout` already short-circuits on it for
     // exactly this reason. Resolving from disk/env here instead would answer
