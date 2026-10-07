@@ -5019,12 +5019,11 @@ const messages: TranslationMap = {
 
   // Memory v2 page (Connections → Memory): engine, ask, learnings,
   // conversations, documents and context chips.
-  'memoryPage.tabs.engine': 'Mecanismo',
+  'memoryPage.tabs.engine': 'Provedor',
   'memoryPage.tabs.ask': 'Perguntar',
   'memoryPage.tabs.learnings': 'Aprendizados',
   'memoryPage.tabs.conversations': 'Conversas',
-  'memoryPage.header.engine':
-    'Escolha quem armazena sua memória e responde às perguntas sobre ela.',
+  'memoryPage.header.engine': 'Escolha onde sua memória é guardada.',
   'memoryPage.header.ask': 'Faça uma pergunta à sua memória e veja de onde veio a resposta.',
   'memoryPage.header.learnings':
     'Fatos, preferências e procedimentos que seu agente deve lembrar sempre.',
@@ -5098,18 +5097,52 @@ const messages: TranslationMap = {
   'memoryPage.meta.thread': 'Conversa',
   'memoryPage.meta.url': 'Link',
   'memoryPage.off.title': 'A memória está desativada',
-  'memoryPage.off.description':
-    'Conecte o CortexDB para começar a lembrar. Entre para usar o CortexDB integrado ou conecte com sua própria chave de API ou um servidor neste computador.',
-  'memoryPage.off.action': 'Escolher um mecanismo',
-  'memoryPage.engine.listTitle': 'Memória CortexDB',
-  'memoryPage.engine.listDescription':
-    'A memória funciona com o CortexDB. Escolha como este app se conecta a ele. Só uma conexão fica ativa por vez.',
-  'memoryPage.engine.offExplanation':
-    'Nenhuma conexão de memória está utilizável agora, então nada é salvo ou recuperado. Entre para usar o CortexDB integrado ou conecte o CortexDB com sua chave de API ou neste computador.',
+  'memoryPage.off.description': 'Escolha um provedor de memória para começar a lembrar.',
+  'memoryPage.off.action': 'Escolher provedor',
+  'memoryPage.engine.inUse': 'Em uso',
+  'memoryPage.announcement.title': 'Memória ilimitada com o CortexDB',
+  'memoryPage.announcement.retired': 'O TinyCortex foi aposentado em 7 de out.',
+  'memoryPage.announcement.highlight': 'Migração grátis e uso ilimitado no CortexDB.',
+  'memoryPage.announcement.rest':
+    'É mais rápido e inteligente, e seus dados nunca são usados para treinamento.',
+  'memoryPage.announcement.dismiss': 'Dispensar',
+  'memoryPage.engine.cortex.description':
+    'Motor de memória com recuperação ordenada e respostas fundamentadas.',
+  'memoryPage.engine.chip.label': 'Como conectar o CortexDB',
+  'memoryPage.engine.chip.builtin': 'TinyHumans',
+  'memoryPage.engine.chip.free': 'Ilimitada',
+  'memoryPage.engine.chip.apikey': 'Sua chave do CortexDB',
+  'memoryPage.engine.chip.selfhost': 'Local',
+  'memoryPage.engine.fairUse.summary': 'Vale o uso justo',
+  'memoryPage.engine.offPrompt': 'Escolha um provedor abaixo para começar a lembrar.',
+  'memoryPage.engine.builtin.cardDescription':
+    'Hospedado para você pela TinyHumans. Nada para configurar.',
+  'memoryPage.engine.apiKeyOption.cardDescription':
+    'O serviço gerenciado da CortexDB, na sua própria conta CortexDB.',
+  'memoryPage.engine.selfHost.cardDescription':
+    'Um servidor CortexDB que você mesmo roda. A memória fica neste computador.',
+  'memoryPage.engine.freeIngestion.notePlan': 'Memória ilimitada no seu plano {plan}',
+  'memoryPage.engine.freeIngestion.noteUpgrade': 'Memória ilimitada nos planos Basic e Pro',
+  'memoryPage.engine.fairUse.own': 'Envie seu próprio conteúdo, para seu próprio uso.',
+  'memoryPage.engine.fairUse.noAbuse':
+    'Nada de envios em massa automatizados, scraping ou ingestão em nome de outras pessoas ou serviços.',
+  'memoryPage.engine.fairUse.limits':
+    'Podemos limitar ou pausar a ingestão de contas que violarem estes termos.',
+  'memoryPage.engine.fairUse.terms': 'Ler os Termos de Uso',
+  'memoryPage.engine.soon.title': 'Em breve',
+  'memoryPage.engine.soon.description': 'Mais motores de memória em que estamos trabalhando.',
+  'memoryPage.engine.soon.badge': 'Em breve',
+  'memoryPage.engine.soon.supermemory': 'API de memória universal para apps de IA.',
+  'memoryPage.engine.soon.mem0': 'Camada de memória que se aprimora sozinha para agentes.',
+  'memoryPage.engine.soon.cognee': 'Memória em grafo de conhecimento a partir dos seus dados.',
+  'memoryPage.engine.soon.zep': 'Grafo de conhecimento temporal para memória de agentes.',
+  'memoryPage.engine.soon.letta': 'Agentes com estado e memória de longo prazo.',
+  'memoryPage.engine.toastSwitched': 'Provedor de memória alterado',
+  'memoryPage.engine.toastSwitchedBody': '{name} agora guarda sua memória.',
+  'memoryPage.engine.toastSaved': 'Configurações de memória salvas',
   'memoryPage.engine.statusDegraded': 'A memória está degradada',
   'memoryPage.engine.statusDown': 'O mecanismo de memória está inacessível',
   'memoryPage.engine.statusOff': 'Desativado',
-  'memoryPage.engine.active': 'Ativo',
   'memoryPage.engine.use': 'Usar',
   'memoryPage.engine.connect': 'Conectar',
   'memoryPage.engine.endpoint': 'Endpoint',
@@ -5120,20 +5153,13 @@ const messages: TranslationMap = {
   'memoryPage.engine.badgeDown': 'Inacessível',
   'memoryPage.engine.connecting': 'Conectando…',
   'memoryPage.engine.save': 'Salvar',
-  'memoryPage.engine.builtin.title': 'CortexDB integrado',
-  'memoryPage.engine.builtin.detail': 'Incluído na sua conta TinyHumans',
-  'memoryPage.engine.builtin.signInRequired': 'Entre para usar',
-  'memoryPage.engine.builtin.description':
-    'CortexDB hospedado pela TinyHumans e incluído na sua conta. Entre para usar; não há nada para configurar.',
-  'memoryPage.engine.builtin.enrichmentNote':
-    'Novas memórias são salvas na hora. Os fatos e crenças extraídos delas são preenchidos nos minutos seguintes.',
+  'memoryPage.engine.builtin.title': 'CortexDB via TinyHumans',
   'memoryPage.engine.builtin.signInHint':
     'Entre na sua conta TinyHumans para usar o CortexDB integrado.',
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB com sua chave de API',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB com sua própria chave',
   'memoryPage.engine.apiKeyOption.description':
     'Use sua própria conta do CortexDB. A chave fica guardada com segurança neste computador, nunca no arquivo de configuração.',
-  'memoryPage.engine.selfHost.title': 'Hospedar o CortexDB você mesmo',
-  'memoryPage.engine.selfHost.detail': 'Um servidor CortexDB neste computador',
+  'memoryPage.engine.selfHost.title': 'CortexDB neste computador',
   'memoryPage.engine.selfHost.step1':
     'Execute um servidor CortexDB neste computador seguindo o guia:',
   'memoryPage.engine.selfHost.docsLink': 'Guia de auto-hospedagem do CortexDB',
@@ -5216,8 +5242,8 @@ const messages: TranslationMap = {
   'memoryPage.sourceStatus.idle': 'Inativa',
   'memoryPage.sourceStatus.syncing': 'Sincronizando',
   'memoryPage.sourceStatus.error': 'Erro',
-  'memoryPage.tabs.brain': 'Cérebro',
-  'memoryPage.tabs.background': 'Em segundo plano',
+  'memoryPage.tabs.brain': 'Documentos',
+  'memoryPage.tabs.background': 'Atividade',
   'memoryPage.tabs.settings': 'Configurações',
   'memoryPage.header.brain':
     'Documentos que todos os agentes compartilham, organizados por origem.',
@@ -5372,20 +5398,35 @@ const messages: TranslationMap = {
   'connections.tabs.voiceAgents': 'Agentes de voz',
   'connections.header.voiceAgents':
     'Converse em voz alta com seu assistente. Escolha quem fornece a voz dele e adicione chaves das suas próprias contas.',
-  'connections.voiceAgents.defaultLabel': 'Agente de voz padrão',
-  'connections.voiceAgents.needsKeyOption': '{label} (requer chave)',
-  'connections.voiceAgents.kindHosted': 'Incluído',
-  'connections.voiceAgents.kindByok': 'Sua chave',
-  'connections.voiceAgents.badgeDefault': 'Padrão',
   'connections.voiceAgents.badgeReady': 'Pronto',
   'connections.voiceAgents.badgeNeedsKey': 'Falta a chave',
-  'connections.voiceAgents.descGeminiHosted': 'Gemini Live pela TinyHumans. Não precisa de chave.',
-  'connections.voiceAgents.descElevenlabsHosted':
-    'Voz conversacional da ElevenLabs pela TinyHumans. Não precisa de chave.',
-  'connections.voiceAgents.descGemini':
-    'Gemini Live com sua própria chave de API do Google AI Studio.',
-  'connections.voiceAgents.descSarvam':
-    'Sarvam AI para idiomas indianos, com sua própria chave de API.',
+  'connections.voiceAgents.toastSwitched': 'Agente de voz alterado',
+  'connections.voiceAgents.toastSwitchedBody':
+    '{name} agora responde quando você fala com seu assistente.',
+  'connections.voiceAgents.toastVoiceSaved': 'Configurações de voz atualizadas',
+  'connections.voiceAgents.toastKeySaved': 'Chave de API adicionada',
+  'connections.voiceAgents.toastKeySavedBody': '{name} está pronto para usar.',
+  'connections.voiceAgents.toastKeyRemoved': 'Chave de API removida',
+  'connections.voiceAgents.toastSaveFailed': 'Não foi possível salvar suas alterações',
+  'connections.voiceAgents.includedTag': 'Incluído com a TinyHumans',
+  'connections.voiceAgents.ownKeyTag': 'Sua própria chave',
+  'connections.voiceAgents.vendorGemini':
+    'O modelo de voz em tempo real do Google. Rápido e natural.',
+  'connections.voiceAgents.vendorElevenlabs': 'Vozes de conversa realistas da ElevenLabs.',
+  'connections.voiceAgents.vendorSarvam': 'Um agente de voz feito para idiomas indianos.',
+  'connections.voiceAgents.settings': 'Configurações',
+  'connections.voiceAgents.settingsAria': 'Configurações de {name}',
+  'connections.voiceAgents.use': 'Usar',
+  'connections.voiceAgents.connection': 'Como conectar',
+  'connections.voiceAgents.optionManaged': 'Gerenciado pela TinyHumans',
+  'connections.voiceAgents.optionManagedDesc': 'Sem chave e sem configuração.',
+  'connections.voiceAgents.optionOwnKey': 'Sua própria chave de API',
+  'connections.voiceAgents.optionOwnKeyDesc': 'Usa sua própria conta e cobrança do provedor.',
+  'connections.voiceAgents.voiceSettings': 'Configurações de voz',
+  'connections.voiceAgents.badgeInUse': 'Em uso',
+  'connections.voiceAgents.addKeyHint': 'Adicione uma chave de API para usar este agente.',
+  'connections.voiceAgents.keyOnFile': 'Chave de API salva',
+  'connections.voiceAgents.replaceKey': 'Substituir chave',
   'connections.voiceAgents.test': 'Testar',
   'connections.voiceAgents.testing': 'Testando…',
   'connections.voiceAgents.testOk': 'Funcionando · {ms} ms',
@@ -5395,16 +5436,12 @@ const messages: TranslationMap = {
   'connections.voiceAgents.apiKeyPlaceholder': 'Cole sua chave de API',
   'connections.voiceAgents.saveKey': 'Salvar chave',
   'connections.voiceAgents.clearKey': 'Remover chave',
-  'connections.voiceAgents.keySaved': 'Chave salva.',
-  'connections.voiceAgents.keyCleared': 'Chave removida.',
   'connections.voiceAgents.voice': 'Voz',
   'connections.voiceAgents.speaker': 'Locutor',
   'connections.voiceAgents.language': 'Idioma',
   'connections.voiceAgents.providerDefault': 'Padrão do provedor',
   'connections.voiceAgents.loadFailed':
     'Não foi possível carregar as configurações dos agentes de voz',
-  'connections.voiceAgents.saveFailed': 'Não foi possível salvar: {error}',
-  'connections.voiceAgents.saved': 'Salvo.',
   'connections.voiceAgents.saving': 'Salvando…',
 };
 
