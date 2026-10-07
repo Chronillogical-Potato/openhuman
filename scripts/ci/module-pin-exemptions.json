@@ -9,7 +9,7 @@
     "is a deliberate edit to this file, which is a reviewable diff.",
     "",
     "Delete an entry the moment the pins are reconciled. An exemption that has",
-    "stopped being true fails the gate too — `expect` must still match."
+    "stopped being true fails the gate too \u2014 `expect` must still match."
   ],
   "exemptions": [
     {
@@ -21,6 +21,11 @@
       "id": "tinycomputer",
       "expect": "v0.9.1-2-g2b0ee5c",
       "reason": "Pin carries the cpal 0.18 bump (tinycomputer#72, needed so cpal shares alsa-sys with tinyvoice) past the release tag; re-pin to the next release of this module."
+    },
+    {
+      "id": "tinychannels",
+      "expect": "v0.1.10-13-g20cc992",
+      "reason": "Pin carries tinychannels#49 (DashScope context-overflow detection in tinychannels-bus) past the v0.1.10 release tag; re-pin to the next tinychannels release containing it."
     }
   ]
 }
