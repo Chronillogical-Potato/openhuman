@@ -61,7 +61,13 @@ import { useT } from '../../lib/i18n/I18nContext';
 import { decideApproval } from '../../services/api/approvalApi';
 import { threadApi } from '../../services/api/threadApi';
 import { fetchThreadTokenUsage } from '../../services/api/threadUsageApi';
-import { aiRegenerate, chatCancel, chatSend, useRustChat } from '../../services/chatService';
+import {
+  aiRegenerate,
+  chatCancel,
+  chatSend,
+  editMessage,
+  useRustChat,
+} from '../../services/chatService';
 import { callCoreRpc } from '../../services/coreRpcClient';
 import {
   beginInferenceTurn,
@@ -88,6 +94,7 @@ import {
   markThreadInferenceActive,
   setSelectedThread,
   THREAD_NOT_FOUND_MESSAGE,
+  truncateMessagesFrom,
   updateThreadTitle,
 } from '../../store/threadSlice';
 import type { ConfirmationModal as ConfirmationModalType } from '../../types/intelligence';
@@ -283,6 +290,10 @@ const Conversations = ({
   // swaps it instead of carrying half-typed text into the next conversation.
   const [inputValue, setInputValue] = useThreadDraft(selectedThreadId ?? null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  // Failed sends retain their attachments by originating thread. A send may
+  // reject after the user has navigated elsewhere, so restoring into the
+  // component-wide composer state would leak one thread's files into another.
+  const failedAttachmentsByThreadRef = useRef<Map<string, Attachment[]>>(new Map());
   // What ingest counts its budget against. Tracks state on every render (so a
   // removal or a send's clear is picked up) and is written synchronously as each
   // file is admitted, which is what keeps two overlapping ingests honest.
@@ -340,6 +351,9 @@ const Conversations = ({
   const sendErrorRef = useRef(sendError);
   sendErrorRef.current = sendError;
   const preserveSendErrorForRestoredDraftRef = useRef(false);
+  // The user message is persisted before chatSend starts. Reuse it when an
+  // unchanged failed draft is retried instead of appending a second prompt.
+  const persistedFailedMessageByThreadRef = useRef<Map<string, ThreadMessage>>(new Map());
   const createThreadErrorRef = useRef(createThreadError);
   createThreadErrorRef.current = createThreadError;
   const displayedSendError = deriveChatErrorBanner(
@@ -655,6 +669,10 @@ const Conversations = ({
   // core registers a turn only as that RPC returns, so the cancel found
   // nothing to stop; the send path re-issues it once the turn exists.
   const stopRequestedDuringSendRef = useRef<Set<string>>(new Set());
+  // A confirmed cancellation may lose its terminal event; the existing
+  // fallback is still allowed to settle that turn. An unconfirmed cancel must
+  // reconcile with core before local running state is cleared.
+  const confirmedCancellationRef = useRef<Set<string>>(new Set());
   // Per-thread backstop armed by every Stop: if the thread still shows a
   // running turn once it fires (the `chat_cancelled` event was lost, the cancel
   // RPC failed), the local running state is settled so Stop never leaves a
@@ -776,6 +794,15 @@ const Conversations = ({
   // usage (read back from its session transcripts) so the totals reflect prior
   // turns instead of starting at zero. Best-effort; live turns accumulate on top
   // via recordChatTurnUsage and a brand-new thread (hasUsage=false) is left as-is.
+  useEffect(() => {
+    const failedAttachments = failedAttachmentsByThreadRef.current.get(selectedThreadId ?? '');
+    attachmentsRef.current = failedAttachments ? failedAttachments.slice() : [];
+    setAttachments(failedAttachments ? failedAttachments.slice() : []);
+    // A thread switch must not carry the previous thread's files into this
+    // composer. Failed attachments remain in the map for that thread.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedThreadId]);
+
   useEffect(() => {
     if (!selectedThreadId) return;
     let cancelled = false;
@@ -1291,6 +1318,7 @@ const Conversations = ({
     stopRequestedDuringSendRef.current.delete(sendingThreadId);
     clearStopSettleTimer(sendingThreadId);
     const pendingAttachments = attachments.slice();
+    failedAttachmentsByThreadRef.current.set(sendingThreadId, pendingAttachments);
     const modelOverride = composerModelOverride ?? undefined;
     const modelClearBarrier = modelOverride === undefined ? waitForComposerModelClear() : null;
     let messageText = buildMessageWithAttachments(trimmed, pendingAttachments);
@@ -1312,15 +1340,52 @@ const Conversations = ({
           // this draft when the clear barrier prevents the send from starting.
           preserveSendErrorForRestoredDraftRef.current = true;
           setInputValue(normalized);
-          setAttachments(pendingAttachments);
+          if (selectedThreadId === sendingThreadId) {
+            attachmentsRef.current = pendingAttachments.slice();
+            setAttachments(pendingAttachments);
+          }
           throw error;
         }
       }
-      const persisted = await dispatch(
-        addMessageLocal({ threadId: sendingThreadId, message: userMessage })
-      ).unwrap();
-      // The core saved the originals before returning this durable reference.
-      messageText = persisted.message.content;
+      const previousFailedMessage = persistedFailedMessageByThreadRef.current.get(sendingThreadId);
+      const retryingUnchangedMessage =
+        previousFailedMessage && previousFailedMessage.content === messageText;
+      if (retryingUnchangedMessage) {
+        // The core already has this exact prompt from the failed attempt.
+        messageText = previousFailedMessage.content;
+      } else if (previousFailedMessage) {
+        // A corrected retry must replace the already-persisted failed prompt;
+        // appending it would leave both prompts in the transcript. The edit
+        // operation truncates the failed tail and starts the corrected turn.
+        dispatch(
+          truncateMessagesFrom({
+            threadId: sendingThreadId,
+            messageId: previousFailedMessage.id,
+            inclusive: true,
+          })
+        );
+        await editMessage({
+          threadId: sendingThreadId,
+          messageId: previousFailedMessage.id,
+          content: messageText,
+        });
+        setInputValue('');
+        setAttachments([]);
+        attachmentsRef.current = [];
+        failedAttachmentsByThreadRef.current.delete(sendingThreadId);
+        persistedFailedMessageByThreadRef.current.delete(sendingThreadId);
+        setSendError(null);
+        pendingSendsRef.current.delete(sendingThreadId);
+        removePendingSendingThread(sendingThreadId);
+        return;
+      } else {
+        const persisted = await dispatch(
+          addMessageLocal({ threadId: sendingThreadId, message: userMessage })
+        ).unwrap();
+        // The core saved the originals before returning this durable reference.
+        messageText = persisted.message.content;
+        persistedFailedMessageByThreadRef.current.set(sendingThreadId, persisted.message);
+      }
     } catch (error) {
       // RTK's unwrap() re-throws the rejectWithValue payload directly (a plain
       // string, not an Error). Check for the stale-thread sentinel before
@@ -1340,6 +1405,9 @@ const Conversations = ({
     }
     setInputValue('');
     setAttachments([]);
+    attachmentsRef.current = [];
+    failedAttachmentsByThreadRef.current.delete(sendingThreadId);
+    persistedFailedMessageByThreadRef.current.delete(sendingThreadId);
     setSendError(null);
     setAttachError(null);
     // Silence watchdog: fires only if 120s pass without ANY inference signal
@@ -1409,8 +1477,12 @@ const Conversations = ({
       // assistant-ui clears its composer after `onNew` resolves. Restore the
       // draft when the core rejects the send so the user can correct and retry.
       preserveSendErrorForRestoredDraftRef.current = true;
+      failedAttachmentsByThreadRef.current.set(sendingThreadId, pendingAttachments);
       setInputValue(normalized);
-      setAttachments(pendingAttachments);
+      if (selectedThreadId === sendingThreadId) {
+        attachmentsRef.current = pendingAttachments.slice();
+        setAttachments(pendingAttachments);
+      }
       dispatch(clearRuntimeForThread({ threadId: sendingThreadId }));
       dispatch(clearThreadInferenceActive(sendingThreadId));
       pendingSendsRef.current.delete(sendingThreadId);
@@ -1494,8 +1566,12 @@ const Conversations = ({
       // assistant-ui clears its composer after `onNew` resolves. This path
       // handles the transport error locally, so restore the rejected follow-up
       // explicitly instead of letting the user's draft disappear.
+      failedAttachmentsByThreadRef.current.set(threadId, pendingAttachments);
       setInputValue(normalized);
-      setAttachments(pendingAttachments);
+      if (selectedThreadId === threadId) {
+        attachmentsRef.current = pendingAttachments.slice();
+        setAttachments(pendingAttachments);
+      }
     }
   };
 
@@ -1534,6 +1610,7 @@ const Conversations = ({
 
   function stopThreadTurn(threadId: string) {
     const sendPending = pendingSendsRef.current.has(threadId);
+    confirmedCancellationRef.current.delete(threadId);
     debug('[chat] stop generation: thread=%s sendPending=%s', threadId, sendPending);
     // The core registers the turn only as the send RPC returns; until then
     // this cancel may find nothing. Remember the Stop so the send path can
@@ -1550,7 +1627,30 @@ const Conversations = ({
         if (pendingSendsRef.current.has(threadId)) return;
         const lifecycle = inferenceTurnLifecycleRef.current[threadId];
         if (lifecycle !== 'started' && lifecycle !== 'streaming') return;
-        settleStoppedThread(threadId, 'no terminal event after stop');
+        if (confirmedCancellationRef.current.delete(threadId)) {
+          settleStoppedThread(threadId, 'confirmed cancellation without terminal event');
+          return;
+        }
+        // The cancel RPC may have failed before reaching core. Reconcile
+        // before clearing local state so a still-running turn is not hidden.
+        void threadApi
+          .getTurnState(threadId)
+          .then(state => {
+            if (!isMountedRef.current) return;
+            const stillRunning = state?.lifecycle === 'started' || state?.lifecycle === 'streaming';
+            if (!stillRunning) {
+              settleStoppedThread(threadId, 'core confirms no running turn after stop');
+            } else {
+              debug('[chat] stop generation: core still reports running thread=%s', threadId);
+            }
+          })
+          .catch(error => {
+            debug(
+              '[chat] stop generation: reconciliation failed thread=%s err=%o',
+              threadId,
+              error
+            );
+          });
       }, STOP_SETTLE_FALLBACK_MS)
     );
 
@@ -1567,6 +1667,7 @@ const Conversations = ({
       if (!accepted) return;
       if (turnCancelled) {
         // The turn was registered after all; a `chat_cancelled` is on its way.
+        confirmedCancellationRef.current.add(threadId);
         stopRequestedDuringSendRef.current.delete(threadId);
         return;
       }

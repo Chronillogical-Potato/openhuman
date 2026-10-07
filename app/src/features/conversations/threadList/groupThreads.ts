@@ -38,17 +38,13 @@ export function threadMatchesQuery(title: string, query: string): boolean {
   return needle === '' || title.toLowerCase().includes(needle);
 }
 
-function startOfLocalDay(date: Date): number {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-}
-
 /** Which recency bucket a timestamp falls into, relative to `now`'s local day. */
 export function recencyGroupFor(timestamp: string, now: Date): Exclude<ThreadGroupKey, 'pinned'> {
   const time = new Date(timestamp).getTime();
   // An unparseable timestamp sorts to the bottom rather than claiming "Today".
   if (Number.isNaN(time)) return 'older';
   const dayStart = (offset: number) =>
-    new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset).getTime();
+    startOfLocalDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset));
   if (time >= dayStart(0)) return 'today';
   if (time >= dayStart(1)) return 'yesterday';
   if (time >= dayStart(7)) return 'previous7Days';
