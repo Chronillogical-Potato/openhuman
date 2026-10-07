@@ -5093,10 +5093,10 @@ const messages: TranslationMap = {
   'memoryPage.off.action': 'Escolher provedor',
   'memoryPage.engine.inUse': 'Em uso',
   'memoryPage.announcement.title': 'Memória ilimitada com o CortexDB',
-  'memoryPage.announcement.retired':
-    'Em 7 de outubro de 2026, a OpenHuman aposentou seu antigo motor de memória, o TinyCortex, porque ele não era mais mantido. Temos o prazer de apresentar o CortexDB: um motor de memória mais rápido, escalável e inteligente.',
-  'memoryPage.announcement.subscribers':
-    'Com uma assinatura da TinyHumans você tem ingestão de memória ilimitada, e seus dados nunca são usados para treinamento.',
+  'memoryPage.announcement.retired': 'O TinyCortex foi aposentado em 7 de out.',
+  'memoryPage.announcement.highlight': 'Migração grátis e uso ilimitado no CortexDB.',
+  'memoryPage.announcement.rest':
+    'É mais rápido e inteligente, e seus dados nunca são usados para treinamento.',
   'memoryPage.announcement.dismiss': 'Dispensar',
   'memoryPage.engine.cortex.description':
     'Motor de memória com recuperação ordenada e respostas fundamentadas.',

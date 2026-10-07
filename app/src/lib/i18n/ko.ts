@@ -4980,10 +4980,9 @@ const messages: TranslationMap = {
   'memoryPage.off.action': '제공자 선택',
   'memoryPage.engine.inUse': '사용 중',
   'memoryPage.announcement.title': 'CortexDB로 메모리 무제한',
-  'memoryPage.announcement.retired':
-    '2026년 10월 7일, OpenHuman은 더 이상 유지 관리되지 않던 이전 메모리 엔진 TinyCortex를 종료했습니다. 대신 더 빠르고 확장성이 뛰어나며 더 똑똑한 메모리 엔진 CortexDB를 소개합니다.',
-  'memoryPage.announcement.subscribers':
-    'TinyHumans 구독 시 메모리 수집이 무제한이며, 데이터는 절대 학습에 사용되지 않습니다.',
+  'memoryPage.announcement.retired': 'TinyCortex는 10월 7일 종료되었습니다.',
+  'memoryPage.announcement.highlight': 'CortexDB 무료 마이그레이션과 무제한 사용.',
+  'memoryPage.announcement.rest': '더 빠르고 똑똑하며, 데이터는 학습에 쓰이지 않습니다.',
   'memoryPage.announcement.dismiss': '닫기',
   'memoryPage.engine.cortex.description': '순위 기반 회상과 근거 있는 답변을 제공하는 메모리 엔진.',
   'memoryPage.engine.chip.label': 'CortexDB 연결 방법',

@@ -4934,10 +4934,9 @@ const messages: TranslationMap = {
   'memoryPage.off.action': 'اختر مزوّدًا',
   'memoryPage.engine.inUse': 'قيد الاستخدام',
   'memoryPage.announcement.title': 'ذاكرة غير محدودة مع CortexDB',
-  'memoryPage.announcement.retired':
-    'في 7 أكتوبر 2026، أوقفت OpenHuman محرك الذاكرة السابق TinyCortex لأنه لم يعد يُصان. ويسعدنا أن نقدّم لك CortexDB بدلًا منه: محرك ذاكرة أسرع وأكثر قابلية للتوسّع وأذكى.',
-  'memoryPage.announcement.subscribers':
-    'مع اشتراك TinyHumans تحصل على إدخال غير محدود للذاكرة، ولا تُستخدم بياناتك أبدًا في التدريب.',
+  'memoryPage.announcement.retired': 'أُوقف TinyCortex في 7 أكتوبر.',
+  'memoryPage.announcement.highlight': 'ترحيل مجاني واستخدام غير محدود على CortexDB.',
+  'memoryPage.announcement.rest': 'إنه أسرع وأذكى، ولا تُستخدم بياناتك أبدًا في التدريب.',
   'memoryPage.announcement.dismiss': 'إغلاق',
   'memoryPage.engine.cortex.description': 'محرك ذاكرة باسترجاع مرتّب وإجابات موثّقة.',
   'memoryPage.engine.chip.label': 'طريقة ربط CortexDB',

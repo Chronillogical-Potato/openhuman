@@ -5342,10 +5342,9 @@ const messages: TranslationMap = {
   'memoryPage.off.action': 'プロバイダーを選ぶ',
   'memoryPage.engine.inUse': '使用中',
   'memoryPage.announcement.title': 'CortexDB でメモリ無制限',
-  'memoryPage.announcement.retired':
-    '2026 年 10 月 7 日、OpenHuman はメンテナンスが終了していた以前のメモリエンジン TinyCortex を廃止しました。代わりに、より高速でスケーラブルかつ賢いメモリエンジン CortexDB をお届けします。',
-  'memoryPage.announcement.subscribers':
-    'TinyHumans のサブスクリプションならメモリの取り込みは無制限で、あなたのデータが学習に使われることはありません。',
+  'memoryPage.announcement.retired': 'TinyCortex は 10 月 7 日に廃止されました。',
+  'memoryPage.announcement.highlight': 'CortexDB への移行は無料、利用は無制限です。',
+  'memoryPage.announcement.rest': 'より速く賢く、データが学習に使われることはありません。',
   'memoryPage.announcement.dismiss': '閉じる',
   'memoryPage.engine.cortex.description':
     'ランク付きの想起と根拠のある回答を備えたメモリエンジン。',

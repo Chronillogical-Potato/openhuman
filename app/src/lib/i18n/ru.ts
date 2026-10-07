@@ -5076,10 +5076,10 @@ const messages: TranslationMap = {
   'memoryPage.off.action': 'Выбрать провайдера',
   'memoryPage.engine.inUse': 'Используется',
   'memoryPage.announcement.title': 'Безлимитная память на CortexDB',
-  'memoryPage.announcement.retired':
-    '7 октября 2026 года OpenHuman отказался от прежнего движка памяти TinyCortex, так как он больше не поддерживался. Мы рады представить CortexDB — более быстрый, масштабируемый и умный движок памяти.',
-  'memoryPage.announcement.subscribers':
-    'С подпиской TinyHumans загрузка в память не ограничена, а ваши данные никогда не используются для обучения.',
+  'memoryPage.announcement.retired': 'TinyCortex выведен из работы 7 окт.',
+  'memoryPage.announcement.highlight': 'Бесплатный перенос и безлимитное использование CortexDB.',
+  'memoryPage.announcement.rest':
+    'Он быстрее и умнее, а ваши данные никогда не используются для обучения.',
   'memoryPage.announcement.dismiss': 'Скрыть',
   'memoryPage.engine.cortex.description':
     'Движок памяти с ранжированным поиском и обоснованными ответами.',

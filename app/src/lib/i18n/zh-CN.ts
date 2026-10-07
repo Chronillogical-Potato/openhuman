@@ -4752,10 +4752,9 @@ const messages: TranslationMap = {
   'memoryPage.off.action': '选择提供方',
   'memoryPage.engine.inUse': '使用中',
   'memoryPage.announcement.title': 'CortexDB 无限记忆',
-  'memoryPage.announcement.retired':
-    '2026 年 10 月 7 日，OpenHuman 停用了已不再维护的旧记忆引擎 TinyCortex。我们很高兴为你带来 CortexDB：一个更快、更易扩展、更智能的记忆引擎。',
-  'memoryPage.announcement.subscribers':
-    '订阅 TinyHumans 即可无限写入记忆，且你的数据绝不会用于训练。',
+  'memoryPage.announcement.retired': 'TinyCortex 已于 10 月 7 日停用。',
+  'memoryPage.announcement.highlight': '免费迁移，CortexDB 无限使用。',
+  'memoryPage.announcement.rest': '更快更智能，且你的数据绝不会用于训练。',
   'memoryPage.announcement.dismiss': '关闭',
   'memoryPage.engine.cortex.description': '具备排序召回与有据回答的记忆引擎。',
   'memoryPage.engine.chip.label': '如何连接 CortexDB',

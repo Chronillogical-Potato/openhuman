@@ -52,14 +52,23 @@ export default function MemoryCortexAnnouncement() {
       variant="info"
       aria-labelledby="memory-cortex-announcement-title"
       data-testid="memory-cortex-announcement"
-      className="pr-11">
-      <div className="min-w-0 flex-1 space-y-1.5">
+      className="items-center pr-11">
+      <span aria-hidden className="shrink-0 text-2xl leading-none">
+        🎉
+      </span>
+      <div className="min-w-0 flex-1 space-y-0.5">
         <AlertTitle id="memory-cortex-announcement-title">
-          <span aria-hidden>🎉 </span>
           {t('memoryPage.announcement.title')}
         </AlertTitle>
-        <AlertDescription>{t('memoryPage.announcement.retired')}</AlertDescription>
-        <AlertDescription>{t('memoryPage.announcement.subscribers')}</AlertDescription>
+        <AlertDescription className="text-xs">
+          {t('memoryPage.announcement.retired')}{' '}
+          <strong
+            className="rounded bg-primary-500/15 px-1 py-px font-semibold text-content"
+            data-testid="memory-cortex-announcement-highlight">
+            {t('memoryPage.announcement.highlight')}
+          </strong>{' '}
+          {t('memoryPage.announcement.rest')}
+        </AlertDescription>
       </div>
       <Button
         size="xs"

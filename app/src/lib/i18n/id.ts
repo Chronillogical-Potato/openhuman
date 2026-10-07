@@ -5065,10 +5065,10 @@ const messages: TranslationMap = {
   'memoryPage.off.action': 'Pilih penyedia',
   'memoryPage.engine.inUse': 'Digunakan',
   'memoryPage.announcement.title': 'Memori tanpa batas di CortexDB',
-  'memoryPage.announcement.retired':
-    'Pada 7 Oktober 2026, OpenHuman memensiunkan mesin memori sebelumnya, TinyCortex, karena tidak lagi dipelihara. Kami senang menghadirkan CortexDB sebagai gantinya: mesin memori yang lebih cepat, lebih skalabel, dan lebih cerdas.',
-  'memoryPage.announcement.subscribers':
-    'Dengan langganan TinyHumans, penyerapan memori tidak terbatas, dan data Anda tidak pernah dipakai untuk pelatihan.',
+  'memoryPage.announcement.retired': 'TinyCortex dipensiunkan pada 7 Okt.',
+  'memoryPage.announcement.highlight': 'Migrasi gratis dan penggunaan tanpa batas di CortexDB.',
+  'memoryPage.announcement.rest':
+    'Lebih cepat dan cerdas, dan data Anda tidak pernah dipakai untuk pelatihan.',
   'memoryPage.announcement.dismiss': 'Tutup',
   'memoryPage.engine.cortex.description':
     'Mesin memori dengan pemanggilan berperingkat dan jawaban berdasar.',
