@@ -4,8 +4,12 @@ use crate::config::Config;
 
 /// The agent `channel` is bound to in `config.agent.channel_agents`, if any.
 pub(crate) fn bound_agent_id<'a>(config: &'a Config, channel: &str) -> Option<&'a str> {
-    let _ = (config, channel);
-    None
+    config
+        .agent
+        .channel_agents
+        .get(channel)
+        .map(|id| id.trim())
+        .filter(|id| !id.is_empty())
 }
 
 #[cfg(test)]
