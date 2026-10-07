@@ -42,6 +42,7 @@ const ALL_LOCALES = [
   "ru",
   "id",
   "it",
+  "ja",
   "ko",
   "pl",
 ] as const;

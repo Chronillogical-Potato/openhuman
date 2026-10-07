@@ -542,3 +542,6 @@ fn resolve_bearer_returns_token_for_exp_less_offline_session() {
 mod auth_tests;
 #[path = "openhuman_backend_model_endpoint_tests.rs"]
 mod endpoint_tests;
+
+#[path = "openhuman_backend_model_offline_session_tests.rs"]
+mod offline_session_tests;

@@ -20,6 +20,11 @@ This is the **only** acceptable substitute for a `🚫` row in [`TEST-COVERAGE-M
 
 Applies to every release, all platforms.
 
+### Japanese UI
+
+- [ ] **Japanese language selection** — In the first-run language picker and Settings → Language, select **🇯🇵 日本語**. Verify that the labels immediately become Japanese, then visit Chat, Connections → Memory, Connections → LLM, and Gateway. Restart and confirm the selected language is retained. Switch back to English and confirm the labels update again.
+- [ ] **Japanese browser language** — With a fresh profile and browser language `ja-JP`, verify that Japanese is selected automatically. Check a message containing a count or model name: the value must appear in place of its placeholder and remain readable at the default window size.
+
 ### Conversation resume
 
 - [ ] **Default agent traces reach Langfuse** — With a signed-in staging test account, send a synthetic chat turn that spawns a subagent. Expected: the parent and child traces share one conversation session, include the intended input/output and model usage, and carry the authenticated user. Confirm `share_usage_data = false` stops export.
