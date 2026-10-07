@@ -137,3 +137,26 @@ fn list_reports_provisioned_agents_only() {
         .collect();
     assert_eq!(open, vec![&b]);
 }
+
+#[test]
+fn a_reprovisioned_agent_does_not_inherit_the_old_credential() {
+    let tmp = tempfile::tempdir().unwrap();
+    let host = host(&tmp, 4, 60);
+    let id = agent(&format!("returning-{}", uuid::Uuid::new_v4()));
+    host.provision(&id).unwrap();
+    let config = host.open(&id).unwrap().config.clone();
+    super::super::credentials::store(
+        &config,
+        super::super::credentials::UserCredentialKind::Session,
+        "old-session",
+        None,
+    )
+    .unwrap();
+    assert!(host.summary(&id).unwrap().unwrap().has_credential);
+    host.deprovision(&id).unwrap();
+    host.provision(&id).unwrap();
+    assert!(
+        !host.summary(&id).unwrap().unwrap().has_credential,
+        "deprovisioning must forget the credential"
+    );
+}

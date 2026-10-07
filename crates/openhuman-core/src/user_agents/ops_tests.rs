@@ -45,8 +45,11 @@ fn status_and_deprovision_take_agent_ids_only() {
 fn credentials_are_set_and_cleared_per_agent_and_never_echoed() {
     let tmp = tempfile::tempdir().unwrap();
     let host = host(&tmp);
-    let alice = UserAgentId::for_user("alice").unwrap();
-    let bob = UserAgentId::for_user("bob").unwrap();
+    // The keyring holding credential secrets is shared by every test here.
+    let alice_user = format!("alice-{}", uuid::Uuid::new_v4());
+    let bob_user = format!("bob-{}", uuid::Uuid::new_v4());
+    let alice = UserAgentId::for_user(&alice_user).unwrap();
+    let bob = UserAgentId::for_user(&bob_user).unwrap();
     assert!(set_credential_on(
         &host,
         alice.as_str(),
@@ -56,8 +59,8 @@ fn credentials_are_set_and_cleared_per_agent_and_never_echoed() {
     )
     .unwrap_err()
     .contains("not provisioned"));
-    provision_on(&host, "alice").unwrap();
-    provision_on(&host, "bob").unwrap();
+    provision_on(&host, &alice_user).unwrap();
+    provision_on(&host, &bob_user).unwrap();
 
     let out = set_credential_on(
         &host,
