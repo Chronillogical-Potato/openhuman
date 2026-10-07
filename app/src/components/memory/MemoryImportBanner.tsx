@@ -176,6 +176,8 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
               <div className="flex flex-wrap items-center gap-3">
                 <span className="text-sm" data-testid="memory-import-failed-items">
                   {fill(t('memoryPage.import.failedItems'), { count: state.failed ?? 0 })}
+                  {/* A retry the engine or account stopped says why; Retry again works. */}
+                  {state.error ? ` ${state.error}` : ''}
                 </span>
                 <Button
                   type="button"

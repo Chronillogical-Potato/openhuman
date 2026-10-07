@@ -99,6 +99,17 @@ describe('MemoryImportBanner', () => {
     expect(hoisted.start).not.toHaveBeenCalled();
   });
 
+  it('says why a retry stopped and keeps offering it', async () => {
+    hoisted.status.mockResolvedValue({
+      state: { phase: 'done', imported: 8, total: 9, failed: 1, error: 'sign in to continue' },
+    });
+    renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+    expect(await screen.findByTestId('memory-import-failed-items')).toHaveTextContent(
+      'sign in to continue'
+    );
+    expect(screen.getByTestId('memory-import-retry-failed')).toBeEnabled();
+  });
+
   it('offers no retry when nothing failed', async () => {
     hoisted.status.mockResolvedValue({
       state: { phase: 'done', imported: 9, total: 9, failed: 0 },
