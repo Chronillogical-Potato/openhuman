@@ -53,12 +53,8 @@ pub async fn run_server_saas(
     saas_config: &std::path::Path,
 ) -> anyhow::Result<()> {
     let config = openhuman_core::core::runtime::SaasConfig::load(saas_config)?;
-    let runtime = openhuman_core::core::runtime::saas::build(
-        config,
-        host.map(str::to_owned),
-        port,
-    )
-    .await?;
+    let runtime =
+        openhuman_core::core::runtime::saas::build(config, host.map(str::to_owned), port).await?;
     super::serve::serve(&runtime, None, None).await
 }
 
