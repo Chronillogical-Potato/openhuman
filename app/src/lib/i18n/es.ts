@@ -5408,6 +5408,21 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'Elementos que no se pudieron importar: {count}.',
   'memoryPage.import.retryFailed': 'Reintentar los elementos fallidos',
   'memoryPage.import.progress': '{imported} de {total} elementos importados',
+  'memoryPage.migrate.title': 'Mueve la memoria a tu cuenta',
+  'memoryPage.migrate.body':
+    'La memoria guardada antes de esta actualización sigue en el antiguo diseño compartido. Se mueve sola en segundo plano, o puedes moverla ahora.',
+  'memoryPage.migrate.action': 'Migrar ahora',
+  'memoryPage.migrate.running': 'Moviendo la memoria…',
+  'memoryPage.migrate.progress': '{copied} elementos movidos',
+  'memoryPage.migrate.paused': 'Traslado en pausa',
+  'memoryPage.migrate.resume': 'Reanudar',
+  'memoryPage.migrate.leftTitle': 'No se pudieron mover {count} elementos',
+  'memoryPage.migrate.leftBody': 'Se quedan donde estaban. Vuelve a intentarlo o déjalos ahí.',
+  'memoryPage.migrate.retry': 'Reintentar',
+  'memoryPage.migrate.takeoverTitle': '¿Tomar la memoria compartida en este equipo?',
+  'memoryPage.migrate.takeoverBody':
+    'Este servidor de CortexDB puede contener memoria de otras cuentas de este equipo. Solo una cuenta puede tomarla: se mueve a tu cuenta y las demás cuentas dejan de verla.',
+  'memoryPage.migrate.takeoverConfirm': 'Tomarla',
   // Live voice agents
   'voice.live.mute': 'Silenciar micrófono',
   'voice.live.unmute': 'Activar micrófono',

@@ -5019,6 +5019,21 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': '未能导入的项目：{count}',
   'memoryPage.import.retryFailed': '重试失败的项目',
   'memoryPage.import.progress': '已导入 {imported} / {total} 项',
+  'memoryPage.migrate.title': '将记忆迁移到你的账户',
+  'memoryPage.migrate.body':
+    '此更新之前保存的记忆仍在旧的共享布局中。它会在后台自动迁移，你也可以现在迁移。',
+  'memoryPage.migrate.action': '立即迁移',
+  'memoryPage.migrate.running': '正在迁移记忆…',
+  'memoryPage.migrate.progress': '已迁移 {copied} 项',
+  'memoryPage.migrate.paused': '迁移已暂停',
+  'memoryPage.migrate.resume': '继续',
+  'memoryPage.migrate.leftTitle': '有 {count} 项无法迁移',
+  'memoryPage.migrate.leftBody': '它们会保留在原处。请重试，或将其保留在那里。',
+  'memoryPage.migrate.retry': '重试',
+  'memoryPage.migrate.takeoverTitle': '接管这台电脑上共享的记忆？',
+  'memoryPage.migrate.takeoverBody':
+    '此 CortexDB 服务器可能保存着这台电脑上其他账户的记忆。只有一个账户可以接管：记忆会迁移到你的账户，其他账户将不再看到它。',
+  'memoryPage.migrate.takeoverConfirm': '接管',
   // Live voice agents
   'voice.live.mute': '静音麦克风',
   'voice.live.unmute': '取消静音',

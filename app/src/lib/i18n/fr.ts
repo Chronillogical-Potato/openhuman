@@ -5432,6 +5432,21 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': "Éléments qui n'ont pas pu être importés : {count}.",
   'memoryPage.import.retryFailed': 'Réessayer les éléments en échec',
   'memoryPage.import.progress': '{imported} éléments sur {total} importés',
+  'memoryPage.migrate.title': 'Déplacer la mémoire dans votre compte',
+  'memoryPage.migrate.body':
+    'La mémoire enregistrée avant cette mise à jour se trouve encore dans l’ancienne organisation partagée. Elle est déplacée automatiquement en arrière-plan, ou vous pouvez la déplacer maintenant.',
+  'memoryPage.migrate.action': 'Migrer maintenant',
+  'memoryPage.migrate.running': 'Déplacement de la mémoire…',
+  'memoryPage.migrate.progress': '{copied} éléments déplacés',
+  'memoryPage.migrate.paused': 'Déplacement en pause',
+  'memoryPage.migrate.resume': 'Reprendre',
+  'memoryPage.migrate.leftTitle': '{count} éléments n’ont pas pu être déplacés',
+  'memoryPage.migrate.leftBody': 'Ils restent où ils étaient. Réessayez ou laissez-les là.',
+  'memoryPage.migrate.retry': 'Réessayer',
+  'memoryPage.migrate.takeoverTitle': 'Prendre la mémoire partagée sur cet ordinateur ?',
+  'memoryPage.migrate.takeoverBody':
+    'Ce serveur CortexDB peut contenir la mémoire d’autres comptes de cet ordinateur. Un seul compte peut la prendre : elle est déplacée dans votre compte et les autres comptes ne la voient plus.',
+  'memoryPage.migrate.takeoverConfirm': 'La prendre',
   // Live voice agents
   'voice.live.mute': 'Couper le micro',
   'voice.live.unmute': 'Réactiver le micro',

@@ -5210,6 +5210,21 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'العناصر التي تعذّر استيرادها: {count}.',
   'memoryPage.import.retryFailed': 'إعادة محاولة العناصر الفاشلة',
   'memoryPage.import.progress': 'تم استيراد {imported} من {total} عنصر',
+  'memoryPage.migrate.title': 'انقل الذاكرة إلى حسابك',
+  'memoryPage.migrate.body':
+    'الذاكرة المحفوظة قبل هذا التحديث لا تزال في التخطيط المشترك القديم. تُنقل تلقائيًا في الخلفية، أو يمكنك نقلها الآن.',
+  'memoryPage.migrate.action': 'انقل الآن',
+  'memoryPage.migrate.running': 'جارٍ نقل الذاكرة…',
+  'memoryPage.migrate.progress': 'تم نقل {copied} عنصر',
+  'memoryPage.migrate.paused': 'توقف النقل مؤقتًا',
+  'memoryPage.migrate.resume': 'استئناف',
+  'memoryPage.migrate.leftTitle': 'تعذّر نقل {count} عنصر',
+  'memoryPage.migrate.leftBody': 'تبقى في مكانها. حاول مرة أخرى أو اتركها هناك.',
+  'memoryPage.migrate.retry': 'حاول مرة أخرى',
+  'memoryPage.migrate.takeoverTitle': 'هل تأخذ الذاكرة المشتركة على هذا الكمبيوتر؟',
+  'memoryPage.migrate.takeoverBody':
+    'قد يحتوي خادم CortexDB هذا على ذاكرة لحسابات أخرى على هذا الكمبيوتر. يمكن لحساب واحد فقط أخذها: تُنقل إلى حسابك ولن تراها الحسابات الأخرى بعد ذلك.',
+  'memoryPage.migrate.takeoverConfirm': 'خذها',
   // Live voice agents
   'voice.live.mute': 'كتم الميكروفون',
   'voice.live.unmute': 'إلغاء كتم الميكروفون',

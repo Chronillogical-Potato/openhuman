@@ -64,6 +64,8 @@ interface FakeOptions {
   importStoppedWith?: string;
   /** An earlier import finished with this many items the engine refused. */
   importFinishedWithFailed?: number;
+  /** `memory_migration_scan` finds legacy memory to move; `shared` when other accounts may share it. */
+  migration?: { shared: boolean };
   /**
    * Methods (without `openhuman.`) answered with a JSON-RPC error instead,
    * shaped like the core's memory error (`data.code` / `data.kind`).
@@ -118,6 +120,8 @@ async function installMemoryFake(page: Page, opts: FakeOptions): Promise<MemoryF
   ];
   const sources: Array<Record<string, unknown>> = [];
   let nextId = 1;
+  let migrating = false;
+  let migrated = false;
   let importState = opts.importStoppedWith
     ? {
         phase: 'error',
@@ -326,6 +330,28 @@ async function installMemoryFake(page: Page, opts: FakeOptions): Promise<MemoryF
           importState = { phase: 'done', imported: 20, total: 20, error: null, failed: 0 };
         }
         return { state: current };
+      }
+      case 'memory_migration_scan':
+        return {
+          needed: Boolean(opts.migration) && !migrated,
+          shared: Boolean(opts.migration?.shared),
+        };
+      case 'memory_migration_start':
+        // A shared tree is never taken without consent.
+        if (opts.migration?.shared && params.takeover !== true) {
+          return { state: { phase: 'idle', copied: 0 }, running: false, interrupted: false };
+        }
+        migrating = true;
+        return { state: { phase: 'copying', copied: 3 }, running: true, interrupted: false };
+      case 'memory_migration_status': {
+        // A running move finishes on the next poll.
+        if (migrating) {
+          migrating = false;
+          migrated = true;
+          return { state: { phase: 'copying', copied: 3 }, running: true, interrupted: false };
+        }
+        const phase = migrated ? 'cleaned' : 'idle';
+        return { state: { phase, copied: migrated ? 5 : 0 }, running: false, interrupted: false };
       }
       default:
         return undefined;
@@ -778,5 +804,39 @@ test.describe('Memory v2 — out of credits', () => {
       'data-kind',
       'out-of-credits'
     );
+  });
+});
+
+test.describe('Memory v2 — move into the per-user layout', () => {
+  test('migrate now moves the legacy memory and the banner goes away', async ({ page }) => {
+    const fake = await installMemoryFake(page, { engineOn: true, migration: { shared: false } });
+    await bootAuthenticatedPage(page, 'pw-memory-v2-migrate');
+    await openMemory(page, '&brain=ask');
+
+    await expect(page.getByTestId('memory-migration-offer')).toBeVisible({ timeout: 20_000 });
+    await page.getByTestId('memory-migration-start').click();
+    expect(fake.paramsOf('memory_migration_start')).toEqual([{ takeover: false }]);
+    await expect(page.getByTestId('memory-migration-banner')).toBeHidden({ timeout: 15_000 });
+  });
+
+  test('a tree other accounts may share is taken only after consent', async ({ page }) => {
+    const fake = await installMemoryFake(page, { engineOn: true, migration: { shared: true } });
+    await bootAuthenticatedPage(page, 'pw-memory-v2-migrate-takeover');
+    await openMemory(page, '&brain=ask');
+
+    await page.getByTestId('memory-migration-start').click({ timeout: 20_000 });
+    const takeover = page.getByTestId('memory-migration-takeover');
+    await expect(takeover).toBeVisible();
+    expect(fake.paramsOf('memory_migration_start')).toEqual([]);
+
+    await page.getByTestId('memory-migration-takeover-cancel').click();
+    await expect(takeover).toBeHidden();
+    expect(fake.paramsOf('memory_migration_start')).toEqual([]);
+
+    await page.getByTestId('memory-migration-start').click();
+    await page.getByTestId('memory-migration-takeover-confirm').click();
+    await expect(takeover).toBeHidden();
+    expect(fake.paramsOf('memory_migration_start')).toEqual([{ takeover: true }]);
+    await expect(page.getByTestId('memory-migration-banner')).toBeHidden({ timeout: 15_000 });
   });
 });

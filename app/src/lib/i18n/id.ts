@@ -5352,6 +5352,22 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'Item yang tidak dapat diimpor: {count}.',
   'memoryPage.import.retryFailed': 'Coba lagi item yang gagal',
   'memoryPage.import.progress': '{imported} dari {total} item diimpor',
+  'memoryPage.migrate.title': 'Pindahkan memori ke akun Anda',
+  'memoryPage.migrate.body':
+    'Memori yang disimpan sebelum pembaruan ini masih berada di tata letak bersama yang lama. Memori dipindahkan otomatis di latar belakang, atau Anda bisa memindahkannya sekarang.',
+  'memoryPage.migrate.action': 'Migrasikan sekarang',
+  'memoryPage.migrate.running': 'Memindahkan memori…',
+  'memoryPage.migrate.progress': '{copied} item dipindahkan',
+  'memoryPage.migrate.paused': 'Pemindahan dijeda',
+  'memoryPage.migrate.resume': 'Lanjutkan',
+  'memoryPage.migrate.leftTitle': '{count} item tidak dapat dipindahkan',
+  'memoryPage.migrate.leftBody':
+    'Item tersebut tetap di tempatnya. Coba lagi, atau biarkan di sana.',
+  'memoryPage.migrate.retry': 'Coba lagi',
+  'memoryPage.migrate.takeoverTitle': 'Ambil memori bersama di komputer ini?',
+  'memoryPage.migrate.takeoverBody':
+    'Server CortexDB ini mungkin menyimpan memori dari akun lain di komputer ini. Hanya satu akun yang dapat mengambilnya: memori dipindahkan ke akun Anda, dan akun lain tidak lagi melihatnya.',
+  'memoryPage.migrate.takeoverConfirm': 'Ambil',
   // Live voice agents
   'voice.live.mute': 'Bisukan mikrofon',
   'voice.live.unmute': 'Aktifkan mikrofon',

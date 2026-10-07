@@ -28,6 +28,7 @@ import MemoryEngineTab from '../components/memory/MemoryEngineTab';
 import MemoryExplorerTab from '../components/memory/MemoryExplorerTab';
 import MemoryImportBanner from '../components/memory/MemoryImportBanner';
 import MemoryLearningsTab from '../components/memory/MemoryLearningsTab';
+import MemoryMigrationBanner from '../components/memory/MemoryMigrationBanner';
 import MemoryOffState from '../components/memory/MemoryOffState';
 import MemorySettingsTab from '../components/memory/MemorySettingsTab';
 import SettingsTabbedPage from '../components/settings/layout/SettingsTabbedPage';
@@ -202,6 +203,7 @@ export default function Memory() {
           {on && chip !== null && chip !== 'engine' && (
             <MemoryImportBanner engineLabel={activeLabel} />
           )}
+          {on && chip !== null && chip !== 'engine' && <MemoryMigrationBanner />}
           {body}
         </div>
       </SettingsTabbedPage>

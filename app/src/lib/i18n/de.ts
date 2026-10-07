@@ -5458,6 +5458,22 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'Nicht importierte Einträge: {count}.',
   'memoryPage.import.retryFailed': 'Fehlgeschlagene erneut versuchen',
   'memoryPage.import.progress': '{imported} von {total} Elementen importiert',
+  'memoryPage.migrate.title': 'Erinnerungen in dein Konto verschieben',
+  'memoryPage.migrate.body':
+    'Vor diesem Update gespeicherte Erinnerungen liegen noch im alten gemeinsamen Layout. Sie werden im Hintergrund automatisch verschoben, oder du verschiebst sie jetzt.',
+  'memoryPage.migrate.action': 'Jetzt migrieren',
+  'memoryPage.migrate.running': 'Erinnerungen werden verschoben…',
+  'memoryPage.migrate.progress': '{copied} Einträge verschoben',
+  'memoryPage.migrate.paused': 'Verschieben pausiert',
+  'memoryPage.migrate.resume': 'Fortsetzen',
+  'memoryPage.migrate.leftTitle': '{count} Einträge konnten nicht verschoben werden',
+  'memoryPage.migrate.leftBody':
+    'Sie bleiben, wo sie waren. Versuche es erneut oder lass sie dort.',
+  'memoryPage.migrate.retry': 'Erneut versuchen',
+  'memoryPage.migrate.takeoverTitle': 'Auf diesem Computer geteilte Erinnerungen übernehmen?',
+  'memoryPage.migrate.takeoverBody':
+    'Dieser CortexDB-Server kann Erinnerungen anderer Konten auf diesem Computer enthalten. Nur ein Konto kann sie übernehmen: Sie werden in dein Konto verschoben, und andere Konten sehen sie nicht mehr.',
+  'memoryPage.migrate.takeoverConfirm': 'Übernehmen',
   // Live voice agents
   'voice.live.mute': 'Mikrofon stummschalten',
   'voice.live.unmute': 'Stummschaltung aufheben',

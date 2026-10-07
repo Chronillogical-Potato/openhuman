@@ -5259,6 +5259,21 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': '가져오지 못한 항목: {count}',
   'memoryPage.import.retryFailed': '실패한 항목 다시 시도',
   'memoryPage.import.progress': '{total}개 중 {imported}개 항목을 가져왔습니다',
+  'memoryPage.migrate.title': '메모리를 계정으로 옮기기',
+  'memoryPage.migrate.body':
+    '이 업데이트 이전에 저장된 메모리가 아직 이전 공유 레이아웃에 있습니다. 백그라운드에서 자동으로 옮겨지며, 지금 바로 옮길 수도 있습니다.',
+  'memoryPage.migrate.action': '지금 마이그레이션',
+  'memoryPage.migrate.running': '메모리를 옮기는 중…',
+  'memoryPage.migrate.progress': '{copied}개 항목을 옮김',
+  'memoryPage.migrate.paused': '옮기기 일시 중지됨',
+  'memoryPage.migrate.resume': '다시 시작',
+  'memoryPage.migrate.leftTitle': '{count}개 항목을 옮기지 못했습니다',
+  'memoryPage.migrate.leftBody': '원래 위치에 그대로 남습니다. 다시 시도하거나 그대로 두세요.',
+  'memoryPage.migrate.retry': '다시 시도',
+  'memoryPage.migrate.takeoverTitle': '이 컴퓨터에서 공유된 메모리를 가져올까요?',
+  'memoryPage.migrate.takeoverBody':
+    '이 CortexDB 서버에는 이 컴퓨터의 다른 계정 메모리가 있을 수 있습니다. 한 계정만 가져갈 수 있으며, 메모리는 내 계정으로 옮겨지고 다른 계정에서는 더 이상 볼 수 없습니다.',
+  'memoryPage.migrate.takeoverConfirm': '가져오기',
   // Live voice agents
   'voice.live.mute': '마이크 음소거',
   'voice.live.unmute': '음소거 해제',
