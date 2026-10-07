@@ -5292,13 +5292,20 @@ const messages: TranslationMap = {
   'connections.tabs.voiceAgents': 'ভয়েস এজেন্ট',
   'connections.header.voiceAgents':
     'আপনার সহকারীর সাথে মুখে কথা বলুন। কে তার কণ্ঠ দেবে তা বেছে নিন এবং নিজের অ্যাকাউন্টের কী যোগ করুন।',
-  'connections.voiceAgents.defaultLabel': 'ডিফল্ট ভয়েস এজেন্ট',
-  'connections.voiceAgents.needsKeyOption': '{label} (কী প্রয়োজন)',
-  'connections.voiceAgents.kindHosted': 'অন্তর্ভুক্ত',
-  'connections.voiceAgents.kindByok': 'আপনার কী',
-  'connections.voiceAgents.badgeDefault': 'ডিফল্ট',
   'connections.voiceAgents.badgeReady': 'প্রস্তুত',
   'connections.voiceAgents.badgeNeedsKey': 'কী প্রয়োজন',
+  'connections.voiceAgents.groupIncluded': 'OpenHuman-এর সাথে অন্তর্ভুক্ত',
+  'connections.voiceAgents.groupIncludedDesc':
+    'TinyHumans-এর মাধ্যমে চলে। কিছু সেট আপ করতে হবে না।',
+  'connections.voiceAgents.groupByok': 'নিজের কী ব্যবহার করুন',
+  'connections.voiceAgents.groupByokDesc':
+    'আপনার নিজের প্রদানকারী অ্যাকাউন্টের API কী ব্যবহার করুন।',
+  'connections.voiceAgents.chooseAgent': 'একটি ভয়েস এজেন্ট বেছে নিন',
+  'connections.voiceAgents.badgeInUse': 'ব্যবহৃত হচ্ছে',
+  'connections.voiceAgents.badgeFailed': 'পরীক্ষা ব্যর্থ হয়েছে',
+  'connections.voiceAgents.addKeyHint': 'এই এজেন্ট ব্যবহার করতে একটি API কী যোগ করুন।',
+  'connections.voiceAgents.keyOnFile': 'API কী সংরক্ষিত',
+  'connections.voiceAgents.replaceKey': 'কী বদলান',
   'connections.voiceAgents.descGeminiHosted':
     'TinyHumans-এর মাধ্যমে Gemini Live। কোনো কী লাগবে না।',
   'connections.voiceAgents.descElevenlabsHosted':

@@ -5292,13 +5292,19 @@ const messages: TranslationMap = {
   'connections.tabs.voiceAgents': 'वॉइस एजेंट',
   'connections.header.voiceAgents':
     'अपने सहायक से बोलकर बात करें। चुनें कि उसकी आवाज़ कौन देगा और अपने खातों की कुंजियाँ जोड़ें।',
-  'connections.voiceAgents.defaultLabel': 'डिफ़ॉल्ट वॉइस एजेंट',
-  'connections.voiceAgents.needsKeyOption': '{label} (कुंजी चाहिए)',
-  'connections.voiceAgents.kindHosted': 'शामिल',
-  'connections.voiceAgents.kindByok': 'आपकी कुंजी',
-  'connections.voiceAgents.badgeDefault': 'डिफ़ॉल्ट',
   'connections.voiceAgents.badgeReady': 'तैयार',
   'connections.voiceAgents.badgeNeedsKey': 'कुंजी चाहिए',
+  'connections.voiceAgents.groupIncluded': 'OpenHuman में शामिल',
+  'connections.voiceAgents.groupIncludedDesc':
+    'TinyHumans के ज़रिए चलता है। कुछ सेट अप नहीं करना है।',
+  'connections.voiceAgents.groupByok': 'अपनी कुंजी इस्तेमाल करें',
+  'connections.voiceAgents.groupByokDesc': 'अपने प्रदाता खाते की API कुंजी इस्तेमाल करें।',
+  'connections.voiceAgents.chooseAgent': 'वॉइस एजेंट चुनें',
+  'connections.voiceAgents.badgeInUse': 'इस्तेमाल में',
+  'connections.voiceAgents.badgeFailed': 'टेस्ट विफल रहा',
+  'connections.voiceAgents.addKeyHint': 'इस एजेंट को इस्तेमाल करने के लिए API कुंजी जोड़ें।',
+  'connections.voiceAgents.keyOnFile': 'API कुंजी सहेजी गई',
+  'connections.voiceAgents.replaceKey': 'कुंजी बदलें',
   'connections.voiceAgents.descGeminiHosted':
     'TinyHumans के ज़रिए Gemini Live। कुंजी की ज़रूरत नहीं।',
   'connections.voiceAgents.descElevenlabsHosted':

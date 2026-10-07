@@ -5438,13 +5438,20 @@ const messages: TranslationMap = {
   'connections.tabs.voiceAgents': 'Sprachagenten',
   'connections.header.voiceAgents':
     'Sprich laut mit deinem Assistenten. Wähle, wer seine Stimme liefert, und hinterlege Schlüssel für deine eigenen Konten.',
-  'connections.voiceAgents.defaultLabel': 'Standard-Sprachagent',
-  'connections.voiceAgents.needsKeyOption': '{label} (Schlüssel erforderlich)',
-  'connections.voiceAgents.kindHosted': 'Inklusive',
-  'connections.voiceAgents.kindByok': 'Eigener Schlüssel',
-  'connections.voiceAgents.badgeDefault': 'Standard',
   'connections.voiceAgents.badgeReady': 'Bereit',
   'connections.voiceAgents.badgeNeedsKey': 'Schlüssel fehlt',
+  'connections.voiceAgents.groupIncluded': 'In OpenHuman enthalten',
+  'connections.voiceAgents.groupIncludedDesc': 'Läuft über TinyHumans. Keine Einrichtung nötig.',
+  'connections.voiceAgents.groupByok': 'Eigenen Schlüssel verwenden',
+  'connections.voiceAgents.groupByokDesc':
+    'Nutze einen API-Schlüssel aus deinem eigenen Anbieterkonto.',
+  'connections.voiceAgents.chooseAgent': 'Sprachagent auswählen',
+  'connections.voiceAgents.badgeInUse': 'Aktiv',
+  'connections.voiceAgents.badgeFailed': 'Test fehlgeschlagen',
+  'connections.voiceAgents.addKeyHint':
+    'Füge einen API-Schlüssel hinzu, um diesen Agenten zu nutzen.',
+  'connections.voiceAgents.keyOnFile': 'API-Schlüssel gespeichert',
+  'connections.voiceAgents.replaceKey': 'Schlüssel ersetzen',
   'connections.voiceAgents.descGeminiHosted': 'Gemini Live über TinyHumans. Kein Schlüssel nötig.',
   'connections.voiceAgents.descElevenlabsHosted':
     'Dialogstimme von ElevenLabs über TinyHumans. Kein Schlüssel nötig.',

@@ -5375,13 +5375,19 @@ const messages: TranslationMap = {
   'connections.tabs.voiceAgents': 'Agenti vocali',
   'connections.header.voiceAgents':
     'Parla ad alta voce con il tuo assistente. Scegli chi gli dà la voce e aggiungi le chiavi dei tuoi account.',
-  'connections.voiceAgents.defaultLabel': 'Agente vocale predefinito',
-  'connections.voiceAgents.needsKeyOption': '{label} (serve una chiave)',
-  'connections.voiceAgents.kindHosted': 'Incluso',
-  'connections.voiceAgents.kindByok': 'Tua chiave',
-  'connections.voiceAgents.badgeDefault': 'Predefinito',
   'connections.voiceAgents.badgeReady': 'Pronto',
   'connections.voiceAgents.badgeNeedsKey': 'Chiave mancante',
+  'connections.voiceAgents.groupIncluded': 'Incluso in OpenHuman',
+  'connections.voiceAgents.groupIncludedDesc':
+    'Funziona tramite TinyHumans. Niente da configurare.',
+  'connections.voiceAgents.groupByok': 'Usa la tua chiave',
+  'connections.voiceAgents.groupByokDesc': 'Usa una chiave API del tuo account del fornitore.',
+  'connections.voiceAgents.chooseAgent': 'Scegli un agente vocale',
+  'connections.voiceAgents.badgeInUse': 'In uso',
+  'connections.voiceAgents.badgeFailed': 'Test non riuscito',
+  'connections.voiceAgents.addKeyHint': 'Aggiungi una chiave API per usare questo agente.',
+  'connections.voiceAgents.keyOnFile': 'Chiave API salvata',
+  'connections.voiceAgents.replaceKey': 'Sostituisci chiave',
   'connections.voiceAgents.descGeminiHosted':
     'Gemini Live tramite TinyHumans. Nessuna chiave necessaria.',
   'connections.voiceAgents.descElevenlabsHosted':
