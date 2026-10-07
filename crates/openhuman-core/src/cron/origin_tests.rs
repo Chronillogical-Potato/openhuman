@@ -243,3 +243,26 @@ async fn tools_report_external_effect_from_the_live_turn() {
     assert!(add_shell, "shell job stays gated");
     assert!(!via_cron, "the collapsed `cron` tool agrees");
 }
+
+#[test]
+fn announce_to_own_chat_keeps_the_gate_unless_the_origin_is_retained() {
+    // `create_agent_job` drops the origin for a non-`current` session target
+    // with an announce delivery, so that job would run as TrustedAutomation.
+    for target in ["isolated", "main", "session:x"] {
+        let args = json!({
+            "prompt": "p",
+            "session_target": target,
+            "delivery": {"mode": "announce", "channel": "telegram", "to": "42"}
+        });
+        assert!(
+            !is_self_scoped_agent_job(&args, Some(&ch())),
+            "{target} must stay gated"
+        );
+    }
+    let current = json!({
+        "prompt": "p",
+        "session_target": "current",
+        "delivery": {"mode": "announce", "channel": "telegram", "to": "42"}
+    });
+    assert!(is_self_scoped_agent_job(&current, Some(&ch())));
+}

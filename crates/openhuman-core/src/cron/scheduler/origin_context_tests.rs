@@ -30,11 +30,7 @@ fn tail_is_bounded_by_characters_and_keeps_the_newest() {
         m("assistant", &long),
     ];
     let tail = bounded_tail(&msgs, 10, 1400);
-    assert!(
-        tail.chars().count() <= 1400 + 1,
-        "len {}",
-        tail.chars().count()
-    );
+    assert!(tail.chars().count() <= 1400, "len {}", tail.chars().count());
     assert!(tail.ends_with(&"x".repeat(100)));
     assert!(tail.lines().last().unwrap().starts_with("assistant: "));
     assert!(!tail.contains("old one"));

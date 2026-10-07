@@ -164,7 +164,7 @@ pub(crate) async fn deliver_to_origin(
                 &origin_request_id(&job.id, run_id),
             )
             .await
-                .map_err(|e| anyhow!(e))?;
+            .map_err(|e| anyhow!(e))?;
             channel_bridge::append_assistant_message(history_key, &text);
             tracing::debug!(
                 job_id = %job.id,

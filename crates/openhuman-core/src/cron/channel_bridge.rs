@@ -117,8 +117,7 @@ pub async fn send_to_channel(
     // Run-specific key: a retry after an ambiguous send must not duplicate the
     // reminder, while identical reminders from different runs must not collide
     // (the content-derived default key would reuse one key for both).
-    let mut message =
-        SendMessage::new(text, reply_target).in_thread(thread_id.map(str::to_string));
+    let mut message = SendMessage::new(text, reply_target).in_thread(thread_id.map(str::to_string));
     message.idempotency_key = Some(idempotency_key.to_string());
     ch.send(&message)
         .await

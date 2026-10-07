@@ -16,7 +16,11 @@ impl Channel for MockChannel {
     }
     async fn send(&self, message: &SendMessage) -> anyhow::Result<()> {
         self.sends.fetch_add(1, Ordering::SeqCst);
-        *self.last_target.lock().unwrap() = message.recipient.clone();
+        *self.last_target.lock().unwrap() = format!(
+            "{}|{}",
+            message.recipient,
+            message.idempotency_key.clone().unwrap_or_default()
+        );
         Ok(())
     }
     async fn listen(&self, _tx: mpsc::Sender<ChannelMessage>) -> anyhow::Result<()> {
@@ -60,8 +64,16 @@ async fn bridge_reads_appends_trims_and_sends() {
     assert_eq!(got.last().unwrap().1, "again");
     assert_eq!(got[0].1, "ok");
 
-    send_to_channel("Telegram", "42", None, "hi").await.unwrap();
+    send_to_channel("Telegram", "42", None, "hi", "cron:j:r1")
+        .await
+        .unwrap();
     assert_eq!(sends.load(Ordering::SeqCst), 1);
-    assert_eq!(*last_target.lock().unwrap(), "42");
-    assert!(send_to_channel("slack", "42", None, "hi").await.is_err());
+    assert_eq!(
+        *last_target.lock().unwrap(),
+        "42|cron:j:r1",
+        "the send carries the run-specific idempotency key"
+    );
+    assert!(send_to_channel("slack", "42", None, "hi", "k")
+        .await
+        .is_err());
 }
