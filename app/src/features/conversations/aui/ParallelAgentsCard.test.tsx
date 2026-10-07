@@ -56,6 +56,14 @@ describe('ParallelAgentsCard', () => {
     expect(screen.queryByTestId('parallel-agents-aggregating')).toBeNull();
   });
 
+  it('reports an incomplete worker as partial rather than silently complete', () => {
+    timeline.entries = [child('a', 1, 'completed'), child('b', 2, 'incomplete')];
+    renderCard('complete');
+    const header = screen.getByTestId('parallel-agents-header');
+    expect(header).toHaveTextContent('chat.subagents.incompleteCount');
+    expect(header).not.toHaveTextContent('chat.subagents.failedCount');
+  });
+
   it('says the parent is processing once every worker is back but the call is still open', () => {
     timeline.entries = [child('a', 1, 'completed'), child('b', 2, 'completed')];
     renderCard('running');
