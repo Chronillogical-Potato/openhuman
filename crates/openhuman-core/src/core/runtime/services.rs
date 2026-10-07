@@ -19,6 +19,82 @@
 use crate::config::Config;
 use crate::core::runtime::ServiceSet;
 
+/// The long-lived background services a runtime started, so it can stop them.
+///
+/// The service spawns below used to be fire-and-forget: fine for a desktop
+/// core that lives as long as its process, wrong for a library runtime that is
+/// dropped and rebuilt in one process, whose cron loop would otherwise keep
+/// polling the old workspace forever. [`CoreRuntime::start_services`]
+/// (crate::core::runtime::CoreRuntime::start_services) tracks each top-level
+/// service task here; [`stop`](Self::stop) and `Drop` abort them. Aborting the
+/// cron loop drops its dispatcher, which aborts the jobs it was running.
+///
+/// Work a service spawns detached on its own (a channel listener's sockets,
+/// the login-gated services' workers) is not reached by the abort; only the
+/// cron loop and the other top-level spawns are guaranteed to stop.
+#[derive(Default)]
+pub struct ServiceTasks {
+    started: std::sync::atomic::AtomicBool,
+    tasks: std::sync::Mutex<Vec<(&'static str, tokio::task::AbortHandle)>>,
+}
+
+impl ServiceTasks {
+    /// Claim the start; `false` when the services already started and have
+    /// not been stopped since.
+    pub fn begin(&self) -> bool {
+        !self
+            .started
+            .swap(true, std::sync::atomic::Ordering::AcqRel)
+    }
+
+    /// Track a service task so [`stop`](Self::stop) can abort it.
+    pub fn track(&self, name: &'static str, handle: tokio::task::JoinHandle<()>) {
+        log::debug!("[runtime.services] tracking service task {name}");
+        self.tasks
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push((name, handle.abort_handle()));
+    }
+
+    /// How many service tasks are tracked.
+    pub fn len(&self) -> usize {
+        self.tasks
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .len()
+    }
+
+    /// Whether no service task is tracked.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Abort every tracked service task; the services may be started again.
+    pub fn stop(&self) {
+        let tasks = std::mem::take(
+            &mut *self
+                .tasks
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        );
+        for (name, handle) in &tasks {
+            log::debug!("[runtime.services] stopping service task {name}");
+            handle.abort();
+        }
+        self.started
+            .store(false, std::sync::atomic::Ordering::Release);
+        if !tasks.is_empty() {
+            log::info!("[runtime.services] stopped {} service task(s)", tasks.len());
+        }
+    }
+}
+
+impl Drop for ServiceTasks {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
 /// Background bootstrap for login-gated services (local AI, voice, screen
 /// intelligence, autocomplete).
 ///
@@ -26,7 +102,7 @@ use crate::core::runtime::ServiceSet;
 /// exists on disk, startup is deferred until the login handler in
 /// `credentials::ops::store_session()` triggers it. The autocomplete shutdown
 /// hook is registered unconditionally.
-pub fn spawn_login_gated_services(embedded_core: bool) {
+pub fn spawn_login_gated_services(embedded_core: bool) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         match crate::config::Config::load_or_init().await {
             Ok(config) => {
@@ -60,7 +136,7 @@ pub fn spawn_login_gated_services(embedded_core: bool) {
 }
 
 /// Periodic self-update checker (default: every 1 hour).
-pub fn spawn_update_scheduler() {
+pub fn spawn_update_scheduler() -> tokio::task::JoinHandle<()> {
     tokio::spawn(async {
         match crate::config::Config::load_or_init().await {
             Ok(config) => {
@@ -119,9 +195,17 @@ pub fn spawn_flows_boot_reconcile() {
 
 /// Cron scheduler — polls `due_jobs()` every ~5s and executes them
 /// automatically. Gated by `config.cron.enabled`.
-pub fn spawn_cron_service() {
-    tokio::spawn(async {
-        match crate::config::Config::load_or_init().await {
+///
+/// Runs under `ctx`, the runtime's own context: the config is read through
+/// `load_config_with_timeout`, which prefers an embedder-supplied config, so a
+/// library runtime's scheduler polls *its* workspace rather than the
+/// operator's `~/.openhuman`, and every job it dispatches inherits that
+/// context.
+pub fn spawn_cron_service(
+    ctx: std::sync::Arc<crate::core::runtime::CoreContext>,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(crate::core::runtime::CoreContext::scope(ctx, async {
+        match crate::config::ops::load_config_with_timeout().await {
             Ok(config) => {
                 if !config.cron.enabled {
                     log::info!("[cron] scheduler disabled via config; skipping");
@@ -149,7 +233,7 @@ pub fn spawn_cron_service() {
                 log::warn!("[core] config load failed, skipping cron scheduler: {err}");
             }
         }
-    });
+    }))
 }
 
 /// Realtime channel listeners (Telegram getUpdates, Discord gateway, etc.).
