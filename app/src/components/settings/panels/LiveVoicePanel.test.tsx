@@ -112,7 +112,7 @@ describe('LiveVoicePanel', () => {
         default_provider: 'elevenlabs-hosted',
       })
     );
-    await screen.findByText('Saved.');
+    await screen.findByText('Voice agent switched');
     expect(screen.getByTestId('live-voice-vendor-elevenlabs')).toHaveAttribute(
       'data-in-use',
       'true'
@@ -137,7 +137,7 @@ describe('LiveVoicePanel', () => {
       expect(api.updateLiveVoiceSettings).toHaveBeenCalledWith({ default_provider: 'gemini' })
     );
     await within(modal).findByTestId('live-voice-in-use-gemini');
-    expect(within(modal).getByText('Saved.')).toBeInTheDocument();
+    expect(within(modal).getByText('Voice agent switched')).toBeInTheDocument();
 
     fireEvent.click(within(modal).getByTestId('live-voice-modal-close'));
     expect(screen.queryByTestId('live-voice-modal')).not.toBeInTheDocument();
@@ -162,7 +162,7 @@ describe('LiveVoicePanel', () => {
     await waitFor(() =>
       expect(api.saveLiveVoiceProviderKey).toHaveBeenCalledWith('sarvam', 'sk-sarvam')
     );
-    await within(modal).findByText('Key saved.');
+    await within(modal).findByText('API key added');
     expect(api.fetchLiveVoiceProviders).toHaveBeenCalledTimes(2);
     // Once stored, the key collapses to a summary and the option becomes usable.
     expect(within(modal).getByText('API key saved')).toBeInTheDocument();
@@ -187,7 +187,7 @@ describe('LiveVoicePanel', () => {
     const modal = openSettings('gemini');
     fireEvent.click(within(modal).getByTestId('live-voice-clear-key-gemini'));
     await waitFor(() => expect(api.clearLiveVoiceProviderKey).toHaveBeenCalledWith('google'));
-    await within(modal).findByText('Key removed.');
+    await within(modal).findByText('API key removed');
   });
 
   it('surfaces a key-save failure', async () => {
@@ -296,6 +296,54 @@ describe('LiveVoicePanel', () => {
     await renderPanel();
     fireEvent.click(screen.getByTestId('live-voice-use-vendor-elevenlabs'));
     await screen.findByText(/Couldn't save: disk full/);
+  });
+
+  it('reports saves and failures through onToast when the page provides it', async () => {
+    const onToast = vi.fn();
+    renderWithProviders(<LiveVoicePanel onToast={onToast} />);
+    await screen.findByTestId('live-voice-providers');
+
+    fireEvent.click(screen.getByTestId('live-voice-use-vendor-elevenlabs'));
+    await waitFor(() =>
+      expect(onToast).toHaveBeenCalledWith({
+        type: 'success',
+        title: 'Voice agent switched',
+        message: 'ElevenLabs now answers when you talk to your assistant.',
+      })
+    );
+
+    const modal = openSettings('sarvam');
+    fireEvent.change(within(modal).getByTestId('live-voice-language-sarvam'), {
+      target: { value: 'ta-IN' },
+    });
+    await waitFor(() =>
+      expect(onToast).toHaveBeenCalledWith({ type: 'success', title: 'Voice settings updated' })
+    );
+
+    api.fetchLiveVoiceProviders.mockResolvedValueOnce(PROVIDERS(true));
+    fireEvent.change(within(modal).getByTestId('live-voice-key-sarvam'), {
+      target: { value: 'sk' },
+    });
+    fireEvent.click(within(modal).getByTestId('live-voice-save-key-sarvam'));
+    await waitFor(() =>
+      expect(onToast).toHaveBeenCalledWith({
+        type: 'success',
+        title: 'API key added',
+        message: 'Sarvam AI is ready to use.',
+      })
+    );
+
+    api.updateLiveVoiceSettings.mockRejectedValueOnce(new Error('disk full'));
+    fireEvent.click(within(modal).getByTestId('live-voice-use-sarvam'));
+    await waitFor(() =>
+      expect(onToast).toHaveBeenCalledWith({
+        type: 'error',
+        title: "Couldn't save your changes",
+        message: 'disk full',
+      })
+    );
+    // Nothing is duplicated inline when toasts carry the result.
+    expect(screen.queryByText(/Couldn't save:/)).not.toBeInTheDocument();
   });
 
   it('shows a load error', async () => {
