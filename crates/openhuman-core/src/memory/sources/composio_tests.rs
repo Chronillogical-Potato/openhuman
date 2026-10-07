@@ -268,6 +268,28 @@ async fn forget_connection_reads_only_its_toolkits_source() {
     assert_eq!(left.len(), 1);
     assert_eq!(left[0].meta.namespace.to_string(), "source:notion");
 
+    // Items filed under a root no longer configured (a removed source's own
+    // namespace) are outside the toolkit's source: the scoped forget finds
+    // none and falls back to the whole tree.
+    let elsewhere = MemoryLayout::new("team:old".parse().unwrap()).unwrap();
+    store_records(
+        &config,
+        &bound,
+        "gmail",
+        "conn-b",
+        "src",
+        &elsewhere,
+        &[record("b", "b", "from an old root")],
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        forget_connection(&config, "conn-b", Some("gmail"))
+            .await
+            .unwrap(),
+        1
+    );
+
     // An unknown toolkit falls back to the whole tree.
     assert_eq!(forget_connection(&config, "conn-a", None).await.unwrap(), 1);
     assert!(stored(&engine, MetaFilter::default()).await.is_empty());

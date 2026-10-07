@@ -160,9 +160,10 @@ pub fn source_id_for_toolkit(config: &Config, toolkit: &str) -> String {
 ///
 /// With the connection's `toolkit` known, only that toolkit's brain source
 /// is read (`source:<toolkit>`, where its items are filed): one source,
-/// not every scope memory holds. Without it the whole tree is searched, so
-/// a connection whose toolkit cannot be resolved still has its items
-/// forgotten.
+/// not every scope memory holds. Without it, or when that source holds
+/// none of the connection's items (they were filed under a root that is no
+/// longer configured, such as a removed source's own namespace), the whole
+/// tree is searched, so a connection's items are never left behind.
 pub async fn forget_connection(
     config: &Config,
     connection_id: &str,
@@ -190,22 +191,35 @@ pub async fn forget_connection(
             None
         }
     };
+    let scoped = reach.is_some();
     tracing::debug!(
         connection_id = %connection_id,
-        scoped = reach.is_some(),
+        scoped,
         "[memory:sources] forgetting a connection's items"
     );
-    let filter = tinymemory_api::MetaFilter {
+    let filter = |reach| tinymemory_api::MetaFilter {
         reach,
         sources: vec![SourceKind::Composio],
         tags_any: vec![connection_tag(connection_id)],
         ..tinymemory_api::MetaFilter::default()
     };
-    let report = bound
+    let mut forgotten = bound
         .engine
-        .forget(tinymemory_api::ForgetTarget::Filter(filter))
-        .await?;
-    Ok(report.forgotten)
+        .forget(tinymemory_api::ForgetTarget::Filter(filter(reach)))
+        .await?
+        .forgotten;
+    if scoped && forgotten == 0 {
+        tracing::debug!(
+            connection_id = %connection_id,
+            "[memory:sources] nothing in the toolkit's source; searching all memory"
+        );
+        forgotten = bound
+            .engine
+            .forget(tinymemory_api::ForgetTarget::Filter(filter(None)))
+            .await?
+            .forgotten;
+    }
+    Ok(forgotten)
 }
 
 #[cfg(test)]
