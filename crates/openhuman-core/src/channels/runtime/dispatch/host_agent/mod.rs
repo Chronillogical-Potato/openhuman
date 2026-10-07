@@ -2,6 +2,8 @@
 
 use crate::config::Config;
 
+pub(crate) mod posture;
+
 /// The agent `channel` is bound to in `config.agent.channel_agents`, if any.
 pub(crate) fn bound_agent_id<'a>(config: &'a Config, channel: &str) -> Option<&'a str> {
     config
