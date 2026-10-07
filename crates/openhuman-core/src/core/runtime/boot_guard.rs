@@ -36,12 +36,23 @@ pub const FORBIDDEN_ENV: &[(&str, &str)] = &[
         "OPENHUMAN_CORE_TOKEN",
         "the gateway bearer must come from the service token file",
     ),
+];
+
+/// Switches that are fine on but must not turn a protection off.
+pub const FORBIDDEN_OFF_SWITCHES: &[(&str, &str)] = &[
     (
         "OPENHUMAN_APPROVAL_GATE",
         "the approval gate cannot be switched off",
     ),
     ("OPENHUMAN_SANDBOX", "sandboxing cannot be switched off"),
 ];
+
+fn is_off(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "0" | "false" | "off" | "no" | "disabled"
+    )
+}
 
 /// A process-wide backend key; allowed only when the operator opts into
 /// [`SaasConfig::shared_backend_api_key`].
@@ -188,6 +199,14 @@ pub fn check(inputs: &BootInputs<'_>) -> Result<(), BootGuardError> {
             continue;
         }
         if let Some((_, why)) = FORBIDDEN_ENV.iter().find(|(name, _)| name == var) {
+            violations.push(Violation::Env {
+                var: var.clone(),
+                why,
+            });
+        } else if let Some((_, why)) = FORBIDDEN_OFF_SWITCHES
+            .iter()
+            .find(|(name, _)| name == var && is_off(value))
+        {
             violations.push(Violation::Env {
                 var: var.clone(),
                 why,
