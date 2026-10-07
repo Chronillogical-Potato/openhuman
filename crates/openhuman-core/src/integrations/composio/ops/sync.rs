@@ -236,21 +236,19 @@ pub async fn run_sync_pass(
     let more_pending = failure.is_none() && !response.batch.complete;
 
     let records_read = response.batch.records.len();
-    let written = if records_read == 0 {
-        0
-    } else {
-        store_records(
-            config,
-            bound,
-            toolkit,
-            connection_id,
-            source_id,
-            &crate::memory::sources::layout_of(config, source_id),
-            &response.batch.records,
-        )
-        .await
-        .map_err(|error| format!("storing {toolkit} records failed: {}", String::from(error)))?
-    };
+    // Called with no records too: memory retries forgetting the previous
+    // versions an earlier pass could not.
+    let written = store_records(
+        config,
+        bound,
+        toolkit,
+        connection_id,
+        source_id,
+        &crate::memory::sources::layout_of(config, source_id),
+        &response.batch.records,
+    )
+    .await
+    .map_err(|error| format!("storing {toolkit} records failed: {}", String::from(error)))?;
 
     if more_pending {
         // The module's note says why (today's request budget, typically).

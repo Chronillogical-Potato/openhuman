@@ -21,6 +21,15 @@ use crate::integrations::composio::ops::{
 use crate::memory::engine::BoundEngine;
 use crate::memory::error::{MemoryError, MemoryResult};
 
+/// Held across one [`store_records`] call: storing, finding the previous
+/// versions and forgetting them. Two passes over the same records (the
+/// on-demand and the scheduled sync) would otherwise interleave, and one
+/// could forget an item the other has just made current again.
+// ponytail: one lock for every connection, as passes are short and rare; a
+// per-connection lock if syncs of many accounts must overlap.
+static STORE: std::sync::LazyLock<tokio::sync::Mutex<()>> =
+    std::sync::LazyLock::new(|| tokio::sync::Mutex::new(()));
+
 /// Most connector passes one source sync runs per connection.
 const MAX_PASSES_PER_CONNECTION: usize = 25;
 
@@ -68,7 +77,9 @@ pub fn record_item(
 }
 
 /// Files every non-empty record into `layout`'s brain, under the toolkit's
-/// brain source. Returns how many were stored.
+/// brain source, and forgets the previous version of each record that
+/// changed or came back empty upstream ([`super::versions`]). Returns how
+/// many were stored.
 pub async fn store_records(
     config: &Config,
     bound: &BoundEngine,
@@ -78,10 +89,20 @@ pub async fn store_records(
     layout: &tinymemory_tools::MemoryLayout,
     records: &[ConnectorRecord],
 ) -> MemoryResult<u64> {
-    let items: Vec<StoreItem> = records
-        .iter()
-        .filter_map(|record| record_item(toolkit, connection_id, source_id, record))
-        .collect();
+    let _serial = STORE.lock().await;
+    let mut keys = Vec::with_capacity(records.len());
+    let mut items = Vec::with_capacity(records.len());
+    let mut emptied = Vec::new();
+    for record in records {
+        let key = super::versions::key(connection_id, &record.item_id);
+        match record_item(toolkit, connection_id, source_id, record) {
+            Some(item) => {
+                keys.push(key);
+                items.push(item);
+            }
+            None => emptied.push(key),
+        }
+    }
     if !items.is_empty() {
         // Before the write, so an item stored is never under an unrecorded
         // root.
@@ -96,7 +117,7 @@ pub async fn store_records(
             ))
         })?;
     }
-    super::sync::store_all(
+    let ids = super::sync::store_all_ids(
         config,
         bound,
         items,
@@ -107,7 +128,50 @@ pub async fn store_records(
         ),
         layout,
     )
-    .await
+    .await?;
+    let stored: Vec<(String, String)> = keys
+        .into_iter()
+        .zip(ids)
+        .filter_map(|(key, id)| Some((key, id?)))
+        .collect();
+    let stale = super::versions::begin(&config.workspace_dir, &stored, &emptied);
+    forget_stale(config, bound, toolkit, stale).await;
+    Ok(stored.len() as u64)
+}
+
+/// Forgets the previous versions [`super::versions::begin`] handed back and
+/// settles them. A failed forget leaves them pending, so the next sync
+/// retries; it never fails the sync.
+async fn forget_stale(config: &Config, bound: &BoundEngine, toolkit: &str, stale: Vec<String>) {
+    if stale.is_empty() {
+        return;
+    }
+    let ids = stale
+        .iter()
+        .cloned()
+        .map(tinymemory_api::ItemId::new)
+        .collect();
+    match bound
+        .engine
+        .forget(tinymemory_api::ForgetTarget::Ids(ids))
+        .await
+    {
+        Ok(report) => {
+            tracing::debug!(
+                toolkit = %toolkit,
+                stale = stale.len(),
+                forgotten = report.forgotten,
+                "[memory:sources] forgot the previous versions of edited records"
+            );
+            super::versions::settle(&config.workspace_dir, &stale);
+        }
+        Err(error) => tracing::warn!(
+            toolkit = %toolkit,
+            stale = stale.len(),
+            code = MemoryError::from(error).code(),
+            "[memory:sources] forgetting previous versions failed; retrying next sync"
+        ),
+    }
 }
 
 /// Syncs every active connection of the source's toolkit.
@@ -241,6 +305,7 @@ pub async fn forget_connection(
     if let Some(recorded) = &recorded {
         super::roots::forget(&config.workspace_dir, connection_id, recorded);
     }
+    super::versions::drop_connection(&config.workspace_dir, connection_id);
     Ok(forgotten)
 }
 

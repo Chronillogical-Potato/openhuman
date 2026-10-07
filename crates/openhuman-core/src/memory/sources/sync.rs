@@ -109,10 +109,23 @@ pub(crate) async fn store_all(
     config: &Config,
     bound: &BoundEngine,
     items: Vec<tinymemory_api::StoreItem>,
-    (kind, target, source_id): (crate::config::schema::MemorySourceKind, &str, &str),
+    source: (crate::config::schema::MemorySourceKind, &str, &str),
     layout: &tinymemory_tools::MemoryLayout,
 ) -> MemoryResult<u64> {
-    let mut stored = 0u64;
+    let ids = store_all_ids(config, bound, items, source, layout).await?;
+    Ok(ids.iter().flatten().count() as u64)
+}
+
+/// [`store_all`], returning the id each item was stored under, in order
+/// (`None` for an item that failed).
+pub(crate) async fn store_all_ids(
+    config: &Config,
+    bound: &BoundEngine,
+    items: Vec<tinymemory_api::StoreItem>,
+    (kind, target, source_id): (crate::config::schema::MemorySourceKind, &str, &str),
+    layout: &tinymemory_tools::MemoryLayout,
+) -> MemoryResult<Vec<Option<String>>> {
+    let mut ids = Vec::with_capacity(items.len());
     let mut last_error = None;
     let mut touched = std::collections::BTreeSet::new();
     for item in items {
@@ -120,8 +133,8 @@ pub(crate) async fn store_all(
         let node = crate::memory::brain::brain_node(config, layout, &brain_source, &item)?;
         let item = crate::memory::brain::file_into(node.clone(), item);
         match store_on(bound, item).await {
-            Ok(_) => {
-                stored += 1;
+            Ok(receipt) => {
+                ids.push(Some(receipt.id.to_string()));
                 touched.insert(node);
             }
             // Out of credits or unreachable refuses every item, so stop
@@ -129,6 +142,7 @@ pub(crate) async fn store_all(
             Err(error) if error.is_account_wide() => return Err(error),
             Err(error) => {
                 tracing::debug!(id = %source_id, code = error.code(), "[memory:sources] item store failed");
+                ids.push(None);
                 last_error = Some(error);
             }
         }
@@ -146,9 +160,9 @@ pub(crate) async fn store_all(
         })
         .collect();
     crate::memory::lifecycle::jobs::enqueue(config, layout.root(), jobs).await;
-    match (stored, last_error) {
-        (0, Some(error)) => Err(error),
-        _ => Ok(stored),
+    match last_error {
+        Some(error) if ids.iter().all(Option::is_none) => Err(error),
+        _ => Ok(ids),
     }
 }
 
