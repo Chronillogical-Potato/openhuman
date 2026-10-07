@@ -618,10 +618,8 @@ fn shell_safe_env_vars_includes_essentials() {
 
 #[test]
 fn shell_safe_env_vars_include_windows_process_essentials() {
-    for var in ["SystemRoot", "COMSPEC", "PATHEXT", "TEMP", "USERPROFILE"] {
-        assert!(
-            SAFE_ENV_VARS.contains(&var),
-            "{var} must be forwarded for Windows child processes"
-        );
-    }
+    crate::agent::platform_shell::assert_forwards_windows_bootstrap(
+        SAFE_ENV_VARS,
+        "shell::SAFE_ENV_VARS",
+    );
 }

@@ -84,6 +84,32 @@ describe('MemoryImportBanner', () => {
     );
   });
 
+  it('resumes a failed import through the consent dialog', async () => {
+    hoisted.status.mockResolvedValue({
+      state: { phase: 'error', imported: 2, total: 9, error: 'not enough credits to import' },
+    });
+    hoisted.start.mockResolvedValue({ state: { phase: 'running', imported: 2, total: 9 } });
+    renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+
+    fireEvent.click(await screen.findByTestId('memory-import-resume'));
+    expect(screen.getByTestId('memory-import-consent')).toBeInTheDocument();
+    expect(hoisted.start).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('memory-import-confirm'));
+    expect(await screen.findByTestId('memory-import-running')).toHaveTextContent(
+      '2 of 9 items imported'
+    );
+    expect(hoisted.start).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('memory-import-resume')).not.toBeInTheDocument();
+  });
+
+  it('offers no resume while an import is running', async () => {
+    hoisted.status.mockResolvedValue({ state: { phase: 'running', imported: 1, total: 9 } });
+    renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+    expect(await screen.findByTestId('memory-import-running')).toBeInTheDocument();
+    expect(screen.queryByTestId('memory-import-resume')).not.toBeInTheDocument();
+  });
+
   it('shows a start failure', async () => {
     hoisted.start.mockRejectedValue(new Error('UNAUTHORIZED: sign in again'));
     renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);

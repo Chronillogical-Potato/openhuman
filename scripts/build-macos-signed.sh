@@ -127,6 +127,10 @@ unset APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID
 
 env | grep -E 'APPLE|TAURI|VITE' || true
 
+# Same pinned modules as CI's "Bundle pinned native modules" step; on macOS
+# each archive is replaced by its digest marker (see stage-modules.mjs).
+node scripts/release/stage-modules.mjs
+
 cd app
 echo "Building now... ${BUILD_ARGS[@]}"
 pnpm tauri build "${BUILD_ARGS[@]}"
@@ -188,6 +192,9 @@ for bin in "$APP_PATH/Contents/Resources/"openhuman-core-*; do
     "$bin"
 done
 
+# Bundled native modules (shared with scripts/release/sign-and-notarize-macos.sh)
+bash scripts/release/macos-bundled-modules.sh sign "$APP_PATH" "$ENTITLEMENTS" "$APPLE_SIGNING_IDENTITY"
+
 # Sign the .app bundle (signs main exe + updates seal)
 echo "  Signing .app bundle..."
 codesign --force --options runtime \
@@ -200,6 +207,8 @@ echo
 echo "Verifying code signature..."
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 echo "Signature OK."
+# Run even with --skip-notarize, so a local build fails where CI would.
+bash scripts/release/macos-bundled-modules.sh check "$APP_PATH/Contents/Resources/bundled-modules"
 
 # ── Notarize ──────────────────────────────────────────────────────────
 if $SKIP_NOTARIZE; then

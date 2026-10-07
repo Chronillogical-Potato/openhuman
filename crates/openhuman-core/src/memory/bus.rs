@@ -5,7 +5,8 @@
 //!
 //! - `memory_sources_sync` starts the due source syncs;
 //! - `memory_background` runs the queued belief builds and deferred ingests
-//!   (`lifecycle::jobs`).
+//!   (`lifecycle::jobs`), after resuming a v1 import the app quit in the
+//!   middle of (`import::resume_interrupted`).
 //!
 //! Turns are not ingested from the bus: the session host calls the lifecycle
 //! hooks itself, under the session's own config (`lifecycle::hooks`).
@@ -68,7 +69,10 @@ pub async fn run_system_job(config: &crate::config::Config, job: &str) {
                 "[memory:bus] due source syncs started"
             );
         }
-        BACKGROUND_JOB => super::lifecycle::jobs::run_due(config).await,
+        BACKGROUND_JOB => {
+            super::import::resume_interrupted(config).await;
+            super::lifecycle::jobs::run_due(config).await;
+        }
         _ => {}
     }
 }

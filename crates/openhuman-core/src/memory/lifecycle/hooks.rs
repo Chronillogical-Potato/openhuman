@@ -20,6 +20,7 @@ use tinymemory_tools::{Compaction, ContextPack, PostTurn, PreTurn, SessionStart}
 
 use crate::config::Config;
 use crate::memory::engine;
+use crate::memory::error::MemoryError;
 use crate::memory::scope::ResolvedIdentity;
 
 use super::{agent_memory_on, jobs, log_only};
@@ -52,6 +53,11 @@ pub struct TurnPack {
     /// The cited items, for the chat's memory chips.
     #[serde(skip)]
     pub citations: Vec<crate::memory::types::TurnCitation>,
+    /// Set when nothing was recalled because the engine refused the whole
+    /// account (a `MemoryError` code such as `INSUFFICIENT_CREDITS`): the
+    /// block is then a notice saying so, not recalled memory.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refusal: Option<&'static str>,
 }
 
 impl TurnPack {
@@ -89,11 +95,40 @@ impl TurnPack {
                         refs: refs.collect(),
                         engine: next.engine,
                         citations: cited,
+                        refusal: None,
                     });
                 }
             }
         }
         pack
+    }
+
+    /// The notice a turn is given when its recall was refused outright, so
+    /// the model does not read an empty pack as "nothing is stored" and tell
+    /// the user so (#6718). `None` for a failure that is not account-wide.
+    fn refused(error: &MemoryError, engine: String) -> Option<Self> {
+        let why = match error {
+            MemoryError::InsufficientCredits(_) => {
+                "the account is out of credits; topping up restores it"
+            }
+            MemoryError::Unauthorized(_) => "the memory engine rejected the sign-in or API key",
+            MemoryError::Unavailable(_) => "the memory engine could not be reached",
+            _ => return None,
+        };
+        let markdown = format!(
+            "# Memory\n\nMemory could not be read for this turn: {why}. Nothing was \
+             recalled, which does not mean nothing is stored. If the user refers to \
+             something they told you before, say that memory is unavailable right now \
+             and why, instead of saying you do not know it."
+        );
+        Some(Self {
+            tokens: tinymemory_tools::recall::estimate_tokens(&markdown),
+            markdown,
+            refs: Vec::new(),
+            engine,
+            citations: Vec::new(),
+            refusal: Some(error.code()),
+        })
     }
 
     /// The block as the model sees it.
@@ -140,7 +175,10 @@ pub struct PreTurnInput {
 /// Logs the user turn and recalls the pack it is given, within
 /// `[memory.recall] pre_turn_timeout_ms`. `None` when memory is off, the
 /// identity has neither logging nor recall, nothing relevant is stored, or
-/// the engine is slow or failing — the turn runs either way.
+/// the engine is slow or failing — the turn runs either way. When nothing was
+/// recalled because the engine refused the account (no credits, a rejected
+/// credential, unreachable), the pack is a short notice saying so instead
+/// ([`TurnPack::refusal`]).
 ///
 /// The work is spawned, so a timed-out log still completes in the
 /// background; only its pack is dropped.
@@ -160,6 +198,7 @@ pub async fn pre_turn(
             return None;
         }
     };
+    let engine_id = bound.engine.descriptor().id.to_string();
     let memory = match agent_memory_on(bound.engine, config, identity) {
         Ok(memory) => memory,
         Err(error) => {
@@ -180,7 +219,7 @@ pub async fn pre_turn(
     let task = tokio::spawn(async move {
         let session = async {
             if recall && input.resumed_after_compaction {
-                memory
+                let opened = memory
                     .start_session(SessionStart {
                         thread_id: Some(input.thread_id.clone()),
                         focus: None,
@@ -188,8 +227,9 @@ pub async fn pre_turn(
                     .await
                     .map_err(|error| {
                         tracing::debug!(%error, "[memory:hooks] start_session failed");
-                    })
-                    .ok()
+                        MemoryError::from(error)
+                    });
+                Some(opened)
             } else {
                 None
             }
@@ -208,27 +248,35 @@ pub async fn pre_turn(
                                 "[memory:hooks] user turn not logged"
                             );
                         }
-                        Some(context.pack)
+                        Ok(context.pack)
                     }
                     Err(error) => {
                         tracing::warn!(%error, "[memory:hooks] pre_turn refused");
-                        None
+                        Err(MemoryError::from(error))
                     }
                 }
             } else {
-                memory
-                    .recall(&input.user_text)
-                    .await
-                    .map_err(|error| tracing::warn!(%error, "[memory:hooks] recall failed"))
-                    .ok()
+                memory.recall(&input.user_text).await.map_err(|error| {
+                    tracing::warn!(%error, "[memory:hooks] recall failed");
+                    MemoryError::from(error)
+                })
             }
         };
         let (session, turn) = futures::join!(session, turn);
-        if recall {
-            TurnPack::from_packs(session.into_iter().chain(turn))
-        } else {
-            None
+        if !recall {
+            return None;
         }
+        let outcomes: Vec<_> = session.into_iter().chain([turn]).collect();
+        let refusal = refusal_of(&outcomes);
+        TurnPack::from_packs(outcomes.into_iter().filter_map(Result::ok)).or_else(|| {
+            let error = refusal?;
+            tracing::warn!(
+                code = error.code(),
+                %error,
+                "[memory:hooks] recall refused; the turn is told memory is unavailable"
+            );
+            TurnPack::refused(&error, engine_id)
+        })
     });
     let timeout = Duration::from_millis(config.memory.recall.pre_turn_timeout_ms.max(1));
     let pack = match tokio::time::timeout(timeout, task).await {
@@ -259,6 +307,25 @@ pub async fn pre_turn(
         "[memory:hooks] pre_turn"
     );
     pack
+}
+
+/// The account-wide refusal behind a recall that came back empty, if any:
+/// the first refusing error, else the first refusing skipped section.
+fn refusal_of(outcomes: &[Result<ContextPack, MemoryError>]) -> Option<MemoryError> {
+    let failed = outcomes.iter().find_map(|outcome| {
+        outcome
+            .as_ref()
+            .err()
+            .filter(|error| error.is_account_wide())
+            .cloned()
+    });
+    failed.or_else(|| {
+        outcomes
+            .iter()
+            .filter_map(|outcome| outcome.as_ref().ok())
+            .flat_map(|pack| pack.skipped.iter())
+            .find_map(|skipped| MemoryError::refusal_from_skip_reason(&skipped.reason))
+    })
 }
 
 /// A tool call the reply made, with a one-line result.
@@ -345,13 +412,17 @@ pub async fn post_turn(config: &Config, identity: &ResolvedIdentity, input: Post
             id: call.id.clone(),
         })
         .collect();
-    match memory.post_turn(post).await {
+    let started = std::time::Instant::now();
+    let posted = memory.post_turn(post).await;
+    let elapsed_ms = started.elapsed().as_millis() as u64;
+    match posted {
         Ok(report) => {
             tracing::debug!(
                 thread_id = %input.thread_id,
                 agent_id = %identity.agent_id,
                 turn = input.turn_index,
                 jobs = report.jobs.len(),
+                elapsed_ms,
                 "[memory:hooks] reply logged"
             );
             jobs::enqueue(config, identity.root(), report.jobs).await;
@@ -360,6 +431,7 @@ pub async fn post_turn(config: &Config, identity: &ResolvedIdentity, input: Post
             tracing::warn!(
                 thread_id = %input.thread_id,
                 %error,
+                elapsed_ms,
                 "[memory:hooks] reply not logged"
             );
         }
