@@ -11,7 +11,7 @@ icon: diagram-project
 The **flows** domain ([`crates/openhuman-core/src/flows/`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-core/src/flows)) drives
 saved automations - the workflows a user builds in the canvas or the copilot
 builds for them. It does **not** contain a workflow engine. Every flow is run by
-the vendored, host-agnostic [`tinyflows`](https://github.com/tinyhumansai/openhuman/tree/main/vendor/tinyflows) crate, which
+the vendored, host-agnostic [`tinyflows`](https://github.com/tinyhumansai/tinyflows) crate, which
 **lowers each workflow onto the same [`tinyagents`](https://crates.io/crates/tinyagents)
 state-graph engine that the [agent harness](agent-harness.md) runs on.** So a
 saved flow is a tinyagents graph, and (after harness unification) each of its
@@ -25,7 +25,7 @@ runs, and how the two runtimes compose.
 
 | Crate                         | Role                                                                                                                                            | Where                                                                                                                          |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `tinyflows`                   | Host-agnostic workflow model + validate + compile + run. Never hard-codes a vendor; every outside-world effect goes through a capability trait. | [`vendor/tinyflows/`](https://github.com/tinyhumansai/openhuman/tree/main/vendor/tinyflows)                                                                              |
+| `tinyflows`                   | Host-agnostic workflow model + validate + compile + run. Never hard-codes a vendor; every outside-world effect goes through a capability trait. | [`vendor/tinyflows/`](https://github.com/tinyhumansai/tinyflows)                                                                              |
 | `tinyagents`                  | The published state-graph + agent-loop harness both runtimes lower onto.                                                                        | crate; OpenHuman seam in [`crates/openhuman-core/src/agent/tinyagents/`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-core/src/agent/tinyagents) |
 | `openhuman::flows`            | The host: CRUD/run/resume RPCs, SQLite store, triggers, the builder/scout agents.                                                               | [`crates/openhuman-core/src/flows/`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-core/src/flows)                                                |
 | `openhuman::flows::tinyflows` | The **capability seam** - adapters implementing the `tinyflows` traits over real OpenHuman services.                                            | [`crates/openhuman-core/src/flows/tinyflows/`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-core/src/flows/tinyflows)                            |
