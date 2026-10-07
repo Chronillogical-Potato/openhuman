@@ -27,6 +27,10 @@ pub(super) fn refresh_visibility(
     }
     let permanent = surface.permanent_tool_names.clone();
     surface.visible_tool_names.extend(permanent.iter().cloned());
+    let mut seen = std::collections::HashSet::new();
+    surface
+        .visible_tool_names
+        .retain(|name| seen.insert(name.clone()));
     surface
         .deferred_tool_names
         .retain(|name| !permanent.contains(name));

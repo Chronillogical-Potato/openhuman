@@ -9,9 +9,11 @@ import { useT } from '../../lib/i18n/I18nContext';
 import {
   DOCUMENT_SOURCE_KINDS,
   type DocumentSourceKind,
+  isOutOfCreditsMessage,
   type SourceAddRequest,
 } from '../../services/api/memoryApi';
 import { Button, Label, ModalShell, NativeSelect, TextField } from '../ui';
+import { MemoryCreditsPrompt } from './MemoryErrorAlert';
 import { parsePositiveInt } from './memoryFormat';
 import { sourceKindLabel, sourceTargetHint } from './memorySourceLabels';
 
@@ -142,11 +144,17 @@ export default function MemoryAddSourceDialog({
             {t('memoryPage.documents.scheduleHelp')}
           </p>
         </div>
-        {error !== null && (
-          <p className="text-xs text-coral-600" role="alert" data-testid="memory-add-source-error">
-            {error}
-          </p>
-        )}
+        {error !== null &&
+          (isOutOfCreditsMessage(error, t) ? (
+            <MemoryCreditsPrompt message={error} data-testid="memory-add-source-error" />
+          ) : (
+            <p
+              className="text-xs text-coral-600"
+              role="alert"
+              data-testid="memory-add-source-error">
+              {error}
+            </p>
+          ))}
       </form>
     </ModalShell>
   );

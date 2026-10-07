@@ -17,6 +17,20 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 /// Safe environment variables forwarded into sandboxed execution.
+///
+/// This list is the *entire* environment a sandboxed child gets: both
+/// [`execute_unsandboxed`] and [`execute_local_jail`] call `env_clear()` and
+/// re-forward only what is named here. Windows process-bootstrap variables are
+/// added only in the host spawn paths below; keeping them out of this policy
+/// prevents Windows paths from being passed into Linux Docker containers.
+///
+/// They were missing when this defect was found, and it survived the first
+/// round of fixes because the four tool launchers (`shell`, `node_exec`,
+/// `npm_exec`, `python_exec`) each carry their own copy of the allow-list and
+/// had already been patched: the built-in `orchestrator` runs with
+/// `sandbox_mode = "sandboxed"`, and all four tools divert to
+/// [`crate::sandbox`] *before* reaching those lists, so the host spawn paths
+/// below are the ones that must add the Windows-only bootstrap set.
 pub const SANDBOX_ENV_PASSTHROUGH: &[&str] = &[
     "PATH", "HOME", "TERM", "LANG", "LC_ALL", "LC_CTYPE", "USER", "SHELL", "TMPDIR",
 ];
@@ -259,9 +273,13 @@ async fn execute_unsandboxed(
     cmd.env_clear();
     for var in SANDBOX_ENV_PASSTHROUGH {
         if let Ok(val) = std::env::var(var) {
+            if val.is_empty() {
+                anyhow::bail!("sandbox passthrough environment variable {var} is empty");
+            }
             cmd.env(var, val);
         }
     }
+    platform_shell::forward_windows_bootstrap_env(&mut cmd)?;
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
@@ -378,6 +396,9 @@ async fn execute_local_jail(
     jail = jail.add_read_write(&scratch.path);
     let stdout_file = capture.stdout();
     let stderr_file = capture.stderr();
+    let caller_sets_tmpdir = extra_env.contains_key(std::ffi::OsStr::new("TMPDIR"));
+    let caller_sets_temp = extra_env.contains_key(std::ffi::OsStr::new("TEMP"));
+    let caller_sets_tmp = extra_env.contains_key(std::ffi::OsStr::new("TMP"));
     // Platform-aware output-capture wrap: `{ … ; } > … 2> …` on sh/bash,
     // trailing `> … 2> …` on cmd.exe (no brace grouping). Shell binary is
     // picked by `platform_shell` so this path is Windows-safe (#4705).
@@ -387,12 +408,27 @@ async fn execute_local_jail(
     cmd.env_clear();
     for var in SANDBOX_ENV_PASSTHROUGH {
         if let Ok(val) = std::env::var(var) {
+            if val.is_empty() {
+                anyhow::bail!("sandbox passthrough environment variable {var} is empty");
+            }
             cmd.env(var, val);
         }
     }
-    cmd.env("TMPDIR", &scratch.path);
+    platform_shell::forward_windows_bootstrap_env_std(&mut cmd)?;
     for (k, v) in extra_env {
         cmd.env(k, v);
+    }
+    // Keep every Windows spelling of the temporary directory inside this
+    // per-call grant. `TEMP`/`TMP` are the variables used by Windows tools;
+    // `TMPDIR` covers Unix-oriented tools running on the same host.
+    if !caller_sets_tmpdir {
+        cmd.env("TMPDIR", &scratch.path);
+    }
+    if !caller_sets_temp {
+        cmd.env("TEMP", &scratch.path);
+    }
+    if !caller_sets_tmp {
+        cmd.env("TMP", &scratch.path);
     }
 
     let os_backend = cwd_jail::default_backend();

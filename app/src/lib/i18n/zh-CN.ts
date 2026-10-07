@@ -630,6 +630,8 @@ const messages: TranslationMap = {
   'memory.error.insufficientCredits':
     '记忆不可用：你的账户额度已用完。充值即可恢复，已存储的内容不会丢失。',
   'memory.error.unavailable': '暂时无法连接记忆服务。已存储的内容不会丢失，请稍后重试。',
+  'memory.outOfCredits.title': '额度已用完',
+  'memory.outOfCredits.action': '充值',
   'memory.tab.memory': '记忆',
   'memory.tab.agents': '资料库',
   'memory.analyzeNow': '立即分析',
@@ -3239,6 +3241,8 @@ const messages: TranslationMap = {
     '你现有的集成（通过 OpenHuman 关联的 Gmail、Slack、GitHub 等）将不可见：它们存放在 OpenHuman 托管的 Composio 租户中。',
   'settings.composio.intro':
     'Composio 集成了 250+ 外部应用作为智能体可调用的工具。请选择这些工具调用的路由方式。',
+  'settings.composio.directOnlyDesc':
+    '此处无法使用 Composio 托管认证。请输入你自己的 Composio API 密钥，或暂时跳过此步骤。',
   'settings.composio.modeDirect': '直连（自带 API 密钥）',
   'settings.composio.modeDirectDesc':
     '调用直接发送到 backend.composio.dev。自主可控 / 适合离线场景。工具同步执行；实时触发器 Webhook 目前在直连模式下尚未路由（后续问题）。',

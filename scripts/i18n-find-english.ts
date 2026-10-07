@@ -10,7 +10,7 @@
  * Detection strategy (per locale):
  *   - Technical literals are skipped (pure placeholders, URLs, single-token identifiers,
  *     file paths, commands, values with no real word).
- *   - Non-Latin-script locales (zh-CN, hi, bn, ar, ru, ko): a non-technical value that
+ *   - Non-Latin-script locales (zh-CN, hi, bn, ar, ru, ko, ja): a non-technical value that
  *     contains NO character of the locale's native script is treated as English.
  *     (High recall — vocabulary-independent.)
  *   - Latin-script locales (de, es, fr, it, pt, id, pl): a non-technical value is flagged
@@ -40,6 +40,7 @@ const NATIVE_SCRIPT: Record<string, RegExp> = {
   bn: /[ঀ-৿]/,
   ar: /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/,
   ru: /[Ѐ-ӿ]/,
+  ja: /[\u3040-\u30ff\u3400-\u9fff\uff66-\uff9f]/,
   ko: /[가-힯ᄀ-ᇿ㄰-㆏]/,
 };
 

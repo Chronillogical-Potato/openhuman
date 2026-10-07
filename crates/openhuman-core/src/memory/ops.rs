@@ -246,7 +246,8 @@ fn merge_meta(meta: &mut MemoryMeta, host: MemoryMeta) {
         turns,
         agent_id,
         tool_call,
-        observed_at
+        observed_at,
+        derive
     );
     meta.source = host.source;
     // The host's node is authoritative: a caller cannot write into another

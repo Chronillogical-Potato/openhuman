@@ -704,6 +704,8 @@ const messages: TranslationMap = {
     'La memoria no está disponible: tu cuenta se quedó sin créditos. Recarga para restaurarla; no se ha perdido nada guardado.',
   'memory.error.unavailable':
     'No se puede acceder a la memoria ahora mismo. No se ha perdido nada guardado; inténtalo de nuevo en un momento.',
+  'memory.outOfCredits.title': 'Sin créditos',
+  'memory.outOfCredits.action': 'Recargar',
   'memory.tab.memory': 'Memoria',
   'memory.tab.agents': 'Biblioteca',
   'memory.analyzeNow': 'Analizar ahora',
@@ -3487,6 +3489,8 @@ const messages: TranslationMap = {
     'Tus integraciones existentes (Gmail, Slack, GitHub, etc. vinculadas a través de OpenHuman) no serán visibles: viven en el inquilino de Composio gestionado por OpenHuman.',
   'settings.composio.intro':
     'Composio integra más de 250 aplicaciones externas como herramientas que tu agente puede invocar. Elige cómo se enrutan esas llamadas.',
+  'settings.composio.directOnlyDesc':
+    'La autenticación administrada de Composio no está disponible aquí. Introduce tu propia clave API de Composio u omite este paso por ahora.',
   'settings.composio.modeDirect': 'Directo (usa tu propia clave API)',
   'settings.composio.modeDirectDesc':
     'Las llamadas van directamente a backend.composio.dev. Soberano / amigable con uso sin conexión. La ejecución de herramientas funciona de forma síncrona; los webhooks de triggers en tiempo real aún no están enrutados en modo directo (incidencia pendiente).',
