@@ -16,6 +16,12 @@ fn parse_active_reads_the_flag_and_refuses_anything_else() {
     );
     assert!(parse_active(&json!({"active": "yes"})).is_err());
     assert!(parse_active(&json!({})).is_err());
+    assert_eq!(
+        parse_active(&json!({"success": true, "data": {"active": true}})),
+        Ok(true),
+        "an answer still in its envelope reads the same"
+    );
+    assert!(parse_active(&json!({"success": true, "data": {}})).is_err());
 }
 
 #[tokio::test]
@@ -143,7 +149,11 @@ fn credential(config: &Config) -> BackendCredential {
 fn keyed_config(tmp: &tempfile::TempDir) -> Config {
     let mut config = crate::memory::test_fixtures::config_in(tmp);
     config.secrets.encrypt = false;
-    crate::security::credentials::api_key::store_api_key(&config, "th_test_key").unwrap();
+    // A key of its own: the answer cache is process-wide and keyed by
+    // backend and credential, and a mock server may reuse a port another
+    // test's server held a moment ago.
+    let key = format!("th_test_{}", tmp.path().display()).replace(['/', '.'], "_");
+    crate::security::credentials::api_key::store_api_key(&config, &key).unwrap();
     config
 }
 

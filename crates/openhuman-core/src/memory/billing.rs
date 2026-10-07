@@ -92,9 +92,13 @@ async fn fetch(credential: &BackendCredential, backend: &str) -> Result<bool, St
     parse_active(&data)
 }
 
-/// `active` from the route's answer; anything else is an error.
+/// `active` from the route's answer; anything else is an error. The
+/// transport unwraps the `{success, data}` envelope, but an answer that
+/// still carries it is read the same way.
 fn parse_active(data: &serde_json::Value) -> Result<bool, String> {
-    data.get("active")
+    data.get("data")
+        .unwrap_or(data)
+        .get("active")
         .and_then(serde_json::Value::as_bool)
         .ok_or_else(|| "free-period answer has no boolean `active`".to_string())
 }
