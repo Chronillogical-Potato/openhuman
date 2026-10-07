@@ -592,6 +592,15 @@ pub(super) fn assemble_turn_harness(
         tool_policy.as_ref().map(|p| p.agent_definition_id.as_str()),
         &wrap_up_fired,
     );
+    // The rungs above all *tell* the turn to produce its deliverable; this one
+    // looks. Same scope as the requirements check: a sub-agent answers to its
+    // parent, and the parent's own request is the one that names a file.
+    if verify_before_finish::applies(
+        subagent_scope.is_some(),
+        tool_policy.as_ref().map(|p| p.agent_definition_id.as_str()),
+    ) {
+        harness.push_middleware(Arc::new(middleware::UnmetDeliverableMiddleware::new()));
+    }
 
     // Direct web lookup is bounded. Once enough search/fetch results have
     // returned, the web tools leave the request so the run works with what it
