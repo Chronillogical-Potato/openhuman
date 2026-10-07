@@ -53,7 +53,7 @@ export default function MemoryCortexAnnouncement() {
       role="status"
       aria-labelledby="memory-cortex-announcement-title"
       data-testid="memory-cortex-announcement"
-      className="relative overflow-hidden rounded-xl border border-primary-500/30 bg-gradient-to-br from-primary-500/10 via-primary-500/5 to-transparent p-4 pr-11">
+      className="relative overflow-hidden rounded-xl border border-primary-500/30 bg-linear-to-br from-primary-500/10 via-primary-500/5 to-transparent p-4 pr-11">
       <div className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-line">
           <img src={cortexdbLogo} alt="" aria-hidden className="h-6 w-6 object-contain" />
