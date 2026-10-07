@@ -14,6 +14,7 @@ process. A single-user core never serves it: its controllers belong to
 | `layout.rs` | `<root>/agents/<id>/{agent.toml, config.toml, workspace/, sandbox/}`, archived agents, and `agent_config`: the forced paths, memory binding and autonomy policy |
 | `host.rs` | `AgentHost`: provisioning, lazy open, LRU and idle eviction (never of an agent in use), each agent's derived `CoreContext`, `current()` |
 | `gateway.rs` | Which context a gateway request runs under: the operator plane, or the agent of the user named in `X-OpenHuman-User`, after the signature check |
+| `surface.rs` | What a user may call: `USER_METHODS`, the exact allowlist applied at dispatch, in the controller list and in `/schema`; the operator scope sees only the operator plane; user thread-id rules |
 | `credentials.rs` | A user agent's TinyHumans credential, stored beside its config |
 | `ops.rs` | `provision` / `deprovision` / `list` / `status` / `set_credential` / `clear_credential`, returning `Outcome<T>` |
 | `schemas.rs` | The `user_agents.*` controllers |
@@ -65,3 +66,22 @@ resolves that user's credential and no other. The process-wide
 `auth.set_credential` / `clear_credential` refuse in SaaS mode, because they
 activate a user directory and rebind process globals. The core never validates
 or echoes a credential.
+
+## User surface
+
+- **What a user's context can reach.** It enables the user families
+  (`host::user_domains`: threads so far). Within them, only the methods on
+  `surface::USER_METHODS` are live. Anything unlisted answers as an unknown
+  method and is absent from `/schema`.
+- **Why the operator registers those families too.** `DomainSet::saas()`
+  registers them so user contexts can derive them. The surface gate keeps the
+  operator scope on the operator plane, so the operator never serves user
+  methods on its own workspace.
+- **Per-user storage.** Threads live under each agent's workspace. The on-disk
+  session store is installed for SaaS and resolves the workspace of the
+  calling context, so transcripts and turn states are per user too.
+- **Thread ids.** A user may choose ids for their own threads (`threads.upsert`)
+  of 1–128 characters from `[A-Za-z0-9_-]`. The core-reserved prefixes
+  `channel:`, `proactive:` and `subagent:` are refused.
+- **Still closed.** Methods that start model turns (`threads.generate_title`,
+  `edit_message`, `regenerate`) stay closed until web chat opens per user.
