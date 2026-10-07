@@ -144,7 +144,7 @@ pub(super) fn parse_max_consecutive_stream_idle_timeouts(env_value: Option<&str>
 /// values as arguments keeps the default-policy tests independent of the
 /// process environment.
 pub(super) fn apply_stream_limits(
-    limits: &mut tinyagents_harness::policy::RunLimits,
+    limits: &mut tinyagents_harness::limits::RunLimits,
     idle: Option<&str>,
     first_event: Option<&str>,
     breaker: Option<&str>,

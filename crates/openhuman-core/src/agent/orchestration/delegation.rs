@@ -89,29 +89,17 @@ pub(crate) async fn run_subagent_delegation_with_parent_context(
         // Re-entrant per-stage worker: clones its captures each call so the graph
         // node handler stays `Fn` while each stage dispatches a fresh sub-agent.
         let parent_workspace_descriptor = parent_workspace_descriptor.clone();
-        let stage_cancellation = graph_cancellation.clone();
         let stage_parent = live_parent.clone();
         let run_stage = move |stage: DelegationStage, state: DelegationState| {
             let definition = definition.clone();
             let task = task_prompt.clone();
             let workspace_descriptor = parent_workspace_descriptor.clone();
-            let cancellation = stage_cancellation.clone();
             let stage_parent = stage_parent.clone();
             async move {
                 let prompt = build_stage_prompt(stage, &task, &state);
-                let mut stage_context = stage_parent.data.child();
-                stage_context.workspace = workspace_descriptor.clone().or(stage_context.workspace);
-                stage_context.cancellation = cancellation;
-                let stage_parent = stage_parent
-                    .child(
-                        RunConfig::new(format!("delegation-stage-{}", uuid::Uuid::new_v4())),
-                        stage_context.clone(),
-                    )
-                    .map_err(|error| format!("delegation stage context: {error}"))?;
-                // The stage run carries its own linked child token; keep the
-                // host carrier on that token (a graph cancel still reaches it
-                // through the parent) rather than the shared graph token.
-                stage_context.cancellation = stage_parent.cancellation.clone();
+                let (stage_parent, stage_context) =
+                    stage_run_contexts(&stage_parent, workspace_descriptor.clone())
+                        .map_err(|error| format!("delegation stage context: {error}"))?;
                 match run_subagent_with_parent(
                     &stage_parent,
                     definition,
