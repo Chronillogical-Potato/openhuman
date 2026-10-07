@@ -19,7 +19,7 @@ Reach for `http_request` instead when you need POST, custom headers or richer HT
 | --- | --- | --- |
 | `url` | Yes | An absolute `http` or `https` URL. |
 | `max_bytes` | No | Truncate the body at this many bytes instead of the configured cap. |
-| `raw` | No | Return the body exactly as sent, skipping Markdown conversion. |
+| `raw` | No | Skip the Markdown conversion and return the body as served. It is not a way around the limits: the response cap and any `max_bytes` still truncate, and the result still carries the truncation marker. |
 | `summary_focus` | No | An OpenHuman addition that steers the [TokenJuice](../token-compression.md) summary toward a topic. |
 
 The tool is read-only and never prompts for approval. Parallel `web_fetch` calls are safe, since a GET is idempotent.

@@ -8,12 +8,12 @@ icon: shield-check
 
 # Approval Gate
 
-The Approval Gate is the checkpoint between the agent and the outside world. When the agent wants to run a tool with a real-world effect (post to Slack, send an email, create a calendar event, run a shell command, install a package), the gate intercepts the call, shows you what is about to happen, and waits for your decision.
+The Approval Gate is the checkpoint between the agent and the outside world. It parks the calls your autonomy tier classifies **Prompt**, rather than every tool with a real-world effect: `SecurityPolicy::gate_decision` (`crates/openhuman-core/src/security/policy/command_checks.rs`) maps each call's command class against your tier, and only a `Prompt` becomes a gate round-trip. When one does, the gate intercepts the call before the tool runs, shows you what is about to happen, and waits for your decision. A class your tier already allows runs silently: on `full` a `Write` is never prompted, as the tier table below shows.
 
 {% hint style="warning" %}
-**The autonomy policy is off by default, and the gate is part of it.** `[autonomy] enabled` defaults to `false` (`crates/openhuman-core/src/config/schema/autonomy.rs`). Until you turn it on, command classification, the tier table, the allowlist, the hourly action budget, `workspace_only` and `forbidden_paths` are all inert, and an acting tool call runs without a prompt.
+**The autonomy policy is off by default, and the gate is part of it.** `[autonomy] enabled` defaults to `false` (`crates/openhuman-core/src/config/schema/autonomy.rs`). Until you turn it on, command classification, the tier table, the allowlist, the hourly action budget, `workspace_only` and `forbidden_paths` are all inert, and an acting tool call runs without a prompt, apart from the forced approvals below.
 
-That is deliberate rather than an oversight: these agents are expected to run inside a container, a platform jail or a Docker sandbox that already provides the isolation this in-process policy was approximating, and a shell that refuses ordinary shell syntax is not a usable shell. Set `[autonomy] enabled = true` in `config.toml` to get everything on this page.
+That is deliberate rather than an oversight: these agents are expected to run inside a container, a platform jail or a Docker sandbox that already provides the isolation this in-process policy was approximating, and a shell that refuses ordinary shell syntax is not a usable shell. Set `[autonomy] enabled = true` in `config.toml` to turn on the autonomy policy described here. The floor in the next section, and the forced approvals below, hold either way.
 {% endhint %}
 
 ## What still holds with the policy off
@@ -100,10 +100,23 @@ The shipped default list is `file_read`, `memory_search`, `memory_list`, `get_ti
 
 ## `auto_approve_all`
 
-Separately from the per-tool list, `[autonomy].auto_approve_all` approves **every** call without prompting. Two things are worth knowing before enabling it:
+Separately from the per-tool list, `[autonomy].auto_approve_all` approves **every** call without prompting. Three things are worth knowing before enabling it:
 
 - An unlabelled call site is still hard-denied, and the hard security blocks inside the tool implementations are unaffected.
 - It bypasses **parking**, not just the prompt. A remote-origin triage dispatch (a connector or webhook payload reaching `triage.escalate`) normally parks and writes an audit row; with this flag on it is allowed immediately and **no audit row is written**, so those dispatches leave no approval trail.
+- It does not reach a **forced** approval, below.
+
+---
+
+## Forced approvals
+
+Browser page interactions are the one surface that cannot be pre-authorized. Every `click`, `double_click`, `fill`, `type`, `press`, `select` and `check` is routed through `ApprovalGate::intercept_forced` (`crates/openhuman-core/src/security/approval/gate_setup.rs`) rather than the ordinary entry point, which changes three things:
+
+- **Every shortcut is skipped.** `auto_approve_all`, the `auto_approve` allowlist and the per-flow tool trust are all ignored, and the forced park does not consult the autonomy tier, so the call parks even with `[autonomy] enabled = false`.
+- **The decision is one-time.** **Always allow** is refused on a forced request: only approve-once or deny can resolve it.
+- **It needs a live chat.** A turn whose origin is not a web-chat turn carrying both a thread id and a client id is denied instead of parked, so a cron, channel or flow turn cannot drive the browser.
+
+The card names the action kind, the page origin and a SHA-256 digest binding that action to that URL. If the page navigates while you are deciding, the approved action is refused rather than replayed against the new page.
 
 ---
 
@@ -119,15 +132,29 @@ Pending requests are stored in SQLite (`{workspace_dir}/approval/approval.db`) a
 
 ---
 
-## Background and cron bypass
+## What the turn's origin decides
 
-The gate is **interactive-only**. Background, triage and cron turns carry no chat context, so there is nobody to answer a prompt. These turns are pre-authorized and pass straight through, with no row and no event. Approval is enforced for live chat turns.
+The gate is **interactive-only**: a parked call needs a surface that can answer it. Which turns it parks, and which pass straight through, is decided by the turn's origin, in `crates/openhuman-core/src/security/approval/gate_intercept.rs`, not by the tool:
+
+| Turn origin | At the gate |
+| --- | --- |
+| Cron and internal background jobs (`TrustedAutomation` → `Cron` / `Background`) | Allowed, no row, no event |
+| A saved flow's pre-declared action (`Workflow { require_approval: false }`) | Allowed, no row, no event |
+| CLI, a delegated sub-agent, and a **locally initiated** triage dispatch, which is labelled `Cli` | Allowed, no row, no event |
+| Web chat | Parks for your decision |
+| A **remote-origin** triage dispatch: a connector or webhook payload reaching `triage.escalate` | Parks and writes a `pending_approvals` row |
+| An external channel turn (Telegram, Slack, …) | Parks and writes a row |
+| An unlabelled call site (`Unknown`) | Denied outright |
+
+Triage is therefore two cases rather than one. A dispatch your own machine started keeps the authority its caller already had and is allowed silently. A dispatch steered by a payload from outside carries `TrustedAutomation { Workflow { require_approval: true } }`, so it parks and leaves an audit row even though no surface can decide a background park yet and it expires at the TTL. That buys the audit trail, not a working escalation, and `auto_approve_all` gives even that up. The two triage cases are pinned apart in `gate_triage_tests.rs`.
+
+An external channel turn parks for the same reason: remote input is untrusted, so the row is written and a decision can still arrive on the thread card before the TTL.
 
 ---
 
 ## Configuration and RPC
 
-- **`[autonomy].enabled`**: the master switch. `false` by default; everything on this page needs it `true`.
+- **`[autonomy].enabled`**: the master switch for the policy. `false` by default; the command classes, the tier table, the allowlist and the hourly budget all need it `true`. Forced approvals and the always-forbidden floor do not.
 - **`OPENHUMAN_APPROVAL_GATE`**: set to `0` or `false` to skip installing the gate even with the policy on. With no gate, `Prompt`-class calls run unprompted.
 - **`[autonomy].level`** and **`[autonomy].auto_approve`**: tier and allowlist, via the `config.update_autonomy_settings` RPC or the settings panels.
 

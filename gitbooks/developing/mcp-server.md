@@ -34,8 +34,10 @@ clients can write as `mcp:<client>`.
 ## Tools
 
 The MCP surface routes through the existing controller registry plus the core
-security policy: read tools pass the read gate, and the three act-gated tools
-(`memory.learn`, `memory.forget`, `agent.run_subagent`) are audited:
+security policy: read tools pass the read gate, and three tools pass the act
+gate. Two of them, `memory.learn` and `memory.forget`, are also recorded on the
+MCP write-audit path; `agent.run_subagent` is not, because the sub-agent's own
+side-effecting calls are audited through the approval gate instead:
 
 | MCP tool            | Backing RPC                          | Purpose                                                                 |
 | ------------------- | ------------------------------------ | ----------------------------------------------------------------------- |

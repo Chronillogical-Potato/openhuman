@@ -11,7 +11,7 @@ OpenHuman updates the whole app in one step. The core is linked into the desktop
 
 ## What you see
 
-When a newer build is published, an update prompt appears in the app. It has four states, in order: **checking**, **downloading** (with progress), **ready to install**, and then the relaunch. If you are already current you see **up to date**, and a failure says so rather than silently retrying forever.
+When a newer build is available, the app checks for it and downloads it in the background. The prompt appears once the download is ready, then moves through **ready to install**, **installing** and **restarting**. If you are already current you see **up to date**, and a failure says so rather than silently retrying forever.
 
 Installing shuts the in-process core down first, under the same restart lock the app uses elsewhere, so replacing the bundle never races a core still holding file handles. On macOS that is what keeps a `.app` replacement clean.
 
@@ -29,7 +29,7 @@ Every artifact is signed, and the public key is compiled into the app. A build w
 
 Downloads get **three attempts** (one try plus two retries) with a linear backoff of two seconds times the attempt number.
 
-Only transient network failures are retried. Signature failures, filesystem errors and "no artifact for this target" are **not**, and that asymmetry is the point: re-downloading cannot fix a bad signature, and looping on a verification failure would both waste the user's bandwidth and mask tampering. The policy lives in `crates/openhuman-app/src/app_update.rs`, where `classify` and `is_transient` are the two functions that decide.
+Only transient network failures are retried. Signature failures, filesystem errors and "no artifact for this target" are **not**, and that asymmetry is the point: re-downloading cannot fix a bad signature, and looping on a verification failure would both waste the user's bandwidth and mask tampering. The policy lives in `crates/openhuman-app/src/app_update.rs`, where `classify` and `is_transient_updater_err` are the two functions that decide.
 
 ## Periodic checks
 

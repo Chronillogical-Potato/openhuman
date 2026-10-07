@@ -60,7 +60,7 @@ You have real controls. From most to least private:
 
 1. **Route inference on-device.** Run a local runtime such as Ollama yourself, pull the models, and [add it as a provider](local-model.md) so embeddings, summarization, and optionally chat/reasoning happen on your machine. OpenHuman doesn't install the runtime or download models for you. _(Speech and web search still use the backend proxy even then.)_
 2. **Tighten what the assistant can do.** Set `[autonomy] enabled = true` and `level = "readonly"` in `config.toml`: it can then observe and answer but never act or reach the network on its own. The policy is **off by default**, so this is a switch you have to throw, not one to leave alone. See the [Approval Gate](../features/approval-gate.md).
-3. **Keep it in one folder.** With the policy on, `workspace_only` confines the agent to its working folder and it cannot read the rest of your disk; with the policy off, that boundary is not enforced. System and credential folders (`~/.ssh`, `~/.gnupg`, `~/.aws`, and OS directories) are blocked outright either way.
+3. **Keep it in one folder.** The filesystem boundary has two preconditions: the policy enabled, and `workspace_only` on. With both, the agent is confined to its working folder and cannot read the rest of your disk. With either one off, that boundary is not enforced. A **trusted root** is the deliberate exception: each one you add grants its subtree outside the working folder, taking precedence over `workspace_only`. System and credential folders (`~/.ssh`, `~/.gnupg`, `~/.aws`, and OS directories) are blocked outright regardless of all three.
 4. **Connect only what you need.** Every integration is a separate OAuth approval you grant (and can revoke) individually. Revoking stops the next sync; memory already collected stays local because it's yours.
 
 ## Built-in protections you didn't have to configure
@@ -76,6 +76,7 @@ You have real controls. From most to least private:
 You know your privacy posture when you can answer these:
 
 - [ ] Is the autonomy policy on, and do you know its tier? (Check `[autonomy]` in `config.toml`.)
+- [ ] If you are relying on the filesystem boundary, is `workspace_only` on as well, and do you know which trusted roots grant access outside the working folder?
 - [ ] Do you know which integrations are connected? (Check **Settings**; disconnect any you don't need.)
 - [ ] If locality matters for a workload, is it routed to a [local provider](local-model.md) that is running and answering?
 - [ ] Are you comfortable that model turns send _retrieved snippets_, not your whole memory?

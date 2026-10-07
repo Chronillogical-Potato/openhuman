@@ -52,7 +52,7 @@ then drops you into the app. Two things make the first request worth making:
 - **An integration.** Open [Connections](../features/connections.md) → Apps and
   connect one. Gmail is the usual first choice; each connection is a one-click
   OAuth approval you can revoke.
-- **A memory engine.** Connections → Brain. Signed in, the hosted engine is
+- **A memory engine.** Connections → Memory. Signed in, the hosted engine is
   already there; otherwise point it at your own CortexDB. With neither,
   [memory](../features/memory.md) is off and the agent starts from zero every
   chat.

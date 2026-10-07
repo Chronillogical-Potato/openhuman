@@ -82,6 +82,7 @@ jobs:
             --exclude '^https://www\.producthunt\.com/'
             --exclude '^https://discord\.tinyhumans\.ai/?$'
             'docs/**/*.md'
+            'gitbooks/**/*.md'
             'README.md'
             'INSTALL.md'
             'CONTRIBUTING.md'

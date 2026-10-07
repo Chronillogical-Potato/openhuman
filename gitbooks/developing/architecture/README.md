@@ -63,7 +63,7 @@ The full table is under "Repository layout" in the [deep architecture reference]
 1. **Connect**. OAuth into an [integration](../../features/integrations/README.md). Backend stores the token; core never sees it in plaintext.
 2. **Sync**. A [memory source](../../features/memory.md) (folder, file, link, GitHub, RSS, or a connected Composio toolkit) syncs on demand and on its own schedule.
 3. **Read**. `tinymemory-sources` turns the source into documents, with an SSRF guard on links.
-4. **Scrub**. The `safety` feature of `tinymemory-integrations` removes secrets and personal identifiers from every item, on every write path.
+4. **Scrub**. Every engine the host binds is wrapped in `memory::guard::ScrubbingEngine`, which uses the `safety` feature of `tinymemory-integrations` to strip secrets and personal identifiers before a write leaves the process. The wrap happens where the engine is resolved, so it covers the tool, the RPC surface, source sync, backfill and import; a caller holding a `BoundEngine` and reaching past it is not covered, which is why resolution is the only sanctioned way to get one.
 5. **Store**. The item goes to the selected engine (hosted TinyHumans or your CortexDB). Conversation turns are logged as they happen, learnings when the agent or you add one.
 6. **Recall / Fetch**. The agent's `memory` tool asks the engine a question (with citations) or runs a raw hybrid search.
 7. **Pack**. Before every turn, a token-budgeted memory pack is recalled and added to that turn's model request only, never to the transcript.

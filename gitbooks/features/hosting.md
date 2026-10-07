@@ -49,7 +49,7 @@ team = ""           # blank means your personal account
 
 With `api_key` blank the credential comes from `TINYHOSTS_VERCEL_TOKEN`, falling back to `VERCEL_TOKEN`; a team account also reads `TINYHOSTS_VERCEL_TEAM_ID` or `VERCEL_TEAM_ID`.
 
-`[hosting] enabled` is `false` by default. With it off, or with no credential resolvable anywhere, **the ten tools are not registered at all** rather than registered and failing. That is deliberate: a tool that is present and cannot work is worse than one that is absent, because a model retries it. A *misconfigured* section, an unknown provider slug or a blank configured key, is an error and is logged, not silently skipped.
+`[hosting] enabled` is `false` by default. With it off, or with no credential resolvable anywhere, **the ten tools are not registered at all** rather than registered and failing. That is deliberate: a tool that is present and cannot work is worse than one that is absent, because a model retries it. A *misconfigured* section is an error and is logged rather than silently skipped: an unknown provider slug, or a key that is present but blank after trimming. Leaving `api_key = ""` out entirely, or set to the empty string, is the documented way to defer to the provider's environment variable and is not a misconfiguration.
 
 ## See also
 

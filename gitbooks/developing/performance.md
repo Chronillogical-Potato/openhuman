@@ -111,7 +111,7 @@ Everything above compiles in at build time through Cargo features (`media`,
 `skills`, `flows`, `mcp`, `channels`, `http-server`, `scheduler-gate`,
 `file-logging`, `modules`, and more). Beyond that, several domains ship as
 loadable native `cdylib` modules rather than being linked into the core
-binary at all. The compiled registry pins fourteen: `tinycomputer`,
+binary at all. The compiled registry pins fourteen records across twelve module names, because `tinyruntime` ships as a router plus two language providers: `tinycomputer`,
 `tinysearch`, `tinydocs`, `tinywallet`, `tinyjuice`, `tinyvoice`,
 `tinyruntime` with its Node and Python providers, `tinymcp`,
 `tinyconnectors`, `tinybox`, `tinychannels` and `tinyhosts`, each behind a

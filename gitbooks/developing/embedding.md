@@ -435,9 +435,9 @@ embed_headless`.
 Tests worth reading alongside the examples, all under
 `crates/openhuman-embed/tests/`: `harness_embed.rs` proves
 `Harness` runs a real turn against a mocked provider with nothing else
-bound; `tests/runtime_agents.rs` runs three agents with different
+bound; `runtime_agents.rs` runs three agents with different
 providers, access tiers, skills, MCP servers and working directories on one
-runtime; `tests/public_api.rs` pins the host-facing embedding contract at
+runtime; `public_api.rs` pins the host-facing embedding contract at
 compile time. Run them with:
 
 ```bash

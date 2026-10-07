@@ -13,11 +13,11 @@ Checked 2026-10-07.
 
 ## Taking off the early-beta badge
 
-[#6047](https://github.com/tinyhumansai/openhuman/issues/6047) is the checklist, with an explicit definition of done: the badge comes off when the boxes are closed, the memory smoke test passes on all three platforms, and the release workflow can publish without hand-holding.
+[#6047](https://github.com/tinyhumansai/openhuman/issues/6047) is the checklist, with an explicit definition of done: the badge comes off when the boxes are closed, the memory smoke test passes on macOS, Windows and Linux, and the release workflow can publish without hand-holding. Read the boxes against the text beside them: a ticked box is not always a passing test.
 
 | Area | State |
 | --- | --- |
-| Memory end to end (store, restart, recall, and the agent actually uses it) | Done |
+| Memory end to end (store, restart, recall, and the agent actually uses it) | Two of three items ticked ([#6041](https://github.com/tinyhumansai/openhuman/issues/6041), [#6040](https://github.com/tinyhumansai/openhuman/issues/6040)); the third is the end-to-end smoke test, which the checklist itself records as not currently passing |
 | Reply persistence: a completed reply can never vanish | Done |
 | Clean-install sign-in on all three platforms | Open, [#6020](https://github.com/tinyhumansai/openhuman/issues/6020) |
 | Windows: native modules refused when `%TEMP%` grants Modify to a non-owner group, leaving memory and connectors unavailable | Open, [#6008](https://github.com/tinyhumansai/openhuman/issues/6008) |

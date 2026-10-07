@@ -1,13 +1,14 @@
 ---
 description: >-
   Go from a fresh install to a working personal assistant that knows your
-  context, respects the boundaries you set, and acts only with your approval.
+  context, respects the boundaries you set, and, at the supervised tier, acts
+  only with your approval.
 icon: robot
 ---
 
 # Create my personal AI assistant
 
-**Goal:** a working assistant that has some memory of your world, replies in a style you like, and never takes a real-world action without your say-so.
+**Goal:** a working assistant that has some memory of your world, replies in a style you like, and, once you put it on the supervised tier, takes no real-world action without your say-so.
 
 This is the "start here" guide. It assumes nothing beyond a downloaded app.
 
@@ -65,7 +66,7 @@ level = "supervised"   # "readonly" | "supervised" | "full"
 | Tier           | What it means                                                                                                      |
 | -------------- | ------------------------------------------------------------------------------------------------------------------ |
 | `readonly`     | The assistant can observe and answer, but never acts (no sending, no file writes, no commands).                    |
-| `supervised`   | It can act, but any state-changing, network, install, or destructive action is **parked for your approval** first. |
+| `supervised`   | It can act, but any state-changing, network, install, or destructive action is **parked for your approval** first, unless its tool is on your always-allow list. |
 | `full`         | Routine actions run automatically; network, install and destructive actions still ask.                             |
 
 {% hint style="warning" %}
@@ -78,7 +79,10 @@ system roots stay blocked either way.
 
 `supervised` is the right starting point. With it on, nothing with an external
 effect happens in a chat without you saying yes: that is the
-[Approval Gate](../features/approval-gate.md).
+[Approval Gate](../features/approval-gate.md). The one exception is a tool you
+put on the always-allow list, by answering **Always allow** to a prompt. That
+tool runs from then on without a fresh approval. Remove it from the list in
+**Settings → Agent access** when you want per-call review back.
 
 **Settings → Agent access** holds the rest of the boundary once the policy is
 on: the trusted roots, the always-allow list, the action timeout and the
@@ -124,7 +128,7 @@ You have a working assistant when **all** of these are true:
 
 ## Recovery
 
-- **Reset boundaries fast:** if the assistant is doing too much, set `level = "readonly"` in `config.toml`. It takes effect on the next turn and blocks all acting immediately.
+- **Reset boundaries fast:** if the assistant is doing too much, set both `enabled = true` and `level = "readonly"` in `config.toml`. The level alone changes nothing while `enabled` is `false`, because the whole policy is inert then. With both set, it takes effect on the next turn and blocks all acting immediately.
 - **Nothing you connect is permanent:** revoke any integration from Settings; chunks already in your local memory stay (they're yours), and the next sync tick stops pulling that source.
 - **If the app itself won't start,** see [Recover from a failed installation](recover-failed-installation.md). Your configuration is preserved by default.
 

@@ -11,6 +11,8 @@ icon: browsers
 
 This is one consolidated reference. Use the table of contents above (or your reader's outline) to jump between sections.
 
+The tree also carries a **mobile shell**: `AppRoutesIOS.tsx`, `pages/ios/`, the `services/transport/` connection profiles and the `app/src-tauri-mobile/` host. That client is **experimental and not part of the shipped desktop host**, which targets Windows, macOS and Linux only. It appears on this page because those files sit in the same tree and share the `App.tsx` provider chain, not because the client ships. See [iOS Companion](../../features/ios-companion.md) for what it is and what still has no desktop surface.
+
 ## Quick reference
 
 | Section                                      | Covers                                                          |
@@ -698,3 +700,4 @@ Stated rather than deleted, because each of these still turns up in older code a
 - [Agent Harness](agent-harness.md): what the chat surface's tool timeline is rendering.
 - [Memory](../../features/memory.md): the user-facing shape of the `/connections?tab=brain` chips.
 - [Theming](../theming.md): the token layer behind `ThemeProvider` and Theme Studio.
+- [iOS Companion](../../features/ios-companion.md): the experimental mobile client the `AppRoutesIOS` shell and the `transport/` profiles belong to.

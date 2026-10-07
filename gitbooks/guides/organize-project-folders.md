@@ -1,8 +1,8 @@
 ---
 description: >-
   Let OpenHuman tidy, rename, and restructure a folder of files safely, inside
-  a boundary you set, with every change gated by your approval once the
-  autonomy policy is on.
+  a boundary you set, with changes gated by your approval once the autonomy
+  policy is on at the supervised tier.
 icon: folder-tree
 ---
 
@@ -10,7 +10,7 @@ icon: folder-tree
 
 **Goal:** point the assistant at a folder and have it clean it up (sort files, rename consistently, remove clutter) without letting it roam your whole disk or make changes you didn't see.
 
-The core idea: the agent works inside a **boundary you define**, and with the autonomy policy on, any file change that isn't provably read-only is **parked for your approval** before it runs.
+The core idea: the agent works inside a **boundary you define**, and with the autonomy policy on at the `supervised` tier, any file change that isn't provably read-only is **parked for your approval** before it runs. The tier is what decides that: at `full`, routine writes run on their own and only network, install and destructive actions stop to ask.
 
 ---
 
@@ -40,7 +40,9 @@ all inert and acting tool calls run unprompted. Credential stores and system
 roots stay blocked either way.
 {% endhint %}
 
-With the policy on, the agent's read/write root is its working folder and it is confined there, without ambient access to the rest of your disk. To let it work on a folder elsewhere, add that folder as a **trusted root**:
+Confinement to the working folder has two preconditions: the policy enabled, and `workspace_only` on. With both, the agent's read/write root is its working folder and it has no ambient access to the rest of your disk. With either one off, that boundary is not enforced.
+
+A **trusted root** is the deliberate exception. Each one grants its subtree even though it sits outside the working folder, taking precedence over `workspace_only`. To let the agent work on a folder elsewhere, add that folder as a trusted root:
 
 - Open **Settings → Agent access**.
 - Add the target folder as a trusted root with read-write access.
@@ -51,10 +53,10 @@ Keep the boundary as tight as the task: grant the one folder, not your home dire
 
 In the same `[autonomy]` block, `level` decides how much runs without asking:
 
-- `supervised` _(recommended)_: the agent proposes each change and you approve moves, renames and deletes as they come.
+- `supervised` _(recommended)_: the agent proposes each change and you approve moves, renames and deletes as they come, except where you have already put the tool on the always-allow list.
 - `full`: routine file writes run automatically. Still tighten the trusted root so "automatic" stays contained.
 
-Deleting and moving files are state-changing actions, so with `supervised` they are parked for your yes or no by the [Approval Gate](../features/approval-gate.md).
+Deleting and moving files are state-changing actions, so with `supervised` they are parked for your yes or no by the [Approval Gate](../features/approval-gate.md). Answering **Always allow** to a prompt adds that tool to the always-allow list, and from then on its calls run without a fresh approval. Remove it from the list in **Settings → Agent access** when you want each call reviewed again.
 
 ### 3. Ask for the reorganization
 
@@ -71,7 +73,8 @@ When the agent wants to move, rename, or delete, an **Approval Request card** ap
 
 ## Success checks
 
-- [ ] The agent only touched the folder you granted, and nothing outside the trusted root changed.
+- [ ] The policy is enabled and `workspace_only` is on, so the folder boundary is actually being enforced.
+- [ ] The agent only touched the folder you granted, and nothing outside your working folder and trusted roots changed.
 - [ ] Each move/rename/delete showed up as an approval prompt (unless you chose "Always allow" for that tool).
 - [ ] The folder matches the structure you asked for.
 - [ ] Files you didn't mention are untouched.
@@ -87,9 +90,9 @@ When the agent wants to move, rename, or delete, an **Approval Request card** ap
 
 ## Recovery
 
-- **Nothing runs without approval** at the `supervised` tier. If a plan looks wrong, **Deny** and it doesn't happen.
+- **Nothing runs without approval** at the `supervised` tier, apart from the tools on your always-allow list. If a plan looks wrong, **Deny** and it doesn't happen.
 - **Undo is manual.** OpenHuman doesn't roll file operations back for you, so work on a **copy** of anything precious, or keep the folder under version control (e.g. `git`) so you can revert.
-- If the agent is doing too much, set `level = "readonly"`. It can still suggest a plan but can't change files.
+- If the agent is doing too much, set both `enabled = true` and `level = "readonly"`. The level does nothing on its own: with `enabled = false` the whole policy is inert. With both set, the agent can still suggest a plan but can't change files.
 
 ## See also
 

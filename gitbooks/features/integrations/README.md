@@ -59,7 +59,7 @@ Some integrations are not just something to read from: OpenHuman uses them to _t
 - **Discord**: two-way, by OAuth or your own bot token, with a server and channel picker.
 - **Web**: the chat inside the desktop app itself. Messages stay entirely local.
 
-Set your default under **Connections → Messaging**. [Messaging Channels](../channels.md) has the full list and what each one can do.
+Set your default under **Connections → Channels**. [Messaging Channels](../channels.md) has the full list and what each one can do.
 
 ## Beyond the curated catalog: MCP & Skills
 

@@ -87,13 +87,12 @@ Edit the behavior prompt (`SOUL.md`, via the **Brain** page `/brain`) to set age
 
 ## Recovery
 
-- **Instant lockdown:** set `level = "readonly"` (if it drifted). Acting stops next turn.
+- **Instant lockdown:** set `enabled = true` and `level = "readonly"` (if either drifted). The level does nothing while `enabled` is `false`, so check both. Acting stops next turn.
 - **Reset persona:** revert your `SOUL.md` edits to defaults if the customization misbehaves.
 - **The real recovery is supervision.** If the experience isn't right for the child, step in. No software setting substitutes for that.
 
 ## See also
 
 - [Keep sensitive data private](privacy-sensitive-data.md): the controls this guide stacks.
-- [Approval Gate](../features/approval-gate.md): how actions are gated.
 - [Approval Gate](../features/approval-gate.md): the autonomy tiers and what each one blocks.
 - [Privacy & Security](../features/privacy-and-security.md): what leaves the machine, and what does not.

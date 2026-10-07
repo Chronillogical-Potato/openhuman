@@ -46,7 +46,7 @@ Open it with the gear in the sidebar header, or `⌘,`.
 
 Not in Agent access, which is the first place everyone looks.
 
-The tier itself (`readonly`, `supervised`, `full`) has no user-facing control: the panel holding the radios is a developer-only deep link. Set it in `config.toml` instead:
+The tier itself (`readonly`, `supervised`, `full`) has no control in the normal settings navigation. The panel that holds the radios is registered developer-only and as a hidden deep link, so it does not appear in the sidebar. Set the tier in `config.toml`:
 
 ```toml
 [autonomy]
@@ -63,10 +63,10 @@ Roughly three times as many settings routes redirect as render, because the pane
 | Old address | Now |
 | --- | --- |
 | `/settings/llm`, `/settings/embeddings`, `/settings/voice`, `/settings/search` | Connections, the matching API-keys tab |
-| `/settings/agents/*`, `/settings/tools` | Connections → Agent tools |
-| `/settings/memory-*`, `/settings/intelligence` | Connections → Brain |
-| `/settings/mcp-server`, `/settings/skills-runner` | Connections → MCP, Connections → Skills |
-| `/settings/wallet-balances` | Connections → Wallet |
+| `/settings/agents/*`, `/settings/tools` | Connections → Tools |
+| `/settings/memory-*`, `/settings/intelligence` | Connections → Memory |
+| `/settings/mcp-server`, `/settings/skills-runner` | Connections → MCP Servers, Connections → Skills |
+| `/settings/wallet-balances` | Connections → Wallet Balances |
 | `/settings/cron-jobs` | Workflows → Schedules |
 | `/settings/automations` | Workflows |
 | `/settings/team`, `/settings/billing`, `/settings/notifications`, `/settings/devices`, `/settings/language` | Settings → Account |

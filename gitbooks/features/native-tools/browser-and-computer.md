@@ -18,7 +18,7 @@ Elements are addressed by **reference**, never by coordinates or CSS selectors. 
 
 ## Browser
 
-The browser is a real Chrome or Chromium, driven over the Chrome DevTools Protocol by a library linked into the module. There is no extra process and no socket.
+The browser is a real Chrome or Chromium, driven over the Chrome DevTools Protocol by a library linked into the module. Chrome is its own process, as it has to be, but nothing sits between it and the module: no driver binary, no local HTTP bridge, no second OpenHuman process.
 
 - **Open** a session: launch a fresh browser (headless or headed), or **attach to the Chrome you already have running**. Attaching matters more than it sounds: plenty of sites turn away a fresh automated browser and serve a person's own. On task end an attached browser is only disconnected, never closed.
 - **Snapshot** the page. The default perception mode, `sight`, runs a small in-page script that reads the page the way a person sees it: real links, buttons and fields, plus anything with a pointer cursor, a click handler or a tab stop. Hidden, zero-size, transparent and disabled things are dropped; things below the fold are marked offscreen and things behind a dialog are marked covered. It falls back to the accessibility tree when it cannot read a page, and `perception: "tree"` forces the tree.
@@ -86,9 +86,9 @@ Linux is not in the shipped surface: the module registry publishes no Linux arti
 
 ## Settings
 
-**Connections → Computer** holds all of it: the module's status and contract version, the decision model (Jev, OpenJEV or Levanto Sage) and which route it bills through, the planner and rescue models, and the browser section (executable path, perception mode, allowed domains).
+**Connections → Computer Control** holds all of it: the module's status and contract version, the decision model (Jev, OpenJEV or Levanto Sage) and which route it bills through, the planner and rescue models, and the browser section (executable path, perception mode, allowed domains).
 
-`[desktop] approvals_enabled` defaults to `false`: the core auto-continues the module's confirmation stop after the module re-observes and re-validates the exact target. Setting it `true` turns on an explicit approval card instead. Desktop goal confirmations are single-use and expire after 10 minutes.
+`[desktop] approvals_enabled` defaults to `false`, and it governs one narrow thing: the module's own mid-goal confirmation stop on the **desktop** surface, which the core then auto-continues after the module re-observes and re-validates the exact target. Setting it `true` surfaces that stop as an approval card instead. It does not weaken the [Approval Gate](../approval-gate.md): an irreversible step still needs an approval, and with no gate installed it is denied. Desktop goal confirmations are single-use and expire after 10 minutes.
 
 ## What it's good for
 

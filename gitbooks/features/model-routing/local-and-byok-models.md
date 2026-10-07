@@ -69,7 +69,7 @@ Two traps worth calling out:
 - **Gemma 3 is split by size.** The 270M and 1B builds are text-only. Vision starts at 4B. Picking `gemma3:1b-it-qat` for vision gets you a text-only model.
 - **`gemma3n` is not `gemma3`.** Despite the name, Gemma 3n is a separate, text-only model on Ollama. It is a fine chat model and a bad vision model.
 
-For embeddings, prefer **`bge-m3`** (1024 dimensions). Note what that does and does not cover: an `embeddings_provider` of `ollama:bge-m3` routes OpenHuman's own embedding calls locally, but the memory engine embeds on its own side, so switching this does not make memory recall local. Only [Privacy Mode](../privacy-mode.md) changes where inference goes, and memory is a separate decision you make by choosing its engine.
+For embeddings, prefer **`bge-m3`** (1024 dimensions). Note what that does and does not cover. An `embeddings_provider` of `ollama:bge-m3` routes OpenHuman's own embedding calls to your machine. It does not move memory: the engine embeds on its own side, so recall still runs wherever the engine runs. Those are three separate decisions, and no one switch covers all of them: this field routes OpenHuman's embeddings, [Privacy Mode](../privacy-mode.md) enforces where *inference* may go, and the memory engine you choose decides where memory lives.
 
 ### 3. Point OpenHuman at it
 

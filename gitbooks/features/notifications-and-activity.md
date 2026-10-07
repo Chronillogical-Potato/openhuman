@@ -10,7 +10,7 @@ icon: bell
 
 OpenHuman surfaces two kinds of "what's happening": **notifications** (things you should look at, like an important Slack message, a failed webhook, or a high-priority email) and **activity** (a ledger of what the agent did on its own while you weren't watching).
 
-Both live on the **Notifications** page. There is no longer an Activity hub or a Routines screen: `/activity` and `/routines` are back-compatibility redirects, and what they used to front moved to the Notifications page and to [Workflows](workflows.md) respectively.
+Both live on the **Notifications** page. There is no longer an Activity hub or a Routines screen. Both addresses still resolve, but not to what they used to show: `/activity` redirects to **Settings → Account**, and `/routines` to [Workflows](workflows.md). The notification feeds moved here, and the scheduler moved to Workflows → Schedules.
 
 ---
 
@@ -78,7 +78,7 @@ Product announcements arrive separately again, as a modal shown once per signed-
 | --- | --- |
 | Scheduled jobs and their run history | **Workflows → Schedules**. See [Cron & Scheduling](native-tools/cron.md). |
 | Workflow runs | **Workflows → Runs** |
-| Memory belief builds and source syncs | **Connections → Brain → Background** |
+| Memory belief builds and source syncs | **Connections → Memory → Background** |
 | Detached sub-agents and async delegation | The background inbox card in the thread that started them. See [Chat](chat.md). |
 | Everything above, as notifications | The Notifications page, Agents category |
 

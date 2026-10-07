@@ -90,7 +90,7 @@ This was the bulk of the (since removed) `docs/TAURI_CEF_FINDINGS_AND_CHANGES.md
 
 ## The "no new JS injection" rule
 
-The rule is documented in [`CLAUDE.md`](https://github.com/tinyhumansai/openhuman/blob/main/AGENTS.md): **migrated providers load with zero injected JavaScript**. All scraping happens natively over CDP from the scanner side.
+The rule is documented in [`AGENTS.md`](https://github.com/tinyhumansai/openhuman/blob/main/AGENTS.md): **migrated providers load with zero injected JavaScript**. All scraping happens natively over CDP from the scanner side.
 
 This matters because anything host-controlled that runs inside a third-party origin is an attack-surface liability. A persistent JS bridge inside Slack is one Slack update away from breaking, and one mistake away from leaking the bridge to attacker-controlled JS. CDP from outside the renderer is strictly better.
 

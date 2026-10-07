@@ -40,7 +40,7 @@ Each card has a **Test** button that opens a short session to check the provider
 
 ## Privacy
 
-- Audio capture is local. Streaming STT goes through the OpenHuman backend; no recording is retained beyond the live transcript.
+- Audio capture is local. Where the audio goes next depends on the provider you picked: the managed routes send it to the OpenHuman backend, and a bring-your-own-key provider such as Gemini Live on a Google API key talks to that vendor directly. Either way no recording is retained beyond the live transcript.
 - TTS audio is streamed and discarded: nothing stored.
 - What you and the agent say in a live session is saved to the open conversation, and so reaches your memory engine on the same terms as typed chat, when memory is on.
 
