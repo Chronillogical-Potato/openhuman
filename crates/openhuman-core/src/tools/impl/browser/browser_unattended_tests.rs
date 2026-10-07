@@ -6,6 +6,10 @@ use std::sync::Arc;
 use tinycomputer_bus::agent::TaskId;
 use tinycomputer_bus::browser::{Action, SessionId, Target};
 
+/// Tests that reach the allow-path log take this, so the log test's scoped
+/// subscriber never races a sibling registering the same tracing callsite.
+static ALLOW_PATH: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 fn listing(actions: &[&str]) -> BrowserConfig {
     BrowserConfig {
         unattended_actions: actions.iter().map(|action| (*action).to_owned()).collect(),
@@ -88,6 +92,7 @@ fn interactive_remote_and_unlabelled_turns_never_skip_the_gate() {
 
 #[tokio::test]
 async fn the_current_turn_origin_decides() {
+    let _serial = ALLOW_PATH.lock().await;
     let browser = listing(&["press"]);
     assert!(turn_origin::with_origin(cron(), async { allow_current(&browser, "press", "abc") }).await);
     assert!(!turn_origin::with_origin(web_chat(), async { allow_current(&browser, "press", "abc") }).await);
@@ -105,6 +110,7 @@ fn pending() -> Pending {
 
 #[tokio::test]
 async fn a_listed_task_step_is_approved_for_cron_without_a_gate() {
+    let _serial = ALLOW_PATH.lock().await;
     let approved = turn_origin::with_origin(
         cron(),
         approve_task_action(&pending(), &listing(&["task_step"])),
@@ -155,6 +161,7 @@ fn click() -> Action {
 
 #[tokio::test]
 async fn a_listed_direct_action_runs_for_cron_without_reading_the_page() {
+    let _serial = ALLOW_PATH.lock().await;
     let client = offline_client(&["click"]);
     let session = SessionId::new("s-1");
     let outcome =
@@ -199,6 +206,7 @@ impl std::io::Write for Logs {
 
 #[tokio::test]
 async fn an_allowed_action_is_logged_by_kind_and_digest_without_its_input() {
+    let _serial = ALLOW_PATH.lock().await;
     let logs = Logs::default();
     let writer = logs.clone();
     let subscriber = tracing_subscriber::fmt()
@@ -206,11 +214,7 @@ async fn an_allowed_action_is_logged_by_kind_and_digest_without_its_input() {
         .with_ansi(false)
         .finish();
     let _guard = tracing::subscriber::set_default(subscriber);
-    // A sibling test may have registered the callsite before this subscriber
-    // existed; recompute its interest so this thread sees the event.
     tracing::callsite::rebuild_interest_cache();
-    eprintln!("DBG level={:?}", tracing::level_filters::LevelFilter::current());
-    tracing::info!("DBG probe");
     let client = offline_client(&["fill"]);
     let fill = Action::Fill {
         target: Target::selector("#secret-field"),
