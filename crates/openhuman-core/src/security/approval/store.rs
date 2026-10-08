@@ -197,8 +197,17 @@ fn migrate_session_id_scrub(conn: &Connection) -> Result<()> {
 
 /// Open (and migrate) the approval DB, then call `f` with a live
 /// connection. Mirrors `notifications/store.rs::with_connection`.
+fn db_path(config: &Config) -> std::path::PathBuf {
+    config.workspace_dir.join("approval").join("approval.db")
+}
+
+/// Whether the approval store has been created for `config`'s workspace.
+pub fn exists(config: &Config) -> bool {
+    db_path(config).is_file()
+}
+
 fn with_connection<T>(config: &Config, f: impl FnOnce(&Connection) -> Result<T>) -> Result<T> {
-    let db_path = config.workspace_dir.join("approval").join("approval.db");
+    let db_path = db_path(config);
 
     tracing::trace!(
         path = %db_path.display(),

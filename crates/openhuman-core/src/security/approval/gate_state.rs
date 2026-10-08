@@ -117,6 +117,9 @@ impl ApprovalGate {
     /// Deny every undecided request `agent` parked, resolving its waiters.
     /// Returns how many rows were denied.
     pub fn deny_all_for_agent(&self, agent: &str, resolution: &str) -> anyhow::Result<usize> {
+        if !store::exists(&self.config) {
+            return Ok(0);
+        }
         let rows = store::list_pending_for_agent(&self.config, Some(agent))?;
         let mut denied = 0;
         for row in rows {
