@@ -5,9 +5,8 @@
  * Verifies:
  *   1. Initial login can complete onboarding and reach Home.
  *   2. Logout returns to the Welcome screen (session is cleared).
- *   3. Re-login via the auth deep-link bypass brings up the onboarding
- *      overlay at its first step, confirming the fresh session does not
- *      carry stale mid-flow onboarding state from the previous session.
+ *   3. Re-login via the auth deep-link bypass returns to chat without
+ *      restarting onboarding for the same completed account.
  *
  * Architecture note: auth tokens live in the Rust core (not Redux-persist).
  * `applySessionToken` stores the JWT and fires `core-state:session-token-updated`
@@ -24,7 +23,6 @@ import {
   dismissBootCheckGateIfVisible,
   logoutViaSettings,
   performFullLogin,
-  waitForOnboardingOverlayVisible,
 } from '../helpers/shared-flows';
 import {
   clearRequestLog,
@@ -33,7 +31,7 @@ import {
   stopMockServer,
 } from '../mock-server';
 
-describe('Logout -> re-login onboarding overlay', function () {
+describe('Logout -> re-login onboarding state', function () {
   // Suite-level timeout — covers all hooks and tests. The full flow
   // (resetApp + first login + logout + test_reset + reload + re-login)
   // can take 60-90s, well over the default 30s.
@@ -53,7 +51,7 @@ describe('Logout -> re-login onboarding overlay', function () {
     await stopMockServer();
   });
 
-  it('shows onboarding overlay with clean state after logout and re-login', async function () {
+  it('keeps completed onboarding after logout and re-login', async function () {
     const hasChrome = await hasAppChrome();
     expect(hasChrome).toBe(true);
 
@@ -69,90 +67,36 @@ describe('Logout -> re-login onboarding overlay', function () {
     await logoutViaSettings('[LogoutReLogin]');
     // logoutViaSettings confirms "Welcome" is visible — the session is cleared.
 
-    // Reset core state (onboarding_completed, chat_onboarding_completed, api_key)
-    // so the re-login is treated as a fresh user session. Without this,
-    // the Rust core retains onboarding_completed=true from the first session
-    // and the overlay would not reappear for the same mock user.
-    const resetResult = await Promise.race([
-      callOpenhumanRpc('openhuman.test_reset', {}),
-      new Promise(resolve => setTimeout(() => resolve({ ok: false, error: 'timeout' }), 8_000)),
-    ]);
-    if (!resetResult.ok) {
-      console.log('[LogoutReLogin] test_reset result:', JSON.stringify(resetResult));
-    }
-
-    // Reload the renderer so the CoreStateProvider picks up the fresh
-    // onboarding_completed=false from the Rust core. Without this the
-    // stale snapshot keeps onboarding_completed=true and the routing
-    // guard never redirects to /onboarding.
-    // NOTE: Do NOT clear localStorage here — that destroys the persisted
-    // core mode and causes the BootCheckGate to block the entire app.
+    // Onboarding completion belongs to the user. Re-authenticate the same
+    // account and verify logout did not send it through setup again.
     await browser.execute(() => {
       window.location.replace('#/');
       window.location.reload();
     });
     await browser.pause(2_000);
-
-    // The reload may surface the BootCheckGate if the core mode was lost
-    // during logout. Dismiss it so the auth flow can proceed.
     await waitForWindowVisible(15_000);
     await waitForWebView(10_000);
     await dismissBootCheckGateIfVisible(12_000);
-    await browser.pause(1_000);
 
-    // ── Second login (re-login) ───────────────────────────────────────────────
-    // Use the bypass deep-link path (key=auth) which skips the
-    // consumeLoginToken→/auth/login-token/consume exchange. After the complex
-    // logout→test_reset→reload cycle, the full consume flow can race against
-    // waitForOAuthAuthReadiness timing — the bypass avoids that instability
-    // while still exercising the core auth path (storeSession, session-token
-    // event, CoreStateProvider refresh, routing guards).
     clearRequestLog();
-
-    await triggerAuthDeepLinkBypass('e2e-logout-relogin-second');
+    await triggerAuthDeepLinkBypass('e2e-logout-relogin-first-token');
     await waitForWindowVisible(25_000);
     await waitForWebView(15_000);
     await waitForAppReady(15_000);
     await waitForAuthBootstrap(15_000);
 
-    // ── Onboarding must appear for the fresh session ─────────────────────────
-    // The new user has not completed onboarding, so the routed onboarding shell
-    // should mount once the profile-backed core snapshot is available.
-    // Allow extra time for CoreStateProvider to refresh and routing to settle.
-    const overlayVisible = await waitForOnboardingOverlayVisible(40_000);
-    if (!overlayVisible) {
-      // Diagnostic: dump current hash, DOM text, and request log.
-      const hash = await browser.execute(() => window.location.hash);
-      const rootText = await browser.execute(() =>
-        (document.getElementById('root')?.innerText ?? '').slice(0, 500)
-      );
-      console.log('[LogoutReLogin] Overlay not visible. hash=' + hash + ' rootText=' + rootText);
-    }
-    expect(overlayVisible).toBe(true);
-
-    const route = await browser.execute(() => window.location.hash);
-    expect(route).toMatch(/^#\/onboarding/);
-
-    // ── Onboarding must be in clean first-step state ─────────────────────────
-    // If stale mid-flow state from session 1 leaked, a later step would render
-    // instead of the initial welcome step.
     await browser.waitUntil(
       async () =>
-        (await browser.execute(
-          () => document.querySelector('[data-testid="onboarding-welcome-step"]') !== null
-        )) as boolean,
-      { timeout: 10_000, interval: 250, timeoutMsg: 'Onboarding welcome step did not mount' }
+        (await browser.execute(() => window.location.hash.startsWith('#/chat'))) as boolean,
+      { timeout: 30_000, interval: 250, timeoutMsg: 'Re-login did not return to chat' }
     );
-    const firstStep = await browser.execute(() => {
-      const welcome = document.querySelector('[data-testid="onboarding-welcome-step"]');
-      return {
-        mounted: welcome !== null,
-        heading: welcome?.querySelector('h1')?.textContent?.trim() ?? '',
-        hasCta: welcome?.querySelector('button[aria-label="Get Started"]') !== null,
-      };
-    });
-    expect(firstStep.mounted).toBe(true);
-    expect(firstStep.heading).toBe("Hi. I'm OpenHuman.");
-    expect(firstStep.hasCta).toBe(true);
+    const onboarding = await callOpenhumanRpc('openhuman.config_get_onboarding_completed', {});
+    expect(onboarding.ok).toBe(true);
+    expect(onboarding.result.result).toBe(true);
+    expect(
+      await browser.execute(
+        () => document.querySelector('[data-testid="onboarding-layout"]') !== null
+      )
+    ).toBe(false);
   });
 });

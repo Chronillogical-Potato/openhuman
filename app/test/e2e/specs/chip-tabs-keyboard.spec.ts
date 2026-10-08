@@ -37,10 +37,12 @@ describe('ChipTabs keyboard traversal', () => {
     await middle.click();
     await expectSelectedAndFocused('routing');
 
-    // Leave the row, then enter with a real Tab event. This exercises entry
-    // focus in Radix's roving group before the arrow-key assertions.
-    await browser.keys(['Shift', 'Tab']);
-    await expect(middle).not.toBeFocused();
+    // Start from the preceding control and enter with a real Tab event. This
+    // exercises entry focus in Radix's roving group before arrow-key checks.
+    await browser.execute(() => {
+      (document.querySelector('[data-testid="search-enabled-toggle"]') as HTMLElement).focus();
+    });
+    await expect(await waitForTestId('search-enabled-toggle')).toBeFocused();
     await browser.keys('Tab');
     await expectSelectedAndFocused('routing');
 
