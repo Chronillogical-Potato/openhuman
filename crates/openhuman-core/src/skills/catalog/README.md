@@ -68,9 +68,9 @@ all under the `skill_registry` namespace:
 - `install`: install a catalog entry by `entry_id` into user scope. The result
   carries `status`: `installed` with `url`, `stdout`, `stderr` and
   `new_skills`, or `scan_blocked` with `target`, `fetched_from`, `slug`,
-  `findings` and `message` when the supply-chain scan refused it. Passing
-  `acknowledge_scan_findings: true` installs a blocked document; only the
-  Skills UI sends it, after the user chose "Install anyway".
+  `digest`, `findings` and `message` when the supply-chain scan refused it.
+  Passing that `digest` back as `acknowledged_digest` installs that document;
+  only the Skills UI sends it, after the user chose "Install anyway".
 - `uninstall`: remove an installed user-scope skill by slug.
 - [`schemas`](./schemas): return the `skill_registry` controller schemas (CLI/RPC smoke-test generation).
 
@@ -156,10 +156,14 @@ Security notes:
   Request refusals (unknown id, unsafe URL, portal entry, oversized body, rate
   limiting) are not retried, and the retry goes through the registry like the
   first attempt, so a catalog in its refresh cooldown is not refetched.
-- Only `acknowledge_scan_findings` on the `skill_registry_install` and
-  `skills_install_from_url` RPCs installs a blocked document. The agent tools
-  (`skill_registry_install`, `install_workflow_from_url`) do not expose it and
-  always refuse; they tell the agent to send the user to the Skills page.
+- Only `acknowledged_digest` on the `skill_registry_install` and
+  `skills_install_from_url` RPCs installs a blocked document, and only the
+  document with that digest. The install fetches again; if the document has
+  changed, its digest no longer matches and it is scanned like an
+  unacknowledged one: refused afresh with its own findings and digest, or
+  installed if it now scans clean. The agent tools (`skill_registry_install`,
+  `install_workflow_from_url`) neither expose the param nor return the digest,
+  and always refuse; they tell the agent to send the user to the Skills page.
 
 ## Further reading
 
