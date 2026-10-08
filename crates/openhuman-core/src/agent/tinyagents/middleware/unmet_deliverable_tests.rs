@@ -2,9 +2,12 @@ use super::*;
 
 use std::sync::Arc;
 
+use tinyagents_harness::context::{RunConfig, RunContext};
 use tinyagents_harness::limits::RunLimits;
+use tinyagents_harness::middleware::Middleware;
 use tinyagents_harness::runtime::{AgentHarness, RunPolicy};
 use tinyagents_harness::testkit::{FakeTool, ScriptedModel};
+use tinyagents_harness::tinyinference_llm::model::ModelRequest;
 use tinyagents_harness::tinyinference_llm::tool::ToolCall;
 
 /// The real request this middleware was built for names three inputs and one
@@ -323,4 +326,90 @@ async fn candidates_come_from_the_current_turns_request() {
         "not the earlier turn's path"
     );
     assert_eq!(run.text().as_deref(), Some("second answer"));
+}
+
+fn result_text(result: &TaToolResult) -> String {
+    result
+        .content
+        .iter()
+        .filter_map(|block| match block {
+            ToolContent::Text { text } => Some(text.as_str()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// The two clock-driven notes ride a tool result once each: the half-time
+/// note names the path still absent at 50% of the budget, the late note at
+/// 80% says to stop exploring, and neither repeats in a later band. A
+/// directory at the path counts as absent: the deliverable is a file.
+#[tokio::test]
+async fn the_half_time_and_late_notes_ride_a_tool_result_once_each() {
+    let missing = std::env::temp_dir().join(format!("oh-unmet-clock-{}.csv", std::process::id()));
+    let _ = std::fs::remove_dir_all(&missing);
+    std::fs::create_dir_all(&missing).expect("a directory at the csv path");
+    let middleware = UnmetDeliverableMiddleware::new(Some(std::time::Duration::from_millis(1_000)));
+    let mut ctx = RunContext::new(RunConfig::new("clock"), ());
+    let mut request = ModelRequest {
+        messages: vec![Message::user(format!(
+            "do the work and write {}",
+            missing.display()
+        ))],
+        ..ModelRequest::default()
+    };
+    Middleware::<(), ()>::before_model(&middleware, &mut ctx, &(), &mut request)
+        .await
+        .expect("before_model");
+    async fn run(middleware: &UnmetDeliverableMiddleware, ctx: &mut RunContext<()>) -> String {
+        let identity = tinyagents_harness::middleware::ToolInvocationIdentity::new("c0", "shell");
+        let mut result = TaToolResult::success("output");
+        Middleware::<(), ()>::after_tool(middleware, ctx, &(), &identity, &mut result)
+            .await
+            .expect("after_tool");
+        result_text(&result)
+    }
+
+    assert_eq!(
+        run(&middleware, &mut ctx).await,
+        "output",
+        "nothing before half-time"
+    );
+
+    std::thread::sleep(std::time::Duration::from_millis(600));
+    let half = run(&middleware, &mut ctx).await;
+    assert!(half.contains("Half the turn's budget is gone"), "{half:?}");
+    assert!(
+        half.contains(&missing.display().to_string()),
+        "names the absent path"
+    );
+    assert_eq!(
+        run(&middleware, &mut ctx).await,
+        "output",
+        "the half-time note is given once"
+    );
+
+    std::thread::sleep(std::time::Duration::from_millis(450));
+    let late = run(&middleware, &mut ctx).await;
+    assert!(late.contains("Stop exploring"), "{late:?}");
+    assert!(
+        !late.contains("Half the turn's budget"),
+        "the late note stands alone"
+    );
+    assert_eq!(
+        run(&middleware, &mut ctx).await,
+        "output",
+        "the late note is given once"
+    );
+    let _ = std::fs::remove_dir_all(&missing);
+}
+
+/// A directory at a path that names a file is not the deliverable.
+#[test]
+fn a_directory_at_the_path_is_still_missing() {
+    let dir = std::env::temp_dir().join(format!("oh-unmet-dir-{}.json", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("dir");
+    let candidates = vec![dir.to_string_lossy().to_string()];
+    assert_eq!(UnmetDeliverableMiddleware::missing(&candidates), candidates);
+    let _ = std::fs::remove_dir_all(&dir);
 }

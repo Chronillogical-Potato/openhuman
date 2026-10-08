@@ -262,13 +262,14 @@ impl UnmetDeliverableMiddleware {
         }
     }
 
-    /// Which of `candidates` are absent. Existence only: nothing is opened or
-    /// read, and the paths echoed back are the ones the request already
-    /// carried.
+    /// Which of `candidates` are not regular files (a directory written at a
+    /// `.csv` path is as unmet as nothing at all). Existence only: nothing is
+    /// opened or read, and the paths echoed back are the ones the request
+    /// already carried.
     fn missing(candidates: &[String]) -> Vec<String> {
         candidates
             .iter()
-            .filter(|path| !std::path::Path::new(path.as_str()).exists())
+            .filter(|path| !std::path::Path::new(path.as_str()).is_file())
             .cloned()
             .collect()
     }
@@ -365,7 +366,7 @@ impl<C: Send + Sync> Middleware<(), C> for UnmetDeliverableMiddleware {
             if let Ok(mut runs) = self.runs.lock() {
                 runs.entry(ctx.instance_id()).or_default().late_noted = true;
             }
-            tracing::info!(
+            tracing::debug!(
                 band,
                 "[unmet_deliverable] late note: stop exploring, meet the stated limits"
             );
@@ -378,7 +379,7 @@ impl<C: Send + Sync> Middleware<(), C> for UnmetDeliverableMiddleware {
                 runs.entry(ctx.instance_id()).or_default().half_noted = true;
             }
             if !missing.is_empty() {
-                tracing::info!(
+                tracing::debug!(
                     band,
                     missing = ?missing,
                     "[unmet_deliverable] half-time note: requested path still absent"
@@ -418,7 +419,7 @@ impl<C: Send + Sync> Middleware<(), C> for UnmetDeliverableMiddleware {
         if let Ok(mut runs) = self.runs.lock() {
             runs.entry(ctx.instance_id()).or_default().fired = true;
         }
-        tracing::info!(
+        tracing::debug!(
             missing = missing.len(),
             "[unmet_deliverable] holding the answer: a named output file was never written"
         );
