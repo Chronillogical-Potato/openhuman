@@ -289,7 +289,7 @@ fn legacy_nodes_map_to_their_connector() {
         item.meta_mut().source = SourceRef { kind, id: None };
         item
     };
-    let link = item(SourceKind::Link, None);
+    let link = item(SourceKind::Import, None);
     for old in [
         "pdf", "markdown", "md", "docx", "xlsx", "pptx", "code", "other", "files",
     ] {
@@ -298,7 +298,7 @@ fn legacy_nodes_map_to_their_connector() {
     // `web` held links and feeds, and HTML files that were filed beside them.
     assert_eq!(legacy_brain_node("web", &link), BrainSource::Web);
     assert_eq!(
-        legacy_brain_node("web", &item(SourceKind::Rss, None)),
+        legacy_brain_node("web", &item(SourceKind::Import, None)),
         BrainSource::Web
     );
     assert_eq!(
@@ -311,7 +311,7 @@ fn legacy_nodes_map_to_their_connector() {
     );
     // An upload carried the `Link` kind `web` implies, but kept its path.
     assert_eq!(
-        legacy_brain_node("web", &item(SourceKind::Link, Some("/u/pricing.html"))),
+        legacy_brain_node("web", &item(SourceKind::Import, Some("/u/pricing.html"))),
         files_source()
     );
     // Connectors keep their node, under the slug Composio uses.
