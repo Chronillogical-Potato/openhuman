@@ -51,6 +51,7 @@ pub use registry::all_composio_agent_tools;
 // — can still reach these via a plain `use super::*;`, exactly as when
 // this was one un-split file. See each item's `pub(super)` in its owning
 // submodule.
+#[cfg(test)]
 pub(crate) use connect::canonicalize_toolkit_slug;
 pub(crate) use visibility::{action_mutates_external_state, resolve_action_scope};
 

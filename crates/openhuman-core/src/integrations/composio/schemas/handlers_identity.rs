@@ -8,7 +8,7 @@ use crate::config::rpc as config_rpc;
 use crate::core::all::ControllerFuture;
 use crate::integrations::composio::{ops, providers};
 
-use super::util::{read_optional, read_required, read_required_non_empty, to_json};
+use super::util::{read_required, read_required_non_empty, to_json};
 
 pub(super) fn handle_get_user_profile(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {

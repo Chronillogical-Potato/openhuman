@@ -104,3 +104,28 @@ pub fn reset_interrupted(workspace_dir: &Path) {
         write_all(workspace_dir, &all);
     }
 }
+
+/// Files the removed Composio memory sync kept beside the source state.
+const ORPHANED_CONNECTOR_FILES: [&str; 2] = ["connector_items.json", "connection_roots.json"];
+
+/// Best-effort removal of the files the removed Composio memory sync left in
+/// `<workspace>/memory/`. Nothing reads them any more; a failure is logged
+/// and ignored.
+pub fn remove_orphaned_connector_files(workspace_dir: &Path) {
+    let dir = workspace_dir.join("memory");
+    for name in ORPHANED_CONNECTOR_FILES {
+        let path = dir.join(name);
+        match std::fs::remove_file(&path) {
+            Ok(()) => tracing::debug!(
+                file = name,
+                "[memory:sources] removed orphaned connector file"
+            ),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => tracing::debug!(
+                file = name,
+                %error,
+                "[memory:sources] could not remove orphaned connector file"
+            ),
+        }
+    }
+}

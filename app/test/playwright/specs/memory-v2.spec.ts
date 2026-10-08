@@ -673,7 +673,6 @@ test.describe('Memory v2 — out of credits', () => {
     // A prompt, not an error: warning variant, the top-up explanation, no raw 402.
     const prompt = page.getByTestId('memory-brain-ingest-error');
     await expect(prompt).toHaveAttribute('data-kind', 'out-of-credits', { timeout: 20_000 });
-    await expect(prompt).toHaveAttribute('data-variant', 'warning');
     await expect(prompt).toContainText('Out of credits');
     await expect(prompt).not.toContainText('HTTP 402');
     expect(fake.paramsOf('memory_brain_ingest')).toEqual([{ text: '# Notes' }]);

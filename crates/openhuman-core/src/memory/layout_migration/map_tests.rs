@@ -78,7 +78,11 @@ fn a_web_link_stays_web_and_an_uploaded_page_is_a_file() {
         placement.layout.brain(&BrainSource::Web).unwrap()
     );
     let page = placement
-        .place(document("source:web", SourceKind::Import, Some("page.html")))
+        .place(document(
+            "source:web",
+            SourceKind::Import,
+            Some("page.html"),
+        ))
         .unwrap();
     assert_eq!(
         page.meta().namespace,
