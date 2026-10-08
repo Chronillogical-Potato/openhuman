@@ -72,6 +72,23 @@ describe('MemoryEraseAllCard', () => {
     );
   });
 
+  it('does not report a failed refresh callback as a failed erase', async () => {
+    hoisted.erase.mockResolvedValue({ erased_scopes: 1 });
+    const onErased = vi.fn(() => {
+      throw new Error('refresh boom');
+    });
+    renderWithProviders(<MemoryEraseAllCard onErased={onErased} />);
+    await openDialog();
+    fireEvent.click(screen.getByTestId('memory-erase-ack'));
+    fireEvent.click(screen.getByTestId('memory-erase-confirm'));
+
+    await waitFor(() => expect(onErased).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId('memory-erase-error')).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByTestId('memory-erase-dialog')).not.toBeInTheDocument()
+    );
+  });
+
   it('shows a translated error and never the raw server text', async () => {
     hoisted.erase.mockRejectedValue(
       Object.assign(new Error('UNSUPPORTED: DELETE /memory returned 404 secret-detail'), {
