@@ -151,3 +151,66 @@ async fn a_tree_another_account_took_is_left_alone() {
             .needed
     );
 }
+
+/// After an import that ended with its last batch not confirmed listed, an
+/// item the listing shows only after the first pass is still moved, in the
+/// same run: it copies again after a short wait instead of finishing, and
+/// finishes (clearing the flag) once a pass moves nothing new.
+#[tokio::test]
+async fn after_an_unconfirmed_import_an_item_listed_late_is_still_moved() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = crate::memory::test_fixtures::config_in(&tmp);
+    let memory_dir = config.workspace_dir.join("memory");
+    std::fs::create_dir_all(&memory_dir).unwrap();
+    std::fs::write(
+        memory_dir.join("import_state.json"),
+        r#"{"listed_unconfirmed": true}"#,
+    )
+    .unwrap();
+    assert!(crate::memory::import::listed_unconfirmed(
+        &config.workspace_dir
+    ));
+    let host = FakeHost::with(3).await;
+
+    // The item is accepted by the import but listed only once the first
+    // pass is over: stored while the run waits before its first recheck.
+    let late = async {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while state::load(&config.workspace_dir).unwrap().rechecks == 0 {
+            if std::time::Instant::now() > deadline {
+                return false;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(2)).await;
+        }
+        host.legacy.store(fact("listed late")).await.unwrap();
+        true
+    };
+    let (outcome, stored_late) = tokio::join!(
+        go(&config, &host, Trigger::Manual { takeover: false }),
+        late
+    );
+
+    assert!(stored_late, "the run waited to copy again");
+    assert_eq!(outcome, Outcome::Done);
+    assert_eq!(
+        count(host.tree.as_ref()).await,
+        4,
+        "the late item was moved"
+    );
+    assert_eq!(count(host.legacy.as_ref()).await, 0);
+    let state = state::load(&config.workspace_dir).unwrap();
+    assert_eq!(
+        state.rechecks, 2,
+        "one forced recheck that moved the late item, one that moved nothing"
+    );
+    assert!(state.rechecked, "re-checking is over");
+    assert!(
+        crate::memory::import::listed_unconfirmed(&config.workspace_dir),
+        "the flag stays: later cleanups keep forgetting by id"
+    );
+    assert_eq!(
+        go(&config, &host, Trigger::Auto).await,
+        Outcome::Done,
+        "settled, not re-checked again"
+    );
+}

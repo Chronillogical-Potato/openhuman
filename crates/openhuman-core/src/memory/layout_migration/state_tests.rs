@@ -24,6 +24,8 @@ fn a_saved_state_loads_back_and_leaves_no_temporary_file() {
         switched: true,
         caught_up: false,
         takeover: true,
+        rechecks: 1,
+        rechecked: true,
     };
     save(tmp.path(), &state).unwrap();
     assert_eq!(load(tmp.path()).unwrap(), state);

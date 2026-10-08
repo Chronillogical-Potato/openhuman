@@ -215,7 +215,13 @@ pub fn tick(
     paused: Arc<dyn Fn() -> bool + Send + Sync>,
 ) -> bool {
     match state::load(&config.workspace_dir) {
-        Ok(state) if state.phase == Phase::Cleaned => false,
+        Ok(state)
+            if state.phase == Phase::Cleaned
+                && (state.rechecked
+                    || !crate::memory::import::listed_unconfirmed(&config.workspace_dir)) =>
+        {
+            false
+        }
         Ok(_) if paused() || is_running(config) => false,
         Ok(_) => start(config.clone(), host, Trigger::Auto, paused),
         Err(error) => {

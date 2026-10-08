@@ -286,3 +286,47 @@ async fn a_shared_legacy_tree_is_forgotten_by_id_never_erased() {
     assert_eq!(state.phase, Phase::Cleaned);
     assert!(texts(legacy.as_ref()).await.is_empty());
 }
+
+/// An import that finished without its last batch confirmed listed may hold
+/// items no export shows yet: cleanup must not erase a scope whole then, and
+/// forgets only the moved items by id (an erase would panic here).
+#[tokio::test]
+async fn after_an_unconfirmed_import_moved_items_are_forgotten_by_id_never_erased() {
+    let tmp = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(tmp.path().join("memory")).unwrap();
+    std::fs::write(
+        tmp.path().join("memory").join("import_state.json"),
+        r#"{"listed_unconfirmed": true}"#,
+    )
+    .unwrap();
+    assert!(crate::memory::import::listed_unconfirmed(tmp.path()));
+    let legacy = Arc::new(NeverErase(ReferenceEngine::new()));
+    for i in 0..5 {
+        legacy
+            .store(StoreItem::learning(
+                format!("fact {i}"),
+                LearningKind::Fact,
+                0.5,
+                MemoryMeta::default(),
+            ))
+            .await
+            .unwrap();
+    }
+    let engines = Engines {
+        legacy: legacy.clone(),
+        tree: Arc::new(ReferenceEngine::new()),
+    };
+    let mut state = copied(tmp.path(), &engines).await;
+    cleanup(
+        tmp.path(),
+        &engines,
+        &placement(),
+        false,
+        &mut state,
+        || async { false },
+    )
+    .await
+    .unwrap();
+    assert_eq!(state.phase, Phase::Cleaned);
+    assert!(texts(legacy.as_ref()).await.is_empty());
+}

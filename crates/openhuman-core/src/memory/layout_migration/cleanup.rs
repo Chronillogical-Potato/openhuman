@@ -121,7 +121,14 @@ where
     state.cleaning = true;
     state.error = None;
     state::save(workspace_dir, state)?;
-    match remove_moved(engines, placement, shared, &paused).await {
+    // An import that finished without its last batch confirmed listed may
+    // hold items the survey cannot see yet: never erase a scope whole then,
+    // forget by verified id as for a shared tree.
+    let unconfirmed = crate::memory::import::listed_unconfirmed(workspace_dir);
+    if unconfirmed {
+        tracing::info!("[memory:layout_migration] import not confirmed listed; forgetting by id");
+    }
+    match remove_moved(engines, placement, shared || unconfirmed, &paused).await {
         Ok(true) => {}
         Ok(false) => return pause(workspace_dir, state, "background work is paused".into()),
         Err(error) if error.is_account_wide() => {
