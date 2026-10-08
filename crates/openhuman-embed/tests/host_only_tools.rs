@@ -226,9 +226,12 @@ fn host_only_refuses_builtin_tools_the_model_names() {
             let requests = chat_requests(&provider).await;
             assert_eq!(requests.len(), 2);
             let results = common::tool_results(&requests[1]);
+            // The refusal echoes the arguments back to the model, so the
+            // filesystem above is the proof nothing ran; here, that each
+            // built-in was refused by name and the host tool answered.
             assert!(results.contains("read_file-host-result"), "{results}");
-            assert!(!results.contains("shell-ran"), "{results}");
-            assert!(!results.contains("write-ran"), "{results}");
+            assert!(results.contains("unknown tool `shell`"), "{results}");
+            assert!(results.contains("unknown tool `write_file`"), "{results}");
         })
         .await
         .expect("test task");
