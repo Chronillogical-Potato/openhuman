@@ -626,15 +626,28 @@ async fn a_disconnect_while_signed_out_is_finished_on_the_next_sign_in() {
     // Synced while signed in.
     let engine = bind_reference(&config);
     store_for(&config, "conn-s", "1").await;
-    // Signed out: memory off, as a fresh workspace without an engine.
-    let off = config_in(&tempfile::tempdir().unwrap());
-    let mut signed_out = config.clone();
-    signed_out.workspace_dir = config.workspace_dir.clone();
-    let _ = off;
-    crate::memory::engine::install_test_engine(
-        &tmp.path().join("unused"),
-        std::sync::Arc::new(tinymemory_api::conformance::ReferenceEngine::new()),
+
+    // Signed out (memory off), then disconnected: nothing reaches the cloud
+    // yet, and the deletion is queued rather than dropped.
+    crate::memory::engine::remove_test_engine(&config.workspace_dir);
+    assert_eq!(
+        forget_connection(&config, "conn-s", Some("gmail"))
+            .await
+            .unwrap(),
+        0
     );
-    let _ = signed_out;
-    let _ = engine;
+    assert_eq!(
+        crate::memory::deletion::pending(&config.workspace_dir),
+        vec![crate::memory::deletion::PendingDeletion::Connection {
+            connection_id: "conn-s".into(),
+            toolkit: Some("gmail".into()),
+        }]
+    );
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 1);
+
+    // Signed back in: the drain finishes the delete.
+    crate::memory::engine::install_test_engine(&config.workspace_dir, engine.clone());
+    assert_eq!(crate::memory::deletion::drain(&config).await, 1);
+    assert!(stored(&engine, MetaFilter::default()).await.is_empty());
+    assert!(crate::memory::deletion::pending(&config.workspace_dir).is_empty());
 }

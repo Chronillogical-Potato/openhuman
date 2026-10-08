@@ -122,6 +122,16 @@ pub(crate) fn install_test_engine(workspace: &std::path::Path, engine: Arc<dyn M
         .insert(workspace.to_path_buf(), engine);
 }
 
+/// Unbinds the test engine of `workspace`, so memory there is off again
+/// (tests only).
+#[cfg(test)]
+pub(crate) fn remove_test_engine(workspace: &std::path::Path) {
+    TEST_ENGINES
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .remove(workspace);
+}
+
 /// Test engines for one layout of a workspace (`None` legacy, `Some(root)`
 /// v3), read by [`bind_with_root`] ahead of everything else, so a test can
 /// hold both layouts at once as the layout migration does.
