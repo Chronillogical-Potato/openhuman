@@ -5100,7 +5100,8 @@ const messages: TranslationMap = {
   'memoryPage.announcement.retired': 'TinyCortex выведен из работы 7 окт.',
   'memoryPage.announcement.highlight':
     'Бесплатная миграция, а за инференс памяти никогда не взимается плата.',
-  'memoryPage.announcement.rest': "Basic включает 1 ГБ памяти, а Pro 20 ГБ. Она быстрее и умнее, а ваши данные никогда не используются для обучения.",
+  'memoryPage.announcement.rest':
+    'Basic включает 1 ГБ памяти, а Pro 20 ГБ. Она быстрее и умнее, а ваши данные никогда не используются для обучения.',
   'memoryPage.announcement.dismiss': 'Скрыть',
   'memoryPage.engine.cortex.description':
     'Движок памяти с ранжированным поиском и обоснованными ответами.',
@@ -5109,14 +5110,16 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'Бесплатно',
   'memoryPage.engine.chip.apikey': 'Ваш ключ CortexDB',
   'memoryPage.engine.chip.selfhost': 'Локально',
-  'memoryPage.engine.fairUse.summary': "О бесплатной памяти",
-  'memoryPage.engine.quota.plan': "Ваш тариф {plan} включает {storage} памяти.",
-  'memoryPage.engine.quota.all': "Basic включает 1 ГБ памяти, а Pro 20 ГБ.",
-  'memoryPage.engine.quota.inference': "За инференс памяти плата не взимается.",
-  'memoryPage.engine.fairUse.heading': "Добросовестное использование",
+  'memoryPage.engine.fairUse.summary': 'О бесплатной памяти',
+  'memoryPage.engine.quota.plan': 'Ваш тариф {plan} включает {storage} памяти.',
+  'memoryPage.engine.quota.all': 'Basic включает 1 ГБ памяти, а Pro 20 ГБ.',
+  'memoryPage.engine.quota.inference': 'За инференс памяти плата не взимается.',
+  'memoryPage.engine.fairUse.heading': 'Добросовестное использование',
   'memoryPage.engine.offPrompt': 'Выберите провайдера ниже, чтобы начать запоминать.',
-  'memoryPage.engine.builtin.summaryPlan': "Бесплатная память в вашем тарифе {plan}, размещённая TinyHumans.",
-  'memoryPage.engine.builtin.summaryUpgrade': "Бесплатная память в тарифах Basic и Pro, размещённая TinyHumans.",
+  'memoryPage.engine.builtin.summaryPlan':
+    'Бесплатная память в вашем тарифе {plan}, размещённая TinyHumans.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'Бесплатная память в тарифах Basic и Pro, размещённая TinyHumans.',
   'memoryPage.engine.apiKeyOption.connected': 'Подключено с вашим ключом API CortexDB.',
   'memoryPage.engine.selfHost.connected': 'Подключено к CortexDB по адресу {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Загружайте свой контент для собственного использования.',

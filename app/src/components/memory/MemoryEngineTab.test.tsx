@@ -227,35 +227,47 @@ describe('MemoryEngineTab', () => {
       expect(hoisted.toastAdd).not.toHaveBeenCalled();
     });
 
-    it('says who hosts it and the Pro plan’s free memory in one line, with fair-use terms', () => {
+    it('says the plan’s memory is free in one line, with the details behind the info icon', () => {
       hoisted.plan = 'PRO';
       renderTab(BUILTIN_ON);
       expect(screen.getByTestId('memory-engine-builtin-note')).toHaveTextContent(
-        'Hosted by TinyHumans: 20 GB of free memory on your Pro plan. Memory inference is never charged.'
+        'Free memory on your Pro plan, hosted by TinyHumans.'
       );
-      // Fair use sits behind an info icon.
+      // Quota, inference pricing and fair use sit behind an info icon.
       expect(screen.queryByTestId('memory-engine-fair-use')).not.toBeInTheDocument();
       fireEvent.click(screen.getByTestId('memory-engine-fair-use-trigger'));
       const terms = screen.getByTestId('memory-engine-fair-use');
-      expect(terms).toHaveTextContent('Fair use applies');
+      expect(screen.getByTestId('memory-engine-quota')).toHaveTextContent(
+        'Your Pro plan includes 20 GB of memory.'
+      );
+      expect(terms).toHaveTextContent('Memory inference is never charged.');
+      expect(terms).toHaveTextContent('Fair use');
       expect(terms).toHaveTextContent('No automated bulk uploads');
       fireEvent.click(within(terms).getByTestId('memory-engine-terms'));
       expect(hoisted.openUrl).toHaveBeenCalledWith('https://tinyhumans.ai/terms');
     });
 
-    it('gives the Basic plan 1 GB of free memory', () => {
+    it('gives the Basic plan 1 GB of memory', () => {
       hoisted.plan = 'BASIC';
       renderTab(BUILTIN_ON);
       expect(screen.getByTestId('memory-engine-builtin-note')).toHaveTextContent(
-        'Hosted by TinyHumans: 1 GB of free memory on your Basic plan. Memory inference is never charged.'
+        'Free memory on your Basic plan, hosted by TinyHumans.'
+      );
+      fireEvent.click(screen.getByTestId('memory-engine-fair-use-trigger'));
+      expect(screen.getByTestId('memory-engine-quota')).toHaveTextContent(
+        'Your Basic plan includes 1 GB of memory.'
       );
     });
 
-    it('points free plans at Basic and Pro', () => {
+    it('points free plans at Basic and Pro, with both quotas behind the info icon', () => {
       hoisted.plan = 'FREE';
       renderTab();
       expect(screen.getByTestId('memory-engine-builtin-note')).toHaveTextContent(
-        'Hosted by TinyHumans: free memory on Basic (1 GB) and Pro (20 GB). Memory inference is never charged.'
+        'Free memory on Basic and Pro, hosted by TinyHumans.'
+      );
+      fireEvent.click(screen.getByTestId('memory-engine-fair-use-trigger'));
+      expect(screen.getByTestId('memory-engine-quota')).toHaveTextContent(
+        'Basic includes 1 GB of memory and Pro includes 20 GB.'
       );
     });
   });
