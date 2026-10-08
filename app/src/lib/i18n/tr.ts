@@ -5243,9 +5243,6 @@ const messages: TranslationMap = {
   'memoryPage.import.retryFailed': 'Başarısız öğeleri yeniden dene',
   'memoryPage.import.progress': '{imported}/{total} öğe içe aktarıldı',
   // Chat status, history, and tool activity.
-  'chat.sidebar.searchPlaceholder': 'Sohbetlerde ara',
-  'chat.sidebar.clearSearch': 'Aramayı temizle',
-  'chat.sidebar.noMatches': 'Eşleşen sohbet yok',
   'chat.status.thinkingElapsed': 'Düşünüyor · {elapsed}',
   'chat.status.waitingApproval': 'Onayınız bekleniyor',
   'chat.status.waitingReview': 'İncelemeniz bekleniyor',
