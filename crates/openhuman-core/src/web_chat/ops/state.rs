@@ -143,3 +143,6 @@ pub fn cancel_should_target(requested: Option<&str>, in_flight: &str) -> bool {
     }
 }
 
+#[cfg(test)]
+#[path = "state_tests.rs"]
+mod tests;
