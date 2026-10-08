@@ -379,8 +379,8 @@ pub async fn forget(config: &Config, params: ForgetParams) -> MemoryResult<Forge
 /// On the hosted engine this is one `DELETE /memory`, which erases the
 /// caller's entire hosted memory (every scope under their tenant, the
 /// pre-v3 layout's included). On CortexDB reached directly it erases every
-/// kind scope of the bound layout (the person's `user:<id>` subtree under
-/// layout v3); a legacy tree is left alone, because on a self-hosted CortexDB
+/// kind scope of the bound layout (the person's `org:<id>` subtree under
+/// layout v3, and the retired `user:<id>` one while it is still read); a legacy tree is left alone, because on a self-hosted CortexDB
 /// other accounts may share it (see `layout_migration`). An engine that
 /// cannot erase answers `UNSUPPORTED`.
 pub async fn erase_all(config: &Config, params: EraseAllParams) -> MemoryResult<EraseAllView> {

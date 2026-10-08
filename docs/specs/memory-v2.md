@@ -260,12 +260,24 @@ memory.
 
 **Moving into the per-user layout.** Memory written before layout v3 lives
 under `app:tinymemory/…`. `memory_migration_*` stores each item again below
-the person's `user:<id>` root, verifies it, switches the layout once every
+the person's `org:<id>` root, verifies it, switches the layout once every
 item is copied, copies what arrived meanwhile, then removes the legacy copies
 it verified. Progress is saved after every page in
 `<workspace>/memory/layout_migration.json`, so the move resumes where it
 stopped. The memory background job runs it on its own only while moving is
 free (always off the hosted engine); `memory_migration_start` runs it now.
+
+**The `org:<id>` root.** One root per person, `org:<id>`, with no `user:`
+segment below it: chats at `org:<id>/ws:main/app:conversations`, the brain
+at `org:<id>/app:brain/source:<src>`, learnings at `org:<id>/app:learnings`.
+On a direct CortexDB the engine is rooted at `org:<id>` and owned by the
+actor `user:<id>`; on the hosted engine it sends paths relative to the
+tenant root memory-api pins (`org:<id>`). Earlier v3 clients rooted at
+`user:<id>` (hosted: `org:<id>/user:<id>/…`). While `[memory]
+legacy_user_segment_read` is on (the default), reads and forgets cover that
+path too, merged by item id, and writes go only to `org:<id>`. cortexdb-saas
+`reroot-user-segment` moves the hosted data; the flag is turned off once that
+is verified.
 On a self-hosted CortexDB every account on the machine shares the legacy
 tree: it moves only with `takeover: true`, and the first account to take it
 claims it in `<app>/memory/legacy_claims/`; other accounts have nothing
