@@ -72,6 +72,28 @@ impl ToolPolicy for HostOnlyToolPolicy {
     }
 }
 
+/// The visible set of a host-only belt before the host's names are merged in:
+/// explicitly zero tools (an empty set would mean "no filter").
+pub(super) fn empty_belt() -> HashSet<String> {
+    HashSet::from([crate::agent::harness::definition::NO_TOOLS_SENTINEL.to_string()])
+}
+
+/// The session gate: on a host-only belt, [`HostOnlyToolPolicy`] over the
+/// belt's names (`tools` holds only the host's by then) wrapping the host's
+/// own gate; otherwise the host's gate unchanged. The recovery tool and every
+/// other config-side addition are kept off the belt by the caller.
+pub(super) fn session_policy(
+    host_only: bool,
+    tools: &[Box<dyn tinytools::Tool>],
+    host: Option<Arc<dyn ToolPolicy>>,
+) -> Option<Arc<dyn ToolPolicy>> {
+    if !host_only {
+        return host;
+    }
+    let allowed = tools.iter().map(|tool| tool.name().to_string()).collect();
+    Some(Arc::new(HostOnlyToolPolicy::new(allowed, host)))
+}
+
 /// The definition a host-only session runs under: `definition` with every
 /// route to a tool the host did not supply removed.
 pub(super) fn host_only_definition(definition: &AgentDefinition) -> AgentDefinition {
@@ -112,7 +134,7 @@ impl OpenHumanSessionHost {
             config,
             &definition.id,
             Some(&definition),
-            super::factory::SessionBelt::HostOnly,
+            true,
             host,
             session_id,
         )

@@ -224,19 +224,6 @@ impl OpenHumanSessionHost {
             crate::tools::filter_tools_by_user_preference(&mut tools, &enabled_tools);
         }
 
-        if belt == SessionBelt::ConfigReadOnly {
-            let before = tools.len();
-            tools.retain(|tool| {
-                tool.permission_level() <= PermissionLevel::ReadOnly
-                    && !matches!(tool.scope(), tinytools::ToolScope::CliRpcOnly)
-            });
-            log::info!(
-                "[agent::builder] read-only tool filter applied: before={} after={}",
-                before,
-                tools.len()
-            );
-        }
-
         // Route the main agent's chat through the unified per-workload
         // factory so the user's "Reasoning" routing in the AI settings
         // panel (e.g. `reasoning_provider = "anthropic:claude-..."`)
@@ -445,14 +432,8 @@ impl OpenHumanSessionHost {
             target_def,
             crate::agent::harness::definition::AgentDefinitionRegistry::global(),
         ) {
-            // Host-only: no delegation, and an empty named belt the host's
-            // names are merged into below.
-            _ if host_only => (
-                Vec::new(),
-                Some(std::collections::HashSet::from([
-                    NO_TOOLS_SENTINEL.to_string()
-                ])),
-            ),
+            // Host-only: no delegation; the host's names join an empty belt.
+            _ if host_only => (Vec::new(), Some(super::host_only::empty_belt())),
             (Some(def), Some(reg)) => {
                 let synthed = if should_synthesize_delegation_tools(def) {
                     tools::orchestrator_tools::collect_orchestrator_tools(
@@ -607,7 +588,6 @@ impl OpenHumanSessionHost {
         // below so an agent that explicitly disallows it still has it removed.
         // A summary names the tool in its footer too, and summaries run with
         // the router off, so either one makes the tool necessary.
-        // Not on a host-only belt: the recovery tool is not the host's.
         if !host_only {
             super::ensure_tinyjuice_tools_visible(&mut visible, agent_id, config);
         }
@@ -798,18 +778,8 @@ impl OpenHumanSessionHost {
             &mut visible,
         )?;
         let session_definition = super::host_tools::scope_def(target_def, &merged_host_tools);
-        // Host-only: the host's names, and only those, are admitted; the
-        // host's own gate (if any) still decides among them.
-        let host_policy = if host_only {
-            let allowed = tools.iter().map(|tool| tool.name().to_string()).collect();
-            Some(Arc::new(super::host_only::HostOnlyToolPolicy::new(
-                allowed,
-                merged_host_tools.policy,
-            ))
-                as Arc<dyn crate::agent::tool_policy::ToolPolicy>)
-        } else {
-            merged_host_tools.policy
-        };
+        let host_policy =
+            super::host_only::session_policy(host_only, &tools, merged_host_tools.policy);
         let withheld_tool_names = merged_host_tools.withheld;
         let mut builder = OpenHumanSessionHost::builder()
             .crate_native_provider(provider_role, Arc::clone(&base_config))
