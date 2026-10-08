@@ -5320,7 +5320,7 @@ const messages: TranslationMap = {
     'আপনার অ্যাকাউন্টে ক্রেডিট শেষ, তাই এখন মেমোরি মোছা যাবে না। টপ আপ করে আবার চেষ্টা করুন। কিছুই মোছা হয়নি।',
   'memoryPage.settings.eraseError.memoryOff': 'মেমোরি বন্ধ আছে, তাই মোছার মতো কিছু নেই।',
   'memoryPage.settings.eraseError.unavailable':
-    'এই মুহূর্তে মেমোরিতে পৌঁছানো যাচ্ছে না। কিছুই মোছা হয়নি; একটু পরে আবার চেষ্টা করুন।',
+    'মেমোরি মোছা হয়েছে কি না নিশ্চিত করা যায়নি; হয়তো মোছা হয়ে গেছে। আবার চেষ্টা করার আগে যাচাই করুন।',
   'memoryPage.settings.eraseError.unauthorized':
     'আপনার সেশনের মেয়াদ শেষ হয়ে গেছে। আবার সাইন ইন করুন, তারপর মেমোরি মোছার চেষ্টা করুন।',
   'memoryPage.settings.eraseError.generic':

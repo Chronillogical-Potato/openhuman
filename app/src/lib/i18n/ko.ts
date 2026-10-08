@@ -5270,7 +5270,7 @@ const messages: TranslationMap = {
     '계정의 크레딧이 부족해 지금은 메모리를 지울 수 없습니다. 충전한 후 다시 시도하세요. 아무것도 지워지지 않았습니다.',
   'memoryPage.settings.eraseError.memoryOff': '메모리가 꺼져 있어 지울 항목이 없습니다.',
   'memoryPage.settings.eraseError.unavailable':
-    '지금은 메모리에 연결할 수 없습니다. 아무것도 지워지지 않았습니다. 잠시 후 다시 시도하세요.',
+    '메모리가 지워졌는지 확인할 수 없습니다. 이미 지워졌을 수 있으니 다시 시도하기 전에 확인하세요.',
   'memoryPage.settings.eraseError.unauthorized':
     '세션이 만료되었습니다. 다시 로그인한 후 메모리 지우기를 시도하세요.',
   'memoryPage.settings.eraseError.generic': '메모리를 지우지 못했습니다. 다시 시도하세요.',

@@ -5472,7 +5472,7 @@ const messages: TranslationMap = {
   'memoryPage.settings.eraseError.memoryOff':
     'Das Gedächtnis ist ausgeschaltet, es gibt also nichts zu löschen.',
   'memoryPage.settings.eraseError.unavailable':
-    'Das Gedächtnis ist gerade nicht erreichbar. Es wurde nichts gelöscht; versuche es gleich noch einmal.',
+    'Es konnte nicht bestätigt werden, ob das Gedächtnis gelöscht wurde. Möglicherweise wurde es gelöscht; prüfe das, bevor du es erneut versuchst.',
   'memoryPage.settings.eraseError.unauthorized':
     'Deine Sitzung ist abgelaufen. Melde dich erneut an und versuche dann, dein Gedächtnis zu löschen.',
   'memoryPage.settings.eraseError.generic':

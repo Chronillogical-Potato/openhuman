@@ -5030,7 +5030,7 @@ const messages: TranslationMap = {
     '你的账户额度已用完，因此暂时无法清除记忆。请充值后重试。未清除任何内容。',
   'memoryPage.settings.eraseError.memoryOff': '记忆已关闭，没有可清除的内容。',
   'memoryPage.settings.eraseError.unavailable':
-    '暂时无法连接到记忆服务。未清除任何内容；请稍后重试。',
+    '无法确认记忆是否已清除。可能已清除；请先检查再重试。',
   'memoryPage.settings.eraseError.unauthorized': '你的会话已过期。请重新登录，然后再尝试清除记忆。',
   'memoryPage.settings.eraseError.generic': '无法清除你的记忆。请重试。',
   'memoryPage.settings.hostBound': '这些由托管 OpenHuman 的应用设置，因此无法在此更改。',

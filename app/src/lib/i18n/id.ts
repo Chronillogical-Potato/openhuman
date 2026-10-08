@@ -5366,7 +5366,7 @@ const messages: TranslationMap = {
   'memoryPage.settings.eraseError.memoryOff':
     'Memori dimatikan, jadi tidak ada yang perlu dihapus.',
   'memoryPage.settings.eraseError.unavailable':
-    'Memori tidak dapat dijangkau saat ini. Tidak ada yang dihapus; coba lagi sebentar lagi.',
+    'Tidak dapat memastikan apakah memori sudah dihapus. Mungkin sudah; periksa dulu sebelum mencoba lagi.',
   'memoryPage.settings.eraseError.unauthorized':
     'Sesi Anda telah berakhir. Masuk lagi, lalu coba hapus memori Anda.',
   'memoryPage.settings.eraseError.generic': 'Tidak dapat menghapus memori Anda. Silakan coba lagi.',

@@ -5407,7 +5407,7 @@ const messages: TranslationMap = {
   'memoryPage.settings.eraseError.memoryOff':
     'La memoria è disattivata, quindi non c’è nulla da cancellare.',
   'memoryPage.settings.eraseError.unavailable':
-    'Al momento la memoria non è raggiungibile. Non è stato cancellato nulla; riprova tra poco.',
+    'Non è stato possibile confermare se la memoria è stata cancellata. Potrebbe esserlo; verifica prima di riprovare.',
   'memoryPage.settings.eraseError.unauthorized':
     'La tua sessione è scaduta. Accedi di nuovo, poi riprova a cancellare la memoria.',
   'memoryPage.settings.eraseError.generic': 'Impossibile cancellare la memoria. Riprova.',

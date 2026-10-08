@@ -5601,7 +5601,7 @@ const en: TranslationMap = {
     "Your account is out of credits, so memory can't be erased right now. Top up and try again. Nothing was erased.",
   'memoryPage.settings.eraseError.memoryOff': 'Memory is turned off, so there is nothing to erase.',
   'memoryPage.settings.eraseError.unavailable':
-    "Memory can't be reached right now. Nothing was erased; try again in a moment.",
+    "We couldn't confirm whether the memory was erased. It may have been; check before trying again.",
   'memoryPage.settings.eraseError.unauthorized':
     'Your session has expired. Sign in again, then try erasing your memory.',
   'memoryPage.settings.eraseError.generic': "Couldn't erase your memory. Please try again.",

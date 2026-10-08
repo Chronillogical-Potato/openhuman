@@ -5616,7 +5616,7 @@ const messages: TranslationMap = {
     'アカウントのクレジットが不足しているため、現在メモリーを消去できません。チャージしてから再度お試しください。何も消去されていません。',
   'memoryPage.settings.eraseError.memoryOff': 'メモリーがオフのため、消去するものはありません。',
   'memoryPage.settings.eraseError.unavailable':
-    '現在メモリーに接続できません。何も消去されていません。しばらくしてから再度お試しください。',
+    'メモリーが消去されたかどうか確認できませんでした。消去済みの可能性があります。再試行する前にご確認ください。',
   'memoryPage.settings.eraseError.unauthorized':
     'セッションの有効期限が切れました。再度サインインしてから、メモリーの消去をお試しください。',
   'memoryPage.settings.eraseError.generic':

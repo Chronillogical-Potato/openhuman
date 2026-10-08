@@ -5328,7 +5328,7 @@ const messages: TranslationMap = {
     'Hesabınızda kredi kalmadığı için bellek şu anda silinemiyor. Bakiye yükleyip tekrar deneyin. Hiçbir şey silinmedi.',
   'memoryPage.settings.eraseError.memoryOff': 'Bellek kapalı, bu yüzden silinecek bir şey yok.',
   'memoryPage.settings.eraseError.unavailable':
-    'Belleğe şu anda ulaşılamıyor. Hiçbir şey silinmedi; birazdan tekrar deneyin.',
+    'Belleğin silinip silinmediği doğrulanamadı. Silinmiş olabilir; tekrar denemeden önce kontrol edin.',
   'memoryPage.settings.eraseError.unauthorized':
     'Oturumunuzun süresi doldu. Tekrar giriş yapın, ardından belleğinizi silmeyi deneyin.',
   'memoryPage.settings.eraseError.generic': 'Belleğiniz silinemedi. Lütfen tekrar deneyin.',

@@ -5395,7 +5395,7 @@ const messages: TranslationMap = {
   'memoryPage.settings.eraseError.memoryOff':
     'A memória está desativada, então não há nada para apagar.',
   'memoryPage.settings.eraseError.unavailable':
-    'Não é possível acessar a memória agora. Nada foi apagado; tente novamente em instantes.',
+    'Não foi possível confirmar se a memória foi apagada. Ela pode ter sido; verifique antes de tentar novamente.',
   'memoryPage.settings.eraseError.unauthorized':
     'Sua sessão expirou. Entre novamente e tente apagar sua memória.',
   'memoryPage.settings.eraseError.generic': 'Não foi possível apagar sua memória. Tente novamente.',

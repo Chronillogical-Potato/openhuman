@@ -5422,7 +5422,7 @@ const messages: TranslationMap = {
   'memoryPage.settings.eraseError.memoryOff':
     'La memoria está desactivada, así que no hay nada que borrar.',
   'memoryPage.settings.eraseError.unavailable':
-    'No se puede acceder a la memoria en este momento. No se ha borrado nada; inténtalo de nuevo en un momento.',
+    'No se pudo confirmar si la memoria se borró. Es posible que sí; compruébalo antes de volver a intentarlo.',
   'memoryPage.settings.eraseError.unauthorized':
     'Tu sesión ha caducado. Vuelve a iniciar sesión y luego intenta borrar tu memoria.',
   'memoryPage.settings.eraseError.generic': 'No se pudo borrar tu memoria. Inténtalo de nuevo.',

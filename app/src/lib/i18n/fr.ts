@@ -5447,7 +5447,7 @@ const messages: TranslationMap = {
   'memoryPage.settings.eraseError.memoryOff':
     'La mémoire est désactivée, il n’y a donc rien à effacer.',
   'memoryPage.settings.eraseError.unavailable':
-    'La mémoire est injoignable pour le moment. Rien n’a été effacé ; réessayez dans un instant.',
+    'Impossible de confirmer si la mémoire a été effacée. Elle l’a peut-être été ; vérifiez avant de réessayer.',
   'memoryPage.settings.eraseError.unauthorized':
     'Votre session a expiré. Reconnectez-vous, puis réessayez d’effacer votre mémoire.',
   'memoryPage.settings.eraseError.generic':

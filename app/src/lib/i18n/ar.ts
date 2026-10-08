@@ -5222,7 +5222,7 @@ const messages: TranslationMap = {
     'نفد رصيد حسابك، لذا لا يمكن مسح الذاكرة الآن. اشحن رصيدك وحاول مجدداً. لم يُمسح أي شيء.',
   'memoryPage.settings.eraseError.memoryOff': 'الذاكرة متوقفة، لذا لا يوجد ما يُمسح.',
   'memoryPage.settings.eraseError.unavailable':
-    'تعذّر الوصول إلى الذاكرة الآن. لم يُمسح أي شيء؛ حاول مجدداً بعد قليل.',
+    'تعذّر تأكيد نتيجة مسح الذاكرة؛ قد تكون الذاكرة قد مُسحت. تحقّق قبل إعادة المحاولة.',
   'memoryPage.settings.eraseError.unauthorized':
     'انتهت صلاحية جلستك. سجّل الدخول مجدداً، ثم حاول مسح ذاكرتك.',
   'memoryPage.settings.eraseError.generic': 'تعذّر مسح ذاكرتك. يُرجى المحاولة مجدداً.',

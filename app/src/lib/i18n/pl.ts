@@ -5394,7 +5394,7 @@ const messages: TranslationMap = {
     'Na Twoim koncie skończyły się kredyty, więc teraz nie można wymazać pamięci. Doładuj konto i spróbuj ponownie. Nic nie zostało wymazane.',
   'memoryPage.settings.eraseError.memoryOff': 'Pamięć jest wyłączona, więc nie ma czego wymazywać.',
   'memoryPage.settings.eraseError.unavailable':
-    'Pamięć jest teraz nieosiągalna. Nic nie zostało wymazane; spróbuj ponownie za chwilę.',
+    'Nie udało się potwierdzić, czy pamięć została wymazana. Mogła zostać; sprawdź, zanim spróbujesz ponownie.',
   'memoryPage.settings.eraseError.unauthorized':
     'Twoja sesja wygasła. Zaloguj się ponownie, a następnie spróbuj wymazać pamięć.',
   'memoryPage.settings.eraseError.generic': 'Nie udało się wymazać pamięci. Spróbuj ponownie.',
