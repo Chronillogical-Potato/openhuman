@@ -143,6 +143,7 @@ pub(super) async fn enforce_retention_cap(
                 limit: Some(MAX_LIMIT),
                 cursor,
                 path: Vec::new(),
+                preview: false,
             },
         )
         .await?;
