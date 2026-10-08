@@ -38,8 +38,8 @@ function fixtures() {
       { id: 's1', kind: 'folder', target: '/notes', label: 'Inbox', status: 'syncing', items: 3 },
       {
         id: 's2',
-        kind: 'rss',
-        target: 'https://example.com/feed',
+        kind: 'file',
+        target: '/notes/todo.md',
         label: '',
         status: 'idle',
         items: 0,
@@ -71,7 +71,7 @@ describe('useBackgroundActivity', () => {
     });
     expect(result.current.memory.providers).toEqual([
       { provider: 'Inbox', freshness: 'active' },
-      { provider: 'https://example.com/feed', freshness: 'idle' },
+      { provider: '/notes/todo.md', freshness: 'idle' },
     ]);
   });
 
