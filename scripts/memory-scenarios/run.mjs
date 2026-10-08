@@ -164,6 +164,7 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
   let composio = null;
   let wire = null;
   let guardPlaced = false;
+  let builtinSubject = null;
   let core = null;
   let events = null;
   const ledger = new Ledger();
@@ -193,7 +194,7 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
     // Chat runs on the account's managed route (user decision); memory stays on
     // the container. The key reaches the core only through the environment.
     try {
-      const cred = await builtinCredential();
+      const cred = await builtinCredential({ only: "key" });
       secrets.push(cred.secret);
       Object.assign(extraEnv, cred.env);
     } catch (e) {
@@ -225,13 +226,17 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
     // runs on its own. An API key is seeded as a plain profile write with no
     // user-dir activation (boot_env.rs), so the root config is the active
     // one. Verified after boot; the run aborts if it is not in effect.
-    // Without a session the core boots into the pre-login user dir
-    // (`users/local/config.toml`, READ in a run's core.log), so the gate goes
-    // there as well as in the root config.
+    // Guard 0 goes in every config the core may treat as active: the root,
+    // the pre-login user dir (a key activates none) and, for a session, the
+    // account's own user dir (`users/<subject>`). Verified after boot.
     const gated = BASE_CONFIG(["[scheduler_gate]", 'mode = "off"', ""]);
     await fsp.writeFile(path.join(oh, "config.toml"), gated);
-    await fsp.mkdir(path.join(oh, "users", "local"), { recursive: true });
-    await fsp.writeFile(path.join(oh, "users", "local", "config.toml"), gated);
+    for (const id of ["local", ...(cred.subject ? [cred.subject] : [])]) {
+      await fsp.mkdir(path.join(oh, "users", id), { recursive: true });
+      await fsp.writeFile(path.join(oh, "users", id, "config.toml"), gated);
+    }
+    builtinSubject = cred.subject;
+    engineResults.credential = cred.kind;
   }
 
   const rpcLog = new JsonlLog(path.join(dir, "rpc.jsonl"), secrets);
@@ -373,7 +378,27 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
       await setupLocal({ withKey: true });
     } else {
       // Guard 0 verified: the gate the account's config carries is off.
-      const snap = await core.rpc("openhuman.config_get", {});
+      // A session activates the account's user dir asynchronously at boot:
+      // wait for it, then read the guard back from THAT config.
+      let snap = await core.rpc("openhuman.config_get", {});
+      if (builtinSubject) {
+        const want = path.join("users", builtinSubject, "config.toml");
+        snap = await waitFor(
+          async () => {
+            const s2 = await core.rpc("openhuman.config_get", {});
+            return String(s2?.config_path ?? "").endsWith(want) ? s2 : null;
+          },
+          {
+            timeoutMs: 60_000,
+            intervalMs: 500,
+            what: "the account's user dir active",
+          },
+        ).catch(() => {
+          throw new Error(
+            "ABORT builtin: the session did not activate the account's user dir",
+          );
+        });
+      }
       const mode = pick(snap, "config.scheduler_gate.mode");
       if (mode !== "off")
         throw new Error(

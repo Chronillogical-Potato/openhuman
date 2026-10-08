@@ -219,26 +219,62 @@ export function cortexReader({ endpoint, apiKey }) {
 // ---------------------------------------------------------------------------
 
 export const API_KEY_ENV = "OPENHUMAN_BACKEND_API_KEY";
+export const SESSION_ENV = "OPENHUMAN_BACKEND_SESSION_TOKEN";
+const HOME_DIR = process.env.HOME || "";
+const SESSION_FILE =
+  process.env.MEMSCEN_SESSION_FILE || path.join(HOME_DIR, ".memscen-session");
 const KEY_FILE =
-  process.env.MEMSCEN_KEY_FILE ||
-  path.join(process.env.HOME || "", ".memscen-key");
+  process.env.MEMSCEN_KEY_FILE || path.join(HOME_DIR, ".memscen-key");
 
 /**
- * The account's TinyHumans API key, read from ~/.memscen-key at spawn time.
- * It reaches the core only as OPENHUMAN_BACKEND_API_KEY (seeded at boot by
- * security/credentials/ops/boot_env.rs); it is never printed, logged, written
- * to the run dir or passed to an RPC. The run refuses builtin without it.
+ * The account credential for the builtin engine, read at spawn time:
+ * the app's session JWT from ~/.memscen-session when present (preferred: it
+ * carries the memory scope), else the API key from ~/.memscen-key. It reaches
+ * the core only through the environment (security/credentials/ops/boot_env.rs
+ * seeds it); it is never printed, logged, written to the run dir or passed
+ * to an RPC. `subject` (a session's user id) is returned for guard placement
+ * only and is never printed either.
  */
-export async function builtinCredential() {
-  let key;
-  try {
-    key = (await fsp.readFile(KEY_FILE, "utf8")).trim();
-  } catch {
-    throw new Error(`builtin needs a TinyHumans API key in ${KEY_FILE}`);
+export async function builtinCredential({ only } = {}) {
+  const read = (f) =>
+    fsp
+      .readFile(f, "utf8")
+      .then((t) => t.trim())
+      .catch(() => null);
+  const session = only === "key" ? null : await read(SESSION_FILE);
+  if (session) {
+    const parts = session.split(".");
+    if (parts.length !== 3)
+      throw new Error(`${SESSION_FILE} does not hold a JWT`);
+    let subject;
+    try {
+      const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
+      subject = payload.sub ?? payload._id ?? payload.userId;
+    } catch {
+      throw new Error(`${SESSION_FILE}: the JWT payload does not decode`);
+    }
+    if (!subject)
+      throw new Error(`${SESSION_FILE}: the session carries no subject`);
+    return {
+      kind: "session",
+      env: { [SESSION_ENV]: session },
+      secret: session,
+      subject: String(subject),
+    };
   }
+  const key = await read(KEY_FILE);
+  if (!key)
+    throw new Error(
+      `builtin needs ${SESSION_FILE} (session JWT) or ${KEY_FILE} (API key)`,
+    );
   if (!/^tiny_[A-Za-z0-9_-]{8,}$/.test(key))
     throw new Error(`${KEY_FILE} does not hold a tiny_ API key`);
-  return { env: { [API_KEY_ENV]: key }, secret: key };
+  return {
+    kind: "key",
+    env: { [API_KEY_ENV]: key },
+    secret: key,
+    subject: null,
+  };
 }
 
 /** The active workspace directory, read from the running core. */
