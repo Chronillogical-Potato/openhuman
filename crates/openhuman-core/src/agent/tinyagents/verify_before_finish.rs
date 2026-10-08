@@ -43,7 +43,9 @@ inputs and conditions stated in the request. Verify the complete outcome, includ
 expected errors and side effects, and cite evidence from the final environment. Checks \
 count only if derived from the request, not from your own approach.\n\
 3. Where a sentence allows two readings, examine both against the surrounding requirements. \
-Apply the literal rule where it resolves the ambiguity; otherwise check both readings and \
+Apply the literal rule where it resolves the ambiguity; where both readings can be satisfied \
+at once, make the result satisfy both and test each (a path argument whose value has a file \
+extension is a file, one without is a directory); otherwise check both readings and \
 state any remaining uncertainty instead of treating a check of your guess as proof.\n\
 4. Find equivalent paths or workflows that perform the same action and verify that their \
 required outcomes, notifications and state changes are consistent.\n\

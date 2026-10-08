@@ -36,9 +36,12 @@ use std::sync::Mutex;
 use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::{Result, TinyAgentsError};
+use tinyagents_harness::middleware::library::TurnClock;
 use tinyagents_harness::middleware::Middleware;
+use tinyagents_harness::middleware::ToolInvocationIdentity;
 use tinyagents_harness::tinyinference_llm::message::Message;
 use tinyagents_harness::tinyinference_llm::model::{ModelRequest, ModelResponse};
+use tinytools::{ToolContent, ToolResult as TaToolResult};
 
 use crate::agent::session_host::turn_checkpoint::wrap_harness_instruction;
 
@@ -164,6 +167,72 @@ pub(crate) fn notice(missing: &[String]) -> String {
 struct RunState {
     candidates: Option<Vec<String>>,
     fired: bool,
+    /// The half-time note (a requested path still absent at 50% of the
+    /// clock) has been appended to a tool result.
+    half_noted: bool,
+    /// The late note (80% of the clock: stop exploring, measure every stated
+    /// limit) has been appended.
+    late_noted: bool,
+}
+
+/// Share of the turn's wall clock after which a requested path that still
+/// does not exist is pointed out on the next tool result.
+const HALF_TIME_BAND: u32 = 5;
+/// Share of the turn's wall clock after which exploring stops being worth
+/// it and the note says so.
+const LATE_BAND: u32 = 8;
+
+/// The note for a requested path still absent at half-time. The deliverable
+/// written now and improved in place beats one written in the last minute:
+/// one run spent eight of its nine minutes probing an input format, wrote
+/// the program at minute fourteen of fifteen, and had no time left to make
+/// it meet the size limit the request stated.
+fn half_time_note(missing: &[String], clock: &TurnClock) -> String {
+    let list = missing
+        .iter()
+        .map(|path| format!("`{path}`"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    wrap_harness_instruction(&format!(
+        "Half the turn's budget is gone ({} left) and nothing exists yet at {list}. Write it \
+         now from what you have established, even if provisional, then improve it in place; \
+         measure every limit the request states against it as you go. Exploring further \
+         before it exists risks ending with nothing to judge.",
+        clock_text(clock.remaining())
+    ))
+}
+
+/// The note at 80% of the clock, whether or not the deliverable exists.
+fn late_note(clock: &TurnClock) -> String {
+    wrap_harness_instruction(&format!(
+        "{} of the turn's budget left. Stop exploring: make what exists meet every limit, \
+         format and interface the request names, measure each one through the exact interface \
+         it will be judged by, and finish. A result that meets the stated limits beats a better \
+         one that is not written.",
+        clock_text(clock.remaining())
+    ))
+}
+
+/// `1m 30s`-style rendering of what is left on the clock.
+fn clock_text(d: std::time::Duration) -> String {
+    let secs = d.as_secs();
+    if secs >= 60 {
+        format!("{}m {:02}s", secs / 60, secs % 60)
+    } else {
+        format!("{secs}s")
+    }
+}
+
+/// Appends `note` after the result's own content, in the plain blocks and in
+/// the markdown rendering, the way the harness's own clock note is appended.
+fn append_note(result: &mut TaToolResult, note: &str) {
+    result.content.push(ToolContent::Text {
+        text: format!("\n{note}"),
+    });
+    if let Some(markdown) = result.markdown_formatted.as_mut() {
+        markdown.push('\n');
+        markdown.push_str(note);
+    }
 }
 
 /// Holds a turn's first final answer once, when the request named an output
@@ -239,6 +308,67 @@ impl<C: Send + Sync> Middleware<(), C> for UnmetDeliverableMiddleware {
             .map(Message::text)
             .unwrap_or_default();
         run.candidates = Some(candidate_paths(&text));
+        Ok(())
+    }
+
+    /// The clock-driven rungs: at half-time a requested path that still does
+    /// not exist is pointed out on the tool result the model is about to
+    /// read, and at 80% the note says to stop exploring and meet the stated
+    /// limits. Each is appended once per run, and each asks the loop for
+    /// reasoning on the next call: these are the moments thinking pays.
+    async fn after_tool(
+        &self,
+        ctx: &mut RunContext<C>,
+        _state: &(),
+        _invocation: &ToolInvocationIdentity,
+        result: &mut TaToolResult,
+    ) -> Result<()> {
+        let Some(clock) = TurnClock::of(ctx, None) else {
+            return Ok(());
+        };
+        let Some(band) = clock.band() else {
+            return Ok(());
+        };
+        let (candidates, half_noted, late_noted) = {
+            let Ok(runs) = self.runs.lock() else {
+                return Ok(());
+            };
+            match runs.get(&ctx.instance_id()) {
+                Some(run) => (
+                    run.candidates.clone().unwrap_or_default(),
+                    run.half_noted,
+                    run.late_noted,
+                ),
+                None => return Ok(()),
+            }
+        };
+        if band >= LATE_BAND && !late_noted {
+            if let Ok(mut runs) = self.runs.lock() {
+                runs.entry(ctx.instance_id()).or_default().late_noted = true;
+            }
+            tracing::info!(
+                band,
+                "[unmet_deliverable] late note: stop exploring, meet the stated limits"
+            );
+            append_note(result, &late_note(&clock));
+            ctx.request_reasoning();
+            return Ok(());
+        }
+        if band >= HALF_TIME_BAND && !half_noted {
+            let missing = Self::missing(&candidates);
+            if let Ok(mut runs) = self.runs.lock() {
+                runs.entry(ctx.instance_id()).or_default().half_noted = true;
+            }
+            if !missing.is_empty() {
+                tracing::info!(
+                    band,
+                    missing = ?missing,
+                    "[unmet_deliverable] half-time note: requested path still absent"
+                );
+                append_note(result, &half_time_note(&missing, &clock));
+                ctx.request_reasoning();
+            }
+        }
         Ok(())
     }
 
