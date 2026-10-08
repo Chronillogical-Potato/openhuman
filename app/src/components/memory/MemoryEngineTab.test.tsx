@@ -265,6 +265,13 @@ describe('MemoryEngineTab', () => {
       hoisted.engineSet.mockResolvedValue(CLOUD_ON);
       renderTab(CLOUD_ON);
       expect(screen.getByTestId('memory-engine-apikey')).toHaveAttribute('aria-selected', 'true');
+      // The card shows one line; Edit opens the form.
+      expect(screen.getByTestId('memory-engine-connected-apikey')).toHaveTextContent(
+        'Connected with your CortexDB API key.'
+      );
+      expect(screen.queryByTestId('memory-engine-apikey-key')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('memory-engine-apikey-edit'));
+      expect(screen.getByTestId('memory-engine-apikey-dialog')).toBeInTheDocument();
       expect(screen.getByText(/A key is already saved/)).toBeInTheDocument();
       const submit = screen.getByTestId('memory-engine-apikey-submit');
       expect(submit).toHaveTextContent('Save');
@@ -276,6 +283,9 @@ describe('MemoryEngineTab', () => {
         type: 'success',
         title: 'Memory settings saved',
       });
+      await waitFor(() =>
+        expect(screen.queryByTestId('memory-engine-apikey-dialog')).not.toBeInTheDocument()
+      );
     });
 
     it('shows a rejected key inside the panel', async () => {
@@ -336,6 +346,10 @@ describe('MemoryEngineTab', () => {
 
     it('fills in its endpoint when in use', () => {
       renderTab(LOCAL_ON);
+      expect(screen.getByTestId('memory-engine-connected-selfhost')).toHaveTextContent(
+        'Connected to CortexDB at http://localhost:3141.'
+      );
+      fireEvent.click(screen.getByTestId('memory-engine-selfhost-edit'));
       expect(
         (screen.getByTestId('memory-engine-selfhost-endpoint') as HTMLInputElement).value
       ).toBe('http://localhost:3141');
@@ -347,9 +361,35 @@ describe('MemoryEngineTab', () => {
         <MemoryEngineTab state={OFF} onStateChange={onStateChange} />
       );
       rerender(<MemoryEngineTab state={LOCAL_ON} onStateChange={onStateChange} />);
+      fireEvent.click(screen.getByTestId('memory-engine-selfhost-edit'));
       expect(
         (screen.getByTestId('memory-engine-selfhost-endpoint') as HTMLInputElement).value
       ).toBe('http://localhost:3141');
+    });
+
+    it('opens in a modal and is selected only once it connects', async () => {
+      hoisted.engineSet.mockResolvedValue(LOCAL_ON);
+      renderTab();
+      pick('selfhost');
+      expect(screen.getByTestId('memory-engine-selfhost-dialog')).toBeInTheDocument();
+      expect(screen.getByTestId('memory-engine-selfhost')).toHaveAttribute(
+        'aria-selected',
+        'false'
+      );
+      type('memory-engine-selfhost-endpoint', 'http://localhost:3141');
+      type('memory-engine-selfhost-key', 'k');
+      fireEvent.click(screen.getByTestId('memory-engine-selfhost-submit'));
+      await waitFor(() =>
+        expect(screen.queryByTestId('memory-engine-selfhost-dialog')).not.toBeInTheDocument()
+      );
+    });
+
+    it('keeps the previous chip when its modal is closed', () => {
+      renderTab();
+      pick('selfhost');
+      fireEvent.keyDown(screen.getByTestId('memory-engine-selfhost-dialog'), { key: 'Escape' });
+      expect(screen.queryByTestId('memory-engine-selfhost-dialog')).not.toBeInTheDocument();
+      expect(screen.getByTestId('memory-engine-builtin')).toHaveAttribute('aria-selected', 'true');
     });
 
     it('links out to the CortexDB self-hosting guide', () => {
