@@ -6,10 +6,19 @@ use tinyinference_llm::tool::ToolSchema;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-fn route(server: &MockServer) -> EphemeralRoute {
-    EphemeralRoute {
-        endpoint: format!("{}/v1", server.uri()),
+fn endpoint(server: &MockServer) -> CompletionEndpoint {
+    CompletionEndpoint {
+        base_url: format!("{}/v1", server.uri()),
         api_key: "sk-test".to_string(),
+        headers: vec![("X-Title".to_string(), "reviewer".to_string())],
+    }
+}
+
+fn unreachable_endpoint() -> CompletionEndpoint {
+    CompletionEndpoint {
+        base_url: "https://example.invalid/v1".to_string(),
+        api_key: "k".to_string(),
+        headers: Vec::new(),
     }
 }
 
@@ -54,7 +63,7 @@ async fn forwards_schema_max_tokens_and_provider_options() {
     request.max_tokens = Some(321);
     request.provider_options = json!({"provider": {"order": ["fast"]}, "usage": {"include": true}});
 
-    let response = complete_once(route(&server), request)
+    let response = complete_once(&endpoint(&server), request)
         .await
         .expect("an injection-shaped message is data, not a refusal");
 
@@ -67,6 +76,15 @@ async fn forwards_schema_max_tokens_and_provider_options() {
     assert_eq!(body["response_format"]["json_schema"]["name"], "verdict");
     assert_eq!(body["messages"][0]["role"], "system");
     assert!(body.get("tools").is_none(), "a completion advertises no tools");
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(
+        requests[0].headers.get("x-title").map(|v| v.to_str().unwrap()),
+        Some("reviewer")
+    );
+    assert_eq!(
+        requests[0].headers.get("authorization").map(|v| v.to_str().unwrap()),
+        Some("Bearer sk-test")
+    );
 
     assert_eq!(response.finish_reason.as_deref(), Some("stop"));
     assert_eq!(response.text(), "{\"ok\":true}");
@@ -82,7 +100,7 @@ async fn surfaces_length_finish_reason() {
         .await;
 
     let request = ModelRequest::new(vec![Message::user("hi")]).with_model("m".to_string());
-    let response = complete_once(route(&server), request).await.unwrap();
+    let response = complete_once(&endpoint(&server), request).await.unwrap();
     assert_eq!(response.finish_reason.as_deref(), Some("length"));
 }
 
@@ -90,21 +108,13 @@ async fn surfaces_length_finish_reason() {
 async fn refuses_tool_declarations() {
     let mut request = ModelRequest::new(vec![Message::user("hi")]).with_model("m".to_string());
     request.tools = vec![ToolSchema::new("shell", "run a command", json!({"type": "object"}))];
-    let route = EphemeralRoute {
-        endpoint: "https://example.invalid/v1".to_string(),
-        api_key: "k".to_string(),
-    };
-    let err = complete_once(route, request).await.unwrap_err();
+    let err = complete_once(&unreachable_endpoint(), request).await.unwrap_err();
     assert!(err.contains("tools are not supported"), "{err}");
 }
 
 #[tokio::test]
 async fn requires_a_model() {
     let request = ModelRequest::new(vec![Message::user("hi")]);
-    let route = EphemeralRoute {
-        endpoint: "https://example.invalid/v1".to_string(),
-        api_key: "k".to_string(),
-    };
-    let err = complete_once(route, request).await.unwrap_err();
+    let err = complete_once(&unreachable_endpoint(), request).await.unwrap_err();
     assert!(err.contains("request.model is required"), "{err}");
 }
