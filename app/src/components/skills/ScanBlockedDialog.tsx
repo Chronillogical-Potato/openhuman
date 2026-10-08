@@ -9,7 +9,8 @@
  *   - "Block install" (default, focused): keep it uninstalled. Escape, the
  *     backdrop and the close button mean the same.
  *   - "Install anyway": the caller re-runs the install with
- *     `acknowledgeScanFindings: true`.
+ *     `acknowledgedDigest` set to the blocked document's digest, so only
+ *     the document shown here can install.
  */
 import debug from 'debug';
 

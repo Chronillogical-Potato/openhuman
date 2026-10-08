@@ -8,6 +8,7 @@ const scan: ScanBlocked = {
   target: 'poisoned',
   fetchedFrom: 'https://example.com/SKILL.md',
   slug: 'poisoned',
+  digest: 'd1',
   findings: [
     {
       check: 'invisible_code_points',
