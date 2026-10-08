@@ -130,7 +130,7 @@ pub struct OpenHumanSubagentHost {
 /// independently constructed host adapters. Durable persistence remains the
 /// cross-process authority; this prevents duplicate local child graphs.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-struct HostLifecycleKey {
+pub(super) struct HostLifecycleKey {
     checkpoint_dir: PathBuf,
     task_key: SubagentTaskKey,
 }
@@ -212,10 +212,8 @@ fn host_observer_outcome(mut outcome: SubagentRunOutcome) -> SubagentRunOutcome 
     outcome
 }
 
-type HostInFlightMap = AsyncMutex<HashMap<HostLifecycleKey, Arc<HostInFlight>>>;
-
-fn host_in_flight() -> Arc<HostInFlightMap> {
-    crate::core::runtime::current_slot::<HostInFlightMap>()
+pub(super) fn host_in_flight() -> Arc<AsyncMutex<HashMap<HostLifecycleKey, Arc<HostInFlight>>>> {
+    crate::core::runtime::current_slot()
 }
 
 fn absolute_checkpoint_dir(path: PathBuf) -> PathBuf {
@@ -1306,7 +1304,3 @@ fn outcome_to_host(
 fn map_lifecycle_error(error: SubagentError) -> SubagentRunError {
     SubagentRunError::Provider(anyhow::anyhow!(error.to_string()))
 }
-
-#[cfg(test)]
-#[path = "lifecycle_agent_tests.rs"]
-mod agent_tests;
