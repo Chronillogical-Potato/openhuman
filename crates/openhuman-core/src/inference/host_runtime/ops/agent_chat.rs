@@ -158,6 +158,10 @@ pub enum AgentChatTarget<'a> {
         /// badly still spent what it spent, and a host that meters only
         /// successes bills nothing for the ones that cost most.
         usage: Option<&'a std::sync::Mutex<Option<crate::agent::tinyagents::host::LastTurnUsage>>>,
+        /// Build the session from `host` alone: no config-derived, delegation,
+        /// memory, skill or MCP tool, and a deny-by-default gate for any other
+        /// name. See [`OpenHumanSessionHost::from_config_host_only`].
+        host_only: bool,
     },
 }
 
@@ -174,12 +178,14 @@ impl std::fmt::Debug for AgentChatTarget<'_> {
                 host,
                 seed,
                 usage,
+                host_only,
             } => f
                 .debug_struct("Definition")
                 .field("definition", &definition.id)
                 .field("host_tools", &host.is_some())
                 .field("seed_rows", &seed.map_or(0, <[(String, String)]>::len))
                 .field("meters", &usage.is_some())
+                .field("host_only", host_only)
                 .finish(),
         }
     }
@@ -196,6 +202,12 @@ fn build_turn_agent(
             log::debug!("[inference] agent_chat building agent_id={id}");
             OpenHumanSessionHost::from_config_for_agent(config, id)
         }
+        AgentChatTarget::Definition {
+            definition,
+            host,
+            host_only: true,
+            ..
+        } => OpenHumanSessionHost::from_config_host_only(config, definition, *host, session_id),
         AgentChatTarget::Definition {
             definition, host, ..
         } => match host {
