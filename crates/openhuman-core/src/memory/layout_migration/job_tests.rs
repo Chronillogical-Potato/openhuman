@@ -153,9 +153,9 @@ async fn a_tree_another_account_took_is_left_alone() {
 }
 
 /// After an import that ended with its last batch not confirmed listed, an
-/// item the listing shows only after the first pass is still moved: the run
-/// copies again on later ticks instead of finishing, and finishes (clearing
-/// the flag) once a pass moves nothing new.
+/// item the listing shows only after the first pass is still moved, in the
+/// same run: it copies again after a short wait instead of finishing, and
+/// finishes (clearing the flag) once a pass moves nothing new.
 #[tokio::test]
 async fn after_an_unconfirmed_import_an_item_listed_late_is_still_moved() {
     let tmp = tempfile::tempdir().unwrap();
@@ -171,24 +171,26 @@ async fn after_an_unconfirmed_import_an_item_listed_late_is_still_moved() {
         &config.workspace_dir
     ));
     let host = FakeHost::with(3).await;
-    let manual = Trigger::Manual { takeover: false };
 
-    assert_eq!(
-        go(&config, &host, manual).await,
-        Outcome::Paused,
-        "an unconfirmed import is copied again, not finished"
-    );
-    assert_eq!(count(host.tree.as_ref()).await, 3);
-    // Accepted by the import, listed only now.
-    host.legacy.store(fact("listed late")).await.unwrap();
-
-    let mut outcome = Outcome::Paused;
-    for _ in 0..5 {
-        outcome = go(&config, &host, manual).await;
-        if outcome == Outcome::Done {
-            break;
+    // The item is accepted by the import but listed only once the first
+    // pass is over: stored while the run waits before its first recheck.
+    let late = async {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while state::load(&config.workspace_dir).unwrap().rechecks == 0 {
+            if std::time::Instant::now() > deadline {
+                return false;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(2)).await;
         }
-    }
+        host.legacy.store(fact("listed late")).await.unwrap();
+        true
+    };
+    let (outcome, stored_late) = tokio::join!(
+        go(&config, &host, Trigger::Manual { takeover: false }),
+        late
+    );
+
+    assert!(stored_late, "the run waited to copy again");
     assert_eq!(outcome, Outcome::Done);
     assert_eq!(
         count(host.tree.as_ref()).await,
@@ -199,4 +201,9 @@ async fn after_an_unconfirmed_import_an_item_listed_late_is_still_moved() {
     assert!(!crate::memory::import::listed_unconfirmed(
         &config.workspace_dir
     ));
+    assert_eq!(
+        state::load(&config.workspace_dir).unwrap().rechecks,
+        2,
+        "one forced recheck that moved the late item, one that moved nothing"
+    );
 }

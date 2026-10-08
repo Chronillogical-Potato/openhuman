@@ -115,6 +115,12 @@ pub trait LayoutHost: Send + Sync {
 /// batch not confirmed listed.
 const MAX_RECHECKS: u32 = 3;
 
+/// How long a recheck lets the listing catch up before copying again.
+#[cfg(not(test))]
+const RECHECK_DELAY: std::time::Duration = std::time::Duration::from_secs(45);
+#[cfg(test)]
+const RECHECK_DELAY: std::time::Duration = std::time::Duration::from_millis(300);
+
 /// Runs (or resumes) the migration of `config`'s account. `paused` is the
 /// scheduler's own pause (background work held), asked before every page.
 ///
@@ -197,25 +203,45 @@ where
     )
     .await?;
     // An import that ended with its last batch not confirmed listed may hold
-    // items no copy saw yet: copy again on a later tick (at least once, then
-    // while a pass still moves something new, at most MAX_RECHECKS times)
-    // before finishing. A late item is never erased meanwhile (`cleanup`).
-    if state.phase == Phase::Cleaned && crate::memory::import::listed_unconfirmed(dir) {
+    // items no copy saw yet: in this same run, wait for the listing to catch
+    // up, then copy, verify and clean up again; at least once, then while a
+    // pass still moves something new, at most MAX_RECHECKS times. A late item
+    // is never erased meanwhile (`cleanup`). Each recheck is saved before its
+    // wait, so a stop or a restart resumes it.
+    while state.phase == Phase::Cleaned && crate::memory::import::listed_unconfirmed(dir) {
         let new = state.copied > state.replayed;
-        if (state.rechecks == 0 || new) && state.rechecks < MAX_RECHECKS {
-            state.rechecks += 1;
-            state.caught_up = false;
-            state.cleaning = false;
-            state.cursor = None;
-            state.phase = Phase::Copied;
-            state::save(dir, &state)?;
-            tracing::info!(
-                rechecks = state.rechecks,
-                "[memory:layout_migration] import not confirmed listed; copying again"
-            );
+        if !((state.rechecks == 0 || new) && state.rechecks < MAX_RECHECKS) {
+            crate::memory::import::clear_listed_unconfirmed(dir);
+            break;
+        }
+        state.rechecks += 1;
+        state.caught_up = false;
+        state.cleaning = false;
+        state.cursor = None;
+        // Parked as paused, not copied: a scan must not offer a fresh move.
+        state.phase = Phase::Paused;
+        state.error = Some("copying again for items the import may list late".to_string());
+        state::save(dir, &state)?;
+        tracing::info!(
+            rechecks = state.rechecks,
+            "[memory:layout_migration] import not confirmed listed; copying again"
+        );
+        tokio::time::sleep(RECHECK_DELAY).await;
+        copy(dir, &engines, &placement, &mut state, stop).await?;
+        if state.phase != Phase::Copied {
             return Ok(Outcome::Paused);
         }
-        crate::memory::import::clear_listed_unconfirmed(dir);
+        state.caught_up = true;
+        state::save(dir, &state)?;
+        cleanup(
+            dir,
+            &engines,
+            &placement,
+            shared.is_some(),
+            &mut state,
+            stop,
+        )
+        .await?;
     }
     Ok(if state.phase == Phase::Cleaned {
         Outcome::Done
