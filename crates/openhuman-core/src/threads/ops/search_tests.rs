@@ -30,7 +30,10 @@ fn snippet_matches_a_query_with_irregular_whitespace() {
     for q in ["needle  nearby", "needle\nnearby"] {
         let out = snippet(&content, q);
         assert!(out.contains("needle nearby"), "{q:?} -> {out}");
-        assert!(out.starts_with('…'), "{q:?} should centre on the match: {out}");
+        assert!(
+            out.starts_with('…'),
+            "{q:?} should centre on the match: {out}"
+        );
     }
 }
 
