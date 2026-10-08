@@ -49,10 +49,10 @@ fn save(workspace_dir: &Path, all: &Roots) -> std::io::Result<()> {
     let file = path(workspace_dir);
     let temp = file.with_extension("json.tmp");
     if let Some(parent) = file.parent() {
-        std::fs::create_dir_all(parent)?;
+        crate::memory::files::create_private_dir_all(parent)?;
     }
     let json = serde_json::to_vec_pretty(all).map_err(std::io::Error::other)?;
-    let mut out = std::fs::File::create(&temp)?;
+    let mut out = crate::memory::files::create_private(&temp)?;
     std::io::Write::write_all(&mut out, &json)?;
     // On disk before it replaces the old file, so a power loss cannot
     // leave a renamed file with unwritten contents.

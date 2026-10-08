@@ -65,6 +65,23 @@ Its calls are `agents`, `list` (whole root or one agent's node), `get`,
 `recall`, `fetch`, `learn`, `forget`, `forget_agent` and the brain calls. It
 does not use the ambient-config RPCs.
 
+The ambient-config RPCs (`openhuman.memory_recall`, `_fetch`, `_learn`,
+`_forget`, `_items_list`, `_explore`, `_items_get`) and the MCP memory tools,
+which dispatch through them, are confined the same way to the identity in
+scope (`memory::confine`): the agent of a running turn, else the config's own
+root identity (`[memory] root`, else the root). An unset `reach` becomes
+`Reach::subtree(<root>)`; a caller's reach is kept only when it is
+`Reach::within` that subtree, and a wider one is refused with
+`INVALID_REQUEST`; `forget` and `items_get` skip ids outside it; `learn` with
+no namespace lands at the layout's learnings node, and one aimed outside the
+subtree is refused.
+
+A signed-out (local) session's scope root is `user:local-<install id>`, a
+random id recorded once in `<workspace>/memory/local_root.json`
+(`memory::local_root`). An install whose memory already lives under the
+older hostname-derived root (layout v3, or a layout migration under way)
+records that root instead, so nothing is orphaned.
+
 `RuntimeBuilder::memory_engine` (or `memory::engine::install_host_engine`)
 binds a host-supplied `MemoryEngine` for the whole process, ahead of the
 configured one. A host that owns its store, or a test using TinyMemory's
