@@ -7,11 +7,10 @@ use std::collections::HashSet;
 use std::path::Path;
 
 use tinymemory_integrations::cortex::is_insufficient_credits;
-use tinymemory_integrations::import::LegacyWorkspace;
 
 use super::{
-    legacy_id, read_file, skips_item, status, with_retries, write_file, FailedItem, ImportFile,
-    PauseCheck, RUNNING, START_GATE,
+    legacy_id, open_legacy, read_file, skips_item, status, with_retries, write_file, FailedItem,
+    ImportFile, PauseCheck, RUNNING, START_GATE,
 };
 use crate::config::Config;
 use crate::memory::engine::{self, BoundEngine};
@@ -114,7 +113,7 @@ async fn retry_run(
         .collect();
     let reader_dir = workspace_dir.to_path_buf();
     let items = tokio::task::spawn_blocking(move || {
-        let workspace = LegacyWorkspace::open(&reader_dir).map_err(|error| error.to_string())?;
+        let workspace = open_legacy(&reader_dir).map_err(|error| error.to_string())?;
         workspace
             .items()
             .filter_map(|imported| match imported {

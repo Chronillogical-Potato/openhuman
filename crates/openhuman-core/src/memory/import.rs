@@ -281,13 +281,27 @@ fn write_file(workspace_dir: &Path, file: &ImportFile) {
     }
 }
 
+/// Opens the legacy store at `workspace_dir` for scanning, counting,
+/// importing or retrying. Every caller goes through here so connector syncs
+/// (Gmail, Slack, Notion, Linear, GitHub, ClickUp, ... from Composio) are
+/// skipped everywhere alike and the scan counts match the run.
+fn open_legacy(
+    workspace_dir: &Path,
+) -> Result<LegacyWorkspace, tinymemory_integrations::import::Error> {
+    tracing::debug!(
+        workspace = %workspace_dir.display(),
+        "[memory:import] opening legacy store, skipping connector syncs (composio/connectors are re-synced, not migrated)"
+    );
+    LegacyWorkspace::open(workspace_dir).map(|workspace| workspace.skip_connector_syncs(true))
+}
+
 /// Counts what a legacy store at `workspace_dir` holds, or `None` when there
 /// is no v1 store there (neither `memory/memory.db` nor a usable
 /// `memory_tree/chunks.db`). Sized by the importer's own counts, one query
 /// per section rather than a pass over every item, and exactly what the
 /// import then yields. Blocking (SQLite, and memory-tree chunk files).
 pub fn count_legacy(workspace_dir: &Path) -> Option<ImportCounts> {
-    let counts = LegacyWorkspace::open(workspace_dir)
+    let counts = open_legacy(workspace_dir)
         .and_then(|workspace| workspace.counts())
         .map_err(|error| tracing::debug!(error = %error, "[memory:import] no legacy store"))
         .ok()?;
@@ -522,7 +536,7 @@ async fn start_with(
     let scan_dir = workspace_dir.clone();
     let total = tokio::task::spawn_blocking(move || {
         if resuming {
-            LegacyWorkspace::open(&scan_dir).ok().map(|_| None)
+            open_legacy(&scan_dir).ok().map(|_| None)
         } else {
             count_legacy(&scan_dir)
                 .map(|counts| Some(counts.documents + counts.conversations + counts.learnings))
@@ -582,7 +596,7 @@ async fn run(
     let reader_dir = workspace_dir.to_path_buf();
     let checkpoint = file.checkpoint.clone();
     let reader = tokio::task::spawn_blocking(move || {
-        let workspace = match LegacyWorkspace::open(&reader_dir) {
+        let workspace = match open_legacy(&reader_dir) {
             Ok(workspace) => workspace,
             Err(error) => {
                 let _ = tx.blocking_send(Err(error.to_string()));
