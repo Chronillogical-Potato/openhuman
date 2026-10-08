@@ -1025,6 +1025,41 @@ async fn erase_all_needs_confirmation_and_erases_the_whole_hosted_memory() {
         )
         .await;
     assert_eq!(after["items"], json!([]), "{after}");
+    // Another account's memory is untouched, and a repeated erase is a no-op.
+    let second = f
+        .call(
+            "openhuman.auth_store_session",
+            json!({ "token": format!("{MOCK_TOKEN}-second"), "user_id": "second-user" }),
+        )
+        .await;
+    assert!(second.get("error").is_none(), "{second}");
+    f.learn("a fact that belongs to the second account").await;
+    f.relogin().await;
+    f.ok("openhuman.memory_erase_all", json!({ "confirm": true }))
+        .await;
+    let again = f
+        .ok(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["learning"] } }),
+        )
+        .await;
+    assert_eq!(again["items"], json!([]), "{again}");
+    let second = f
+        .call(
+            "openhuman.auth_store_session",
+            json!({ "token": format!("{MOCK_TOKEN}-second"), "user_id": "second-user" }),
+        )
+        .await;
+    assert!(second.get("error").is_none(), "{second}");
+    let kept = f
+        .ok_until(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["learning"] } }),
+            |v| !ids_of(v, "items").is_empty(),
+        )
+        .await;
+    assert_eq!(ids_of(&kept, "items").len(), 1, "{kept}");
+    f.relogin().await;
     let docs_after = f
         .ok(
             "openhuman.memory_items_list",

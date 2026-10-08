@@ -90,14 +90,6 @@ export default function MemoryEraseAllCard({
     try {
       const result = await memoryEraseAll();
       log('erase_all ok: erased_scopes=%d', result?.erased_scopes ?? 0);
-      trackAnalyticsEvent('memory_erased_all');
-      toast.add({
-        type: 'success',
-        title: t('memoryPage.settings.erasedToast'),
-        description: t('memoryPage.settings.erasedToastBody'),
-      });
-      setOpen(false);
-      setAcknowledged(false);
       erased = true;
     } catch (err) {
       const key = eraseErrorKey(err);
@@ -106,8 +98,21 @@ export default function MemoryEraseAllCard({
     } finally {
       setErasing(false);
     }
-    // The erase has already succeeded; a refresh failure must not read as one.
+    // The erase has already succeeded; reporting or refresh failures must not
+    // read as a failed erase.
     if (erased) {
+      try {
+        trackAnalyticsEvent('memory_erased_all');
+        toast.add({
+          type: 'success',
+          title: t('memoryPage.settings.erasedToast'),
+          description: t('memoryPage.settings.erasedToastBody'),
+        });
+        setOpen(false);
+        setAcknowledged(false);
+      } catch (err) {
+        log('erase_all success reporting failed: %s', err instanceof Error ? err.name : 'unknown');
+      }
       try {
         await onErased?.();
       } catch (err) {

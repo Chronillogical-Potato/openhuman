@@ -29,7 +29,7 @@ Your workspace files, settings and audio buffers stay on your machine. **Your me
 
 |                                 |                                                                 |
 | ------------------------------- | --------------------------------------------------------------- |
-| **Memory items**                | **Not local.** Stored in CortexDB by your selected engine (see below). |
+| **Memory items**                | **Not local with hosted memory.** Stored in CortexDB by your selected engine (see below); a CortexDB you self-host on your own machine keeps it there. |
 | **Memory bookkeeping**          | Local: the job queue and sync, backfill and import progress under `<workspace>/memory/`, the sources list in `config.toml`, a CortexDB key in the OS keychain. No memory content. |
 | **Audio capture buffers**       | Local. Discarded after STT.                                     |
 | **Local model state**           | Local.                                                          |
@@ -43,7 +43,7 @@ Memory items are your brain documents, logged conversation turns, learnings, and
 | **TinyHumans** (hosted) | The core sends each request over TLS to the TinyHumans backend's `/memory/*` routes, authenticated with your session or TinyHumans API key. The backend applies a per-user rate limit and billing, then forwards to a CortexDB proxy that places every scope under your own tenant root. | Only your account. The proxy derives the tenant from your credential, not from the request, so one user cannot read or write another's memory. TinyHumans operates the service. |
 | **CortexDB** (direct) | The core calls CortexDB itself (`api-v1.cortexdb.ai`, or a self-hosted endpoint) with your own CortexDB API key, kept in the OS keychain. It does not go through the TinyHumans backend. | Whoever holds that key, and the operator of that endpoint. |
 
-Inside either engine, memory is kept below a root for the signed-in person (`user:<id>`), so it can be listed, confined and erased as one tree. Learnings and the brain are shared by your agents; each agent's conversations are tagged with that agent.
+Inside either engine, memory is kept below a root derived from the active config identity (`user:<id>` for a TinyHumans account, `user:local-<digest>` for a local identity), so it can be listed, confined and erased as one tree. Learnings and the brain are shared by your agents; each agent's conversations are tagged with that agent.
 
 We make no claim beyond TLS in transit and per-user tenant isolation for hosted memory. In particular, these docs do not promise end-to-end or client-side encryption: the hosted service can read what it stores, which is how it answers recall.
 

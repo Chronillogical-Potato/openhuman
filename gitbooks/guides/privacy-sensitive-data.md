@@ -15,7 +15,7 @@ If you want the engineering detail, read [Privacy & Security](../features/privac
 
 ## The one-sentence version
 
-**Your settings and secrets stay on your computer; your memory is stored in CortexDB (hosted by TinyHumans for your account, or your own). The OpenHuman backend handles what has to be brokered: signing you in, hosted memory, routing model requests, and talking to the services you connect.**
+**Your settings and local secrets stay on your computer; your memory is stored in CortexDB (hosted by TinyHumans for your account, or your own). The OpenHuman backend handles what has to be brokered: signing you in, hosted memory, routing model requests, and talking to the services you connect.**
 
 Everything below is an expansion of that sentence.
 
@@ -31,9 +31,9 @@ These never leave your computer as raw data:
 | **Local model state**         | If you use [local AI](local-model.md), your own runtime and its models stay on-device.       |
 | **Your persona and settings** | The files that define how your assistant behaves and what it's allowed to do.                |
 
-## Your memory is stored off your machine
+## Where your memory is stored
 
-When memory is on, documents, conversations, learnings and the beliefs built from them are stored in **CortexDB**, not on your computer (with no engine available, memory is off and nothing is stored):
+When memory is on, documents, conversations, learnings and the beliefs built from them are stored in **CortexDB**. With TinyHumans-hosted memory they are not stored on your computer; a CortexDB you self-host may keep them on your own machine (with no engine available, memory is off and nothing is stored):
 
 - **TinyHumans engine (default when signed in):** stored in the hosted CortexDB that TinyHumans runs, through the TinyHumans backend. Each account gets its own isolated tenant, so other users cannot see your memory. TinyHumans operates that service.
 - **CortexDB engine:** stored in your own CortexDB account or self-hosted CortexDB, reached directly with your key. A CortexDB you run on your own machine keeps the data on that machine.

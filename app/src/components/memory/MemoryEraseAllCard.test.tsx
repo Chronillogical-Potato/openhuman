@@ -89,6 +89,21 @@ describe('MemoryEraseAllCard', () => {
     );
   });
 
+  it('keeps the erase a success when the success reporting throws', async () => {
+    hoisted.erase.mockResolvedValue({ erased_scopes: 1 });
+    hoisted.track.mockImplementationOnce(() => {
+      throw new Error('analytics boom');
+    });
+    const onErased = vi.fn();
+    renderWithProviders(<MemoryEraseAllCard onErased={onErased} />);
+    await openDialog();
+    fireEvent.click(screen.getByTestId('memory-erase-ack'));
+    fireEvent.click(screen.getByTestId('memory-erase-confirm'));
+
+    await waitFor(() => expect(onErased).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId('memory-erase-error')).not.toBeInTheDocument();
+  });
+
   it('contains a rejected async refresh callback', async () => {
     hoisted.erase.mockResolvedValue({ erased_scopes: 1 });
     const onErased = vi.fn(() => Promise.reject(new Error('refresh boom')));
