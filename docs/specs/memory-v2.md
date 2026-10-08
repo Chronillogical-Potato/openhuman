@@ -184,9 +184,10 @@ not.
 `observed_actor` (off by default) makes the CortexDB engine name who said or
 did what it stores (CortexDB's `observed_actor`, with the memory's owner as
 `subject`): an assistant turn its agent (`agent:<id>`), a synced email its
-sender (`user:<address>`, an email address or a phone number, stored as given,
-with the sender's name). A write CortexDB refuses for it is written again
-without it. Off, and always on the hosted engine, nothing on the wire changes.
+sender (`user:<address>`, with the sender's name). An email address is
+trimmed and lower-cased, so one person is one actor; a phone number is kept as
+the connector's dial digits (`+15551234567`). Neither is redacted. A write
+CortexDB refuses for it is written again without it (tinymemory's fallback). Off, and always on the hosted engine, nothing on the wire changes.
 
 ## Agent tool: `memory`
 
