@@ -167,6 +167,20 @@ pub fn current_agent_id() -> Option<String> {
     CoreContext::current().and_then(|ctx| ctx.session_agent().map(str::to_owned))
 }
 
+/// A context derived from `parent` for `agent_id`, for tests that need two
+/// agents side by side.
+#[cfg(test)]
+pub(crate) fn test_agent_context(parent: &Arc<CoreContext>, agent_id: &str) -> Arc<CoreContext> {
+    parent.derive_with(
+        super::ContextOverlay::new(
+            crate::config::Config::default(),
+            super::DomainSet::kernel(),
+            crate::tools::toolpacks::ToolGroups::none(),
+        )
+        .session_agent(agent_id),
+    )
+}
+
 #[cfg(test)]
 #[path = "agent_scope_tests.rs"]
 mod tests;
