@@ -280,6 +280,13 @@ async fn forget_items_with_memory_off_is_not_an_error() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
     assert_eq!(forget_items(&config, "src-a").await.unwrap(), 0);
+    assert_eq!(
+        crate::memory::deletion::pending(&config.workspace_dir),
+        vec![crate::memory::deletion::PendingDeletion::Source {
+            source_id: "src-a".into()
+        }],
+        "queued for the next sign-in, not dropped"
+    );
 }
 
 #[test]
