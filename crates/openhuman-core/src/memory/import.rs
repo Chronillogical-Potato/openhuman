@@ -724,3 +724,7 @@ mod recovery_tests;
 #[cfg(test)]
 #[path = "import_organize_tests.rs"]
 mod organize_tests;
+
+#[cfg(test)]
+#[path = "import_wait_tests.rs"]
+mod wait_tests;
