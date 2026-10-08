@@ -416,6 +416,9 @@ fn orphaned_connector_files_are_removed_and_missing_ones_ignored() {
     state::remove_orphaned_connector_files(tmp.path());
     assert!(!dir.join("connector_items.json").exists());
     assert!(!dir.join("connection_roots.json").exists());
-    assert!(dir.join("sources_state.json").exists(), "live state is kept");
+    assert!(
+        dir.join("sources_state.json").exists(),
+        "live state is kept"
+    );
     state::remove_orphaned_connector_files(tmp.path());
 }

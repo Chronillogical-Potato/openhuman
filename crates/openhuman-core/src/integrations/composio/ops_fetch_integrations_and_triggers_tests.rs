@@ -645,4 +645,3 @@ async fn composio_list_connections_returns_empty_when_direct_mode_no_key() {
         outcome.logs
     );
 }
-

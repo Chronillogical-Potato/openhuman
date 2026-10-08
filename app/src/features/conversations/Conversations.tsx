@@ -801,7 +801,6 @@ const Conversations = ({
     setAttachments(failedAttachments ? failedAttachments.slice() : []);
     // A thread switch must not carry the previous thread's files into this
     // composer. Failed attachments remain in the map for that thread.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedThreadId]);
 
   useEffect(() => {

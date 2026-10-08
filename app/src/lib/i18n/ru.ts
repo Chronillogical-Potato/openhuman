@@ -619,6 +619,12 @@ const messages: TranslationMap = {
   'connections.browser.routeDirect': 'Прямой OpenRouter',
   'connections.browser.routeHosted': 'Размещённый прокси',
   'connections.browser.testInConversation': 'После сохранения проверьте страницу в беседе.',
+  'connections.browser.learning': 'Чему учатся задачи',
+  'connections.browser.learnFromTasks': 'Учиться на завершённых задачах',
+  'connections.browser.learnHint':
+    'Сохраняет для каждого сайта план и элементы страницы, которые использовала завершённая задача, чтобы следующая задача там начиналась быстрее. Хранится в рабочем пространстве, где работает ядро OpenHuman, и никогда не попадает в память чата.',
+  'connections.browser.forgetSites': 'Забыть изученные сайты',
+  'connections.browser.sitesForgotten': 'Забыто сайтов: {count}',
   'connections.browser.save': 'Сохранить настройки',
   'connections.browser.saved': 'Настройки сохранены',
   'connections.browser.testBrowser': 'Проверить Chrome',

@@ -335,16 +335,17 @@ export async function verifyBuiltinUntouched(core) {
  * Returns the ids that survived.
  */
 export async function forgetLedger(core, ledger) {
+  // core.rpc, not tryRpc: an error here must fail the clean-up, never read as
+  // "nothing survived".
   const ids = ledger.list();
   for (let i = 0; i < ids.length; i += 50)
-    await core.tryRpc("openhuman.memory_forget", { ids: ids.slice(i, i + 50) });
+    await core.rpc("openhuman.memory_forget", { ids: ids.slice(i, i + 50) });
   const survivors = [];
   for (let i = 0; i < ids.length; i += 50) {
-    const got = await core.tryRpc("openhuman.memory_items_get", {
+    const got = await core.rpc("openhuman.memory_items_get", {
       ids: ids.slice(i, i + 50),
     });
-    for (const item of got.ok ? (got.value?.items ?? []) : [])
-      survivors.push(item.id);
+    for (const item of got?.items ?? []) survivors.push(item.id);
   }
   return survivors;
 }

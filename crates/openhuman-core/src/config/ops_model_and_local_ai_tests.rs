@@ -445,6 +445,32 @@ async fn apply_browser_settings_updates_enabled_flag() {
 }
 
 #[tokio::test]
+async fn apply_browser_settings_switches_learning_from_tasks() {
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    assert!(cfg.browser.learn_from_tasks, "on by default");
+
+    apply_browser_settings(
+        &mut cfg,
+        BrowserSettingsPatch {
+            learn_from_tasks: Some(false),
+            ..Default::default()
+        },
+    )
+    .await
+    .expect("apply");
+    assert!(!cfg.browser.learn_from_tasks);
+
+    apply_browser_settings(&mut cfg, BrowserSettingsPatch::default())
+        .await
+        .expect("apply");
+    assert!(
+        !cfg.browser.learn_from_tasks,
+        "left as it was when not named"
+    );
+}
+
+#[tokio::test]
 async fn apply_browser_settings_updates_backend() {
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);

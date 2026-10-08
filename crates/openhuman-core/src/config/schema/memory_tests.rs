@@ -189,7 +189,13 @@ target = "/notes/a.md"
     let ids: Vec<&str> = config.sources.iter().map(|s| s.id.as_str()).collect();
     assert_eq!(
         ids,
-        ["src-link", "src-github", "src-rss", "src-folder", "src-file"]
+        [
+            "src-link",
+            "src-github",
+            "src-rss",
+            "src-folder",
+            "src-file"
+        ]
     );
     assert_eq!(MemorySourceKind::parse("composio"), None);
 }

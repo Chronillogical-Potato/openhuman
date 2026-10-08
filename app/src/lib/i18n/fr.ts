@@ -631,6 +631,12 @@ const messages: TranslationMap = {
   'connections.browser.routeHosted': 'Proxy hébergé',
   'connections.browser.testInConversation':
     'Testez une page dans une conversation après l’enregistrement.',
+  'connections.browser.learning': 'Ce que les tâches apprennent',
+  'connections.browser.learnFromTasks': 'Apprendre des tâches terminées',
+  'connections.browser.learnHint':
+    'Conserve, pour chaque site, le plan et les éléments de page utilisés par une tâche terminée, afin que la tâche suivante y démarre plus vite. Stocké dans l’espace de travail où s’exécute le cœur d’OpenHuman, jamais dans la mémoire du chat.',
+  'connections.browser.forgetSites': 'Oublier les sites appris',
+  'connections.browser.sitesForgotten': 'Sites oubliés : {count}',
   'connections.browser.save': 'Enregistrer',
   'connections.browser.saved': 'Paramètres enregistrés',
   'connections.browser.testBrowser': 'Tester Chrome',

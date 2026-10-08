@@ -627,6 +627,12 @@ const messages: TranslationMap = {
   'connections.browser.routeHosted': 'Proxy ospitato',
   'connections.browser.testInConversation':
     'Prova una pagina in una conversazione dopo il salvataggio.',
+  'connections.browser.learning': 'Cosa imparano le attività',
+  'connections.browser.learnFromTasks': 'Impara dalle attività completate',
+  'connections.browser.learnHint':
+    'Conserva, per ogni sito, il piano e gli elementi della pagina usati da un’attività completata, così la prossima attività lì parte prima. Salvato nello spazio di lavoro in cui gira il core di OpenHuman, mai nella memoria della chat.',
+  'connections.browser.forgetSites': 'Dimentica i siti appresi',
+  'connections.browser.sitesForgotten': 'Siti dimenticati: {count}',
   'connections.browser.save': 'Salva impostazioni',
   'connections.browser.saved': 'Impostazioni salvate',
   'connections.browser.testBrowser': 'Prova Chrome',

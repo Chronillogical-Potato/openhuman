@@ -387,8 +387,6 @@ async fn composio_delete_connection_via_mock() {
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
     let config = config_with_backend(&tmp, base);
-    let outcome = composio_delete_connection(&config, "c1")
-        .await
-        .unwrap();
+    let outcome = composio_delete_connection(&config, "c1").await.unwrap();
     assert!(outcome.value.deleted);
 }

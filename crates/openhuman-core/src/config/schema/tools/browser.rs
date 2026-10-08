@@ -86,6 +86,12 @@ pub struct BrowserConfig {
     pub max_task_steps: usize,
     #[serde(default = "default_task_timeout_secs")]
     pub task_timeout_secs: u64,
+    /// Keep, per site, the plan a finished browser task ran and the elements
+    /// it found, and hand them to the next task there
+    /// (`modules::browser_sites`). Kept in the workspace only, never in the
+    /// agent's memory.
+    #[serde(default = "default_true")]
+    pub learn_from_tasks: bool,
 }
 
 fn default_viewport_width() -> u32 {
@@ -136,6 +142,7 @@ impl Default for BrowserConfig {
             download_dir: None,
             max_task_steps: default_max_task_steps(),
             task_timeout_secs: default_task_timeout_secs(),
+            learn_from_tasks: true,
         }
     }
 }

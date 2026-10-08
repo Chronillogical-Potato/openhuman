@@ -68,6 +68,9 @@ fn tinyhumans_with_a_local_session_token_is_off() {
 
 #[test]
 fn tinyhumans_with_the_host_credential_binds_and_caches() {
+    let _stable = CACHE_STABLE
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let tmp = tempfile::tempdir().unwrap();
     let mut config = config_in(&tmp);
     config
@@ -135,6 +138,9 @@ fn cortexdb_is_off_until_a_key_is_stored_and_rebuilds_on_a_new_key() {
 
 #[test]
 fn switching_observed_actor_rebuilds_the_cortexdb_engine() {
+    let _stable = CACHE_STABLE
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let tmp = tempfile::tempdir().unwrap();
     let mut config = config_in(&tmp);
     config.memory.engine = CORTEXDB_ENGINE.to_string();
@@ -231,7 +237,12 @@ fn user_config(tmp: &tempfile::TempDir, user: &str) -> Config {
 
 #[test]
 fn layout_v3_binds_its_own_engine_beside_legacy() {
+    let _stable = CACHE_STABLE
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let tmp = tempfile::tempdir().unwrap();
+    // A user id of its own: the credential store is shared by id, so another
+    // test storing a key for the same id would change the fingerprint.
     let mut config = user_config(&tmp, "6512ab0f6512ab0f6512ab0f");
     config.memory.engine = CORTEXDB_ENGINE.to_string();
     store_cortexdb_key(&config, "cdb-key-layout").unwrap();
@@ -344,7 +355,7 @@ fn legacy_user_segment_read_is_on_by_default_and_written_only_when_off() {
 #[tokio::test]
 async fn switching_to_v3_persists_and_rebinds_the_persons_own_config() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut config = user_config(&tmp, "6512ab0f6512ab0f6512ab0f");
+    let mut config = user_config(&tmp, "6512ab0f6512ab0f6512ab10");
     config.memory.engine = CORTEXDB_ENGINE.to_string();
     config.save().await.unwrap();
     store_cortexdb_key(&config, "cdb-key-switch").unwrap();
