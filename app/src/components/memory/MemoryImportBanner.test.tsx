@@ -77,6 +77,29 @@ describe('MemoryImportBanner', () => {
     expect(screen.getByTestId('memory-migration-idle')).toBeInTheDocument();
   });
 
+  it('shows no "nothing to import" step when the scan or status read fails', async () => {
+    hoisted.scan.mockRejectedValue(new Error('scan down'));
+    const { unmount } = renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+    await waitFor(() => expect(hoisted.scan).toHaveBeenCalled());
+    await screen.findByTestId('memory-import-banner');
+    expect(screen.queryByTestId('memory-import-idle')).not.toBeInTheDocument();
+    unmount();
+
+    hoisted.scan.mockReset().mockResolvedValue({ found: false });
+    hoisted.status.mockRejectedValue(new Error('status down'));
+    renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+    await screen.findByTestId('memory-import-banner');
+    expect(screen.queryByTestId('memory-import-idle')).not.toBeInTheDocument();
+  });
+
+  it('does not call a failed migration scan "already moved"', async () => {
+    hoisted.mScan.mockRejectedValue(new Error('scan down'));
+    renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+    await screen.findByTestId('memory-import-banner');
+    await waitFor(() => expect(hoisted.mScan).toHaveBeenCalled());
+    expect(screen.queryByTestId('memory-migration-idle')).not.toBeInTheDocument();
+  });
+
   it('shows the move step disabled while the import is still on offer', async () => {
     renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
     expect(await screen.findByTestId('memory-import-counts')).toBeInTheDocument();
