@@ -18,7 +18,7 @@
 //! team's). A `reach` in the model's filter is overwritten.
 
 use std::collections::HashMap;
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
@@ -36,16 +36,20 @@ use super::types::{FetchParams, ForgetParams, LearnParams, RecallParams, TurnCit
 /// Most citations kept per thread between two drains.
 const MAX_TURN_CITATIONS: usize = 20;
 
+type TurnCitations = Mutex<HashMap<String, Vec<TurnCitation>>>;
+
 /// Citations `recall` produced during a thread's in-flight turn, drained by
 /// the chat surface once the turn returns ([`take_turn_citations`]).
-static TURN_CITATIONS: LazyLock<Mutex<HashMap<String, Vec<TurnCitation>>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+fn turn_citations() -> Arc<TurnCitations> {
+    crate::core::runtime::current_slot::<TurnCitations>()
+}
 
 fn record_turn_citations(thread_id: &str, citations: &[tinymemory_api::Citation]) {
     if citations.is_empty() {
         return;
     }
-    let mut all = TURN_CITATIONS
+    let citations_by_thread = turn_citations();
+    let mut all = citations_by_thread
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     let entry = all.entry(thread_id.to_string()).or_default();
@@ -66,7 +70,8 @@ pub fn record_pack_citations(thread_id: &str, citations: Vec<TurnCitation>) {
     if citations.is_empty() {
         return;
     }
-    let mut all = TURN_CITATIONS
+    let citations_by_thread = turn_citations();
+    let mut all = citations_by_thread
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     let entry = all.entry(thread_id.to_string()).or_default();
@@ -84,7 +89,7 @@ pub fn record_pack_citations(thread_id: &str, citations: Vec<TurnCitation>) {
 /// `thread_id` since the last drain.
 #[must_use]
 pub fn take_turn_citations(thread_id: &str) -> Vec<TurnCitation> {
-    TURN_CITATIONS
+    turn_citations()
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .remove(thread_id)
@@ -382,3 +387,4 @@ impl Tool for MemoryTool {
 #[cfg(test)]
 #[path = "tools_tests.rs"]
 mod tests;
+
