@@ -279,7 +279,11 @@ async fn a_preview_listing_reaches_the_wrapped_engine() {
     };
     let preview = guarded.list_preview(req()).await.unwrap();
     assert_eq!(preview.items.len(), 1);
-    assert!(preview.items[0].text.starts_with("preview: "), "{}", preview.items[0].text);
+    assert!(
+        preview.items[0].text.starts_with("preview: "),
+        "{}",
+        preview.items[0].text
+    );
     let whole = guarded.list(req()).await.unwrap();
     assert!(!whole.items[0].text.starts_with("preview: "));
 }
