@@ -28,6 +28,7 @@ import {
   isInstallable,
   type ParsedRegistryError,
   parseRegistryError,
+  type ScanBlocked,
   skillRegistryApi,
 } from '../../services/api/skillRegistryApi';
 import {
@@ -45,6 +46,7 @@ import { TableCell, TableRow } from '../ui/Table';
 import CreateSkillModal from './CreateSkillModal';
 import InstallSkillDialog from './InstallSkillDialog';
 import { RegistryErrorNotice, RegistryStatusNotice } from './RegistryStatusNotice';
+import ScanBlockedDialog from './ScanBlockedDialog';
 import UninstallSkillConfirmDialog from './UninstallSkillConfirmDialog';
 
 const log = debug('skills:explorer-tab');
@@ -550,6 +552,11 @@ export default function SkillsExplorerTab({ onToast, view }: SkillsExplorerTabPr
   const [catalogInitialized, setCatalogInitialized] = useState(false);
   const catalogRequestRef = useRef(0);
   const [installingId, setInstallingId] = useState<string | null>(null);
+  const [scanBlocked, setScanBlocked] = useState<{
+    entry: CatalogEntry;
+    scan: ScanBlocked;
+  } | null>(null);
+  const [scanOverrideError, setScanOverrideError] = useState<string | null>(null);
   // Catalog entry ids we just installed this session. The "installed" badge is
   // otherwise derived purely from `isCatalogEntryInstalled`, a heuristic that
   // maps a refetched installed skill (whose post-install id/location can differ
@@ -768,53 +775,98 @@ export default function SkillsExplorerTab({ onToast, view }: SkillsExplorerTabPr
     onToast?.({ type: 'success', title: t('skills.explorer.uninstallSuccess') });
   }, [fetchSkills, onToast, t]);
 
-  const handleRegistryInstall = useCallback(
-    async (entry: CatalogEntry) => {
-      log('handleRegistryInstall: id=%s source=%s', entry.id, entry.source);
+  const registryInstallErrorMessage = useCallback(
+    (entry: CatalogEntry, err: unknown): string => {
+      const parsed = parseRegistryError(err);
+      log('registryInstall: error kind=%s msg=%s', parsed.kind, parsed.message);
+      if (parsed.kind === 'no_direct_download') {
+        return entry.source_url
+          ? `${t('skills.registry.noDirectDownload')} ${entry.source_url}`
+          : t('skills.registry.noDirectDownload');
+      }
+      if (parsed.kind === 'upstream_ambiguous') return t('skills.registry.upstreamAmbiguous');
+      if (parsed.kind === 'rate_limited') {
+        return parsed.retryAfterSecs != null
+          ? t('skills.registry.rateLimited').replace('{seconds}', String(parsed.retryAfterSecs))
+          : t('skills.registry.rateLimitedShortly');
+      }
+      return parsed.message;
+    },
+    [t]
+  );
+
+  const runRegistryInstall = useCallback(
+    async (entry: CatalogEntry, acknowledgeScanFindings: boolean): Promise<boolean> => {
+      log(
+        'runRegistryInstall: id=%s source=%s acknowledge=%s',
+        entry.id,
+        entry.source,
+        acknowledgeScanFindings
+      );
       setInstallingId(entry.id);
       try {
-        const result = await skillRegistryApi.install(entry.id);
-        // Authoritatively mark this entry installed so the card flips to
-        // "Installed" on success regardless of whether the refetched list maps
-        // back to it via the install-key heuristic (#4150).
+        const result = await skillRegistryApi.install(entry.id, { acknowledgeScanFindings });
+        if (result.status === 'scan_blocked') {
+          log('runRegistryInstall: scan_blocked findings=%d', result.scan.findings.length);
+          setScanOverrideError(null);
+          setScanBlocked({ entry, scan: result.scan });
+          return false;
+        }
         setInstalledEntryIds(prev => {
           const next = new Set(prev);
           next.add(entry.id);
           return next;
         });
-        // Await the refetch so `installedKeys` is fresh before the button
-        // re-renders — otherwise it briefly flips back to "Install" between
-        // clearing the installing state and the list updating. `fetchSkills`
-        // swallows its own errors, so this never throws into the catch below.
         await fetchSkills();
         onToast?.({
           type: 'success',
           title: t('skills.install.installComplete'),
           message: `Installed ${entry.name}${result.newSkills.length > 0 ? ` (${result.newSkills.join(', ')})` : ''}`,
         });
-      } catch (err) {
-        const parsed = parseRegistryError(err);
-        log('handleRegistryInstall: error kind=%s msg=%s', parsed.kind, parsed.message);
-        let message = parsed.message;
-        if (parsed.kind === 'no_direct_download') {
-          message = entry.source_url
-            ? `${t('skills.registry.noDirectDownload')} ${entry.source_url}`
-            : t('skills.registry.noDirectDownload');
-        } else if (parsed.kind === 'upstream_ambiguous') {
-          message = t('skills.registry.upstreamAmbiguous');
-        } else if (parsed.kind === 'rate_limited') {
-          message =
-            parsed.retryAfterSecs != null
-              ? t('skills.registry.rateLimited').replace('{seconds}', String(parsed.retryAfterSecs))
-              : t('skills.registry.rateLimitedShortly');
-        }
-        onToast?.({ type: 'error', title: t('skills.install.errors.genericTitle'), message });
+        return true;
       } finally {
         setInstallingId(null);
       }
     },
     [fetchSkills, onToast, t]
   );
+
+  const handleRegistryInstall = useCallback(
+    async (entry: CatalogEntry) => {
+      try {
+        await runRegistryInstall(entry, false);
+      } catch (err) {
+        onToast?.({
+          type: 'error',
+          title: t('skills.install.errors.genericTitle'),
+          message: registryInstallErrorMessage(entry, err),
+        });
+      }
+    },
+    [onToast, registryInstallErrorMessage, runRegistryInstall, t]
+  );
+
+  const handleScanBlock = useCallback(() => {
+    log('scanBlocked: user kept %s uninstalled', scanBlocked?.entry.id);
+    setScanBlocked(null);
+    setScanOverrideError(null);
+    onToast?.({
+      type: 'error',
+      title: t('skills.scan.declinedTitle'),
+      message: t('skills.scan.declinedHint'),
+    });
+  }, [onToast, scanBlocked, t]);
+
+  const handleScanInstallAnyway = useCallback(async () => {
+    if (!scanBlocked) return;
+    const { entry } = scanBlocked;
+    try {
+      const installed = await runRegistryInstall(entry, true);
+      if (installed) setScanBlocked(null);
+    } catch (err) {
+      setScanOverrideError(registryInstallErrorMessage(entry, err));
+    }
+  }, [registryInstallErrorMessage, runRegistryInstall, scanBlocked]);
 
   const loading = view === 'installed' ? skillsLoading : catalogLoading;
 
@@ -896,6 +948,17 @@ export default function SkillsExplorerTab({ onToast, view }: SkillsExplorerTabPr
             setCreateOpen(null);
             void fetchSkills();
           }}
+        />
+      )}
+
+      {scanBlocked && (
+        <ScanBlockedDialog
+          skillName={scanBlocked.entry.name}
+          scan={scanBlocked.scan}
+          installing={installingId === scanBlocked.entry.id}
+          error={scanOverrideError}
+          onBlock={handleScanBlock}
+          onInstallAnyway={() => void handleScanInstallAnyway()}
         />
       )}
 

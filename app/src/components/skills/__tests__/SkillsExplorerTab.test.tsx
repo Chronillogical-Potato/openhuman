@@ -525,6 +525,7 @@ describe('SkillsExplorerTab', () => {
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
     await serveCatalog([catalogEntry]);
     vi.mocked(skillRegistryApi.install).mockResolvedValue({
+      status: 'installed',
       url: '',
       stdout: '',
       stderr: '',
@@ -546,7 +547,9 @@ describe('SkillsExplorerTab', () => {
     await waitFor(() => {
       expect(within(tile).getByText('Installed')).toBeInTheDocument();
     });
-    expect(skillRegistryApi.install).toHaveBeenCalledWith('built-in/apple-notes');
+    expect(skillRegistryApi.install).toHaveBeenCalledWith('built-in/apple-notes', {
+      acknowledgeScanFindings: false,
+    });
     expect(
       within(tile).queryByTestId('registry-install-built-in/apple-notes')
     ).not.toBeInTheDocument();
@@ -742,6 +745,7 @@ describe('SkillsExplorerTab', () => {
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
     await serveCatalog([MOCK_CATALOG_ENTRY]);
     vi.mocked(skillRegistryApi.install).mockResolvedValue({
+      status: 'installed',
       url: 'https://example.com/SKILL.md',
       stdout: 'ok',
       stderr: '',
@@ -763,11 +767,84 @@ describe('SkillsExplorerTab', () => {
     });
 
     await waitFor(() => {
-      expect(skillRegistryApi.install).toHaveBeenCalledWith('registry-skill-1');
+      expect(skillRegistryApi.install).toHaveBeenCalledWith('registry-skill-1', {
+      acknowledgeScanFindings: false,
+    });
     });
     await waitFor(() => {
       expect(onToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }));
     });
+  });
+
+  it('prompts on a scan block, keeps Block as the default and installs only on Install anyway', async () => {
+    const { skillsApi } = await import('../../../services/api/skillsApi');
+    const { skillRegistryApi } = await import('../../../services/api/skillRegistryApi');
+    const onToast = vi.fn();
+    vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
+    await serveCatalog([MOCK_CATALOG_ENTRY]);
+    const scan = {
+      target: 'registry-skill-1',
+      fetchedFrom: 'https://example.com/SKILL.md',
+      slug: 'registry-skill-1',
+      findings: [
+        {
+          check: 'invisible_code_points',
+          verdict: 'block' as const,
+          field: 'the document body',
+          message: 'an invisible character in the document body',
+        },
+      ],
+      message: 'blocked',
+    };
+    vi.mocked(skillRegistryApi.install).mockResolvedValue({ status: 'scan_blocked', scan });
+
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" onToast={onToast} />
+      </MemoryRouter>
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('registry-install-registry-skill-1')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('registry-install-registry-skill-1'));
+    });
+    const dialog = await screen.findByTestId('scan-blocked-dialog');
+    expect(within(dialog).getByText(/invisible character/)).toBeInTheDocument();
+    expect(screen.getByTestId('scan-blocked-block')).toHaveFocus();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('scan-blocked-block'));
+    });
+    expect(screen.queryByTestId('scan-blocked-dialog')).not.toBeInTheDocument();
+    expect(skillRegistryApi.install).toHaveBeenCalledTimes(1);
+    expect(onToast).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }));
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('registry-install-registry-skill-1'));
+    });
+    await screen.findByTestId('scan-blocked-dialog');
+    vi.mocked(skillRegistryApi.install).mockResolvedValueOnce({
+      status: 'installed',
+      url: 'https://example.com/SKILL.md',
+      stdout: 'ok',
+      stderr: '',
+      newSkills: ['registry-skill-1'],
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('scan-blocked-install-anyway'));
+    });
+
+    await waitFor(() => {
+      expect(skillRegistryApi.install).toHaveBeenLastCalledWith('registry-skill-1', {
+        acknowledgeScanFindings: true,
+      });
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId('scan-blocked-dialog')).not.toBeInTheDocument();
+    });
+    expect(onToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }));
   });
 
   it('marks an entry with no SKILL.md download as not installable instead of offering Install', async () => {
@@ -1115,6 +1192,7 @@ describe('SkillsExplorerTab', () => {
     // Override the beforeEach mock so browse returns an entry
     await serveCatalog([MOCK_CATALOG_ENTRY]);
     vi.mocked(skillRegistryApi.install).mockResolvedValue({
+      status: 'installed',
       url: 'https://example.com/SKILL.md',
       stdout: 'ok',
       stderr: '',
@@ -1146,7 +1224,9 @@ describe('SkillsExplorerTab', () => {
     });
 
     await waitFor(() => {
-      expect(skillRegistryApi.install).toHaveBeenCalledWith('registry-skill-1');
+      expect(skillRegistryApi.install).toHaveBeenCalledWith('registry-skill-1', {
+      acknowledgeScanFindings: false,
+    });
     });
   });
 });
