@@ -158,7 +158,7 @@ export default function Memory() {
       case 'background':
         return <MemoryBackgroundTab />;
       case 'settings':
-        return <MemorySettingsTab />;
+        return <MemorySettingsTab onMemoryErased={() => setReloadKey(k => k + 1)} />;
       default:
         return null;
     }
