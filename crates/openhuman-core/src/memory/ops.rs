@@ -199,6 +199,7 @@ pub async fn fetch(config: &Config, params: FetchParams) -> MemoryResult<FetchVi
         limit: clamp_limit(params.limit),
         cursor: params.cursor,
         beliefs: 0,
+        max_scopes: None,
         refers_to: time_hint(config, params.refers_to)?,
     };
     request.validate()?;
