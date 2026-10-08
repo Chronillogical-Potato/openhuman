@@ -165,8 +165,15 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
     };
 
     // ── context ──────────────────────────────────────────────────────────
+    let mut context_config = config.clone();
+    context_config.ephemeral_route = provider.route().and_then(|route| {
+        openhuman_core::config::schema::EphemeralRoute::from_params(
+            Some(route.base_url.clone()),
+            Some(route.api_key.clone()),
+        )
+    });
     let overlay = ContextOverlay {
-        config: config.clone(),
+        config: context_config,
         domains,
         tool_groups,
         user_skill_roots: parts.include_user_skills,
