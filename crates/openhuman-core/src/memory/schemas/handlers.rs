@@ -16,7 +16,7 @@ use crate::memory::types::{
     ItemsListParams, LearnParams, RecallParams, SourceAddedView, SourceRemovedView,
     SourcesAddParams, SourcesListView, SourcesRemoveParams, SourcesSyncParams, SourcesSyncView,
 };
-use crate::memory::{backfill, brain, engine, import, layout_migration, ops, sources};
+use crate::memory::{backfill, brain, confine, engine, import, layout_migration, ops, sources};
 
 fn parse<T: DeserializeOwned>(params: Map<String, Value>) -> Result<T, String> {
     serde_json::from_value(Value::Object(params))
@@ -73,50 +73,76 @@ pub(super) fn engine_set(params: Map<String, Value>) -> ControllerFuture {
 
 pub(super) fn recall(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let params = parse::<RecallParams>(params)?;
-        finish(ops::recall(&load().await?, params).await)
+        let mut params = parse::<RecallParams>(params)?;
+        let config = load().await?;
+        let allowed = confine::allowed_reach(&config);
+        params.filter = Some(confine::confine_filter(params.filter, &allowed).map_err(String::from)?);
+        finish(ops::recall(&config, params).await)
     })
 }
 
 pub(super) fn fetch(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let params = parse::<FetchParams>(params)?;
-        finish(ops::fetch(&load().await?, params).await)
+        let mut params = parse::<FetchParams>(params)?;
+        let config = load().await?;
+        let allowed = confine::allowed_reach(&config);
+        params.filter = Some(confine::confine_filter(params.filter, &allowed).map_err(String::from)?);
+        finish(ops::fetch(&config, params).await)
     })
 }
 
 pub(super) fn learn(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let params = parse::<LearnParams>(params)?;
-        finish(ops::learn(&load().await?, params, None).await)
+        let mut params = parse::<LearnParams>(params)?;
+        let config = load().await?;
+        params.meta = Some(confine::confine_learn_meta(&config, params.meta).map_err(String::from)?);
+        finish(ops::learn(&config, params, None).await)
     })
 }
 
 pub(super) fn forget(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let params = parse::<ForgetParams>(params)?;
-        finish(ops::forget(&load().await?, params).await)
+        let mut params = parse::<ForgetParams>(params)?;
+        let config = load().await?;
+        let allowed = confine::allowed_reach(&config);
+        params.reach = Some(confine::confine_reach(params.reach, &allowed).map_err(String::from)?);
+        finish(ops::forget(&config, params).await)
     })
 }
 
 pub(super) fn items_list(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let params = parse::<ItemsListParams>(params)?;
-        finish(ops::items_list(&load().await?, params).await)
+        let mut params = parse::<ItemsListParams>(params)?;
+        let config = load().await?;
+        let allowed = confine::allowed_reach(&config);
+        // The path narrows first (a namespace step sets the reach), then the
+        // narrowed filter is confined.
+        let narrowed = explore::narrowed(params.filter, &params.path).map_err(String::from)?;
+        params.filter = Some(confine::confine_filter(Some(narrowed), &allowed).map_err(String::from)?);
+        params.path = Vec::new();
+        finish(ops::items_list(&config, params).await)
     })
 }
 
 pub(super) fn explore(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let params = parse::<ExploreParams>(params)?;
-        finish(explore::explore(&load().await?, params).await)
+        let mut params = parse::<ExploreParams>(params)?;
+        let config = load().await?;
+        let allowed = confine::allowed_reach(&config);
+        let narrowed = explore::narrowed(params.filter, &params.path).map_err(String::from)?;
+        params.filter = Some(confine::confine_filter(Some(narrowed), &allowed).map_err(String::from)?);
+        params.path = Vec::new();
+        finish(explore::explore(&config, params).await)
     })
 }
 
 pub(super) fn items_get(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let params = parse::<ItemsGetParams>(params)?;
-        finish(explore::items_get(&load().await?, params).await)
+        let mut params = parse::<ItemsGetParams>(params)?;
+        let config = load().await?;
+        let allowed = confine::allowed_reach(&config);
+        params.reach = Some(confine::confine_reach(params.reach, &allowed).map_err(String::from)?);
+        finish(explore::items_get(&config, params).await)
     })
 }
 

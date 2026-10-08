@@ -24,6 +24,7 @@ pub mod billing;
 pub mod brain;
 pub mod bus;
 pub mod channels;
+pub mod confine;
 pub(crate) mod convert;
 pub mod engine;
 pub mod error;
