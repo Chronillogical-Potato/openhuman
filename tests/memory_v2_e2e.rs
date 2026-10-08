@@ -971,13 +971,12 @@ async fn erase_all_needs_confirmation_and_erases_the_whole_hosted_memory() {
         json!({ "text": "a document about espresso machines" }),
     )
     .await;
-    let documents = |f: &Fixture| {
-        f.ok(
+    let docs_before = f
+        .ok(
             "openhuman.memory_items_list",
             json!({ "filter": { "kinds": ["document"] } }),
         )
-    };
-    let docs_before = documents(&f).await;
+        .await;
     assert!(
         !ids_of(&docs_before, "items").is_empty(),
         "the document was stored: {docs_before}"
@@ -1024,7 +1023,12 @@ async fn erase_all_needs_confirmation_and_erases_the_whole_hosted_memory() {
         )
         .await;
     assert_eq!(after["items"], json!([]), "{after}");
-    let docs_after = documents(&f).await;
+    let docs_after = f
+        .ok(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["document"] } }),
+        )
+        .await;
     assert_eq!(docs_after["items"], json!([]), "{docs_after}");
     let refetch = f
         .ok("openhuman.memory_fetch", json!({ "query": "coffee" }))
