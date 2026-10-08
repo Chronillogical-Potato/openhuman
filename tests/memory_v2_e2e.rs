@@ -1095,12 +1095,12 @@ async fn sources_add_sync_list_and_remove() {
         ),
         (json!({ "kind": "folder", "target": "  " }), "blank target"),
         (
-            json!({ "kind": "rss", "target": "https://example.com/feed.xml" }),
-            "rss is no longer a source kind",
+            json!({ "kind": "rss", "target": "not a url" }),
+            "rss needs a URL",
         ),
         (
-            json!({ "kind": "composio", "target": "gmail" }),
-            "composio is no longer a source kind",
+            json!({ "kind": "github", "target": "only-one-part" }),
+            "github needs owner/repo",
         ),
         (
             json!({ "kind": "folder", "target": target, "schedule_mins": 5 }),
@@ -1138,24 +1138,33 @@ async fn sources_add_sync_list_and_remove() {
         .await,
         "INVALID_REQUEST"
     );
-    // A second, file source registers beside the folder without syncing.
-    let file = f
+    // A link and a GitHub repo register without syncing.
+    let link = f
         .ok(
             "openhuman.memory_sources_add",
-            json!({ "kind": "file", "target": format!("{target}/plan.md") }),
+            json!({ "kind": "link", "target": "https://example.com/docs" }),
         )
         .await;
-    assert_eq!(file["source"]["kind"], json!("file"));
-    let listed = f.ok("openhuman.memory_sources_list", json!({})).await;
-    assert_eq!(listed["sources"].as_array().unwrap().len(), 2);
-    // Drop the file source so a sync-all below only reads the folder.
-    let removed = f
+    assert_eq!(link["source"]["label"], json!("https://example.com/docs"));
+    let repo = f
         .ok(
-            "openhuman.memory_sources_remove",
-            json!({ "id": file["source"]["id"] }),
+            "openhuman.memory_sources_add",
+            json!({ "kind": "github", "target": "acme/widgets" }),
         )
         .await;
-    assert_eq!(removed["removed"], json!(true));
+    assert_eq!(
+        repo["source"]["target"],
+        json!("https://github.com/acme/widgets")
+    );
+    let listed = f.ok("openhuman.memory_sources_list", json!({})).await;
+    assert_eq!(listed["sources"].as_array().unwrap().len(), 3);
+    // Drop the two network sources so a sync-all below only reads the folder.
+    for extra in [&link["source"]["id"], &repo["source"]["id"]] {
+        let removed = f
+            .ok("openhuman.memory_sources_remove", json!({ "id": extra }))
+            .await;
+        assert_eq!(removed["removed"], json!(true));
+    }
 
     // sync: unknown id is refused; a real one starts, then finishes.
     assert_eq!(
@@ -1402,30 +1411,28 @@ async fn a_document_at_an_old_per_format_node_stays_listed_searchable_and_forget
 }
 
 #[tokio::test]
-async fn removed_network_source_kinds_are_rejected_and_local_ones_still_work() {
+async fn composio_is_no_longer_a_memory_source_kind() {
     let f = Fixture::new(true).await;
     let folder = write_folder(f.home.path());
+    assert_eq!(
+        f.code(
+            "openhuman.memory_sources_add",
+            json!({ "kind": "composio", "target": "gmail" })
+        )
+        .await,
+        "INVALID_REQUEST"
+    );
     for (kind, target) in [
-        ("composio", "gmail"),
-        ("rss", "https://example.com/feed.xml"),
-        ("link", "https://example.com"),
-        ("github", "acme/widgets"),
+        ("folder", folder.to_string_lossy().to_string()),
+        ("file", format!("{}/launch.md", folder.to_string_lossy())),
+        ("link", "https://example.com/docs".to_string()),
+        ("github", "acme/widgets".to_string()),
+        ("rss", "https://example.com/feed.xml".to_string()),
     ] {
-        assert_eq!(
-            f.code(
-                "openhuman.memory_sources_add",
-                json!({ "kind": kind, "target": target })
-            )
-            .await,
-            "INVALID_REQUEST",
-            "{kind}"
-        );
-    }
-    for kind in ["folder", "file"] {
         let added = f
             .ok(
                 "openhuman.memory_sources_add",
-                json!({ "kind": kind, "target": folder.to_string_lossy() }),
+                json!({ "kind": kind, "target": target }),
             )
             .await;
         assert_eq!(added["source"]["kind"], json!(kind));
@@ -1438,16 +1445,15 @@ async fn composio_sync_is_no_longer_a_method() {
     let response = f
         .call("openhuman.composio_sync", json!({ "connection_id": "c-1" }))
         .await;
-    assert!(
-        response.get("error").is_some(),
-        "composio_sync must be unknown: {response}"
-    );
     let message = response["error"]["message"].as_str().unwrap_or_default();
-    assert!(message.contains("unknown method"), "{message}");
+    assert!(
+        response.get("error").is_some() && message.contains("unknown method"),
+        "composio_sync must be an unknown method: {response}"
+    );
 }
 
 #[tokio::test]
-async fn a_stale_config_with_removed_source_kinds_loads_and_lists_only_local_ones() {
+async fn a_stale_config_with_a_composio_source_loads_without_it() {
     let f = Fixture::new(true).await;
     let stale = r#"
 [[memory.sources]]
@@ -1456,23 +1462,22 @@ kind = "composio"
 target = "gmail"
 
 [[memory.sources]]
-id = "src-rss"
-kind = "rss"
-target = "https://example.com/feed.xml"
-
-[[memory.sources]]
 id = "src-notes"
 kind = "folder"
 target = "/tmp/stale-notes"
 
 [[memory.sources]]
-id = "src-plan"
-kind = "file"
-target = "/tmp/stale-plan.md"
+id = "src-feed"
+kind = "rss"
+target = "https://example.com/feed.xml"
 "#;
     for dir in [
         f.home.path().join(".openhuman"),
-        f.home.path().join(".openhuman").join("users").join(MOCK_USER_ID),
+        f.home
+            .path()
+            .join(".openhuman")
+            .join("users")
+            .join(MOCK_USER_ID),
     ] {
         let path = dir.join("config.toml");
         let mut text = std::fs::read_to_string(&path).expect("read config.toml");
@@ -1487,7 +1492,7 @@ target = "/tmp/stale-plan.md"
         .filter_map(|s| s["id"].as_str().map(str::to_string))
         .collect();
     ids.sort();
-    assert_eq!(ids, ["src-notes", "src-plan"], "{listed}");
+    assert_eq!(ids, ["src-feed", "src-notes"], "{listed}");
 }
 
 #[tokio::test]
