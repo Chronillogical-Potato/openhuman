@@ -145,6 +145,20 @@ impl MemoryEngine for ScrubbingEngine {
             .await
     }
 
+    async fn store_many_with(
+        &self,
+        items: Vec<StoreItem>,
+        options: WriteOptions,
+    ) -> Result<Vec<StoreReceipt>> {
+        let op = match options.wait {
+            WaitFor::Accepted => "store_many_accepted",
+            WaitFor::Visible => "store_many",
+        };
+        let items = items.into_iter().map(scrub).collect();
+        self.timed(op, self.inner.store_many_with(items, options), Vec::len)
+            .await
+    }
+
     async fn forget(&self, target: ForgetTarget) -> Result<ForgetReport> {
         self.timed("forget", self.inner.forget(target), |report| {
             report.forgotten

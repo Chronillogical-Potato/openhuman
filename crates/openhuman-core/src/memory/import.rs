@@ -21,6 +21,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, Mutex};
 
 use serde::{Deserialize, Serialize};
+use tinymemory_api::{WaitFor, WriteOptions};
 use tinymemory_integrations::cortex::is_insufficient_credits;
 use tinymemory_integrations::import::{Checkpoint, ImportedItem, LegacyWorkspace};
 
@@ -111,6 +112,7 @@ where
             Err(error) if error.is_transient() => {
                 tracing::debug!(
                     delay_ms = u64::try_from(delay.as_millis()).unwrap_or(u64::MAX),
+                    %error,
                     "[memory:import] engine unavailable; retrying"
                 );
                 tokio::time::sleep(delay).await;
@@ -157,13 +159,14 @@ fn fatal_message(error: tinymemory_api::Error) -> String {
 /// of an item (see [`skips_item`]), the items are stored one at a time instead
 /// so only the bad ones are skipped. Any other failure stops the import
 /// without advancing the checkpoint past what was stored.
-async fn store_batch(bound: &BoundEngine, batch: Vec<ImportedItem>) -> BatchOutcome {
+async fn store_batch(bound: &BoundEngine, batch: Vec<ImportedItem>, wait: WaitFor) -> BatchOutcome {
     let Some(last) = batch.last() else {
         return BatchOutcome::default();
     };
     let last_checkpoint = last.checkpoint.clone();
     let items: Vec<_> = batch.iter().map(|imported| imported.item.clone()).collect();
-    match with_retries(|| bound.engine.store_many(items.clone())).await {
+    let options = WriteOptions { wait };
+    match with_retries(|| bound.engine.store_many_with(items.clone(), options)).await {
         Ok(receipts) => {
             tracing::debug!(
                 engine = %bound.id,
@@ -589,6 +592,7 @@ async fn run(
     let mut credits = false;
     let mut pausing = false;
     let mut batch: Vec<ImportedItem> = Vec::with_capacity(STORE_BATCH);
+    let mut last: Vec<ImportedItem> = Vec::new();
     let mut reading = true;
     while reading || !batch.is_empty() {
         if reading && batch.len() < STORE_BATCH {
@@ -610,7 +614,10 @@ async fn run(
             pausing = true;
             break;
         }
-        let outcome = store_batch(bound, std::mem::take(&mut batch)).await;
+        // Accepted: nothing reads the import back until it ends, so a batch
+        // does not wait to be listed; the last one is waited for below.
+        last.clone_from(&batch);
+        let outcome = store_batch(bound, std::mem::take(&mut batch), WaitFor::Accepted).await;
         file.state.imported += outcome.stored;
         // One entry per legacy id; a later refusal replaces the reason.
         for failed in outcome.failed {
@@ -645,6 +652,22 @@ async fn run(
     }
     drop(rx);
     let _ = reader.await;
+    // Every batch was stored accepted. Before the import says it is done
+    // (and organizing reads it back), wait once for the last batch to be
+    // listed: storing it again visible is a replay that returns when it is,
+    // retried like any batch. The wait is best-effort: every item is already
+    // accepted, and organizing checks each one it copies, so a listing still
+    // behind (or rate limited) finishes the import rather than leaving it to
+    // resume into the same wait again.
+    if failure.is_none() && !pausing && !last.is_empty() {
+        let settled = store_batch(bound, last, WaitFor::Visible).await;
+        if let Some(error) = settled.fatal {
+            tracing::warn!(
+                %error,
+                "[memory:import] the last batch is not listed yet; finishing the import anyway"
+            );
+        }
+    }
     if pausing {
         // Left `Running` with its checkpoint: the next unpaused tick resumes it.
         tracing::info!(
@@ -660,6 +683,7 @@ async fn run(
         Some(error) if transient => {
             tracing::info!(
                 imported = file.state.imported,
+                %error,
                 "[memory:import] engine unavailable; import left to resume"
             );
             file.state.error = Some(error);
@@ -700,3 +724,7 @@ mod recovery_tests;
 #[cfg(test)]
 #[path = "import_organize_tests.rs"]
 mod organize_tests;
+
+#[cfg(test)]
+#[path = "import_wait_tests.rs"]
+mod wait_tests;
