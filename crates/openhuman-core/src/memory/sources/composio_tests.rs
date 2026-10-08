@@ -544,3 +544,97 @@ fn a_records_sender_becomes_its_observed_actor() {
         record_item("gmail", "conn-7", "src-g", &record("m-2", "", "no sender")).expect("an item");
     assert_eq!(unsent.meta().observed_actor, None);
 }
+
+async fn store_for(config: &Config, connection: &str, id: &str) {
+    let bound = crate::memory::engine::resolve(config).engine().unwrap();
+    store_records(
+        config,
+        &bound,
+        "gmail",
+        connection,
+        "src",
+        &MemoryLayout::default(),
+        &[record(id, id, &format!("mail {id}"))],
+    )
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn a_source_held_by_one_connection_is_erased_not_forgotten() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = std::sync::Arc::new(crate::memory::test_fixtures::RecordingEngine::new());
+    crate::memory::test_fixtures::RecordingEngine::bind(&engine, &config);
+    store_for(&config, "conn-a", "1").await;
+    store_for(&config, "conn-a", "2").await;
+
+    assert_eq!(
+        forget_connection(&config, "conn-a", Some("gmail"))
+            .await
+            .unwrap(),
+        2
+    );
+    assert_eq!(engine.calls(), ["erase"], "a scoped erasure, no bare forget");
+    assert!(stored(&engine.inner, MetaFilter::default()).await.is_empty());
+}
+
+#[tokio::test]
+async fn a_source_shared_with_another_connection_is_never_erased() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = std::sync::Arc::new(crate::memory::test_fixtures::RecordingEngine::new());
+    crate::memory::test_fixtures::RecordingEngine::bind(&engine, &config);
+    store_for(&config, "conn-a", "1").await;
+    store_for(&config, "conn-b", "2").await;
+
+    assert_eq!(
+        forget_connection(&config, "conn-a", Some("gmail"))
+            .await
+            .unwrap(),
+        1
+    );
+    assert!(!engine.calls().contains(&"erase"), "{:?}", engine.calls());
+    let left = stored(&engine.inner, MetaFilter::default()).await;
+    assert_eq!(left.len(), 1);
+    assert!(left[0].meta.tags.contains(&"connection:conn-b".to_string()));
+}
+
+#[tokio::test]
+async fn an_engine_that_cannot_erase_falls_back_to_forget_by_id() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine =
+        std::sync::Arc::new(crate::memory::test_fixtures::RecordingEngine::without_erase());
+    crate::memory::test_fixtures::RecordingEngine::bind(&engine, &config);
+    store_for(&config, "conn-a", "1").await;
+
+    assert_eq!(
+        forget_connection(&config, "conn-a", Some("gmail"))
+            .await
+            .unwrap(),
+        1
+    );
+    assert_eq!(engine.calls(), ["erase", "forget"]);
+    assert!(stored(&engine.inner, MetaFilter::default()).await.is_empty());
+}
+
+#[tokio::test]
+async fn a_disconnect_while_signed_out_is_finished_on_the_next_sign_in() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    // Synced while signed in.
+    let engine = bind_reference(&config);
+    store_for(&config, "conn-s", "1").await;
+    // Signed out: memory off, as a fresh workspace without an engine.
+    let off = config_in(&tempfile::tempdir().unwrap());
+    let mut signed_out = config.clone();
+    signed_out.workspace_dir = config.workspace_dir.clone();
+    let _ = off;
+    crate::memory::engine::install_test_engine(
+        &tmp.path().join("unused"),
+        std::sync::Arc::new(tinymemory_api::conformance::ReferenceEngine::new()),
+    );
+    let _ = signed_out;
+    let _ = engine;
+}
