@@ -7,8 +7,7 @@
  *
  *   engine · ask · explorer · learnings · conversations · brain · background · settings
  *
- * With no `?brain=` the page opens on Ask when an engine is active and on
- * Engine otherwise. Retired values (v1's `graph`, `goals`, `sources`, `sync`,
+ * With no `?brain=` the page opens on the Provider (engine) chip. Retired values (v1's `graph`, `goals`, `sources`, `sync`,
  * `history`; v2's `documents` and `context`) are rewritten to their current
  * chip. While memory is off every chip
  * but Engine shows an empty state that points there.
@@ -85,7 +84,6 @@ export default function Memory() {
   const rawChip = params.get('brain');
   const requested = resolveMemoryChip(rawChip);
   const on = isMemoryOn(engine);
-  // Without an explicit `?brain=`, the page always opens on the Provider chip.
   const chip: MemoryChip | null = requested ?? (engine ? 'engine' : null);
 
   const setChip = useCallback(
