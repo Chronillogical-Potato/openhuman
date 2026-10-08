@@ -5328,7 +5328,7 @@ const en: TranslationMap = {
   'memoryPage.engine.chip.free': 'Unlimited',
   'memoryPage.engine.chip.apikey': 'Your CortexDB key',
   'memoryPage.engine.chip.selfhost': 'Local',
-  'memoryPage.engine.fairUse.summary': 'Fair use applies to unlimited memory',
+  'memoryPage.engine.fairUse.summary': 'Fair use applies for unlimited memory',
   'memoryPage.engine.offPrompt': 'Pick a provider below to start remembering.',
   'memoryPage.engine.builtin.summaryPlan':
     'Hosted by TinyHumans, with unlimited memory on your {plan} plan.',
