@@ -131,3 +131,65 @@ async fn browse_and_search_return_bounded_pages_with_their_freshness() {
         std::env::remove_var(name);
     }
 }
+
+#[test]
+fn install_tool_schema_has_no_scan_acknowledgement() {
+    let schema = SkillRegistryInstallTool::new(Arc::new(Config::default())).parameters_schema();
+    let properties = schema["properties"].as_object().expect("properties");
+    assert_eq!(properties.keys().collect::<Vec<_>>(), ["entry_id"]);
+    assert!(!schema.to_string().contains("acknowledge"));
+}
+
+#[tokio::test]
+async fn the_install_tool_cannot_acknowledge_scan_findings() {
+    let _env = crate::skills::catalog::TEST_ENV_LOCK.lock().await;
+    let fixture = Fixture::start(vec![hermes_item("agent-poisoned", "built-in")]).await;
+    fixture
+        .blocked_documents
+        .store(usize::MAX, std::sync::atomic::Ordering::SeqCst);
+    let cache = tempfile::tempdir().unwrap();
+    std::env::set_var(ENV[0], format!("{}/skills.json", fixture.base));
+    std::env::set_var(ENV[1], cache.path());
+    std::env::set_var(ENV[2], "1");
+    std::env::set_var(
+        crate::skills::catalog::registry::DOWNLOAD_BASE_URL_ENV,
+        format!("{}/skills", fixture.base),
+    );
+
+    let workspace = tempfile::tempdir().unwrap();
+    let mut config = Config::default();
+    config.workspace_dir = workspace.path().to_path_buf();
+    let tool = SkillRegistryInstallTool::new(Arc::new(config));
+    let result = tool
+        .execute(json!({
+            "entry_id": "agent-poisoned",
+            "acknowledge_scan_findings": true,
+        }))
+        .await
+        .expect("execute");
+
+    for name in ENV {
+        std::env::remove_var(name);
+    }
+    std::env::remove_var(crate::skills::catalog::registry::DOWNLOAD_BASE_URL_ENV);
+
+    assert!(result.is_error, "a blocked install is not a success");
+    let body: serde_json::Value = serde_json::from_str(&result.output()).expect("json");
+    assert_eq!(body["status"], "scan_blocked");
+    assert_eq!(body["target"], "agent-poisoned");
+    assert_eq!(body["findings"][0]["check"], "invisible_code_points");
+    assert!(body["instruction"]
+        .as_str()
+        .unwrap()
+        .contains("install it themselves"));
+    assert_eq!(
+        fixture
+            .document_hits
+            .load(std::sync::atomic::Ordering::SeqCst),
+        2
+    );
+    assert!(!dirs::home_dir()
+        .unwrap()
+        .join(".openhuman/skills/agent-poisoned")
+        .exists());
+}
