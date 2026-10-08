@@ -5,15 +5,14 @@
  * it has no route of its own. Connections owns `?tab=` and the sidebar; this
  * page keeps its chip in `?brain=`:
  *
- *   engine (Provider) · conversations · brain (Files)
+ *   engine · migration · ask · explorer · learnings · conversations · brain · background · settings
  *
  * With no `?brain=` the page opens on the Provider (engine) chip. Retired
- * values (`migration`, `ask`, `explorer`, `learnings`, `background`,
- * `settings`, v1's `graph`, `goals`, `sources`, `sync`, `history`; v2's
- * `documents` and `context`) are rewritten to their current chip (see
- * `memoryChips.ts`). While memory is off every chip but Provider shows an
- * empty state that points there. Importing and organizing memory from earlier
- * versions lives at the top of the Files chip.
+ * values (v1's `graph`, `goals`, `sources`, `sync`, `history`; v2's
+ * `documents` and `context`) are rewritten to their current chip. While
+ * memory is off every chip but Engine shows an empty state that points there.
+ * Importing and organizing memory from earlier versions lives on its own
+ * Migration chip, not as a banner over the others.
  *
  * debug logging: DEBUG=openhuman:memory
  */
@@ -21,11 +20,17 @@ import debug from 'debug';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import MemoryAskTab from '../components/memory/MemoryAskTab';
+import MemoryBackgroundTab from '../components/memory/MemoryBackgroundTab';
 import MemoryBrainTab from '../components/memory/MemoryBrainTab';
 import { type MemoryChip, resolveMemoryChip } from '../components/memory/memoryChips';
 import MemoryConversationsTab from '../components/memory/MemoryConversationsTab';
 import MemoryEngineTab from '../components/memory/MemoryEngineTab';
+import MemoryExplorerTab from '../components/memory/MemoryExplorerTab';
+import MemoryLearningsTab from '../components/memory/MemoryLearningsTab';
+import MemoryMigrationTab from '../components/memory/MemoryMigrationTab';
 import MemoryOffState from '../components/memory/MemoryOffState';
+import MemorySettingsTab from '../components/memory/MemorySettingsTab';
 import SettingsTabbedPage from '../components/settings/layout/SettingsTabbedPage';
 import { Alert, AlertDescription, Button } from '../components/ui';
 import { CenteredLoadingState } from '../components/ui/LoadingState';
@@ -106,10 +111,34 @@ export default function Memory() {
     }
   }, [rawChip, requested, engine, setChip]);
 
-  const headers: Record<MemoryChip, { description: string }> = {
-    engine: { description: t('memoryPage.header.engine') },
-    conversations: { description: t('memoryPage.header.conversations') },
-    brain: { description: t('memoryPage.header.brain') },
+  const headers: Record<MemoryChip, { title: string; description: string }> = {
+    engine: { title: t('memoryPage.tabs.engine'), description: t('memoryPage.header.engine') },
+    migration: {
+      title: t('memoryPage.tabs.migration'),
+      description: t('memoryPage.header.migration'),
+    },
+    ask: { title: t('memoryPage.tabs.ask'), description: t('memoryPage.header.ask') },
+    explorer: {
+      title: t('memoryPage.tabs.explorer'),
+      description: t('memoryPage.header.explorer'),
+    },
+    learnings: {
+      title: t('memoryPage.tabs.learnings'),
+      description: t('memoryPage.header.learnings'),
+    },
+    conversations: {
+      title: t('memoryPage.tabs.conversations'),
+      description: t('memoryPage.header.conversations'),
+    },
+    brain: { title: t('memoryPage.tabs.brain'), description: t('memoryPage.header.brain') },
+    background: {
+      title: t('memoryPage.tabs.background'),
+      description: t('memoryPage.header.background'),
+    },
+    settings: {
+      title: t('memoryPage.tabs.settings'),
+      description: t('memoryPage.header.settings'),
+    },
   };
 
   const activeLabel =
@@ -125,9 +154,9 @@ export default function Memory() {
     const offState = on ? undefined : (
       <MemoryOffState reason={engine.reason} onOpenEngine={() => setChip('engine')} />
     );
-    if (chip === 'brain') {
+    if (chip === 'migration') {
       return (
-        <MemoryBrainTab
+        <MemoryMigrationTab
           key={authUserId ?? 'signed-out'}
           engineLabel={activeLabel}
           offState={offState}
@@ -135,7 +164,24 @@ export default function Memory() {
       );
     }
     if (offState) return offState;
-    return <MemoryConversationsTab />;
+    switch (chip) {
+      case 'ask':
+        return <MemoryAskTab fetchModes={engine.fetch_modes ?? []} />;
+      case 'explorer':
+        return <MemoryExplorerTab />;
+      case 'learnings':
+        return <MemoryLearningsTab />;
+      case 'conversations':
+        return <MemoryConversationsTab />;
+      case 'brain':
+        return <MemoryBrainTab />;
+      case 'background':
+        return <MemoryBackgroundTab />;
+      case 'settings':
+        return <MemorySettingsTab />;
+      default:
+        return null;
+    }
   })();
 
   return (
@@ -145,8 +191,14 @@ export default function Memory() {
         description={headers[chip ?? 'engine'].description}
         tabs={[
           { id: 'engine', label: t('memoryPage.tabs.engine') },
+          { id: 'migration', label: t('memoryPage.tabs.migration') },
+          { id: 'ask', label: t('memoryPage.tabs.ask') },
+          { id: 'explorer', label: t('memoryPage.tabs.explorer') },
+          { id: 'learnings', label: t('memoryPage.tabs.learnings') },
           { id: 'conversations', label: t('memoryPage.tabs.conversations') },
           { id: 'brain', label: t('memoryPage.tabs.brain') },
+          { id: 'background', label: t('memoryPage.tabs.background') },
+          { id: 'settings', label: t('memoryPage.tabs.settings') },
         ]}
         value={chip ?? undefined}
         onChange={next => setChip(next)}

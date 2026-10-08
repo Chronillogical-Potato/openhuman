@@ -8,7 +8,7 @@
  * Journey:
  *   1. Login + land on home
  *   2. /settings                 — verify root index loads
- *   3. /settings/memory-data     — verify it redirects to Memory → Files
+ *   3. /settings/memory-data     — verify it redirects to Memory → Documents
  *   4. /settings/developer-options — verify loads
  *   5. /settings/billing         — verify billing panel loads
  *   6. /home                     — verify home loads
@@ -92,14 +92,14 @@ describe('User journey — settings round-trip', () => {
 
   it('/settings/memory-data — redirects to the Memory page within 10s', async () => {
     // The v1 memory data panel is gone; the slug redirects to the Memory
-    // page's Files chip (/connections?tab=brain&brain=brain).
+    // page's Brain chip (/connections?tab=brain&brain=brain).
     console.log(`${LOG_PREFIX} Navigating to /settings/memory-data`);
     await navigateViaHash('/settings/memory-data');
     await waitForPanelLoad('/settings/memory-data');
     // waitForTestId is tauri-driver only; the marker check below covers Mac2.
     if (isTauriDriver()) await waitForTestId('memory-page', 10_000);
 
-    const dataMarkers = ['Files', 'Memory', 'Provider'];
+    const dataMarkers = ['Documents', 'Memory', 'Engine'];
     let found = false;
     for (const marker of dataMarkers) {
       if (await textExists(marker)) {

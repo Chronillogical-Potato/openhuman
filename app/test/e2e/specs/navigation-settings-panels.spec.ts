@@ -52,15 +52,15 @@ const PANELS: PanelCheck[] = [
   },
   {
     // N2.3 — the v1 memory data panel is gone; the slug redirects to the
-    // Memory page's Files chip (/connections?tab=brain&brain=brain).
+    // Memory page's Brain chip (/connections?tab=brain&brain=brain).
     hash: '/settings/memory-data',
-    markers: ['Files', 'Memory', 'Provider'],
+    markers: ['Documents', 'Memory', 'Engine'],
   },
   {
     // N2.4 — intelligence moved into the Memory page (the legacy /brain and
     // /settings/intelligence routes redirect to /connections?tab=brain).
     hash: '/brain',
-    markers: ['Memory', 'Provider', 'Conversations'],
+    markers: ['Memory', 'Engine', 'Ask'],
   },
   {
     // N2.5 — developer options

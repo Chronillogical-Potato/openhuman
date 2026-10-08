@@ -54,8 +54,9 @@ const ROUTES: RouteCheck[] = [
     markers: ['Notifications', 'Alerts', 'Notification', 'No notifications'],
   },
   { hash: '/settings', markers: ['Settings', 'Account', 'Billing', 'Advanced'] },
-  // Memory page (Connections → Memory, v2). Chips: Provider, Conversations, Files.
-  { hash: '/connections?tab=brain', markers: ['Provider', 'Conversations', 'Files', 'Memory'] },
+  // Memory page (Connections → Memory, v2). Chips: Engine, Ask, Learnings,
+  // Conversations, Documents, Context.
+  { hash: '/connections?tab=brain', markers: ['Engine', 'Ask', 'Documents', 'Memory'] },
   {
     hash: '/home',
     markers: [

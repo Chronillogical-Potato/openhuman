@@ -2,23 +2,31 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { callCoreRpc } from '../coreRpcClient';
 import {
-  DOCUMENT_SOURCE_KINDS,
   isMemoryOn,
   memoryAgentsList,
+  memoryBrainForget,
   memoryBrainIngest,
+  memoryBrainSearch,
+  memoryBrainSources,
   memoryEngineGet,
   memoryEngineSet,
   memoryEnginesList,
   memoryErrorCode,
   memoryErrorMessage,
   memoryFetch,
+  memoryForget,
   memoryImportRetryFailed,
   memoryImportScan,
   memoryImportStart,
   memoryImportStatus,
   memoryItemsList,
+  memoryJobsList,
+  memoryJobsRun,
+  memoryLearn,
+  memoryPackPreview,
   memoryPolicyGet,
   memoryPolicySet,
+  memoryRecall,
   memorySourcesAdd,
   memorySourcesList,
   memorySourcesRemove,
@@ -46,11 +54,24 @@ describe('memoryApi wire calls', () => {
       { engine: 'cortexdb', endpoint: 'https://x', api_key: 'k' },
     ],
     [
+      'recall',
+      () => memoryRecall({ question: 'q', filter: { kinds: ['learning'] } }),
+      'openhuman.memory_recall',
+      { question: 'q', filter: { kinds: ['learning'] } },
+    ],
+    [
       'fetch drops undefined params',
       () => memoryFetch({ query: 'q', mode: undefined, limit: 5 }),
       'openhuman.memory_fetch',
       { query: 'q', limit: 5 },
     ],
+    [
+      'learn',
+      () => memoryLearn({ text: 't', kind: 'fact' }),
+      'openhuman.memory_learn',
+      { text: 't', kind: 'fact' },
+    ],
+    ['forget', () => memoryForget(['a', 'b']), 'openhuman.memory_forget', { ids: ['a', 'b'] }],
     [
       'items list',
       () => memoryItemsList({ filter: { kinds: ['learning'] }, limit: 20, cursor: 'c' }),
@@ -84,13 +105,36 @@ describe('memoryApi wire calls', () => {
       'openhuman.memory_policy_set',
       { log_conversations: false, budget_tokens: 2000 },
     ],
+    ['pack preview session', () => memoryPackPreview(), 'openhuman.memory_pack_preview', {}],
+    [
+      'pack preview turn drops undefined params',
+      () => memoryPackPreview({ query: 'q', agent_id: undefined }),
+      'openhuman.memory_pack_preview',
+      { query: 'q' },
+    ],
     ['agents list', () => memoryAgentsList(), 'openhuman.memory_agents_list', {}],
+    ['brain sources', () => memoryBrainSources(), 'openhuman.memory_brain_sources', {}],
+    [
+      'brain search',
+      () => memoryBrainSearch({ query: 'q', source: 'pdf', limit: 10 }),
+      'openhuman.memory_brain_search',
+      { query: 'q', source: 'pdf', limit: 10 },
+    ],
     [
       'brain ingest',
       () => memoryBrainIngest({ text: 'hello', title: 'Note' }),
       'openhuman.memory_brain_ingest',
       { text: 'hello', title: 'Note' },
     ],
+    [
+      'brain forget',
+      () => memoryBrainForget('notion'),
+      'openhuman.memory_brain_forget',
+      { source: 'notion' },
+    ],
+    ['jobs list', () => memoryJobsList(), 'openhuman.memory_jobs_list', {}],
+    ['jobs run all', () => memoryJobsRun(), 'openhuman.memory_jobs_run', {}],
+    ['jobs run one', () => memoryJobsRun('j1'), 'openhuman.memory_jobs_run', { id: 'j1' }],
     ['import scan', () => memoryImportScan(), 'openhuman.memory_import_scan', {}],
     [
       'import start always sends consent',
@@ -113,12 +157,6 @@ describe('memoryApi wire calls', () => {
   });
 });
 
-describe('document source kinds', () => {
-  it('offers only folder and file', () => {
-    expect(DOCUMENT_SOURCE_KINDS).toEqual(['folder', 'file']);
-  });
-});
-
 describe('memoryApi responses', () => {
   it('returns the payload as-is', async () => {
     const state = { engine: 'tinyhumans', has_key: false, status: 'ok', fetch_modes: ['hybrid'] };
@@ -127,13 +165,13 @@ describe('memoryApi responses', () => {
   });
 
   it('unwraps the { result, logs } controller envelope', async () => {
-    rpc.mockResolvedValue({ result: { sources: [] }, logs: ['x'] });
-    await expect(memorySourcesList()).resolves.toEqual({ sources: [] });
+    rpc.mockResolvedValue({ result: { forgotten: 2 }, logs: ['x'] });
+    await expect(memoryForget(['a'])).resolves.toEqual({ forgotten: 2 });
   });
 
   it('rethrows RPC failures', async () => {
     rpc.mockRejectedValue(new Error('MEMORY_OFF: no engine'));
-    await expect(memoryFetch({ query: 'q' })).rejects.toThrow('MEMORY_OFF');
+    await expect(memoryRecall({ question: 'q' })).rejects.toThrow('MEMORY_OFF');
   });
 });
 

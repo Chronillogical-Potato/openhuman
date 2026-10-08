@@ -3,33 +3,43 @@
  * deep links working. Shared by the page and the `/brain` redirect.
  */
 
-export type MemoryChip = 'engine' | 'conversations' | 'brain';
+export type MemoryChip =
+  | 'engine'
+  | 'migration'
+  | 'ask'
+  | 'explorer'
+  | 'learnings'
+  | 'conversations'
+  | 'brain'
+  | 'background'
+  | 'settings';
 
-export const MEMORY_CHIPS: readonly MemoryChip[] = ['engine', 'conversations', 'brain'];
+export const MEMORY_CHIPS: readonly MemoryChip[] = [
+  'engine',
+  'migration',
+  'ask',
+  'explorer',
+  'learnings',
+  'conversations',
+  'brain',
+  'background',
+  'settings',
+];
 
 /**
- * Retired chips → their current home. The page keeps three tabs: Provider
- * (`engine`), Conversations and Files (`brain`). Importing and migrating old
- * memory (`migration`) and every way of managing documents (`documents`,
- * `sources`, `sync`, `history`) live on Files; every other retired chip
- * (ask, explorer, learnings, background, settings, v1's graph, goals and
- * context) lands on Conversations, the closest surviving view of what memory
- * holds and how it is filled.
+ * Retired chips → their current home. v1's graph and goals were ways of
+ * asking what memory knows, and so was the context.md brief (its successor,
+ * the memory pack, is previewed on Ask); v1's sources, sync and history and
+ * v2's Documents chip all became the shared Brain.
  */
 const LEGACY_CHIPS: Record<string, MemoryChip> = {
-  migration: 'brain',
+  graph: 'ask',
+  goals: 'ask',
+  context: 'ask',
   documents: 'brain',
   sources: 'brain',
   sync: 'brain',
   history: 'brain',
-  ask: 'conversations',
-  explorer: 'conversations',
-  learnings: 'conversations',
-  background: 'conversations',
-  settings: 'conversations',
-  graph: 'conversations',
-  goals: 'conversations',
-  context: 'conversations',
 };
 
 /** Resolve a raw `?brain=` value to a chip, or `null` when it names none. */

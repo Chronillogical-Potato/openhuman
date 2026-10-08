@@ -36,7 +36,14 @@ function fixtures() {
   mockSources.mockResolvedValue({
     sources: [
       { id: 's1', kind: 'folder', target: '/notes', label: 'Inbox', status: 'syncing', items: 3 },
-      { id: 's2', kind: 'file', target: '/notes/todo.md', label: '', status: 'idle', items: 0 },
+      {
+        id: 's2',
+        kind: 'rss',
+        target: 'https://example.com/feed',
+        label: '',
+        status: 'idle',
+        items: 0,
+      },
     ],
   });
 }
@@ -64,7 +71,7 @@ describe('useBackgroundActivity', () => {
     });
     expect(result.current.memory.providers).toEqual([
       { provider: 'Inbox', freshness: 'active' },
-      { provider: '/notes/todo.md', freshness: 'idle' },
+      { provider: 'https://example.com/feed', freshness: 'idle' },
     ]);
   });
 

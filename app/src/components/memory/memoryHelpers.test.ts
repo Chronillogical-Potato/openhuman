@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { MEMORY_CHIPS, resolveMemoryChip } from './memoryChips';
 import {
   fill,
   formatScore,
@@ -10,6 +11,31 @@ import {
 } from './memoryFormat';
 
 const t = (key: string) => key;
+
+describe('resolveMemoryChip', () => {
+  it('passes every v2 chip through', () => {
+    for (const chip of MEMORY_CHIPS) expect(resolveMemoryChip(chip)).toBe(chip);
+  });
+
+  it('maps v1 sub-tabs', () => {
+    expect(resolveMemoryChip('graph')).toBe('ask');
+    expect(resolveMemoryChip('goals')).toBe('ask');
+    expect(resolveMemoryChip('sources')).toBe('brain');
+    expect(resolveMemoryChip('sync')).toBe('brain');
+    expect(resolveMemoryChip('history')).toBe('brain');
+  });
+
+  it('maps retired v2 chips', () => {
+    expect(resolveMemoryChip('documents')).toBe('brain');
+    expect(resolveMemoryChip('context')).toBe('ask');
+  });
+
+  it('returns null for nothing or an unknown value', () => {
+    expect(resolveMemoryChip(null)).toBeNull();
+    expect(resolveMemoryChip('')).toBeNull();
+    expect(resolveMemoryChip('welcome')).toBeNull();
+  });
+});
 
 describe('memoryFormat', () => {
   it('fills every placeholder occurrence', () => {

@@ -27,11 +27,11 @@ const NOTES: Source = {
 };
 const FEED: Source = {
   id: 's2',
-  kind: 'file',
-  target: '/Users/me/missing.md',
+  kind: 'rss',
+  target: 'https://example.com/feed.xml',
   label: '',
   status: 'error',
-  error: 'file not found',
+  error: 'feed returned 404',
   items: 0,
 };
 
@@ -52,7 +52,7 @@ describe('MemorySyncedSources', () => {
     expect(notes).toHaveTextContent('Every 60 min');
     expect(notes).toHaveTextContent('Last synced');
     expect(screen.getByTestId('memory-source-s2-status')).toHaveTextContent('Error');
-    expect(screen.getByTestId('memory-source-s2-error')).toHaveTextContent('file not found');
+    expect(screen.getByTestId('memory-source-s2-error')).toHaveTextContent('feed returned 404');
     expect(screen.getByTestId('memory-source-s2')).toHaveTextContent('Never synced');
   });
 
@@ -88,35 +88,23 @@ describe('MemorySyncedSources', () => {
     await waitFor(() => expect(screen.queryByTestId('memory-add-source')).not.toBeInTheDocument());
   });
 
-  it('offers only folder and file as source types', async () => {
+  it('adds a GitHub source and keeps the dialog open on failure', async () => {
+    hoisted.add.mockRejectedValue(new Error('INVALID_REQUEST: repo not found'));
     renderWithProviders(<MemorySyncedSources />);
     fireEvent.click(await screen.findByTestId('memory-sources-add'));
-    const kind = screen.getByTestId('memory-add-source-kind');
-    const options = Array.from(kind.querySelectorAll('option')).map(o => o.getAttribute('value'));
-    expect(options).toEqual(['folder', 'file']);
+    fireEvent.change(screen.getByTestId('memory-add-source-kind'), { target: { value: 'github' } });
     expect(screen.getByTestId('memory-add-source-target')).toHaveAttribute(
       'placeholder',
-      '/path/to/folder'
-    );
-  });
-
-  it('adds a file source and keeps the dialog open on failure', async () => {
-    hoisted.add.mockRejectedValue(new Error('INVALID_REQUEST: file not found'));
-    renderWithProviders(<MemorySyncedSources />);
-    fireEvent.click(await screen.findByTestId('memory-sources-add'));
-    fireEvent.change(screen.getByTestId('memory-add-source-kind'), { target: { value: 'file' } });
-    expect(screen.getByTestId('memory-add-source-target')).toHaveAttribute(
-      'placeholder',
-      '/path/to/file.md'
+      'owner/repo'
     );
     fireEvent.change(screen.getByTestId('memory-add-source-target'), {
-      target: { value: '/docs/missing.md' },
+      target: { value: 'acme/missing' },
     });
     fireEvent.click(screen.getByTestId('memory-add-source-submit'));
     expect(await screen.findByTestId('memory-add-source-error')).toHaveTextContent(
-      'file not found'
+      'repo not found'
     );
-    expect(hoisted.add).toHaveBeenCalledWith({ kind: 'file', target: '/docs/missing.md' });
+    expect(hoisted.add).toHaveBeenCalledWith({ kind: 'github', target: 'acme/missing' });
   });
 
   it('prompts a top-up in the add dialog when the account is out of credits', async () => {
