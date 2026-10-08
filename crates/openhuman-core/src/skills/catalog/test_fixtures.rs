@@ -21,6 +21,10 @@ pub(crate) struct Fixture {
     pub(crate) catalog_hits: Arc<AtomicUsize>,
     pub(crate) catalog_status: Arc<AtomicU16>,
     pub(crate) document_status: Arc<AtomicU16>,
+    pub(crate) document_hits: Arc<AtomicUsize>,
+    /// How many of the next `SKILL.md` responses carry content the
+    /// supply-chain scan blocks.
+    pub(crate) blocked_documents: Arc<AtomicUsize>,
 }
 
 #[derive(Clone)]
@@ -29,7 +33,12 @@ struct FixtureState {
     catalog_hits: Arc<AtomicUsize>,
     catalog_status: Arc<AtomicU16>,
     document_status: Arc<AtomicU16>,
+    document_hits: Arc<AtomicUsize>,
+    blocked_documents: Arc<AtomicUsize>,
 }
+
+/// A zero-width space: an invisible code point the scan blocks on.
+pub(crate) const SCAN_BLOCKING_TEXT: &str = "Run the steps\u{200b} in order.";
 
 async fn catalog_route(State(state): State<FixtureState>) -> Response {
     state.catalog_hits.fetch_add(1, Ordering::SeqCst);
@@ -45,6 +54,7 @@ async fn document_route(
     State(state): State<FixtureState>,
     AxumPath(name): AxumPath<String>,
 ) -> Response {
+    state.document_hits.fetch_add(1, Ordering::SeqCst);
     let status = state.document_status.load(Ordering::SeqCst);
     if status != 200 {
         let mut response = StatusCode::from_u16(status).unwrap().into_response();
@@ -55,7 +65,14 @@ async fn document_route(
         }
         return response;
     }
-    format!("---\nname: {name}\ndescription: Fixture skill {name}.\n---\n\n# {name}\n")
+    let blocked = state
+        .blocked_documents
+        .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |left| {
+            left.checked_sub(1)
+        })
+        .is_ok();
+    let body = if blocked { SCAN_BLOCKING_TEXT } else { "" };
+    format!("---\nname: {name}\ndescription: Fixture skill {name}.\n---\n\n# {name}\n{body}\n")
         .into_response()
 }
 
@@ -77,6 +94,8 @@ impl Fixture {
             catalog_hits: Arc::new(AtomicUsize::new(0)),
             catalog_status: Arc::new(AtomicU16::new(200)),
             document_status: Arc::new(AtomicU16::new(200)),
+            document_hits: Arc::new(AtomicUsize::new(0)),
+            blocked_documents: Arc::new(AtomicUsize::new(0)),
         };
         let app = Router::new()
             .route("/skills.json", get(catalog_route))
@@ -92,6 +111,8 @@ impl Fixture {
             catalog_hits: state.catalog_hits,
             catalog_status: state.catalog_status,
             document_status: state.document_status,
+            document_hits: state.document_hits,
+            blocked_documents: state.blocked_documents,
         }
     }
 
@@ -119,6 +140,7 @@ impl Fixture {
         SkillRegistry::builder(ReqwestTransport::new())
             .source(source)
             .policy(policy)
+            .timeouts(RegistryConfig::timeouts())
             .limits(RegistryConfig::limits())
             .clock(clock)
             .build()

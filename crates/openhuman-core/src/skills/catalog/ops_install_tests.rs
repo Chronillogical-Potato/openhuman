@@ -143,4 +143,148 @@ async fn a_throttled_document_host_reports_rate_limiting() {
         "{message}"
     );
     assert!(message.contains("42s"), "{message}");
+    assert_eq!(
+        fixture.document_hits.load(Ordering::SeqCst),
+        1,
+        "a throttled host is not hit again at once"
+    );
+}
+
+fn installed_skill(home: &std::path::Path, slug: &str) -> std::path::PathBuf {
+    home.join(".openhuman/skills").join(slug).join("SKILL.md")
+}
+
+#[tokio::test]
+async fn a_scan_block_is_retried_once_and_a_clean_retry_installs() {
+    let fixture = Fixture::start(vec![hermes_item("flaky-scan", "built-in")]).await;
+    fixture.blocked_documents.store(1, Ordering::SeqCst);
+    let home = tempfile::tempdir().unwrap();
+
+    let outcome = install_from_catalog_in(
+        &fixture.registry(),
+        home.path(),
+        Some(home.path()),
+        "flaky-scan",
+        ScanAcknowledgement::Absent,
+    )
+    .await
+    .expect("install");
+
+    assert_eq!(outcome.status(), "installed");
+    assert_eq!(fixture.document_hits.load(Ordering::SeqCst), 2);
+    let written = std::fs::read_to_string(installed_skill(home.path(), "flaky-scan")).unwrap();
+    assert!(
+        !written.contains('\u{200b}'),
+        "the clean retry is what lands"
+    );
+}
+
+#[tokio::test]
+async fn a_document_that_still_blocks_is_not_installed() {
+    let fixture = Fixture::start(vec![hermes_item("poisoned", "built-in")]).await;
+    fixture
+        .blocked_documents
+        .store(usize::MAX, Ordering::SeqCst);
+    let home = tempfile::tempdir().unwrap();
+
+    let outcome = install_from_catalog_in(
+        &fixture.registry(),
+        home.path(),
+        Some(home.path()),
+        "poisoned",
+        ScanAcknowledgement::Absent,
+    )
+    .await
+    .expect("a scan block is an outcome, not an error");
+
+    let SkillInstallOutcome::ScanBlocked(blocked) = outcome else {
+        panic!("expected scan_blocked, got {outcome:?}");
+    };
+    assert_eq!(fixture.document_hits.load(Ordering::SeqCst), 2, "one retry");
+    assert_eq!(blocked.target, "poisoned");
+    assert_eq!(blocked.slug, "poisoned");
+    assert!(blocked.findings.iter().any(|finding| finding.check
+        == tinyskills::ScanCheck::InvisibleCodePoints
+        && finding.verdict == tinyskills::Verdict::Block));
+    assert!(
+        blocked.message.contains("not installed"),
+        "{}",
+        blocked.message
+    );
+    assert!(!installed_skill(home.path(), "poisoned").exists());
+}
+
+#[tokio::test]
+async fn an_acknowledged_install_writes_the_blocked_document() {
+    let fixture = Fixture::start(vec![hermes_item("acknowledged", "built-in")]).await;
+    fixture
+        .blocked_documents
+        .store(usize::MAX, Ordering::SeqCst);
+    let home = tempfile::tempdir().unwrap();
+
+    let outcome = install_from_catalog_in(
+        &fixture.registry(),
+        home.path(),
+        Some(home.path()),
+        "acknowledged",
+        ScanAcknowledgement::ByUser,
+    )
+    .await
+    .expect("install")
+    .installed()
+    .expect("the user acknowledged the findings");
+
+    assert_eq!(outcome.new_skills, ["acknowledged"]);
+    assert_eq!(
+        fixture.document_hits.load(Ordering::SeqCst),
+        1,
+        "an acknowledged install does not refetch"
+    );
+    let written = std::fs::read_to_string(installed_skill(home.path(), "acknowledged")).unwrap();
+    assert!(written.contains('\u{200b}'));
+}
+
+#[tokio::test]
+async fn a_failed_document_fetch_is_retried_once() {
+    let fixture = Fixture::start(vec![hermes_item("down", "built-in")]).await;
+    fixture.document_status.store(503, Ordering::SeqCst);
+    let home = tempfile::tempdir().unwrap();
+
+    let error = install_from_catalog_in(
+        &fixture.registry(),
+        home.path(),
+        Some(home.path()),
+        "down",
+        ScanAcknowledgement::Absent,
+    )
+    .await
+    .expect_err("the host stays down");
+
+    assert_eq!(error.kind(), Some(RegistryErrorKind::Unavailable));
+    assert_eq!(fixture.document_hits.load(Ordering::SeqCst), 2);
+}
+
+#[tokio::test]
+async fn the_install_retry_does_not_refetch_a_catalog_in_cooldown() {
+    let fixture = Fixture::start(vec![hermes_item("cold", "built-in")]).await;
+    fixture.catalog_status.store(503, Ordering::SeqCst);
+    let home = tempfile::tempdir().unwrap();
+
+    let error = install_from_catalog_in(
+        &fixture.registry(),
+        home.path(),
+        Some(home.path()),
+        "cold",
+        ScanAcknowledgement::Absent,
+    )
+    .await
+    .expect_err("no catalog to locate the entry in");
+
+    assert_eq!(error.kind(), Some(RegistryErrorKind::Unavailable));
+    assert_eq!(
+        fixture.catalog_hits.load(Ordering::SeqCst),
+        1,
+        "the retry answers from the cooldown instead of refetching"
+    );
+    assert_eq!(fixture.document_hits.load(Ordering::SeqCst), 0);
 }
