@@ -520,3 +520,7 @@ pub fn proxy_for_mcp() -> Option<McpProxyConfig> {
 #[cfg(test)]
 #[path = "host_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "host_agent_tests.rs"]
+mod agent_tests;
