@@ -1306,3 +1306,7 @@ fn outcome_to_host(
 fn map_lifecycle_error(error: SubagentError) -> SubagentRunError {
     SubagentRunError::Provider(anyhow::anyhow!(error.to_string()))
 }
+
+#[cfg(test)]
+#[path = "lifecycle_agent_tests.rs"]
+mod agent_tests;
