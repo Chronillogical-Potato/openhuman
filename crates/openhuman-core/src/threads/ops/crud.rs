@@ -399,6 +399,29 @@ pub async fn thread_delete(
     run_to_completion("thread_delete", thread_delete_inner(dir, request)).await
 }
 
+/// Forgets the deleted thread's conversation memory, for good. Memory off
+/// (signed out) or a failed forget queues the deletion for the next sign-in
+/// (`memory::deletion`) instead of failing the delete: the thread itself is
+/// already gone.
+async fn forget_thread_memory(dir: &std::path::Path, thread_id: &str) {
+    let config = match Config::load_or_init().await {
+        Ok(config) => config,
+        Err(error) => {
+            log::warn!("[threads] thread_delete: config unavailable for memory forget: {error}");
+            // Still queued against the workspace the thread lived in.
+            crate::memory::deletion::enqueue(
+                dir,
+                crate::memory::deletion::PendingDeletion::Thread {
+                    thread_id: thread_id.to_string(),
+                },
+            );
+            return;
+        }
+    };
+    let forgotten = crate::memory::deletion::forget_thread(&config, thread_id).await;
+    log::debug!("[threads] thread_delete thread_id={thread_id} memory_items_forgotten={forgotten}");
+}
+
 async fn thread_delete_inner(
     dir: PathBuf,
     request: DeleteConversationThreadRequest,
@@ -438,12 +461,13 @@ async fn thread_delete_inner(
     // mirrors conversation-derived state) remains on disk; the
     // thread row itself is already gone at this point so the caller
     // sees a partial failure they can act on instead of silent drift.
-    turn_state::store::delete(dir, &request.thread_id).map_err(|err| {
+    turn_state::store::delete(dir.clone(), &request.thread_id).map_err(|err| {
         format!(
             "thread {} deleted but turn-snapshot cleanup failed: {err}",
             request.thread_id
         )
     })?;
+    forget_thread_memory(&dir, &request.thread_id).await;
     Ok(envelope(
         DeleteConversationThreadResponse { deleted },
         None,
