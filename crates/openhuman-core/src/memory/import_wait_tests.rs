@@ -94,6 +94,10 @@ async fn batches_are_stored_accepted_and_the_last_waited_for_once() {
         ],
         "one accepted batch, then the visible wait for it"
     );
+    assert!(
+        !listed_unconfirmed(&config.workspace_dir),
+        "a confirmed wait leaves whole-scope cleanup allowed"
+    );
 }
 
 /// The end-of-import wait is best-effort: a listing that never catches up
@@ -123,5 +127,9 @@ async fn a_last_batch_never_listed_still_finishes_the_import() {
             .all(|wait| *wait == tinymemory_api::WaitFor::Visible)
             && waits.len() > 2,
         "the final wait was retried, then given up: {waits:?}"
+    );
+    assert!(
+        listed_unconfirmed(&config.workspace_dir),
+        "an unconfirmed wait is recorded for the migration's cleanup"
     );
 }
