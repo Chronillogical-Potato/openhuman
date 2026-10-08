@@ -158,8 +158,11 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
       })
       .catch(err => {
         // A transient failure must not hide the move for good: try again.
+        // Meanwhile what is left to move is unknown, so offer nothing (a run
+        // that just ended may have moved it all).
         mlog('scan failed: %o', err);
         if (!cancelled) {
+          setMScan(null);
           retry = setTimeout(rescanMove, MIGRATION_IDLE_POLL_MS);
         }
       });
@@ -173,18 +176,24 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   // One status request at a time: a slow answer must not land after, and
   // overwrite, a newer one.
   const mPolling = useRef(false);
+  // Bumped by a start or retry: a poll asked before it answers for an older
+  // state, and is dropped.
+  const mStatusGen = useRef(0);
   const mPoll = useCallback(async () => {
     if (mPolling.current) return;
     mPolling.current = true;
+    const gen = mStatusGen.current;
     try {
       const next = await memoryMigrationStatus();
+      if (gen !== mStatusGen.current) return;
       setMStatus(next);
       // A run just ended: whether anything is still left to move changed.
       if (wasMoving.current && !next.running) rescanMove();
       wasMoving.current = next.running;
     } catch (err) {
       mlog('status failed: %o', err);
-      setError(memoryErrorMessage(err, t));
+      // A failure of a poll a start or retry made obsolete is dropped too.
+      if (gen === mStatusGen.current) setError(memoryErrorMessage(err, t));
     } finally {
       mPolling.current = false;
     }
@@ -208,8 +217,13 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
     async (takeover: boolean) => {
       setMBusy(true);
       setError(null);
+      mStatusGen.current += 1;
       try {
-        const next = await memoryMigrationStart(takeover);
+        // Bumped again when the start answers: a poll asked while it was in
+        // flight may have read the state from before the move began.
+        const next = await memoryMigrationStart(takeover).finally(() => {
+          mStatusGen.current += 1;
+        });
         mlog('start: takeover=%s phase=%s running=%s', takeover, next.state.phase, next.running);
         setMStatus(next);
       } catch (err) {
@@ -226,9 +240,14 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   const retryMove = async () => {
     setMBusy(true);
     setError(null);
+    mStatusGen.current += 1;
     try {
       await memoryMigrationRetry();
-      setMStatus(await memoryMigrationStart(false));
+      setMStatus(
+        await memoryMigrationStart(false).finally(() => {
+          mStatusGen.current += 1;
+        })
+      );
     } catch (err) {
       mlog('retry failed: %o', err);
       setError(memoryErrorMessage(err, t));
