@@ -45,7 +45,7 @@ const LEGACY_LIMIT_ENTRIES = [
   // a follow-up without reintroducing an old harness/session exception.
   ["crates/openhuman-core/src/agent/session_host/builder/factory.rs", 986],
   ["crates/openhuman-core/src/agent/subagent_host/lifecycle.rs", 1309],
-  ["crates/openhuman-core/src/agent/subagent_host/ops/runner.rs", 1152],
+  ["crates/openhuman-core/src/agent/subagent_host/ops/runner.rs", 1150],
   ["crates/openhuman-core/src/tools/ops.rs", 1209],
   ["crates/openhuman-core/src/web_chat/progress_bridge.rs", 1304],
   // These established external test modules grew with upstream coverage. Pin
