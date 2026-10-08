@@ -303,16 +303,19 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   };
 
   const importDone = state?.phase === 'done';
+  const importWasRunning = useRef(false);
   // The core starts the move when the import finishes: look again, since the
   // read at mount may have found nothing to move before the import landed.
   useEffect(() => {
     if (importDone) {
-      // The answer from before the import no longer applies: hide it until
-      // the post-import read answers.
-      setMoveKnown(false);
+      // An import seen finishing: the move answer from before it no longer
+      // applies, so hide it until the post-import read answers. (A state that
+      // was already done at mount is covered by the read the mount started.)
+      if (importWasRunning.current) setMoveKnown(false);
       rescanMove();
     }
-  }, [importDone, rescanMove]);
+    importWasRunning.current = running;
+  }, [importDone, running, rescanMove]);
 
   const mState = mStatus?.state;
   const left = (mState?.failures?.length ?? 0) + (mState?.incomplete?.length ?? 0);
