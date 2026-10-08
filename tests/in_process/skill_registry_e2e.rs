@@ -52,6 +52,7 @@ struct FixtureState {
     catalog_hits: Arc<AtomicUsize>,
     offline: Arc<AtomicBool>,
     scan_blocked: Arc<AtomicBool>,
+    blocked_variant: Arc<AtomicUsize>,
     document_hits: Arc<AtomicUsize>,
 }
 
@@ -111,7 +112,11 @@ async fn catalog(State(state): State<FixtureState>) -> Response {
 async fn skill_md(State(state): State<FixtureState>) -> String {
     state.document_hits.fetch_add(1, Ordering::SeqCst);
     if state.scan_blocked.load(Ordering::SeqCst) {
-        return GIT_HELPER_SKILL_MD.replace("report the result", "report\u{200b} the result");
+        let variant = state.blocked_variant.load(Ordering::SeqCst);
+        return GIT_HELPER_SKILL_MD.replace(
+            "report the result",
+            &format!("report\u{200b} the result ({variant})"),
+        );
     }
     GIT_HELPER_SKILL_MD.to_owned()
 }
@@ -568,7 +573,9 @@ async fn skill_registry_e2e_serves_the_held_catalog_when_the_upstream_fails() {
 
 /// A `SKILL.md` the supply-chain scan blocks is fetched twice, refused with
 /// `status: "scan_blocked"` and its findings, and installed only when the
-/// call carries `acknowledge_scan_findings`. The pasted-URL install takes the
+/// call carries that document's digest as `acknowledged_digest`; a digest for
+/// a document that has since changed is refused afresh. The pasted-URL install
+/// takes the
 /// same gate.
 #[tokio::test]
 async fn skill_registry_e2e_refuses_a_scan_blocked_install_until_acknowledged() {
@@ -607,22 +614,40 @@ async fn skill_registry_e2e_refuses_a_scan_blocked_install_until_acknowledged() 
     );
     assert!(!skill_file.exists(), "a blocked document is not written");
 
-    let declined = post_json_rpc(
+    let digest = blocked["digest"].as_str().expect("digest").to_owned();
+    assert!(!digest.is_empty());
+
+    let wrong = post_json_rpc(
         rpc_base,
         9302,
         "openhuman.skill_registry_install",
-        json!({ "entry_id": "git-helper", "acknowledge_scan_findings": false }),
+        json!({ "entry_id": "git-helper", "acknowledged_digest": "not-the-digest" }),
     )
     .await;
-    let declined = assert_no_jsonrpc_error(&declined, "install (not acknowledged)");
-    assert_eq!(declined["status"], "scan_blocked");
+    let wrong = assert_no_jsonrpc_error(&wrong, "install (wrong digest)");
+    assert_eq!(wrong["status"], "scan_blocked");
+    assert_eq!(wrong["digest"], json!(digest));
     assert!(!skill_file.exists());
 
-    let acknowledged = post_json_rpc(
+    stack.fixture.blocked_variant.store(1, Ordering::SeqCst);
+    let changed = post_json_rpc(
         rpc_base,
         9303,
         "openhuman.skill_registry_install",
-        json!({ "entry_id": "git-helper", "acknowledge_scan_findings": true }),
+        json!({ "entry_id": "git-helper", "acknowledged_digest": digest }),
+    )
+    .await;
+    let changed = assert_no_jsonrpc_error(&changed, "install (document changed)");
+    assert_eq!(changed["status"], "scan_blocked", "{changed}");
+    let fresh_digest = changed["digest"].as_str().expect("digest").to_owned();
+    assert_ne!(fresh_digest, digest, "the refusal names the changed document");
+    assert!(!skill_file.exists(), "a stale acknowledgement installs nothing");
+
+    let acknowledged = post_json_rpc(
+        rpc_base,
+        9304,
+        "openhuman.skill_registry_install",
+        json!({ "entry_id": "git-helper", "acknowledged_digest": fresh_digest }),
     )
     .await;
     let acknowledged = assert_no_jsonrpc_error(&acknowledged, "install (acknowledged)");
@@ -632,7 +657,7 @@ async fn skill_registry_e2e_refuses_a_scan_blocked_install_until_acknowledged() 
 
     let uninstall = post_json_rpc(
         rpc_base,
-        9304,
+        9305,
         "openhuman.skill_registry_uninstall",
         json!({ "name": "git-helper" }),
     )
@@ -642,7 +667,7 @@ async fn skill_registry_e2e_refuses_a_scan_blocked_install_until_acknowledged() 
     let url = format!("{}/skills/git-helper/SKILL.md", stack.fixture_base);
     let url_blocked = post_json_rpc(
         rpc_base,
-        9305,
+        9306,
         "openhuman.skills_install_from_url",
         json!({ "url": url }),
     )
@@ -650,12 +675,13 @@ async fn skill_registry_e2e_refuses_a_scan_blocked_install_until_acknowledged() 
     let url_blocked = assert_no_jsonrpc_error(&url_blocked, "install_from_url (scan blocked)");
     assert_eq!(url_blocked["status"], "scan_blocked", "{url_blocked}");
     assert!(!skill_file.exists());
+    let url_digest = url_blocked["digest"].as_str().expect("digest").to_owned();
 
     let url_acknowledged = post_json_rpc(
         rpc_base,
-        9306,
+        9307,
         "openhuman.skills_install_from_url",
-        json!({ "url": url, "acknowledge_scan_findings": true }),
+        json!({ "url": url, "acknowledged_digest": url_digest }),
     )
     .await;
     let url_acknowledged =
