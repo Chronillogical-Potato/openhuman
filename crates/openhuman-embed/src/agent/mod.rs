@@ -76,6 +76,11 @@ pub enum AgentError {
     /// A spec input could not be honoured.
     #[error("{0}")]
     Invalid(String),
+
+    /// The id names a built-in agent definition (`orchestrator`, `planner`,
+    /// …), which the delegation catalogue would resolve instead of this agent.
+    #[error("agent id {0:?} is reserved for a built-in agent definition")]
+    ReservedId(String),
 }
 
 /// The assembled state behind an [`Agent`], shared by every clone of it and
