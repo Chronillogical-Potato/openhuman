@@ -13,7 +13,7 @@ call; see [Module boundary](#module-boundary) below.
 ## Responsibilities
 
 - List toolkits, connections, agent-ready toolkits, and a local capability matrix.
-- Begin OAuth handoffs (`authorize`) and delete connections (with optional cleanup of the memory synced through that connection).
+- Begin OAuth handoffs (`authorize`) and delete connections.
 - Discover Composio action tool schemas (`list_tools`) and execute actions (`execute`), mode-aware over the backend/direct split.
 - Manage triggers: list available/active, create, enable, disable, plus a persistent trigger-event history archive.
 - Fetch normalized per-toolkit user profiles, persist connected identities through the `tinyconnectors` module.
@@ -24,7 +24,7 @@ call; see [Module boundary](#module-boundary) below.
 
 ## Module boundary
 
-Every Composio operation (profile fetch, action execution, connection sync)
+Every Composio operation (profile fetch, action execution)
 now lives in the `tinyconnectors` module, loaded through `crate::modules`
 behind the `modules` feature. `module_client.rs` is the single `#[cfg]`
 switch for this: rather than feature-gating each of a dozen handlers
