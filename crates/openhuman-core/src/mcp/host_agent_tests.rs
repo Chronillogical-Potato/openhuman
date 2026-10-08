@@ -56,3 +56,23 @@ async fn the_ambient_service_under_an_agent_is_that_agents_host() {
     let outside = for_config(&config).expect("the workspace host opens");
     assert!(!Arc::ptr_eq(&ambient, &outside));
 }
+
+#[tokio::test]
+async fn an_evicted_agent_host_is_reopened_fresh() {
+    let temporary = tempfile::tempdir().expect("tempdir");
+    let config = workspace_config(temporary.path());
+
+    let first = CoreContext::scope(agent_context(&config, "delta"), async {
+        for_config(&config).expect("delta's host opens")
+    })
+    .await;
+    let taken = take_agent_host(temporary.path(), "delta").expect("delta had a host");
+    assert!(Arc::ptr_eq(&first, &taken));
+    assert!(take_agent_host(temporary.path(), "delta").is_none());
+
+    let reopened = CoreContext::scope(agent_context(&config, "delta"), async {
+        for_config(&config).expect("delta's host reopens")
+    })
+    .await;
+    assert!(!Arc::ptr_eq(&first, &reopened));
+}

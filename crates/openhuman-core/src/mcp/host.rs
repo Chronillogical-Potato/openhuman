@@ -278,6 +278,20 @@ pub fn try_service() -> Option<Arc<McpHost>> {
     resolve(DEFAULT_WORKSPACE.get().map(PathBuf::as_path), &hosts)
 }
 
+/// Removes the host of agent `agent_id` on `workspace_dir` from the open set
+/// and hands it back, so the caller can close its connections. `None` when
+/// the agent never opened one.
+pub fn take_agent_host(workspace_dir: &Path, agent_id: &str) -> Option<Arc<McpHost>> {
+    let key = workspace_dir.join("agents").join(agent_id);
+    let entry = HOSTS
+        .get()?
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .remove(&key)?;
+    tracing::debug!(agent = %agent_id, "[mcp] agent host evicted");
+    Some(entry.host)
+}
+
 /// Where the host for `config` keeps its stores: the workspace, or the
 /// agent's own directory beneath it when an agent context is current.
 fn host_key(config: &Config) -> PathBuf {
