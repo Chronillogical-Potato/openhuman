@@ -266,11 +266,23 @@ async fn a_success_between_failures_clears_the_listed_calls() {
     let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
     let report = tinytools::render_command_failure(Some(1), "", "boom");
     for i in 0..2 {
-        run_shell(&mw, &format!("a-{i}"), "false-a", failing_result("shell", &report)).await;
+        run_shell(
+            &mw,
+            &format!("a-{i}"),
+            "false-a",
+            failing_result("shell", &report),
+        )
+        .await;
     }
     run_shell(&mw, "ok", "true", TaToolResult::success("fine")).await;
     for i in 0..3 {
-        run_shell(&mw, &format!("b-{i}"), "false-b", failing_result("shell", &report)).await;
+        run_shell(
+            &mw,
+            &format!("b-{i}"),
+            "false-b",
+            failing_result("shell", &report),
+        )
+        .await;
     }
     let summary = slot
         .lock()
@@ -298,7 +310,10 @@ async fn listed_calls_carry_no_query_strings_or_secrets() {
     let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
     // Built here, not written as a literal: a key-shaped literal in source
     // trips secret scanners, and the scrubber only sees the runtime string.
-    let fake_key = format!("sk-ant-{}{}", "abcdefghijklmnopqrstuvwxyz0123456789", "ABCDEF");
+    let fake_key = format!(
+        "sk-ant-{}{}",
+        "abcdefghijklmnopqrstuvwxyz0123456789", "ABCDEF"
+    );
     run_shell(
         &mw,
         "key-0",
@@ -360,18 +375,49 @@ async fn six_different_failing_commands_are_investigation_not_a_loop() {
     let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
     let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
     let attempts = [
-        ("pip install fasttext", exit_report(1, "", "RuntimeError: Unsupported compiler")),
-        ("pip install fasttext-wheel", exit_report(1, "", "No matching distribution")),
-        ("g++ --version", exit_report(127, "", "g++: command not found")),
-        ("cat /etc/os-release; which cc gcc clang", exit_report(2, "Debian 12", "")),
-        ("python -c 'import setuptools.build_meta'", exit_report(1, "", "BackendUnavailable")),
-        ("apt-get install -y g++", exit_report(100, "", "E: Unable to locate package")),
-        ("pip download fasttext --no-deps", exit_report(1, "", "network unreachable")),
+        (
+            "pip install fasttext",
+            exit_report(1, "", "RuntimeError: Unsupported compiler"),
+        ),
+        (
+            "pip install fasttext-wheel",
+            exit_report(1, "", "No matching distribution"),
+        ),
+        (
+            "g++ --version",
+            exit_report(127, "", "g++: command not found"),
+        ),
+        (
+            "cat /etc/os-release; which cc gcc clang",
+            exit_report(2, "Debian 12", ""),
+        ),
+        (
+            "python -c 'import setuptools.build_meta'",
+            exit_report(1, "", "BackendUnavailable"),
+        ),
+        (
+            "apt-get install -y g++",
+            exit_report(100, "", "E: Unable to locate package"),
+        ),
+        (
+            "pip download fasttext --no-deps",
+            exit_report(1, "", "network unreachable"),
+        ),
     ];
     for (i, (command, report)) in attempts.iter().enumerate() {
-        run_shell(&mw, &format!("probe-{i}"), command, failing_result("shell", report)).await;
+        run_shell(
+            &mw,
+            &format!("probe-{i}"),
+            command,
+            failing_result("shell", report),
+        )
+        .await;
     }
-    assert_eq!(drain_pause_count(&handle), 0, "distinct failing commands never halt");
+    assert_eq!(
+        drain_pause_count(&handle),
+        0,
+        "distinct failing commands never halt"
+    );
     assert!(slot.lock().unwrap().is_none(), "no halt summary");
 }
 
@@ -385,11 +431,18 @@ async fn the_same_failing_command_three_times_still_halts() {
             &mw,
             &format!("same-{i}"),
             "pip install fasttext",
-            failing_result("shell", &exit_report(1, "", "RuntimeError: Unsupported compiler")),
+            failing_result(
+                "shell",
+                &exit_report(1, "", "RuntimeError: Unsupported compiler"),
+            ),
         )
         .await;
     }
-    assert_eq!(drain_pause_count(&handle), 1, "an identical failing command still trips the ladder");
+    assert_eq!(
+        drain_pause_count(&handle),
+        1,
+        "an identical failing command still trips the ladder"
+    );
     let summary = slot.lock().unwrap().clone().unwrap();
     assert!(summary.contains("pip install fasttext"), "{summary}");
 }
@@ -402,10 +455,108 @@ async fn a_different_command_between_repeats_resets_the_identical_count() {
     let same = || failing_result("shell", &exit_report(1, "", "boom"));
     run_shell(&mw, "a-1", "make", same()).await;
     run_shell(&mw, "a-2", "make", same()).await;
-    run_shell(&mw, "b-1", "ls build/", failing_result("shell", &exit_report(2, "", "No such file"))).await;
+    run_shell(
+        &mw,
+        "b-1",
+        "ls build/",
+        failing_result("shell", &exit_report(2, "", "No such file")),
+    )
+    .await;
     run_shell(&mw, "a-3", "make", same()).await;
     run_shell(&mw, "a-4", "make", same()).await;
-    assert_eq!(drain_pause_count(&handle), 0, "the streak restarted after `ls build/`");
+    assert_eq!(
+        drain_pause_count(&handle),
+        0,
+        "the streak restarted after `ls build/`"
+    );
     run_shell(&mw, "a-5", "make", same()).await;
-    assert_eq!(drain_pause_count(&handle), 1, "three identical failures in a row halt");
+    assert_eq!(
+        drain_pause_count(&handle),
+        1,
+        "three identical failures in a row halt"
+    );
+}
+
+/// The first error line a halt summary carries is scrubbed like the rendered
+/// call: a program that prints a key on stderr does not get it persisted.
+#[tokio::test]
+async fn a_halt_summary_never_carries_a_secret_printed_on_stderr() {
+    let handle = SteeringHandle::allow_all();
+    let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
+    let fake_key = format!(
+        "sk-ant-{}{}",
+        "abcdefghijklmnopqrstuvwxyz0123456789", "ABCDEF"
+    );
+    for i in 0..6 {
+        let id = format!("leak-{i}");
+        let mut call = TaToolCall::new(
+            &id,
+            "web_fetch",
+            json!({ "url": format!("https://example.test/q{i}") }),
+        );
+        mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
+        let mut result = failing_result(
+            "web_fetch",
+            &format!("boom (debug header x-api-key: {fake_key}, attempt {i})"),
+        );
+        mw.after_tool(&mut ctx(), &(), &invocation(&id, "web_fetch"), &mut result)
+            .await
+            .unwrap();
+    }
+    let summary = slot
+        .lock()
+        .unwrap()
+        .clone()
+        .expect("six varied failures halt");
+    assert!(
+        !summary.contains("abcdefghijklmnopqrstuvwxyz0123456789"),
+        "the key on stderr is scrubbed from the error line: {summary}"
+    );
+    assert!(
+        summary.contains("boom"),
+        "the error itself is still named: {summary}"
+    );
+}
+
+/// A query is cut from a URL wherever the URL sits in an argument: after
+/// `url=`, after a verb, inside prose, not only at the start of a word.
+#[tokio::test]
+async fn queries_are_cut_from_urls_anywhere_in_an_argument() {
+    let handle = SteeringHandle::allow_all();
+    let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
+    run_shell(
+        &mw,
+        "c-0",
+        "curl url=https://example.test/a?q=zzz0 -o out",
+        failing_result("shell", "boom"),
+    )
+    .await;
+    for i in 1..6 {
+        let id = format!("f-{i}");
+        let mut call = TaToolCall::new(
+            &id,
+            "web_fetch",
+            json!({ "url": format!("https://example.test/p{i}"), "source": format!("GET https://example.test/p{i}?q=zzz{i} then parse") }),
+        );
+        mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
+        let mut result = failing_result("web_fetch", "boom");
+        mw.after_tool(&mut ctx(), &(), &invocation(&id, "web_fetch"), &mut result)
+            .await
+            .unwrap();
+    }
+    let summary = slot
+        .lock()
+        .unwrap()
+        .clone()
+        .expect("six varied failures halt");
+    assert!(
+        !summary.contains("token=zzz"),
+        "no query survives: {summary}"
+    );
+    assert!(
+        summary.contains("https://example.test/p1") && summary.contains("then parse"),
+        "host, path and the surrounding text remain: {summary}"
+    );
 }

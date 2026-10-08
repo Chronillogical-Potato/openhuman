@@ -118,6 +118,10 @@ impl RepeatedToolFailureMiddleware {
             .lock()
             .map(|failures| failures.clone())
             .unwrap_or_default();
+        // The crate's summary quotes the last error as the tool returned it;
+        // the whole text is read by the model and persisted with the session,
+        // so it is scrubbed here, at the one place every halt passes through.
+        let summary = crate::security::scrub::sanitize_text(&summary).value;
         with_failing_calls(summary, &failures)
     }
 
@@ -235,28 +239,44 @@ fn render_call(tool: &str, arguments: &serde_json::Value) -> String {
         None if arguments.is_null() => tool.to_owned(),
         None => strip_url_queries(&crate::security::approval::redact_args(arguments)).to_string(),
     };
-    let without_queries = raw
-        .split_whitespace()
-        .map(|word| {
-            let core = word.trim_start_matches(['\'', '"', '(', '<']);
-            if core.starts_with("http://") || core.starts_with("https://") {
-                word.split(['?', '#']).next().unwrap_or(word).to_owned()
-            } else {
-                word.to_owned()
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(" ");
+    let without_queries = cut_url_queries(&raw);
     let scrubbed = crate::security::scrub::sanitize_text(&without_queries).value;
     crate::util::truncate_with_ellipsis(&scrubbed, RENDERED_CALL_CHARS).to_string()
+}
+
+/// `text` with every URL in it cut at its query or fragment, wherever the URL
+/// sits: at the start of a word, after `url=` or a quote, inside prose or a
+/// JSON string. The URL ends at the first whitespace or closing quote, bracket
+/// or parenthesis; what follows the `?` or `#` up to that end is dropped.
+fn cut_url_queries(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    loop {
+        let Some(pos) = ["https://", "http://"]
+            .iter()
+            .filter_map(|scheme| rest.find(scheme))
+            .min()
+        else {
+            out.push_str(rest);
+            return out;
+        };
+        let (before, from_scheme) = rest.split_at(pos);
+        out.push_str(before);
+        let end = from_scheme
+            .find(|c: char| c.is_whitespace() || matches!(c, '\'' | '"' | ')' | ']' | '>' | '}'))
+            .unwrap_or(from_scheme.len());
+        let (url, tail) = from_scheme.split_at(end);
+        out.push_str(url.split(['?', '#']).next().unwrap_or(url));
+        rest = tail;
+    }
 }
 
 /// `value` with every URL-shaped string cut at its query or fragment.
 fn strip_url_queries(value: &serde_json::Value) -> serde_json::Value {
     use serde_json::Value;
     match value {
-        Value::String(s) if s.starts_with("http://") || s.starts_with("https://") => {
-            Value::String(s.split(['?', '#']).next().unwrap_or(s).to_owned())
+        Value::String(s) if s.contains("http://") || s.contains("https://") => {
+            Value::String(cut_url_queries(s))
         }
         Value::Array(items) => Value::Array(items.iter().map(strip_url_queries).collect()),
         Value::Object(map) => Value::Object(
@@ -271,6 +291,11 @@ fn strip_url_queries(value: &serde_json::Value) -> serde_json::Value {
 /// The first line of a failure, plus the first stderr line when the text is a
 /// command exit report -- that is where a program's own reason tends to be.
 fn first_error_line(text: &str) -> String {
+    // The line is read by the model and persisted with the session in a halt
+    // summary, so it is scrubbed first: a command can print a token or a
+    // user's own words on stderr.
+    let scrubbed = crate::security::scrub::sanitize_text(text).value;
+    let text = scrubbed.as_str();
     let first = text
         .lines()
         .find(|l| !l.trim().is_empty())
@@ -690,6 +715,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                 "validation",
                 "unavailable",
                 "service_refused",
+                "invalid_arguments",
             ] {
                 self.classified
                     .clear(&ClassifiedFailure::new(class, tool_name, &scope));
@@ -721,6 +747,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                     "missing_window"
                         | "missing_app"
                         | "validation"
+                        | "invalid_arguments"
                         | "uncertain_side_effect"
                         | "unavailable"
                         | "service_refused"
@@ -731,6 +758,10 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                             first_error_line(&failure_text)
                         ),
                         "validation" => "The last call failed validation. Correct its schema or arguments once before trying again.".to_owned(),
+                        "invalid_arguments" => format!(
+                            "The `{tool_name}` call was rejected before it ran: its arguments did not match the tool's schema ({}). Read the tool's parameters and correct the call; do not resend it unchanged.",
+                            first_error_line(&failure_text)
+                        ),
                         "uncertain_side_effect" => "The last command timed out and was killed; it may have partly run. Check its effect before repeating anything, then retry at most once as a smaller, bounded step (fewer items per call, a per-item timeout such as `timeout 5`, or background it and poll).".to_owned(),
                         "unavailable" => format!("The `{tool_name}` tool is unavailable for the rest of this run: a module it needs failed to load and will not recover until the app restarts. Do not call `{tool_name}` again; continue with your other tools."),
                         _ => "The desktop target was not found. Rediscover the current app and window once before trying again.".to_owned(),
@@ -864,7 +895,9 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         let same_command_again = exit_report && {
             let key = format!("{tool_name}\u{1f}{arg_fp}");
             let mut last = self.last_exit_report.lock().ok();
-            let repeat = last.as_deref().is_some_and(|l| l.as_deref() == Some(key.as_str()));
+            let repeat = last
+                .as_deref()
+                .is_some_and(|l| l.as_deref() == Some(key.as_str()));
             if let Some(slot) = last.as_mut() {
                 **slot = Some(key);
             }

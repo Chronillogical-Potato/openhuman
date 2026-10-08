@@ -279,24 +279,43 @@ async fn a_refused_integration_steers_the_model_off_it_instead_of_ending_the_run
             );
             mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
             let mut result = failing_result("web_search_tool", refused);
-            mw.after_tool(&mut ctx(), &(), &invocation(id, "web_search_tool"), &mut result)
-                .await
-                .unwrap();
+            mw.after_tool(
+                &mut ctx(),
+                &(),
+                &invocation(id, "web_search_tool"),
+                &mut result,
+            )
+            .await
+            .unwrap();
         }
     };
 
     run("ws-1", "regex chess move generator").await;
-    assert_eq!(drain_pause_count(&handle), 0, "a refused connector must not halt");
+    assert_eq!(
+        drain_pause_count(&handle),
+        0,
+        "a refused connector must not halt"
+    );
     assert!(slot.lock().unwrap().is_none(), "no halt summary");
     let nudges = mw.take_pending_nudges();
     assert_eq!(nudges.len(), 1, "{nudges:?}");
-    assert!(nudges[0].contains("`web_search_tool` tool cannot be used"), "{nudges:?}");
+    assert!(
+        nudges[0].contains("`web_search_tool` tool cannot be used"),
+        "{nudges:?}"
+    );
     assert!(nudges[0].contains("HTTP 401"), "{nudges:?}");
-    assert!(nudges[0].contains("continue with your other tools"), "{nudges:?}");
+    assert!(
+        nudges[0].contains("continue with your other tools"),
+        "{nudges:?}"
+    );
 
     // The model insists on the same operation: now the ledger stops it.
     run("ws-2", "regex chess move generator").await;
-    assert_eq!(drain_pause_count(&handle), 1, "a second refusal of the same operation halts");
+    assert_eq!(
+        drain_pause_count(&handle),
+        1,
+        "a second refusal of the same operation halts"
+    );
     let summary = slot.lock().unwrap().clone().unwrap();
     assert!(summary.contains("service_refused"), "{summary}");
 }
@@ -315,11 +334,21 @@ async fn a_refused_platform_fetch_still_stops_on_first_failure() {
     );
     mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
     let mut result = failing_result("web_fetch", "401 Unauthorized");
-    mw.after_tool(&mut ctx(), &(), &invocation("fetch-1", "web_fetch"), &mut result)
-        .await
-        .unwrap();
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("fetch-1", "web_fetch"),
+        &mut result,
+    )
+    .await
+    .unwrap();
     assert_eq!(drain_pause_count(&handle), 1);
-    assert!(slot.lock().unwrap().clone().unwrap().contains("authentication"));
+    assert!(slot
+        .lock()
+        .unwrap()
+        .clone()
+        .unwrap()
+        .contains("authentication"));
 }
 
 /// A shell success in between clears the ledger, so a later, unrelated timeout
@@ -480,9 +509,14 @@ async fn a_missing_file_from_any_tool_is_a_correctable_call() {
     );
     mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
     let mut result = failing_result("use_skill", error);
-    mw.after_tool(&mut ctx(), &(), &invocation("skill-1", "use_skill"), &mut result)
-        .await
-        .unwrap();
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("skill-1", "use_skill"),
+        &mut result,
+    )
+    .await
+    .unwrap();
     assert_eq!(drain_pause_count(&handle), 0, "one wrong path never halts");
     assert!(slot.lock().unwrap().is_none());
 }
@@ -768,11 +802,18 @@ async fn a_credentialed_endpoint_is_steered_off_then_stopped() {
         FETCH_403,
     )
     .await;
-    assert_eq!(drain_pause_count(&handle), 0, "first refusal steers, not stops");
+    assert_eq!(
+        drain_pause_count(&handle),
+        0,
+        "first refusal steers, not stops"
+    );
     assert!(slot.lock().unwrap().is_none());
     let nudges = mw.take_pending_nudges();
     assert_eq!(nudges.len(), 1, "{nudges:?}");
-    assert!(nudges[0].contains("`composio_execute` tool cannot be used"), "{nudges:?}");
+    assert!(
+        nudges[0].contains("`composio_execute` tool cannot be used"),
+        "{nudges:?}"
+    );
     fail_call(
         &mw,
         "cred-2",
@@ -781,7 +822,11 @@ async fn a_credentialed_endpoint_is_steered_off_then_stopped() {
         FETCH_403,
     )
     .await;
-    assert_eq!(drain_pause_count(&handle), 1, "the same refused operation again stops");
+    assert_eq!(
+        drain_pause_count(&handle),
+        1,
+        "the same refused operation again stops"
+    );
     let summary = slot.lock().unwrap().clone().unwrap();
     assert!(summary.contains("service_refused"), "{summary}");
 }
@@ -867,4 +912,54 @@ fn fetched_site_status_reads_only_the_web_fetch_error_shape() {
     ] {
         assert_eq!(status(text), None, "{text}");
     }
+}
+
+/// Schema rejections are counted per turn of trouble, not per run: a success
+/// between them restarts the count, and the first rejection comes back with a
+/// correction nudge that names the tool and quotes the rejection.
+#[tokio::test]
+async fn a_success_clears_the_invalid_arguments_count_and_a_rejection_is_nudged() {
+    let handle = SteeringHandle::allow_all();
+    let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 8, slot.clone());
+    async fn reject(mw: &RepeatedToolFailureMiddleware, id: &str) {
+        let mut call = TaToolCall::new(id, "search", serde_json::json!({"query": 1}));
+        mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
+        let mut result =
+            failing_result("search", "schema validation failed: query must be a string");
+        mw.after_tool(&mut ctx(), &(), &invocation(id, "search"), &mut result)
+            .await
+            .unwrap();
+    }
+    reject(&mw, "r-1").await;
+    let nudges = mw.take_pending_nudges();
+    assert!(
+        nudges
+            .iter()
+            .any(|n| n.contains("`search` call was rejected") && n.contains("schema")),
+        "a rejection is nudged with the tool's name and the rejection: {nudges:?}"
+    );
+    reject(&mw, "r-2").await;
+    reject(&mw, "r-3").await;
+    let mut ok = TaToolCall::new("ok", "search", serde_json::json!({"query": "fine"}));
+    mw.before_tool(&mut ctx(), &(), &mut ok).await.unwrap();
+    let mut success = TaToolResult::success("hits");
+    mw.after_tool(&mut ctx(), &(), &invocation("ok", "search"), &mut success)
+        .await
+        .unwrap();
+    reject(&mw, "r-4").await;
+    reject(&mw, "r-5").await;
+    reject(&mw, "r-6").await;
+    assert_eq!(
+        drain_pause_count(&handle),
+        0,
+        "the success restarted the count: three more rejections stay inside the budget"
+    );
+    assert!(slot.lock().unwrap().is_none());
+    reject(&mw, "r-7").await;
+    assert_eq!(
+        drain_pause_count(&handle),
+        1,
+        "the fourth since the success stops"
+    );
 }
