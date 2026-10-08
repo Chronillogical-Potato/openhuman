@@ -388,3 +388,6 @@ impl Tool for MemoryTool {
 #[path = "tools_tests.rs"]
 mod tests;
 
+#[cfg(test)]
+#[path = "tools_agent_tests.rs"]
+mod agent_tests;
