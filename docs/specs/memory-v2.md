@@ -230,6 +230,7 @@ memory.
 | `memory_fetch` | `{query, mode?, filter?, limit?, cursor?}` | `{hits: Hit[], next_cursor?}` |
 | `memory_learn` | `{text, kind?, confidence?, meta?}` | `{id}` |
 | `memory_forget` | `{ids, reach?}` | `{forgotten}` |
+| `memory_erase_all` | `{confirm: true}` | `{erased_scopes}`; erases everything the bound engine holds, for good. Hosted: one `DELETE /memory`, the account's entire hosted memory. Direct: every kind scope of the bound layout; a shared legacy tree is left alone |
 | `memory_items_list` | `{filter?, limit?, cursor?, path?}` | `{items: Hit[], next_cursor?}` |
 | `memory_explore` | `{facet, path?, filter?, limit?, scan_limit?}` | `{facet, buckets: {value, count}[], total, missing, more_buckets, truncated}` |
 | `memory_items_get` | `{ids, reach?}` | `{items: Hit[]}` |
