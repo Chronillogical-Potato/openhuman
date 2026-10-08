@@ -715,6 +715,15 @@ export function memoryForget(ids: string[]): Promise<{ forgotten: number }> {
   return call<{ forgotten: number }>(CORE_RPC_METHODS.memoryForget, { ids });
 }
 
+/**
+ * Erase the user's entire memory, for good: every source, conversation and
+ * fact the bound engine holds for this account. The core refuses without
+ * `confirm: true`, so the interlock is always sent explicitly here.
+ */
+export function memoryEraseAll(): Promise<{ erased_scopes: number }> {
+  return call<{ erased_scopes: number }>(CORE_RPC_METHODS.memoryEraseAll, { confirm: true });
+}
+
 export function memoryItemsList(req: ItemsListRequest = {}): Promise<ItemsPage> {
   return call<ItemsPage>(CORE_RPC_METHODS.memoryItemsList, req);
 }

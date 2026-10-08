@@ -198,6 +198,21 @@ pub struct ForgetView {
     pub forgotten: usize,
 }
 
+/// `memory_erase_all` params.
+#[derive(Debug, Clone, Deserialize)]
+pub struct EraseAllParams {
+    /// Must be `true`: an interlock, because nothing erased comes back.
+    #[serde(default)]
+    pub confirm: bool,
+}
+
+/// `memory_erase_all` result.
+#[derive(Debug, Clone, Serialize)]
+pub struct EraseAllView {
+    /// How many of the engine's scopes (kind stores) were erased.
+    pub erased_scopes: usize,
+}
+
 /// `memory_items_list` params.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct ItemsListParams {

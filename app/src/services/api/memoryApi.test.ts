@@ -11,6 +11,7 @@ import {
   memoryEngineGet,
   memoryEngineSet,
   memoryEnginesList,
+  memoryEraseAll,
   memoryErrorCode,
   memoryErrorMessage,
   memoryFetch,
@@ -72,6 +73,7 @@ describe('memoryApi wire calls', () => {
       { text: 't', kind: 'fact' },
     ],
     ['forget', () => memoryForget(['a', 'b']), 'openhuman.memory_forget', { ids: ['a', 'b'] }],
+    ['erase all', () => memoryEraseAll(), 'openhuman.memory_erase_all', { confirm: true }],
     [
       'items list',
       () => memoryItemsList({ filter: { kinds: ['learning'] }, limit: 20, cursor: 'c' }),

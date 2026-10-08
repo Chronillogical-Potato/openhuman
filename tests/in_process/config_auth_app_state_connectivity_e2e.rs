@@ -1880,6 +1880,7 @@ async fn worker_a_controller_schemas_are_fully_exposed() {
                 "openhuman.memory_engine_get",
                 "openhuman.memory_engine_set",
                 "openhuman.memory_engines_list",
+                "openhuman.memory_erase_all",
                 "openhuman.memory_explore",
                 "openhuman.memory_fetch",
                 "openhuman.memory_forget",

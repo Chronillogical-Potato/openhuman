@@ -366,3 +366,42 @@ async fn fetch_refuses_a_mode_the_engine_does_not_declare() {
     .unwrap_err();
     assert_eq!(error.code(), UNSUPPORTED);
 }
+
+#[tokio::test]
+async fn erase_all_needs_its_confirmation() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    learn(&config, learn_params("a fact"), None).await.unwrap();
+    let error = erase_all(&config, EraseAllParams { confirm: false })
+        .await
+        .unwrap_err();
+    assert_eq!(error.code(), INVALID_REQUEST);
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 1);
+}
+
+#[tokio::test]
+async fn erase_all_erases_everything_the_engine_holds() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    learn(&config, learn_params("a fact"), None).await.unwrap();
+    learn(&config, learn_params("another fact"), None)
+        .await
+        .unwrap();
+    let view = erase_all(&config, EraseAllParams { confirm: true })
+        .await
+        .unwrap();
+    assert!(view.erased_scopes >= 1, "{view:?}");
+    assert!(stored(&engine, MetaFilter::default()).await.is_empty());
+}
+
+#[tokio::test]
+async fn erase_all_reports_memory_off_without_an_engine() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let error = erase_all(&config, EraseAllParams { confirm: true })
+        .await
+        .unwrap_err();
+    assert_eq!(error.code(), MEMORY_OFF);
+}
