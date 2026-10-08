@@ -164,7 +164,9 @@ fn check_is_a_harness_instruction_that_names_the_spec_rules() {
         "exact interface the request names",
         "allowed or forbidden elements where a list is given",
         "state the measured value",
-        "stop exploring and stop polishing",
+        "stop exploring and",
+        "Once every check the contract names passes",
+        "named test still failing or never run",
     ] {
         assert!(check.contains(needle), "check must mention `{needle}`");
     }

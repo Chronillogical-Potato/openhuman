@@ -58,8 +58,10 @@ will be judged: the exact path, file name, command line, port or format, and the
 allowed or forbidden elements where a list is given. A check through a copied helper, a \
 scratch launcher, a different entry point or a metric of your own is a debugging signal, \
 not proof. Where the request states a number or a reference to meet, measure against that \
-and state the measured value. Once the check through the real interface passes, that state \
-is the result: stop exploring and stop polishing.\n\
+and state the measured value. Once every check the contract names passes, the named tests, \
+verifier script or reference tool included, that state is the result: stop exploring and \
+stop polishing. One passing check through the real interface is not the whole contract; a \
+named test still failing or never run means you are not done.\n\
 7. Leave the result as requested, not as your checks left it: remove what your checks \
 created that the request did not ask for (build outputs, compiled binaries, scratch and \
 test files), especially next to the deliverable, then confirm that what remains is exactly \
