@@ -1,6 +1,6 @@
 use tinyagents_orchestration::subagent::{
-    PersistedSubagentPause, SubagentOutcome, SubagentPause, SubagentPausePersistenceDisposition,
-    SubagentPersistence, SubagentResume, SubagentStatus, SubagentTaskKey,
+    PersistedSubagentPause, SubagentOutcome, SubagentOutcomeKind, SubagentPause,
+    SubagentPausePersistenceDisposition, SubagentPersistence, SubagentResume, SubagentTaskKey,
 };
 
 use super::lifecycle::{
@@ -22,7 +22,7 @@ fn paused_outcome(question: &str, resume: SubagentResume) -> SubagentOutcome {
         task_id: "task".into(),
         output: "partial result".into(),
         history: resume.history.clone(),
-        status: SubagentStatus::AwaitingInput(SubagentPause {
+        status: SubagentOutcomeKind::AwaitingInput(SubagentPause {
             reason: question.into(),
             resume,
         }),
@@ -133,10 +133,10 @@ async fn persistence_inserts_one_terminal_and_returns_the_durable_winner() {
     let persistence = OpenHumanPersistence::new(directory.path().to_path_buf());
     let key = key();
     let mut winner = SubagentOutcome::cancelled("task");
-    winner.status = SubagentStatus::Completed;
+    winner.status = SubagentOutcomeKind::Completed;
     winner.output = "winner".into();
     let mut loser = SubagentOutcome::cancelled("task");
-    loser.status = SubagentStatus::Completed;
+    loser.status = SubagentOutcomeKind::Completed;
     loser.output = "loser".into();
 
     assert_eq!(
@@ -196,7 +196,7 @@ async fn continuation_replaces_only_the_pause_it_loaded_and_stale_duplicate_gets
     let winner = persistence.load_pause(&key).await.unwrap().unwrap();
     assert!(matches!(
         winner.status,
-        SubagentStatus::AwaitingInput(SubagentPause { ref reason, .. })
+        SubagentOutcomeKind::AwaitingInput(SubagentPause { ref reason, .. })
             if reason == "replacement question"
     ));
 }
@@ -224,7 +224,7 @@ async fn task_id_index_retains_scoped_collisions_and_terminal_does_not_reopen_pa
     assert!(load_subagent_checkpoint(directory.path(), "task").is_err());
 
     let mut terminal = SubagentOutcome::cancelled("task");
-    terminal.status = SubagentStatus::Completed;
+    terminal.status = SubagentOutcomeKind::Completed;
     assert_eq!(
         persistence
             .record_terminal(&first, &terminal, None)
@@ -256,7 +256,7 @@ async fn terminal_and_pause_race_leave_only_one_authoritative_state() {
         std::sync::Arc::new(OpenHumanPersistence::new(directory.path().to_path_buf()));
     let key = key();
     let mut terminal = SubagentOutcome::cancelled("task");
-    terminal.status = SubagentStatus::Completed;
+    terminal.status = SubagentOutcomeKind::Completed;
     let (pause, terminal_write) = tokio::join!(
         persistence.save_pause(persisted_pause(key.clone(), "question", None)),
         persistence.record_terminal(&key, &terminal, None),

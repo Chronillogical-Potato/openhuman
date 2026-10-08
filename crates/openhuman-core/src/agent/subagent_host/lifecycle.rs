@@ -18,9 +18,9 @@ use sha2::{Digest, Sha256};
 use tinyagents_harness::context::{RunConfig, RunContext};
 use tinyagents_orchestration::subagent::{
     ArtifactReference, PreparedSubagent, SubagentCapabilities, SubagentDriver, SubagentError,
-    SubagentExecution, SubagentExecutor, SubagentIncomplete, SubagentOutcome, SubagentPause,
-    SubagentPausePersistenceDisposition, SubagentPlanner, SubagentRequest, SubagentResume,
-    SubagentRunResult, SubagentStatus, SubagentTaskKey, SubagentTerminalPersistenceDisposition,
+    SubagentExecution, SubagentExecutor, SubagentIncomplete, SubagentOutcome, SubagentOutcomeKind,
+    SubagentPause, SubagentPausePersistenceDisposition, SubagentPlanner, SubagentRequest,
+    SubagentResume, SubagentRunResult, SubagentTaskKey, SubagentTerminalPersistenceDisposition,
 };
 use tinyagents_runtime::ToolSnapshot;
 use tinyinference_llm::{
@@ -868,7 +868,7 @@ impl OpenHumanPersistence {
                 .iter()
                 .map(crate::agent::message_convert::chat_message_to_message)
                 .collect(),
-            status: SubagentStatus::AwaitingInput(SubagentPause {
+            status: SubagentOutcomeKind::AwaitingInput(SubagentPause {
                 reason: checkpoint.question,
                 resume,
             }),
@@ -995,7 +995,7 @@ impl tinyagents_orchestration::subagent::SubagentPersistence for OpenHumanPersis
             return Ok(SubagentPausePersistenceDisposition::TerminalExisting);
         }
         let paused = match &pause.outcome.status {
-            SubagentStatus::AwaitingInput(paused) => paused,
+            SubagentOutcomeKind::AwaitingInput(paused) => paused,
             _ => {
                 return Err(SubagentError::Persistence(
                     "attempted to persist a non-paused subagent outcome as a pause".into(),
@@ -1144,9 +1144,9 @@ fn host_outcome_to_neutral(
     options: &SubagentRunOptions,
 ) -> SubagentOutcome {
     let status = match outcome.status {
-        SubagentRunStatus::Completed => SubagentStatus::Completed,
+        SubagentRunStatus::Completed => SubagentOutcomeKind::Completed,
         SubagentRunStatus::AwaitingUser { question, .. } => {
-            SubagentStatus::AwaitingInput(SubagentPause {
+            SubagentOutcomeKind::AwaitingInput(SubagentPause {
                 reason: question,
                 resume: SubagentResume {
                     history: outcome
@@ -1174,9 +1174,9 @@ fn host_outcome_to_neutral(
             })
         }
         SubagentRunStatus::Incomplete { reason } => {
-            SubagentStatus::Incomplete(SubagentIncomplete::new(reason))
+            SubagentOutcomeKind::Incomplete(SubagentIncomplete::new(reason))
         }
-        SubagentRunStatus::Cancelled => SubagentStatus::Cancelled,
+        SubagentRunStatus::Cancelled => SubagentOutcomeKind::Cancelled,
     };
     SubagentOutcome {
         task_id: outcome.task_id,
@@ -1276,18 +1276,18 @@ fn outcome_to_host(
             .collect(),
         persistence_disposition,
     });
-    let is_awaiting_input = matches!(outcome.status, SubagentStatus::AwaitingInput(_));
+    let is_awaiting_input = matches!(outcome.status, SubagentOutcomeKind::AwaitingInput(_));
     let status = match outcome.status {
-        SubagentStatus::Completed => SubagentRunStatus::Completed,
-        SubagentStatus::AwaitingInput(pause) => SubagentRunStatus::AwaitingUser {
+        SubagentOutcomeKind::Completed => SubagentRunStatus::Completed,
+        SubagentOutcomeKind::AwaitingInput(pause) => SubagentRunStatus::AwaitingUser {
             question: pause.reason,
             options: None,
             checkpoint: None,
         },
-        SubagentStatus::Incomplete(incomplete) => SubagentRunStatus::Incomplete {
+        SubagentOutcomeKind::Incomplete(incomplete) => SubagentRunStatus::Incomplete {
             reason: incomplete.reason,
         },
-        SubagentStatus::Cancelled => SubagentRunStatus::Cancelled,
+        SubagentOutcomeKind::Cancelled => SubagentRunStatus::Cancelled,
     };
     host.status = status;
     host.persistence_disposition = persistence_disposition;
