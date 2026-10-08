@@ -215,7 +215,7 @@ pub(crate) fn migrate_search_settings(config: &mut Config) {
 
 /// Migrates legacy v1 `[[memory_sources]]` into `[[memory.sources]]`, once:
 /// only when no v2 source exists yet. Kinds without a v2 equivalent
-/// (`twitter_query`, `conversation`) and disabled entries are dropped. The
+/// (everything but `folder` and `file`, including the removed `web_page`, `github_repo`, `rss_feed` and `composio`) and disabled entries are dropped. The
 /// legacy list is cleared either way, so it is never written back.
 pub(crate) fn migrate_legacy_memory_sources(config: &mut Config) {
     let legacy = std::mem::take(&mut config.legacy_memory_sources);

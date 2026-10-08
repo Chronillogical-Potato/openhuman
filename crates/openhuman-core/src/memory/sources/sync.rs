@@ -1,17 +1,17 @@
 //! Syncing sources into memory.
 //!
-//! Non-Composio sources are read through `tinymemory-sources`' readers
-//! (`collect_items`), which turn each file, page, commit or feed entry into a
-//! `Document` with its metadata filled. Every item is scrubbed and stored on
-//! the bound engine; per-item failures are logged and skipped, not fatal.
-//! Composio sources go through [`super::composio`].
+//! Sources are read through `tinymemory-integrations`' readers
+//! (`collect_items`), which turn each file under a folder, or the one file,
+//! into a `Document` with its metadata filled. Every item is scrubbed and
+//! stored on the bound engine; per-item failures are logged and skipped, not
+//! fatal.
 
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::{LazyLock, Mutex};
 
 use chrono::{DateTime, Utc};
-use tinymemory_integrations::sources::readers::reader_for_request;
+use tinymemory_integrations::sources::readers::reader_for;
 use tinymemory_integrations::sources::{collect_items, MemorySourceEntry, SourceKind};
 
 use crate::config::schema::{MemorySourceConfig, MemorySourceKind};
@@ -28,55 +28,26 @@ use super::state;
 static RUNNING: LazyLock<Mutex<HashSet<(PathBuf, String)>>> =
     LazyLock::new(|| Mutex::new(HashSet::new()));
 
-/// The `tinymemory-sources` entry that reads `source`; `None` for Composio,
-/// which syncs through the connector module instead.
-pub(super) fn reader_entry(source: &MemorySourceConfig) -> MemoryResult<Option<MemorySourceEntry>> {
+/// The `tinymemory-integrations` entry that reads `source`.
+pub(super) fn reader_entry(source: &MemorySourceConfig) -> MemoryResult<MemorySourceEntry> {
     let kind = match source.kind {
         MemorySourceKind::Folder => SourceKind::Folder,
         MemorySourceKind::File => SourceKind::File,
-        MemorySourceKind::Link => SourceKind::WebPage,
-        MemorySourceKind::Github => SourceKind::GithubRepo,
-        MemorySourceKind::Rss => SourceKind::RssFeed,
-        MemorySourceKind::Composio => return Ok(None),
     };
     let mut entry = MemorySourceEntry::new(source.id.clone(), kind, source.label.clone());
-    match source.kind {
-        MemorySourceKind::Folder | MemorySourceKind::File => {
-            entry.path = Some(source.target.clone())
-        }
-        _ => entry.url = Some(source.target.clone()),
-    }
-    apply_kind_defaults(&mut entry);
+    entry.path = Some(source.target.clone());
     entry
         .validate()
         .map_err(|error| MemoryError::invalid(error.to_string()))?;
-    Ok(Some(entry))
-}
-
-/// Fills the per-kind read caps the user did not set: a GitHub repo reads at
-/// most 10 PRs, 10 issues and 50 commits, a feed at most 20 items. How much a
-/// sync pulls is host policy, so it lives here rather than in the readers.
-fn apply_kind_defaults(entry: &mut MemorySourceEntry) {
-    match entry.kind {
-        SourceKind::GithubRepo => {
-            entry.max_prs.get_or_insert(10);
-            entry.max_issues.get_or_insert(10);
-            entry.max_commits.get_or_insert(50);
-        }
-        SourceKind::RssFeed => {
-            entry.max_items.get_or_insert(20);
-        }
-        _ => {}
-    }
+    Ok(entry)
 }
 
 /// Reads `source` and stores what it yields. Returns the number stored.
 pub async fn sync_one(config: &Config, source: &MemorySourceConfig) -> MemoryResult<u64> {
     let bound = engine::resolve(config).engine()?;
-    let Some(entry) = reader_entry(source)? else {
-        return super::composio::sync_toolkit(config, &bound, source).await;
-    };
-    let reader = reader_for_request(&entry.kind);
+    let entry = reader_entry(source)?;
+    let reader = reader_for(&entry.kind)
+        .ok_or_else(|| MemoryError::invalid("no reader for this source kind"))?;
     let collected = collect_items(
         reader.as_ref(),
         &entry,
@@ -109,23 +80,11 @@ pub(crate) async fn store_all(
     config: &Config,
     bound: &BoundEngine,
     items: Vec<tinymemory_api::StoreItem>,
-    source: (crate::config::schema::MemorySourceKind, &str, &str),
-    layout: &tinymemory_tools::MemoryLayout,
-) -> MemoryResult<u64> {
-    let ids = store_all_ids(config, bound, items, source, layout).await?;
-    Ok(ids.iter().flatten().count() as u64)
-}
-
-/// [`store_all`], returning the id each item was stored under, in order
-/// (`None` for an item that failed).
-pub(crate) async fn store_all_ids(
-    config: &Config,
-    bound: &BoundEngine,
-    items: Vec<tinymemory_api::StoreItem>,
     (kind, target, source_id): (crate::config::schema::MemorySourceKind, &str, &str),
     layout: &tinymemory_tools::MemoryLayout,
-) -> MemoryResult<Vec<Option<String>>> {
-    let mut ids = Vec::with_capacity(items.len());
+) -> MemoryResult<u64> {
+    let mut stored = 0u64;
+    let mut failed = 0u64;
     let mut last_error = None;
     let mut touched = std::collections::BTreeSet::new();
     for item in items {
