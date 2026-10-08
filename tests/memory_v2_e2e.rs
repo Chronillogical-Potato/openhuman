@@ -972,9 +972,10 @@ async fn erase_all_needs_confirmation_and_erases_the_whole_hosted_memory() {
     )
     .await;
     let docs_before = f
-        .ok(
+        .ok_until(
             "openhuman.memory_items_list",
             json!({ "filter": { "kinds": ["document"] } }),
+            |v| !ids_of(v, "items").is_empty(),
         )
         .await;
     assert!(
@@ -982,9 +983,10 @@ async fn erase_all_needs_confirmation_and_erases_the_whole_hosted_memory() {
         "the document was stored: {docs_before}"
     );
     let before = f
-        .ok(
+        .ok_until(
             "openhuman.memory_items_list",
             json!({ "filter": { "kinds": ["learning"] } }),
+            |v| ids_of(v, "items").len() == 2,
         )
         .await;
     assert_eq!(ids_of(&before, "items").len(), 2, "{before}");
