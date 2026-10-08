@@ -8,8 +8,8 @@
 
 use chrono::Utc;
 use tinymemory_api::{
-    EraseRequest, FetchRequest, ForgetTarget, ItemId, LearningKind, ListRequest, MemoryMeta, RecallRequest,
-    StoreItem, StoreReceipt, TimeHint, WriteOptions,
+    EraseRequest, FetchRequest, ForgetTarget, ItemId, LearningKind, ListRequest, MemoryMeta,
+    RecallRequest, StoreItem, StoreReceipt, TimeHint, WriteOptions,
 };
 
 use crate::config::Config;
@@ -17,9 +17,9 @@ use crate::config::Config;
 use super::engine::{self, Binding, BoundEngine, CORTEXDB_ENGINE, TINYHUMANS_ENGINE};
 use super::error::{MemoryError, MemoryResult};
 use super::types::{
-    clamp_limit, EngineSetParams, EraseAllParams, EraseAllView, EngineStatus, EngineView, EnginesListView, FetchParams,
-    FetchView, ForgetParams, ForgetView, ItemsListParams, ItemsListView, LearnParams, LearnView,
-    RecallParams, RecallView, RefersTo,
+    clamp_limit, EngineSetParams, EngineStatus, EngineView, EnginesListView, EraseAllParams,
+    EraseAllView, FetchParams, FetchView, ForgetParams, ForgetView, ItemsListParams, ItemsListView,
+    LearnParams, LearnView, RecallParams, RecallView, RefersTo,
 };
 
 /// Default confidence of a learning stored without one.
