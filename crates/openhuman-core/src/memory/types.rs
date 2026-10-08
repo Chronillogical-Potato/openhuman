@@ -198,6 +198,21 @@ pub struct ForgetView {
     pub forgotten: usize,
 }
 
+/// `memory_erase_all` params.
+#[derive(Debug, Clone, Deserialize)]
+pub struct EraseAllParams {
+    /// Must be `true`: an interlock, because nothing erased comes back.
+    #[serde(default)]
+    pub confirm: bool,
+}
+
+/// `memory_erase_all` result.
+#[derive(Debug, Clone, Serialize)]
+pub struct EraseAllView {
+    /// How many of the engine's scopes (kind stores) were erased.
+    pub erased_scopes: usize,
+}
+
 /// `memory_items_list` params.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct ItemsListParams {
@@ -213,6 +228,12 @@ pub struct ItemsListParams {
     /// Explorer path, applied on top of `filter` (see [`super::explore`]).
     #[serde(default)]
     pub path: Vec<super::explore::PathStep>,
+    /// A view that shows a snippet of each item and reads one whole with
+    /// `memory_items_get` when it is opened: a conversation's or chunked
+    /// document's text may then be only its start, which an engine can
+    /// list without assembling each item (`MemoryEngine::list_preview`).
+    #[serde(default)]
+    pub preview: bool,
 }
 
 /// `memory_items_list` result.

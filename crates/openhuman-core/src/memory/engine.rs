@@ -14,9 +14,12 @@
 //! repeated calls reuse one HTTP client.
 //!
 //! **Layout.** Under `[memory] layout = "v3"` the engine keeps everything
-//! below the signed-in person's own scope root (`user:<id>`, see
-//! [`super::scope::user_root`]), registered as owned by them; otherwise the
-//! legacy shared tree. [`bind_with_root`] binds either layout explicitly,
+//! below the signed-in person's own scope root (`org:<id>`, see
+//! [`super::scope::user_root`]): on CortexDB's own API as its root,
+//! registered as owned by their actor `user:<id>`; on the TinyHumans wire as
+//! the tenant root the backend pins, so no root segment is sent. While
+//! `[memory] legacy_user_segment_read` is on, the earlier `user:<id>` root is
+//! read and forgotten as well. Otherwise the legacy shared tree. [`bind_with_root`] binds either layout explicitly,
 //! for the layout migration, which holds both at once.
 //!
 //! An embedding host can bring its own engine instead ([`install_host_engine`]):
@@ -122,6 +125,16 @@ pub(crate) fn install_test_engine(workspace: &std::path::Path, engine: Arc<dyn M
         .insert(workspace.to_path_buf(), engine);
 }
 
+/// Unbinds the test engine of `workspace`, so memory there is off again
+/// (tests only).
+#[cfg(test)]
+pub(crate) fn remove_test_engine(workspace: &std::path::Path) {
+    TEST_ENGINES
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .remove(workspace);
+}
+
 /// Test engines for one layout of a workspace (`None` legacy, `Some(root)`
 /// v3), read by [`bind_with_root`] ahead of everything else, so a test can
 /// hold both layouts at once as the layout migration does.
@@ -218,8 +231,8 @@ pub fn resolve(config: &Config) -> Binding {
 }
 
 /// The engine the layout migration needs, for an explicit layout whatever
-/// `[memory] layout` says: `None` the legacy tree, `Some("user:<id>")` the
-/// person's v3 subtree, with `user:<id>` as its owner. Same endpoint,
+/// `[memory] layout` says: `None` the legacy tree, `Some("org:<id>")` the
+/// person's v3 subtree, with the actor `user:<id>` as its owner. Same endpoint,
 /// credential, headers and scrubbing as [`resolve`]; the two layouts are
 /// cached apart, so both can be held at once.
 ///
@@ -311,15 +324,48 @@ fn off(engine: Option<&str>, endpoint: Option<String>, reason: &str) -> Binding 
     }
 }
 
-/// The engine settings' scope root and owner, and the fingerprint suffix
-/// that keeps each layout's engine apart in the cache.
-fn rooted(settings: EngineSettings, root: Option<&str>) -> (EngineSettings, String) {
-    let settings = EngineSettings {
-        scope_root: root.map(str::to_string),
-        scope_owner: root.map(str::to_string),
-        ..settings
+/// The engine settings' layout for the person's root `root` (`org:<id>`,
+/// `None` the legacy tree), and the fingerprint suffix that keeps each
+/// layout's engine apart in the cache. On the TinyHumans wire (`tenant`)
+/// the root is the tenant's own, pinned by the backend, so none is sent;
+/// on CortexDB's own API it is the root, owned by the actor `user:<id>`.
+/// With `legacy_read`, the earlier `user:<id>` root is still read and
+/// forgotten (never written).
+fn rooted(
+    settings: EngineSettings,
+    root: Option<&str>,
+    tenant: bool,
+    legacy_read: bool,
+) -> (EngineSettings, String) {
+    let Some(root) = root else {
+        return (settings, "|root=legacy".to_string());
     };
-    (settings, format!("|root={}", root.unwrap_or("legacy")))
+    let actor = super::scope::actor_of_root(root);
+    let retired = legacy_read.then(|| actor.clone());
+    let fingerprint = format!(
+        "|root={root}|tenant={tenant}|retired={}",
+        retired.as_deref().unwrap_or("-")
+    );
+    let settings = if tenant {
+        EngineSettings {
+            tenant_root: true,
+            retired_scope_root: retired,
+            ..settings
+        }
+    } else {
+        EngineSettings {
+            scope_root: Some(root.to_string()),
+            scope_owner: Some(actor),
+            retired_scope_root: retired,
+            ..settings
+        }
+    };
+    tracing::debug!(
+        tenant,
+        legacy_read,
+        "[memory:engine] binding layout v3 below the person's org root"
+    );
+    (settings, fingerprint)
 }
 
 fn resolve_tinyhumans(config: &Config, root: Option<&str>) -> Binding {
@@ -362,6 +408,8 @@ fn resolve_tinyhumans(config: &Config, root: Option<&str>) -> Binding {
             ..EngineSettings::default()
         },
         root,
+        true,
+        config.memory.legacy_user_segment_read,
     );
     build_cached(
         TINYHUMANS_ENGINE,
@@ -409,14 +457,21 @@ fn resolve_cortexdb(config: &Config, root: Option<&str>) -> Binding {
             );
         }
     };
-    let fingerprint = format!("{CORTEXDB_ENGINE}|{endpoint}|{}", key_digest(&key));
+    let observed_actor = config.memory.observed_actor;
+    let fingerprint = format!(
+        "{CORTEXDB_ENGINE}|{endpoint}|{}|actor={observed_actor}",
+        key_digest(&key)
+    );
     // A third-party endpoint: no TinyHumans attribution headers.
     let (settings, layout) = rooted(
         EngineSettings {
             endpoint: Some(endpoint),
+            observed_actor,
             ..EngineSettings::default()
         },
         root,
+        false,
+        config.memory.legacy_user_segment_read,
     );
     build_cached(
         CORTEXDB_ENGINE,
@@ -472,8 +527,18 @@ fn key_digest(key: &str) -> String {
         .collect()
 }
 
+/// Held for writing by a test that compares cached engines by identity, and
+/// for reading by [`invalidate`], so another test's invalidation (a layout
+/// switch, a key change) cannot clear the cache between its two binds.
+#[cfg(test)]
+pub(crate) static CACHE_STABLE: RwLock<()> = RwLock::new(());
+
 /// Drops every cached engine, so the next [`resolve`] rebuilds.
 pub fn invalidate() {
+    #[cfg(test)]
+    let _stable = CACHE_STABLE
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     CACHE
         .write()
         .unwrap_or_else(std::sync::PoisonError::into_inner)

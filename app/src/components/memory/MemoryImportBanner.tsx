@@ -10,6 +10,10 @@
  * ("Migrate now") or runs in the background while free. A legacy tree other
  * accounts may share (self-hosted) is only taken after the takeover dialog.
  *
+ * Both steps always show once their scans answer: a step with nothing to do
+ * (nothing found, already imported, already moved, or waiting on the import)
+ * renders disabled with why, so the Migration tab never looks empty.
+ *
  * debug logging: DEBUG=openhuman:memory:import, DEBUG=openhuman:memory:migration
  */
 import debug from 'debug';
@@ -50,6 +54,33 @@ interface MemoryImportBannerProps {
   engineLabel: string;
 }
 
+/** A step with nothing to do: its title, why, and its action, disabled. */
+function DisabledStep({
+  testId,
+  title,
+  body,
+  action,
+}: {
+  testId: string;
+  title: string;
+  body: string;
+  action: string;
+}) {
+  return (
+    <Alert className="opacity-60" aria-disabled="true" data-testid={testId}>
+      <div className="flex w-full flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <AlertTitle>{title}</AlertTitle>
+          <AlertDescription>{body}</AlertDescription>
+        </div>
+        <Button type="button" size="sm" variant="secondary" disabled>
+          {action}
+        </Button>
+      </div>
+    </Alert>
+  );
+}
+
 export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerProps) {
   const { t } = useT();
   const [scan, setScan] = useState<ImportScan | null>(null);
@@ -59,6 +90,9 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   const [error, setError] = useState<string | null>(null);
   // Step 2 waits until step 1's scan has answered, so it never flashes first.
   const [importChecked, setImportChecked] = useState(false);
+  // The scan AND the status both answered. A failed read is unknown, not
+  // "nothing to import", so the empty step stays hidden until both are known.
+  const [importKnown, setImportKnown] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +102,7 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
         log('scan: found=%s phase=%s', found.found, status?.state.phase ?? 'n/a');
         setScan(found);
         if (status && status.state.phase !== 'idle') setState(status.state);
+        setImportKnown(status !== null);
       })
       .catch(err => {
         // A failed scan only hides the offer; it is not worth an error banner.
@@ -143,6 +178,10 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   // import finishes. Bumping it re-runs the read and discards the answer of
   // the one it replaces.
   const [mScanAttempt, setMScanAttempt] = useState(0);
+  // The latest read of what is left to move answered. It is cleared when a
+  // new read starts and stays false after a failed one, so a stale or unknown
+  // answer never shows as an offer or as "already moved".
+  const [moveKnown, setMoveKnown] = useState(false);
   const rescanMove = useCallback(() => setMScanAttempt(n => n + 1), []);
   // Bumped by a start or retry: a read or poll asked before it answers for
   // an older state, and is dropped.
@@ -161,6 +200,7 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
         mlog('scan: needed=%s shared=%s', found?.needed, found?.shared);
         setMScan(found ?? null);
         setMStatus(current ?? null);
+        setMoveKnown(true);
       })
       .catch(err => {
         // A transient failure must not hide the move for good: try again.
@@ -171,6 +211,7 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
         // end reads again.
         if (!cancelled && gen === mStatusGen.current) {
           setMScan(null);
+          setMoveKnown(false);
           retry = setTimeout(rescanMove, MIGRATION_IDLE_POLL_MS);
         }
       });
@@ -205,7 +246,7 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   }, [t, rescanMove]);
 
   const moving = mStatus?.running ?? false;
-  const moveOffered = mScan?.needed ?? false;
+  const moveOffered = moveKnown && (mScan?.needed ?? false);
   useEffect(() => {
     wasMoving.current = moving;
   }, [moving]);
@@ -262,11 +303,19 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   };
 
   const importDone = state?.phase === 'done';
+  const importWasRunning = useRef(false);
   // The core starts the move when the import finishes: look again, since the
   // read at mount may have found nothing to move before the import landed.
   useEffect(() => {
-    if (importDone) rescanMove();
-  }, [importDone, rescanMove]);
+    if (importDone) {
+      // An import seen finishing: the move answer from before it no longer
+      // applies, so hide it until the post-import read answers. (A state that
+      // was already done at mount is covered by the read the mount started.)
+      if (importWasRunning.current) setMoveKnown(false);
+      rescanMove();
+    }
+    importWasRunning.current = running;
+  }, [importDone, running, rescanMove]);
 
   const mState = mStatus?.state;
   const left = (mState?.failures?.length ?? 0) + (mState?.incomplete?.length ?? 0);
@@ -282,7 +331,12 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   const paused = !moving && (mState?.phase === 'paused' || mStatus?.interrupted);
 
   const showOffer = importPending;
-  if (!showOffer && !state && !showMove) return null;
+  // Until the import scan answers, nothing: a disabled step must not flash first.
+  if (!importChecked) return null;
+  // Step 1 renders live when offered, or when its run state is visible below.
+  const importShown =
+    showOffer ||
+    (!!state && state.phase !== 'idle' && !(importDone && showMove && !(state.failed ?? 0)));
 
   const counts = scan?.counts ?? { documents: 0, conversations: 0, learnings: 0 };
   const countsText = fill(t('memoryPage.import.counts'), {
@@ -292,7 +346,16 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   });
 
   return (
-    <div data-testid="memory-import-banner">
+    <div className="space-y-3" data-testid="memory-import-banner">
+      {!importShown && importKnown && (
+        <DisabledStep
+          testId="memory-import-idle"
+          title={importDone ? t('memoryPage.import.done') : t('memoryPage.import.action')}
+          body={importDone ? t('memoryPage.import.doneBody') : t('memoryPage.import.none')}
+          action={t('memoryPage.import.short')}
+        />
+      )}
+
       {showOffer && (
         <Alert variant="info">
           <div className="flex w-full flex-wrap items-center justify-between gap-3">
@@ -451,6 +514,19 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
             </Alert>
           )}
         </div>
+      )}
+
+      {!showMove && moveKnown && (
+        <DisabledStep
+          testId="memory-migration-idle"
+          title={t('memoryPage.migrate.title')}
+          body={
+            importPending || importBusy
+              ? t('memoryPage.migrate.afterImport')
+              : t('memoryPage.migrate.doneBody')
+          }
+          action={t('memoryPage.migrate.action')}
+        />
       )}
 
       {error !== null && (

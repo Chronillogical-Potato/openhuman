@@ -485,9 +485,6 @@ const messages: TranslationMap = {
     'OpenRouter 무료 모델로 전환하지 못했습니다. OpenRouter 로그인을 확인하고 다시 시도하세요.',
   'chat.newThread': '새 스레드',
   'chat.newConversation': '새 대화',
-  'chat.sidebar.searchPlaceholder': '대화 검색',
-  'chat.sidebar.clearSearch': '검색 지우기',
-  'chat.sidebar.noMatches': '일치하는 대화가 없습니다',
   'chat.sidebar.group.pinned': '고정됨',
   'chat.sidebar.group.today': '오늘',
   'chat.sidebar.group.yesterday': '어제',
@@ -722,7 +719,7 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f2': '사용량을 더 오래 쓰기 위한 토큰 압축',
   'onboarding.runtimeChoice.cloud.f3': '하나의 구독으로 모든 모델 포함',
   'onboarding.runtimeChoice.cloud.f4': '관리할 API 키 없음',
-  'onboarding.runtimeChoice.cloud.f5': '간단한 설정',
+  'onboarding.runtimeChoice.cloud.f5': '호스팅 메모리, 관리형 네트워크 서비스',
   'onboarding.runtimeChoice.custom.title': '사용자 지정 실행',
   'onboarding.runtimeChoice.custom.tagline': '직접 키를 가져와 사용 중인 항목을 완전히 제어합니다.',
   'onboarding.runtimeChoice.custom.f1': '거의 모든 기능에 API 키가 필요합니다',
@@ -826,8 +823,7 @@ const messages: TranslationMap = {
     '메모리를 직접 검사, 내보내기 또는 삭제할 수 있습니다. 설정 › 메모리에서 구성할 수 있습니다.',
   'accounts.disconnect': '연결 해제',
   'accounts.disconnectClearMemory': '이 소스의 메모리도 삭제',
-  'accounts.disconnectClearMemoryHint':
-    '이 연결과 연관된 로컬 메모리 조각을 영구적으로 삭제합니다.',
+  'accounts.disconnectClearMemoryHint': '이 연결에서 저장된 메모리를 영구적으로 삭제합니다.',
   'channels.title': '채널',
   'channels.configure': '채널 구성',
   'channels.setup': '설정',
@@ -2006,6 +2002,10 @@ const messages: TranslationMap = {
   'commandPalette.placeholder': '명령을 입력하거나 검색…',
   'commandPalette.searchAria': '명령 검색',
   'commandPalette.title': '명령 팔레트',
+  'commandPalette.group.conversations': '대화',
+  'commandPalette.group.messages': '메시지',
+  'commandPalette.searchingMessages': '메시지 검색 중…',
+  'commandPalette.untitledConversation': '제목 없는 대화',
   'kbd.ariaLabel': '키보드 단축키: {shortcut}',
   'shortcuts.title': '키보드 단축키',
   'shortcuts.subtitle': '이 키보드 단축키로 작업 속도를 높이세요.',
@@ -5003,16 +5003,13 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': '무제한',
   'memoryPage.engine.chip.apikey': '내 CortexDB 키',
   'memoryPage.engine.chip.selfhost': '로컬',
-  'memoryPage.engine.fairUse.summary': '공정 사용 적용',
+  'memoryPage.engine.fairUse.summary': '무제한 메모리에는 공정 사용 정책이 적용됩니다',
   'memoryPage.engine.offPrompt': '아래에서 제공자를 선택하면 기억을 시작합니다.',
-  'memoryPage.engine.builtin.cardDescription':
-    'TinyHumans가 대신 호스팅합니다. 설정할 것이 없습니다.',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    '내 CortexDB 계정으로 쓰는 CortexDB 관리형 서비스.',
-  'memoryPage.engine.selfHost.cardDescription':
-    '직접 실행하는 CortexDB 서버. 메모리는 이 컴퓨터에 저장됩니다.',
-  'memoryPage.engine.freeIngestion.notePlan': '{plan} 요금제에서 메모리 무제한',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic 및 Pro 요금제에서 메모리 무제한',
+  'memoryPage.engine.builtin.summaryPlan': 'TinyHumans 호스팅, {plan} 요금제에서 메모리 무제한.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'TinyHumans 호스팅. Basic 및 Pro 요금제에서 메모리 무제한.',
+  'memoryPage.engine.apiKeyOption.connected': 'CortexDB API 키로 연결됨.',
+  'memoryPage.engine.selfHost.connected': '{endpoint}의 CortexDB에 연결됨.',
   'memoryPage.engine.fairUse.own': '본인 콘텐츠를 본인 용도로 수집하세요.',
   'memoryPage.engine.fairUse.noAbuse':
     '자동 대량 업로드, 스크래핑, 다른 사람이나 서비스를 대신한 수집은 금지됩니다.',
@@ -5132,6 +5129,8 @@ const messages: TranslationMap = {
   'memoryPage.tabs.brain': '문서',
   'memoryPage.tabs.background': '활동',
   'memoryPage.tabs.settings': '설정',
+  'memoryPage.tabs.migration': '마이그레이션',
+  'memoryPage.header.migration': '이전 버전의 메모리를 CortexDB로 가져와 정리합니다.',
   'memoryPage.header.brain': '모든 에이전트가 공유하는 문서를 출처별로 정리했습니다.',
   'memoryPage.header.background':
     '메모리가 백그라운드에서 실행하는 신념 구축과 문서 가져오기입니다.',
@@ -5250,6 +5249,31 @@ const messages: TranslationMap = {
     '모든 에이전트가 공유하는 루트와 이 앱이 실행되는 에이전트입니다.',
   'memoryPage.settings.root': '루트',
   'memoryPage.settings.agentId': '에이전트',
+  'memoryPage.settings.eraseTitle': '메모리 지우기',
+  'memoryPage.settings.eraseAction': '모든 메모리 지우기',
+  'memoryPage.settings.eraseDescription':
+    '이 계정에 대해 OpenHuman이 기억하는 모든 것을 영구적으로 삭제합니다. 되돌릴 수 없습니다.',
+  'memoryPage.settings.eraseConfirmTitle': '모든 메모리를 지울까요?',
+  'memoryPage.settings.eraseConfirmBody':
+    '이 계정에 대해 OpenHuman이 기억하는 모든 것이 영구적으로 삭제됩니다: 연결된 모든 소스, 지난 대화, 학습 내용, 사실. 연결과 설정은 그대로 유지됩니다.',
+  'memoryPage.settings.eraseIrreversible': '되돌릴 수 없습니다. 지운 메모리는 복구할 수 없습니다.',
+  'memoryPage.settings.eraseConfirmCheck':
+    '내 모든 메모리가 영구적으로 삭제된다는 것을 이해합니다.',
+  'memoryPage.settings.eraseConfirm': '모두 지우기',
+  'memoryPage.settings.erasing': '지우는 중…',
+  'memoryPage.settings.erasedToast': '모든 메모리를 지웠습니다',
+  'memoryPage.settings.erasedToastBody':
+    'OpenHuman은 이제 이 계정에 대해 아무것도 기억하지 않습니다.',
+  'memoryPage.settings.eraseError.unsupported':
+    '사용 중인 메모리 서비스는 아직 모든 메모리 지우기를 지원하지 않습니다. 아무것도 지워지지 않았습니다.',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    '계정의 크레딧이 부족해 지금은 메모리를 지울 수 없습니다. 충전한 후 다시 시도하세요. 아무것도 지워지지 않았습니다.',
+  'memoryPage.settings.eraseError.memoryOff': '메모리가 꺼져 있어 지울 항목이 없습니다.',
+  'memoryPage.settings.eraseError.unavailable':
+    '메모리가 지워졌는지 확인할 수 없습니다. 이미 지워졌을 수 있으니 다시 시도하기 전에 확인하세요.',
+  'memoryPage.settings.eraseError.unauthorized':
+    '세션이 만료되었습니다. 다시 로그인한 후 메모리 지우기를 시도하세요.',
+  'memoryPage.settings.eraseError.generic': '메모리를 지우지 못했습니다. 다시 시도하세요.',
   'memoryPage.settings.hostBound':
     'OpenHuman을 호스팅하는 앱이 이 값을 설정하므로 여기서 변경할 수 없습니다.',
   'memoryPage.import.title': '이전 메모리를 찾았습니다',
@@ -5267,10 +5291,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': '가져오지 못한 항목: {count}',
   'memoryPage.import.retryFailed': '실패한 항목 다시 시도',
   'memoryPage.import.progress': '{total}개 중 {imported}개 항목을 가져왔습니다',
+  'memoryPage.import.none': '이 기기에서 이전 메모리를 찾지 못했습니다.',
+  'memoryPage.import.doneBody': '이전 메모리가 이미 CortexDB에 있습니다.',
+  'memoryPage.import.short': '가져오기',
   'memoryPage.migrate.title': '메모리를 계정으로 옮기기',
   'memoryPage.migrate.body':
     '이 업데이트 이전에 저장된 메모리가 아직 이전 공유 레이아웃에 있습니다. 백그라운드에서 자동으로 옮겨지며, 지금 바로 옮길 수도 있습니다.',
   'memoryPage.migrate.action': '지금 마이그레이션',
+  'memoryPage.migrate.doneBody': '메모리가 이미 계정에 있습니다.',
+  'memoryPage.migrate.afterImport': '가져오기가 끝나면 시작됩니다.',
   'memoryPage.migrate.running': '메모리를 정리하는 중…',
   'memoryPage.migrate.progress': '{copied}개 항목을 옮김',
   'memoryPage.migrate.progressOne': '{copied}개 항목을 옮김',

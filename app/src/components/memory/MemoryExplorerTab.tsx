@@ -82,7 +82,7 @@ export default function MemoryExplorerTab() {
 
   useEffect(() => {
     let cancelled = false;
-    memoryItemsList({ path, limit: PAGE_SIZE })
+    memoryItemsList({ path, limit: PAGE_SIZE, preview: true })
       .then(next => {
         if (cancelled) return;
         setItems(next.items ?? []);
@@ -111,7 +111,7 @@ export default function MemoryExplorerTab() {
     if (!cursor) return;
     setLoadingMore(true);
     try {
-      const next = await memoryItemsList({ path, limit: PAGE_SIZE, cursor });
+      const next = await memoryItemsList({ path, limit: PAGE_SIZE, cursor, preview: true });
       setItems(prev => [...(prev ?? []), ...(next.items ?? [])]);
       setCursor(next.next_cursor ?? null);
     } catch (err) {

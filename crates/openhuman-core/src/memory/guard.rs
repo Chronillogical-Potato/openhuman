@@ -171,6 +171,13 @@ impl MemoryEngine for ScrubbingEngine {
             .await
     }
 
+    async fn list_preview(&self, req: ListRequest) -> Result<ListPage> {
+        self.timed("list_preview", self.inner.list_preview(req), |page| {
+            page.items.len()
+        })
+        .await
+    }
+
     async fn export(&self, req: ListRequest) -> Result<ExportPage> {
         self.timed("export", self.inner.export(req), |page| page.items.len())
             .await

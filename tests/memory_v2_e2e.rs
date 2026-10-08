@@ -7,6 +7,7 @@
 //!
 //! - engines: list / get / set, the off state, and the structured error codes;
 //! - learn -> items_list -> fetch -> recall -> forget on the hosted engine;
+//! - erase_all: the whole hosted memory in one `DELETE /memory`;
 //! - conversations settings;
 //! - sources: add a folder, sync it, read its items back, remove it;
 //! - context.md: refresh / get / set;
@@ -451,6 +452,7 @@ async fn memory_is_off_when_signed_out() {
         ("openhuman.memory_brain_ingest", json!({ "text": "a doc" })),
         ("openhuman.memory_jobs_run", json!({})),
         ("openhuman.memory_import_start", json!({ "consent": true })),
+        ("openhuman.memory_erase_all", json!({ "confirm": true })),
     ];
     for (method, params) in off_calls {
         assert_eq!(f.code(method, params).await, "MEMORY_OFF", "{method}");
@@ -958,6 +960,120 @@ async fn the_agent_learn_returns_on_accept_and_recall_finds_it() {
 }
 
 #[tokio::test]
+async fn erase_all_needs_confirmation_and_erases_the_whole_hosted_memory() {
+    let f = Fixture::new(true).await;
+    f.learn("a fact about tea").await;
+    f.learn("a fact about coffee").await;
+    // A second hosted-memory category: a document, so a learnings-only
+    // erase cannot pass this test.
+    f.ok(
+        "openhuman.memory_brain_ingest",
+        json!({ "text": "a document about espresso machines" }),
+    )
+    .await;
+    let docs_before = f
+        .ok_until(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["document"] } }),
+            |v| !ids_of(v, "items").is_empty(),
+        )
+        .await;
+    assert!(
+        !ids_of(&docs_before, "items").is_empty(),
+        "the document was stored: {docs_before}"
+    );
+    let before = f
+        .ok_until(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["learning"] } }),
+            |v| ids_of(v, "items").len() == 2,
+        )
+        .await;
+    assert_eq!(ids_of(&before, "items").len(), 2, "{before}");
+
+    // Without its interlock nothing is sent and nothing is erased.
+    let skip = f.mock.request_rows().await.len();
+    assert_eq!(
+        f.code("openhuman.memory_erase_all", json!({})).await,
+        "INVALID_REQUEST"
+    );
+    assert_eq!(
+        f.code("openhuman.memory_erase_all", json!({ "confirm": false }))
+            .await,
+        "INVALID_REQUEST"
+    );
+    let deletes = |paths: Vec<String>| {
+        paths
+            .into_iter()
+            .filter(|p| p.starts_with("DELETE /memory"))
+            .count()
+    };
+    assert_eq!(deletes(f.mock.request_paths().await[skip..].to_vec()), 0);
+
+    let erased = f
+        .ok("openhuman.memory_erase_all", json!({ "confirm": true }))
+        .await;
+    assert!(
+        erased["erased_scopes"].as_u64().is_some_and(|n| n >= 1),
+        "{erased}"
+    );
+    assert_eq!(deletes(f.mock.request_paths().await[skip..].to_vec()), 1);
+    let after = f
+        .ok(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["learning"] } }),
+        )
+        .await;
+    assert_eq!(after["items"], json!([]), "{after}");
+    // Another account's memory is untouched, and a repeated erase is a no-op.
+    let second = f
+        .call(
+            "openhuman.auth_store_session",
+            json!({ "token": format!("{MOCK_TOKEN}-second"), "user_id": "second-user" }),
+        )
+        .await;
+    assert!(second.get("error").is_none(), "{second}");
+    f.learn("a fact that belongs to the second account").await;
+    f.sign_in().await;
+    f.ok("openhuman.memory_erase_all", json!({ "confirm": true }))
+        .await;
+    let again = f
+        .ok(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["learning"] } }),
+        )
+        .await;
+    assert_eq!(again["items"], json!([]), "{again}");
+    let second = f
+        .call(
+            "openhuman.auth_store_session",
+            json!({ "token": format!("{MOCK_TOKEN}-second"), "user_id": "second-user" }),
+        )
+        .await;
+    assert!(second.get("error").is_none(), "{second}");
+    let kept = f
+        .ok_until(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["learning"] } }),
+            |v| !ids_of(v, "items").is_empty(),
+        )
+        .await;
+    assert_eq!(ids_of(&kept, "items").len(), 1, "{kept}");
+    f.sign_in().await;
+    let docs_after = f
+        .ok(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["document"] } }),
+        )
+        .await;
+    assert_eq!(docs_after["items"], json!([]), "{docs_after}");
+    let refetch = f
+        .ok("openhuman.memory_fetch", json!({ "query": "coffee" }))
+        .await;
+    assert_eq!(refetch["hits"], json!([]));
+}
+
+#[tokio::test]
 async fn memory_is_isolated_per_account() {
     let f = Fixture::new(true).await;
     let id = f.learn("a private fact about account one").await;
@@ -992,6 +1108,8 @@ async fn policy_get_and_set_round_trip() {
     assert_eq!(defaults["log_conversations"], json!(true));
     assert_eq!(defaults["recall"]["enabled"], json!(true));
     assert_eq!(defaults["recall"]["budget_tokens"], json!(1200));
+    // No team section by default: a pack carries the agent's own history.
+    assert_eq!(defaults["recall"]["team_limit"], json!(0));
     assert_eq!(defaults["root"], json!("root"));
     assert_eq!(defaults["host_bound"], json!(false));
 
@@ -1917,6 +2035,7 @@ async fn memory_v2_registers_exactly_the_documented_methods() {
         "fetch",
         "learn",
         "forget",
+        "erase_all",
         "items_list",
         "explore",
         "items_get",

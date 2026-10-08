@@ -507,3 +507,155 @@ async fn a_deleted_connection_is_not_read_again() {
     assert!(!pass.more_pending);
     assert!(pass.failure.is_none());
 }
+
+#[test]
+fn a_records_sender_becomes_its_observed_actor() {
+    let actor_of = |address: &str, name: Option<&str>| {
+        let mut rec = record("m-1", "Lunch", "see you at noon");
+        rec.sender = Some(RecordSender {
+            address: address.into(),
+            name: name.map(str::to_string),
+        });
+        record_item("gmail", "conn-7", "src-g", &rec)
+            .expect("an item")
+            .meta()
+            .observed_actor
+            .clone()
+    };
+    assert_eq!(
+        actor_of(" Priya@Acme.com ", Some(" Priya ")),
+        Some(ObservedActor {
+            id: "user:priya@acme.com".into(),
+            name: Some("Priya".into()),
+        }),
+        "an email address, lower-cased, with the name"
+    );
+    assert_eq!(
+        actor_of("+15551234567", Some("  ")),
+        Some(ObservedActor {
+            id: "user:+15551234567".into(),
+            name: None,
+        }),
+        "a phone number as given; a blank name is none"
+    );
+    assert_eq!(actor_of("  ", Some("Priya")), None, "no address, no actor");
+
+    let unsent =
+        record_item("gmail", "conn-7", "src-g", &record("m-2", "", "no sender")).expect("an item");
+    assert_eq!(unsent.meta().observed_actor, None);
+}
+
+async fn store_for(config: &Config, connection: &str, id: &str) {
+    let bound = crate::memory::engine::resolve(config).engine().unwrap();
+    store_records(
+        config,
+        &bound,
+        "gmail",
+        connection,
+        "src",
+        &MemoryLayout::default(),
+        &[record(id, id, &format!("mail {id}"))],
+    )
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn a_source_held_by_one_connection_is_erased_not_forgotten() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = std::sync::Arc::new(crate::memory::test_fixtures::RecordingEngine::new());
+    crate::memory::test_fixtures::RecordingEngine::bind(&engine, &config);
+    store_for(&config, "conn-a", "1").await;
+    store_for(&config, "conn-a", "2").await;
+
+    assert_eq!(
+        forget_connection(&config, "conn-a", Some("gmail"))
+            .await
+            .unwrap(),
+        2
+    );
+    assert_eq!(
+        engine.calls(),
+        ["erase"],
+        "a scoped erasure, no bare forget"
+    );
+    assert!(stored(&engine.inner, MetaFilter::default())
+        .await
+        .is_empty());
+}
+
+#[tokio::test]
+async fn a_source_shared_with_another_connection_is_never_erased() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = std::sync::Arc::new(crate::memory::test_fixtures::RecordingEngine::new());
+    crate::memory::test_fixtures::RecordingEngine::bind(&engine, &config);
+    store_for(&config, "conn-a", "1").await;
+    store_for(&config, "conn-b", "2").await;
+
+    assert_eq!(
+        forget_connection(&config, "conn-a", Some("gmail"))
+            .await
+            .unwrap(),
+        1
+    );
+    assert!(!engine.calls().contains(&"erase"), "{:?}", engine.calls());
+    let left = stored(&engine.inner, MetaFilter::default()).await;
+    assert_eq!(left.len(), 1);
+    assert!(left[0].meta.tags.contains(&"connection:conn-b".to_string()));
+}
+
+#[tokio::test]
+async fn an_engine_that_cannot_erase_falls_back_to_forget_by_id() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine =
+        std::sync::Arc::new(crate::memory::test_fixtures::RecordingEngine::without_erase());
+    crate::memory::test_fixtures::RecordingEngine::bind(&engine, &config);
+    store_for(&config, "conn-a", "1").await;
+
+    assert_eq!(
+        forget_connection(&config, "conn-a", Some("gmail"))
+            .await
+            .unwrap(),
+        1
+    );
+    assert_eq!(engine.calls(), ["erase", "forget"]);
+    assert!(stored(&engine.inner, MetaFilter::default())
+        .await
+        .is_empty());
+}
+
+#[tokio::test]
+async fn a_disconnect_while_signed_out_is_finished_on_the_next_sign_in() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    // Synced while signed in.
+    let engine = bind_reference(&config);
+    store_for(&config, "conn-s", "1").await;
+
+    // Signed out (memory off), then disconnected: nothing reaches the cloud
+    // yet, and the deletion is queued rather than dropped.
+    crate::memory::engine::remove_test_engine(&config.workspace_dir);
+    assert_eq!(
+        forget_connection(&config, "conn-s", Some("gmail"))
+            .await
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        crate::memory::deletion::pending(&config.workspace_dir),
+        vec![crate::memory::deletion::PendingDeletion::Connection {
+            connection_id: "conn-s".into(),
+            toolkit: Some("gmail".into()),
+        }]
+    );
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 1);
+
+    // Signed back in: the drain finishes the delete.
+    crate::memory::engine::install_test_engine(&config.workspace_dir, engine.clone());
+    assert_eq!(crate::memory::deletion::drain(&config).await, 1);
+    assert!(stored(&engine, MetaFilter::default()).await.is_empty());
+    assert!(crate::memory::deletion::pending(&config.workspace_dir).is_empty());
+}

@@ -213,6 +213,7 @@ fn model_command_messages_use_thread_aware_history_keys() {
         channel: "discord".into(),
         timestamp: 0,
         thread_ts: Some("thread-1".into()),
+        sender_name: None,
     };
     assert_eq!(
         super::super::context::conversation_history_key(&msg),
@@ -252,6 +253,7 @@ async fn handle_runtime_command_unknown_provider_sends_helpful_error() {
         channel: "telegram".into(),
         timestamp: 0,
         thread_ts: Some("thread-1".into()),
+        sender_name: None,
     };
 
     let handled = handle_runtime_command_if_needed(&ctx, &msg, Some(&channel)).await;
@@ -283,6 +285,7 @@ async fn handle_runtime_command_set_model_clears_sender_history_and_persists_rou
         channel: "telegram".into(),
         timestamp: 0,
         thread_ts: None,
+        sender_name: None,
     };
 
     let handled = handle_runtime_command_if_needed(&ctx, &msg, Some(&channel)).await;
@@ -320,6 +323,7 @@ async fn handle_runtime_command_telegram_status_replies_without_agent() {
         channel: "telegram".into(),
         timestamp: 0,
         thread_ts: Some("42".into()),
+        sender_name: None,
     };
 
     let handled = handle_runtime_command_if_needed(&ctx, &msg, Some(&channel)).await;
@@ -342,6 +346,7 @@ async fn handle_runtime_command_without_target_channel_still_consumes_command() 
         channel: "telegram".into(),
         timestamp: 0,
         thread_ts: None,
+        sender_name: None,
     };
 
     let handled = handle_runtime_command_if_needed(&ctx, &msg, None).await;
@@ -361,6 +366,7 @@ async fn handle_runtime_command_telegram_help_replies_with_remote_command_list()
         channel: "telegram".into(),
         timestamp: 0,
         thread_ts: Some("42".into()),
+        sender_name: None,
     };
 
     let handled = handle_runtime_command_if_needed(&ctx, &msg, Some(&channel)).await;
@@ -391,6 +397,7 @@ async fn handle_runtime_command_telegram_sessions_reports_empty_store() {
         channel: "telegram".into(),
         timestamp: 0,
         thread_ts: Some("42".into()),
+        sender_name: None,
     };
 
     let handled = handle_runtime_command_if_needed(&ctx, &msg, Some(&channel)).await;
@@ -425,6 +432,7 @@ async fn handle_runtime_command_telegram_new_status_and_sessions_round_trip() {
         channel: "telegram".into(),
         timestamp: 0,
         thread_ts: Some("42".into()),
+        sender_name: None,
     };
     assert!(handle_runtime_command_if_needed(&ctx, &new_msg, Some(&channel)).await);
     assert!(ctx
@@ -469,6 +477,7 @@ async fn handle_runtime_command_telegram_new_status_and_sessions_round_trip() {
         channel: "telegram".into(),
         timestamp: 0,
         thread_ts: Some("42".into()),
+        sender_name: None,
     };
     assert!(handle_runtime_command_if_needed(&ctx, &status_msg, Some(&channel)).await);
 
@@ -480,6 +489,7 @@ async fn handle_runtime_command_telegram_new_status_and_sessions_round_trip() {
         channel: "telegram".into(),
         timestamp: 0,
         thread_ts: Some("42".into()),
+        sender_name: None,
     };
     assert!(handle_runtime_command_if_needed(&ctx, &sessions_msg, Some(&channel)).await);
 

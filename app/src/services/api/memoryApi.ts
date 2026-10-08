@@ -213,6 +213,12 @@ export interface ItemsListRequest {
   cursor?: string;
   /** Explorer path; the core narrows `filter` by each step. */
   path?: PathStep[];
+  /**
+   * Snippet listing: a conversation's or chunked document's `text` may be
+   * only its start, which the engine lists without assembling each item.
+   * Read an item whole with `memoryItemsGet` when it is opened.
+   */
+  preview?: boolean;
 }
 
 // ─── Explorer ────────────────────────────────────────────────────────────────
@@ -707,6 +713,15 @@ export function memoryLearn(req: LearnRequest): Promise<{ id: string }> {
 
 export function memoryForget(ids: string[]): Promise<{ forgotten: number }> {
   return call<{ forgotten: number }>(CORE_RPC_METHODS.memoryForget, { ids });
+}
+
+/**
+ * Erase the user's entire memory, for good: every source, conversation and
+ * fact the bound engine holds for this account. The core refuses without
+ * `confirm: true`, so the interlock is always sent explicitly here.
+ */
+export function memoryEraseAll(): Promise<{ erased_scopes: number }> {
+  return call<{ erased_scopes: number }>(CORE_RPC_METHODS.memoryEraseAll, { confirm: true });
 }
 
 export function memoryItemsList(req: ItemsListRequest = {}): Promise<ItemsPage> {

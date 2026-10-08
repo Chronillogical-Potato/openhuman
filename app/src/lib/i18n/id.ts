@@ -497,9 +497,6 @@ const messages: TranslationMap = {
     'Tidak dapat beralih ke model gratis OpenRouter. Periksa login OpenRouter Anda dan coba lagi.',
   'chat.newThread': 'Thread baru',
   'chat.newConversation': 'Percakapan baru',
-  'chat.sidebar.searchPlaceholder': 'Cari percakapan',
-  'chat.sidebar.clearSearch': 'Hapus pencarian',
-  'chat.sidebar.noMatches': 'Tidak ada percakapan yang cocok',
   'chat.sidebar.group.pinned': 'Disematkan',
   'chat.sidebar.group.today': 'Hari ini',
   'chat.sidebar.group.yesterday': 'Kemarin',
@@ -740,7 +737,7 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f2': 'Kompresi token untuk memaksimalkan penggunaan Anda',
   'onboarding.runtimeChoice.cloud.f3': 'Satu langganan, semua model sudah termasuk',
   'onboarding.runtimeChoice.cloud.f4': 'Tidak perlu mengelola API key',
-  'onboarding.runtimeChoice.cloud.f5': 'Mudah diatur',
+  'onboarding.runtimeChoice.cloud.f5': 'Memori yang di-hosting, layanan jaringan terkelola',
   'onboarding.runtimeChoice.custom.title': 'Jalankan Kustom',
   'onboarding.runtimeChoice.custom.tagline':
     'Bawa key Anda sendiri. Kontrol penuh atas apa yang Anda gunakan.',
@@ -846,7 +843,7 @@ const messages: TranslationMap = {
   'accounts.disconnect': 'Putuskan',
   'accounts.disconnectClearMemory': 'Hapus juga memori dari sumber ini',
   'accounts.disconnectClearMemoryHint':
-    'Menghapus secara permanen potongan memori lokal yang terhubung ke koneksi ini.',
+    'Menghapus secara permanen memori yang disimpan dari koneksi ini.',
   'channels.title': 'Kanal',
   'channels.configure': 'Konfigurasi Kanal',
   'channels.setup': 'Pengaturan',
@@ -2037,6 +2034,10 @@ const messages: TranslationMap = {
   'commandPalette.placeholder': 'Ketik perintah atau cari...',
   'commandPalette.searchAria': 'Cari perintah',
   'commandPalette.title': 'Palet perintah',
+  'commandPalette.group.conversations': 'Percakapan',
+  'commandPalette.group.messages': 'Pesan',
+  'commandPalette.searchingMessages': 'Mencari pesan…',
+  'commandPalette.untitledConversation': 'Percakapan tanpa judul',
   'kbd.ariaLabel': 'Pintasan keyboard: {shortcut}',
   'shortcuts.title': 'Pintasan Keyboard',
   'shortcuts.subtitle': 'Percepat alur kerja Anda dengan pintasan keyboard ini.',
@@ -5090,16 +5091,14 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'Tanpa batas',
   'memoryPage.engine.chip.apikey': 'Kunci CortexDB Anda',
   'memoryPage.engine.chip.selfhost': 'Lokal',
-  'memoryPage.engine.fairUse.summary': 'Berlaku penggunaan wajar',
+  'memoryPage.engine.fairUse.summary': 'Memori tanpa batas tunduk pada kebijakan penggunaan wajar',
   'memoryPage.engine.offPrompt': 'Pilih penyedia di bawah untuk mulai mengingat.',
-  'memoryPage.engine.builtin.cardDescription':
-    'Di-host untuk Anda oleh TinyHumans. Tidak perlu pengaturan.',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'Layanan terkelola CortexDB, di akun CortexDB Anda sendiri.',
-  'memoryPage.engine.selfHost.cardDescription':
-    'Server CortexDB yang Anda jalankan sendiri. Memori disimpan di komputer ini.',
-  'memoryPage.engine.freeIngestion.notePlan': 'Memori tanpa batas di paket {plan} Anda',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Memori tanpa batas di paket Basic dan Pro',
+  'memoryPage.engine.builtin.summaryPlan':
+    'Dihosting oleh TinyHumans, dengan memori tanpa batas di paket {plan} Anda.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'Dihosting oleh TinyHumans. Memori tanpa batas di paket Basic dan Pro.',
+  'memoryPage.engine.apiKeyOption.connected': 'Terhubung dengan kunci API CortexDB Anda.',
+  'memoryPage.engine.selfHost.connected': 'Terhubung ke CortexDB di {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Serap konten Anda sendiri, untuk penggunaan sendiri.',
   'memoryPage.engine.fairUse.noAbuse':
     'Tanpa unggahan massal otomatis, scraping, atau penyerapan atas nama orang atau layanan lain.',
@@ -5222,6 +5221,8 @@ const messages: TranslationMap = {
   'memoryPage.tabs.brain': 'Dokumen',
   'memoryPage.tabs.background': 'Aktivitas',
   'memoryPage.tabs.settings': 'Pengaturan',
+  'memoryPage.tabs.migration': 'Migrasi',
+  'memoryPage.header.migration': 'Bawa memori dari versi sebelumnya ke CortexDB, lalu rapikan.',
   'memoryPage.header.brain': 'Dokumen yang dibagikan semua agen, diarsipkan menurut asalnya.',
   'memoryPage.header.background':
     'Pembuatan keyakinan dan impor dokumen yang dijalankan memori di latar belakang.',
@@ -5343,6 +5344,32 @@ const messages: TranslationMap = {
     'Akar yang dibagikan semua agen dan agen yang menjalankan aplikasi ini.',
   'memoryPage.settings.root': 'Akar',
   'memoryPage.settings.agentId': 'Agen',
+  'memoryPage.settings.eraseTitle': 'Hapus memori',
+  'memoryPage.settings.eraseAction': 'Hapus semua memori',
+  'memoryPage.settings.eraseDescription':
+    'Menghapus secara permanen semua yang diingat OpenHuman untuk akun ini. Tindakan ini tidak dapat dibatalkan.',
+  'memoryPage.settings.eraseConfirmTitle': 'Hapus semua memori?',
+  'memoryPage.settings.eraseConfirmBody':
+    'Ini akan menghapus secara permanen semua yang diingat OpenHuman untuk akun ini: setiap sumber yang terhubung, percakapan sebelumnya, pembelajaran, dan fakta. Koneksi dan pengaturan Anda tetap tersimpan.',
+  'memoryPage.settings.eraseIrreversible':
+    'Tindakan ini tidak dapat dibatalkan. Memori yang dihapus tidak dapat dipulihkan.',
+  'memoryPage.settings.eraseConfirmCheck':
+    'Saya mengerti bahwa semua memori saya akan dihapus secara permanen.',
+  'memoryPage.settings.eraseConfirm': 'Hapus semuanya',
+  'memoryPage.settings.erasing': 'Menghapus…',
+  'memoryPage.settings.erasedToast': 'Semua memori telah dihapus',
+  'memoryPage.settings.erasedToastBody': 'OpenHuman tidak lagi mengingat apa pun untuk akun ini.',
+  'memoryPage.settings.eraseError.unsupported':
+    'Layanan memori Anda belum dapat menghapus semua memori. Tidak ada yang dihapus.',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'Kredit akun Anda habis, jadi memori tidak dapat dihapus sekarang. Isi ulang lalu coba lagi. Tidak ada yang dihapus.',
+  'memoryPage.settings.eraseError.memoryOff':
+    'Memori dimatikan, jadi tidak ada yang perlu dihapus.',
+  'memoryPage.settings.eraseError.unavailable':
+    'Tidak dapat memastikan apakah memori sudah dihapus. Mungkin sudah; periksa dulu sebelum mencoba lagi.',
+  'memoryPage.settings.eraseError.unauthorized':
+    'Sesi Anda telah berakhir. Masuk lagi, lalu coba hapus memori Anda.',
+  'memoryPage.settings.eraseError.generic': 'Tidak dapat menghapus memori Anda. Silakan coba lagi.',
   'memoryPage.settings.hostBound':
     'Aplikasi yang menghosting OpenHuman menetapkan nilai ini, sehingga tidak dapat diubah di sini.',
   'memoryPage.import.title': 'Memori sebelumnya ditemukan',
@@ -5360,10 +5387,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'Item yang tidak dapat diimpor: {count}.',
   'memoryPage.import.retryFailed': 'Coba lagi item yang gagal',
   'memoryPage.import.progress': '{imported} dari {total} item diimpor',
+  'memoryPage.import.none': 'Tidak ada memori sebelumnya di perangkat ini.',
+  'memoryPage.import.doneBody': 'Memori Anda sebelumnya sudah ada di CortexDB.',
+  'memoryPage.import.short': 'Impor',
   'memoryPage.migrate.title': 'Pindahkan memori ke akun Anda',
   'memoryPage.migrate.body':
     'Memori yang disimpan sebelum pembaruan ini masih berada di tata letak bersama yang lama. Memori dipindahkan otomatis di latar belakang, atau Anda bisa memindahkannya sekarang.',
   'memoryPage.migrate.action': 'Migrasikan sekarang',
+  'memoryPage.migrate.doneBody': 'Memori Anda sudah ada di akun Anda.',
+  'memoryPage.migrate.afterImport': 'Dimulai setelah impor selesai.',
   'memoryPage.migrate.running': 'Menata memori Anda…',
   'memoryPage.migrate.progress': '{copied} item dipindahkan',
   'memoryPage.migrate.progressOne': '{copied} item dipindahkan',

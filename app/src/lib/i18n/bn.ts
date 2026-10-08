@@ -489,9 +489,6 @@ const messages: TranslationMap = {
     'OpenRouter-এর বিনামূল্যের মডেলে স্যুইচ করা যায়নি। আপনার OpenRouter সাইন-ইন পরীক্ষা করে আবার চেষ্টা করুন।',
   'chat.newThread': 'নতুন থ্রেড',
   'chat.newConversation': 'নতুন কথোপকথন',
-  'chat.sidebar.searchPlaceholder': 'কথোপকথন খুঁজুন',
-  'chat.sidebar.clearSearch': 'অনুসন্ধান মুছুন',
-  'chat.sidebar.noMatches': 'কোনো মিল থাকা কথোপকথন নেই',
   'chat.sidebar.group.pinned': 'পিন করা',
   'chat.sidebar.group.today': 'আজ',
   'chat.sidebar.group.yesterday': 'গতকাল',
@@ -728,7 +725,7 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f2': 'ব্যবহার আরও দীর্ঘ করতে টোকেন কম্প্রেশন',
   'onboarding.runtimeChoice.cloud.f3': 'একটি সাবস্ক্রিপশনে সব মডেল',
   'onboarding.runtimeChoice.cloud.f4': 'API কী পরিচালনার ঝামেলা নেই',
-  'onboarding.runtimeChoice.cloud.f5': 'সেটআপ করা সহজ',
+  'onboarding.runtimeChoice.cloud.f5': 'হোস্ট করা মেমোরি, পরিচালিত নেটওয়ার্ক পরিষেবা',
   'onboarding.runtimeChoice.custom.title': 'কাস্টম রান',
   'onboarding.runtimeChoice.custom.tagline': 'নিজের কী আনুন। সম্পূর্ণ নিয়ন্ত্রণ আপনার হাতে।',
   'onboarding.runtimeChoice.custom.f1': 'প্রায় সব কিছুর জন্য API কী প্রয়োজন',
@@ -832,8 +829,7 @@ const messages: TranslationMap = {
     'মেমোরি নিজে পরীক্ষা, এক্সপোর্ট বা মুছুন। Settings › Memory-এ কনফিগার করুন।',
   'accounts.disconnect': 'সংযোগ বিচ্ছিন্ন',
   'accounts.disconnectClearMemory': 'এই উৎস থেকে মেমোরিও মুছুন',
-  'accounts.disconnectClearMemoryHint':
-    'এই সংযোগের সাথে যুক্ত স্থানীয় মেমোরি চিরতরে মুছে ফেলা হবে।',
+  'accounts.disconnectClearMemoryHint': 'এই সংযোগ থেকে সংরক্ষিত মেমোরি স্থায়ীভাবে মুছে ফেলে।',
   'channels.title': 'চ্যানেল',
   'channels.configure': 'চ্যানেল কনফিগার করুন',
   'channels.setup': 'সেটআপ',
@@ -2018,6 +2014,10 @@ const messages: TranslationMap = {
   'commandPalette.placeholder': 'একটি কমান্ড টাইপ করুন বা খুঁজুন…',
   'commandPalette.searchAria': 'কমান্ড খুঁজুন',
   'commandPalette.title': 'কমান্ড প্যালেট',
+  'commandPalette.group.conversations': 'কথোপকথন',
+  'commandPalette.group.messages': 'বার্তা',
+  'commandPalette.searchingMessages': 'বার্তায় খোঁজা হচ্ছে…',
+  'commandPalette.untitledConversation': 'শিরোনামহীন কথোপকথন',
   'kbd.ariaLabel': 'কীবোর্ড শর্টকাট: {shortcut}',
   'shortcuts.title': 'কীবোর্ড শর্টকাট',
   'shortcuts.subtitle': 'এই কীবোর্ড শর্টকাটগুলি দিয়ে আপনার কাজ দ্রুত করুন।',
@@ -5051,16 +5051,14 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'সীমাহীন',
   'memoryPage.engine.chip.apikey': 'আপনার CortexDB কী',
   'memoryPage.engine.chip.selfhost': 'লোকাল',
-  'memoryPage.engine.fairUse.summary': 'ন্যায্য ব্যবহার প্রযোজ্য',
+  'memoryPage.engine.fairUse.summary': 'সীমাহীন মেমোরিতে ন্যায্য ব্যবহার নীতি প্রযোজ্য',
   'memoryPage.engine.offPrompt': 'মনে রাখা শুরু করতে নিচে একটি প্রদানকারী বেছে নিন।',
-  'memoryPage.engine.builtin.cardDescription':
-    'TinyHumans আপনার জন্য হোস্ট করে। কিছু সেট আপ করতে হবে না।',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'আপনার নিজের CortexDB অ্যাকাউন্টে CortexDB-এর পরিচালিত সেবা।',
-  'memoryPage.engine.selfHost.cardDescription':
-    'আপনি নিজে চালানো একটি CortexDB সার্ভার। মেমোরি এই কম্পিউটারে থাকে।',
-  'memoryPage.engine.freeIngestion.notePlan': 'আপনার {plan} প্ল্যানে সীমাহীন মেমোরি',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic ও Pro প্ল্যানে সীমাহীন মেমোরি',
+  'memoryPage.engine.builtin.summaryPlan':
+    'TinyHumans হোস্ট করে, আপনার {plan} প্ল্যানে সীমাহীন মেমোরি।',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'TinyHumans হোস্ট করে। Basic ও Pro প্ল্যানে সীমাহীন মেমোরি।',
+  'memoryPage.engine.apiKeyOption.connected': 'আপনার CortexDB API কী দিয়ে সংযুক্ত।',
+  'memoryPage.engine.selfHost.connected': '{endpoint}-এ CortexDB-র সঙ্গে সংযুক্ত।',
   'memoryPage.engine.fairUse.own': 'নিজের কনটেন্ট, নিজের ব্যবহারের জন্য যোগ করুন।',
   'memoryPage.engine.fairUse.noAbuse':
     'স্বয়ংক্রিয় বাল্ক আপলোড, স্ক্র্যাপিং বা অন্যদের হয়ে ইনজেশন নয়।',
@@ -5181,6 +5179,8 @@ const messages: TranslationMap = {
   'memoryPage.tabs.brain': 'ডকুমেন্ট',
   'memoryPage.tabs.background': 'কার্যকলাপ',
   'memoryPage.tabs.settings': 'সেটিংস',
+  'memoryPage.tabs.migration': 'মাইগ্রেশন',
+  'memoryPage.header.migration': 'আগের সংস্করণের মেমোরি CortexDB-তে আনুন এবং সাজিয়ে নিন।',
   'memoryPage.header.brain': 'প্রতিটি এজেন্টের শেয়ার করা ডকুমেন্ট, উৎস অনুযায়ী সাজানো।',
   'memoryPage.header.background':
     'মেমোরি ব্যাকগ্রাউন্ডে যেসব বিশ্বাস তৈরি ও ডকুমেন্ট ইম্পোর্ট চালায়।',
@@ -5300,6 +5300,31 @@ const messages: TranslationMap = {
     'প্রতিটি এজেন্টের শেয়ার করা রুট এবং যে এজেন্ট হিসেবে এই অ্যাপ চলে।',
   'memoryPage.settings.root': 'রুট',
   'memoryPage.settings.agentId': 'এজেন্ট',
+  'memoryPage.settings.eraseTitle': 'মেমোরি মুছুন',
+  'memoryPage.settings.eraseAction': 'সব মেমোরি মুছুন',
+  'memoryPage.settings.eraseDescription':
+    'এই অ্যাকাউন্টের জন্য OpenHuman যা কিছু মনে রাখে, সব স্থায়ীভাবে মুছে ফেলে। এটি পূর্বাবস্থায় ফেরানো যায় না।',
+  'memoryPage.settings.eraseConfirmTitle': 'সব মেমোরি মুছবেন?',
+  'memoryPage.settings.eraseConfirmBody':
+    'এটি এই অ্যাকাউন্টের জন্য OpenHuman যা কিছু মনে রাখে, সব স্থায়ীভাবে মুছে ফেলবে: প্রতিটি সংযুক্ত উৎস, আগের কথোপকথন, শেখা বিষয় ও তথ্য। আপনার সংযোগ ও সেটিংস থেকে যাবে।',
+  'memoryPage.settings.eraseIrreversible':
+    'এটি পূর্বাবস্থায় ফেরানো যায় না। মুছে ফেলা মেমোরি আর পুনরুদ্ধার করা যাবে না।',
+  'memoryPage.settings.eraseConfirmCheck': 'আমি বুঝি যে আমার সব মেমোরি স্থায়ীভাবে মুছে ফেলা হবে।',
+  'memoryPage.settings.eraseConfirm': 'সব মুছে ফেলুন',
+  'memoryPage.settings.erasing': 'মুছে ফেলা হচ্ছে…',
+  'memoryPage.settings.erasedToast': 'সব মেমোরি মুছে ফেলা হয়েছে',
+  'memoryPage.settings.erasedToastBody': 'OpenHuman এই অ্যাকাউন্টের জন্য আর কিছুই মনে রাখে না।',
+  'memoryPage.settings.eraseError.unsupported':
+    'আপনার মেমোরি পরিষেবা এখনো সব মেমোরি মুছতে পারে না। কিছুই মোছা হয়নি।',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'আপনার অ্যাকাউন্টে ক্রেডিট শেষ, তাই এখন মেমোরি মোছা যাবে না। টপ আপ করে আবার চেষ্টা করুন। কিছুই মোছা হয়নি।',
+  'memoryPage.settings.eraseError.memoryOff': 'মেমোরি বন্ধ আছে, তাই মোছার মতো কিছু নেই।',
+  'memoryPage.settings.eraseError.unavailable':
+    'মেমোরি মোছা হয়েছে কি না নিশ্চিত করা যায়নি; হয়তো মোছা হয়ে গেছে। আবার চেষ্টা করার আগে যাচাই করুন।',
+  'memoryPage.settings.eraseError.unauthorized':
+    'আপনার সেশনের মেয়াদ শেষ হয়ে গেছে। আবার সাইন ইন করুন, তারপর মেমোরি মোছার চেষ্টা করুন।',
+  'memoryPage.settings.eraseError.generic':
+    'আপনার মেমোরি মোছা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।',
   'memoryPage.settings.hostBound':
     'OpenHuman হোস্ট করা অ্যাপ এগুলো ঠিক করে, তাই এখানে বদলানো যায় না।',
   'memoryPage.import.title': 'আগের মেমোরি পাওয়া গেছে',
@@ -5317,10 +5342,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'যে আইটেমগুলি ইমপোর্ট করা যায়নি: {count}।',
   'memoryPage.import.retryFailed': 'ব্যর্থ আইটেম আবার চেষ্টা করুন',
   'memoryPage.import.progress': '{total}টির মধ্যে {imported}টি আইটেম ইমপোর্ট হয়েছে',
+  'memoryPage.import.none': 'এই ডিভাইসে আগের কোনো মেমোরি পাওয়া যায়নি।',
+  'memoryPage.import.doneBody': 'আপনার আগের মেমোরি ইতিমধ্যে CortexDB-তে আছে।',
+  'memoryPage.import.short': 'ইমপোর্ট',
   'memoryPage.migrate.title': 'মেমরি আপনার অ্যাকাউন্টে সরান',
   'memoryPage.migrate.body':
     'এই আপডেটের আগে সংরক্ষিত মেমরি এখনও পুরনো শেয়ার করা লেআউটে আছে। এটি ব্যাকগ্রাউন্ডে নিজে থেকেই সরে যায়, অথবা আপনি এখনই সরাতে পারেন।',
   'memoryPage.migrate.action': 'এখনই সরান',
+  'memoryPage.migrate.doneBody': 'আপনার মেমোরি ইতিমধ্যে আপনার অ্যাকাউন্টে আছে।',
+  'memoryPage.migrate.afterImport': 'ইমপোর্ট শেষ হলে শুরু হবে।',
   'memoryPage.migrate.running': 'আপনার মেমরি গোছানো হচ্ছে…',
   'memoryPage.migrate.progress': '{copied}টি আইটেম সরানো হয়েছে',
   'memoryPage.migrate.progressOne': '{copied}টি আইটেম সরানো হয়েছে',

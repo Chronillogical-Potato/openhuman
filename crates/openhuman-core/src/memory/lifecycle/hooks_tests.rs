@@ -15,6 +15,7 @@ fn input(thread: &str, index: u32, text: &str) -> PreTurnInput {
         in_prompt_from: 0,
         at: Utc::now(),
         resumed_after_compaction: false,
+        observed_actor: None,
     }
 }
 

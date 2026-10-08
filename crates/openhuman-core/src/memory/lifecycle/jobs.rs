@@ -109,13 +109,9 @@ fn read(workspace_dir: &Path) -> JobQueue {
 
 fn write(workspace_dir: &Path, queue: &JobQueue) {
     let file = path(workspace_dir);
-    let result = file
-        .parent()
-        .map_or(Ok(()), std::fs::create_dir_all)
-        .and_then(|()| {
-            let json = serde_json::to_vec_pretty(queue).map_err(std::io::Error::other)?;
-            std::fs::write(&file, json)
-        });
+    let result = serde_json::to_vec_pretty(queue)
+        .map_err(std::io::Error::other)
+        .and_then(|json| crate::memory::files::write_private(&file, &json));
     if let Err(error) = result {
         tracing::warn!(%error, "[memory:jobs] writing the job queue failed");
     }

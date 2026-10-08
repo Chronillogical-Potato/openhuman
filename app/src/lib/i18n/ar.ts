@@ -477,9 +477,6 @@ const messages: TranslationMap = {
     'تعذر التبديل إلى نماذج OpenRouter المجانية. تحقق من تسجيل الدخول إلى OpenRouter وحاول مرة أخرى.',
   'chat.newThread': 'محادثة جديدة',
   'chat.newConversation': 'محادثة جديدة',
-  'chat.sidebar.searchPlaceholder': 'البحث في المحادثات',
-  'chat.sidebar.clearSearch': 'مسح البحث',
-  'chat.sidebar.noMatches': 'لا توجد محادثات مطابقة',
   'chat.sidebar.group.pinned': 'المثبتة',
   'chat.sidebar.group.today': 'اليوم',
   'chat.sidebar.group.yesterday': 'أمس',
@@ -713,7 +710,7 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f2': 'ضغط الرموز لتمديد استخدامك',
   'onboarding.runtimeChoice.cloud.f3': 'اشتراك واحد يشمل جميع النماذج',
   'onboarding.runtimeChoice.cloud.f4': 'لا حاجة لإدارة مفاتيح API',
-  'onboarding.runtimeChoice.cloud.f5': 'سهل الإعداد',
+  'onboarding.runtimeChoice.cloud.f5': 'ذاكرة مستضافة وخدمات شبكة مُدارة',
   'onboarding.runtimeChoice.custom.title': 'تشغيل مخصص',
   'onboarding.runtimeChoice.custom.tagline': 'استخدم مفاتيحك الخاصة. تحكم كامل في ما تستخدمه.',
   'onboarding.runtimeChoice.custom.f1': 'ستحتاج إلى مفاتيح API لمعظم الميزات',
@@ -813,8 +810,7 @@ const messages: TranslationMap = {
     'افحص الذاكرة أو صدّرها أو امسحها بنفسك. اضبطها من الإعدادات › الذاكرة.',
   'accounts.disconnect': 'قطع الاتصال',
   'accounts.disconnectClearMemory': 'حذف الذاكرة من هذا المصدر أيضاً',
-  'accounts.disconnectClearMemoryHint':
-    'يُزيل نهائياً مقاطع الذاكرة المحلية المرتبطة بهذا الاتصال.',
+  'accounts.disconnectClearMemoryHint': 'يحذف نهائياً الذكريات المحفوظة من هذا الاتصال.',
   'channels.title': 'القنوات',
   'channels.configure': 'ضبط القناة',
   'channels.setup': 'إعداد',
@@ -1980,6 +1976,10 @@ const messages: TranslationMap = {
   'commandPalette.placeholder': 'اكتب أمرًا أو ابحث…',
   'commandPalette.searchAria': 'البحث في الأوامر',
   'commandPalette.title': 'لوحة الأوامر',
+  'commandPalette.group.conversations': 'المحادثات',
+  'commandPalette.group.messages': 'الرسائل',
+  'commandPalette.searchingMessages': 'جارٍ البحث في الرسائل…',
+  'commandPalette.untitledConversation': 'محادثة بلا عنوان',
   'kbd.ariaLabel': 'اختصار لوحة المفاتيح: {shortcut}',
   'shortcuts.title': 'اختصارات لوحة المفاتيح',
   'shortcuts.subtitle': 'سرّع سير عملك باستخدام اختصارات لوحة المفاتيح هذه.',
@@ -4957,15 +4957,14 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'غير محدودة',
   'memoryPage.engine.chip.apikey': 'مفتاح CortexDB الخاص بك',
   'memoryPage.engine.chip.selfhost': 'محلي',
-  'memoryPage.engine.fairUse.summary': 'يسري الاستخدام العادل',
+  'memoryPage.engine.fairUse.summary': 'تخضع الذاكرة غير المحدودة لسياسة الاستخدام العادل',
   'memoryPage.engine.offPrompt': 'اختر مزوّدًا أدناه لبدء التذكّر.',
-  'memoryPage.engine.builtin.cardDescription': 'مستضاف لك من TinyHumans. لا حاجة لأي إعداد.',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'خدمة CortexDB المُدارة على حساب CortexDB الخاص بك.',
-  'memoryPage.engine.selfHost.cardDescription':
-    'خادم CortexDB تشغّله بنفسك. تُخزَّن الذاكرة على هذا الكمبيوتر.',
-  'memoryPage.engine.freeIngestion.notePlan': 'ذاكرة غير محدودة في خطة {plan}',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'ذاكرة غير محدودة في خطتي Basic وPro',
+  'memoryPage.engine.builtin.summaryPlan':
+    'مستضاف لدى TinyHumans، مع ذاكرة غير محدودة في خطة {plan}.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'مستضاف لدى TinyHumans. ذاكرة غير محدودة في خطتَي Basic وPro.',
+  'memoryPage.engine.apiKeyOption.connected': 'متصل باستخدام مفتاح CortexDB API الخاص بك.',
+  'memoryPage.engine.selfHost.connected': 'متصل بـ CortexDB على {endpoint}.',
   'memoryPage.engine.fairUse.own': 'أدخل محتواك الخاص لاستخدامك الشخصي.',
   'memoryPage.engine.fairUse.noAbuse':
     'لا رفع جماعي آلي ولا كشط ولا إدخال نيابةً عن أشخاص أو خدمات أخرى.',
@@ -5084,6 +5083,8 @@ const messages: TranslationMap = {
   'memoryPage.tabs.brain': 'المستندات',
   'memoryPage.tabs.background': 'النشاط',
   'memoryPage.tabs.settings': 'الإعدادات',
+  'memoryPage.tabs.migration': 'الترحيل',
+  'memoryPage.header.migration': 'انقل الذاكرة من الإصدارات السابقة إلى CortexDB ونظّمها.',
   'memoryPage.header.brain': 'مستندات يشاركها كل وكيل، مصنّفة بحسب مصدرها.',
   'memoryPage.header.background':
     'عمليات بناء المعتقدات واستيراد المستندات التي تنفّذها الذاكرة في الخلفية.',
@@ -5201,6 +5202,30 @@ const messages: TranslationMap = {
     'الجذر الذي يشاركه كل وكيل، والوكيل الذي يعمل التطبيق بصفته.',
   'memoryPage.settings.root': 'الجذر',
   'memoryPage.settings.agentId': 'الوكيل',
+  'memoryPage.settings.eraseTitle': 'مسح الذاكرة',
+  'memoryPage.settings.eraseAction': 'مسح كل الذاكرة',
+  'memoryPage.settings.eraseDescription':
+    'يحذف نهائياً كل ما يتذكره OpenHuman لهذا الحساب. لا يمكن التراجع عن ذلك.',
+  'memoryPage.settings.eraseConfirmTitle': 'مسح كل الذاكرة؟',
+  'memoryPage.settings.eraseConfirmBody':
+    'سيؤدي هذا إلى حذف كل ما يتذكره OpenHuman لهذا الحساب نهائياً: كل مصدر متصل، وكل محادثة سابقة، وكل ما تعلّمه، وكل معلومة. ستبقى اتصالاتك وإعداداتك كما هي.',
+  'memoryPage.settings.eraseIrreversible':
+    'لا يمكن التراجع عن ذلك. لا يمكن استعادة الذاكرة الممسوحة.',
+  'memoryPage.settings.eraseConfirmCheck': 'أفهم أن كل ذاكرتي ستُحذف نهائياً.',
+  'memoryPage.settings.eraseConfirm': 'مسح كل شيء',
+  'memoryPage.settings.erasing': 'جارٍ المسح…',
+  'memoryPage.settings.erasedToast': 'تم مسح كل الذاكرة',
+  'memoryPage.settings.erasedToastBody': 'لم يعد OpenHuman يتذكر أي شيء لهذا الحساب.',
+  'memoryPage.settings.eraseError.unsupported':
+    'لا تستطيع خدمة الذاكرة لديك مسح كل الذاكرة بعد. لم يُمسح أي شيء.',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'نفد رصيد حسابك، لذا لا يمكن مسح الذاكرة الآن. اشحن رصيدك وحاول مجدداً. لم يُمسح أي شيء.',
+  'memoryPage.settings.eraseError.memoryOff': 'الذاكرة متوقفة، لذا لا يوجد ما يُمسح.',
+  'memoryPage.settings.eraseError.unavailable':
+    'تعذّر تأكيد نتيجة مسح الذاكرة؛ قد تكون الذاكرة قد مُسحت. تحقّق قبل إعادة المحاولة.',
+  'memoryPage.settings.eraseError.unauthorized':
+    'انتهت صلاحية جلستك. سجّل الدخول مجدداً، ثم حاول مسح ذاكرتك.',
+  'memoryPage.settings.eraseError.generic': 'تعذّر مسح ذاكرتك. يُرجى المحاولة مجدداً.',
   'memoryPage.settings.hostBound':
     'التطبيق المستضيف لـ OpenHuman هو من يحدد هذه القيم، لذا لا يمكن تغييرها هنا.',
   'memoryPage.import.title': 'تم العثور على ذاكرة سابقة',
@@ -5218,10 +5243,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'العناصر التي تعذّر استيرادها: {count}.',
   'memoryPage.import.retryFailed': 'إعادة محاولة العناصر الفاشلة',
   'memoryPage.import.progress': 'تم استيراد {imported} من {total} عنصر',
+  'memoryPage.import.none': 'لم يُعثر على ذاكرة سابقة على هذا الجهاز.',
+  'memoryPage.import.doneBody': 'ذاكرتك السابقة موجودة بالفعل في CortexDB.',
+  'memoryPage.import.short': 'استيراد',
   'memoryPage.migrate.title': 'انقل الذاكرة إلى حسابك',
   'memoryPage.migrate.body':
     'الذاكرة المحفوظة قبل هذا التحديث لا تزال في التخطيط المشترك القديم. تُنقل تلقائيًا في الخلفية، أو يمكنك نقلها الآن.',
   'memoryPage.migrate.action': 'انقل الآن',
+  'memoryPage.migrate.doneBody': 'ذاكرتك موجودة بالفعل في حسابك.',
+  'memoryPage.migrate.afterImport': 'يبدأ بعد انتهاء الاستيراد.',
   'memoryPage.migrate.running': 'جارٍ تنظيم ذاكرتك…',
   'memoryPage.migrate.progress': 'تم نقل {copied} عنصر',
   'memoryPage.migrate.progressOne': 'تم نقل عنصر واحد ({copied})',

@@ -154,6 +154,7 @@ async fn message_dispatch_processes_messages_in_parallel() {
         channel: "test-channel".to_string(),
         timestamp: 1,
         thread_ts: None,
+        sender_name: None,
     }))
     .await
     .unwrap();
@@ -165,6 +166,7 @@ async fn message_dispatch_processes_messages_in_parallel() {
         channel: "test-channel".to_string(),
         timestamp: 2,
         thread_ts: None,
+        sender_name: None,
     }))
     .await
     .unwrap();
@@ -223,6 +225,7 @@ async fn process_channel_message_cancels_scoped_typing_task() {
             channel: "test-channel".to_string(),
             timestamp: 1,
             thread_ts: None,
+            sender_name: None,
         },
     )
     .await;
@@ -310,6 +313,7 @@ async fn dispatch_routes_through_agent_run_turn_bus_handler() {
             channel: "test-channel".to_string(),
             timestamp: 1,
             thread_ts: None,
+            sender_name: None,
         },
     )
     .await;
@@ -393,6 +397,7 @@ async fn channel_processed_event_records_resolved_agent_route() {
             channel: "test-channel".to_string(),
             timestamp: 1,
             thread_ts: None,
+            sender_name: None,
         },
     )
     .await;
@@ -506,6 +511,7 @@ async fn process_channel_message_hardens_multimodal_files_against_smuggled_marke
             channel: "test-channel".to_string(),
             timestamp: 1,
             thread_ts: None,
+            sender_name: None,
         },
     )
     .await;
@@ -586,6 +592,7 @@ async fn process_channel_message_hardens_against_relative_path_markers() {
             channel: "test-channel".to_string(),
             timestamp: 1,
             thread_ts: None,
+            sender_name: None,
         },
     )
     .await;

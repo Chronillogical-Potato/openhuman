@@ -1133,8 +1133,7 @@ impl OpenHumanSessionHost {
                             .lock()
                             .unwrap_or_else(|poisoned| poisoned.into_inner())
                             .take_turn_inputs();
-                        let current_input =
-                            view.history.last().filter(|last| **last == request.input);
+                        let origin = options.run_context.data.origin.clone();
                         let (enriched, memory_turn) = futures::join!(
                             prelude.enrich_request(
                                 &original_user_message,
@@ -1147,7 +1146,8 @@ impl OpenHumanSessionHost {
                             Box::pin(prelude.memory_pre_turn(
                                 view.history,
                                 view.committed_turns,
-                                current_input,
+                                view.history.last().filter(|last| **last == request.input),
+                                origin,
                             )),
                         );
                         options.run_context.data.memory_turn = memory_turn;

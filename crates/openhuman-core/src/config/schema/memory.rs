@@ -18,7 +18,7 @@
 //! learnings_limit = 8
 //! brain_limit = 6
 //! history_limit = 6
-//! team_limit = 3
+//! team_limit = 0                   # other agents' turns; 0 leaves the section out
 //! build_beliefs_every = 10         # turns between belief builds; 0 turns them off
 //! pre_turn_timeout_ms = 1500
 //! date_hint = false                # a model call works out which days a turn is about
@@ -79,6 +79,12 @@ impl fmt::Debug for LegacyBackend {
     }
 }
 
+/// Whether `value` is set (serde's skip test for a field that defaults to
+/// on).
+fn is_true(value: &bool) -> bool {
+    *value
+}
+
 /// The `[memory]` section.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
@@ -108,7 +114,7 @@ pub struct MemoryConfig {
     pub root: Option<String>,
     /// Where memory sits on the engine: `legacy` (the shared
     /// `app:tinymemory` tree, the default) or `v3` (the signed-in person's
-    /// own `user:<id>` subtree, chats pooled at `ws:main`). Switched by the
+    /// own `org:<id>` subtree, chats pooled at `ws:main`). Switched by the
     /// layout migration once the person's memory has moved, never by hand.
     #[serde(skip_serializing_if = "MemoryLayoutMode::is_legacy")]
     pub layout: MemoryLayoutMode,
@@ -136,10 +142,26 @@ pub struct MemoryConfig {
     pub agents: BTreeMap<String, MemoryAgentConfig>,
     /// File GitHub documents one scope per repository
     /// (`source:github/project:<owner>--<repo>`) rather than all in
-    /// `source:github`. Off by default: every turn reads each brain scope,
-    /// so each repository adds a recall to every turn.
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    /// `source:github`. On by default: a turn reads at most four brain
+    /// scopes (the ones its query names, then the most recently written), so
+    /// a scope per repository keeps each one small without adding reads.
+    /// Written only when off, since on is the default.
+    #[serde(skip_serializing_if = "is_true")]
     pub split_github_by_repo: bool,
+    /// Attribute what memory stores to who said or did it (CortexDB's
+    /// `observed_actor`): an assistant turn to its agent, a synced email to
+    /// its sender. Off by default, and off nothing on the wire changes. Only
+    /// the `cortexdb` engine honours it, and a write CortexDB refuses for it
+    /// is written again without it.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub observed_actor: bool,
+    /// While memory written below the earlier `user:<id>` scope root is
+    /// moved to the person's `org:<id>` root (cortexdb-saas
+    /// `reroot-user-segment`), layout v3 still reads and forgets below it
+    /// too, merged by item id; writes go only to `org:<id>`. On by default;
+    /// turn it off once the move is verified. Written only when off.
+    #[serde(skip_serializing_if = "is_true")]
+    pub legacy_user_segment_read: bool,
 }
 
 /// `[memory] layout`: where memory sits on the engine.
@@ -149,7 +171,7 @@ pub enum MemoryLayoutMode {
     /// The shared `app:tinymemory` tree, as before layout v3.
     #[default]
     Legacy,
-    /// The person's own `user:<id>` subtree, every kind under a leaf of its
+    /// The person's own `org:<id>` subtree, every kind under a leaf of its
     /// own, chats pooled at `ws:main`.
     V3,
 }
@@ -209,7 +231,9 @@ impl Default for MemoryConfig {
             embedding_dimensions: DEFAULT_EMBEDDING_DIMENSIONS,
             embedding_rate_limit_per_min: DEFAULT_EMBEDDING_RATE_LIMIT_PER_MIN,
             agents: BTreeMap::new(),
-            split_github_by_repo: false,
+            split_github_by_repo: true,
+            observed_actor: false,
+            legacy_user_segment_read: true,
         }
     }
 }
@@ -274,7 +298,8 @@ pub struct MemoryRecallConfig {
     pub brain_limit: u32,
     /// This agent's earlier turns.
     pub history_limit: u32,
-    /// Other agents' turns under the same root; `0` leaves the section out.
+    /// Other agents' turns under the same root; `0`, the default, leaves the
+    /// section out (with pooled chats there is no such section either way).
     pub team_limit: u32,
     /// Turns between belief builds of an agent's conversations; `0` turns
     /// them off.
@@ -301,7 +326,7 @@ impl Default for MemoryRecallConfig {
             learnings_limit: 8,
             brain_limit: 6,
             history_limit: 6,
-            team_limit: 3,
+            team_limit: 0,
             build_beliefs_every: 10,
             pre_turn_timeout_ms: DEFAULT_PRE_TURN_TIMEOUT_MS,
             date_hint: false,

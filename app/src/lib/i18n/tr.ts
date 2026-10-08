@@ -314,6 +314,16 @@ const messages: TranslationMap = {
     'OpenRouter ücretsiz modellerine geçilemedi. OpenRouter oturumunuzu kontrol edip tekrar deneyin.',
   'chat.newThread': 'Yeni sohbet dizisi',
   'chat.newConversation': 'Yeni sohbet',
+  'chat.sidebar.group.pinned': 'Sabitlenenler',
+  'chat.sidebar.group.today': 'Bugün',
+  'chat.sidebar.group.yesterday': 'Dün',
+  'chat.sidebar.group.previous7Days': 'Önceki 7 gün',
+  'chat.sidebar.group.previous30Days': 'Önceki 30 gün',
+  'chat.sidebar.group.older': 'Daha eski',
+  'chat.sidebar.pinThread': 'Sohbeti sabitle',
+  'chat.sidebar.unpinThread': 'Sohbetin sabitlemesini kaldır',
+  'chat.sidebar.unread': 'Yeni yanıt',
+  'chat.sidebar.workingFolder': 'Çalışma klasörü: {folder}',
   'chat.newWindowPrompt': 'Bugün size nasıl yardımcı olabilirim?',
   'chat.welcomeSuggestion.calendarToday': 'Bugün takvimimde neler var?',
   'chat.welcomeSuggestion.unreadEmail': 'Okunmamış e-postalarımı özetle.',
@@ -657,7 +667,7 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f2': 'Kullanımınızı daha da uzatmak için token sıkıştırma',
   'onboarding.runtimeChoice.cloud.f3': 'Tek abonelik, tüm modeller dahil',
   'onboarding.runtimeChoice.cloud.f4': 'Yönetilecek model, arama veya Composio anahtarı yok',
-  'onboarding.runtimeChoice.cloud.f5': 'Yerel Bellek Ağacı, yönetilen ağ hizmetleri',
+  'onboarding.runtimeChoice.cloud.f5': 'Barındırılan bellek, yönetilen ağ hizmetleri',
   'onboarding.runtimeChoice.custom.title': 'Özel çalıştır',
   'onboarding.runtimeChoice.custom.tagline':
     "Kendi anahtarlarınızı getirin. OpenHuman'ın hangi hizmetleri çağıracağını seçin.",
@@ -770,7 +780,7 @@ const messages: TranslationMap = {
   'accounts.disconnect': 'Bağlantıyı kes',
   'accounts.disconnectClearMemory': 'Bu kaynaktan gelen belleği de sil',
   'accounts.disconnectClearMemoryHint':
-    'Bu bağlantıyla ilişkili yerel bellek parçalarını kalıcı olarak kaldırır.',
+    'Bu bağlantıdan kaydedilen bellek kayıtlarını kalıcı olarak siler.',
   'channels.title': 'Kanallar',
   'channels.configure': 'Kanalı yapılandır',
   'channels.setup': 'Kurulum',
@@ -2073,6 +2083,10 @@ const messages: TranslationMap = {
   'commandPalette.placeholder': 'Bir komut yazın veya arayın…',
   'commandPalette.searchAria': 'Komutlarda ara',
   'commandPalette.title': 'Komut paleti',
+  'commandPalette.group.conversations': 'Sohbetler',
+  'commandPalette.group.messages': 'Mesajlar',
+  'commandPalette.searchingMessages': 'Mesajlar aranıyor…',
+  'commandPalette.untitledConversation': 'Başlıksız sohbet',
   'kbd.ariaLabel': 'Klavye kısayolu: {shortcut}',
   'shortcuts.title': 'Klavye kısayolları',
   'shortcuts.subtitle': 'Bu klavye kısayollarıyla işlerinizi hızlandırın.',
@@ -4953,16 +4967,14 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'Sınırsız',
   'memoryPage.engine.chip.apikey': 'CortexDB anahtarın',
   'memoryPage.engine.chip.selfhost': 'Yerel',
-  'memoryPage.engine.fairUse.summary': 'Adil kullanım geçerlidir',
+  'memoryPage.engine.fairUse.summary': 'Sınırsız bellek adil kullanım politikasına tabidir',
   'memoryPage.engine.offPrompt': 'Hatırlamaya başlamak için aşağıdan bir sağlayıcı seç.',
-  'memoryPage.engine.builtin.cardDescription':
-    'TinyHumans tarafından senin için barındırılır. Kurulum gerekmez.',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'CortexDB’nin yönetilen hizmeti, kendi CortexDB hesabınla.',
-  'memoryPage.engine.selfHost.cardDescription':
-    'Kendin çalıştırdığın bir CortexDB sunucusu. Bellek bu bilgisayarda saklanır.',
-  'memoryPage.engine.freeIngestion.notePlan': '{plan} planında sınırsız bellek',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic ve Pro planlarında sınırsız bellek',
+  'memoryPage.engine.builtin.summaryPlan':
+    'TinyHumans tarafından barındırılır, {plan} planınızda sınırsız bellek.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'TinyHumans tarafından barındırılır. Basic ve Pro planlarında sınırsız bellek.',
+  'memoryPage.engine.apiKeyOption.connected': 'CortexDB API anahtarınızla bağlandı.',
+  'memoryPage.engine.selfHost.connected': '{endpoint} adresindeki CortexDB’ye bağlandı.',
   'memoryPage.engine.fairUse.own': 'Kendi içeriğini, kendi kullanımın için aktar.',
   'memoryPage.engine.fairUse.noAbuse':
     'Otomatik toplu yükleme, kazıma veya başka kişiler ya da hizmetler adına aktarım yok.',
@@ -5064,6 +5076,8 @@ const messages: TranslationMap = {
   'memoryPage.tabs.brain': 'Belgeler',
   'memoryPage.tabs.background': 'Etkinlik',
   'memoryPage.tabs.settings': 'Ayarlar',
+  'memoryPage.tabs.migration': 'Taşıma',
+  'memoryPage.header.migration': 'Önceki sürümlerdeki belleği CortexDB’ye aktarın ve düzenleyin.',
   'memoryPage.header.brain': 'Tüm ajanların paylaştığı belgeler, geldikleri yere göre düzenlenmiş.',
   'memoryPage.header.background':
     'Belleğin arka planda çalıştırdığı inanç oluşturma ve belge içe aktarma işleri.',
@@ -5184,6 +5198,29 @@ const messages: TranslationMap = {
     'Tüm ajanların paylaştığı kök ve bu uygulamanın çalıştığı ajan.',
   'memoryPage.settings.root': 'Kök',
   'memoryPage.settings.agentId': 'Ajan',
+  'memoryPage.settings.eraseTitle': 'Belleği sil',
+  'memoryPage.settings.eraseAction': 'Tüm belleği sil',
+  'memoryPage.settings.eraseDescription':
+    'OpenHuman’ın bu hesap için hatırladığı her şeyi kalıcı olarak siler. Bu işlem geri alınamaz.',
+  'memoryPage.settings.eraseConfirmTitle': 'Tüm bellek silinsin mi?',
+  'memoryPage.settings.eraseConfirmBody':
+    'Bu işlem, OpenHuman’ın bu hesap için hatırladığı her şeyi kalıcı olarak siler: bağlı her kaynak, geçmiş sohbetler, öğrenilenler ve bilgiler. Bağlantılarınız ve ayarlarınız korunur.',
+  'memoryPage.settings.eraseIrreversible': 'Bu işlem geri alınamaz. Silinen bellek kurtarılamaz.',
+  'memoryPage.settings.eraseConfirmCheck': 'Tüm belleğimin kalıcı olarak silineceğini anlıyorum.',
+  'memoryPage.settings.eraseConfirm': 'Her şeyi sil',
+  'memoryPage.settings.erasing': 'Siliniyor…',
+  'memoryPage.settings.erasedToast': 'Tüm bellek silindi',
+  'memoryPage.settings.erasedToastBody': 'OpenHuman artık bu hesap için hiçbir şey hatırlamıyor.',
+  'memoryPage.settings.eraseError.unsupported':
+    'Bellek hizmetiniz henüz tüm belleği silemiyor. Hiçbir şey silinmedi.',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'Hesabınızda kredi kalmadığı için bellek şu anda silinemiyor. Bakiye yükleyip tekrar deneyin. Hiçbir şey silinmedi.',
+  'memoryPage.settings.eraseError.memoryOff': 'Bellek kapalı, bu yüzden silinecek bir şey yok.',
+  'memoryPage.settings.eraseError.unavailable':
+    'Belleğin silinip silinmediği doğrulanamadı. Silinmiş olabilir; tekrar denemeden önce kontrol edin.',
+  'memoryPage.settings.eraseError.unauthorized':
+    'Oturumunuzun süresi doldu. Tekrar giriş yapın, ardından belleğinizi silmeyi deneyin.',
+  'memoryPage.settings.eraseError.generic': 'Belleğiniz silinemedi. Lütfen tekrar deneyin.',
   'memoryPage.settings.hostBound':
     "Bunları OpenHuman'ı barındıran uygulama belirler, bu nedenle burada değiştirilemez.",
   'memoryPage.import.title': 'Önceki bellek bulundu',
@@ -5263,10 +5300,15 @@ const messages: TranslationMap = {
   // Live voice controls and voice provider settings.
   'voice.live.mute': 'Mikrofonu kapat',
   'voice.live.unmute': 'Mikrofonu aç',
+  'memoryPage.import.none': 'Bu cihazda önceki bellek bulunamadı.',
+  'memoryPage.import.doneBody': 'Önceki belleğiniz zaten CortexDB’de.',
+  'memoryPage.import.short': 'İçe aktar',
   'memoryPage.migrate.title': 'Belleği hesabınıza taşıyın',
   'memoryPage.migrate.body':
     'Bu güncellemeden önce kaydedilen bellek hâlâ eski paylaşılan düzende. Arka planda kendiliğinden taşınır ya da şimdi taşıyabilirsiniz.',
   'memoryPage.migrate.action': 'Şimdi taşı',
+  'memoryPage.migrate.doneBody': 'Belleğiniz zaten hesabınızda.',
+  'memoryPage.migrate.afterImport': 'İçe aktarma bitince başlar.',
   'memoryPage.migrate.running': 'Belleğiniz düzenleniyor…',
   'memoryPage.migrate.progress': '{copied} öğe taşındı',
   'memoryPage.migrate.progressOne': '{copied} öğe taşındı',
