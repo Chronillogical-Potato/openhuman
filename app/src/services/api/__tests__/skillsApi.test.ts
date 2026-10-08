@@ -143,6 +143,7 @@ describe('skillsApi.installWorkflowFromUrl', () => {
       target: 'https://example.com/SKILL.md',
       fetched_from: 'https://example.com/SKILL.md',
       slug: 'bad',
+      digest: 'abc',
       findings: [{ check: 'invisible_code_points', verdict: 'block', field: 'body', message: 'm' }],
       message: 'blocked',
     });
@@ -154,6 +155,7 @@ describe('skillsApi.installWorkflowFromUrl', () => {
         target: 'https://example.com/SKILL.md',
         fetchedFrom: 'https://example.com/SKILL.md',
         slug: 'bad',
+        digest: 'abc',
         findings: [
           { check: 'invisible_code_points', verdict: 'block', field: 'body', message: 'm' },
         ],
@@ -170,11 +172,11 @@ describe('skillsApi.installWorkflowFromUrl', () => {
     });
     await skillsApi.installWorkflowFromUrl({
       url: 'https://example.com/SKILL.md',
-      acknowledgeScanFindings: true,
+      acknowledgedDigest: 'abc',
     });
     expect(vi.mocked(callCoreRpc).mock.calls[1][0].params).toEqual({
       url: 'https://example.com/SKILL.md',
-      acknowledge_scan_findings: true,
+      acknowledged_digest: 'abc',
     });
   });
 

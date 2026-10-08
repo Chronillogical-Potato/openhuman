@@ -144,6 +144,8 @@ export interface ScanBlocked {
   target: string;
   fetchedFrom: string;
   slug: string;
+  /** Digest of the blocked document; sent back to install exactly this one. */
+  digest: string;
   findings: ScanFinding[];
   message: string;
 }
@@ -153,6 +155,7 @@ export interface RawScanBlocked {
   target?: string;
   fetched_from?: string;
   slug?: string;
+  digest?: string;
   findings?: ScanFinding[];
   message?: string;
 }
@@ -162,6 +165,7 @@ export function normalizeScanBlocked(raw: RawScanBlocked): ScanBlocked {
     target: raw.target ?? '',
     fetchedFrom: raw.fetched_from ?? '',
     slug: raw.slug ?? '',
+    digest: raw.digest ?? '',
     findings: raw.findings ?? [],
     message: raw.message ?? '',
   };
@@ -187,8 +191,11 @@ export type RegistryInstallOutcome =
   | { status: 'scan_blocked'; scan: ScanBlocked };
 
 export interface InstallOptions {
-  /** Set only after the user chose "Install anyway" on the scan findings. */
-  acknowledgeScanFindings?: boolean;
+  /**
+   * The `digest` of the blocked document the user chose "Install anyway" on.
+   * It installs that document only; a changed one comes back `scan_blocked`.
+   */
+  acknowledgedDigest?: string;
 }
 
 interface RawRegistryInstallResult {
@@ -310,10 +317,10 @@ export const skillRegistryApi = {
     entryId: string,
     options: InstallOptions = {}
   ): Promise<RegistryInstallOutcome> => {
-    const acknowledge = Boolean(options.acknowledgeScanFindings);
-    log('install: entryId=%s acknowledge=%s', entryId, acknowledge);
+    const digest = options.acknowledgedDigest?.trim();
+    log('install: entryId=%s acknowledged=%s', entryId, Boolean(digest));
     const params: Record<string, unknown> = { entry_id: entryId };
-    if (acknowledge) params.acknowledge_scan_findings = true;
+    if (digest) params.acknowledged_digest = digest;
     const response = await callCoreRpc<
       | Envelope<RawRegistryInstallResult | RawScanBlocked>
       | RawRegistryInstallResult

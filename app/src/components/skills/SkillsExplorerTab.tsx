@@ -796,16 +796,16 @@ export default function SkillsExplorerTab({ onToast, view }: SkillsExplorerTabPr
   );
 
   const runRegistryInstall = useCallback(
-    async (entry: CatalogEntry, acknowledgeScanFindings: boolean): Promise<boolean> => {
+    async (entry: CatalogEntry, acknowledgedDigest?: string): Promise<boolean> => {
       log(
-        'runRegistryInstall: id=%s source=%s acknowledge=%s',
+        'runRegistryInstall: id=%s source=%s acknowledged=%s',
         entry.id,
         entry.source,
-        acknowledgeScanFindings
+        Boolean(acknowledgedDigest)
       );
       setInstallingId(entry.id);
       try {
-        const result = await skillRegistryApi.install(entry.id, { acknowledgeScanFindings });
+        const result = await skillRegistryApi.install(entry.id, { acknowledgedDigest });
         if (result.status === 'scan_blocked') {
           log('runRegistryInstall: scan_blocked findings=%d', result.scan.findings.length);
           setScanOverrideError(null);
@@ -834,7 +834,7 @@ export default function SkillsExplorerTab({ onToast, view }: SkillsExplorerTabPr
   const handleRegistryInstall = useCallback(
     async (entry: CatalogEntry) => {
       try {
-        await runRegistryInstall(entry, false);
+        await runRegistryInstall(entry);
       } catch (err) {
         onToast?.({
           type: 'error',
@@ -859,9 +859,9 @@ export default function SkillsExplorerTab({ onToast, view }: SkillsExplorerTabPr
 
   const handleScanInstallAnyway = useCallback(async () => {
     if (!scanBlocked) return;
-    const { entry } = scanBlocked;
+    const { entry, scan } = scanBlocked;
     try {
-      const installed = await runRegistryInstall(entry, true);
+      const installed = await runRegistryInstall(entry, scan.digest);
       if (installed) setScanBlocked(null);
     } catch (err) {
       setScanOverrideError(registryInstallErrorMessage(entry, err));

@@ -153,8 +153,8 @@ interface RawWorkflowsCreateResult {
 interface InstallWorkflowFromUrlInput {
   url: string;
   timeoutSecs?: number;
-  /** Set only after the user chose "Install anyway" on the scan findings. */
-  acknowledgeScanFindings?: boolean;
+  /** The `digest` of the blocked document the user chose "Install anyway" on. */
+  acknowledgedDigest?: string;
 }
 
 /**
@@ -395,8 +395,8 @@ export const skillsApi = {
   installWorkflowFromUrl: async (
     input: InstallWorkflowFromUrlInput
   ): Promise<InstallWorkflowFromUrlOutcome> => {
-    const acknowledge = Boolean(input.acknowledgeScanFindings);
-    log('installWorkflowFromUrl: request url=%s acknowledge=%s', input.url, acknowledge);
+    const digest = input.acknowledgedDigest?.trim();
+    log('installWorkflowFromUrl: request url=%s acknowledged=%s', input.url, Boolean(digest));
     const response = await callCoreRpc<
       | Envelope<RawInstallWorkflowFromUrlResult | RawScanBlocked>
       | RawInstallWorkflowFromUrlResult
@@ -406,7 +406,7 @@ export const skillsApi = {
       params: {
         url: input.url,
         ...(input.timeoutSecs !== undefined ? { timeout_secs: input.timeoutSecs } : {}),
-        ...(acknowledge ? { acknowledge_scan_findings: true } : {}),
+        ...(digest ? { acknowledged_digest: digest } : {}),
       },
     });
     const raw = unwrapEnvelope(response);

@@ -35,12 +35,14 @@ describe('skillRegistryApi', () => {
       target: 'demo',
       fetched_from: 'https://example.com/SKILL.md',
       slug: 'demo',
+      digest: 'abc123',
       findings: [{ check: 'hardcoded_credential', verdict: 'block', field: 'body', message: 'm' }],
       message: 'blocked',
     });
     const blocked = await skillRegistryApi.install('demo');
     expect(blocked.status).toBe('scan_blocked');
     expect(blocked.status === 'scan_blocked' && blocked.scan.findings).toHaveLength(1);
+    expect(blocked.status === 'scan_blocked' && blocked.scan.digest).toBe('abc123');
     expect(mockCallCoreRpc.mock.calls[0][0].params).toEqual({ entry_id: 'demo' });
 
     mockCallCoreRpc.mockResolvedValueOnce({
@@ -50,11 +52,11 @@ describe('skillRegistryApi', () => {
       stderr: '',
       new_skills: ['demo'],
     });
-    const installed = await skillRegistryApi.install('demo', { acknowledgeScanFindings: true });
+    const installed = await skillRegistryApi.install('demo', { acknowledgedDigest: 'abc123' });
     expect(installed.status).toBe('installed');
     expect(mockCallCoreRpc.mock.calls[1][0].params).toEqual({
       entry_id: 'demo',
-      acknowledge_scan_findings: true,
+      acknowledged_digest: 'abc123',
     });
   });
 

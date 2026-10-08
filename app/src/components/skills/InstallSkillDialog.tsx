@@ -183,17 +183,17 @@ export default function InstallSkillDialog({ onClose, onInstalled }: Props) {
   }, []);
 
   const submitInstall = useCallback(
-    async (acknowledgeScanFindings: boolean) => {
+    async (acknowledgedDigest?: string) => {
       const payload = {
         url: url.trim(),
         ...(timeoutSecs.trim() ? { timeoutSecs: Number(timeoutSecs) } : {}),
-        ...(acknowledgeScanFindings ? { acknowledgeScanFindings: true } : {}),
+        ...(acknowledgedDigest ? { acknowledgedDigest } : {}),
       };
       log(
-        'submit url=%s timeout=%s acknowledge=%s',
+        'submit url=%s timeout=%s acknowledged=%s',
         payload.url,
         payload.timeoutSecs ?? 'default',
-        acknowledgeScanFindings
+        Boolean(acknowledgedDigest)
       );
       setSubmitting(true);
       setError(null);
@@ -222,7 +222,7 @@ export default function InstallSkillDialog({ onClose, onInstalled }: Props) {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         log('submit-err %s', message);
-        if (acknowledgeScanFindings) setScanOverrideError(message);
+        if (acknowledgedDigest) setScanOverrideError(message);
         else setError(message);
       } finally {
         setSubmitting(false);
@@ -235,7 +235,7 @@ export default function InstallSkillDialog({ onClose, onInstalled }: Props) {
     async (e: React.FormEvent) => {
       e.preventDefault();
       if (!formValid) return;
-      await submitInstall(false);
+      await submitInstall();
     },
     [formValid, submitInstall]
   );
@@ -453,7 +453,7 @@ export default function InstallSkillDialog({ onClose, onInstalled }: Props) {
             setScanOverrideError(null);
             setScanDeclined(true);
           }}
-          onInstallAnyway={() => void submitInstall(true)}
+          onInstallAnyway={() => void submitInstall(scanBlocked.digest)}
         />
       ) : null}
     </ModalShell>

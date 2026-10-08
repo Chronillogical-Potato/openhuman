@@ -207,6 +207,7 @@ describe('InstallSkillDialog', () => {
         target: 'https://example.com/SKILL.md',
         fetchedFrom: 'https://example.com/SKILL.md',
         slug: 'pasted',
+        digest: 'digest-one',
         findings: [
           {
             check: 'hardcoded_credential',
@@ -240,6 +241,7 @@ describe('InstallSkillDialog', () => {
         target: 'https://example.com/SKILL.md',
         fetchedFrom: 'https://example.com/SKILL.md',
         slug: 'pasted',
+        digest: 'digest-two',
         findings: [],
         message: 'blocked',
       },
@@ -262,7 +264,7 @@ describe('InstallSkillDialog', () => {
     await waitFor(() => expect(onInstalled).toHaveBeenCalledTimes(1));
     expect(vi.mocked(skillsApi.installWorkflowFromUrl).mock.calls.at(-1)?.[0]).toEqual({
       url: 'https://example.com/SKILL.md',
-      acknowledgeScanFindings: true,
+      acknowledgedDigest: 'digest-two',
     });
     expect(onInstalled.mock.calls[0][0]).toEqual({
       url: 'https://example.com/SKILL.md',

@@ -548,7 +548,7 @@ describe('SkillsExplorerTab', () => {
       expect(within(tile).getByText('Installed')).toBeInTheDocument();
     });
     expect(skillRegistryApi.install).toHaveBeenCalledWith('built-in/apple-notes', {
-      acknowledgeScanFindings: false,
+      acknowledgedDigest: undefined,
     });
     expect(
       within(tile).queryByTestId('registry-install-built-in/apple-notes')
@@ -768,7 +768,7 @@ describe('SkillsExplorerTab', () => {
 
     await waitFor(() => {
       expect(skillRegistryApi.install).toHaveBeenCalledWith('registry-skill-1', {
-      acknowledgeScanFindings: false,
+      acknowledgedDigest: undefined,
     });
     });
     await waitFor(() => {
@@ -776,7 +776,7 @@ describe('SkillsExplorerTab', () => {
     });
   });
 
-  it('prompts on a scan block, keeps Block as the default and installs only on Install anyway', async () => {
+  it('prompts on a scan block, keeps Block as the default and installs only the reviewed document', async () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     const { skillRegistryApi } = await import('../../../services/api/skillRegistryApi');
     const onToast = vi.fn();
@@ -786,6 +786,7 @@ describe('SkillsExplorerTab', () => {
       target: 'registry-skill-1',
       fetchedFrom: 'https://example.com/SKILL.md',
       slug: 'registry-skill-1',
+      digest: 'digest-seen',
       findings: [
         {
           check: 'invisible_code_points',
@@ -826,6 +827,31 @@ describe('SkillsExplorerTab', () => {
     });
     await screen.findByTestId('scan-blocked-dialog');
     vi.mocked(skillRegistryApi.install).mockResolvedValueOnce({
+      status: 'scan_blocked',
+      scan: {
+        ...scan,
+        digest: 'digest-changed',
+        findings: [
+          {
+            check: 'hardcoded_credential',
+            verdict: 'block' as const,
+            field: 'the document body',
+            message: 'a hard-coded credential in the document body',
+          },
+        ],
+      },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('scan-blocked-install-anyway'));
+    });
+    expect(skillRegistryApi.install).toHaveBeenLastCalledWith('registry-skill-1', {
+      acknowledgedDigest: 'digest-seen',
+    });
+    await waitFor(() => {
+      expect(screen.getByText(/hard-coded credential/)).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('scan-blocked-dialog')).toBeInTheDocument();
+    vi.mocked(skillRegistryApi.install).mockResolvedValueOnce({
       status: 'installed',
       url: 'https://example.com/SKILL.md',
       stdout: 'ok',
@@ -838,7 +864,7 @@ describe('SkillsExplorerTab', () => {
 
     await waitFor(() => {
       expect(skillRegistryApi.install).toHaveBeenLastCalledWith('registry-skill-1', {
-        acknowledgeScanFindings: true,
+        acknowledgedDigest: 'digest-changed',
       });
     });
     await waitFor(() => {
@@ -1225,7 +1251,7 @@ describe('SkillsExplorerTab', () => {
 
     await waitFor(() => {
       expect(skillRegistryApi.install).toHaveBeenCalledWith('registry-skill-1', {
-      acknowledgeScanFindings: false,
+      acknowledgedDigest: undefined,
     });
     });
   });
