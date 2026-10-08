@@ -281,18 +281,11 @@ fn write_file(workspace_dir: &Path, file: &ImportFile) {
     }
 }
 
-/// Opens the legacy store at `workspace_dir` for scanning, counting,
-/// importing or retrying. Every caller goes through here so connector syncs
-/// (Gmail, Slack, Notion, Linear, GitHub, ClickUp, ... from Composio) are
-/// skipped everywhere alike and the scan counts match the run.
-fn open_legacy(
-    workspace_dir: &Path,
-) -> Result<LegacyWorkspace, tinymemory_integrations::import::Error> {
-    tracing::debug!(
-        workspace = %workspace_dir.display(),
-        "[memory:import] opening legacy store, skipping connector syncs (composio/connectors are re-synced, not migrated)"
-    );
-    LegacyWorkspace::open(workspace_dir).map(|workspace| workspace.skip_connector_syncs(true))
+/// Opens the legacy store for every scan, count, import and retry, skipping
+/// connector (Composio) syncs so the scan counts match the run.
+fn open_legacy(dir: &Path) -> Result<LegacyWorkspace, tinymemory_integrations::import::Error> {
+    tracing::debug!(workspace = %dir.display(), "[memory:import] skipping connector syncs");
+    LegacyWorkspace::open(dir).map(|workspace| workspace.skip_connector_syncs(true))
 }
 
 /// Counts what a legacy store at `workspace_dir` holds, or `None` when there
@@ -754,3 +747,7 @@ mod organize_tests;
 #[cfg(test)]
 #[path = "import_wait_tests.rs"]
 mod wait_tests;
+
+#[cfg(test)]
+#[path = "import_connector_tests.rs"]
+mod connector_tests;

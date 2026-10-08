@@ -1,7 +1,9 @@
-use super::tests::legacy_workspace;
+//! The import leaves out what v1 synced from Composio and the connectors.
+
+use super::tests::{chunk_only_workspace, legacy_workspace, memory_doc, wait_until_settled};
 use super::*;
 use crate::memory::test_fixtures::{bind_reference, config_in, stored};
-use rusqlite::{params, Connection};
+use rusqlite::Connection;
 use tinymemory_api::MetaFilter;
 
 #[tokio::test]
@@ -71,4 +73,3 @@ async fn connector_syncs_are_not_imported() {
         .iter()
         .any(|id| id == "mem_tree_chunks:document:mem_src:folder"));
 }
-

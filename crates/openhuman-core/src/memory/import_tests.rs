@@ -20,7 +20,7 @@ CREATE TABLE user_profile (facet_id TEXT PRIMARY KEY, facet_type TEXT NOT NULL, 
   first_seen_at REAL NOT NULL, last_seen_at REAL NOT NULL);
 ";
 
-fn memory_doc(conn: &Connection, id: &str, namespace: &str, title: &str, content: &str) {
+pub(super) fn memory_doc(conn: &Connection, id: &str, namespace: &str, title: &str, content: &str) {
     conn.execute(
         "INSERT INTO memory_docs (document_id, namespace, key, title, content, source_type, priority,
            tags_json, metadata_json, category, created_at, updated_at, markdown_rel_path)
@@ -102,7 +102,7 @@ async fn scan_counts_what_a_legacy_store_holds() {
 /// A store from the later v1 engine: only `memory_tree/chunks.db`, with an
 /// document source of two chunks and a chat source of one (not an email: the
 /// import skips connector syncs, see `connector_syncs_are_not_imported`).
-fn chunk_only_workspace(workspace_dir: &Path) {
+pub(super) fn chunk_only_workspace(workspace_dir: &Path) {
     std::fs::create_dir_all(workspace_dir.join("memory_tree")).unwrap();
     let conn = Connection::open(workspace_dir.join("memory_tree").join("chunks.db")).unwrap();
     conn.execute_batch(
