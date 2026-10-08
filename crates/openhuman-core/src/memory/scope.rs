@@ -188,35 +188,28 @@ pub fn layout_is_v3(config: &Config) -> bool {
 }
 
 /// The engine scope root of the person `config` belongs to: `user:<id>`
-/// for a TinyHumans account (its 24-hex id), `user:local-<digest>` for a
-/// local session (hashed, so no device name reaches the engine), and `None`
-/// before anyone signs in. Read from where the config lives
-/// (`<root>/users/<id>/config.toml`).
+/// for a TinyHumans account (its 24-hex id), `user:local-<install id>` for a
+/// local session (a random id recorded in the workspace, or the older
+/// hostname-derived root an existing install already keeps memory under;
+/// see [`super::local_root`]), and `None` before anyone signs in. Read from
+/// where the config lives (`<root>/users/<id>/config.toml`).
 #[must_use]
 pub fn user_root(config: &Config) -> Option<String> {
     let dir = config.config_path.parent()?;
     if dir.parent()?.file_name()? != "users" {
         return None;
     }
-    user_root_for(dir.file_name()?.to_str()?)
-}
-
-/// [`user_root`] for the user id `id`.
-fn user_root_for(id: &str) -> Option<String> {
-    use sha2::{Digest, Sha256};
+    let id = dir.file_name()?.to_str()?;
     if id.is_empty() || id == crate::config::PRE_LOGIN_USER_ID {
         return None;
     }
+    account_root(id).or_else(|| super::local_root::resolve(config, id))
+}
+
+/// `user:<id>` when `id` is a TinyHumans account id (24 hex digits).
+fn account_root(id: &str) -> Option<String> {
     let account = id.len() == 24 && id.bytes().all(|b| b.is_ascii_hexdigit());
-    if account {
-        return Some(format!("user:{}", id.to_ascii_lowercase()));
-    }
-    let digest: String = Sha256::digest(id.as_bytes())
-        .iter()
-        .take(8)
-        .map(|byte| format!("{byte:02x}"))
-        .collect();
-    Some(format!("user:local-{digest}"))
+    account.then(|| format!("user:{}", id.to_ascii_lowercase()))
 }
 
 /// Switches the memory of the person `config` belongs to to layout v3:

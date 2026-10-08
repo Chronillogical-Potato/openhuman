@@ -289,13 +289,35 @@ pub struct BrainIngestView {
     pub replayed: bool,
 }
 
+/// Resolves an ingest `path` through the security policy, the same check
+/// the file tools make ([`SecurityPolicy::validate_path`]): no null bytes or
+/// `..` traversal, the credential-store and system-root floor
+/// (`is_always_forbidden`: `~/.ssh`, `~/.aws`, `/etc`, ...) on the resolved
+/// path (so a symlink cannot reach one either), and, with `[autonomy]`
+/// enabled, workspace and trusted-root containment. A relative path lands in
+/// `action_dir`.
+///
+/// [`SecurityPolicy::validate_path`]: crate::security::SecurityPolicy::validate_path
+async fn ingest_path(config: &Config, path: &str) -> MemoryResult<std::path::PathBuf> {
+    let policy = crate::security::SecurityPolicy::from_config(
+        &config.autonomy,
+        &config.workspace_dir,
+        &config.action_dir,
+    );
+    policy.validate_path(path.trim()).await.map_err(|error| {
+        tracing::warn!("[memory:brain] ingest path refused by the security policy");
+        MemoryError::invalid(format!("cannot read the file: {error}"))
+    })
+}
+
 /// `memory_brain_ingest`: files a document in the brain and queues its
 /// source's belief build. The write waits only for the engine to accept it.
 pub async fn ingest(config: &Config, params: BrainIngestParams) -> MemoryResult<BrainIngestView> {
     let source = params.source.as_deref().map(parse_source).transpose()?;
     let mut document = match (params.path.as_deref(), params.text.as_deref()) {
         (Some(path), None) => {
-            let path = std::path::Path::new(path.trim());
+            let resolved = ingest_path(config, path).await?;
+            let path = resolved.as_path();
             let size = std::fs::metadata(path)
                 .map_err(|error| MemoryError::invalid(format!("cannot read the file: {error}")))?
                 .len();

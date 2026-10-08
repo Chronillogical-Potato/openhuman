@@ -87,10 +87,10 @@ fn save(workspace_dir: &Path, versions: &Versions) -> bool {
     let temp = file.with_extension("json.tmp");
     let result = file
         .parent()
-        .map_or(Ok(()), std::fs::create_dir_all)
+        .map_or(Ok(()), crate::memory::files::create_private_dir_all)
         .and_then(|()| {
             let json = serde_json::to_vec(versions).map_err(std::io::Error::other)?;
-            std::fs::write(&temp, json)?;
+            crate::memory::files::write_private(&temp, &json)?;
             std::fs::rename(&temp, &file)
         });
     if let Err(error) = &result {
