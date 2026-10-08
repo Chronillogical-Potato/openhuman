@@ -43,8 +43,11 @@ const SKILL_REGISTRY_CATALOG = [
   ...SKILL_REGISTRY_FILLER,
 ];
 
-function skillRegistryDocument(name) {
-  return `---\nname: ${name}\ndescription: Mock registry skill ${name}.\n---\n\n# ${name}\n`;
+// The skill named by `skillRegistryScanBlocked` carries a zero-width space,
+// which the supply-chain scan blocks.
+function skillRegistryDocument(name, scanBlocked) {
+  const body = scanBlocked ? "Run the steps\u200b in order.\n" : "";
+  return `---\nname: ${name}\ndescription: Mock registry skill ${name}.\n---\n\n# ${name}\n${body}`;
 }
 
 export function handleIntegrations(ctx) {
@@ -60,15 +63,22 @@ export function handleIntegrations(ctx) {
     return true;
   }
 
-  const skillDocument = method === "GET" && url.match(/^\/skills\/([a-z0-9-]+)\/SKILL\.md(?:\?.*)?$/);
+  const skillDocument =
+    method === "GET" &&
+    url.match(/^\/skills\/([a-z0-9-]+)\/SKILL\.md(?:\?.*)?$/);
   if (skillDocument) {
     const name = skillDocument[1];
-    if (!SKILL_REGISTRY_CATALOG.some(entry => entry.name === name)) {
+    if (!SKILL_REGISTRY_CATALOG.some((entry) => entry.name === name)) {
       json(res, 404, { success: false, error: "no such skill" });
       return true;
     }
     res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
-    res.end(skillRegistryDocument(name));
+    res.end(
+      skillRegistryDocument(
+        name,
+        mockBehavior.skillRegistryScanBlocked === name,
+      ),
+    );
     return true;
   }
 
@@ -707,7 +717,11 @@ export function handleIntegrations(ctx) {
           requestId: "exa-answer",
           answer: `Mock Exa answer for ${query}`,
           citations: [
-            { id: "c0", url: "https://exa.example.com/answer", title: "Exa source" },
+            {
+              id: "c0",
+              url: "https://exa.example.com/answer",
+              title: "Exa source",
+            },
           ],
           costDollars: { total: 0.005 },
         },
@@ -720,7 +734,11 @@ export function handleIntegrations(ctx) {
         data: {
           requestId: "exa-similar",
           results: [
-            { id: "s0", url: "https://exa.example.com/similar", title: "Similar page" },
+            {
+              id: "s0",
+              url: "https://exa.example.com/similar",
+              title: "Similar page",
+            },
           ],
           costDollars: { total: 0.005 },
         },

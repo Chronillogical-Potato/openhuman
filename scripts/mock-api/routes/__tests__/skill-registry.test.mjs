@@ -30,7 +30,13 @@ function createRes() {
 }
 
 function get(path) {
-  const ctx = { method: "GET", url: path, body: "", parsedBody: null, res: createRes() };
+  const ctx = {
+    method: "GET",
+    url: path,
+    body: "",
+    parsedBody: null,
+    res: createRes(),
+  };
   const handled = handleIntegrations(ctx);
   return { handled, res: ctx.res };
 }
@@ -45,8 +51,8 @@ test("the catalog spans more than one 25-entry page", () => {
   assert.equal(res.statusCode, 200);
   const entries = JSON.parse(res.body);
   assert.ok(entries.length > 25, `only ${entries.length} entries`);
-  assert.ok(entries.some(entry => entry.name === "git-workflow"));
-  assert.ok(entries.some(entry => entry.name === "docker-management"));
+  assert.ok(entries.some((entry) => entry.name === "git-workflow"));
+  assert.ok(entries.some((entry) => entry.name === "docker-management"));
 });
 
 test("the catalog answers 503 while the registry is marked unavailable", () => {
@@ -63,4 +69,14 @@ test("each catalog entry has a SKILL.md and unknown names 404", () => {
 
   const missing = get("/skills/nope/SKILL.md");
   assert.equal(missing.res.statusCode, 404);
+});
+
+test("the skill named by skillRegistryScanBlocked carries an invisible code point", () => {
+  setMockBehavior("skillRegistryScanBlocked", "git-workflow");
+  const blocked = get("/skills/git-workflow/SKILL.md");
+  assert.equal(blocked.res.statusCode, 200);
+  assert.ok(blocked.res.body.includes("\u200b"));
+
+  const clean = get("/skills/docker-management/SKILL.md");
+  assert.ok(!clean.res.body.includes("\u200b"));
 });
