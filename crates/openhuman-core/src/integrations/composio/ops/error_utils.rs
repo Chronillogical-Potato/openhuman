@@ -85,8 +85,7 @@ pub(crate) fn direct_mode_without_key(config: &Config) -> OpResult<bool> {
 /// [`COMPOSIO_NO_SESSION`] error instead — deliberately not an empty list,
 /// unlike the direct-mode guard: no key means no tenant and truly no
 /// connections, whereas no session only means the connections cannot be
-/// reached yet, and `memory::sources::reconcile` /
-/// `flows::validate_connection_refs` rely on `Err` meaning "unknown" (fail
+/// reached yet, and `flows::validate_connection_refs` rely on `Err` meaning "unknown" (fail
 /// open) rather than "none".
 ///
 /// Credential presence MUST mirror the module route's own resolution:

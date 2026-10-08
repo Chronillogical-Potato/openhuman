@@ -98,7 +98,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "delete_connection" => ControllerSchema {
             namespace: "composio",
             function: "delete_connection",
-            description: "Delete a Composio connection and optionally forget the memory synced through it.",
+            description: "Delete a Composio connection.",
             inputs: vec![
                 FieldSchema {
                     name: "connection_id",
@@ -106,24 +106,12 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     comment: "Identifier of the connection to delete.",
                     required: true,
                 },
-                FieldSchema {
-                    name: "clear_memory",
-                    ty: TypeSchema::Bool,
-                    comment: "When true, forget the memory items synced through this connection.",
-                    required: false,
-                },
             ],
             outputs: vec![
                 FieldSchema {
                     name: "deleted",
                     ty: TypeSchema::Bool,
                     comment: "True when the backend confirmed the deletion.",
-                    required: true,
-                },
-                FieldSchema {
-                    name: "memory_chunks_deleted",
-                    ty: TypeSchema::U64,
-                    comment: "Number of memory items forgotten for this connection.",
                     required: true,
                 },
             ],

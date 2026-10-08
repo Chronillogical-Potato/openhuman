@@ -36,7 +36,7 @@ mod user_scopes;
 
 pub use connections::{
     active_connection_ids, composio_authorize, composio_delete_connection,
-    composio_list_connections,
+    composio_list_connections, ComposioDeleteResult,
 };
 pub use direct_mode::{composio_clear_api_key, composio_get_mode, composio_set_api_key};
 pub(crate) use error_utils::{report_composio_op_error, should_forward_tags};
