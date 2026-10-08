@@ -613,9 +613,10 @@ engine with `EngineSettings { endpoint, headers, scope_root, .. }` and
 client (`tinymemory-integrations/src/cortex/transport`) calls the backend's
 `/memory/*` routes. The core supplies only the pieces: the endpoint from
 `backend::base_url` (or `[memory.engines.tinyhumans] endpoint`), the
-`x-sdk-name` set from `backend::attribution_headers`, and a `BearerSource`
+attribution headers (`x-sdk-name`, …) from `backend::attribution_headers`, and a `BearerSource`
 that calls `resolve_backend_credential` on every request. So memory needs a
-transport installed (for the URL) but none of its requests pass through it,
+transport installed for the URL (unless an endpoint is configured), but none
+of its requests pass through it,
 and transport-level policy (route registry, `map_sdk_error`) does not apply
 to them. The `cortexdb` engine likewise calls CortexDB directly with the
 user's key. Never add `tinyhumans-sdk` back to the core; the only
