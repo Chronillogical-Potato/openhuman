@@ -33,10 +33,10 @@ These never leave your computer as raw data:
 
 ## Your memory is stored off your machine
 
-Documents, conversations, learnings and the beliefs built from them are stored in **CortexDB**, not on your computer:
+When memory is on, documents, conversations, learnings and the beliefs built from them are stored in **CortexDB**, not on your computer (with no engine available, memory is off and nothing is stored):
 
 - **TinyHumans engine (default when signed in):** stored in the hosted CortexDB that TinyHumans runs, through the TinyHumans backend. Each account gets its own isolated tenant, so other users cannot see your memory. TinyHumans operates that service.
-- **CortexDB engine:** stored in your own CortexDB account or self-hosted CortexDB, reached directly with your key.
+- **CortexDB engine:** stored in your own CortexDB account or self-hosted CortexDB, reached directly with your key. A CortexDB you run on your own machine keeps the data on that machine.
 
 Secrets and personal identifiers are scrubbed before an item is sent. You can forget single items or whole sources from the Memory page; see [Deleting memory](../features/privacy-and-security.md#deleting-memory) for erasing everything.
 

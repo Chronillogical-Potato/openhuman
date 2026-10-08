@@ -60,7 +60,7 @@ interface MemoryEraseAllCardProps {
   /** Memory is off: the control is shown disabled. */
   disabled?: boolean;
   /** Called after a successful erase so the page can re-read memory state. */
-  onErased?: () => void;
+  onErased?: () => void | Promise<void>;
 }
 
 export default function MemoryEraseAllCard({
@@ -109,7 +109,7 @@ export default function MemoryEraseAllCard({
     // The erase has already succeeded; a refresh failure must not read as one.
     if (erased) {
       try {
-        onErased?.();
+        await onErased?.();
       } catch (err) {
         log('onErased callback failed: %s', err instanceof Error ? err.name : 'unknown');
       }

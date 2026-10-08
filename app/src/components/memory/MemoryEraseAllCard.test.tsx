@@ -89,6 +89,35 @@ describe('MemoryEraseAllCard', () => {
     );
   });
 
+  it('contains a rejected async refresh callback', async () => {
+    hoisted.erase.mockResolvedValue({ erased_scopes: 1 });
+    const onErased = vi.fn(() => Promise.reject(new Error('refresh boom')));
+    renderWithProviders(<MemoryEraseAllCard onErased={onErased} />);
+    await openDialog();
+    fireEvent.click(screen.getByTestId('memory-erase-ack'));
+    fireEvent.click(screen.getByTestId('memory-erase-confirm'));
+
+    await waitFor(() => expect(onErased).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId('memory-erase-error')).not.toBeInTheDocument();
+  });
+
+  it('translates an unauthorized failure without a success toast, event or refresh', async () => {
+    hoisted.erase.mockRejectedValue(
+      Object.assign(new Error('UNAUTHORIZED: secret'), { data: { code: 'UNAUTHORIZED' } })
+    );
+    const onErased = vi.fn();
+    renderWithProviders(<MemoryEraseAllCard onErased={onErased} />);
+    await openDialog();
+    fireEvent.click(screen.getByTestId('memory-erase-ack'));
+    fireEvent.click(screen.getByTestId('memory-erase-confirm'));
+
+    const error = await screen.findByTestId('memory-erase-error');
+    expect(error).not.toHaveTextContent('secret');
+    expect(onErased).not.toHaveBeenCalled();
+    expect(hoisted.toastAdd).not.toHaveBeenCalled();
+    expect(hoisted.track).not.toHaveBeenCalled();
+  });
+
   it('shows a translated error and never the raw server text', async () => {
     hoisted.erase.mockRejectedValue(
       Object.assign(new Error('UNSUPPORTED: DELETE /memory returned 404 secret-detail'), {
