@@ -555,6 +555,7 @@ fn approval_requested_does_not_surface_session_id() {
         client_id: Some("c-1".to_string()),
         tool_call_id: None,
         expires_at: None,
+        agent_id: None,
     };
     let dbg = format!("{event:?}");
     assert!(

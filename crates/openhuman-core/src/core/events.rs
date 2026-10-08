@@ -570,6 +570,10 @@ pub enum DomainEvent {
         /// expiry or the publish site hasn't been updated yet.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         expires_at: Option<String>,
+        /// The embedded agent whose turn parked this call. `None` for the
+        /// process's own sessions.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        agent_id: Option<String>,
     },
     /// User decided a pending approval. Published by `approval_decide`
     /// RPC handler after the gate's parked future resolves.
@@ -600,6 +604,10 @@ pub enum DomainEvent {
         /// decision (approve or a deliberate deny).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         resolution: Option<String>,
+        /// The embedded agent the decided request belongs to, mirrored from
+        /// `ApprovalRequested::agent_id`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        agent_id: Option<String>,
     },
     /// A `Workflow`-origin tool call parked in the `ApprovalGate` (issue
     /// flow-approval-surface, PR2/PR3). Unlike `ApprovalRequested`, this
@@ -625,6 +633,9 @@ pub enum DomainEvent {
         /// Short human-readable summary of the action (redacted, same as
         /// `ApprovalRequested::action_summary`).
         summary: String,
+        /// The embedded agent whose flow run parked this call.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        agent_id: Option<String>,
     },
 
     // ── Egress (privacy spine) ──────────────────────────────────────────

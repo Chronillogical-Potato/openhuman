@@ -60,6 +60,23 @@ pub enum DecideMiss {
     NeverRegistered,
 }
 
+/// A decision refused by the gate before it reached the store.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum ApprovalError {
+    /// The request was parked by a different agent than the one deciding it.
+    #[error("approval request {request_id} belongs to another agent")]
+    WrongAgent { request_id: String },
+}
+
+/// The key `thread_to_request` files a parked chat thread under: the thread
+/// id alone for the process's own sessions, else the agent and thread.
+pub(crate) fn thread_route_key(agent_id: Option<&str>, thread_id: &str) -> String {
+    match agent_id {
+        Some(agent) => format!("{agent}\u{1f}{thread_id}"),
+        None => thread_id.to_string(),
+    }
+}
+
 /// How long the gate will park a future before timing out and
 /// returning `Deny`. 10 minutes matches the default `expires_at`
 /// written into the persisted row.
@@ -204,6 +221,7 @@ pub(crate) struct RequestRoute {
     pub(crate) client_id: Option<String>,
     pub(crate) tool_call_id: Option<String>,
     pub(crate) forced: bool,
+    pub(crate) agent_id: Option<String>,
 }
 
 /// Coordinator for pending approvals.
@@ -212,8 +230,9 @@ pub struct ApprovalGate {
     session_id: String,
     ttl: Duration,
     waiters: Mutex<HashMap<String, oneshot::Sender<ApprovalDecision>>>,
-    /// thread_id → request_id for the approval currently parked on that chat
-    /// thread, so the web channel can route a yes/no reply to `approval_decide`.
+    /// [`thread_route_key`] → request_id for the approval currently parked on
+    /// that chat thread, so the web channel can route a yes/no reply to
+    /// `approval_decide`.
     /// In-memory only (session-scoped — a parked approval doesn't survive a
     /// restart, and the oneshot waiter is in-memory anyway).
     thread_to_request: Mutex<HashMap<String, String>>,
@@ -245,7 +264,7 @@ pub struct ApprovalGate {
 struct WaiterGuard<'a> {
     gate: &'a ApprovalGate,
     request_id: String,
-    thread_id: Option<String>,
+    thread_key: Option<String>,
     armed: bool,
 }
 
@@ -273,9 +292,9 @@ impl Drop for WaiterGuard<'_> {
         // an unconditional `remove` would delete the *new* request's routing, so
         // the next typed yes/no would fall through as a fresh chat turn instead
         // of resolving the live gate (#4774).
-        if let Some(thread_id) = &self.thread_id {
+        if let Some(thread_key) = &self.thread_key {
             self.gate
-                .clear_thread_route_if_owned(thread_id, &self.request_id);
+                .clear_thread_route_if_owned(thread_key, &self.request_id);
         }
         let decided = store::decide(&self.gate.config, &self.request_id, ApprovalDecision::Deny);
         if let Ok(Some(row)) = decided {
@@ -288,6 +307,7 @@ impl Drop for WaiterGuard<'_> {
                 client_id: route.as_ref().and_then(|r| r.client_id.clone()),
                 tool_call_id: route.and_then(|r| r.tool_call_id),
                 resolution: Some("cancelled".to_string()),
+                agent_id: row.agent_id,
             });
         }
         tracing::warn!(

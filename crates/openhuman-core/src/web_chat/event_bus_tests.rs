@@ -443,6 +443,7 @@ async fn approval_surface_bridges_approval_decided_with_resolution() {
         client_id: Some("client-decided-1".to_string()),
         tool_call_id: Some("call-decided-1".to_string()),
         resolution: Some("expired".to_string()),
+        agent_id: None,
     });
 
     let ev = find_agent_web_event(&mut web_rx, "approval_decided", "thread-decided-1").await;
@@ -469,6 +470,7 @@ async fn approval_surface_drops_approval_decided_without_chat_routing() {
         client_id: None,
         tool_call_id: None,
         resolution: Some("expired".to_string()),
+        agent_id: None,
     });
     // A sibling event we know fires, so we don't just race an empty channel.
     crate::core::bus::BUS.publish(DomainEvent::ThreadGoalCleared {

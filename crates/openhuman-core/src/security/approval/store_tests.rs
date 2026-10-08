@@ -49,6 +49,7 @@ fn sample_with_expiry(
         expires_at,
         source_context: None,
         tool_call_id: None,
+        agent_id: None,
     }
 }
 
