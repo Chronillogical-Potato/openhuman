@@ -17,7 +17,7 @@ use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
 use tinyinference_llm::tool::ToolCall as TaToolCall;
 use tinytools::ToolResult as TaToolResult;
 
-use super::fetched_site::{fetch_host_scope, fetched_site_policy, heuristic_text};
+use super::fetched_site::{fetch_host_scope, heuristic_text};
 use super::loop_guards::{
     is_repeat_call_exempt, RECOVERABLE_NO_PROGRESS_FAILURE_THRESHOLD,
     RECOVERABLE_REPEAT_FAILURE_THRESHOLD,
@@ -92,6 +92,10 @@ pub(crate) struct RepeatedToolFailureMiddleware {
     /// history, where it replays as a stale instruction on every later turn
     /// (#6725).
     pending_nudges: Arc<Mutex<Vec<String>>>,
+    /// `tool\u{1f}args` of the last finished command that exited non-zero,
+    /// kept so a *repeat* of it still counts as a failure while a different
+    /// command's non-zero exit counts as information (see `after_tool`).
+    last_exit_report: std::sync::Mutex<Option<String>>,
 }
 
 impl RepeatedToolFailureMiddleware {
@@ -108,6 +112,7 @@ impl RepeatedToolFailureMiddleware {
             halt_summary,
             tracker: NoProgressTracker::new(identical_threshold),
             classified: ClassifiedFailureTracker::default(),
+            last_exit_report: std::sync::Mutex::default(),
             step: AtomicUsize::new(0),
             arg_sigs: std::sync::Mutex::new(std::collections::HashMap::new()),
             target_scopes: std::sync::Mutex::new(std::collections::HashMap::new()),
@@ -188,6 +193,31 @@ impl RepeatedToolFailureMiddleware {
     }
 }
 
+/// The first line of a failure, plus the first stderr line when the text is a
+/// command exit report -- that is where a program's own reason tends to be.
+fn first_error_line(text: &str) -> String {
+    // The line is read by the model and persisted with the session in a halt
+    // summary, so it is scrubbed first: a command can print a token or a
+    // user's own words on stderr.
+    let scrubbed = crate::security::scrub::sanitize_text(text).value;
+    let text = scrubbed.as_str();
+    let first = text
+        .lines()
+        .find(|l| !l.trim().is_empty())
+        .unwrap_or("")
+        .trim();
+    let stderr = text
+        .split_once("[stderr]\n")
+        .and_then(|(_, tail)| tail.lines().find(|l| !l.trim().is_empty()))
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && *l != first);
+    let line = match stderr {
+        Some(err) => format!("{first} — {err}"),
+        None => first.to_owned(),
+    };
+    line.chars().take(200).collect()
+}
+
 /// A stable, bounded fingerprint of a tool call's arguments for the identical-
 /// repeat signature (hashed so a huge payload doesn't bloat the map/comparison).
 fn args_fingerprint(arguments: &serde_json::Value) -> String {
@@ -231,160 +261,7 @@ pub(super) fn failure_scope(tool: &str, arguments: &serde_json::Value) -> String
     scope
 }
 
-/// Explicit recovery policy. Only recognised failures enter the classified
-/// ledger; unknown prose continues through the established exact-repeat guard.
-pub(super) fn recovery_policy(
-    tool: &str,
-    error: &str,
-    body_level_failure: bool,
-) -> Option<(&'static str, usize)> {
-    let (class, budget) = classified_recovery_policy(tool, error, body_level_failure)?;
-    // A path the model mistyped is a wrong call it can correct, not a missing
-    // program: the classifier files `No such file or directory (os error 2)`
-    // under `MissingApp`, which is right for a shell command and fatal for
-    // `file_read`. One bad relative path ended a whole turn after two calls.
-    if class == "unsupported"
-        && is_path_tool(tool)
-        && error
-            .to_ascii_lowercase()
-            .contains("no such file or directory")
-    {
-        return Some(("not_found", 1));
-    }
-    Some((class, budget))
-}
-
-/// Prefix of `tinytools::render_command_failure`, the one renderer every
-/// shell-family tool uses for a command that ran and did not exit 0: an
-/// exit-code (or signal) line, then the program's own stdout and stderr.
-const COMMAND_EXIT_REPORT_PREFIX: &str = "Command failed (";
-
-/// Whether `error` is a finished command's exit report rather than a failure
-/// of the tool itself (a timeout, a policy refusal, a runtime that could not
-/// be resolved), which the tools word differently.
-fn is_command_exit_report(error: &str) -> bool {
-    error.trim_start().starts_with(COMMAND_EXIT_REPORT_PREFIX)
-}
-
-/// Tools whose first argument is a filesystem path the model typed.
-fn is_path_tool(tool: &str) -> bool {
-    matches!(
-        tool,
-        "file_read" | "file_write" | "apply_patch" | "list_files" | "list" | "grep" | "glob"
-    )
-}
-
-fn classified_recovery_policy(
-    tool: &str,
-    error: &str,
-    body_level_failure: bool,
-) -> Option<(&'static str, usize)> {
-    use crate::tools::status::ToolFailureClass as Class;
-    if body_level_failure {
-        return Some(("validation", 1));
-    }
-    // An unknown-tool answer is a wrong call the model can correct, and it
-    // echoes the attempted name and every valid tool name. Keyword sniffing
-    // below would read those names as the failure — `forbidden_tool` or a
-    // name carrying `unauthorized` became `authentication`, a zero-retry
-    // class, and halted the run on its first wrong guess.
-    if error.trim_start().starts_with("unknown tool `") {
-        return Some(("validation", 1));
-    }
-    // A command that ran and exited non-zero is reported as an exit-code line
-    // followed by the program's own stdout and stderr. That output is data,
-    // not a tool-layer verdict: keyword sniffing read `Update objects.md
-    // (#401)` in a `git log | head` (exit 141, a harmless SIGPIPE) as a
-    // credential failure, a zero-retry class, and ended the whole run on the
-    // first call. The exit-code hint already steers the model, and the
-    // generic no-progress ladder still bounds a command repeated unchanged.
-    if is_command_exit_report(error) {
-        return None;
-    }
-    // A module the host could not load stays unloaded until the app restarts,
-    // so retrying the same tool cannot help. Steer the model off it once
-    // rather than halting the run on the first call or spending a transient
-    // budget on it (`restart the app to try again` read as recoverable).
-    if error.contains(crate::tools::status::MODULE_FAULT_MARKER)
-        && error.contains("restart the app to try again")
-    {
-        return Some(("unavailable", 1));
-    }
-    if let Some(policy) = fetched_site_policy(tool, error) {
-        return policy;
-    }
-    // A tool-owned JSON error contract is less ambiguous than rendered prose.
-    // Read only explicit status/code fields; arbitrary response data is not a
-    // failure signal (this function is called only for `is_error` results).
-    if let Ok(value) = serde_json::from_str::<serde_json::Value>(error) {
-        let status = value
-            .get("status_code")
-            .or_else(|| value.get("status"))
-            .or_else(|| value.pointer("/error/status_code"))
-            .and_then(serde_json::Value::as_u64);
-        match status {
-            Some(401) => return Some(("authentication", 0)),
-            Some(403) => return Some(("permission", 0)),
-            Some(400 | 422) => return Some(("validation", 1)),
-            Some(429 | 500 | 502 | 503 | 504) => return Some(("transient", 2)),
-            _ => {}
-        }
-        let code = value
-            .get("code")
-            .or_else(|| value.pointer("/error/code"))
-            .and_then(serde_json::Value::as_str);
-        match code {
-            Some("PERMISSION_DENIED") => return Some(("permission", 0)),
-            Some("UNAUTHENTICATED") => return Some(("authentication", 0)),
-            Some("INVALID_ARGUMENT") => return Some(("validation", 1)),
-            Some("WINDOW_NOT_FOUND") => return Some(("missing_window", 1)),
-            Some("APP_NOT_FOUND") => return Some(("missing_app", 1)),
-            Some("UNIMPLEMENTED") => return Some(("unsupported", 0)),
-            Some("UNAVAILABLE" | "RESOURCE_EXHAUSTED") => return Some(("transient", 2)),
-            _ => {}
-        }
-    }
-    let class = crate::tools::status::classify(error, false).class;
-    Some(match class {
-        Class::MissingPermission => ("permission", 0),
-        Class::BadCredentials => ("authentication", 0),
-        Class::BlockedByPolicy | Class::Denied | Class::ApprovalExpired => ("policy", 0),
-        Class::Unsupported | Class::MissingApp => ("unsupported", 0),
-        Class::NotFound
-            if tool.contains("desktop") && error.to_ascii_lowercase().contains("window") =>
-        {
-            ("missing_window", 1)
-        }
-        Class::NotFound => ("not_found", 1),
-        Class::ServiceUnavailable | Class::ModelConnection => ("transient", 2),
-        Class::Timeout
-            if matches!(
-                tool,
-                "web_search" | "web_fetch" | "file_read" | "list_files" | "desktop_list_windows"
-            ) =>
-        {
-            ("transient", 2)
-        }
-        // A local command killed by the shell's own timeout is still uncertain
-        // (it may have partly run), but it is inspectable: the model can check
-        // the filesystem or re-run a smaller, bounded step. Halting the whole
-        // turn on the first one threw away every earlier result for what is
-        // usually a slow read (a `whois`/`dig` loop). It gets one recovery
-        // attempt, steered by a reconcile-first nudge, and halts on a second.
-        // Remote actions (`gmail_send`, payments, …) stay at zero: a retry
-        // there can repeat an effect the agent cannot observe.
-        Class::Timeout if tool == "shell" => ("uncertain_side_effect", 1),
-        Class::Timeout => ("uncertain_side_effect", 0),
-        Class::Unknown if is_recoverable_tool_failure(error) => ("transient", 2),
-        Class::Unknown
-            if error.to_ascii_lowercase().contains("schema validation")
-                || error.to_ascii_lowercase().contains("invalid arguments") =>
-        {
-            ("validation", 1)
-        }
-        Class::Unknown => return None,
-    })
-}
+pub(super) use super::failure_policy::{is_command_exit_report, recovery_policy};
 
 /// Detect a **body-level** failure from `validate_workflow` / `dry_run_workflow`
 /// (issue: flows breaker doesn't see repeated invalid-graph loops). Both tools
@@ -509,6 +386,8 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                 "uncertain_side_effect",
                 "validation",
                 "unavailable",
+                "service_refused",
+                "invalid_arguments",
             ] {
                 self.classified
                     .clear(&ClassifiedFailure::new(class, tool_name, &scope));
@@ -540,11 +419,21 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                     "missing_window"
                         | "missing_app"
                         | "validation"
+                        | "invalid_arguments"
                         | "uncertain_side_effect"
                         | "unavailable"
+                        | "service_refused"
                 ) {
                     let instruction = match class {
+                        "service_refused" => format!(
+                            "The `{tool_name}` tool cannot be used in this session: the service refused the request ({}). Do not call `{tool_name}` again; continue with your other tools.",
+                            first_error_line(&failure_text)
+                        ),
                         "validation" => "The last call failed validation. Correct its schema or arguments once before trying again.".to_owned(),
+                        "invalid_arguments" => format!(
+                            "The `{tool_name}` call was rejected before it ran: its arguments did not match the tool's schema ({}). Read the tool's parameters and correct the call; do not resend it unchanged.",
+                            first_error_line(&failure_text)
+                        ),
                         "uncertain_side_effect" => "The last command timed out and was killed; it may have partly run. Check its effect before repeating anything, then retry at most once as a smaller, bounded step (fewer items per call, a per-item timeout such as `timeout 5`, or background it and poll).".to_owned(),
                         "unavailable" => format!("The `{tool_name}` tool is unavailable for the rest of this run: a module it needs failed to load and will not recover until the app restarts. Do not call `{tool_name}` again; continue with your other tools."),
                         _ => "The desktop target was not found. Rediscover the current app and window once before trying again.".to_owned(),
@@ -666,6 +555,36 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         // success/failure signal — `None` means "progress was made, reset every
         // counter") sees the repeat as a failure and feeds it into the same
         // nudge/halt ladder as a real tool error.
+        // A finished command that exited non-zero is the program's answer, and
+        // a different command's non-zero exit is new information, not a
+        // repeat: `pip install` failing to build, `g++` turning out to be
+        // missing, a `which cc` that finds nothing. Six such answers in a row
+        // ended one turn 39 s into a 60-minute budget as "no progress". Only
+        // the same command failing again counts toward the ladder; a different
+        // one resets it the way a success would. A loop of varied commands is
+        // still bounded by the call cap and the clock.
+        let exit_report = result.is_error && !hard_reject && is_command_exit_report(&failure_text);
+        let same_command_again = exit_report && {
+            let key = format!("{tool_name}\u{1f}{arg_fp}");
+            let mut last = self.last_exit_report.lock().ok();
+            let repeat = last
+                .as_deref()
+                .is_some_and(|l| l.as_deref() == Some(key.as_str()));
+            if let Some(slot) = last.as_mut() {
+                **slot = Some(key);
+            }
+            repeat
+        };
+        if !exit_report {
+            if let Ok(mut last) = self.last_exit_report.lock() {
+                *last = None;
+            }
+        }
+        if exit_report && !same_command_again {
+            // A new command: the ladder starts over, as after a success, and
+            // the list a halt would print starts with this call.
+            self.tracker.reset();
+        }
         let attempt_error: Option<&str> = match result.is_error {
             true => Some(failure_text.as_str()),
             false if body_level_failure => Some(failure_text.as_str()),
