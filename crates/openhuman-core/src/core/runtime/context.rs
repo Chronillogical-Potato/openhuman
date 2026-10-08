@@ -107,103 +107,8 @@ pub struct CoreContext {
     /// ([`crate::agent::session_store`]) hands out to work under this
     /// context. `None` for booted contexts, which use the shared default.
     session_agent: Option<String>,
-    /// The security policy of the agent this context was derived for. `None`
-    /// for booted contexts, which read the process live policy.
-    agent_policy: Option<Arc<crate::security::SecurityPolicy>>,
-    /// Whether the interactive approval gate is off for this agent.
-    approvals_disabled: bool,
-    /// The sub-agent catalogue of the agent this context was derived for.
-    /// `None` resolves through the process registry.
-    definitions: Option<Arc<crate::agent::harness::definition::AgentDefinitionRegistry>>,
-    /// State slots owned by this agent. Shared by every turn context derived
-    /// from the same agent context.
-    agent_state: Arc<super::agent_scope::AgentScopedState>,
-}
-
-/// Per-agent overrides layered onto a booted context by
-/// [`CoreContext::derive_with`].
-///
-/// This is the seam a library host uses to run many independently configured
-/// agents on one booted core: each agent gets its own `Config` (provider
-/// routes, MCP servers, autonomy tier, `action_dir`), its own
-/// [`DomainSet`](crate::core::runtime::DomainSet), its own
-/// [`ToolGroups`](crate::tools::toolpacks::ToolGroups) and its own skill-root
-/// policy, while sharing the host identity, keyring, bus and RPC bearer of the
-/// context it derives from.
-#[derive(Debug, Clone)]
-pub struct ContextOverlay {
-    /// The config every handler dispatched under the derived context reads
-    /// through `config::ops::load_config_with_timeout()`. Keep `config_path`
-    /// equal to the parent's: credentials, auth profiles and the keyring file
-    /// backend all resolve against its parent directory.
-    pub config: crate::config::Config,
-    /// Domain families live for the derived context. Only narrowing the parent
-    /// is meaningful: controllers a booted core never registered stay absent
-    /// no matter what this says.
-    pub domains: crate::core::runtime::DomainSet,
-    /// Tool-group disclosure for the derived context.
-    pub tool_groups: crate::tools::toolpacks::ToolGroups,
-    /// Scan the operator's user-scope skill roots (`true` = today's behaviour).
-    pub user_skill_roots: bool,
-    /// The agent a host session store scopes this context's transcripts,
-    /// journal, goals and todos to. `None` keeps the parent's. Setting it
-    /// gives the derived context state slots of its own.
-    pub session_agent: Option<String>,
-    /// The agent's own security policy: autonomy tier, auto-approve list,
-    /// action budget. `None` keeps the parent's.
-    pub agent_policy: Option<Arc<crate::security::SecurityPolicy>>,
-    /// Turn the interactive approval gate off for this agent.
-    pub approvals_disabled: bool,
-    /// The agent's own sub-agent catalogue. `None` keeps the parent's.
-    pub definitions: Option<Arc<crate::agent::harness::definition::AgentDefinitionRegistry>>,
-}
-
-impl ContextOverlay {
-    /// An overlay that keeps user-scope skill roots visible.
-    pub fn new(
-        config: crate::config::Config,
-        domains: crate::core::runtime::DomainSet,
-        tool_groups: crate::tools::toolpacks::ToolGroups,
-    ) -> Self {
-        Self {
-            config,
-            domains,
-            tool_groups,
-            user_skill_roots: true,
-            session_agent: None,
-            agent_policy: None,
-            approvals_disabled: false,
-            definitions: None,
-        }
-    }
-
-    /// Hide the operator's `~/.openhuman/skills` / `~/.agents/skills` from
-    /// skill discovery under the derived context.
-    pub fn without_user_skill_roots(mut self) -> Self {
-        self.user_skill_roots = false;
-        self
-    }
-
-    /// Scope a host session store to `agent_id` under the derived context.
-    pub fn session_agent(mut self, agent_id: impl Into<String>) -> Self {
-        self.session_agent = Some(agent_id.into());
-        self
-    }
-
-    /// Give the derived context its own security policy.
-    pub fn agent_policy(mut self, policy: Arc<crate::security::SecurityPolicy>) -> Self {
-        self.agent_policy = Some(policy);
-        self
-    }
-
-    /// Give the derived context its own sub-agent catalogue.
-    pub fn definitions(
-        mut self,
-        definitions: Arc<crate::agent::harness::definition::AgentDefinitionRegistry>,
-    ) -> Self {
-        self.definitions = Some(definitions);
-        self
-    }
+    /// What the agent this context was derived for owns.
+    agent: agent_parts::AgentParts,
 }
 
 /// The workspace a context is bound to.
@@ -358,10 +263,7 @@ impl CoreContext {
             backend_transport,
             turn_origin: None,
             session_agent: None,
-            agent_policy: None,
-            approvals_disabled: false,
-            definitions: None,
-            agent_state: Default::default(),
+            agent: Default::default(),
         });
         let _ = DEFAULT_CONTEXT.set(ctx.clone());
 
@@ -420,7 +322,7 @@ impl CoreContext {
     /// The workspace binding is anchored to `overlay.config.workspace_dir`, so
     /// an agent with its own workspace subdirectory resolves its own memory
     /// binding lazily, exactly as an embedder-supplied config does at boot.
-    pub fn derive_with(&self, overlay: ContextOverlay) -> Arc<CoreContext> {
+    pub fn derive_with(&self, mut overlay: ContextOverlay) -> Arc<CoreContext> {
         // Clamped to what this context can already dispatch. A derived
         // overlay may only narrow: callers outside this crate (embed's
         // `Runtime::agent`, for one) already refuse a spec that names a
@@ -467,11 +369,7 @@ impl CoreContext {
                 })),
             }
         };
-        let agent_state = if overlay.session_agent.is_some() {
-            Default::default()
-        } else {
-            Arc::clone(&self.agent_state)
-        };
+        let agent = self.agent.derive(&mut overlay);
         Arc::new(CoreContext {
             host_kind: self.host_kind,
             workspace_binding: RwLock::new(shared_binding),
@@ -482,10 +380,7 @@ impl CoreContext {
             backend_transport: self.backend_transport.clone(),
             turn_origin: self.turn_origin.clone(),
             session_agent: overlay.session_agent.or_else(|| self.session_agent.clone()),
-            agent_policy: overlay.agent_policy.or_else(|| self.agent_policy.clone()),
-            approvals_disabled: overlay.approvals_disabled || self.approvals_disabled,
-            definitions: overlay.definitions.or_else(|| self.definitions.clone()),
-            agent_state,
+            agent,
         })
     }
 
@@ -493,44 +388,6 @@ impl CoreContext {
     /// this context was derived for one.
     pub fn session_agent(&self) -> Option<&str> {
         self.session_agent.as_deref()
-    }
-
-    /// The security policy of the agent this context was derived for.
-    pub fn agent_policy(&self) -> Option<Arc<crate::security::SecurityPolicy>> {
-        self.agent_policy.clone()
-    }
-
-    /// [`agent_policy`](Self::agent_policy) of the ambient context.
-    pub fn current_agent_policy() -> Option<Arc<crate::security::SecurityPolicy>> {
-        Self::current().and_then(|ctx| ctx.agent_policy.clone())
-    }
-
-    /// Whether the interactive approval gate is off for this context's agent.
-    pub fn approvals_disabled(&self) -> bool {
-        self.approvals_disabled
-    }
-
-    /// [`approvals_disabled`](Self::approvals_disabled) of the ambient context.
-    pub fn current_approvals_disabled() -> bool {
-        Self::current().is_some_and(|ctx| ctx.approvals_disabled)
-    }
-
-    /// The sub-agent catalogue of the agent this context was derived for.
-    pub fn definitions(
-        &self,
-    ) -> Option<Arc<crate::agent::harness::definition::AgentDefinitionRegistry>> {
-        self.definitions.clone()
-    }
-
-    /// The state slots this context owns.
-    pub fn agent_state(&self) -> &super::agent_scope::AgentScopedState {
-        &self.agent_state
-    }
-
-    /// The task-local context, without falling back to the process default.
-    /// `None` outside any [`scope`](Self::scope).
-    pub fn scoped() -> Option<Arc<CoreContext>> {
-        CURRENT_CONTEXT.try_with(Arc::clone).ok()
     }
 
     /// The backend transport bound to this context, if the host supplied one.
@@ -674,10 +531,7 @@ impl CoreContext {
             backend_transport: None,
             turn_origin: None,
             session_agent: None,
-            agent_policy: None,
-            approvals_disabled: false,
-            definitions: None,
-            agent_state: Default::default(),
+            agent: Default::default(),
         })
     }
 
@@ -708,10 +562,7 @@ impl CoreContext {
             backend_transport: None,
             turn_origin: None,
             session_agent: None,
-            agent_policy: None,
-            approvals_disabled: false,
-            definitions: None,
-            agent_state: Default::default(),
+            agent: Default::default(),
         })
     }
 }
@@ -834,6 +685,13 @@ pub async fn init_stores(cfg: &crate::config::Config, domains: crate::core::runt
 
 #[path = "context_turn_origin.rs"]
 mod turn_origin_scope;
+
+#[path = "context_agent.rs"]
+mod agent_parts;
+
+#[path = "context_overlay.rs"]
+mod overlay;
+pub use overlay::ContextOverlay;
 
 #[cfg(test)]
 #[path = "context_tests.rs"]

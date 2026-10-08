@@ -43,10 +43,7 @@ impl CoreContext {
             backend_transport: ctx.backend_transport.clone(),
             turn_origin: origin.or_else(|| ctx.turn_origin.clone()),
             session_agent: ctx.session_agent.clone(),
-            agent_policy: ctx.agent_policy.clone(),
-            approvals_disabled: ctx.approvals_disabled,
-            definitions: ctx.definitions.clone(),
-            agent_state: Arc::clone(&ctx.agent_state),
+            agent: ctx.agent.clone(),
         });
         CURRENT_CONTEXT.scope(context, fut).await
     }

@@ -14,10 +14,7 @@ fn ctx(dir: &str) -> Arc<CoreContext> {
         backend_transport: None,
         turn_origin: None,
         session_agent: None,
-        agent_policy: None,
-        approvals_disabled: false,
-        definitions: None,
-        agent_state: Default::default(),
+        agent: Default::default(),
     })
 }
 
@@ -49,10 +46,7 @@ fn ctx_with_config(config: crate::config::Config) -> Arc<CoreContext> {
         backend_transport: None,
         turn_origin: None,
         session_agent: None,
-        agent_policy: None,
-        approvals_disabled: false,
-        definitions: None,
-        agent_state: Default::default(),
+        agent: Default::default(),
     })
 }
 
@@ -374,10 +368,7 @@ fn degraded_context_rejects_workspace_bound_stores() {
         backend_transport: None,
         turn_origin: None,
         session_agent: None,
-        agent_policy: None,
-        approvals_disabled: false,
-        definitions: None,
-        agent_state: Default::default(),
+        agent: Default::default(),
     };
 
     // `workspace_dir()` is the gate every workspace-bound store goes
