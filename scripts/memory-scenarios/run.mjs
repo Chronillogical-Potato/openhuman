@@ -163,6 +163,7 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
   let cortex = null;
   let composio = null;
   let wire = null;
+  let guardPlaced = false;
   let core = null;
   let events = null;
   const ledger = new Ledger();
@@ -224,10 +225,13 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
     // runs on its own. An API key is seeded as a plain profile write with no
     // user-dir activation (boot_env.rs), so the root config is the active
     // one. Verified after boot; the run aborts if it is not in effect.
-    await fsp.writeFile(
-      path.join(oh, "config.toml"),
-      BASE_CONFIG(["[scheduler_gate]", 'mode = "off"', ""]),
-    );
+    // Without a session the core boots into the pre-login user dir
+    // (`users/local/config.toml`, READ in a run's core.log), so the gate goes
+    // there as well as in the root config.
+    const gated = BASE_CONFIG(["[scheduler_gate]", 'mode = "off"', ""]);
+    await fsp.writeFile(path.join(oh, "config.toml"), gated);
+    await fsp.mkdir(path.join(oh, "users", "local"), { recursive: true });
+    await fsp.writeFile(path.join(oh, "users", "local", "config.toml"), gated);
   }
 
   const rpcLog = new JsonlLog(path.join(dir, "rpc.jsonl"), secrets);
@@ -386,6 +390,7 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
         core,
         path.join(workspace, "memory", "layout_migration.json"),
       );
+      guardPlaced = true;
       const imp = await core.rpc("openhuman.memory_import_scan", {});
       if (imp?.found)
         throw new Error(
@@ -648,7 +653,12 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
           .catch(() => null);
         ledger.addAll((tagged?.items ?? []).map((h) => h.id));
         const survivors = await forgetLedger(core, ledger);
-        const untouched = await verifyBuiltinUntouched(core);
+        const untouched = guardPlaced
+          ? await verifyBuiltinUntouched(core)
+          : {
+              ok: true,
+              note: "aborted before the migration guard; no scenario ran",
+            };
         engineResults.cleanup = {
           stored: ledger.list().length,
           survivors,
