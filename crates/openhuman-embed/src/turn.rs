@@ -724,7 +724,7 @@ async fn dispatch(
             // inlined, and nesting it inside `Turn::send`'s own state machine
             // pushes rustc's layout query past its depth limit. One heap
             // allocation per turn is nothing next to the turn itself.
-            let turn: futures_box::BoxFuture<'static, Result<AgentReply, CoreError>> =
+            let turn: futures_box::BoxFuture<'_, Result<AgentReply, CoreError>> =
                 Box::pin(async move {
                     use openhuman_core::inference::host_runtime::ops::{
                         agent_chat_for, AgentChatTarget,
