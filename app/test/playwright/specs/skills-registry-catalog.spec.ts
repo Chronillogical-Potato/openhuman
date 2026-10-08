@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 
-import { setMockBehavior } from '../helpers/chat-drive';
+import { mockRequests, setMockBehavior } from '../helpers/chat-drive';
 import {
   bootAuthenticatedPage,
   callCoreRpc,
@@ -42,6 +42,13 @@ async function openRegistry(page: Page, userId: string) {
 }
 
 const catalogRows = (page: Page) => page.locator('[data-testid^="registry-tile-"]');
+
+const SCAN_BLOCKED_SKILL = 'fixture-skill-07';
+
+async function documentFetches(name: string): Promise<number> {
+  return (await mockRequests()).filter(entry => entry.url.includes(`/skills/${name}/SKILL.md`))
+    .length;
+}
 
 test.describe('Skill registry catalog over the tinyskills registry', () => {
   test('pages, filters and reports freshness over JSON-RPC', async () => {
@@ -110,7 +117,54 @@ test.describe('Skill registry catalog over the tinyskills registry', () => {
     await expect(uninstall).toHaveCount(0, { timeout: 15_000 });
   });
 
-  test('keeps showing the saved catalog when the registry goes offline', async ({ page }) => {
+  test('prompts on a scan-blocked skill: Block keeps it out, Install anyway installs it', async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    await setMockBehavior('skillRegistryScanBlocked', SCAN_BLOCKED_SKILL);
+    try {
+      await openRegistry(page, 'pw-skills-catalog-scan-blocked');
+      await page.getByTestId('skill-search-input').fill(SCAN_BLOCKED_SKILL);
+      const install = page.getByTestId(`registry-install-${SCAN_BLOCKED_SKILL}`);
+      await expect(install).toBeVisible({ timeout: 15_000 });
+
+      const before = await documentFetches(SCAN_BLOCKED_SKILL);
+      await install.click();
+      const dialog = page.getByTestId('scan-blocked-dialog');
+      await expect(dialog).toBeVisible({ timeout: 30_000 });
+      await expect(dialog.getByTestId('scan-blocked-findings')).toContainText('U+200B');
+      await expect(page.getByTestId('scan-blocked-block')).toBeFocused();
+      expect(await documentFetches(SCAN_BLOCKED_SKILL)).toBe(before + 2);
+
+      await page.getByTestId('scan-blocked-block').click();
+      await expect(dialog).toHaveCount(0);
+      await expect(install).toBeVisible();
+      await expect(
+        page
+          .getByTestId(`registry-tile-${SCAN_BLOCKED_SKILL}`)
+          .getByText('Installed', { exact: true })
+      ).toHaveCount(0);
+
+      await install.click();
+      await expect(dialog).toBeVisible({ timeout: 30_000 });
+      await page.getByTestId('scan-blocked-install-anyway').click();
+      await expect(dialog).toHaveCount(0, { timeout: 30_000 });
+      await expect(
+        page
+          .getByTestId(`registry-tile-${SCAN_BLOCKED_SKILL}`)
+          .getByText('Installed', { exact: true })
+      ).toBeVisible({ timeout: 30_000 });
+    } finally {
+      await setMockBehavior('skillRegistryScanBlocked', '');
+      await callCoreRpc('openhuman.skill_registry_uninstall', { name: SCAN_BLOCKED_SKILL }).catch(
+        () => undefined
+      );
+    }
+  });
+
+  test('keeps showing the saved catalog offline and waits out the 45s refresh cooldown', async ({
+    page,
+  }) => {
     test.setTimeout(90_000);
     await openRegistry(page, 'pw-skills-catalog-offline');
     await expect(catalogRows(page)).toHaveCount(PAGE_SIZE, { timeout: 30_000 });
@@ -122,9 +176,13 @@ test.describe('Skill registry catalog over the tinyskills registry', () => {
       await expect(page.getByTestId('registry-offline')).toBeVisible({ timeout: 30_000 });
       await expect(catalogRows(page)).toHaveCount(PAGE_SIZE);
 
+      const catalogFetches = async () =>
+        (await mockRequests()).filter(entry => entry.url.includes('/skills/catalog.json')).length;
+      const beforeRetry = await catalogFetches();
       await page.getByTestId('registry-retry').click();
       await expect(page.getByTestId('registry-offline')).toBeVisible({ timeout: 30_000 });
       await expect(catalogRows(page)).toHaveCount(PAGE_SIZE);
+      expect(await catalogFetches()).toBe(beforeRetry);
     } finally {
       await setMockBehavior('skillRegistryUnavailable', 'false');
     }
