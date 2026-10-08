@@ -141,7 +141,11 @@ async fn embedder_tool_hooks_nested_call_is_admitted_when_hooks_proceed() {
     mw.check_nested_tool(&ctx(), &(), &nested_call("lookup"))
         .await
         .unwrap();
-    assert_eq!(pre.lock().unwrap().len(), 1, "hook consulted for nested call");
+    assert_eq!(
+        pre.lock().unwrap().len(),
+        1,
+        "hook consulted for nested call"
+    );
     assert!(
         mw.arguments_by_call_id.lock().unwrap().is_empty(),
         "a nested check caches nothing"
@@ -174,9 +178,6 @@ async fn embedder_tool_hooks_nested_call_refuses_ask_and_rewrite() {
             .check_nested_tool(&ctx(), &(), &nested_call("write"))
             .await
             .unwrap_err();
-        assert!(
-            error.to_string().contains("refused nested call"),
-            "{error}"
-        );
+        assert!(error.to_string().contains("refused nested call"), "{error}");
     }
 }

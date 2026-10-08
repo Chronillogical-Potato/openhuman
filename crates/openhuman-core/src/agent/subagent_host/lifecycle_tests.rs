@@ -1,6 +1,6 @@
 use tinyagents_orchestration::subagent::{
-    PersistedSubagentPause, SubagentOutcome, SubagentPause, SubagentPausePersistenceDisposition,
-    SubagentPersistence, SubagentResume, SubagentOutcomeKind, SubagentTaskKey,
+    PersistedSubagentPause, SubagentOutcome, SubagentOutcomeKind, SubagentPause,
+    SubagentPausePersistenceDisposition, SubagentPersistence, SubagentResume, SubagentTaskKey,
 };
 
 use super::lifecycle::{
