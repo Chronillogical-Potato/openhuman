@@ -34,7 +34,7 @@ const DEFAULT_RAM_BUDGET_MIB: u64 = 2048;
 const IDLE_WINDOW: Duration = Duration::from_secs(10);
 const FLEET_AGENT_ID: &str = "orchestrator";
 
-fn env_usize(key: &str, default: usize) -> usize {
+pub(super) fn env_usize(key: &str, default: usize) -> usize {
     std::env::var(key)
         .ok()
         .and_then(|v| v.parse::<usize>().ok())
@@ -42,7 +42,7 @@ fn env_usize(key: &str, default: usize) -> usize {
         .unwrap_or(default)
 }
 
-fn env_u64(key: &str, default: u64) -> u64 {
+pub(super) fn env_u64(key: &str, default: u64) -> u64 {
     std::env::var(key)
         .ok()
         .and_then(|v| v.parse::<u64>().ok())
@@ -52,7 +52,7 @@ fn env_u64(key: &str, default: u64) -> u64 {
 
 /// Raise `RLIMIT_NOFILE` toward its hard cap so N agents (each opening SQLite
 /// etc.) don't exhaust the default macOS 256 soft limit. Logs old/new to stderr.
-fn raise_fd_limit() {
+pub(super) fn raise_fd_limit() {
     use std::mem::MaybeUninit;
     let mut lim = MaybeUninit::<libc::rlimit>::uninit();
     // SAFETY: `getrlimit` initialises `lim` on success.
@@ -83,7 +83,7 @@ struct FleetMetrics {
 }
 
 /// Percentile (nearest-rank) of an already-sorted slice. `p` in `[0,100]`.
-fn percentile(sorted: &[u128], p: u128) -> u128 {
+pub(super) fn percentile(sorted: &[u128], p: u128) -> u128 {
     if sorted.is_empty() {
         return 0;
     }
@@ -92,7 +92,7 @@ fn percentile(sorted: &[u128], p: u128) -> u128 {
     sorted[idx]
 }
 
-fn latency_summary(mut samples: Vec<u128>) -> Option<TurnLatency> {
+pub(super) fn latency_summary(mut samples: Vec<u128>) -> Option<TurnLatency> {
     if samples.is_empty() {
         return None;
     }

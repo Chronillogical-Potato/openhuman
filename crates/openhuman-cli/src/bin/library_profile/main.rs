@@ -9,6 +9,7 @@
 //! - `long-agent`    — N warmed sequential turns with a per-turn checkpoint series.
 //! - `workflow`      — a real flows trigger->transform->agent graph, end to end.
 //! - `fleet`         — N live agents: marginal RSS, idle CPU, fd/thread growth, turn latency.
+//! - `embed-fleet`   — the same questions for N distinct agents on one `openhuman_embed::Runtime`.
 //! - `skill-run`     — a skill step executing on a real `node` child: process-tree RSS.
 //! - `subagent-storm`— K parallel `agent_memory` subagents in one instance: marginal RSS per subagent.
 //!
@@ -57,6 +58,7 @@ async fn dispatch(scenario: &str) -> Result<ProfileResult> {
         "long-agent" => scenarios::long_agent::run().await,
         "workflow" => scenarios::workflow::run().await,
         "fleet" => scenarios::fleet::run().await,
+        "embed-fleet" => scenarios::embed_fleet::run().await,
         "skill-run" => scenarios::skill_run::run().await,
         "subagent-storm" => scenarios::subagent_storm::run().await,
         other => anyhow::bail!("unknown scenario: {other}"),
@@ -66,9 +68,14 @@ async fn dispatch(scenario: &str) -> Result<ProfileResult> {
 /// Build the tokio runtime. When `OPENHUMAN_PROFILE_WORKER_THREADS` is set the
 /// multi-thread runtime is built manually with that worker count (set to `2` to
 /// simulate the 2 vCPU box); otherwise the standard multi-thread default runs.
-fn build_runtime() -> Result<tokio::runtime::Runtime> {
+fn build_runtime(scenario: &str) -> Result<tokio::runtime::Runtime> {
     let mut builder = tokio::runtime::Builder::new_multi_thread();
     builder.enable_all();
+    if scenario == "embed-fleet" {
+        builder
+            .thread_stack_size(openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
+            .max_blocking_threads(openhuman_core::core::runtime::MAX_BLOCKING_THREADS);
+    }
     if let Some(workers) = std::env::var("OPENHUMAN_PROFILE_WORKER_THREADS")
         .ok()
         .and_then(|value| value.parse::<usize>().ok())
@@ -85,7 +92,7 @@ fn main() -> Result<()> {
     // can size the worker pool (the `fleet` scenario simulates the 2 vCPU box).
     let scenario = std::env::args().nth(1).context(
         "usage: library-profile \
-         <agent-turn|long-agent|workflow|fleet|skill-run|subagent-storm>",
+         <agent-turn|long-agent|workflow|fleet|embed-fleet|skill-run|subagent-storm>",
     )?;
 
     // Profiler must outlive the whole run + the JSON print so its Drop writes
@@ -98,7 +105,7 @@ fn main() -> Result<()> {
         std::process::id()
     );
 
-    let runtime = build_runtime()?;
+    let runtime = build_runtime(&scenario)?;
     runtime.block_on(async move {
         #[cfg_attr(not(feature = "rss-bench-dhat"), allow(unused_mut))]
         let mut result = dispatch(&scenario).await?;

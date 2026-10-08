@@ -103,6 +103,10 @@ pub struct ProfileResult {
     /// (`fleet`) marginal RSS cost per agent (`baseline → constructed`), KiB.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub marginal_rss_kib_per_agent: Option<f64>,
+    /// (`embed-fleet`) marginal RSS per agent once every agent has run its
+    /// turns (`baseline → loaded`), KiB.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub loaded_marginal_rss_kib_per_agent: Option<f64>,
     /// (`fleet`) user+system CPU delta over the 10 s idle window, ms.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub idle_cpu_ms: Option<u64>,
@@ -478,6 +482,7 @@ where
         agents: None,
         agents_built: None,
         marginal_rss_kib_per_agent: None,
+        loaded_marginal_rss_kib_per_agent: None,
         idle_cpu_ms: None,
         turn_latency_ms: None,
         budget: None,

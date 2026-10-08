@@ -19,6 +19,8 @@
 #   --budget-mib N         OPENHUMAN_PROFILE_RAM_BUDGET_MIB (default: 2048)
 #   --skip-build           Reuse the existing target/release binaries
 #   --slim                 Build with --no-default-features (slim library recipe)
+#   --embed                Run `embed-fleet`: N distinct agents on one
+#                          openhuman_embed::Runtime instead of N session hosts
 #   --out DIR              Output directory (default: target/profile/rust-library/fleet-<timestamp>)
 #   --no-gate              Do not fail the exit code on fits==false (report only)
 #   -h, --help             Show this help
@@ -27,6 +29,7 @@
 #   ./scripts/profile/library-fleet.sh
 #   ./scripts/profile/library-fleet.sh --agents 100 --latency-ms 200
 #   ./scripts/profile/library-fleet.sh --agents "100,1000" --target 1000 --budget-mib 2048
+#   ./scripts/profile/library-fleet.sh --embed --agents 500 --repeat 1
 
 set -euo pipefail
 
@@ -42,6 +45,7 @@ TARGET=1000
 BUDGET_MIB=2048
 SKIP_BUILD=0
 SLIM=0
+SCENARIO="fleet"
 OUT_DIR=""
 GATE=1
 
@@ -52,7 +56,7 @@ GATE=1
 IDLE_CPU_MS_MAX=500
 
 usage() {
-    sed -n '2,27p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '2,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     exit "${1:-0}"
 }
 
@@ -74,6 +78,7 @@ while [[ $# -gt 0 ]]; do
             BUDGET_MIB="${2:?--budget-mib requires a value}"; shift 2 ;;
         --skip-build) SKIP_BUILD=1; shift ;;
         --slim) SLIM=1; shift ;;
+        --embed) SCENARIO="embed-fleet"; shift ;;
         --out)
             OUT_DIR="${2:?--out requires a value}"; shift 2 ;;
         --no-gate) GATE=0; shift ;;
@@ -90,7 +95,7 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 if [[ -z "$OUT_DIR" ]]; then
-    OUT_DIR="$REPO_ROOT/target/profile/rust-library/fleet-$(date +%Y%m%d-%H%M%S)"
+    OUT_DIR="$REPO_ROOT/target/profile/rust-library/$SCENARIO-$(date +%Y%m%d-%H%M%S)"
 fi
 mkdir -p "$OUT_DIR"
 
@@ -123,7 +128,7 @@ run_sweep_point() {
     local point_dir="$OUT_DIR/fleet-$n"
     mkdir -p "$point_dir"
 
-    log "running fleet scenario with $n agents x$REPEAT (fresh process each run)"
+    log "running $SCENARIO scenario with $n agents x$REPEAT (fresh process each run)"
 
     local i
     for ((i = 1; i <= REPEAT; i++)); do
@@ -136,7 +141,7 @@ run_sweep_point() {
             "OPENHUMAN_PROFILE_WORKER_THREADS=$WORKERS" \
             "OPENHUMAN_PROFILE_TARGET_AGENTS=$TARGET" \
             "OPENHUMAN_PROFILE_RAM_BUDGET_MIB=$BUDGET_MIB" \
-            "$BIN" fleet >"$run_file"
+            "$BIN" "$SCENARIO" >"$run_file"
 
         if ! jq empty "$run_file" >/dev/null 2>&1; then
             echo "ERROR: run $i for agents=$n did not produce valid JSON: $run_file" >&2
@@ -188,8 +193,9 @@ aggregate_point() {
     local n="$1"
     local point_dir="$OUT_DIR/fleet-$n"
 
-    local marginal settled_rss idle_cpu threads open_fds p50 p95 p99 projected fits
+    local marginal loaded settled_rss idle_cpu threads open_fds p50 p95 p99 projected fits
     marginal=$(aggregate_field "$point_dir" ".marginal_rss_kib_per_agent")
+    loaded=$(aggregate_field "$point_dir" ".loaded_marginal_rss_kib_per_agent")
     settled_rss=$(aggregate_field "$point_dir" ".settled.rss_kib")
     idle_cpu=$(aggregate_field "$point_dir" ".idle_cpu_ms")
     threads=$(aggregate_field "$point_dir" ".settled.threads")
@@ -203,6 +209,7 @@ aggregate_point() {
     jq -n \
         --argjson agents "$n" \
         --argjson marginal_rss_kib_per_agent "$marginal" \
+        --argjson loaded_marginal_rss_kib_per_agent "$loaded" \
         --argjson settled_rss_kib "$settled_rss" \
         --argjson idle_cpu_ms "$idle_cpu" \
         --argjson threads "$threads" \
@@ -215,6 +222,7 @@ aggregate_point() {
         '{
             agents: $agents,
             marginal_rss_kib_per_agent: $marginal_rss_kib_per_agent,
+            loaded_marginal_rss_kib_per_agent: $loaded_marginal_rss_kib_per_agent,
             settled_rss_kib: $settled_rss_kib,
             idle_cpu_ms: $idle_cpu_ms,
             threads: $threads,
@@ -252,9 +260,11 @@ write_summary() {
         --argjson target "$TARGET" \
         --argjson budget_mib "$BUDGET_MIB" \
         --arg build "$([[ "$SLIM" -eq 1 ]] && echo "slim" || echo "default")" \
+        --arg scenario "$SCENARIO" \
         '{
             generated_at: (now | todate),
             build: $build,
+            scenario: $scenario,
             config: {
                 turns: $turns,
                 mock_latency_ms: $latency_ms,
@@ -272,20 +282,21 @@ write_summary() {
     {
         echo "# Fleet benchmark summary"
         echo
-        echo "Build: \`$([[ "$SLIM" -eq 1 ]] && echo "slim" || echo "default")\`  "
+        echo "Build: \`$([[ "$SLIM" -eq 1 ]] && echo "slim" || echo "default")\`, scenario: \`$SCENARIO\`  "
         echo "Repeats per agent count: ${REPEAT}  "
         echo "Turns/agent: ${TURNS}, mock latency: ${LATENCY_MS}ms, worker threads: ${WORKERS}  "
         echo "Target: ${TARGET} agents, budget: ${BUDGET_MIB} MiB  "
         echo "Generated: $(date)"
         echo
-        echo "| N | marginal KiB/agent | settled MiB | idle CPU ms/10s | threads | fds | p95 ms | projected MiB @ target | fits |"
-        echo "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: |"
+        echo "| N | marginal KiB/agent | loaded KiB/agent | settled MiB | idle CPU ms/10s | threads | fds | p95 ms | projected MiB @ target | fits |"
+        echo "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: |"
 
         local f
         for f in "$OUT_DIR"/*.point.json; do
-            local n marginal settled idle threads fds p95 projected fits_all
+            local n marginal loaded settled idle threads fds p95 projected fits_all
             n=$(jq -r '.agents' "$f")
             marginal=$(num_or_na "$(jq -r '.marginal_rss_kib_per_agent.median' "$f")")
+            loaded=$(num_or_na "$(jq -r '.loaded_marginal_rss_kib_per_agent.median' "$f")")
             settled=$(kib_to_mib "$(jq -r '.settled_rss_kib.median' "$f")")
             idle=$(num_or_na "$(jq -r '.idle_cpu_ms.median' "$f")")
             threads=$(num_or_na "$(jq -r '.threads.median' "$f")")
@@ -293,7 +304,7 @@ write_summary() {
             p95=$(num_or_na "$(jq -r '.turn_latency_ms.p95.median' "$f")")
             projected=$(num_or_na "$(jq -r '.projected_rss_mib_at_target.median' "$f")")
             fits_all=$(jq -r '.fits.all_fit' "$f")
-            echo "| $n | $marginal | $settled | $idle | $threads | $fds | $p95 | $projected | $fits_all |"
+            echo "| $n | $marginal | $loaded | $settled | $idle | $threads | $fds | $p95 | $projected | $fits_all |"
         done
 
         echo

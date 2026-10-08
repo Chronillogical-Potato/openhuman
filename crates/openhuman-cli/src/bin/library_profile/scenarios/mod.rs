@@ -10,6 +10,7 @@
 //! rather than a revived file.
 
 pub mod agent_turn;
+pub mod embed_fleet;
 pub mod fleet;
 pub mod long_agent;
 pub mod skill_run;
