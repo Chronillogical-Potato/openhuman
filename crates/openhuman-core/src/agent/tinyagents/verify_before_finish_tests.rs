@@ -138,6 +138,18 @@ fn check_is_a_harness_instruction_that_names_the_spec_rules() {
         "check both readings",
         "equivalent paths or workflows",
         "outcomes, notifications and state changes",
+        // A check's own leftovers can fail the request: asked for a single
+        // polyglot source file, an agent compiled it to verify the C path and
+        // left `cmain` beside it. Asked to replace secrets in a repository's
+        // files, another also rewrote its history, and the check that diffed
+        // against the original commit found it gone.
+        "not as your checks left it",
+        "remove what your checks created",
+        "compiled binaries",
+        "exactly what was asked for, no more",
+        "irreversible change the request did not ask for",
+        "rewriting history",
+        "say so in your answer instead of making it",
         "re-run the affected checks",
     ] {
         assert!(check.contains(needle), "check must mention `{needle}`");

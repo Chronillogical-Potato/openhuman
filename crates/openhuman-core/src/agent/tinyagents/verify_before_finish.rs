@@ -46,7 +46,13 @@ count only if derived from the request, not from your own approach.\n\
 Apply the literal rule where it resolves the ambiguity; otherwise check both readings and \
 state any remaining uncertainty instead of treating a check of your guess as proof.\n\
 4. Find equivalent paths or workflows that perform the same action and verify that their \
-required outcomes, notifications and state changes are consistent.\n\n\
+required outcomes, notifications and state changes are consistent.\n\
+5. Leave the result as requested, not as your checks left it: remove what your checks \
+created that the request did not ask for (build outputs, compiled binaries, scratch and \
+test files), especially next to the deliverable, then confirm that what remains is exactly \
+what was asked for, no more. The same for actions: an irreversible change the request did \
+not ask for (rewriting history, deleting or resetting data, changing settings) is not an \
+improvement; if you believe one is warranted, say so in your answer instead of making it.\n\n\
 Fix anything that fails and re-run the affected checks. If all holds, give your final \
 answer in full, since it replaces your previous reply.";
 
