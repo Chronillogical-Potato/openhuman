@@ -1095,12 +1095,12 @@ async fn sources_add_sync_list_and_remove() {
         ),
         (json!({ "kind": "folder", "target": "  " }), "blank target"),
         (
-            json!({ "kind": "rss", "target": "not a url" }),
-            "rss needs a URL",
+            json!({ "kind": "rss", "target": "https://example.com/feed.xml" }),
+            "rss is no longer a source kind",
         ),
         (
-            json!({ "kind": "github", "target": "only-one-part" }),
-            "github needs owner/repo",
+            json!({ "kind": "composio", "target": "gmail" }),
+            "composio is no longer a source kind",
         ),
         (
             json!({ "kind": "folder", "target": target, "schedule_mins": 5 }),
@@ -1138,33 +1138,24 @@ async fn sources_add_sync_list_and_remove() {
         .await,
         "INVALID_REQUEST"
     );
-    // A link and a GitHub repo register without syncing.
-    let link = f
+    // A second, file source registers beside the folder without syncing.
+    let file = f
         .ok(
             "openhuman.memory_sources_add",
-            json!({ "kind": "link", "target": "https://example.com/docs" }),
+            json!({ "kind": "file", "target": format!("{target}/plan.md") }),
         )
         .await;
-    assert_eq!(link["source"]["label"], json!("https://example.com/docs"));
-    let repo = f
-        .ok(
-            "openhuman.memory_sources_add",
-            json!({ "kind": "github", "target": "acme/widgets" }),
-        )
-        .await;
-    assert_eq!(
-        repo["source"]["target"],
-        json!("https://github.com/acme/widgets")
-    );
+    assert_eq!(file["source"]["kind"], json!("file"));
     let listed = f.ok("openhuman.memory_sources_list", json!({})).await;
-    assert_eq!(listed["sources"].as_array().unwrap().len(), 3);
-    // Drop the two network sources so a sync-all below only reads the folder.
-    for extra in [&link["source"]["id"], &repo["source"]["id"]] {
-        let removed = f
-            .ok("openhuman.memory_sources_remove", json!({ "id": extra }))
-            .await;
-        assert_eq!(removed["removed"], json!(true));
-    }
+    assert_eq!(listed["sources"].as_array().unwrap().len(), 2);
+    // Drop the file source so a sync-all below only reads the folder.
+    let removed = f
+        .ok(
+            "openhuman.memory_sources_remove",
+            json!({ "id": file["source"]["id"] }),
+        )
+        .await;
+    assert_eq!(removed["removed"], json!(true));
 
     // sync: unknown id is refused; a real one starts, then finishes.
     assert_eq!(
@@ -1411,26 +1402,92 @@ async fn a_document_at_an_old_per_format_node_stays_listed_searchable_and_forget
 }
 
 #[tokio::test]
-async fn an_aliased_toolkit_is_one_memory_source() {
+async fn removed_network_source_kinds_are_rejected_and_local_ones_still_work() {
     let f = Fixture::new(true).await;
+    let folder = write_folder(f.home.path());
+    for (kind, target) in [
+        ("composio", "gmail"),
+        ("rss", "https://example.com/feed.xml"),
+        ("link", "https://example.com"),
+        ("github", "acme/widgets"),
+    ] {
+        assert_eq!(
+            f.code(
+                "openhuman.memory_sources_add",
+                json!({ "kind": kind, "target": target })
+            )
+            .await,
+            "INVALID_REQUEST",
+            "{kind}"
+        );
+    }
+    for kind in ["folder", "file"] {
+        let added = f
+            .ok(
+                "openhuman.memory_sources_add",
+                json!({ "kind": kind, "target": folder.to_string_lossy() }),
+            )
+            .await;
+        assert_eq!(added["source"]["kind"], json!(kind));
+    }
+}
 
-    // A toolkit added under an alias is stored under the slug Composio uses,
-    // and adding it again under that slug is a duplicate.
-    let drive = f
-        .ok(
-            "openhuman.memory_sources_add",
-            json!({ "kind": "composio", "target": "Google_Drive" }),
-        )
+#[tokio::test]
+async fn composio_sync_is_no_longer_a_method() {
+    let f = Fixture::new(true).await;
+    let response = f
+        .call("openhuman.composio_sync", json!({ "connection_id": "c-1" }))
         .await;
-    assert_eq!(drive["source"]["target"], json!("googledrive"), "{drive}");
-    assert_eq!(
-        f.code(
-            "openhuman.memory_sources_add",
-            json!({ "kind": "composio", "target": "googledrive" })
-        )
-        .await,
-        "INVALID_REQUEST"
+    assert!(
+        response.get("error").is_some(),
+        "composio_sync must be unknown: {response}"
     );
+    let message = response["error"]["message"].as_str().unwrap_or_default();
+    assert!(message.contains("unknown method"), "{message}");
+}
+
+#[tokio::test]
+async fn a_stale_config_with_removed_source_kinds_loads_and_lists_only_local_ones() {
+    let f = Fixture::new(true).await;
+    let stale = r#"
+[[memory.sources]]
+id = "src-composio"
+kind = "composio"
+target = "gmail"
+
+[[memory.sources]]
+id = "src-rss"
+kind = "rss"
+target = "https://example.com/feed.xml"
+
+[[memory.sources]]
+id = "src-notes"
+kind = "folder"
+target = "/tmp/stale-notes"
+
+[[memory.sources]]
+id = "src-plan"
+kind = "file"
+target = "/tmp/stale-plan.md"
+"#;
+    for dir in [
+        f.home.path().join(".openhuman"),
+        f.home.path().join(".openhuman").join("users").join(MOCK_USER_ID),
+    ] {
+        let path = dir.join("config.toml");
+        let mut text = std::fs::read_to_string(&path).expect("read config.toml");
+        text.push_str(stale);
+        std::fs::write(&path, text).expect("write config.toml");
+    }
+    let listed = f.ok("openhuman.memory_sources_list", json!({})).await;
+    let mut ids: Vec<String> = listed["sources"]
+        .as_array()
+        .expect("sources array")
+        .iter()
+        .filter_map(|s| s["id"].as_str().map(str::to_string))
+        .collect();
+    ids.sort();
+    assert_eq!(ids, ["src-notes", "src-plan"], "{listed}");
 }
 
 #[tokio::test]
