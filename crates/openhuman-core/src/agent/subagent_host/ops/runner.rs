@@ -465,7 +465,7 @@ async fn offload_outcome_artifacts(
     // A worktree-isolated worker offloads into its own checkout; everyone else
     // uses the live policy's action root, which is the same root a parent's
     // relative read resolves the returned path against.
-    let policy = crate::security::live_policy::current();
+    let policy = crate::security::live_policy::effective();
     let Some(action_dir) = options
         .worktree_action_dir
         .clone()

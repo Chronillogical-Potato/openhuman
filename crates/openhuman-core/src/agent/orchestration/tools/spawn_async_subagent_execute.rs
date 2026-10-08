@@ -141,7 +141,7 @@ impl SpawnAsyncSubagentTool {
                 workspace.root.clone()
             })
             .or_else(|| {
-                crate::security::live_policy::current().map(|policy| policy.action_dir.clone())
+                crate::security::live_policy::effective().map(|policy| policy.action_dir.clone())
             });
         let selector = SubagentSessionSelector {
             parent_session: parent_session.clone(),
