@@ -69,7 +69,7 @@ const MEMORY_QUOTA = { BASIC: '1 GB', PRO: '20 GB' } as const;
  * One way to connect CortexDB, shown under its chip on Memory → Provider: what
  * it is, what it needs (nothing via TinyHumans, a key for your own account, an
  * endpoint and key for Local), its action, and via TinyHumans one line on
- * who hosts it and that memory is free on the plan; the info popover holds the
+ * who hosts it and that memory inference is free on the plan; the info popover holds the
  * details: the plan's quota (Basic 1 GB, Pro 20 GB), that memory inference is
  * never charged, and the fair-use terms.
  */

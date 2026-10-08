@@ -5159,7 +5159,7 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'Choisissez un fournisseur de mémoire pour commencer à mémoriser.',
   'memoryPage.off.action': 'Choisir un fournisseur',
   'memoryPage.engine.inUse': 'Utilisé',
-  'memoryPage.announcement.title': 'Mémoire gratuite sur CortexDB',
+  'memoryPage.announcement.title': 'Inférence de mémoire gratuite sur CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex a été retiré le 7 oct.',
   'memoryPage.announcement.highlight':
     "Migration gratuite, et l'inférence de la mémoire n'est jamais facturée.",
@@ -5173,16 +5173,16 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'Gratuit',
   'memoryPage.engine.chip.apikey': 'Votre clé CortexDB',
   'memoryPage.engine.chip.selfhost': 'Local',
-  'memoryPage.engine.fairUse.summary': 'À propos de la mémoire gratuite',
+  'memoryPage.engine.fairUse.summary': "À propos de l'inférence de mémoire gratuite",
   'memoryPage.engine.quota.plan': 'Votre forfait {plan} inclut {storage} de mémoire.',
   'memoryPage.engine.quota.all': 'Basic inclut 1 Go de mémoire et Pro 20 Go.',
   'memoryPage.engine.quota.inference': "L'inférence de la mémoire n'est jamais facturée.",
   'memoryPage.engine.fairUse.heading': 'Utilisation équitable',
   'memoryPage.engine.offPrompt': 'Choisissez un fournisseur ci-dessous pour commencer à mémoriser.',
   'memoryPage.engine.builtin.summaryPlan':
-    'Mémoire gratuite avec votre forfait {plan}, hébergée par TinyHumans.',
+    'Inférence de mémoire gratuite avec votre forfait {plan}, hébergée par TinyHumans.',
   'memoryPage.engine.builtin.summaryUpgrade':
-    'Mémoire gratuite avec Basic et Pro, hébergée par TinyHumans.',
+    'Inférence de mémoire gratuite avec Basic et Pro, hébergée par TinyHumans.',
   'memoryPage.engine.apiKeyOption.connected': 'Connecté avec votre clé d’API CortexDB.',
   'memoryPage.engine.selfHost.connected': 'Connecté à CortexDB sur {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Ingérez votre propre contenu, pour votre propre usage.',

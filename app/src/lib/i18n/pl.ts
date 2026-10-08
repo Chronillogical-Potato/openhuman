@@ -5111,7 +5111,7 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'Wybierz dostawcę pamięci, aby zacząć zapamiętywać.',
   'memoryPage.off.action': 'Wybierz dostawcę',
   'memoryPage.engine.inUse': 'W użyciu',
-  'memoryPage.announcement.title': 'Darmowa pamięć w CortexDB',
+  'memoryPage.announcement.title': 'Darmowe wnioskowanie pamięci w CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex wycofano 7 paź.',
   'memoryPage.announcement.highlight':
     'Darmowa migracja, a wnioskowanie pamięci nigdy nie jest płatne.',
@@ -5125,16 +5125,16 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'Darmowa',
   'memoryPage.engine.chip.apikey': 'Twój klucz CortexDB',
   'memoryPage.engine.chip.selfhost': 'Lokalnie',
-  'memoryPage.engine.fairUse.summary': 'O darmowej pamięci',
+  'memoryPage.engine.fairUse.summary': 'O darmowym wnioskowaniu pamięci',
   'memoryPage.engine.quota.plan': 'Twój plan {plan} obejmuje {storage} pamięci.',
   'memoryPage.engine.quota.all': 'Basic obejmuje 1 GB pamięci, a Pro 20 GB.',
   'memoryPage.engine.quota.inference': 'Wnioskowanie pamięci nigdy nie jest płatne.',
   'memoryPage.engine.fairUse.heading': 'Uczciwe użytkowanie',
   'memoryPage.engine.offPrompt': 'Wybierz dostawcę poniżej, aby zacząć zapamiętywać.',
   'memoryPage.engine.builtin.summaryPlan':
-    'Darmowa pamięć w Twoim planie {plan}, hostowana przez TinyHumans.',
+    'Darmowe wnioskowanie pamięci w Twoim planie {plan}, hostowane przez TinyHumans.',
   'memoryPage.engine.builtin.summaryUpgrade':
-    'Darmowa pamięć w planach Basic i Pro, hostowana przez TinyHumans.',
+    'Darmowe wnioskowanie pamięci w planach Basic i Pro, hostowane przez TinyHumans.',
   'memoryPage.engine.apiKeyOption.connected': 'Połączono za pomocą Twojego klucza API CortexDB.',
   'memoryPage.engine.selfHost.connected': 'Połączono z CortexDB pod adresem {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Zapisuj własne treści na własny użytek.',

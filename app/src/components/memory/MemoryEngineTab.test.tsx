@@ -231,7 +231,7 @@ describe('MemoryEngineTab', () => {
       hoisted.plan = 'PRO';
       renderTab(BUILTIN_ON);
       expect(screen.getByTestId('memory-engine-builtin-note')).toHaveTextContent(
-        'Free memory on your Pro plan, hosted by TinyHumans.'
+        'Free memory inference on your Pro plan, hosted by TinyHumans.'
       );
       // Quota, inference pricing and fair use sit behind an info icon.
       expect(screen.queryByTestId('memory-engine-fair-use')).not.toBeInTheDocument();
@@ -251,7 +251,7 @@ describe('MemoryEngineTab', () => {
       hoisted.plan = 'BASIC';
       renderTab(BUILTIN_ON);
       expect(screen.getByTestId('memory-engine-builtin-note')).toHaveTextContent(
-        'Free memory on your Basic plan, hosted by TinyHumans.'
+        'Free memory inference on your Basic plan, hosted by TinyHumans.'
       );
       fireEvent.click(screen.getByTestId('memory-engine-fair-use-trigger'));
       expect(screen.getByTestId('memory-engine-quota')).toHaveTextContent(
@@ -263,7 +263,7 @@ describe('MemoryEngineTab', () => {
       hoisted.plan = 'FREE';
       renderTab();
       expect(screen.getByTestId('memory-engine-builtin-note')).toHaveTextContent(
-        'Free memory on Basic and Pro, hosted by TinyHumans.'
+        'Free memory inference on Basic and Pro, hosted by TinyHumans.'
       );
       fireEvent.click(screen.getByTestId('memory-engine-fair-use-trigger'));
       expect(screen.getByTestId('memory-engine-quota')).toHaveTextContent(

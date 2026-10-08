@@ -5084,7 +5084,7 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'Pilih penyedia memori untuk mulai mengingat.',
   'memoryPage.off.action': 'Pilih penyedia',
   'memoryPage.engine.inUse': 'Digunakan',
-  'memoryPage.announcement.title': 'Memori gratis di CortexDB',
+  'memoryPage.announcement.title': 'Inferensi memori gratis di CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex dipensiunkan pada 7 Okt.',
   'memoryPage.announcement.highlight':
     'Migrasi gratis, dan inferensi memori tidak pernah dikenai biaya.',
@@ -5098,16 +5098,16 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'Gratis',
   'memoryPage.engine.chip.apikey': 'Kunci CortexDB Anda',
   'memoryPage.engine.chip.selfhost': 'Lokal',
-  'memoryPage.engine.fairUse.summary': 'Tentang memori gratis',
+  'memoryPage.engine.fairUse.summary': 'Tentang inferensi memori gratis',
   'memoryPage.engine.quota.plan': 'Paket {plan} Anda mencakup {storage} memori.',
   'memoryPage.engine.quota.all': 'Basic mencakup 1 GB memori dan Pro mencakup 20 GB.',
   'memoryPage.engine.quota.inference': 'Inferensi memori tidak pernah dikenai biaya.',
   'memoryPage.engine.fairUse.heading': 'Penggunaan wajar',
   'memoryPage.engine.offPrompt': 'Pilih penyedia di bawah untuk mulai mengingat.',
   'memoryPage.engine.builtin.summaryPlan':
-    'Memori gratis di paket {plan} Anda, dihosting oleh TinyHumans.',
+    'Inferensi memori gratis di paket {plan} Anda, dihosting oleh TinyHumans.',
   'memoryPage.engine.builtin.summaryUpgrade':
-    'Memori gratis di Basic dan Pro, dihosting oleh TinyHumans.',
+    'Inferensi memori gratis di Basic dan Pro, dihosting oleh TinyHumans.',
   'memoryPage.engine.apiKeyOption.connected': 'Terhubung dengan kunci API CortexDB Anda.',
   'memoryPage.engine.selfHost.connected': 'Terhubung ke CortexDB di {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Serap konten Anda sendiri, untuk penggunaan sendiri.',

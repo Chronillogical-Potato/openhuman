@@ -4952,7 +4952,7 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'اختر مزوّد ذاكرة لبدء التذكّر.',
   'memoryPage.off.action': 'اختر مزوّدًا',
   'memoryPage.engine.inUse': 'قيد الاستخدام',
-  'memoryPage.announcement.title': 'ذاكرة مجانية على CortexDB',
+  'memoryPage.announcement.title': 'استدلال ذاكرة مجاني على CortexDB',
   'memoryPage.announcement.retired': 'أُوقف TinyCortex في 7 أكتوبر.',
   'memoryPage.announcement.highlight':
     'ترحيل مجاني، ولا يتم احتساب أي رسوم على استدلال الذاكرة أبدًا.',
@@ -4965,14 +4965,16 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'مجاني',
   'memoryPage.engine.chip.apikey': 'مفتاح CortexDB الخاص بك',
   'memoryPage.engine.chip.selfhost': 'محلي',
-  'memoryPage.engine.fairUse.summary': 'حول الذاكرة المجانية',
+  'memoryPage.engine.fairUse.summary': 'حول استدلال الذاكرة المجاني',
   'memoryPage.engine.quota.plan': 'تتضمن خطة {plan} مساحة {storage} من الذاكرة.',
   'memoryPage.engine.quota.all': 'تتضمن Basic مساحة 1 غيغابايت من الذاكرة وPro مساحة 20 غيغابايت.',
   'memoryPage.engine.quota.inference': 'لا يتم احتساب رسوم على استدلال الذاكرة أبدًا.',
   'memoryPage.engine.fairUse.heading': 'الاستخدام العادل',
   'memoryPage.engine.offPrompt': 'اختر مزوّدًا أدناه لبدء التذكّر.',
-  'memoryPage.engine.builtin.summaryPlan': 'ذاكرة مجانية في خطة {plan}، مستضافة لدى TinyHumans.',
-  'memoryPage.engine.builtin.summaryUpgrade': 'ذاكرة مجانية في Basic وPro، مستضافة لدى TinyHumans.',
+  'memoryPage.engine.builtin.summaryPlan':
+    'استدلال ذاكرة مجاني في خطة {plan}، مستضاف لدى TinyHumans.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'استدلال ذاكرة مجاني في Basic وPro، مستضاف لدى TinyHumans.',
   'memoryPage.engine.apiKeyOption.connected': 'متصل باستخدام مفتاح CortexDB API الخاص بك.',
   'memoryPage.engine.selfHost.connected': 'متصل بـ CortexDB على {endpoint}.',
   'memoryPage.engine.fairUse.own': 'أدخل محتواك الخاص لاستخدامك الشخصي.',

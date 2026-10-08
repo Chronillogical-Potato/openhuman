@@ -5323,7 +5323,7 @@ const en: TranslationMap = {
   'memoryPage.off.description': 'Pick a memory provider to start remembering.',
   'memoryPage.off.action': 'Choose a provider',
   'memoryPage.engine.inUse': 'In use',
-  'memoryPage.announcement.title': 'Free Memory on CortexDB',
+  'memoryPage.announcement.title': 'Free Memory Inference on CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex was retired on Oct 7.',
   'memoryPage.announcement.highlight': 'Free migration, and memory inference is never charged.',
   'memoryPage.announcement.rest':
@@ -5335,14 +5335,16 @@ const en: TranslationMap = {
   'memoryPage.engine.chip.free': 'Free',
   'memoryPage.engine.chip.apikey': 'Your CortexDB key',
   'memoryPage.engine.chip.selfhost': 'Local',
-  'memoryPage.engine.fairUse.summary': 'About free memory',
+  'memoryPage.engine.fairUse.summary': 'About free memory inference',
   'memoryPage.engine.quota.plan': 'Your {plan} plan includes {storage} of memory.',
   'memoryPage.engine.quota.all': 'Basic includes 1 GB of memory and Pro includes 20 GB.',
   'memoryPage.engine.quota.inference': 'Memory inference is never charged.',
   'memoryPage.engine.fairUse.heading': 'Fair use',
   'memoryPage.engine.offPrompt': 'Pick a provider below to start remembering.',
-  'memoryPage.engine.builtin.summaryPlan': 'Free memory on your {plan} plan, hosted by TinyHumans.',
-  'memoryPage.engine.builtin.summaryUpgrade': 'Free memory on Basic and Pro, hosted by TinyHumans.',
+  'memoryPage.engine.builtin.summaryPlan':
+    'Free memory inference on your {plan} plan, hosted by TinyHumans.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'Free memory inference on Basic and Pro, hosted by TinyHumans.',
   'memoryPage.engine.apiKeyOption.connected': 'Connected with your CortexDB API key.',
   'memoryPage.engine.selfHost.connected': 'Connected to CortexDB at {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Ingest your own content, for your own use.',

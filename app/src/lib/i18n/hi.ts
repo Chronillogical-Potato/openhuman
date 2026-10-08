@@ -5044,7 +5044,7 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'याद रखना शुरू करने के लिए एक मेमोरी प्रदाता चुनें।',
   'memoryPage.off.action': 'प्रदाता चुनें',
   'memoryPage.engine.inUse': 'इस्तेमाल में',
-  'memoryPage.announcement.title': 'CortexDB पर मुफ़्त मेमोरी',
+  'memoryPage.announcement.title': 'CortexDB पर मुफ़्त मेमोरी इन्फ़रेंस',
   'memoryPage.announcement.retired': 'TinyCortex 7 अक्टूबर को बंद हुआ।',
   'memoryPage.announcement.highlight':
     'मुफ़्त माइग्रेशन, और मेमोरी इन्फ़रेंस का कभी शुल्क नहीं लिया जाता।',
@@ -5057,16 +5057,16 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'मुफ़्त',
   'memoryPage.engine.chip.apikey': 'आपकी CortexDB कुंजी',
   'memoryPage.engine.chip.selfhost': 'लोकल',
-  'memoryPage.engine.fairUse.summary': 'मुफ़्त मेमोरी के बारे में',
+  'memoryPage.engine.fairUse.summary': 'मुफ़्त मेमोरी इन्फ़रेंस के बारे में',
   'memoryPage.engine.quota.plan': 'आपके {plan} प्लान में {storage} मेमोरी शामिल है।',
   'memoryPage.engine.quota.all': 'Basic में 1 GB और Pro में 20 GB मेमोरी शामिल है।',
   'memoryPage.engine.quota.inference': 'मेमोरी इन्फ़रेंस का कभी शुल्क नहीं लिया जाता।',
   'memoryPage.engine.fairUse.heading': 'उचित उपयोग',
   'memoryPage.engine.offPrompt': 'याद रखना शुरू करने के लिए नीचे एक प्रदाता चुनें।',
   'memoryPage.engine.builtin.summaryPlan':
-    'आपके {plan} प्लान में मुफ़्त मेमोरी, TinyHumans द्वारा होस्ट की गई।',
+    'आपके {plan} प्लान में मुफ़्त मेमोरी इन्फ़रेंस, TinyHumans द्वारा होस्ट किया गया।',
   'memoryPage.engine.builtin.summaryUpgrade':
-    'Basic और Pro में मुफ़्त मेमोरी, TinyHumans द्वारा होस्ट की गई।',
+    'Basic और Pro में मुफ़्त मेमोरी इन्फ़रेंस, TinyHumans द्वारा होस्ट किया गया।',
   'memoryPage.engine.apiKeyOption.connected': 'आपकी CortexDB API कुंजी से जुड़ा है।',
   'memoryPage.engine.selfHost.connected': '{endpoint} पर CortexDB से जुड़ा है।',
   'memoryPage.engine.fairUse.own': 'अपनी सामग्री, अपने इस्तेमाल के लिए जोड़ें।',

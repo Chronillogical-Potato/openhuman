@@ -5123,7 +5123,7 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'Scegli un fornitore di memoria per iniziare a ricordare.',
   'memoryPage.off.action': 'Scegli un fornitore',
   'memoryPage.engine.inUse': 'In uso',
-  'memoryPage.announcement.title': 'Memoria gratuita su CortexDB',
+  'memoryPage.announcement.title': 'Inferenza della memoria gratuita su CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex è stato ritirato il 7 ott.',
   'memoryPage.announcement.highlight':
     "Migrazione gratuita, e l'inferenza della memoria non viene mai addebitata.",
@@ -5137,16 +5137,16 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'Gratis',
   'memoryPage.engine.chip.apikey': 'La tua chiave CortexDB',
   'memoryPage.engine.chip.selfhost': 'Locale',
-  'memoryPage.engine.fairUse.summary': 'Informazioni sulla memoria gratuita',
+  'memoryPage.engine.fairUse.summary': "Informazioni sull'inferenza della memoria gratuita",
   'memoryPage.engine.quota.plan': 'Il tuo piano {plan} include {storage} di memoria.',
   'memoryPage.engine.quota.all': 'Basic include 1 GB di memoria e Pro 20 GB.',
   'memoryPage.engine.quota.inference': "L'inferenza della memoria non viene mai addebitata.",
   'memoryPage.engine.fairUse.heading': 'Uso equo',
   'memoryPage.engine.offPrompt': 'Scegli un fornitore qui sotto per iniziare a ricordare.',
   'memoryPage.engine.builtin.summaryPlan':
-    'Memoria gratuita con il tuo piano {plan}, ospitata da TinyHumans.',
+    'Inferenza della memoria gratuita con il tuo piano {plan}, ospitata da TinyHumans.',
   'memoryPage.engine.builtin.summaryUpgrade':
-    'Memoria gratuita con Basic e Pro, ospitata da TinyHumans.',
+    'Inferenza della memoria gratuita con Basic e Pro, ospitata da TinyHumans.',
   'memoryPage.engine.apiKeyOption.connected': 'Connesso con la tua chiave API di CortexDB.',
   'memoryPage.engine.selfHost.connected': 'Connesso a CortexDB su {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Acquisisci i tuoi contenuti, per uso personale.',

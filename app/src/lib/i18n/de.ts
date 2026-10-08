@@ -5185,7 +5185,7 @@ const messages: TranslationMap = {
     'Wähle einen Gedächtnisanbieter, damit dein Assistent sich erinnert.',
   'memoryPage.off.action': 'Anbieter wählen',
   'memoryPage.engine.inUse': 'Aktiv',
-  'memoryPage.announcement.title': 'Kostenloses Gedächtnis mit CortexDB',
+  'memoryPage.announcement.title': 'Kostenlose Gedächtnis-Inferenz mit CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex wurde am 7. Okt. eingestellt.',
   'memoryPage.announcement.highlight':
     'Kostenlose Migration, und Gedächtnis-Inferenz wird nie berechnet.',
@@ -5199,16 +5199,16 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'Kostenlos',
   'memoryPage.engine.chip.apikey': 'Dein CortexDB-Schlüssel',
   'memoryPage.engine.chip.selfhost': 'Lokal',
-  'memoryPage.engine.fairUse.summary': 'Über kostenloses Gedächtnis',
+  'memoryPage.engine.fairUse.summary': 'Über kostenlose Gedächtnis-Inferenz',
   'memoryPage.engine.quota.plan': 'Dein {plan}-Tarif enthält {storage} Gedächtnis.',
   'memoryPage.engine.quota.all': 'Basic enthält 1 GB Gedächtnis, Pro 20 GB.',
   'memoryPage.engine.quota.inference': 'Gedächtnis-Inferenz wird nie berechnet.',
   'memoryPage.engine.fairUse.heading': 'Fair Use',
   'memoryPage.engine.offPrompt': 'Wähle unten einen Anbieter, damit dein Assistent sich erinnert.',
   'memoryPage.engine.builtin.summaryPlan':
-    'Kostenloses Gedächtnis in deinem {plan}-Tarif, gehostet von TinyHumans.',
+    'Kostenlose Gedächtnis-Inferenz in deinem {plan}-Tarif, gehostet von TinyHumans.',
   'memoryPage.engine.builtin.summaryUpgrade':
-    'Kostenloses Gedächtnis in Basic und Pro, gehostet von TinyHumans.',
+    'Kostenlose Gedächtnis-Inferenz in Basic und Pro, gehostet von TinyHumans.',
   'memoryPage.engine.apiKeyOption.connected': 'Mit deinem CortexDB-API-Schlüssel verbunden.',
   'memoryPage.engine.selfHost.connected': 'Mit CortexDB unter {endpoint} verbunden.',
   'memoryPage.engine.fairUse.own': 'Nimm deine eigenen Inhalte für deine eigene Nutzung auf.',
