@@ -200,7 +200,6 @@ pub struct ForgetView {
 
 /// `memory_erase_all` params.
 #[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct EraseAllParams {
     /// Must be `true`: an interlock, because nothing erased comes back.
     #[serde(default)]

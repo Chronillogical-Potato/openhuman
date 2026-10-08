@@ -12,7 +12,7 @@ use crate::memory::error::{MemoryError, MemoryResult};
 use crate::memory::explore::{self, ExploreParams, ItemsGetParams};
 use crate::memory::lifecycle::views::{self, JobsRunParams, PackPreviewParams, PolicySetParams};
 use crate::memory::types::{
-    EmptyParams, EngineSetParams, FetchParams, ForgetParams, ImportStartParams, ImportStateView,
+    EmptyParams, EngineSetParams, EraseAllParams, FetchParams, ForgetParams, ImportStartParams, ImportStateView,
     ItemsListParams, LearnParams, RecallParams, SourceAddedView, SourceRemovedView,
     SourcesAddParams, SourcesListView, SourcesRemoveParams, SourcesSyncParams, SourcesSyncView,
 };
