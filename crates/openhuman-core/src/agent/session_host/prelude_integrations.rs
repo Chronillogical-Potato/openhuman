@@ -157,7 +157,11 @@ impl OpenHumanTurnPrelude {
     /// Called before the tool-surface lock is taken to keep lock order stable.
     #[cfg(feature = "mcp")]
     pub(super) fn collect_mcp_search_tools(&self) -> Vec<Box<dyn tinytools::Tool>> {
-        if self.agent_definition_id != "orchestrator" {
+        if !self.searches_connected_mcp {
+            tracing::trace!(
+                agent = %self.agent_definition_id,
+                "[mcp] agent does not search connected MCP tools"
+            );
             return Vec::new();
         }
         let Some(config) = self.runtime_config.as_ref() else {

@@ -33,6 +33,7 @@ fn definition() -> AgentDefinition {
         ],
         delegate_name: None,
         agent_tier: AgentTier::Worker,
+        searches_connected_mcp: false,
         source: DefinitionSource::Builtin,
         graph: Default::default(),
     }

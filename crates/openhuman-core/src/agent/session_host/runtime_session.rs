@@ -92,6 +92,8 @@ struct OpenHumanTurnPrelude {
         Option<Arc<tinyagents_harness::run_queue::RunQueue<crate::agent::queued_turn::QueuedTurn>>>,
     allowed_subagent_ids: std::collections::HashSet<String>,
     sandbox_mode: crate::agent::harness::definition::SandboxMode,
+    /// The definition's `searches_connected_mcp`.
+    searches_connected_mcp: bool,
     runtime_config: Option<Arc<crate::config::Config>>,
     /// The one authoritative, request-refreshable composition of executable
     /// tools, policy, and provider schema. Generic runtime owns the immutable
@@ -1020,6 +1022,9 @@ impl OpenHumanSessionHost {
                     .resolved_definition()
                     .map(|definition| definition.sandbox_mode)
                     .unwrap_or(crate::agent::harness::definition::SandboxMode::None),
+                searches_connected_mcp: self
+                    .resolved_definition()
+                    .is_some_and(|definition| definition.searches_connected_mcp),
                 runtime_config: self.runtime_config.clone(),
                 tool_surface: Arc::new(std::sync::Mutex::new(OpenHumanTurnToolSurface {
                     tools: self.tools.clone(),

@@ -169,6 +169,7 @@ fn definition_with_tool_scope(
         subagents: Vec::new(),
         delegate_name: None,
         agent_tier: AgentTier::Worker,
+        searches_connected_mcp: false,
         source: DefinitionSource::Builtin,
         graph: Default::default(),
     }
