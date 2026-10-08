@@ -110,3 +110,40 @@ async fn record_prunes_other_threads_stale_entries() {
     }
     clear_budget_signal(active).await;
 }
+
+#[tokio::test]
+async fn budget_signals_stay_with_the_agent_that_recorded_them() {
+    use crate::core::runtime::{context::CoreContext, ContextOverlay, DomainSet};
+    let root = CoreContext::for_test(DomainSet::full(), None);
+    let agent = |id: &str| {
+        root.derive_with(
+            ContextOverlay::new(
+                crate::config::Config::default(),
+                DomainSet::kernel(),
+                crate::tools::toolpacks::ToolGroups::none(),
+            )
+            .session_agent(id),
+        )
+    };
+    let alpha = agent("alpha");
+    let beta = agent("beta");
+    let thread = "budget-shared-thread";
+
+    CoreContext::scope(std::sync::Arc::clone(&alpha), async {
+        record_budget_signal(thread, "managed").await;
+    })
+    .await;
+
+    assert!(
+        CoreContext::scope(alpha, async {
+            has_fresh_budget_signal(thread, "managed").await
+        })
+        .await
+    );
+    assert!(
+        !CoreContext::scope(beta, async {
+            has_fresh_budget_signal(thread, "managed").await
+        })
+        .await
+    );
+}
