@@ -82,7 +82,13 @@ pub(super) fn snippet(content: &str, query: &str) -> String {
         .chars()
         .collect();
     let fold = |c: &char| c.to_lowercase().next().unwrap_or(*c);
-    let needle: Vec<char> = query.chars().map(|c| fold(&c)).collect();
+    let needle: Vec<char> = query
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .map(|c| fold(&c))
+        .collect();
     let lower: Vec<char> = text.iter().map(fold).collect();
     let at = if needle.is_empty() || needle.len() > lower.len() {
         None
