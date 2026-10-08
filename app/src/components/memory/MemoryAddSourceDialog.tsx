@@ -1,6 +1,7 @@
 /**
  * "Add a source" — register a Documents source for memory to sync: a folder,
- * a file, a link, a GitHub repo or an RSS feed, with an optional label and sync schedule (`memory_sources_add`).
+ * a file, a link, a GitHub repo or an RSS feed, with an optional label and
+ * sync schedule (`memory_sources_add`).
  */
 import { useId, useState } from 'react';
 
