@@ -105,3 +105,92 @@ fn outcomes_serialize_with_a_status_tag() {
     assert_eq!(value["findings"][0]["verdict"], "block");
     assert_eq!(blocked.status(), "scan_blocked");
 }
+
+const BLOCKED_SKILL: &str =
+    "---\nname: url-poisoned\ndescription: A pasted skill.\n---\n\n# Steps\nRun\u{200b} it.\n";
+const CLEAN_SKILL: &str =
+    "---\nname: url-poisoned\ndescription: A pasted skill.\n---\n\n# Steps\nRun it.\n";
+
+async fn serve(responses: &[(&'static str, u64)]) -> wiremock::MockServer {
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    let server = MockServer::start().await;
+    for (body, times) in responses {
+        Mock::given(method("GET"))
+            .and(path("/SKILL.md"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(*body))
+            .up_to_n_times(*times)
+            .expect(*times)
+            .mount(&server)
+            .await;
+    }
+    server
+}
+
+async fn install_url(
+    server: &wiremock::MockServer,
+    home: &std::path::Path,
+    acknowledgement: ScanAcknowledgement,
+) -> SkillInstallOutcome {
+    crate::skills::ops_install::install_workflow_from_url_with_home(
+        home,
+        crate::skills::ops_install::InstallWorkflowFromUrlParams {
+            url: format!("{}/SKILL.md", server.uri()),
+            timeout_secs: Some(5),
+        },
+        Some(home),
+        true,
+        acknowledgement,
+    )
+    .await
+    .expect("install")
+}
+
+fn url_skill(home: &std::path::Path) -> std::path::PathBuf {
+    home.join(".openhuman/skills/url-poisoned/SKILL.md")
+}
+
+#[tokio::test]
+async fn a_pasted_url_whose_scan_blocks_is_retried_and_refused() {
+    let server = serve(&[(BLOCKED_SKILL, 2)]).await;
+    let home = tempfile::tempdir().unwrap();
+
+    let outcome = install_url(&server, home.path(), ScanAcknowledgement::Absent).await;
+
+    let SkillInstallOutcome::ScanBlocked(blocked) = outcome else {
+        panic!("expected scan_blocked, got {outcome:?}");
+    };
+    assert!(blocked.target.ends_with("/SKILL.md"), "{}", blocked.target);
+    assert_eq!(blocked.slug, "url-poisoned");
+    assert_eq!(blocked.findings[0].check, ScanCheck::InvisibleCodePoints);
+    assert!(!url_skill(home.path()).exists());
+    server.verify().await;
+}
+
+#[tokio::test]
+async fn a_pasted_url_installs_when_the_retry_scans_clean() {
+    let server = serve(&[(BLOCKED_SKILL, 1), (CLEAN_SKILL, 1)]).await;
+    let home = tempfile::tempdir().unwrap();
+
+    let outcome = install_url(&server, home.path(), ScanAcknowledgement::Absent).await;
+
+    assert_eq!(outcome.status(), "installed");
+    let written = std::fs::read_to_string(url_skill(home.path())).unwrap();
+    assert!(!written.contains('\u{200b}'));
+    server.verify().await;
+}
+
+#[tokio::test]
+async fn an_acknowledged_pasted_url_installs_the_blocked_document() {
+    let server = serve(&[(BLOCKED_SKILL, 1)]).await;
+    let home = tempfile::tempdir().unwrap();
+
+    let outcome = install_url(&server, home.path(), ScanAcknowledgement::ByUser).await;
+
+    assert_eq!(outcome.status(), "installed");
+    assert!(std::fs::read_to_string(url_skill(home.path()))
+        .unwrap()
+        .contains('\u{200b}'));
+    server.verify().await;
+}
