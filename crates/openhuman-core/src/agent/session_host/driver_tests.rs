@@ -65,6 +65,15 @@ fn stalled_model_stream_reports_completed_evidence_instead_of_its_narration() {
         std::time::Duration::from_millis(1),
         "chat-v1",
     );
+    let terminal = failure.outcome.as_ref().expect("typed terminal outcome");
+    assert_eq!(
+        terminal.reason,
+        tinyagents_harness::terminal::TerminalReason::ProviderFailed(Some(
+            tinyagents_harness::retry::FailoverReason::classify(
+                &tinyagents_harness::TinyAgentsError::GenerationStalled
+            )
+        ))
+    );
     let partial = failure.partial.expect("interrupted partial");
     let display = partial.partial.expect("display partial").content;
     assert!(display.contains("stopped a repetitive model response"));
