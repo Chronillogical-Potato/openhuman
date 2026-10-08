@@ -5013,19 +5013,24 @@ const messages: TranslationMap = {
   'memoryPage.settings.agentId': '智能体',
   'memoryPage.settings.eraseTitle': '清除记忆',
   'memoryPage.settings.eraseAction': '清除全部记忆',
-  'memoryPage.settings.eraseDescription': '永久删除 OpenHuman 为此账户记住的所有内容。此操作无法撤销。',
+  'memoryPage.settings.eraseDescription':
+    '永久删除 OpenHuman 为此账户记住的所有内容。此操作无法撤销。',
   'memoryPage.settings.eraseConfirmTitle': '清除全部记忆？',
-  'memoryPage.settings.eraseConfirmBody': '这将永久删除 OpenHuman 为此账户记住的所有内容：每个已连接的来源、过往对话、学到的内容和事实。你的连接和设置会保留。',
+  'memoryPage.settings.eraseConfirmBody':
+    '这将永久删除 OpenHuman 为此账户记住的所有内容：每个已连接的来源、过往对话、学到的内容和事实。你的连接和设置会保留。',
   'memoryPage.settings.eraseIrreversible': '此操作无法撤销。已清除的记忆无法恢复。',
   'memoryPage.settings.eraseConfirmCheck': '我了解我的全部记忆将被永久删除。',
   'memoryPage.settings.eraseConfirm': '全部清除',
   'memoryPage.settings.erasing': '正在清除…',
   'memoryPage.settings.erasedToast': '已清除全部记忆',
   'memoryPage.settings.erasedToastBody': 'OpenHuman 不再记得此账户的任何内容。',
-  'memoryPage.settings.eraseError.unsupported': '你的记忆服务暂不支持清除全部记忆。未清除任何内容。',
-  'memoryPage.settings.eraseError.insufficientCredits': '你的账户额度已用完，因此暂时无法清除记忆。请充值后重试。未清除任何内容。',
+  'memoryPage.settings.eraseError.unsupported':
+    '你的记忆服务暂不支持清除全部记忆。未清除任何内容。',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    '你的账户额度已用完，因此暂时无法清除记忆。请充值后重试。未清除任何内容。',
   'memoryPage.settings.eraseError.memoryOff': '记忆已关闭，没有可清除的内容。',
-  'memoryPage.settings.eraseError.unavailable': '暂时无法连接到记忆服务。未清除任何内容；请稍后重试。',
+  'memoryPage.settings.eraseError.unavailable':
+    '暂时无法连接到记忆服务。未清除任何内容；请稍后重试。',
   'memoryPage.settings.eraseError.unauthorized': '你的会话已过期。请重新登录，然后再尝试清除记忆。',
   'memoryPage.settings.eraseError.generic': '无法清除你的记忆。请重试。',
   'memoryPage.settings.hostBound': '这些由托管 OpenHuman 的应用设置，因此无法在此更改。',

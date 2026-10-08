@@ -5373,20 +5373,29 @@ const messages: TranslationMap = {
   'memoryPage.settings.agentId': 'Agente',
   'memoryPage.settings.eraseTitle': 'Apagar memória',
   'memoryPage.settings.eraseAction': 'Apagar toda a memória',
-  'memoryPage.settings.eraseDescription': 'Exclui permanentemente tudo o que o OpenHuman lembra desta conta. Isso não pode ser desfeito.',
+  'memoryPage.settings.eraseDescription':
+    'Exclui permanentemente tudo o que o OpenHuman lembra desta conta. Isso não pode ser desfeito.',
   'memoryPage.settings.eraseConfirmTitle': 'Apagar toda a memória?',
-  'memoryPage.settings.eraseConfirmBody': 'Isso exclui permanentemente tudo o que o OpenHuman lembra desta conta: cada fonte conectada, conversa anterior, aprendizado e fato. Suas conexões e configurações são mantidas.',
-  'memoryPage.settings.eraseIrreversible': 'Isso não pode ser desfeito. A memória apagada não pode ser recuperada.',
-  'memoryPage.settings.eraseConfirmCheck': 'Entendo que toda a minha memória será excluída permanentemente.',
+  'memoryPage.settings.eraseConfirmBody':
+    'Isso exclui permanentemente tudo o que o OpenHuman lembra desta conta: cada fonte conectada, conversa anterior, aprendizado e fato. Suas conexões e configurações são mantidas.',
+  'memoryPage.settings.eraseIrreversible':
+    'Isso não pode ser desfeito. A memória apagada não pode ser recuperada.',
+  'memoryPage.settings.eraseConfirmCheck':
+    'Entendo que toda a minha memória será excluída permanentemente.',
   'memoryPage.settings.eraseConfirm': 'Apagar tudo',
   'memoryPage.settings.erasing': 'Apagando…',
   'memoryPage.settings.erasedToast': 'Toda a memória foi apagada',
   'memoryPage.settings.erasedToastBody': 'O OpenHuman não lembra mais de nada desta conta.',
-  'memoryPage.settings.eraseError.unsupported': 'Seu serviço de memória ainda não consegue apagar toda a memória. Nada foi apagado.',
-  'memoryPage.settings.eraseError.insufficientCredits': 'Sua conta está sem créditos, então a memória não pode ser apagada agora. Recarregue e tente novamente. Nada foi apagado.',
-  'memoryPage.settings.eraseError.memoryOff': 'A memória está desativada, então não há nada para apagar.',
-  'memoryPage.settings.eraseError.unavailable': 'Não é possível acessar a memória agora. Nada foi apagado; tente novamente em instantes.',
-  'memoryPage.settings.eraseError.unauthorized': 'Sua sessão expirou. Entre novamente e tente apagar sua memória.',
+  'memoryPage.settings.eraseError.unsupported':
+    'Seu serviço de memória ainda não consegue apagar toda a memória. Nada foi apagado.',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'Sua conta está sem créditos, então a memória não pode ser apagada agora. Recarregue e tente novamente. Nada foi apagado.',
+  'memoryPage.settings.eraseError.memoryOff':
+    'A memória está desativada, então não há nada para apagar.',
+  'memoryPage.settings.eraseError.unavailable':
+    'Não é possível acessar a memória agora. Nada foi apagado; tente novamente em instantes.',
+  'memoryPage.settings.eraseError.unauthorized':
+    'Sua sessão expirou. Entre novamente e tente apagar sua memória.',
   'memoryPage.settings.eraseError.generic': 'Não foi possível apagar sua memória. Tente novamente.',
   'memoryPage.settings.hostBound':
     'O app que hospeda o OpenHuman define estes valores, então não podem ser alterados aqui.',

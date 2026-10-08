@@ -832,8 +832,7 @@ const messages: TranslationMap = {
     'মেমোরি নিজে পরীক্ষা, এক্সপোর্ট বা মুছুন। Settings › Memory-এ কনফিগার করুন।',
   'accounts.disconnect': 'সংযোগ বিচ্ছিন্ন',
   'accounts.disconnectClearMemory': 'এই উৎস থেকে মেমোরিও মুছুন',
-  'accounts.disconnectClearMemoryHint':
-    'এই সংযোগ থেকে সংরক্ষিত মেমোরি স্থায়ীভাবে মুছে ফেলে।',
+  'accounts.disconnectClearMemoryHint': 'এই সংযোগ থেকে সংরক্ষিত মেমোরি স্থায়ীভাবে মুছে ফেলে।',
   'channels.title': 'চ্যানেল',
   'channels.configure': 'চ্যানেল কনফিগার করুন',
   'channels.setup': 'সেটআপ',
@@ -5302,21 +5301,29 @@ const messages: TranslationMap = {
   'memoryPage.settings.agentId': 'এজেন্ট',
   'memoryPage.settings.eraseTitle': 'মেমোরি মুছুন',
   'memoryPage.settings.eraseAction': 'সব মেমোরি মুছুন',
-  'memoryPage.settings.eraseDescription': 'এই অ্যাকাউন্টের জন্য OpenHuman যা কিছু মনে রাখে, সব স্থায়ীভাবে মুছে ফেলে। এটি পূর্বাবস্থায় ফেরানো যায় না।',
+  'memoryPage.settings.eraseDescription':
+    'এই অ্যাকাউন্টের জন্য OpenHuman যা কিছু মনে রাখে, সব স্থায়ীভাবে মুছে ফেলে। এটি পূর্বাবস্থায় ফেরানো যায় না।',
   'memoryPage.settings.eraseConfirmTitle': 'সব মেমোরি মুছবেন?',
-  'memoryPage.settings.eraseConfirmBody': 'এটি এই অ্যাকাউন্টের জন্য OpenHuman যা কিছু মনে রাখে, সব স্থায়ীভাবে মুছে ফেলবে: প্রতিটি সংযুক্ত উৎস, আগের কথোপকথন, শেখা বিষয় ও তথ্য। আপনার সংযোগ ও সেটিংস থেকে যাবে।',
-  'memoryPage.settings.eraseIrreversible': 'এটি পূর্বাবস্থায় ফেরানো যায় না। মুছে ফেলা মেমোরি আর পুনরুদ্ধার করা যাবে না।',
+  'memoryPage.settings.eraseConfirmBody':
+    'এটি এই অ্যাকাউন্টের জন্য OpenHuman যা কিছু মনে রাখে, সব স্থায়ীভাবে মুছে ফেলবে: প্রতিটি সংযুক্ত উৎস, আগের কথোপকথন, শেখা বিষয় ও তথ্য। আপনার সংযোগ ও সেটিংস থেকে যাবে।',
+  'memoryPage.settings.eraseIrreversible':
+    'এটি পূর্বাবস্থায় ফেরানো যায় না। মুছে ফেলা মেমোরি আর পুনরুদ্ধার করা যাবে না।',
   'memoryPage.settings.eraseConfirmCheck': 'আমি বুঝি যে আমার সব মেমোরি স্থায়ীভাবে মুছে ফেলা হবে।',
   'memoryPage.settings.eraseConfirm': 'সব মুছে ফেলুন',
   'memoryPage.settings.erasing': 'মুছে ফেলা হচ্ছে…',
   'memoryPage.settings.erasedToast': 'সব মেমোরি মুছে ফেলা হয়েছে',
   'memoryPage.settings.erasedToastBody': 'OpenHuman এই অ্যাকাউন্টের জন্য আর কিছুই মনে রাখে না।',
-  'memoryPage.settings.eraseError.unsupported': 'আপনার মেমোরি পরিষেবা এখনো সব মেমোরি মুছতে পারে না। কিছুই মোছা হয়নি।',
-  'memoryPage.settings.eraseError.insufficientCredits': 'আপনার অ্যাকাউন্টে ক্রেডিট শেষ, তাই এখন মেমোরি মোছা যাবে না। টপ আপ করে আবার চেষ্টা করুন। কিছুই মোছা হয়নি।',
+  'memoryPage.settings.eraseError.unsupported':
+    'আপনার মেমোরি পরিষেবা এখনো সব মেমোরি মুছতে পারে না। কিছুই মোছা হয়নি।',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'আপনার অ্যাকাউন্টে ক্রেডিট শেষ, তাই এখন মেমোরি মোছা যাবে না। টপ আপ করে আবার চেষ্টা করুন। কিছুই মোছা হয়নি।',
   'memoryPage.settings.eraseError.memoryOff': 'মেমোরি বন্ধ আছে, তাই মোছার মতো কিছু নেই।',
-  'memoryPage.settings.eraseError.unavailable': 'এই মুহূর্তে মেমোরিতে পৌঁছানো যাচ্ছে না। কিছুই মোছা হয়নি; একটু পরে আবার চেষ্টা করুন।',
-  'memoryPage.settings.eraseError.unauthorized': 'আপনার সেশনের মেয়াদ শেষ হয়ে গেছে। আবার সাইন ইন করুন, তারপর মেমোরি মোছার চেষ্টা করুন।',
-  'memoryPage.settings.eraseError.generic': 'আপনার মেমোরি মোছা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।',
+  'memoryPage.settings.eraseError.unavailable':
+    'এই মুহূর্তে মেমোরিতে পৌঁছানো যাচ্ছে না। কিছুই মোছা হয়নি; একটু পরে আবার চেষ্টা করুন।',
+  'memoryPage.settings.eraseError.unauthorized':
+    'আপনার সেশনের মেয়াদ শেষ হয়ে গেছে। আবার সাইন ইন করুন, তারপর মেমোরি মোছার চেষ্টা করুন।',
+  'memoryPage.settings.eraseError.generic':
+    'আপনার মেমোরি মোছা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।',
   'memoryPage.settings.hostBound':
     'OpenHuman হোস্ট করা অ্যাপ এগুলো ঠিক করে, তাই এখানে বদলানো যায় না।',
   'memoryPage.import.title': 'আগের মেমোরি পাওয়া গেছে',

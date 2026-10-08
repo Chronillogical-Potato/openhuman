@@ -813,8 +813,7 @@ const messages: TranslationMap = {
     'افحص الذاكرة أو صدّرها أو امسحها بنفسك. اضبطها من الإعدادات › الذاكرة.',
   'accounts.disconnect': 'قطع الاتصال',
   'accounts.disconnectClearMemory': 'حذف الذاكرة من هذا المصدر أيضاً',
-  'accounts.disconnectClearMemoryHint':
-    'يحذف نهائياً الذكريات المحفوظة من هذا الاتصال.',
+  'accounts.disconnectClearMemoryHint': 'يحذف نهائياً الذكريات المحفوظة من هذا الاتصال.',
   'channels.title': 'القنوات',
   'channels.configure': 'ضبط القناة',
   'channels.setup': 'إعداد',
@@ -5203,20 +5202,27 @@ const messages: TranslationMap = {
   'memoryPage.settings.agentId': 'الوكيل',
   'memoryPage.settings.eraseTitle': 'مسح الذاكرة',
   'memoryPage.settings.eraseAction': 'مسح كل الذاكرة',
-  'memoryPage.settings.eraseDescription': 'يحذف نهائياً كل ما يتذكره OpenHuman لهذا الحساب. لا يمكن التراجع عن ذلك.',
+  'memoryPage.settings.eraseDescription':
+    'يحذف نهائياً كل ما يتذكره OpenHuman لهذا الحساب. لا يمكن التراجع عن ذلك.',
   'memoryPage.settings.eraseConfirmTitle': 'مسح كل الذاكرة؟',
-  'memoryPage.settings.eraseConfirmBody': 'سيؤدي هذا إلى حذف كل ما يتذكره OpenHuman لهذا الحساب نهائياً: كل مصدر متصل، وكل محادثة سابقة، وكل ما تعلّمه، وكل معلومة. ستبقى اتصالاتك وإعداداتك كما هي.',
-  'memoryPage.settings.eraseIrreversible': 'لا يمكن التراجع عن ذلك. لا يمكن استعادة الذاكرة الممسوحة.',
+  'memoryPage.settings.eraseConfirmBody':
+    'سيؤدي هذا إلى حذف كل ما يتذكره OpenHuman لهذا الحساب نهائياً: كل مصدر متصل، وكل محادثة سابقة، وكل ما تعلّمه، وكل معلومة. ستبقى اتصالاتك وإعداداتك كما هي.',
+  'memoryPage.settings.eraseIrreversible':
+    'لا يمكن التراجع عن ذلك. لا يمكن استعادة الذاكرة الممسوحة.',
   'memoryPage.settings.eraseConfirmCheck': 'أفهم أن كل ذاكرتي ستُحذف نهائياً.',
   'memoryPage.settings.eraseConfirm': 'مسح كل شيء',
   'memoryPage.settings.erasing': 'جارٍ المسح…',
   'memoryPage.settings.erasedToast': 'تم مسح كل الذاكرة',
   'memoryPage.settings.erasedToastBody': 'لم يعد OpenHuman يتذكر أي شيء لهذا الحساب.',
-  'memoryPage.settings.eraseError.unsupported': 'لا تستطيع خدمة الذاكرة لديك مسح كل الذاكرة بعد. لم يُمسح أي شيء.',
-  'memoryPage.settings.eraseError.insufficientCredits': 'نفد رصيد حسابك، لذا لا يمكن مسح الذاكرة الآن. اشحن رصيدك وحاول مجدداً. لم يُمسح أي شيء.',
+  'memoryPage.settings.eraseError.unsupported':
+    'لا تستطيع خدمة الذاكرة لديك مسح كل الذاكرة بعد. لم يُمسح أي شيء.',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'نفد رصيد حسابك، لذا لا يمكن مسح الذاكرة الآن. اشحن رصيدك وحاول مجدداً. لم يُمسح أي شيء.',
   'memoryPage.settings.eraseError.memoryOff': 'الذاكرة متوقفة، لذا لا يوجد ما يُمسح.',
-  'memoryPage.settings.eraseError.unavailable': 'تعذّر الوصول إلى الذاكرة الآن. لم يُمسح أي شيء؛ حاول مجدداً بعد قليل.',
-  'memoryPage.settings.eraseError.unauthorized': 'انتهت صلاحية جلستك. سجّل الدخول مجدداً، ثم حاول مسح ذاكرتك.',
+  'memoryPage.settings.eraseError.unavailable':
+    'تعذّر الوصول إلى الذاكرة الآن. لم يُمسح أي شيء؛ حاول مجدداً بعد قليل.',
+  'memoryPage.settings.eraseError.unauthorized':
+    'انتهت صلاحية جلستك. سجّل الدخول مجدداً، ثم حاول مسح ذاكرتك.',
   'memoryPage.settings.eraseError.generic': 'تعذّر مسح ذاكرتك. يُرجى المحاولة مجدداً.',
   'memoryPage.settings.hostBound':
     'التطبيق المستضيف لـ OpenHuman هو من يحدد هذه القيم، لذا لا يمكن تغييرها هنا.',

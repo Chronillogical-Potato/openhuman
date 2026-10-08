@@ -5401,20 +5401,29 @@ const messages: TranslationMap = {
   'memoryPage.settings.agentId': 'Agente',
   'memoryPage.settings.eraseTitle': 'Borrar memoria',
   'memoryPage.settings.eraseAction': 'Borrar toda la memoria',
-  'memoryPage.settings.eraseDescription': 'Elimina permanentemente todo lo que OpenHuman recuerda de esta cuenta. No se puede deshacer.',
+  'memoryPage.settings.eraseDescription':
+    'Elimina permanentemente todo lo que OpenHuman recuerda de esta cuenta. No se puede deshacer.',
   'memoryPage.settings.eraseConfirmTitle': '¿Borrar toda la memoria?',
-  'memoryPage.settings.eraseConfirmBody': 'Esto elimina permanentemente todo lo que OpenHuman recuerda de esta cuenta: cada fuente conectada, conversación anterior, aprendizaje y dato. Tus conexiones y ajustes se conservan.',
-  'memoryPage.settings.eraseIrreversible': 'No se puede deshacer. La memoria borrada no se puede recuperar.',
-  'memoryPage.settings.eraseConfirmCheck': 'Entiendo que toda mi memoria se eliminará permanentemente.',
+  'memoryPage.settings.eraseConfirmBody':
+    'Esto elimina permanentemente todo lo que OpenHuman recuerda de esta cuenta: cada fuente conectada, conversación anterior, aprendizaje y dato. Tus conexiones y ajustes se conservan.',
+  'memoryPage.settings.eraseIrreversible':
+    'No se puede deshacer. La memoria borrada no se puede recuperar.',
+  'memoryPage.settings.eraseConfirmCheck':
+    'Entiendo que toda mi memoria se eliminará permanentemente.',
   'memoryPage.settings.eraseConfirm': 'Borrar todo',
   'memoryPage.settings.erasing': 'Borrando…',
   'memoryPage.settings.erasedToast': 'Toda la memoria se ha borrado',
   'memoryPage.settings.erasedToastBody': 'OpenHuman ya no recuerda nada de esta cuenta.',
-  'memoryPage.settings.eraseError.unsupported': 'Tu servicio de memoria todavía no puede borrar toda la memoria. No se ha borrado nada.',
-  'memoryPage.settings.eraseError.insufficientCredits': 'Tu cuenta no tiene créditos, así que ahora no se puede borrar la memoria. Recarga y vuelve a intentarlo. No se ha borrado nada.',
-  'memoryPage.settings.eraseError.memoryOff': 'La memoria está desactivada, así que no hay nada que borrar.',
-  'memoryPage.settings.eraseError.unavailable': 'No se puede acceder a la memoria en este momento. No se ha borrado nada; inténtalo de nuevo en un momento.',
-  'memoryPage.settings.eraseError.unauthorized': 'Tu sesión ha caducado. Vuelve a iniciar sesión y luego intenta borrar tu memoria.',
+  'memoryPage.settings.eraseError.unsupported':
+    'Tu servicio de memoria todavía no puede borrar toda la memoria. No se ha borrado nada.',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'Tu cuenta no tiene créditos, así que ahora no se puede borrar la memoria. Recarga y vuelve a intentarlo. No se ha borrado nada.',
+  'memoryPage.settings.eraseError.memoryOff':
+    'La memoria está desactivada, así que no hay nada que borrar.',
+  'memoryPage.settings.eraseError.unavailable':
+    'No se puede acceder a la memoria en este momento. No se ha borrado nada; inténtalo de nuevo en un momento.',
+  'memoryPage.settings.eraseError.unauthorized':
+    'Tu sesión ha caducado. Vuelve a iniciar sesión y luego intenta borrar tu memoria.',
   'memoryPage.settings.eraseError.generic': 'No se pudo borrar tu memoria. Inténtalo de nuevo.',
   'memoryPage.settings.hostBound':
     'La app que aloja OpenHuman define estos valores, así que no se pueden cambiar aquí.',

@@ -826,8 +826,7 @@ const messages: TranslationMap = {
     '메모리를 직접 검사, 내보내기 또는 삭제할 수 있습니다. 설정 › 메모리에서 구성할 수 있습니다.',
   'accounts.disconnect': '연결 해제',
   'accounts.disconnectClearMemory': '이 소스의 메모리도 삭제',
-  'accounts.disconnectClearMemoryHint':
-    '이 연결에서 저장된 메모리를 영구적으로 삭제합니다.',
+  'accounts.disconnectClearMemoryHint': '이 연결에서 저장된 메모리를 영구적으로 삭제합니다.',
   'channels.title': '채널',
   'channels.configure': '채널 구성',
   'channels.setup': '설정',
@@ -5252,20 +5251,28 @@ const messages: TranslationMap = {
   'memoryPage.settings.agentId': '에이전트',
   'memoryPage.settings.eraseTitle': '메모리 지우기',
   'memoryPage.settings.eraseAction': '모든 메모리 지우기',
-  'memoryPage.settings.eraseDescription': '이 계정에 대해 OpenHuman이 기억하는 모든 것을 영구적으로 삭제합니다. 되돌릴 수 없습니다.',
+  'memoryPage.settings.eraseDescription':
+    '이 계정에 대해 OpenHuman이 기억하는 모든 것을 영구적으로 삭제합니다. 되돌릴 수 없습니다.',
   'memoryPage.settings.eraseConfirmTitle': '모든 메모리를 지울까요?',
-  'memoryPage.settings.eraseConfirmBody': '이 계정에 대해 OpenHuman이 기억하는 모든 것이 영구적으로 삭제됩니다: 연결된 모든 소스, 지난 대화, 학습 내용, 사실. 연결과 설정은 그대로 유지됩니다.',
+  'memoryPage.settings.eraseConfirmBody':
+    '이 계정에 대해 OpenHuman이 기억하는 모든 것이 영구적으로 삭제됩니다: 연결된 모든 소스, 지난 대화, 학습 내용, 사실. 연결과 설정은 그대로 유지됩니다.',
   'memoryPage.settings.eraseIrreversible': '되돌릴 수 없습니다. 지운 메모리는 복구할 수 없습니다.',
-  'memoryPage.settings.eraseConfirmCheck': '내 모든 메모리가 영구적으로 삭제된다는 것을 이해합니다.',
+  'memoryPage.settings.eraseConfirmCheck':
+    '내 모든 메모리가 영구적으로 삭제된다는 것을 이해합니다.',
   'memoryPage.settings.eraseConfirm': '모두 지우기',
   'memoryPage.settings.erasing': '지우는 중…',
   'memoryPage.settings.erasedToast': '모든 메모리를 지웠습니다',
-  'memoryPage.settings.erasedToastBody': 'OpenHuman은 이제 이 계정에 대해 아무것도 기억하지 않습니다.',
-  'memoryPage.settings.eraseError.unsupported': '사용 중인 메모리 서비스는 아직 모든 메모리 지우기를 지원하지 않습니다. 아무것도 지워지지 않았습니다.',
-  'memoryPage.settings.eraseError.insufficientCredits': '계정의 크레딧이 부족해 지금은 메모리를 지울 수 없습니다. 충전한 후 다시 시도하세요. 아무것도 지워지지 않았습니다.',
+  'memoryPage.settings.erasedToastBody':
+    'OpenHuman은 이제 이 계정에 대해 아무것도 기억하지 않습니다.',
+  'memoryPage.settings.eraseError.unsupported':
+    '사용 중인 메모리 서비스는 아직 모든 메모리 지우기를 지원하지 않습니다. 아무것도 지워지지 않았습니다.',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    '계정의 크레딧이 부족해 지금은 메모리를 지울 수 없습니다. 충전한 후 다시 시도하세요. 아무것도 지워지지 않았습니다.',
   'memoryPage.settings.eraseError.memoryOff': '메모리가 꺼져 있어 지울 항목이 없습니다.',
-  'memoryPage.settings.eraseError.unavailable': '지금은 메모리에 연결할 수 없습니다. 아무것도 지워지지 않았습니다. 잠시 후 다시 시도하세요.',
-  'memoryPage.settings.eraseError.unauthorized': '세션이 만료되었습니다. 다시 로그인한 후 메모리 지우기를 시도하세요.',
+  'memoryPage.settings.eraseError.unavailable':
+    '지금은 메모리에 연결할 수 없습니다. 아무것도 지워지지 않았습니다. 잠시 후 다시 시도하세요.',
+  'memoryPage.settings.eraseError.unauthorized':
+    '세션이 만료되었습니다. 다시 로그인한 후 메모리 지우기를 시도하세요.',
   'memoryPage.settings.eraseError.generic': '메모리를 지우지 못했습니다. 다시 시도하세요.',
   'memoryPage.settings.hostBound':
     'OpenHuman을 호스팅하는 앱이 이 값을 설정하므로 여기서 변경할 수 없습니다.',

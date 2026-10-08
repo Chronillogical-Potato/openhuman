@@ -5310,20 +5310,26 @@ const messages: TranslationMap = {
   'memoryPage.settings.agentId': 'Ajan',
   'memoryPage.settings.eraseTitle': 'Belleği sil',
   'memoryPage.settings.eraseAction': 'Tüm belleği sil',
-  'memoryPage.settings.eraseDescription': 'OpenHuman’ın bu hesap için hatırladığı her şeyi kalıcı olarak siler. Bu işlem geri alınamaz.',
+  'memoryPage.settings.eraseDescription':
+    'OpenHuman’ın bu hesap için hatırladığı her şeyi kalıcı olarak siler. Bu işlem geri alınamaz.',
   'memoryPage.settings.eraseConfirmTitle': 'Tüm bellek silinsin mi?',
-  'memoryPage.settings.eraseConfirmBody': 'Bu işlem, OpenHuman’ın bu hesap için hatırladığı her şeyi kalıcı olarak siler: bağlı her kaynak, geçmiş sohbetler, öğrenilenler ve bilgiler. Bağlantılarınız ve ayarlarınız korunur.',
+  'memoryPage.settings.eraseConfirmBody':
+    'Bu işlem, OpenHuman’ın bu hesap için hatırladığı her şeyi kalıcı olarak siler: bağlı her kaynak, geçmiş sohbetler, öğrenilenler ve bilgiler. Bağlantılarınız ve ayarlarınız korunur.',
   'memoryPage.settings.eraseIrreversible': 'Bu işlem geri alınamaz. Silinen bellek kurtarılamaz.',
   'memoryPage.settings.eraseConfirmCheck': 'Tüm belleğimin kalıcı olarak silineceğini anlıyorum.',
   'memoryPage.settings.eraseConfirm': 'Her şeyi sil',
   'memoryPage.settings.erasing': 'Siliniyor…',
   'memoryPage.settings.erasedToast': 'Tüm bellek silindi',
   'memoryPage.settings.erasedToastBody': 'OpenHuman artık bu hesap için hiçbir şey hatırlamıyor.',
-  'memoryPage.settings.eraseError.unsupported': 'Bellek hizmetiniz henüz tüm belleği silemiyor. Hiçbir şey silinmedi.',
-  'memoryPage.settings.eraseError.insufficientCredits': 'Hesabınızda kredi kalmadığı için bellek şu anda silinemiyor. Bakiye yükleyip tekrar deneyin. Hiçbir şey silinmedi.',
+  'memoryPage.settings.eraseError.unsupported':
+    'Bellek hizmetiniz henüz tüm belleği silemiyor. Hiçbir şey silinmedi.',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'Hesabınızda kredi kalmadığı için bellek şu anda silinemiyor. Bakiye yükleyip tekrar deneyin. Hiçbir şey silinmedi.',
   'memoryPage.settings.eraseError.memoryOff': 'Bellek kapalı, bu yüzden silinecek bir şey yok.',
-  'memoryPage.settings.eraseError.unavailable': 'Belleğe şu anda ulaşılamıyor. Hiçbir şey silinmedi; birazdan tekrar deneyin.',
-  'memoryPage.settings.eraseError.unauthorized': 'Oturumunuzun süresi doldu. Tekrar giriş yapın, ardından belleğinizi silmeyi deneyin.',
+  'memoryPage.settings.eraseError.unavailable':
+    'Belleğe şu anda ulaşılamıyor. Hiçbir şey silinmedi; birazdan tekrar deneyin.',
+  'memoryPage.settings.eraseError.unauthorized':
+    'Oturumunuzun süresi doldu. Tekrar giriş yapın, ardından belleğinizi silmeyi deneyin.',
   'memoryPage.settings.eraseError.generic': 'Belleğiniz silinemedi. Lütfen tekrar deneyin.',
   'memoryPage.settings.hostBound':
     "Bunları OpenHuman'ı barındıran uygulama belirler, bu nedenle burada değiştirilemez.",

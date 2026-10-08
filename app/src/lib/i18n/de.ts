@@ -5451,21 +5451,31 @@ const messages: TranslationMap = {
   'memoryPage.settings.agentId': 'Agent',
   'memoryPage.settings.eraseTitle': 'Gedächtnis löschen',
   'memoryPage.settings.eraseAction': 'Gesamtes Gedächtnis löschen',
-  'memoryPage.settings.eraseDescription': 'Löscht dauerhaft alles, woran sich OpenHuman für dieses Konto erinnert. Das kann nicht rückgängig gemacht werden.',
+  'memoryPage.settings.eraseDescription':
+    'Löscht dauerhaft alles, woran sich OpenHuman für dieses Konto erinnert. Das kann nicht rückgängig gemacht werden.',
   'memoryPage.settings.eraseConfirmTitle': 'Gesamtes Gedächtnis löschen?',
-  'memoryPage.settings.eraseConfirmBody': 'Damit wird alles, woran sich OpenHuman für dieses Konto erinnert, dauerhaft gelöscht: jede verbundene Quelle, jedes frühere Gespräch, jede Erkenntnis und jeder Fakt. Deine Verbindungen und Einstellungen bleiben erhalten.',
-  'memoryPage.settings.eraseIrreversible': 'Das kann nicht rückgängig gemacht werden. Gelöschte Erinnerungen lassen sich nicht wiederherstellen.',
-  'memoryPage.settings.eraseConfirmCheck': 'Mir ist klar, dass mein gesamtes Gedächtnis dauerhaft gelöscht wird.',
+  'memoryPage.settings.eraseConfirmBody':
+    'Damit wird alles, woran sich OpenHuman für dieses Konto erinnert, dauerhaft gelöscht: jede verbundene Quelle, jedes frühere Gespräch, jede Erkenntnis und jeder Fakt. Deine Verbindungen und Einstellungen bleiben erhalten.',
+  'memoryPage.settings.eraseIrreversible':
+    'Das kann nicht rückgängig gemacht werden. Gelöschte Erinnerungen lassen sich nicht wiederherstellen.',
+  'memoryPage.settings.eraseConfirmCheck':
+    'Mir ist klar, dass mein gesamtes Gedächtnis dauerhaft gelöscht wird.',
   'memoryPage.settings.eraseConfirm': 'Alles löschen',
   'memoryPage.settings.erasing': 'Wird gelöscht…',
   'memoryPage.settings.erasedToast': 'Gesamtes Gedächtnis gelöscht',
   'memoryPage.settings.erasedToastBody': 'OpenHuman erinnert sich für dieses Konto an nichts mehr.',
-  'memoryPage.settings.eraseError.unsupported': 'Dein Gedächtnisdienst kann das gesamte Gedächtnis noch nicht löschen. Es wurde nichts gelöscht.',
-  'memoryPage.settings.eraseError.insufficientCredits': 'Dein Konto hat kein Guthaben mehr, daher kann das Gedächtnis gerade nicht gelöscht werden. Lade Guthaben auf und versuche es erneut. Es wurde nichts gelöscht.',
-  'memoryPage.settings.eraseError.memoryOff': 'Das Gedächtnis ist ausgeschaltet, es gibt also nichts zu löschen.',
-  'memoryPage.settings.eraseError.unavailable': 'Das Gedächtnis ist gerade nicht erreichbar. Es wurde nichts gelöscht; versuche es gleich noch einmal.',
-  'memoryPage.settings.eraseError.unauthorized': 'Deine Sitzung ist abgelaufen. Melde dich erneut an und versuche dann, dein Gedächtnis zu löschen.',
-  'memoryPage.settings.eraseError.generic': 'Dein Gedächtnis konnte nicht gelöscht werden. Bitte versuche es erneut.',
+  'memoryPage.settings.eraseError.unsupported':
+    'Dein Gedächtnisdienst kann das gesamte Gedächtnis noch nicht löschen. Es wurde nichts gelöscht.',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'Dein Konto hat kein Guthaben mehr, daher kann das Gedächtnis gerade nicht gelöscht werden. Lade Guthaben auf und versuche es erneut. Es wurde nichts gelöscht.',
+  'memoryPage.settings.eraseError.memoryOff':
+    'Das Gedächtnis ist ausgeschaltet, es gibt also nichts zu löschen.',
+  'memoryPage.settings.eraseError.unavailable':
+    'Das Gedächtnis ist gerade nicht erreichbar. Es wurde nichts gelöscht; versuche es gleich noch einmal.',
+  'memoryPage.settings.eraseError.unauthorized':
+    'Deine Sitzung ist abgelaufen. Melde dich erneut an und versuche dann, dein Gedächtnis zu löschen.',
+  'memoryPage.settings.eraseError.generic':
+    'Dein Gedächtnis konnte nicht gelöscht werden. Bitte versuche es erneut.',
   'memoryPage.settings.hostBound':
     'Die App, die OpenHuman hostet, legt diese Werte fest. Sie lassen sich hier nicht ändern.',
   'memoryPage.import.title': 'Früheres Gedächtnis gefunden',

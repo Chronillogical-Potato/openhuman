@@ -11,9 +11,7 @@ vi.mock('../../services/api/memoryApi', async importOriginal => ({
   memoryEraseAll: (...a: unknown[]) => hoisted.erase(...a),
 }));
 vi.mock('../ui/Toast', () => ({ toast: { add: (...a: unknown[]) => hoisted.toastAdd(...a) } }));
-vi.mock('../analytics', () => ({
-  trackAnalyticsEvent: (...a: unknown[]) => hoisted.track(...a),
-}));
+vi.mock('../analytics', () => ({ trackAnalyticsEvent: (...a: unknown[]) => hoisted.track(...a) }));
 
 beforeEach(() => {
   hoisted.erase.mockReset();
@@ -69,7 +67,9 @@ describe('MemoryEraseAllCard', () => {
       expect.objectContaining({ type: 'success', title: 'All memory erased' })
     );
     expect(hoisted.track).toHaveBeenCalledWith('memory_erased_all');
-    await waitFor(() => expect(screen.queryByTestId('memory-erase-dialog')).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByTestId('memory-erase-dialog')).not.toBeInTheDocument()
+    );
   });
 
   it('shows a translated error and never the raw server text', async () => {

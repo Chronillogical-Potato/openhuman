@@ -5345,20 +5345,29 @@ const messages: TranslationMap = {
   'memoryPage.settings.agentId': 'Agen',
   'memoryPage.settings.eraseTitle': 'Hapus memori',
   'memoryPage.settings.eraseAction': 'Hapus semua memori',
-  'memoryPage.settings.eraseDescription': 'Menghapus secara permanen semua yang diingat OpenHuman untuk akun ini. Tindakan ini tidak dapat dibatalkan.',
+  'memoryPage.settings.eraseDescription':
+    'Menghapus secara permanen semua yang diingat OpenHuman untuk akun ini. Tindakan ini tidak dapat dibatalkan.',
   'memoryPage.settings.eraseConfirmTitle': 'Hapus semua memori?',
-  'memoryPage.settings.eraseConfirmBody': 'Ini akan menghapus secara permanen semua yang diingat OpenHuman untuk akun ini: setiap sumber yang terhubung, percakapan sebelumnya, pembelajaran, dan fakta. Koneksi dan pengaturan Anda tetap tersimpan.',
-  'memoryPage.settings.eraseIrreversible': 'Tindakan ini tidak dapat dibatalkan. Memori yang dihapus tidak dapat dipulihkan.',
-  'memoryPage.settings.eraseConfirmCheck': 'Saya mengerti bahwa semua memori saya akan dihapus secara permanen.',
+  'memoryPage.settings.eraseConfirmBody':
+    'Ini akan menghapus secara permanen semua yang diingat OpenHuman untuk akun ini: setiap sumber yang terhubung, percakapan sebelumnya, pembelajaran, dan fakta. Koneksi dan pengaturan Anda tetap tersimpan.',
+  'memoryPage.settings.eraseIrreversible':
+    'Tindakan ini tidak dapat dibatalkan. Memori yang dihapus tidak dapat dipulihkan.',
+  'memoryPage.settings.eraseConfirmCheck':
+    'Saya mengerti bahwa semua memori saya akan dihapus secara permanen.',
   'memoryPage.settings.eraseConfirm': 'Hapus semuanya',
   'memoryPage.settings.erasing': 'Menghapus…',
   'memoryPage.settings.erasedToast': 'Semua memori telah dihapus',
   'memoryPage.settings.erasedToastBody': 'OpenHuman tidak lagi mengingat apa pun untuk akun ini.',
-  'memoryPage.settings.eraseError.unsupported': 'Layanan memori Anda belum dapat menghapus semua memori. Tidak ada yang dihapus.',
-  'memoryPage.settings.eraseError.insufficientCredits': 'Kredit akun Anda habis, jadi memori tidak dapat dihapus sekarang. Isi ulang lalu coba lagi. Tidak ada yang dihapus.',
-  'memoryPage.settings.eraseError.memoryOff': 'Memori dimatikan, jadi tidak ada yang perlu dihapus.',
-  'memoryPage.settings.eraseError.unavailable': 'Memori tidak dapat dijangkau saat ini. Tidak ada yang dihapus; coba lagi sebentar lagi.',
-  'memoryPage.settings.eraseError.unauthorized': 'Sesi Anda telah berakhir. Masuk lagi, lalu coba hapus memori Anda.',
+  'memoryPage.settings.eraseError.unsupported':
+    'Layanan memori Anda belum dapat menghapus semua memori. Tidak ada yang dihapus.',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'Kredit akun Anda habis, jadi memori tidak dapat dihapus sekarang. Isi ulang lalu coba lagi. Tidak ada yang dihapus.',
+  'memoryPage.settings.eraseError.memoryOff':
+    'Memori dimatikan, jadi tidak ada yang perlu dihapus.',
+  'memoryPage.settings.eraseError.unavailable':
+    'Memori tidak dapat dijangkau saat ini. Tidak ada yang dihapus; coba lagi sebentar lagi.',
+  'memoryPage.settings.eraseError.unauthorized':
+    'Sesi Anda telah berakhir. Masuk lagi, lalu coba hapus memori Anda.',
   'memoryPage.settings.eraseError.generic': 'Tidak dapat menghapus memori Anda. Silakan coba lagi.',
   'memoryPage.settings.hostBound':
     'Aplikasi yang menghosting OpenHuman menetapkan nilai ini, sehingga tidak dapat diubah di sini.',

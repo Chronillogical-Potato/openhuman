@@ -5355,20 +5355,27 @@ const messages: TranslationMap = {
   'memoryPage.settings.agentId': 'Агент',
   'memoryPage.settings.eraseTitle': 'Стереть память',
   'memoryPage.settings.eraseAction': 'Стереть всю память',
-  'memoryPage.settings.eraseDescription': 'Навсегда удаляет всё, что OpenHuman помнит об этом аккаунте. Это действие нельзя отменить.',
+  'memoryPage.settings.eraseDescription':
+    'Навсегда удаляет всё, что OpenHuman помнит об этом аккаунте. Это действие нельзя отменить.',
   'memoryPage.settings.eraseConfirmTitle': 'Стереть всю память?',
-  'memoryPage.settings.eraseConfirmBody': 'Всё, что OpenHuman помнит об этом аккаунте, будет удалено навсегда: каждый подключённый источник, прошлые разговоры, выводы и факты. Ваши подключения и настройки сохранятся.',
-  'memoryPage.settings.eraseIrreversible': 'Это действие нельзя отменить. Стёртую память невозможно восстановить.',
+  'memoryPage.settings.eraseConfirmBody':
+    'Всё, что OpenHuman помнит об этом аккаунте, будет удалено навсегда: каждый подключённый источник, прошлые разговоры, выводы и факты. Ваши подключения и настройки сохранятся.',
+  'memoryPage.settings.eraseIrreversible':
+    'Это действие нельзя отменить. Стёртую память невозможно восстановить.',
   'memoryPage.settings.eraseConfirmCheck': 'Я понимаю, что вся моя память будет удалена навсегда.',
   'memoryPage.settings.eraseConfirm': 'Стереть всё',
   'memoryPage.settings.erasing': 'Стирание…',
   'memoryPage.settings.erasedToast': 'Вся память стёрта',
   'memoryPage.settings.erasedToastBody': 'OpenHuman больше ничего не помнит об этом аккаунте.',
-  'memoryPage.settings.eraseError.unsupported': 'Ваш сервис памяти пока не умеет стирать всю память. Ничего не стёрто.',
-  'memoryPage.settings.eraseError.insufficientCredits': 'На вашем аккаунте закончились кредиты, поэтому сейчас стереть память нельзя. Пополните баланс и попробуйте снова. Ничего не стёрто.',
+  'memoryPage.settings.eraseError.unsupported':
+    'Ваш сервис памяти пока не умеет стирать всю память. Ничего не стёрто.',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'На вашем аккаунте закончились кредиты, поэтому сейчас стереть память нельзя. Пополните баланс и попробуйте снова. Ничего не стёрто.',
   'memoryPage.settings.eraseError.memoryOff': 'Память выключена, стирать нечего.',
-  'memoryPage.settings.eraseError.unavailable': 'Память сейчас недоступна. Ничего не стёрто; попробуйте снова через минуту.',
-  'memoryPage.settings.eraseError.unauthorized': 'Срок действия сеанса истёк. Войдите снова, а затем попробуйте стереть память.',
+  'memoryPage.settings.eraseError.unavailable':
+    'Память сейчас недоступна. Ничего не стёрто; попробуйте снова через минуту.',
+  'memoryPage.settings.eraseError.unauthorized':
+    'Срок действия сеанса истёк. Войдите снова, а затем попробуйте стереть память.',
   'memoryPage.settings.eraseError.generic': 'Не удалось стереть память. Попробуйте ещё раз.',
   'memoryPage.settings.hostBound':
     'Эти значения задаёт приложение, в котором работает OpenHuman, поэтому здесь их изменить нельзя.',

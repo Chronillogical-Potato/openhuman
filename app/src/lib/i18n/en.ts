@@ -5579,21 +5579,29 @@ const en: TranslationMap = {
   'memoryPage.settings.agentId': 'Agent',
   'memoryPage.settings.eraseTitle': 'Erase memory',
   'memoryPage.settings.eraseAction': 'Erase all memory',
-  'memoryPage.settings.eraseDescription': 'Permanently deletes everything OpenHuman remembers for this account. This cannot be undone.',
+  'memoryPage.settings.eraseDescription':
+    'Permanently deletes everything OpenHuman remembers for this account. This cannot be undone.',
   'memoryPage.settings.eraseConfirmTitle': 'Erase all memory?',
-  'memoryPage.settings.eraseConfirmBody': 'This permanently deletes everything OpenHuman remembers for this account: every connected source, past conversation, learning and fact. Your connections and settings are kept.',
-  'memoryPage.settings.eraseIrreversible': 'This cannot be undone. Erased memory cannot be recovered.',
-  'memoryPage.settings.eraseConfirmCheck': 'I understand that all of my memory will be permanently deleted.',
+  'memoryPage.settings.eraseConfirmBody':
+    'This permanently deletes everything OpenHuman remembers for this account: every connected source, past conversation, learning and fact. Your connections and settings are kept.',
+  'memoryPage.settings.eraseIrreversible':
+    'This cannot be undone. Erased memory cannot be recovered.',
+  'memoryPage.settings.eraseConfirmCheck':
+    'I understand that all of my memory will be permanently deleted.',
   'memoryPage.settings.eraseConfirm': 'Erase everything',
   'memoryPage.settings.erasing': 'Erasing…',
   'memoryPage.settings.erasedToast': 'All memory erased',
   'memoryPage.settings.erasedToastBody': 'OpenHuman no longer remembers anything for this account.',
-  'memoryPage.settings.eraseError.unsupported': 'Your memory service can\'t erase all memory yet. Nothing was erased.',
-  'memoryPage.settings.eraseError.insufficientCredits': 'Your account is out of credits, so memory can\'t be erased right now. Top up and try again. Nothing was erased.',
+  'memoryPage.settings.eraseError.unsupported':
+    "Your memory service can't erase all memory yet. Nothing was erased.",
+  'memoryPage.settings.eraseError.insufficientCredits':
+    "Your account is out of credits, so memory can't be erased right now. Top up and try again. Nothing was erased.",
   'memoryPage.settings.eraseError.memoryOff': 'Memory is turned off, so there is nothing to erase.',
-  'memoryPage.settings.eraseError.unavailable': 'Memory can\'t be reached right now. Nothing was erased; try again in a moment.',
-  'memoryPage.settings.eraseError.unauthorized': 'Your session has expired. Sign in again, then try erasing your memory.',
-  'memoryPage.settings.eraseError.generic': 'Couldn\'t erase your memory. Please try again.',
+  'memoryPage.settings.eraseError.unavailable':
+    "Memory can't be reached right now. Nothing was erased; try again in a moment.",
+  'memoryPage.settings.eraseError.unauthorized':
+    'Your session has expired. Sign in again, then try erasing your memory.',
+  'memoryPage.settings.eraseError.generic': "Couldn't erase your memory. Please try again.",
   'memoryPage.settings.hostBound':
     'The app hosting OpenHuman sets these, so they cannot be changed here.',
   'memoryPage.import.title': 'Previous memory found',

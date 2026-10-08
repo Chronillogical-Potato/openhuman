@@ -5302,21 +5302,30 @@ const messages: TranslationMap = {
   'memoryPage.settings.agentId': 'एजेंट',
   'memoryPage.settings.eraseTitle': 'मेमोरी मिटाएँ',
   'memoryPage.settings.eraseAction': 'सारी मेमोरी मिटाएँ',
-  'memoryPage.settings.eraseDescription': 'इस खाते के लिए OpenHuman को जो कुछ भी याद है, वह सब स्थायी रूप से हटा देता है। इसे पूर्ववत नहीं किया जा सकता।',
+  'memoryPage.settings.eraseDescription':
+    'इस खाते के लिए OpenHuman को जो कुछ भी याद है, वह सब स्थायी रूप से हटा देता है। इसे पूर्ववत नहीं किया जा सकता।',
   'memoryPage.settings.eraseConfirmTitle': 'सारी मेमोरी मिटाएँ?',
-  'memoryPage.settings.eraseConfirmBody': 'इससे इस खाते के लिए OpenHuman को जो कुछ भी याद है, वह सब स्थायी रूप से हट जाएगा: हर जुड़ा हुआ स्रोत, पिछली बातचीत, सीख और तथ्य। आपके कनेक्शन और सेटिंग्स बने रहेंगे।',
-  'memoryPage.settings.eraseIrreversible': 'इसे पूर्ववत नहीं किया जा सकता। मिटाई गई मेमोरी वापस नहीं लाई जा सकती।',
-  'memoryPage.settings.eraseConfirmCheck': 'मैं समझता/समझती हूँ कि मेरी सारी मेमोरी स्थायी रूप से हटा दी जाएगी।',
+  'memoryPage.settings.eraseConfirmBody':
+    'इससे इस खाते के लिए OpenHuman को जो कुछ भी याद है, वह सब स्थायी रूप से हट जाएगा: हर जुड़ा हुआ स्रोत, पिछली बातचीत, सीख और तथ्य। आपके कनेक्शन और सेटिंग्स बने रहेंगे।',
+  'memoryPage.settings.eraseIrreversible':
+    'इसे पूर्ववत नहीं किया जा सकता। मिटाई गई मेमोरी वापस नहीं लाई जा सकती।',
+  'memoryPage.settings.eraseConfirmCheck':
+    'मैं समझता/समझती हूँ कि मेरी सारी मेमोरी स्थायी रूप से हटा दी जाएगी।',
   'memoryPage.settings.eraseConfirm': 'सब कुछ मिटाएँ',
   'memoryPage.settings.erasing': 'मिटाया जा रहा है…',
   'memoryPage.settings.erasedToast': 'सारी मेमोरी मिटा दी गई',
   'memoryPage.settings.erasedToastBody': 'OpenHuman को अब इस खाते के लिए कुछ भी याद नहीं है।',
-  'memoryPage.settings.eraseError.unsupported': 'आपकी मेमोरी सेवा अभी सारी मेमोरी नहीं मिटा सकती। कुछ भी नहीं मिटाया गया।',
-  'memoryPage.settings.eraseError.insufficientCredits': 'आपके खाते में क्रेडिट खत्म हो गए हैं, इसलिए अभी मेमोरी नहीं मिटाई जा सकती। टॉप अप करें और फिर से कोशिश करें। कुछ भी नहीं मिटाया गया।',
+  'memoryPage.settings.eraseError.unsupported':
+    'आपकी मेमोरी सेवा अभी सारी मेमोरी नहीं मिटा सकती। कुछ भी नहीं मिटाया गया।',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'आपके खाते में क्रेडिट खत्म हो गए हैं, इसलिए अभी मेमोरी नहीं मिटाई जा सकती। टॉप अप करें और फिर से कोशिश करें। कुछ भी नहीं मिटाया गया।',
   'memoryPage.settings.eraseError.memoryOff': 'मेमोरी बंद है, इसलिए मिटाने के लिए कुछ नहीं है।',
-  'memoryPage.settings.eraseError.unavailable': 'अभी मेमोरी तक नहीं पहुँचा जा सकता। कुछ भी नहीं मिटाया गया; थोड़ी देर में फिर से कोशिश करें।',
-  'memoryPage.settings.eraseError.unauthorized': 'आपका सत्र समाप्त हो गया है। फिर से साइन इन करें, फिर अपनी मेमोरी मिटाने की कोशिश करें।',
-  'memoryPage.settings.eraseError.generic': 'आपकी मेमोरी नहीं मिटाई जा सकी। कृपया फिर से कोशिश करें।',
+  'memoryPage.settings.eraseError.unavailable':
+    'अभी मेमोरी तक नहीं पहुँचा जा सकता। कुछ भी नहीं मिटाया गया; थोड़ी देर में फिर से कोशिश करें।',
+  'memoryPage.settings.eraseError.unauthorized':
+    'आपका सत्र समाप्त हो गया है। फिर से साइन इन करें, फिर अपनी मेमोरी मिटाने की कोशिश करें।',
+  'memoryPage.settings.eraseError.generic':
+    'आपकी मेमोरी नहीं मिटाई जा सकी। कृपया फिर से कोशिश करें।',
   'memoryPage.settings.hostBound':
     'OpenHuman को होस्ट करने वाला ऐप इन्हें तय करता है, इसलिए इन्हें यहाँ बदला नहीं जा सकता।',
   'memoryPage.import.title': 'पिछली मेमोरी मिली',

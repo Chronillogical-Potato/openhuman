@@ -851,8 +851,7 @@ const messages: TranslationMap = {
     'Przeglądaj, eksportuj lub czyść pamięć samodzielnie. Skonfiguruj w Ustawieniach › Pamięć.',
   'accounts.disconnect': 'Rozłącz',
   'accounts.disconnectClearMemory': 'Usuń też pamięć z tego źródła',
-  'accounts.disconnectClearMemoryHint':
-    'Trwale usuwa wspomnienia zapisane z tego połączenia.',
+  'accounts.disconnectClearMemoryHint': 'Trwale usuwa wspomnienia zapisane z tego połączenia.',
   'channels.title': 'Kanały',
   'channels.configure': 'Skonfiguruj kanał',
   'channels.setup': 'Konfiguracja',
@@ -5373,20 +5372,28 @@ const messages: TranslationMap = {
   'memoryPage.settings.agentId': 'Agent',
   'memoryPage.settings.eraseTitle': 'Wymaż pamięć',
   'memoryPage.settings.eraseAction': 'Wymaż całą pamięć',
-  'memoryPage.settings.eraseDescription': 'Trwale usuwa wszystko, co OpenHuman pamięta dla tego konta. Tej operacji nie można cofnąć.',
+  'memoryPage.settings.eraseDescription':
+    'Trwale usuwa wszystko, co OpenHuman pamięta dla tego konta. Tej operacji nie można cofnąć.',
   'memoryPage.settings.eraseConfirmTitle': 'Wymazać całą pamięć?',
-  'memoryPage.settings.eraseConfirmBody': 'Spowoduje to trwałe usunięcie wszystkiego, co OpenHuman pamięta dla tego konta: każdego połączonego źródła, wcześniejszych rozmów, wniosków i faktów. Twoje połączenia i ustawienia pozostaną bez zmian.',
-  'memoryPage.settings.eraseIrreversible': 'Tej operacji nie można cofnąć. Wymazanej pamięci nie da się odzyskać.',
-  'memoryPage.settings.eraseConfirmCheck': 'Rozumiem, że cała moja pamięć zostanie trwale usunięta.',
+  'memoryPage.settings.eraseConfirmBody':
+    'Spowoduje to trwałe usunięcie wszystkiego, co OpenHuman pamięta dla tego konta: każdego połączonego źródła, wcześniejszych rozmów, wniosków i faktów. Twoje połączenia i ustawienia pozostaną bez zmian.',
+  'memoryPage.settings.eraseIrreversible':
+    'Tej operacji nie można cofnąć. Wymazanej pamięci nie da się odzyskać.',
+  'memoryPage.settings.eraseConfirmCheck':
+    'Rozumiem, że cała moja pamięć zostanie trwale usunięta.',
   'memoryPage.settings.eraseConfirm': 'Wymaż wszystko',
   'memoryPage.settings.erasing': 'Wymazywanie…',
   'memoryPage.settings.erasedToast': 'Cała pamięć została wymazana',
   'memoryPage.settings.erasedToastBody': 'OpenHuman nie pamięta już niczego dla tego konta.',
-  'memoryPage.settings.eraseError.unsupported': 'Twoja usługa pamięci nie potrafi jeszcze wymazać całej pamięci. Nic nie zostało wymazane.',
-  'memoryPage.settings.eraseError.insufficientCredits': 'Na Twoim koncie skończyły się kredyty, więc teraz nie można wymazać pamięci. Doładuj konto i spróbuj ponownie. Nic nie zostało wymazane.',
+  'memoryPage.settings.eraseError.unsupported':
+    'Twoja usługa pamięci nie potrafi jeszcze wymazać całej pamięci. Nic nie zostało wymazane.',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'Na Twoim koncie skończyły się kredyty, więc teraz nie można wymazać pamięci. Doładuj konto i spróbuj ponownie. Nic nie zostało wymazane.',
   'memoryPage.settings.eraseError.memoryOff': 'Pamięć jest wyłączona, więc nie ma czego wymazywać.',
-  'memoryPage.settings.eraseError.unavailable': 'Pamięć jest teraz nieosiągalna. Nic nie zostało wymazane; spróbuj ponownie za chwilę.',
-  'memoryPage.settings.eraseError.unauthorized': 'Twoja sesja wygasła. Zaloguj się ponownie, a następnie spróbuj wymazać pamięć.',
+  'memoryPage.settings.eraseError.unavailable':
+    'Pamięć jest teraz nieosiągalna. Nic nie zostało wymazane; spróbuj ponownie za chwilę.',
+  'memoryPage.settings.eraseError.unauthorized':
+    'Twoja sesja wygasła. Zaloguj się ponownie, a następnie spróbuj wymazać pamięć.',
   'memoryPage.settings.eraseError.generic': 'Nie udało się wymazać pamięci. Spróbuj ponownie.',
   'memoryPage.settings.hostBound':
     'Aplikacja hostująca OpenHuman ustawia te wartości, więc nie można ich tu zmienić.',

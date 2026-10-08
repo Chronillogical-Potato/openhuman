@@ -16,8 +16,8 @@ import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
-import { trackAnalyticsEvent } from '../analytics';
 import { memoryEraseAll, memoryErrorCode } from '../../services/api/memoryApi';
+import { trackAnalyticsEvent } from '../analytics';
 import {
   Alert,
   AlertDescription,
