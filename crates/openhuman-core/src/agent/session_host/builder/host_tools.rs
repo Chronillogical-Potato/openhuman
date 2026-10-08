@@ -355,7 +355,7 @@ impl OpenHumanSessionHost {
             config,
             &definition.id,
             Some(definition),
-            false,
+            super::factory::SessionBelt::Config,
             Some(host),
             session_id,
         )

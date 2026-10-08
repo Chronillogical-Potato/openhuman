@@ -20,6 +20,18 @@ use tinytools_agent::dialect::{
     CodeDialect, NativeDialect, PFormatDialect, ToolDialect, XmlDialect,
 };
 
+/// Where a session's tool belt comes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SessionBelt {
+    /// The config-derived registry, plus any host tools.
+    Config,
+    /// The config-derived registry narrowed to read-only tools.
+    #[allow(dead_code)]
+    ConfigReadOnly,
+    /// The host's tools and nothing else; see `host_only`.
+    HostOnly,
+}
+
 impl OpenHumanSessionHost {
     /// Returns whether `agent_id` resolves to a runnable definition for this
     /// configuration. This is deliberately the same resolution path used by
@@ -110,7 +122,14 @@ impl OpenHumanSessionHost {
                 .unwrap_or(config.default_temperature)
         );
 
-        Self::build_session_agent_inner(config, agent_id, target_def.as_ref(), false, None, None)
+        Self::build_session_agent_inner(
+            config,
+            agent_id,
+            target_def.as_ref(),
+            SessionBelt::Config,
+            None,
+            None,
+        )
     }
 
     /// Build a session agent from a definition the caller already holds,
@@ -132,7 +151,14 @@ impl OpenHumanSessionHost {
             definition.id,
             definition.sandbox_mode,
         );
-        Self::build_session_agent_inner(config, &definition.id, Some(definition), false, None, None)
+        Self::build_session_agent_inner(
+            config,
+            &definition.id,
+            Some(definition),
+            SessionBelt::Config,
+            None,
+            None,
+        )
     }
 
     /// Internal constructor that consumes the optionally-resolved agent
@@ -149,7 +175,7 @@ impl OpenHumanSessionHost {
         config: &Config,
         agent_id: &str,
         target_def: Option<&crate::agent::harness::definition::AgentDefinition>,
-        read_only_tools_only: bool,
+        belt: SessionBelt,
         host: Option<&super::HostTools>,
         session_id: Option<&str>,
     ) -> Result<Self> {
@@ -199,7 +225,14 @@ impl OpenHumanSessionHost {
         let base_config: Arc<Config> = Arc::new(config.clone());
         let tool_config: Arc<Config> = Arc::clone(&base_config);
 
-        let mut tools = tools::ops::all_tools_with_runtime(
+        let host_only = belt == SessionBelt::HostOnly;
+        // A host-only belt constructs no config-derived tool at all: a tool
+        // that is never built cannot be reached by any later visibility,
+        // refresh or replay path.
+        let mut tools = if host_only {
+            Vec::new()
+        } else {
+            tools::ops::all_tools_with_runtime(
             Arc::clone(&tool_config),
             &security,
             runtime,
@@ -212,14 +245,15 @@ impl OpenHumanSessionHost {
             workspace_descriptor
                 .as_ref()
                 .map(|descriptor| descriptor.root.as_path()),
-        );
+            )
+        };
 
         // Filter tools by the user preference loaded above.
         if !enabled_tools.is_empty() {
             crate::tools::filter_tools_by_user_preference(&mut tools, &enabled_tools);
         }
 
-        if read_only_tools_only {
+        if belt == SessionBelt::ConfigReadOnly {
             let before = tools.len();
             tools.retain(|tool| {
                 tool.permission_level() <= PermissionLevel::ReadOnly
@@ -353,6 +387,7 @@ impl OpenHumanSessionHost {
         let prompt_builder = match target_def {
             Some(def) => match &def.system_prompt {
                 PromptSource::Dynamic(build) => SystemPromptBuilder::from_dynamic(*build),
+                PromptSource::Verbatim(text) => SystemPromptBuilder::from_final_body(text.clone()),
                 PromptSource::Inline(text) => SystemPromptBuilder::for_subagent(
                     text.clone(),
                     def.omit_identity,
@@ -439,6 +474,14 @@ impl OpenHumanSessionHost {
             target_def,
             crate::agent::harness::definition::AgentDefinitionRegistry::global(),
         ) {
+            // Host-only: no delegation, and an empty named belt the host's
+            // names are merged into below.
+            _ if host_only => (
+                Vec::new(),
+                Some(std::collections::HashSet::from([
+                    NO_TOOLS_SENTINEL.to_string()
+                ])),
+            ),
             (Some(def), Some(reg)) => {
                 let synthed = if should_synthesize_delegation_tools(def) {
                     tools::orchestrator_tools::collect_orchestrator_tools(
@@ -593,7 +636,10 @@ impl OpenHumanSessionHost {
         // below so an agent that explicitly disallows it still has it removed.
         // A summary names the tool in its footer too, and summaries run with
         // the router off, so either one makes the tool necessary.
-        super::ensure_tinyjuice_tools_visible(&mut visible, agent_id, config);
+        // Not on a host-only belt: the recovery tool is not the host's.
+        if !host_only {
+            super::ensure_tinyjuice_tools_visible(&mut visible, agent_id, config);
+        }
 
         if let Some(def) = target_def {
             if !def.disallowed_tools.is_empty() {
@@ -711,7 +757,7 @@ impl OpenHumanSessionHost {
         // itself MUST be `None` to avoid recursive self-summarization).
         let payload_summarizer: Option<
             std::sync::Arc<dyn crate::agent::tinyagents::payload_summarizer::PayloadSummarizer>,
-        > = if super::summarizes_tool_output(agent_id, config) {
+        > = if !host_only && super::summarizes_tool_output(agent_id, config) {
             match crate::agent::harness::definition::AgentDefinitionRegistry::global() {
                 Some(reg) => match reg.get("summarizer") {
                     Some(summarizer_def) => {
@@ -781,7 +827,17 @@ impl OpenHumanSessionHost {
             &mut visible,
         )?;
         let session_definition = super::host_tools::scope_def(target_def, &merged_host_tools);
-        let host_policy = merged_host_tools.policy;
+        // Host-only: the host's names, and only those, are admitted; the
+        // host's own gate (if any) still decides among them.
+        let host_policy = if host_only {
+            let allowed = tools.iter().map(|tool| tool.name().to_string()).collect();
+            Some(Arc::new(super::host_only::HostOnlyToolPolicy::new(
+                allowed,
+                merged_host_tools.policy,
+            )) as Arc<dyn crate::agent::tool_policy::ToolPolicy>)
+        } else {
+            merged_host_tools.policy
+        };
         let withheld_tool_names = merged_host_tools.withheld;
         let mut builder = OpenHumanSessionHost::builder()
             .crate_native_provider(provider_role, Arc::clone(&base_config))
@@ -801,7 +857,9 @@ impl OpenHumanSessionHost {
             .workspace_dir(config.workspace_dir.clone())
             .action_dir(config.action_dir.clone())
             .workspace_descriptor(workspace_descriptor)
-            .workflows({
+            .workflows(if host_only {
+                Vec::new()
+            } else {
                 let mut catalogue = crate::skills::load_workflow_metadata(&config.workspace_dir);
                 #[cfg(feature = "flows")]
                 catalogue.extend(crate::flows::catalogue::flow_entries(config));
