@@ -5061,6 +5061,8 @@ const messages: TranslationMap = {
     'TinyHumans tarafından barındırılır, {plan} planınızda sınırsız bellek.',
   'memoryPage.engine.builtin.summaryUpgrade':
     'TinyHumans tarafından barındırılır. Basic ve Pro planlarında sınırsız bellek.',
+  'memoryPage.engine.apiKeyOption.connected': 'CortexDB API anahtarınızla bağlandı.',
+  'memoryPage.engine.selfHost.connected': '{endpoint} adresindeki CortexDB’ye bağlandı.',
   'memoryPage.engine.fairUse.own': 'Kendi içeriğini, kendi kullanımın için aktar.',
   'memoryPage.engine.fairUse.noAbuse':
     'Otomatik toplu yükleme, kazıma veya başka kişiler ya da hizmetler adına aktarım yok.',

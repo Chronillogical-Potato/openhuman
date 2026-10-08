@@ -5055,6 +5055,8 @@ const messages: TranslationMap = {
     'TinyHumans द्वारा होस्ट किया गया, आपके {plan} प्लान पर असीमित मेमोरी।',
   'memoryPage.engine.builtin.summaryUpgrade':
     'TinyHumans द्वारा होस्ट किया गया। Basic और Pro प्लान पर असीमित मेमोरी।',
+  'memoryPage.engine.apiKeyOption.connected': 'आपकी CortexDB API कुंजी से जुड़ा है।',
+  'memoryPage.engine.selfHost.connected': '{endpoint} पर CortexDB से जुड़ा है।',
   'memoryPage.engine.fairUse.own': 'अपनी सामग्री, अपने इस्तेमाल के लिए जोड़ें।',
   'memoryPage.engine.fairUse.noAbuse':
     'स्वचालित बल्क अपलोड, स्क्रैपिंग या दूसरों की ओर से इनजेस्शन नहीं।',

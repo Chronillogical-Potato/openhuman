@@ -5151,6 +5151,8 @@ const messages: TranslationMap = {
     'Alojado por TinyHumans, con memoria ilimitada en tu plan {plan}.',
   'memoryPage.engine.builtin.summaryUpgrade':
     'Alojado por TinyHumans. Memoria ilimitada en los planes Basic y Pro.',
+  'memoryPage.engine.apiKeyOption.connected': 'Conectado con tu clave de API de CortexDB.',
+  'memoryPage.engine.selfHost.connected': 'Conectado a CortexDB en {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Ingiere tu propio contenido, para tu propio uso.',
   'memoryPage.engine.fairUse.noAbuse':
     'Nada de subidas masivas automatizadas, scraping ni ingesta en nombre de otras personas o servicios.',

@@ -5096,6 +5096,8 @@ const messages: TranslationMap = {
     'Dihosting oleh TinyHumans, dengan memori tanpa batas di paket {plan} Anda.',
   'memoryPage.engine.builtin.summaryUpgrade':
     'Dihosting oleh TinyHumans. Memori tanpa batas di paket Basic dan Pro.',
+  'memoryPage.engine.apiKeyOption.connected': 'Terhubung dengan kunci API CortexDB Anda.',
+  'memoryPage.engine.selfHost.connected': 'Terhubung ke CortexDB di {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Serap konten Anda sendiri, untuk penggunaan sendiri.',
   'memoryPage.engine.fairUse.noAbuse':
     'Tanpa unggahan massal otomatis, scraping, atau penyerapan atas nama orang atau layanan lain.',

@@ -5008,6 +5008,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.builtin.summaryPlan': 'TinyHumans 호스팅, {plan} 요금제에서 메모리 무제한.',
   'memoryPage.engine.builtin.summaryUpgrade':
     'TinyHumans 호스팅. Basic 및 Pro 요금제에서 메모리 무제한.',
+  'memoryPage.engine.apiKeyOption.connected': 'CortexDB API 키로 연결됨.',
+  'memoryPage.engine.selfHost.connected': '{endpoint}의 CortexDB에 연결됨.',
   'memoryPage.engine.fairUse.own': '본인 콘텐츠를 본인 용도로 수집하세요.',
   'memoryPage.engine.fairUse.noAbuse':
     '자동 대량 업로드, 스크래핑, 다른 사람이나 서비스를 대신한 수집은 금지됩니다.',

@@ -4963,6 +4963,8 @@ const messages: TranslationMap = {
     'مستضاف لدى TinyHumans، مع ذاكرة غير محدودة في خطة {plan}.',
   'memoryPage.engine.builtin.summaryUpgrade':
     'مستضاف لدى TinyHumans. ذاكرة غير محدودة في خطتَي Basic وPro.',
+  'memoryPage.engine.apiKeyOption.connected': 'متصل باستخدام مفتاح CortexDB API الخاص بك.',
+  'memoryPage.engine.selfHost.connected': 'متصل بـ CortexDB على {endpoint}.',
   'memoryPage.engine.fairUse.own': 'أدخل محتواك الخاص لاستخدامك الشخصي.',
   'memoryPage.engine.fairUse.noAbuse':
     'لا رفع جماعي آلي ولا كشط ولا إدخال نيابةً عن أشخاص أو خدمات أخرى.',
