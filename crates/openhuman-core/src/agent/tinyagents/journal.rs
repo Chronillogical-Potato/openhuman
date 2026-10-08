@@ -95,7 +95,7 @@ pub(crate) fn take_request_journal_run(request_id: &str) -> Option<String> {
 /// `tinyagents_store/` subtree holds the journal + kv stores. Async because the
 /// config load is async; errors are surfaced so callers can log-and-skip.
 async fn resolve_workspace() -> anyhow::Result<PathBuf> {
-    let config = crate::config::Config::load_or_init()
+    let config = crate::config::ops::load_current_or_init()
         .await
         .map_err(|e| anyhow::anyhow!("[journal] load config for workspace: {e}"))?;
     Ok(config.workspace_dir)

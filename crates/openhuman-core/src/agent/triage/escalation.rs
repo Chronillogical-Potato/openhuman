@@ -240,7 +240,7 @@ async fn dispatch_target_agent(agent_id: &str, prompt: &str) -> anyhow::Result<S
         ));
     }
 
-    let config = Config::load_or_init()
+    let config = crate::config::ops::load_current_or_init()
         .await
         .context("loading config for sub-agent dispatch")?;
 

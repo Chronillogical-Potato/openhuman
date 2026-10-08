@@ -322,7 +322,7 @@ pub(crate) async fn run_subagent_direct(
         // Deliberately placed *after* `tier_gate_decision`: `load_or_init` can
         // initialize config on first run, and a spawn the tier gate rejects
         // should not have that side effect.
-        let loaded_config: LoadedConfig = Box::pin(crate::config::Config::load_or_init())
+        let loaded_config: LoadedConfig = Box::pin(crate::config::ops::load_current_or_init())
             .await
             .map(std::sync::Arc::new)
             .map_err(|e| e.to_string());

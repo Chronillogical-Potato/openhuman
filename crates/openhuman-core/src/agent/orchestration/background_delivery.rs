@@ -205,7 +205,7 @@ async fn try_deliver(session: String) {
 /// failing as well as the agent.
 async fn persist_undelivered(thread_id: String, notice: String) {
     let run_id = format!("bgdeliver-undelivered-{}", uuid::Uuid::new_v4());
-    let config = match crate::config::Config::load_or_init().await {
+    let config = match crate::config::ops::load_current_or_init().await {
         Ok(config) => config,
         Err(error) => {
             log::error!(
@@ -359,7 +359,7 @@ where
 /// later cold-boot resume would prefer — which is how a restart used to drop
 /// every turn before the delivery notice.
 async fn run_system_turn_on_thread(thread_id: String, prompt: String) -> Result<String, String> {
-    let config = crate::config::Config::load_or_init()
+    let config = crate::config::ops::load_current_or_init()
         .await
         .map_err(|error| format!("load config: {error:#}"))?;
     let run_id = format!("bgdeliver-{}", uuid::Uuid::new_v4());
