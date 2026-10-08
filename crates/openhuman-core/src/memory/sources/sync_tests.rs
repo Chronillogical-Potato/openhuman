@@ -387,7 +387,8 @@ async fn github_files_per_repository_only_when_switched_on() {
         nodes
     };
 
-    // Off (the default): one GitHub source.
+    // Off: one GitHub source.
+    config.memory.split_github_by_repo = false;
     sync(config.clone(), vec![issue("acme/api", "off")]).await;
     assert_eq!(nodes().await, ["source:github"]);
 
