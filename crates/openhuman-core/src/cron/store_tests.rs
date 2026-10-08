@@ -87,7 +87,7 @@ async fn an_agents_jobs_live_in_its_own_database() {
             .collect::<Vec<_>>()
     })
     .await;
-    assert_eq!(alpha_ids, [job.id.clone()]);
+    assert_eq!(alpha_ids, std::slice::from_ref(&job.id));
     let beta_jobs = CoreContext::scope(agent_context(&config, "beta"), async {
         list_jobs(&config).unwrap()
     })
