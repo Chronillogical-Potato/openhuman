@@ -25,6 +25,16 @@ fn snippet_without_a_verbatim_match_is_the_start() {
 }
 
 #[test]
+fn snippet_matches_a_query_with_irregular_whitespace() {
+    let content = format!("{} needle nearby {}", "a".repeat(200), "b".repeat(200));
+    for q in ["needle  nearby", "needle\nnearby"] {
+        let out = snippet(&content, q);
+        assert!(out.contains("needle nearby"), "{q:?} -> {out}");
+        assert!(out.starts_with('…'), "{q:?} should centre on the match: {out}");
+    }
+}
+
+#[test]
 fn request_limit_is_optional() {
     let parsed: ThreadSearchRequest =
         serde_json::from_value(serde_json::json!({ "query": "hi" })).unwrap();

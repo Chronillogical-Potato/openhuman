@@ -102,9 +102,14 @@ export default function Memory() {
   // Rewrite a legacy (or unknown) `?brain=` value to its canonical chip so the
   // address bar, history and analytics all see the v2 name.
   useEffect(() => {
-    if (rawChip === null) return;
-    if (requested && requested !== rawChip) setChip(requested, true);
-  }, [rawChip, requested, setChip]);
+    if (!rawChip) return;
+    if (requested) {
+      if (requested !== rawChip) setChip(requested, true);
+    } else if (engine) {
+      // Unknown value: land on the default chip once it is known.
+      setChip('engine', true);
+    }
+  }, [rawChip, requested, engine, setChip]);
 
   const headers: Record<MemoryChip, { title: string; description: string }> = {
     engine: { title: t('memoryPage.tabs.engine'), description: t('memoryPage.header.engine') },
