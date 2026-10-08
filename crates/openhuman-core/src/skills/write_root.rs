@@ -54,3 +54,7 @@ pub fn user_workflow_root(workspace_dir: &Path, home: Option<&Path>) -> Option<P
         None => home.map(|home| home.join(".openhuman").join("workflows")),
     }
 }
+
+#[cfg(test)]
+#[path = "write_root_tests.rs"]
+mod tests;
