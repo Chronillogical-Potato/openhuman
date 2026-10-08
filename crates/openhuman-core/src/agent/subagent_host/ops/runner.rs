@@ -314,14 +314,8 @@ pub(crate) async fn run_subagent_direct(
             return Err(SubagentRunError::HookDenied(reason));
         }
 
-        // Load the host config exactly once for this spawn and hand it to
-        // everything below. See `LoadedConfig` — `load_or_init` re-reads
-        // config.toml on every call, and the runtime below is slated to move
-        // into TinyAgents, where there is no config file to load.
-        //
-        // Deliberately placed *after* `tier_gate_decision`: `load_or_init` can
-        // initialize config on first run, and a spawn the tier gate rejects
-        // should not have that side effect.
+        // Loaded once per spawn (see `LoadedConfig`), after the tier gate so a
+        // rejected spawn never initialises config on first run.
         let loaded_config: LoadedConfig = Box::pin(crate::config::ops::load_current_or_init())
             .await
             .map(std::sync::Arc::new)
