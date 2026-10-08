@@ -92,14 +92,10 @@ struct OpenHumanTurnPrelude {
         Option<Arc<tinyagents_harness::run_queue::RunQueue<crate::agent::queued_turn::QueuedTurn>>>,
     allowed_subagent_ids: std::collections::HashSet<String>,
     sandbox_mode: crate::agent::harness::definition::SandboxMode,
-    /// The definition's `searches_connected_mcp`.
-    searches_connected_mcp: bool,
-    /// The session's own definition, preferred over a registry entry.
     definition: Option<Arc<crate::agent::harness::definition::AgentDefinition>>,
     runtime_config: Option<Arc<crate::config::Config>>,
-    /// The one authoritative, request-refreshable composition of executable
-    /// tools, policy, and provider schema. Generic runtime owns the immutable
-    /// `ToolSnapshot`; this host surface is the source used to create it.
+    /// The request-refreshable composition of executable tools, policy and
+    /// provider schema the immutable `ToolSnapshot` is built from.
     tool_surface: Arc<std::sync::Mutex<OpenHumanTurnToolSurface>>,
     mutable: Arc<std::sync::Mutex<OpenHumanTurnPreludeMutable>>,
 }
@@ -363,10 +359,9 @@ impl OpenHumanTurnPrelude {
     }
 
     /// Rebuild every delegation-dependent tool view from the current cached
-    /// integration set. This mirrors the legacy refresh's replace-not-append
-    /// semantics, but keeps the mutable authority in hook state rather than a
-    /// second turn loop. A revoked delegate is removed from the executable
-    /// source, schema, and policy together before this request is prepared.
+    /// integration set, replacing rather than appending. A revoked delegate is
+    /// removed from the executable source, schema, and policy together before
+    /// this request is prepared.
     fn refresh_delegation_tool_surface(&self) -> anyhow::Result<()> {
         use crate::agent::harness::definition::AgentDefinitionRegistry;
         use crate::tools::agent_policy::ToolPolicyEngine;
@@ -375,16 +370,7 @@ impl OpenHumanTurnPrelude {
         let Some(registry) = AgentDefinitionRegistry::current() else {
             return Ok(());
         };
-        let Some(definition) = self
-            .definition
-            .as_deref()
-            .cloned()
-            .or_else(|| registry.get(&self.agent_definition_id).cloned())
-        else {
-            tracing::trace!(
-                agent = %self.agent_definition_id,
-                "[session] no definition resolved; delegation surface unchanged"
-            );
+        let Some(definition) = self.session_definition(&registry) else {
             return Ok(());
         };
         if definition.subagents.is_empty() {
@@ -1033,9 +1019,6 @@ impl OpenHumanSessionHost {
                     .resolved_definition()
                     .map(|definition| definition.sandbox_mode)
                     .unwrap_or(crate::agent::harness::definition::SandboxMode::None),
-                searches_connected_mcp: self
-                    .resolved_definition()
-                    .is_some_and(|definition| definition.searches_connected_mcp),
                 definition: self.resolved_definition(),
                 runtime_config: self.runtime_config.clone(),
                 tool_surface: Arc::new(std::sync::Mutex::new(OpenHumanTurnToolSurface {
