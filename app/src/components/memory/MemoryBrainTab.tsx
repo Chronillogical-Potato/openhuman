@@ -104,8 +104,9 @@ export default function MemoryBrainTab({ engineLabel, offState }: MemoryBrainTab
                 {t('memoryPage.brain.addDocument')}
               </Button>
             }
-            data-testid="memory-brain-upload"
-          />
+            data-testid="memory-brain-upload">
+            {null}
+          </Card>
 
           <MemorySyncedSources />
 
