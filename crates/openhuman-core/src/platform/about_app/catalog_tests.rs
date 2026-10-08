@@ -493,11 +493,11 @@ fn local_ai_domain_is_populated_so_the_breadcrumb_check_is_not_vacuous() {
 fn memory_v2_capabilities_cite_live_surface_and_rpcs() {
     for (id, chip, rpc) in [
         ("memory.engine", "engine", "memory_engine_set"),
-        ("memory.ask", "ask", "memory_recall"),
-        ("memory.learnings", "learnings", "memory_learn"),
+        ("memory.ask", "conversations", "memory_recall"),
+        ("memory.learnings", "conversations", "memory_learn"),
         ("memory.conversations", "conversations", "memory_policy_set"),
         ("memory.documents", "brain", "memory_brain_ingest"),
-        ("memory.turn_pack", "settings", "memory_pack_preview"),
+        ("memory.turn_pack", "conversations", "memory_pack_preview"),
     ] {
         let cap = lookup(id).unwrap_or_else(|| panic!("missing `{id}`"));
         assert!(
