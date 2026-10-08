@@ -393,6 +393,14 @@ let spec = AgentSpec::new("reviewer")
 Host tools should themselves be read-only: `HostOnly` bounds which tools
 exist, not what they do.
 
+Per turn, `Turn::response_format(ResponseFormat)` (the `complete` type) and
+`Turn::max_tokens(n)` apply to every call of the tool loop on any runtime-owned
+agent. `TurnOutcome` then carries `structured` (the reply parsed as JSON),
+`finish_reason`, `answered_model`, and `usage.reasoning_tokens`.
+`Turn::untrusted_input(true)` reads the message as data, so the prompt-injection
+guard and screen are skipped. It is accepted only on a `HostOnly` agent; any
+other agent refuses the turn (`untrusted_input_requires_host_only`).
+
 ## Feature flags
 
 Every feature on this crate is a pass-through to the same-named feature on
