@@ -28,6 +28,7 @@ use tinymemory_integrations::import::{Checkpoint, ImportedItem, LegacyWorkspace}
 use crate::config::Config;
 
 use super::engine::{self, BoundEngine};
+use open::open_legacy;
 use super::error::{MemoryError, MemoryResult};
 use super::types::{ImportCounts, ImportPhase, ImportScanView, ImportState};
 
@@ -279,13 +280,6 @@ fn write_file(workspace_dir: &Path, file: &ImportFile) {
     if let Err(error) = result {
         tracing::warn!(error = %error, "[memory:import] writing import state failed");
     }
-}
-
-/// Opens the legacy store for every scan, count, import and retry, skipping
-/// connector (Composio) syncs so the scan counts match the run.
-fn open_legacy(dir: &Path) -> Result<LegacyWorkspace, tinymemory_integrations::import::Error> {
-    tracing::debug!(workspace = %dir.display(), "[memory:import] skipping connector syncs");
-    LegacyWorkspace::open(dir).map(|workspace| workspace.skip_connector_syncs(true))
 }
 
 /// Counts what a legacy store at `workspace_dir` holds, or `None` when there
@@ -730,6 +724,9 @@ async fn run(
 
 #[path = "import_retry.rs"]
 mod retry;
+
+#[path = "import_open.rs"]
+mod open;
 pub use retry::retry_failed;
 
 #[cfg(test)]
