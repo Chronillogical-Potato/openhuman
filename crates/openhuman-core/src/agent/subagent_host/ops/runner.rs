@@ -280,8 +280,10 @@ pub(crate) async fn run_subagent_direct(
         // through that walk. Resolve the parent's tier from the registry by its
         // definition id; `tier_gate_decision` rejects (and logs) any forbidden
         // chat/reasoning hop while exempting unresolved + worker parents.
-        let parent_def =
-            AgentDefinitionRegistry::global().and_then(|reg| reg.get(&parent.agent_definition_id));
+        let parent_registry = AgentDefinitionRegistry::current();
+        let parent_def = parent_registry
+            .as_deref()
+            .and_then(|reg| reg.get(&parent.agent_definition_id));
         tier_gate_decision(parent_def, definition, &parent.agent_definition_id, &task_id)?;
 
         // Configured `subagentStart` hooks — the last gate before a spawn costs

@@ -368,7 +368,7 @@ impl OpenHumanTurnPrelude {
         use crate::tools::agent_policy::ToolPolicyEngine;
         use crate::tools::orchestrator_tools::collect_orchestrator_tools;
 
-        let Some(registry) = AgentDefinitionRegistry::global() else {
+        let Some(registry) = AgentDefinitionRegistry::current() else {
             return Ok(());
         };
         let Some(definition) = registry.get(&self.agent_definition_id).cloned() else {
@@ -393,7 +393,7 @@ impl OpenHumanTurnPrelude {
             .tool_surface
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let mut collected = collect_orchestrator_tools(&definition, registry, &integrations);
+        let mut collected = collect_orchestrator_tools(&definition, &registry, &integrations);
         #[cfg(feature = "mcp")]
         collected.extend(mcp_tools);
         let rebuilt = self.rebuilt_recorded_tools(

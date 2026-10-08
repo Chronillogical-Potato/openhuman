@@ -248,7 +248,7 @@ async fn dispatch_target_agent(agent_id: &str, prompt: &str) -> anyhow::Result<S
 
     // `build_root_parent` (inside `build_triage_parent`) guarantees the registry
     // is initialised, so this lookup for the target definition is safe here.
-    let registry = AgentDefinitionRegistry::global()
+    let registry = AgentDefinitionRegistry::current()
         .ok_or_else(|| anyhow!("AgentDefinitionRegistry not initialised"))?;
     let definition = registry
         .get(agent_id)

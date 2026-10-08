@@ -127,7 +127,7 @@ pub(crate) enum AgentRoute {
 /// custom-registry fallback. Pure over the global registry so the selection is
 /// unit-testable with `init_global_builtins`.
 pub(crate) fn route_for_agent_ref(agent_ref: &str) -> AgentRoute {
-    let has_definition = crate::agent::harness::definition::AgentDefinitionRegistry::global()
+    let has_definition = crate::agent::harness::definition::AgentDefinitionRegistry::current()
         .map(|reg| reg.get(agent_ref).is_some())
         .unwrap_or(false);
     if has_definition {

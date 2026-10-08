@@ -46,7 +46,7 @@ impl SpawnAsyncSubagentTool {
             }
         };
 
-        let registry = match AgentDefinitionRegistry::global() {
+        let registry = match AgentDefinitionRegistry::current() {
             Some(registry) => registry,
             None => {
                 return Ok(ToolResult::error(

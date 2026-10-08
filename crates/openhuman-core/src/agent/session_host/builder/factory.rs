@@ -114,7 +114,7 @@ impl OpenHumanSessionHost {
     }
 
     /// Build a session agent from a definition the caller already holds,
-    /// rather than an id resolved through `AgentDefinitionRegistry::global()`
+    /// rather than an id resolved through `AgentDefinitionRegistry::current()`
     /// or `config.agent_registry`.
     ///
     /// The definition is authoritative for this agent's prompt, tool scope,
@@ -437,13 +437,13 @@ impl OpenHumanSessionHost {
             Option<std::collections::HashSet<String>>,
         ) = match (
             target_def,
-            crate::agent::harness::definition::AgentDefinitionRegistry::global(),
+            crate::agent::harness::definition::AgentDefinitionRegistry::current(),
         ) {
             (Some(def), Some(reg)) => {
                 let synthed = if should_synthesize_delegation_tools(def) {
                     tools::orchestrator_tools::collect_orchestrator_tools(
                         def,
-                        reg,
+                        &reg,
                         prewarmed_integrations_slice,
                     )
                 } else {
@@ -506,7 +506,7 @@ impl OpenHumanSessionHost {
                 let synthed = match reg.get("orchestrator") {
                     Some(orch_def) => tools::orchestrator_tools::collect_orchestrator_tools(
                         orch_def,
-                        reg,
+                        &reg,
                         prewarmed_integrations_slice,
                     ),
                     None => {
@@ -525,7 +525,7 @@ impl OpenHumanSessionHost {
                 // existed, or — the common case today — a `CustomRegistry`
                 // definition `resolve_target_definition` synthesizes
                 // straight from `config.agent_registry.entries` without
-                // ever consulting `AgentDefinitionRegistry::global()`, see
+                // ever consulting `AgentDefinitionRegistry::current()`, see
                 // `agent_registry::find_custom_in_config`). Delegation-tool
                 // synthesis needs the registry (to resolve named
                 // subagents), so it's skipped here, but `def.tools` is a
@@ -712,7 +712,7 @@ impl OpenHumanSessionHost {
         let payload_summarizer: Option<
             std::sync::Arc<dyn crate::agent::tinyagents::payload_summarizer::PayloadSummarizer>,
         > = if super::summarizes_tool_output(agent_id, config) {
-            match crate::agent::harness::definition::AgentDefinitionRegistry::global() {
+            match crate::agent::harness::definition::AgentDefinitionRegistry::current() {
                 Some(reg) => match reg.get("summarizer") {
                     Some(summarizer_def) => {
                         log::info!(
@@ -829,7 +829,7 @@ impl OpenHumanSessionHost {
         // second resident copy of a 95-field struct with nested `Vec`s
         // (openhuman#6218).
         agent.runtime_config = Some(Arc::clone(&base_config));
-        agent.hosted_base = AgentDefinitionRegistry::global_arc().map(|definitions| {
+        agent.hosted_base = AgentDefinitionRegistry::current().map(|definitions| {
             Arc::new(crate::agent::tinyagents::host::OpenHumanHostBase {
                 config: Arc::clone(&base_config),
                 definitions,
@@ -883,9 +883,9 @@ fn resolve_target_definition(
     config: &Config,
     agent_id: &str,
 ) -> Result<Option<crate::agent::harness::definition::AgentDefinition>> {
-    let registry = AgentDefinitionRegistry::global();
+    let registry = AgentDefinitionRegistry::current();
 
-    if let Some(reg) = registry {
+    if let Some(reg) = registry.as_deref() {
         if let Some(def) = reg.get(agent_id) {
             return Ok(Some(def.clone()));
         }

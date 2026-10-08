@@ -356,12 +356,12 @@ impl SessionHostBuilder {
         let hosted_config = Arc::new(hosted_config);
         #[cfg(test)]
         let definitions = Some(
-            crate::agent::harness::AgentDefinitionRegistry::global_arc().unwrap_or_else(|| {
+            crate::agent::harness::AgentDefinitionRegistry::current().unwrap_or_else(|| {
                 Arc::new(crate::agent::harness::AgentDefinitionRegistry::builtins_only())
             }),
         );
         #[cfg(not(test))]
-        let definitions = crate::agent::harness::AgentDefinitionRegistry::global_arc();
+        let definitions = crate::agent::harness::AgentDefinitionRegistry::current();
         // A caller that brought its own definition is the authority for this
         // session, so it does not need a process registry to exist before it
         // may run a turn. The stand-in is deliberately *empty* rather than

@@ -268,7 +268,7 @@ async fn core_tool_instructions() -> Result<Value, ToolCallError> {
 
 async fn list_subagents() -> Result<Value, ToolCallError> {
     let config = load_config_and_init_registry().await?;
-    let registry = AgentDefinitionRegistry::global().ok_or_else(|| {
+    let registry = AgentDefinitionRegistry::current().ok_or_else(|| {
         ToolCallError::Internal("AgentDefinitionRegistry missing after init".to_string())
     })?;
 

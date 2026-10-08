@@ -111,7 +111,7 @@ impl Tool for DelegateGraphTool {
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
-        let agent_ids: Vec<String> = AgentDefinitionRegistry::global()
+        let agent_ids: Vec<String> = AgentDefinitionRegistry::current()
             .map(|reg| reg.list().iter().map(|d| d.id.clone()).collect())
             .unwrap_or_default();
 
@@ -212,7 +212,7 @@ impl DelegateGraphTool {
             .map(|n| (n as usize).min(MAX_MAX_REVISIONS))
             .unwrap_or(DEFAULT_MAX_REVISIONS);
 
-        let registry = match AgentDefinitionRegistry::global() {
+        let registry = match AgentDefinitionRegistry::current() {
             Some(reg) => reg,
             None => {
                 return Ok(ToolResult::error(
