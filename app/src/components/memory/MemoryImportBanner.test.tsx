@@ -410,6 +410,56 @@ describe('MemoryImportBanner', () => {
       expect(screen.getByTestId('memory-import-retry-failed')).toBeInTheDocument();
     });
 
+    it('offers nothing while the scan after a finished run fails', async () => {
+      hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
+      hoisted.mStatus.mockResolvedValue(moving(1));
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+      expect(await screen.findByTestId('memory-migration-running')).toBeInTheDocument();
+
+      // The run ends; the scan that follows fails.
+      hoisted.mStatus.mockResolvedValue({
+        state: { phase: 'cleaned', copied: 3 },
+        running: false,
+        interrupted: false,
+      });
+      hoisted.mScan.mockRejectedValue(new Error('not ready'));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(MIGRATION_POLL_MS + 10);
+      });
+      await waitFor(() =>
+        expect(screen.queryByTestId('memory-migration-banner')).not.toBeInTheDocument()
+      );
+      expect(screen.queryByTestId('memory-migration-offer')).not.toBeInTheDocument();
+    });
+
+    it('drops a poll answered after the user started the move', async () => {
+      hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+      expect(await screen.findByTestId('memory-migration-offer')).toBeInTheDocument();
+
+      // An idle poll goes out and is slow to answer.
+      let answerPoll: (value: unknown) => void = () => {};
+      hoisted.mStatus.mockReturnValueOnce(
+        new Promise(resolve => {
+          answerPoll = resolve;
+        })
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(MIGRATION_IDLE_POLL_MS + 10);
+      });
+      fireEvent.click(screen.getByTestId('memory-migration-start'));
+      expect(await screen.findByTestId('memory-migration-running')).toHaveTextContent('4');
+
+      // Its stale idle answer must not take the running move off the screen.
+      await act(async () => {
+        answerPoll(MOVE_IDLE);
+      });
+      expect(screen.getByTestId('memory-migration-running')).toBeInTheDocument();
+      expect(screen.queryByTestId('memory-migration-offer')).not.toBeInTheDocument();
+    });
+
     it('scans again after a failed scan', async () => {
       hoisted.mScan
         .mockRejectedValueOnce(new Error('not ready'))
