@@ -1,15 +1,9 @@
-import { type RefObject, useMemo, useState } from 'react';
+import type { RefObject } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { Thread } from '../../../types/thread';
 import { isImeCompositionKeyEvent } from '../Conversations';
-import {
-  folderBasename,
-  groupThreads,
-  isThreadPinned,
-  type ThreadGroupKey,
-  threadMatchesQuery,
-} from './groupThreads';
+import { folderBasename, groupThreads, isThreadPinned, type ThreadGroupKey } from './groupThreads';
 
 /** i18n key for each section header. */
 const GROUP_LABEL_KEYS: Record<ThreadGroupKey, string> = {
@@ -22,7 +16,8 @@ const GROUP_LABEL_KEYS: Record<ThreadGroupKey, string> = {
 };
 
 interface ThreadListProps {
-  /** Threads visible after the sidebar's search/tab filtering. */
+  /** Threads visible after the sidebar's tab filtering. Searching them is the
+   *  global (Cmd/Ctrl+K) palette's job, which also matches message text. */
   threads: Thread[];
   selectedThreadId: string | null;
   onCreateThread: () => void;
@@ -81,14 +76,9 @@ export function ThreadList({
   onBlurTitle,
 }: ThreadListProps) {
   const { t } = useT();
-  const [query, setQuery] = useState('');
-  const visibleThreads = useMemo(
-    () => threads.filter(thread => threadMatchesQuery(resolveTitle(thread.id), query)),
-    [threads, query, resolveTitle]
-  );
   // Recomputed per render on purpose: a list left open overnight should move
   // yesterday's rows out of "Today" on the next update without a timer.
-  const groups = groupThreads(visibleThreads, new Date(), isPinned);
+  const groups = groupThreads(threads, new Date(), isPinned);
   const renderRow = (thread: Thread) => {
     const running = Boolean(isThreadRunning?.(thread.id));
     const unread = !running && Boolean(unreadThreadIds?.has(thread.id));
@@ -340,66 +330,6 @@ export function ThreadList({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
         </button>
-        {/* Title filter. Same pill geometry as the rows so it sits in their
-            column; a bare input with no border until focus, because at rest it
-            is the least important control here. Escape clears it — the one
-            keystroke anyone tries first to get the full list back. Filtering
-            is title-only: message search is the command palette's job. */}
-        <div className="relative flex h-8 items-center">
-          <svg
-            className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-content-faint"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 100-15 7.5 7.5 0 000 15z"
-            />
-          </svg>
-          <input
-            type="search"
-            data-testid="thread-search-input"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Escape' && query) {
-                e.preventDefault();
-                e.stopPropagation();
-                setQuery('');
-              }
-            }}
-            placeholder={t('chat.sidebar.searchPlaceholder')}
-            aria-label={t('chat.sidebar.searchPlaceholder')}
-            className="h-8 w-full rounded-md border border-transparent bg-surface/40 pl-8 pr-7 text-[13px] text-content placeholder:text-content-faint outline-hidden transition-colors focus:border-content-faint/35 dark:bg-surface/60 [&::-webkit-search-cancel-button]:hidden"
-          />
-          {query && (
-            <button
-              type="button"
-              data-testid="thread-search-clear"
-              data-analytics-id="chat-sidebar-clear-search"
-              onClick={() => setQuery('')}
-              aria-label={t('chat.sidebar.clearSearch')}
-              title={t('chat.sidebar.clearSearch')}
-              className="absolute right-1.5 inline-flex h-5 w-5 items-center justify-center rounded text-content-faint transition-colors hover:bg-surface/60 hover:text-content-secondary">
-              <svg
-                className="h-3 w-3"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          )}
-        </div>
       </div>
       {/* Rows carry no padding gutter of their own — a thread pill spans the
           full width the scroll container gives it, so its hover/selected fill
@@ -440,12 +370,6 @@ export function ThreadList({
       <div className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-3 [scrollbar-gutter:stable_both-edges] [scrollbar-width:thin]">
         {threads.length === 0 ? (
           <p className="px-4 py-6 text-xs text-content-faint text-center">{t('chat.noThreads')}</p>
-        ) : groups.length === 0 ? (
-          <p
-            data-testid="thread-search-empty"
-            className="px-4 py-6 text-xs text-content-faint text-center">
-            {t('chat.sidebar.noMatches')}
-          </p>
         ) : (
           // Each section is a labelled group so screen readers announce
           // "Today, list" etc. The header is a plain muted caption, not a

@@ -374,9 +374,6 @@ const en: TranslationMap = {
   // Chat / Conversations
   'chat.newThread': 'New thread',
   'chat.newConversation': 'New Conversation',
-  'chat.sidebar.searchPlaceholder': 'Search conversations',
-  'chat.sidebar.clearSearch': 'Clear search',
-  'chat.sidebar.noMatches': 'No matching conversations',
   'chat.sidebar.group.pinned': 'Pinned',
   'chat.sidebar.group.today': 'Today',
   'chat.sidebar.group.yesterday': 'Yesterday',
@@ -2325,6 +2322,10 @@ const en: TranslationMap = {
   'commandPalette.placeholder': 'Type a command or search…',
   'commandPalette.searchAria': 'Search commands',
   'commandPalette.title': 'Command palette',
+  'commandPalette.group.conversations': 'Conversations',
+  'commandPalette.group.messages': 'Messages',
+  'commandPalette.searchingMessages': 'Searching messages…',
+  'commandPalette.untitledConversation': 'Untitled conversation',
   'kbd.ariaLabel': 'Keyboard shortcut: {shortcut}',
   'shortcuts.title': 'Keyboard Shortcuts',
   'shortcuts.subtitle': 'Speed up your workflow with these keyboard shortcuts.',
@@ -5328,15 +5329,14 @@ const en: TranslationMap = {
   'memoryPage.engine.chip.free': 'Unlimited',
   'memoryPage.engine.chip.apikey': 'Your CortexDB key',
   'memoryPage.engine.chip.selfhost': 'Local',
-  'memoryPage.engine.fairUse.summary': 'Fair use applies',
+  'memoryPage.engine.fairUse.summary': 'Fair use applies for unlimited memory',
   'memoryPage.engine.offPrompt': 'Pick a provider below to start remembering.',
-  'memoryPage.engine.builtin.cardDescription': 'Hosted for you by TinyHumans. Nothing to set up.',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    "CortexDB's managed service, on your own CortexDB account.",
-  'memoryPage.engine.selfHost.cardDescription':
-    'A CortexDB server you run yourself. Memory is stored on this computer.',
-  'memoryPage.engine.freeIngestion.notePlan': 'Unlimited memory on your {plan} plan',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Unlimited memory on Basic and Pro plans',
+  'memoryPage.engine.builtin.summaryPlan':
+    'Hosted by TinyHumans, with unlimited memory on your {plan} plan.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'Hosted by TinyHumans. Unlimited memory on Basic and Pro plans.',
+  'memoryPage.engine.apiKeyOption.connected': 'Connected with your CortexDB API key.',
+  'memoryPage.engine.selfHost.connected': 'Connected to CortexDB at {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Ingest your own content, for your own use.',
   'memoryPage.engine.fairUse.noAbuse':
     'No automated bulk uploads, scraping, or ingesting on behalf of other people or services.',
@@ -5458,6 +5458,9 @@ const en: TranslationMap = {
   'memoryPage.tabs.brain': 'Documents',
   'memoryPage.tabs.background': 'Activity',
   'memoryPage.tabs.settings': 'Settings',
+  'memoryPage.tabs.migration': 'Migration',
+  'memoryPage.header.migration':
+    'Bring memory from earlier versions into CortexDB, and organize it.',
   'memoryPage.header.brain': 'Documents every agent shares, filed by where they came from.',
   'memoryPage.header.background':
     'Belief builds and document imports memory runs in the background.',
@@ -5619,10 +5622,15 @@ const en: TranslationMap = {
   'memoryPage.import.failedItems': 'Items that could not be imported: {count}.',
   'memoryPage.import.retryFailed': 'Retry failed items',
   'memoryPage.import.progress': '{imported} of {total} items imported',
+  'memoryPage.import.none': 'No previous memory was found on this device.',
+  'memoryPage.import.doneBody': 'Your previous memory is already in CortexDB.',
+  'memoryPage.import.short': 'Import',
   'memoryPage.migrate.title': 'Move memory into your account',
   'memoryPage.migrate.body':
     'Memory saved before this update is still in the old shared layout. It moves on its own in the background, or you can move it now.',
   'memoryPage.migrate.action': 'Migrate now',
+  'memoryPage.migrate.doneBody': 'Your memory is already in your account.',
+  'memoryPage.migrate.afterImport': 'Starts once the import finishes.',
   'memoryPage.migrate.running': 'Organizing your memory…',
   'memoryPage.migrate.progress': '{copied} items moved',
   'memoryPage.migrate.progressOne': '{copied} item moved',

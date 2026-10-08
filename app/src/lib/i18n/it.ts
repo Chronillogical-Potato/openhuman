@@ -504,9 +504,6 @@ const messages: TranslationMap = {
     'Impossibile passare ai modelli gratuiti di OpenRouter. Controlla l’accesso a OpenRouter e riprova.',
   'chat.newThread': 'Nuovo thread',
   'chat.newConversation': 'Nuova conversazione',
-  'chat.sidebar.searchPlaceholder': 'Cerca conversazioni',
-  'chat.sidebar.clearSearch': 'Cancella ricerca',
-  'chat.sidebar.noMatches': 'Nessuna conversazione corrispondente',
   'chat.sidebar.group.pinned': 'Fissate',
   'chat.sidebar.group.today': 'Oggi',
   'chat.sidebar.group.yesterday': 'Ieri',
@@ -2054,6 +2051,10 @@ const messages: TranslationMap = {
   'commandPalette.placeholder': 'Digita un comando o cerca…',
   'commandPalette.searchAria': 'Cerca comandi',
   'commandPalette.title': 'Palette dei comandi',
+  'commandPalette.group.conversations': 'Conversazioni',
+  'commandPalette.group.messages': 'Messaggi',
+  'commandPalette.searchingMessages': 'Ricerca nei messaggi…',
+  'commandPalette.untitledConversation': 'Conversazione senza titolo',
   'kbd.ariaLabel': 'Scorciatoia da tastiera: {shortcut}',
   'shortcuts.title': 'Scorciatoie da tastiera',
   'shortcuts.subtitle': 'Velocizza il tuo lavoro con queste scorciatoie da tastiera.',
@@ -5129,16 +5130,14 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'Illimitata',
   'memoryPage.engine.chip.apikey': 'La tua chiave CortexDB',
   'memoryPage.engine.chip.selfhost': 'Locale',
-  'memoryPage.engine.fairUse.summary': 'Vale l’uso equo',
+  'memoryPage.engine.fairUse.summary': 'La memoria illimitata è soggetta a un uso corretto',
   'memoryPage.engine.offPrompt': 'Scegli un fornitore qui sotto per iniziare a ricordare.',
-  'memoryPage.engine.builtin.cardDescription':
-    'Ospitato per te da TinyHumans. Niente da configurare.',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'Il servizio gestito di CortexDB, con il tuo account CortexDB.',
-  'memoryPage.engine.selfHost.cardDescription':
-    'Un server CortexDB gestito da te. La memoria è salvata su questo computer.',
-  'memoryPage.engine.freeIngestion.notePlan': 'Memoria illimitata con il piano {plan}',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Memoria illimitata con i piani Basic e Pro',
+  'memoryPage.engine.builtin.summaryPlan':
+    'Ospitato da TinyHumans, con memoria illimitata nel tuo piano {plan}.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'Ospitato da TinyHumans. Memoria illimitata nei piani Basic e Pro.',
+  'memoryPage.engine.apiKeyOption.connected': 'Connesso con la tua chiave API di CortexDB.',
+  'memoryPage.engine.selfHost.connected': 'Connesso a CortexDB su {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Acquisisci i tuoi contenuti, per uso personale.',
   'memoryPage.engine.fairUse.noAbuse':
     'Niente caricamenti massivi automatici, scraping o acquisizioni per conto di altre persone o servizi.',
@@ -5261,6 +5260,9 @@ const messages: TranslationMap = {
   'memoryPage.tabs.brain': 'Documenti',
   'memoryPage.tabs.background': 'Attività',
   'memoryPage.tabs.settings': 'Impostazioni',
+  'memoryPage.tabs.migration': 'Migrazione',
+  'memoryPage.header.migration':
+    'Porta in CortexDB la memoria delle versioni precedenti e organizzala.',
   'memoryPage.header.brain': 'Documenti condivisi da tutti gli agenti, archiviati per provenienza.',
   'memoryPage.header.background':
     'Costruzioni di convinzioni e importazioni di documenti che la memoria esegue in background.',
@@ -5426,10 +5428,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'Elementi che non è stato possibile importare: {count}.',
   'memoryPage.import.retryFailed': 'Riprova gli elementi non riusciti',
   'memoryPage.import.progress': '{imported} di {total} elementi importati',
+  'memoryPage.import.none': 'Nessuna memoria precedente trovata su questo dispositivo.',
+  'memoryPage.import.doneBody': 'La tua memoria precedente è già in CortexDB.',
+  'memoryPage.import.short': 'Importa',
   'memoryPage.migrate.title': 'Sposta la memoria nel tuo account',
   'memoryPage.migrate.body':
     'La memoria salvata prima di questo aggiornamento è ancora nel vecchio layout condiviso. Viene spostata automaticamente in background, oppure puoi spostarla ora.',
   'memoryPage.migrate.action': 'Migra ora',
+  'memoryPage.migrate.doneBody': 'La tua memoria è già nel tuo account.',
+  'memoryPage.migrate.afterImport': 'Inizia al termine dell’importazione.',
   'memoryPage.migrate.running': 'Organizzazione della tua memoria…',
   'memoryPage.migrate.progress': '{copied} elementi spostati',
   'memoryPage.migrate.progressOne': '{copied} elemento spostato',

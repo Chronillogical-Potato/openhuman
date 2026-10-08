@@ -186,7 +186,13 @@ pub fn schema(function: &str) -> ControllerSchema {
             namespace: "memory",
             function: "items_list",
             description: "Page through stored items, newest first.",
-            inputs: vec![filter(), limit(), cursor(), path()],
+            inputs: vec![
+                filter(),
+                limit(),
+                cursor(),
+                path(),
+                opt("preview", TypeSchema::Bool, "Snippet listing: a conversation or chunked document may carry only its start; read it whole with items_get."),
+            ],
             outputs: out("{items: Hit[], next_cursor?}"),
         },
         "explore" => ControllerSchema {

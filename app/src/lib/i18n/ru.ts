@@ -498,9 +498,6 @@ const messages: TranslationMap = {
     'Не удалось переключиться на бесплатные модели OpenRouter. Проверьте вход в OpenRouter и повторите попытку.',
   'chat.newThread': 'Новый чат',
   'chat.newConversation': 'Новый разговор',
-  'chat.sidebar.searchPlaceholder': 'Поиск разговоров',
-  'chat.sidebar.clearSearch': 'Очистить поиск',
-  'chat.sidebar.noMatches': 'Нет подходящих разговоров',
   'chat.sidebar.group.pinned': 'Закреплённые',
   'chat.sidebar.group.today': 'Сегодня',
   'chat.sidebar.group.yesterday': 'Вчера',
@@ -2035,6 +2032,10 @@ const messages: TranslationMap = {
   'commandPalette.placeholder': 'Введи команду или поиск…',
   'commandPalette.searchAria': 'Поиск команд',
   'commandPalette.title': 'Палитра команд',
+  'commandPalette.group.conversations': 'Разговоры',
+  'commandPalette.group.messages': 'Сообщения',
+  'commandPalette.searchingMessages': 'Поиск по сообщениям…',
+  'commandPalette.untitledConversation': 'Разговор без названия',
   'kbd.ariaLabel': 'Сочетание клавиш: {shortcut}',
   'shortcuts.title': 'Горячие клавиши',
   'shortcuts.subtitle': 'Ускорьте работу с помощью этих горячих клавиш.',
@@ -5102,16 +5103,15 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'Безлимит',
   'memoryPage.engine.chip.apikey': 'Ваш ключ CortexDB',
   'memoryPage.engine.chip.selfhost': 'Локально',
-  'memoryPage.engine.fairUse.summary': 'Действует добросовестное использование',
+  'memoryPage.engine.fairUse.summary':
+    'К безлимитной памяти применяется политика добросовестного использования',
   'memoryPage.engine.offPrompt': 'Выберите провайдера ниже, чтобы начать запоминать.',
-  'memoryPage.engine.builtin.cardDescription':
-    'Размещено для вас TinyHumans. Ничего настраивать не нужно.',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'Управляемый сервис CortexDB в вашем собственном аккаунте CortexDB.',
-  'memoryPage.engine.selfHost.cardDescription':
-    'Сервер CortexDB, который вы запускаете сами. Память хранится на этом компьютере.',
-  'memoryPage.engine.freeIngestion.notePlan': 'Безлимитная память на тарифе {plan}',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Безлимитная память на тарифах Basic и Pro',
+  'memoryPage.engine.builtin.summaryPlan':
+    'Размещено TinyHumans, безлимитная память на вашем тарифе {plan}.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'Размещено TinyHumans. Безлимитная память на тарифах Basic и Pro.',
+  'memoryPage.engine.apiKeyOption.connected': 'Подключено с вашим ключом API CortexDB.',
+  'memoryPage.engine.selfHost.connected': 'Подключено к CortexDB по адресу {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Загружайте свой контент для собственного использования.',
   'memoryPage.engine.fairUse.noAbuse':
     'Никаких автоматических массовых загрузок, скрейпинга и загрузки от имени других людей или сервисов.',
@@ -5235,6 +5235,9 @@ const messages: TranslationMap = {
   'memoryPage.tabs.brain': 'Документы',
   'memoryPage.tabs.background': 'Активность',
   'memoryPage.tabs.settings': 'Настройки',
+  'memoryPage.tabs.migration': 'Миграция',
+  'memoryPage.header.migration':
+    'Перенесите память из предыдущих версий в CortexDB и упорядочьте её.',
   'memoryPage.header.brain': 'Документы, общие для всех агентов, разложенные по источникам.',
   'memoryPage.header.background':
     'Построение убеждений и импорт документов, которые память выполняет в фоне.',
@@ -5394,10 +5397,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'Элементы, которые не удалось импортировать: {count}.',
   'memoryPage.import.retryFailed': 'Повторить неудавшиеся элементы',
   'memoryPage.import.progress': 'Импортировано {imported} из {total}',
+  'memoryPage.import.none': 'На этом устройстве не найдено прежней памяти.',
+  'memoryPage.import.doneBody': 'Ваша прежняя память уже в CortexDB.',
+  'memoryPage.import.short': 'Импортировать',
   'memoryPage.migrate.title': 'Перенести память в ваш аккаунт',
   'memoryPage.migrate.body':
     'Память, сохранённая до этого обновления, всё ещё находится в старой общей структуре. Она переносится автоматически в фоне, или вы можете перенести её сейчас.',
   'memoryPage.migrate.action': 'Перенести сейчас',
+  'memoryPage.migrate.doneBody': 'Ваша память уже в вашем аккаунте.',
+  'memoryPage.migrate.afterImport': 'Начнётся после завершения импорта.',
   'memoryPage.migrate.running': 'Упорядочиваем вашу память…',
   'memoryPage.migrate.progress': 'Перенесено элементов: {copied}',
   'memoryPage.migrate.progressOne': 'Перенесён {copied} элемент',

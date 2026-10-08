@@ -189,6 +189,7 @@ impl Memory {
                 limit: query.limit,
                 cursor: query.cursor,
                 path: Vec::new(),
+                preview: false,
             },
         )
         .await

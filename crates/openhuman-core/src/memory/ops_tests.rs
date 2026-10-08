@@ -129,6 +129,21 @@ async fn learn_recall_fetch_list_and_forget_round_trip() {
         .unwrap();
     assert_eq!(listed.items.len(), 1);
     assert_eq!(listed.items[0].id.0, learned.id);
+    // A preview listing names the same items (the reference engine's
+    // preview is its listing).
+    let previewed = items_list(
+        &config,
+        ItemsListParams {
+            preview: true,
+            ..ItemsListParams::default()
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        previewed.items.iter().map(|h| &h.id).collect::<Vec<_>>(),
+        listed.items.iter().map(|h| &h.id).collect::<Vec<_>>()
+    );
 
     let view = engines_list(&config);
     assert_eq!(view.active.as_deref(), Some("reference"));

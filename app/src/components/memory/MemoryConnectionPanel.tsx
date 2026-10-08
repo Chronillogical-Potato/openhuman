@@ -1,4 +1,4 @@
-import { ExternalLink, Infinity as InfinityIcon, Info } from 'lucide-react';
+import { ExternalLink, Info } from 'lucide-react';
 import { type ReactNode, useId } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
@@ -41,7 +41,6 @@ const ExternalTextLink = ({
 
 export interface MemoryConnectionPanelProps {
   option: MemoryProviderOption;
-  description: string;
   state: EngineState;
   /** True when this provider is the configured one. */
   active: boolean;
@@ -66,12 +65,11 @@ export interface MemoryConnectionPanelProps {
 /**
  * One way to connect CortexDB, shown under its chip on Memory → Provider: what
  * it is, what it needs (nothing via TinyHumans, a key for your own account, an
- * endpoint and key for Local), its action, and via TinyHumans the free
- * ingestion note with the fair-use terms.
+ * endpoint and key for Local), its action, and via TinyHumans one line on
+ * who hosts it and the plan's unlimited memory, with the fair-use terms.
  */
 export default function MemoryConnectionPanel({
   option,
-  description,
   state,
   active,
   signedIn,
@@ -125,16 +123,14 @@ export default function MemoryConnectionPanel({
 
   const builtinBody = (
     <>
-      <p className="text-xs leading-relaxed text-content-secondary">{description}</p>
-      <div className="flex items-center gap-1.5 text-xs text-content-secondary">
-        <InfinityIcon className="h-3.5 w-3.5 shrink-0 text-primary-500" aria-hidden />
+      <p className="text-xs leading-relaxed text-content-secondary">
         <span data-testid="memory-engine-builtin-note">
           {plan === 'BASIC' || plan === 'PRO'
-            ? t('memoryPage.engine.freeIngestion.notePlan').replace(
+            ? t('memoryPage.engine.builtin.summaryPlan').replace(
                 '{plan}',
                 plan === 'PRO' ? 'Pro' : 'Basic'
               )
-            : t('memoryPage.engine.freeIngestion.noteUpgrade')}
+            : t('memoryPage.engine.builtin.summaryUpgrade')}
         </span>
         <PopoverRoot>
           <PopoverTrigger asChild>
@@ -146,7 +142,7 @@ export default function MemoryConnectionPanel({
               data-testid="memory-engine-fair-use-trigger"
               aria-label={t('memoryPage.engine.fairUse.summary')}
               title={t('memoryPage.engine.fairUse.summary')}
-              className="text-content-muted hover:text-content">
+              className="ml-0.5 h-5 w-5 align-middle text-content-muted hover:text-content">
               <Info className="h-3.5 w-3.5" aria-hidden />
             </Button>
           </PopoverTrigger>
@@ -167,17 +163,7 @@ export default function MemoryConnectionPanel({
             </p>
           </PopoverContent>
         </PopoverRoot>
-      </div>
-      {/* The backend origin the core resolved, read-only: never a hard-coded
-          URL, and only known while TinyHumans is configured. */}
-      {active && state.endpoint && (
-        <p className="text-xs text-content-muted">
-          {t('memoryPage.engine.endpoint')}:{' '}
-          <span className="font-mono" data-testid="memory-engine-builtin-endpoint">
-            {state.endpoint}
-          </span>
-        </p>
-      )}
+      </p>
       {!signedIn && (
         <p className="text-xs text-content-muted" data-testid="memory-engine-builtin-sign-in">
           {t('memoryPage.engine.builtin.signInHint')}
@@ -260,7 +246,7 @@ export default function MemoryConnectionPanel({
 
   return (
     <div
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-2"
       role="tabpanel"
       data-testid={`memory-engine-panel-${option}`}>
       {option === 'builtin' ? builtinBody : option === 'apikey' ? cloudBody : localBody}

@@ -213,6 +213,12 @@ export interface ItemsListRequest {
   cursor?: string;
   /** Explorer path; the core narrows `filter` by each step. */
   path?: PathStep[];
+  /**
+   * Snippet listing: a conversation's or chunked document's `text` may be
+   * only its start, which the engine lists without assembling each item.
+   * Read an item whole with `memoryItemsGet` when it is opened.
+   */
+  preview?: boolean;
 }
 
 // ─── Explorer ────────────────────────────────────────────────────────────────

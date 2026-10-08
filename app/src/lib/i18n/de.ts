@@ -513,9 +513,6 @@ const messages: TranslationMap = {
     'Der Wechsel zu kostenlosen OpenRouter-Modellen ist fehlgeschlagen. Prüfe deine OpenRouter-Anmeldung und versuche es erneut.',
   'chat.newThread': 'Neuer Thread',
   'chat.newConversation': 'Neue Unterhaltung',
-  'chat.sidebar.searchPlaceholder': 'Unterhaltungen durchsuchen',
-  'chat.sidebar.clearSearch': 'Suche löschen',
-  'chat.sidebar.noMatches': 'Keine passenden Unterhaltungen',
   'chat.sidebar.group.pinned': 'Angeheftet',
   'chat.sidebar.group.today': 'Heute',
   'chat.sidebar.group.yesterday': 'Gestern',
@@ -2081,6 +2078,10 @@ const messages: TranslationMap = {
   'commandPalette.placeholder': 'Gib einen Befehl ein oder suche ...',
   'commandPalette.searchAria': 'Suchbefehle',
   'commandPalette.title': 'Befehlspalette',
+  'commandPalette.group.conversations': 'Unterhaltungen',
+  'commandPalette.group.messages': 'Nachrichten',
+  'commandPalette.searchingMessages': 'Nachrichten werden durchsucht…',
+  'commandPalette.untitledConversation': 'Unbenannte Unterhaltung',
   'kbd.ariaLabel': 'Tastenkombination: {shortcut}',
   'shortcuts.title': 'Tastenkürzel',
   'shortcuts.subtitle': 'Beschleunige deinen Workflow mit diesen Tastenkürzeln.',
@@ -5191,17 +5192,14 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'Unbegrenzt',
   'memoryPage.engine.chip.apikey': 'Dein CortexDB-Schlüssel',
   'memoryPage.engine.chip.selfhost': 'Lokal',
-  'memoryPage.engine.fairUse.summary': 'Es gilt Fair Use',
+  'memoryPage.engine.fairUse.summary': 'Für unbegrenztes Gedächtnis gilt eine Fair-Use-Regel',
   'memoryPage.engine.offPrompt': 'Wähle unten einen Anbieter, damit dein Assistent sich erinnert.',
-  'memoryPage.engine.builtin.cardDescription':
-    'Von TinyHumans für dich gehostet. Keine Einrichtung nötig.',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'Der verwaltete Dienst von CortexDB, mit deinem eigenen CortexDB-Konto.',
-  'memoryPage.engine.selfHost.cardDescription':
-    'Ein CortexDB-Server, den du selbst betreibst. Das Gedächtnis liegt auf diesem Computer.',
-  'memoryPage.engine.freeIngestion.notePlan': 'Unbegrenztes Gedächtnis in deinem {plan}-Tarif',
-  'memoryPage.engine.freeIngestion.noteUpgrade':
-    'Unbegrenztes Gedächtnis in den Tarifen Basic und Pro',
+  'memoryPage.engine.builtin.summaryPlan':
+    'Von TinyHumans gehostet, mit unbegrenztem Gedächtnis in deinem {plan}-Tarif.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'Von TinyHumans gehostet. Unbegrenztes Gedächtnis in den Tarifen Basic und Pro.',
+  'memoryPage.engine.apiKeyOption.connected': 'Mit deinem CortexDB-API-Schlüssel verbunden.',
+  'memoryPage.engine.selfHost.connected': 'Mit CortexDB unter {endpoint} verbunden.',
   'memoryPage.engine.fairUse.own': 'Nimm deine eigenen Inhalte für deine eigene Nutzung auf.',
   'memoryPage.engine.fairUse.noAbuse':
     'Keine automatisierten Massen-Uploads, kein Scraping und keine Aufnahme im Auftrag anderer Personen oder Dienste.',
@@ -5327,6 +5325,9 @@ const messages: TranslationMap = {
   'memoryPage.tabs.brain': 'Dokumente',
   'memoryPage.tabs.background': 'Aktivität',
   'memoryPage.tabs.settings': 'Einstellungen',
+  'memoryPage.tabs.migration': 'Migration',
+  'memoryPage.header.migration':
+    'Übernimm den Speicher früherer Versionen in CortexDB und ordne ihn.',
   'memoryPage.header.brain': 'Dokumente, die alle Agenten teilen, abgelegt nach ihrer Herkunft.',
   'memoryPage.header.background':
     'Überzeugungen aufbauen und Dokumente importieren: Aufgaben, die der Speicher im Hintergrund erledigt.',
@@ -5493,10 +5494,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'Nicht importierte Einträge: {count}.',
   'memoryPage.import.retryFailed': 'Fehlgeschlagene erneut versuchen',
   'memoryPage.import.progress': '{imported} von {total} Elementen importiert',
+  'memoryPage.import.none': 'Auf diesem Gerät wurde kein früheres Gedächtnis gefunden.',
+  'memoryPage.import.doneBody': 'Dein früheres Gedächtnis ist bereits in CortexDB.',
+  'memoryPage.import.short': 'Importieren',
   'memoryPage.migrate.title': 'Erinnerungen in dein Konto verschieben',
   'memoryPage.migrate.body':
     'Vor diesem Update gespeicherte Erinnerungen liegen noch im alten gemeinsamen Layout. Sie werden im Hintergrund automatisch verschoben, oder du verschiebst sie jetzt.',
   'memoryPage.migrate.action': 'Jetzt migrieren',
+  'memoryPage.migrate.doneBody': 'Dein Gedächtnis ist bereits in deinem Konto.',
+  'memoryPage.migrate.afterImport': 'Startet, sobald der Import abgeschlossen ist.',
   'memoryPage.migrate.running': 'Dein Gedächtnis wird geordnet…',
   'memoryPage.migrate.progress': '{copied} Einträge verschoben',
   'memoryPage.migrate.progressOne': '{copied} Eintrag verschoben',

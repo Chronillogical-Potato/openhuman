@@ -439,7 +439,11 @@ pub async fn items_list(config: &Config, params: ItemsListParams) -> MemoryResul
         cursor: params.cursor,
     };
     request.validate()?;
-    let page = bound.engine.list(request).await?;
+    let page = if params.preview {
+        bound.engine.list_preview(request).await?
+    } else {
+        bound.engine.list(request).await?
+    };
     Ok(ItemsListView {
         items: page.items,
         next_cursor: page.next_cursor,
