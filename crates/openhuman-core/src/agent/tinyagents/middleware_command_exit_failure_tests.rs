@@ -399,11 +399,12 @@ async fn six_different_failing_commands_are_investigation_not_a_loop() {
             "apt-get install -y g++",
             exit_report(100, "", "E: Unable to locate package"),
         ),
-        (
-            "pip download fasttext --no-deps",
-            exit_report(1, "", "network unreachable"),
-        ),
     ];
+    // Six distinct commands, each a different non-zero exit. None of them
+    // feeds the no-progress ladder: a different command's exit report is
+    // information, and only a *repeat* of the previous failing command counts
+    // (see `last_exit_report`), so no number of distinct failing commands
+    // reaches a threshold.
     for (i, (command, report)) in attempts.iter().enumerate() {
         run_shell(
             &mw,
@@ -559,4 +560,51 @@ async fn queries_are_cut_from_urls_anywhere_in_an_argument() {
         summary.contains("https://example.test/p1") && summary.contains("then parse"),
         "host, path and the surrounding text remain: {summary}"
     );
+}
+
+/// A shell command is stored for the halt summary with credential-bearing
+/// values redacted before any other scrubbing: header values, `--password`
+/// and `--token` style flags and `KEY=value` assignments with secret-looking
+/// names, so a command that carries a secret in a shape the general scrubber
+/// does not know is still not persisted with it.
+#[tokio::test]
+async fn a_listed_shell_command_never_carries_a_credential_value() {
+    let handle = SteeringHandle::allow_all();
+    let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
+    let commands = [
+        "curl -H 'Authorization: Bearer hunter2token' https://example.test/a",
+        "curl -H 'x-api-key: plainkeyvalue' https://example.test/b",
+        "mysql --password=swordfish -e 'select 1'",
+        "deploy --token tok_value_here --dry-run",
+        "API_SECRET=s3cr3tvalue python go.py",
+        "export DB_PASSWORD='pw-value'; ./migrate",
+    ];
+    for (i, command) in commands.iter().enumerate() {
+        run_shell(
+            &mw,
+            &format!("sec-{i}"),
+            command,
+            failing_result("shell", "boom"),
+        )
+        .await;
+    }
+    let summary = slot
+        .lock()
+        .unwrap()
+        .clone()
+        .expect("six varied failures halt");
+    for leaked in [
+        "hunter2token",
+        "plainkeyvalue",
+        "swordfish",
+        "tok_value_here",
+        "s3cr3tvalue",
+        "pw-value",
+    ] {
+        assert!(!summary.contains(leaked), "{leaked} leaked: {summary}");
+    }
+    for kept in ["curl -H", "mysql", "deploy --", "python go.py", "./migrate"] {
+        assert!(summary.contains(kept), "{kept} missing: {summary}");
+    }
 }

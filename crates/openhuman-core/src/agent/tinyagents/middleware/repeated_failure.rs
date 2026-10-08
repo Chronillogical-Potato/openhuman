@@ -235,13 +235,45 @@ const RENDERED_FAILURES: usize = 8;
 /// whitespace-collapsed and bounded so a heredoc or payload cannot swamp it.
 fn render_call(tool: &str, arguments: &serde_json::Value) -> String {
     let raw = match arguments.get("command").and_then(serde_json::Value::as_str) {
-        Some(command) => command.to_owned(),
+        Some(command) => redact_command_credentials(command),
         None if arguments.is_null() => tool.to_owned(),
         None => strip_url_queries(&crate::security::approval::redact_args(arguments)).to_string(),
     };
     let without_queries = cut_url_queries(&raw);
     let scrubbed = crate::security::scrub::sanitize_text(&without_queries).value;
     crate::util::truncate_with_ellipsis(&scrubbed, RENDERED_CALL_CHARS).to_string()
+}
+
+/// A shell command with the values that follow credential-bearing flags,
+/// headers and assignments replaced: `--password=…`, `--token …`,
+/// `-H 'Authorization: Bearer …'`, `x-api-key: …`, `API_SECRET=…`. The flag,
+/// header name or variable name stays, so the summary still says what the
+/// command did; the value does not travel into the session. This is the
+/// command-side counterpart of `redact_args` for the other tools; the
+/// general scrubber still runs over the result for key shapes it knows.
+fn redact_command_credentials(command: &str) -> String {
+    use std::sync::LazyLock;
+    static HEADER: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(
+            r#"(?i)((?:authorization|x-api-key|api-key|x-auth-token|x-access-token|cookie|proxy-authorization)\s*:\s*)([^'\"\s][^'\"]*)"#,
+        )
+        .expect("static regex")
+    });
+    static FLAG: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(
+            r#"(?i)(--?(?:password|passwd|pass|pwd|token|api[-_]?key|apikey|secret|auth|bearer|access[-_]?key|private[-_]?key|client[-_]?secret)(?:=|\s+))(['\"]?)([^\s'\"]+)"#,
+        )
+        .expect("static regex")
+    });
+    static ASSIGN: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(
+            r#"(?i)\b([A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL)[A-Z0-9_]*=)(['\"]?)([^\s'\"]+)"#,
+        )
+        .expect("static regex")
+    });
+    let out = HEADER.replace_all(command, "${1}[REDACTED]");
+    let out = FLAG.replace_all(&out, "${1}${2}[REDACTED]");
+    ASSIGN.replace_all(&out, "${1}${2}[REDACTED]").into_owned()
 }
 
 /// `text` with every URL in it cut at its query or fragment, wherever the URL
