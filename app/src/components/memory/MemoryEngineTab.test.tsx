@@ -214,7 +214,7 @@ describe('MemoryEngineTab', () => {
       expect(hoisted.toastAdd).not.toHaveBeenCalled();
     });
 
-    it('says who hosts it and the plan's unlimited memory in one line, with fair-use terms', () => {
+    it('says who hosts it and the plan’s unlimited memory in one line, with fair-use terms', () => {
       hoisted.plan = 'PRO';
       renderTab(BUILTIN_ON);
       expect(screen.getByTestId('memory-engine-builtin-note')).toHaveTextContent(
