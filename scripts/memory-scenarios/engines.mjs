@@ -376,6 +376,11 @@ export async function startCortexWireLog({ target, logFile, secrets = [] }) {
   return {
     url: `http://127.0.0.1:${server.address().port}`,
     requests,
-    close: () => new Promise((r) => server.close(r)),
+    close: () =>
+      new Promise((r) => {
+        // Keep-alive sockets would hold close() (and the process) open.
+        server.closeAllConnections?.();
+        server.close(r);
+      }),
   };
 }
