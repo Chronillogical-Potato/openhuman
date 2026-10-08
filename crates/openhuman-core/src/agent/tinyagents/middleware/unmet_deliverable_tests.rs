@@ -65,6 +65,8 @@ fn only_absolute_paths_carrying_a_file_extension_are_candidates() {
         "results go in /report.json",           // single segment at the root
         "read /app/../etc/passwd",              // traversal is never statted
         "the ratio is 3/4.5 overall",           // arithmetic, not a path
+        "fetch https://example.com/report.pdf", // a URL, not a local file
+        "see http://host:8080/a/b.csv and //cdn/x.js", // scheme-less `//` too
     ] {
         assert!(
             candidate_paths(rejected).is_empty(),
@@ -103,12 +105,13 @@ fn a_repeated_path_is_reported_once_and_a_long_list_is_bounded() {
 fn the_notice_names_the_paths_and_asks_for_a_partial_file() {
     let one = notice(&["/app/output/r.json".to_string()]);
     assert!(one.contains("<harness_instruction>"));
-    assert!(one.contains("a file that does not exist"));
+    assert!(one.contains("a file that does not exist here"));
+    assert!(one.contains("lives elsewhere"));
     assert!(one.contains("`/app/output/r.json`"));
     assert!(one.contains("even where fields are incomplete or provisional"));
 
     let two = notice(&["/a/x.json".to_string(), "/b/y.csv".to_string()]);
-    assert!(two.contains("files that do not exist"));
+    assert!(two.contains("files that do not exist here"));
     assert!(two.contains("`/a/x.json`, `/b/y.csv`"));
 }
 
@@ -261,4 +264,63 @@ async fn install_covers_root_orchestrator_turns_only() {
         Some("here is what I found"),
         "a sub-agent turn is not checked"
     );
+}
+
+/// The candidates come from the current turn's request, not from an earlier
+/// turn of the thread that rides ahead of it in the harness input, and not
+/// from a wrapped harness instruction.
+#[tokio::test]
+async fn candidates_come_from_the_current_turns_request() {
+    let old = std::env::temp_dir().join(format!("oh-unmet-old-{}.json", std::process::id()));
+    let new = std::env::temp_dir().join(format!("oh-unmet-new-{}.json", std::process::id()));
+    let _ = std::fs::remove_file(&old);
+    let _ = std::fs::remove_file(&new);
+    let mut harness: AgentHarness<()> = AgentHarness::new();
+    harness.register_model(
+        "mock",
+        Arc::new(ScriptedModel::new(vec![
+            tool_round("c0", "writer"),
+            tinyagents_harness::tinyinference_llm::model::ModelResponse::assistant(
+                "first answer".to_string(),
+            ),
+            tinyagents_harness::tinyinference_llm::model::ModelResponse::assistant(
+                "second answer".to_string(),
+            ),
+        ])),
+    );
+    harness.register_tool(Arc::new(FakeTool::returning("writer", "ok")));
+    harness.with_policy(RunPolicy {
+        limits: RunLimits::default()
+            .with_max_model_calls(20)
+            .with_max_tool_calls(20),
+        ..RunPolicy::default()
+    });
+    harness.push_middleware(Arc::new(UnmetDeliverableMiddleware::new(None)));
+    let run = harness
+        .invoke_default(
+            &(),
+            vec![
+                Message::user(format!("earlier turn: write {}", old.display())),
+                Message::assistant("done earlier"),
+                Message::user(format!("now write {}", new.display())),
+            ],
+        )
+        .await
+        .expect("run succeeds");
+    let notice = run
+        .messages
+        .iter()
+        .filter(|m| matches!(m, Message::User(_)) && m.text().contains("does not exist"))
+        .map(|m| m.text())
+        .collect::<Vec<_>>();
+    assert_eq!(notice.len(), 1, "held once for the current request");
+    assert!(
+        notice[0].contains(&new.display().to_string()),
+        "names the current turn's path"
+    );
+    assert!(
+        !notice[0].contains(&old.display().to_string()),
+        "not the earlier turn's path"
+    );
+    assert_eq!(run.text().as_deref(), Some("second answer"));
 }

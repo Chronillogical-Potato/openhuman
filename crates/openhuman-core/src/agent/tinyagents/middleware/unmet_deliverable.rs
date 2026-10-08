@@ -99,8 +99,13 @@ pub(crate) fn candidate_paths(text: &str) -> Vec<String> {
             continue;
         }
         // A path starts at a `/` that does not continue a token (so `a/b` in
-        // prose is not read as rooted at `/b`).
-        if index > 0 && is_path_char(bytes[index - 1]) {
+        // prose is not read as rooted at `/b`), and not at the `//` of a URL
+        // (`https://host/report.pdf` is not a local file).
+        if index > 0 && (is_path_char(bytes[index - 1]) || bytes[index - 1] == ':') {
+            index += 1;
+            continue;
+        }
+        if bytes.get(index + 1) == Some(&'/') {
             index += 1;
             continue;
         }
@@ -153,12 +158,14 @@ pub(crate) fn notice(missing: &[String]) -> String {
         ("files", "do not exist")
     };
     wrap_harness_instruction(&format!(
-        "The request names {subject} that {verb}: {list}. Nothing has been written there, so \
-         none of this turn's work is available to whoever asked for it. Write it now with \
-         whatever you have established, even where fields are incomplete or provisional, and \
-         then answer. A file holding the parts you are sure of is worth more than a \
-         description of what it would have contained; mark anything provisional inside it, or \
-         say in your reply what is still missing."
+        "The request names {subject} that {verb} here: {list}. If that is the file this turn \
+         was asked to produce, nothing has been written there and none of this turn's work \
+         is available to whoever asked for it: write it now with whatever you have \
+         established, even where fields are incomplete or provisional, and then answer. A \
+         file holding the parts you are sure of is worth more than a description of what it \
+         would have contained; mark anything provisional inside it, or say in your reply what \
+         is still missing. If the path refers to a file that lives elsewhere (another \
+         machine, a container, a service), say so and answer as before."
     ))
 }
 
@@ -304,12 +311,18 @@ impl<C: Send + Sync> Middleware<(), C> for UnmetDeliverableMiddleware {
         if run.candidates.is_some() {
             return Ok(());
         }
-        // The request is the turn's first user message; later user turns are
-        // this harness's own injections and the model's follow-ups.
+        // The request is the current turn's user message: the last user
+        // message on the first call, since the thread's history rides ahead
+        // of it and the harness's own user-role injections are wrapped as
+        // instructions and arrive on later calls.
         let text = request
             .messages
             .iter()
-            .find(|message| matches!(message, Message::User(_)))
+            .rev()
+            .find(|message| {
+                matches!(message, Message::User(_))
+                    && !message.text().contains("<harness_instruction>")
+            })
             .map(Message::text)
             .unwrap_or_default();
         run.candidates = Some(candidate_paths(&text));
