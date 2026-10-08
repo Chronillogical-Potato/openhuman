@@ -5250,6 +5250,12 @@ const messages: TranslationMap = {
   'memoryPage.tabs.brain': 'Dokumenty',
   'memoryPage.tabs.background': 'Aktywność',
   'memoryPage.tabs.settings': 'Ustawienia',
+  'memoryPage.tabs.migration': 'Migracja',
+  'memoryPage.header.migration':
+    'Przenieś pamięć z wcześniejszych wersji do CortexDB i uporządkuj ją.',
+  'memoryPage.migrate.nothingTitle': 'Nie ma nic do przeniesienia',
+  'memoryPage.migrate.nothingBody':
+    'Twoja pamięć jest aktualna. Wszystko, co zostało z wcześniejszej wersji, pojawi się tutaj.',
   'memoryPage.header.brain':
     'Dokumenty wspólne dla wszystkich agentów, uporządkowane według pochodzenia.',
   'memoryPage.header.background':

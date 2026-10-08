@@ -5222,6 +5222,11 @@ const messages: TranslationMap = {
   'memoryPage.tabs.brain': 'Dokumen',
   'memoryPage.tabs.background': 'Aktivitas',
   'memoryPage.tabs.settings': 'Pengaturan',
+  'memoryPage.tabs.migration': 'Migrasi',
+  'memoryPage.header.migration': 'Bawa memori dari versi sebelumnya ke CortexDB, lalu rapikan.',
+  'memoryPage.migrate.nothingTitle': 'Tidak ada yang perlu dimigrasikan',
+  'memoryPage.migrate.nothingBody':
+    'Memori Anda sudah terbaru. Apa pun yang tersisa dari versi sebelumnya akan muncul di sini.',
   'memoryPage.header.brain': 'Dokumen yang dibagikan semua agen, diarsipkan menurut asalnya.',
   'memoryPage.header.background':
     'Pembuatan keyakinan dan impor dokumen yang dijalankan memori di latar belakang.',

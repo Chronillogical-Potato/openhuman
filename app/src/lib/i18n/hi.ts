@@ -5180,6 +5180,12 @@ const messages: TranslationMap = {
   'memoryPage.tabs.brain': 'दस्तावेज़',
   'memoryPage.tabs.background': 'गतिविधि',
   'memoryPage.tabs.settings': 'सेटिंग',
+  'memoryPage.tabs.migration': 'माइग्रेशन',
+  'memoryPage.header.migration':
+    'पिछले संस्करणों की मेमोरी को CortexDB में लाएँ और व्यवस्थित करें।',
+  'memoryPage.migrate.nothingTitle': 'माइग्रेट करने के लिए कुछ नहीं',
+  'memoryPage.migrate.nothingBody':
+    'आपकी मेमोरी अद्यतित है। पिछले संस्करण से बची कोई भी चीज़ यहाँ दिखाई देगी।',
   'memoryPage.header.brain':
     'वे दस्तावेज़ जो हर एजेंट साझा करता है, उनके स्रोत के अनुसार सहेजे गए।',
   'memoryPage.header.background':

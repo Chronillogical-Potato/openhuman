@@ -5181,6 +5181,11 @@ const messages: TranslationMap = {
   'memoryPage.tabs.brain': 'ডকুমেন্ট',
   'memoryPage.tabs.background': 'কার্যকলাপ',
   'memoryPage.tabs.settings': 'সেটিংস',
+  'memoryPage.tabs.migration': 'মাইগ্রেশন',
+  'memoryPage.header.migration': 'আগের সংস্করণের মেমোরি CortexDB-তে আনুন এবং সাজিয়ে নিন।',
+  'memoryPage.migrate.nothingTitle': 'মাইগ্রেট করার কিছু নেই',
+  'memoryPage.migrate.nothingBody':
+    'আপনার মেমোরি হালনাগাদ আছে। আগের সংস্করণ থেকে বাকি কিছু থাকলে এখানে দেখা যাবে।',
   'memoryPage.header.brain': 'প্রতিটি এজেন্টের শেয়ার করা ডকুমেন্ট, উৎস অনুযায়ী সাজানো।',
   'memoryPage.header.background':
     'মেমোরি ব্যাকগ্রাউন্ডে যেসব বিশ্বাস তৈরি ও ডকুমেন্ট ইম্পোর্ট চালায়।',

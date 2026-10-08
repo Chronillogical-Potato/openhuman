@@ -5132,6 +5132,11 @@ const messages: TranslationMap = {
   'memoryPage.tabs.brain': '문서',
   'memoryPage.tabs.background': '활동',
   'memoryPage.tabs.settings': '설정',
+  'memoryPage.tabs.migration': '마이그레이션',
+  'memoryPage.header.migration': '이전 버전의 메모리를 CortexDB로 가져와 정리합니다.',
+  'memoryPage.migrate.nothingTitle': '마이그레이션할 항목 없음',
+  'memoryPage.migrate.nothingBody':
+    '메모리가 최신 상태입니다. 이전 버전에서 남은 항목이 있으면 여기에 표시됩니다.',
   'memoryPage.header.brain': '모든 에이전트가 공유하는 문서를 출처별로 정리했습니다.',
   'memoryPage.header.background':
     '메모리가 백그라운드에서 실행하는 신념 구축과 문서 가져오기입니다.',

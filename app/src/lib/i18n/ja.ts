@@ -5476,6 +5476,11 @@ const messages: TranslationMap = {
   'memoryPage.tabs.brain': 'ドキュメント',
   'memoryPage.tabs.background': 'アクティビティ',
   'memoryPage.tabs.settings': '設定',
+  'memoryPage.tabs.migration': '移行',
+  'memoryPage.header.migration': '以前のバージョンのメモリーを CortexDB に取り込み、整理します。',
+  'memoryPage.migrate.nothingTitle': '移行するものはありません',
+  'memoryPage.migrate.nothingBody':
+    'メモリーは最新です。以前のバージョンから残っているものがあれば、ここに表示されます。',
   'memoryPage.header.brain': 'すべてのエージェントが共有するドキュメントを、ソース別に整理します。',
   'memoryPage.header.background':
     'メモリーがバックグラウンドで行う信念の生成とドキュメントのインポート。',

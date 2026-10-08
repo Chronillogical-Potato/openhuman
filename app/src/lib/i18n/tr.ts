@@ -5188,6 +5188,11 @@ const messages: TranslationMap = {
   'memoryPage.tabs.brain': 'Belgeler',
   'memoryPage.tabs.background': 'Etkinlik',
   'memoryPage.tabs.settings': 'Ayarlar',
+  'memoryPage.tabs.migration': 'Taşıma',
+  'memoryPage.header.migration': 'Önceki sürümlerdeki belleği CortexDB’ye aktarın ve düzenleyin.',
+  'memoryPage.migrate.nothingTitle': 'Taşınacak bir şey yok',
+  'memoryPage.migrate.nothingBody':
+    'Belleğiniz güncel. Önceki bir sürümden kalan her şey burada görünecek.',
   'memoryPage.header.brain': 'Tüm ajanların paylaştığı belgeler, geldikleri yere göre düzenlenmiş.',
   'memoryPage.header.background':
     'Belleğin arka planda çalıştırdığı inanç oluşturma ve belge içe aktarma işleri.',

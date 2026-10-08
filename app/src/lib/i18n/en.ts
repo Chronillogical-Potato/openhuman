@@ -5458,6 +5458,12 @@ const en: TranslationMap = {
   'memoryPage.tabs.brain': 'Documents',
   'memoryPage.tabs.background': 'Activity',
   'memoryPage.tabs.settings': 'Settings',
+  'memoryPage.tabs.migration': 'Migration',
+  'memoryPage.header.migration':
+    'Bring memory from earlier versions into CortexDB, and organize it.',
+  'memoryPage.migrate.nothingTitle': 'Nothing to migrate',
+  'memoryPage.migrate.nothingBody':
+    'Your memory is up to date. Anything left from an earlier version will show up here.',
   'memoryPage.header.brain': 'Documents every agent shares, filed by where they came from.',
   'memoryPage.header.background':
     'Belief builds and document imports memory runs in the background.',

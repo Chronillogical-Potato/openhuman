@@ -5084,6 +5084,10 @@ const messages: TranslationMap = {
   'memoryPage.tabs.brain': 'المستندات',
   'memoryPage.tabs.background': 'النشاط',
   'memoryPage.tabs.settings': 'الإعدادات',
+  'memoryPage.tabs.migration': 'الترحيل',
+  'memoryPage.header.migration': 'انقل الذاكرة من الإصدارات السابقة إلى CortexDB ونظّمها.',
+  'memoryPage.migrate.nothingTitle': 'لا يوجد ما يُرحَّل',
+  'memoryPage.migrate.nothingBody': 'ذاكرتك محدّثة. سيظهر هنا أي شيء متبقٍ من إصدار سابق.',
   'memoryPage.header.brain': 'مستندات يشاركها كل وكيل، مصنّفة بحسب مصدرها.',
   'memoryPage.header.background':
     'عمليات بناء المعتقدات واستيراد المستندات التي تنفّذها الذاكرة في الخلفية.',
