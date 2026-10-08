@@ -3,12 +3,7 @@ import type { RefObject } from 'react';
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { Thread } from '../../../types/thread';
 import { isImeCompositionKeyEvent } from '../Conversations';
-import {
-  folderBasename,
-  groupThreads,
-  isThreadPinned,
-  type ThreadGroupKey,
-} from './groupThreads';
+import { folderBasename, groupThreads, isThreadPinned, type ThreadGroupKey } from './groupThreads';
 
 /** i18n key for each section header. */
 const GROUP_LABEL_KEYS: Record<ThreadGroupKey, string> = {
