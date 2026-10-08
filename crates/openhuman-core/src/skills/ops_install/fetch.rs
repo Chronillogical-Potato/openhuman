@@ -293,10 +293,8 @@ pub(crate) async fn install_workflow_from_url_with_home(
     // scans unconditionally. Project scope (`<ws>/.openhuman/skills/`) is gated on
     // a `<ws>/.openhuman/trust` marker and would render the install invisible to the
     // skills list until the user opts the workspace into trust.
-    let skills_root = home
-        .ok_or_else(|| "write failed: unable to resolve home directory".to_string())?
-        .join(".openhuman")
-        .join("skills");
+    let skills_root = crate::skills::write_root::user_skill_install_root(workspace_dir, home)
+        .ok_or_else(|| "write failed: unable to resolve home directory".to_string())?;
 
     let target_file =
         match write_installed_document(&skills_root, &slug, &content).map_err(|e| e.to_string())? {
