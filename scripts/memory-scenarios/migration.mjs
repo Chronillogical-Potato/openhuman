@@ -227,7 +227,7 @@ export const migration = {
       question,
     });
     if (ctx.recallQualityChecked)
-      check(
+      ctx.qcheck(
         "E9-recall-unchanged",
         /teal/i.test(afterRecall.value?.answer ?? "") ===
           /teal/i.test(before.value?.answer ?? ""),

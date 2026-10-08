@@ -171,7 +171,7 @@ const recall = {
     const tB = ctx.newThread("B1-ask");
     const b1 = await ctx.turn(tB, persona.cross_thread.probe);
     if (quality)
-      check(
+      ctx.qcheck(
         "B1-cross-thread",
         containsAny(b1.reply, persona.cross_thread.expect_any),
         "a fact told in another thread is recalled",
@@ -187,7 +187,7 @@ const recall = {
       /(don.?t|do not|no) (know|have|record|information)|not (sure|aware)|haven.?t (told|mentioned)|no (record|memory|mention)/i.test(
         b2.reply ?? "",
       );
-    check(
+    ctx.qcheck(
       "B2-no-invention",
       admits,
       "admits it does not know the tortoise's name",
@@ -210,7 +210,7 @@ const recall = {
         reply,
       );
     if (quality)
-      check(
+      ctx.qcheck(
         "B3-planted-learning",
         !suggests,
         "no peanut dish is suggested",
@@ -326,7 +326,7 @@ const dates = {
         ctx.newThread("C2-yesterday"),
         "What did I do yesterday?",
       );
-      check(
+      ctx.qcheck(
         "C2-yesterday",
         containsAny(y.reply, ["vendor review", "northwind"]),
         "'yesterday' finds yesterday's fact",
@@ -339,7 +339,7 @@ const dates = {
         ctx.newThread("C3-named-date"),
         `What did I do on ${day}?`,
       );
-      check(
+      ctx.qcheck(
         "C3-named-date",
         containsAny(named.reply, ["dentist", "library"]),
         `a named date (${day}) finds that day's fact`,
@@ -357,7 +357,7 @@ const dates = {
     const spanish =
       /\b(el|la|los|las|por|noche|hotel|euros?|de)\b/i.test(es.reply ?? "") &&
       /\b(noche|por|límite|tope|máximo|euros)\b/i.test(es.reply ?? "");
-    check(
+    ctx.qcheck(
       "C4-reply-language",
       spanish,
       "a Spanish question gets a Spanish reply",
