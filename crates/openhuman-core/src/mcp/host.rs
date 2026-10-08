@@ -227,6 +227,36 @@ pub fn for_config(config: &Config) -> anyhow::Result<Arc<McpHost>> {
     Ok(service)
 }
 
+/// The service for `config` when one exists, without creating an agent's.
+///
+/// Outside an agent context this is [`for_config`]. Under one, an agent that
+/// never installed a server has no store on disk, and a read (listing
+/// connections or tools) must not create one: it answers with an error the
+/// read paths already treat as "nothing connected".
+///
+/// # Errors
+///
+/// When the agent has no host yet, or [`for_config`] fails.
+pub fn lookup(config: &Config) -> anyhow::Result<Arc<McpHost>> {
+    let key = host_key(config);
+    if key != config.workspace_dir {
+        let open = HOSTS.get().and_then(|hosts| {
+            hosts
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .get(&key)
+                .map(|entry| Arc::clone(&entry.host))
+        });
+        if let Some(host) = open {
+            return Ok(host);
+        }
+        if !Store::path_for(&key).exists() {
+            anyhow::bail!("the agent has no mcp host yet");
+        }
+    }
+    for_config(config)
+}
+
 /// Opens the service for `config` and marks its workspace the default.
 ///
 /// Called once, from the core startup path. A second call opens nothing new and
@@ -304,7 +334,7 @@ fn host_key(config: &Config) -> PathBuf {
 /// be opened, which must not fall back to another agent's or the default one.
 fn current_agent_host() -> Option<Option<Arc<McpHost>>> {
     let agent = crate::core::runtime::agent_scope::current_agent_id()?;
-    let opened = crate::core::runtime::CoreContext::with_current_embedder_config(for_config)?;
+    let opened = crate::core::runtime::CoreContext::with_current_embedder_config(lookup)?;
     Some(match opened {
         Ok(host) => Some(host),
         Err(error) => {

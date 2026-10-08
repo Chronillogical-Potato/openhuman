@@ -44,10 +44,11 @@ async fn the_ambient_service_under_an_agent_is_that_agents_host() {
     let temporary = tempfile::tempdir().expect("tempdir");
     let config = workspace_config(temporary.path());
 
-    let (ambient, addressed) = CoreContext::scope(agent_context(&config, "gamma"), async {
+    let (addressed, ambient) = CoreContext::scope(agent_context(&config, "gamma"), async {
+        let addressed = for_config(&config).expect("the agent's host opens");
         (
-            try_service().expect("an agent always has a host"),
-            for_config(&config).expect("the agent's host opens"),
+            addressed,
+            try_service().expect("an opened agent host is ambient"),
         )
     })
     .await;
@@ -75,4 +76,19 @@ async fn an_evicted_agent_host_is_reopened_fresh() {
     })
     .await;
     assert!(!Arc::ptr_eq(&first, &reopened));
+}
+
+#[tokio::test]
+async fn reading_an_agents_connections_does_not_create_its_host() {
+    let temporary = tempfile::tempdir().expect("tempdir");
+    let config = workspace_config(temporary.path());
+
+    let (looked_up, ambient) = CoreContext::scope(agent_context(&config, "epsilon"), async {
+        (lookup(&config).is_err(), try_service().is_none())
+    })
+    .await;
+
+    assert!(looked_up, "no host exists for a fresh agent");
+    assert!(ambient, "the ambient lookup answers nothing connected");
+    assert!(!temporary.path().join("agents").join("epsilon").exists());
 }
