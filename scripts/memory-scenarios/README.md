@@ -18,8 +18,8 @@ node scripts/memory-scenarios/run.mjs --engine local --keep
 node scripts/memory-scenarios/run.mjs --grade-only target/memory-scenarios/<run-id>
 ```
 
-Requires a **debug** core (`cargo build -p openhuman-cli --bin openhuman-core`,
-debug so the Composio base override is honoured), Docker, and for the local
+Requires a core build (`cargo build -p openhuman-cli --bin openhuman-core`),
+Docker, and for the local
 engine's embeddings a running Ollama with `nomic-embed-text` (and `llama3.2:3b`
 for CortexDB's extraction and answer lanes; both pulled when missing).
 
@@ -135,7 +135,6 @@ running it.
 | A-storing     | both    | chats with two agents logged under each agent; learnings of every kind, kind visible on read-back; brain text; a file from a path holding a username (only the basename may reach the engine); dated facts                                                                               |
 | B-recall      | both    | cross-thread recall; a negative control (no invention); a planted learning changes a reply; brain retrieval with citations; pre-turn pack timeouts at the default wait vs 6000 ms (`[memory:hooks] pre_turn timed out` in core.log)                                                      |
 | C-dates       | both    | the user time zone; "yesterday" and a named date find the right fact; a Spanish question gets a Spanish reply                                                                                                                                                                            |
-| D-connectors  | local   | mock Composio (`mock-composio.mjs`): items under `source:<app>`; GitHub split by `{owner}--{repo}`; an edit replaces the old version; disconnect-with-clear removes only that app; a disconnect during a sync leaves nothing; reconnect syncs; the Gmail sender becomes `observed_actor` |
 | E-migration   | local   | legacy items plus a v1 store: import with consent; a shared (self-hosted) tree waits for the takeover consent, then moves; a core restart mid-move; layout v3; nothing lost; v1 documents present; chats pooled at `ws:main`; the same recall answer                                     |
 | F-labels      | local   | thread and agent on every logged turn; phone numbers in plain text; on the wire, `observed_actor`/`subject` on assistant turns only with `[memory] observed_actor = true`, none with it off                                                                                              |
 | G-source-cap  | both    | more than four brain sources: at most four in the pack, the named one included, no Team section                                                                                                                                                                                          |
@@ -168,7 +167,6 @@ target/memory-scenarios/<run-id>/
   <engine>/core.log  the core's log (scrubbed)
   <engine>/rpc.jsonl every RPC with its result (scrubbed)
   <engine>/scenarios/<id>/transcript.jsonl   every turn: message, reply, tools, time
-  local/composio-requests.json               what the mock Composio received
   local/cortex-wire.jsonl                    every request the core sent CortexDB (scrubbed)
 ```
 

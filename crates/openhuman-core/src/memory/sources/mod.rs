@@ -1,18 +1,14 @@
 //! Document sources: the registry persisted in `[[memory.sources]]`, and sync.
 //!
 //! A source names something to read — a folder, a file, a web page, a GitHub
-//! repository, an RSS feed or a connected Composio toolkit — and how often.
-//! Sync reads it through `tinymemory-sources` (or, for Composio, the connector
-//! module) and stores each item as a `Document` whose `meta.source` is
+//! repository or an RSS feed — and how often. Sync reads it through
+//! `tinymemory-integrations`' readers and stores each item as a `Document` whose `meta.source` is
 //! `{kind, id: <source id>}`, so removing a source can forget exactly its
 //! items. Sync runs on demand ([`start_sync`]) and from the
 //! `memory_sources_sync` cron job ([`sync_due`]).
 
-pub mod composio;
-pub mod roots;
 pub mod state;
 mod sync;
-pub mod versions;
 
 use chrono::{DateTime, Utc};
 use tinymemory_api::{ForgetTarget, MetaFilter};
@@ -60,7 +56,7 @@ pub fn list(config: &Config) -> Vec<SourceView> {
 }
 
 /// Normalises a target for `kind`: GitHub accepts `owner/repo` or a URL;
-/// network kinds must be http(s) URLs; a Composio target is a toolkit slug.
+/// network kinds must be http(s) URLs.
 pub fn normalize_target(kind: MemorySourceKind, target: &str) -> MemoryResult<String> {
     let target = target.trim();
     if target.is_empty() {
@@ -83,16 +79,6 @@ pub fn normalize_target(kind: MemorySourceKind, target: &str) -> MemoryResult<St
             }
         }
         MemorySourceKind::Link | MemorySourceKind::Rss => http_url(target),
-        MemorySourceKind::Composio => {
-            if target
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
-            {
-                Ok(crate::integrations::composio::tools::canonicalize_toolkit_slug(target))
-            } else {
-                Err(MemoryError::invalid("a Composio target is a toolkit slug"))
-            }
-        }
     }
 }
 
@@ -112,7 +98,7 @@ pub fn apply_add(
 ) -> MemoryResult<MemorySourceConfig> {
     let kind = MemorySourceKind::parse(&params.kind).ok_or_else(|| {
         MemoryError::invalid(format!(
-            "unknown source kind `{}` (folder, file, link, github, rss, composio)",
+            "unknown source kind `{}` (folder, file, link, github, rss)",
             params.kind.trim()
         ))
     })?;
@@ -124,19 +110,11 @@ pub fn apply_add(
             )));
         }
     }
-    // A Composio target saved before targets were canonicalized
-    // (`google_drive`) is the same toolkit as its canonical slug.
-    let same_target = |saved: &str| match kind {
-        MemorySourceKind::Composio => {
-            crate::integrations::composio::tools::canonicalize_toolkit_slug(saved) == target
-        }
-        _ => saved == target,
-    };
     if config
         .memory
         .sources
         .iter()
-        .any(|source| source.kind == kind && same_target(&source.target))
+        .any(|source| source.kind == kind && source.target == target)
     {
         return Err(MemoryError::invalid("that source is already added"));
     }

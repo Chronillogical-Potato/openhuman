@@ -22,25 +22,11 @@ fn synced_items_are_filed_by_their_connector() {
         (MemorySourceKind::Github, "o/r", BrainSource::Github),
         (MemorySourceKind::Link, "https://x", BrainSource::Web),
         (MemorySourceKind::Rss, "https://x/feed", BrainSource::Web),
-        (MemorySourceKind::Composio, "Notion", BrainSource::Notion),
-        // The Composio toolkit and the GitHub reader share one source.
-        (MemorySourceKind::Composio, "github", BrainSource::Github),
-        (
-            MemorySourceKind::Composio,
-            "gmail",
-            BrainSource::Other("gmail".into()),
-        ),
-        // An alias files under the slug Composio itself uses.
-        (
-            MemorySourceKind::Composio,
-            "google_drive",
-            BrainSource::Other("googledrive".into()),
-        ),
         // Local files, whatever their format, share one source.
         (MemorySourceKind::Folder, "/n", files_source()),
         (MemorySourceKind::File, "/n/deck/Q3.PDF", files_source()),
     ] {
-        assert_eq!(brain_source(kind, target), want, "{kind:?} {target}");
+        assert_eq!(brain_source(kind), want, "{kind:?} {target}");
     }
     assert_eq!(files_source().to_string(), "files");
 }

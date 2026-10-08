@@ -64,7 +64,6 @@ async fn every_memory_state_file_is_owner_only() {
 
     crate::memory::channels::record(&workspace, "telegram", "thread-1");
     crate::memory::sources::state::update(&workspace, "src-1", |_| {});
-    crate::memory::sources::roots::record(&workspace, "composio:gmail", "user:x").unwrap();
     crate::memory::layout_migration::state::save(&workspace, &Default::default()).unwrap();
     jobs::enqueue(
         &config,
@@ -84,5 +83,5 @@ async fn every_memory_state_file_is_owner_only() {
         assert_eq!(mode(&path), 0o600, "{}", path.display());
         seen += 1;
     }
-    assert!(seen >= 5, "every state file was written: {seen}");
+    assert!(seen >= 4, "every state file was written: {seen}");
 }

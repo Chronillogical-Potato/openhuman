@@ -51,14 +51,6 @@ fn normalize_target_accepts_each_kinds_shape() {
         normalize_target(MemorySourceKind::Link, "https://example.com").unwrap(),
         "https://example.com/"
     );
-    assert_eq!(
-        normalize_target(MemorySourceKind::Composio, "GMail").unwrap(),
-        "gmail"
-    );
-    assert_eq!(
-        normalize_target(MemorySourceKind::Composio, "Google_Drive").unwrap(),
-        "googledrive"
-    );
 }
 
 #[test]
@@ -71,8 +63,6 @@ fn normalize_target_rejects_malformed_targets() {
         (MemorySourceKind::Link, "not a url"),
         (MemorySourceKind::Link, "ftp://example.com/x"),
         (MemorySourceKind::Rss, "file:///etc/passwd"),
-        (MemorySourceKind::Composio, "has space"),
-        (MemorySourceKind::Composio, "a/b"),
     ] {
         assert_eq!(
             normalize_target(kind, target).unwrap_err().code(),
@@ -158,24 +148,27 @@ fn add_validates_kind_schedule_and_target() {
         config.memory.sources.is_empty(),
         "a refused add changes nothing"
     );
-    // A Composio source needs no reader.
-    apply_add(&mut config, &add_params("composio", "Gmail")).unwrap();
-    assert_eq!(config.memory.sources[0].target, "gmail");
+}
 
-    // A source saved under an alias before canonicalization is still the
-    // same toolkit.
-    config.memory.sources.push(MemorySourceConfig {
-        kind: MemorySourceKind::Composio,
-        target: "google_drive".into(),
-        ..source("src-drive", None)
-    });
-    assert_eq!(
-        apply_add(&mut config, &add_params("composio", "googledrive"))
-            .unwrap_err()
-            .code(),
-        INVALID_REQUEST
-    );
-    assert_eq!(config.memory.sources.len(), 2, "no duplicate was added");
+#[test]
+fn the_removed_composio_kind_is_rejected_and_every_other_kind_is_accepted() {
+    let mut config = Config::default();
+    let error = apply_add(&mut config, &add_params("composio", "gmail")).unwrap_err();
+    assert_eq!(error.code(), INVALID_REQUEST);
+    assert!(config.memory.sources.is_empty());
+    for (kind, target) in [
+        ("folder", "/notes"),
+        ("file", "/notes/a.md"),
+        ("link", "https://example.com/docs"),
+        ("github", "acme/widgets"),
+        ("rss", "https://example.com/feed.xml"),
+    ] {
+        assert!(
+            apply_add(&mut config, &add_params(kind, target)).is_ok(),
+            "{kind}"
+        );
+    }
+    assert_eq!(config.memory.sources.len(), 5);
 }
 
 #[test]

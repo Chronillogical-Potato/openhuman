@@ -1,8 +1,7 @@
 //! Owner-only writes of the local memory state files.
 //!
 //! The files under `<workspace>/memory/` (the job queue, channel threads,
-//! source sync state, connection roots, connector item versions, the layout
-//! migration state, the local install identity) hold ids and source
+//! source sync state, the layout migration state, the local install identity) hold ids and source
 //! settings that are the person's own. `std::fs::write` creates them with
 //! the process umask (0644 under the usual 022), readable by every local
 //! account; here, on unix, a file is created (and kept) 0600 and its

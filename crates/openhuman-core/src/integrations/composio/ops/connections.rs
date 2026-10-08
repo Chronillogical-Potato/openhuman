@@ -42,8 +42,7 @@ pub async fn composio_list_connections(
         // No session means no proxy route, so the connector module cannot
         // answer — but the connections may well exist server-side. That makes
         // this "unavailable", not "none": callers that tell the two apart
-        // (`memory::sources::reconcile` hides nothing on `Err`,
-        // `flows::validate_connection_refs` fails open on `Err`) must keep
+        // (`flows::validate_connection_refs` fails open on `Err`) must keep
         // doing so, which an empty `Ok` would silently defeat. It is also not
         // a fault, so it is not reported here: nothing reaches Sentry for a
         // user who has simply not signed in yet (#6176). The wording is the one
@@ -148,27 +147,30 @@ pub async fn composio_authorize(
     ))
 }
 
+/// The `composio.delete_connection` reply.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ComposioDeleteResult {
+    /// Whether the backend confirmed the deletion.
+    pub deleted: bool,
+}
+
 pub async fn composio_delete_connection(
     config: &Config,
     connection_id: &str,
-    clear_memory: bool,
-) -> OpResult<Outcome<ComposioDeleteResponse>> {
+) -> OpResult<Outcome<ComposioDeleteResult>> {
     tracing::debug!(connection_id = %connection_id, "[composio] rpc delete_connection");
-    // The toolkit names the identity facets to drop;
-    // forgetting memory needs only the connection id (its records carry a
-    // `connection:<id>` tag), so an unresolvable toolkit skips the former only.
+    // The toolkit names the identity facets to drop; an unresolvable toolkit
+    // skips that cleanup only.
     let toolkit = resolve_toolkit_for_connection(config, connection_id)
         .await
         .ok();
-    // Only the Composio-side removal crosses the bus. Everything around it —
-    // the synced memory and the identity facets — is this host's own
-    // bookkeeping about a connection it no longer has.
-    let mut resp = connectors::call::<_, ComposioDeleteResponse>(
+    // Only the Composio-side removal crosses the bus. The identity facets
+    // are this host's own bookkeeping about a connection it no longer has.
+    let resp = connectors::call::<_, ComposioDeleteResponse>(
         config,
         methods::DELETE_CONNECTION,
         ComposioDeleteConnectionRequest {
             connection_id: connection_id.to_string(),
-            clear_memory,
         },
     )
     .await
@@ -176,31 +178,6 @@ pub async fn composio_delete_connection(
         report_composio_op_error("delete_connection", &anyhow::anyhow!("{error}"));
         format!("[composio] delete_connection failed: {error}")
     })?;
-    let mut memory_clear_error = None;
-    if clear_memory {
-        match crate::memory::sources::composio::forget_connection(
-            config,
-            connection_id,
-            toolkit.as_deref(),
-        )
-        .await
-        {
-            Ok(forgotten) => {
-                tracing::debug!(
-                    connection_id = %connection_id,
-                    forgotten,
-                    "[composio] forgot memory synced through the deleted connection"
-                );
-                resp.memory_chunks_deleted = forgotten;
-            }
-            Err(error) => {
-                memory_clear_error = Some(format!(
-                    "[composio] connection deleted, but failed to clear its memory: {}",
-                    String::from(error)
-                ));
-            }
-        }
-    }
     if let Some(toolkit) = toolkit.as_deref() {
         let deleted = delete_connected_identity_facets(config, toolkit, connection_id)
             .await
@@ -242,11 +219,10 @@ pub async fn composio_delete_connection(
             );
         }
     }
-    if let Some(error) = memory_clear_error {
-        return Err(error);
-    }
     Ok(Outcome::new(
-        resp,
+        ComposioDeleteResult {
+            deleted: resp.deleted,
+        },
         vec![format!("composio: connection {connection_id} deleted")],
     ))
 }

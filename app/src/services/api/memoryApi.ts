@@ -34,13 +34,12 @@ export type SourceKind =
   | 'link'
   | 'github'
   | 'rss'
-  | 'composio'
   | 'conversation'
   | 'agent'
   | 'import';
 
 /** The source kinds a user can register as a synced Documents source. */
-export type DocumentSourceKind = 'folder' | 'file' | 'link' | 'github' | 'rss' | 'composio';
+export type DocumentSourceKind = 'folder' | 'file' | 'link' | 'github' | 'rss';
 
 export const DOCUMENT_SOURCE_KINDS: readonly DocumentSourceKind[] = [
   'folder',
@@ -48,7 +47,6 @@ export const DOCUMENT_SOURCE_KINDS: readonly DocumentSourceKind[] = [
   'link',
   'github',
   'rss',
-  'composio',
 ];
 
 /** The kinds a learning can be stored as. */

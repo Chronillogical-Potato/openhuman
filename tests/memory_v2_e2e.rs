@@ -1527,26 +1527,88 @@ async fn a_document_at_an_old_per_format_node_stays_listed_searchable_and_forget
 }
 
 #[tokio::test]
-async fn an_aliased_toolkit_is_one_memory_source() {
+async fn composio_is_no_longer_a_memory_source_kind() {
     let f = Fixture::new(true).await;
-
-    // A toolkit added under an alias is stored under the slug Composio uses,
-    // and adding it again under that slug is a duplicate.
-    let drive = f
-        .ok(
-            "openhuman.memory_sources_add",
-            json!({ "kind": "composio", "target": "Google_Drive" }),
-        )
-        .await;
-    assert_eq!(drive["source"]["target"], json!("googledrive"), "{drive}");
+    let folder = write_folder(f.home.path());
     assert_eq!(
         f.code(
             "openhuman.memory_sources_add",
-            json!({ "kind": "composio", "target": "googledrive" })
+            json!({ "kind": "composio", "target": "gmail" })
         )
         .await,
         "INVALID_REQUEST"
     );
+    for (kind, target) in [
+        ("folder", folder.to_string_lossy().to_string()),
+        ("file", format!("{}/launch.md", folder.to_string_lossy())),
+        ("link", "https://example.com/docs".to_string()),
+        ("github", "acme/widgets".to_string()),
+        ("rss", "https://example.com/feed.xml".to_string()),
+    ] {
+        let added = f
+            .ok(
+                "openhuman.memory_sources_add",
+                json!({ "kind": kind, "target": target }),
+            )
+            .await;
+        assert_eq!(added["source"]["kind"], json!(kind));
+    }
+}
+
+#[tokio::test]
+async fn composio_sync_is_no_longer_a_method() {
+    let f = Fixture::new(true).await;
+    let response = f
+        .call("openhuman.composio_sync", json!({ "connection_id": "c-1" }))
+        .await;
+    let message = response["error"]["message"].as_str().unwrap_or_default();
+    assert!(
+        response.get("error").is_some() && message.contains("unknown method"),
+        "composio_sync must be an unknown method: {response}"
+    );
+}
+
+#[tokio::test]
+async fn a_stale_config_with_a_composio_source_loads_without_it() {
+    let f = Fixture::new(true).await;
+    let stale = r#"
+[[memory.sources]]
+id = "src-composio"
+kind = "composio"
+target = "gmail"
+
+[[memory.sources]]
+id = "src-notes"
+kind = "folder"
+target = "/tmp/stale-notes"
+
+[[memory.sources]]
+id = "src-feed"
+kind = "rss"
+target = "https://example.com/feed.xml"
+"#;
+    for dir in [
+        f.home.path().join(".openhuman"),
+        f.home
+            .path()
+            .join(".openhuman")
+            .join("users")
+            .join(MOCK_USER_ID),
+    ] {
+        let path = dir.join("config.toml");
+        let mut text = std::fs::read_to_string(&path).expect("read config.toml");
+        text.push_str(stale);
+        std::fs::write(&path, text).expect("write config.toml");
+    }
+    let listed = f.ok("openhuman.memory_sources_list", json!({})).await;
+    let mut ids: Vec<String> = listed["sources"]
+        .as_array()
+        .expect("sources array")
+        .iter()
+        .filter_map(|s| s["id"].as_str().map(str::to_string))
+        .collect();
+    ids.sort();
+    assert_eq!(ids, ["src-feed", "src-notes"], "{listed}");
 }
 
 #[tokio::test]

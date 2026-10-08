@@ -336,7 +336,8 @@ impl Default for MemoryRecallConfig {
     }
 }
 
-/// What a document source reads.
+/// What a document source reads. The `composio` kind was removed: a saved
+/// entry of that kind is dropped at load.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum MemorySourceKind {
@@ -350,19 +351,16 @@ pub enum MemorySourceKind {
     Github,
     /// An RSS or Atom feed.
     Rss,
-    /// A connected Composio toolkit.
-    Composio,
 }
 
 impl MemorySourceKind {
     /// Every kind, in display order.
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 5] = [
         Self::Folder,
         Self::File,
         Self::Link,
         Self::Github,
         Self::Rss,
-        Self::Composio,
     ];
 
     /// Wire name.
@@ -374,7 +372,6 @@ impl MemorySourceKind {
             Self::Link => "link",
             Self::Github => "github",
             Self::Rss => "rss",
-            Self::Composio => "composio",
         }
     }
 
@@ -396,7 +393,7 @@ pub struct MemorySourceConfig {
     pub id: String,
     /// What the source reads.
     pub kind: MemorySourceKind,
-    /// Path, URL, `owner/repo`, feed URL or Composio toolkit.
+    /// Path, URL, `owner/repo` or feed URL.
     pub target: String,
     /// Display label.
     #[serde(default)]
@@ -422,7 +419,9 @@ where
 }
 
 /// Decodes source entries leniently: an entry that does not parse is dropped
-/// with a warning naming only its index and reason (never its contents).
+/// with a warning naming only its index and reason (never its contents). This
+/// is also how a saved `composio` source (a removed kind) disappears: its
+/// `kind` no longer parses.
 pub(crate) fn decode_sources_lenient(raw: Vec<serde_json::Value>) -> Vec<MemorySourceConfig> {
     raw.into_iter()
         .enumerate()
@@ -433,7 +432,7 @@ pub(crate) fn decode_sources_lenient(raw: Vec<serde_json::Value>) -> Vec<MemoryS
                     tracing::warn!(
                         index,
                         error = %error,
-                        "[memory:config] dropping unreadable memory source entry"
+                        "[memory:config] dropping unreadable or removed-kind memory source entry"
                     );
                     None
                 }
@@ -445,7 +444,7 @@ pub(crate) fn decode_sources_lenient(raw: Vec<serde_json::Value>) -> Vec<MemoryS
 /// Maps one legacy v1 `[[memory_sources]]` entry onto a v2 source.
 ///
 /// v1 kinds map as `folder`→`folder`, `file`→`file`, `web_page`→`link`,
-/// `github_repo`→`github`, `rss_feed`→`rss`, `composio`→`composio`. The v1
+/// `github_repo`→`github`, `rss_feed`→`rss`. The v1 `composio`,
 /// `twitter_query` and `conversation` kinds have no v2 equivalent and are
 /// dropped, as is anything else unrecognised or missing its target.
 #[must_use]
@@ -465,13 +464,15 @@ pub fn migrate_legacy_source(value: &serde_json::Value) -> Option<MemorySourceCo
         "web_page" => MemorySourceKind::Link,
         "github_repo" => MemorySourceKind::Github,
         "rss_feed" => MemorySourceKind::Rss,
-        "composio" => MemorySourceKind::Composio,
+        "composio" => {
+            tracing::warn!("[memory:config] dropping legacy composio memory source (removed kind)");
+            return None;
+        }
         _ => return None,
     };
     let target = match kind {
         MemorySourceKind::Folder | MemorySourceKind::File => text("path")?,
         MemorySourceKind::Link | MemorySourceKind::Github | MemorySourceKind::Rss => text("url")?,
-        MemorySourceKind::Composio => text("toolkit")?,
     };
     if object.get("enabled").and_then(serde_json::Value::as_bool) == Some(false) {
         return None;

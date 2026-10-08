@@ -137,10 +137,9 @@ its own schedule (`scheduled`); an engine that cannot consolidate answers
 
 ## The brain (`memory::brain`, `memory::sources`)
 
-- **Synced sources** (`folder`, `file`, `link`, `github`, `rss`, `composio`)
+- **Synced sources** (`folder`, `file`, `link`, `github`, `rss`)
   are filed under the brain source their items belong to: GitHub → `github`,
-  links and feeds → `web`, a Composio toolkit → its own source (`notion`,
-  `gmail`, …), local files by type (`pdf`, HTML → `web`, other text →
+  links and feeds → `web`, local files by type (`pdf`, HTML → `web`, other text →
   `markdown`). A source's `namespace` names the layout root it files under.
 - **Ingest** (`memory_brain_ingest`) files a local file (converted, its
   source picked from its format) or text, accepted without waiting for

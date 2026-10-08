@@ -47,7 +47,7 @@ Chat thread persistence is not memory: see [`threads/store`](../threads/store/RE
 | `lifecycle/jobs.rs` | The persisted job queue (`<workspace>/memory/jobs.json`) and the `memory_background` run. |
 | `lifecycle/views.rs` | Policy get/set, pack preview, agents list, jobs list/run. |
 | `brain.rs` | Brain source mapping and the brain ops. |
-| `sources/` | Source registry, state and sync (folder, file, link, github, rss, composio). |
+| `sources/` | Source registry, state and sync (folder, file, link, github, rss). |
 | `channels.rs` | Channel → thread records for forgetting a channel. |
 | `deletion.rs` | Hard deletes that must reach the engine: thread forget, the pending-deletion queue (`<workspace>/memory/pending_deletions.json`) and its drain. |
 | `backfill.rs` | Past chats from the thread store, resumable, with consent. |

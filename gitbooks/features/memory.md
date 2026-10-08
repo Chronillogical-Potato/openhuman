@@ -57,7 +57,6 @@ Below that, **Synced sources** keep the brain up to date. A source is one of:
 | `link` | A web page | `web` |
 | `github` | A repository (`owner/repo`) | `github` |
 | `rss` | A feed URL | `web` |
-| `composio` | A connected integration (Composio toolkit) | the toolkit (`notion`, `gmail`, …) |
 
 Sources sync when you press sync and on a schedule you set per source. An unchanged file that syncs again is not stored twice. Removing a source can also forget the items it produced.
 

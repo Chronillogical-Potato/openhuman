@@ -82,9 +82,8 @@ fn a_deletion_is_queued_once() {
     enqueue(tmp.path(), thread("t"));
     enqueue(
         tmp.path(),
-        PendingDeletion::Connection {
-            connection_id: "c".into(),
-            toolkit: Some("gmail".into()),
+        PendingDeletion::Source {
+            source_id: "src-1".into(),
         },
     );
     assert_eq!(pending(tmp.path()).len(), 2);

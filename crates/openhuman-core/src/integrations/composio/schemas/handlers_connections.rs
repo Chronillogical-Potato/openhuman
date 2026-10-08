@@ -49,8 +49,7 @@ pub(super) fn handle_delete_connection(params: Map<String, Value>) -> Controller
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         let connection_id = read_required_non_empty(&params, "connection_id")?;
-        let clear_memory = read_optional::<bool>(&params, "clear_memory")?.unwrap_or(false);
-        to_json(ops::composio_delete_connection(&config, &connection_id, clear_memory).await?)
+        to_json(ops::composio_delete_connection(&config, &connection_id).await?)
     })
 }
 

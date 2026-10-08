@@ -1,7 +1,7 @@
 //! Deletions that must reach the engine, whenever it is reachable.
 //!
-//! Deleting a chat thread, disconnecting a connector, forgetting a channel
-//! (one thread deletion per thread it owned) or removing a source asks the engine to delete for good. When memory is off
+//! Deleting a chat thread, forgetting a channel (one thread deletion per
+//! thread it owned) or removing a source asks the engine to delete for good. When memory is off
 //! (signed out, no credential) the engine cannot be reached, and when it
 //! fails the deletion has not happened. Either way the deletion is recorded
 //! here, in `<workspace>/memory/pending_deletions.json`, and [`drain`] runs
@@ -9,8 +9,7 @@
 //! on every background tick, until it succeeds.
 //!
 //! Every deletion is hard: a forget by filter removes the matched events by
-//! `memory_ids` with an explicit `redact_events` cascade, and a connector's
-//! own source scope is erased outright (see `sources::composio`).
+//! `memory_ids` with an explicit `redact_events` cascade.
 
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex};
@@ -32,14 +31,6 @@ pub enum PendingDeletion {
         /// The thread.
         thread_id: String,
     },
-    /// Everything synced through a disconnected Composio connection.
-    Connection {
-        /// The connection.
-        connection_id: String,
-        /// Its toolkit, when it was known at disconnect.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        toolkit: Option<String>,
-    },
     /// Every item a removed memory source stored.
     Source {
         /// The source id.
@@ -52,7 +43,6 @@ impl PendingDeletion {
     fn label(&self) -> &'static str {
         match self {
             Self::Thread { .. } => "thread",
-            Self::Connection { .. } => "connection",
             Self::Source { .. } => "source",
         }
     }
@@ -151,13 +141,6 @@ fn settle(workspace_dir: &Path, deletion: &PendingDeletion) {
 async fn run(config: &Config, deletion: &PendingDeletion) -> MemoryResult<usize> {
     match deletion {
         PendingDeletion::Thread { thread_id } => forget_thread_now(config, thread_id).await,
-        PendingDeletion::Connection {
-            connection_id,
-            toolkit,
-        } => {
-            super::sources::composio::forget_connection(config, connection_id, toolkit.as_deref())
-                .await
-        }
         PendingDeletion::Source { source_id } => {
             super::sources::forget_items(config, source_id).await
         }

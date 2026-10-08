@@ -33,12 +33,10 @@ import {
   forgetLedger,
   builtinCredential,
 } from "./engines.mjs";
-import { startMockComposio } from "./mock-composio.mjs";
 import { SCENARIOS, registerLocalOnly } from "./scenarios.mjs";
-import { connectors } from "./connectors.mjs";
 import { migration } from "./migration.mjs";
 
-registerLocalOnly(connectors, migration);
+registerLocalOnly(migration);
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..", "..");
@@ -186,7 +184,6 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
   const log = (m) => console.log(m);
 
   let cortex = null;
-  let composio = null;
   let wire = null;
   let guardPlaced = false;
   let builtinSubject = null;
@@ -217,7 +214,6 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
     const stopCortex = () => cortex.stop();
     CLEANUPS.add(stopCortex);
     engineResults.inference = cortex.inference;
-    composio = await startMockComposio();
     // Chat runs on the account's managed route (user decision); memory stays on
     // the container. The key reaches the core only through the environment.
     try {
@@ -229,18 +225,11 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
         `local   : no account key (${e.message}); chat will fall back to Ollama`,
       );
     }
-    extraEnv.OPENHUMAN_COMPOSIO_DIRECT_BASE_V3 = composio.url;
-    extraEnv.OPENHUMAN_COMPOSIO_DIRECT_BASE_V2 = composio.url;
     await fsp.writeFile(
       path.join(oh, "config.toml"),
       BASE_CONFIG([
         "[scheduler_gate]",
         'mode = "off"',
-        "",
-        "[composio]",
-        'mode = "direct"',
-        'api_key = "ck_memscen_mock"',
-        'entity_id = "default"',
         "",
       ]),
     );
@@ -291,7 +280,7 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
   };
 
   /**
-   * Set up a local-engine core: a local session, the mock Composio, memory on
+   * Set up a local-engine core: a local session, memory on
    * this run's container (abort otherwise) and a chat route. With the account
    * key (`withKey`), the scheduler gate is forced off and chat is managed.
    * Without it (a fresh HOME that never saw the key), the gate keeps its
@@ -306,15 +295,10 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
       userId: uid,
       user: { _id: uid, email: "memscen@local.invalid", name: "Jordan Lee" },
     });
-    // The session activates a user dir whose config wins: put the mock
-    // Composio and the scheduler-gate guard there, restart, read back.
+    // The session activates a user dir whose config wins: put the
+    // scheduler-gate guard there, restart, read back.
     // With the account key present, no background job may run on its own.
     const { config_path: cfgPath } = await core.rpc("openhuman.config_get", {});
-    await editToml(cfgPath, "composio", {
-      mode: "direct",
-      api_key: "ck_memscen_mock",
-      entity_id: "default",
-    });
     if (withKey) await editToml(cfgPath, "scheduler_gate", { mode: "off" });
     await core.stop();
     await startCore();
@@ -500,7 +484,6 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
           engine === "builtin" ||
           !!engineResults.inference?.recall_quality_checked,
         cortex,
-        composio,
         wire,
         results: sres.results,
         get core() {
@@ -862,13 +845,6 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
     }
     events?.close();
     await core?.stop();
-    if (composio) {
-      await fsp.writeFile(
-        path.join(dir, "composio-requests.json"),
-        JSON.stringify(composio.ctx.requests, null, 2),
-      );
-      await composio.close();
-    }
     await cortex
       ?.stop()
       .catch((e) => console.error(`local   : teardown failed: ${e.message}`));
@@ -946,7 +922,7 @@ async function main() {
   }
   if (!fs.existsSync(opts.coreBin))
     throw new Error(
-      `core binary not found at ${opts.coreBin}\nbuild it (debug, for the Composio override): cargo build -p openhuman-cli --bin openhuman-core`,
+      `core binary not found at ${opts.coreBin}\nbuild it: cargo build -p openhuman-cli --bin openhuman-core`,
     );
   const engines = opts.engine === "both" ? ["local", "builtin"] : [opts.engine];
   if (engines.includes("builtin")) await builtinCredential(); // refuse early, before anything starts
