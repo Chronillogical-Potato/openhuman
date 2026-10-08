@@ -23,7 +23,7 @@ fn graph_failure_persists_only_accepted_snapshot_history() {
         },
     ));
     let failure = driver_error_with_snapshot(
-        "provider rejected follow-up",
+        anyhow::anyhow!("provider rejected follow-up"),
         &snapshot,
         &sidecar(),
         std::time::Duration::from_millis(1),
@@ -59,7 +59,7 @@ fn stalled_model_stream_reports_completed_evidence_instead_of_its_narration() {
         },
     ));
     let failure = driver_error_with_snapshot(
-        tinyagents_harness::TinyAgentsError::GenerationStalled,
+        anyhow::Error::new(tinyagents_harness::TinyAgentsError::GenerationStalled),
         &snapshot,
         &sidecar(),
         std::time::Duration::from_millis(1),
@@ -102,7 +102,7 @@ fn graph_failure_copies_snapshot_usage_and_failed_tool_outcome_to_sidecar() {
     ));
     let sidecar = sidecar();
     let failure = driver_error_with_snapshot(
-        "tool follow-up was rejected",
+        anyhow::anyhow!("tool follow-up was rejected"),
         &snapshot,
         &sidecar,
         std::time::Duration::from_millis(25),
