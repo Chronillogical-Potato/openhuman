@@ -116,11 +116,12 @@ fn validate_root_accepts_nodes_and_refuses_junk() {
 fn a_user_root_is_the_account_id_or_a_hashed_local_id() {
     assert_eq!(
         user_root_for("6512AB0F6512ab0f6512ab0f").as_deref(),
-        Some("user:6512ab0f6512ab0f6512ab0f")
+        Some("org:6512ab0f6512ab0f6512ab0f")
     );
     let local = user_root_for("local-megamind-macbook").unwrap();
-    assert!(local.starts_with("user:local-"), "{local}");
-    assert_eq!(local.len(), "user:local-".len() + 16);
+    assert!(local.starts_with("org:local-"), "{local}");
+    assert_eq!(local.len(), "org:local-".len() + 16);
+    assert!(!local.contains("user:"), "{local}");
     assert!(!local.contains("megamind"), "no device name: {local}");
     assert_eq!(Some(local), user_root_for("local-megamind-macbook"));
     assert_eq!(user_root_for(crate::config::PRE_LOGIN_USER_ID), None);
@@ -133,7 +134,7 @@ fn the_user_root_is_read_from_where_the_config_lives() {
     config.config_path = "/h/.openhuman/users/6512ab0f6512ab0f6512ab0f/config.toml".into();
     assert_eq!(
         user_root(&config).as_deref(),
-        Some("user:6512ab0f6512ab0f6512ab0f")
+        Some("org:6512ab0f6512ab0f6512ab0f")
     );
     config.config_path = "/h/.openhuman/users/local/config.toml".into();
     assert_eq!(user_root(&config), None);
@@ -166,4 +167,17 @@ fn layout_v3_pools_every_agents_chats_at_ws_main() {
 
     let team = MemoryIdentity::team_member("acme", "writer").resolve(&config);
     assert_eq!(chat_node(&team.layout), ns("team:acme/ws:main"));
+}
+
+#[test]
+fn a_roots_actor_is_its_user_spelling() {
+    assert_eq!(actor_of_root("org:6512ab0f6512ab0f6512ab0f"), "user:6512ab0f6512ab0f6512ab0f");
+    assert_eq!(actor_of_root("org:local-0011223344556677"), "user:local-0011223344556677");
+    // The actor of the earlier root is the same account.
+    assert_eq!(
+        actor_of_root(&user_root_for("local-megamind-macbook").unwrap()),
+        user_root_for("local-megamind-macbook")
+            .unwrap()
+            .replacen("org:", "user:", 1)
+    );
 }
