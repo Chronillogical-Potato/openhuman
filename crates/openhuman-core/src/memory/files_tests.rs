@@ -14,7 +14,11 @@ fn write_private_writes_the_bytes() {
     let file = tmp.path().join("memory").join("state.json");
     write_private(&file, b"{\"a\":1}").unwrap();
     write_private(&file, b"{}").unwrap();
-    assert_eq!(std::fs::read(&file).unwrap(), b"{}", "truncated, not appended");
+    assert_eq!(
+        std::fs::read(&file).unwrap(),
+        b"{}",
+        "truncated, not appended"
+    );
 }
 
 #[cfg(unix)]
@@ -51,8 +55,8 @@ async fn every_memory_state_file_is_owner_only() {
     use tinymemory_api::{ConsolidateRequest, ItemKind, Namespace, Reach};
 
     use crate::memory::lifecycle::jobs;
-    use tinymemory_tools::BackgroundJob;
     use crate::memory::test_fixtures::config_in;
+    use tinymemory_tools::BackgroundJob;
 
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);

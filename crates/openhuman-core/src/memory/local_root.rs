@@ -150,7 +150,9 @@ fn read(file: &Path) -> std::io::Result<Option<LocalRoot>> {
     let record: LocalRoot = serde_json::from_str(&text).map_err(std::io::Error::other)?;
     let id = record.root.strip_prefix(LOCAL_ROOT_PREFIX).unwrap_or("");
     if id.is_empty() || !id.bytes().all(|b| b.is_ascii_alphanumeric()) {
-        return Err(std::io::Error::other("the recorded local root is malformed"));
+        return Err(std::io::Error::other(
+            "the recorded local root is malformed",
+        ));
     }
     Ok(Some(record))
 }
@@ -168,8 +170,9 @@ fn record_once(file: &Path, record: &LocalRoot) -> std::io::Result<LocalRoot> {
     temp.as_file().sync_all()?;
     match std::fs::hard_link(temp.path(), file) {
         Ok(()) => Ok(record.clone()),
-        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => read(file)?
-            .ok_or_else(|| std::io::Error::other("the local root record vanished")),
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+            read(file)?.ok_or_else(|| std::io::Error::other("the local root record vanished"))
+        }
         Err(error) => Err(error),
     }
 }

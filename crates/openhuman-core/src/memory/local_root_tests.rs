@@ -18,10 +18,7 @@ fn local_config(tmp: &tempfile::TempDir, install: &str) -> Config {
 }
 
 fn forget_cached(config: &Config) {
-    CACHE
-        .lock()
-        .unwrap()
-        .remove(&path(&config.workspace_dir));
+    CACHE.lock().unwrap().remove(&path(&config.workspace_dir));
 }
 
 fn recorded(config: &Config) -> LocalRoot {
