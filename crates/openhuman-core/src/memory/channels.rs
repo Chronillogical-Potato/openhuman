@@ -77,14 +77,42 @@ pub fn threads_of(workspace_dir: &Path, channel: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Forgets every conversation logged from `channel` and drops its record.
-/// Memory off forgets nothing and reports zero.
+/// Forgets, for good, every conversation logged from `channel` and drops
+/// its record. Conversations share their chat node with other channels, so
+/// there is no channel scope to erase: each thread's items are removed by
+/// `memory_ids` (with an explicit `redact_events` cascade).
+///
+/// Memory off forgets nothing now and reports zero; the deletion is queued
+/// ([`super::deletion`]) and runs on the next sign-in, with the channel's
+/// thread record kept until then. A failure is queued the same way.
 pub async fn forget_channel(config: &Config, channel: &str) -> MemoryResult<usize> {
+    let pending = || super::deletion::PendingDeletion::Channel {
+        channel: key(channel),
+    };
     let bound = match engine::resolve(config).engine() {
         Ok(bound) => bound,
-        Err(MemoryError::Off(_)) => return Ok(0),
+        Err(MemoryError::Off(_)) => {
+            if !threads_of(&config.workspace_dir, channel).is_empty() {
+                super::deletion::enqueue(&config.workspace_dir, pending());
+            }
+            return Ok(0);
+        }
         Err(error) => return Err(error),
     };
+    match forget_channel_with(config, &bound, channel).await {
+        Ok(forgotten) => Ok(forgotten),
+        Err(error) => {
+            super::deletion::enqueue(&config.workspace_dir, pending());
+            Err(error)
+        }
+    }
+}
+
+async fn forget_channel_with(
+    config: &Config,
+    bound: &engine::BoundEngine,
+    channel: &str,
+) -> MemoryResult<usize> {
     let mut forgotten = 0;
     for thread_id in threads_of(&config.workspace_dir, channel) {
         let filter = MetaFilter {

@@ -25,6 +25,7 @@ pub mod brain;
 pub mod bus;
 pub mod channels;
 pub(crate) mod convert;
+pub mod deletion;
 pub mod engine;
 pub mod error;
 pub mod explore;
