@@ -23,14 +23,14 @@ use std::sync::{Arc, LazyLock, Mutex};
 use serde::{Deserialize, Serialize};
 use tinymemory_api::{WaitFor, WriteOptions};
 use tinymemory_integrations::cortex::is_insufficient_credits;
-use tinymemory_integrations::import::{Checkpoint, ImportedItem, LegacyWorkspace};
+use tinymemory_integrations::import::{Checkpoint, ImportedItem};
 
 use crate::config::Config;
 
 use super::engine::{self, BoundEngine};
-use open::open_legacy;
 use super::error::{MemoryError, MemoryResult};
 use super::types::{ImportCounts, ImportPhase, ImportScanView, ImportState};
+use open::open_legacy;
 
 /// Items stored between two checkpoint writes.
 const CHECKPOINT_EVERY: u64 = 25;
