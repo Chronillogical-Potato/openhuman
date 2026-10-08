@@ -92,8 +92,8 @@ pub(crate) async fn store_all(
         let node = crate::memory::brain::brain_node(config, layout, &brain_source, &item)?;
         let item = crate::memory::brain::file_into(node.clone(), item);
         match store_on(bound, item).await {
-            Ok(receipt) => {
-                ids.push(Some(receipt.id.to_string()));
+            Ok(_) => {
+                stored += 1;
                 touched.insert(node);
             }
             // Out of credits or unreachable refuses every item, so stop
@@ -101,7 +101,7 @@ pub(crate) async fn store_all(
             Err(error) if error.is_account_wide() => return Err(error),
             Err(error) => {
                 tracing::debug!(id = %source_id, code = error.code(), "[memory:sources] item store failed");
-                ids.push(None);
+                failed += 1;
                 last_error = Some(error);
             }
         }
@@ -120,8 +120,8 @@ pub(crate) async fn store_all(
         .collect();
     crate::memory::lifecycle::jobs::enqueue(config, layout.root(), jobs).await;
     match last_error {
-        Some(error) if ids.iter().all(Option::is_none) => Err(error),
-        _ => Ok(ids),
+        Some(error) if stored == 0 && failed > 0 => Err(error),
+        _ => Ok(stored),
     }
 }
 
