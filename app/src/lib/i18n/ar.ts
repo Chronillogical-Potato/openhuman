@@ -4957,7 +4957,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'غير محدودة',
   'memoryPage.engine.chip.apikey': 'مفتاح CortexDB الخاص بك',
   'memoryPage.engine.chip.selfhost': 'محلي',
-  'memoryPage.engine.fairUse.summary': 'يسري الاستخدام العادل',
+  'memoryPage.engine.fairUse.summary': 'تخضع الذاكرة غير المحدودة لسياسة الاستخدام العادل',
   'memoryPage.engine.offPrompt': 'اختر مزوّدًا أدناه لبدء التذكّر.',
   'memoryPage.engine.builtin.summaryPlan':
     'مستضاف لدى TinyHumans، مع ذاكرة غير محدودة في خطة {plan}.',

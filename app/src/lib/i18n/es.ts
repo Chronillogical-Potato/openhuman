@@ -5145,7 +5145,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'Ilimitada',
   'memoryPage.engine.chip.apikey': 'Tu clave de CortexDB',
   'memoryPage.engine.chip.selfhost': 'Local',
-  'memoryPage.engine.fairUse.summary': 'Se aplica un uso razonable',
+  'memoryPage.engine.fairUse.summary': 'La memoria ilimitada está sujeta a uso razonable',
   'memoryPage.engine.offPrompt': 'Elige un proveedor para empezar a recordar.',
   'memoryPage.engine.builtin.summaryPlan':
     'Alojado por TinyHumans, con memoria ilimitada en tu plan {plan}.',

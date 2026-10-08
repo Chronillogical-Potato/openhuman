@@ -5090,7 +5090,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'Tanpa batas',
   'memoryPage.engine.chip.apikey': 'Kunci CortexDB Anda',
   'memoryPage.engine.chip.selfhost': 'Lokal',
-  'memoryPage.engine.fairUse.summary': 'Berlaku penggunaan wajar',
+  'memoryPage.engine.fairUse.summary': 'Memori tanpa batas tunduk pada kebijakan penggunaan wajar',
   'memoryPage.engine.offPrompt': 'Pilih penyedia di bawah untuk mulai mengingat.',
   'memoryPage.engine.builtin.summaryPlan':
     'Dihosting oleh TinyHumans, dengan memori tanpa batas di paket {plan} Anda.',

@@ -5051,7 +5051,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'সীমাহীন',
   'memoryPage.engine.chip.apikey': 'আপনার CortexDB কী',
   'memoryPage.engine.chip.selfhost': 'লোকাল',
-  'memoryPage.engine.fairUse.summary': 'ন্যায্য ব্যবহার প্রযোজ্য',
+  'memoryPage.engine.fairUse.summary': 'সীমাহীন মেমোরিতে ন্যায্য ব্যবহার নীতি প্রযোজ্য',
   'memoryPage.engine.offPrompt': 'মনে রাখা শুরু করতে নিচে একটি প্রদানকারী বেছে নিন।',
   'memoryPage.engine.builtin.summaryPlan':
     'TinyHumans হোস্ট করে, আপনার {plan} প্ল্যানে সীমাহীন মেমোরি।',

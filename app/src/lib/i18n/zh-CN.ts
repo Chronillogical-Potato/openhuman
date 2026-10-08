@@ -4775,7 +4775,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': '无限',
   'memoryPage.engine.chip.apikey': '你的 CortexDB 密钥',
   'memoryPage.engine.chip.selfhost': '本地',
-  'memoryPage.engine.fairUse.summary': '适用合理使用规则',
+  'memoryPage.engine.fairUse.summary': '无限记忆适用合理使用政策',
   'memoryPage.engine.offPrompt': '在下方选择一个提供方即可开始记忆。',
   'memoryPage.engine.builtin.summaryPlan': '由 TinyHumans 托管，{plan} 方案享无限记忆。',
   'memoryPage.engine.builtin.summaryUpgrade': '由 TinyHumans 托管。Basic 和 Pro 方案享无限记忆。',

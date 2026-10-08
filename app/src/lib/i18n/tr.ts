@@ -5055,7 +5055,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'Sınırsız',
   'memoryPage.engine.chip.apikey': 'CortexDB anahtarın',
   'memoryPage.engine.chip.selfhost': 'Yerel',
-  'memoryPage.engine.fairUse.summary': 'Adil kullanım geçerlidir',
+  'memoryPage.engine.fairUse.summary': 'Sınırsız bellek adil kullanım politikasına tabidir',
   'memoryPage.engine.offPrompt': 'Hatırlamaya başlamak için aşağıdan bir sağlayıcı seç.',
   'memoryPage.engine.builtin.summaryPlan':
     'TinyHumans tarafından barındırılır, {plan} planınızda sınırsız bellek.',

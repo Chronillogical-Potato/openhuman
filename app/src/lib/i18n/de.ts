@@ -5191,7 +5191,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'Unbegrenzt',
   'memoryPage.engine.chip.apikey': 'Dein CortexDB-Schlüssel',
   'memoryPage.engine.chip.selfhost': 'Lokal',
-  'memoryPage.engine.fairUse.summary': 'Es gilt Fair Use',
+  'memoryPage.engine.fairUse.summary': 'Für unbegrenztes Gedächtnis gilt eine Fair-Use-Regel',
   'memoryPage.engine.offPrompt': 'Wähle unten einen Anbieter, damit dein Assistent sich erinnert.',
   'memoryPage.engine.builtin.summaryPlan':
     'Von TinyHumans gehostet, mit unbegrenztem Gedächtnis in deinem {plan}-Tarif.',

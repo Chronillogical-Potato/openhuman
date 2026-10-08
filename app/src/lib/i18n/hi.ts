@@ -5049,7 +5049,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'असीमित',
   'memoryPage.engine.chip.apikey': 'आपकी CortexDB कुंजी',
   'memoryPage.engine.chip.selfhost': 'लोकल',
-  'memoryPage.engine.fairUse.summary': 'उचित उपयोग लागू है',
+  'memoryPage.engine.fairUse.summary': 'असीमित मेमोरी पर उचित उपयोग नीति लागू होती है',
   'memoryPage.engine.offPrompt': 'याद रखना शुरू करने के लिए नीचे एक प्रदाता चुनें।',
   'memoryPage.engine.builtin.summaryPlan':
     'TinyHumans द्वारा होस्ट किया गया, आपके {plan} प्लान पर असीमित मेमोरी।',

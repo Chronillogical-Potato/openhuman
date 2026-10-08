@@ -5003,7 +5003,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': '무제한',
   'memoryPage.engine.chip.apikey': '내 CortexDB 키',
   'memoryPage.engine.chip.selfhost': '로컬',
-  'memoryPage.engine.fairUse.summary': '공정 사용 적용',
+  'memoryPage.engine.fairUse.summary': '무제한 메모리에는 공정 사용 정책이 적용됩니다',
   'memoryPage.engine.offPrompt': '아래에서 제공자를 선택하면 기억을 시작합니다.',
   'memoryPage.engine.builtin.summaryPlan': 'TinyHumans 호스팅, {plan} 요금제에서 메모리 무제한.',
   'memoryPage.engine.builtin.summaryUpgrade':

@@ -5366,7 +5366,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': '無制限',
   'memoryPage.engine.chip.apikey': '自分の CortexDB キー',
   'memoryPage.engine.chip.selfhost': 'ローカル',
-  'memoryPage.engine.fairUse.summary': 'フェアユースが適用されます',
+  'memoryPage.engine.fairUse.summary': 'メモリ無制限にはフェアユースが適用されます',
   'memoryPage.engine.offPrompt': '下のプロバイダーを選ぶと記憶を始めます。',
   'memoryPage.engine.builtin.summaryPlan': 'TinyHumans がホスト。{plan} プランでメモリ無制限。',
   'memoryPage.engine.builtin.summaryUpgrade':
