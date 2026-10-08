@@ -171,7 +171,7 @@ fn pooled(layout: MemoryLayout) -> MemoryLayout {
 }
 
 /// Where every agent's chats are under layout v3: `ws:main` below
-/// `layout`'s root. Relative to the engine's scope root (`user:<id>`), which
+/// `layout`'s root. Relative to the engine's scope root (`org:<id>`), which
 /// is not a namespace segment.
 #[must_use]
 pub fn chat_node(layout: &MemoryLayout) -> Namespace {
@@ -187,11 +187,12 @@ pub fn layout_is_v3(config: &Config) -> bool {
     config.memory.layout == MemoryLayoutMode::V3
 }
 
-/// The engine scope root of the person `config` belongs to: `user:<id>`
-/// for a TinyHumans account (its 24-hex id), `user:local-<digest>` for a
+/// The engine scope root of the person `config` belongs to: `org:<id>`
+/// for a TinyHumans account (its 24-hex id), `org:local-<digest>` for a
 /// local session (hashed, so no device name reaches the engine), and `None`
 /// before anyone signs in. Read from where the config lives
-/// (`<root>/users/<id>/config.toml`).
+/// (`<root>/users/<id>/config.toml`). One root per person, with no `user:`
+/// segment below it: `user:` names the person's actor ([`actor_of_root`]).
 #[must_use]
 pub fn user_root(config: &Config) -> Option<String> {
     let dir = config.config_path.parent()?;
@@ -209,14 +210,29 @@ fn user_root_for(id: &str) -> Option<String> {
     }
     let account = id.len() == 24 && id.bytes().all(|b| b.is_ascii_hexdigit());
     if account {
-        return Some(format!("user:{}", id.to_ascii_lowercase()));
+        return Some(format!("{ROOT_TYPE}:{}", id.to_ascii_lowercase()));
     }
     let digest: String = Sha256::digest(id.as_bytes())
         .iter()
         .take(8)
         .map(|byte| format!("{byte:02x}"))
         .collect();
-    Some(format!("user:local-{digest}"))
+    Some(format!("{ROOT_TYPE}:local-{digest}"))
+}
+
+/// The scope type of a person's root.
+const ROOT_TYPE: &str = "org";
+
+/// The actor that owns the person's root `root` (`org:<id>` → `user:<id>`).
+/// It is also where layout v3 rooted that person before `org:` roots: the
+/// retired root read during the move, and the account a legacy-tree claim
+/// names.
+#[must_use]
+pub fn actor_of_root(root: &str) -> String {
+    match root.strip_prefix(ROOT_TYPE).and_then(|rest| rest.strip_prefix(':')) {
+        Some(id) => format!("user:{id}"),
+        None => root.to_string(),
+    }
 }
 
 /// Switches the memory of the person `config` belongs to to layout v3:
