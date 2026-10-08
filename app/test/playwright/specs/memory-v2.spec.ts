@@ -533,6 +533,11 @@ test.describe('Memory v2 — engine active', () => {
       page.getByTestId('memory-import-running').or(page.getByTestId('memory-import-done'))
     ).toBeVisible();
     await expect(page.getByTestId('memory-import-done')).toBeVisible({ timeout: 15_000 });
+
+    // The import lives on Migration only; other chips carry no banner.
+    await page.getByTestId('brain-tab-ask').click();
+    await expect(page.getByTestId('memory-ask-tab')).toBeVisible();
+    await expect(page.getByTestId('memory-import-banner')).toHaveCount(0);
   });
 
   test('a finished import retries the items it could not store', async ({ page }) => {
