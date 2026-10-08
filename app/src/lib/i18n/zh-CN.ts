@@ -568,7 +568,7 @@ const messages: TranslationMap = {
   'connections.browser.learning': '任务学到的内容',
   'connections.browser.learnFromTasks': '从已完成的任务中学习',
   'connections.browser.learnHint':
-    '按网站保存已完成任务使用的计划和页面元素，让下次在该网站的任务更快开始。仅保存在本设备上，绝不写入聊天记忆。',
+    '按网站保存已完成任务使用的计划和页面元素，让下次在该网站的任务更快开始。保存在 OpenHuman 核心运行所在的工作区中，绝不写入聊天记忆。',
   'connections.browser.forgetSites': '清除已学习的网站',
   'connections.browser.sitesForgotten': '已清除的网站：{count}',
   'connections.browser.save': '保存设置',

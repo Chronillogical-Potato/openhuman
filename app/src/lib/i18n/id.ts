@@ -626,7 +626,7 @@ const messages: TranslationMap = {
   'connections.browser.learning': 'Yang dipelajari tugas',
   'connections.browser.learnFromTasks': 'Belajar dari tugas yang selesai',
   'connections.browser.learnHint':
-    'Menyimpan, per situs, rencana dan elemen halaman yang dipakai tugas yang selesai, agar tugas berikutnya di sana dimulai lebih cepat. Hanya disimpan di perangkat ini, tidak pernah di memori obrolan.',
+    'Menyimpan, per situs, rencana dan elemen halaman yang dipakai tugas yang selesai, agar tugas berikutnya di sana dimulai lebih cepat. Disimpan di ruang kerja tempat inti OpenHuman berjalan, tidak pernah di memori obrolan.',
   'connections.browser.forgetSites': 'Lupakan situs yang dipelajari',
   'connections.browser.sitesForgotten': 'Situs dilupakan: {count}',
   'connections.browser.save': 'Simpan pengaturan',

@@ -634,7 +634,7 @@ const messages: TranslationMap = {
   'connections.browser.learning': 'Lo que aprenden las tareas',
   'connections.browser.learnFromTasks': 'Aprender de tareas terminadas',
   'connections.browser.learnHint':
-    'Guarda, por sitio, el plan y los elementos de la página que usó una tarea terminada, para que la siguiente tarea allí empiece antes. Solo se guarda en este dispositivo, nunca en la memoria del chat.',
+    'Guarda, por sitio, el plan y los elementos de la página que usó una tarea terminada, para que la siguiente tarea allí empiece antes. Se guarda en el espacio de trabajo donde se ejecuta el núcleo de OpenHuman, nunca en la memoria del chat.',
   'connections.browser.forgetSites': 'Olvidar sitios aprendidos',
   'connections.browser.sitesForgotten': 'Sitios olvidados: {count}',
   'connections.browser.save': 'Guardar ajustes',

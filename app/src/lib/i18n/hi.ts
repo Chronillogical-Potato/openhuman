@@ -619,7 +619,7 @@ const messages: TranslationMap = {
   'connections.browser.learning': 'कार्य क्या सीखते हैं',
   'connections.browser.learnFromTasks': 'पूरे हुए कार्यों से सीखें',
   'connections.browser.learnHint':
-    'हर साइट के लिए वह योजना और पेज के तत्व सहेजता है जो किसी पूरे हुए कार्य ने इस्तेमाल किए, ताकि वहाँ अगला कार्य जल्दी शुरू हो। सिर्फ़ इसी डिवाइस पर रखा जाता है, चैट मेमोरी में कभी नहीं।',
+    'हर साइट के लिए वह योजना और पेज के तत्व सहेजता है जो किसी पूरे हुए कार्य ने इस्तेमाल किए, ताकि वहाँ अगला कार्य जल्दी शुरू हो। उस वर्कस्पेस में रखा जाता है जहाँ OpenHuman का कोर चलता है, चैट मेमोरी में कभी नहीं।',
   'connections.browser.forgetSites': 'सीखी गई साइटें भूलें',
   'connections.browser.sitesForgotten': 'भूली गई साइटें: {count}',
   'connections.browser.save': 'सेटिंग सहेजें',

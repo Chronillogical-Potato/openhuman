@@ -610,7 +610,7 @@ const messages: TranslationMap = {
   'connections.browser.learning': '작업이 배우는 것',
   'connections.browser.learnFromTasks': '완료된 작업에서 배우기',
   'connections.browser.learnHint':
-    '완료된 작업이 사용한 계획과 페이지 요소를 사이트별로 저장해 다음 작업이 더 빨리 시작되도록 합니다. 이 기기에만 저장되며 채팅 메모리에는 저장되지 않습니다.',
+    '완료된 작업이 사용한 계획과 페이지 요소를 사이트별로 저장해 다음 작업이 더 빨리 시작되도록 합니다. OpenHuman 코어가 실행되는 워크스페이스에 저장되며 채팅 메모리에는 저장되지 않습니다.',
   'connections.browser.forgetSites': '학습한 사이트 지우기',
   'connections.browser.sitesForgotten': '지운 사이트: {count}',
   'connections.browser.save': '설정 저장',

@@ -96,7 +96,7 @@ Capability {
         name: "Browser Automation",
         domain: "workflows",
         category: CapabilityCategory::Workflows,
-        description: "Inspect pages and run bounded browser tasks in Chrome through TinyComputer, with a rescue model for failed steps. A finished task's plan and the page elements it found are kept on this device, per site, so the next task there starts sooner.",
+        description: "Inspect pages and run bounded browser tasks in Chrome through TinyComputer, with a rescue model for failed steps. A finished task's plan and the page elements it found are kept per site in the core's workspace, so the next task there starts sooner.",
         how_to: "Connections > Computer > Browser, then ask the assistant to use the browser; What tasks learn turns learning off or forgets learned sites",
         status: CapabilityStatus::Beta,
         privacy: Some(CapabilityPrivacy {

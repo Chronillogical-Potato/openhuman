@@ -33,6 +33,7 @@ use std::future::Future;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -100,6 +101,9 @@ struct SavedHint {
 /// A started task, followed for what it may teach once it ends.
 #[derive(Debug, Clone)]
 pub(crate) struct Following {
+    /// Tells this following from any other under the same task id: the
+    /// module numbers its tasks afresh each time it is set up again.
+    token: u64,
     /// The workspace whose site files it teaches.
     workspace: PathBuf,
     site: String,
@@ -228,7 +232,8 @@ pub(crate) async fn apply(
     if !learning(config) {
         return None;
     }
-    let site = task.site.clone()?;
+    // A plain host name, nothing a path could be built from.
+    let site = site_named(task.site.as_deref()?)?;
     let goal = goal_key(&task.goal);
     let facts_id = facts_id(&task.facts);
     let memory = load(config, &site, now()).await;
@@ -253,7 +258,9 @@ pub(crate) async fn apply(
         hints = request.memory.len(),
         "[browser-sites] applied what the site's finished tasks left"
     );
+    static TOKENS: AtomicU64 = AtomicU64::new(1);
     Some(Following {
+        token: TOKENS.fetch_add(1, Ordering::Relaxed),
         workspace: config.workspace_dir.clone(),
         site,
         goal,
@@ -263,12 +270,14 @@ pub(crate) async fn apply(
     })
 }
 
-/// Follows task `id` until it ends, to learn from how it did; with `None`,
-/// follows no task by that id. The module numbers its tasks afresh each time
-/// it is set up again, so an id can come back for another task.
-pub(crate) fn follow(id: &TaskId, following: Option<Following>) {
+/// Follows task `id` of `config`'s workspace until it ends, to learn from
+/// how it did; with `None`, follows no task by that id there. The module
+/// numbers its tasks afresh each time it is set up again, so an id can come
+/// back for another task.
+pub(crate) fn follow(config: &Config, id: &TaskId, following: Option<Following>) {
     let mut followed = followed();
-    followed.retain(|(known, _)| known != id);
+    followed
+        .retain(|(known, existing)| !(known == id && existing.workspace == config.workspace_dir));
     if let Some(following) = following {
         followed.push_back((id.clone(), following));
     }
@@ -277,14 +286,24 @@ pub(crate) fn follow(id: &TaskId, following: Option<Following>) {
     }
 }
 
+/// Which following of task `id` in `config`'s workspace is under way, to be
+/// handed to [`learn`] once the task is seen to have ended: a view of an
+/// earlier task by the same id then learns nothing.
+pub(crate) fn token_of(config: &Config, id: &TaskId) -> Option<u64> {
+    followed_as(config, id).map(|following| following.token)
+}
+
 /// Adds `inputs`, the values a paused task `id` is given, to the values it
 /// may not keep.
-pub(crate) fn note_inputs(id: &TaskId, inputs: &BTreeMap<String, String>) {
+pub(crate) fn note_inputs(config: &Config, id: &TaskId, inputs: &BTreeMap<String, String>) {
     if inputs.is_empty() {
         return;
     }
     let mut followed = followed();
-    if let Some((_, following)) = followed.iter_mut().find(|(known, _)| known == id) {
+    if let Some((_, following)) = followed
+        .iter_mut()
+        .find(|(known, following)| known == id && following.workspace == config.workspace_dir)
+    {
         for value in fact_values(inputs.values()) {
             if !following.facts.contains(&value) {
                 following.facts.push(value);
@@ -294,23 +313,28 @@ pub(crate) fn note_inputs(id: &TaskId, inputs: &BTreeMap<String, String>) {
 }
 
 /// Forgets the saved plan `following` was to reuse, which the module refused,
-/// so the task is planned afresh.
+/// so the task is planned afresh. When the site file cannot be changed, the
+/// task still counts as reusing it, and a failure forgets it then.
 pub(crate) async fn refused(config: &Config, following: &mut Following) {
     let plan_of: &Following = following;
-    update(config, &plan_of.site, |memory| {
+    let forgotten = update(config, &plan_of.site, |memory| {
         memory.forget_plan(plan_of);
         true
     })
     .await;
-    following.reused_plan = false;
-    tracing::debug!("[browser-sites] forgot a saved plan the module refused");
+    if forgotten {
+        following.reused_plan = false;
+        tracing::debug!("[browser-sites] forgot a saved plan the module refused");
+    }
 }
 
 /// Learns from a followed task that has ended: what it found and the plan it
-/// ran when it finished, or that the plan it reused failed. A task still
-/// running or paused stays followed.
-pub(crate) async fn learn(config: &Config, view: &TaskView) {
-    learn_with(config, view, |id| {
+/// ran when it finished, or that the plan it reused failed. `token`
+/// ([`token_of`]) names the following the view belongs to, taken before the
+/// task was last waited on; a view of another task by the same id learns
+/// nothing. A task still running or paused stays followed.
+pub(crate) async fn learn(config: &Config, view: &TaskView, token: Option<u64>) {
+    learn_with(config, view, token, |id| {
         Box::pin(super::browser_task::report_with(config, id, false))
     })
     .await;
@@ -320,15 +344,21 @@ pub(crate) async fn learn(config: &Config, view: &TaskView) {
 async fn learn_with<'a>(
     config: &'a Config,
     view: &TaskView,
+    token: Option<u64>,
     fetch: impl FnOnce(TaskId) -> ReportFetch<'a>,
 ) {
+    let Some(token) = token else {
+        return;
+    };
     match &view.status {
         TaskStatus::Done { .. } | TaskStatus::Checkpoint { .. } => {
-            let Some(following) = followed_as(&view.id) else {
+            let Some(following) =
+                followed_as(config, &view.id).filter(|following| following.token == token)
+            else {
                 return;
             };
             if !learning(config) {
-                stop_following(&view.id);
+                stop_following(config, &view.id, token);
                 return;
             }
             match fetch(view.id.clone()).await {
@@ -336,9 +366,11 @@ async fn learn_with<'a>(
                     let learned = now();
                     let mut kept = false;
                     update(config, &following.site, |memory| {
-                        // Still followed, under the save lock: a Forget that
-                        // came while the report was fetched holds.
-                        kept = stop_following(&view.id).is_some();
+                        // Still followed and learning, under the save lock: a
+                        // Forget, or learning switched off, while the report
+                        // was fetched holds.
+                        kept =
+                            stop_following(config, &view.id, token).is_some() && learning(config);
                         if kept {
                             memory.learn(&following, &report, learned);
                         }
@@ -354,13 +386,13 @@ async fn learn_with<'a>(
                     );
                 }
                 Err(error) => {
-                    stop_following(&view.id);
+                    stop_following(config, &view.id, token);
                     tracing::warn!(task = %view.id, %error, "[browser-sites] report unavailable; nothing learned");
                 }
             }
         }
         TaskStatus::Failed { .. } => {
-            let Some(following) = stop_following(&view.id) else {
+            let Some(following) = stop_following(config, &view.id, token) else {
                 return;
             };
             if following.reused_plan {
@@ -373,7 +405,7 @@ async fn learn_with<'a>(
             }
         }
         TaskStatus::Cancelled | TaskStatus::NeedsPlan { .. } => {
-            stop_following(&view.id);
+            stop_following(config, &view.id, token);
         }
         _ => {}
     }
@@ -614,29 +646,54 @@ async fn load(config: &Config, site: &str, now: u64) -> SiteMemory {
 
 /// Loads `site`'s memory and lets `change` change it, one update at a time,
 /// writing it back when `change` says it did; a memory left empty removes
-/// the file. A failure is logged, never raised.
-async fn update(config: &Config, site: &str, change: impl FnOnce(&mut SiteMemory) -> bool) {
+/// the file. Whether the file holds the change, or there was none; a
+/// failure is logged, never raised.
+async fn update(config: &Config, site: &str, change: impl FnOnce(&mut SiteMemory) -> bool) -> bool {
     let _saving = saving().lock().await;
     let mut memory = load(config, site, now()).await;
     if !change(&mut memory) {
-        return;
+        return true;
     }
     let path = site_path(config, site);
     let written = if memory.plans.is_empty() && memory.hints.is_empty() {
         remove(&path).await.map(|_removed| ())
     } else {
-        save(&path, &memory).await
+        match fitted(&mut memory) {
+            Ok(bytes) => save(&path, &bytes).await,
+            Err(error) => Err(error),
+        }
     };
-    if let Err(error) = written {
+    if let Err(error) = &written {
         tracing::warn!(%error, "[browser-sites] site memory not saved");
+    }
+    written.is_ok()
+}
+
+/// `memory` serialized within `MAX_FILE_BYTES`, its oldest plans and then its
+/// oldest elements dropped until it fits: a larger file is set aside unread
+/// by the next [`load`], with all it held.
+fn fitted(memory: &mut SiteMemory) -> std::io::Result<Vec<u8>> {
+    loop {
+        let bytes = serde_json::to_vec_pretty(memory).map_err(std::io::Error::other)?;
+        let fits = u64::try_from(bytes.len()).is_ok_and(|length| length <= MAX_FILE_BYTES);
+        if fits {
+            return Ok(bytes);
+        }
+        if memory.plans.is_empty() {
+            if memory.hints.is_empty() {
+                return Ok(bytes);
+            }
+            memory.hints.remove(0);
+        } else {
+            memory.plans.remove(0);
+        }
     }
 }
 
-/// Writes `memory` to `path` through a temporary file, in a directory and a
+/// Writes `bytes` to `path` through a temporary file, in a directory and a
 /// file only their owner can read: plans and elements tell where a person
 /// browses.
-async fn save(path: &Path, memory: &SiteMemory) -> std::io::Result<()> {
-    let bytes = serde_json::to_vec_pretty(memory).map_err(std::io::Error::other)?;
+async fn save(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     if let Some(dir) = path.parent() {
         tokio::fs::create_dir_all(dir).await?;
         #[cfg(unix)]
@@ -651,7 +708,7 @@ async fn save(path: &Path, memory: &SiteMemory) -> std::io::Result<()> {
     #[cfg(unix)]
     file.set_permissions(std::fs::Permissions::from_mode(0o600))
         .await?;
-    file.write_all(&bytes).await?;
+    file.write_all(bytes).await?;
     file.flush().await?;
     drop(file);
     tokio::fs::rename(&staged, path).await
@@ -682,18 +739,22 @@ fn followed() -> MutexGuard<'static, VecDeque<(TaskId, Following)>> {
         .unwrap_or_else(PoisonError::into_inner)
 }
 
-/// What task `id` is followed for, if it is.
-fn followed_as(id: &TaskId) -> Option<Following> {
+/// What task `id` of `config`'s workspace is followed for, if it is.
+fn followed_as(config: &Config, id: &TaskId) -> Option<Following> {
     followed()
         .iter()
-        .find(|(known, _)| known == id)
+        .find(|(known, following)| known == id && following.workspace == config.workspace_dir)
         .map(|(_, following)| following.clone())
 }
 
-/// Stops following task `id`, returning what it was followed for.
-fn stop_following(id: &TaskId) -> Option<Following> {
+/// Stops the following `token` of task `id` in `config`'s workspace,
+/// returning what the task was followed for; another following of that id
+/// is left alone.
+fn stop_following(config: &Config, id: &TaskId, token: u64) -> Option<Following> {
     let mut followed = followed();
-    let index = followed.iter().position(|(known, _)| known == id)?;
+    let index = followed.iter().position(|(known, following)| {
+        known == id && following.workspace == config.workspace_dir && following.token == token
+    })?;
     followed.remove(index).map(|(_, following)| following)
 }
 

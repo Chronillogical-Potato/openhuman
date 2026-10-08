@@ -69,7 +69,11 @@ fn rescue() -> Value {
 /// task followed as `id`.
 async fn start(config: &Config, task: &BrowserTask, id: &str) -> StartTaskRequest {
     let mut request = super::super::browser_task::start_request(config, task);
-    follow(&TaskId::new(id), apply(config, task, &mut request).await);
+    follow(
+        config,
+        &TaskId::new(id),
+        apply(config, task, &mut request).await,
+    );
     request
 }
 
@@ -95,7 +99,8 @@ fn finished(id: &str) -> TaskReport {
 /// Ends task `id` in `status`, its report being `reported`.
 async fn end(config: &Config, id: &str, status: Value, reported: Option<TaskReport>) {
     let ended = view(id, status);
-    learn_with(config, &ended, move |_| {
+    let token = token_of(config, &TaskId::new(id));
+    learn_with(config, &ended, token, move |_| {
         Box::pin(async move { reported.ok_or_else(|| "no report".to_owned()) })
     })
     .await;
@@ -399,6 +404,7 @@ async fn a_paused_task_is_followed_until_it_ends() {
 fn old_entries_go_and_limits_hold() {
     let order = task("Order milk");
     let following = Following {
+        token: 0,
         workspace: PathBuf::from("/nowhere"),
         site: "shop.test".into(),
         goal: goal_key(&order.goal),
@@ -536,12 +542,18 @@ async fn forgetting_holds_for_tasks_still_running() {
     // Forgotten while its report was being fetched.
     start(&config, &order, "t-forgot-fetching").await;
     let config_ref = &config;
-    learn_with(&config, &view("t-forgot-fetching", done()), move |_| {
-        Box::pin(async move {
-            forget(config_ref, Some("shop.test")).await.unwrap();
-            Ok(finished("t-forgot-fetching"))
-        })
-    })
+    let token = token_of(&config, &TaskId::new("t-forgot-fetching"));
+    learn_with(
+        &config,
+        &view("t-forgot-fetching", done()),
+        token,
+        move |_| {
+            Box::pin(async move {
+                forget(config_ref, Some("shop.test")).await.unwrap();
+                Ok(finished("t-forgot-fetching"))
+            })
+        },
+    )
     .await;
     assert!(!site_path(&config, "shop.test").exists());
 
@@ -570,6 +582,7 @@ async fn values_are_found_however_the_module_spells_them() {
     start(&config, &signup, "t-spelled").await;
     // A value given when the paused task resumes is not kept either.
     note_inputs(
+        &config,
         &TaskId::new("t-spelled"),
         &BTreeMap::from([("phone".into(), "98-7654-3210".into())]),
     );
@@ -714,4 +727,146 @@ async fn a_switch_in_settings_reaches_tools_built_before_it() {
 
     note_switch(&config.workspace_dir, true);
     assert!(apply(&config, &order, &mut request).await.is_some());
+}
+
+#[tokio::test]
+async fn a_site_that_is_no_plain_host_names_no_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = workspace_config(&dir);
+    for site in ["../outside", "a/b", "..", "", ".hidden"] {
+        let mut odd = task("Start at https://shop.test. Order milk");
+        odd.site = Some(site.to_owned());
+        let mut request = super::super::browser_task::start_request(&config, &odd);
+        assert!(apply(&config, &odd, &mut request).await.is_none(), "{site}");
+    }
+    // Spelled another way, a host is still its site.
+    let mut spelled = task("Start at https://shop.test. Order milk");
+    spelled.site = Some("WWW.Shop.Test".to_owned());
+    let mut request = super::super::browser_task::start_request(&config, &spelled);
+    let following = apply(&config, &spelled, &mut request).await.unwrap();
+    assert_eq!(following.site, "shop.test");
+}
+
+#[tokio::test]
+async fn a_site_file_stays_within_its_size_limit() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = workspace_config(&dir);
+    let order = task("Start at https://shop.test. Order milk");
+    start(&config, &order, "t-small").await;
+    end(&config, "t-small", done(), Some(finished("t-small"))).await;
+    let eggs = task("Start at https://shop.test. Order eggs");
+    start(&config, &eggs, "t-big").await;
+    let huge = flow(json!(
+        ["x".repeat(usize::try_from(MAX_FILE_BYTES).unwrap())]
+    ));
+    let ended = view("t-big", done());
+    end(
+        &config,
+        "t-big",
+        done(),
+        Some(report(&ended, huge, json!([hint("b", "B")]), json!([]))),
+    )
+    .await;
+
+    let path = site_path(&config, "shop.test");
+    assert!(std::fs::metadata(&path).unwrap().len() <= MAX_FILE_BYTES);
+    let memory = load(&config, "shop.test", now()).await;
+    assert!(
+        !path.with_extension("json.corrupt").exists(),
+        "read back, not set aside"
+    );
+    assert_eq!(memory.hints.len(), 2, "the elements are kept");
+    assert_eq!(
+        memory.plans.len(),
+        0,
+        "the oldest plans went first, then the one too large on its own"
+    );
+}
+
+#[tokio::test]
+async fn a_refused_plan_that_cannot_be_forgotten_still_counts_as_reused() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = workspace_config(&dir);
+    let order = task("Start at https://shop.test. Order milk");
+    start(&config, &order, "t-locked").await;
+    end(&config, "t-locked", done(), Some(finished("t-locked"))).await;
+    let mut request = super::super::browser_task::start_request(&config, &order);
+    let mut reusing = apply(&config, &order, &mut request).await.unwrap();
+    assert!(reusing.reuses_plan());
+
+    // A directory where the site file is written through: the write fails.
+    let staged = site_path(&config, "shop.test").with_extension("json.tmp");
+    std::fs::create_dir(&staged).unwrap();
+    refused(&config, &mut reusing).await;
+    assert!(
+        reusing.reuses_plan(),
+        "still reused, so a failure on it forgets it"
+    );
+    std::fs::remove_dir(&staged).unwrap();
+    refused(&config, &mut reusing).await;
+    assert!(!reusing.reuses_plan());
+    let mut request = super::super::browser_task::start_request(&config, &order);
+    assert!(!apply(&config, &order, &mut request)
+        .await
+        .unwrap()
+        .reuses_plan());
+}
+
+#[tokio::test]
+async fn learning_switched_off_while_a_report_is_fetched_keeps_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = workspace_config(&dir);
+    let order = task("Start at https://shop.test. Order milk");
+    start(&config, &order, "t-switch-mid").await;
+    let id = TaskId::new("t-switch-mid");
+    let workspace = config.workspace_dir.clone();
+    learn_with(
+        &config,
+        &view("t-switch-mid", done()),
+        token_of(&config, &id),
+        move |_| {
+            Box::pin(async move {
+                note_switch(&workspace, false);
+                Ok(finished("t-switch-mid"))
+            })
+        },
+    )
+    .await;
+    assert!(!site_path(&config, "shop.test").exists());
+    assert!(token_of(&config, &id).is_none(), "no longer followed");
+}
+
+#[tokio::test]
+async fn a_task_of_another_workspace_or_an_earlier_setup_is_not_taken_for_this_one() {
+    let (one, two) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let (first, second) = (workspace_config(&one), workspace_config(&two));
+    let order = task("Start at https://shop.test. Order milk");
+    let shared = TaskId::new("t-shared");
+    // The same id, in two workspaces.
+    start(&first, &order, "t-shared").await;
+    start(&second, &order, "t-shared").await;
+    end(&first, "t-shared", done(), Some(finished("t-shared"))).await;
+    assert!(site_path(&first, "shop.test").exists());
+    assert!(!site_path(&second, "shop.test").exists());
+    assert!(token_of(&second, &shared).is_some(), "still followed there");
+
+    // A view of an earlier task by that id, once the module, set up again,
+    // gave it to a newer task.
+    let earlier = token_of(&second, &shared);
+    start(
+        &second,
+        &task("Start at https://shop.test. Order eggs"),
+        "t-shared",
+    )
+    .await;
+    learn_with(&second, &view("t-shared", done()), earlier, |_| {
+        Box::pin(async { Ok::<_, String>(finished("t-shared")) })
+    })
+    .await;
+    assert!(
+        !site_path(&second, "shop.test").exists(),
+        "the earlier view learns nothing"
+    );
+    end(&second, "t-shared", done(), Some(finished("t-shared"))).await;
+    assert!(site_path(&second, "shop.test").exists());
 }

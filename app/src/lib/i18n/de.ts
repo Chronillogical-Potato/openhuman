@@ -640,7 +640,7 @@ const messages: TranslationMap = {
   'connections.browser.learning': 'Was Aufgaben lernen',
   'connections.browser.learnFromTasks': 'Aus abgeschlossenen Aufgaben lernen',
   'connections.browser.learnHint':
-    'Speichert pro Website den Plan und die Seitenelemente, die eine abgeschlossene Aufgabe verwendet hat, damit die nächste Aufgabe dort schneller startet. Nur auf diesem Gerät gespeichert, nie im Chat-Gedächtnis.',
+    'Speichert pro Website den Plan und die Seitenelemente, die eine abgeschlossene Aufgabe verwendet hat, damit die nächste Aufgabe dort schneller startet. Im Arbeitsbereich gespeichert, in dem der OpenHuman-Kern läuft, nie im Chat-Gedächtnis.',
   'connections.browser.forgetSites': 'Gelernte Websites vergessen',
   'connections.browser.sitesForgotten': 'Vergessene Websites: {count}',
   'connections.browser.save': 'Einstellungen speichern',

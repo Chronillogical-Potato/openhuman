@@ -123,7 +123,8 @@ pub(crate) async fn begin<'a>(
     let view = match send(request.clone()).await {
         Err(error) if refused_flow(&error) => match following.as_mut() {
             Some(reusing) if reusing.reuses_plan() => {
-                tracing::warn!(%error, "[browser-task] the module refused a saved plan; planning afresh");
+                // The error's text is the module's, and can quote the plan.
+                tracing::warn!("[browser-task] the module refused a saved plan; planning afresh");
                 super::browser_sites::refused(config, reusing).await;
                 request.flow = None;
                 send(request).await?
@@ -132,7 +133,7 @@ pub(crate) async fn begin<'a>(
         },
         sent => sent?,
     };
-    super::browser_sites::follow(&view.id, following);
+    super::browser_sites::follow(config, &view.id, following);
     Ok(view)
 }
 
@@ -143,7 +144,7 @@ pub(crate) async fn begin<'a>(
 /// Returns a module, transport, or task error.
 pub async fn resume(config: &Config, request: ContinueTaskRequest) -> Result<TaskView, String> {
     tracing::debug!(task = %request.id, approve = ?request.approve, "[browser-task] continuing");
-    super::browser_sites::note_inputs(&request.id, &request.inputs);
+    super::browser_sites::note_inputs(config, &request.id, &request.inputs);
     let view: TaskView = call(config, methods::CONTINUE_TASK, request, true).await?;
     settle(config, view).await
 }
@@ -174,8 +175,9 @@ pub async fn wait(config: &Config, id: TaskId) -> Result<TaskView, String> {
 /// Returns a module or transport error.
 pub async fn cancel(config: &Config, id: TaskId) -> Result<TaskView, String> {
     tracing::debug!(task = %id, "[browser-task] cancelling");
+    let following = super::browser_sites::token_of(config, &id);
     let view: TaskView = call(config, methods::CANCEL_TASK, TaskRef { id }, false).await?;
-    super::browser_sites::learn(config, &view).await;
+    super::browser_sites::learn(config, &view, following).await;
     Ok(view)
 }
 
@@ -215,9 +217,12 @@ pub(crate) async fn report_with(
 /// how it stopped (see [`super::browser_task_report`]) and learn from it
 /// once it has ended (see [`super::browser_sites`]).
 async fn settle(config: &Config, view: TaskView) -> Result<TaskView, String> {
+    // Taken before the wait: the module may be set up again meanwhile, and
+    // number another task as this one.
+    let following = super::browser_sites::token_of(config, &view.id);
     let view = follow(config, view).await?;
     super::browser_task_report::record(config, &view).await;
-    super::browser_sites::learn(config, &view).await;
+    super::browser_sites::learn(config, &view, following).await;
     Ok(view)
 }
 
@@ -266,9 +271,12 @@ async fn call<Request: Serialize + Send, Reply: DeserializeOwned>(
 }
 
 /// Whether `error`, as [`unwrap_response`] spells it, is the module refusing
-/// the flow a task was handed.
+/// the flow a task was handed: its code, not text its message may quote.
 fn refused_flow(error: &str) -> bool {
-    error.contains("[INVALID_FLOW]")
+    error.starts_with(&format!(
+        "browser task {} failed [INVALID_FLOW]",
+        methods::START_TASK
+    ))
 }
 
 fn unwrap_response<Reply>(member: &str, response: AgentResponse<Reply>) -> Result<Reply, String> {

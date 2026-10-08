@@ -75,6 +75,20 @@ fn only_the_module_refusing_a_flow_reads_as_a_refused_flow() {
     assert!(!refused_flow(
         &unwrap_response("StartTask", other).unwrap_err()
     ));
+    // Only the code counts, not a message that quotes it.
+    let quoted: AgentResponse<u32> = AgentResponse {
+        ok: false,
+        data: None,
+        error: Some(AgentError::new(
+            "PLANNER_UNAVAILABLE",
+            "[INVALID_FLOW] was the last answer",
+            "configure one",
+            false,
+        )),
+    };
+    assert!(!refused_flow(
+        &unwrap_response("StartTask", quoted).unwrap_err()
+    ));
 }
 
 #[test]

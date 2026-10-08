@@ -602,7 +602,7 @@ const messages: TranslationMap = {
   'connections.browser.learning': 'ما تتعلّمه المهام',
   'connections.browser.learnFromTasks': 'التعلّم من المهام المكتملة',
   'connections.browser.learnHint':
-    'يحفظ لكل موقع الخطة وعناصر الصفحة التي استخدمتها مهمة مكتملة، لتبدأ المهمة التالية هناك أسرع. يُحفظ على هذا الجهاز فقط، ولا يُحفظ أبدًا في ذاكرة الدردشة.',
+    'يحفظ لكل موقع الخطة وعناصر الصفحة التي استخدمتها مهمة مكتملة، لتبدأ المهمة التالية هناك أسرع. يُحفظ في مساحة العمل التي تعمل فيها نواة OpenHuman، ولا يُحفظ أبدًا في ذاكرة الدردشة.',
   'connections.browser.forgetSites': 'نسيان المواقع المتعلَّمة',
   'connections.browser.sitesForgotten': 'المواقع المنسية: {count}',
   'connections.browser.save': 'حفظ الإعدادات',

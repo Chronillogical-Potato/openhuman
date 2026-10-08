@@ -504,7 +504,7 @@ const messages: TranslationMap = {
   'connections.browser.learning': 'Görevlerin öğrendikleri',
   'connections.browser.learnFromTasks': 'Tamamlanan görevlerden öğren',
   'connections.browser.learnHint':
-    'Her site için, tamamlanan bir görevin kullandığı planı ve sayfa öğelerini saklar; böylece oradaki sonraki görev daha hızlı başlar. Yalnızca bu cihazda saklanır, asla sohbet belleğinde değil.',
+    'Her site için, tamamlanan bir görevin kullandığı planı ve sayfa öğelerini saklar; böylece oradaki sonraki görev daha hızlı başlar. OpenHuman çekirdeğinin çalıştığı çalışma alanında saklanır, asla sohbet belleğinde değil.',
   'connections.browser.forgetSites': 'Öğrenilen siteleri unut',
   'connections.browser.sitesForgotten': 'Unutulan site sayısı: {count}',
   'connections.browser.save': 'Ayarları kaydet',
