@@ -51,6 +51,8 @@ async fn serve_on_ephemeral(
 struct FixtureState {
     catalog_hits: Arc<AtomicUsize>,
     offline: Arc<AtomicBool>,
+    scan_blocked: Arc<AtomicBool>,
+    document_hits: Arc<AtomicUsize>,
 }
 
 fn fixture_catalog() -> Value {
@@ -106,8 +108,15 @@ async fn catalog(State(state): State<FixtureState>) -> Response {
     axum::Json(fixture_catalog()).into_response()
 }
 
-async fn skill_md() -> &'static str {
-    r#"---
+async fn skill_md(State(state): State<FixtureState>) -> String {
+    state.document_hits.fetch_add(1, Ordering::SeqCst);
+    if state.scan_blocked.load(Ordering::SeqCst) {
+        return GIT_HELPER_SKILL_MD.replace("report the result", "report\u{200b} the result");
+    }
+    GIT_HELPER_SKILL_MD.to_owned()
+}
+
+const GIT_HELPER_SKILL_MD: &str = r#"---
 name: git-helper
 description: Automate git status and branch triage.
 version: 1.0.0
@@ -126,8 +135,7 @@ Use when git state needs summarizing.
 
 ## Procedure
 Run `git status --short` and report the result.
-"#
-}
+"#;
 
 async fn serve_fixture_catalog() -> (
     SocketAddr,
@@ -556,4 +564,103 @@ async fn skill_registry_e2e_serves_the_held_catalog_when_the_upstream_fails() {
         message.contains("SKILL_REGISTRY_UNAVAILABLE: "),
         "a cold registry with an unreachable upstream is a typed error: {message}"
     );
+}
+
+/// A `SKILL.md` the supply-chain scan blocks is fetched twice, refused with
+/// `status: "scan_blocked"` and its findings, and installed only when the
+/// call carries `acknowledge_scan_findings`. The pasted-URL install takes the
+/// same gate.
+#[tokio::test]
+async fn skill_registry_e2e_refuses_a_scan_blocked_install_until_acknowledged() {
+    let _env_lock = env_lock_async().await;
+    let tmp = tempdir().expect("create tempdir");
+    let home = tmp.path();
+    let stack = boot(home).await;
+    let rpc_base = stack.rpc_base.as_str();
+    stack.fixture.scan_blocked.store(true, Ordering::SeqCst);
+    let skill_file = home
+        .join(".openhuman")
+        .join("skills")
+        .join("git-helper")
+        .join("SKILL.md");
+
+    let blocked = post_json_rpc(
+        rpc_base,
+        9301,
+        "openhuman.skill_registry_install",
+        json!({ "entry_id": "git-helper" }),
+    )
+    .await;
+    let blocked = assert_no_jsonrpc_error(&blocked, "install (scan blocked)");
+    assert_eq!(blocked["status"], "scan_blocked", "{blocked}");
+    assert_eq!(blocked["target"], "git-helper");
+    assert_eq!(blocked["findings"][0]["check"], "invisible_code_points");
+    assert_eq!(blocked["findings"][0]["verdict"], "block");
+    assert!(blocked["message"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("not installed"));
+    assert_eq!(
+        stack.fixture.document_hits.load(Ordering::SeqCst),
+        2,
+        "a blocking scan is fetched and scanned once more"
+    );
+    assert!(!skill_file.exists(), "a blocked document is not written");
+
+    let declined = post_json_rpc(
+        rpc_base,
+        9302,
+        "openhuman.skill_registry_install",
+        json!({ "entry_id": "git-helper", "acknowledge_scan_findings": false }),
+    )
+    .await;
+    let declined = assert_no_jsonrpc_error(&declined, "install (not acknowledged)");
+    assert_eq!(declined["status"], "scan_blocked");
+    assert!(!skill_file.exists());
+
+    let acknowledged = post_json_rpc(
+        rpc_base,
+        9303,
+        "openhuman.skill_registry_install",
+        json!({ "entry_id": "git-helper", "acknowledge_scan_findings": true }),
+    )
+    .await;
+    let acknowledged = assert_no_jsonrpc_error(&acknowledged, "install (acknowledged)");
+    assert_eq!(acknowledged["status"], "installed", "{acknowledged}");
+    assert_eq!(acknowledged["new_skills"], json!(["git-helper"]));
+    assert!(skill_file.exists());
+
+    let uninstall = post_json_rpc(
+        rpc_base,
+        9304,
+        "openhuman.skill_registry_uninstall",
+        json!({ "name": "git-helper" }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&uninstall, "uninstall");
+
+    let url = format!("{}/skills/git-helper/SKILL.md", stack.fixture_base);
+    let url_blocked = post_json_rpc(
+        rpc_base,
+        9305,
+        "openhuman.skills_install_from_url",
+        json!({ "url": url }),
+    )
+    .await;
+    let url_blocked = assert_no_jsonrpc_error(&url_blocked, "install_from_url (scan blocked)");
+    assert_eq!(url_blocked["status"], "scan_blocked", "{url_blocked}");
+    assert!(!skill_file.exists());
+
+    let url_acknowledged = post_json_rpc(
+        rpc_base,
+        9306,
+        "openhuman.skills_install_from_url",
+        json!({ "url": url, "acknowledge_scan_findings": true }),
+    )
+    .await;
+    let url_acknowledged =
+        assert_no_jsonrpc_error(&url_acknowledged, "install_from_url (acknowledged)");
+    assert_eq!(url_acknowledged["status"], "installed", "{url_acknowledged}");
+    assert_eq!(url_acknowledged["new_workflows"], json!(["git-helper"]));
+    assert!(skill_file.exists());
 }
