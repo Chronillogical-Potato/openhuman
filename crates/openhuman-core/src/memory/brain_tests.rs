@@ -17,9 +17,30 @@ fn document(mime: Option<&str>, path: Option<&str>) -> StoreItem {
 }
 
 #[test]
-fn synced_items_are_filed_under_files() {
-    for kind in MemorySourceKind::ALL {
-        assert_eq!(brain_source(kind), files_source(), "{kind:?}");
+fn synced_items_are_filed_by_their_connector() {
+    for (kind, target, want) in [
+        (MemorySourceKind::Github, "o/r", BrainSource::Github),
+        (MemorySourceKind::Link, "https://x", BrainSource::Web),
+        (MemorySourceKind::Rss, "https://x/feed", BrainSource::Web),
+        (MemorySourceKind::Composio, "Notion", BrainSource::Notion),
+        // The Composio toolkit and the GitHub reader share one source.
+        (MemorySourceKind::Composio, "github", BrainSource::Github),
+        (
+            MemorySourceKind::Composio,
+            "gmail",
+            BrainSource::Other("gmail".into()),
+        ),
+        // An alias files under the slug Composio itself uses.
+        (
+            MemorySourceKind::Composio,
+            "google_drive",
+            BrainSource::Other("googledrive".into()),
+        ),
+        // Local files, whatever their format, share one source.
+        (MemorySourceKind::Folder, "/n", files_source()),
+        (MemorySourceKind::File, "/n/deck/Q3.PDF", files_source()),
+    ] {
+        assert_eq!(brain_source(kind, target), want, "{kind:?} {target}");
     }
     assert_eq!(files_source().to_string(), "files");
 }
@@ -289,7 +310,7 @@ fn legacy_nodes_map_to_their_connector() {
         item.meta_mut().source = SourceRef { kind, id: None };
         item
     };
-    let link = item(SourceKind::Import, None);
+    let link = item(SourceKind::Link, None);
     for old in [
         "pdf", "markdown", "md", "docx", "xlsx", "pptx", "code", "other", "files",
     ] {
@@ -298,7 +319,7 @@ fn legacy_nodes_map_to_their_connector() {
     // `web` held links and feeds, and HTML files that were filed beside them.
     assert_eq!(legacy_brain_node("web", &link), BrainSource::Web);
     assert_eq!(
-        legacy_brain_node("web", &item(SourceKind::Import, None)),
+        legacy_brain_node("web", &item(SourceKind::Rss, None)),
         BrainSource::Web
     );
     assert_eq!(
@@ -311,7 +332,7 @@ fn legacy_nodes_map_to_their_connector() {
     );
     // An upload carried the `Link` kind `web` implies, but kept its path.
     assert_eq!(
-        legacy_brain_node("web", &item(SourceKind::Import, Some("/u/pricing.html"))),
+        legacy_brain_node("web", &item(SourceKind::Link, Some("/u/pricing.html"))),
         files_source()
     );
     // Connectors keep their node, under the slug Composio uses.

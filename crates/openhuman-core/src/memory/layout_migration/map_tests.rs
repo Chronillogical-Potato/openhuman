@@ -71,18 +71,14 @@ fn a_per_format_document_moves_to_the_files_node() {
 fn a_web_link_stays_web_and_an_uploaded_page_is_a_file() {
     let placement = placement("root");
     let link = placement
-        .place(document("source:web", SourceKind::Import, None))
+        .place(document("source:web", SourceKind::Link, None))
         .unwrap();
     assert_eq!(
         link.meta().namespace,
         placement.layout.brain(&BrainSource::Web).unwrap()
     );
     let page = placement
-        .place(document(
-            "source:web",
-            SourceKind::Import,
-            Some("page.html"),
-        ))
+        .place(document("source:web", SourceKind::Link, Some("page.html")))
         .unwrap();
     assert_eq!(
         page.meta().namespace,
@@ -94,14 +90,14 @@ fn a_web_link_stays_web_and_an_uploaded_page_is_a_file() {
 fn a_connector_document_keeps_its_node() {
     let placement = placement("root");
     let placed = placement
-        .place(document("source:gmail", SourceKind::Import, None))
+        .place(document("source:gmail", SourceKind::Composio, None))
         .unwrap();
     assert_eq!(placed.meta().namespace, ns("source:gmail"));
 }
 
 #[test]
 fn a_github_document_goes_to_its_repository_when_the_setting_splits_them() {
-    let mut item = document("source:github", SourceKind::Import, None);
+    let mut item = document("source:github", SourceKind::Composio, None);
     item.meta_mut().repo = Some("Acme/Widgets".into());
     let mut placement = placement("root");
     assert_eq!(

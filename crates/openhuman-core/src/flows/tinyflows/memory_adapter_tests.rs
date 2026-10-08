@@ -314,7 +314,7 @@ fn plain_agent_learnings_are_trusted_and_everything_else_is_not() {
     assert!(!is_untrusted(&MemoryMeta::default()));
     assert!(is_untrusted(&crate::flows::flow_meta("f", &[])));
     assert!(is_untrusted(&MemoryMeta::from_source(
-        SourceKind::Import,
+        SourceKind::Composio,
         None
     )));
 }

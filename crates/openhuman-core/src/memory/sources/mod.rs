@@ -1,14 +1,18 @@
 //! Document sources: the registry persisted in `[[memory.sources]]`, and sync.
 //!
-//! A source names something to read — a local folder or a single file — and
-//! how often. Sync reads it through `tinymemory-integrations`' readers and
-//! stores each item as a `Document` whose `meta.source` is
+//! A source names something to read — a folder, a file, a web page, a GitHub
+//! repository, an RSS feed or a connected Composio toolkit — and how often.
+//! Sync reads it through `tinymemory-sources` (or, for Composio, the connector
+//! module) and stores each item as a `Document` whose `meta.source` is
 //! `{kind, id: <source id>}`, so removing a source can forget exactly its
 //! items. Sync runs on demand ([`start_sync`]) and from the
 //! `memory_sources_sync` cron job ([`sync_due`]).
 
+pub mod composio;
+pub mod roots;
 pub mod state;
 mod sync;
+pub mod versions;
 
 use chrono::{DateTime, Utc};
 use tinymemory_api::{ForgetTarget, MetaFilter};
@@ -55,7 +59,8 @@ pub fn list(config: &Config) -> Vec<SourceView> {
         .collect()
 }
 
-/// Normalises a target for `kind`: a folder or file path, trimmed.
+/// Normalises a target for `kind`: GitHub accepts `owner/repo` or a URL;
+/// network kinds must be http(s) URLs; a Composio target is a toolkit slug.
 pub fn normalize_target(kind: MemorySourceKind, target: &str) -> MemoryResult<String> {
     let target = target.trim();
     if target.is_empty() {
@@ -63,7 +68,40 @@ pub fn normalize_target(kind: MemorySourceKind, target: &str) -> MemoryResult<St
     }
     match kind {
         MemorySourceKind::Folder | MemorySourceKind::File => Ok(target.to_string()),
+        MemorySourceKind::Github => {
+            if target.starts_with("http://") || target.starts_with("https://") {
+                return http_url(target);
+            }
+            let mut parts = target.split('/');
+            match (parts.next(), parts.next(), parts.next()) {
+                (Some(owner), Some(repo), None) if !owner.is_empty() && !repo.is_empty() => {
+                    Ok(format!("https://github.com/{owner}/{repo}"))
+                }
+                _ => Err(MemoryError::invalid(
+                    "a GitHub target is `owner/repo` or a repository URL",
+                )),
+            }
+        }
+        MemorySourceKind::Link | MemorySourceKind::Rss => http_url(target),
+        MemorySourceKind::Composio => {
+            if target
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+            {
+                Ok(crate::integrations::composio::tools::canonicalize_toolkit_slug(target))
+            } else {
+                Err(MemoryError::invalid("a Composio target is a toolkit slug"))
+            }
+        }
     }
+}
+
+fn http_url(target: &str) -> MemoryResult<String> {
+    let url = url::Url::parse(target).map_err(|_| MemoryError::invalid("target is not a URL"))?;
+    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+        return Err(MemoryError::invalid("target must be an http(s) URL"));
+    }
+    Ok(url.to_string())
 }
 
 /// Builds a new source from `memory_sources_add` params and appends it to
@@ -74,7 +112,7 @@ pub fn apply_add(
 ) -> MemoryResult<MemorySourceConfig> {
     let kind = MemorySourceKind::parse(&params.kind).ok_or_else(|| {
         MemoryError::invalid(format!(
-            "unknown source kind `{}`: only folder and file sources are supported",
+            "unknown source kind `{}` (folder, file, link, github, rss, composio)",
             params.kind.trim()
         ))
     })?;
@@ -86,11 +124,19 @@ pub fn apply_add(
             )));
         }
     }
+    // A Composio target saved before targets were canonicalized
+    // (`google_drive`) is the same toolkit as its canonical slug.
+    let same_target = |saved: &str| match kind {
+        MemorySourceKind::Composio => {
+            crate::integrations::composio::tools::canonicalize_toolkit_slug(saved) == target
+        }
+        _ => saved == target,
+    };
     if config
         .memory
         .sources
         .iter()
-        .any(|source| source.kind == kind && source.target == target)
+        .any(|source| source.kind == kind && same_target(&source.target))
     {
         return Err(MemoryError::invalid("that source is already added"));
     }

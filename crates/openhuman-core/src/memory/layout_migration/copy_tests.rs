@@ -245,20 +245,20 @@ async fn old_brain_nodes_are_refiled_by_connector() {
     for item in [
         doc("a pdf", "source:pdf", SourceKind::File, Some("a.pdf")),
         doc("a note", "source:markdown", SourceKind::File, Some("a.md")),
-        doc("a link", "source:web", SourceKind::Import, None),
+        doc("a link", "source:web", SourceKind::Link, None),
         doc(
             "an upload",
             "source:web",
-            SourceKind::Import,
+            SourceKind::Link,
             Some("page.html"),
         ),
         doc(
             "a drive doc",
             "source:google_drive",
-            SourceKind::Import,
+            SourceKind::Composio,
             None,
         ),
-        doc("a notion page", "source:notion", SourceKind::Import, None),
+        doc("a notion page", "source:notion", SourceKind::Composio, None),
     ] {
         legacy.store(item).await.unwrap();
     }

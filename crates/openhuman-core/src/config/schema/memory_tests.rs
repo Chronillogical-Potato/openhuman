@@ -140,65 +140,14 @@ target = "rust"
 
 [[sources]]
 id = "good"
-kind = "folder"
-target = "/notes"
+kind = "rss"
+target = "https://example.com/feed.xml"
 "#,
     )
     .expect("one bad entry does not fail the section");
     assert_eq!(config.sources.len(), 1);
     assert_eq!(config.sources[0].id, "good");
     assert_eq!(config.sources[0].label, "", "label defaults to empty");
-}
-
-#[test]
-fn drops_sources_of_removed_network_kinds_and_keeps_local_ones() {
-    let config: MemoryConfig = toml::from_str(
-        r#"
-[[sources]]
-id = "src-composio"
-kind = "composio"
-target = "gmail"
-
-[[sources]]
-id = "src-link"
-kind = "link"
-target = "https://example.com"
-
-[[sources]]
-id = "src-github"
-kind = "github"
-target = "o/r"
-
-[[sources]]
-id = "src-rss"
-kind = "rss"
-target = "https://example.com/feed.xml"
-
-[[sources]]
-id = "src-folder"
-kind = "folder"
-target = "/notes"
-
-[[sources]]
-id = "src-file"
-kind = "file"
-target = "/notes/a.md"
-"#,
-    )
-    .expect("removed kinds must not fail the section");
-    let ids: Vec<&str> = config.sources.iter().map(|s| s.id.as_str()).collect();
-    assert_eq!(ids, ["src-folder", "src-file"]);
-}
-
-#[test]
-fn only_folder_and_file_remain_as_source_kinds() {
-    assert_eq!(
-        MemorySourceKind::ALL,
-        [MemorySourceKind::Folder, MemorySourceKind::File]
-    );
-    for removed in ["composio", "link", "github", "rss"] {
-        assert_eq!(MemorySourceKind::parse(removed), None, "{removed}");
-    }
 }
 
 #[test]
@@ -241,7 +190,7 @@ fn source_kind_round_trips_its_wire_names() {
 }
 
 #[test]
-fn migrates_the_local_legacy_kinds() {
+fn migrates_every_mappable_legacy_kind() {
     let cases = [
         (
             json!({"id":"a","kind":"folder","path":"/p"}),
@@ -252,6 +201,26 @@ fn migrates_the_local_legacy_kinds() {
             json!({"id":"b","kind":"file","path":"/f.md"}),
             MemorySourceKind::File,
             "/f.md",
+        ),
+        (
+            json!({"id":"c","kind":"web_page","url":"https://w"}),
+            MemorySourceKind::Link,
+            "https://w",
+        ),
+        (
+            json!({"id":"d","kind":"github_repo","url":"o/r"}),
+            MemorySourceKind::Github,
+            "o/r",
+        ),
+        (
+            json!({"id":"e","kind":"rss_feed","url":"https://f"}),
+            MemorySourceKind::Rss,
+            "https://f",
+        ),
+        (
+            json!({"id":"f","kind":"composio","toolkit":"gmail"}),
+            MemorySourceKind::Composio,
+            "gmail",
         ),
     ];
     for (legacy, kind, target) in cases {
@@ -277,10 +246,6 @@ fn migration_drops_unmappable_disabled_and_incomplete_entries() {
     for legacy in [
         json!({"id":"t","kind":"twitter_query","query":"rust"}),
         json!({"id":"c","kind":"conversation"}),
-        json!({"id":"w","kind":"web_page","url":"https://w"}),
-        json!({"id":"g","kind":"github_repo","url":"o/r"}),
-        json!({"id":"r","kind":"rss_feed","url":"https://f"}),
-        json!({"id":"k","kind":"composio","toolkit":"gmail"}),
         json!({"id":"x","kind":"folder","path":"/p","enabled":false}),
         json!({"id":"y","kind":"folder"}),
         json!({"kind":"folder","path":"/p"}),
