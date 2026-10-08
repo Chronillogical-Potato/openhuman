@@ -539,13 +539,7 @@ impl Turn {
             ),
             untrusted_input: self.untrusted_input,
         };
-        let dispatch = dispatch(
-            self.target,
-            self.request,
-            self.seed.take(),
-            &usage,
-            options,
-        );
+        let dispatch = dispatch(self.target, self.request, self.seed.take(), &usage, options);
 
         let reply = match (self.origin, self.progress) {
             (Some(origin), Some(sink)) => {
@@ -746,7 +740,7 @@ async fn dispatch(
                     untrusted_input: options.untrusted_input,
                     shape: Some(&options.shape),
                 };
-                agent_chat_for(
+                let outcome = agent_chat_for(
                     &mut config,
                     target,
                     &request.message,
