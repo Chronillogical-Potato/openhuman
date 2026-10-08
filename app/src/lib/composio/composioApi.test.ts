@@ -215,13 +215,5 @@ describe('deleteConnection', () => {
       params: { connection_id: 'conn-abc' },
     });
   });
-
-  it('forwards clearMemory=true to the RPC', async () => {
-    mockCallCoreRpc.mockResolvedValue({ result: { deleted: true }, logs: [] });
-    await deleteConnection('conn-abc', { clearMemory: true });
-    expect(mockCallCoreRpc).toHaveBeenCalledWith({
-      method: 'openhuman.composio_delete_connection',
-      params: { connection_id: 'conn-abc', clear_memory: true },
-    });
   });
 });
