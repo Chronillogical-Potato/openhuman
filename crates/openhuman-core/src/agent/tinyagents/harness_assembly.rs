@@ -342,6 +342,13 @@ pub(super) fn assemble_turn_harness(
     // (byte cap, summarizer, memory-protocol note) has finished rewriting it,
     // i.e. exactly what the model sees. Registered any later, a result whose
     // visible note changed between calls would count as identical.
+    // Classified read-only tools are the guard's read-only set.
+    let read_only_tools: HashSet<String> = tool_sets
+        .iter()
+        .flat_map(|set| set.iter())
+        .filter(|t| t.policy().classified && t.policy().side_effects.read_only)
+        .map(|t| t.name().to_string())
+        .collect();
     let repeat_progress = handle.as_ref().map(|handle| {
         Arc::new(
             RepeatProgressMiddleware::new(
@@ -349,6 +356,7 @@ pub(super) fn assemble_turn_harness(
                 halt_summary.clone(),
                 Arc::new(middleware::is_repeat_call_exempt),
             )
+            .with_read_only(Arc::new(move |name: &str| read_only_tools.contains(name)))
             .with_cleared_placeholder(crate::agent::context::CLEARED_PLACEHOLDER),
         )
     });

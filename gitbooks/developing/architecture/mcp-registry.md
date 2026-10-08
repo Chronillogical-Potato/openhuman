@@ -8,11 +8,11 @@ description: >-
 icon: plug
 ---
 
-# MCP Registry (`crates/openhuman-core/src/mcp/registry/`)
+# MCP Registry
 
 `crates/openhuman-core/src/mcp/registry/` is the **host half** of the dynamic, user-facing side of OpenHuman's Model Context Protocol client support: browsing the supported upstream registries (Smithery and the official modelcontextprotocol registry), reconciling the install store against the user's `mcp.json` document, persisting that, and (for servers launched as local subprocesses or HTTP-remote endpoints) supervising the connection lifecycle. Installed servers' tools are surfaced to agents via the unified tool registry (`crate::tools::registry`).
 
-The registries are **browse-only**. There is no install-from-catalog path and no setup agent: a user who finds a server in the Registry tab opens its own page, reads the install instructions there, and declares the server in the mcp.json tab (`{ "mcpServers": { name: { command, args, env } | { url, headers } } }`). `config_doc.rs` is that document's contract and `config_ops.rs` the reconciliation (`mcp_clients_config_get` / `mcp_clients_config_set`).
+The registries are **browse-only**. There is no install-from-catalog path and no setup agent: a user who finds a server in the Registry tab opens its own page, reads the install instructions there, and declares the server in the mcp.json tab (`{ "mcpServers": { name: { command, args, env } | { url, headers } } }`). The document's contract and its reconciliation live in `tinymcp::registry::config_doc`; `config_ops.rs` here is the RPC envelope over them (`mcp_clients_config_get` / `mcp_clients_config_set`).
 
 The **client half**, meaning both transports, the Smithery/official catalogs, the SQLite store, the live connection map, the subprocess supervisor, browser sign-in, and the write-audit log, moved to the vendored `tinymcp` crate (`vendor/tinymcp`). What lives in this directory is only what belongs to this application:
 
@@ -49,7 +49,7 @@ All payload types (`InstalledServer`, `McpTool`, `ConnStatus`, the Smithery/offi
 
 ## Server transport model
 
-An `InstalledServer` (from `tinymcp_bus`, re-exported as `registry::types::InstalledServer`) carries a `Transport` discriminator with stdio and HTTP-remote variants: a local subprocess (`npx`, `uvx`, or a direct binary) speaking stdio JSON-RPC, or a hosted server (the majority of what Smithery lists) dialled over streamable HTTP. A declaration in `mcp.json` becomes such a row directly (`config_doc::to_installed`): `command`/`args` → stdio, `url` → HTTP-remote, `env`/`headers` → the credential table. `tinymcp` dials whatever the row says; this domain only decides what the row says.
+An `InstalledServer` (from `tinymcp_bus`, re-exported as `registry::types::InstalledServer`) carries a `Transport` discriminator with stdio and HTTP-remote variants: a local subprocess (`npx`, `uvx`, or a direct binary) speaking stdio JSON-RPC, or a hosted server (the majority of what Smithery lists) dialled over streamable HTTP. A declaration in `mcp.json` becomes such a row directly (`tinymcp::registry::config_doc`): `command`/`args` → stdio, `url` → HTTP-remote, `env`/`headers` → the credential table. `tinymcp` dials whatever the row says; this domain only decides what the row says.
 
 ## Boot-time spawn and the reconnect supervisor
 
@@ -63,8 +63,8 @@ Installed servers are connected as the core comes up, and `mcp::registry::superv
 | `host.rs` (parent `mcp/`)   | One `tinymcp` service per workspace, opened on first use; proxy resolution for MCP traffic (`proxy_for_mcp`).                                                                          |
 | `helpers.rs`                | Shared RPC-handler plumbing: `Outcome` encoding, identifier guards, workspace-service resolution, credential-name injection.                                                        |
 | `ops.rs`                    | `mcp_clients_*` RPC handler implementations (uninstall, list, browse, connect/disconnect, tool call, `update_env`, registry settings). One-to-one with `schemas.rs` handlers; publishes `DomainEvent`s `tinymcp` does not. |
-| `config_doc.rs`             | The `mcp.json` contract: `render` (store → document, credential names only), `parse` (document → declarations, refusing what the store cannot carry), `same_dial`, `to_installed`, `merge_credentials`. |
-| `config_ops.rs`             | `mcp_clients_config_get` / `config_set`: replace the store with what the document declares (add, rewrite in place under the same `server_id`, or uninstall), merging write-only credentials and connecting new enabled servers in the background. |
+| `config_ops.rs`             | `mcp_clients_config_get` / `config_set`: the `Outcome` envelope, domain events and background connects over `tinymcp`'s `McpRegistry::render_config_doc` / `apply_config_doc`. The `mcp.json` shape, its refusals and the reconciliation (add, rewrite in place under the same `server_id`, or uninstall, merging write-only credentials) live in `tinymcp::registry::config_doc`. |
+| `action_tool.rs`            | One deferred agent tool per action on a connected server, built from `tinymcp_bus::agent_tools::action_tool_specs` with `tools_safe_for_agent` as the admission filter; execution goes through `InstalledServerInvoker::invoke`, which re-checks the live safe-tool list and then calls `service.dynamic().invoke(...)` on the `tinymcp` service, rather than back through `ops.rs`. |
 | `schemas/` (`mod.rs`, `registry.rs`, `handlers.rs`, `params.rs`) | Controller schemas + handler dispatch. Re-exported from `mod.rs` as `all_mcp_registry_controller_schemas` / `all_mcp_registry_registered_controllers`.                    |
 | `bus.rs`                    | `DomainEvent` subscriber (`McpClientEventSubscriber`) that logs `McpServer*` / `McpClientToolExecuted` lifecycle events.                                                               |
 | `supervisor_events.rs`      | Turns a `tinymcp::Supervisor` tick report into this domain's `DomainEvent`s, stamped with the workspace whose host was ticked.                                                          |
@@ -102,7 +102,7 @@ pub use types::{ConnStatus, InstalledServer, McpTool};
 
 ## Tests
 
-Focused `*_tests.rs` siblings cover each file: `bus_tests.rs`, `ops_tests.rs`, `schemas_tests.rs`, `action_tool_tests.rs`, `supervisor_events_tests.rs`, `tools_tests.rs`, `config_doc_tests.rs`.
+Focused `*_tests.rs` siblings cover each file: `bus_tests.rs`, `ops_tests.rs`, `schemas_tests.rs`, `action_tool_tests.rs`, `supervisor_events_tests.rs`, `tools_tests.rs`.
 
 ## Related
 

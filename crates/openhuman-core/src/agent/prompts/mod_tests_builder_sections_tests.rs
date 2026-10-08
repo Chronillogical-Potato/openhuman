@@ -238,7 +238,7 @@ fn current_datetime_line_is_fresh_local_stamp() {
     // The per-turn stamp carries a parseable local date, IANA zone (or the
     // `UTC` fallback), a UTC offset, and the weekday — everything the model
     // needs to localize a greeting without a tool call (#3602).
-    let line = super::super::current_datetime_line();
+    let line = super::super::current_datetime_line(None);
     let rest = line
         .strip_prefix("Current Date & Time: ")
         .unwrap_or_else(|| panic!("stamp must start with canonical prefix: {line}"));
@@ -253,6 +253,23 @@ fn current_datetime_line_is_fresh_local_stamp() {
         line.contains('/') || line.contains(" UTC "),
         "missing IANA zone or UTC fallback: {line}"
     );
+}
+
+/// The stamp reads in the user's zone, not the machine's; a name chrono-tz
+/// does not know falls back to the device stamp rather than echoing it.
+#[test]
+fn current_datetime_line_is_stamped_in_the_users_zone() {
+    let line = super::super::current_datetime_line(Some("Pacific/Chatham"));
+    let now = chrono::Utc::now().with_timezone(&chrono_tz::Pacific::Chatham);
+    assert!(line.contains(" Pacific/Chatham ("), "{line}");
+    assert!(
+        line.contains(&format!("UTC{}", now.format("%:z"))),
+        "{line}"
+    );
+    assert!(line.contains(&now.format("%Y-%m-%d").to_string()), "{line}");
+
+    let line = super::super::current_datetime_line(Some("Not/AZone"));
+    assert!(!line.contains("Not/AZone"), "{line}");
 }
 
 #[test]

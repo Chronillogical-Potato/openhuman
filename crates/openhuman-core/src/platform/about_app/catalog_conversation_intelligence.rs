@@ -369,7 +369,7 @@ Capability {
         domain: "memory",
         category: CapabilityCategory::Intelligence,
         description: "Bring memory kept by an earlier OpenHuman version (documents, conversations and learnings) into the selected engine. The scan is local and read-only; the import uploads that data to the engine and only starts after explicit consent.",
-        how_to: "Connections > Memory: the import banner appears when earlier memory is found. Programmatic: openhuman.memory_import_scan, memory_import_start (requires consent: true), memory_import_status (RPC).",
+        how_to: "Connections > Memory: the import banner appears when earlier memory is found. Programmatic: openhuman.memory_import_scan, memory_import_start (requires consent: true), memory_import_status, memory_import_retry_failed (RPC).",
         status: CapabilityStatus::Beta,
         privacy: MEMORY_TO_REMOTE_ENGINE,
     },

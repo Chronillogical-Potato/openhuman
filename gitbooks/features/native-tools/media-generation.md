@@ -29,6 +29,6 @@ Prompts and reference media for these tools are sent to the OpenHuman backend an
 
 ## See also
 
-- [Image Tools](image-tools.md) covers the _vision_ side: reading and analyzing images.
-- [Available Tools](./) lists the full native toolbelt.
+- [Image Tools](image-tools.md) covers the reading side: attachments, image metadata, and the vision model slot.
+- [Available Tools](README.md) lists the full native toolbelt.
 - [Billing, Cost & Usage](../billing-and-usage.md) explains how media jobs are metered.

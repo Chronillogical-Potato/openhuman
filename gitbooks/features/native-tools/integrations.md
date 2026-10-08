@@ -1,11 +1,11 @@
 ---
-description: The agent's view of the 119+ connected third-party services.
+description: The agent's view of the connected third-party services.
 icon: plug
 ---
 
 # Third-party Integrations
 
-OpenHuman's agent can call into [119+ third-party services](../integrations/README.md) - Gmail, Notion, GitHub, Slack, Lark / Feishu, Stripe, Calendar, and the long tail - through a single proxied tool surface.
+OpenHuman's agent can call into [the connected third-party services](../integrations/README.md), Gmail, Notion, GitHub, Slack, Lark/Feishu, Stripe, Calendar and the long tail, through a single proxied tool surface.
 
 ## How it shows up to the agent
 

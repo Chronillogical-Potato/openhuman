@@ -407,9 +407,13 @@ impl SessionHostBuilder {
 
         Ok(OpenHumanSessionHost {
             runtime_session: None,
-            runtime_state: Arc::new(std::sync::Mutex::new(
-                super::super::runtime_session::OpenHumanSessionState::default(),
-            )),
+            runtime_state: Arc::new(std::sync::Mutex::new({
+                let mut state = super::super::runtime_session::OpenHumanSessionState::default();
+                state.time_zone = runtime_config
+                    .as_deref()
+                    .map(crate::config::Config::time_zone);
+                state
+            })),
             turn_model_source,
             tools,
             synthesized_tools,

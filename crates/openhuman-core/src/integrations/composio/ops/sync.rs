@@ -16,7 +16,7 @@
 use crate::config::Config;
 use crate::core::Outcome;
 use crate::memory::engine::BoundEngine;
-use crate::memory::sources::composio::{source_id_for_toolkit, store_records};
+use crate::memory::sources::composio::{is_disconnected, source_id_for_toolkit, store_records};
 
 use super::super::module_client::{self as connectors, methods};
 use super::super::providers::{SyncOutcome, SyncReason};
@@ -214,6 +214,12 @@ pub async fn run_sync_pass(
     reason: &str,
     pass_budget: usize,
 ) -> Result<SyncPassOutcome, String> {
+    // A connection deleted meanwhile is not read again: an empty pass with
+    // nothing pending ends every caller's loop.
+    if is_disconnected(config, connection_id) {
+        tracing::debug!(connection_id = %connection_id, "[composio] connection deleted; sync pass skipped");
+        return Ok(SyncPassOutcome::default());
+    }
     // Sync pages inside the call; the default 30s bus deadline reported
     // failure on runs the module then finished successfully.
     let response = connectors::call_slow::<_, ConnectorSyncResponse>(
@@ -236,21 +242,19 @@ pub async fn run_sync_pass(
     let more_pending = failure.is_none() && !response.batch.complete;
 
     let records_read = response.batch.records.len();
-    let written = if records_read == 0 {
-        0
-    } else {
-        store_records(
-            config,
-            bound,
-            toolkit,
-            connection_id,
-            source_id,
-            &crate::memory::sources::layout_of(config, source_id),
-            &response.batch.records,
-        )
-        .await
-        .map_err(|error| format!("storing {toolkit} records failed: {}", String::from(error)))?
-    };
+    // Called with no records too: memory retries forgetting the previous
+    // versions an earlier pass could not.
+    let written = store_records(
+        config,
+        bound,
+        toolkit,
+        connection_id,
+        source_id,
+        &crate::memory::sources::layout_of(config, source_id),
+        &response.batch.records,
+    )
+    .await
+    .map_err(|error| format!("storing {toolkit} records failed: {}", String::from(error)))?;
 
     if more_pending {
         // The module's note says why (today's request budget, typically).

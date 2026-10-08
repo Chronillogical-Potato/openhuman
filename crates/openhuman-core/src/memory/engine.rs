@@ -9,9 +9,15 @@
 //! | `cortexdb` | `[memory.engines.cortexdb] endpoint`, else CortexDB's managed API | the API key stored as [`MEMORY_CORTEXDB_KEY_NAME`] | no key stored |
 //!
 //! Built engines are cached per config fingerprint (engine id, endpoint,
-//! credential identity), so a config change, a sign-in or a new key rebuilds
-//! the engine on the next call without any event plumbing, and repeated calls
-//! reuse one HTTP client.
+//! credential identity, layout), so a config change, a sign-in or a new key
+//! rebuilds the engine on the next call without any event plumbing, and
+//! repeated calls reuse one HTTP client.
+//!
+//! **Layout.** Under `[memory] layout = "v3"` the engine keeps everything
+//! below the signed-in person's own scope root (`user:<id>`, see
+//! [`super::scope::user_root`]), registered as owned by them; otherwise the
+//! legacy shared tree. [`bind_with_root`] binds either layout explicitly,
+//! for the layout migration, which holds both at once.
 //!
 //! An embedding host can bring its own engine instead ([`install_host_engine`]):
 //! it then wins over the configured one for every config in the process — one
@@ -116,6 +122,30 @@ pub(crate) fn install_test_engine(workspace: &std::path::Path, engine: Arc<dyn M
         .insert(workspace.to_path_buf(), engine);
 }
 
+/// Test engines for one layout of a workspace (`None` legacy, `Some(root)`
+/// v3), read by [`bind_with_root`] ahead of everything else, so a test can
+/// hold both layouts at once as the layout migration does.
+#[cfg(test)]
+type RootEngines = HashMap<(std::path::PathBuf, Option<String>), Arc<dyn MemoryEngine>>;
+
+#[cfg(test)]
+static TEST_ROOT_ENGINES: LazyLock<RwLock<RootEngines>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
+
+/// Binds `engine` for [`bind_with_root`] with `root` on configs whose
+/// workspace is `workspace` (tests only).
+#[cfg(test)]
+pub(crate) fn install_test_engine_for_root(
+    workspace: &std::path::Path,
+    root: Option<&str>,
+    engine: Arc<dyn MemoryEngine>,
+) {
+    TEST_ROOT_ENGINES
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert((workspace.to_path_buf(), root.map(str::to_string)), engine);
+}
+
 /// The engine an embedding host installed, if any ([`install_host_engine`]).
 static HOST_ENGINE: LazyLock<RwLock<Option<BoundEngine>>> = LazyLock::new(|| RwLock::new(None));
 
@@ -176,10 +206,75 @@ pub fn resolve(config: &Config) -> Binding {
     if let Some(bound) = host_engine() {
         return Binding::On(bound);
     }
+    let root = if super::scope::layout_is_v3(config) {
+        match super::scope::user_root(config) {
+            Some(root) => Some(root),
+            None => return off(None, None, "sign in to use memory in its own layout"),
+        }
+    } else {
+        None
+    };
+    resolve_configured(config, root.as_deref())
+}
+
+/// The engine the layout migration needs, for an explicit layout whatever
+/// `[memory] layout` says: `None` the legacy tree, `Some("user:<id>")` the
+/// person's v3 subtree, with `user:<id>` as its owner. Same endpoint,
+/// credential, headers and scrubbing as [`resolve`]; the two layouts are
+/// cached apart, so both can be held at once.
+///
+/// # Errors
+///
+/// Memory is off for `config`, or an embedding host's (or a test's)
+/// installed engine is bound, which has one layout of its own and cannot be
+/// bound below a scope root.
+pub fn bind_with_root(config: &Config, root: Option<&str>) -> MemoryResult<BoundEngine> {
+    #[cfg(test)]
+    {
+        let installed = TEST_ROOT_ENGINES
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(&(config.workspace_dir.clone(), root.map(str::to_string)))
+            .cloned();
+        if let Some(engine) = installed {
+            return Ok(BoundEngine {
+                id: engine.descriptor().id.to_string(),
+                endpoint: "test://engine".to_string(),
+                engine: super::guard::ScrubbingEngine::wrap(engine),
+            });
+        }
+        let one_engine = TEST_ENGINES
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .contains_key(&config.workspace_dir);
+        if one_engine {
+            return match root {
+                None => resolve(config).engine(),
+                Some(_) => Err(MemoryError::Engine(
+                    "the installed test engine cannot be bound below a scope root".to_string(),
+                )),
+            };
+        }
+    }
+    if host_engine().is_some() && root.is_some() {
+        return Err(MemoryError::Engine(
+            "the host's memory engine cannot be bound below a scope root".to_string(),
+        ));
+    }
+    if root.is_none() {
+        if let Some(bound) = host_engine() {
+            return Ok(bound);
+        }
+    }
+    resolve_configured(config, root).engine()
+}
+
+/// The configured engine with its scope root (`None` legacy).
+fn resolve_configured(config: &Config, root: Option<&str>) -> Binding {
     let engine_id = config.memory.engine.trim().to_string();
     match engine_id.as_str() {
-        TINYHUMANS_ENGINE => resolve_tinyhumans(config),
-        CORTEXDB_ENGINE => resolve_cortexdb(config),
+        TINYHUMANS_ENGINE => resolve_tinyhumans(config, root),
+        CORTEXDB_ENGINE => resolve_cortexdb(config, root),
         "" => {
             let reason = if config.memory.legacy_backend_unsupported
                 || config.memory.legacy_backend.is_some()
@@ -216,7 +311,18 @@ fn off(engine: Option<&str>, endpoint: Option<String>, reason: &str) -> Binding 
     }
 }
 
-fn resolve_tinyhumans(config: &Config) -> Binding {
+/// The engine settings' scope root and owner, and the fingerprint suffix
+/// that keeps each layout's engine apart in the cache.
+fn rooted(settings: EngineSettings, root: Option<&str>) -> (EngineSettings, String) {
+    let settings = EngineSettings {
+        scope_root: root.map(str::to_string),
+        scope_owner: root.map(str::to_string),
+        ..settings
+    };
+    (settings, format!("|root={}", root.unwrap_or("legacy")))
+}
+
+fn resolve_tinyhumans(config: &Config, root: Option<&str>) -> Binding {
     let endpoint = match config.memory.endpoint_for(TINYHUMANS_ENGINE) {
         Some(endpoint) => endpoint,
         None => match crate::backend::base_url(&config.api_url) {
@@ -249,14 +355,18 @@ fn resolve_tinyhumans(config: &Config) -> Binding {
     let source: Arc<dyn BearerSource> = Arc::new(HostBearer {
         config: Arc::new(config.clone()),
     });
-    build_cached(
-        TINYHUMANS_ENGINE,
+    let (settings, layout) = rooted(
         EngineSettings {
             endpoint: Some(endpoint),
             headers,
             ..EngineSettings::default()
         },
-        fingerprint,
+        root,
+    );
+    build_cached(
+        TINYHUMANS_ENGINE,
+        settings,
+        fingerprint + &layout,
         EngineCredential::Dynamic(source),
     )
 }
@@ -276,7 +386,7 @@ fn attribution_headers() -> std::collections::BTreeMap<String, String> {
         .collect()
 }
 
-fn resolve_cortexdb(config: &Config) -> Binding {
+fn resolve_cortexdb(config: &Config, root: Option<&str>) -> Binding {
     let configured = config.memory.endpoint_for(CORTEXDB_ENGINE);
     let endpoint = configured
         .clone()
@@ -301,13 +411,17 @@ fn resolve_cortexdb(config: &Config) -> Binding {
     };
     let fingerprint = format!("{CORTEXDB_ENGINE}|{endpoint}|{}", key_digest(&key));
     // A third-party endpoint: no TinyHumans attribution headers.
-    build_cached(
-        CORTEXDB_ENGINE,
+    let (settings, layout) = rooted(
         EngineSettings {
             endpoint: Some(endpoint),
             ..EngineSettings::default()
         },
-        fingerprint,
+        root,
+    );
+    build_cached(
+        CORTEXDB_ENGINE,
+        settings,
+        fingerprint + &layout,
         EngineCredential::Static(key),
     )
 }

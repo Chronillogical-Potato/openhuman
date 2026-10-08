@@ -119,6 +119,13 @@ impl MemoryEngine for RefusingEngine {
         Err(self.error.clone())
     }
 
+    async fn export(
+        &self,
+        _req: ListRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::ExportPage> {
+        Err(self.error.clone())
+    }
+
     async fn consolidate(
         &self,
         _req: tinymemory_api::ConsolidateRequest,

@@ -16,7 +16,7 @@ use crate::memory::types::{
     ItemsListParams, LearnParams, RecallParams, SourceAddedView, SourceRemovedView,
     SourcesAddParams, SourcesListView, SourcesRemoveParams, SourcesSyncParams, SourcesSyncView,
 };
-use crate::memory::{backfill, brain, engine, import, ops, sources};
+use crate::memory::{backfill, brain, engine, import, layout_migration, ops, sources};
 
 fn parse<T: DeserializeOwned>(params: Map<String, Value>) -> Result<T, String> {
     serde_json::from_value(Value::Object(params))
@@ -281,5 +281,55 @@ pub(super) fn import_status(params: Map<String, Value>) -> ControllerFuture {
         to_json(json!(ImportStateView {
             state: import::status(&config)
         }))
+    })
+}
+
+pub(super) fn import_retry_failed(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        parse::<EmptyParams>(params)?;
+        let config = load().await?;
+        finish(
+            import::retry_failed(&config)
+                .await
+                .map(|state| ImportStateView { state }),
+        )
+    })
+}
+
+pub(super) fn migration_scan(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        parse::<EmptyParams>(params)?;
+        finish(layout_migration::scan(&load().await?, &layout_migration::AppHost).await)
+    })
+}
+
+pub(super) fn migration_start(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let params = parse::<layout_migration::StartParams>(params)?;
+        let config = load().await?;
+        let started = layout_migration::start(
+            config.clone(),
+            std::sync::Arc::new(layout_migration::AppHost),
+            layout_migration::Trigger::Manual {
+                takeover: params.takeover,
+            },
+            std::sync::Arc::new(import::scheduler_paused),
+        );
+        tracing::debug!(started, "[memory:layout_migration] start requested");
+        finish(layout_migration::status(&config))
+    })
+}
+
+pub(super) fn migration_status(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        parse::<EmptyParams>(params)?;
+        finish(layout_migration::status(&load().await?))
+    })
+}
+
+pub(super) fn migration_retry(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        parse::<EmptyParams>(params)?;
+        finish(layout_migration::retry(&load().await?))
     })
 }

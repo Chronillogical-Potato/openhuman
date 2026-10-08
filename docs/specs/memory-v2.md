@@ -233,8 +233,29 @@ memory.
 | `memory_import_scan` | `{}` | `{found, counts?: {documents, conversations, learnings}}` |
 | `memory_import_start` | `{consent: true}` | `{state: ImportState}` |
 | `memory_import_status` | `{}` | `{state: ImportState}` |
+| `memory_import_retry_failed` | `{}` | `{state: ImportState}`; stores again the items a finished import skipped because the engine refused them (`ImportState.failed` counts them) |
+| `memory_migration_scan` | `{}` | `{needed, shared}` |
+| `memory_migration_start` | `{takeover?}` | `{state: MigrationState, running, interrupted}` |
+| `memory_migration_status` | `{}` | `{state: MigrationState, running, interrupted}` |
+| `memory_migration_retry` | `{}` | `MigrationState` |
 
 `memory_context_*` and `memory_conversations_get/set` are retired.
+
+**Moving into the per-user layout.** Memory written before layout v3 lives
+under `app:tinymemory/…`. `memory_migration_*` stores each item again below
+the person's `user:<id>` root, verifies it, switches the layout once every
+item is copied, copies what arrived meanwhile, then removes the legacy copies
+it verified. Progress is saved after every page in
+`<workspace>/memory/layout_migration.json`, so the move resumes where it
+stopped. The memory background job runs it on its own only while moving is
+free (always off the hosted engine); `memory_migration_start` runs it now.
+On a self-hosted CortexDB every account on the machine shares the legacy
+tree: it moves only with `takeover: true`, and the first account to take it
+claims it in `<app>/memory/legacy_claims/`; other accounts have nothing
+to move and go on in their own per-user tree. A shared tree is cleaned up by
+forgetting moved items by id, never by erasing a whole scope, since other
+accounts may still write there. Items that could not be moved stay in the legacy tree;
+`memory_migration_retry` puts them back in line.
 
 **Past conversations.** `memory_conversations_backfill_start` walks the
 thread store and stores every earlier turn of every thread the way the

@@ -3441,10 +3441,13 @@ version = "0.11.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2c646bd5cc763b1087b15493e29a64be6147ba8f19342004fa52048ee596eae"
 dependencies = [
+ "async-trait",
  "base64 0.23.1",
  "email-encoding",
  "email_address",
  "fastrand",
+ "futures-io",
+ "futures-util",
  "httpdate",
  "idna",
  "mime",
@@ -3454,6 +3457,7 @@ dependencies = [
  "rustls",
  "socket2",
  "tokio",
+ "tokio-rustls",
  "url",
  "webpki-roots 1.0.9",
 ]
@@ -4498,6 +4502,7 @@ dependencies = [
  "bytes",
  "chacha20poly1305",
  "chrono",
+ "chrono-tz",
  "directories 6.0.0",
  "dirs 6.0.0",
  "dotenvy",
@@ -7509,6 +7514,7 @@ dependencies = [
  "tinyinference-llm",
  "tinytools",
  "tokio",
+ "tracing",
  "uuid",
 ]
 
@@ -8121,10 +8127,11 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-api"
-version = "1.23.4"
+version = "1.23.7"
 dependencies = [
  "async-trait",
  "chrono",
+ "chrono-tz",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -8133,7 +8140,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-integrations"
-version = "1.23.4"
+version = "1.23.7"
 dependencies = [
  "async-trait",
  "calamine",
@@ -8160,7 +8167,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-tools"
-version = "1.23.4"
+version = "1.23.7"
 dependencies = [
  "chrono",
  "futures",
@@ -8258,7 +8265,7 @@ version = "0.5.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "base64 0.22.1",
+ "base64 0.23.1",
  "fs2",
  "futures-util",
  "glob",

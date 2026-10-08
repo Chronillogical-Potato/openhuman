@@ -188,3 +188,25 @@ async fn a_faulted_module_tool_is_steered_away_once_then_halts() {
     let summary = slot.lock().unwrap().clone().unwrap();
     assert!(summary.contains("unavailable"), "{summary}");
 }
+
+/// A result the repeat guard answered itself (blocked/halted without running
+/// the tool) is the guard's verdict, not the tool failing: it must stay out of
+/// the failure ladder even when its text would classify as a hard failure.
+#[tokio::test]
+async fn a_repeat_guard_result_never_feeds_the_failure_ladder() {
+    let handle = SteeringHandle::allow_all();
+    let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
+    for round in 0..6 {
+        let mut result = failing_result("gmail_send", "401 Unauthorized");
+        result.metadata = Some(json!({ "tinyagents.repeat_guard": "blocked" }));
+        let id = format!("guard-{round}");
+        let mut call = TaToolCall::new(&id, "gmail_send", json!({ "to": "a@b.c" }));
+        mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
+        mw.after_tool(&mut ctx(), &(), &invocation(&id, "gmail_send"), &mut result)
+            .await
+            .unwrap();
+    }
+    assert_eq!(drain_pause_count(&handle), 0);
+    assert!(slot.lock().unwrap().is_none());
+}

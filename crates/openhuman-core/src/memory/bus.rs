@@ -71,6 +71,11 @@ pub async fn run_system_job(config: &crate::config::Config, job: &str) {
         }
         BACKGROUND_JOB => {
             super::import::resume_interrupted(config).await;
+            super::layout_migration::tick(
+                config,
+                std::sync::Arc::new(super::layout_migration::AppHost),
+                std::sync::Arc::new(super::import::scheduler_paused),
+            );
             super::lifecycle::jobs::run_due(config).await;
         }
         _ => {}

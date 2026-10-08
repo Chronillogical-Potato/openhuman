@@ -604,7 +604,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/cron/origin.rs",
-    "line": 153,
+    "line": 165,
     "text": "let turn = turn_origin::current();",
     "occurrence": 1
   },
@@ -961,7 +961,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/voice/live/session.rs",
-    "line": 200,
+    "line": 201,
     "text": "Box::pin(with_origin(",
     "occurrence": 1
   },
@@ -1164,7 +1164,7 @@
   {
     "rule": "tinyagents-moved-symbol-alias",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/tool/mod.rs",
-    "line": 131,
+    "line": 138,
     "text": "pub struct ToolRegistry<State: Send + Sync, Ctx: Send + Sync> {",
     "occurrence": 1
   },
@@ -1437,7 +1437,7 @@
   {
     "rule": "tinyagents-tool-calling-facade",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/agent_loop/tools.rs",
-    "line": 2350,
+    "line": 2420,
     "text": "use tinytools_agent::repair::args;",
     "occurrence": 1
   },
@@ -1495,6 +1495,13 @@
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/tool/discover/mod.rs",
     "line": 30,
     "text": "pub use tinytools::rank::{Bm25Index, tokenize};",
+    "occurrence": 1
+  },
+  {
+    "rule": "tinyagents-upstream-reexport",
+    "path": "vendor/tinyagents/crates/tinyagents-orchestration/src/subagent/policy.rs",
+    "line": 19,
+    "text": "pub use tinyagents_graph::{SubAgentBudget, SubAgentPolicy};",
     "occurrence": 1
   },
   {

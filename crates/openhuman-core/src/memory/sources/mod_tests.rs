@@ -55,6 +55,10 @@ fn normalize_target_accepts_each_kinds_shape() {
         normalize_target(MemorySourceKind::Composio, "GMail").unwrap(),
         "gmail"
     );
+    assert_eq!(
+        normalize_target(MemorySourceKind::Composio, "Google_Drive").unwrap(),
+        "googledrive"
+    );
 }
 
 #[test]
@@ -157,6 +161,21 @@ fn add_validates_kind_schedule_and_target() {
     // A Composio source needs no reader.
     apply_add(&mut config, &add_params("composio", "Gmail")).unwrap();
     assert_eq!(config.memory.sources[0].target, "gmail");
+
+    // A source saved under an alias before canonicalization is still the
+    // same toolkit.
+    config.memory.sources.push(MemorySourceConfig {
+        kind: MemorySourceKind::Composio,
+        target: "google_drive".into(),
+        ..source("src-drive", None)
+    });
+    assert_eq!(
+        apply_add(&mut config, &add_params("composio", "googledrive"))
+            .unwrap_err()
+            .code(),
+        INVALID_REQUEST
+    );
+    assert_eq!(config.memory.sources.len(), 2, "no duplicate was added");
 }
 
 #[test]

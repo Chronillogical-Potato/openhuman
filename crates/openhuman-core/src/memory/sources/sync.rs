@@ -103,31 +103,46 @@ pub async fn sync_one(config: &Config, source: &MemorySourceConfig) -> MemoryRes
 }
 
 /// Files `items` into `layout`'s brain, each under the brain source it
-/// belongs to (`memory::brain::brain_source`), and queues one belief build
-/// per source it touched. Returns how many were stored.
+/// belongs to (`memory::brain::brain_node`), and queues one belief build
+/// per node it touched. Returns how many were stored.
 pub(crate) async fn store_all(
+    config: &Config,
+    bound: &BoundEngine,
+    items: Vec<tinymemory_api::StoreItem>,
+    source: (crate::config::schema::MemorySourceKind, &str, &str),
+    layout: &tinymemory_tools::MemoryLayout,
+) -> MemoryResult<u64> {
+    let ids = store_all_ids(config, bound, items, source, layout).await?;
+    Ok(ids.iter().flatten().count() as u64)
+}
+
+/// [`store_all`], returning the id each item was stored under, in order
+/// (`None` for an item that failed).
+pub(crate) async fn store_all_ids(
     config: &Config,
     bound: &BoundEngine,
     items: Vec<tinymemory_api::StoreItem>,
     (kind, target, source_id): (crate::config::schema::MemorySourceKind, &str, &str),
     layout: &tinymemory_tools::MemoryLayout,
-) -> MemoryResult<u64> {
-    let mut stored = 0u64;
+) -> MemoryResult<Vec<Option<String>>> {
+    let mut ids = Vec::with_capacity(items.len());
     let mut last_error = None;
     let mut touched = std::collections::BTreeSet::new();
     for item in items {
-        let brain_source = crate::memory::brain::brain_source(kind, target, &item);
-        let item = crate::memory::brain::file_into(layout, &brain_source, item)?;
+        let brain_source = crate::memory::brain::brain_source(kind, target);
+        let node = crate::memory::brain::brain_node(config, layout, &brain_source, &item)?;
+        let item = crate::memory::brain::file_into(node.clone(), item);
         match store_on(bound, item).await {
-            Ok(_) => {
-                stored += 1;
-                touched.insert(brain_source);
+            Ok(receipt) => {
+                ids.push(Some(receipt.id.to_string()));
+                touched.insert(node);
             }
             // Out of credits or unreachable refuses every item, so stop
             // rather than fail each one in turn.
             Err(error) if error.is_account_wide() => return Err(error),
             Err(error) => {
                 tracing::debug!(id = %source_id, code = error.code(), "[memory:sources] item store failed");
+                ids.push(None);
                 last_error = Some(error);
             }
         }
@@ -137,18 +152,17 @@ pub(crate) async fn store_all(
     let automatic =
         bound.engine.descriptor().consolidation == tinymemory_api::Consolidation::Automatic;
     let jobs = touched
-        .iter()
+        .into_iter()
         .filter(|_| !automatic)
-        .filter_map(|source| layout.brain(source).ok())
         .map(|node| tinymemory_tools::BackgroundJob::BuildBeliefs {
             request: tinymemory_api::ConsolidateRequest::new(tinymemory_api::Reach::exact(node))
                 .kinds([tinymemory_api::ItemKind::Document]),
         })
         .collect();
     crate::memory::lifecycle::jobs::enqueue(config, layout.root(), jobs).await;
-    match (stored, last_error) {
-        (0, Some(error)) => Err(error),
-        _ => Ok(stored),
+    match last_error {
+        Some(error) if ids.iter().all(Option::is_none) => Err(error),
+        _ => Ok(ids),
     }
 }
 

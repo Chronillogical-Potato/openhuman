@@ -347,3 +347,70 @@ async fn a_sync_queues_a_belief_build_only_for_an_engine_that_waits_for_one() {
         assert_eq!(pending, queued, "{consolidation:?}");
     }
 }
+
+#[tokio::test]
+async fn github_files_per_repository_only_when_switched_on() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    let bound = engine::resolve(&config).engine().unwrap();
+    let issue = |repo: &str, text: &str| {
+        let mut meta = tinymemory_api::MemoryMeta::default();
+        meta.repo = Some(repo.to_string());
+        tinymemory_api::StoreItem::document(text, meta)
+    };
+    let sync = |config: Config, items| {
+        let bound = bound.clone();
+        async move {
+            store_all(
+                &config,
+                &bound,
+                items,
+                (
+                    MemorySourceKind::Github,
+                    "https://github.com/acme/api",
+                    "src",
+                ),
+                &tinymemory_tools::MemoryLayout::default(),
+            )
+            .await
+            .unwrap()
+        }
+    };
+    let nodes = || async {
+        let mut nodes: Vec<String> = stored(&engine, MetaFilter::kinds([ItemKind::Document]))
+            .await
+            .into_iter()
+            .map(|hit| hit.meta.namespace.to_string())
+            .collect();
+        nodes.sort();
+        nodes
+    };
+
+    // Off (the default): one GitHub source.
+    sync(config.clone(), vec![issue("acme/api", "off")]).await;
+    assert_eq!(nodes().await, ["source:github"]);
+
+    config.memory.split_github_by_repo = true;
+    sync(
+        config.clone(),
+        vec![issue("Acme/API", "one"), issue("acme/web", "two")],
+    )
+    .await;
+    assert_eq!(
+        nodes().await,
+        [
+            "source:github",
+            "source:github/project:acme--api",
+            "source:github/project:acme--web"
+        ]
+    );
+    assert_eq!(
+        crate::memory::lifecycle::jobs::snapshot(&config)
+            .await
+            .pending
+            .len(),
+        3,
+        "one belief build per node written"
+    );
+}

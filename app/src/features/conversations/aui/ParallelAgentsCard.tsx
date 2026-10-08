@@ -62,6 +62,10 @@ function isFailedChild(status: string | undefined): boolean {
   return status === 'error' || status === 'failed' || status === 'cancelled';
 }
 
+function isIncompleteChild(status: string | undefined): boolean {
+  return status === 'incomplete';
+}
+
 /** Adapt a `spawn_parallel_agents` tool-call part onto `SubagentList` + per-child `TaskCard` rows. */
 export const ParallelAgentsCard: ToolCallMessagePartComponent = ({ toolCallId, status }) => {
   const { t } = useT();
@@ -79,8 +83,11 @@ export const ParallelAgentsCard: ToolCallMessagePartComponent = ({ toolCallId, s
     model: '',
     done: !isActiveTimelineStatus(childStatus(entry)),
   }));
-  const completedCount = agents.filter(agent => agent.done).length;
-  const runningCount = children.length - completedCount;
+  const runningCount = agents.filter(agent => !agent.done).length;
+  const incompleteCount = children.filter(entry => isIncompleteChild(childStatus(entry))).length;
+  // An incomplete worker has settled but did not finish: it is neither running
+  // nor complete, so the completed total leaves it out.
+  const completedCount = children.length - runningCount - incompleteCount;
   const failedCount = children.filter(entry => isFailedChild(childStatus(entry))).length;
   const progress = children.map(childProgressPct);
   const anyRunning = runningCount > 0;
@@ -93,6 +100,9 @@ export const ParallelAgentsCard: ToolCallMessagePartComponent = ({ toolCallId, s
       : null,
     failedCount > 0
       ? t('chat.subagents.failedCount').replace('{count}', String(failedCount))
+      : null,
+    incompleteCount > 0
+      ? t('chat.subagents.incompleteCount').replace('{count}', String(incompleteCount))
       : null,
   ].filter(Boolean);
 

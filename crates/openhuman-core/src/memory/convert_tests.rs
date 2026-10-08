@@ -96,10 +96,11 @@ async fn brain_ingest_files_a_pdf_by_path() {
     )
     .await
     .expect("a pdf is ingested, not refused");
-    assert_eq!(view.source, "pdf");
+    assert_eq!(view.source, "files", "a PDF is a file like any other");
 
     let docs = stored(&engine, MetaFilter::kinds([ItemKind::Document])).await;
     assert_eq!(docs.len(), 1);
+    assert_eq!(docs[0].meta.namespace.to_string(), "source:files");
     assert!(docs[0].text.contains("PV-7023"), "{}", docs[0].text);
 }
 

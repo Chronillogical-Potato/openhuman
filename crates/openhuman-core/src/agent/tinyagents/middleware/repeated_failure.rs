@@ -9,7 +9,7 @@ use async_trait::async_trait;
 
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
-use tinyagents_harness::middleware::{Middleware, ToolInvocationIdentity};
+use tinyagents_harness::middleware::{repeat_guard_marker, Middleware, ToolInvocationIdentity};
 use tinyagents_harness::no_progress::{
     ClassifiedFailure, ClassifiedFailureTracker, NoProgress, NoProgressTracker, ToolAttempt,
 };
@@ -463,6 +463,17 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             .ok()
             .and_then(|mut scopes| scopes.remove(&invocation.call_id().to_string()))
             .unwrap_or_else(|| tool_name.to_owned());
+        // A result the repeat guard answered itself (blocked/halted without
+        // running the tool) is the guard's verdict, not the tool failing, so it
+        // must not feed the failure ladder.
+        if let Some(marker) = repeat_guard_marker(result) {
+            tracing::debug!(
+                tool = tool_name,
+                marker,
+                "[tinyagents::mw] skipping repeat-guard result in failure ladder"
+            );
+            return Ok(());
+        }
         let step = self.step.fetch_add(1, Ordering::SeqCst) + 1;
 
         // Body-level failure signal: `validate_workflow` / `dry_run_workflow`

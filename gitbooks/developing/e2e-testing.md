@@ -1,9 +1,16 @@
 ---
-description: End-to-end testing with WDIO + tauri-driver. CI and local setup.
+description: >-
+  The desktop and web end-to-end suites: the WDIO and tauri-driver harness,
+  how to run a spec locally or in Docker, the environment variables each lane
+  reads, and which lanes actually execute in CI.
 icon: vials
 ---
 
-# E2E Testing Guide
+# E2E Testing
+
+End-to-end coverage runs in three lanes: a Rust mock-backend suite, a
+Playwright web suite, and a desktop suite driven through `tauri-driver`. Only
+the Linux desktop harness runs on a schedule; macOS and Windows are manual.
 
 ## Overview
 
@@ -156,7 +163,7 @@ error) before Tauri's deep-link forwarding path is installed.
 Two web E2E sessions on one machine need separate ports. The lane refuses to
 start when any of its three ports is already listening, because its readiness
 probes are ordinary HTTP GETs that the other session's mock, core and web host
-answer just as happily — and `openhuman-core run` falls back to a neighbouring
+answer just as happily, and `openhuman-core run` falls back to a neighbouring
 port rather than exiting, so it would stay alive on a port nothing probes
 (#5918). Set `E2E_PORT_BASE` for the build and the run alike: the mock and core
 ports are compiled into the bundle and cannot be changed afterwards (#6478).
@@ -171,9 +178,29 @@ E2E_PORT_BASE=31000 pnpm --filter openhuman-app test:e2e:web
 
 ### Push / PR checks
 
-The default pull-request gate is `.github/workflows/ci-fast.yml` (quality checks plus complete unit-test suites for changed areas). E2E suites do not run on PRs to `main`. The full E2E matrix (Rust mock-backend, Playwright web, desktop on Linux/macOS/Windows) runs in `.github/workflows/ci-full.yml` on PRs targeting the `release` branch and on every push to it.
+The default pull-request gate is `.github/workflows/ci-fast.yml`: quality
+checks plus the complete unit-test suites for each changed area. No E2E suite
+runs on a pull request to `main`.
 
-macOS and Windows desktop E2E do not run on pushes or PRs. `.github/workflows/e2e.yml` is a manually dispatched workflow whose `run_macos` / `run_windows` inputs default to `false` until #5485 lands a native driver for each platform; someone has to opt in explicitly to get cross-platform desktop signal before promotion.
+`.github/workflows/ci-full.yml` runs on pull requests targeting `release` and
+on every push to it, and carries three E2E lanes:
+
+| Lane | Job | Platform |
+| --- | --- | --- |
+| Rust mock backend | `rust-e2e` | Linux |
+| Playwright web | `playwright-e2e` | Linux |
+| Desktop | `e2e-desktop`, via `e2e-reusable.yml` | Linux only |
+
+The desktop lane calls the reusable workflow with `run_linux: true`,
+`run_macos: false` and `run_windows: false`, so only the Linux harness
+executes. The job's "3 OS" title names the matrix the reusable workflow is
+able to run, not the one CI Full asks for.
+
+macOS and Windows desktop E2E therefore have no scheduled coverage on any
+branch. `.github/workflows/e2e.yml` is a manual dispatch whose `run_macos` and
+`run_windows` inputs default to `false` as well, so someone has to opt in
+explicitly to get cross-platform desktop signal before a promotion. Both stay
+off until #5485 lands a native driver for each platform.
 
 ---
 
@@ -267,3 +294,12 @@ bash scripts/test-rust-inference-e2e.sh
 # Via Docker (Linux, same image as CI):
 docker compose -f e2e/docker-compose.yml run --rm inference-e2e
 ```
+
+---
+
+## See also
+
+- [Testing strategy](testing-strategy.md): which layer a given test belongs in.
+- [Agent observability](agent-observability.md): the artifact flow the review run writes to.
+- [Tauri shell](architecture/tauri-shell.md): the Wry webview `tauri-driver` attaches to.
+- [Building and installing OpenHuman](getting-set-up.md): toolchain and submodules a local E2E build needs.

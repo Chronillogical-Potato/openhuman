@@ -1,9 +1,17 @@
 ---
-description: The agent's session todo list and per-thread goals.
+description: >-
+  The agent's session todo list and its per-thread goals: in-session work
+  state the chat pane reflects, rather than a task board you manage.
 icon: target
 ---
 
 # Goals & Todos
+
+The agent tracks its own work in two places: a session todo list for the steps
+of the request it is handling, and a per-thread goal for the objective that
+thread is trying to finish.
+
+---
 
 ## Agent work state
 
@@ -17,10 +25,12 @@ Neither is a kanban board. There is no per-thread task board, no card CRUD,
 no approval gate, and no `thread_goals`, `todos`, or `threads_task_board` RPC
 endpoint. Conversation threads remain the chat/session container.
 
+---
+
 ## In the chat pane
 
-Both show above the composer while the agent works, read-only — the agent
-owns them, the pane reflects them:
+Both show above the composer while the agent works, read-only: the agent
+owns them, the pane reflects them.
 
 - The **todo checklist** lists every step with its state: completed items
   strike through and stay, the one `in_progress` item is marked, and the
@@ -29,10 +39,14 @@ owns them, the pane reflects them:
   reached, complete) and tokens used against the budget when one was set.
 
 Neither has an RPC of its own. Each tool call answers with its state as JSON,
-so the pane reads the newest `todo` / `goal_*` tool result in the thread —
+so the pane reads the newest `todo` / `goal_*` tool result in the thread,
 across the live turn and the thread's persisted turns, which is what keeps a
 goal on screen for the many turns after the one that set it.
+
+---
 
 ## See also
 
 - [Memory](memory.md): durable preferences and facts live there as learnings; goals and todos are in-session only.
+- [Native Tools](native-tools/README.md): where the `todo` and `goal_*` tool calls sit among the rest.
+- [Agent Harness](../developing/architecture/agent-harness.md): the crate-backed stores behind both.

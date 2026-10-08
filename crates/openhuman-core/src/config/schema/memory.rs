@@ -21,6 +21,7 @@
 //! team_limit = 3
 //! build_beliefs_every = 10         # turns between belief builds; 0 turns them off
 //! pre_turn_timeout_ms = 1500
+//! date_hint = false                # a model call works out which days a turn is about
 //! compaction_timeout_ms = 8000
 //! build_delay_secs = 300           # how far belief builds run behind the writes
 //!
@@ -105,6 +106,12 @@ pub struct MemoryConfig {
     /// Unset is the default root.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub root: Option<String>,
+    /// Where memory sits on the engine: `legacy` (the shared
+    /// `app:tinymemory` tree, the default) or `v3` (the signed-in person's
+    /// own `user:<id>` subtree, chats pooled at `ws:main`). Switched by the
+    /// layout migration once the person's memory has moved, never by hand.
+    #[serde(skip_serializing_if = "MemoryLayoutMode::is_legacy")]
+    pub layout: MemoryLayoutMode,
     /// Turn logging.
     pub conversations: MemoryConversationsConfig,
     /// The per-turn context pack and the lifecycle's timings.
@@ -127,6 +134,32 @@ pub struct MemoryConfig {
     /// Per-agent-definition memory settings, keyed by agent definition id.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub agents: BTreeMap<String, MemoryAgentConfig>,
+    /// File GitHub documents one scope per repository
+    /// (`source:github/project:<owner>--<repo>`) rather than all in
+    /// `source:github`. Off by default: every turn reads each brain scope,
+    /// so each repository adds a recall to every turn.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub split_github_by_repo: bool,
+}
+
+/// `[memory] layout`: where memory sits on the engine.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum MemoryLayoutMode {
+    /// The shared `app:tinymemory` tree, as before layout v3.
+    #[default]
+    Legacy,
+    /// The person's own `user:<id>` subtree, every kind under a leaf of its
+    /// own, chats pooled at `ws:main`.
+    V3,
+}
+
+impl MemoryLayoutMode {
+    /// Whether this is the legacy layout (the default, so it is not written).
+    #[must_use]
+    pub fn is_legacy(&self) -> bool {
+        *self == Self::Legacy
+    }
 }
 
 /// `[memory.agents.<definition>]`: one agent definition's memory.
@@ -167,6 +200,7 @@ impl Default for MemoryConfig {
             engines: BTreeMap::new(),
             agent_id: None,
             root: None,
+            layout: MemoryLayoutMode::Legacy,
             conversations: MemoryConversationsConfig::default(),
             recall: MemoryRecallConfig::default(),
             sources: Vec::new(),
@@ -175,6 +209,7 @@ impl Default for MemoryConfig {
             embedding_dimensions: DEFAULT_EMBEDDING_DIMENSIONS,
             embedding_rate_limit_per_min: DEFAULT_EMBEDDING_RATE_LIMIT_PER_MIN,
             agents: BTreeMap::new(),
+            split_github_by_repo: false,
         }
     }
 }
@@ -246,6 +281,11 @@ pub struct MemoryRecallConfig {
     pub build_beliefs_every: u32,
     /// How long a turn waits for its pack before running without one.
     pub pre_turn_timeout_ms: u64,
+    /// Whether a small model call, beside the recall, works out which days
+    /// the turn is about so the pack leads with memories from them. Off by
+    /// default: it costs a model call per turn and often misses the
+    /// pre-turn deadline.
+    pub date_hint: bool,
     /// How long a compaction waits for its recalled context.
     pub compaction_timeout_ms: u64,
     /// How long a queued belief build waits before it runs, so the engine's
@@ -264,6 +304,7 @@ impl Default for MemoryRecallConfig {
             team_limit: 3,
             build_beliefs_every: 10,
             pre_turn_timeout_ms: DEFAULT_PRE_TURN_TIMEOUT_MS,
+            date_hint: false,
             compaction_timeout_ms: DEFAULT_COMPACTION_TIMEOUT_MS,
             build_delay_secs: DEFAULT_BUILD_DELAY_SECS,
         }

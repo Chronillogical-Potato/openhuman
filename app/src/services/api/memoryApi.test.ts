@@ -15,6 +15,7 @@ import {
   memoryErrorMessage,
   memoryFetch,
   memoryForget,
+  memoryImportRetryFailed,
   memoryImportScan,
   memoryImportStart,
   memoryImportStatus,
@@ -142,6 +143,12 @@ describe('memoryApi wire calls', () => {
       { consent: true },
     ],
     ['import status', () => memoryImportStatus(), 'openhuman.memory_import_status', {}],
+    [
+      'import retry failed',
+      () => memoryImportRetryFailed(),
+      'openhuman.memory_import_retry_failed',
+      {},
+    ],
   ];
 
   it.each(cases)('%s', async (_name, invoke, method, params) => {

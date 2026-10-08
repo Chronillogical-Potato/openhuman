@@ -305,7 +305,8 @@ impl Tool for MemoryTool {
          `learn` stores a durable fact, preference, procedure or correction about the \
          user or their work, shared with every agent working alongside you; `forget` \
          removes items by id. Relevant memory is already added to each turn as \
-         <memory-context>; use `recall` or `fetch` to look further. Recall before asking \
+         <memory-context>; use `recall` or `fetch` to look further, and set `refers_to` when \
+         the question is about a particular time. Recall before asking \
          the user something they may already have told you; learn things worth \
          remembering next time."
     }
@@ -325,6 +326,16 @@ impl Tool for MemoryTool {
                 "filter": {"type": "object", "description": "recall/fetch: metadata filter, e.g. {\"kinds\": [\"learning\"], \"workspace\": \"/path\", \"repo\": \"owner/name\"}."},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 100, "description": "recall/fetch: most results."},
                 "cursor": {"type": "string", "description": "fetch: next-page cursor."},
+                "refers_to": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "recall/fetch: the local calendar dates the question is about, resolved against the Current Date & Time line. Set it whenever the question mentions or implies a time, in any language: \"yesterday\", \"last Saturday\", \"in March\", \"kal\", \"pichle hafte\", \"el viernes\". A single day has from == to. If a word can mean the past or the future (Hindi \"kal\"), cover both days. Prefer this over filter.observed_after/observed_before: those drop every memory recorded on another day, this only ranks the matching days first.",
+                    "properties": {
+                        "from": {"type": "string", "format": "date", "description": "First local date, YYYY-MM-DD."},
+                        "to": {"type": "string", "format": "date", "description": "Last local date, YYYY-MM-DD, inclusive."}
+                    },
+                    "required": ["from", "to"]
+                },
                 "text": {"type": "string", "description": "learn: the learning, one self-contained sentence."},
                 "kind": {"type": "string", "enum": ["preference", "fact", "procedure", "correction", "other"], "description": "learn: what kind of learning (default fact)."},
                 "confidence": {"type": "number", "minimum": 0, "maximum": 1, "description": "learn: confidence (default 0.8)."},

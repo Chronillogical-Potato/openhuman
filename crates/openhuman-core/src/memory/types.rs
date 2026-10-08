@@ -96,6 +96,20 @@ pub struct RecallParams {
     /// Most citations to return.
     #[serde(default)]
     pub limit: Option<usize>,
+    /// The local days the question is about: memories from them rank
+    /// first, nothing is dropped. Read in the user's time zone.
+    #[serde(default)]
+    pub refers_to: Option<RefersTo>,
+}
+
+/// Local calendar days (`YYYY-MM-DD`), inclusive; `to` defaults to `from`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct RefersTo {
+    /// First day.
+    pub from: chrono::NaiveDate,
+    /// Last day; the same as `from` for a single day.
+    #[serde(default)]
+    pub to: Option<chrono::NaiveDate>,
 }
 
 /// `memory_recall` result.
@@ -127,6 +141,9 @@ pub struct FetchParams {
     /// Engine cursor from a previous page.
     #[serde(default)]
     pub cursor: Option<String>,
+    /// The local days the query is about (see [`RecallParams::refers_to`]).
+    #[serde(default)]
+    pub refers_to: Option<RefersTo>,
 }
 
 /// `memory_fetch` result.
@@ -315,11 +332,12 @@ pub struct SourcesSyncView {
 /// Item counts a legacy store would import.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImportCounts {
-    /// Documents (and chunked source documents).
+    /// Documents, and every memory-tree chunk source.
     pub documents: u64,
     /// Conversations.
     pub conversations: u64,
-    /// Learnings (including profile facets).
+    /// Learnings: distilled facts, profile facets, extracted events, turn
+    /// lessons, graph relations, and the goals and persona files.
     pub learnings: u64,
 }
 
@@ -368,6 +386,10 @@ pub struct ImportState {
     /// Why it stopped.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// Items the engine refused (malformed, too large), kept so they can be
+    /// retried (`memory_import_retry_failed`).
+    #[serde(default)]
+    pub failed: u64,
 }
 
 /// `memory_import_start` / `_status` result.

@@ -6,7 +6,7 @@ use crate::memory::test_fixtures::{bind_reference, config_in};
 use serde_json::{json, Map, Value};
 
 /// Every method of the spec's RPC table (`docs/specs/memory-v2.md`), exactly.
-const SPEC_METHODS: [&str; 29] = [
+const SPEC_METHODS: [&str; 34] = [
     "openhuman.memory_engines_list",
     "openhuman.memory_engine_get",
     "openhuman.memory_engine_set",
@@ -36,6 +36,11 @@ const SPEC_METHODS: [&str; 29] = [
     "openhuman.memory_import_scan",
     "openhuman.memory_import_start",
     "openhuman.memory_import_status",
+    "openhuman.memory_import_retry_failed",
+    "openhuman.memory_migration_scan",
+    "openhuman.memory_migration_start",
+    "openhuman.memory_migration_status",
+    "openhuman.memory_migration_retry",
 ];
 
 fn object(value: Value) -> Map<String, Value> {
@@ -102,6 +107,7 @@ fn required_inputs_match_the_spec() {
     assert_eq!(optional("sources_remove"), ["forget_items"]);
     assert_eq!(optional("sources_sync"), ["id"]);
     assert_eq!(required("import_start"), ["consent"]);
+    assert_eq!(optional("migration_start"), ["takeover"]);
     assert_eq!(optional("pack_preview"), ["query", "thread_id", "agent_id"]);
     assert_eq!(required("brain_search"), ["query"]);
     assert_eq!(
@@ -121,6 +127,7 @@ fn required_inputs_match_the_spec() {
         "sources_list",
         "import_scan",
         "import_status",
+        "import_retry_failed",
     ] {
         assert!(schema(empty).inputs.is_empty(), "{empty} takes no params");
     }

@@ -2273,7 +2273,13 @@ async fn json_rpc_cron_origin_delivery_lands_in_the_asking_thread_inner() {
 
     let mut delivered_ids: Vec<String> = Vec::new();
     for round in 0..2i64 {
-        push_forced_chat_completion(forced_text_completion(&format!("Drink water! #{round}")));
+        // Gate on the cron prompt: an unconditional FIFO entry can be taken by
+        // any other chat request in the process (a background call after the
+        // first turn), which delivered the mock default instead of this reply.
+        push_forced_chat_completion_when(
+            "Remind the user to drink water.",
+            forced_text_completion(&format!("Drink water! #{round}")),
+        );
         let run = post_json_rpc(
             &rpc_base,
             10 + round,

@@ -167,7 +167,7 @@ export default function Memory() {
   return (
     <div className="h-full w-full" data-testid="memory-page">
       <SettingsTabbedPage<MemoryChip>
-        title={headers[chip ?? 'engine'].title}
+        title={t('nav.brain')}
         description={headers[chip ?? 'engine'].description}
         tabs={[
           { id: 'engine', label: t('memoryPage.tabs.engine') },
@@ -200,7 +200,7 @@ export default function Memory() {
             </Alert>
           )}
           {on && chip !== null && chip !== 'engine' && (
-            <MemoryImportBanner engineLabel={activeLabel} />
+            <MemoryImportBanner key={authUserId ?? 'signed-out'} engineLabel={activeLabel} />
           )}
           {body}
         </div>

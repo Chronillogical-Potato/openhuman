@@ -505,3 +505,55 @@ async fn a_blank_turn_is_refused_without_a_pack_with_or_without_logging() {
     resumed.resumed_after_compaction = true;
     assert!(pre_turn(&config, &reader, resumed).await.is_none());
 }
+
+/// With `date_hint` on, the turn's text goes to the chat model with the date
+/// line in the user's zone, and the pack comes back whether the model names a
+/// date or answers nonsense: the hint only reorders, it never costs the pack.
+#[tokio::test]
+async fn a_date_hint_asks_the_model_in_the_users_zone_and_never_costs_the_pack() {
+    for answer in ["{\"from\":\"2026-10-03\",\"to\":\"2026-10-03\"}", "no idea"] {
+        let model = std::sync::Arc::new(tinyagents_harness::testkit::ScriptedModel::new(vec![
+            tinyinference_llm::model::ModelResponse::assistant(answer),
+        ]));
+        let _override = crate::inference::provider::factory::test_provider_override::install_model(
+            model.clone(),
+        );
+        let tmp = tempfile::tempdir().unwrap();
+        let mut config = config_in(&tmp);
+        config.memory.recall.date_hint = true;
+        config.user_timezone = Some("Pacific/Chatham".into());
+        let engine = bind_reference(&config);
+        engine
+            .store(StoreItem::learning(
+                "The user's favourite colour is teal",
+                LearningKind::Preference,
+                0.9,
+                MemoryMeta::default(),
+            ))
+            .await
+            .unwrap();
+        let identity = MemoryIdentity::agent("orchestrator").resolve(&config);
+
+        let pack = pre_turn(
+            &config,
+            &identity,
+            input("t-dated", 0, "what colour did I pick last Saturday?"),
+        )
+        .await
+        .expect("a pack");
+        assert!(
+            pack.markdown.contains("teal"),
+            "{answer}: {}",
+            pack.markdown
+        );
+
+        let requests = model.requests();
+        assert_eq!(requests.len(), 1, "{answer}: one extraction call per turn");
+        let system = requests[0].messages[0].text();
+        assert!(system.contains(" Pacific/Chatham ("), "{system}");
+        assert!(
+            requests[0].messages[1].text().contains("last Saturday"),
+            "the turn's own words are what is dated"
+        );
+    }
+}

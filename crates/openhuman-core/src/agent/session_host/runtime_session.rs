@@ -54,6 +54,8 @@ pub(super) struct OpenHumanSessionState {
     required_output: Option<tinyagents_harness::config::RequiredOutput>,
     pub(crate) pending_turn_overrides: super::types::TurnOverrides,
     pub(super) active_turn_overrides: super::types::TurnOverrides,
+    pub(super) reply_language_directive: Option<String>,
+    pub(super) time_zone: Option<String>,
     prelude: Option<OpenHumanTurnPrelude>,
 }
 
@@ -529,12 +531,12 @@ impl OpenHumanTurnPrelude {
     async fn enrich_request(
         &self,
         original_user_message: &str,
-        overrides: &super::types::TurnOverrides,
+        turn: &super::types::TurnInputs,
         run_context: &mut OpenHumanRunContext,
     ) -> String {
         let mut context = String::new();
 
-        let active_goal = if overrides.suppress_active_goal {
+        let active_goal = if turn.overrides.suppress_active_goal {
             None
         } else {
             let loaded = crate::agent::goals::runtime::load_for_thread(
@@ -633,10 +635,7 @@ impl OpenHumanTurnPrelude {
             self.tool_dispatcher.tool_call_format(),
         )
         .harness_dispatcher();
-        format!(
-            "{}\n\n{enriched}",
-            crate::agent::prompts::current_datetime_line()
-        )
+        format!("{}\n\n{enriched}", turn.preamble())
     }
 
     fn parent_context(&self) -> crate::agent::harness::ParentExecutionContext {
@@ -1130,18 +1129,16 @@ impl OpenHumanSessionHost {
                             .context_window = context_window;
                         let original_user_message = user_text_with_markers(&request.input);
                         prelude.begin_user_effects(request);
-                        let overrides = std::mem::take(
-                            &mut state
-                                .lock()
-                                .unwrap_or_else(|poisoned| poisoned.into_inner())
-                                .active_turn_overrides,
-                        );
+                        let turn = state
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner())
+                            .take_turn_inputs();
                         let current_input =
                             view.history.last().filter(|last| **last == request.input);
                         let (enriched, memory_turn) = futures::join!(
                             prelude.enrich_request(
                                 &original_user_message,
-                                &overrides,
+                                &turn,
                                 &mut options.run_context.data,
                             ),
                             // Boxed: the hook's future (config load, engine
@@ -1160,7 +1157,7 @@ impl OpenHumanSessionHost {
                                 tinyagents_runtime::RuntimeError::Driver(error.to_string())
                             })?;
                         prelude.refresh_permanent_prefix(&mut preparation, view.prefix);
-                        if overrides.suppress_tools {
+                        if turn.overrides.suppress_tools {
                             // One-off tool-less turn: must not become the
                             // thread's recorded tool list.
                             preparation.tools = Some(ToolSnapshot::default().exact());
@@ -1172,7 +1169,7 @@ impl OpenHumanSessionHost {
                             policy_session_id,
                             policy_channel,
                         ) = prelude.current_tool_source();
-                        if overrides.suppress_tools {
+                        if turn.overrides.suppress_tools {
                             current_tools = Arc::new(Vec::new());
                             current_synthesized_tools = Arc::new(Vec::new());
                         }
@@ -1189,7 +1186,7 @@ impl OpenHumanSessionHost {
                         middleware.transcript_snapshot = Some(transcript_snapshot);
                         options.run_context.data.context_middleware = Some(middleware);
                         options.run_context.data.current_tools = Some(current_tools);
-                        if !overrides.suppress_tools {
+                        if !turn.overrides.suppress_tools {
                             options.run_context.data.deferred_tool_names =
                                 Arc::new(prelude.current_deferred_tool_names());
                         }

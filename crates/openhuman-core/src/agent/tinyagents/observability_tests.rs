@@ -54,11 +54,13 @@ async fn bridge_forwards_tool_and_cost_progress() {
         model: "mock-model".to_string(),
     });
     sink.emit(AgentEvent::ToolStarted {
+        parent_call_id: None,
         call_id: "c1".into(),
         tool_name: "echo".to_string(),
         input: None,
     });
     sink.emit(AgentEvent::ToolCompleted {
+        parent_call_id: None,
         call_id: "c1".into(),
         tool_name: "echo".to_string(),
         started_at_ms: None,
@@ -217,11 +219,13 @@ async fn tool_completed_projects_output_arguments_and_elapsed() {
     sink.subscribe(bridge.clone());
 
     sink.emit(AgentEvent::ToolStarted {
+        parent_call_id: None,
         call_id: "t1".into(),
         tool_name: "echo".to_string(),
         input: None,
     });
     sink.emit(AgentEvent::ToolCompleted {
+        parent_call_id: None,
         call_id: "t1".into(),
         tool_name: "echo".to_string(),
         started_at_ms: None,
@@ -406,11 +410,13 @@ async fn tool_call_events_use_the_tool_s_own_display_label_and_detail() {
         model: "mock-model".to_string(),
     });
     sink.emit(AgentEvent::ToolStarted {
+        parent_call_id: None,
         call_id: "c1".into(),
         tool_name: "fake_send_email".to_string(),
         input: None,
     });
     sink.emit(AgentEvent::ToolCompleted {
+        parent_call_id: None,
         call_id: "c1".into(),
         tool_name: "fake_send_email".to_string(),
         started_at_ms: None,
