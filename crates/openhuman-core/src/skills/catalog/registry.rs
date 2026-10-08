@@ -7,14 +7,22 @@
 //! | `OPENHUMAN_SKILL_INSTALL_ALLOW_LOCAL_HTTP=1` | Allow plain `http` to loopback (fixtures, local mirrors) |
 //! | `OPENHUMAN_SKILL_REGISTRY_CACHE_DIR` | Catalog store directory; default `~/.openhuman/skill-registry` |
 //!
+//! A failed catalog refresh is not attempted again for [`REFRESH_COOLDOWN`]
+//! (or longer when the upstream sends `Retry-After`); reads in that window
+//! answer from the held catalog or with the last error.
+//!
 //! The handle is rebuilt whenever that configuration changes, so a process
 //! that re-points the environment (tests, a relocated home) gets a registry
 //! for its current settings.
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, PoisonError, RwLock};
+use std::time::Duration;
 
-use tinyskills::{FetchPolicy, FileCatalogStore, HermesIndexSource, RegistryLimits, SkillRegistry};
+use tinyskills::{
+    FetchPolicy, FileCatalogStore, HermesIndexSource, RegistryLimits, RegistryTimeouts,
+    SkillRegistry,
+};
 
 use super::transport::ReqwestTransport;
 
@@ -23,6 +31,9 @@ pub(crate) const DOWNLOAD_BASE_URL_ENV: &str = "OPENHUMAN_SKILL_REGISTRY_DOWNLOA
 const CACHE_DIR_ENV: &str = "OPENHUMAN_SKILL_REGISTRY_CACHE_DIR";
 const DEFAULT_CACHE_DIR: &str = "skill-registry";
 const LEGACY_CACHE_FILE: &str = "cache.json";
+
+/// Minimum wait after a failed catalog refresh before the next one.
+pub const REFRESH_COOLDOWN: Duration = Duration::from_secs(45);
 
 /// The registry id of the Hermes index source.
 pub const HERMES_REGISTRY_ID: &str = "hermes";
@@ -89,10 +100,17 @@ impl RegistryConfig {
         limits
     }
 
+    pub(crate) fn timeouts() -> RegistryTimeouts {
+        let mut timeouts = RegistryTimeouts::default();
+        timeouts.cooldown = REFRESH_COOLDOWN;
+        timeouts
+    }
+
     fn build(&self) -> Arc<SkillRegistry> {
         let builder = SkillRegistry::builder(ReqwestTransport::new())
             .source(self.source())
             .policy(self.policy())
+            .timeouts(Self::timeouts())
             .limits(Self::limits());
         match &self.cache_dir {
             Some(dir) => {
@@ -121,6 +139,11 @@ fn remove_legacy_cache(dir: &Path) {
             "[skill_registry] could not remove legacy catalog cache"
         ),
     }
+}
+
+/// The time budgets every registry fetch in this process uses.
+pub(crate) fn registry_timeouts() -> RegistryTimeouts {
+    RegistryConfig::timeouts()
 }
 
 static HANDLE: RwLock<Option<(RegistryConfig, Arc<SkillRegistry>)>> = RwLock::new(None);

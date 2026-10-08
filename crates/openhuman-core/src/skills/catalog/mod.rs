@@ -29,7 +29,9 @@ mod transport;
 pub mod types;
 
 #[cfg(feature = "skills")]
-pub use registry::{skill_registry, HERMES_REGISTRY_ID};
+pub(crate) use registry::registry_timeouts;
+#[cfg(feature = "skills")]
+pub use registry::{skill_registry, HERMES_REGISTRY_ID, REFRESH_COOLDOWN};
 #[cfg(feature = "skills")]
 pub use transport::ReqwestTransport;
 

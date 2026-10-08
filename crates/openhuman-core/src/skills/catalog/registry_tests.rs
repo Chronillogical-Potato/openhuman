@@ -103,3 +103,14 @@ fn building_removes_the_legacy_cache_file() {
     let _registry = config.build();
     assert!(!legacy.exists(), "the pre-registry cache is dropped");
 }
+
+#[test]
+fn a_failed_refresh_cools_down_for_45_seconds() {
+    assert_eq!(REFRESH_COOLDOWN, std::time::Duration::from_secs(45));
+    assert_eq!(RegistryConfig::timeouts().cooldown, REFRESH_COOLDOWN);
+    assert_eq!(registry_timeouts().cooldown, REFRESH_COOLDOWN);
+    let defaults = RegistryTimeouts::default();
+    let timeouts = RegistryConfig::timeouts();
+    assert_eq!(timeouts.document, defaults.document);
+    assert_eq!(timeouts.catalog, defaults.catalog);
+}
