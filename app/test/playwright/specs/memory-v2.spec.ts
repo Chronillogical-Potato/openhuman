@@ -510,7 +510,7 @@ test.describe('Memory v2 — engine active', () => {
   test('importing previous memory needs explicit consent', async ({ page }) => {
     const fake = await installMemoryFake(page, { engineOn: true, importFound: true });
     await bootAuthenticatedPage(page, 'pw-memory-v2-import');
-    await openMemory(page, '&brain=ask');
+    await openMemory(page, '&brain=migration');
 
     // 6. The scan found v1 data: the banner offers it with the counts.
     const banner = page.getByTestId('memory-import-banner');
@@ -542,7 +542,7 @@ test.describe('Memory v2 — engine active', () => {
       importFinishedWithFailed: 2,
     });
     await bootAuthenticatedPage(page, 'pw-memory-v2-import-retry');
-    await openMemory(page, '&brain=ask');
+    await openMemory(page, '&brain=migration');
 
     // Finished, with the refused items counted and a retry beside them.
     await expect(page.getByTestId('memory-import-failed-items')).toContainText('imported: 2', {
@@ -569,7 +569,7 @@ test.describe('Memory v2 — engine active', () => {
       importStoppedWith: stopped,
     });
     await bootAuthenticatedPage(page, 'pw-memory-v2-import-resume');
-    await openMemory(page, '&brain=ask');
+    await openMemory(page, '&brain=migration');
 
     // The stopped import shows its reason and a Resume control, not the fresh offer.
     const failed = page.getByTestId('memory-import-error');
@@ -636,6 +636,11 @@ test.describe('Memory v2 — memory off', () => {
     await page.getByTestId('memory-off-open-engine').click();
     await expect.poll(() => hash(page)).toContain('brain=engine');
     await expect(page.getByTestId('memory-engine-tab')).toBeVisible();
+
+    // Migration explains memory is off too, instead of offering an import.
+    await page.getByTestId('brain-tab-migration').click();
+    await expect(page.getByTestId('memory-migration-tab')).toBeVisible();
+    await expect(page.getByTestId('memory-off-state')).toBeVisible();
 
     // With memory off the page never offers an import or lists sources.
     expect(fake.paramsOf('memory_import_scan')).toEqual([]);
@@ -807,7 +812,7 @@ test.describe('Memory v2 — move into the per-user layout', () => {
   test('migrate now moves the legacy memory and the banner goes away', async ({ page }) => {
     const fake = await installMemoryFake(page, { engineOn: true, migration: { shared: false } });
     await bootAuthenticatedPage(page, 'pw-memory-v2-migrate');
-    await openMemory(page, '&brain=ask');
+    await openMemory(page, '&brain=migration');
 
     await expect(page.getByTestId('memory-migration-offer')).toBeVisible({ timeout: 20_000 });
     await page.getByTestId('memory-migration-start').click();
@@ -818,7 +823,7 @@ test.describe('Memory v2 — move into the per-user layout', () => {
   test('a tree other accounts may share is taken only after consent', async ({ page }) => {
     const fake = await installMemoryFake(page, { engineOn: true, migration: { shared: true } });
     await bootAuthenticatedPage(page, 'pw-memory-v2-migrate-takeover');
-    await openMemory(page, '&brain=ask');
+    await openMemory(page, '&brain=migration');
 
     await page.getByTestId('memory-migration-start').click({ timeout: 20_000 });
     const takeover = page.getByTestId('memory-migration-takeover');
