@@ -72,7 +72,7 @@ describe('MemoryExplorerTab', () => {
     expect(await screen.findByTestId('memory-explorer-item-d1')).toHaveTextContent(
       'Aurora launch plan'
     );
-    expect(hoisted.list).toHaveBeenCalledWith({ path: [], limit: 20 });
+    expect(hoisted.list).toHaveBeenCalledWith({ path: [], limit: 20, preview: true });
     expect(screen.getByTestId('memory-explorer-root')).toBeDisabled();
   });
 
