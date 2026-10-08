@@ -152,6 +152,8 @@ function eraseAll({ req, res }) {
   const scopes = new Set(store.events.map((e) => e.scope)).size;
   store.events = [];
   store.packs.clear();
+  store.idempotency.clear();
+  store.claims.clear();
   ok(res, { erased: true, scopes });
   return true;
 }

@@ -34,7 +34,7 @@ An engine stores your memory and answers questions about it. There are two:
 
 Either way your memory items are stored in CortexDB, not on your computer; OpenHuman keeps only bookkeeping (queued jobs, sync and import progress) locally. See [Where your memory is stored](privacy-and-security.md#where-your-memory-is-stored).
 
-Pick one on the **Engine** tab. If you are signed out and have no CortexDB key, memory is **off**: the agent has no memory tool, nothing is stored, and the Memory page tells you why.
+Pick one on the **Engine** tab. If you are signed out and have neither a CortexDB key nor a host-supplied TinyHumans API key, memory is **off**: the agent has no memory tool, nothing is stored, and the Memory page tells you why.
 
 ## What the engine does
 

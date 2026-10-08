@@ -452,6 +452,7 @@ async fn memory_is_off_when_signed_out() {
         ("openhuman.memory_brain_ingest", json!({ "text": "a doc" })),
         ("openhuman.memory_jobs_run", json!({})),
         ("openhuman.memory_import_start", json!({ "consent": true })),
+        ("openhuman.memory_erase_all", json!({ "confirm": true })),
     ];
     for (method, params) in off_calls {
         assert_eq!(f.code(method, params).await, "MEMORY_OFF", "{method}");
@@ -963,6 +964,24 @@ async fn erase_all_needs_confirmation_and_erases_the_whole_hosted_memory() {
     let f = Fixture::new(true).await;
     f.learn("a fact about tea").await;
     f.learn("a fact about coffee").await;
+    // A second hosted-memory category: a document, so a learnings-only
+    // erase cannot pass this test.
+    f.ok(
+        "openhuman.memory_brain_ingest",
+        json!({ "text": "a document about espresso machines" }),
+    )
+    .await;
+    let documents = |f: &Fixture| {
+        f.ok(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["document"] } }),
+        )
+    };
+    let docs_before = documents(&f).await;
+    assert!(
+        !ids_of(&docs_before, "items").is_empty(),
+        "the document was stored: {docs_before}"
+    );
     let before = f
         .ok(
             "openhuman.memory_items_list",
@@ -1005,6 +1024,8 @@ async fn erase_all_needs_confirmation_and_erases_the_whole_hosted_memory() {
         )
         .await;
     assert_eq!(after["items"], json!([]), "{after}");
+    let docs_after = documents(&f).await;
+    assert_eq!(docs_after["items"], json!([]), "{docs_after}");
     let refetch = f
         .ok("openhuman.memory_fetch", json!({ "query": "coffee" }))
         .await;

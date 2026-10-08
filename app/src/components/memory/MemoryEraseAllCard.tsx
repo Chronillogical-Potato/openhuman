@@ -86,6 +86,7 @@ export default function MemoryEraseAllCard({
     if (!acknowledged || erasing) return;
     setErasing(true);
     setError(null);
+    let erased = false;
     try {
       const result = await memoryEraseAll();
       log('erase_all ok: erased_scopes=%d', result?.erased_scopes ?? 0);
@@ -97,13 +98,21 @@ export default function MemoryEraseAllCard({
       });
       setOpen(false);
       setAcknowledged(false);
-      onErased?.();
+      erased = true;
     } catch (err) {
       const key = eraseErrorKey(err);
       log('erase_all failed: code=%s', memoryErrorCode(err) ?? 'none');
       setError(t(key));
     } finally {
       setErasing(false);
+    }
+    // The erase has already succeeded; a refresh failure must not read as one.
+    if (erased) {
+      try {
+        onErased?.();
+      } catch (err) {
+        log('onErased callback failed: %s', err instanceof Error ? err.name : 'unknown');
+      }
     }
   };
 

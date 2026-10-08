@@ -15,7 +15,7 @@ If you want the engineering detail, read [Privacy & Security](../features/privac
 
 ## The one-sentence version
 
-**Your settings, files and secrets stay on your computer; your memory is stored in CortexDB (hosted by TinyHumans for your account, or your own). The OpenHuman backend handles what has to be brokered: signing you in, hosted memory, routing model requests, and talking to the services you connect.**
+**Your settings and secrets stay on your computer; your memory is stored in CortexDB (hosted by TinyHumans for your account, or your own). The OpenHuman backend handles what has to be brokered: signing you in, hosted memory, routing model requests, and talking to the services you connect.**
 
 Everything below is an expansion of that sentence.
 
