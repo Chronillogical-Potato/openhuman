@@ -44,6 +44,7 @@ import { ModalShell } from '../ui/ModalShell';
 import { toast } from '../ui/Toast';
 import MemoryComingSoon from './MemoryComingSoon';
 import MemoryConnectionPanel from './MemoryConnectionPanel';
+import MemoryCortexAnnouncement from './MemoryCortexAnnouncement';
 import MemoryCortexCard from './MemoryCortexCard';
 import MemoryProviderLogo, { type MemoryProviderOption } from './MemoryProviderLogo';
 
@@ -305,6 +306,9 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
     <div
       className={`@container ${embedded ? 'space-y-5' : 'w-full space-y-6 animate-fade-up'}`}
       data-testid="memory-engine-tab">
+      {/* Onboarding embeds this tab; the announcement is for Memory → Provider only.
+          Keyed by user so the per-user dismissal is re-read on an account switch. */}
+      {!embedded && <MemoryCortexAnnouncement key={snapshot.auth.userId ?? 'signed-out'} />}
       {statusBanner}
 
       {/* Sized like one cell of the coming-soon grid below, not the full width.
