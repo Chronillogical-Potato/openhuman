@@ -2,8 +2,8 @@
 
 Backend-proxied (and optionally direct/BYO-key) access to Composio's 1000+ OAuth integrations (Gmail, Notion, GitHub, Slack, Google Calendar, …). The Rust counterpart to the backend routes under `src/routes/agentIntegrations/composio.ts`. In **backend mode** the openhuman backend owns the Composio API key, billing/margin, the toolkit allowlist, HMAC webhook verification, and Socket.IO trigger fan-out. The core never hits the Composio API directly. In **direct mode** (`composio.mode = "direct"`, gated by a user-supplied API key in the encrypted keychain) the core talks to Composio's v3 API with the user's own key against their personal tenant. This domain exposes toolkit/connection/tool/trigger management over JSON-RPC, model-facing agent tools for discovery + execution, an OAuth handoff flow, a persistent trigger-event archive, and a per-action execute pipeline (prepare → retry → error classification).
 
-A third path underlies most of the above: profile fetch, action execution,
-and sync now go through the loaded `tinyconnectors` module (via
+A third path underlies most of the above: profile fetch and action execution
+now go through the loaded `tinyconnectors` module (via
 `module_client.rs`) rather than an in-process engine (`tinymemory` v1.13.4
 deleted the old in-process Composio pipeline outright: 72 files, ~18.3k
 lines) because reaching a connected account needs a credential this crate
