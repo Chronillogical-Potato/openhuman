@@ -5005,14 +5005,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.selfhost': '로컬',
   'memoryPage.engine.fairUse.summary': '공정 사용 적용',
   'memoryPage.engine.offPrompt': '아래에서 제공자를 선택하면 기억을 시작합니다.',
-  'memoryPage.engine.builtin.cardDescription':
-    'TinyHumans가 대신 호스팅합니다. 설정할 것이 없습니다.',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    '내 CortexDB 계정으로 쓰는 CortexDB 관리형 서비스.',
-  'memoryPage.engine.selfHost.cardDescription':
-    '직접 실행하는 CortexDB 서버. 메모리는 이 컴퓨터에 저장됩니다.',
-  'memoryPage.engine.freeIngestion.notePlan': '{plan} 요금제에서 메모리 무제한',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic 및 Pro 요금제에서 메모리 무제한',
+  'memoryPage.engine.builtin.summaryPlan': 'TinyHumans 호스팅, {plan} 요금제에서 메모리 무제한.',
+  'memoryPage.engine.builtin.summaryUpgrade': 'TinyHumans 호스팅. Basic 및 Pro 요금제에서 메모리 무제한.',
   'memoryPage.engine.fairUse.own': '본인 콘텐츠를 본인 용도로 수집하세요.',
   'memoryPage.engine.fairUse.noAbuse':
     '자동 대량 업로드, 스크래핑, 다른 사람이나 서비스를 대신한 수집은 금지됩니다.',

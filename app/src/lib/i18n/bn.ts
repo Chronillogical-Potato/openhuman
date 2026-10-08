@@ -5053,14 +5053,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.selfhost': 'লোকাল',
   'memoryPage.engine.fairUse.summary': 'ন্যায্য ব্যবহার প্রযোজ্য',
   'memoryPage.engine.offPrompt': 'মনে রাখা শুরু করতে নিচে একটি প্রদানকারী বেছে নিন।',
-  'memoryPage.engine.builtin.cardDescription':
-    'TinyHumans আপনার জন্য হোস্ট করে। কিছু সেট আপ করতে হবে না।',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'আপনার নিজের CortexDB অ্যাকাউন্টে CortexDB-এর পরিচালিত সেবা।',
-  'memoryPage.engine.selfHost.cardDescription':
-    'আপনি নিজে চালানো একটি CortexDB সার্ভার। মেমোরি এই কম্পিউটারে থাকে।',
-  'memoryPage.engine.freeIngestion.notePlan': 'আপনার {plan} প্ল্যানে সীমাহীন মেমোরি',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic ও Pro প্ল্যানে সীমাহীন মেমোরি',
+  'memoryPage.engine.builtin.summaryPlan': 'TinyHumans হোস্ট করে, আপনার {plan} প্ল্যানে সীমাহীন মেমোরি।',
+  'memoryPage.engine.builtin.summaryUpgrade': 'TinyHumans হোস্ট করে। Basic ও Pro প্ল্যানে সীমাহীন মেমোরি।',
   'memoryPage.engine.fairUse.own': 'নিজের কনটেন্ট, নিজের ব্যবহারের জন্য যোগ করুন।',
   'memoryPage.engine.fairUse.noAbuse':
     'স্বয়ংক্রিয় বাল্ক আপলোড, স্ক্র্যাপিং বা অন্যদের হয়ে ইনজেশন নয়।',

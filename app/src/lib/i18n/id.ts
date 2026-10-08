@@ -5092,14 +5092,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.selfhost': 'Lokal',
   'memoryPage.engine.fairUse.summary': 'Berlaku penggunaan wajar',
   'memoryPage.engine.offPrompt': 'Pilih penyedia di bawah untuk mulai mengingat.',
-  'memoryPage.engine.builtin.cardDescription':
-    'Di-host untuk Anda oleh TinyHumans. Tidak perlu pengaturan.',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'Layanan terkelola CortexDB, di akun CortexDB Anda sendiri.',
-  'memoryPage.engine.selfHost.cardDescription':
-    'Server CortexDB yang Anda jalankan sendiri. Memori disimpan di komputer ini.',
-  'memoryPage.engine.freeIngestion.notePlan': 'Memori tanpa batas di paket {plan} Anda',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Memori tanpa batas di paket Basic dan Pro',
+  'memoryPage.engine.builtin.summaryPlan': 'Dihosting oleh TinyHumans, dengan memori tanpa batas di paket {plan} Anda.',
+  'memoryPage.engine.builtin.summaryUpgrade': 'Dihosting oleh TinyHumans. Memori tanpa batas di paket Basic dan Pro.',
   'memoryPage.engine.fairUse.own': 'Serap konten Anda sendiri, untuk penggunaan sendiri.',
   'memoryPage.engine.fairUse.noAbuse':
     'Tanpa unggahan massal otomatis, scraping, atau penyerapan atas nama orang atau layanan lain.',

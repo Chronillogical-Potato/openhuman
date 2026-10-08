@@ -5051,14 +5051,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.selfhost': 'लोकल',
   'memoryPage.engine.fairUse.summary': 'उचित उपयोग लागू है',
   'memoryPage.engine.offPrompt': 'याद रखना शुरू करने के लिए नीचे एक प्रदाता चुनें।',
-  'memoryPage.engine.builtin.cardDescription':
-    'TinyHumans द्वारा आपके लिए होस्ट किया गया। कुछ सेट अप नहीं करना है।',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'CortexDB की प्रबंधित सेवा, आपके अपने CortexDB खाते पर।',
-  'memoryPage.engine.selfHost.cardDescription':
-    'आपके द्वारा चलाया गया CortexDB सर्वर। मेमोरी इसी कंप्यूटर पर रहती है।',
-  'memoryPage.engine.freeIngestion.notePlan': 'आपके {plan} प्लान में असीमित मेमोरी',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic और Pro प्लान में असीमित मेमोरी',
+  'memoryPage.engine.builtin.summaryPlan': 'TinyHumans द्वारा होस्ट किया गया, आपके {plan} प्लान पर असीमित मेमोरी।',
+  'memoryPage.engine.builtin.summaryUpgrade': 'TinyHumans द्वारा होस्ट किया गया। Basic और Pro प्लान पर असीमित मेमोरी।',
   'memoryPage.engine.fairUse.own': 'अपनी सामग्री, अपने इस्तेमाल के लिए जोड़ें।',
   'memoryPage.engine.fairUse.noAbuse':
     'स्वचालित बल्क अपलोड, स्क्रैपिंग या दूसरों की ओर से इनजेस्शन नहीं।',

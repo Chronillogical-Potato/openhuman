@@ -5368,13 +5368,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.selfhost': 'ローカル',
   'memoryPage.engine.fairUse.summary': 'フェアユースが適用されます',
   'memoryPage.engine.offPrompt': '下のプロバイダーを選ぶと記憶を始めます。',
-  'memoryPage.engine.builtin.cardDescription': 'TinyHumans がホストします。設定は不要です。',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'ご自身の CortexDB アカウントで使う CortexDB のマネージドサービス。',
-  'memoryPage.engine.selfHost.cardDescription':
-    'ご自身で動かす CortexDB サーバー。記憶はこのコンピューターに保存されます。',
-  'memoryPage.engine.freeIngestion.notePlan': '{plan} プランでメモリ無制限',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic・Pro プランでメモリ無制限',
+  'memoryPage.engine.builtin.summaryPlan': 'TinyHumans がホスト。{plan} プランでメモリ無制限。',
+  'memoryPage.engine.builtin.summaryUpgrade': 'TinyHumans がホスト。Basic・Pro プランでメモリ無制限。',
   'memoryPage.engine.fairUse.own': 'ご自身のコンテンツを、ご自身の用途で取り込んでください。',
   'memoryPage.engine.fairUse.noAbuse':
     '自動の一括アップロード、スクレイピング、他の人やサービスのための取り込みは禁止です。',

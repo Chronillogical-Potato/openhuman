@@ -5104,14 +5104,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.selfhost': 'Локально',
   'memoryPage.engine.fairUse.summary': 'Действует добросовестное использование',
   'memoryPage.engine.offPrompt': 'Выберите провайдера ниже, чтобы начать запоминать.',
-  'memoryPage.engine.builtin.cardDescription':
-    'Размещено для вас TinyHumans. Ничего настраивать не нужно.',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'Управляемый сервис CortexDB в вашем собственном аккаунте CortexDB.',
-  'memoryPage.engine.selfHost.cardDescription':
-    'Сервер CortexDB, который вы запускаете сами. Память хранится на этом компьютере.',
-  'memoryPage.engine.freeIngestion.notePlan': 'Безлимитная память на тарифе {plan}',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Безлимитная память на тарифах Basic и Pro',
+  'memoryPage.engine.builtin.summaryPlan': 'Размещено TinyHumans, безлимитная память на вашем тарифе {plan}.',
+  'memoryPage.engine.builtin.summaryUpgrade': 'Размещено TinyHumans. Безлимитная память на тарифах Basic и Pro.',
   'memoryPage.engine.fairUse.own': 'Загружайте свой контент для собственного использования.',
   'memoryPage.engine.fairUse.noAbuse':
     'Никаких автоматических массовых загрузок, скрейпинга и загрузки от имени других людей или сервисов.',

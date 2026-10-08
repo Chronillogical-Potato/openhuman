@@ -5057,14 +5057,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.selfhost': 'Yerel',
   'memoryPage.engine.fairUse.summary': 'Adil kullanım geçerlidir',
   'memoryPage.engine.offPrompt': 'Hatırlamaya başlamak için aşağıdan bir sağlayıcı seç.',
-  'memoryPage.engine.builtin.cardDescription':
-    'TinyHumans tarafından senin için barındırılır. Kurulum gerekmez.',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'CortexDB’nin yönetilen hizmeti, kendi CortexDB hesabınla.',
-  'memoryPage.engine.selfHost.cardDescription':
-    'Kendin çalıştırdığın bir CortexDB sunucusu. Bellek bu bilgisayarda saklanır.',
-  'memoryPage.engine.freeIngestion.notePlan': '{plan} planında sınırsız bellek',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic ve Pro planlarında sınırsız bellek',
+  'memoryPage.engine.builtin.summaryPlan': 'TinyHumans tarafından barındırılır, {plan} planınızda sınırsız bellek.',
+  'memoryPage.engine.builtin.summaryUpgrade': 'TinyHumans tarafından barındırılır. Basic ve Pro planlarında sınırsız bellek.',
   'memoryPage.engine.fairUse.own': 'Kendi içeriğini, kendi kullanımın için aktar.',
   'memoryPage.engine.fairUse.noAbuse':
     'Otomatik toplu yükleme, kazıma veya başka kişiler ya da hizmetler adına aktarım yok.',

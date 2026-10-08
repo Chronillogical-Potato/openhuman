@@ -4777,13 +4777,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.selfhost': '本地',
   'memoryPage.engine.fairUse.summary': '适用合理使用规则',
   'memoryPage.engine.offPrompt': '在下方选择一个提供方即可开始记忆。',
-  'memoryPage.engine.builtin.cardDescription': '由 TinyHumans 为你托管，无需任何设置。',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'CortexDB 的托管服务，使用你自己的 CortexDB 账户。',
-  'memoryPage.engine.selfHost.cardDescription':
-    '你自己运行的 CortexDB 服务器，记忆保存在这台电脑上。',
-  'memoryPage.engine.freeIngestion.notePlan': '你的 {plan} 套餐享无限记忆',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic 和 Pro 套餐享无限记忆',
+  'memoryPage.engine.builtin.summaryPlan': '由 TinyHumans 托管，{plan} 方案享无限记忆。',
+  'memoryPage.engine.builtin.summaryUpgrade': '由 TinyHumans 托管。Basic 和 Pro 方案享无限记忆。',
   'memoryPage.engine.fairUse.own': '只写入你自己的内容，供你自己使用。',
   'memoryPage.engine.fairUse.noAbuse': '禁止自动批量上传、抓取，或代表他人或其他服务写入。',
   'memoryPage.engine.fairUse.limits': '对违反这些条款的账户，我们可能限制或暂停写入。',
