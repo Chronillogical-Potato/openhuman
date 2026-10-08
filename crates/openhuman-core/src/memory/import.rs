@@ -217,6 +217,11 @@ async fn store_batch(bound: &BoundEngine, batch: Vec<ImportedItem>) -> BatchOutc
 /// Imports running now, per workspace.
 static RUNNING: LazyLock<Mutex<HashSet<PathBuf>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
 
+/// Held while an import or a layout migration decides to start: each checks
+/// the other is not going, then registers itself, under this one lock, so
+/// neither can slip in between the other's check and its registration.
+pub(crate) static START_GATE: Mutex<()> = Mutex::new(());
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct ImportFile {
     #[serde(default)]
@@ -304,8 +309,14 @@ pub async fn scan(config: &Config) -> MemoryResult<ImportScanView> {
 /// old local memory lands before the tree is reorganised.
 #[must_use]
 pub fn in_progress(config: &Config) -> bool {
+    // A live import counts from its reservation, before its first state
+    // write (the scan of the old store comes first).
+    let live = RUNNING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .contains(&config.workspace_dir);
     let file = read_file(&config.workspace_dir);
-    file.state.phase == ImportPhase::Running || file.paused_for_credits
+    live || file.state.phase == ImportPhase::Running || file.paused_for_credits
 }
 
 /// `memory_import_status`.
@@ -467,10 +478,22 @@ async fn start_with(
     }
     let bound = engine::resolve(config).engine()?;
     let workspace_dir = config.workspace_dir.clone();
-    let claimed = RUNNING
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .insert(workspace_dir.clone());
+    let claimed = {
+        let _gate = START_GATE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        // Imported items written to the legacy tree while it is being moved
+        // would be left behind there.
+        if super::layout_migration::service::is_running(config) {
+            return Err(MemoryError::invalid(
+                "memory is being organized; import once that finishes",
+            ));
+        }
+        RUNNING
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(workspace_dir.clone())
+    };
     if !claimed {
         return Ok(status(config));
     }
@@ -523,7 +546,9 @@ async fn start_with(
             let started = super::layout_migration::start(
                 config,
                 Arc::new(super::layout_migration::AppHost),
-                super::layout_migration::Trigger::Manual { takeover: false },
+                // Not the user's start: it runs only while moving is free,
+                // like the background job's.
+                super::layout_migration::Trigger::Auto,
                 Arc::new(scheduler_paused),
             );
             tracing::info!(started, "[memory:import] import done; organizing next");

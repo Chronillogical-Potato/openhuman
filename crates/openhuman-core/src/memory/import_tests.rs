@@ -252,6 +252,18 @@ async fn a_full_import_stores_every_item_and_finishes_done() {
     assert!(file_path(&config.workspace_dir).exists());
 }
 
+#[test]
+fn an_import_counts_as_in_progress_from_its_reservation() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    assert!(!in_progress(&config));
+    // Reserved, still scanning the old store: no state written yet.
+    RUNNING.lock().unwrap().insert(config.workspace_dir.clone());
+    assert!(in_progress(&config));
+    RUNNING.lock().unwrap().remove(&config.workspace_dir);
+    assert!(!in_progress(&config));
+}
+
 #[tokio::test]
 async fn a_finished_import_starts_organizing_into_the_per_user_tree() {
     let tmp = tempfile::tempdir().unwrap();

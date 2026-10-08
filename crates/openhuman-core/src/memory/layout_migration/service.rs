@@ -103,7 +103,7 @@ pub fn status(config: &Config) -> MemoryResult<MigrationStatus> {
     })
 }
 
-fn is_running(config: &Config) -> bool {
+pub(crate) fn is_running(config: &Config) -> bool {
     RUNNING
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
@@ -131,6 +131,9 @@ pub fn start(
     trigger: Trigger,
     paused: Arc<dyn Fn() -> bool + Send + Sync>,
 ) -> bool {
+    let _gate = crate::memory::import::START_GATE
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
     if crate::memory::import::in_progress(&config) {
         tracing::info!("[memory:layout_migration] waiting for the import to finish");
         return false;
