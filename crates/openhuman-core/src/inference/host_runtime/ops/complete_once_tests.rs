@@ -69,7 +69,7 @@ async fn forwards_schema_max_tokens_and_provider_options() {
     assert!(body.get("tools").is_none(), "a completion advertises no tools");
 
     assert_eq!(response.finish_reason.as_deref(), Some("stop"));
-    assert_eq!(response.message.text(), "{\"ok\":true}");
+    assert_eq!(response.text(), "{\"ok\":true}");
 }
 
 #[tokio::test]
