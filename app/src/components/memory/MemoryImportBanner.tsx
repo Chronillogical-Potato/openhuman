@@ -144,14 +144,20 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   // the one it replaces.
   const [mScanAttempt, setMScanAttempt] = useState(0);
   const rescanMove = useCallback(() => setMScanAttempt(n => n + 1), []);
+  // Bumped by a start or retry: a read or poll asked before it answers for
+  // an older state, and is dropped.
+  const mStatusGen = useRef(0);
   useEffect(() => {
     let cancelled = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
+    const gen = mStatusGen.current;
     // Both answers or neither: an offer without a known status could start
     // a move that is already running.
     Promise.all([memoryMigrationScan(), memoryMigrationStatus()])
       .then(([found, current]) => {
-        if (cancelled) return;
+        // A start or retry since this read began owns the status now; the
+        // run's end reads again.
+        if (cancelled || gen !== mStatusGen.current) return;
         mlog('scan: needed=%s shared=%s', found?.needed, found?.shared);
         setMScan(found ?? null);
         setMStatus(current ?? null);
@@ -161,7 +167,9 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
         // Meanwhile what is left to move is unknown, so offer nothing (a run
         // that just ended may have moved it all).
         mlog('scan failed: %o', err);
-        if (!cancelled) {
+        // A start or retry since this read began owns the state; its run's
+        // end reads again.
+        if (!cancelled && gen === mStatusGen.current) {
           setMScan(null);
           retry = setTimeout(rescanMove, MIGRATION_IDLE_POLL_MS);
         }
@@ -176,9 +184,6 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   // One status request at a time: a slow answer must not land after, and
   // overwrite, a newer one.
   const mPolling = useRef(false);
-  // Bumped by a start or retry: a poll asked before it answers for an older
-  // state, and is dropped.
-  const mStatusGen = useRef(0);
   const mPoll = useCallback(async () => {
     if (mPolling.current) return;
     mPolling.current = true;
