@@ -125,6 +125,16 @@ pub(crate) fn install_test_engine(workspace: &std::path::Path, engine: Arc<dyn M
         .insert(workspace.to_path_buf(), engine);
 }
 
+/// Unbinds the test engine of `workspace`, so memory there is off again
+/// (tests only).
+#[cfg(test)]
+pub(crate) fn remove_test_engine(workspace: &std::path::Path) {
+    TEST_ENGINES
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .remove(workspace);
+}
+
 /// Test engines for one layout of a workspace (`None` legacy, `Some(root)`
 /// v3), read by [`bind_with_root`] ahead of everything else, so a test can
 /// hold both layouts at once as the layout migration does.
@@ -517,8 +527,18 @@ fn key_digest(key: &str) -> String {
         .collect()
 }
 
+/// Held for writing by a test that compares cached engines by identity, and
+/// for reading by [`invalidate`], so another test's invalidation (a layout
+/// switch, a key change) cannot clear the cache between its two binds.
+#[cfg(test)]
+pub(crate) static CACHE_STABLE: RwLock<()> = RwLock::new(());
+
 /// Drops every cached engine, so the next [`resolve`] rebuilds.
 pub fn invalidate() {
+    #[cfg(test)]
+    let _stable = CACHE_STABLE
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     CACHE
         .write()
         .unwrap_or_else(std::sync::PoisonError::into_inner)

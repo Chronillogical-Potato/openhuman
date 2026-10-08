@@ -287,16 +287,24 @@ pub fn source_id_for_toolkit(config: &Config, toolkit: &str) -> String {
         .map_or_else(|| format!("composio:{toolkit}"), |source| source.id.clone())
 }
 
-/// Forgets every item synced through `connection_id`. Memory off forgets
-/// nothing and is not an error.
+/// Deletes, for good, every item synced through `connection_id`.
 ///
 /// With the connection's `toolkit` known, only that toolkit's brain source
 /// is read (`source:<toolkit>`): under the current root and under every
 /// root the connection filed items under before ([`super::roots`]), so
-/// items left under a root no longer configured go too. Without the
-/// toolkit, or when those sources hold none of the connection's items
-/// (stored before roots were recorded), the whole tree is searched, so a
-/// connection's items are never left behind.
+/// items left under a root no longer configured go too. A source that holds
+/// only this connection's items is **erased** as a scope (CortexDB's GDPR
+/// erasure: events, derived layers and index entries deleted, write keys
+/// released). One shared with another connection of the toolkit, or an
+/// engine that cannot erase (`Unsupported`), falls back to a forget of this
+/// connection's items by `memory_ids`. Without the toolkit, or when those
+/// sources hold none of the connection's items (stored before roots were
+/// recorded), the whole tree is searched, so a connection's items are never
+/// left behind.
+///
+/// Memory off forgets nothing now and is not an error: the deletion is
+/// queued ([`crate::memory::deletion`]) and runs on the next sign-in. A
+/// failure is queued the same way, and returned.
 pub async fn forget_connection(
     config: &Config,
     connection_id: &str,
@@ -308,11 +316,33 @@ pub async fn forget_connection(
     // with memory off, so nothing is stored if memory comes back on.
     let _serial = STORE.lock().await;
     disconnected().insert((config.workspace_dir.clone(), connection_id.to_string()));
+    let pending = || crate::memory::deletion::PendingDeletion::Connection {
+        connection_id: connection_id.to_string(),
+        toolkit: toolkit.map(str::to_string),
+    };
     let bound = match crate::memory::engine::resolve(config).engine() {
         Ok(bound) => bound,
-        Err(MemoryError::Off(_)) => return Ok(0),
+        Err(MemoryError::Off(_)) => {
+            crate::memory::deletion::enqueue(&config.workspace_dir, pending());
+            return Ok(0);
+        }
         Err(error) => return Err(error),
     };
+    match forget_connection_with(config, &bound, connection_id, toolkit).await {
+        Ok(forgotten) => Ok(forgotten),
+        Err(error) => {
+            crate::memory::deletion::enqueue(&config.workspace_dir, pending());
+            Err(error)
+        }
+    }
+}
+
+async fn forget_connection_with(
+    config: &Config,
+    bound: &BoundEngine,
+    connection_id: &str,
+    toolkit: Option<&str>,
+) -> MemoryResult<usize> {
     let recorded = super::roots::of(&config.workspace_dir, connection_id);
     let reaches = match toolkit {
         // An unreadable roots record cannot bound the search: search all.
@@ -333,14 +363,19 @@ pub async fn forget_connection(
         roots = reaches.len(),
         "[memory:sources] forgetting a connection's items"
     );
+    let tag = connection_tag(connection_id);
     let filter = |reach| tinymemory_api::MetaFilter {
         reach,
         sources: vec![SourceKind::Composio],
-        tags_any: vec![connection_tag(connection_id)],
+        tags_any: vec![tag.clone()],
         ..tinymemory_api::MetaFilter::default()
     };
     let mut forgotten = 0;
     for reach in &reaches {
+        if let Some(erased) = erase_if_sole_owner(bound, reach, &tag).await? {
+            forgotten += erased;
+            continue;
+        }
         forgotten += bound
             .engine
             .forget(tinymemory_api::ForgetTarget::Filter(filter(Some(
@@ -367,6 +402,73 @@ pub async fn forget_connection(
     }
     super::versions::drop_connection(&config.workspace_dir, connection_id);
     Ok(forgotten)
+}
+
+/// Page size of the ownership check before an erasure.
+const OWNERSHIP_PAGE: usize = 200;
+
+/// Erases the scope `reach` names when every item in it carries `tag` (it
+/// belongs to this connection alone), returning how many items went.
+/// `None` when it cannot erase: the scope holds nothing, holds another
+/// connection's items, or the engine does not erase (`Unsupported`); the
+/// caller then forgets by filter.
+async fn erase_if_sole_owner(
+    bound: &BoundEngine,
+    reach: &tinymemory_api::Reach,
+    tag: &str,
+) -> MemoryResult<Option<usize>> {
+    let mut items = 0;
+    let mut cursor = None;
+    loop {
+        let page = bound
+            .engine
+            .list(tinymemory_api::ListRequest {
+                filter: tinymemory_api::MetaFilter {
+                    reach: Some(reach.clone()),
+                    ..tinymemory_api::MetaFilter::default()
+                },
+                limit: OWNERSHIP_PAGE,
+                cursor,
+            })
+            .await?;
+        if page
+            .items
+            .iter()
+            .any(|hit| !hit.meta.tags.iter().any(|t| t == tag))
+        {
+            tracing::debug!(
+                "[memory:sources] toolkit source shared with another connection; forgetting by id"
+            );
+            return Ok(None);
+        }
+        items += page.items.len();
+        match page.next_cursor {
+            Some(next) => cursor = Some(next),
+            None => break,
+        }
+    }
+    if items == 0 {
+        return Ok(None);
+    }
+    match bound
+        .engine
+        .erase(tinymemory_api::EraseRequest::new(reach.clone()))
+        .await
+    {
+        Ok(report) => {
+            tracing::info!(
+                items,
+                erased_scopes = report.erased_scopes,
+                "[memory:sources] erased a disconnected connection's source scope"
+            );
+            Ok(Some(items))
+        }
+        Err(tinymemory_api::Error::Unsupported(reason)) => {
+            tracing::debug!(%reason, "[memory:sources] engine cannot erase; forgetting by id");
+            Ok(None)
+        }
+        Err(error) => Err(error.into()),
+    }
 }
 
 /// `source:<toolkit>` under the current root and under every `recorded`

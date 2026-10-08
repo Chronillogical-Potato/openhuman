@@ -177,19 +177,33 @@ pub fn apply_remove(config: &mut Config, id: &str) -> Option<MemorySourceConfig>
     Some(removed)
 }
 
-/// Forgets every item source `id` stored. Memory off is not an error here:
-/// there is nothing reachable to forget.
+/// Forgets, for good, every item source `id` stored (by `memory_ids`, with
+/// an explicit `redact_events` cascade). Memory off is not an error here:
+/// the deletion is queued ([`crate::memory::deletion`]) and runs on the next
+/// sign-in. A failure is queued the same way, and returned.
 pub async fn forget_items(config: &Config, id: &str) -> MemoryResult<usize> {
+    let pending = || crate::memory::deletion::PendingDeletion::Source {
+        source_id: id.to_string(),
+    };
     let bound = match engine::resolve(config).engine() {
         Ok(bound) => bound,
-        Err(MemoryError::Off(_)) => return Ok(0),
+        Err(MemoryError::Off(_)) => {
+            crate::memory::deletion::enqueue(&config.workspace_dir, pending());
+            return Ok(0);
+        }
         Err(error) => return Err(error),
     };
     let filter = MetaFilter {
         source_id: Some(id.to_string()),
         ..MetaFilter::default()
     };
-    let report = bound.engine.forget(ForgetTarget::Filter(filter)).await?;
+    let report = match bound.engine.forget(ForgetTarget::Filter(filter)).await {
+        Ok(report) => report,
+        Err(error) => {
+            crate::memory::deletion::enqueue(&config.workspace_dir, pending());
+            return Err(error.into());
+        }
+    };
     tracing::debug!(id = %id, forgotten = report.forgotten, "[memory:sources] items forgotten");
     Ok(report.forgotten)
 }
