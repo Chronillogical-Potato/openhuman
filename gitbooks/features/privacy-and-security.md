@@ -51,7 +51,7 @@ We make no claim beyond TLS in transit and per-user tenant isolation for hosted 
 
 - **One item:** **Forget** in the Memory page's **Explorer**, on a memory chip under an answer, on the **Learnings** tab, or through the agent's `memory` tool (`forget`).
 - **One source:** **Forget source** on the **Brain** tab, or tick **Also delete memory from this source** when disconnecting an integration.
-- **Everything:** for hosted memory, the backend's `DELETE /memory` erases your whole tenant, exposed to the app as the `openhuman.memory_erase_all` RPC. The Memory page has no single "erase all" button yet. For a direct CortexDB, delete the data with your CortexDB account or endpoint.
+- **Everything:** the `openhuman.memory_erase_all` RPC (`{"confirm": true}`) erases all memory the selected engine holds, for good. On hosted memory it calls the backend's `DELETE /memory`, which erases your whole tenant. On a direct CortexDB it erases your own `user:<id>` tree; memory written there before the per-user layout, which other accounts on a self-hosted CortexDB may share, is left for you to delete with your CortexDB account or endpoint. The Memory page has no single "erase all" button yet.
 
 Signing out does **not** delete stored memory, and neither does disconnecting an integration unless you tick that box.
 
