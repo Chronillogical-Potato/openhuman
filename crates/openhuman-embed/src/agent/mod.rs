@@ -14,7 +14,9 @@
 //! loader, DomainSet gate, tool-group filter and skill discovery all read
 //! the ambient context.
 
+mod approvals;
 mod attachments;
+pub use approvals::{ApprovalDecision, Approvals, ApprovalsError, PendingApproval};
 pub use attachments::ToolAttachmentError;
 pub(crate) mod build;
 mod definition;
@@ -153,6 +155,12 @@ impl Agent {
             turn = turn.origin(origin.clone());
         }
         turn
+    }
+
+    /// This agent's pending approvals: the requests its turns parked, and
+    /// only those.
+    pub fn approvals(&self) -> Approvals {
+        Approvals::new(&self.inner.id)
     }
 
     /// The agent's read/write root for acting tools.
