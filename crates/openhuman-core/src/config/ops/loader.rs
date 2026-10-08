@@ -43,3 +43,7 @@ mod model_registry_seed_tests;
 #[cfg(test)]
 #[path = "loader_io_chain_tests.rs"]
 mod loader_io_chain_tests;
+
+#[cfg(test)]
+#[path = "loader_current_tests.rs"]
+mod loader_current_tests;

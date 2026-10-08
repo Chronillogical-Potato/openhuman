@@ -65,6 +65,9 @@ pub async fn load_current_or_init() -> anyhow::Result<Config> {
             "[config] using the context's config"
         );
         normalize_loaded_config(&mut config).await;
+        if let Some(route) = config.ephemeral_route.clone() {
+            crate::config::schema::ephemeral_route::apply(&mut config, route);
+        }
         return Ok(config);
     }
     Config::load_or_init().await
