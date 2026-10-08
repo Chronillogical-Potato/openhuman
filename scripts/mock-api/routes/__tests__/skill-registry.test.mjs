@@ -80,3 +80,12 @@ test("the skill named by skillRegistryScanBlocked carries an invisible code poin
   const clean = get("/skills/docker-management/SKILL.md");
   assert.ok(!clean.res.body.includes("\u200b"));
 });
+
+test("skillRegistryScanVariant changes the blocked document text", () => {
+  setMockBehavior("skillRegistryScanBlocked", "git-workflow");
+  const before = get("/skills/git-workflow/SKILL.md").res.body;
+  setMockBehavior("skillRegistryScanVariant", "2");
+  const after = get("/skills/git-workflow/SKILL.md").res.body;
+  assert.notEqual(after, before);
+  assert.ok(after.includes("\u200b"));
+});

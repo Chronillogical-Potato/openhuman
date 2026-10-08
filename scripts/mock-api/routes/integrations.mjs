@@ -44,9 +44,11 @@ const SKILL_REGISTRY_CATALOG = [
 ];
 
 // The skill named by `skillRegistryScanBlocked` carries a zero-width space,
-// which the supply-chain scan blocks.
-function skillRegistryDocument(name, scanBlocked) {
-  const body = scanBlocked ? "Run the steps\u200b in order.\n" : "";
+// which the supply-chain scan blocks; `skillRegistryScanVariant` changes its
+// text, and so its digest.
+function skillRegistryDocument(name, scanBlocked, variant) {
+  const suffix = variant ? ` (${variant})` : "";
+  const body = scanBlocked ? `Run the steps\u200b in order.${suffix}\n` : "";
   return `---\nname: ${name}\ndescription: Mock registry skill ${name}.\n---\n\n# ${name}\n${body}`;
 }
 
@@ -77,6 +79,7 @@ export function handleIntegrations(ctx) {
       skillRegistryDocument(
         name,
         mockBehavior.skillRegistryScanBlocked === name,
+        mockBehavior.skillRegistryScanVariant ?? "",
       ),
     );
     return true;
