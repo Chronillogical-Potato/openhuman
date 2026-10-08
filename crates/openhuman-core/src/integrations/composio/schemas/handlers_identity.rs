@@ -25,15 +25,6 @@ pub(super) fn handle_refresh_all_identities(_params: Map<String, Value>) -> Cont
     })
 }
 
-pub(super) fn handle_sync(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let config = config_rpc::load_config_with_timeout().await?;
-        let connection_id = read_required_non_empty(&params, "connection_id")?;
-        let reason = read_optional::<String>(&params, "reason")?;
-        to_json(ops::composio_sync(&config, &connection_id, reason).await?)
-    })
-}
-
 pub(super) fn handle_get_user_scopes(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let toolkit = match read_required_non_empty(&params, "toolkit") {

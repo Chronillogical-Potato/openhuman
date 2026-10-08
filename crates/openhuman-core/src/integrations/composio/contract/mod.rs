@@ -1,6 +1,6 @@
 //! The Composio vocabulary the host's integration code shares: toolkit
 //! catalogs (curated action lists and descriptions), connected-identity
-//! profiles, per-toolkit user scope preferences, sync run shapes and the
+//! profiles, per-toolkit user scope preferences and the
 //! normalised task shape.
 //!
 //! These types used to be part of TinyMemory's v1 bus contract, which carried
@@ -10,7 +10,6 @@
 
 pub mod catalogs;
 pub mod profile;
-pub mod runs;
 pub mod scopes;
 pub mod tasks;
 
@@ -18,7 +17,6 @@ pub use profile::{
     canonicalize, normalize_connection_identifier, render_connected_identities_section,
     ConnectedIdentity, IdentityKind, ProviderUserProfile,
 };
-pub use runs::{SyncOutcome, SyncReason};
 pub use scopes::{
     agent_ready_toolkits, classify_unknown, find_curated, toolkit_from_slug, CuratedTool,
     ToolScope, UserScopePref,

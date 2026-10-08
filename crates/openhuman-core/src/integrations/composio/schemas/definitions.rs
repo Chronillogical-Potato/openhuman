@@ -279,36 +279,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
-        "sync" => ControllerSchema {
-            namespace: "composio",
-            function: "sync",
-            description:
-                "Start a background sync of a Composio connection into memory: the connector \
-                 module reads the account and each record is stored as a memory document. \
-                 Fails up front when memory is off.",
-            inputs: vec![
-                FieldSchema {
-                    name: "connection_id",
-                    ty: TypeSchema::String,
-                    comment: "Composio connection id (from list_connections / authorize).",
-                    required: true,
-                },
-                FieldSchema {
-                    name: "reason",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-                    comment:
-                        "Optional reason: 'manual' (default), 'periodic', 'connection_created'.",
-                    required: false,
-                },
-            ],
-            outputs: vec![FieldSchema {
-                name: "outcome",
-                ty: TypeSchema::Json,
-                comment: "SyncOutcome: { toolkit, connectionId, reason, itemsIngested, \
-                          startedAtMs, finishedAtMs, summary, details }.",
-                required: true,
-            }],
-        },
         "list_trigger_history" => ControllerSchema {
             namespace: "composio",
             function: "list_trigger_history",
