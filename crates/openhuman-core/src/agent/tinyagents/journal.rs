@@ -47,7 +47,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-
 use tinyagents_harness::events::{EventSink, HarnessRunStatus};
 use tinyagents_harness::ids::{ComponentId, HarnessPhase, RunId, ThreadId};
 use tinyagents_harness::observability::{
@@ -265,3 +264,7 @@ pub(crate) async fn read_run_events(
         .await
         .map_err(|e| anyhow::anyhow!("[journal] read_run_events failed run_id={run_id}: {e}"))
 }
+
+#[cfg(test)]
+#[path = "journal_tests.rs"]
+mod tests;
