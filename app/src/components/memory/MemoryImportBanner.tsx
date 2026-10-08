@@ -192,7 +192,8 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
       wasMoving.current = next.running;
     } catch (err) {
       mlog('status failed: %o', err);
-      setError(memoryErrorMessage(err, t));
+      // A failure of a poll a start or retry made obsolete is dropped too.
+      if (gen === mStatusGen.current) setError(memoryErrorMessage(err, t));
     } finally {
       mPolling.current = false;
     }

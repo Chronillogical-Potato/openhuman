@@ -460,6 +460,30 @@ describe('MemoryImportBanner', () => {
       expect(screen.queryByTestId('memory-migration-offer')).not.toBeInTheDocument();
     });
 
+    it('drops a poll that fails after the user started the move', async () => {
+      hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+      expect(await screen.findByTestId('memory-migration-offer')).toBeInTheDocument();
+
+      let failPoll: (reason: unknown) => void = () => {};
+      hoisted.mStatus.mockReturnValueOnce(
+        new Promise((_, reject) => {
+          failPoll = reject;
+        })
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(MIGRATION_IDLE_POLL_MS + 10);
+      });
+      fireEvent.click(screen.getByTestId('memory-migration-start'));
+      expect(await screen.findByTestId('memory-migration-running')).toBeInTheDocument();
+
+      await act(async () => {
+        failPoll(new Error('stale'));
+      });
+      expect(screen.queryByTestId('memory-import-error')).not.toBeInTheDocument();
+    });
+
     it('scans again after a failed scan', async () => {
       hoisted.mScan
         .mockRejectedValueOnce(new Error('not ready'))
