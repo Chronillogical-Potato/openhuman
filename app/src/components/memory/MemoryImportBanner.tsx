@@ -182,10 +182,7 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   // new read starts and stays false after a failed one, so a stale or unknown
   // answer never shows as an offer or as "already moved".
   const [moveKnown, setMoveKnown] = useState(false);
-  const rescanMove = useCallback(() => {
-    setMoveKnown(false);
-    setMScanAttempt(n => n + 1);
-  }, []);
+  const rescanMove = useCallback(() => setMScanAttempt(n => n + 1), []);
   // Bumped by a start or retry: a read or poll asked before it answers for
   // an older state, and is dropped.
   const mStatusGen = useRef(0);
@@ -309,7 +306,12 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   // The core starts the move when the import finishes: look again, since the
   // read at mount may have found nothing to move before the import landed.
   useEffect(() => {
-    if (importDone) rescanMove();
+    if (importDone) {
+      // The answer from before the import no longer applies: hide it until
+      // the post-import read answers.
+      setMoveKnown(false);
+      rescanMove();
+    }
   }, [importDone, rescanMove]);
 
   const mState = mStatus?.state;
