@@ -130,13 +130,34 @@ impl OpenHumanSessionHost {
         session_id: Option<&str>,
     ) -> Result<Self> {
         let definition = host_only_definition(definition);
-        OpenHumanSessionHost::build_session_agent_inner(
+        let mut agent = OpenHumanSessionHost::build_session_agent_inner(
             config,
             &definition.id,
             Some(&definition),
             true,
             host,
             session_id,
-        )
+        )?;
+        agent.host_only = true;
+        Ok(agent)
+    }
+
+    /// Treat the messages this session runs as untrusted data: skip the
+    /// prompt-injection guard in [`Self::run_single`].
+    ///
+    /// A reviewer has to read a PR diff that says "ignore previous
+    /// instructions"; the guard would refuse it. Only a host-only session
+    /// may, because it has nothing it could be talked into doing.
+    ///
+    /// # Errors
+    ///
+    /// When `untrusted` is set on a session not built host-only.
+    pub fn set_untrusted_input(&mut self, untrusted: bool) -> Result<()> {
+        anyhow::ensure!(
+            !untrusted || self.host_only,
+            "untrusted input is only allowed on a host-only session"
+        );
+        self.untrusted_input = untrusted;
+        Ok(())
     }
 }

@@ -181,3 +181,58 @@ async fn the_host_only_policy_still_consults_the_hosts_own_gate() {
         ToolPolicyDecision::Deny { .. }
     ));
 }
+
+#[test]
+fn only_a_host_only_session_accepts_untrusted_input() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let mut host_only = crate::agent::OpenHumanSessionHost::from_config_host_only(
+        &config,
+        &orchestrator_def(),
+        Some(&host_belt()),
+        None,
+    )
+    .expect("host-only session");
+    let mut normal = crate::agent::OpenHumanSessionHost::from_config_with_host_tools(
+        &config,
+        &orchestrator_def(),
+        &host_belt(),
+        None,
+    )
+    .expect("normal session");
+
+    assert!(host_only.set_untrusted_input(true).is_ok());
+    assert!(normal.set_untrusted_input(true).is_err());
+    assert!(normal.set_untrusted_input(false).is_ok());
+}
+
+/// The registry already keeps every built-in off a host-only belt; this is
+/// the layer behind it. The gate the session will enforce at dispatch must
+/// refuse a built-in name even if something registered one.
+#[tokio::test]
+async fn a_host_only_session_enforces_the_deny_by_default_gate() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let agent = crate::agent::OpenHumanSessionHost::from_config_host_only(
+        &config,
+        &orchestrator_def(),
+        Some(&host_belt()),
+        None,
+    )
+    .expect("host-only session");
+
+    assert_eq!(agent.tool_policy.name(), "host_only");
+    assert_eq!(
+        agent.tool_policy.check(&request("read_file")).await,
+        ToolPolicyDecision::Allow
+    );
+    for built_in in ["shell", "write_file", "spawn_subagent", "tool_search"] {
+        assert!(
+            matches!(
+                agent.tool_policy.check(&request(built_in)).await,
+                ToolPolicyDecision::Deny { .. }
+            ),
+            "{built_in} must be refused by the session's gate"
+        );
+    }
+}

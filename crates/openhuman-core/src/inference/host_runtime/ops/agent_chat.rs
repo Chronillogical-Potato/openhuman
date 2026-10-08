@@ -391,6 +391,13 @@ pub async fn agent_chat_reply_for(
         agent.set_thread_id(Some(id));
         log::debug!("[inference] agent_chat bound session for thread_id={id}");
     }
+    if let AgentChatTarget::Definition {
+        untrusted_input: true,
+        ..
+    } = target
+    {
+        agent.set_untrusted_input(true).map_err(|e| e.to_string())?;
+    }
     // A seeded turn replaces resume rather than adding to it.
     //
     // The three calls are one operation and the order is load-bearing:
