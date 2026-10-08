@@ -151,6 +151,17 @@ pub fn agent_scope_dir(config: &crate::config::Config) -> PathBuf {
     }
 }
 
+/// `tokio::spawn` carrying the ambient [`CoreContext`] and turn origin onto
+/// the new task. A bare `tokio::spawn` runs its future under the process
+/// default context, so an agent's work would read the runtime's policy.
+pub fn spawn_scoped<F>(fut: F) -> tokio::task::JoinHandle<F::Output>
+where
+    F: std::future::Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    crate::agent::turn_origin::spawn(fut)
+}
+
 /// The agent id of the ambient context, when it was derived for one.
 pub fn current_agent_id() -> Option<String> {
     CoreContext::current().and_then(|ctx| ctx.session_agent().map(str::to_owned))

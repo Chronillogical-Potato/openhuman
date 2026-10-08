@@ -50,6 +50,8 @@ pub mod context;
 pub mod services;
 pub(crate) mod subscribers;
 
-pub use agent_scope::{agent_scope_dir, current_slot, AgentContextRegistry, AgentScopedState};
+pub use agent_scope::{
+    agent_scope_dir, current_slot, spawn_scoped, AgentContextRegistry, AgentScopedState,
+};
 pub use builder::{CoreBuilder, CoreRuntime, DomainSet, ServiceSet, TokenSource};
 pub use context::{ContextOverlay, CoreContext};
