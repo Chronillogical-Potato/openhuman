@@ -51,7 +51,7 @@ Chat thread persistence is not memory: see [`threads/store`](../threads/store/RE
 | `channels.rs` | Channel → thread records for forgetting a channel. |
 | `deletion.rs` | Hard deletes that must reach the engine: thread forget, the pending-deletion queue (`<workspace>/memory/pending_deletions.json`) and its drain. |
 | `backfill.rs` | Past chats from the thread store, resumable, with consent. |
-| `import.rs` | Consent-gated, resumable v1 import. |
+| `import.rs` | Consent-gated, resumable v1 import. Skips what v1 synced from Composio/connectors (`skill-*` and `source:*` documents, email and `gmail:`/`slack:`/`notion:`/`linear:`/`github:`/`clickup:` chunk sources, `*-sync:*` chunk owners, `skill-*` profile facets and graph namespaces); the connectors re-sync it. |
 | `tools.rs` | The single `memory` agent tool and the turn's memory citations. |
 | `ops.rs`, `explore.rs` | Engine selection, recall, fetch, learn, forget, listing; the explorer. |
 | `bus.rs` | The `memory_sources_sync` / `memory_background` cron subscriber; the `memory::pending_deletions` sign-in subscriber. |
