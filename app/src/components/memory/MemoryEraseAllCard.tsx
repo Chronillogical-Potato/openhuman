@@ -109,13 +109,10 @@ export default function MemoryEraseAllCard({
 
   return (
     <>
-      <Card
-        title={t('memoryPage.settings.eraseTitle')}
-        description={t('memoryPage.settings.eraseDescription')}
-        data-testid="memory-erase-card">
+      <Card title={t('memoryPage.settings.eraseTitle')} data-testid="memory-erase-card">
         <Field
           label={t('memoryPage.settings.eraseAction')}
-          description={t('memoryPage.settings.eraseIrreversible')}
+          description={t('memoryPage.settings.eraseDescription')}
           control={
             <Button
               variant="secondary"
