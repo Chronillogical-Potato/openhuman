@@ -28,8 +28,7 @@ import {
   placeMigrationGuard,
   verifyBuiltinUntouched,
   forgetLedger,
-  builtinToken,
-  SESSION_ENV,
+  builtinCredential,
 } from "./engines.mjs";
 import { startMockComposio } from "./mock-composio.mjs";
 import { SCENARIOS, registerLocalOnly } from "./scenarios.mjs";
@@ -91,14 +90,6 @@ function mintLocalSessionToken(userId) {
     }),
     "local",
   ].join(".");
-}
-
-/** The subject of a JWT, read locally (never printed). */
-function jwtSubject(token) {
-  const payload = JSON.parse(
-    Buffer.from(token.split(".")[1], "base64url").toString(),
-  );
-  return payload.sub ?? payload._id ?? payload.userId;
 }
 
 /** Set `key = value` lines in a TOML section of `file` (a small, line-based edit). */
@@ -164,7 +155,6 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
   let events = null;
   const ledger = new Ledger();
   const threads = [];
-  let token = null;
 
   // --- engine setup -------------------------------------------------------
   if (engine === "local") {
@@ -191,20 +181,17 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
       ]),
     );
   } else {
-    token = builtinToken();
-    secrets.push(token);
-    extraEnv[SESSION_ENV] = token;
-    // Guard 0: the scheduler gate is off in the account's user dir before the
-    // core first boots, so no background job (migration tick, import resume,
-    // belief builds) runs on its own. Verified below; abort if not in effect.
-    const sub = jwtSubject(token);
-    if (!sub) throw new Error("the session token carries no subject");
-    const gated = BASE_CONFIG(["[scheduler_gate]", 'mode = "off"', ""]);
-    await fsp.writeFile(path.join(oh, "config.toml"), gated);
-    await fsp.mkdir(path.join(oh, "users", String(sub)), { recursive: true });
+    const cred = await builtinCredential();
+    secrets.push(cred.secret);
+    Object.assign(extraEnv, cred.env);
+    // Guard 0: the scheduler gate is off before the core first boots, so no
+    // background job (the migration's tick, import resume, belief builds)
+    // runs on its own. An API key is seeded as a plain profile write with no
+    // user-dir activation (boot_env.rs), so the root config is the active
+    // one. Verified after boot; the run aborts if it is not in effect.
     await fsp.writeFile(
-      path.join(oh, "users", String(sub), "config.toml"),
-      gated,
+      path.join(oh, "config.toml"),
+      BASE_CONFIG(["[scheduler_gate]", 'mode = "off"', ""]),
     );
   }
 
@@ -628,7 +615,7 @@ async function main() {
       `core binary not found at ${opts.coreBin}\nbuild it (debug, for the Composio override): cargo build -p openhuman-cli --bin openhuman-core`,
     );
   const engines = opts.engine === "both" ? ["local", "builtin"] : [opts.engine];
-  if (engines.includes("builtin")) builtinToken(); // refuse early, before anything starts
+  if (engines.includes("builtin")) await builtinCredential(); // refuse early, before anything starts
   const runId = new Date().toISOString().replace(/[:.]/g, "-");
   const runDir = path.join(opts.runRoot, runId);
   await fsp.mkdir(runDir, { recursive: true });
@@ -644,10 +631,7 @@ async function main() {
     try {
       await runEngine(engine, { opts, runDir, runId, findings, results });
     } catch (e) {
-      const secretSafe = scrub(
-        e.message,
-        process.env[SESSION_ENV] ? [process.env[SESSION_ENV]] : [],
-      );
+      const secretSafe = scrub(e.message, []);
       console.error(`${engine}: ${secretSafe}`);
       findings.add({
         engine,
@@ -681,8 +665,6 @@ async function main() {
 }
 
 main().catch((e) => {
-  console.error(
-    `\nfatal: ${scrub(e.stack || e.message, process.env[SESSION_ENV] ? [process.env[SESSION_ENV]] : [])}`,
-  );
+  console.error(`\nfatal: ${scrub(e.stack || e.message, [])}`);
   process.exit(1);
 });

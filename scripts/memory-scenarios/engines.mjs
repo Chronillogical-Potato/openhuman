@@ -209,16 +209,27 @@ export function cortexReader({ endpoint, apiKey }) {
 // builtin: the real account
 // ---------------------------------------------------------------------------
 
-export const SESSION_ENV = "OPENHUMAN_BACKEND_SESSION_TOKEN";
+export const API_KEY_ENV = "OPENHUMAN_BACKEND_API_KEY";
+const KEY_FILE =
+  process.env.MEMSCEN_KEY_FILE ||
+  path.join(process.env.HOME || "", ".memscen-key");
 
-/** The session token from the environment; the run refuses builtin without it. */
-export function builtinToken() {
-  const token = process.env[SESSION_ENV];
-  if (!token || token.split(".").length !== 3)
-    throw new Error(
-      `builtin needs a session JWT in ${SESSION_ENV} (it is never printed or written)`,
-    );
-  return token;
+/**
+ * The account's TinyHumans API key, read from ~/.memscen-key at spawn time.
+ * It reaches the core only as OPENHUMAN_BACKEND_API_KEY (seeded at boot by
+ * security/credentials/ops/boot_env.rs); it is never printed, logged, written
+ * to the run dir or passed to an RPC. The run refuses builtin without it.
+ */
+export async function builtinCredential() {
+  let key;
+  try {
+    key = (await fsp.readFile(KEY_FILE, "utf8")).trim();
+  } catch {
+    throw new Error(`builtin needs a TinyHumans API key in ${KEY_FILE}`);
+  }
+  if (!/^tiny_[A-Za-z0-9_-]{8,}$/.test(key))
+    throw new Error(`${KEY_FILE} does not hold a tiny_ API key`);
+  return { env: { [API_KEY_ENV]: key }, secret: key };
 }
 
 /** The active workspace directory, read from the running core. */

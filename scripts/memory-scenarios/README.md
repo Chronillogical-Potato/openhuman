@@ -6,7 +6,7 @@ read; **nothing is fixed during a run**.
 
 ```bash
 # both engines (local first, then Built-in on your real account)
-OPENHUMAN_BACKEND_SESSION_TOKEN=<your session JWT> node scripts/memory-scenarios/run.mjs
+node scripts/memory-scenarios/run.mjs   # builtin reads its API key from ~/.memscen-key
 
 # one engine, some scenarios
 node scripts/memory-scenarios/run.mjs --engine local --only A,B,E
@@ -48,14 +48,16 @@ session and points memory at the container (`memory_engine_set`).
 **builtin** — **your real account**, on its managed route. Read this before
 running it:
 
-- The session JWT comes only from `OPENHUMAN_BACKEND_SESSION_TOKEN`; the core
-  reads it at boot (`security/credentials/ops/boot_env.rs`). It is never an RPC
-  argument, never printed, never written to the run directory: `rpc.jsonl` and
-  `core.log` are scrubbed of it and of anything JWT-shaped.
+- The account's TinyHumans API key is read from `~/.memscen-key` (or
+  `MEMSCEN_KEY_FILE`) at spawn time and reaches the core only as
+  `OPENHUMAN_BACKEND_API_KEY`, which the core seeds at boot
+  (`security/credentials/ops/boot_env.rs`). It is never an RPC argument, never
+  printed, never written to the run directory: `rpc.jsonl` and `core.log` are
+  scrubbed of it and of anything `tiny_…` or JWT-shaped.
 - **Nothing of the account's own is moved, erased or imported.** Three guards,
   any failure aborts the builtin run before a scenario starts:
-  1. the scheduler gate is pre-written **off** in the account's user dir before
-     the core first boots, and read back, so no background job (the layout
+  1. the scheduler gate is pre-written **off** in the core's config before it
+     first boots (an API key activates no user dir), and read back, so no background job (the layout
      migration's tick, import resume, belief builds) runs on its own;
   2. this workspace's layout-migration state is written as done (`cleaned`)
      and read back through `memory_migration_status`;

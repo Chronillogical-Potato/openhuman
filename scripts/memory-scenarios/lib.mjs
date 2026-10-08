@@ -39,6 +39,7 @@ export function scrub(text, secrets = []) {
     /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*/g,
     "<jwt>",
   );
+  out = out.replace(/tiny_[A-Za-z0-9_-]{8,}/g, "<tiny-key>");
   out = out.replace(/(bearer\s+)[A-Za-z0-9._~+/-]{16,}/gi, "$1<redacted>");
   return out;
 }
