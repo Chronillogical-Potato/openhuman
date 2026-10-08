@@ -96,3 +96,7 @@ impl Drop for InFlight<'_> {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "lifecycle_tests.rs"]
+mod tests;
