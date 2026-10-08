@@ -5366,6 +5366,8 @@ const messages: TranslationMap = {
   'memoryPage.announcement.rest':
     'Basic は 1 GB、Pro は 20 GB のメモリストレージ付き。より速く賢く、データが学習に使われることはありません。',
   'memoryPage.announcement.dismiss': '閉じる',
+  'memoryPage.alphaNotice':
+    '早期アルファ版: メモリはテスト中です。想起、インポート、ストレージが予期せず動作したり、リリース間で変更されたりする場合があります。',
   'memoryPage.engine.cortex.description':
     'ランク付きの想起と根拠のある回答を備えたメモリエンジン。',
   'memoryPage.engine.chip.label': 'CortexDB の接続方法',

@@ -5005,6 +5005,8 @@ const messages: TranslationMap = {
   'memoryPage.announcement.rest':
     'Basic은 1GB, Pro는 20GB 메모리 저장 공간을 제공합니다. 더 빠르고 똑똑하며, 데이터는 절대 학습에 사용되지 않습니다.',
   'memoryPage.announcement.dismiss': '닫기',
+  'memoryPage.alphaNotice':
+    '초기 알파: 메모리는 아직 테스트 중입니다. 회상, 가져오기, 저장소가 예기치 않게 동작하거나 릴리스 간에 변경될 수 있습니다.',
   'memoryPage.engine.cortex.description': '순위 기반 회상과 근거 있는 답변을 제공하는 메모리 엔진.',
   'memoryPage.engine.chip.label': 'CortexDB 연결 방법',
   'memoryPage.engine.chip.builtin': 'TinyHumans',

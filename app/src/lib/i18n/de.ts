@@ -5192,6 +5192,8 @@ const messages: TranslationMap = {
   'memoryPage.announcement.rest':
     'Basic enthält 1 GB Gedächtnisspeicher, Pro 20 GB. Es ist schneller und intelligenter, und deine Daten werden nie zum Training verwendet.',
   'memoryPage.announcement.dismiss': 'Schließen',
+  'memoryPage.alphaNotice':
+    'Frühe Alpha: Das Gedächtnis wird noch getestet. Abruf, Importe und Speicher können sich unerwartet verhalten oder zwischen Versionen ändern.',
   'memoryPage.engine.cortex.description':
     'Gedächtnis-Engine mit gewichtetem Abruf und belegten Antworten.',
   'memoryPage.engine.chip.label': 'So verbindest du CortexDB',

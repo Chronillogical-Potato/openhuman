@@ -5051,6 +5051,8 @@ const messages: TranslationMap = {
   'memoryPage.announcement.rest':
     'Basic में 1 GB और Pro में 20 GB मेमोरी स्टोरेज शामिल है। यह तेज़ और ज़्यादा स्मार्ट है, और आपका डेटा कभी ट्रेनिंग के लिए इस्तेमाल नहीं होता।',
   'memoryPage.announcement.dismiss': 'बंद करें',
+  'memoryPage.alphaNotice':
+    'प्रारंभिक अल्फ़ा: मेमोरी का अभी परीक्षण हो रहा है। रिकॉल, इम्पोर्ट और स्टोरेज अप्रत्याशित रूप से व्यवहार कर सकते हैं या रिलीज़ के बीच बदल सकते हैं।',
   'memoryPage.engine.cortex.description': 'रैंक की गई रिकॉल और प्रमाणित जवाबों वाला मेमोरी इंजन।',
   'memoryPage.engine.chip.label': 'CortexDB कैसे कनेक्ट करें',
   'memoryPage.engine.chip.builtin': 'TinyHumans',

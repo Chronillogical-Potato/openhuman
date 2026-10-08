@@ -4777,6 +4777,8 @@ const messages: TranslationMap = {
   'memoryPage.announcement.rest':
     'Basic 包含 1 GB 记忆存储空间，Pro 包含 20 GB。更快更智能，你的数据永远不会用于训练。',
   'memoryPage.announcement.dismiss': '关闭',
+  'memoryPage.alphaNotice':
+    '早期 Alpha：记忆仍在测试中。回忆、导入和存储可能出现意外行为，或在不同版本间发生变化。',
   'memoryPage.engine.cortex.description': '具备排序召回与有据回答的记忆引擎。',
   'memoryPage.engine.chip.label': '如何连接 CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',

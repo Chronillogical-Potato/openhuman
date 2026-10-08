@@ -4968,6 +4968,8 @@ const messages: TranslationMap = {
   'memoryPage.announcement.rest':
     'Basic 1 GB, Pro ise 20 GB bellek depolama alanı içerir. Daha hızlı ve daha akıllıdır; verileriniz asla eğitim için kullanılmaz.',
   'memoryPage.announcement.dismiss': 'Kapat',
+  'memoryPage.alphaNotice':
+    'Erken alfa: Bellek hâlâ test ediliyor. Hatırlama, içe aktarma ve depolama beklenmedik şekilde davranabilir veya sürümler arasında değişebilir.',
   'memoryPage.engine.cortex.description':
     'Sıralı geri çağırma ve kaynaklı yanıtlar sunan bellek motoru.',
   'memoryPage.engine.chip.label': 'CortexDB nasıl bağlanır',

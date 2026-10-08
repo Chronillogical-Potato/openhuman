@@ -118,6 +118,23 @@ describe('Memory page', () => {
     expect(screen.queryByTestId('stub-import')).not.toBeInTheDocument();
   });
 
+  it.each(['engine', 'migration', 'ask', 'settings'])(
+    'shows the alpha notice on the %s chip',
+    async chip => {
+      renderAt(`?tab=brain&brain=${chip}`);
+      expect(await screen.findByTestId('memory-alpha-notice')).toHaveTextContent(
+        'Early Alpha: Memory is still being tested.'
+      );
+    }
+  );
+
+  it('shows the alpha notice while memory is off', async () => {
+    hoisted.engineGet.mockResolvedValue(OFF);
+    renderAt('?tab=brain&brain=ask');
+    expect(await screen.findByTestId('memory-off-state')).toBeInTheDocument();
+    expect(screen.getByTestId('memory-alpha-notice')).toBeInTheDocument();
+  });
+
   it('keeps the import flow on the Migration chip only', async () => {
     renderAt('?tab=brain&brain=migration');
     expect(await screen.findByTestId('stub-import')).toHaveTextContent('TinyHumans');

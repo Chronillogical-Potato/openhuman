@@ -5166,6 +5166,8 @@ const messages: TranslationMap = {
   'memoryPage.announcement.rest':
     "Basic inclut 1 Go de stockage de mémoire et Pro 20 Go. Elle est plus rapide et plus intelligente, et vos données ne servent jamais à l'entraînement.",
   'memoryPage.announcement.dismiss': 'Fermer',
+  'memoryPage.alphaNotice':
+    "Alpha précoce : la mémoire est encore en test. Le rappel, les imports et le stockage peuvent se comporter de manière inattendue ou changer d'une version à l'autre.",
   'memoryPage.engine.cortex.description':
     'Moteur de mémoire avec rappel classé et réponses sourcées.',
   'memoryPage.engine.chip.label': 'Comment connecter CortexDB',

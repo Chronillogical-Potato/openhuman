@@ -5118,6 +5118,8 @@ const messages: TranslationMap = {
   'memoryPage.announcement.rest':
     'Basic obejmuje 1 GB miejsca na pamięć, a Pro 20 GB. Jest szybsza i mądrzejsza, a Twoje dane nigdy nie są używane do trenowania.',
   'memoryPage.announcement.dismiss': 'Zamknij',
+  'memoryPage.alphaNotice':
+    'Wczesna alfa: pamięć jest nadal testowana. Przywoływanie, importy i przechowywanie mogą działać nieoczekiwanie lub zmieniać się między wersjami.',
   'memoryPage.engine.cortex.description':
     'Silnik pamięci z rankingiem wyników i ugruntowanymi odpowiedziami.',
   'memoryPage.engine.chip.label': 'Jak połączyć CortexDB',

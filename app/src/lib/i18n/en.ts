@@ -5329,6 +5329,8 @@ const en: TranslationMap = {
   'memoryPage.announcement.rest':
     "Basic includes 1 GB of memory storage and Pro includes 20 GB. It's faster and smarter, and your data is never used for training.",
   'memoryPage.announcement.dismiss': 'Dismiss',
+  'memoryPage.alphaNotice':
+    'Early Alpha: Memory is still being tested. Recall, imports and storage may behave unexpectedly or change between releases.',
   'memoryPage.engine.cortex.description': 'Memory engine with ranked recall and grounded answers.',
   'memoryPage.engine.chip.label': 'How to connect CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',

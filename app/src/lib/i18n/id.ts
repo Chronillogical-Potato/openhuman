@@ -5091,6 +5091,8 @@ const messages: TranslationMap = {
   'memoryPage.announcement.rest':
     'Basic mencakup 1 GB penyimpanan memori dan Pro mencakup 20 GB. Lebih cepat dan lebih cerdas, dan data Anda tidak pernah dipakai untuk pelatihan.',
   'memoryPage.announcement.dismiss': 'Tutup',
+  'memoryPage.alphaNotice':
+    'Alfa awal: memori masih diuji. Pemanggilan, impor, dan penyimpanan dapat berperilaku tak terduga atau berubah antar rilis.',
   'memoryPage.engine.cortex.description':
     'Mesin memori dengan pemanggilan berperingkat dan jawaban berdasar.',
   'memoryPage.engine.chip.label': 'Cara menghubungkan CortexDB',

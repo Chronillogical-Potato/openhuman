@@ -5103,6 +5103,8 @@ const messages: TranslationMap = {
   'memoryPage.announcement.rest':
     'Basic включает 1 ГБ хранилища памяти, а Pro 20 ГБ. Она быстрее и умнее, а ваши данные никогда не используются для обучения.',
   'memoryPage.announcement.dismiss': 'Скрыть',
+  'memoryPage.alphaNotice':
+    'Ранняя альфа: память ещё тестируется. Извлечение, импорт и хранение могут работать неожиданно или меняться между версиями.',
   'memoryPage.engine.cortex.description':
     'Движок памяти с ранжированным поиском и обоснованными ответами.',
   'memoryPage.engine.chip.label': 'Как подключить CortexDB',

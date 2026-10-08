@@ -4959,6 +4959,8 @@ const messages: TranslationMap = {
   'memoryPage.announcement.rest':
     'تتضمن خطة Basic مساحة تخزين للذاكرة قدرها 1 غيغابايت وخطة Pro قدرها 20 غيغابايت. إنها أسرع وأذكى، ولا تُستخدم بياناتك أبدًا للتدريب.',
   'memoryPage.announcement.dismiss': 'إغلاق',
+  'memoryPage.alphaNotice':
+    'ألفا مبكرة: لا تزال الذاكرة قيد الاختبار. قد يتصرف الاسترجاع والاستيراد والتخزين بشكل غير متوقع أو يتغير بين الإصدارات.',
   'memoryPage.engine.cortex.description': 'محرك ذاكرة باسترجاع مرتّب وإجابات موثّقة.',
   'memoryPage.engine.chip.label': 'طريقة ربط CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
