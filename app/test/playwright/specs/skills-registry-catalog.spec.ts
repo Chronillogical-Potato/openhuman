@@ -117,7 +117,7 @@ test.describe('Skill registry catalog over the tinyskills registry', () => {
     await expect(uninstall).toHaveCount(0, { timeout: 15_000 });
   });
 
-  test('prompts on a scan-blocked skill: Block keeps it out, Install anyway installs it', async ({
+  test('prompts on a scan-blocked skill: Block keeps it out, Install anyway installs only the reviewed document', async ({
     page,
   }) => {
     test.setTimeout(90_000);
@@ -147,6 +147,22 @@ test.describe('Skill registry catalog over the tinyskills registry', () => {
 
       await install.click();
       await expect(dialog).toBeVisible({ timeout: 30_000 });
+      await setMockBehavior('skillRegistryScanVariant', 'changed');
+      const beforeChanged = await documentFetches(SCAN_BLOCKED_SKILL);
+      await page.getByTestId('scan-blocked-install-anyway').click();
+      await expect
+        .poll(() => documentFetches(SCAN_BLOCKED_SKILL), { timeout: 30_000 })
+        .toBe(beforeChanged + 2);
+      await expect(page.getByTestId('scan-blocked-install-anyway')).toBeEnabled({
+        timeout: 30_000,
+      });
+      await expect(dialog).toBeVisible();
+      await expect(
+        page
+          .getByTestId(`registry-tile-${SCAN_BLOCKED_SKILL}`)
+          .getByText('Installed', { exact: true })
+      ).toHaveCount(0);
+
       await page.getByTestId('scan-blocked-install-anyway').click();
       await expect(dialog).toHaveCount(0, { timeout: 30_000 });
       await expect(
@@ -156,6 +172,7 @@ test.describe('Skill registry catalog over the tinyskills registry', () => {
       ).toBeVisible({ timeout: 30_000 });
     } finally {
       await setMockBehavior('skillRegistryScanBlocked', '');
+      await setMockBehavior('skillRegistryScanVariant', '');
       await callCoreRpc('openhuman.skill_registry_uninstall', { name: SCAN_BLOCKED_SKILL }).catch(
         () => undefined
       );
