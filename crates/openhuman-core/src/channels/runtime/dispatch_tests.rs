@@ -87,6 +87,7 @@ fn cm(channel: &str, reply_target: &str) -> traits::ChannelMessage {
         reply_target: reply_target.into(),
         thread_ts: None,
         timestamp: 0,
+        sender_name: None,
     }
 }
 
