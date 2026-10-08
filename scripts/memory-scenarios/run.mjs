@@ -714,6 +714,51 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
     // --- teardown -----------------------------------------------------------
     if (engine === "builtin" && core && !core.exited) {
       try {
+        // Positive control, before the real clean-up: an empty answer proves
+        // nothing unless this engine, right now, can show an item, forget it
+        // and show it gone. A degraded backend answering "empty" fails here.
+        // The probe carries the run's tag, so a retry finds it if this fails.
+        const tagged = async () =>
+          (
+            await core.rpc("openhuman.memory_items_list", {
+              filter: { tags_any: [marker] },
+              limit: 100,
+            })
+          )?.items ?? [];
+        const probe = await core.rpc("openhuman.memory_learn", {
+          text: `memscen clean-up probe ${runId}`,
+          kind: "other",
+          meta: { tags: [marker] },
+        });
+        const control = (what, ok) =>
+          waitFor(async () => (await ok()) || null, {
+            timeoutMs: 60_000,
+            intervalMs: 2000,
+            what,
+          }).catch(() => {
+            throw new Error(
+              `positive control failed: ${what}; an empty answer is not evidence`,
+            );
+          });
+        await control("the probe is listed", async () =>
+          (await tagged()).some((h) => h.id === probe?.id),
+        );
+        const gone = await core.rpc("openhuman.memory_forget", {
+          ids: [probe?.id],
+        });
+        if (gone?.forgotten !== 1)
+          throw new Error(
+            `positive control failed: forgetting the probe counted ${gone?.forgotten}`,
+          );
+        await control("the probe is gone", async () => {
+          const got = await core.rpc("openhuman.memory_items_get", {
+            ids: [probe?.id],
+          });
+          return (
+            !(got?.items ?? []).length &&
+            !(await tagged()).some((h) => h.id === probe?.id)
+          );
+        });
         // Everything this run stored: the ledger, every item in its threads,
         // every item carrying its marker. Written down first, so a failed
         // clean-up can be retried with --cleanup <run-dir>.
@@ -797,7 +842,7 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
             basis: "READ",
           });
         console.log(
-          `builtin : cleanup forgot ${ledger.list().length} ids, ${survivors.length} survived (${engineResults.cleanupListsEmpty} thread/tag lists re-read); migration/import untouched: ${untouched.ok}`,
+          `builtin : cleanup forgot ${ledger.list().length} ids, ${survivors.length} survived (${engineResults.cleanupListsEmpty} thread/tag lists re-read; probe control passed first); migration/import untouched: ${untouched.ok}`,
         );
       } catch (e) {
         findings.add({

@@ -114,6 +114,10 @@ running it.
   the tag and every thread list empty. Survivors are
   reported as a finding. Beliefs the engine derives on its own from the run's
   items cannot be traced back to the run and are not cleaned up.
+- **An empty answer is not taken as clean.** Before the real clean-up, a
+  positive control stores a probe under the run's tag, waits to see it
+  listed, forgets it (`forgotten: 1`) and waits to see it gone. A backend that
+  answers "empty" while degraded fails the control, and the clean-up with it.
 - **The clean-up fails closed.** The ids, threads and marker are written to
   `<run-dir>/builtin/cleanup.json` before anything is forgotten. Any error
   listing, forgetting or reading back fails the clean-up (it never reads as
