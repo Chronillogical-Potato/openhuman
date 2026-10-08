@@ -151,6 +151,22 @@ fn check_is_a_harness_instruction_that_names_the_spec_rules() {
         "rewriting history",
         "say so in your answer instead of making it",
         "re-run the affected checks",
+        // The verifier of a filter fed adversarial HTML the agent had never
+        // tried; a classifier was graded on images it had not seen; a
+        // weight-matrix recovery was declared done with a third of the rows
+        // checked against an oracle it could query at will.
+        "inputs you have not seen",
+        "adversarial ones for anything that filters or validates",
+        "check every part of the result against it, not a sample",
+        // The request's allowed-command list said `:wq`; the agent wrote `wq`
+        // and ticked the box. A query had a reference time to meet; the agent
+        // measured against the original instead.
+        "exact interface the request names",
+        "allowed or forbidden elements where a list is given",
+        "state the measured value",
+        "stop exploring and",
+        "Once every check the contract names passes",
+        "named test still failing or never run",
     ] {
         assert!(check.contains(needle), "check must mention `{needle}`");
     }

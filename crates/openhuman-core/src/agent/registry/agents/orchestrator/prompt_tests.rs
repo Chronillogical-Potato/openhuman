@@ -49,6 +49,11 @@ fn render_installed_skills_lists_skills_and_names_the_hand_offs_it_is_given() {
             && ARCHETYPE.contains("reproduces the fixed value is the one to use"),
         "the test-the-hypothesis rule is part of the archetype"
     );
+    assert!(
+        ARCHETYPE.contains("write down the acceptance contract")
+            && ARCHETYPE.contains("source of truth over any metric of your own"),
+        "the contract-first rule is part of the archetype"
+    );
     assert!(out.contains("- **ascii-art**: ASCII art via pyfiglet"));
     assert!(out.contains("- **no-dir**: (no description)"));
 
