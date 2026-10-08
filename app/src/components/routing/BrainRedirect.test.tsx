@@ -28,9 +28,9 @@ describe('BrainRedirect', () => {
     expect(renderAt('/brain')).toBe('/connections?tab=brain');
   });
 
-  it('maps the v1 graph and goals sub-tabs to the ask chip', () => {
-    expect(renderAt('/brain?tab=graph')).toBe('/connections?tab=brain&brain=ask');
-    expect(renderAt('/brain?tab=goals')).toBe('/connections?tab=brain&brain=ask');
+  it('maps the v1 graph and goals sub-tabs to the conversations chip', () => {
+    expect(renderAt('/brain?tab=graph')).toBe('/connections?tab=brain&brain=conversations');
+    expect(renderAt('/brain?tab=goals')).toBe('/connections?tab=brain&brain=conversations');
   });
 
   it('maps the v1 sources and sync sub-tabs to the brain chip', () => {
@@ -39,11 +39,18 @@ describe('BrainRedirect', () => {
   });
 
   it('passes a current chip through unchanged', () => {
-    expect(renderAt('/brain?tab=background')).toBe('/connections?tab=brain&brain=background');
+    expect(renderAt('/brain?tab=conversations')).toBe('/connections?tab=brain&brain=conversations');
+  });
+
+  it('maps every retired v2 chip to a kept one', () => {
+    for (const retired of ['ask', 'explorer', 'learnings', 'background', 'settings']) {
+      expect(renderAt(`/brain?tab=${retired}`)).toBe('/connections?tab=brain&brain=conversations');
+    }
+    expect(renderAt('/brain?tab=migration')).toBe('/connections?tab=brain&brain=brain');
   });
 
   it('maps the retired context and documents chips', () => {
-    expect(renderAt('/brain?tab=context')).toBe('/connections?tab=brain&brain=ask');
+    expect(renderAt('/brain?tab=context')).toBe('/connections?tab=brain&brain=conversations');
     expect(renderAt('/brain?tab=documents')).toBe('/connections?tab=brain&brain=brain');
   });
 

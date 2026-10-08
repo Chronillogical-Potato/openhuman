@@ -81,8 +81,8 @@ describe.each([
   ['/settings/memory-engine', '#/connections?tab=brain&brain=engine'],
   ['/settings/memory-data', '#/connections?tab=brain&brain=brain'],
   ['/settings/memory-sync', '#/connections?tab=brain&brain=brain'],
-  ['/settings/memory-debug', '#/connections?tab=brain&brain=ask'],
-  ['/settings/tasks', '#/connections?tab=brain&brain=ask'],
+  ['/settings/memory-debug', '#/connections?tab=brain&brain=conversations'],
+  ['/settings/tasks', '#/connections?tab=brain&brain=conversations'],
 ])('retired memory settings route %s', (route, target) => {
   it(`redirects to ${target}`, async () => {
     window.location.hash = `#${route}`;
