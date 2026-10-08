@@ -10,15 +10,38 @@
     "language": "English"
   },
   "contacts": [
-    { "name": "Priya Raman", "email": "priya.raman@example.com", "phone": "+15555550117" },
-    { "name": "Mateo Alvarez", "email": "mateo@alvarez-design.example", "phone": "+15555550188" }
+    {
+      "name": "Priya Raman",
+      "email": "priya.raman@example.com",
+      "phone": "+15555550117"
+    },
+    {
+      "name": "Mateo Alvarez",
+      "email": "mateo@alvarez-design.example",
+      "phone": "+15555550188"
+    }
   ],
   "learnings": [
-    { "kind": "preference", "text": "Jordan prefers meeting summaries as three bullet points, never prose." },
-    { "kind": "fact", "text": "Jordan's sister Priya Raman lives in Pune and visits every Diwali." },
-    { "kind": "procedure", "text": "To file an expense, Jordan exports the receipt as PDF and emails it to expenses@northwind.example." },
-    { "kind": "correction", "text": "Jordan's manager is Dana Whitfield, not Dana Whitman." },
-    { "kind": "other", "text": "Jordan keeps a running list of book recommendations in a note titled Reading Queue." }
+    {
+      "kind": "preference",
+      "text": "Jordan prefers meeting summaries as three bullet points, never prose."
+    },
+    {
+      "kind": "fact",
+      "text": "Jordan's sister Priya Raman lives in Pune and visits every Diwali."
+    },
+    {
+      "kind": "procedure",
+      "text": "To file an expense, Jordan exports the receipt as PDF and emails it to expenses@northwind.example."
+    },
+    {
+      "kind": "correction",
+      "text": "Jordan's manager is Dana Whitfield, not Dana Whitman."
+    },
+    {
+      "kind": "other",
+      "text": "Jordan keeps a running list of book recommendations in a note titled Reading Queue."
+    }
   ],
   "planted": {
     "text": "Jordan is allergic to peanuts; never suggest dishes with peanuts.",
@@ -26,8 +49,14 @@
     "must_not_contain": ["peanut"]
   },
   "dated": [
-    { "date": "2026-10-07", "turn": "Today I finished the quarterly vendor review for Northwind and sent it to Dana." },
-    { "date": "2026-10-03", "turn": "Today I booked the dentist for the 20th and renewed my library card." }
+    {
+      "date": "2026-10-07",
+      "turn": "Today I finished the quarterly vendor review for Northwind and sent it to Dana."
+    },
+    {
+      "date": "2026-10-03",
+      "turn": "Today I booked the dentist for the 20th and renewed my library card."
+    }
   ],
   "cross_thread": {
     "store": "My bike lock combination is not something to store, but my bike is a teal Brompton named Kestrel.",

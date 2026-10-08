@@ -6,7 +6,7 @@ read; **nothing is fixed during a run**.
 
 ```bash
 # both engines (local first, then Built-in on your real account)
-node scripts/memory-scenarios/run.mjs   # builtin reads its API key from ~/.memscen-key
+node scripts/memory-scenarios/run.mjs
 
 # one engine, some scenarios
 node scripts/memory-scenarios/run.mjs --engine local --only A,B,E
@@ -20,8 +20,28 @@ node scripts/memory-scenarios/run.mjs --grade-only target/memory-scenarios/<run-
 
 Requires a **debug** core (`cargo build -p openhuman-cli --bin openhuman-core`,
 debug so the Composio base override is honoured), Docker, and for the local
-engine's real embeddings a running Ollama with `nomic-embed-text` and
-`llama3.2:3b` (pulled automatically when missing).
+engine's embeddings a running Ollama with `nomic-embed-text` (and `llama3.2:3b`
+for CortexDB's extraction and answer lanes; both pulled when missing).
+
+## The account credential: a file, passed through the environment only
+
+Chat runs on the account's managed route on both engines, and the builtin engine
+stores memory on the account, so the run needs a credential:
+
+| file (chmod 600)                                 | what                                                                                           | reaches the core as               |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------- | --------------------------------- |
+| `~/.memscen-session` (or `MEMSCEN_SESSION_FILE`) | the app's session JWT, preferred for builtin                                                   | `OPENHUMAN_BACKEND_SESSION_TOKEN` |
+| `~/.memscen-key` (or `MEMSCEN_KEY_FILE`)         | a TinyHumans API key (`tiny_…`); the local engine's chat, and builtin when there is no session | `OPENHUMAN_BACKEND_API_KEY`       |
+
+The script reads the file when it spawns the core and hands the value over in
+the core's environment only; the core seeds it at boot
+(`security/credentials/ops/boot_env.rs`). It is never an RPC argument, never
+printed and never written to the run directory: `core.log`, `rpc.jsonl` and
+every error text are scrubbed of the value itself and of anything `tiny_…` or
+JWT-shaped (`eyJ…`). A core spawned for an engine that should not have a
+credential gets neither variable, even if your shell exports one. Revoke the
+session on the backend when you are done. An API key needs the **`memory`**
+scope for builtin; without it every memory call answers 403.
 
 ## Headless, but shaped like the desktop app
 
@@ -35,36 +55,50 @@ composer. Memory RPCs (`memory_learn`, `memory_items_list`, `memory_recall`,
 
 ## The two engines
 
-**local** — a throwaway CortexDB **v0.10.5** per run (`cortexdb/` here): its own
-compose project `memscen-<run>`, its own volume, a free port. It never touches
-the user's `cortexdb` container, its `cortexdb-data` volume or port 3141, and is
-torn down with its volume at the end (`--keep` keeps the volume). Inference is
-the local Ollama (semantic embeddings, `nomic-embed-text`, 768 dims; a small
-chat model for extraction and answers). When Ollama is unreachable it falls back
-to tinymemory's deterministic mock inference, and the report says the
-recall-quality checks were skipped. The core signs in with an offline local
-session and points memory at the container (`memory_engine_set`).
+**local**: a throwaway CortexDB **v0.10.5** per run (`cortexdb/` here) with its
+own compose project `memscen-<run>`, its own volume and a free port. It never
+touches the user's `cortexdb` container, its `cortexdb-data` volume or port 3141,
+and is torn down with its volume at the end, or on Ctrl-C (`--keep` keeps the
+volume). Its embeddings are the local Ollama's `nomic-embed-text` (768 dims,
+through Ollama's native API at the bare base URL: under `/v1` CortexDB's
+`ollama:` provider 404s and every store waits out a 30 s index timeout). When
+Ollama is unreachable it falls back to tinymemory's deterministic mock
+inference, and the report says the recall-quality checks were skipped.
 
-**builtin** — **your real account**, on its managed route. Read this before
-running it:
+- Chat runs on the account's managed route through the API key; **memory stays
+  on the container**. The run aborts unless `memory_engine_get` reports
+  `cortexdb` at the run's own endpoint, before and after setup. The scheduler
+  gate is off on this core too (written to the active config and read back),
+  so no background job runs while it holds the key. If the managed route
+  cannot run, chat falls back to the local Ollama and the checks that depend
+  on reply quality are recorded **INCONCLUSIVE**, not failed.
+- The core talks to CortexDB through a logging pass-through, and every request
+  body lands in `local/cortex-wire.jsonl` (scrubbed). Attribution
+  (`observed_actor`, `subject`) is written on the wire and not returned on
+  read-back, so those checks read the wire.
+- **E (the move into layout v3) runs on a fresh core that never saw the key**:
+  a user-started move is gated on background work, which the key-holding core
+  keeps off, and this core may run background work without any way to reach
+  the account.
 
-- The account's TinyHumans API key is read from `~/.memscen-key` (or
-  `MEMSCEN_KEY_FILE`) at spawn time and reaches the core only as
-  `OPENHUMAN_BACKEND_API_KEY`, which the core seeds at boot
-  (`security/credentials/ops/boot_env.rs`). It is never an RPC argument, never
-  printed, never written to the run directory: `rpc.jsonl` and `core.log` are
-  scrubbed of it and of anything `tiny_…` or JWT-shaped.
-- **Nothing of the account's own is moved, erased or imported.** Three guards,
-  any failure aborts the builtin run before a scenario starts:
-  1. the scheduler gate is pre-written **off** in the core's config before it
-     first boots (an API key activates no user dir), and read back, so no background job (the layout
-     migration's tick, import resume, belief builds) runs on its own;
-  2. this workspace's layout-migration state is written as done (`cleaned`)
-     and read back through `memory_migration_status`;
+**builtin**: **your real account**, on its managed route. Read this before
+running it.
+
+- **Nothing of the account's own is moved, erased, imported or consolidated.**
+  Three guards; any failure aborts the builtin run before a scenario starts:
+  1. the scheduler gate is pre-written **off** in every config the core may
+     treat as active (the root, the pre-login `users/local/`, and for a session
+     the account's own `users/<subject>/`), and read back from the config the
+     core actually activated, so no background job (the layout migration's
+     tick, import resume, belief builds) runs on its own;
+  2. the active workspace's layout-migration state is written as done
+     (`cleaned`) and read back through `memory_migration_status`;
   3. no v1 store exists in the throwaway workspace.
-     Migration, import, erase and disconnect-with-clear scenarios run **local
-     only**. At the end the run asserts the migration state never moved and no
-     import ran.
+
+  Migration, import, erase, disconnect-with-clear and belief-build scenarios
+  run **local only**. At the end the run asserts the migration state never
+  moved and no import ran.
+
 - **Everything the run writes is removed.** Each item carries a run marker
   (`thread-<uuid>` threads, a `memscen:<run>` tag); every id it stores is
   recorded; teardown forgets exactly those, plus every item in the run's
@@ -80,11 +114,11 @@ running it:
 | B-recall      | both    | cross-thread recall; a negative control (no invention); a planted learning changes a reply; brain retrieval with citations; pre-turn pack timeouts at the default wait vs 6000 ms (`[memory:hooks] pre_turn timed out` in core.log)                                                      |
 | C-dates       | both    | the user time zone; "yesterday" and a named date find the right fact; a Spanish question gets a Spanish reply                                                                                                                                                                            |
 | D-connectors  | local   | mock Composio (`mock-composio.mjs`): items under `source:<app>`; GitHub split by `{owner}--{repo}`; an edit replaces the old version; disconnect-with-clear removes only that app; a disconnect during a sync leaves nothing; reconnect syncs; the Gmail sender becomes `observed_actor` |
-| E-migration   | local   | legacy items plus a v1 store: import with consent, then organizing starts on its own; a core restart mid-move; layout v3; nothing lost; v1 documents present; chats pooled at `ws:main`; the same recall answer                                                                          |
-| F-labels      | local   | thread and agent on every logged turn; phone numbers in plain text; `observed_actor` only with `[memory] observed_actor = true`                                                                                                                                                          |
+| E-migration   | local   | legacy items plus a v1 store: import with consent; a shared (self-hosted) tree waits for the takeover consent, then moves; a core restart mid-move; layout v3; nothing lost; v1 documents present; chats pooled at `ws:main`; the same recall answer                                     |
+| F-labels      | local   | thread and agent on every logged turn; phone numbers in plain text; on the wire, `observed_actor`/`subject` on assistant turns only with `[memory] observed_actor = true`, none with it off                                                                                              |
 | G-source-cap  | both    | more than four brain sources: at most four in the pack, the named one included, no Team section                                                                                                                                                                                          |
 | H-forget      | both    | a forget removes from list and recall; forgetting nothing reports `forgotten: 0`                                                                                                                                                                                                         |
-| I-qa          | both    | belief build (`memory_jobs_run`), backfill state, a new learning listed at once; local: the engine stopped mid-session, is the failure surfaced or swallowed                                                                                                                             |
+| I-qa          | both    | belief build (`memory_jobs_run`, local only), backfill state, a new learning listed at once; local: the engine stopped mid-session, is the failure surfaced or swallowed                                                                                                                 |
 | J-store-speed | builtin | a synthetic batch stored on the hosted path, timed, with `UNAVAILABLE`/429 counted (no real import)                                                                                                                                                                                      |
 
 Not driven here (said so in the report): a workflow writing memory, workflow
@@ -113,6 +147,7 @@ target/memory-scenarios/<run-id>/
   <engine>/rpc.jsonl every RPC with its result (scrubbed)
   <engine>/scenarios/<id>/transcript.jsonl   every turn: message, reply, tools, time
   local/composio-requests.json               what the mock Composio received
+  local/cortex-wire.jsonl                    every request the core sent CortexDB (scrubbed)
 ```
 
 A finding's `basis` is **READ** when it was seen (a response, a log line) and
