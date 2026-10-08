@@ -194,7 +194,10 @@ fn host_only_refuses_builtin_tools_the_model_names() {
             let backend = stub_backend().await;
             let provider = scripted_provider(vec![
                 tool_calls(&[
-                    ("shell", json!({"command": "printf shell-ran > shell-ran.txt"})),
+                    (
+                        "shell",
+                        json!({"command": "printf shell-ran > shell-ran.txt"}),
+                    ),
                     (
                         "write_file",
                         json!({"path": "written.txt", "content": "write-ran"}),
@@ -220,8 +223,15 @@ fn host_only_refuses_builtin_tools_the_model_names() {
 
             let action_dir = agent.action_dir().to_path_buf();
             assert!(!action_dir.join("shell-ran.txt").exists(), "shell executed");
-            assert!(!action_dir.join("written.txt").exists(), "write_file executed");
-            assert_eq!(calls.load(Ordering::SeqCst), 1, "the host read_file runs once");
+            assert!(
+                !action_dir.join("written.txt").exists(),
+                "write_file executed"
+            );
+            assert_eq!(
+                calls.load(Ordering::SeqCst),
+                1,
+                "the host read_file runs once"
+            );
 
             let requests = chat_requests(&provider).await;
             assert_eq!(requests.len(), 2);

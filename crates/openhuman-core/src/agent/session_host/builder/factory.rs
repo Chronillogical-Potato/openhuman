@@ -233,18 +233,18 @@ impl OpenHumanSessionHost {
             Vec::new()
         } else {
             tools::ops::all_tools_with_runtime(
-            Arc::clone(&tool_config),
-            &security,
-            runtime,
-            audit,
-            &tool_config.browser,
-            &tool_config.http_request,
-            &tool_config.action_dir,
-            &tool_config.agents,
-            &tool_config,
-            workspace_descriptor
-                .as_ref()
-                .map(|descriptor| descriptor.root.as_path()),
+                Arc::clone(&tool_config),
+                &security,
+                runtime,
+                audit,
+                &tool_config.browser,
+                &tool_config.http_request,
+                &tool_config.action_dir,
+                &tool_config.agents,
+                &tool_config,
+                workspace_descriptor
+                    .as_ref()
+                    .map(|descriptor| descriptor.root.as_path()),
             )
         };
 
@@ -834,7 +834,8 @@ impl OpenHumanSessionHost {
             Some(Arc::new(super::host_only::HostOnlyToolPolicy::new(
                 allowed,
                 merged_host_tools.policy,
-            )) as Arc<dyn crate::agent::tool_policy::ToolPolicy>)
+            ))
+                as Arc<dyn crate::agent::tool_policy::ToolPolicy>)
         } else {
             merged_host_tools.policy
         };

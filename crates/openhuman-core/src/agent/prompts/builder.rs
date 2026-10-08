@@ -302,8 +302,7 @@ impl SystemPromptBuilder {
         // it never ships twice.
         if !self.verbatim {
             if !has_grounding {
-                buckets[tier_index(PromptTier::Stable)]
-                    .push(GROUNDING_BODY.trim_end().to_string());
+                buckets[tier_index(PromptTier::Stable)].push(GROUNDING_BODY.trim_end().to_string());
             }
             buckets[tier_index(PromptTier::Stable)]
                 .push(global_style_block(ctx.workspace_dir).trim_end().to_string());

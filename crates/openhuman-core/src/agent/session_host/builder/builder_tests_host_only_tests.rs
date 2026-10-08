@@ -8,7 +8,9 @@
 
 use super::*;
 use crate::agent::harness::definition::{SandboxMode, ToolScope};
-use crate::agent::tool_policy::{ToolCallContext, ToolPolicy, ToolPolicyDecision, ToolPolicyRequest};
+use crate::agent::tool_policy::{
+    ToolCallContext, ToolPolicy, ToolPolicyDecision, ToolPolicyRequest,
+};
 use std::sync::Arc;
 
 #[derive(Debug)]
