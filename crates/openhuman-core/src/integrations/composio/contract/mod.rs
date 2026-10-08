@@ -3,10 +3,8 @@
 //! profiles, per-toolkit user scope preferences and the
 //! normalised task shape.
 //!
-//! These types used to be part of TinyMemory's v1 bus contract, which carried
-//! them only because the memory engine ran Composio syncs. Memory v2 does not,
-//! so the shapes live here, beside the integration that produces and reads
-//! them. They are plain data and pure functions: no HTTP, no persistence.
+//! These shapes live beside the integration that produces and reads them.
+//! They are plain data and pure functions: no HTTP, no persistence.
 
 pub mod catalogs;
 pub mod profile;
