@@ -219,7 +219,11 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
       setError(null);
       mStatusGen.current += 1;
       try {
-        const next = await memoryMigrationStart(takeover);
+        // Bumped again when the start answers: a poll asked while it was in
+        // flight may have read the state from before the move began.
+        const next = await memoryMigrationStart(takeover).finally(() => {
+          mStatusGen.current += 1;
+        });
         mlog('start: takeover=%s phase=%s running=%s', takeover, next.state.phase, next.running);
         setMStatus(next);
       } catch (err) {
@@ -239,7 +243,11 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
     mStatusGen.current += 1;
     try {
       await memoryMigrationRetry();
-      setMStatus(await memoryMigrationStart(false));
+      setMStatus(
+        await memoryMigrationStart(false).finally(() => {
+          mStatusGen.current += 1;
+        })
+      );
     } catch (err) {
       mlog('retry failed: %o', err);
       setError(memoryErrorMessage(err, t));

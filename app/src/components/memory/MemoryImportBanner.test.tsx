@@ -460,6 +460,43 @@ describe('MemoryImportBanner', () => {
       expect(screen.queryByTestId('memory-migration-offer')).not.toBeInTheDocument();
     });
 
+    it('drops a poll asked while the start was in flight', async () => {
+      hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+      expect(await screen.findByTestId('memory-migration-offer')).toBeInTheDocument();
+
+      // The start is slow to answer.
+      let answerStart: (value: unknown) => void = () => {};
+      hoisted.mStart.mockReturnValueOnce(
+        new Promise(resolve => {
+          answerStart = resolve;
+        })
+      );
+      fireEvent.click(screen.getByTestId('memory-migration-start'));
+      // Meanwhile a poll reads the state from before the move began.
+      let answerPoll: (value: unknown) => void = () => {};
+      hoisted.mStatus.mockReturnValueOnce(
+        new Promise(resolve => {
+          answerPoll = resolve;
+        })
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(MIGRATION_IDLE_POLL_MS + 10);
+      });
+      await act(async () => {
+        answerStart(moving(4));
+      });
+      expect(await screen.findByTestId('memory-migration-running')).toHaveTextContent('4');
+
+      // That poll answers last; it must not bring the offer back.
+      await act(async () => {
+        answerPoll(MOVE_IDLE);
+      });
+      expect(screen.getByTestId('memory-migration-running')).toBeInTheDocument();
+      expect(screen.queryByTestId('memory-migration-offer')).not.toBeInTheDocument();
+    });
+
     it('drops a poll that fails after the user started the move', async () => {
       hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
       vi.useFakeTimers({ shouldAdvanceTime: true });
