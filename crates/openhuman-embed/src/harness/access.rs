@@ -33,6 +33,8 @@ pub struct Access {
     trusted_roots: Vec<TrustedRoot>,
     allow_tool_install: bool,
     approval_gate: bool,
+    auto_approve: Option<Vec<String>>,
+    auto_approve_all: Option<bool>,
 }
 
 impl Default for Access {
@@ -55,6 +57,8 @@ impl Access {
             trusted_roots: Vec::new(),
             allow_tool_install: false,
             approval_gate: true,
+            auto_approve: None,
+            auto_approve_all: None,
         }
     }
 
@@ -70,6 +74,8 @@ impl Access {
             trusted_roots: Vec::new(),
             allow_tool_install: false,
             approval_gate: true,
+            auto_approve: None,
+            auto_approve_all: None,
         }
     }
 
@@ -94,6 +100,8 @@ impl Access {
             trusted_roots: Vec::new(),
             allow_tool_install: false,
             approval_gate: false,
+            auto_approve: None,
+            auto_approve_all: None,
         }
     }
 
@@ -117,6 +125,36 @@ impl Access {
     /// tier.
     pub fn allow_tool_install(mut self, allow: bool) -> Self {
         self.allow_tool_install = allow;
+        self
+    }
+
+    /// Tools this agent runs without asking, replacing the runtime's
+    /// "Always allow" list for this agent only.
+    pub fn auto_approve<I, S>(mut self, tools: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.auto_approve = Some(tools.into_iter().map(Into::into).collect());
+        self
+    }
+
+    /// Approve every gated call for this agent without asking, or (`false`)
+    /// withdraw a blanket approval the runtime config carries.
+    ///
+    /// An unlabelled turn origin is still denied.
+    pub fn auto_approve_all(mut self, enabled: bool) -> Self {
+        self.auto_approve_all = Some(enabled);
+        self
+    }
+
+    /// Turn the interactive approval gate on or off for this agent.
+    ///
+    /// Off, gated calls run without parking at this agent's tier, while
+    /// other agents on the runtime keep parking. Forced approvals and an
+    /// unlabelled origin are still refused.
+    pub fn approval_gate(mut self, enabled: bool) -> Self {
+        self.approval_gate = enabled;
         self
     }
 
@@ -156,6 +194,12 @@ impl Access {
         config.autonomy.level = self.level;
         config.autonomy.allow_tool_install = self.allow_tool_install;
         config.autonomy.trusted_roots = self.trusted_roots.clone();
+        if let Some(tools) = &self.auto_approve {
+            config.autonomy.auto_approve = tools.clone();
+        }
+        if let Some(enabled) = self.auto_approve_all {
+            config.autonomy.auto_approve_all = enabled;
+        }
         // `auto_approve_all` is deliberately NOT set for `full()`. The origin
         // is the correct instrument — it says *who is calling*, which the gate
         // can reason about — whereas `auto_approve_all` is a blanket bypass

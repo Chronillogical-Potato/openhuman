@@ -99,6 +99,12 @@ pub(crate) struct AgentInner {
     pub(crate) host_tools: Option<openhuman_core::agent::HostTools>,
 }
 
+impl Drop for AgentInner {
+    fn drop(&mut self) {
+        openhuman_core::core::runtime::AgentContextRegistry::deregister(&self.id, &self.ctx);
+    }
+}
+
 /// A handle to one agent on a runtime.
 ///
 /// Cheap to clone; every clone drives the same agent. The id is released for

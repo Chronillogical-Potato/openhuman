@@ -164,19 +164,29 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         user_skill_roots: parts.include_user_skills,
         // A host session store keeps each agent's conversations apart by id.
         session_agent: Some(id.to_string()),
-        agent_policy: None,
-        approvals_disabled: false,
+        agent_policy: Some(std::sync::Arc::new(
+            openhuman_core::security::SecurityPolicy::from_config(
+                &config.autonomy,
+                &config.workspace_dir,
+                &config.action_dir,
+            )
+            .with_privacy_mode(config.privacy.mode),
+        )),
+        approvals_disabled: !access.approval_gate_enabled(),
         definitions: None,
     };
     let ctx = runtime.core_runtime().context().derive_with(overlay);
+    openhuman_core::core::runtime::AgentContextRegistry::register(&id, &ctx);
 
     log::debug!(
         "[embed][agent] instantiated id={id} action_dir={} routed={} access_origin={} \
-         user_skills={}",
+         user_skills={} tier={:?} approval_gate={}",
         config.action_dir.display(),
         provider.is_routed(),
         access.turn_origin().is_some(),
-        parts.include_user_skills
+        parts.include_user_skills,
+        config.autonomy.level,
+        access.approval_gate_enabled()
     );
 
     Ok(AgentInner {
