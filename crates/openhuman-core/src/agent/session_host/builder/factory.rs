@@ -20,18 +20,6 @@ use tinytools_agent::dialect::{
     CodeDialect, NativeDialect, PFormatDialect, ToolDialect, XmlDialect,
 };
 
-/// Where a session's tool belt comes from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum SessionBelt {
-    /// The config-derived registry, plus any host tools.
-    Config,
-    /// The config-derived registry narrowed to read-only tools.
-    #[allow(dead_code)]
-    ConfigReadOnly,
-    /// The host's tools and nothing else; see `host_only`.
-    HostOnly,
-}
-
 impl OpenHumanSessionHost {
     /// Returns whether `agent_id` resolves to a runnable definition for this
     /// configuration. This is deliberately the same resolution path used by
@@ -122,14 +110,7 @@ impl OpenHumanSessionHost {
                 .unwrap_or(config.default_temperature)
         );
 
-        Self::build_session_agent_inner(
-            config,
-            agent_id,
-            target_def.as_ref(),
-            SessionBelt::Config,
-            None,
-            None,
-        )
+        Self::build_session_agent_inner(config, agent_id, target_def.as_ref(), false, None, None)
     }
 
     /// Build a session agent from a definition the caller already holds,
@@ -151,14 +132,7 @@ impl OpenHumanSessionHost {
             definition.id,
             definition.sandbox_mode,
         );
-        Self::build_session_agent_inner(
-            config,
-            &definition.id,
-            Some(definition),
-            SessionBelt::Config,
-            None,
-            None,
-        )
+        Self::build_session_agent_inner(config, &definition.id, Some(definition), false, None, None)
     }
 
     /// Internal constructor that consumes the optionally-resolved agent
@@ -175,7 +149,7 @@ impl OpenHumanSessionHost {
         config: &Config,
         agent_id: &str,
         target_def: Option<&crate::agent::harness::definition::AgentDefinition>,
-        belt: SessionBelt,
+        host_only: bool,
         host: Option<&super::HostTools>,
         session_id: Option<&str>,
     ) -> Result<Self> {
@@ -225,10 +199,7 @@ impl OpenHumanSessionHost {
         let base_config: Arc<Config> = Arc::new(config.clone());
         let tool_config: Arc<Config> = Arc::clone(&base_config);
 
-        let host_only = belt == SessionBelt::HostOnly;
-        // A host-only belt constructs no config-derived tool at all: a tool
-        // that is never built cannot be reached by any later visibility,
-        // refresh or replay path.
+        // Host-only (`host_only.rs`): no config-derived tool is even built.
         let mut tools = if host_only {
             Vec::new()
         } else {
