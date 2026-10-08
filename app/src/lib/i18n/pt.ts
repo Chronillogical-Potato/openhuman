@@ -626,6 +626,12 @@ const messages: TranslationMap = {
   'connections.browser.routeDirect': 'OpenRouter direto',
   'connections.browser.routeHosted': 'Proxy hospedado',
   'connections.browser.testInConversation': 'Teste uma página em uma conversa após salvar.',
+  'connections.browser.learning': 'O que as tarefas aprendem',
+  'connections.browser.learnFromTasks': 'Aprender com tarefas concluídas',
+  'connections.browser.learnHint':
+    'Guarda, por site, o plano e os elementos da página que uma tarefa concluída usou, para que a próxima tarefa ali comece mais rápido. Armazenado apenas neste dispositivo, nunca na memória do chat.',
+  'connections.browser.forgetSites': 'Esquecer sites aprendidos',
+  'connections.browser.sitesForgotten': 'Sites esquecidos: {count}',
   'connections.browser.save': 'Salvar configurações',
   'connections.browser.saved': 'Configurações salvas',
   'connections.browser.testBrowser': 'Testar Chrome',
