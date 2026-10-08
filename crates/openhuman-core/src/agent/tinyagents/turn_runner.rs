@@ -296,6 +296,7 @@ async fn run_turn_via_tinyagents_inner(
         has_thread,
         run_context.memory_turn.clone(),
     );
+    super::response_shape::install(&mut harness, hosted_root.is_some());
 
     // Fail-closed registry validation gate (issue #4249, Workstream 10 — registry).
     // The projected `CapabilityRegistry` produced these diagnostics during
