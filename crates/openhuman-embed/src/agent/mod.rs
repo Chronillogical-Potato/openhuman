@@ -128,18 +128,7 @@ impl AgentInner {
         if !self.lifecycle.begin_teardown() {
             return;
         }
-        if let Some(gate) = openhuman_core::security::approval::ApprovalGate::try_global() {
-            match gate.deny_all_for_agent(&self.id, resolution) {
-                Ok(denied) => log::debug!(
-                    "[embed][agent] teardown id={} denied_approvals={denied}",
-                    self.id
-                ),
-                Err(error) => log::warn!(
-                    "[embed][agent] teardown id={} could not deny approvals: {error}",
-                    self.id
-                ),
-            }
-        }
+        self.deny_approvals(resolution);
         self.ctx.agent_state().clear();
         if openhuman_core::mcp::host::take_agent_host(&self.config.workspace_dir, &self.id)
             .is_some()
@@ -151,6 +140,23 @@ impl AgentInner {
         }
         openhuman_core::core::runtime::AgentContextRegistry::deregister(&self.id, &self.ctx);
         log::debug!("[embed][agent] teardown complete id={}", self.id);
+    }
+
+    /// Denies every approval this agent has parked, with `resolution`.
+    pub(crate) fn deny_approvals(&self, resolution: &str) {
+        let Some(gate) = openhuman_core::security::approval::ApprovalGate::try_global() else {
+            return;
+        };
+        match gate.deny_all_for_agent(&self.id, resolution) {
+            Ok(denied) => log::debug!(
+                "[embed][agent] id={} denied_approvals={denied} resolution={resolution}",
+                self.id
+            ),
+            Err(error) => log::warn!(
+                "[embed][agent] id={} could not deny approvals: {error}",
+                self.id
+            ),
+        }
     }
 }
 

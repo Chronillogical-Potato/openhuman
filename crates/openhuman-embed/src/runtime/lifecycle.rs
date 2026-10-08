@@ -40,12 +40,12 @@ impl<'a> IntoFuture for RemoveAgent<'a> {
 impl Runtime {
     /// Remove agent `id` from this runtime.
     ///
-    /// In order: new turns on any handle to it are refused with
+    /// In order: its parked approvals are denied with resolution
+    /// `agent_removed`; new turns on any handle to it are refused with
     /// [`CoreError::AgentRemoved`](crate::CoreError::AgentRemoved); turns in
     /// flight end with the same error, waited on for up to ten seconds; its
-    /// parked approvals are denied with resolution `agent_removed`; its state
-    /// slots and MCP host are dropped and its context deregistered, so its
-    /// cron jobs stay dormant. The id is free for reuse once this returns.
+    /// state slots and MCP host are dropped and its context deregistered, so
+    /// its cron jobs stay dormant. The id is free for reuse once this returns.
     ///
     /// Cancellation is cooperative: a tool already executing when the agent
     /// is removed, or a sub-agent it detached, may finish after this returns.
@@ -67,6 +67,7 @@ impl Runtime {
                 .ok_or_else(|| AgentError::UnknownId(id.to_string()))?
         };
         log::debug!("[embed][runtime] removing agent id={id} purge={purge}");
+        inner.deny_approvals("agent_removed");
         inner.lifecycle.mark_removed();
         if !inner.lifecycle.wait_idle(REMOVE_IDLE_WAIT).await {
             log::warn!(
