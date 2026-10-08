@@ -170,6 +170,15 @@ describe('Memory page', () => {
     expect(screen.getByTestId('where').textContent).not.toContain('view=');
   });
 
+  it('rewrites an unknown ?brain= value to the Engine chip', async () => {
+    renderAt('?tab=brain&brain=bogus');
+    expect(await screen.findByTestId('stub-engine')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId('where')).toHaveTextContent('?tab=brain&brain=engine')
+    );
+    expect(screen.getByTestId('where').textContent).not.toContain('bogus');
+  });
+
   it('switches chips through the URL', async () => {
     renderAt('?tab=brain&brain=ask');
     await screen.findByTestId('stub-ask');
