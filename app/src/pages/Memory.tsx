@@ -85,7 +85,8 @@ export default function Memory() {
   const rawChip = params.get('brain');
   const requested = resolveMemoryChip(rawChip);
   const on = isMemoryOn(engine);
-  const chip: MemoryChip | null = requested ?? (engine ? (on ? 'ask' : 'engine') : null);
+  // Without an explicit `?brain=`, the page always opens on the Provider chip.
+  const chip: MemoryChip | null = requested ?? (engine ? 'engine' : null);
 
   const setChip = useCallback(
     (next: MemoryChip, replace = false) => {

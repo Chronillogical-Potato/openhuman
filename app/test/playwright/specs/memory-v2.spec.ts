@@ -428,22 +428,18 @@ async function openMemory(page: Page, query = '') {
 const hash = (page: Page) => page.evaluate(() => window.location.hash);
 
 test.describe('Memory v2 — engine active', () => {
-  test('lands on Ask and drives engine, ask, pack preview, learnings, brain and background', async ({
+  test('lands on Provider and drives engine, ask, pack preview, learnings, brain and background', async ({
     page,
   }) => {
     const fake = await installMemoryFake(page, { engineOn: true });
     await bootAuthenticatedPage(page, 'pw-memory-v2-active');
     await openMemory(page);
 
-    // 1. An active engine and no `?brain=` → the Ask chip.
-    await expect(page.getByTestId('brain-tab-ask')).toHaveAttribute('aria-selected', 'true', {
+    // 1. No `?brain=` → the Provider chip, even with an active engine:
+    // one CortexDB card, connected via TinyHumans.
+    await expect(page.getByTestId('brain-tab-engine')).toHaveAttribute('aria-selected', 'true', {
       timeout: 20_000,
     });
-    await expect(page.getByTestId('memory-ask-tab')).toBeVisible();
-
-    // Provider chip: one CortexDB card, connected via TinyHumans.
-    await page.getByTestId('brain-tab-engine').click();
-    await expect.poll(() => hash(page)).toContain('brain=engine');
     await expect(page.getByTestId('memory-engines')).toBeVisible();
     await expect(page.getByTestId('memory-engine-builtin')).toBeVisible();
     await expect(page.getByTestId('memory-engine-apikey')).toBeVisible();

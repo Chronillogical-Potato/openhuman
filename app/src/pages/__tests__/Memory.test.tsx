@@ -103,9 +103,10 @@ describe('Memory page', () => {
     }
   });
 
-  it('defaults to Ask when an engine is active', async () => {
+  it('defaults to Engine when an engine is active', async () => {
     renderAt('?tab=brain');
-    expect(await screen.findByTestId('stub-ask')).toHaveTextContent('hybrid');
+    expect(await screen.findByTestId('stub-engine')).toBeInTheDocument();
+    expect(screen.queryByTestId('stub-ask')).not.toBeInTheDocument();
     expect(screen.getByTestId('stub-import')).toHaveTextContent('TinyHumans');
   });
 
