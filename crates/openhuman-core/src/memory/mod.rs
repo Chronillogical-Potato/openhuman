@@ -34,6 +34,7 @@ pub mod guard;
 pub mod import;
 pub mod layout_migration;
 pub mod lifecycle;
+pub mod local_root;
 pub mod ops;
 pub mod schemas;
 pub mod scope;
