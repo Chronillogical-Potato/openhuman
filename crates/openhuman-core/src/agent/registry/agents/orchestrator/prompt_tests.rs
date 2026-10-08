@@ -54,6 +54,11 @@ fn render_installed_skills_lists_skills_and_names_the_hand_offs_it_is_given() {
             && ARCHETYPE.contains("source of truth over any metric of your own"),
         "the contract-first rule is part of the archetype"
     );
+    assert!(
+        ARCHETYPE.contains("implement so that every reading is satisfied")
+            && ARCHETYPE.contains("let the evidence decide in this order"),
+        "the satisfy-every-reading rule is part of the archetype"
+    );
     assert!(out.contains("- **ascii-art**: ASCII art via pyfiglet"));
     assert!(out.contains("- **no-dir**: (no description)"));
 

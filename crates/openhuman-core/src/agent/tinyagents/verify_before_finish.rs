@@ -43,8 +43,12 @@ inputs and conditions stated in the request. Verify the complete outcome, includ
 expected errors and side effects, and cite evidence from the final environment. Checks \
 count only if derived from the request, not from your own approach.\n\
 3. Where a sentence allows two readings, examine both against the surrounding requirements. \
-Apply the literal rule where it resolves the ambiguity; otherwise check both readings and \
-state any remaining uncertainty instead of treating a check of your guess as proof.\n\
+Apply the literal rule where it resolves the ambiguity; where both readings can be satisfied \
+at once, make the result satisfy both and test each. Where they cannot (one path called a \
+folder and a file), let the evidence decide in this order: the request's own test, verifier \
+or example call; the form of the value it shows (a value with a file extension is being used \
+as a file); the prose label last. Otherwise check both readings and state any remaining \
+uncertainty instead of treating a check of your guess as proof.\n\
 4. Find equivalent paths or workflows that perform the same action and verify that their \
 required outcomes, notifications and state changes are consistent.\n\
 5. Where the result will face inputs you have not seen (a hidden test set, \"all\" or \"any\" \

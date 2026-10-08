@@ -167,6 +167,9 @@ fn check_is_a_harness_instruction_that_names_the_spec_rules() {
         "stop exploring and",
         "Once every check the contract names passes",
         "named test still failing or never run",
+        "make the result satisfy both and test each",
+        "let the evidence decide in this order",
+        "the prose label last",
     ] {
         assert!(check.contains(needle), "check must mention `{needle}`");
     }
