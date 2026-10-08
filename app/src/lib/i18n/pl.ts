@@ -5252,9 +5252,6 @@ const messages: TranslationMap = {
   'memoryPage.tabs.migration': 'Migracja',
   'memoryPage.header.migration':
     'Przenieś pamięć z wcześniejszych wersji do CortexDB i uporządkuj ją.',
-  'memoryPage.migrate.nothingTitle': 'Nie ma nic do przeniesienia',
-  'memoryPage.migrate.nothingBody':
-    'Twoja pamięć jest aktualna. Wszystko, co zostało z wcześniejszej wersji, pojawi się tutaj.',
   'memoryPage.header.brain':
     'Dokumenty wspólne dla wszystkich agentów, uporządkowane według pochodzenia.',
   'memoryPage.header.background':
@@ -5393,10 +5390,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'Elementy, których nie udało się zaimportować: {count}.',
   'memoryPage.import.retryFailed': 'Ponów nieudane elementy',
   'memoryPage.import.progress': 'Zaimportowano {imported} z {total} elementów',
+  'memoryPage.import.none': 'Na tym urządzeniu nie znaleziono wcześniejszej pamięci.',
+  'memoryPage.import.doneBody': 'Twoja wcześniejsza pamięć jest już w CortexDB.',
+  'memoryPage.import.short': 'Importuj',
   'memoryPage.migrate.title': 'Przenieś pamięć na swoje konto',
   'memoryPage.migrate.body':
     'Pamięć zapisana przed tą aktualizacją wciąż znajduje się w starym wspólnym układzie. Jest przenoszona automatycznie w tle albo możesz przenieść ją teraz.',
   'memoryPage.migrate.action': 'Migruj teraz',
+  'memoryPage.migrate.doneBody': 'Twoja pamięć jest już na Twoim koncie.',
+  'memoryPage.migrate.afterImport': 'Rozpocznie się po zakończeniu importu.',
   'memoryPage.migrate.running': 'Porządkowanie Twojej pamięci…',
   'memoryPage.migrate.progress': 'Przeniesiono elementy: {copied}',
   'memoryPage.migrate.progressOne': 'Przeniesiono {copied} element',

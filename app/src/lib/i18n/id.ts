@@ -5222,9 +5222,6 @@ const messages: TranslationMap = {
   'memoryPage.tabs.settings': 'Pengaturan',
   'memoryPage.tabs.migration': 'Migrasi',
   'memoryPage.header.migration': 'Bawa memori dari versi sebelumnya ke CortexDB, lalu rapikan.',
-  'memoryPage.migrate.nothingTitle': 'Tidak ada yang perlu dimigrasikan',
-  'memoryPage.migrate.nothingBody':
-    'Memori Anda sudah terbaru. Apa pun yang tersisa dari versi sebelumnya akan muncul di sini.',
   'memoryPage.header.brain': 'Dokumen yang dibagikan semua agen, diarsipkan menurut asalnya.',
   'memoryPage.header.background':
     'Pembuatan keyakinan dan impor dokumen yang dijalankan memori di latar belakang.',
@@ -5363,10 +5360,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'Item yang tidak dapat diimpor: {count}.',
   'memoryPage.import.retryFailed': 'Coba lagi item yang gagal',
   'memoryPage.import.progress': '{imported} dari {total} item diimpor',
+  'memoryPage.import.none': 'Tidak ada memori sebelumnya di perangkat ini.',
+  'memoryPage.import.doneBody': 'Memori Anda sebelumnya sudah ada di CortexDB.',
+  'memoryPage.import.short': 'Impor',
   'memoryPage.migrate.title': 'Pindahkan memori ke akun Anda',
   'memoryPage.migrate.body':
     'Memori yang disimpan sebelum pembaruan ini masih berada di tata letak bersama yang lama. Memori dipindahkan otomatis di latar belakang, atau Anda bisa memindahkannya sekarang.',
   'memoryPage.migrate.action': 'Migrasikan sekarang',
+  'memoryPage.migrate.doneBody': 'Memori Anda sudah ada di akun Anda.',
+  'memoryPage.migrate.afterImport': 'Dimulai setelah impor selesai.',
   'memoryPage.migrate.running': 'Menata memori Anda…',
   'memoryPage.migrate.progress': '{copied} item dipindahkan',
   'memoryPage.migrate.progressOne': '{copied} item dipindahkan',

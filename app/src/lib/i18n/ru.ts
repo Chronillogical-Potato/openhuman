@@ -5237,9 +5237,6 @@ const messages: TranslationMap = {
   'memoryPage.tabs.migration': 'Миграция',
   'memoryPage.header.migration':
     'Перенесите память из предыдущих версий в CortexDB и упорядочьте её.',
-  'memoryPage.migrate.nothingTitle': 'Нечего переносить',
-  'memoryPage.migrate.nothingBody':
-    'Ваша память актуальна. Всё, что осталось от предыдущей версии, появится здесь.',
   'memoryPage.header.brain': 'Документы, общие для всех агентов, разложенные по источникам.',
   'memoryPage.header.background':
     'Построение убеждений и импорт документов, которые память выполняет в фоне.',
@@ -5375,10 +5372,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'Элементы, которые не удалось импортировать: {count}.',
   'memoryPage.import.retryFailed': 'Повторить неудавшиеся элементы',
   'memoryPage.import.progress': 'Импортировано {imported} из {total}',
+  'memoryPage.import.none': 'На этом устройстве не найдено прежней памяти.',
+  'memoryPage.import.doneBody': 'Ваша прежняя память уже в CortexDB.',
+  'memoryPage.import.short': 'Импортировать',
   'memoryPage.migrate.title': 'Перенести память в ваш аккаунт',
   'memoryPage.migrate.body':
     'Память, сохранённая до этого обновления, всё ещё находится в старой общей структуре. Она переносится автоматически в фоне, или вы можете перенести её сейчас.',
   'memoryPage.migrate.action': 'Перенести сейчас',
+  'memoryPage.migrate.doneBody': 'Ваша память уже в вашем аккаунте.',
+  'memoryPage.migrate.afterImport': 'Начнётся после завершения импорта.',
   'memoryPage.migrate.running': 'Упорядочиваем вашу память…',
   'memoryPage.migrate.progress': 'Перенесено элементов: {copied}',
   'memoryPage.migrate.progressOne': 'Перенесён {copied} элемент',

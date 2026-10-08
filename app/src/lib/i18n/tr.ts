@@ -5188,9 +5188,6 @@ const messages: TranslationMap = {
   'memoryPage.tabs.settings': 'Ayarlar',
   'memoryPage.tabs.migration': 'Taşıma',
   'memoryPage.header.migration': 'Önceki sürümlerdeki belleği CortexDB’ye aktarın ve düzenleyin.',
-  'memoryPage.migrate.nothingTitle': 'Taşınacak bir şey yok',
-  'memoryPage.migrate.nothingBody':
-    'Belleğiniz güncel. Önceki bir sürümden kalan her şey burada görünecek.',
   'memoryPage.header.brain': 'Tüm ajanların paylaştığı belgeler, geldikleri yere göre düzenlenmiş.',
   'memoryPage.header.background':
     'Belleğin arka planda çalıştırdığı inanç oluşturma ve belge içe aktarma işleri.',
@@ -5328,10 +5325,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'İçe aktarılamayan öğeler: {count}.',
   'memoryPage.import.retryFailed': 'Başarısız öğeleri yeniden dene',
   'memoryPage.import.progress': '{imported}/{total} öğe içe aktarıldı',
+  'memoryPage.import.none': 'Bu cihazda önceki bellek bulunamadı.',
+  'memoryPage.import.doneBody': 'Önceki belleğiniz zaten CortexDB’de.',
+  'memoryPage.import.short': 'İçe aktar',
   'memoryPage.migrate.title': 'Belleği hesabınıza taşıyın',
   'memoryPage.migrate.body':
     'Bu güncellemeden önce kaydedilen bellek hâlâ eski paylaşılan düzende. Arka planda kendiliğinden taşınır ya da şimdi taşıyabilirsiniz.',
   'memoryPage.migrate.action': 'Şimdi taşı',
+  'memoryPage.migrate.doneBody': 'Belleğiniz zaten hesabınızda.',
+  'memoryPage.migrate.afterImport': 'İçe aktarma bitince başlar.',
   'memoryPage.migrate.running': 'Belleğiniz düzenleniyor…',
   'memoryPage.migrate.progress': '{copied} öğe taşındı',
   'memoryPage.migrate.progressOne': '{copied} öğe taşındı',

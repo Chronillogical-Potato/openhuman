@@ -5476,9 +5476,6 @@ const messages: TranslationMap = {
   'memoryPage.tabs.settings': '設定',
   'memoryPage.tabs.migration': '移行',
   'memoryPage.header.migration': '以前のバージョンのメモリーを CortexDB に取り込み、整理します。',
-  'memoryPage.migrate.nothingTitle': '移行するものはありません',
-  'memoryPage.migrate.nothingBody':
-    'メモリーは最新です。以前のバージョンから残っているものがあれば、ここに表示されます。',
   'memoryPage.header.brain': 'すべてのエージェントが共有するドキュメントを、ソース別に整理します。',
   'memoryPage.header.background':
     'メモリーがバックグラウンドで行う信念の生成とドキュメントのインポート。',
@@ -5613,10 +5610,15 @@ const messages: TranslationMap = {
   'memoryPage.import.done': '以前のメモリーをインポートしました',
   'memoryPage.import.failed': 'インポートできませんでした',
   'memoryPage.import.progress': '{total}件中{imported}件をインポート済み',
+  'memoryPage.import.none': 'このデバイスに以前のメモリーは見つかりませんでした。',
+  'memoryPage.import.doneBody': '以前のメモリーはすでに CortexDB にあります。',
+  'memoryPage.import.short': 'インポート',
   'memoryPage.migrate.title': 'メモリをアカウントに移動',
   'memoryPage.migrate.body':
     'このアップデート以前に保存されたメモリは、まだ以前の共有レイアウトにあります。バックグラウンドで自動的に移動されますが、今すぐ移動することもできます。',
   'memoryPage.migrate.action': '今すぐ移行',
+  'memoryPage.migrate.doneBody': 'メモリーはすでにアカウントにあります。',
+  'memoryPage.migrate.afterImport': 'インポート完了後に開始します。',
   'memoryPage.migrate.running': 'メモリを整理しています…',
   'memoryPage.migrate.progress': '{copied} 件を移動しました',
   'memoryPage.migrate.progressOne': '{copied} 件を移動しました',

@@ -5181,9 +5181,6 @@ const messages: TranslationMap = {
   'memoryPage.tabs.migration': 'माइग्रेशन',
   'memoryPage.header.migration':
     'पिछले संस्करणों की मेमोरी को CortexDB में लाएँ और व्यवस्थित करें।',
-  'memoryPage.migrate.nothingTitle': 'माइग्रेट करने के लिए कुछ नहीं',
-  'memoryPage.migrate.nothingBody':
-    'आपकी मेमोरी अद्यतित है। पिछले संस्करण से बची कोई भी चीज़ यहाँ दिखाई देगी।',
   'memoryPage.header.brain':
     'वे दस्तावेज़ जो हर एजेंट साझा करता है, उनके स्रोत के अनुसार सहेजे गए।',
   'memoryPage.header.background':
@@ -5321,10 +5318,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'जो आइटम इंपोर्ट नहीं हो सके: {count}।',
   'memoryPage.import.retryFailed': 'विफल आइटम फिर से आज़माएँ',
   'memoryPage.import.progress': '{total} में से {imported} आइटम इंपोर्ट हुए',
+  'memoryPage.import.none': 'इस डिवाइस पर कोई पिछली मेमोरी नहीं मिली।',
+  'memoryPage.import.doneBody': 'आपकी पिछली मेमोरी पहले से CortexDB में है।',
+  'memoryPage.import.short': 'इंपोर्ट करें',
   'memoryPage.migrate.title': 'मेमोरी को अपने खाते में ले जाएँ',
   'memoryPage.migrate.body':
     'इस अपडेट से पहले सहेजी गई मेमोरी अभी भी पुराने साझा लेआउट में है। यह बैकग्राउंड में अपने आप ले जाई जाती है, या आप इसे अभी ले जा सकते हैं।',
   'memoryPage.migrate.action': 'अभी माइग्रेट करें',
+  'memoryPage.migrate.doneBody': 'आपकी मेमोरी पहले से आपके खाते में है।',
+  'memoryPage.migrate.afterImport': 'इंपोर्ट पूरा होने के बाद शुरू होगा।',
   'memoryPage.migrate.running': 'आपकी मेमोरी व्यवस्थित की जा रही है…',
   'memoryPage.migrate.progress': '{copied} आइटम ले जाए गए',
   'memoryPage.migrate.progressOne': '{copied} आइटम ले जाया गया',

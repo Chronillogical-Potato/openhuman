@@ -5327,9 +5327,6 @@ const messages: TranslationMap = {
   'memoryPage.tabs.migration': 'Migration',
   'memoryPage.header.migration':
     'Übernimm den Speicher früherer Versionen in CortexDB und ordne ihn.',
-  'memoryPage.migrate.nothingTitle': 'Nichts zu migrieren',
-  'memoryPage.migrate.nothingBody':
-    'Dein Speicher ist auf dem neuesten Stand. Was von einer früheren Version übrig ist, erscheint hier.',
   'memoryPage.header.brain': 'Dokumente, die alle Agenten teilen, abgelegt nach ihrer Herkunft.',
   'memoryPage.header.background':
     'Überzeugungen aufbauen und Dokumente importieren: Aufgaben, die der Speicher im Hintergrund erledigt.',
@@ -5469,10 +5466,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'Nicht importierte Einträge: {count}.',
   'memoryPage.import.retryFailed': 'Fehlgeschlagene erneut versuchen',
   'memoryPage.import.progress': '{imported} von {total} Elementen importiert',
+  'memoryPage.import.none': 'Auf diesem Gerät wurde kein früheres Gedächtnis gefunden.',
+  'memoryPage.import.doneBody': 'Dein früheres Gedächtnis ist bereits in CortexDB.',
+  'memoryPage.import.short': 'Importieren',
   'memoryPage.migrate.title': 'Erinnerungen in dein Konto verschieben',
   'memoryPage.migrate.body':
     'Vor diesem Update gespeicherte Erinnerungen liegen noch im alten gemeinsamen Layout. Sie werden im Hintergrund automatisch verschoben, oder du verschiebst sie jetzt.',
   'memoryPage.migrate.action': 'Jetzt migrieren',
+  'memoryPage.migrate.doneBody': 'Dein Gedächtnis ist bereits in deinem Konto.',
+  'memoryPage.migrate.afterImport': 'Startet, sobald der Import abgeschlossen ist.',
   'memoryPage.migrate.running': 'Dein Gedächtnis wird geordnet…',
   'memoryPage.migrate.progress': '{copied} Einträge verschoben',
   'memoryPage.migrate.progressOne': '{copied} Eintrag verschoben',

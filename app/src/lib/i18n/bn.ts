@@ -5181,9 +5181,6 @@ const messages: TranslationMap = {
   'memoryPage.tabs.settings': 'সেটিংস',
   'memoryPage.tabs.migration': 'মাইগ্রেশন',
   'memoryPage.header.migration': 'আগের সংস্করণের মেমোরি CortexDB-তে আনুন এবং সাজিয়ে নিন।',
-  'memoryPage.migrate.nothingTitle': 'মাইগ্রেট করার কিছু নেই',
-  'memoryPage.migrate.nothingBody':
-    'আপনার মেমোরি হালনাগাদ আছে। আগের সংস্করণ থেকে বাকি কিছু থাকলে এখানে দেখা যাবে।',
   'memoryPage.header.brain': 'প্রতিটি এজেন্টের শেয়ার করা ডকুমেন্ট, উৎস অনুযায়ী সাজানো।',
   'memoryPage.header.background':
     'মেমোরি ব্যাকগ্রাউন্ডে যেসব বিশ্বাস তৈরি ও ডকুমেন্ট ইম্পোর্ট চালায়।',
@@ -5320,10 +5317,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'যে আইটেমগুলি ইমপোর্ট করা যায়নি: {count}।',
   'memoryPage.import.retryFailed': 'ব্যর্থ আইটেম আবার চেষ্টা করুন',
   'memoryPage.import.progress': '{total}টির মধ্যে {imported}টি আইটেম ইমপোর্ট হয়েছে',
+  'memoryPage.import.none': 'এই ডিভাইসে আগের কোনো মেমোরি পাওয়া যায়নি।',
+  'memoryPage.import.doneBody': 'আপনার আগের মেমোরি ইতিমধ্যে CortexDB-তে আছে।',
+  'memoryPage.import.short': 'ইমপোর্ট',
   'memoryPage.migrate.title': 'মেমরি আপনার অ্যাকাউন্টে সরান',
   'memoryPage.migrate.body':
     'এই আপডেটের আগে সংরক্ষিত মেমরি এখনও পুরনো শেয়ার করা লেআউটে আছে। এটি ব্যাকগ্রাউন্ডে নিজে থেকেই সরে যায়, অথবা আপনি এখনই সরাতে পারেন।',
   'memoryPage.migrate.action': 'এখনই সরান',
+  'memoryPage.migrate.doneBody': 'আপনার মেমোরি ইতিমধ্যে আপনার অ্যাকাউন্টে আছে।',
+  'memoryPage.migrate.afterImport': 'ইমপোর্ট শেষ হলে শুরু হবে।',
   'memoryPage.migrate.running': 'আপনার মেমরি গোছানো হচ্ছে…',
   'memoryPage.migrate.progress': '{copied}টি আইটেম সরানো হয়েছে',
   'memoryPage.migrate.progressOne': '{copied}টি আইটেম সরানো হয়েছে',

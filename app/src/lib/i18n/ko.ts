@@ -5131,9 +5131,6 @@ const messages: TranslationMap = {
   'memoryPage.tabs.settings': '설정',
   'memoryPage.tabs.migration': '마이그레이션',
   'memoryPage.header.migration': '이전 버전의 메모리를 CortexDB로 가져와 정리합니다.',
-  'memoryPage.migrate.nothingTitle': '마이그레이션할 항목 없음',
-  'memoryPage.migrate.nothingBody':
-    '메모리가 최신 상태입니다. 이전 버전에서 남은 항목이 있으면 여기에 표시됩니다.',
   'memoryPage.header.brain': '모든 에이전트가 공유하는 문서를 출처별로 정리했습니다.',
   'memoryPage.header.background':
     '메모리가 백그라운드에서 실행하는 신념 구축과 문서 가져오기입니다.',
@@ -5269,10 +5266,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': '가져오지 못한 항목: {count}',
   'memoryPage.import.retryFailed': '실패한 항목 다시 시도',
   'memoryPage.import.progress': '{total}개 중 {imported}개 항목을 가져왔습니다',
+  'memoryPage.import.none': '이 기기에서 이전 메모리를 찾지 못했습니다.',
+  'memoryPage.import.doneBody': '이전 메모리가 이미 CortexDB에 있습니다.',
+  'memoryPage.import.short': '가져오기',
   'memoryPage.migrate.title': '메모리를 계정으로 옮기기',
   'memoryPage.migrate.body':
     '이 업데이트 이전에 저장된 메모리가 아직 이전 공유 레이아웃에 있습니다. 백그라운드에서 자동으로 옮겨지며, 지금 바로 옮길 수도 있습니다.',
   'memoryPage.migrate.action': '지금 마이그레이션',
+  'memoryPage.migrate.doneBody': '메모리가 이미 계정에 있습니다.',
+  'memoryPage.migrate.afterImport': '가져오기가 끝나면 시작됩니다.',
   'memoryPage.migrate.running': '메모리를 정리하는 중…',
   'memoryPage.migrate.progress': '{copied}개 항목을 옮김',
   'memoryPage.migrate.progressOne': '{copied}개 항목을 옮김',

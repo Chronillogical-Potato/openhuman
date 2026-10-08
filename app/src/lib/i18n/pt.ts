@@ -5251,9 +5251,6 @@ const messages: TranslationMap = {
   'memoryPage.tabs.migration': 'Migração',
   'memoryPage.header.migration':
     'Traga a memória de versões anteriores para o CortexDB e organize-a.',
-  'memoryPage.migrate.nothingTitle': 'Nada para migrar',
-  'memoryPage.migrate.nothingBody':
-    'Sua memória está atualizada. Qualquer coisa restante de uma versão anterior aparecerá aqui.',
   'memoryPage.header.brain':
     'Documentos que todos os agentes compartilham, organizados por origem.',
   'memoryPage.header.background':
@@ -5392,10 +5389,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'Itens que não puderam ser importados: {count}.',
   'memoryPage.import.retryFailed': 'Tentar novamente os itens com falha',
   'memoryPage.import.progress': '{imported} de {total} itens importados',
+  'memoryPage.import.none': 'Nenhuma memória anterior foi encontrada neste dispositivo.',
+  'memoryPage.import.doneBody': 'Sua memória anterior já está no CortexDB.',
+  'memoryPage.import.short': 'Importar',
   'memoryPage.migrate.title': 'Mover a memória para sua conta',
   'memoryPage.migrate.body':
     'A memória salva antes desta atualização ainda está no antigo layout compartilhado. Ela é movida automaticamente em segundo plano, ou você pode movê-la agora.',
   'memoryPage.migrate.action': 'Migrar agora',
+  'memoryPage.migrate.doneBody': 'Sua memória já está na sua conta.',
+  'memoryPage.migrate.afterImport': 'Começa quando a importação terminar.',
   'memoryPage.migrate.running': 'Organizando sua memória…',
   'memoryPage.migrate.progress': '{copied} itens movidos',
   'memoryPage.migrate.progressOne': '{copied} item movido',

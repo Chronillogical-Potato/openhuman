@@ -8,20 +8,16 @@ vi.mock('./MemoryCortexAnnouncement', () => ({
   default: () => <div data-testid="stub-announcement" />,
 }));
 vi.mock('./MemoryImportBanner', () => ({
-  default: ({ engineLabel, emptyState }: { engineLabel: string; emptyState: React.ReactNode }) => (
-    <div data-testid="stub-import">
-      {engineLabel}
-      {emptyState}
-    </div>
+  default: ({ engineLabel }: { engineLabel: string }) => (
+    <div data-testid="stub-import">{engineLabel}</div>
   ),
 }));
 
 describe('MemoryMigrationTab', () => {
-  it('shows the announcement and the import flow with its empty state', () => {
+  it('shows the announcement and the import flow', () => {
     renderWithProviders(<MemoryMigrationTab engineLabel="TinyHumans" />);
     expect(screen.getByTestId('stub-announcement')).toBeInTheDocument();
     expect(screen.getByTestId('stub-import')).toHaveTextContent('TinyHumans');
-    expect(screen.getByTestId('memory-migration-empty')).toHaveTextContent('Nothing to migrate');
   });
 
   it('shows the off state in place of the import flow', () => {
