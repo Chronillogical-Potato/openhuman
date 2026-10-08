@@ -25,6 +25,8 @@ pub enum ToolScopeSpec {
     Wildcard,
     /// Exactly these tool names; unknown names are dropped at build time.
     Named(Vec<String>),
+    /// Only the tools the host supplies, and nothing else.
+    HostOnly,
 }
 
 /// How an agent's shell and file tools are confined.
@@ -63,6 +65,12 @@ impl AgentDefinitionSpec {
     /// The identity, memory and safety sections the orchestrator prompt
     /// carries are kept around it; only the body changes.
     pub fn system_prompt(mut self, prompt: impl Into<String>) -> Self {
+        self.system_prompt = Some(prompt.into());
+        self
+    }
+
+    /// Use exactly `prompt` as the system prompt.
+    pub fn bare_prompt(mut self, prompt: impl Into<String>) -> Self {
         self.system_prompt = Some(prompt.into());
         self
     }
@@ -131,6 +139,7 @@ impl AgentDefinitionSpec {
         def.tools = match self.tools.unwrap_or(ToolScopeSpec::Wildcard) {
             ToolScopeSpec::Wildcard => ToolScope::Wildcard,
             ToolScopeSpec::Named(names) => ToolScope::Named(names),
+            ToolScopeSpec::HostOnly => ToolScope::Wildcard,
         };
         def.disallowed_tools.extend(self.disallowed_tools);
         def.sandbox_mode = match self.sandbox {
