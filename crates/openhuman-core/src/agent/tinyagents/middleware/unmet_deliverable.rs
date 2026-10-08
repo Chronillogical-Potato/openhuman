@@ -202,10 +202,12 @@ fn half_time_note(missing: &[String], clock: &TurnClock) -> String {
         .collect::<Vec<_>>()
         .join(", ");
     wrap_harness_instruction(&format!(
-        "Half the turn's budget is gone ({} left) and nothing exists yet at {list}. Write it \
-         now from what you have established, even if provisional, then improve it in place; \
-         measure every limit the request states against it as you go. Exploring further \
-         before it exists risks ending with nothing to judge.",
+        "Half the turn's budget is gone ({} left) and nothing exists here yet at {list}. If \
+         that is the file this turn was asked to produce, write it now from what you have \
+         established, even if provisional, then improve it in place; measure every limit the \
+         request states against it as you go. Exploring further before it exists risks \
+         ending with nothing to judge. If the path refers to a file that lives elsewhere \
+         (another machine, a container, a service), say so in your answer.",
         clock_text(clock.remaining())
     ))
 }
