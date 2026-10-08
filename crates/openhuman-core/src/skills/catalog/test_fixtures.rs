@@ -25,6 +25,8 @@ pub(crate) struct Fixture {
     /// How many of the next `SKILL.md` responses carry content the
     /// supply-chain scan blocks.
     pub(crate) blocked_documents: Arc<AtomicUsize>,
+    /// Changes the text of a blocked document, and so its digest.
+    pub(crate) blocked_variant: Arc<AtomicUsize>,
 }
 
 #[derive(Clone)]
@@ -35,6 +37,7 @@ struct FixtureState {
     document_status: Arc<AtomicU16>,
     document_hits: Arc<AtomicUsize>,
     blocked_documents: Arc<AtomicUsize>,
+    blocked_variant: Arc<AtomicUsize>,
 }
 
 /// A zero-width space: an invisible code point the scan blocks on.
@@ -71,7 +74,12 @@ async fn document_route(
             left.checked_sub(1)
         })
         .is_ok();
-    let body = if blocked { SCAN_BLOCKING_TEXT } else { "" };
+    let body = if blocked {
+        let variant = state.blocked_variant.load(Ordering::SeqCst);
+        format!("{SCAN_BLOCKING_TEXT} Variant {variant}.")
+    } else {
+        String::new()
+    };
     format!("---\nname: {name}\ndescription: Fixture skill {name}.\n---\n\n# {name}\n{body}\n")
         .into_response()
 }
@@ -96,6 +104,7 @@ impl Fixture {
             document_status: Arc::new(AtomicU16::new(200)),
             document_hits: Arc::new(AtomicUsize::new(0)),
             blocked_documents: Arc::new(AtomicUsize::new(0)),
+            blocked_variant: Arc::new(AtomicUsize::new(0)),
         };
         let app = Router::new()
             .route("/skills.json", get(catalog_route))
@@ -113,6 +122,7 @@ impl Fixture {
             document_status: state.document_status,
             document_hits: state.document_hits,
             blocked_documents: state.blocked_documents,
+            blocked_variant: state.blocked_variant,
         }
     }
 

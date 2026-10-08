@@ -59,14 +59,14 @@ pub(super) struct EntryParams {
     pub(super) entry_id: String,
 }
 
-/// `skill_registry_install` params. `acknowledge_scan_findings` is set only
-/// by the Skills UI after the user chose to install a skill whose scan
-/// blocked; agent tools have no way to pass it.
+/// `skill_registry_install` params. `acknowledged_digest` is set only by the
+/// Skills UI, to the `digest` of the blocked document the user chose to
+/// install anyway.
 #[derive(Debug, Deserialize)]
 pub(super) struct InstallParams {
     pub(super) entry_id: String,
     #[serde(default)]
-    pub(super) acknowledge_scan_findings: bool,
+    pub(super) acknowledged_digest: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

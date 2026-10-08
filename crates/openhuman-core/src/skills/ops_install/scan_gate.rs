@@ -2,8 +2,8 @@
 //!
 //! A fetched `SKILL.md` whose scan blocks, or a fetch that fails, is fetched
 //! and scanned once more. A document that still blocks is not installed
-//! unless the user acknowledged its findings in the Skills UI; the caller gets
-//! a [`SkillInstallOutcome::ScanBlocked`] instead.
+//! unless the user acknowledged that exact document (by its digest) in the
+//! Skills UI; the caller gets a [`SkillInstallOutcome::ScanBlocked`] instead.
 
 use std::future::Future;
 
@@ -14,23 +14,37 @@ use super::fetch::InstallWorkflowFromUrlOutcome;
 
 /// Whether the user has reviewed a blocking scan and chosen to install anyway.
 ///
-/// Only the Skills UI sets [`ScanAcknowledgement::ByUser`], through the
-/// `acknowledge_scan_findings` JSON-RPC param. Agent tools always pass
-/// [`ScanAcknowledgement::Absent`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// The acknowledgement names the digest of the document the user was shown;
+/// it covers that document only. Only the Skills UI sets
+/// [`ScanAcknowledgement::ByUser`], through the `acknowledged_digest` JSON-RPC
+/// param. Agent tools always pass [`ScanAcknowledgement::Absent`].
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ScanAcknowledgement {
     /// Nobody acknowledged the findings: a blocking scan refuses the install.
     Absent,
-    /// The user acknowledged the findings and asked to install anyway.
-    ByUser,
+    /// The user acknowledged the findings of the document with this digest.
+    ByUser { digest: String },
 }
 
 impl ScanAcknowledgement {
-    pub fn from_user_flag(acknowledged: bool) -> Self {
-        if acknowledged {
-            Self::ByUser
-        } else {
-            Self::Absent
+    /// The acknowledgement a caller-supplied digest stands for; a missing or
+    /// blank digest acknowledges nothing.
+    pub fn from_user_digest(digest: Option<String>) -> Self {
+        match digest.map(|digest| digest.trim().to_owned()) {
+            Some(digest) if !digest.is_empty() => Self::ByUser { digest },
+            _ => Self::Absent,
+        }
+    }
+
+    pub fn is_given(&self) -> bool {
+        matches!(self, Self::ByUser { .. })
+    }
+
+    /// Whether this acknowledgement lets `document` install despite its scan.
+    pub fn covers(&self, document: &RegistryDocument) -> bool {
+        match self {
+            Self::Absent => false,
+            Self::ByUser { digest } => *digest == document.digest,
         }
     }
 }
@@ -55,6 +69,9 @@ pub struct ScanBlockedOutcome {
     pub fetched_from: String,
     /// The install slug the document would have used.
     pub slug: String,
+    /// The digest of the blocked document; sending it back as
+    /// `acknowledged_digest` installs this document and no other.
+    pub digest: String,
     pub findings: Vec<ScanFindingSummary>,
     pub message: String,
 }
@@ -81,6 +98,7 @@ impl ScanBlockedOutcome {
             target: target.to_owned(),
             fetched_from: document.fetched_from.clone(),
             slug: document.document.slug.clone(),
+            digest: document.digest.clone(),
             message: format!(
                 "The security scan blocked this skill and it was not installed: {}.",
                 blocking.join("; ")
@@ -133,11 +151,12 @@ pub(crate) fn fetch_error_is_retryable(error: &RegistryError) -> bool {
 }
 
 /// Fetch and scan a document, retrying once when the scan blocks or the
-/// fetch fails with a retryable error. An acknowledged install takes the
-/// first document as is.
+/// fetch fails with a retryable error. A blocked document the user
+/// acknowledged by its digest is taken as is; one whose digest differs from
+/// the acknowledged one is treated as unacknowledged.
 pub(crate) async fn fetch_scanned<F, Fut>(
     target: &str,
-    acknowledgement: ScanAcknowledgement,
+    acknowledgement: &ScanAcknowledgement,
     mut fetch: F,
 ) -> Result<RegistryDocument, RegistryError>
 where
@@ -146,21 +165,31 @@ where
 {
     match fetch().await {
         Ok(document) if !document.is_blocked() => return Ok(document),
-        Ok(document) if acknowledgement == ScanAcknowledgement::ByUser => {
+        Ok(document) if acknowledgement.covers(&document) => {
             tracing::warn!(
                 install_target = %target,
                 fetched_from = %document.fetched_from,
+                digest = %document.digest,
                 findings = document.scan.findings.len(),
                 "[skills] scan gate: blocked document installed on user acknowledgement"
             );
             return Ok(document);
         }
-        Ok(document) => tracing::info!(
-            install_target = %target,
-            fetched_from = %document.fetched_from,
-            findings = document.scan.findings.len(),
-            "[skills] scan gate: scan blocked the document; fetching it once more"
-        ),
+        Ok(document) => {
+            if acknowledgement.is_given() {
+                tracing::warn!(
+                    install_target = %target,
+                    digest = %document.digest,
+                    "[skills] scan gate: acknowledged digest does not match the fetched document"
+                );
+            }
+            tracing::info!(
+                install_target = %target,
+                fetched_from = %document.fetched_from,
+                findings = document.scan.findings.len(),
+                "[skills] scan gate: scan blocked the document; fetching it once more"
+            );
+        }
         Err(error) if fetch_error_is_retryable(&error) => tracing::info!(
             install_target = %target,
             kind = error.kind().as_str(),
@@ -174,6 +203,7 @@ where
         Ok(document) => tracing::info!(
             install_target = %target,
             blocked = document.is_blocked(),
+            digest = %document.digest,
             "[skills] scan gate: retry fetched the document"
         ),
         Err(error) => tracing::info!(
@@ -186,21 +216,23 @@ where
 }
 
 /// Turn a scanned document into an install, or into a refusal when its scan
-/// blocks and the user has not acknowledged it.
+/// blocks and the user has not acknowledged this document's digest.
 pub(crate) fn gate_install(
     target: &str,
-    acknowledgement: ScanAcknowledgement,
+    acknowledgement: &ScanAcknowledgement,
     document: RegistryDocument,
     install: impl FnOnce(RegistryDocument) -> Result<InstallWorkflowFromUrlOutcome, String>,
 ) -> Result<SkillInstallOutcome, String> {
-    if document.is_blocked() && acknowledgement == ScanAcknowledgement::Absent {
+    if document.is_blocked() && !acknowledgement.covers(&document) {
         let blocked = ScanBlockedOutcome::of(target, &document);
         tracing::warn!(
             install_target = %target,
             fetched_from = %blocked.fetched_from,
             slug = %blocked.slug,
+            digest = %blocked.digest,
+            acknowledged = acknowledgement.is_given(),
             findings = blocked.findings.len(),
-            "[skills] scan gate: refused install; scan still blocks after a retry"
+            "[skills] scan gate: refused install; scan still blocks and the document is not acknowledged"
         );
         return Ok(SkillInstallOutcome::ScanBlocked(blocked));
     }

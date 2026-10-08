@@ -285,12 +285,13 @@ pub(super) fn handle_skills_install_from_url(params: Map<String, Value>) -> Cont
         tracing::debug!(
             url = %wire.url,
             timeout_secs = ?wire.timeout_secs,
-            acknowledge_scan_findings = wire.acknowledge_scan_findings,
+            acknowledged = wire.acknowledged_digest.is_some(),
             "[skills][rpc] install_from_url"
         );
         let config = resolve_config().await;
         let workspace = config.workspace_dir.clone();
-        let acknowledgement = ScanAcknowledgement::from_user_flag(wire.acknowledge_scan_findings);
+        let acknowledgement =
+            ScanAcknowledgement::from_user_digest(wire.acknowledged_digest.clone());
         let payload = wire.into();
         match install_workflow_from_url(workspace.as_path(), payload, acknowledgement).await {
             Ok(outcome) => {

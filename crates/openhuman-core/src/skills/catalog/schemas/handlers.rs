@@ -104,7 +104,7 @@ pub(super) fn handle_install(params: Map<String, Value>) -> ControllerFuture {
         let p = deserialize_params::<InstallParams>(params)?;
         tracing::info!(
             entry_id = %p.entry_id,
-            acknowledge_scan_findings = p.acknowledge_scan_findings,
+            acknowledged = p.acknowledged_digest.is_some(),
             "[skill_registry][rpc] install"
         );
 
@@ -112,7 +112,7 @@ pub(super) fn handle_install(params: Map<String, Value>) -> ControllerFuture {
         let outcome: InstallResult = ops::install_from_catalog(
             &workspace,
             &p.entry_id,
-            ScanAcknowledgement::from_user_flag(p.acknowledge_scan_findings),
+            ScanAcknowledgement::from_user_digest(p.acknowledged_digest.clone()),
         )
         .await
         .map_err(|error| error.to_string())?;

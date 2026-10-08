@@ -214,34 +214,133 @@ async fn a_document_that_still_blocks_is_not_installed() {
     assert!(!installed_skill(home.path(), "poisoned").exists());
 }
 
+async fn install_entry(
+    registry: &SkillRegistry,
+    home: &std::path::Path,
+    entry_id: &str,
+    acknowledgement: ScanAcknowledgement,
+) -> SkillInstallOutcome {
+    install_from_catalog_in(registry, home, Some(home), entry_id, acknowledgement)
+        .await
+        .expect("a scan block is an outcome, not an error")
+}
+
+fn blocked(outcome: SkillInstallOutcome) -> crate::skills::ops_install::ScanBlockedOutcome {
+    match outcome {
+        SkillInstallOutcome::ScanBlocked(blocked) => blocked,
+        other => panic!("expected scan_blocked, got {other:?}"),
+    }
+}
+
+fn by_user(digest: &str) -> ScanAcknowledgement {
+    ScanAcknowledgement::ByUser {
+        digest: digest.to_owned(),
+    }
+}
+
 #[tokio::test]
-async fn an_acknowledged_install_writes_the_blocked_document() {
+async fn an_acknowledged_install_writes_the_blocked_document_the_user_saw() {
     let fixture = Fixture::start(vec![hermes_item("acknowledged", "built-in")]).await;
     fixture
         .blocked_documents
         .store(usize::MAX, Ordering::SeqCst);
+    let registry = fixture.registry();
     let home = tempfile::tempdir().unwrap();
 
-    let outcome = install_from_catalog_in(
-        &fixture.registry(),
+    let seen = blocked(
+        install_entry(
+            &registry,
+            home.path(),
+            "acknowledged",
+            ScanAcknowledgement::Absent,
+        )
+        .await,
+    );
+    assert_eq!(fixture.document_hits.load(Ordering::SeqCst), 2);
+
+    let outcome = install_entry(
+        &registry,
         home.path(),
-        Some(home.path()),
         "acknowledged",
-        ScanAcknowledgement::ByUser,
+        by_user(&seen.digest),
     )
     .await
-    .expect("install")
     .installed()
-    .expect("the user acknowledged the findings");
+    .expect("the user acknowledged this document");
 
     assert_eq!(outcome.new_skills, ["acknowledged"]);
     assert_eq!(
         fixture.document_hits.load(Ordering::SeqCst),
-        1,
-        "an acknowledged install does not refetch"
+        3,
+        "a matching acknowledged document installs without a refetch"
     );
     let written = std::fs::read_to_string(installed_skill(home.path(), "acknowledged")).unwrap();
     assert!(written.contains('\u{200b}'));
+}
+
+#[tokio::test]
+async fn a_stale_acknowledgement_does_not_install_a_changed_document() {
+    let fixture = Fixture::start(vec![hermes_item("swapped", "built-in")]).await;
+    fixture
+        .blocked_documents
+        .store(usize::MAX, Ordering::SeqCst);
+    let registry = fixture.registry();
+    let home = tempfile::tempdir().unwrap();
+
+    let seen = blocked(
+        install_entry(
+            &registry,
+            home.path(),
+            "swapped",
+            ScanAcknowledgement::Absent,
+        )
+        .await,
+    );
+    fixture.blocked_variant.store(1, Ordering::SeqCst);
+
+    let fresh =
+        blocked(install_entry(&registry, home.path(), "swapped", by_user(&seen.digest)).await);
+
+    assert_ne!(
+        fresh.digest, seen.digest,
+        "the refusal names the new document"
+    );
+    assert!(fresh
+        .findings
+        .iter()
+        .any(|finding| finding.verdict == tinyskills::Verdict::Block));
+    assert_eq!(
+        fixture.document_hits.load(Ordering::SeqCst),
+        4,
+        "the changed document is scanned twice like any unacknowledged one"
+    );
+    assert!(!installed_skill(home.path(), "swapped").exists());
+
+    let installed = install_entry(&registry, home.path(), "swapped", by_user(&fresh.digest)).await;
+    assert_eq!(installed.status(), "installed");
+}
+
+#[tokio::test]
+async fn a_stale_acknowledgement_installs_a_changed_document_that_scans_clean() {
+    let fixture = Fixture::start(vec![hermes_item("cleaned", "built-in")]).await;
+    fixture.blocked_documents.store(2, Ordering::SeqCst);
+    let registry = fixture.registry();
+    let home = tempfile::tempdir().unwrap();
+
+    let seen = blocked(
+        install_entry(
+            &registry,
+            home.path(),
+            "cleaned",
+            ScanAcknowledgement::Absent,
+        )
+        .await,
+    );
+    let outcome = install_entry(&registry, home.path(), "cleaned", by_user(&seen.digest)).await;
+
+    assert_eq!(outcome.status(), "installed");
+    let written = std::fs::read_to_string(installed_skill(home.path(), "cleaned")).unwrap();
+    assert!(!written.contains('\u{200b}'));
 }
 
 #[tokio::test]

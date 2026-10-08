@@ -127,9 +127,9 @@ pub fn skill_registry_schemas(function: &str) -> ControllerSchema {
                     required: true,
                 },
                 FieldSchema {
-                    name: "acknowledge_scan_findings",
-                    ty: TypeSchema::Bool,
-                    comment: "Set by the Skills UI only after the user reviewed the scan findings and chose to install anyway. Agent tools cannot set it.",
+                    name: "acknowledged_digest",
+                    ty: TypeSchema::String,
+                    comment: "The `digest` of a `scan_blocked` result, sent by the Skills UI only after the user reviewed its findings and chose to install anyway. It installs that document only; a different document is scanned and refused afresh. Agent tools cannot set it.",
                     required: false,
                 },
             ],
@@ -242,6 +242,12 @@ pub(crate) fn install_outputs(new_field: &'static str) -> Vec<FieldSchema> {
             name: "slug",
             ty: TypeSchema::String,
             comment: "The install slug the blocked document would have used (scan_blocked).",
+            required: false,
+        },
+        FieldSchema {
+            name: "digest",
+            ty: TypeSchema::String,
+            comment: "Digest of the blocked document, to send back as `acknowledged_digest` (scan_blocked).",
             required: false,
         },
         FieldSchema {

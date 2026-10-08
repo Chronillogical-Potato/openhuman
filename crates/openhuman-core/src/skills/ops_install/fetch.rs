@@ -112,7 +112,7 @@ pub struct InstallWorkflowFromUrlOutcome {
 /// The fetched document goes through the supply-chain scan gate: a blocking
 /// scan or a failed fetch is retried once, and a document that still blocks
 /// is returned as [`SkillInstallOutcome::ScanBlocked`] unless `acknowledgement`
-/// is [`ScanAcknowledgement::ByUser`].
+/// names that document's digest.
 pub async fn install_workflow_from_url(
     workspace_dir: &Path,
     params: InstallWorkflowFromUrlParams,
@@ -230,7 +230,7 @@ pub(crate) async fn install_workflow_from_url_with_home(
     limits.max_document_bytes = MAX_WORKFLOW_MD_BYTES as u64;
 
     let transport: Arc<ReqwestTransport> = Arc::new(ReqwestTransport::new());
-    let fetched = fetch_scanned(&raw_url, acknowledgement, || {
+    let fetched = fetch_scanned(&raw_url, &acknowledgement, || {
         fetch_skill_document(
             transport.clone(),
             Arc::new(SystemResolver),
@@ -243,7 +243,7 @@ pub(crate) async fn install_workflow_from_url_with_home(
     .await
     .map_err(|error| install_fetch_error(&error, &fetch_url, timeout_secs))?;
 
-    gate_install(&raw_url, acknowledgement, fetched, |document| {
+    gate_install(&raw_url, &acknowledgement, fetched, |document| {
         install_validated_document(workspace_dir, home, &raw_url, &fetch_url, document.document)
     })
 }

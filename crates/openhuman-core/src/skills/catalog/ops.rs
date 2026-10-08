@@ -350,8 +350,8 @@ impl std::fmt::Display for CatalogInstallError {
 ///
 /// The document goes through the supply-chain scan gate: a blocking scan or
 /// a failed fetch is retried once, and a document that still blocks comes
-/// back as [`SkillInstallOutcome::ScanBlocked`] unless `acknowledgement` is
-/// [`ScanAcknowledgement::ByUser`].
+/// back as [`SkillInstallOutcome::ScanBlocked`] unless `acknowledgement` names
+/// that document's digest.
 pub async fn install_from_catalog(
     workspace_dir: &Path,
     entry_id: &str,
@@ -376,18 +376,18 @@ pub(crate) async fn install_from_catalog_in(
 ) -> Result<SkillInstallOutcome, CatalogInstallError> {
     tracing::info!(
         entry_id = %entry_id,
-        acknowledged = acknowledgement == ScanAcknowledgement::ByUser,
+        acknowledged = acknowledgement.is_given(),
         "[skill_registry] installing from catalog"
     );
     let key = EntryKey::new(entry_id);
-    let document = fetch_scanned(entry_id, acknowledgement, || registry.fetch_document(&key))
+    let document = fetch_scanned(entry_id, &acknowledgement, || registry.fetch_document(&key))
         .await
         .map_err(|error| {
             observe("install", &error, false);
             crate::skills::ops_install::report_install_fetch_failure(&error, None);
             CatalogInstallError::Registry(error)
         })?;
-    gate_install(entry_id, acknowledgement, document, |document| {
+    gate_install(entry_id, &acknowledgement, document, |document| {
         crate::skills::ops_install::install_validated_document(
             workspace_dir,
             home,

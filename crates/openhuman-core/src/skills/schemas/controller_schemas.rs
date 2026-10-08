@@ -308,9 +308,9 @@ pub fn skills_schemas(function: &str) -> ControllerSchema {
                     required: false,
                 },
                 FieldSchema {
-                    name: "acknowledge_scan_findings",
-                    ty: TypeSchema::Bool,
-                    comment: "Set by the Skills UI only after the user reviewed the scan findings and chose to install anyway. Agent tools cannot set it.",
+                    name: "acknowledged_digest",
+                    ty: TypeSchema::String,
+                    comment: "The `digest` of a `scan_blocked` result, sent by the Skills UI only after the user reviewed its findings and chose to install anyway. It installs that document only; a different document is scanned and refused afresh. Agent tools cannot set it.",
                     required: false,
                 },
             ],

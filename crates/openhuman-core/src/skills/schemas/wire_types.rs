@@ -83,10 +83,10 @@ pub(super) struct WorkflowsInstallFromUrlParamsWire {
     pub(super) url: String,
     #[serde(default)]
     pub(super) timeout_secs: Option<u64>,
-    /// Set only by the Skills UI after the user chose to install a skill
-    /// whose scan blocked.
+    /// Set only by the Skills UI, to the `digest` of the blocked document the
+    /// user chose to install anyway.
     #[serde(default)]
-    pub(super) acknowledge_scan_findings: bool,
+    pub(super) acknowledged_digest: Option<String>,
 }
 
 impl From<WorkflowsInstallFromUrlParamsWire> for InstallWorkflowFromUrlParams {
