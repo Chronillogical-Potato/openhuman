@@ -35,7 +35,11 @@ async fn server_replying(reply: Value) -> MockServer {
 }
 
 fn completer(server: &MockServer) -> Completer {
-    Completer::new(Route::openai_compatible(format!("{}/v1", server.uri()), "sk-test"))
+    Completer::new(Route::openai_compatible(
+        format!("{}/v1", server.uri()),
+        "sk-test",
+    ))
+    .header("X-Title", "embed-test")
 }
 
 async fn sent_body(server: &MockServer) -> Value {
@@ -78,7 +82,17 @@ async fn structured_round_trip_reports_finish_model_usage_and_cost() {
     assert_eq!(sent["reasoning"]["effort"], "low");
     assert_eq!(sent["response_format"]["type"], "json_schema");
     assert!(sent.get("tools").is_none());
-    let parts = sent["messages"][1]["content"].as_array().expect("multipart user message");
+    let received = server.received_requests().await.unwrap();
+    assert_eq!(
+        received[0]
+            .headers
+            .get("x-title")
+            .map(|v| v.to_str().unwrap()),
+        Some("embed-test")
+    );
+    let parts = sent["messages"][1]["content"]
+        .as_array()
+        .expect("multipart user message");
     assert!(
         parts.iter().any(|part| part["type"] == "image_url"),
         "image part forwarded: {parts:?}"
@@ -157,15 +171,24 @@ async fn observer_fires_once_per_call_on_success_and_error() {
 
 #[test]
 fn json_reply_tolerates_one_code_fence() {
-    assert_eq!(parse_json_reply("```json\n{\"a\":1}\n```"), Some(json!({"a": 1})));
-    assert_eq!(parse_json_reply("```\n{\"a\":1}\n```"), Some(json!({"a": 1})));
+    assert_eq!(
+        parse_json_reply("```json\n{\"a\":1}\n```"),
+        Some(json!({"a": 1}))
+    );
+    assert_eq!(
+        parse_json_reply("```\n{\"a\":1}\n```"),
+        Some(json!({"a": 1}))
+    );
     assert_eq!(parse_json_reply("  {\"a\":1} "), Some(json!({"a": 1})));
     assert_eq!(parse_json_reply("not json"), None);
 }
 
 #[test]
 fn data_uri_mime_is_extracted() {
-    assert_eq!(data_uri_mime("data:image/png;base64,AA").as_deref(), Some("image/png"));
+    assert_eq!(
+        data_uri_mime("data:image/png;base64,AA").as_deref(),
+        Some("image/png")
+    );
     assert_eq!(data_uri_mime("https://x/y.png"), None);
 }
 

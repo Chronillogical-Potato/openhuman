@@ -232,9 +232,13 @@ impl CompletionRequest {
     }
 
     fn into_wire(self) -> ModelRequest {
-        let mut request =
-            ModelRequest::new(self.messages.into_iter().map(ChatMessage::into_wire).collect())
-                .with_model(self.model);
+        let mut request = ModelRequest::new(
+            self.messages
+                .into_iter()
+                .map(ChatMessage::into_wire)
+                .collect(),
+        )
+        .with_model(self.model);
         request.response_format = self.response_format.map(ResponseFormat::into_wire);
         request.max_tokens = self.max_tokens;
         request.temperature = self.temperature;
@@ -363,6 +367,7 @@ pub trait CompletionObserver: Send + Sync {
 #[derive(Clone)]
 pub struct Completer {
     route: Route,
+    headers: Vec<(String, String)>,
     timeout: Option<Duration>,
     observer: Option<Arc<dyn CompletionObserver>>,
 }
@@ -371,6 +376,7 @@ impl std::fmt::Debug for Completer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Completer")
             .field("route", &self.route)
+            .field("headers", &self.headers.len())
             .field("timeout", &self.timeout)
             .field("observer", &self.observer.is_some())
             .finish()
@@ -382,9 +388,17 @@ impl Completer {
     pub fn new(route: Route) -> Self {
         Self {
             route,
+            headers: Vec::new(),
             timeout: None,
             observer: None,
         }
+    }
+
+    /// Send `name: value` with every request — gateway attribution such as
+    /// OpenRouter's `HTTP-Referer` and `X-Title`.
+    pub fn header(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
+        self.headers.push((name.into(), value.into()));
+        self
     }
 
     /// Fail a call that has not settled within `timeout`.
@@ -407,7 +421,10 @@ impl Completer {
     /// - [`CoreError::InsecureRoute`] — the route would send its bearer over
     ///   cleartext to a non-loopback host.
     /// - [`CoreError::Rpc`] — the provider call failed or timed out.
-    pub async fn complete(&self, request: CompletionRequest) -> Result<CompletionResponse, CoreError> {
+    pub async fn complete(
+        &self,
+        request: CompletionRequest,
+    ) -> Result<CompletionResponse, CoreError> {
         let started = Instant::now();
         let result = self.dispatch(request.clone()).await;
         if let Some(observer) = &self.observer {
@@ -421,20 +438,22 @@ impl Completer {
     }
 
     async fn dispatch(&self, request: CompletionRequest) -> Result<CompletionResponse, CoreError> {
-        let route = self.checked_route(&request)?;
+        let endpoint = self.checked_endpoint(&request)?;
         let wants_json = request
             .response_format
             .as_ref()
             .is_some_and(ResponseFormat::wants_json);
         let call = openhuman_core::inference::host_runtime::ops::complete_once(
-            route,
+            &endpoint,
             request.into_wire(),
         );
         let response = match self.timeout {
-            Some(limit) => tokio::time::timeout(limit, call).await.map_err(|_| CoreError::Rpc {
-                method: COMPLETE,
-                message: format!("timed out after {}ms", limit.as_millis()),
-            })?,
+            Some(limit) => tokio::time::timeout(limit, call)
+                .await
+                .map_err(|_| CoreError::Rpc {
+                    method: COMPLETE,
+                    message: format!("timed out after {}ms", limit.as_millis()),
+                })?,
             None => call.await,
         }
         .map_err(|message| CoreError::Rpc {
@@ -444,24 +463,28 @@ impl Completer {
         Ok(CompletionResponse::from_wire(response, wants_json))
     }
 
-    fn checked_route(
+    fn checked_endpoint(
         &self,
         request: &CompletionRequest,
-    ) -> Result<openhuman_core::config::schema::EphemeralRoute, CoreError> {
-        if request.model.trim().is_empty() {
+    ) -> Result<openhuman_core::inference::host_runtime::ops::CompletionEndpoint, CoreError> {
+        let base_url = self.route.base_url.trim();
+        let api_key = self.route.api_key.trim();
+        if request.model.trim().is_empty() || base_url.is_empty() || api_key.is_empty() {
             return Err(CoreError::InvalidRoute { method: COMPLETE });
         }
-        if !is_safe_endpoint_for_bearer(&self.route.base_url) {
+        if !is_safe_endpoint_for_bearer(base_url) {
             return Err(CoreError::InsecureRoute {
                 method: COMPLETE,
-                endpoint: sanitize_url_for_display(&self.route.base_url),
+                endpoint: sanitize_url_for_display(base_url),
             });
         }
-        openhuman_core::config::schema::EphemeralRoute::from_params(
-            Some(self.route.base_url.clone()),
-            Some(self.route.api_key.clone()),
+        Ok(
+            openhuman_core::inference::host_runtime::ops::CompletionEndpoint {
+                base_url: base_url.to_string(),
+                api_key: api_key.to_string(),
+                headers: self.headers.clone(),
+            },
         )
-        .ok_or(CoreError::InvalidRoute { method: COMPLETE })
     }
 }
 
