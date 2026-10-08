@@ -5096,26 +5096,32 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'Выберите провайдера памяти, чтобы начать запоминать.',
   'memoryPage.off.action': 'Выбрать провайдера',
   'memoryPage.engine.inUse': 'Используется',
-  'memoryPage.announcement.title': 'Безлимитная память на CortexDB',
+  'memoryPage.announcement.title': 'Бесплатный инференс памяти в CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex выведен из работы 7 окт.',
-  'memoryPage.announcement.highlight': 'Бесплатный перенос и безлимитное использование CortexDB.',
+  'memoryPage.announcement.highlight':
+    'Бесплатная миграция, а за инференс памяти никогда не взимается плата.',
   'memoryPage.announcement.rest':
-    'Он быстрее и умнее, а ваши данные никогда не используются для обучения.',
+    'Basic включает 1 ГБ хранилища памяти, а Pro 20 ГБ. Она быстрее и умнее, а ваши данные никогда не используются для обучения.',
   'memoryPage.announcement.dismiss': 'Скрыть',
+  'memoryPage.alphaNotice':
+    'Ранняя альфа: память ещё тестируется. Извлечение, импорт и хранение могут работать неожиданно или меняться между версиями.',
   'memoryPage.engine.cortex.description':
     'Движок памяти с ранжированным поиском и обоснованными ответами.',
   'memoryPage.engine.chip.label': 'Как подключить CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': 'Безлимит',
+  'memoryPage.engine.chip.free': 'Бесплатно',
   'memoryPage.engine.chip.apikey': 'Ваш ключ CortexDB',
   'memoryPage.engine.chip.selfhost': 'Локально',
-  'memoryPage.engine.fairUse.summary':
-    'К безлимитной памяти применяется политика добросовестного использования',
+  'memoryPage.engine.fairUse.summary': 'О бесплатном инференсе памяти',
+  'memoryPage.engine.quota.plan': 'Ваш тариф {plan} включает {storage} хранилища памяти.',
+  'memoryPage.engine.quota.all': 'Basic включает 1 ГБ хранилища памяти, а Pro 20 ГБ.',
+  'memoryPage.engine.quota.inference': 'За инференс памяти плата не взимается.',
+  'memoryPage.engine.fairUse.heading': 'Добросовестное использование',
   'memoryPage.engine.offPrompt': 'Выберите провайдера ниже, чтобы начать запоминать.',
   'memoryPage.engine.builtin.summaryPlan':
-    'Размещено TinyHumans, безлимитная память на вашем тарифе {plan}.',
+    'Бесплатный инференс памяти в вашем тарифе {plan}, размещённый TinyHumans.',
   'memoryPage.engine.builtin.summaryUpgrade':
-    'Размещено TinyHumans. Безлимитная память на тарифах Basic и Pro.',
+    'Бесплатный инференс памяти в тарифах Basic и Pro, размещённый TinyHumans.',
   'memoryPage.engine.apiKeyOption.connected': 'Подключено с вашим ключом API CortexDB.',
   'memoryPage.engine.selfHost.connected': 'Подключено к CortexDB по адресу {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Загружайте свой контент для собственного использования.',

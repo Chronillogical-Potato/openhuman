@@ -5111,26 +5111,32 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'Wybierz dostawcę pamięci, aby zacząć zapamiętywać.',
   'memoryPage.off.action': 'Wybierz dostawcę',
   'memoryPage.engine.inUse': 'W użyciu',
-  'memoryPage.announcement.title': 'Nielimitowana pamięć w CortexDB',
+  'memoryPage.announcement.title': 'Darmowe wnioskowanie pamięci w CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex wycofano 7 paź.',
-  'memoryPage.announcement.highlight': 'Darmowa migracja i nielimitowane użycie w CortexDB.',
+  'memoryPage.announcement.highlight':
+    'Darmowa migracja, a wnioskowanie pamięci nigdy nie jest płatne.',
   'memoryPage.announcement.rest':
-    'Jest szybszy i inteligentniejszy, a Twoje dane nigdy nie służą do trenowania.',
+    'Basic obejmuje 1 GB miejsca na pamięć, a Pro 20 GB. Jest szybsza i mądrzejsza, a Twoje dane nigdy nie są używane do trenowania.',
   'memoryPage.announcement.dismiss': 'Zamknij',
+  'memoryPage.alphaNotice':
+    'Wczesna alfa: pamięć jest nadal testowana. Przywoływanie, importy i przechowywanie mogą działać nieoczekiwanie lub zmieniać się między wersjami.',
   'memoryPage.engine.cortex.description':
     'Silnik pamięci z rankingiem wyników i ugruntowanymi odpowiedziami.',
   'memoryPage.engine.chip.label': 'Jak połączyć CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': 'Bez limitu',
+  'memoryPage.engine.chip.free': 'Darmowa',
   'memoryPage.engine.chip.apikey': 'Twój klucz CortexDB',
   'memoryPage.engine.chip.selfhost': 'Lokalnie',
-  'memoryPage.engine.fairUse.summary':
-    'Nieograniczona pamięć podlega zasadom uczciwego użytkowania',
+  'memoryPage.engine.fairUse.summary': 'O darmowym wnioskowaniu pamięci',
+  'memoryPage.engine.quota.plan': 'Twój plan {plan} obejmuje {storage} miejsca na pamięć.',
+  'memoryPage.engine.quota.all': 'Basic obejmuje 1 GB miejsca na pamięć, a Pro 20 GB.',
+  'memoryPage.engine.quota.inference': 'Wnioskowanie pamięci nigdy nie jest płatne.',
+  'memoryPage.engine.fairUse.heading': 'Uczciwe użytkowanie',
   'memoryPage.engine.offPrompt': 'Wybierz dostawcę poniżej, aby zacząć zapamiętywać.',
   'memoryPage.engine.builtin.summaryPlan':
-    'Hostowane przez TinyHumans, z nieograniczoną pamięcią w Twoim planie {plan}.',
+    'Darmowe wnioskowanie pamięci w Twoim planie {plan}, hostowane przez TinyHumans.',
   'memoryPage.engine.builtin.summaryUpgrade':
-    'Hostowane przez TinyHumans. Nieograniczona pamięć w planach Basic i Pro.',
+    'Darmowe wnioskowanie pamięci w planach Basic i Pro, hostowane przez TinyHumans.',
   'memoryPage.engine.apiKeyOption.connected': 'Połączono za pomocą Twojego klucza API CortexDB.',
   'memoryPage.engine.selfHost.connected': 'Połączono z CortexDB pod adresem {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Zapisuj własne treści na własny użytek.',

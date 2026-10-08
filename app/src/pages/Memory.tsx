@@ -205,6 +205,13 @@ export default function Memory() {
         tabsAriaLabel={t('nav.brain')}
         tabsTestIdPrefix="brain-tab">
         <div className="w-full space-y-5">
+          <Alert
+            variant="warning"
+            density="compact"
+            role={undefined}
+            data-testid="memory-alpha-notice">
+            <AlertDescription>{t('memoryPage.alphaNotice')}</AlertDescription>
+          </Alert>
           {loadError !== null && (
             <Alert variant="warning" data-testid="memory-load-error">
               <AlertDescription>

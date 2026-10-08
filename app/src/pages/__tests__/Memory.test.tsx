@@ -46,9 +46,6 @@ vi.mock('../../components/memory/MemoryImportBanner', () => ({
     <div data-testid="stub-import">{engineLabel}</div>
   ),
 }));
-vi.mock('../../components/memory/MemoryCortexAnnouncement', () => ({
-  default: () => <div data-testid="stub-announcement" />,
-}));
 
 const ON: EngineState = {
   engine: 'tinyhumans',
@@ -121,22 +118,37 @@ describe('Memory page', () => {
     expect(screen.queryByTestId('stub-import')).not.toBeInTheDocument();
   });
 
-  it('keeps the import flow and announcement on the Migration chip only', async () => {
+  it.each(['engine', 'migration', 'ask', 'settings'])(
+    'shows the alpha notice on the %s chip',
+    async chip => {
+      renderAt(`?tab=brain&brain=${chip}`);
+      expect(await screen.findByTestId('memory-alpha-notice')).toHaveTextContent(
+        'Early Alpha: Memory is still being tested.'
+      );
+    }
+  );
+
+  it('shows the alpha notice while memory is off', async () => {
+    hoisted.engineGet.mockResolvedValue(OFF);
+    renderAt('?tab=brain&brain=ask');
+    expect(await screen.findByTestId('memory-off-state')).toBeInTheDocument();
+    expect(screen.getByTestId('memory-alpha-notice')).toBeInTheDocument();
+  });
+
+  it('keeps the import flow on the Migration chip only', async () => {
     renderAt('?tab=brain&brain=migration');
     expect(await screen.findByTestId('stub-import')).toHaveTextContent('TinyHumans');
-    expect(screen.getByTestId('stub-announcement')).toBeInTheDocument();
+    expect(screen.queryByTestId('memory-cortex-announcement')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId('brain-tab-ask'));
     expect(await screen.findByTestId('stub-ask')).toBeInTheDocument();
     expect(screen.queryByTestId('stub-import')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('stub-announcement')).not.toBeInTheDocument();
   });
 
-  it('shows the announcement and the off state on Migration while memory is off', async () => {
+  it('shows the off state on Migration while memory is off', async () => {
     hoisted.engineGet.mockResolvedValue(OFF);
     renderAt('?tab=brain&brain=migration');
     expect(await screen.findByTestId('memory-off-state')).toBeInTheDocument();
-    expect(screen.getByTestId('stub-announcement')).toBeInTheDocument();
     expect(screen.queryByTestId('stub-import')).not.toBeInTheDocument();
   });
 
