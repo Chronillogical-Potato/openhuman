@@ -8,7 +8,7 @@
  * Journey:
  *   1. Login + land on home
  *   2. /settings                 — verify root index loads
- *   3. /settings/memory-data     — verify it redirects to Memory → Documents
+ *   3. /settings/memory-data     — verify it redirects to Memory → Files
  *   4. /settings/developer-options — verify loads
  *   5. /settings/billing         — verify billing panel loads
  *   6. /home                     — verify home loads
@@ -99,7 +99,7 @@ describe('User journey — settings round-trip', () => {
     // waitForTestId is tauri-driver only; the marker check below covers Mac2.
     if (isTauriDriver()) await waitForTestId('memory-page', 10_000);
 
-    const dataMarkers = ['Documents', 'Memory', 'Engine'];
+    const dataMarkers = ['Files', 'Memory', 'Provider'];
     let found = false;
     for (const marker of dataMarkers) {
       if (await textExists(marker)) {
