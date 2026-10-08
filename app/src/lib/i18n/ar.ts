@@ -5212,7 +5212,7 @@ const messages: TranslationMap = {
   'memoryPage.import.progress': 'تم استيراد {imported} من {total} عنصر',
   'memoryPage.migrate.title': 'انقل الذاكرة إلى حسابك',
   'memoryPage.migrate.body':
-    'الذاكرة المحفوظة قبل هذا التحديث لا تزال في التخطيط المشترك القديم. تُنقل تلقائيًا في الخلفية عندما يكون النقل مجانيًا، أو يمكنك نقلها الآن.',
+    'الذاكرة المحفوظة قبل هذا التحديث لا تزال في التخطيط المشترك القديم. تُنقل تلقائيًا في الخلفية، أو يمكنك نقلها الآن.',
   'memoryPage.migrate.action': 'انقل الآن',
   'memoryPage.migrate.running': 'جارٍ تنظيم ذاكرتك…',
   'memoryPage.migrate.progress': 'تم نقل {copied} عنصر',

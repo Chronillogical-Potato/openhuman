@@ -5434,7 +5434,7 @@ const messages: TranslationMap = {
   'memoryPage.import.progress': '{imported} éléments sur {total} importés',
   'memoryPage.migrate.title': 'Déplacer la mémoire dans votre compte',
   'memoryPage.migrate.body':
-    'La mémoire enregistrée avant cette mise à jour se trouve encore dans l’ancienne organisation partagée. Elle est déplacée automatiquement en arrière-plan tant que le déplacement est gratuit, ou vous pouvez la déplacer maintenant.',
+    'La mémoire enregistrée avant cette mise à jour se trouve encore dans l’ancienne organisation partagée. Elle est déplacée automatiquement en arrière-plan, ou vous pouvez la déplacer maintenant.',
   'memoryPage.migrate.action': 'Migrer maintenant',
   'memoryPage.migrate.running': 'Organisation de votre mémoire…',
   'memoryPage.migrate.progress': '{copied} éléments déplacés',

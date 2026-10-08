@@ -546,9 +546,10 @@ async fn start_with(
             let started = super::layout_migration::start(
                 config,
                 Arc::new(super::layout_migration::AppHost),
-                // Not the user's start: it runs only while moving is free,
-                // like the background job's.
-                super::layout_migration::Trigger::Auto,
+                // Migration is free: organizing follows a finished import
+                // straight away, free period or not. A shared self-hosted
+                // tree still waits for the takeover consent.
+                super::layout_migration::Trigger::Manual { takeover: false },
                 Arc::new(scheduler_paused),
             );
             tracing::info!(started, "[memory:import] import done; organizing next");

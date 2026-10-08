@@ -5261,7 +5261,7 @@ const messages: TranslationMap = {
   'memoryPage.import.progress': '{total}개 중 {imported}개 항목을 가져왔습니다',
   'memoryPage.migrate.title': '메모리를 계정으로 옮기기',
   'memoryPage.migrate.body':
-    '이 업데이트 이전에 저장된 메모리가 아직 이전 공유 레이아웃에 있습니다. 옮기기가 무료인 동안 백그라운드에서 자동으로 옮겨지며, 지금 바로 옮길 수도 있습니다.',
+    '이 업데이트 이전에 저장된 메모리가 아직 이전 공유 레이아웃에 있습니다. 백그라운드에서 자동으로 옮겨지며, 지금 바로 옮길 수도 있습니다.',
   'memoryPage.migrate.action': '지금 마이그레이션',
   'memoryPage.migrate.running': '메모리를 정리하는 중…',
   'memoryPage.migrate.progress': '{copied}개 항목을 옮김',

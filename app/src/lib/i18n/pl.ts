@@ -5382,7 +5382,7 @@ const messages: TranslationMap = {
   'memoryPage.import.progress': 'Zaimportowano {imported} z {total} elementów',
   'memoryPage.migrate.title': 'Przenieś pamięć na swoje konto',
   'memoryPage.migrate.body':
-    'Pamięć zapisana przed tą aktualizacją wciąż znajduje się w starym wspólnym układzie. Jest przenoszona automatycznie w tle, dopóki przenoszenie jest bezpłatne, albo możesz przenieść ją teraz.',
+    'Pamięć zapisana przed tą aktualizacją wciąż znajduje się w starym wspólnym układzie. Jest przenoszona automatycznie w tle albo możesz przenieść ją teraz.',
   'memoryPage.migrate.action': 'Migruj teraz',
   'memoryPage.migrate.running': 'Porządkowanie Twojej pamięci…',
   'memoryPage.migrate.progress': 'Przeniesiono elementy: {copied}',

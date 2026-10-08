@@ -5354,7 +5354,7 @@ const messages: TranslationMap = {
   'memoryPage.import.progress': '{imported} dari {total} item diimpor',
   'memoryPage.migrate.title': 'Pindahkan memori ke akun Anda',
   'memoryPage.migrate.body':
-    'Memori yang disimpan sebelum pembaruan ini masih berada di tata letak bersama yang lama. Memori dipindahkan otomatis di latar belakang selama pemindahan gratis, atau Anda bisa memindahkannya sekarang.',
+    'Memori yang disimpan sebelum pembaruan ini masih berada di tata letak bersama yang lama. Memori dipindahkan otomatis di latar belakang, atau Anda bisa memindahkannya sekarang.',
   'memoryPage.migrate.action': 'Migrasikan sekarang',
   'memoryPage.migrate.running': 'Menata memori Anda…',
   'memoryPage.migrate.progress': '{copied} item dipindahkan',
