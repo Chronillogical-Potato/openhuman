@@ -462,7 +462,9 @@ pub async fn agent_chat_reply_for(
         AgentChatTarget::Definition {
             untrusted_input: true,
             ..
-        } => Box::pin(crate::agent::tinyagents::host::with_untrusted_input_turn(run)),
+        } => Box::pin(crate::agent::tinyagents::host::with_untrusted_input_turn(
+            run,
+        )),
         _ => Box::pin(run),
     };
     let outcome = match target {
