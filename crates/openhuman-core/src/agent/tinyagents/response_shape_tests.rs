@@ -1,18 +1,15 @@
 use super::*;
-use tinyinference_llm::message::AssistantMessage;
 use tinyinference_llm::usage::Usage;
 
 fn response(finish: &str, reasoning: u64, cached: bool) -> ModelResponse {
-    ModelResponse {
-        message: AssistantMessage::default(),
-        usage: Some(Usage {
+    let mut response = ModelResponse::assistant("{}")
+        .with_usage(Usage {
             reasoning_tokens: reasoning,
             ..Default::default()
-        }),
-        finish_reason: Some(finish.to_string()),
-        served_from_cache: cached,
-        ..Default::default()
-    }
+        })
+        .with_finish_reason(finish);
+    response.served_from_cache = cached;
+    response
 }
 
 #[test]

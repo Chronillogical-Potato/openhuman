@@ -248,7 +248,7 @@ async fn run_turn_via_tinyagents_inner(
     // the caller via `build_turn_models`: the seam is crate-native and names no `Provider` (#4249,
     // Phase 5). The telemetry id (`{provider_id}.{model}` in Langfuse) rides in as a param.
     let AssembledTurnHarness {
-        harness,
+        mut harness,
         cursor,
         tool_names,
         failure_map,
