@@ -92,6 +92,7 @@ mod config;
 mod core_agent;
 mod error;
 mod harness;
+pub mod complete;
 pub mod memory;
 mod runtime;
 mod turn;
@@ -136,6 +137,10 @@ pub mod session_store {
     pub use tinyagents_session::{Result as StoreResult, TinyAgentsError as StoreError};
 }
 pub use session_store::{InMemorySessionStores, SessionStoreProvider};
+pub use complete::{
+    ChatMessage, Completer, CompletionObserver, CompletionRequest, CompletionResponse,
+    CompletionTrace, CompletionUsage,
+};
 pub use turn::{absolute, Route, Turn, TurnOutcome, TurnRequest};
 
 use std::sync::Arc;

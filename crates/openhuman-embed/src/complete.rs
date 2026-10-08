@@ -49,7 +49,7 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tinyinference_llm::message::{ContentBlock, ImageRef, Message, SystemMessage, UserMessage};
+use tinyinference_llm::message::{ContentBlock, ImageRef, Message, UserMessage};
 use tinyinference_llm::model::{ModelRequest, ModelResponse};
 
 use crate::error::CoreError;
@@ -115,7 +115,7 @@ impl ChatMessage {
 
     fn into_wire(self) -> Message {
         match self.role {
-            Role::System => Message::System(SystemMessage::text(self.text)),
+            Role::System => Message::system(self.text),
             Role::Assistant => Message::assistant(self.text),
             Role::User => {
                 let mut content = vec![ContentBlock::Text(self.text)];
