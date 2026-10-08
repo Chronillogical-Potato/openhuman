@@ -992,6 +992,8 @@ async fn policy_get_and_set_round_trip() {
     assert_eq!(defaults["log_conversations"], json!(true));
     assert_eq!(defaults["recall"]["enabled"], json!(true));
     assert_eq!(defaults["recall"]["budget_tokens"], json!(1200));
+    // No team section by default: a pack carries the agent's own history.
+    assert_eq!(defaults["recall"]["team_limit"], json!(0));
     assert_eq!(defaults["root"], json!("root"));
     assert_eq!(defaults["host_bound"], json!(false));
 
