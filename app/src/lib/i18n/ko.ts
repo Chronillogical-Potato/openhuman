@@ -604,6 +604,12 @@ const messages: TranslationMap = {
   'connections.browser.routeDirect': 'OpenRouter 직접 연결',
   'connections.browser.routeHosted': '호스팅 프록시',
   'connections.browser.testInConversation': '저장 후 대화에서 페이지를 테스트하세요.',
+  'connections.browser.learning': '작업이 배우는 것',
+  'connections.browser.learnFromTasks': '완료된 작업에서 배우기',
+  'connections.browser.learnHint':
+    '완료된 작업이 사용한 계획과 페이지 요소를 사이트별로 저장해 다음 작업이 더 빨리 시작되도록 합니다. OpenHuman 코어가 실행되는 워크스페이스에 저장되며 채팅 메모리에는 저장되지 않습니다.',
+  'connections.browser.forgetSites': '학습한 사이트 지우기',
+  'connections.browser.sitesForgotten': '지운 사이트: {count}',
   'connections.browser.save': '설정 저장',
   'connections.browser.saved': '설정 저장됨',
   'connections.browser.testBrowser': 'Chrome 테스트',

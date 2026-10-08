@@ -141,6 +141,7 @@ export interface BrowserSettingsUpdate {
   download_dir?: string | null;
   max_task_steps?: number;
   task_timeout_secs?: number;
+  learn_from_tasks?: boolean;
 }
 
 export interface LocalAiSettingsUpdate {

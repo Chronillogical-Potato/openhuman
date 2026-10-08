@@ -512,6 +512,12 @@ const messages: TranslationMap = {
   'connections.browser.routeDirect': 'OpenRouterへ直接接続',
   'connections.browser.routeHosted': 'ホスト型プロキシ',
   'connections.browser.testInConversation': '保存後、会話からページをテストしてください。',
+  'connections.browser.learning': 'タスクが学ぶこと',
+  'connections.browser.learnFromTasks': '完了したタスクから学ぶ',
+  'connections.browser.learnHint':
+    '完了したタスクが使ったプランとページ要素をサイトごとに保存し、次回そのサイトでのタスクを早く始められるようにします。OpenHuman のコアが動作するワークスペースに保存され、チャットのメモリーには保存されません。',
+  'connections.browser.forgetSites': '学習したサイトを消去',
+  'connections.browser.sitesForgotten': '消去したサイト: {count}',
   'connections.browser.save': '設定を保存',
   'connections.browser.saved': '設定を保存しました',
   'connections.browser.testBrowser': 'Chromeをテスト',

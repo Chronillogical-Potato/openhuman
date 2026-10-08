@@ -610,6 +610,12 @@ const messages: TranslationMap = {
   'connections.browser.routeDirect': 'সরাসরি OpenRouter',
   'connections.browser.routeHosted': 'হোস্টেড প্রক্সি',
   'connections.browser.testInConversation': 'সংরক্ষণের পরে কথোপকথনে একটি পৃষ্ঠা পরীক্ষা করুন।',
+  'connections.browser.learning': 'কাজগুলো কী শেখে',
+  'connections.browser.learnFromTasks': 'শেষ হওয়া কাজ থেকে শিখুন',
+  'connections.browser.learnHint':
+    'প্রতিটি সাইটের জন্য একটি শেষ হওয়া কাজ যে পরিকল্পনা ও পেজের উপাদান ব্যবহার করেছে তা রাখে, যাতে সেখানে পরের কাজ দ্রুত শুরু হয়। যে ওয়ার্কস্পেসে OpenHuman-এর কোর চলে সেখানে রাখা হয়, কখনো চ্যাট মেমোরিতে নয়।',
+  'connections.browser.forgetSites': 'শেখা সাইটগুলো ভুলে যান',
+  'connections.browser.sitesForgotten': 'ভুলে যাওয়া সাইট: {count}',
   'connections.browser.save': 'সেটিংস সংরক্ষণ',
   'connections.browser.saved': 'সেটিংস সংরক্ষিত',
   'connections.browser.testBrowser': 'Chrome পরীক্ষা',

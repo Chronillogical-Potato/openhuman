@@ -327,6 +327,7 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | 7.1.1 | Open URL           | RU+WD | `crates/openhuman-core/src/tools/impl/browser/browser_open_tests.rs`, `app/test/e2e/specs/tool-browser-flow.spec.ts` | ✅     | `browser_open` is a deferred one-shot TinyComputer entry point. |
 | 7.1.2 | Browser Automation | RU+WD | `crates/openhuman-core/src/tools/impl/browser/browser_computer_tests.rs`, `app/test/e2e/specs/tool-browser-flow.spec.ts` | ✅     | `browser` is deferred until `tool_search`; tests cover task limits, TinyComputer task pauses, session reuse, policy rebinds, and host confirmation. |
 | 7.1.3 | Browser Connections | VU+RU | `app/src/components/settings/panels/BrowserConnectionsPanel.test.tsx`, `crates/openhuman-core/src/modules/browser_tests.rs` | ✅ | Readiness, launch settings, and the shared website policy are configured in Connections. |
+| 7.1.4 | Browser site memory | RU+VU | `crates/openhuman-core/src/modules/browser_sites_tests.rs`, `app/src/components/settings/panels/BrowserConnectionsPanel.test.tsx` | ✅ | A finished task's plan (for the same goal and facts) and the elements it found are kept per site in the workspace and handed to the next task there. Fact values, page text, rescued runs' plans and reused plans that fail are not kept; entries expire after 30 days unused. The learning switch and "forget learned sites" live in Browser settings. |
 
 ### 7.2 Network
 

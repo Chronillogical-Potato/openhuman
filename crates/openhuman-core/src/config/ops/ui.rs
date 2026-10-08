@@ -21,6 +21,7 @@ pub struct BrowserSettingsPatch {
     pub download_dir: Option<String>,
     pub max_task_steps: Option<usize>,
     pub task_timeout_secs: Option<u64>,
+    pub learn_from_tasks: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -117,8 +118,16 @@ pub async fn apply_browser_settings(
         }
         browser.task_timeout_secs = timeout;
     }
+    if let Some(learn) = update.learn_from_tasks {
+        browser.learn_from_tasks = learn;
+    }
     config.browser = browser;
     config.save().await.map_err(|e| e.to_string())?;
+    // Tools built before the switch hold the config they were built with.
+    #[cfg(feature = "modules")]
+    if let Some(learn) = update.learn_from_tasks {
+        crate::modules::browser_sites::note_switch(&config.workspace_dir, learn);
+    }
     let snapshot = snapshot_config_json(config)?;
     Ok(Outcome::new(
         snapshot,
