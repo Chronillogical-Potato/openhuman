@@ -113,18 +113,31 @@ fn validate_root_accepts_nodes_and_refuses_junk() {
 }
 
 #[test]
-fn a_user_root_is_the_account_id_or_a_hashed_local_id() {
+fn an_account_root_is_the_lowercased_account_id() {
     assert_eq!(
-        user_root_for("6512AB0F6512ab0f6512ab0f").as_deref(),
+        account_root("6512AB0F6512ab0f6512ab0f").as_deref(),
         Some("user:6512ab0f6512ab0f6512ab0f")
     );
-    let local = user_root_for("local-megamind-macbook").unwrap();
-    assert!(local.starts_with("user:local-"), "{local}");
-    assert_eq!(local.len(), "user:local-".len() + 16);
-    assert!(!local.contains("megamind"), "no device name: {local}");
-    assert_eq!(Some(local), user_root_for("local-megamind-macbook"));
-    assert_eq!(user_root_for(crate::config::PRE_LOGIN_USER_ID), None);
-    assert_eq!(user_root_for(""), None);
+    assert_eq!(account_root("local-megamind-macbook"), None);
+    assert_eq!(account_root(""), None);
+}
+
+#[test]
+fn a_local_session_root_is_a_recorded_install_id_not_the_hostname() {
+    let tmp = tempfile::tempdir().unwrap();
+    let user_dir = tmp.path().join("users").join("local-megamind-macbook");
+    let mut config = Config::default();
+    config.config_path = user_dir.join("config.toml");
+    config.workspace_dir = user_dir.join("workspace");
+    let root = user_root(&config).unwrap();
+    assert!(root.starts_with("user:local-"), "{root}");
+    assert!(!root.contains("megamind"), "{root}");
+    assert_ne!(
+        root,
+        crate::memory::local_root::legacy_root("local-megamind-macbook"),
+        "a fresh install does not derive its root from the hostname"
+    );
+    assert_eq!(user_root(&config).as_deref(), Some(root.as_str()));
 }
 
 #[test]

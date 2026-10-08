@@ -487,8 +487,18 @@ fn key_digest(key: &str) -> String {
         .collect()
 }
 
+/// Held for writing by a test that compares cached engines by identity, and
+/// for reading by [`invalidate`], so another test's invalidation (a layout
+/// switch, a key change) cannot clear the cache between its two binds.
+#[cfg(test)]
+pub(crate) static CACHE_STABLE: RwLock<()> = RwLock::new(());
+
 /// Drops every cached engine, so the next [`resolve`] rebuilds.
 pub fn invalidate() {
+    #[cfg(test)]
+    let _stable = CACHE_STABLE
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     CACHE
         .write()
         .unwrap_or_else(std::sync::PoisonError::into_inner)

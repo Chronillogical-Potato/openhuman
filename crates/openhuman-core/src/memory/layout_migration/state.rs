@@ -121,11 +121,11 @@ pub fn save(workspace_dir: &Path, state: &MigrationState) -> MemoryResult<()> {
     let file = path(workspace_dir);
     let write = || -> std::io::Result<()> {
         if let Some(dir) = file.parent() {
-            std::fs::create_dir_all(dir)?;
+            crate::memory::files::create_private_dir_all(dir)?;
         }
         let temp = file.with_extension("json.tmp");
         let bytes = serde_json::to_vec_pretty(state).map_err(std::io::Error::other)?;
-        let mut out = std::fs::File::create(&temp)?;
+        let mut out = crate::memory::files::create_private(&temp)?;
         std::io::Write::write_all(&mut out, &bytes)?;
         out.sync_all()?;
         std::fs::rename(&temp, &file)
