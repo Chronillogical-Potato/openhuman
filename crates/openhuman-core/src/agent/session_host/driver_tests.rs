@@ -172,3 +172,32 @@ fn tool_snapshot_with_no_executable_source_fails_closed_before_graph() {
     .expect_err("a declared tool must have a request-scoped executable source");
     assert!(error.error.to_string().contains("revoked_tool"));
 }
+
+#[test]
+fn empty_snapshot_failure_still_carries_the_typed_terminal_outcome() {
+    let snapshot = Arc::new(std::sync::Mutex::new(
+        crate::agent::tinyagents::TranscriptSnapshot::default(),
+    ));
+    let typed = driver_error_with_snapshot(
+        anyhow::Error::new(tinyagents_harness::TinyAgentsError::Cancelled),
+        &snapshot,
+        &sidecar(),
+        std::time::Duration::from_millis(1),
+        "chat-v1",
+    );
+    assert!(typed.partial.is_none());
+    let terminal = typed.outcome.expect("typed outcome on the empty branch");
+    assert_eq!(
+        terminal.reason,
+        tinyagents_harness::terminal::TerminalReason::Cancelled
+    );
+
+    let untyped = driver_error_with_snapshot(
+        anyhow::anyhow!("plain failure"),
+        &snapshot,
+        &sidecar(),
+        std::time::Duration::from_millis(1),
+        "chat-v1",
+    );
+    assert!(untyped.outcome.is_none());
+}
