@@ -17,7 +17,7 @@ use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
 use tinyinference_llm::tool::ToolCall as TaToolCall;
 use tinytools::ToolResult as TaToolResult;
 
-use super::fetched_site::{fetch_host_scope, fetched_site_policy, heuristic_text};
+use super::fetched_site::{fetch_host_scope, heuristic_text};
 use super::loop_guards::{
     is_repeat_call_exempt, RECOVERABLE_NO_PROGRESS_FAILURE_THRESHOLD,
     RECOVERABLE_REPEAT_FAILURE_THRESHOLD,
@@ -92,17 +92,6 @@ pub(crate) struct RepeatedToolFailureMiddleware {
     /// history, where it replays as a stale instruction on every later turn
     /// (#6725).
     pending_nudges: Arc<Mutex<Vec<String>>>,
-    /// call_id → a one-line rendering of the call (a shell command verbatim,
-    /// any other tool's arguments as compact JSON), captured in `before_tool`
-    /// so a halt can say what was tried and not only how the last attempt
-    /// ended.
-    recent_calls: std::sync::Mutex<std::collections::HashMap<String, String>>,
-    /// The consecutive failures the ladder is counting, oldest first, each as
-    /// its rendered call and first error line. Any success clears it. A halt
-    /// summary carrying only the last error left the failing commands
-    /// unrecoverable: one run was stopped after six different submissions and
-    /// kept no record of what any of them sent.
-    recent_failures: std::sync::Mutex<std::collections::VecDeque<String>>,
     /// `tool\u{1f}args` of the last finished command that exited non-zero,
     /// kept so a *repeat* of it still counts as a failure while a different
     /// command's non-zero exit counts as information (see `after_tool`).
@@ -110,21 +99,6 @@ pub(crate) struct RepeatedToolFailureMiddleware {
 }
 
 impl RepeatedToolFailureMiddleware {
-    /// `summary` with the calls the ladder counted appended (see
-    /// [`with_failing_calls`]).
-    fn halt_with(&self, summary: String) -> String {
-        let failures = self
-            .recent_failures
-            .lock()
-            .map(|failures| failures.clone())
-            .unwrap_or_default();
-        // The crate's summary quotes the last error as the tool returned it;
-        // the whole text is read by the model and persisted with the session,
-        // so it is scrubbed here, at the one place every halt passes through.
-        let summary = crate::security::scrub::sanitize_text(&summary).value;
-        with_failing_calls(summary, &failures)
-    }
-
     /// Build the breaker. `identical_threshold` (the identical-signature retry
     /// ceiling) is handed straight to [`NoProgressTracker::new`], which clamps it
     /// so a nudge always precedes a halt (a single failure is never a loop).
@@ -138,8 +112,6 @@ impl RepeatedToolFailureMiddleware {
             halt_summary,
             tracker: NoProgressTracker::new(identical_threshold),
             classified: ClassifiedFailureTracker::default(),
-            recent_calls: std::sync::Mutex::default(),
-            recent_failures: std::sync::Mutex::default(),
             last_exit_report: std::sync::Mutex::default(),
             step: AtomicUsize::new(0),
             arg_sigs: std::sync::Mutex::new(std::collections::HashMap::new()),
@@ -221,105 +193,6 @@ impl RepeatedToolFailureMiddleware {
     }
 }
 
-/// Longest rendering of one call kept for a halt summary.
-const RENDERED_CALL_CHARS: usize = 200;
-/// How many consecutive failures a halt summary lists.
-const RENDERED_FAILURES: usize = 8;
-
-/// One line naming what a call did, safe for a halt summary the model reads
-/// and the session persists: a `command` argument verbatim (the shell tools),
-/// anything else as compact JSON. Secrets are redacted the way the approval
-/// card redacts them, every URL loses its query and fragment (a fetch is
-/// identified by host and path; a query can carry a token or a user's words),
-/// API-key shapes in free text are scrubbed, and the result is
-/// whitespace-collapsed and bounded so a heredoc or payload cannot swamp it.
-fn render_call(tool: &str, arguments: &serde_json::Value) -> String {
-    let raw = match arguments.get("command").and_then(serde_json::Value::as_str) {
-        Some(command) => redact_command_credentials(command),
-        None if arguments.is_null() => tool.to_owned(),
-        None => strip_url_queries(&crate::security::approval::redact_args(arguments)).to_string(),
-    };
-    let without_queries = cut_url_queries(&raw);
-    let scrubbed = crate::security::scrub::sanitize_text(&without_queries).value;
-    crate::util::truncate_with_ellipsis(&scrubbed, RENDERED_CALL_CHARS).to_string()
-}
-
-/// A shell command with the values that follow credential-bearing flags,
-/// headers and assignments replaced: `--password=…`, `--token …`,
-/// `-H 'Authorization: Bearer …'`, `x-api-key: …`, `API_SECRET=…`. The flag,
-/// header name or variable name stays, so the summary still says what the
-/// command did; the value does not travel into the session. This is the
-/// command-side counterpart of `redact_args` for the other tools; the
-/// general scrubber still runs over the result for key shapes it knows.
-fn redact_command_credentials(command: &str) -> String {
-    use std::sync::LazyLock;
-    static HEADER: LazyLock<regex::Regex> = LazyLock::new(|| {
-        regex::Regex::new(
-            r#"(?i)((?:authorization|x-api-key|api-key|x-auth-token|x-access-token|cookie|proxy-authorization)\s*:\s*)([^'\"\s][^'\"]*)"#,
-        )
-        .expect("static regex")
-    });
-    static FLAG: LazyLock<regex::Regex> = LazyLock::new(|| {
-        regex::Regex::new(
-            r#"(?i)(--?(?:password|passwd|pass|pwd|token|api[-_]?key|apikey|secret|auth|bearer|access[-_]?key|private[-_]?key|client[-_]?secret)(?:=|\s+))(['\"]?)([^\s'\"]+)"#,
-        )
-        .expect("static regex")
-    });
-    static ASSIGN: LazyLock<regex::Regex> = LazyLock::new(|| {
-        regex::Regex::new(
-            r#"(?i)\b([A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL)[A-Z0-9_]*=)(['\"]?)([^\s'\"]+)"#,
-        )
-        .expect("static regex")
-    });
-    let out = HEADER.replace_all(command, "${1}[REDACTED]");
-    let out = FLAG.replace_all(&out, "${1}${2}[REDACTED]");
-    ASSIGN.replace_all(&out, "${1}${2}[REDACTED]").into_owned()
-}
-
-/// `text` with every URL in it cut at its query or fragment, wherever the URL
-/// sits: at the start of a word, after `url=` or a quote, inside prose or a
-/// JSON string. The URL ends at the first whitespace or closing quote, bracket
-/// or parenthesis; what follows the `?` or `#` up to that end is dropped.
-fn cut_url_queries(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    let mut rest = text;
-    loop {
-        let Some(pos) = ["https://", "http://"]
-            .iter()
-            .filter_map(|scheme| rest.find(scheme))
-            .min()
-        else {
-            out.push_str(rest);
-            return out;
-        };
-        let (before, from_scheme) = rest.split_at(pos);
-        out.push_str(before);
-        let end = from_scheme
-            .find(|c: char| c.is_whitespace() || matches!(c, '\'' | '"' | ')' | ']' | '>' | '}'))
-            .unwrap_or(from_scheme.len());
-        let (url, tail) = from_scheme.split_at(end);
-        out.push_str(url.split(['?', '#']).next().unwrap_or(url));
-        rest = tail;
-    }
-}
-
-/// `value` with every URL-shaped string cut at its query or fragment.
-fn strip_url_queries(value: &serde_json::Value) -> serde_json::Value {
-    use serde_json::Value;
-    match value {
-        Value::String(s) if s.contains("http://") || s.contains("https://") => {
-            Value::String(cut_url_queries(s))
-        }
-        Value::Array(items) => Value::Array(items.iter().map(strip_url_queries).collect()),
-        Value::Object(map) => Value::Object(
-            map.iter()
-                .map(|(k, v)| (k.clone(), strip_url_queries(v)))
-                .collect(),
-        ),
-        other => other.clone(),
-    }
-}
-
 /// The first line of a failure, plus the first stderr line when the text is a
 /// command exit report -- that is where a program's own reason tends to be.
 fn first_error_line(text: &str) -> String {
@@ -342,21 +215,7 @@ fn first_error_line(text: &str) -> String {
         Some(err) => format!("{first} — {err}"),
         None => first.to_owned(),
     };
-    line.chars().take(RENDERED_CALL_CHARS).collect()
-}
-
-/// `summary` with the consecutive failing calls appended, oldest first, so the
-/// report says what was tried and not only how the last attempt ended.
-fn with_failing_calls(summary: String, failures: &std::collections::VecDeque<String>) -> String {
-    if failures.is_empty() {
-        return summary;
-    }
-    let mut out = summary;
-    out.push_str("\n\nFailing calls, oldest first:");
-    for (i, failure) in failures.iter().enumerate() {
-        out.push_str(&format!("\n{}. {failure}", i + 1));
-    }
-    out
+    line.chars().take(200).collect()
 }
 
 /// A stable, bounded fingerprint of a tool call's arguments for the identical-
@@ -402,201 +261,7 @@ pub(super) fn failure_scope(tool: &str, arguments: &serde_json::Value) -> String
     scope
 }
 
-/// Explicit recovery policy. Only recognised failures enter the classified
-/// ledger; unknown prose continues through the established exact-repeat guard.
-pub(super) fn recovery_policy(
-    tool: &str,
-    error: &str,
-    body_level_failure: bool,
-) -> Option<(&'static str, usize)> {
-    let (class, budget) = classified_recovery_policy(tool, error, body_level_failure)?;
-    // A connector, the hosted backend or the memory store refusing the
-    // request (401/403, a missing or invalid key) says that service is not
-    // available in this session. That is a tool to stop using, not a reason
-    // to end the run: three web searches in one round came back `HTTP 401`
-    // with no search provider configured, the `authentication` class halted
-    // the turn on that first round, and a one-hour task ended after 101
-    // seconds with the shell untouched. Steer the model off the tool once;
-    // the ledger still halts if it insists.
-    if matches!(class, "authentication" | "permission") && is_optional_service(tool) {
-        return Some(("service_refused", 1));
-    }
-    // A path the model mistyped is a wrong call it can correct, not a missing
-    // program: the classifier files `No such file or directory (os error 2)`
-    // under `MissingApp`, which is right for a shell command and fatal for
-    // `file_read`. One bad relative path ended a whole turn after two calls.
-    // Any tool, not only the file tools: `use_skill` forwarding a screenshot
-    // from a path that did not exist ("image forwarding failed: Failed to
-    // resolve path …: No such file or directory") halted a one-hour task after
-    // 92 seconds. A shell command's own "No such file" arrives as an exit
-    // report, which never reaches this table.
-    if class == "unsupported"
-        && error
-            .to_ascii_lowercase()
-            .contains("no such file or directory")
-    {
-        return Some(("not_found", 1));
-    }
-    Some((class, budget))
-}
-
-/// Recovery budget for a tool rejecting its own arguments against its schema.
-///
-/// This is the most recoverable failure in the table: nothing ran, so there is
-/// no side effect to reconcile, and the refusal hands the model the complete
-/// expected schema (`tinyagents` `agent_loop/tools.rs`: "invalid arguments for
-/// tool `X`: {detail}; expected schema: {…}"). It is a typo in one call, not a
-/// broken world — unlike `not_found` or `unavailable`, which need the world to
-/// change, and unlike a remote service's 400/422, which rejects a request the
-/// model may have had every reason to send.
-///
-/// At a budget of 1 it ended terminal-bench 4.0 `vf2-speedup-networkx` at
-/// 51/60 tests: the model omitted `edits[0].path` on two consecutive
-/// `apply_patch` calls, while five others in the same run carried all three
-/// fields — one of them 16,370 characters, seventeen times the size of the one
-/// that failed. The omission was intermittent, not a size limit, so a further
-/// attempt would most likely have landed. Three keeps it bounded; a call
-/// repeated unchanged is still caught by the generic no-progress ladder.
-const ARGUMENT_SCHEMA_RECOVERY: usize = 3;
-
-/// Prefix of `tinytools::render_command_failure`, the one renderer every
-/// shell-family tool uses for a command that ran and did not exit 0: an
-/// exit-code (or signal) line, then the program's own stdout and stderr.
-const COMMAND_EXIT_REPORT_PREFIX: &str = "Command failed (";
-
-/// Whether `error` is a finished command's exit report rather than a failure
-/// of the tool itself (a timeout, a policy refusal, a runtime that could not
-/// be resolved), which the tools word differently.
-fn is_command_exit_report(error: &str) -> bool {
-    error.trim_start().starts_with(COMMAND_EXIT_REPORT_PREFIX)
-}
-
-/// Tools that reach a service on the user's behalf: an external connector,
-/// the hosted backend, or the memory store. Work can go on without them.
-fn is_optional_service(tool: &str) -> bool {
-    use crate::core::all::DomainGroup;
-    matches!(
-        crate::tools::ops::tool_group(tool),
-        DomainGroup::Integrations | DomainGroup::Memory | DomainGroup::Hosted
-    )
-}
-
-fn classified_recovery_policy(
-    tool: &str,
-    error: &str,
-    body_level_failure: bool,
-) -> Option<(&'static str, usize)> {
-    use crate::tools::status::ToolFailureClass as Class;
-    if body_level_failure {
-        return Some(("validation", 1));
-    }
-    // An unknown-tool answer is a wrong call the model can correct, and it
-    // echoes the attempted name and every valid tool name. Keyword sniffing
-    // below would read those names as the failure — `forbidden_tool` or a
-    // name carrying `unauthorized` became `authentication`, a zero-retry
-    // class, and halted the run on its first wrong guess.
-    if error.trim_start().starts_with("unknown tool `") {
-        return Some(("validation", 1));
-    }
-    // A command that ran and exited non-zero is reported as an exit-code line
-    // followed by the program's own stdout and stderr. That output is data,
-    // not a tool-layer verdict: keyword sniffing read `Update objects.md
-    // (#401)` in a `git log | head` (exit 141, a harmless SIGPIPE) as a
-    // credential failure, a zero-retry class, and ended the whole run on the
-    // first call. The exit-code hint already steers the model, and the
-    // generic no-progress ladder still bounds a command repeated unchanged.
-    if is_command_exit_report(error) {
-        return None;
-    }
-    // A module the host could not load stays unloaded until the app restarts,
-    // so retrying the same tool cannot help. Steer the model off it once
-    // rather than halting the run on the first call or spending a transient
-    // budget on it (`restart the app to try again` read as recoverable).
-    if error.contains(crate::tools::status::MODULE_FAULT_MARKER)
-        && error.contains("restart the app to try again")
-    {
-        return Some(("unavailable", 1));
-    }
-    if let Some(policy) = fetched_site_policy(tool, error) {
-        return policy;
-    }
-    // A tool-owned JSON error contract is less ambiguous than rendered prose.
-    // Read only explicit status/code fields; arbitrary response data is not a
-    // failure signal (this function is called only for `is_error` results).
-    if let Ok(value) = serde_json::from_str::<serde_json::Value>(error) {
-        let status = value
-            .get("status_code")
-            .or_else(|| value.get("status"))
-            .or_else(|| value.pointer("/error/status_code"))
-            .and_then(serde_json::Value::as_u64);
-        match status {
-            Some(401) => return Some(("authentication", 0)),
-            Some(403) => return Some(("permission", 0)),
-            Some(400 | 422) => return Some(("validation", 1)),
-            Some(429 | 500 | 502 | 503 | 504) => return Some(("transient", 2)),
-            _ => {}
-        }
-        let code = value
-            .get("code")
-            .or_else(|| value.pointer("/error/code"))
-            .and_then(serde_json::Value::as_str);
-        match code {
-            Some("PERMISSION_DENIED") => return Some(("permission", 0)),
-            Some("UNAUTHENTICATED") => return Some(("authentication", 0)),
-            Some("INVALID_ARGUMENT") => return Some(("validation", 1)),
-            Some("WINDOW_NOT_FOUND") => return Some(("missing_window", 1)),
-            Some("APP_NOT_FOUND") => return Some(("missing_app", 1)),
-            Some("UNIMPLEMENTED") => return Some(("unsupported", 0)),
-            Some("UNAVAILABLE" | "RESOURCE_EXHAUSTED") => return Some(("transient", 2)),
-            _ => {}
-        }
-    }
-    let class = crate::tools::status::classify(error, false).class;
-    Some(match class {
-        Class::MissingPermission => ("permission", 0),
-        Class::BadCredentials => ("authentication", 0),
-        Class::BlockedByPolicy | Class::Denied | Class::ApprovalExpired => ("policy", 0),
-        Class::Unsupported | Class::MissingApp => ("unsupported", 0),
-        Class::NotFound
-            if tool.contains("desktop") && error.to_ascii_lowercase().contains("window") =>
-        {
-            ("missing_window", 1)
-        }
-        Class::NotFound => ("not_found", 1),
-        Class::ServiceUnavailable | Class::ModelConnection => ("transient", 2),
-        Class::Timeout
-            if matches!(
-                tool,
-                "web_search" | "web_fetch" | "file_read" | "list_files" | "desktop_list_windows"
-            ) =>
-        {
-            ("transient", 2)
-        }
-        // A local command killed by the shell's own timeout is still uncertain
-        // (it may have partly run), but it is inspectable: the model can check
-        // the filesystem or re-run a smaller, bounded step. Halting the whole
-        // turn on the first one threw away every earlier result for what is
-        // usually a slow read (a `whois`/`dig` loop). It gets one recovery
-        // attempt, steered by a reconcile-first nudge, and halts on a second.
-        // Remote actions (`gmail_send`, payments, …) stay at zero: a retry
-        // there can repeat an effect the agent cannot observe.
-        Class::Timeout if tool == "shell" => ("uncertain_side_effect", 1),
-        Class::Timeout => ("uncertain_side_effect", 0),
-        Class::Unknown if is_recoverable_tool_failure(error) => ("transient", 2),
-        // Its own class, not the `validation` bucket: the ledger keys on
-        // (class, operation, scope), so pooling this with `unknown tool` and
-        // `validate_workflow`'s invalid graphs would hand those a budget they
-        // should not have. A wrong tool name does not become right, and a graph
-        // the model cannot fix should still stop.
-        Class::Unknown
-            if error.to_ascii_lowercase().contains("schema validation")
-                || error.to_ascii_lowercase().contains("invalid arguments") =>
-        {
-            ("invalid_arguments", ARGUMENT_SCHEMA_RECOVERY)
-        }
-        Class::Unknown => return None,
-    })
-}
+pub(super) use super::failure_policy::{is_command_exit_report, recovery_policy};
 
 /// Detect a **body-level** failure from `validate_workflow` / `dry_run_workflow`
 /// (issue: flows breaker doesn't see repeated invalid-graph loops). Both tools
@@ -650,9 +315,6 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         }
         if let Ok(mut scopes) = self.target_scopes.lock() {
             scopes.insert(call.id.clone(), failure_scope(&call.name, &call.arguments));
-        }
-        if let Ok(mut calls) = self.recent_calls.lock() {
-            calls.insert(call.id.clone(), render_call(&call.name, &call.arguments));
         }
         Ok(())
     }
@@ -708,28 +370,6 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         };
         let heuristic_failure_text = heuristic_text(tool_name, &failure_text);
 
-        // What this call was, for a halt summary; the consecutive-failure list
-        // mirrors the ladder: it grows on every failure and empties on any success.
-        let rendered = self
-            .recent_calls
-            .lock()
-            .ok()
-            .and_then(|mut calls| calls.remove(&invocation.call_id().to_string()))
-            .unwrap_or_else(|| tool_name.to_owned());
-        if let Ok(mut failures) = self.recent_failures.lock() {
-            if result.is_error || body_level_failure {
-                failures.push_back(format!(
-                    "`{tool_name}`: {rendered} → {}",
-                    first_error_line(&failure_text)
-                ));
-                while failures.len() > RENDERED_FAILURES {
-                    failures.pop_front();
-                }
-            } else {
-                failures.clear();
-            }
-        }
-
         if !result.is_error && !body_level_failure {
             // Only a successful observation against this operation and scope
             // demonstrates that its blocker changed. Unrelated successes do not.
@@ -768,7 +408,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                         summary.push_str(" The action may already have happened; reconcile its external state before any retry.");
                     }
                     if let Ok(mut slot) = self.halt_summary.lock() {
-                        *slot = Some(self.halt_with(summary));
+                        *slot = Some(summary);
                     }
                     self.handle.send(SteeringCommand::Pause);
                     self.tracker.reset();
@@ -831,11 +471,11 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                     "[tinyagents::mw] terminal delegated-inference failure — halting on first occurrence with root cause"
                 );
                 if let Ok(mut slot) = self.halt_summary.lock() {
-                    *slot = Some(self.halt_with(terminal_inference_halt_summary(
+                    *slot = Some(terminal_inference_halt_summary(
                         kind,
                         tool_name,
                         &failure_text,
-                    )));
+                    ));
                 }
                 self.handle.send(SteeringCommand::Pause);
                 self.tracker.reset();
@@ -896,7 +536,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                     "[tinyagents::mw] recoverable-failure headroom exhausted — halting run so the root cause surfaces"
                 );
                 if let Ok(mut slot) = self.halt_summary.lock() {
-                    *slot = Some(self.halt_with(summary));
+                    *slot = Some(summary);
                 }
                 self.handle.send(SteeringCommand::Pause);
                 self.reset_recoverable_streak();
@@ -944,11 +584,6 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             // A new command: the ladder starts over, as after a success, and
             // the list a halt would print starts with this call.
             self.tracker.reset();
-            if let Ok(mut failures) = self.recent_failures.lock() {
-                let newest = failures.pop_back();
-                failures.clear();
-                failures.extend(newest);
-            }
         }
         let attempt_error: Option<&str> = match result.is_error {
             true => Some(failure_text.as_str()),
@@ -997,7 +632,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                     "[tinyagents::mw] repeated tool failure — halting run so the root cause surfaces"
                 );
                 if let Ok(mut slot) = self.halt_summary.lock() {
-                    *slot = Some(self.halt_with(summary));
+                    *slot = Some(summary);
                 }
                 // Pause at the top of the next iteration (before the next model
                 // call), matching the stop-hook / cap pause path. Reset so a
