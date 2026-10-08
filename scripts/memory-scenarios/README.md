@@ -110,7 +110,8 @@ running it.
 - **Everything the run writes is removed.** Each item carries a run marker
   (`thread-<uuid>` threads, a `memscen:<run>` tag); every id it stores is
   recorded; teardown forgets exactly those, plus every item in the run's
-  threads and every item with its tag, then checks each is gone. Survivors are
+  threads and every item with its tag, then checks each id is gone and that
+  the tag and every thread list empty. Survivors are
   reported as a finding. Beliefs the engine derives on its own from the run's
   items cannot be traced back to the run and are not cleaned up.
 - **The clean-up fails closed.** The ids, threads and marker are written to

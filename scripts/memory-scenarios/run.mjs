@@ -739,6 +739,19 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
           throw new Error(
             `could not list ${unlisted.join(", ")}; items there may survive`,
           );
+        // And nothing the run's threads or tag hold is left either.
+        const filters = [
+          ...threads.map((t) => ({ thread_id: t })),
+          { tags_any: [marker] },
+        ];
+        for (const filter of filters) {
+          const left = await core.rpc("openhuman.memory_items_list", {
+            filter,
+            limit: 100,
+          });
+          for (const h of left?.items ?? []) survivors.push(h.id);
+        }
+        engineResults.cleanupListsEmpty = filters.length;
         const untouched = guardPlaced
           ? await verifyBuiltinUntouched(core)
           : {
@@ -784,7 +797,7 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
             basis: "READ",
           });
         console.log(
-          `builtin : cleanup forgot ${ledger.list().length} ids, ${survivors.length} survived; migration/import untouched: ${untouched.ok}`,
+          `builtin : cleanup forgot ${ledger.list().length} ids, ${survivors.length} survived (${engineResults.cleanupListsEmpty} thread/tag lists re-read); migration/import untouched: ${untouched.ok}`,
         );
       } catch (e) {
         findings.add({
