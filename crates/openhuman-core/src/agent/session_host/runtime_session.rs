@@ -94,6 +94,8 @@ struct OpenHumanTurnPrelude {
     sandbox_mode: crate::agent::harness::definition::SandboxMode,
     /// The definition's `searches_connected_mcp`.
     searches_connected_mcp: bool,
+    /// The session's own definition, preferred over a registry entry.
+    definition: Option<Arc<crate::agent::harness::definition::AgentDefinition>>,
     runtime_config: Option<Arc<crate::config::Config>>,
     /// The one authoritative, request-refreshable composition of executable
     /// tools, policy, and provider schema. Generic runtime owns the immutable
@@ -373,7 +375,16 @@ impl OpenHumanTurnPrelude {
         let Some(registry) = AgentDefinitionRegistry::current() else {
             return Ok(());
         };
-        let Some(definition) = registry.get(&self.agent_definition_id).cloned() else {
+        let Some(definition) = self
+            .definition
+            .as_deref()
+            .cloned()
+            .or_else(|| registry.get(&self.agent_definition_id).cloned())
+        else {
+            tracing::trace!(
+                agent = %self.agent_definition_id,
+                "[session] no definition resolved; delegation surface unchanged"
+            );
             return Ok(());
         };
         if definition.subagents.is_empty() {
@@ -1025,6 +1036,7 @@ impl OpenHumanSessionHost {
                 searches_connected_mcp: self
                     .resolved_definition()
                     .is_some_and(|definition| definition.searches_connected_mcp),
+                definition: self.resolved_definition(),
                 runtime_config: self.runtime_config.clone(),
                 tool_surface: Arc::new(std::sync::Mutex::new(OpenHumanTurnToolSurface {
                     tools: self.tools.clone(),
