@@ -151,3 +151,52 @@ async fn a_tree_another_account_took_is_left_alone() {
             .needed
     );
 }
+
+/// After an import that ended with its last batch not confirmed listed, an
+/// item the listing shows only after the first pass is still moved: the run
+/// copies again on later ticks instead of finishing, and finishes (clearing
+/// the flag) once a pass moves nothing new.
+#[tokio::test]
+async fn after_an_unconfirmed_import_an_item_listed_late_is_still_moved() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = crate::memory::test_fixtures::config_in(&tmp);
+    let memory_dir = config.workspace_dir.join("memory");
+    std::fs::create_dir_all(&memory_dir).unwrap();
+    std::fs::write(
+        memory_dir.join("import_state.json"),
+        r#"{"listed_unconfirmed": true}"#,
+    )
+    .unwrap();
+    assert!(crate::memory::import::listed_unconfirmed(
+        &config.workspace_dir
+    ));
+    let host = FakeHost::with(3).await;
+    let manual = Trigger::Manual { takeover: false };
+
+    assert_eq!(
+        go(&config, &host, manual).await,
+        Outcome::Paused,
+        "an unconfirmed import is copied again, not finished"
+    );
+    assert_eq!(count(host.tree.as_ref()).await, 3);
+    // Accepted by the import, listed only now.
+    host.legacy.store(fact("listed late")).await.unwrap();
+
+    let mut outcome = Outcome::Paused;
+    for _ in 0..5 {
+        outcome = go(&config, &host, manual).await;
+        if outcome == Outcome::Done {
+            break;
+        }
+    }
+    assert_eq!(outcome, Outcome::Done);
+    assert_eq!(
+        count(host.tree.as_ref()).await,
+        4,
+        "the late item was moved"
+    );
+    assert_eq!(count(host.legacy.as_ref()).await, 0);
+    assert!(!crate::memory::import::listed_unconfirmed(
+        &config.workspace_dir
+    ));
+}

@@ -111,6 +111,10 @@ pub trait LayoutHost: Send + Sync {
     fn legacy_claim(&self, config: &Config) -> MemoryResult<Option<ClaimKey>>;
 }
 
+/// The most extra catch-up passes after an import that ended with its last
+/// batch not confirmed listed.
+const MAX_RECHECKS: u32 = 3;
+
 /// Runs (or resumes) the migration of `config`'s account. `paused` is the
 /// scheduler's own pause (background work held), asked before every page.
 ///
@@ -129,7 +133,9 @@ where
 {
     let dir = config.workspace_dir.as_path();
     let mut state = state::load(dir)?;
-    if state.phase == Phase::Cleaned {
+    // Cleaned with the import still unconfirmed (a stop between cleanup and
+    // the re-check below) goes round once more rather than counting as done.
+    if state.phase == Phase::Cleaned && !crate::memory::import::listed_unconfirmed(dir) {
         return Ok(Outcome::Done);
     }
     let engines = host.engines(config)?;
@@ -190,6 +196,27 @@ where
         stop,
     )
     .await?;
+    // An import that ended with its last batch not confirmed listed may hold
+    // items no copy saw yet: copy again on a later tick (at least once, then
+    // while a pass still moves something new, at most MAX_RECHECKS times)
+    // before finishing. A late item is never erased meanwhile (`cleanup`).
+    if state.phase == Phase::Cleaned && crate::memory::import::listed_unconfirmed(dir) {
+        let new = state.copied > state.replayed;
+        if (state.rechecks == 0 || new) && state.rechecks < MAX_RECHECKS {
+            state.rechecks += 1;
+            state.caught_up = false;
+            state.cleaning = false;
+            state.cursor = None;
+            state.phase = Phase::Copied;
+            state::save(dir, &state)?;
+            tracing::info!(
+                rechecks = state.rechecks,
+                "[memory:layout_migration] import not confirmed listed; copying again"
+            );
+            return Ok(Outcome::Paused);
+        }
+        crate::memory::import::clear_listed_unconfirmed(dir);
+    }
     Ok(if state.phase == Phase::Cleaned {
         Outcome::Done
     } else {

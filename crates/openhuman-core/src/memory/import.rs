@@ -242,20 +242,24 @@ struct ImportFile {
     retrying: bool,
     #[serde(default)]
     checkpoint: Checkpoint,
-    /// The import finished without its last batch confirmed listed (the
-    /// final wait gave up). Items the engine accepted may not be listed yet,
-    /// so a migration must not erase legacy scopes whole
-    /// ([`listed_unconfirmed`]). A later import that confirms clears it.
+    /// The import ended with its last batch not confirmed listed (the final
+    /// wait gave up); see [`listed_unconfirmed`].
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     listed_unconfirmed: bool,
 }
 
-/// Whether the last import in `workspace_dir` finished with its last batch
-/// not yet confirmed listed: the layout migration then forgets moved items
-/// by id instead of erasing whole legacy scopes, which could take an item
-/// the listing does not show yet.
+/// Whether the last import ended with its last batch not confirmed listed:
+/// the layout migration then forgets by id, never erasing scopes whole, and
+/// copies again before it finishes. A confirming import, or it, clears it.
 pub(crate) fn listed_unconfirmed(workspace_dir: &Path) -> bool {
     read_file(workspace_dir).listed_unconfirmed
+}
+
+/// Clears [`listed_unconfirmed`] once the migration has re-checked.
+pub(crate) fn clear_listed_unconfirmed(workspace_dir: &Path) {
+    let mut file = read_file(workspace_dir);
+    file.listed_unconfirmed = false;
+    write_file(workspace_dir, &file);
 }
 
 fn file_path(workspace_dir: &Path) -> PathBuf {
