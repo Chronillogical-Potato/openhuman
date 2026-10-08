@@ -431,7 +431,11 @@ async fn erase_if_sole_owner(
                 cursor,
             })
             .await?;
-        if page.items.iter().any(|hit| !hit.meta.tags.iter().any(|t| t == tag)) {
+        if page
+            .items
+            .iter()
+            .any(|hit| !hit.meta.tags.iter().any(|t| t == tag))
+        {
             tracing::debug!(
                 "[memory:sources] toolkit source shared with another connection; forgetting by id"
             );

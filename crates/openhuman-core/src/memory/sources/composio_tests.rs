@@ -575,8 +575,14 @@ async fn a_source_held_by_one_connection_is_erased_not_forgotten() {
             .unwrap(),
         2
     );
-    assert_eq!(engine.calls(), ["erase"], "a scoped erasure, no bare forget");
-    assert!(stored(&engine.inner, MetaFilter::default()).await.is_empty());
+    assert_eq!(
+        engine.calls(),
+        ["erase"],
+        "a scoped erasure, no bare forget"
+    );
+    assert!(stored(&engine.inner, MetaFilter::default())
+        .await
+        .is_empty());
 }
 
 #[tokio::test]
@@ -616,7 +622,9 @@ async fn an_engine_that_cannot_erase_falls_back_to_forget_by_id() {
         1
     );
     assert_eq!(engine.calls(), ["erase", "forget"]);
-    assert!(stored(&engine.inner, MetaFilter::default()).await.is_empty());
+    assert!(stored(&engine.inner, MetaFilter::default())
+        .await
+        .is_empty());
 }
 
 #[tokio::test]

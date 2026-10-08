@@ -25,8 +25,14 @@ async fn a_deleted_threads_conversation_is_forgotten_for_good() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
     let engine = bind_reference(&config);
-    engine.store(conversation("t-gone", "secret plan")).await.unwrap();
-    engine.store(conversation("t-kept", "keep me")).await.unwrap();
+    engine
+        .store(conversation("t-gone", "secret plan"))
+        .await
+        .unwrap();
+    engine
+        .store(conversation("t-kept", "keep me"))
+        .await
+        .unwrap();
 
     assert_eq!(forget_thread(&config, "t-gone").await, 1);
 
@@ -49,7 +55,10 @@ async fn a_thread_deleted_while_signed_out_is_forgotten_on_the_next_sign_in() {
 
     // Signed in: the engine is reachable and holds the thread's memory.
     let engine = bind_reference(&config);
-    engine.store(conversation("t-1", "from before")).await.unwrap();
+    engine
+        .store(conversation("t-1", "from before"))
+        .await
+        .unwrap();
     assert_eq!(drain(&config).await, 1);
     assert!(stored(&engine, MetaFilter::default()).await.is_empty());
     assert!(pending(&config.workspace_dir).is_empty());

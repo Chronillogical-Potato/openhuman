@@ -124,7 +124,11 @@ pub async fn forget_channel(config: &Config, channel: &str) -> MemoryResult<usiz
             write(&config.workspace_dir, &all);
         }
     }
-    tracing::debug!(forgotten, queued = bound.is_none(), "[memory:channels] channel forgotten");
+    tracing::debug!(
+        forgotten,
+        queued = bound.is_none(),
+        "[memory:channels] channel forgotten"
+    );
     match failure {
         Some(error) => Err(error),
         None => Ok(forgotten),

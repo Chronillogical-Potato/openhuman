@@ -215,10 +215,7 @@ impl MemoryEngine for RecordingEngine {
         self.inner.list(req).await
     }
 
-    async fn export(
-        &self,
-        req: ListRequest,
-    ) -> tinymemory_api::Result<tinymemory_api::ExportPage> {
+    async fn export(&self, req: ListRequest) -> tinymemory_api::Result<tinymemory_api::ExportPage> {
         self.inner.export(req).await
     }
 
