@@ -5111,26 +5111,22 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'Wybierz dostawcę pamięci, aby zacząć zapamiętywać.',
   'memoryPage.off.action': 'Wybierz dostawcę',
   'memoryPage.engine.inUse': 'W użyciu',
-  'memoryPage.announcement.title': 'Nielimitowana pamięć w CortexDB',
+  'memoryPage.announcement.title': "Darmowa pamięć w CortexDB",
   'memoryPage.announcement.retired': 'TinyCortex wycofano 7 paź.',
-  'memoryPage.announcement.highlight': 'Darmowa migracja i nielimitowane użycie w CortexDB.',
-  'memoryPage.announcement.rest':
-    'Jest szybszy i inteligentniejszy, a Twoje dane nigdy nie służą do trenowania.',
+  'memoryPage.announcement.highlight': "Darmowa migracja, a wnioskowanie pamięci nigdy nie jest płatne.",
+  'memoryPage.announcement.rest': "Basic obejmuje 1 GB pamięci, a Pro 20 GB. Jest szybsza i mądrzejsza, a Twoje dane nigdy nie są używane do trenowania.",
   'memoryPage.announcement.dismiss': 'Zamknij',
   'memoryPage.engine.cortex.description':
     'Silnik pamięci z rankingiem wyników i ugruntowanymi odpowiedziami.',
   'memoryPage.engine.chip.label': 'Jak połączyć CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': 'Bez limitu',
+  'memoryPage.engine.chip.free': "Darmowa",
   'memoryPage.engine.chip.apikey': 'Twój klucz CortexDB',
   'memoryPage.engine.chip.selfhost': 'Lokalnie',
-  'memoryPage.engine.fairUse.summary':
-    'Nieograniczona pamięć podlega zasadom uczciwego użytkowania',
+  'memoryPage.engine.fairUse.summary': "Darmowa pamięć podlega zasadom uczciwego użytkowania",
   'memoryPage.engine.offPrompt': 'Wybierz dostawcę poniżej, aby zacząć zapamiętywać.',
-  'memoryPage.engine.builtin.summaryPlan':
-    'Hostowane przez TinyHumans, z nieograniczoną pamięcią w Twoim planie {plan}.',
-  'memoryPage.engine.builtin.summaryUpgrade':
-    'Hostowane przez TinyHumans. Nieograniczona pamięć w planach Basic i Pro.',
+  'memoryPage.engine.builtin.summaryPlan': "Hostowana przez TinyHumans: {storage} darmowej pamięci w Twoim planie {plan}. Wnioskowanie pamięci nigdy nie jest płatne.",
+  'memoryPage.engine.builtin.summaryUpgrade': "Hostowana przez TinyHumans: darmowa pamięć w planach Basic (1 GB) i Pro (20 GB). Wnioskowanie pamięci nigdy nie jest płatne.",
   'memoryPage.engine.apiKeyOption.connected': 'Połączono za pomocą Twojego klucza API CortexDB.',
   'memoryPage.engine.selfHost.connected': 'Połączono z CortexDB pod adresem {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Zapisuj własne treści na własny użytek.',
