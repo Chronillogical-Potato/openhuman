@@ -42,6 +42,7 @@ export const CORE_RPC_METHODS = {
   memoryFetch: 'openhuman.memory_fetch',
   memoryLearn: 'openhuman.memory_learn',
   memoryForget: 'openhuman.memory_forget',
+  memoryEraseAll: 'openhuman.memory_erase_all',
   memoryItemsList: 'openhuman.memory_items_list',
   memoryExplore: 'openhuman.memory_explore',
   memoryItemsGet: 'openhuman.memory_items_get',

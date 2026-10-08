@@ -28,7 +28,9 @@ import { behavior } from "../state.mjs";
  *     filter and `budgets.per_layer_limits.events`, and mints a `pack_<n>` id
  *     that `/memory/answer` must be given as `use_pack_id`;
  *   - `/memory/answer` answers deterministically from the pack it is given:
- *     "grounded answer for <question>" followed by the pack's top event text.
+ *     "grounded answer for <question>" followed by the pack's top event text;
+ *   - `DELETE /memory` erases the caller's whole store and answers
+ *     `{erased: true, scopes}`.
  *
  * Everything is in memory and deterministic; `resetMockMemory()` clears it.
  */
@@ -131,9 +133,37 @@ function rendered(event) {
   return { ...event, content: { ...event.content, text: `[${role}] ${text}` } };
 }
 
+/**
+ * `DELETE /memory`: erases the caller's entire hosted memory (every scope of
+ * this bearer's store) and reports how many scopes held anything.
+ */
+function eraseAll({ req, res }) {
+  const token = bearerOf(req);
+  if (!token) {
+    fail(res, 401, "UNAUTHORIZED", "missing bearer");
+    return true;
+  }
+  const forced = Number(behavior().memoryForceStatus || 0);
+  if (forced >= 400) {
+    fail(res, forced, STATUS_CODES[forced] || "UPSTREAM_ERROR", "forced by mock");
+    return true;
+  }
+  const store = storeFor(token);
+  const scopes = new Set(store.events.map((e) => e.scope)).size;
+  store.events = [];
+  store.packs.clear();
+  store.idempotency.clear();
+  store.claims.clear();
+  ok(res, { erased: true, scopes });
+  return true;
+}
+
 export async function handleMemory(ctx) {
   const { method, url, res, req, parsedBody } = ctx;
   const path = url.split("?")[0];
+  if ((path === "/memory" || path === "/memory/") && method === "DELETE") {
+    return eraseAll(ctx);
+  }
   if (!path.startsWith("/memory/")) return false;
   let route = path.slice("/memory/".length).replace(/\/+$/, "");
   let eventId = null;

@@ -741,7 +741,7 @@ const en: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f2': 'Token compression to stretch your usage further',
   'onboarding.runtimeChoice.cloud.f3': 'One subscription, every model included',
   'onboarding.runtimeChoice.cloud.f4': 'No model, search, or Composio keys to manage',
-  'onboarding.runtimeChoice.cloud.f5': 'Local Memory Tree, managed network services',
+  'onboarding.runtimeChoice.cloud.f5': 'Hosted memory, managed network services',
   'onboarding.runtimeChoice.custom.title': 'Run Custom',
   'onboarding.runtimeChoice.custom.tagline':
     'Bring your own keys. Choose which services OpenHuman should call.',
@@ -879,7 +879,7 @@ const en: TranslationMap = {
   'accounts.disconnect': 'Disconnect',
   'accounts.disconnectClearMemory': 'Also delete memory from this source',
   'accounts.disconnectClearMemoryHint':
-    'Permanently removes local memory chunks linked to this connection.',
+    'Permanently deletes the memories saved from this connection.',
 
   // Channels
   'channels.title': 'Channels',
@@ -5580,6 +5580,31 @@ const en: TranslationMap = {
     'The root every agent shares and the agent this app runs as.',
   'memoryPage.settings.root': 'Root',
   'memoryPage.settings.agentId': 'Agent',
+  'memoryPage.settings.eraseTitle': 'Erase memory',
+  'memoryPage.settings.eraseAction': 'Erase all memory',
+  'memoryPage.settings.eraseDescription':
+    'Permanently deletes everything OpenHuman remembers for this account. This cannot be undone.',
+  'memoryPage.settings.eraseConfirmTitle': 'Erase all memory?',
+  'memoryPage.settings.eraseConfirmBody':
+    'This permanently deletes everything OpenHuman remembers for this account: every connected source, past conversation, learning and fact. Your connections and settings are kept.',
+  'memoryPage.settings.eraseIrreversible':
+    'This cannot be undone. Erased memory cannot be recovered.',
+  'memoryPage.settings.eraseConfirmCheck':
+    'I understand that all of my memory will be permanently deleted.',
+  'memoryPage.settings.eraseConfirm': 'Erase everything',
+  'memoryPage.settings.erasing': 'Erasing…',
+  'memoryPage.settings.erasedToast': 'All memory erased',
+  'memoryPage.settings.erasedToastBody': 'OpenHuman no longer remembers anything for this account.',
+  'memoryPage.settings.eraseError.unsupported':
+    "Your memory service can't erase all memory yet. Nothing was erased.",
+  'memoryPage.settings.eraseError.insufficientCredits':
+    "Your account is out of credits, so memory can't be erased right now. Top up and try again. Nothing was erased.",
+  'memoryPage.settings.eraseError.memoryOff': 'Memory is turned off, so there is nothing to erase.',
+  'memoryPage.settings.eraseError.unavailable':
+    "We couldn't confirm whether the memory was erased. It may have been; check before trying again.",
+  'memoryPage.settings.eraseError.unauthorized':
+    'Your session has expired. Sign in again, then try erasing your memory.',
+  'memoryPage.settings.eraseError.generic': "Couldn't erase your memory. Please try again.",
   'memoryPage.settings.hostBound':
     'The app hosting OpenHuman sets these, so they cannot be changed here.',
   'memoryPage.import.title': 'Previous memory found',
