@@ -212,7 +212,7 @@ tinyruntime-pyserver = { path = "../../vendor/tinyruntime/crates/tinyruntime-pys
 # `memory::` is the only module that names the engine side.
 tinymemory-api = { path = "../../vendor/tinymemory/crates/tinymemory-api" }
 tinymemory-tools = { path = "../../vendor/tinymemory/crates/tinymemory-tools" }
-tinymemory-integrations = { path = "../../vendor/tinymemory/crates/tinymemory-integrations", default-features = false, features = ["cortex", "brain", "sources-network", "safety", "legacy-import"] }
+tinymemory-integrations = { path = "../../vendor/tinymemory/crates/tinymemory-integrations", default-features = false, features = ["cortex", "brain", "sources", "safety", "legacy-import"] }
 # tinyconnectors-bus — the OAuth connector wire contract
 # (https://github.com/tinyhumansai/tinyconnectors). Payload types and member
 # names for the connector surface, with no transport and no behaviour: this
