@@ -138,6 +138,7 @@ fn install_tool_schema_has_no_scan_acknowledgement() {
     let properties = schema["properties"].as_object().expect("properties");
     assert_eq!(properties.keys().collect::<Vec<_>>(), ["entry_id"]);
     assert!(!schema.to_string().contains("acknowledge"));
+    assert!(!schema.to_string().contains("digest"));
 }
 
 #[tokio::test]
@@ -159,10 +160,22 @@ async fn the_install_tool_cannot_acknowledge_scan_findings() {
     let workspace = tempfile::tempdir().unwrap();
     let mut config = Config::default();
     config.workspace_dir = workspace.path().to_path_buf();
+    let seen = match ops::install_from_catalog(
+        workspace.path(),
+        "agent-poisoned",
+        crate::skills::ops_install::ScanAcknowledgement::Absent,
+    )
+    .await
+    .expect("install")
+    {
+        crate::skills::ops_install::SkillInstallOutcome::ScanBlocked(blocked) => blocked.digest,
+        other => panic!("expected scan_blocked, got {other:?}"),
+    };
     let tool = SkillRegistryInstallTool::new(Arc::new(config));
     let result = tool
         .execute(json!({
             "entry_id": "agent-poisoned",
+            "acknowledged_digest": seen,
             "acknowledge_scan_findings": true,
         }))
         .await
@@ -177,6 +190,10 @@ async fn the_install_tool_cannot_acknowledge_scan_findings() {
     let body: serde_json::Value = serde_json::from_str(&result.output()).expect("json");
     assert_eq!(body["status"], "scan_blocked");
     assert_eq!(body["target"], "agent-poisoned");
+    assert!(
+        body.get("digest").is_none(),
+        "the agent is never handed the digest"
+    );
     assert_eq!(body["findings"][0]["check"], "invisible_code_points");
     assert!(body["instruction"]
         .as_str()
@@ -186,7 +203,8 @@ async fn the_install_tool_cannot_acknowledge_scan_findings() {
         fixture
             .document_hits
             .load(std::sync::atomic::Ordering::SeqCst),
-        2
+        4,
+        "two scans for the direct call, two for the tool call"
     );
     assert!(!dirs::home_dir()
         .unwrap()

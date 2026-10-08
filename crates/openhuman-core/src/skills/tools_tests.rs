@@ -84,6 +84,7 @@ async fn list_returns_envelope() {
 fn install_from_url_tool_schema_has_no_scan_acknowledgement() {
     let schema = WorkflowInstallFromUrlTool::new(cfg()).parameters_schema();
     assert!(!schema.to_string().contains("acknowledge"));
+    assert!(!schema.to_string().contains("digest"));
 }
 
 #[tokio::test]
@@ -107,6 +108,7 @@ async fn install_from_url_tool_cannot_acknowledge_scan_findings() {
         .execute(json!({
             "url": format!("{}/SKILL.md", server.uri()),
             "acknowledge_scan_findings": true,
+            "acknowledged_digest": "any",
         }))
         .await
         .expect("execute");
@@ -115,6 +117,7 @@ async fn install_from_url_tool_cannot_acknowledge_scan_findings() {
     assert!(result.is_error);
     let body: serde_json::Value = serde_json::from_str(&result.output()).expect("json");
     assert_eq!(body["status"], "scan_blocked");
+    assert!(body.get("digest").is_none());
     assert!(!dirs::home_dir()
         .unwrap()
         .join(".openhuman/skills/tool-url-poisoned")
