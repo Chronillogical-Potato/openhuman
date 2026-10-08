@@ -28,39 +28,12 @@ export type FetchMode = 'keyword' | 'vector' | 'hybrid';
 export type ItemKind = 'document' | 'conversation' | 'learning';
 
 /** Where an item came from. */
-export type SourceKind =
-  | 'folder'
-  | 'file'
-  | 'link'
-  | 'github'
-  | 'rss'
-  | 'composio'
-  | 'conversation'
-  | 'agent'
-  | 'import';
+export type SourceKind = 'folder' | 'file' | 'conversation' | 'agent' | 'import';
 
 /** The source kinds a user can register as a synced Documents source. */
-export type DocumentSourceKind = 'folder' | 'file' | 'link' | 'github' | 'rss' | 'composio';
+export type DocumentSourceKind = 'folder' | 'file';
 
-export const DOCUMENT_SOURCE_KINDS: readonly DocumentSourceKind[] = [
-  'folder',
-  'file',
-  'link',
-  'github',
-  'rss',
-  'composio',
-];
-
-/** The kinds a learning can be stored as. */
-export type LearningKind = 'preference' | 'fact' | 'procedure' | 'correction' | 'other';
-
-export const LEARNING_KINDS: readonly LearningKind[] = [
-  'preference',
-  'fact',
-  'procedure',
-  'correction',
-  'other',
-];
+export const DOCUMENT_SOURCE_KINDS: readonly DocumentSourceKind[] = ['folder', 'file'];
 
 /**
  * The tag TinyMemory's belief builder stamps on the learnings it derives
@@ -166,27 +139,6 @@ export interface Hit {
   score: number;
 }
 
-/** A recall citation: a {@link Hit} with `snippet` in place of `text`. */
-export interface Citation {
-  id: string;
-  kind: ItemKind;
-  snippet: string;
-  meta: MemoryMeta;
-  score?: number | null;
-}
-
-export interface RecallRequest {
-  question: string;
-  filter?: MetaFilter;
-  limit?: number;
-}
-
-export interface RecallAnswer {
-  answer: string;
-  citations: Citation[];
-  model?: string | null;
-}
-
 export interface FetchRequest {
   query: string;
   mode?: FetchMode;
@@ -200,97 +152,16 @@ export interface FetchPage {
   next_cursor?: string | null;
 }
 
-export interface LearnRequest {
-  text: string;
-  kind?: LearningKind;
-  confidence?: number;
-  meta?: Partial<MemoryMeta>;
-}
-
 export interface ItemsListRequest {
   filter?: MetaFilter;
   limit?: number;
   cursor?: string;
-  /** Explorer path; the core narrows `filter` by each step. */
-  path?: PathStep[];
   /**
    * Snippet listing: a conversation's or chunked document's `text` may be
    * only its start, which the engine lists without assembling each item.
    * Read an item whole with `memoryItemsGet` when it is opened.
    */
   preview?: boolean;
-}
-
-// ─── Explorer ────────────────────────────────────────────────────────────────
-
-/**
- * A metadata dimension the explorer groups by — TinyMemory's standard facets,
- * the same for every engine.
- */
-export type Facet =
-  | 'kind'
-  | 'source'
-  | 'source_id'
-  | 'workspace'
-  | 'folder'
-  | 'file_path'
-  | 'language'
-  | 'repo'
-  | 'url'
-  | 'thread'
-  | 'agent'
-  | 'tool_call'
-  | 'tag'
-  | 'namespace';
-
-export const FACETS: readonly Facet[] = [
-  'kind',
-  'namespace',
-  'source',
-  'source_id',
-  'workspace',
-  'folder',
-  'file_path',
-  'language',
-  'repo',
-  'url',
-  'thread',
-  'agent',
-  'tool_call',
-  'tag',
-];
-
-/** One step down the explorer: the items whose `facet` is `value`. */
-export interface PathStep {
-  facet: Facet;
-  value: string;
-}
-
-export interface ExploreRequest {
-  facet: Facet;
-  path?: PathStep[];
-  filter?: MetaFilter;
-  limit?: number;
-  scan_limit?: number;
-}
-
-export interface FacetBucket {
-  value: string;
-  count: number;
-}
-
-export interface ExplorePage {
-  facet: Facet;
-  /** Largest first. */
-  buckets: FacetBucket[];
-  /** Items under the path (that were read, when `truncated`). */
-  total: number;
-  /** Of those, items with no value for the facet. */
-  missing: number;
-  /** Values left out by the bucket limit. */
-  more_buckets: number;
-  /** The engine stopped scanning early, so counts are a lower bound. */
-  truncated: boolean;
 }
 
 export interface ItemsPage {
@@ -435,42 +306,6 @@ export interface PolicyUpdate {
   pre_turn_timeout_ms?: number;
 }
 
-// ─── Memory pack ─────────────────────────────────────────────────────────────
-
-export interface PackPreviewRequest {
-  /** A turn's text; without it the preview is a session start. */
-  query?: string;
-  thread_id?: string;
-  agent_id?: string;
-}
-
-export interface PackSection {
-  heading: string;
-  answer?: string | null;
-  hits: Hit[];
-}
-
-export interface PackSkipped {
-  heading: string;
-  reason: string;
-}
-
-export interface MemoryPack {
-  markdown: string;
-  tokens: number;
-  refs: string[];
-  sections: PackSection[];
-  skipped: PackSkipped[];
-  engine: string;
-}
-
-export interface PackPreview {
-  agent_id: string;
-  root: string;
-  mode: 'turn' | 'session';
-  pack: MemoryPack;
-}
-
 export interface MemoryAgent {
   agent_id: string;
   /** Turns logged for this agent. */
@@ -483,25 +318,6 @@ export interface AgentsList {
 }
 
 // ─── Brain (shared documents) ────────────────────────────────────────────────
-
-/** Documents filed under one source type (pdf, markdown, notion, github, web, gmail, …). */
-export interface BrainSource {
-  source: string;
-  documents: number;
-}
-
-export interface BrainSources {
-  root: string;
-  sources: BrainSource[];
-  /** Documents with no source type. */
-  unfiled: number;
-}
-
-export interface BrainSearchRequest {
-  query: string;
-  source?: string;
-  limit?: number;
-}
 
 /** Exactly one of `path` / `text`. */
 export interface BrainIngestRequest {
@@ -516,37 +332,6 @@ export interface BrainIngestResult {
   source: string;
   /** The same document was already in the brain; nothing new was stored. */
   replayed: boolean;
-}
-
-// ─── Background jobs ─────────────────────────────────────────────────────────
-
-export type MemoryJobKind = 'build_beliefs' | 'ingest_brain';
-
-export interface PendingJob {
-  id: string;
-  root: string;
-  job: { job: MemoryJobKind | string; [key: string]: unknown };
-  queued_at: string;
-  attempts: number;
-  last_error?: string | null;
-}
-
-export type JobOutcome = 'done' | 'started' | 'scheduled' | 'skipped' | 'failed';
-
-export interface JobRun {
-  id: string;
-  job: string;
-  root: string;
-  ran_at: string;
-  outcome: JobOutcome;
-  reason?: string | null;
-  built?: number | null;
-  stored: number;
-}
-
-export interface JobsList {
-  pending: PendingJob[];
-  history: JobRun[];
 }
 
 /** The structured error codes a memory RPC can fail with. */
@@ -697,35 +482,14 @@ export function memoryEngineSet(req: EngineSetRequest): Promise<EngineState> {
   return call<EngineState>(CORE_RPC_METHODS.memoryEngineSet, req);
 }
 
-// ─── Recall / fetch / store ──────────────────────────────────────────────────
-
-export function memoryRecall(req: RecallRequest): Promise<RecallAnswer> {
-  return call<RecallAnswer>(CORE_RPC_METHODS.memoryRecall, req);
-}
+// ─── Fetch / list ────────────────────────────────────────────────────────────
 
 export function memoryFetch(req: FetchRequest): Promise<FetchPage> {
   return call<FetchPage>(CORE_RPC_METHODS.memoryFetch, req);
 }
 
-export function memoryLearn(req: LearnRequest): Promise<{ id: string }> {
-  return call<{ id: string }>(CORE_RPC_METHODS.memoryLearn, req);
-}
-
-export function memoryForget(ids: string[]): Promise<{ forgotten: number }> {
-  return call<{ forgotten: number }>(CORE_RPC_METHODS.memoryForget, { ids });
-}
-
 export function memoryItemsList(req: ItemsListRequest = {}): Promise<ItemsPage> {
   return call<ItemsPage>(CORE_RPC_METHODS.memoryItemsList, req);
-}
-
-export function memoryExplore(req: ExploreRequest): Promise<ExplorePage> {
-  return call<ExplorePage>(CORE_RPC_METHODS.memoryExplore, req);
-}
-
-/** Items read whole, in the order asked; unknown ids are left out. */
-export function memoryItemsGet(ids: string[]): Promise<{ items: Hit[] }> {
-  return call<{ items: Hit[] }>(CORE_RPC_METHODS.memoryItemsGet, { ids });
 }
 
 // ─── Documents (sources) ─────────────────────────────────────────────────────
@@ -763,11 +527,6 @@ export function memoryPolicySet(update: PolicyUpdate): Promise<MemoryPolicy> {
   return call<MemoryPolicy>(CORE_RPC_METHODS.memoryPolicySet, update);
 }
 
-/** The pack a turn would get (with `query`) or a session start (without). */
-export function memoryPackPreview(req: PackPreviewRequest = {}): Promise<PackPreview> {
-  return call<PackPreview>(CORE_RPC_METHODS.memoryPackPreview, req);
-}
-
 /** The agents with logged turns under this identity's root. */
 export function memoryAgentsList(): Promise<AgentsList> {
   return call<AgentsList>(CORE_RPC_METHODS.memoryAgentsList);
@@ -775,32 +534,8 @@ export function memoryAgentsList(): Promise<AgentsList> {
 
 // ─── Brain (shared documents) ────────────────────────────────────────────────
 
-export function memoryBrainSources(): Promise<BrainSources> {
-  return call<BrainSources>(CORE_RPC_METHODS.memoryBrainSources);
-}
-
-export function memoryBrainSearch(req: BrainSearchRequest): Promise<{ hits: Hit[] }> {
-  return call<{ hits: Hit[] }>(CORE_RPC_METHODS.memoryBrainSearch, req);
-}
-
 export function memoryBrainIngest(req: BrainIngestRequest): Promise<BrainIngestResult> {
   return call<BrainIngestResult>(CORE_RPC_METHODS.memoryBrainIngest, req);
-}
-
-/** Forget every brain document filed under `source`. */
-export function memoryBrainForget(source: string): Promise<{ forgotten: number }> {
-  return call<{ forgotten: number }>(CORE_RPC_METHODS.memoryBrainForget, { source });
-}
-
-// ─── Background jobs ─────────────────────────────────────────────────────────
-
-export function memoryJobsList(): Promise<JobsList> {
-  return call<JobsList>(CORE_RPC_METHODS.memoryJobsList);
-}
-
-/** Run one pending job now, or every pending job when `id` is omitted. */
-export function memoryJobsRun(id?: string): Promise<{ runs: JobRun[] }> {
-  return call<{ runs: JobRun[] }>(CORE_RPC_METHODS.memoryJobsRun, { id });
 }
 
 // ─── Import of previous (v1) memory ──────────────────────────────────────────
