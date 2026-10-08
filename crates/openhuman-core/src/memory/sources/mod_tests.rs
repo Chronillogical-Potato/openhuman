@@ -35,44 +35,12 @@ fn normalize_target_accepts_each_kinds_shape() {
         normalize_target(MemorySourceKind::File, "notes.md").unwrap(),
         "notes.md"
     );
-    assert_eq!(
-        normalize_target(MemorySourceKind::Github, "owner/repo").unwrap(),
-        "https://github.com/owner/repo"
-    );
-    assert_eq!(
-        normalize_target(MemorySourceKind::Github, "https://github.com/o/r").unwrap(),
-        "https://github.com/o/r"
-    );
-    assert_eq!(
-        normalize_target(MemorySourceKind::Rss, "https://example.com/feed.xml").unwrap(),
-        "https://example.com/feed.xml"
-    );
-    assert_eq!(
-        normalize_target(MemorySourceKind::Link, "https://example.com").unwrap(),
-        "https://example.com/"
-    );
-    assert_eq!(
-        normalize_target(MemorySourceKind::Composio, "GMail").unwrap(),
-        "gmail"
-    );
-    assert_eq!(
-        normalize_target(MemorySourceKind::Composio, "Google_Drive").unwrap(),
-        "googledrive"
-    );
 }
 
 #[test]
 fn normalize_target_rejects_malformed_targets() {
     for (kind, target) in [
         (MemorySourceKind::Folder, "   "),
-        (MemorySourceKind::Github, "just-one-part"),
-        (MemorySourceKind::Github, "a/b/c"),
-        (MemorySourceKind::Github, "/repo"),
-        (MemorySourceKind::Link, "not a url"),
-        (MemorySourceKind::Link, "ftp://example.com/x"),
-        (MemorySourceKind::Rss, "file:///etc/passwd"),
-        (MemorySourceKind::Composio, "has space"),
-        (MemorySourceKind::Composio, "a/b"),
     ] {
         assert_eq!(
             normalize_target(kind, target).unwrap_err().code(),
@@ -102,9 +70,9 @@ fn add_list_and_remove_round_trip_through_config() {
     assert_eq!(added.label, "My notes");
     assert_eq!(added.schedule_mins, Some(60));
 
-    let unlabeled = apply_add(&mut config, &add_params("github", "owner/repo")).unwrap();
+    let unlabeled = apply_add(&mut config, &add_params("file", "notes/plan.md")).unwrap();
     assert_eq!(
-        unlabeled.label, "https://github.com/owner/repo",
+        unlabeled.label, "notes/plan.md",
         "label defaults to the target"
     );
 
@@ -148,34 +116,31 @@ fn add_validates_kind_schedule_and_target() {
         .code(),
         INVALID_REQUEST
     );
-    assert_eq!(
-        apply_add(&mut config, &add_params("link", "nope"))
-            .unwrap_err()
-            .code(),
-        INVALID_REQUEST
-    );
     assert!(
         config.memory.sources.is_empty(),
         "a refused add changes nothing"
     );
-    // A Composio source needs no reader.
-    apply_add(&mut config, &add_params("composio", "Gmail")).unwrap();
-    assert_eq!(config.memory.sources[0].target, "gmail");
+}
 
-    // A source saved under an alias before canonicalization is still the
-    // same toolkit.
-    config.memory.sources.push(MemorySourceConfig {
-        kind: MemorySourceKind::Composio,
-        target: "google_drive".into(),
-        ..source("src-drive", None)
-    });
-    assert_eq!(
-        apply_add(&mut config, &add_params("composio", "googledrive"))
-            .unwrap_err()
-            .code(),
-        INVALID_REQUEST
-    );
-    assert_eq!(config.memory.sources.len(), 2, "no duplicate was added");
+#[test]
+fn removed_network_kinds_are_rejected_with_a_clear_error() {
+    let mut config = Config::default();
+    for (kind, target) in [
+        ("composio", "gmail"),
+        ("link", "https://example.com"),
+        ("github", "owner/repo"),
+        ("rss", "https://example.com/feed.xml"),
+    ] {
+        let error = apply_add(&mut config, &add_params(kind, target)).unwrap_err();
+        assert_eq!(error.code(), INVALID_REQUEST, "{kind}");
+        assert!(
+            String::from(error).contains("only folder and file"),
+            "{kind}"
+        );
+    }
+    assert!(config.memory.sources.is_empty());
+    assert!(apply_add(&mut config, &add_params("folder", "/notes")).is_ok());
+    assert!(apply_add(&mut config, &add_params("file", "/notes/a.md")).is_ok());
 }
 
 #[test]
@@ -285,7 +250,7 @@ async fn forget_items_with_memory_off_is_not_an_error() {
 #[test]
 fn a_source_can_store_at_an_agent_node() {
     let mut config = Config::default();
-    let mut params = add_params("link", "https://example.com/a");
+    let mut params = add_params("folder", "/team/a");
     params.namespace = Some("team:acme".into());
     let added = apply_add(&mut config, &params).unwrap();
     assert_eq!(added.namespace.as_deref(), Some("team:acme"));
@@ -295,7 +260,7 @@ fn a_source_can_store_at_an_agent_node() {
     );
     assert!(layout_of(&config, "unknown").root().is_root());
 
-    let mut bad = add_params("link", "https://example.com/b");
+    let mut bad = add_params("folder", "/team/b");
     bad.namespace = Some("nope".into());
     assert_eq!(
         apply_add(&mut config, &bad).unwrap_err().code(),
