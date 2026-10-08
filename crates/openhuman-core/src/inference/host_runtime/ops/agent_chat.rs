@@ -458,6 +458,13 @@ pub async fn agent_chat_reply_for(
         effective_agent_chat_origin(),
         agent.run_single(message),
     );
+    let run: futures::future::BoxFuture<'_, _> = match target {
+        AgentChatTarget::Definition {
+            untrusted_input: true,
+            ..
+        } => Box::pin(crate::agent::tinyagents::host::with_untrusted_input_turn(run)),
+        _ => Box::pin(run),
+    };
     let outcome = match target {
         AgentChatTarget::Definition {
             shape: Some(scope), ..
