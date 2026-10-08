@@ -166,3 +166,7 @@ where
 pub fn current_agent_id() -> Option<String> {
     CoreContext::current().and_then(|ctx| ctx.session_agent().map(str::to_owned))
 }
+
+#[cfg(test)]
+#[path = "agent_scope_tests.rs"]
+mod tests;
