@@ -149,7 +149,7 @@ for (const sig of ["SIGINT", "SIGTERM"])
 
 async function runEngine(engine, { opts, runDir, runId, findings, results }) {
   const dir = path.join(runDir, engine);
-  const home = path.join(dir, "home");
+  let home = path.join(dir, "home");
   const oh = path.join(home, ".openhuman");
   await fsp.mkdir(oh, { recursive: true });
   const marker = `memscen:${runId}`;
@@ -236,118 +236,128 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
     return health;
   };
 
+  /**
+   * Set up a local-engine core: a local session, the mock Composio, memory on
+   * this run's container (abort otherwise) and a chat route. With the account
+   * key (`withKey`), the scheduler gate is forced off and chat is managed.
+   * Without it (a fresh HOME that never saw the key), the gate keeps its
+   * default and chat runs on the local Ollama.
+   */
+  const setupLocal = async ({ withKey }) => {
+    // A local session: E needs a per-user root for layout v3.
+    const uid = "memscen-local";
+    await core.rpc("openhuman.auth_set_credential", {
+      token: mintLocalSessionToken(uid),
+      kind: "local",
+      userId: uid,
+      user: { _id: uid, email: "memscen@local.invalid", name: "Jordan Lee" },
+    });
+    // The session activates a user dir whose config wins: put the mock
+    // Composio and the scheduler-gate guard there, restart, read back.
+    // With the account key present, no background job may run on its own.
+    const { config_path: cfgPath } = await core.rpc("openhuman.config_get", {});
+    await editToml(cfgPath, "composio", {
+      mode: "direct",
+      api_key: "ck_memscen_mock",
+      entity_id: "default",
+    });
+    if (withKey) await editToml(cfgPath, "scheduler_gate", { mode: "off" });
+    await core.stop();
+    await startCore();
+    const gate = pick(
+      await core.rpc("openhuman.config_get", {}),
+      "config.scheduler_gate.mode",
+    );
+    if (withKey && gate !== "off")
+      throw new Error(`ABORT local: scheduler gate is "${gate}", not "off"`);
+
+    // Memory stays on this run's CortexDB container; abort otherwise.
+    await withRetries(
+      async () => {
+        await core.rpc("openhuman.memory_engine_set", {
+          engine: "cortexdb",
+          endpoint: cortex.endpoint,
+          api_key: cortex.apiKey,
+        });
+        const got = await core.rpc("openhuman.memory_engine_get", {});
+        if (
+          got?.engine !== "cortexdb" ||
+          got?.status !== "ok" ||
+          got?.endpoint !== cortex.endpoint
+        )
+          throw new Error(
+            `engine ${got?.engine} ${got?.status} at ${got?.endpoint} ${got?.reason ?? ""}`,
+          );
+      },
+      { attempts: 20, delayMs: 1000, what: "local CortexDB engine" },
+    ).catch((e) => {
+      throw new Error(
+        `ABORT local: memory is not on the local CortexDB (${e.message})`,
+      );
+    });
+
+    // Chat: the account's managed route (the key is in the env). If it
+    // cannot run here, fall back to the local Ollama and mark the checks
+    // that depend on reply quality INCONCLUSIVE instead of failed.
+    const probe = !withKey
+      ? { error: "no account key on this core (by design)" }
+      : await sendTurn({
+          core,
+          events,
+          clientId: events.clientId,
+          threadId: `thread-${randomUUID()}`,
+          message: "Reply with the single word OK.",
+          timeoutMs: 120_000,
+        });
+    if (!probe.error) {
+      engineResults.inference.chat_route = "managed (account API key)";
+    } else {
+      engineResults.inference.chat_route_managed_error = scrub(
+        probe.error,
+        secrets,
+      );
+      const inferenceUrl = `${OLLAMA_URL}/v1`;
+      await withRetries(
+        async () => {
+          await core.rpc("openhuman.config_update_model_settings", {
+            inference_url: inferenceUrl,
+            api_key: "ollama",
+            default_model: OLLAMA_CHAT_MODEL,
+          });
+          const cfg =
+            (await core.rpc("openhuman.config_get", {}))?.config ?? {};
+          if (
+            cfg.inference_url !== inferenceUrl ||
+            !(cfg.cloud_providers ?? []).some(
+              (x) => x?.endpoint === inferenceUrl,
+            )
+          )
+            throw new Error(
+              `BYOK route not active yet (inference_url=${cfg.inference_url ?? "unset"})`,
+            );
+        },
+        { attempts: 10, delayMs: 500, what: "local chat route (Ollama)" },
+      );
+      engineResults.inference.chat_route = `BYOK ${inferenceUrl} ${OLLAMA_CHAT_MODEL} (fallback)`;
+      if (withKey) engineResults.qualityInconclusive = true;
+    }
+    // The memory engine must still be the local container after all that.
+    const final = await core.rpc("openhuman.memory_engine_get", {});
+    if (final?.engine !== "cortexdb" || final?.endpoint !== cortex.endpoint)
+      throw new Error(
+        `ABORT local: memory engine moved to ${final?.engine} at ${final?.endpoint}`,
+      );
+    log(
+      `local   : memory on ${cortex.endpoint}, scheduler gate ${gate}, chat ${engineResults.inference.chat_route}`,
+    );
+  };
+
   try {
     const health = await startCore();
     log(`${engine.padEnd(8)}: core ${core.url} pid ${health.pid}`);
 
     if (engine === "local") {
-      // A local session: E needs a per-user root for layout v3.
-      const uid = "memscen-local";
-      await core.rpc("openhuman.auth_set_credential", {
-        token: mintLocalSessionToken(uid),
-        kind: "local",
-        userId: uid,
-        user: { _id: uid, email: "memscen@local.invalid", name: "Jordan Lee" },
-      });
-      // The session activates a user dir whose config wins: put the mock
-      // Composio and the scheduler-gate guard there, restart, read back.
-      // With the account key present, no background job may run on its own.
-      const { config_path: cfgPath } = await core.rpc(
-        "openhuman.config_get",
-        {},
-      );
-      await editToml(cfgPath, "composio", {
-        mode: "direct",
-        api_key: "ck_memscen_mock",
-        entity_id: "default",
-      });
-      await editToml(cfgPath, "scheduler_gate", { mode: "off" });
-      await core.stop();
-      await startCore();
-      const gate = pick(
-        await core.rpc("openhuman.config_get", {}),
-        "config.scheduler_gate.mode",
-      );
-      if (gate !== "off")
-        throw new Error(`ABORT local: scheduler gate is "${gate}", not "off"`);
-
-      // Memory stays on this run's CortexDB container; abort otherwise.
-      await withRetries(
-        async () => {
-          await core.rpc("openhuman.memory_engine_set", {
-            engine: "cortexdb",
-            endpoint: cortex.endpoint,
-            api_key: cortex.apiKey,
-          });
-          const got = await core.rpc("openhuman.memory_engine_get", {});
-          if (
-            got?.engine !== "cortexdb" ||
-            got?.status !== "ok" ||
-            got?.endpoint !== cortex.endpoint
-          )
-            throw new Error(
-              `engine ${got?.engine} ${got?.status} at ${got?.endpoint} ${got?.reason ?? ""}`,
-            );
-        },
-        { attempts: 20, delayMs: 1000, what: "local CortexDB engine" },
-      ).catch((e) => {
-        throw new Error(
-          `ABORT local: memory is not on the local CortexDB (${e.message})`,
-        );
-      });
-
-      // Chat: the account's managed route (the key is in the env). If it
-      // cannot run here, fall back to the local Ollama and mark the checks
-      // that depend on reply quality INCONCLUSIVE instead of failed.
-      const probe = await sendTurn({
-        core,
-        events,
-        clientId: events.clientId,
-        threadId: `thread-${randomUUID()}`,
-        message: "Reply with the single word OK.",
-        timeoutMs: 120_000,
-      });
-      if (!probe.error) {
-        engineResults.inference.chat_route = "managed (account API key)";
-      } else {
-        engineResults.inference.chat_route_managed_error = scrub(
-          probe.error,
-          secrets,
-        );
-        const inferenceUrl = `${OLLAMA_URL}/v1`;
-        await withRetries(
-          async () => {
-            await core.rpc("openhuman.config_update_model_settings", {
-              inference_url: inferenceUrl,
-              api_key: "ollama",
-              default_model: OLLAMA_CHAT_MODEL,
-            });
-            const cfg =
-              (await core.rpc("openhuman.config_get", {}))?.config ?? {};
-            if (
-              cfg.inference_url !== inferenceUrl ||
-              !(cfg.cloud_providers ?? []).some(
-                (x) => x?.endpoint === inferenceUrl,
-              )
-            )
-              throw new Error(
-                `BYOK route not active yet (inference_url=${cfg.inference_url ?? "unset"})`,
-              );
-          },
-          { attempts: 10, delayMs: 500, what: "local chat route (Ollama)" },
-        );
-        engineResults.inference.chat_route = `BYOK ${inferenceUrl} ${OLLAMA_CHAT_MODEL} (fallback)`;
-        engineResults.qualityInconclusive = true;
-      }
-      // The memory engine must still be the local container after all that.
-      const final = await core.rpc("openhuman.memory_engine_get", {});
-      if (final?.engine !== "cortexdb" || final?.endpoint !== cortex.endpoint)
-        throw new Error(
-          `ABORT local: memory engine moved to ${final?.engine} at ${final?.endpoint}`,
-        );
-      log(
-        `local   : memory on ${cortex.endpoint}, scheduler gate off, chat ${engineResults.inference.chat_route}`,
-      );
+      await setupLocal({ withKey: true });
     } else {
       // Guard 0 verified: the gate the account's config carries is off.
       const snap = await core.rpc("openhuman.config_get", {});
@@ -563,6 +573,26 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
         },
       };
       await fsp.cp(FIXTURES, ctx.fixtureCopy, { recursive: true });
+      if (scenario.noAccount && engine === "local") {
+        // A core that never saw the account key, so its background work
+        // (which a user-started move is gated on) may run without any
+        // chance of touching the hosted account.
+        events?.close();
+        await core.stop();
+        delete extraEnv.OPENHUMAN_BACKEND_API_KEY;
+        home = path.join(dir, `home-${scenario.id}`);
+        await fsp.mkdir(path.join(home, ".openhuman"), { recursive: true });
+        await fsp.writeFile(
+          path.join(home, ".openhuman", "config.toml"),
+          BASE_CONFIG(),
+        );
+        await startCore();
+        await setupLocal({ withKey: false });
+        ctx.note(
+          "isolated-core",
+          `ran on a fresh core without the account key (gate default, chat ${engineResults.inference.chat_route})`,
+        );
+      }
       process.stdout.write(`${engine.padEnd(8)}: ${scenario.id} ... `);
       const started = Date.now();
       try {

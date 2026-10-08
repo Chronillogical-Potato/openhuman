@@ -80,6 +80,9 @@ export const migration = {
     "Layout v3 and the move: import first, then organize; resumable; nothing lost; chats pooled",
   engines: ["local"],
   last: true,
+  // A user-started move is gated on background work, which the key-holding
+  // core keeps off; this one runs on a core that never saw the key.
+  noAccount: true,
   async run(ctx) {
     const { check } = ctx;
     const status = () => ctx.rpc("openhuman.memory_migration_status", {});
