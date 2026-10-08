@@ -171,7 +171,6 @@ pub async fn composio_delete_connection(
         methods::DELETE_CONNECTION,
         ComposioDeleteConnectionRequest {
             connection_id: connection_id.to_string(),
-            clear_memory: false,
         },
     )
     .await
