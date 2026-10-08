@@ -215,5 +215,4 @@ describe('deleteConnection', () => {
       params: { connection_id: 'conn-abc' },
     });
   });
-  });
 });

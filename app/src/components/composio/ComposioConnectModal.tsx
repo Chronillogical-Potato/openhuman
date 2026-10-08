@@ -30,7 +30,7 @@
  */
 import type { ComposioConnection } from '../../lib/composio/types';
 import { openUrl } from '../../utils/openUrl';
-import { Button, Checkbox, ModalShell } from '../ui';
+import { Button, ModalShell } from '../ui';
 import { deriveConnectionLabel } from './composioAuthErrors';
 import { RequiredFieldsForm } from './RequiredFieldsForm';
 import { ScopeToggles } from './ScopeToggles';
