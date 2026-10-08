@@ -37,7 +37,7 @@ async fn a_finished_import_starts_organizing_into_the_per_user_tree() {
     let tree = Arc::new(tinymemory_api::conformance::ReferenceEngine::new());
     crate::memory::engine::install_test_engine_for_root(
         &config.workspace_dir,
-        Some(&format!("user:{account}")),
+        Some(&format!("org:{account}")),
         tree.clone(),
     );
 
