@@ -91,7 +91,7 @@ pub(crate) const TINYMCP: ModuleRecord = ModuleRecord {
 
 pub(crate) const TINYCONNECTORS: ModuleRecord = ModuleRecord {
     id: "tinyconnectors",
-    description: "OAuth connector integrations: accounts, actions, triggers, and record sync",
+    description: "OAuth connector integrations: accounts, actions, and triggers",
     bus_name: "ai.tinyhumans.connectors.Composio",
     object_path: "/ai/tinyhumans/connectors/Composio",
     version: "0.12.4",
