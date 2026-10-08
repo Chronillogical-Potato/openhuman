@@ -29,6 +29,7 @@ pub(crate) mod convert;
 pub mod engine;
 pub mod error;
 pub mod explore;
+pub(crate) mod files;
 pub mod guard;
 pub mod import;
 pub mod layout_migration;
