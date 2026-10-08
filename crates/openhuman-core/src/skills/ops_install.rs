@@ -5,6 +5,7 @@
 mod install_fetch_tests;
 
 mod fetch;
+mod scan_gate;
 mod uninstall;
 mod url_validation;
 
@@ -13,6 +14,10 @@ pub use fetch::{
     install_workflow_from_url, InstallWorkflowFromUrlOutcome, InstallWorkflowFromUrlParams,
     DEFAULT_INSTALL_TIMEOUT_SECS, MAX_INSTALL_TIMEOUT_SECS, MAX_WORKFLOW_MD_BYTES,
     RATE_LIMITED_ERROR_PREFIX,
+};
+pub(crate) use scan_gate::{fetch_scanned, gate_install};
+pub use scan_gate::{
+    ScanAcknowledgement, ScanBlockedOutcome, ScanFindingSummary, SkillInstallOutcome,
 };
 pub use uninstall::{uninstall_workflow, UninstallWorkflowOutcome, UninstallWorkflowParams};
 pub(crate) use url_validation::{allow_local_http, ALLOW_LOCAL_HTTP_ENV};
