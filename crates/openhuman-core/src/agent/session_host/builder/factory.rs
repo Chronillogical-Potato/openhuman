@@ -387,7 +387,7 @@ impl OpenHumanSessionHost {
         let prompt_builder = match target_def {
             Some(def) => match &def.system_prompt {
                 PromptSource::Dynamic(build) => SystemPromptBuilder::from_dynamic(*build),
-                PromptSource::Verbatim(text) => SystemPromptBuilder::from_final_body(text.clone()),
+                PromptSource::Verbatim(text) => SystemPromptBuilder::verbatim(text.clone()),
                 PromptSource::Inline(text) => SystemPromptBuilder::for_subagent(
                     text.clone(),
                     def.omit_identity,
