@@ -243,9 +243,9 @@ impl Agent {
         &self.inner.layout.skills
     }
 
-    /// Where this agent's transcripts are written: the workspace's shared
-    /// `session_raw/` (files are keyed by agent name), or
-    /// `session_raw/`, keyed by agent id.
+    /// `<workspace>/agents/<id>/session_raw/` — where this agent's transcripts
+    /// are written. Conversations it wrote earlier into the workspace's shared
+    /// `session_raw/` stay readable and are copied here when resumed.
     pub fn transcripts_dir(&self) -> &Path {
         &self.inner.layout.transcripts
     }

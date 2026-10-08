@@ -26,12 +26,11 @@ keyring and credential store, the RPC bearer, the background `ServiceSet`,
 the compiled `DomainSet`, and the API key. An agent owns everything the core
 reads through its own ambient context: its `Config` (provider route, model,
 MCP servers, autonomy tier, `action_dir`), its `AgentDefinition` (system
-prompt, tool scope, sandbox mode), its skills root, and its narrowed
-`DomainSet` and `ToolGroups`. A handful of settings, such as
-`autonomy.auto_approve` and the memory guard's autonomy tier, are still read
-from the runtime's boot config by every agent regardless of its own
-overlay; see the crate README's "still runtime-wide" list before assuming an
-agent-level override reaches them.
+prompt, tool scope, sandbox mode), its skills root, its narrowed
+`DomainSet` and `ToolGroups`, its approval settings and parked approvals,
+its sub-agents, its MCP host, its cron jobs and its per-turn state. The
+crate README's "Still process-owned" list names what agents share, and its
+"Lifecycle" section covers `max_agents` and `Runtime::remove_agent`.
 
 ## One runtime per process
 

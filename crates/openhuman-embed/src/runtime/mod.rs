@@ -44,11 +44,10 @@
 //! `action_dir`), its [`AgentDefinition`](openhuman_core::agent::harness::definition::AgentDefinition)
 //! (system prompt, tool scope, sandbox mode), its profile (allowlists,
 //! dedicated memory and transcripts), its skills root, its narrowed
-//! `DomainSet` and [`ToolGroups`].
+//! `DomainSet` and [`ToolGroups`], its approval settings, sub-agents, MCP
+//! host, cron jobs and per-turn state.
 //!
-//! Some settings are still read from the runtime's boot config by every
-//! agent; see the crate README's "still runtime-wide" list. They are
-//! documented rather than hidden.
+//! The crate README's "Still process-owned" list names what agents share.
 //!
 //! # One runtime per process
 //!

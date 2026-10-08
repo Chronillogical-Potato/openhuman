@@ -275,40 +275,80 @@ caches (cost log, prompt templates, migration markers). The desktop app, CLI
 and TUI install `openhuman_rpc::session_store`, the classic on-disk layout behind
 the same port. See `tests/session_store.rs`.
 
-### Still runtime-wide
+### Per agent
 
-These are read from the runtime's boot config by every agent today. They
-are documented rather than hidden; each is a candidate follow-up in the core.
+Every agent on a runtime is isolated from its siblings on the same workspace:
 
-- `autonomy.auto_approve` / `auto_approve_all` and the memory guard's
-  autonomy tier come from the runtime's boot config (`security::live_policy`),
-  not the agent's. Path and command policy _do_ use the agent's own tier.
-- The approval gate is on or off process-wide; parked approvals are not
-  labelled with the agent id. A per-agent "no approvals" is `Access::full()`,
-  whose `TrustedAutomation` origin the gate honours per turn.
-- The sub-agent catalogue is runtime-wide (built-ins plus
-  `<workspace>/agents/*.toml`). Embedded agents cannot be `delegate_*`
-  targets of one another. Do not reuse built-in ids (`orchestrator`,
-  `summarizer`, …) for your agents.
-- Sub-agents an agent spawns and the experience store re-read the runtime's
-  on-disk config rather than the agent's overlay. (The turn journal goes to
-  the agent's own stores under a host session store; without one it uses the
-  process-default workspace.)
-- Sub-agent run-ledger rows, cron jobs and the cost log stay in the
-  workspace even with a host session store.
-- Agents sharing a workspace share the dynamic (`mcp_registry_*`) MCP
-  registry; `[[mcp_client.servers]]` declared through `AgentSpec::mcp` are
-  per agent. The host-seeded documentation server is visible to every agent.
-- `install_skill` / `create_skill` still write to `~/.openhuman`. With
-  `include_user_skills(false)` (the default) an agent does not _discover_ the
-  operator's skills, but an install by the agent lands there.
-- One API key (or session) is shared by all agents.
+- Policy and approvals: the autonomy tier, `auto_approve`, `auto_approve_all`
+  and the approval gate switch come from the agent's `Access`
+  (`auto_approve`, `auto_approve_all`, `approval_gate`). Parked approvals
+  carry the agent id; `Agent::approvals()` lists and decides only that
+  agent's requests, and a chat reply routes by agent and thread.
+- Sub-agents: `AgentSpec::subagents` declares workers only that agent can
+  delegate to. Built-in ids (`orchestrator`, `planner`, …) are reserved.
+  Detached sub-agents keep the agent's provider route.
+- MCP: each agent has its own MCP host and dynamic registry under
+  `<workspace>/agents/<id>/`, plus the servers its spec declares.
+- Transcripts: `<workspace>/agents/<id>/session_raw/`. Conversations written
+  before this layout into `<workspace>/session_raw/` stay readable and are
+  copied into the agent's directory when resumed; the shared file is never
+  changed.
+- Skills: `install_skill` and `create_skill` write user-scope bundles into
+  `<workspace>/agents/<id>/skills/` and `workflows/`, which only that agent
+  discovers. The operator's `~/.openhuman` is untouched.
+- Cron: jobs an agent creates live in `<workspace>/agents/<id>/cron/jobs.db`
+  and run under that agent's context, provider and policy.
+- Memory sources are synced per live agent, under its own context.
+- Turn tables, plan mode, reasoning effort, turn citations, budget signals,
+  the request journal, sub-agent dedupe and the `run_workflow` guard live in
+  the agent's context, so two agents can use the same thread or session id
+  at the same time.
+
+### Lifecycle
+
+`RuntimeBuilder::max_agents` caps live agents (default
+`DEFAULT_MAX_AGENTS`, 1024); `Runtime::agent` returns
+`AgentError::AgentLimit` past it. `Runtime::remove_agent(id)` denies the
+agent's parked approvals (resolution `agent_removed`), refuses new turns and
+ends the ones in flight with `CoreError::AgentRemoved` (waiting up to ten
+seconds for them to unwind), then drops its state slots and MCP host and
+deregisters its context, which leaves its cron jobs dormant. The id is
+reusable once it returns; `.purge()` also deletes the agent's home.
+Dropping the last handle to an agent tears it down the same way with
+resolution `agent_dropped`. Cancellation is cooperative: a tool already
+executing, or a sub-agent the turn detached, may finish after removal.
+
+### Still process-owned
+
+- The event bus, keyring and credential store, and the API key (or
+  session): one per runtime, shared by every agent.
 - `IntegrationClient` (backend-proxied Composio/search/media tools) accepts
   the runtime's TinyHumans API key or an app-session JWT through
   `security::credentials::session_support::resolve_backend_credential`.
   API keys use `x-api-key`; session JWTs use `Authorization: Bearer`.
   With the backend transport installed and the integration feature and runtime
   gates enabled, an API-key-only runtime can register integration tools.
+- The approval gate engine and its store. Rows are labelled and decided per
+  agent, but the store is one file per workspace.
+- Sub-agent run-ledger rows. They are keyed by unique run ids; an owner
+  column would need a schema change in the vendored `tinyagents-session`.
+- The host-installed session store (`openhuman_rpc::session_store`) keeps
+  its single-operator layout; the per-agent transcript layout applies to the
+  core's file fallback and to embedded agents.
+- Background-delivery busy flags and skill run cancellation, which are keyed
+  by unique session and run ids.
+- A per-turn `Turn::route` override reaches that turn only; detached
+  sub-agents use the agent's own route.
+
+### Out of scope
+
+- A per-agent cost log. It is accounting rather than behaviour isolation,
+  `Turn::meter` already reports per turn, and a per-agent budget is a
+  separate request.
+- Embedded agents delegating to one another. Peer delegation is a
+  cross-agent trust decision that TinyHiveMind owns.
+- An API to add a memory source to a running agent. `AgentSpec` memory
+  sources are taken when the agent is created; nothing needs more yet.
 
 Other invariants worth knowing before wiring any entry point:
 
