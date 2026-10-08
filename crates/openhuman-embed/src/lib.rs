@@ -110,7 +110,8 @@ pub use harness::{
 };
 #[cfg(feature = "mcp")]
 pub use harness::{HttpHeader, McpAuthConfig, McpServer};
-pub use runtime::{ApiKey, Runtime, RuntimeBuilder, RuntimeError};
+pub use runtime::builder::DEFAULT_MAX_AGENTS;
+pub use runtime::{ApiKey, RemoveAgent, Runtime, RuntimeBuilder, RuntimeError};
 
 /// The session store port: what a host implements to keep every agent's
 /// conversations in its own database ([`RuntimeBuilder::session_store`]),

@@ -52,7 +52,12 @@ pub struct RuntimeBuilder {
     backend_transport: Option<Arc<dyn BackendTransport>>,
     memory_engine: Option<Arc<dyn tinymemory_api::MemoryEngine>>,
     session_store: Option<Arc<dyn SessionStoreProvider>>,
+    max_agents: usize,
 }
+
+/// Live agents a runtime hosts unless [`RuntimeBuilder::max_agents`] says
+/// otherwise.
+pub const DEFAULT_MAX_AGENTS: usize = 1024;
 
 impl Default for RuntimeBuilder {
     fn default() -> Self {
@@ -80,6 +85,7 @@ impl RuntimeBuilder {
             backend_transport: None,
             memory_engine: None,
             session_store: None,
+            max_agents: DEFAULT_MAX_AGENTS,
         }
     }
 
@@ -122,6 +128,15 @@ impl RuntimeBuilder {
     /// is removed with the runtime.
     pub fn session_store(mut self, provider: Arc<dyn SessionStoreProvider>) -> Self {
         self.session_store = Some(provider);
+        self
+    }
+
+    /// The most agents this runtime hosts at once; [`Runtime::agent`]
+    /// returns [`AgentError::AgentLimit`](crate::AgentError::AgentLimit)
+    /// beyond it. Removed and dropped agents do not count. Defaults to
+    /// [`DEFAULT_MAX_AGENTS`].
+    pub fn max_agents(mut self, limit: usize) -> Self {
+        self.max_agents = limit;
         self
     }
 
@@ -381,6 +396,7 @@ impl RuntimeBuilder {
             tool_groups,
             self.provider,
             self.access,
+            self.max_agents,
         ))
     }
 }

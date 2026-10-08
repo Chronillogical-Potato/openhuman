@@ -217,6 +217,7 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         access,
         layout,
         host_tools: parts.host_tools,
+        lifecycle: super::lifecycle::Lifecycle::new(),
     })
 }
 

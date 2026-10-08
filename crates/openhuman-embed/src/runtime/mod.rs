@@ -69,9 +69,11 @@
 
 mod api_key;
 pub(crate) mod builder;
+mod lifecycle;
 
 pub use api_key::ApiKey;
 pub use builder::RuntimeBuilder;
+pub use lifecycle::RemoveAgent;
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -219,6 +221,7 @@ pub struct Runtime {
     provider: Provider,
     access: Access,
     agents: Mutex<HashMap<String, Weak<AgentInner>>>,
+    max_agents: usize,
 }
 
 impl Runtime {
@@ -251,6 +254,15 @@ impl Runtime {
         agents.retain(|_, weak| weak.strong_count() > 0);
         if agents.contains_key(&id) {
             return Err(AgentError::DuplicateId(id));
+        }
+        if agents.len() >= self.max_agents {
+            log::warn!(
+                "[embed][runtime] agent refused id={id}: {} live agents is the limit",
+                self.max_agents
+            );
+            return Err(AgentError::AgentLimit {
+                limit: self.max_agents,
+            });
         }
         let inner = Arc::new(crate::agent::build::instantiate(self, spec)?);
         agents.insert(id.clone(), Arc::downgrade(&inner));
@@ -381,6 +393,7 @@ impl Runtime {
         tool_groups: ToolGroups,
         provider: Provider,
         access: Access,
+        max_agents: usize,
     ) -> Self {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
@@ -397,6 +410,7 @@ impl Runtime {
             provider,
             access,
             agents: Mutex::new(HashMap::new()),
+            max_agents,
         }
     }
 }

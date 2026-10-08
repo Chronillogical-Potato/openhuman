@@ -16,6 +16,7 @@
 
 mod approvals;
 mod attachments;
+pub(crate) mod lifecycle;
 pub use approvals::{ApprovalDecision, Approvals, ApprovalsError, PendingApproval};
 pub use attachments::ToolAttachmentError;
 pub(crate) mod build;
@@ -81,6 +82,18 @@ pub enum AgentError {
     /// …), which the delegation catalogue would resolve instead of this agent.
     #[error("agent id {0:?} is reserved for a built-in agent definition")]
     ReservedId(String),
+
+    /// The runtime already hosts its configured maximum of live agents
+    /// ([`RuntimeBuilder::max_agents`](crate::RuntimeBuilder::max_agents)).
+    #[error("the runtime already hosts its limit of {limit} agents")]
+    AgentLimit {
+        /// The configured maximum.
+        limit: usize,
+    },
+
+    /// No live agent with this id is registered on the runtime.
+    #[error("no agent {0:?} is registered on this runtime")]
+    UnknownId(String),
 }
 
 /// The assembled state behind an [`Agent`], shared by every clone of it and
@@ -104,11 +117,46 @@ pub(crate) struct AgentInner {
     /// The agent's own in-process tools, rebuilt per turn. See
     /// [`AgentSpec::tools`](super::AgentSpec::tools) for why it is a factory.
     pub(crate) host_tools: Option<openhuman_core::agent::HostTools>,
+    pub(crate) lifecycle: lifecycle::Lifecycle,
+}
+
+impl AgentInner {
+    /// Releases what the core keeps for this agent: parked approvals are
+    /// denied with `resolution`, its state slots and MCP host are dropped,
+    /// and its context leaves the registry. Runs once.
+    pub(crate) fn teardown(&self, resolution: &str) {
+        if !self.lifecycle.begin_teardown() {
+            return;
+        }
+        if let Some(gate) = openhuman_core::security::approval::ApprovalGate::try_global() {
+            match gate.deny_all_for_agent(&self.id, resolution) {
+                Ok(denied) => log::debug!(
+                    "[embed][agent] teardown id={} denied_approvals={denied}",
+                    self.id
+                ),
+                Err(error) => log::warn!(
+                    "[embed][agent] teardown id={} could not deny approvals: {error}",
+                    self.id
+                ),
+            }
+        }
+        self.ctx.agent_state().clear();
+        if openhuman_core::mcp::host::take_agent_host(&self.config.workspace_dir, &self.id)
+            .is_some()
+        {
+            log::debug!(
+                "[embed][agent] teardown id={} evicted its MCP host",
+                self.id
+            );
+        }
+        openhuman_core::core::runtime::AgentContextRegistry::deregister(&self.id, &self.ctx);
+        log::debug!("[embed][agent] teardown complete id={}", self.id);
+    }
 }
 
 impl Drop for AgentInner {
     fn drop(&mut self) {
-        openhuman_core::core::runtime::AgentContextRegistry::deregister(&self.id, &self.ctx);
+        self.teardown("agent_dropped");
     }
 }
 

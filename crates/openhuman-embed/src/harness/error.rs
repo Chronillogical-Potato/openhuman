@@ -88,9 +88,12 @@ impl From<crate::AgentError> for HarnessError {
         match err {
             A::Call(e) => Self::Call(e),
             A::Workspace { what, source } => Self::Workspace { what, source },
-            A::DuplicateId(_) | A::InvalidId { .. } | A::WidensRuntime(_) | A::ReservedId(_) => {
-                Self::Invalid(err_text(&err))
-            }
+            A::DuplicateId(_)
+            | A::InvalidId { .. }
+            | A::WidensRuntime(_)
+            | A::ReservedId(_)
+            | A::AgentLimit { .. }
+            | A::UnknownId(_) => Self::Invalid(err_text(&err)),
             A::Invalid(msg) => Self::Invalid(msg),
         }
     }
