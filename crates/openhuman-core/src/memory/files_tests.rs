@@ -50,7 +50,8 @@ fn an_existing_world_readable_file_and_directory_are_narrowed() {
 async fn every_memory_state_file_is_owner_only() {
     use tinymemory_api::{ConsolidateRequest, ItemKind, Namespace, Reach};
 
-    use crate::memory::lifecycle::jobs::{self, BackgroundJob};
+    use crate::memory::lifecycle::jobs;
+    use tinymemory_tools::BackgroundJob;
     use crate::memory::test_fixtures::config_in;
 
     let tmp = tempfile::tempdir().unwrap();
