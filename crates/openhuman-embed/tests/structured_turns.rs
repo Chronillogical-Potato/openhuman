@@ -218,11 +218,12 @@ fn untrusted_input_passes_the_prompt_guard_only_on_a_host_only_agent() {
                     Arc::new(AtomicUsize::new(0)),
                 ))
                 .expect("host-only agent");
-            let normal = runtime
-                .agent(routed(AgentSpec::new("normal"), &provider).definition(
-                    AgentDefinitionSpec::new().tools(ToolScopeSpec::Named(Vec::new())),
-                ))
-                .expect("normal agent");
+            let normal =
+                runtime
+                    .agent(routed(AgentSpec::new("normal"), &provider).definition(
+                        AgentDefinitionSpec::new().tools(ToolScopeSpec::Named(Vec::new())),
+                    ))
+                    .expect("normal agent");
 
             let accepted = host_only
                 .turn(INJECTION)

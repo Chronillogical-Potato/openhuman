@@ -50,10 +50,10 @@ pub mod run_mode;
 // for rather than an exotic one.
 pub mod payload_summarizer;
 mod policy_denial;
-pub mod response_shape;
 pub(crate) mod reaper;
 pub(crate) mod reasoning;
 pub(crate) mod replay;
+pub mod response_shape;
 mod routes;
 mod steering_forwarder;
 pub(crate) mod stop_hooks;
