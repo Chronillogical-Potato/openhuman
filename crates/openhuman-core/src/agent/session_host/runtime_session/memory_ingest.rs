@@ -74,11 +74,16 @@ impl OpenHumanTurnPrelude {
     /// Logs a user-authored turn and recalls its pack. Remembers the turn so
     /// the reply is logged under the same identity and index, and returns
     /// the turn's memory for the run context.
+    /// `origin` is the turn's origin as the run context carries it (the
+    /// session host never reads the task-local one); a channel turn is
+    /// logged as observed from its sender
+    /// ([`crate::memory::lifecycle::sender::channel_actor`]).
     pub(super) async fn memory_pre_turn(
         &self,
         history: &[Message],
         committed_turns: usize,
         current: Option<&Message>,
+        origin: Option<crate::agent::turn_origin::AgentTurnOrigin>,
     ) -> Option<Arc<MemoryTurn>> {
         let user_text = self
             .mutable
@@ -114,7 +119,7 @@ impl OpenHumanTurnPrelude {
                 in_prompt_from,
                 at: Utc::now(),
                 resumed_after_compaction: compacted && committed_turns > 0,
-                observed_actor: crate::agent::turn_origin::current()
+                observed_actor: origin
                     .as_ref()
                     .and_then(crate::memory::lifecycle::sender::channel_actor),
             },
