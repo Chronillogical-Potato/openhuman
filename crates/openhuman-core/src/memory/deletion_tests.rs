@@ -1,6 +1,6 @@
 use super::*;
 
-use tinymemory_api::{MemoryMeta, Role, StoreItem, Turn};
+use tinymemory_api::{MemoryEngine, MemoryMeta, Role, StoreItem, Turn};
 
 use crate::memory::test_fixtures::{bind_reference, config_in, stored};
 
