@@ -14,7 +14,7 @@ use super::super::event_bus::publish_web_channel_event;
 use super::super::run_task::run_chat_task;
 use super::super::types::{ChatRequestMetadata, ParallelEntry};
 use super::super::web_errors::classify_inference_error;
-use super::state::PARALLEL_IN_FLIGHT;
+use super::state::parallel_in_flight;
 use super::turn_guards::{
     run_turn_under_cancel_and_deadline, sentry_suppression_reason, timeout_bound_tag,
 };
@@ -193,11 +193,14 @@ pub(crate) async fn spawn_parallel_turn(
                 }
             }
 
-            PARALLEL_IN_FLIGHT.lock().await.remove(&request_id_task);
+            parallel_in_flight()
+                .lock_owned()
+                .await
+                .remove(&request_id_task);
         },
     ));
 
-    PARALLEL_IN_FLIGHT.lock().await.insert(
+    parallel_in_flight().lock_owned().await.insert(
         request_id,
         ParallelEntry {
             thread_id: thread_id.to_string(),
@@ -212,7 +215,7 @@ pub(crate) async fn spawn_parallel_turn(
 /// tears down any concurrent forked turns, not just the primary turn.
 pub(crate) async fn cancel_parallel_turns_for_thread(thread_id: &str) -> Vec<String> {
     let mut cancelled = Vec::new();
-    let mut parallel = PARALLEL_IN_FLIGHT.lock().await;
+    let mut parallel = parallel_in_flight().lock_owned().await;
     let request_ids: Vec<String> = parallel
         .iter()
         .filter(|(_, entry)| entry.thread_id == thread_id)
@@ -244,7 +247,7 @@ pub(crate) async fn cancel_parallel_turn_by_request_id(
     thread_id: &str,
     request_id: &str,
 ) -> Vec<String> {
-    let mut parallel = PARALLEL_IN_FLIGHT.lock().await;
+    let mut parallel = parallel_in_flight().lock_owned().await;
     let matches = parallel
         .get(request_id)
         .map(|entry| entry.thread_id == thread_id)

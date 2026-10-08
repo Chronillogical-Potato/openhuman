@@ -430,7 +430,7 @@ async fn chat_done_is_published_only_after_the_in_flight_slot_is_released() {
         event.event == "chat_done" && event.request_id == request_id
     };
 
-    let held = crate::web_chat::ops::IN_FLIGHT.lock().await;
+    let held = crate::web_chat::ops::in_flight().lock_owned().await;
     block.release.notify_one();
     let early = timeout(Duration::from_millis(500), async {
         loop {

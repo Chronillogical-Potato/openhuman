@@ -28,11 +28,11 @@ pub use system_turn::{run_system_turn_on_thread, SESSION_CHECKOUT_FAILURE, SYSTE
 
 #[cfg(test)]
 pub use state::drain_queued_turns_for_test;
+#[cfg(test)]
+pub(crate) use state::in_flight;
 #[cfg(any(test, debug_assertions))]
 pub use state::parallel_in_flight_entries_for_test;
-#[cfg(test)]
-pub(crate) use state::IN_FLIGHT;
-pub(super) use state::THREAD_SESSIONS;
+pub(super) use state::thread_sessions;
 pub use state::{cancel_should_target, in_flight_entries_for_test, invalidate_thread_sessions};
 pub(crate) use state::{event_session_id_for, key_for};
 

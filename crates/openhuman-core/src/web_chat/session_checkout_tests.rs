@@ -16,7 +16,7 @@ use super::{
 };
 use crate::agent::OpenHumanSessionHost;
 use crate::config::Config;
-use crate::web_chat::ops::{key_for, THREAD_SESSIONS};
+use crate::web_chat::ops::{key_for, thread_sessions};
 use crate::web_chat::types::SessionCacheFingerprint;
 use tinyagents_session::transcript::TranscriptMessage;
 use tinytools_agent::dialect::TranscriptEntry;
@@ -100,7 +100,10 @@ fn host_seeded_with(config: &Config, marker: &str) -> OpenHumanSessionHost {
 }
 
 async fn evict(thread_id: &str) {
-    THREAD_SESSIONS.lock().await.remove(&key_for(thread_id));
+    thread_sessions()
+        .lock_owned()
+        .await
+        .remove(&key_for(thread_id));
 }
 
 #[tokio::test]
@@ -149,7 +152,7 @@ async fn checkout_cold_boots_from_the_thread_transcript_and_checkin_keeps_it_war
     );
 
     checkin_session_agent(&thread_id, agent, fingerprint).await;
-    assert!(THREAD_SESSIONS
+    assert!(thread_sessions()
         .lock()
         .await
         .contains_key(&key_for(&thread_id)));
@@ -173,7 +176,7 @@ async fn checkout_cold_boots_from_the_thread_transcript_and_checkin_keeps_it_war
         "warm checkout must carry the same history"
     );
     // Checked out means removed: nobody else can drive this agent meanwhile.
-    assert!(!THREAD_SESSIONS
+    assert!(!thread_sessions()
         .lock()
         .await
         .contains_key(&key_for(&thread_id)));
@@ -259,7 +262,7 @@ async fn a_fork_never_takes_or_returns_the_cached_agent() {
     // Built fresh: no transcript on disk for this thread, so an empty history.
     assert!(prose(&agent.history()).is_empty());
     // The primary's cached agent was left in place.
-    assert!(THREAD_SESSIONS
+    assert!(thread_sessions()
         .lock()
         .await
         .contains_key(&key_for(&thread_id)));
@@ -585,7 +588,7 @@ async fn each_checkout_arms_the_reply_language_from_its_own_locale() {
     // Reused cached agent, the user switched the UI to English: the Spanish
     // directives already in the history are superseded explicitly.
     assert!(
-        THREAD_SESSIONS
+        thread_sessions()
             .lock()
             .await
             .contains_key(&key_for(&thread_id)),
@@ -599,7 +602,7 @@ async fn each_checkout_arms_the_reply_language_from_its_own_locale() {
     checkin_session_agent(&thread_id, agent, fingerprint).await;
 
     // Reused again, now Hindi: re-armed with the new language.
-    assert!(THREAD_SESSIONS
+    assert!(thread_sessions()
         .lock()
         .await
         .contains_key(&key_for(&thread_id)));

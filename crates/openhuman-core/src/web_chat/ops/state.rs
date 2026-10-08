@@ -3,26 +3,35 @@
 //! and mutate them.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
-use once_cell::sync::Lazy;
 use serde_json::json;
 use tokio::sync::Mutex;
 
 use super::super::types::{InFlightEntry, ParallelEntry, SessionEntry};
 
-pub(crate) static THREAD_SESSIONS: Lazy<Mutex<HashMap<String, SessionEntry>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+type ThreadSessions = Mutex<HashMap<String, SessionEntry>>;
+type InFlight = Mutex<HashMap<String, InFlightEntry>>;
+type ParallelInFlight = Mutex<HashMap<String, ParallelEntry>>;
 
-pub(crate) static IN_FLIGHT: Lazy<Mutex<HashMap<String, InFlightEntry>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+/// The current agent context's per-thread session cache.
+pub(crate) fn thread_sessions() -> Arc<ThreadSessions> {
+    crate::core::runtime::current_slot::<ThreadSessions>()
+}
+
+/// The current agent context's primary in-flight turns, keyed by thread.
+pub(crate) fn in_flight() -> Arc<InFlight> {
+    crate::core::runtime::current_slot::<InFlight>()
+}
 
 /// Parallel (forked) turns, keyed by `request_id`. A separate lane from
-/// `IN_FLIGHT` (which holds one primary, interrupt-able turn per thread) so any
-/// number of concurrent `QueueMode::Parallel` turns can run on the same thread
-/// without touching interrupt/steer/queue semantics. See `QueueMode::Parallel`.
-pub(crate) static PARALLEL_IN_FLIGHT: Lazy<Mutex<HashMap<String, ParallelEntry>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+/// [`in_flight`] (which holds one primary, interrupt-able turn per thread) so
+/// any number of concurrent `QueueMode::Parallel` turns can run on the same
+/// thread without touching interrupt/steer/queue semantics.
+pub(crate) fn parallel_in_flight() -> Arc<ParallelInFlight> {
+    crate::core::runtime::current_slot::<ParallelInFlight>()
+}
 
 pub(crate) fn key_for(thread_id: &str) -> String {
     thread_id.to_string()
@@ -62,7 +71,7 @@ pub(crate) fn cancel_in_flight_gracefully(entry: InFlightEntry) -> String {
 }
 
 pub async fn invalidate_thread_sessions(thread_id: &str) {
-    let mut sessions = THREAD_SESSIONS.lock().await;
+    let mut sessions = thread_sessions().lock_owned().await;
     let keys_to_remove: Vec<String> = sessions
         .keys()
         .filter(|k| k.as_str() == thread_id || k.ends_with(&format!("::{thread_id}")))
@@ -81,7 +90,7 @@ pub async fn invalidate_thread_sessions(thread_id: &str) {
 }
 
 pub async fn in_flight_entries_for_test() -> Vec<(String, String)> {
-    let guard = IN_FLIGHT.lock().await;
+    let guard = in_flight().lock_owned().await;
     guard
         .iter()
         .map(|(k, v)| (k.clone(), v.request_id.clone()))
@@ -97,7 +106,7 @@ pub async fn drain_queued_turns_for_test(
     thread_id: &str,
     lane: tinyagents_harness::run_queue::QueueLane,
 ) -> Vec<crate::agent::queued_turn::QueuedTurn> {
-    let guard = IN_FLIGHT.lock().await;
+    let guard = in_flight().lock_owned().await;
     match guard.get(&key_for(thread_id)) {
         Some(entry) => entry.run_queue.drain(lane).await,
         None => Vec::new(),
@@ -107,7 +116,7 @@ pub async fn drain_queued_turns_for_test(
 /// Test accessor: `(request_id, thread_id)` for every in-flight parallel turn.
 #[cfg(any(test, debug_assertions))]
 pub async fn parallel_in_flight_entries_for_test() -> Vec<(String, String)> {
-    let guard = PARALLEL_IN_FLIGHT.lock().await;
+    let guard = parallel_in_flight().lock_owned().await;
     guard
         .iter()
         .map(|(request_id, entry)| (request_id.clone(), entry.thread_id.clone()))
@@ -133,3 +142,4 @@ pub fn cancel_should_target(requested: Option<&str>, in_flight: &str) -> bool {
         None => true,
     }
 }
+
