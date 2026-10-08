@@ -4087,6 +4087,19 @@ const messages: TranslationMap = {
     'У этой записи нет SKILL.md для загрузки. Откройте страницу источника, чтобы установить её другим способом.',
   'skills.registry.upstreamAmbiguous':
     'Навык с таким названием публикуют несколько авторов, а каталог не уточняет, какой из них имеется в виду, поэтому его нельзя установить автоматически.',
+  'skills.scan.title': 'Проверка безопасности заблокировала этот навык',
+  'skills.scan.description':
+    'OpenHuman дважды загрузил и проверил {name}, и проверка безопасности оба раза его заблокировала. Навык не установлен.',
+  'skills.scan.findingsLabel': 'Что нашла проверка',
+  'skills.scan.warning':
+    'Устанавливайте его, только если доверяете источнику. Безопаснее всего заблокировать установку.',
+  'skills.scan.block': 'Заблокировать установку',
+  'skills.scan.installAnyway': 'Всё равно установить',
+  'skills.scan.verdictBlock': 'Заблокировано',
+  'skills.scan.verdictWarn': 'Предупреждение',
+  'skills.scan.declinedTitle': 'Установка заблокирована',
+  'skills.scan.declinedHint':
+    'Навык не установлен, потому что его заблокировала проверка безопасности.',
   'skills.detail.source': 'URL источника',
   'skills.detail.tags': 'Теги',
   'skills.detail.version': 'Версия',

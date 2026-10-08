@@ -4100,6 +4100,19 @@ const messages: TranslationMap = {
     'Ten wpis nie ma pliku SKILL.md do pobrania. Otwórz jego stronę źródłową, aby zainstalować go w inny sposób.',
   'skills.registry.upstreamAmbiguous':
     'Kilku autorów publikuje umiejętność o tej nazwie, a katalog nie wskazuje, o którą chodzi, więc nie można jej zainstalować automatycznie.',
+  'skills.scan.title': 'Skan bezpieczeństwa zablokował tę umiejętność',
+  'skills.scan.description':
+    'OpenHuman dwukrotnie pobrał i przeskanował {name}, a skan bezpieczeństwa za każdym razem ją zablokował. Nie została zainstalowana.',
+  'skills.scan.findingsLabel': 'Co znalazł skan',
+  'skills.scan.warning':
+    'Instaluj tylko wtedy, gdy ufasz źródłu. Zablokowanie to bezpieczny wybór.',
+  'skills.scan.block': 'Zablokuj instalację',
+  'skills.scan.installAnyway': 'Zainstaluj mimo to',
+  'skills.scan.verdictBlock': 'Zablokowane',
+  'skills.scan.verdictWarn': 'Ostrzeżenie',
+  'skills.scan.declinedTitle': 'Instalacja zablokowana',
+  'skills.scan.declinedHint':
+    'Umiejętność nie została zainstalowana, ponieważ zablokował ją skan bezpieczeństwa.',
   'skills.detail.source': 'URL źródła',
   'skills.detail.tags': 'Tagi',
   'skills.detail.version': 'Wersja',

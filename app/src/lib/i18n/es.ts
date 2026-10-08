@@ -4117,6 +4117,18 @@ const messages: TranslationMap = {
     'Esta entrada no tiene un SKILL.md para descargar. Abre su página de origen para instalarla de otra forma.',
   'skills.registry.upstreamAmbiguous':
     'Varios autores publican una habilidad con este nombre y el catálogo no indica cuál es, así que no se puede instalar automáticamente.',
+  'skills.scan.title': 'El análisis de seguridad bloqueó esta habilidad',
+  'skills.scan.description':
+    'OpenHuman descargó y analizó {name} dos veces, y el análisis de seguridad la bloqueó ambas veces. No se ha instalado.',
+  'skills.scan.findingsLabel': 'Lo que encontró el análisis',
+  'skills.scan.warning': 'Instálala solo si confías en su origen. Bloquearla es la opción segura.',
+  'skills.scan.block': 'Bloquear instalación',
+  'skills.scan.installAnyway': 'Instalar de todos modos',
+  'skills.scan.verdictBlock': 'Bloqueado',
+  'skills.scan.verdictWarn': 'Advertencia',
+  'skills.scan.declinedTitle': 'Instalación bloqueada',
+  'skills.scan.declinedHint':
+    'La habilidad no se instaló porque el análisis de seguridad la bloqueó.',
   'skills.detail.source': 'URL de origen',
   'skills.detail.tags': 'Etiquetas',
   'skills.detail.version': 'Versión',

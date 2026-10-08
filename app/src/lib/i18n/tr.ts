@@ -4425,6 +4425,17 @@ const messages: TranslationMap = {
     'Bu girdinin indirilecek bir SKILL.md dosyası yok. Başka bir yolla yüklemek için kaynak sayfasını açın.',
   'skills.registry.upstreamAmbiguous':
     'Bu adla birden fazla yazar beceri yayımlıyor ve katalog hangisi olduğunu belirtmiyor, bu yüzden otomatik olarak yüklenemiyor.',
+  'skills.scan.title': 'Güvenlik taraması bu beceriyi engelledi',
+  'skills.scan.description':
+    'OpenHuman {name} becerisini iki kez indirip taradı ve güvenlik taraması iki seferde de engelledi. Yüklenmedi.',
+  'skills.scan.findingsLabel': 'Taramanın bulduğu',
+  'skills.scan.warning': 'Yalnızca kaynağına güveniyorsan yükle. Engellemek güvenli seçimdir.',
+  'skills.scan.block': 'Yüklemeyi engelle',
+  'skills.scan.installAnyway': 'Yine de yükle',
+  'skills.scan.verdictBlock': 'Engellendi',
+  'skills.scan.verdictWarn': 'Uyarı',
+  'skills.scan.declinedTitle': 'Yükleme engellendi',
+  'skills.scan.declinedHint': 'Güvenlik taraması engellediği için beceri yüklenmedi.',
   'skills.run.title': 'İş akışı',
   'skills.detail.source': "Kaynak URL'si",
   'skills.detail.tags': 'Etiketler',

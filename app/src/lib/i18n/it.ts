@@ -4112,6 +4112,19 @@ const messages: TranslationMap = {
     'Questa voce non ha un SKILL.md da scaricare. Apri la sua pagina di origine per installarla in un altro modo.',
   'skills.registry.upstreamAmbiguous':
     'Più autori pubblicano una skill con questo nome e il catalogo non indica quale sia, quindi non può essere installata automaticamente.',
+  'skills.scan.title': 'La scansione di sicurezza ha bloccato questa skill',
+  'skills.scan.description':
+    "OpenHuman ha scaricato e analizzato {name} due volte e la scansione di sicurezza l'ha bloccata entrambe le volte. Non è stata installata.",
+  'skills.scan.findingsLabel': 'Cosa ha trovato la scansione',
+  'skills.scan.warning':
+    'Installala solo se ti fidi della sua provenienza. Bloccarla è la scelta sicura.',
+  'skills.scan.block': 'Blocca installazione',
+  'skills.scan.installAnyway': 'Installa comunque',
+  'skills.scan.verdictBlock': 'Bloccato',
+  'skills.scan.verdictWarn': 'Avviso',
+  'skills.scan.declinedTitle': 'Installazione bloccata',
+  'skills.scan.declinedHint':
+    "La skill non è stata installata perché la scansione di sicurezza l'ha bloccata.",
   'skills.detail.source': 'URL sorgente',
   'skills.detail.tags': 'Tag',
   'skills.detail.version': 'Versione',

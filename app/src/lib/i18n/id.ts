@@ -4075,6 +4075,18 @@ const messages: TranslationMap = {
     'Entri ini tidak memiliki SKILL.md untuk diunduh. Buka halaman sumbernya untuk memasangnya dengan cara lain.',
   'skills.registry.upstreamAmbiguous':
     'Lebih dari satu penulis menerbitkan skill dengan nama ini dan katalog tidak menyebutkan yang mana, sehingga tidak dapat dipasang otomatis.',
+  'skills.scan.title': 'Pemindaian keamanan memblokir skill ini',
+  'skills.scan.description':
+    'OpenHuman mengunduh dan memindai {name} dua kali, dan pemindaian keamanan memblokirnya dua kali. Skill ini belum dipasang.',
+  'skills.scan.findingsLabel': 'Yang ditemukan pemindaian',
+  'skills.scan.warning':
+    'Pasang hanya jika Anda memercayai sumbernya. Memblokir adalah pilihan yang aman.',
+  'skills.scan.block': 'Blokir pemasangan',
+  'skills.scan.installAnyway': 'Tetap pasang',
+  'skills.scan.verdictBlock': 'Diblokir',
+  'skills.scan.verdictWarn': 'Peringatan',
+  'skills.scan.declinedTitle': 'Pemasangan diblokir',
+  'skills.scan.declinedHint': 'Skill tidak dipasang karena pemindaian keamanan memblokirnya.',
   'skills.detail.source': 'URL Sumber',
   'skills.detail.tags': 'Tag',
   'skills.detail.version': 'Versi',

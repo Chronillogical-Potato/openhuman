@@ -4710,6 +4710,18 @@ const en: TranslationMap = {
     'This entry has no SKILL.md to download. Open its source page to install it another way.',
   'skills.registry.upstreamAmbiguous':
     'More than one author publishes a skill with this name and the catalog does not say which one this is, so it cannot be installed automatically.',
+  'skills.scan.title': 'Security scan blocked this skill',
+  'skills.scan.description':
+    'OpenHuman downloaded and scanned {name} twice, and the security scan blocked it both times. It has not been installed.',
+  'skills.scan.findingsLabel': 'What the scan found',
+  'skills.scan.warning':
+    'Install it only if you trust where it came from. Blocking is the safe choice.',
+  'skills.scan.block': 'Block install',
+  'skills.scan.installAnyway': 'Install anyway',
+  'skills.scan.verdictBlock': 'Blocked',
+  'skills.scan.verdictWarn': 'Warning',
+  'skills.scan.declinedTitle': 'Install blocked',
+  'skills.scan.declinedHint': 'The skill was not installed because the security scan blocked it.',
   'skills.run.title': 'Workflow',
   'skills.detail.source': 'Source URL',
   'skills.detail.tags': 'Tags',

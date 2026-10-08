@@ -4016,6 +4016,17 @@ const messages: TranslationMap = {
     '이 항목에는 다운로드할 SKILL.md가 없습니다. 다른 방법으로 설치하려면 소스 페이지를 여세요.',
   'skills.registry.upstreamAmbiguous':
     '이 이름으로 스킬을 게시한 작성자가 여러 명이고 카탈로그에 어느 것인지 나와 있지 않아 자동으로 설치할 수 없습니다.',
+  'skills.scan.title': '보안 검사에서 이 스킬을 차단했습니다',
+  'skills.scan.description':
+    'OpenHuman이 {name}을(를) 두 번 내려받아 검사했고, 보안 검사가 두 번 모두 차단했습니다. 설치되지 않았습니다.',
+  'skills.scan.findingsLabel': '검사에서 발견한 내용',
+  'skills.scan.warning': '출처를 신뢰할 때만 설치하세요. 차단하는 것이 안전한 선택입니다.',
+  'skills.scan.block': '설치 차단',
+  'skills.scan.installAnyway': '그래도 설치',
+  'skills.scan.verdictBlock': '차단됨',
+  'skills.scan.verdictWarn': '경고',
+  'skills.scan.declinedTitle': '설치가 차단되었습니다',
+  'skills.scan.declinedHint': '보안 검사에서 차단되어 스킬이 설치되지 않았습니다.',
   'skills.detail.source': '소스 URL',
   'skills.detail.tags': '태그',
   'skills.detail.version': '버전',

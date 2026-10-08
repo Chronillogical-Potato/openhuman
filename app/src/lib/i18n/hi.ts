@@ -4050,6 +4050,18 @@ const messages: TranslationMap = {
     'इस प्रविष्टि में डाउनलोड करने के लिए कोई SKILL.md नहीं है। इसे दूसरे तरीके से इंस्टॉल करने के लिए इसका स्रोत पेज खोलें।',
   'skills.registry.upstreamAmbiguous':
     'इस नाम से एक से ज़्यादा लेखक स्किल प्रकाशित करते हैं और कैटलॉग यह नहीं बताता कि यह कौन-सी है, इसलिए इसे अपने आप इंस्टॉल नहीं किया जा सकता।',
+  'skills.scan.title': 'सुरक्षा स्कैन ने इस स्किल को ब्लॉक कर दिया',
+  'skills.scan.description':
+    'OpenHuman ने {name} को दो बार डाउनलोड और स्कैन किया, और दोनों बार सुरक्षा स्कैन ने इसे ब्लॉक किया। इसे इंस्टॉल नहीं किया गया है।',
+  'skills.scan.findingsLabel': 'स्कैन को क्या मिला',
+  'skills.scan.warning':
+    'इसे तभी इंस्टॉल करें जब आपको इसके स्रोत पर भरोसा हो। ब्लॉक करना सुरक्षित विकल्प है।',
+  'skills.scan.block': 'इंस्टॉल ब्लॉक करें',
+  'skills.scan.installAnyway': 'फिर भी इंस्टॉल करें',
+  'skills.scan.verdictBlock': 'ब्लॉक किया गया',
+  'skills.scan.verdictWarn': 'चेतावनी',
+  'skills.scan.declinedTitle': 'इंस्टॉल ब्लॉक किया गया',
+  'skills.scan.declinedHint': 'सुरक्षा स्कैन ने इसे ब्लॉक किया, इसलिए स्किल इंस्टॉल नहीं हुई।',
   'skills.detail.source': 'स्रोत URL',
   'skills.detail.tags': 'टैग्स',
   'skills.detail.version': 'संस्करण',

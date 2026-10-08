@@ -4155,6 +4155,19 @@ const messages: TranslationMap = {
     'Dieser Eintrag hat keine SKILL.md zum Herunterladen. Öffne seine Quellseite, um ihn auf anderem Weg zu installieren.',
   'skills.registry.upstreamAmbiguous':
     'Mehrere Autoren veröffentlichen einen Skill mit diesem Namen, und der Katalog sagt nicht, welcher gemeint ist. Er kann daher nicht automatisch installiert werden.',
+  'skills.scan.title': 'Der Sicherheitsscan hat diesen Skill blockiert',
+  'skills.scan.description':
+    'OpenHuman hat {name} zweimal heruntergeladen und geprüft, und der Sicherheitsscan hat ihn beide Male blockiert. Er wurde nicht installiert.',
+  'skills.scan.findingsLabel': 'Was der Scan gefunden hat',
+  'skills.scan.warning':
+    'Installiere ihn nur, wenn du der Quelle vertraust. Blockieren ist die sichere Wahl.',
+  'skills.scan.block': 'Installation blockieren',
+  'skills.scan.installAnyway': 'Trotzdem installieren',
+  'skills.scan.verdictBlock': 'Blockiert',
+  'skills.scan.verdictWarn': 'Warnung',
+  'skills.scan.declinedTitle': 'Installation blockiert',
+  'skills.scan.declinedHint':
+    'Der Skill wurde nicht installiert, weil der Sicherheitsscan ihn blockiert hat.',
   'skills.detail.source': 'Quell-URL',
   'skills.detail.tags': 'Schlagworte',
   'skills.detail.version': 'Version',

@@ -3826,6 +3826,17 @@ const messages: TranslationMap = {
     '此条目没有可下载的 SKILL.md。请打开其来源页面，以其他方式安装。',
   'skills.registry.upstreamAmbiguous':
     '有多位作者发布了同名技能，而目录未说明是哪一个，因此无法自动安装。',
+  'skills.scan.title': '安全扫描已拦截此技能',
+  'skills.scan.description':
+    'OpenHuman 已两次下载并扫描 {name}，安全扫描两次都拦截了它。它尚未安装。',
+  'skills.scan.findingsLabel': '扫描发现的问题',
+  'skills.scan.warning': '只有在信任其来源时才安装。拦截是更安全的选择。',
+  'skills.scan.block': '拦截安装',
+  'skills.scan.installAnyway': '仍然安装',
+  'skills.scan.verdictBlock': '已拦截',
+  'skills.scan.verdictWarn': '警告',
+  'skills.scan.declinedTitle': '已拦截安装',
+  'skills.scan.declinedHint': '安全扫描拦截了该技能，因此未安装。',
   'skills.detail.source': '来源 URL',
   'skills.detail.tags': '标签',
   'skills.detail.version': '版本',

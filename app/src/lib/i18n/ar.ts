@@ -3974,6 +3974,17 @@ const messages: TranslationMap = {
     'لا يحتوي هذا الإدخال على ملف SKILL.md للتنزيل. افتح صفحة مصدره لتثبيته بطريقة أخرى.',
   'skills.registry.upstreamAmbiguous':
     'ينشر أكثر من مؤلف مهارة بهذا الاسم ولا يحدّد الكتالوج أيّها المقصودة، لذا لا يمكن تثبيتها تلقائيًا.',
+  'skills.scan.title': 'حظر فحص الأمان هذه المهارة',
+  'skills.scan.description':
+    'نزّل OpenHuman المهارة {name} وفحصها مرتين، وحظرها فحص الأمان في المرتين. لم يتم تثبيتها.',
+  'skills.scan.findingsLabel': 'ما وجده الفحص',
+  'skills.scan.warning': 'ثبّتها فقط إذا كنت تثق بمصدرها. الحظر هو الخيار الآمن.',
+  'skills.scan.block': 'حظر التثبيت',
+  'skills.scan.installAnyway': 'التثبيت على أي حال',
+  'skills.scan.verdictBlock': 'محظور',
+  'skills.scan.verdictWarn': 'تحذير',
+  'skills.scan.declinedTitle': 'تم حظر التثبيت',
+  'skills.scan.declinedHint': 'لم يتم تثبيت المهارة لأن فحص الأمان حظرها.',
   'skills.detail.source': 'رابط المصدر',
   'skills.detail.tags': 'العلامات',
   'skills.detail.version': 'الإصدار',

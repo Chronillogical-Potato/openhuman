@@ -4746,6 +4746,19 @@ const messages: TranslationMap = {
     'このエントリにはダウンロードできる SKILL.md がありません。別の方法でインストールするには、ソースページを開いてください。',
   'skills.registry.upstreamAmbiguous':
     'この名前のスキルを複数の作者が公開しており、カタログにはどれのことか記載がないため、自動ではインストールできません。',
+  'skills.scan.title': 'セキュリティスキャンがこのスキルをブロックしました',
+  'skills.scan.description':
+    'OpenHuman は {name} を2回ダウンロードしてスキャンし、セキュリティスキャンは2回ともブロックしました。インストールされていません。',
+  'skills.scan.findingsLabel': 'スキャンで見つかった内容',
+  'skills.scan.warning':
+    '入手元を信頼できる場合にのみインストールしてください。ブロックが安全な選択です。',
+  'skills.scan.block': 'インストールをブロック',
+  'skills.scan.installAnyway': 'それでもインストール',
+  'skills.scan.verdictBlock': 'ブロック',
+  'skills.scan.verdictWarn': '警告',
+  'skills.scan.declinedTitle': 'インストールをブロックしました',
+  'skills.scan.declinedHint':
+    'セキュリティスキャンがブロックしたため、スキルはインストールされませんでした。',
   'skills.run.title': 'ワークフロー',
   'skills.detail.source': 'ソース URL',
   'skills.detail.tags': 'タグ',

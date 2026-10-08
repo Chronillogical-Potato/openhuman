@@ -4046,6 +4046,17 @@ const messages: TranslationMap = {
     'এই এন্ট্রিতে ডাউনলোড করার মতো কোনো SKILL.md নেই। অন্যভাবে ইনস্টল করতে এর উৎস পৃষ্ঠা খুলুন।',
   'skills.registry.upstreamAmbiguous':
     'এই নামে একাধিক লেখক স্কিল প্রকাশ করেন এবং ক্যাটালগ বলে না এটি কোনটি, তাই এটি স্বয়ংক্রিয়ভাবে ইনস্টল করা যাবে না।',
+  'skills.scan.title': 'নিরাপত্তা স্ক্যান এই স্কিলটি ব্লক করেছে',
+  'skills.scan.description':
+    'OpenHuman {name} দুবার ডাউনলোড ও স্ক্যান করেছে, এবং দুবারই নিরাপত্তা স্ক্যান এটি ব্লক করেছে। এটি ইনস্টল করা হয়নি।',
+  'skills.scan.findingsLabel': 'স্ক্যান যা পেয়েছে',
+  'skills.scan.warning': 'উৎসের উপর ভরসা থাকলেই কেবল এটি ইনস্টল করুন। ব্লক করাই নিরাপদ পছন্দ।',
+  'skills.scan.block': 'ইনস্টল ব্লক করুন',
+  'skills.scan.installAnyway': 'তবুও ইনস্টল করুন',
+  'skills.scan.verdictBlock': 'ব্লক করা হয়েছে',
+  'skills.scan.verdictWarn': 'সতর্কতা',
+  'skills.scan.declinedTitle': 'ইনস্টল ব্লক করা হয়েছে',
+  'skills.scan.declinedHint': 'নিরাপত্তা স্ক্যান ব্লক করায় স্কিলটি ইনস্টল হয়নি।',
   'skills.detail.source': 'উৎস URL',
   'skills.detail.tags': 'ট্যাগ',
   'skills.detail.version': 'সংস্করণ',
