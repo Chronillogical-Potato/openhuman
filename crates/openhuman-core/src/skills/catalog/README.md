@@ -20,7 +20,10 @@ into the user skills directory.
   and streams bodies within the registry's limits.
 - The catalog is warmed asynchronously on core load. Reads serve the held
   catalog (`cached`) while a refresh runs and keep serving it, with
-  `last_error`, when the registry cannot be reached.
+  `last_error`, when the registry cannot be reached. A failed refresh is not
+  attempted again for 45 seconds (`REFRESH_COOLDOWN`, set through the
+  builder's `RegistryTimeouts`), or longer when the upstream sends
+  `Retry-After`.
 - Entries without a `SKILL.md` download (LobeHub agents, portal pages) are
   `installable: false` and carry their `source_url`; installing one fails with
   `SKILL_REGISTRY_NO_DIRECT_DOWNLOAD` naming that page.
@@ -62,7 +65,12 @@ all under the `skill_registry` namespace:
 - `sources`: upstream sources present in the catalog, with per-source counts
   (`facets`) and the catalog's `freshness`.
 - `categories`: categories present in the catalog, with counts and freshness.
-- `install`: install a catalog entry by `entry_id` into user scope.
+- `install`: install a catalog entry by `entry_id` into user scope. The result
+  carries `status`: `installed` with `url`, `stdout`, `stderr` and
+  `new_skills`, or `scan_blocked` with `target`, `fetched_from`, `slug`,
+  `findings` and `message` when the supply-chain scan refused it. Passing
+  `acknowledge_scan_findings: true` installs a blocked document; only the
+  Skills UI sends it, after the user chose "Install anyway".
 - `uninstall`: remove an installed user-scope skill by slug.
 - [`schemas`](./schemas): return the `skill_registry` controller schemas (CLI/RPC smoke-test generation).
 
@@ -141,8 +149,17 @@ Security notes:
 - The fetched document is then validated and written by
   `skills::ops_install::install_validated_document`, the same path a pasted URL
   takes; uninstall goes through `skills::ops_install::uninstall_workflow`.
-- A registry scan that blocks a document is logged; it does not yet refuse the
-  install.
+- Every fetched document is scanned (`tinyskills::scan_skill`). A blocking
+  scan or a failed fetch is fetched and scanned once more
+  (`skills::ops_install::scan_gate`); a document that still blocks is not
+  installed and the caller gets `status: "scan_blocked"` with the findings.
+  Request refusals (unknown id, unsafe URL, portal entry, oversized body, rate
+  limiting) are not retried, and the retry goes through the registry like the
+  first attempt, so a catalog in its refresh cooldown is not refetched.
+- Only `acknowledge_scan_findings` on the `skill_registry_install` and
+  `skills_install_from_url` RPCs installs a blocked document. The agent tools
+  (`skill_registry_install`, `install_workflow_from_url`) do not expose it and
+  always refuse; they tell the agent to send the user to the Skills page.
 
 ## Further reading
 
