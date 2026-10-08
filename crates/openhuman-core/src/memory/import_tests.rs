@@ -208,7 +208,8 @@ async fn connector_syncs_are_not_imported() {
     .unwrap();
     drop(conn);
     chunk_only_workspace(&config.workspace_dir);
-    let conn = Connection::open(config.workspace_dir.join("memory_tree").join("chunks.db")).unwrap();
+    let conn =
+        Connection::open(config.workspace_dir.join("memory_tree").join("chunks.db")).unwrap();
     conn.execute_batch(
         "INSERT INTO mem_tree_chunks VALUES
            ('k4', 'email', 'thread-1', NULL, NULL, 'me', 4, 4, 4, '[]', 'invoice attached', 3, 0, 4),
@@ -236,16 +237,30 @@ async fn connector_syncs_are_not_imported() {
     );
     let items = stored(&engine, MetaFilter::default()).await;
     assert_eq!(items.len(), 8);
-    let ids: Vec<String> = items.iter().map(legacy_id).collect();
+    let ids: Vec<String> = items
+        .iter()
+        .filter_map(|hit| {
+            hit.meta
+                .source
+                .as_ref()
+                .and_then(|source| source.id.clone())
+        })
+        .collect();
+    assert_eq!(ids.len(), 8, "every item carries its legacy id");
     for skipped in [
         "memory_docs:d9",
         "user_profile:skill-gmail-c1-name",
         "mem_tree_chunks:email:thread-1",
         "mem_tree_chunks:chat:slack:conn1",
     ] {
-        assert!(!ids.iter().any(|id| id == skipped), "{skipped} imported: {ids:?}");
+        assert!(
+            !ids.iter().any(|id| id == skipped),
+            "{skipped} imported: {ids:?}"
+        );
     }
-    assert!(ids.iter().any(|id| id == "mem_tree_chunks:document:mem_src:folder"));
+    assert!(ids
+        .iter()
+        .any(|id| id == "mem_tree_chunks:document:mem_src:folder"));
 }
 
 #[test]
