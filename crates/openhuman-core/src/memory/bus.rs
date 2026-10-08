@@ -8,6 +8,12 @@
 //!   (`lifecycle::jobs`), after resuming a v1 import the app quit in the
 //!   middle of (`import::resume_interrupted`).
 //!
+//! `memory::pending_deletions` drains the deletions queued while memory was
+//! off ([`super::deletion`]) when a credential is stored
+//! ([`DomainEvent::CredentialChanged`], any kind but `cleared`): the next
+//! sign-in after a disconnect or a thread delete finishes the delete. The
+//! background job drains them too, so a deletion that failed is retried.
+//!
 //! Turns are not ingested from the bus: the session host calls the lifecycle
 //! hooks itself, under the session's own config (`lifecycle::hooks`).
 
@@ -28,6 +34,47 @@ pub const SOURCES_SYNC_JOB: &str = "memory_sources_sync";
 pub const RETIRED_CONTEXT_REFRESH_JOB: &str = "memory_context_refresh";
 
 static JOBS_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
+
+static DELETIONS_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
+
+/// Drains the pending deletions once a credential is stored.
+pub(crate) struct PendingDeletionsSubscriber;
+
+#[async_trait]
+impl EventHandler<DomainEvent> for PendingDeletionsSubscriber {
+    fn name(&self) -> &str {
+        "memory::pending_deletions"
+    }
+
+    fn domains(&self) -> Option<&[&str]> {
+        Some(&["auth"])
+    }
+
+    async fn handle(&self, event: &DomainEvent) {
+        let DomainEvent::CredentialChanged { kind } = event else {
+            return;
+        };
+        if kind == "cleared" {
+            return;
+        }
+        let config = match crate::config::rpc::load_config_with_timeout().await {
+            Ok(config) => config,
+            Err(error) => {
+                tracing::debug!(error = %error, "[memory:bus] config unavailable; deletions wait");
+                return;
+            }
+        };
+        drain_pending_deletions(&config, kind).await;
+    }
+}
+
+/// Runs the deletions queued while memory was off, after a credential of
+/// `kind` was stored.
+pub(crate) async fn drain_pending_deletions(config: &crate::config::Config, kind: &str) -> usize {
+    let settled = super::deletion::drain(config).await;
+    tracing::debug!(kind = %kind, settled, "[memory:bus] pending deletions drained after sign-in");
+    settled
+}
 
 struct SystemJobsSubscriber;
 
@@ -77,6 +124,7 @@ pub async fn run_system_job(config: &crate::config::Config, job: &str) {
                 std::sync::Arc::new(super::import::scheduler_paused),
             );
             super::lifecycle::jobs::run_due(config).await;
+            super::deletion::drain(config).await;
         }
         _ => {}
     }
@@ -91,6 +139,14 @@ pub fn register_memory_subscribers() {
                 tracing::info!("[memory:bus] memory subscribers registered");
             }
             None => tracing::warn!("[memory:bus] system jobs not registered: no bus"),
+        }
+    }
+    if DELETIONS_HANDLE.get().is_none() {
+        match crate::core::bus::BUS.subscribe(Arc::new(PendingDeletionsSubscriber)) {
+            Some(handle) => {
+                let _ = DELETIONS_HANDLE.set(handle);
+            }
+            None => tracing::warn!("[memory:bus] pending deletions not registered: no bus"),
         }
     }
 }
