@@ -25,6 +25,9 @@ vi.mock('../../services/api/memoryApi', async importOriginal => ({
   memoryEngineSet: (...a: unknown[]) => hoisted.engineSet(...a),
 }));
 
+vi.mock('./MemoryCortexAnnouncement', () => ({
+  default: () => <div data-testid="stub-announcement" />,
+}));
 vi.mock('../../utils/openUrl', () => ({ openUrl: (...a: unknown[]) => hoisted.openUrl(...a) }));
 
 vi.mock('../../providers/CoreStateProvider', () => ({
@@ -142,6 +145,16 @@ describe('MemoryEngineTab', () => {
       expect(within(card).getByText('Soon')).toBeInTheDocument();
       expect(within(card).queryByRole('button')).not.toBeInTheDocument();
     }
+  });
+
+  it('shows the CortexDB announcement on Memory → Provider', () => {
+    renderTab(BUILTIN_ON);
+    expect(screen.getByTestId('stub-announcement')).toBeInTheDocument();
+  });
+
+  it('leaves the CortexDB announcement out when embedded in onboarding', () => {
+    renderWithProviders(<MemoryEngineTab state={OFF} onStateChange={vi.fn()} embedded />);
+    expect(screen.queryByTestId('stub-announcement')).not.toBeInTheDocument();
   });
 
   it('leaves upcoming engines out when embedded in onboarding', () => {
