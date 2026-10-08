@@ -448,3 +448,45 @@ async fn a_late_first_observation_skips_the_half_time_note() {
         "no half-time note after the late one"
     );
 }
+
+/// The turn's state is dropped when the run ends, so a long-lived harness
+/// keeps nothing for runs it will not see again.
+#[tokio::test]
+async fn the_runs_state_is_dropped_when_the_turn_ends() {
+    let missing = std::env::temp_dir().join(format!("oh-unmet-drop-{}.json", std::process::id()));
+    let _ = std::fs::remove_file(&missing);
+    let middleware = Arc::new(UnmetDeliverableMiddleware::new(None));
+    let mut harness: AgentHarness<()> = AgentHarness::new();
+    harness.register_model(
+        "mock",
+        Arc::new(ScriptedModel::new(vec![
+            tool_round("c0", "writer"),
+            tinyagents_harness::tinyinference_llm::model::ModelResponse::assistant(
+                "first answer".to_string(),
+            ),
+            tinyagents_harness::tinyinference_llm::model::ModelResponse::assistant(
+                "second answer".to_string(),
+            ),
+        ])),
+    );
+    harness.register_tool(Arc::new(FakeTool::returning("writer", "ok")));
+    harness.with_policy(RunPolicy {
+        limits: RunLimits::default()
+            .with_max_model_calls(20)
+            .with_max_tool_calls(20),
+        ..RunPolicy::default()
+    });
+    harness.push_middleware(Arc::clone(&middleware) as Arc<dyn Middleware<(), ()>>);
+    let run = harness
+        .invoke_default(
+            &(),
+            vec![Message::user(format!("write {}", missing.display()))],
+        )
+        .await
+        .expect("run succeeds");
+    assert_eq!(run.text().as_deref(), Some("second answer"));
+    assert!(
+        middleware.runs.lock().expect("lock").is_empty(),
+        "the finished run leaves no state behind"
+    );
+}

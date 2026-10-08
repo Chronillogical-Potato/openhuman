@@ -386,8 +386,8 @@ impl<C: Send + Sync> Middleware<(), C> for UnmetDeliverableMiddleware {
             if !missing.is_empty() {
                 tracing::debug!(
                     band,
-                    missing = ?missing,
-                    "[unmet_deliverable] half-time note: requested path still absent"
+                    missing = missing.len(),
+                    "[unmet_deliverable] half-time note: requested paths still absent"
                 );
                 append_note(result, &half_time_note(&missing, &clock));
             }
@@ -429,6 +429,20 @@ impl<C: Send + Sync> Middleware<(), C> for UnmetDeliverableMiddleware {
             "[unmet_deliverable] holding the answer: a named output file was never written"
         );
         response.continue_turn = Some(notice(&missing));
+        Ok(())
+    }
+
+    /// The turn is over: drop its state, whether it ended with an answer or an
+    /// error, so nothing is kept for a run that will not be seen again.
+    async fn after_agent(
+        &self,
+        ctx: &mut RunContext<C>,
+        _state: &(),
+        _run: &mut tinyagents_harness::middleware::AgentRun,
+    ) -> Result<()> {
+        if let Ok(mut runs) = self.runs.lock() {
+            runs.remove(&ctx.instance_id());
+        }
         Ok(())
     }
 
