@@ -17,6 +17,26 @@ fn defaults_select_tinyhumans_with_logging_and_recall_on() {
     assert_eq!(config.recall.build_delay_secs, DEFAULT_BUILD_DELAY_SECS);
     assert_eq!(config.agent_id, None);
     assert_eq!(config.root, None);
+    assert_eq!(config.recall.team_limit, 0, "no team section by default");
+    assert!(
+        config.split_github_by_repo,
+        "one scope per repository by default"
+    );
+}
+
+#[test]
+fn turning_the_github_split_off_survives_a_save() {
+    // On is the default and is not written; off is, so it reads back off.
+    let on = toml::to_string(&MemoryConfig::default()).unwrap();
+    assert!(!on.contains("split_github_by_repo"), "{on}");
+    let off = MemoryConfig {
+        split_github_by_repo: false,
+        ..MemoryConfig::default()
+    };
+    let saved = toml::to_string(&off).unwrap();
+    assert!(saved.contains("split_github_by_repo = false"), "{saved}");
+    let read: MemoryConfig = toml::from_str(&saved).unwrap();
+    assert!(!read.split_github_by_repo);
 }
 
 #[test]
@@ -234,4 +254,18 @@ fn migration_drops_unmappable_disabled_and_incomplete_entries() {
     ] {
         assert_eq!(migrate_legacy_source(&legacy), None, "{legacy}");
     }
+}
+
+#[test]
+fn observed_actor_is_off_by_default_and_unwritten_until_set() {
+    let config = MemoryConfig::default();
+    assert!(!config.observed_actor);
+    let written = serde_json::to_value(&config).unwrap();
+    assert!(
+        written.get("observed_actor").is_none(),
+        "off is not written"
+    );
+
+    let on: MemoryConfig = toml::from_str("observed_actor = true").unwrap();
+    assert!(on.observed_actor);
 }
