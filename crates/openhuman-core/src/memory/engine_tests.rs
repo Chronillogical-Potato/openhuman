@@ -134,6 +134,29 @@ fn cortexdb_is_off_until_a_key_is_stored_and_rebuilds_on_a_new_key() {
 }
 
 #[test]
+fn switching_observed_actor_rebuilds_the_cortexdb_engine() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = config_in(&tmp);
+    config.memory.engine = CORTEXDB_ENGINE.to_string();
+    store_cortexdb_key(&config, "cdb-key-actor").unwrap();
+    let off = resolve(&config).engine().expect("bound");
+    assert!(
+        Arc::ptr_eq(
+            &off.engine,
+            &resolve(&config).engine().expect("bound").engine
+        ),
+        "unchanged config reuses the engine"
+    );
+
+    config.memory.observed_actor = true;
+    let on = resolve(&config).engine().expect("rebound");
+    assert!(
+        !Arc::ptr_eq(&off.engine, &on.engine),
+        "the setting is part of the cache fingerprint"
+    );
+}
+
+#[test]
 fn a_blank_cortexdb_key_is_refused() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
