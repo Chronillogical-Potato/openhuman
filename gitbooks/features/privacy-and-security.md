@@ -53,7 +53,7 @@ We make no claim beyond TLS in transit and per-user tenant isolation for hosted 
 - **One source:** **Forget source** on the **Brain** tab, or tick **Also delete memory from this source** when disconnecting an integration.
 - **Everything:** for hosted memory, the backend's `DELETE /memory` erases your whole tenant, exposed to the app as the `openhuman.memory_erase_all` RPC. The Memory page has no single "erase all" button yet. For a direct CortexDB, delete the data with your CortexDB account or endpoint.
 
-Signing out or disconnecting an integration does **not** delete stored memory.
+Signing out does **not** delete stored memory, and neither does disconnecting an integration unless you tick that box.
 
 ## What the OpenHuman backend handles
 
