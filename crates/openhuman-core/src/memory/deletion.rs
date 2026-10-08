@@ -1,7 +1,7 @@
 //! Deletions that must reach the engine, whenever it is reachable.
 //!
-//! Deleting a chat thread, disconnecting a connector, forgetting a channel or
-//! removing a source asks the engine to delete for good. When memory is off
+//! Deleting a chat thread, disconnecting a connector, forgetting a channel
+//! (one thread deletion per thread it owned) or removing a source asks the engine to delete for good. When memory is off
 //! (signed out, no credential) the engine cannot be reached, and when it
 //! fails the deletion has not happened. Either way the deletion is recorded
 //! here, in `<workspace>/memory/pending_deletions.json`, and [`drain`] runs
@@ -40,11 +40,6 @@ pub enum PendingDeletion {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         toolkit: Option<String>,
     },
-    /// Every conversation logged from a disconnected channel.
-    Channel {
-        /// The channel.
-        channel: String,
-    },
     /// Every item a removed memory source stored.
     Source {
         /// The source id.
@@ -58,7 +53,6 @@ impl PendingDeletion {
         match self {
             Self::Thread { .. } => "thread",
             Self::Connection { .. } => "connection",
-            Self::Channel { .. } => "channel",
             Self::Source { .. } => "source",
         }
     }
@@ -163,9 +157,6 @@ async fn run(config: &Config, deletion: &PendingDeletion) -> MemoryResult<usize>
         } => {
             super::sources::composio::forget_connection(config, connection_id, toolkit.as_deref())
                 .await
-        }
-        PendingDeletion::Channel { channel } => {
-            super::channels::forget_channel(config, channel).await
         }
         PendingDeletion::Source { source_id } => {
             super::sources::forget_items(config, source_id).await

@@ -82,48 +82,38 @@ pub fn threads_of(workspace_dir: &Path, channel: &str) -> Vec<String> {
 /// there is no channel scope to erase: each thread's items are removed by
 /// `memory_ids` (with an explicit `redact_events` cascade).
 ///
-/// Memory off forgets nothing now and reports zero; the deletion is queued
-/// ([`super::deletion`]) and runs on the next sign-in, with the channel's
-/// thread record kept until then. A failure is queued the same way.
+/// Memory off forgets nothing now and reports zero. A thread that cannot be
+/// forgotten now (memory off, or a failed forget) is queued as a thread
+/// deletion ([`super::deletion`]) and runs on the next sign-in; the queue
+/// names the threads the channel owned at disconnect, so a thread the
+/// channel brings later is never caught by it. A failure is returned after
+/// the rest are tried.
 pub async fn forget_channel(config: &Config, channel: &str) -> MemoryResult<usize> {
-    let pending = || super::deletion::PendingDeletion::Channel {
-        channel: key(channel),
-    };
+    let threads = threads_of(&config.workspace_dir, channel);
     let bound = match engine::resolve(config).engine() {
-        Ok(bound) => bound,
-        Err(MemoryError::Off(_)) => {
-            if !threads_of(&config.workspace_dir, channel).is_empty() {
-                super::deletion::enqueue(&config.workspace_dir, pending());
-            }
-            return Ok(0);
-        }
+        Ok(bound) => Some(bound),
+        Err(MemoryError::Off(_)) => None,
         Err(error) => return Err(error),
     };
-    match forget_channel_with(config, &bound, channel).await {
-        Ok(forgotten) => Ok(forgotten),
-        Err(error) => {
-            super::deletion::enqueue(&config.workspace_dir, pending());
-            Err(error)
-        }
-    }
-}
-
-async fn forget_channel_with(
-    config: &Config,
-    bound: &engine::BoundEngine,
-    channel: &str,
-) -> MemoryResult<usize> {
     let mut forgotten = 0;
-    for thread_id in threads_of(&config.workspace_dir, channel) {
-        let filter = MetaFilter {
-            thread_id: Some(thread_id),
-            ..MetaFilter::kinds([ItemKind::Conversation])
+    let mut failure = None;
+    for thread_id in threads {
+        let result = match &bound {
+            Some(bound) => forget_thread_with(bound, &thread_id).await,
+            None => Err(MemoryError::Off("memory is off".to_string())),
         };
-        forgotten += bound
-            .engine
-            .forget(ForgetTarget::Filter(filter))
-            .await?
-            .forgotten;
+        match result {
+            Ok(count) => forgotten += count,
+            Err(error) => {
+                super::deletion::enqueue(
+                    &config.workspace_dir,
+                    super::deletion::PendingDeletion::Thread { thread_id },
+                );
+                if !matches!(error, MemoryError::Off(_)) && failure.is_none() {
+                    failure = Some(error);
+                }
+            }
+        }
     }
     {
         let _guard = LOCK
@@ -134,8 +124,23 @@ async fn forget_channel_with(
             write(&config.workspace_dir, &all);
         }
     }
-    tracing::debug!(forgotten, "[memory:channels] channel forgotten");
-    Ok(forgotten)
+    tracing::debug!(forgotten, queued = bound.is_none(), "[memory:channels] channel forgotten");
+    match failure {
+        Some(error) => Err(error),
+        None => Ok(forgotten),
+    }
+}
+
+async fn forget_thread_with(bound: &engine::BoundEngine, thread_id: &str) -> MemoryResult<usize> {
+    let filter = MetaFilter {
+        thread_id: Some(thread_id.to_string()),
+        ..MetaFilter::kinds([ItemKind::Conversation])
+    };
+    Ok(bound
+        .engine
+        .forget(ForgetTarget::Filter(filter))
+        .await?
+        .forgotten)
 }
 
 #[cfg(test)]
