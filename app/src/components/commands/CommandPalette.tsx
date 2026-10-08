@@ -1,6 +1,6 @@
 import { Command } from 'cmdk';
 import { Dialog } from 'radix-ui';
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 
 import { GROUP_LABEL_KEYS } from '../../lib/commands/globalActions';
 import { hotkeyManager } from '../../lib/commands/hotkeyManager';
@@ -44,11 +44,13 @@ export default function CommandPalette({
   const { t } = useT();
   const actions = useSyncExternalStore(subscribe, getSnapshot);
   const [search, setSearch] = useState('');
-
-  // Every opening starts from an empty query.
-  useEffect(() => {
+  // Every opening starts from an empty query: cleared as the palette closes,
+  // during render rather than in an effect.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (!open) setSearch('');
-  }, [open]);
+  }
 
   const groups = useMemo(() => {
     const byGroup = new Map<string, RegisteredAction[]>();

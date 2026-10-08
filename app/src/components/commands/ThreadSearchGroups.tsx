@@ -40,39 +40,38 @@ interface Props {
 export default function ThreadSearchGroups({ query, threads, onOpenThread }: Props) {
   const { t } = useT();
   const needle = query.trim();
-  const [hits, setHits] = useState<ThreadSearchHit[]>([]);
-  const [searching, setSearching] = useState(false);
+  // The last answer and the query it answers; a newer query hides it until
+  // its own answer lands, so a stale hit never sits under a fresh query.
+  const [results, setResults] = useState<{ query: string; hits: ThreadSearchHit[] }>({
+    query: '',
+    hits: [],
+  });
+  const wantsMessages = needle.length >= MIN_MESSAGE_QUERY;
+  const hits = wantsMessages && results.query === needle ? results.hits : [];
+  const searching = wantsMessages && results.query !== needle;
 
   useEffect(() => {
-    if (needle.length < MIN_MESSAGE_QUERY) {
-      setHits([]);
-      setSearching(false);
-      return;
-    }
+    if (!wantsMessages) return;
     let cancelled = false;
-    setSearching(true);
     const timer = window.setTimeout(() => {
       threadApi
         .searchMessages(needle, MESSAGE_LIMIT)
         .then(found => {
           if (cancelled) return;
           log('query_chars=%d hits=%d', needle.length, found.length);
-          setHits(found);
+          setResults({ query: needle, hits: found });
         })
         .catch(error => {
           if (cancelled) return;
           log('search failed: %o', error);
-          setHits([]);
-        })
-        .finally(() => {
-          if (!cancelled) setSearching(false);
+          setResults({ query: needle, hits: [] });
         });
     }, DEBOUNCE_MS);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [needle]);
+  }, [needle, wantsMessages]);
 
   const titleMatches = useMemo(() => {
     if (!needle) return [];
