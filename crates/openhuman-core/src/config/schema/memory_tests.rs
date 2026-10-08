@@ -255,3 +255,17 @@ fn migration_drops_unmappable_disabled_and_incomplete_entries() {
         assert_eq!(migrate_legacy_source(&legacy), None, "{legacy}");
     }
 }
+
+#[test]
+fn observed_actor_is_off_by_default_and_unwritten_until_set() {
+    let config = MemoryConfig::default();
+    assert!(!config.observed_actor);
+    let written = serde_json::to_value(&config).unwrap();
+    assert!(
+        written.get("observed_actor").is_none(),
+        "off is not written"
+    );
+
+    let on: MemoryConfig = toml::from_str("observed_actor = true").unwrap();
+    assert!(on.observed_actor);
+}

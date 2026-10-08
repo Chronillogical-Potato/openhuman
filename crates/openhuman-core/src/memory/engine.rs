@@ -409,11 +409,16 @@ fn resolve_cortexdb(config: &Config, root: Option<&str>) -> Binding {
             );
         }
     };
-    let fingerprint = format!("{CORTEXDB_ENGINE}|{endpoint}|{}", key_digest(&key));
+    let observed_actor = config.memory.observed_actor;
+    let fingerprint = format!(
+        "{CORTEXDB_ENGINE}|{endpoint}|{}|actor={observed_actor}",
+        key_digest(&key)
+    );
     // A third-party endpoint: no TinyHumans attribution headers.
     let (settings, layout) = rooted(
         EngineSettings {
             endpoint: Some(endpoint),
+            observed_actor,
             ..EngineSettings::default()
         },
         root,

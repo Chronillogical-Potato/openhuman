@@ -507,3 +507,40 @@ async fn a_deleted_connection_is_not_read_again() {
     assert!(!pass.more_pending);
     assert!(pass.failure.is_none());
 }
+
+#[test]
+fn a_records_sender_becomes_its_observed_actor() {
+    let actor_of = |address: &str, name: Option<&str>| {
+        let mut rec = record("m-1", "Lunch", "see you at noon");
+        rec.sender = Some(RecordSender {
+            address: address.into(),
+            name: name.map(str::to_string),
+        });
+        record_item("gmail", "conn-7", "src-g", &rec)
+            .expect("an item")
+            .meta()
+            .observed_actor
+            .clone()
+    };
+    assert_eq!(
+        actor_of(" Priya@Acme.com ", Some(" Priya ")),
+        Some(ObservedActor {
+            id: "user:priya@acme.com".into(),
+            name: Some("Priya".into()),
+        }),
+        "an email address, lower-cased, with the name"
+    );
+    assert_eq!(
+        actor_of("+15551234567", Some("  ")),
+        Some(ObservedActor {
+            id: "user:+15551234567".into(),
+            name: None,
+        }),
+        "a phone number as given; a blank name is none"
+    );
+    assert_eq!(actor_of("  ", Some("Priya")), None, "no address, no actor");
+
+    let unsent =
+        record_item("gmail", "conn-7", "src-g", &record("m-2", "", "no sender")).expect("an item");
+    assert_eq!(unsent.meta().observed_actor, None);
+}

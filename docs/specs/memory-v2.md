@@ -146,6 +146,7 @@ its own schedule (`scheduled`); an engine that cannot consolidate answers
 engine = "tinyhumans"            # "tinyhumans" | "cortexdb"
 # agent_id = "employee-7"        # host binding (see "Who is acting")
 # root = "team:acme"
+# observed_actor = false         # attribute writes to who said or did them (cortexdb only)
 
 [memory.engines.cortexdb]
 endpoint = "https://api-v1.cortexdb.ai"   # key in the keychain as "memory-cortexdb"
@@ -179,6 +180,13 @@ row is removed at startup.
 The hosted engine sends the installed transport's attribution headers
 (`x-sdk-name`, …) on every request; the CortexDB engine, a third party, does
 not.
+
+`observed_actor` (off by default) makes the CortexDB engine name who said or
+did what it stores (CortexDB's `observed_actor`, with the memory's owner as
+`subject`): an assistant turn its agent (`agent:<id>`), a synced email its
+sender (`user:<address>`, an email address or a phone number, stored as given,
+with the sender's name). A write CortexDB refuses for it is written again
+without it. Off, and always on the hosted engine, nothing on the wire changes.
 
 ## Agent tool: `memory`
 

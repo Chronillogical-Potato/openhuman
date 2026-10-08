@@ -148,6 +148,13 @@ pub struct MemoryConfig {
     /// Written only when off, since on is the default.
     #[serde(skip_serializing_if = "is_true")]
     pub split_github_by_repo: bool,
+    /// Attribute what memory stores to who said or did it (CortexDB's
+    /// `observed_actor`): an assistant turn to its agent, a synced email to
+    /// its sender. Off by default, and off nothing on the wire changes. Only
+    /// the `cortexdb` engine honours it, and a write CortexDB refuses for it
+    /// is written again without it.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub observed_actor: bool,
 }
 
 /// `[memory] layout`: where memory sits on the engine.
@@ -218,6 +225,7 @@ impl Default for MemoryConfig {
             embedding_rate_limit_per_min: DEFAULT_EMBEDDING_RATE_LIMIT_PER_MIN,
             agents: BTreeMap::new(),
             split_github_by_repo: true,
+            observed_actor: false,
         }
     }
 }

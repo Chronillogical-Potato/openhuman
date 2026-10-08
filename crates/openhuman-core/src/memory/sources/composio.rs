@@ -5,13 +5,15 @@
 //! (`integrations::composio::ops::run_sync_pass`), which pages the account and
 //! hands back decoded records; each record is stored as a document with
 //! `source = composio:<source id>`, `tags = [toolkit, "connection:<id>", …]`,
-//! its URL and its upstream timestamp. The connection tag is what deleting a
+//! its URL, its upstream timestamp and, when the connector names one (an
+//! email's sender), its sender as `meta.observed_actor` ([`sender_actor`]).
+//! The connection tag is what deleting a
 //! connection with `clear_memory` forgets by. The same conversion backs `openhuman.composio_sync`,
 //! which syncs one connection on demand.
 
 use chrono::{TimeZone, Utc};
-use tinyconnectors_bus::records::ConnectorRecord;
-use tinymemory_api::{DocumentBody, MemoryMeta, SourceKind, SourceRef, StoreItem};
+use tinyconnectors_bus::records::{ConnectorRecord, RecordSender};
+use tinymemory_api::{DocumentBody, MemoryMeta, ObservedActor, SourceKind, SourceRef, StoreItem};
 
 use crate::config::schema::MemorySourceConfig;
 use crate::config::Config;
@@ -97,8 +99,27 @@ pub fn record_item(
                 kind: SourceKind::Composio,
                 id: Some(source_id.to_string()),
             },
+            observed_actor: record.sender.as_ref().and_then(sender_actor),
             ..MemoryMeta::default()
         },
+    })
+}
+
+/// Who a record came from, as the memory actor `user:<address>` with their
+/// name: an email address, lower-cased so one person is one actor, or a
+/// phone number as the connector's dial digits. Stored as given (the engine
+/// sends it only with `[memory] observed_actor` on); `None` for a blank
+/// address.
+fn sender_actor(sender: &RecordSender) -> Option<ObservedActor> {
+    let address = sender.address.trim();
+    (!address.is_empty()).then(|| ObservedActor {
+        id: format!("user:{}", address.to_ascii_lowercase()),
+        name: sender
+            .name
+            .as_deref()
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .map(str::to_string),
     })
 }
 
