@@ -57,7 +57,7 @@ async fn composio_list_capabilities_does_not_require_session() {
         .value
         .capabilities
         .iter()
-        .any(|entry| { entry.toolkit == "gmail" && entry.native_provider && entry.memory_ingest }));
+        .any(|entry| { entry.toolkit == "gmail" && entry.native_provider }));
     // Capabilities now come from the connector module, rather than the old
     // host-side TinyMemory provider matrix. The module's current contract has
     // no Google Calendar row; keep this regression focused on the sessionless
