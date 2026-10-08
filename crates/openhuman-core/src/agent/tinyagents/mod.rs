@@ -108,3 +108,6 @@ mod prompt_cache_golden_tests;
 #[cfg(test)]
 #[path = "tinyagents_tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "nested_calls_tests.rs"]
+mod nested_calls_tests;
