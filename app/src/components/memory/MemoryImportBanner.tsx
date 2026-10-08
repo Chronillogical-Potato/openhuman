@@ -10,10 +10,14 @@
  * ("Migrate now") or runs in the background while free. A legacy tree other
  * accounts may share (self-hosted) is only taken after the takeover dialog.
  *
+ * Both steps always show once their scans answer: a step with nothing to do
+ * (nothing found, already imported, already moved, or waiting on the import)
+ * renders disabled with why, so the Migration tab never looks empty.
+ *
  * debug logging: DEBUG=openhuman:memory:import, DEBUG=openhuman:memory:migration
  */
 import debug from 'debug';
-import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import {
@@ -48,11 +52,36 @@ export const MIGRATION_IDLE_POLL_MS = 15_000;
 interface MemoryImportBannerProps {
   /** Label of the engine the data would be uploaded to. */
   engineLabel: string;
-  /** Shown once both scans have answered and there is nothing to import or move. */
-  emptyState?: ReactNode;
 }
 
-export default function MemoryImportBanner({ engineLabel, emptyState }: MemoryImportBannerProps) {
+/** A step with nothing to do: its title, why, and its action, disabled. */
+function DisabledStep({
+  testId,
+  title,
+  body,
+  action,
+}: {
+  testId: string;
+  title: string;
+  body: string;
+  action: string;
+}) {
+  return (
+    <Alert className="opacity-60" aria-disabled="true" data-testid={testId}>
+      <div className="flex w-full flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <AlertTitle>{title}</AlertTitle>
+          <AlertDescription>{body}</AlertDescription>
+        </div>
+        <Button type="button" size="sm" variant="secondary" disabled>
+          {action}
+        </Button>
+      </div>
+    </Alert>
+  );
+}
+
+export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerProps) {
   const { t } = useT();
   const [scan, setScan] = useState<ImportScan | null>(null);
   const [state, setState] = useState<ImportState | null>(null);
@@ -288,9 +317,12 @@ export default function MemoryImportBanner({ engineLabel, emptyState }: MemoryIm
   const paused = !moving && (mState?.phase === 'paused' || mStatus?.interrupted);
 
   const showOffer = importPending;
-  if (!showOffer && !state && !showMove) {
-    return importChecked && moveChecked && emptyState ? <>{emptyState}</> : null;
-  }
+  // Until both scans answer, nothing: a disabled step must not flash first.
+  if (!importChecked || !moveChecked) return null;
+  // Step 1 renders live when offered, or when its run state is visible below.
+  const importShown =
+    showOffer ||
+    (!!state && state.phase !== 'idle' && !(importDone && showMove && !(state.failed ?? 0)));
 
   const counts = scan?.counts ?? { documents: 0, conversations: 0, learnings: 0 };
   const countsText = fill(t('memoryPage.import.counts'), {
@@ -300,7 +332,16 @@ export default function MemoryImportBanner({ engineLabel, emptyState }: MemoryIm
   });
 
   return (
-    <div data-testid="memory-import-banner">
+    <div className="space-y-3" data-testid="memory-import-banner">
+      {!importShown && (
+        <DisabledStep
+          testId="memory-import-idle"
+          title={importDone ? t('memoryPage.import.done') : t('memoryPage.import.action')}
+          body={importDone ? t('memoryPage.import.doneBody') : t('memoryPage.import.none')}
+          action={t('memoryPage.import.short')}
+        />
+      )}
+
       {showOffer && (
         <Alert variant="info">
           <div className="flex w-full flex-wrap items-center justify-between gap-3">
@@ -459,6 +500,19 @@ export default function MemoryImportBanner({ engineLabel, emptyState }: MemoryIm
             </Alert>
           )}
         </div>
+      )}
+
+      {!showMove && (
+        <DisabledStep
+          testId="memory-migration-idle"
+          title={t('memoryPage.migrate.title')}
+          body={
+            importPending || importBusy
+              ? t('memoryPage.migrate.afterImport')
+              : t('memoryPage.migrate.doneBody')
+          }
+          action={t('memoryPage.migrate.action')}
+        />
       )}
 
       {error !== null && (
