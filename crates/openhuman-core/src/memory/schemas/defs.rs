@@ -4,7 +4,7 @@
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 /// Every function of the namespace, in spec order.
-pub const FUNCTIONS: [&str; 34] = [
+pub const FUNCTIONS: [&str; 35] = [
     "engines_list",
     "engine_get",
     "engine_set",
@@ -15,6 +15,7 @@ pub const FUNCTIONS: [&str; 34] = [
     "fetch",
     "learn",
     "forget",
+    "erase_all",
     "items_list",
     "explore",
     "items_get",
@@ -173,6 +174,13 @@ pub fn schema(function: &str) -> ControllerSchema {
             description: "Remove items by id.",
             inputs: vec![req("ids", TypeSchema::Array(Box::new(TypeSchema::String)), "Item ids."), reach()],
             outputs: out("{forgotten: number}"),
+        },
+        "erase_all" => ControllerSchema {
+            namespace: "memory",
+            function: "erase_all",
+            description: "Erase all memory the bound engine holds, for good. On the hosted engine this erases the account's entire hosted memory.",
+            inputs: vec![req("confirm", TypeSchema::Bool, "Must be true: nothing erased comes back.")],
+            outputs: out("{erased_scopes: number}"),
         },
         "items_list" => ControllerSchema {
             namespace: "memory",

@@ -99,6 +99,13 @@ pub(super) fn forget(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+pub(super) fn erase_all(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let params = parse::<EraseAllParams>(params)?;
+        finish(ops::erase_all(&load().await?, params).await)
+    })
+}
+
 pub(super) fn items_list(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let params = parse::<ItemsListParams>(params)?;
