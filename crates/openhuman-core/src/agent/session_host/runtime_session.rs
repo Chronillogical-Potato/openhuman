@@ -807,7 +807,7 @@ pub(super) fn holistic_last_turn_usage(
 ) -> crate::agent::tinyagents::host::LastTurnUsage {
     // Each count is the turn's own plus every synchronous child's.
     let tokens = |own: u64, child: fn(&crate::agent::subagent_host::SubagentUsage) -> u64| {
-        (sidecar.subagents.iter()).fold(own, |total, entry| {
+        sidecar.subagents.iter().fold(own, |total, entry| {
             total.saturating_add(child(&entry.usage))
         })
     };
