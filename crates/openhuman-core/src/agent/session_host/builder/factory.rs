@@ -15,7 +15,7 @@ use crate::security::SecurityPolicy;
 use crate::tools;
 use anyhow::Result;
 use std::sync::Arc;
-use tinytools::{PermissionLevel, Tool};
+use tinytools::Tool;
 use tinytools_agent::dialect::{
     CodeDialect, NativeDialect, PFormatDialect, ToolDialect, XmlDialect,
 };
