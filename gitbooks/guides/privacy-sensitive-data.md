@@ -27,10 +27,18 @@ These never leave your computer as raw data:
 
 | Thing                         | Plain meaning                                                                                |
 | ----------------------------- | -------------------------------------------------------------------------------------------- |
-| **Your memory engine**        | Where documents, conversations and learnings are stored (hosted TinyHumans or your CortexDB). Delete items any time. |
 | **Audio you speak**           | Captured to transcribe, then discarded.                                                      |
 | **Local model state**         | If you use [local AI](local-model.md), your own runtime and its models stay on-device.       |
 | **Your persona and settings** | The files that define how your assistant behaves and what it's allowed to do.                |
+
+## Your memory is stored off your machine
+
+Documents, conversations, learnings and the beliefs built from them are stored in **CortexDB**, not on your computer:
+
+- **TinyHumans engine (default when signed in):** stored in the hosted CortexDB that TinyHumans runs, through the TinyHumans backend. Each account gets its own isolated tenant, so other users cannot see your memory. TinyHumans operates that service.
+- **CortexDB engine:** stored in your own CortexDB account or self-hosted CortexDB, reached directly with your key.
+
+Secrets and personal identifiers are scrubbed before an item is sent. You can forget single items or whole sources from the Memory page; see [Deleting memory](../features/privacy-and-security.md#deleting-memory) for erasing everything.
 
 ## What the backend handles (and why)
 
@@ -38,13 +46,14 @@ These leave your machine because they can't work otherwise, but note _what_ is s
 
 | Thing                  | What's actually sent                                                                                                                                                               |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Model requests**     | Only what the assistant needs for that turn: your prompt plus the specific bits it pulled from your local memory. Not your whole memory, not background uploads.                   |
+| **Hosted memory**      | With the TinyHumans engine, every item stored and every recall goes through the backend to hosted CortexDB.                                                                       |
+| **Model requests**     | Only what the assistant needs for that turn: your prompt plus the memory recalled for it. Not your whole memory.                                                                    |
 | **Web search**         | Your search query goes to the backend proxy (so you don't need your own search key).                                                                                               |
 | **Connected services** | When you connect Gmail, Slack, etc., the backend brokers each request. Your login tokens for those services are held by the backend, **not written in plain text on your laptop**. |
 | **Text-to-speech**     | The words to be spoken are streamed to generate audio, then discarded. They are not retained.                                                                                      |
 
 {% hint style="info" %}
-**Why local memory _is_ the privacy design.** Most assistants trade privacy for context, because more context means more of your raw data uploaded. OpenHuman does the heavy work (chunking, scoring, summarizing) inside the local core, so the model only ever sees what you asked it to retrieve, at the moment you ask. Locality is the privacy feature, not a setting bolted on top.
+**Memory is not local, so scrubbing and scoping matter.** Your memory engine stores items in CortexDB and answers recall there. What protects you is that items are scrubbed before they are sent, tool-call arguments are never stored, hosted memory is isolated per account, and a model turn sees only what was recalled for it.
 {% endhint %}
 
 ## Two promises worth knowing
@@ -61,7 +70,7 @@ You have real controls. From most to least private:
 1. **Route inference on-device.** Run a local runtime such as Ollama yourself, pull the models, and [add it as a provider](local-model.md) so embeddings, summarization, and optionally chat/reasoning happen on your machine. OpenHuman doesn't install the runtime or download models for you. _(Speech and web search still use the backend proxy even then.)_
 2. **Tighten what the assistant can do.** Set `[autonomy] enabled = true` and `level = "readonly"` in `config.toml`: it can then observe and answer but never act or reach the network on its own. The policy is **off by default**, so this is a switch you have to throw, not one to leave alone. See the [Approval Gate](../features/approval-gate.md).
 3. **Keep it in one folder.** The filesystem boundary has two preconditions: the policy enabled, and `workspace_only` on. With both, the agent is confined to its working folder and cannot read the rest of your disk. With either one off, that boundary is not enforced. A **trusted root** is the deliberate exception: each one you add grants its subtree outside the working folder, taking precedence over `workspace_only`. System and credential folders (`~/.ssh`, `~/.gnupg`, `~/.aws`, and OS directories) are blocked outright regardless of all three.
-4. **Connect only what you need.** Every integration is a separate OAuth approval you grant (and can revoke) individually. Revoking stops the next sync; memory already collected stays local because it's yours.
+4. **Connect only what you need.** Every integration is a separate OAuth approval you grant (and can revoke) individually. Revoking stops the next sync; memory already collected stays in your memory engine until you forget it.
 
 ## Built-in protections you didn't have to configure
 
@@ -85,10 +94,11 @@ You know your privacy posture when you can answer these:
 
 | Belief                                                      | Reality                                                                                |
 | ----------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| "OpenHuman uploads my whole memory to answer."              | It sends only what it retrieves for that specific turn.                                |
+| "My memory is stored on my laptop."                         | It is stored in CortexDB (hosted by TinyHumans, or yours). Only bookkeeping is local.  |
+| "OpenHuman uploads my whole memory to the model to answer." | The model gets only what was recalled for that specific turn.                          |
 | "My service passwords are on my laptop."                    | Integration tokens are held by the backend; local secrets go in your OS keychain.      |
-| "Turning on local AI makes _everything_ local."             | Speech-to-text, text-to-speech, and web search still use the backend proxy by default. |
-| "Revoking an integration deletes what it already gathered." | Already-ingested memory is yours and stays local; revoking only stops future syncing.  |
+| "Turning on local AI makes _everything_ local."             | Speech-to-text, text-to-speech, and web search still use the backend proxy by default, and memory is still stored in CortexDB. |
+| "Revoking an integration deletes what it already gathered." | Already-ingested memory stays in your memory engine until you forget it; revoking only stops future syncing. |
 
 ## See also
 
