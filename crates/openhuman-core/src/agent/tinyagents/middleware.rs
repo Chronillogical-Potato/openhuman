@@ -63,7 +63,7 @@ pub(crate) use tool_policy::ToolPolicyMiddleware;
 pub(crate) use turn_context::{
     render_unanswered_steps, TranscriptSnapshot, TranscriptSnapshotSink, TurnContextMiddleware,
 };
-pub(crate) use unmet_deliverable::UnmetDeliverableMiddleware;
+pub(super) use unmet_deliverable::install as install_unmet_deliverable;
 
 /// Render the canonical TinyTools content blocks at the OpenHuman boundary.
 /// Middleware that used the retired string-shaped harness result must not

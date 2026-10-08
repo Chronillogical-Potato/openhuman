@@ -203,3 +203,62 @@ async fn a_request_naming_no_missing_file_is_left_alone() {
         .expect("run succeeds");
     assert_eq!(run.text().as_deref(), Some("done"));
 }
+
+/// `install` puts the check on a root orchestrator turn with the policy's wall
+/// clock, and on nothing else: a sub-agent's answer goes to its parent.
+#[tokio::test]
+async fn install_covers_root_orchestrator_turns_only() {
+    let missing =
+        std::env::temp_dir().join(format!("oh-unmet-install-{}.json", std::process::id()));
+    let _ = std::fs::remove_file(&missing);
+    let request = format!("Do the work and write it to {}", missing.display());
+    let script = || {
+        Arc::new(ScriptedModel::new(vec![
+            tool_round("c0", "writer"),
+            tinyagents_harness::tinyinference_llm::model::ModelResponse::assistant(
+                "here is what I found".to_string(),
+            ),
+            tool_round("c1", "writer"),
+            tinyagents_harness::tinyinference_llm::model::ModelResponse::assistant(
+                "written and answered".to_string(),
+            ),
+        ]))
+    };
+    let policy = || RunPolicy {
+        limits: RunLimits::default()
+            .with_max_model_calls(20)
+            .with_max_tool_calls(20)
+            .with_max_wall_clock_ms(Some(600_000)),
+        ..RunPolicy::default()
+    };
+
+    let mut root: AgentHarness<()> = AgentHarness::new();
+    root.register_model("mock", script());
+    root.register_tool(Arc::new(FakeTool::returning("writer", "ok")));
+    root.with_policy(policy());
+    install(&mut root, false, Some("orchestrator"));
+    let run = root
+        .invoke_default(&(), vec![Message::user(request.clone())])
+        .await
+        .expect("run succeeds");
+    assert_eq!(
+        run.text().as_deref(),
+        Some("written and answered"),
+        "a root orchestrator turn is held for the file it never wrote"
+    );
+
+    let mut sub: AgentHarness<()> = AgentHarness::new();
+    sub.register_model("mock", script());
+    sub.register_tool(Arc::new(FakeTool::returning("writer", "ok")));
+    sub.with_policy(policy());
+    install(&mut sub, true, Some("orchestrator"));
+    let run = sub
+        .invoke_default(&(), vec![Message::user(request)])
+        .await
+        .expect("run succeeds");
+    assert_eq!(
+        run.text().as_deref(),
+        Some("here is what I found"),
+        "a sub-agent turn is not checked"
+    );
+}

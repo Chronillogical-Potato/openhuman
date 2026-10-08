@@ -31,7 +31,7 @@
 //! and the cost of the second case is one advisory sentence.
 
 use std::collections::{HashMap, HashSet};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
@@ -39,6 +39,7 @@ use tinyagents_harness::error::{Result, TinyAgentsError};
 use tinyagents_harness::middleware::library::TurnClock;
 use tinyagents_harness::middleware::Middleware;
 use tinyagents_harness::middleware::ToolInvocationIdentity;
+use tinyagents_harness::runtime::AgentHarness;
 use tinyagents_harness::tinyinference_llm::message::Message;
 use tinyagents_harness::tinyinference_llm::model::{ModelRequest, ModelResponse};
 use tinytools::{ToolContent, ToolResult as TaToolResult};
@@ -318,8 +319,7 @@ impl<C: Send + Sync> Middleware<(), C> for UnmetDeliverableMiddleware {
     /// The clock-driven rungs: at half-time a requested path that still does
     /// not exist is pointed out on the tool result the model is about to
     /// read, and at 80% the note says to stop exploring and meet the stated
-    /// limits. Each is appended once per run, and each asks the loop for
-    /// reasoning on the next call: these are the moments thinking pays.
+    /// limits. Each is appended once per run.
     async fn after_tool(
         &self,
         ctx: &mut RunContext<C>,
@@ -355,7 +355,6 @@ impl<C: Send + Sync> Middleware<(), C> for UnmetDeliverableMiddleware {
                 "[unmet_deliverable] late note: stop exploring, meet the stated limits"
             );
             append_note(result, &late_note(&clock));
-            ctx.request_reasoning();
             return Ok(());
         }
         if band >= HALF_TIME_BAND && !half_noted {
@@ -370,7 +369,6 @@ impl<C: Send + Sync> Middleware<(), C> for UnmetDeliverableMiddleware {
                     "[unmet_deliverable] half-time note: requested path still absent"
                 );
                 append_note(result, &half_time_note(&missing, &clock));
-                ctx.request_reasoning();
             }
         }
         Ok(())
@@ -419,6 +417,32 @@ impl<C: Send + Sync> Middleware<(), C> for UnmetDeliverableMiddleware {
         }
         Ok(())
     }
+}
+
+/// Install the check on `harness` on the same scope as the requirements check
+/// (`verify_before_finish::applies`): root orchestrator turns only, since a
+/// sub-agent answers to its parent and the parent's own request is the one
+/// that names a file. The policy-level wall clock is handed over because the
+/// middleware cannot read `RunPolicy` from the run context.
+pub(crate) fn install<C: Send + Sync + 'static>(
+    harness: &mut AgentHarness<(), C>,
+    is_subagent: bool,
+    agent_definition_id: Option<&str>,
+) {
+    if !crate::agent::tinyagents::verify_before_finish::applies(is_subagent, agent_definition_id) {
+        tracing::debug!(
+            is_subagent,
+            agent = agent_definition_id.unwrap_or("<none>"),
+            "[unmet_deliverable] not installed for this turn"
+        );
+        return;
+    }
+    let turn_budget = harness
+        .policy()
+        .limits
+        .max_wall_clock_ms
+        .map(std::time::Duration::from_millis);
+    harness.push_middleware(Arc::new(UnmetDeliverableMiddleware::new(turn_budget)));
 }
 
 #[cfg(test)]
