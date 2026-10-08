@@ -1034,7 +1034,7 @@ async fn erase_all_needs_confirmation_and_erases_the_whole_hosted_memory() {
         .await;
     assert!(second.get("error").is_none(), "{second}");
     f.learn("a fact that belongs to the second account").await;
-    f.relogin().await;
+    f.sign_in().await;
     f.ok("openhuman.memory_erase_all", json!({ "confirm": true }))
         .await;
     let again = f
@@ -1059,7 +1059,7 @@ async fn erase_all_needs_confirmation_and_erases_the_whole_hosted_memory() {
         )
         .await;
     assert_eq!(ids_of(&kept, "items").len(), 1, "{kept}");
-    f.relogin().await;
+    f.sign_in().await;
     let docs_after = f
         .ok(
             "openhuman.memory_items_list",
