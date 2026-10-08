@@ -93,6 +93,7 @@ mod core_agent;
 mod error;
 mod harness;
 pub mod complete;
+pub mod embeddings;
 pub mod memory;
 mod runtime;
 mod turn;
