@@ -29,7 +29,7 @@ async fn signed_out_there_is_nothing_to_move() {
 async fn binds_the_legacy_tree_and_the_users_own() {
     let tmp = tempfile::tempdir().unwrap();
     let config = signed_in(&tmp);
-    let root = format!("user:{ACCOUNT}");
+    let root = format!("org:{ACCOUNT}");
     let legacy = Arc::new(ReferenceEngine::new());
     let tree = Arc::new(ReferenceEngine::new());
     install_test_engine_for_root(&config.workspace_dir, None, legacy.clone());

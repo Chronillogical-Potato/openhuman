@@ -114,7 +114,7 @@ pub struct MemoryConfig {
     pub root: Option<String>,
     /// Where memory sits on the engine: `legacy` (the shared
     /// `app:tinymemory` tree, the default) or `v3` (the signed-in person's
-    /// own `user:<id>` subtree, chats pooled at `ws:main`). Switched by the
+    /// own `org:<id>` subtree, chats pooled at `ws:main`). Switched by the
     /// layout migration once the person's memory has moved, never by hand.
     #[serde(skip_serializing_if = "MemoryLayoutMode::is_legacy")]
     pub layout: MemoryLayoutMode,
@@ -155,6 +155,13 @@ pub struct MemoryConfig {
     /// is written again without it.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub observed_actor: bool,
+    /// While memory written below the earlier `user:<id>` scope root is
+    /// moved to the person's `org:<id>` root (cortexdb-saas
+    /// `reroot-user-segment`), layout v3 still reads and forgets below it
+    /// too, merged by item id; writes go only to `org:<id>`. On by default;
+    /// turn it off once the move is verified. Written only when off.
+    #[serde(skip_serializing_if = "is_true")]
+    pub legacy_user_segment_read: bool,
 }
 
 /// `[memory] layout`: where memory sits on the engine.
@@ -164,7 +171,7 @@ pub enum MemoryLayoutMode {
     /// The shared `app:tinymemory` tree, as before layout v3.
     #[default]
     Legacy,
-    /// The person's own `user:<id>` subtree, every kind under a leaf of its
+    /// The person's own `org:<id>` subtree, every kind under a leaf of its
     /// own, chats pooled at `ws:main`.
     V3,
 }
@@ -226,6 +233,7 @@ impl Default for MemoryConfig {
             agents: BTreeMap::new(),
             split_github_by_repo: true,
             observed_actor: false,
+            legacy_user_segment_read: true,
         }
     }
 }

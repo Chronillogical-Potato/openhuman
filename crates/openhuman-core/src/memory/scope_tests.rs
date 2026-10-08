@@ -116,7 +116,7 @@ fn validate_root_accepts_nodes_and_refuses_junk() {
 fn an_account_root_is_the_lowercased_account_id() {
     assert_eq!(
         account_root("6512AB0F6512ab0f6512ab0f").as_deref(),
-        Some("user:6512ab0f6512ab0f6512ab0f")
+        Some("org:6512ab0f6512ab0f6512ab0f")
     );
     assert_eq!(account_root("local-megamind-macbook"), None);
     assert_eq!(account_root(""), None);
@@ -130,14 +130,34 @@ fn a_local_session_root_is_a_recorded_install_id_not_the_hostname() {
     config.config_path = user_dir.join("config.toml");
     config.workspace_dir = user_dir.join("workspace");
     let root = user_root(&config).unwrap();
-    assert!(root.starts_with("user:local-"), "{root}");
-    assert!(!root.contains("megamind"), "{root}");
+    assert!(root.starts_with("org:local-"), "{root}");
+    assert!(
+        !root.contains("user:") && !root.contains("megamind"),
+        "{root}"
+    );
     assert_ne!(
-        root,
+        actor_of_root(&root),
         crate::memory::local_root::legacy_root("local-megamind-macbook"),
         "a fresh install does not derive its root from the hostname"
     );
     assert_eq!(user_root(&config).as_deref(), Some(root.as_str()));
+}
+
+#[test]
+fn an_install_with_a_recorded_legacy_root_keeps_resolving_to_it() {
+    let tmp = tempfile::tempdir().unwrap();
+    let user_dir = tmp.path().join("users").join("local-megamind-macbook");
+    let mut config = Config::default();
+    config.config_path = user_dir.join("config.toml");
+    config.workspace_dir = user_dir.join("workspace");
+    let legacy = crate::memory::local_root::legacy_root("local-megamind-macbook");
+    let file = crate::memory::local_root::path(&config.workspace_dir);
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    std::fs::write(&file, format!(r#"{{"root":"{legacy}","origin":"legacy"}}"#)).unwrap();
+    let root = user_root(&config).unwrap();
+    assert!(root.starts_with("org:local-"), "{root}");
+    // The old root is the actor: the retired root that is still read.
+    assert_eq!(actor_of_root(&root), legacy);
 }
 
 #[test]
@@ -146,7 +166,7 @@ fn the_user_root_is_read_from_where_the_config_lives() {
     config.config_path = "/h/.openhuman/users/6512ab0f6512ab0f6512ab0f/config.toml".into();
     assert_eq!(
         user_root(&config).as_deref(),
-        Some("user:6512ab0f6512ab0f6512ab0f")
+        Some("org:6512ab0f6512ab0f6512ab0f")
     );
     config.config_path = "/h/.openhuman/users/local/config.toml".into();
     assert_eq!(user_root(&config), None);
@@ -179,4 +199,18 @@ fn layout_v3_pools_every_agents_chats_at_ws_main() {
 
     let team = MemoryIdentity::team_member("acme", "writer").resolve(&config);
     assert_eq!(chat_node(&team.layout), ns("team:acme/ws:main"));
+}
+
+#[test]
+fn a_roots_actor_is_its_user_spelling() {
+    assert_eq!(
+        actor_of_root("org:6512ab0f6512ab0f6512ab0f"),
+        "user:6512ab0f6512ab0f6512ab0f"
+    );
+    assert_eq!(
+        actor_of_root("org:local-0011223344556677"),
+        "user:local-0011223344556677"
+    );
+    // A non-org root is its own actor.
+    assert_eq!(actor_of_root("user:local-aa"), "user:local-aa");
 }
