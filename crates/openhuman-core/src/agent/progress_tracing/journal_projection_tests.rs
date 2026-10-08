@@ -78,6 +78,7 @@ fn single_turn(tool_error: Option<&str>) -> Vec<AgentObservation> {
             1_070,
             AgentEvent::RunCompleted {
                 run_id: RunId::new("run-1"),
+                outcome: None,
             },
         ),
     ]
@@ -144,6 +145,7 @@ fn subagent_turn() -> Vec<AgentObservation> {
             1_100,
             AgentEvent::RunCompleted {
                 run_id: RunId::new("run-1"),
+                outcome: None,
             },
         ),
     ]
@@ -257,6 +259,7 @@ fn projects_failed_subagent_from_child_run_failed() {
             AgentEvent::RunFailed {
                 run_id: RunId::new("run-1"),
                 error: "provider unavailable".to_string(),
+                outcome: None,
             },
         ),
         obs(
@@ -264,6 +267,7 @@ fn projects_failed_subagent_from_child_run_failed() {
             1_030,
             AgentEvent::RunCompleted {
                 run_id: RunId::new("run-1"),
+                outcome: None,
             },
         ),
     ];
@@ -319,6 +323,7 @@ fn projects_turn_content_from_root_model_io() {
             1_030,
             AgentEvent::RunCompleted {
                 run_id: RunId::new("run-1"),
+                outcome: None,
             },
         ),
     ];

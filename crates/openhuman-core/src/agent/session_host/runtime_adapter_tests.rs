@@ -56,6 +56,7 @@ impl SessionDriver<OpenHumanRunContext> for RecordingDriver {
             output: Some("done".into()),
             partial: None,
             interrupted: false,
+            outcome: None,
         })
     }
 }
