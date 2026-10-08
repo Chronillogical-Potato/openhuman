@@ -2,7 +2,11 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderWithProviders } from '../../test/test-utils';
-import MemoryImportBanner, { IMPORT_POLL_MS } from './MemoryImportBanner';
+import MemoryImportBanner, {
+  IMPORT_POLL_MS,
+  MIGRATION_IDLE_POLL_MS,
+  MIGRATION_POLL_MS,
+} from './MemoryImportBanner';
 
 const hoisted = vi.hoisted(() => ({
   scan: vi.fn(),
@@ -213,6 +217,16 @@ describe('MemoryImportBanner', () => {
     expect(hoisted.mStart).not.toHaveBeenCalled();
   });
 
+  it('keeps the retry for refused items beside the move', async () => {
+    hoisted.status.mockResolvedValue({
+      state: { phase: 'done', imported: 7, total: 9, failed: 2 },
+    });
+    hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
+    renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+    expect(await screen.findByTestId('memory-migration-banner')).toBeInTheDocument();
+    expect(screen.getByTestId('memory-import-retry-failed')).toBeInTheDocument();
+  });
+
   it('takes a shared tree only after the takeover is confirmed', async () => {
     hoisted.scan.mockResolvedValue({ found: false });
     hoisted.mScan.mockResolvedValue({ needed: true, shared: true });
@@ -222,5 +236,144 @@ describe('MemoryImportBanner', () => {
     expect(hoisted.mStart).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId('memory-migration-takeover-confirm'));
     await waitFor(() => expect(hoisted.mStart).toHaveBeenCalledWith(true));
+  });
+
+  describe('organizing (step 2)', () => {
+    beforeEach(() => {
+      hoisted.scan.mockResolvedValue({ found: false });
+    });
+
+    it('migrates now without a dialog when the tree is the account’s own', async () => {
+      hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
+      renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+      fireEvent.click(await screen.findByTestId('memory-migration-start'));
+      await waitFor(() => expect(hoisted.mStart).toHaveBeenCalledWith(false));
+      expect(screen.queryByTestId('memory-migration-takeover')).not.toBeInTheDocument();
+      expect(await screen.findByTestId('memory-migration-running')).toHaveTextContent('4');
+    });
+
+    it('shows a failed start', async () => {
+      hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
+      hoisted.mStart.mockRejectedValue(new Error('boom'));
+      renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+      fireEvent.click(await screen.findByTestId('memory-migration-start'));
+      expect(await screen.findByTestId('memory-import-error')).toBeInTheDocument();
+    });
+
+    it('cancels the takeover without starting anything', async () => {
+      hoisted.mScan.mockResolvedValue({ needed: true, shared: true });
+      renderWithProviders(<MemoryImportBanner engineLabel="CortexDB" />);
+      fireEvent.click(await screen.findByTestId('memory-migration-start'));
+      fireEvent.click(await screen.findByTestId('memory-migration-takeover-cancel'));
+      expect(screen.queryByTestId('memory-migration-takeover')).not.toBeInTheDocument();
+      expect(hoisted.mStart).not.toHaveBeenCalled();
+    });
+
+    it('shows why a move paused and resumes it', async () => {
+      hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
+      hoisted.mStatus.mockResolvedValue({
+        state: { phase: 'paused', copied: 3, error: 'not enough credits' },
+        running: false,
+        interrupted: false,
+      });
+      renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+      expect(await screen.findByTestId('memory-migration-paused')).toHaveTextContent(
+        'not enough credits'
+      );
+      fireEvent.click(screen.getByTestId('memory-migration-start'));
+      await waitFor(() => expect(hoisted.mStart).toHaveBeenCalledWith(false));
+    });
+
+    it('offers to try again what could not be moved', async () => {
+      hoisted.mStatus.mockResolvedValue({
+        state: {
+          phase: 'cleaned',
+          copied: 5,
+          failures: [{ id: 'a', reason: 'too_large' }],
+          incomplete: ['b'],
+        },
+        running: false,
+        interrupted: false,
+      });
+      renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+      expect(await screen.findByTestId('memory-migration-left')).toHaveTextContent('2');
+      fireEvent.click(screen.getByTestId('memory-migration-retry'));
+      await waitFor(() => expect(hoisted.mRetry).toHaveBeenCalled());
+      await waitFor(() => expect(hoisted.mStart).toHaveBeenCalledWith(false));
+      // The scan says nothing is needed, but the retry's run stays in view.
+      expect(await screen.findByTestId('memory-migration-running')).toBeInTheDocument();
+    });
+
+    it('shows a failed retry', async () => {
+      hoisted.mStatus.mockResolvedValue({
+        state: { phase: 'cleaned', copied: 5, failures: [{ id: 'a', reason: 'x' }] },
+        running: false,
+        interrupted: false,
+      });
+      hoisted.mRetry.mockRejectedValue(new Error('boom'));
+      renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+      expect(await screen.findByTestId('memory-migration-left')).toHaveTextContent('1');
+      fireEvent.click(screen.getByTestId('memory-migration-retry'));
+      expect(await screen.findByTestId('memory-import-error')).toBeInTheDocument();
+    });
+
+    it('polls a running move and scans again when it ends', async () => {
+      hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
+      hoisted.mStatus.mockResolvedValue(moving(1));
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+      expect(await screen.findByTestId('memory-migration-running')).toHaveTextContent('1');
+
+      hoisted.mStatus.mockResolvedValue({
+        state: { phase: 'cleaned', copied: 3 },
+        running: false,
+        interrupted: false,
+      });
+      hoisted.mScan.mockResolvedValue({ needed: false, shared: false });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(MIGRATION_POLL_MS + 10);
+      });
+      await waitFor(() =>
+        expect(screen.queryByTestId('memory-migration-banner')).not.toBeInTheDocument()
+      );
+    });
+
+    it('notices a move the background job starts while it is offered', async () => {
+      hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+      expect(await screen.findByTestId('memory-migration-offer')).toBeInTheDocument();
+      hoisted.mStatus.mockResolvedValue(moving(2));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(MIGRATION_IDLE_POLL_MS + 10);
+      });
+      expect(await screen.findByTestId('memory-migration-running')).toHaveTextContent('2');
+    });
+
+    it('shows a failed status poll', async () => {
+      hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
+      hoisted.mStatus.mockResolvedValueOnce(moving(1)).mockRejectedValue(new Error('boom'));
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+      expect(await screen.findByTestId('memory-migration-running')).toBeInTheDocument();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(MIGRATION_POLL_MS + 10);
+      });
+      expect(await screen.findByTestId('memory-import-error')).toBeInTheDocument();
+    });
+
+    it('scans again after a failed scan', async () => {
+      hoisted.mScan
+        .mockRejectedValueOnce(new Error('not ready'))
+        .mockResolvedValue({ needed: true, shared: false });
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+      await waitFor(() => expect(hoisted.mScan).toHaveBeenCalledTimes(1));
+      expect(screen.queryByTestId('memory-migration-banner')).not.toBeInTheDocument();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(MIGRATION_IDLE_POLL_MS + 10);
+      });
+      expect(await screen.findByTestId('memory-migration-offer')).toBeInTheDocument();
+    });
   });
 });

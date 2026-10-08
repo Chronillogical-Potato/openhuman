@@ -138,8 +138,11 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   const [takeoverOpen, setTakeoverOpen] = useState(false);
   const [mBusy, setMBusy] = useState(false);
 
+  // Bumped to scan again after a failed scan.
+  const [mScanAttempt, setMScanAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
+    let retry: ReturnType<typeof setTimeout> | undefined;
     Promise.all([memoryMigrationScan(), memoryMigrationStatus().catch(() => null)])
       .then(([found, current]) => {
         if (cancelled) return;
@@ -147,14 +150,26 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
         setMScan(found ?? null);
         setMStatus(current ?? null);
       })
-      .catch(err => mlog('scan failed: %o', err));
+      .catch(err => {
+        // A transient failure must not hide the move for good: try again.
+        mlog('scan failed: %o', err);
+        if (!cancelled) {
+          retry = setTimeout(() => setMScanAttempt(n => n + 1), MIGRATION_IDLE_POLL_MS);
+        }
+      });
     return () => {
       cancelled = true;
+      if (retry) clearTimeout(retry);
     };
-  }, []);
+  }, [mScanAttempt]);
 
   const wasMoving = useRef(false);
+  // One status request at a time: a slow answer must not land after, and
+  // overwrite, a newer one.
+  const mPolling = useRef(false);
   const mPoll = useCallback(async () => {
+    if (mPolling.current) return;
+    mPolling.current = true;
     try {
       const next = await memoryMigrationStatus();
       setMStatus(next);
@@ -164,6 +179,8 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
     } catch (err) {
       mlog('status failed: %o', err);
       setError(memoryErrorMessage(err, t));
+    } finally {
+      mPolling.current = false;
     }
   }, [t]);
 
@@ -279,67 +296,71 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
         </Alert>
       )}
 
-      {state && state.phase !== 'idle' && !(importDone && showMove) && (
-        <Alert
-          variant={
-            state.phase === 'error' ? 'destructive' : state.phase === 'done' ? 'success' : 'info'
-          }
-          data-testid={`memory-import-${state.phase}`}>
-          <div className="w-full space-y-2">
-            <AlertTitle>
-              {state.phase === 'running'
-                ? t('memoryPage.import.running')
-                : state.phase === 'done'
-                  ? t('memoryPage.import.done')
-                  : t('memoryPage.import.failed')}
-            </AlertTitle>
-            {state.phase === 'running' && (
-              <Progress
-                value={state.total > 0 ? Math.round((state.imported / state.total) * 100) : 0}
-                aria-label={t('memoryPage.import.running')}
-              />
-            )}
-            <AlertDescription>
-              {state.phase === 'error' && state.error
-                ? state.error
-                : fill(t('memoryPage.import.progress'), {
-                    imported: state.imported,
-                    total: state.total,
-                  })}
-            </AlertDescription>
-            {state.phase === 'done' && (state.failed ?? 0) > 0 && (
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-sm" data-testid="memory-import-failed-items">
-                  {fill(t('memoryPage.import.failedItems'), { count: state.failed ?? 0 })}
-                  {/* A retry the engine or account stopped says why; Retry again works. */}
-                  {state.error ? ` ${state.error}` : ''}
-                </span>
+      {state &&
+        state.phase !== 'idle' &&
+        // A clean import gives way to step 2; one with refused items keeps
+        // its count and Retry beside it.
+        !(importDone && showMove && !(state.failed ?? 0)) && (
+          <Alert
+            variant={
+              state.phase === 'error' ? 'destructive' : state.phase === 'done' ? 'success' : 'info'
+            }
+            data-testid={`memory-import-${state.phase}`}>
+            <div className="w-full space-y-2">
+              <AlertTitle>
+                {state.phase === 'running'
+                  ? t('memoryPage.import.running')
+                  : state.phase === 'done'
+                    ? t('memoryPage.import.done')
+                    : t('memoryPage.import.failed')}
+              </AlertTitle>
+              {state.phase === 'running' && (
+                <Progress
+                  value={state.total > 0 ? Math.round((state.imported / state.total) * 100) : 0}
+                  aria-label={t('memoryPage.import.running')}
+                />
+              )}
+              <AlertDescription>
+                {state.phase === 'error' && state.error
+                  ? state.error
+                  : fill(t('memoryPage.import.progress'), {
+                      imported: state.imported,
+                      total: state.total,
+                    })}
+              </AlertDescription>
+              {state.phase === 'done' && (state.failed ?? 0) > 0 && (
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-sm" data-testid="memory-import-failed-items">
+                    {fill(t('memoryPage.import.failedItems'), { count: state.failed ?? 0 })}
+                    {/* A retry the engine or account stopped says why; Retry again works. */}
+                    {state.error ? ` ${state.error}` : ''}
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={starting}
+                    data-testid="memory-import-retry-failed"
+                    onClick={() => void retryFailed()}>
+                    {t('memoryPage.import.retryFailed')}
+                  </Button>
+                </div>
+              )}
+              {state.phase === 'error' && (
+                // The core keeps the checkpoint, so starting again resumes where
+                // the import stopped; it still goes through the consent dialog.
                 <Button
                   type="button"
                   size="sm"
-                  variant="secondary"
-                  disabled={starting}
-                  data-testid="memory-import-retry-failed"
-                  onClick={() => void retryFailed()}>
-                  {t('memoryPage.import.retryFailed')}
+                  variant="primary"
+                  data-testid="memory-import-resume"
+                  onClick={() => setConsentOpen(true)}>
+                  {t('memoryPage.import.resume')}
                 </Button>
-              </div>
-            )}
-            {state.phase === 'error' && (
-              // The core keeps the checkpoint, so starting again resumes where
-              // the import stopped; it still goes through the consent dialog.
-              <Button
-                type="button"
-                size="sm"
-                variant="primary"
-                data-testid="memory-import-resume"
-                onClick={() => setConsentOpen(true)}>
-                {t('memoryPage.import.resume')}
-              </Button>
-            )}
-          </div>
-        </Alert>
-      )}
+              )}
+            </div>
+          </Alert>
+        )}
 
       {showMove && (
         <div data-testid="memory-migration-banner">
