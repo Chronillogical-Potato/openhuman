@@ -325,6 +325,45 @@ Other invariants worth knowing before wiring any entry point:
   which copy the bundles. Skill discovery rejects symlinked bundles, so
   linking them in does not work.
 
+## One model call, no runtime: `Completer`
+
+A host that needs *a completion*, not an agent — a code reviewer asking for a
+JSON verdict, a classifier, an extractor — uses `complete::Completer`. It needs
+no `Runtime`, so none of the one-per-process and worker-stack constraints above
+apply, and any number of calls can run concurrently.
+
+```rust,no_run
+# async fn demo() -> Result<(), openhuman_embed::CoreError> {
+use openhuman_embed::complete::{ChatMessage, CompletionRequest, Completer, ResponseFormat};
+use openhuman_embed::Route;
+
+let completer = Completer::new(Route::openai_compatible("https://openrouter.ai/api/v1", "sk-…"))
+    .header("X-Title", "my-app");
+let response = completer
+    .complete(
+        CompletionRequest::new("openai/gpt-5-mini", vec![ChatMessage::user("Is 7 prime?")])
+            .response_format(ResponseFormat::JsonObject)
+            .max_tokens(64)
+            .provider_options(serde_json::json!({"usage": {"include": true}})),
+    )
+    .await?;
+println!("{:?} {:?} {:?}", response.structured, response.finish_reason, response.usage);
+# Ok(())
+# }
+```
+
+It differs from an agent turn on purpose: no prompt-injection guard (callers
+pass untrusted text *as data*), no tools (a request declaring tools is
+refused), no session or orchestrator prompt, and no model fallback — the
+requested model is sent verbatim and `answered_model` reports what the
+provider says actually ran. `finish_reason`, token usage (cached and reasoning
+included) and the gateway-reported cost come back on the response; a
+`CompletionObserver` sees every call, success or failure, for trace export.
+
+`openhuman_embed::embeddings` re-exports the embedding models (OpenAI, Voyage,
+Cohere, Ollama, mock) for hosts that keep their own vector index, with the
+signature format unchanged so stored vectors stay in their partition.
+
 ## Feature flags
 
 Every feature on this crate is a pass-through to the same-named feature on
