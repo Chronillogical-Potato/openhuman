@@ -1,5 +1,5 @@
-//! One stateless model call on an explicit route: no session, no tools, no
-//! prompt guard.
+//! One stateless model call on an explicit OpenAI-compatible endpoint: no
+//! session, no tools, no prompt guard.
 //!
 //! [`agent_chat_simple`](super::agent_chat_simple) is the closest neighbour,
 //! and the differences are the point of this module:
@@ -16,23 +16,46 @@
 //! - **Tools are refused, not ignored.** A request that declares tools is an
 //!   error: a host that wants a tool loop wants an agent turn, and silently
 //!   dropping the declarations would hide that mistake.
-//! - **The route is mandatory.** The call never falls back to the account's
-//!   configured provider, so the model a caller pays for is the one it named.
+//! - **No provider resolution.** The endpoint is the caller's, and the model is
+//!   built directly on it rather than through the config-driven provider
+//!   factory, so there is no managed-backend detour, no role pin and no
+//!   fallback: the model a caller pays for is the one it named.
 
-use tinyinference_llm::model::{ModelRequest, ModelResponse};
+use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
+use tinyinference_llm::providers::openai::OpenAiModel;
 
-use crate::config::schema::EphemeralRoute;
-use crate::config::Config;
-use crate::inference::provider as providers;
+/// Where a [`complete_once`] call goes.
+#[derive(Clone)]
+pub struct CompletionEndpoint {
+    /// OpenAI-compatible base URL; `/chat/completions` is appended.
+    pub base_url: String,
+    /// Bearer presented to `base_url`.
+    pub api_key: String,
+    /// Extra request headers (gateway attribution such as OpenRouter's
+    /// `HTTP-Referer` / `X-Title`).
+    pub headers: Vec<(String, String)>,
+}
 
-/// Run `request` once against `route` and return the provider's response.
+impl std::fmt::Debug for CompletionEndpoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CompletionEndpoint")
+            .field(
+                "base_url",
+                &crate::inference::provider::factory::redact_endpoint(&self.base_url),
+            )
+            .field("api_key", &"<redacted>")
+            .field("headers", &self.headers.len())
+            .finish()
+    }
+}
+
+/// Run `request` once against `endpoint` and return the provider's response.
 ///
-/// `request.model` is required: it names the model on `route`'s endpoint and
-/// is what the route pins every chat role to. Errors are rendered strings, the
-/// same contract as the other `ops` functions, so the facade maps them in one
-/// place.
+/// `request.model` is required and sent verbatim. Errors are rendered strings,
+/// the same contract as the other `ops` functions, so the facade maps them in
+/// one place.
 pub async fn complete_once(
-    route: EphemeralRoute,
+    endpoint: &CompletionEndpoint,
     request: ModelRequest,
 ) -> Result<ModelResponse, String> {
     if !request.tools.is_empty() {
@@ -49,22 +72,15 @@ pub async fn complete_once(
         .ok_or_else(|| "complete_once: request.model is required".to_string())?
         .to_string();
 
-    // A throwaway in-memory config: nothing here reads or writes the user's
-    // workspace, and the route below replaces every chat role, so defaults are
-    // only the scaffolding the provider factory expects.
-    let mut config = Config {
-        default_model: Some(model_id.clone()),
-        ..Config::default()
-    };
-    crate::config::schema::ephemeral_route::apply(&mut config, route);
+    let mut model = OpenAiModel::new(endpoint.api_key.clone())
+        .with_base_url(endpoint.base_url.clone())
+        .with_model(model_id.clone());
+    for (name, value) in &endpoint.headers {
+        model = model.with_header(name.clone(), value.clone());
+    }
 
-    let temperature = request.temperature.unwrap_or(config.default_temperature);
-    let (model, resolved_model) =
-        providers::create_chat_model_with_model_id("chat", &config, temperature)
-            .map_err(|e| format!("complete_once: {e}"))?;
     tracing::debug!(
-        requested_model = %model_id,
-        resolved_model = %resolved_model,
+        model = %model_id,
         messages = request.messages.len(),
         response_format = request.response_format.is_some(),
         max_tokens = ?request.max_tokens,
