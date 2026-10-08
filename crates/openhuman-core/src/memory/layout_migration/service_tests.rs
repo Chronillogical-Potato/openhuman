@@ -78,6 +78,36 @@ async fn a_stopped_run_reads_as_interrupted_and_a_tick_resumes_it() {
 }
 
 #[tokio::test]
+async fn nothing_starts_while_an_import_is_unfinished() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = crate::memory::test_fixtures::config_in(&tmp);
+    let host = Arc::new(FakeHost::with(3).await);
+    let path = config
+        .workspace_dir
+        .join("memory")
+        .join("import_state.json");
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(
+        &path,
+        r#"{"state":{"phase":"running","total":3,"imported":1}}"#,
+    )
+    .unwrap();
+    assert!(crate::memory::import::in_progress(&config));
+    assert!(!start(config.clone(), host.clone(), Trigger::Auto, never()));
+    assert!(!tick(&config, host.clone(), never()));
+    assert_eq!(count(host.tree.as_ref()).await, 0);
+
+    std::fs::write(
+        &path,
+        r#"{"state":{"phase":"done","total":3,"imported":3}}"#,
+    )
+    .unwrap();
+    assert!(start(config.clone(), host.clone(), Trigger::Auto, never()));
+    settle(&config).await;
+    assert_eq!(count(host.tree.as_ref()).await, 3);
+}
+
+#[tokio::test]
 async fn a_tick_starts_nothing_while_background_work_is_paused() {
     let tmp = tempfile::tempdir().unwrap();
     let config = crate::memory::test_fixtures::config_in(&tmp);

@@ -5319,9 +5319,9 @@ const messages: TranslationMap = {
   'memoryPage.import.progress': '{imported}/{total} öğe içe aktarıldı',
   'memoryPage.migrate.title': 'Belleği hesabınıza taşıyın',
   'memoryPage.migrate.body':
-    'Bu güncellemeden önce kaydedilen bellek hâlâ eski paylaşılan düzende. Taşıma ücretsiz olduğu sürece arka planda kendiliğinden taşınır ya da şimdi taşıyabilirsiniz.',
+    'Bu güncellemeden önce kaydedilen bellek hâlâ eski paylaşılan düzende. Arka planda kendiliğinden taşınır ya da şimdi taşıyabilirsiniz.',
   'memoryPage.migrate.action': 'Şimdi taşı',
-  'memoryPage.migrate.running': 'Bellek taşınıyor…',
+  'memoryPage.migrate.running': 'Belleğiniz düzenleniyor…',
   'memoryPage.migrate.progress': '{copied} öğe taşındı',
   'memoryPage.migrate.progressOne': '{copied} öğe taşındı',
   'memoryPage.migrate.paused': 'Taşıma duraklatıldı',

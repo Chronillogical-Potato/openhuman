@@ -217,6 +217,11 @@ async fn store_batch(bound: &BoundEngine, batch: Vec<ImportedItem>) -> BatchOutc
 /// Imports running now, per workspace.
 static RUNNING: LazyLock<Mutex<HashSet<PathBuf>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
 
+/// Held while an import or a layout migration decides to start: each checks
+/// the other is not going, then registers itself, under this one lock, so
+/// neither can slip in between the other's check and its registration.
+pub(crate) static START_GATE: Mutex<()> = Mutex::new(());
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct ImportFile {
     #[serde(default)]
@@ -297,6 +302,21 @@ pub async fn scan(config: &Config) -> MemoryResult<ImportScanView> {
         found: counts.is_some(),
         counts,
     })
+}
+
+/// Whether an import is unfinished: running now, interrupted (it resumes on
+/// its own), or paused for credits. The layout migration waits for it, so
+/// old local memory lands before the tree is reorganised.
+#[must_use]
+pub fn in_progress(config: &Config) -> bool {
+    // A live import counts from its reservation, before its first state
+    // write (the scan of the old store comes first).
+    let live = RUNNING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .contains(&config.workspace_dir);
+    let file = read_file(&config.workspace_dir);
+    live || file.state.phase == ImportPhase::Running || file.paused_for_credits
 }
 
 /// `memory_import_status`.
@@ -458,10 +478,22 @@ async fn start_with(
     }
     let bound = engine::resolve(config).engine()?;
     let workspace_dir = config.workspace_dir.clone();
-    let claimed = RUNNING
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .insert(workspace_dir.clone());
+    let claimed = {
+        let _gate = START_GATE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        // Imported items written to the legacy tree while it is being moved
+        // would be left behind there.
+        if super::layout_migration::service::is_running(config) {
+            return Err(MemoryError::invalid(
+                "memory is being organized; import once that finishes",
+            ));
+        }
+        RUNNING
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(workspace_dir.clone())
+    };
     if !claimed {
         return Ok(status(config));
     }
@@ -501,12 +533,27 @@ async fn start_with(
     write_file(&workspace_dir, &file);
     let state = file.state.clone();
     tracing::info!(total = state.total, "[memory:import] import started");
+    let config = config.clone();
     tokio::spawn(async move {
         run(&workspace_dir, &bound, file, paused).await;
         RUNNING
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .remove(&workspace_dir);
+        // Import first, then organize: the move starts here, on whatever
+        // screen the user is, once the import is done.
+        if read_file(&workspace_dir).state.phase == ImportPhase::Done {
+            let started = super::layout_migration::start(
+                config,
+                Arc::new(super::layout_migration::AppHost),
+                // Migration is free: organizing follows a finished import
+                // straight away, free period or not. A shared self-hosted
+                // tree still waits for the takeover consent.
+                super::layout_migration::Trigger::Manual { takeover: false },
+                Arc::new(scheduler_paused),
+            );
+            tracing::info!(started, "[memory:import] import done; organizing next");
+        }
     });
     Ok(state)
 }
@@ -649,3 +696,7 @@ mod tests;
 #[cfg(test)]
 #[path = "import_recovery_tests.rs"]
 mod recovery_tests;
+
+#[cfg(test)]
+#[path = "import_organize_tests.rs"]
+mod organize_tests;

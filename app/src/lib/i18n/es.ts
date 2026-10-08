@@ -5410,9 +5410,9 @@ const messages: TranslationMap = {
   'memoryPage.import.progress': '{imported} de {total} elementos importados',
   'memoryPage.migrate.title': 'Mueve la memoria a tu cuenta',
   'memoryPage.migrate.body':
-    'La memoria guardada antes de esta actualización sigue en el antiguo diseño compartido. Se mueve sola en segundo plano mientras moverla sea gratis, o puedes moverla ahora.',
+    'La memoria guardada antes de esta actualización sigue en el antiguo diseño compartido. Se mueve sola en segundo plano, o puedes moverla ahora.',
   'memoryPage.migrate.action': 'Migrar ahora',
-  'memoryPage.migrate.running': 'Moviendo la memoria…',
+  'memoryPage.migrate.running': 'Organizando tu memoria…',
   'memoryPage.migrate.progress': '{copied} elementos movidos',
   'memoryPage.migrate.progressOne': '{copied} elemento movido',
   'memoryPage.migrate.paused': 'Traslado en pausa',
