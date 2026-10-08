@@ -24,7 +24,6 @@ Multi-agent orchestration domain. Owns the LLM tool-calling loop, sub-agent disp
 | `artifacts/` | Agent-generated artifact storage, retrieval, and lifecycle ([README](artifacts/README.md)) |
 | `context/` | System-prompt assembly and per-session `ContextManager` bookkeeping (utilisation stats, budget, session-memory triggers) ([README](context/README.md)) |
 | `debug/` | Renders the exact system prompt a live session would see for a given agent, via `Agent::from_config_for_agent` |
-| `experience/` | Local procedural operating experience capture for self-learning ([README](experience/README.md)) |
 | `file_state/` | Process-wide read/write stamps so parallel sub-agents and worker threads detect stale file contents before writing |
 | `goals/` | Host adapters around `tinyagents_graph::goals`: workspace-store resolution, domain events, turn accounting, and the `goal_*` tools ([README](goals/README.md)) |
 | `harness/` | Legacy/product prompt and definition helpers used by the session host; generic loop mechanics are imported from TinyAgents ([README](harness/README.md)) |

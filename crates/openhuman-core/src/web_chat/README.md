@@ -26,7 +26,7 @@ runner behind both surfaces.
    `AgentTurnOrigin::WebChat` scope, and the
    `APPROVAL_CHAT_CONTEXT` task-local scope all wrap the same future.
 4. `run_chat_task` checks the session `Agent` out of the per-thread cache
-   (`session.rs::checkout_session_agent`), reusing the `THREAD_SESSIONS` entry
+   (`session.rs::checkout_session_agent`), reusing the `thread_sessions()` entry
    when its `SessionCacheFingerprint` (including the resolved effective model,
    even without a picker override) still matches and otherwise building one
    and cold-boot resuming it from the thread's `session_raw` transcript (or
@@ -46,7 +46,7 @@ runner behind both surfaces.
    the model's unmodified text. The segmentation helpers in `presentation.rs`
    are legacy and unused on this path.
 6. On `Err`, `run_chat_task`'s error branch first consults the per-thread
-   budget signal (`THREAD_BUDGET_SIGNALS`, `classify_budget_correlation` maps
+   budget signal (`budget_correlation.rs`, `classify_budget_correlation` maps
    to a `BudgetCorrelation`) so an empty 200 on the same provider binding as a
    recent budget-exhausted failure is reclassified as out-of-credits (#3386);
    the spawned task then normalizes the error string through
@@ -65,7 +65,7 @@ runner behind both surfaces.
 Host-authored turns, meaning background-delivery notices
 (`agent::orchestration::background_delivery`) and goal continuations
 (`agent::goals::continuation`), enter through `run_system_turn_on_thread`
-(`ops/system_turn.rs`) instead of `start_chat`. They skip ingress, `IN_FLIGHT`
+(`ops/system_turn.rs`) instead of `start_chat`. They skip ingress, `in_flight()`
 and the progress bridge but go through the same session checkout, so the
 model sees the conversation and the turn lands in the thread's transcript. A
 turn run on a throwaway host bound to the thread wrote a competing root
@@ -93,8 +93,10 @@ re-cached its own agent wins.
   `channel_web_cancel`, `channel_web_queue_status`, `channel_web_queue_clear`,
   `invalidate_thread_sessions`, plus `in_flight_entries_for_test` (exported
   unconditionally; `test_support/introspect.rs` uses it). The turn's
-  in-flight/session state lives here (`THREAD_SESSIONS`,
-  `THREAD_BUDGET_SIGNALS`, `IN_FLIGHT`, `PARALLEL_IN_FLIGHT`).
+  in-flight/session state lives here (`thread_sessions()`, `in_flight()`,
+  `parallel_in_flight()` and the budget signals). Each table is a slot of
+  the ambient agent context, so two embedded agents on one thread id never
+  share an entry; outside an agent context it is the process default.
 - `ChatRequestMetadata` (`types.rs`): per-request metadata passed by every
   caller of `start_chat`/`spawn_progress_bridge`.
 - Schemas (`schemas.rs`): `all_web_channel_controller_schemas`,
