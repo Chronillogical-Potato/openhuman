@@ -527,6 +527,36 @@ describe('MemoryImportBanner', () => {
       expect(screen.queryByTestId('memory-migration-offer')).not.toBeInTheDocument();
     });
 
+    it('keeps the offer when a stale read fails after a failed start', async () => {
+      hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
+      hoisted.mStatus.mockResolvedValue(moving(1));
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+      expect(await screen.findByTestId('memory-migration-running')).toBeInTheDocument();
+
+      // A run ends; the read that follows is slow and will fail.
+      hoisted.mStatus.mockResolvedValueOnce(MOVE_IDLE);
+      let failRead: (reason: unknown) => void = () => {};
+      hoisted.mScan.mockReturnValueOnce(
+        new Promise((_, reject) => {
+          failRead = reject;
+        })
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(MIGRATION_POLL_MS + 10);
+      });
+      // The user starts again, and that start fails.
+      hoisted.mStart.mockRejectedValueOnce(new Error('boom'));
+      fireEvent.click(await screen.findByTestId('memory-migration-start'));
+      expect(await screen.findByTestId('memory-import-error')).toBeInTheDocument();
+
+      // The stale read fails last: the offer must stay, not vanish for a retry.
+      await act(async () => {
+        failRead(new Error('stale'));
+      });
+      expect(screen.getByTestId('memory-migration-start')).toBeInTheDocument();
+    });
+
     it('drops a poll that fails after the user started the move', async () => {
       hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
       vi.useFakeTimers({ shouldAdvanceTime: true });

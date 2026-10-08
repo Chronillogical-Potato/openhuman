@@ -167,7 +167,9 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
         // Meanwhile what is left to move is unknown, so offer nothing (a run
         // that just ended may have moved it all).
         mlog('scan failed: %o', err);
-        if (!cancelled) {
+        // A start or retry since this read began owns the state; its run's
+        // end reads again.
+        if (!cancelled && gen === mStatusGen.current) {
           setMScan(null);
           retry = setTimeout(rescanMove, MIGRATION_IDLE_POLL_MS);
         }
