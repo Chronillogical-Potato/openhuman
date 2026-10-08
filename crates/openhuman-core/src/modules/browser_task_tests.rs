@@ -9,6 +9,7 @@ fn task() -> BrowserTask {
         origins: vec!["https://.example.com".into()],
         max_actions: 12,
         flow: None,
+        site: None,
     }
 }
 
@@ -44,6 +45,36 @@ async fn start_refuses_a_task_without_origins() {
     empty.origins.clear();
     let error = start(&Config::default(), &empty).await.unwrap_err();
     assert!(error.contains("allowed origin"), "{error}");
+}
+
+#[test]
+fn only_the_module_refusing_a_flow_reads_as_a_refused_flow() {
+    let refused: AgentResponse<u32> = AgentResponse {
+        ok: false,
+        data: None,
+        error: Some(AgentError::new(
+            "INVALID_FLOW",
+            "step 2 is not a step",
+            "fix the flow",
+            true,
+        )),
+    };
+    assert!(refused_flow(
+        &unwrap_response("StartTask", refused).unwrap_err()
+    ));
+    let other: AgentResponse<u32> = AgentResponse {
+        ok: false,
+        data: None,
+        error: Some(AgentError::new(
+            "PLANNER_UNAVAILABLE",
+            "no planner",
+            "configure one",
+            false,
+        )),
+    };
+    assert!(!refused_flow(
+        &unwrap_response("StartTask", other).unwrap_err()
+    ));
 }
 
 #[test]
