@@ -726,7 +726,7 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f2': 'トークン圧縮により、利用量をさらに効率的に使用',
   'onboarding.runtimeChoice.cloud.f3': '1つのサブスクリプションで、すべてのモデルを利用可能',
   'onboarding.runtimeChoice.cloud.f4': 'モデル、検索、Composioのキーを管理する必要はありません',
-  'onboarding.runtimeChoice.cloud.f5': 'ローカルメモリーツリー、マネージドネットワークサービス',
+  'onboarding.runtimeChoice.cloud.f5': 'ホスト型メモリー、マネージドネットワークサービス',
   'onboarding.runtimeChoice.custom.title': 'カスタム実行',
   'onboarding.runtimeChoice.custom.tagline':
     '独自のキーを持ち込み、OpenHumanが呼び出すサービスを選択します。',
@@ -859,7 +859,7 @@ const messages: TranslationMap = {
   'accounts.disconnect': '接続解除',
   'accounts.disconnectClearMemory': 'このソースからのメモリーも削除する',
   'accounts.disconnectClearMemoryHint':
-    'この接続に関連付けられたローカルのメモリーチャンクを完全に削除します。',
+    'この接続から保存されたメモリーを完全に削除します。',
 
   // Channels
   'channels.title': 'チャンネル',
@@ -5596,6 +5596,23 @@ const messages: TranslationMap = {
     'すべてのエージェントが共有するルートと、このアプリが使うエージェントです。',
   'memoryPage.settings.root': 'ルート',
   'memoryPage.settings.agentId': 'エージェント',
+  'memoryPage.settings.eraseTitle': 'メモリーの消去',
+  'memoryPage.settings.eraseAction': 'すべてのメモリーを消去',
+  'memoryPage.settings.eraseDescription': 'このアカウントについて OpenHuman が覚えているすべてを完全に削除します。元に戻すことはできません。',
+  'memoryPage.settings.eraseConfirmTitle': 'すべてのメモリーを消去しますか？',
+  'memoryPage.settings.eraseConfirmBody': 'このアカウントについて OpenHuman が覚えているすべてが完全に削除されます：接続したすべてのソース、過去の会話、学習内容、事実。接続と設定はそのまま残ります。',
+  'memoryPage.settings.eraseIrreversible': '元に戻すことはできません。消去したメモリーは復元できません。',
+  'memoryPage.settings.eraseConfirmCheck': 'すべてのメモリーが完全に削除されることを理解しました。',
+  'memoryPage.settings.eraseConfirm': 'すべて消去',
+  'memoryPage.settings.erasing': '消去中…',
+  'memoryPage.settings.erasedToast': 'すべてのメモリーを消去しました',
+  'memoryPage.settings.erasedToastBody': 'OpenHuman はこのアカウントについて何も覚えていません。',
+  'memoryPage.settings.eraseError.unsupported': 'ご利用のメモリーサービスは、まだすべてのメモリーの消去に対応していません。何も消去されていません。',
+  'memoryPage.settings.eraseError.insufficientCredits': 'アカウントのクレジットが不足しているため、現在メモリーを消去できません。チャージしてから再度お試しください。何も消去されていません。',
+  'memoryPage.settings.eraseError.memoryOff': 'メモリーがオフのため、消去するものはありません。',
+  'memoryPage.settings.eraseError.unavailable': '現在メモリーに接続できません。何も消去されていません。しばらくしてから再度お試しください。',
+  'memoryPage.settings.eraseError.unauthorized': 'セッションの有効期限が切れました。再度サインインしてから、メモリーの消去をお試しください。',
+  'memoryPage.settings.eraseError.generic': 'メモリーを消去できませんでした。もう一度お試しください。',
   'memoryPage.settings.hostBound':
     'OpenHumanを動かすアプリが設定するため、ここでは変更できません。',
   'memoryPage.import.title': '以前のメモリーが見つかりました',
