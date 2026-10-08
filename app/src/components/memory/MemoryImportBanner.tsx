@@ -13,7 +13,7 @@
  * debug logging: DEBUG=openhuman:memory:import, DEBUG=openhuman:memory:migration
  */
 import debug from 'debug';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import {
@@ -48,9 +48,11 @@ export const MIGRATION_IDLE_POLL_MS = 15_000;
 interface MemoryImportBannerProps {
   /** Label of the engine the data would be uploaded to. */
   engineLabel: string;
+  /** Shown once both scans have answered and there is nothing to import or move. */
+  emptyState?: ReactNode;
 }
 
-export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerProps) {
+export default function MemoryImportBanner({ engineLabel, emptyState }: MemoryImportBannerProps) {
   const { t } = useT();
   const [scan, setScan] = useState<ImportScan | null>(null);
   const [state, setState] = useState<ImportState | null>(null);
@@ -143,6 +145,8 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   // import finishes. Bumping it re-runs the read and discards the answer of
   // the one it replaces.
   const [mScanAttempt, setMScanAttempt] = useState(0);
+  // The first read of what is left to move has answered (or failed).
+  const [moveChecked, setMoveChecked] = useState(false);
   const rescanMove = useCallback(() => setMScanAttempt(n => n + 1), []);
   // Bumped by a start or retry: a read or poll asked before it answers for
   // an older state, and is dropped.
@@ -161,6 +165,7 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
         mlog('scan: needed=%s shared=%s', found?.needed, found?.shared);
         setMScan(found ?? null);
         setMStatus(current ?? null);
+        setMoveChecked(true);
       })
       .catch(err => {
         // A transient failure must not hide the move for good: try again.
@@ -171,6 +176,7 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
         // end reads again.
         if (!cancelled && gen === mStatusGen.current) {
           setMScan(null);
+          setMoveChecked(true);
           retry = setTimeout(rescanMove, MIGRATION_IDLE_POLL_MS);
         }
       });
@@ -282,7 +288,9 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   const paused = !moving && (mState?.phase === 'paused' || mStatus?.interrupted);
 
   const showOffer = importPending;
-  if (!showOffer && !state && !showMove) return null;
+  if (!showOffer && !state && !showMove) {
+    return importChecked && moveChecked && emptyState ? <>{emptyState}</> : null;
+  }
 
   const counts = scan?.counts ?? { documents: 0, conversations: 0, learnings: 0 };
   const countsText = fill(t('memoryPage.import.counts'), {
