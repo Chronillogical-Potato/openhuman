@@ -713,6 +713,8 @@ async fn an_automatic_resume_that_cannot_start_is_stopped_not_retried() {
 struct WaitRecordingEngine {
     inner: tinymemory_api::conformance::ReferenceEngine,
     waits: std::sync::Mutex<Vec<tinymemory_api::WaitFor>>,
+    /// A visible bulk store times out, as on a listing that lags.
+    never_listed: bool,
 }
 
 #[async_trait::async_trait]
@@ -747,6 +749,11 @@ impl tinymemory_api::MemoryEngine for WaitRecordingEngine {
         options: tinymemory_api::WriteOptions,
     ) -> tinymemory_api::Result<Vec<tinymemory_api::StoreReceipt>> {
         self.waits.lock().unwrap().push(options.wait);
+        if self.never_listed && options.wait == tinymemory_api::WaitFor::Visible {
+            return Err(tinymemory_api::Error::Unavailable(
+                "accepted but did not become readable within 30s".into(),
+            ));
+        }
         self.inner.store_many(items).await
     }
     async fn forget(
@@ -787,5 +794,35 @@ async fn batches_are_stored_accepted_and_the_last_waited_for_once() {
             tinymemory_api::WaitFor::Visible
         ],
         "one accepted batch, then the visible wait for it"
+    );
+}
+
+/// The end-of-import wait is best-effort: a listing that never catches up
+/// (every visible store times out) still ends the import `Done`, instead of
+/// leaving it to resume into the same wait for ever.
+#[tokio::test]
+async fn a_last_batch_never_listed_still_finishes_the_import() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    let engine = Arc::new(WaitRecordingEngine {
+        never_listed: true,
+        ..WaitRecordingEngine::default()
+    });
+    crate::memory::engine::install_test_engine(&config.workspace_dir, engine.clone());
+
+    start(&config, true).await.unwrap();
+    let done = wait_until_settled(&config).await;
+    assert_eq!(done.phase, ImportPhase::Done, "{done:?}");
+    assert_eq!(done.imported, 5);
+    assert!(done.error.is_none(), "{done:?}");
+    let waits = engine.waits.lock().unwrap().clone();
+    assert_eq!(waits[0], tinymemory_api::WaitFor::Accepted, "{waits:?}");
+    assert!(
+        waits[1..]
+            .iter()
+            .all(|wait| *wait == tinymemory_api::WaitFor::Visible)
+            && waits.len() > 2,
+        "the final wait was retried, then given up: {waits:?}"
     );
 }

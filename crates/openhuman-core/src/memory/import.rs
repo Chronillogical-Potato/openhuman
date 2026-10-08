@@ -654,13 +654,18 @@ async fn run(
     let _ = reader.await;
     // Every batch was stored accepted. Before the import says it is done
     // (and organizing reads it back), wait once for the last batch to be
-    // listed: storing it again visible is a replay that returns when it is.
+    // listed: storing it again visible is a replay that returns when it is,
+    // retried like any batch. The wait is best-effort: every item is already
+    // accepted, and organizing checks each one it copies, so a listing still
+    // behind (or rate limited) finishes the import rather than leaving it to
+    // resume into the same wait again.
     if failure.is_none() && !pausing && !last.is_empty() {
         let settled = store_batch(bound, last, WaitFor::Visible).await;
         if let Some(error) = settled.fatal {
-            failure = Some(error);
-            transient = settled.transient;
-            credits = settled.credits;
+            tracing::warn!(
+                %error,
+                "[memory:import] the last batch is not listed yet; finishing the import anyway"
+            );
         }
     }
     if pausing {
