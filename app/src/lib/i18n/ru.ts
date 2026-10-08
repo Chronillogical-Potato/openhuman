@@ -5145,8 +5145,8 @@ const messages: TranslationMap = {
   'memoryPage.sourceStatus.idle': 'Простаивает',
   'memoryPage.sourceStatus.syncing': 'Синхронизация',
   'memoryPage.sourceStatus.error': 'Ошибка',
-  'memoryPage.tabs.brain': 'Документы',
-  'memoryPage.header.brain': 'Документы, общие для всех агентов, разложенные по источникам.',
+  'memoryPage.tabs.brain': 'Файлы',
+  'memoryPage.header.brain': 'Файлы, которые память синхронизирует с этого устройства, и документы, добавленные вручную.',
   'memoryPage.learnings.builtBelief': 'Построенное убеждение',
   'memoryPage.conversations.logTitle': 'Журнал разговоров',
   'memoryPage.conversations.logDescription':

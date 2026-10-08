@@ -5042,8 +5042,8 @@ const messages: TranslationMap = {
   'memoryPage.sourceStatus.idle': '대기 중',
   'memoryPage.sourceStatus.syncing': '동기화 중',
   'memoryPage.sourceStatus.error': '오류',
-  'memoryPage.tabs.brain': '문서',
-  'memoryPage.header.brain': '모든 에이전트가 공유하는 문서를 출처별로 정리했습니다.',
+  'memoryPage.tabs.brain': '파일',
+  'memoryPage.header.brain': '메모리가 이 기기에서 동기화하는 파일과 직접 추가한 문서입니다.',
   'memoryPage.learnings.builtBelief': '구축된 신념',
   'memoryPage.conversations.logTitle': '대화 기록',
   'memoryPage.conversations.logDescription':

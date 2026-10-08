@@ -5185,9 +5185,8 @@ const messages: TranslationMap = {
   'memoryPage.sourceStatus.idle': 'Inactiva',
   'memoryPage.sourceStatus.syncing': 'Sincronizando',
   'memoryPage.sourceStatus.error': 'Error',
-  'memoryPage.tabs.brain': 'Documentos',
-  'memoryPage.header.brain':
-    'Documentos que comparten todos los agentes, archivados según su procedencia.',
+  'memoryPage.tabs.brain': 'Archivos',
+  'memoryPage.header.brain': 'Archivos que la memoria sincroniza desde este dispositivo y documentos que añades a mano.',
   'memoryPage.learnings.builtBelief': 'Creencia construida',
   'memoryPage.conversations.logTitle': 'Registro de conversaciones',
   'memoryPage.conversations.logDescription':

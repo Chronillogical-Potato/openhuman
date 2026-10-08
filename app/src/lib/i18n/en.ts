@@ -5369,8 +5369,8 @@ const en: TranslationMap = {
   'memoryPage.sourceStatus.idle': 'Idle',
   'memoryPage.sourceStatus.syncing': 'Syncing',
   'memoryPage.sourceStatus.error': 'Error',
-  'memoryPage.tabs.brain': 'Documents',
-  'memoryPage.header.brain': 'Documents every agent shares, filed by where they came from.',
+  'memoryPage.tabs.brain': 'Files',
+  'memoryPage.header.brain': 'Files memory syncs from this device, and documents you add by hand.',
   'memoryPage.learnings.builtBelief': 'Built belief',
   'memoryPage.conversations.logTitle': 'Conversation log',
   'memoryPage.conversations.logDescription':

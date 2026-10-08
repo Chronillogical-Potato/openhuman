@@ -5097,8 +5097,8 @@ const messages: TranslationMap = {
   'memoryPage.sourceStatus.idle': 'Boşta',
   'memoryPage.sourceStatus.syncing': 'Eşitleniyor',
   'memoryPage.sourceStatus.error': 'Hata',
-  'memoryPage.tabs.brain': 'Belgeler',
-  'memoryPage.header.brain': 'Tüm ajanların paylaştığı belgeler, geldikleri yere göre düzenlenmiş.',
+  'memoryPage.tabs.brain': 'Dosyalar',
+  'memoryPage.header.brain': 'Belleğin bu cihazdan senkronize ettiği dosyalar ve elle eklediğin belgeler.',
   'memoryPage.learnings.builtBelief': 'Oluşturulan inanç',
   'memoryPage.conversations.logTitle': 'Sohbet kaydı',
   'memoryPage.conversations.logDescription':

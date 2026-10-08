@@ -4810,8 +4810,8 @@ const messages: TranslationMap = {
   'memoryPage.sourceStatus.idle': '空闲',
   'memoryPage.sourceStatus.syncing': '同步中',
   'memoryPage.sourceStatus.error': '错误',
-  'memoryPage.tabs.brain': '文档',
-  'memoryPage.header.brain': '所有智能体共享的文档，按来源归档。',
+  'memoryPage.tabs.brain': '文件',
+  'memoryPage.header.brain': '记忆从此设备同步的文件，以及你手动添加的文档。',
   'memoryPage.learnings.builtBelief': '已构建的信念',
   'memoryPage.conversations.logTitle': '对话日志',
   'memoryPage.conversations.logDescription':

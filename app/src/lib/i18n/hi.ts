@@ -5090,9 +5090,8 @@ const messages: TranslationMap = {
   'memoryPage.sourceStatus.idle': 'निष्क्रिय',
   'memoryPage.sourceStatus.syncing': 'सिंक हो रहा है',
   'memoryPage.sourceStatus.error': 'त्रुटि',
-  'memoryPage.tabs.brain': 'दस्तावेज़',
-  'memoryPage.header.brain':
-    'वे दस्तावेज़ जो हर एजेंट साझा करता है, उनके स्रोत के अनुसार सहेजे गए।',
+  'memoryPage.tabs.brain': 'फ़ाइलें',
+  'memoryPage.header.brain': 'वे फ़ाइलें जिन्हें मेमोरी इस डिवाइस से सिंक करती है, और वे दस्तावेज़ जो आप खुद जोड़ते हैं।',
   'memoryPage.learnings.builtBelief': 'बनाया गया बिलीफ़',
   'memoryPage.conversations.logTitle': 'बातचीत का लॉग',
   'memoryPage.conversations.logDescription':

@@ -5388,8 +5388,8 @@ const messages: TranslationMap = {
   'memoryPage.sourceStatus.idle': '待機中',
   'memoryPage.sourceStatus.syncing': '同期中',
   'memoryPage.sourceStatus.error': 'エラー',
-  'memoryPage.tabs.brain': 'ドキュメント',
-  'memoryPage.header.brain': 'すべてのエージェントが共有するドキュメントを、ソース別に整理します。',
+  'memoryPage.tabs.brain': 'ファイル',
+  'memoryPage.header.brain': 'このデバイスからメモリが同期するファイルと、手動で追加したドキュメントです。',
   'memoryPage.learnings.builtBelief': '生成した信念',
   'memoryPage.conversations.logTitle': '会話ログ',
   'memoryPage.conversations.logDescription':

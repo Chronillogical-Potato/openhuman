@@ -5092,8 +5092,8 @@ const messages: TranslationMap = {
   'memoryPage.sourceStatus.idle': 'নিষ্ক্রিয়',
   'memoryPage.sourceStatus.syncing': 'সিঙ্ক হচ্ছে',
   'memoryPage.sourceStatus.error': 'ত্রুটি',
-  'memoryPage.tabs.brain': 'ডকুমেন্ট',
-  'memoryPage.header.brain': 'প্রতিটি এজেন্টের শেয়ার করা ডকুমেন্ট, উৎস অনুযায়ী সাজানো।',
+  'memoryPage.tabs.brain': 'ফাইল',
+  'memoryPage.header.brain': 'এই ডিভাইস থেকে মেমরি যে ফাইলগুলো সিঙ্ক করে, এবং আপনি নিজে যে নথি যোগ করেন।',
   'memoryPage.learnings.builtBelief': 'তৈরি বিশ্বাস',
   'memoryPage.conversations.logTitle': 'কথোপকথনের লগ',
   'memoryPage.conversations.logDescription':
