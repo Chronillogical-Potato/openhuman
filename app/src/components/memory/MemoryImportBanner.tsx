@@ -215,6 +215,23 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   };
 
   const importDone = state?.phase === 'done';
+  // The core starts the move when the import finishes: look again, since the
+  // scan at mount may have found nothing to move before the import landed.
+  useEffect(() => {
+    if (!importDone) return;
+    let cancelled = false;
+    Promise.all([memoryMigrationScan(), memoryMigrationStatus()])
+      .then(([found, current]) => {
+        if (cancelled) return;
+        mlog('after import: needed=%s running=%s', found?.needed, current?.running);
+        setMScan(found ?? null);
+        setMStatus(current ?? null);
+      })
+      .catch(err => mlog('scan after import failed: %o', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [importDone]);
 
   const mState = mStatus?.state;
   const left = (mState?.failures?.length ?? 0) + (mState?.incomplete?.length ?? 0);

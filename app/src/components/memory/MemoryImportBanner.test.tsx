@@ -201,6 +201,18 @@ describe('MemoryImportBanner', () => {
     expect(hoisted.mStart).not.toHaveBeenCalled();
   });
 
+  it('shows the move the core starts once the import is done', async () => {
+    hoisted.status.mockResolvedValue({ state: { phase: 'done', imported: 9, total: 9 } });
+    // At mount nothing was left to move; the finished import changed that.
+    hoisted.mScan
+      .mockResolvedValueOnce({ needed: false, shared: false })
+      .mockResolvedValue({ needed: true, shared: false });
+    hoisted.mStatus.mockResolvedValueOnce(MOVE_IDLE).mockResolvedValue(moving(5));
+    renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+    expect(await screen.findByTestId('memory-migration-running')).toHaveTextContent('5');
+    expect(hoisted.mStart).not.toHaveBeenCalled();
+  });
+
   it('takes a shared tree only after the takeover is confirmed', async () => {
     hoisted.scan.mockResolvedValue({ found: false });
     hoisted.mScan.mockResolvedValue({ needed: true, shared: true });
