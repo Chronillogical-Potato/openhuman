@@ -36,9 +36,13 @@ async fn every_write_path_is_scrubbed() {
         .store_many(vec![item("three"), item("four")])
         .await
         .unwrap();
+    guarded
+        .store_many_with(vec![item("five"), item("six")], WriteOptions::accepted())
+        .await
+        .unwrap();
 
     let stored = texts(&reference).await;
-    assert_eq!(stored.len(), 4);
+    assert_eq!(stored.len(), 6);
     assert!(
         stored.iter().all(|text| !text.contains(SECRET)),
         "a secret reached the engine: {stored:?}"
@@ -159,4 +163,68 @@ async fn export_and_erase_reach_the_wrapped_engine() {
         .expect("erase is forwarded, not refused by the wrapper");
     assert_eq!(report.erased_scopes, 1);
     assert!(texts(&reference).await.is_empty());
+}
+
+/// Records the wait each bulk store asks for, storing through a reference
+/// engine.
+#[derive(Default)]
+struct Recording {
+    inner: ReferenceEngine,
+    waits: std::sync::Mutex<Vec<WaitFor>>,
+}
+
+#[async_trait::async_trait]
+impl MemoryEngine for Recording {
+    fn descriptor(&self) -> &tinymemory_api::EngineDescriptor {
+        self.inner.descriptor()
+    }
+    async fn health(&self) -> tinymemory_api::EngineHealth {
+        self.inner.health().await
+    }
+    async fn recall(&self, req: RecallRequest) -> Result<tinymemory_api::RecallAnswer> {
+        self.inner.recall(req).await
+    }
+    async fn fetch(&self, req: FetchRequest) -> Result<tinymemory_api::FetchPage> {
+        self.inner.fetch(req).await
+    }
+    async fn store(&self, item: StoreItem) -> Result<StoreReceipt> {
+        self.inner.store(item).await
+    }
+    async fn store_many_with(
+        &self,
+        items: Vec<StoreItem>,
+        options: WriteOptions,
+    ) -> Result<Vec<StoreReceipt>> {
+        self.waits.lock().unwrap().push(options.wait);
+        self.inner.store_many(items).await
+    }
+    async fn forget(
+        &self,
+        target: tinymemory_api::ForgetTarget,
+    ) -> Result<tinymemory_api::ForgetReport> {
+        self.inner.forget(target).await
+    }
+    async fn list(&self, req: ListRequest) -> Result<tinymemory_api::ListPage> {
+        self.inner.list(req).await
+    }
+}
+
+#[tokio::test]
+async fn a_bulk_store_keeps_its_wait_through_the_guard() {
+    let recording = Arc::new(Recording::default());
+    let guarded = ScrubbingEngine::wrap(recording.clone());
+    let items = || vec![StoreItem::document("tea", MemoryMeta::default())];
+    guarded
+        .store_many_with(items(), WriteOptions::accepted())
+        .await
+        .unwrap();
+    guarded
+        .store_many_with(items(), WriteOptions::visible())
+        .await
+        .unwrap();
+    assert_eq!(
+        *recording.waits.lock().unwrap(),
+        vec![WaitFor::Accepted, WaitFor::Visible],
+        "the guard passes the wait on instead of serving it as store_many"
+    );
 }
