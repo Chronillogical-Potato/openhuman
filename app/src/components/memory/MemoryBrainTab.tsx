@@ -26,7 +26,6 @@ import {
 import { Alert, AlertDescription, Button, Card } from '../ui';
 import MemoryBrainIngestDialog from './MemoryBrainIngestDialog';
 import MemoryCortexAnnouncement from './MemoryCortexAnnouncement';
-import MemoryErrorAlert from './MemoryErrorAlert';
 import { fill } from './memoryFormat';
 import MemoryImportBanner from './MemoryImportBanner';
 import { brainSourceLabel } from './memoryLifecycleLabels';
@@ -44,7 +43,6 @@ interface MemoryBrainTabProps {
 export default function MemoryBrainTab({ engineLabel, offState }: MemoryBrainTabProps) {
   const { t } = useT();
   const [notice, setNotice] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -53,7 +51,6 @@ export default function MemoryBrainTab({ engineLabel, offState }: MemoryBrainTab
     setSaving(true);
     setAddError(null);
     setNotice(null);
-    setError(null);
     try {
       const res = await memoryBrainIngest(req);
       log('ingested id=%s source=%s replayed=%s', res.id, res.source, res.replayed);
@@ -79,7 +76,6 @@ export default function MemoryBrainTab({ engineLabel, offState }: MemoryBrainTab
         <>
           <MemoryImportBanner engineLabel={engineLabel} />
 
-          {error !== null && <MemoryErrorAlert message={error} data-testid="memory-brain-error" />}
           {notice !== null && (
             <Alert variant="success" data-testid="memory-brain-notice">
               <AlertDescription>{notice}</AlertDescription>
