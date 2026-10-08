@@ -80,13 +80,13 @@ pub(crate) fn direct_mode_without_key(config: &Config) -> OpResult<bool> {
 /// reconfigures the module with `{"route": "none"}`, and every routed member
 /// answers "this module was loaded without a connector route" — which the op
 /// layer then reported at error level (and to Sentry) once at boot from the
-/// memory-source reconcile and again on every periodic tick, for a user who
+/// every periodic tick, for a user who
 /// simply has not signed in (#6176). Callers answer with the quiet
 /// [`COMPOSIO_NO_SESSION`] error instead — deliberately not an empty list,
 /// unlike the direct-mode guard: no key means no tenant and truly no
 /// connections, whereas no session only means the connections cannot be
-/// reached yet, and `flows::validate_connection_refs` rely on `Err` meaning "unknown" (fail
-/// open) rather than "none".
+/// reached yet, and `flows::validate_connection_refs` relies on `Err` meaning
+/// "unknown" (fail open) rather than "none".
 ///
 /// Credential presence MUST mirror the module route's own resolution:
 /// `module_config` calls `integrations::build_client`, which takes the stored

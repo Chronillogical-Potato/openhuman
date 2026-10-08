@@ -42,8 +42,7 @@ pub async fn composio_list_connections(
         // No session means no proxy route, so the connector module cannot
         // answer — but the connections may well exist server-side. That makes
         // this "unavailable", not "none": callers that tell the two apart
-        // (`the connection cache hides nothing on `Err`,
-        // `flows::validate_connection_refs` fails open on `Err`) must keep
+        // (`flows::validate_connection_refs` fails open on `Err`) must keep
         // doing so, which an empty `Ok` would silently defeat. It is also not
         // a fault, so it is not reported here: nothing reaches Sentry for a
         // user who has simply not signed in yet (#6176). The wording is the one
