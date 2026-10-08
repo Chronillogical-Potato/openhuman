@@ -223,39 +223,43 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
       data-testid="memory-engine-tab">
       {statusBanner}
 
-      <MemoryCortexCard selected={selected} onSelect={setPicked} active={active} status={status}>
-        <MemoryConnectionPanel
-          key={selected}
-          option={selected}
-          state={state}
-          active={selected === active}
-          signedIn={signedIn}
-          plan={plan}
-          saving={saving}
-          error={errors[selected]}
-          cloudKey={cloudKey}
-          onCloudKey={setCloudKey}
-          localEndpoint={localEndpoint}
-          onLocalEndpoint={setTypedEndpoint}
-          endpointInvalid={endpointTyped && !endpointLocal}
-          localKey={localKey}
-          onLocalKey={setLocalKey}
-          canSubmit={
-            selected === 'builtin'
-              ? saving === null && signedIn
-              : selected === 'apikey'
-                ? canSubmitCloud
-                : canSubmitLocal
-          }
-          onSubmit={
-            selected === 'builtin'
-              ? useBuiltin
-              : selected === 'apikey'
-                ? () => void submitCloud()
-                : () => void submitLocal()
-          }
-        />
-      </MemoryCortexCard>
+      {/* Sized like one cell of the coming-soon grid below, not the full width.
+          Onboarding embeds this tab in a narrow column, where it fills it. */}
+      <div className={embedded ? undefined : 'grid gap-2.5 @md:grid-cols-2 @3xl:grid-cols-3'}>
+        <MemoryCortexCard selected={selected} onSelect={setPicked} active={active} status={status}>
+          <MemoryConnectionPanel
+            key={selected}
+            option={selected}
+            state={state}
+            active={selected === active}
+            signedIn={signedIn}
+            plan={plan}
+            saving={saving}
+            error={errors[selected]}
+            cloudKey={cloudKey}
+            onCloudKey={setCloudKey}
+            localEndpoint={localEndpoint}
+            onLocalEndpoint={setTypedEndpoint}
+            endpointInvalid={endpointTyped && !endpointLocal}
+            localKey={localKey}
+            onLocalKey={setLocalKey}
+            canSubmit={
+              selected === 'builtin'
+                ? saving === null && signedIn
+                : selected === 'apikey'
+                  ? canSubmitCloud
+                  : canSubmitLocal
+            }
+            onSubmit={
+              selected === 'builtin'
+                ? useBuiltin
+                : selected === 'apikey'
+                  ? () => void submitCloud()
+                  : () => void submitLocal()
+            }
+          />
+        </MemoryCortexCard>
+      </div>
 
       {/* Onboarding embeds this tab to pick a provider; upcoming engines are noise there. */}
       {!embedded && <MemoryComingSoon />}
