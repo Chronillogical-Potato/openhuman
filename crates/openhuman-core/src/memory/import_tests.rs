@@ -239,12 +239,7 @@ async fn connector_syncs_are_not_imported() {
     assert_eq!(items.len(), 8);
     let ids: Vec<String> = items
         .iter()
-        .filter_map(|hit| {
-            hit.meta
-                .source
-                .as_ref()
-                .and_then(|source| source.id.clone())
-        })
+        .filter_map(|hit| hit.meta.source.id.clone())
         .collect();
     assert_eq!(ids.len(), 8, "every item carries its legacy id");
     for skipped in [
