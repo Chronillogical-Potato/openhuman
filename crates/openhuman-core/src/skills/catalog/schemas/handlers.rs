@@ -5,11 +5,12 @@ use serde_json::{Map, Value};
 use crate::core::all::ControllerFuture;
 use crate::core::Outcome;
 use crate::skills::catalog::ops;
+use crate::skills::ops_install::ScanAcknowledgement;
 
 use super::controller_schemas::all_skill_registry_controller_schemas;
 use super::wire_types::{
-    CatalogParams, CatalogResult, CategoriesResult, EntryParams, InstallResult, SchemasResult,
-    SourcesResult, UninstallParams, UninstallResult,
+    CatalogParams, CatalogResult, CategoriesResult, EntryParams, InstallParams, InstallResult,
+    SchemasResult, SourcesResult, UninstallParams, UninstallResult,
 };
 
 fn deserialize_params<T: serde::de::DeserializeOwned>(
@@ -100,26 +101,28 @@ pub(super) fn handle_detail(params: Map<String, Value>) -> ControllerFuture {
 
 pub(super) fn handle_install(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let p = deserialize_params::<EntryParams>(params)?;
+        let p = deserialize_params::<InstallParams>(params)?;
         tracing::info!(
             entry_id = %p.entry_id,
+            acknowledge_scan_findings = p.acknowledge_scan_findings,
             "[skill_registry][rpc] install"
         );
 
         let workspace = crate::skills::schemas::resolve_workspace_dir().await;
-        let outcome = ops::install_from_catalog(&workspace, &p.entry_id)
-            .await
-            .map_err(|error| error.to_string())?;
+        let outcome: InstallResult = ops::install_from_catalog(
+            &workspace,
+            &p.entry_id,
+            ScanAcknowledgement::from_user_flag(p.acknowledge_scan_findings),
+        )
+        .await
+        .map_err(|error| error.to_string())?;
+        tracing::info!(
+            entry_id = %p.entry_id,
+            status = outcome.status(),
+            "[skill_registry][rpc] install result"
+        );
 
-        to_json(Outcome::new(
-            InstallResult {
-                url: outcome.url,
-                stdout: outcome.stdout,
-                stderr: outcome.stderr,
-                new_skills: outcome.new_skills,
-            },
-            Vec::new(),
-        ))
+        to_json(Outcome::new(outcome, Vec::new()))
     })
 }
 

@@ -344,15 +344,25 @@ async fn install_workflow_from_url_is_idempotent_when_skill_already_exists() {
         params.clone(),
         Some(home.path()),
         true,
+        crate::skills::ops_install::ScanAcknowledgement::Absent,
     )
     .await
-    .unwrap();
+    .unwrap()
+    .installed()
+    .expect("a clean document installs");
     assert_eq!(first.new_skills, vec!["apple-notes"]);
 
-    let second =
-        install_workflow_from_url_with_home(workspace.path(), params, Some(home.path()), true)
-            .await
-            .unwrap();
+    let second = install_workflow_from_url_with_home(
+        workspace.path(),
+        params,
+        Some(home.path()),
+        true,
+        crate::skills::ops_install::ScanAcknowledgement::Absent,
+    )
+    .await
+    .unwrap()
+    .installed()
+    .expect("a repeat install succeeds");
     assert!(second.new_skills.is_empty(), "{second:?}");
     assert!(second.stdout.contains("already installed"), "{second:?}");
 }

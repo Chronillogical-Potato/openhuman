@@ -39,6 +39,7 @@ async fn a_throttled_host_reports_rate_limiting_with_its_retry_after() {
         },
         Some(home.path()),
         true,
+        crate::skills::ops_install::ScanAcknowledgement::Absent,
     )
     .await
     .expect_err("a 429 must fail the install");
@@ -77,6 +78,7 @@ async fn a_throttled_host_without_retry_after_still_reports_rate_limiting() {
         },
         Some(home.path()),
         true,
+        crate::skills::ops_install::ScanAcknowledgement::Absent,
     )
     .await
     .expect_err("a 429 must fail the install");
@@ -112,6 +114,7 @@ async fn a_missing_skill_is_not_reported_as_rate_limiting() {
         },
         Some(home.path()),
         true,
+        crate::skills::ops_install::ScanAcknowledgement::Absent,
     )
     .await
     .expect_err("a 404 must fail the install");
@@ -180,6 +183,7 @@ async fn a_slow_host_reports_the_clamped_timeout() {
         },
         Some(home.path()),
         true,
+        crate::skills::ops_install::ScanAcknowledgement::Absent,
     )
     .await
     .expect_err("the host outlasts the budget");
@@ -207,6 +211,7 @@ async fn a_document_without_frontmatter_is_refused() {
         },
         Some(home.path()),
         true,
+        crate::skills::ops_install::ScanAcknowledgement::Absent,
     )
     .await
     .expect_err("not a SKILL.md");

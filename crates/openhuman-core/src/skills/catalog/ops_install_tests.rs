@@ -27,9 +27,12 @@ async fn installs_a_catalog_entry_once_and_announces_it() {
         workspace.path(),
         Some(home.path()),
         "zz-registry-install",
+        ScanAcknowledgement::Absent,
     )
     .await
-    .expect("install");
+    .expect("install")
+    .installed()
+    .expect("a clean document installs");
     assert_eq!(first.new_skills, ["zz-registry-install"]);
     assert!(first.stdout.contains("Installed to"), "{}", first.stdout);
     assert!(home
@@ -55,9 +58,12 @@ async fn installs_a_catalog_entry_once_and_announces_it() {
         workspace.path(),
         Some(home.path()),
         "zz-registry-install",
+        ScanAcknowledgement::Absent,
     )
     .await
-    .expect("a repeat install succeeds");
+    .expect("a repeat install succeeds")
+    .installed()
+    .expect("a clean document installs");
     assert!(second.new_skills.is_empty());
     assert!(
         second.stdout.contains("already installed"),
@@ -83,6 +89,7 @@ async fn a_portal_entry_fails_fast_with_its_source_page() {
         home.path(),
         Some(home.path()),
         "lobehub/code-audit",
+        ScanAcknowledgement::Absent,
     )
     .await
     .expect_err("no SKILL.md to fetch");
@@ -107,6 +114,7 @@ async fn an_unknown_id_names_real_ids() {
         home.path(),
         Some(home.path()),
         "git-helpr",
+        ScanAcknowledgement::Absent,
     )
     .await
     .expect_err("unknown id");
@@ -124,6 +132,7 @@ async fn a_throttled_document_host_reports_rate_limiting() {
         home.path(),
         Some(home.path()),
         "slow-skill",
+        ScanAcknowledgement::Absent,
     )
     .await
     .expect_err("throttled");

@@ -9,11 +9,11 @@ use serde::{Deserialize, Serialize};
 
 use tinyskills::{
     fetch_skill_document, redact_url, write_installed_document, DocumentWrite, FetchPolicy,
-    FetchedDocument, RegistryError, RegistryLimits, RegistryTimeouts, SystemResolver,
-    MAX_INSTALL_DOCUMENT_BYTES,
+    FetchedDocument, RegistryError, RegistryLimits, SystemResolver, MAX_INSTALL_DOCUMENT_BYTES,
 };
 
 use super::super::ops_discover::{discover_workflows_inner, is_workspace_trusted};
+use super::scan_gate::{fetch_scanned, gate_install, ScanAcknowledgement, SkillInstallOutcome};
 use super::url_validation::read_allow_local_http_env;
 use super::url_validation::{normalize_install_url, validate_install_url_with_config};
 use crate::skills::catalog::ReqwestTransport;
@@ -108,14 +108,26 @@ pub struct InstallWorkflowFromUrlOutcome {
 /// On success the full post-install skills catalog is re-discovered and the
 /// outcome includes the list of skill slugs that appeared since the start of
 /// the call.
+///
+/// The fetched document goes through the supply-chain scan gate: a blocking
+/// scan or a failed fetch is retried once, and a document that still blocks
+/// is returned as [`SkillInstallOutcome::ScanBlocked`] unless `acknowledgement`
+/// is [`ScanAcknowledgement::ByUser`].
 pub async fn install_workflow_from_url(
     workspace_dir: &Path,
     params: InstallWorkflowFromUrlParams,
-) -> Result<InstallWorkflowFromUrlOutcome, String> {
+    acknowledgement: ScanAcknowledgement,
+) -> Result<SkillInstallOutcome, String> {
     let home = dirs::home_dir();
     let allow_local_http = read_allow_local_http_env();
-    install_workflow_from_url_with_home(workspace_dir, params, home.as_deref(), allow_local_http)
-        .await
+    install_workflow_from_url_with_home(
+        workspace_dir,
+        params,
+        home.as_deref(),
+        allow_local_http,
+        acknowledgement,
+    )
+    .await
 }
 
 /// Whether a non-`2xx` status is worth reporting: a `4xx` means the URL is
@@ -189,7 +201,8 @@ pub(crate) async fn install_workflow_from_url_with_home(
     params: InstallWorkflowFromUrlParams,
     home: Option<&Path>,
     allow_local_http: bool,
-) -> Result<InstallWorkflowFromUrlOutcome, String> {
+    acknowledgement: ScanAcknowledgement,
+) -> Result<SkillInstallOutcome, String> {
     let raw_url = params.url.trim().to_string();
     validate_install_url_with_config(&raw_url, allow_local_http)?;
 
@@ -211,29 +224,28 @@ pub(crate) async fn install_workflow_from_url_with_home(
     let mut policy = FetchPolicy::default();
     policy.allow_loopback_http = allow_local_http;
     policy.user_agent = format!("openhuman-core/{}", env!("CARGO_PKG_VERSION"));
-    let mut timeouts = RegistryTimeouts::default();
+    let mut timeouts = crate::skills::catalog::registry_timeouts();
     timeouts.document = Duration::from_secs(timeout_secs);
     let mut limits = RegistryLimits::default();
     limits.max_document_bytes = MAX_WORKFLOW_MD_BYTES as u64;
 
-    let fetched = fetch_skill_document(
-        Arc::new(ReqwestTransport::new()),
-        Arc::new(SystemResolver),
-        &fetch_url,
-        &policy,
-        &timeouts,
-        &limits,
-    )
+    let transport: Arc<ReqwestTransport> = Arc::new(ReqwestTransport::new());
+    let fetched = fetch_scanned(&raw_url, acknowledgement, || {
+        fetch_skill_document(
+            transport.clone(),
+            Arc::new(SystemResolver),
+            &fetch_url,
+            &policy,
+            &timeouts,
+            &limits,
+        )
+    })
     .await
     .map_err(|error| install_fetch_error(&error, &fetch_url, timeout_secs))?;
 
-    if fetched.is_blocked() {
-        tracing::warn!(
-            fetch_url = %redact_url(&fetch_url),
-            "[skills] install_workflow_from_url: supply-chain scan flagged the document"
-        );
-    }
-    install_validated_document(workspace_dir, home, &raw_url, &fetch_url, fetched.document)
+    gate_install(&raw_url, acknowledgement, fetched, |document| {
+        install_validated_document(workspace_dir, home, &raw_url, &fetch_url, document.document)
+    })
 }
 
 /// Write a validated `SKILL.md` into the user skills root, re-discover, and

@@ -10,6 +10,7 @@ use async_trait::async_trait;
 use serde_json::json;
 
 use crate::config::Config;
+use crate::skills::ops_install::{ScanAcknowledgement, ScanBlockedOutcome, SkillInstallOutcome};
 use crate::tools::status::{NOT_FOUND_MARKER, UNSUPPORTED_MARKER};
 use tinytools::{PermissionLevel, Tool, ToolResult};
 
@@ -120,6 +121,27 @@ fn with_paging(mut properties: serde_json::Value) -> serde_json::Value {
         target.extend(paging);
     }
     properties
+}
+
+/// What the agent is told after the supply-chain scan refused an install.
+pub(crate) const SCAN_BLOCKED_AGENT_INSTRUCTION: &str = "The security scan blocked this skill \
+     and it was NOT installed. Do not retry the install. Tell the user what the scan found and \
+     that, if they still want the skill, they can review the findings and install it themselves \
+     from the Skills page.";
+
+pub(crate) fn scan_blocked_tool_result(blocked: &ScanBlockedOutcome) -> anyhow::Result<ToolResult> {
+    tracing::info!(
+        target_id = %blocked.target,
+        findings = blocked.findings.len(),
+        "[tool][skill_registry] install refused by the scan"
+    );
+    Ok(ToolResult::error(serde_json::to_string(&json!({
+        "status": "scan_blocked",
+        "target": blocked.target,
+        "findings": blocked.findings,
+        "message": blocked.message,
+        "instruction": SCAN_BLOCKED_AGENT_INSTRUCTION,
+    }))?))
 }
 
 fn registry_tool_error(action: &str, error: &tinyskills::RegistryError) -> ToolResult {
@@ -256,8 +278,10 @@ impl Tool for SkillRegistryInstallTool {
 
     fn description(&self) -> &str {
         "Install a skill from the catalog by its entry_id. Downloads the \
-         SKILL.md and installs it locally. Use `skill_registry_search` first \
-         to find the entry to install."
+         SKILL.md, runs the security scan and installs it locally. Use \
+         `skill_registry_search` first to find the entry to install. A \
+         `scan_blocked` result means nothing was installed: tell the user, \
+         who can choose to install it from the Skills page."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -294,13 +318,19 @@ impl Tool for SkillRegistryInstallTool {
 
         tracing::debug!(entry_id = %entry_id, "[tool][skill_registry] install");
 
-        match ops::install_from_catalog(&self.workspace_dir, entry_id).await {
-            Ok(outcome) => Ok(ToolResult::success(serde_json::to_string(&json!({
-                "url": outcome.url,
-                "stdout": outcome.stdout,
-                "stderr": outcome.stderr,
-                "new_skills": outcome.new_skills,
-            }))?)),
+        match ops::install_from_catalog(&self.workspace_dir, entry_id, ScanAcknowledgement::Absent)
+            .await
+        {
+            Ok(SkillInstallOutcome::Installed(outcome)) => {
+                Ok(ToolResult::success(serde_json::to_string(&json!({
+                    "status": "installed",
+                    "url": outcome.url,
+                    "stdout": outcome.stdout,
+                    "stderr": outcome.stderr,
+                    "new_skills": outcome.new_skills,
+                }))?))
+            }
+            Ok(SkillInstallOutcome::ScanBlocked(blocked)) => scan_blocked_tool_result(&blocked),
             Err(ops::CatalogInstallError::Registry(error)) => Ok(registry_tool_error(
                 &format!("install skill '{entry_id}'"),
                 &error,

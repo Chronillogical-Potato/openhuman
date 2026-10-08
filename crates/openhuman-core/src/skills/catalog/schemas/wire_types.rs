@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::core::ControllerSchema;
 use crate::skills::catalog::types::{CatalogPage, CatalogQuery, Facet, Freshness};
+use crate::skills::ops_install::SkillInstallOutcome;
 use crate::skills::ops_types::WorkflowScope;
 
 // ── Params ──────────────────────────────────────────────────────────────────
@@ -58,6 +59,16 @@ pub(super) struct EntryParams {
     pub(super) entry_id: String,
 }
 
+/// `skill_registry_install` params. `acknowledge_scan_findings` is set only
+/// by the Skills UI after the user chose to install a skill whose scan
+/// blocked; agent tools have no way to pass it.
+#[derive(Debug, Deserialize)]
+pub(super) struct InstallParams {
+    pub(super) entry_id: String,
+    #[serde(default)]
+    pub(super) acknowledge_scan_findings: bool,
+}
+
 #[derive(Debug, Deserialize)]
 pub(super) struct UninstallParams {
     pub(super) name: String,
@@ -81,13 +92,9 @@ pub(super) struct CategoriesResult {
     pub(super) freshness: Freshness,
 }
 
-#[derive(Debug, Serialize)]
-pub(super) struct InstallResult {
-    pub(super) url: String,
-    pub(super) stdout: String,
-    pub(super) stderr: String,
-    pub(super) new_skills: Vec<String>,
-}
+/// `status: "installed"` with the install fields, or `status: "scan_blocked"`
+/// with the scan findings.
+pub(super) type InstallResult = SkillInstallOutcome;
 
 #[derive(Debug, Serialize)]
 pub(super) struct UninstallResult {

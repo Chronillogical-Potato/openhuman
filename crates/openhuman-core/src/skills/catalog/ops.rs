@@ -18,7 +18,9 @@ use super::types::{
     CatalogDetail, CatalogEntry, CatalogPage, CatalogQuery, RegistryCatalogEntry, RegistryFacets,
     DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE,
 };
-use crate::skills::ops_install::InstallWorkflowFromUrlOutcome;
+use crate::skills::ops_install::{
+    fetch_scanned, gate_install, ScanAcknowledgement, SkillInstallOutcome,
+};
 
 const REFRESH_ON_BOOT_ENV: &str = "OPENHUMAN_SKILL_REGISTRY_REFRESH_ON_BOOT";
 /// Prefix of every registry error a caller sees, followed by the
@@ -345,15 +347,22 @@ impl std::fmt::Display for CatalogInstallError {
 }
 
 /// Install a catalog entry, by id or unique name, into the user skills root.
+///
+/// The document goes through the supply-chain scan gate: a blocking scan or
+/// a failed fetch is retried once, and a document that still blocks comes
+/// back as [`SkillInstallOutcome::ScanBlocked`] unless `acknowledgement` is
+/// [`ScanAcknowledgement::ByUser`].
 pub async fn install_from_catalog(
     workspace_dir: &Path,
     entry_id: &str,
-) -> Result<InstallWorkflowFromUrlOutcome, CatalogInstallError> {
+    acknowledgement: ScanAcknowledgement,
+) -> Result<SkillInstallOutcome, CatalogInstallError> {
     install_from_catalog_in(
         &skill_registry(),
         workspace_dir,
         dirs::home_dir().as_deref(),
         entry_id,
+        acknowledgement,
     )
     .await
 }
@@ -363,30 +372,30 @@ pub(crate) async fn install_from_catalog_in(
     workspace_dir: &Path,
     home: Option<&Path>,
     entry_id: &str,
-) -> Result<InstallWorkflowFromUrlOutcome, CatalogInstallError> {
-    tracing::info!(entry_id = %entry_id, "[skill_registry] installing from catalog");
-    let document = registry
-        .fetch_document(&EntryKey::new(entry_id))
+    acknowledgement: ScanAcknowledgement,
+) -> Result<SkillInstallOutcome, CatalogInstallError> {
+    tracing::info!(
+        entry_id = %entry_id,
+        acknowledged = acknowledgement == ScanAcknowledgement::ByUser,
+        "[skill_registry] installing from catalog"
+    );
+    let key = EntryKey::new(entry_id);
+    let document = fetch_scanned(entry_id, acknowledgement, || registry.fetch_document(&key))
         .await
         .map_err(|error| {
             observe("install", &error, false);
             crate::skills::ops_install::report_install_fetch_failure(&error, None);
             CatalogInstallError::Registry(error)
         })?;
-    if document.is_blocked() {
-        tracing::warn!(
-            entry_id = %entry_id,
-            fetched_from = %document.fetched_from,
-            "[skill_registry] supply-chain scan flagged the document"
-        );
-    }
-    crate::skills::ops_install::install_validated_document(
-        workspace_dir,
-        home,
-        &document.fetched_from,
-        &document.fetched_from,
-        document.document,
-    )
+    gate_install(entry_id, acknowledgement, document, |document| {
+        crate::skills::ops_install::install_validated_document(
+            workspace_dir,
+            home,
+            &document.fetched_from,
+            &document.fetched_from,
+            document.document,
+        )
+    })
     .map_err(CatalogInstallError::Install)
 }
 

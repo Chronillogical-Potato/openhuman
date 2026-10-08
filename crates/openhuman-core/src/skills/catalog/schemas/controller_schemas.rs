@@ -118,7 +118,7 @@ pub fn skill_registry_schemas(function: &str) -> ControllerSchema {
         "install" => ControllerSchema {
             namespace: "skill_registry",
             function: "install",
-            description: "Install a skill from the catalog by its entry id. Fetches the SKILL.md and installs to user scope.",
+            description: "Install a skill from the catalog by its entry id. Fetches the SKILL.md, runs the supply-chain scan (retrying once when it blocks or the fetch fails) and installs to user scope. A document whose scan still blocks is not installed: the result has status `scan_blocked` and the findings.",
             inputs: vec![
                 FieldSchema {
                     name: "entry_id",
@@ -126,33 +126,14 @@ pub fn skill_registry_schemas(function: &str) -> ControllerSchema {
                     comment: "Catalog entry id of the skill to install.",
                     required: true,
                 },
-            ],
-            outputs: vec![
                 FieldSchema {
-                    name: "url",
-                    ty: TypeSchema::String,
-                    comment: "The URL that was fetched.",
-                    required: true,
-                },
-                FieldSchema {
-                    name: "stdout",
-                    ty: TypeSchema::String,
-                    comment: "Diagnostic summary.",
-                    required: true,
-                },
-                FieldSchema {
-                    name: "stderr",
-                    ty: TypeSchema::String,
-                    comment: "Parse warnings.",
-                    required: true,
-                },
-                FieldSchema {
-                    name: "new_skills",
-                    ty: TypeSchema::Array(Box::new(TypeSchema::String)),
-                    comment: "Slugs of skills that appeared post-install.",
-                    required: true,
+                    name: "acknowledge_scan_findings",
+                    ty: TypeSchema::Bool,
+                    comment: "Set by the Skills UI only after the user reviewed the scan findings and chose to install anyway. Agent tools cannot set it.",
+                    required: false,
                 },
             ],
+            outputs: install_outputs("new_skills"),
         },
         "uninstall" => ControllerSchema {
             namespace: "skill_registry",
@@ -210,6 +191,72 @@ pub fn skill_registry_schemas(function: &str) -> ControllerSchema {
             }],
         },
     }
+}
+
+/// The outputs of an install that may stop at the supply-chain scan.
+pub(crate) fn install_outputs(new_field: &'static str) -> Vec<FieldSchema> {
+    vec![
+        FieldSchema {
+            name: "status",
+            ty: TypeSchema::String,
+            comment: "`installed`, or `scan_blocked` when the scan still blocks after a retry and nothing was installed.",
+            required: true,
+        },
+        FieldSchema {
+            name: "url",
+            ty: TypeSchema::String,
+            comment: "The URL that was fetched (installed).",
+            required: false,
+        },
+        FieldSchema {
+            name: "stdout",
+            ty: TypeSchema::String,
+            comment: "Diagnostic summary (installed).",
+            required: false,
+        },
+        FieldSchema {
+            name: "stderr",
+            ty: TypeSchema::String,
+            comment: "Parse warnings (installed).",
+            required: false,
+        },
+        FieldSchema {
+            name: new_field,
+            ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+            comment: "Slugs of skills that appeared post-install (installed).",
+            required: false,
+        },
+        FieldSchema {
+            name: "target",
+            ty: TypeSchema::String,
+            comment: "The entry id or URL that was refused (scan_blocked).",
+            required: false,
+        },
+        FieldSchema {
+            name: "fetched_from",
+            ty: TypeSchema::String,
+            comment: "The redacted URL the blocked document came from (scan_blocked).",
+            required: false,
+        },
+        FieldSchema {
+            name: "slug",
+            ty: TypeSchema::String,
+            comment: "The install slug the blocked document would have used (scan_blocked).",
+            required: false,
+        },
+        FieldSchema {
+            name: "findings",
+            ty: TypeSchema::Array(Box::new(TypeSchema::Json)),
+            comment: "Scan findings: `check`, `verdict`, `field` and `message` (scan_blocked).",
+            required: false,
+        },
+        FieldSchema {
+            name: "message",
+            ty: TypeSchema::String,
+            comment: "Why the install was refused (scan_blocked).",
+            required: false,
+        },
+    ]
 }
 
 fn catalog_inputs(with_query: bool) -> Vec<FieldSchema> {
