@@ -364,6 +364,35 @@ included) and the gateway-reported cost come back on the response; a
 Cohere, Ollama, mock) for hosts that keep their own vector index, with the
 signature format unchanged so stored vectors stay in their partition.
 
+## Locked-down agents: `HostOnly`
+
+An agent that reads untrusted input (a PR diff) and must never act takes
+`ToolScopeSpec::HostOnly`: the tools it can see and call are the ones the host
+supplies (`AgentSpec::tools`, `Agent::attach_tools`) and nothing else.
+
+```rust,no_run
+use openhuman_embed::{AgentDefinitionSpec, AgentSpec, HostTurnTools, ToolScopeSpec};
+# fn read_only_tools() -> Vec<Box<dyn openhuman_embed::Tool>> { Vec::new() }
+let spec = AgentSpec::new("reviewer")
+    .definition(
+        AgentDefinitionSpec::new()
+            .bare_prompt("You review pull requests.")
+            .tools(ToolScopeSpec::HostOnly),
+    )
+    .tools(|_| HostTurnTools::advertised(read_only_tools()));
+```
+
+- No config-derived tool is built and no delegation tool is synthesised, so
+  shell, file writes, network, memory, skills, MCP and sub-agents do not exist
+  for the model. A deny-by-default gate refuses any other name it calls anyway.
+- Access and sandbox are forced read-only, whatever `Access` was set (even
+  after `AgentSpec::config`). Declaring MCP servers or skills is an error.
+- The agent needs its own prompt. `bare_prompt(text)` makes `text` the whole
+  system prompt: no identity, safety, tools, workspace or memory section.
+
+Host tools should themselves be read-only: `HostOnly` bounds which tools
+exist, not what they do.
+
 ## Feature flags
 
 Every feature on this crate is a pass-through to the same-named feature on
