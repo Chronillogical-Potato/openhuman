@@ -333,3 +333,59 @@ fn legacy_nodes_map_to_their_connector() {
         BrainSource::Other("googledrive".into())
     );
 }
+
+fn path_params(path: String) -> BrainIngestParams {
+    BrainIngestParams {
+        path: Some(path),
+        text: None,
+        source: None,
+        title: None,
+    }
+}
+
+#[tokio::test]
+async fn ingest_refuses_a_credential_store_a_system_root_traversal_and_null_bytes() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    let ssh = tmp.path().join(".ssh");
+    std::fs::create_dir_all(&ssh).unwrap();
+    std::fs::write(ssh.join("id_ed25519"), "fixture: not a real key").unwrap();
+    let notes = tmp.path().join("notes");
+    std::fs::create_dir_all(&notes).unwrap();
+    std::fs::write(tmp.path().join("guide.md"), "# Guide").unwrap();
+
+    for path in [
+        ssh.join("id_ed25519").display().to_string(),
+        "/etc/hosts".to_string(),
+        format!("{}/../guide.md", notes.display()),
+        format!("{}\0.md", tmp.path().join("guide").display()),
+    ] {
+        let result = ingest(&config, path_params(path.clone())).await;
+        assert!(
+            matches!(result, Err(MemoryError::InvalidRequest(_))),
+            "{path:?}: {result:?}"
+        );
+    }
+    assert!(engine.is_empty(), "nothing refused may be stored");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn ingest_refuses_a_symlink_into_a_credential_store() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    let aws = tmp.path().join(".aws");
+    std::fs::create_dir_all(&aws).unwrap();
+    std::fs::write(aws.join("credentials"), "aws_secret_access_key = x").unwrap();
+    let link = tmp.path().join("innocent.md");
+    std::os::unix::fs::symlink(aws.join("credentials"), &link).unwrap();
+
+    let result = ingest(&config, path_params(link.display().to_string())).await;
+    assert!(
+        matches!(result, Err(MemoryError::InvalidRequest(_))),
+        "{result:?}"
+    );
+    assert!(engine.is_empty());
+}

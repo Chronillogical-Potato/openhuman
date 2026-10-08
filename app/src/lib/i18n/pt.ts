@@ -742,7 +742,7 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f2': 'Compressão de tokens para ampliar seu uso',
   'onboarding.runtimeChoice.cloud.f3': 'Uma assinatura, todos os modelos incluídos',
   'onboarding.runtimeChoice.cloud.f4': 'Sem chaves de API para gerenciar',
-  'onboarding.runtimeChoice.cloud.f5': 'Simples de configurar',
+  'onboarding.runtimeChoice.cloud.f5': 'Memória hospedada, serviços de rede gerenciados',
   'onboarding.runtimeChoice.custom.title': 'Personalizado',
   'onboarding.runtimeChoice.custom.tagline':
     'Traga suas próprias chaves. Controle total do que está usando.',
@@ -850,7 +850,7 @@ const messages: TranslationMap = {
   'accounts.disconnect': 'Desconectar',
   'accounts.disconnectClearMemory': 'Também excluir memória desta fonte',
   'accounts.disconnectClearMemoryHint':
-    'Remove permanentemente os fragmentos de memória local vinculados a esta conexão.',
+    'Exclui permanentemente as memórias salvas a partir desta conexão.',
   'channels.title': 'Canais',
   'channels.configure': 'Configurar Canal',
   'channels.setup': 'Configurar',
@@ -5371,6 +5371,32 @@ const messages: TranslationMap = {
     'A raiz que todos os agentes compartilham e o agente com que este app funciona.',
   'memoryPage.settings.root': 'Raiz',
   'memoryPage.settings.agentId': 'Agente',
+  'memoryPage.settings.eraseTitle': 'Apagar memória',
+  'memoryPage.settings.eraseAction': 'Apagar toda a memória',
+  'memoryPage.settings.eraseDescription':
+    'Exclui permanentemente tudo o que o OpenHuman lembra desta conta. Isso não pode ser desfeito.',
+  'memoryPage.settings.eraseConfirmTitle': 'Apagar toda a memória?',
+  'memoryPage.settings.eraseConfirmBody':
+    'Isso exclui permanentemente tudo o que o OpenHuman lembra desta conta: cada fonte conectada, conversa anterior, aprendizado e fato. Suas conexões e configurações são mantidas.',
+  'memoryPage.settings.eraseIrreversible':
+    'Isso não pode ser desfeito. A memória apagada não pode ser recuperada.',
+  'memoryPage.settings.eraseConfirmCheck':
+    'Entendo que toda a minha memória será excluída permanentemente.',
+  'memoryPage.settings.eraseConfirm': 'Apagar tudo',
+  'memoryPage.settings.erasing': 'Apagando…',
+  'memoryPage.settings.erasedToast': 'Toda a memória foi apagada',
+  'memoryPage.settings.erasedToastBody': 'O OpenHuman não lembra mais de nada desta conta.',
+  'memoryPage.settings.eraseError.unsupported':
+    'Seu serviço de memória ainda não consegue apagar toda a memória. Nada foi apagado.',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'Sua conta está sem créditos, então a memória não pode ser apagada agora. Recarregue e tente novamente. Nada foi apagado.',
+  'memoryPage.settings.eraseError.memoryOff':
+    'A memória está desativada, então não há nada para apagar.',
+  'memoryPage.settings.eraseError.unavailable':
+    'Não foi possível confirmar se a memória foi apagada. Ela pode ter sido; verifique antes de tentar novamente.',
+  'memoryPage.settings.eraseError.unauthorized':
+    'Sua sessão expirou. Entre novamente e tente apagar sua memória.',
+  'memoryPage.settings.eraseError.generic': 'Não foi possível apagar sua memória. Tente novamente.',
   'memoryPage.settings.hostBound':
     'O app que hospeda o OpenHuman define estes valores, então não podem ser alterados aqui.',
   'memoryPage.import.title': 'Memória anterior encontrada',

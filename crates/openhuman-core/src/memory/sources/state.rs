@@ -47,13 +47,9 @@ fn read_all(workspace_dir: &Path) -> BTreeMap<String, SourceState> {
 
 fn write_all(workspace_dir: &Path, all: &BTreeMap<String, SourceState>) {
     let file = path(workspace_dir);
-    let result = file
-        .parent()
-        .map_or(Ok(()), std::fs::create_dir_all)
-        .and_then(|()| {
-            let json = serde_json::to_vec_pretty(all).map_err(std::io::Error::other)?;
-            std::fs::write(&file, json)
-        });
+    let result = serde_json::to_vec_pretty(all)
+        .map_err(std::io::Error::other)
+        .and_then(|json| crate::memory::files::write_private(&file, &json));
     if let Err(error) = result {
         tracing::warn!(error = %error, "[memory:sources] writing sync state failed");
     }

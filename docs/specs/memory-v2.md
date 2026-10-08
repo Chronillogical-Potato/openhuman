@@ -65,6 +65,23 @@ Its calls are `agents`, `list` (whole root or one agent's node), `get`,
 `recall`, `fetch`, `learn`, `forget`, `forget_agent` and the brain calls. It
 does not use the ambient-config RPCs.
 
+The ambient-config RPCs (`openhuman.memory_recall`, `_fetch`, `_learn`,
+`_forget`, `_items_list`, `_explore`, `_items_get`) and the MCP memory tools,
+which dispatch through them, are confined the same way to the identity in
+scope (`memory::confine`): the agent of a running turn, else the config's own
+root identity (`[memory] root`, else the root). An unset `reach` becomes
+`Reach::subtree(<root>)`; a caller's reach is kept only when it is
+`Reach::within` that subtree, and a wider one is refused with
+`INVALID_REQUEST`; `forget` and `items_get` skip ids outside it; `learn` with
+no namespace lands at the layout's learnings node, and one aimed outside the
+subtree is refused.
+
+A signed-out (local) session's scope root is `user:local-<install id>`, a
+random id recorded once in `<workspace>/memory/local_root.json`
+(`memory::local_root`). An install whose memory already lives under the
+older hostname-derived root (layout v3, or a layout migration under way)
+records that root instead, so nothing is orphaned.
+
 `RuntimeBuilder::memory_engine` (or `memory::engine::install_host_engine`)
 binds a host-supplied `MemoryEngine` for the whole process, ahead of the
 configured one. A host that owns its store, or a test using TinyMemory's
@@ -229,6 +246,7 @@ memory.
 | `memory_fetch` | `{query, mode?, filter?, limit?, cursor?}` | `{hits: Hit[], next_cursor?}` |
 | `memory_learn` | `{text, kind?, confidence?, meta?}` | `{id}` |
 | `memory_forget` | `{ids, reach?}` | `{forgotten}` |
+| `memory_erase_all` | `{confirm: true}` | `{erased_scopes}`; erases everything the bound engine holds, for good. Hosted: one `DELETE /memory`, the account's entire hosted memory. Direct: every kind scope of the bound layout; a shared legacy tree is left alone |
 | `memory_items_list` | `{filter?, limit?, cursor?, path?}` | `{items: Hit[], next_cursor?}` |
 | `memory_explore` | `{facet, path?, filter?, limit?, scan_limit?}` | `{facet, buckets: {value, count}[], total, missing, more_buckets, truncated}` |
 | `memory_items_get` | `{ids, reach?}` | `{items: Hit[]}` |
@@ -258,12 +276,24 @@ memory.
 
 **Moving into the per-user layout.** Memory written before layout v3 lives
 under `app:tinymemory/…`. `memory_migration_*` stores each item again below
-the person's `user:<id>` root, verifies it, switches the layout once every
+the person's `org:<id>` root, verifies it, switches the layout once every
 item is copied, copies what arrived meanwhile, then removes the legacy copies
 it verified. Progress is saved after every page in
 `<workspace>/memory/layout_migration.json`, so the move resumes where it
 stopped. The memory background job runs it on its own only while moving is
 free (always off the hosted engine); `memory_migration_start` runs it now.
+
+**The `org:<id>` root.** One root per person, `org:<id>`, with no `user:`
+segment below it: chats at `org:<id>/ws:main/app:conversations`, the brain
+at `org:<id>/app:brain/source:<src>`, learnings at `org:<id>/app:learnings`.
+On a direct CortexDB the engine is rooted at `org:<id>` and owned by the
+actor `user:<id>`; on the hosted engine it sends paths relative to the
+tenant root memory-api pins (`org:<id>`). Earlier v3 clients rooted at
+`user:<id>` (hosted: `org:<id>/user:<id>/…`). While `[memory]
+legacy_user_segment_read` is on (the default), reads and forgets cover that
+path too, merged by item id, and writes go only to `org:<id>`. cortexdb-saas
+`reroot-user-segment` moves the hosted data; the flag is turned off once that
+is verified.
 On a self-hosted CortexDB every account on the machine shares the legacy
 tree: it moves only with `takeover: true`, and the first account to take it
 claims it in `<app>/memory/legacy_claims/`; other accounts have nothing

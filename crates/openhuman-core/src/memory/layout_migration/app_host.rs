@@ -61,7 +61,9 @@ impl LayoutHost for AppHost {
         if config.memory.engine.trim() != CORTEXDB_ENGINE {
             return Ok(None);
         }
-        let owner = signed_in_root(config)?;
+        // The account, by its actor (`user:<id>`): a claim made before
+        // `org:` roots named the same string, so it stays this account's.
+        let owner = scope::actor_of_root(&signed_in_root(config)?);
         // `<app>/users/<id>/config.toml`: the app directory every account shares.
         let app_dir = config
             .config_path

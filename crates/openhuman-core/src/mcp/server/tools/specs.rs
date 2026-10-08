@@ -180,7 +180,8 @@ pub fn base_tool_specs() -> Vec<McpToolSpec> {
 }
 
 /// Annotation preset for the read-only, closed-world tools that just read
-/// OpenHuman's local memory or agent registry. The MCP spec defaults are
+/// OpenHuman's memory engine (hosted TinyHumans or the user's CortexDB, never
+/// a local store) or its agent registry. The MCP spec defaults are
 /// `readOnlyHint: false` / `openWorldHint: true`, so both fields must be set
 /// explicitly to communicate the actual shape to clients. Destructive and
 /// idempotent hints are deliberately omitted — per the spec they are
@@ -192,8 +193,8 @@ pub fn read_only_local_annotations() -> Value {
     })
 }
 
-/// Annotation for `memory.learn`: writes a new item into the local memory
-/// engine, never overwrites or removes (`destructiveHint: false`). Each call
+/// Annotation for `memory.learn`: writes a new item into the bound memory
+/// engine (CortexDB, hosted or direct; not stored locally), never overwrites or removes (`destructiveHint: false`). Each call
 /// stores another item, so it is not idempotent. Closed-world.
 pub fn learn_annotations() -> Value {
     json!({
