@@ -18,6 +18,7 @@
 pub mod date_hint;
 pub mod hooks;
 pub mod jobs;
+pub mod sender;
 pub mod views;
 
 use std::sync::Arc;

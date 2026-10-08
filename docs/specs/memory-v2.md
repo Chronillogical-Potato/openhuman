@@ -186,7 +186,14 @@ did what it stores (CortexDB's `observed_actor`, with the memory's owner as
 `subject`): an assistant turn its agent (`agent:<id>`), a synced email its
 sender (`user:<address>`, with the sender's name). An email address is
 trimmed and lower-cased, so one person is one actor; a phone number is kept as
-the connector's dial digits (`+15551234567`). Neither is redacted. A write
+the connector's dial digits (`+15551234567`). Neither is redacted. A user
+turn whose origin is a channel message is observed from its sender
+(`memory::lifecycle::sender`): `user:+<dial digits>` for a phone on a
+phone-addressed channel, `user:<email>`, else `<channel>:<sender>` (a Telegram
+id, a WhatsApp `<lid>@lid`), with the channel's push or profile name (no
+channel exposes a saved contact name); a cron run is not attributed. Today
+the channel runtime runs its turns on the harness graph, which logs no turns
+(`memory::bus`), so this applies once a channel turn is logged. A write
 CortexDB refuses for it is written again without it (tinymemory's fallback). Off, and always on the hosted engine, nothing on the wire changes.
 
 ## Agent tool: `memory`

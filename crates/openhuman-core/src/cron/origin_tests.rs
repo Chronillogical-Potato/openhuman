@@ -5,6 +5,7 @@ use serde_json::json;
 
 fn channel_turn(history_key: Option<&str>) -> AgentTurnOrigin {
     AgentTurnOrigin::ExternalChannel {
+        sender_name: None,
         channel: "telegram".into(),
         sender: Some("alice".into()),
         reply_target: "42".into(),
@@ -110,6 +111,7 @@ fn channel_origin_job_runs_as_external_channel_turn() {
     }));
     match turn_origin_for_job_run(&job, "run-1") {
         AgentTurnOrigin::ExternalChannel {
+            sender_name: _,
             channel,
             sender,
             reply_target,
