@@ -217,6 +217,27 @@ describe('MemoryImportBanner', () => {
     expect(hoisted.mStart).not.toHaveBeenCalled();
   });
 
+  it('organizes once the running import finishes', async () => {
+    hoisted.status.mockResolvedValue({ state: { phase: 'running', imported: 2, total: 9 } });
+    // Nothing to move until the import lands its items.
+    hoisted.mScan.mockResolvedValue({ needed: false, shared: false });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+    expect(await screen.findByTestId('memory-import-running')).toBeInTheDocument();
+    expect(screen.queryByTestId('memory-migration-banner')).not.toBeInTheDocument();
+
+    // The import finishes and the core starts the move.
+    hoisted.status.mockResolvedValue({ state: { phase: 'done', imported: 9, total: 9 } });
+    hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
+    hoisted.mStatus.mockResolvedValue(moving(3));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(IMPORT_POLL_MS + 10);
+    });
+    expect(await screen.findByTestId('memory-migration-running')).toHaveTextContent('3');
+    expect(screen.queryByTestId('memory-import-done')).not.toBeInTheDocument();
+    expect(hoisted.mStart).not.toHaveBeenCalled();
+  });
+
   it('keeps the retry for refused items beside the move', async () => {
     hoisted.status.mockResolvedValue({
       state: { phase: 'done', imported: 7, total: 9, failed: 2 },
@@ -360,6 +381,33 @@ describe('MemoryImportBanner', () => {
         await vi.advanceTimersByTimeAsync(MIGRATION_POLL_MS + 10);
       });
       expect(await screen.findByTestId('memory-import-error')).toBeInTheDocument();
+    });
+
+    it('offers nothing until the move’s status is known', async () => {
+      hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
+      hoisted.mStatus.mockRejectedValueOnce(new Error('not ready')).mockResolvedValue(MOVE_IDLE);
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+      await waitFor(() => expect(hoisted.mStatus).toHaveBeenCalledTimes(1));
+      expect(screen.queryByTestId('memory-migration-offer')).not.toBeInTheDocument();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(MIGRATION_IDLE_POLL_MS + 10);
+      });
+      expect(await screen.findByTestId('memory-migration-offer')).toBeInTheDocument();
+    });
+
+    it('keeps both retries when import and move each left items behind', async () => {
+      hoisted.status.mockResolvedValue({
+        state: { phase: 'done', imported: 7, total: 9, failed: 2 },
+      });
+      hoisted.mStatus.mockResolvedValue({
+        state: { phase: 'cleaned', copied: 7, failures: [{ id: 'a', reason: 'x' }] },
+        running: false,
+        interrupted: false,
+      });
+      renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+      expect(await screen.findByTestId('memory-migration-left')).toHaveTextContent('1');
+      expect(screen.getByTestId('memory-import-retry-failed')).toBeInTheDocument();
     });
 
     it('scans again after a failed scan', async () => {

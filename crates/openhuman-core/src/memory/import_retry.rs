@@ -11,7 +11,7 @@ use tinymemory_integrations::import::LegacyWorkspace;
 
 use super::{
     legacy_id, read_file, skips_item, status, with_retries, write_file, FailedItem, ImportFile,
-    PauseCheck, RUNNING,
+    PauseCheck, RUNNING, START_GATE,
 };
 use crate::config::Config;
 use crate::memory::engine::{self, BoundEngine};
@@ -44,10 +44,22 @@ pub(super) fn begin_retry(
 ) -> MemoryResult<ImportState> {
     let bound = engine::resolve(config).engine()?;
     let workspace_dir = config.workspace_dir.clone();
-    let claimed = RUNNING
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .insert(workspace_dir.clone());
+    let claimed = {
+        // The same start gate as an import: a retry bound to the legacy tree
+        // while it is being moved would leave its items behind there.
+        let _gate = START_GATE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if crate::memory::layout_migration::service::is_running(config) {
+            return Err(MemoryError::invalid(
+                "memory is being organized; retry once that finishes",
+            ));
+        }
+        RUNNING
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(workspace_dir.clone())
+    };
     if !claimed {
         return Ok(status(config));
     }

@@ -696,3 +696,7 @@ mod tests;
 #[cfg(test)]
 #[path = "import_recovery_tests.rs"]
 mod recovery_tests;
+
+#[cfg(test)]
+#[path = "import_organize_tests.rs"]
+mod organize_tests;

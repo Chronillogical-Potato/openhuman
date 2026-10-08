@@ -138,12 +138,18 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   const [takeoverOpen, setTakeoverOpen] = useState(false);
   const [mBusy, setMBusy] = useState(false);
 
-  // Bumped to scan again after a failed scan.
+  // Every read of what is left to move goes through this one effect: at
+  // mount, after a failed read (retried), when a run ends, and when the
+  // import finishes. Bumping it re-runs the read and discards the answer of
+  // the one it replaces.
   const [mScanAttempt, setMScanAttempt] = useState(0);
+  const rescanMove = useCallback(() => setMScanAttempt(n => n + 1), []);
   useEffect(() => {
     let cancelled = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
-    Promise.all([memoryMigrationScan(), memoryMigrationStatus().catch(() => null)])
+    // Both answers or neither: an offer without a known status could start
+    // a move that is already running.
+    Promise.all([memoryMigrationScan(), memoryMigrationStatus()])
       .then(([found, current]) => {
         if (cancelled) return;
         mlog('scan: needed=%s shared=%s', found?.needed, found?.shared);
@@ -154,14 +160,14 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
         // A transient failure must not hide the move for good: try again.
         mlog('scan failed: %o', err);
         if (!cancelled) {
-          retry = setTimeout(() => setMScanAttempt(n => n + 1), MIGRATION_IDLE_POLL_MS);
+          retry = setTimeout(rescanMove, MIGRATION_IDLE_POLL_MS);
         }
       });
     return () => {
       cancelled = true;
       if (retry) clearTimeout(retry);
     };
-  }, [mScanAttempt]);
+  }, [mScanAttempt, rescanMove]);
 
   const wasMoving = useRef(false);
   // One status request at a time: a slow answer must not land after, and
@@ -174,7 +180,7 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
       const next = await memoryMigrationStatus();
       setMStatus(next);
       // A run just ended: whether anything is still left to move changed.
-      if (wasMoving.current && !next.running) setMScan(await memoryMigrationScan());
+      if (wasMoving.current && !next.running) rescanMove();
       wasMoving.current = next.running;
     } catch (err) {
       mlog('status failed: %o', err);
@@ -182,7 +188,7 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
     } finally {
       mPolling.current = false;
     }
-  }, [t]);
+  }, [t, rescanMove]);
 
   const moving = mStatus?.running ?? false;
   const moveOffered = mScan?.needed ?? false;
@@ -233,22 +239,10 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
 
   const importDone = state?.phase === 'done';
   // The core starts the move when the import finishes: look again, since the
-  // scan at mount may have found nothing to move before the import landed.
+  // read at mount may have found nothing to move before the import landed.
   useEffect(() => {
-    if (!importDone) return;
-    let cancelled = false;
-    Promise.all([memoryMigrationScan(), memoryMigrationStatus()])
-      .then(([found, current]) => {
-        if (cancelled) return;
-        mlog('after import: needed=%s running=%s', found?.needed, current?.running);
-        setMScan(found ?? null);
-        setMStatus(current ?? null);
-      })
-      .catch(err => mlog('scan after import failed: %o', err));
-    return () => {
-      cancelled = true;
-    };
-  }, [importDone]);
+    if (importDone) rescanMove();
+  }, [importDone, rescanMove]);
 
   const mState = mStatus?.state;
   const left = (mState?.failures?.length ?? 0) + (mState?.incomplete?.length ?? 0);
