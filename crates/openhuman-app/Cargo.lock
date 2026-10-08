@@ -2885,7 +2885,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -8127,7 +8127,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-api"
-version = "1.23.9"
+version = "1.23.10"
 dependencies = [
  "async-trait",
  "chrono",
@@ -8140,7 +8140,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-integrations"
-version = "1.23.9"
+version = "1.23.10"
 dependencies = [
  "async-trait",
  "calamine",
@@ -8167,7 +8167,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-tools"
-version = "1.23.9"
+version = "1.23.10"
 dependencies = [
  "chrono",
  "futures",
@@ -9487,7 +9487,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

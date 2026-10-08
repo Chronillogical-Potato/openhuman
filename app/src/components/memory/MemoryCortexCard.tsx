@@ -65,9 +65,9 @@ export default function MemoryCortexCard({
         active ? 'border-primary-500/60' : 'border-line'
       )}
       data-testid="memory-engines">
-      <div className="flex items-start gap-3 p-4">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-line">
-          <img src={cortexdbLogo} alt="" aria-hidden className="h-7 w-7 object-contain" />
+      <div className="flex items-center gap-2.5 px-3 py-2.5">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-line">
+          <img src={cortexdbLogo} alt="" aria-hidden className="h-5 w-5 object-contain" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
@@ -78,13 +78,13 @@ export default function MemoryCortexCard({
               </Badge>
             )}
           </div>
-          <p className="mt-0.5 text-xs leading-relaxed text-content-muted">
+          <p className="text-xs leading-snug text-content-muted">
             {t('memoryPage.engine.cortex.description')}
           </p>
         </div>
       </div>
 
-      <div className="border-t border-line-subtle px-4 pt-3 pb-4">
+      <div className="border-t border-line-subtle px-3 pt-2.5 pb-3">
         <ChipTabs<MemoryProviderOption>
           items={[
             {
@@ -121,7 +121,7 @@ export default function MemoryCortexCard({
           value={selected}
           onChange={onSelect}
           ariaLabel={t('memoryPage.engine.chip.label')}
-          className="flex flex-wrap gap-1.5 pb-3"
+          className="flex flex-wrap gap-1.5 pb-2"
         />
         {children}
       </div>

@@ -501,9 +501,6 @@ const messages: TranslationMap = {
     'Não foi possível mudar para os modelos grátis da OpenRouter. Verifique seu login da OpenRouter e tente novamente.',
   'chat.newThread': 'Nova conversa',
   'chat.newConversation': 'Nova conversa',
-  'chat.sidebar.searchPlaceholder': 'Pesquisar conversas',
-  'chat.sidebar.clearSearch': 'Limpar pesquisa',
-  'chat.sidebar.noMatches': 'Nenhuma conversa correspondente',
   'chat.sidebar.group.pinned': 'Fixadas',
   'chat.sidebar.group.today': 'Hoje',
   'chat.sidebar.group.yesterday': 'Ontem',
@@ -2052,6 +2049,10 @@ const messages: TranslationMap = {
   'commandPalette.placeholder': 'Digite um comando ou pesquise…',
   'commandPalette.searchAria': 'Pesquisar comandos',
   'commandPalette.title': 'Paleta de comandos',
+  'commandPalette.group.conversations': 'Conversas',
+  'commandPalette.group.messages': 'Mensagens',
+  'commandPalette.searchingMessages': 'Pesquisando mensagens…',
+  'commandPalette.untitledConversation': 'Conversa sem título',
   'kbd.ariaLabel': 'Atalho de teclado: {shortcut}',
   'shortcuts.title': 'Atalhos de teclado',
   'shortcuts.subtitle': 'Agilize seu fluxo de trabalho com estes atalhos de teclado.',
@@ -5118,16 +5119,14 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'Ilimitada',
   'memoryPage.engine.chip.apikey': 'Sua chave do CortexDB',
   'memoryPage.engine.chip.selfhost': 'Local',
-  'memoryPage.engine.fairUse.summary': 'Vale o uso justo',
+  'memoryPage.engine.fairUse.summary': 'A memória ilimitada está sujeita a uso justo',
   'memoryPage.engine.offPrompt': 'Escolha um provedor abaixo para começar a lembrar.',
-  'memoryPage.engine.builtin.cardDescription':
-    'Hospedado para você pela TinyHumans. Nada para configurar.',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'O serviço gerenciado da CortexDB, na sua própria conta CortexDB.',
-  'memoryPage.engine.selfHost.cardDescription':
-    'Um servidor CortexDB que você mesmo roda. A memória fica neste computador.',
-  'memoryPage.engine.freeIngestion.notePlan': 'Memória ilimitada no seu plano {plan}',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Memória ilimitada nos planos Basic e Pro',
+  'memoryPage.engine.builtin.summaryPlan':
+    'Hospedado pela TinyHumans, com memória ilimitada no seu plano {plan}.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'Hospedado pela TinyHumans. Memória ilimitada nos planos Basic e Pro.',
+  'memoryPage.engine.apiKeyOption.connected': 'Conectado com sua chave de API do CortexDB.',
+  'memoryPage.engine.selfHost.connected': 'Conectado ao CortexDB em {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Envie seu próprio conteúdo, para seu próprio uso.',
   'memoryPage.engine.fairUse.noAbuse':
     'Nada de envios em massa automatizados, scraping ou ingestão em nome de outras pessoas ou serviços.',
@@ -5250,6 +5249,9 @@ const messages: TranslationMap = {
   'memoryPage.tabs.brain': 'Documentos',
   'memoryPage.tabs.background': 'Atividade',
   'memoryPage.tabs.settings': 'Configurações',
+  'memoryPage.tabs.migration': 'Migração',
+  'memoryPage.header.migration':
+    'Traga a memória de versões anteriores para o CortexDB e organize-a.',
   'memoryPage.header.brain':
     'Documentos que todos os agentes compartilham, organizados por origem.',
   'memoryPage.header.background':
@@ -5388,10 +5390,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'Itens que não puderam ser importados: {count}.',
   'memoryPage.import.retryFailed': 'Tentar novamente os itens com falha',
   'memoryPage.import.progress': '{imported} de {total} itens importados',
+  'memoryPage.import.none': 'Nenhuma memória anterior foi encontrada neste dispositivo.',
+  'memoryPage.import.doneBody': 'Sua memória anterior já está no CortexDB.',
+  'memoryPage.import.short': 'Importar',
   'memoryPage.migrate.title': 'Mover a memória para sua conta',
   'memoryPage.migrate.body':
     'A memória salva antes desta atualização ainda está no antigo layout compartilhado. Ela é movida automaticamente em segundo plano, ou você pode movê-la agora.',
   'memoryPage.migrate.action': 'Migrar agora',
+  'memoryPage.migrate.doneBody': 'Sua memória já está na sua conta.',
+  'memoryPage.migrate.afterImport': 'Começa quando a importação terminar.',
   'memoryPage.migrate.running': 'Organizando sua memória…',
   'memoryPage.migrate.progress': '{copied} itens movidos',
   'memoryPage.migrate.progressOne': '{copied} item movido',

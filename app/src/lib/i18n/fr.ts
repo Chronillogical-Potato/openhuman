@@ -508,9 +508,6 @@ const messages: TranslationMap = {
     'Impossible de passer aux modèles gratuits OpenRouter. Vérifiez votre connexion OpenRouter et réessayez.',
   'chat.newThread': 'Nouveau fil',
   'chat.newConversation': 'Nouvelle conversation',
-  'chat.sidebar.searchPlaceholder': 'Rechercher des conversations',
-  'chat.sidebar.clearSearch': 'Effacer la recherche',
-  'chat.sidebar.noMatches': 'Aucune conversation correspondante',
   'chat.sidebar.group.pinned': 'Épinglées',
   'chat.sidebar.group.today': "Aujourd'hui",
   'chat.sidebar.group.yesterday': 'Hier',
@@ -2069,6 +2066,10 @@ const messages: TranslationMap = {
   'commandPalette.placeholder': 'Tape une commande ou recherche…',
   'commandPalette.searchAria': 'Rechercher des commandes',
   'commandPalette.title': 'Palette de commandes',
+  'commandPalette.group.conversations': 'Conversations',
+  'commandPalette.group.messages': 'Messages',
+  'commandPalette.searchingMessages': 'Recherche dans les messages…',
+  'commandPalette.untitledConversation': 'Conversation sans titre',
   'kbd.ariaLabel': 'Raccourci clavier : {shortcut}',
   'shortcuts.title': 'Raccourcis clavier',
   'shortcuts.subtitle': 'Accélérez votre travail grâce à ces raccourcis clavier.',
@@ -5165,16 +5166,14 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'Illimitée',
   'memoryPage.engine.chip.apikey': 'Votre clé CortexDB',
   'memoryPage.engine.chip.selfhost': 'Local',
-  'memoryPage.engine.fairUse.summary': 'Usage raisonnable',
+  'memoryPage.engine.fairUse.summary': 'La mémoire illimitée est soumise à un usage raisonnable',
   'memoryPage.engine.offPrompt': 'Choisissez un fournisseur ci-dessous pour commencer à mémoriser.',
-  'memoryPage.engine.builtin.cardDescription':
-    'Hébergé pour vous par TinyHumans. Rien à configurer.',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'Le service géré de CortexDB, avec votre propre compte CortexDB.',
-  'memoryPage.engine.selfHost.cardDescription':
-    'Un serveur CortexDB que vous gérez vous-même. La mémoire est stockée sur cet ordinateur.',
-  'memoryPage.engine.freeIngestion.notePlan': 'Mémoire illimitée avec votre forfait {plan}',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Mémoire illimitée avec les forfaits Basic et Pro',
+  'memoryPage.engine.builtin.summaryPlan':
+    'Hébergé par TinyHumans, avec une mémoire illimitée sur votre forfait {plan}.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'Hébergé par TinyHumans. Mémoire illimitée avec les forfaits Basic et Pro.',
+  'memoryPage.engine.apiKeyOption.connected': 'Connecté avec votre clé d’API CortexDB.',
+  'memoryPage.engine.selfHost.connected': 'Connecté à CortexDB sur {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Ingérez votre propre contenu, pour votre propre usage.',
   'memoryPage.engine.fairUse.noAbuse':
     'Pas d’envois massifs automatisés, de scraping ni d’ingestion pour le compte d’autres personnes ou services.',
@@ -5301,6 +5300,9 @@ const messages: TranslationMap = {
   'memoryPage.tabs.brain': 'Documents',
   'memoryPage.tabs.background': 'Activité',
   'memoryPage.tabs.settings': 'Réglages',
+  'memoryPage.tabs.migration': 'Migration',
+  'memoryPage.header.migration':
+    'Importez la mémoire des versions précédentes dans CortexDB et organisez-la.',
   'memoryPage.header.brain':
     'Documents partagés par tous les agents, classés selon leur provenance.',
   'memoryPage.header.background':
@@ -5440,10 +5442,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': "Éléments qui n'ont pas pu être importés : {count}.",
   'memoryPage.import.retryFailed': 'Réessayer les éléments en échec',
   'memoryPage.import.progress': '{imported} éléments sur {total} importés',
+  'memoryPage.import.none': 'Aucune mémoire précédente trouvée sur cet appareil.',
+  'memoryPage.import.doneBody': 'Votre mémoire précédente est déjà dans CortexDB.',
+  'memoryPage.import.short': 'Importer',
   'memoryPage.migrate.title': 'Déplacer la mémoire dans votre compte',
   'memoryPage.migrate.body':
     'La mémoire enregistrée avant cette mise à jour se trouve encore dans l’ancienne organisation partagée. Elle est déplacée automatiquement en arrière-plan, ou vous pouvez la déplacer maintenant.',
   'memoryPage.migrate.action': 'Migrer maintenant',
+  'memoryPage.migrate.doneBody': 'Votre mémoire est déjà dans votre compte.',
+  'memoryPage.migrate.afterImport': 'Démarre une fois l’import terminé.',
   'memoryPage.migrate.running': 'Organisation de votre mémoire…',
   'memoryPage.migrate.progress': '{copied} éléments déplacés',
   'memoryPage.migrate.progressOne': '{copied} élément déplacé',

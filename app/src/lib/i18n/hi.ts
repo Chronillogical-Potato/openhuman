@@ -493,9 +493,6 @@ const messages: TranslationMap = {
     'OpenRouter के मुफ्त मॉडल पर स्विच नहीं हो सका। अपना OpenRouter साइन-इन जांचें और फिर कोशिश करें।',
   'chat.newThread': 'नई थ्रेड',
   'chat.newConversation': 'नई बातचीत',
-  'chat.sidebar.searchPlaceholder': 'बातचीत खोजें',
-  'chat.sidebar.clearSearch': 'खोज साफ़ करें',
-  'chat.sidebar.noMatches': 'कोई मेल खाती बातचीत नहीं',
   'chat.sidebar.group.pinned': 'पिन की गई',
   'chat.sidebar.group.today': 'आज',
   'chat.sidebar.group.yesterday': 'कल',
@@ -2021,6 +2018,10 @@ const messages: TranslationMap = {
   'commandPalette.placeholder': 'कोई कमांड टाइप करें या सर्च करें…',
   'commandPalette.searchAria': 'कमांड सर्च करें',
   'commandPalette.title': 'कमांड पैलेट',
+  'commandPalette.group.conversations': 'बातचीत',
+  'commandPalette.group.messages': 'संदेश',
+  'commandPalette.searchingMessages': 'संदेश खोजे जा रहे हैं…',
+  'commandPalette.untitledConversation': 'बिना शीर्षक की बातचीत',
   'kbd.ariaLabel': 'कीबोर्ड शॉर्टकट: {shortcut}',
   'shortcuts.title': 'कीबोर्ड शॉर्टकट',
   'shortcuts.subtitle': 'इन कीबोर्ड शॉर्टकट से अपने काम को तेज़ करें।',
@@ -5049,16 +5050,14 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'असीमित',
   'memoryPage.engine.chip.apikey': 'आपकी CortexDB कुंजी',
   'memoryPage.engine.chip.selfhost': 'लोकल',
-  'memoryPage.engine.fairUse.summary': 'उचित उपयोग लागू है',
+  'memoryPage.engine.fairUse.summary': 'असीमित मेमोरी पर उचित उपयोग नीति लागू होती है',
   'memoryPage.engine.offPrompt': 'याद रखना शुरू करने के लिए नीचे एक प्रदाता चुनें।',
-  'memoryPage.engine.builtin.cardDescription':
-    'TinyHumans द्वारा आपके लिए होस्ट किया गया। कुछ सेट अप नहीं करना है।',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'CortexDB की प्रबंधित सेवा, आपके अपने CortexDB खाते पर।',
-  'memoryPage.engine.selfHost.cardDescription':
-    'आपके द्वारा चलाया गया CortexDB सर्वर। मेमोरी इसी कंप्यूटर पर रहती है।',
-  'memoryPage.engine.freeIngestion.notePlan': 'आपके {plan} प्लान में असीमित मेमोरी',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic और Pro प्लान में असीमित मेमोरी',
+  'memoryPage.engine.builtin.summaryPlan':
+    'TinyHumans द्वारा होस्ट किया गया, आपके {plan} प्लान पर असीमित मेमोरी।',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'TinyHumans द्वारा होस्ट किया गया। Basic और Pro प्लान पर असीमित मेमोरी।',
+  'memoryPage.engine.apiKeyOption.connected': 'आपकी CortexDB API कुंजी से जुड़ा है।',
+  'memoryPage.engine.selfHost.connected': '{endpoint} पर CortexDB से जुड़ा है।',
   'memoryPage.engine.fairUse.own': 'अपनी सामग्री, अपने इस्तेमाल के लिए जोड़ें।',
   'memoryPage.engine.fairUse.noAbuse':
     'स्वचालित बल्क अपलोड, स्क्रैपिंग या दूसरों की ओर से इनजेस्शन नहीं।',
@@ -5180,6 +5179,9 @@ const messages: TranslationMap = {
   'memoryPage.tabs.brain': 'दस्तावेज़',
   'memoryPage.tabs.background': 'गतिविधि',
   'memoryPage.tabs.settings': 'सेटिंग',
+  'memoryPage.tabs.migration': 'माइग्रेशन',
+  'memoryPage.header.migration':
+    'पिछले संस्करणों की मेमोरी को CortexDB में लाएँ और व्यवस्थित करें।',
   'memoryPage.header.brain':
     'वे दस्तावेज़ जो हर एजेंट साझा करता है, उनके स्रोत के अनुसार सहेजे गए।',
   'memoryPage.header.background':
@@ -5317,10 +5319,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'जो आइटम इंपोर्ट नहीं हो सके: {count}।',
   'memoryPage.import.retryFailed': 'विफल आइटम फिर से आज़माएँ',
   'memoryPage.import.progress': '{total} में से {imported} आइटम इंपोर्ट हुए',
+  'memoryPage.import.none': 'इस डिवाइस पर कोई पिछली मेमोरी नहीं मिली।',
+  'memoryPage.import.doneBody': 'आपकी पिछली मेमोरी पहले से CortexDB में है।',
+  'memoryPage.import.short': 'इंपोर्ट करें',
   'memoryPage.migrate.title': 'मेमोरी को अपने खाते में ले जाएँ',
   'memoryPage.migrate.body':
     'इस अपडेट से पहले सहेजी गई मेमोरी अभी भी पुराने साझा लेआउट में है। यह बैकग्राउंड में अपने आप ले जाई जाती है, या आप इसे अभी ले जा सकते हैं।',
   'memoryPage.migrate.action': 'अभी माइग्रेट करें',
+  'memoryPage.migrate.doneBody': 'आपकी मेमोरी पहले से आपके खाते में है।',
+  'memoryPage.migrate.afterImport': 'इंपोर्ट पूरा होने के बाद शुरू होगा।',
   'memoryPage.migrate.running': 'आपकी मेमोरी व्यवस्थित की जा रही है…',
   'memoryPage.migrate.progress': '{copied} आइटम ले जाए गए',
   'memoryPage.migrate.progressOne': '{copied} आइटम ले जाया गया',

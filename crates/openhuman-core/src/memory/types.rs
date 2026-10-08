@@ -213,6 +213,12 @@ pub struct ItemsListParams {
     /// Explorer path, applied on top of `filter` (see [`super::explore`]).
     #[serde(default)]
     pub path: Vec<super::explore::PathStep>,
+    /// A view that shows a snippet of each item and reads one whole with
+    /// `memory_items_get` when it is opened: a conversation's or chunked
+    /// document's text may then be only its start, which an engine can
+    /// list without assembling each item (`MemoryEngine::list_preview`).
+    #[serde(default)]
+    pub preview: bool,
 }
 
 /// `memory_items_list` result.
