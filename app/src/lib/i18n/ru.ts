@@ -5102,7 +5102,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.free': 'Безлимит',
   'memoryPage.engine.chip.apikey': 'Ваш ключ CortexDB',
   'memoryPage.engine.chip.selfhost': 'Локально',
-  'memoryPage.engine.fairUse.summary': 'К безлимитной памяти применяется политика добросовестного использования',
+  'memoryPage.engine.fairUse.summary':
+    'К безлимитной памяти применяется политика добросовестного использования',
   'memoryPage.engine.offPrompt': 'Выберите провайдера ниже, чтобы начать запоминать.',
   'memoryPage.engine.builtin.summaryPlan':
     'Размещено TinyHumans, безлимитная память на вашем тарифе {plan}.',

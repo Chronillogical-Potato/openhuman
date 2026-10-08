@@ -14,6 +14,11 @@
  *   core itself allows https to any host and cleartext http only to loopback,
  *   so this check is the stricter of the two.
  *
+ * TinyHumans connects inline. Your API key and Local open their form in a
+ * modal; the chip becomes the selected one only once that connection saves.
+ * A configured key or Local connection shows one line on the card with Edit,
+ * which reopens the modal.
+ *
  * Which chip is in use is derived from `memory_engine_get`: `tinyhumans` is
  * TinyHumans, and `cortexdb` is Local when its endpoint is loopback, else your
  * API key. Engines that are not supported yet are listed as coming soon.
@@ -33,8 +38,9 @@ import {
   memoryErrorMessage,
 } from '../../services/api/memoryApi';
 import { isLocalSessionToken } from '../../utils/localSession';
-import { Alert, AlertDescription, AlertTitle } from '../ui';
+import { Alert, AlertDescription, AlertTitle, Button } from '../ui';
 import { CenteredLoadingState } from '../ui/LoadingState';
+import { ModalShell } from '../ui/ModalShell';
 import { toast } from '../ui/Toast';
 import MemoryComingSoon from './MemoryComingSoon';
 import MemoryConnectionPanel from './MemoryConnectionPanel';
@@ -91,9 +97,12 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
   const on = isMemoryOn(state);
 
   // The chip the user picked; until then, the configured connection, else
-  // TinyHumans (the free, zero-setup default).
+  // TinyHumans (the free, zero-setup default). Only TinyHumans is picked
+  // directly: the others are picked by connecting them in their modal.
   const [picked, setPicked] = useState<EngineOption | null>(null);
   const selected: EngineOption = picked ?? active ?? 'builtin';
+  // The key or Local connection whose modal is open.
+  const [dialog, setDialog] = useState<Exclude<EngineOption, 'builtin'> | null>(null);
   const [saving, setSaving] = useState<EngineOption | null>(null);
   const [errors, setErrors] = useState<Partial<Record<EngineOption, string>>>({});
   const [cloudKey, setCloudKey] = useState('');
@@ -200,7 +209,11 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
     if (!canSubmitCloud) return;
     const req: EngineSetRequest = { engine: 'cortexdb', endpoint: '' };
     if (cloudKey.trim()) req.api_key = cloudKey.trim();
-    if (await select('apikey', req)) setCloudKey('');
+    if (await select('apikey', req)) {
+      setCloudKey('');
+      setPicked(null);
+      setDialog(null);
+    }
   };
 
   // Local: loopback only.
@@ -214,8 +227,79 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
     if (!canSubmitLocal) return;
     const req: EngineSetRequest = { engine: 'cortexdb', endpoint: localEndpoint.trim() };
     if (localKey.trim()) req.api_key = localKey.trim();
-    if (await select('selfhost', req)) setLocalKey('');
+    if (await select('selfhost', req)) {
+      setLocalKey('');
+      setPicked(null);
+      setDialog(null);
+    }
   };
+
+  const onSelectChip = (option: EngineOption) => {
+    log('chip: %s', option);
+    if (option === 'builtin') {
+      setPicked('builtin');
+      setDialog(null);
+      return;
+    }
+    setErrors(prev => ({ ...prev, [option]: undefined }));
+    setDialog(option);
+  };
+
+  const panel = (option: EngineOption) => (
+    <MemoryConnectionPanel
+      key={option}
+      option={option}
+      state={state}
+      active={option === active}
+      signedIn={signedIn}
+      plan={plan}
+      saving={saving}
+      error={errors[option]}
+      cloudKey={cloudKey}
+      onCloudKey={setCloudKey}
+      localEndpoint={localEndpoint}
+      onLocalEndpoint={setTypedEndpoint}
+      endpointInvalid={endpointTyped && !endpointLocal}
+      localKey={localKey}
+      onLocalKey={setLocalKey}
+      canSubmit={
+        option === 'builtin'
+          ? saving === null && signedIn
+          : option === 'apikey'
+            ? canSubmitCloud
+            : canSubmitLocal
+      }
+      onSubmit={
+        option === 'builtin'
+          ? useBuiltin
+          : option === 'apikey'
+            ? () => void submitCloud()
+            : () => void submitLocal()
+      }
+    />
+  );
+
+  // The card's body for a configured key or Local connection: one line and Edit.
+  const connectedLine = (option: Exclude<EngineOption, 'builtin'>) => (
+    <div
+      className="flex items-center justify-between gap-2"
+      role="tabpanel"
+      data-testid={`memory-engine-connected-${option}`}>
+      <p className="min-w-0 truncate text-xs text-content-secondary">
+        {option === 'apikey'
+          ? t('memoryPage.engine.apiKeyOption.connected')
+          : t('memoryPage.engine.selfHost.connected').replace('{endpoint}', state.endpoint ?? '')}
+      </p>
+      <Button
+        size="xs"
+        variant="secondary"
+        analyticsId={`memory-engine-${option}-edit`}
+        data-testid={`memory-engine-${option}-edit`}
+        onClick={() => onSelectChip(option)}>
+        {t('common.edit')}
+      </Button>
+    </div>
+  );
 
   return (
     <div
@@ -226,40 +310,29 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
       {/* Sized like one cell of the coming-soon grid below, not the full width.
           Onboarding embeds this tab in a narrow column, where it fills it. */}
       <div className={embedded ? undefined : 'grid gap-2.5 @md:grid-cols-2 @3xl:grid-cols-3'}>
-        <MemoryCortexCard selected={selected} onSelect={setPicked} active={active} status={status}>
-          <MemoryConnectionPanel
-            key={selected}
-            option={selected}
-            state={state}
-            active={selected === active}
-            signedIn={signedIn}
-            plan={plan}
-            saving={saving}
-            error={errors[selected]}
-            cloudKey={cloudKey}
-            onCloudKey={setCloudKey}
-            localEndpoint={localEndpoint}
-            onLocalEndpoint={setTypedEndpoint}
-            endpointInvalid={endpointTyped && !endpointLocal}
-            localKey={localKey}
-            onLocalKey={setLocalKey}
-            canSubmit={
-              selected === 'builtin'
-                ? saving === null && signedIn
-                : selected === 'apikey'
-                  ? canSubmitCloud
-                  : canSubmitLocal
-            }
-            onSubmit={
-              selected === 'builtin'
-                ? useBuiltin
-                : selected === 'apikey'
-                  ? () => void submitCloud()
-                  : () => void submitLocal()
-            }
-          />
+        <MemoryCortexCard
+          selected={selected}
+          onSelect={onSelectChip}
+          active={active}
+          status={status}>
+          {selected === 'builtin' ? panel('builtin') : connectedLine(selected)}
         </MemoryCortexCard>
       </div>
+
+      {dialog && (
+        <ModalShell
+          title={titles[dialog]}
+          titleId={`memory-engine-${dialog}-dialog-title`}
+          icon={<MemoryProviderLogo option={dialog} className="h-5 w-5" />}
+          maxWidthClassName="max-w-md"
+          testId={`memory-engine-${dialog}-dialog`}
+          closePolicy={
+            saving === dialog ? { escape: false, backdrop: false, button: false } : undefined
+          }
+          onClose={() => setDialog(null)}>
+          {panel(dialog)}
+        </ModalShell>
+      )}
 
       {/* Onboarding embeds this tab to pick a provider; upcoming engines are noise there. */}
       {!embedded && <MemoryComingSoon />}
