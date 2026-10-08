@@ -159,3 +159,177 @@ async fn an_agent_without_auto_approve_all_parks_under_a_process_policy_that_has
         "the agent's own policy must win over the process blanket approval"
     );
 }
+
+fn park(
+    gate: &Arc<ApprovalGate>,
+    agent: &str,
+) -> tokio::task::JoinHandle<(GateOutcome, Option<String>)> {
+    let gate = Arc::clone(gate);
+    let ctx = agent_ctx(agent, None, false);
+    tokio::spawn(CoreContext::scope(
+        ctx,
+        turn_origin::with_origin(
+            web_origin(),
+            APPROVAL_CHAT_CONTEXT.scope(chat_ctx(), async move {
+                gate.intercept_audited("shell", "run it", serde_json::json!({}))
+                    .await
+            }),
+        ),
+    ))
+}
+
+async fn parked_for(gate: &ApprovalGate, agent: &str) -> String {
+    for _ in 0..200 {
+        if let Some(request_id) = gate.pending_for_agent_thread(Some(agent), "t-test") {
+            return request_id;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    panic!("{agent} never parked");
+}
+
+async fn requested_agent(
+    rx: &mut tinybus::events::EventReceiver<crate::core::events::DomainEvent>,
+    expected_request_id: &str,
+) -> Option<String> {
+    loop {
+        match rx.recv().await {
+            Some(crate::core::events::DomainEvent::ApprovalRequested {
+                request_id,
+                agent_id,
+                ..
+            }) if request_id == expected_request_id => return agent_id,
+            Some(_) => continue,
+            None => panic!("the bus closed before the expected event arrived"),
+        }
+    }
+}
+
+#[tokio::test]
+async fn agents_parked_on_one_thread_id_are_routed_and_decided_apart() {
+    crate::core::bus::init().await.expect("bus init");
+    let mut events = crate::core::bus::BUS
+        .get()
+        .expect("event bus initialized above")
+        .receiver();
+    let (gate, _dir) = test_gate();
+    let gate = Arc::new(gate);
+
+    let alpha = park(&gate, "route-alpha");
+    let beta = park(&gate, "route-beta");
+    let alpha_request = parked_for(&gate, "route-alpha").await;
+    let beta_request = parked_for(&gate, "route-beta").await;
+    assert_ne!(alpha_request, beta_request);
+    assert!(
+        gate.pending_for_agent_thread(None, "t-test").is_none(),
+        "the process's own route for the thread stays empty"
+    );
+    assert!(
+        gate.pending_for_thread("t-test").is_none(),
+        "an unscoped reply must not reach an agent's request"
+    );
+
+    let seen = tokio::time::timeout(
+        Duration::from_secs(5),
+        requested_agent(&mut events, &alpha_request),
+    )
+    .await
+    .expect("ApprovalRequested for alpha");
+    assert_eq!(seen.as_deref(), Some("route-alpha"));
+
+    let alpha_rows = gate.list_pending_for_agent(Some("route-alpha")).unwrap();
+    assert_eq!(alpha_rows.len(), 1);
+    assert_eq!(alpha_rows[0].request_id, alpha_request);
+    assert_eq!(alpha_rows[0].agent_id.as_deref(), Some("route-alpha"));
+    assert!(gate.list_pending_for_agent(None).unwrap().is_empty());
+
+    let refused = gate
+        .decide_for_agent("route-alpha", &beta_request, ApprovalDecision::ApproveOnce)
+        .expect_err("alpha must not decide beta's request");
+    assert_eq!(
+        refused.downcast_ref::<ApprovalError>(),
+        Some(&ApprovalError::WrongAgent {
+            request_id: beta_request.clone()
+        })
+    );
+    assert_eq!(
+        gate.pending_for_agent_thread(Some("route-beta"), "t-test"),
+        Some(beta_request.clone()),
+        "beta stays parked after the refused decision"
+    );
+
+    let decided = gate
+        .decide_for_agent("route-alpha", &alpha_request, ApprovalDecision::ApproveOnce)
+        .unwrap()
+        .expect("alpha's row decided");
+    assert_eq!(decided.agent_id.as_deref(), Some("route-alpha"));
+    let (outcome, _) = alpha.await.unwrap();
+    assert!(matches!(outcome, GateOutcome::Allow), "got {outcome:?}");
+    assert!(
+        !beta.is_finished(),
+        "alpha's decision must not release beta"
+    );
+
+    let denied = gate
+        .deny_all_for_agent("route-beta", "agent_removed")
+        .unwrap();
+    assert_eq!(denied, 1);
+    let (outcome, _) = beta.await.unwrap();
+    assert!(
+        matches!(outcome, GateOutcome::Deny { .. }),
+        "got {outcome:?}"
+    );
+    let decided = tokio::time::timeout(
+        Duration::from_secs(5),
+        find_approval_decided(&mut events, &beta_request),
+    )
+    .await
+    .expect("ApprovalDecided for beta");
+    match decided {
+        crate::core::events::DomainEvent::ApprovalDecided {
+            agent_id,
+            resolution,
+            decision,
+            ..
+        } => {
+            assert_eq!(agent_id.as_deref(), Some("route-beta"));
+            assert_eq!(resolution.as_deref(), Some("agent_removed"));
+            assert_eq!(decision, "deny");
+        }
+        other => panic!("unexpected event {other:?}"),
+    }
+    assert!(gate
+        .list_pending_for_agent(Some("route-beta"))
+        .unwrap()
+        .is_empty());
+}
+
+#[tokio::test]
+async fn an_agent_cannot_decide_a_request_the_process_parked() {
+    let (gate, _dir) = test_gate();
+    let gate = Arc::new(gate);
+    let g = Arc::clone(&gate);
+    let process = tokio::spawn(turn_origin::with_origin(
+        web_origin(),
+        APPROVAL_CHAT_CONTEXT.scope(chat_ctx(), async move {
+            g.intercept_audited("shell", "run it", serde_json::json!({}))
+                .await
+        }),
+    ));
+    let request_id = loop {
+        if let Some(request_id) = gate.pending_for_agent_thread(None, "t-test") {
+            break request_id;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    };
+
+    let refused = gate.decide_for_agent("intruder", &request_id, ApprovalDecision::Deny);
+    assert!(
+        refused.is_err(),
+        "an agent must not decide a process request"
+    );
+
+    gate.decide(&request_id, ApprovalDecision::Deny).unwrap();
+    let (outcome, _) = process.await.unwrap();
+    assert!(matches!(outcome, GateOutcome::Deny { .. }));
+}
