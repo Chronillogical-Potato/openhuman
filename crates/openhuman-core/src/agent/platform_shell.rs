@@ -174,6 +174,12 @@ fn build_tokio_command_with(command: &str, pipefail: PipeFail) -> tokio::process
     // `as_std_mut()` so the Windows arm can reach `raw_arg` (only defined on
     // `std::process::Command`); the tokio wrapper forwards the raw arg.
     configure_shell_args(cmd.as_std_mut(), command, pipefail);
+    // Every shell-family child leads its own process group and dies with the
+    // handle that owns it, so a deadline (see
+    // `crate::tools::timeout::output_or_kill`) or a cancelled future cannot
+    // leave a pipeline running behind the tool that reported it finished.
+    cmd.kill_on_drop(true);
+    crate::tools::timeout::own_process_group(cmd.as_std_mut());
     cmd
 }
 
@@ -183,6 +189,10 @@ fn build_tokio_command_with(command: &str, pipefail: PipeFail) -> tokio::process
 pub fn build_std_command(command: &str) -> std::process::Command {
     let mut cmd = std::process::Command::new(shell_program());
     configure_shell_args(&mut cmd, command, PipeFail::Surface);
+    // Same contract as the tokio builder: the child leads its own process
+    // group so a deadline can reach the whole pipeline (see
+    // `crate::tools::timeout::kill_process_group`).
+    crate::tools::timeout::own_process_group(&mut cmd);
     cmd
 }
 
