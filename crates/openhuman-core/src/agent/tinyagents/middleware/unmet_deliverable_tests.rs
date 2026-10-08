@@ -154,7 +154,7 @@ async fn an_unwritten_deliverable_holds_the_answer_once_and_permits_a_fix() {
             .with_max_tool_calls(20),
         ..RunPolicy::default()
     });
-    harness.push_middleware(Arc::new(UnmetDeliverableMiddleware::new()));
+    harness.push_middleware(Arc::new(UnmetDeliverableMiddleware::new(None)));
 
     let run = harness
         .invoke_default(&(), vec![Message::user(request)])
@@ -195,7 +195,7 @@ async fn a_request_naming_no_missing_file_is_left_alone() {
         limits: RunLimits::default().with_max_model_calls(20),
         ..RunPolicy::default()
     });
-    harness.push_middleware(Arc::new(UnmetDeliverableMiddleware::new()));
+    harness.push_middleware(Arc::new(UnmetDeliverableMiddleware::new(None)));
 
     let run = harness
         .invoke_default(&(), vec![Message::user("summarise the situation for me")])

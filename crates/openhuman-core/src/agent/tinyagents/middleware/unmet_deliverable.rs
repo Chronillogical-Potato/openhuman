@@ -239,12 +239,16 @@ fn append_note(result: &mut TaToolResult, note: &str) {
 /// file that nothing has created. See the module docs.
 pub(crate) struct UnmetDeliverableMiddleware {
     runs: Mutex<HashMap<u64, RunState>>,
+    /// The turn\'s wall-clock budget, handed over at construction like the
+    /// other time-note middlewares: the run context does not carry it.
+    budget: Option<std::time::Duration>,
 }
 
 impl UnmetDeliverableMiddleware {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(budget: Option<std::time::Duration>) -> Self {
         Self {
             runs: Mutex::default(),
+            budget,
         }
     }
 
@@ -323,7 +327,7 @@ impl<C: Send + Sync> Middleware<(), C> for UnmetDeliverableMiddleware {
         _invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
     ) -> Result<()> {
-        let Some(clock) = TurnClock::of(ctx, None) else {
+        let Some(clock) = TurnClock::of(ctx, self.budget) else {
             return Ok(());
         };
         let Some(band) = clock.band() else {

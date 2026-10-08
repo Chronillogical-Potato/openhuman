@@ -599,7 +599,14 @@ pub(super) fn assemble_turn_harness(
         subagent_scope.is_some(),
         tool_policy.as_ref().map(|p| p.agent_definition_id.as_str()),
     ) {
-        harness.push_middleware(Arc::new(middleware::UnmetDeliverableMiddleware::new()));
+        let turn_budget = harness
+            .policy()
+            .limits
+            .max_wall_clock_ms
+            .map(std::time::Duration::from_millis);
+        harness.push_middleware(Arc::new(middleware::UnmetDeliverableMiddleware::new(
+            turn_budget,
+        )));
     }
 
     // Direct web lookup is bounded. Once enough search/fetch results have
