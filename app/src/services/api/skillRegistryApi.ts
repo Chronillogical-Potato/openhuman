@@ -129,14 +129,70 @@ export function isInstallable(entry: CatalogEntry): boolean {
   return entry.installable ?? Boolean(entry.download_url);
 }
 
-interface RegistryInstallResult {
+export type ScanVerdict = 'pass' | 'warn' | 'block';
+
+/** One supply-chain scan finding, worded for the user. */
+export interface ScanFinding {
+  check: string;
+  verdict: ScanVerdict;
+  field: string;
+  message: string;
+}
+
+/** An install the supply-chain scan refused: nothing was written. */
+export interface ScanBlocked {
+  target: string;
+  fetchedFrom: string;
+  slug: string;
+  findings: ScanFinding[];
+  message: string;
+}
+
+export interface RawScanBlocked {
+  status: 'scan_blocked';
+  target?: string;
+  fetched_from?: string;
+  slug?: string;
+  findings?: ScanFinding[];
+  message?: string;
+}
+
+export function normalizeScanBlocked(raw: RawScanBlocked): ScanBlocked {
+  return {
+    target: raw.target ?? '',
+    fetchedFrom: raw.fetched_from ?? '',
+    slug: raw.slug ?? '',
+    findings: raw.findings ?? [],
+    message: raw.message ?? '',
+  };
+}
+
+export function isScanBlocked(raw: unknown): raw is RawScanBlocked {
+  return (
+    Boolean(raw) &&
+    typeof raw === 'object' &&
+    (raw as { status?: unknown }).status === 'scan_blocked'
+  );
+}
+
+export interface RegistryInstallResult {
   url: string;
   stdout: string;
   stderr: string;
   newSkills: string[];
 }
 
+export type RegistryInstallOutcome =
+  | ({ status: 'installed' } & RegistryInstallResult)
+  | { status: 'scan_blocked'; scan: ScanBlocked };
+
+export interface InstallOptions {
+  /** Set only after the user chose "Install anyway" on the scan findings. */
+  acknowledgeScanFindings?: boolean;
+}
+
 interface RawRegistryInstallResult {
+  status?: 'installed';
   url: string;
   stdout: string;
   stderr: string;
@@ -250,17 +306,27 @@ export const skillRegistryApi = {
     return result.categories;
   },
 
-  install: async (entryId: string): Promise<RegistryInstallResult> => {
-    log('install: entryId=%s', entryId);
+  install: async (
+    entryId: string,
+    options: InstallOptions = {}
+  ): Promise<RegistryInstallOutcome> => {
+    const acknowledge = Boolean(options.acknowledgeScanFindings);
+    log('install: entryId=%s acknowledge=%s', entryId, acknowledge);
+    const params: Record<string, unknown> = { entry_id: entryId };
+    if (acknowledge) params.acknowledge_scan_findings = true;
     const response = await callCoreRpc<
-      Envelope<RawRegistryInstallResult> | RawRegistryInstallResult
-    >({
-      method: 'openhuman.skill_registry_install',
-      params: { entry_id: entryId },
-      timeoutMs: INSTALL_RPC_TIMEOUT_MS,
-    });
+      | Envelope<RawRegistryInstallResult | RawScanBlocked>
+      | RawRegistryInstallResult
+      | RawScanBlocked
+    >({ method: 'openhuman.skill_registry_install', params, timeoutMs: INSTALL_RPC_TIMEOUT_MS });
     const raw = unwrap(response);
-    const result: RegistryInstallResult = {
+    if (isScanBlocked(raw)) {
+      const scan = normalizeScanBlocked(raw);
+      log('install: scan_blocked findings=%d', scan.findings.length);
+      return { status: 'scan_blocked', scan };
+    }
+    const result: RegistryInstallOutcome = {
+      status: 'installed',
       url: raw.url,
       stdout: raw.stdout,
       stderr: raw.stderr,

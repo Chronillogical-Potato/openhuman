@@ -2,6 +2,12 @@ import debug from 'debug';
 
 import { trackAnalyticsEvent } from '../analytics';
 import { callCoreRpc } from '../coreRpcClient';
+import {
+  isScanBlocked,
+  normalizeScanBlocked,
+  type RawScanBlocked,
+  type ScanBlocked,
+} from './skillRegistryApi';
 
 const log = debug('skillsApi');
 
@@ -147,6 +153,8 @@ interface RawWorkflowsCreateResult {
 interface InstallWorkflowFromUrlInput {
   url: string;
   timeoutSecs?: number;
+  /** Set only after the user chose "Install anyway" on the scan findings. */
+  acknowledgeScanFindings?: boolean;
 }
 
 /**
@@ -165,7 +173,12 @@ export interface InstallWorkflowFromUrlResult {
   newWorkflows: string[];
 }
 
+export type InstallWorkflowFromUrlOutcome =
+  | ({ status: 'installed' } & InstallWorkflowFromUrlResult)
+  | { status: 'scan_blocked'; scan: ScanBlocked };
+
 interface RawInstallWorkflowFromUrlResult {
+  status?: 'installed';
   url: string;
   stdout: string;
   stderr: string;
@@ -381,19 +394,29 @@ export const skillsApi = {
    */
   installWorkflowFromUrl: async (
     input: InstallWorkflowFromUrlInput
-  ): Promise<InstallWorkflowFromUrlResult> => {
-    log('installWorkflowFromUrl: request url=%s', input.url);
+  ): Promise<InstallWorkflowFromUrlOutcome> => {
+    const acknowledge = Boolean(input.acknowledgeScanFindings);
+    log('installWorkflowFromUrl: request url=%s acknowledge=%s', input.url, acknowledge);
     const response = await callCoreRpc<
-      Envelope<RawInstallWorkflowFromUrlResult> | RawInstallWorkflowFromUrlResult
+      | Envelope<RawInstallWorkflowFromUrlResult | RawScanBlocked>
+      | RawInstallWorkflowFromUrlResult
+      | RawScanBlocked
     >({
       method: 'openhuman.skills_install_from_url',
       params: {
         url: input.url,
         ...(input.timeoutSecs !== undefined ? { timeout_secs: input.timeoutSecs } : {}),
+        ...(acknowledge ? { acknowledge_scan_findings: true } : {}),
       },
     });
     const raw = unwrapEnvelope(response);
-    const normalized: InstallWorkflowFromUrlResult = {
+    if (isScanBlocked(raw)) {
+      const scan = normalizeScanBlocked(raw);
+      log('installWorkflowFromUrl: scan_blocked findings=%d', scan.findings.length);
+      return { status: 'scan_blocked', scan };
+    }
+    const normalized: InstallWorkflowFromUrlOutcome = {
+      status: 'installed',
       url: raw.url,
       stdout: raw.stdout,
       stderr: raw.stderr,

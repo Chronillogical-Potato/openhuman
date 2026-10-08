@@ -26,7 +26,36 @@ describe('skillRegistryApi', () => {
       // Locating a skills.sh skill plus the 60s fetch outlasts the default 30s.
       timeoutMs: 120_000,
     });
-    expect(result.newSkills).toEqual(['demo']);
+    expect(result).toMatchObject({ status: 'installed', newSkills: ['demo'] });
+  });
+
+  it('returns scan_blocked and sends the acknowledgement only when asked', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({
+      status: 'scan_blocked',
+      target: 'demo',
+      fetched_from: 'https://example.com/SKILL.md',
+      slug: 'demo',
+      findings: [{ check: 'hardcoded_credential', verdict: 'block', field: 'body', message: 'm' }],
+      message: 'blocked',
+    });
+    const blocked = await skillRegistryApi.install('demo');
+    expect(blocked.status).toBe('scan_blocked');
+    expect(blocked.status === 'scan_blocked' && blocked.scan.findings).toHaveLength(1);
+    expect(mockCallCoreRpc.mock.calls[0][0].params).toEqual({ entry_id: 'demo' });
+
+    mockCallCoreRpc.mockResolvedValueOnce({
+      status: 'installed',
+      url: 'u',
+      stdout: '',
+      stderr: '',
+      new_skills: ['demo'],
+    });
+    const installed = await skillRegistryApi.install('demo', { acknowledgeScanFindings: true });
+    expect(installed.status).toBe('installed');
+    expect(mockCallCoreRpc.mock.calls[1][0].params).toEqual({
+      entry_id: 'demo',
+      acknowledge_scan_findings: true,
+    });
   });
 
   it('calls skill_registry_uninstall and normalizes removed_path', async () => {
@@ -106,7 +135,7 @@ describe('skillRegistryApi', () => {
 
     const result = await skillRegistryApi.install('demo');
 
-    expect(result.newSkills).toEqual([]);
+    expect(result).toMatchObject({ newSkills: [] });
   });
 
   it('browsePage asks browse for an empty query and normalizes the page', async () => {
