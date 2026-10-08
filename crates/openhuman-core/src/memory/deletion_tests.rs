@@ -107,3 +107,16 @@ async fn a_blank_thread_id_queues_nothing() {
     assert_eq!(forget_thread(&config, "  ").await, 0);
     assert!(pending(&config.workspace_dir).is_empty());
 }
+
+#[cfg(unix)]
+#[test]
+fn the_pending_queue_is_owner_only() {
+    use std::os::unix::fs::PermissionsExt;
+    let tmp = tempfile::tempdir().unwrap();
+    enqueue(tmp.path(), thread("t"));
+    let mode = std::fs::metadata(path(tmp.path()))
+        .unwrap()
+        .permissions()
+        .mode();
+    assert_eq!(mode & 0o077, 0, "{mode:o}");
+}

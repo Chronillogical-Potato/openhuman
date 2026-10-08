@@ -87,7 +87,7 @@ fn read(workspace_dir: &Path) -> Vec<PendingDeletion> {
     })
 }
 
-/// Writes through a temporary file and a rename, so a stop mid-write never
+/// Writes (owner-only, like the other memory files) through a temporary file and a rename, so a stop mid-write never
 /// leaves a partial file and loses the queue.
 fn write(workspace_dir: &Path, all: &[PendingDeletion]) {
     let file = path(workspace_dir);
@@ -102,10 +102,10 @@ fn write(workspace_dir: &Path, all: &[PendingDeletion]) {
     let temp = file.with_extension("json.tmp");
     let result = file
         .parent()
-        .map_or(Ok(()), std::fs::create_dir_all)
+        .map_or(Ok(()), super::files::create_private_dir_all)
         .and_then(|()| {
             let json = serde_json::to_vec_pretty(all).map_err(std::io::Error::other)?;
-            std::fs::write(&temp, json)?;
+            super::files::write_private(&temp, &json)?;
             std::fs::rename(&temp, &file)
         });
     if let Err(error) = result {
