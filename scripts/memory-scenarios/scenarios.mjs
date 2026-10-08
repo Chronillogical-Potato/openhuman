@@ -618,16 +618,24 @@ const qa = {
   async run(ctx) {
     const { check } = ctx;
     // I1: a belief build stores something (manual run bypasses the gate).
-    const jobs = await ctx.tryRpc("openhuman.memory_jobs_run", {}, 300_000);
-    ctx.results.jobs_run = jobs.ok ? jobs.value : { error: jobs.error };
-    if (!jobs.ok)
-      check("I1-jobs-run", false, "memory_jobs_run answers", jobs.error);
-    else
+    // Local only: on the real account it would consolidate the account's own
+    // memory, which a run must never do.
+    if (ctx.engine === "builtin") {
       ctx.note(
-        "I1-jobs-run",
-        `memory_jobs_run: ${JSON.stringify(jobs.value).slice(0, 400)}`,
+        "I1-skipped",
+        "belief builds are not run on the real account (they would consolidate its own memory)",
       );
-
+    } else {
+      const jobs = await ctx.tryRpc("openhuman.memory_jobs_run", {}, 300_000);
+      ctx.results.jobs_run = jobs.ok ? jobs.value : { error: jobs.error };
+      if (!jobs.ok)
+        check("I1-jobs-run", false, "memory_jobs_run answers", jobs.error);
+      else
+        ctx.note(
+          "I1-jobs-run",
+          `memory_jobs_run: ${JSON.stringify(jobs.value).slice(0, 400)}`,
+        );
+    }
     // I2: past-conversations backfill state.
     const bf = await ctx.tryRpc(
       "openhuman.memory_conversations_backfill_status",
