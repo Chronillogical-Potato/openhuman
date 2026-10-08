@@ -107,11 +107,6 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
     apikey: t('memoryPage.engine.apiKeyOption.title'),
     selfhost: t('memoryPage.engine.selfHost.title'),
   };
-  const descriptions: Record<EngineOption, string> = {
-    builtin: t('memoryPage.engine.builtin.cardDescription'),
-    apikey: t('memoryPage.engine.apiKeyOption.cardDescription'),
-    selfhost: t('memoryPage.engine.selfHost.cardDescription'),
-  };
 
   const select = useCallback(
     async (option: EngineOption, req: EngineSetRequest): Promise<boolean> => {
@@ -232,7 +227,6 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
         <MemoryConnectionPanel
           key={selected}
           option={selected}
-          description={descriptions[selected]}
           state={state}
           active={selected === active}
           signedIn={signedIn}

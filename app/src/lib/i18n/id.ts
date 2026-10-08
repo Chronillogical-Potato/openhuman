@@ -5092,8 +5092,10 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.selfhost': 'Lokal',
   'memoryPage.engine.fairUse.summary': 'Berlaku penggunaan wajar',
   'memoryPage.engine.offPrompt': 'Pilih penyedia di bawah untuk mulai mengingat.',
-  'memoryPage.engine.builtin.summaryPlan': 'Dihosting oleh TinyHumans, dengan memori tanpa batas di paket {plan} Anda.',
-  'memoryPage.engine.builtin.summaryUpgrade': 'Dihosting oleh TinyHumans. Memori tanpa batas di paket Basic dan Pro.',
+  'memoryPage.engine.builtin.summaryPlan':
+    'Dihosting oleh TinyHumans, dengan memori tanpa batas di paket {plan} Anda.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'Dihosting oleh TinyHumans. Memori tanpa batas di paket Basic dan Pro.',
   'memoryPage.engine.fairUse.own': 'Serap konten Anda sendiri, untuk penggunaan sendiri.',
   'memoryPage.engine.fairUse.noAbuse':
     'Tanpa unggahan massal otomatis, scraping, atau penyerapan atas nama orang atau layanan lain.',

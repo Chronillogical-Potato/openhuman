@@ -5167,8 +5167,10 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.selfhost': 'Local',
   'memoryPage.engine.fairUse.summary': 'Usage raisonnable',
   'memoryPage.engine.offPrompt': 'Choisissez un fournisseur ci-dessous pour commencer à mémoriser.',
-  'memoryPage.engine.builtin.summaryPlan': 'Hébergé par TinyHumans, avec une mémoire illimitée sur votre forfait {plan}.',
-  'memoryPage.engine.builtin.summaryUpgrade': 'Hébergé par TinyHumans. Mémoire illimitée avec les forfaits Basic et Pro.',
+  'memoryPage.engine.builtin.summaryPlan':
+    'Hébergé par TinyHumans, avec une mémoire illimitée sur votre forfait {plan}.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'Hébergé par TinyHumans. Mémoire illimitée avec les forfaits Basic et Pro.',
   'memoryPage.engine.fairUse.own': 'Ingérez votre propre contenu, pour votre propre usage.',
   'memoryPage.engine.fairUse.noAbuse':
     'Pas d’envois massifs automatisés, de scraping ni d’ingestion pour le compte d’autres personnes ou services.',

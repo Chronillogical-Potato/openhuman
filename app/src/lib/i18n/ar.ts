@@ -4959,8 +4959,10 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.selfhost': 'محلي',
   'memoryPage.engine.fairUse.summary': 'يسري الاستخدام العادل',
   'memoryPage.engine.offPrompt': 'اختر مزوّدًا أدناه لبدء التذكّر.',
-  'memoryPage.engine.builtin.summaryPlan': 'مستضاف لدى TinyHumans، مع ذاكرة غير محدودة في خطة {plan}.',
-  'memoryPage.engine.builtin.summaryUpgrade': 'مستضاف لدى TinyHumans. ذاكرة غير محدودة في خطتَي Basic وPro.',
+  'memoryPage.engine.builtin.summaryPlan':
+    'مستضاف لدى TinyHumans، مع ذاكرة غير محدودة في خطة {plan}.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'مستضاف لدى TinyHumans. ذاكرة غير محدودة في خطتَي Basic وPro.',
   'memoryPage.engine.fairUse.own': 'أدخل محتواك الخاص لاستخدامك الشخصي.',
   'memoryPage.engine.fairUse.noAbuse':
     'لا رفع جماعي آلي ولا كشط ولا إدخال نيابةً عن أشخاص أو خدمات أخرى.',
