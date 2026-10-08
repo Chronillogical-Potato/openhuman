@@ -5123,22 +5123,26 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'Scegli un fornitore di memoria per iniziare a ricordare.',
   'memoryPage.off.action': 'Scegli un fornitore',
   'memoryPage.engine.inUse': 'In uso',
-  'memoryPage.announcement.title': "Memoria gratuita su CortexDB",
+  'memoryPage.announcement.title': 'Memoria gratuita su CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex è stato ritirato il 7 ott.',
-  'memoryPage.announcement.highlight': "Migrazione gratuita, e l'inferenza della memoria non viene mai addebitata.",
-  'memoryPage.announcement.rest': "Basic include 1 GB di memoria e Pro 20 GB. È più veloce e intelligente, e i tuoi dati non vengono mai usati per l’addestramento.",
+  'memoryPage.announcement.highlight':
+    "Migrazione gratuita, e l'inferenza della memoria non viene mai addebitata.",
+  'memoryPage.announcement.rest':
+    'Basic include 1 GB di memoria e Pro 20 GB. È più veloce e intelligente, e i tuoi dati non vengono mai usati per l’addestramento.',
   'memoryPage.announcement.dismiss': 'Chiudi',
   'memoryPage.engine.cortex.description':
     'Motore di memoria con richiamo ordinato e risposte fondate.',
   'memoryPage.engine.chip.label': 'Come connettere CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': "Gratis",
+  'memoryPage.engine.chip.free': 'Gratis',
   'memoryPage.engine.chip.apikey': 'La tua chiave CortexDB',
   'memoryPage.engine.chip.selfhost': 'Locale',
-  'memoryPage.engine.fairUse.summary': "Alla memoria gratuita si applica un uso equo",
+  'memoryPage.engine.fairUse.summary': 'Alla memoria gratuita si applica un uso equo',
   'memoryPage.engine.offPrompt': 'Scegli un fornitore qui sotto per iniziare a ricordare.',
-  'memoryPage.engine.builtin.summaryPlan': "Ospitata da TinyHumans: {storage} di memoria gratuita con il tuo piano {plan}. L'inferenza della memoria non viene mai addebitata.",
-  'memoryPage.engine.builtin.summaryUpgrade': "Ospitata da TinyHumans: memoria gratuita con Basic (1 GB) e Pro (20 GB). L'inferenza della memoria non viene mai addebitata.",
+  'memoryPage.engine.builtin.summaryPlan':
+    "Ospitata da TinyHumans: {storage} di memoria gratuita con il tuo piano {plan}. L'inferenza della memoria non viene mai addebitata.",
+  'memoryPage.engine.builtin.summaryUpgrade':
+    "Ospitata da TinyHumans: memoria gratuita con Basic (1 GB) e Pro (20 GB). L'inferenza della memoria non viene mai addebitata.",
   'memoryPage.engine.apiKeyOption.connected': 'Connesso con la tua chiave API di CortexDB.',
   'memoryPage.engine.selfHost.connected': 'Connesso a CortexDB su {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Acquisisci i tuoi contenuti, per uso personale.',

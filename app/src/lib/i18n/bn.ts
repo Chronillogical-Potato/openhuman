@@ -5044,22 +5044,26 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'মনে রাখা শুরু করতে একটি মেমোরি প্রদানকারী বেছে নিন।',
   'memoryPage.off.action': 'প্রদানকারী বেছে নিন',
   'memoryPage.engine.inUse': 'ব্যবহৃত হচ্ছে',
-  'memoryPage.announcement.title': "CortexDB-তে বিনামূল্যে মেমরি",
+  'memoryPage.announcement.title': 'CortexDB-তে বিনামূল্যে মেমরি',
   'memoryPage.announcement.retired': 'TinyCortex ৭ অক্টোবর অবসরে গেছে।',
-  'memoryPage.announcement.highlight': "বিনামূল্যে মাইগ্রেশন, আর মেমরি ইনফারেন্সের জন্য কখনো চার্জ করা হয় না।",
-  'memoryPage.announcement.rest': "Basic-এ 1 GB এবং Pro-তে 20 GB মেমরি অন্তর্ভুক্ত। এটি দ্রুত ও আরও স্মার্ট, আর আপনার ডেটা কখনো প্রশিক্ষণে ব্যবহার হয় না।",
+  'memoryPage.announcement.highlight':
+    'বিনামূল্যে মাইগ্রেশন, আর মেমরি ইনফারেন্সের জন্য কখনো চার্জ করা হয় না।',
+  'memoryPage.announcement.rest':
+    'Basic-এ 1 GB এবং Pro-তে 20 GB মেমরি অন্তর্ভুক্ত। এটি দ্রুত ও আরও স্মার্ট, আর আপনার ডেটা কখনো প্রশিক্ষণে ব্যবহার হয় না।',
   'memoryPage.announcement.dismiss': 'বন্ধ করুন',
   'memoryPage.engine.cortex.description':
     'র‍্যাঙ্ক করা রিকল ও প্রমাণভিত্তিক উত্তরসহ মেমোরি ইঞ্জিন।',
   'memoryPage.engine.chip.label': 'CortexDB কীভাবে সংযুক্ত করবেন',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': "বিনামূল্যে",
+  'memoryPage.engine.chip.free': 'বিনামূল্যে',
   'memoryPage.engine.chip.apikey': 'আপনার CortexDB কী',
   'memoryPage.engine.chip.selfhost': 'লোকাল',
-  'memoryPage.engine.fairUse.summary': "বিনামূল্যে মেমরিতে ন্যায্য ব্যবহার প্রযোজ্য",
+  'memoryPage.engine.fairUse.summary': 'বিনামূল্যে মেমরিতে ন্যায্য ব্যবহার প্রযোজ্য',
   'memoryPage.engine.offPrompt': 'মনে রাখা শুরু করতে নিচে একটি প্রদানকারী বেছে নিন।',
-  'memoryPage.engine.builtin.summaryPlan': "TinyHumans দ্বারা হোস্ট করা: আপনার {plan} প্ল্যানে {storage} বিনামূল্যে মেমরি। মেমরি ইনফারেন্সের জন্য কখনো চার্জ করা হয় না।",
-  'memoryPage.engine.builtin.summaryUpgrade': "TinyHumans দ্বারা হোস্ট করা: Basic (1 GB) ও Pro (20 GB)-তে বিনামূল্যে মেমরি। মেমরি ইনফারেন্সের জন্য কখনো চার্জ করা হয় না।",
+  'memoryPage.engine.builtin.summaryPlan':
+    'TinyHumans দ্বারা হোস্ট করা: আপনার {plan} প্ল্যানে {storage} বিনামূল্যে মেমরি। মেমরি ইনফারেন্সের জন্য কখনো চার্জ করা হয় না।',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'TinyHumans দ্বারা হোস্ট করা: Basic (1 GB) ও Pro (20 GB)-তে বিনামূল্যে মেমরি। মেমরি ইনফারেন্সের জন্য কখনো চার্জ করা হয় না।',
   'memoryPage.engine.apiKeyOption.connected': 'আপনার CortexDB API কী দিয়ে সংযুক্ত।',
   'memoryPage.engine.selfHost.connected': '{endpoint}-এ CortexDB-র সঙ্গে সংযুক্ত।',
   'memoryPage.engine.fairUse.own': 'নিজের কনটেন্ট, নিজের ব্যবহারের জন্য যোগ করুন।',

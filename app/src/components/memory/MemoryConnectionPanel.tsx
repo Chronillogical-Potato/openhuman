@@ -62,11 +62,15 @@ export interface MemoryConnectionPanelProps {
   onSubmit: () => void;
 }
 
+/** Free hosted memory per plan; memory inference itself is never charged. */
+const MEMORY_QUOTA = { BASIC: '1 GB', PRO: '20 GB' } as const;
+
 /**
  * One way to connect CortexDB, shown under its chip on Memory → Provider: what
  * it is, what it needs (nothing via TinyHumans, a key for your own account, an
  * endpoint and key for Local), its action, and via TinyHumans one line on
- * who hosts it and the plan's unlimited memory, with the fair-use terms.
+ * who hosts it, the plan's free memory quota (Basic 1 GB, Pro 20 GB; memory
+ * inference is never charged), with the fair-use terms.
  */
 export default function MemoryConnectionPanel({
   option,
@@ -126,10 +130,9 @@ export default function MemoryConnectionPanel({
       <p className="text-xs leading-relaxed text-content-secondary">
         <span data-testid="memory-engine-builtin-note">
           {plan === 'BASIC' || plan === 'PRO'
-            ? t('memoryPage.engine.builtin.summaryPlan').replace(
-                '{plan}',
-                plan === 'PRO' ? 'Pro' : 'Basic'
-              )
+            ? t('memoryPage.engine.builtin.summaryPlan')
+                .replace('{plan}', plan === 'PRO' ? 'Pro' : 'Basic')
+                .replace('{storage}', MEMORY_QUOTA[plan])
             : t('memoryPage.engine.builtin.summaryUpgrade')}
         </span>
         <PopoverRoot>

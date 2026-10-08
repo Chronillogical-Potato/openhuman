@@ -5159,22 +5159,26 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'Choisissez un fournisseur de mémoire pour commencer à mémoriser.',
   'memoryPage.off.action': 'Choisir un fournisseur',
   'memoryPage.engine.inUse': 'Utilisé',
-  'memoryPage.announcement.title': "Mémoire gratuite sur CortexDB",
+  'memoryPage.announcement.title': 'Mémoire gratuite sur CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex a été retiré le 7 oct.',
-  'memoryPage.announcement.highlight': "Migration gratuite, et l'inférence de la mémoire n'est jamais facturée.",
-  'memoryPage.announcement.rest': "Basic inclut 1 Go de mémoire et Pro 20 Go. Elle est plus rapide et plus intelligente, et vos données ne servent jamais à l'entraînement.",
+  'memoryPage.announcement.highlight':
+    "Migration gratuite, et l'inférence de la mémoire n'est jamais facturée.",
+  'memoryPage.announcement.rest':
+    "Basic inclut 1 Go de mémoire et Pro 20 Go. Elle est plus rapide et plus intelligente, et vos données ne servent jamais à l'entraînement.",
   'memoryPage.announcement.dismiss': 'Fermer',
   'memoryPage.engine.cortex.description':
     'Moteur de mémoire avec rappel classé et réponses sourcées.',
   'memoryPage.engine.chip.label': 'Comment connecter CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': "Gratuit",
+  'memoryPage.engine.chip.free': 'Gratuit',
   'memoryPage.engine.chip.apikey': 'Votre clé CortexDB',
   'memoryPage.engine.chip.selfhost': 'Local',
   'memoryPage.engine.fairUse.summary': "Une utilisation équitable s'applique à la mémoire gratuite",
   'memoryPage.engine.offPrompt': 'Choisissez un fournisseur ci-dessous pour commencer à mémoriser.',
-  'memoryPage.engine.builtin.summaryPlan': "Hébergée par TinyHumans : {storage} de mémoire gratuite avec votre forfait {plan}. L'inférence de la mémoire n'est jamais facturée.",
-  'memoryPage.engine.builtin.summaryUpgrade': "Hébergée par TinyHumans : mémoire gratuite avec Basic (1 Go) et Pro (20 Go). L'inférence de la mémoire n'est jamais facturée.",
+  'memoryPage.engine.builtin.summaryPlan':
+    "Hébergée par TinyHumans : {storage} de mémoire gratuite avec votre forfait {plan}. L'inférence de la mémoire n'est jamais facturée.",
+  'memoryPage.engine.builtin.summaryUpgrade':
+    "Hébergée par TinyHumans : mémoire gratuite avec Basic (1 Go) et Pro (20 Go). L'inférence de la mémoire n'est jamais facturée.",
   'memoryPage.engine.apiKeyOption.connected': 'Connecté avec votre clé d’API CortexDB.',
   'memoryPage.engine.selfHost.connected': 'Connecté à CortexDB sur {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Ingérez votre propre contenu, pour votre propre usage.',

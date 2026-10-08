@@ -118,7 +118,7 @@ describe('MemoryEngineTab', () => {
       'aria-selected',
       'true'
     );
-    expect(within(card).getByText('Unlimited')).toBeInTheDocument();
+    expect(within(card).getByText('Free')).toBeInTheDocument();
     expect(screen.getByTestId('memory-engine-panel-builtin')).toBeInTheDocument();
     // Nothing configured: no status badge, no chip marked in use.
     expect(screen.queryByTestId('memory-engine-status')).not.toBeInTheDocument();
@@ -227,11 +227,11 @@ describe('MemoryEngineTab', () => {
       expect(hoisted.toastAdd).not.toHaveBeenCalled();
     });
 
-    it('says who hosts it and the plan’s unlimited memory in one line, with fair-use terms', () => {
+    it('says who hosts it and the Pro plan’s free memory in one line, with fair-use terms', () => {
       hoisted.plan = 'PRO';
       renderTab(BUILTIN_ON);
       expect(screen.getByTestId('memory-engine-builtin-note')).toHaveTextContent(
-        'Hosted by TinyHumans, with unlimited memory on your Pro plan.'
+        'Hosted by TinyHumans: 20 GB of free memory on your Pro plan. Memory inference is never charged.'
       );
       // Fair use sits behind an info icon.
       expect(screen.queryByTestId('memory-engine-fair-use')).not.toBeInTheDocument();
@@ -243,11 +243,19 @@ describe('MemoryEngineTab', () => {
       expect(hoisted.openUrl).toHaveBeenCalledWith('https://tinyhumans.ai/terms');
     });
 
+    it('gives the Basic plan 1 GB of free memory', () => {
+      hoisted.plan = 'BASIC';
+      renderTab(BUILTIN_ON);
+      expect(screen.getByTestId('memory-engine-builtin-note')).toHaveTextContent(
+        'Hosted by TinyHumans: 1 GB of free memory on your Basic plan. Memory inference is never charged.'
+      );
+    });
+
     it('points free plans at Basic and Pro', () => {
       hoisted.plan = 'FREE';
       renderTab();
       expect(screen.getByTestId('memory-engine-builtin-note')).toHaveTextContent(
-        'Hosted by TinyHumans. Unlimited memory on Basic and Pro plans.'
+        'Hosted by TinyHumans: free memory on Basic (1 GB) and Pro (20 GB). Memory inference is never charged.'
       );
     });
   });

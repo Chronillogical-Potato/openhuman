@@ -27,11 +27,12 @@ describe('MemoryCortexAnnouncement', () => {
   it('announces the move to CortexDB until dismissed, and stays dismissed', async () => {
     const { unmount } = renderWithProviders(<MemoryCortexAnnouncement />);
     const banner = await screen.findByTestId('memory-cortex-announcement');
-    expect(banner).toHaveTextContent('Unlimited Memory on CortexDB');
+    expect(banner).toHaveTextContent('Free Memory on CortexDB');
+    expect(banner).toHaveTextContent('Basic includes 1 GB of memory and Pro includes 20 GB.');
     expect(banner).toHaveTextContent('TinyCortex');
     expect(banner).toHaveTextContent('never used for training');
     expect(screen.getByTestId('memory-cortex-announcement-highlight')).toHaveTextContent(
-      'Free migration and unlimited usage on CortexDB.'
+      'Free migration, and memory inference is never charged.'
     );
 
     fireEvent.click(screen.getByTestId('memory-cortex-announcement-dismiss'));

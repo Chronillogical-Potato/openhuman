@@ -4963,20 +4963,24 @@ const messages: TranslationMap = {
   'memoryPage.engine.inUse': 'Kullanımda',
   'memoryPage.announcement.title': "CortexDB'de ücretsiz bellek",
   'memoryPage.announcement.retired': 'TinyCortex 7 Ekim’de kullanımdan kaldırıldı.',
-  'memoryPage.announcement.highlight': "Ücretsiz taşıma; bellek çıkarımı hiçbir zaman ücretlendirilmez.",
-  'memoryPage.announcement.rest': "Basic 1 GB, Pro ise 20 GB bellek içerir. Daha hızlı ve daha akıllıdır; verileriniz asla eğitim için kullanılmaz.",
+  'memoryPage.announcement.highlight':
+    'Ücretsiz taşıma; bellek çıkarımı hiçbir zaman ücretlendirilmez.',
+  'memoryPage.announcement.rest':
+    'Basic 1 GB, Pro ise 20 GB bellek içerir. Daha hızlı ve daha akıllıdır; verileriniz asla eğitim için kullanılmaz.',
   'memoryPage.announcement.dismiss': 'Kapat',
   'memoryPage.engine.cortex.description':
     'Sıralı geri çağırma ve kaynaklı yanıtlar sunan bellek motoru.',
   'memoryPage.engine.chip.label': 'CortexDB nasıl bağlanır',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': "Ücretsiz",
+  'memoryPage.engine.chip.free': 'Ücretsiz',
   'memoryPage.engine.chip.apikey': 'CortexDB anahtarın',
   'memoryPage.engine.chip.selfhost': 'Yerel',
-  'memoryPage.engine.fairUse.summary': "Ücretsiz bellek için adil kullanım geçerlidir",
+  'memoryPage.engine.fairUse.summary': 'Ücretsiz bellek için adil kullanım geçerlidir',
   'memoryPage.engine.offPrompt': 'Hatırlamaya başlamak için aşağıdan bir sağlayıcı seç.',
-  'memoryPage.engine.builtin.summaryPlan': "TinyHumans tarafından barındırılır: {plan} planınızda {storage} ücretsiz bellek. Bellek çıkarımı hiçbir zaman ücretlendirilmez.",
-  'memoryPage.engine.builtin.summaryUpgrade': "TinyHumans tarafından barındırılır: Basic (1 GB) ve Pro (20 GB) planlarında ücretsiz bellek. Bellek çıkarımı hiçbir zaman ücretlendirilmez.",
+  'memoryPage.engine.builtin.summaryPlan':
+    'TinyHumans tarafından barındırılır: {plan} planınızda {storage} ücretsiz bellek. Bellek çıkarımı hiçbir zaman ücretlendirilmez.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'TinyHumans tarafından barındırılır: Basic (1 GB) ve Pro (20 GB) planlarında ücretsiz bellek. Bellek çıkarımı hiçbir zaman ücretlendirilmez.',
   'memoryPage.engine.apiKeyOption.connected': 'CortexDB API anahtarınızla bağlandı.',
   'memoryPage.engine.selfHost.connected': '{endpoint} adresindeki CortexDB’ye bağlandı.',
   'memoryPage.engine.fairUse.own': 'Kendi içeriğini, kendi kullanımın için aktar.',

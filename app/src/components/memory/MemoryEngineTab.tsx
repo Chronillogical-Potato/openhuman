@@ -4,8 +4,9 @@
  *
  * - TinyHumans (`builtin`, the default): the `tinyhumans` engine, the
  *   TinyHumans backend's `/memory/*` API (CortexDB hosted per account),
- *   authenticated by sign-in. Free; Basic and Pro plans ingest at no extra
- *   cost under the fair-use terms the panel states. Signed out (or on a local
+ *   authenticated by sign-in. Free: Basic includes 1 GB of memory and Pro
+ *   20 GB, memory inference is never charged, and the fair-use terms the
+ *   panel states apply. Signed out (or on a local
  *   session) it cannot be selected.
  * - Your API key (`apikey`): the `cortexdb` engine on CortexDB's managed API.
  *   The endpoint is fixed; only the key is entered.

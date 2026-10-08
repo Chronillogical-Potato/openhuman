@@ -5084,22 +5084,26 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'Pilih penyedia memori untuk mulai mengingat.',
   'memoryPage.off.action': 'Pilih penyedia',
   'memoryPage.engine.inUse': 'Digunakan',
-  'memoryPage.announcement.title': "Memori gratis di CortexDB",
+  'memoryPage.announcement.title': 'Memori gratis di CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex dipensiunkan pada 7 Okt.',
-  'memoryPage.announcement.highlight': "Migrasi gratis, dan inferensi memori tidak pernah dikenai biaya.",
-  'memoryPage.announcement.rest': "Basic mencakup 1 GB memori dan Pro mencakup 20 GB. Lebih cepat dan lebih cerdas, dan data Anda tidak pernah dipakai untuk pelatihan.",
+  'memoryPage.announcement.highlight':
+    'Migrasi gratis, dan inferensi memori tidak pernah dikenai biaya.',
+  'memoryPage.announcement.rest':
+    'Basic mencakup 1 GB memori dan Pro mencakup 20 GB. Lebih cepat dan lebih cerdas, dan data Anda tidak pernah dipakai untuk pelatihan.',
   'memoryPage.announcement.dismiss': 'Tutup',
   'memoryPage.engine.cortex.description':
     'Mesin memori dengan pemanggilan berperingkat dan jawaban berdasar.',
   'memoryPage.engine.chip.label': 'Cara menghubungkan CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': "Gratis",
+  'memoryPage.engine.chip.free': 'Gratis',
   'memoryPage.engine.chip.apikey': 'Kunci CortexDB Anda',
   'memoryPage.engine.chip.selfhost': 'Lokal',
-  'memoryPage.engine.fairUse.summary': "Penggunaan wajar berlaku untuk memori gratis",
+  'memoryPage.engine.fairUse.summary': 'Penggunaan wajar berlaku untuk memori gratis',
   'memoryPage.engine.offPrompt': 'Pilih penyedia di bawah untuk mulai mengingat.',
-  'memoryPage.engine.builtin.summaryPlan': "Dihosting oleh TinyHumans: {storage} memori gratis di paket {plan} Anda. Inferensi memori tidak pernah dikenai biaya.",
-  'memoryPage.engine.builtin.summaryUpgrade': "Dihosting oleh TinyHumans: memori gratis di Basic (1 GB) dan Pro (20 GB). Inferensi memori tidak pernah dikenai biaya.",
+  'memoryPage.engine.builtin.summaryPlan':
+    'Dihosting oleh TinyHumans: {storage} memori gratis di paket {plan} Anda. Inferensi memori tidak pernah dikenai biaya.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'Dihosting oleh TinyHumans: memori gratis di Basic (1 GB) dan Pro (20 GB). Inferensi memori tidak pernah dikenai biaya.',
   'memoryPage.engine.apiKeyOption.connected': 'Terhubung dengan kunci API CortexDB Anda.',
   'memoryPage.engine.selfHost.connected': 'Terhubung ke CortexDB di {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Serap konten Anda sendiri, untuk penggunaan sendiri.',
