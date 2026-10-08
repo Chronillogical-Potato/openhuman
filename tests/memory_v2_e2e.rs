@@ -7,6 +7,7 @@
 //!
 //! - engines: list / get / set, the off state, and the structured error codes;
 //! - learn -> items_list -> fetch -> recall -> forget on the hosted engine;
+//! - erase_all: the whole hosted memory in one `DELETE /memory`;
 //! - conversations settings;
 //! - sources: add a folder, sync it, read its items back, remove it;
 //! - context.md: refresh / get / set;
@@ -955,6 +956,59 @@ async fn the_agent_learn_returns_on_accept_and_recall_finds_it() {
         assert!(Instant::now() < deadline, "never listed: {listed}");
         tokio::time::sleep(Duration::from_millis(250)).await;
     }
+}
+
+#[tokio::test]
+async fn erase_all_needs_confirmation_and_erases_the_whole_hosted_memory() {
+    let f = Fixture::new(true).await;
+    f.learn("a fact about tea").await;
+    f.learn("a fact about coffee").await;
+    let before = f
+        .ok(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["learning"] } }),
+        )
+        .await;
+    assert_eq!(ids_of(&before, "items").len(), 2, "{before}");
+
+    // Without its interlock nothing is sent and nothing is erased.
+    let skip = f.mock.request_rows().await.len();
+    assert_eq!(
+        f.code("openhuman.memory_erase_all", json!({})).await,
+        "INVALID_REQUEST"
+    );
+    assert_eq!(
+        f.code("openhuman.memory_erase_all", json!({ "confirm": false }))
+            .await,
+        "INVALID_REQUEST"
+    );
+    let deletes = |paths: Vec<String>| {
+        paths
+            .into_iter()
+            .filter(|p| p.starts_with("DELETE /memory"))
+            .count()
+    };
+    assert_eq!(deletes(f.mock.request_paths().await[skip..].to_vec()), 0);
+
+    let erased = f
+        .ok("openhuman.memory_erase_all", json!({ "confirm": true }))
+        .await;
+    assert!(
+        erased["erased_scopes"].as_u64().is_some_and(|n| n >= 1),
+        "{erased}"
+    );
+    assert_eq!(deletes(f.mock.request_paths().await[skip..].to_vec()), 1);
+    let after = f
+        .ok(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["learning"] } }),
+        )
+        .await;
+    assert_eq!(after["items"], json!([]), "{after}");
+    let refetch = f
+        .ok("openhuman.memory_fetch", json!({ "query": "coffee" }))
+        .await;
+    assert_eq!(refetch["hits"], json!([]));
 }
 
 #[tokio::test]
@@ -1919,6 +1973,7 @@ async fn memory_v2_registers_exactly_the_documented_methods() {
         "fetch",
         "learn",
         "forget",
+        "erase_all",
         "items_list",
         "explore",
         "items_get",
