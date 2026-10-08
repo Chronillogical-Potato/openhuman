@@ -416,7 +416,7 @@ export class Findings {
       actual:
         typeof actual === "string"
           ? actual
-          : JSON.stringify(actual)?.slice(0, 600),
+          : (JSON.stringify(actual) ?? String(actual)).slice(0, 600),
       evidence,
       basis,
     });

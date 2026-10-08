@@ -106,7 +106,10 @@ export const connectors = {
     const edited = await waitFor(
       async () => {
         const g = byToolkit(await composioItems(), "gmail");
-        return g.some((h) => (h.text ?? "").includes("31st")) ? g : null;
+        return g.some((h) => (h.text ?? "").includes("31st")) &&
+          !g.some((h) => (h.text ?? "").includes("30th at 7pm"))
+          ? g
+          : null;
       },
       {
         timeoutMs: 120_000,
@@ -135,6 +138,24 @@ export const connectors = {
       connection_id: composio.connectionId("gmail"),
       clear_memory: true,
     });
+    if (
+      !del.ok &&
+      /not available over the direct route/i.test(JSON.stringify(del.error))
+    ) {
+      ctx.note(
+        "D3-D4-untestable",
+        "disconnect-with-clear is not available over Composio's direct route (the mock's mode), so D3 and D4 could not run here; they need the backend route",
+      );
+      for (const id of Object.values(added))
+        if (id)
+          await ctx.tryRpc("openhuman.memory_sources_remove", {
+            id,
+            forget_items: true,
+          });
+      await ctx.setConfigToml("memory", { observed_actor: false });
+      await ctx.restartCore();
+      return;
+    }
     check(
       "D3-disconnect",
       del.ok,

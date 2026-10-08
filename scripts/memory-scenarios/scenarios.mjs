@@ -479,9 +479,12 @@ const sourceCap = {
         pv.error,
       );
     const pack = pv.value?.pack ?? {};
-    const refs = JSON.stringify(pack.refs ?? pack.sections ?? []);
-    const read = sources.filter(
-      (s) => lc(refs).includes(`source:${s}`) || lc(refs).includes(`"${s}"`),
+    // Sources are on the section hits' namespaces (`refs` holds item ids).
+    const namespaces = (pack.sections ?? []).flatMap((s) =>
+      (s.hits ?? []).map((h) => String(h.meta?.namespace ?? "")),
+    );
+    const read = sources.filter((s) =>
+      namespaces.some((ns) => ns.startsWith(`source:${s}`)),
     );
     ctx.results.source_cap = {
       sources_seen_in_pack: read,

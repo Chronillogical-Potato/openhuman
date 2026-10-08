@@ -136,6 +136,20 @@ export const migration = {
       imported,
     );
 
+    // On a self-hosted CortexDB the legacy tree counts as shared: the move
+    // waits for the takeover dialog's consent (by design). Give it, as the
+    // user confirming the dialog would.
+    const gate = await status();
+    if (mscan?.shared) {
+      check(
+        "E2b-waits-for-consent",
+        !gate.running && pick(gate, "state.phase") !== "cleaned",
+        "a shared tree is not moved without consent",
+        gate,
+        "high",
+      );
+      await ctx.rpc("openhuman.memory_migration_start", { takeover: true });
+    }
     // Organizing starts on its own; try to stop the core mid-move.
     let restarted = false;
     const deadline = Date.now() + 600_000;
