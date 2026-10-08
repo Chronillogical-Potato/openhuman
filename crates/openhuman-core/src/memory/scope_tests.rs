@@ -171,8 +171,14 @@ fn layout_v3_pools_every_agents_chats_at_ws_main() {
 
 #[test]
 fn a_roots_actor_is_its_user_spelling() {
-    assert_eq!(actor_of_root("org:6512ab0f6512ab0f6512ab0f"), "user:6512ab0f6512ab0f6512ab0f");
-    assert_eq!(actor_of_root("org:local-0011223344556677"), "user:local-0011223344556677");
+    assert_eq!(
+        actor_of_root("org:6512ab0f6512ab0f6512ab0f"),
+        "user:6512ab0f6512ab0f6512ab0f"
+    );
+    assert_eq!(
+        actor_of_root("org:local-0011223344556677"),
+        "user:local-0011223344556677"
+    );
     // The actor of the earlier root is the same account.
     assert_eq!(
         actor_of_root(&user_root_for("local-megamind-macbook").unwrap()),

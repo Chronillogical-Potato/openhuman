@@ -333,7 +333,10 @@ fn legacy_user_segment_read_is_on_by_default_and_written_only_when_off() {
         ..config
     };
     let written = toml::to_string(&off).unwrap();
-    assert!(written.contains("legacy_user_segment_read = false"), "{written}");
+    assert!(
+        written.contains("legacy_user_segment_read = false"),
+        "{written}"
+    );
     let read: crate::config::MemoryConfig = toml::from_str("").unwrap();
     assert!(read.legacy_user_segment_read);
 }

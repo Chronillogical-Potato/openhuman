@@ -229,7 +229,10 @@ const ROOT_TYPE: &str = "org";
 /// names.
 #[must_use]
 pub fn actor_of_root(root: &str) -> String {
-    match root.strip_prefix(ROOT_TYPE).and_then(|rest| rest.strip_prefix(':')) {
+    match root
+        .strip_prefix(ROOT_TYPE)
+        .and_then(|rest| rest.strip_prefix(':'))
+    {
         Some(id) => format!("user:{id}"),
         None => root.to_string(),
     }
