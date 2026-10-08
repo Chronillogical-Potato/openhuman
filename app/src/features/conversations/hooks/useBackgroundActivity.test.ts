@@ -36,14 +36,7 @@ function fixtures() {
   mockSources.mockResolvedValue({
     sources: [
       { id: 's1', kind: 'folder', target: '/notes', label: 'Inbox', status: 'syncing', items: 3 },
-      {
-        id: 's2',
-        kind: 'file',
-        target: '/notes/todo.md',
-        label: '',
-        status: 'idle',
-        items: 0,
-      },
+      { id: 's2', kind: 'file', target: '/notes/todo.md', label: '', status: 'idle', items: 0 },
     ],
   });
 }

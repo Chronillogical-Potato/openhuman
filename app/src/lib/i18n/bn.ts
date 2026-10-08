@@ -5093,7 +5093,8 @@ const messages: TranslationMap = {
   'memoryPage.sourceStatus.syncing': 'সিঙ্ক হচ্ছে',
   'memoryPage.sourceStatus.error': 'ত্রুটি',
   'memoryPage.tabs.brain': 'ফাইল',
-  'memoryPage.header.brain': 'এই ডিভাইস থেকে মেমরি যে ফাইলগুলো সিঙ্ক করে, এবং আপনি নিজে যে নথি যোগ করেন।',
+  'memoryPage.header.brain':
+    'এই ডিভাইস থেকে মেমরি যে ফাইলগুলো সিঙ্ক করে, এবং আপনি নিজে যে নথি যোগ করেন।',
   'memoryPage.learnings.builtBelief': 'তৈরি বিশ্বাস',
   'memoryPage.conversations.logTitle': 'কথোপকথনের লগ',
   'memoryPage.conversations.logDescription':

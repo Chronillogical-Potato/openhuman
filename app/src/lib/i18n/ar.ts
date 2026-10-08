@@ -4997,7 +4997,8 @@ const messages: TranslationMap = {
   'memoryPage.sourceStatus.syncing': 'جارٍ المزامنة',
   'memoryPage.sourceStatus.error': 'خطأ',
   'memoryPage.tabs.brain': 'الملفات',
-  'memoryPage.header.brain': 'الملفات التي تزامنها الذاكرة من هذا الجهاز، والمستندات التي تضيفها يدويًا.',
+  'memoryPage.header.brain':
+    'الملفات التي تزامنها الذاكرة من هذا الجهاز، والمستندات التي تضيفها يدويًا.',
   'memoryPage.learnings.builtBelief': 'المعتقد المبني',
   'memoryPage.conversations.logTitle': 'سجل المحادثات',
   'memoryPage.conversations.logDescription':

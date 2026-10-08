@@ -5131,7 +5131,8 @@ const messages: TranslationMap = {
   'memoryPage.sourceStatus.syncing': 'Menyinkronkan',
   'memoryPage.sourceStatus.error': 'Kesalahan',
   'memoryPage.tabs.brain': 'File',
-  'memoryPage.header.brain': 'File yang disinkronkan memori dari perangkat ini, dan dokumen yang Anda tambahkan sendiri.',
+  'memoryPage.header.brain':
+    'File yang disinkronkan memori dari perangkat ini, dan dokumen yang Anda tambahkan sendiri.',
   'memoryPage.learnings.builtBelief': 'Keyakinan yang dibuat',
   'memoryPage.conversations.logTitle': 'Log percakapan',
   'memoryPage.conversations.logDescription':

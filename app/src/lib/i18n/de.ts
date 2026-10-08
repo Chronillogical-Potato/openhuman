@@ -5234,7 +5234,8 @@ const messages: TranslationMap = {
   'memoryPage.sourceStatus.syncing': 'Synchronisiert',
   'memoryPage.sourceStatus.error': 'Fehler',
   'memoryPage.tabs.brain': 'Dateien',
-  'memoryPage.header.brain': 'Dateien, die der Speicher von diesem Gerät synchronisiert, und Dokumente, die du von Hand hinzufügst.',
+  'memoryPage.header.brain':
+    'Dateien, die der Speicher von diesem Gerät synchronisiert, und Dokumente, die du von Hand hinzufügst.',
   'memoryPage.learnings.builtBelief': 'Aufgebaute Überzeugung',
   'memoryPage.conversations.logTitle': 'Gesprächsprotokoll',
   'memoryPage.conversations.logDescription':
