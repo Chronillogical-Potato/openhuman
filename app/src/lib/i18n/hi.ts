@@ -5049,7 +5049,7 @@ const messages: TranslationMap = {
   'memoryPage.announcement.highlight':
     'मुफ़्त माइग्रेशन, और मेमोरी इन्फ़रेंस का कभी शुल्क नहीं लिया जाता।',
   'memoryPage.announcement.rest':
-    'Basic में 1 GB और Pro में 20 GB मेमोरी शामिल है। यह तेज़ और ज़्यादा स्मार्ट है, और आपका डेटा कभी ट्रेनिंग के लिए इस्तेमाल नहीं होता।',
+    'Basic में 1 GB और Pro में 20 GB मेमोरी स्टोरेज शामिल है। यह तेज़ और ज़्यादा स्मार्ट है, और आपका डेटा कभी ट्रेनिंग के लिए इस्तेमाल नहीं होता।',
   'memoryPage.announcement.dismiss': 'बंद करें',
   'memoryPage.engine.cortex.description': 'रैंक की गई रिकॉल और प्रमाणित जवाबों वाला मेमोरी इंजन।',
   'memoryPage.engine.chip.label': 'CortexDB कैसे कनेक्ट करें',
@@ -5058,8 +5058,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.apikey': 'आपकी CortexDB कुंजी',
   'memoryPage.engine.chip.selfhost': 'लोकल',
   'memoryPage.engine.fairUse.summary': 'मुफ़्त मेमोरी इन्फ़रेंस के बारे में',
-  'memoryPage.engine.quota.plan': 'आपके {plan} प्लान में {storage} मेमोरी शामिल है।',
-  'memoryPage.engine.quota.all': 'Basic में 1 GB और Pro में 20 GB मेमोरी शामिल है।',
+  'memoryPage.engine.quota.plan': 'आपके {plan} प्लान में {storage} मेमोरी स्टोरेज शामिल है।',
+  'memoryPage.engine.quota.all': 'Basic में 1 GB और Pro में 20 GB मेमोरी स्टोरेज शामिल है।',
   'memoryPage.engine.quota.inference': 'मेमोरी इन्फ़रेंस का कभी शुल्क नहीं लिया जाता।',
   'memoryPage.engine.fairUse.heading': 'उचित उपयोग',
   'memoryPage.engine.offPrompt': 'याद रखना शुरू करने के लिए नीचे एक प्रदाता चुनें।',

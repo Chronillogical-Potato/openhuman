@@ -238,7 +238,7 @@ describe('MemoryEngineTab', () => {
       fireEvent.click(screen.getByTestId('memory-engine-fair-use-trigger'));
       const terms = screen.getByTestId('memory-engine-fair-use');
       expect(screen.getByTestId('memory-engine-quota')).toHaveTextContent(
-        'Your Pro plan includes 20 GB of memory.'
+        'Your Pro plan includes 20 GB of memory storage.'
       );
       expect(terms).toHaveTextContent('Memory inference is never charged.');
       expect(terms).toHaveTextContent('Fair use');
@@ -255,7 +255,7 @@ describe('MemoryEngineTab', () => {
       );
       fireEvent.click(screen.getByTestId('memory-engine-fair-use-trigger'));
       expect(screen.getByTestId('memory-engine-quota')).toHaveTextContent(
-        'Your Basic plan includes 1 GB of memory.'
+        'Your Basic plan includes 1 GB of memory storage.'
       );
     });
 
@@ -267,7 +267,7 @@ describe('MemoryEngineTab', () => {
       );
       fireEvent.click(screen.getByTestId('memory-engine-fair-use-trigger'));
       expect(screen.getByTestId('memory-engine-quota')).toHaveTextContent(
-        'Basic includes 1 GB of memory and Pro includes 20 GB.'
+        'Basic includes 1 GB of memory storage and Pro includes 20 GB.'
       );
     });
   });

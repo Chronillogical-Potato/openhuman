@@ -4957,7 +4957,7 @@ const messages: TranslationMap = {
   'memoryPage.announcement.highlight':
     'ترحيل مجاني، ولا يتم احتساب أي رسوم على استدلال الذاكرة أبدًا.',
   'memoryPage.announcement.rest':
-    'تتضمن خطة Basic مساحة 1 غيغابايت من الذاكرة وخطة Pro مساحة 20 غيغابايت. إنها أسرع وأذكى، ولا تُستخدم بياناتك أبدًا للتدريب.',
+    'تتضمن خطة Basic مساحة تخزين للذاكرة قدرها 1 غيغابايت وخطة Pro قدرها 20 غيغابايت. إنها أسرع وأذكى، ولا تُستخدم بياناتك أبدًا للتدريب.',
   'memoryPage.announcement.dismiss': 'إغلاق',
   'memoryPage.engine.cortex.description': 'محرك ذاكرة باسترجاع مرتّب وإجابات موثّقة.',
   'memoryPage.engine.chip.label': 'طريقة ربط CortexDB',
@@ -4966,8 +4966,9 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.apikey': 'مفتاح CortexDB الخاص بك',
   'memoryPage.engine.chip.selfhost': 'محلي',
   'memoryPage.engine.fairUse.summary': 'حول استدلال الذاكرة المجاني',
-  'memoryPage.engine.quota.plan': 'تتضمن خطة {plan} مساحة {storage} من الذاكرة.',
-  'memoryPage.engine.quota.all': 'تتضمن Basic مساحة 1 غيغابايت من الذاكرة وPro مساحة 20 غيغابايت.',
+  'memoryPage.engine.quota.plan': 'تتضمن خطة {plan} مساحة تخزين للذاكرة قدرها {storage}.',
+  'memoryPage.engine.quota.all':
+    'تتضمن Basic مساحة تخزين للذاكرة قدرها 1 غيغابايت وPro قدرها 20 غيغابايت.',
   'memoryPage.engine.quota.inference': 'لا يتم احتساب رسوم على استدلال الذاكرة أبدًا.',
   'memoryPage.engine.fairUse.heading': 'الاستخدام العادل',
   'memoryPage.engine.offPrompt': 'اختر مزوّدًا أدناه لبدء التذكّر.',

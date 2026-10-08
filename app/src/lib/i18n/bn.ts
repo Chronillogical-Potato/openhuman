@@ -5049,7 +5049,7 @@ const messages: TranslationMap = {
   'memoryPage.announcement.highlight':
     'বিনামূল্যে মাইগ্রেশন, আর মেমরি ইনফারেন্সের জন্য কখনো চার্জ করা হয় না।',
   'memoryPage.announcement.rest':
-    'Basic-এ 1 GB এবং Pro-তে 20 GB মেমরি অন্তর্ভুক্ত। এটি দ্রুত ও আরও স্মার্ট, আর আপনার ডেটা কখনো প্রশিক্ষণে ব্যবহার হয় না।',
+    'Basic-এ 1 GB এবং Pro-তে 20 GB মেমরি স্টোরেজ অন্তর্ভুক্ত। এটি দ্রুত ও আরও স্মার্ট, আর আপনার ডেটা কখনো প্রশিক্ষণে ব্যবহার হয় না।',
   'memoryPage.announcement.dismiss': 'বন্ধ করুন',
   'memoryPage.engine.cortex.description':
     'র‍্যাঙ্ক করা রিকল ও প্রমাণভিত্তিক উত্তরসহ মেমোরি ইঞ্জিন।',
@@ -5059,8 +5059,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.apikey': 'আপনার CortexDB কী',
   'memoryPage.engine.chip.selfhost': 'লোকাল',
   'memoryPage.engine.fairUse.summary': 'বিনামূল্যে মেমরি ইনফারেন্স সম্পর্কে',
-  'memoryPage.engine.quota.plan': 'আপনার {plan} প্ল্যানে {storage} মেমরি অন্তর্ভুক্ত।',
-  'memoryPage.engine.quota.all': 'Basic-এ 1 GB এবং Pro-তে 20 GB মেমরি অন্তর্ভুক্ত।',
+  'memoryPage.engine.quota.plan': 'আপনার {plan} প্ল্যানে {storage} মেমরি স্টোরেজ অন্তর্ভুক্ত।',
+  'memoryPage.engine.quota.all': 'Basic-এ 1 GB এবং Pro-তে 20 GB মেমরি স্টোরেজ অন্তর্ভুক্ত।',
   'memoryPage.engine.quota.inference': 'মেমরি ইনফারেন্সের জন্য কখনো চার্জ করা হয় না।',
   'memoryPage.engine.fairUse.heading': 'ন্যায্য ব্যবহার',
   'memoryPage.engine.offPrompt': 'মনে রাখা শুরু করতে নিচে একটি প্রদানকারী বেছে নিন।',

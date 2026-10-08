@@ -5190,7 +5190,7 @@ const messages: TranslationMap = {
   'memoryPage.announcement.highlight':
     'Kostenlose Migration, und Gedächtnis-Inferenz wird nie berechnet.',
   'memoryPage.announcement.rest':
-    'Basic enthält 1 GB Gedächtnis, Pro 20 GB. Es ist schneller und intelligenter, und deine Daten werden nie zum Training verwendet.',
+    'Basic enthält 1 GB Gedächtnisspeicher, Pro 20 GB. Es ist schneller und intelligenter, und deine Daten werden nie zum Training verwendet.',
   'memoryPage.announcement.dismiss': 'Schließen',
   'memoryPage.engine.cortex.description':
     'Gedächtnis-Engine mit gewichtetem Abruf und belegten Antworten.',
@@ -5200,8 +5200,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.apikey': 'Dein CortexDB-Schlüssel',
   'memoryPage.engine.chip.selfhost': 'Lokal',
   'memoryPage.engine.fairUse.summary': 'Über kostenlose Gedächtnis-Inferenz',
-  'memoryPage.engine.quota.plan': 'Dein {plan}-Tarif enthält {storage} Gedächtnis.',
-  'memoryPage.engine.quota.all': 'Basic enthält 1 GB Gedächtnis, Pro 20 GB.',
+  'memoryPage.engine.quota.plan': 'Dein {plan}-Tarif enthält {storage} Gedächtnisspeicher.',
+  'memoryPage.engine.quota.all': 'Basic enthält 1 GB Gedächtnisspeicher, Pro 20 GB.',
   'memoryPage.engine.quota.inference': 'Gedächtnis-Inferenz wird nie berechnet.',
   'memoryPage.engine.fairUse.heading': 'Fair Use',
   'memoryPage.engine.offPrompt': 'Wähle unten einen Anbieter, damit dein Assistent sich erinnert.',

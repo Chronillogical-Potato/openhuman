@@ -5003,7 +5003,7 @@ const messages: TranslationMap = {
   'memoryPage.announcement.highlight':
     '무료 마이그레이션, 메모리 추론에는 요금이 부과되지 않습니다.',
   'memoryPage.announcement.rest':
-    'Basic은 1GB, Pro는 20GB 메모리를 제공합니다. 더 빠르고 똑똑하며, 데이터는 절대 학습에 사용되지 않습니다.',
+    'Basic은 1GB, Pro는 20GB 메모리 저장 공간을 제공합니다. 더 빠르고 똑똑하며, 데이터는 절대 학습에 사용되지 않습니다.',
   'memoryPage.announcement.dismiss': '닫기',
   'memoryPage.engine.cortex.description': '순위 기반 회상과 근거 있는 답변을 제공하는 메모리 엔진.',
   'memoryPage.engine.chip.label': 'CortexDB 연결 방법',
@@ -5012,8 +5012,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.apikey': '내 CortexDB 키',
   'memoryPage.engine.chip.selfhost': '로컬',
   'memoryPage.engine.fairUse.summary': '무료 메모리 추론 안내',
-  'memoryPage.engine.quota.plan': '{plan} 요금제에는 {storage} 메모리가 포함됩니다.',
-  'memoryPage.engine.quota.all': 'Basic은 1GB, Pro는 20GB 메모리를 제공합니다.',
+  'memoryPage.engine.quota.plan': '{plan} 요금제에는 {storage} 메모리 저장 공간이 포함됩니다.',
+  'memoryPage.engine.quota.all': 'Basic은 1GB, Pro는 20GB 메모리 저장 공간을 제공합니다.',
   'memoryPage.engine.quota.inference': '메모리 추론에는 요금이 부과되지 않습니다.',
   'memoryPage.engine.fairUse.heading': '공정 사용',
   'memoryPage.engine.offPrompt': '아래에서 제공자를 선택하면 기억을 시작합니다.',

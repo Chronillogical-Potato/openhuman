@@ -28,7 +28,9 @@ describe('MemoryCortexAnnouncement', () => {
     const { unmount } = renderWithProviders(<MemoryCortexAnnouncement />);
     const banner = await screen.findByTestId('memory-cortex-announcement');
     expect(banner).toHaveTextContent('Free Memory Inference on CortexDB');
-    expect(banner).toHaveTextContent('Basic includes 1 GB of memory and Pro includes 20 GB.');
+    expect(banner).toHaveTextContent(
+      'Basic includes 1 GB of memory storage and Pro includes 20 GB.'
+    );
     expect(banner).toHaveTextContent('TinyCortex');
     expect(banner).toHaveTextContent('never used for training');
     expect(screen.getByTestId('memory-cortex-announcement-highlight')).toHaveTextContent(

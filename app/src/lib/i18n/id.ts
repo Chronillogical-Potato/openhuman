@@ -5089,7 +5089,7 @@ const messages: TranslationMap = {
   'memoryPage.announcement.highlight':
     'Migrasi gratis, dan inferensi memori tidak pernah dikenai biaya.',
   'memoryPage.announcement.rest':
-    'Basic mencakup 1 GB memori dan Pro mencakup 20 GB. Lebih cepat dan lebih cerdas, dan data Anda tidak pernah dipakai untuk pelatihan.',
+    'Basic mencakup 1 GB penyimpanan memori dan Pro mencakup 20 GB. Lebih cepat dan lebih cerdas, dan data Anda tidak pernah dipakai untuk pelatihan.',
   'memoryPage.announcement.dismiss': 'Tutup',
   'memoryPage.engine.cortex.description':
     'Mesin memori dengan pemanggilan berperingkat dan jawaban berdasar.',
@@ -5099,8 +5099,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.apikey': 'Kunci CortexDB Anda',
   'memoryPage.engine.chip.selfhost': 'Lokal',
   'memoryPage.engine.fairUse.summary': 'Tentang inferensi memori gratis',
-  'memoryPage.engine.quota.plan': 'Paket {plan} Anda mencakup {storage} memori.',
-  'memoryPage.engine.quota.all': 'Basic mencakup 1 GB memori dan Pro mencakup 20 GB.',
+  'memoryPage.engine.quota.plan': 'Paket {plan} Anda mencakup {storage} penyimpanan memori.',
+  'memoryPage.engine.quota.all': 'Basic mencakup 1 GB penyimpanan memori dan Pro mencakup 20 GB.',
   'memoryPage.engine.quota.inference': 'Inferensi memori tidak pernah dikenai biaya.',
   'memoryPage.engine.fairUse.heading': 'Penggunaan wajar',
   'memoryPage.engine.offPrompt': 'Pilih penyedia di bawah untuk mulai mengingat.',

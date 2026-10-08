@@ -5364,7 +5364,7 @@ const messages: TranslationMap = {
   'memoryPage.announcement.retired': 'TinyCortex は 10 月 7 日に廃止されました。',
   'memoryPage.announcement.highlight': '移行は無料、メモリの推論に料金はかかりません。',
   'memoryPage.announcement.rest':
-    'Basic は 1 GB、Pro は 20 GB のメモリ付き。より速く賢く、データが学習に使われることはありません。',
+    'Basic は 1 GB、Pro は 20 GB のメモリストレージ付き。より速く賢く、データが学習に使われることはありません。',
   'memoryPage.announcement.dismiss': '閉じる',
   'memoryPage.engine.cortex.description':
     'ランク付きの想起と根拠のある回答を備えたメモリエンジン。',
@@ -5374,8 +5374,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.apikey': '自分の CortexDB キー',
   'memoryPage.engine.chip.selfhost': 'ローカル',
   'memoryPage.engine.fairUse.summary': '無料のメモリ推論について',
-  'memoryPage.engine.quota.plan': '{plan} プランには {storage} のメモリが含まれます。',
-  'memoryPage.engine.quota.all': 'Basic は 1 GB、Pro は 20 GB のメモリ付き。',
+  'memoryPage.engine.quota.plan': '{plan} プランには {storage} のメモリストレージが含まれます。',
+  'memoryPage.engine.quota.all': 'Basic は 1 GB、Pro は 20 GB のメモリストレージ付き。',
   'memoryPage.engine.quota.inference': 'メモリの推論に料金はかかりません。',
   'memoryPage.engine.fairUse.heading': 'フェアユース',
   'memoryPage.engine.offPrompt': '下のプロバイダーを選ぶと記憶を始めます。',

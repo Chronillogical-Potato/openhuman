@@ -4966,7 +4966,7 @@ const messages: TranslationMap = {
   'memoryPage.announcement.highlight':
     'Ücretsiz taşıma; bellek çıkarımı hiçbir zaman ücretlendirilmez.',
   'memoryPage.announcement.rest':
-    'Basic 1 GB, Pro ise 20 GB bellek içerir. Daha hızlı ve daha akıllıdır; verileriniz asla eğitim için kullanılmaz.',
+    'Basic 1 GB, Pro ise 20 GB bellek depolama alanı içerir. Daha hızlı ve daha akıllıdır; verileriniz asla eğitim için kullanılmaz.',
   'memoryPage.announcement.dismiss': 'Kapat',
   'memoryPage.engine.cortex.description':
     'Sıralı geri çağırma ve kaynaklı yanıtlar sunan bellek motoru.',
@@ -4976,8 +4976,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.apikey': 'CortexDB anahtarın',
   'memoryPage.engine.chip.selfhost': 'Yerel',
   'memoryPage.engine.fairUse.summary': 'Ücretsiz bellek çıkarımı hakkında',
-  'memoryPage.engine.quota.plan': '{plan} planınız {storage} bellek içerir.',
-  'memoryPage.engine.quota.all': 'Basic 1 GB, Pro ise 20 GB bellek içerir.',
+  'memoryPage.engine.quota.plan': '{plan} planınız {storage} bellek depolama alanı içerir.',
+  'memoryPage.engine.quota.all': 'Basic 1 GB, Pro ise 20 GB bellek depolama alanı içerir.',
   'memoryPage.engine.quota.inference': 'Bellek çıkarımı hiçbir zaman ücretlendirilmez.',
   'memoryPage.engine.fairUse.heading': 'Adil kullanım',
   'memoryPage.engine.offPrompt': 'Hatırlamaya başlamak için aşağıdan bir sağlayıcı seç.',

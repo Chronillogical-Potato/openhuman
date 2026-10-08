@@ -5116,7 +5116,7 @@ const messages: TranslationMap = {
   'memoryPage.announcement.highlight':
     'Darmowa migracja, a wnioskowanie pamięci nigdy nie jest płatne.',
   'memoryPage.announcement.rest':
-    'Basic obejmuje 1 GB pamięci, a Pro 20 GB. Jest szybsza i mądrzejsza, a Twoje dane nigdy nie są używane do trenowania.',
+    'Basic obejmuje 1 GB miejsca na pamięć, a Pro 20 GB. Jest szybsza i mądrzejsza, a Twoje dane nigdy nie są używane do trenowania.',
   'memoryPage.announcement.dismiss': 'Zamknij',
   'memoryPage.engine.cortex.description':
     'Silnik pamięci z rankingiem wyników i ugruntowanymi odpowiedziami.',
@@ -5126,8 +5126,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.apikey': 'Twój klucz CortexDB',
   'memoryPage.engine.chip.selfhost': 'Lokalnie',
   'memoryPage.engine.fairUse.summary': 'O darmowym wnioskowaniu pamięci',
-  'memoryPage.engine.quota.plan': 'Twój plan {plan} obejmuje {storage} pamięci.',
-  'memoryPage.engine.quota.all': 'Basic obejmuje 1 GB pamięci, a Pro 20 GB.',
+  'memoryPage.engine.quota.plan': 'Twój plan {plan} obejmuje {storage} miejsca na pamięć.',
+  'memoryPage.engine.quota.all': 'Basic obejmuje 1 GB miejsca na pamięć, a Pro 20 GB.',
   'memoryPage.engine.quota.inference': 'Wnioskowanie pamięci nigdy nie jest płatne.',
   'memoryPage.engine.fairUse.heading': 'Uczciwe użytkowanie',
   'memoryPage.engine.offPrompt': 'Wybierz dostawcę poniżej, aby zacząć zapamiętywać.',

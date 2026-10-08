@@ -5164,7 +5164,7 @@ const messages: TranslationMap = {
   'memoryPage.announcement.highlight':
     "Migration gratuite, et l'inférence de la mémoire n'est jamais facturée.",
   'memoryPage.announcement.rest':
-    "Basic inclut 1 Go de mémoire et Pro 20 Go. Elle est plus rapide et plus intelligente, et vos données ne servent jamais à l'entraînement.",
+    "Basic inclut 1 Go de stockage de mémoire et Pro 20 Go. Elle est plus rapide et plus intelligente, et vos données ne servent jamais à l'entraînement.",
   'memoryPage.announcement.dismiss': 'Fermer',
   'memoryPage.engine.cortex.description':
     'Moteur de mémoire avec rappel classé et réponses sourcées.',
@@ -5174,8 +5174,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.apikey': 'Votre clé CortexDB',
   'memoryPage.engine.chip.selfhost': 'Local',
   'memoryPage.engine.fairUse.summary': "À propos de l'inférence de mémoire gratuite",
-  'memoryPage.engine.quota.plan': 'Votre forfait {plan} inclut {storage} de mémoire.',
-  'memoryPage.engine.quota.all': 'Basic inclut 1 Go de mémoire et Pro 20 Go.',
+  'memoryPage.engine.quota.plan': 'Votre forfait {plan} inclut {storage} de stockage de mémoire.',
+  'memoryPage.engine.quota.all': 'Basic inclut 1 Go de stockage de mémoire et Pro 20 Go.',
   'memoryPage.engine.quota.inference': "L'inférence de la mémoire n'est jamais facturée.",
   'memoryPage.engine.fairUse.heading': 'Utilisation équitable',
   'memoryPage.engine.offPrompt': 'Choisissez un fournisseur ci-dessous pour commencer à mémoriser.',

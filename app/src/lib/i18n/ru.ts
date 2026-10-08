@@ -5101,7 +5101,7 @@ const messages: TranslationMap = {
   'memoryPage.announcement.highlight':
     'Бесплатная миграция, а за инференс памяти никогда не взимается плата.',
   'memoryPage.announcement.rest':
-    'Basic включает 1 ГБ памяти, а Pro 20 ГБ. Она быстрее и умнее, а ваши данные никогда не используются для обучения.',
+    'Basic включает 1 ГБ хранилища памяти, а Pro 20 ГБ. Она быстрее и умнее, а ваши данные никогда не используются для обучения.',
   'memoryPage.announcement.dismiss': 'Скрыть',
   'memoryPage.engine.cortex.description':
     'Движок памяти с ранжированным поиском и обоснованными ответами.',
@@ -5111,8 +5111,8 @@ const messages: TranslationMap = {
   'memoryPage.engine.chip.apikey': 'Ваш ключ CortexDB',
   'memoryPage.engine.chip.selfhost': 'Локально',
   'memoryPage.engine.fairUse.summary': 'О бесплатном инференсе памяти',
-  'memoryPage.engine.quota.plan': 'Ваш тариф {plan} включает {storage} памяти.',
-  'memoryPage.engine.quota.all': 'Basic включает 1 ГБ памяти, а Pro 20 ГБ.',
+  'memoryPage.engine.quota.plan': 'Ваш тариф {plan} включает {storage} хранилища памяти.',
+  'memoryPage.engine.quota.all': 'Basic включает 1 ГБ хранилища памяти, а Pro 20 ГБ.',
   'memoryPage.engine.quota.inference': 'За инференс памяти плата не взимается.',
   'memoryPage.engine.fairUse.heading': 'Добросовестное использование',
   'memoryPage.engine.offPrompt': 'Выберите провайдера ниже, чтобы начать запоминать.',
