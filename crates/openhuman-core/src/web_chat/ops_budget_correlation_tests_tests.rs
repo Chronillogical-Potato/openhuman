@@ -101,7 +101,7 @@ async fn record_prunes_other_threads_stale_entries() {
     // ...which a later budget event on a DIFFERENT thread sweeps away.
     record_budget_signal(active, BINDING).await;
     {
-        let signals = THREAD_BUDGET_SIGNALS.lock().await;
+        let signals = thread_budget_signals().lock_owned().await;
         assert!(
             !signals.contains_key(abandoned),
             "stale entry should be pruned"
