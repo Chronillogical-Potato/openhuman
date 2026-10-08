@@ -92,14 +92,18 @@ test.describe('Japanese UI locale', () => {
         logs: [],
       },
       'openhuman.memory_engines_list': { result: { engines: [] }, logs: [] },
-      'openhuman.memory_explore': {
+      'openhuman.memory_sources_list': {
         result: {
-          facet: 'kind',
-          buckets: [{ value: 'document', count: 7 }],
-          total: 7,
-          missing: 0,
-          more_buckets: 0,
-          truncated: false,
+          sources: [
+            {
+              id: 'src-1',
+              kind: 'folder',
+              target: '/Users/me/notes',
+              label: 'Notes',
+              status: 'idle',
+              items: 7,
+            },
+          ],
         },
         logs: [],
       },
@@ -137,8 +141,8 @@ test.describe('Japanese UI locale', () => {
     await settings(page, 'pw-japanese-interpolation');
     await browserElements(page).selectLanguage('Language', 'ja');
     await expect.poll(() => persistedBrowserLocale(page)).toBe('ja');
-    await page.goto('/#/connections?tab=brain&brain=explorer');
-    const count = browserElements(page).text('この場所の項目: 7件');
+    await page.goto('/#/connections?tab=brain&brain=brain');
+    const count = browserElements(page).text('7件 · 未同期');
     await expect(count).toBeVisible();
     await count.scrollIntoViewIfNeeded();
     await expect(count).toBeInViewport();
