@@ -747,7 +747,7 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f2': 'Compressione token per allungare il tuo utilizzo',
   'onboarding.runtimeChoice.cloud.f3': 'Un solo abbonamento, tutti i modelli inclusi',
   'onboarding.runtimeChoice.cloud.f4': 'Nessuna chiave API da gestire',
-  'onboarding.runtimeChoice.cloud.f5': 'Configurazione semplice',
+  'onboarding.runtimeChoice.cloud.f5': 'Memoria ospitata, servizi di rete gestiti',
   'onboarding.runtimeChoice.custom.title': 'Esegui personalizzato',
   'onboarding.runtimeChoice.custom.tagline': 'Porta le tue chiavi. Pieno controllo di ciò che usi.',
   'onboarding.runtimeChoice.custom.f1': 'Avrai bisogno di chiavi API per quasi tutto',
@@ -852,7 +852,7 @@ const messages: TranslationMap = {
   'accounts.disconnect': 'Disconnetti',
   'accounts.disconnectClearMemory': 'Elimina anche la memoria da questa fonte',
   'accounts.disconnectClearMemoryHint':
-    'Rimuove definitivamente i frammenti di memoria locale collegati a questa connessione.',
+    'Elimina definitivamente i ricordi salvati da questa connessione.',
   'channels.title': 'Canali',
   'channels.configure': 'Configura canale',
   'channels.setup': 'Configura',
@@ -5385,6 +5385,32 @@ const messages: TranslationMap = {
     "La radice condivisa da tutti gli agenti e l'agente con cui gira questa app.",
   'memoryPage.settings.root': 'Radice',
   'memoryPage.settings.agentId': 'Agente',
+  'memoryPage.settings.eraseTitle': 'Cancella memoria',
+  'memoryPage.settings.eraseAction': 'Cancella tutta la memoria',
+  'memoryPage.settings.eraseDescription':
+    'Elimina definitivamente tutto ciò che OpenHuman ricorda per questo account. L’operazione non può essere annullata.',
+  'memoryPage.settings.eraseConfirmTitle': 'Cancellare tutta la memoria?',
+  'memoryPage.settings.eraseConfirmBody':
+    'Questo elimina definitivamente tutto ciò che OpenHuman ricorda per questo account: ogni fonte collegata, conversazione passata, apprendimento e fatto. Le tue connessioni e impostazioni restano invariate.',
+  'memoryPage.settings.eraseIrreversible':
+    'L’operazione non può essere annullata. La memoria cancellata non può essere recuperata.',
+  'memoryPage.settings.eraseConfirmCheck':
+    'Ho capito che tutta la mia memoria verrà eliminata definitivamente.',
+  'memoryPage.settings.eraseConfirm': 'Cancella tutto',
+  'memoryPage.settings.erasing': 'Cancellazione…',
+  'memoryPage.settings.erasedToast': 'Tutta la memoria è stata cancellata',
+  'memoryPage.settings.erasedToastBody': 'OpenHuman non ricorda più nulla per questo account.',
+  'memoryPage.settings.eraseError.unsupported':
+    'Il tuo servizio di memoria non può ancora cancellare tutta la memoria. Non è stato cancellato nulla.',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'Il tuo account ha esaurito i crediti, quindi al momento la memoria non può essere cancellata. Ricarica e riprova. Non è stato cancellato nulla.',
+  'memoryPage.settings.eraseError.memoryOff':
+    'La memoria è disattivata, quindi non c’è nulla da cancellare.',
+  'memoryPage.settings.eraseError.unavailable':
+    'Non è stato possibile confermare se la memoria è stata cancellata. Potrebbe esserlo; verifica prima di riprovare.',
+  'memoryPage.settings.eraseError.unauthorized':
+    'La tua sessione è scaduta. Accedi di nuovo, poi riprova a cancellare la memoria.',
+  'memoryPage.settings.eraseError.generic': 'Impossibile cancellare la memoria. Riprova.',
   'memoryPage.settings.hostBound':
     "L'app che ospita OpenHuman imposta questi valori, quindi non si possono modificare qui.",
   'memoryPage.import.title': 'Memoria precedente trovata',

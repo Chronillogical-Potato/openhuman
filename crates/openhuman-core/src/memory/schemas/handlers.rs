@@ -12,9 +12,10 @@ use crate::memory::error::{MemoryError, MemoryResult};
 use crate::memory::explore::{self, ExploreParams, ItemsGetParams};
 use crate::memory::lifecycle::views::{self, JobsRunParams, PackPreviewParams, PolicySetParams};
 use crate::memory::types::{
-    EmptyParams, EngineSetParams, FetchParams, ForgetParams, ImportStartParams, ImportStateView,
-    ItemsListParams, LearnParams, RecallParams, SourceAddedView, SourceRemovedView,
-    SourcesAddParams, SourcesListView, SourcesRemoveParams, SourcesSyncParams, SourcesSyncView,
+    EmptyParams, EngineSetParams, EraseAllParams, FetchParams, ForgetParams, ImportStartParams,
+    ImportStateView, ItemsListParams, LearnParams, RecallParams, SourceAddedView,
+    SourceRemovedView, SourcesAddParams, SourcesListView, SourcesRemoveParams, SourcesSyncParams,
+    SourcesSyncView,
 };
 use crate::memory::{backfill, brain, engine, import, layout_migration, ops, sources};
 
@@ -96,6 +97,13 @@ pub(super) fn forget(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let params = parse::<ForgetParams>(params)?;
         finish(ops::forget(&load().await?, params).await)
+    })
+}
+
+pub(super) fn erase_all(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let params = parse::<EraseAllParams>(params)?;
+        finish(ops::erase_all(&load().await?, params).await)
     })
 }
 
