@@ -11,7 +11,7 @@ const PAYLOAD_INLINE_LIMIT_BYTES: usize = 8 * 1024;
 
 pub(crate) fn extract_inline_prompt(def: &AgentDefinition) -> Option<String> {
     match &def.system_prompt {
-        PromptSource::Inline(body) if !body.is_empty() => Some(body.clone()),
+        PromptSource::Inline(body) | PromptSource::Verbatim(body) if !body.is_empty() => Some(body.clone()),
         PromptSource::Dynamic(build) => {
             use crate::agent::prompts::{
                 ConnectedIntegration, PromptContext, PromptTool, ToolCallFormat,

@@ -832,6 +832,7 @@ async fn run_typed_mode(
                 source: std::io::Error::other(e.to_string()),
             })?
         }
+        PromptSource::Verbatim(body) => body.clone(),
         PromptSource::Inline(_) | PromptSource::File { .. } => {
             let archetype_prompt_body = load_prompt_source(&definition.system_prompt, &prompt_ctx)?;
             render_subagent_system_prompt_with_format(
