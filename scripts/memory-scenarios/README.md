@@ -85,15 +85,23 @@ inference, and the report says the recall-quality checks were skipped.
 running it.
 
 - **Nothing of the account's own is moved, erased, imported or consolidated.**
-  Three guards; any failure aborts the builtin run before a scenario starts:
+  Guards; any failure aborts the builtin run before a scenario starts:
   1. the scheduler gate is pre-written **off** in every config the core may
      treat as active (the root, the pre-login `users/local/`, and for a session
      the account's own `users/<subject>/`), and read back from the config the
      core actually activated, so no background job (the layout migration's
      tick, import resume, belief builds) runs on its own;
-  2. the active workspace's layout-migration state is written as done
+  2. **Composio is off** (`[composio] mode = "disabled"`, read back the same
+     way), so no turn can reach the account's connected mail, calendar or
+     repositories;
+  3. the active workspace's layout-migration state is written as done
      (`cleaned`) and read back through `memory_migration_status`;
-  3. no v1 store exists in the throwaway workspace.
+  4. no v1 store exists in the throwaway workspace.
+
+  A builtin turn may call only memory-side tools (`memory`, `resolve_time`,
+  the harness's own bookkeeping). The shell tool has no off switch, so this one
+  detects rather than prevents: the first turn that calls anything else stops
+  every remaining scenario and is reported as a finding.
 
   Migration, import, erase, disconnect-with-clear and belief-build scenarios
   run **local only**. At the end the run asserts the migration state never
@@ -102,9 +110,23 @@ running it.
 - **Everything the run writes is removed.** Each item carries a run marker
   (`thread-<uuid>` threads, a `memscen:<run>` tag); every id it stores is
   recorded; teardown forgets exactly those, plus every item in the run's
-  threads and every item with its tag, then checks each is gone. Survivors are
+  threads and every item with its tag, then checks each id is gone and that
+  the tag and every thread list empty. Survivors are
   reported as a finding. Beliefs the engine derives on its own from the run's
   items cannot be traced back to the run and are not cleaned up.
+- **An empty answer is not taken as clean.** Before the real clean-up, a
+  positive control stores a probe under the run's tag, waits to see it
+  listed, forgets it (`forgotten: 1`) and waits to see it gone. A backend that
+  answers "empty" while degraded fails the control, and the clean-up with it.
+- **The clean-up fails closed.** The ids, threads and marker are written to
+  `<run-dir>/builtin/cleanup.json` before anything is forgotten. Any error
+  listing, forgetting or reading back fails the clean-up (it never reads as
+  "nothing survived") and prints the retry, which boots the same guarded core,
+  runs no scenario and forgets what the file names:
+
+  ```bash
+  node scripts/memory-scenarios/run.mjs --cleanup target/memory-scenarios/<run-id>
+  ```
 
 ## Scenarios
 

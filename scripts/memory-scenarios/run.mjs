@@ -43,6 +43,19 @@ registerLocalOnly(connectors, migration);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..", "..");
 const FIXTURES = path.join(HERE, "fixtures");
+// Tools a builtin turn may call: memory and the harness's own bookkeeping.
+// Anything else (shell, web, connectors, sub-agents) reaches past the test.
+const BUILTIN_TURN_TOOLS = new Set([
+  "memory",
+  "resolve_time",
+  "todo",
+  "goal_complete",
+  "tool_search",
+  "juice_retrieve",
+  "juice_find",
+  "juice_extract",
+  "juice_summarize",
+]);
 
 function parseArgs(argv) {
   const opts = {
@@ -50,6 +63,7 @@ function parseArgs(argv) {
     engine: "both",
     keep: false,
     gradeOnly: "",
+    cleanup: "",
     coreBin: path.join(REPO, "target", "debug", "openhuman-core"),
     runRoot: path.join(REPO, "target", "memory-scenarios"),
     settleMs: 4000,
@@ -61,7 +75,10 @@ function parseArgs(argv) {
     else if (a === "--engine") opts.engine = next();
     else if (a === "--keep") opts.keep = true;
     else if (a === "--grade-only") opts.gradeOnly = next();
-    else if (a === "--core-bin") opts.coreBin = next();
+    else if (a === "--cleanup") {
+      opts.cleanup = next();
+      opts.engine = "builtin";
+    } else if (a === "--core-bin") opts.coreBin = next();
     else if (a === "--settle-ms") opts.settleMs = Number(next());
     else if (a === "--help" || a === "-h") {
       console.log(
@@ -153,7 +170,15 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
   let home = path.join(dir, "home");
   const oh = path.join(home, ".openhuman");
   await fsp.mkdir(oh, { recursive: true });
-  const marker = `memscen:${runId}`;
+  const prior = opts.cleanup
+    ? JSON.parse(
+        await fsp.readFile(
+          path.join(opts.cleanup, "builtin", "cleanup.json"),
+          "utf8",
+        ),
+      )
+    : null;
+  const marker = prior?.marker ?? `memscen:${runId}`;
   const secrets = [];
   const extraEnv = {};
   const engineResults = { engine, marker, scenarios: {} };
@@ -168,7 +193,9 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
   let core = null;
   let events = null;
   const ledger = new Ledger();
-  const threads = [];
+  const threads = [...(prior?.threads ?? [])];
+  ledger.addAll(prior?.ids);
+  const strayTools = [];
 
   // --- engine setup -------------------------------------------------------
   if (engine === "local") {
@@ -229,7 +256,16 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
     // Guard 0 goes in every config the core may treat as active: the root,
     // the pre-login user dir (a key activates none) and, for a session, the
     // account's own user dir (`users/<subject>`). Verified after boot.
-    const gated = BASE_CONFIG(["[scheduler_gate]", 'mode = "off"', ""]);
+    // Guard 2: Composio is off, so no turn can reach the account's connected
+    // mail, calendar or repos (a memory test must never read real data).
+    const gated = BASE_CONFIG([
+      "[scheduler_gate]",
+      'mode = "off"',
+      "",
+      "[composio]",
+      'mode = "disabled"',
+      "",
+    ]);
     await fsp.writeFile(path.join(oh, "config.toml"), gated);
     for (const id of ["local", ...(cred.subject ? [cred.subject] : [])]) {
       await fsp.mkdir(path.join(oh, "users", id), { recursive: true });
@@ -404,6 +440,11 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
         throw new Error(
           `ABORT builtin: scheduler gate is "${mode}", not "off" (user dir not the one pre-written)`,
         );
+      const composioMode = pick(snap, "config.composio.mode");
+      if (composioMode !== "disabled")
+        throw new Error(
+          `ABORT builtin: Composio is "${composioMode}", not "disabled"`,
+        );
       const eng = await core.rpc("openhuman.memory_engine_get", {});
       if (eng?.engine !== "tinyhumans" || eng?.status === "off")
         throw new Error(
@@ -423,7 +464,7 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
         );
       engineResults.inference = { kind: "managed (account route)" };
       log(
-        `builtin : guards in place (scheduler gate off, migration state cleaned, no v1 store)`,
+        `builtin : guards in place (scheduler gate off, Composio off, migration state cleaned, no v1 store)`,
       );
     }
 
@@ -436,7 +477,8 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
       )
       .sort((a, b) => Number(!!a.last) - Number(!!b.last));
 
-    for (const scenario of selected) {
+    for (const scenario of opts.cleanup ? [] : selected) {
+      if (strayTools.length) break;
       const transcript = new JsonlLog(
         path.join(dir, "scenarios", scenario.id, "transcript.jsonl"),
         secrets,
@@ -489,6 +531,19 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
             ms: r.ms,
             tools: r.toolCalls,
           });
+          // Guard 3 (builtin): a turn may only use memory-side tools. There is
+          // no config switch for the shell tool, so this detects rather than
+          // prevents: the first stray call stops every remaining scenario.
+          const stray =
+            engine === "builtin"
+              ? (r.toolCalls ?? []).filter((n) => !BUILTIN_TURN_TOOLS.has(n))
+              : [];
+          if (stray.length) {
+            strayTools.push(...stray);
+            throw new Error(
+              `ABORT builtin: a turn called ${[...new Set(stray)].join(", ")} on the real account`,
+            );
+          }
           return r;
         },
         async learn(text, kind = "fact", meta = {}) {
@@ -659,25 +714,89 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
     // --- teardown -----------------------------------------------------------
     if (engine === "builtin" && core && !core.exited) {
       try {
-        // Everything this run stored: the ledger, every item in its threads,
-        // every item carrying its marker.
-        for (const t of threads) {
-          const items = await core
-            .rpc("openhuman.memory_items_list", {
-              filter: { thread_id: t },
+        // Positive control, before the real clean-up: an empty answer proves
+        // nothing unless this engine, right now, can show an item, forget it
+        // and show it gone. A degraded backend answering "empty" fails here.
+        // The probe carries the run's tag, so a retry finds it if this fails.
+        const tagged = async () =>
+          (
+            await core.rpc("openhuman.memory_items_list", {
+              filter: { tags_any: [marker] },
               limit: 100,
             })
-            .catch(() => null);
-          ledger.addAll((items?.items ?? []).map((h) => h.id));
-        }
-        const tagged = await core
-          .rpc("openhuman.memory_items_list", {
-            filter: { tags_any: [marker] },
+          )?.items ?? [];
+        const probe = await core.rpc("openhuman.memory_learn", {
+          text: `memscen clean-up probe ${runId}`,
+          kind: "other",
+          meta: { tags: [marker] },
+        });
+        const control = (what, ok) =>
+          waitFor(async () => (await ok()) || null, {
+            timeoutMs: 60_000,
+            intervalMs: 2000,
+            what,
+          }).catch(() => {
+            throw new Error(
+              `positive control failed: ${what}; an empty answer is not evidence`,
+            );
+          });
+        await control("the probe is listed", async () =>
+          (await tagged()).some((h) => h.id === probe?.id),
+        );
+        const gone = await core.rpc("openhuman.memory_forget", {
+          ids: [probe?.id],
+        });
+        if (gone?.forgotten !== 1)
+          throw new Error(
+            `positive control failed: forgetting the probe counted ${gone?.forgotten}`,
+          );
+        await control("the probe is gone", async () => {
+          const got = await core.rpc("openhuman.memory_items_get", {
+            ids: [probe?.id],
+          });
+          return (
+            !(got?.items ?? []).length &&
+            !(await tagged()).some((h) => h.id === probe?.id)
+          );
+        });
+        // Everything this run stored: the ledger, every item in its threads,
+        // every item carrying its marker. Written down first, so a failed
+        // clean-up can be retried with --cleanup <run-dir>.
+        const unlisted = [];
+        for (const filter of [
+          ...threads.map((t) => ({ thread_id: t })),
+          { tags_any: [marker] },
+        ]) {
+          const r = await core.tryRpc("openhuman.memory_items_list", {
+            filter,
             limit: 100,
-          })
-          .catch(() => null);
-        ledger.addAll((tagged?.items ?? []).map((h) => h.id));
+          });
+          if (r.ok) ledger.addAll((r.value?.items ?? []).map((h) => h.id));
+          else unlisted.push(JSON.stringify(filter));
+        }
+        await fsp.writeFile(
+          path.join(dir, "cleanup.json"),
+          JSON.stringify({ marker, threads, ids: ledger.list() }, null, 2),
+        );
+        // Fails closed: an error forgetting or reading back throws.
         const survivors = await forgetLedger(core, ledger);
+        if (unlisted.length)
+          throw new Error(
+            `could not list ${unlisted.join(", ")}; items there may survive`,
+          );
+        // And nothing the run's threads or tag hold is left either.
+        const filters = [
+          ...threads.map((t) => ({ thread_id: t })),
+          { tags_any: [marker] },
+        ];
+        for (const filter of filters) {
+          const left = await core.rpc("openhuman.memory_items_list", {
+            filter,
+            limit: 100,
+          });
+          for (const h of left?.items ?? []) survivors.push(h.id);
+        }
+        engineResults.cleanupListsEmpty = filters.length;
         const untouched = guardPlaced
           ? await verifyBuiltinUntouched(core)
           : {
@@ -700,6 +819,17 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
             evidence: "rpc.jsonl",
             basis: "READ",
           });
+        if (strayTools.length)
+          findings.add({
+            engine,
+            scenario: "guard",
+            id: "stray-tools",
+            severity: "high",
+            expected: "builtin turns use memory-side tools only",
+            actual: [...new Set(strayTools)],
+            evidence: "scenarios/*/transcript.jsonl",
+            basis: "READ",
+          });
         if (!untouched.ok)
           findings.add({
             engine,
@@ -712,7 +842,7 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
             basis: "READ",
           });
         console.log(
-          `builtin : cleanup forgot ${ledger.list().length} ids, ${survivors.length} survived; migration/import untouched: ${untouched.ok}`,
+          `builtin : cleanup forgot ${ledger.list().length} ids, ${survivors.length} survived (${engineResults.cleanupListsEmpty} thread/tag lists re-read; probe control passed first); migration/import untouched: ${untouched.ok}`,
         );
       } catch (e) {
         findings.add({
@@ -723,7 +853,11 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
           expected: "cleanup completes",
           actual: scrub(e.message, secrets),
           evidence: "rpc.jsonl",
+          basis: "READ",
         });
+        console.log(
+          `builtin : CLEANUP FAILED (${scrub(e.message, secrets).slice(0, 200)}); retry: node scripts/memory-scenarios/run.mjs --cleanup ${runDir}`,
+        );
       }
     }
     events?.close();
