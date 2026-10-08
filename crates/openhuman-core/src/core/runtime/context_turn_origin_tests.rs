@@ -4,6 +4,7 @@ use super::*;
 async fn dispatch_scope_uses_explicit_origin_without_mutating_shared_context() {
     let ctx = ctx("/tmp/origin-scope");
     let origin = crate::agent::turn_origin::AgentTurnOrigin::ExternalChannel {
+        sender_name: None,
         channel: "test".into(),
         sender: Some("sender".into()),
         reply_target: "room".into(),
@@ -25,6 +26,7 @@ async fn dispatch_scope_uses_explicit_origin_without_mutating_shared_context() {
 async fn missing_child_origin_inherits_bound_external_authority() {
     let ctx = ctx("/tmp/origin-inheritance");
     let external = crate::agent::turn_origin::AgentTurnOrigin::ExternalChannel {
+        sender_name: None,
         channel: "test".into(),
         sender: None,
         reply_target: "room".into(),
@@ -51,6 +53,7 @@ async fn explicit_origin_scope_bridges_legacy_and_core_context_without_cross_tal
     let run = |workspace: &'static str, channel: &'static str| async move {
         let context = ctx(workspace);
         let origin = AgentTurnOrigin::ExternalChannel {
+            sender_name: None,
             channel: channel.into(),
             sender: Some(format!("{channel}-sender")),
             reply_target: format!("{channel}-room"),

@@ -170,6 +170,11 @@ pub struct PreTurnInput {
     /// The session resumes a thread whose earlier turns were compacted out
     /// of the prompt: the pack opens with what the thread holds.
     pub resumed_after_compaction: bool,
+    /// Who sent the message, when it is someone other than the memory's
+    /// owner: a channel's sender ([`super::sender::channel_actor`]). Logged
+    /// as the turn's observed actor, which the engine sends only with
+    /// `[memory] observed_actor` on.
+    pub observed_actor: Option<tinymemory_api::ObservedActor>,
 }
 
 /// Logs the user turn and recalls the pack it is given, within
@@ -242,6 +247,7 @@ pub async fn pre_turn(
                 let mut pre = PreTurn::new(&input.thread_id, input.turn_index, &input.user_text);
                 pre.in_prompt_from = input.in_prompt_from;
                 pre.at = Some(input.at);
+                pre.observed_actor = input.observed_actor.clone();
                 let context = match date_hint {
                     Some(hint) => memory.pre_turn_dated(pre, resumed, hint).await,
                     None if resumed => memory.pre_turn_resumed(pre).await,

@@ -135,6 +135,7 @@ pub(super) async fn try_arm(
         // (the triage agent doesn't usually invoke such tools — it
         // classifies and routes — but label correctly for defense in depth).
         origin: crate::agent::turn_origin::AgentTurnOrigin::ExternalChannel {
+            sender_name: None,
             channel: envelope.source.slug().to_string(),
             // Triage runs over an upstream envelope (composio / webhook /
             // cron / external caller) that doesn't carry a per-user sender

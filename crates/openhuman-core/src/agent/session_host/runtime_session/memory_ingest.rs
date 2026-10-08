@@ -114,6 +114,9 @@ impl OpenHumanTurnPrelude {
                 in_prompt_from,
                 at: Utc::now(),
                 resumed_after_compaction: compacted && committed_turns > 0,
+                observed_actor: crate::agent::turn_origin::current()
+                    .as_ref()
+                    .and_then(crate::memory::lifecycle::sender::channel_actor),
             },
         )
         .await;
