@@ -17,5 +17,8 @@ async fn mock_model_embeds_through_the_facade() {
 fn signature_format_is_pinned() {
     // Stored vectors are partitioned by this string; a change here re-homes
     // every host's index, so it is asserted literally.
-    assert_eq!(format_embedding_signature("openai", "text-embedding-3-small", 1536), "openai:text-embedding-3-small:1536");
+    assert_eq!(
+        format_embedding_signature("openai", "text-embedding-3-small", 1536),
+        "provider=openai;model=text-embedding-3-small;dims=1536"
+    );
 }
