@@ -2479,6 +2479,7 @@ const en: TranslationMap = {
   'chat.subagents.ofTotal': '{complete} of {total}',
   'chat.subagents.runningCount': '{count} running',
   'chat.subagents.failedCount': '{count} failed',
+  'chat.subagents.incompleteCount': '{count} incomplete',
   'chat.subagents.settled': 'Child runs finished. Processing their results.',
   'conversations.planReview.title': 'Review plan',
   'conversations.planReview.subtitle':
@@ -2933,6 +2934,13 @@ const en: TranslationMap = {
   // Memory syncing / ingestion.
   'conversations.backgroundTasks.memUpToDate': 'All memories up to date',
   'conversations.subagent.awaitingTitle': 'Waiting for your answer',
+  'conversations.subagent.incompleteTitle': 'Stopped before finishing',
+  'conversations.taskCard.state.working': 'Working',
+  'conversations.taskCard.state.waiting': 'Waiting',
+  'conversations.taskCard.state.done': 'Done',
+  'conversations.taskCard.state.failed': 'Failed',
+  'conversations.taskCard.state.cancelled': 'Cancelled',
+  'conversations.taskCard.state.incomplete': 'Stopped before finishing',
   'conversations.subagent.answerPlaceholder': 'Type your answer',
   'conversations.subagent.answerSend': 'Send answer',
   'conversations.subagent.answerSent': 'Answer sent',

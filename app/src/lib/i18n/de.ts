@@ -2238,6 +2238,7 @@ const messages: TranslationMap = {
   'chat.subagents.ofTotal': '{complete} von {total}',
   'chat.subagents.runningCount': '{count} laufen',
   'chat.subagents.failedCount': '{count} fehlgeschlagen',
+  'chat.subagents.incompleteCount': '{count} unvollständig',
   'chat.subagents.settled': 'Unteraufgaben beendet. Ergebnisse werden verarbeitet.',
   'conversations.planReview.title': 'Plan prüfen',
   'conversations.planReview.subtitle':
@@ -2623,6 +2624,13 @@ const messages: TranslationMap = {
   'conversations.subagent.cancelFailed':
     'Aufgabe konnte nicht abgebrochen werden. Bitte erneut versuchen.',
   'conversations.subagent.awaitingTitle': 'Wartet auf deine Antwort',
+  'conversations.subagent.incompleteTitle': 'Vor dem Abschluss gestoppt',
+  'conversations.taskCard.state.working': 'In Arbeit',
+  'conversations.taskCard.state.waiting': 'Wartet',
+  'conversations.taskCard.state.done': 'Erledigt',
+  'conversations.taskCard.state.failed': 'Fehlgeschlagen',
+  'conversations.taskCard.state.cancelled': 'Abgebrochen',
+  'conversations.taskCard.state.incomplete': 'Vor dem Abschluss gestoppt',
   'conversations.subagent.answerPlaceholder': 'Antwort eingeben',
   'conversations.subagent.answerSend': 'Antwort senden',
   'conversations.subagent.answerSent': 'Antwort gesendet',

@@ -488,17 +488,15 @@ impl SubagentPlanner<crate::agent::tinyagents::host::OpenHumanRunContext, HostRe
             definition: request.host_request.definition.clone(),
             options,
         });
-        Ok(PreparedSubagent {
-            task_id: request.task_key.task_id,
-            agent_key: request.host_request.definition.id,
-            input: planned_input,
-            // The host execution leaf resolves the exact filtered tool snapshot
-            // together with its executable instances and policy.  A neutral
-            // empty declaration prevents this transport plan from advertising
-            // an authority it has not resolved.
-            tools: ToolSnapshot::default(),
-            run_context: request.run_context,
-        })
+        // The host leaf resolves the real tool snapshot and policy; an empty
+        // declaration here advertises no unresolved authority.
+        Ok(PreparedSubagent::new(
+            request.task_key.task_id,
+            request.host_request.definition.id,
+            planned_input,
+            ToolSnapshot::default(),
+            request.run_context,
+        ))
     }
 }
 
@@ -898,6 +896,7 @@ impl OpenHumanPersistence {
                     ..ArtifactReference::default()
                 })
                 .collect(),
+            ..SubagentOutcome::cancelled(String::new())
         }
     }
 
@@ -1175,7 +1174,7 @@ fn host_outcome_to_neutral(
             })
         }
         SubagentRunStatus::Incomplete { reason } => {
-            SubagentStatus::Incomplete(SubagentIncomplete { reason })
+            SubagentStatus::Incomplete(SubagentIncomplete::new(reason))
         }
         SubagentRunStatus::Cancelled => SubagentStatus::Cancelled,
     };
@@ -1212,6 +1211,7 @@ fn host_outcome_to_neutral(
                 ..ArtifactReference::default()
             })
             .collect(),
+        ..SubagentOutcome::cancelled(String::new())
     }
 }
 

@@ -28,6 +28,8 @@ fn paused_outcome(question: &str, resume: SubagentResume) -> SubagentOutcome {
         }),
         usage: Default::default(),
         artifacts: Vec::new(),
+        schema_error: None,
+        artifact_error: None,
     }
 }
 
