@@ -99,7 +99,7 @@ async fn list_fetch_and_recall_never_read_another_root() {
     let listed = items_list(&config, ItemsListParams::default())
         .await
         .unwrap();
-    assert_eq!(ids(&listed.items), [mine.clone()]);
+    assert_eq!(ids(&listed.items), std::slice::from_ref(&mine));
 
     let page = fetch(
         &config,
@@ -246,7 +246,7 @@ async fn items_get_and_forget_leave_another_roots_items_alone() {
     )
     .await
     .unwrap();
-    assert_eq!(ids(&read.items), [mine.clone()]);
+    assert_eq!(ids(&read.items), std::slice::from_ref(&mine));
 
     let error = items_get(
         &config,

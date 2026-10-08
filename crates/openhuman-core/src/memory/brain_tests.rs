@@ -364,11 +364,7 @@ async fn ingest_refuses_a_credential_store_a_system_root_traversal_and_null_byte
     let engine = bind_reference(&config);
     let ssh = tmp.path().join(".ssh");
     std::fs::create_dir_all(&ssh).unwrap();
-    std::fs::write(
-        ssh.join("id_ed25519"),
-        "fixture: not a real key",
-    )
-    .unwrap();
+    std::fs::write(ssh.join("id_ed25519"), "fixture: not a real key").unwrap();
     let notes = tmp.path().join("notes");
     std::fs::create_dir_all(&notes).unwrap();
     std::fs::write(tmp.path().join("guide.md"), "# Guide").unwrap();
