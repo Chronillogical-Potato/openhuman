@@ -183,3 +183,7 @@ impl TranscriptLocator for AgentTranscriptFiles {
             .begin_generation_from_baseline(session, seed, baseline)
     }
 }
+
+#[cfg(test)]
+#[path = "agent_transcripts_tests.rs"]
+mod tests;
