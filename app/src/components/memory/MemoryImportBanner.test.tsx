@@ -64,6 +64,23 @@ describe('MemoryImportBanner', () => {
     expect(screen.queryByTestId('memory-import-banner')).not.toBeInTheDocument();
   });
 
+  it('shows the empty state once both scans find nothing to import or move', async () => {
+    hoisted.scan.mockResolvedValue({ found: false });
+    renderWithProviders(
+      <MemoryImportBanner engineLabel="TinyHumans" emptyState={<div data-testid="nothing" />} />
+    );
+    expect(await screen.findByTestId('nothing')).toBeInTheDocument();
+    expect(screen.queryByTestId('memory-import-banner')).not.toBeInTheDocument();
+  });
+
+  it('shows no empty state while there is something to import', async () => {
+    renderWithProviders(
+      <MemoryImportBanner engineLabel="TinyHumans" emptyState={<div data-testid="nothing" />} />
+    );
+    expect(await screen.findByTestId('memory-import-counts')).toBeInTheDocument();
+    expect(screen.queryByTestId('nothing')).not.toBeInTheDocument();
+  });
+
   it('offers the import with the counts it found', async () => {
     renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
     expect(await screen.findByTestId('memory-import-counts')).toHaveTextContent(
