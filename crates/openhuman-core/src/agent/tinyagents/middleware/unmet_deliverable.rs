@@ -363,8 +363,13 @@ impl<C: Send + Sync> Middleware<(), C> for UnmetDeliverableMiddleware {
             }
         };
         if band >= LATE_BAND && !late_noted {
+            // The late note supersedes the half-time one: a run whose first
+            // observation is already past 80% must not get the half-time
+            // note on its next tool result.
             if let Ok(mut runs) = self.runs.lock() {
-                runs.entry(ctx.instance_id()).or_default().late_noted = true;
+                let run = runs.entry(ctx.instance_id()).or_default();
+                run.late_noted = true;
+                run.half_noted = true;
             }
             tracing::debug!(
                 band,
@@ -373,7 +378,7 @@ impl<C: Send + Sync> Middleware<(), C> for UnmetDeliverableMiddleware {
             append_note(result, &late_note(&clock));
             return Ok(());
         }
-        if band >= HALF_TIME_BAND && !half_noted {
+        if (HALF_TIME_BAND..LATE_BAND).contains(&band) && !half_noted {
             let missing = Self::missing(&candidates);
             if let Ok(mut runs) = self.runs.lock() {
                 runs.entry(ctx.instance_id()).or_default().half_noted = true;

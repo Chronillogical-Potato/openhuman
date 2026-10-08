@@ -348,7 +348,9 @@ async fn the_half_time_and_late_notes_ride_a_tool_result_once_each() {
     let missing = std::env::temp_dir().join(format!("oh-unmet-clock-{}.csv", std::process::id()));
     let _ = std::fs::remove_dir_all(&missing);
     std::fs::create_dir_all(&missing).expect("a directory at the csv path");
-    let middleware = UnmetDeliverableMiddleware::new(Some(std::time::Duration::from_millis(1_000)));
+    // A 4 s budget: the sleeps land a full band away from each threshold,
+    // so a second of scheduler slop cannot move a call across one.
+    let middleware = UnmetDeliverableMiddleware::new(Some(std::time::Duration::from_millis(4_000)));
     let mut ctx = RunContext::new(RunConfig::new("clock"), ());
     let mut request = ModelRequest {
         messages: vec![Message::user(format!(
@@ -375,7 +377,7 @@ async fn the_half_time_and_late_notes_ride_a_tool_result_once_each() {
         "nothing before half-time"
     );
 
-    std::thread::sleep(std::time::Duration::from_millis(600));
+    std::thread::sleep(std::time::Duration::from_millis(2_200));
     let half = run(&middleware, &mut ctx).await;
     assert!(half.contains("Half the turn's budget is gone"), "{half:?}");
     assert!(
@@ -388,7 +390,7 @@ async fn the_half_time_and_late_notes_ride_a_tool_result_once_each() {
         "the half-time note is given once"
     );
 
-    std::thread::sleep(std::time::Duration::from_millis(450));
+    std::thread::sleep(std::time::Duration::from_millis(1_300));
     let late = run(&middleware, &mut ctx).await;
     assert!(late.contains("Stop exploring"), "{late:?}");
     assert!(
@@ -412,4 +414,37 @@ fn a_directory_at_the_path_is_still_missing() {
     let candidates = vec![dir.to_string_lossy().to_string()];
     assert_eq!(UnmetDeliverableMiddleware::missing(&candidates), candidates);
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A run whose first tool result arrives past 80% gets the late note and
+/// never the half-time one: the later rung supersedes the earlier.
+#[tokio::test]
+async fn a_late_first_observation_skips_the_half_time_note() {
+    let missing = std::env::temp_dir().join(format!("oh-unmet-late-{}.csv", std::process::id()));
+    let _ = std::fs::remove_file(&missing);
+    let middleware = UnmetDeliverableMiddleware::new(Some(std::time::Duration::from_millis(1)));
+    let mut ctx = RunContext::new(RunConfig::new("late-first"), ());
+    let mut request = ModelRequest {
+        messages: vec![Message::user(format!("write {}", missing.display()))],
+        ..ModelRequest::default()
+    };
+    Middleware::<(), ()>::before_model(&middleware, &mut ctx, &(), &mut request)
+        .await
+        .expect("before_model");
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    let identity = tinyagents_harness::middleware::ToolInvocationIdentity::new("c0", "shell");
+    let mut first = TaToolResult::success("output");
+    Middleware::<(), ()>::after_tool(&middleware, &mut ctx, &(), &identity, &mut first)
+        .await
+        .expect("after_tool");
+    assert!(result_text(&first).contains("Stop exploring"));
+    let mut second = TaToolResult::success("output");
+    Middleware::<(), ()>::after_tool(&middleware, &mut ctx, &(), &identity, &mut second)
+        .await
+        .expect("after_tool");
+    assert_eq!(
+        result_text(&second),
+        "output",
+        "no half-time note after the late one"
+    );
 }
