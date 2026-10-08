@@ -69,8 +69,6 @@ export default function ComposioConnectModal({
     error,
     setError,
     connectUrl,
-    clearMemoryOnDisconnect,
-    setClearMemoryOnDisconnect,
     requiredFields,
     fieldValues,
     setFieldValues,
@@ -336,24 +334,6 @@ export default function ComposioConnectModal({
             className="w-full">
             {t('composio.connect.addAnotherAccount')}
           </Button>
-          <label
-            htmlFor="composio-clear-memory-on-disconnect"
-            className="flex items-start gap-2 rounded-lg border border-line bg-surface-muted px-3 py-2">
-            <Checkbox
-              id="composio-clear-memory-on-disconnect"
-              checked={clearMemoryOnDisconnect}
-              onCheckedChange={setClearMemoryOnDisconnect}
-              className="mt-0.5"
-            />
-            <span className="min-w-0">
-              <span className="block text-sm font-medium text-content">
-                {t('accounts.disconnectClearMemory')}
-              </span>
-              <span className="block text-xs text-content-muted">
-                {t('accounts.disconnectClearMemoryHint')}
-              </span>
-            </span>
-          </label>
           <div className="grid grid-cols-2 gap-3">
             <Button
               variant="secondary"
@@ -383,7 +363,6 @@ export default function ComposioConnectModal({
             variant="secondary"
             size="md"
             onClick={() => {
-              setClearMemoryOnDisconnect(false);
               setPhase(initiallyConnected ? 'connected' : initiallyExpired ? 'expired' : 'idle');
               setError(null);
             }}
