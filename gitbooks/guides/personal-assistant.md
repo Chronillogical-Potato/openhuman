@@ -50,7 +50,7 @@ If you're not sure, pick **Cloud**. You can change any of this later in **Settin
 An assistant with no memory is just a chatbot. Connect at least one source so it has context to draw on:
 
 - Open **Settings** and connect an integration (Gmail is the common starting point). Each connection is a one-click OAuth approval.
-- Once connected, add the integration as a source under **Connections → Memory → Brain** (kind `composio`); it syncs into [Memory](../features/memory.md) on a schedule.
+- Add folders, files or links as sources under **Connections → Memory** so they sync into [Memory](../features/memory.md) on a schedule.
 
 ### 4. Set your boundaries
 
