@@ -1,32 +1,5 @@
 use super::*;
 
-#[test]
-fn parse_sync_reason_accepts_known_values() {
-    assert_eq!(parse_sync_reason(None).unwrap(), SyncReason::Manual);
-    assert_eq!(
-        parse_sync_reason(Some("manual")).unwrap(),
-        SyncReason::Manual
-    );
-    assert_eq!(
-        parse_sync_reason(Some("periodic")).unwrap(),
-        SyncReason::Periodic
-    );
-    assert_eq!(
-        parse_sync_reason(Some("connection_created")).unwrap(),
-        SyncReason::ConnectionCreated
-    );
-}
-
-#[test]
-fn parse_sync_reason_rejects_unknown_values() {
-    let err = parse_sync_reason(Some("scheduled")).unwrap_err();
-    assert!(err.contains("unrecognized sync reason"));
-    assert!(err.contains("scheduled"));
-    // Typo of a real value should also fail rather than coerce.
-    assert!(parse_sync_reason(Some("Periodic")).is_err());
-    assert!(parse_sync_reason(Some("")).is_err());
-}
-
 #[tokio::test]
 async fn composio_list_toolkits_errors_without_session() {
     let _serialised = module_guard().await;
@@ -124,7 +97,7 @@ async fn composio_delete_connection_errors_without_session() {
     let _serialised = module_guard().await;
     let tmp = tempfile::tempdir().unwrap();
     let config = test_config(&tmp);
-    let err = composio_delete_connection(&config, "c-1", false)
+    let err = composio_delete_connection(&config, "c-1")
         .await
         .unwrap_err();
     assert!(
@@ -182,28 +155,6 @@ async fn composio_get_user_profile_errors_without_session() {
     // the connection list and the connection list needs a credential. Still a
     // failure that names the domain, which is the contract here.
     assert!(err.to_lowercase().contains("composio"), "{err}");
-}
-
-#[tokio::test]
-async fn composio_sync_errors_without_session() {
-    let _serialised = module_guard().await;
-    let tmp = tempfile::tempdir().unwrap();
-    let config = test_config(&tmp);
-    let err = composio_sync(&config, "c-1", None).await.unwrap_err();
-    assert!(err.to_lowercase().contains("composio"), "{err}");
-}
-
-#[tokio::test]
-async fn composio_sync_rejects_invalid_reason_before_client_check() {
-    let _serialised = module_guard().await;
-    let tmp = tempfile::tempdir().unwrap();
-    let config = test_config(&tmp);
-    // Invalid reason → should fail at parse step *before* touching the
-    // client, so the error message references the reason, not auth.
-    let err = composio_sync(&config, "c-1", Some("weird".into()))
-        .await
-        .unwrap_err();
-    assert!(err.contains("unrecognized sync reason"));
 }
 
 #[tokio::test]
@@ -436,7 +387,7 @@ async fn composio_delete_connection_via_mock() {
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
     let config = config_with_backend(&tmp, base);
-    let outcome = composio_delete_connection(&config, "c1", false)
+    let outcome = composio_delete_connection(&config, "c1")
         .await
         .unwrap();
     assert!(outcome.value.deleted);
