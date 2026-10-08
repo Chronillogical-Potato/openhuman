@@ -56,6 +56,28 @@ impl EventHandler<DomainEvent> for SystemJobsSubscriber {
             }
         };
         run_system_job(&config, job).await;
+        if job == SOURCES_SYNC_JOB {
+            sync_live_agent_sources().await;
+        }
+    }
+}
+
+/// Starts the due source syncs of every live embedded agent, each under its
+/// own context so its memory binding and sources apply.
+async fn sync_live_agent_sources() {
+    for (agent_id, ctx) in crate::core::runtime::AgentContextRegistry::live() {
+        crate::core::runtime::CoreContext::scope(ctx, async {
+            match crate::config::ops::load_current_or_init().await {
+                Ok(config) => {
+                    tracing::debug!(agent = %agent_id, "[memory:bus] agent source sync");
+                    run_system_job(&config, SOURCES_SYNC_JOB).await;
+                }
+                Err(error) => {
+                    tracing::debug!(agent = %agent_id, %error, "[memory:bus] agent config unavailable");
+                }
+            }
+        })
+        .await;
     }
 }
 
