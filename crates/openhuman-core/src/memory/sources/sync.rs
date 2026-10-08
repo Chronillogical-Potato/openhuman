@@ -67,7 +67,7 @@ pub async fn sync_one(config: &Config, source: &MemorySourceConfig) -> MemoryRes
         config,
         &bound,
         collected.items,
-        (source.kind, &source.target, &source.id),
+        (source.kind, &source.id),
         &super::layout_of_source(config, source),
     )
     .await
@@ -80,7 +80,7 @@ pub(crate) async fn store_all(
     config: &Config,
     bound: &BoundEngine,
     items: Vec<tinymemory_api::StoreItem>,
-    (kind, target, source_id): (crate::config::schema::MemorySourceKind, &str, &str),
+    (kind, source_id): (crate::config::schema::MemorySourceKind, &str),
     layout: &tinymemory_tools::MemoryLayout,
 ) -> MemoryResult<u64> {
     let mut stored = 0u64;
@@ -88,7 +88,7 @@ pub(crate) async fn store_all(
     let mut last_error = None;
     let mut touched = std::collections::BTreeSet::new();
     for item in items {
-        let brain_source = crate::memory::brain::brain_source(kind, target);
+        let brain_source = crate::memory::brain::brain_source(kind);
         let node = crate::memory::brain::brain_node(config, layout, &brain_source, &item)?;
         let item = crate::memory::brain::file_into(node.clone(), item);
         match store_on(bound, item).await {
