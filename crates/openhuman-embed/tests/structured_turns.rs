@@ -235,7 +235,9 @@ fn untrusted_input_passes_the_prompt_guard_only_on_a_host_only_agent() {
 
             let guarded = host_only.turn(INJECTION).send().await;
             assert!(
-                matches!(guarded, Err(CoreError::Domain { .. })),
+                guarded
+                    .as_ref()
+                    .is_err_and(|err| err.to_string().contains("Prompt blocked")),
                 "without untrusted_input the guard still applies: {guarded:?}"
             );
 
