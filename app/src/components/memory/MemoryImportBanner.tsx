@@ -90,6 +90,9 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   const [error, setError] = useState<string | null>(null);
   // Step 2 waits until step 1's scan has answered, so it never flashes first.
   const [importChecked, setImportChecked] = useState(false);
+  // The scan AND the status both answered. A failed read is unknown, not
+  // "nothing to import", so the empty step stays hidden until both are known.
+  const [importKnown, setImportKnown] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,6 +102,7 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
         log('scan: found=%s phase=%s', found.found, status?.state.phase ?? 'n/a');
         setScan(found);
         if (status && status.state.phase !== 'idle') setState(status.state);
+        setImportKnown(status !== null);
       })
       .catch(err => {
         // A failed scan only hides the offer; it is not worth an error banner.
@@ -174,9 +178,14 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   // import finishes. Bumping it re-runs the read and discards the answer of
   // the one it replaces.
   const [mScanAttempt, setMScanAttempt] = useState(0);
-  // The first read of what is left to move has answered (or failed).
-  const [moveChecked, setMoveChecked] = useState(false);
-  const rescanMove = useCallback(() => setMScanAttempt(n => n + 1), []);
+  // The latest read of what is left to move answered. It is cleared when a
+  // new read starts and stays false after a failed one, so a stale or unknown
+  // answer never shows as an offer or as "already moved".
+  const [moveKnown, setMoveKnown] = useState(false);
+  const rescanMove = useCallback(() => {
+    setMoveKnown(false);
+    setMScanAttempt(n => n + 1);
+  }, []);
   // Bumped by a start or retry: a read or poll asked before it answers for
   // an older state, and is dropped.
   const mStatusGen = useRef(0);
@@ -194,7 +203,7 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
         mlog('scan: needed=%s shared=%s', found?.needed, found?.shared);
         setMScan(found ?? null);
         setMStatus(current ?? null);
-        setMoveChecked(true);
+        setMoveKnown(true);
       })
       .catch(err => {
         // A transient failure must not hide the move for good: try again.
@@ -205,7 +214,7 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
         // end reads again.
         if (!cancelled && gen === mStatusGen.current) {
           setMScan(null);
-          setMoveChecked(true);
+          setMoveKnown(false);
           retry = setTimeout(rescanMove, MIGRATION_IDLE_POLL_MS);
         }
       });
@@ -240,7 +249,7 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   }, [t, rescanMove]);
 
   const moving = mStatus?.running ?? false;
-  const moveOffered = mScan?.needed ?? false;
+  const moveOffered = moveKnown && (mScan?.needed ?? false);
   useEffect(() => {
     wasMoving.current = moving;
   }, [moving]);
@@ -317,8 +326,8 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   const paused = !moving && (mState?.phase === 'paused' || mStatus?.interrupted);
 
   const showOffer = importPending;
-  // Until both scans answer, nothing: a disabled step must not flash first.
-  if (!importChecked || !moveChecked) return null;
+  // Until the import scan answers, nothing: a disabled step must not flash first.
+  if (!importChecked) return null;
   // Step 1 renders live when offered, or when its run state is visible below.
   const importShown =
     showOffer ||
@@ -333,7 +342,7 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
 
   return (
     <div className="space-y-3" data-testid="memory-import-banner">
-      {!importShown && (
+      {!importShown && importKnown && (
         <DisabledStep
           testId="memory-import-idle"
           title={importDone ? t('memoryPage.import.done') : t('memoryPage.import.action')}
@@ -502,7 +511,7 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
         </div>
       )}
 
-      {!showMove && (
+      {!showMove && moveKnown && (
         <DisabledStep
           testId="memory-migration-idle"
           title={t('memoryPage.migrate.title')}
