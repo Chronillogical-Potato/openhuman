@@ -198,12 +198,19 @@ async fn after_an_unconfirmed_import_an_item_listed_late_is_still_moved() {
         "the late item was moved"
     );
     assert_eq!(count(host.legacy.as_ref()).await, 0);
-    assert!(!crate::memory::import::listed_unconfirmed(
-        &config.workspace_dir
-    ));
+    let state = state::load(&config.workspace_dir).unwrap();
     assert_eq!(
-        state::load(&config.workspace_dir).unwrap().rechecks,
-        2,
+        state.rechecks, 2,
         "one forced recheck that moved the late item, one that moved nothing"
+    );
+    assert!(state.rechecked, "re-checking is over");
+    assert!(
+        crate::memory::import::listed_unconfirmed(&config.workspace_dir),
+        "the flag stays: later cleanups keep forgetting by id"
+    );
+    assert_eq!(
+        go(&config, &host, Trigger::Auto).await,
+        Outcome::Done,
+        "settled, not re-checked again"
     );
 }

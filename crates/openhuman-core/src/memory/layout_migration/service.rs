@@ -217,7 +217,8 @@ pub fn tick(
     match state::load(&config.workspace_dir) {
         Ok(state)
             if state.phase == Phase::Cleaned
-                && !crate::memory::import::listed_unconfirmed(&config.workspace_dir) =>
+                && (state.rechecked
+                    || !crate::memory::import::listed_unconfirmed(&config.workspace_dir)) =>
         {
             false
         }

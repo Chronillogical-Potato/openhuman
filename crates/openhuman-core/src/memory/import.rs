@@ -250,16 +250,9 @@ struct ImportFile {
 
 /// Whether the last import ended with its last batch not confirmed listed:
 /// the layout migration then forgets by id, never erasing scopes whole, and
-/// copies again before it finishes. A confirming import, or it, clears it.
+/// copies again before it finishes. Only an import that confirms clears it.
 pub(crate) fn listed_unconfirmed(workspace_dir: &Path) -> bool {
     read_file(workspace_dir).listed_unconfirmed
-}
-
-/// Clears [`listed_unconfirmed`] once the migration has re-checked.
-pub(crate) fn clear_listed_unconfirmed(workspace_dir: &Path) {
-    let mut file = read_file(workspace_dir);
-    file.listed_unconfirmed = false;
-    write_file(workspace_dir, &file);
 }
 
 fn file_path(workspace_dir: &Path) -> PathBuf {

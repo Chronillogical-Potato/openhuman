@@ -141,7 +141,9 @@ where
     let mut state = state::load(dir)?;
     // Cleaned with the import still unconfirmed (a stop between cleanup and
     // the re-check below) goes round once more rather than counting as done.
-    if state.phase == Phase::Cleaned && !crate::memory::import::listed_unconfirmed(dir) {
+    if state.phase == Phase::Cleaned
+        && (state.rechecked || !crate::memory::import::listed_unconfirmed(dir))
+    {
         return Ok(Outcome::Done);
     }
     let engines = host.engines(config)?;
@@ -208,10 +210,16 @@ where
     // pass still moves something new, at most MAX_RECHECKS times. A late item
     // is never erased meanwhile (`cleanup`). Each recheck is saved before its
     // wait, so a stop or a restart resumes it.
-    while state.phase == Phase::Cleaned && crate::memory::import::listed_unconfirmed(dir) {
+    while state.phase == Phase::Cleaned
+        && !state.rechecked
+        && crate::memory::import::listed_unconfirmed(dir)
+    {
         let new = state.copied > state.replayed;
         if !((state.rechecks == 0 || new) && state.rechecks < MAX_RECHECKS) {
-            crate::memory::import::clear_listed_unconfirmed(dir);
+            // Done re-checking. The import's flag stays: nothing here proves
+            // its last batch is listed, so cleanup keeps forgetting by id.
+            state.rechecked = true;
+            state::save(dir, &state)?;
             break;
         }
         state.rechecks += 1;

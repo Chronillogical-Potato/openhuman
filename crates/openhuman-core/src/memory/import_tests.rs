@@ -263,6 +263,7 @@ async fn an_interrupted_import_resumes_from_its_checkpoint() {
     write_file(
         &config.workspace_dir,
         &ImportFile {
+            listed_unconfirmed: false,
             paused_for_credits: false,
             failed: Vec::new(),
             retrying: false,
@@ -299,6 +300,7 @@ fn a_running_state_with_no_live_import_reads_as_interrupted() {
     write_file(
         &config.workspace_dir,
         &ImportFile {
+            listed_unconfirmed: false,
             paused_for_credits: false,
             failed: Vec::new(),
             retrying: false,
@@ -509,6 +511,7 @@ async fn an_import_the_app_quit_during_resumes_on_its_own() {
     write_file(
         &config.workspace_dir,
         &ImportFile {
+            listed_unconfirmed: false,
             paused_for_credits: false,
             failed: Vec::new(),
             retrying: false,
@@ -542,6 +545,7 @@ async fn a_stopped_or_finished_import_is_not_resumed_on_its_own() {
         write_file(
             &config.workspace_dir,
             &ImportFile {
+                listed_unconfirmed: false,
                 paused_for_credits: false,
                 failed: Vec::new(),
                 retrying: false,
@@ -566,6 +570,7 @@ fn quit_mid_import(config: &Config) {
     write_file(
         &config.workspace_dir,
         &ImportFile {
+            listed_unconfirmed: false,
             paused_for_credits: false,
             failed: Vec::new(),
             retrying: false,

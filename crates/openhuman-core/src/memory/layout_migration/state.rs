@@ -77,6 +77,10 @@ pub struct MigrationState {
     /// batch not confirmed listed (see `job::run`).
     #[serde(default, skip_serializing_if = "is_zero")]
     pub rechecks: u32,
+    /// Those passes are over (one moved nothing new, or the most were made).
+    /// The import's flag stays set, so cleanup keeps forgetting by id.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub rechecked: bool,
 }
 
 fn is_zero(n: &u32) -> bool {

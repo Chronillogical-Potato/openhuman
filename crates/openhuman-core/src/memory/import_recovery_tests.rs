@@ -22,6 +22,7 @@ async fn a_resumed_import_keeps_its_total_instead_of_rescanning() {
     write_file(
         &config.workspace_dir,
         &ImportFile {
+            listed_unconfirmed: false,
             paused_for_credits: false,
             failed: Vec::new(),
             retrying: false,
@@ -49,6 +50,7 @@ async fn a_resumed_import_keeps_its_total_instead_of_rescanning() {
 fn the_import_state_is_written_whole_and_leaves_no_staging_file() {
     let tmp = tempfile::tempdir().unwrap();
     let file = ImportFile {
+        listed_unconfirmed: false,
         paused_for_credits: false,
         failed: Vec::new(),
         retrying: false,
