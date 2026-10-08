@@ -601,6 +601,7 @@ async fn dispatch(
                     host: host.as_ref(),
                     seed: seed.as_deref(),
                     usage: Some(usage),
+                    host_only: inner.host_only,
                 };
                 agent_chat_for(
                     &mut config,

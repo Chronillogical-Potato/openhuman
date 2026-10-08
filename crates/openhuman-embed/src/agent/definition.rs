@@ -149,6 +149,7 @@ impl AgentDefinitionSpec {
 
     /// Materialize the core definition for agent `id`.
     pub(crate) fn into_core(self, id: &str) -> Result<AgentDefinition, AgentError> {
+        let host_only = self.is_host_only();
         let registry = AgentDefinitionRegistry::builtins_only();
         let mut def = registry.get(ORCHESTRATOR_ID).cloned().ok_or_else(|| {
             AgentError::Invalid("built-in orchestrator definition is missing".to_string())
@@ -158,7 +159,6 @@ impl AgentDefinitionSpec {
         if let Some(text) = self.when_to_use {
             def.when_to_use = text;
         }
-        let host_only = self.is_host_only();
         match self.system_prompt {
             Some(prompt) if self.bare_prompt => {
                 def.system_prompt = PromptSource::Verbatim(prompt);
