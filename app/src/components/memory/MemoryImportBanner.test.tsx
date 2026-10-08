@@ -497,6 +497,36 @@ describe('MemoryImportBanner', () => {
       expect(screen.queryByTestId('memory-migration-offer')).not.toBeInTheDocument();
     });
 
+    it('drops a read still pending when the user starts the move', async () => {
+      hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
+      hoisted.mStatus.mockResolvedValue(moving(1));
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+      expect(await screen.findByTestId('memory-migration-running')).toBeInTheDocument();
+
+      // A run ends; the read that follows is slow to answer.
+      hoisted.mStatus.mockResolvedValueOnce(MOVE_IDLE);
+      let answerRead: (value: unknown) => void = () => {};
+      hoisted.mStatus.mockReturnValueOnce(
+        new Promise(resolve => {
+          answerRead = resolve;
+        })
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(MIGRATION_POLL_MS + 10);
+      });
+      // Meanwhile the user starts the move again.
+      fireEvent.click(await screen.findByTestId('memory-migration-start'));
+      expect(await screen.findByTestId('memory-migration-running')).toHaveTextContent('4');
+
+      // The read answers last, with the state from before the start.
+      await act(async () => {
+        answerRead(MOVE_IDLE);
+      });
+      expect(screen.getByTestId('memory-migration-running')).toBeInTheDocument();
+      expect(screen.queryByTestId('memory-migration-offer')).not.toBeInTheDocument();
+    });
+
     it('drops a poll that fails after the user started the move', async () => {
       hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
       vi.useFakeTimers({ shouldAdvanceTime: true });
