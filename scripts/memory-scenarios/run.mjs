@@ -24,6 +24,8 @@ import {
 } from "./lib.mjs";
 import {
   startLocalCortex,
+  OLLAMA_URL,
+  OLLAMA_CHAT_MODEL,
   activeWorkspace,
   placeMigrationGuard,
   verifyBuiltinUntouched,
@@ -237,6 +239,34 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
         },
         { attempts: 20, delayMs: 1000, what: "local CortexDB engine" },
       );
+      // The offline local profile cannot use the managed model, so the local
+      // core chats through the same local Ollama (BYOK), set the way the
+      // Settings screen does it and read back: `auth_set_credential` above
+      // activates a user dir whose config wins, and a write that lands before
+      // it is lost (scripts/life-scenarios/run.mjs, "BYOK route").
+      const inferenceUrl = `${OLLAMA_URL}/v1`;
+      await withRetries(
+        async () => {
+          await core.rpc("openhuman.config_update_model_settings", {
+            inference_url: inferenceUrl,
+            api_key: "ollama",
+            default_model: OLLAMA_CHAT_MODEL,
+          });
+          const snap = await core.rpc("openhuman.config_get", {});
+          const cfg = snap?.config ?? {};
+          if (
+            cfg.inference_url !== inferenceUrl ||
+            !(cfg.cloud_providers ?? []).some(
+              (p) => p?.endpoint === inferenceUrl,
+            )
+          )
+            throw new Error(
+              `BYOK route not active yet (inference_url=${cfg.inference_url ?? "unset"})`,
+            );
+        },
+        { attempts: 10, delayMs: 500, what: "local chat route (Ollama)" },
+      );
+      engineResults.inference.chat_route = `BYOK ${inferenceUrl} ${OLLAMA_CHAT_MODEL}`;
       // config.toml now lives in the activated user dir: the composio block too.
       const { config } = await activeWorkspace(core);
       const snap = await core.rpc("openhuman.config_get", {});

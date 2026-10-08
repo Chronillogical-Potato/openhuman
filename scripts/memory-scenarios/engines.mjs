@@ -27,6 +27,7 @@ const OLLAMA = process.env.MEMSCEN_OLLAMA_URL || "http://127.0.0.1:11434";
 export const OLLAMA_EMBED_MODEL =
   process.env.MEMSCEN_EMBED_MODEL || "nomic-embed-text";
 export const OLLAMA_EMBED_DIMS = process.env.MEMSCEN_EMBED_DIMS || "768";
+export const OLLAMA_URL = OLLAMA;
 export const OLLAMA_CHAT_MODEL =
   process.env.MEMSCEN_CHAT_MODEL || "llama3.2:3b";
 
@@ -90,6 +91,14 @@ export async function startLocalCortex({
       MEMSCEN_CORTEX_PORT: String(port),
       // From inside the container the host's loopback is host.docker.internal.
       CORTEX_INFERENCE_URL: `${OLLAMA.replace("127.0.0.1", "host.docker.internal").replace("localhost", "host.docker.internal")}/v1`,
+      // Embeddings use Ollama's native API at the bare base: CortexDB pins the
+      // provider as `ollama:<model>`, and under /v1 every embedding 404s
+      // ("model not found"), leaving each store waiting for an index that never
+      // comes (408 WAIT_TIMEOUT after 30 s).
+      CORTEX_EMBEDDING_URL: OLLAMA.replace(
+        "127.0.0.1",
+        "host.docker.internal",
+      ).replace("localhost", "host.docker.internal"),
       CORTEX_EMBEDDING_MODEL: OLLAMA_EMBED_MODEL,
       CORTEX_EMBEDDING_DIMS: OLLAMA_EMBED_DIMS,
       CORTEX_CHAT_MODEL: OLLAMA_CHAT_MODEL,
