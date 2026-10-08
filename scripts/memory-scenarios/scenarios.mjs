@@ -441,7 +441,18 @@ const labels = {
     const tOn = ctx.newThread("F4-actor-on");
     await ctx.turn(tOn, "Remember that the railing primer is grey.");
     await ctx.waitItems({ thread_id: tOn }, 2, 60_000);
-    const onWrites = writesFor(tOn);
+    // The assistant turn is logged after the user turn: wait for its write.
+    const onWrites = await waitFor(
+      async () => {
+        const w = writesFor(tOn);
+        return w.some((r) => r.body?.content?.role === "assistant") ? w : null;
+      },
+      {
+        timeoutMs: 60_000,
+        intervalMs: 1000,
+        what: "assistant-turn write on the wire",
+      },
+    ).catch(() => writesFor(tOn));
     ctx.results.observed_actor_wire = onWrites.map((r) => ({
       path: r.path,
       observed_actor: r.body?.observed_actor ?? null,
