@@ -312,3 +312,70 @@ export async function forgetLedger(core, ledger) {
   }
   return survivors;
 }
+
+/**
+ * A logging pass-through in front of the run's CortexDB, so checks can read
+ * what the core actually SENT (attribution such as observed_actor and subject
+ * is written on the wire and not returned on read-back). Every request body is
+ * appended to `logFile` (JSONL, scrubbed); responses are passed through as is.
+ */
+export async function startCortexWireLog({ target, logFile, secrets = [] }) {
+  const http = await import("node:http");
+  const { scrub } = await import("./lib.mjs");
+  const requests = [];
+  const server = http.createServer(async (req, res) => {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const body = Buffer.concat(chunks);
+    let parsed = null;
+    try {
+      parsed = body.length ? JSON.parse(body.toString()) : null;
+    } catch {
+      /* not JSON */
+    }
+    const entry = {
+      at: new Date().toISOString(),
+      method: req.method,
+      path: req.url,
+      body: parsed,
+    };
+    requests.push(entry);
+    await fsp
+      .appendFile(logFile, scrub(JSON.stringify(entry), secrets) + "\n")
+      .catch(() => {});
+    const headers = { ...req.headers };
+    delete headers.host;
+    try {
+      const upstream = await fetch(`${target}${req.url}`, {
+        method: req.method,
+        headers,
+        body: ["GET", "HEAD"].includes(req.method) ? undefined : body,
+        signal: AbortSignal.timeout(300_000),
+      });
+      const out = Buffer.from(await upstream.arrayBuffer());
+      const h = {};
+      upstream.headers.forEach((v, k) => {
+        if (
+          ![
+            "content-encoding",
+            "transfer-encoding",
+            "content-length",
+            "connection",
+          ].includes(k)
+        )
+          h[k] = v;
+      });
+      res.writeHead(upstream.status, h);
+      res.end(out);
+    } catch (e) {
+      res.writeHead(502, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error_code: "PROXY", message: e.message }));
+    }
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  return {
+    url: `http://127.0.0.1:${server.address().port}`,
+    requests,
+    close: () => new Promise((r) => server.close(r)),
+  };
+}

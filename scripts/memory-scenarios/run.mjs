@@ -24,6 +24,7 @@ import {
 } from "./lib.mjs";
 import {
   startLocalCortex,
+  startCortexWireLog,
   OLLAMA_URL,
   OLLAMA_CHAT_MODEL,
   activeWorkspace,
@@ -161,6 +162,7 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
 
   let cortex = null;
   let composio = null;
+  let wire = null;
   let core = null;
   let events = null;
   const ledger = new Ledger();
@@ -176,6 +178,13 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
       log,
     });
     secrets.push(cortex.apiKey);
+    // The core talks to CortexDB through a logging pass-through, so checks
+    // can read what was sent (attribution is wire-only).
+    wire = await startCortexWireLog({
+      target: cortex.endpoint,
+      logFile: path.join(dir, "cortex-wire.jsonl"),
+      secrets,
+    });
     const stopCortex = () => cortex.stop();
     CLEANUPS.add(stopCortex);
     engineResults.inference = cortex.inference;
@@ -276,14 +285,14 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
       async () => {
         await core.rpc("openhuman.memory_engine_set", {
           engine: "cortexdb",
-          endpoint: cortex.endpoint,
+          endpoint: wire.url,
           api_key: cortex.apiKey,
         });
         const got = await core.rpc("openhuman.memory_engine_get", {});
         if (
           got?.engine !== "cortexdb" ||
           got?.status !== "ok" ||
-          got?.endpoint !== cortex.endpoint
+          got?.endpoint !== wire.url
         )
           throw new Error(
             `engine ${got?.engine} ${got?.status} at ${got?.endpoint} ${got?.reason ?? ""}`,
@@ -343,12 +352,12 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
     }
     // The memory engine must still be the local container after all that.
     const final = await core.rpc("openhuman.memory_engine_get", {});
-    if (final?.engine !== "cortexdb" || final?.endpoint !== cortex.endpoint)
+    if (final?.engine !== "cortexdb" || final?.endpoint !== wire.url)
       throw new Error(
         `ABORT local: memory engine moved to ${final?.engine} at ${final?.endpoint}`,
       );
     log(
-      `local   : memory on ${cortex.endpoint}, scheduler gate ${gate}, chat ${engineResults.inference.chat_route}`,
+      `local   : memory on ${cortex.endpoint} via ${wire.url}, scheduler gate ${gate}, chat ${engineResults.inference.chat_route}`,
     );
   };
 
@@ -420,6 +429,7 @@ async function runEngine(engine, { opts, runDir, runId, findings, results }) {
           !!engineResults.inference?.recall_quality_checked,
         cortex,
         composio,
+        wire,
         results: sres.results,
         get core() {
           return core;

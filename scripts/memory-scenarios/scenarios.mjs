@@ -411,32 +411,57 @@ const labels = {
       "every logged turn carries an agent_id",
       off.map((h) => h.meta?.agent_id),
     );
-    check(
-      "F3-actor-off",
-      off.every((h) => !h.meta?.observed_actor),
-      "with observed_actor off, no item carries an observed_actor",
-      off.map((h) => h.meta?.observed_actor ?? null),
-    );
+    // Attribution is written on the wire, not returned on read-back
+    // (tinymemory #237/#238): judge it on the requests the core sent.
+    const writesFor = (thread) =>
+      (ctx.wire?.requests ?? []).filter(
+        (r) =>
+          /\/v1\/experience/.test(r.path ?? "") &&
+          JSON.stringify(r.body ?? {}).includes(thread),
+      );
+    const offWrites = writesFor(tOff);
+    if (!offWrites.length)
+      ctx.note(
+        "F3-no-wire",
+        "no experience write for the OFF thread was captured on the wire",
+      );
+    else
+      check(
+        "F3-actor-off-wire",
+        offWrites.every(
+          (r) => !/"observed_actor"|"subject"/.test(JSON.stringify(r.body)),
+        ),
+        "with observed_actor off, no write carries observed_actor or subject (byte-identical)",
+        offWrites.map((r) => Object.keys(r.body ?? {})),
+      );
 
-    // observed_actor ON: assistant turns carry the agent as actor.
+    // observed_actor ON: an assistant-turn write carries the agent as actor.
     await ctx.setConfigToml("memory", { observed_actor: true });
     await ctx.restartCore();
     const tOn = ctx.newThread("F4-actor-on");
     await ctx.turn(tOn, "Remember that the railing primer is grey.");
-    const on = await ctx.waitItems({ thread_id: tOn }, 2, 60_000);
-    const withActor = on.filter((h) => h.meta?.observed_actor);
-    check(
-      "F4-actor-on",
-      withActor.length > 0,
-      "with observed_actor on, assistant turns carry an observed_actor",
-      on.map((h) => ({
-        text: h.text?.slice(0, 40),
-        actor: h.meta?.observed_actor ?? null,
-      })),
+    await ctx.waitItems({ thread_id: tOn }, 2, 60_000);
+    const onWrites = writesFor(tOn);
+    ctx.results.observed_actor_wire = onWrites.map((r) => ({
+      path: r.path,
+      observed_actor: r.body?.observed_actor ?? null,
+      subject: r.body?.subject ?? null,
+    }));
+    const attributed = onWrites.filter((r) =>
+      /agent:/.test(JSON.stringify(r.body?.observed_actor ?? "")),
     );
-    ctx.results.observed_actor_samples = withActor
-      .slice(0, 3)
-      .map((h) => h.meta.observed_actor);
+    if (!onWrites.length)
+      ctx.note(
+        "F4-no-wire",
+        "no experience write for the ON thread was captured on the wire",
+      );
+    else
+      check(
+        "F4-actor-on-wire",
+        attributed.length > 0,
+        "with observed_actor on, an assistant-turn write carries observed_actor agent:<id> on the wire",
+        ctx.results.observed_actor_wire,
+      );
     await ctx.setConfigToml("memory", { observed_actor: false });
     await ctx.restartCore();
   },
