@@ -663,6 +663,15 @@ type UsageSink = std::sync::Mutex<Option<LastTurnUsage>>;
 
 use openhuman_core::agent::tinyagents::response_shape::{FinalResponse, ResponseShapeScope};
 
+/// A turn's reply text and, for an agent target, its final-response report.
+type AgentReply = (String, Option<FinalResponse>);
+
+/// A boxed, sendable future, without a `futures` dependency for one alias.
+mod futures_box {
+    pub(super) type BoxFuture<'a, T> =
+        std::pin::Pin<Box<dyn std::future::Future<Output = T> + Send + 'a>>;
+}
+
 /// What only an agent target can honour, already validated by
 /// [`Turn::validate_turn_options`].
 struct AgentTurnOptions {
@@ -676,7 +685,7 @@ async fn dispatch(
     seed: Option<Vec<(String, String)>>,
     usage: &UsageSink,
     options: AgentTurnOptions,
-) -> Result<(String, Option<FinalResponse>), CoreError> {
+) -> Result<AgentReply, CoreError> {
     match target {
         TurnTarget::Runtime(rt) => {
             // Refused rather than dropped. `AGENT_CHAT`'s params are a wire
@@ -715,57 +724,52 @@ async fn dispatch(
             // inlined, and nesting it inside `Turn::send`'s own state machine
             // pushes rustc's layout query past its depth limit. One heap
             // allocation per turn is nothing next to the turn itself.
-            let turn: std::pin::Pin<
-                Box<
-                    dyn std::future::Future<
-                            Output = Result<(String, Option<FinalResponse>), CoreError>,
-                        > + Send,
-                >,
-            > = Box::pin(async move {
-                use openhuman_core::inference::host_runtime::ops::{
-                    agent_chat_for, AgentChatTarget,
-                };
-                let mut config = inner.config.clone();
-                let route = openhuman_core::config::schema::EphemeralRoute::from_params(
-                    request.inference_url,
-                    request.api_key,
-                );
-                let host = inner.composed_host_tools();
-                let target = AgentChatTarget::Definition {
-                    definition: &inner.definition,
-                    host: host.as_ref(),
-                    seed: seed.as_deref(),
-                    usage: Some(usage),
-                    host_only: inner.host_only,
-                    untrusted_input: options.untrusted_input,
-                    shape: Some(&options.shape),
-                };
-                let outcome = agent_chat_for(
-                    &mut config,
-                    target,
-                    &request.message,
-                    request.model_override,
-                    request.temperature,
-                    request.thread_id,
-                    request.cwd,
-                    route,
-                )
-                .await;
-                // The session does not count reasoning tokens; the shape's
-                // report does. Folded in before the meter or the outcome reads
-                // the sink, on success and failure alike.
-                let report = options.shape.report();
-                if let Some(spent) = usage
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner)
-                    .as_mut()
-                {
-                    spent.reasoning_tokens = report.reasoning_tokens;
-                }
-                outcome
-                    .map(|outcome| (outcome.value, Some(report)))
-                    .map_err(|raw| CoreError::from_rpc_string(AGENT_CHAT, raw))
-            });
+            let turn: futures_box::BoxFuture<'static, Result<AgentReply, CoreError>> =
+                Box::pin(async move {
+                    use openhuman_core::inference::host_runtime::ops::{
+                        agent_chat_for, AgentChatTarget,
+                    };
+                    let mut config = inner.config.clone();
+                    let route = openhuman_core::config::schema::EphemeralRoute::from_params(
+                        request.inference_url,
+                        request.api_key,
+                    );
+                    let host = inner.composed_host_tools();
+                    let target = AgentChatTarget::Definition {
+                        definition: &inner.definition,
+                        host: host.as_ref(),
+                        seed: seed.as_deref(),
+                        usage: Some(usage),
+                        host_only: inner.host_only,
+                        untrusted_input: options.untrusted_input,
+                        shape: Some(&options.shape),
+                    };
+                    let outcome = agent_chat_for(
+                        &mut config,
+                        target,
+                        &request.message,
+                        request.model_override,
+                        request.temperature,
+                        request.thread_id,
+                        request.cwd,
+                        route,
+                    )
+                    .await;
+                    // The session does not count reasoning tokens; the shape's
+                    // report does. Folded in before the meter or the outcome reads
+                    // the sink, on success and failure alike.
+                    let report = options.shape.report();
+                    if let Some(spent) = usage
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .as_mut()
+                    {
+                        spent.reasoning_tokens = report.reasoning_tokens;
+                    }
+                    outcome
+                        .map(|outcome| (outcome.value, Some(report)))
+                        .map_err(|raw| CoreError::from_rpc_string(AGENT_CHAT, raw))
+                });
             runtime.run_in(ctx, turn).await
         }
     }
