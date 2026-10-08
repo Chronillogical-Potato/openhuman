@@ -158,6 +158,20 @@ impl ApprovalGate {
             return (GateOutcome::Allow, None);
         }
 
+        if !forced
+            && !matches!(&origin, AgentTurnOrigin::Unknown)
+            && crate::core::runtime::CoreContext::current_approvals_disabled()
+        {
+            tracing::info!(
+                tool = tool_name,
+                origin_class = %origin.class(),
+                agent_id = crate::core::runtime::agent_scope::current_agent_id().as_deref().unwrap_or(""),
+                auto_approved = true,
+                "[approval::gate] approval gate off for this agent — allowing without prompt"
+            );
+            return (GateOutcome::Allow, None);
+        }
+
         // "Always allow" allowlist shortcut — the user's persisted
         // `autonomy.auto_approve` set. Read from the live policy first so a
         // grant made earlier in this session (which writes config + reloads the
