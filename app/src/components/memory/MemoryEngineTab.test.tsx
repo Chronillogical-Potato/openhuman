@@ -174,20 +174,14 @@ describe('MemoryEngineTab', () => {
       expect(screen.getByTestId('memory-engine-builtin-submit')).toBeDisabled();
     });
 
-    it('is marked in use with its backend origin, and nothing to press', () => {
+    it('is marked in use with nothing to press, and no endpoint line', () => {
       renderTab(BUILTIN_ON);
       expect(screen.getByTestId('memory-engine-status')).toHaveTextContent('In use');
       expect(screen.getByTestId('memory-engine-chip-active-builtin')).toBeInTheDocument();
       expect(screen.queryByTestId('memory-engine-builtin-submit')).not.toBeInTheDocument();
-      expect(screen.getByTestId('memory-engine-builtin-endpoint')).toHaveTextContent(
+      expect(screen.getByTestId('memory-engine-panel-builtin')).not.toHaveTextContent(
         'https://api.tinyhumans.ai'
       );
-    });
-
-    it('shows no backend origin while another connection is configured', () => {
-      renderTab(CLOUD_ON);
-      const panel = pick('builtin');
-      expect(within(panel).queryByTestId('memory-engine-builtin-endpoint')).not.toBeInTheDocument();
     });
 
     it('cannot be selected when signed out, and says to sign in', () => {
@@ -220,11 +214,11 @@ describe('MemoryEngineTab', () => {
       expect(hoisted.toastAdd).not.toHaveBeenCalled();
     });
 
-    it('notes free ingestion by plan and states the fair-use terms', () => {
+    it('says who hosts it and the plan's unlimited memory in one line, with fair-use terms', () => {
       hoisted.plan = 'PRO';
       renderTab(BUILTIN_ON);
       expect(screen.getByTestId('memory-engine-builtin-note')).toHaveTextContent(
-        'Unlimited memory on your Pro plan'
+        'Hosted by TinyHumans, with unlimited memory on your Pro plan.'
       );
       // Fair use sits behind an info icon.
       expect(screen.queryByTestId('memory-engine-fair-use')).not.toBeInTheDocument();
@@ -240,7 +234,7 @@ describe('MemoryEngineTab', () => {
       hoisted.plan = 'FREE';
       renderTab();
       expect(screen.getByTestId('memory-engine-builtin-note')).toHaveTextContent(
-        'Unlimited memory on Basic and Pro plans'
+        'Hosted by TinyHumans. Unlimited memory on Basic and Pro plans.'
       );
     });
   });
