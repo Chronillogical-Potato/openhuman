@@ -224,3 +224,7 @@ pub async fn run() -> Result<ProfileResult> {
     drop(runtime);
     Ok(result)
 }
+
+#[cfg(test)]
+#[path = "embed_fleet_tests.rs"]
+mod tests;
