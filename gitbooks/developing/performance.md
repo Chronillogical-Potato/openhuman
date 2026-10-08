@@ -43,6 +43,26 @@ Thousands of agents on a single box is the direction this is heading, not a
 number we've hit yet. The trend across 50/100/500 agents is a settling
 marginal cost, not a rising one, which is what makes that direction plausible.
 
+### Isolated embedded agents
+
+`library-fleet.sh --embed` runs the same fleet through `openhuman_embed`:
+one `Runtime`, N distinct agents (`agent-0` … `agent-N`), each with its own
+context, policy, state slots, MCP host, transcripts, skills and cron store,
+three turns each against the 200 ms mock on two worker threads. Release
+build, N = 500, one repeat, measured on macOS before and after per-agent
+isolation:
+
+| | Constructed KiB/agent | Loaded KiB/agent | Settled MiB | Idle CPU ms/10s | Threads | FDs | Turn p50 / p95 / p99 ms |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Shared state | 35.7 | 5,927 | 2,920 | 2 | 67 | 1,044 | 7,608 / 25,665 / 26,846 |
+| Isolated agents | 39.9 | 5,513 | 2,718 | 1 | 67 | 2,068 | 4,528 / 6,062 / 6,435 |
+
+Isolation costs about 4 KiB per constructed agent and nothing once agents
+are loaded; settled RSS went down. Turn latency improved because agents no
+longer contend on process-wide turn tables. Open file descriptors roughly
+double, about two more per agent, from each agent's own on-disk stores; at
+thousands of agents, raise the descriptor limit accordingly.
+
 ## In-process vs one process per agent
 
 The same benchmark suite includes `library-instances.sh`, which spawns N
