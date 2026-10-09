@@ -47,10 +47,10 @@ are skipped with a stderr note rather than aborting the sample.
 
 ## Used by
 
-- `crates/openhuman-cli/src/bin/rss_bench.rs` and `bin/library_profile/`
-  (feature `rss-bench`): the RSS/memory benchmark binaries this module was
-  built for.
-- [`docs/library-benchmarking.md`](../../../../../docs/library-benchmarking.md)
+- `profile/src/bin/rss_bench.rs` and `profile/src/bin/library_profile/` in
+  [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks) (feature `rss-bench`): the RSS/memory
+  benchmark binaries this module was built for.
+- [`profile/docs/library-benchmarking.md`](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/profile/docs/library-benchmarking.md)
  : documents the benchmark methodology and points readers here for the
   sampling implementation.
 

@@ -231,7 +231,7 @@ forwarding, and the library chain (`openhuman-embed`, then
 | `crash-reporting` | no | yes | Sentry |
 | `whatsapp-web` | no | no | WhatsApp Web channel provider |
 | `e2e-test-support` | no | no | `openhuman::test_support` |
-| `rss-bench` | no | no | Hooks for the `rss-bench` profiling bin |
+| `rss-bench` | no | no | Hooks for the `rss-bench` / `library-profile` profiling bins in openhuman-benchmarks |
 
 Gates come in two shapes. A leaf gate removes the module (`hosting`, `media`,
 `flows`, `modules`). A facade gate keeps the module declared and gates most
@@ -248,9 +248,11 @@ enabled and disabled builds.
 ## Boundaries
 
 - No binaries. [`crates/openhuman-cli`](../openhuman-cli/) declares `openhuman-core`,
-  `test-mcp-stub`, `openhuman-fleet`, `rss-bench`, `library-profile`, and the
-  tool benches, plus every root `tests/*.rs` and `examples/*.rs` target. See
+  `test-mcp-stub` and `openhuman-fleet`, plus every root `tests/*.rs` and
+  `examples/*.rs` target. See
   [`../openhuman-cli/src/bin/README.md`](../openhuman-cli/src/bin/README.md).
+  The benchmark and profiling binaries live in
+  [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks) (`profile/`).
 - No JSON-RPC server, no HTTP client for RPC, no session store:
   [`crates/openhuman-rpc`](../openhuman-rpc/).
 - No backend URLs, SDK, login, or `/auth/*` calls: [`crates/openhuman-tinyhumans`](../openhuman-tinyhumans/).
