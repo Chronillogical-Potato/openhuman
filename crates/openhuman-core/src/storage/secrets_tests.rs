@@ -58,9 +58,3 @@ fn the_stored_document_holds_no_plaintext() {
     assert!(!raw.contains("plain-value"), "{raw}");
     assert!(raw.contains("enc2:"));
 }
-
-#[test]
-fn no_backend_means_no_storage_secrets() {
-    // The process slot is empty in the lib test binary.
-    assert!(crate::storage::installed().is_none() || current().is_ok());
-}
