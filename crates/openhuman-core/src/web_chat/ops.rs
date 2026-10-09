@@ -31,6 +31,8 @@ pub use state::drain_queued_turns_for_test;
 #[cfg(any(test, debug_assertions))]
 pub use state::parallel_in_flight_entries_for_test;
 #[cfg(test)]
+pub(crate) use state::scoped_key;
+#[cfg(test)]
 pub(crate) use state::IN_FLIGHT;
 pub(super) use state::THREAD_SESSIONS;
 pub use state::{cancel_should_target, in_flight_entries_for_test, invalidate_thread_sessions};
