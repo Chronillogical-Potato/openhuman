@@ -336,7 +336,7 @@ fn a_captured_store_decides_without_the_task_scope() {
     let config = crate::config::Config::default();
     let decided = crate::security::approval::store::decide_captured(
         &config,
-        Some(&store),
+        &Ok(Some(store.clone())),
         "r",
         ApprovalDecision::Deny,
     )
