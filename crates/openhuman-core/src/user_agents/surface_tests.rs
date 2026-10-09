@@ -96,3 +96,10 @@ fn a_saas_task_without_scope_sees_nothing() {
         assert!(visible_in(false, Scope::None, method, operator), "{method}");
     }
 }
+
+#[test]
+fn delete_and_purge_stay_closed_to_users() {
+    for method in ["openhuman.threads_delete", "openhuman.threads_purge"] {
+        assert!(!visible_in(true, Scope::User, method, false), "{method}");
+    }
+}
