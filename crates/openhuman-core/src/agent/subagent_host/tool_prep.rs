@@ -161,6 +161,52 @@ mod recovery_visibility_tests;
 /// [`PromptContext`], `File` sources are read from disk relative to the
 /// workspace `prompts/` directory or the agent crate's bundled prompts.
 ///
+/// The allowed indices whose tools the sub-agent's rules let it list. A
+/// withheld tool stays allowed — the harness gate decides calls — but is kept
+/// off the specs and catalogue the host renders into the child's prompt.
+pub(super) fn rule_listed_indices(
+    allowed: &[usize],
+    tools: &[Box<dyn Tool>],
+    rules: Option<&tinyagents_harness::tool::ToolRulePolicy>,
+) -> Vec<usize> {
+    let Some(rules) = rules else {
+        return allowed.to_vec();
+    };
+    allowed
+        .iter()
+        .copied()
+        .filter(|&i| {
+            let tool = tools[i].as_ref();
+            let surface = if tool.exposure() == tinytools::ToolExposure::Deferred {
+                tinytools::Surface::Search
+            } else {
+                tinytools::Surface::Catalog
+            };
+            rules
+                .rules
+                .visible(&tinytools::ToolSubject::of(tool), &rules.context, surface)
+        })
+        .collect()
+}
+
+/// The prompt catalogue entries for `indices`.
+pub(super) fn prompt_tools_for<'a>(
+    indices: &[usize],
+    tools: &'a [Box<dyn Tool>],
+) -> Vec<crate::agent::prompts::PromptTool<'a>> {
+    indices
+        .iter()
+        .map(|&i| {
+            let tool = tools[i].as_ref();
+            crate::agent::prompts::PromptTool {
+                name: std::borrow::Cow::Borrowed(tool.name()),
+                description: std::borrow::Cow::Borrowed(tool.description()),
+                parameters_schema: Some(tool.parameters_schema().to_string()),
+            }
+        })
+        .collect()
+}
+
 pub(super) fn load_prompt_source(
     source: &PromptSource,
     ctx: &PromptContext<'_>,

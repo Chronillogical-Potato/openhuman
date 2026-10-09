@@ -26,7 +26,7 @@ use crate::agent::harness::{
     MAX_SPAWN_DEPTH,
 };
 use crate::agent::prompts::{
-    render_subagent_system_prompt_with_format, PromptContext, PromptTool, SubagentRenderOptions,
+    render_subagent_system_prompt_with_format, PromptContext, SubagentRenderOptions,
 };
 use crate::agent::subagent_host::subagent_iter_cap_with_autonomous_lift;
 use crate::agent::subagent_host::tool_prep::{
@@ -728,7 +728,18 @@ async fn run_typed_mode(
         &parent.subagent_tool_ceiling_names,
     );
 
-    let filtered_specs: Vec<ToolSpec> = allowed_indices
+    // The rules the child runs under: a tool they withhold stays callable
+    // (`allowed_names`) but off the specs and prompt this host renders.
+    let child_rules = options
+        .run_context
+        .for_subagent(definition, config.as_ref().ok().map(AsRef::as_ref))
+        .tool_rules;
+    let listed = super::super::tool_prep::rule_listed_indices(
+        &allowed_indices,
+        &parent.all_tools,
+        child_rules.as_deref(),
+    );
+    let filtered_specs: Vec<ToolSpec> = listed
         .iter()
         .map(|&i| parent.all_tool_specs[i].as_ref().clone())
         .collect();
@@ -761,17 +772,7 @@ async fn run_typed_mode(
             .cloned()
             .collect();
 
-    let prompt_tools: Vec<PromptTool<'_>> = allowed_indices
-        .iter()
-        .map(|&i| {
-            let t = parent.all_tools[i].as_ref();
-            PromptTool {
-                name: std::borrow::Cow::Borrowed(t.name()),
-                description: std::borrow::Cow::Borrowed(t.description()),
-                parameters_schema: Some(t.parameters_schema().to_string()),
-            }
-        })
-        .collect();
+    let prompt_tools = super::super::tool_prep::prompt_tools_for(&listed, &parent.all_tools);
     let visible_tool_names: std::collections::HashSet<String> =
         prompt_tools.iter().map(|t| t.name.to_string()).collect();
     let (prompt_tool_call_format, dispatcher_instructions) =
