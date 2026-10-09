@@ -346,15 +346,22 @@ impl HttpCredentialsStore {
                     if self.path.exists() && !legacy.credentials.is_empty() {
                         let json = serde_json::to_vec(&legacy)
                             .context("failed to serialize migrated http-credentials store")?;
-                        crate::storage::secrets::set_blocking(
+                        // A failed adoption keeps the legacy credentials
+                        // readable; the next read retries it.
+                        match crate::storage::secrets::set_blocking(
                             &secrets,
                             STORAGE_SECRET_NAME,
                             &json,
-                        )?;
-                        log::info!(
-                            target: "credentials",
-                            "[credentials] migrated http-credentials file to storage secret"
-                        );
+                        ) {
+                            Ok(()) => log::info!(
+                                target: "credentials",
+                                "[credentials] migrated http-credentials file to storage secret"
+                            ),
+                            Err(_) => log::warn!(
+                                target: "credentials",
+                                "[credentials] http-credentials migration to storage failed; will retry"
+                            ),
+                        }
                     }
                     Ok(legacy)
                 }

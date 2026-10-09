@@ -130,8 +130,20 @@ impl AuthProfilesStore {
                 if self.path.exists() && !legacy.profiles.is_empty() {
                     let json = serde_json::to_vec(&legacy)
                         .context("Failed to serialize migrated auth profiles")?;
-                    crate::storage::secrets::set_blocking(&secrets, STORAGE_SECRET_NAME, &json)?;
-                    tracing::info!("[credentials] migrated auth profiles file to storage secret");
+                    // A failed adoption keeps the legacy profiles readable;
+                    // the next read retries it.
+                    match crate::storage::secrets::set_blocking(
+                        &secrets,
+                        STORAGE_SECRET_NAME,
+                        &json,
+                    ) {
+                        Ok(()) => tracing::info!(
+                            "[credentials] migrated auth profiles file to storage secret"
+                        ),
+                        Err(_) => tracing::warn!(
+                            "[credentials] auth profiles migration to storage failed; will retry"
+                        ),
+                    }
                 }
                 return Ok(legacy);
             };

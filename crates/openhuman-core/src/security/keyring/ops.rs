@@ -85,14 +85,12 @@ pub fn get(user_id: &str, key: &str) -> Result<Option<String>, KeyringError> {
         }
         return Ok(legacy);
     };
-    Some(value)
-        .map(|bytes| {
-            String::from_utf8(bytes.to_vec()).map_err(|source| KeyringError::InvalidUtf8 {
-                key: key.to_string(),
-                source,
-            })
+    String::from_utf8(value.to_vec())
+        .map(Some)
+        .map_err(|source| KeyringError::InvalidUtf8 {
+            key: key.to_string(),
+            source,
         })
-        .transpose()
 }
 
 /// Store a secret: in the storage backend when one is configured, else in
@@ -139,10 +137,7 @@ pub(crate) fn process_get(user_id: &str, key: &str) -> Result<Option<String>, Ke
     match &result {
         Ok(Some(_)) => log::debug!("[keyring] get hit"),
         Ok(None) => log::debug!("[keyring] get miss"),
-        Err(e) => log::warn!(
-            "[keyring] get error: {e} | detail={}",
-            e.diagnostic()
-        ),
+        Err(e) => log::warn!("[keyring] get error: {e} | detail={}", e.diagnostic()),
     }
     result
 }
@@ -156,10 +151,7 @@ pub(crate) fn process_set(user_id: &str, key: &str, value: &str) -> Result<(), K
     let result = backend().set(&namespaced, value);
     match &result {
         Ok(()) => log::debug!("[keyring] set ok"),
-        Err(e) => log::warn!(
-            "[keyring] set error: {e} | detail={}",
-            e.diagnostic()
-        ),
+        Err(e) => log::warn!("[keyring] set error: {e} | detail={}", e.diagnostic()),
     }
     result
 }
@@ -173,10 +165,7 @@ pub(crate) fn process_delete(user_id: &str, key: &str) -> Result<(), KeyringErro
     let result = backend().delete(&namespaced);
     match &result {
         Ok(()) => log::debug!("[keyring] delete ok"),
-        Err(e) => log::warn!(
-            "[keyring] delete error: {e} | detail={}",
-            e.diagnostic()
-        ),
+        Err(e) => log::warn!("[keyring] delete error: {e} | detail={}", e.diagnostic()),
     }
     result
 }
