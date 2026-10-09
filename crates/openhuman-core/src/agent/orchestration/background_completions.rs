@@ -36,7 +36,9 @@ use super::completion_notice::BackgroundCompletionFormatter;
 pub(crate) use super::completion_notice::{BackgroundAgentOutcome, AWAITING_INPUT_LABEL};
 pub(crate) use super::completion_target::CompletionTarget;
 #[cfg(test)]
-pub(crate) use super::completion_target::TestWorkspace;
+pub(crate) use super::completion_target::{
+    forget_workspace_for_test, install_store_for_test, TestWorkspace,
+};
 
 /// How long a settled record (delivered / gave up / tombstoned) is kept before
 /// compaction drops it. Dropping a settled record also drops its dedupe and its
@@ -54,36 +56,36 @@ const SESSION_THREADS_CAP: usize = 4096;
 
 /// A workspace's router plus the store it sits on (kept so boot recovery and
 /// purge can enumerate parents, which the router itself does not expose).
-struct Entry {
-    router: Arc<CompletionRouter>,
-    store: Arc<dyn CompletionStore>,
+pub(super) struct Entry {
+    pub(super) router: Arc<CompletionRouter>,
+    pub(super) store: Arc<dyn CompletionStore>,
 }
 
 #[derive(Default)]
-struct HostState {
+pub(super) struct HostState {
     /// One router per workspace.
-    routers: HashMap<PathBuf, Arc<Entry>>,
+    pub(super) routers: HashMap<PathBuf, Arc<Entry>>,
     /// Which workspace holds a thread's completions. Thread-scoped operations
     /// (Stop, delete) carry no workspace, only a thread id.
-    thread_workspaces: HashMap<String, PathBuf>,
+    pub(super) thread_workspaces: HashMap<String, PathBuf>,
     /// Parent session id -> chat thread id, for the idle gate (busy is tracked
     /// by session; delivery by thread).
-    session_threads: HashMap<String, String>,
+    pub(super) session_threads: HashMap<String, String>,
     /// Insertion order of `session_threads`, so the cache evicts its oldest
     /// entry rather than every mapping at once.
-    session_order: VecDeque<String>,
+    pub(super) session_order: VecDeque<String>,
     /// Threads the user stopped and has not yet re-engaged. Closes the
     /// spawn/register race: a child that registers after Stop is rejected.
-    stopped_threads: HashSet<String>,
+    pub(super) stopped_threads: HashSet<String>,
     /// Threads deleted (or purged) in this process. Unlike a stopped thread they
     /// never reopen: a child that registers late, or a straggler that records
     /// after the delete sweep (the cooperative-abort race), is rejected for good.
-    deleted_threads: HashSet<String>,
+    pub(super) deleted_threads: HashSet<String>,
     /// Workspaces whose log boot recovery has already scanned this process.
-    recovered_workspaces: HashSet<PathBuf>,
+    pub(super) recovered_workspaces: HashSet<PathBuf>,
 }
 
-fn state() -> std::sync::MutexGuard<'static, HostState> {
+pub(super) fn state() -> std::sync::MutexGuard<'static, HostState> {
     static STATE: OnceLock<Mutex<HostState>> = OnceLock::new();
     STATE
         .get_or_init(|| Mutex::new(HostState::default()))
@@ -163,7 +165,7 @@ fn degrade_to_memory(workspace_dir: &Path) -> Arc<Entry> {
     entry
 }
 
-fn new_router(store: Arc<dyn CompletionStore>) -> CompletionRouter {
+pub(super) fn new_router(store: Arc<dyn CompletionStore>) -> CompletionRouter {
     CompletionRouter::new(store)
         .with_formatter(Arc::new(BackgroundCompletionFormatter))
         .with_max_attempts(DEFAULT_MAX_ATTEMPTS)
@@ -721,40 +723,6 @@ pub(crate) fn recover_pending_threads(workspace_dir: &Path) -> Vec<String> {
         workspace_dir.display()
     );
     threads
-}
-
-/// Register `store` as `workspace_dir`'s completion store, so a test can inject
-/// one that fails.
-#[cfg(test)]
-pub(crate) fn install_store_for_test(workspace_dir: &Path, store: Arc<dyn CompletionStore>) {
-    let entry = Arc::new(Entry {
-        router: Arc::new(new_router(store.clone())),
-        store,
-    });
-    state().routers.insert(workspace_dir.to_path_buf(), entry);
-}
-
-/// Forget everything this process knows about `workspace_dir`, as a restart
-/// would: the router (and its open log handle) and every thread/session mapping
-/// that points at it. The on-disk log is untouched.
-#[cfg(test)]
-pub(crate) fn forget_workspace_for_test(workspace_dir: &Path) {
-    let mut st = state();
-    st.routers.remove(workspace_dir);
-    let gone: Vec<String> = st
-        .thread_workspaces
-        .iter()
-        .filter(|(_, ws)| ws.as_path() == workspace_dir)
-        .map(|(thread, _)| thread.clone())
-        .collect();
-    for thread in gone {
-        st.thread_workspaces.remove(&thread);
-        st.stopped_threads.remove(&thread);
-        st.deleted_threads.remove(&thread);
-    }
-    st.recovered_workspaces.remove(workspace_dir);
-    st.session_threads.clear();
-    st.session_order.clear();
 }
 
 #[cfg(test)]
