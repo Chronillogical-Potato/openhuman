@@ -111,8 +111,11 @@ error the caller sees is the same for every class, except that
 
 `socketio.rs::attach_socketio` returns the layer and the `SocketIo` handle;
 `spawn_web_channel_bridge` starts the forwarders. A client authenticates by
-passing the bearer in the handshake `auth` map. Sockets that never presented
-it may receive broadcasts but cannot trigger work.
+passing the bearer in the handshake `auth` map (`io(url, { auth: { token }
+})`), since browsers cannot set headers on the upgrade. A connection from a
+disallowed origin or with a missing or wrong bearer is disconnected at
+connect; the event handlers also check the `AuthedConnection` marker before
+dispatching anything.
 
 Client to server events: `rpc:request` (answered with `rpc:response` or
 `rpc:error`), `chat:start`, `chat:cancel` and `thread:subscribe`. Each
