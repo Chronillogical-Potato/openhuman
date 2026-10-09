@@ -149,9 +149,12 @@ pub fn list_sources(config: &Config) -> Result<Vec<TaskSource>> {
 /// the initial `get_source` and the subsequent `UPDATE`. A future refactor
 /// could fold all three operations into a single `with_connection` call using
 /// a SQL `UPDATE … RETURNING` pattern.
-pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Result<TaskSource> {
-    let mut source = get_source(config, id)?;
-
+/// Applies `patch` to `source`, as both stores do.
+///
+/// # Errors
+///
+/// When the patch's filter is for a different provider than the source.
+pub(super) fn apply_patch(source: &mut TaskSource, patch: TaskSourcePatch) -> Result<()> {
     if let Some(name) = patch.name {
         source.name = Some(name).filter(|s| !s.trim().is_empty());
     }
@@ -180,6 +183,15 @@ pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Resul
     if let Some(connection_id) = patch.connection_id {
         source.connection_id = Some(connection_id).filter(|s| !s.trim().is_empty());
     }
+    Ok(())
+}
+
+pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Result<TaskSource> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.update_source(id, patch);
+    }
+    let mut source = get_source(config, id)?;
+    apply_patch(&mut source, patch)?;
     let filter_json = serde_json::to_string(&source.filter).context("serialize filter")?;
     let target_json = serde_json::to_string(&source.target).context("serialize target")?;
     let interval_i64 = i64::try_from(source.interval_secs)
