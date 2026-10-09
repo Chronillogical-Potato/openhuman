@@ -16,36 +16,31 @@ the `openhuman-tui` binary next to `openhuman-core`.
 `crash-reporting` feature is on) and keeps its guard alive, then calls
 `run_from_cli` with the arguments. `runner.rs` does the rest, in order:
 
-1. Loads `.env` (`core::cli::load_dotenv_for_cli`) and applies any startup
-   restart delay.
+1. Loads `.env` (`embed::process::load_dotenv_for_cli`) and applies any
+   startup restart delay.
 2. Parses flags. `--help` prints usage and returns before anything boots; an
    unknown `-` flag is an error.
 3. Sets transient provider and model overrides
-   (`core::cli::set_transient_inference_overrides`).
+   (`embed::process::set_transient_inference_overrides`).
 4. Starts file-only logging under the data dir
-   (`core::logging::init_for_tui`). The TUI owns the terminal, so nothing is
+   (`embed::process::init_for_tui`). The TUI owns the terminal, so nothing is
    written to stderr from here on.
 5. Initializes the keyring master key.
-6. Builds a multi-thread tokio runtime with the core's
-   `AGENT_WORKER_STACK_BYTES` stack size, so nested agent turns do not
+6. Builds `embed::process::tokio_runtime()`, a multi-thread runtime with the
+   core's `AGENT_WORKER_STACK_BYTES` stack size, so nested agent turns do not
    overflow the default 2 MiB stack.
-7. Inside the runtime (`async_main`): installs the TinyHumans backend
-   transport, installs the on-disk session store
-   (`openhuman_rpc::session_store::install`), and builds the core:
+7. Inside the runtime (`async_main`): boots the core with
+   `openhuman_rpc::host::tui()` — the embed `tui` preset (every domain, no
+   background services), connected to the TinyHumans backend, with the
+   on-disk session store — and keeps the returned `Runtime` alive for the
+   session. The screens drive it through `Runtime::core_runtime()`
+   (`CoreRuntime::invoke`).
 
-   ```rust
-   CoreBuilder::new(HostKind::detect_standalone())
-       .domains(DomainSet::full())
-       .services(ServiceSet::none())
-       .backend_transport(backend_transport)
-       .build()
-   ```
-
-   `DomainSet::full()` is needed because `channel.web_chat` lives in the
+   Every domain is needed because `channel.web_chat` lives in the
    Channels domain group. `ServiceSet::none()` skips background services,
    including channel startup, so the runner registers the approval and
    artifact surface subscribers itself
-   (`web_chat::register_approval_surface_subscriber`,
+   (`embed::chat_surface::register_approval_surface_subscriber`,
    `register_artifact_surface_subscriber`).
 8. Picks a client id (`tui-<12 hex>`), resolves the thread, subscribes to the
    web-channel broadcast before the first turn, and hands off to `app::run`.
@@ -191,16 +186,19 @@ All calls go through `CoreRuntime::invoke`:
 
 | Feature | Meaning |
 | --- | --- |
-| `crash-reporting` (default) | Pulls in `sentry` and `dotenvy` and forwards `openhuman-core/crash-reporting`. `init_crash_reporting` loads `.env`, then starts a Sentry client that scrubs secrets from exception values and messages (`core::log_redaction::scrub_secrets`) and uses the core's Sentry transport. |
+| `crash-reporting` (default) | Forwards `openhuman-rpc/crash-reporting`. `init_crash_reporting` loads `.env`, then starts a Sentry client from `embed::process::sentry::client_options`: the shared filter chain, secret scrubbing and the core's Sentry transport, as the CLI and the desktop shell use. |
+| `media`, `skills`, `flows`, `mcp`, `channels`, `scheduler-gate`, `file-logging`, `modules` (default) | The core's contributor gates, forwarded to `openhuman-rpc`. Named explicitly: they used to arrive implicitly through a bare `openhuman-core` workspace dependency. `http-server` is not in the set; the TUI never serves. |
+| every other product gate, `jev`, `e2e-test-support` | Forwarded 1:1 to `openhuman-rpc`, off by default (`scripts/ci/check-feature-forwarding.mjs` checks the link). |
 
 ## Boundaries
 
-- The core runs in-process through `openhuman-core`; there is no
-  `openhuman-core` binary to spawn or connect to.
-- `openhuman-rpc` is used for the session store (`session-store` feature) and
-  `unwrap_rpc`, which strips the optional `result`/`data` envelopes around
-  RPC payloads. The TUI does not use its server or HTTP client.
-- `openhuman-tinyhumans` provides the backend transport and the
+- `openhuman-rpc` is the TUI's only OpenHuman dependency
+  (`scripts/ci/check-crate-chain.mjs`). The core runs in-process through
+  `host::tui`; there is no `openhuman-core` binary to spawn or connect to.
+  The TUI also uses `unwrap_rpc` (strips the optional `result`/`data`
+  envelopes around RPC payloads) and the `embed` facades; it does not use the
+  server or the HTTP client.
+- `openhuman_rpc::tinyhumans` provides the backend transport and the
   `SessionManager`; auth endpoint behavior belongs there.
 - The ratatui and crossterm dependencies live only in this crate, which keeps
   the core free of terminal code.
