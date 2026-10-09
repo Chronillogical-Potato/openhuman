@@ -137,7 +137,7 @@ The speed and density above come from a handful of design choices most harnesses
 
 <h3>TokenJuice: big outputs, small bills</h3>
 
-<p>A tool can return a huge build log or a 600-message email thread. Pasting all of that into the prompt means paying for every line. OpenHuman shrinks it first, and when a result is really big it hands the agent a handle instead, so the agent can search inside it, pull out one part or ask for a summary. That is the idea behind <a href="https://arxiv.org/abs/2512.24601">Recursive Language Models</a>. The full original is kept, in case the agent needs it.</p>
+<p>Huge tool results get shrunk before the AI reads them. For really big ones, the AI gets a handle it can search instead of reading everything, an idea from <a href="https://arxiv.org/abs/2512.24601">Recursive Language Models</a>. Nothing is thrown away.</p>
 
 <p><a href="https://arxiv.org/abs/2512.24601">RLM paper</a> · <a href="./gitbooks/features/token-compression.md">How it works</a> · <a href="https://github.com/tinyhumansai/tinyjuice">tinyjuice</a></p>
 
@@ -147,7 +147,7 @@ The speed and density above come from a handful of design choices most harnesses
 
 <h3>Jev: the right tool, first time</h3>
 
-<p>Give an agent a thousand tools and it burns tokens just deciding which one to use, then often picks wrong. Jev is a small model that only makes choices: you show it the options and it says how likely each one is. With 1,215 tools on the table it gets the right one first 62% of the time, where keyword search gets 22.5%. It also stopped calling tools nobody asked for: 1 stray call in 31 requests, down from 26.</p>
+<p>A tiny model whose only job is picking the right tool. It chooses correctly first 62% of the time out of 1,215 tools, against 22.5% for keyword search.</p>
 
 <p><a href="./gitbooks/developing/jev.md">Jev</a> · <a href="./docs/plans/jev-tool-search-baseline.md">The measurements</a></p>
 
@@ -159,9 +159,9 @@ The speed and density above come from a handful of design choices most harnesses
 
 <td width="50%" valign="top">
 
-<h3>TinyBus: a system bus for agents</h3>
+<h3>TinyBus: plug-in parts</h3>
 
-<p>Linux desktops keep apps apart with <a href="https://www.freedesktop.org/wiki/Software/dbus/">D-Bus</a>: each program offers named services on a shared bus, and others call them without knowing how they work inside. TinyBus brings that design to agents. Search, documents, browser control, voice, the wallet and MCP are separate modules that talk over the bus through small, versioned interfaces. Every call has a deadline, so one stuck module cannot freeze the rest, and a module loads only the first time an agent needs it. If you never open a PDF, you never pay for the PDF engine.</p>
+<p>Inspired by the <a href="https://www.freedesktop.org/wiki/Software/dbus/">Linux system bus</a>. Each skill, like search, documents or voice, is its own plug-in. It loads only when needed, and if one breaks, the rest keep working.</p>
 
 <p><a href="./gitbooks/developing/loadable-modules.md">Loadable modules</a> · <a href="https://github.com/tinyhumansai/tinybus">tinybus</a></p>
 
@@ -171,7 +171,7 @@ The speed and density above come from a handful of design choices most harnesses
 
 <h3>One key for everything</h3>
 
-<p>Setting up an agent usually means one account for the model, another for search, more for embeddings, voice and every app you connect. Here a single TinyHumans key covers all of it, including the full OpenRouter model catalogue. Would you rather use your own providers? Plug them in instead.</p>
+<p>One key covers the AI models, search, voice and app connections. No juggling ten accounts. You can still bring your own.</p>
 
 <p><a href="./gitbooks/developing/tinyhumans-api-key.md">The API key</a> · <a href="./gitbooks/developing/engines.md">Supported engines</a></p>
 
@@ -185,7 +185,7 @@ The speed and density above come from a handful of design choices most harnesses
 
 <h3>Conversations that stay cheap</h3>
 
-<p>Model providers charge much less for the part of a prompt that matches the previous call. OpenHuman keeps the start of every conversation byte-for-byte the same, even after a restart, so long chats keep that discount. When a chat grows too long it gets summarized, and the full history stays on disk.</p>
+<p>AI providers charge less for text they have seen before. OpenHuman keeps each chat's opening identical, even after a restart, so long chats stay cheap.</p>
 
 <p><a href="./gitbooks/developing/architecture/agent-harness.md">Agent harness</a> · <a href="https://github.com/tinyhumansai/tinyagents">tinyagents</a></p>
 
@@ -195,7 +195,7 @@ The speed and density above come from a handful of design choices most harnesses
 
 <h3>Swap any part</h3>
 
-<p>The model, the memory engine, web search and embeddings are settings, so changing one does not mean changing code. Developers can also leave features out at build time. With all of them off, the whole core is a 51 MB file.</p>
+<p>Change the AI model, memory or search with a setting, not code. Strip it down and the whole core is a 51 MB file.</p>
 
 <p><a href="./gitbooks/developing/engines.md">Pluggable engines</a> · <a href="./gitbooks/developing/performance.md">Build sizes</a></p>
 
