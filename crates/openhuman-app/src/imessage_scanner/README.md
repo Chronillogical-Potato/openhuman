@@ -30,7 +30,7 @@ tick::run_single_tick
    |      chatdb::read_chat_day(chat, day, 5000) whole day, not just new rows
    |      format_transcript -> "[unix_ts] sender: text" lines
    |      ingest_group: openhuman.memory_brain_ingest
-   |          { text, source: "imessage", title: "Messages - <chat> - <day>" }
+   |          { text, source: "imessage", title: "Messages", chat, day }
    v
 TickOutcome { new_rowid, groups_attempted, groups_ingested, ... }
    |
@@ -38,7 +38,8 @@ TickOutcome { new_rowid, groups_attempted, groups_ingested, ... }
    | any group failed -> keep old cursor, retry next tick
 ```
 
-Each tick rebuilds the full day for every chat that received a new message,
+The ingest title is the word "Messages" followed by the chat identifier and
+the `YYYY-MM-DD` day. Each tick rebuilds the full day for every chat that received a new message,
 so a document always holds the complete day rather than a fragment. The
 cursor is the highest `message.ROWID` seen and only advances when every group
 in the tick ingested successfully.
