@@ -10,7 +10,7 @@ pub(crate) const TINYCOMPUTER: ModuleRecord = ModuleRecord {
     object_path: names::OBJECT_PATH,
     version: "0.10.1",
     release_url: "https://github.com/tinyhumansai/tinycomputer/releases/tag/v0.10.1",
-    // Verbatim from the published tinycomputer v0.10.0 checksum.toml. Linux remains outside
+    // Verbatim from the published tinycomputer v0.10.1 checksum.toml. Linux remains outside
     // the initial product surface; this registry admits macOS and Windows.
     assets: &[
         PlatformAsset {
