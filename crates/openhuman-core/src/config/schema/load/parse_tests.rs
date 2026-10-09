@@ -20,11 +20,12 @@ fn parses_the_same_config_as_direct_toml() {
 }
 
 #[test]
-fn an_empty_document_yields_defaults() {
-    let parsed = config_from_toml_str("").expect("empty document parses");
+fn an_empty_document_matches_direct_toml() {
+    let via_value = config_from_toml_str("").expect("empty document parses");
+    let direct: Config = toml::from_str("").expect("empty document parses directly");
     assert_eq!(
-        serde_json::to_value(&parsed).unwrap(),
-        serde_json::to_value(&Config::default()).unwrap()
+        serde_json::to_value(&via_value).unwrap(),
+        serde_json::to_value(&direct).unwrap()
     );
 }
 
