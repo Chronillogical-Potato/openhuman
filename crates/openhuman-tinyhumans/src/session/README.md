@@ -127,7 +127,7 @@ attribution headers from `ClientHeaders` (`x-sdk-name`, plus
 ## Boundaries
 
 - This module may use core utilities (`util::tls`) and this crate's own
-  `backend::product`, but it never calls `openhuman_core::security::*` and
+  `backend::product`, but it never calls `openhuman_embed::__host::security::*` and
   never dispatches into a core except through `CoreLink`. The host owns the
   login; the core only takes the resulting credential.
 - `link::unwrap_envelope` copies the walk `openhuman_rpc::unwrap_rpc` does

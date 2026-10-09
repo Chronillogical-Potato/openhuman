@@ -456,7 +456,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'Память',
   'welcome.th.featureEmbeddings': 'Эмбеддинги',
   'welcome.th.featureBilling': 'Оплата',
-  'welcome.th.credit': '5 $ кредита для начала',
   'welcome.th.cta': 'Продолжить с TinyHumans',
   'welcome.th.providers': 'Войдите через Google, GitHub или X',
   'welcome.self.title': 'Настрою сам',
@@ -5123,6 +5122,17 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'Память выключена',
   'memoryPage.off.description': 'Выберите провайдера памяти, чтобы начать запоминать.',
   'memoryPage.off.action': 'Выбрать провайдера',
+  'memoryPage.disabled.title': 'Память отключена',
+  'memoryPage.disabled.description':
+    'OpenHuman ничего не сохраняет и не вспоминает. Выберите провайдера, чтобы снова включить память.',
+  'memoryPage.engine.disabled.title': 'Отключена',
+  'memoryPage.engine.disabled.description':
+    'Полностью отключите память. Ничего не сохраняется и не вспоминается, а ваши подключения сохраняются.',
+  'memoryPage.engine.disabled.action': 'Отключить память',
+  'memoryPage.engine.disabled.banner':
+    'Ничего не сохраняется и не вспоминается. Выберите провайдера ниже, чтобы снова включить память.',
+  'memoryPage.engine.disabled.toast': 'Память отключена',
+  'memoryPage.engine.disabled.toastFailed': 'Не удалось отключить память',
   'memoryPage.engine.inUse': 'Используется',
   'memoryPage.announcement.title': 'Бесплатный инференс памяти в CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex выведен из работы 7 окт.',

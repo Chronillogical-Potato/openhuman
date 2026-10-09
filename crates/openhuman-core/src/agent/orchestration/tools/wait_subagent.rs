@@ -250,6 +250,7 @@ impl WaitSubagentTool {
                 // still-Running/TimedOut sub-agent has no terminal result yet, so
                 // a genuinely-later completion must still surface.
                 crate::agent::orchestration::background_completions::mark_collected(
+                    &parent.workspace_dir,
                     &resolved_task_id,
                 );
                 let status = wait_status_payload(

@@ -469,7 +469,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'Gedächtnis',
   'welcome.th.featureEmbeddings': 'Embeddings',
   'welcome.th.featureBilling': 'Abrechnung',
-  'welcome.th.credit': '5 $ Guthaben zum Start',
   'welcome.th.cta': 'Weiter mit TinyHumans',
   'welcome.th.providers': 'Mit Google, GitHub oder X anmelden',
   'welcome.self.title': 'Selbst einrichten',
@@ -5215,6 +5214,17 @@ const messages: TranslationMap = {
   'memoryPage.off.description':
     'Wähle einen Gedächtnisanbieter, damit dein Assistent sich erinnert.',
   'memoryPage.off.action': 'Anbieter wählen',
+  'memoryPage.disabled.title': 'Gedächtnis ist deaktiviert',
+  'memoryPage.disabled.description':
+    'OpenHuman speichert und ruft nichts ab. Wähle einen Anbieter, um das Gedächtnis wieder einzuschalten.',
+  'memoryPage.engine.disabled.title': 'Deaktiviert',
+  'memoryPage.engine.disabled.description':
+    'Schalte das Gedächtnis komplett aus. Nichts wird gespeichert oder abgerufen; deine Verbindungen bleiben erhalten.',
+  'memoryPage.engine.disabled.action': 'Gedächtnis deaktivieren',
+  'memoryPage.engine.disabled.banner':
+    'Es wird nichts gespeichert oder abgerufen. Wähle unten einen Anbieter, um das Gedächtnis wieder einzuschalten.',
+  'memoryPage.engine.disabled.toast': 'Gedächtnis deaktiviert',
+  'memoryPage.engine.disabled.toastFailed': 'Gedächtnis konnte nicht deaktiviert werden',
   'memoryPage.engine.inUse': 'Aktiv',
   'memoryPage.announcement.title': 'Kostenlose Gedächtnis-Inferenz mit CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex wurde am 7. Okt. eingestellt.',

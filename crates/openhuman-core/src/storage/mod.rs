@@ -18,10 +18,14 @@
 //! driver the build does not carry fails at [`open`] naming the feature, so a
 //! misconfigured deployment stops at boot instead of at its first write.
 
-use std::sync::{Arc, LazyLock, RwLock};
+pub mod documents;
+
+use std::future::Future;
+use std::sync::{Arc, LazyLock, OnceLock, RwLock};
 
 pub use tinystoragedrivers::{
-    Scope, ScopedStorage, StorageBackend, StorageConfig as StorageUrl, StorageError,
+    Blocking, DocumentStore, DocumentStoreExt, MemoryStorage, Scope, ScopedStorage, StorageBackend,
+    StorageConfig as StorageUrl, StorageError,
 };
 
 use crate::config::schema::storage::redact_url;
@@ -30,8 +34,37 @@ use crate::config::Config;
 /// The environment variable that overrides `[storage] url`.
 pub const STORAGE_URL_VAR: &str = "OPENHUMAN_STORAGE_URL";
 
-static BACKEND: LazyLock<RwLock<Option<Arc<dyn StorageBackend>>>> =
-    LazyLock::new(|| RwLock::new(None));
+/// A holder for one backend. The process has exactly one ([`BACKEND`]);
+/// tests make their own, so they never change what other tests in the same
+/// process see.
+#[derive(Default)]
+struct Slot(RwLock<Option<Arc<dyn StorageBackend>>>);
+
+impl Slot {
+    fn install(&self, backend: Arc<dyn StorageBackend>) -> Option<Arc<dyn StorageBackend>> {
+        self.0
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .replace(backend)
+    }
+
+    fn installed(&self) -> Option<Arc<dyn StorageBackend>> {
+        self.0
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+
+    fn clear(&self) -> bool {
+        self.0
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .take()
+            .is_some()
+    }
+}
+
+static BACKEND: LazyLock<Slot> = LazyLock::new(Slot::default);
 
 /// The storage URL in effect: [`STORAGE_URL_VAR`], else `config`'s
 /// `[storage] url`. Blank values count as unset. `None` keeps the classic
@@ -68,27 +101,84 @@ pub async fn open(url: &str) -> Result<Arc<dyn StorageBackend>, StorageError> {
 
 /// Makes `backend` the process's storage backend; returns the previous one.
 pub fn install(backend: Arc<dyn StorageBackend>) -> Option<Arc<dyn StorageBackend>> {
-    let mut slot = BACKEND
-        .write()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    slot.replace(backend)
+    BACKEND.install(backend)
 }
 
 /// The installed backend, when the host configured one.
 pub fn installed() -> Option<Arc<dyn StorageBackend>> {
-    BACKEND
-        .read()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .clone()
+    BACKEND.installed()
 }
 
 /// Removes the installed backend; returns whether there was one.
 pub fn clear() -> bool {
-    BACKEND
-        .write()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .take()
-        .is_some()
+    BACKEND.clear()
+}
+
+/// The storage scope of the current call: the acting agent's
+/// ([`scope_for_agent`]) when the dispatch carries one
+/// (`CoreContext::session_agent`), else [`Scope::local`] — except in SaaS
+/// mode, where a call with no acting agent is refused rather than given a
+/// bucket every user would share.
+///
+/// # Errors
+///
+/// In SaaS mode, when the current context names no agent.
+pub fn current_scope() -> Result<Scope, StorageError> {
+    let agent = crate::core::runtime::CoreContext::current()
+        .and_then(|context| context.session_agent().map(str::to_string));
+    scope_from(agent.as_deref(), crate::core::runtime::mode::is_saas())
+}
+
+/// [`current_scope`] with its two inputs made explicit, so the rule is
+/// testable without a booted context or a locked mode.
+///
+/// # Errors
+///
+/// When `saas` and there is no `agent`.
+pub fn scope_from(agent: Option<&str>, saas: bool) -> Result<Scope, StorageError> {
+    match agent {
+        Some(agent) => Ok(scope_for_agent(agent)),
+        None if saas => Err(StorageError::invalid_input(
+            "no acting agent in SaaS mode; refusing a shared storage scope",
+        )),
+        None => Ok(Scope::local()),
+    }
+}
+
+/// The installed backend bound to [`current_scope`], or `None` when the host
+/// configured no backend (the classic on-disk layout).
+///
+/// # Errors
+///
+/// When the scope cannot be resolved ([`current_scope`]) or the backend
+/// refuses it.
+pub fn current_scoped() -> Result<Option<ScopedStorage>, StorageError> {
+    installed()
+        .map(|backend| backend.for_scope(&current_scope()?))
+        .transpose()
+}
+
+/// Runs `future` to completion from synchronous code, on one dedicated
+/// runtime thread shared by every caller in the process.
+///
+/// For domain stores whose API is synchronous (most of the core's), so they
+/// can call the async storage ports without `block_in_place` — which would
+/// panic on a current-thread runtime.
+///
+/// # Errors
+///
+/// When the bridge cannot start, or `future` called back into it.
+pub fn block_on<T, F>(future: F) -> Result<T, StorageError>
+where
+    F: Future<Output = Result<T, StorageError>> + Send + 'static,
+    T: Send + 'static,
+{
+    static BRIDGE: OnceLock<Result<Blocking, String>> = OnceLock::new();
+    let bridge = BRIDGE
+        .get_or_init(|| Blocking::new().map_err(|error| error.to_string()))
+        .as_ref()
+        .map_err(|error| StorageError::backend(error.clone()))?;
+    bridge.run(future)?
 }
 
 /// Whether a backend with this driver name may be shared by several

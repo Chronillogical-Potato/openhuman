@@ -30,15 +30,15 @@
 //! phrases, budget exhaustion) keep matching them.
 
 use crate::backend::url::effective_backend_api_url;
-use openhuman_core::backend::transport::{
+use openhuman_embed::__host::backend::transport::{
     resolve_backend_transport, BackendTransport, BackendTransportError, TransportProfile,
 };
-use openhuman_core::config::Config;
-use openhuman_core::core::observability::{
+use openhuman_embed::__host::config::Config;
+use openhuman_embed::__host::core::observability::{
     contains_transient_transport_phrase, is_transient_http_status_code, API_KEY_REJECTED_PREFIX,
     BACKEND_UNAVAILABLE_PREFIX,
 };
-use openhuman_core::security::credentials::session_support::{
+use openhuman_embed::__host::security::credentials::session_support::{
     resolve_backend_credential, BackendCredential,
 };
 use serde_json::Value;

@@ -89,7 +89,7 @@ fn is_true(value: &bool) -> bool {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct MemoryConfig {
-    /// The selected engine id (`tinyhumans` or `cortexdb`).
+    /// The selected engine id (`tinyhumans` or `cortexdb`), or `none` when memory is disabled.
     pub engine: String,
     #[serde(rename = "backend", default, skip_serializing)]
     #[schemars(skip)]

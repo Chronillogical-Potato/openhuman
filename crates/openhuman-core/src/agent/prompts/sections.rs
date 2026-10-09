@@ -430,8 +430,13 @@ impl PromptSection for RuntimeSection {
     }
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
-        let host =
-            hostname::get().map_or_else(|_| "unknown".into(), |h| h.to_string_lossy().to_string());
+        // A SaaS process serves many users; the machine it runs on is not
+        // theirs to know.
+        let host = if crate::core::runtime::is_saas() {
+            "hosted".to_string()
+        } else {
+            hostname::get().map_or_else(|_| "unknown".into(), |h| h.to_string_lossy().to_string())
+        };
         Ok(format!(
             "## Runtime\n\nHost: {host} | OS: {} | Model: {}",
             std::env::consts::OS,

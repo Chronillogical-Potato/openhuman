@@ -339,6 +339,65 @@ fn engine_set_validates_and_rebinds() {
 }
 
 #[tokio::test]
+async fn disabling_memory_turns_it_off_and_keeps_the_engine_settings() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = config_in(&tmp);
+    apply_engine_set(
+        &mut config,
+        &EngineSetParams {
+            engine: CORTEXDB_ENGINE.into(),
+            endpoint: Some("https://cortex.example.test".into()),
+            api_key: Some("cdb-test-key".into()),
+        },
+    )
+    .unwrap();
+    assert!(engine::is_on(&config));
+
+    let keyed = EngineSetParams {
+        engine: DISABLED_ENGINE.into(),
+        endpoint: None,
+        api_key: Some("k".into()),
+    };
+    assert_eq!(
+        apply_engine_set(&mut config, &keyed).unwrap_err().code(),
+        INVALID_REQUEST
+    );
+    assert!(engine::is_on(&config), "a refused disable changes nothing");
+
+    let disable = EngineSetParams {
+        engine: DISABLED_ENGINE.into(),
+        endpoint: None,
+        api_key: None,
+    };
+    apply_engine_set(&mut config, &disable).unwrap();
+    assert_eq!(config.memory.engine, DISABLED_ENGINE);
+    assert!(!engine::is_on(&config));
+    assert_eq!(
+        config.memory.endpoint_for(CORTEXDB_ENGINE).as_deref(),
+        Some("https://cortex.example.test"),
+        "the cortexdb endpoint survives disabling"
+    );
+
+    let view = engine_get(&config).await;
+    assert_eq!(view.engine.as_deref(), Some(DISABLED_ENGINE));
+    assert_eq!(view.status, EngineStatus::Off);
+    assert_eq!(view.reason.as_deref(), Some("memory is disabled"));
+    assert!(engines_list(&config).active.is_none());
+
+    // Selecting cortexdb again needs no endpoint or key re-entry.
+    apply_engine_set(
+        &mut config,
+        &EngineSetParams {
+            engine: CORTEXDB_ENGINE.into(),
+            endpoint: None,
+            api_key: None,
+        },
+    )
+    .unwrap();
+    assert!(engine::is_on(&config));
+}
+
+#[tokio::test]
 async fn fetch_refuses_a_mode_the_engine_does_not_declare() {
     let tmp = tempfile::tempdir().unwrap();
     let mut config = config_in(&tmp);

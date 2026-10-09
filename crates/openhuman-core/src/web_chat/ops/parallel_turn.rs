@@ -14,7 +14,7 @@ use super::super::event_bus::publish_web_channel_event;
 use super::super::run_task::run_chat_task;
 use super::super::types::{ChatRequestMetadata, ParallelEntry};
 use super::super::web_errors::classify_inference_error;
-use super::state::PARALLEL_IN_FLIGHT;
+use super::state::{key_for, unscope, PARALLEL_IN_FLIGHT};
 use super::turn_guards::{
     run_turn_under_cancel_and_deadline, sentry_suppression_reason, timeout_bound_tag,
 };
@@ -42,6 +42,10 @@ pub(crate) async fn spawn_parallel_turn(
     let client_id_task = client_id.to_string();
     let thread_id_task = thread_id.to_string();
     let request_id_task = request_id.clone();
+    // Request and thread ids are caller-chosen and only unique per agent, so
+    // the table is keyed in the caller's scope (see `key_for`).
+    let map_key = key_for(&request_id);
+    let map_key_task = map_key.clone();
     let user_message = message.to_string();
     // Forked turns don't participate in the steer/followup/collect queue, but
     // `run_chat_task` requires a queue handle — give each its own.
@@ -193,14 +197,14 @@ pub(crate) async fn spawn_parallel_turn(
                 }
             }
 
-            PARALLEL_IN_FLIGHT.lock().await.remove(&request_id_task);
+            PARALLEL_IN_FLIGHT.lock().await.remove(&map_key_task);
         },
     ));
 
     PARALLEL_IN_FLIGHT.lock().await.insert(
-        request_id,
+        map_key,
         ParallelEntry {
-            thread_id: thread_id.to_string(),
+            thread_id: key_for(thread_id),
             handle,
             cancel_token,
         },
@@ -212,10 +216,11 @@ pub(crate) async fn spawn_parallel_turn(
 /// tears down any concurrent forked turns, not just the primary turn.
 pub(crate) async fn cancel_parallel_turns_for_thread(thread_id: &str) -> Vec<String> {
     let mut cancelled = Vec::new();
+    let scoped_thread = key_for(thread_id);
     let mut parallel = PARALLEL_IN_FLIGHT.lock().await;
     let request_ids: Vec<String> = parallel
         .iter()
-        .filter(|(_, entry)| entry.thread_id == thread_id)
+        .filter(|(_, entry)| entry.thread_id == scoped_thread)
         .map(|(request_id, _)| request_id.clone())
         .collect();
     for request_id in request_ids {
@@ -230,7 +235,7 @@ pub(crate) async fn cancel_parallel_turns_for_thread(thread_id: &str) -> Vec<Str
                     }
                 }
             });
-            cancelled.push(request_id);
+            cancelled.push(unscope(&request_id));
         }
     }
     cancelled
@@ -244,15 +249,17 @@ pub(crate) async fn cancel_parallel_turn_by_request_id(
     thread_id: &str,
     request_id: &str,
 ) -> Vec<String> {
+    let map_key = key_for(request_id);
+    let scoped_thread = key_for(thread_id);
     let mut parallel = PARALLEL_IN_FLIGHT.lock().await;
     let matches = parallel
-        .get(request_id)
-        .map(|entry| entry.thread_id == thread_id)
+        .get(&map_key)
+        .map(|entry| entry.thread_id == scoped_thread)
         .unwrap_or(false);
     if !matches {
         return Vec::new();
     }
-    if let Some(entry) = parallel.remove(request_id) {
+    if let Some(entry) = parallel.remove(&map_key) {
         entry.cancel_token.cancel();
         let mut handle = entry.handle;
         tokio::spawn(async move {

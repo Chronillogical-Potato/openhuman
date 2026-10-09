@@ -443,7 +443,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': '메모리',
   'welcome.th.featureEmbeddings': '임베딩',
   'welcome.th.featureBilling': '결제',
-  'welcome.th.credit': '시작 크레딧 $5',
   'welcome.th.cta': 'TinyHumans로 계속하기',
   'welcome.th.providers': 'Google, GitHub 또는 X로 로그인',
   'welcome.self.title': '직접 설정하기',
@@ -5023,6 +5022,17 @@ const messages: TranslationMap = {
   'memoryPage.off.title': '메모리가 꺼져 있습니다',
   'memoryPage.off.description': '메모리 제공자를 선택하면 기억을 시작합니다.',
   'memoryPage.off.action': '제공자 선택',
+  'memoryPage.disabled.title': '메모리가 비활성화됨',
+  'memoryPage.disabled.description':
+    'OpenHuman이 아무것도 저장하거나 기억하지 않습니다. 메모리를 다시 켜려면 제공자를 선택하세요.',
+  'memoryPage.engine.disabled.title': '비활성화',
+  'memoryPage.engine.disabled.description':
+    '메모리를 완전히 끕니다. 아무것도 저장하거나 기억하지 않으며 연결 설정은 유지됩니다.',
+  'memoryPage.engine.disabled.action': '메모리 비활성화',
+  'memoryPage.engine.disabled.banner':
+    '아무것도 저장하거나 기억하지 않고 있습니다. 메모리를 다시 켜려면 아래에서 제공자를 선택하세요.',
+  'memoryPage.engine.disabled.toast': '메모리가 비활성화되었습니다',
+  'memoryPage.engine.disabled.toastFailed': '메모리를 비활성화하지 못했습니다',
   'memoryPage.engine.inUse': '사용 중',
   'memoryPage.announcement.title': 'CortexDB에서 메모리 추론 무료',
   'memoryPage.announcement.retired': 'TinyCortex는 10월 7일 종료되었습니다.',

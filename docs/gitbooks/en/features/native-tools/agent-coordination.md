@@ -1,43 +1,43 @@
 ---
-description: Tools the agent uses to plan, delegate, and ask for help.
+description: Tools the agent uses to plan, delegate and ask for help.
 icon: sitemap
 ---
 
-# Agent Coordination
+# Agent coordination
 
-Beyond doing the work, the agent has tools for _organising_ the work - planning multi-step jobs, delegating to specialists, spawning subagents, and pausing to ask the user when something is genuinely ambiguous.
+Besides doing the work, the agent has tools for organizing it: planning multi-step jobs, delegating to specialists, spawning sub-agents, and pausing to ask you when something is genuinely unclear.
 
-## Tools in the family
+## Tools in this family
 
-| Tool                                              | What it does                                                                                                    |
-| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `todo`                                            | Rewrite the session todo list across a long task; the chat shows it as a checklist that ticks off as work progresses. |
-| `spawn_subagent`                                  | Delegate to a reusable async specialist by default; creates a fresh worker only when incompatible or requested. |
-| `spawn_async_subagent`                            | Lower-level reusable async delegation surface with the same durable session identity.                           |
-| `steer_subagent` / `wait_subagent`                | Message or collect a running worker by durable `subagent_session_id` or transient `task_id`.                    |
-| `list_subagents` / `close_subagent`               | Inspect reusable workers for the parent thread or explicitly retire one.                                        |
-| `spawn_worker_thread`                             | Explicit background work tracked as a separate worker thread.                                                   |
-| `delegate`                                        | Hand a task to a specialist (e.g. an archetype with different prompts/tools/permissions).                       |
-| `spawn_parallel_agents`                           | Fan one task out to several specialists at once and merge what they return.                                     |
-| `use_skill`                                       | Load an inline skill's playbook and tools (coding, web3, system, scheduling, docs, mcp) and call them directly. |
-| `ask_user_clarification`                          | Pause and ask the user a precise question instead of guessing.                                                  |
-| `plan_exit`                                       | Exit a planning phase and start executing.                                                                      |
+| Tool                                | What it does                                                                                                           |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `todo`                              | Rewrites the session to-do list across a long task. The chat shows it as a checklist that ticks off as work progresses. |
+| `spawn_subagent`                    | Delegates to a reusable async specialist. It creates a fresh worker only when the work is incompatible or you ask.     |
+| `spawn_async_subagent`              | A lower-level reusable async delegation tool with the same durable session identity.                                   |
+| `steer_subagent`, `wait_subagent`   | Message or collect a running worker by durable `subagent_session_id` or transient `task_id`.                           |
+| `list_subagents`, `close_subagent`  | Inspect the reusable workers for the parent thread, or retire one.                                                     |
+| `spawn_worker_thread`               | Explicit background work tracked as a separate worker thread.                                                          |
+| `delegate`                          | Hands a task to a specialist, such as an archetype with different prompts, tools or permissions.                       |
+| `spawn_parallel_agents`             | Fans one task out to several specialists at once and merges what they return.                                          |
+| `use_skill`                         | Loads an inline skill's playbook and tools (coding, web3, system, scheduling, docs, mcp) so the agent can call them.   |
+| `ask_user_clarification`            | Pauses and asks you a precise question instead of guessing.                                                            |
+| `plan_exit`                         | Leaves the planning phase and starts executing.                                                                        |
 
-`spawn_subagent` and archetype delegation calls accept an optional `model` field for a one-off exact model pin. If it is omitted, the harness uses config-level per-agent pins when present and otherwise falls back to the normal model-routing hints. Model, sandbox mode, parent thread, action root, and task key are part of reusable sub-agent compatibility, so materially different work gets a separate worker.
+`spawn_subagent` and archetype delegation calls accept an optional `model` field to pin an exact model for one call. If you leave it out, the harness uses per-agent pins from config when present, and otherwise falls back to normal model-routing hints. Model, sandbox mode, parent thread, action root and task key all affect whether a sub-agent can be reused, so materially different work gets its own worker.
 
-Reusable delegation returns both a transient `task_id` and a durable `subagent_session_id`. Prefer the durable id for cross-turn follow-ups. Pass `fresh: true` only when the user or task needs a clean worker; pass `blocking: true` only when the parent must wait inline for the child result.
+Reusable delegation returns a transient `task_id` and a durable `subagent_session_id`. Use the durable id for follow-ups in later turns. Pass `fresh: true` only when you or the task needs a clean worker. Pass `blocking: true` only when the parent must wait for the child's result.
 
-## Why these are tools, not implicit behaviour
+## Why these are tools
 
-Long tasks fall apart when the agent tries to keep everything in one head. Splitting work via TODOs and subagents means:
+Long tasks fall apart when an agent tries to hold everything in one head. Splitting work with to-dos and sub-agents helps in three ways:
 
-- Each subagent keeps useful local context for the same logical job instead of being respawned every turn.
+- Each sub-agent keeps useful local context for the same job instead of being respawned every turn.
 - The main thread keeps a high-level view of progress.
-- Failures in one branch don't poison the rest.
+- A failure in one branch does not spoil the rest.
 
-Asking for clarification is a tool too, on purpose: it makes "I should ask the user" a _visible_ decision the agent can be steered toward, not an emergent behaviour.
+Asking for clarification is a tool on purpose. It makes "I should ask the user" a visible decision the agent can be steered toward, instead of something that only happens by chance.
 
 ## See also
 
-- [Coder](coder.md) - the coding tools, most of them loaded through the `coding` skill.
-- [Cron & Scheduling](cron.md) - how background agent runs get scheduled.
+- [Coder](coder.md): the coding tools, most of them loaded through the `coding` skill.
+- [Cron and scheduling](cron.md): how background agent runs are scheduled.

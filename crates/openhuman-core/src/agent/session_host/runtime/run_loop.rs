@@ -41,7 +41,9 @@ impl OpenHumanSessionHost {
                 session_id: Some(self.event_session_id()),
             },
         );
-        if !matches!(guard.action, PromptEnforcementAction::Allow) {
+        // A host-only session reading untrusted data has opted out; see
+        // `set_untrusted_input`, which refuses any other session.
+        if !self.untrusted_input && !matches!(guard.action, PromptEnforcementAction::Allow) {
             let user_message = match guard.action {
                 PromptEnforcementAction::Allow => "Message accepted.",
                 PromptEnforcementAction::Blocked => "Prompt blocked by security policy.",

@@ -5389,6 +5389,17 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'メモリーはオフです',
   'memoryPage.off.description': 'メモリプロバイダーを選ぶと記憶を始めます。',
   'memoryPage.off.action': 'プロバイダーを選ぶ',
+  'memoryPage.disabled.title': 'メモリーは無効です',
+  'memoryPage.disabled.description':
+    'OpenHuman は何も保存・想起していません。メモリーを再び有効にするにはプロバイダーを選択してください。',
+  'memoryPage.engine.disabled.title': '無効',
+  'memoryPage.engine.disabled.description':
+    'メモリーを完全にオフにします。何も保存・想起されず、接続設定はそのまま保持されます。',
+  'memoryPage.engine.disabled.action': 'メモリーを無効にする',
+  'memoryPage.engine.disabled.banner':
+    '何も保存・想起されていません。メモリーを再び有効にするには、下のプロバイダーを選択してください。',
+  'memoryPage.engine.disabled.toast': 'メモリーを無効にしました',
+  'memoryPage.engine.disabled.toastFailed': 'メモリーを無効にできませんでした',
   'memoryPage.engine.inUse': '使用中',
   'memoryPage.announcement.title': 'CortexDB でメモリ推論が無料',
   'memoryPage.announcement.retired': 'TinyCortex は 10 月 7 日に廃止されました。',
@@ -5767,7 +5778,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'メモリー',
   'welcome.th.featureEmbeddings': '埋め込み',
   'welcome.th.featureBilling': '請求',
-  'welcome.th.credit': '最初に使える5ドル分のクレジット',
   'welcome.th.cta': 'TinyHumansで続ける',
   'welcome.th.providers': 'Google、GitHub、Xでサインイン',
   'welcome.self.title': '自分で設定する',

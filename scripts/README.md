@@ -6,15 +6,15 @@ details.
 
 ## Sub-directories
 
-The first seven have their own README; the rest are documented by the header
-comments of the scripts inside them.
+The first five have their own README; the rest are documented by the header
+comments of the scripts inside them. Benchmark, profiling and stress-test
+drivers live in
+[tinyhumansai/openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks).
 
 | Directory | Purpose |
 | --- | --- |
 | [`ci/`](ci/README.md) | Merge-gate scripts (layout, feature forwarding, module pins, coverage, toolchain drift). |
-| [`bench/`](bench/README.md) | Agent-scale benchmarks against a real `openhuman-core` server process. |
 | [`debug/`](debug/README.md) | Agent-friendly wrappers around the test runners, run via `pnpm debug ...`. |
-| [`profile/`](profile/README.md) | Embedded-library benchmarking (RSS, CPU, heap, fleet sweeps) for the Rust core. |
 | [`rabbit/`](rabbit/README.md) | Auto-retriggers CodeRabbit reviews once a PR's rate-limit window elapses. |
 | [`shortcuts/`](shortcuts/README.md) | High-level pnpm workflow commands (`pnpm review`, `pnpm work`, `pnpm reset`, ...). |
 | [`test-planning/`](test-planning/README.md) | Mines GitHub issues/PRs into a test-planning backlog via an LLM CLI. |

@@ -162,7 +162,7 @@ async fn revoke_invite_rejects_empty_invite_id() {
 // --- SDK-backed calls against a mock backend -----------------------------
 
 use crate::hosted::test_support;
-use openhuman_core::core::observability::expected_error_kind;
+use openhuman_embed::__host::core::observability::expected_error_kind;
 use serde_json::json;
 use tempfile::TempDir;
 use wiremock::matchers::{body_json, method, path};

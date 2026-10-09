@@ -1,29 +1,26 @@
 ---
 description: >-
-  The host half of the dynamic, user-facing side of MCP-client support:
-  browse servers on Smithery and the official MCP registry, declare the
-  user's servers in one mcp.json document, connect them (persistence and
-  supervision live in the vendored `tinymcp` crate), and surface their tools
-  to agents via the unified tool registry.
+  How OpenHuman browses MCP registries, connects the servers you declare in
+  mcp.json, and gives their tools to agents.
 icon: plug
 ---
 
-# MCP Registry
+# MCP registry
 
-`crates/openhuman-core/src/mcp/registry/` is the **host half** of the dynamic, user-facing side of OpenHuman's Model Context Protocol client support: browsing the supported upstream registries (Smithery and the official modelcontextprotocol registry), reconciling the install store against the user's `mcp.json` document, persisting that, and (for servers launched as local subprocesses or HTTP-remote endpoints) supervising the connection lifecycle. Installed servers' tools are surfaced to agents via the unified tool registry (`crate::tools::registry`).
+`crates/openhuman-core/src/mcp/registry/` is the host half of OpenHuman's Model Context Protocol (MCP) client support. It browses the supported upstream registries (Smithery and the official modelcontextprotocol registry) and reconciles the install store against your `mcp.json` document. For servers launched as local subprocesses or HTTP-remote endpoints, it also supervises the connection. The tools of installed servers reach agents through the unified tool registry (`crate::tools::registry`).
 
-The registries are **browse-only**. There is no install-from-catalog path and no setup agent: a user who finds a server in the Registry tab opens its own page, reads the install instructions there, and declares the server in the mcp.json tab (`{ "mcpServers": { name: { command, args, env } | { url, headers } } }`). The document's contract and its reconciliation live in `tinymcp::registry::config_doc`; `config_ops.rs` here is the RPC envelope over them (`mcp_clients_config_get` / `mcp_clients_config_set`).
+The registries are browse-only. There is no install-from-catalog path and no setup agent. If you find a server in the Registry tab, you open its own page, read the install instructions there, and declare the server in the mcp.json tab: `{ "mcpServers": { name: { command, args, env } | { url, headers } } }`. The document's contract and its reconciliation live in `tinymcp::registry::config_doc`. `config_ops.rs` here is the RPC envelope over them (`mcp_clients_config_get` and `mcp_clients_config_set`).
 
-The **client half**, meaning both transports, the Smithery/official catalogs, the SQLite store, the live connection map, the subprocess supervisor, browser sign-in, and the write-audit log, moved to the vendored `tinymcp` crate (`vendor/tinymcp`). What lives in this directory is only what belongs to this application:
+The client half lives in the vendored `tinymcp` crate (`vendor/tinymcp`): both transports, the Smithery and official catalogs, the SQLite store, the live connection map, the subprocess supervisor, browser sign-in and the write-audit log. This directory holds only what belongs to the application:
 
-- `host.rs` (one level up, `crates/openhuman-core/src/mcp/host.rs`): the one `tinymcp` service this process holds per workspace, and config-to-`tinymcp` conversion.
-- `registry/`: the `mcp_clients` RPC surface, the agent-facing tools, and the prompt-injection scan applied to remote tool definitions.
-- `audit/` (sibling of `registry/`): the RPC surface over `tinymcp`'s write-audit log.
-- `server/` (sibling of `registry/`): the `openhuman-core mcp` stdio/HTTP server that exposes this application's own tools to external MCP hosts (see [MCP Server](../mcp-server.md)). This is the *server* side and did not move.
+- `host.rs` (one level up, `crates/openhuman-core/src/mcp/host.rs`) holds the one `tinymcp` service this process runs per workspace, and converts config to `tinymcp` types.
+- `registry/` holds the `mcp_clients` RPC surface, the agent-facing tools and the prompt-injection scan applied to remote tool definitions.
+- `audit/` (next to `registry/`) is the RPC surface over `tinymcp`'s write-audit log.
+- `server/` (next to `registry/`) is the `openhuman-core mcp` stdio and HTTP server that exposes this application's own tools to external MCP hosts. See [MCP server](../mcp-server.md). That is the server side, a separate thing from this client code.
 
-> **Naming note**: the Rust module path is `crate::mcp::registry` (`crates/openhuman-core/src/mcp/registry/`), but the RPC namespace and on-disk SQLite filename stay `mcp_clients` for backward compatibility with existing frontend code and stored user state. Grep both names when chasing call sites.
+The Rust module path is `crate::mcp::registry`, but the RPC namespace and the on-disk SQLite filename are `mcp_clients`. They stay that way so existing frontend code and stored user state keep working. Search for both names when you trace call sites.
 
-All payload types (`InstalledServer`, `McpTool`, `ConnStatus`, the Smithery/official-registry DTOs) come from `tinymcp_bus` and are re-exported under `registry::types`, not redefined here. Types for the *static, config-declared* server set (`[[mcp_client.servers]]` in `config.toml`) and the shared HTTP/stdio transport primitives are re-exported from `crate::mcp::config_servers` and `crate::mcp::http_client` (thin `pub use tinymcp::...` modules in `mcp/mod.rs`, not directories).
+All payload types (`InstalledServer`, `McpTool`, `ConnStatus` and the Smithery and official-registry DTOs) come from `tinymcp_bus` and are re-exported under `registry::types`, not redefined here. Types for the static, config-declared server set (`[[mcp_client.servers]]` in `config.toml`) and the shared HTTP/stdio transport primitives are re-exported from `crate::mcp::config_servers` and `crate::mcp::http_client` (thin `pub use tinymcp::...` modules in `mcp/mod.rs`, not directories).
 
 ```text
                  ┌────────────────────────────────────────────────┐
@@ -53,7 +50,7 @@ An `InstalledServer` (from `tinymcp_bus`, re-exported as `registry::types::Insta
 
 ## Boot-time spawn and the reconnect supervisor
 
-Installed servers are connected as the core comes up, and `mcp::registry::supervisor` (see `crates/openhuman-core/src/mcp/registry/mod.rs`) runs `tinymcp::Supervisor::tick` on an interval against every open workspace host, turning each tick's report into `supervisor_events::publish` calls. Errors never block boot; a broken MCP install should not gate the desktop app starting. Non-nominal ticks (stays-down, restored, parked) become `DomainEvent`s that reach the Event Log and the desktop notification bridge (#5931).
+Installed servers are connected as the core comes up, and `mcp::registry::supervisor` (see `crates/openhuman-core/src/mcp/registry/mod.rs`) runs `tinymcp::Supervisor::tick` on an interval against every open workspace host, turning each tick's report into `supervisor_events::publish` calls. Errors never block boot. A broken MCP install should not stop the desktop app from starting. Non-nominal ticks (stays-down, restored, parked) become `DomainEvent`s that reach the Event Log and the desktop notification bridge.
 
 ## Layout
 
@@ -64,7 +61,7 @@ Installed servers are connected as the core comes up, and `mcp::registry::superv
 | `helpers.rs`                | Shared RPC-handler plumbing: `Outcome` encoding, identifier guards, workspace-service resolution, credential-name injection.                                                        |
 | `ops.rs`                    | `mcp_clients_*` RPC handler implementations (uninstall, list, browse, connect/disconnect, tool call, `update_env`, registry settings). One-to-one with `schemas.rs` handlers; publishes `DomainEvent`s `tinymcp` does not. |
 | `config_ops.rs`             | `mcp_clients_config_get` / `config_set`: the `Outcome` envelope, domain events and background connects over `tinymcp`'s `McpRegistry::render_config_doc` / `apply_config_doc`. The `mcp.json` shape, its refusals and the reconciliation (add, rewrite in place under the same `server_id`, or uninstall, merging write-only credentials) live in `tinymcp::registry::config_doc`. |
-| `action_tool.rs`            | One deferred agent tool per action on a connected server, built from `tinymcp_bus::agent_tools::action_tool_specs` with `tools_safe_for_agent` as the admission filter; execution goes through `InstalledServerInvoker::invoke`, which re-checks the live safe-tool list and then calls `service.dynamic().invoke(...)` on the `tinymcp` service, rather than back through `ops.rs`. |
+| `action_tool.rs`            | One deferred agent tool per action on a connected server, built from `tinymcp_bus::agent_tools::action_tool_specs` with `tools_safe_for_agent` as the admission filter. Execution goes through `InstalledServerInvoker::invoke`, which re-checks the live safe-tool list and then calls `service.dynamic().invoke(...)` on the `tinymcp` service, rather than back through `ops.rs`. |
 | `schemas/` (`mod.rs`, `registry.rs`, `handlers.rs`, `params.rs`) | Controller schemas + handler dispatch. Re-exported from `mod.rs` as `all_mcp_registry_controller_schemas` / `all_mcp_registry_registered_controllers`.                    |
 | `bus.rs`                    | `DomainEvent` subscriber (`McpClientEventSubscriber`) that logs `McpServer*` / `McpClientToolExecuted` lifecycle events.                                                               |
 | `supervisor_events.rs`      | Turns a `tinymcp::Supervisor` tick report into this domain's `DomainEvent`s, stamped with the workspace whose host was ticked.                                                          |
@@ -73,7 +70,7 @@ Installed servers are connected as the core comes up, and `mcp::registry::superv
 
 ## Public surface
 
-The exports from `mod.rs` are intentionally narrow:
+The exports from `mod.rs` are narrow on purpose:
 
 ```rust
 pub use schemas::{
@@ -85,7 +82,7 @@ pub use schemas::{
 pub use types::{ConnStatus, InstalledServer, McpTool};
 ```
 
-`types` and `connections` are thin `pub mod`s re-exporting the `tinymcp_bus` wire vocabulary and `super::host`-backed lookups, respectively. This domain does not define its own copies. Everything else (`bus`, `ops`, `action_tool`, `supervisor_events`, `tools`) is `pub mod` for in-crate callers but not re-exported from `mod.rs`.
+`types` and `connections` are thin `pub mod`s. They re-export the `tinymcp_bus` wire vocabulary and the `super::host`-backed lookups. This domain does not define its own copies. Everything else (`bus`, `ops`, `action_tool`, `supervisor_events`, `tools`) is `pub mod` for in-crate callers but not re-exported from `mod.rs`.
 
 ## Calls into
 
@@ -98,7 +95,7 @@ pub use types::{ConnStatus, InstalledServer, McpTool};
 ## Called by
 
 - Core startup, via `mcp::host::init` and the reconnect-supervisor loop.
-- Frontend Connections UI: the **MCP Servers** page (`McpServersTab`) is three tabs over the `openhuman.mcp_clients_*` RPC namespace: **Servers** (rows, status, the credential form: connect/disconnect, `update_env`, sign-in), **mcp.json** (`config_get` / `config_set`, the only way a server is added or removed) and **Registry** (`registry_search`, browse-only; a row opens the server's own page in the browser). `registry_settings_get` / `registry_settings_set` hold the Smithery / official-registry credentials (secret values are write-only). Agents use connected servers directly: the orchestrator finds a connected server's tool through `tool_search`, or loads the `mcp` skill (`use_skill`, guide in `crates/openhuman-core/src/tools/toolpacks/guides/mcp.md`) for the `mcp_registry_*` status / list-tools / tool-call fallback; they do not install them.
+- The frontend Connections UI. The MCP Servers page (`McpServersTab`) has three tabs over the `openhuman.mcp_clients_*` RPC namespace: Servers (rows, status and the credential form: connect, disconnect, `update_env`, sign-in), mcp.json (`config_get` and `config_set`, the only way to add or remove a server) and Registry (`registry_search`, browse-only; a row opens the server's own page in the browser). `registry_settings_get` / `registry_settings_set` hold the Smithery / official-registry credentials (secret values are write-only). Agents use connected servers directly. The orchestrator finds a connected server's tool through `tool_search`, or loads the `mcp` skill (`use_skill`, guide in `crates/openhuman-core/src/tools/toolpacks/guides/mcp.md`) for the `mcp_registry_*` status, list-tools and tool-call fallback. Agents do not install servers.
 
 ## Tests
 
@@ -106,9 +103,9 @@ Focused `*_tests.rs` siblings cover each file: `bus_tests.rs`, `ops_tests.rs`, `
 
 ## Related
 
-- [`mcp/registry/mod.rs`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-core/src/mcp/registry/mod.rs) and [`mcp/mod.rs`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-core/src/mcp/mod.rs): the authoritative rustdoc this page mirrors.
+- [`mcp/registry/mod.rs`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-core/src/mcp/registry/mod.rs) and [`mcp/mod.rs`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-core/src/mcp/mod.rs): the rustdoc this page mirrors.
 - `crate::mcp::config_servers` / `crate::mcp::http_client` (`mcp/mod.rs`): re-export modules for the static config-declared server set and the shared transport primitives, both implemented in `tinymcp`.
 - `crates/openhuman-core/src/mcp/audit/`: the RPC surface over `tinymcp`'s write-audit log.
-- [MCP Server](../mcp-server.md): the `openhuman-core mcp` stdio/HTTP server side, which did not move to `tinymcp`.
-- [Agent Harness](agent-harness.md): how the agent ends up calling MCP tools through `tool_registry`.
-- [Architecture overview](../architecture.md): where this fits in the wider system.
+- [MCP server](../mcp-server.md): the `openhuman-core mcp` stdio and HTTP server side.
+- [Agent harness](agent-harness.md): how the agent ends up calling MCP tools through `tool_registry`.
+- [Architecture](../architecture.md): where this fits in the wider system.

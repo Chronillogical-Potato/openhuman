@@ -8,7 +8,9 @@
 //!     the UI can list recently ingested items.
 //!
 //! Mirrors the `cron` domain's `with_connection` + migrate-on-open
-//! pattern.
+//! pattern. With a storage backend configured ([`crate::storage`]) every
+//! function here is served from the document port instead
+//! (`store_documents.rs`).
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -87,9 +89,27 @@ pub fn add_source(
     let now = Utc::now();
     let filter_json = serde_json::to_string(&filter).context("serialize task source filter")?;
     let target_json = serde_json::to_string(&target).context("serialize task source target")?;
+
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.add_source(&TaskSource {
+            id,
+            provider,
+            connection_id,
+            name,
+            enabled: true,
+            filter,
+            interval_secs,
+            target,
+            max_tasks_per_fetch,
+            created_at: now,
+            last_fetch_at: None,
+            last_status: None,
+        });
+    }
+
+    // SQLite-only bound: the document store holds the full `u64`.
     let interval_i64 = i64::try_from(interval_secs)
         .context("task source interval_secs exceeds SQLite INTEGER range")?;
-
     with_connection(config, |conn| {
         conn.execute(
             "INSERT INTO task_sources (
@@ -116,6 +136,9 @@ pub fn add_source(
 }
 
 pub fn get_source(config: &Config, id: &str) -> Result<TaskSource> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.get_source(id);
+    }
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(&format!("{SELECT_SOURCE_COLUMNS} WHERE id = ?1"))?;
         let mut rows = stmt.query(params![id])?;
@@ -128,6 +151,9 @@ pub fn get_source(config: &Config, id: &str) -> Result<TaskSource> {
 }
 
 pub fn list_sources(config: &Config) -> Result<Vec<TaskSource>> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.list_sources();
+    }
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(&format!(
             "{SELECT_SOURCE_COLUMNS} ORDER BY created_at ASC, id ASC"
@@ -141,17 +167,12 @@ pub fn list_sources(config: &Config) -> Result<Vec<TaskSource>> {
     })
 }
 
-/// Apply a partial patch to a task source.
+/// Applies `patch` to `source`, as both stores do.
 ///
-/// **Implementation note:** this function opens three separate SQLite
-/// connections (read-modify-write + read-back). At settings-panel scale the
-/// overhead is acceptable, but there is a theoretical TOCTOU window between
-/// the initial `get_source` and the subsequent `UPDATE`. A future refactor
-/// could fold all three operations into a single `with_connection` call using
-/// a SQL `UPDATE … RETURNING` pattern.
-pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Result<TaskSource> {
-    let mut source = get_source(config, id)?;
-
+/// # Errors
+///
+/// When the patch's filter is for a different provider than the source.
+pub(super) fn apply_patch(source: &mut TaskSource, patch: TaskSourcePatch) -> Result<()> {
     if let Some(name) = patch.name {
         source.name = Some(name).filter(|s| !s.trim().is_empty());
     }
@@ -180,6 +201,24 @@ pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Resul
     if let Some(connection_id) = patch.connection_id {
         source.connection_id = Some(connection_id).filter(|s| !s.trim().is_empty());
     }
+    Ok(())
+}
+
+/// Apply a partial patch to a task source.
+///
+/// **Implementation note:** this function opens three separate SQLite
+/// connections (read-modify-write + read-back). At settings-panel scale the
+/// overhead is acceptable, but there is a theoretical TOCTOU window between
+/// the initial `get_source` and the subsequent `UPDATE`. A future refactor
+/// could fold all three operations into a single `with_connection` call using
+/// a SQL `UPDATE … RETURNING` pattern. The document store applies the patch
+/// under compare-and-swap, so it has no such window.
+pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Result<TaskSource> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.update_source(id, patch);
+    }
+    let mut source = get_source(config, id)?;
+    apply_patch(&mut source, patch)?;
     let filter_json = serde_json::to_string(&source.filter).context("serialize filter")?;
     let target_json = serde_json::to_string(&source.target).context("serialize target")?;
     let interval_i64 = i64::try_from(source.interval_secs)
@@ -211,6 +250,9 @@ pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Resul
 }
 
 pub fn remove_source(config: &Config, id: &str) -> Result<()> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.remove_source(id);
+    }
     let changed = with_connection(config, |conn| {
         conn.execute("DELETE FROM task_sources WHERE id = ?1", params![id])
             .context("Failed to delete task source")
@@ -229,6 +271,9 @@ pub fn record_fetch(
     reason: FetchReason,
     status: &str,
 ) -> Result<()> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.record_fetch(id, finished_at, reason, status);
+    }
     let line = format!("{}: {status}", reason.as_str());
     with_connection(config, |conn| {
         conn.execute(
@@ -249,6 +294,9 @@ pub fn is_ingested(
     external_id: &str,
     hash: &str,
 ) -> Result<bool> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.is_ingested(source_id, external_id, hash);
+    }
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(
             "SELECT content_hash FROM ingested_tasks WHERE source_id = ?1 AND external_id = ?2",
@@ -270,6 +318,9 @@ pub fn is_ingested(
 /// todo board, the ledger row itself is the record. The column stays so
 /// older databases open unchanged.
 pub fn mark_ingested(config: &Config, source_id: &str, task: &NormalizedTask) -> Result<()> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.mark_ingested(source_id, task);
+    }
     let hash = content_hash(task);
     let payload = serde_json::to_string(task).context("serialize ingested task payload")?;
     let now = Utc::now().to_rfc3339();
@@ -294,6 +345,9 @@ pub fn mark_ingested(config: &Config, source_id: &str, task: &NormalizedTask) ->
 /// content hash. The pipeline uses it to tell an edited upstream task from a
 /// brand-new one in its logs.
 pub fn was_ingested(config: &Config, source_id: &str, external_id: &str) -> Result<bool> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.was_ingested(source_id, external_id);
+    }
     with_connection(config, |conn| {
         let mut stmt =
             conn.prepare("SELECT 1 FROM ingested_tasks WHERE source_id = ?1 AND external_id = ?2")?;
@@ -305,6 +359,9 @@ pub fn was_ingested(config: &Config, source_id: &str, external_id: &str) -> Resu
 /// Return ingested task ids for one source. Used by reconciliation to prune
 /// ledger rows that no longer match the upstream source/filter.
 pub fn list_ingested_refs(config: &Config, source_id: &str) -> Result<Vec<IngestedTaskRef>> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.list_ingested_refs(source_id);
+    }
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(
             "SELECT external_id FROM ingested_tasks
@@ -326,6 +383,9 @@ pub fn list_ingested_refs(config: &Config, source_id: &str) -> Result<Vec<Ingest
 
 /// Delete one ingested ledger row after its board card has been reconciled.
 pub fn remove_ingested(config: &Config, source_id: &str, external_id: &str) -> Result<bool> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.remove_ingested(source_id, external_id);
+    }
     let changed = with_connection(config, |conn| {
         conn.execute(
             "DELETE FROM ingested_tasks WHERE source_id = ?1 AND external_id = ?2",
@@ -342,6 +402,9 @@ pub fn list_ingested(
     source_id: &str,
     limit: usize,
 ) -> Result<Vec<NormalizedTask>> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.list_ingested(source_id, limit);
+    }
     // Floor of 1: a caller passing `limit = 0` still gets at least one row
     // rather than a confusing empty result; `unwrap_or(50)` is the fallback
     // in the unlikely event that `limit` exceeds `i64::MAX`.
@@ -367,6 +430,9 @@ pub fn list_ingested(
 /// Delete every task source (+ cascade ingested rows). Used by the E2E
 /// `test_reset` RPC.
 pub fn clear_all(config: &Config) -> Result<usize> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.clear_all();
+    }
     with_connection(config, |conn| {
         let removed = conn
             .execute("DELETE FROM task_sources", params![])
@@ -376,55 +442,8 @@ pub fn clear_all(config: &Config) -> Result<usize> {
     })
 }
 
-const SELECT_SOURCE_COLUMNS: &str = "SELECT id, provider, connection_id, name, enabled, filter, \
-     interval_secs, target, max_tasks_per_fetch, created_at, last_fetch_at, last_status \
-     FROM task_sources";
-
-fn map_source_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<TaskSource> {
-    let provider_raw: String = row.get(1)?;
-    let provider = ProviderSlug::parse(&provider_raw).map_err(sql_conv)?;
-
-    let filter_raw: String = row.get(5)?;
-    let filter: FilterSpec = serde_json::from_str(&filter_raw)
-        .map_err(|e| sql_conv(format!("invalid filter json: {e}")))?;
-
-    let target_raw: String = row.get(7)?;
-    let target: SourceTarget = serde_json::from_str(&target_raw)
-        .map_err(|e| sql_conv(format!("invalid target json: {e}")))?;
-
-    let created_at_raw: String = row.get(9)?;
-    let last_fetch_raw: Option<String> = row.get(10)?;
-
-    Ok(TaskSource {
-        id: row.get(0)?,
-        provider,
-        connection_id: row.get(2)?,
-        name: row.get(3)?,
-        enabled: row.get::<_, i64>(4)? != 0,
-        filter,
-        interval_secs: u64::try_from(row.get::<_, i64>(6)?)
-            .map_err(|_| sql_conv("invalid negative interval_secs in task_sources DB"))?,
-        target,
-        max_tasks_per_fetch: u32::try_from(row.get::<_, i64>(8)?)
-            .map_err(|_| sql_conv("invalid max_tasks_per_fetch in task_sources DB"))?,
-        created_at: parse_rfc3339(&created_at_raw).map_err(sql_conv)?,
-        last_fetch_at: match last_fetch_raw {
-            Some(raw) => Some(parse_rfc3339(&raw).map_err(sql_conv)?),
-            None => None,
-        },
-        last_status: row.get(11)?,
-    })
-}
-
-fn parse_rfc3339(raw: &str) -> Result<DateTime<Utc>> {
-    let parsed = DateTime::parse_from_rfc3339(raw)
-        .with_context(|| format!("Invalid RFC3339 timestamp in task_sources DB: {raw}"))?;
-    Ok(parsed.with_timezone(&Utc))
-}
-
-fn sql_conv<E: std::fmt::Display>(err: E) -> rusqlite::Error {
-    rusqlite::Error::ToSqlConversionFailure(anyhow::anyhow!("{err}").into())
-}
+mod store_rows;
+use store_rows::{map_source_row, SELECT_SOURCE_COLUMNS};
 
 /// Tracks which task_sources database files have already had their schema DDL
 /// (the `CREATE TABLE`/`CREATE INDEX` batch plus the `add_column_if_missing`

@@ -143,12 +143,14 @@ fn handle_subagent_cancel(params: Map<String, Value>) -> ControllerFuture {
                 // record a completion that flows through the same idle-gated
                 // delivery and surfaces the cancellation in chat.
                 background_completions::record_completion(
-                    meta.parent_session.clone(),
+                    &meta.workspace_dir,
+                    &meta.parent_session,
                     &task_id,
                     meta.agent_id.clone(),
                     summary,
                     meta.parent_thread_id.clone(),
-                );
+                )
+                .await;
                 if let Some(subagent_session_id) = meta.subagent_session_id {
                     let store = subagent_sessions::SubagentSessionStore::new(meta.workspace_dir);
                     if let Err(err) = subagent_sessions::mark_failed(

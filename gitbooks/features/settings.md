@@ -1,52 +1,52 @@
 ---
 description: >-
-  The settings surface: what each panel controls, where the autonomy tier
-  actually lives, and which old addresses now redirect into Connections.
+  What each Settings panel controls, where the autonomy tier lives, and which
+  old addresses now redirect into Connections.
 icon: gear
 ---
 
 # Settings
 
-Settings is a two-pane screen: a grouped rail on the left, one panel on the right. It holds the things that change how the app behaves. Things that change what the agent can *reach* live in [Connections](connections.md), and most of the old settings addresses for those now redirect there.
+Settings is a two-pane screen with a grouped rail on the left and one panel on the right. It holds what changes how the app behaves. What the agent can reach lives in [Connections](connections.md), and most of the old settings addresses for those now redirect there.
 
 Open it with the gear in the sidebar header, or `⌘,`.
 
 ## The groups
 
-**General**
+### General
 
 | Panel | What it controls |
 | --- | --- |
-| **Account** | Who you are signed in as, your plan and usage, team, devices, notifications, and language. |
-| **Privacy** | [Privacy Mode](privacy-mode.md) and what may leave the machine. |
-| **Migration** | Moving your data folder, and importing from an earlier version. |
-| **Core** | Point the app at a core running somewhere else: its RPC URL, a bearer token, and a live reachability check. |
-| **Feedback** | Send feedback from inside the app. |
-| **About** | Version, build, licences, and the capability catalogue. |
+| Account | Who you are signed in as, your plan and usage, team, devices, notifications and language. |
+| Privacy | [Privacy mode](privacy-mode.md) and what may leave the machine. |
+| Migration | Moving your data folder, and importing from an earlier version. |
+| Core | Point the app at a core running somewhere else: its RPC URL, a bearer token and a live reachability check. |
+| Feedback | Send feedback from inside the app. |
+| About | Version, build, licenses and the capability catalog. |
 
-**Appearance**
-
-| Panel | What it controls |
-| --- | --- |
-| **Appearance** | Font size (including a custom pixel value), layout corners and borders, and language. |
-| **Theme Studio** | Theme family and variant, per-token colours, per-role fonts, backdrop, and your own saved themes. See [Themes](theming.md). |
-| **Personality** | The editable `SOUL.md` prompt and its companion identity file. See [Personalization](personalization.md). |
-| **Face** | Which mascot, its colours, a second "duo" mascot, a custom image, and its voice. See [The Mascot](mascot/README.md). |
-
-**Security**
+### Appearance
 
 | Panel | What it controls |
 | --- | --- |
-| **Keychain** | The OS keyring, consent, and what is encrypted at rest. See [OS Keyring & Secret Storage](os-keyring-and-secret-storage.md). |
-| **Agent access** | Trusted roots and their read or write grant, the always-allow list, the blanket auto-approve switch, action and tool timeouts, the workspace-only switch, and the tool-call dialect. |
-| **Sandbox** | Which sandbox backend a session gets, and its limits. |
-| **Approval history** | The audit trail of approval decisions and their outcomes. |
+| Appearance | Font size (including a custom pixel value), layout corners and borders, and language. |
+| Theme Studio | Theme family and variant, per-token colors, per-role fonts, backdrop and your own saved themes. See [Themes](theming.md). |
+| Personality | The editable `SOUL.md` prompt and its companion identity file. See [Personalization](personalization.md). |
+| Face | Which mascot, its colors, a second "duo" mascot, a custom image and its voice. See [The mascot](mascot/README.md). |
+
+### Security
+
+| Panel | What it controls |
+| --- | --- |
+| Keychain | The OS keyring, consent, and what is encrypted at rest. See [OS keyring and secret storage](os-keyring-and-secret-storage.md). |
+| Agent access | Trusted roots and their read or write grant, the always-allow list, the blanket auto-approve switch, action and tool timeouts, the workspace-only switch and the tool-call dialect. |
+| Sandbox | Which sandbox backend a session gets, and its limits. |
+| Approval history | The audit trail of approval decisions and their outcomes. |
 
 ## Where the autonomy tier is
 
-Not in Agent access, which is the first place everyone looks.
+It is not in Agent access, which is where most people look first.
 
-The tier itself (`readonly`, `supervised`, `full`) has no control in the normal settings navigation. The panel that holds the radios is registered developer-only and as a hidden deep link, so it does not appear in the sidebar. Set the tier in `config.toml`:
+The tier (`readonly`, `supervised` or `full`) has no control in the normal settings navigation. The panel with the radios is developer-only and reachable only as a hidden deep link, so it does not appear in the sidebar. Set the tier in `config.toml`:
 
 ```toml
 [autonomy]
@@ -54,11 +54,11 @@ enabled = true          # off by default; nothing below applies until this is tr
 level = "supervised"
 ```
 
-`[autonomy] enabled` is `false` out of the box, which means Agent access's trusted roots, the always-allow list and the workspace-only switch are all inert until you turn the policy on. [Approval Gate](approval-gate.md) explains the whole model, including what stays enforced either way.
+`[autonomy] enabled` is `false` out of the box. Until you turn the policy on, the trusted roots, the always-allow list and the workspace-only switch in Agent access do nothing. [Approval gate](approval-gate.md) explains the whole model, including what stays enforced either way.
 
 ## Redirects
 
-Roughly three times as many settings routes redirect as render, because the panels moved into [Connections](connections.md) and the addresses were kept working. Notable ones:
+The panels moved into [Connections](connections.md), and the old addresses still work. Many more settings routes redirect than render. The main ones:
 
 | Old address | Now |
 | --- | --- |
@@ -73,10 +73,10 @@ Roughly three times as many settings routes redirect as render, because the pane
 
 ## Not here yet
 
-There is no search across settings: the global search bar was removed, and the per-entry keywords are no longer read by anything. Notification categories gate which events are ingested, but the page that edited them is gone, so they are config-only today.
+Settings has no search. Notification categories gate which events are ingested, but the page that edited them is gone, so they are config-only today.
 
 ## See also
 
 - [Connections](connections.md): everything the agent plugs into.
-- [Approval Gate](approval-gate.md): the autonomy policy these panels configure.
-- [Privacy & Security](privacy-and-security.md): the posture behind the privacy panel.
+- [Approval gate](approval-gate.md): the autonomy policy these panels configure.
+- [Privacy and security](privacy-and-security.md): the posture behind the privacy panel.

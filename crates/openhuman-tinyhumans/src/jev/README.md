@@ -14,7 +14,7 @@ what Jev is, the benchmark numbers, and how it compares to plain BM25.
 
 `crate::install()` calls `install_jev_ranker()`, which builds a
 `TinyHumansJevRanker` and registers it through
-`openhuman_core::agent::tinyagents::discovery::install_tool_ranker`. Calling
+`openhuman_embed::__host::agent::tinyagents::discovery::install_tool_ranker`. Calling
 it again replaces the ranker in place. Install needs no login, because the
 ranker resolves everything per search.
 
@@ -125,9 +125,9 @@ default is 3 s.
 
 [`ranker_tests.rs`](ranker_tests.rs), [`route_tests.rs`](route_tests.rs) and [`evaluator_tests.rs`](evaluator_tests.rs) sit beside their
 modules and use the config and env seams rather than the process
-environment. The ranker comparison harness is a separate binary:
-`cargo run -p openhuman-cli --bin tool-search-bench`, described in
-[`../../../openhuman-cli/src/bin/README.md`](../../../openhuman-cli/src/bin/README.md).
+environment. The ranker comparison harness is a separate binary, `tool-search-bench`, in
+the `profile/` crate of [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks)
+(`cargo run --manifest-path profile/Cargo.toml --bin tool-search-bench`).
 
 ```bash
 cargo test -p openhuman-tinyhumans jev::
