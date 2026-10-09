@@ -12,6 +12,18 @@ fn agent_context(agent: &str) -> Arc<CoreContext> {
     )
 }
 
+/// Whether `agent` stops being live. Another test's concurrent walk of the
+/// registry can hold a context for an instant, so allow it to let go.
+fn eventually_gone(agent: &str) -> bool {
+    (0..100).any(|_| {
+        let gone = !live_agents().contains(&agent.to_string());
+        if !gone {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        gone
+    })
+}
+
 fn live_agents() -> Vec<String> {
     agent_contexts(None).into_iter().map(|(id, _)| id).collect()
 }
@@ -26,7 +38,7 @@ fn deriving_an_agent_context_registers_it_until_dropped() {
         .unwrap();
     assert!(Arc::ptr_eq(&found, &context), "the live context is used");
     drop((found, context));
-    assert!(!live_agents().contains(&"agents-test-live".to_string()));
+    assert!(eventually_gone("agents-test-live"));
 }
 
 #[test]
@@ -72,7 +84,7 @@ fn a_dropped_sibling_context_does_not_hide_a_live_one() {
     assert!(Arc::ptr_eq(&found, &first));
     assert!(context_for("agents-test-siblings").is_some());
     drop((found, first));
-    assert!(!live_agents().contains(&"agents-test-siblings".to_string()));
+    assert!(eventually_gone("agents-test-siblings"));
 }
 
 #[test]
