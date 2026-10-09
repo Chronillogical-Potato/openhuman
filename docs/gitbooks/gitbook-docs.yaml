@@ -8,12 +8,12 @@ site:
       path: en
       default: true
       content:
-        directory: ./docs/gitbooks/en
+        directory: ./en
         language: en
     - type: space
       key: space-2
       title: 🇨🇳 中国人
       path: zh
       content:
-        directory: ./docs/gitbooks/zh
+        directory: ./zh
         language: zh
