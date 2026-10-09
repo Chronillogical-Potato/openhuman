@@ -49,37 +49,24 @@ async fn background_work_visits_every_agent_scope() {
         ContextOverlay::new(config.clone(), DomainSet::none(), Default::default())
             .session_agent("agent-e2e"),
     );
-    let scheduled = config.clone();
-    CoreContext::scope(Arc::clone(&agent), async move {
-        tokio::task::spawn_blocking(move || {
-            cron::add_shell_job(
-                &scheduled,
-                Some("agent-job".to_string()),
-                Schedule::Every { every_ms: 60_000 },
-                "echo hi",
-            )
-            .unwrap();
-        })
-        .await
+    // The store calls block on storage's own bridge thread, so they are
+    // made straight from the agent's task, where its context is in scope.
+    CoreContext::scope(Arc::clone(&agent), async {
+        cron::add_shell_job(
+            &config,
+            Some("agent-job".to_string()),
+            Schedule::Every { every_ms: 60_000 },
+            "echo hi",
+        )
         .unwrap();
     })
     .await;
 
     // The agent's job is invisible to the `local` scope.
-    let local = config.clone();
-    assert!(tokio::task::spawn_blocking(move || job_names(&local))
-        .await
-        .unwrap()
-        .is_empty());
+    assert!(job_names(&config).is_empty());
 
-    let visit = || async {
-        let config = config.clone();
-        tokio::task::spawn_blocking(move || job_names(&config))
-            .await
-            .unwrap()
-    };
     // Visited through the live agent context …
-    let live = for_each_scope("e2e", || CoreContext::propagate(visit())).await;
+    let live = for_each_scope("e2e", || async { job_names(&config) }).await;
     assert!(
         live.contains(&(Some("agent-e2e".to_string()), vec!["agent-job".to_string()])),
         "{live:?}"
@@ -87,7 +74,7 @@ async fn background_work_visits_every_agent_scope() {
 
     // … and, once the agent is gone, through the id the backend recorded.
     drop(agent);
-    let recorded = for_each_scope("e2e", || CoreContext::propagate(visit())).await;
+    let recorded = for_each_scope("e2e", || async { job_names(&config) }).await;
     assert!(
         recorded.contains(&(Some("agent-e2e".to_string()), vec!["agent-job".to_string()])),
         "{recorded:?}"
