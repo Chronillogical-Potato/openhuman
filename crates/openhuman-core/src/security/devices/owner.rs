@@ -47,10 +47,12 @@ pub(super) async fn owner_of(channel_id: &str, pending: Option<&PairingSession>)
     if let Some(owner) = cached(channel_id) {
         return owner;
     }
-    let Ok(config) = crate::config::rpc::load_config_with_timeout().await else {
-        return None;
-    };
+    // The configuration is loaded inside each scope: in SaaS mode loading it
+    // needs an acting agent, which this tunnel task does not have.
     let found = crate::storage::agents::for_each_scope("device owner", || async {
+        let Ok(config) = crate::config::rpc::load_config_with_timeout().await else {
+            return false;
+        };
         super::store::get_device(&config, channel_id)
             .ok()
             .flatten()

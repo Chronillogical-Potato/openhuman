@@ -43,10 +43,21 @@ fn last_poll_map() -> &'static LastPollMap {
     LAST_POLL_AT.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// The poll-tracking key for `source_id` in the current storage scope: the
+/// same source id in two agents' scopes is two different sources.
+fn poll_key(source_id: &str) -> String {
+    let agent = crate::core::runtime::CoreContext::current()
+        .and_then(|context| context.session_agent().map(str::to_string));
+    match agent {
+        Some(agent) => format!("{agent}\u{0}{source_id}"),
+        None => source_id.to_string(),
+    }
+}
+
 /// Record a successful (or attempted) poll for a source id.
 fn record_poll(source_id: &str) {
     if let Ok(mut map) = last_poll_map().lock() {
-        map.insert(source_id.to_string(), Instant::now());
+        map.insert(poll_key(source_id), Instant::now());
     }
 }
 
@@ -57,7 +68,7 @@ fn is_due(source: &TaskSource) -> bool {
         Ok(map) => map,
         Err(poisoned) => poisoned.into_inner(),
     };
-    match map.get(&source.id) {
+    match map.get(&poll_key(&source.id)) {
         Some(when) => when.elapsed() >= Duration::from_secs(interval_secs),
         None => true, // never polled this run — fire immediately
     }
