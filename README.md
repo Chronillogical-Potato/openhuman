@@ -132,7 +132,7 @@ Most agent harnesses run one heavy process per agent and resend a big prompt on 
  <img src="./docs/oh-v-hermes.gif" alt="Hermes vs OpenHuman" />
 </p>
 
-<p align="center"><em>Same prompt, side by side: "Write me a story about agent harnesses in the form of an anime story, write it into an HTML page and open it for me."<br/>OpenHuman finished in 20 s, using 15k tokens for $0.0054. Hermes took 9 min 40 s, using 37k tokens for $0.0082.</em></p>
+<p align="center"><em>Same prompt, Same model, Same reasoning side by side: "Write me a story about agent harnesses in the form of an anime story, write it into an HTML page and open it for me." OpenHuman finished in 20s, using 15k tokens for $0.0054. Hermes took 9min 40s, using 37k tokens for $0.0082.</em></p>
 
 ---
 
