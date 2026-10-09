@@ -1,6 +1,0 @@
-{
-  "readOnlyHint": false,
-  "destructiveHint": true,
-  "idempotentHint": true,
-  "openWorldHint": false
-}
