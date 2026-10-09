@@ -128,3 +128,10 @@ fn without_a_fallback_only_live_contexts_are_visited() {
         .iter()
         .any(|(id, _)| id == "agents-test-no-fallback"));
 }
+
+#[test]
+fn registering_forgets_agents_whose_contexts_are_all_gone() {
+    drop(agent_context("agents-test-gone"));
+    let _other = agent_context("agents-test-other-live");
+    assert!(!LIVE.lock().unwrap().contains_key("agents-test-gone"));
+}

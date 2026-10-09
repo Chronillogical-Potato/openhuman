@@ -113,9 +113,10 @@ pub(crate) async fn tick_agents(last_emitted_health: &mut Option<bool>) {
 /// and autonomy policy. Its jobs wait for the host to derive it again.
 async fn tick_agent_scope(last_emitted_health: &mut Option<bool>) {
     use crate::core::runtime::CoreContext;
-    let (Some(context), Some(config)) =
-        (CoreContext::current(), CoreContext::current_embedder_config())
-    else {
+    let (Some(context), Some(config)) = (
+        CoreContext::current(),
+        CoreContext::current_embedder_config(),
+    ) else {
         tracing::debug!(
             "[cron:scheduler] skipping an agent scope: its context has no configuration of its own"
         );
