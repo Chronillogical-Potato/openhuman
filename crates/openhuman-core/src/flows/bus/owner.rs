@@ -18,9 +18,8 @@ static OWNERS: LazyLock<Mutex<HashMap<String, Option<String>>>> = LazyLock::new(
 /// The agent `flow_id` belongs to: `None` for `local`, or when no scope has
 /// the flow (the handler then reports the flow as unknown, as before).
 pub(super) async fn flow_owner(config: &Config, flow_id: &str) -> Option<String> {
-    if crate::storage::installed().is_none() {
-        return None;
-    }
+    // No backend: every record is `local`.
+    crate::storage::installed()?;
     if let Some(owner) = OWNERS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -33,9 +32,7 @@ pub(super) async fn flow_owner(config: &Config, flow_id: &str) -> Option<String>
         matches!(crate::flows::store::get_flow(config, flow_id), Ok(Some(_)))
     })
     .await;
-    let Some(owner) = found else {
-        return None;
-    };
+    let owner = found?;
     tracing::debug!(
         target: "flows",
         %flow_id,

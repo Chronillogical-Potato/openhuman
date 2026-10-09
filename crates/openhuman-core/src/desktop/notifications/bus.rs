@@ -477,9 +477,8 @@ async fn event_owner(config: &crate::config::Config, event: &DomainEvent) -> Opt
     let DomainEvent::CronJobCompleted { job_id, .. } = event else {
         return None;
     };
-    if crate::storage::installed().is_none() {
-        return None;
-    }
+    // No backend: every record is `local`.
+    crate::storage::installed()?;
     crate::storage::agents::find_owner("notification owner", || async {
         crate::cron::get_job(config, job_id).is_ok()
     })
