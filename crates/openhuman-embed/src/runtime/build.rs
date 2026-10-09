@@ -154,7 +154,7 @@ impl RuntimeBuilder {
         let routed_provider_effective = self.provider.has_usable_route()
             && match config.as_ref() {
                 Some(config) => config.default_model.as_deref(),
-                None => self.provider.model_name(),
+                None => self.provider.model_id(),
             }
             .is_some_and(|model| !model.trim().is_empty());
         let host_kind = effective_host_kind(
