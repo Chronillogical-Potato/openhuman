@@ -793,10 +793,8 @@ fn a_users_turn_reaches_inference_with_their_own_credential() {
             Err(_) => break None,
         }
     };
-    let (_, auth) = inference.unwrap_or_else(|| {
-        panic!("alice's turn never reached inference; saw {seen:?}")
-    });
+    let (_, auth) =
+        inference.unwrap_or_else(|| panic!("alice's turn never reached inference; saw {seen:?}"));
     assert_eq!(auth, "Bearer alice-session-jwt");
     drop(server);
 }
-
