@@ -73,7 +73,7 @@ as one `run_to_completion` unit: a caller that drops the request cannot leave
 the work half done. Deleting a thread removes it from the store, invalidates
 any web-channel session bound to it, cancels the detached sub-agents it
 spawned (`agent::orchestration::running_subagents`) before discarding their
-queued results (`background_completions`), then deletes its turn snapshots.
+queued results (`background_completions`, which cancels the thread on the harness completion router), then deletes its turn snapshots.
 Purge does the same for every thread and calls the parse-independent
 `turn_state::store::clear_all`, so a corrupt snapshot file is removed too.
 

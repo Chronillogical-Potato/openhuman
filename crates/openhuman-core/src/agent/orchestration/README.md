@@ -36,7 +36,8 @@ RPC/tool formatting, and OpenHuman's worktree policy.
   finished background results back into chat, and settling run-ledger rows
   from the global bus regardless of the parent turn's lifecycle
   (`running_subagents*.rs`, `background_completions.rs`,
-  `background_delivery.rs`, `run_ledger_finalize.rs`). The delivery turn runs
+  `completion_notice.rs`, `background_delivery.rs`,
+  `run_ledger_finalize.rs`). The delivery turn runs
   on the originating thread's cached chat session via
   `web_chat::run_system_turn_on_thread`, never on a throwaway host.
 - A shared root `ParentExecutionContext` builder for surfaces that spawn real
@@ -84,9 +85,19 @@ RPC/tool formatting, and OpenHuman's worktree policy.
   steering, boot reconcile). The status type, wait, ledger helpers, roster and
   session resolution live in `tinyagents_orchestration::subagent`
   (`DetachedSubagentStatus`, `wait_detached`, `SubagentIdentity`, ...).
-  `background_completions.rs` and
-  `background_delivery.rs` queue and idle-gated, debounced, batched delivery
-  of finished background runs back into chat; `run_ledger_finalize.rs` is the
+  `background_completions.rs` is the host adapter over the harness
+  `tinyagents_tasks::CompletionRouter` (one durable `JsonlCompletionStore` per
+  workspace at `.openhuman/background_completions.jsonl`, parent key = chat
+  thread id): the router owns the queue, dedupe, tombstones (collected inline,
+  stopped, cancelled thread), attempt counting and give-up, so a completion that
+  was never delivered is redelivered after a restart
+  (`background_delivery::recover_on_boot`, wired next to the orphaned-task
+  reconcile in `core/runtime/bootstrap.rs`). `completion_notice.rs` is the
+  `<background_agent_*>` wording (a `CompletionFormatter`) and the
+  `[BACKGROUND_DELIVERY_FAILED]` give-up notice. `background_delivery.rs` keeps
+  the host policy: idle-gated, debounced (3s), batched delivery of finished
+  background runs back into chat, the system turn, and the give-up writer fed by
+  `mark_failed`. `run_ledger_finalize.rs` is the
   global-bus subscriber that settles ledger rows for runs that outlive their
   spawning turn.
 - `fleet_tools.rs`: decides which fleet-control tools (`wait_subagent`,
