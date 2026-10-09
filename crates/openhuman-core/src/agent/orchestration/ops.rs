@@ -39,12 +39,12 @@ use crate::core::events::DomainEvent;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use thiserror::Error;
+use tinyagents_harness::ids::TaskId;
+use tinyagents_harness::CancellationToken;
 use tinyagents_tasks::{
     DetachedTaskRegistry, DetachedTaskRegistryError, DetachedTaskWaitOutcome,
     OrchestrationTaskStatus,
 };
-use tinyagents_harness::ids::TaskId;
-use tinyagents_harness::CancellationToken;
 use tokio::sync::{mpsc, watch};
 use tokio::time::{Duration, Instant};
 

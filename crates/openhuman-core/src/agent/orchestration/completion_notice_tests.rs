@@ -1,7 +1,12 @@
 use super::*;
 use tinyagents_tasks::CompletionResult;
 
-fn rec(task: &str, agent: &str, summary: &str, outcome: BackgroundAgentOutcome) -> CompletionRecord {
+fn rec(
+    task: &str,
+    agent: &str,
+    summary: &str,
+    outcome: BackgroundAgentOutcome,
+) -> CompletionRecord {
     CompletionRecord::new(
         task,
         "thread-1",
@@ -26,7 +31,10 @@ fn outcome_round_trips_through_the_harness_status() {
         BackgroundAgentOutcome::Failed,
         BackgroundAgentOutcome::AwaitingInput,
     ] {
-        assert_eq!(BackgroundAgentOutcome::from_status(outcome.status()), outcome);
+        assert_eq!(
+            BackgroundAgentOutcome::from_status(outcome.status()),
+            outcome
+        );
     }
     assert_eq!(
         BackgroundAgentOutcome::from_status(CompletionStatus::Cancelled),
@@ -63,7 +71,12 @@ fn empty_batch_is_empty() {
 #[test]
 fn notice_renders_failure_and_awaiting_with_distinct_tags() {
     let notice = notice(&[
-        rec("sub-ok", "researcher", "all good", BackgroundAgentOutcome::Completed),
+        rec(
+            "sub-ok",
+            "researcher",
+            "all good",
+            BackgroundAgentOutcome::Completed,
+        ),
         rec(
             "sub-bad",
             "researcher",
@@ -106,7 +119,10 @@ fn the_router_formats_with_the_host_wording() {
         .formatter()
         .format_batch(&[ok("sub-1", "researcher", "done")]);
     assert!(text.contains("<background_agent_result id=\"sub-1\""));
-    assert!(!text.contains("completed_child_tasks"), "not the harness default wording");
+    assert!(
+        !text.contains("completed_child_tasks"),
+        "not the harness default wording"
+    );
 }
 
 #[test]

@@ -49,7 +49,10 @@ fn record_is_thread_scoped_and_batches_in_completion_order() {
     let claimed = router.claim_pending("thread-A", usize::MAX).unwrap();
     assert_eq!(claimed.len(), 2, "everything ready is claimed as one batch");
     assert_eq!(claimed[0].result.text, "eiffel");
-    assert!(router.claim_pending("thread-A", usize::MAX).unwrap().is_empty());
+    assert!(router
+        .claim_pending("thread-A", usize::MAX)
+        .unwrap()
+        .is_empty());
 }
 
 #[test]
@@ -81,7 +84,10 @@ fn the_session_is_mapped_to_its_thread_for_the_idle_gate() {
     let _guard = test_guard();
     let ws = workspace();
     record(ws.path(), "sess-map", "sub-1", "x", Some("thread-map"));
-    assert_eq!(thread_for_session("sess-map").as_deref(), Some("thread-map"));
+    assert_eq!(
+        thread_for_session("sess-map").as_deref(),
+        Some("thread-map")
+    );
     // A web-channel session id carries its thread in the JSON body.
     let web = r#"{"client_id":"c","thread_id":"thread-json"}"#;
     assert_eq!(thread_for_session(web).as_deref(), Some("thread-json"));
@@ -109,7 +115,11 @@ fn record_after_discard_is_dropped_by_the_cancelled_parent() {
     let w = ws.path();
     // A child registered on the thread (this is how the workspace is learned),
     // then the thread is deleted.
-    assert!(!mark_stopped_task_if_thread_stopped(w, "thread-race", "sub-reg"));
+    assert!(!mark_stopped_task_if_thread_stopped(
+        w,
+        "thread-race",
+        "sub-reg"
+    ));
     discard_for_thread("thread-race");
     // A straggler that records after the sweep (the cooperative-abort race) is
     // dropped rather than queued.
@@ -129,7 +139,10 @@ fn clear_all_withdraws_every_pending_completion() {
     record(w, "sess-c2", "sub-2", "b", Some("t2"));
 
     let removed = clear_all();
-    assert!(removed >= 2, "expected at least the two just queued, got {removed}");
+    assert!(
+        removed >= 2,
+        "expected at least the two just queued, got {removed}"
+    );
     assert!(pending_ids(w, "t1").is_empty());
     assert!(pending_ids(w, "t2").is_empty());
     assert_eq!(clear_all(), 0);
@@ -154,10 +167,19 @@ fn record_after_mark_collected_is_dropped() {
     let _guard = test_guard();
     let ws = workspace();
     let w = ws.path();
-    assert!(!mark_collected(w, "mc-late"), "nothing queued yet, nothing swept");
+    assert!(
+        !mark_collected(w, "mc-late"),
+        "nothing queued yet, nothing swept"
+    );
     // A completion that records *after* (the wait-before-record order) is
     // dropped rather than queued for a duplicate delivery turn.
-    record(w, "sess-mc-race", "mc-late", "stale", Some("thread-mc-race"));
+    record(
+        w,
+        "sess-mc-race",
+        "mc-late",
+        "stale",
+        Some("thread-mc-race"),
+    );
     assert!(pending_ids(w, "thread-mc-race").is_empty());
 }
 
@@ -169,7 +191,13 @@ fn mark_collected_is_task_scoped() {
     // Only the collected task is suppressed; an un-waited sibling still
     // surfaces (the genuinely-later fire-and-forget feature is preserved).
     mark_collected(w, "mc-scope-1");
-    record(w, "sess-mc-scope", "mc-scope-2", "later", Some("thread-mc-scope"));
+    record(
+        w,
+        "sess-mc-scope",
+        "mc-scope-2",
+        "later",
+        Some("thread-mc-scope"),
+    );
     assert_eq!(pending_ids(w, "thread-mc-scope"), ["mc-scope-2"]);
 }
 
@@ -244,8 +272,20 @@ fn discard_pending_for_thread_blocks_late_results_until_the_next_turn() {
     let _guard = test_guard();
     let ws = workspace();
     let w = ws.path();
-    record(w, "sess-stop", "sub-stop-a", "finished before Stop", Some("thread-stop-live"));
-    record(w, "sess-stop", "sub-stop-keep", "other thread", Some("thread-stop-other"));
+    record(
+        w,
+        "sess-stop",
+        "sub-stop-a",
+        "finished before Stop",
+        Some("thread-stop-live"),
+    );
+    record(
+        w,
+        "sess-stop",
+        "sub-stop-keep",
+        "other thread",
+        Some("thread-stop-other"),
+    );
 
     // Stop drops the undelivered result so it can't start a delivery turn...
     assert_eq!(discard_pending_for_thread("thread-stop-live"), 1);
@@ -254,13 +294,25 @@ fn discard_pending_for_thread_blocks_late_results_until_the_next_turn() {
 
     // A late completion from the stopped generation loses the cooperative
     // abort race and is rejected.
-    record(w, "sess-stop", "sub-stop-later", "late", Some("thread-stop-live"));
+    record(
+        w,
+        "sess-stop",
+        "sub-stop-later",
+        "late",
+        Some("thread-stop-live"),
+    );
     assert!(pending_ids(w, "thread-stop-live").is_empty());
 
     // Completing Stop keeps the thread gate until a new user turn begins, so a
     // child that registers after the cancellation sweep is still rejected.
     finish_stop_for_thread("thread-stop-live", &["sub-stop-later".into()]);
-    record(w, "sess-stop", "sub-stop-later", "again", Some("thread-stop-live"));
+    record(
+        w,
+        "sess-stop",
+        "sub-stop-later",
+        "again",
+        Some("thread-stop-live"),
+    );
     assert!(pending_ids(w, "thread-stop-live").is_empty());
 
     // A child that was spawned before Stop but registers after the registry
@@ -272,12 +324,24 @@ fn discard_pending_for_thread_blocks_late_results_until_the_next_turn() {
     ));
 
     resume_stopped_thread("thread-stop-live");
-    record(w, "sess-stop", "sub-stop-registered-late", "late reg", Some("thread-stop-live"));
+    record(
+        w,
+        "sess-stop",
+        "sub-stop-registered-late",
+        "late reg",
+        Some("thread-stop-live"),
+    );
     assert!(
         pending_ids(w, "thread-stop-live").is_empty(),
         "the stopped generation's task ids stay tombstoned after the thread reopens"
     );
-    record(w, "sess-stop", "sub-stop-new-turn", "next turn", Some("thread-stop-live"));
+    record(
+        w,
+        "sess-stop",
+        "sub-stop-new-turn",
+        "next turn",
+        Some("thread-stop-live"),
+    );
     assert_eq!(pending_ids(w, "thread-stop-live"), ["sub-stop-new-turn"]);
 }
 
@@ -292,8 +356,18 @@ fn a_stop_before_a_restart_is_lifted_by_the_first_new_spawn() {
     // A restart: the in-memory gate is gone, the durable cancelled-parent
     // marker is not.
     forget_workspace_for_test(w);
-    assert!(!mark_stopped_task_if_thread_stopped(w, "thread-restart-stop", "sub-new"));
-    record(w, "sess-rs", "sub-new", "after restart", Some("thread-restart-stop"));
+    assert!(!mark_stopped_task_if_thread_stopped(
+        w,
+        "thread-restart-stop",
+        "sub-new"
+    ));
+    record(
+        w,
+        "sess-rs",
+        "sub-new",
+        "after restart",
+        Some("thread-restart-stop"),
+    );
     assert_eq!(
         pending_ids(w, "thread-restart-stop"),
         ["sub-new"],
@@ -306,17 +380,38 @@ fn undelivered_completions_are_found_again_after_a_restart() {
     let _guard = test_guard();
     let ws = workspace();
     let w = ws.path();
-    record(w, "sess-boot", "sub-1", "unseen result", Some("thread-boot"));
-    record(w, "sess-boot", "sub-2", "delivered result", Some("thread-boot-done"));
+    record(
+        w,
+        "sess-boot",
+        "sub-1",
+        "unseen result",
+        Some("thread-boot"),
+    );
+    record(
+        w,
+        "sess-boot",
+        "sub-2",
+        "delivered result",
+        Some("thread-boot-done"),
+    );
     let router = router_for_workspace(w);
-    router.claim_pending("thread-boot-done", usize::MAX).unwrap();
+    router
+        .claim_pending("thread-boot-done", usize::MAX)
+        .unwrap();
     router.mark_delivered(&["sub-2"]).unwrap();
     drop(router);
 
     forget_workspace_for_test(w);
     let threads = recover_pending_threads(w);
 
-    assert_eq!(threads, ["thread-boot"], "only the undelivered thread is recovered");
-    assert_eq!(pending_for(w, "thread-boot")[0].result.text, "unseen result");
+    assert_eq!(
+        threads,
+        ["thread-boot"],
+        "only the undelivered thread is recovered"
+    );
+    assert_eq!(
+        pending_for(w, "thread-boot")[0].result.text,
+        "unseen result"
+    );
     assert!(router_for_thread("thread-boot").is_some());
 }

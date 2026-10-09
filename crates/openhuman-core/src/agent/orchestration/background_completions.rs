@@ -110,7 +110,8 @@ fn entry_for(workspace_dir: &Path) -> Arc<Entry> {
         router: Arc::new(router),
         store,
     });
-    st.routers.insert(workspace_dir.to_path_buf(), entry.clone());
+    st.routers
+        .insert(workspace_dir.to_path_buf(), entry.clone());
     log::debug!(
         "[background_completions] opened router workspace_dir={}",
         workspace_dir.display()
@@ -341,7 +342,9 @@ pub(crate) fn discard_for_thread(thread_id: &str) -> usize {
     let mut st = state();
     st.thread_workspaces.remove(thread_id);
     st.stopped_threads.remove(thread_id);
-    log::debug!("[background_completions] discard_for_thread thread_id={thread_id} removed={removed}");
+    log::debug!(
+        "[background_completions] discard_for_thread thread_id={thread_id} removed={removed}"
+    );
     removed
 }
 
@@ -380,9 +383,7 @@ pub(crate) fn finish_stop_for_thread(thread_id: &str, task_ids: &[String]) {
     };
     for task_id in task_ids {
         if let Err(error) = router.tombstone(task_id) {
-            log::warn!(
-                "[background_completions] tombstone failed task_id={task_id} error={error}"
-            );
+            log::warn!("[background_completions] tombstone failed task_id={task_id} error={error}");
         }
     }
 }

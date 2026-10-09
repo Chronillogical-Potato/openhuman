@@ -18,11 +18,22 @@ fn workspace() -> tempfile::TempDir {
 }
 
 async fn record(ws: &Path, session: &str, task: &str, summary: &str, thread: &str) {
-    record_completion(ws, session, task, "researcher", summary, Some(thread.to_owned())).await;
+    record_completion(
+        ws,
+        session,
+        task,
+        "researcher",
+        summary,
+        Some(thread.to_owned()),
+    )
+    .await;
 }
 
 fn pending_ids(ws: &Path, thread: &str) -> Vec<String> {
-    pending_for(ws, thread).into_iter().map(|r| r.task_id).collect()
+    pending_for(ws, thread)
+        .into_iter()
+        .map(|r| r.task_id)
+        .collect()
 }
 
 fn mark_busy(session: &str) {
@@ -48,7 +59,10 @@ async fn claim_takes_the_ready_batch_when_idle() {
     assert!(notice.contains("sub-1") && notice.contains("sub-2"));
     // The records stay pending (leased) until the turn lands.
     assert_eq!(pending_ids(w, "thread-ready").len(), 2);
-    assert!(claim_ready(&router, "thread-ready").is_none(), "a held lease is not claimed twice");
+    assert!(
+        claim_ready(&router, "thread-ready").is_none(),
+        "a held lease is not claimed twice"
+    );
 }
 
 #[tokio::test]
@@ -104,7 +118,10 @@ async fn a_delivered_batch_is_settled_and_not_redelivered() {
     .await;
 
     assert_eq!(turns.load(Ordering::SeqCst), 1);
-    assert!(pending_ids(w, "thread-ok").is_empty(), "delivered records are settled");
+    assert!(
+        pending_ids(w, "thread-ok").is_empty(),
+        "delivered records are settled"
+    );
 }
 
 #[tokio::test]
@@ -141,7 +158,11 @@ async fn persistence_failure_releases_batch_without_terminal_announcement() {
         "the delivery loop must keep a batch whose durable append fails"
     );
     assert!(
-        router.claim_pending("thread-persist", usize::MAX).unwrap().len() == 1,
+        router
+            .claim_pending("thread-persist", usize::MAX)
+            .unwrap()
+            .len()
+            == 1,
         "and release it so the next drain can claim it"
     );
     assert!(
@@ -232,7 +253,8 @@ async fn permanently_failing_delivery_stops_instead_of_retrying_forever() {
     record(w, "bd-storm", "sub-2", "beta", "thread-storm").await;
     let router = router_for_workspace(w);
 
-    let (turns, undelivered) = drain_until_empty_or(&router, "thread-storm", DEFAULT_MAX_ATTEMPTS * 20).await;
+    let (turns, undelivered) =
+        drain_until_empty_or(&router, "thread-storm", DEFAULT_MAX_ATTEMPTS * 20).await;
 
     assert!(
         pending_ids(w, "thread-storm").is_empty(),
@@ -256,19 +278,36 @@ async fn results_that_cannot_be_delivered_are_written_to_the_thread_and_say_so()
     let _g = test_guard().await;
     let ws = workspace();
     let w = ws.path();
-    record(w, "bd-undelivered", "sub-7", "the migration plan is ready", "thread-42").await;
+    record(
+        w,
+        "bd-undelivered",
+        "sub-7",
+        "the migration plan is ready",
+        "thread-42",
+    )
+    .await;
     let router = router_for_workspace(w);
 
-    let (turns, undelivered) = drain_until_empty_or(&router, "thread-42", DEFAULT_MAX_ATTEMPTS * 20).await;
+    let (turns, undelivered) =
+        drain_until_empty_or(&router, "thread-42", DEFAULT_MAX_ATTEMPTS * 20).await;
     assert_eq!(turns, DEFAULT_MAX_ATTEMPTS, "sanity: the turns did run");
 
     let notice = undelivered.expect(
         "a batch that exhausted its delivery retries must reach the give-up sink so it can \
          be written into the thread; None means the result was silently lost",
     );
-    assert!(notice.contains("[BACKGROUND_DELIVERY_FAILED]"), "got: {notice}");
-    assert!(notice.contains("hosted agent invocation failed"), "got: {notice}");
-    assert!(notice.contains("the migration plan is ready"), "got: {notice}");
+    assert!(
+        notice.contains("[BACKGROUND_DELIVERY_FAILED]"),
+        "got: {notice}"
+    );
+    assert!(
+        notice.contains("hosted agent invocation failed"),
+        "got: {notice}"
+    );
+    assert!(
+        notice.contains("the migration plan is ready"),
+        "got: {notice}"
+    );
     assert!(notice.contains("sub-7"), "got: {notice}");
 }
 
@@ -294,7 +333,13 @@ async fn transient_failure_under_the_ceiling_keeps_the_result() {
         ["sub-1"],
         "one failed delivery turn must keep the batch, not drop it (#4896)"
     );
-    assert_eq!(router.claim_pending("thread-transient", usize::MAX).unwrap().len(), 1);
+    assert_eq!(
+        router
+            .claim_pending("thread-transient", usize::MAX)
+            .unwrap()
+            .len(),
+        1
+    );
 }
 
 #[tokio::test]
@@ -320,8 +365,15 @@ async fn busy_deferral_does_not_consume_the_failure_budget() {
     }
 
     let pending = pending_for(w, "thread-busy-defer");
-    assert_eq!(pending.len(), 1, "deferring while busy never drops the batch");
-    assert_eq!(pending[0].attempts, 0, "a busy deferral is not a failed delivery attempt");
+    assert_eq!(
+        pending.len(),
+        1,
+        "deferring while busy never drops the batch"
+    );
+    assert_eq!(
+        pending[0].attempts, 0,
+        "a busy deferral is not a failed delivery attempt"
+    );
 }
 
 #[tokio::test]
@@ -350,11 +402,24 @@ async fn a_pending_completion_survives_a_restart_and_is_delivered() {
     let _g = test_guard().await;
     let ws = workspace();
     let w = ws.path();
-    record(w, "bd-restart", "sub-1", "finished before the crash", "thread-restart").await;
+    record(
+        w,
+        "bd-restart",
+        "sub-1",
+        "finished before the crash",
+        "thread-restart",
+    )
+    .await;
     // The first delivery attempt is claimed and then the process "dies": the
     // lease is in memory only.
     let router = router_for_workspace(w);
-    assert_eq!(router.claim_pending("thread-restart", usize::MAX).unwrap().len(), 1);
+    assert_eq!(
+        router
+            .claim_pending("thread-restart", usize::MAX)
+            .unwrap()
+            .len(),
+        1
+    );
     drop(router);
 
     forget_workspace_for_test(w);
@@ -370,7 +435,9 @@ async fn a_pending_completion_survives_a_restart_and_is_delivered() {
         move |thread, notice| {
             let sink = Arc::clone(&sink);
             async move {
-                sink.lock().expect("sink").push(format!("{thread}|{notice}"));
+                sink.lock()
+                    .expect("sink")
+                    .push(format!("{thread}|{notice}"));
                 Ok::<String, String>("presented".into())
             }
         },

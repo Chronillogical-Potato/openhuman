@@ -70,7 +70,9 @@ fn is_busy(thread_id: &str) -> bool {
         .lock()
         .expect("background_delivery busy poisoned")
         .iter()
-        .any(|session| background_completions::thread_for_session(session).as_deref() == Some(thread_id))
+        .any(|session| {
+            background_completions::thread_for_session(session).as_deref() == Some(thread_id)
+        })
 }
 
 struct BackgroundDeliveryHandler;
@@ -89,43 +91,49 @@ impl EventHandler<DomainEvent> for BackgroundDeliveryHandler {
                     .expect("busy poisoned")
                     .insert(session_id.clone());
             }
-            DomainEvent::AgentTurnCompleted { session_id, .. } => {
+            // A failed turn may not emit AgentTurnCompleted — clear busy so
+            // delivery isn't stuck.
+            DomainEvent::AgentTurnCompleted { session_id, .. }
+            | DomainEvent::AgentError { session_id, .. } => {
                 busy().lock().expect("busy poisoned").remove(session_id);
-                // A user turn just ended — drain anything that finished while it ran.
-                schedule_for_session(session_id, Duration::from_millis(300));
-            }
-            DomainEvent::AgentError { session_id, .. } => {
-                // A failed turn may not emit AgentTurnCompleted — clear busy so
-                // delivery isn't stuck, then try to drain.
-                busy().lock().expect("busy poisoned").remove(session_id);
-                schedule_for_session(session_id, Duration::from_millis(300));
-            }
-            // Any subagent terminal state — completed, failed, or awaiting-user —
-            // can arrive after the parent turn already went idle. Schedule a
-            // debounced drain for all three so the pending result is delivered
-            // promptly instead of sitting until some unrelated later turn. Only
-            // `SubagentCompleted` used to trigger a drain, so a failure (or an
-            // awaiting-user pause) after the parent turn went idle left the chat
-            // stuck on the original "Accepted" response (#4896). Debounce so a
-            // burst batches into a single turn.
-            DomainEvent::SubagentCompleted { parent_session, .. }
-            | DomainEvent::SubagentFailed { parent_session, .. }
-            | DomainEvent::SubagentAwaitingUser { parent_session, .. } => {
-                schedule_for_session(parent_session, DEBOUNCE);
             }
             _ => {}
+        }
+        if let Some((thread_id, delay)) = drain_schedule(event) {
+            schedule_delivery(thread_id, delay);
         }
     }
 }
 
-/// Schedule a drain for the thread a session belongs to. A session that maps to
-/// no thread (cron, voice, skills) has nothing to deliver into.
-fn schedule_for_session(session_id: &str, delay: Duration) {
-    match background_completions::thread_for_session(session_id) {
-        Some(thread_id) => schedule_delivery(thread_id, delay),
-        None => log::trace!(
-            "[background_delivery] session has no delivery thread; not scheduling session={session_id}"
-        ),
+/// Which thread to drain, and after how long, for an event. A session that maps
+/// to no thread (cron, voice, skills) has nothing to deliver into.
+fn drain_schedule(event: &DomainEvent) -> Option<(String, Duration)> {
+    let (session, delay) = match event {
+        // A user turn just ended (or failed) — drain anything that finished while
+        // it ran.
+        DomainEvent::AgentTurnCompleted { session_id, .. }
+        | DomainEvent::AgentError { session_id, .. } => (session_id, Duration::from_millis(300)),
+        // Any subagent terminal state — completed, failed, or awaiting-user — can
+        // arrive after the parent turn already went idle. Schedule a debounced
+        // drain for all three so the pending result is delivered promptly instead
+        // of sitting until some unrelated later turn. Only `SubagentCompleted`
+        // used to trigger a drain, so a failure (or an awaiting-user pause) after
+        // the parent turn went idle left the chat stuck on the original
+        // "Accepted" response (#4896). Debounce so a burst batches into a single
+        // turn.
+        DomainEvent::SubagentCompleted { parent_session, .. }
+        | DomainEvent::SubagentFailed { parent_session, .. }
+        | DomainEvent::SubagentAwaitingUser { parent_session, .. } => (parent_session, DEBOUNCE),
+        _ => return None,
+    };
+    match background_completions::thread_for_session(session) {
+        Some(thread_id) => Some((thread_id, delay)),
+        None => {
+            log::trace!(
+                "[background_delivery] session has no delivery thread; not scheduling session={session}"
+            );
+            None
+        }
     }
 }
 
@@ -173,9 +181,7 @@ fn claim_ready(router: &CompletionRouter, thread_id: &str) -> Option<Vec<Complet
         Ok(batch) if !batch.is_empty() => Some(batch),
         Ok(_) => None,
         Err(error) => {
-            log::error!(
-                "[background_delivery] claim failed thread_id={thread_id} error={error}"
-            );
+            log::error!("[background_delivery] claim failed thread_id={thread_id} error={error}");
             None
         }
     }
