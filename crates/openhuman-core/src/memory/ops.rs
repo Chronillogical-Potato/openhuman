@@ -14,7 +14,9 @@ use tinymemory_api::{
 
 use crate::config::Config;
 
-use super::engine::{self, Binding, BoundEngine, CORTEXDB_ENGINE, TINYHUMANS_ENGINE};
+use super::engine::{
+    self, Binding, BoundEngine, CORTEXDB_ENGINE, DISABLED_ENGINE, TINYHUMANS_ENGINE,
+};
 use super::error::{MemoryError, MemoryResult};
 use super::types::{
     clamp_limit, EngineSetParams, EngineStatus, EngineView, EnginesListView, EraseAllParams,
@@ -85,6 +87,19 @@ pub async fn engine_get(config: &Config) -> EngineView {
 /// store for a key). The caller persists `config`.
 pub fn apply_engine_set(config: &mut Config, params: &EngineSetParams) -> MemoryResult<()> {
     let engine_id = params.engine.trim();
+    if engine_id == DISABLED_ENGINE {
+        // Turning memory off keeps every engine's endpoint and key, so
+        // switching back needs no re-entry.
+        if params.endpoint.is_some() || params.api_key.is_some() {
+            return Err(MemoryError::invalid(
+                "disabling memory takes no endpoint or API key",
+            ));
+        }
+        config.memory.engine = DISABLED_ENGINE.to_string();
+        engine::invalidate();
+        tracing::info!("[memory:ops] memory disabled");
+        return Ok(());
+    }
     if !tinymemory_integrations::list_engines()
         .iter()
         .any(|descriptor| descriptor.id == engine_id)

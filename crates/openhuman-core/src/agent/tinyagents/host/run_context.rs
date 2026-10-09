@@ -90,6 +90,10 @@ pub struct LastTurnUsage {
     pub cost_usd: f64,
     pub context_window: u64,
     pub subagents: Vec<SubagentUsageEntry>,
+    /// Reasoning/thinking tokens the turn's own model calls spent. Reported
+    /// only for a turn run with a response-shape scope (library agent turns,
+    /// `agent::tinyagents::response_shape`); `0` elsewhere.
+    pub reasoning_tokens: u64,
 }
 
 /// Runtime-written sidecars for one OpenHuman session transition.

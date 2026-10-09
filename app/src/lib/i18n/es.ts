@@ -463,7 +463,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'Memoria',
   'welcome.th.featureEmbeddings': 'Embeddings',
   'welcome.th.featureBilling': 'Facturación',
-  'welcome.th.credit': '5 $ de crédito para empezar',
   'welcome.th.cta': 'Continuar con TinyHumans',
   'welcome.th.providers': 'Inicia sesión con Google, GitHub o X',
   'welcome.self.title': 'Configurarlo yo mismo',
@@ -5138,6 +5137,17 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'La memoria está desactivada',
   'memoryPage.off.description': 'Elige un proveedor de memoria para empezar a recordar.',
   'memoryPage.off.action': 'Elegir proveedor',
+  'memoryPage.disabled.title': 'La memoria está desactivada',
+  'memoryPage.disabled.description':
+    'OpenHuman no guarda ni recuerda nada. Elige un proveedor para volver a activar la memoria.',
+  'memoryPage.engine.disabled.title': 'Desactivada',
+  'memoryPage.engine.disabled.description':
+    'Desactiva la memoria por completo. No se guarda ni se recuerda nada, y tus conexiones se conservan.',
+  'memoryPage.engine.disabled.action': 'Desactivar memoria',
+  'memoryPage.engine.disabled.banner':
+    'No se guarda ni se recuerda nada. Elige un proveedor abajo para volver a activar la memoria.',
+  'memoryPage.engine.disabled.toast': 'Memoria desactivada',
+  'memoryPage.engine.disabled.toastFailed': 'No se pudo desactivar la memoria',
   'memoryPage.engine.inUse': 'En uso',
   'memoryPage.announcement.title': 'Inferencia de memoria gratuita en CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex se retiró el 7 de oct.',

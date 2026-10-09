@@ -83,5 +83,20 @@ or echoes a credential.
 - **Thread ids.** A user may choose ids for their own threads (`threads.upsert`)
   of 1–128 characters from `[A-Za-z0-9_-]`. The core-reserved prefixes
   `channel:`, `proactive:` and `subagent:` are refused.
-- **Still closed.** Methods that start model turns (`threads.generate_title`,
-  `edit_message`, `regenerate`) stay closed until web chat opens per user.
+- **Web chat.** `channel.web_chat`, `web_cancel` and the `web_queue_*` methods
+  are open, along with the turn-starting thread methods. Every `WebChannelEvent` is
+  stamped with the publishing context's agent (`WebChannelEvent::agent`, never
+  serialized). A user's `GET /events?client_id=` stream runs under that user's
+  gateway scope and carries only events stamped with that user's agent. Two
+  users on the same client id never see each other's turns. An unstamped event
+  belongs to no user. The operator has no chat stream, and browser bind tokens
+  are not accepted in SaaS.
+- **Per-agent keys.** The web chat session cache, the in-flight turns and the
+  parallel (forked) turns are keyed by agent and id, so caller-chosen thread
+  and request ids never collide across users.
+- **Deprovisioning** also clears the agent's credential, which lives in the
+  process keyring under the agent id. Otherwise a re-provisioned user would
+  inherit the old credential.
+- **Prompt.** In SaaS the runtime section says `Host: hosted` instead of the
+  server's hostname. The `## User` identity block stays empty, because no
+  process-wide identity is ever set.

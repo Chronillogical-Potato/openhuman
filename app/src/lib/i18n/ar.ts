@@ -436,7 +436,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'الذاكرة',
   'welcome.th.featureEmbeddings': 'التضمينات',
   'welcome.th.featureBilling': 'الفوترة',
-  'welcome.th.credit': 'رصيد 5$ للبدء',
   'welcome.th.cta': 'المتابعة مع TinyHumans',
   'welcome.th.providers': 'سجّل الدخول عبر Google أو GitHub أو X',
   'welcome.self.title': 'سأُعدّه بنفسي',
@@ -4951,6 +4950,17 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'الذاكرة متوقفة',
   'memoryPage.off.description': 'اختر مزوّد ذاكرة لبدء التذكّر.',
   'memoryPage.off.action': 'اختر مزوّدًا',
+  'memoryPage.disabled.title': 'الذاكرة معطّلة',
+  'memoryPage.disabled.description':
+    'لا يحفظ OpenHuman أي شيء ولا يستدعيه. اختر مزوّدًا لإعادة تشغيل الذاكرة.',
+  'memoryPage.engine.disabled.title': 'معطّلة',
+  'memoryPage.engine.disabled.description':
+    'أوقف الذاكرة تمامًا. لا يُحفظ أي شيء ولا يُستدعى، وتبقى اتصالاتك محفوظة.',
+  'memoryPage.engine.disabled.action': 'تعطيل الذاكرة',
+  'memoryPage.engine.disabled.banner':
+    'لا يُحفظ أي شيء ولا يُستدعى. اختر مزوّدًا أدناه لإعادة تشغيل الذاكرة.',
+  'memoryPage.engine.disabled.toast': 'تم تعطيل الذاكرة',
+  'memoryPage.engine.disabled.toastFailed': 'تعذّر تعطيل الذاكرة',
   'memoryPage.engine.inUse': 'قيد الاستخدام',
   'memoryPage.announcement.title': 'استدلال ذاكرة مجاني على CortexDB',
   'memoryPage.announcement.retired': 'أُوقف TinyCortex في 7 أكتوبر.',
