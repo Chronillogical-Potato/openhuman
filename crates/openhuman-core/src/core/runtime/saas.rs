@@ -26,7 +26,7 @@ use crate::core::types::HostKind;
 use crate::tools::toolpacks::ToolGroups;
 
 /// The operator's SaaS deployment settings.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SaasConfig {
     /// Root of every user's state and the operator's own. Must be an absolute,
@@ -36,10 +36,14 @@ pub struct SaasConfig {
     /// `<root>/service.token`.
     #[serde(default)]
     pub service_token_file: Option<PathBuf>,
-    /// Tool groups the operator opts back in. Refused by the boot guard until
-    /// per-user sandboxing ships.
+    /// Host tool groups the operator opts users into
+    /// (`user_agents::tools::SaasToolGroup`: `host_files`, `host_shell`).
+    /// Empty by default: users get no tool that reaches the host.
     #[serde(default)]
     pub tool_allowlist: Vec<String>,
+    /// The container every user shell command runs in.
+    #[serde(default)]
+    pub sandbox: SaasSandboxConfig,
     /// Extra RPC methods the operator exposes. Refused by the boot guard until
     /// the per-user RPC surface ships.
     #[serde(default)]
@@ -62,6 +66,52 @@ pub struct SaasConfig {
     pub require_user_signature: bool,
 }
 
+/// `[sandbox]`: the one-shot container a user's shell command runs in. The
+/// user's `sandbox/` directory is its only writable mount; the root filesystem
+/// is read-only and every capability is dropped (`sandbox::docker`).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SaasSandboxConfig {
+    /// Image to run in. Use one whose default user is not root.
+    #[serde(default = "default_sandbox_image")]
+    pub image: String,
+    /// Docker network. `none` (the default) gives the container no network;
+    /// `host` is refused at boot.
+    #[serde(default = "default_sandbox_network")]
+    pub network: String,
+    #[serde(default = "default_sandbox_memory_mb")]
+    pub memory_limit_mb: u64,
+    #[serde(default = "default_sandbox_cpus")]
+    pub cpu_limit: f64,
+}
+
+impl Default for SaasSandboxConfig {
+    fn default() -> Self {
+        Self {
+            image: default_sandbox_image(),
+            network: default_sandbox_network(),
+            memory_limit_mb: default_sandbox_memory_mb(),
+            cpu_limit: default_sandbox_cpus(),
+        }
+    }
+}
+
+fn default_sandbox_image() -> String {
+    "alpine:3.20".to_string()
+}
+
+fn default_sandbox_network() -> String {
+    "none".to_string()
+}
+
+fn default_sandbox_memory_mb() -> u64 {
+    512
+}
+
+fn default_sandbox_cpus() -> f64 {
+    1.0
+}
+
 fn default_true() -> bool {
     true
 }
@@ -81,6 +131,7 @@ impl SaasConfig {
             root: root.into(),
             service_token_file: None,
             tool_allowlist: Vec::new(),
+            sandbox: SaasSandboxConfig::default(),
             rpc_allowlist_extra: Vec::new(),
             max_agents_open: default_max_agents_open(),
             idle_evict_secs: default_idle_evict_secs(),
