@@ -433,6 +433,47 @@ describe('MemoryEngineTab', () => {
     });
   });
 
+  describe('Disabled', () => {
+    const DISABLED: EngineState = { engine: 'none', has_key: false, status: 'off', fetch_modes: [] };
+
+    it('turns memory off completely with one click', async () => {
+      hoisted.engineSet.mockResolvedValue(DISABLED);
+      const { onStateChange } = renderTab(BUILTIN_ON);
+      fireEvent.click(screen.getByTestId('memory-engine-disable'));
+      await waitFor(() => expect(onStateChange).toHaveBeenCalledWith(DISABLED));
+      expect(hoisted.engineSet).toHaveBeenCalledWith({ engine: 'none' });
+      expect(hoisted.toastAdd).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'success', title: 'Memory disabled' })
+      );
+    });
+
+    it('marks the Disabled card in use and explains how to turn memory back on', () => {
+      renderTab(DISABLED);
+      expect(screen.getByTestId('memory-engine-disabled-active')).toBeInTheDocument();
+      expect(screen.queryByTestId('memory-engine-disable')).not.toBeInTheDocument();
+      expect(screen.getByTestId('memory-engine-status-disabled')).toBeInTheDocument();
+      expect(screen.queryByTestId('memory-engine-status-off')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('memory-engine-status')).not.toBeInTheDocument();
+    });
+
+    it('reports a failed disable', async () => {
+      hoisted.engineSet.mockRejectedValue(new Error('boom'));
+      const { onStateChange } = renderTab(BUILTIN_ON);
+      fireEvent.click(screen.getByTestId('memory-engine-disable'));
+      await waitFor(() =>
+        expect(hoisted.toastAdd).toHaveBeenCalledWith(
+          expect.objectContaining({ type: 'error', title: "Couldn't disable memory" })
+        )
+      );
+      expect(onStateChange).not.toHaveBeenCalled();
+    });
+
+    it('is left out when embedded in onboarding', () => {
+      renderWithProviders(<MemoryEngineTab state={OFF} onStateChange={vi.fn()} embedded />);
+      expect(screen.queryByTestId('memory-engine-disabled')).not.toBeInTheDocument();
+    });
+  });
+
   it('shows a loading state until the engine state arrives', () => {
     renderTab(null);
     expect(screen.queryByTestId('memory-engine-tab')).not.toBeInTheDocument();
