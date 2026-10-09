@@ -18,6 +18,12 @@ use super::{
     PERSIST_RETRY_BASE_MS, PROFILES_FILENAME,
 };
 
+
+/// The secret the profiles live in on a storage backend
+/// ([`crate::storage::secrets`]): the same JSON as `auth-profiles.json`,
+/// encrypted as one secret in the acting agent's scope.
+const STORAGE_SECRET_NAME: &str = "file:auth-profiles.json";
+
 impl AuthProfilesStore {
     pub(super) fn save_locked(&self, data: &AuthProfilesData) -> Result<()> {
         let mut persisted = PersistedAuthProfiles {
@@ -114,6 +120,28 @@ impl AuthProfilesStore {
     }
 
     pub(super) fn read_persisted_locked(&self) -> Result<PersistedAuthProfiles> {
+        if let Some(secrets) = crate::storage::secrets::current()? {
+            let Some(bytes) = crate::storage::secrets::get_blocking(&secrets, STORAGE_SECRET_NAME)?
+            else {
+                return Ok(PersistedAuthProfiles::default());
+            };
+            // No quarantine on a storage backend: an unparseable record is an
+            // error, so a later write can never replace profiles it could not
+            // read.
+            let mut persisted: PersistedAuthProfiles = serde_json::from_slice(&bytes)
+                .context("auth profile record on the storage backend is not valid JSON")?;
+            if persisted.schema_version == 0 {
+                persisted.schema_version = CURRENT_SCHEMA_VERSION;
+            }
+            if persisted.schema_version > CURRENT_SCHEMA_VERSION {
+                anyhow::bail!(
+                    "Unsupported auth profile schema version {} (max supported: {})",
+                    persisted.schema_version,
+                    CURRENT_SCHEMA_VERSION
+                );
+            }
+            return Ok(persisted);
+        }
         if !self.path.exists() {
             return Ok(PersistedAuthProfiles::default());
         }
@@ -163,6 +191,12 @@ impl AuthProfilesStore {
     }
 
     pub(super) fn write_persisted_locked(&self, persisted: &PersistedAuthProfiles) -> Result<()> {
+        if let Some(secrets) = crate::storage::secrets::current()? {
+            let json =
+                serde_json::to_vec(persisted).context("Failed to serialize auth profiles")?;
+            crate::storage::secrets::set_blocking(&secrets, STORAGE_SECRET_NAME, &json)?;
+            return Ok(());
+        }
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent).with_context(|| {
                 format!(

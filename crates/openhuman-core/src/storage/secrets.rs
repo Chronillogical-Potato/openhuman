@@ -54,6 +54,36 @@ pub fn over(scoped: &ScopedStorage, keys: Arc<dyn KeyProvider>) -> DocumentSecre
     DocumentSecrets::new(scoped, keys)
 }
 
+/// Reads secret `name` from synchronous code.
+///
+/// # Errors
+///
+/// A storage or decryption error.
+pub fn get_blocking(
+    secrets: &DocumentSecrets,
+    name: &str,
+) -> Result<Option<Zeroizing<Vec<u8>>>, StorageError> {
+    use tinystoragedrivers::secrets::SecretStore as _;
+    let (secrets, name) = (secrets.clone(), name.to_string());
+    super::block_on(async move { secrets.get(&name).await })
+}
+
+/// Writes secret `name` from synchronous code.
+///
+/// # Errors
+///
+/// A storage or encryption error.
+pub fn set_blocking(
+    secrets: &DocumentSecrets,
+    name: &str,
+    value: &[u8],
+) -> Result<(), StorageError> {
+    use tinystoragedrivers::secrets::SecretStore as _;
+    let (secrets, name) = (secrets.clone(), name.to_string());
+    let value = Zeroizing::new(value.to_vec());
+    super::block_on(async move { secrets.set(&name, &value).await })
+}
+
 #[cfg(test)]
 #[path = "secrets_tests.rs"]
 mod tests;

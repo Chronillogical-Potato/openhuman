@@ -334,6 +334,13 @@ impl HttpCredentialsStore {
     }
 
     fn read_persisted(&self) -> Result<PersistedHttpCredentials> {
+        if let Some(secrets) = crate::storage::secrets::current()? {
+            return match crate::storage::secrets::get_blocking(&secrets, STORAGE_SECRET_NAME)? {
+                Some(bytes) => serde_json::from_slice(&bytes)
+                    .context("http-credentials record on the storage backend is not valid JSON"),
+                None => Ok(PersistedHttpCredentials::default()),
+            };
+        }
         if !self.path.exists() {
             return Ok(PersistedHttpCredentials::default());
         }
@@ -355,6 +362,12 @@ impl HttpCredentialsStore {
     }
 
     fn write_persisted(&self, persisted: &PersistedHttpCredentials) -> Result<()> {
+        if let Some(secrets) = crate::storage::secrets::current()? {
+            let json = serde_json::to_vec(persisted)
+                .context("failed to serialize http-credentials store")?;
+            crate::storage::secrets::set_blocking(&secrets, STORAGE_SECRET_NAME, &json)?;
+            return Ok(());
+        }
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent).with_context(|| {
                 format!(
@@ -387,6 +400,11 @@ impl HttpCredentialsStore {
         Ok(())
     }
 }
+
+/// The secret the store lives in on a storage backend
+/// ([`crate::storage::secrets`]): the same JSON as the file, encrypted as one
+/// secret in the acting agent's scope.
+const STORAGE_SECRET_NAME: &str = "file:http-credentials.json";
 
 fn parse_scheme(raw: &str) -> Option<HttpCredentialScheme> {
     match raw.trim().to_ascii_lowercase().as_str() {
