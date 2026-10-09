@@ -42,15 +42,31 @@ pub const USER_METHODS: &[&str] = &[
 /// Whether `method` (of an operator-plane controller or not) may be
 /// dispatched or listed in the current scope.
 pub fn method_visible(method: &str, operator_plane: bool) -> bool {
-    visible_in(
-        is_saas(),
+    visible_in(is_saas(), current_scope(), method, operator_plane)
+}
+
+/// Who the current work runs for, in SaaS terms.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Scope {
+    /// No task scope at all.
+    None,
+    Operator,
+    User,
+}
+
+/// The current task's scope. In SaaS only the task-local scope counts; a task
+/// that lost it is [`Scope::None`], never the operator's default context.
+pub fn current_scope() -> Scope {
+    let ctx = if is_saas() {
+        CoreContext::scoped()
+    } else {
         CoreContext::current()
-            .as_deref()
-            .and_then(CoreContext::session_agent)
-            .is_some(),
-        method,
-        operator_plane,
-    )
+    };
+    match ctx {
+        None => Scope::None,
+        Some(ctx) if ctx.session_agent().is_some() => Scope::User,
+        Some(_) => Scope::Operator,
+    }
 }
 
 /// [`method_visible`] as a pure function of the mode and the scope.
@@ -60,11 +76,14 @@ pub fn method_visible(method: &str, operator_plane: bool) -> bool {
 /// `DomainSet` registers the user families on the runtime so user contexts
 /// can derive them; this keeps the operator from serving them on its own
 /// workspace.
-pub fn visible_in(saas: bool, user_scope: bool, method: &str, operator_plane: bool) -> bool {
-    match (saas, user_scope) {
+///
+/// A SaaS task with no scope sees nothing: missing scope fails closed.
+pub fn visible_in(saas: bool, scope: Scope, method: &str, operator_plane: bool) -> bool {
+    match (saas, scope) {
         (false, _) => true,
-        (true, false) => operator_plane,
-        (true, true) => !operator_plane && USER_METHODS.contains(&method),
+        (true, Scope::None) => false,
+        (true, Scope::Operator) => operator_plane,
+        (true, Scope::User) => !operator_plane && USER_METHODS.contains(&method),
     }
 }
 
@@ -90,11 +109,7 @@ pub fn validate_user_thread_id(id: &str) -> Result<(), String> {
 
 /// Whether the current work runs for a SaaS user.
 fn in_user_scope() -> bool {
-    is_saas()
-        && CoreContext::current()
-            .as_deref()
-            .and_then(CoreContext::session_agent)
-            .is_some()
+    is_saas() && current_scope() == Scope::User
 }
 
 /// A SaaS user cannot pick a thread's working folder: their threads always

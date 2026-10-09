@@ -922,7 +922,12 @@ pub fn rpc_method_from_parts(namespace: &str, function: &str) -> Option<String> 
     let found = view
         .iter()
         .find(|g| {
-            g.controller.schema.namespace == namespace && g.controller.schema.function == function
+            g.controller.schema.namespace == namespace
+                && g.controller.schema.function == function
+                && crate::user_agents::surface::method_visible(
+                    &g.controller.rpc_method_name(),
+                    g.group == DomainGroup::Operator,
+                )
         })
         .map(|g| g.controller.rpc_method_name());
     found
