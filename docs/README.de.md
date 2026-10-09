@@ -318,7 +318,7 @@ Kurz gesagt: Die anderen sind großartig für eine Person, die mit einem Agenten
 
 ## Mitmachen
 
-Lies [`CONTRIBUTING.md`](../CONTRIBUTING.md) oder lass dich von einem KI-Coding-Agenten mit [diesem Prompt](./CONTRIBUTING-BEGINNERS.md#optional--let-an-ai-coding-agent-guide-you).
+Lies [`CONTRIBUTING.md`](../CONTRIBUTING.md) oder lass dich von einem KI-Coding-Agenten mit [diesem Prompt](./CONTRIBUTING-BEGINNERS.md#optional--let-an-ai-coding-agent-guide-you) anleiten.
 
 1. Installiere Git, Node.js 24+, pnpm 10.10.0, Rust 1.96.1 (mit `rustfmt` und `clippy`), CMake, Ninja, ripgrep und die Voraussetzungen für den Desktop-Build deiner Plattform.
 2. Forke das Repo und klone es. Führe `git submodule update --init --recursive` aus, dann `pnpm install`.
