@@ -710,7 +710,7 @@ async fn run_typed_mode(
             let name = tool.name();
             if definition.extra_tools.iter().any(|n| n == name)
                 && !allowed_indices.contains(&i)
-                && !super::super::tool_prep::disallowed_tool_matches(
+                && !crate::tools::rules::glob_list_matches(
                     &definition.disallowed_tools,
                     name,
                 )

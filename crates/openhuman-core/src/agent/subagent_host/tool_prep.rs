@@ -106,7 +106,7 @@ pub(super) fn filter_tool_indices(
         .enumerate()
         .filter(|(_, tool)| {
             let name = tool.name();
-            if disallowed_tool_matches(disallowed, name) {
+            if crate::tools::rules::glob_list_matches(disallowed, name) {
                 return false;
             }
             // The CCR recovery tool is advertised to any agent that has a tool
@@ -146,15 +146,6 @@ pub(super) fn retain_parent_visible_tool_indices(
     indices.retain(|&index| parent_visible.contains(parent_tools[index].name()));
 }
 
-pub(super) fn disallowed_tool_matches(disallowed: &[String], name: &str) -> bool {
-    disallowed.iter().any(|entry| {
-        if let Some(prefix) = entry.strip_suffix('*') {
-            name.starts_with(prefix)
-        } else {
-            entry == name
-        }
-    })
-}
 
 #[cfg(test)]
 #[path = "tool_prep_tests.rs"]

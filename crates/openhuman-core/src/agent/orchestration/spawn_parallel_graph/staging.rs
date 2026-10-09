@@ -96,15 +96,6 @@ pub(crate) fn worktree_request_for_task(task: &ParallelAgentTask) -> ParallelWor
     }
 }
 
-fn disallowed_tool_matches(disallowed: &[String], name: &str) -> bool {
-    disallowed.iter().any(|entry| {
-        if let Some(prefix) = entry.strip_suffix('*') {
-            name.starts_with(prefix)
-        } else {
-            entry == name
-        }
-    })
-}
 
 fn definition_visible_tool_permissions(
     definition: &AgentDefinition,
@@ -119,7 +110,7 @@ fn definition_visible_tool_permissions(
         .iter()
         .filter_map(|tool| {
             let name = tool.name();
-            if disallowed_tool_matches(&definition.disallowed_tools, name) {
+            if crate::tools::rules::glob_list_matches(&definition.disallowed_tools, name) {
                 return None;
             }
             if let Some(prefix) = skill_prefix.as_deref() {
