@@ -670,6 +670,26 @@ alert_threshold = 0.9
         Some(3),
         "one cache row per seeded call: {cache}"
     );
+    // The seeded records predate attribution: no thread, so no call can be a
+    // repeat, none is cold, and nothing was read from the cache.
+    assert_eq!(cache.get("cold_calls").and_then(Value::as_u64), Some(0), "{cache}");
+    assert_eq!(cache.get("cache_hit_ratio").and_then(Value::as_f64), Some(0.0), "{cache}");
+    assert_eq!(cache.get("cached_input_tokens").and_then(Value::as_u64), Some(0), "{cache}");
+    assert!(
+        cache
+            .get("uncached_premium_usd")
+            .and_then(Value::as_f64)
+            .is_some_and(|p| p >= 0.0),
+        "{cache}"
+    );
+    let misspelt = harness
+        .call(
+            59,
+            "openhuman.cost_cache_report",
+            json!({ "filter": { "threadId": "t1" } }),
+        )
+        .await;
+    assert_error(&misspelt, "cost_cache_report with a misspelt filter key");
 
     // The wire spelling is `groupBy`; anything the schema does not declare is
     // refused rather than silently ignored.
