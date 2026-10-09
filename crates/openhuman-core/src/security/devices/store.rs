@@ -1,5 +1,8 @@
 //! SQLite persistence for paired devices.
 //!
+//! With a storage backend configured ([`crate::storage`]) every function
+//! here is served from the document port instead (`store_documents.rs`).
+//!
 //! Follows the same `with_connection` pattern as `cron/store.rs`:
 //! open a per-call connection to a domain-scoped `.db` file inside the
 //! workspace directory, execute DDL on each open (idempotent), then run
@@ -24,6 +27,9 @@ pub fn insert_device(
     device_pubkey: &str,
     core_session_token_hash: &str,
 ) -> Result<PairedDevice> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.insert_device(channel_id, label, device_pubkey, core_session_token_hash);
+    }
     let now = Utc::now().to_rfc3339();
     with_connection(config, |conn| {
         conn.execute(
@@ -47,6 +53,9 @@ pub fn insert_device(
 
 /// Update `last_seen_at` for a device (called on `tunnel:peer-status` online events).
 pub fn touch_device(config: &Config, channel_id: &str) -> Result<()> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.touch_device(channel_id);
+    }
     let now = Utc::now().to_rfc3339();
     with_connection(config, |conn| {
         conn.execute(
@@ -60,6 +69,9 @@ pub fn touch_device(config: &Config, channel_id: &str) -> Result<()> {
 
 /// Mark a device as revoked (soft delete).
 pub fn revoke_device(config: &Config, channel_id: &str) -> Result<bool> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.revoke_device(channel_id);
+    }
     let rows = with_connection(config, |conn| {
         conn.execute(
             "UPDATE paired_devices SET revoked = 1 WHERE channel_id = ?1",
@@ -72,6 +84,9 @@ pub fn revoke_device(config: &Config, channel_id: &str) -> Result<bool> {
 
 /// Load a single paired device by channel_id (returns None if not found).
 pub fn get_device(config: &Config, channel_id: &str) -> Result<Option<PairedDevice>> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.get_device(channel_id);
+    }
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(
             "SELECT channel_id, label, device_pubkey, created_at, last_seen_at, revoked \
@@ -84,6 +99,9 @@ pub fn get_device(config: &Config, channel_id: &str) -> Result<Option<PairedDevi
 
 /// List all non-revoked paired devices ordered by creation time.
 pub fn list_devices(config: &Config) -> Result<Vec<PairedDevice>> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.list_devices();
+    }
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(
             "SELECT channel_id, label, device_pubkey, created_at, last_seen_at, revoked \
