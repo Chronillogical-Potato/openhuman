@@ -19,6 +19,7 @@ fn synthetic(id: &str, tier: AgentTier, subagents: &[&str]) -> HostAgentDefiniti
         system_prompt: None,
         tool_allowlist: Vec::new(),
         tool_denylist: Vec::new(),
+        tool_rules: None,
         subagents: AgentSubagentPolicy::from_allowlist(
             subagents.iter().map(|s| s.to_string()).collect(),
         ),
@@ -223,9 +224,9 @@ fn skills_wildcard_entries_are_not_agent_ids() {
 #[test]
 fn denylist_supports_exact_and_prefix_forms() {
     let denied = vec!["file_write".to_string(), "storage_*".to_string()];
-    assert!(disallows_tool(&denied, "file_write"));
-    assert!(disallows_tool(&denied, "storage_delete_file"));
-    assert!(!disallows_tool(&denied, "file_read"));
+    assert!(crate::tools::rules::glob_list_matches(&denied, "file_write"));
+    assert!(crate::tools::rules::glob_list_matches(&denied, "storage_delete_file"));
+    assert!(!crate::tools::rules::glob_list_matches(&denied, "file_read"));
 }
 
 /// A wildcard scope materializes the session's registered tool surface.
@@ -394,6 +395,7 @@ fn custom_entry(id: &str, enabled: bool) -> AgentRegistryEntry {
         system_prompt: Some("Do finance work.".to_string()),
         tool_allowlist: vec!["memory_recall".to_string()],
         tool_denylist: Vec::new(),
+        tool_rules: None,
         subagents: AgentSubagentPolicy::default(),
         tags: Vec::new(),
         metadata: serde_json::Value::Null,
