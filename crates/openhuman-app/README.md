@@ -34,7 +34,7 @@ For the user-facing tour of windows, tray and data flow, see
 |                 v                         +-------------+--------------+  |
 |   +---------------------------+                         |                 |
 |   | embedded core server      |<------------------------+                 |
-|   | openhuman_rpc::server     |   shell-side callers (session link,       |
+|   | openhuman_rpc::host       |   shell-side callers (session link,       |
 |   | (tokio task, 127.0.0.1)   |   iMessage scanner) use the same HTTP     |
 |   | openhuman_core domains    |                                           |
 |   +---------------------------+                                           |
@@ -42,21 +42,22 @@ For the user-facing tour of windows, tray and data flow, see
 ```
 
 There is no sidecar binary. `core_process::CoreProcessHandle` owns a tokio task
-running `openhuman_rpc::server::run_server_embedded_with_ready`, so the core
-lives and dies with the window. The handle generates a 256-bit hex bearer per
+running `openhuman_rpc::host::desktop`, so the core lives and dies with the
+window. That task owns the process's one embed runtime; a restart waits for
+the old task to drop it before spawning the next. The handle generates a 256-bit hex bearer per
 launch (`generate_rpc_token`) and hands it to the embedded server in memory,
 not through the environment. The frontend gets it back with the
 `core_rpc_endpoint` command.
 
 ### Boot sequence
 
-`main.rs` runs first. It calls `openhuman_tinyhumans::install` so the core has
-a backend transport (the core carries none of its own), then looks at
-`argv[1]`:
+`main.rs` runs first and looks at `argv[1]`. It installs nothing itself:
+every path boots through an `openhuman_rpc::host` entry, which connects the
+TinyHumans backend transport (the core carries none of its own).
 
-- `OpenHuman core <args>` goes to `run_core_from_args`, which installs the
-  JSON-RPC server (`openhuman_rpc::server::install_cli_server`) and dispatches
-  into the core CLI. On Windows the process reattaches to the parent console
+- `OpenHuman core <args>` goes to `run_core_from_args`, which calls
+  `openhuman_rpc::host::cli` (the same entry as the `openhuman-core` binary:
+  connected, with the JSON-RPC server behind `run` / `serve`). On Windows the process reattaches to the parent console
   first so output appears in the shell.
 - `OpenHuman mcp` and `OpenHuman mcp-server` do the same, which makes the app
   binary a stdio MCP server for clients such as the Claude Code CLI.
@@ -65,17 +66,17 @@ a backend transport (the core carries none of its own), then looks at
 `run()` in `lib.rs` then does, in order:
 
 1. Builds the Tauri context (on Windows it drops native decorations for the
-   custom titlebar), neutralizes a broken parent stderr
-   (`stderr_panic_hook`), and installs the backend transport again in case
-   the library is entered without `main.rs`.
-2. Replaces Tauri's async runtime with a multi-thread tokio runtime that uses
-   the core's `AGENT_WORKER_STACK_BYTES` stack size and
-   `MAX_BLOCKING_THREADS`, so agent turns started from commands do not
-   overflow the default stack.
-3. Initializes Sentry (DSN from `OPENHUMAN_TAURI_SENTRY_DSN`), with a
-   `before_send` filter that drops dev-server fetch noise and the core's
-   known transient classes (`openhuman_core::core::observability::is_*`) and
-   tags the signed-in user id from `session::peek_user_id`. Then the stderr
+   custom titlebar) and neutralizes a broken parent stderr
+   (`stderr_panic_hook`).
+2. Replaces Tauri's async runtime with `openhuman_rpc::embed::process::tokio_runtime()`,
+   a multi-thread runtime with the core's `AGENT_WORKER_STACK_BYTES` stack
+   size and `MAX_BLOCKING_THREADS`, so agent turns started from commands do
+   not overflow the default stack.
+3. Initializes Sentry (DSN from `OPENHUMAN_TAURI_SENTRY_DSN`) with
+   `embed::process::sentry::client_options`: the shared `before_send` chain
+   (dev-server fetch noise, the core's known transient classes, hostname
+   stripping, secret scrubbing) with the signed-in user id from
+   `session::peek_user_id` as the fallback. Then the stderr
    panic hook, file logging (`file_logging::init`), and the Linux display and
    WSL checks.
 4. Single-instance guards that must run before any window exists. On Windows
@@ -198,7 +199,7 @@ Updates, reset and diagnostics:
 | `src/app_update.rs` | Bounded retry policy for the updater download. The update commands themselves are in `lib.rs`. |
 | `src/local_data_reset.rs` | `reset_local_data`: asks the core which paths to remove, shuts the core down so its file handles close, removes the active user's local data, and starts the core again. |
 | `src/reset_reboot_schedule.rs` | Windows: schedules deletion at next reboot when files are locked during a reset. |
-| `src/file_logging.rs` | Resolves the data dir and calls `openhuman_core::core::logging::init_for_embedded`; `reveal_logs_folder`, `logs_folder_path`. |
+| `src/file_logging.rs` | Resolves the data dir and calls `openhuman_rpc::embed::process::init_for_embedded`; `reveal_logs_folder`, `logs_folder_path`. |
 | `src/stderr_panic_hook.rs` | Stops a closed parent stderr pipe from turning log writes into panics. |
 
 Other commands:
@@ -216,7 +217,7 @@ Configuration and packaging:
 | `tauri.conf.json` | Windows, bundle resources (agent prompts and `bundled-modules`), updater and installer settings. |
 | `capabilities/` | The capability granted to the `main` and `overlay` windows. See [`capabilities/`](capabilities/README.md). |
 | `permissions/` | App permission sets referenced by the capability. See [`permissions/`](permissions/README.md). |
-| `bundled-modules/` | Installer resource directory for native module releases. Empty in git (only `.gitkeep`; everything else is ignored). Release builds fill it with `scripts/release/stage-modules.mjs`, laid out as `<id>/<version>/<host_key>/<archive>`, and `setup()` hands it to `openhuman_core::modules::ops::set_bundled_releases_dir`. Its contents still pass the core's digest and TinyBus admission checks. On macOS, `scripts/release/macos-bundled-modules.sh` signs and checks it. |
+| `bundled-modules/` | Installer resource directory for native module releases. Empty in git (only `.gitkeep`; everything else is ignored). Release builds fill it with `scripts/release/stage-modules.mjs`, laid out as `<id>/<version>/<host_key>/<archive>`, and `setup()` hands it to `openhuman_rpc::embed::modules::set_bundled_releases_dir`. Its contents still pass the core's digest and TinyBus admission checks. On macOS, `scripts/release/macos-bundled-modules.sh` signs and checks it. |
 | `build.rs` | Runs `tauri_build`, and empties `bundle.resources` for non-release builds. |
 | `profiling/` | Standalone CPU and RAM profiler for a running app. See [`profiling/`](profiling/README.md). |
 | `Info.plist`, `entitlements.sidecar.plist`, `nsis-hooks.nsh`, `main.desktop`, `postinst`, `postrm` | Platform packaging files for macOS, the Windows installer, and Linux packages. |
@@ -273,9 +274,11 @@ pnpm dev:app      # Vite dev server + this crate
 pnpm build        # production bundle
 ```
 
-The core dependency is `openhuman_core = { path = "../openhuman-core",
-package = "openhuman", default-features = false, features = [...] }`. Because
-default features are off, every product gate must be listed by hand:
+The only OpenHuman dependency is `openhuman-rpc = { path = "../openhuman-rpc",
+default-features = false, features = [...] }`
+(`scripts/ci/check-crate-chain.mjs` enforces it); it forwards each gate down
+the chain to the core. Because default features are off, every product gate
+must be listed by hand:
 `channels`, `media`, `inference`, `voice`, `web3`, `documents`, `modules`,
 `flows`, `skills`, `mcp`, `crash-reporting`, `http-server`, `scheduler-gate`,
 `file-logging`, `runtime-node`, `hosting`. A gate missing here disappears from
@@ -285,10 +288,11 @@ compares the list with `scripts/ci/product-features.txt`, and `lib.rs` has two
 `HTTP_SERVER_COMPILED_IN`) that fail the build if `voice` or `http-server` is
 dropped.
 
-Other dependencies: `openhuman-rpc` with `http-client` and `server` (the
-embedded server and the relay), `openhuman-tinyhumans` with `jev` (backend
-transport and the session owner), and the `tinybox-*` crates behind
-`gateways`.
+The same line turns on rpc's own `http-client` and `server` (the relay and the
+embedded server) and `jev` (the Jev ranker). The session owner, the embed
+facades and the backend transport come through it as
+`openhuman_rpc::tinyhumans` and `openhuman_rpc::embed`. The `tinybox-*` crates
+sit behind `gateways`.
 
 The `[patch]` tables mirror the root `Cargo.toml` for `tinytools`, the
 `tinyinference-*` crates, `tinyflows` and `tinychannels`. Keep them in sync:
@@ -306,7 +310,7 @@ These are shell-local and unrelated to the core feature forwarding above.
 | --- | --- |
 | `gateways` (default) | Compiles in `src/gateway/` and the `tinybox-*` crates. Off, the gateway commands are absent and `active_rpc_endpoint` always answers with the embedded core. |
 | `custom-protocol` | Serves the bundled `frontendDist` from `tauri://localhost` instead of the Vite `devUrl`. `cargo tauri build` turns it on; never add it to `default`. |
-| `e2e-test-support` | Forwards `openhuman_core/e2e-test-support` to expose `openhuman.test_reset`. The E2E build (`app/scripts/e2e-build.sh`) enables it. |
+| `e2e-test-support` | Forwards `openhuman-rpc/e2e-test-support` (down the chain to the core) to expose `openhuman.test_reset`. The E2E build (`app/scripts/e2e-build.sh`) enables it. |
 
 ## Boundaries
 
