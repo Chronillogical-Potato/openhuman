@@ -192,6 +192,12 @@ pub fn gate_verdict(tool: &str) -> Result<(), String> {
     verdict
 }
 
+/// Whether a Docker network name is the host network (Docker matches it
+/// case-insensitively).
+pub fn is_host_network(network: &str) -> bool {
+    network.trim().eq_ignore_ascii_case("host")
+}
+
 /// The container policy for a user's shell command. `action_dir` must be a
 /// user's `sandbox/` directory under `<root>/agents/`, or the command is
 /// refused.
@@ -215,12 +221,28 @@ pub fn sandbox_policy_with(
             action_dir.display()
         ));
     }
-    if config.network.trim() == "host" {
+    // Resolve symlinks: the directory mounted read-write must really be this
+    // agent's sandbox, not a link from it to somewhere else on the host.
+    let resolved = action_dir
+        .canonicalize()
+        .map_err(|e| format!("{}: {e}", action_dir.display()))?;
+    let expected = agents
+        .canonicalize()
+        .map_err(|e| format!("{}: {e}", agents.display()))?
+        .join(agent_dir.and_then(Path::file_name).unwrap_or_default())
+        .join("sandbox");
+    if resolved != expected {
+        return Err(format!(
+            "{} resolves outside the user's sandbox",
+            action_dir.display()
+        ));
+    }
+    if is_host_network(&config.network) {
         return Err("the sandbox cannot use the host network".to_string());
     }
     Ok(SandboxPolicy {
         backend: SandboxBackendKind::Docker,
-        workspace_root: action_dir.to_path_buf(),
+        workspace_root: resolved,
         state_dir: state_dir.to_path_buf(),
         read_only_mounts: Vec::new(),
         read_write_mounts: Vec::new(),
