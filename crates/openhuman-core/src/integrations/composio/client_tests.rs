@@ -368,7 +368,6 @@ async fn direct_list_tools_forwards_tags_and_reshapes_v3_envelope() {
 async fn direct_connected_integrations_fetches_schemas_without_backend_composio_route() {
     let _module = module_guard().await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = module_test_config(&tmp);
     let backend_tool_requests = Arc::new(AtomicUsize::new(0));
     let backend_hits = backend_tool_requests.clone();
     let backend = Router::new().route(
