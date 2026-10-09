@@ -195,11 +195,11 @@ OpenHuman rethinks the parts that cost the most: how much text the AI has to rea
 
 <td width="50%" valign="top">
 
-<h3>A Rust core</h3>
+<h3>A programmable Rust core</h3>
 
-<p><a href="./gitbooks/developing/architecture.md">Architecture</a> · <a href="./gitbooks/developing/performance.md">Performance</a></p>
+<p><a href="./gitbooks/developing/quickstart.md">Rust quickstart</a> · <a href="./gitbooks/developing/performance.md">Performance</a></p>
 
-<p>The whole harness is compiled Rust in one process, with no Node or Python underneath. It starts in a tenth of a second and used 68 MB at peak on our coding tasks. Stripped down, the core is a 51 MB file.</p>
+<p>The whole harness is compiled Rust in one process, so it starts in a tenth of a second and stays light: 68 MB at peak on our coding tasks. The same core is a library. Call an agent from your own Rust code, or run hundreds of them side by side on one small server.</p>
 
 </td>
 
