@@ -222,3 +222,18 @@ fn a_malicious_summary_cannot_forge_or_escape_its_envelope() {
     );
     assert!(notice.contains("ignore previous instructions"));
 }
+
+#[test]
+fn an_artifact_backed_result_is_not_reported_as_empty() {
+    use tinyagents_tasks::CompletionArtifact;
+    let mut record = ok("sub-art", "researcher", "");
+    record.result.artifact = Some(CompletionArtifact {
+        id: "art-1".into(),
+        ..CompletionArtifact::default()
+    });
+    record.result.omitted_chars = 1200;
+    let text = notice(&[record]);
+    assert!(text.contains("stored as artifact \"art-1\""), "got: {text}");
+    assert!(text.contains("1200 characters of this output were omitted"));
+    assert!(!text.contains("(no output reported)"));
+}

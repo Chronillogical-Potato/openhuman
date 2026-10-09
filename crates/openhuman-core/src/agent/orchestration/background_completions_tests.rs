@@ -536,29 +536,82 @@ fn clear_all_also_withdraws_a_completion_a_delivery_has_leased() {
 fn the_session_cache_evicts_its_oldest_mapping_only() {
     let _guard = test_guard();
     for i in 0..(SESSION_THREADS_CAP + 5) {
-        note_session_thread(&format!("evict-sess-{i}"), "evict-thread");
+        note_session_thread(&format!("evict-sess-{i}"), &format!("evict-thread-{i}"));
     }
     assert_eq!(thread_for_session("evict-sess-0"), None, "oldest evicted");
-    assert_eq!(
-        thread_for_session(&format!("evict-sess-{}", SESSION_THREADS_CAP + 4)).as_deref(),
-        Some("evict-thread"),
-        "newest kept"
-    );
-    assert_eq!(
-        thread_for_session(&format!("evict-sess-{}", SESSION_THREADS_CAP / 2)).as_deref(),
-        Some("evict-thread"),
-        "the cache is not cleared wholesale"
-    );
+    for survivor in [5, SESSION_THREADS_CAP / 2, SESSION_THREADS_CAP + 4] {
+        assert_eq!(
+            thread_for_session(&format!("evict-sess-{survivor}")).as_deref(),
+            Some(format!("evict-thread-{survivor}").as_str()),
+            "a surviving session still resolves to its own thread"
+        );
+    }
 }
 
 #[test]
-fn release_all_closes_every_router_and_the_log_stays_replayable() {
+fn a_delete_marker_outlives_compaction() {
     let _guard = test_guard();
     let ws = workspace();
     let w = ws.path();
-    record(w, "sess-rel", "sub-1", "kept on disk", Some("thread-rel"));
+    record(w, "sess-cm", "sub-1", "x", Some("thread-compact"));
+    discard_for_thread(w, "thread-compact");
 
-    assert!(release_all() >= 1);
+    // Settled records expire; the deletion must not.
+    router_for_workspace(w)
+        .compact(std::time::Duration::ZERO)
+        .unwrap();
+    forget_workspace_for_test(w);
+    assert!(mark_stopped_task_if_thread_stopped(
+        w,
+        "thread-compact",
+        "sub-late"
+    ));
+}
+
+#[test]
+fn deleting_a_thread_that_never_used_background_work_writes_nothing() {
+    let _guard = test_guard();
+    let ws = workspace();
+    let w = ws.path();
+    assert_eq!(discard_for_thread(w, "thread-plain"), 0);
+    assert!(
+        entry_for(w).store.list(None).is_empty(),
+        "no marker is persisted for an ordinary thread"
+    );
+    // The in-memory gate still holds for this process.
+    record(w, "sess-pl", "sub-1", "x", Some("thread-plain"));
+    assert!(pending_ids(w, "thread-plain").is_empty());
+}
+
+#[test]
+fn a_late_record_for_a_deleted_thread_is_dropped_by_the_durable_marker_alone() {
+    let _guard = test_guard();
+    let ws = workspace();
+    let w = ws.path();
+    record(w, "sess-dm", "sub-1", "x", Some("thread-dm"));
+    discard_for_thread(w, "thread-dm");
+    // A restart empties the in-memory gates; the marker on disk still decides.
+    forget_workspace_for_test(w);
+    record(w, "sess-dm", "sub-late", "stale", Some("thread-dm"));
+    assert!(pending_ids(w, "thread-dm").is_empty());
+}
+
+#[tokio::test]
+async fn release_all_closes_every_router_and_the_log_stays_replayable() {
+    let _guard = crate::config::TEST_ENV_LOCK.lock().await;
+    let ws = workspace();
+    let w = ws.path();
+    record_completion(
+        w,
+        "sess-rel",
+        "sub-1",
+        "researcher",
+        "kept on disk",
+        Some("thread-rel".into()),
+    )
+    .await;
+
+    assert!(release_all().await >= 1);
     assert!(
         !state().routers.contains_key(w),
         "the router (and its log handle) is dropped"
@@ -570,4 +623,20 @@ fn release_all_closes_every_router_and_the_log_stays_replayable() {
 
     // The next boot finds the undelivered completion from the log alone.
     assert_eq!(recover_pending_threads(w), ["thread-rel"]);
+}
+
+#[tokio::test]
+async fn release_all_waits_for_a_router_still_in_use() {
+    let _guard = crate::config::TEST_ENV_LOCK.lock().await;
+    let ws = workspace();
+    let w = ws.path();
+    let in_use = router_for_workspace(w);
+    let releasing = tokio::spawn(release_all());
+    tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+    assert!(
+        !releasing.is_finished(),
+        "waits while a delivery holds the router"
+    );
+    drop(in_use);
+    assert!(releasing.await.unwrap() >= 1);
 }

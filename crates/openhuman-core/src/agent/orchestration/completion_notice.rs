@@ -148,11 +148,22 @@ fn render_results(records: &[CompletionRecord]) -> String {
             ),
         };
         let text = record.result.text.trim();
-        let summary = if text.is_empty() {
-            empty_fallback.to_string()
-        } else {
-            neutralize_envelope_markers(text)
+        let mut summary = match (text.is_empty(), &record.result.artifact) {
+            (false, _) => neutralize_envelope_markers(text),
+            // The harness can move the output into an artifact; say so rather
+            // than claiming nothing was reported.
+            (true, Some(artifact)) => format!(
+                "(the output is stored as artifact \"{}\")",
+                escape_attribute(&artifact.id)
+            ),
+            (true, None) => empty_fallback.to_string(),
         };
+        if record.result.omitted_chars > 0 {
+            summary.push_str(&format!(
+                "\n[{} characters of this output were omitted]",
+                record.result.omitted_chars
+            ));
+        }
         out.push_str(&format!(
             "\n<{tag} id=\"{}\" agent=\"{}\">\n{}\n</{tag}>\n",
             escape_attribute(&record.task_id),
