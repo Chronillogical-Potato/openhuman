@@ -85,6 +85,22 @@ SQLite DB at `{workspace_dir}/notifications/notifications.db`, opened per-call v
 
 `insert_if_not_recent` runs a `BEGIN IMMEDIATE` transaction so concurrent duplicate ingests collapse to a single insert.
 
+### On a storage backend
+
+When the host configured a storage backend (`OPENHUMAN_STORAGE_URL` /
+`[storage] url`, see `crate::storage`), every `store` function uses
+`store_documents.rs` instead of `notifications.db`: the same operations on the
+`tinystoragedrivers` document port, under the current call's storage scope
+(the acting agent; `local` on a single-user host; refused in SaaS mode with
+no acting agent). Collections `integration_notifications`, `notification_dedup`,
+`notification_settings` and `core_notifications`. Every insert first
+advances a `notification_dedup` document (a hash of provider, account,
+title and body) under compare-and-swap, which replaces the SQL store's
+`BEGIN IMMEDIATE`: two processes ingesting the same content in the same
+minute insert it once. `stats` folds the counts in the store, since the
+port has no `GROUP BY`. With no backend configured (the desktop default)
+`notifications.db` is used as described above.
+
 ## Dependencies
 
 - `crate::core::bus::BUS` and `crate::core::events::DomainEvent` (`BUS.subscribe` for the bridge, `BUS.publish` for triage results); the `EventHandler` trait comes from `tinybus`.

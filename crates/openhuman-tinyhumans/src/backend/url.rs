@@ -40,10 +40,10 @@
 //! 4. Environment-aware default: `staging` env → [`DEFAULT_STAGING_API_BASE_URL`],
 //!    otherwise [`DEFAULT_API_BASE_URL`].
 
-pub use openhuman_core::config::app_env::{
+pub use openhuman_embed::__host::config::app_env::{
     app_env_from_env, is_staging_app_env, APP_ENV_VAR, VITE_APP_ENV_VAR,
 };
-pub use openhuman_core::util::url::{
+pub use openhuman_embed::__host::util::url::{
     host_is_local, join_url, normalize_api_base_url, normalize_backend_api_base_url,
 };
 
@@ -162,9 +162,9 @@ pub fn effective_backend_api_url(api_url: &Option<String>) -> String {
         // billing) would 400/404 against the inference host — TAURI-RUST-HW1
         // (4932 `GET /teams/me/usage` 400s from `openrouter.ai`). Cloud analogue
         // of the local-AI guard (OPENHUMAN-TAURI-51/-80/-7Z, Ollama).
-        let is_cloud_inference = openhuman_core::config::schema::cloud_providers::endpoint_host(u)
+        let is_cloud_inference = openhuman_embed::__host::config::schema::cloud_providers::endpoint_host(u)
             .is_some_and(|h| {
-                openhuman_core::config::schema::cloud_providers::host_is_builtin_cloud_provider(&h)
+                openhuman_embed::__host::config::schema::cloud_providers::host_is_builtin_cloud_provider(&h)
             });
 
         tracing::debug!(
@@ -502,7 +502,7 @@ fn compile_time_api_base_env_values() -> [Option<&'static str>; 2] {
 ///
 /// Falls back to a scheme-prefixed parse for bare-host strings like
 /// `localhost:1234` so those are still sanitised rather than returned verbatim.
-use openhuman_core::util::redact_url_for_log;
+use openhuman_embed::__host::util::redact_url_for_log;
 
 /// Emit a single `warn!` log the **first time** the backend URL falls back
 /// from a user-set local-AI endpoint. Uses `std::sync::Once` to suppress

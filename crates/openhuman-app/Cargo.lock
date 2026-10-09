@@ -4495,6 +4495,7 @@ dependencies = [
  "sentry",
  "serde",
  "serde_json",
+ "serde_path_to_error",
  "sha2 0.10.9",
  "starship-battery",
  "sysinfo",
@@ -4639,6 +4640,7 @@ dependencies = [
  "tinymcp-bus",
  "tinymemory-api",
  "tinymemory-tools",
+ "tinytools",
  "tokio",
  "url",
  "uuid",
@@ -4655,7 +4657,7 @@ dependencies = [
  "futures",
  "log",
  "once_cell",
- "openhuman",
+ "openhuman-tinyhumans",
  "rand 0.10.2",
  "reqwest 0.12.28",
  "serde",
@@ -4683,7 +4685,6 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "log",
- "openhuman",
  "openhuman-embed",
  "reqwest 0.12.28",
  "serde",
@@ -8044,7 +8045,7 @@ dependencies = [
 
 [[package]]
 name = "tinymcp"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8071,7 +8072,7 @@ dependencies = [
 
 [[package]]
 name = "tinymcp-bus"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "schemars 1.2.2",
  "serde",
@@ -8160,7 +8161,7 @@ dependencies = [
 
 [[package]]
 name = "tinyskills"
-version = "0.2.8"
+version = "0.2.9"
 dependencies = [
  "cap-fs-ext",
  "cap-std",

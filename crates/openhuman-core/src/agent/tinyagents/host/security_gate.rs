@@ -152,6 +152,20 @@ pub struct OpenHumanSecurityGate {
     /// second approval card for a call the user already approved once — see
     /// mismatch (2) in the module header.
     pending_audit: Mutex<HashMap<String, String>>,
+    /// `false` for a host-only turn reading untrusted data
+    /// ([`with_untrusted_input_turn`]): its input is data, not instructions.
+    screens_input: bool,
+}
+
+tokio::task_local! {
+    static UNTRUSTED_INPUT_TURN: ();
+}
+
+/// Run `fut` as a turn whose input is untrusted data: gates built for it do
+/// not screen input. Scoped only by `agent_chat_reply_for`, and only after the
+/// session accepted untrusted input, which only a host-only session does.
+pub(crate) async fn with_untrusted_input_turn<F: std::future::Future>(fut: F) -> F::Output {
+    UNTRUSTED_INPUT_TURN.scope((), Box::pin(fut)).await
 }
 
 impl OpenHumanSecurityGate {
@@ -168,6 +182,8 @@ impl OpenHumanSecurityGate {
             tool_policy: None,
             tool_sets,
             pending_audit: Mutex::new(HashMap::new()),
+            // Read here, on the turn's own task: a screen may run elsewhere.
+            screens_input: UNTRUSTED_INPUT_TURN.try_with(|_| ()).is_err(),
         }
     }
 
@@ -652,6 +668,9 @@ impl SecurityGate for OpenHumanSecurityGate {
     /// `redact_text(&str) -> String` out of `approval::redact` or add one to
     /// `security::pii`, then map "PII found, injection clean" to `Redacted`.
     async fn screen_input(&self, text: &str, origin: ContentOrigin) -> TaResult<ScreenOutcome> {
+        if !self.screens_input {
+            return Ok(ScreenOutcome::Pass);
+        }
         let source = match origin {
             ContentOrigin::User => "agent.user",
             ContentOrigin::Tool => "agent.tool_output",

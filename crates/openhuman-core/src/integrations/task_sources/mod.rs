@@ -24,6 +24,7 @@ pub mod pipeline;
 pub mod route;
 mod schemas;
 pub mod store;
+mod store_documents;
 pub mod tools;
 pub mod types;
 

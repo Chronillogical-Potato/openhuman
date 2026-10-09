@@ -2,7 +2,7 @@
 //!
 //! Same upgrade guard as `/ws/dictation` (origin allowlist plus the core bearer
 //! from the `Authorization` header or `?token=`); the session itself is
-//! `openhuman_core::voice::live::ws::handle_live_voice_ws`.
+//! `openhuman::voice::live::ws::handle_live_voice_ws`.
 
 use std::sync::Arc;
 
@@ -24,13 +24,13 @@ pub(super) async fn live_voice_ws_handler(
     // Agent audio arrives in ~40 ms chunks; keep frames small and unbounded
     // in count rather than buffering.
     ws.on_upgrade(|socket| async move {
-        let config = match openhuman_core::config::rpc::load_config_with_timeout().await {
+        let config = match crate::core_host::config::rpc::load_config_with_timeout().await {
             Ok(c) => Arc::new(c),
             Err(e) => {
                 log::error!("[ws] failed to load config for live voice: {e}");
                 return;
             }
         };
-        openhuman_core::voice::live::ws::handle_live_voice_ws(socket, config).await;
+        crate::core_host::voice::live::ws::handle_live_voice_ws(socket, config).await;
     })
 }

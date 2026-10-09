@@ -32,12 +32,26 @@ on `storage-mongodb`.
 - `driver_is_shared(driver)` / `installed_is_shared()`: whether other
   processes may write the same backend (MongoDB). Boot-time recovery, such
   as the orphaned-run sweep, is skipped on a shared backend.
+- `current_scope()` / `current_scoped()`: the acting agent's scope (`local`
+  on a single-user host; an error in SaaS mode with no acting agent) and the
+  installed backend under it.
+- `block_on(future)`: runs a storage future from synchronous store code on
+  one shared runtime thread.
+- `documents::Repo` and `documents::compare_and_swap`: the base the domain
+  stores build on. A `Repo` holds one domain's scoped document handle,
+  declares its collections and runs each call; `compare_and_swap` is the
+  guarded-`UPDATE` loop.
 
 ## Consumers
 
 - The session store: `openhuman_rpc::session_store::install_for_host` opens
   the configured backend before boot and installs `DriverSessionStores`
   over it. See that module's README.
+- Domain stores that switch to the document port when a backend is
+  installed, each in a `store_documents.rs` beside its SQLite `store.rs`:
+  approvals (`security::approval`), paired devices (`security::devices`),
+  notifications (`desktop::notifications`) and task sources
+  (`integrations::task_sources`).
 
 ## Boundaries
 

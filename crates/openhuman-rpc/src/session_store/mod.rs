@@ -134,9 +134,18 @@ fn stores_at(workspace: &Path) -> AgentStores {
 /// sweep runs; the workspace is resolved per call because the desktop rebinds
 /// it when a different user signs in.
 pub fn install() {
-    openhuman_core::agent::session_store::install(Arc::new(SqliteSessionStores::resolving(
-        openhuman_core::agent::session_store::context_workspace_dir,
-    )));
+    log::debug!("[rpc:session_store] installing process-wide (context workspace)");
+    crate::core_host::agent::session_store::install(provider());
+}
+
+/// [`SqliteSessionStores`] over the current context's workspace, as the
+/// provider a runtime builder's `session_store` option takes (what
+/// [`crate::host::tui`] wires). [`install`] installs the same provider
+/// process-wide instead.
+pub fn provider() -> Arc<dyn SessionStoreProvider> {
+    Arc::new(SqliteSessionStores::resolving(
+        crate::core_host::agent::session_store::context_workspace_dir,
+    ))
 }
 
 /// Installs the session store the host's configuration asks for, before the
@@ -145,7 +154,7 @@ pub fn install() {
 /// With no storage URL (`OPENHUMAN_STORAGE_URL`, else `[storage] url`) this is
 /// [`install`]: the classic on-disk layout, unchanged. With one, the backend is
 /// opened, made the process's storage backend
-/// ([`openhuman_core::storage::install`]), and TinyAgents'
+/// ([`crate::core_host::storage::install`]), and TinyAgents'
 /// `DriverSessionStores` is installed over it: every agent's transcripts, turn
 /// states, records and journal in that backend, one storage scope per agent.
 ///
@@ -159,10 +168,10 @@ pub fn install() {
 /// When a URL is configured but cannot be parsed or opened. A deployment that
 /// asked for a backend must not quietly fall back to local files.
 pub async fn install_for_host() -> anyhow::Result<()> {
-    let url = match std::env::var(openhuman_core::storage::STORAGE_URL_VAR) {
+    let url = match std::env::var(crate::core_host::storage::STORAGE_URL_VAR) {
         Ok(url) if !url.trim().is_empty() => Some(url.trim().to_string()),
-        _ => match openhuman_core::config::rpc::load_config_with_timeout().await {
-            Ok(config) => openhuman_core::storage::configured_url(&config),
+        _ => match crate::core_host::config::rpc::load_config_with_timeout().await {
+            Ok(config) => crate::core_host::storage::configured_url(&config),
             // An unreadable config keeps the desktop booting on the classic
             // layout, as it always has. Remote deployments pin the backend
             // with `OPENHUMAN_STORAGE_URL`, which never reads the config.
@@ -190,25 +199,25 @@ pub async fn install_for_url(url: Option<String>) -> anyhow::Result<()> {
     let Some(url) = url else {
         // Drop a backend an earlier call installed, so storage operations do
         // not keep writing to it while the classic layout is in force.
-        openhuman_core::storage::clear();
+        crate::core_host::storage::clear();
         install();
         return Ok(());
     };
-    let backend = openhuman_core::storage::open(&url)
+    let backend = crate::core_host::storage::open(&url)
         .await
         .context("opening the configured storage backend")?;
-    let single_process = !openhuman_core::storage::driver_is_shared(backend.driver());
+    let single_process = !crate::core_host::storage::driver_is_shared(backend.driver());
     let provider = tinyagents_session::DriverSessionStores::new(Arc::clone(&backend))
         .context("starting the session store bridge")?
         .recover_on_open(single_process);
     // Only a fully working bridge makes the backend the process's storage.
-    openhuman_core::storage::install(backend);
+    crate::core_host::storage::install(backend);
     tracing::info!(
         target: "openhuman_rpc::session_store",
         recover_on_open = single_process,
         "[session_store] installed the storage-backed session store"
     );
-    openhuman_core::agent::session_store::install(Arc::new(provider));
+    crate::core_host::agent::session_store::install(Arc::new(provider));
     Ok(())
 }
 

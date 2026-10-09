@@ -15,13 +15,14 @@
 // deliberately smaller.
 //
 // It also checks the library chain the core is re-declared by — embed,
-// tinyhumans and cli (#6364). Those three lists were maintained by hand: a gate
+// tinyhumans, rpc and cli (#6364). Those three lists were maintained by hand: a gate
 // dropped from the core and left behind is a cargo error nobody reads as drift
 // (#6360), and a gate ADDED to the core and forgotten is silent, because the
 // product lanes only ever resolve names against `openhuman-cli`.
 //
 // Usage: check-feature-forwarding.mjs [core-manifest] [shell-manifest] [product-features]
 //                                     [embed-manifest] [tinyhumans-manifest] [cli-manifest]
+//                                     [rpc-manifest]
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -48,11 +49,12 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 function usage() {
   return (
     'Usage: check-feature-forwarding.mjs [core-manifest] [shell-manifest] [product-features]\n' +
-    '                                    [embed-manifest] [tinyhumans-manifest] [cli-manifest]'
+    '                                    [embed-manifest] [tinyhumans-manifest] [cli-manifest]\n' +
+    '                                    [rpc-manifest]'
   );
 }
 
-const [coreArg, shellArg, productArg, embedArg, tinyhumansArg, cliArg, extra] =
+const [coreArg, shellArg, productArg, embedArg, tinyhumansArg, cliArg, rpcArg, extra] =
   process.argv.slice(2);
 if (coreArg === '--help' || coreArg === '-h') {
   console.log(usage());
@@ -77,6 +79,7 @@ const tinyhumansPath = tinyhumansArg
   ? resolve(tinyhumansArg)
   : resolve(REPO_ROOT, 'crates/openhuman-tinyhumans/Cargo.toml');
 const cliPath = cliArg ? resolve(cliArg) : resolve(REPO_ROOT, 'crates/openhuman-cli/Cargo.toml');
+const rpcPath = rpcArg ? resolve(rpcArg) : resolve(REPO_ROOT, 'crates/openhuman-rpc/Cargo.toml');
 
 let coreToml;
 let shellToml;
@@ -84,6 +87,7 @@ let productText;
 let embedToml;
 let tinyhumansToml;
 let cliToml;
+let rpcToml;
 try {
   coreToml = readFileSync(corePath, 'utf8');
   shellToml = readFileSync(shellPath, 'utf8');
@@ -91,6 +95,7 @@ try {
   embedToml = readFileSync(embedPath, 'utf8');
   tinyhumansToml = readFileSync(tinyhumansPath, 'utf8');
   cliToml = readFileSync(cliPath, 'utf8');
+  rpcToml = readFileSync(rpcPath, 'utf8');
 } catch (err) {
   console.error(`Could not read inputs: ${err.message}`);
   process.exit(2);
@@ -138,10 +143,11 @@ console.log('');
 console.log(formatReport(defaults, { coreDefaults, shell, allowlist: INTENTIONALLY_NOT_FORWARDED }));
 
 // Assertion 4: the library chain (#6364). The core's gates are re-declared by
-// embed, then tinyhumans, then cli, and each hop can drop one.
+// embed, then tinyhumans, then rpc (and cli), and each hop can drop one.
 const embedFeatures = parseFeatureTable(embedToml);
 const tinyhumansFeatures = parseFeatureTable(tinyhumansToml);
 const cliFeatures = parseFeatureTable(cliToml);
+const rpcFeatures = parseFeatureTable(rpcToml);
 
 // Guard the guard, same as above: a parser that found nothing would turn every
 // chain assertion into a rubber stamp.
@@ -149,6 +155,7 @@ for (const [path, table] of [
   [embedPath, embedFeatures],
   [tinyhumansPath, tinyhumansFeatures],
   [cliPath, cliFeatures],
+  [rpcPath, rpcFeatures],
 ]) {
   if (table.size === 0) {
     console.error(
@@ -174,6 +181,13 @@ const chain = [
     sources: [{ crate: 'openhuman-embed', gates: embedGates, required: true }],
   },
   {
+    // rpc sits on tinyhumans alone and forwards every one of its gates
+    // (product gates plus `jev`); its server/client/store gates are local.
+    crate: 'openhuman-rpc',
+    features: rpcFeatures,
+    sources: [{ crate: 'openhuman-tinyhumans', gates: tinyhumansGates, required: true }],
+  },
+  {
     crate: 'openhuman-cli',
     features: cliFeatures,
     sources: [
@@ -192,7 +206,7 @@ const chain = [
 );
 
 console.log('');
-console.log('Library chain (core -> embed -> tinyhumans -> cli):');
+console.log('Library chain (core -> embed -> tinyhumans -> rpc; core/tinyhumans -> cli):');
 for (const result of chain) {
   console.log(
     formatChainReport(result, {

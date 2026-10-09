@@ -4729,6 +4729,36 @@ const messages: TranslationMap = {
   'skills.detail.author': '作成者',
   'skills.detail.license': 'ライセンス',
   'skills.detail.description': '説明',
+  'skills.detail.overview': '概要',
+  'skills.registry.firstFetchHint':
+    'スキルカタログを読み込んでいます。初回の取得には1分ほどかかることがあります。',
+  'skills.registry.refreshing': '最新のコピーを読み込む間、保存済みのカタログを表示しています。',
+  'skills.registry.offline': 'オフライン：{time} に保存したカタログを表示しています。',
+  'skills.registry.offlineNoTime': 'オフライン：保存済みのカタログを表示しています。',
+  'skills.registry.unreachable':
+    'スキルレジストリに接続できませんでした。接続を確認して、もう一度お試しください。',
+  'skills.registry.rateLimited':
+    'スキルレジストリが混み合っています。{seconds} 秒後にもう一度お試しください。',
+  'skills.registry.rateLimitedShortly':
+    'スキルレジストリが混み合っています。しばらくしてからもう一度お試しください。',
+  'skills.registry.viewSource': 'ソースを表示',
+  'skills.registry.noDirectDownload':
+    'このエントリにはダウンロードできる SKILL.md がありません。別の方法でインストールするには、ソースページを開いてください。',
+  'skills.registry.upstreamAmbiguous':
+    'この名前のスキルを複数の作者が公開しており、カタログにはどれのことか記載がないため、自動ではインストールできません。',
+  'skills.scan.title': 'セキュリティスキャンがこのスキルをブロックしました',
+  'skills.scan.description':
+    'OpenHuman は {name} を2回ダウンロードしてスキャンし、セキュリティスキャンは2回ともブロックしました。インストールされていません。',
+  'skills.scan.findingsLabel': 'スキャンで見つかった内容',
+  'skills.scan.warning':
+    '入手元を信頼できる場合にのみインストールしてください。ブロックが安全な選択です。',
+  'skills.scan.block': 'インストールをブロック',
+  'skills.scan.installAnyway': 'それでもインストール',
+  'skills.scan.verdictBlock': 'ブロック',
+  'skills.scan.verdictWarn': '警告',
+  'skills.scan.declinedTitle': 'インストールをブロックしました',
+  'skills.scan.declinedHint':
+    'セキュリティスキャンがブロックしたため、スキルはインストールされませんでした。',
   'skills.run.title': 'ワークフロー',
   'skills.detail.source': 'ソース URL',
   'skills.detail.tags': 'タグ',
@@ -5359,6 +5389,17 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'メモリーはオフです',
   'memoryPage.off.description': 'メモリプロバイダーを選ぶと記憶を始めます。',
   'memoryPage.off.action': 'プロバイダーを選ぶ',
+  'memoryPage.disabled.title': 'メモリーは無効です',
+  'memoryPage.disabled.description':
+    'OpenHuman は何も保存・想起していません。メモリーを再び有効にするにはプロバイダーを選択してください。',
+  'memoryPage.engine.disabled.title': '無効',
+  'memoryPage.engine.disabled.description':
+    'メモリーを完全にオフにします。何も保存・想起されず、接続設定はそのまま保持されます。',
+  'memoryPage.engine.disabled.action': 'メモリーを無効にする',
+  'memoryPage.engine.disabled.banner':
+    '何も保存・想起されていません。メモリーを再び有効にするには、下のプロバイダーを選択してください。',
+  'memoryPage.engine.disabled.toast': 'メモリーを無効にしました',
+  'memoryPage.engine.disabled.toastFailed': 'メモリーを無効にできませんでした',
   'memoryPage.engine.inUse': '使用中',
   'memoryPage.announcement.title': 'CortexDB でメモリ推論が無料',
   'memoryPage.announcement.retired': 'TinyCortex は 10 月 7 日に廃止されました。',
@@ -5737,7 +5778,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'メモリー',
   'welcome.th.featureEmbeddings': '埋め込み',
   'welcome.th.featureBilling': '請求',
-  'welcome.th.credit': '最初に使える5ドル分のクレジット',
   'welcome.th.cta': 'TinyHumansで続ける',
   'welcome.th.providers': 'Google、GitHub、Xでサインイン',
   'welcome.self.title': '自分で設定する',

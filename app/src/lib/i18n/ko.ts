@@ -443,7 +443,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': '메모리',
   'welcome.th.featureEmbeddings': '임베딩',
   'welcome.th.featureBilling': '결제',
-  'welcome.th.credit': '시작 크레딧 $5',
   'welcome.th.cta': 'TinyHumans로 계속하기',
   'welcome.th.providers': 'Google, GitHub 또는 X로 로그인',
   'welcome.self.title': '직접 설정하기',
@@ -4001,6 +4000,32 @@ const messages: TranslationMap = {
   'skills.detail.author': '작성자',
   'skills.detail.license': '라이선스',
   'skills.detail.description': '설명',
+  'skills.detail.overview': '개요',
+  'skills.registry.firstFetchHint':
+    '스킬 카탈로그를 불러오는 중입니다. 처음 가져올 때는 1분 정도 걸릴 수 있습니다.',
+  'skills.registry.refreshing': '새 사본을 불러오는 동안 저장된 카탈로그를 표시합니다.',
+  'skills.registry.offline': '오프라인: {time}에 저장된 카탈로그를 표시합니다.',
+  'skills.registry.offlineNoTime': '오프라인: 저장된 카탈로그를 표시합니다.',
+  'skills.registry.unreachable':
+    '스킬 레지스트리에 연결할 수 없습니다. 연결을 확인하고 다시 시도하세요.',
+  'skills.registry.rateLimited': '스킬 레지스트리가 혼잡합니다. {seconds}초 후 다시 시도하세요.',
+  'skills.registry.rateLimitedShortly': '스킬 레지스트리가 혼잡합니다. 잠시 후 다시 시도하세요.',
+  'skills.registry.viewSource': '소스 보기',
+  'skills.registry.noDirectDownload':
+    '이 항목에는 다운로드할 SKILL.md가 없습니다. 다른 방법으로 설치하려면 소스 페이지를 여세요.',
+  'skills.registry.upstreamAmbiguous':
+    '이 이름으로 스킬을 게시한 작성자가 여러 명이고 카탈로그에 어느 것인지 나와 있지 않아 자동으로 설치할 수 없습니다.',
+  'skills.scan.title': '보안 검사에서 이 스킬을 차단했습니다',
+  'skills.scan.description':
+    'OpenHuman이 {name}을(를) 두 번 내려받아 검사했고, 보안 검사가 두 번 모두 차단했습니다. 설치되지 않았습니다.',
+  'skills.scan.findingsLabel': '검사에서 발견한 내용',
+  'skills.scan.warning': '출처를 신뢰할 때만 설치하세요. 차단하는 것이 안전한 선택입니다.',
+  'skills.scan.block': '설치 차단',
+  'skills.scan.installAnyway': '그래도 설치',
+  'skills.scan.verdictBlock': '차단됨',
+  'skills.scan.verdictWarn': '경고',
+  'skills.scan.declinedTitle': '설치가 차단되었습니다',
+  'skills.scan.declinedHint': '보안 검사에서 차단되어 스킬이 설치되지 않았습니다.',
   'skills.detail.source': '소스 URL',
   'skills.detail.tags': '태그',
   'skills.detail.version': '버전',
@@ -4997,6 +5022,17 @@ const messages: TranslationMap = {
   'memoryPage.off.title': '메모리가 꺼져 있습니다',
   'memoryPage.off.description': '메모리 제공자를 선택하면 기억을 시작합니다.',
   'memoryPage.off.action': '제공자 선택',
+  'memoryPage.disabled.title': '메모리가 비활성화됨',
+  'memoryPage.disabled.description':
+    'OpenHuman이 아무것도 저장하거나 기억하지 않습니다. 메모리를 다시 켜려면 제공자를 선택하세요.',
+  'memoryPage.engine.disabled.title': '비활성화',
+  'memoryPage.engine.disabled.description':
+    '메모리를 완전히 끕니다. 아무것도 저장하거나 기억하지 않으며 연결 설정은 유지됩니다.',
+  'memoryPage.engine.disabled.action': '메모리 비활성화',
+  'memoryPage.engine.disabled.banner':
+    '아무것도 저장하거나 기억하지 않고 있습니다. 메모리를 다시 켜려면 아래에서 제공자를 선택하세요.',
+  'memoryPage.engine.disabled.toast': '메모리가 비활성화되었습니다',
+  'memoryPage.engine.disabled.toastFailed': '메모리를 비활성화하지 못했습니다',
   'memoryPage.engine.inUse': '사용 중',
   'memoryPage.announcement.title': 'CortexDB에서 메모리 추론 무료',
   'memoryPage.announcement.retired': 'TinyCortex는 10월 7일 종료되었습니다.',

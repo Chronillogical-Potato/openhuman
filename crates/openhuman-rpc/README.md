@@ -1,14 +1,27 @@
 # openhuman-rpc
 
-JSON-RPC 2.0 for OpenHuman, on both sides of the wire. The core
-(`openhuman-core`, package `openhuman`) defines what a controller is: its
-schema, the `core::Outcome` it returns, the structured error envelope, the
-params rules and in-process dispatch (`core::invoke::invoke_method`). This
-crate sits above the core and decides how that is exposed: the JSON-RPC
-envelopes, an HTTP client, the HTTP and Socket.IO server, the `http_host`
-static file server, and the on-disk session store the app, CLI and TUI
-install. The desktop app, the `openhuman-core` binary and the TUI depend on
-it; the core and `openhuman-embed` do not.
+JSON-RPC 2.0 for OpenHuman, on both sides of the wire, and the shared host
+boot. The core (`openhuman-core`, package `openhuman`) defines what a
+controller is: its schema, the `core::Outcome` it returns, the structured
+error envelope, the params rules and in-process dispatch
+(`core::invoke::invoke_method`). This crate decides how that is exposed: the
+JSON-RPC envelopes, an HTTP client, the HTTP and Socket.IO server, the
+`http_host` static file server, the on-disk session store, and `host`, the
+boot sequence each host shape runs. The desktop app, the `openhuman-core`
+binary and the TUI depend on it; the core, `openhuman-embed` and
+`openhuman-tinyhumans` do not.
+
+It is the top of the library chain:
+
+```text
+openhuman-core -> openhuman-embed -> openhuman-tinyhumans -> openhuman-rpc -> app / cli / tui
+```
+
+Its only openhuman dependency is `openhuman-tinyhumans`. Core internals the
+server needs come through embed's doc-hidden `__host` list (aliased
+crate-privately as `core_host` in `src/lib.rs`); nothing here re-exports the
+core. Hosts get `openhuman_rpc::tinyhumans` (and through it
+`tinyhumans::embed`) as their configuration facade.
 
 ## How it works
 
@@ -62,25 +75,33 @@ Socket.IO clients take a parallel path: an authenticated socket sends
 other way. See [`src/server/README.md`](src/server/README.md).
 
 The core does not depend on this crate, so the server is wired in from the
-host side. Each host that serves calls one of two entry points:
+host side. `host` has one entry per host shape; the older entry points stay
+for the hosts that still call them:
 
 ```text
- openhuman-cli main.rs  --+
- openhuman-app lib.rs   --+-> install_cli_server()       core CLI run/serve
-                               (registers http_host, installs the launcher
-                                behind core::server_launcher)
+ host::cli(args)        tinyhumans cli preset, connected
+                        + server launcher + http_host controllers
+                        -> run_from_args (core CLI run/serve -> run_server*)
+ host::desktop(opts, shutdown, ready)
+                        tinyhumans desktop preset, connected
+                        + bearer, listener, services, launcher, http_host
+                        -> build_and_serve
+ host::tui()            tinyhumans tui preset, connected + session store
+                        -> embed Runtime (no server)
 
- openhuman-app core_process.rs -> run_server_embedded_with_ready(...)
-                               (desktop shell's in-process core)
+ legacy: install_cli_server() + run_core_from_args, and
+         run_server_embedded_with_ready(...) (embed desktop/cli preset,
+         not connected; the host installs the transport itself)
 
- both end in: session_store::install(); CoreBuilder::build(); serve(..)
+ servers end in: session_store::install(); RuntimeBuilder::build(); serve(..)
 ```
 
 ## Layout
 
 | Path | What it does |
 | --- | --- |
-| [`src/lib.rs`](src/lib.rs) | Module wiring and re-exports. |
+| [`src/lib.rs`](src/lib.rs) | Module wiring and re-exports (`tinyhumans`, the client helpers, `unwrap_rpc`). |
+| [`src/host.rs`](src/host.rs) | `server` / `session-store` features: the shared host boot — `cli`, `desktop` / `serve_desktop`, `tui`, and the `*_builder` each starts from. |
 | [`src/envelope.rs`](src/envelope.rs) | `RpcRequest`, `RpcSuccess`, `RpcFailure`, `RpcError`, `JSONRPC_VERSION`, `SERVER_ERROR_CODE`, and the client half: `request_body`, `decode_response`. |
 | [`src/origin.rs`](src/origin.rs) | `is_origin_allowed_with_extra` and `ALLOWED_ORIGINS_ENV`: the browser-origin allowlist. Pure; the caller reads the environment. |
 | [`src/client.rs`](src/client.rs) | `http-client` feature: `post_json_rpc`, `bearer_header`, `redact_url_for_log`, `HttpRpcResponse`. |
@@ -95,7 +116,10 @@ host side. Each host that serves calls one of two entry points:
 - `request_body(id, method, params)` and `decode_response(status, body)`
   (`envelope.rs`): what a client uses to build a request and get back
   `Result<Value, String>`.
-- `unwrap_rpc`: re-exported from `openhuman_core::core`; reaches a handler's
+- `host::cli(args)`, `host::desktop(options, shutdown, ready_tx)`,
+  `host::tui()` (`host.rs`): the boot each host shape runs, built on
+  `openhuman_tinyhumans::RuntimeBuilder` presets.
+- `unwrap_rpc`: re-exported from the core's `core` module; reaches a handler's
   value through its `result` / `data` envelopes. The TUI decodes with it.
 - `post_json_rpc(url, token, body)` (`client.rs`): POSTs a body with an
   optional bearer and returns status and body verbatim.
@@ -104,8 +128,9 @@ host side. Each host that serves calls one of two entry points:
 - `server::serve(&CoreRuntime, ready_tx, shutdown)` (`server/serve.rs`):
   bind and serve an already-built runtime.
 - `server::run_server`, `run_server_headless`, `run_server_embedded`,
-  `run_server_embedded_with_ready` (`server/shims.rs`): build a runtime and
-  serve it.
+  `run_server_embedded_with_ready` (`server/shims.rs`): build a runtime from
+  the embed `desktop` / `cli` preset and serve it. They do not connect the
+  TinyHumans backend; `host::desktop` does.
 - `server::build_core_http_router(socketio_enabled)` (`server/http/mod.rs`):
   the router on its own; root `tests/*.rs` suites use it to make real HTTP
   calls in-process.
@@ -117,9 +142,15 @@ host side. Each host that serves calls one of two entry points:
 | Feature | Pulls in | Used by |
 | --- | --- | --- |
 | `http-client` (default) | `reqwest` with `rustls-tls`, for `client.rs`. | `openhuman-app` |
-| `server` (default) | `axum`, `socketioxide`, the tokio stack; turns on the core's `http-server` gate (the `/v1` inference router and dictation WebSocket the router mounts) and `session-store`. | `openhuman-app`, `openhuman-cli` |
+| `server` (default) | `axum`, `socketioxide`, the tokio stack; turns on the `http-server` gate (the `/v1` inference router and dictation WebSocket the router mounts) and `session-store`. | `openhuman-app`, `openhuman-cli` |
 | `session-store` | `tinyagents-session`, `tinyagents-harness`. | `openhuman-tui` on its own; implied by `server` |
-| `crash-reporting` | Forwards the core's feature so the Sentry-routing tests run. | tests |
+| `jev` | `openhuman-tinyhumans/jev`: the Jev `tool_search` ranker `host` wires in. | hosts |
+| product gates (`channels`, `voice`, `mcp`, `crash-reporting`, ...) | Forwarded 1:1 to `openhuman-tinyhumans`, which forwards them to embed and the core. `crash-reporting` also runs the Sentry-routing tests. | hosts, tests |
+
+`http-client`, `server` and `session-store` are this crate's own gates
+(`CHAIN_LOCAL_GATES` in `scripts/lib/feature-forwarding.mjs`); every other
+gate must forward to the same gate on `openhuman-tinyhumans`, which
+`scripts/ci/check-feature-forwarding.mjs` enforces.
 
 The root workspace declares this crate with `default-features = false`, so
 each consumer names what it needs. `openhuman-cli` enables `server`,
@@ -147,8 +178,10 @@ enables `http-client` and `server`.
   dispatch, session expiry) belong to the core. This crate frames them as
   JSON-RPC and decides transport policy: which routes need the bearer, which
   origins may call, and how loudly a failure is reported.
-- The core does not depend on this crate. Anything a domain needs belongs in
-  the core. Domain-owned HTTP handlers the router mounts
+- The core does not depend on this crate, and this crate does not depend on
+  the core directly: it reaches core internals only through embed's
+  `__host` list, and never re-exports them. Anything a domain needs belongs
+  in the core. Domain-owned HTTP handlers the router mounts
   (`inference::http`, the dictation and live-voice WebSocket sessions) stay
   in their core domains behind the `http-server` gate.
 - Controllers are registered in the core (`core/all.rs`), never by adding
@@ -171,7 +204,10 @@ enables `http-client` and `server`.
   read it.
 - `serve` sets `OPENHUMAN_CORE_RPC_URL` to the port it actually bound, which
   is process-global state and another reason there is one runtime per
-  process.
+  process. The servers build an embed `Runtime`, which claims the process's
+  single runtime slot until it drops (when `serve` returns), so a second
+  concurrent server, or an embed runtime alongside one, fails with
+  `AlreadyRunning`.
 - Two origin checks exist. CORS uses `is_origin_allowed_with_extra`;
   the Socket.IO handshake has its own, slightly wider check. Both read
   `OPENHUMAN_CORE_ALLOWED_ORIGINS`.

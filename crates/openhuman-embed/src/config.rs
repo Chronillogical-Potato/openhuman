@@ -11,7 +11,15 @@
 //! Config is deliberately first because it is registered under
 //! `DomainGroup::Platform`, which every preset enables — so a failure here is
 //! unambiguously a facade bug rather than a gating question.
+//!
+//! # Host helpers
+//!
+//! Beside the [`Config`] sub-facade, this module carries the few free
+//! functions a host needs *before* (or outside) a runtime: locating the
+//! OpenHuman root, reading the active user marker, and loading the config the
+//! way the core does. The core's full config type is [`RuntimeConfig`].
 
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -55,6 +63,37 @@ impl Config<'_> {
         )
         .await
     }
+}
+
+/// The core's config type, as [`crate::RuntimeConfig`].
+pub use openhuman_core::config::Config as RuntimeConfig;
+
+/// Load `config.toml` (creating defaults when absent) with the environment
+/// overlay and per-user scoping — what a core with no supplied config boots
+/// from.
+pub async fn load_or_init() -> anyhow::Result<RuntimeConfig> {
+    log::debug!("[embed][config] load_or_init");
+    RuntimeConfig::load_or_init().await
+}
+
+/// [`load_or_init`] under the core's RPC load timeout, honouring an
+/// embedder-scoped config in the ambient context. The error is
+/// user-presentable.
+pub async fn load_config_with_timeout() -> Result<RuntimeConfig, String> {
+    openhuman_core::config::rpc::load_config_with_timeout().await
+}
+
+/// The OpenHuman root (`~/.openhuman`, or `OPENHUMAN_WORKSPACE`'s root) that
+/// holds `active_user.toml` and the per-user trees.
+pub fn default_root_openhuman_dir() -> anyhow::Result<PathBuf> {
+    openhuman_core::config::default_root_openhuman_dir()
+}
+
+/// The signed-in user id recorded under `root` (see
+/// [`default_root_openhuman_dir`]), if any. Best-effort: an unreadable marker
+/// reads as `None`.
+pub fn read_active_user_id(root: &Path) -> Option<String> {
+    openhuman_core::config::read_active_user_id(root)
 }
 
 #[cfg(test)]

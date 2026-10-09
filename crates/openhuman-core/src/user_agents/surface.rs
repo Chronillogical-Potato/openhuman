@@ -39,6 +39,27 @@ pub const USER_METHODS: &[&str] = &[
     "openhuman.threads_transcript_get",
     "openhuman.threads_goal_get",
     "openhuman.threads_todos_get",
+    // Turns on a user's own threads. Their events carry the user's agent and
+    // reach only that user's `/events` stream.
+    "openhuman.threads_generate_title",
+    "openhuman.threads_edit_message",
+    "openhuman.threads_regenerate",
+    // Web chat: start, cancel and queue control for the user's own threads.
+    "openhuman.channel_web_chat",
+    "openhuman.channel_web_cancel",
+    "openhuman.channel_web_queue_status",
+    "openhuman.channel_web_queue_clear",
+    "openhuman.channel_web_queue_remove",
+    // Memory: reads and writes confined to the user's own tree
+    // (`memory::user_scope`). Engine and policy changes, sources, imports and
+    // backfills stay closed: they reach the host or change where memory lives.
+    "openhuman.memory_recall",
+    "openhuman.memory_fetch",
+    "openhuman.memory_learn",
+    "openhuman.memory_forget",
+    "openhuman.memory_items_list",
+    "openhuman.memory_explore",
+    "openhuman.memory_engine_get",
 ];
 
 /// Whether `method` (of an operator-plane controller or not) may be

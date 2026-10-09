@@ -124,6 +124,22 @@ fn skills_install_client_error_filter_drops_4xx_keeps_5xx() {
     );
 }
 
+/// Skill-registry defects (a malformed catalog, a transport that broke its
+/// contract) are not user input: neither skills filter may drop them.
+#[cfg(feature = "crash-reporting")]
+#[test]
+fn skill_registry_defects_pass_the_skills_filters() {
+    for failure in ["malformed", "transport_contract"] {
+        let event = event_with_tags(&[
+            ("domain", "skills"),
+            ("operation", "registry"),
+            ("failure", failure),
+        ]);
+        assert!(!is_skills_install_client_error_event(&event), "{failure}");
+        assert!(!is_skill_install_user_fetch_failure(&event), "{failure}");
+    }
+}
+
 #[cfg(feature = "crash-reporting")]
 #[test]
 fn composio_domain_routes_through_integrations_filter() {
