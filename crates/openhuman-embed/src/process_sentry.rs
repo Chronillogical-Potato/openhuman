@@ -177,7 +177,12 @@ pub fn before_send(mut event: Event<'static>, user_id: UserIdSource) -> Option<E
     event.server_name = None;
     // A user without an id (only an ip or username, say) still gets the
     // fallback id; whatever else it carries is kept.
-    if event.user.as_ref().and_then(|user| user.id.as_ref()).is_none() {
+    if event
+        .user
+        .as_ref()
+        .and_then(|user| user.id.as_ref())
+        .is_none()
+    {
         if let Some(id) = user_id() {
             event.user.get_or_insert_with(Default::default).id = Some(id);
         }

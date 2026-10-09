@@ -148,7 +148,9 @@ fn breadcrumbs_tags_extra_and_request_are_scrubbed() {
         .data
         .insert("nested".into(), serde_json::json!({ "list": [secret] }));
     event.breadcrumbs.values.push(crumb);
-    event.extra.insert("body".into(), Value::String(secret.into()));
+    event
+        .extra
+        .insert("body".into(), Value::String(secret.into()));
     let mut request = Request {
         query_string: Some(secret.into()),
         data: Some(secret.into()),
