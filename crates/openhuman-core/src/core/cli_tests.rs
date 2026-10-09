@@ -361,7 +361,14 @@ fn serve_args_without_flags_leave_every_override_unset() {
 fn serve_args_flags_are_explicit_overrides_on_top_of_the_host_boot() {
     let boot = crate::core::server_launcher::HostBoot::new(1u8);
     let (request, verbose) = parse_serve_args(
-        &strings(&["--port", "7801", "--host", "0.0.0.0", "--jsonrpc-only", "-v"]),
+        &strings(&[
+            "--port",
+            "7801",
+            "--host",
+            "0.0.0.0",
+            "--jsonrpc-only",
+            "-v",
+        ]),
         None,
         Some(boot.clone()),
     )

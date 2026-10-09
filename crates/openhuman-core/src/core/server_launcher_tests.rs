@@ -77,5 +77,9 @@ fn host_boot_hands_a_value_over_once() {
 fn host_boot_keeps_the_value_when_the_type_does_not_match() {
     let boot = HostBoot::new(7u32);
     assert!(boot.take::<String>().is_none());
-    assert_eq!(boot.take::<u32>(), Some(7), "a wrong guess does not consume it");
+    assert_eq!(
+        boot.take::<u32>(),
+        Some(7),
+        "a wrong guess does not consume it"
+    );
 }

@@ -411,11 +411,8 @@ fn parse_serve_args(
         }
     }
 
-    let (mode, saas_config) = crate::core::server_launcher::resolve_mode(
-        mode_flag.as_deref(),
-        env_mode,
-        saas_config,
-    )?;
+    let (mode, saas_config) =
+        crate::core::server_launcher::resolve_mode(mode_flag.as_deref(), env_mode, saas_config)?;
     Ok(Some((
         crate::core::server_launcher::ServeRequest {
             host,

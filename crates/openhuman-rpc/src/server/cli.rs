@@ -71,13 +71,7 @@ pub(crate) fn flagged_builder(base: RuntimeBuilder, request: &ServeRequest) -> R
         }
         services
     };
-    super::shims::server_builder(
-        base,
-        services,
-        request.host.as_deref(),
-        request.port,
-        None,
-    )
+    super::shims::server_builder(base, services, request.host.as_deref(), request.port, None)
 }
 
 #[cfg(test)]

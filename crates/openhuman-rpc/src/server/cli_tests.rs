@@ -55,7 +55,9 @@ fn explicit_flags_win_over_the_host_builder() {
     let mut headless = request();
     headless.headless_api = true;
     assert_eq!(
-        flagged_builder(host_builder(), &headless).summary().services,
+        flagged_builder(host_builder(), &headless)
+            .summary()
+            .services,
         Some(ServiceSet::headless_api())
     );
 }

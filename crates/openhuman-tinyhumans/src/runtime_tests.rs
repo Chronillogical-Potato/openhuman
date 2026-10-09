@@ -203,6 +203,9 @@ fn run_from_args_hands_the_connected_builder_to_the_cli_unchanged() {
     assert!(summary.fixed_token);
     assert_eq!(summary.listen_host.as_deref(), Some("0.0.0.0"));
     assert_eq!(summary.listen_port, Some(7812));
-    assert!(summary.has_backend_transport, "the server binds the transport");
+    assert!(
+        summary.has_backend_transport,
+        "the server binds the transport"
+    );
     assert_eq!(summary.controller_extensions, vec![DomainGroup::Hosted]);
 }
