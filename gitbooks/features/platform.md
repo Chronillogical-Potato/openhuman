@@ -3,6 +3,8 @@ description: >-
   What OpenHuman ships as (a native desktop app with a Rust core), which
   platforms it supports, and how it behaves offline and when updating.
 icon: layer-plus
+---
+
 # Platform and availability
 
 OpenHuman is a native desktop app. It is not a browser extension or an Electron wrapper. It is built on React and Tauri v2 with a Rust core, so it ships small, starts fast and stays out of the way.
