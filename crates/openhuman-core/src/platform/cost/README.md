@@ -124,4 +124,7 @@ Before every model call, the agent's budget gate (`OpenHumanBudgetGate::acquire`
 - **Refuse:** a `refuse` policy at or over its limit refuses the call with `TinyAgentsError::LimitExceeded("BUDGET_EXCEEDED: …")`, before any scheduler slot is taken.
 - **Warn:** a `warn` policy, or any policy past `warn_fraction`, logs a warning.
 - **Unattributed calls:** a call without the policy's attribute is outside it. For example, a call with no thread is outside a per-thread budget.
+- **Live policies:** the gate re-reads `[[cost.budgets]]` from the session's `config.toml` on every check, so a change applies to threads already open.
+- **Soft cap under concurrency:** the check reads the ledger and reserves nothing. Calls that start together can each pass and overshoot a limit by at most the calls in flight; the next call is refused.
+- **No `provider` scope yet:** the gate does not see a call's provider before it is made.
 - **No checking at all** when no budgets are configured, when there is no cost tracker, or when the ledger cannot be read. The budget check never fails a call for a reason of its own.
