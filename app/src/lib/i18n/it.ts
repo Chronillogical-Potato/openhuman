@@ -1253,7 +1253,15 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': 'Apri la pagina di {name}',
   'mcp.installed.emptyAddInJson': 'Aggiungine uno in mcp.json',
   'mcp.registry.intro':
-    'Una directory di server MCP. Aprendo un server vai alla sua pagina, dove trovi le istruzioni di installazione; aggiungilo nella scheda mcp.json.',
+    'Una directory di server MCP. I server ospitati che non richiedono configurazione si aggiungono con un clic; per gli altri, apri la loro pagina per le istruzioni di installazione e dichiarali nella scheda mcp.json.',
+  'mcp.registry.action.add': 'Aggiungi',
+  'mcp.registry.action.added': 'Aggiunto',
+  'mcp.registry.action.adding': 'Aggiunta in corso…',
+  'mcp.registry.aria.add': 'Aggiungi {name}',
+  'mcp.registry.needsSetup':
+    'Questo server richiede una configurazione prima di poter essere aggiunto. Apri la sua pagina per le istruzioni di installazione.',
+  'mcp.registry.addFailed': 'Impossibile aggiungere questo server.',
+  'mcp.registry.connectFailed': 'Aggiunto, ma il server non si è connesso.',
   'mcp.json.loadFailedTitle': 'Impossibile leggere mcp.json',
   'mcp.json.loadFailedBody':
     'Il core non ha risposto, quindi il documento non viene mostrato: un editor vuoto inviterebbe a salvare cancellando i tuoi server.',

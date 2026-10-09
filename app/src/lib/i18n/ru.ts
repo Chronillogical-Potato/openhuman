@@ -1238,7 +1238,15 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': 'Открыть страницу {name}',
   'mcp.installed.emptyAddInJson': 'Добавить в mcp.json',
   'mcp.registry.intro':
-    'Каталог MCP-серверов. Открытие сервера ведёт на его собственную страницу с инструкцией по установке; добавьте его на вкладке mcp.json.',
+    'Каталог MCP-серверов. Размещённые серверы, которым не нужна настройка, добавляются одним нажатием; для остальных откройте их страницу с инструкцией по установке и объявите сервер на вкладке mcp.json.',
+  'mcp.registry.action.add': 'Добавить',
+  'mcp.registry.action.added': 'Добавлено',
+  'mcp.registry.action.adding': 'Добавление…',
+  'mcp.registry.aria.add': 'Добавить {name}',
+  'mcp.registry.needsSetup':
+    'Этот сервер нужно настроить перед добавлением. Откройте его страницу с инструкцией по установке.',
+  'mcp.registry.addFailed': 'Не удалось добавить этот сервер.',
+  'mcp.registry.connectFailed': 'Добавлено, но сервер не подключился.',
   'mcp.json.loadFailedTitle': 'Не удалось прочитать mcp.json',
   'mcp.json.loadFailedBody':
     'Ядро не ответило, поэтому документ не показан. Пустой редактор подтолкнул бы к сохранению, стирающему ваши серверы.',

@@ -1221,7 +1221,15 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': '{name}-এর পেজ খুলুন',
   'mcp.installed.emptyAddInJson': 'mcp.json-এ যোগ করুন',
   'mcp.registry.intro':
-    'MCP সার্ভারের একটি ডিরেক্টরি। কোনো সার্ভার খুললে আপনি তার নিজস্ব পেজে যাবেন, যেখানে ইনস্টল নির্দেশনা আছে; এটি mcp.json ট্যাবে যোগ করুন।',
+    'MCP সার্ভারের একটি ডিরেক্টরি। যেসব হোস্টেড সার্ভারে কোনো সেটআপ লাগে না সেগুলো এক ক্লিকে যোগ হয়; অন্য সার্ভারের ক্ষেত্রে ইনস্টল নির্দেশনার জন্য তার পেজ খুলুন এবং mcp.json ট্যাবে সেটি যোগ করুন।',
+  'mcp.registry.action.add': 'যোগ করুন',
+  'mcp.registry.action.added': 'যোগ করা হয়েছে',
+  'mcp.registry.action.adding': 'যোগ করা হচ্ছে…',
+  'mcp.registry.aria.add': '{name} যোগ করুন',
+  'mcp.registry.needsSetup':
+    'যোগ করার আগে এই সার্ভারটির সেটআপ দরকার। ইনস্টল নির্দেশনার জন্য এর পেজ খুলুন।',
+  'mcp.registry.addFailed': 'এই সার্ভারটি যোগ করা যায়নি।',
+  'mcp.registry.connectFailed': 'যোগ করা হয়েছে, কিন্তু সার্ভারটি সংযুক্ত হয়নি।',
   'mcp.json.loadFailedTitle': 'mcp.json পড়া যায়নি',
   'mcp.json.loadFailedBody':
     'কোর সাড়া দেয়নি, তাই ডকুমেন্টটি দেখানো হচ্ছে না। খালি এডিটর এমন সেভে প্ররোচিত করবে যা আপনার সার্ভার মুছে দেবে।',

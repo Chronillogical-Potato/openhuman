@@ -1137,7 +1137,14 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': '打开 {name} 的页面',
   'mcp.installed.emptyAddInJson': '在 mcp.json 中添加',
   'mcp.registry.intro':
-    'MCP 服务器目录。打开某个服务器会跳转到其自身页面，安装说明就在那里；然后在 mcp.json 标签页中添加它。',
+    'MCP 服务器目录。无需设置的托管服务器可一键添加；其他服务器请打开其页面查看安装说明，然后在 mcp.json 标签页中声明。',
+  'mcp.registry.action.add': '添加',
+  'mcp.registry.action.added': '已添加',
+  'mcp.registry.action.adding': '正在添加…',
+  'mcp.registry.aria.add': '添加 {name}',
+  'mcp.registry.needsSetup': '此服务器需要先进行设置才能添加。请打开其页面查看安装说明。',
+  'mcp.registry.addFailed': '无法添加此服务器。',
+  'mcp.registry.connectFailed': '已添加，但服务器未能连接。',
   'mcp.json.loadFailedTitle': '无法读取 mcp.json',
   'mcp.json.loadFailedBody': '核心未响应，因此不显示该文档。空编辑器会诱使保存并清空你的服务器。',
   'mcp.json.intro':
