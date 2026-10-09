@@ -138,12 +138,11 @@ pub(crate) async fn remix_final_reply(
                 match host.engine.learn_memes(intent, &moment).await {
                     Ok(Some(r)) => log::info!(
                         "[tinymemes] meme research request_id={request_id} query={:?} found={} \
-                         approved={} pending={} rejected_rating={} rejected_topic={} duplicates={} \
+                         added={} rejected_rating={} rejected_topic={} duplicates={} \
                          failed_jev={}",
                         r.query,
                         r.found,
-                        r.approved,
-                        r.pending,
+                        r.added,
                         r.rejected_rating,
                         r.rejected_topic,
                         r.duplicates,

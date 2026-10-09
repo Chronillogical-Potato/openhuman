@@ -21,9 +21,6 @@ use crate::threads::store::ConversationMessage;
 const DIR: &str = "tinymemes";
 const INDEX_FILE: &str = "slang-index.json";
 const MEME_INDEX_FILE: &str = "meme-index.json";
-/// Newly learned GIFs are pending until a person approves them; `0` auto-approves
-/// GIFs that pass every check instead.
-pub(crate) const MEME_REVIEW_ENV: &str = "OPENHUMAN_TINYMEMES_MEME_REVIEW";
 const REMIXED_FILE: &str = "remixed.json";
 /// Remixed-message ids remembered per workspace (oldest dropped first).
 const REMIXED_CAP: usize = 4000;
@@ -113,10 +110,7 @@ pub(crate) fn host_for(config: &Config) -> Option<Arc<Host>> {
     };
 
     let search = openhuman_search(config);
-    let meme_policy = tinymemes::MemeIndexPolicy {
-        auto_approve: std::env::var(MEME_REVIEW_ENV).is_ok_and(|v| v.trim() == "0"),
-        ..tinymemes::MemeIndexPolicy::default()
-    };
+    let meme_policy = tinymemes::MemeIndexPolicy::default();
     let meme_index = match std::fs::read_to_string(dir.join(MEME_INDEX_FILE)) {
         Ok(json) => tinymemes::MemeIndex::from_json(&json, meme_policy).unwrap_or_else(|e| {
             log::warn!("[tinymemes] meme index unreadable, starting fresh: {e}");
@@ -151,11 +145,7 @@ pub(crate) fn host_for(config: &Config) -> Option<Arc<Host>> {
         Some(search) => {
             builder = builder
                 .meme_researcher(Arc::new(tinymemes::GiphyPageResearcher::new(search, http)));
-            if meme_policy.auto_approve {
-                "giphy-pages"
-            } else {
-                "giphy-pages (review)"
-            }
+            "giphy-pages"
         }
         None => "off (no search provider)",
     };
