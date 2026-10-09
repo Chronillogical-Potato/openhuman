@@ -28,9 +28,10 @@ The `$schema` field points at `../gen/schemas/desktop-schema.json`, which
 - Granting a permission here does nothing for a command that no permission
   file lists. App commands are ACL-checked, so a new command needs an entry in
   `permissions/` as well as in `generate_handler!`.
-- The `overlay` label is listed, but `lib.rs` currently creates no window with
-  that label; the push-to-talk overlay window is created by `ptt_overlay.rs`
-  under its own label.
+- The `overlay` label is listed, but no window uses it. The push-to-talk
+  overlay that `ptt_overlay.rs` creates is labeled `ptt-overlay`, which this
+  capability does not cover, so that window gets no permissions (event
+  permissions included).
 - Widen the `opener:allow-open-url` scope by adding an entry, not by switching
   to an unscoped permission. Ordinary `http(s)` links from the main webview
   are handled by `external_navigation.rs`, which opens them in the default
