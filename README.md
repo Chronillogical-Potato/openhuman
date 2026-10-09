@@ -302,24 +302,6 @@ In short, the others are great for one person working with one agent. OpenHuman 
 | **Local-only mode**     | 🚫 Cloud-only        | ⚠️ BYO local         | ⚠️ BYO local         | ⚠️ BYO local         | ✅ One-switch Privacy Mode               |
 | **Public benchmarks**   | 🚫 None              | 🚫 None              | 🚫 None              | 🚫 None              | ✅ Public, reproducible                  |
 
------------------------ | ----------------- | ----------------- | ----------------- | ------------------------------------------------------------------ |
-| **Open source**         | 🚫 Proprietary    | ✅ MIT            | ✅ MIT            | ✅ GPL-3.0                                                         |
-| **Simple to start**     | ✅ Desktop + CLI  | ⚠️ Terminal-first | ⚠️ Terminal-first | ✅ Clean UI, minutes                                               |
-| **Cost**                | ⚠️ Sub + add-ons  | ⚠️ BYO models     | ⚠️ BYO models     | ✅ 2.6x fewer tokens                                               |
-| **Agent fleets**        | 🚫 One session    | ⚠️ Process per agent | ⚠️ Process per agent | 🚀 500 agents on a $10 VPS                                    |
-| **Embeddable library**  | ⚠️ SDK over a CLI | 🚫 None           | ⚠️ Python package | 🚀 Typed Rust API                                                  |
-| **Memory**              | ✅ Chat-scoped    | ⚠️ Plugin-reliant | ✅ Self-learning  | 🚀 Recalled every turn, with citations                            |
-| **Integrations**        | ⚠️ Few connectors | ⚠️ BYO            | ⚠️ BYO            | 🚀 119 OAuth apps, MCP, skills                                     |
-| **Source sync**         | 🚫 None           | 🚫 None           | 🚫 None           | ✅ Folders, repos, feeds, apps                                      |
-| **Orchestration**       | ⚠️ Sub-tasks      | ⚠️ Single loop    | ⚠️ Single loop    | 🚀 Agent graphs with checkpoints                                   |
-| **Workflows**           | 🚫 None           | ⚠️ Scripts        | ⚠️ Scripts        | 🚀 Visual, agent-drafted                                           |
-| **Messaging channels**  | 🚫 None           | ✅ Many           | ✅ Several        | ✅ 14, including email                                             |
-| **Local-only mode**     | 🚫 Cloud-only     | ⚠️ BYO local      | ⚠️ BYO local      | ✅ One-switch Privacy Mode                                         |
-| **Observability**       | 🚫 Opaque         | ⚠️ Logs           | ⚠️ Logs           | ✅ Run journals, per-call cost                                     |
-| **Public benchmarks**   | 🚫 None           | 🚫 None           | 🚫 None           | ✅ [Public, reproducible](https://github.com/tinyhumansai/openhuman-benchmarks) |
-| **Model routing**       | 🚫 Single vendor  | ⚠️ Manual         | ⚠️ Manual         | ✅ Built-in                                                        |
-| **Native tools**        | ✅ Code-focused   | ✅ Code-focused   | ✅ Code-focused   | ✅ Code, search, browser, voice, media                             |
-
 ---
 
 ## Contributing
