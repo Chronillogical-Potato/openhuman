@@ -75,6 +75,25 @@ fn is_busy(thread_id: &str) -> bool {
         })
 }
 
+/// Forget every in-flight turn on `thread_id`. A turn that is cancelled
+/// cooperatively (Stop) can end without `AgentTurnCompleted` or `AgentError`, and
+/// its session would otherwise stay "busy" and defer this thread's deliveries
+/// until restart. Returns how many sessions were cleared.
+pub(crate) fn clear_busy_for_thread(thread_id: &str) -> usize {
+    let mut busy = busy().lock().expect("background_delivery busy poisoned");
+    let before = busy.len();
+    busy.retain(|session| {
+        background_completions::thread_for_session(session).as_deref() != Some(thread_id)
+    });
+    let cleared = before - busy.len();
+    if cleared > 0 {
+        log::debug!(
+            "[background_delivery] cleared {cleared} stale busy session(s) thread_id={thread_id}"
+        );
+    }
+    cleared
+}
+
 struct BackgroundDeliveryHandler;
 
 #[async_trait]
@@ -380,6 +399,19 @@ where
                              thread_id={thread_id} error={error}"
                         );
                         router.release(&task_ids);
+                    }
+                }
+                // A batch can mix records at different attempt counts: some gave
+                // up above, the rest are still pending. Nothing else would wake a
+                // quiet thread for them, so ask for a retry.
+                if retry_after.is_none() {
+                    if let Some(attempts) = router
+                        .pending_for(&thread_id)
+                        .iter()
+                        .map(|r| r.attempts)
+                        .max()
+                    {
+                        retry_after = Some(retry_backoff(attempts));
                     }
                 }
             }

@@ -142,8 +142,18 @@ fn entry_for(workspace_dir: &Path) -> Arc<Entry> {
 /// Replace a workspace's failing durable store with an in-memory one that starts
 /// from the same records, so delivery keeps working in this process. The log on
 /// disk is left as it is and replays on the next boot.
-fn degrade_to_memory(workspace_dir: &Path) -> Arc<Entry> {
+///
+/// Serialized per process: when two records hit the failure together, the second
+/// finds the first's fallback already installed and uses it, rather than
+/// installing a second one the delivery loop would never see. `failed` is the
+/// router the caller just saw fail.
+fn degrade_to_memory(workspace_dir: &Path, failed: &Arc<CompletionRouter>) -> Arc<Entry> {
+    static DEGRADE_LOCK: Mutex<()> = Mutex::new(());
+    let _serial = DEGRADE_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let old = entry_for(workspace_dir);
+    if !Arc::ptr_eq(&old.router, failed) {
+        return old;
+    }
     let store = Arc::new(InMemoryCompletionStore::new());
     for record in old.store.list(None) {
         if let Err(error) = store.put(&record) {
@@ -338,7 +348,10 @@ pub(crate) async fn record_outcome(
             "[background_completions] store write failed after retries; continuing in memory \
              task_id={task_id} thread_id={thread_id} error={error}"
         );
-        outcome_of_record = degrade_to_memory(workspace_dir).router.record(record).await;
+        outcome_of_record = degrade_to_memory(workspace_dir, &router)
+            .router
+            .record(record)
+            .await;
     }
     match outcome_of_record {
         Ok(RecordOutcome::Recorded { .. }) => log::debug!(

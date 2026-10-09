@@ -114,6 +114,12 @@ async fn cancel_chat_inner(
     // system turn on the thread, which reads as "Stop did nothing". Abort them
     // first, then drop anything already queued for delivery, so no result lands
     // in the gap. A scoped cancel names one turn and leaves the rest alone.
+    // A turn cancelled cooperatively may never publish a terminal event, which
+    // would leave its session marked busy and defer this thread's background
+    // deliveries until restart.
+    if removed_request_id.is_some() || request_id.is_none() {
+        crate::agent::orchestration::background_delivery::clear_busy_for_thread(thread_id);
+    }
     let subagents_cancelled = if request_id.is_none() {
         // Gate completion recording before aborting: Tokio abort is
         // cooperative, so a child already finishing can otherwise enqueue in
