@@ -469,6 +469,24 @@ fn translate(event: &DomainEvent) -> Option<CoreNotificationEvent> {
     }
 }
 
+/// The agent whose storage scope a notification raised by `event` belongs
+/// in: the owner of the cron job a `CronJobCompleted` names, when a storage
+/// backend is installed and an agent's scope holds the job; `None` (`local`)
+/// otherwise.
+async fn event_owner(config: &crate::config::Config, event: &DomainEvent) -> Option<String> {
+    let DomainEvent::CronJobCompleted { job_id, .. } = event else {
+        return None;
+    };
+    if crate::storage::installed().is_none() {
+        return None;
+    }
+    crate::storage::agents::find_owner("notification owner", || async {
+        crate::cron::get_job(config, job_id).is_ok()
+    })
+    .await
+    .flatten()
+}
+
 #[async_trait]
 impl EventHandler<DomainEvent> for NotificationBridgeSubscriber {
     fn name(&self) -> &str {
@@ -491,7 +509,15 @@ impl EventHandler<DomainEvent> for NotificationBridgeSubscriber {
                 // A workspace-bound event is stored in ITS OWN workspace, not
                 // whichever one this bridge was registered with (#5931).
                 let config = self.store_target(config, event);
-                match super::store::insert_core_notification(&config, &notification) {
+                // Stored with the record that raised it: a cron job's
+                // completion goes to the agent the job belongs to
+                // (`crate::storage`), `local` otherwise.
+                let owner = event_owner(&config, event).await;
+                let stored = crate::storage::agents::within_agent(owner.as_deref(), async {
+                    super::store::insert_core_notification(&config, &notification)
+                })
+                .await;
+                match stored {
                     Ok(true) => log::debug!(
                         "{LOG_PREFIX} persisted core notification id={}",
                         notification.id

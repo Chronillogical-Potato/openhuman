@@ -77,7 +77,7 @@ async fn fire_for_connection(
     toolkit: &str,
     connection_id: &str,
 ) {
-    let sources = match store::list_sources(&config) {
+    let sources = match store::list_sources(config) {
         Ok(sources) => sources,
         Err(e) => {
             tracing::debug!(error = %e, "[task_sources:bus] list_sources failed, skipping");
