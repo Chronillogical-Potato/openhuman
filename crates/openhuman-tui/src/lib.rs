@@ -6,9 +6,11 @@
 //! Chat uses the **same `web_chat` surface** the desktop app drives (`openhuman.channel_web_chat` /
 //! `openhuman.channel_web_cancel` +
 //! [`web_chat::subscribe_web_channel_events`](openhuman_rpc::embed::chat_surface::subscribe_web_channel_events)).
-//! It boots the core in-process — no HTTP, no sockets — via
-//! `CoreBuilder::new(HostKind::Cli).domains(DomainSet::full()).services(ServiceSet::none())`
-//! and streams a live transcript in the terminal.
+//! It boots the core in-process — no HTTP, no sockets — through
+//! `openhuman_rpc::host::tui` (the embed `tui` preset: every domain, no
+//! background services, the on-disk session store, connected to the
+//! TinyHumans backend) and streams a live transcript in the terminal.
+//! `openhuman-rpc` is its only openhuman dependency.
 //!
 //! The terminal dependencies and UI code live entirely in this crate, keeping
 //! the shared core crate free of terminal-specific dependencies.
