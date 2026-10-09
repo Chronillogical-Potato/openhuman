@@ -205,20 +205,31 @@ pub fn remove_job(config: &Config, id: &str) -> Result<()> {
     if let Some(docs) = documents(config)? {
         let owned = id.to_string();
         run(async move { docs.remove_job(&owned).await })?;
+        if let Err(error) = super::policy::clear_policy(config, id) {
+            tracing::warn!(job_id = id, %error, "[cron:store] removing job policy failed");
+        }
         println!("✅ Removed cron job {id}");
         return Ok(());
     }
     upstream::remove_job(&opts(config), id)?;
+    if let Err(error) = super::policy::clear_policy(config, id) {
+        tracing::warn!(job_id = id, %error, "[cron:store] removing job policy failed");
+    }
     println!("✅ Removed cron job {id}");
     Ok(())
 }
 
 /// Deletes every cron job in the workspace (E2E `openhuman.test_reset`).
 pub fn clear_all_jobs(config: &Config) -> Result<usize> {
-    if let Some(docs) = documents(config)? {
-        return run(async move { docs.clear_all_jobs().await });
+    let removed = if let Some(docs) = documents(config)? {
+        run(async move { docs.clear_all_jobs().await })?
+    } else {
+        upstream::clear_all_jobs(&opts(config))?
+    };
+    if let Err(error) = super::policy::clear_all_policies(config) {
+        tracing::warn!(%error, "[cron:store] clearing job policies failed");
     }
-    upstream::clear_all_jobs(&opts(config))
+    Ok(removed)
 }
 
 /// Removes duplicate jobs sharing a `name`, keeping the one with most history.

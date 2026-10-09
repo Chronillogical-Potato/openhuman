@@ -404,6 +404,16 @@ with the runtime, still holds process-local caches. The desktop app, CLI and
 TUI install `openhuman_rpc::session_store`, the classic on-disk layout behind
 the same port.
 
+### Scheduling
+
+`Runtime::cron()` upserts named jobs (`JobSpec::agent` for a turn of a
+runtime agent with its host tools, `JobSpec::system` for a handler registered
+with `Runtime::on_system_job`), lists, removes, runs them now and reads their
+history. A `ServiceSet` with `cron: true` starts the scheduler on `build()`
+and stops it with the runtime; `start_services` / `stop_services` control it
+explicitly. See [`gitbooks/developing/embedding.md`](../../gitbooks/developing/embedding.md#scheduling)
+and `tests/cron_agents.rs`.
+
 ## Tools on an agent
 
 `AgentSpec::tools` gives an agent the host's own in-process tools, each with
@@ -618,7 +628,12 @@ their modules as `*_tests.rs`.
 ```bash
 cargo test -p openhuman-embed --features inference,mcp,skills
 cargo test -p openhuman-embed --features inference,mcp,skills --test runtime_agents
+cargo test -p openhuman-embed --features inference,mcp,skills --test cron_agents
 ```
+
+`tests/cron_agents.rs` runs a cron job as a runtime agent with its host tool under the
+`TrustedAutomation { Cron }` origin, records a system job handler's error, and starts and
+stops the scheduler with the runtime.
 
 The repository-root [`examples/embed_headless.rs`](../../examples/embed_headless.rs) and [`examples/embed_kernel.rs`](../../examples/embed_kernel.rs)
 use this crate's `Runtime` (`Runtime::builder()`, then `core_runtime().invoke`
@@ -634,3 +649,21 @@ for raw RPC methods). They are `[[example]]` targets of `openhuman-cli`:
 - [`gitbooks/developing/architecture/agent-harness.md`](../../gitbooks/developing/architecture/agent-harness.md): the agent harness.
 - [`gitbooks/developing/loadable-modules.md`](../../gitbooks/developing/loadable-modules.md): loadable modules.
 - [`crates/README.md`](../README.md): crates overview.
+
+## Relationship to other crates
+
+Its only in-repo dependency is `openhuman-core` (package `openhuman`) with
+`default-features = false`: every capability comes from a feature forwarded
+above. It does not depend on `openhuman-rpc`; `Outcome` and `StructuredRpcError`
+are core types (`openhuman_core::core`). `openhuman-app` and `openhuman-tui`
+depend on `openhuman-rpc` for its client (and the app on its server) and on
+`openhuman-core`; neither uses `openhuman-embed`.
+
+## Permanent tools on supplied agents
+
+Hosts can pass an existing configured `Agent` to another library, which adds
+its tools through `Agent::attach_tools` without constructing a replacement.
+Attachments are shared by clones, always directly advertised, and update only
+their managed system catalogue when a continuing conversation gains tools.
+See [agent attachment semantics and example](src/agent/README.md#attach-tools-to-an-existing-agent)
+for source identity, collision errors, policy composition, and runtime identity.

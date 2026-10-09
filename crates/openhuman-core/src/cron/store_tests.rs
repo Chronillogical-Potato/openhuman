@@ -111,7 +111,9 @@ async fn a_job_whose_agent_is_not_live_stays_dormant() {
     .await;
     drop(ctx);
 
-    crate::cron::scheduler::tick_live_agents().await;
+    let mut dispatcher = crate::cron::scheduler::JobDispatcher::new(1);
+    crate::cron::scheduler::tick_live_agents(&mut dispatcher).await;
+    dispatcher.drain().await;
 
     let after = CoreContext::scope(agent_context(&config, "dormant-agent"), async {
         get_job(&config, &job.id).unwrap()

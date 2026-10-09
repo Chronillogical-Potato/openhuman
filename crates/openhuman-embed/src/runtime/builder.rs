@@ -29,6 +29,16 @@ use crate::Session;
 // Re-exported for the sibling test module and older call sites that reached
 // the default triples through this module.
 pub(crate) use super::build::apply_provider;
+
+/// Whether `services` asks for any background work beyond the one-shot
+/// harness init, which a library runtime has never started on its own.
+pub(crate) fn requests_background_services(services: ServiceSet) -> bool {
+    ServiceSet {
+        harness_init: false,
+        ..services
+    } != ServiceSet::none()
+}
+
 #[cfg(test)]
 pub(crate) use super::build::{effective_host_kind, routed_provider_effective};
 #[cfg(test)]
@@ -270,9 +280,13 @@ impl RuntimeBuilder {
     /// to the workspace on their own schedule, turning a library call into a
     /// background process the caller did not ask for.
     ///
-    /// The runtime itself starts none of them: a transport that serves the
-    /// runtime (`openhuman-rpc`) calls `start_services` once its listener is
-    /// bound.
+    /// A set that selects anything beyond `harness_init` (`cron: true` to let
+    /// [`Runtime::cron`] jobs fire on their own, say) is started by
+    /// [`build`](Self::build) and stopped when the runtime drops; see
+    /// [`Runtime::start_services`] / [`Runtime::stop_services`]. Starting is
+    /// idempotent, so a transport that serves the runtime
+    /// (`openhuman-rpc`) and calls `start_services` once its listener is
+    /// bound does not start them twice.
     pub fn services(mut self, services: ServiceSet) -> Self {
         self.services = Some(services);
         self

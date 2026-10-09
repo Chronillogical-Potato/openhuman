@@ -490,11 +490,15 @@ impl CoreContext {
         Ok(())
     }
 
-    /// Run `fut` with `ctx` as the ambient [`CoreContext::current`]. The dispatch
-    /// layer wraps each handler invocation in this; multi-tenant hosts pass the
-    /// tenant's context here so the handler's `current()` reads isolated state.
+    /// Run `fut` with `ctx` as the ambient [`CoreContext::current`]: dispatch wraps
+    /// each handler in this, and multi-tenant hosts pass the tenant's context.
     pub async fn scope<F: Future>(ctx: Arc<CoreContext>, fut: F) -> F::Output {
         CURRENT_CONTEXT.scope(ctx, fut).await
+    }
+
+    /// [`scope`](Self::scope) for a synchronous closure.
+    pub fn sync_scope<R>(ctx: Arc<CoreContext>, f: impl FnOnce() -> R) -> R {
+        CURRENT_CONTEXT.sync_scope(ctx, f)
     }
 
     /// Capture the current context now and carry it across a subsequently

@@ -42,6 +42,8 @@ e2e-test-support = ["openhuman-core/e2e-test-support"]
 async-trait = "0.1"
 openhuman-core = { path = "../openhuman-core", package = "openhuman", default-features = false }
 anyhow = "1"
+# `JobSchedule::At` converts to and from the core's `chrono` instants.
+chrono = "0.4"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

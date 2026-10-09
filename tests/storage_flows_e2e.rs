@@ -79,6 +79,25 @@ async fn a_configured_backend_holds_cron_flows_and_flow_state() {
     let delegation_config = config.clone();
     openhuman_core::agent::orchestration::open_delegation_checkpointer(&delegation_config).unwrap();
 
+    // A job's scheduling policy lives on the backend too.
+    let policy_config = config.clone();
+    tokio::task::spawn_blocking(move || {
+        use openhuman_core::cron::policy::{self, JobPolicy};
+        let wanted = JobPolicy {
+            retries: Some(0),
+            single_flight: true,
+        };
+        policy::set_policy(&policy_config, "job-1", wanted.clone()).unwrap();
+        assert_eq!(policy::get_policy(&policy_config, "job-1").unwrap(), wanted);
+        policy::clear_policy(&policy_config, "job-1").unwrap();
+        assert_eq!(
+            policy::get_policy(&policy_config, "job-1").unwrap(),
+            JobPolicy::default()
+        );
+    })
+    .await
+    .unwrap();
+
     for path in ["cron/jobs.db", "flows/flows.db", "graph_checkpoints.db"] {
         assert!(
             !workspace.path().join(path).exists(),

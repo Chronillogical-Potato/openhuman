@@ -1,16 +1,19 @@
 //! Background scheduler loop for cron jobs: polls the store for due jobs,
-//! runs them with bounded concurrency, persists results, and emits health
+//! dispatches each onto its own task with bounded concurrency (so a long job
+//! never holds up the next poll), persists results, and emits health
 //! signals. Job-type execution, retry, delivery, and persistence live in the
 //! submodules below.
 
 mod agent_run;
 mod delivery;
+mod dispatch;
 mod failure_classification;
 mod origin_context;
 mod origin_delivery;
 mod retry;
 mod run_record;
 mod shell_job;
+mod slot;
 
 #[cfg(test)]
 #[path = "scheduler_tests.rs"]
@@ -30,7 +33,10 @@ use run_record::*;
 use shell_job::*;
 
 pub use delivery::deliver_job;
+pub(crate) use dispatch::JobDispatcher;
 pub use retry::execute_job_now;
+pub use slot::is_running;
+pub(crate) use slot::SchedulerSlot;
 
 use crate::config::Config;
 use crate::core::bus::BUS;
@@ -39,13 +45,19 @@ use crate::cron::{due_jobs, CronJob};
 use crate::security::SecurityPolicy;
 use anyhow::Result;
 use chrono::Utc;
-use futures_util::{stream, StreamExt};
 use std::sync::Arc;
 use tokio::time::{self, Duration};
 
 const MIN_POLL_SECONDS: u64 = 5;
 
 pub async fn run(config: Config) -> Result<()> {
+    // One poll loop per process: two would each see the same due rows.
+    let Some(_slot) = SchedulerSlot::acquire() else {
+        tracing::warn!(
+            "[cron:scheduler] a scheduler loop is already running; not starting another"
+        );
+        return Ok(());
+    };
     // Ensure the global event bus is initialized so cron delivery events
     // are not silently dropped. This is a no-op if already initialized.
     crate::core::bus::init().await.expect("bus init");
@@ -71,11 +83,18 @@ pub async fn run(config: Config) -> Result<()> {
     // "nothing emitted yet for this run", so the first successful tick
     // is treated as a transition and emits.
     let mut last_emitted_health: Option<bool> = None;
+    let mut dispatcher = JobDispatcher::new(config.scheduler.max_concurrent);
 
     loop {
         interval.tick().await;
-        tick_once(&config, &security, &mut last_emitted_health).await;
-        tick_live_agents().await;
+        tick_once(
+            &config,
+            &security,
+            &mut last_emitted_health,
+            &mut dispatcher,
+        )
+        .await;
+        tick_live_agents(&mut dispatcher).await;
     }
 }
 
@@ -83,9 +102,10 @@ pub async fn run(config: Config) -> Result<()> {
 /// own context: its config, provider route, policy and job database. An
 /// agent that is not live has no context to run under, so its jobs stay
 /// dormant until it is instantiated again.
-pub(crate) async fn tick_live_agents() {
+pub(crate) async fn tick_live_agents(dispatcher: &mut JobDispatcher) {
     for (agent_id, ctx) in crate::core::runtime::AgentContextRegistry::live() {
         let agent = agent_id.clone();
+        let dispatcher = &mut *dispatcher;
         crate::core::runtime::CoreContext::scope(ctx, async move {
             let config = match crate::config::ops::load_current_or_init().await {
                 Ok(config) => config,
@@ -112,7 +132,7 @@ pub(crate) async fn tick_live_agents() {
                 return;
             };
             tracing::debug!(agent = %agent, due_count = jobs.len(), "[cron:scheduler] running agent jobs");
-            process_due_jobs(&config, &security, jobs).await;
+            dispatcher.dispatch(&config, &security, jobs).await;
         })
         .await;
     }
@@ -125,14 +145,14 @@ pub(crate) async fn tick_live_agents() {
 /// - Poll itself failed (DB read) → `healthy: false` with the DB error.
 /// - Poll succeeded, queue empty or not → `healthy: true` (#3312
 ///   recovery signal). Without this, a single transient job failure
-///   that flipped the component to `error` via [`process_due_jobs`]
+///   that flipped the component to `error` by a dispatched job (`dispatch.rs`)
 ///   would stay there indefinitely while the queue was idle — no later
 ///   event would clear it, the health endpoint would keep returning
 ///   503, and Docker would mark the container `unhealthy` for hours
 ///   until a manual restart. Tick-level "still polling" beats
 ///   job-level success as the recovery signal because the queue is
 ///   empty most of the time.
-/// - Per-job results (handled inside `process_due_jobs`) continue to
+/// - Per-job results (published by each dispatched job) continue to
 ///   flip the component back to `healthy: false` on a failure; the
 ///   next tick that survives the DB read will re-flip it to
 ///   `healthy: true`, exactly the auto-recovery behaviour the Docker
@@ -141,6 +161,7 @@ pub(crate) async fn tick_once(
     config: &Config,
     security: &Arc<SecurityPolicy>,
     last_emitted_health: &mut Option<bool>,
+    dispatcher: &mut JobDispatcher,
 ) {
     tracing::debug!("[cron:scheduler] tick poll begin");
     let jobs = match due_jobs(config, Utc::now()) {
@@ -192,10 +213,10 @@ pub(crate) async fn tick_once(
         return;
     }
 
-    process_due_jobs(config, security, jobs).await;
+    dispatcher.dispatch(config, security, jobs).await;
     tracing::debug!("[cron:scheduler] tick end due_count={due_count} (jobs processed)");
 
-    // `process_due_jobs` itself may have published `healthy: false` on
+    // A dispatched job may have published `healthy: false` on
     // a job failure, but it does so directly on the bus without
     // touching our local tracker. Reset so the next successful tick
     // is again treated as a transition and re-emits `healthy: true` —
@@ -203,48 +224,7 @@ pub(crate) async fn tick_once(
     *last_emitted_health = None;
 }
 
-async fn process_due_jobs(config: &Config, security: &Arc<SecurityPolicy>, jobs: Vec<CronJob>) {
-    let max_concurrent = config.scheduler.max_concurrent.max(1);
-    // A job already running (a long previous tick, or Run Now) is skipped: the
-    // next tick picks it up once the claim is released.
-    let claimed: Vec<_> = jobs
-        .into_iter()
-        .filter_map(|job| match crate::cron::ops::try_acquire_run(&job.id) {
-            Some(guard) => Some((job, guard)),
-            None => {
-                tracing::debug!(job_id = %job.id, "[cron:scheduler] skipping job: a run is already active");
-                None
-            }
-        })
-        .collect();
-    let mut in_flight = stream::iter(claimed.into_iter().map(|(job, guard)| {
-        let config = config.clone();
-        let security = Arc::clone(security);
-        async move {
-            let _guard = guard;
-            execute_and_persist_job(&config, security.as_ref(), &job).await
-        }
-    }))
-    .buffer_unordered(max_concurrent);
-
-    while let Some((job_id, success, failure_message)) = in_flight.next().await {
-        if success {
-            BUS.publish(DomainEvent::HealthChanged {
-                component: "scheduler".to_string(),
-                healthy: true,
-                message: None,
-            });
-        } else {
-            BUS.publish(DomainEvent::HealthChanged {
-                component: "scheduler".to_string(),
-                healthy: false,
-                message: Some(failure_message.unwrap_or_else(|| format!("job {job_id} failed"))),
-            });
-        }
-    }
-}
-
-async fn execute_and_persist_job(
+pub(super) async fn execute_and_persist_job(
     config: &Config,
     security: &SecurityPolicy,
     job: &CronJob,
