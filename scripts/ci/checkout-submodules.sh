@@ -19,6 +19,8 @@ NESTED=(
   # tinyagents-live (the live voice agent runner) builds the vendored
   # tinyliveagents library by path.
   "vendor/tinyagents vendor/tinyliveagents"
+  # tinyagents-session builds the vendored storage drivers (sqlite) by path.
+  "vendor/tinyagents vendor/tinystoragedrivers"
   # The native TinyConnectors test module is built from its own manifest, so
   # the root workspace's tinybus patch does not apply to this dependency.
   "vendor/tinyconnectors vendor/tinybus"
