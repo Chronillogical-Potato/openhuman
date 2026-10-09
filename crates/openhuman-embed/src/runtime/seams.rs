@@ -26,8 +26,9 @@ use openhuman_core::agent::hooks::{
     replace_embedder_tool_hook, PostTurnHook, ToolHook,
 };
 use openhuman_core::agent::tinyagents::discovery::{
-    clear_tool_ranker, install_tool_ranker, installed_tool_ranker, ToolRanker,
+    clear_tool_ranker, install_tool_ranker, installed_tool_ranker,
 };
+use tinytools::ToolRanker;
 use openhuman_core::core::all::{register_controller_extension, ControllerExtension};
 use openhuman_core::core::server_launcher::{install_server_launcher, ServerLauncher};
 use openhuman_core::security::SecurityPolicy;
