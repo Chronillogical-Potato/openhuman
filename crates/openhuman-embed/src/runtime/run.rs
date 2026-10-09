@@ -21,7 +21,7 @@
 use std::sync::Arc;
 
 use openhuman_core::agent::session_store::SessionStoreProvider;
-use openhuman_core::backend::transport::BackendTransport;
+use openhuman_core::backend::BackendTransport;
 use openhuman_core::core::server_launcher::HostBoot;
 
 use super::seams::HostSeams;
