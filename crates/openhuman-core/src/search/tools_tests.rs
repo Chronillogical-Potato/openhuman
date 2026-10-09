@@ -262,7 +262,9 @@ fn a_rejected_backend_credential_asks_for_the_right_fix() {
     let key = backend_unauthorized_message(true);
     assert!(key.contains("rejected the configured API key"), "{key}");
     assert!(!key.contains("Sign in again"), "{key}");
-    assert!(!exhausts_providers("tinysearch.backend_unauthorized: rejected"));
+    assert!(!exhausts_providers(
+        "tinysearch.backend_unauthorized: rejected"
+    ));
 }
 
 /// Drain `rx` for a `SessionExpired` whose source is `source`.
