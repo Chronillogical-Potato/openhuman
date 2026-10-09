@@ -160,4 +160,3 @@ ci-out-ex63/
 vendor/motosan-ai-oauth/target/
 
 # Benchmark run output
-bench/harnesses/results/
