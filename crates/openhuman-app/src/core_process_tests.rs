@@ -28,8 +28,8 @@ fn env_lock() -> MutexGuard<'static, ()> {
 fn core_test_runtime() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .thread_stack_size(openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
-        .max_blocking_threads(openhuman_core::core::runtime::MAX_BLOCKING_THREADS)
+        .thread_stack_size(openhuman_rpc::embed::process::AGENT_WORKER_STACK_BYTES)
+        .max_blocking_threads(openhuman_rpc::embed::process::MAX_BLOCKING_THREADS)
         .build()
         .expect("build core test runtime")
 }
@@ -82,7 +82,7 @@ fn core_process_handle_new_creates_instance() {
 #[test]
 fn ready_signal_updates_runtime_port_and_fallback_notice() {
     let handle = CoreProcessHandle::new(7788);
-    handle.apply_embedded_ready_signal(openhuman_rpc::server::EmbeddedReadySignal {
+    handle.apply_embedded_ready_signal(openhuman_rpc::host::EmbeddedReadySignal {
         port: 7789,
         fallback_from: Some(7788),
     });

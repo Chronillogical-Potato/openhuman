@@ -1,8 +1,11 @@
 //! Desktop host for OpenHuman: Tauri v2 + Wry, targeting Windows, macOS, and
 //! Linux.
 //!
-//! `openhuman_core` is linked in-process; its JSON-RPC server runs as a
-//! tokio task (`core_process`) instead of a spawned sidecar. The renderer
+//! The core is linked in-process; its JSON-RPC server runs as a tokio task
+//! (`core_process`, booted through `openhuman_rpc::host::desktop`) instead of
+//! a spawned sidecar. `openhuman-rpc` is this crate's only openhuman
+//! dependency: the embed facades and the TinyHumans session owner are reached
+//! as `openhuman_rpc::embed` and `openhuman_rpc::tinyhumans`. The renderer
 //! reaches it over `http://127.0.0.1:<port>/rpc`, using the per-launch
 //! bearer returned by the `core_rpc_token` command.
 //!
@@ -12,7 +15,7 @@
 //!
 //! The Cargo features `gateways`, `custom-protocol`, `e2e-test-support`, and
 //! `sandbox-bubblewrap` are shell-local and not part of the product feature
-//! list; the `openhuman_core` product gates are forwarded explicitly in
+//! list; the product gates are forwarded explicitly on `openhuman-rpc` in
 //! `Cargo.toml` and guarded by the `VOICE_COMPILED_IN` /
 //! `HTTP_SERVER_COMPILED_IN` compile-time asserts below.
 //!
