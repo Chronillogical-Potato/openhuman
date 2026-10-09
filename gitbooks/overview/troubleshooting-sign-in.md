@@ -41,7 +41,7 @@ A successful desktop sign-in ends with an `openhuman://auth?...` callback. If th
 2. Restart the app, keep the same remote-core settings, and retry sign-in.
 3. With a remote core, check whether the core receives `openhuman.auth_set_credential`. The desktop shell checks the session against the backend first, then hands the credential to the core.
 
-## Windows: the `openhuman://` handler is not registered
+## Windows: `openhuman://` handler not registered
 
 On Windows, the app registers the `openhuman://` URL scheme at first launch under `HKEY_CURRENT_USER\Software\Classes\openhuman\shell\open\command`. If that registration failed, or you moved or copied the install after first launch, the browser cannot hand the OAuth callback back to the app. Sign-in then stalls after the provider step.
 
