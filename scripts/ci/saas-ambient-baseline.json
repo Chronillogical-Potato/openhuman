@@ -37,22 +37,8 @@
   {
     "rule": "bare-spawn",
     "path": "crates/openhuman-core/src/agent/orchestration/background_delivery.rs",
-    "line": 148,
+    "line": 145,
     "text": "tokio::spawn(async move {",
-    "occurrence": 1
-  },
-  {
-    "rule": "ambient-config",
-    "path": "crates/openhuman-core/src/agent/orchestration/background_delivery.rs",
-    "line": 208,
-    "text": "let config = match crate::config::Config::load_or_init().await {",
-    "occurrence": 1
-  },
-  {
-    "rule": "ambient-config",
-    "path": "crates/openhuman-core/src/agent/orchestration/background_delivery.rs",
-    "line": 362,
-    "text": "let config = crate::config::Config::load_or_init()",
     "occurrence": 1
   },
   {
@@ -86,7 +72,7 @@
   {
     "rule": "bare-spawn",
     "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_async_subagent_execute.rs",
-    "line": 418,
+    "line": 424,
     "text": "let join = tokio::spawn(crate::agent::turn_origin::propagate(",
     "occurrence": 1
   },

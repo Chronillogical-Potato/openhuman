@@ -4590,6 +4590,7 @@ dependencies = [
  "tinyagents-registry",
  "tinyagents-runtime",
  "tinyagents-session",
+ "tinyagents-tasks",
  "tinybox-core",
  "tinybox-docker",
  "tinybox-jail",
