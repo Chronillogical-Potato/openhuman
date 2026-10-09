@@ -193,3 +193,22 @@ fn a_child_without_parent_rules_takes_the_operator_layer() {
     assert!(!visible(&child.rules, "shell", &child.context));
     assert!(child_rule_policy(None, None, &definition("worker")).is_none());
 }
+
+#[test]
+fn an_operator_layer_cannot_be_named_into_an_agent_layer() {
+    let mut config = Config::default();
+    config.tool_rules = tinytools::ToolRules::from_allow_deny(Vec::<String>::new(), ["shell"])
+        .named("agent:baseline");
+    let set = session_rule_set(Some(&config), None);
+    assert_eq!(set.layers[0].name.as_deref(), Some("config:agent:baseline"));
+    let parent = turn_rule_policy(
+        Arc::new(set),
+        rule_context(None, Some("orchestrator"), None),
+    );
+
+    let child = child_rule_policy(Some(&parent), None, &definition("worker")).expect("rules");
+    assert!(
+        !visible(&child.rules, "shell", &child.context),
+        "the operator layer is still inherited whatever its author named it"
+    );
+}

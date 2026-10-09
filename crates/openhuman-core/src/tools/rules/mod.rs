@@ -14,7 +14,9 @@
 //! tool, so adding one can only narrow.
 //!
 //! The context the rules' `when` conditions match is built by
-//! [`rule_context`]: `channel`, `agent` and `origin`.
+//! [`rule_context`]: the session's `channel` and `agent`. The turn's origin is
+//! not used: the host-rendered catalogue is cached per session, so the rules
+//! must decide the same way on every turn.
 
 mod ops;
 

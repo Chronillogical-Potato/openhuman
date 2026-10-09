@@ -288,7 +288,7 @@ reason = "Only the GitHub MCP server is approved."
 [[tool_rules.rules]]
 effect = "deny"
 match = { name = "shell" }
-when = { channel = "telegram" }  # context: channel, agent, origin
+when = { channel = "telegram" }  # context: channel, agent
 ```
 
 How rules behave:
