@@ -51,6 +51,8 @@ tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session
 # core's so one copy resolves.
 tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
 tinyinference-embeddings = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
+# `AgentDefinitionSpec::tool_rules` takes the shared tool-rule vocabulary.
+tinytools = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
 url = "2"
 uuid = { version = "1", features = ["v4"] }
