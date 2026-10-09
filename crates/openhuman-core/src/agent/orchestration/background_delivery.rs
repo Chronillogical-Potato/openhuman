@@ -150,6 +150,11 @@ fn schedule_delivery(thread_id: String, delay: Duration) {
 /// after [`RECOVERY_DELAY`], through the normal idle-gated path. Returns the
 /// number of threads scheduled.
 pub(crate) fn recover_on_boot(workspace_dir: &Path) -> usize {
+    // Once per workspace per process: the bootstrap workspace at startup, any
+    // other the first time a spawn opens it.
+    if !background_completions::claim_recovery(workspace_dir) {
+        return 0;
+    }
     let threads = background_completions::recover_pending_threads(workspace_dir);
     let Ok(_runtime) = tokio::runtime::Handle::try_current() else {
         log::warn!(
@@ -190,15 +195,22 @@ fn claim_ready(router: &CompletionRouter, thread_id: &str) -> Option<Vec<Complet
 /// Drain + deliver pending completions for a thread — if idle and not already
 /// delivering. Batches everything ready at this instant into one system turn.
 async fn try_deliver(thread_id: String) {
-    let Some(router) = background_completions::router_for_thread(&thread_id) else {
-        log::debug!("[background_delivery] no router for thread_id={thread_id}");
+    let Some(workspace_dir) = background_completions::workspace_for_thread(&thread_id) else {
+        log::debug!("[background_delivery] no workspace for thread_id={thread_id}");
         return;
     };
+    let router = background_completions::router_for_workspace(&workspace_dir);
+    let turn_workspace = workspace_dir.clone();
     try_deliver_with(
         thread_id,
         router,
-        |thread_id, notice| async move { run_system_turn_on_thread(thread_id, notice).await },
-        |thread_id, notice| async move { persist_undelivered(thread_id, notice).await },
+        move |thread_id, notice| {
+            let workspace_dir = turn_workspace.clone();
+            async move { run_system_turn_on_thread(workspace_dir, thread_id, notice).await }
+        },
+        move |thread_id, notice| async move {
+            persist_undelivered(workspace_dir, thread_id, notice).await
+        },
     )
     .await;
 }
