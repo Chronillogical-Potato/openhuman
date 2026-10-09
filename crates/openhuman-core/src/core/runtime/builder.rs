@@ -699,6 +699,7 @@ impl CoreRuntime {
     pub fn context(&self) -> &Arc<CoreContext> {
         &self.ctx
     }
+
     /// Dispatch an RPC method in-process — the same path the HTTP `/rpc` handler
     /// and the CLI use ([`crate::core::invoke::invoke_method`]). No network involved.
     pub async fn invoke(
