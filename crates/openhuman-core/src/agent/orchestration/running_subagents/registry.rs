@@ -124,6 +124,9 @@ pub(crate) fn register(
                 thread_id
             );
         }
+        // First spawn in a workspace this process has not scanned: redeliver any
+        // completions a previous process finished there but never delivered.
+        crate::agent::orchestration::background_delivery::recover_on_boot(&workspace_dir);
     }
 
     // Typed lifecycle ledger: record the spawn and mirror the child's terminal
