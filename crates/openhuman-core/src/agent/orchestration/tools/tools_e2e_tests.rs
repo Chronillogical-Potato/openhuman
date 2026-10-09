@@ -178,11 +178,12 @@ async fn archetype_delegation_defaults_to_async_with_durable_session_e2e() {
     );
     // Completion queued for delivery back into the parent chat as a new turn.
     assert!(
-        crate::agent::orchestration::background_completions::has_pending("tools-e2e-async-session"),
+        !crate::agent::orchestration::background_completions::pending_for(
+            workspace.path(),
+            "thread-async-parent",
+        )
+        .is_empty(),
         "finished result queued for background delivery"
-    );
-    let _ = crate::agent::orchestration::background_completions::take_pending(
-        "tools-e2e-async-session",
     );
 }
 
@@ -322,9 +323,6 @@ async fn continue_subagent_resumes_idle_durable_session_e2e() {
     assert!(
         provider.saw("original task from an earlier turn"),
         "persisted history was replayed into the resumed run"
-    );
-    let _ = crate::agent::orchestration::background_completions::take_pending(
-        "tools-e2e-continue-session",
     );
 }
 
