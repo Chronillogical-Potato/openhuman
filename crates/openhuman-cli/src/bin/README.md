@@ -208,19 +208,26 @@ cargo build --release -p openhuman-cli --no-default-features --features rss-benc
 
 ## Gotchas
 
-- A crate root placed straight in `src/bin/` is built as a binary, so a
-  binary's tests cannot sit beside it as `<stem>_tests.rs`. They go under
-  `src/bin/<stem>/` (as `library_profile/scenarios/fleet_tests.rs` and
-  `subagent_storm_tests.rs` do).
+- The manifest sets `autobins = false`, so a `.rs` file in this directory is
+  a binary only when it has a `[[bin]]` entry. That is what lets
+  `fleet_tests.rs` and `rss_bench_tests.rs` sit here beside their binaries
+  without Cargo trying to build them as executables. A new binary needs both
+  the file and the manifest entry.
 - `tool-search-bench`'s `jev` row and `tool-dialect-bench` make real network
   calls. Keep them out of CI.
 
 ## Tests
 
-`library_profile/scenarios/fleet_tests.rs` and `subagent_storm_tests.rs`
-cover scenario helpers; they build with the `rss-bench` feature. The other
-binaries are exercised by running them, or (for `test-mcp-stub`) by the MCP
-test suites listed above.
+`fleet_tests.rs` (edge and core token handling, routing) and
+`rss_bench_tests.rs` sit beside their binaries, and
+`library_profile/scenarios/` has `fleet_tests.rs` and
+`subagent_storm_tests.rs`. They build with the binary's required features.
+`test-mcp-stub` is exercised by the MCP suites listed above.
+
+```bash
+cargo test -p openhuman-cli --features bin-tools --bin openhuman-fleet
+cargo test -p openhuman-cli --features rss-bench --bin rss-bench --bin library-profile
+```
 
 ## See also
 
