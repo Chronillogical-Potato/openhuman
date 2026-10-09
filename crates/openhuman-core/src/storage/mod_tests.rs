@@ -39,15 +39,20 @@ async fn opens_memory_and_refuses_garbage() {
 
 #[test]
 fn install_installed_and_clear() {
-    // One test owns the process slot, so it cannot race another.
-    clear();
-    assert!(installed().is_none());
+    // A private slot: installing into the process's would reroute every other
+    // test's storage calls while this one runs.
+    let slot = Slot::default();
+    assert!(slot.installed().is_none());
     let backend: Arc<dyn StorageBackend> = Arc::new(tinystoragedrivers::MemoryStorage::new());
-    assert!(install(Arc::clone(&backend)).is_none());
-    assert!(installed().is_some_and(|got| Arc::ptr_eq(&got, &backend)));
-    assert!(install(Arc::new(tinystoragedrivers::MemoryStorage::new())).is_some());
-    assert!(clear());
-    assert!(!clear());
+    assert!(slot.install(Arc::clone(&backend)).is_none());
+    assert!(slot
+        .installed()
+        .is_some_and(|got| Arc::ptr_eq(&got, &backend)));
+    assert!(slot
+        .install(Arc::new(tinystoragedrivers::MemoryStorage::new()))
+        .is_some());
+    assert!(slot.clear());
+    assert!(!slot.clear());
 }
 
 #[test]
@@ -60,10 +65,19 @@ fn agent_scopes_match_the_session_store() {
 
 #[test]
 fn the_scope_follows_the_acting_agent_and_fails_closed_in_saas() {
-    assert_eq!(scope_from(Some("agent-7"), false).unwrap().as_str(), "agent-7");
-    assert_eq!(scope_from(Some("agent-7"), true).unwrap().as_str(), "agent-7");
+    assert_eq!(
+        scope_from(Some("agent-7"), false).unwrap().as_str(),
+        "agent-7"
+    );
+    assert_eq!(
+        scope_from(Some("agent-7"), true).unwrap().as_str(),
+        "agent-7"
+    );
     assert!(scope_from(None, false).unwrap().is_local());
-    assert!(scope_from(None, true).is_err(), "SaaS never falls back to a shared scope");
+    assert!(
+        scope_from(None, true).is_err(),
+        "SaaS never falls back to a shared scope"
+    );
 }
 
 #[test]

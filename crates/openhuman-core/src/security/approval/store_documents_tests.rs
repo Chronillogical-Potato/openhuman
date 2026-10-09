@@ -60,7 +60,10 @@ fn a_request_is_decided_exactly_once() {
         store.get_decision("r").unwrap(),
         Some(ApprovalDecision::ApproveOnce)
     );
-    assert!(store.decide("missing", ApprovalDecision::Deny).unwrap().is_none());
+    assert!(store
+        .decide("missing", ApprovalDecision::Deny)
+        .unwrap()
+        .is_none());
     assert!(store.list_pending().unwrap().is_empty());
 }
 
@@ -68,7 +71,9 @@ fn a_request_is_decided_exactly_once() {
 fn concurrent_deciders_never_both_win() {
     let storage = MemoryStorage::new();
     let store = docs_in(&storage, "local");
-    store.insert_pending(&pending("race", 0, None), "s").unwrap();
+    store
+        .insert_pending(&pending("race", 0, None), "s")
+        .unwrap();
     let winners: usize = (0..8)
         .map(|_| {
             let store = store.clone();
@@ -89,15 +94,27 @@ fn concurrent_deciders_never_both_win() {
 #[test]
 fn stale_requests_expire_to_deny_once() {
     let store = docs();
-    store.insert_pending(&pending("old", 0, Some(-5)), "s").unwrap();
-    store.insert_pending(&pending("fresh", 0, Some(600)), "s").unwrap();
-    store.insert_pending(&pending("forever", 0, None), "s").unwrap();
+    store
+        .insert_pending(&pending("old", 0, Some(-5)), "s")
+        .unwrap();
+    store
+        .insert_pending(&pending("fresh", 0, Some(600)), "s")
+        .unwrap();
+    store
+        .insert_pending(&pending("forever", 0, None), "s")
+        .unwrap();
     let expired = store.expire_stale(Utc::now()).unwrap();
     assert_eq!(
-        expired.iter().map(|p| p.request_id.as_str()).collect::<Vec<_>>(),
+        expired
+            .iter()
+            .map(|p| p.request_id.as_str())
+            .collect::<Vec<_>>(),
         ["old"]
     );
-    assert!(store.expire_stale(Utc::now()).unwrap().is_empty(), "only once");
+    assert!(
+        store.expire_stale(Utc::now()).unwrap().is_empty(),
+        "only once"
+    );
     assert_eq!(
         store.get_decision("old").unwrap(),
         Some(ApprovalDecision::Deny)
@@ -124,22 +141,18 @@ fn execution_is_recorded_after_a_decision_and_only_once() {
     );
     store.decide("r", ApprovalDecision::ApproveOnce).unwrap();
     let long = format!("token=sk-abcdefghijklmnopqrstuvwxyz {}", "e".repeat(800));
-    assert!(
-        store
-            .record_execution("r", ExecutionOutcome::Failure, Some(&long))
-            .unwrap()
-    );
+    assert!(store
+        .record_execution("r", ExecutionOutcome::Failure, Some(&long))
+        .unwrap());
     assert!(
         !store
             .record_execution("r", ExecutionOutcome::Success, None)
             .unwrap(),
         "the first outcome wins"
     );
-    assert!(
-        !store
-            .record_execution("missing", ExecutionOutcome::Success, None)
-            .unwrap()
-    );
+    assert!(!store
+        .record_execution("missing", ExecutionOutcome::Success, None)
+        .unwrap());
     let stored = store
         .run(|docs| async move { docs.get(APPROVALS, "r").await })
         .unwrap()
@@ -157,10 +170,15 @@ fn recent_decisions_are_newest_first_and_capped() {
         store.decide(id, ApprovalDecision::ApproveOnce).unwrap();
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
-    store.insert_pending(&pending("open", 0, None), "s").unwrap();
+    store
+        .insert_pending(&pending("open", 0, None), "s")
+        .unwrap();
     let recent = store.list_recent_decisions(2).unwrap();
     assert_eq!(
-        recent.iter().map(|e| e.request_id.as_str()).collect::<Vec<_>>(),
+        recent
+            .iter()
+            .map(|e| e.request_id.as_str())
+            .collect::<Vec<_>>(),
         ["c", "b"]
     );
     assert_eq!(recent[0].decision, ApprovalDecision::ApproveOnce);
@@ -169,10 +187,16 @@ fn recent_decisions_are_newest_first_and_capped() {
 #[test]
 fn purging_a_session_drops_only_its_undecided_requests() {
     let store = docs();
-    store.insert_pending(&pending("mine", 0, None), "s1").unwrap();
-    store.insert_pending(&pending("decided", 0, None), "s1").unwrap();
+    store
+        .insert_pending(&pending("mine", 0, None), "s1")
+        .unwrap();
+    store
+        .insert_pending(&pending("decided", 0, None), "s1")
+        .unwrap();
     store.decide("decided", ApprovalDecision::Deny).unwrap();
-    store.insert_pending(&pending("theirs", 0, None), "s2").unwrap();
+    store
+        .insert_pending(&pending("theirs", 0, None), "s2")
+        .unwrap();
     assert_eq!(store.purge_session("s1").unwrap(), 1);
     assert!(store.get_decision("decided").unwrap().is_some());
     let left: Vec<String> = store
@@ -236,7 +260,10 @@ fn scopes_keep_users_apart() {
     alice.insert_pending(&pending("r", 0, None), "s").unwrap();
     alice.insert_flow_trust("flow-1", "shell").unwrap();
     assert!(bob.list_pending().unwrap().is_empty());
-    assert!(bob.decide("r", ApprovalDecision::ApproveOnce).unwrap().is_none());
+    assert!(bob
+        .decide("r", ApprovalDecision::ApproveOnce)
+        .unwrap()
+        .is_none());
     assert!(!bob.is_flow_tool_trusted("flow-1", "shell").unwrap());
     assert_eq!(alice.list_pending().unwrap().len(), 1);
 }
@@ -258,8 +285,7 @@ fn an_unreadable_source_context_reads_as_absent() {
 }
 
 #[test]
-fn no_backend_means_the_classic_store() {
-    crate::storage::clear();
-    assert!(current().unwrap().is_none());
+fn a_missing_error_stays_missing() {
     assert!(audit_error(None).is_none());
+    assert_eq!(audit_error(Some("plain")).as_deref(), Some("plain"));
 }

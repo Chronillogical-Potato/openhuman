@@ -23,12 +23,12 @@
 
 use std::sync::Arc;
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, Utc};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::storage::{
-    DocumentStore, DocumentStoreExt, ScopedStorage, StorageError, block_on, current_scoped,
+    block_on, current_scoped, DocumentStore, DocumentStoreExt, ScopedStorage, StorageError,
 };
 use tinystoragedrivers::{
     CollectionSpec, ErrorKind, Filter, IndexSpec, Precondition, Query, Sort, Versioned,
@@ -227,9 +227,8 @@ impl Docs {
         let decided_at = rfc3339(now);
         let now_ts = now.timestamp();
         self.run(|docs| async move {
-            let query = Query::filter(
-                Filter::eq("pending", true).and(Filter::lte("expires_ts", now_ts)),
-            );
+            let query =
+                Query::filter(Filter::eq("pending", true).and(Filter::lte("expires_ts", now_ts)));
             let mut expired = Vec::new();
             for stale in docs.query_all(APPROVALS, &query).await? {
                 let moved = update(&docs, &stale.id, |doc| {
@@ -324,9 +323,10 @@ impl Docs {
 
     pub(super) fn list_recent_decisions(&self, limit: usize) -> Result<Vec<ApprovalAuditEntry>> {
         self.run(|docs| async move {
-            let query = Query::filter(Filter::eq("pending", false).and(Filter::exists("decision", true)))
-                .sort(Sort::desc("decided_at"))
-                .limit(limit);
+            let query =
+                Query::filter(Filter::eq("pending", false).and(Filter::exists("decision", true)))
+                    .sort(Sort::desc("decided_at"))
+                    .limit(limit);
             let page = docs.query(APPROVALS, &query).await?;
             Ok(page.items.iter().filter_map(to_audit).collect())
         })
@@ -384,7 +384,10 @@ impl Docs {
         let names = tool_names.map(<[String]>::to_vec);
         self.run(|docs| async move {
             let removed = match names {
-                None => docs.delete_where(FLOW_TRUST, &Filter::eq("flow_id", flow)).await?,
+                None => {
+                    docs.delete_where(FLOW_TRUST, &Filter::eq("flow_id", flow))
+                        .await?
+                }
                 Some(names) => {
                     let mut removed = 0;
                     for name in names {

@@ -32,8 +32,37 @@ use crate::config::Config;
 /// The environment variable that overrides `[storage] url`.
 pub const STORAGE_URL_VAR: &str = "OPENHUMAN_STORAGE_URL";
 
-static BACKEND: LazyLock<RwLock<Option<Arc<dyn StorageBackend>>>> =
-    LazyLock::new(|| RwLock::new(None));
+/// A holder for one backend. The process has exactly one ([`BACKEND`]);
+/// tests make their own, so they never change what other tests in the same
+/// process see.
+#[derive(Default)]
+struct Slot(RwLock<Option<Arc<dyn StorageBackend>>>);
+
+impl Slot {
+    fn install(&self, backend: Arc<dyn StorageBackend>) -> Option<Arc<dyn StorageBackend>> {
+        self.0
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .replace(backend)
+    }
+
+    fn installed(&self) -> Option<Arc<dyn StorageBackend>> {
+        self.0
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+
+    fn clear(&self) -> bool {
+        self.0
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .take()
+            .is_some()
+    }
+}
+
+static BACKEND: LazyLock<Slot> = LazyLock::new(Slot::default);
 
 /// The storage URL in effect: [`STORAGE_URL_VAR`], else `config`'s
 /// `[storage] url`. Blank values count as unset. `None` keeps the classic
@@ -70,27 +99,17 @@ pub async fn open(url: &str) -> Result<Arc<dyn StorageBackend>, StorageError> {
 
 /// Makes `backend` the process's storage backend; returns the previous one.
 pub fn install(backend: Arc<dyn StorageBackend>) -> Option<Arc<dyn StorageBackend>> {
-    let mut slot = BACKEND
-        .write()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    slot.replace(backend)
+    BACKEND.install(backend)
 }
 
 /// The installed backend, when the host configured one.
 pub fn installed() -> Option<Arc<dyn StorageBackend>> {
-    BACKEND
-        .read()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .clone()
+    BACKEND.installed()
 }
 
 /// Removes the installed backend; returns whether there was one.
 pub fn clear() -> bool {
-    BACKEND
-        .write()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .take()
-        .is_some()
+    BACKEND.clear()
 }
 
 /// The storage scope of the current call: the acting agent's
