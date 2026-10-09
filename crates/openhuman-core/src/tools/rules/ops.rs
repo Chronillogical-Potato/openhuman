@@ -80,6 +80,46 @@ pub fn rule_context(channel: Option<&str>, agent: Option<&str>, origin: Option<&
     context
 }
 
+/// The rule policy for a sub-agent run of `def`.
+///
+/// The child keeps every layer its parent turn carried — a sub-agent is never
+/// less restricted than the run that spawned it — and adds its own
+/// definition's layer. A parent without rules (an entry point that built its
+/// context from scratch) contributes the operator's `[tool_rules]` instead.
+/// The context keeps the parent's `channel` and `origin`; `agent` becomes the
+/// child's id. `None` when nothing restricts the child.
+#[must_use]
+pub fn child_rule_policy(
+    parent: Option<&ToolRulePolicy>,
+    config: Option<&Config>,
+    def: &AgentDefinition,
+) -> Option<Arc<ToolRulePolicy>> {
+    let mut set = match parent {
+        Some(parent) => (*parent.rules).clone(),
+        None => session_rule_set(config, None),
+    };
+    if let Some(layer) = agent_rule_layer(def) {
+        set.push(layer);
+    }
+    if set.is_permissive() {
+        return None;
+    }
+    let context = parent
+        .map(|parent| parent.context.clone())
+        .unwrap_or_default()
+        .with("agent", def.id.clone());
+    tracing::debug!(
+        agent = %def.id,
+        layers = set.layers.len(),
+        inherited = parent.is_some(),
+        "[tool_rules] sub-agent rule policy composed"
+    );
+    Some(Arc::new(ToolRulePolicy {
+        rules: Arc::new(set),
+        context,
+    }))
+}
+
 /// The harness policy for one turn: `rules` evaluated in `context`.
 #[must_use]
 pub fn turn_rule_policy(rules: Arc<ToolRuleSet>, context: RuleContext) -> ToolRulePolicy {
