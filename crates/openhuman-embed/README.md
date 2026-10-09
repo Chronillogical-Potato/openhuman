@@ -383,6 +383,9 @@ agent to another. See [`src/agent/README.md`](src/agent/README.md).
 | [`src/call.rs`](src/call.rs) | The private typed dispatch helper over `CoreRuntime::invoke` that every facade method uses. |
 | [`src/config.rs`](src/config.rs), [`src/auth.rs`](src/auth.rs), [`src/core_agent.rs`](src/core_agent.rs) | The `Core` sub-facades: runtime flags, credentials (`Session`, `AuthState`), and the orchestrator turn. |
 | [`src/memory.rs`](src/memory.rs) | `Memory`, the per-tenant memory facade returned by `Runtime::memory`. |
+| [`src/process.rs`](src/process.rs), [`src/process_sentry.rs`](src/process_sentry.rs) | Host lifecycle helpers: the agent-sized tokio runtime, logging init, dotenv and launch overrides, the master key, and (`crash-reporting`) the Sentry `ClientOptions` with the single `before_send` chain. |
+| [`src/artifacts.rs`](src/artifacts.rs), [`src/chat_surface.rs`](src/chat_surface.rs), [`src/identity.rs`](src/identity.rs), [`src/modules.rs`](src/modules.rs) | Curated host facades: artifact file resolution, the in-process web-chat event stream, the signed-in identity peek, bundled module releases. `config` also carries `load_or_init`, `load_config_with_timeout`, `default_root_openhuman_dir`, `read_active_user_id`. |
+| [`src/host_internals.rs`](src/host_internals.rs) | `__host` (doc-hidden): an explicit list of core modules for `openhuman-tinyhumans` and `openhuman-rpc` only. |
 | [`src/error.rs`](src/error.rs) | `CoreError`, the error every facade call returns (`Domain`, `Unavailable`, `Rpc`, route refusals). |
 | [`examples/`](examples/README.md) | Runnable programs: one turn on a harness, and two agents on one runtime. |
 | [`tests/`](tests/README.md) | End-to-end suites against `wiremock` providers. |
@@ -446,6 +449,43 @@ included) and the gateway-reported cost come back on the response; a
 `openhuman_embed::embeddings` re-exports the embedding models (OpenAI, Voyage,
 Cohere, Ollama, mock) for hosts that keep their own vector index, with the
 signature format unchanged so stored vectors stay in their partition.
+
+## Locked-down agents: `HostOnly`
+
+An agent that reads untrusted input (a PR diff) and must never act takes
+`ToolScopeSpec::HostOnly`: the tools it can see and call are the ones the host
+supplies (`AgentSpec::tools`, `Agent::attach_tools`) and nothing else.
+
+```rust,no_run
+use openhuman_embed::{AgentDefinitionSpec, AgentSpec, HostTurnTools, ToolScopeSpec};
+# fn read_only_tools() -> Vec<Box<dyn openhuman_embed::Tool>> { Vec::new() }
+let spec = AgentSpec::new("reviewer")
+    .definition(
+        AgentDefinitionSpec::new()
+            .bare_prompt("You review pull requests.")
+            .tools(ToolScopeSpec::HostOnly),
+    )
+    .tools(|_| HostTurnTools::advertised(read_only_tools()));
+```
+
+- No config-derived tool is built and no delegation tool is synthesised, so
+  shell, file writes, network, memory, skills, MCP and sub-agents do not exist
+  for the model. A deny-by-default gate refuses any other name it calls anyway.
+- Access and sandbox are forced read-only, whatever `Access` was set (even
+  after `AgentSpec::config`). Declaring MCP servers or skills is an error.
+- The agent needs its own prompt. `bare_prompt(text)` makes `text` the whole
+  system prompt: no identity, safety, tools, workspace or memory section.
+
+Host tools should themselves be read-only: `HostOnly` bounds which tools
+exist, not what they do.
+
+Per turn, `Turn::response_format(ResponseFormat)` (the `complete` type) and
+`Turn::max_tokens(n)` apply to every call of the tool loop on any runtime-owned
+agent. `TurnOutcome` then carries `structured` (the reply parsed as JSON),
+`finish_reason`, `answered_model`, and `usage.reasoning_tokens`.
+`Turn::untrusted_input(true)` reads the message as data, so the prompt-injection
+guard and screen are skipped. It is accepted only on a `HostOnly` agent; any
+other agent refuses the turn (`untrusted_input_requires_host_only`).
 
 ## Feature flags
 

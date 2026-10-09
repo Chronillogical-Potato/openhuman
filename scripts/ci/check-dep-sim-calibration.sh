@@ -101,11 +101,14 @@ cd "$(dirname "$0")/../.."
 # dependencies into the flows graph.
 # 320 -> 313 on 2026-10-09: the tinyagents and tinyflows mains shed seven
 # names from the flows graph.
-# 313 -> 314 on 2026-10-09: secrets on the storage backend add the
+# 313 -> 314 on 2026-10-09: the config loader names the failing field path
+# through `serde_path_to_error` (pure Rust, no dependencies; already in the
+# product graph through axum).
+# 314 -> 315 on 2026-10-09: secrets on the storage backend add the
 # first-party tinystoragedrivers-secrets crate (its crypto deps were already
 # in the graph).
-# This matches the current `flows:336:314:2` entry in
+# This matches the current `flows:337:315:2` entry in
 # scripts/kernel-floor.limits; its preceding entries are historical.
-EXPECTED_NAMES=314
+EXPECTED_NAMES=315
 
 exec python3 scripts/dep-sim.py --cut-nothing --expect-names "${EXPECTED_NAMES}"

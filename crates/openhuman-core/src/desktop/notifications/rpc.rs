@@ -88,7 +88,7 @@ pub async fn handle_ingest(params: Map<String, Value>) -> Result<Value, String> 
     // Spawn background triage — the ingest RPC returns immediately.
     let id_for_triage = id.clone();
     let config_for_triage = config.clone();
-    tokio::spawn(async move {
+    crate::core::runtime::spawn_scoped(async move {
         let envelope = TriggerEnvelope {
             source: TriggerSource::WebviewIntegration {
                 provider: req.provider.clone(),

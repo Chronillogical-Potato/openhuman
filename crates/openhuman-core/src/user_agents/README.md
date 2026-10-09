@@ -14,6 +14,7 @@ process. A single-user core never serves it: its controllers belong to
 | `layout.rs` | `<root>/agents/<id>/{agent.toml, config.toml, workspace/, sandbox/}`, archived agents, and `agent_config`: the forced paths, memory binding and autonomy policy |
 | `host.rs` | `AgentHost`: provisioning, lazy open, LRU and idle eviction (never of an agent in use), each agent's derived `CoreContext`, `current()` |
 | `gateway.rs` | Which context a gateway request runs under: the operator plane, or the agent of the user named in `X-OpenHuman-User`, after the signature check |
+| `surface.rs` | What a user may call: `USER_METHODS`, the exact allowlist applied at dispatch, in the controller list and in `/schema`; the operator scope sees only the operator plane; user thread-id rules |
 | `credentials.rs` | A user agent's TinyHumans credential, stored beside its config |
 | `ops.rs` | `provision` / `deprovision` / `list` / `status` / `set_credential` / `clear_credential`, returning `Outcome<T>` |
 | `schemas.rs` | The `user_agents.*` controllers |
@@ -65,3 +66,37 @@ resolves that user's credential and no other. The process-wide
 `auth.set_credential` / `clear_credential` refuse in SaaS mode, because they
 activate a user directory and rebind process globals. The core never validates
 or echoes a credential.
+
+## User surface
+
+- **What a user's context can reach.** It enables the user families
+  (`host::user_domains`: threads so far). Within them, only the methods on
+  `surface::USER_METHODS` are live. Anything unlisted answers as an unknown
+  method and is absent from `/schema`.
+- **Why the operator registers those families too.** `DomainSet::saas()`
+  registers them so user contexts can derive them. The surface gate keeps the
+  operator scope on the operator plane, so the operator never serves user
+  methods on its own workspace.
+- **Per-user storage.** Threads live under each agent's workspace. The on-disk
+  session store is installed for SaaS and resolves the workspace of the
+  calling context, so transcripts and turn states are per user too.
+- **Thread ids.** A user may choose ids for their own threads (`threads.upsert`)
+  of 1–128 characters from `[A-Za-z0-9_-]`. The core-reserved prefixes
+  `channel:`, `proactive:` and `subagent:` are refused.
+- **Web chat.** `channel.web_chat`, `web_cancel` and the `web_queue_*` methods
+  are open, along with the turn-starting thread methods. Every `WebChannelEvent` is
+  stamped with the publishing context's agent (`WebChannelEvent::agent`, never
+  serialized). A user's `GET /events?client_id=` stream runs under that user's
+  gateway scope and carries only events stamped with that user's agent. Two
+  users on the same client id never see each other's turns. An unstamped event
+  belongs to no user. The operator has no chat stream, and browser bind tokens
+  are not accepted in SaaS.
+- **Per-agent keys.** The web chat session cache, the in-flight turns and the
+  parallel (forked) turns are keyed by agent and id, so caller-chosen thread
+  and request ids never collide across users.
+- **Deprovisioning** also clears the agent's credential, which lives in the
+  process keyring under the agent id. Otherwise a re-provisioned user would
+  inherit the old credential.
+- **Prompt.** In SaaS the runtime section says `Host: hosted` instead of the
+  server's hostname. The `## User` identity block stays empty, because no
+  process-wide identity is ever set.

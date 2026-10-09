@@ -86,9 +86,12 @@ fn the_saas_presets_are_closed() {
         DomainSet::saas(),
         DomainSet {
             operator: true,
+            threads: true,
+            channels: true,
+            memory: true,
             ..DomainSet::none()
         },
-        "only the operator plane until user families are isolated"
+        "the operator plane plus the user families isolated so far"
     );
     let services = ServiceSet::saas();
     assert!(services.rpc_http);

@@ -8,10 +8,10 @@ use super::{authorize_dictation_request, DictationQuery};
 fn test_token() -> String {
     static INIT: Once = Once::new();
     INIT.call_once(|| {
-        openhuman_core::core::auth::init_rpc_token_with_value("dictation-http-tests-token")
+        crate::core_host::core::auth::init_rpc_token_with_value("dictation-http-tests-token")
             .expect("initialize test bearer");
     });
-    openhuman_core::core::auth::get_rpc_token()
+    crate::core_host::core::auth::get_rpc_token()
         .expect("test bearer initialized")
         .to_string()
 }

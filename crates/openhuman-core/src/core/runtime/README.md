@@ -166,10 +166,11 @@ through `runtime/saas.rs`:
   it never resolves `~/.openhuman` or an `active_user.toml`. The gateway
   bearer is the RPC token.
 
-The SaaS presets are closed. `DomainSet::saas()` enables only the operator
-plane (`DomainGroup::Operator`, the `user_agents.*` controllers), so a SaaS
-core answers its built-ins (`core.*`, `/health`, `/schema`) and provisioning,
-and nothing a user could reach, until each family's per-user isolation lands.
+The SaaS presets are closed. `DomainSet::saas()` registers the operator plane
+(`DomainGroup::Operator`, the `user_agents.*` controllers) and the user
+families whose per-user isolation has landed (threads). `user_agents::surface`
+keeps the two planes apart: the operator scope reaches only the operator
+plane, and a user's scope only the reviewed `USER_METHODS`.
 `saas::build` installs the process's `user_agents::AgentHost`. Each open user
 agent runs under a context derived from the operator's, with its own forced
 config and `session_agent` (see `user_agents/README.md`).

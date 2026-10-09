@@ -1,9 +1,12 @@
 //! OpenHuman's JSON-RPC protocol, on both sides of the wire.
 //!
-//! The core owns what a controller *is*: its schema, the
-//! [`Outcome`](openhuman_core::core::Outcome) it returns, and in-process
-//! dispatch ([`openhuman_core::core::invoke::invoke_method`]). This crate owns
-//! how that is exposed over JSON-RPC 2.0, and sits above the core:
+//! The core owns what a controller *is*: its schema, the `Outcome` it
+//! returns, and in-process dispatch (`openhuman::core::invoke::invoke_method`).
+//! This crate owns how that is exposed over JSON-RPC 2.0, plus the storage,
+//! files and host boot every OpenHuman host shares. It is the top of the
+//! library chain — core → embed → tinyhumans → **rpc** → app/cli/tui — and
+//! depends on [`tinyhumans`] alone; core internals come through embed's
+//! doc-hidden `__host` list and are never re-exported from here:
 //!
 //! - [`RpcRequest`], [`RpcSuccess`], [`RpcFailure`] and [`RpcError`] are the
 //!   envelopes the server reads and writes; [`request_body`] and
@@ -22,10 +25,22 @@
 //!   no storage layout of its own, but falls back to workspace files when a
 //!   host installs no provider; this is not a guarantee that the core is
 //!   persistence-free.
+//! - [`host`]: the shared host boot, one entry per host shape
+//!   ([`host::cli`], [`host::desktop`], [`host::tui`]).
+//! - [`tinyhumans`] (and through it `tinyhumans::embed`): the curated library
+//!   facade hosts configure a runtime with.
+
+pub use openhuman_tinyhumans as tinyhumans;
+
+/// Core internals for this crate's own modules, through embed's doc-hidden
+/// `__host` list. Crate-private: never re-exported on a public path.
+pub(crate) use openhuman_tinyhumans::embed::__host as core_host;
 
 #[cfg(feature = "http-client")]
 mod client;
 mod envelope;
+#[cfg(any(feature = "server", feature = "session-store"))]
+pub mod host;
 #[cfg(feature = "server")]
 pub mod http_host;
 mod origin;
@@ -34,11 +49,11 @@ pub mod server;
 #[cfg(feature = "session-store")]
 pub mod session_store;
 
+pub use crate::core_host::core::unwrap_rpc;
 #[cfg(feature = "http-client")]
 pub use client::{bearer_header, post_json_rpc, redact_url_for_log, HttpRpcResponse};
 pub use envelope::{
     decode_response, request_body, RpcError, RpcFailure, RpcRequest, RpcSuccess, JSONRPC_VERSION,
     SERVER_ERROR_CODE,
 };
-pub use openhuman_core::core::unwrap_rpc;
 pub use origin::{is_origin_allowed_with_extra, ALLOWED_ORIGINS_ENV};

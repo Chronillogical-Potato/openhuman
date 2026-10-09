@@ -251,7 +251,7 @@ impl SessionClient {
         base.set_query(None);
         base.set_fragment(None);
 
-        let http = openhuman_core::util::tls::tls_client_builder()
+        let http = openhuman_embed::__host::util::tls::tls_client_builder()
             .http1_only()
             .timeout(REQUEST_TIMEOUT)
             .connect_timeout(CONNECT_TIMEOUT)

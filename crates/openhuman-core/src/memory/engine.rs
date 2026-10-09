@@ -54,6 +54,10 @@ pub const TINYHUMANS_ENGINE: &str = tinymemory_integrations::cortex::TINYHUMANS_
 /// Engine id of CortexDB reached directly.
 pub const CORTEXDB_ENGINE: &str = tinymemory_integrations::cortex::CORTEXDB_ENGINE_ID;
 
+/// Pseudo-engine id for memory turned off on purpose: nothing is bound, so
+/// nothing is stored or recalled until another engine is selected.
+pub const DISABLED_ENGINE: &str = "none";
+
 /// A bound engine. Its writes are scrubbed ([`super::guard`]).
 #[derive(Clone)]
 pub struct BoundEngine {
@@ -217,7 +221,12 @@ pub fn resolve(config: &Config) -> Binding {
         }
     }
     if let Some(bound) = host_engine() {
-        return Binding::On(bound);
+        // A host engine is one store for the whole process: in SaaS it would
+        // put every user in one engine, so it is ignored there.
+        if !crate::core::runtime::is_saas() {
+            return Binding::On(bound);
+        }
+        tracing::warn!("[memory:engine] ignoring the host engine in SaaS mode");
     }
     let root = if super::scope::layout_is_v3(config) {
         match super::scope::user_root(config) {
@@ -288,6 +297,7 @@ fn resolve_configured(config: &Config, root: Option<&str>) -> Binding {
     match engine_id.as_str() {
         TINYHUMANS_ENGINE => resolve_tinyhumans(config, root),
         CORTEXDB_ENGINE => resolve_cortexdb(config, root),
+        DISABLED_ENGINE => off(None, None, "memory is disabled"),
         "" => {
             let reason = if config.memory.legacy_backend_unsupported
                 || config.memory.legacy_backend.is_some()

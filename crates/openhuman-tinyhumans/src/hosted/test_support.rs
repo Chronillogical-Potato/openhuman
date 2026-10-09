@@ -1,7 +1,7 @@
 //! Test fixtures shared by the hosted domains' `*_tests.rs`.
 
-use openhuman_core::config::Config;
-use openhuman_core::security::credentials::{AuthService, APP_SESSION_PROVIDER};
+use openhuman_embed::__host::config::Config;
+use openhuman_embed::__host::security::credentials::{AuthService, APP_SESSION_PROVIDER};
 use tempfile::TempDir;
 
 /// A config rooted in `tmp` whose backend is `api_url`.

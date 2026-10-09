@@ -224,8 +224,10 @@ pub(super) async fn migration_source(config_path: &Path, contents: &str) -> Stri
 }
 
 async fn parse_toml_off_worker(contents: String) -> Result<Box<Config>, String> {
-    match tokio::task::spawn_blocking(move || toml::from_str::<Config>(&contents).map(Box::new))
-        .await
+    match tokio::task::spawn_blocking(move || {
+        super::parse::config_from_toml_str(&contents).map(Box::new)
+    })
+    .await
     {
         Ok(Ok(config)) => Ok(config),
         Ok(Err(parse_err)) => Err(parse_err.to_string()),

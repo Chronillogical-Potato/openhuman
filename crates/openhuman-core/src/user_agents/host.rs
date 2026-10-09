@@ -64,10 +64,15 @@ impl std::fmt::Debug for AgentHost {
     }
 }
 
-/// The domain families a user agent's context serves. None yet: each family
-/// opens once its per-user isolation lands.
+/// The domain families a user agent's context serves. Within them, only the
+/// methods on [`USER_METHODS`](super::surface::USER_METHODS) are reachable.
 pub fn user_domains() -> DomainSet {
-    DomainSet::none()
+    DomainSet {
+        threads: true,
+        channels: true,
+        memory: true,
+        ..DomainSet::none()
+    }
 }
 
 impl AgentHost {
@@ -131,6 +136,12 @@ impl AgentHost {
         let layout = self.layout(id);
         if !layout.dir.exists() {
             return Ok(false);
+        }
+        // Credential secrets live in the process keyring under the agent id,
+        // not only in the agent's directory, so archiving the directory alone
+        // would let a re-provisioned agent pick the old credential back up.
+        if let Err(e) = super::credentials::clear(&layout::agent_config(&layout, id)) {
+            log::warn!("[user_agents] clearing credentials of agent={id} before archiving: {e}");
         }
         let archive = layout::archive_dir(&self.saas.root);
         std::fs::create_dir_all(&archive)

@@ -33,6 +33,7 @@ pub mod storage;
 pub use storage::StorageConfig;
 mod identity_cost;
 mod load;
+pub(crate) use load::config_from_toml_str;
 pub use load::{
     action_dir_env_override, active_user_marker_path, active_workspace_dir,
     active_workspace_dir_cached, active_workspace_snapshot, clear_active_user, default_action_dir,

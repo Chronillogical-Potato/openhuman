@@ -16,6 +16,7 @@ use crate::skills::ops::{
     is_workspace_trusted, read_workflow_resource, uninstall_workflow, CreateWorkflowParams,
     UninstallWorkflowParams,
 };
+use crate::skills::ops_install::ScanAcknowledgement;
 use crate::skills::runtime::spawn_workflow_run_background;
 use crate::skills::{registry, run_log};
 
@@ -284,25 +285,22 @@ pub(super) fn handle_skills_install_from_url(params: Map<String, Value>) -> Cont
         tracing::debug!(
             url = %wire.url,
             timeout_secs = ?wire.timeout_secs,
+            acknowledged = wire.acknowledged_digest.is_some(),
             "[skills][rpc] install_from_url"
         );
         let config = resolve_config().await;
         let workspace = config.workspace_dir.clone();
+        let acknowledgement =
+            ScanAcknowledgement::from_user_digest(wire.acknowledged_digest.clone());
         let payload = wire.into();
-        match install_workflow_from_url(workspace.as_path(), payload).await {
+        match install_workflow_from_url(workspace.as_path(), payload, acknowledgement).await {
             Ok(outcome) => {
                 tracing::debug!(
-                    url = %outcome.url,
-                    new_count = outcome.new_skills.len(),
+                    status = outcome.status(),
                     "[skills][rpc] install_from_url: ok"
                 );
                 to_json(Outcome::new(
-                    WorkflowsInstallFromUrlResult {
-                        url: outcome.url,
-                        stdout: outcome.stdout,
-                        stderr: outcome.stderr,
-                        new_workflows: outcome.new_skills,
-                    },
+                    WorkflowsInstallFromUrlResult::from(outcome),
                     Vec::new(),
                 ))
             }

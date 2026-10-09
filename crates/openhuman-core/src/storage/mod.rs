@@ -19,6 +19,7 @@
 //! misconfigured deployment stops at boot instead of at its first write.
 
 pub mod secrets;
+pub mod documents;
 
 use std::future::Future;
 use std::sync::{Arc, LazyLock, OnceLock, RwLock};

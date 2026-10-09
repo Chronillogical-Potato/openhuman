@@ -5,9 +5,9 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 
-use openhuman_core::core::invoke::invoke_method;
-use openhuman_core::core::types::AppState;
-use openhuman_core::core::StructuredRpcError;
+use crate::core_host::core::invoke::invoke_method;
+use crate::core_host::core::types::AppState;
+use crate::core_host::core::StructuredRpcError;
 
 use super::super::classify::{classify_failure, FailureDisposition, USAGE_BACKOFF_CLIENT_MESSAGE};
 use crate::{RpcError, RpcFailure, RpcRequest, RpcSuccess, JSONRPC_VERSION, SERVER_ERROR_CODE};
@@ -112,7 +112,7 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
                     );
                 }
                 FailureDisposition::UnknownMethod { probe: false } => {
-                    openhuman_core::core::observability::report_warning_message(
+                    crate::core_host::core::observability::report_warning_message(
                         display_message.as_str(),
                         "rpc",
                         "invoke_method",
@@ -120,7 +120,7 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
                     );
                 }
                 FailureDisposition::Unexpected => {
-                    openhuman_core::core::observability::report_error_or_expected(
+                    crate::core_host::core::observability::report_error_or_expected(
                         display_message.as_str(),
                         "rpc",
                         "invoke_method",

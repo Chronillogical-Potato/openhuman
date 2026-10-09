@@ -133,7 +133,7 @@ irm https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/instal
 
 <h3>كفاءة عند التوسع</h3>
 
-<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">قياسات الأساطيل</a> · <a href="./library-benchmarking.md">المنهجية</a></p>
+<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">قياسات الأساطيل</a> · <a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/profile/docs/library-benchmarking.md">المنهجية</a></p>
 
 <p>يستخدم ذاكرة ومعالجاً أقل بنحو 8x من أداة الوكلاء المعتادة. شغّل أكثر من 500 وكيل على خادم بسعر 10 دولارات.</p>
 

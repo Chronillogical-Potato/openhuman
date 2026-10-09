@@ -55,5 +55,6 @@ pub use run_context::{
     decide_dispatch, DispatchDecision, DispatchInputs, LastTurnUsage, OpenHumanRunContext,
     SubagentUsageEntry, TurnDispatchState,
 };
+pub(crate) use security_gate::with_untrusted_input_turn;
 pub use security_gate::OpenHumanSecurityGate;
 pub use tool_outcome_classifier::OpenHumanToolOutcomeClassifier;

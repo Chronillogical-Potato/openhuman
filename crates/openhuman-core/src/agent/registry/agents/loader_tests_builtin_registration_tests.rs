@@ -179,7 +179,7 @@ fn every_builtin_has_a_prompt_body() {
                     build(&ctx).unwrap_or_else(|e| panic!("{} prompt build failed: {e}", def.id));
                 assert!(!body.is_empty(), "{} has empty prompt", def.id);
             }
-            PromptSource::Inline(_) | PromptSource::File { .. } => {
+            PromptSource::Inline(_) | PromptSource::File { .. } | PromptSource::Verbatim(_) => {
                 panic!("{} should use dynamic prompt builder", def.id);
             }
         }
