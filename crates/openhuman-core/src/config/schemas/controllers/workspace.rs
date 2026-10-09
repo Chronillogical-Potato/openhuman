@@ -7,8 +7,8 @@ use crate::core::all::ControllerFuture;
 
 use super::super::helpers::{
     deserialize_params, to_json, AgentPathsUpdate, AnalyticsSettingsUpdate,
-    OnboardingCompletedSetParams, WorkspaceOnboardingFlagParams, WorkspaceOnboardingFlagSetParams,
-    DEFAULT_ONBOARDING_FLAG_NAME,
+    OnboardingCompletedSetParams, UserTimezoneUpdate, WorkspaceOnboardingFlagParams,
+    WorkspaceOnboardingFlagSetParams, DEFAULT_ONBOARDING_FLAG_NAME,
 };
 
 pub(super) fn handle_workspace_onboarding_flag_exists(
@@ -47,6 +47,23 @@ pub(super) fn handle_update_analytics_settings(params: Map<String, Value>) -> Co
             enabled: update.enabled,
         };
         to_json(config_rpc::load_and_apply_analytics_settings(patch).await?)
+    })
+}
+
+pub(super) fn handle_update_user_timezone(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let update = deserialize_params::<UserTimezoneUpdate>(params)?;
+        to_json(config_rpc::load_and_apply_user_timezone(update.timezone).await?)
+    })
+}
+
+pub(super) fn handle_get_user_timezone(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async {
+        let config = config_rpc::load_config_with_timeout().await?;
+        to_json(crate::core::Outcome::single_log(
+            config_rpc::user_timezone_json(&config),
+            "user time zone read",
+        ))
     })
 }
 

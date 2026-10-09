@@ -20,6 +20,11 @@ This is the **only** acceptable substitute for a `🚫` row in [`TEST-COVERAGE-M
 
 Applies to every release, all platforms.
 
+### Japanese UI
+
+- [ ] **Japanese language selection** — In the first-run language picker and Settings → Language, select **🇯🇵 日本語**. Verify that the labels immediately become Japanese, then visit Chat, Connections → Memory, Connections → LLM, and Gateway. Restart and confirm the selected language is retained. Switch back to English and confirm the labels update again.
+- [ ] **Japanese browser language** — With a fresh profile and browser language `ja-JP`, verify that Japanese is selected automatically. Check a message containing a count or model name: the value must appear in place of its placeholder and remain readable at the default window size.
+
 ### Conversation resume
 
 - [ ] **Default agent traces reach Langfuse** — With a signed-in staging test account, send a synthetic chat turn that spawns a subagent. Expected: the parent and child traces share one conversation session, include the intended input/output and model usage, and carry the authenticated user. Confirm `share_usage_data = false` stops export.
@@ -41,6 +46,7 @@ Applies to every release, all platforms.
 
 - [ ] **Browser readiness and setup** — Open Connections → Integrations → Computer → Browser on each desktop platform and verify the Early Alpha notice. Expected: the checksum-pinned TinyComputer module loads from the installer on Windows or the release cache on other platforms and passes TinyBus admission, module and Chrome readiness are reported separately, Test works, and saved viewport, profile, download folder, task limits, and allowed websites survive relaunch.
 - [ ] **Browser task and policy** — With an allowed Selenium test site, use a conversation to submit its web form and download File 1. Expected: `tool_search` discovers `browser`, consequential actions wait for the exact host approval, the submitted page shows “Received!”, and a completed download is verified on disk. Then restrict allowed websites and confirm a disallowed navigation is blocked.
+- [ ] **Browser learning** — In a conversation, ask for the same browser task on one allowed site twice. Expected: the second run starts without drafting a plan (debug log `[browser-sites] applied what the site's finished tasks left` with `reused_plan=true`) and ends the same way. Then click Browser → What tasks learn → Forget learned sites: it reports the sites forgotten, and the next run plans again. With Learn from finished tasks off, nothing is reused or kept.
 
 ### Wallet balances
 
@@ -64,6 +70,7 @@ Applies to every release, all platforms.
 
 - [ ] **Gatekeeper accepts the signed `.app` on first launch** — Double-click the `.app` from a fresh download (Quarantine attribute set). Expected: app opens without `"OpenHuman" cannot be opened because the developer cannot be verified` dialog. If it appears, the build is unsigned or the notarization stapler is missing.
 - [ ] **`codesign --verify --deep --strict <path-to-OpenHuman.app>` exits 0** — Run from terminal. Expected: no output, exit 0. Any `code object is not signed at all` or `invalid signature` output blocks the release.
+- [ ] **Bundled native modules load from the installer bundle** — On a notarized build with the network disabled, start a chat and use a module-backed feature (e.g. web search, desktop control). Expected: the feature works, and the core log shows `[modules] loaded '<id>' from the installer bundle` for each module used, with no `could not be loaded from the installer bundle` errors. The release signer re-signs these libraries and re-pins their `modules.toml`; a mismatch makes tinybus refuse the module with no download fallback.
 - [ ] **DMG drag-to-Applications flow works** — Mount the `.dmg`, drag `OpenHuman.app` to the `Applications` alias. Expected: copy completes; eject succeeds; first launch from `/Applications` does not re-prompt Gatekeeper.
 - [ ] **Accessibility permission prompt fires on first agent run** — Trigger an agent action that uses Accessibility (e.g. window-control skill). Expected: macOS prompts `OpenHuman would like to control this computer using accessibility features`. Granting it allows the action; denying it surfaces a clear in-app fallback.
 - [ ] **Input Monitoring prompt fires on first hotkey use** — Press the registered global hotkey for the first time. Expected: `Input Monitoring` prompt; granting it makes the hotkey trigger; denying it does not crash the app.
@@ -90,6 +97,8 @@ Applies to every release, all platforms.
 
 ### Cross-platform
 
+- [ ] **Chat model picker selects the provider as well as the model (#6938)** — In an isolated test profile, switch the same thread from managed to Ollama, then to a configured BYOK provider, and back to a managed catalog model (including a `:free` variant). Verify the actual request endpoint and model match each selection, configured background routes stay unchanged, and reopening the app restores the selected provider/model. Selecting a workload hint must retain its configured route.
+
 - [ ] **Agent files land in a visible folder** — Ask the agent for a short document or deck. Expected: the file appears in `~/OpenHuman/projects/Files` under its title (not in `~/.openhuman`); **Show in folder** in the chat Files panel opens the file manager at it; Settings → Agent OS access → **Files folder** shows that path, **Show in folder** opens it, and choosing another folder sends the next file there while the earlier file still opens. On an upgraded install, files from before the upgrade have moved into the folder.
 - [ ] **Caller-owned inference works without an OpenHuman session** — In a local workspace without an OpenHuman login, configure Ollama/LM Studio/MLX/oMLX/local-openai or an independently authenticated Claude Code/Agent SDK provider. Run chat and an agent flow routed entirely to that provider. For a named harness agent, also configure the summarization route to managed inference and verify that the agent still uses its local route; reversing those routes must retain the managed agent's session requirement. Expected: no OpenHuman session requirement. Select managed inference instead: it must still require a backend session. With LocalOnly privacy enabled, local runtimes remain allowed and Claude subprocesses remain blocked as external inference.
 - [ ] **LocalOnly blocks remote search** — Configure a remote search provider and enable LocalOnly privacy. Invoke `web_search_tool` with a harmless query. Expected: the tool returns a policy-blocked result and does not dispatch to the provider. Switch privacy to Standard and confirm the same tool can complete.
@@ -109,9 +118,9 @@ Applies to every release, all platforms.
 
 ## Active release line
 
-> If multiple stable release lines are in flight (security backports, LTS), add a sub-section per line and check the same boxes for each. As of writing, `0.52.x` is the only active line — older minor versions are end-of-life. Fold this section to suit when more release lines exist.
+> One stable line is active at a time: the minor named by `[workspace.package] version` in the root `Cargo.toml`. Older minor versions are end-of-life. If more lines ever go in flight at once (security backports, LTS), add a sub-section per line and check the same boxes for each.
 
-### 0.52.x — current
+### Current stable line
 
 - [ ] **OAuth gate respects `VITE_MINIMUM_SUPPORTED_APP_VERSION`** (per [Release Policy](../gitbooks/developing/release-policy.md)) — Set the variable to a value above this build's version, build, attempt OAuth from the older binary. Expected: gate blocks the deep link; opens `VITE_LATEST_APP_DOWNLOAD_URL`.
 - [ ] **Gmail connect succeeds on a fresh install from `releases/latest`** — Per release-policy step 4. Expected: token exchange completes, inbox lists in-app.

@@ -1,20 +1,22 @@
 ---
 description: >-
-  The notification center, the Activity transparency hub, and the Routines
-  scheduler: everything OpenHuman tells you about, and everything it does in
-  the background.
+  The notification center, the quiet notice tray, and where background work
+  now surfaces: everything OpenHuman tells you about, and everything it does
+  while you are not watching.
 icon: bell
 ---
 
 # Notifications & Activity
 
-OpenHuman surfaces two kinds of "what's happening" in one place: **notifications** (things you should look at, like an important Slack message, a failed webhook, or a high-priority email) and **activity** (a transparent ledger of what the agent did on its own while you weren't watching). This page covers the notification center, the Activity hub that fronts it, and the Routines screen for managing scheduled automations.
+OpenHuman surfaces two kinds of "what's happening": **notifications** (things you should look at, like an important Slack message, a failed webhook, or a high-priority email) and **activity** (a ledger of what the agent did on its own while you weren't watching).
+
+Both live on the **Notifications** page. There is no longer an Activity hub or a Routines screen. Both addresses still resolve, but not to what they used to show: `/activity` redirects to **Settings → Account**, and `/routines` to [Workflows](workflows.md). The notification feeds moved here, and the scheduler moved to Workflows → Schedules.
 
 ---
 
 ## Notification Center
 
-The notification center is fed by two independent streams that render side by side under **Activity → Alerts**.
+The notification center is fed by two independent streams, which render as two stacked sections on the Notifications page.
 
 ### Integration notifications
 
@@ -44,7 +46,7 @@ The second stream translates selected internal events into compact, user-facing 
 | Notification triaged | Agents   | Only when routed (`escalate`/`react`)     |
 | API key rejected     | System   | Always; links to the LLM settings tab     |
 
-The category set the notification center understands is **messages, agents, skills, system, meetings, reminders, important**. The Alerts view shows a filter chip row, but only for categories that actually appear in the current feed, plus **Mark all read** and **Clear**. Clicking a notification marks it read and follows its deep link. Some core notifications carry **action buttons** (e.g. a meeting auto-join prompt) and are pinned to the top of the center.
+The category set the notification center understands is **messages, agents, skills, system, meetings, reminders, important**. The page shows a filter chip row, but only for the categories that actually appear in the current feed, plus **Mark all read** and **Clear**. Clicking a notification marks it read and follows its deep link. Some core notifications carry **action buttons** and are pinned to the top. The feed holds the most recent 200 items.
 
 ### Per-provider routing & thresholds
 
@@ -58,35 +60,32 @@ Every provider has its own settings (`notification.settings_set`), letting you t
 
 Auto-routing re-reads the provider's settings the moment before escalating, so toggling a setting mid-flight takes effect immediately. A notification is only routed to the agent when its score clears the provider threshold **and** `route_to_orchestrator` is enabled.
 
----
-
-## Activity hub
-
-The Activity surface (`/activity`) is the transparency layer over everything the agent does without you in the loop. It has two tabs:
-
-| Tab             | What it shows                                                          |
-| --------------- | ---------------------------------------------------------------------- |
-| **Automations** | Workflows the agent runs on your behalf (the workflows panel)          |
-| **Alerts**      | The notification center described above (integration + system streams) |
-
-The tab is URL-backed (`/activity?tab=…`), so navigating away and back restores the one you were on. Older deep links (`?tab=memory`, `?tab=agents`, `?tab=council`, `?tab=tasks`, …) are no longer visible tabs: they live under Settings → Developer & Diagnostics and fall back to the Automations tab.
+These per-provider settings have no UI today: the page that edited them was removed, so they are set through the RPC or by hand. The per-category preferences gate **ingest**, not just display, which is worth knowing before changing one.
 
 ---
 
-## Routines
+## The notice tray
 
-Routines (`/routines`) is the user-facing management UI for scheduled automations. It is the desktop face of the cron system. Jobs are sorted by next-run time, each rendered as a card showing:
+Separate from the notification center, a quiet tray in the bottom-right corner collects **things you can act on**: a provider key that was rejected, a plan limit reached, a keyring consent prompt. It replaced the full-width banners that used to push the chat down. Repeats of the same problem bump a count rather than stacking, and the tray is in-memory, so it clears on restart.
 
-- The schedule, rendered human-readable (e.g. "every day at 9am") from its cron expression.
-- The job **type** badge: _agent_ (runs a prompt through the agent) or _command_.
-- The **next run** time (when enabled) and the **last run status** dot. Sage means success, coral means failure, and neutral means it has not run yet.
-- A toggle to **enable/disable** the routine, a **Run Now** button for manual triggering (it polls until the run lands), and an expandable **run history**.
+Product announcements arrive separately again, as a modal shown once per signed-in session, with the ids you have already seen remembered.
 
-Routines surface and manage the scheduled jobs; the underlying scheduling engine, cron syntax, and the agent tools for creating jobs programmatically are covered on the [Cron / scheduled tasks](native-tools/cron.md) page. Completed and failed runs also emit Agents-category notifications into the center described above.
+---
+
+## Where background work surfaces
+
+| Kind of background work | Where to look |
+| --- | --- |
+| Scheduled jobs and their run history | **Workflows → Schedules**. See [Cron & Scheduling](native-tools/cron.md). |
+| Workflow runs | **Workflows → Runs** |
+| Memory belief builds and source syncs | **Connections → Memory → Background** |
+| Detached sub-agents and async delegation | The background inbox card in the thread that started them. See [Chat](chat.md). |
+| Everything above, as notifications | The Notifications page, Agents category |
 
 ---
 
 ## See also
 
-- [Cron / scheduled tasks](native-tools/cron.md) covers the scheduling engine and agent tools behind Routines.
-- [Triggers](integrations/triggers.md) covers webhooks and inbound events that can raise notifications.
+- [Cron & Scheduling](native-tools/cron.md): the scheduling engine and the agent tools behind the Schedules view.
+- [Triggers](integrations/triggers.md): webhooks and inbound events that can raise a notification.
+- [Chat](chat.md): where an approval or a sub-agent result lands when you are in the conversation.

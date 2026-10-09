@@ -1194,7 +1194,8 @@ async fn json_rpc_config_update_browser_settings_persists_backend() {
         "openhuman.config_update_browser_settings",
         json!({
             "enabled": true,
-            "backend": "playwright"
+            "backend": "playwright",
+            "learn_from_tasks": false
         }),
     )
     .await;
@@ -1226,6 +1227,13 @@ async fn json_rpc_config_update_browser_settings_persists_backend() {
         Some("playwright"),
         "browser backend should persist in config_get response: {snapshot}"
     );
+    assert_eq!(
+        snapshot
+            .pointer("/config/browser/learn_from_tasks")
+            .and_then(Value::as_bool),
+        Some(false),
+        "switching learning off should persist in config_get response: {snapshot}"
+    );
 
     let invalid = post_json_rpc(
         &rpc_base,
@@ -1237,6 +1245,82 @@ async fn json_rpc_config_update_browser_settings_persists_backend() {
     )
     .await;
     assert_jsonrpc_error(&invalid, "invalid browser backend");
+
+    rpc_join.abort();
+}
+
+#[cfg(feature = "modules")]
+#[tokio::test]
+async fn json_rpc_modules_browser_forget_sites_removes_learned_sites() {
+    let _env_lock = json_rpc_e2e_env_lock_async().await;
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    write_min_config(&openhuman_home, "http://127.0.0.1:9");
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    // What two finished tasks left, where the core keeps it.
+    let get = post_json_rpc(&rpc_base, 41_251, "openhuman.config_get", json!({})).await;
+    let snapshot = peel_logs_envelope(assert_no_jsonrpc_error(&get, "config_get"));
+    let workspace = snapshot
+        .get("workspace_dir")
+        .and_then(Value::as_str)
+        .map(std::path::PathBuf::from)
+        .expect("config_get names the workspace");
+    let sites = workspace.join("state").join("computer").join("sites");
+    std::fs::create_dir_all(&sites).expect("sites dir");
+    for site in ["shop.test", "books.test"] {
+        std::fs::write(sites.join(format!("{site}.json")), b"{}").expect("site file");
+    }
+
+    let one = post_json_rpc(
+        &rpc_base,
+        41_252,
+        "openhuman.modules_browser_forget_sites",
+        json!({ "site": "https://www.shop.test/cart" }),
+    )
+    .await;
+    let one = peel_logs_envelope(assert_no_jsonrpc_error(&one, "forget one site"));
+    assert_eq!(
+        one.get("forgotten").and_then(Value::as_u64),
+        Some(1),
+        "{one}"
+    );
+    assert!(!sites.join("shop.test.json").exists());
+    assert!(sites.join("books.test.json").exists());
+
+    let blank = post_json_rpc(
+        &rpc_base,
+        41_253,
+        "openhuman.modules_browser_forget_sites",
+        json!({ "site": "  " }),
+    )
+    .await;
+    assert_jsonrpc_error(&blank, "a blank site forgets nothing");
+    assert!(sites.join("books.test.json").exists());
+
+    let every = post_json_rpc(
+        &rpc_base,
+        41_254,
+        "openhuman.modules_browser_forget_sites",
+        json!({}),
+    )
+    .await;
+    let every = peel_logs_envelope(assert_no_jsonrpc_error(&every, "forget every site"));
+    assert_eq!(
+        every.get("forgotten").and_then(Value::as_u64),
+        Some(1),
+        "{every}"
+    );
+    assert!(!sites.join("books.test.json").exists());
 
     rpc_join.abort();
 }
@@ -2173,6 +2257,192 @@ async fn json_rpc_agent_registry_manages_defaults_and_custom_agents() {
 }
 
 #[test]
+fn json_rpc_cron_origin_delivery_lands_in_the_asking_thread() {
+    run_json_rpc_e2e_on_agent_stack(
+        "json_rpc_cron_origin_delivery_lands_in_the_asking_thread",
+        json_rpc_cron_origin_delivery_lands_in_the_asking_thread_inner,
+    );
+}
+
+/// A cron job created from a web thread delivers each run's reply into that
+/// thread as exactly one assistant row (id `agent:cron:<job>:<run>`), creates no
+/// other thread, and a second run adds one more row.
+async fn json_rpc_cron_origin_delivery_lands_in_the_asking_thread_inner() {
+    let _env_lock = json_rpc_e2e_env_lock_async().await;
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    clear_forced_chat_completions();
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{mock_addr}");
+    write_min_config(&openhuman_home, &mock_origin);
+    write_min_config(&openhuman_home.join("users").join("e2e-user"), &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let store = post_json_rpc(
+        &rpc_base,
+        1,
+        "openhuman.auth_store_session",
+        json!({ "token": "e2e-test-jwt", "user_id": "e2e-user" }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&store, "store_session");
+
+    // The asking thread, with one real web-chat turn so it has an agent transcript.
+    let create = post_json_rpc(&rpc_base, 2, "openhuman.threads_create_new", json!({})).await;
+    let thread_id = assert_no_jsonrpc_error(&create, "threads_create_new")["data"]["id"]
+        .as_str()
+        .expect("thread id")
+        .to_string();
+    let events_url = format!("{rpc_base}/events?client_id=cron-e2e");
+    let sse_task = tokio::spawn(async move { read_terminal_web_chat_event(&events_url).await });
+    let chat = post_json_rpc(
+        &rpc_base,
+        3,
+        "openhuman.channel_web_chat",
+        json!({
+            "client_id": "cron-e2e",
+            "thread_id": thread_id,
+            "message": "remind me to drink water",
+            "model_override": "e2e-mock-model",
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&chat, "channel_web_chat");
+    sse_task.await.expect("chat turn finishes");
+
+    let list_threads = |id: i64| {
+        let rpc_base = rpc_base.clone();
+        async move {
+            let list = post_json_rpc(&rpc_base, id, "openhuman.threads_list", json!({})).await;
+            assert_no_jsonrpc_error(&list, "threads_list")["data"]["threads"]
+                .as_array()
+                .expect("threads array")
+                .len()
+        }
+    };
+    let threads_before = list_threads(4).await;
+
+    // An agent job bound to that thread.
+    let add = post_json_rpc(
+        &rpc_base,
+        5,
+        "openhuman.cron_add",
+        json!({
+            "name": "water",
+            "schedule": { "kind": "every", "every_ms": 3_600_000 },
+            "job_type": "agent",
+            "prompt": "Remind the user to drink water.",
+            "session_target": "current",
+            "delivery": { "mode": "origin" },
+            "origin": { "kind": "web", "thread_id": thread_id },
+        }),
+    )
+    .await;
+    let add_result = assert_no_jsonrpc_error(&add, "cron_add");
+    let job_id = add_result["result"]["id"]
+        .as_str()
+        .or_else(|| add_result["id"].as_str())
+        .unwrap_or_else(|| panic!("job id missing: {add_result}"))
+        .to_string();
+
+    let mut delivered_ids: Vec<String> = Vec::new();
+    for round in 0..2i64 {
+        // Gate on the cron prompt: an unconditional FIFO entry can be taken by
+        // any other chat request in the process (a background call after the
+        // first turn), which delivered the mock default instead of this reply.
+        push_forced_chat_completion_when(
+            "Remind the user to drink water.",
+            forced_text_completion(&format!("Drink water! #{round}")),
+        );
+        let run = post_json_rpc(
+            &rpc_base,
+            10 + round,
+            "openhuman.cron_run",
+            json!({ "job_id": job_id }),
+        )
+        .await;
+        assert_no_jsonrpc_error(&run, "cron_run");
+
+        // Wait for the delivered run to be recorded.
+        let mut ids = Vec::new();
+        for _ in 0..100 {
+            let runs = post_json_rpc(
+                &rpc_base,
+                20 + round,
+                "openhuman.cron_runs",
+                json!({ "job_id": job_id }),
+            )
+            .await;
+            let body = assert_no_jsonrpc_error(&runs, "cron_runs").to_string();
+            let done = body.contains("\"delivery_status\":\"delivered\"");
+            let msgs = post_json_rpc(
+                &rpc_base,
+                30 + round,
+                "openhuman.threads_messages_list",
+                json!({ "thread_id": thread_id }),
+            )
+            .await;
+            ids = assert_no_jsonrpc_error(&msgs, "threads_messages_list")["data"]["messages"]
+                .as_array()
+                .expect("messages")
+                .iter()
+                .filter_map(|m| m["id"].as_str().map(str::to_string))
+                .filter(|id| id.starts_with(&format!("agent:cron:{job_id}:")))
+                .collect();
+            if done && ids.len() == (round as usize) + 1 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        assert_eq!(
+            ids.len(),
+            (round as usize) + 1,
+            "exactly one cron reply row per run in the origin thread: {ids:?}"
+        );
+        delivered_ids = ids;
+    }
+    assert_eq!(delivered_ids.len(), 2);
+    assert_ne!(
+        delivered_ids[0], delivered_ids[1],
+        "each run has its own row"
+    );
+
+    assert_eq!(
+        list_threads(40).await,
+        threads_before,
+        "delivery must not create another thread"
+    );
+
+    // The next turn sees the reminder: the agent transcript holds it.
+    let transcript = post_json_rpc(
+        &rpc_base,
+        41,
+        "openhuman.threads_transcript_get",
+        json!({ "thread_id": thread_id }),
+    )
+    .await;
+    let transcript_body =
+        assert_no_jsonrpc_error(&transcript, "threads_transcript_get").to_string();
+    assert!(
+        transcript_body.contains("Drink water! #0") && transcript_body.contains("Drink water! #1"),
+        "transcript must contain both delivered replies: {transcript_body}"
+    );
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+#[test]
 fn json_rpc_protocol_auth_and_agent_hello() {
     run_json_rpc_e2e_on_agent_stack(
         "json_rpc_protocol_auth_and_agent_hello",
@@ -2765,6 +3035,118 @@ async fn json_rpc_thread_title_create_and_update() {
     assert!(
         err_message.contains("must not be empty"),
         "expected empty-title error, got: {err_message}"
+    );
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
+async fn json_rpc_thread_working_dir_binds_before_the_first_message() {
+    let _env_lock = json_rpc_e2e_env_lock_async().await;
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+    let project = home.join("projects").join("site");
+    std::fs::create_dir_all(&project).expect("project dir");
+    let project = project.canonicalize().expect("canonical project");
+    let project_str = project.to_string_lossy().into_owned();
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_url_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _api_url_guard = EnvVarGuard::unset("OPENHUMAN_API_URL");
+
+    let (api_addr, api_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let api_origin = format!("http://{api_addr}");
+    write_min_config(openhuman_home.as_path(), &api_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    // 1. A thread created in a folder carries it.
+    let create = post_json_rpc(
+        &rpc_base,
+        9201,
+        "openhuman.threads_create_new",
+        json!({ "action_dir": project_str }),
+    )
+    .await;
+    let created = assert_no_jsonrpc_error(&create, "threads_create_new with action_dir")
+        .get("data")
+        .cloned()
+        .expect("data envelope");
+    let thread_id = created
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("thread id")
+        .to_string();
+    assert_eq!(
+        created.get("actionDir").and_then(Value::as_str),
+        Some(project_str.as_str())
+    );
+
+    // 2. Clearing it on the still-empty thread goes back to the default.
+    let cleared = post_json_rpc(
+        &rpc_base,
+        9202,
+        "openhuman.threads_update_working_dir",
+        json!({ "thread_id": thread_id, "action_dir": "" }),
+    )
+    .await;
+    let cleared = assert_no_jsonrpc_error(&cleared, "threads_update_working_dir clear");
+    assert!(cleared
+        .get("data")
+        .and_then(|d| d.get("actionDir"))
+        .is_none());
+
+    // 3. A protected folder is refused.
+    let ssh = home.join(".ssh");
+    std::fs::create_dir_all(&ssh).expect("ssh dir");
+    let refused = post_json_rpc(
+        &rpc_base,
+        9203,
+        "openhuman.threads_update_working_dir",
+        json!({ "thread_id": thread_id, "action_dir": ssh.to_string_lossy() }),
+    )
+    .await;
+    assert_jsonrpc_error(&refused, "threads_update_working_dir protected folder");
+
+    // 4. Once the conversation has a message, the folder is fixed.
+    let append = post_json_rpc(
+        &rpc_base,
+        9204,
+        "openhuman.threads_message_append",
+        json!({
+            "thread_id": thread_id,
+            "message": {
+                "id": "m1",
+                "content": "hello",
+                "type": "text",
+                "extraMetadata": {},
+                "sender": "user",
+                "createdAt": "2026-10-06T12:00:00Z"
+            }
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&append, "threads_message_append");
+    let late = post_json_rpc(
+        &rpc_base,
+        9205,
+        "openhuman.threads_update_working_dir",
+        json!({ "thread_id": thread_id, "action_dir": project_str }),
+    )
+    .await;
+    let late_err = assert_jsonrpc_error(&late, "threads_update_working_dir after a message");
+    let message = late_err
+        .get("message")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    assert!(
+        message.contains("before the conversation's first message"),
+        "expected started-thread refusal, got: {message}"
     );
 
     api_join.abort();
@@ -3936,7 +4318,76 @@ async fn json_rpc_web_chat_routing_cases_use_expected_backend_models_inner() {
             Some(*expected_model),
             "case={model_override} request={request:?}"
         );
+        assert_eq!(
+            request.get("path").and_then(Value::as_str),
+            Some("/openai/v1/chat/completions"),
+            "valid managed route should reach the managed backend: case={model_override} request={request:?}"
+        );
+        assert_eq!(
+            request.get("authorization").and_then(Value::as_str),
+            Some("Bearer e2e-test-jwt"),
+            "valid managed route should use the stored backend session credential: case={model_override} request={request:?}"
+        );
     }
+
+    // An unknown qualified provider must fail during the real core turn
+    // setup, rather than silently reusing a previously configured provider.
+    with_chat_completion_requests(|requests| requests.clear());
+    let unknown_client_id = "routing-unknown-provider-client";
+    let unknown_thread_id = "routing-unknown-provider-thread";
+    let unknown_events_url = format!("{rpc_base}/events?client_id={unknown_client_id}");
+    let unknown_sse_task =
+        tokio::spawn(async move { read_terminal_web_chat_event(&unknown_events_url).await });
+    let unknown_web_chat = post_json_rpc(
+        &rpc_base,
+        200,
+        "openhuman.channel_web_chat",
+        json!({
+            "client_id": unknown_client_id,
+            "thread_id": unknown_thread_id,
+            "message": "unknown provider route",
+            "model_override": "unknown-provider:model",
+        }),
+    )
+    .await;
+    let unknown_result = assert_no_jsonrpc_error(&unknown_web_chat, "unknown provider turn");
+    assert_eq!(
+        unknown_result
+            .get("result")
+            .and_then(|value| value.get("accepted")),
+        Some(&json!(true))
+    );
+
+    let unknown_event = tokio::time::timeout(Duration::from_secs(12), unknown_sse_task)
+        .await
+        .expect("timed out waiting for unknown-provider chat_error")
+        .expect("unknown-provider SSE task join should succeed");
+    assert_eq!(
+        unknown_event.get("event").and_then(Value::as_str),
+        Some("chat_error"),
+        "unknown provider route should fail at the core boundary: {unknown_event}"
+    );
+    let unknown_turn_requests = with_chat_completion_requests(|requests| {
+        requests
+            .iter()
+            .filter(|request| {
+                request["body"]["messages"]
+                    .as_array()
+                    .is_some_and(|messages| {
+                        messages.iter().any(|entry| {
+                            entry["content"]
+                                .as_str()
+                                .is_some_and(|content| content.contains("unknown provider route"))
+                        })
+                    })
+            })
+            .cloned()
+            .collect::<Vec<_>>()
+    });
+    assert!(
+        unknown_turn_requests.is_empty(),
+        "unknown selected route must emit chat_error without an inference request attributable to its user message; captured requests={unknown_turn_requests:?}"
+    );
 
     mock_join.abort();
     rpc_join.abort();
@@ -4006,11 +4457,24 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
                 "endpoint": mock_origin,
                 "auth_style": "bearer"
             }],
-            "chat_provider": "openai:gpt-4.1-mini"
+            "default_model": "openai:gpt-4.1-mini"
         }),
     )
     .await;
     assert_no_jsonrpc_error(&update, "update_model_settings");
+
+    let initial_config_get =
+        post_json_rpc(&rpc_base, 6999, "openhuman.config_get", json!({})).await;
+    let initial_config_result = assert_no_jsonrpc_error(&initial_config_get, "initial config_get");
+    let initial_config_payload = peel_logs_envelope(initial_config_result);
+    let initial_config = initial_config_payload
+        .get("config")
+        .unwrap_or(initial_config_payload);
+    assert_eq!(
+        initial_config.get("default_model").and_then(Value::as_str),
+        Some("openai:gpt-4.1-mini"),
+        "config_get must expose the authoritative configured BYOK default before any turn override"
+    );
 
     let store_provider = post_json_rpc(
         &rpc_base,
@@ -4089,7 +4553,7 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
         6005,
         "openhuman.update_model_settings",
         json!({
-            "chat_provider": "openai:gpt-4.1-nano"
+            "default_model": "openai:gpt-4.1-nano"
         }),
     )
     .await;
@@ -4198,6 +4662,127 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
         Some("openrouter/deepseek/deepseek-v4-flash")
     );
 
+    async fn assert_managed_turn(
+        rpc_base: &str,
+        request_id: i64,
+        client_id: &str,
+        thread_id: &str,
+        message: &str,
+        expected_model: &str,
+        model_override: Option<&str>,
+    ) {
+        let events_url = format!("{}/events?client_id={}", rpc_base, client_id);
+        let (sse_task, request_tx) =
+            spawn_ready_terminal_web_chat_event_for_request(&events_url).await;
+        let mut params = json!({
+            "client_id": client_id,
+            "thread_id": thread_id,
+            "message": message,
+        });
+        if let Some(model_override) = model_override {
+            params["model_override"] = json!(model_override);
+        }
+        let accepted =
+            post_json_rpc(rpc_base, request_id, "openhuman.channel_web_chat", params).await;
+        let accepted_result = assert_no_jsonrpc_error(&accepted, "channel_web_chat managed");
+        assert_eq!(
+            accepted_result
+                .get("result")
+                .and_then(|v| v.get("accepted")),
+            Some(&json!(true))
+        );
+        signal_accepted_web_chat_request_id(request_tx, accepted_result);
+        let sse_event = tokio::time::timeout(Duration::from_secs(12), sse_task)
+            .await
+            .expect("timed out waiting for managed chat_done")
+            .expect("managed sse join");
+        assert_eq!(
+            sse_event.get("event").and_then(Value::as_str),
+            Some("chat_done"),
+            "unexpected managed terminal event: {sse_event}"
+        );
+        let request = wait_for_chat_completion_request_with_message(message).await;
+        assert_eq!(
+            request.get("path").and_then(Value::as_str),
+            Some("/openai/v1/chat/completions")
+        );
+        assert_eq!(
+            request.get("model").and_then(Value::as_str),
+            Some(expected_model)
+        );
+        assert_eq!(
+            request.get("authorization").and_then(Value::as_str),
+            Some("Bearer e2e-test-jwt"),
+            "managed request must use the backend session credential"
+        );
+    }
+
+    let picker_model = "openrouter/author/picker-model:free";
+    assert_managed_turn(
+        &rpc_base,
+        6008,
+        client_id,
+        thread_id,
+        "Explicit managed picker model with warm BYOK session",
+        picker_model,
+        Some(picker_model),
+    )
+    .await;
+    let config_get = post_json_rpc(&rpc_base, 6009, "openhuman.config_get", json!({})).await;
+    let config_result = assert_no_jsonrpc_error(&config_get, "config_get after managed override");
+    let config_payload = peel_logs_envelope(config_result);
+    let config = config_payload.get("config").unwrap_or(config_payload);
+    assert_eq!(
+        config.get("default_model").and_then(Value::as_str),
+        Some("openai:gpt-4.1-nano"),
+        "a per-turn managed selection must not replace the configured BYOK provider"
+    );
+
+    let first_managed_default = "openrouter/author/first-default-model:free";
+    let update_first_default = post_json_rpc(
+        &rpc_base,
+        6010,
+        "openhuman.update_model_settings",
+        json!({ "default_model": first_managed_default }),
+    )
+    .await;
+    assert_no_jsonrpc_error(
+        &update_first_default,
+        "update_model_settings first managed default",
+    );
+    assert_managed_turn(
+        &rpc_base,
+        6011,
+        client_id,
+        thread_id,
+        "Managed default first route cache turn",
+        first_managed_default,
+        None,
+    )
+    .await;
+
+    let second_managed_default = "openrouter/author/second-default-model:free";
+    let update_second_default = post_json_rpc(
+        &rpc_base,
+        6012,
+        "openhuman.update_model_settings",
+        json!({ "default_model": second_managed_default }),
+    )
+    .await;
+    assert_no_jsonrpc_error(
+        &update_second_default,
+        "update_model_settings second managed default",
+    );
+    assert_managed_turn(
+        &rpc_base,
+        6013,
+        client_id,
+        thread_id,
+        "Managed default second route cache turn",
+        second_managed_default,
+        None,
+    )
+    .await;
     mock_join.abort();
     rpc_join.abort();
 }
@@ -7156,6 +7741,96 @@ async fn voice_status_returns_availability() {
         Some(false),
         "tts should be unavailable without piper binary"
     );
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
+async fn voice_live_settings_round_trip_over_json_rpc() {
+    let _env_lock = json_rpc_e2e_env_lock_async().await;
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let providers = post_json_rpc(&rpc_base, 1, "openhuman.voice_live_providers", json!({})).await;
+    let providers = assert_no_jsonrpc_error(&providers, "voice_live_providers");
+    assert_eq!(providers["default_provider"], "gemini-hosted");
+    let ids: Vec<&str> = providers["providers"]
+        .as_array()
+        .expect("providers array")
+        .iter()
+        .filter_map(|p| p["id"].as_str())
+        .collect();
+    assert_eq!(
+        ids,
+        vec!["gemini-hosted", "elevenlabs-hosted", "gemini", "sarvam"]
+    );
+    let sarvam = providers["providers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["id"] == "sarvam")
+        .unwrap();
+    assert_eq!(sarvam["kind"], "byok");
+    assert_eq!(sarvam["configured"], false);
+    assert_eq!(sarvam["key_slug"], "sarvam");
+
+    let set = post_json_rpc(
+        &rpc_base,
+        2,
+        "openhuman.voice_live_settings_set",
+        json!({ "default_provider": "sarvam", "sarvam": { "language": "hi-IN", "speaker": "priya" } }),
+    )
+    .await;
+    let set = assert_no_jsonrpc_error(&set, "voice_live_settings_set");
+    assert_eq!(set["default_provider"], "sarvam");
+
+    let got = post_json_rpc(&rpc_base, 3, "openhuman.voice_live_settings_get", json!({})).await;
+    let got = assert_no_jsonrpc_error(&got, "voice_live_settings_get");
+    assert_eq!(got["default_provider"], "sarvam");
+    assert_eq!(got["sarvam"]["language"], "hi-IN");
+    assert_eq!(got["sarvam"]["speaker"], "priya");
+
+    let bad = post_json_rpc(
+        &rpc_base,
+        4,
+        "openhuman.voice_live_settings_set",
+        json!({ "default_provider": "nope" }),
+    )
+    .await;
+    assert!(
+        bad.get("error").is_some(),
+        "unknown provider must be rejected: {bad}"
+    );
+
+    // No Sarvam key is stored, so a test reports why without touching the network.
+    let tested = post_json_rpc(
+        &rpc_base,
+        5,
+        "openhuman.voice_live_test_provider",
+        json!({ "provider": "sarvam" }),
+    )
+    .await;
+    let tested = assert_no_jsonrpc_error(&tested, "voice_live_test_provider");
+    assert_eq!(tested["ok"], false);
+    assert!(tested["error"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("not_configured"));
 
     mock_join.abort();
     rpc_join.abort();

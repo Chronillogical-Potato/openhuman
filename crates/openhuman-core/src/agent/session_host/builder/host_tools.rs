@@ -196,6 +196,16 @@ pub(super) struct MergedHostTurnTools {
     pub scope_additions: HashSet<String>,
 }
 
+pub(super) fn add_permanent_tools(
+    mut definition: crate::agent::harness::definition::AgentDefinition,
+    permanent: &HashSet<String>,
+) -> crate::agent::harness::definition::AgentDefinition {
+    definition.extra_tools.extend(permanent.iter().cloned());
+    definition.extra_tools.sort();
+    definition.extra_tools.dedup();
+    definition
+}
+
 pub(super) fn scope_def(
     definition: Option<&crate::agent::harness::definition::AgentDefinition>,
     host_tools: &MergedHostTurnTools,
@@ -371,4 +381,22 @@ pub(super) fn tool_builder(
         builder = builder.tool_policy(policy);
     }
     Ok(builder)
+}
+
+/// Binds the embedder's per-turn root as the default cwd, when it exists.
+pub(super) fn derive_turn_workspace_descriptor() -> Option<tinytools::WorkspaceDescriptor> {
+    let root = crate::agent::turn_workspace::current()?;
+    if !root.is_dir() {
+        tracing::warn!(
+            root = %root.display(),
+            "[turn_workspace] scoped root is not an existing directory — \
+             falling back to the shared action_dir cwd for this turn"
+        );
+        return None;
+    }
+    tracing::debug!(
+        root = %root.display(),
+        "[turn_workspace] turn bound to the embedder's per-turn root as default cwd"
+    );
+    Some(tinytools::WorkspaceDescriptor::new(root).with_policy_id("turn-workspace"))
 }

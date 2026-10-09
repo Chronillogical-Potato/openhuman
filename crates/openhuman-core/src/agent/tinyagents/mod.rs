@@ -29,6 +29,9 @@ pub(crate) mod harness_tool_registration;
 pub mod host;
 pub(crate) mod hosted_error;
 pub(crate) mod journal;
+// The tool harness behind a live voice session (`voice::live`).
+#[cfg(feature = "voice")]
+pub(crate) mod live_harness;
 mod memory_summarizer;
 pub(crate) mod middleware;
 pub(crate) mod model;
@@ -99,6 +102,9 @@ use turn_policy::{
     run_policy_for, DEFAULT_AGENT_TURN_TIMEOUT_SECS, DEFAULT_MODEL_CALL_TIMEOUT_SECS,
 };
 
+#[cfg(test)]
+#[path = "nested_calls_tests.rs"]
+mod nested_calls_tests;
 #[cfg(test)]
 #[path = "prompt_cache_golden_tests.rs"]
 mod prompt_cache_golden_tests;

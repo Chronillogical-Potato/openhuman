@@ -6,7 +6,7 @@ description: >-
 icon: shield-halved
 ---
 
-# Security (`crates/openhuman-core/src/security/`)
+# Security
 
 `crates/openhuman-core/src/security/` is the **trust boundary for the autonomous core**. It owns the autonomy / risk policy that decides whether a given tool call is allowed, the pluggable sandbox backends that confine those calls when the host supports it, the append-only audit log of every agent action, the encrypted secret store, the pairing guard that gates public binding of the RPC server, and the `redact()` helper every other domain uses to keep logs free of plaintext credentials.
 
@@ -22,7 +22,7 @@ This module is the place to look first when asking "is this agent action allowed
 | Item                                                                                                                          | File         | Purpose                                                                 |
 | ----------------------------------------------------------------------------------------------------------------------------- | ------------ | ----------------------------------------------------------------------- |
 | `SecurityPolicy`                                                                                                              | `policy/types.rs` (path checks in `policy/path_checks.rs`, command classification in `policy/command_checks.rs`, gating in `policy/enforcement.rs`) | Assembles runtime policy from `AutonomyConfig` + workspace dir.         |
-| `AutonomyLevel` (`Supervised` / `SemiAutonomous` / `Autonomous`)                                                              | `policy/types.rs` | Three-step autonomy ladder.                                             |
+| `AutonomyLevel` (`ReadOnly` / `Supervised` / `Full`)                                                                          | `policy/types.rs` | Three-step autonomy ladder.                                             |
 | `CommandRiskLevel`, `ToolOperation`, `ActionTracker`                                                                          | `policy/types.rs` | Risk classification + per-session counting.                             |
 | `SecretStore`                                                                                                                 | `keyring/encrypted_store.rs` (`secrets.rs` re-exports it) | OS-keychain / encrypted-file secret persistence with round-trip helpers. |
 | `AuditLogger`, `AuditEventType`, `AuditEvent`, `Actor`, `Action`, `ExecutionResult`, `SecurityContext`, `CommandExecutionLog` | `audit.rs`   | Append-only audit trail.                                                |
@@ -36,7 +36,7 @@ This module no longer carries sandbox backends. The old `Sandbox` trait, `NoopSa
 
 ## Autonomy ladder
 
-`AutonomyLevel` is a three-step ladder that controls how aggressively the policy gates tool calls. `Supervised`, the default, requires an explicit approval round trip for every higher-risk tool call. `SemiAutonomous` lets low and medium-risk calls through but still gates the higher-risk ones. `Autonomous` lets the agent run unattended within its budget and risk caps.
+`AutonomyLevel` is a three-step ladder that controls how aggressively the policy gates tool calls, and it only takes effect while `[autonomy] enabled = true`. `ReadOnly` blocks every writing class outright: no in-tier approval can authorize one. `Supervised`, the default, allows reads and parks everything else for an approval round trip. `Full` allows reads and writes and still parks the network, install and destructive classes. The wire spellings are lowercase (`readonly`, `supervised`, `full`); the user-facing table is in [Approval Gate](../../features/approval-gate.md).
 
 `CommandRiskLevel` and `ToolOperation` classify a given tool call; `ActionTracker` keeps the per-session counts that the policy compares against those caps. The agent harness asks `SecurityPolicy` for a decision before every executable tool dispatch.
 
@@ -62,7 +62,7 @@ All of this only applies when the autonomy policy is turned on. Per `AGENTS.md`,
 
 | Path                                                          | Role                                                                      |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `policy/` (`mod.rs`, `types.rs`, `path_checks.rs`, `command_checks.rs`, `enforcement.rs`, `policy_command*.rs`, `policy_tests*.rs`, `proptest_tests.rs`) | `SecurityPolicy`, `AutonomyLevel`, risk classification, path and command checks, action tracking. |
+| `policy/` (`mod.rs`, `types.rs`, `path_checks.rs`, `command_checks.rs`, `enforcement.rs`, `policy_*_tests.rs`, `proptest_tests.rs`) | `SecurityPolicy`, `AutonomyLevel`, risk classification, path and command checks, action tracking. |
 | `core.rs`, `core_tests.rs`                                    | `redact()` + small shared helpers.                                        |
 | `audit.rs`                                                    | Append-only audit log types.                                              |
 | `secrets.rs`, `keyring/`                                      | `SecretStore` (implemented in `keyring/encrypted_store.rs`) + round-trip tests. |
@@ -70,6 +70,8 @@ All of this only applies when the autonomy policy is turned on. Per `AGENTS.md`,
 | `ops.rs`                                                      | RPC handler (`security_policy_info_for_config`).                          |
 | `schemas.rs`                                                  | Controller schemas + handler dispatch.                                    |
 | `mod.rs`                                                      | Re-exports of the public surface above.                                   |
+| `live_policy.rs`, `scrub.rs`, `tools.rs`                      | Live-policy lookup, the host scrubbing policy (`scrub::host_policy`), and the domain's own agent tools. |
+| `approval/`, `credentials/`, `devices/`, `egress/`, `encryption/`, `keyring_consent/`, `pii/`, `prompt_injection/` | Sibling kernel-security domains under the same module. Each owns its own surface; this page covers the policy core only. |
 
 ## Calls into
 
@@ -79,9 +81,9 @@ All of this only applies when the autonomy policy is turned on. Per `AGENTS.md`,
 ## Called by
 
 - `crates/openhuman-core/src/cron/ops.rs`: wraps shell jobs in `SecurityPolicy::from_config`.
-- `crates/openhuman-core/src/tools/ops.rs` and most `tools/impl/{system,network,memory,agent}/*.rs`: every executable tool consults `SecurityPolicy`.
-- `crates/openhuman-core/src/tools/impl/network/{curl,http_request,web_fetch,mcp}.rs`: risk-classify outbound calls.
-- `crates/openhuman-core/src/memory/tools/{store,forget}.rs`: sensitive-write tracking.
+- `crates/openhuman-core/src/tools/ops.rs` and `tools/impl/{browser,document,filesystem,network,presentation,system}/`: every executable tool consults `SecurityPolicy`.
+- `crates/openhuman-core/src/tools/impl/network/{gate,mcp,mcp_server_tools}.rs`: risk-classify outbound calls.
+- `crates/openhuman-core/src/memory/guard.rs`: wraps every memory write in `security::scrub::host_policy()`.
 - `crates/openhuman-core/src/agent/tools/delegate.rs`: sub-agent dispatch goes through the autonomy gate.
 - `crates/openhuman-core/src/security/credentials/`: uses `SecretStore` and `redact`.
 

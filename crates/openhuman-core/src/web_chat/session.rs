@@ -31,7 +31,7 @@ pub(super) fn model_registry_signature(config: &Config) -> String {
 /// blank id falls back rather than failing the turn: the registry answers for
 /// `orchestrator` on every install, and a typo in an optional setting should
 /// not take chat down.
-pub(super) fn pick_target_agent_id(config: &Config) -> String {
+pub(crate) fn pick_target_agent_id(config: &Config) -> String {
     const DEFAULT_CHAT_AGENT_ID: &str = "orchestrator";
     let selected = config
         .agent
@@ -71,6 +71,66 @@ pub(crate) fn provider_role_for_model_override(model_override: Option<&str>) -> 
     }
 }
 
+/// Build the in-memory config for one web-chat turn. Concrete picker values
+/// may include their provider (`ollama:model`, `huggingface:org/model`) while
+/// managed catalog ids use OpenRouter's `openrouter/...` form. The selected
+/// route belongs only to this clone; saved chat settings and sibling workload
+/// roles remain untouched.
+fn effective_session_config(
+    config: &Config,
+    model_override: Option<&str>,
+    temperature: Option<f64>,
+) -> Config {
+    let mut effective = config.clone();
+    if let Some(model) = model_override
+        .map(str::trim)
+        .filter(|model| !model.is_empty())
+    {
+        effective.default_model = Some(model.to_string());
+    }
+
+    // Resolve the effective model even when there was no per-turn override:
+    // persisted defaults must restore their provider after a restart too.
+    if let Some(model) = effective
+        .default_model
+        .as_deref()
+        .map(str::trim)
+        .filter(|model| crate::inference::provider::factory::is_raw_passthrough_model(model))
+    {
+        if model.starts_with("openrouter/") {
+            // The managed backend accepts catalog ids verbatim. This also
+            // clears a stale local/BYOK chat route from the effective clone.
+            effective.chat_provider = Some("openhuman".to_string());
+        } else if let Some((provider, model_suffix)) = model.split_once(':') {
+            let provider = provider.trim();
+            let local_route = tinyinference_local::profile::is_local_provider_string(model);
+            let built_in_route = matches!(provider, "claude-code" | "claude_agent_sdk");
+            if local_route || built_in_route {
+                // Keep the complete selected value for local and built-in routes.
+                effective.chat_provider = Some(model.to_string());
+            } else if let Some(entry) = effective
+                .cloud_providers
+                .iter()
+                .find(|entry| entry.slug.eq_ignore_ascii_case(provider))
+            {
+                // The factory matches configured slugs exactly; preserve its canonical slug
+                // while keeping the full selected model suffix, including extra colons.
+                effective.chat_provider = Some(format!("{}:{model_suffix}", entry.slug));
+            } else {
+                // Keep an unknown qualified selection on an invalid route so
+                // factory construction fails explicitly instead of silently
+                // using the previous chat provider.
+                effective.chat_provider = Some(model.to_string());
+            }
+        }
+    }
+
+    if let Some(temp) = temperature {
+        effective.default_temperature = temp;
+    }
+    effective
+}
+
 pub(super) fn build_session_agent(
     config: &Config,
     client_id: &str,
@@ -78,16 +138,9 @@ pub(super) fn build_session_agent(
     target_agent_id: &str,
     model_override: Option<String>,
     temperature: Option<f64>,
-    locale: Option<&str>,
 ) -> Result<OpenHumanSessionHost, String> {
-    let mut effective = config.clone();
-    if let Some(model) = model_override {
-        effective.default_model = Some(model);
-    }
+    let effective = effective_session_config(config, model_override.as_deref(), temperature);
     let provider_role = provider_role_for_model_override(effective.default_model.as_deref());
-    if let Some(temp) = temperature {
-        effective.default_temperature = temp;
-    }
 
     log::info!(
         "[web-channel] routing chat turn to '{}' provider_role='{}' (client_id={}, thread_id={})",
@@ -96,17 +149,6 @@ pub(super) fn build_session_agent(
         client_id,
         thread_id
     );
-
-    let locale_directive = locale.and_then(locale_reply_directive);
-    if let Some(s) = locale_directive.as_deref() {
-        log::info!(
-            "[web-channel] injecting locale directive client={} thread={} locale={} directive={:?}",
-            client_id,
-            thread_id,
-            locale.unwrap_or(""),
-            s
-        );
-    }
 
     let agent_result = OpenHumanSessionHost::from_config_for_agent(&effective, target_agent_id);
 
@@ -137,21 +179,31 @@ pub(crate) fn locale_reply_directive(locale: &str) -> Option<String> {
     let language = match locale.trim() {
         "ar" => "Arabic",
         "bn" => "Bengali",
+        "de" => "German",
         "es" => "Spanish",
         "fr" => "French",
         "hi" => "Hindi",
         "id" => "Indonesian",
         "it" => "Italian",
+        "ja" => "Japanese",
+        "ko" => "Korean",
+        "pl" => "Polish",
         "pt" => "Portuguese",
         "ru" => "Russian",
+        "tr" => "Turkish",
         "zh-CN" | "zh" => "Simplified Chinese",
         _ => return None,
     };
-    Some(format!(
+    Some(reply_directive_for(language))
+}
+
+/// The reply-language instruction for `language`.
+fn reply_directive_for(language: &str) -> String {
+    format!(
         "User language: the user's interface is set to {language}. \
          Respond in {language} unless the user explicitly asks for a different language. \
          Keep proper nouns, code, and command names untranslated."
-    ))
+    )
 }
 
 /// Byte offset of the first difference between two signature strings, or
@@ -216,6 +268,12 @@ pub(super) fn fingerprint_diff(
             prior.model_override, next.model_override
         ));
     }
+    if prior.effective_model != next.effective_model {
+        diff.push(format!(
+            "effective_model: {} -> {}",
+            prior.effective_model, next.effective_model
+        ));
+    }
     if prior.temperature != next.temperature {
         diff.push(format!(
             "temperature: {:?} -> {:?}",
@@ -265,10 +323,15 @@ pub(super) fn build_session_fingerprint(
     target_agent_id: String,
     provider_role: &str,
 ) -> SessionCacheFingerprint {
+    let effective = effective_session_config(config, model_override.as_deref(), temperature);
     SessionCacheFingerprint {
         model_override,
+        effective_model: crate::inference::provider::factory::resolve_model_for_hint(
+            &format!("hint:{provider_role}"),
+            &effective,
+        ),
         temperature,
-        provider_binding: crate::inference::provider::provider_for_role(provider_role, config),
+        provider_binding: crate::inference::provider::provider_for_role(provider_role, &effective),
         target_agent_id,
         autonomy_signature: autonomy_signature(config),
         model_registry_signature: model_registry_signature(config),
@@ -324,7 +387,8 @@ pub(crate) async fn checkout_session_agent(
 ) -> Result<CheckedOutSession, String> {
     let map_key = super::ops::key_for(thread_id);
     let target_agent_id = pick_target_agent_id(config);
-    let provider_role = provider_role_for_model_override(model_override.as_deref());
+    let effective = effective_session_config(config, model_override.as_deref(), temperature);
+    let provider_role = provider_role_for_model_override(effective.default_model.as_deref());
     let fingerprint = build_session_fingerprint(
         config,
         model_override.clone(),
@@ -388,7 +452,6 @@ pub(crate) async fn checkout_session_agent(
                     &target_agent_id,
                     model_override,
                     temperature,
-                    locale,
                 )?,
                 fingerprint,
             )
@@ -401,11 +464,39 @@ pub(crate) async fn checkout_session_agent(
                 &target_agent_id,
                 model_override,
                 temperature,
-                locale,
             )?,
             fingerprint,
         ),
     };
+
+    // Every checkout re-arms the reply language from this turn's locale: a
+    // reused agent may have been built under a different one, and `None`
+    // (English, or no locale sent) must clear a stale instruction.
+    let mut agent = agent;
+    let directive = match locale.and_then(locale_reply_directive) {
+        Some(directive) => Some(directive),
+        // Messages this session already sent carry another language's
+        // directive; an explicit English one supersedes them rather than
+        // leaving the last of them standing in the history.
+        None if locale.map(str::trim) == Some("en")
+            && agent.reply_language_directive().is_some() =>
+        {
+            Some(reply_directive_for("English"))
+        }
+        None => None,
+    };
+    if directive.is_some() {
+        log::info!(
+            "[web-channel] reply language directive armed client={} thread={} locale={}",
+            client_id,
+            thread_id,
+            locale.unwrap_or("")
+        );
+    }
+    agent.set_reply_language_directive(directive);
+    // Re-read per message too, so a zone changed in Settings applies to the
+    // next message of an open conversation.
+    agent.set_time_zone(Some(config.time_zone()));
 
     // Cold-boot resume needs no seeding here. `set_thread_id` binds the
     // session's durable identity and the turn resumes by it, reading the one
@@ -463,3 +554,7 @@ pub(crate) async fn checkin_session_agent_if_vacant(
 #[cfg(test)]
 #[path = "session_checkout_tests.rs"]
 mod session_checkout_tests;
+
+#[cfg(test)]
+#[path = "session_routing_tests.rs"]
+mod session_routing_tests;

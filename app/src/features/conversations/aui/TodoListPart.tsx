@@ -2,9 +2,11 @@ import type { ToolCallMessagePartComponent } from '@assistant-ui/react';
 
 import {
   type TodoItem,
-  TodoList,
+  todoProgress,
+  TodoReceipt,
   type TodoStatus,
 } from '../../../components/assistant-ui/elements/todo-list';
+import { useDisclosure } from '../../../components/assistant-ui/lib/useDisclosure';
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { CoreTodoStatus } from '../../../store/threadTodosSlice';
 
@@ -61,17 +63,32 @@ interface TodoToolArgs {
 }
 
 /**
- * Toolkit render for the `todo` tool call — a standalone element in the
- * transcript showing the todo list snapshot as of THIS call (args carry the
- * write while in flight; result echoes it back once settled). The pinned,
- * always-current list above the composer is a separate render, driven by
- * {@link useThreadTodos} off the live `thread_todos_changed` event, not this
- * per-call snapshot.
+ * Toolkit render for the `todo` tool call — a one-line receipt in the
+ * transcript ("Progress updated — 3/7 · current step") that expands to the
+ * todo list snapshot as of THIS call (args carry the write while in flight;
+ * result echoes it back once settled). A run updates its list many times, and
+ * repeating the whole list after every update buried the conversation. The
+ * pinned, always-current list above the composer is a separate render
+ * (`PinnedTodoCard`), driven by {@link useThreadTodos} off the live
+ * `thread_todos_changed` event, not this per-call snapshot.
  */
-export const TodoListPart: ToolCallMessagePartComponent = ({ args, result }) => {
+export const TodoListPart: ToolCallMessagePartComponent = ({ args, result, toolCallId }) => {
   const { t } = useT();
+  const [open, setOpen] = useDisclosure(toolCallId ? `todo:${toolCallId}` : undefined, false);
   const payload = (result ?? args) as TodoToolArgs | undefined;
   const items = toAuiTodoItems(payload?.todos);
   if (items.length === 0) return null;
-  return <TodoList items={items} title={t('conversations.todos.title')} />;
+  const progress = todoProgress(items);
+  return (
+    <div data-testid="todo-receipt">
+      <TodoReceipt
+        items={items}
+        open={open}
+        onOpenChange={setOpen}
+        label={t('chat.todos.receipt')
+          .replace('{done}', String(progress.done))
+          .replace('{total}', String(progress.total))}
+      />
+    </div>
+  );
 };

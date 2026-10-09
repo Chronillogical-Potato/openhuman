@@ -184,3 +184,77 @@ fn resolve_effective_table() {
         );
     }
 }
+
+/// The deadline must take the command's whole process group with it. A shell
+/// pipeline is grandchildren of the tool's child, and a `grep -rl … /` the tool
+/// had reported as killed ran on for half an hour at a full core.
+#[cfg(unix)]
+#[tokio::test]
+async fn a_timed_out_command_takes_its_whole_process_group_with_it() {
+    let dir = std::env::temp_dir().join(format!("oh-pgkill-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let pidfile = dir.join("grandchild.pid");
+    // `sleep 30 &` is a grandchild in the shell's own process group; `wait`
+    // keeps the shell alive past the deadline.
+    let mut cmd = crate::agent::platform_shell::build_tokio_command(&format!(
+        "sleep 30 & echo $! > {}; wait",
+        pidfile.display()
+    ));
+    let result = output_or_kill(&mut cmd, Duration::from_millis(700)).await;
+    assert!(result.is_err(), "the deadline must fire on a 30s sleep");
+
+    let grandchild: i32 = loop {
+        if let Ok(text) = std::fs::read_to_string(&pidfile) {
+            if let Ok(pid) = text.trim().parse() {
+                break pid;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    };
+    let mut gone = false;
+    for _ in 0..100 {
+        // kill(pid, 0) succeeds while the process (or its zombie) exists.
+        if unsafe { libc::kill(grandchild, 0) } != 0 {
+            gone = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(gone, "grandchild {grandchild} survived the deadline");
+}
+
+/// Without a deadline the child still dies with the handle: a cancelled tool
+/// future must not leave the command running either.
+#[cfg(unix)]
+#[tokio::test]
+async fn a_shell_family_child_dies_with_a_dropped_future() {
+    let dir = std::env::temp_dir().join(format!("oh-dropkill-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let pidfile = dir.join("child.pid");
+    let mut cmd = crate::agent::platform_shell::build_tokio_command(&format!(
+        "echo $$ > {}; sleep 30",
+        pidfile.display()
+    ));
+    // `timeout` takes the future by value and drops it when the deadline
+    // passes -- exactly the abandoned-future path a cancelled tool call takes.
+    let _ = tokio::time::timeout(Duration::from_millis(300), cmd.output()).await;
+    let shell: i32 = loop {
+        if let Ok(text) = std::fs::read_to_string(&pidfile) {
+            if let Ok(pid) = text.trim().parse() {
+                break pid;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    };
+    let mut gone = false;
+    for _ in 0..100 {
+        if unsafe { libc::kill(shell, 0) } != 0 {
+            gone = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(gone, "shell {shell} survived its dropped future");
+}

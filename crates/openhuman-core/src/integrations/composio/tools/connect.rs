@@ -25,7 +25,7 @@ use super::super::types::{ComposioConnectionsResponse, ComposioToolkitsResponse}
 /// The agent frequently guesses `google_drive` where Composio uses
 /// `googledrive` (#3993); without this the OAuth handoff fails with an opaque
 /// error.
-pub(super) fn canonicalize_toolkit_slug(slug: &str) -> String {
+pub(crate) fn canonicalize_toolkit_slug(slug: &str) -> String {
     let key = slug.trim().to_ascii_lowercase();
     match key.as_str() {
         "feishu" | "lark" => "larksuite".to_string(),

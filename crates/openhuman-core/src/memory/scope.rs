@@ -31,13 +31,19 @@
 //! memory agent.
 //!
 //! The identity is never taken from model arguments.
+//!
+//! Under layout v3 (`[memory] layout = "v3"`) the engine keeps all of this
+//! below the person's own scope root ([`user_root`]), and every agent's
+//! chats share one node ([`chat_node`], `ws:main`), each turn carrying its
+//! agent id. [`switch_to_v3`] turns it on once the person's memory moved.
 
 use std::future::Future;
 
 use tinymemory_api::{Namespace, Segment, SegmentKind};
 use tinymemory_tools::MemoryLayout;
 
-use crate::config::Config;
+use crate::config::{Config, MemoryLayoutMode};
+use crate::memory::error::{MemoryError, MemoryResult};
 
 /// The memory agent id of work no agent is running (RPC, sync jobs, the UI).
 pub const DEFAULT_AGENT_ID: &str = "assistant";
@@ -131,6 +137,11 @@ impl MemoryIdentity {
             tracing::warn!(%error, "[memory:scope] root too deep; using the default root");
             MemoryLayout::default()
         });
+        let layout = if layout_is_v3(config) {
+            pooled(layout)
+        } else {
+            layout
+        };
         let recall = pinned
             .and_then(|pin| pin.recall)
             .unwrap_or(memory.recall.enabled);
@@ -140,6 +151,125 @@ impl MemoryIdentity {
             recall,
         }
     }
+}
+
+/// The pooled chat node every agent logs to under layout v3: `ws:main`.
+const CHAT_WORKSPACE: &str = "main";
+
+/// `layout` with every agent's conversations pooled at its [`chat_node`].
+fn pooled(layout: MemoryLayout) -> MemoryLayout {
+    let node = Namespace::ROOT
+        .child(Segment::sanitized(SegmentKind::Workspace, CHAT_WORKSPACE))
+        .unwrap_or(Namespace::ROOT);
+    match layout.clone().with_pooled_conversations(&node) {
+        Ok(pooled) => pooled,
+        Err(error) => {
+            tracing::warn!(%error, "[memory:scope] chats not pooled; root too deep");
+            layout
+        }
+    }
+}
+
+/// Where every agent's chats are under layout v3: `ws:main` below
+/// `layout`'s root. Relative to the engine's scope root (`org:<id>`), which
+/// is not a namespace segment.
+#[must_use]
+pub fn chat_node(layout: &MemoryLayout) -> Namespace {
+    layout
+        .root()
+        .child(Segment::sanitized(SegmentKind::Workspace, CHAT_WORKSPACE))
+        .unwrap_or_else(|_| layout.root().clone())
+}
+
+/// Whether `config` keeps memory in layout v3 (`[memory] layout = "v3"`).
+#[must_use]
+pub fn layout_is_v3(config: &Config) -> bool {
+    config.memory.layout == MemoryLayoutMode::V3
+}
+
+/// The engine scope root of the person `config` belongs to: `org:<id>`
+/// for a TinyHumans account (its 24-hex id), `org:local-<install id>` for a
+/// local session (a random id recorded in the workspace, or the older
+/// hostname-derived id an existing install already keeps memory under; see
+/// [`super::local_root`]), and `None` before anyone signs in. Read from
+/// where the config lives (`<root>/users/<id>/config.toml`). One root per
+/// person, with no `user:` segment below it: `user:` names the person's
+/// actor ([`actor_of_root`]), which is also the retired root an existing
+/// install's memory is still read from during the move.
+#[must_use]
+pub fn user_root(config: &Config) -> Option<String> {
+    let dir = config.config_path.parent()?;
+    if dir.parent()?.file_name()? != "users" {
+        return None;
+    }
+    let id = dir.file_name()?.to_str()?;
+    if id.is_empty() || id == crate::config::PRE_LOGIN_USER_ID {
+        return None;
+    }
+    account_root(id).or_else(|| {
+        super::local_root::resolve(config, id).map(|recorded| org_of_recorded(&recorded))
+    })
+}
+
+/// `org:<id>` when `id` is a TinyHumans account id (24 hex digits).
+fn account_root(id: &str) -> Option<String> {
+    let account = id.len() == 24 && id.bytes().all(|b| b.is_ascii_hexdigit());
+    account.then(|| format!("{ROOT_TYPE}:{}", id.to_ascii_lowercase()))
+}
+
+/// The scope type of a person's root.
+const ROOT_TYPE: &str = "org";
+
+/// A recorded local root (`user:local-<id>`, the form the record file keeps
+/// so installs recorded before `org:` roots read back) as the person's
+/// `org:local-<id>` root. The `user:local-<id>` it came from is exactly the
+/// actor [`actor_of_root`] names, so memory an existing install keeps under
+/// that root (the old hostname-derived one included) is the retired root
+/// read during the move.
+fn org_of_recorded(recorded: &str) -> String {
+    match recorded.strip_prefix("user:") {
+        Some(id) => format!("{ROOT_TYPE}:{id}"),
+        None => recorded.to_string(),
+    }
+}
+
+/// The actor that owns the person's root `root` (`org:<id>` → `user:<id>`).
+/// It is also where layout v3 rooted that person before `org:` roots: the
+/// retired root read during the move, and the account a legacy-tree claim
+/// names.
+#[must_use]
+pub fn actor_of_root(root: &str) -> String {
+    match root
+        .strip_prefix(ROOT_TYPE)
+        .and_then(|rest| rest.strip_prefix(':'))
+    {
+        Some(id) => format!("user:{id}"),
+        None => root.to_string(),
+    }
+}
+
+/// Switches the memory of the person `config` belongs to to layout v3:
+/// reloads that person's own config file (`config.config_path`) fresh, so
+/// neither a long migration's stale copy nor a different account signed in
+/// meanwhile is written, sets `[memory] layout = "v3"`, saves it and drops
+/// the bound engines so the next binding uses the new layout. Called by the
+/// layout migration once every scope has moved, never on its own.
+///
+/// # Errors
+///
+/// The config could not be loaded or saved.
+pub async fn switch_to_v3(config: &Config) -> MemoryResult<()> {
+    let mut config = Config::load_from_config_path(&config.config_path, &config.workspace_dir)
+        .await
+        .map_err(|error| MemoryError::Engine(format!("loading config failed: {error:#}")))?;
+    config.memory.layout = MemoryLayoutMode::V3;
+    config
+        .save()
+        .await
+        .map_err(|error| MemoryError::Engine(format!("saving config failed: {error:#}")))?;
+    super::engine::invalidate();
+    tracing::info!("[memory:scope] memory switched to layout v3");
+    Ok(())
 }
 
 /// The layout `team`'s members share.

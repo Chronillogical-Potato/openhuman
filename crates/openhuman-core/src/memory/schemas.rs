@@ -38,6 +38,7 @@ fn handler_for(function: &str) -> crate::core::all::ControllerHandler {
         "fetch" => handlers::fetch,
         "learn" => handlers::learn,
         "forget" => handlers::forget,
+        "erase_all" => handlers::erase_all,
         "items_list" => handlers::items_list,
         "explore" => handlers::explore,
         "items_get" => handlers::items_get,
@@ -56,6 +57,11 @@ fn handler_for(function: &str) -> crate::core::all::ControllerHandler {
         "jobs_run" => handlers::jobs_run,
         "import_scan" => handlers::import_scan,
         "import_start" => handlers::import_start,
+        "import_retry_failed" => handlers::import_retry_failed,
+        "migration_scan" => handlers::migration_scan,
+        "migration_start" => handlers::migration_start,
+        "migration_status" => handlers::migration_status,
+        "migration_retry" => handlers::migration_retry,
         _ => handlers::import_status,
     }
 }

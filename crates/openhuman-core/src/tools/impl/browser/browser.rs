@@ -26,7 +26,7 @@ use std::{
     sync::{Arc, Mutex as StdMutex},
     time::Instant,
 };
-use task_actions::{approve_task_action, parse_action, required, task_inputs};
+use task_actions::{approve_task_action, host_hint, parse_action, required, task_inputs};
 use tinycomputer_bus::agent::{ContinueTaskRequest, TaskId, TaskStatus, TaskView};
 use tinycomputer_bus::browser::{
     Action, DownloadState, DownloadWaitRequest, NavigateRequest, ReadRequest, SessionId,
@@ -243,6 +243,9 @@ impl BrowserTool {
 
     async fn task(&self, args: &Value) -> anyhow::Result<Value> {
         let mut goal = required(args, "goal")?.to_owned();
+        let site = args["url"]
+            .as_str()
+            .and_then(crate::modules::browser_sites::site_of);
         let origins = match args["url"].as_str().filter(|url| !url.trim().is_empty()) {
             Some(url) => {
                 self.client.check_url(url)?;
@@ -267,6 +270,7 @@ impl BrowserTool {
             origins,
             max_actions: u32::try_from(self.max_steps).unwrap_or(u32::MAX),
             flow,
+            site,
         };
         let view = crate::modules::browser_task::start(self.client.config(), &task)
             .await
@@ -311,6 +315,9 @@ impl BrowserTool {
     /// token that only `confirm_pending` (through the host gate) can spend.
     async fn report(&self, view: TaskView) -> anyhow::Result<Value> {
         let mut output = serde_json::to_value(&view)?;
+        if let Some(hint) = host_hint(&view) {
+            output["host_hint"] = json!(hint);
+        }
         if let TaskStatus::NeedsApproval { action, target, .. } = &view.status {
             let token = uuid::Uuid::new_v4().to_string();
             *self.pending.lock().await = Some(Pending {

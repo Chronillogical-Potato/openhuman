@@ -13,11 +13,11 @@ The coder family is what makes OpenHuman a viable coding partner instead of a ch
 | ---------------- | ----------------------------------------------------------------- |
 | `file_read`      | Read a file (with line numbers, like `cat -n`).                   |
 | `file_write`     | Write a new file.                                                 |
-| `edit_file`      | Targeted edits - match-and-replace with strict uniqueness checks. |
+| `edit`           | Targeted edits - match-and-replace with strict uniqueness checks. |
 | `apply_patch`    | Apply a unified diff.                                             |
-| `glob_search`    | Find files by glob pattern.                                       |
+| `glob`           | Find files by glob pattern.                                       |
 | `grep`           | Ripgrep-style search across the tree.                             |
-| `list_files`     | Walk a directory tree.                                            |
+| `list`           | Walk a directory tree.                                            |
 | `read_diff`      | Diff between two files or revisions.                              |
 | `git_operations` | Status, diff, log, blame, branch, commit.                         |
 | `run_linter`     | Run the project's linter.                                         |
@@ -35,7 +35,7 @@ A shell tool plus `cat`/`sed`/`awk` could _technically_ do all of this. The nati
 
 ## Workspace scoping
 
-Filesystem tools respect a workspace boundary - the agent can't read or write outside it without explicit permission. Same boundary the rest of the app uses for `OPENHUMAN_WORKSPACE`.
+Filesystem tools act inside the agent's **working folder** (`action_dir`), not the workspace directory, which holds internal state and is never a tool target. With the autonomy policy on, `workspace_only` confines them to that folder and anything outside it needs an explicit trusted root. With the policy off (the default) that confinement is not enforced, and the thing that still holds either way is the hard floor: credential stores (`~/.ssh`, `~/.gnupg`, `~/.aws`) and system roots are unreachable, as are `..` traversal and null bytes in a path. See [Approval Gate](../approval-gate.md).
 
 ## See also
 

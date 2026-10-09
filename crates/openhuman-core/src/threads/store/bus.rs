@@ -270,6 +270,7 @@ fn persist_channel_turn(
             parent_thread_id: None,
             labels: Some(vec!["general".to_string()]),
             personality_id: None,
+            working_dir: None,
         },
     )?;
 
@@ -343,6 +344,7 @@ fn persisted_channel_thread_id(
         channel: channel.to_string(),
         timestamp: 0,
         thread_ts: thread_ts.map(ToOwned::to_owned),
+        sender_name: None,
     });
     format!("channel:{key}")
 }

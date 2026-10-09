@@ -49,7 +49,7 @@ Every provider has a **route**:
 | -------- | ------------------ | ------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Exa      | Included, own key  | Search, answer, contents  | On by default (included).                                                                             |
 | Gemini   | Included, own key  | Answer                    | On by default (included). A key of your own also unlocks Deep Research, even on the included route. |
-| TinyFish | Included           | Search, contents          | Off by default.                                                                                       |
+| TinyFish | Own key            | Search, contents          | Off by default. There is no included TinyFish route; the managed backend does not proxy it.           |
 | Parallel | Own key            | Search, answer, contents  | Off by default. There is no included Parallel route; bring your own [Parallel](https://parallel.ai) key. Deep answers never use Parallel. |
 | Brave    | Own key            | Search                    | Off by default.                                                                                       |
 | Tavily   | Own key            | Search, contents          | Off by default.                                                                                       |

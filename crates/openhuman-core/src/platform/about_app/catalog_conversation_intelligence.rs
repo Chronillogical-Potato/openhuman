@@ -84,6 +84,22 @@ Capability {
         privacy: DERIVED_TO_BACKEND,
     },
 Capability {
+        id: "voice.live_agent",
+        name: "Live voice agent",
+        domain: "voice",
+        category: CapabilityCategory::Conversation,
+        description: "Talk with Tiny out loud in real time: click the mascot in the composer and \
+                      speak. Tiny answers by voice, can be interrupted mid-sentence, and uses \
+                      the same tools, tool policy and approval prompts as typed chat. What both \
+                      sides say is saved to the open conversation. Providers: Gemini Live \
+                      through TinyHumans (default, no key), the TinyHumans ElevenLabs agent, \
+                      Gemini Live with your own Google key, or Sarvam AI with your own key.",
+        how_to: "Click Tiny in the chat composer to start; choose the provider, voice and \
+                 language under Connections → Voice agents.",
+        status: CapabilityStatus::Beta,
+        privacy: DERIVED_TO_BACKEND,
+    },
+Capability {
         id: "conversation.copy_messages",
         name: "Copy Messages",
         domain: "conversation",
@@ -192,8 +208,18 @@ Capability {
         name: "Thinking Level",
         domain: "conversation",
         category: CapabilityCategory::Conversation,
-        description: "Choose how hard the model thinks before answering: Auto (the provider's default), Off, Low, Medium, High or Max. The choice applies to the conversation's own turns, is remembered as the default for new ones, and is translated into each provider's reasoning setting; delegated sub-agents keep their provider default.",
+        description: "Choose how hard the model thinks before answering: Auto (the provider's default), Off, Minimal, Low, Medium, High or Max. Every model remembers its own level, so switching models brings back the level last used with that one; a model with no level of its own uses the global default. The choice applies to the conversation's own turns and is translated into each provider's reasoning setting; delegated sub-agents keep their provider default.",
         how_to: "Conversations > pick a thinking level beside the model selector in the composer",
+        status: CapabilityStatus::Beta,
+        privacy: None,
+    },
+Capability {
+        id: "conversation.working_folder",
+        name: "Conversation Working Folder",
+        domain: "conversation",
+        category: CapabilityCategory::Conversation,
+        description: "Start a conversation in a folder of your choice: the agent's shell, file and git tools act there instead of the default projects folder. The folder is picked before the first message and stays fixed for the conversation; credential stores and system folders cannot be chosen.",
+        how_to: "Conversations > New conversation > pick a folder in the chip above the composer",
         status: CapabilityStatus::Beta,
         privacy: None,
     },
@@ -322,7 +348,7 @@ Capability {
         name: "Brain",
         domain: "memory",
         category: CapabilityCategory::Intelligence,
-        description: "Documents every agent shares, filed by source type (pdf, markdown, notion, github, web, and one per other source). Add a document from text or a file, search it, forget a whole source, or keep it synced from a folder, a single file, a link, a GitHub repository, an RSS feed or a connected Composio toolkit, on demand and on a schedule.",
+        description: "Documents every agent shares, filed by source type (pdf, markdown, notion, github, web, and one per other source). Add a document from text or a file (text, markdown, HTML, code, PDF, Word, PowerPoint or Excel; images are not read yet), search it, forget a whole source, or keep it synced from a folder, a single file, a link, a GitHub repository or an RSS feed, on demand and on a schedule.",
         how_to: "Connections > Memory > Brain (/connections?tab=brain&brain=brain). Programmatic: openhuman.memory_brain_sources, memory_brain_search, memory_brain_ingest, memory_brain_forget, memory_sources_add, memory_sources_sync (RPC).",
         status: CapabilityStatus::Beta,
         privacy: MEMORY_TO_REMOTE_ENGINE,
@@ -343,7 +369,7 @@ Capability {
         domain: "memory",
         category: CapabilityCategory::Intelligence,
         description: "Bring memory kept by an earlier OpenHuman version (documents, conversations and learnings) into the selected engine. The scan is local and read-only; the import uploads that data to the engine and only starts after explicit consent.",
-        how_to: "Connections > Memory: the import banner appears when earlier memory is found. Programmatic: openhuman.memory_import_scan, memory_import_start (requires consent: true), memory_import_status (RPC).",
+        how_to: "Connections > Memory: the import banner appears when earlier memory is found. Programmatic: openhuman.memory_import_scan, memory_import_start (requires consent: true), memory_import_status, memory_import_retry_failed (RPC).",
         status: CapabilityStatus::Beta,
         privacy: MEMORY_TO_REMOTE_ENGINE,
     },

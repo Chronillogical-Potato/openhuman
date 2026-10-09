@@ -19,7 +19,7 @@ The catch-all family. Small, sharp tools the agent reaches for to round out a ta
 | `schedule`          | One-shot "do this once at time T" - for recurring jobs see [Cron](cron.md). |
 | `pushover`          | Send a push notification to your devices.                                   |
 | `lsp`               | Query a language server (definitions, references, diagnostics).             |
-| `workspace_state`   | Inspect the current workspace - open files, recent edits, environment.      |
+| `read_workspace_state` | Inspect the current working folder: open files, recent edits, environment. |
 | `proxy_config`      | Read or change proxy configuration for outbound requests.                   |
 | `tool_stats`        | Self-reflection - what tools have been used in this session and how often.  |
 

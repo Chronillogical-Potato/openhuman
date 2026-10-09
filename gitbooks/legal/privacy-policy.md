@@ -11,7 +11,7 @@ Last Updated: 02/02/2026
 
 This Privacy Policy describes how we collect, use, process, store, and protect information when you use our system-level AI assistant (the “Service”). The Service is designed to operate as a general-purpose assistive agent on a user’s device, such as a laptop or desktop computer. We are committed to protecting user privacy and minimizing data collection and retention.
 
-This Privacy Policy is intended to comply with applicable global data protection laws, including the EU General Data Protection Regulation (GDPR), India’s Digital Personal Data Protection Act (DPDP), the California Consumer Privacy Act and Privacy Rights Act (CCPA/CPRA), Brazil’s LGPD, and Canada’s PIPEDA. ￼
+This Privacy Policy is intended to comply with applicable global data protection laws, including the EU General Data Protection Regulation (GDPR), India’s Digital Personal Data Protection Act (DPDP), the California Consumer Privacy Act and Privacy Rights Act (CCPA/CPRA), Brazil’s LGPD, and Canada’s PIPEDA.
 
 ## Information We Collect
 

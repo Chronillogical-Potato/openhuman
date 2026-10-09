@@ -355,6 +355,7 @@ async fn run_subagent_tool(params: &Map<String, Value>) -> Result<Value, ToolCal
     // remote-controlled and any external_effect tool the agent tries to
     // run must route through the gate's audit + TTL-deny path.
     let origin = crate::agent::turn_origin::AgentTurnOrigin::ExternalChannel {
+        sender_name: None,
         channel: "mcp_server".to_string(),
         // MCP server callers don't carry a per-user identity at this
         // layer — the calling MCP client is the addressing primitive.
@@ -363,6 +364,7 @@ async fn run_subagent_tool(params: &Map<String, Value>) -> Result<Value, ToolCal
         sender: None,
         reply_target: agent_id.clone(),
         message_id: uuid::Uuid::new_v4().to_string(),
+        history_key: None,
     };
     // Run the subagent one level deeper in the chain, so its own Claude Code
     // turns stamp `child_depth` onto any grandchildren they spawn. The agent

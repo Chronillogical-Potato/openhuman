@@ -103,7 +103,7 @@ pnpm --version
 - **Windows 10 WSL + classic X11 forwarding** is unsupported for the desktop app. The Tauri desktop flow can hang, render blank windows, or crash before useful app logs are available. Use native Windows development, or Windows 11 WSLg if you need a Linux GUI workflow. OpenHuman logs a startup warning when it detects WSL with `DISPLAY` set but no `WAYLAND_DISPLAY`/WSLg markers.
 - **Windows desktop builds** additionally require Visual Studio C++ Build Tools (MSVC v143), CMake, and Ninja. See [Windows-specific setup](#windows-specific-setup) for the full list and install order.
 - **macOS desktop builds** require a one-time codesigning cert. After cloning, run `bash scripts/setup-dev-codesign.sh` once to create the local "OpenHuman Dev Signer" self-signed certificate that Tauri uses when bundling dev builds. Without it, `pnpm --filter openhuman-app dev:app` fails at the bundle/sign step with `OpenHuman Dev Signer: no identity found`.
-- **Skills development** happens in the separate [`tinyhumansai/openhuman-skills`](https://github.com/tinyhumansai/openhuman-skills) repository. This repo consumes built skill bundles from GitHub or a local override path; it does not vendor the skills source as a submodule.
+- **Skills development** happens in the separate [`tinyhumansai/skill-registry`](https://github.com/tinyhumansai/skill-registry) repository. This repo consumes built skill bundles from GitHub or a local override path; it does not vendor the skills source as a submodule.
 
 Example macOS bootstrap with Homebrew:
 
@@ -338,5 +338,52 @@ If you are contributing through a coding agent or remote environment, include th
 - Use the controller registry and domain module structure described in [`AGENTS.md`](AGENTS.md) for new Rust functionality.
 - Keep logs grep-friendly and avoid logging secrets, tokens, or full PII.
 - Follow ESLint, Prettier, and Rust formatting output as authoritative.
+
+### UI translations
+
+All locales use the same workflow. Use `useT()` for UI text and treat
+`app/src/lib/i18n/en.ts` as the key source. Preserve existing good translations,
+translate new or changed English meanings, and remove keys retired from English.
+`scripts/apply-i18n-translations.ts` applies translation JSON files, retains
+existing values, removes obsolete keys, and writes keys in English order. Supply
+real translations for new strings; its English fallback is not a finished translation.
+Run `pnpm i18n:check`, `pnpm i18n:english:check`, the i18n coverage test, and Prettier.
+Preserve interpolation placeholders exactly, including repeated placeholders and
+double braces. Keep product names, paths, commands, and technical identifiers intact.
+
+#### Japanese UI copy
+
+Review text where it appears: a button, setting label, status, empty state, or
+confirmation dialog. Prefer short action labels and plain, polite sentences.
+Remove roundabout wording, not information: keep conditions, units, upload
+destinations, consent requirements, and deletion scope. Errors should describe
+what happened without guessing a cause. For example, keep "no answer" distinct
+from "no data" or a connection failure.
+
+| Context | Prefer | Avoid |
+| --- | --- | --- |
+| Save button | 保存 | 変更内容の保存を実行 |
+| Saved status | 保存しました | 正常に保存されました |
+| Available action | 変更できます | 変更することができます |
+| Delete a stored memory item | メモリーから削除 | 忘れる |
+
+Use these terms consistently on the Memory screens. Translate by meaning rather
+than substituting words mechanically; source connections and answer citations are
+different concepts.
+
+| Concept | Japanese |
+| --- | --- |
+| Memory / memory engine | メモリー / メモリーエンジン |
+| Learning / preference | 学習内容 / 好み |
+| Brain / belief / memory pack | ブレイン / 信念 / メモリーパック |
+| Source to sync / answer citation | ソース / 出典 |
+| Context brief | コンテキスト要約; 要約 when the context is clear |
+| Sync / import | 同期 / インポート |
+| Endpoint URL / API key | 接続先URL / APIキー |
+| Conversation / thread / turn | 会話 / スレッド / ターン |
+
+Keep backend count units such as ターン; do not reinterpret them as messages or
+conversations. This is contributor writing guidance, not a separate Japanese key
+matcher, fallback, or validation rule.
 
 Thank you for contributing to OpenHuman.

@@ -57,6 +57,22 @@ fn unary_summarizer_child_inherits_cancellation_workspace_and_lineage() {
     assert!(child.cancellation.is_cancelled());
 }
 
+#[test]
+fn unary_summarizer_child_host_data_uses_the_linked_child_token() {
+    let parent = OpenHumanRunContext::new().into_tinyagents(RunConfig::new("parent-link"));
+    let child = unary_child_context(&parent, "summarizer", 1, 128).expect("child context");
+
+    child.cancellation.cancel();
+    assert!(child.data.cancellation.is_cancelled());
+    assert!(!parent.cancellation.is_cancelled());
+    assert!(!parent.data.cancellation.is_cancelled());
+
+    let parent = OpenHumanRunContext::new().into_tinyagents(RunConfig::new("parent-link-2"));
+    let child = unary_child_context(&parent, "summarizer", 1, 128).expect("child context");
+    parent.cancellation.cancel();
+    assert!(child.data.cancellation.is_cancelled());
+}
+
 struct UnaryOnlyModel(AtomicBool);
 
 #[async_trait]

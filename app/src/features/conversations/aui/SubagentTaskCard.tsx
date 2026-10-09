@@ -35,6 +35,7 @@ import { subagentApi } from '../../../services/api/subagentApi';
 import { type SubagentActivity, subagentCancelResolved } from '../../../store/chatRuntimeSlice';
 import { useAppDispatch } from '../../../store/hooks';
 import { basename } from '../../../utils/pathUtils';
+import { useSubagentElapsed } from './useSubagentElapsed';
 
 function asSubagentActivity(value: unknown): SubagentActivity | undefined {
   if (!value || typeof value !== 'object') return undefined;
@@ -233,7 +234,20 @@ export const SubagentTaskCard: ToolCallMessagePartComponent = ({
     toolCalls: [],
   };
   const name = resolved.displayName ?? resolved.agentId ?? 'subagent';
-  const elapsed = resolved.elapsedMs !== undefined ? formatElapsed(resolved.elapsedMs) : undefined;
+  const running = state === 'working' || state === 'waiting';
+  // Ticks every second while the delegation works; the core's settled
+  // wall-clock replaces it once the run finishes ("Ran for 1m 4s").
+  const elapsedMs = useSubagentElapsed(
+    resolved.taskId !== 'pending-subagent' ? resolved.taskId : undefined,
+    running,
+    resolved.elapsedMs
+  );
+  const elapsed =
+    elapsedMs === undefined
+      ? undefined
+      : running
+        ? formatElapsed(elapsedMs)
+        : t('chat.subagents.ranFor').replace('{duration}', formatElapsed(elapsedMs));
   const awaiting = state === 'waiting' && resolved.status === 'awaiting_user';
   // The user's own open/closed choice, remembered by the part's tool-call id
   // so it survives assistant-ui's remounts (a virtualized history, a thread
@@ -245,8 +259,7 @@ export const SubagentTaskCard: ToolCallMessagePartComponent = ({
   const [open, setOpen] = useDisclosure(toolCallId ? `subagent:${toolCallId}` : undefined, false);
   const disclosureOpen = open || awaiting;
 
-  const cancellable =
-    (state === 'working' || state === 'waiting') && resolved.taskId !== 'pending-subagent';
+  const cancellable = running && resolved.taskId !== 'pending-subagent';
 
   const actions =
     awaiting || resolved.worktreePath || cancellable ? (

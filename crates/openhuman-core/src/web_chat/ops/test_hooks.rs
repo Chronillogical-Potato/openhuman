@@ -23,6 +23,9 @@ pub struct TestRunChatTaskBlock {
     /// Lets a test end a parked turn without using cancellation, so it can
     /// exercise terminal queue handling such as follow-up dispatch.
     pub release: std::sync::Arc<tokio::sync::Notify>,
+    /// When set, a released turn succeeds with a fixed reply stored under
+    /// this workspace instead of failing, so success delivery is observable.
+    pub succeed_in: Option<std::path::PathBuf>,
 }
 
 #[cfg(any(test, debug_assertions))]

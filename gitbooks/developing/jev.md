@@ -1,3 +1,10 @@
+---
+description: >-
+  The small decision model: what it answers, where it is called, what it
+  costs, and how it is configured.
+icon: scale-balanced
+---
+
 # Jev
 
 Jev is a decision model, not a text generator. Give it a request and a
@@ -87,12 +94,25 @@ would only add a network round trip for no gain.
 `crates/openhuman-core/src/modules/browser_task.rs` hands browser tasks to
 TinyComputer's task members (`StartTask`, then `AwaitTask` until the task
 pauses or finishes), confined to the browser surface and the allowed websites.
-The decision model is chosen in `[computer] decision_model` — Jev (through
+The decision model is chosen in `[computer] decision_model`: Jev (through
 the hosted proxy when signed in, or the user's OpenRouter key), OpenJev, or
-Sage — and a failed step goes to the rescue model (`[computer] rescue_model`,
+Sage. A failed step goes to the rescue model (`[computer] rescue_model`,
 up to `max_rescues` times) before the task fails. An irreversible step pauses
 as `needs_approval`; the browser tool holds it behind a one-use token and only
 `confirm_pending`, through the host approval gate, answers `ContinueTask`.
+
+`crates/openhuman-core/src/modules/browser_sites.rs` keeps what finished
+browser tasks learned, per site, in `<workspace>/state/computer/sites/`, and
+hands it to the next task on the same site: the plan a run finished with, as
+`StartTask.flow` for the same goal and facts (no planning), and the elements
+it found, as `StartTask.memory` (a remembered element costs one yes/no instead
+of a search). Only a run that finished (`done`, or its payment checkpoint)
+teaches anything; a plan is kept only when its run needed no rescue and holds
+no fact value its goal does not, and a reused plan that fails or needs a
+rescue is forgotten. Elements holding a fact value or page text are not kept,
+entries expire after 30 days unused, and none of it reaches the agent's memory
+or prompts. `[browser] learn_from_tasks` turns it off, and
+`modules.browser_forget_sites` forgets one site or all.
 
 ## Measured results
 
