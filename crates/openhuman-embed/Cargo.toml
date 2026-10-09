@@ -52,6 +52,10 @@ tinymcp-bus = { path = "../../vendor/tinymcp/crates/tinymcp-bus" }
 # conversations in its own database, and the in-memory provider; same path as
 # the core's so one copy resolves.
 tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
+# The wire request/response types `complete` converts to; same path as the
+# core's so one copy resolves.
+tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
+tinyinference-embeddings = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
 url = "2"
 uuid = { version = "1", features = ["v4"] }
