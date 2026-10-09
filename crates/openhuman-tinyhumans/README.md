@@ -21,18 +21,20 @@ Library products build through its `RuntimeBuilder`.
   openhuman-app    openhuman-tui    openhuman-cli    library products
         |                |                |                 |
         +----------------+-------+--------+-----------------+
-                                 |
+                                 |  install() or RuntimeBuilder
                                  v
-                      openhuman-tinyhumans   ----->  vendor/tinyhumans-sdk
-                       |       |       |                 (HTTP, routes,
-     install() --------+       |       +-- session/       auth headers)
-     RuntimeBuilder            |           (login owner)
-                               v
-                        openhuman-embed  (Runtime -> Agent facade)
-                               |
-                               v
-                        openhuman-core   (BackendTransport port,
-                                          controller registry)
+  +------------------------------------------------+
+  |              openhuman-tinyhumans              |
+  |  transport/  backend/  hosted/  session/  jev/ |
+  +------------------------------------------------+
+           |                               |
+           v                               v
+    openhuman-embed               vendor/tinyhumans-sdk
+  (Runtime -> Agent facade)       (HTTP, route registry,
+           |                       auth header shapes)
+           v
+    openhuman-core
+  (BackendTransport port, controller registry)
 ```
 
 The core has no `tinyhumans-sdk` dependency, and `cargo tree -p openhuman -i
