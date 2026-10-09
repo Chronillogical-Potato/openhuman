@@ -288,8 +288,8 @@ In short, the others are great for one person working with one agent. OpenHuman 
 | ----------------------- | -------------------- | -------------------- | -------------------- | -------------------- | ---------------------------------------- |
 | **Median task time**    | 37.8 s               | 36.1 s               | 62 s                 | 58.5 s               | 🚀 19.8 s                                 |
 | **Avg tokens per task** | 428k                 | 370k                 | 442k                 | 482k                 | 🚀 167k                                   |
-| **Peak memory**         | 231 MB               | 123 MB               | 1.57 GB              | 816 MB               | 🚀 68 MB                                  |
-| **Avg cost per task**   | $0.04                | $0.02                | $0.01                | $0.008               | 🚀 $0.0077                                |
+| **Peak memory per task** | 231 MB               | 123 MB               | 1.57 GB              | 816 MB               | 🚀 68 MB                                  |
+| **Avg cost per task**   | $0.04                | $0.02                | $0.01                | $0.0082              | 🚀 $0.0077                                |
 | **Open source**         | 🚫 Proprietary       | ✅ Apache-2.0        | ✅ MIT               | ✅ MIT               | ✅ GPL-3.0                               |
 | **Agent fleets**        | ⚠️ Process per agent | ⚠️ Process per agent | ⚠️ Process per agent | ⚠️ Process per agent | 🚀 500 agents on a $10 VPS               |
 | **Embeddable library**  | ⚠️ SDK over a CLI    | ⚠️ SDK over a CLI    | 🚫 None              | ⚠️ Python package    | 🚀 Typed Rust API                        |
