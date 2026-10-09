@@ -7,6 +7,7 @@ mod env;
 mod env_overlay;
 mod impl_load;
 mod migrate;
+mod parse;
 mod secrets;
 
 pub use active_workspace::active_workspace_dir_cached;
@@ -54,6 +55,7 @@ pub(crate) use super::Config;
 pub(crate) use dirs::ACTIVE_USER_STATE_FILE;
 #[cfg(test)]
 pub(crate) use impl_load::parse_config_with_recovery;
+pub(crate) use parse::config_from_toml_str;
 #[cfg(test)]
 pub(crate) use migrate::{migrate_cloud_provider_slugs, migrate_legacy_inference_url};
 #[cfg(test)]
