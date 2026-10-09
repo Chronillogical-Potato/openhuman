@@ -7,6 +7,7 @@
 //! *do* call `build()` are the ones that fail before it.
 
 use super::*;
+use openhuman_core::core::runtime::TokenSource;
 
 #[test]
 fn a_runtime_identifies_as_a_library_host_by_default() {
@@ -63,5 +64,84 @@ async fn a_blank_api_key_is_refused_before_the_slot_is_claimed() {
         .await
         .expect_err("blank key");
     assert!(matches!(err, RuntimeError::BlankApiKey), "{err:?}");
+    assert!(!RUNTIME_LIVE.load(std::sync::atomic::Ordering::Acquire));
+}
+
+#[test]
+fn token_defaults_to_env_or_file_and_is_overridable() {
+    assert!(matches!(RuntimeBuilder::new().token, TokenSource::EnvOrFile));
+    let fixed = RuntimeBuilder::new().token(TokenSource::Fixed(Arc::new("bearer".into())));
+    assert!(matches!(&fixed.token, TokenSource::Fixed(t) if t.as_str() == "bearer"));
+}
+
+#[test]
+fn listen_records_host_and_port_for_the_transport() {
+    let builder = RuntimeBuilder::new();
+    assert_eq!((builder.listen_host.as_deref(), builder.listen_port), (None, None));
+    let builder = RuntimeBuilder::new().listen("0.0.0.0", 9000);
+    assert_eq!(builder.listen_host.as_deref(), Some("0.0.0.0"));
+    assert_eq!(builder.listen_port, Some(9000));
+    let port_only = RuntimeBuilder::new().listen_port(7799);
+    assert_eq!((port_only.listen_host, port_only.listen_port), (None, Some(7799)));
+}
+
+#[test]
+fn raw_paths_are_recorded_beside_the_workspace_variant() {
+    let builder = RuntimeBuilder::new()
+        .workspace(Workspace::dir("/srv/oh/root"))
+        .workspace_dir("/srv/oh/state")
+        .action_dir("/srv/oh/action");
+    assert!(matches!(builder.workspace, Workspace::Dir(_)));
+    assert_eq!(builder.workspace_dir.as_deref(), Some(std::path::Path::new("/srv/oh/state")));
+    assert_eq!(builder.action_dir.as_deref(), Some(std::path::Path::new("/srv/oh/action")));
+    assert!(builder.validate().is_ok(), "Resolved accepts raw paths");
+}
+
+#[test]
+fn the_default_config_source_is_resolved() {
+    assert_eq!(RuntimeBuilder::new().config_source, ConfigSource::Resolved);
+}
+
+#[test]
+fn discovered_config_needs_the_inherited_workspace() {
+    let err = RuntimeBuilder::new()
+        .config_source(ConfigSource::Discovered)
+        .validate()
+        .expect_err("ephemeral + discovered");
+    assert!(matches!(err, RuntimeError::Invalid(ref m) if m.contains("Workspace::Inherit")), "{err:?}");
+}
+
+#[test]
+fn discovered_config_refuses_every_knob_that_edits_the_boot_config() {
+    let discovered = || {
+        RuntimeBuilder::new()
+            .workspace(Workspace::Inherit)
+            .config_source(ConfigSource::Discovered)
+    };
+    assert!(discovered().validate().is_ok());
+    let cases: Vec<(&str, RuntimeBuilder)> = vec![
+        ("config", discovered().config(openhuman_core::config::Config::default())),
+        ("backend_url", discovered().backend_url("http://127.0.0.1:1")),
+        ("workspace_dir", discovered().workspace_dir("/tmp/never-created")),
+        ("action_dir", discovered().action_dir("/tmp/never-created")),
+        ("api_key", discovered().api_key("th_live_x")),
+    ];
+    for (knob, builder) in cases {
+        let err = builder.validate().expect_err(knob);
+        assert!(
+            matches!(err, RuntimeError::Invalid(ref m) if m.contains(knob)),
+            "{knob}: {err:?}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_refused_discovered_build_releases_the_slot() {
+    let err = RuntimeBuilder::new()
+        .config_source(ConfigSource::Discovered)
+        .build()
+        .await
+        .expect_err("invalid");
+    assert!(matches!(err, RuntimeError::Invalid(_)), "{err:?}");
     assert!(!RUNTIME_LIVE.load(std::sync::atomic::Ordering::Acquire));
 }
