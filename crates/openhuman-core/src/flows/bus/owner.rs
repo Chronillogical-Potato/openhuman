@@ -20,6 +20,11 @@ static OWNERS: LazyLock<Mutex<HashMap<String, Option<String>>>> = LazyLock::new(
 pub(super) async fn flow_owner(config: &Config, flow_id: &str) -> Option<String> {
     // No backend: every record is `local`.
     crate::storage::installed()?;
+    resolve(config, flow_id).await
+}
+
+/// [`flow_owner`]'s cache and lookup, across whatever scopes exist.
+async fn resolve(config: &Config, flow_id: &str) -> Option<String> {
     let cached = OWNERS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
