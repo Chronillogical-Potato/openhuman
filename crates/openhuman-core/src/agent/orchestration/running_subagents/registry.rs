@@ -27,10 +27,10 @@ use tokio::sync::watch;
 use tokio::task::AbortHandle;
 
 use crate::agent::tinyagents::host::steering::shared_steering_registry;
-use tinyagents_graph::orchestration::DetachedTaskRegistry;
 use tinyagents_harness::ids::TaskId;
 use tinyagents_harness::run_queue::RunQueue;
 use tinyagents_harness::CancellationToken;
+use tinyagents_tasks::DetachedTaskRegistry;
 
 use super::task_ledger::{record_spawned, task_store_for_workspace};
 use tinyagents_orchestration::subagent::{
@@ -110,7 +110,9 @@ pub(crate) fn register(
 ) {
     if let Some(thread_id) = parent_thread_id.as_deref() {
         if crate::agent::orchestration::background_completions::mark_stopped_task_if_thread_stopped(
-            thread_id, &task_id,
+            &workspace_dir,
+            thread_id,
+            &task_id,
         ) {
             // Stop landed after the child was spawned but before this registry
             // entry existed. The completion is tombstoned above; abort promptly
@@ -122,6 +124,9 @@ pub(crate) fn register(
                 thread_id
             );
         }
+        // First spawn in a workspace this process has not scanned: redeliver any
+        // completions a previous process finished there but never delivered.
+        crate::agent::orchestration::background_delivery::recover_on_boot(&workspace_dir);
     }
 
     // Typed lifecycle ledger: record the spawn and mirror the child's terminal

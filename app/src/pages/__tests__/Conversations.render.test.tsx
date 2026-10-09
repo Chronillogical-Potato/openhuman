@@ -896,6 +896,13 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
   });
 
   it('recalls the last prompt with ArrowUp and switches the placeholder while running', async () => {
+    let finishChatSend: (() => void) | undefined;
+    vi.mocked(chatSend).mockImplementationOnce(
+      () =>
+        new Promise<string | undefined>(resolve => {
+          finishChatSend = () => resolve(undefined);
+        })
+    );
     const { textarea } = await renderSelectedConversation();
 
     await submitComposerText(textarea, 'recall me later');
@@ -908,6 +915,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       fireEvent.keyDown(textarea, { key: 'ArrowUp' });
     });
     await waitFor(() => expect(textarea.textContent).toBe('recall me later'));
+    await act(async () => finishChatSend?.());
   });
 
   it('persists a local user message and sends through chat service for valid input', async () => {

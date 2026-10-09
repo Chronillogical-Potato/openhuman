@@ -21,6 +21,11 @@
       "id": "tinycomputer",
       "expect": "v0.9.1-2-g2b0ee5c",
       "reason": "Pin carries the cpal 0.18 bump (tinycomputer#72, needed so cpal shares alsa-sys with tinyvoice) past the release tag; re-pin to the next release of this module."
+    },
+    {
+      "id": "tinybox",
+      "expect": "v0.1.15-2-g392a1f07",
+      "reason": "Pin carries the Seatbelt process-group fix (tinybox#24) merged after the v0.1.15 release; re-pin to the next tinybox release containing it and delete this entry."
     }
   ]
 }

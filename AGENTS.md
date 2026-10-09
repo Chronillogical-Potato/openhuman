@@ -17,9 +17,9 @@ Architecture: [overview](gitbooks/developing/architecture.md),
 | `crates/openhuman-core/` | Package `openhuman`: business domains under `src/<domain>/`, the controller contract, dispatch and auth under `src/core/` |
 | `crates/openhuman-core/src/<domain>/` | Flat business-domain modules (agent, memory, tools, security, channels, ...) |
 | `crates/openhuman-core/src/core/` | CLI, controller contract (`Outcome`, schemas) and in-process dispatch, controller registry, event bus, runtime composition; no business logic and no JSON-RPC server |
-| `crates/openhuman-cli/` | The `openhuman-core` binary (`src/main.rs`), the developer/benchmark bins (`src/bin/`), and every root `tests/*.rs` / `examples/*.rs` target; depends on `openhuman-tinyhumans` for the backend transport the core does not carry |
+| `crates/openhuman-cli/` | The `openhuman-core` binary (`src/main.rs`), the developer bins (`src/bin/`), and every root `tests/*.rs` / `examples/*.rs` target; depends on `openhuman-tinyhumans` for the backend transport the core does not carry |
 | `crates/openhuman-embed/` | Typed library facade for embedding the core in another product |
-| `crates/openhuman-rpc/` | JSON-RPC 2.0 over the core: envelopes, HTTP client, and the server (router, Socket.IO, listener, `run_server*`) used by app, CLI and TUI; plus `session_store` (`session-store` feature), the on-disk session store (`session_raw/`, `session_db/`, `tinyagents_store/`, turn states) behind TinyAgents' session store port, which the app, CLI and TUI install. Core and embed reach session state through the port (`agent::session_store`); a few legacy paths still fall back to workspace files when no store is installed |
+| `crates/openhuman-rpc/` | JSON-RPC 2.0 over the core: envelopes, HTTP client, and the server (router, Socket.IO, listener, `run_server*`) used by app, CLI and TUI; plus `session_store` (`session-store` feature), the on-disk session store (`session_raw/`, `session_db/`, `tinyagents_store/`, turn states) behind TinyAgents' session store port, which the app, CLI and TUI install. Core and embed reach session state through the port (`agent::session_store`); a few legacy paths still fall back to workspace files when no store is installed. With a storage URL (`OPENHUMAN_STORAGE_URL` / `[storage] url`), `install_for_host` installs TinyAgents' `DriverSessionStores` over that backend instead (core `storage` domain) |
 | `crates/openhuman-tinyhumans/` | The TinyHumans layer above embed: SDK-backed backend transport, a `RuntimeBuilder` that boots connected, and the host-side login/session owner (login-token exchange, `/auth/me`, current-user cache, credential handoff) used by app and TUI |
 | `crates/openhuman-tui/` | Standalone terminal frontend |
 | `tests/` | Rust integration and JSON-RPC tests |
@@ -349,8 +349,13 @@ Additional rules:
 - Domain tools live with their domain and are re-exported through
   `crates/openhuman-core/src/tools/mod.rs`. Keep only cross-cutting tools in
   `tools/impl/`.
-- Stable memory collection scope belongs in `metadata.path_scope`; item IDs
-  are deduplication keys.
+- Memory scope comes from the namespace, never from metadata or model
+  arguments: `memory::scope` resolves the acting identity to a layout root
+  and memory agent id, and under layout v3 the engine is bound with
+  `EngineSettings::scope_root` = `user:<id>` (`memory::scope::user_root`),
+  below which TinyMemory places `ws:`/`source:`/`agent:` nodes and
+  `app:<kind>` leaves (`vendor/tinymemory/docs/architecture/cortex-layout.md`).
+  Item ids are deduplication keys.
 - Update `crates/openhuman-core/src/platform/about_app/` when user-visible capabilities
   change.
 - The controller contract lives in core: every domain operation returns
@@ -599,7 +604,22 @@ sits above `openhuman-embed` and is installed once per process
 `CoreBuilder::backend_transport`). A core with no transport installed runs
 agents, memory, tools and RPC without any TinyHumans connection and answers
 backend-touching calls with `BackendApiError::BackendUnavailable` /
-`BACKEND_UNAVAILABLE:`. Never add `tinyhumans-sdk` back to the core; the only
+`BACKEND_UNAVAILABLE:`.
+
+**Exception: hosted memory.** The `tinyhumans` memory engine does not go
+through `BackendTransport`. `memory/engine.rs` builds TinyMemory's CortexDB
+engine with `EngineSettings { endpoint, headers, scope_root, .. }` and
+`EngineCredential::Dynamic(HostBearer)`, and TinyMemory's own `reqwest`
+client (`tinymemory-integrations/src/cortex/transport`) calls the backend's
+`/memory/*` routes. The core supplies only the pieces: the endpoint from
+`backend::base_url` (or `[memory.engines.tinyhumans] endpoint`), the
+attribution headers (`x-sdk-name`, …) from `backend::attribution_headers`, and a `BearerSource`
+that calls `resolve_backend_credential` on every request. So memory needs a
+transport installed for the URL (unless an endpoint is configured), but none
+of its requests pass through it,
+and transport-level policy (route registry, `map_sdk_error`) does not apply
+to them. The `cortexdb` engine likewise calls CortexDB directly with the
+user's key. Never add `tinyhumans-sdk` back to the core; the only
 crate allowed to depend on it is `openhuman-tinyhumans` (`cargo tree -p
 openhuman -i tinyhumans-sdk` must stay empty). Every host that boots a core
 (`crates/openhuman-app/src/main.rs` and `lib.rs::run`,
@@ -708,3 +728,25 @@ serialization.
 - Standalone debugging uses `./target/debug/openhuman-core serve`. Public
   endpoints are `GET /health`, `GET /schema`, and `GET /events`, plus the
   debug-build-only `GET /dev/connect`.
+
+<!-- gitbook-agent-instructions:start -->
+
+## GitBook Documentation Editing
+
+This repository contains documentation synced with GitBook via Git Sync.
+
+Before editing GitBook-synced Markdown, YAML, or asset files, make sure the GitBook skill is available and up to date in your local agent environment. Prefer installing or updating it with:
+
+```bash
+npx skills add gitbookio/gitbook-skills
+```
+
+This command may add or update local agent skill files. Use them only as local agent instructions; do not commit those installed skill files or any tool-generated agent configuration unless the user explicitly asks for it.
+
+If `npx` is unavailable, load the skill from:
+
+https://gitbook.com/docs/skill.md
+
+When making changes, preserve GitBook sync metadata such as frontmatter, `SUMMARY.md`, `gitbook-docs.yaml`, `.gitbook/`, and asset links unless the requested edit explicitly requires changing them.
+
+<!-- gitbook-agent-instructions:end -->

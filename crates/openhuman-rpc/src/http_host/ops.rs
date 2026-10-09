@@ -273,7 +273,7 @@ pub async fn stop_all_hosted_dir_servers() {
 
 fn register_shutdown_hook_once() {
     SHUTDOWN_HOOK_REGISTERED.get_or_init(|| {
-        openhuman_core::core::shutdown::register(|| async {
+        crate::core_host::core::shutdown::register(|| async {
             stop_all_hosted_dir_servers().await;
         });
     });

@@ -21,7 +21,7 @@ use crate::web_chat::types::SessionCacheFingerprint;
 use tinyagents_session::transcript::TranscriptMessage;
 use tinytools_agent::dialect::TranscriptEntry;
 
-fn test_config(tmp: &tempfile::TempDir) -> Config {
+pub(super) fn test_config(tmp: &tempfile::TempDir) -> Config {
     let config = Config {
         workspace_dir: tmp.path().join("workspace"),
         action_dir: tmp.path().join("workspace"),
@@ -32,7 +32,7 @@ fn test_config(tmp: &tempfile::TempDir) -> Config {
     config
 }
 
-fn unique_thread(tag: &str) -> String {
+pub(super) fn unique_thread(tag: &str) -> String {
     format!("thread-checkout-{tag}-{}", uuid::Uuid::new_v4())
 }
 
@@ -86,7 +86,7 @@ fn prose(history: &[TranscriptEntry]) -> Vec<String> {
         .collect()
 }
 
-fn host_seeded_with(config: &Config, marker: &str) -> OpenHumanSessionHost {
+pub(super) fn host_seeded_with(config: &Config, marker: &str) -> OpenHumanSessionHost {
     let mut host = OpenHumanSessionHost::from_config_for_agent(config, "orchestrator").unwrap();
     host.seed_resume_from_messages(
         vec![
@@ -382,6 +382,7 @@ fn sample_fingerprint() -> SessionCacheFingerprint {
         provider_binding: "openhuman".to_string(),
         autonomy_signature: r#"{"approval_required":true,"action_dir":"/home/u/w"}"#.to_string(),
         model_registry_signature: r#"[{"id":"m","provider":"p","vision":false}]"#.to_string(),
+        workspace_dir: std::path::PathBuf::from("/ws/a"),
     }
 }
 
@@ -548,6 +549,54 @@ fn chat_agent_id_selects_the_web_chat_agent_and_defaults_to_the_orchestrator() {
         "orchestrator",
         "an unknown optional setting must not take web chat down"
     );
+}
+
+/// A host-authored turn adopts the thread's agent whatever settings built it,
+/// but never one built against another workspace: after a different user
+/// signs in, the old user's live session must not answer for the new one.
+#[tokio::test]
+async fn a_system_turn_never_adopts_an_agent_from_another_workspace() {
+    let tmp_a = tempfile::tempdir().unwrap();
+    let tmp_b = tempfile::tempdir().unwrap();
+    let config_a = test_config(&tmp_a);
+    let config_b = test_config(&tmp_b);
+    let thread_id = unique_thread("workspace");
+    let built_for_a =
+        super::build_session_fingerprint(&config_a, None, None, "orchestrator".into(), "chat");
+    checkin_session_agent(
+        &thread_id,
+        host_seeded_with(&config_a, "user-a-history"),
+        built_for_a,
+    )
+    .await;
+
+    let CheckedOutSession { agent, fingerprint } = checkout_session_agent(
+        &config_b,
+        super::super::SYSTEM_CLIENT_ID,
+        &thread_id,
+        None,
+        None,
+        None,
+        CheckoutPolicy::AdoptCached,
+    )
+    .await
+    .unwrap();
+    assert!(
+        !prose(&agent.history()).contains(&"user-a-history".to_string()),
+        "workspace B must not inherit workspace A's session"
+    );
+    assert_eq!(fingerprint.workspace_dir, config_b.workspace_dir);
+    evict(&thread_id).await;
+}
+
+#[test]
+fn fingerprint_diff_names_a_workspace_change() {
+    let base = sample_fingerprint();
+    let mut moved = base.clone();
+    moved.workspace_dir = std::path::PathBuf::from("/ws/b");
+    let diff = fingerprint_diff(&base, &moved);
+    assert_eq!(diff.len(), 1, "{diff:?}");
+    assert!(diff[0].starts_with("workspace_dir"), "{diff:?}");
 }
 
 /// Every checkout arms the reply language from THIS turn's locale, on a fresh

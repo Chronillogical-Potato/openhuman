@@ -17,6 +17,7 @@
 //! everything under its root, never another root's (another tenant's or
 //! team's). A `reach` in the model's filter is overwritten.
 
+use crate::tools::schema_cache::static_schema;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -317,37 +318,7 @@ impl Tool for MemoryTool {
     }
 
     fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string",
-                    "enum": ["recall", "fetch", "learn", "forget"],
-                    "description": "What to do."
-                },
-                "question": {"type": "string", "description": "recall: the question to answer from memory."},
-                "query": {"type": "string", "description": "fetch: what to search for."},
-                "mode": {"type": "string", "enum": ["hybrid", "keyword", "vector"], "description": "fetch: retrieval mode; only the engine's declared modes work (hybrid is always safe)."},
-                "filter": {"type": "object", "description": "recall/fetch: metadata filter, e.g. {\"kinds\": [\"learning\"], \"workspace\": \"/path\", \"repo\": \"owner/name\"}."},
-                "limit": {"type": "integer", "minimum": 1, "maximum": 100, "description": "recall/fetch: most results."},
-                "cursor": {"type": "string", "description": "fetch: next-page cursor."},
-                "refers_to": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "description": "recall/fetch: the local calendar dates the question is about, resolved against the Current Date & Time line. Set it whenever the question mentions or implies a time, in any language: \"yesterday\", \"last Saturday\", \"in March\", \"kal\", \"pichle hafte\", \"el viernes\". A single day has from == to. If a word can mean the past or the future (Hindi \"kal\"), cover both days. Prefer this over filter.observed_after/observed_before: those drop every memory recorded on another day, this only ranks the matching days first.",
-                    "properties": {
-                        "from": {"type": "string", "format": "date", "description": "First local date, YYYY-MM-DD."},
-                        "to": {"type": "string", "format": "date", "description": "Last local date, YYYY-MM-DD, inclusive."}
-                    },
-                    "required": ["from", "to"]
-                },
-                "text": {"type": "string", "description": "learn: the learning, one self-contained sentence."},
-                "kind": {"type": "string", "enum": ["preference", "fact", "procedure", "correction", "other"], "description": "learn: what kind of learning (default fact)."},
-                "confidence": {"type": "number", "minimum": 0, "maximum": 1, "description": "learn: confidence (default 0.8)."},
-                "ids": {"type": "array", "items": {"type": "string"}, "description": "forget: item ids to remove."}
-            },
-            "required": ["action"]
-        })
+        static_schema!(include_str!("parameters/memory.json"))
     }
 
     fn permission_level(&self) -> PermissionLevel {
@@ -391,3 +362,7 @@ mod tests;
 #[cfg(test)]
 #[path = "tools_agent_tests.rs"]
 mod agent_tests;
+
+#[cfg(test)]
+#[path = "tools_schema_tests.rs"]
+mod schema_tests;

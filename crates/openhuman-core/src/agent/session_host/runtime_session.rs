@@ -804,24 +804,17 @@ pub(super) async fn account_committed_turn_against_goal(
 pub(super) fn holistic_last_turn_usage(
     sidecar: &crate::agent::tinyagents::host::run_context::SessionTurnSidecar,
 ) -> crate::agent::tinyagents::host::LastTurnUsage {
-    let input_tokens = sidecar
-        .subagents
-        .iter()
-        .fold(sidecar.input_tokens, |total, entry| {
-            total.saturating_add(entry.usage.input_tokens)
-        });
-    let output_tokens = sidecar
-        .subagents
-        .iter()
-        .fold(sidecar.output_tokens, |total, entry| {
-            total.saturating_add(entry.usage.output_tokens)
-        });
-    let cached_input_tokens = sidecar
-        .subagents
-        .iter()
-        .fold(sidecar.cached_input_tokens, |total, entry| {
-            total.saturating_add(entry.usage.cached_input_tokens)
-        });
+    // Each count is the turn's own plus every synchronous child's.
+    let tokens = |own: u64, child: fn(&crate::agent::subagent_host::SubagentUsage) -> u64| {
+        sidecar.subagents.iter().fold(own, |total, entry| {
+            total.saturating_add(child(&entry.usage))
+        })
+    };
+    let input_tokens = tokens(sidecar.input_tokens, |usage| usage.input_tokens);
+    let output_tokens = tokens(sidecar.output_tokens, |usage| usage.output_tokens);
+    let cached_input_tokens = tokens(sidecar.cached_input_tokens, |usage| {
+        usage.cached_input_tokens
+    });
     let cost_usd = sidecar
         .subagents
         .iter()
@@ -835,6 +828,9 @@ pub(super) fn holistic_last_turn_usage(
         cost_usd,
         context_window: sidecar.context_window,
         subagents: sidecar.subagents.clone(),
+        // The session does not count these; a library turn that asked for a
+        // final-response report fills them in (`response_shape`).
+        reasoning_tokens: 0,
     }
 }
 
@@ -1133,8 +1129,7 @@ impl OpenHumanSessionHost {
                             .lock()
                             .unwrap_or_else(|poisoned| poisoned.into_inner())
                             .take_turn_inputs();
-                        let current_input =
-                            view.history.last().filter(|last| **last == request.input);
+                        let origin = options.run_context.data.origin.clone();
                         let (enriched, memory_turn) = futures::join!(
                             prelude.enrich_request(
                                 &original_user_message,
@@ -1147,7 +1142,8 @@ impl OpenHumanSessionHost {
                             Box::pin(prelude.memory_pre_turn(
                                 view.history,
                                 view.committed_turns,
-                                current_input,
+                                view.history.last().filter(|last| **last == request.input),
+                                origin,
                             )),
                         );
                         options.run_context.data.memory_turn = memory_turn;

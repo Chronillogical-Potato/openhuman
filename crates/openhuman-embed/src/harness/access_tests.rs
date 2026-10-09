@@ -170,3 +170,27 @@ fn the_approval_gate_switch_is_independent_of_the_tier() {
 
     assert!(Access::full().approval_gate(true).approval_gate_enabled());
 }
+
+/// The core ships the policy off, which makes every tier inert. A scoped-down
+/// access level must switch it on, or `readonly()` would still let the agent
+/// write files and run commands.
+#[test]
+fn restrictive_tiers_switch_the_policy_on() {
+    for access in [Access::readonly(), Access::supervised()] {
+        let mut config = openhuman_core::config::Config::default();
+        config.autonomy.enabled = false;
+        access.apply(&mut config);
+        assert!(config.autonomy.enabled, "{access:?} must enable the policy");
+    }
+}
+
+/// `full()` leaves the switch where the base config put it.
+#[test]
+fn full_access_keeps_the_configured_policy_switch() {
+    for enabled in [false, true] {
+        let mut config = openhuman_core::config::Config::default();
+        config.autonomy.enabled = enabled;
+        Access::full().apply(&mut config);
+        assert_eq!(config.autonomy.enabled, enabled);
+    }
+}

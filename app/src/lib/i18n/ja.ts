@@ -352,9 +352,6 @@ const messages: TranslationMap = {
   // Chat / Conversations
   'chat.newThread': '新しいスレッド',
   'chat.newConversation': '新しい会話',
-  'chat.sidebar.searchPlaceholder': '会話を検索',
-  'chat.sidebar.clearSearch': '検索をクリア',
-  'chat.sidebar.noMatches': '一致する会話はありません',
   'chat.sidebar.group.pinned': 'ピン留め',
   'chat.sidebar.group.today': '今日',
   'chat.sidebar.group.yesterday': '昨日',
@@ -515,6 +512,12 @@ const messages: TranslationMap = {
   'connections.browser.routeDirect': 'OpenRouterへ直接接続',
   'connections.browser.routeHosted': 'ホスト型プロキシ',
   'connections.browser.testInConversation': '保存後、会話からページをテストしてください。',
+  'connections.browser.learning': 'タスクが学ぶこと',
+  'connections.browser.learnFromTasks': '完了したタスクから学ぶ',
+  'connections.browser.learnHint':
+    '完了したタスクが使ったプランとページ要素をサイトごとに保存し、次回そのサイトでのタスクを早く始められるようにします。OpenHuman のコアが動作するワークスペースに保存され、チャットのメモリーには保存されません。',
+  'connections.browser.forgetSites': '学習したサイトを消去',
+  'connections.browser.sitesForgotten': '消去したサイト: {count}',
   'connections.browser.save': '設定を保存',
   'connections.browser.saved': '設定を保存しました',
   'connections.browser.testBrowser': 'Chromeをテスト',
@@ -726,7 +729,7 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f2': 'トークン圧縮により、利用量をさらに効率的に使用',
   'onboarding.runtimeChoice.cloud.f3': '1つのサブスクリプションで、すべてのモデルを利用可能',
   'onboarding.runtimeChoice.cloud.f4': 'モデル、検索、Composioのキーを管理する必要はありません',
-  'onboarding.runtimeChoice.cloud.f5': 'ローカルメモリーツリー、マネージドネットワークサービス',
+  'onboarding.runtimeChoice.cloud.f5': 'ホスト型メモリー、マネージドネットワークサービス',
   'onboarding.runtimeChoice.custom.title': 'カスタム実行',
   'onboarding.runtimeChoice.custom.tagline':
     '独自のキーを持ち込み、OpenHumanが呼び出すサービスを選択します。',
@@ -858,8 +861,7 @@ const messages: TranslationMap = {
   // Accounts
   'accounts.disconnect': '接続解除',
   'accounts.disconnectClearMemory': 'このソースからのメモリーも削除する',
-  'accounts.disconnectClearMemoryHint':
-    'この接続に関連付けられたローカルのメモリーチャンクを完全に削除します。',
+  'accounts.disconnectClearMemoryHint': 'この接続から保存されたメモリーを完全に削除します。',
 
   // Channels
   'channels.title': 'チャンネル',
@@ -2327,6 +2329,10 @@ const messages: TranslationMap = {
   'commandPalette.placeholder': 'コマンドを入力または検索…',
   'commandPalette.searchAria': 'コマンドを検索',
   'commandPalette.title': 'コマンドパレット',
+  'commandPalette.group.conversations': '会話',
+  'commandPalette.group.messages': 'メッセージ',
+  'commandPalette.searchingMessages': 'メッセージを検索中…',
+  'commandPalette.untitledConversation': '無題の会話',
   'kbd.ariaLabel': 'キーボードショートカット: {shortcut}',
   'shortcuts.title': 'キーボードショートカット',
   'shortcuts.subtitle': 'これらのキーボードショートカットでワークフローを高速化します。',
@@ -2476,10 +2482,10 @@ const messages: TranslationMap = {
   'conversations.composer.mention.files': 'ファイル',
   'conversations.todos.title': 'ToDo',
   'chat.todos.completed': '完了',
-  'chat.todos.ofTotal': '{total}件中 {done}件',
+  'chat.todos.ofTotal': '{done} / {total} 件',
   'chat.todos.receipt': '進捗を更新しました · {done}/{total}',
   'chat.subagents.ranFor': '{duration}間実行',
-  'chat.subagents.ofTotal': '{total}件中 {complete}件',
+  'chat.subagents.ofTotal': '{complete} / {total} 件',
   'chat.subagents.runningCount': '{count}件実行中',
   'chat.subagents.failedCount': '{count}件失敗',
   'chat.subagents.incompleteCount': '{count}件未完了',
@@ -4723,6 +4729,36 @@ const messages: TranslationMap = {
   'skills.detail.author': '作成者',
   'skills.detail.license': 'ライセンス',
   'skills.detail.description': '説明',
+  'skills.detail.overview': '概要',
+  'skills.registry.firstFetchHint':
+    'スキルカタログを読み込んでいます。初回の取得には1分ほどかかることがあります。',
+  'skills.registry.refreshing': '最新のコピーを読み込む間、保存済みのカタログを表示しています。',
+  'skills.registry.offline': 'オフライン：{time} に保存したカタログを表示しています。',
+  'skills.registry.offlineNoTime': 'オフライン：保存済みのカタログを表示しています。',
+  'skills.registry.unreachable':
+    'スキルレジストリに接続できませんでした。接続を確認して、もう一度お試しください。',
+  'skills.registry.rateLimited':
+    'スキルレジストリが混み合っています。{seconds} 秒後にもう一度お試しください。',
+  'skills.registry.rateLimitedShortly':
+    'スキルレジストリが混み合っています。しばらくしてからもう一度お試しください。',
+  'skills.registry.viewSource': 'ソースを表示',
+  'skills.registry.noDirectDownload':
+    'このエントリにはダウンロードできる SKILL.md がありません。別の方法でインストールするには、ソースページを開いてください。',
+  'skills.registry.upstreamAmbiguous':
+    'この名前のスキルを複数の作者が公開しており、カタログにはどれのことか記載がないため、自動ではインストールできません。',
+  'skills.scan.title': 'セキュリティスキャンがこのスキルをブロックしました',
+  'skills.scan.description':
+    'OpenHuman は {name} を2回ダウンロードしてスキャンし、セキュリティスキャンは2回ともブロックしました。インストールされていません。',
+  'skills.scan.findingsLabel': 'スキャンで見つかった内容',
+  'skills.scan.warning':
+    '入手元を信頼できる場合にのみインストールしてください。ブロックが安全な選択です。',
+  'skills.scan.block': 'インストールをブロック',
+  'skills.scan.installAnyway': 'それでもインストール',
+  'skills.scan.verdictBlock': 'ブロック',
+  'skills.scan.verdictWarn': '警告',
+  'skills.scan.declinedTitle': 'インストールをブロックしました',
+  'skills.scan.declinedHint':
+    'セキュリティスキャンがブロックしたため、スキルはインストールされませんでした。',
   'skills.run.title': 'ワークフロー',
   'skills.detail.source': 'ソース URL',
   'skills.detail.tags': 'タグ',
@@ -5353,28 +5389,44 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'メモリーはオフです',
   'memoryPage.off.description': 'メモリプロバイダーを選ぶと記憶を始めます。',
   'memoryPage.off.action': 'プロバイダーを選ぶ',
+  'memoryPage.disabled.title': 'メモリーは無効です',
+  'memoryPage.disabled.description':
+    'OpenHuman は何も保存・想起していません。メモリーを再び有効にするにはプロバイダーを選択してください。',
+  'memoryPage.engine.disabled.title': '無効',
+  'memoryPage.engine.disabled.description':
+    'メモリーを完全にオフにします。何も保存・想起されず、接続設定はそのまま保持されます。',
+  'memoryPage.engine.disabled.action': 'メモリーを無効にする',
+  'memoryPage.engine.disabled.banner':
+    '何も保存・想起されていません。メモリーを再び有効にするには、下のプロバイダーを選択してください。',
+  'memoryPage.engine.disabled.toast': 'メモリーを無効にしました',
+  'memoryPage.engine.disabled.toastFailed': 'メモリーを無効にできませんでした',
   'memoryPage.engine.inUse': '使用中',
-  'memoryPage.announcement.title': 'CortexDB でメモリ無制限',
+  'memoryPage.announcement.title': 'CortexDB でメモリ推論が無料',
   'memoryPage.announcement.retired': 'TinyCortex は 10 月 7 日に廃止されました。',
-  'memoryPage.announcement.highlight': 'CortexDB への移行は無料、利用は無制限です。',
-  'memoryPage.announcement.rest': 'より速く賢く、データが学習に使われることはありません。',
+  'memoryPage.announcement.highlight': '移行は無料、メモリの推論に料金はかかりません。',
+  'memoryPage.announcement.rest':
+    'Basic は 1 GB、Pro は 20 GB のメモリストレージ付き。より速く賢く、データが学習に使われることはありません。',
   'memoryPage.announcement.dismiss': '閉じる',
+  'memoryPage.alphaNotice':
+    '早期アルファ版: メモリはテスト中です。想起、インポート、ストレージが予期せず動作したり、リリース間で変更されたりする場合があります。',
   'memoryPage.engine.cortex.description':
     'ランク付きの想起と根拠のある回答を備えたメモリエンジン。',
   'memoryPage.engine.chip.label': 'CortexDB の接続方法',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': '無制限',
+  'memoryPage.engine.chip.free': '無料',
   'memoryPage.engine.chip.apikey': '自分の CortexDB キー',
   'memoryPage.engine.chip.selfhost': 'ローカル',
-  'memoryPage.engine.fairUse.summary': 'フェアユースが適用されます',
+  'memoryPage.engine.fairUse.summary': '無料のメモリ推論について',
+  'memoryPage.engine.quota.plan': '{plan} プランには {storage} のメモリストレージが含まれます。',
+  'memoryPage.engine.quota.all': 'Basic は 1 GB、Pro は 20 GB のメモリストレージ付き。',
+  'memoryPage.engine.quota.inference': 'メモリの推論に料金はかかりません。',
+  'memoryPage.engine.fairUse.heading': 'フェアユース',
   'memoryPage.engine.offPrompt': '下のプロバイダーを選ぶと記憶を始めます。',
-  'memoryPage.engine.builtin.cardDescription': 'TinyHumans がホストします。設定は不要です。',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'ご自身の CortexDB アカウントで使う CortexDB のマネージドサービス。',
-  'memoryPage.engine.selfHost.cardDescription':
-    'ご自身で動かす CortexDB サーバー。記憶はこのコンピューターに保存されます。',
-  'memoryPage.engine.freeIngestion.notePlan': '{plan} プランでメモリ無制限',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic・Pro プランでメモリ無制限',
+  'memoryPage.engine.builtin.summaryPlan': '{plan} プランでメモリ推論が無料。TinyHumans がホスト。',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'Basic・Pro でメモリ推論が無料。TinyHumans がホスト。',
+  'memoryPage.engine.apiKeyOption.connected': 'CortexDB の API キーで接続済み。',
+  'memoryPage.engine.selfHost.connected': '{endpoint} の CortexDB に接続済み。',
   'memoryPage.engine.fairUse.own': 'ご自身のコンテンツを、ご自身の用途で取り込んでください。',
   'memoryPage.engine.fairUse.noAbuse':
     '自動の一括アップロード、スクレイピング、他の人やサービスのための取り込みは禁止です。',
@@ -5463,19 +5515,19 @@ const messages: TranslationMap = {
   'memoryPage.sourceKind.link': 'リンク',
   'memoryPage.sourceKind.github': 'GitHubリポジトリ',
   'memoryPage.sourceKind.rss': 'RSSフィード',
-  'memoryPage.sourceKind.composio': 'Composioアプリ',
   'memoryPage.sourceTarget.folder': '/path/to/folder',
   'memoryPage.sourceTarget.file': '/path/to/file.md',
   'memoryPage.sourceTarget.link': 'https://example.com/page',
   'memoryPage.sourceTarget.github': 'owner/repo',
   'memoryPage.sourceTarget.rss': 'https://example.com/feed.xml',
-  'memoryPage.sourceTarget.composio': 'Composioアプリ（例: notion）',
   'memoryPage.sourceStatus.idle': '待機中',
   'memoryPage.sourceStatus.syncing': '同期中',
   'memoryPage.sourceStatus.error': 'エラー',
   'memoryPage.tabs.brain': 'ドキュメント',
   'memoryPage.tabs.background': 'アクティビティ',
   'memoryPage.tabs.settings': '設定',
+  'memoryPage.tabs.migration': '移行',
+  'memoryPage.header.migration': '以前のバージョンのメモリーを CortexDB に取り込み、整理します。',
   'memoryPage.header.brain': 'すべてのエージェントが共有するドキュメントを、ソース別に整理します。',
   'memoryPage.header.background':
     'メモリーがバックグラウンドで行う信念の生成とドキュメントのインポート。',
@@ -5596,6 +5648,31 @@ const messages: TranslationMap = {
     'すべてのエージェントが共有するルートと、このアプリが使うエージェントです。',
   'memoryPage.settings.root': 'ルート',
   'memoryPage.settings.agentId': 'エージェント',
+  'memoryPage.settings.eraseTitle': 'メモリーの消去',
+  'memoryPage.settings.eraseAction': 'すべてのメモリーを消去',
+  'memoryPage.settings.eraseDescription':
+    'このアカウントについて OpenHuman が覚えているすべてを完全に削除します。元に戻すことはできません。',
+  'memoryPage.settings.eraseConfirmTitle': 'すべてのメモリーを消去しますか？',
+  'memoryPage.settings.eraseConfirmBody':
+    'このアカウントについて OpenHuman が覚えているすべてが完全に削除されます：接続したすべてのソース、過去の会話、学習内容、事実。接続と設定はそのまま残ります。',
+  'memoryPage.settings.eraseIrreversible':
+    '元に戻すことはできません。消去したメモリーは復元できません。',
+  'memoryPage.settings.eraseConfirmCheck': 'すべてのメモリーが完全に削除されることを理解しました。',
+  'memoryPage.settings.eraseConfirm': 'すべて消去',
+  'memoryPage.settings.erasing': '消去中…',
+  'memoryPage.settings.erasedToast': 'すべてのメモリーを消去しました',
+  'memoryPage.settings.erasedToastBody': 'OpenHuman はこのアカウントについて何も覚えていません。',
+  'memoryPage.settings.eraseError.unsupported':
+    'ご利用のメモリーサービスは、まだすべてのメモリーの消去に対応していません。何も消去されていません。',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'アカウントのクレジットが不足しているため、現在メモリーを消去できません。チャージしてから再度お試しください。何も消去されていません。',
+  'memoryPage.settings.eraseError.memoryOff': 'メモリーがオフのため、消去するものはありません。',
+  'memoryPage.settings.eraseError.unavailable':
+    'メモリーが消去されたかどうか確認できませんでした。消去済みの可能性があります。再試行する前にご確認ください。',
+  'memoryPage.settings.eraseError.unauthorized':
+    'セッションの有効期限が切れました。再度サインインしてから、メモリーの消去をお試しください。',
+  'memoryPage.settings.eraseError.generic':
+    'メモリーを消去できませんでした。もう一度お試しください。',
   'memoryPage.settings.hostBound':
     'OpenHumanを動かすアプリが設定するため、ここでは変更できません。',
   'memoryPage.import.title': '以前のメモリーが見つかりました',
@@ -5610,10 +5687,15 @@ const messages: TranslationMap = {
   'memoryPage.import.done': '以前のメモリーをインポートしました',
   'memoryPage.import.failed': 'インポートできませんでした',
   'memoryPage.import.progress': '{total}件中{imported}件をインポート済み',
+  'memoryPage.import.none': 'このデバイスに以前のメモリーは見つかりませんでした。',
+  'memoryPage.import.doneBody': '以前のメモリーはすでに CortexDB にあります。',
+  'memoryPage.import.short': 'インポート',
   'memoryPage.migrate.title': 'メモリをアカウントに移動',
   'memoryPage.migrate.body':
     'このアップデート以前に保存されたメモリは、まだ以前の共有レイアウトにあります。バックグラウンドで自動的に移動されますが、今すぐ移動することもできます。',
   'memoryPage.migrate.action': '今すぐ移行',
+  'memoryPage.migrate.doneBody': 'メモリーはすでにアカウントにあります。',
+  'memoryPage.migrate.afterImport': 'インポート完了後に開始します。',
   'memoryPage.migrate.running': 'メモリを整理しています…',
   'memoryPage.migrate.progress': '{copied} 件を移動しました',
   'memoryPage.migrate.progressOne': '{copied} 件を移動しました',
@@ -5696,7 +5778,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'メモリー',
   'welcome.th.featureEmbeddings': '埋め込み',
   'welcome.th.featureBilling': '請求',
-  'welcome.th.credit': '最初に使える5ドル分のクレジット',
   'welcome.th.cta': 'TinyHumansで続ける',
   'welcome.th.providers': 'Google、GitHub、Xでサインイン',
   'welcome.self.title': '自分で設定する',

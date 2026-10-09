@@ -458,7 +458,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'Pamięć',
   'welcome.th.featureEmbeddings': 'Embeddingi',
   'welcome.th.featureBilling': 'Rozliczenia',
-  'welcome.th.credit': '5 $ kredytu na start',
   'welcome.th.cta': 'Kontynuuj z TinyHumans',
   'welcome.th.providers': 'Zaloguj się przez Google, GitHub lub X',
   'welcome.self.title': 'Skonfiguruję to sam',
@@ -500,9 +499,6 @@ const messages: TranslationMap = {
     'Nie udało się przełączyć na darmowe modele OpenRouter. Sprawdź logowanie do OpenRouter i spróbuj ponownie.',
   'chat.newThread': 'Nowy wątek',
   'chat.newConversation': 'Nowa rozmowa',
-  'chat.sidebar.searchPlaceholder': 'Szukaj rozmów',
-  'chat.sidebar.clearSearch': 'Wyczyść wyszukiwanie',
-  'chat.sidebar.noMatches': 'Brak pasujących rozmów',
   'chat.sidebar.group.pinned': 'Przypięte',
   'chat.sidebar.group.today': 'Dzisiaj',
   'chat.sidebar.group.yesterday': 'Wczoraj',
@@ -625,6 +621,12 @@ const messages: TranslationMap = {
   'connections.browser.routeDirect': 'Bezpośredni OpenRouter',
   'connections.browser.routeHosted': 'Hostowany serwer proxy',
   'connections.browser.testInConversation': 'Po zapisaniu przetestuj stronę w rozmowie.',
+  'connections.browser.learning': 'Czego uczą się zadania',
+  'connections.browser.learnFromTasks': 'Ucz się z ukończonych zadań',
+  'connections.browser.learnHint':
+    'Zapisuje dla każdej witryny plan i elementy strony użyte przez ukończone zadanie, aby kolejne zadanie na niej startowało szybciej. Przechowywane w obszarze roboczym, w którym działa rdzeń OpenHuman, nigdy w pamięci czatu.',
+  'connections.browser.forgetSites': 'Zapomnij nauczone witryny',
+  'connections.browser.sitesForgotten': 'Zapomniane witryny: {count}',
   'connections.browser.save': 'Zapisz ustawienia',
   'connections.browser.saved': 'Ustawienia zapisane',
   'connections.browser.testBrowser': 'Sprawdź Chrome',
@@ -746,7 +748,7 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f3': 'Jedna subskrypcja, każdy model w komplecie',
   'onboarding.runtimeChoice.cloud.f4':
     'Brak kluczy modeli, wyszukiwarki i Composio do utrzymywania',
-  'onboarding.runtimeChoice.cloud.f5': 'Lokalne drzewo pamięci, zarządzane usługi sieciowe',
+  'onboarding.runtimeChoice.cloud.f5': 'Hostowana pamięć, zarządzane usługi sieciowe',
   'onboarding.runtimeChoice.custom.title': 'Niestandardowo',
   'onboarding.runtimeChoice.custom.tagline':
     'Przynieś własne klucze. Wybierz, które usługi OpenHuman ma wywoływać.',
@@ -851,8 +853,7 @@ const messages: TranslationMap = {
     'Przeglądaj, eksportuj lub czyść pamięć samodzielnie. Skonfiguruj w Ustawieniach › Pamięć.',
   'accounts.disconnect': 'Rozłącz',
   'accounts.disconnectClearMemory': 'Usuń też pamięć z tego źródła',
-  'accounts.disconnectClearMemoryHint':
-    'Trwale usuwa lokalne fragmenty pamięci powiązane z tym połączeniem.',
+  'accounts.disconnectClearMemoryHint': 'Trwale usuwa wspomnienia zapisane z tego połączenia.',
   'channels.title': 'Kanały',
   'channels.configure': 'Skonfiguruj kanał',
   'channels.setup': 'Konfiguracja',
@@ -2045,6 +2046,10 @@ const messages: TranslationMap = {
   'commandPalette.placeholder': 'Wpisz polecenie lub wyszukaj…',
   'commandPalette.searchAria': 'Szukaj poleceń',
   'commandPalette.title': 'Paleta poleceń',
+  'commandPalette.group.conversations': 'Rozmowy',
+  'commandPalette.group.messages': 'Wiadomości',
+  'commandPalette.searchingMessages': 'Wyszukiwanie wiadomości…',
+  'commandPalette.untitledConversation': 'Rozmowa bez tytułu',
   'kbd.ariaLabel': 'Skrót klawiszowy: {shortcut}',
   'shortcuts.title': 'Skróty klawiszowe',
   'shortcuts.subtitle': 'Przyspiesz swoją pracę dzięki tym skrótom klawiszowym.',
@@ -4077,6 +4082,36 @@ const messages: TranslationMap = {
   'skills.detail.author': 'Autor',
   'skills.detail.license': 'Licencja',
   'skills.detail.description': 'Opis',
+  'skills.detail.overview': 'Przegląd',
+  'skills.registry.firstFetchHint':
+    'Wczytywanie katalogu umiejętności. Pierwsze pobranie może potrwać minutę.',
+  'skills.registry.refreshing': 'Wyświetlany jest zapisany katalog, gdy wczytuje się świeża kopia.',
+  'skills.registry.offline': 'Offline: wyświetlany jest zapisany katalog z {time}.',
+  'skills.registry.offlineNoTime': 'Offline: wyświetlany jest zapisany katalog.',
+  'skills.registry.unreachable':
+    'Nie udało się połączyć z rejestrem umiejętności. Sprawdź połączenie i spróbuj ponownie.',
+  'skills.registry.rateLimited':
+    'Rejestr umiejętności jest przeciążony. Spróbuj ponownie za {seconds} s.',
+  'skills.registry.rateLimitedShortly':
+    'Rejestr umiejętności jest przeciążony. Spróbuj ponownie za chwilę.',
+  'skills.registry.viewSource': 'Zobacz źródło',
+  'skills.registry.noDirectDownload':
+    'Ten wpis nie ma pliku SKILL.md do pobrania. Otwórz jego stronę źródłową, aby zainstalować go w inny sposób.',
+  'skills.registry.upstreamAmbiguous':
+    'Kilku autorów publikuje umiejętność o tej nazwie, a katalog nie wskazuje, o którą chodzi, więc nie można jej zainstalować automatycznie.',
+  'skills.scan.title': 'Skan bezpieczeństwa zablokował tę umiejętność',
+  'skills.scan.description':
+    'OpenHuman dwukrotnie pobrał i przeskanował {name}, a skan bezpieczeństwa za każdym razem ją zablokował. Nie została zainstalowana.',
+  'skills.scan.findingsLabel': 'Co znalazł skan',
+  'skills.scan.warning':
+    'Instaluj tylko wtedy, gdy ufasz źródłu. Zablokowanie to bezpieczny wybór.',
+  'skills.scan.block': 'Zablokuj instalację',
+  'skills.scan.installAnyway': 'Zainstaluj mimo to',
+  'skills.scan.verdictBlock': 'Zablokowane',
+  'skills.scan.verdictWarn': 'Ostrzeżenie',
+  'skills.scan.declinedTitle': 'Instalacja zablokowana',
+  'skills.scan.declinedHint':
+    'Umiejętność nie została zainstalowana, ponieważ zablokował ją skan bezpieczeństwa.',
   'skills.detail.source': 'URL źródła',
   'skills.detail.tags': 'Tagi',
   'skills.detail.version': 'Wersja',
@@ -5104,30 +5139,46 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'Pamięć jest wyłączona',
   'memoryPage.off.description': 'Wybierz dostawcę pamięci, aby zacząć zapamiętywać.',
   'memoryPage.off.action': 'Wybierz dostawcę',
+  'memoryPage.disabled.title': 'Pamięć jest wyłączona',
+  'memoryPage.disabled.description':
+    'OpenHuman niczego nie zapisuje ani nie przywołuje. Wybierz dostawcę, aby ponownie włączyć pamięć.',
+  'memoryPage.engine.disabled.title': 'Wyłączona',
+  'memoryPage.engine.disabled.description':
+    'Całkowicie wyłącz pamięć. Nic nie jest zapisywane ani przywoływane, a Twoje połączenia zostają zachowane.',
+  'memoryPage.engine.disabled.action': 'Wyłącz pamięć',
+  'memoryPage.engine.disabled.banner':
+    'Nic nie jest zapisywane ani przywoływane. Wybierz dostawcę poniżej, aby ponownie włączyć pamięć.',
+  'memoryPage.engine.disabled.toast': 'Pamięć wyłączona',
+  'memoryPage.engine.disabled.toastFailed': 'Nie udało się wyłączyć pamięci',
   'memoryPage.engine.inUse': 'W użyciu',
-  'memoryPage.announcement.title': 'Nielimitowana pamięć w CortexDB',
+  'memoryPage.announcement.title': 'Darmowe wnioskowanie pamięci w CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex wycofano 7 paź.',
-  'memoryPage.announcement.highlight': 'Darmowa migracja i nielimitowane użycie w CortexDB.',
+  'memoryPage.announcement.highlight':
+    'Darmowa migracja, a wnioskowanie pamięci nigdy nie jest płatne.',
   'memoryPage.announcement.rest':
-    'Jest szybszy i inteligentniejszy, a Twoje dane nigdy nie służą do trenowania.',
+    'Basic obejmuje 1 GB miejsca na pamięć, a Pro 20 GB. Jest szybsza i mądrzejsza, a Twoje dane nigdy nie są używane do trenowania.',
   'memoryPage.announcement.dismiss': 'Zamknij',
+  'memoryPage.alphaNotice':
+    'Wczesna alfa: pamięć jest nadal testowana. Przywoływanie, importy i przechowywanie mogą działać nieoczekiwanie lub zmieniać się między wersjami.',
   'memoryPage.engine.cortex.description':
     'Silnik pamięci z rankingiem wyników i ugruntowanymi odpowiedziami.',
   'memoryPage.engine.chip.label': 'Jak połączyć CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': 'Bez limitu',
+  'memoryPage.engine.chip.free': 'Darmowa',
   'memoryPage.engine.chip.apikey': 'Twój klucz CortexDB',
   'memoryPage.engine.chip.selfhost': 'Lokalnie',
-  'memoryPage.engine.fairUse.summary': 'Obowiązuje uczciwe użytkowanie',
+  'memoryPage.engine.fairUse.summary': 'O darmowym wnioskowaniu pamięci',
+  'memoryPage.engine.quota.plan': 'Twój plan {plan} obejmuje {storage} miejsca na pamięć.',
+  'memoryPage.engine.quota.all': 'Basic obejmuje 1 GB miejsca na pamięć, a Pro 20 GB.',
+  'memoryPage.engine.quota.inference': 'Wnioskowanie pamięci nigdy nie jest płatne.',
+  'memoryPage.engine.fairUse.heading': 'Uczciwe użytkowanie',
   'memoryPage.engine.offPrompt': 'Wybierz dostawcę poniżej, aby zacząć zapamiętywać.',
-  'memoryPage.engine.builtin.cardDescription':
-    'Hostowane dla Ciebie przez TinyHumans. Nic nie trzeba konfigurować.',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'Zarządzana usługa CortexDB na Twoim własnym koncie CortexDB.',
-  'memoryPage.engine.selfHost.cardDescription':
-    'Serwer CortexDB uruchomiony przez Ciebie. Pamięć jest przechowywana na tym komputerze.',
-  'memoryPage.engine.freeIngestion.notePlan': 'Nielimitowana pamięć w planie {plan}',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Nielimitowana pamięć w planach Basic i Pro',
+  'memoryPage.engine.builtin.summaryPlan':
+    'Darmowe wnioskowanie pamięci w Twoim planie {plan}, hostowane przez TinyHumans.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'Darmowe wnioskowanie pamięci w planach Basic i Pro, hostowane przez TinyHumans.',
+  'memoryPage.engine.apiKeyOption.connected': 'Połączono za pomocą Twojego klucza API CortexDB.',
+  'memoryPage.engine.selfHost.connected': 'Połączono z CortexDB pod adresem {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Zapisuj własne treści na własny użytek.',
   'memoryPage.engine.fairUse.noAbuse':
     'Żadnych zautomatyzowanych masowych przesyłań, scrapingu ani zapisywania w imieniu innych osób lub usług.',
@@ -5237,19 +5288,20 @@ const messages: TranslationMap = {
   'memoryPage.sourceKind.link': 'Link',
   'memoryPage.sourceKind.github': 'Repozytorium GitHub',
   'memoryPage.sourceKind.rss': 'Kanał RSS',
-  'memoryPage.sourceKind.composio': 'Aplikacja Composio',
   'memoryPage.sourceTarget.folder': '/path/to/folder',
   'memoryPage.sourceTarget.file': '/path/to/file.md',
   'memoryPage.sourceTarget.link': 'https://example.com/page',
   'memoryPage.sourceTarget.github': 'owner/repo',
   'memoryPage.sourceTarget.rss': 'https://example.com/feed.xml',
-  'memoryPage.sourceTarget.composio': 'Aplikacja Composio, np. notion',
   'memoryPage.sourceStatus.idle': 'Bezczynne',
   'memoryPage.sourceStatus.syncing': 'Synchronizacja',
   'memoryPage.sourceStatus.error': 'Błąd',
   'memoryPage.tabs.brain': 'Dokumenty',
   'memoryPage.tabs.background': 'Aktywność',
   'memoryPage.tabs.settings': 'Ustawienia',
+  'memoryPage.tabs.migration': 'Migracja',
+  'memoryPage.header.migration':
+    'Przenieś pamięć z wcześniejszych wersji do CortexDB i uporządkuj ją.',
   'memoryPage.header.brain':
     'Dokumenty wspólne dla wszystkich agentów, uporządkowane według pochodzenia.',
   'memoryPage.header.background':
@@ -5371,6 +5423,31 @@ const messages: TranslationMap = {
     'Korzeń wspólny dla wszystkich agentów oraz agent, jako którego działa ta aplikacja.',
   'memoryPage.settings.root': 'Korzeń',
   'memoryPage.settings.agentId': 'Agent',
+  'memoryPage.settings.eraseTitle': 'Wymaż pamięć',
+  'memoryPage.settings.eraseAction': 'Wymaż całą pamięć',
+  'memoryPage.settings.eraseDescription':
+    'Trwale usuwa wszystko, co OpenHuman pamięta dla tego konta. Tej operacji nie można cofnąć.',
+  'memoryPage.settings.eraseConfirmTitle': 'Wymazać całą pamięć?',
+  'memoryPage.settings.eraseConfirmBody':
+    'Spowoduje to trwałe usunięcie wszystkiego, co OpenHuman pamięta dla tego konta: każdego połączonego źródła, wcześniejszych rozmów, wniosków i faktów. Twoje połączenia i ustawienia pozostaną bez zmian.',
+  'memoryPage.settings.eraseIrreversible':
+    'Tej operacji nie można cofnąć. Wymazanej pamięci nie da się odzyskać.',
+  'memoryPage.settings.eraseConfirmCheck':
+    'Rozumiem, że cała moja pamięć zostanie trwale usunięta.',
+  'memoryPage.settings.eraseConfirm': 'Wymaż wszystko',
+  'memoryPage.settings.erasing': 'Wymazywanie…',
+  'memoryPage.settings.erasedToast': 'Cała pamięć została wymazana',
+  'memoryPage.settings.erasedToastBody': 'OpenHuman nie pamięta już niczego dla tego konta.',
+  'memoryPage.settings.eraseError.unsupported':
+    'Twoja usługa pamięci nie potrafi jeszcze wymazać całej pamięci. Nic nie zostało wymazane.',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'Na Twoim koncie skończyły się kredyty, więc teraz nie można wymazać pamięci. Doładuj konto i spróbuj ponownie. Nic nie zostało wymazane.',
+  'memoryPage.settings.eraseError.memoryOff': 'Pamięć jest wyłączona, więc nie ma czego wymazywać.',
+  'memoryPage.settings.eraseError.unavailable':
+    'Nie udało się potwierdzić, czy pamięć została wymazana. Mogła zostać; sprawdź, zanim spróbujesz ponownie.',
+  'memoryPage.settings.eraseError.unauthorized':
+    'Twoja sesja wygasła. Zaloguj się ponownie, a następnie spróbuj wymazać pamięć.',
+  'memoryPage.settings.eraseError.generic': 'Nie udało się wymazać pamięci. Spróbuj ponownie.',
   'memoryPage.settings.hostBound':
     'Aplikacja hostująca OpenHuman ustawia te wartości, więc nie można ich tu zmienić.',
   'memoryPage.import.title': 'Znaleziono poprzednią pamięć',
@@ -5388,10 +5465,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'Elementy, których nie udało się zaimportować: {count}.',
   'memoryPage.import.retryFailed': 'Ponów nieudane elementy',
   'memoryPage.import.progress': 'Zaimportowano {imported} z {total} elementów',
+  'memoryPage.import.none': 'Na tym urządzeniu nie znaleziono wcześniejszej pamięci.',
+  'memoryPage.import.doneBody': 'Twoja wcześniejsza pamięć jest już w CortexDB.',
+  'memoryPage.import.short': 'Importuj',
   'memoryPage.migrate.title': 'Przenieś pamięć na swoje konto',
   'memoryPage.migrate.body':
     'Pamięć zapisana przed tą aktualizacją wciąż znajduje się w starym wspólnym układzie. Jest przenoszona automatycznie w tle albo możesz przenieść ją teraz.',
   'memoryPage.migrate.action': 'Migruj teraz',
+  'memoryPage.migrate.doneBody': 'Twoja pamięć jest już na Twoim koncie.',
+  'memoryPage.migrate.afterImport': 'Rozpocznie się po zakończeniu importu.',
   'memoryPage.migrate.running': 'Porządkowanie Twojej pamięci…',
   'memoryPage.migrate.progress': 'Przeniesiono elementy: {copied}',
   'memoryPage.migrate.progressOne': 'Przeniesiono {copied} element',

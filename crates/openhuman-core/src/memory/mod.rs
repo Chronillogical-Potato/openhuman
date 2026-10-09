@@ -24,14 +24,18 @@ pub mod billing;
 pub mod brain;
 pub mod bus;
 pub mod channels;
+pub mod confine;
 pub(crate) mod convert;
+pub mod deletion;
 pub mod engine;
 pub mod error;
 pub mod explore;
+pub(crate) mod files;
 pub mod guard;
 pub mod import;
 pub mod layout_migration;
 pub mod lifecycle;
+pub mod local_root;
 pub mod ops;
 pub mod schemas;
 pub mod scope;
@@ -39,6 +43,7 @@ pub mod sources;
 pub mod status;
 pub mod tools;
 pub mod types;
+pub mod user_scope;
 
 #[cfg(test)]
 pub(crate) mod test_fixtures;

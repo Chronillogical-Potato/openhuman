@@ -116,6 +116,7 @@ async fn intercept_with_external_channel_origin_persists_and_ttl_denies() {
     let (gate, _dir, env) = expiry_gate().await;
     let gate = Arc::new(gate);
     let origin = AgentTurnOrigin::ExternalChannel {
+        sender_name: None,
         channel: "telegram".into(),
         sender: Some("tg-user-1".into()),
         reply_target: "tg-chat-1".into(),

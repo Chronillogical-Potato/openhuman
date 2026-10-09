@@ -137,16 +137,65 @@ pub fn user_facing_error(error: &str) -> String {
             "Web search is rate limited right now. Wait a moment and try again.".to_string()
         }
         Some(code) if code == errors::UNAVAILABLE => SEARCH_EXHAUSTED_MESSAGE.to_string(),
+        Some(code) if code == errors::PROVIDER_UNAUTHORIZED => {
+            // The detail names the provider and its HTTP status; the module
+            // never puts the key or the query in it.
+            format!(
+                "Web search is unavailable: {}. Update the key under Connections → Search, or \
+                 remove it to use managed search.",
+                code_detail(error, code)
+            )
+        }
+        Some(code) if code == errors::BACKEND_UNAUTHORIZED => backend_unauthorized_message(false),
         Some(code) if code == errors::INVALID_ARGUMENTS => {
-            let marker = format!("{}{code}: ", errors::PREFIX);
-            let detail = error
-                .split_once(marker.as_str())
-                .map(|(_, detail)| detail)
-                .unwrap_or(error);
-            format!("The search request was rejected: {detail}")
+            format!(
+                "The search request was rejected: {}",
+                code_detail(error, code)
+            )
         }
         _ => format!("Web search failed: {error}"),
     }
+}
+
+/// The module's message after its `tinysearch.<code>: ` prefix.
+fn code_detail<'a>(error: &'a str, code: &str) -> &'a str {
+    let marker = format!("{}{code}: ", errors::PREFIX);
+    error
+        .split_once(marker.as_str())
+        .map(|(_, detail)| detail)
+        .unwrap_or(error)
+}
+
+/// What the model is told when the managed backend rejects the credential.
+pub(crate) fn backend_unauthorized_message(api_key: bool) -> String {
+    if api_key {
+        "Web search is unavailable: the TinyHumans backend rejected the configured API key. \
+         Check the key, or add your own provider key under Connections → Search."
+            .to_string()
+    } else {
+        "Web search is unavailable: the OpenHuman sign-in has expired. Sign in again to \
+         continue searching."
+            .to_string()
+    }
+}
+
+/// Recover from the managed backend rejecting the TinyHumans credential.
+///
+/// A rejected session is dead for every backend call, not just search, so
+/// publish `SessionExpired`: the credentials subscriber clears the token and
+/// the UI asks the user to sign in, the same recovery a backend 401 on
+/// inference or integrations drives. Before this, a user on their own
+/// inference key never saw that prompt and search kept failing on the stale
+/// token. A rejected API key has no session to expire, so it never signs the
+/// user out (`API_KEY_REJECTED` semantics).
+fn on_backend_unauthorized(tool: &str, api_key: bool) {
+    if api_key || crate::cron::scheduler_gate::is_signed_out() {
+        return;
+    }
+    crate::core::bus::BUS.publish(crate::core::events::DomainEvent::SessionExpired {
+        source: format!("search.{tool}"),
+        reason: "managed search backend rejected the session (401)".to_string(),
+    });
 }
 
 /// The classified error code in a module error message, if any.
@@ -216,8 +265,10 @@ impl Tool for TinySearchTool {
             return Ok(ToolResult::failed(SEARCH_EXHAUSTED_MESSAGE.to_string()));
         }
         let subject = super::render::subject(&args);
+        // `limit` is the module's alias for `max_results`.
         let max_results = args
             .get("max_results")
+            .or_else(|| args.get("limit"))
             .and_then(Value::as_u64)
             .map(|n| n as usize)
             .unwrap_or(config.search.max_results)
@@ -253,6 +304,16 @@ impl Tool for TinySearchTool {
             Err(error) => {
                 if exhausts_providers(&error) {
                     self.mark_exhausted_for(signature);
+                }
+                if error_code(&error) == Some(errors::BACKEND_UNAUTHORIZED) {
+                    let api_key = crate::security::credentials::api_key::has_api_key(&config);
+                    on_backend_unauthorized(&self.spec.name, api_key);
+                    tracing::warn!(
+                        tool = %self.spec.name,
+                        api_key,
+                        "[search][tool] managed backend rejected the TinyHumans credential"
+                    );
+                    return Ok(ToolResult::error(backend_unauthorized_message(api_key)));
                 }
                 tracing::warn!(
                     tool = %self.spec.name,

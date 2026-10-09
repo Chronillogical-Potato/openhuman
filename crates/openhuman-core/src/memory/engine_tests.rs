@@ -68,6 +68,9 @@ fn tinyhumans_with_a_local_session_token_is_off() {
 
 #[test]
 fn tinyhumans_with_the_host_credential_binds_and_caches() {
+    let _stable = CACHE_STABLE
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let tmp = tempfile::tempdir().unwrap();
     let mut config = config_in(&tmp);
     config
@@ -135,6 +138,9 @@ fn cortexdb_is_off_until_a_key_is_stored_and_rebuilds_on_a_new_key() {
 
 #[test]
 fn switching_observed_actor_rebuilds_the_cortexdb_engine() {
+    let _stable = CACHE_STABLE
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let tmp = tempfile::tempdir().unwrap();
     let mut config = config_in(&tmp);
     config.memory.engine = CORTEXDB_ENGINE.to_string();
@@ -231,7 +237,12 @@ fn user_config(tmp: &tempfile::TempDir, user: &str) -> Config {
 
 #[test]
 fn layout_v3_binds_its_own_engine_beside_legacy() {
+    let _stable = CACHE_STABLE
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let tmp = tempfile::tempdir().unwrap();
+    // A user id of its own: the credential store is shared by id, so another
+    // test storing a key for the same id would change the fingerprint.
     let mut config = user_config(&tmp, "6512ab0f6512ab0f6512ab0f");
     config.memory.engine = CORTEXDB_ENGINE.to_string();
     store_cortexdb_key(&config, "cdb-key-layout").unwrap();
@@ -246,7 +257,7 @@ fn layout_v3_binds_its_own_engine_beside_legacy() {
 
     // The migration holds both at once, whatever the setting says.
     let explicit_legacy = bind_with_root(&config, None).unwrap();
-    let explicit_v3 = bind_with_root(&config, Some("user:6512ab0f6512ab0f6512ab0f")).unwrap();
+    let explicit_v3 = bind_with_root(&config, Some("org:6512ab0f6512ab0f6512ab0f")).unwrap();
     assert!(Arc::ptr_eq(&explicit_legacy.engine, &legacy.engine));
     assert!(Arc::ptr_eq(&explicit_v3.engine, &v3.engine));
 }
@@ -293,19 +304,58 @@ fn an_installed_engine_has_one_layout_unless_one_is_installed_per_root() {
 
 #[test]
 fn a_root_sets_the_scope_root_its_owner_and_the_cache_key() {
-    let (settings, key) = rooted(EngineSettings::default(), Some("user:42"));
-    assert_eq!(settings.scope_root.as_deref(), Some("user:42"));
+    // CortexDB's own API: `org:<id>` is the root, owned by the actor.
+    let (settings, key) = rooted(EngineSettings::default(), Some("org:42"), false, false);
+    assert_eq!(settings.scope_root.as_deref(), Some("org:42"));
     assert_eq!(settings.scope_owner.as_deref(), Some("user:42"));
-    assert_eq!(key, "|root=user:42");
-    let (settings, key) = rooted(EngineSettings::default(), None);
+    assert!(!settings.tenant_root);
+    assert_eq!(settings.retired_scope_root, None);
+    assert_eq!(key, "|root=org:42|tenant=false|retired=-");
+    let (settings, key) = rooted(EngineSettings::default(), None, false, true);
     assert_eq!(settings.scope_root, None);
+    assert_eq!(settings.retired_scope_root, None);
     assert_eq!(key, "|root=legacy");
+}
+
+#[test]
+fn the_hosted_wire_sends_no_root_and_legacy_read_names_the_user_segment() {
+    // TinyHumans: the backend pins `org:<id>`; no root, no `user:` segment.
+    let (settings, key) = rooted(EngineSettings::default(), Some("org:42"), true, false);
+    assert!(settings.tenant_root);
+    assert_eq!(settings.scope_root, None);
+    assert_eq!(settings.scope_owner, None);
+    assert_eq!(settings.retired_scope_root, None);
+    // During the move, the earlier `user:<id>` root is read and forgotten.
+    let (settings, read_too) = rooted(EngineSettings::default(), Some("org:42"), true, true);
+    assert_eq!(settings.retired_scope_root.as_deref(), Some("user:42"));
+    assert_ne!(key, read_too, "the flag rebuilds the engine");
+    let (settings, _) = rooted(EngineSettings::default(), Some("org:42"), false, true);
+    assert_eq!(settings.retired_scope_root.as_deref(), Some("user:42"));
+}
+
+#[test]
+fn legacy_user_segment_read_is_on_by_default_and_written_only_when_off() {
+    let config = crate::config::MemoryConfig::default();
+    assert!(config.legacy_user_segment_read);
+    let on = toml::to_string(&config).unwrap();
+    assert!(!on.contains("legacy_user_segment_read"), "{on}");
+    let off = crate::config::MemoryConfig {
+        legacy_user_segment_read: false,
+        ..config
+    };
+    let written = toml::to_string(&off).unwrap();
+    assert!(
+        written.contains("legacy_user_segment_read = false"),
+        "{written}"
+    );
+    let read: crate::config::MemoryConfig = toml::from_str("").unwrap();
+    assert!(read.legacy_user_segment_read);
 }
 
 #[tokio::test]
 async fn switching_to_v3_persists_and_rebinds_the_persons_own_config() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut config = user_config(&tmp, "6512ab0f6512ab0f6512ab0f");
+    let mut config = user_config(&tmp, "6512ab0f6512ab0f6512ab10");
     config.memory.engine = CORTEXDB_ENGINE.to_string();
     config.save().await.unwrap();
     store_cortexdb_key(&config, "cdb-key-switch").unwrap();

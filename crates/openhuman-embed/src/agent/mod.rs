@@ -118,6 +118,9 @@ pub(crate) struct AgentInner {
     /// [`AgentSpec::tools`](super::AgentSpec::tools) for why it is a factory.
     pub(crate) host_tools: Option<openhuman_core::agent::HostTools>,
     pub(crate) lifecycle: lifecycle::Lifecycle,
+    /// Built from [`ToolScopeSpec::HostOnly`]: every turn's session is built
+    /// from the host tools alone.
+    pub(crate) host_only: bool,
 }
 
 impl AgentInner {

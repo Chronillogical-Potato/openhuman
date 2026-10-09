@@ -452,7 +452,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'मेमोरी',
   'welcome.th.featureEmbeddings': 'एम्बेडिंग',
   'welcome.th.featureBilling': 'बिलिंग',
-  'welcome.th.credit': 'शुरुआत के लिए $5 का क्रेडिट',
   'welcome.th.cta': 'TinyHumans के साथ जारी रखें',
   'welcome.th.providers': 'Google, GitHub या X से साइन इन करें',
   'welcome.self.title': 'मैं खुद सेट अप करूँगा',
@@ -493,9 +492,6 @@ const messages: TranslationMap = {
     'OpenRouter के मुफ्त मॉडल पर स्विच नहीं हो सका। अपना OpenRouter साइन-इन जांचें और फिर कोशिश करें।',
   'chat.newThread': 'नई थ्रेड',
   'chat.newConversation': 'नई बातचीत',
-  'chat.sidebar.searchPlaceholder': 'बातचीत खोजें',
-  'chat.sidebar.clearSearch': 'खोज साफ़ करें',
-  'chat.sidebar.noMatches': 'कोई मेल खाती बातचीत नहीं',
   'chat.sidebar.group.pinned': 'पिन की गई',
   'chat.sidebar.group.today': 'आज',
   'chat.sidebar.group.yesterday': 'कल',
@@ -616,6 +612,12 @@ const messages: TranslationMap = {
   'connections.browser.routeDirect': 'सीधा OpenRouter',
   'connections.browser.routeHosted': 'होस्टेड प्रॉक्सी',
   'connections.browser.testInConversation': 'सहेजने के बाद बातचीत में कोई पेज जाँचें।',
+  'connections.browser.learning': 'कार्य क्या सीखते हैं',
+  'connections.browser.learnFromTasks': 'पूरे हुए कार्यों से सीखें',
+  'connections.browser.learnHint':
+    'हर साइट के लिए वह योजना और पेज के तत्व सहेजता है जो किसी पूरे हुए कार्य ने इस्तेमाल किए, ताकि वहाँ अगला कार्य जल्दी शुरू हो। उस वर्कस्पेस में रखा जाता है जहाँ OpenHuman का कोर चलता है, चैट मेमोरी में कभी नहीं।',
+  'connections.browser.forgetSites': 'सीखी गई साइटें भूलें',
+  'connections.browser.sitesForgotten': 'भूली गई साइटें: {count}',
   'connections.browser.save': 'सेटिंग सहेजें',
   'connections.browser.saved': 'सेटिंग सहेजी गई',
   'connections.browser.testBrowser': 'Chrome जाँचें',
@@ -731,7 +733,7 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f2': 'ज़्यादा उपयोग के लिए टोकन कम्प्रेशन',
   'onboarding.runtimeChoice.cloud.f3': 'एक सब्सक्रिप्शन, हर मॉडल शामिल',
   'onboarding.runtimeChoice.cloud.f4': 'कोई API keys मैनेज नहीं करनी',
-  'onboarding.runtimeChoice.cloud.f5': 'सेटअप बेहद आसान',
+  'onboarding.runtimeChoice.cloud.f5': 'होस्ट की गई मेमोरी, प्रबंधित नेटवर्क सेवाएँ',
   'onboarding.runtimeChoice.custom.title': 'कस्टम रन करें',
   'onboarding.runtimeChoice.custom.tagline': 'अपनी keys लाएं। पूरा कंट्रोल आपके हाथ में।',
   'onboarding.runtimeChoice.custom.f1': 'लगभग हर चीज़ के लिए API keys चाहिए होंगी',
@@ -834,7 +836,7 @@ const messages: TranslationMap = {
   'accounts.disconnect': 'डिसकनेक्ट करें',
   'accounts.disconnectClearMemory': 'इस स्रोत की मेमोरी भी हटाएं',
   'accounts.disconnectClearMemoryHint':
-    'इस कनेक्शन से जुड़े स्थानीय मेमोरी खंड स्थायी रूप से हटा दिए जाएंगे।',
+    'इस कनेक्शन से सहेजी गई मेमोरी को स्थायी रूप से हटा देता है।',
   'channels.title': 'चैनल',
   'channels.configure': 'चैनल कॉन्फिगर करें',
   'channels.setup': 'सेटअप',
@@ -2021,6 +2023,10 @@ const messages: TranslationMap = {
   'commandPalette.placeholder': 'कोई कमांड टाइप करें या सर्च करें…',
   'commandPalette.searchAria': 'कमांड सर्च करें',
   'commandPalette.title': 'कमांड पैलेट',
+  'commandPalette.group.conversations': 'बातचीत',
+  'commandPalette.group.messages': 'संदेश',
+  'commandPalette.searchingMessages': 'संदेश खोजे जा रहे हैं…',
+  'commandPalette.untitledConversation': 'बिना शीर्षक की बातचीत',
   'kbd.ariaLabel': 'कीबोर्ड शॉर्टकट: {shortcut}',
   'shortcuts.title': 'कीबोर्ड शॉर्टकट',
   'shortcuts.subtitle': 'इन कीबोर्ड शॉर्टकट से अपने काम को तेज़ करें।',
@@ -4028,6 +4034,33 @@ const messages: TranslationMap = {
   'skills.detail.author': 'लेखक',
   'skills.detail.license': 'लाइसेंस',
   'skills.detail.description': 'विवरण',
+  'skills.detail.overview': 'सारांश',
+  'skills.registry.firstFetchHint':
+    'स्किल कैटलॉग लोड हो रहा है। पहली बार लाने में एक मिनट लग सकता है।',
+  'skills.registry.refreshing': 'नई कॉपी लोड होने तक सहेजा गया कैटलॉग दिखाया जा रहा है।',
+  'skills.registry.offline': 'ऑफ़लाइन: {time} का सहेजा गया कैटलॉग दिखाया जा रहा है।',
+  'skills.registry.offlineNoTime': 'ऑफ़लाइन: सहेजा गया कैटलॉग दिखाया जा रहा है।',
+  'skills.registry.unreachable':
+    'स्किल रजिस्ट्री तक नहीं पहुँच सके। अपना कनेक्शन जाँचें और फिर कोशिश करें।',
+  'skills.registry.rateLimited': 'स्किल रजिस्ट्री व्यस्त है। {seconds} सेकंड बाद फिर कोशिश करें।',
+  'skills.registry.rateLimitedShortly': 'स्किल रजिस्ट्री व्यस्त है। थोड़ी देर में फिर कोशिश करें।',
+  'skills.registry.viewSource': 'स्रोत देखें',
+  'skills.registry.noDirectDownload':
+    'इस प्रविष्टि में डाउनलोड करने के लिए कोई SKILL.md नहीं है। इसे दूसरे तरीके से इंस्टॉल करने के लिए इसका स्रोत पेज खोलें।',
+  'skills.registry.upstreamAmbiguous':
+    'इस नाम से एक से ज़्यादा लेखक स्किल प्रकाशित करते हैं और कैटलॉग यह नहीं बताता कि यह कौन-सी है, इसलिए इसे अपने आप इंस्टॉल नहीं किया जा सकता।',
+  'skills.scan.title': 'सुरक्षा स्कैन ने इस स्किल को ब्लॉक कर दिया',
+  'skills.scan.description':
+    'OpenHuman ने {name} को दो बार डाउनलोड और स्कैन किया, और दोनों बार सुरक्षा स्कैन ने इसे ब्लॉक किया। इसे इंस्टॉल नहीं किया गया है।',
+  'skills.scan.findingsLabel': 'स्कैन को क्या मिला',
+  'skills.scan.warning':
+    'इसे तभी इंस्टॉल करें जब आपको इसके स्रोत पर भरोसा हो। ब्लॉक करना सुरक्षित विकल्प है।',
+  'skills.scan.block': 'इंस्टॉल ब्लॉक करें',
+  'skills.scan.installAnyway': 'फिर भी इंस्टॉल करें',
+  'skills.scan.verdictBlock': 'ब्लॉक किया गया',
+  'skills.scan.verdictWarn': 'चेतावनी',
+  'skills.scan.declinedTitle': 'इंस्टॉल ब्लॉक किया गया',
+  'skills.scan.declinedHint': 'सुरक्षा स्कैन ने इसे ब्लॉक किया, इसलिए स्किल इंस्टॉल नहीं हुई।',
   'skills.detail.source': 'स्रोत URL',
   'skills.detail.tags': 'टैग्स',
   'skills.detail.version': 'संस्करण',
@@ -5036,29 +5069,45 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'मेमोरी बंद है',
   'memoryPage.off.description': 'याद रखना शुरू करने के लिए एक मेमोरी प्रदाता चुनें।',
   'memoryPage.off.action': 'प्रदाता चुनें',
+  'memoryPage.disabled.title': 'मेमोरी अक्षम है',
+  'memoryPage.disabled.description':
+    'OpenHuman कुछ भी सहेज या याद नहीं कर रहा है। मेमोरी फिर से चालू करने के लिए कोई प्रदाता चुनें।',
+  'memoryPage.engine.disabled.title': 'अक्षम',
+  'memoryPage.engine.disabled.description':
+    'मेमोरी पूरी तरह बंद करें। कुछ भी सहेजा या याद नहीं किया जाता, और आपके कनेक्शन बने रहते हैं।',
+  'memoryPage.engine.disabled.action': 'मेमोरी अक्षम करें',
+  'memoryPage.engine.disabled.banner':
+    'कुछ भी सहेजा या याद नहीं किया जा रहा है। मेमोरी फिर से चालू करने के लिए नीचे कोई प्रदाता चुनें।',
+  'memoryPage.engine.disabled.toast': 'मेमोरी अक्षम की गई',
+  'memoryPage.engine.disabled.toastFailed': 'मेमोरी अक्षम नहीं की जा सकी',
   'memoryPage.engine.inUse': 'इस्तेमाल में',
-  'memoryPage.announcement.title': 'CortexDB पर असीमित मेमोरी',
+  'memoryPage.announcement.title': 'CortexDB पर मुफ़्त मेमोरी इन्फ़रेंस',
   'memoryPage.announcement.retired': 'TinyCortex 7 अक्टूबर को बंद हुआ।',
-  'memoryPage.announcement.highlight': 'CortexDB पर मुफ़्त माइग्रेशन और असीमित उपयोग।',
+  'memoryPage.announcement.highlight':
+    'मुफ़्त माइग्रेशन, और मेमोरी इन्फ़रेंस का कभी शुल्क नहीं लिया जाता।',
   'memoryPage.announcement.rest':
-    'यह तेज़ और समझदार है, और आपका डेटा कभी ट्रेनिंग में इस्तेमाल नहीं होता।',
+    'Basic में 1 GB और Pro में 20 GB मेमोरी स्टोरेज शामिल है। यह तेज़ और ज़्यादा स्मार्ट है, और आपका डेटा कभी ट्रेनिंग के लिए इस्तेमाल नहीं होता।',
   'memoryPage.announcement.dismiss': 'बंद करें',
+  'memoryPage.alphaNotice':
+    'प्रारंभिक अल्फ़ा: मेमोरी का अभी परीक्षण हो रहा है। रिकॉल, इम्पोर्ट और स्टोरेज अप्रत्याशित रूप से व्यवहार कर सकते हैं या रिलीज़ के बीच बदल सकते हैं।',
   'memoryPage.engine.cortex.description': 'रैंक की गई रिकॉल और प्रमाणित जवाबों वाला मेमोरी इंजन।',
   'memoryPage.engine.chip.label': 'CortexDB कैसे कनेक्ट करें',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': 'असीमित',
+  'memoryPage.engine.chip.free': 'मुफ़्त',
   'memoryPage.engine.chip.apikey': 'आपकी CortexDB कुंजी',
   'memoryPage.engine.chip.selfhost': 'लोकल',
-  'memoryPage.engine.fairUse.summary': 'उचित उपयोग लागू है',
+  'memoryPage.engine.fairUse.summary': 'मुफ़्त मेमोरी इन्फ़रेंस के बारे में',
+  'memoryPage.engine.quota.plan': 'आपके {plan} प्लान में {storage} मेमोरी स्टोरेज शामिल है।',
+  'memoryPage.engine.quota.all': 'Basic में 1 GB और Pro में 20 GB मेमोरी स्टोरेज शामिल है।',
+  'memoryPage.engine.quota.inference': 'मेमोरी इन्फ़रेंस का कभी शुल्क नहीं लिया जाता।',
+  'memoryPage.engine.fairUse.heading': 'उचित उपयोग',
   'memoryPage.engine.offPrompt': 'याद रखना शुरू करने के लिए नीचे एक प्रदाता चुनें।',
-  'memoryPage.engine.builtin.cardDescription':
-    'TinyHumans द्वारा आपके लिए होस्ट किया गया। कुछ सेट अप नहीं करना है।',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'CortexDB की प्रबंधित सेवा, आपके अपने CortexDB खाते पर।',
-  'memoryPage.engine.selfHost.cardDescription':
-    'आपके द्वारा चलाया गया CortexDB सर्वर। मेमोरी इसी कंप्यूटर पर रहती है।',
-  'memoryPage.engine.freeIngestion.notePlan': 'आपके {plan} प्लान में असीमित मेमोरी',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic और Pro प्लान में असीमित मेमोरी',
+  'memoryPage.engine.builtin.summaryPlan':
+    'आपके {plan} प्लान में मुफ़्त मेमोरी इन्फ़रेंस, TinyHumans द्वारा होस्ट किया गया।',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'Basic और Pro में मुफ़्त मेमोरी इन्फ़रेंस, TinyHumans द्वारा होस्ट किया गया।',
+  'memoryPage.engine.apiKeyOption.connected': 'आपकी CortexDB API कुंजी से जुड़ा है।',
+  'memoryPage.engine.selfHost.connected': '{endpoint} पर CortexDB से जुड़ा है।',
   'memoryPage.engine.fairUse.own': 'अपनी सामग्री, अपने इस्तेमाल के लिए जोड़ें।',
   'memoryPage.engine.fairUse.noAbuse':
     'स्वचालित बल्क अपलोड, स्क्रैपिंग या दूसरों की ओर से इनजेस्शन नहीं।',
@@ -5167,19 +5216,20 @@ const messages: TranslationMap = {
   'memoryPage.sourceKind.link': 'लिंक',
   'memoryPage.sourceKind.github': 'GitHub रिपॉज़िटरी',
   'memoryPage.sourceKind.rss': 'RSS फ़ीड',
-  'memoryPage.sourceKind.composio': 'Composio ऐप',
   'memoryPage.sourceTarget.folder': '/path/to/folder',
   'memoryPage.sourceTarget.file': '/path/to/file.md',
   'memoryPage.sourceTarget.link': 'https://example.com/page',
   'memoryPage.sourceTarget.github': 'owner/repo',
   'memoryPage.sourceTarget.rss': 'https://example.com/feed.xml',
-  'memoryPage.sourceTarget.composio': 'Composio ऐप, जैसे notion',
   'memoryPage.sourceStatus.idle': 'निष्क्रिय',
   'memoryPage.sourceStatus.syncing': 'सिंक हो रहा है',
   'memoryPage.sourceStatus.error': 'त्रुटि',
   'memoryPage.tabs.brain': 'दस्तावेज़',
   'memoryPage.tabs.background': 'गतिविधि',
   'memoryPage.tabs.settings': 'सेटिंग',
+  'memoryPage.tabs.migration': 'माइग्रेशन',
+  'memoryPage.header.migration':
+    'पिछले संस्करणों की मेमोरी को CortexDB में लाएँ और व्यवस्थित करें।',
   'memoryPage.header.brain':
     'वे दस्तावेज़ जो हर एजेंट साझा करता है, उनके स्रोत के अनुसार सहेजे गए।',
   'memoryPage.header.background':
@@ -5300,6 +5350,32 @@ const messages: TranslationMap = {
     'वह रूट जो हर एजेंट साझा करता है और वह एजेंट जिसके रूप में यह ऐप चलता है।',
   'memoryPage.settings.root': 'रूट',
   'memoryPage.settings.agentId': 'एजेंट',
+  'memoryPage.settings.eraseTitle': 'मेमोरी मिटाएँ',
+  'memoryPage.settings.eraseAction': 'सारी मेमोरी मिटाएँ',
+  'memoryPage.settings.eraseDescription':
+    'इस खाते के लिए OpenHuman को जो कुछ भी याद है, वह सब स्थायी रूप से हटा देता है। इसे पूर्ववत नहीं किया जा सकता।',
+  'memoryPage.settings.eraseConfirmTitle': 'सारी मेमोरी मिटाएँ?',
+  'memoryPage.settings.eraseConfirmBody':
+    'इससे इस खाते के लिए OpenHuman को जो कुछ भी याद है, वह सब स्थायी रूप से हट जाएगा: हर जुड़ा हुआ स्रोत, पिछली बातचीत, सीख और तथ्य। आपके कनेक्शन और सेटिंग्स बने रहेंगे।',
+  'memoryPage.settings.eraseIrreversible':
+    'इसे पूर्ववत नहीं किया जा सकता। मिटाई गई मेमोरी वापस नहीं लाई जा सकती।',
+  'memoryPage.settings.eraseConfirmCheck':
+    'मैं समझता/समझती हूँ कि मेरी सारी मेमोरी स्थायी रूप से हटा दी जाएगी।',
+  'memoryPage.settings.eraseConfirm': 'सब कुछ मिटाएँ',
+  'memoryPage.settings.erasing': 'मिटाया जा रहा है…',
+  'memoryPage.settings.erasedToast': 'सारी मेमोरी मिटा दी गई',
+  'memoryPage.settings.erasedToastBody': 'OpenHuman को अब इस खाते के लिए कुछ भी याद नहीं है।',
+  'memoryPage.settings.eraseError.unsupported':
+    'आपकी मेमोरी सेवा अभी सारी मेमोरी नहीं मिटा सकती। कुछ भी नहीं मिटाया गया।',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'आपके खाते में क्रेडिट खत्म हो गए हैं, इसलिए अभी मेमोरी नहीं मिटाई जा सकती। टॉप अप करें और फिर से कोशिश करें। कुछ भी नहीं मिटाया गया।',
+  'memoryPage.settings.eraseError.memoryOff': 'मेमोरी बंद है, इसलिए मिटाने के लिए कुछ नहीं है।',
+  'memoryPage.settings.eraseError.unavailable':
+    'यह पुष्टि नहीं हो सकी कि मेमोरी मिटाई गई या नहीं। हो सकता है मिट गई हो; दोबारा कोशिश करने से पहले जाँच लें।',
+  'memoryPage.settings.eraseError.unauthorized':
+    'आपका सत्र समाप्त हो गया है। फिर से साइन इन करें, फिर अपनी मेमोरी मिटाने की कोशिश करें।',
+  'memoryPage.settings.eraseError.generic':
+    'आपकी मेमोरी नहीं मिटाई जा सकी। कृपया फिर से कोशिश करें।',
   'memoryPage.settings.hostBound':
     'OpenHuman को होस्ट करने वाला ऐप इन्हें तय करता है, इसलिए इन्हें यहाँ बदला नहीं जा सकता।',
   'memoryPage.import.title': 'पिछली मेमोरी मिली',
@@ -5317,10 +5393,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'जो आइटम इंपोर्ट नहीं हो सके: {count}।',
   'memoryPage.import.retryFailed': 'विफल आइटम फिर से आज़माएँ',
   'memoryPage.import.progress': '{total} में से {imported} आइटम इंपोर्ट हुए',
+  'memoryPage.import.none': 'इस डिवाइस पर कोई पिछली मेमोरी नहीं मिली।',
+  'memoryPage.import.doneBody': 'आपकी पिछली मेमोरी पहले से CortexDB में है।',
+  'memoryPage.import.short': 'इंपोर्ट करें',
   'memoryPage.migrate.title': 'मेमोरी को अपने खाते में ले जाएँ',
   'memoryPage.migrate.body':
     'इस अपडेट से पहले सहेजी गई मेमोरी अभी भी पुराने साझा लेआउट में है। यह बैकग्राउंड में अपने आप ले जाई जाती है, या आप इसे अभी ले जा सकते हैं।',
   'memoryPage.migrate.action': 'अभी माइग्रेट करें',
+  'memoryPage.migrate.doneBody': 'आपकी मेमोरी पहले से आपके खाते में है।',
+  'memoryPage.migrate.afterImport': 'इंपोर्ट पूरा होने के बाद शुरू होगा।',
   'memoryPage.migrate.running': 'आपकी मेमोरी व्यवस्थित की जा रही है…',
   'memoryPage.migrate.progress': '{copied} आइटम ले जाए गए',
   'memoryPage.migrate.progressOne': '{copied} आइटम ले जाया गया',

@@ -258,6 +258,29 @@ impl CostTracker {
         Ok(records)
     }
 
+    /// Every record timestamped in `[from, to]`, oldest first — the input to
+    /// [`super::report`]. The window is capped at 366 days, like the other
+    /// reads, so one call never scans more history than the dashboard does.
+    pub fn records_between(
+        &self,
+        from: chrono::DateTime<Utc>,
+        to: chrono::DateTime<Utc>,
+    ) -> Result<Vec<CostRecord>> {
+        let floor = to
+            .checked_sub_signed(Duration::days(366))
+            .ok_or_else(|| anyhow!("Usage report range underflowed"))?;
+        let from = from.max(floor);
+        let mut records: Vec<CostRecord> = Vec::new();
+        let storage = self.lock_storage();
+        storage.for_each_record(|record| {
+            if record.usage.timestamp >= from && record.usage.timestamp <= to {
+                records.push(record);
+            }
+        })?;
+        records.sort_by_key(|record| record.usage.timestamp);
+        Ok(records)
+    }
+
     /// Build the full dashboard payload: 7-day history, period total,
     /// projected monthly pace (daily avg × 30), and budget utilisation
     /// derived from the configured monthly limit and warn/alert thresholds.

@@ -33,8 +33,60 @@ pub(crate) fn parallel_in_flight() -> Arc<ParallelInFlight> {
     crate::core::runtime::current_slot::<ParallelInFlight>()
 }
 
+/// The map key for `thread_id` in the calling scope.
+///
+/// Thread ids are chosen by callers and are only unique per agent, so a turn
+/// running for an embedded agent ([`CoreContext::session_agent`]) is keyed
+/// `<agent>::<thread>`. Two agents that pick the same thread id then get two
+/// cache entries and two in-flight slots instead of sharing one live session.
+/// Outside an agent scope the key stays the bare thread id.
+///
+/// [`CoreContext::session_agent`]: crate::core::runtime::CoreContext::session_agent
 pub(crate) fn key_for(thread_id: &str) -> String {
-    thread_id.to_string()
+    let agent = crate::core::runtime::CoreContext::current()
+        .and_then(|context| context.session_agent().map(str::to_owned));
+    scoped_key(agent.as_deref(), thread_id)
+}
+
+/// `key` with the calling scope's agent prefix removed: the id the caller
+/// chose, for handing back to it.
+pub(crate) fn unscope(key: &str) -> String {
+    let agent = crate::core::runtime::CoreContext::current()
+        .and_then(|context| context.session_agent().map(str::to_owned));
+    match agent {
+        Some(agent) => key
+            .strip_prefix(&scoped_key(Some(&agent), ""))
+            .unwrap_or(key)
+            .to_string(),
+        None => key.to_string(),
+    }
+}
+
+/// Injective encoding of `(session_agent, thread_id)`. Both parts are caller
+/// controlled, so a plain `agent::thread` join would let `("a", "b::c")` and
+/// `("a::b", "c")` (or an unscoped `"a::b"`) share one slot. A scoped key is
+/// `\x1f<agent byte length>:<agent><thread>`; an unscoped key is the bare
+/// thread id, except that an id starting with `\x1f` gets a second `\x1f`
+/// prepended so it can never look like a scoped key.
+pub(crate) fn scoped_key(session_agent: Option<&str>, thread_id: &str) -> String {
+    match session_agent {
+        Some(agent) => format!("\u{1f}{}:{agent}{thread_id}", agent.len()),
+        None if thread_id.starts_with('\u{1f}') => format!("\u{1f}{thread_id}"),
+        None => thread_id.to_string(),
+    }
+}
+
+/// The thread id a [`scoped_key`] was built from, ignoring its agent scope.
+fn thread_id_of_key(key: &str) -> Option<&str> {
+    let Some(rest) = key.strip_prefix('\u{1f}') else {
+        return Some(key);
+    };
+    if rest.starts_with('\u{1f}') {
+        return Some(rest);
+    }
+    let (len, tail) = rest.split_once(':')?;
+    let len: usize = len.parse().ok()?;
+    tail.get(len..)
 }
 
 pub(crate) fn event_session_id_for(client_id: &str, thread_id: &str) -> String {
@@ -71,12 +123,26 @@ pub(crate) fn cancel_in_flight_gracefully(entry: InFlightEntry) -> String {
 }
 
 pub async fn invalidate_thread_sessions(thread_id: &str) {
+    // Under an embedded agent only that agent's entry goes. Outside an agent
+    // scope every entry for the thread in the current table goes.
+    let active_agent = crate::core::runtime::CoreContext::current()
+        .and_then(|context| context.session_agent().map(str::to_owned));
     let mut sessions = thread_sessions().lock_owned().await;
-    let keys_to_remove: Vec<String> = sessions
-        .keys()
-        .filter(|k| k.as_str() == thread_id || k.ends_with(&format!("::{thread_id}")))
-        .cloned()
-        .collect();
+    let keys_to_remove: Vec<String> = match active_agent {
+        Some(_) => {
+            let key = key_for(thread_id);
+            sessions
+                .contains_key(&key)
+                .then_some(key)
+                .into_iter()
+                .collect()
+        }
+        None => sessions
+            .keys()
+            .filter(|k| thread_id_of_key(k) == Some(thread_id))
+            .cloned()
+            .collect(),
+    };
     for key in &keys_to_remove {
         sessions.remove(key);
     }

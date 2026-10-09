@@ -340,6 +340,7 @@ pub(crate) async fn process_channel_runtime_message(
     // produce distinct origins, and the wallet preparer / parked-approval
     // gates compare these for equality before honouring confirmations.
     let turn_origin = crate::agent::turn_origin::AgentTurnOrigin::ExternalChannel {
+        sender_name: msg.sender_name.clone(),
         channel: msg.channel.clone(),
         sender: Some(msg.sender.clone()),
         reply_target: msg.reply_target.clone(),

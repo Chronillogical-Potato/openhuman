@@ -171,7 +171,7 @@ fn pooled(layout: MemoryLayout) -> MemoryLayout {
 }
 
 /// Where every agent's chats are under layout v3: `ws:main` below
-/// `layout`'s root. Relative to the engine's scope root (`user:<id>`), which
+/// `layout`'s root. Relative to the engine's scope root (`org:<id>`), which
 /// is not a namespace segment.
 #[must_use]
 pub fn chat_node(layout: &MemoryLayout) -> Namespace {
@@ -187,36 +187,65 @@ pub fn layout_is_v3(config: &Config) -> bool {
     config.memory.layout == MemoryLayoutMode::V3
 }
 
-/// The engine scope root of the person `config` belongs to: `user:<id>`
-/// for a TinyHumans account (its 24-hex id), `user:local-<digest>` for a
-/// local session (hashed, so no device name reaches the engine), and `None`
-/// before anyone signs in. Read from where the config lives
-/// (`<root>/users/<id>/config.toml`).
+/// The engine scope root of the person `config` belongs to: `org:<id>`
+/// for a TinyHumans account (its 24-hex id), `org:local-<install id>` for a
+/// local session (a random id recorded in the workspace, or the older
+/// hostname-derived id an existing install already keeps memory under; see
+/// [`super::local_root`]), and `None` before anyone signs in. Read from
+/// where the config lives (`<root>/users/<id>/config.toml`). One root per
+/// person, with no `user:` segment below it: `user:` names the person's
+/// actor ([`actor_of_root`]), which is also the retired root an existing
+/// install's memory is still read from during the move.
 #[must_use]
 pub fn user_root(config: &Config) -> Option<String> {
     let dir = config.config_path.parent()?;
     if dir.parent()?.file_name()? != "users" {
         return None;
     }
-    user_root_for(dir.file_name()?.to_str()?)
-}
-
-/// [`user_root`] for the user id `id`.
-fn user_root_for(id: &str) -> Option<String> {
-    use sha2::{Digest, Sha256};
+    let id = dir.file_name()?.to_str()?;
     if id.is_empty() || id == crate::config::PRE_LOGIN_USER_ID {
         return None;
     }
+    account_root(id).or_else(|| {
+        super::local_root::resolve(config, id).map(|recorded| org_of_recorded(&recorded))
+    })
+}
+
+/// `org:<id>` when `id` is a TinyHumans account id (24 hex digits).
+fn account_root(id: &str) -> Option<String> {
     let account = id.len() == 24 && id.bytes().all(|b| b.is_ascii_hexdigit());
-    if account {
-        return Some(format!("user:{}", id.to_ascii_lowercase()));
+    account.then(|| format!("{ROOT_TYPE}:{}", id.to_ascii_lowercase()))
+}
+
+/// The scope type of a person's root.
+const ROOT_TYPE: &str = "org";
+
+/// A recorded local root (`user:local-<id>`, the form the record file keeps
+/// so installs recorded before `org:` roots read back) as the person's
+/// `org:local-<id>` root. The `user:local-<id>` it came from is exactly the
+/// actor [`actor_of_root`] names, so memory an existing install keeps under
+/// that root (the old hostname-derived one included) is the retired root
+/// read during the move.
+fn org_of_recorded(recorded: &str) -> String {
+    match recorded.strip_prefix("user:") {
+        Some(id) => format!("{ROOT_TYPE}:{id}"),
+        None => recorded.to_string(),
     }
-    let digest: String = Sha256::digest(id.as_bytes())
-        .iter()
-        .take(8)
-        .map(|byte| format!("{byte:02x}"))
-        .collect();
-    Some(format!("user:local-{digest}"))
+}
+
+/// The actor that owns the person's root `root` (`org:<id>` → `user:<id>`).
+/// It is also where layout v3 rooted that person before `org:` roots: the
+/// retired root read during the move, and the account a legacy-tree claim
+/// names.
+#[must_use]
+pub fn actor_of_root(root: &str) -> String {
+    match root
+        .strip_prefix(ROOT_TYPE)
+        .and_then(|rest| rest.strip_prefix(':'))
+    {
+        Some(id) => format!("user:{id}"),
+        None => root.to_string(),
+    }
 }
 
 /// Switches the memory of the person `config` belongs to to layout v3:

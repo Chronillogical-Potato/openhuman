@@ -148,6 +148,7 @@ async fn run_single_with_timeout(
     let scoped_run = agent.run_single(prompt);
     let fut = with_origin(
         AgentTurnOrigin::ExternalChannel {
+            sender_name: None,
             channel: "voice".to_string(),
             sender: None,
             reply_target: correlation_id.to_string(),

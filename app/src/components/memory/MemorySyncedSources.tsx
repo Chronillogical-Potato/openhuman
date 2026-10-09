@@ -1,6 +1,6 @@
 /**
  * Memory → Brain → Synced sources: the registry of synced sources (folders, files, links,
- * GitHub repos, RSS feeds, Composio toolkits). Lists them with status, item
+ * GitHub repos, RSS feeds). Lists them with status, item
  * count, last sync and any error; adds, syncs one or all, and removes (with an
  * opt-in to forget the items the source stored).
  *

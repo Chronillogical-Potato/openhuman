@@ -822,11 +822,9 @@ async fn run_typed_mode(
     };
 
     let system_prompt = match &definition.system_prompt {
-        PromptSource::Dynamic(build) => {
-            build(&prompt_ctx).map_err(|e| SubagentRunError::PromptLoad {
-                path: format!("<dynamic:{}>", definition.id),
-                source: std::io::Error::other(e.to_string()),
-            })?
+        // The whole prompt, with no sub-agent sections around it.
+        PromptSource::Dynamic(_) | PromptSource::Verbatim(_) => {
+            load_prompt_source(&definition.system_prompt, &prompt_ctx)?
         }
         PromptSource::Inline(_) | PromptSource::File { .. } => {
             let archetype_prompt_body = load_prompt_source(&definition.system_prompt, &prompt_ctx)?;

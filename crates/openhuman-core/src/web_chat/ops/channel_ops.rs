@@ -182,6 +182,9 @@ pub async fn channel_web_chat(
     run_mode: Option<String>,
     metadata: ChatRequestMetadata,
 ) -> Result<Outcome<Value>, String> {
+    // A SaaS user chooses the thread id; the same rules as `threads_upsert`
+    // apply (no reserved prefixes, no path-like ids). No-op outside SaaS.
+    crate::user_agents::surface::check_thread_id(thread_id.trim())?;
     // Mirrors the socket `chat:start` payload's `run_mode` handling
     // (`openhuman_rpc::server::socketio`): apply it before starting the turn so
     // `plan_mode_middleware` sees the requested mode from the first tool

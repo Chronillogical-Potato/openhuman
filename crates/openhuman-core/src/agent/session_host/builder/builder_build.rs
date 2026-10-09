@@ -480,6 +480,8 @@ impl SessionHostBuilder {
             runtime_config,
             hosted_base,
             definition: None,
+            host_only: false,
+            untrusted_input: false,
             omit_memory_context: self.omit_memory_context.unwrap_or(false),
             payload_summarizer: self.payload_summarizer,
             tokenjuice_compression: self.tokenjuice_compression,

@@ -1,5 +1,5 @@
 use super::*;
-use crate::core::runtime::{ContextOverlay, DomainSet};
+use crate::core::runtime::{spawn_scoped, ContextOverlay, DomainSet};
 use crate::security::{AutonomyLevel, SecurityPolicy};
 use crate::tools::toolpacks::ToolGroups;
 

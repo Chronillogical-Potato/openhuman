@@ -14,9 +14,12 @@
 //! repeated calls reuse one HTTP client.
 //!
 //! **Layout.** Under `[memory] layout = "v3"` the engine keeps everything
-//! below the signed-in person's own scope root (`user:<id>`, see
-//! [`super::scope::user_root`]), registered as owned by them; otherwise the
-//! legacy shared tree. [`bind_with_root`] binds either layout explicitly,
+//! below the signed-in person's own scope root (`org:<id>`, see
+//! [`super::scope::user_root`]): on CortexDB's own API as its root,
+//! registered as owned by their actor `user:<id>`; on the TinyHumans wire as
+//! the tenant root the backend pins, so no root segment is sent. While
+//! `[memory] legacy_user_segment_read` is on, the earlier `user:<id>` root is
+//! read and forgotten as well. Otherwise the legacy shared tree. [`bind_with_root`] binds either layout explicitly,
 //! for the layout migration, which holds both at once.
 //!
 //! An embedding host can bring its own engine instead ([`install_host_engine`]):
@@ -50,6 +53,10 @@ pub const TINYHUMANS_ENGINE: &str = tinymemory_integrations::cortex::TINYHUMANS_
 
 /// Engine id of CortexDB reached directly.
 pub const CORTEXDB_ENGINE: &str = tinymemory_integrations::cortex::CORTEXDB_ENGINE_ID;
+
+/// Pseudo-engine id for memory turned off on purpose: nothing is bound, so
+/// nothing is stored or recalled until another engine is selected.
+pub const DISABLED_ENGINE: &str = "none";
 
 /// A bound engine. Its writes are scrubbed ([`super::guard`]).
 #[derive(Clone)]
@@ -120,6 +127,16 @@ pub(crate) fn install_test_engine(workspace: &std::path::Path, engine: Arc<dyn M
         .write()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .insert(workspace.to_path_buf(), engine);
+}
+
+/// Unbinds the test engine of `workspace`, so memory there is off again
+/// (tests only).
+#[cfg(test)]
+pub(crate) fn remove_test_engine(workspace: &std::path::Path) {
+    TEST_ENGINES
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .remove(workspace);
 }
 
 /// Test engines for one layout of a workspace (`None` legacy, `Some(root)`
@@ -204,7 +221,12 @@ pub fn resolve(config: &Config) -> Binding {
         }
     }
     if let Some(bound) = host_engine() {
-        return Binding::On(bound);
+        // A host engine is one store for the whole process: in SaaS it would
+        // put every user in one engine, so it is ignored there.
+        if !crate::core::runtime::is_saas() {
+            return Binding::On(bound);
+        }
+        tracing::warn!("[memory:engine] ignoring the host engine in SaaS mode");
     }
     let root = if super::scope::layout_is_v3(config) {
         match super::scope::user_root(config) {
@@ -218,8 +240,8 @@ pub fn resolve(config: &Config) -> Binding {
 }
 
 /// The engine the layout migration needs, for an explicit layout whatever
-/// `[memory] layout` says: `None` the legacy tree, `Some("user:<id>")` the
-/// person's v3 subtree, with `user:<id>` as its owner. Same endpoint,
+/// `[memory] layout` says: `None` the legacy tree, `Some("org:<id>")` the
+/// person's v3 subtree, with the actor `user:<id>` as its owner. Same endpoint,
 /// credential, headers and scrubbing as [`resolve`]; the two layouts are
 /// cached apart, so both can be held at once.
 ///
@@ -275,6 +297,7 @@ fn resolve_configured(config: &Config, root: Option<&str>) -> Binding {
     match engine_id.as_str() {
         TINYHUMANS_ENGINE => resolve_tinyhumans(config, root),
         CORTEXDB_ENGINE => resolve_cortexdb(config, root),
+        DISABLED_ENGINE => off(None, None, "memory is disabled"),
         "" => {
             let reason = if config.memory.legacy_backend_unsupported
                 || config.memory.legacy_backend.is_some()
@@ -311,15 +334,48 @@ fn off(engine: Option<&str>, endpoint: Option<String>, reason: &str) -> Binding 
     }
 }
 
-/// The engine settings' scope root and owner, and the fingerprint suffix
-/// that keeps each layout's engine apart in the cache.
-fn rooted(settings: EngineSettings, root: Option<&str>) -> (EngineSettings, String) {
-    let settings = EngineSettings {
-        scope_root: root.map(str::to_string),
-        scope_owner: root.map(str::to_string),
-        ..settings
+/// The engine settings' layout for the person's root `root` (`org:<id>`,
+/// `None` the legacy tree), and the fingerprint suffix that keeps each
+/// layout's engine apart in the cache. On the TinyHumans wire (`tenant`)
+/// the root is the tenant's own, pinned by the backend, so none is sent;
+/// on CortexDB's own API it is the root, owned by the actor `user:<id>`.
+/// With `legacy_read`, the earlier `user:<id>` root is still read and
+/// forgotten (never written).
+fn rooted(
+    settings: EngineSettings,
+    root: Option<&str>,
+    tenant: bool,
+    legacy_read: bool,
+) -> (EngineSettings, String) {
+    let Some(root) = root else {
+        return (settings, "|root=legacy".to_string());
     };
-    (settings, format!("|root={}", root.unwrap_or("legacy")))
+    let actor = super::scope::actor_of_root(root);
+    let retired = legacy_read.then(|| actor.clone());
+    let fingerprint = format!(
+        "|root={root}|tenant={tenant}|retired={}",
+        retired.as_deref().unwrap_or("-")
+    );
+    let settings = if tenant {
+        EngineSettings {
+            tenant_root: true,
+            retired_scope_root: retired,
+            ..settings
+        }
+    } else {
+        EngineSettings {
+            scope_root: Some(root.to_string()),
+            scope_owner: Some(actor),
+            retired_scope_root: retired,
+            ..settings
+        }
+    };
+    tracing::debug!(
+        tenant,
+        legacy_read,
+        "[memory:engine] binding layout v3 below the person's org root"
+    );
+    (settings, fingerprint)
 }
 
 fn resolve_tinyhumans(config: &Config, root: Option<&str>) -> Binding {
@@ -362,6 +418,8 @@ fn resolve_tinyhumans(config: &Config, root: Option<&str>) -> Binding {
             ..EngineSettings::default()
         },
         root,
+        true,
+        config.memory.legacy_user_segment_read,
     );
     build_cached(
         TINYHUMANS_ENGINE,
@@ -422,6 +480,8 @@ fn resolve_cortexdb(config: &Config, root: Option<&str>) -> Binding {
             ..EngineSettings::default()
         },
         root,
+        false,
+        config.memory.legacy_user_segment_read,
     );
     build_cached(
         CORTEXDB_ENGINE,
@@ -477,8 +537,18 @@ fn key_digest(key: &str) -> String {
         .collect()
 }
 
+/// Held for writing by a test that compares cached engines by identity, and
+/// for reading by [`invalidate`], so another test's invalidation (a layout
+/// switch, a key change) cannot clear the cache between its two binds.
+#[cfg(test)]
+pub(crate) static CACHE_STABLE: RwLock<()> = RwLock::new(());
+
 /// Drops every cached engine, so the next [`resolve`] rebuilds.
 pub fn invalidate() {
+    #[cfg(test)]
+    let _stable = CACHE_STABLE
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     CACHE
         .write()
         .unwrap_or_else(std::sync::PoisonError::into_inner)

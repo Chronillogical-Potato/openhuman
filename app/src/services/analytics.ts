@@ -107,6 +107,7 @@ const ALLOWED_EVENT_NAMES = [
   'live_voice_session_started',
   'live_voice_session_ended',
   'memory_engine_switched',
+  'memory_erased_all',
   'skill_install',
   'skill_uninstall',
   'tab_bar_change',

@@ -255,10 +255,10 @@ async fn old_brain_nodes_are_refiled_by_connector() {
         doc(
             "a drive doc",
             "source:google_drive",
-            SourceKind::Composio,
+            SourceKind::Import,
             None,
         ),
-        doc("a notion page", "source:notion", SourceKind::Composio, None),
+        doc("a notion page", "source:notion", SourceKind::Import, None),
     ] {
         legacy.store(item).await.unwrap();
     }

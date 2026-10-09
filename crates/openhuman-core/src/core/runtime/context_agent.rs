@@ -66,10 +66,4 @@ impl CoreContext {
     pub fn agent_state(&self) -> &super::super::agent_scope::AgentScopedState {
         &self.agent.state
     }
-
-    /// The task-local context, without falling back to the process default.
-    /// `None` outside any [`scope`](Self::scope).
-    pub fn scoped() -> Option<Arc<CoreContext>> {
-        CURRENT_CONTEXT.try_with(Arc::clone).ok()
-    }
 }

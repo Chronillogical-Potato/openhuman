@@ -1,5 +1,5 @@
 //! Engine-facing operations: list and select engines, recall, fetch, learn,
-//! forget and list items.
+//! forget, erase everything and list items.
 //!
 //! Every operation takes the [`Config`] it runs against, so the RPC handlers
 //! (which load config per call) and the agent tool (which carries its
@@ -8,18 +8,20 @@
 
 use chrono::Utc;
 use tinymemory_api::{
-    FetchRequest, ForgetTarget, ItemId, LearningKind, ListRequest, MemoryMeta, RecallRequest,
-    StoreItem, StoreReceipt, TimeHint, WriteOptions,
+    EraseRequest, FetchRequest, ForgetTarget, ItemId, LearningKind, ListRequest, MemoryMeta,
+    MetaFilter, RecallRequest, StoreItem, StoreReceipt, TimeHint, WriteOptions,
 };
 
 use crate::config::Config;
 
-use super::engine::{self, Binding, BoundEngine, CORTEXDB_ENGINE, TINYHUMANS_ENGINE};
+use super::engine::{
+    self, Binding, BoundEngine, CORTEXDB_ENGINE, DISABLED_ENGINE, TINYHUMANS_ENGINE,
+};
 use super::error::{MemoryError, MemoryResult};
 use super::types::{
-    clamp_limit, EngineSetParams, EngineStatus, EngineView, EnginesListView, FetchParams,
-    FetchView, ForgetParams, ForgetView, ItemsListParams, ItemsListView, LearnParams, LearnView,
-    RecallParams, RecallView, RefersTo,
+    clamp_limit, EngineSetParams, EngineStatus, EngineView, EnginesListView, EraseAllParams,
+    EraseAllView, FetchParams, FetchView, ForgetParams, ForgetView, ItemsListParams, ItemsListView,
+    LearnParams, LearnView, RecallParams, RecallView, RefersTo,
 };
 
 /// Default confidence of a learning stored without one.
@@ -85,6 +87,19 @@ pub async fn engine_get(config: &Config) -> EngineView {
 /// store for a key). The caller persists `config`.
 pub fn apply_engine_set(config: &mut Config, params: &EngineSetParams) -> MemoryResult<()> {
     let engine_id = params.engine.trim();
+    if engine_id == DISABLED_ENGINE {
+        // Turning memory off keeps every engine's endpoint and key, so
+        // switching back needs no re-entry.
+        if params.endpoint.is_some() || params.api_key.is_some() {
+            return Err(MemoryError::invalid(
+                "disabling memory takes no endpoint or API key",
+            ));
+        }
+        config.memory.engine = DISABLED_ENGINE.to_string();
+        engine::invalidate();
+        tracing::info!("[memory:ops] memory disabled");
+        return Ok(());
+    }
     if !tinymemory_integrations::list_engines()
         .iter()
         .any(|descriptor| descriptor.id == engine_id)
@@ -158,7 +173,7 @@ pub async fn recall(config: &Config, params: RecallParams) -> MemoryResult<Recal
     let bound = bound(config)?;
     let request = RecallRequest {
         question: params.question,
-        filter: params.filter.unwrap_or_default(),
+        filter: confine_filter(config, params.filter.unwrap_or_default()),
         limit: clamp_limit(params.limit),
         instructions: None,
         refers_to: time_hint(config, params.refers_to)?,
@@ -195,7 +210,7 @@ pub async fn fetch(config: &Config, params: FetchParams) -> MemoryResult<FetchVi
     let request = FetchRequest {
         query: params.query,
         mode,
-        filter: params.filter.unwrap_or_default(),
+        filter: confine_filter(config, params.filter.unwrap_or_default()),
         limit: clamp_limit(params.limit),
         cursor: params.cursor,
         beliefs: 0,
@@ -299,7 +314,10 @@ pub async fn learn_with(
 }
 
 /// Scrubs `item` and stores it on the bound engine.
-pub async fn store_item(config: &Config, item: StoreItem) -> MemoryResult<StoreReceipt> {
+pub async fn store_item(config: &Config, mut item: StoreItem) -> MemoryResult<StoreReceipt> {
+    if let Some(root) = super::user_scope::confinement(config) {
+        super::user_scope::clamp_item(&mut item, &root);
+    }
     let bound = bound(config)?;
     store_on(&bound, item).await
 }
@@ -358,7 +376,12 @@ pub async fn forget(config: &Config, params: ForgetParams) -> MemoryResult<Forge
         return Err(MemoryError::invalid("forget needs at least one id"));
     }
     let bound = bound(config)?;
-    let ids = match params.reach {
+    // A SaaS user forgets only what lies in their own tree.
+    let reach = match super::user_scope::confinement(config) {
+        Some(root) => Some(super::user_scope::clamp_reach(params.reach, &root)),
+        None => params.reach,
+    };
+    let ids = match reach {
         Some(reach) => within_reach(&bound, ids, reach).await?,
         None => ids,
     };
@@ -370,6 +393,42 @@ pub async fn forget(config: &Config, params: ForgetParams) -> MemoryResult<Forge
     tracing::debug!(engine = %bound.id, forgotten = report.forgotten, "[memory:ops] forget");
     Ok(ForgetView {
         forgotten: report.forgotten,
+    })
+}
+
+/// `memory_erase_all`: erases everything the bound engine holds, the whole
+/// tree, every kind. Needs `confirm: true`.
+///
+/// On the hosted engine this is one `DELETE /memory`, which erases the
+/// caller's entire hosted memory (every scope under their tenant, the
+/// pre-v3 layout's included). On CortexDB reached directly it erases every
+/// kind scope of the bound layout (the person's `org:<id>` subtree under
+/// layout v3, and the retired `user:<id>` one while it is still read); a legacy tree is left alone, because on a self-hosted CortexDB
+/// other accounts may share it (see `layout_migration`). An engine that
+/// cannot erase answers `UNSUPPORTED`.
+pub async fn erase_all(config: &Config, params: EraseAllParams) -> MemoryResult<EraseAllView> {
+    if !params.confirm {
+        return Err(MemoryError::invalid(
+            "erasing all memory needs confirm: true; nothing erased comes back",
+        ));
+    }
+    let bound = bound(config)?;
+    let mut request = EraseRequest::new(tinymemory_api::Reach::subtree(
+        tinymemory_api::Namespace::ROOT,
+    ));
+    request.whole_tree = true;
+    tracing::info!(engine = %bound.id, "[memory:ops] erase_all: erasing the whole memory");
+    let report = bound.engine.erase(request).await.map_err(|error| {
+        tracing::warn!(engine = %bound.id, error = %error, "[memory:ops] erase_all failed");
+        MemoryError::from(error)
+    })?;
+    tracing::info!(
+        engine = %bound.id,
+        erased_scopes = report.erased_scopes,
+        "[memory:ops] erase_all: done"
+    );
+    Ok(EraseAllView {
+        erased_scopes: report.erased_scopes,
     })
 }
 
@@ -398,16 +457,32 @@ async fn within_reach(
 pub async fn items_list(config: &Config, params: ItemsListParams) -> MemoryResult<ItemsListView> {
     let bound = bound(config)?;
     let request = ListRequest {
-        filter: super::explore::narrowed(params.filter, &params.path)?,
+        filter: confine_filter(
+            config,
+            super::explore::narrowed(params.filter, &params.path)?,
+        ),
         limit: clamp_limit(params.limit),
         cursor: params.cursor,
     };
     request.validate()?;
-    let page = bound.engine.list(request).await?;
+    let page = if params.preview {
+        bound.engine.list_preview(request).await?
+    } else {
+        bound.engine.list(request).await?
+    };
     Ok(ItemsListView {
         items: page.items,
         next_cursor: page.next_cursor,
     })
+}
+
+/// `filter`, confined to the SaaS user's tree when `config` has one
+/// ([`super::user_scope`]).
+pub(crate) fn confine_filter(config: &Config, filter: MetaFilter) -> MetaFilter {
+    match super::user_scope::confinement(config) {
+        Some(root) => super::user_scope::clamp_filter(filter, &root),
+        None => filter,
+    }
 }
 
 #[cfg(test)]

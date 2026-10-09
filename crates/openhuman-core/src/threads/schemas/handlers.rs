@@ -24,6 +24,12 @@ pub(super) fn handle_list(_params: Map<String, Value>) -> ControllerFuture {
 pub(super) fn handle_upsert(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p = parse::<UpsertConversationThreadRequest>(params)?;
+        // A SaaS user picks thread ids for their own threads only; reserved
+        // prefixes and path-like ids are refused (no-op outside SaaS).
+        crate::user_agents::surface::check_thread_id(&p.id)?;
+        if let Some(parent) = p.parent_thread_id.as_deref() {
+            crate::user_agents::surface::check_thread_id(parent)?;
+        }
         to_json(ops::thread_upsert(p).await?)
     })
 }
@@ -31,6 +37,9 @@ pub(super) fn handle_upsert(params: Map<String, Value>) -> ControllerFuture {
 pub(super) fn handle_create_new(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p = parse::<CreateConversationThreadRequest>(params)?;
+        // A SaaS user acts only in their own sandbox; a caller-chosen working
+        // folder would point the thread at the host.
+        crate::user_agents::surface::check_working_dir(p.action_dir.as_deref())?;
         to_json(ops::thread_create_new(p).await?)
     })
 }
@@ -152,6 +161,13 @@ pub(super) fn handle_todos_get(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p = parse::<ops::ThreadLiveStateRequest>(params)?;
         to_json(ops::todos_get(p).await?)
+    })
+}
+
+pub(super) fn handle_search(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let p = parse::<ops::ThreadSearchRequest>(params)?;
+        to_json(ops::thread_search(p).await?)
     })
 }
 

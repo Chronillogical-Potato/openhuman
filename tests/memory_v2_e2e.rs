@@ -7,6 +7,7 @@
 //!
 //! - engines: list / get / set, the off state, and the structured error codes;
 //! - learn -> items_list -> fetch -> recall -> forget on the hosted engine;
+//! - erase_all: the whole hosted memory in one `DELETE /memory`;
 //! - conversations settings;
 //! - sources: add a folder, sync it, read its items back, remove it;
 //! - context.md: refresh / get / set;
@@ -451,6 +452,7 @@ async fn memory_is_off_when_signed_out() {
         ("openhuman.memory_brain_ingest", json!({ "text": "a doc" })),
         ("openhuman.memory_jobs_run", json!({})),
         ("openhuman.memory_import_start", json!({ "consent": true })),
+        ("openhuman.memory_erase_all", json!({ "confirm": true })),
     ];
     for (method, params) in off_calls {
         assert_eq!(f.code(method, params).await, "MEMORY_OFF", "{method}");
@@ -958,6 +960,120 @@ async fn the_agent_learn_returns_on_accept_and_recall_finds_it() {
 }
 
 #[tokio::test]
+async fn erase_all_needs_confirmation_and_erases_the_whole_hosted_memory() {
+    let f = Fixture::new(true).await;
+    f.learn("a fact about tea").await;
+    f.learn("a fact about coffee").await;
+    // A second hosted-memory category: a document, so a learnings-only
+    // erase cannot pass this test.
+    f.ok(
+        "openhuman.memory_brain_ingest",
+        json!({ "text": "a document about espresso machines" }),
+    )
+    .await;
+    let docs_before = f
+        .ok_until(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["document"] } }),
+            |v| !ids_of(v, "items").is_empty(),
+        )
+        .await;
+    assert!(
+        !ids_of(&docs_before, "items").is_empty(),
+        "the document was stored: {docs_before}"
+    );
+    let before = f
+        .ok_until(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["learning"] } }),
+            |v| ids_of(v, "items").len() == 2,
+        )
+        .await;
+    assert_eq!(ids_of(&before, "items").len(), 2, "{before}");
+
+    // Without its interlock nothing is sent and nothing is erased.
+    let skip = f.mock.request_rows().await.len();
+    assert_eq!(
+        f.code("openhuman.memory_erase_all", json!({})).await,
+        "INVALID_REQUEST"
+    );
+    assert_eq!(
+        f.code("openhuman.memory_erase_all", json!({ "confirm": false }))
+            .await,
+        "INVALID_REQUEST"
+    );
+    let deletes = |paths: Vec<String>| {
+        paths
+            .into_iter()
+            .filter(|p| p.starts_with("DELETE /memory"))
+            .count()
+    };
+    assert_eq!(deletes(f.mock.request_paths().await[skip..].to_vec()), 0);
+
+    let erased = f
+        .ok("openhuman.memory_erase_all", json!({ "confirm": true }))
+        .await;
+    assert!(
+        erased["erased_scopes"].as_u64().is_some_and(|n| n >= 1),
+        "{erased}"
+    );
+    assert_eq!(deletes(f.mock.request_paths().await[skip..].to_vec()), 1);
+    let after = f
+        .ok(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["learning"] } }),
+        )
+        .await;
+    assert_eq!(after["items"], json!([]), "{after}");
+    // Another account's memory is untouched, and a repeated erase is a no-op.
+    let second = f
+        .call(
+            "openhuman.auth_store_session",
+            json!({ "token": format!("{MOCK_TOKEN}-second"), "user_id": "second-user" }),
+        )
+        .await;
+    assert!(second.get("error").is_none(), "{second}");
+    f.learn("a fact that belongs to the second account").await;
+    f.sign_in().await;
+    f.ok("openhuman.memory_erase_all", json!({ "confirm": true }))
+        .await;
+    let again = f
+        .ok(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["learning"] } }),
+        )
+        .await;
+    assert_eq!(again["items"], json!([]), "{again}");
+    let second = f
+        .call(
+            "openhuman.auth_store_session",
+            json!({ "token": format!("{MOCK_TOKEN}-second"), "user_id": "second-user" }),
+        )
+        .await;
+    assert!(second.get("error").is_none(), "{second}");
+    let kept = f
+        .ok_until(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["learning"] } }),
+            |v| !ids_of(v, "items").is_empty(),
+        )
+        .await;
+    assert_eq!(ids_of(&kept, "items").len(), 1, "{kept}");
+    f.sign_in().await;
+    let docs_after = f
+        .ok(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["document"] } }),
+        )
+        .await;
+    assert_eq!(docs_after["items"], json!([]), "{docs_after}");
+    let refetch = f
+        .ok("openhuman.memory_fetch", json!({ "query": "coffee" }))
+        .await;
+    assert_eq!(refetch["hits"], json!([]));
+}
+
+#[tokio::test]
 async fn memory_is_isolated_per_account() {
     let f = Fixture::new(true).await;
     let id = f.learn("a private fact about account one").await;
@@ -1411,26 +1527,88 @@ async fn a_document_at_an_old_per_format_node_stays_listed_searchable_and_forget
 }
 
 #[tokio::test]
-async fn an_aliased_toolkit_is_one_memory_source() {
+async fn composio_is_no_longer_a_memory_source_kind() {
     let f = Fixture::new(true).await;
-
-    // A toolkit added under an alias is stored under the slug Composio uses,
-    // and adding it again under that slug is a duplicate.
-    let drive = f
-        .ok(
-            "openhuman.memory_sources_add",
-            json!({ "kind": "composio", "target": "Google_Drive" }),
-        )
-        .await;
-    assert_eq!(drive["source"]["target"], json!("googledrive"), "{drive}");
+    let folder = write_folder(f.home.path());
     assert_eq!(
         f.code(
             "openhuman.memory_sources_add",
-            json!({ "kind": "composio", "target": "googledrive" })
+            json!({ "kind": "composio", "target": "gmail" })
         )
         .await,
         "INVALID_REQUEST"
     );
+    for (kind, target) in [
+        ("folder", folder.to_string_lossy().to_string()),
+        ("file", format!("{}/launch.md", folder.to_string_lossy())),
+        ("link", "https://example.com/docs".to_string()),
+        ("github", "acme/widgets".to_string()),
+        ("rss", "https://example.com/feed.xml".to_string()),
+    ] {
+        let added = f
+            .ok(
+                "openhuman.memory_sources_add",
+                json!({ "kind": kind, "target": target }),
+            )
+            .await;
+        assert_eq!(added["source"]["kind"], json!(kind));
+    }
+}
+
+#[tokio::test]
+async fn composio_sync_is_no_longer_a_method() {
+    let f = Fixture::new(true).await;
+    let response = f
+        .call("openhuman.composio_sync", json!({ "connection_id": "c-1" }))
+        .await;
+    let message = response["error"]["message"].as_str().unwrap_or_default();
+    assert!(
+        response.get("error").is_some() && message.contains("unknown method"),
+        "composio_sync must be an unknown method: {response}"
+    );
+}
+
+#[tokio::test]
+async fn a_stale_config_with_a_composio_source_loads_without_it() {
+    let f = Fixture::new(true).await;
+    let stale = r#"
+[[memory.sources]]
+id = "src-composio"
+kind = "composio"
+target = "gmail"
+
+[[memory.sources]]
+id = "src-notes"
+kind = "folder"
+target = "/tmp/stale-notes"
+
+[[memory.sources]]
+id = "src-feed"
+kind = "rss"
+target = "https://example.com/feed.xml"
+"#;
+    for dir in [
+        f.home.path().join(".openhuman"),
+        f.home
+            .path()
+            .join(".openhuman")
+            .join("users")
+            .join(MOCK_USER_ID),
+    ] {
+        let path = dir.join("config.toml");
+        let mut text = std::fs::read_to_string(&path).expect("read config.toml");
+        text.push_str(stale);
+        std::fs::write(&path, text).expect("write config.toml");
+    }
+    let listed = f.ok("openhuman.memory_sources_list", json!({})).await;
+    let mut ids: Vec<String> = listed["sources"]
+        .as_array()
+        .expect("sources array")
+        .iter()
+        .filter_map(|s| s["id"].as_str().map(str::to_string))
+        .collect();
+    ids.sort();
+    assert_eq!(ids, ["src-feed", "src-notes"], "{listed}");
 }
 
 #[tokio::test]
@@ -1919,6 +2097,7 @@ async fn memory_v2_registers_exactly_the_documented_methods() {
         "fetch",
         "learn",
         "forget",
+        "erase_all",
         "items_list",
         "explore",
         "items_get",

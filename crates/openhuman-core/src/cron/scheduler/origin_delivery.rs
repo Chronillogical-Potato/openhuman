@@ -203,7 +203,7 @@ async fn deliver_to_web_thread(
     let persist_thread = thread_id.to_string();
     let persist_request = request_id.clone();
     let persist_text = text.to_string();
-    tokio::task::spawn_blocking(move || {
+    crate::core::runtime::spawn_blocking_scoped(move || {
         crate::web_chat::persist_delivered_reply(
             &workspace,
             &persist_thread,

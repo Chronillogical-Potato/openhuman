@@ -29,6 +29,10 @@ pub fn publish_web_channel_event(mut event: WebChannelEvent) {
     if event.ts.is_none() {
         event.ts = Some(crate::web_chat::progress_bridge::unix_epoch_ms());
     }
+    if event.agent.is_none() {
+        event.agent = crate::core::runtime::CoreContext::current()
+            .and_then(|context| context.session_agent().map(str::to_owned));
+    }
     let _ = EVENT_BUS.send(event);
 }
 

@@ -6,7 +6,7 @@
 //! closes both gaps.
 //!
 //! Each running async sub-agent registers in TinyAgents'
-//! [`DetachedTaskRegistry`](tinyagents_graph::orchestration::DetachedTaskRegistry),
+//! [`DetachedTaskRegistry`](tinyagents_tasks::DetachedTaskRegistry),
 //! keyed by its `task_id`, with:
 //! - an `Arc<RunQueue>` — the same steering channel the steering forwarder in
 //!   `run_turn_via_tinyagents_shared` drains mid-turn, so `steer_subagent` can
@@ -28,7 +28,7 @@
 //!
 //! Alongside the executor plumbing (abort handle + steering queue + watch
 //! status), every detached sub-agent is also recorded in a process-wide
-//! [`tinyagents` orchestration `TaskStore`](tinyagents_graph::orchestration)
+//! [`tinyagents` orchestration `TaskStore`](tinyagents_tasks)
 //! as an `OrchestrationTaskKind::SubAgent` task. `register` inserts it
 //! (`Pending` → `Running`) and spawns a watcher that mirrors the child's
 //! terminal status into the store (`Completed`/`Failed`/`Awaiting`); the cancel

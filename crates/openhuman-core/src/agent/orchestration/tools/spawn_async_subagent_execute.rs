@@ -381,6 +381,12 @@ impl SpawnAsyncSubagentTool {
         let background_agent_id = definition.id.clone();
         let background_task_id = task_id.clone();
         let background_parent_session = parent_session.clone();
+        let completion_target =
+            crate::agent::orchestration::background_completions::CompletionTarget::new(
+                parent.workspace_dir.clone(),
+                parent_session.clone(),
+                parent_thread_id.clone(),
+            );
         let background_worker_thread_id = worker_thread_id.clone();
         let background_store = store.clone();
         let background_subagent_session_id = durable_session.subagent_session_id.clone();
@@ -459,10 +465,6 @@ impl SpawnAsyncSubagentTool {
                                         err
                                     );
                                 }
-                                let _ = status_tx.send(DetachedSubagentStatus::Completed {
-                                    output: outcome.output.clone(),
-                                    iterations: outcome.iterations,
-                                });
                                 // A workflow proposal produced inside the child's tool
                                 // history is durable state, not prose: persist it into
                                 // the parent chat thread (survives reload / reconnect —
@@ -480,13 +482,18 @@ impl SpawnAsyncSubagentTool {
                                 // Queue the finished result for idle-gated, batched
                                 // delivery back into the parent chat (the session
                                 // runtime drains this when the session is next idle).
-                                crate::agent::orchestration::background_completions::record_completion(
-                            background_parent_session.clone(),
-                            outcome.task_id.clone(),
-                            outcome.agent_id.clone(),
-                            delivery_summary,
-                            background_parent_thread_id.clone(),
-                        );
+                                completion_target
+                                    .completed(
+                                        &outcome.task_id,
+                                        &outcome.agent_id,
+                                        delivery_summary,
+                                    )
+                                    .await;
+                                // Status is published only after the completion is recorded (a racing cancel relies on it).
+                                let _ = status_tx.send(DetachedSubagentStatus::Completed {
+                                    output: outcome.output.clone(),
+                                    iterations: outcome.iterations,
+                                });
                                 if emit_lifecycle_effects {
                                     crate::agent::orchestration::subagent_events::publish_subagent_completed(
                             background_parent_session,
@@ -544,12 +551,9 @@ impl SpawnAsyncSubagentTool {
                              Partial progress:\n{}",
                                     outcome.output
                                 );
-                                let _ = status_tx.send(DetachedSubagentStatus::Completed {
-                                    output: framed.clone(),
-                                    iterations: outcome.iterations,
-                                });
                                 // An incomplete run may still have produced a full
                                 // proposal before stalling — preserve it durably too.
+                                let status_output = framed.clone();
                                 let framed = attach_workflow_proposal(
                                     &background_workspace_dir,
                                     background_parent_thread_id.as_deref(),
@@ -558,13 +562,13 @@ impl SpawnAsyncSubagentTool {
                                     &outcome.final_history,
                                     framed,
                                 );
-                                crate::agent::orchestration::background_completions::record_completion(
-                            background_parent_session.clone(),
-                            outcome.task_id.clone(),
-                            outcome.agent_id.clone(),
-                            framed,
-                            background_parent_thread_id.clone(),
-                        );
+                                completion_target
+                                    .completed(&outcome.task_id, &outcome.agent_id, framed)
+                                    .await;
+                                let _ = status_tx.send(DetachedSubagentStatus::Completed {
+                                    output: status_output,
+                                    iterations: outcome.iterations,
+                                });
                                 if emit_lifecycle_effects {
                                     crate::agent::orchestration::subagent_events::publish_subagent_completed(
                             background_parent_session,
@@ -614,16 +618,12 @@ impl SpawnAsyncSubagentTool {
                                         err
                                     );
                                 }
+                                completion_target
+                                    .failed(&outcome.task_id, &outcome.agent_id, &error)
+                                    .await;
                                 let _ = status_tx.send(DetachedSubagentStatus::Failed {
                                     error: error.clone(),
                                 });
-                                crate::agent::orchestration::background_completions::record_failure(
-                                    background_parent_session.clone(),
-                                    outcome.task_id.clone(),
-                                    outcome.agent_id.clone(),
-                                    &error,
-                                    background_parent_thread_id.clone(),
-                                );
                                 if emit_lifecycle_effects {
                                     crate::agent::orchestration::subagent_events::publish_subagent_failed(
                                         background_parent_session,
@@ -660,22 +660,22 @@ impl SpawnAsyncSubagentTool {
                                         err
                                     );
                                 }
-                                let _ = status_tx.send(DetachedSubagentStatus::AwaitingUser {
-                                    question: question.clone(),
-                                });
                                 // #4896: a detached child that pauses for input won't
                                 // continue on its own — queue a framed notice so the
                                 // parent chat learns the delegated task needs input,
                                 // instead of finalizing silently on "Accepted". Rides the
                                 // same idle-gated background_delivery path as a success.
-                                crate::agent::orchestration::background_completions::record_awaiting_input(
-                            background_parent_session.clone(),
-                            outcome.task_id.clone(),
-                                    outcome.agent_id.clone(),
-                                    question,
-                                    checkpoint.is_some(),
-                                    background_parent_thread_id.clone(),
-                                );
+                                completion_target
+                                    .awaiting_input(
+                                        &outcome.task_id,
+                                        &outcome.agent_id,
+                                        question,
+                                        checkpoint.is_some(),
+                                    )
+                                    .await;
+                                let _ = status_tx.send(DetachedSubagentStatus::AwaitingUser {
+                                    question: question.clone(),
+                                });
                                 if emit_lifecycle_effects {
                                     crate::agent::orchestration::subagent_events::publish_subagent_awaiting_user(
                                         background_parent_session,
@@ -714,21 +714,17 @@ impl SpawnAsyncSubagentTool {
                                 store_err
                             );
                         }
-                        let _ = status_tx.send(DetachedSubagentStatus::Failed {
-                            error: error.clone(),
-                        });
                         // #4896: a detached child that errors previously only
                         // published an event — nothing reached chat, so the parent
                         // turn finalized on "Accepted" and the failure was lost.
                         // Queue a framed failure notice so background_delivery
                         // surfaces it as a follow-up chat turn.
-                        crate::agent::orchestration::background_completions::record_failure(
-                            background_parent_session.clone(),
-                            background_task_id.clone(),
-                            background_agent_id.clone(),
-                            &error,
-                            background_parent_thread_id.clone(),
-                        );
+                        completion_target
+                            .failed(&background_task_id, &background_agent_id, &error)
+                            .await;
+                        let _ = status_tx.send(DetachedSubagentStatus::Failed {
+                            error: error.clone(),
+                        });
                         crate::agent::orchestration::subagent_events::publish_subagent_failed(
                             background_parent_session,
                             background_task_id.clone(),

@@ -90,14 +90,14 @@ fn a_web_link_stays_web_and_an_uploaded_page_is_a_file() {
 fn a_connector_document_keeps_its_node() {
     let placement = placement("root");
     let placed = placement
-        .place(document("source:gmail", SourceKind::Composio, None))
+        .place(document("source:gmail", SourceKind::Import, None))
         .unwrap();
     assert_eq!(placed.meta().namespace, ns("source:gmail"));
 }
 
 #[test]
 fn a_github_document_goes_to_its_repository_when_the_setting_splits_them() {
-    let mut item = document("source:github", SourceKind::Composio, None);
+    let mut item = document("source:github", SourceKind::Import, None);
     item.meta_mut().repo = Some("Acme/Widgets".into());
     let mut placement = placement("root");
     assert_eq!(
