@@ -50,7 +50,7 @@ pub const FORBIDDEN_OFF_SWITCHES: &[(&str, &str)] = &[
 fn is_off(value: &str) -> bool {
     matches!(
         value.trim().to_ascii_lowercase().as_str(),
-        "0" | "false" | "off" | "no" | "disabled"
+        "0" | "false" | "off" | "no" | "none" | "disabled"
     )
 }
 
@@ -97,6 +97,14 @@ impl ServiceToken {
             return Self::Invalid(format!("cannot read {display}: {e}"));
         }
         let token = raw.trim();
+        // It travels as `Authorization: Bearer <token>`: one line of visible
+        // ASCII, or no client could ever send it.
+        if !token.bytes().all(|b| b.is_ascii_graphic()) {
+            return Self::Invalid(format!(
+                "{display} must hold one token of visible ASCII characters (no spaces, \
+                 line breaks or control characters)"
+            ));
+        }
         if token.len() < MIN_SERVICE_TOKEN_LEN {
             return Self::Invalid(format!(
                 "{display} holds {} bytes; at least {MIN_SERVICE_TOKEN_LEN} are required",
@@ -129,6 +137,7 @@ pub enum Violation {
     RpcAllowlist(Vec<String>),
     Root(String),
     ServiceToken(String),
+    Platform(&'static str),
 }
 
 impl std::fmt::Display for Violation {
@@ -148,6 +157,7 @@ impl std::fmt::Display for Violation {
             ),
             Self::Root(why) => write!(f, "root: {why}"),
             Self::ServiceToken(why) => write!(f, "service token: {why}"),
+            Self::Platform(why) => write!(f, "platform: {why}"),
         }
     }
 }
@@ -240,6 +250,11 @@ pub fn check(inputs: &BootInputs<'_>) -> Result<(), BootGuardError> {
     if let Some(why) = root_problem(&inputs.config.root, inputs.home.as_deref()) {
         violations.push(Violation::Root(why));
     }
+    // Token and root permissions are verified only on Unix.
+    #[cfg(not(unix))]
+    violations.push(Violation::Platform(
+        "SaaS mode needs a Unix host, where token and root permissions can be verified",
+    ));
     if let ServiceToken::Invalid(why) = inputs.token {
         violations.push(Violation::ServiceToken(why.clone()));
     }
@@ -274,8 +289,11 @@ fn root_problem(root: &Path, home: Option<&Path>) -> Option<String> {
     #[cfg(not(unix))]
     let _ = meta;
     if let Some(home) = home {
-        let desktop_root = home.join(".openhuman");
-        if root.starts_with(&desktop_root) {
+        // Compare resolved paths, so neither a symlink nor `..` can alias the
+        // desktop directory.
+        let resolve = |p: &Path| p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
+        let desktop_root = resolve(&home.join(".openhuman"));
+        if resolve(root).starts_with(&desktop_root) {
             return Some(format!(
                 "{} is inside the desktop app's {}",
                 root.display(),

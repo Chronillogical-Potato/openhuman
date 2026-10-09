@@ -147,6 +147,7 @@ pub async fn build(
             "[saas] a core is already running in this process; a SaaS core must be the only one"
         );
     }
+    mode::reserve_saas_boot().map_err(|e| anyhow::anyhow!("[saas] {e}"))?;
 
     let services = ServiceSet::saas();
     let domains = DomainSet::saas();
@@ -171,6 +172,17 @@ pub async fn build(
     for dir in [&operator.workspace_dir, &operator.action_dir] {
         std::fs::create_dir_all(dir)
             .map_err(|e| anyhow::anyhow!("[saas] creating {}: {e}", dir.display()))?;
+    }
+    // Root the keyring (the master key and every stored credential) under the
+    // operator directory, never the host's `~/.openhuman`.
+    crate::security::keyring::init_workspace(&operator.workspace_dir);
+    let keyring_dir = crate::security::keyring::store::workspace_dir_for_file_backend();
+    if keyring_dir != operator.workspace_dir {
+        anyhow::bail!(
+            "[saas] the keyring is already rooted at {}; a SaaS core keeps it under {}",
+            keyring_dir.display(),
+            operator.workspace_dir.display()
+        );
     }
     log::info!(
         "[saas] booting operator plane root={} max_agents_open={} idle_evict_secs={}",

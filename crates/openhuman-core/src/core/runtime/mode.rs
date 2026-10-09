@@ -67,6 +67,30 @@ pub fn is_saas() -> bool {
     current_mode() == Mode::Saas
 }
 
+/// Whether the command line or `OPENHUMAN_MODE` asks for SaaS, read before
+/// the CLI parses its arguments. The CLI skips its early keyring set-up for a
+/// SaaS boot, which roots the keyring under the operator directory instead
+/// (`saas::build`).
+pub fn requested_in(args: &[String], env: Option<&str>) -> bool {
+    let saas = |raw: &str| raw.trim().parse::<Mode>() == Ok(Mode::Saas);
+    env.is_some_and(saas)
+        || args.windows(2).any(|w| w[0] == "--mode" && saas(&w[1]))
+        || args
+            .iter()
+            .any(|a| a.strip_prefix("--mode=").is_some_and(saas))
+}
+
+static SAAS_BOOT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Claim the process's one SaaS boot. A second claim fails, even while the
+/// first boot is still building.
+pub(crate) fn reserve_saas_boot() -> Result<(), String> {
+    if SAAS_BOOT.swap(true, std::sync::atomic::Ordering::AcqRel) {
+        return Err("a SaaS core has already booted (or is booting) in this process".to_string());
+    }
+    Ok(())
+}
+
 /// Fix the process mode. Locking the mode it already has is a no-op; locking
 /// a different one fails, because one process never serves both shapes.
 pub(crate) fn lock_mode(mode: Mode) -> Result<(), String> {
