@@ -9,6 +9,7 @@ fn external() -> AgentTurnOrigin {
     AgentTurnOrigin::ExternalChannel {
         channel: "telegram".into(),
         sender: Some("alice".into()),
+        sender_name: None,
         reply_target: "42".into(),
         message_id: "m1".into(),
         history_key: Some("telegram_alice".into()),

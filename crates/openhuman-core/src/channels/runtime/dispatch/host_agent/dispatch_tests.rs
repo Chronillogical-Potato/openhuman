@@ -69,6 +69,7 @@ fn message(text: &str) -> traits::ChannelMessage {
     traits::ChannelMessage {
         id: "m1".into(),
         sender: "alice".into(),
+        sender_name: None,
         reply_target: "42".into(),
         content: text.into(),
         channel: "telegram".into(),
