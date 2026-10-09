@@ -70,6 +70,7 @@
 ## Developing
 
 - [Overview](developing/README.md)
+- [Rust Quickstart](developing/quickstart.md)
 - [Getting Set Up](developing/getting-set-up.md)
 - [Architecture](developing/architecture/README.md)
   - [Deep Architecture Reference](developing/architecture.md)

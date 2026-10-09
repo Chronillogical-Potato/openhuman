@@ -71,6 +71,8 @@ rust-core:
   - 'scripts/ci/check-openhuman-rust-layout.mjs'
   - 'scripts/ci/check-agent-runtime-boundary.mjs'
   - 'scripts/ci/agent-runtime-boundary-baseline.json'
+  - 'scripts/ci/check-saas-ambient.mjs'
+  - 'scripts/ci/saas-ambient-baseline.json'
   # The ignored-test ratchet lives in rust-quality. Its checker and
   # its baseline must arm that lane themselves, or a PR that raises
   # the baseline skips the only gate that reads it.

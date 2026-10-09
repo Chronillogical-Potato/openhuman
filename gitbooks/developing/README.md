@@ -13,20 +13,20 @@ If you just want to use the app, head to [Getting Started](../overview/getting-s
 
 ## Why the harness is light
 
-Most of what makes OpenHuman fast is a choice made early on: the core is a Rust library, not a set of services talking to each other over sockets. Agents run in-process, so a turn pays for a function call instead of a process boundary or an RPC hop. We've measured 500 agents alive at once in a single process at roughly 1.77 MiB of marginal memory each, cold agent turns land around 100 ms, and a stripped build with only the domains you need can come in at 51 MiB. [Performance](performance.md) has the numbers and how we got them.
+Most of what makes OpenHuman fast is a choice made early on: the core is a Rust library, not a set of services talking to each other over sockets. Agents run in-process, so a turn pays for a function call instead of a process boundary or an RPC hop. We've measured 500 agents alive at once in a single process at roughly 1.77 MiB of marginal memory each, cold agent turns land around 100 ms, and a stripped build with only the domains you need can come in at 51 MiB. [Performance](performance.md) has the numbers and how we got them, and the rig that produces them is public at [tinyhumansai/openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks).
 
-Everything above that floor is modular: cargo feature gates decide what compiles in, loadable native modules carry the heavier engines, and the engines themselves, model providers, embeddings, memory, search, are chosen by config rather than baked into the binary. That's what [Pluggable engines](engines.md) and [Jev](jev.md) cover.
+Everything above that floor is modular: cargo feature gates decide what compiles in, loadable native modules carry the heavier engines, and the engines themselves, model providers, embeddings, memory, search, are chosen by config rather than baked into the binary. That's what [Pluggable engines](engines.md), [Loadable modules](loadable-modules.md) and [Jev](jev.md) cover.
 
 ## Where things live
 
 | Path        | What's there                                                                                                      |
 | ----------- | ----------------------------------------------------------------------------------------------------------------- |
-| `app/`      | pnpm workspace `openhuman-app`. Vite + React frontend (`app/src/`) and the Tauri desktop host (`crates/openhuman-app/`). |
-| `crates/`   | Rust crates. Six workspace members: `openhuman-core` (package `openhuman`: the core library, domains under `src/<domain>/`, the controller contract and in-process dispatch under `src/core/`; **no binary and no JSON-RPC server**), `openhuman-rpc` (JSON-RPC 2.0 over the core: envelopes, HTTP client, and the server), `openhuman-embed` (the typed library facade), `openhuman-tinyhumans` (the only crate that may depend on `tinyhumans-sdk`: backend transport, hosted RPC proxies, host-side session owner; every host installs it first), `openhuman-cli` (the `openhuman-core` binary and every root `tests/` and `examples/` target), `openhuman-tui` (terminal frontend). Plus `openhuman-app` (the Tauri host), which is excluded from the root workspace and builds from its own manifest. |
-| `gitbooks/` | This site (the public-facing docs).                                                                               |
-| `docs/`     | Internal maintainer docs: test-coverage matrix, release smoke checklist, library benchmarking and minimal-recipe notes, translated READMEs, `community/`. |
+| `app/`      | pnpm workspace `openhuman-app`. Vite + React frontend ([`app/src/`](https://github.com/tinyhumansai/openhuman/tree/main/app/src)) and the Tauri desktop host ([`crates/openhuman-app/`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-app)). |
+| `crates/`   | Rust crates ([overview](https://github.com/tinyhumansai/openhuman/blob/main/crates/README.md)). Six workspace members: `openhuman-core` (package `openhuman`: the core library, domains under `src/<domain>/`, the controller contract and in-process dispatch under `src/core/`; **no binary and no JSON-RPC server**), `openhuman-rpc` (JSON-RPC 2.0 over the core: envelopes, HTTP client, and the server), `openhuman-embed` (the typed library facade), `openhuman-tinyhumans` (the only crate that may depend on `tinyhumans-sdk`: backend transport, hosted RPC proxies, host-side session owner; every host installs it first), `openhuman-cli` (the `openhuman-core` binary and every root `tests/` and `examples/` target), `openhuman-tui` (terminal frontend). Plus `openhuman-app` (the Tauri host), which is excluded from the root workspace and builds from its own manifest. |
+| `gitbooks/` | This site (the public-facing docs, [source](https://github.com/tinyhumansai/openhuman/tree/main/gitbooks)).                                                      |
+| `docs/`     | Internal maintainer docs: test-coverage matrix, release smoke checklist, library benchmarking and minimal-recipe notes, translated READMEs, `community/` ([`docs/`](https://github.com/tinyhumansai/openhuman/tree/main/docs)). |
 
-`AGENTS.md` at the repo root is the source of truth for AI agents working on the codebase (`CLAUDE.md` is a symlink to it). Same rules apply to humans.
+[`AGENTS.md`](https://github.com/tinyhumansai/openhuman/blob/main/AGENTS.md) at the repo root is the source of truth for AI agents working on the codebase ([`CLAUDE.md`](https://github.com/tinyhumansai/openhuman/blob/main/CLAUDE.md) is a symlink to it). Same rules apply to humans.
 
 ---
 
@@ -36,7 +36,7 @@ If it's your first time pulling the repo:
 
 1. [**Getting Set Up**](getting-set-up.md). Toolchain, dependencies, the Tauri CLI, everything `pnpm dev` needs to actually start.
 2. [**Building the Rust Core**](building-rust-core.md). Fresh-machine setup for the Rust workspace only: pinned toolchain, OS packages, and exact `cargo` commands.
-3. [**Architecture**](architecture.md). How the desktop app, the in-process Rust core, the JSON-RPC bridge, and the dual sockets fit together. Read this before you make non-trivial changes.
+3. [**Architecture**](architecture.md) (with the [overview](architecture/README.md)). How the desktop app, the in-process Rust core, the JSON-RPC bridge, and the dual sockets fit together. Read this before you make non-trivial changes.
 4. [**Frontend**](architecture/frontend.md) and [**Tauri Shell**](architecture/tauri-shell.md). The React app and the desktop host that wraps it.
 5. [**MCP Server**](mcp-server.md). Opt-in stdio MCP mode for exposing read-only OpenHuman memory tools to local clients.
 
@@ -44,17 +44,17 @@ If it's your first time pulling the repo:
 
 ## The core, in depth
 
-- [**Performance**](performance.md). What "light and fast" means in numbers: memory per agent, cold-start timing, binary size, and how the benchmarks are run.
+- [**Performance**](performance.md). What "light and fast" means in numbers: memory per agent, cold-start timing, binary size, and how the benchmarks are run. Raw rigs and results live in the public [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks) repo.
 - [**Pluggable engines**](engines.md). How the LLM, embeddings, memory, and web search layers are chosen by config, and what's available for each.
 - [**Jev**](jev.md). The fast probability model behind tool selection and routine browser decisions, and why it beats brute-force retrieval on both speed and accuracy.
-- [**Embedding OpenHuman**](embedding.md). Using `openhuman-embed` to run the core, and any number of agents on it, inside another Rust product.
+- [**Embedding OpenHuman**](embedding.md) (see also [`crates/openhuman-embed`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-embed)). Using `openhuman-embed` to run the core, and any number of agents on it, inside another Rust product.
 - [**One TinyHumans API key**](tinyhumans-api-key.md). What a single key unlocks: managed inference, embeddings, web search, media, integrations, voice, and Jev.
 
 ---
 
 ## Testing
 
-OpenHuman ships with three test layers. Know which one your change belongs in:
+OpenHuman ships with three test layers. Know which one your change belongs in (the Rust integration targets are described in [`tests/README.md`](https://github.com/tinyhumansai/openhuman/blob/main/tests/README.md), the helper scripts in [`scripts/README.md`](https://github.com/tinyhumansai/openhuman/blob/main/scripts/README.md)):
 
 - [**Testing Strategy**](testing-strategy.md). When to write Vitest vs cargo tests vs WDIO.
 - [**E2E Testing**](e2e-testing.md). WDIO/Appium specs, dual-platform setup (Linux tauri-driver, macOS Appium Mac2), and how to run a single spec locally.
@@ -75,6 +75,7 @@ PRs must clear the **≥ 80% coverage on changed lines** gate. Add tests for new
 
 - [**Agent Harness**](architecture/agent-harness.md). The tinyagents-based turn loop (checkpointing, circuit breakers, sub-agent handback, journals/replay) and how to extend the tool surface.
 - [**Workflows**](../features/workflows.md). The tinyflows-backed `flows` domain: triggers, trust origins, approval-gated runs, and the `flows_*` RPC surface.
+- [**Loadable modules**](loadable-modules.md). Native `cdylib` modules the core loads at runtime, and how they are admitted.
 - [**Hooks**](hooks.md). User-owned scripts that run before a tool executes, after a file edit, or when a turn finishes.
 - [**Chromium Embedded Framework**](cef.md). Historical design notes from the CEF era; the shell now runs on stock Tauri (Wry).
 
@@ -83,7 +84,7 @@ PRs must clear the **≥ 80% coverage on changed lines** gate. Add tests for new
 
 ## Contributing
 
-- Open issues and PRs at [tinyhumansai/openhuman](https://github.com/tinyhumansai/openhuman).
+- Open issues and PRs at [tinyhumansai/openhuman](https://github.com/tinyhumansai/openhuman). The [`vendor/`](https://github.com/tinyhumansai/openhuman/tree/main/vendor) submodules (tinyagents, tinymemory and friends) have their own repos under [tinyhumansai](https://github.com/tinyhumansai).
 - PRs target `main`. Push to your fork, not upstream.
 - Follow [`CONTRIBUTING.md`](https://github.com/tinyhumansai/openhuman/blob/main/CONTRIBUTING.md) and the issue/PR templates.
 - Keep changes focused. A bug fix doesn't need surrounding cleanup; a one-shot operation doesn't need a helper.

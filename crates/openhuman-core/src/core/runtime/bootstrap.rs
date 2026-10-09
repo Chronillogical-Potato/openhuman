@@ -272,6 +272,7 @@ pub(crate) async fn bootstrap_core_runtime(
                 crate::core::types::HostKind::Cli => "cli",
                 crate::core::types::HostKind::Docker => "docker",
                 crate::core::types::HostKind::Library => "library",
+                crate::core::types::HostKind::Saas => "saas",
             },
         },
     );

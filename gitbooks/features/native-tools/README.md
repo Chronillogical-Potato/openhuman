@@ -42,3 +42,5 @@ A plugin-only model means tools live in different processes, behind RPC, with th
 - [Smart Token Compression](../token-compression.md) - what keeps tool output costs bounded.
 - [Third-party Integrations](../integrations/README.md) - the user-facing pitch and OAuth flow for the managed catalog.
 - [Privacy & Security](../privacy-and-security.md) - the boundary every tool runs inside.
+- [Tools domain](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-core/src/tools/README.md) - the Rust module that registers these tools.
+- [Agent harness](../../developing/architecture/agent-harness.md) - how tool calls run inside a turn.

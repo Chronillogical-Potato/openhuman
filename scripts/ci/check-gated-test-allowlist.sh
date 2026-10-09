@@ -39,6 +39,7 @@ mcp/server/resources.rs
 mcp/server/mod.rs
 mcp/server/tools/mod.rs
 platform/socket/event_handlers.rs
+security/credentials/ops/credential.rs
 skills/bundled/mod.rs
 skills/mod.rs
 skills/search.rs

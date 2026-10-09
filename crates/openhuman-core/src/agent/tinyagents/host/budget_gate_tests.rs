@@ -173,3 +173,164 @@ fn this_gate_never_asks_for_compression() {
     let gate = gate(AgentTokenjuiceCompression::Full);
     assert_eq!(gate.compression_hint(&crowded()), CompressionHint::None);
 }
+
+fn ledger_with(spent_usd: f64, agent: &str) -> (tempfile::TempDir, cost::CostTracker) {
+    let tmp = tempfile::tempdir().unwrap();
+    let tracker = cost::CostTracker::new(crate::config::CostConfig::default(), tmp.path()).unwrap();
+    let mut usage = cost::TokenUsage::new("m", 100, 50, 0.0, 0.0);
+    usage.cost_usd = spent_usd;
+    usage.scope = cost::UsageScope {
+        agent_id: Some(agent.into()),
+        ..Default::default()
+    };
+    tracker.record_usage_unconditional(usage).unwrap();
+    (tmp, tracker)
+}
+
+/// A config whose `config.toml` does not exist, so the gate keeps the
+/// in-memory budgets instead of reading the developer's real file.
+fn config_without_file() -> Config {
+    Config {
+        config_path: std::env::temp_dir()
+            .join(format!("oh-budget-gate-{}", uuid::Uuid::new_v4()))
+            .join("config.toml"),
+        ..Config::default()
+    }
+}
+
+fn budgeted_gate(action: crate::config::BudgetAction) -> OpenHumanBudgetGate {
+    let mut config = config_without_file();
+    config.cost.budgets = vec![crate::config::BudgetPolicy {
+        name: Some("planner cap".into()),
+        scope: crate::config::BudgetScope::Agent,
+        matches: Some("planner".into()),
+        period: crate::config::BudgetPeriod::Month,
+        max_usd: Some(1.0),
+        max_tokens: None,
+        warn_fraction: 0.8,
+        action,
+    }];
+    OpenHumanBudgetGate::new(Arc::new(config))
+}
+
+fn estimate_for(agent: &str) -> CallEstimate {
+    CallEstimate {
+        model: "m".into(),
+        agent_id: Some(agent.into()),
+        ..CallEstimate::default()
+    }
+}
+
+#[test]
+fn a_refusing_budget_refuses_the_agent_over_it() {
+    let (_tmp, tracker) = ledger_with(2.0, "planner");
+    let gate = budgeted_gate(crate::config::BudgetAction::Refuse);
+    let refusal = gate
+        .check_budgets_against(&estimate_for("planner"), &gate.live_budgets(), &tracker)
+        .expect("planner is over its cap");
+    assert!(refusal.starts_with("BUDGET_EXCEEDED:"), "{refusal}");
+    assert!(refusal.contains("planner cap"), "{refusal}");
+    assert!(
+        gate.check_budgets_against(
+            &estimate_for("orchestrator"),
+            &gate.live_budgets(),
+            &tracker
+        )
+        .is_none(),
+        "the cap matches only the planner"
+    );
+}
+
+#[test]
+fn a_warning_budget_never_refuses() {
+    let (_tmp, tracker) = ledger_with(2.0, "planner");
+    let gate = budgeted_gate(crate::config::BudgetAction::Warn);
+    assert!(gate
+        .check_budgets_against(&estimate_for("planner"), &gate.live_budgets(), &tracker)
+        .is_none());
+}
+
+#[tokio::test]
+async fn without_budgets_acquire_is_unchanged() {
+    let gate = gate(AgentTokenjuiceCompression::Auto);
+    assert!(gate.check_budgets(&estimate_for("planner")).is_none());
+    assert!(gate.acquire(&estimate_for("planner")).await.is_ok());
+}
+
+#[test]
+fn budgets_are_re_read_from_the_session_config_file() {
+    // Built with no budgets; the file on disk now holds a refusing one.
+    let tmp = tempfile::tempdir().unwrap();
+    let config_path = tmp.path().join("config.toml");
+    std::fs::write(
+        &config_path,
+        r#"
+[[cost.budgets]]
+name = "live cap"
+scope = "agent"
+match = "planner"
+max_usd = 1.0
+action = "refuse"
+"#,
+    )
+    .unwrap();
+    let config = Config {
+        config_path,
+        ..Config::default()
+    };
+    let gate = OpenHumanBudgetGate::new(Arc::new(config));
+    let policies = gate.live_budgets();
+    assert_eq!(policies.len(), 1);
+    let (_ledger, tracker) = ledger_with(2.0, "planner");
+    let refusal = gate
+        .check_budgets_against(&estimate_for("planner"), &policies, &tracker)
+        .expect("the live budget refuses");
+    assert!(refusal.contains("live cap"), "{refusal}");
+}
+
+#[test]
+fn a_missing_config_file_keeps_the_session_budgets() {
+    let gate = budgeted_gate(crate::config::BudgetAction::Refuse);
+    assert_eq!(gate.live_budgets().len(), 1);
+}
+
+#[test]
+fn a_call_is_checked_against_its_own_model() {
+    let (_tmp, tracker) = ledger_with(2.0, "planner");
+    let mut config = config_without_file();
+    config.cost.budgets = vec![crate::config::BudgetPolicy {
+        name: Some("model cap".into()),
+        scope: crate::config::BudgetScope::Model,
+        matches: Some("m".into()),
+        period: crate::config::BudgetPeriod::Month,
+        max_usd: Some(1.0),
+        max_tokens: None,
+        warn_fraction: 0.8,
+        action: crate::config::BudgetAction::Refuse,
+    }];
+    let gate = OpenHumanBudgetGate::new(Arc::new(config));
+    // Another call left a different model in the shared attribution.
+    *gate.last_model.write() = "other".into();
+    let policies = gate.live_budgets();
+    assert!(gate
+        .check_budgets_against(&estimate_for("planner"), &policies, &tracker)
+        .is_some());
+}
+
+#[tokio::test]
+async fn acquire_refuses_an_over_budget_call() {
+    let (_tmp, tracker) = ledger_with(2.0, "planner");
+    let gate = budgeted_gate(crate::config::BudgetAction::Refuse).with_tracker(Arc::new(tracker));
+    let err = match gate.acquire(&estimate_for("planner")).await {
+        Err(err) => err,
+        Ok(_) => panic!("an over-budget call must be refused"),
+    };
+    match err {
+        tinyagents_harness::error::TinyAgentsError::LimitExceeded(message) => {
+            assert!(message.starts_with("BUDGET_EXCEEDED:"), "{message}");
+        }
+        other => panic!("expected LimitExceeded, got {other:?}"),
+    }
+    // The same gate admits an agent the budget does not cover.
+    assert!(gate.acquire(&estimate_for("orchestrator")).await.is_ok());
+}
