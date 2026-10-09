@@ -56,7 +56,7 @@ launch.
 | Path | Tests for |
 | --- | --- |
 | `imp/process_recovery_macos_tests.rs` | `ps` parsing, bundle `argv0` extraction, self filtering, and the TERM-then-KILL sequence with a fake `ProcessKiller`. |
-| `linux_imp/process_recovery_linux_tests.rs` | `/proc` parsing and executable matching. |
+| `linux_imp/process_recovery_linux_tests.rs` | Executable name matching and exclusion of the current process from the `/proc` scan. |
 | `windows_imp/process_recovery_windows_tests.rs` | WMIC parsing, subcommand and `--type=` detection, ancestor exclusion, and the WMIC/CIM fallback choice. |
 
 ## Boundaries
