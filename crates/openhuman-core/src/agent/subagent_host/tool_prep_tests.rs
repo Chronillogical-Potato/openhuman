@@ -54,3 +54,44 @@ fn child_keeps_the_parents_protocol() {
         assert_eq!(format, parent);
     }
 }
+
+struct NamedTool(&'static str);
+
+#[async_trait::async_trait]
+impl Tool for NamedTool {
+    fn name(&self) -> &str {
+        self.0
+    }
+    fn description(&self) -> &str {
+        "named"
+    }
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({ "type": "object" })
+    }
+    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+        Ok(tinytools::ToolResult::success("ok"))
+    }
+}
+
+#[test]
+fn rule_withheld_tools_leave_the_child_prompt_but_stay_allowed() {
+    let tools: Vec<Box<dyn Tool>> = vec![
+        Box::new(NamedTool("file_read")),
+        Box::new(NamedTool("shell")),
+        Box::new(NamedTool("web_fetch")),
+    ];
+    let rules: tinytools::ToolRules = serde_json::from_value(serde_json::json!({ "rules": [
+        { "effect": "hide", "match": { "name": "shell" } },
+        { "effect": "deny", "match": { "name": "web_*" } },
+    ] }))
+    .unwrap();
+    let policy = tinyagents_harness::tool::ToolRulePolicy::new(rules);
+    let allowed = vec![0, 1, 2];
+
+    let listed = rule_listed_indices(&allowed, &tools, Some(&policy));
+    assert_eq!(listed, vec![0], "hidden and denied tools leave the listing");
+    let prompt = prompt_tools_for(&listed, &tools);
+    assert_eq!(prompt.len(), 1);
+    assert_eq!(prompt[0].name, "file_read");
+    assert_eq!(rule_listed_indices(&allowed, &tools, None), allowed);
+}

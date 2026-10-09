@@ -158,6 +158,7 @@ fn definition_with_tool_scope(
         skill_filter: None,
         extra_tools: Vec::new(),
         deferred_tools: Vec::new(),
+        tool_rules: None,
         max_iterations: 3,
         iteration_policy: Default::default(),
         max_result_chars: None,

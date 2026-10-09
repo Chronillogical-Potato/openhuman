@@ -14,6 +14,7 @@ fn custom_agent(id: &str, enabled: bool) -> AgentRegistryEntry {
         system_prompt: Some("Do custom work.".to_string()),
         tool_allowlist: vec!["memory".to_string()],
         tool_denylist: Vec::new(),
+        tool_rules: None,
         subagents: AgentSubagentPolicy::default(),
         tags: vec!["custom".to_string()],
         metadata: Value::Null,
@@ -32,6 +33,7 @@ fn merge_entries_applies_default_overrides_and_filters_disabled() {
         system_prompt: None,
         tool_allowlist: vec!["*".to_string()],
         tool_denylist: Vec::new(),
+        tool_rules: None,
         subagents: AgentSubagentPolicy::default(),
         tags: Vec::new(),
         metadata: Value::Null,
@@ -111,4 +113,32 @@ fn ensure_orchestrator_enabled_rejects_disabled_orchestrator() {
         ensure_orchestrator_enabled(&entry).unwrap_err(),
         "orchestrator agent cannot be disabled"
     );
+}
+
+#[test]
+fn a_patch_sets_and_clears_tool_rules() {
+    let mut entry = custom_agent("custom", true);
+    let rules = tinytools::ToolRules::from_allow_deny(Vec::<String>::new(), ["shell"]);
+    apply_patch(
+        &mut entry,
+        AgentRegistryPatch {
+            tool_rules: Some(rules.clone()),
+            ..AgentRegistryPatch::default()
+        },
+    );
+    assert_eq!(entry.tool_rules, Some(rules));
+    let definition = crate::agent::registry::defaults::definition_from_registry_entry(&entry);
+    assert!(
+        definition.tool_rules.is_some(),
+        "the entry's rules reach the definition"
+    );
+
+    apply_patch(
+        &mut entry,
+        AgentRegistryPatch {
+            tool_rules: Some(tinytools::ToolRules::default()),
+            ..AgentRegistryPatch::default()
+        },
+    );
+    assert_eq!(entry.tool_rules, None, "an empty rule set clears the field");
 }

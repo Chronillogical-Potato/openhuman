@@ -383,6 +383,11 @@ const messages: TranslationMap = {
   'settings.face.menuDesc': 'Choisissez le visage de votre assistant et la couleur de la mascotte',
   'settings.navGroups.data': 'Données',
   'settings.languageDesc': "Langue d'affichage de l'interface",
+  'settings.timezone': 'Fuseau horaire',
+  'settings.timezoneDesc': 'Votre fuseau horaire local. Par défaut, il suit celui de cet appareil.',
+  'settings.timezoneDevice': 'Utiliser le fuseau horaire de l’appareil ({zone})',
+  'settings.timezoneUnknownDevice': 'inconnu',
+  'settings.timezoneSaveFailed': 'Impossible d’enregistrer le fuseau horaire. Réessayez.',
   'settings.account.session': 'Session',
   'settings.account.manageBilling': 'Forfait et facturation',
   'settings.account.manageBillingDesc': 'Gérez votre abonnement, vos crédits et vos factures',
@@ -460,7 +465,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'Mémoire',
   'welcome.th.featureEmbeddings': 'Embeddings',
   'welcome.th.featureBilling': 'Facturation',
-  'welcome.th.credit': '5 $ de crédit pour commencer',
   'welcome.th.cta': 'Continuer avec TinyHumans',
   'welcome.th.providers': 'Connectez-vous avec Google, GitHub ou X',
   'welcome.self.title': 'Je le configure moi-même',
@@ -503,9 +507,6 @@ const messages: TranslationMap = {
     'Impossible de passer aux modèles gratuits OpenRouter. Vérifiez votre connexion OpenRouter et réessayez.',
   'chat.newThread': 'Nouveau fil',
   'chat.newConversation': 'Nouvelle conversation',
-  'chat.sidebar.searchPlaceholder': 'Rechercher des conversations',
-  'chat.sidebar.clearSearch': 'Effacer la recherche',
-  'chat.sidebar.noMatches': 'Aucune conversation correspondante',
   'chat.sidebar.group.pinned': 'Épinglées',
   'chat.sidebar.group.today': "Aujourd'hui",
   'chat.sidebar.group.yesterday': 'Hier',
@@ -629,6 +630,12 @@ const messages: TranslationMap = {
   'connections.browser.routeHosted': 'Proxy hébergé',
   'connections.browser.testInConversation':
     'Testez une page dans une conversation après l’enregistrement.',
+  'connections.browser.learning': 'Ce que les tâches apprennent',
+  'connections.browser.learnFromTasks': 'Apprendre des tâches terminées',
+  'connections.browser.learnHint':
+    'Conserve, pour chaque site, le plan et les éléments de page utilisés par une tâche terminée, afin que la tâche suivante y démarre plus vite. Stocké dans l’espace de travail où s’exécute le cœur d’OpenHuman, jamais dans la mémoire du chat.',
+  'connections.browser.forgetSites': 'Oublier les sites appris',
+  'connections.browser.sitesForgotten': 'Sites oubliés : {count}',
   'connections.browser.save': 'Enregistrer',
   'connections.browser.saved': 'Paramètres enregistrés',
   'connections.browser.testBrowser': 'Tester Chrome',
@@ -750,7 +757,7 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f2': 'Compression de tokens pour aller plus loin',
   'onboarding.runtimeChoice.cloud.f3': 'Un abonnement, tous les modèles inclus',
   'onboarding.runtimeChoice.cloud.f4': 'Aucune clé API à gérer',
-  'onboarding.runtimeChoice.cloud.f5': 'Facile à configurer',
+  'onboarding.runtimeChoice.cloud.f5': 'Mémoire hébergée, services réseau gérés',
   'onboarding.runtimeChoice.custom.title': 'Personnalisé',
   'onboarding.runtimeChoice.custom.tagline':
     'Utilise tes propres clés. Contrôle total sur ce que tu utilises.',
@@ -856,7 +863,7 @@ const messages: TranslationMap = {
   'accounts.disconnect': 'Déconnecter',
   'accounts.disconnectClearMemory': 'Supprimer aussi la mémoire de cette source',
   'accounts.disconnectClearMemoryHint':
-    'Supprime définitivement les fragments de mémoire locaux liés à cette connexion.',
+    'Supprime définitivement les souvenirs enregistrés depuis cette connexion.',
   'channels.title': 'Canaux',
   'channels.configure': 'Configurer le canal',
   'channels.setup': 'Configuration',
@@ -2064,6 +2071,10 @@ const messages: TranslationMap = {
   'commandPalette.placeholder': 'Tape une commande ou recherche…',
   'commandPalette.searchAria': 'Rechercher des commandes',
   'commandPalette.title': 'Palette de commandes',
+  'commandPalette.group.conversations': 'Conversations',
+  'commandPalette.group.messages': 'Messages',
+  'commandPalette.searchingMessages': 'Recherche dans les messages…',
+  'commandPalette.untitledConversation': 'Conversation sans titre',
   'kbd.ariaLabel': 'Raccourci clavier : {shortcut}',
   'shortcuts.title': 'Raccourcis clavier',
   'shortcuts.subtitle': 'Accélérez votre travail grâce à ces raccourcis clavier.',
@@ -2219,6 +2230,7 @@ const messages: TranslationMap = {
   'chat.subagents.ofTotal': '{complete} sur {total}',
   'chat.subagents.runningCount': '{count} en cours',
   'chat.subagents.failedCount': '{count} en échec',
+  'chat.subagents.incompleteCount': '{count} incomplets',
   'chat.subagents.settled': 'Sous-tâches terminées. Traitement de leurs résultats.',
   'conversations.planReview.title': 'Examiner le plan',
   'conversations.planReview.subtitle':
@@ -2602,6 +2614,13 @@ const messages: TranslationMap = {
   'conversations.subagent.cancelling': 'Annulation…',
   'conversations.subagent.cancelFailed': "Impossible d'annuler la tâche. Réessayez.",
   'conversations.subagent.awaitingTitle': 'En attente de votre réponse',
+  'conversations.subagent.incompleteTitle': 'Arrêté avant la fin',
+  'conversations.taskCard.state.working': 'En cours',
+  'conversations.taskCard.state.waiting': 'En attente',
+  'conversations.taskCard.state.done': 'Terminé',
+  'conversations.taskCard.state.failed': 'Échec',
+  'conversations.taskCard.state.cancelled': 'Annulé',
+  'conversations.taskCard.state.incomplete': 'Arrêté avant la fin',
   'conversations.subagent.answerPlaceholder': 'Saisissez votre réponse',
   'conversations.subagent.answerSend': 'Envoyer la réponse',
   'conversations.subagent.answerSent': 'Réponse envoyée',
@@ -4095,6 +4114,37 @@ const messages: TranslationMap = {
   'skills.detail.author': 'Auteur',
   'skills.detail.license': 'Licence',
   'skills.detail.description': 'Description',
+  'skills.detail.overview': 'Aperçu',
+  'skills.registry.firstFetchHint':
+    'Chargement du catalogue de compétences. Le premier téléchargement peut prendre une minute.',
+  'skills.registry.refreshing':
+    'Affichage du catalogue enregistré pendant le chargement d’une copie à jour.',
+  'skills.registry.offline': 'Hors ligne : affichage du catalogue enregistré du {time}.',
+  'skills.registry.offlineNoTime': 'Hors ligne : affichage du catalogue enregistré.',
+  'skills.registry.unreachable':
+    'Impossible de joindre le registre de compétences. Vérifiez votre connexion et réessayez.',
+  'skills.registry.rateLimited':
+    'Le registre de compétences est surchargé. Réessayez dans {seconds} s.',
+  'skills.registry.rateLimitedShortly':
+    'Le registre de compétences est surchargé. Réessayez dans un instant.',
+  'skills.registry.viewSource': 'Voir la source',
+  'skills.registry.noDirectDownload':
+    'Cette entrée n’a pas de SKILL.md à télécharger. Ouvrez sa page source pour l’installer autrement.',
+  'skills.registry.upstreamAmbiguous':
+    'Plusieurs auteurs publient une compétence sous ce nom et le catalogue ne précise pas laquelle, elle ne peut donc pas être installée automatiquement.',
+  'skills.scan.title': "L'analyse de sécurité a bloqué cette compétence",
+  'skills.scan.description':
+    "OpenHuman a téléchargé et analysé {name} deux fois, et l'analyse de sécurité l'a bloquée les deux fois. Elle n'a pas été installée.",
+  'skills.scan.findingsLabel': "Ce que l'analyse a trouvé",
+  'skills.scan.warning':
+    'Installez-la uniquement si vous faites confiance à sa provenance. Bloquer est le choix sûr.',
+  'skills.scan.block': "Bloquer l'installation",
+  'skills.scan.installAnyway': 'Installer quand même',
+  'skills.scan.verdictBlock': 'Bloqué',
+  'skills.scan.verdictWarn': 'Avertissement',
+  'skills.scan.declinedTitle': 'Installation bloquée',
+  'skills.scan.declinedHint':
+    "La compétence n'a pas été installée car l'analyse de sécurité l'a bloquée.",
   'skills.detail.source': 'URL source',
   'skills.detail.tags': 'Étiquettes',
   'skills.detail.version': 'Version',
@@ -5056,12 +5106,11 @@ const messages: TranslationMap = {
 
   // Memory v2 page (Connections → Memory): engine, ask, learnings,
   // conversations, documents and context chips.
-  'memoryPage.tabs.engine': 'Moteur',
+  'memoryPage.tabs.engine': 'Fournisseur',
   'memoryPage.tabs.ask': 'Demander',
   'memoryPage.tabs.learnings': 'Acquis',
   'memoryPage.tabs.conversations': 'Conversations',
-  'memoryPage.header.engine':
-    'Choisissez qui stocke votre mémoire et répond aux questions à son sujet.',
+  'memoryPage.header.engine': 'Choisissez où votre mémoire est stockée.',
   'memoryPage.header.ask': "Posez une question à votre mémoire et voyez d'où vient la réponse.",
   'memoryPage.header.learnings':
     'Faits, préférences et procédures que votre agent doit toujours retenir.',
@@ -5137,18 +5186,69 @@ const messages: TranslationMap = {
   'memoryPage.meta.thread': 'Fil',
   'memoryPage.meta.url': 'Lien',
   'memoryPage.off.title': 'La mémoire est désactivée',
-  'memoryPage.off.description':
-    'Connectez CortexDB pour commencer à mémoriser. Connectez-vous pour utiliser CortexDB intégré, ou utilisez votre propre clé API ou un serveur sur cet ordinateur.',
-  'memoryPage.off.action': 'Choisir un moteur',
-  'memoryPage.engine.listTitle': 'Mémoire CortexDB',
-  'memoryPage.engine.listDescription':
-    "La mémoire fonctionne avec CortexDB. Choisissez comment cette app s'y connecte. Une seule connexion est active à la fois.",
-  'memoryPage.engine.offExplanation':
-    "Aucune connexion mémoire n'est utilisable pour le moment : rien n'est enregistré ni rappelé. Connectez-vous pour utiliser CortexDB intégré, ou connectez CortexDB avec votre clé API ou sur cet ordinateur.",
+  'memoryPage.off.description': 'Choisissez un fournisseur de mémoire pour commencer à mémoriser.',
+  'memoryPage.off.action': 'Choisir un fournisseur',
+  'memoryPage.disabled.title': 'La mémoire est désactivée',
+  'memoryPage.disabled.description':
+    'OpenHuman ne mémorise et ne rappelle rien. Choisissez un fournisseur pour réactiver la mémoire.',
+  'memoryPage.engine.disabled.title': 'Désactivée',
+  'memoryPage.engine.disabled.description':
+    "Désactivez complètement la mémoire. Rien n'est enregistré ni rappelé, et vos connexions sont conservées.",
+  'memoryPage.engine.disabled.action': 'Désactiver la mémoire',
+  'memoryPage.engine.disabled.banner':
+    "Rien n'est enregistré ni rappelé. Choisissez un fournisseur ci-dessous pour réactiver la mémoire.",
+  'memoryPage.engine.disabled.toast': 'Mémoire désactivée',
+  'memoryPage.engine.disabled.toastFailed': 'Impossible de désactiver la mémoire',
+  'memoryPage.engine.inUse': 'Utilisé',
+  'memoryPage.announcement.title': 'Inférence de mémoire gratuite sur CortexDB',
+  'memoryPage.announcement.retired': 'TinyCortex a été retiré le 7 oct.',
+  'memoryPage.announcement.highlight':
+    "Migration gratuite, et l'inférence de la mémoire n'est jamais facturée.",
+  'memoryPage.announcement.rest':
+    "Basic inclut 1 Go de stockage de mémoire et Pro 20 Go. Elle est plus rapide et plus intelligente, et vos données ne servent jamais à l'entraînement.",
+  'memoryPage.announcement.dismiss': 'Fermer',
+  'memoryPage.alphaNotice':
+    "Alpha précoce : la mémoire est encore en test. Le rappel, les imports et le stockage peuvent se comporter de manière inattendue ou changer d'une version à l'autre.",
+  'memoryPage.engine.cortex.description':
+    'Moteur de mémoire avec rappel classé et réponses sourcées.',
+  'memoryPage.engine.chip.label': 'Comment connecter CortexDB',
+  'memoryPage.engine.chip.builtin': 'TinyHumans',
+  'memoryPage.engine.chip.free': 'Gratuit',
+  'memoryPage.engine.chip.apikey': 'Votre clé CortexDB',
+  'memoryPage.engine.chip.selfhost': 'Local',
+  'memoryPage.engine.fairUse.summary': "À propos de l'inférence de mémoire gratuite",
+  'memoryPage.engine.quota.plan': 'Votre forfait {plan} inclut {storage} de stockage de mémoire.',
+  'memoryPage.engine.quota.all': 'Basic inclut 1 Go de stockage de mémoire et Pro 20 Go.',
+  'memoryPage.engine.quota.inference': "L'inférence de la mémoire n'est jamais facturée.",
+  'memoryPage.engine.fairUse.heading': 'Utilisation équitable',
+  'memoryPage.engine.offPrompt': 'Choisissez un fournisseur ci-dessous pour commencer à mémoriser.',
+  'memoryPage.engine.builtin.summaryPlan':
+    'Inférence de mémoire gratuite avec votre forfait {plan}, hébergée par TinyHumans.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'Inférence de mémoire gratuite avec Basic et Pro, hébergée par TinyHumans.',
+  'memoryPage.engine.apiKeyOption.connected': 'Connecté avec votre clé d’API CortexDB.',
+  'memoryPage.engine.selfHost.connected': 'Connecté à CortexDB sur {endpoint}.',
+  'memoryPage.engine.fairUse.own': 'Ingérez votre propre contenu, pour votre propre usage.',
+  'memoryPage.engine.fairUse.noAbuse':
+    'Pas d’envois massifs automatisés, de scraping ni d’ingestion pour le compte d’autres personnes ou services.',
+  'memoryPage.engine.fairUse.limits':
+    'Nous pouvons limiter ou suspendre l’ingestion des comptes qui enfreignent ces conditions.',
+  'memoryPage.engine.fairUse.terms': 'Lire les Conditions d’utilisation',
+  'memoryPage.engine.soon.title': 'Bientôt disponible',
+  'memoryPage.engine.soon.description': 'D’autres moteurs de mémoire en préparation.',
+  'memoryPage.engine.soon.badge': 'Bientôt',
+  'memoryPage.engine.soon.supermemory': 'API de mémoire universelle pour les apps d’IA.',
+  'memoryPage.engine.soon.mem0': 'Couche de mémoire auto-améliorante pour agents.',
+  'memoryPage.engine.soon.cognee':
+    'Mémoire en graphe de connaissances construite à partir de vos données.',
+  'memoryPage.engine.soon.zep': 'Graphe de connaissances temporel pour la mémoire des agents.',
+  'memoryPage.engine.soon.letta': 'Agents avec état et mémoire à long terme.',
+  'memoryPage.engine.toastSwitched': 'Fournisseur de mémoire changé',
+  'memoryPage.engine.toastSwitchedBody': '{name} stocke désormais votre mémoire.',
+  'memoryPage.engine.toastSaved': 'Paramètres de mémoire enregistrés',
   'memoryPage.engine.statusDegraded': 'La mémoire est dégradée',
   'memoryPage.engine.statusDown': 'Le moteur de mémoire est injoignable',
   'memoryPage.engine.statusOff': 'Désactivé',
-  'memoryPage.engine.active': 'Actif',
   'memoryPage.engine.use': 'Utiliser',
   'memoryPage.engine.connect': 'Connecter',
   'memoryPage.engine.endpoint': 'Point de terminaison',
@@ -5161,20 +5261,13 @@ const messages: TranslationMap = {
   'memoryPage.engine.badgeDown': 'Injoignable',
   'memoryPage.engine.connecting': 'Connexion…',
   'memoryPage.engine.save': 'Enregistrer',
-  'memoryPage.engine.builtin.title': 'CortexDB intégré',
-  'memoryPage.engine.builtin.detail': 'Inclus avec votre compte TinyHumans',
-  'memoryPage.engine.builtin.signInRequired': "Connectez-vous pour l'utiliser",
-  'memoryPage.engine.builtin.description':
-    "CortexDB hébergé par TinyHumans et inclus avec votre compte. Connectez-vous pour l'utiliser ; rien à configurer.",
-  'memoryPage.engine.builtin.enrichmentNote':
-    'Les nouveaux souvenirs sont enregistrés immédiatement. Les faits et croyances qui en sont tirés se complètent dans les minutes qui suivent.',
+  'memoryPage.engine.builtin.title': 'CortexDB via TinyHumans',
   'memoryPage.engine.builtin.signInHint':
     'Connectez-vous à votre compte TinyHumans pour utiliser CortexDB intégré.',
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB avec votre clé API',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB avec votre propre clé',
   'memoryPage.engine.apiKeyOption.description':
     'Utilisez votre propre compte CortexDB. La clé est stockée de façon sécurisée sur cet ordinateur, jamais dans le fichier de configuration.',
-  'memoryPage.engine.selfHost.title': 'Auto-héberger CortexDB',
-  'memoryPage.engine.selfHost.detail': 'Un serveur CortexDB sur cet ordinateur',
+  'memoryPage.engine.selfHost.title': 'CortexDB sur cet ordinateur',
   'memoryPage.engine.selfHost.step1':
     'Lancez un serveur CortexDB sur cet ordinateur en suivant le guide :',
   'memoryPage.engine.selfHost.docsLink': "Guide d'auto-hébergement de CortexDB",
@@ -5248,19 +5341,20 @@ const messages: TranslationMap = {
   'memoryPage.sourceKind.link': 'Lien',
   'memoryPage.sourceKind.github': 'Dépôt GitHub',
   'memoryPage.sourceKind.rss': 'Flux RSS',
-  'memoryPage.sourceKind.composio': 'Application Composio',
   'memoryPage.sourceTarget.folder': '/path/to/folder',
   'memoryPage.sourceTarget.file': '/path/to/file.md',
   'memoryPage.sourceTarget.link': 'https://example.com/page',
   'memoryPage.sourceTarget.github': 'owner/repo',
   'memoryPage.sourceTarget.rss': 'https://example.com/feed.xml',
-  'memoryPage.sourceTarget.composio': 'Application Composio, p. ex. notion',
   'memoryPage.sourceStatus.idle': 'Inactive',
   'memoryPage.sourceStatus.syncing': 'Synchronisation',
   'memoryPage.sourceStatus.error': 'Erreur',
-  'memoryPage.tabs.brain': 'Cerveau',
-  'memoryPage.tabs.background': 'Arrière-plan',
+  'memoryPage.tabs.brain': 'Documents',
+  'memoryPage.tabs.background': 'Activité',
   'memoryPage.tabs.settings': 'Réglages',
+  'memoryPage.tabs.migration': 'Migration',
+  'memoryPage.header.migration':
+    'Importez la mémoire des versions précédentes dans CortexDB et organisez-la.',
   'memoryPage.header.brain':
     'Documents partagés par tous les agents, classés selon leur provenance.',
   'memoryPage.header.background':
@@ -5311,6 +5405,7 @@ const messages: TranslationMap = {
     'Tous les documents {source} seront retirés du cerveau. Cette action est irréversible.',
   'memoryPage.brain.forgotten': '{count} documents {source} oubliés.',
   'memoryPage.brain.source.pdf': 'PDF',
+  'memoryPage.brain.source.files': 'Fichiers',
   'memoryPage.brain.source.markdown': 'Markdown',
   'memoryPage.brain.source.notion': 'Notion',
   'memoryPage.brain.source.github': 'GitHub',
@@ -5382,6 +5477,33 @@ const messages: TranslationMap = {
     "La racine que tous les agents partagent et l'agent sous lequel cette app s'exécute.",
   'memoryPage.settings.root': 'Racine',
   'memoryPage.settings.agentId': 'Agent',
+  'memoryPage.settings.eraseTitle': 'Effacer la mémoire',
+  'memoryPage.settings.eraseAction': 'Effacer toute la mémoire',
+  'memoryPage.settings.eraseDescription':
+    'Supprime définitivement tout ce dont OpenHuman se souvient pour ce compte. Cette action est irréversible.',
+  'memoryPage.settings.eraseConfirmTitle': 'Effacer toute la mémoire ?',
+  'memoryPage.settings.eraseConfirmBody':
+    'Cela supprime définitivement tout ce dont OpenHuman se souvient pour ce compte : chaque source connectée, conversation passée, apprentissage et fait. Vos connexions et vos réglages sont conservés.',
+  'memoryPage.settings.eraseIrreversible':
+    'Cette action est irréversible. La mémoire effacée ne peut pas être récupérée.',
+  'memoryPage.settings.eraseConfirmCheck':
+    'Je comprends que toute ma mémoire sera définitivement supprimée.',
+  'memoryPage.settings.eraseConfirm': 'Tout effacer',
+  'memoryPage.settings.erasing': 'Effacement…',
+  'memoryPage.settings.erasedToast': 'Toute la mémoire a été effacée',
+  'memoryPage.settings.erasedToastBody': 'OpenHuman ne se souvient plus de rien pour ce compte.',
+  'memoryPage.settings.eraseError.unsupported':
+    'Votre service de mémoire ne peut pas encore effacer toute la mémoire. Rien n’a été effacé.',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'Votre compte n’a plus de crédits, la mémoire ne peut donc pas être effacée pour le moment. Rechargez puis réessayez. Rien n’a été effacé.',
+  'memoryPage.settings.eraseError.memoryOff':
+    'La mémoire est désactivée, il n’y a donc rien à effacer.',
+  'memoryPage.settings.eraseError.unavailable':
+    'Impossible de confirmer si la mémoire a été effacée. Elle l’a peut-être été ; vérifiez avant de réessayer.',
+  'memoryPage.settings.eraseError.unauthorized':
+    'Votre session a expiré. Reconnectez-vous, puis réessayez d’effacer votre mémoire.',
+  'memoryPage.settings.eraseError.generic':
+    'Impossible d’effacer votre mémoire. Veuillez réessayer.',
   'memoryPage.settings.hostBound':
     "L'app qui héberge OpenHuman définit ces valeurs, elles ne peuvent donc pas être modifiées ici.",
   'memoryPage.import.title': 'Ancienne mémoire détectée',
@@ -5396,7 +5518,31 @@ const messages: TranslationMap = {
   'memoryPage.import.done': 'Ancienne mémoire importée',
   'memoryPage.import.failed': "Échec de l'importation",
   'memoryPage.import.resume': "Reprendre l'importation",
+  'memoryPage.import.failedItems': "Éléments qui n'ont pas pu être importés : {count}.",
+  'memoryPage.import.retryFailed': 'Réessayer les éléments en échec',
   'memoryPage.import.progress': '{imported} éléments sur {total} importés',
+  'memoryPage.import.none': 'Aucune mémoire précédente trouvée sur cet appareil.',
+  'memoryPage.import.doneBody': 'Votre mémoire précédente est déjà dans CortexDB.',
+  'memoryPage.import.short': 'Importer',
+  'memoryPage.migrate.title': 'Déplacer la mémoire dans votre compte',
+  'memoryPage.migrate.body':
+    'La mémoire enregistrée avant cette mise à jour se trouve encore dans l’ancienne organisation partagée. Elle est déplacée automatiquement en arrière-plan, ou vous pouvez la déplacer maintenant.',
+  'memoryPage.migrate.action': 'Migrer maintenant',
+  'memoryPage.migrate.doneBody': 'Votre mémoire est déjà dans votre compte.',
+  'memoryPage.migrate.afterImport': 'Démarre une fois l’import terminé.',
+  'memoryPage.migrate.running': 'Organisation de votre mémoire…',
+  'memoryPage.migrate.progress': '{copied} éléments déplacés',
+  'memoryPage.migrate.progressOne': '{copied} élément déplacé',
+  'memoryPage.migrate.paused': 'Déplacement en pause',
+  'memoryPage.migrate.resume': 'Reprendre',
+  'memoryPage.migrate.leftTitle': '{count} éléments n’ont pas pu être déplacés',
+  'memoryPage.migrate.leftTitleOne': '{count} élément n’a pas pu être déplacé',
+  'memoryPage.migrate.leftBody': 'Ils restent où ils étaient. Réessayez ou laissez-les là.',
+  'memoryPage.migrate.retry': 'Réessayer',
+  'memoryPage.migrate.takeoverTitle': 'Prendre la mémoire partagée sur cet ordinateur ?',
+  'memoryPage.migrate.takeoverBody':
+    'Ce serveur CortexDB peut contenir la mémoire d’autres comptes de cet ordinateur. Un seul compte peut la prendre : elle est déplacée dans votre compte et les autres comptes ne la voient plus.',
+  'memoryPage.migrate.takeoverConfirm': 'La prendre',
   // Live voice agents
   'voice.live.mute': 'Couper le micro',
   'voice.live.unmute': 'Réactiver le micro',
@@ -5415,19 +5561,37 @@ const messages: TranslationMap = {
   'connections.tabs.voiceAgents': 'Agents vocaux',
   'connections.header.voiceAgents':
     'Parlez à voix haute avec votre assistant. Choisissez qui fournit sa voix et ajoutez les clés de vos propres comptes.',
-  'connections.voiceAgents.defaultLabel': 'Agent vocal par défaut',
-  'connections.voiceAgents.needsKeyOption': '{label} (clé requise)',
-  'connections.voiceAgents.kindHosted': 'Inclus',
-  'connections.voiceAgents.kindByok': 'Votre clé',
-  'connections.voiceAgents.badgeDefault': 'Par défaut',
   'connections.voiceAgents.badgeReady': 'Prêt',
   'connections.voiceAgents.badgeNeedsKey': 'Clé manquante',
-  'connections.voiceAgents.descGeminiHosted': 'Gemini Live via TinyHumans. Aucune clé requise.',
-  'connections.voiceAgents.descElevenlabsHosted':
-    'Voix conversationnelle ElevenLabs via TinyHumans. Aucune clé requise.',
-  'connections.voiceAgents.descGemini': "Gemini Live avec votre propre clé d'API Google AI Studio.",
-  'connections.voiceAgents.descSarvam':
-    "Sarvam AI pour les langues indiennes, avec votre propre clé d'API.",
+  'connections.voiceAgents.toastSwitched': 'Agent vocal changé',
+  'connections.voiceAgents.toastSwitchedBody':
+    '{name} répond désormais quand vous parlez à votre assistant.',
+  'connections.voiceAgents.toastVoiceSaved': 'Paramètres vocaux mis à jour',
+  'connections.voiceAgents.toastKeySaved': 'Clé API ajoutée',
+  'connections.voiceAgents.toastKeySavedBody': '{name} est prêt à l’emploi.',
+  'connections.voiceAgents.toastKeyRemoved': 'Clé API supprimée',
+  'connections.voiceAgents.toastSaveFailed': 'Impossible d’enregistrer vos modifications',
+  'connections.voiceAgents.includedTag': 'Inclus avec TinyHumans',
+  'connections.voiceAgents.ownKeyTag': 'Votre propre clé',
+  'connections.voiceAgents.vendorGemini':
+    'Le modèle vocal en temps réel de Google. Rapide et naturel.',
+  'connections.voiceAgents.vendorElevenlabs':
+    'Des voix conversationnelles réalistes par ElevenLabs.',
+  'connections.voiceAgents.vendorSarvam': 'Un agent vocal conçu pour les langues indiennes.',
+  'connections.voiceAgents.settings': 'Paramètres',
+  'connections.voiceAgents.settingsAria': 'Paramètres de {name}',
+  'connections.voiceAgents.use': 'Utiliser',
+  'connections.voiceAgents.connection': 'Mode de connexion',
+  'connections.voiceAgents.optionManaged': 'Géré par TinyHumans',
+  'connections.voiceAgents.optionManagedDesc': 'Aucune clé ni configuration requise.',
+  'connections.voiceAgents.optionOwnKey': 'Votre propre clé API',
+  'connections.voiceAgents.optionOwnKeyDesc':
+    'Utilise votre propre compte fournisseur et sa facturation.',
+  'connections.voiceAgents.voiceSettings': 'Paramètres vocaux',
+  'connections.voiceAgents.badgeInUse': 'Utilisé',
+  'connections.voiceAgents.addKeyHint': 'Ajoutez une clé API pour utiliser cet agent.',
+  'connections.voiceAgents.keyOnFile': 'Clé API enregistrée',
+  'connections.voiceAgents.replaceKey': 'Remplacer la clé',
   'connections.voiceAgents.test': 'Tester',
   'connections.voiceAgents.testing': 'Test en cours…',
   'connections.voiceAgents.testOk': 'Fonctionne · {ms} ms',
@@ -5437,15 +5601,11 @@ const messages: TranslationMap = {
   'connections.voiceAgents.apiKeyPlaceholder': "Collez votre clé d'API",
   'connections.voiceAgents.saveKey': 'Enregistrer la clé',
   'connections.voiceAgents.clearKey': 'Supprimer la clé',
-  'connections.voiceAgents.keySaved': 'Clé enregistrée.',
-  'connections.voiceAgents.keyCleared': 'Clé supprimée.',
   'connections.voiceAgents.voice': 'Voix',
   'connections.voiceAgents.speaker': 'Locuteur',
   'connections.voiceAgents.language': 'Langue',
   'connections.voiceAgents.providerDefault': 'Valeur par défaut du fournisseur',
   'connections.voiceAgents.loadFailed': 'Impossible de charger les réglages des agents vocaux',
-  'connections.voiceAgents.saveFailed': "Échec de l'enregistrement : {error}",
-  'connections.voiceAgents.saved': 'Enregistré.',
   'connections.voiceAgents.saving': 'Enregistrement…',
 };
 

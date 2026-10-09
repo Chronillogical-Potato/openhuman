@@ -1,8 +1,11 @@
 //! Desktop host for OpenHuman: Tauri v2 + Wry, targeting Windows, macOS, and
 //! Linux.
 //!
-//! `openhuman_core` is linked in-process; its JSON-RPC server runs as a
-//! tokio task (`core_process`) instead of a spawned sidecar. The renderer
+//! The core is linked in-process; its JSON-RPC server runs as a tokio task
+//! (`core_process`, booted through `openhuman_rpc::host::desktop`) instead of
+//! a spawned sidecar. `openhuman-rpc` is this crate's only openhuman
+//! dependency: the embed facades and the TinyHumans session owner are reached
+//! as `openhuman_rpc::embed` and `openhuman_rpc::tinyhumans`. The renderer
 //! reaches it over `http://127.0.0.1:<port>/rpc`, using the per-launch
 //! bearer returned by the `core_rpc_token` command.
 //!
@@ -12,7 +15,7 @@
 //!
 //! The Cargo features `gateways`, `custom-protocol`, `e2e-test-support`, and
 //! `sandbox-bubblewrap` are shell-local and not part of the product feature
-//! list; the `openhuman_core` product gates are forwarded explicitly in
+//! list; the product gates are forwarded explicitly on `openhuman-rpc` in
 //! `Cargo.toml` and guarded by the `VOICE_COMPILED_IN` /
 //! `HTTP_SERVER_COMPILED_IN` compile-time asserts below.
 //!
@@ -30,36 +33,37 @@ compile_error!("src-tauri host supports desktop (Windows/macOS/Linux) only. Mobi
 // The shipped desktop app must always embed the real voice domain. Cargo
 // features are per-crate, so `#[cfg(feature = "voice")]` here would test THIS
 // crate's features, not the core's — a voice-less core is only observable via
-// the core's own always-compiled facade. Without this assert the failure is
-// silent and runtime-only: every `openhuman.voice_*` RPC answers "unknown
-// method" and the UI blames a stale sidecar (#4901). Keep `voice` in the
-// `openhuman_core` feature list in Cargo.toml to satisfy this.
+// the core's own always-compiled facade (re-exported by embed). Without this
+// assert the failure is silent and runtime-only: every `openhuman.voice_*` RPC
+// answers "unknown method" and the UI blames a stale sidecar (#4901). Keep
+// `voice` in the `openhuman-rpc` feature list in Cargo.toml to satisfy this.
 const _: () = assert!(
-    openhuman_core::voice::VOICE_COMPILED_IN,
-    "openhuman_core must be built with the `voice` feature: the desktop app ships voice, \
+    openhuman_rpc::embed::VOICE_COMPILED_IN,
+    "the core must be built with the `voice` feature: the desktop app ships voice, \
      and without it every openhuman.voice_* controller is unregistered (#4901). \
-     Add \"voice\" to the openhuman_core `features` list in crates/openhuman-app/Cargo.toml."
+     Add \"voice\" to the openhuman-rpc `features` list in crates/openhuman-app/Cargo.toml."
 );
 
 // The shell talks to the in-process core only over http://127.0.0.1:<port>/rpc,
 // so the core MUST embed the HTTP + Socket.IO transport (#5048). Same failure
 // class as #4901: with `http-server` dropped the core never binds a listener
 // and every RPC is unreachable — silent and runtime-only. The marker lives in
-// the core's always-compiled facade (`core::http_server_status`) precisely so
-// this assert can observe the core's feature state (a dependent's own
-// `#[cfg(feature = ...)]` would test THIS crate's features, not the core's).
+// the core's always-compiled facade (`core::http_server_status`, re-exported by
+// embed) precisely so this assert can observe the core's feature state (a
+// dependent's own `#[cfg(feature = ...)]` would test THIS crate's features, not
+// the core's).
 const _: () = assert!(
-    openhuman_core::core::http_server_status::HTTP_SERVER_COMPILED_IN,
-    "openhuman_core must be built with the `http-server` feature: the desktop app reaches \
+    openhuman_rpc::embed::HTTP_SERVER_COMPILED_IN,
+    "the core must be built with the `http-server` feature: the desktop app reaches \
      the core only over http://127.0.0.1:<port>/rpc, and without it the core binds no \
      listener so every RPC is unreachable (#5048). \
-     Add \"http-server\" to the openhuman_core `features` list in crates/openhuman-app/Cargo.toml."
+     Add \"http-server\" to the openhuman-rpc `features` list in crates/openhuman-app/Cargo.toml."
 );
 
 // The desktop shell runs the same in-process core as the CLI. Keep its module
 // loader and TinyComputer browser adapter compiled in; the verified release module
 // is resolved by that core at first use.
-const _: &str = openhuman_core::modules::browser::MODULE_ID;
+const _: &str = openhuman_rpc::embed::modules::browser::MODULE_ID;
 
 mod app_update;
 // Artifact export command (#2779) — cross-platform Downloads copy. The `rfd`
@@ -507,9 +511,9 @@ async fn restart_app(app: tauri::AppHandle<AppRuntime>) -> Result<(), String> {
 /// `OPENHUMAN_WORKSPACE` overrides used in test harnesses. (#900)
 #[tauri::command]
 fn get_active_user_id() -> Result<Option<String>, String> {
-    let root = openhuman_core::config::default_root_openhuman_dir()
+    let root = openhuman_rpc::embed::config::default_root_openhuman_dir()
         .map_err(|err| format!("resolve active-user state directory: {err}"))?;
-    Ok(openhuman_core::config::read_active_user_id(&root))
+    Ok(openhuman_rpc::embed::config::read_active_user_id(&root))
 }
 
 /// Information about an available shell-app update returned to the frontend.
@@ -2372,14 +2376,10 @@ pub fn run() {
     // stderr is a console or file. See `stderr_panic_hook`.
     stderr_panic_hook::neutralize_broken_parent_stderr();
 
-    // The in-process core reaches the hosted backend only through the
-    // transport `openhuman-tinyhumans` installs. `main.rs` installs it before
-    // dispatching here; this call is idempotent and covers embedders of
-    // `run()` that skip `main.rs`.
-    if let Err(err) = openhuman_tinyhumans::install(openhuman_tinyhumans::InstallOptions::default())
-    {
-        log::error!("[boot] TinyHumans backend transport unavailable: {err}");
-    }
+    // No `openhuman_tinyhumans::install` here any more: the embedded core is
+    // booted through `openhuman_rpc::host::desktop` (see `core_process`),
+    // which connects the TinyHumans backend transport, the hosted RPC
+    // proxies and the Jev ranker as part of building its runtime.
 
     // Must run before any GTK/CEF code that could trigger X calls — otherwise
     // Xlib's default handler calls exit(1) on the first BadWindow and we never
@@ -2391,7 +2391,7 @@ pub fn run() {
     // Tauri's default async runtime uses tokio multi-thread workers with
     // a ~2 MB stack. The in-process core (spawned by
     // `core_process::CoreProcessHandle::ensure_running` via
-    // `tokio::spawn(run_server_embedded(..))`) runs *on* that runtime, so
+    // `tokio::spawn(openhuman_rpc::host::desktop(..))`) runs *on* that runtime, so
     // every JSON-RPC handler — including the deep tower
     // `web channel chat → orchestrator turn → integration action tool
     // → composio execute → load_config_with_timeout` (and, at the time, the
@@ -2410,18 +2410,15 @@ pub fn run() {
     // stack overflow` once an orchestrator delegated. PR #3155 raised the
     // standalone server to 16 MiB; the desktop Tauri host is the *same*
     // tower running on a *different* runtime and needs the same headroom.
-    // Share the constant with the rest of `crates/openhuman-core/src/core/*` via
-    // [`openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES`] so all
-    // multi-thread runtimes that may host an agent turn stay in sync.
+    // `embed::process::tokio_runtime` sizes the workers with the core's
+    // `AGENT_WORKER_STACK_BYTES` (and caps blocking threads at
+    // `MAX_BLOCKING_THREADS`) so all multi-thread runtimes that may host an
+    // agent turn stay in sync.
     //
     // Must happen before any `tauri::async_runtime::*` call, otherwise
     // `set(...)` panics with "runtime already initialized".
     {
-        let custom_runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .thread_stack_size(openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
-            .max_blocking_threads(openhuman_core::core::runtime::MAX_BLOCKING_THREADS)
-            .build()
+        let custom_runtime = openhuman_rpc::embed::process::tokio_runtime()
             .expect("build custom tokio runtime for tauri async surface");
         let handle = custom_runtime.handle().clone();
         // Tauri docs: "you cannot drop the underlying TokioRuntime."
@@ -2441,193 +2438,29 @@ pub fn run() {
     // `tauri::cef_entry_point`) and the `OpenHuman core …` in-process core
     // path do NOT spin up a second client — those have their own reporting
     // surfaces.
-    let _sentry_guard = sentry::init(sentry::ClientOptions {
-        dsn: std::env::var("OPENHUMAN_TAURI_SENTRY_DSN")
-            .ok()
-            .filter(|s| !s.is_empty())
-            .or_else(|| option_env!("OPENHUMAN_TAURI_SENTRY_DSN").map(|s| s.to_string()))
-            .filter(|s| !s.is_empty())
-            .and_then(|s| s.parse().ok()),
-        release: Some(std::borrow::Cow::Owned(build_sentry_release_tag())),
-        environment: Some(std::borrow::Cow::Owned(resolve_sentry_environment())),
-        send_default_pii: false,
-        before_send: Some(std::sync::Arc::new(|mut event| {
-            // Drop "dev-server fetch failed" noise: the vendored
-            // `tauri-runtime-cef` dev proxy
-            // (vendor/tauri-cef/crates/tauri/src/protocol/tauri.rs) calls
-            // `log::error!("Failed to request {url}: {err}")` whenever the
-            // CEF webview asks for an asset on `http://localhost:1420` (the
-            // Vite dev URL baked into `tauri.conf.json`). That `log::error!`
-            // is bridged into `tracing` and picked up by the sentry-tracing
-            // layer as an Event — see `crates/openhuman-core/src/core/logging.rs::sentry_tracing_layer`.
-            // In packaged staging/production builds Vite isn't running, so
-            // the request correctly fails — but the failure is noise we
-            // don't want in Sentry (issue OPENHUMAN-TAURI-V, 66+ events).
-            // See [sentry-localhost-filter] log line below for diagnostics.
-            if event_is_localhost_dev_fetch_noise(&event) {
-                log::debug!(
-                    "[sentry-localhost-filter] dropping dev-server fetch noise event: {:?}",
-                    event.message.as_deref().unwrap_or("<no message>")
-                );
-                return None;
-            }
-            if openhuman_core::core::observability::is_budget_event(&event) {
-                // Log only structured tag metadata — `event.message` can carry
-                // upstream provider error text including tokens / pasted-through
-                // secrets, and per `CLAUDE.md` "never log secrets or full PII".
-                // The (domain, status) pair is sufficient diagnostic since
-                // those are the tags `is_budget_event` gates on.
-                log::debug!(
-                    "[sentry-budget-filter] dropping budget-exhausted event (domain={:?}, status={:?})",
-                    event.tags.get("domain"),
-                    event.tags.get("status")
-                );
-                return None;
-            }
-            // Defense-in-depth: drop max-tool-iterations cap events that
-            // slipped past the call-site filters in the core (see
-            // `openhuman_core::core::observability::is_max_iterations_event`
-            // for the rationale). The shell links the core in-process so
-            // any captured event for this deterministic agent-state
-            // outcome is filtered here too (OPENHUMAN-TAURI-99 / -98).
-            if openhuman_core::core::observability::is_max_iterations_event(&event) {
-                log::debug!(
-                    "[sentry-max-iter-filter] dropping max-iteration cap noise event: {:?}",
-                    event.message.as_deref().unwrap_or("<no message>")
-                );
-                return None;
-            }
-            if openhuman_core::core::observability::is_transient_backend_api_failure(&event)
-                || openhuman_core::core::observability::is_transient_integrations_failure(&event)
-                || openhuman_core::core::observability::is_updater_transient_event(&event)
-                || openhuman_core::core::observability::is_skill_install_user_fetch_failure(&event)
-            {
-                return None;
-            }
-            // Defense-in-depth: drop managed-backend `errorCode` events (#870)
-            // the backend owns (F2/F4). The shell links the core in-process,
-            // so a managed inference error captured here must be filtered
-            // identically to the core binary's main.rs chain. The malformed
-            // `BAD_REQUEST` carve-out (F8) is excluded by the underlying
-            // decision, so a client-built bad payload still pages.
-            if openhuman_core::core::observability::is_backend_error_code_event(&event) {
-                log::debug!(
-                    "[sentry-error-code-filter] dropping backend-owned errorCode event_id={:?}",
-                    event.event_id
-                );
-                return None;
-            }
-            // Defense-in-depth: drop transient streaming transport blips
-            // (domain=llm_provider, failure=transport) — flaky-network
-            // timeouts/resets recovered by retry/fallback (F7). Mirrors the
-            // core binary's main.rs filter.
-            if openhuman_core::core::observability::is_transient_provider_transport_failure(&event)
-            {
-                log::debug!(
-                    "[sentry-transport-filter] dropping transient provider transport event_id={:?}",
-                    event.event_id
-                );
-                return None;
-            }
-            // Drop 401 "Session expired. Please log in again." bodies and
-            // pre-flight "no session token stored" guards — mirrors the
-            // core binary's before_send chain. Since #1061 the Tauri shell
-            // links the core in-process, so any session-expired event
-            // captured by either surface lands in the same Sentry client
-            // here and must be filtered identically. Keeps
-            // OPENHUMAN-TAURI-25 / -1Q / -27 / -1G off Sentry.
-            if openhuman_core::core::observability::is_session_expired_event(&event) {
-                // Metadata-only log shape — `event.message` carries the raw
-                // backend response body which CLAUDE.md forbids from local
-                // logs. Mirror the core binary's main.rs filter.
-                log::debug!(
-                    "[sentry-session-expired-filter] dropping session-expired event_id={:?}",
-                    event.event_id
-                );
-                return None;
-            }
-            // Drop provider insufficient-credits 402s — the user's own BYO
-            // account (e.g. OpenRouter) is out of balance, a billing state
-            // OpenHuman has no lever over once the request already caps
-            // max_tokens. The core binary's main.rs before_send already
-            // filters these; since #1061 the core runs in-process inside this
-            // shell, so the cron `agent_job` retries-exhausted report (and any
-            // other compatible-provider path) lands in THIS Sentry client and
-            // must be filtered identically. Closes the #3617 drift that wired
-            // the filter only into the standalone-CLI chain (TAURI-RUST-514 /
-            // -C62).
-            if openhuman_core::core::observability::is_insufficient_credits_event(&event) {
-                // Metadata-only log shape — `event.message` carries the raw
-                // provider 402 body which CLAUDE.md forbids from local logs.
-                log::debug!(
-                    "[sentry-insufficient-credits-filter] dropping insufficient-credits 402 event_id={:?}",
-                    event.event_id
-                );
-                return None;
-            }
-            // Drop provider monthly-quota exhausted events — the user's
-            // third-party plan has spent its allotment (e.g. Kiro
-            // `MONTHLY_REQUEST_COUNT`, sometimes wrapped in a 500 envelope so
-            // the 402-gated credits filter above misses it). No local lever;
-            // mirrors the core binary's main.rs before_send chain
-            // (TAURI-RUST-C9A: 9k events from a single quota-capped user).
-            if openhuman_core::core::observability::is_quota_exhausted_event(&event) {
-                // Metadata-only log shape — `event.message` carries the raw
-                // provider body which CLAUDE.md forbids from local logs.
-                log::debug!(
-                    "[sentry-quota-exhausted-filter] dropping monthly-quota event_id={:?}",
-                    event.event_id
-                );
-                return None;
-            }
-            // Defense-in-depth: drop Windows `ERROR_FILE_SYSTEM_LIMITATION`
-            // (os error 665) — a persistent host-filesystem condition with
-            // zero local lever and no Sentry remediation path. The Tauri
-            // shell is a separate crate from the core, so the core's emit-site
-            // classifier (`expected_error_kind`) can only catch events that
-            // originate inside the core binary. Any filesystem-error event
-            // that starts in the shell (e.g. file_logging, window_state,
-            // CEF profile I/O) bypasses the core classifier and lands here;
-            // this filter is the only net for those events (TAURI-RUST-QT0:
-            // 6,050 events / 1 user).
-            if openhuman_core::core::observability::is_windows_file_system_limitation_event(&event)
-            {
-                log::debug!(
-                    "[sentry-fs-limitation-filter] dropping Windows file-system-limitation event (os error 665) event_id={:?}",
-                    event.event_id
-                );
-                return None;
-            }
-            // Strip server_name (hostname) to avoid leaking machine identity.
-            event.server_name = None;
-            // Attach the cached account uid so Sentry can count unique users
-            // affected by an issue. We only carry `id` — never email, name,
-            // or IP — so this stays consistent with `send_default_pii: false`.
-            // Since #1061 the core runs in-process inside this shell, so this
-            // is the surface that tags ~all desktop events.
-            //
-            // Issue #3135: the primary source for `event.user` is now the
-            // Sentry scope, bound proactively at session boundaries
-            // (credentials::set_credential / clear_credential) and at server
-            // boot (run_server_inner). The shell's session owner mirrors the
-            // signed-in user id for this fallback, consulted only when the
-            // scope hasn't already bound a user — otherwise we'd silently
-            // clobber the scope binding when the slot is empty (the original
-            // userCount=0 root cause).
-            if event.user.is_none() {
-                event.user = session::peek_user_id().map(|id| sentry::User {
-                    id: Some(id),
-                    ..Default::default()
-                });
-            }
-            Some(event)
-        })),
-        sample_rate: 1.0,
-        transport: Some(std::sync::Arc::new(
-            openhuman_core::core::sentry_transport::factory,
-        )),
-        ..sentry::ClientOptions::default()
-    });
+    //
+    // The `before_send` chain is embed's shared one
+    // (`openhuman_rpc::embed::process::sentry`): the union of the shell's and
+    // the CLI's old filters (including this shell's dev-server
+    // "Failed to request http://localhost:…" noise, OPENHUMAN-TAURI-V), then
+    // hostname stripping, the user-id fallback and secret scrubbing. Since
+    // #1061 the core runs in-process here, so this is the surface that tags
+    // ~all desktop events. The fallback user id is the shell's session owner
+    // (`session::peek_user_id`), consulted only when the Sentry scope has not
+    // bound a user (#3135).
+    let _sentry_guard = {
+        use openhuman_rpc::embed::process::sentry as oh_sentry;
+        let mut config = oh_sentry::SentryConfig::new(
+            oh_sentry::first_non_blank([
+                std::env::var("OPENHUMAN_TAURI_SENTRY_DSN").ok(),
+                option_env!("OPENHUMAN_TAURI_SENTRY_DSN").map(str::to_owned),
+            ]),
+            build_sentry_release_tag(),
+            resolve_sentry_environment(),
+        );
+        config.user_id = session::peek_user_id;
+        sentry::init(oh_sentry::client_options(config))
+    };
     // Tag every Sentry event with CPU architecture and OS so Intel-specific
     // crashes (issue #1012 — SIGABRT in CrBrowserMain on x86_64 macOS) are
     // clearly identified without needing a separate build identifier.
@@ -3065,7 +2898,7 @@ pub fn run() {
                 if let Ok(resource_dir) = app.path().resource_dir() {
                     let bundled = resource_dir.join("bundled-modules");
                     if bundled.is_dir() {
-                        if openhuman_core::modules::ops::set_bundled_releases_dir(bundled)
+                        if openhuman_rpc::embed::modules::set_bundled_releases_dir(bundled)
                             .is_err()
                         {
                             log::warn!("[modules] bundled release directory was already set");
@@ -3634,85 +3467,31 @@ fn should_center_main_window(restored: bool, windows: bool, maximized: bool) -> 
 }
 
 pub fn run_core_from_args(args: &[String]) -> Result<(), String> {
-    // Core lives in-process: dispatch directly through the linked `openhuman_core`
-    // library instead of shelling out to a separate binary. The Tauri main()
-    // routes `OpenHuman core <args>` here so users can still drive the core CLI
-    // from the bundled app. `run` / `serve` start the JSON-RPC server from
-    // `openhuman-rpc`, which the core cannot depend on, so install it first.
-    openhuman_rpc::server::install_cli_server();
-    openhuman_core::run_core_from_args(args).map_err(|e| format!("{e:#}"))
+    // Core lives in-process: dispatch through the shared CLI host entry
+    // instead of shelling out to a separate binary. The Tauri main() routes
+    // `OpenHuman core <args>` (and `mcp`) here so users can still drive the
+    // core CLI from the bundled app. `host::cli` connects the TinyHumans
+    // backend and puts the JSON-RPC server behind `run` / `serve`, exactly as
+    // the standalone `openhuman-core` binary does.
+    log::debug!(
+        "[core-cli] dispatch command={}",
+        args.first().map(String::as_str).unwrap_or("<none>")
+    );
+    openhuman_rpc::host::cli(args).map_err(|e| format!("{e:#}"))
 }
 
 // ---------------------------------------------------------------------------
 // Sentry release / environment resolution (Tauri shell — desktop only)
 // ---------------------------------------------------------------------------
 
-/// Canonical release tag: `openhuman@<version>[+<short_sha>]`.
-///
-/// Mirrors `build_release_tag` in `crates/openhuman-core/src/main.rs` and the
-/// `SENTRY_RELEASE` value computed in `app/vite.config.ts` so events from
-/// every surface (React frontend, standalone `openhuman-core` binary, Tauri
-/// shell) group under the same release in Sentry and benefit from the same
-/// source-map / debug-info upload.
-/// Return `true` when the Sentry event is a "Failed to request
-/// http://localhost:…" message originating from the vendored
-/// `tauri-runtime-cef` dev-server proxy.
-///
-/// The proxy logs this message via `log::error!` (see
-/// `crates/openhuman-app/vendor/tauri-cef/crates/tauri/src/protocol/tauri.rs`)
-/// every time the CEF webview asks for an asset on the Vite dev URL
-/// (`http://localhost:1420` per `tauri.conf.json`). In packaged
-/// staging/production builds Vite isn't running, so the request fails —
-/// but the failure is benign and shouldn't be reported.
-///
-/// The match is conservative: it checks the exact `Failed to request ` +
-/// `http://localhost` / `http://127.0.0.1` prefix that only the dev-proxy
-/// emits. Production HTTP errors from elsewhere in the shell or core use
-/// different message shapes and won't be filtered.
-fn event_is_localhost_dev_fetch_noise(event: &sentry::protocol::Event<'_>) -> bool {
-    // sentry-tracing 0.47 (with default `attach_stacktrace=false`) stores the
-    // log message in `event.message`. Check there first; fall back to the
-    // last exception's `value` for the (currently unused) stacktrace-enabled
-    // path so the filter stays correct if attach_stacktrace ever flips.
-    let direct = event.message.as_deref();
-    let from_exception = event.exception.last().and_then(|e| e.value.as_deref());
-    [direct, from_exception]
-        .into_iter()
-        .flatten()
-        .any(message_is_localhost_dev_fetch_noise)
-}
-
-/// Pure prefix check, separated from `event_is_localhost_dev_fetch_noise`
-/// so the matching rule can be unit-tested without constructing a full
-/// Sentry `Event`.
-fn message_is_localhost_dev_fetch_noise(message: &str) -> bool {
-    // The tauri-cef dev proxy formats the message as:
-    //   `Failed to request {url}: {err}`
-    // so anchoring on `Failed to request http://localhost` / `127.0.0.1` is
-    // sufficient and avoids matching unrelated "Failed to request …" errors
-    // elsewhere in the codebase that target real hosts.
-    //
-    // Note: no `[::1]` (IPv6 loopback) entry — the vendored tauri-cef dev
-    // proxy resolves `localhost` to IPv4 via reqwest's default resolver, so
-    // dev-server fetches always surface as `http://localhost:` or
-    // `http://127.0.0.1:`. Add an `[::1]` prefix if that ever changes
-    // (per graycyrus note on PR #1545).
-    const PREFIXES: &[&str] = &[
-        "Failed to request http://localhost:",
-        "Failed to request http://127.0.0.1:",
-    ];
-    PREFIXES.iter().any(|p| message.starts_with(p))
-}
-
+/// Canonical release tag: `openhuman@<version>[+<short_sha>]`, built by
+/// embed's shared `release_tag` so the shell, the `openhuman-core` binary,
+/// the TUI and the frontend's `SENTRY_RELEASE` all group under one release.
 fn build_sentry_release_tag() -> String {
-    let version = env!("CARGO_PKG_VERSION");
-    let sha = option_env!("OPENHUMAN_BUILD_SHA").unwrap_or("").trim();
-    let sha_short: String = sha.chars().take(12).collect();
-    if sha_short.is_empty() {
-        format!("openhuman@{version}")
-    } else {
-        format!("openhuman@{version}+{sha_short}")
-    }
+    openhuman_rpc::embed::process::sentry::release_tag(
+        env!("CARGO_PKG_VERSION"),
+        option_env!("OPENHUMAN_BUILD_SHA"),
+    )
 }
 
 /// Resolve the Sentry environment tag from `OPENHUMAN_APP_ENV` (runtime) or

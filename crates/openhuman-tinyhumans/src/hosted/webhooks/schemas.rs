@@ -3,10 +3,10 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 use tinyhumans_sdk::api::webhooks::UpdateWebhookTunnelRequest;
 
-use openhuman_core::config::rpc as config_rpc;
-use openhuman_core::core::all::{ControllerFuture, RegisteredController};
-use openhuman_core::core::Outcome;
-use openhuman_core::core::{ControllerSchema, FieldSchema, TypeSchema};
+use openhuman_embed::__host::config::rpc as config_rpc;
+use openhuman_embed::__host::core::all::{ControllerFuture, RegisteredController};
+use openhuman_embed::__host::core::Outcome;
+use openhuman_embed::__host::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 #[derive(Debug, Deserialize)]
 struct WebhookCreateTunnelParams {

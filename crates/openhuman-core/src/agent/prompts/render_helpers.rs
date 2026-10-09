@@ -19,6 +19,7 @@ mod workspace_files;
 pub use section_renderers::{
     current_datetime_line, render_ambient_environment, render_datetime, render_identity,
     render_runtime, render_safety, render_tools, render_user_identity, render_workspace,
+    turn_preamble,
 };
 pub(crate) use subagent::harness_json_tool_prompt;
 pub use subagent::{render_subagent_system_prompt, render_subagent_system_prompt_with_format};

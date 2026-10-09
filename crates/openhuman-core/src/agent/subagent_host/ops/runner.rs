@@ -26,7 +26,7 @@ use crate::agent::harness::{
     MAX_SPAWN_DEPTH,
 };
 use crate::agent::prompts::{
-    render_subagent_system_prompt_with_format, PromptContext, PromptTool, SubagentRenderOptions,
+    render_subagent_system_prompt_with_format, PromptContext, SubagentRenderOptions,
 };
 use crate::agent::subagent_host::subagent_iter_cap_with_autonomous_lift;
 use crate::agent::subagent_host::tool_prep::{
@@ -710,10 +710,7 @@ async fn run_typed_mode(
             let name = tool.name();
             if definition.extra_tools.iter().any(|n| n == name)
                 && !allowed_indices.contains(&i)
-                && !super::super::tool_prep::disallowed_tool_matches(
-                    &definition.disallowed_tools,
-                    name,
-                )
+                && !crate::tools::rules::glob_list_matches(&definition.disallowed_tools, name)
                 && !is_subagent_spawn_tool(name)
             {
                 allowed_indices.push(i);
@@ -731,7 +728,17 @@ async fn run_typed_mode(
         &parent.subagent_tool_ceiling_names,
     );
 
-    let filtered_specs: Vec<ToolSpec> = allowed_indices
+    // Rule-withheld tools stay callable (`allowed_names`) but off the prompt.
+    let child_rules = options
+        .run_context
+        .for_subagent(definition, config.as_ref().ok().map(AsRef::as_ref))
+        .tool_rules;
+    let listed = super::super::tool_prep::rule_listed_indices(
+        &allowed_indices,
+        &parent.all_tools,
+        child_rules.as_deref(),
+    );
+    let filtered_specs: Vec<ToolSpec> = listed
         .iter()
         .map(|&i| parent.all_tool_specs[i].as_ref().clone())
         .collect();
@@ -764,17 +771,7 @@ async fn run_typed_mode(
             .cloned()
             .collect();
 
-    let prompt_tools: Vec<PromptTool<'_>> = allowed_indices
-        .iter()
-        .map(|&i| {
-            let t = parent.all_tools[i].as_ref();
-            PromptTool {
-                name: std::borrow::Cow::Borrowed(t.name()),
-                description: std::borrow::Cow::Borrowed(t.description()),
-                parameters_schema: Some(t.parameters_schema().to_string()),
-            }
-        })
-        .collect();
+    let prompt_tools = super::super::tool_prep::prompt_tools_for(&listed, &parent.all_tools);
     let visible_tool_names: std::collections::HashSet<String> =
         prompt_tools.iter().map(|t| t.name.to_string()).collect();
     let (prompt_tool_call_format, dispatcher_instructions) =
@@ -826,11 +823,9 @@ async fn run_typed_mode(
     };
 
     let system_prompt = match &definition.system_prompt {
-        PromptSource::Dynamic(build) => {
-            build(&prompt_ctx).map_err(|e| SubagentRunError::PromptLoad {
-                path: format!("<dynamic:{}>", definition.id),
-                source: std::io::Error::other(e.to_string()),
-            })?
+        // The whole prompt, with no sub-agent sections around it.
+        PromptSource::Dynamic(_) | PromptSource::Verbatim(_) => {
+            load_prompt_source(&definition.system_prompt, &prompt_ctx)?
         }
         PromptSource::Inline(_) | PromptSource::File { .. } => {
             let archetype_prompt_body = load_prompt_source(&definition.system_prompt, &prompt_ctx)?;
@@ -858,10 +853,10 @@ async fn run_typed_mode(
         append_artifact_offload_contract(system_prompt, &definition.id, &visible_tool_names);
 
     // ── Build the user message (with optional context prefix) ──────────
-    // Shared one-line stamp (#3602) so sub-agents report time in the same
-    // format as the main agent. Lives on the user message because sub-agent
-    // system prompts are byte-stable for prefix caching.
-    let now_str = crate::agent::prompts::current_datetime_line();
+    // Shared one-line stamp (#3602), in the user's zone like the main agent's.
+    // On the user message: sub-agent system prompts are byte-stable for caching.
+    let zone = config.as_ref().ok().map(|c| c.time_zone());
+    let now_str = crate::agent::prompts::current_datetime_line(zone.as_deref());
 
     let mut context_parts: Vec<&str> = Vec::new();
     if !definition.omit_memory_context {
@@ -985,7 +980,9 @@ async fn run_typed_mode(
                     task_id,
                     definition.iteration_policy == IterationPolicy::Extended,
                     options.thread_id.clone(),
-                    options.run_context.clone(),
+                    options
+                        .run_context
+                        .for_subagent(definition, config.as_ref().ok().map(AsRef::as_ref)),
                     options.worker_thread_id.clone(),
                     parent.workspace_dir.clone(),
                     workspace_descriptor.clone(),

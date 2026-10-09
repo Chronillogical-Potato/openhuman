@@ -18,6 +18,9 @@ pub struct BilledUsage {
     /// Amount billed for this request in USD (from
     /// `openhuman.billing.charged_amount_usd`). Zero when unavailable.
     pub charged_amount_usd: f64,
+    /// `charged_amount_usd` is a local catalog estimate, not a provider charge
+    /// (see [`BilledUsage::with_estimated_usd`]).
+    pub cost_is_estimate: bool,
 }
 
 impl BilledUsage {
@@ -26,6 +29,7 @@ impl BilledUsage {
         Self {
             usage: Usage::new(input_tokens, output_tokens),
             charged_amount_usd: 0.0,
+            cost_is_estimate: false,
         }
     }
 
@@ -66,6 +70,15 @@ impl BilledUsage {
     /// Sets the provider-charged USD amount.
     pub fn with_charged_usd(mut self, usd: f64) -> Self {
         self.charged_amount_usd = usd;
+        self.cost_is_estimate = false;
+        self
+    }
+
+    /// Sets a locally estimated USD cost, kept apart from provider charges so
+    /// usage reports can split charged from estimated spend.
+    pub fn with_estimated_usd(mut self, usd: f64) -> Self {
+        self.charged_amount_usd = usd;
+        self.cost_is_estimate = true;
         self
     }
 }

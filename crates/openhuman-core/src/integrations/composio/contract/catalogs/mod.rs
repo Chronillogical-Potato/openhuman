@@ -28,11 +28,10 @@ use super::scopes::{
 
 pub use descriptions::toolkit_description;
 
-/// Toolkits the connector module can sync into memory (`tinyconnectors-sync`'s
-/// provider tree).
+/// Toolkits with a native identity provider (profile facets).
 pub const NATIVE_PROVIDERS: &[&str] = &["gmail", "notion", "slack", "clickup", "github", "linear"];
 
-/// Does `toolkit` have a native sync provider?
+/// Does `toolkit` have a native identity provider?
 #[must_use]
 pub fn has_native_provider(toolkit: &str) -> bool {
     NATIVE_PROVIDERS.contains(&toolkit)

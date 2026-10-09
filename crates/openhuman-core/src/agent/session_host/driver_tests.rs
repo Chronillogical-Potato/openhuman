@@ -23,7 +23,7 @@ fn graph_failure_persists_only_accepted_snapshot_history() {
         },
     ));
     let failure = driver_error_with_snapshot(
-        "provider rejected follow-up",
+        anyhow::anyhow!("provider rejected follow-up"),
         &snapshot,
         &sidecar(),
         std::time::Duration::from_millis(1),
@@ -59,11 +59,20 @@ fn stalled_model_stream_reports_completed_evidence_instead_of_its_narration() {
         },
     ));
     let failure = driver_error_with_snapshot(
-        tinyagents_harness::TinyAgentsError::GenerationStalled,
+        anyhow::Error::new(tinyagents_harness::TinyAgentsError::GenerationStalled),
         &snapshot,
         &sidecar(),
         std::time::Duration::from_millis(1),
         "chat-v1",
+    );
+    let terminal = failure.outcome.as_ref().expect("typed terminal outcome");
+    assert_eq!(
+        terminal.reason,
+        tinyagents_harness::terminal::TerminalReason::ProviderFailed(Some(
+            tinyagents_harness::retry::FailoverReason::classify(
+                &tinyagents_harness::TinyAgentsError::GenerationStalled
+            )
+        ))
     );
     let partial = failure.partial.expect("interrupted partial");
     let display = partial.partial.expect("display partial").content;
@@ -102,7 +111,7 @@ fn graph_failure_copies_snapshot_usage_and_failed_tool_outcome_to_sidecar() {
     ));
     let sidecar = sidecar();
     let failure = driver_error_with_snapshot(
-        "tool follow-up was rejected",
+        anyhow::anyhow!("tool follow-up was rejected"),
         &snapshot,
         &sidecar,
         std::time::Duration::from_millis(25),
@@ -162,4 +171,33 @@ fn tool_snapshot_with_no_executable_source_fails_closed_before_graph() {
     )
     .expect_err("a declared tool must have a request-scoped executable source");
     assert!(error.error.to_string().contains("revoked_tool"));
+}
+
+#[test]
+fn empty_snapshot_failure_still_carries_the_typed_terminal_outcome() {
+    let snapshot = Arc::new(std::sync::Mutex::new(
+        crate::agent::tinyagents::TranscriptSnapshot::default(),
+    ));
+    let typed = driver_error_with_snapshot(
+        anyhow::Error::new(tinyagents_harness::TinyAgentsError::Cancelled),
+        &snapshot,
+        &sidecar(),
+        std::time::Duration::from_millis(1),
+        "chat-v1",
+    );
+    assert!(typed.partial.is_none());
+    let terminal = typed.outcome.expect("typed outcome on the empty branch");
+    assert_eq!(
+        terminal.reason,
+        tinyagents_harness::terminal::TerminalReason::Cancelled
+    );
+
+    let untyped = driver_error_with_snapshot(
+        anyhow::anyhow!("plain failure"),
+        &snapshot,
+        &sidecar(),
+        std::time::Duration::from_millis(1),
+        "chat-v1",
+    );
+    assert!(untyped.outcome.is_none());
 }

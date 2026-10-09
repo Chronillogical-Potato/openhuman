@@ -6,7 +6,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde_json::json;
 use zeroize::Zeroize;
 
-use openhuman_core::core::runtime::CoreRuntime;
+use openhuman_rpc::embed::CoreRuntime;
 
 use super::ui_state::{ConfigKey, SettingsAction, UiState};
 

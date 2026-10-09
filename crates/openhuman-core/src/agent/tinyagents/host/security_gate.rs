@@ -152,6 +152,20 @@ pub struct OpenHumanSecurityGate {
     /// second approval card for a call the user already approved once — see
     /// mismatch (2) in the module header.
     pending_audit: Mutex<HashMap<String, String>>,
+    /// `false` for a host-only turn reading untrusted data
+    /// ([`with_untrusted_input_turn`]): its input is data, not instructions.
+    screens_input: bool,
+}
+
+tokio::task_local! {
+    static UNTRUSTED_INPUT_TURN: ();
+}
+
+/// Run `fut` as a turn whose input is untrusted data: gates built for it do
+/// not screen input. Scoped only by `agent_chat_reply_for`, and only after the
+/// session accepted untrusted input, which only a host-only session does.
+pub(crate) async fn with_untrusted_input_turn<F: std::future::Future>(fut: F) -> F::Output {
+    UNTRUSTED_INPUT_TURN.scope((), Box::pin(fut)).await
 }
 
 impl OpenHumanSecurityGate {
@@ -168,6 +182,8 @@ impl OpenHumanSecurityGate {
             tool_policy: None,
             tool_sets,
             pending_audit: Mutex::new(HashMap::new()),
+            // Read here, on the turn's own task: a screen may run elsewhere.
+            screens_input: UNTRUSTED_INPUT_TURN.try_with(|_| ()).is_err(),
         }
     }
 
@@ -414,6 +430,26 @@ impl SecurityGate for OpenHumanSecurityGate {
     /// choice. A refusal at any stage is still terminal, and `channel_approved`
     /// is carried forward so a later prompting stage does not ask twice.
     async fn authorize_tool(&self, call: &ToolCallRequest) -> TaResult<GateDecision> {
+        // A nested call (made by a running tool, not the model) can never be
+        // parked for a human, and the stages below prompt. Fail closed rather
+        // than prompt or guess which stages would have: nested calls are off
+        // (`RunLimits::max_nested_depth = 0`) and stay refused here until the
+        // host decides how to authorize them.
+        if call.is_nested() {
+            tracing::warn!(
+                target: "tinyagents",
+                tool = %call.tool_name,
+                "[tinyagents::host::security] nested tool call refused (fail closed)"
+            );
+            return Ok(GateDecision::deny(
+                PolicyDenial::PolicyDenied {
+                    tool: &call.tool_name,
+                    policy: "nested tool calls",
+                    reason: "Tools may not call other tools in this session.",
+                }
+                .render(),
+            ));
+        }
         let policy = self.effective_policy();
         #[cfg(feature = "modules")]
         let desktop_approval_disabled = match self.resolve_tool(&call.tool_name) {
@@ -632,6 +668,9 @@ impl SecurityGate for OpenHumanSecurityGate {
     /// `redact_text(&str) -> String` out of `approval::redact` or add one to
     /// `security::pii`, then map "PII found, injection clean" to `Redacted`.
     async fn screen_input(&self, text: &str, origin: ContentOrigin) -> TaResult<ScreenOutcome> {
+        if !self.screens_input {
+            return Ok(ScreenOutcome::Pass);
+        }
         let source = match origin {
             ContentOrigin::User => "agent.user",
             ContentOrigin::Tool => "agent.tool_output",

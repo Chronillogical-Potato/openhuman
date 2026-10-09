@@ -156,6 +156,7 @@ pub(super) fn assemble_turn_harness(
     // compaction summarizer recalls under it. `None` leaves compaction
     // memory-free.
     memory_turn: Option<Arc<crate::memory::lifecycle::hooks::MemoryTurn>>,
+    tool_rules: Option<Arc<tinyagents_harness::tool::ToolRulePolicy>>, // `OpenHumanRunContext::tool_rules`
 ) -> AssembledTurnHarness {
     let mut harness: AgentHarness<(), OpenHumanRunContext> = AgentHarness::new();
     // Cross-route fallback ownership (issue #4249, Workstream 02.2): populate the
@@ -181,6 +182,7 @@ pub(super) fn assemble_turn_harness(
     // `prompt-size`). Without this the harness appended a second copy of
     // both on every text-dialect call.
     policy.host_renders_tool_catalogue = true;
+    crate::tools::rules::install_turn_rules(&mut policy, tool_rules);
     tracing::debug!(
         model,
         ?tool_dialect,
@@ -342,6 +344,13 @@ pub(super) fn assemble_turn_harness(
     // (byte cap, summarizer, memory-protocol note) has finished rewriting it,
     // i.e. exactly what the model sees. Registered any later, a result whose
     // visible note changed between calls would count as identical.
+    // Classified read-only tools are the guard's read-only set.
+    let read_only_tools: HashSet<String> = tool_sets
+        .iter()
+        .flat_map(|set| set.iter())
+        .filter(|t| t.policy().classified && t.policy().side_effects.read_only)
+        .map(|t| t.name().to_string())
+        .collect();
     let repeat_progress = handle.as_ref().map(|handle| {
         Arc::new(
             RepeatProgressMiddleware::new(
@@ -349,6 +358,7 @@ pub(super) fn assemble_turn_harness(
                 halt_summary.clone(),
                 Arc::new(middleware::is_repeat_call_exempt),
             )
+            .with_read_only(Arc::new(move |name: &str| read_only_tools.contains(name)))
             .with_cleared_placeholder(crate::agent::context::CLEARED_PLACEHOLDER),
         )
     });
@@ -578,12 +588,12 @@ pub(super) fn assemble_turn_harness(
         &tool_outcome_sink,
         memory_turn,
     );
-    verify_before_finish::install(
-        &mut harness,
-        subagent_scope.is_some(),
-        tool_policy.as_ref().map(|p| p.agent_definition_id.as_str()),
-        &wrap_up_fired,
-    );
+    let is_subagent = subagent_scope.is_some();
+    let agent_id = tool_policy.as_ref().map(|p| p.agent_definition_id.as_str());
+    verify_before_finish::install(&mut harness, is_subagent, agent_id, &wrap_up_fired);
+    // The rungs above all *tell* the turn to produce its deliverable; this one
+    // looks, on the same scope as the requirements check.
+    middleware::install_unmet_deliverable(&mut harness, is_subagent, agent_id);
 
     // Direct web lookup is bounded. Once enough search/fetch results have
     // returned, the web tools leave the request so the run works with what it

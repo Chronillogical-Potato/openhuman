@@ -134,6 +134,12 @@ pub struct Config {
     #[serde(default)]
     pub output_language: Option<String>,
 
+    /// The user's IANA time zone (`Asia/Kolkata`), chosen in Settings →
+    /// Account. `None` follows the device. Read it through
+    /// [`Config::time_zone`], which also validates it.
+    #[serde(default)]
+    pub user_timezone: Option<String>,
+
     /// Models (by exact ID match OR shell-style glob like `gpt-5*`, `o1-*`) that
     /// MUST NOT receive a `temperature` parameter. Used for reasoning models
     /// that error out when temperature is set (OpenAI o-series, GPT-5).
@@ -148,6 +154,14 @@ pub struct Config {
 
     #[serde(default)]
     pub autonomy: AutonomyConfig,
+
+    /// Operator tool rules (`[tool_rules]`): allow / deny / hide / approval
+    /// patterns over tool names, families and tags, applied to every agent's
+    /// catalogue, `tool_search` and calls. See `tinytools::ToolRules` and
+    /// `crate::tools::rules`. Empty by default, which restricts nothing.
+    #[serde(default)]
+    #[schemars(with = "serde_json::Value")]
+    pub tool_rules: tinytools::ToolRules,
 
     #[serde(default)]
     pub desktop: DesktopConfig,
@@ -414,6 +428,11 @@ pub struct Config {
     /// Hosting provider credentials and switch (`hosting` feature).
     #[serde(default)]
     pub hosting: HostingConfig,
+
+    /// Storage backend for state on the `tinystoragedrivers` ports
+    /// (`[storage]`). Empty keeps the classic on-disk layout.
+    #[serde(default)]
+    pub storage: StorageConfig,
 
     #[serde(default)]
     pub voice_server: VoiceServerConfig,

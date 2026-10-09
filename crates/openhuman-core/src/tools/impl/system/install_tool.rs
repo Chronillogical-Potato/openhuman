@@ -18,7 +18,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use tinytools::{PermissionLevel, Tool, ToolResult};
 use tokio::process::Command as TokioCommand;
-use tokio::time::timeout;
 
 use tinytools_std::detect_tools::find_on_path;
 
@@ -199,7 +198,12 @@ impl Tool for InstallToolTool {
         cmd.args(&prefix).arg(package);
         cmd.current_dir(&self.security.workspace_dir);
 
-        let output = match timeout(Duration::from_secs(INSTALL_TIMEOUT_SECS), cmd.output()).await {
+        let output = match crate::tools::timeout::output_or_kill(
+            &mut cmd,
+            Duration::from_secs(INSTALL_TIMEOUT_SECS),
+        )
+        .await
+        {
             Ok(Ok(out)) => out,
             Ok(Err(e)) => {
                 return Ok(ToolResult::error(format!(

@@ -77,25 +77,9 @@ describe('ThreadList', () => {
     expect(within(sections[0]).getByTestId('thread-row-t3')).toBeInTheDocument();
   });
 
-  it('filters by title and clears on Escape', () => {
+  it('has no search box of its own (search lives in the global palette)', () => {
     renderList();
-    const input = screen.getByTestId('thread-search-input');
-    fireEvent.change(input, { target: { value: 'gmail' } });
-    expect(screen.getByTestId('thread-row-t1')).toBeInTheDocument();
-    expect(screen.queryByTestId('thread-row-t2')).not.toBeInTheDocument();
-
-    fireEvent.change(input, { target: { value: 'zzz' } });
-    expect(screen.getByTestId('thread-search-empty')).toBeInTheDocument();
-
-    fireEvent.keyDown(input, { key: 'Escape' });
-    expect(screen.getByTestId('thread-row-t2')).toBeInTheDocument();
-  });
-
-  it('clears the filter from the clear button', () => {
-    renderList();
-    fireEvent.change(screen.getByTestId('thread-search-input'), { target: { value: 'plan' } });
-    fireEvent.click(screen.getByTestId('thread-search-clear'));
-    expect(screen.getByTestId('thread-row-t1')).toBeInTheDocument();
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
   });
 
   it('toggles a pin without selecting the row', () => {

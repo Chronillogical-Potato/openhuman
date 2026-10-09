@@ -94,6 +94,12 @@ pub struct BrowserConfig {
     /// warning. Chat, channel and unlabelled turns are never affected.
     #[serde(default)]
     pub unattended_actions: Vec<String>,
+    /// Keep, per site, the plan a finished browser task ran and the elements
+    /// it found, and hand them to the next task there
+    /// (`modules::browser_sites`). Kept in the workspace only, never in the
+    /// agent's memory.
+    #[serde(default = "default_true")]
+    pub learn_from_tasks: bool,
 }
 
 /// Action kinds `[browser] unattended_actions` may name: the gated direct
@@ -198,6 +204,7 @@ impl Default for BrowserConfig {
             max_task_steps: default_max_task_steps(),
             task_timeout_secs: default_task_timeout_secs(),
             unattended_actions: Vec::new(),
+            learn_from_tasks: true,
         }
     }
 }

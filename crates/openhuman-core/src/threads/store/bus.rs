@@ -344,6 +344,7 @@ fn persisted_channel_thread_id(
         channel: channel.to_string(),
         timestamp: 0,
         thread_ts: thread_ts.map(ToOwned::to_owned),
+        sender_name: None,
     });
     format!("channel:{key}")
 }

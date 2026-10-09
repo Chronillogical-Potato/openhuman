@@ -20,8 +20,8 @@
 use crate::agent::host_runtime::RuntimeAdapter;
 use crate::runtime::javascript::NodeBootstrap;
 use crate::security::{CommandClass, GateDecision, SecurityPolicy};
+use crate::tools::schema_cache::static_schema;
 use async_trait::async_trait;
-use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
 use tinytools::ToolRunContext;
@@ -116,29 +116,7 @@ impl Tool for NpmExecTool {
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "subcommand": {
-                    "type": "string",
-                    "description": "npm subcommand, e.g. `install`, `ci`, `run`, `test`, `exec`."
-                },
-                "args": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Arguments appended after the subcommand (e.g. [\"build\"] for `npm run build`)."
-                },
-                "cwd": {
-                    "type": "string",
-                    "description": "Optional sub-directory (relative to workspace) to run npm in. Defaults to the workspace root."
-                },
-                "timeout_secs": {
-                    "type": "integer",
-                    "description": "Optional wall-clock timeout (seconds) before npm is killed. No timeout by default — installs/builds run to completion. Capped at 1800s; 0 disables."
-                }
-            },
-            "required": ["subcommand"]
-        })
+        static_schema!(include_str!("parameters/npm_exec.json"))
     }
 
     fn permission_level(&self) -> PermissionLevel {
@@ -323,7 +301,7 @@ impl NpmExecTool {
         // Bounded only when the caller asked for a deadline; otherwise run to
         // completion (no harness/tool timeout on long installs/builds).
         let result = match explicit_timeout {
-            Some(timeout) => tokio::time::timeout(timeout, cmd.output()).await,
+            Some(timeout) => crate::tools::timeout::output_or_kill(&mut cmd, timeout).await,
             None => Ok(cmd.output().await),
         };
 
@@ -537,3 +515,7 @@ fn resolve_cwd(
 #[cfg(test)]
 #[path = "npm_exec_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "npm_exec_schema_tests.rs"]
+mod schema_tests;

@@ -25,6 +25,10 @@ hosting = ["openhuman-embed/hosting"]
 modules = ["openhuman-embed/modules"]
 voice = ["openhuman-embed/voice"]
 web3 = ["openhuman-embed/web3"]
+# Storage drivers for `[storage] url` (see the core `storage` domain).
+storage-sqlite = ["openhuman-embed/storage-sqlite"]
+storage-mongodb = ["openhuman-embed/storage-mongodb"]
+storage-file = ["openhuman-embed/storage-file"]
 runtime-node = ["openhuman-embed/runtime-node"]
 media = ["openhuman-embed/media"]
 flows = ["openhuman-embed/flows"]
@@ -35,12 +39,15 @@ channels = ["openhuman-embed/channels"]
 whatsapp-web = ["openhuman-embed/whatsapp-web"]
 file-logging = ["openhuman-embed/file-logging"]
 scheduler-gate = ["openhuman-embed/scheduler-gate"]
+# E2E builds only (`openhuman.test_reset`); default-OFF.
+e2e-test-support = ["openhuman-embed/e2e-test-support"]
 
 [dependencies]
+# The only openhuman crate this layer depends on. Core internals the
+# transport and hosted controllers need come through embed's `#[doc(hidden)]`
+# `__host` module, an explicit list kept in embed; there is no direct
+# `openhuman-core` edge (chain: core -> embed -> tinyhumans -> rpc -> hosts).
 openhuman-embed = { path = "../openhuman-embed", default-features = false }
-# Direct access to `backend` / `core::all` — the surfaces embed does
-# not (and should not) re-export. Features unify with embed's forwarding.
-openhuman-core = { path = "../openhuman-core", package = "openhuman", default-features = false }
 # The vendored TinyHumans SDK: the only crate in the tree that may depend on
 # it. `default-features = false` drops the Socket.IO client; realtime stays
 # on the core's own `platform::socket` transport.

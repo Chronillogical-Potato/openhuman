@@ -155,6 +155,7 @@ async fn discord_inbound_dispatches_through_full_pipeline() {
             channel: "discord".to_string(),
             timestamp: 1,
             thread_ts: None,
+            sender_name: None,
         },
     )
     .await;
@@ -205,6 +206,7 @@ async fn discord_threaded_message_does_not_emit_reaction_ack() {
             channel: "discord".to_string(),
             timestamp: 1,
             thread_ts: Some("thread-42".to_string()),
+            sender_name: None,
         },
     )
     .await;
@@ -253,6 +255,7 @@ async fn discord_thread_ts_splits_conversation_history_end_to_end() {
         channel: "discord".to_string(),
         timestamp: 1,
         thread_ts: Some("thread-A".to_string()),
+        sender_name: None,
     };
 
     let second = traits::ChannelMessage {

@@ -73,6 +73,7 @@ pub(crate) fn turn_origin_for_job_run(job: &CronJob, run_id: &str) -> AgentTurnO
             sender,
             ..
         }) => AgentTurnOrigin::ExternalChannel {
+            sender_name: None,
             channel: channel.clone(),
             sender: sender.clone(),
             reply_target: reply_target.clone(),

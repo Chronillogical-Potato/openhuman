@@ -492,3 +492,26 @@ fn an_approved_park_is_still_prompted_and_allowed() {
     ));
     assert!(decision.is_allowed());
 }
+
+#[tokio::test]
+async fn a_nested_call_is_refused_even_for_a_read_only_tool() {
+    let nested = req("read_file", json!({ "path": "notes.md" })).with_parent_call_id("parent-1");
+    let decision = gate(AutonomyLevel::Full)
+        .authorize_tool(&nested)
+        .await
+        .unwrap();
+    assert!(!decision.is_allowed());
+    assert!(decision
+        .denial_reason()
+        .expect("denial reason")
+        .contains("may not call other tools"));
+}
+
+#[tokio::test]
+async fn a_plain_call_is_unaffected_by_the_nested_refusal() {
+    let decision = gate(AutonomyLevel::Full)
+        .authorize_tool(&req("read_file", json!({ "path": "notes.md" })))
+        .await
+        .unwrap();
+    assert_eq!(decision, GateDecision::Allow);
+}

@@ -44,9 +44,11 @@ impl DocumentConverter for BlockingOffice {
 
     async fn convert(&self, document: &RawDocument) -> Result<ConvertedDocument> {
         let document = document.clone();
-        tokio::task::spawn_blocking(move || OfficeConverter.convert_blocking(&document))
-            .await
-            .map_err(task_failed)?
+        crate::core::runtime::spawn_blocking_scoped(move || {
+            OfficeConverter.convert_blocking(&document)
+        })
+        .await
+        .map_err(task_failed)?
     }
 }
 

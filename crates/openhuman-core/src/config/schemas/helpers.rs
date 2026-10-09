@@ -99,6 +99,7 @@ pub(super) struct BrowserSettingsUpdate {
     pub(super) download_dir: Option<String>,
     pub(super) max_task_steps: Option<usize>,
     pub(super) task_timeout_secs: Option<u64>,
+    pub(super) learn_from_tasks: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -114,6 +115,12 @@ pub(super) struct ComputerSettingsUpdate {
 #[derive(Debug, Deserialize)]
 pub(super) struct AnalyticsSettingsUpdate {
     pub(super) enabled: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct UserTimezoneUpdate {
+    #[serde(default)]
+    pub(super) timezone: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
