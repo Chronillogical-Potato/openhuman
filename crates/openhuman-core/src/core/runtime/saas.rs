@@ -44,8 +44,8 @@ pub struct SaasConfig {
     /// The container every user shell command runs in.
     #[serde(default)]
     pub sandbox: SaasSandboxConfig,
-    /// Extra RPC methods the operator exposes. Refused by the boot guard until
-    /// the per-user RPC surface ships.
+    /// Extra RPC methods the operator exposes. Refused by the boot guard: the
+    /// per-user RPC surface is the reviewed `user_agents::surface` list.
     #[serde(default)]
     pub rpc_allowlist_extra: Vec<String>,
     /// Most user agents kept open at once.
