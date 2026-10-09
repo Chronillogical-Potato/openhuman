@@ -530,9 +530,7 @@ impl ApprovalGate {
             // user, whereas not publishing recreates the silent deadlock this
             // bridge exists to fix.
             let workspace = match crate::config::active_workspace_snapshot().await {
-                Ok((dir, revision)) => {
-                    Some((crate::config::workspace_handle(&dir), revision))
-                }
+                Ok((dir, revision)) => Some((crate::config::workspace_handle(&dir), revision)),
                 Err(error) => {
                     tracing::warn!(
                         request_id = %request_id,
