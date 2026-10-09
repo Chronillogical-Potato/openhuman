@@ -25,6 +25,7 @@ use openhuman_core::backend::BackendTransport;
 use openhuman_core::core::server_launcher::HostBoot;
 
 use super::seams::HostSeams;
+use crate::harness::Workspace;
 use super::{RuntimeBuilder, RuntimeError};
 
 /// The pieces of a builder that are installed process-wide before the CLI
@@ -53,6 +54,10 @@ impl RuntimeBuilder {
     /// the operator's SaaS config instead and takes nothing from the builder.
     /// Other subcommands run in-process and use only the installed globals.
     ///
+    /// The CLI initializes the keyring from the operator's install before any
+    /// subcommand runs, so this entry is for [`Workspace::Inherit`]
+    /// (the `cli` preset); another workspace logs a warning.
+    ///
     /// A [`live_policy`](Self::live_policy) is ignored with a warning — each
     /// subcommand's boot installs its own.
     ///
@@ -67,6 +72,15 @@ impl RuntimeBuilder {
             args.len()
         );
 
+        if !self.workspace.is_operator_owned() {
+            // The CLI latches the keyring and credential store to the
+            // operator's install before any launcher runs, so a builder
+            // workspace elsewhere would not move them.
+            log::warn!(
+                "[embed][cli] run_from_args expects Workspace::Inherit; the keyring and \
+                 credentials stay with the operator's install"
+            );
+        }
         let (builder, globals) = self.split_for_cli();
         globals
             .install()

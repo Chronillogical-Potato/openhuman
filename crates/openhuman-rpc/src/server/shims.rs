@@ -170,7 +170,9 @@ async fn run_server_with_services(
 /// `rpc_token` is the in-memory bearer handoff ([`TokenSource::Fixed`]);
 /// `None` keeps the preset's env-or-file token. An unset host or port is left
 /// to [`serve`](super::serve::serve), which falls back to
-/// `OPENHUMAN_CORE_HOST` / `OPENHUMAN_CORE_PORT` and then the defaults.
+/// `OPENHUMAN_CORE_HOST` / `OPENHUMAN_CORE_PORT` and then the defaults. The
+/// `OPENHUMAN_E2E` tool-group switch lives in the host presets, so a builder a
+/// host narrowed itself keeps its tool groups.
 pub(crate) fn server_builder(
     preset: RuntimeBuilder,
     services: ServiceSet,
@@ -179,13 +181,6 @@ pub(crate) fn server_builder(
     rpc_token: Option<Arc<String>>,
 ) -> RuntimeBuilder {
     let mut builder = preset.services(services);
-    // The browser E2E harness scripts direct tool calls through its mock
-    // model. Keep production's fail-closed packed default, while making those
-    // calls visible in the deterministic test core.
-    if std::env::var_os("OPENHUMAN_E2E").is_some() {
-        log::debug!("[rpc:server] OPENHUMAN_E2E set; advertising every tool group");
-        builder = builder.tool_groups(openhuman_tinyhumans::embed::ToolGroups::advertised());
-    }
     if let Some(token) = rpc_token {
         builder = builder.token(TokenSource::Fixed(token));
     }
@@ -225,8 +220,14 @@ pub(crate) async fn build_and_serve(
 
     // The desktop app and the CLI keep conversations in the classic on-disk
     // layout unless a storage URL is configured; the core itself carries no
-    // storage. Installed before boot so its recovery sweep runs.
-    crate::session_store::install_for_host().await?;
+    // storage. Installed before boot so its recovery sweep runs. A builder
+    // that brings its own session store skips this: its provider is installed
+    // by `build()`, and an unrelated host storage URL must not block it.
+    if summary.has_session_store {
+        log::debug!("[rpc:server] builder carries a session store; host store setup skipped");
+    } else {
+        crate::session_store::install_for_host().await?;
+    }
     let runtime = builder.build().await.map_err(|error| {
         log::warn!("[rpc:server] runtime build failed: {error}");
         anyhow::Error::new(error)
