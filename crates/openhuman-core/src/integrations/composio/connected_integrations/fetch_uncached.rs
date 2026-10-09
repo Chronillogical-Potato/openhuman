@@ -20,7 +20,18 @@ use super::fetch::{connectable_toolkit_slugs, resolve_toolkit_description};
 ///
 /// Returns `None` when we couldn't even build a client (no auth),
 /// signalling the caller should NOT cache this result.
-pub(super) async fn fetch_connected_integrations_uncached(
+/// Returned boxed and `#[inline(never)]` on purpose: an `async fn` body is
+/// otherwise re-instantiated inside every crate / codegen unit that awaits it,
+/// and these state machines are large. Boxing here keeps one copy, compiled in
+/// this crate.
+#[inline(never)]
+pub(super) fn fetch_connected_integrations_uncached(
+    config: &Config,
+) -> futures::future::BoxFuture<'_, Option<Vec<ConnectedIntegration>>> {
+    Box::pin(fetch_connected_integrations_uncached_inner(config))
+}
+
+async fn fetch_connected_integrations_uncached_inner(
     config: &Config,
 ) -> Option<Vec<ConnectedIntegration>> {
     use super::super::client::{direct_list_connections, resolve_composio_route, ComposioRoute};
