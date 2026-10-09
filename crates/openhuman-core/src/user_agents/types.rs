@@ -113,6 +113,17 @@ pub struct UserAgentSummary {
     pub created_at: u64,
     /// Whether it is loaded in this process right now.
     pub open: bool,
+    /// Whether the gateway has installed a backend credential for it.
+    pub has_credential: bool,
+}
+
+/// What [`set_credential`](super::ops::set_credential) /
+/// [`clear_credential`](super::ops::clear_credential) did. The credential
+/// itself is never echoed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CredentialResult {
+    pub agent_id: UserAgentId,
+    pub has_credential: bool,
 }
 
 #[cfg(test)]

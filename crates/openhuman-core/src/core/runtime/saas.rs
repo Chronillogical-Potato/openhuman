@@ -56,6 +56,14 @@ pub struct SaasConfig {
     /// Let users store their own agent definitions.
     #[serde(default)]
     pub custom_definitions: bool,
+    /// Require `X-OpenHuman-User-Sig` on every request made for a user
+    /// (see `user_agents::gateway`).
+    #[serde(default = "default_true")]
+    pub require_user_signature: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn default_max_agents_open() -> usize {
@@ -78,6 +86,7 @@ impl SaasConfig {
             idle_evict_secs: default_idle_evict_secs(),
             shared_backend_api_key: false,
             custom_definitions: false,
+            require_user_signature: true,
         }
     }
 
