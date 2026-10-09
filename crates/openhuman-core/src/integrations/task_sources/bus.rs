@@ -60,6 +60,25 @@ impl EventHandler<DomainEvent> for TaskSourcesConnectionSubscriber {
             return;
         }
 
+        // Every scope may hold sources for this toolkit (`crate::storage`):
+        // fire each scope's under its own agent.
+        crate::storage::agents::for_each_scope("task_sources connection", || {
+            fire_for_connection(&config, provider, toolkit, connection_id)
+        })
+        .await;
+    }
+}
+
+/// Starts a one-shot fetch for every enabled source of `provider` in the
+/// current storage scope that the new connection serves.
+async fn fire_for_connection(
+    config: &crate::config::Config,
+    provider: ProviderSlug,
+    toolkit: &str,
+    connection_id: &str,
+) {
+    {
+        let config = config.clone();
         let sources = match store::list_sources(&config) {
             Ok(sources) => sources,
             Err(e) => {
@@ -88,7 +107,8 @@ impl EventHandler<DomainEvent> for TaskSourcesConnectionSubscriber {
             // pattern as the periodic poll). Each fetch captures its own
             // owned config + source.
             let config = config.clone();
-            tokio::spawn(async move {
+            // Scoped: the fetch keeps the scope's agent context.
+            crate::core::runtime::spawn_scoped(async move {
                 let _ = pipeline::run_source_once(&config, &source, FetchReason::ConnectionCreated)
                     .await;
             });
