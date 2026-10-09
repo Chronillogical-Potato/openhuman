@@ -81,6 +81,21 @@ pub(super) fn discover_filtered(
         }
     }
 
+    if let Some(agent_home) = workspace_dir.and_then(crate::skills::write_root::agent_skill_home) {
+        let [skills, workflows] = crate::skills::write_root::agent_user_roots(&agent_home);
+        for (root, kind) in [(skills, RootKind::Skill), (workflows, RootKind::Workflow)] {
+            if kinds.contains(&kind) {
+                tracing::trace!(
+                    root = %root.display(),
+                    ?kind,
+                    scope = ?WorkflowScope::User,
+                    "[workflows] discover:branch:agent"
+                );
+                discovered.extend(scan_root(&root, WorkflowScope::User));
+            }
+        }
+    }
+
     if let Some(ws) = workspace_dir {
         if trusted {
             for (root, kind) in project_roots(ws) {

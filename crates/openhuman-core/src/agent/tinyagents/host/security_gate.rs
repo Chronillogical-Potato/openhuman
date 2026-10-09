@@ -127,7 +127,7 @@ pub struct OpenHumanSecurityGate {
     /// Fallback policy used when no process-global live policy is installed.
     ///
     /// Per-call resolution prefers
-    /// [`crate::security::live_policy::current`] so an autonomy
+    /// [`crate::security::live_policy::effective`] so an autonomy
     /// change made mid-session is observed on the very next tool call — the
     /// same live-first / snapshot-fallback discipline `ApprovalGate` uses for
     /// `auto_approve`. The trait explicitly forbids the runtime caching a
@@ -211,10 +211,10 @@ impl OpenHumanSecurityGate {
             .remove(call_id)
     }
 
-    /// The policy to answer this call against: the live process-global one when
+    /// The policy to answer this call against: the agent's or the live one when
     /// installed, else the constructor snapshot.
     fn effective_policy(&self) -> Arc<SecurityPolicy> {
-        crate::security::live_policy::current().unwrap_or_else(|| self.policy.clone())
+        crate::security::live_policy::effective().unwrap_or_else(|| self.policy.clone())
     }
 
     /// Finds the registered [`Tool`] named `name`, if any.

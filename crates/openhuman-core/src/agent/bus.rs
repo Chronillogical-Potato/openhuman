@@ -272,8 +272,10 @@ async fn handle_agent_run_turn(req: AgentTurnRequest) -> Result<AgentTurnRespons
     // the bus without bootstrapping definitions).
     let sandbox_mode = target_agent_id
         .as_deref()
-        .and_then(|id| AgentDefinitionRegistry::global().and_then(|reg| reg.get(id)))
-        .map(|def| def.sandbox_mode)
+        .and_then(|id| {
+            AgentDefinitionRegistry::current()
+                .and_then(|reg| reg.get(id).map(|def| def.sandbox_mode))
+        })
         .unwrap_or(SandboxMode::None);
 
     // Scope the caller-supplied origin around the tool loop so

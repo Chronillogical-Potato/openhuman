@@ -572,6 +572,7 @@ impl Turn {
                 crate::error::CoreError::Decode { .. } => "decode",
                 crate::error::CoreError::InsecureRoute { .. } => "insecure_route",
                 crate::error::CoreError::InvalidRoute { .. } => "invalid_route",
+                crate::error::CoreError::AgentRemoved { .. } => "agent_removed",
             };
             log::debug!("[embed][agent] turn_failed session={session_id} kind={tag}");
         });
@@ -770,7 +771,10 @@ async fn dispatch(
                         .map(|outcome| (outcome.value, Some(report)))
                         .map_err(|raw| CoreError::from_rpc_string(AGENT_CHAT, raw))
                 });
-            runtime.run_in(ctx, turn).await
+            agent
+                .lifecycle
+                .admit(&agent.id, AGENT_CHAT, runtime.run_in(ctx, turn))
+                .await
         }
     }
 }
