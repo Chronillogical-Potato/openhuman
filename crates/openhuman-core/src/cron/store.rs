@@ -170,8 +170,8 @@ pub fn get_job(config: &Config, job_id: &str) -> Result<CronJob> {
 
 pub fn remove_job(config: &Config, id: &str) -> Result<()> {
     if let Some(docs) = documents(config)? {
-        let id = id.to_string();
-        run(async move { docs.remove_job(&id).await })?;
+        let owned = id.to_string();
+        run(async move { docs.remove_job(&owned).await })?;
         println!("✅ Removed cron job {id}");
         return Ok(());
     }
