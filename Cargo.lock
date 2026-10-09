@@ -4243,7 +4243,7 @@ checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
 
 [[package]]
 name = "openhuman"
-version = "0.64.12"
+version = "0.64.15"
 dependencies = [
  "aes-gcm",
  "aho-corasick",
@@ -4365,7 +4365,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-cli"
-version = "0.64.12"
+version = "0.64.15"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -4427,7 +4427,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-embed"
-version = "0.64.12"
+version = "0.64.15"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4455,7 +4455,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-rpc"
-version = "0.64.12"
+version = "0.64.15"
 dependencies = [
  "anyhow",
  "axum",
@@ -4488,7 +4488,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-tinyhumans"
-version = "0.64.12"
+version = "0.64.15"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -4519,7 +4519,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-tui"
-version = "0.64.12"
+version = "0.64.15"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6950,7 +6950,7 @@ dependencies = [
 
 [[package]]
 name = "tinychannels"
-version = "0.1.10"
+version = "0.1.11"
 dependencies = [
  "anyhow",
  "async-imap",
@@ -6982,7 +6982,7 @@ dependencies = [
  "tinychannels-runtime",
  "tokio",
  "tokio-rustls",
- "tokio-tungstenite 0.29.0",
+ "tokio-tungstenite 0.30.0",
  "tracing",
  "url",
  "urlencoding",
@@ -6996,7 +6996,7 @@ dependencies = [
 
 [[package]]
 name = "tinychannels-bus"
-version = "0.1.10"
+version = "0.1.11"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7017,7 +7017,7 @@ dependencies = [
 
 [[package]]
 name = "tinychannels-runtime"
-version = "0.1.10"
+version = "0.1.11"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7052,7 +7052,7 @@ dependencies = [
 
 [[package]]
 name = "tinyconnectors"
-version = "0.12.4"
+version = "0.13.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -7071,7 +7071,7 @@ dependencies = [
 
 [[package]]
 name = "tinyconnectors-bus"
-version = "0.12.4"
+version = "0.13.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -7079,15 +7079,13 @@ dependencies = [
 
 [[package]]
 name = "tinyconnectors-sync"
-version = "0.12.4"
+version = "0.13.0"
 dependencies = [
  "async-trait",
- "chrono",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
  "tinyconnectors-bus",
- "tracing",
 ]
 
 [[package]]
@@ -7428,7 +7426,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-api"
-version = "1.23.8"
+version = "1.25.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -7441,7 +7439,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-integrations"
-version = "1.23.8"
+version = "1.25.0"
 dependencies = [
  "async-trait",
  "calamine",
@@ -7468,7 +7466,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-tools"
-version = "1.23.8"
+version = "1.25.0"
 dependencies = [
  "chrono",
  "futures",
@@ -7788,6 +7786,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-tungstenite"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17a073bfed563fa236697a068031408a93cd9522e08abf9933ead3e73411bd71"
+dependencies = [
+ "futures-util",
+ "log",
+ "rustls",
+ "rustls-pki-types",
+ "tokio",
+ "tokio-rustls",
+ "tungstenite 0.30.0",
+ "webpki-roots 0.26.11",
+]
+
+[[package]]
 name = "tokio-util"
 version = "0.7.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8039,6 +8053,24 @@ dependencies = [
  "rustls",
  "rustls-pki-types",
  "sha1 0.10.7",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "tungstenite"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e48ac77174b19c110a50ab2128b24215ac9cb40e0e12e093fb602d175c569d22"
+dependencies = [
+ "bytes",
+ "data-encoding",
+ "http",
+ "httparse",
+ "log",
+ "rand 0.10.2",
+ "rustls",
+ "rustls-pki-types",
+ "sha1 0.11.0",
  "thiserror 2.0.20",
 ]
 

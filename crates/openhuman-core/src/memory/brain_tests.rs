@@ -22,25 +22,11 @@ fn synced_items_are_filed_by_their_connector() {
         (MemorySourceKind::Github, "o/r", BrainSource::Github),
         (MemorySourceKind::Link, "https://x", BrainSource::Web),
         (MemorySourceKind::Rss, "https://x/feed", BrainSource::Web),
-        (MemorySourceKind::Composio, "Notion", BrainSource::Notion),
-        // The Composio toolkit and the GitHub reader share one source.
-        (MemorySourceKind::Composio, "github", BrainSource::Github),
-        (
-            MemorySourceKind::Composio,
-            "gmail",
-            BrainSource::Other("gmail".into()),
-        ),
-        // An alias files under the slug Composio itself uses.
-        (
-            MemorySourceKind::Composio,
-            "google_drive",
-            BrainSource::Other("googledrive".into()),
-        ),
         // Local files, whatever their format, share one source.
         (MemorySourceKind::Folder, "/n", files_source()),
         (MemorySourceKind::File, "/n/deck/Q3.PDF", files_source()),
     ] {
-        assert_eq!(brain_source(kind, target), want, "{kind:?} {target}");
+        assert_eq!(brain_source(kind), want, "{kind:?} {target}");
     }
     assert_eq!(files_source().to_string(), "files");
 }
@@ -346,4 +332,60 @@ fn legacy_nodes_map_to_their_connector() {
         legacy_brain_node("google_drive", &link),
         BrainSource::Other("googledrive".into())
     );
+}
+
+fn path_params(path: String) -> BrainIngestParams {
+    BrainIngestParams {
+        path: Some(path),
+        text: None,
+        source: None,
+        title: None,
+    }
+}
+
+#[tokio::test]
+async fn ingest_refuses_a_credential_store_a_system_root_traversal_and_null_bytes() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    let ssh = tmp.path().join(".ssh");
+    std::fs::create_dir_all(&ssh).unwrap();
+    std::fs::write(ssh.join("id_ed25519"), "fixture: not a real key").unwrap();
+    let notes = tmp.path().join("notes");
+    std::fs::create_dir_all(&notes).unwrap();
+    std::fs::write(tmp.path().join("guide.md"), "# Guide").unwrap();
+
+    for path in [
+        ssh.join("id_ed25519").display().to_string(),
+        "/etc/hosts".to_string(),
+        format!("{}/../guide.md", notes.display()),
+        format!("{}\0.md", tmp.path().join("guide").display()),
+    ] {
+        let result = ingest(&config, path_params(path.clone())).await;
+        assert!(
+            matches!(result, Err(MemoryError::InvalidRequest(_))),
+            "{path:?}: {result:?}"
+        );
+    }
+    assert!(engine.is_empty(), "nothing refused may be stored");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn ingest_refuses_a_symlink_into_a_credential_store() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    let aws = tmp.path().join(".aws");
+    std::fs::create_dir_all(&aws).unwrap();
+    std::fs::write(aws.join("credentials"), "aws_secret_access_key = x").unwrap();
+    let link = tmp.path().join("innocent.md");
+    std::os::unix::fs::symlink(aws.join("credentials"), &link).unwrap();
+
+    let result = ingest(&config, path_params(link.display().to_string())).await;
+    assert!(
+        matches!(result, Err(MemoryError::InvalidRequest(_))),
+        "{result:?}"
+    );
+    assert!(engine.is_empty());
 }

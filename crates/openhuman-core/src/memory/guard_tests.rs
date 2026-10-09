@@ -228,3 +228,62 @@ async fn a_bulk_store_keeps_its_wait_through_the_guard() {
         "the guard passes the wait on instead of serving it as store_many"
     );
 }
+
+/// The reference engine, with a preview listing that says it is one, so a
+/// wrapper that fell back to `list` would show.
+struct MarkedPreview(ReferenceEngine);
+
+#[async_trait]
+impl MemoryEngine for MarkedPreview {
+    fn descriptor(&self) -> &EngineDescriptor {
+        self.0.descriptor()
+    }
+    async fn health(&self) -> EngineHealth {
+        self.0.health().await
+    }
+    async fn recall(&self, req: RecallRequest) -> Result<RecallAnswer> {
+        self.0.recall(req).await
+    }
+    async fn fetch(&self, req: FetchRequest) -> Result<FetchPage> {
+        self.0.fetch(req).await
+    }
+    async fn store(&self, item: StoreItem) -> Result<StoreReceipt> {
+        self.0.store(item).await
+    }
+    async fn forget(&self, target: ForgetTarget) -> Result<ForgetReport> {
+        self.0.forget(target).await
+    }
+    async fn list(&self, req: ListRequest) -> Result<ListPage> {
+        self.0.list(req).await
+    }
+    async fn list_preview(&self, req: ListRequest) -> Result<ListPage> {
+        let mut page = self.0.list(req).await?;
+        for hit in &mut page.items {
+            hit.text = format!("preview: {}", hit.text);
+        }
+        Ok(page)
+    }
+}
+
+#[tokio::test]
+async fn a_preview_listing_reaches_the_wrapped_engine() {
+    let guarded = ScrubbingEngine::wrap(Arc::new(MarkedPreview(ReferenceEngine::new())));
+    guarded
+        .store(StoreItem::document("oolong tea", MemoryMeta::default()))
+        .await
+        .unwrap();
+    let req = || ListRequest {
+        filter: MetaFilter::default(),
+        limit: 5,
+        cursor: None,
+    };
+    let preview = guarded.list_preview(req()).await.unwrap();
+    assert_eq!(preview.items.len(), 1);
+    assert!(
+        preview.items[0].text.starts_with("preview: "),
+        "{}",
+        preview.items[0].text
+    );
+    let whole = guarded.list(req()).await.unwrap();
+    assert!(!whole.items[0].text.starts_with("preview: "));
+}

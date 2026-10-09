@@ -113,18 +113,6 @@ describe('GitHub Composio connector flow', () => {
     console.log(`${LOG} PASS: connected state persists`);
   });
 
-  it('composio_sync does not tear down the session', async function () {
-    this.timeout(30_000);
-    clearRequestLog();
-
-    await callOpenhumanRpc('openhuman.composio_sync', { toolkit: TOOLKIT_SLUG });
-    // syncReq URL check dropped — composio_sync short-circuits with 'no
-    // native provider' for connectors without a Rust-side provider, so no
-    // HTTP request is logged. assertSessionNotNuked() covers the real
-    // intent: the RPC does not tear down the WebDriver session.
-    await assertSessionNotNuked();
-  });
-
   it('composio_execute routes a basic task', async function () {
     this.timeout(30_000);
     clearRequestLog();
@@ -134,7 +122,7 @@ describe('GitHub Composio connector flow', () => {
       action: 'GITHUB_LIST_REPOS',
       params: {},
     });
-    // execReq URL check removed (see composio_sync comment above).
+    // execReq URL check removed.
     console.log(`${LOG} PASS: composio_execute routed to mock`);
   });
 

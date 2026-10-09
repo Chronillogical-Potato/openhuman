@@ -32,6 +32,7 @@ async fn bound_turn(tmp: &tempfile::TempDir) -> Arc<MemoryTurn> {
             in_prompt_from: 0,
             at: Utc::now(),
             resumed_after_compaction: false,
+            observed_actor: None,
         },
     )
     .await;

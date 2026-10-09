@@ -9,14 +9,15 @@ use crate::config::Config;
 use crate::core::all::ControllerFuture;
 use crate::core::Outcome;
 use crate::memory::error::{MemoryError, MemoryResult};
-use crate::memory::explore::{self, ExploreParams, ItemsGetParams};
+use crate::memory::explore::{ExploreParams, ItemsGetParams};
 use crate::memory::lifecycle::views::{self, JobsRunParams, PackPreviewParams, PolicySetParams};
 use crate::memory::types::{
-    EmptyParams, EngineSetParams, FetchParams, ForgetParams, ImportStartParams, ImportStateView,
-    ItemsListParams, LearnParams, RecallParams, SourceAddedView, SourceRemovedView,
-    SourcesAddParams, SourcesListView, SourcesRemoveParams, SourcesSyncParams, SourcesSyncView,
+    EmptyParams, EngineSetParams, EraseAllParams, FetchParams, ForgetParams, ImportStartParams,
+    ImportStateView, ItemsListParams, LearnParams, RecallParams, SourceAddedView,
+    SourceRemovedView, SourcesAddParams, SourcesListView, SourcesRemoveParams, SourcesSyncParams,
+    SourcesSyncView,
 };
-use crate::memory::{backfill, brain, engine, import, layout_migration, ops, sources};
+use crate::memory::{backfill, brain, confine, engine, import, layout_migration, ops, sources};
 
 fn parse<T: DeserializeOwned>(params: Map<String, Value>) -> Result<T, String> {
     serde_json::from_value(Value::Object(params))
@@ -74,49 +75,56 @@ pub(super) fn engine_set(params: Map<String, Value>) -> ControllerFuture {
 pub(super) fn recall(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let params = parse::<RecallParams>(params)?;
-        finish(ops::recall(&load().await?, params).await)
+        finish(confine::recall(&load().await?, params).await)
     })
 }
 
 pub(super) fn fetch(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let params = parse::<FetchParams>(params)?;
-        finish(ops::fetch(&load().await?, params).await)
+        finish(confine::fetch(&load().await?, params).await)
     })
 }
 
 pub(super) fn learn(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let params = parse::<LearnParams>(params)?;
-        finish(ops::learn(&load().await?, params, None).await)
+        finish(confine::learn(&load().await?, params).await)
     })
 }
 
 pub(super) fn forget(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let params = parse::<ForgetParams>(params)?;
-        finish(ops::forget(&load().await?, params).await)
+        finish(confine::forget(&load().await?, params).await)
+    })
+}
+
+pub(super) fn erase_all(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let params = parse::<EraseAllParams>(params)?;
+        finish(ops::erase_all(&load().await?, params).await)
     })
 }
 
 pub(super) fn items_list(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let params = parse::<ItemsListParams>(params)?;
-        finish(ops::items_list(&load().await?, params).await)
+        finish(confine::items_list(&load().await?, params).await)
     })
 }
 
 pub(super) fn explore(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let params = parse::<ExploreParams>(params)?;
-        finish(explore::explore(&load().await?, params).await)
+        finish(confine::explore(&load().await?, params).await)
     })
 }
 
 pub(super) fn items_get(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let params = parse::<ItemsGetParams>(params)?;
-        finish(explore::items_get(&load().await?, params).await)
+        finish(confine::items_get(&load().await?, params).await)
     })
 }
 

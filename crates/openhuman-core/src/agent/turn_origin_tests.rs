@@ -64,6 +64,7 @@ async fn inherited_origin_stays_unlabelled_without_an_outer_scope() {
 async fn inherited_origin_preserves_a_non_cli_origin_verbatim() {
     let observed = with_origin(
         AgentTurnOrigin::ExternalChannel {
+            sender_name: None,
             channel: "telegram".into(),
             sender: Some("u-42".into()),
             reply_target: "chat-7".into(),
@@ -259,6 +260,7 @@ async fn spawn_does_not_manufacture_an_origin() {
 async fn spawn_preserves_an_untrusted_origin_verbatim() {
     let observed = with_origin(
         AgentTurnOrigin::ExternalChannel {
+            sender_name: None,
             channel: "telegram".into(),
             sender: Some("u-42".into()),
             reply_target: "chat-7".into(),

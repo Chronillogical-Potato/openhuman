@@ -151,6 +151,56 @@ target = "https://example.com/feed.xml"
 }
 
 #[test]
+fn drops_a_stale_composio_source_and_keeps_every_other_kind() {
+    let config: MemoryConfig = toml::from_str(
+        r#"
+[[sources]]
+id = "src-composio"
+kind = "composio"
+target = "gmail"
+
+[[sources]]
+id = "src-link"
+kind = "link"
+target = "https://example.com"
+
+[[sources]]
+id = "src-github"
+kind = "github"
+target = "o/r"
+
+[[sources]]
+id = "src-rss"
+kind = "rss"
+target = "https://example.com/feed.xml"
+
+[[sources]]
+id = "src-folder"
+kind = "folder"
+target = "/notes"
+
+[[sources]]
+id = "src-file"
+kind = "file"
+target = "/notes/a.md"
+"#,
+    )
+    .expect("a removed kind must not fail the section");
+    let ids: Vec<&str> = config.sources.iter().map(|s| s.id.as_str()).collect();
+    assert_eq!(
+        ids,
+        [
+            "src-link",
+            "src-github",
+            "src-rss",
+            "src-folder",
+            "src-file"
+        ]
+    );
+    assert_eq!(MemorySourceKind::parse("composio"), None);
+}
+
+#[test]
 fn endpoint_for_ignores_blank_and_missing_endpoints() {
     let mut config = MemoryConfig::default();
     assert_eq!(config.endpoint_for("cortexdb"), None);
@@ -217,11 +267,6 @@ fn migrates_every_mappable_legacy_kind() {
             MemorySourceKind::Rss,
             "https://f",
         ),
-        (
-            json!({"id":"f","kind":"composio","toolkit":"gmail"}),
-            MemorySourceKind::Composio,
-            "gmail",
-        ),
     ];
     for (legacy, kind, target) in cases {
         let migrated = migrate_legacy_source(&legacy).expect("mappable kind migrates");
@@ -246,6 +291,7 @@ fn migration_drops_unmappable_disabled_and_incomplete_entries() {
     for legacy in [
         json!({"id":"t","kind":"twitter_query","query":"rust"}),
         json!({"id":"c","kind":"conversation"}),
+        json!({"id":"k","kind":"composio","toolkit":"gmail"}),
         json!({"id":"x","kind":"folder","path":"/p","enabled":false}),
         json!({"id":"y","kind":"folder"}),
         json!({"kind":"folder","path":"/p"}),
@@ -254,4 +300,18 @@ fn migration_drops_unmappable_disabled_and_incomplete_entries() {
     ] {
         assert_eq!(migrate_legacy_source(&legacy), None, "{legacy}");
     }
+}
+
+#[test]
+fn observed_actor_is_off_by_default_and_unwritten_until_set() {
+    let config = MemoryConfig::default();
+    assert!(!config.observed_actor);
+    let written = serde_json::to_value(&config).unwrap();
+    assert!(
+        written.get("observed_actor").is_none(),
+        "off is not written"
+    );
+
+    let on: MemoryConfig = toml::from_str("observed_actor = true").unwrap();
+    assert!(on.observed_actor);
 }

@@ -20,7 +20,7 @@ use crate::memory::error::{MemoryError, MemoryResult};
 pub struct ClaimKey {
     /// The marker file.
     pub marker: PathBuf,
-    /// The claiming account's scope root (`user:<id>`).
+    /// The claiming account's actor (`user:<id>`).
     pub owner: String,
     /// The engine endpoint the tree lives on, normalised.
     pub endpoint: String,

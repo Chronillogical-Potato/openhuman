@@ -14,7 +14,7 @@ use super::handlers_connections::{
 };
 use super::handlers_identity::{
     handle_get_user_profile, handle_get_user_scopes, handle_refresh_all_identities,
-    handle_set_user_scopes, handle_sync,
+    handle_set_user_scopes,
 };
 use super::handlers_tools::{handle_execute, handle_list_tools};
 use super::handlers_triggers::{
@@ -37,7 +37,6 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("create_trigger"),
         schemas("get_user_profile"),
         schemas("refresh_all_identities"),
-        schemas("sync"),
         schemas("list_trigger_history"),
         schemas("get_user_scopes"),
         schemas("set_user_scopes"),
@@ -100,10 +99,6 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("refresh_all_identities"),
             handler: handle_refresh_all_identities,
-        },
-        RegisteredController {
-            schema: schemas("sync"),
-            handler: handle_sync,
         },
         RegisteredController {
             schema: schemas("list_trigger_history"),

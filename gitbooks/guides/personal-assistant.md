@@ -50,7 +50,7 @@ If you're not sure, pick **Cloud**. You can change any of this later in **Settin
 An assistant with no memory is just a chatbot. Connect at least one source so it has context to draw on:
 
 - Open **Settings** and connect an integration (Gmail is the common starting point). Each connection is a one-click OAuth approval.
-- Once connected, add the integration as a source under **Connections → Memory → Brain** (kind `composio`); it syncs into [Memory](../features/memory.md) on a schedule.
+- Add folders, files or links as sources under **Connections → Memory** so they sync into [Memory](../features/memory.md) on a schedule.
 
 ### 4. Set your boundaries
 
@@ -129,7 +129,7 @@ You have a working assistant when **all** of these are true:
 ## Recovery
 
 - **Reset boundaries fast:** if the assistant is doing too much, set both `enabled = true` and `level = "readonly"` in `config.toml`. The level alone changes nothing while `enabled` is `false`, because the whole policy is inert then. With both set, it takes effect on the next turn and blocks all acting immediately.
-- **Nothing you connect is permanent:** revoke any integration from Settings; chunks already in your local memory stay (they're yours), and the next sync tick stops pulling that source.
+- **Nothing you connect is permanent:** revoke any integration from Settings; items already stored in your memory engine stay until you forget them (or tick **Also delete memory from this source** when disconnecting), and the next sync tick stops pulling that source.
 - **If the app itself won't start,** see [Recover from a failed installation](recover-failed-installation.md). Your configuration is preserved by default.
 
 ---

@@ -130,6 +130,10 @@ pub(super) fn lookup(function: &str) -> Option<ControllerSchema> {
                 optional_string("download_dir", "Absolute permitted download folder; empty clears."),
                 optional_number("max_task_steps", "Maximum Jev task steps (1-100)."),
                 optional_number("task_timeout_secs", "Browser task timeout in seconds (5-600)."),
+                optional_bool(
+                    "learn_from_tasks",
+                    "Keep the plan and elements a finished browser task used on a site, for the next task there.",
+                ),
             ],
             outputs: vec![json_output("snapshot", "Updated config snapshot.")],
         }),

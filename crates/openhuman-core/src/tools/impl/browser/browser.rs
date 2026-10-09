@@ -243,6 +243,9 @@ impl BrowserTool {
 
     async fn task(&self, args: &Value) -> anyhow::Result<Value> {
         let mut goal = required(args, "goal")?.to_owned();
+        let site = args["url"]
+            .as_str()
+            .and_then(crate::modules::browser_sites::site_of);
         let origins = match args["url"].as_str().filter(|url| !url.trim().is_empty()) {
             Some(url) => {
                 self.client.check_url(url)?;
@@ -267,6 +270,7 @@ impl BrowserTool {
             origins,
             max_actions: u32::try_from(self.max_steps).unwrap_or(u32::MAX),
             flow,
+            site,
         };
         let view = crate::modules::browser_task::start(self.client.config(), &task)
             .await

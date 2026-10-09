@@ -68,29 +68,6 @@ pub async fn resume_for_thread(
     }
 }
 
-/// Pause the active goal for an explicit thread (interrupt/abort semantics).
-/// Best-effort; safe to call when there is no goal or thread id.
-pub async fn pause_for_thread(workspace_dir: &Path, thread_id: Option<&str>) {
-    let Some(thread_id) = normalized_thread(thread_id) else {
-        return;
-    };
-    match store::pause(workspace_dir, &thread_id).await {
-        Ok(goal) => {
-            if matches!(goal.status, ThreadGoalStatus::Paused) {
-                BUS.publish(DomainEvent::ThreadGoalUpdated {
-                    thread_id: goal.thread_id.clone(),
-                    goal_id: goal.goal_id.clone(),
-                    status: goal.status.as_str().to_string(),
-                    goal: Some(super::goal_to_value(&goal)),
-                });
-            }
-        }
-        Err(e) => {
-            tracing::debug!(thread_id = %thread_id, error = %e, "[thread_goals] pause_for_thread failed");
-        }
-    }
-}
-
 /// Mark the active goal for an explicit thread `Complete` (the originating
 /// task settled successfully). Best-effort; safe to call when there is no goal
 /// or no thread id. Emits `ThreadGoalUpdated` so the UI chip refreshes.

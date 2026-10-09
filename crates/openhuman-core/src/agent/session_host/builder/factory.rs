@@ -1,5 +1,4 @@
-//! `OpenHumanSessionHost::from_config` factory methods and the internal
-//! `build_session_agent_inner` constructor.
+//! `OpenHumanSessionHost::from_config` factory methods and internal `build_session_agent_inner` constructor.
 
 use super::dispatcher::{resolve_dispatcher_kind, DispatcherKind};
 use super::host_tools::derive_turn_workspace_descriptor;
@@ -31,9 +30,8 @@ impl OpenHumanSessionHost {
 
     /// Constructs an `OpenHumanSessionHost` instance from a global system configuration.
     ///
-    /// Thin wrapper around [`OpenHumanSessionHost::from_config_for_agent`] that always
-    /// targets the orchestrator definition. This preserves the legacy
-    /// "main agent = orchestrator" behaviour for CLI / REPL / any caller
+    /// Thin wrapper around [`OpenHumanSessionHost::from_config_for_agent`] targeting the
+    /// orchestrator for legacy CLI / REPL callers.
     /// that does not participate in the #525 onboarding-routing flow.
     ///
     /// Callers that need to select a different agent at session-build

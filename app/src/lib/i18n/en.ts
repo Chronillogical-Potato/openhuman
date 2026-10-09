@@ -374,9 +374,6 @@ const en: TranslationMap = {
   // Chat / Conversations
   'chat.newThread': 'New thread',
   'chat.newConversation': 'New Conversation',
-  'chat.sidebar.searchPlaceholder': 'Search conversations',
-  'chat.sidebar.clearSearch': 'Clear search',
-  'chat.sidebar.noMatches': 'No matching conversations',
   'chat.sidebar.group.pinned': 'Pinned',
   'chat.sidebar.group.today': 'Today',
   'chat.sidebar.group.yesterday': 'Yesterday',
@@ -535,6 +532,12 @@ const en: TranslationMap = {
   'connections.browser.routeDirect': 'Direct OpenRouter',
   'connections.browser.routeHosted': 'Hosted proxy',
   'connections.browser.testInConversation': 'Test a page from a conversation after saving.',
+  'connections.browser.learning': 'What tasks learn',
+  'connections.browser.learnFromTasks': 'Learn from finished tasks',
+  'connections.browser.learnHint':
+    'Keeps the plan and page elements a finished task used on each site, so the next task there starts sooner. Stored in the workspace where the OpenHuman core runs, never in chat memory.',
+  'connections.browser.forgetSites': 'Forget learned sites',
+  'connections.browser.sitesForgotten': 'Sites forgotten: {count}',
   'connections.browser.save': 'Save settings',
   'connections.browser.saved': 'Settings saved',
   'connections.browser.testBrowser': 'Test Chrome',
@@ -744,7 +747,7 @@ const en: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f2': 'Token compression to stretch your usage further',
   'onboarding.runtimeChoice.cloud.f3': 'One subscription, every model included',
   'onboarding.runtimeChoice.cloud.f4': 'No model, search, or Composio keys to manage',
-  'onboarding.runtimeChoice.cloud.f5': 'Local Memory Tree, managed network services',
+  'onboarding.runtimeChoice.cloud.f5': 'Hosted memory, managed network services',
   'onboarding.runtimeChoice.custom.title': 'Run Custom',
   'onboarding.runtimeChoice.custom.tagline':
     'Bring your own keys. Choose which services OpenHuman should call.',
@@ -882,7 +885,7 @@ const en: TranslationMap = {
   'accounts.disconnect': 'Disconnect',
   'accounts.disconnectClearMemory': 'Also delete memory from this source',
   'accounts.disconnectClearMemoryHint':
-    'Permanently removes local memory chunks linked to this connection.',
+    'Permanently deletes the memories saved from this connection.',
 
   // Channels
   'channels.title': 'Channels',
@@ -2325,6 +2328,10 @@ const en: TranslationMap = {
   'commandPalette.placeholder': 'Type a command or search…',
   'commandPalette.searchAria': 'Search commands',
   'commandPalette.title': 'Command palette',
+  'commandPalette.group.conversations': 'Conversations',
+  'commandPalette.group.messages': 'Messages',
+  'commandPalette.searchingMessages': 'Searching messages…',
+  'commandPalette.untitledConversation': 'Untitled conversation',
   'kbd.ariaLabel': 'Keyboard shortcut: {shortcut}',
   'shortcuts.title': 'Keyboard Shortcuts',
   'shortcuts.subtitle': 'Speed up your workflow with these keyboard shortcuts.',
@@ -5316,27 +5323,32 @@ const en: TranslationMap = {
   'memoryPage.off.description': 'Pick a memory provider to start remembering.',
   'memoryPage.off.action': 'Choose a provider',
   'memoryPage.engine.inUse': 'In use',
-  'memoryPage.announcement.title': 'Unlimited Memory on CortexDB',
+  'memoryPage.announcement.title': 'Free Memory Inference on CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex was retired on Oct 7.',
-  'memoryPage.announcement.highlight': 'Free migration and unlimited usage on CortexDB.',
+  'memoryPage.announcement.highlight': 'Free migration, and memory inference is never charged.',
   'memoryPage.announcement.rest':
-    "It's faster and smarter, and your data is never used for training.",
+    "Basic includes 1 GB of memory storage and Pro includes 20 GB. It's faster and smarter, and your data is never used for training.",
   'memoryPage.announcement.dismiss': 'Dismiss',
+  'memoryPage.alphaNotice':
+    'Early Alpha: Memory is still being tested. Recall, imports and storage may behave unexpectedly or change between releases.',
   'memoryPage.engine.cortex.description': 'Memory engine with ranked recall and grounded answers.',
   'memoryPage.engine.chip.label': 'How to connect CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': 'Unlimited',
+  'memoryPage.engine.chip.free': 'Free',
   'memoryPage.engine.chip.apikey': 'Your CortexDB key',
   'memoryPage.engine.chip.selfhost': 'Local',
-  'memoryPage.engine.fairUse.summary': 'Fair use applies',
+  'memoryPage.engine.fairUse.summary': 'About free memory inference',
+  'memoryPage.engine.quota.plan': 'Your {plan} plan includes {storage} of memory storage.',
+  'memoryPage.engine.quota.all': 'Basic includes 1 GB of memory storage and Pro includes 20 GB.',
+  'memoryPage.engine.quota.inference': 'Memory inference is never charged.',
+  'memoryPage.engine.fairUse.heading': 'Fair use',
   'memoryPage.engine.offPrompt': 'Pick a provider below to start remembering.',
-  'memoryPage.engine.builtin.cardDescription': 'Hosted for you by TinyHumans. Nothing to set up.',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    "CortexDB's managed service, on your own CortexDB account.",
-  'memoryPage.engine.selfHost.cardDescription':
-    'A CortexDB server you run yourself. Memory is stored on this computer.',
-  'memoryPage.engine.freeIngestion.notePlan': 'Unlimited memory on your {plan} plan',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Unlimited memory on Basic and Pro plans',
+  'memoryPage.engine.builtin.summaryPlan':
+    'Free memory inference on your {plan} plan, hosted by TinyHumans.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'Free memory inference on Basic and Pro, hosted by TinyHumans.',
+  'memoryPage.engine.apiKeyOption.connected': 'Connected with your CortexDB API key.',
+  'memoryPage.engine.selfHost.connected': 'Connected to CortexDB at {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Ingest your own content, for your own use.',
   'memoryPage.engine.fairUse.noAbuse':
     'No automated bulk uploads, scraping, or ingesting on behalf of other people or services.',
@@ -5445,19 +5457,20 @@ const en: TranslationMap = {
   'memoryPage.sourceKind.link': 'Link',
   'memoryPage.sourceKind.github': 'GitHub repo',
   'memoryPage.sourceKind.rss': 'RSS feed',
-  'memoryPage.sourceKind.composio': 'Composio app',
   'memoryPage.sourceTarget.folder': '/path/to/folder',
   'memoryPage.sourceTarget.file': '/path/to/file.md',
   'memoryPage.sourceTarget.link': 'https://example.com/page',
   'memoryPage.sourceTarget.github': 'owner/repo',
   'memoryPage.sourceTarget.rss': 'https://example.com/feed.xml',
-  'memoryPage.sourceTarget.composio': 'Composio app, e.g. notion',
   'memoryPage.sourceStatus.idle': 'Idle',
   'memoryPage.sourceStatus.syncing': 'Syncing',
   'memoryPage.sourceStatus.error': 'Error',
   'memoryPage.tabs.brain': 'Documents',
   'memoryPage.tabs.background': 'Activity',
   'memoryPage.tabs.settings': 'Settings',
+  'memoryPage.tabs.migration': 'Migration',
+  'memoryPage.header.migration':
+    'Bring memory from earlier versions into CortexDB, and organize it.',
   'memoryPage.header.brain': 'Documents every agent shares, filed by where they came from.',
   'memoryPage.header.background':
     'Belief builds and document imports memory runs in the background.',
@@ -5577,6 +5590,31 @@ const en: TranslationMap = {
     'The root every agent shares and the agent this app runs as.',
   'memoryPage.settings.root': 'Root',
   'memoryPage.settings.agentId': 'Agent',
+  'memoryPage.settings.eraseTitle': 'Erase memory',
+  'memoryPage.settings.eraseAction': 'Erase all memory',
+  'memoryPage.settings.eraseDescription':
+    'Permanently deletes everything OpenHuman remembers for this account. This cannot be undone.',
+  'memoryPage.settings.eraseConfirmTitle': 'Erase all memory?',
+  'memoryPage.settings.eraseConfirmBody':
+    'This permanently deletes everything OpenHuman remembers for this account: every connected source, past conversation, learning and fact. Your connections and settings are kept.',
+  'memoryPage.settings.eraseIrreversible':
+    'This cannot be undone. Erased memory cannot be recovered.',
+  'memoryPage.settings.eraseConfirmCheck':
+    'I understand that all of my memory will be permanently deleted.',
+  'memoryPage.settings.eraseConfirm': 'Erase everything',
+  'memoryPage.settings.erasing': 'Erasing…',
+  'memoryPage.settings.erasedToast': 'All memory erased',
+  'memoryPage.settings.erasedToastBody': 'OpenHuman no longer remembers anything for this account.',
+  'memoryPage.settings.eraseError.unsupported':
+    "Your memory service can't erase all memory yet. Nothing was erased.",
+  'memoryPage.settings.eraseError.insufficientCredits':
+    "Your account is out of credits, so memory can't be erased right now. Top up and try again. Nothing was erased.",
+  'memoryPage.settings.eraseError.memoryOff': 'Memory is turned off, so there is nothing to erase.',
+  'memoryPage.settings.eraseError.unavailable':
+    "We couldn't confirm whether the memory was erased. It may have been; check before trying again.",
+  'memoryPage.settings.eraseError.unauthorized':
+    'Your session has expired. Sign in again, then try erasing your memory.',
+  'memoryPage.settings.eraseError.generic': "Couldn't erase your memory. Please try again.",
   'memoryPage.settings.hostBound':
     'The app hosting OpenHuman sets these, so they cannot be changed here.',
   'memoryPage.import.title': 'Previous memory found',
@@ -5594,10 +5632,15 @@ const en: TranslationMap = {
   'memoryPage.import.failedItems': 'Items that could not be imported: {count}.',
   'memoryPage.import.retryFailed': 'Retry failed items',
   'memoryPage.import.progress': '{imported} of {total} items imported',
+  'memoryPage.import.none': 'No previous memory was found on this device.',
+  'memoryPage.import.doneBody': 'Your previous memory is already in CortexDB.',
+  'memoryPage.import.short': 'Import',
   'memoryPage.migrate.title': 'Move memory into your account',
   'memoryPage.migrate.body':
     'Memory saved before this update is still in the old shared layout. It moves on its own in the background, or you can move it now.',
   'memoryPage.migrate.action': 'Migrate now',
+  'memoryPage.migrate.doneBody': 'Your memory is already in your account.',
+  'memoryPage.migrate.afterImport': 'Starts once the import finishes.',
   'memoryPage.migrate.running': 'Organizing your memory…',
   'memoryPage.migrate.progress': '{copied} items moved',
   'memoryPage.migrate.progressOne': '{copied} item moved',

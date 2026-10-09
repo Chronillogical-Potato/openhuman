@@ -7,6 +7,7 @@ async fn attachment_scope_is_request_local_and_contains_only_typed_authority() {
     let mut data = crate::agent::tinyagents::host::OpenHumanRunContext::new();
     data.origin = Some(
         crate::agent::turn_origin::AgentTurnOrigin::ExternalChannel {
+            sender_name: None,
             channel: "test".into(),
             sender: None,
             reply_target: "room".into(),

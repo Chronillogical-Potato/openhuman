@@ -362,27 +362,6 @@ impl OpenHumanSessionHost {
     }
 }
 
-/// Compose the host belt before adding the remaining product configuration.
-pub(super) fn tool_builder(
-    host: Option<&HostTools>,
-    agent_id: &str,
-    session_id: Option<&str>,
-    mut tools: Vec<Box<dyn Tool>>,
-    mut visible: HashSet<String>,
-) -> Result<super::super::SessionHostBuilder> {
-    let merged = merge_for_turn(host, agent_id, session_id, &mut tools, &mut visible)?;
-    let mut builder = OpenHumanSessionHost::builder()
-        .tools(tools)
-        .visible_tool_names(visible)
-        .withheld_tool_names(merged.withheld)
-        .permanent_tool_names(merged.permanent);
-    // A supplied gate retains the existing replacement semantics.
-    if let Some(policy) = merged.policy {
-        builder = builder.tool_policy(policy);
-    }
-    Ok(builder)
-}
-
 /// Binds the embedder's per-turn root as the default cwd, when it exists.
 pub(super) fn derive_turn_workspace_descriptor() -> Option<tinytools::WorkspaceDescriptor> {
     let root = crate::agent::turn_workspace::current()?;

@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderWithProviders } from '../../test/test-utils';
@@ -57,11 +57,56 @@ afterEach(() => {
 });
 
 describe('MemoryImportBanner', () => {
-  it('renders nothing when there is nothing to import', async () => {
+  it('shows both steps disabled when there is nothing to import or move', async () => {
     hoisted.scan.mockResolvedValue({ found: false });
     renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+    const importStep = await screen.findByTestId('memory-import-idle');
+    expect(importStep).toHaveTextContent('No previous memory was found on this device.');
+    expect(within(importStep).getByRole('button')).toBeDisabled();
+    const moveStep = screen.getByTestId('memory-migration-idle');
+    expect(moveStep).toHaveTextContent('Your memory is already in your account.');
+    expect(within(moveStep).getByRole('button')).toBeDisabled();
+  });
+
+  it('keeps a finished import visible, disabled', async () => {
+    hoisted.scan.mockResolvedValue({ found: false });
+    hoisted.status.mockResolvedValue({ state: { phase: 'done', imported: 4, total: 4 } });
+    renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+    // A clean finished import shows its done state; the move step sits disabled.
+    expect(await screen.findByTestId('memory-import-done')).toBeInTheDocument();
+    expect(screen.getByTestId('memory-migration-idle')).toBeInTheDocument();
+  });
+
+  it('shows no "nothing to import" step when the scan or status read fails', async () => {
+    hoisted.scan.mockRejectedValue(new Error('scan down'));
+    const { unmount } = renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
     await waitFor(() => expect(hoisted.scan).toHaveBeenCalled());
-    expect(screen.queryByTestId('memory-import-banner')).not.toBeInTheDocument();
+    await screen.findByTestId('memory-import-banner');
+    expect(screen.queryByTestId('memory-import-idle')).not.toBeInTheDocument();
+    unmount();
+
+    hoisted.scan.mockReset().mockResolvedValue({ found: false });
+    hoisted.status.mockRejectedValue(new Error('status down'));
+    renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+    await screen.findByTestId('memory-import-banner');
+    expect(screen.queryByTestId('memory-import-idle')).not.toBeInTheDocument();
+  });
+
+  it('does not call a failed migration scan "already moved"', async () => {
+    hoisted.mScan.mockRejectedValue(new Error('scan down'));
+    renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+    await screen.findByTestId('memory-import-banner');
+    await waitFor(() => expect(hoisted.mScan).toHaveBeenCalled());
+    expect(screen.queryByTestId('memory-migration-idle')).not.toBeInTheDocument();
+  });
+
+  it('shows the move step disabled while the import is still on offer', async () => {
+    renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+    expect(await screen.findByTestId('memory-import-counts')).toBeInTheDocument();
+    expect(screen.queryByTestId('memory-import-idle')).not.toBeInTheDocument();
+    expect(screen.getByTestId('memory-migration-idle')).toHaveTextContent(
+      'Starts once the import finishes.'
+    );
   });
 
   it('offers the import with the counts it found', async () => {

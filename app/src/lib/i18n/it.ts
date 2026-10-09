@@ -504,9 +504,6 @@ const messages: TranslationMap = {
     'Impossibile passare ai modelli gratuiti di OpenRouter. Controlla l’accesso a OpenRouter e riprova.',
   'chat.newThread': 'Nuovo thread',
   'chat.newConversation': 'Nuova conversazione',
-  'chat.sidebar.searchPlaceholder': 'Cerca conversazioni',
-  'chat.sidebar.clearSearch': 'Cancella ricerca',
-  'chat.sidebar.noMatches': 'Nessuna conversazione corrispondente',
   'chat.sidebar.group.pinned': 'Fissate',
   'chat.sidebar.group.today': 'Oggi',
   'chat.sidebar.group.yesterday': 'Ieri',
@@ -630,6 +627,12 @@ const messages: TranslationMap = {
   'connections.browser.routeHosted': 'Proxy ospitato',
   'connections.browser.testInConversation':
     'Prova una pagina in una conversazione dopo il salvataggio.',
+  'connections.browser.learning': 'Cosa imparano le attività',
+  'connections.browser.learnFromTasks': 'Impara dalle attività completate',
+  'connections.browser.learnHint':
+    'Conserva, per ogni sito, il piano e gli elementi della pagina usati da un’attività completata, così la prossima attività lì parte prima. Salvato nello spazio di lavoro in cui gira il core di OpenHuman, mai nella memoria della chat.',
+  'connections.browser.forgetSites': 'Dimentica i siti appresi',
+  'connections.browser.sitesForgotten': 'Siti dimenticati: {count}',
   'connections.browser.save': 'Salva impostazioni',
   'connections.browser.saved': 'Impostazioni salvate',
   'connections.browser.testBrowser': 'Prova Chrome',
@@ -750,7 +753,7 @@ const messages: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f2': 'Compressione token per allungare il tuo utilizzo',
   'onboarding.runtimeChoice.cloud.f3': 'Un solo abbonamento, tutti i modelli inclusi',
   'onboarding.runtimeChoice.cloud.f4': 'Nessuna chiave API da gestire',
-  'onboarding.runtimeChoice.cloud.f5': 'Configurazione semplice',
+  'onboarding.runtimeChoice.cloud.f5': 'Memoria ospitata, servizi di rete gestiti',
   'onboarding.runtimeChoice.custom.title': 'Esegui personalizzato',
   'onboarding.runtimeChoice.custom.tagline': 'Porta le tue chiavi. Pieno controllo di ciò che usi.',
   'onboarding.runtimeChoice.custom.f1': 'Avrai bisogno di chiavi API per quasi tutto',
@@ -855,7 +858,7 @@ const messages: TranslationMap = {
   'accounts.disconnect': 'Disconnetti',
   'accounts.disconnectClearMemory': 'Elimina anche la memoria da questa fonte',
   'accounts.disconnectClearMemoryHint':
-    'Rimuove definitivamente i frammenti di memoria locale collegati a questa connessione.',
+    'Elimina definitivamente i ricordi salvati da questa connessione.',
   'channels.title': 'Canali',
   'channels.configure': 'Configura canale',
   'channels.setup': 'Configura',
@@ -2054,6 +2057,10 @@ const messages: TranslationMap = {
   'commandPalette.placeholder': 'Digita un comando o cerca…',
   'commandPalette.searchAria': 'Cerca comandi',
   'commandPalette.title': 'Palette dei comandi',
+  'commandPalette.group.conversations': 'Conversazioni',
+  'commandPalette.group.messages': 'Messaggi',
+  'commandPalette.searchingMessages': 'Ricerca nei messaggi…',
+  'commandPalette.untitledConversation': 'Conversazione senza titolo',
   'kbd.ariaLabel': 'Scorciatoia da tastiera: {shortcut}',
   'shortcuts.title': 'Scorciatoie da tastiera',
   'shortcuts.subtitle': 'Velocizza il tuo lavoro con queste scorciatoie da tastiera.',
@@ -5116,29 +5123,34 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'Scegli un fornitore di memoria per iniziare a ricordare.',
   'memoryPage.off.action': 'Scegli un fornitore',
   'memoryPage.engine.inUse': 'In uso',
-  'memoryPage.announcement.title': 'Memoria illimitata con CortexDB',
+  'memoryPage.announcement.title': 'Inferenza della memoria gratuita su CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex è stato ritirato il 7 ott.',
-  'memoryPage.announcement.highlight': 'Migrazione gratuita e uso illimitato su CortexDB.',
+  'memoryPage.announcement.highlight':
+    "Migrazione gratuita, e l'inferenza della memoria non viene mai addebitata.",
   'memoryPage.announcement.rest':
-    'È più veloce e intelligente, e i tuoi dati non vengono mai usati per l’addestramento.',
+    'Basic include 1 GB di spazio di memoria e Pro 20 GB. È più veloce e intelligente, e i tuoi dati non vengono mai usati per l’addestramento.',
   'memoryPage.announcement.dismiss': 'Chiudi',
+  'memoryPage.alphaNotice':
+    'Alpha iniziale: la memoria è ancora in fase di test. Richiamo, importazioni e archiviazione potrebbero comportarsi in modo imprevisto o cambiare tra le versioni.',
   'memoryPage.engine.cortex.description':
     'Motore di memoria con richiamo ordinato e risposte fondate.',
   'memoryPage.engine.chip.label': 'Come connettere CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': 'Illimitata',
+  'memoryPage.engine.chip.free': 'Gratis',
   'memoryPage.engine.chip.apikey': 'La tua chiave CortexDB',
   'memoryPage.engine.chip.selfhost': 'Locale',
-  'memoryPage.engine.fairUse.summary': 'Vale l’uso equo',
+  'memoryPage.engine.fairUse.summary': "Informazioni sull'inferenza della memoria gratuita",
+  'memoryPage.engine.quota.plan': 'Il tuo piano {plan} include {storage} di spazio di memoria.',
+  'memoryPage.engine.quota.all': 'Basic include 1 GB di spazio di memoria e Pro 20 GB.',
+  'memoryPage.engine.quota.inference': "L'inferenza della memoria non viene mai addebitata.",
+  'memoryPage.engine.fairUse.heading': 'Uso equo',
   'memoryPage.engine.offPrompt': 'Scegli un fornitore qui sotto per iniziare a ricordare.',
-  'memoryPage.engine.builtin.cardDescription':
-    'Ospitato per te da TinyHumans. Niente da configurare.',
-  'memoryPage.engine.apiKeyOption.cardDescription':
-    'Il servizio gestito di CortexDB, con il tuo account CortexDB.',
-  'memoryPage.engine.selfHost.cardDescription':
-    'Un server CortexDB gestito da te. La memoria è salvata su questo computer.',
-  'memoryPage.engine.freeIngestion.notePlan': 'Memoria illimitata con il piano {plan}',
-  'memoryPage.engine.freeIngestion.noteUpgrade': 'Memoria illimitata con i piani Basic e Pro',
+  'memoryPage.engine.builtin.summaryPlan':
+    'Inferenza della memoria gratuita con il tuo piano {plan}, ospitata da TinyHumans.',
+  'memoryPage.engine.builtin.summaryUpgrade':
+    'Inferenza della memoria gratuita con Basic e Pro, ospitata da TinyHumans.',
+  'memoryPage.engine.apiKeyOption.connected': 'Connesso con la tua chiave API di CortexDB.',
+  'memoryPage.engine.selfHost.connected': 'Connesso a CortexDB su {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Acquisisci i tuoi contenuti, per uso personale.',
   'memoryPage.engine.fairUse.noAbuse':
     'Niente caricamenti massivi automatici, scraping o acquisizioni per conto di altre persone o servizi.',
@@ -5248,19 +5260,20 @@ const messages: TranslationMap = {
   'memoryPage.sourceKind.link': 'Link',
   'memoryPage.sourceKind.github': 'Repository GitHub',
   'memoryPage.sourceKind.rss': 'Feed RSS',
-  'memoryPage.sourceKind.composio': 'App Composio',
   'memoryPage.sourceTarget.folder': '/path/to/folder',
   'memoryPage.sourceTarget.file': '/path/to/file.md',
   'memoryPage.sourceTarget.link': 'https://example.com/page',
   'memoryPage.sourceTarget.github': 'owner/repo',
   'memoryPage.sourceTarget.rss': 'https://example.com/feed.xml',
-  'memoryPage.sourceTarget.composio': 'App Composio, ad es. notion',
   'memoryPage.sourceStatus.idle': 'Inattiva',
   'memoryPage.sourceStatus.syncing': 'Sincronizzazione',
   'memoryPage.sourceStatus.error': 'Errore',
   'memoryPage.tabs.brain': 'Documenti',
   'memoryPage.tabs.background': 'Attività',
   'memoryPage.tabs.settings': 'Impostazioni',
+  'memoryPage.tabs.migration': 'Migrazione',
+  'memoryPage.header.migration':
+    'Porta in CortexDB la memoria delle versioni precedenti e organizzala.',
   'memoryPage.header.brain': 'Documenti condivisi da tutti gli agenti, archiviati per provenienza.',
   'memoryPage.header.background':
     'Costruzioni di convinzioni e importazioni di documenti che la memoria esegue in background.',
@@ -5383,6 +5396,32 @@ const messages: TranslationMap = {
     "La radice condivisa da tutti gli agenti e l'agente con cui gira questa app.",
   'memoryPage.settings.root': 'Radice',
   'memoryPage.settings.agentId': 'Agente',
+  'memoryPage.settings.eraseTitle': 'Cancella memoria',
+  'memoryPage.settings.eraseAction': 'Cancella tutta la memoria',
+  'memoryPage.settings.eraseDescription':
+    'Elimina definitivamente tutto ciò che OpenHuman ricorda per questo account. L’operazione non può essere annullata.',
+  'memoryPage.settings.eraseConfirmTitle': 'Cancellare tutta la memoria?',
+  'memoryPage.settings.eraseConfirmBody':
+    'Questo elimina definitivamente tutto ciò che OpenHuman ricorda per questo account: ogni fonte collegata, conversazione passata, apprendimento e fatto. Le tue connessioni e impostazioni restano invariate.',
+  'memoryPage.settings.eraseIrreversible':
+    'L’operazione non può essere annullata. La memoria cancellata non può essere recuperata.',
+  'memoryPage.settings.eraseConfirmCheck':
+    'Ho capito che tutta la mia memoria verrà eliminata definitivamente.',
+  'memoryPage.settings.eraseConfirm': 'Cancella tutto',
+  'memoryPage.settings.erasing': 'Cancellazione…',
+  'memoryPage.settings.erasedToast': 'Tutta la memoria è stata cancellata',
+  'memoryPage.settings.erasedToastBody': 'OpenHuman non ricorda più nulla per questo account.',
+  'memoryPage.settings.eraseError.unsupported':
+    'Il tuo servizio di memoria non può ancora cancellare tutta la memoria. Non è stato cancellato nulla.',
+  'memoryPage.settings.eraseError.insufficientCredits':
+    'Il tuo account ha esaurito i crediti, quindi al momento la memoria non può essere cancellata. Ricarica e riprova. Non è stato cancellato nulla.',
+  'memoryPage.settings.eraseError.memoryOff':
+    'La memoria è disattivata, quindi non c’è nulla da cancellare.',
+  'memoryPage.settings.eraseError.unavailable':
+    'Non è stato possibile confermare se la memoria è stata cancellata. Potrebbe esserlo; verifica prima di riprovare.',
+  'memoryPage.settings.eraseError.unauthorized':
+    'La tua sessione è scaduta. Accedi di nuovo, poi riprova a cancellare la memoria.',
+  'memoryPage.settings.eraseError.generic': 'Impossibile cancellare la memoria. Riprova.',
   'memoryPage.settings.hostBound':
     "L'app che ospita OpenHuman imposta questi valori, quindi non si possono modificare qui.",
   'memoryPage.import.title': 'Memoria precedente trovata',
@@ -5400,10 +5439,15 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'Elementi che non è stato possibile importare: {count}.',
   'memoryPage.import.retryFailed': 'Riprova gli elementi non riusciti',
   'memoryPage.import.progress': '{imported} di {total} elementi importati',
+  'memoryPage.import.none': 'Nessuna memoria precedente trovata su questo dispositivo.',
+  'memoryPage.import.doneBody': 'La tua memoria precedente è già in CortexDB.',
+  'memoryPage.import.short': 'Importa',
   'memoryPage.migrate.title': 'Sposta la memoria nel tuo account',
   'memoryPage.migrate.body':
     'La memoria salvata prima di questo aggiornamento è ancora nel vecchio layout condiviso. Viene spostata automaticamente in background, oppure puoi spostarla ora.',
   'memoryPage.migrate.action': 'Migra ora',
+  'memoryPage.migrate.doneBody': 'La tua memoria è già nel tuo account.',
+  'memoryPage.migrate.afterImport': 'Inizia al termine dell’importazione.',
   'memoryPage.migrate.running': 'Organizzazione della tua memoria…',
   'memoryPage.migrate.progress': '{copied} elementi spostati',
   'memoryPage.migrate.progressOne': '{copied} elemento spostato',

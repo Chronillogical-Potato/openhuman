@@ -154,11 +154,6 @@ impl TickDeps for HttpDeps {
     }
 }
 
-#[allow(dead_code)]
-pub(crate) fn chat_db_exists(path: &Path) -> bool {
-    path.exists()
-}
-
 #[cfg(test)]
 #[path = "tick_tests.rs"]
 mod tests;

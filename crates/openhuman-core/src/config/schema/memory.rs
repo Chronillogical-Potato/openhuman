@@ -114,7 +114,7 @@ pub struct MemoryConfig {
     pub root: Option<String>,
     /// Where memory sits on the engine: `legacy` (the shared
     /// `app:tinymemory` tree, the default) or `v3` (the signed-in person's
-    /// own `user:<id>` subtree, chats pooled at `ws:main`). Switched by the
+    /// own `org:<id>` subtree, chats pooled at `ws:main`). Switched by the
     /// layout migration once the person's memory has moved, never by hand.
     #[serde(skip_serializing_if = "MemoryLayoutMode::is_legacy")]
     pub layout: MemoryLayoutMode,
@@ -148,6 +148,20 @@ pub struct MemoryConfig {
     /// Written only when off, since on is the default.
     #[serde(skip_serializing_if = "is_true")]
     pub split_github_by_repo: bool,
+    /// Attribute what memory stores to who said or did it (CortexDB's
+    /// `observed_actor`): an assistant turn to its agent, a synced email to
+    /// its sender. Off by default, and off nothing on the wire changes. Only
+    /// the `cortexdb` engine honours it, and a write CortexDB refuses for it
+    /// is written again without it.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub observed_actor: bool,
+    /// While memory written below the earlier `user:<id>` scope root is
+    /// moved to the person's `org:<id>` root (cortexdb-saas
+    /// `reroot-user-segment`), layout v3 still reads and forgets below it
+    /// too, merged by item id; writes go only to `org:<id>`. On by default;
+    /// turn it off once the move is verified. Written only when off.
+    #[serde(skip_serializing_if = "is_true")]
+    pub legacy_user_segment_read: bool,
 }
 
 /// `[memory] layout`: where memory sits on the engine.
@@ -157,7 +171,7 @@ pub enum MemoryLayoutMode {
     /// The shared `app:tinymemory` tree, as before layout v3.
     #[default]
     Legacy,
-    /// The person's own `user:<id>` subtree, every kind under a leaf of its
+    /// The person's own `org:<id>` subtree, every kind under a leaf of its
     /// own, chats pooled at `ws:main`.
     V3,
 }
@@ -218,6 +232,8 @@ impl Default for MemoryConfig {
             embedding_rate_limit_per_min: DEFAULT_EMBEDDING_RATE_LIMIT_PER_MIN,
             agents: BTreeMap::new(),
             split_github_by_repo: true,
+            observed_actor: false,
+            legacy_user_segment_read: true,
         }
     }
 }
@@ -320,7 +336,8 @@ impl Default for MemoryRecallConfig {
     }
 }
 
-/// What a document source reads.
+/// What a document source reads. The `composio` kind was removed: a saved
+/// entry of that kind is dropped at load.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum MemorySourceKind {
@@ -334,19 +351,16 @@ pub enum MemorySourceKind {
     Github,
     /// An RSS or Atom feed.
     Rss,
-    /// A connected Composio toolkit.
-    Composio,
 }
 
 impl MemorySourceKind {
     /// Every kind, in display order.
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 5] = [
         Self::Folder,
         Self::File,
         Self::Link,
         Self::Github,
         Self::Rss,
-        Self::Composio,
     ];
 
     /// Wire name.
@@ -358,7 +372,6 @@ impl MemorySourceKind {
             Self::Link => "link",
             Self::Github => "github",
             Self::Rss => "rss",
-            Self::Composio => "composio",
         }
     }
 
@@ -380,7 +393,7 @@ pub struct MemorySourceConfig {
     pub id: String,
     /// What the source reads.
     pub kind: MemorySourceKind,
-    /// Path, URL, `owner/repo`, feed URL or Composio toolkit.
+    /// Path, URL, `owner/repo` or feed URL.
     pub target: String,
     /// Display label.
     #[serde(default)]
@@ -406,7 +419,9 @@ where
 }
 
 /// Decodes source entries leniently: an entry that does not parse is dropped
-/// with a warning naming only its index and reason (never its contents).
+/// with a warning naming only its index and reason (never its contents). This
+/// is also how a saved `composio` source (a removed kind) disappears: its
+/// `kind` no longer parses.
 pub(crate) fn decode_sources_lenient(raw: Vec<serde_json::Value>) -> Vec<MemorySourceConfig> {
     raw.into_iter()
         .enumerate()
@@ -417,7 +432,7 @@ pub(crate) fn decode_sources_lenient(raw: Vec<serde_json::Value>) -> Vec<MemoryS
                     tracing::warn!(
                         index,
                         error = %error,
-                        "[memory:config] dropping unreadable memory source entry"
+                        "[memory:config] dropping unreadable or removed-kind memory source entry"
                     );
                     None
                 }
@@ -429,7 +444,7 @@ pub(crate) fn decode_sources_lenient(raw: Vec<serde_json::Value>) -> Vec<MemoryS
 /// Maps one legacy v1 `[[memory_sources]]` entry onto a v2 source.
 ///
 /// v1 kinds map as `folder`→`folder`, `file`→`file`, `web_page`→`link`,
-/// `github_repo`→`github`, `rss_feed`→`rss`, `composio`→`composio`. The v1
+/// `github_repo`→`github`, `rss_feed`→`rss`. The v1 `composio`,
 /// `twitter_query` and `conversation` kinds have no v2 equivalent and are
 /// dropped, as is anything else unrecognised or missing its target.
 #[must_use]
@@ -449,13 +464,15 @@ pub fn migrate_legacy_source(value: &serde_json::Value) -> Option<MemorySourceCo
         "web_page" => MemorySourceKind::Link,
         "github_repo" => MemorySourceKind::Github,
         "rss_feed" => MemorySourceKind::Rss,
-        "composio" => MemorySourceKind::Composio,
+        "composio" => {
+            tracing::warn!("[memory:config] dropping legacy composio memory source (removed kind)");
+            return None;
+        }
         _ => return None,
     };
     let target = match kind {
         MemorySourceKind::Folder | MemorySourceKind::File => text("path")?,
         MemorySourceKind::Link | MemorySourceKind::Github | MemorySourceKind::Rss => text("url")?,
-        MemorySourceKind::Composio => text("toolkit")?,
     };
     if object.get("enabled").and_then(serde_json::Value::as_bool) == Some(false) {
         return None;
