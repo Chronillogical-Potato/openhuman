@@ -278,7 +278,6 @@ impl Docs {
         request_id: &str,
         decision: ApprovalDecision,
     ) -> Result<Option<PendingApproval>> {
-        let id = request_id.to_string();
         self.decide_at(request_id, decision, Utc::now())
     }
 
