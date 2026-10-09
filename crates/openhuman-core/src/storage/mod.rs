@@ -91,6 +91,22 @@ pub fn clear() -> bool {
         .is_some()
 }
 
+/// Whether a backend with this driver name may be shared by several
+/// processes at once. A MongoDB database can be; SQLite files, the memory
+/// driver and plain files belong to the one process that opened them.
+///
+/// Boot-time recovery (interrupting in-flight turns, reaping orphaned runs)
+/// is only sound on a backend no other process can be writing to.
+pub fn driver_is_shared(driver: &str) -> bool {
+    driver == "mongodb"
+}
+
+/// Whether the installed backend may be shared with other processes; `false`
+/// when none is installed. See [`driver_is_shared`].
+pub fn installed_is_shared() -> bool {
+    installed().is_some_and(|backend| driver_is_shared(backend.driver()))
+}
+
 /// The storage scope agent `agent_id`'s records live under — the same
 /// mapping the session store uses, so every domain agrees on it.
 pub fn scope_for_agent(agent_id: &str) -> Scope {

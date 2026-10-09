@@ -57,3 +57,11 @@ fn agent_scopes_match_the_session_store() {
         .as_str()
         .starts_with("sha256:"));
 }
+
+#[test]
+fn only_mongodb_is_shared_between_processes() {
+    assert!(driver_is_shared("mongodb"));
+    for driver in ["sqlite", "memory", "file"] {
+        assert!(!driver_is_shared(driver), "{driver}");
+    }
+}

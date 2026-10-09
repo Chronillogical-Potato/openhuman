@@ -197,7 +197,7 @@ pub async fn install_for_url(url: Option<String>) -> anyhow::Result<()> {
     let backend = openhuman_core::storage::open(&url)
         .await
         .context("opening the configured storage backend")?;
-    let single_process = backend.driver() != "mongodb";
+    let single_process = !openhuman_core::storage::driver_is_shared(backend.driver());
     let provider = tinyagents_session::DriverSessionStores::new(Arc::clone(&backend))
         .context("starting the session store bridge")?
         .recover_on_open(single_process);
