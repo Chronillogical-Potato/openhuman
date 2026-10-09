@@ -73,9 +73,11 @@ regardless of what the caller asked for:
 2. A graph with outbound side-effect nodes (`tool_call`, `http_request`,
    `code`) is forced to `require_approval = true`.
 
-The same rules apply to `flows_update`, `flows_duplicate` and
-`flows_draft_promote`, so no path hands the user an armed, unattended
-automation. Each successful write publishes `DomainEvent::FlowChanged` so an
+`flows_update` applies the same rules to later saves: it forces approval on
+side-effect graphs, and when a graph's trigger changes from manual (or none)
+to automatic it turns the flow off. `flows_duplicate` always produces a
+disabled, unbound copy, and `flows_draft_promote` runs the create/update path.
+No save path hands the user an armed, unattended automation. Each successful write publishes `DomainEvent::FlowChanged` so an
 open canvas refetches. Updates use optimistic concurrency: a stale write comes
 back as a `{ code: "version_conflict", ... }` error the UI can offer to reload.
 Every graph change is kept as a revision (`flows_get_history`,
