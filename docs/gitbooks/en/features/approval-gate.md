@@ -133,6 +133,8 @@ The gate is interactive, so a parked call needs a surface that can answer it. Th
 
 A triage dispatch that your own machine started keeps the authority its caller already had. One steered by an outside payload parks and leaves an audit row. No surface can decide a background park yet, so it expires at the timeout. You get the audit trail, not a working escalation, and `auto_approve_all` gives up even that.
 
+The browser's consequential actions (click, fill, type, key press, select, check, and a task's `needs_approval` step) are the exception. They use the **forced** gate, which ignores auto-approval and denies every turn that is not a routable WebChat chat, cron included. An operator opts specific action kinds back in for cron, background and approval-free workflow turns with `[browser] unattended_actions`. See [TinyComputer browser on Linux and Docker](../developing/tinycomputer-docker.md#4-unattended-actions).
+
 An external channel turn parks because remote input is untrusted. The row is written, and you can still decide on the thread card before the timeout.
 
 ## Configuration and RPC

@@ -28,6 +28,8 @@ The browser is a real Chrome or Chromium, driven over the Chrome DevTools Protoc
 
 Screenshots are never returned inline. A reply carries a handle that the agent reads in chunks and releases when done.
 
+Clicks, typing, key presses and other consequential actions ask for your approval in the chat first. A scheduled job has nobody to ask, so by default it can only open and read pages. An operator can let cron, background and approval-free workflow turns take specific actions with `[browser] unattended_actions`. See [TinyComputer browser on Linux and Docker](../../developing/tinycomputer-docker.md#4-unattended-actions).
+
 Sessions are bounded. The module allows up to 8 at once. OpenHuman keeps at most 6 per conversation thread with a 30-minute idle timeout, so a long chat reuses one browser and doesn't open a new one every turn. A session can be restricted to a set of origins.
 
 ## Desktop
