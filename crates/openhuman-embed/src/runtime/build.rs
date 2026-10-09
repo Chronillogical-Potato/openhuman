@@ -257,6 +257,7 @@ impl RuntimeBuilder {
             tool_groups,
             self.provider,
             self.access,
+            self.max_agents,
         );
         if requests_background_services(services) {
             log::debug!("[embed][runtime] starting background services {services:?}");

@@ -335,7 +335,10 @@ fn one_runtime_hosts_independently_configured_agents() {
 
             // Layout: every agent has its own home, transcripts and action dir.
             assert_eq!(alpha.home_dir(), workspace_dir.join("agents/alpha"));
-            assert_eq!(alpha.transcripts_dir(), workspace_dir.join("session_raw"));
+            assert_eq!(
+                alpha.transcripts_dir(),
+                workspace_dir.join("agents/alpha/session_raw")
+            );
             assert_eq!(alpha.action_dir(), root_dir.join("agents/alpha/action"));
             assert!(alpha.action_dir().is_dir());
             assert_eq!(beta.action_dir(), beta_action.path());
@@ -396,12 +399,20 @@ fn one_runtime_hosts_independently_configured_agents() {
             let b_body: serde_json::Value = serde_json::from_slice(&b_reqs[0].body).unwrap();
             assert_eq!(a_body["model"], "alpha-model");
             assert_eq!(b_body["model"], "beta-model");
-            // Transcripts are keyed by agent, and a thread resumes its own history.
-            let transcripts: Vec<String> = std::fs::read_dir(alpha.transcripts_dir())
-                .expect("transcript dir")
-                .flatten()
-                .map(|e| e.file_name().to_string_lossy().into_owned())
-                .collect();
+            // Transcripts are keyed by agent and live in the agent's own
+            // directory, and a thread resumes its own history.
+            let listing = |dir: &std::path::Path| -> Vec<String> {
+                std::fs::read_dir(dir)
+                    .expect("transcript dir")
+                    .flatten()
+                    .map(|e| e.file_name().to_string_lossy().into_owned())
+                    .collect()
+            };
+            assert!(
+                !workspace_dir.join("session_raw").exists()
+                    || listing(&workspace_dir.join("session_raw")).is_empty(),
+                "no agent writes to the shared transcript directory"
+            );
             // Asserted against names the writer itself produced, not a shape
             // of our own. A turn's `session_id` is the raw session key the
             // runtime minted; TinyAgents derives the transcript stem from it
@@ -409,7 +420,9 @@ fn one_runtime_hosts_independently_configured_agents() {
             // component carrying a disambiguating digest). The previous
             // `_alpha.jsonl` expectation predates that encoding — hosts used
             // to mint `{unix_ts}_{agent}` stems — so it can no longer match.
-            for (agent_id, session_id) in [("alpha", &a1.session_id), ("beta", &b0.session_id)] {
+            for (agent, session_id) in [(&alpha, &a1.session_id), (&beta, &b0.session_id)] {
+                let agent_id = agent.id();
+                let transcripts = listing(agent.transcripts_dir());
                 let transcript = transcripts
                     .iter()
                     .find(|f| f.starts_with(&format!("{session_id}-")))

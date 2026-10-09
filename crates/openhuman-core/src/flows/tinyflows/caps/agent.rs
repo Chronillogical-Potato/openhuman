@@ -133,7 +133,7 @@ pub(crate) fn route_for_agent_ref(agent_ref: &str) -> AgentRoute {
     if crate::agent::host_agents::resolve(agent_ref).is_some() {
         return AgentRoute::HostAgent;
     }
-    let has_definition = crate::agent::harness::definition::AgentDefinitionRegistry::global()
+    let has_definition = crate::agent::harness::definition::AgentDefinitionRegistry::current()
         .map(|reg| reg.get(agent_ref).is_some())
         .unwrap_or(false);
     if has_definition {

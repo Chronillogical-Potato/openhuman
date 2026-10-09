@@ -280,8 +280,10 @@ pub(crate) async fn run_subagent_direct(
         // through that walk. Resolve the parent's tier from the registry by its
         // definition id; `tier_gate_decision` rejects (and logs) any forbidden
         // chat/reasoning hop while exempting unresolved + worker parents.
-        let parent_def =
-            AgentDefinitionRegistry::global().and_then(|reg| reg.get(&parent.agent_definition_id));
+        let parent_registry = AgentDefinitionRegistry::current();
+        let parent_def = parent_registry
+            .as_deref()
+            .and_then(|reg| reg.get(&parent.agent_definition_id));
         tier_gate_decision(parent_def, definition, &parent.agent_definition_id, &task_id)?;
 
         // Configured `subagentStart` hooks — the last gate before a spawn costs
@@ -312,15 +314,9 @@ pub(crate) async fn run_subagent_direct(
             return Err(SubagentRunError::HookDenied(reason));
         }
 
-        // Load the host config exactly once for this spawn and hand it to
-        // everything below. See `LoadedConfig` — `load_or_init` re-reads
-        // config.toml on every call, and the runtime below is slated to move
-        // into TinyAgents, where there is no config file to load.
-        //
-        // Deliberately placed *after* `tier_gate_decision`: `load_or_init` can
-        // initialize config on first run, and a spawn the tier gate rejects
-        // should not have that side effect.
-        let loaded_config: LoadedConfig = Box::pin(crate::config::Config::load_or_init())
+        // Loaded once per spawn (see `LoadedConfig`), after the tier gate so a
+        // rejected spawn never initialises config on first run.
+        let loaded_config: LoadedConfig = Box::pin(crate::config::ops::load_current_or_init())
             .await
             .map(std::sync::Arc::new)
             .map_err(|e| e.to_string());
@@ -465,7 +461,7 @@ async fn offload_outcome_artifacts(
     // A worktree-isolated worker offloads into its own checkout; everyone else
     // uses the live policy's action root, which is the same root a parent's
     // relative read resolves the returned path against.
-    let policy = crate::security::live_policy::current();
+    let policy = crate::security::live_policy::effective();
     let Some(action_dir) = options
         .worktree_action_dir
         .clone()

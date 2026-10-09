@@ -48,7 +48,7 @@ impl DelegationDispatch {
             // `delegate_graph` is a concrete durable graph tool with its own
             // typed dispatcher, and arbitrary `delegate_*` tools must not be
             // mistaken for an agent target merely because of their spelling.
-            name if AgentDefinitionRegistry::global().is_some_and(|registry| {
+            name if AgentDefinitionRegistry::current().is_some_and(|registry| {
                 registry.list().into_iter().any(|definition| {
                     definition
                         .delegate_name
@@ -102,7 +102,7 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext> for D
                 .await
             }
             DelegationDispatchKind::Archetype => {
-                let Some(agent_id) = AgentDefinitionRegistry::global().and_then(|registry| {
+                let Some(agent_id) = AgentDefinitionRegistry::current().and_then(|registry| {
                     registry.list().into_iter().find_map(|definition| {
                         let name = definition
                             .delegate_name
@@ -163,7 +163,7 @@ pub(crate) async fn dispatch_subagent_with_live_parent(
     let parent_workspace_descriptor = tool_context
         .and_then(|ctx| ctx.workspace().cloned())
         .or_else(|| run_context.workspace.clone());
-    let registry = match AgentDefinitionRegistry::global() {
+    let registry = match AgentDefinitionRegistry::current() {
         Some(reg) => reg,
         None => {
             return Ok(ToolResult::error(

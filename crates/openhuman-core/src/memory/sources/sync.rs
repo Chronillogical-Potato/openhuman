@@ -180,7 +180,7 @@ pub fn start_sync(config: &Config, id: Option<&str>) -> MemoryResult<Vec<String>
         });
         started.push(source.id.clone());
         let config = config.clone();
-        tokio::spawn(async move {
+        crate::core::runtime::spawn_scoped(async move {
             run_and_record(&config, &source).await;
             RUNNING
                 .lock()

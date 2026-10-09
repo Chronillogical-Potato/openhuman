@@ -135,6 +135,10 @@ fn migrate_columns(conn: &Connection) -> Result<()> {
             "tool_call_id",
             "ALTER TABLE pending_approvals ADD COLUMN tool_call_id TEXT",
         ),
+        (
+            "agent_id",
+            "ALTER TABLE pending_approvals ADD COLUMN agent_id TEXT",
+        ),
     ] {
         if !have.contains(col) {
             // Two cores can open the same workspace during startup (for
@@ -150,6 +154,12 @@ fn migrate_columns(conn: &Connection) -> Result<()> {
             tracing::info!(column = col, "[approval::store] migrated v1 schema");
         }
     }
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_pending_approvals_agent
+             ON pending_approvals(agent_id, decided_at)",
+        params![],
+    )
+    .context("[approval::store] create agent index")?;
     Ok(())
 }
 
@@ -192,10 +202,14 @@ fn migrate_session_id_scrub(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+fn db_path(config: &Config) -> std::path::PathBuf {
+    config.workspace_dir.join("approval").join("approval.db")
+}
+
 /// Open (and migrate) the approval DB, then call `f` with a live
 /// connection. Mirrors `notifications/store.rs::with_connection`.
 fn with_connection<T>(config: &Config, f: impl FnOnce(&Connection) -> Result<T>) -> Result<T> {
-    let db_path = config.workspace_dir.join("approval").join("approval.db");
+    let db_path = db_path(config);
 
     tracing::trace!(
         path = %db_path.display(),
@@ -248,8 +262,8 @@ pub fn insert_pending(config: &Config, pending: &PendingApproval, session_id: &s
         conn.execute(
             "INSERT INTO pending_approvals
                 (request_id, tool_name, action_summary, args_redacted,
-                 session_id, created_at, expires_at, source_context, tool_call_id)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                 session_id, created_at, expires_at, source_context, tool_call_id, agent_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 pending.request_id,
                 pending.tool_name,
@@ -260,6 +274,7 @@ pub fn insert_pending(config: &Config, pending: &PendingApproval, session_id: &s
                 expires,
                 source_context,
                 pending.tool_call_id,
+                pending.agent_id,
             ],
         )
         .context("[approval::store] insert pending row")?;
@@ -300,7 +315,7 @@ pub fn list_pending(config: &Config) -> Result<Vec<PendingApproval>> {
         let mut stmt = conn
             .prepare(
                 "SELECT request_id, tool_name, action_summary, args_redacted,
-                        session_id, created_at, expires_at, source_context, tool_call_id
+                        session_id, created_at, expires_at, source_context, tool_call_id, agent_id
                  FROM pending_approvals
                  WHERE decided_at IS NULL
                  ORDER BY created_at ASC",
@@ -405,7 +420,7 @@ pub fn decide(
         let mut stmt = conn
             .prepare(
                 "SELECT request_id, tool_name, action_summary, args_redacted,
-                        session_id, created_at, expires_at, source_context, tool_call_id
+                        session_id, created_at, expires_at, source_context, tool_call_id, agent_id
                  FROM pending_approvals WHERE request_id = ?1",
             )
             .context("[approval::store] prepare select decided")?;
@@ -575,7 +590,7 @@ fn expire_stale_with_now(conn: &Connection, now: DateTime<Utc>) -> Result<Vec<Pe
         let mut stmt = conn
             .prepare(
                 "SELECT request_id, tool_name, action_summary, args_redacted,
-                        session_id, created_at, expires_at, source_context, tool_call_id
+                        session_id, created_at, expires_at, source_context, tool_call_id, agent_id
                  FROM pending_approvals
                  WHERE decided_at IS NULL
                    AND expires_at IS NOT NULL
@@ -625,6 +640,7 @@ fn publish_expired(expired: &[PendingApproval]) {
             client_id: None,
             tool_call_id: row.tool_call_id.clone(),
             resolution: Some("expired".to_string()),
+            agent_id: row.agent_id.clone(),
         });
     }
 }
@@ -699,6 +715,7 @@ fn row_to_pending(row: &rusqlite::Row<'_>) -> rusqlite::Result<PendingApproval> 
     // Column 8 (`tool_call_id`) is likewise absent on rows written before
     // this field existed — tolerate a missing-column read error as `None`.
     let tool_call_id: Option<String> = row.get(8).unwrap_or(None);
+    let agent_id: Option<String> = row.get(9).unwrap_or(None);
 
     // Note: column index 4 (`session_id`) is read on the SELECT but
     // intentionally not surfaced — see `PendingApproval` doc-comment.
@@ -711,6 +728,7 @@ fn row_to_pending(row: &rusqlite::Row<'_>) -> rusqlite::Result<PendingApproval> 
         expires_at: expires_opt.as_deref().map(parse_rfc3339),
         source_context,
         tool_call_id,
+        agent_id,
     })
 }
 
@@ -719,6 +737,10 @@ fn parse_rfc3339(input: &str) -> DateTime<Utc> {
         .map(|t| t.with_timezone(&Utc))
         .unwrap_or_else(|_| Utc::now())
 }
+
+#[path = "store_agent.rs"]
+mod agent_rows;
+pub use agent_rows::{exists, list_pending_for_agent, pending_agent};
 
 #[cfg(test)]
 #[path = "store_tests.rs"]
