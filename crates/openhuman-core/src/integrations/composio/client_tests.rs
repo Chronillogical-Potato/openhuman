@@ -412,6 +412,15 @@ async fn direct_connected_integrations_fetches_schemas_without_backend_composio_
     let mut config = config_with_session_token(&tmp);
     config.workspace_dir = tmp.path().join("workspace");
     config.api_url = Some(backend_url);
+    crate::security::credentials::AuthService::from_config(&config)
+        .store_provider_token(
+            crate::security::credentials::APP_SESSION_PROVIDER,
+            crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            "desktop.test.local",
+            std::collections::HashMap::new(),
+            true,
+        )
+        .expect("store offline local session token");
     config.composio.mode = "direct".into();
     config.composio.pin_host_credential(
         crate::config::ComposioHostCredential::direct("ck_test_spawn_direct")
