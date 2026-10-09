@@ -20,7 +20,8 @@ const MAX_PERSISTED_ERROR_CHARS: usize = 500;
 /// such instead of being dropped or mistaken for a success (#4896).
 ///
 /// The harness record carries a [`CompletionStatus`]; the host's three-way
-/// outcome rides on it as `Success` / `Failed` / `Incomplete`.
+/// outcome rides on it as `Success` / `Failed` / `Incomplete` plus the
+/// [`AWAITING_INPUT_LABEL`] label.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum BackgroundAgentOutcome {
     /// Ran to a usable result (or partial progress framed as such).
@@ -42,15 +43,24 @@ impl BackgroundAgentOutcome {
         }
     }
 
-    /// The outcome a stored record renders as.
-    pub(crate) fn from_status(status: CompletionStatus) -> Self {
-        match status {
+    /// The outcome a stored record renders as. `Incomplete` is the harness's
+    /// word for several things (a timeout, an exhausted budget), so a record
+    /// counts as awaiting input only when the host labelled it so.
+    pub(crate) fn of(record: &CompletionRecord) -> Self {
+        match record.status {
             CompletionStatus::Success => Self::Completed,
-            CompletionStatus::Incomplete => Self::AwaitingInput,
-            CompletionStatus::Failed | CompletionStatus::Cancelled => Self::Failed,
+            CompletionStatus::Incomplete if record.label.as_deref() == Some(AWAITING_INPUT_LABEL) => {
+                Self::AwaitingInput
+            }
+            CompletionStatus::Incomplete | CompletionStatus::Failed | CompletionStatus::Cancelled => {
+                Self::Failed
+            }
         }
     }
 }
+
+/// The record label the host stamps on an awaiting-input pause.
+pub(crate) const AWAITING_INPUT_LABEL: &str = "awaiting_input";
 
 /// Renders a batch of finished background sub-agents as the single
 /// system-injected notice the parent agent reviews.
@@ -104,6 +114,16 @@ fn neutralize_envelope_markers(summary: &str) -> String {
         .replace("<background_agent_", "&lt;background_agent_")
 }
 
+/// Escape a value placed inside a quoted envelope attribute, so an identifier
+/// containing a quote or a tag cannot end the opening tag and forge markup.
+fn escape_attribute(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('"', "&quot;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
 /// Render each result with its outcome-specific tag. Shared by the normal
 /// delivery notice and by the undelivered fallback, so a result reads the same
 /// either way and a failure is never dressed up as a completion.
@@ -112,7 +132,7 @@ fn render_results(records: &[CompletionRecord]) -> String {
     for record in records {
         // Distinct tag per terminal outcome so a failure / awaiting-input result
         // is not presented as a normal completion (#4896).
-        let (tag, empty_fallback) = match BackgroundAgentOutcome::from_status(record.status) {
+        let (tag, empty_fallback) = match BackgroundAgentOutcome::of(record) {
             BackgroundAgentOutcome::Completed => {
                 ("background_agent_result", "(no output reported)")
             }
@@ -133,7 +153,9 @@ fn render_results(records: &[CompletionRecord]) -> String {
         };
         out.push_str(&format!(
             "\n<{tag} id=\"{}\" agent=\"{}\">\n{}\n</{tag}>\n",
-            record.task_id, record.agent_id, summary,
+            escape_attribute(&record.task_id),
+            escape_attribute(&record.agent_id),
+            summary,
         ));
     }
     out

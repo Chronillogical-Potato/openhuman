@@ -129,9 +129,7 @@ fn drain_schedule(event: &DomainEvent) -> Option<(String, Duration)> {
     match background_completions::thread_for_session(session) {
         Some(thread_id) => Some((thread_id, delay)),
         None => {
-            log::trace!(
-                "[background_delivery] session has no delivery thread; not scheduling session={session}"
-            );
+            log::trace!("[background_delivery] session has no delivery thread; not scheduling");
             None
         }
     }
@@ -150,20 +148,19 @@ fn schedule_delivery(thread_id: String, delay: Duration) {
 /// after [`RECOVERY_DELAY`], through the normal idle-gated path. Returns the
 /// number of threads scheduled.
 pub(crate) fn recover_on_boot(workspace_dir: &Path) -> usize {
+    // Scheduling needs a runtime; check before claiming so a later call retries.
+    if tokio::runtime::Handle::try_current().is_err() {
+        log::warn!(
+            "[background_delivery] no async runtime for boot recovery; will retry on the next call"
+        );
+        return 0;
+    }
     // Once per workspace per process: the bootstrap workspace at startup, any
     // other the first time a spawn opens it.
     if !background_completions::claim_recovery(workspace_dir) {
         return 0;
     }
     let threads = background_completions::recover_pending_threads(workspace_dir);
-    let Ok(_runtime) = tokio::runtime::Handle::try_current() else {
-        log::warn!(
-            "[background_delivery] no async runtime at boot; {} thread(s) with undelivered \
-             completions will deliver on their next subagent event",
-            threads.len()
-        );
-        return 0;
-    };
     for thread_id in &threads {
         log::info!(
             "[background_delivery] scheduling redelivery of undelivered completions after restart \
@@ -270,6 +267,17 @@ async fn try_deliver_with<F, Fut, G, GFut>(
     if let Some(batch) = claim_ready(&router, &thread_id) {
         let task_ids: Vec<String> = batch.iter().map(|c| c.task_id.clone()).collect();
         slot.hold(&task_ids);
+        // A user turn can start between the idle check inside `claim_ready` and
+        // the awaited turn below; re-check so a system turn is never streamed
+        // concurrently with it. Dropping the slot releases the lease (the claim
+        // already counted one attempt; this window is narrow).
+        if is_busy(&thread_id) {
+            log::debug!(
+                "[background_delivery] thread became busy after the claim; deferring \
+                 thread_id={thread_id}"
+            );
+            return;
+        }
         let notice = router.formatter().format_batch(&batch);
         log::info!(
             "[background_delivery] delivering {} batched background result(s) thread_id={thread_id}",
