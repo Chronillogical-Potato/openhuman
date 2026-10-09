@@ -179,15 +179,17 @@ fn turning_jev_back_on_does_not_replace_a_host_ranker() {
 }
 
 #[test]
-fn run_from_args_hands_the_connected_builder_to_the_cli_unchanged() {
+fn connect_keeps_cli_knobs_for_the_host_boot() {
     use openhuman_embed::seams::HostBoot;
     use openhuman_embed::{DomainSet, ServiceSet, TokenSource};
 
     let mut domains = DomainSet::full();
     domains.mcp = false;
     // `run_from_args` is `connect()` followed by the embed builder's
-    // `run_from_args`, which wraps the builder in a `HostBoot` for the core's
-    // `run` / `serve` launcher: the knobs set here must survive both steps.
+    // `run_from_args`, which wraps the connected builder in a `HostBoot` for
+    // the core's `run` / `serve` launcher. This covers the connect step and
+    // the HostBoot extraction; the dispatch itself needs a live CLI process
+    // and is covered by the cli/saas e2e suites.
     let connected = RuntimeBuilder::cli()
         .domains(domains)
         .services(ServiceSet::headless_api())

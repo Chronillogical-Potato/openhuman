@@ -87,8 +87,11 @@ impl RuntimeBuilder {
     }
 
     /// Separate the process-global pieces from the builder that boots the
-    /// server. The transport stays on the builder as well, so the server's
-    /// runtime binds it.
+    /// server. The transport, memory engine and session store stay on the
+    /// builder as well: the server's runtime binds the transport, and
+    /// `build()` validates a `Workspace::Stateless` workspace against the
+    /// session store and installs the custom engine/store over the
+    /// launcher's defaults.
     pub(super) fn split_for_cli(mut self) -> (RuntimeBuilder, CliGlobals) {
         if self.seams.live_policy.take().is_some() {
             log::warn!(
@@ -98,8 +101,8 @@ impl RuntimeBuilder {
         }
         let globals = CliGlobals {
             transport: self.backend_transport.clone(),
-            memory_engine: self.memory_engine.take(),
-            session_store: self.session_store.take(),
+            memory_engine: self.memory_engine.clone(),
+            session_store: self.session_store.clone(),
             seams: std::mem::take(&mut self.seams),
         };
         (self, globals)
