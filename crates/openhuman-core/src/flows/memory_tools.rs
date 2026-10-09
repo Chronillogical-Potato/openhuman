@@ -22,6 +22,7 @@
 //! [`FlowMemoryRecallTool`] only ever reads with a flow tag filter
 //! (`flow:<id>` or `flows`), so it never reaches the user's own memory.
 
+use crate::tools::schema_cache::static_schema;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -419,31 +420,7 @@ impl Tool for FlowMemoryRememberTool {
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "flow_id": {
-                    "type": "string",
-                    "description": "Informational only: inside a running flow the active flow's own id \
-                     (from the run's trusted origin) is authoritative and this value is ignored. This \
-                     tool ONLY works inside a workflow run — calling it from chat or any other context \
-                     without a trusted run origin is refused, regardless of what is passed here."
-                },
-                "key": {
-                    "type": "string",
-                    "description": "Unique key for this memory within the flow's own memory"
-                },
-                "content": {
-                    "type": "string",
-                    "description": "The information to remember"
-                },
-                "category": {
-                    "type": "string",
-                    "description": "What kind of statement this is: 'fact' (default), 'preference', 'procedure', 'correction', or anything else (stored as 'other')."
-                }
-            },
-            "required": ["flow_id", "key", "content"]
-        })
+        static_schema!(include_str!("parameters/flow_memory_remember.json"))
     }
 
     fn permission_level(&self) -> PermissionLevel {
@@ -522,3 +499,7 @@ impl Tool for FlowMemoryRememberTool {
 #[cfg(test)]
 #[path = "memory_tools_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "memory_tools_schema_tests.rs"]
+mod schema_tests;
