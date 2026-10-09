@@ -181,6 +181,13 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           run: "node scripts/ci/check-feature-forwarding.mjs",
         },
         {
+          // core -> embed -> tinyhumans -> rpc -> app/cli/tui; cheap, and a
+          // manifest edit anywhere can break it, so always on.
+          name: "crate-chain",
+          when: true,
+          run: "node scripts/ci/check-crate-chain.mjs",
+        },
+        {
           name: "module-pins",
           when: true,
           run: "bash scripts/ci/fetch-submodule-tags.sh && node scripts/ci/check-module-pins.mjs",

@@ -81,11 +81,26 @@ pub(crate) async fn run_subagent_delegation_with_parent_context(
     // durable graphs simply expire (orphaned tasks are reconciled at boot per
     // 07.2). Checkpoint metadata (thread/checkpoint/parent/run ids) stays
     // inspectable through the crate `Checkpointer` API.
-    let checkpoint_db = config.workspace_dir.join("graph_checkpoints.db");
-    let checkpointer: Arc<dyn Checkpointer<DelegationState>> = Arc::new(
-        SqliteCheckpointer::<DelegationState>::open(&checkpoint_db)
-            .map_err(|e| format!("open durable graph checkpoint store: {e}"))?,
-    );
+    //
+    // With a storage backend configured (`crate::storage`) the checkpoints
+    // live there instead, in the acting agent's scope.
+    let checkpointer: Arc<dyn Checkpointer<DelegationState>> =
+        match crate::storage::current_scoped()
+            .map_err(|e| format!("resolve the storage scope for graph checkpoints: {e}"))?
+        {
+            Some(scoped) => Arc::new(tinyagents_graph::checkpoint::DriverCheckpointer::<
+                DelegationState,
+            >::with_prefix(
+                Arc::clone(scoped.documents()), "delegation_graph"
+            )),
+            None => {
+                let checkpoint_db = config.workspace_dir.join("graph_checkpoints.db");
+                Arc::new(
+                    SqliteCheckpointer::<DelegationState>::open(&checkpoint_db)
+                        .map_err(|e| format!("open durable graph checkpoint store: {e}"))?,
+                )
+            }
+        };
 
     tracing::info!(
         target: LOG_TARGET,

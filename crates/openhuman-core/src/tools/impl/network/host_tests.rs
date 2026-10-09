@@ -47,7 +47,7 @@ fn web_fetch_advertises_its_pre_move_contract() {
   "schema": {
     "properties": {
       "max_bytes": {
-        "description": "Truncate body at this many bytes (default 1_000_000).",
+        "description": "Cap the returned text at this many bytes (default 1_000_000). Bounds the OUTPUT — the extracted markdown, or the raw body with raw:true — never the markup the extractor reads, so lowering it cannot cost you content the page actually had.",
         "minimum": 1,
         "type": "integer"
       },

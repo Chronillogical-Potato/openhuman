@@ -245,7 +245,13 @@ fn a_safe_deployment_serves_core_and_the_operator_plane_behind_the_gateway_beare
         .and_then(Value::as_str)
         .unwrap_or_else(|| panic!("agent_id in {result}"))
         .to_string();
-    assert!(agent_id.starts_with("u-"), "{agent_id}");
+    assert_eq!(
+        agent_id,
+        openhuman_core::user_agents::UserAgentId::for_user("alice@example.com")
+            .unwrap()
+            .to_string(),
+        "the agent id is the deterministic hash of the user id"
+    );
     assert!(!body.to_string().contains("alice"), "{body}");
     assert!(d
         .root
@@ -289,6 +295,14 @@ fn a_safe_deployment_serves_core_and_the_operator_plane_behind_the_gateway_beare
             .join("active_user.toml")
             .exists(),
         "a SaaS boot never activates a desktop user"
+    );
+    let desktop = d.tmp.path().join(".openhuman");
+    let leaked: Vec<_> = std::fs::read_dir(&desktop)
+        .map(|entries| entries.flatten().map(|e| e.file_name()).collect())
+        .unwrap_or_default();
+    assert!(
+        leaked.is_empty(),
+        "a SaaS boot writes nothing under ~/.openhuman (keyring included): {leaked:?}"
     );
     drop(server);
 }
@@ -498,6 +512,27 @@ fn each_user_sees_only_their_own_threads() {
     assert_eq!(bob_ids, vec!["shared-id".to_string()], "bob: {bob_list}");
     assert!(bob_list.to_string().contains("bob's"), "{bob_list}");
     assert!(!bob_list.to_string().contains("alice's"), "{bob_list}");
+    // And the other way: alice keeps her own `shared-id`, untouched by bob's.
+    assert!(
+        alice_ids.contains(&"shared-id".to_string()),
+        "alice: {alice_list}"
+    );
+    assert!(alice_list.to_string().contains("alice's"), "{alice_list}");
+    assert!(!alice_list.to_string().contains("bob's"), "{alice_list}");
+
+    // A SaaS user cannot point a thread at a host folder.
+    let (_, body) = call(
+        "alice",
+        "openhuman.threads_create_new",
+        json!({ "action_dir": "/etc" }),
+    );
+    assert!(body.get("error").is_some(), "{body}");
+
+    // A hidden method answers unknown-method even with bad params, rather
+    // than its parameter errors.
+    let (_, body) = call("alice", "openhuman.threads_update_working_dir", json!({}));
+    let error = body["error"].to_string();
+    assert!(!error.contains("missing"), "{body}");
 
     // Each user's threads live in their own workspace.
     for (agent, owner) in [(&alice, "alice"), (&bob, "bob")] {
@@ -611,6 +646,18 @@ fn chat_events_reach_only_the_user_whose_turn_produced_them() {
         assert_eq!(first, "status:200", "{who}'s stream opens");
     }
 
+    // A reserved thread id is refused before any turn starts.
+    let (_, body) = user_rpc_with(
+        &client,
+        &base,
+        BEARER,
+        "alice",
+        None,
+        "openhuman.channel_web_chat",
+        json!({ "client_id": "c1", "thread_id": "channel:slack:x", "message": "hello" }),
+    );
+    assert!(body.get("error").is_some(), "{body}");
+
     let (status, body) = user_rpc_with(
         &client,
         &base,
@@ -674,11 +721,11 @@ fn users_reach_their_memory_but_not_its_configuration() {
         !text.contains("unknown method"),
         "memory_recall is on the surface: {text}"
     );
-    let (_, body) = call("openhuman.memory_engine_get", json!({}));
-    assert!(body.get("result").is_some(), "{body}");
 
     // Not reachable: anything that changes where memory lives or reads the host.
+    // The engine's settings carry its credential: operator-only.
     for method in [
+        "openhuman.memory_engine_get",
         "openhuman.memory_engine_set",
         "openhuman.memory_policy_set",
         "openhuman.memory_sources_add",
@@ -807,5 +854,41 @@ fn a_users_turn_reaches_inference_with_their_own_credential() {
         )
     });
     assert_eq!(auth, "Bearer alice-session-jwt");
+    drop(server);
+}
+
+#[test]
+fn a_duplicate_or_unreadable_user_header_is_refused() {
+    use openhuman_core::user_agents::gateway::USER_HEADER;
+    let d = deployment(true);
+    let (server, base, client) = start(&d);
+    let body =
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "openhuman.user_agents_list", "params": {} });
+
+    // Two user headers: refused, never run as the operator.
+    let status = client
+        .post(format!("{base}/rpc"))
+        .bearer_auth(BEARER)
+        .header(USER_HEADER, "alice")
+        .header(USER_HEADER, "bob")
+        .json(&body)
+        .send()
+        .unwrap()
+        .status()
+        .as_u16();
+    assert_eq!(status, 400);
+
+    // A header value that is valid HTTP but not text: refused too.
+    let unreadable = reqwest::header::HeaderValue::from_bytes(b"alice\xff").unwrap();
+    let status = client
+        .post(format!("{base}/rpc"))
+        .bearer_auth(BEARER)
+        .header(USER_HEADER, unreadable)
+        .json(&body)
+        .send()
+        .unwrap()
+        .status()
+        .as_u16();
+    assert_eq!(status, 400);
     drop(server);
 }

@@ -9,15 +9,17 @@
 mod attachment_input;
 mod memory_ingest;
 mod permanent;
+mod tool_rules;
 #[path = "runtime_session_turn.rs"]
 mod turn;
+pub(super) use turn::begin_turn_resume;
 
 use std::sync::Arc;
 
 use anyhow::Result;
 use tinyagents_runtime::{
-    CommitReceipt, ResumeMode, ResumePreparation, SessionBuilder, SessionTerminal,
-    SessionTurnRequest, ToolSnapshot, TranscriptTarget, TurnPreparation,
+    CommitReceipt, ResumePreparation, SessionBuilder, SessionTerminal, ToolSnapshot,
+    TranscriptTarget, TurnPreparation,
 };
 use tinyagents_session::transcript::TranscriptMeta;
 use tinyinference_llm::message::Message;
@@ -93,19 +95,13 @@ struct OpenHumanTurnPrelude {
     allowed_subagent_ids: std::collections::HashSet<String>,
     sandbox_mode: crate::agent::harness::definition::SandboxMode,
     runtime_config: Option<Arc<crate::config::Config>>,
+    /// This session's tool-rule layers; see `tool_rules.rs`.
+    tool_rules: Arc<tinytools::ToolRuleSet>,
     /// The one authoritative, request-refreshable composition of executable
     /// tools, policy, and provider schema. Generic runtime owns the immutable
     /// `ToolSnapshot`; this host surface is the source used to create it.
     tool_surface: Arc<std::sync::Mutex<OpenHumanTurnToolSurface>>,
     mutable: Arc<std::sync::Mutex<OpenHumanTurnPreludeMutable>>,
-}
-
-pub(super) fn begin_turn_resume(state: &mut OpenHumanSessionState, resume: &mut ResumeMode) {
-    let overrides = std::mem::take(&mut state.pending_turn_overrides);
-    if overrides.suppress_transcript_autoload {
-        *resume = ResumeMode::Never;
-    }
-    state.active_turn_overrides = overrides;
 }
 
 /// Host-owned tool composition from which one runtime request is prepared.
@@ -263,14 +259,6 @@ impl OpenHumanTurnPrelude {
             tools: Some(tools),
         })
     }
-    fn begin_user_effects(&self, request: &SessionTurnRequest) {
-        let user_text =
-            crate::agent::turn_origin::current_is_user_authored().then(|| request.input.text());
-        self.mutable
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .pending_user_text = user_text;
-    }
 
     fn build_system_prompt_tiered(&self) -> Result<crate::agent::prompts::TieredPrompt> {
         use crate::agent::prompts::{tool_call_format_from_dialect, PromptContext, PromptTool};
@@ -278,9 +266,11 @@ impl OpenHumanTurnPrelude {
             .tool_surface
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let withheld = self.rule_withheld_tools(&surface);
         let specs = surface
             .visible_tool_specs
             .iter()
+            .filter(|spec| !withheld.contains(&spec.name))
             .filter(|spec| {
                 self.thread_id.is_some()
                     || !crate::agent::tinyagents::harness_tool_registration::is_thread_goal_tool(
@@ -304,7 +294,9 @@ impl OpenHumanTurnPrelude {
             .collect::<Vec<_>>();
         let mut prompt_tools = PromptTool::from_tool_refs(tool_refs.iter().copied());
         prompt_tools.retain(|tool| !surface.permanent_tool_names.contains(tool.name.as_ref()));
+        prompt_tools.retain(|tool| !withheld.contains(tool.name.as_ref()));
         let mut visible_tool_names = surface.tool_policy_session.visible_tool_names_for_prompt();
+        visible_tool_names.retain(|name| !withheld.contains(name));
         visible_tool_names.retain(|name| !surface.permanent_tool_names.contains(name));
         if self.thread_id.is_none() {
             visible_tool_names.retain(|name| {
@@ -805,24 +797,17 @@ pub(super) async fn account_committed_turn_against_goal(
 pub(super) fn holistic_last_turn_usage(
     sidecar: &crate::agent::tinyagents::host::run_context::SessionTurnSidecar,
 ) -> crate::agent::tinyagents::host::LastTurnUsage {
-    let input_tokens = sidecar
-        .subagents
-        .iter()
-        .fold(sidecar.input_tokens, |total, entry| {
-            total.saturating_add(entry.usage.input_tokens)
-        });
-    let output_tokens = sidecar
-        .subagents
-        .iter()
-        .fold(sidecar.output_tokens, |total, entry| {
-            total.saturating_add(entry.usage.output_tokens)
-        });
-    let cached_input_tokens = sidecar
-        .subagents
-        .iter()
-        .fold(sidecar.cached_input_tokens, |total, entry| {
-            total.saturating_add(entry.usage.cached_input_tokens)
-        });
+    // Each count is the turn's own plus every synchronous child's.
+    let tokens = |own: u64, child: fn(&crate::agent::subagent_host::SubagentUsage) -> u64| {
+        sidecar.subagents.iter().fold(own, |total, entry| {
+            total.saturating_add(child(&entry.usage))
+        })
+    };
+    let input_tokens = tokens(sidecar.input_tokens, |usage| usage.input_tokens);
+    let output_tokens = tokens(sidecar.output_tokens, |usage| usage.output_tokens);
+    let cached_input_tokens = tokens(sidecar.cached_input_tokens, |usage| {
+        usage.cached_input_tokens
+    });
     let cost_usd = sidecar
         .subagents
         .iter()
@@ -836,6 +821,9 @@ pub(super) fn holistic_last_turn_usage(
         cost_usd,
         context_window: sidecar.context_window,
         subagents: sidecar.subagents.clone(),
+        // The session does not count these; a library turn that asked for a
+        // final-response report fills them in (`response_shape`).
+        reasoning_tokens: 0,
     }
 }
 
@@ -1021,6 +1009,7 @@ impl OpenHumanSessionHost {
                     .map(|definition| definition.sandbox_mode)
                     .unwrap_or(crate::agent::harness::definition::SandboxMode::None),
                 runtime_config: self.runtime_config.clone(),
+                tool_rules: self.session_tool_rules(),
                 tool_surface: Arc::new(std::sync::Mutex::new(OpenHumanTurnToolSurface {
                     tools: self.tools.clone(),
                     synthesized_tools: self.synthesized_tools.clone(),
@@ -1192,6 +1181,8 @@ impl OpenHumanSessionHost {
                         }
                         options.run_context.data.current_synthesized_tools =
                             Some(current_synthesized_tools);
+                        options.run_context.data.tool_rules =
+                            prelude.turn_tool_rules(&policy_channel, &options.run_context.data);
                         options.run_context.data.tool_policy =
                             Some(crate::agent::tinyagents::ToolPolicyEnforcement {
                                 policy: prelude.tool_policy.clone(),

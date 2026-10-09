@@ -1,11 +1,11 @@
 //! RPC adapters for the `http_host` domain.
 
+use crate::core_host::core::Outcome;
 use crate::http_host::ops;
 use crate::http_host::types::{
     HostedDirGetResult, HostedDirListResult, HostedDirLookupParams, HostedDirStartResult,
     HostedDirStopResult, StartHostedDirParams,
 };
-use openhuman_core::core::Outcome;
 
 pub async fn start(params: StartHostedDirParams) -> Result<Outcome<HostedDirStartResult>, String> {
     let server = ops::start_hosted_dir_server(params).await?;

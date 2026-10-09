@@ -299,7 +299,24 @@ fn service_token_file_rules() {
 
     let bearer = "b".repeat(MIN_SERVICE_TOKEN_LEN + 4);
     std::fs::write(&path, format!("{bearer}\n")).unwrap();
-    assert_eq!(ServiceToken::read(&path), ServiceToken::Valid(bearer));
+    assert_eq!(
+        ServiceToken::read(&path),
+        ServiceToken::Valid(bearer.clone())
+    );
+
+    // A token no client could send as a bearer header is refused.
+    for bad in [
+        format!("{bearer}\n{bearer}\n"),
+        format!("{bearer} {bearer}"),
+        format!("{bearer}\u{7}"),
+        format!("{bearer}é"),
+    ] {
+        std::fs::write(&path, bad).unwrap();
+        assert!(
+            matches!(ServiceToken::read(&path), ServiceToken::Invalid(why) if why.contains("visible ASCII"))
+        );
+    }
+    std::fs::write(&path, format!("{bearer}\n")).unwrap();
 
     #[cfg(unix)]
     {
@@ -307,6 +324,43 @@ fn service_token_file_rules() {
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
         assert!(
             matches!(ServiceToken::read(&path), ServiceToken::Invalid(why) if why.contains("readable by others"))
+        );
+    }
+}
+
+#[test]
+fn sandbox_none_counts_as_switched_off() {
+    let f = fixture();
+    let vars = env(&[("OPENHUMAN_SANDBOX", "none")]);
+    assert!(matches!(
+        violations(&inputs(&f, &vars))[..],
+        [Violation::Env { .. }]
+    ));
+}
+
+#[cfg(unix)]
+#[test]
+fn a_root_aliasing_the_desktop_install_is_refused() {
+    let f = fixture();
+    let home = f.config.root.parent().unwrap().to_path_buf();
+    let desktop = home.join(".openhuman").join("saas");
+    std::fs::create_dir_all(&desktop).unwrap();
+    // Through a symlink, and through `..`.
+    let link = home.join("alias");
+    std::os::unix::fs::symlink(&desktop, &link).unwrap();
+    let dotted = home.join("saas").join("..").join(".openhuman").join("saas");
+    for root in [link, dotted] {
+        let config = SaasConfig::new(root.clone());
+        let mut i = inputs(&f, &[]);
+        i.config = &config;
+        i.home = Some(home.clone());
+        let found = violations(&i);
+        assert!(
+            found
+                .iter()
+                .any(|v| matches!(v, Violation::Root(why) if why.contains(".openhuman"))),
+            "{}: {found:?}",
+            root.display()
         );
     }
 }

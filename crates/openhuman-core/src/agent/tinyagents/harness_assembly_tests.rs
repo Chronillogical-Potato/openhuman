@@ -55,6 +55,14 @@ impl ChatModel<()> for IdleModel {
 /// Assemble a harness over the real goal tools plus one ordinary tool and
 /// return the names it registered.
 fn registered_tool_names(has_thread: bool) -> Vec<String> {
+    assembled_with(has_thread, None).harness.tools().names()
+}
+
+/// Assemble the same harness, optionally carrying turn tool rules.
+fn assembled_with(
+    has_thread: bool,
+    tool_rules: Option<Arc<tinyagents_harness::tool::ToolRulePolicy>>,
+) -> AssembledTurnHarness {
     let workspace = tempfile::TempDir::new().expect("workspace");
     let model: Arc<dyn ChatModel<()>> = Arc::new(IdleModel);
     let models = TurnModelSource::from_model(model)
@@ -86,8 +94,26 @@ fn registered_tool_names(has_thread: bool) -> Vec<String> {
         None,
         has_thread,
         None,
+        tool_rules,
     );
-    assembled.harness.tools().names()
+    assembled
+}
+
+#[test]
+fn turn_tool_rules_reach_the_harness_policy() {
+    let rules = tinytools::ToolRules::from_allow_deny(Vec::<String>::new(), ["plain_*"]);
+    let policy = crate::tools::rules::turn_rule_policy(
+        Arc::new(tinytools::ToolRuleSet::single(rules)),
+        crate::tools::rules::rule_context(Some("web"), Some("orchestrator"), None),
+    );
+    let assembled = assembled_with(true, Some(Arc::new(policy.clone())));
+    assert_eq!(assembled.harness.policy().tool_rules, policy);
+}
+
+#[test]
+fn a_turn_without_rules_leaves_the_harness_policy_permissive() {
+    let assembled = assembled_with(true, None);
+    assert!(assembled.harness.policy().tool_rules.is_permissive());
 }
 
 #[test]

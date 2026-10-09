@@ -16,6 +16,10 @@ use crate::core::runtime::{is_saas, CoreContext};
 /// Every RPC method a user may dispatch. Grows as each family's per-user
 /// isolation lands; a method is listed only once nothing it touches is
 /// shared between users.
+///
+/// `threads_delete` and `threads_purge` stay off: their cleanup cancels
+/// detached work by bare thread id (and, for purge, process-wide), which would
+/// reach other users' work until it is scoped per agent.
 pub const USER_METHODS: &[&str] = &[
     // Conversation threads: all state lives under the agent's workspace.
     "openhuman.threads_list",
@@ -26,8 +30,6 @@ pub const USER_METHODS: &[&str] = &[
     "openhuman.threads_message_update",
     "openhuman.threads_update_labels",
     "openhuman.threads_update_title",
-    "openhuman.threads_delete",
-    "openhuman.threads_purge",
     "openhuman.threads_turn_state_get",
     "openhuman.threads_turn_state_list",
     "openhuman.threads_turn_state_history",
@@ -57,21 +59,36 @@ pub const USER_METHODS: &[&str] = &[
     "openhuman.memory_forget",
     "openhuman.memory_items_list",
     "openhuman.memory_explore",
-    "openhuman.memory_engine_get",
 ];
 
 /// Whether `method` (of an operator-plane controller or not) may be
 /// dispatched or listed in the current scope.
 pub fn method_visible(method: &str, operator_plane: bool) -> bool {
-    visible_in(
-        is_saas(),
+    visible_in(is_saas(), current_scope(), method, operator_plane)
+}
+
+/// Who the current work runs for, in SaaS terms.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Scope {
+    /// No task scope at all.
+    None,
+    Operator,
+    User,
+}
+
+/// The current task's scope. In SaaS only the task-local scope counts; a task
+/// that lost it is [`Scope::None`], never the operator's default context.
+pub fn current_scope() -> Scope {
+    let ctx = if is_saas() {
+        CoreContext::scoped()
+    } else {
         CoreContext::current()
-            .as_deref()
-            .and_then(CoreContext::session_agent)
-            .is_some(),
-        method,
-        operator_plane,
-    )
+    };
+    match ctx {
+        None => Scope::None,
+        Some(ctx) if ctx.session_agent().is_some() => Scope::User,
+        Some(_) => Scope::Operator,
+    }
 }
 
 /// [`method_visible`] as a pure function of the mode and the scope.
@@ -81,11 +98,14 @@ pub fn method_visible(method: &str, operator_plane: bool) -> bool {
 /// `DomainSet` registers the user families on the runtime so user contexts
 /// can derive them; this keeps the operator from serving them on its own
 /// workspace.
-pub fn visible_in(saas: bool, user_scope: bool, method: &str, operator_plane: bool) -> bool {
-    match (saas, user_scope) {
+///
+/// A SaaS task with no scope sees nothing: missing scope fails closed.
+pub fn visible_in(saas: bool, scope: Scope, method: &str, operator_plane: bool) -> bool {
+    match (saas, scope) {
         (false, _) => true,
-        (true, false) => operator_plane,
-        (true, true) => !operator_plane && USER_METHODS.contains(&method),
+        (true, Scope::None) => false,
+        (true, Scope::Operator) => operator_plane,
+        (true, Scope::User) => !operator_plane && USER_METHODS.contains(&method),
     }
 }
 
@@ -109,14 +129,27 @@ pub fn validate_user_thread_id(id: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Whether the current work runs for a SaaS user.
+fn in_user_scope() -> bool {
+    is_saas() && current_scope() == Scope::User
+}
+
+/// A SaaS user cannot pick a thread's working folder: their threads always
+/// act in their own sandbox. Any folder is refused in user scope; outside it
+/// nothing changes.
+pub fn check_working_dir(action_dir: Option<&str>) -> Result<(), String> {
+    match action_dir.map(str::trim).filter(|dir| !dir.is_empty()) {
+        Some(_) if in_user_scope() => {
+            Err("a thread's working folder cannot be chosen here".to_string())
+        }
+        _ => Ok(()),
+    }
+}
+
 /// [`validate_user_thread_id`] when the current work runs for a SaaS user;
 /// otherwise every id the single-user core accepts stays accepted.
 pub fn check_thread_id(id: &str) -> Result<(), String> {
-    let user_scope = CoreContext::current()
-        .as_deref()
-        .and_then(CoreContext::session_agent)
-        .is_some();
-    if is_saas() && user_scope {
+    if in_user_scope() {
         validate_user_thread_id(id)
     } else {
         Ok(())

@@ -32,9 +32,10 @@ process. A single-user core never serves it: its controllers belong to
   - The autonomy policy is on and supervised, with no auto-approval, no tool
     installation and no trusted roots.
 - **The isolation boundary is the agent's `CoreContext`.** It carries the forced
-  config and `session_agent = <id>`, and has no domain family or tool group of
-  its own yet. Work for a user runs under it, which is what the config loader,
-  the session store and the per-thread caches key on.
+  config and `session_agent = <id>`, and the user families (threads, channels
+  for web chat, memory), narrowed further by `surface::USER_METHODS`. Work for a
+  user runs under it, which is what the config loader, the session store and
+  the per-thread caches key on.
 - **Host tools are opt-in and confined.** A user's context has no `Platform`
   family, so shell and file tools are absent unless the operator lists their
   group in `tool_allowlist`:
@@ -53,7 +54,8 @@ process. A single-user core never serves it: its controllers belong to
   - There is no per-user approval surface, so the approval gate never parks
     in SaaS: it allows tools from an allowlisted group and refuses the rest.
 - **Deprovisioning archives.** The agent's directory moves to
-  `<root>/deprovisioned/<id>-<unix-secs>/`. Nothing is deleted.
+  `<root>/deprovisioned/<id>-<unix-secs>-<uuid>/`. Nothing is deleted. An agent
+  still in use is not archived; the call fails and can be retried.
 
 ## Gateway contract
 

@@ -34,16 +34,61 @@ tauri-build = { version = "2", features = [] }
 serde_json = "1"
 
 [dependencies]
-openhuman-rpc = { path = "../openhuman-rpc", default-features = false, features = ["http-client", "server"] }
-# The desktop session owner (login-token exchange, /auth/me, current-user
-# cache) and the SDK-backed backend transport the core needs installed at
-# boot. `default-features = false`: the shell controls every product gate
-# through the `openhuman_core` line above, and this crate must not re-enable
-# defaults behind `check-feature-forwarding`'s back.
-# `jev` is that crate's own gate (not a core gate, so not in
-# `scripts/ci/product-features.txt`): the Jev-backed `tool_search` ranker the
-# product ships.
-openhuman-tinyhumans = { path = "../openhuman-tinyhumans", default-features = false, features = ["jev"] }
+# The ONLY openhuman crate this host names (chain: core -> embed -> tinyhumans
+# -> rpc -> app/cli/tui; enforced by `scripts/ci/check-crate-chain.mjs`). The
+# embedded core, the TinyHumans session owner and transport, and the embed
+# facades (`openhuman_rpc::embed`, `openhuman_rpc::tinyhumans`) all come
+# through it.
+#
+# `default-features = false` (set in #1061, before the compile-time domain
+# gates existed) means the embedded core does NOT inherit the contributor
+# default gate set, so every product gate is forwarded explicitly here, and
+# `openhuman-rpc` forwards it down the chain to the core.
+#
+# This list is NOT optional polish — a gate missing here vanishes from the
+# shipped app silently, with no build error and no test failure:
+#
+# - `voice` — without it the `#[cfg(feature = "voice")]` controllers in
+#   `crates/openhuman-core/src/core/all.rs` are never registered, so the whole
+#   `openhuman.voice_*` namespace answers "unknown method" at runtime. This
+#   shipped broken from v0.58.19 to v0.61.x (#4901); the `VOICE_COMPILED_IN`
+#   const assert at the top of `src/lib.rs` now fails the build if it is
+#   dropped again.
+# - `http-server` — the shell reaches the in-process core only over
+#   http://127.0.0.1:<port>/rpc (#5048). Enforced by the
+#   HTTP_SERVER_COMPILED_IN compile assert in lib.rs.
+# - `scheduler-gate` — without it `require_ac_power` / `battery_floor` are
+#   silently unenforced.
+# - `file-logging` — the packaged app's only durable log.
+# - `hosting` — registration stays credential-gated in tools/ops.rs.
+#
+# `scripts/ci/check-feature-forwarding.mjs` fails CI when the product gates
+# here drift from `scripts/ci/product-features.txt` (#4919) — do not
+# hand-maintain it from memory. The three non-product entries are
+# `openhuman-rpc`'s own: `http-client` (the relay client), `server` (the
+# embedded JSON-RPC server and `host::desktop`) and `jev` (the Jev-backed
+# `tool_search` ranker the product ships).
+openhuman-rpc = { path = "../openhuman-rpc", default-features = false, features = [
+    "http-client",
+    "server",
+    "jev",
+    "channels",
+    "media",
+    "inference",
+    "voice",
+    "web3",
+    "documents",
+    "modules",
+    "flows",
+    "skills",
+    "mcp",
+    "crash-reporting",
+    "http-server",
+    "scheduler-gate",
+    "file-logging",
+    "runtime-node",
+    "hosting",
+] }
 # Tauri core and plugins. Use upstream Tauri's native WebView runtime (Wry),
 # rather than the removed Chromium/CEF fork.
 tauri = { version = "2.11", default-features = false, features = [
@@ -171,66 +216,6 @@ async-trait = "0.1"
 # in total. If mascot SVG rasterisation ever comes back, re-add them here
 # rather than reaching for a heavier image stack.
 
-# Core domain logic, embedded in-process so the core's HTTP/JSON-RPC server
-# runs as a tokio task inside the Tauri host. Avoids the orphan-sidecar class
-# of bugs (PR #1061: Cmd+Q leaving `openhuman-core` and CEF helpers behind)
-# by tying the core's lifetime to the GUI process. The existing port-7788
-# probe in `core_process::ensure_running` still attaches to a running
-# `openhuman-core run` harness when one is already listening.
-#
-# `default-features = false` (set in #1061, before the compile-time domain
-# gates existed) means the embedded core does NOT inherit the root crate's
-# default gate set, so each default-ON gate must be forwarded explicitly to
-# keep the shipped desktop build byte-identical (AGENTS.md "Compile-time
-# domain gates").
-#
-# This list is NOT optional polish — a gate missing here vanishes from the
-# shipped app silently, with no build error and no test failure:
-#
-# - `voice` — without it the `#[cfg(feature = "voice")]` controllers in
-#   `crates/openhuman-core/src/core/all.rs` are never registered, so the whole `openhuman.voice_*`
-#   namespace answers "unknown method" at runtime. This shipped broken from
-#   v0.58.19 to v0.61.x (#4901); the `VOICE_COMPILED_IN` const assert at the
-#   top of `src/lib.rs` now fails the build if it is dropped again.
-# - `media` — re-registers the `media_generate_*` agent tools that #4804 moved
-#   behind `#[cfg(feature = "media")]`; it sheds no deps, so this only restores
-#   the pre-gate desktop tool surface.
-# - `web3` — keeps the wallet/web3/x402 domains and their agent tools in the
-#   desktop build while allowing slim builds to omit the crypto-only deps.
-# `scripts/ci/check-feature-forwarding.mjs` fails CI when this list drifts from
-# the core's `[features] default` (#4919) — do not hand-maintain it from memory.
-openhuman_core = { path = "../openhuman-core", package = "openhuman", default-features = false, features = [
-    "channels",
-    "media",
-    "inference",
-    "voice",
-    "web3",
-    "documents",
-    "modules",
-    "flows",
-    "skills",
-    "mcp",
-    "crash-reporting",
-    # The desktop shell reaches the in-process core only over
-    # http://127.0.0.1:<port>/rpc, so it REQUIRES the HTTP + Socket.IO transport
-    # (#5048). Enforced by the HTTP_SERVER_COMPILED_IN compile assert in lib.rs.
-    "http-server",
-    # Without this the desktop app has no battery/AC probe, so a user who sets
-    # `require_ac_power` gets no enforcement and `battery_floor` throttling never
-    # fires — silently, since the off-state is a valid "on AC" reading.
-    "scheduler-gate",
-    # The packaged app's only durable log. Without this, a support request
-    # comes back with nothing to attach — and the absence is silent.
-    "file-logging",
-    "runtime-node",
-    # Declared "Default-OFF, product-ON" by its own gate comment in the root
-    # Cargo.toml, but it reached neither the product set nor this list, so the
-    # family was compiled in no configuration at all. Registration stays
-    # credential-gated in tools/ops.rs, so a host with no hosting credential
-    # sees no new tools.
-    "hosting",
-] }
-
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.29", default-features = false, features = ["hostname", "signal", "user"] }
 
@@ -288,9 +273,9 @@ default = ["gateways"]
 # the tinybox crates that provision and reach those boxes.
 #
 # This is a **shell-local** gate, unrelated to the feature-forwarding rules in
-# AGENTS.md: those govern which `openhuman_core` gates the shell forwards, and
-# `scripts/ci/check-feature-forwarding.mjs` reads the core dependency's feature
-# list, not this table. Nothing here belongs in `scripts/ci/product-features.txt`.
+# AGENTS.md: those govern which product gates the shell forwards on its
+# `openhuman-rpc` dependency, and `scripts/ci/check-feature-forwarding.mjs`
+# reads that dependency's feature list, not this table. Nothing here belongs in `scripts/ci/product-features.txt`.
 gateways = [
     "dep:tinybox-core",
     "dep:tinybox-docker",
@@ -302,10 +287,10 @@ gateways = [
 # turns this on automatically for release; do not put it in `default` or
 # every `pnpm dev:app` will silently load the production bundle. DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
-# Forwarded to the core crate to expose `openhuman.test_reset`. Off by
-# default; the E2E build flips it on via `cargo tauri build --features
-# e2e-test-support`. See app/scripts/e2e-build.sh.
-e2e-test-support = ["openhuman_core/e2e-test-support"]
+# Forwarded down the chain (rpc -> tinyhumans -> embed -> core) to expose
+# `openhuman.test_reset`. Off by default; the E2E build flips it on via
+# `cargo tauri build --features e2e-test-support`. See app/scripts/e2e-build.sh.
+e2e-test-support = ["openhuman-rpc/e2e-test-support"]
 
 [patch."https://github.com/tinyhumansai/tinytools"]
 # tinymcp's `tools` feature names tinytools by git rev so it can be built on its
@@ -323,6 +308,13 @@ tinyinference-embeddings = { path = "../../vendor/tinyagents/vendor/tinyinferenc
 tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
 tinyinference-local = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
 tinyinference-voice = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-voice" }
+
+[patch."https://github.com/tinyhumansai/tinystoragedrivers"]
+# tinyflows names the storage crates by git tag; redirect them to the copy
+# tinyagents vendors so this world links one `DocumentStore` trait and one
+# `libsqlite3-sys`. Mirrors the root Cargo.toml.
+tinystoragedrivers-core = { path = "../../vendor/tinyagents/vendor/tinystoragedrivers/crates/tinystoragedrivers-core" }
+tinystoragedrivers-sqlite = { path = "../../vendor/tinyagents/vendor/tinystoragedrivers/crates/tinystoragedrivers-sqlite" }
 
 [patch.crates-io]
 # Keep reqwest defaults disabled in this independent Cargo world too. Without

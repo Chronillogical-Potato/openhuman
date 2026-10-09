@@ -114,7 +114,7 @@ pub(crate) fn sanitize_url_for_display(url: &str) -> String {
 /// embedder configuration. Falls back to `false` when the value does not
 /// parse as an absolute URL, so an unparseable route is refused rather than
 /// silently allowed.
-fn is_safe_endpoint_for_bearer(endpoint: &str) -> bool {
+pub(crate) fn is_safe_endpoint_for_bearer(endpoint: &str) -> bool {
     let Ok(url) = url::Url::parse(endpoint) else {
         return false;
     };
@@ -219,6 +219,18 @@ pub struct TurnOutcome {
     /// over `AGENT_CHAT`, whose reply is a string, so there is nothing to
     /// report from. `None` also when the session reported nothing at all.
     pub usage: Option<openhuman_core::agent::tinyagents::host::LastTurnUsage>,
+    /// [`reply`](Self::reply) parsed as JSON, when the turn asked for a JSON
+    /// [`response_format`](Turn::response_format) and the reply parses.
+    /// `None` otherwise -- including a reply the model did not shape, which
+    /// the host should treat as a failed structured answer.
+    pub structured: Option<serde_json::Value>,
+    /// Why the turn's final model call stopped (`stop`, `length`, ...), as
+    /// the provider reported it. `None` on a caller-built runtime's
+    /// orchestrator, which answers over RPC.
+    pub finish_reason: Option<String>,
+    /// The model the provider says answered the final call. `None` when the
+    /// provider did not say, or on a caller-built runtime's orchestrator.
+    pub answered_model: Option<String>,
 }
 
 /// Where a [`Turn`] is dispatched.
@@ -243,6 +255,9 @@ pub struct Turn {
     progress: Option<tokio::sync::mpsc::Sender<AgentProgress>>,
     seed: Option<Vec<(String, String)>>,
     meter: Option<Box<dyn FnOnce(Option<LastTurnUsage>) + Send>>,
+    response_format: Option<crate::complete::ResponseFormat>,
+    max_tokens: Option<u32>,
+    untrusted_input: bool,
 }
 
 impl Turn {
@@ -255,6 +270,9 @@ impl Turn {
             progress: None,
             seed: None,
             meter: None,
+            response_format: None,
+            max_tokens: None,
+            untrusted_input: false,
         }
     }
 
@@ -353,6 +371,45 @@ impl Turn {
         self
     }
 
+    /// Ask every model call of this turn for `format`.
+    ///
+    /// Applied to each call of the tool loop, so a provider that honours
+    /// structured outputs keeps calling tools and shapes its final answer.
+    /// With a JSON format the parsed answer comes back in
+    /// [`TurnOutcome::structured`]. Only a runtime-owned
+    /// [`Agent`](crate::Agent) can honour it; a caller-built runtime's
+    /// orchestrator refuses the turn.
+    #[must_use]
+    pub fn response_format(mut self, format: crate::complete::ResponseFormat) -> Self {
+        self.response_format = Some(format);
+        self
+    }
+
+    /// Cap every model call of this turn at `n` output tokens, replacing the
+    /// agent turn's default cap. Runtime-owned agents only, as
+    /// [`response_format`](Self::response_format).
+    #[must_use]
+    pub fn max_tokens(mut self, n: u32) -> Self {
+        self.max_tokens = Some(n);
+        self
+    }
+
+    /// The message is untrusted data to read, not an instruction: skip the
+    /// prompt-injection guard.
+    ///
+    /// A reviewer must be able to read a PR diff that says "ignore previous
+    /// instructions"; the guard would refuse it. Allowed **only** on an agent
+    /// built with [`ToolScopeSpec::HostOnly`](crate::ToolScopeSpec::HostOnly),
+    /// which has nothing it could be talked into doing. On any other agent
+    /// the turn is refused with a [`CoreError::Domain`] of kind
+    /// `untrusted_input_requires_host_only`. Fence and label the data in the
+    /// message all the same.
+    #[must_use]
+    pub fn untrusted_input(mut self, untrusted: bool) -> Self {
+        self.untrusted_input = untrusted;
+        self
+    }
+
     /// Pin this turn to a model id.
     pub fn model(mut self, model: impl Into<String>) -> Self {
         self.request.model_override = Some(model.into());
@@ -436,6 +493,7 @@ impl Turn {
         );
 
         validate_route(&self.request)?;
+        self.validate_turn_options()?;
 
         // Never transmit the bearer over a non-TLS channel. The route accepts
         // an arbitrary base URL, so guard here — before any request is built —
@@ -465,7 +523,23 @@ impl Turn {
         // a reply or an error.
         let usage: UsageSink = std::sync::Mutex::new(None);
         let meter = self.meter.take();
-        let dispatch = dispatch(self.target, self.request, self.seed.take(), &usage);
+        let wants_json = self
+            .response_format
+            .as_ref()
+            .is_some_and(crate::complete::ResponseFormat::wants_json);
+        let options = AgentTurnOptions {
+            shape: openhuman_core::agent::tinyagents::response_shape::ResponseShapeScope::new(
+                openhuman_core::agent::tinyagents::response_shape::ResponseShape {
+                    response_format: self
+                        .response_format
+                        .take()
+                        .map(crate::complete::ResponseFormat::into_wire),
+                    max_output_tokens: self.max_tokens,
+                },
+            ),
+            untrusted_input: self.untrusted_input,
+        };
+        let dispatch = dispatch(self.target, self.request, self.seed.take(), &usage, options);
 
         let reply = match (self.origin, self.progress) {
             (Some(origin), Some(sink)) => {
@@ -513,20 +587,65 @@ impl Turn {
                     .clone(),
             );
         }
-        let reply = reply?;
+        let (reply, report) = reply?;
+        let structured = if wants_json {
+            serde_json::from_str(reply.trim()).ok()
+        } else {
+            None
+        };
 
         log::debug!(
-            "[embed][agent] turn_completed session={session_id} reply_len={}",
-            reply.len()
+            "[embed][agent] turn_completed session={session_id} reply_len={} structured={} \
+             finish_reason={:?}",
+            reply.len(),
+            structured.is_some(),
+            report.as_ref().and_then(|r| r.finish_reason.as_deref())
         );
 
+        let report = report.unwrap_or_default();
         Ok(TurnOutcome {
             reply,
             session_id,
             usage: usage
                 .into_inner()
                 .unwrap_or_else(std::sync::PoisonError::into_inner),
+            structured,
+            finish_reason: report.finish_reason,
+            answered_model: report.answered_model,
         })
+    }
+
+    /// Refuse the per-turn options the target cannot honour, before anything
+    /// is dispatched.
+    fn validate_turn_options(&self) -> Result<(), CoreError> {
+        let refuse = |message: &str, kind: &str| {
+            Err(CoreError::Domain {
+                method: AGENT_CHAT,
+                message: message.to_owned(),
+                kind: Some(kind.to_owned()),
+                data: None,
+                expected_user_state: true,
+            })
+        };
+        let host_only = match &self.target {
+            TurnTarget::Agent(agent) => agent.host_only,
+            TurnTarget::Runtime(_) => {
+                if self.response_format.is_some() || self.max_tokens.is_some() {
+                    return refuse(
+                        "response_format and max_tokens need a runtime-owned Agent",
+                        "turn_shape_unsupported",
+                    );
+                }
+                false
+            }
+        };
+        if self.untrusted_input && !host_only {
+            return refuse(
+                "untrusted_input is only allowed on a HostOnly agent",
+                "untrusted_input_requires_host_only",
+            );
+        }
+        Ok(())
     }
 }
 
@@ -542,12 +661,31 @@ use openhuman_core::agent::tinyagents::host::LastTurnUsage;
 
 type UsageSink = std::sync::Mutex<Option<LastTurnUsage>>;
 
+use openhuman_core::agent::tinyagents::response_shape::{FinalResponse, ResponseShapeScope};
+
+/// A turn's reply text and, for an agent target, its final-response report.
+type AgentReply = (String, Option<FinalResponse>);
+
+/// A boxed, sendable future, without a `futures` dependency for one alias.
+mod futures_box {
+    pub(super) type BoxFuture<'a, T> =
+        std::pin::Pin<Box<dyn std::future::Future<Output = T> + Send + 'a>>;
+}
+
+/// What only an agent target can honour, already validated by
+/// [`Turn::validate_turn_options`].
+struct AgentTurnOptions {
+    shape: std::sync::Arc<ResponseShapeScope>,
+    untrusted_input: bool,
+}
+
 async fn dispatch(
     target: TurnTarget,
     request: TurnRequest,
     seed: Option<Vec<(String, String)>>,
     usage: &UsageSink,
-) -> Result<String, CoreError> {
+    options: AgentTurnOptions,
+) -> Result<AgentReply, CoreError> {
     match target {
         TurnTarget::Runtime(rt) => {
             // Refused rather than dropped. `AGENT_CHAT`'s params are a wire
@@ -571,7 +709,9 @@ async fn dispatch(
                     expected_user_state: true,
                 });
             }
-            call::<_, String>(&rt, AGENT_CHAT, &request).await
+            call::<_, String>(&rt, AGENT_CHAT, &request)
+                .await
+                .map(|reply| (reply, None))
         }
         TurnTarget::Agent(agent) => {
             if !agent.ctx.domains().inference {
@@ -584,38 +724,52 @@ async fn dispatch(
             // inlined, and nesting it inside `Turn::send`'s own state machine
             // pushes rustc's layout query past its depth limit. One heap
             // allocation per turn is nothing next to the turn itself.
-            let turn: std::pin::Pin<
-                Box<dyn std::future::Future<Output = Result<String, CoreError>> + Send>,
-            > = Box::pin(async move {
-                use openhuman_core::inference::host_runtime::ops::{
-                    agent_chat_for, AgentChatTarget,
-                };
-                let mut config = inner.config.clone();
-                let route = openhuman_core::config::schema::EphemeralRoute::from_params(
-                    request.inference_url,
-                    request.api_key,
-                );
-                let host = inner.composed_host_tools();
-                let target = AgentChatTarget::Definition {
-                    definition: &inner.definition,
-                    host: host.as_ref(),
-                    seed: seed.as_deref(),
-                    usage: Some(usage),
-                };
-                agent_chat_for(
-                    &mut config,
-                    target,
-                    &request.message,
-                    request.model_override,
-                    request.temperature,
-                    request.thread_id,
-                    request.cwd,
-                    route,
-                )
-                .await
-                .map(|outcome| outcome.value)
-                .map_err(|raw| CoreError::from_rpc_string(AGENT_CHAT, raw))
-            });
+            let turn: futures_box::BoxFuture<'_, Result<AgentReply, CoreError>> =
+                Box::pin(async move {
+                    use openhuman_core::inference::host_runtime::ops::{
+                        agent_chat_for, AgentChatTarget,
+                    };
+                    let mut config = inner.config.clone();
+                    let route = openhuman_core::config::schema::EphemeralRoute::from_params(
+                        request.inference_url,
+                        request.api_key,
+                    );
+                    let host = inner.composed_host_tools();
+                    let target = AgentChatTarget::Definition {
+                        definition: &inner.definition,
+                        host: host.as_ref(),
+                        seed: seed.as_deref(),
+                        usage: Some(usage),
+                        host_only: inner.host_only,
+                        untrusted_input: options.untrusted_input,
+                        shape: Some(&options.shape),
+                    };
+                    let outcome = agent_chat_for(
+                        &mut config,
+                        target,
+                        &request.message,
+                        request.model_override,
+                        request.temperature,
+                        request.thread_id,
+                        request.cwd,
+                        route,
+                    )
+                    .await;
+                    // The session does not count reasoning tokens; the shape's
+                    // report does. Folded in before the meter or the outcome reads
+                    // the sink, on success and failure alike.
+                    let report = options.shape.report();
+                    if let Some(spent) = usage
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .as_mut()
+                    {
+                        spent.reasoning_tokens = report.reasoning_tokens;
+                    }
+                    outcome
+                        .map(|outcome| (outcome.value, Some(report)))
+                        .map_err(|raw| CoreError::from_rpc_string(AGENT_CHAT, raw))
+                });
             runtime.run_in(ctx, turn).await
         }
     }

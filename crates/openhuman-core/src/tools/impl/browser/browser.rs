@@ -7,9 +7,13 @@ mod pending;
 mod session_pool;
 #[path = "browser_task_actions.rs"]
 mod task_actions;
+#[path = "browser_unattended.rs"]
+mod unattended;
+use crate::agent::turn_origin::AgentTurnOrigin;
 use crate::modules::browser::BrowserClient;
 use crate::security::approval::{ApprovalGate, GateOutcome};
 use crate::security::SecurityPolicy;
+use crate::tools::schema_cache::static_schema;
 use async_trait::async_trait;
 use pending::{approval_target, needs_host_confirmation, Pending};
 use serde_json::{json, Value};
@@ -40,8 +44,16 @@ async fn approve_browser_action(
     session: &SessionId,
     action: &Action,
     force: bool,
+    origin: Option<&AgentTurnOrigin>,
 ) -> anyhow::Result<()> {
     if !force && !needs_host_confirmation(action) {
+        return Ok(());
+    }
+    let action_json = serde_json::to_value(action)?;
+    let kind = action_json["action"].as_str().unwrap_or("action");
+    // Nobody waits on an unattended approval, so the page needs no binding.
+    let action_digest = format!("{:x}", Sha256::digest(serde_json::to_vec(&action_json)?));
+    if unattended::allow(origin, &client.config().browser, kind, &action_digest) {
         return Ok(());
     }
     let gate = ApprovalGate::try_global().ok_or_else(|| {
@@ -56,8 +68,6 @@ async fn approve_browser_action(
             },
         )
         .await?;
-    let action_json = serde_json::to_value(action)?;
-    let kind = action_json["action"].as_str().unwrap_or("action");
     let origin = reqwest::Url::parse(&before.url)
         .ok()
         .map(|url| url.origin().ascii_serialization())
@@ -334,7 +344,11 @@ impl BrowserTool {
         Ok(output)
     }
 
-    async fn confirm_pending(&self, args: &Value) -> anyhow::Result<Value> {
+    async fn confirm_pending(
+        &self,
+        args: &Value,
+        origin: Option<&AgentTurnOrigin>,
+    ) -> anyhow::Result<Value> {
         let mut slot = self.pending.lock().await;
         let held = slot
             .as_ref()
@@ -344,7 +358,7 @@ impl BrowserTool {
         }
         let pending = slot.take().expect("pending checked above");
         drop(slot);
-        let approved = approve_task_action(&pending).await?;
+        let approved = approve_task_action(&pending, &self.client.config().browser, origin).await?;
         let view = crate::modules::browser_task::resume(
             self.client.config(),
             ContinueTaskRequest {
@@ -362,13 +376,15 @@ impl BrowserTool {
         Ok(output)
     }
 
-    async fn run(&self, args: &Value) -> anyhow::Result<Value> {
+    /// `origin` is the turn this call runs under; it decides only whether an
+    /// allow-listed action may skip the forced approval gate.
+    async fn run(&self, args: &Value, origin: Option<&AgentTurnOrigin>) -> anyhow::Result<Value> {
         let verb = required(args, "action")?;
         if verb == "close" {
             return self.close().await;
         }
         match verb {
-            "confirm_pending" => return self.confirm_pending(args).await,
+            "confirm_pending" => return self.confirm_pending(args, origin).await,
             "task" => return self.task(args).await,
             "task_continue" => return self.task_continue(args).await,
             "task_cancel" => return self.task_cancel(args).await,
@@ -455,7 +471,7 @@ impl BrowserTool {
             }
             _ => {
                 let action = parse_action(args)?;
-                approve_browser_action(&self.client, &id, &action, false).await?;
+                approve_browser_action(&self.client, &id, &action, false, origin).await?;
                 Ok(serde_json::to_value(
                     self.client.perform(&id, action).await?,
                 )?)
@@ -493,10 +509,7 @@ impl Tool for BrowserTool {
         )
     }
     fn parameters_schema(&self) -> Value {
-        json!({"type":"object","properties":{
-        "action":{"type":"string","enum":["open","snapshot","read_page","click","fill","type","get_text","get_title","get_url","wait","press","hover","scroll","is_visible","find","task","task_continue","task_cancel","confirm_pending","list_downloads","wait_download","close"]},
-        "url":{"type":"string","description":"Starting HTTPS URL for open or an optional starting URL for task"},"selector":{"type":"string"},"value":{"type":"string"},"text":{"type":"string"},"key":{"type":"string"},"direction":{"type":"string"},"pixels":{"type":"integer"},"ms":{"type":"integer"},"timeout_ms":{"type":"integer"},"interactive_only":{"type":"boolean"},"compact":{"type":"boolean"},"depth":{"type":"integer"},"by":{"type":"string"},"find_action":{"type":"string"},"fill_value":{"type":"string"},"goal":{"type":"string"},"inputs":{"type":"object","additionalProperties":{"type":"string"}},"task_id":{"type":"string","description":"Task id returned by task, for task_continue and task_cancel"},"flow":{"type":"object","description":"Optional TinyComputer flow ({app, vars, steps}) to run instead of planning one from goal, e.g. a plan saved from an earlier successful run"},"answer":{"type":"string","description":"Free-text answer for a paused task; done after a needs_human pause"},"token":{"type":"string","description":"Token returned with the exact pending action"}
-    },"required":["action"]})
+        static_schema!(include_str!("parameters/browser.json"))
     }
     fn external_effect_with_args(&self, args: &Value) -> bool {
         // Gate direct mutations before perform; task steps pause for approval.
@@ -514,7 +527,10 @@ impl Tool for BrowserTool {
         if !self.security.record_action() {
             return Ok(ToolResult::error("Action blocked: rate limit exceeded"));
         }
-        match self.run(&args).await {
+        // The typed origin bound to this turn's immutable CoreContext by its
+        // entry point (cron, background job, workflow, chat).
+        let origin = crate::core::runtime::CoreContext::current_turn_origin();
+        match self.run(&args, origin.as_ref()).await {
             Ok(v) => Ok(ToolResult::success(serde_json::to_string_pretty(&v)?)),
             Err(e) => Ok(ToolResult::error(e.to_string())),
         }
@@ -542,3 +558,7 @@ impl Tool for BrowserTool {
 #[cfg(test)]
 #[path = "browser_computer_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "browser_schema_tests.rs"]
+mod schema_tests;

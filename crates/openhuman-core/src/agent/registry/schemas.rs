@@ -129,6 +129,12 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 optional_string("system_prompt", "Custom instructions."),
                 optional_string_array("tool_allowlist", "Allowed tool names; '*' means all."),
                 optional_string_array("tool_denylist", "Denied tool names."),
+                FieldSchema {
+                    name: "tool_rules",
+                    ty: TypeSchema::Json,
+                    comment: "Tool rules (tinytools::ToolRules): allow/deny/hide/approval patterns applied to the agent's catalogue, tool_search and calls. An empty rule set clears them.",
+                    required: false,
+                },
                 optional_subagents_policy(
                     "subagents",
                     "Subagent delegation policy. Only ids in allowlist may be spawned.",
@@ -156,6 +162,12 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 optional_string("system_prompt", "Custom instructions."),
                 optional_string_array("tool_allowlist", "Allowed tool names; '*' means all."),
                 optional_string_array("tool_denylist", "Denied tool names."),
+                FieldSchema {
+                    name: "tool_rules",
+                    ty: TypeSchema::Json,
+                    comment: "Tool rules (tinytools::ToolRules): allow/deny/hide/approval patterns applied to the agent's catalogue, tool_search and calls. An empty rule set clears them.",
+                    required: false,
+                },
                 optional_subagents_policy(
                     "subagents",
                     "Subagent delegation policy. Only ids in allowlist may be spawned.",

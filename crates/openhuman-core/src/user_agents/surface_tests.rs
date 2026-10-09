@@ -4,10 +4,13 @@ use super::*;
 fn single_user_processes_are_not_narrowed() {
     let unlisted = "openhuman.config_update_autonomy_settings";
     assert!(
-        visible_in(false, false, unlisted, false),
+        visible_in(false, Scope::Operator, unlisted, false),
         "single-user core"
     );
-    assert!(visible_in(false, true, unlisted, false), "embedded agent");
+    assert!(
+        visible_in(false, Scope::User, unlisted, false),
+        "embedded agent"
+    );
 }
 
 #[test]
@@ -15,24 +18,24 @@ fn the_saas_planes_never_overlap() {
     let provision = "openhuman.user_agents_provision";
     let threads = "openhuman.threads_list";
     assert!(
-        visible_in(true, false, provision, true),
+        visible_in(true, Scope::Operator, provision, true),
         "operator reaches its plane"
     );
     assert!(
-        !visible_in(true, false, threads, false),
+        !visible_in(true, Scope::Operator, threads, false),
         "operator never serves user methods"
     );
     assert!(
-        visible_in(true, true, threads, false),
+        visible_in(true, Scope::User, threads, false),
         "user reaches the allowlist"
     );
     assert!(
-        !visible_in(true, true, provision, true),
+        !visible_in(true, Scope::User, provision, true),
         "user never reaches the operator plane"
     );
     assert!(!visible_in(
         true,
-        true,
+        Scope::User,
         "openhuman.config_get_config",
         false
     ));
@@ -40,14 +43,24 @@ fn the_saas_planes_never_overlap() {
 
 #[test]
 fn chat_is_open_but_other_channel_methods_are_not() {
-    assert!(visible_in(true, true, "openhuman.channel_web_chat", false));
     assert!(visible_in(
         true,
+        Scope::User,
+        "openhuman.channel_web_chat",
+        false
+    ));
+    assert!(visible_in(
         true,
+        Scope::User,
         "openhuman.threads_regenerate",
         false
     ));
-    assert!(visible_in(true, true, "openhuman.memory_recall", false));
+    assert!(visible_in(
+        true,
+        Scope::User,
+        "openhuman.memory_recall",
+        false
+    ));
     for method in [
         "openhuman.memory_engine_set",
         "openhuman.memory_policy_set",
@@ -57,7 +70,7 @@ fn chat_is_open_but_other_channel_methods_are_not() {
         "openhuman.channels_connect",
         "openhuman.config_update_autonomy_settings",
     ] {
-        assert!(!visible_in(true, true, method, false), "{method}");
+        assert!(!visible_in(true, Scope::User, method, false), "{method}");
     }
 }
 
@@ -92,5 +105,23 @@ fn user_thread_ids() {
         &"x".repeat(129),
     ] {
         assert!(validate_user_thread_id(bad).is_err(), "{bad:?}");
+    }
+}
+
+#[test]
+fn a_saas_task_without_scope_sees_nothing() {
+    for (method, operator) in [
+        ("openhuman.user_agents_provision", true),
+        ("openhuman.threads_list", false),
+    ] {
+        assert!(!visible_in(true, Scope::None, method, operator), "{method}");
+        assert!(visible_in(false, Scope::None, method, operator), "{method}");
+    }
+}
+
+#[test]
+fn delete_and_purge_stay_closed_to_users() {
+    for method in ["openhuman.threads_delete", "openhuman.threads_purge"] {
+        assert!(!visible_in(true, Scope::User, method, false), "{method}");
     }
 }

@@ -28,8 +28,8 @@ fn env_lock() -> MutexGuard<'static, ()> {
 fn core_test_runtime() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .thread_stack_size(openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
-        .max_blocking_threads(openhuman_core::core::runtime::MAX_BLOCKING_THREADS)
+        .thread_stack_size(openhuman_rpc::embed::process::AGENT_WORKER_STACK_BYTES)
+        .max_blocking_threads(openhuman_rpc::embed::process::MAX_BLOCKING_THREADS)
         .build()
         .expect("build core test runtime")
 }
@@ -82,7 +82,7 @@ fn core_process_handle_new_creates_instance() {
 #[test]
 fn ready_signal_updates_runtime_port_and_fallback_notice() {
     let handle = CoreProcessHandle::new(7788);
-    handle.apply_embedded_ready_signal(openhuman_rpc::server::EmbeddedReadySignal {
+    handle.apply_embedded_ready_signal(openhuman_rpc::host::EmbeddedReadySignal {
         port: 7789,
         fallback_from: Some(7788),
     });
@@ -102,8 +102,8 @@ fn ready_signal_updates_runtime_port_and_fallback_notice() {
 /// Regression: `ensure_running` must NOT publish the per-launch RPC bearer
 /// to the `OPENHUMAN_CORE_TOKEN` environment variable.
 ///
-/// The bearer is now handed to the in-process core in-memory via the
-/// `rpc_token` argument of `run_server_embedded_with_ready`; setting it on
+/// The bearer is now handed to the in-process core in-memory via
+/// `DesktopOptions::rpc_token` of `openhuman_rpc::host::desktop`; setting it on
 /// the process env would put it within reach of any same-UID process
 /// reading `/proc/<pid>/environ` (Linux) or `sysctl KERN_PROCARGS2` /
 /// `ps eww -p <pid>` (macOS).
