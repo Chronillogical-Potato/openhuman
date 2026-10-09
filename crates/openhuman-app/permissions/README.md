@@ -1,14 +1,14 @@
 # permissions
 
 Tauri v2 permission sets for the app's own commands (the ones registered in
-`generate_handler!` in `src/lib.rs`). Each `.toml` file defines one
+`generate_handler!` in [`src/lib.rs`](../src/lib.rs)). Each `.toml` file defines one
 `[[permission]]` with an `identifier` and a `[permission.commands] allow`
 list. The capability in [`../capabilities/default.json`](../capabilities/README.md)
 grants all of them to the `main` and `overlay` windows by identifier.
 
 ## How it works
 
-`tauri_build::build()` (called from `build.rs`) reads this directory into the
+`tauri_build::build()` (called from [`build.rs`](../build.rs)) reads this directory into the
 app's ACL manifest under the `__app-acl__` key; `build.rs` reruns when the
 directory changes. Once that manifest exists, Tauri checks app commands
 against it on every invoke, not only plugin commands. A command the webview
@@ -31,19 +31,19 @@ RuntimeAuthority::resolve_access
 
 | File | Identifier | Commands |
 | --- | --- | --- |
-| `allow-core-process.toml` | `allow-core-process` | Core endpoint and lifecycle (`core_rpc_*`, `relay_http_rpc`, `start_core_process`, `restart_core_process`, `reset_local_data`), app control (`restart_app`, `app_quit`), session (`get_active_user_id`, `auth_*`), dictation and push-to-talk hotkeys, `show_ptt_overlay`, `activate_main_window`, notch window, native notifications, and log folder commands. |
-| `allow-app-update.toml` | `allow-app-update` | `check_app_update`, `apply_app_update`, `download_app_update`, `install_app_update`. |
-| `allow-workspace-files.toml` | `allow-workspace-files` | `open_workspace_path`, `reveal_workspace_path`, `preview_workspace_text`. |
-| `allow-artifact-download.toml` | `allow-artifact-download` | `download_artifact_to_downloads`. |
+| [`allow-core-process.toml`](allow-core-process.toml) | `allow-core-process` | Core endpoint and lifecycle (`core_rpc_*`, `relay_http_rpc`, `start_core_process`, `restart_core_process`, `reset_local_data`), app control (`restart_app`, `app_quit`), session (`get_active_user_id`, `auth_*`), dictation and push-to-talk hotkeys, `show_ptt_overlay`, `activate_main_window`, notch window, native notifications, and log folder commands. |
+| [`allow-app-update.toml`](allow-app-update.toml) | `allow-app-update` | `check_app_update`, `apply_app_update`, `download_app_update`, `install_app_update`. |
+| [`allow-workspace-files.toml`](allow-workspace-files.toml) | `allow-workspace-files` | `open_workspace_path`, `reveal_workspace_path`, `preview_workspace_text`. |
+| [`allow-artifact-download.toml`](allow-artifact-download.toml) | `allow-artifact-download` | `download_artifact_to_downloads`. |
 | `allow-artifact-save.toml` | `allow-artifact-save` | `save_artifact_via_dialog`. |
-| `allow-directory-picker.toml` | `allow-directory-picker` | `pick_directory_via_dialog`. |
-| `allow-loopback-oauth.toml` | `allow-loopback-oauth` | `start_loopback_oauth_listener`, `stop_loopback_oauth_listener`. Kept separate so a consumer of `allow-core-process` does not also get OAuth listener control. |
+| [`allow-directory-picker.toml`](allow-directory-picker.toml) | `allow-directory-picker` | `pick_directory_via_dialog`. |
+| [`allow-loopback-oauth.toml`](allow-loopback-oauth.toml) | `allow-loopback-oauth` | `start_loopback_oauth_listener`, `stop_loopback_oauth_listener`. Kept separate so a consumer of `allow-core-process` does not also get OAuth listener control. |
 
 ## Adding a command
 
-1. Register it in `generate_handler!` in `src/lib.rs`.
+1. Register it in `generate_handler!` in [`src/lib.rs`](../src/lib.rs).
 2. Add its name to the `allow` list of the permission file that fits, or add
-   a new file and reference its identifier from `capabilities/default.json`.
+   a new file and reference its identifier from [`capabilities/default.json`](../capabilities/default.json).
 3. Rebuild. Step 2 is the one that is easy to miss: the build succeeds and the
    call only fails at runtime.
 

@@ -14,7 +14,7 @@ tunnel provisioning, ownership and bandwidth quotas.
 | `webhooks_get_bandwidth` | none | `GET /webhooks/core/bandwidth` |
 
 The `webhooks` namespace is shared with the core: the local webhook router
-(`crates/openhuman-core/src/skills/webhooks/` — `list_registrations`,
+([`crates/openhuman-core/src/skills/webhooks/`](../../../../openhuman-core/src/skills/webhooks/) — `list_registrations`,
 `register_echo`, `register_agent`, `trigger_agent`, the debug log ring) stays
 in the core because it routes inbound deliveries to skills and agents and
 needs no TinyHumans account. These six arrive with

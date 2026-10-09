@@ -72,14 +72,14 @@ servers never survive a restart.
 
 | File | What it does |
 | --- | --- |
-| `mod.rs` | Module wiring, `register_controllers`, `ensure_registered`, the `http_host` namespace description, `LOG_PREFIX = "[http_host]"`. |
-| `types.rs` | Serde types: `StartHostedDirParams`, `HostedDirLookupParams`, `HostedDirServerInfo`, `HostedDirAuth`, and the `*Result` response shapes. |
-| `ops.rs` | The in-process server manager: the `HostedDirRegistry` singleton (a `Mutex<HashMap>` behind a `OnceLock`), `start`/`list`/`get`/`stop`/`stop_all`, finished-task pruning, collision checks, the shutdown hook. |
-| `handlers.rs` | The per-server `axum` router: auth check, path resolution, streamed files, directory listings. |
-| `auth.rs` | Basic-auth verification, default username resolution from the session or environment, username sanitizing, password generation. |
-| `path_utils.rs` | Directory canonicalization, request-path traversal checks, bind-host and label sanitizing, link builders, `escape_html`, `content_type_for_path`, `redact_path_for_log`. |
-| `rpc.rs` | Thin adapters from ops to `Outcome<T>`. |
-| `schemas.rs` | `ControllerSchema`s and `handle_*` handlers; `all_controller_schemas` and `all_registered_controllers`. |
+| [`mod.rs`](mod.rs) | Module wiring, `register_controllers`, `ensure_registered`, the `http_host` namespace description, `LOG_PREFIX = "[http_host]"`. |
+| [`types.rs`](types.rs) | Serde types: `StartHostedDirParams`, `HostedDirLookupParams`, `HostedDirServerInfo`, `HostedDirAuth`, and the `*Result` response shapes. |
+| [`ops.rs`](ops.rs) | The in-process server manager: the `HostedDirRegistry` singleton (a `Mutex<HashMap>` behind a `OnceLock`), `start`/`list`/`get`/`stop`/`stop_all`, finished-task pruning, collision checks, the shutdown hook. |
+| [`handlers.rs`](handlers.rs) | The per-server `axum` router: auth check, path resolution, streamed files, directory listings. |
+| [`auth.rs`](auth.rs) | Basic-auth verification, default username resolution from the session or environment, username sanitizing, password generation. |
+| [`path_utils.rs`](path_utils.rs) | Directory canonicalization, request-path traversal checks, bind-host and label sanitizing, link builders, `escape_html`, `content_type_for_path`, `redact_path_for_log`. |
+| [`rpc.rs`](rpc.rs) | Thin adapters from ops to `Outcome<T>`. |
+| [`schemas.rs`](schemas.rs) | `ControllerSchema`s and `handle_*` handlers; `all_controller_schemas` and `all_registered_controllers`. |
 
 ## Public surface
 
@@ -132,9 +132,9 @@ Namespace `http_host`, invoked as `openhuman.http_host_<function>`:
 
 ## Tests
 
-`http_host_tests.rs` (mounted from `mod.rs`) covers a start, list and stop
+[`http_host_tests.rs`](http_host_tests.rs) (mounted from [`mod.rs`](mod.rs)) covers a start, list and stop
 round trip with Basic auth, path traversal rejection, and username
-sanitizing and resolution. `schemas_tests.rs` checks schema and handler
+sanitizing and resolution. [`schemas_tests.rs`](schemas_tests.rs) checks schema and handler
 parity, required inputs and the unknown-function fallback.
 
 ```bash

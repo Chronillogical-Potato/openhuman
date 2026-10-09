@@ -66,16 +66,16 @@ directories; transcripts and memory persist with the workspace.
 
 | File | What it does |
 | --- | --- |
-| `mod.rs` | `Agent`, the cheap clone handle (`run`, `turn`, `id`, `action_dir`, `workspace_dir`, `home_dir`, `skills_dir`, `transcripts_dir`, `provider`, `access`, `config`), the shared `AgentInner`, and `AgentError`. |
-| `spec.rs` | `AgentSpec`, the builder a host fills in, and `MemoryBinding`. |
-| `definition.rs` | `AgentDefinitionSpec`, `ToolScopeSpec` and `SandboxModeSpec`: a small re-spelling of the core's `AgentDefinition`. |
-| `layout.rs` | `AgentLayout`: where one agent's home, skills, transcripts and `action_dir` live. |
-| `build.rs` | `instantiate`, plus `check_domains_narrow` and `check_tool_groups_narrow`. |
-| `attachments.rs` | `Agent::attach_tools`, `runtime_id`, `same_agent`, `ToolAttachmentError`, and the policy that composes attached sources with the agent's own. |
+| [`mod.rs`](mod.rs) | `Agent`, the cheap clone handle (`run`, `turn`, `id`, `action_dir`, `workspace_dir`, `home_dir`, `skills_dir`, `transcripts_dir`, `provider`, `access`, `config`), the shared `AgentInner`, and `AgentError`. |
+| [`spec.rs`](spec.rs) | `AgentSpec`, the builder a host fills in, and `MemoryBinding`. |
+| [`definition.rs`](definition.rs) | `AgentDefinitionSpec`, `ToolScopeSpec` and `SandboxModeSpec`: a small re-spelling of the core's `AgentDefinition`. |
+| [`layout.rs`](layout.rs) | `AgentLayout`: where one agent's home, skills, transcripts and `action_dir` live. |
+| [`build.rs`](build.rs) | `instantiate`, plus `check_domains_narrow` and `check_tool_groups_narrow`. |
+| [`attachments.rs`](attachments.rs) | `Agent::attach_tools`, `runtime_id`, `same_agent`, `ToolAttachmentError`, and the policy that composes attached sources with the agent's own. |
 
 ## Key types
 
-- `AgentSpec` (`spec.rs`): the description. `system_prompt` and `definition`
+- `AgentSpec` ([`spec.rs`](spec.rs)): the description. `system_prompt` and `definition`
   set what the agent is; `provider`, `model` and `access` set where it runs
   and with what authority; `tool_groups` and `domains` narrow its surface;
   `mcp` and `skills_dir` add servers and skills; `include_user_skills(true)`
@@ -83,7 +83,7 @@ directories; transcripts and memory persist with the workspace.
   `action_dir` and `trust` set its filesystem reach; `composio` pins its own
   Composio key and entity; `memory` binds its memory; `config` is the escape
   hatch; `tools` is the per-turn tool factory.
-- `AgentDefinitionSpec` (`definition.rs`): the default is the built-in
+- `AgentDefinitionSpec` ([`definition.rs`](definition.rs)): the default is the built-in
   orchestrator's definition under the agent's own id, except that every
   registered tool is visible (`ToolScopeSpec::Wildcard`). Narrow with
   `tools(ToolScopeSpec::Named(..))` or `disallow_tools`. Also sets
@@ -91,10 +91,10 @@ directories; transcripts and memory persist with the workspace.
   `temperature`, `display_name` and `when_to_use`.
 - `MemoryBinding` (`spec.rs`): the memory agent id the turns are logged
   under, and optionally a layout root such as `team:acme`.
-- `AgentLayout` (`layout.rs`): `home` is `<workspace>/agents/<id>/`, `skills`
+- `AgentLayout` ([`layout.rs`](layout.rs)): `home` is `<workspace>/agents/<id>/`, `skills`
   is `<workspace>/agents/<id>/skills/`, `transcripts` is
   `<workspace>/session_raw/`, and `action_dir` is the resolved acting root.
-- `AgentError` (`mod.rs`): `DuplicateId`, `InvalidId`, `WidensRuntime`,
+- `AgentError` ([`mod.rs`](mod.rs)): `DuplicateId`, `InvalidId`, `WidensRuntime`,
   `Workspace` (an I/O failure laying out directories), `Invalid`, and `Call`
   for a failed turn.
 
@@ -158,7 +158,7 @@ agent.clone().attach_tools("tinyhivemind", source)?;   // idempotent
 ## Boundaries
 
 - What a turn does once dispatched (the agent loop, transcripts, tool-call
-  parsing) belongs to `vendor/tinyagents`; the definition types and
+  parsing) belongs to [`vendor/tinyagents`](../../../../vendor/tinyagents/); the definition types and
   `agent_chat_for` belong to the core (`openhuman_core::agent::harness` and
   `inference::host_runtime`).
 - Process-scoped state (keyring, bus, services, the registered domain set)
@@ -185,10 +185,10 @@ agent.clone().attach_tools("tinyhivemind", source)?;   // idempotent
 
 ## Tests
 
-`build_tests.rs`, `definition_tests.rs`, `layout_tests.rs`, `spec_tests.rs`
-and `attachments_tests.rs` sit beside their modules. The end-to-end proof of
-agent isolation is `tests/runtime_agents.rs`, and attachments are covered by
-`tests/attached_tools.rs`.
+[`build_tests.rs`](build_tests.rs), [`definition_tests.rs`](definition_tests.rs), [`layout_tests.rs`](layout_tests.rs), [`spec_tests.rs`](spec_tests.rs)
+and [`attachments_tests.rs`](attachments_tests.rs) sit beside their modules. The end-to-end proof of
+agent isolation is [`tests/runtime_agents.rs`](../../tests/runtime_agents.rs), and attachments are covered by
+[`tests/attached_tools.rs`](../../tests/attached_tools.rs).
 
 ```bash
 cargo test -p openhuman-embed --features inference,mcp,skills agent::

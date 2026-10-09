@@ -51,14 +51,14 @@ type.
 
 | File | What it does |
 | --- | --- |
-| `mod.rs` | `Harness` (`builder`, `run`, `turn`, `runtime`, `agent`, `core`, `workspace_dir`, `action_dir`) and `HarnessCore`. |
-| `builder.rs` | `HarnessBuilder` and `HARNESS_AGENT_ID`. Inputs: `workspace`, `action_dir`, `provider`, `access`, `skills_dir`, `mcp`, `tools`, `services`, `domains`, `tool_groups`, `host_kind`, `backend_url`, `session`, `config`. |
-| `access.rs` | `Access`: the autonomy tier and the turn origin, set together. |
-| `provider.rs` | `Provider`: which model answers and where the request goes. |
-| `workspace.rs` | `Workspace` and the crate-private `ResolvedWorkspace` that materializes directories. |
-| `mcp.rs` | `McpServer`, `HttpHeader`, `McpAuthConfig` (`mcp` feature). |
-| `skills.rs` | Copies skill bundles into a skills root (`skills` feature). |
-| `error.rs` | `HarnessError`: `Workspace`, `Invalid`, `Build`, `Call`, `AlreadyRunning`. |
+| [`mod.rs`](mod.rs) | `Harness` (`builder`, `run`, `turn`, `runtime`, `agent`, `core`, `workspace_dir`, `action_dir`) and `HarnessCore`. |
+| [`builder.rs`](builder.rs) | `HarnessBuilder` and `HARNESS_AGENT_ID`. Inputs: `workspace`, `action_dir`, `provider`, `access`, `skills_dir`, `mcp`, `tools`, `services`, `domains`, `tool_groups`, `host_kind`, `backend_url`, `session`, `config`. |
+| [`access.rs`](access.rs) | `Access`: the autonomy tier and the turn origin, set together. |
+| [`provider.rs`](provider.rs) | `Provider`: which model answers and where the request goes. |
+| [`workspace.rs`](workspace.rs) | `Workspace` and the crate-private `ResolvedWorkspace` that materializes directories. |
+| [`mcp.rs`](mcp.rs) | `McpServer`, `HttpHeader`, `McpAuthConfig` (`mcp` feature). |
+| [`skills.rs`](skills.rs) | Copies skill bundles into a skills root (`skills` feature). |
+| [`error.rs`](error.rs) | `HarnessError`: `Workspace`, `Invalid`, `Build`, `Call`, `AlreadyRunning`. |
 
 ## The shared input types
 
@@ -139,7 +139,7 @@ bypass its session gate.
 - Security enforcement (`SecurityPolicy`, the approval gate, path checks)
   is the core's (`openhuman_core::security`). `Access` only chooses inputs.
 - MCP transport and the server registry belong to the core's MCP domain and
-  `vendor/tinymcp`.
+  [`vendor/tinymcp`](../../../../vendor/tinymcp/).
 
 ## Gotchas
 
@@ -165,10 +165,10 @@ bypass its session gate.
 
 ## Tests
 
-Unit tests sit beside each module (`access_tests.rs`, `builder_tests.rs`,
-`provider_tests.rs`, `workspace_tests.rs`, and others). The end-to-end proof
+Unit tests sit beside each module ([`access_tests.rs`](access_tests.rs), [`builder_tests.rs`](builder_tests.rs),
+[`provider_tests.rs`](provider_tests.rs), [`workspace_tests.rs`](workspace_tests.rs), and others). The end-to-end proof
 that a harness runs a real turn against a `wiremock` provider is
-`tests/harness_embed.rs`.
+[`tests/harness_embed.rs`](../../tests/harness_embed.rs).
 
 ```bash
 cargo test -p openhuman-embed --features inference,mcp,skills harness::

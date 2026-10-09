@@ -60,16 +60,16 @@ example memory turned off) counts as a failed group.
 
 | File | What it does |
 | --- | --- |
-| `mod.rs` | `ScannerRegistry`, the `run_scanner` loop, cursor I/O, the config gate, transcript formatting, date helpers, and `ingest_group`. |
-| `tick.rs` | `run_single_tick`, the body of one tick, behind the `TickDeps` trait so it can run against a real `chat.db` without Tauri. `HttpDeps` is the production implementation. |
-| `chatdb.rs` | Read-only SQLite access: `read_since` (rows after a cursor) and `read_chat_day` (one chat, one day). Opens with `SQLITE_OPEN_READ_ONLY`, so it never takes a write lock that could conflict with Messages. |
+| [`mod.rs`](mod.rs) | `ScannerRegistry`, the `run_scanner` loop, cursor I/O, the config gate, transcript formatting, date helpers, and `ingest_group`. |
+| [`tick.rs`](tick.rs) | `run_single_tick`, the body of one tick, behind the `TickDeps` trait so it can run against a real `chat.db` without Tauri. `HttpDeps` is the production implementation. |
+| [`chatdb.rs`](chatdb.rs) | Read-only SQLite access: `read_since` (rows after a cursor) and `read_chat_day` (one chat, one day). Opens with `SQLITE_OPEN_READ_ONLY`, so it never takes a write lock that could conflict with Messages. |
 
 ## Key types and entry points
 
-- `ScannerRegistry` (`mod.rs`): `new`, `ensure_scanner`, `shutdown`. The
+- `ScannerRegistry` ([`mod.rs`](mod.rs)): `new`, `ensure_scanner`, `shutdown`. The
   registry tracks one task; the per-account shape mirrors the old webview
   scanners.
-- `tick::run_single_tick` and `tick::TickDeps` (`tick.rs`): the testable unit.
+- `tick::run_single_tick` and `tick::TickDeps` ([`tick.rs`](tick.rs)): the testable unit.
 - `tick::TickOutcome` (`tick.rs`): what a tick did, including
   `skipped_unconnected` and `had_group_failure`.
 
@@ -95,7 +95,7 @@ example memory turned off) counts as a failed group.
 
 ## Tests
 
-`imessage_scanner_tests.rs` (declared from `mod.rs`) and `tick_tests.rs`
+[`imessage_scanner_tests.rs`](imessage_scanner_tests.rs) (declared from `mod.rs`) and [`tick_tests.rs`](tick_tests.rs)
 (declared from `tick.rs`) build on macOS only. Two tests in `tick_tests.rs`
 read the real `~/Library/Messages/chat.db` and are `#[ignore]`d; they need
 Full Disk Access.

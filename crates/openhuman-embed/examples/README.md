@@ -55,6 +55,6 @@ real host would build with `openhuman_tinyhumans::RuntimeBuilder` instead.
 
 These programs make real network calls to the endpoint you configure. The
 tests in [`../tests/`](../tests/README.md) cover the same paths against mocks.
-The repository-root `examples/embed_headless.rs` and `examples/embed_kernel.rs`
+The repository-root [`examples/embed_headless.rs`](../../../examples/embed_headless.rs) and [`examples/embed_kernel.rs`](../../../examples/embed_kernel.rs)
 use `CoreBuilder` directly, without this crate; run them with
 `cargo run -p openhuman-cli --example embed_headless`.

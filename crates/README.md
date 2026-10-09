@@ -22,7 +22,7 @@ with `--manifest-path crates/openhuman-app/Cargo.toml`.
 ## How they layer
 
 Arrows point from a crate to what it depends on (normal `[dependencies]`,
-taken from each `Cargo.toml`).
+taken from each [`Cargo.toml`](../Cargo.toml)).
 
 ```text
   openhuman-app      openhuman-tui      openhuman-cli      (executables)
@@ -55,7 +55,7 @@ The same edges as a list:
 | `openhuman-core` | none |
 | `openhuman-embed` | `openhuman-core` |
 | `openhuman-rpc` | `openhuman-core` |
-| `openhuman-tinyhumans` | `openhuman-embed`, `openhuman-core` (plus `vendor/tinyhumans-sdk`) |
+| `openhuman-tinyhumans` | `openhuman-embed`, `openhuman-core` (plus [`vendor/tinyhumans-sdk`](../vendor/tinyhumans-sdk/)) |
 | `openhuman-cli` | `openhuman-core`, `openhuman-tinyhumans`, `openhuman-rpc` (`server`) |
 | `openhuman-tui` | `openhuman-core`, `openhuman-rpc` (`session-store`), `openhuman-tinyhumans` |
 | `openhuman-app` | `openhuman-core`, `openhuman-rpc` (`http-client`, `server`), `openhuman-tinyhumans` (`jev`) |
@@ -87,11 +87,11 @@ empty, and the core must not depend on `openhuman-rpc`.
 ## Features
 
 Cargo default features define the contributor build;
-`scripts/ci/product-features.txt` defines the shipped product. A core gate is
+[`scripts/ci/product-features.txt`](../scripts/ci/product-features.txt) defines the shipped product. A core gate is
 forwarded along the library chain (`openhuman-embed`, then
 `openhuman-tinyhumans`, then `openhuman-cli`), and the desktop app, which
 builds with `default-features = false`, forwards product gates explicitly.
-`scripts/ci/check-feature-forwarding.mjs` checks both.
+[`scripts/ci/check-feature-forwarding.mjs`](../scripts/ci/check-feature-forwarding.mjs) checks both.
 
 ## Build and test
 

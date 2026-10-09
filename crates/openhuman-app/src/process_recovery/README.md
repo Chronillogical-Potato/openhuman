@@ -1,7 +1,7 @@
 # process_recovery
 
 This directory holds only test files. The module itself is
-`src/process_recovery.rs`, which defines one inline submodule per platform:
+[`src/process_recovery.rs`](../process_recovery.rs), which defines one inline submodule per platform:
 `imp` (macOS), `linux_imp` and `windows_imp`. Each submodule declares its tests
 with `#[path = "..."]`, and Cargo resolves those paths relative to a directory
 named after the parent module, which is this one.
@@ -55,15 +55,15 @@ launch.
 
 | Path | Tests for |
 | --- | --- |
-| `imp/process_recovery_macos_tests.rs` | `ps` parsing, bundle `argv0` extraction, self filtering, and the TERM-then-KILL sequence with a fake `ProcessKiller`. |
-| `linux_imp/process_recovery_linux_tests.rs` | Executable name matching and exclusion of the current process from the `/proc` scan. |
-| `windows_imp/process_recovery_windows_tests.rs` | WMIC parsing, subcommand and `--type=` detection, ancestor exclusion, and the WMIC/CIM fallback choice. |
+| [`imp/process_recovery_macos_tests.rs`](imp/process_recovery_macos_tests.rs) | `ps` parsing, bundle `argv0` extraction, self filtering, and the TERM-then-KILL sequence with a fake `ProcessKiller`. |
+| [`linux_imp/process_recovery_linux_tests.rs`](linux_imp/process_recovery_linux_tests.rs) | Executable name matching and exclusion of the current process from the `/proc` scan. |
+| [`windows_imp/process_recovery_windows_tests.rs`](windows_imp/process_recovery_windows_tests.rs) | WMIC parsing, subcommand and `--type=` detection, ancestor exclusion, and the WMIC/CIM fallback choice. |
 
 ## Boundaries
 
-- The TERM and force-kill primitives live in `src/process_kill.rs`.
+- The TERM and force-kill primitives live in [`src/process_kill.rs`](../process_kill.rs).
 - Replacing a stale core that holds the RPC port is a separate path:
-  `CoreProcessHandle::ensure_running` in `src/core_process.rs` probes the
+  `CoreProcessHandle::ensure_running` in [`src/core_process.rs`](../core_process.rs) probes the
   listener and takes it over.
 
 ## Tests

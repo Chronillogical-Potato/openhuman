@@ -104,27 +104,27 @@ process.
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Declares the three modules and re-exports the common names (`ProductIdentity`, `set_product_identity`, `effective_backend_api_url`, `DEFAULT_API_BASE_URL`, and so on). |
-| `url.rs` | Base-URL resolution, environment overrides, staging default, and the inference-endpoint guard for control-plane calls. Re-exports a few URL helpers from the core (`join_url`, `normalize_api_base_url`, `host_is_local`). |
-| `headers.rs` | `attribution_headers`, `backend_client_builder`, `build_backend_client`, `TAURI_VERSION_ENV_VAR`. |
-| `product.rs` | `ProductIdentity`, `set_product_identity`, `product_identity`, `product_identity_header(s)`, `PRODUCT_IDENTITY_HEADER`, `DEFAULT_PRODUCT_IDENTITY`. |
+| [`mod.rs`](mod.rs) | Declares the three modules and re-exports the common names (`ProductIdentity`, `set_product_identity`, `effective_backend_api_url`, `DEFAULT_API_BASE_URL`, and so on). |
+| [`url.rs`](url.rs) | Base-URL resolution, environment overrides, staging default, and the inference-endpoint guard for control-plane calls. Re-exports a few URL helpers from the core (`join_url`, `normalize_api_base_url`, `host_is_local`). |
+| [`headers.rs`](headers.rs) | `attribution_headers`, `backend_client_builder`, `build_backend_client`, `TAURI_VERSION_ENV_VAR`. |
+| [`product.rs`](product.rs) | `ProductIdentity`, `set_product_identity`, `product_identity`, `product_identity_header(s)`, `PRODUCT_IDENTITY_HEADER`, `DEFAULT_PRODUCT_IDENTITY`. |
 
 ## Key types and entry points
 
-- `effective_backend_api_url(&Option<String>)` (`url.rs`): the base for any
+- `effective_backend_api_url(&Option<String>)` ([`url.rs`](url.rs)): the base for any
   non-inference backend call. `hosted::client::HostedClient` and the
   transport's `base_url(ControlPlane)` both use it.
 - `effective_api_url(&Option<String>)` (`url.rs`): the inference base, used by
   the transport's `base_url(Inference)`.
-- `build_backend_client(TransportProfile)` (`headers.rs`): the `reqwest`
+- `build_backend_client(TransportProfile)` ([`headers.rs`](headers.rs)): the `reqwest`
   client every hosted request rides.
-- `set_product_identity(ProductIdentity)` (`product.rs`): re-exported at the
+- `set_product_identity(ProductIdentity)` ([`product.rs`](product.rs)): re-exported at the
   crate root; also reachable through `InstallOptions::product_identity`.
 
 ## Boundaries
 
 - The core owns the questions (`backend::base_url` and friends in
-  `crates/openhuman-core/src/backend/mod.rs`) and the URL utilities this file
+  [`crates/openhuman-core/src/backend/mod.rs`](../../../openhuman-core/src/backend/mod.rs)) and the URL utilities this file
   re-exports (`openhuman_core::util::url`). It owns the app-environment
   reading too (`config::app_env`).
 - Do not put the `x-sdk-name` header on third-party endpoints, MCP servers,
@@ -144,7 +144,7 @@ process.
 
 ## Tests
 
-`headers_tests.rs`, `product_tests.rs` and `url_tests.rs` sit beside their
+[`headers_tests.rs`](headers_tests.rs), [`product_tests.rs`](product_tests.rs) and [`url_tests.rs`](url_tests.rs) sit beside their
 modules.
 
 ```bash

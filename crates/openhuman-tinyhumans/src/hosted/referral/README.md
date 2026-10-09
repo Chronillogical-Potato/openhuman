@@ -14,13 +14,13 @@ Thin RPC adapter domain for the referral program. It does **not** own any busine
 
 | File | Role |
 | --- | --- |
-| `crates/openhuman-tinyhumans/src/hosted/referral/mod.rs` | Export-only. Re-exports `ops::*` and the schema/controller pair (`all_referral_controller_schemas`, `all_referral_registered_controllers`, `referral_schemas`). |
-| `crates/openhuman-tinyhumans/src/hosted/referral/ops.rs` | Business logic: `get_stats`, `claim_referral`, each through `HostedClient` (see `../client.rs`). Tests in `ops_tests.rs` run against an Axum mock backend. |
-| `crates/openhuman-tinyhumans/src/hosted/referral/schemas.rs` | Controller schemas + `handle_*` fns that load config and delegate to `ops`. Defines `ReferralClaimParams` (camelCase deserialization) and helpers (`to_json`, `deserialize_params`, `json_output`). |
+| [`crates/openhuman-tinyhumans/src/hosted/referral/mod.rs`](mod.rs) | Export-only. Re-exports `ops::*` and the schema/controller pair (`all_referral_controller_schemas`, `all_referral_registered_controllers`, `referral_schemas`). |
+| [`crates/openhuman-tinyhumans/src/hosted/referral/ops.rs`](ops.rs) | Business logic: `get_stats`, `claim_referral`, each through `HostedClient` (see `../client.rs`). Tests in [`ops_tests.rs`](ops_tests.rs) run against an Axum mock backend. |
+| [`crates/openhuman-tinyhumans/src/hosted/referral/schemas.rs`](schemas.rs) | Controller schemas + `handle_*` fns that load config and delegate to `ops`. Defines `ReferralClaimParams` (camelCase deserialization) and helpers (`to_json`, `deserialize_params`, `json_output`). |
 
 ## Public surface
 
-From `mod.rs` re-exports:
+From [`mod.rs`](mod.rs) re-exports:
 
 - `get_stats(config: &Config) -> Result<Outcome<Value>, String>` (via `ops::*`).
 - `claim_referral(config: &Config, code: &str, device_fingerprint: Option<&str>) -> Result<Outcome<Value>, String>` (via `ops::*`).
@@ -31,7 +31,7 @@ From `mod.rs` re-exports:
 
 ## RPC / controllers
 
-Two controllers in the `referral` namespace, registered into the global registry via `crates/openhuman-core/src/core/all.rs`:
+Two controllers in the `referral` namespace, registered into the global registry via [`crates/openhuman-core/src/core/all.rs`](../../../../openhuman-core/src/core/all.rs):
 
 | Method | Inputs | Output | Backend call |
 | --- | --- | --- | --- |
@@ -55,7 +55,7 @@ None of its own. The domain is stateless — it reads the backend credential thr
 
 ## Used by
 
-- `crates/openhuman-core/src/core/all.rs`: registers `all_referral_registered_controllers()` into the controller registry (line ~213) and `all_referral_controller_schemas()` into the schema list (line ~345), exposing both methods to CLI and JSON-RPC.
+- [`crates/openhuman-core/src/core/all.rs`](../../../../openhuman-core/src/core/all.rs): registers `all_referral_registered_controllers()` into the controller registry (line ~213) and `all_referral_controller_schemas()` into the schema list (line ~345), exposing both methods to CLI and JSON-RPC.
 
 ## Notes / gotchas
 

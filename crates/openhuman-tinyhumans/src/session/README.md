@@ -5,8 +5,8 @@ only holds and uses a backend credential (a session JWT, a TinyHumans API key,
 or the offline local token). It never obtains, validates, exchanges or
 refreshes one. Everything that talks to the backend's `/auth/*` endpoints
 lives here instead, shared by the hosts that drive a user login: the Tauri
-shell (`crates/openhuman-app/src/session/`, talking to its core over HTTP
-JSON-RPC) and the TUI (`crates/openhuman-tui/src/session.rs`, holding an
+shell ([`crates/openhuman-app/src/session/`](../../../openhuman-app/src/session/), talking to its core over HTTP
+JSON-RPC) and the TUI ([`crates/openhuman-tui/src/session.rs`](../../../openhuman-tui/src/session.rs), holding an
 in-process `CoreRuntime`). This module absorbed the former standalone
 `openhuman-session` crate.
 
@@ -103,14 +103,14 @@ attribution headers from `ClientHeaders` (`x-sdk-name`, plus
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Module declarations and re-exports. |
-| `manager.rs` | `SessionManager`, `SessionState`, `SessionEvent`, `SessionError`; the login, store, logout, revalidation and current-user flows. |
-| `client.rs` | `SessionClient` (login-token exchange, `GET /auth/me`, store-time validation), `ClientHeaders`, `SessionClientError`, `FetchMeError`, transient status and phrase classification. |
-| `cache.rs` | `CurrentUserCache`, `CachedUser`, TTL, backoff and fetch-timeout policy. |
-| `link.rs` | `CoreLink`, `CoreAuthState`, the RPC method-name constants, and helpers (`push_credential`, `clear_credential`, `core_auth_state`, `core_session_token`, `resolve_backend_url`, `unwrap_envelope`). |
-| `credential.rs` | `Credential` and `CredentialKind` (`Session`, `ApiKey`, `Local`), `Credential::classify`, and the JWT and profile helpers (`decode_jwt_exp`, `jwt_is_live`, `user_id_from_jwt_claims`, `user_id_from_profile_payload`). |
-| `identity.rs` | Process-global user id (`set_user_id`, `peek_user_id`, `clear`) for Sentry `before_send` hooks that cannot await. Only the id is kept, never a token or profile. |
-| `test_support.rs` | Axum stub backend and stub `CoreLink` for this module's tests (test builds only). |
+| [`mod.rs`](mod.rs) | Module declarations and re-exports. |
+| [`manager.rs`](manager.rs) | `SessionManager`, `SessionState`, `SessionEvent`, `SessionError`; the login, store, logout, revalidation and current-user flows. |
+| [`client.rs`](client.rs) | `SessionClient` (login-token exchange, `GET /auth/me`, store-time validation), `ClientHeaders`, `SessionClientError`, `FetchMeError`, transient status and phrase classification. |
+| [`cache.rs`](cache.rs) | `CurrentUserCache`, `CachedUser`, TTL, backoff and fetch-timeout policy. |
+| [`link.rs`](link.rs) | `CoreLink`, `CoreAuthState`, the RPC method-name constants, and helpers (`push_credential`, `clear_credential`, `core_auth_state`, `core_session_token`, `resolve_backend_url`, `unwrap_envelope`). |
+| [`credential.rs`](credential.rs) | `Credential` and `CredentialKind` (`Session`, `ApiKey`, `Local`), `Credential::classify`, and the JWT and profile helpers (`decode_jwt_exp`, `jwt_is_live`, `user_id_from_jwt_claims`, `user_id_from_profile_payload`). |
+| [`identity.rs`](identity.rs) | Process-global user id (`set_user_id`, `peek_user_id`, `clear`) for Sentry `before_send` hooks that cannot await. Only the id is kept, never a token or profile. |
+| [`test_support.rs`](test_support.rs) | Axum stub backend and stub `CoreLink` for this module's tests (test builds only). |
 
 ## Key types and entry points
 
@@ -134,7 +134,7 @@ attribution headers from `ClientHeaders` (`x-sdk-name`, plus
   rather than importing it, so this crate does not depend on
   `openhuman-rpc`.
 - The core's side of the handoff (`auth.set_credential` and friends) lives in
-  `crates/openhuman-core/src/security/credentials/`.
+  [`crates/openhuman-core/src/security/credentials/`](../../../openhuman-core/src/security/credentials/).
 - Library and headless hosts that authenticate with an API key do not need
   this module; see
   [`gitbooks/developing/tinyhumans-api-key.md`](../../../../gitbooks/developing/tinyhumans-api-key.md).
@@ -150,9 +150,9 @@ attribution headers from `ClientHeaders` (`x-sdk-name`, plus
 
 ## Tests
 
-`manager_tests.rs`, `client_tests.rs`, `cache_tests.rs`, `link_tests.rs` and
-`credential_tests.rs` sit beside their modules and drive the flows against
-the axum stub backend and stub `CoreLink` in `test_support.rs`.
+[`manager_tests.rs`](manager_tests.rs), [`client_tests.rs`](client_tests.rs), [`cache_tests.rs`](cache_tests.rs), [`link_tests.rs`](link_tests.rs) and
+[`credential_tests.rs`](credential_tests.rs) sit beside their modules and drive the flows against
+the axum stub backend and stub `CoreLink` in [`test_support.rs`](test_support.rs).
 
 ```bash
 cargo test -p openhuman-tinyhumans session::
