@@ -52,3 +52,5 @@ The mascot exists because:
 - [Native Voice](../native-tools/voice.md), the STT / TTS plumbing the mascot rides on.
 - [Memory](../memory.md), what the mascot remembers, and how.
 - [Themes & Theme Studio](../theming.md), where the mascot's colour, shape and voice are set.
+- [Chat](../chat.md) and [Notifications & Activity](../notifications-and-activity.md), where the mascot's cues surface.
+- [`voice` domain](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-core/src/voice/README.md), the Rust side of speech.

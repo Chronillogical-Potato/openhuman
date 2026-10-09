@@ -65,3 +65,6 @@ Almost everything in this section (backups, recovery, migration) comes back to t
 - [Privacy & Security](../features/privacy-and-security.md): the trust model every guide here assumes.
 - [Local AI (optional)](../features/model-routing/local-ai.md): the config reference behind the local-model guides.
 - [Memory](../features/memory.md): what memory stores and where.
+- [Getting Started](../overview/getting-started.md): install and first run, before any guide.
+- [Troubleshooting Sign-In](../overview/troubleshooting-sign-in.md): if you cannot get past login.
+- [Developing](../developing/README.md): building from source, for the technical reader.
