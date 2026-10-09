@@ -79,7 +79,7 @@ Most agent harnesses run one heavy process per agent and resend a big prompt on 
 
 <h3>Fast</h3>
 
-<p><sub><a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md">Benchmark results</a> · <a href="./gitbooks/developing/performance.md">Cold-start numbers</a></sub></p>
+<p><a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md">Benchmark results</a> · <a href="./gitbooks/developing/performance.md">Cold-start numbers</a></p>
 
 <p>Finishes coding tasks in about 20 seconds, the fastest of seven AI agent tools we tested. Starts up in a tenth of a second.</p>
 
@@ -89,7 +89,7 @@ Most agent harnesses run one heavy process per agent and resend a big prompt on 
 
 <h3>Cheap</h3>
 
-<p><sub><a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md">Cost and token data</a> · <a href="./gitbooks/features/token-compression.md">How compression works</a></sub></p>
+<p><a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md">Cost and token data</a> · <a href="./gitbooks/features/token-compression.md">How compression works</a></p>
 
 <p>Uses 2.6x fewer tokens than the typical agent tool, and had the lowest total bill in our test.</p>
 
@@ -103,7 +103,7 @@ Most agent harnesses run one heavy process per agent and resend a big prompt on 
 
 <h3>Efficient at scale</h3>
 
-<p><sub><a href="./gitbooks/developing/performance.md">Fleet measurements</a> · <a href="./docs/library-benchmarking.md">Methodology</a></sub></p>
+<p><a href="./gitbooks/developing/performance.md">Fleet measurements</a> · <a href="./docs/library-benchmarking.md">Methodology</a></p>
 
 <p>Uses about 8x less memory and CPU than the typical agent tool. Run more than 500 agents on a $10 server.</p>
 
@@ -113,7 +113,7 @@ Most agent harnesses run one heavy process per agent and resend a big prompt on 
 
 <h3>Built for developers</h3>
 
-<p><sub><a href="./gitbooks/developing/quickstart.md">Rust quickstart</a> · <a href="./gitbooks/developing/embedding.md">Embedding guide</a> · <a href="./crates/openhuman-embed/examples">Examples</a></sub></p>
+<p><a href="./gitbooks/developing/quickstart.md">Rust quickstart</a> · <a href="./gitbooks/developing/embedding.md">Embedding guide</a> · <a href="./crates/openhuman-embed/examples">Examples</a></p>
 
 <p>Use it as a Rust library: call an agent like any other function, or run a whole fleet from one small server.</p>
 
@@ -137,7 +137,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>RLM token compression</h3>
 
-<p><sub><a href="https://arxiv.org/abs/2512.24601">RLM paper</a> · <a href="./gitbooks/features/token-compression.md">How it works</a> · <a href="https://github.com/tinyhumansai/tinyjuice">tinyjuice</a></sub></p>
+<p><a href="https://arxiv.org/abs/2512.24601">RLM paper</a> · <a href="./gitbooks/features/token-compression.md">How it works</a> · <a href="https://github.com/tinyhumansai/tinyjuice">tinyjuice</a></p>
 
 <p>Built on <a href="https://arxiv.org/abs/2512.24601">Recursive Language Models</a>. Large tool results get compressed before the AI reads them. For very large ones, the AI gets a handle it can search instead of reading it all. Nothing is thrown away.</p>
 
@@ -147,7 +147,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>Jev: instant, accurate tool search</h3>
 
-<p><sub><a href="./gitbooks/developing/jev.md">Jev</a> · <a href="./docs/plans/jev-tool-search-baseline.md">The measurements</a></sub></p>
+<p><a href="./gitbooks/developing/jev.md">Jev</a> · <a href="./docs/plans/jev-tool-search-baseline.md">The measurements</a></p>
 
 <p>Jev is a tiny model that finds the right tool in one step, so the AI does not waste calls trying the wrong ones. Out of 1,215 tools, it picks the right one first 62% of the time, against 22.5% for keyword search.</p>
 
@@ -161,7 +161,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>Unified Rust bus</h3>
 
-<p><sub><a href="./gitbooks/developing/loadable-modules.md">Loadable modules</a> · <a href="https://github.com/tinyhumansai/tinybus">tinybus</a></sub></p>
+<p><a href="./gitbooks/developing/loadable-modules.md">Loadable modules</a> · <a href="https://github.com/tinyhumansai/tinybus">tinybus</a></p>
 
 <p>Every feature, like search, documents or voice, plugs into one Rust bus, an idea borrowed from the <a href="https://www.freedesktop.org/wiki/Software/dbus/">Linux system bus</a>. A feature loads only when needed, and if one gets stuck, the rest keep working.</p>
 
@@ -171,7 +171,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>One key for everything</h3>
 
-<p><sub><a href="./gitbooks/developing/tinyhumans-api-key.md">The API key</a> · <a href="./gitbooks/developing/engines.md">Supported engines</a></sub></p>
+<p><a href="./gitbooks/developing/tinyhumans-api-key.md">The API key</a> · <a href="./gitbooks/developing/engines.md">Supported engines</a></p>
 
 <p>One key covers AI models, search, voice and app connections, so you are not juggling ten accounts. You can still bring your own keys.</p>
 
@@ -185,7 +185,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>Instant browser and desktop control</h3>
 
-<p><sub><a href="./gitbooks/features/native-tools/browser-and-computer.md">Browser and computer control</a> · <a href="https://github.com/tinyhumansai/tinycomputer">tinycomputer</a></sub></p>
+<p><a href="./gitbooks/features/native-tools/browser-and-computer.md">Browser and computer control</a> · <a href="https://github.com/tinyhumansai/tinycomputer">tinycomputer</a></p>
 
 <p>The agent drives a real Chrome browser and your desktop apps. It reads the screen the way a screen reader does, as named buttons and fields, so it never guesses from screenshots. It asks before anything it cannot undo and stops at payment pages.</p>
 
@@ -195,7 +195,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>A Rust core</h3>
 
-<p><sub><a href="./gitbooks/developing/architecture.md">Architecture</a> · <a href="./gitbooks/developing/performance.md">Performance</a></sub></p>
+<p><a href="./gitbooks/developing/architecture.md">Architecture</a> · <a href="./gitbooks/developing/performance.md">Performance</a></p>
 
 <p>The whole harness is compiled Rust in one process, with no Node or Python underneath. It starts in a tenth of a second and used 68 MB at peak on our coding tasks. Stripped down, the core is a 51 MB file.</p>
 
