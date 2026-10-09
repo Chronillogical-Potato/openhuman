@@ -207,5 +207,5 @@ pnpm test:rust          # scripts/test-rust-with-mock.sh, the canonical runner
 pnpm debug rust <filter>
 ```
 
-`main_tests.rs` (built with `crash-reporting`) covers the release tag,
-environment resolution and secret scrubbing in `main.rs`.
+`main_tests.rs` (built with `crash-reporting`) covers the secret scrubbing
+that `before_send` applies (bearer tokens and provider API keys).
