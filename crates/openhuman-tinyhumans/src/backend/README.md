@@ -49,11 +49,14 @@ from the same `config.api_url`, but skips it and falls through to steps 2 to 4
 when the URL looks like an inference endpoint, unless it also looks like an
 OpenHuman backend. Three detectors feed that decision:
 
-- `looks_like_local_ai_endpoint`: a loopback or private host, with a
-  chat-completions path or one of the well-known runner ports (11434, 8000,
-  8080, 1234, 8888);
-- `looks_like_inference_provider_endpoint`: a curated list of inference
-  provider domains, or an OpenAI-style `/v1` path;
+- `looks_like_local_ai_endpoint`: a path ending in `/v1/chat/completions`
+  or `/v1/completions` on any host, or a loopback or private host with one of
+  the well-known runner ports (11434, 8000, 8080, 1234, 8888) or a `/v1` path.
+  A bare loopback URL with no path does not match, so test mock backends on
+  ephemeral ports keep working;
+- `looks_like_inference_provider_endpoint`: a host in the curated
+  `INFERENCE_PROVIDER_DOMAINS` list (or a subdomain of one), or a path that is
+  exactly `/v1` or `/api/v1`;
 - the core's built-in cloud provider host list
   (`config::schema::cloud_providers::host_is_builtin_cloud_provider`).
 
@@ -91,8 +94,9 @@ owns, so a host sets it once at startup with `set_product_identity`, before
 any backend traffic. A process that never sets it sends
 `DEFAULT_PRODUCT_IDENTITY` (`"openhuman"`).
 
-`ProductIdentity::new` sanitizes the raw string and returns `None` when
-nothing usable remains. Storage is a `OnceLock<RwLock<ProductIdentity>>`
+`ProductIdentity::new` keeps ASCII alphanumerics plus `.`, `_` and `-`,
+truncates to 64 characters and lower-cases the result (the backend matches
+against lower-case product names). It returns `None` when nothing remains. Storage is a `OnceLock<RwLock<ProductIdentity>>`
 rather than a bare `OnceLock`, so tests can override it more than once in a
 process.
 
