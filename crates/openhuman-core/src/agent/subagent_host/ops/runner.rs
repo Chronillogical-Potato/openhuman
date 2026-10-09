@@ -728,8 +728,7 @@ async fn run_typed_mode(
         &parent.subagent_tool_ceiling_names,
     );
 
-    // The rules the child runs under: a tool they withhold stays callable
-    // (`allowed_names`) but off the specs and prompt this host renders.
+    // Rule-withheld tools stay callable (`allowed_names`) but off the prompt.
     let child_rules = options
         .run_context
         .for_subagent(definition, config.as_ref().ok().map(AsRef::as_ref))
