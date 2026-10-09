@@ -44,11 +44,14 @@ registered.
  ops.rs operation           validate inputs (trimmed, non-empty) first
    |
    v
- HostedClient::from_config  resolve_backend_credential(config)  -- no account?
-   |                        require an installed backend transport  return the
-   |                        base = origin of effective_backend_api_url   core's
-   |                        TinyHumansClient + Bearer or x-api-key     sentinel,
-   v                                                                no request
+ HostedClient::from_config  resolve_backend_credential(config)
+   |                        require an installed backend transport
+   |                        base = origin of effective_backend_api_url
+   |                        TinyHumansClient + Bearer or x-api-key
+   |
+   +-- no credential or no transport: return the core's sentinel,
+   |   with no request
+   v
  client.sdk().billing().<typed method>().await
    |
    v

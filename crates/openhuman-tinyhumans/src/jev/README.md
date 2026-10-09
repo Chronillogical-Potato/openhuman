@@ -35,7 +35,7 @@ On each `rank` call:
    |   same as cached?  -> reuse the cached JevRanker
    |   changed/none     -> build tinyjevclient::Client
    |                       + TinyJevEvaluator (deadline)
-   |                       + retriever (embedding ranker, reused across rebuilds)
+   |                       + retriever (embedding ranker, reused on rebuild)
    v
  JevRanker::rank_detailed -> hits (debug log: families, confidence,
                                    needs_tool, latency, tokens)
