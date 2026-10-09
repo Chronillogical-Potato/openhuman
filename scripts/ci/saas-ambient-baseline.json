@@ -659,13 +659,6 @@
   },
   {
     "rule": "bare-spawn",
-    "path": "crates/openhuman-core/src/integrations/task_sources/periodic.rs",
-    "line": 73,
-    "text": "tokio::spawn(async move {",
-    "occurrence": 1
-  },
-  {
-    "rule": "bare-spawn",
     "path": "crates/openhuman-core/src/integrations/test_support_backend.rs",
     "line": 730,
     "text": "tokio::spawn(async move {",

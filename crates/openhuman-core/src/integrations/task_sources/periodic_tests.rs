@@ -206,3 +206,24 @@ async fn manual_fetch_still_returns_the_explanatory_error() {
     assert_eq!(outcome.fetched, 0);
     assert_eq!(outcome.routed, 0);
 }
+
+#[tokio::test]
+async fn poll_timestamps_are_kept_per_agent_scope() {
+    use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
+    let agent = |name: &str| {
+        CoreContext::for_test(DomainSet::full(), None).derive_with(
+            ContextOverlay::new(
+                crate::config::Config::default(),
+                DomainSet::full(),
+                Default::default(),
+            )
+            .session_agent(name),
+        )
+    };
+    let s = source("ts-per-agent-scope-xyz", 1800);
+    CoreContext::scope(agent("ts-agent-a"), async { record_poll(&s.id) }).await;
+    let due_for_a = CoreContext::scope(agent("ts-agent-a"), async { is_due(&s) }).await;
+    let due_for_b = CoreContext::scope(agent("ts-agent-b"), async { is_due(&s) }).await;
+    assert!(!due_for_a, "agent a just polled it");
+    assert!(due_for_b, "agent b's same-id source is a different source");
+}

@@ -372,7 +372,7 @@ impl CoreContext {
             }
         };
         let agent = self.agent.derive(&mut overlay);
-        Arc::new(CoreContext {
+        crate::storage::agents::registered(Arc::new(CoreContext {
             host_kind: self.host_kind,
             workspace_binding: RwLock::new(shared_binding),
             domains,
@@ -383,7 +383,7 @@ impl CoreContext {
             turn_origin: self.turn_origin.clone(),
             session_agent: overlay.session_agent.or_else(|| self.session_agent.clone()),
             agent,
-        })
+        }))
     }
 
     /// The agent a host session store scopes work under this context to, if
@@ -689,6 +689,8 @@ pub async fn init_stores(cfg: &crate::config::Config, domains: crate::core::runt
     }
 }
 
+#[path = "context_for_agent.rs"]
+mod for_agent;
 #[path = "context_turn_origin.rs"]
 mod turn_origin_scope;
 

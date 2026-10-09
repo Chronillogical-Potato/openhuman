@@ -111,6 +111,12 @@ name = "storage_secrets_e2e"
 path = "../../tests/storage_secrets_e2e.rs"
 
 [[test]]
+# Its own binary: it boots a core and installs a storage backend into the
+# process-wide slot.
+name = "storage_scope_e2e"
+path = "../../tests/storage_scope_e2e.rs"
+
+[[test]]
 name = "embedded_server_shutdown_e2e"
 path = "../../tests/embedded_server_shutdown_e2e.rs"
 

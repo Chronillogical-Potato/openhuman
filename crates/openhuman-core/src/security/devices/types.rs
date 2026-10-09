@@ -39,6 +39,11 @@ pub struct PairingSession {
     pub rpc_url: Option<String>,
     /// ISO 8601 timestamp when the pairing token expires.
     pub expires_at: String,
+    /// The agent that started the pairing (`CoreContext::session_agent`),
+    /// when it was acting for one: the paired device is stored in, and its
+    /// tunnel frames are handled as, that agent (`devices::owner`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent: Option<String>,
 }
 
 /// Response payload for `devices_create_pairing`.
