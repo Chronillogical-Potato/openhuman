@@ -798,12 +798,12 @@ fn a_users_turn_reaches_inference_with_their_own_credential() {
         let log = std::fs::read_to_string(d.tmp.path().join("core.log")).unwrap_or_default();
         let notable: Vec<&str> = log
             .lines()
-            .filter(|l| l.contains("WARN") || l.contains("ERROR"))
+            .filter(|l| !l.contains("[scheduler_gate]"))
             .collect();
         panic!(
             "alice's turn never reached inference; saw {} other request(s). Core log:\n{}",
             seen.len(),
-            notable[notable.len().saturating_sub(40)..].join("\n")
+            notable[notable.len().saturating_sub(120)..].join("\n")
         )
     });
     assert_eq!(auth, "Bearer alice-session-jwt");
