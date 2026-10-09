@@ -196,7 +196,7 @@ Updates, reset and diagnostics:
 | Path | What it does |
 | --- | --- |
 | `src/app_update.rs` | Bounded retry policy for the updater download. The update commands themselves are in `lib.rs`. |
-| `src/local_data_reset.rs` | `reset_local_data`: wipes the local `.openhuman` data. |
+| `src/local_data_reset.rs` | `reset_local_data`: asks the core which paths to remove, shuts the core down so its file handles close, removes the active user's local data, and starts the core again. |
 | `src/reset_reboot_schedule.rs` | Windows: schedules deletion at next reboot when files are locked during a reset. |
 | `src/file_logging.rs` | Resolves the data dir and calls `openhuman_core::core::logging::init_for_embedded`; `reveal_logs_folder`, `logs_folder_path`. |
 | `src/stderr_panic_hook.rs` | Stops a closed parent stderr pipe from turning log writes into panics. |
