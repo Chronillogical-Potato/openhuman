@@ -76,12 +76,16 @@ Most harnesses run one heavy process per agent and resend a big prompt on every 
 
 **20 s** per solved SWE-bench task, the fastest of seven harnesses (others: 28 to 62 s). Cold start in 102 ms.
 
+[Benchmark results](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md) · [Cold-start numbers](./gitbooks/developing/performance.md)
+
 </td>
 <td width="50%" valign="top">
 
 ### Cheap
 
-**2.6x fewer tokens** per solved task and the lowest total spend. Small prompts, plus [token compression](./gitbooks/features/token-compression.md) on tool output.
+**2.6x fewer tokens** per solved task and the lowest total spend. Small prompts, plus token compression on tool output.
+
+[Cost and token data](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md) · [How compression works](./gitbooks/features/token-compression.md)
 
 </td>
 </tr>
@@ -90,7 +94,9 @@ Most harnesses run one heavy process per agent and resend a big prompt on every 
 
 ### Efficient at scale
 
-**8x less** memory and CPU per task. Each extra agent costs about 1.8 MiB: [500 agents](./gitbooks/developing/performance.md) fit in 1.4 GiB, which is a $10, 2 GB VPS.
+**8x less** memory and CPU per task. Each extra agent costs about 1.8 MiB: 500 agents fit in 1.4 GiB, which is a $10, 2 GB VPS.
+
+[Fleet measurements](./gitbooks/developing/performance.md) · [Methodology](./docs/library-benchmarking.md)
 
 </td>
 <td width="50%" valign="top">
@@ -98,6 +104,8 @@ Most harnesses run one heavy process per agent and resend a big prompt on every 
 ### Built for developers
 
 A library first. Call an agent like a function from your Rust code, or run a fleet of full-featured agents from one small server.
+
+[Rust quickstart](./gitbooks/developing/quickstart.md) · [Embedding guide](./gitbooks/developing/embedding.md) · [Examples](./crates/openhuman-embed/examples)
 
 </td>
 </tr>
