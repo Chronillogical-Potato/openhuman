@@ -35,6 +35,12 @@ fn a_configured_backend_holds_keyring_and_credential_secrets() {
     let profiles_file = std::fs::read(state.join("auth-profiles.json")).unwrap();
     let http_file = std::fs::read(state.join("http-credentials.json")).unwrap();
 
+    let before: std::collections::HashMap<&str, Option<Vec<u8>>> =
+        ["secrets.enc", "dev-keychain.json"]
+            .into_iter()
+            .map(|f| (f, std::fs::read(workspace.path().join(f)).ok()))
+            .collect();
+
     openhuman_core::storage::install(Arc::new(openhuman_core::storage::MemoryStorage::new()));
 
     keyring::set("user-1", "api_token", "tok-123").unwrap();
@@ -72,13 +78,12 @@ fn a_configured_backend_holds_keyring_and_credential_secrets() {
         std::fs::read(state.join("http-credentials.json")).unwrap(),
         http_file
     );
-    for file in [
-        "secrets.enc",
-        "dev-keychain.json",
-    ] {
-        assert!(
-            !workspace.path().join(file).exists(),
-            "{file} was not written"
+    // Neither the process keychain file nor `secrets.enc` was touched.
+    for file in ["secrets.enc", "dev-keychain.json"] {
+        assert_eq!(
+            std::fs::read(workspace.path().join(file)).ok(),
+            before.get(file).cloned().flatten(),
+            "{file} unchanged"
         );
     }
 
