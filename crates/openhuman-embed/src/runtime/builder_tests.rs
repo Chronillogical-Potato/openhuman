@@ -69,7 +69,10 @@ async fn a_blank_api_key_is_refused_before_the_slot_is_claimed() {
 
 #[test]
 fn token_defaults_to_env_or_file_and_is_overridable() {
-    assert!(matches!(RuntimeBuilder::new().token, TokenSource::EnvOrFile));
+    assert!(matches!(
+        RuntimeBuilder::new().token,
+        TokenSource::EnvOrFile
+    ));
     let fixed = RuntimeBuilder::new().token(TokenSource::Fixed(Arc::new("bearer".into())));
     assert!(matches!(&fixed.token, TokenSource::Fixed(t) if t.as_str() == "bearer"));
 }
@@ -77,12 +80,18 @@ fn token_defaults_to_env_or_file_and_is_overridable() {
 #[test]
 fn listen_records_host_and_port_for_the_transport() {
     let builder = RuntimeBuilder::new();
-    assert_eq!((builder.listen_host.as_deref(), builder.listen_port), (None, None));
+    assert_eq!(
+        (builder.listen_host.as_deref(), builder.listen_port),
+        (None, None)
+    );
     let builder = RuntimeBuilder::new().listen("0.0.0.0", 9000);
     assert_eq!(builder.listen_host.as_deref(), Some("0.0.0.0"));
     assert_eq!(builder.listen_port, Some(9000));
     let port_only = RuntimeBuilder::new().listen_port(7799);
-    assert_eq!((port_only.listen_host, port_only.listen_port), (None, Some(7799)));
+    assert_eq!(
+        (port_only.listen_host, port_only.listen_port),
+        (None, Some(7799))
+    );
 }
 
 #[test]
@@ -92,8 +101,14 @@ fn raw_paths_are_recorded_beside_the_workspace_variant() {
         .workspace_dir("/srv/oh/state")
         .action_dir("/srv/oh/action");
     assert!(matches!(builder.workspace, Workspace::Dir(_)));
-    assert_eq!(builder.workspace_dir.as_deref(), Some(std::path::Path::new("/srv/oh/state")));
-    assert_eq!(builder.action_dir.as_deref(), Some(std::path::Path::new("/srv/oh/action")));
+    assert_eq!(
+        builder.workspace_dir.as_deref(),
+        Some(std::path::Path::new("/srv/oh/state"))
+    );
+    assert_eq!(
+        builder.action_dir.as_deref(),
+        Some(std::path::Path::new("/srv/oh/action"))
+    );
     assert!(builder.validate().is_ok(), "Resolved accepts raw paths");
 }
 
@@ -108,7 +123,10 @@ fn discovered_config_needs_the_inherited_workspace() {
         .config_source(ConfigSource::Discovered)
         .validate()
         .expect_err("ephemeral + discovered");
-    assert!(matches!(err, RuntimeError::Invalid(ref m) if m.contains("Workspace::Inherit")), "{err:?}");
+    assert!(
+        matches!(err, RuntimeError::Invalid(ref m) if m.contains("Workspace::Inherit")),
+        "{err:?}"
+    );
 }
 
 #[test]
@@ -120,9 +138,18 @@ fn discovered_config_refuses_every_knob_that_edits_the_boot_config() {
     };
     assert!(discovered().validate().is_ok());
     let cases: Vec<(&str, RuntimeBuilder)> = vec![
-        ("config", discovered().config(openhuman_core::config::Config::default())),
-        ("backend_url", discovered().backend_url("http://127.0.0.1:1")),
-        ("workspace_dir", discovered().workspace_dir("/tmp/never-created")),
+        (
+            "config",
+            discovered().config(openhuman_core::config::Config::default()),
+        ),
+        (
+            "backend_url",
+            discovered().backend_url("http://127.0.0.1:1"),
+        ),
+        (
+            "workspace_dir",
+            discovered().workspace_dir("/tmp/never-created"),
+        ),
         ("action_dir", discovered().action_dir("/tmp/never-created")),
         ("api_key", discovered().api_key("th_live_x")),
     ];

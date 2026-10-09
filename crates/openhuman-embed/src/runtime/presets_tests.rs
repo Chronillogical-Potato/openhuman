@@ -64,7 +64,10 @@ fn tui_runs_every_domain_and_no_services() {
     );
     assert!(matches!(tui.workspace, Workspace::Inherit));
     assert_eq!(tui.config_source, ConfigSource::Discovered);
-    assert!(tui.tool_groups.is_none(), "the TUI keeps the withheld default");
+    assert!(
+        tui.tool_groups.is_none(),
+        "the TUI keeps the withheld default"
+    );
     assert!(tui.validate().is_ok());
 }
 

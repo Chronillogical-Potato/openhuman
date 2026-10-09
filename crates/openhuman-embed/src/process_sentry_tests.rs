@@ -28,7 +28,11 @@ fn the_chain_is_the_union_of_both_hosts_with_unique_names() {
     let mut names: Vec<_> = NOISE_FILTERS.iter().map(|(name, _)| *name).collect();
     names.sort_unstable();
     names.dedup();
-    assert_eq!(names.len(), NOISE_FILTERS.len(), "filter names must be unique");
+    assert_eq!(
+        names.len(),
+        NOISE_FILTERS.len(),
+        "filter names must be unique"
+    );
 }
 
 #[test]
@@ -36,19 +40,23 @@ fn each_known_noise_class_is_dropped() {
     let cases = [
         (
             "localhost-dev-fetch",
-            event("Failed to request http://localhost:1420/index.html: refused", &[]),
+            event(
+                "Failed to request http://localhost:1420/index.html: refused",
+                &[],
+            ),
         ),
         (
             "transient-provider-http",
             event(
                 "provider failed",
-                &[("domain", "llm_provider"), ("failure", "non_2xx"), ("status", "503")],
+                &[
+                    ("domain", "llm_provider"),
+                    ("failure", "non_2xx"),
+                    ("status", "503"),
+                ],
             ),
         ),
-        (
-            "fs-limitation",
-            event("write failed (os error 665)", &[]),
-        ),
+        ("fs-limitation", event("write failed (os error 665)", &[])),
         (
             "max-iterations",
             event(
@@ -73,7 +81,10 @@ fn each_known_noise_class_is_dropped() {
         ),
         (
             "session-expired",
-            event("Session expired. Please log in again.", &[("domain", "rpc")]),
+            event(
+                "Session expired. Please log in again.",
+                &[("domain", "rpc")],
+            ),
         ),
     ];
     for (expected, event) in cases {
@@ -94,7 +105,10 @@ fn a_real_error_is_kept_scrubbed_and_attributed() {
 
     let kept = before_send(event, fixed_user).expect("a real error reaches Sentry");
     assert_eq!(kept.server_name, None, "hostname stripped");
-    assert_eq!(kept.message.as_deref(), Some("upload failed: api_key=[REDACTED]"));
+    assert_eq!(
+        kept.message.as_deref(),
+        Some("upload failed: api_key=[REDACTED]")
+    );
     assert_eq!(kept.user.and_then(|u| u.id).as_deref(), Some("user-123"));
 }
 

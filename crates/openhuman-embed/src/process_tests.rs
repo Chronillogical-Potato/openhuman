@@ -21,7 +21,10 @@ fn the_worker_stack_is_sized_for_nested_turns() {
     let sum = runtime.block_on(async {
         tokio::spawn(async {
             let buf = [1u8; 4 * 1024 * 1024];
-            std::hint::black_box(&buf).iter().map(|b| *b as usize).sum::<usize>()
+            std::hint::black_box(&buf)
+                .iter()
+                .map(|b| *b as usize)
+                .sum::<usize>()
         })
         .await
         .expect("join")

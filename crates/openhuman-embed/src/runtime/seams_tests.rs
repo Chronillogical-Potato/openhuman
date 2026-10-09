@@ -3,7 +3,9 @@
 
 use super::*;
 use openhuman_core::agent::hooks::{ToolHookContext, TurnContext};
-use openhuman_core::agent::tinyagents::discovery::{RankCandidate, RankContext, RankError, RankHit};
+use openhuman_core::agent::tinyagents::discovery::{
+    RankCandidate, RankContext, RankError, RankHit,
+};
 
 static RANKER_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
@@ -134,7 +136,10 @@ fn persisted_seams_survive_the_guard() {
 
 #[test]
 fn post_turn_hooks_are_removed_and_a_replaced_one_restored() {
-    replace_embedder_post_turn_hook("seams-replaced-hook", Some(Arc::new(NamedPostTurn("seams-replaced-hook"))));
+    replace_embedder_post_turn_hook(
+        "seams-replaced-hook",
+        Some(Arc::new(NamedPostTurn("seams-replaced-hook"))),
+    );
     let seams = HostSeams {
         post_turn_hooks: vec![
             Arc::new(NamedPostTurn("seams-replaced-hook")),
@@ -150,7 +155,11 @@ fn post_turn_hooks_are_removed_and_a_replaced_one_restored() {
 
     drop(seams);
     assert_eq!(post_turn_marker("seams-new-hook"), None, "ours removed");
-    assert_eq!(post_turn_marker("seams-replaced-hook"), Some(1), "predecessor restored");
+    assert_eq!(
+        post_turn_marker("seams-replaced-hook"),
+        Some(1),
+        "predecessor restored"
+    );
     replace_embedder_post_turn_hook("seams-replaced-hook", None);
 }
 
@@ -176,7 +185,10 @@ fn a_live_policy_waits_for_the_core_to_boot() {
     }
     .install()
     .expect("install");
-    assert!(seams.has_pending_live_policy(), "installed after boot, not before");
+    assert!(
+        seams.has_pending_live_policy(),
+        "installed after boot, not before"
+    );
 }
 
 #[test]

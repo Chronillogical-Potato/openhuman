@@ -232,7 +232,10 @@ impl RuntimeBuilder {
     }
 
     /// The config a [`ConfigSource::Resolved`] runtime hands the core.
-    async fn resolve_config(&mut self, resolved: &ResolvedWorkspace) -> Result<Config, RuntimeError> {
+    async fn resolve_config(
+        &mut self,
+        resolved: &ResolvedWorkspace,
+    ) -> Result<Config, RuntimeError> {
         let mut config = match (&self.workspace, self.config.take()) {
             (Workspace::Inherit, Some(config)) => config,
             (Workspace::Inherit, None) => {

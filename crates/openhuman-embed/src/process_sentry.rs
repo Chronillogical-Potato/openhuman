@@ -105,22 +105,49 @@ type NoiseFilter = (&'static str, fn(&Event<'static>) -> bool);
 /// drop log line. Rationale for each lives on the core predicate.
 const NOISE_FILTERS: &[NoiseFilter] = &[
     ("localhost-dev-fetch", is_localhost_dev_fetch_noise),
-    ("transient-provider-http", obs::is_transient_provider_http_failure),
-    ("provider-exhaustion", obs::is_all_transient_provider_exhaustion_event),
+    (
+        "transient-provider-http",
+        obs::is_transient_provider_http_failure,
+    ),
+    (
+        "provider-exhaustion",
+        obs::is_all_transient_provider_exhaustion_event,
+    ),
     ("backend-error-code", obs::is_backend_error_code_event),
-    ("provider-transport", obs::is_transient_provider_transport_failure),
+    (
+        "provider-transport",
+        obs::is_transient_provider_transport_failure,
+    ),
     ("budget", obs::is_budget_event),
     ("insufficient-credits", obs::is_insufficient_credits_event),
     ("quota-exhausted", obs::is_quota_exhausted_event),
     ("ollama-cloud-500", obs::is_ollama_cloud_internal_500_event),
-    ("fs-limitation", obs::is_windows_file_system_limitation_event),
+    (
+        "fs-limitation",
+        obs::is_windows_file_system_limitation_event,
+    ),
     ("max-iterations", obs::is_max_iterations_event),
-    ("transient-backend-api", obs::is_transient_backend_api_failure),
-    ("transient-integrations", obs::is_transient_integrations_failure),
+    (
+        "transient-backend-api",
+        obs::is_transient_backend_api_failure,
+    ),
+    (
+        "transient-integrations",
+        obs::is_transient_integrations_failure,
+    ),
     ("updater-transient", obs::is_updater_transient_event),
-    ("skill-install-fetch", obs::is_skill_install_user_fetch_failure),
-    ("skills-install-4xx", obs::is_skills_install_client_error_event),
-    ("channel-message-404", obs::is_channel_message_not_found_event),
+    (
+        "skill-install-fetch",
+        obs::is_skill_install_user_fetch_failure,
+    ),
+    (
+        "skills-install-4xx",
+        obs::is_skills_install_client_error_event,
+    ),
+    (
+        "channel-message-404",
+        obs::is_channel_message_not_found_event,
+    ),
     ("user-config-provider", obs::is_user_config_provider_event),
     ("connectivity", obs::is_connectivity_event),
     ("stale-release", obs::is_stale_release_event),

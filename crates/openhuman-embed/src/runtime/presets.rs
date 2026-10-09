@@ -41,8 +41,7 @@ impl RuntimeBuilder {
     /// core. Pair with [`token`](Self::token)`(TokenSource::Fixed(..))` and
     /// [`listen`](Self::listen) as the shell does.
     pub fn desktop() -> Self {
-        Self::operator_host(HostKind::TauriShell, ServiceSet::desktop())
-            .with_e2e_tool_groups()
+        Self::operator_host(HostKind::TauriShell, ServiceSet::desktop()).with_e2e_tool_groups()
     }
 
     /// The standalone CLI server preset (`openhuman-core run` / `serve`):
@@ -63,9 +62,7 @@ impl RuntimeBuilder {
     }
 
     fn operator_host(host_kind: HostKind, services: ServiceSet) -> Self {
-        log::debug!(
-            "[embed][preset] operator host host_kind={host_kind:?} services={services:?}"
-        );
+        log::debug!("[embed][preset] operator host host_kind={host_kind:?} services={services:?}");
         Self {
             workspace: Workspace::Inherit,
             config_source: ConfigSource::Discovered,

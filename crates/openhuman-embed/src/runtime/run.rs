@@ -30,7 +30,10 @@ impl RuntimeBuilder {
     /// returns.
     pub fn run_from_args(mut self, args: &[String]) -> anyhow::Result<()> {
         let command = args.first().map(String::as_str).unwrap_or("<none>");
-        log::debug!("[embed][cli] run_from_args command={command} argc={}", args.len());
+        log::debug!(
+            "[embed][cli] run_from_args command={command} argc={}",
+            args.len()
+        );
 
         if let Some(transport) = self.backend_transport.take() {
             openhuman_core::backend::install_backend_transport(transport);
