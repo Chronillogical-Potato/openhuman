@@ -319,7 +319,7 @@ async fn discovered_base_config() -> (Config, Option<String>) {
 /// [`ConfigSource::Discovered`] build has no config yet (`None`), but the
 /// provider is applied to the agents' base config after boot, so it is judged
 /// by the model it carries itself.
-pub(super) fn routed_provider_effective(provider: &Provider, config: Option<&Config>) -> bool {
+pub(crate) fn routed_provider_effective(provider: &Provider, config: Option<&Config>) -> bool {
     provider.has_usable_route()
         && match config {
             Some(config) => config.default_model.as_deref(),

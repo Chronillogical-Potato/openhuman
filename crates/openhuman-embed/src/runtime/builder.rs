@@ -30,7 +30,7 @@ use crate::Session;
 // the default triples through this module.
 pub(crate) use super::build::apply_provider;
 #[cfg(test)]
-pub(crate) use super::build::effective_host_kind;
+pub(crate) use super::build::{effective_host_kind, routed_provider_effective};
 #[cfg(test)]
 pub(crate) use super::presets::{default_domains, default_services};
 #[cfg(test)]
