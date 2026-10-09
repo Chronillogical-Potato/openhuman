@@ -304,6 +304,18 @@ fn user_rpc(
     sig: Option<&str>,
     method: &str,
 ) -> (u16, Value) {
+    user_rpc_with(client, base, bearer, user, sig, method, json!({}))
+}
+
+fn user_rpc_with(
+    client: &reqwest::blocking::Client,
+    base: &str,
+    bearer: &str,
+    user: &str,
+    sig: Option<&str>,
+    method: &str,
+    params: Value,
+) -> (u16, Value) {
     use openhuman_core::user_agents::gateway::{sign, USER_HEADER, USER_SIG_HEADER};
     let signature = sig
         .map(str::to_owned)
@@ -313,7 +325,7 @@ fn user_rpc(
         .bearer_auth(bearer)
         .header(USER_HEADER, user)
         .header(USER_SIG_HEADER, signature)
-        .json(&json!({ "jsonrpc": "2.0", "id": 1, "method": method, "params": {} }))
+        .json(&json!({ "jsonrpc": "2.0", "id": 1, "method": method, "params": params }))
         .send()
         .expect("POST /rpc");
     let status = response.status().as_u16();
@@ -421,6 +433,115 @@ fn gateway_requests_run_under_the_named_users_agent() {
         stored.iter().any(|name| name.contains("auth")),
         "credential store beside alice's config: {stored:?}"
     );
+    drop(server);
+}
+
+fn provision(client: &reqwest::blocking::Client, base: &str, user: &str) -> String {
+    let (_, body) = rpc_with(
+        client,
+        base,
+        Some(BEARER),
+        "openhuman.user_agents_provision",
+        json!({ "user_id": user }),
+    );
+    assert!(body.get("result").is_some(), "provision {user}: {body}");
+    openhuman_core::user_agents::UserAgentId::for_user(user)
+        .unwrap()
+        .to_string()
+}
+
+fn thread_ids(body: &Value) -> Vec<String> {
+    let text = body.to_string();
+    let mut ids = Vec::new();
+    for part in text.split("\"id\":\"").skip(1) {
+        if let Some(end) = part.find('"') {
+            ids.push(part[..end].to_string());
+        }
+    }
+    ids
+}
+
+#[test]
+fn each_user_sees_only_their_own_threads() {
+    let d = deployment(true);
+    let (server, base, client) = start(&d);
+    let alice = provision(&client, &base, "alice");
+    let bob = provision(&client, &base, "bob");
+    let call = |user: &str, method: &str, params: Value| {
+        user_rpc_with(&client, &base, BEARER, user, None, method, params)
+    };
+
+    let (status, body) = call("alice", "openhuman.threads_create_new", json!({}));
+    assert_eq!(status, 200, "{body}");
+    assert!(body.get("result").is_some(), "{body}");
+
+    // The same caller-chosen id in two users' scopes is two threads.
+    for user in ["alice", "bob"] {
+        let (_, body) = call(
+            user,
+            "openhuman.threads_upsert",
+            json!({ "id": "shared-id", "title": format!("{user}'s"), "created_at": "2026-10-07T00:00:00Z" }),
+        );
+        assert!(body.get("result").is_some(), "{user} upsert: {body}");
+    }
+
+    let (_, alice_list) = call("alice", "openhuman.threads_list", json!({}));
+    let (_, bob_list) = call("bob", "openhuman.threads_list", json!({}));
+    let alice_ids = thread_ids(&alice_list);
+    let bob_ids = thread_ids(&bob_list);
+    assert_eq!(alice_ids.len(), 2, "alice: {alice_list}");
+    assert_eq!(bob_ids, vec!["shared-id".to_string()], "bob: {bob_list}");
+    assert!(bob_list.to_string().contains("bob's"), "{bob_list}");
+    assert!(!bob_list.to_string().contains("alice's"), "{bob_list}");
+    // And the other way: alice keeps her own `shared-id`, untouched by bob's.
+    assert!(
+        alice_ids.contains(&"shared-id".to_string()),
+        "alice: {alice_list}"
+    );
+    assert!(alice_list.to_string().contains("alice's"), "{alice_list}");
+    assert!(!alice_list.to_string().contains("bob's"), "{alice_list}");
+
+    // A SaaS user cannot point a thread at a host folder.
+    let (_, body) = call(
+        "alice",
+        "openhuman.threads_create_new",
+        json!({ "action_dir": "/etc" }),
+    );
+    assert!(body.get("error").is_some(), "{body}");
+
+    // A hidden method answers unknown-method even with bad params, rather
+    // than its parameter errors.
+    let (_, body) = call("alice", "openhuman.threads_update_working_dir", json!({}));
+    let error = body["error"].to_string();
+    assert!(!error.contains("missing"), "{body}");
+
+    // Each user's threads live in their own workspace.
+    for (agent, owner) in [(&alice, "alice"), (&bob, "bob")] {
+        let threads = d.root.join("agents").join(agent).join("workspace");
+        assert!(threads.is_dir(), "{owner}'s workspace");
+    }
+    // Boot migrations leave an empty index in the operator workspace; no user
+    // thread may ever reach it.
+    let operator_index = d
+        .root
+        .join("operator/workspace/memory/conversations/threads.jsonl");
+    let operator_threads = std::fs::read_to_string(&operator_index).unwrap_or_default();
+    assert!(
+        !operator_threads.contains("shared-id") && operator_threads.trim().is_empty(),
+        "no user thread lands in the operator workspace: {operator_threads}"
+    );
+
+    // Reserved and path-like ids are refused; turn-starting methods are closed.
+    for id in ["channel:telegram/1", "../escape"] {
+        let (_, body) = call(
+            "alice",
+            "openhuman.threads_upsert",
+            json!({ "id": id, "title": "x", "created_at": "2026-10-07T00:00:00Z" }),
+        );
+        assert!(body.get("error").is_some(), "{id}: {body}");
+    }
+    let (_, body) = call("alice", "openhuman.threads_regenerate", json!({}));
+    assert!(body.get("error").is_some(), "{body}");
     drop(server);
 }
 
