@@ -102,7 +102,7 @@ The **Settings** tab sets the shape of the pack: on or off, its size in tokens, 
 
 ## Importing your previous memory
 
-If OpenHuman finds memory from the earlier (v1) version, the Memory page offers a one-time import. It uploads that data to the engine you selected, so it starts only after you consent. It resumes if interrupted.
+If OpenHuman finds memory from the earlier (v1) version, the Memory page offers a one-time import. It uploads that data to the engine you selected, so it starts only after you consent. It resumes if interrupted. Data v1 pulled in from connected apps (Gmail, Slack, Notion, Linear, GitHub, ClickUp and the like) is not imported: reconnect the app and it syncs again. Your conversations, memory sources, learnings and profile come across.
 
 ## What is not here
 

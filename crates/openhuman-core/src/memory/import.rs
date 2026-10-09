@@ -23,13 +23,14 @@ use std::sync::{Arc, LazyLock, Mutex};
 use serde::{Deserialize, Serialize};
 use tinymemory_api::{WaitFor, WriteOptions};
 use tinymemory_integrations::cortex::is_insufficient_credits;
-use tinymemory_integrations::import::{Checkpoint, ImportedItem, LegacyWorkspace};
+use tinymemory_integrations::import::{Checkpoint, ImportedItem};
 
 use crate::config::Config;
 
 use super::engine::{self, BoundEngine};
 use super::error::{MemoryError, MemoryResult};
 use super::types::{ImportCounts, ImportPhase, ImportScanView, ImportState};
+use open::open_legacy;
 
 /// Items stored between two checkpoint writes.
 const CHECKPOINT_EVERY: u64 = 25;
@@ -287,7 +288,7 @@ fn write_file(workspace_dir: &Path, file: &ImportFile) {
 /// per section rather than a pass over every item, and exactly what the
 /// import then yields. Blocking (SQLite, and memory-tree chunk files).
 pub fn count_legacy(workspace_dir: &Path) -> Option<ImportCounts> {
-    let counts = LegacyWorkspace::open(workspace_dir)
+    let counts = open_legacy(workspace_dir)
         .and_then(|workspace| workspace.counts())
         .map_err(|error| tracing::debug!(error = %error, "[memory:import] no legacy store"))
         .ok()?;
@@ -522,7 +523,7 @@ async fn start_with(
     let scan_dir = workspace_dir.clone();
     let total = crate::core::runtime::spawn_blocking_scoped(move || {
         if resuming {
-            LegacyWorkspace::open(&scan_dir).ok().map(|_| None)
+            open_legacy(&scan_dir).ok().map(|_| None)
         } else {
             count_legacy(&scan_dir)
                 .map(|counts| Some(counts.documents + counts.conversations + counts.learnings))
@@ -582,7 +583,7 @@ async fn run(
     let reader_dir = workspace_dir.to_path_buf();
     let checkpoint = file.checkpoint.clone();
     let reader = tokio::task::spawn_blocking(move || {
-        let workspace = match LegacyWorkspace::open(&reader_dir) {
+        let workspace = match open_legacy(&reader_dir) {
             Ok(workspace) => workspace,
             Err(error) => {
                 let _ = tx.blocking_send(Err(error.to_string()));
@@ -723,6 +724,9 @@ async fn run(
 
 #[path = "import_retry.rs"]
 mod retry;
+
+#[path = "import_open.rs"]
+mod open;
 pub use retry::retry_failed;
 
 #[cfg(test)]
@@ -740,3 +744,7 @@ mod organize_tests;
 #[cfg(test)]
 #[path = "import_wait_tests.rs"]
 mod wait_tests;
+
+#[cfg(test)]
+#[path = "import_connector_tests.rs"]
+mod connector_tests;
