@@ -4,8 +4,9 @@
 //! every request it:
 //!
 //! 1. answers `404` for routes a SaaS core never serves — the OpenAI-compatible
-//!    `/v1`, every `/events` stream, the WebSockets, `/dev/connect` and the MCP
-//!    OAuth callback;
+//!    `/v1`, the `/events/*` debug streams, the WebSockets, `/dev/connect` and
+//!    the MCP OAuth callback — and for the `/events` chat stream outside a
+//!    user's scope;
 //! 2. with no `X-OpenHuman-User`, runs it on the operator plane (the bearer
 //!    check downstream still applies);
 //! 3. with one, checks the service bearer **first** — so an unauthenticated
@@ -29,18 +30,25 @@ use openhuman_core::user_agents::gateway::{
 /// Route prefixes a SaaS core never serves.
 pub(crate) const CLOSED_IN_SAAS: &[&str] = &[
     "/v1",
-    "/events",
+    "/events/",
     "/ws/",
     "/socket.io",
     "/dev/connect",
     "/oauth/",
 ];
 
+/// A prefix ending in `/` closes only what lies beneath it; any other prefix
+/// closes the path itself and everything beneath it.
 pub(crate) fn is_closed_in_saas(path: &str) -> bool {
     CLOSED_IN_SAAS.iter().any(|prefix| {
-        path == prefix.trim_end_matches('/')
-            || path.starts_with(prefix)
-                && (prefix.ends_with('/') || path[prefix.len()..].starts_with('/'))
+        if prefix.ends_with('/') {
+            path.starts_with(prefix)
+        } else {
+            path == *prefix
+                || path
+                    .strip_prefix(prefix)
+                    .is_some_and(|rest| rest.starts_with('/'))
+        }
     })
 }
 
@@ -72,6 +80,10 @@ pub(crate) async fn saas_gateway(operator: Arc<CoreContext>, req: Request, next:
     // signature check.
     let mut user_headers = req.headers().get_all(USER_HEADER).iter();
     let Some(first) = user_headers.next() else {
+        // The chat event stream is a user's; the operator has none.
+        if path == "/events" {
+            return refuse(404, "not found");
+        }
         return CoreContext::scope(operator, next.run(req)).await;
     };
     if user_headers.next().is_some() {

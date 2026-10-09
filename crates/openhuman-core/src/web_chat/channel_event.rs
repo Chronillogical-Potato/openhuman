@@ -13,6 +13,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct WebChannelEvent {
+    /// The agent whose work produced this event (`CoreContext::session_agent`),
+    /// stamped at publish time. Never serialized: it routes the event to its
+    /// owner's stream in SaaS mode and is not part of the wire payload.
+    #[serde(skip)]
+    pub agent: Option<String>,
     /// The event name (e.g., `chat_message`, `tool_call`).
     pub event: String,
     /// Unique identifier for the Socket.IO client.
@@ -223,6 +228,15 @@ pub struct WebChannelEvent {
     /// requeue), when applicable.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub superseded_by: Option<String>,
+}
+
+impl WebChannelEvent {
+    /// Whether a SaaS user agent's stream may carry this event: only one
+    /// stamped with that agent. An unstamped event (published outside any
+    /// agent scope) is dropped rather than guessed at.
+    pub fn belongs_to(&self, agent: &str) -> bool {
+        self.agent.as_deref() == Some(agent)
+    }
 }
 
 /// Time-to-first-visible timing summary for a completed turn. See
