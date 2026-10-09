@@ -68,9 +68,24 @@ pub fn get(user_id: &str, key: &str) -> Result<Option<String>, KeyringError> {
     };
     log::debug!("[keyring] get (storage)");
     let name = namespaced_key(user_id, key);
+    let write_back = secrets.clone();
     let value =
         crate::storage::block_on(async move { secrets.get(&name).await }).map_err(storage_error)?;
-    value
+    let Some(value) = value else {
+        // Not on the backend yet: adopt a secret an earlier process-keyring
+        // install stored, so enabling a backend does not hide it.
+        let legacy = process_get(user_id, key).ok().flatten();
+        if let Some(legacy) = &legacy {
+            let name = namespaced_key(user_id, key);
+            let bytes = zeroize::Zeroizing::new(legacy.as_bytes().to_vec());
+            match crate::storage::block_on(async move { write_back.set(&name, &bytes).await }) {
+                Ok(()) => log::debug!("[keyring] adopted process-backend secret into storage"),
+                Err(_) => log::warn!("[keyring] could not adopt process-backend secret"),
+            }
+        }
+        return Ok(legacy);
+    };
+    Some(value)
         .map(|bytes| {
             String::from_utf8(bytes.to_vec()).map_err(|source| KeyringError::InvalidUtf8 {
                 key: key.to_string(),
@@ -103,7 +118,12 @@ pub fn delete(user_id: &str, key: &str) -> Result<(), KeyringError> {
     log::debug!("[keyring] delete (storage)");
     let name = namespaced_key(user_id, key);
     crate::storage::block_on(async move { secrets.delete(&name).await.map(|_| ()) })
-        .map_err(storage_error)
+        .map_err(storage_error)?;
+    // Also drop an adoptable process-backend copy so it cannot resurface.
+    if process_delete(user_id, key).is_err() {
+        log::warn!("[keyring] delete: process-backend copy not removed");
+    }
+    Ok(())
 }
 
 // ── Process backend ───────────────────────────────────────────────────────────
@@ -113,14 +133,14 @@ pub fn delete(user_id: &str, key: &str) -> Result<(), KeyringError> {
 /// Returns `Ok(None)` when no entry exists for this user + key combination.
 /// Never logs the secret value.
 pub(crate) fn process_get(user_id: &str, key: &str) -> Result<Option<String>, KeyringError> {
-    log::debug!("[keyring] get user_id={user_id} key={key}");
+    log::debug!("[keyring] get");
     let namespaced = namespaced_key(user_id, key);
     let result = backend().get(&namespaced);
     match &result {
-        Ok(Some(_)) => log::debug!("[keyring] get hit user_id={user_id} key={key}"),
-        Ok(None) => log::debug!("[keyring] get miss user_id={user_id} key={key}"),
+        Ok(Some(_)) => log::debug!("[keyring] get hit"),
+        Ok(None) => log::debug!("[keyring] get miss"),
         Err(e) => log::warn!(
-            "[keyring] get error user_id={user_id} key={key}: {e} | detail={}",
+            "[keyring] get error: {e} | detail={}",
             e.diagnostic()
         ),
     }
@@ -131,13 +151,13 @@ pub(crate) fn process_get(user_id: &str, key: &str) -> Result<Option<String>, Ke
 ///
 /// Overwrites any existing entry for this user + key. Never logs the value.
 pub(crate) fn process_set(user_id: &str, key: &str, value: &str) -> Result<(), KeyringError> {
-    log::debug!("[keyring] set user_id={user_id} key={key}");
+    log::debug!("[keyring] set");
     let namespaced = namespaced_key(user_id, key);
     let result = backend().set(&namespaced, value);
     match &result {
-        Ok(()) => log::debug!("[keyring] set ok user_id={user_id} key={key}"),
+        Ok(()) => log::debug!("[keyring] set ok"),
         Err(e) => log::warn!(
-            "[keyring] set error user_id={user_id} key={key}: {e} | detail={}",
+            "[keyring] set error: {e} | detail={}",
             e.diagnostic()
         ),
     }
@@ -148,13 +168,13 @@ pub(crate) fn process_set(user_id: &str, key: &str, value: &str) -> Result<(), K
 ///
 /// Returns `Ok(())` even if no entry existed (idempotent).
 pub(crate) fn process_delete(user_id: &str, key: &str) -> Result<(), KeyringError> {
-    log::debug!("[keyring] delete user_id={user_id} key={key}");
+    log::debug!("[keyring] delete");
     let namespaced = namespaced_key(user_id, key);
     let result = backend().delete(&namespaced);
     match &result {
-        Ok(()) => log::debug!("[keyring] delete ok user_id={user_id} key={key}"),
+        Ok(()) => log::debug!("[keyring] delete ok"),
         Err(e) => log::warn!(
-            "[keyring] delete error user_id={user_id} key={key}: {e} | detail={}",
+            "[keyring] delete error: {e} | detail={}",
             e.diagnostic()
         ),
     }

@@ -45,6 +45,11 @@ type MasterKeyInit = Result<Option<[u8; KEY_LEN]>, String>;
 /// Process-wide master-key outcome, set once by [`init_master_key`].
 static MASTER_KEY: OnceLock<MasterKeyInit> = OnceLock::new();
 
+/// Set when [`init_master_key`] found the OS keychain unable to provide the
+/// key, so storage secrets reuse that outcome instead of retrying the
+/// keychain (and its prompt) on their first operation.
+static KEYCHAIN_UNAVAILABLE: OnceLock<()> = OnceLock::new();
+
 // ── Public API for core startup ──────────────────────────────────────────────
 
 /// Initialize the keyring subsystem: set the workspace directory and load
@@ -109,6 +114,7 @@ pub fn init_master_key() -> Result<(), String> {
                 // Surface the denied state to the frontend instead of silently
                 // resetting — this is the "warn before reset" the issue asks for.
                 crate::security::keyring_consent::policy::notify_master_key_unavailable(&e);
+                let _ = KEYCHAIN_UNAVAILABLE.set(());
                 Ok(None)
             }
         }
@@ -131,10 +137,13 @@ pub(crate) fn storage_master_key() -> Result<[u8; KEY_LEN], String> {
     static STORAGE_MASTER_KEY: OnceLock<[u8; KEY_LEN]> = OnceLock::new();
     match MASTER_KEY.get() {
         Some(Ok(Some(key))) => return Ok(*key),
-        // `init_master_key` already tried the keychain this session and
-        // recorded it unavailable: reuse that outcome, do not prompt again.
-        Some(Ok(None)) => return Err("OS keychain master key unavailable this session".into()),
         _ => {}
+    }
+    // `init_master_key` already tried the keychain this session and it
+    // failed: reuse that outcome, do not prompt again. (`Ok(None)` alone also
+    // means "backend needs no key / init skipped", which must still load.)
+    if KEYCHAIN_UNAVAILABLE.get().is_some() {
+        return Err("OS keychain master key unavailable this session".into());
     }
     if let Some(key) = STORAGE_MASTER_KEY.get() {
         return Ok(*key);
