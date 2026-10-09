@@ -304,6 +304,7 @@ tinytools-agent = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tiny
 # Crates in this world name tinyinference by git rev; without this the shell
 # world resolves TWO copies of the same types. Mirrors the root Cargo.toml.
 tinyinference-core = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
+tinyinference-decisions = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-decisions" }
 tinyinference-embeddings = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
 tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
 tinyinference-local = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
