@@ -189,7 +189,7 @@ fn log_outcome(
     log::info!(
         "[tinymemes] turn arm=treatment bucket={bucket} request_id={request_id} turn_ms={turn_ms} \
          remix_ms={remix_ms} outcome={result} score={} tier={} mode={} memes={} rewrite_kept={} \
-         dupes={} slang_enough={} wants_search={} meme_pick={} meme_p={}",
+         dupes={} slang_enough={} wants_search={} meme_pick={} meme_p={} matches={}",
         rating.map_or(-1, |r| i32::from(r.score)),
         rating.map_or("none", |r| match r.tier {
             tinymemes::Tier::Off => "off",
@@ -212,12 +212,18 @@ fn log_outcome(
             || "none".to_owned(),
             |r| match &r.meme {
                 tinymemes::reading::MemePick::Pick(t) => t.replace(' ', "_"),
-                tinymemes::reading::MemePick::NoneFit => "none_fit".to_owned(),
+                tinymemes::reading::MemePick::NoneFit => match &r.meme_weak {
+                    Some(t) => format!("weak:{}", t.replace(' ', "_")),
+                    None => "none_fit".to_owned(),
+                },
                 tinymemes::reading::MemePick::Unasked => "unasked".to_owned(),
             }
         ),
         reading
             .and_then(|r| r.meme_p)
+            .map_or_else(|| "none".to_owned(), |p| format!("{p:.2}")),
+        reading
+            .and_then(|r| r.reply_matches_user)
             .map_or_else(|| "none".to_owned(), |p| format!("{p:.2}")),
     );
 }
