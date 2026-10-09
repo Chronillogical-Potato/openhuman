@@ -61,6 +61,8 @@ serde_json = "1"
 #   silently unenforced.
 # - `file-logging` — the packaged app's only durable log.
 # - `hosting` — registration stays credential-gated in tools/ops.rs.
+# - `tinymemes` — compiled in; still off at runtime until `OPENHUMAN_TINYMEMES`
+#   (or a build-time `OPENHUMAN_TINYMEMES_DEFAULT`) turns it on.
 #
 # `scripts/ci/check-feature-forwarding.mjs` fails CI when the product gates
 # here drift from `scripts/ci/product-features.txt` (#4919) — do not
@@ -88,6 +90,7 @@ openhuman-rpc = { path = "../openhuman-rpc", default-features = false, features 
     "file-logging",
     "runtime-node",
     "hosting",
+    "tinymemes",
 ] }
 # Tauri core and plugins. Use upstream Tauri's native WebView runtime (Wry),
 # rather than the removed Chromium/CEF fork.
