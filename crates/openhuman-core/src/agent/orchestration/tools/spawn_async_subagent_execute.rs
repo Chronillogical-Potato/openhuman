@@ -481,12 +481,13 @@ impl SpawnAsyncSubagentTool {
                                 // delivery back into the parent chat (the session
                                 // runtime drains this when the session is next idle).
                                 crate::agent::orchestration::background_completions::record_completion(
-                            background_parent_session.clone(),
+                            &background_workspace_dir,
+&background_parent_session,
                             outcome.task_id.clone(),
                             outcome.agent_id.clone(),
                             delivery_summary,
                             background_parent_thread_id.clone(),
-                        );
+                        ).await;
                                 if emit_lifecycle_effects {
                                     crate::agent::orchestration::subagent_events::publish_subagent_completed(
                             background_parent_session,
@@ -559,12 +560,13 @@ impl SpawnAsyncSubagentTool {
                                     framed,
                                 );
                                 crate::agent::orchestration::background_completions::record_completion(
-                            background_parent_session.clone(),
+                            &background_workspace_dir,
+&background_parent_session,
                             outcome.task_id.clone(),
                             outcome.agent_id.clone(),
                             framed,
                             background_parent_thread_id.clone(),
-                        );
+                        ).await;
                                 if emit_lifecycle_effects {
                                     crate::agent::orchestration::subagent_events::publish_subagent_completed(
                             background_parent_session,
@@ -618,12 +620,13 @@ impl SpawnAsyncSubagentTool {
                                     error: error.clone(),
                                 });
                                 crate::agent::orchestration::background_completions::record_failure(
-                                    background_parent_session.clone(),
+                                    &background_workspace_dir,
+&background_parent_session,
                                     outcome.task_id.clone(),
                                     outcome.agent_id.clone(),
                                     &error,
                                     background_parent_thread_id.clone(),
-                                );
+                                ).await;
                                 if emit_lifecycle_effects {
                                     crate::agent::orchestration::subagent_events::publish_subagent_failed(
                                         background_parent_session,
@@ -669,13 +672,14 @@ impl SpawnAsyncSubagentTool {
                                 // instead of finalizing silently on "Accepted". Rides the
                                 // same idle-gated background_delivery path as a success.
                                 crate::agent::orchestration::background_completions::record_awaiting_input(
-                            background_parent_session.clone(),
+                            &background_workspace_dir,
+&background_parent_session,
                             outcome.task_id.clone(),
                                     outcome.agent_id.clone(),
                                     question,
                                     checkpoint.is_some(),
                                     background_parent_thread_id.clone(),
-                                );
+                                ).await;
                                 if emit_lifecycle_effects {
                                     crate::agent::orchestration::subagent_events::publish_subagent_awaiting_user(
                                         background_parent_session,
@@ -723,12 +727,13 @@ impl SpawnAsyncSubagentTool {
                         // Queue a framed failure notice so background_delivery
                         // surfaces it as a follow-up chat turn.
                         crate::agent::orchestration::background_completions::record_failure(
-                            background_parent_session.clone(),
+                            &background_workspace_dir,
+&background_parent_session,
                             background_task_id.clone(),
                             background_agent_id.clone(),
                             &error,
                             background_parent_thread_id.clone(),
-                        );
+                        ).await;
                         crate::agent::orchestration::subagent_events::publish_subagent_failed(
                             background_parent_session,
                             background_task_id.clone(),
