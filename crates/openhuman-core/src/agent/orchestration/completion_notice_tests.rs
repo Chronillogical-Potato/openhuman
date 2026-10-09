@@ -7,13 +7,19 @@ fn rec(
     summary: &str,
     outcome: BackgroundAgentOutcome,
 ) -> CompletionRecord {
-    CompletionRecord::new(
+    let record = CompletionRecord::new(
         task,
         "thread-1",
         agent,
         outcome.status(),
         CompletionResult::text(summary),
-    )
+    );
+    // The host labels an input pause; a bare `Incomplete` is something else.
+    if outcome == BackgroundAgentOutcome::AwaitingInput {
+        record.with_label(AWAITING_INPUT_LABEL)
+    } else {
+        record
+    }
 }
 
 fn ok(task: &str, agent: &str, summary: &str) -> CompletionRecord {
@@ -31,11 +37,10 @@ fn outcome_round_trips_through_the_harness_record() {
         BackgroundAgentOutcome::Failed,
         BackgroundAgentOutcome::AwaitingInput,
     ] {
-        let mut record = rec("t", "a", "x", outcome);
-        if outcome == BackgroundAgentOutcome::AwaitingInput {
-            record = record.with_label(AWAITING_INPUT_LABEL);
-        }
-        assert_eq!(BackgroundAgentOutcome::of(&record), outcome);
+        assert_eq!(
+            BackgroundAgentOutcome::of(&rec("t", "a", "x", outcome)),
+            outcome
+        );
     }
 }
 
@@ -43,11 +48,12 @@ fn outcome_round_trips_through_the_harness_record() {
 fn an_incomplete_record_without_the_input_label_is_not_an_input_pause() {
     // `Incomplete` also covers timeouts and exhausted budgets; telling the
     // parent to relay a question that was never asked would mislead it.
-    let timed_out = rec(
+    let timed_out = CompletionRecord::new(
         "t",
+        "p",
         "a",
-        "ran out of budget",
-        BackgroundAgentOutcome::AwaitingInput,
+        CompletionStatus::Incomplete,
+        CompletionResult::text("ran out of budget"),
     );
     assert_eq!(
         BackgroundAgentOutcome::of(&timed_out),
