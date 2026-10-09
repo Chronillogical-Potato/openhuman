@@ -9,7 +9,7 @@ binary: `tinycomputer`, `tinysearch`, `tinydocs`, `tinywallet`, `tinyjuice`,
 GitHub release, checks it against a digest compiled into this crate, lets
 tinybus admit it, attaches it to a private in-process broker, and then calls
 it like any other bus service. Domains reach a module through the per-module
-host files here (`documents.rs`, `wallet.rs`, `voice.rs`, ...) rather than
+host files here ([`documents.rs`](./documents.rs), [`wallet.rs`](./wallet.rs), [`voice.rs`](./voice.rs), ...) rather than
 talking to tinybus themselves.
 
 The `//!` comments in [`mod.rs`](mod.rs), [`host.rs`](host.rs) and
@@ -170,7 +170,7 @@ containers with no cache directory.
 
 Some modules take a private configuration blob at load and on
 reinitialization. `ops::module_config` builds it per id: `search::module_config`
-for `tinysearch`, `desktop::module_config` (from `computer_config.rs`) for
+for `tinysearch`, `desktop::module_config` (from [`computer_config.rs`](./computer_config.rs)) for
 `tinycomputer`, and `connectors::module_config` for `tinyconnectors`.
 Everything else gets `{}`. When the connector configuration cannot be built
 (direct mode with no key, an unknown mode) the module still loads with `{}`,
@@ -232,7 +232,7 @@ no host file in this folder.
 
 ## Key types and entry points
 
-- `ModuleRecord` (`types.rs`) is one compiled-in module: `id`, `description`,
+- `ModuleRecord` ([`types.rs`](./types.rs)) is one compiled-in module: `id`, `description`,
   `bus_name`, `object_path`, `version`, `release_url`, its `assets`, and its
   `load` policy. `asset_for(host_key)` picks the artifact for a host key.
 - `PlatformAsset` (`types.rs`) is one published archive: the host key (for
@@ -256,7 +256,7 @@ no host file in this folder.
 
 ## RPC surface
 
-All methods are in the `modules` namespace (`schemas.rs`), wired into the
+All methods are in the `modules` namespace ([`schemas.rs`](./schemas.rs)), wired into the
 registry from `core/all.rs`:
 
 | Method | What it does |
@@ -330,10 +330,10 @@ loadable:
   `agent/multimodal.rs` and `agent/attachments/` use `documents.rs`;
   `voice/always_on` and `voice/streaming.rs` use `voice.rs`;
   `tools/impl/browser/` and `desktop/control/` use the TinyComputer files;
-  `integrations/composio/module_client.rs` uses `connectors.rs`;
-  `search/tools.rs` and `search/bus.rs` use `search/`; and
+  `integrations/composio/module_client.rs` uses [`connectors.rs`](./connectors.rs);
+  `search/tools.rs` and `search/bus.rs` use [`search/`](./search/); and
   `inference/tokenjuice` calls `ensure_loaded(config, "tinyjuice")` and is
-  called back through `tokenjuice_host.rs`.
+  called back through [`tokenjuice_host.rs`](./tokenjuice_host.rs).
 
 ## Gotchas
 
@@ -370,3 +370,9 @@ need a real module load a local build through `TINYSEARCH_TEST_MODULE`,
 
 See also `gitbooks/developing/performance.md` for how on-demand modules keep a
 minimal build small.
+
+## Further reading
+
+- [Loadable modules](../../../../gitbooks/developing/loadable-modules.md)
+- [tinybus submodule](../../../../vendor/tinybus/README.md)
+- [Architecture overview](../../../../gitbooks/developing/architecture.md)

@@ -163,6 +163,9 @@ pub async fn install_for_host() -> anyhow::Result<()> {
         Ok(url) if !url.trim().is_empty() => Some(url.trim().to_string()),
         _ => match openhuman_core::config::rpc::load_config_with_timeout().await {
             Ok(config) => openhuman_core::storage::configured_url(&config),
+            // An unreadable config keeps the desktop booting on the classic
+            // layout, as it always has. Remote deployments pin the backend
+            // with `OPENHUMAN_STORAGE_URL`, which never reads the config.
             Err(error) => {
                 tracing::warn!(
                     "[session_store] config unavailable ({error}); keeping the on-disk layout"
@@ -185,17 +188,21 @@ pub async fn install_for_url(url: Option<String>) -> anyhow::Result<()> {
     use anyhow::Context as _;
 
     let Some(url) = url else {
+        // Drop a backend an earlier call installed, so storage operations do
+        // not keep writing to it while the classic layout is in force.
+        openhuman_core::storage::clear();
         install();
         return Ok(());
     };
     let backend = openhuman_core::storage::open(&url)
         .await
         .context("opening the configured storage backend")?;
-    openhuman_core::storage::install(Arc::clone(&backend));
-    let single_process = backend.driver() != "mongodb";
-    let provider = tinyagents_session::DriverSessionStores::new(backend)
+    let single_process = !openhuman_core::storage::driver_is_shared(backend.driver());
+    let provider = tinyagents_session::DriverSessionStores::new(Arc::clone(&backend))
         .context("starting the session store bridge")?
         .recover_on_open(single_process);
+    // Only a fully working bridge makes the backend the process's storage.
+    openhuman_core::storage::install(backend);
     tracing::info!(
         target: "openhuman_rpc::session_store",
         recover_on_open = single_process,

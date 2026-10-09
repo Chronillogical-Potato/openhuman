@@ -520,7 +520,7 @@ async fn start_with(
     // it once more.
     let resuming = !file.checkpoint.is_start() && file.state.total > 0;
     let scan_dir = workspace_dir.clone();
-    let total = tokio::task::spawn_blocking(move || {
+    let total = crate::core::runtime::spawn_blocking_scoped(move || {
         if resuming {
             LegacyWorkspace::open(&scan_dir).ok().map(|_| None)
         } else {

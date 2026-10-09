@@ -10,7 +10,7 @@ runs here unchanged, and the reverse holds too.
 
 This folder is the OpenHuman host side only. The engine, the `hooks.json`
 contract, config loading, matching and the process runner live upstream in
-`tinyagents_runtime::command_hooks` (`vendor/tinyagents`, crate
+`tinyagents_runtime::command_hooks` ([`vendor/tinyagents`](../../../../vendor/tinyagents/), crate
 `tinyagents-runtime`). What stays here is the glue: one process-global engine
 built with OpenHuman's product name, shell and model, a bridge that mounts it
 on the harness's tool and turn seams, direct entry points for the moments that
@@ -18,15 +18,15 @@ have no seam, and the `hooks` RPC namespace.
 
 "Hook" means two other things elsewhere in the codebase. The in-process Rust
 traits an embedding host installs (`ToolHook` and `PostTurnHook` in
-`agent/hooks.rs`, plus `agent/stop_hooks.rs`) are the seams this module rides
-on. Inbound webhook ingestion (`skills/webhooks/`, RPC namespace `webhooks`)
+[`agent/hooks.rs`](../agent/hooks.rs), plus [`agent/stop_hooks.rs`](../agent/stop_hooks.rs)) are the seams this module rides
+on. Inbound webhook ingestion ([`skills/webhooks/`](../skills/webhooks/), RPC namespace `webhooks`)
 is unrelated.
 
 ## How it works
 
 ### Boot
 
-`core/runtime/bootstrap.rs` calls `crate::hooks::init(&cfg)` during core boot.
+[`core/runtime/bootstrap.rs`](../core/runtime/bootstrap.rs) calls `crate::hooks::init(&cfg)` during core boot.
 `ops::init` does the following, in order:
 
 1. Calls `set_host_context` with the workspace roots (the configured
@@ -137,14 +137,14 @@ the conversation decides whether to start another turn.
 
 ### Moments without a tool seam
 
-`ops.rs` has one function per lifecycle moment that is not a tool call. Each
+[`ops.rs`](./ops.rs) has one function per lifecycle moment that is not a tool call. Each
 checks `engine.has_hooks(event)` first and returns immediately when nothing is
 registered, so call sites can invoke them unconditionally.
 
 | Function | Event | Caller |
 | --- | --- | --- |
-| `prompt_submitted` | `beforeSubmitPrompt` | `web_chat/ops/start_chat.rs`, before a prompt reaches the agent |
-| `subagent_starting` | `subagentStart` | `agent/subagent_host/ops/runner.rs`, before a sub-agent spawns |
+| `prompt_submitted` | `beforeSubmitPrompt` | [`web_chat/ops/start_chat.rs`](../web_chat/ops/start_chat.rs), before a prompt reaches the agent |
+| `subagent_starting` | `subagentStart` | [`agent/subagent_host/ops/runner.rs`](../agent/subagent_host/ops/runner.rs), before a sub-agent spawns |
 | `session_started` | `sessionStart` | not called yet |
 | `session_ended` | `sessionEnd` | not called yet |
 | `pre_compact` | `preCompact` | not called yet |
@@ -162,7 +162,7 @@ both. `subagent_starting` returns `Err(reason)` when the child must not run.
 Most hooks are `command`: spawn a program, write the event JSON to its stdin,
 read a decision from its stdout. A `prompt` hook is a policy written in
 English. The engine calls back into the host through `PromptEvaluator`, which
-`host.rs` implements with `prompt_eval::evaluate`. That function loads the
+[`host.rs`](./host.rs) implements with `prompt_eval::evaluate`. That function loads the
 config with `load_config_with_timeout`, applies the hook's optional model
 override to that copy's `default_model`, and makes a one-shot
 `inference::ops::inference_prompt` call capped at 200 output tokens. The
@@ -173,12 +173,12 @@ hook costs a model call per event, so they belong on rare, high-stakes moments.
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Module declarations; re-exports `init`, `PromptVerdict` and the controller aggregators. |
+| [`mod.rs`](./mod.rs) | Module declarations; re-exports `init`, `PromptVerdict` and the controller aggregators. |
 | `host.rs` | The process-global `HookEngine` (`engine()`), the `HookEnvironment` built from `PRODUCT_NAME`, the home dir, `agent::platform_shell::build_tokio_command` and the prompt evaluator, and `reload`. |
-| `bridge.rs` | `ConfiguredHookBridge`: the `ToolHook` and `PostTurnHook` impls, derived-event mapping and payload shaping, and the translation from `HookOutput` to `ToolHookDecision`. |
+| [`bridge.rs`](./bridge.rs) | `ConfiguredHookBridge`: the `ToolHook` and `PostTurnHook` impls, derived-event mapping and payload shaping, and the translation from `HookOutput` to `ToolHookDecision`. |
 | `ops.rs` | `init` and the direct entry points for non-tool lifecycle moments. |
-| `prompt_eval.rs` | Model evaluation for `prompt`-kind hooks. |
-| `schemas.rs` | The `hooks` RPC namespace. |
+| [`prompt_eval.rs`](./prompt_eval.rs) | Model evaluation for `prompt`-kind hooks. |
+| [`schemas.rs`](./schemas.rs) | The `hooks` RPC namespace. |
 
 ## Key types and entry points
 
@@ -193,7 +193,7 @@ hook costs a model call per event, so they belong on rare, high-stakes moments.
 ## RPC surface
 
 Namespace `hooks`, registered through `all_hooks_registered_controllers` in
-`core/all.rs`:
+[`core/all.rs`](../core/all.rs):
 
 | Method | What it does |
 | --- | --- |
@@ -213,12 +213,12 @@ even for observing events, since a detached dispatch would report nothing.
   follow-up queueing belong to `tinyagents_runtime::command_hooks` in the
   `tinyagents` repo. Fix or extend those there, then move the gitlink. See its
   own `README.md` under
-  `vendor/tinyagents/crates/tinyagents-runtime/src/command_hooks/`.
+  [`vendor/tinyagents/crates/tinyagents-runtime/src/command_hooks/`](../../../../vendor/tinyagents/crates/tinyagents-runtime/src/command_hooks/).
 - The `ToolHook` / `PostTurnHook` seams and how the harness runs them belong
-  to `agent/hooks.rs` and `agent/tinyagents/middleware/embedder_hooks.rs`.
+  to `agent/hooks.rs` and [`agent/tinyagents/middleware/embedder_hooks.rs`](../agent/tinyagents/middleware/embedder_hooks.rs).
 - Approval and the autonomy policy belong to `security/`. A hook's `allow`
   only lets a call continue to them.
-- Product-facing docs for hook authors live in `gitbooks/developing/hooks.md`.
+- Product-facing docs for hook authors live in [`gitbooks/developing/hooks.md`](../../../../gitbooks/developing/hooks.md).
 
 ## Gotchas
 
@@ -246,7 +246,7 @@ even for observing events, since a detached dispatch would report nothing.
 
 ## Tests
 
-`bridge_tests.rs` sits beside `bridge.rs` (derived events, payload shaping,
+[`bridge_tests.rs`](./bridge_tests.rs) sits beside `bridge.rs` (derived events, payload shaping,
 decision translation). The engine, config, matcher and exec tests live with
 the engine in `tinyagents-runtime`. Run the host tests with
 `cargo test -p openhuman hooks::` or `pnpm debug rust hooks::`.
@@ -255,3 +255,6 @@ the engine in `tinyagents-runtime`. Run the host tests with
 
 - [gitbooks/developing/hooks.md](../../../../gitbooks/developing/hooks.md): the `hooks.json` guide for hook authors.
 - [gitbooks/developing/architecture/security.md](../../../../gitbooks/developing/architecture/security.md): the approval gate and autonomy policy that still apply after a hook allows.
+- [Parent module README](../../README.md)
+- [Agent harness architecture](../../../../gitbooks/developing/architecture/agent-harness.md)
+- [tinyagents](../../../../vendor/tinyagents/README.md)

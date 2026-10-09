@@ -1,8 +1,8 @@
 # Life-scenario harness benchmark
 
-Six everyday assistant tasks — calendar triage, receipt scanning, live web
+Six everyday assistant tasks, calendar triage, receipt scanning, live web
 research, planning, multi-source synthesis, and a fact-check-and-publish
-pipeline — run against the real OpenHuman core and scored on what actually
+pipeline, run against the real OpenHuman core ([`crates/openhuman-core/`](../../crates/openhuman-core/README.md)) and scored on what actually
 landed on disk.
 
 It answers one question: **how much of a realistic task does the shipping
@@ -22,7 +22,7 @@ node scripts/life-scenarios/run.mjs --driver rpc --agent life_scenarios
 node scripts/life-scenarios/run.mjs --grade-only target/life-scenarios/<run-id>
 ```
 
-Requires a built core (`cargo build --manifest-path Cargo.toml -p openhuman-cli
+The driver is [`run.mjs`](./run.mjs) and the scenarios are defined in [`scenarios.mjs`](./scenarios.mjs). Requires a built core (`cargo build --manifest-path Cargo.toml -p openhuman-cli
 --bin openhuman-core`) and `OPENROUTER_API_KEY` in the environment.
 
 ## Headless, but shaped like the desktop app
@@ -32,10 +32,10 @@ does, with the UI removed and nothing else changed:
 
 | desktop app | here |
 | --- | --- |
-| Tauri spawns the core as a tokio task | spawn `openhuman-core serve` |
+| Tauri spawns the core as a tokio task | spawn [`openhuman-core serve`](../../crates/openhuman-cli/README.md) |
 | composer calls `openhuman.channel_web_chat` | same RPC, same params |
 | reply streams over Socket.IO | same events over `GET /events` |
-| orchestrator agent, every tool pack withheld | same — no custom definition |
+| orchestrator agent, every tool pack withheld | same, no custom definition |
 | approval gate ON, a human clicks Approve | gate ON, a responder approves |
 | BYOK set in Settings → Models | `config.update_model_settings` |
 | signed-in session | offline local session |
@@ -44,7 +44,7 @@ Three things are deliberately *not* the app, and each buys reproducibility:
 
 - **Its own `HOME`.** `default_root_openhuman_dir` resolves `<home>/.openhuman`,
   so config, keyring, auth profiles, workspace and session db all land in the
-  run directory. A run cannot read or corrupt the operator's install — and
+  run directory. A run cannot read or corrupt the operator's install, and
   installing a credential into a shared `~/.openhuman` would sign a running
   desktop app out.
 - **BYOK inference, not the hosted backend.** A benchmark whose price and
@@ -59,7 +59,7 @@ not the product path.
 
 ## The corpus is fictional
 
-Everything under `fixtures/` is invented: one persona (Alex Rivera
+Everything under [`fixtures/`](./fixtures) is invented: one persona (Alex Rivera
 `<alex.rivera@example.com>`), eleven mail messages, a seven-event calendar day,
 a generated PDF hotel booking, and a draft article. Every domain is
 `*.example`. Nothing here came from a real mailbox, calendar or bank, so the
@@ -76,13 +76,13 @@ action directory. Outputs are expected under `out/`.
 
 Scenarios 1, 2 and 5 are *about* mail and calendar. Stubbing those out would
 benchmark the wrong thing, and the real Composio needs live consumer accounts,
-costs quota and is not reproducible. So `mock-composio.mjs` serves Composio's
+costs quota and is not reproducible. So [`mock-composio.mjs`](./mock-composio.mjs) serves Composio's
 wire shape over the same fixtures the file tools see: `GMAIL_FETCH_EMAILS`
 returns the fixture mailbox in Gmail's message shape,
 `GOOGLECALENDAR_EVENTS_LIST` returns the fixture calendar in Google's event
 shape, and the write actions (`GMAIL_SEND_EMAIL`, `GOOGLECALENDAR_UPDATE_EVENT`)
 record what the agent *tried* to do into `composio-outbox.json` instead of
-doing it — so a grader can assert on the attempt.
+doing it, so a grader can assert on the attempt.
 
 Wiring it up needs three things together, and two of them are easy to miss:
 
@@ -90,31 +90,31 @@ Wiring it up needs three things together, and two of them are easy to miss:
    dispatches on that field alone; in the default `backend` mode the env
    override is never consulted.
 2. **Both** `OPENHUMAN_COMPOSIO_DIRECT_BASE_V2` and `..._V3`. The match arm is
-   `(Some, Some)` — setting only one silently falls through to the production
+   `(Some, Some)`, setting only one silently falls through to the production
    Composio URLs.
 3. A **debug** build. The env override in
-   `integrations/composio/client/factory.rs` is `#[cfg(debug_assertions)]`-gated.
+   [`integrations/composio/client/factory.rs`](../../crates/openhuman-core/src/integrations/composio/client/factory.rs) is `#[cfg(debug_assertions)]`-gated.
 
 ### Mock search
 
 `web_search_tool` is not a local tool: it posts to
 `/agent-integrations/parallel/search` on the hosted backend, which resolves the
 query against a paid provider and bills the caller's team. This run has no
-session to spend — inference is BYOK and the credential is an offline local
-token — so every call came back `SESSION_EXPIRED … 401 Invalid token`.
+session to spend, inference is BYOK and the credential is an offline local
+token, so every call came back `SESSION_EXPIRED … 401 Invalid token`.
 
 The tool was advertised anyway, so the model spent calls discovering it was dead
 and then routed around it by hand. In the 2026-09-23 run `baggage-policy` burned
 two calls on the 401s, improvised a DuckDuckGo HTML scrape, guessed delta.com
-paths and collected four 404s — then hit the 15-call cap with the answer
+paths and collected four 404s, then hit the 15-call cap with the answer
 assembled and the requested file unwritten, scoring 0/1. Offering a capability
 the run's own configuration cannot serve is a defect in the rig.
 
-`mock-search.mjs` fixes it by **mocking discovery, not retrieval**. It ranks the
-fixture corpus in `fixtures/search-index.json` and returns *real, live* URLs; the
+[`mock-search.mjs`](./mock-search.mjs) fixes it by **mocking discovery, not retrieval**. It ranks the
+fixture corpus in [`fixtures/search-index.json`](./fixtures/search-index.json) and returns *real, live* URLs; the
 agent still fetches every page over the network with `web_fetch` and still has to
 read what the page says. So `baggage-policy`'s `cites_delta_com` and
-`states_carryon_dimensions` checks stay honest — what is gone is the search
+`states_carryon_dimensions` checks stay honest, what is gone is the search
 engine the run cannot pay for, not the comprehension being measured. Excerpts in
 the fixture stop short of the numbers the graders assert on, so an agent that
 answers from the excerpt alone still fails.
@@ -127,7 +127,7 @@ empty one, because it spends fetches on it.
 Three things were easy to get wrong, and all three cost a run:
 
 1. **It has to take over the whole backend base.** `api_url` is the single base
-   every backend caller resolves through (`openhuman_tinyhumans::backend::url::effective_backend_api_url`).
+   every backend caller resolves through ([`openhuman_tinyhumans::backend::url::effective_backend_api_url`](../../crates/openhuman-tinyhumans/src/backend/url.rs)).
    Loopback on an ephemeral port is what makes that work:
    `looks_like_local_ai_endpoint` treats loopback as an inference signal only
    when paired with an LLM-ish port or path, so a bare `http://127.0.0.1:<random>`
@@ -139,8 +139,8 @@ Three things were easy to get wrong, and all three cost a run:
    actually holds is `BACKEND_URL`, which `api_base_from_env` reads whichever
    config wins.
 3. **Every response needs the `{ success, data }` envelope.**
-   `integrations/client/errors.rs::parse_envelope` unwraps it. A bare payload
-   fails as `missing field 'success'` — and fails late enough to read as a
+   [`integrations/client/errors.rs::parse_envelope`](../../crates/openhuman-core/src/integrations/client/errors.rs) unwraps it. A bare payload
+   fails as `missing field 'success'`, and fails late enough to read as a
    broken tool rather than an empty result, so the agent abandons the task. It
    did exactly that, six times in a row.
 
@@ -151,11 +151,11 @@ untouched: it is redirected separately over `OPENHUMAN_COMPOSIO_DIRECT_BASE_V*`.
 
 `--no-mock-search` opts out and dials the hosted backend.
 
-Self-test: `scripts/__tests__/life-scenarios-mock-search.test.mjs`.
+Self-test: [`scripts/__tests__/life-scenarios-mock-search.test.mjs`](../__tests__/life-scenarios-mock-search.test.mjs).
 
 ## Approvals are answered, not switched off
 
-The gate is installed and an `ApprovalResponder` answers it — it polls
+The gate is installed and an `ApprovalResponder` answers it, it polls
 `approval.list_pending` and answers `approve_once`, exactly as the approval card
 does, recording every decision to `approvals.json`. A headless harness that sets
 `OPENHUMAN_APPROVAL_GATE=0` is measuring a product nobody runs; one that leaves
@@ -178,21 +178,21 @@ does the work the approval card would.
 full of invented rows has to score zero on the rows it invented, so every
 grader checks facts that are only derivable from the fixtures:
 
-- `calendar-buffer` — exactly three gaps under 15 minutes exist (`ev-02` at 0
-  min, `ev-05` at 0, `ev-06` at **10** — the one that catches a model matching
+- `calendar-buffer`, exactly three gaps under 15 minutes exist (`ev-02` at 0
+  min, `ev-05` at 0, `ev-06` at **10**: the one that catches a model matching
   on "back-to-back" rather than "under fifteen"), and `ev-07` is a solo focus
   block that must *not* be flagged.
-- `subscription-scan` — four real subscriptions among a one-off order, a
+- `subscription-scan`, four real subscriptions among a one-off order, a
   usage-based utility bill, a phishing mail and a bank alert that duplicates a
   receipt already counted. Only StreamFlix rose in price (13.99 → 15.99).
-- `baggage-policy` — the only scenario that leaves the sandbox. Demands cited
+- `baggage-policy`, the only scenario that leaves the sandbox. Demands cited
   `delta.com` URLs, so a model answering from memory is detectable.
-- `meal-plan` — five days, prep under 30 minutes, no duplicate grocery lines,
+- `meal-plan`, five days, prep under 30 minutes, no duplicate grocery lines,
   and spinach/feta/olive oil each reused across at least two dinners.
-- `trip-itinerary` — facts that exist *only* inside the binary PDF (hotel name,
+- `trip-itinerary`, facts that exist *only* inside the binary PDF (hotel name,
   address, phone), plus the flight code from the mail, plus a live weather
   source. 14 October is spent in the air and must not be scheduled.
-- `fact-check-publish` — one asset referenced by the draft is missing from
+- `fact-check-publish`, one asset referenced by the draft is missing from
   disk and one hyperlink does not resolve; both must be named in the lint
   report and must not survive into either output.
 
@@ -215,7 +215,14 @@ target/life-scenarios/<run-id>/
 
 ## Known harness findings this suite surfaced
 
-- [`FINDINGS.md`](FINDINGS.md) — the defect list, ranked, with the fix each wants.
-- [`DIAGNOSIS.md`](DIAGNOSIS.md) — the causal trace behind the headline result
+- [`FINDINGS.md`](FINDINGS.md), the defect list, ranked, with the fix each wants.
+- [`DIAGNOSIS.md`](DIAGNOSIS.md), the causal trace behind the headline result
   (four of six scenarios wrote nothing), tool call by tool call, including the
   two claims from the first pass that did not survive checking.
+
+## See also
+
+- [`scripts/memory-scenarios/`](../memory-scenarios/README.md), the sibling harness for memory flows.
+- [Agent harness](../../gitbooks/developing/architecture/agent-harness.md) and [Approval gate](../../gitbooks/features/approval-gate.md), the product behavior being measured.
+- [Native tools](../../gitbooks/features/native-tools/README.md) and [Third-party integrations](../../gitbooks/features/integrations/README.md).
+- [`scripts/README.md`](../README.md).

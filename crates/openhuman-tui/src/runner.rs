@@ -176,7 +176,8 @@ async fn async_main(
 
     // In-process core: full domains (channel.web_chat needs DomainGroup::Channels,
     // so harness() is not enough), no RPC transport, no background services.
-    // Conversations in the classic on-disk layout, as the desktop keeps them.
+    // Conversations in the classic on-disk layout, as the desktop keeps them,
+    // unless a storage URL (`OPENHUMAN_STORAGE_URL` / `[storage] url`) is set.
     openhuman_rpc::session_store::install_for_host().await?;
     let runtime = Arc::new(
         CoreBuilder::new(HostKind::detect_standalone())

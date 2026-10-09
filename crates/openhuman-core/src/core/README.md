@@ -9,7 +9,7 @@ controller it exposes is implemented by a domain under
 `crates/openhuman-core/src/<domain>/` and only wired in here.
 
 Callers are the hosts above the core. The JSON-RPC server in
-`crates/openhuman-rpc`, the `openhuman-core` binary in `crates/openhuman-cli`,
+[`crates/openhuman-rpc`](../../../openhuman-rpc/), the `openhuman-core` binary in [`crates/openhuman-cli`](../../../openhuman-cli/),
 the desktop shell, the TUI and `openhuman-embed` all reach domain behavior
 through the entry points in this folder.
 
@@ -21,13 +21,13 @@ A domain exposes an operation by building a `RegisteredController`: a
 `ControllerSchema` (namespace, function, description, typed inputs and
 outputs) paired with a `ControllerHandler`, which is a plain
 `fn(Map<String, Value>) -> ControllerFuture`. The schema types
-(`ControllerSchema`, `FieldSchema`, `TypeSchema`) live in `mod.rs`.
+(`ControllerSchema`, `FieldSchema`, `TypeSchema`) live in [`mod.rs`](./mod.rs).
 `TypeSchema` covers scalars, arrays, maps, options, string enums, nested
 objects, named refs, and `BoundedU64` for fields backed by a narrower
 integer type, so an out-of-range value is refused before dispatch.
 
 Inside the handler, the domain's `ops.rs` returns an `Outcome<T>`
-(`outcome.rs`): a value plus log lines. `Outcome::into_cli_compatible_json`
+([`outcome.rs`](./outcome.rs)): a value plus log lines. `Outcome::into_cli_compatible_json`
 serializes it through `apply_log_envelope`, which is the single definition of
 the wire shape. With no logs the value goes out bare; with logs it is wrapped
 as `{ "result": value, "logs": [...] }`. That means a response's shape depends
@@ -36,14 +36,14 @@ byte-for-byte on purpose, because changing it is a wire change for every
 client. `unwrap_rpc` peels `result` and `data` envelopes back off.
 
 Errors travel as `Err(String)`. When a controller needs a typed error, it
-encodes a `StructuredRpcError` (`structured_error.rs`) into that string behind
+encodes a `StructuredRpcError` ([`structured_error.rs`](./structured_error.rs)) into that string behind
 the `STRUCTURED_RPC_ERROR_SENTINEL` prefix, and the transport decodes it. A
 few surfaces (`threads`, desktop provider surfaces) wrap results in the
-`{data, error, meta}` envelope built by `envelope.rs`.
+`{data, error, meta}` envelope built by [`envelope.rs`](./envelope.rs).
 
 ### Registration
 
-`all.rs` is the registry. `build_registered_controllers` calls every domain's
+[`all.rs`](./all.rs) is the registry. `build_registered_controllers` calls every domain's
 `all_*_registered_controllers()` and tags each batch with a `DomainGroup`
 through the private `push` helper, so domain modules never see groups.
 `build_internal_only_controllers` does the same for methods that are callable
@@ -81,7 +81,7 @@ Every entry carries a `DomainGroup`: `Agent`, `Memory`, `Threads`, `Config`,
 `Security`, `Flows`, `Skills`, `Mcp`, `Channels`, `Web3`, `Voice`, `Media`,
 `Inference`, `Integrations`, `Automation`, `Runtimes`, `Desktop`, `Hosted`,
 `Modules` and `Platform`. The variants track the family directories under
-`crates/openhuman-core/src/`. The live surface (schema listing, dispatch,
+[`crates/openhuman-core/src/`](../). The live surface (schema listing, dispatch,
 agent tools, stores, subscribers) is filtered by whether the `DomainSet` of
 the ambient `runtime::context::CoreContext` allows the group. With no context
 yet (some unit tests), nothing is filtered. Adding a family directory means
@@ -123,7 +123,7 @@ namespace commands, the device tunnel, and `CoreRuntime::invoke`.
 ```
 
 `validate_params` (in `all.rs`, with message builders and the matcher
-`is_param_validation_error` in `params.rs`) rejects missing required params,
+`is_param_validation_error` in [`params.rs`](./params.rs)) rejects missing required params,
 unknown params and values that do not match their declared `TypeSchema`, so
 handlers only deserialize input that already passed the schema.
 
@@ -140,7 +140,7 @@ transport decides severity: names in `KNOWN_PROBE_METHODS` (generic probes
 such as `rpc.discover`, and retired calls) stay debug-only, and anything else
 is reported to Sentry at warn.
 
-Session expiry is classified narrowly by `session_expiry.rs`. Only OpenHuman
+Session expiry is classified narrowly by [`session_expiry.rs`](./session_expiry.rs). Only OpenHuman
 backend failures (explicit "Session expired" text, the scheduler-gate
 `SESSION_EXPIRED` sentinel, missing session guards, and 401s formatted as
 `"{METHOD} /path failed (401 ...)"`) count. A provider's 401 does not, so a
@@ -148,10 +148,10 @@ broken BYOK key or Discord token never signs the user out.
 
 ### Event bus
 
-`bus.rs` declares `BUS: OnceBus<DomainEvent>`, the process-wide `tinybus`
+[`bus.rs`](./bus.rs) declares `BUS: OnceBus<DomainEvent>`, the process-wide `tinybus`
 singleton. The bus implementation lives in the `tinybus` submodule; the core
 keeps only the static, because `OnceBus<E>` is generic over the event type
-and the host is the one that knows `E`. `events.rs` is the event catalog:
+and the host is the one that knows `E`. [`events.rs`](./events.rs) is the event catalog:
 `DomainEvent`, a `#[non_exhaustive]` enum whose `domain()` value is appended
 to `EVENTS_ROOT` (`/ai/tinyhumans/openhuman/events`) as the routing key.
 The catalog is published under `EVENTS_INTERFACE`
@@ -185,7 +185,7 @@ Each subscribing domain owns a `bus.rs`, and subscriber names use
 
 ### Auth
 
-`auth.rs` seeds the per-process RPC bearer into a `OnceLock`, choosing the
+[`auth.rs`](./auth.rs) seeds the per-process RPC bearer into a `OnceLock`, choosing the
 first available source:
 
 1. an in-memory handoff from the desktop shell (`init_rpc_token_with_value`),
@@ -202,7 +202,7 @@ the approval-gate session id. `verify_bearer_token` and `bearer_matches` do
 the comparison.
 
 Browser `EventSource` cannot send an `Authorization` header, so `/events`
-uses separate bind tokens from `event_bind_tokens.rs`. An authenticated
+uses separate bind tokens from [`event_bind_tokens.rs`](./event_bind_tokens.rs). An authenticated
 caller invokes `core.events_subscribe_token { client_id }` and then opens
 `/events?client_id=<id>&token=<bind>`. A bind token is 256 random bits, tied
 to one `client_id`, consumed on first use, and expires after 60 seconds by
@@ -226,7 +226,7 @@ the first argument:
 | `mcp`, `mcp-server` | run the stdio MCP server (`mcp::server::run_stdio_from_cli`) |
 | `tui`, `chat` | print a pointer to the separate `openhuman-tui` binary |
 | `call --method <m> --params <json>` | one raw RPC call through `invoke_method` (`--params-stdin` reads params from stdin) |
-| `agent dump-prompt / dump-all / prompt-size / list` | prompt inspection tools in `agent_cli.rs` |
+| `agent dump-prompt / dump-all / prompt-size / list` | prompt inspection tools in [`agent_cli.rs`](./agent_cli.rs) |
 | `sentry-test` | send a test event to Sentry |
 | `<namespace> <function> [--flags]` | generic dispatcher over the registry schemas |
 
@@ -235,19 +235,19 @@ from their descriptions (`namespace_description` in `all.rs`), and turns
 flags into params. A namespace with no function can fall through to a
 standalone `RegisteredCliAdapter`: today `voice` (which stays registered with
 the `voice` feature off and reports that voice is disabled) and `subsystems`
-(`subsystems_cli.rs`, which prints the subsystem table). Wire new CLI
-behavior through the registry; do not add namespace branches to `cli.rs` or
+([`subsystems_cli.rs`](./subsystems_cli.rs), which prints the subsystem table). Wire new CLI
+behavior through the registry; do not add namespace branches to [`cli.rs`](./cli.rs) or
 the JSON-RPC server.
 
 `run` and `serve` need a server, which the core does not contain.
-`server_launcher.rs` holds a `ServerLauncher` port; the host installs one
+[`server_launcher.rs`](./server_launcher.rs) holds a `ServerLauncher` port; the host installs one
 (`openhuman_rpc::server::install_cli_server()` in the `openhuman-core` binary
 and the desktop app) before calling `run_from_cli_args`. Without it those
 subcommands fail with an explanation.
 
 ### Logging, redaction and crash reporting
 
-`logging.rs` sets up the logger per host: `init_for_cli_run`,
+[`logging.rs`](./logging.rs) sets up the logger per host: `init_for_cli_run`,
 `init_for_embedded` and `init_for_tui` (which also buffers lines for the TUI
 through `tui_log_lines`). Two redaction passes keep secrets out of logs.
 `rpc_log::redact_params_for_log` strips sensitive keys (`api_key`, `token`,
@@ -256,16 +256,16 @@ params before the `[rpc:dispatch]` trace line. `log_redaction::scrub_secrets`
 pattern-matches secrets in free text and is shared by the Sentry path and the
 always-on log path, so the two cannot drift.
 
-`observability.rs` is the error-reporting policy: `report_error`,
+[`observability.rs`](./observability.rs) is the error-reporting policy: `report_error`,
 `report_error_or_expected` and `report_warning_message`, the expected-error
 classifier (`expected_error_kind`), and the Sentry `before_send` predicates
 that drop deterministic noise (transient provider HTTP statuses and transport
 failures, updater blips, session expiry, max-iteration events). It also
-defines the shared `BACKEND_UNAVAILABLE_PREFIX`. `sentry_transport.rs` is a
+defines the shared `BACKEND_UNAVAILABLE_PREFIX`. [`sentry_transport.rs`](./sentry_transport.rs) is a
 bounded, nonblocking Sentry transport over the core's reqwest stack, compiled
 only with the `crash-reporting` feature.
 
-`shutdown.rs` listens for SIGINT and SIGTERM (`signal`) and runs cleanup
+[`shutdown.rs`](./shutdown.rs) listens for SIGINT and SIGTERM (`signal`) and runs cleanup
 hooks that domains `register`, sequentially in registration order.
 
 ### Runtime composition and subsystems
@@ -277,7 +277,7 @@ methods and run agent turns. Serving and background services come second,
 through `openhuman_rpc::server::serve` or `CoreRuntime::start_services`.
 `ServiceSet`, `DomainSet` and `ToolGroups` narrow what runs. See
 [runtime/README.md](runtime/README.md) for the full reference.
-`runtime/mod.rs` also holds `AGENT_WORKER_STACK_BYTES` (20 MiB) and
+[`runtime/mod.rs`](./runtime/mod.rs) also holds `AGENT_WORKER_STACK_BYTES` (20 MiB) and
 `MAX_BLOCKING_THREADS` (64). One agent turn is a very large async state
 machine and a sub-agent nests another, which overflows tokio's default 2 MiB
 worker stack, so every multi-thread runtime that can host a turn (the desktop
@@ -303,15 +303,15 @@ Contract and registry:
 | `envelope.rs` | `ApiEnvelope`, `ApiError`, `ApiMeta`, `PaginationMeta`: the `{data, error, meta}` shape some namespaces use. |
 | `params.rs` | Params shape (`params_to_object`, `parse_json_params`), validation messages and `is_param_validation_error`. |
 | `all.rs` | The registry: `RegisteredController`, `RegisteredCliAdapter`, `DomainGroup`, `ControllerExtension`, `register_controller_extension`, `validate_params`, `schema_for_rpc_method`, `try_invoke_registered_rpc`, `all_http_method_schemas` (adds `core.ping` and `core.version` for `/schema`), `namespace_description`. |
-| `types.rs` | `AppState`, `HostKind`, `InvocationResult`, `approval_gate_boot_decision`. |
+| [`types.rs`](./types.rs) | `AppState`, `HostKind`, `InvocationResult`, `approval_gate_boot_decision`. |
 
 Dispatch and auth:
 
 | Path | What it does |
 | --- | --- |
-| `invoke.rs` | `invoke_method` and `default_state`: the in-process entry point and the session-expiry hook. |
-| `dispatch.rs` | `dispatch`: legacy rewrite, `core.*` methods, registry fallback, unknown-method handling, `KNOWN_PROBE_METHODS`. |
-| `legacy_aliases.rs` | `resolve_legacy`: retired method names to canonical ones; mirrors `LEGACY_METHOD_ALIASES` in `app/src/services/rpcMethods.ts`. |
+| [`invoke.rs`](./invoke.rs) | `invoke_method` and `default_state`: the in-process entry point and the session-expiry hook. |
+| [`dispatch.rs`](./dispatch.rs) | `dispatch`: legacy rewrite, `core.*` methods, registry fallback, unknown-method handling, `KNOWN_PROBE_METHODS`. |
+| [`legacy_aliases.rs`](./legacy_aliases.rs) | `resolve_legacy`: retired method names to canonical ones; mirrors `LEGACY_METHOD_ALIASES` in [`app/src/services/rpcMethods.ts`](../../../../app/src/services/rpcMethods.ts). |
 | `session_expiry.rs` | `is_session_expired_error` and `is_unconfirmed_unauthorized_error`. |
 | `auth.rs` | The per-process RPC bearer: init paths, `get_rpc_token`, `verify_bearer_token`, `bearer_matches`. |
 | `event_bind_tokens.rs` | Single-shot bind tokens for the `/events` SSE stream (`issue`, `consume`). |
@@ -324,7 +324,7 @@ Bus:
 | --- | --- |
 | `bus.rs` | `BUS`, `EVENTS_ROOT`, `EVENTS_INTERFACE`, `EVENTS_VERSION`, `init`, `manifest`, `TracingSubscriber`. |
 | `events.rs` | `DomainEvent`, the full event catalog, and its `domain()` routing. |
-| `bus_testing.rs` | Test helpers: `isolated_bus`, `BUS_HANDLER_LOCK`, `mock_bus_stub` and the RAII `MockBusGuard` for native stubs. |
+| [`bus_testing.rs`](./bus_testing.rs) | Test helpers: `isolated_bus`, `BUS_HANDLER_LOCK`, `mock_bus_stub` and the RAII `MockBusGuard` for native stubs. |
 
 CLI:
 
@@ -339,8 +339,8 @@ Process plumbing:
 | Path | What it does |
 | --- | --- |
 | `logging.rs` | Logger setup per host kind, log directory, file-guard shutdown. |
-| `rpc_log.rs` | `redact_params_for_log`, key-name redaction for dispatch trace logs. |
-| `log_redaction.rs` | `scrub_secrets`, pattern-based secret scrubbing for free-text log and Sentry messages. |
+| [`rpc_log.rs`](./rpc_log.rs) | `redact_params_for_log`, key-name redaction for dispatch trace logs. |
+| [`log_redaction.rs`](./log_redaction.rs) | `scrub_secrets`, pattern-based secret scrubbing for free-text log and Sentry messages. |
 | `observability.rs` | Error reporting, expected-error classification, Sentry `before_send` filters, shared error prefixes. |
 | `sentry_transport.rs` | Sentry transport over reqwest (`crash-reporting` feature). |
 | `shutdown.rs` | SIGINT/SIGTERM signal and the registered shutdown hooks. |
@@ -388,11 +388,11 @@ surface.
   handlers the router mounts (`inference::http`, the dictation WebSocket)
   stay in their domains behind core's `http-server` feature.
 - The bus runtime, broker, native registry and proxies belong to the
-  `tinybus` submodule (`vendor/tinybus`). Only the `BUS` static and the event
+  `tinybus` submodule ([`vendor/tinybus`](../../../../vendor/tinybus/)). Only the `BUS` static and the event
   catalog live here.
 - Hosted backend proxies (`billing`, `team`, `referral`, `announcements`,
   `webhooks`, `channel_link`, `oauth`) are registered by
-  `crates/openhuman-tinyhumans` as an extension, not built into the core.
+  [`crates/openhuman-tinyhumans`](../../../openhuman-tinyhumans/) as an extension, not built into the core.
 - Login, token exchange and `/auth/me` belong to the host's session owner
   (`openhuman_tinyhumans::session`, `openhuman_embed::Auth`). Credential
   storage and `auth.set_credential` are in `security::credentials`.
@@ -429,7 +429,7 @@ surface.
 
 ## Tests
 
-Tests live beside their modules as `<module>_tests.rs` (`core_mod_tests.rs`
+Tests live beside their modules as `<module>_tests.rs` ([`core_mod_tests.rs`](./core_mod_tests.rs)
 for `mod.rs`; the registry, observability and event catalog have several
 split files). Run them with:
 
@@ -443,3 +443,7 @@ pnpm debug rust core::
 - [runtime/README.md](runtime/README.md)
 - [../security/README.md](../security/README.md)
 - [Architecture overview](../../../../gitbooks/developing/architecture.md)
+- [Parent module README](../../README.md)
+- [Building the Rust core](../../../../gitbooks/developing/building-rust-core.md)
+- [Embedding OpenHuman](../../../../gitbooks/developing/embedding.md)
+- [openhuman-rpc crate](../../../openhuman-rpc/README.md)

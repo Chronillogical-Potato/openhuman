@@ -352,6 +352,18 @@ fn snapshot_config_json_redacts_every_search_key_but_keeps_settings() {
     assert!(snapshot["config"]["seltz"]["api_key"].is_null());
 }
 
+#[test]
+fn snapshot_config_json_redacts_the_storage_url_credentials() {
+    let mut cfg = Config::default();
+    cfg.storage.url = Some("mongodb://app:hunter2@db.internal/openhuman".into());
+    let snapshot = snapshot_config_json(&cfg).unwrap();
+    assert!(!snapshot.to_string().contains("hunter2"));
+    assert_eq!(
+        snapshot["config"]["storage"]["url"],
+        "mongodb://***@db.internal/openhuman"
+    );
+}
+
 // ── agent_server_status ────────────────────────────────────────
 
 #[test]

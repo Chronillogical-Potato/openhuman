@@ -9,9 +9,9 @@ into it; hosts install the actual transport.
 
 The core has no dependency on `tinyhumans-sdk` and holds no hosted URL,
 default, environment variable, header policy or product identity of its own.
-All of that belongs to the installed transport, and the helpers in `mod.rs`
+All of that belongs to the installed transport, and the helpers in [`mod.rs`](./mod.rs)
 ask it. The only production transport is `SdkBackendTransport` in
-`crates/openhuman-tinyhumans`, built on the vendored SDK.
+[`crates/openhuman-tinyhumans`](../../../openhuman-tinyhumans/), built on the vendored SDK.
 
 ## How it works
 
@@ -56,7 +56,7 @@ current call. The first hit wins:
    `run_server_embedded_with_ready` or `run_core_from_args` rather than the
    builder. `openhuman_tinyhumans::install` (or `RuntimeBuilder` for library
    hosts) does the install.
-3. Under `cfg(test)` only, `PlainHttpTransport` from `transport/plain.rs`.
+3. Under `cfg(test)` only, `PlainHttpTransport` from [`transport/plain.rs`](./transport/plain.rs).
 4. Otherwise `BackendTransportError::Unavailable`.
 
 Production has no implicit fallback. A core nobody gave a transport runs
@@ -82,7 +82,7 @@ The two purposes differ only in how an operator override is treated: a
 control-plane call must never land on an inference endpoint the user pointed
 `api_url` at, while managed inference uses it as given. The transport owns
 the defaults, the `BACKEND_URL` / `VITE_BACKEND_URL` overrides and that guard
-(`crates/openhuman-tinyhumans/src/backend/url.rs`).
+([`crates/openhuman-tinyhumans/src/backend/url.rs`](../../../openhuman-tinyhumans/src/backend/url.rs)).
 
 ### Sending an authenticated request
 
@@ -154,15 +154,15 @@ display text:
 | Path | What it does |
 | --- | --- |
 | `mod.rs` | Re-exports, plus `base_url`, `require_base_url`, `inference_base_url`, `product_identity` and `attribution_headers`. No local URL, header or identity state. |
-| `client.rs` | `BackendClient`, `BackendApiError`, `flatten_authed_error`, endpoint checks and `finish_authed_json` classification. |
-| `client/channel.rs` | Channel routes on `BackendClient`: `send_channel_message`, `send_channel_typing`, `send_channel_edit`, `send_channel_delete`, `send_channel_reaction`, `create_channel_thread`, `update_channel_thread`, `list_channel_threads`. |
-| `classify.rs` | `is_budget_exhausted_message`, a one-line wrapper over `tinyinference_providers::is_budget_exhausted_message`. |
+| [`client.rs`](./client.rs) | `BackendClient`, `BackendApiError`, `flatten_authed_error`, endpoint checks and `finish_authed_json` classification. |
+| [`client/channel.rs`](./client/channel.rs) | Channel routes on `BackendClient`: `send_channel_message`, `send_channel_typing`, `send_channel_edit`, `send_channel_delete`, `send_channel_reaction`, `create_channel_thread`, `update_channel_thread`, `list_channel_threads`. |
+| [`classify.rs`](./classify.rs) | `is_budget_exhausted_message`, a one-line wrapper over `tinyinference_providers::is_budget_exhausted_message`. |
 | [`transport/`](transport/README.md) | The port: `BackendTransport`, `BackendRequest`, `TransportProfile`, `BaseUrlPurpose`, `BackendTransportError`, the install slot, and shared helpers (`credential_headers`, `parse_body_text`, `unwrap_envelope`, `compose_url`). |
 | `transport/plain.rs` | `PlainHttpTransport`, compiled only under `cfg(test)` so the core's wiremock tests need no host crate. It applies no route policy. |
 
 ## Key types and entry points
 
-- `BackendTransport` (`transport/mod.rs`) is the trait a transport
+- `BackendTransport` ([`transport/mod.rs`](./transport/mod.rs)) is the trait a transport
   implements: `send_json`, `send_multipart`, `http_client(profile)`,
   `base_url(configured, purpose)`, `product_identity`,
   `attribution_headers` and `name`. Implementations are process-wide
@@ -172,12 +172,12 @@ display text:
   profile (`Api` for control-plane REST, `Integrations` for
   `/agent-integrations/*`), base URL, method, path, query pairs, JSON body,
   optional credential, and whether to unwrap the `{success, data}` envelope.
-- `BackendTransportError` (`transport/error.rs`) mirrors the SDK error arms
+- `BackendTransportError` ([`transport/error.rs`](./transport/error.rs)) mirrors the SDK error arms
   the classifiers match on: `Unavailable`, `Url`, `Http`, `Status`,
   `ChannelMessageNotFound`, `ChannelMessageRouteMissing`, `Envelope`,
   `Header`, `Decode`, `RouteNotExposed`, `Other`.
 - `install_backend_transport`, `resolve_backend_transport`, `is_installed`
-  (`transport/install.rs`) manage the process slot.
+  ([`transport/install.rs`](./transport/install.rs)) manage the process slot.
 - `BackendClient` (`client.rs`) is the client domains hold. Besides
   `authed_json` it has `url_for(path)` and `raw_client()`, which returns the
   transport's `Api`-profile `reqwest::Client` (attribution headers, no
@@ -192,21 +192,21 @@ display text:
   and wire classification belong to the transport implementation in
   `crates/openhuman-tinyhumans` (`src/transport/`, `src/backend/url.rs`,
   `src/backend/headers.rs`, `src/backend/product.rs`).
-- Backend routes are defined in `vendor/tinyhumans-sdk`. Add a missing route
+- Backend routes are defined in [`vendor/tinyhumans-sdk`](../../../../vendor/tinyhumans-sdk/). Add a missing route
   there (its unexposed-route registry is the policy the transport enforces)
   and then name it from the core. Do not recreate route implementations in
   this folder.
 - Account-bound hosted routes (link tokens, OAuth connect and handoff,
   billing, team, webhook tunnels, announcements) are called from
-  `crates/openhuman-tinyhumans/src/hosted/` on the SDK's typed clients, not
+  [`crates/openhuman-tinyhumans/src/hosted/`](../../../openhuman-tinyhumans/src/hosted/) on the SDK's typed clients, not
   through `BackendClient`. The integration token handoff decrypt lives in
-  `crates/openhuman-tinyhumans/src/hosted/oauth/handoff.rs`.
+  [`crates/openhuman-tinyhumans/src/hosted/oauth/handoff.rs`](../../../openhuman-tinyhumans/src/hosted/oauth/handoff.rs).
 - Session-token lookup, JWT parsing and `Authorization` formatting live in
   `security::credentials::jwt`. The core never obtains, exchanges or validates
   a session.
 - The Socket.IO handshake URL builder is `platform::socket::url::websocket_url`.
 - `IntegrationClient::map_transport_error`
-  (`integrations/client/errors.rs`) does the same classification job for
+  ([`integrations/client/errors.rs`](../integrations/client/errors.rs)) does the same classification job for
   `/agent-integrations/*` traffic.
 - Hosted memory does not go through this port. The TinyMemory engine uses its
   own HTTP client and only takes `base_url`, `attribution_headers` and a
@@ -236,16 +236,24 @@ display text:
 
 ## Tests
 
-`client_tests.rs` covers base stripping in `BackendClient::new`, 401
+[`client_tests.rs`](./client_tests.rs) covers base stripping in `BackendClient::new`, 401
 classification, `flatten_authed_error` and `backend_api_body_shape`.
-`client_channel_tests.rs` covers channel route shapes and, with a stub
-transport, the mapping of the typed channel-message 404s. `mod_tests.rs` and
-`transport/transport_tests.rs` cover the URL helpers and the port. The 404
+[`client_channel_tests.rs`](./client_channel_tests.rs) covers channel route shapes and, with a stub
+transport, the mapping of the typed channel-message 404s. [`mod_tests.rs`](./mod_tests.rs) and
+[`transport/transport_tests.rs`](./transport/transport_tests.rs) cover the URL helpers and the port. The 404
 wire classification is tested where it lives
-(`vendor/tinyhumans-sdk/tests/classify.rs`,
-`crates/openhuman-tinyhumans/src/transport/channel_404_tests.rs`), and the
+([`vendor/tinyhumans-sdk/tests/classify.rs`](../../../../vendor/tinyhumans-sdk/tests/classify.rs),
+[`crates/openhuman-tinyhumans/src/transport/channel_404_tests.rs`](../../../openhuman-tinyhumans/src/transport/channel_404_tests.rs)), and the
 attribution header tests are in
-`crates/openhuman-tinyhumans/src/backend/headers_tests.rs` and
-`crates/openhuman-tinyhumans/src/transport/transport_tests.rs`.
+[`crates/openhuman-tinyhumans/src/backend/headers_tests.rs`](../../../openhuman-tinyhumans/src/backend/headers_tests.rs) and
+[`crates/openhuman-tinyhumans/src/transport/transport_tests.rs`](../../../openhuman-tinyhumans/src/transport/transport_tests.rs).
 
 Run with `cargo test -p openhuman backend::` or `pnpm debug rust backend::`.
+
+## Further reading
+
+- [Parent module README](../../README.md)
+- [One TinyHumans API key](../../../../gitbooks/developing/tinyhumans-api-key.md)
+- [Deep architecture reference](../../../../gitbooks/developing/architecture.md)
+- [openhuman-tinyhumans crate](../../../openhuman-tinyhumans/README.md)
+- [tinyhumans-sdk](../../../../vendor/tinyhumans-sdk/README.md)

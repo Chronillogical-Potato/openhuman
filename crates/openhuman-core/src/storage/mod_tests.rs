@@ -96,3 +96,11 @@ async fn block_on_works_inside_a_runtime_too() {
         .unwrap();
     assert_eq!(answer, 7);
 }
+
+#[test]
+fn only_mongodb_is_shared_between_processes() {
+    assert!(driver_is_shared("mongodb"));
+    for driver in ["sqlite", "memory", "file"] {
+        assert!(!driver_is_shared(driver), "{driver}");
+    }
+}

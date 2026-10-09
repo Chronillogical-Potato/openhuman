@@ -29,6 +29,9 @@ on `storage-mongodb`.
 - `scope_for_agent(agent_id)`: the storage scope an agent's records live
   under, the same mapping TinyAgents' `DriverSessionStores` uses, so every
   domain agrees.
+- `driver_is_shared(driver)` / `installed_is_shared()`: whether other
+  processes may write the same backend (MongoDB). Boot-time recovery, such
+  as the orphaned-run sweep, is skipped on a shared backend.
 
 ## Consumers
 
