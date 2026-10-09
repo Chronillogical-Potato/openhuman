@@ -12,7 +12,7 @@ A runtime claims a process-wide slot (the core's keyring, event bus and
 domain subscribers are process-scoped), so each file is its own test binary
 and usually holds a single `#[test]` that builds one runtime and checks
 everything against it. Splitting the assertions into separate tests would
-either race for the slot or need a mutex. `attached_tools.rs` holds a static
+either race for the slot or need a mutex. [`attached_tools.rs`](attached_tools.rs) holds a static
 `RUNTIME_LOCK` for the same reason.
 
 Each `#[test]` builds its tokio runtime with `common::runtime()`, which sets
@@ -26,18 +26,18 @@ recorded on the wrong server.
 
 | File | What it proves |
 | --- | --- |
-| `common/mod.rs` | Shared helpers: `runtime()`, `offline_config()`, `provider(reply)`, `stub_backend()`, `chat_completion`, `tool_call_completion`, and request inspectors (`chat_requests`, `tool_names`, `tool_results`). |
-| `harness_embed.rs` | A `Harness` runs a real turn with no transport and no background services, routes it to the mock provider, and binds nothing. |
-| `runtime_agents.rs` | Several agents on one runtime keep their own provider, access tier, skills, MCP servers and working directory, and the runtime's API key reaches a mocked managed backend as a bearer. |
-| `session_store.rs` | On a `Stateless` workspace with `InMemorySessionStores`, transcripts, journal and run status land in the store per agent, a reopened agent resumes from the store, and nothing durable is written to the scratch directory. |
-| `attached_tools.rs` | `Agent::attach_tools` sources survive clones and session resume, and name collisions are refused. |
-| `composio_agents.rs` | Two agents with their own `ComposioHostCredential` reach Composio with their own key only. |
-| `memory_facade.rs` | `Runtime::memory` over TinyMemory's in-memory reference engine keeps two tenant roots apart. |
-| `public_api.rs` | Compile-time check that the host-facing types and signatures stay exported. |
+| [`common/mod.rs`](common/mod.rs) | Shared helpers: `runtime()`, `offline_config()`, `provider(reply)`, `stub_backend()`, `chat_completion`, `tool_call_completion`, and request inspectors (`chat_requests`, `tool_names`, `tool_results`). |
+| [`harness_embed.rs`](harness_embed.rs) | A `Harness` runs a real turn with no transport and no background services, routes it to the mock provider, and binds nothing. |
+| [`runtime_agents.rs`](runtime_agents.rs) | Several agents on one runtime keep their own provider, access tier, skills, MCP servers and working directory, and the runtime's API key reaches a mocked managed backend as a bearer. |
+| [`session_store.rs`](session_store.rs) | On a `Stateless` workspace with `InMemorySessionStores`, transcripts, journal and run status land in the store per agent, a reopened agent resumes from the store, and nothing durable is written to the scratch directory. |
+| [`attached_tools.rs`](attached_tools.rs) | `Agent::attach_tools` sources survive clones and session resume, and name collisions are refused. |
+| [`composio_agents.rs`](composio_agents.rs) | Two agents with their own `ComposioHostCredential` reach Composio with their own key only. |
+| [`memory_facade.rs`](memory_facade.rs) | `Runtime::memory` over TinyMemory's in-memory reference engine keeps two tenant roots apart. |
+| [`public_api.rs`](public_api.rs) | Compile-time check that the host-facing types and signatures stay exported. |
 
 ## Running
 
-`runtime_agents.rs` gates its skills and MCP assertions on the `skills` and
+[`runtime_agents.rs`](runtime_agents.rs) gates its skills and MCP assertions on the `skills` and
 `mcp` features, so run with them on:
 
 ```bash
@@ -47,4 +47,10 @@ pnpm debug rust session_store
 ```
 
 Add a new scenario as a new file rather than a second `#[test]` in an
-existing one, and reuse `common/` for mocks.
+existing one, and reuse [`common/`](common/) for mocks.
+
+## Further reading
+
+- [`gitbooks/developing/embedding.md`](../../../gitbooks/developing/embedding.md): embedding the core in another product.
+- [`gitbooks/developing/testing-strategy.md`](../../../gitbooks/developing/testing-strategy.md): testing strategy.
+- [`crates/openhuman-embed/README.md`](../README.md): the openhuman-embed crate README.

@@ -82,7 +82,7 @@ pnpm profile:tauri --pid <PID> --duration 15
 | `--stacks`, `--no-stacks` | on for macOS | Turn the `/usr/bin/sample` capture on or off. |
 
 For the smaller embedded-core-only Linux RSS and PSS benchmark, use the
-`rss-bench` binary in `crates/openhuman-cli`:
+`rss-bench` binary in [`crates/openhuman-cli`](../../openhuman-cli/):
 
 ```bash
 cargo build --release -p openhuman-cli --features rss-bench --bin rss-bench
@@ -92,8 +92,8 @@ cargo build --release -p openhuman-cli --features rss-bench --bin rss-bench
 
 | Path | What it does |
 | --- | --- |
-| `Cargo.toml` | Standalone package with an empty `[workspace]` table. |
-| `src/main.rs` | Argument parsing, the sampling loop, process classification, report building, markdown rendering and stack parsing. |
+| [`Cargo.toml`](Cargo.toml) | Standalone package with an empty `[workspace]` table. |
+| [`src/main.rs`](src/main.rs) | Argument parsing, the sampling loop, process classification, report building, markdown rendering and stack parsing. |
 
 ## Gotchas
 
@@ -109,10 +109,16 @@ cargo build --release -p openhuman-cli --features rss-bench --bin rss-bench
 
 ## Tests
 
-`src/main_tests.rs` covers argument parsing, process classification and tree grouping, report building, and stack parsing.
+[`src/main_tests.rs`](src/main_tests.rs) covers argument parsing, process classification and tree grouping, report building, and stack parsing.
 This crate is outside both the root workspace and the app crate, so run it on
 its own:
 
 ```bash
 cargo test --manifest-path crates/openhuman-app/profiling/Cargo.toml
 ```
+
+## Further reading
+
+- [`gitbooks/developing/performance.md`](../../../gitbooks/developing/performance.md): performance.
+- [`gitbooks/developing/architecture/tauri-shell.md`](../../../gitbooks/developing/architecture/tauri-shell.md): the Tauri shell.
+- [`crates/openhuman-app/README.md`](../README.md): the openhuman-app crate README.

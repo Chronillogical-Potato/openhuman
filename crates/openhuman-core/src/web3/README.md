@@ -16,7 +16,7 @@ x402 payment on an HTTP 402.
 
 ### The process-wide engine and service
 
-`seams.rs` holds one `WalletEngine` and one `Web3Service` for the whole
+[`seams.rs`](./seams.rs) holds one `WalletEngine` and one `Web3Service` for the whole
 process, built lazily on first use behind a `OnceLock` (`seams::engine()`,
 `seams::service()`). Both come from `tinywallet-web3` and hold no
 configuration of their own. Everything host-specific reaches them through
@@ -24,8 +24,8 @@ seams, each resolving its configuration per call:
 
 | Seam (from `tinywallet-web3`) | Host implementation |
 | --- | --- |
-| `Transport` | `OpenHumanTransport` (`wallet/transport.rs`) over the wallet RPC layer |
-| `RpcEndpoints` | `HostEndpoints` (`wallet/endpoints.rs`), the `OPENHUMAN_WALLET_RPC_*` environment |
+| `Transport` | `OpenHumanTransport` ([`wallet/transport.rs`](./wallet/transport.rs)) over the wallet RPC layer |
+| `RpcEndpoints` | `HostEndpoints` ([`wallet/endpoints.rs`](./wallet/endpoints.rs)), the `OPENHUMAN_WALLET_RPC_*` environment |
 | `WalletSigner` | `HostSigner` (`seams.rs`): keyring secret, decrypt, then the loaded wallet module |
 | `WalletAccounts` | `HostAccounts` (`seams.rs`): the wallet's stored set-up state |
 | `QuoteScope` | `TaskLocalScope` (`seams.rs`): the chat turn's `APPROVAL_CHAT_CONTEXT` |
@@ -94,9 +94,9 @@ family, and ids the wallet cannot sign for are rejected at quote time.
 
 ### Wallet and x402
 
-The wallet (`wallet/`) owns onboarding, consent, the encrypted recovery
+The wallet ([`wallet/`](./wallet/)) owns onboarding, consent, the encrypted recovery
 phrase, balances, and native and token transfers across EVM, Bitcoin, Solana,
-and Tron, using the same prepare, confirm, execute pattern. x402 (`x402/`)
+and Tron, using the same prepare, confirm, execute pattern. x402 ([`x402/`](./x402/))
 intercepts an HTTP 402 challenge, checks the spending ledger, has the wallet
 sign a payment, and retries. Each has its own README.
 
@@ -104,12 +104,12 @@ sign a payment, and retries. Each has its own README.
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Facade. Declares the family, re-exports `tinywallet_web3::crypto::service` as `web3::types`, aggregates the swap, bridge, and dapp controllers (`all_web3_controller_schemas`, `all_web3_registered_controllers`) and agent tools (`all_web3_agent_tools`), and holds shared schema helpers (`req_json`, `opt_str`, `json_result`, `execute_inputs`). |
-| `seams.rs` | The process-wide engine and service, and the host seam implementations listed above. |
-| `client.rs` | `CryptoClient`, a thin wrapper over the shared `IntegrationClient` for `/agent-integrations/crypto/*`. Responses are passed through as `serde_json::Value`. |
-| `stub.rs` | Compiled when `web3` is off: the three aggregators return empty collections. |
+| [`mod.rs`](./mod.rs) | Facade. Declares the family, re-exports `tinywallet_web3::crypto::service` as `web3::types`, aggregates the swap, bridge, and dapp controllers (`all_web3_controller_schemas`, `all_web3_registered_controllers`) and agent tools (`all_web3_agent_tools`), and holds shared schema helpers (`req_json`, `opt_str`, `json_result`, `execute_inputs`). |
+| [`seams.rs`](./seams.rs) | The process-wide engine and service, and the host seam implementations listed above. |
+| [`client.rs`](./client.rs) | `CryptoClient`, a thin wrapper over the shared `IntegrationClient` for `/agent-integrations/crypto/*`. Responses are passed through as `serde_json::Value`. |
+| [`stub.rs`](./stub.rs) | Compiled when `web3` is off: the three aggregators return empty collections. |
 | [`swap/`](swap/README.md) | `web3_swap` controllers: `quote`, `execute`, `routes`. |
-| `bridge/` | `web3_bridge` controllers: `quote`, `execute`. |
+| [`bridge/`](./bridge/) | `web3_bridge` controllers: `quote`, `execute`. |
 | [`dapp/`](dapp/README.md) | `web3_dapp` controllers: `call`, `execute`. |
 | [`wallet/`](wallet/README.md) | Wallet controllers, onboarding and secret state (`ops/`), the engine wrapped in `Outcome` (`execution.rs`), endpoint resolution, and the chain transport. Has its own `stub.rs`. |
 | [`x402/`](x402/README.md) | x402 controllers, wallet and proxy seams for `tinywallet-x402`, ledger budget from the environment, payment records. Has its own `stub.rs`. |
@@ -122,9 +122,9 @@ sign a payment, and retries. Each has its own README.
 - `HostSigner`, `HostAccounts`, `TaskLocalScope`, and `HostBackend`
   (`seams.rs`) are the seam implementations a contributor changes when host
   behavior has to change.
-- `CryptoClient::from_config` (`client.rs`) errors when no backend credential
+- `CryptoClient::from_config` ([`client.rs`](./client.rs)) errors when no backend credential
   is available, the same gate the Composio tools use.
-- `all_web3_agent_tools()` (`mod.rs`) builds the seven swap, bridge, and dapp
+- `all_web3_agent_tools()` ([`mod.rs`](./mod.rs)) builds the seven swap, bridge, and dapp
   tools from `tinywallet_web3::tools::web3`.
 - `x402::request_tool()` and `x402::handle_402_and_pay` are the x402 entry
   points for the tool registry and the `http_request` 402 retry.
@@ -139,8 +139,8 @@ are `openhuman.<namespace>_<function>`.
 | `web3_swap` | `quote`, `execute`, `routes` |
 | `web3_bridge` | `quote`, `execute` |
 | `web3_dapp` | `call`, `execute` |
-| `wallet` | `setup`, `status`, `reveal_recovery_phrase`, `balances`, `chain_status`, `network_defaults`, `supported_assets`, `encode_erc20_transfer`, `prepare_transfer`, `execute_prepared`, `tx_status`, `tx_receipt`, `lookup_tx` |
-| `x402` | `get_summary`, `list_payments`, `update_budget` |
+| [`wallet`](./wallet) | `setup`, `status`, `reveal_recovery_phrase`, `balances`, `chain_status`, `network_defaults`, `supported_assets`, `encode_erc20_transfer`, `prepare_transfer`, `execute_prepared`, `tx_status`, `tx_receipt`, `lookup_tx` |
+| [`x402`](./x402) | `get_summary`, `list_payments`, `update_budget` |
 
 Each `*_execute` takes `quoteId` and `confirmed`, and `confirmed` must be
 true. That flag is the explicit boundary between preparing and spending.
@@ -153,9 +153,9 @@ true. That flag is the explicit boundary between preparing and spending.
   `web3_dapp_execute`. They register unconditionally and error at call time
   when the user is not signed in.
 - Wallet tools (status, chain status, prepare transfer, tx status, receipt,
-  lookup) are re-exported through `wallet/tools.rs` and `tools/mod.rs`, and
+  lookup) are re-exported through [`wallet/tools.rs`](./wallet/tools.rs) and `tools/mod.rs`, and
   built in `tools/ops.rs`.
-- `x402_request`, from `tinywallet-x402`, wired through `x402/seams.rs`.
+- `x402_request`, from `tinywallet-x402`, wired through [`x402/seams.rs`](./x402/seams.rs).
 
 ## Boundaries
 
@@ -182,25 +182,31 @@ true. That flag is the explicit boundary between preparing and spending.
   has it. It enables `tinywallet-bus`, `tinywallet-x402`, `tinywallet-web3`,
   and `modules`. At runtime `DomainSet::web3` gates the same surface.
 - `pub mod web3`, `wallet`, and `x402` are always compiled. Each is a facade
-  with its own `stub.rs` for the disabled build, so always-on callers
+  with its own [`stub.rs`](./stub.rs) for the disabled build, so always-on callers
   (`core/all.rs`, `tools/ops.rs`, `tools/impl/network/host.rs` for x402) need
   no `#[cfg]`. Stub signatures must match the real ones, and only
   `cargo check --no-default-features` catches drift.
 - `TaskLocalScope` reads a `tokio::task_local!`, which propagates across
   `.await` but not across `tokio::spawn`. If the chat path ever runs the tool
   loop on a freshly spawned task without re-installing the scope, the owner
-  gate silently becomes a no-op. `seams_tests.rs` pins that it reads the
+  gate silently becomes a no-op. [`seams_tests.rs`](./seams_tests.rs) pins that it reads the
   task-local.
 - `CryptoClient` logs only chain ids. Request bodies carry wallet addresses,
   which must not be logged in full.
 
 ## Tests
 
-`seams_tests.rs` composes the real wallet state and pins the task-local scope.
-`stub_tests.rs` runs only in the disabled build. `wallet/` and `x402/` keep
+[`seams_tests.rs`](./seams_tests.rs) composes the real wallet state and pins the task-local scope.
+[`stub_tests.rs`](./stub_tests.rs) runs only in the disabled build. `wallet/` and `x402/` keep
 their own tests.
 
 ```bash
 cargo test -p openhuman --features web3 web3::
 cargo check -p openhuman --no-default-features   # stub drift
 ```
+
+## Further reading
+
+- [Wallet](../../../../gitbooks/features/wallet.md)
+- [tinywallet submodule](../../../../vendor/tinywallet/README.md)
+- [Loadable modules](../../../../gitbooks/developing/loadable-modules.md)

@@ -10,14 +10,14 @@ allowlist of tool-like operations is also exposed over JSON-RPC for the
 desktop shell.
 
 Domain-owned tools (memory, cron, flows, wallet, Composio, skills, voice,
-agent sub-dispatch) live in their own domains. `mod.rs` re-exports them, so a
+agent sub-dispatch) live in their own domains. [`mod.rs`](./mod.rs) re-exports them, so a
 single `crate::tools::*` import reaches the full set.
 
 ## How it works
 
 ### Building a session's registry
 
-`ops::all_tools_with_runtime` (`ops.rs`) is the one place a full registry is
+`ops::all_tools_with_runtime` ([`ops.rs`](./ops.rs)) is the one place a full registry is
 assembled. It is called by the session builder
 (`agent/session_host/builder/factory.rs`) and at channel startup
 (`channels/runtime/startup/start_channels.rs`). The order of work:
@@ -90,16 +90,16 @@ by `mcp/registry/action_tool.rs`.
 
 Several layers narrow the registry before a schema is sent:
 
-- `user_filter.rs` maps UI toggle ids to tool names (`TOOL_FAMILIES`). A
+- [`user_filter.rs`](./user_filter.rs) maps UI toggle ids to tool names (`TOOL_FAMILIES`). A
   default-on family missing from a stale snapshot is kept; a default-off
   family (installers, mutators, service lifecycle) is stripped unless the user
   enabled it. Tools no family covers are always kept.
-- `toolpacks/` keeps a pack's tools constructed but unadvertised. The agent
+- [`toolpacks/`](./toolpacks/) keeps a pack's tools constructed but unadvertised. The agent
   sees `use_skill` and a short pack index instead of the real schemas. See
   [toolpacks/README.md](toolpacks/README.md).
-- `ToolExposure::Deferred` tools (`impl/meta/deferred.rs` holds the host
+- `ToolExposure::Deferred` tools ([`impl/meta/deferred.rs`](./impl/meta/deferred.rs) holds the host
   half) are left off the wire until found with `tool_search`.
-- `agent_policy/` classifies every tool against the channel's permission
+- [`agent_policy/`](./agent_policy/) classifies every tool against the channel's permission
   ceiling into allow, require-approval, deny or hide, and renders the
   prompt's tool-boundary section. See [agent_policy/README.md](agent_policy/README.md).
 
@@ -113,39 +113,39 @@ tier, the command class and the approval gate; the tool itself then checks
 policy is off by default (see [`../security/README.md`](../security/README.md)),
 so on a default install the path floor and the sandbox do the bounding.
 Process-spawning tools in sandboxed mode route through
-[`../sandbox/`](../sandbox/README.md). Each call is bounded by `timeout/`, and
-a failure is classified by `status/` into a plain-language cause and next
+[`../sandbox/`](../sandbox/README.md). Each call is bounded by [`timeout/`](./timeout/), and
+a failure is classified by [`status/`](./status/) into a plain-language cause and next
 step.
 
 ## Layout
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Export hub: submodules, re-exports of built-in and domain tools, the `tinytools` vocabulary, and the `all_tools_*` controller pair. |
-| `ops.rs` | Registry assembly (`default_tools*`, `all_tools*`), all config and feature gating, and `tool_group`. |
-| `orchestrator_tools.rs` | Per-subagent `delegate_*` tools and deferred Composio action expansion. |
-| `user_filter.rs` | `filter_tools_by_user_preference` and the UI toggle to tool-name map. |
-| `host_extensions.rs` | Readers over `tinytools`' erased host-extension slots: `pack_registry_handle`, `delegation_target`, `tool_call_id`. |
-| `schemas.rs`, `schemas/` | The `tools.*` controllers: `registry.rs` (schemas and dispatch), `composio.rs`, `web_search.rs`, `apify.rs`, `linkedin.rs`. |
+| [`mod.rs`](./mod.rs) | Export hub: submodules, re-exports of built-in and domain tools, the `tinytools` vocabulary, and the `all_tools_*` controller pair. |
+| [`ops.rs`](./ops.rs) | Registry assembly (`default_tools*`, `all_tools*`), all config and feature gating, and `tool_group`. |
+| [`orchestrator_tools.rs`](./orchestrator_tools.rs) | Per-subagent `delegate_*` tools and deferred Composio action expansion. |
+| [`user_filter.rs`](./user_filter.rs) | `filter_tools_by_user_preference` and the UI toggle to tool-name map. |
+| [`host_extensions.rs`](./host_extensions.rs) | Readers over `tinytools`' erased host-extension slots: `pack_registry_handle`, `delegation_target`, `tool_call_id`. |
+| [`schemas.rs`](./schemas.rs), [`schemas/`](./schemas/) | The `tools.*` controllers: `registry.rs` (schemas and dispatch), `composio.rs`, `web_search.rs`, `apify.rs`, `linkedin.rs`. |
 | [`impl/`](impl/README.md) | Built-in tool families: `filesystem/` (the `FsGate` adapter only; the tools are `tinytools_std::filesystem`), `browser/`, `system/`, `network/`, `meta/`, and the `documents`-gated `document/` and `presentation/`. |
 | [`toolpacks/`](toolpacks/README.md) | On-demand tool disclosure (`use_skill`, pack catalog, guides) and `ToolGroups` / `GroupMode`. |
 | [`agent_policy/`](agent_policy/README.md) | Per-session tool boundary against a channel's permission ceiling. |
 | [`registry/`](registry/README.md) | Read-only discovery registry across MCP stdio, controller and connected MCP tools, plus policy diagnostics. |
 | [`timeout/`](timeout/README.md) | Process-wide tool timeout and process-group kill helpers. |
-| `status/` | Tool-call lifecycle state and failure classification (`classify`, `describe`, `tool_execution_error`). |
+| [`status/`](./status/) | Tool-call lifecycle state and failure classification (`classify`, `describe`, `tool_execution_error`). |
 
 Where the built-in tools come from:
 
 | Tools | Source |
 | --- | --- |
-| `file_read`, `file_write`, `edit`, `apply_patch`, `grep`, `glob`, `list`, `read_diff`, `csv_export`, `git_operations`, `run_linter`, `run_tests`, `image_info`, `read_workspace_state` | `tinytools_std::filesystem`, gated by `impl/filesystem/gate.rs` |
+| `file_read`, `file_write`, `edit`, `apply_patch`, `grep`, `glob`, `list`, `read_diff`, `csv_export`, `git_operations`, `run_linter`, `run_tests`, `image_info`, `read_workspace_state` | `tinytools_std::filesystem`, gated by [`impl/filesystem/gate.rs`](./impl/filesystem/gate.rs) |
 | `detect_tools`, `curl`, `pushover` | `tinytools_std` |
-| `http_request`, `web_fetch` | `tinytools_std::network`, wired with host limits, TinyJuice extraction and the x402 handler in `impl/network/host.rs` |
+| `http_request`, `web_fetch` | `tinytools_std::network`, wired with host limits, TinyJuice extraction and the x402 handler in [`impl/network/host.rs`](./impl/network/host.rs) |
 | `current_time`, `resolve_time`, `ask_user_clarification`, `wait`, `wait_loop` | `tinyagents_harness::tools` |
-| `shell`, `node_exec`, `npm_exec`, `python_exec`, `install_tool`, `schedule`, `proxy_config`, `lsp`, `update_check`, `update_apply`, `retrieve_tool_output` | `impl/system/` |
-| `gitbooks_search`, `gitbooks_get_page`, `gmail_unsubscribe`, `mcp_list_servers`, `mcp_list_tools`, `mcp_call_tool`, `mcp_<server>_<tool>` | `impl/network/` (MCP tools behind `mcp`) |
-| `browser`, `browser_open` | `impl/browser/` (behind `modules`) |
-| `generate_document`, `generate_presentation` | `impl/document/`, `impl/presentation/` (behind `documents`) |
+| `shell`, `node_exec`, `npm_exec`, `python_exec`, `install_tool`, `schedule`, `proxy_config`, `lsp`, `update_check`, `update_apply`, `retrieve_tool_output` | [`impl/system/`](./impl/system/) |
+| `gitbooks_search`, `gitbooks_get_page`, `gmail_unsubscribe`, `mcp_list_servers`, `mcp_list_tools`, `mcp_call_tool`, `mcp_<server>_<tool>` | [`impl/network/`](./impl/network/) (MCP tools behind `mcp`) |
+| `browser`, `browser_open` | [`impl/browser/`](./impl/browser/) (behind `modules`) |
+| `generate_document`, `generate_presentation` | [`impl/document/`](./impl/document/), [`impl/presentation/`](./impl/presentation/) (behind `documents`) |
 | `web_search` and the other search roles | `crate::search::build_search_tools` |
 
 ## Key types and entry points
@@ -183,7 +183,7 @@ else is agent-only.
 | `openhuman.tools_searxng_search` | The `search` role pinned to a self-hosted SearXNG (requires SearXNG enabled). |
 | `openhuman.tools_apify_linkedin_scrape` | Apify LinkedIn profile scrape, returning raw JSON and rendered markdown. |
 
-`registry/` registers a second namespace, `tool_registry` (`list`, `get`,
+[`registry/`](./registry/) registers a second namespace, `tool_registry` (`list`, `get`,
 `diagnostics`). Dotted ids such as `tools.web_search` in that registry are
 `tool_id`s, not RPC methods.
 
@@ -200,7 +200,7 @@ else is agent-only.
   (see [`../search/README.md`](../search/README.md)); the module itself is
   `tinysearch`.
 - New domain tools go in the owning domain's `tools.rs` and are re-exported
-  through `mod.rs`. Only cross-cutting families belong under `impl/`.
+  through `mod.rs`. Only cross-cutting families belong under [`impl/`](./impl/).
 - This folder has no persistence and no event-bus subscriber. Approval
   routing reads `Tool::external_effect_with_args`; the gate itself is
   `security/approval/`.
@@ -233,3 +233,10 @@ Registry tests are split by concern under `ops_tests*.rs` (default registry,
 capability gating, domain families, Composio registration, REPL tools,
 execution and serde). Every other module has a sibling `*_tests.rs`. Run with
 `cargo test -p openhuman tools::` or `pnpm debug rust tools`.
+
+## Further reading
+
+- [Native tools overview](../../../../gitbooks/features/native-tools/README.md)
+- [Agent harness architecture](../../../../gitbooks/developing/architecture/agent-harness.md)
+- [Approval gate](../../../../gitbooks/features/approval-gate.md)
+- [tinyagents submodule](../../../../vendor/tinyagents/README.md)
