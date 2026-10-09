@@ -1799,6 +1799,9 @@ const messages: TranslationMap = {
   'about.update.status.error': 'Falha na verificação de atualização',
   'about.update.status.default': 'Verificar atualizações',
   'welcome.continueLocallyExperimental': 'Continuar Localmente (Experimental)',
+  'auth.profileSwitch.title': 'Iniciar sessão com um perfil separado?',
+  'auth.profileSwitch.body': 'O início de sessão na nuvem mudará o OpenHuman para um perfil de conta separado. As suas conversas, memória e definições locais de fornecedores continuarão neste dispositivo, em users/{profileId}. Para voltar, termine a sessão e escolha a sessão local no ecrã de boas-vindas.',
+  'auth.profileSwitch.continue': 'Continuar sessão',
   'welcome.localSessionStarting': 'Iniciando sessão local...',
   'welcome.coreConfigUnreadable':
     'O runtime não conseguiu ler o seu ficheiro de configuração. O config.toml pode pertencer a outra conta de utilizador ou estar inacessível ao processo por outro motivo. Reinicie o runtime e, se isso não resolver, corrija a propriedade da pasta de trabalho ou recrie o seu volume.',

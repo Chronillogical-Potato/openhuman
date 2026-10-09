@@ -1644,6 +1644,9 @@ const messages: TranslationMap = {
   'about.update.status.error': '更新检查失败',
   'about.update.status.default': '检查更新',
   'welcome.continueLocallyExperimental': '本地继续（实验性）',
+  'auth.profileSwitch.title': '使用单独的个人资料登录？',
+  'auth.profileSwitch.body': '云端登录会将 OpenHuman 切换到单独的账户资料。您的本地对话、记忆和提供商设置仍保存在此设备的 users/{profileId} 中。要返回这些数据，请先退出登录，然后在欢迎界面选择本地会话。',
+  'auth.profileSwitch.continue': '继续登录',
   'welcome.localSessionStarting': '正在启动本地会话...',
   'welcome.coreConfigUnreadable':
     '运行时无法读取自己的配置文件。config.toml 可能归属于其他用户账户，或因其他原因无法被运行时进程访问。请重启运行时；若仍未解决，请修复工作目录的归属权或重新创建其数据卷。',

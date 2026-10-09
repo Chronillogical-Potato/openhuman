@@ -1821,6 +1821,9 @@ const messages: TranslationMap = {
   'about.update.status.error': 'Die Aktualisierungsprüfung ist fehlgeschlagen',
   'about.update.status.default': 'Nach Updates suchen',
   'welcome.continueLocallyExperimental': 'Lokal fortfahren (Experimentell)',
+  'auth.profileSwitch.title': 'Mit einem separaten Profil anmelden?',
+  'auth.profileSwitch.body': 'Bei der Cloud-Anmeldung wechselt OpenHuman zu einem separaten Kontoprofil. Deine lokalen Unterhaltungen, dein Gedächtnis und deine Anbietereinstellungen bleiben auf diesem Gerät unter users/{profileId}. Um zurückzukehren, melde dich ab und wähle auf dem Willkommensbildschirm die lokale Sitzung.',
+  'auth.profileSwitch.continue': 'Weiter zur Anmeldung',
   'welcome.localSessionStarting': 'Lokal starten Sitzung...',
   'welcome.coreConfigUnreadable':
     'Die Laufzeitumgebung konnte ihre Konfigurationsdatei nicht lesen. config.toml gehört möglicherweise einem anderen Benutzerkonto oder ist für den Laufzeitprozess aus einem anderen Grund nicht zugänglich. Starten Sie die Laufzeitumgebung neu, und reparieren Sie andernfalls die Besitzrechte des Arbeitsverzeichnisses oder erstellen Sie dessen Volume neu.',

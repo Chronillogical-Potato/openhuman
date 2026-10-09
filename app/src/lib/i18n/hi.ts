@@ -1768,6 +1768,9 @@ const messages: TranslationMap = {
   'about.update.status.error': 'अपडेट चेक विफल',
   'about.update.status.default': 'अपडेट चेक करें',
   'welcome.continueLocallyExperimental': 'लोकल रूप से जारी रखें (प्रायोगिक)',
+  'auth.profileSwitch.title': 'अलग प्रोफ़ाइल से साइन इन करें?',
+  'auth.profileSwitch.body': 'क्लाउड साइन-इन OpenHuman को अलग खाते की प्रोफ़ाइल पर ले जाएगा। आपकी स्थानीय बातचीत, मेमोरी और प्रदाता सेटिंग्स इस डिवाइस पर users/{profileId} में रहेंगी। वापस जाने के लिए साइन आउट करें और स्वागत स्क्रीन पर स्थानीय सत्र चुनें।',
+  'auth.profileSwitch.continue': 'साइन इन जारी रखें',
   'welcome.localSessionStarting': 'स्थानीय सत्र प्रारंभ हो रहा है...',
   'welcome.coreConfigUnreadable':
     'रनटाइम अपनी कॉन्फ़िगरेशन फ़ाइल नहीं पढ़ सका। हो सकता है config.toml किसी दूसरे उपयोगकर्ता खाते का हो, या किसी अन्य कारण से रनटाइम प्रक्रिया के लिए दुर्गम हो। रनटाइम को पुनः आरंभ करें, और यदि इससे मदद न मिले तो वर्कस्पेस का स्वामित्व ठीक करें या उसका वॉल्यूम दोबारा बनाएँ।',

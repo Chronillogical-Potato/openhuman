@@ -2029,6 +2029,10 @@ const en: TranslationMap = {
 
   // Welcome: connection error messages
   'welcome.continueLocallyExperimental': 'Continue Locally (Experimental)',
+  'auth.profileSwitch.title': 'Sign in with a separate profile?',
+  'auth.profileSwitch.body':
+    'Cloud sign-in switches OpenHuman to a separate account profile. Your local threads, memory, and provider settings remain on this device in users/{profileId}. To return to them, sign out and choose the local session on the Welcome screen.',
+  'auth.profileSwitch.continue': 'Continue to sign in',
   'welcome.localSessionStarting': 'Starting local session...',
   'welcome.coreConfigUnreadable':
     'The runtime could not read its configuration file. config.toml may belong to a different user account, or be inaccessible to the runtime process for another reason. Restart the runtime, and if that does not help, repair the workspace ownership or re-create its volume.',

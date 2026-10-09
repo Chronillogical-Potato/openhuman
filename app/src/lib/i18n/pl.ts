@@ -1786,6 +1786,9 @@ const messages: TranslationMap = {
   'about.update.status.error': 'Sprawdzenie aktualizacji nie powiodło się',
   'about.update.status.default': 'Sprawdź aktualizacje',
   'welcome.continueLocallyExperimental': 'Kontynuuj lokalnie (Eksperymentalne)',
+  'auth.profileSwitch.title': 'Zalogować się do osobnego profilu?',
+  'auth.profileSwitch.body': 'Logowanie do chmury przełączy OpenHuman na osobny profil konta. Twoje lokalne rozmowy, pamięć i ustawienia dostawców pozostaną na tym urządzeniu w users/{profileId}. Aby do nich wrócić, wyloguj się i wybierz lokalną sesję na ekranie powitalnym.',
+  'auth.profileSwitch.continue': 'Kontynuuj logowanie',
   'welcome.localSessionStarting': 'Rozpoczynanie sesji lokalnej...',
   'welcome.coreConfigUnreadable':
     'Środowisko uruchomieniowe nie mogło odczytać swojego pliku konfiguracyjnego. Plik config.toml może należeć do innego konta użytkownika lub być niedostępny dla procesu z innego powodu. Uruchom ponownie środowisko, a jeśli to nie pomoże, napraw właściciela katalogu roboczego lub utwórz jego wolumin od nowa.',

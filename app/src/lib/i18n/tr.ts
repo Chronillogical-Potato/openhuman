@@ -1829,6 +1829,9 @@ const messages: TranslationMap = {
   'about.update.status.error': 'Güncelleme denetimi başarısız oldu',
   'about.update.status.default': 'Güncellemeleri denetle',
   'welcome.continueLocallyExperimental': 'Yerel olarak devam et (Deneysel)',
+  'auth.profileSwitch.title': 'Ayrı bir profille oturum açılsın mı?',
+  'auth.profileSwitch.body': 'Bulut oturumu açıldığında OpenHuman ayrı bir hesap profiline geçer. Yerel konuşmalarınız, belleğiniz ve sağlayıcı ayarlarınız bu cihazda users/{profileId} konumunda kalır. Geri dönmek için oturumu kapatın ve Hoş Geldiniz ekranında yerel oturumu seçin.',
+  'auth.profileSwitch.continue': 'Oturum açmaya devam et',
   'welcome.localSessionStarting': 'Yerel oturum başlatılıyor...',
   'welcome.coreConfigUnreadable':
     'Çalışma zamanı yapılandırma dosyasını okuyamadı. config.toml farklı bir kullanıcı hesabına ait olabilir veya başka bir nedenle çalışma zamanı işlemi tarafından erişilemiyor olabilir. Çalışma zamanını yeniden başlatın; sorun devam ederse çalışma alanının sahipliğini düzeltin veya birimini yeniden oluşturun.',
