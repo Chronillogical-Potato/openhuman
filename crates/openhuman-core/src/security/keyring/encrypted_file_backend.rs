@@ -126,22 +126,31 @@ pub fn init_master_key() -> Result<(), String> {
 /// they are never written unencrypted or under a freshly minted key that
 /// would orphan the ones already stored.
 pub(crate) fn storage_master_key() -> Result<[u8; KEY_LEN], String> {
-    static STORAGE_MASTER_KEY: OnceLock<Result<[u8; KEY_LEN], String>> = OnceLock::new();
-    if let Some(Ok(Some(key))) = MASTER_KEY.get() {
+    // Only a loaded key is cached: a failure (locked keychain, denied prompt)
+    // is retried on the next call so secrets recover once access is restored.
+    static STORAGE_MASTER_KEY: OnceLock<[u8; KEY_LEN]> = OnceLock::new();
+    match MASTER_KEY.get() {
+        Some(Ok(Some(key))) => return Ok(*key),
+        // `init_master_key` already tried the keychain this session and
+        // recorded it unavailable: reuse that outcome, do not prompt again.
+        Some(Ok(None)) => return Err("OS keychain master key unavailable this session".into()),
+        _ => {}
+    }
+    if let Some(key) = STORAGE_MASTER_KEY.get() {
         return Ok(*key);
     }
-    STORAGE_MASTER_KEY
-        .get_or_init(|| match try_load_master_key() {
-            Ok((key, source)) => {
-                log::info!("[keyring:storage] master key loaded from {source}");
-                Ok(key)
-            }
-            Err(MasterKeyError::Configured(error) | MasterKeyError::Keychain(error)) => {
-                log::error!("[keyring:storage] master key unavailable: {error}");
-                Err(error)
-            }
-        })
-        .clone()
+    match try_load_master_key() {
+        Ok((key, source)) => {
+            log::info!("[keyring:storage] master key loaded from {source}");
+            Ok(*STORAGE_MASTER_KEY.get_or_init(|| key))
+        }
+        Err(MasterKeyError::Configured(_) | MasterKeyError::Keychain(_)) => {
+            // Fixed message: the underlying error can carry a path taken
+            // from `MASTER_KEY_FILE_ENV`.
+            log::error!("[keyring:storage] master key unavailable");
+            Err("master key unavailable".into())
+        }
+    }
 }
 
 /// Runs `init` at most once per `cell` and reports its outcome on every call.

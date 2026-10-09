@@ -66,7 +66,7 @@ pub fn get(user_id: &str, key: &str) -> Result<Option<String>, KeyringError> {
     let Some(secrets) = storage_secrets()? else {
         return process_get(user_id, key);
     };
-    log::debug!("[keyring] get (storage) user_id={user_id} key={key}");
+    log::debug!("[keyring] get (storage)");
     let name = namespaced_key(user_id, key);
     let value =
         crate::storage::block_on(async move { secrets.get(&name).await }).map_err(storage_error)?;
@@ -87,7 +87,7 @@ pub fn set(user_id: &str, key: &str, value: &str) -> Result<(), KeyringError> {
     let Some(secrets) = storage_secrets()? else {
         return process_set(user_id, key, value);
     };
-    log::debug!("[keyring] set (storage) user_id={user_id} key={key}");
+    log::debug!("[keyring] set (storage)");
     let name = namespaced_key(user_id, key);
     let value = zeroize::Zeroizing::new(value.as_bytes().to_vec());
     crate::storage::block_on(async move { secrets.set(&name, &value).await }).map_err(storage_error)
@@ -100,7 +100,7 @@ pub fn delete(user_id: &str, key: &str) -> Result<(), KeyringError> {
     let Some(secrets) = storage_secrets()? else {
         return process_delete(user_id, key);
     };
-    log::debug!("[keyring] delete (storage) user_id={user_id} key={key}");
+    log::debug!("[keyring] delete (storage)");
     let name = namespaced_key(user_id, key);
     crate::storage::block_on(async move { secrets.delete(&name).await.map(|_| ()) })
         .map_err(storage_error)
@@ -173,7 +173,7 @@ pub(crate) fn process_delete(user_id: &str, key: &str) -> Result<(), KeyringErro
 /// wallet guards or snapshot loops.
 pub fn is_available() -> bool {
     // Secrets on a storage backend do not depend on the OS keychain.
-    if crate::storage::installed().is_some() {
+    if matches!(storage_secrets(), Ok(Some(_))) {
         return true;
     }
     let mut cached = AVAILABILITY_CACHE.lock();

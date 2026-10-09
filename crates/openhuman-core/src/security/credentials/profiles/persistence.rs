@@ -122,7 +122,18 @@ impl AuthProfilesStore {
         if let Some(secrets) = crate::storage::secrets::current()? {
             let Some(bytes) = crate::storage::secrets::get_blocking(&secrets, STORAGE_SECRET_NAME)?
             else {
-                return Ok(PersistedAuthProfiles::default());
+                // First use of the backend: adopt the profiles the on-disk
+                // store holds, so they do not vanish from reads and the next
+                // save cannot replace them with an empty set. The file is left
+                // in place (never deleted by this path).
+                let legacy = self.read_file_locked()?;
+                if self.path.exists() && !legacy.profiles.is_empty() {
+                    let json = serde_json::to_vec(&legacy)
+                        .context("Failed to serialize migrated auth profiles")?;
+                    crate::storage::secrets::set_blocking(&secrets, STORAGE_SECRET_NAME, &json)?;
+                    tracing::info!("[credentials] migrated auth profiles file to storage secret");
+                }
+                return Ok(legacy);
             };
             // No quarantine on a storage backend: an unparseable record is an
             // error, so a later write can never replace profiles it could not
@@ -141,6 +152,11 @@ impl AuthProfilesStore {
             }
             return Ok(persisted);
         }
+        self.read_file_locked()
+    }
+
+    /// Reads the on-disk `auth-profiles.json` store (empty when absent).
+    fn read_file_locked(&self) -> Result<PersistedAuthProfiles> {
         if !self.path.exists() {
             return Ok(PersistedAuthProfiles::default());
         }

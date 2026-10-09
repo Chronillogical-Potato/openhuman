@@ -338,9 +338,33 @@ impl HttpCredentialsStore {
             return match crate::storage::secrets::get_blocking(&secrets, STORAGE_SECRET_NAME)? {
                 Some(bytes) => serde_json::from_slice(&bytes)
                     .context("http-credentials record on the storage backend is not valid JSON"),
-                None => Ok(PersistedHttpCredentials::default()),
+                None => {
+                    // First use of the backend: adopt the on-disk store so
+                    // existing credentials stay visible and the next upsert
+                    // cannot replace them. The file is left in place.
+                    let legacy = self.read_file()?;
+                    if self.path.exists() && !legacy.credentials.is_empty() {
+                        let json = serde_json::to_vec(&legacy)
+                            .context("failed to serialize migrated http-credentials store")?;
+                        crate::storage::secrets::set_blocking(
+                            &secrets,
+                            STORAGE_SECRET_NAME,
+                            &json,
+                        )?;
+                        log::info!(
+                            target: "credentials",
+                            "[credentials] migrated http-credentials file to storage secret"
+                        );
+                    }
+                    Ok(legacy)
+                }
             };
         }
+        self.read_file()
+    }
+
+    /// Reads the on-disk `http-credentials.json` store (empty when absent).
+    fn read_file(&self) -> Result<PersistedHttpCredentials> {
         if !self.path.exists() {
             return Ok(PersistedHttpCredentials::default());
         }

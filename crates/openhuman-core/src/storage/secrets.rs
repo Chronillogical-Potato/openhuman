@@ -25,14 +25,16 @@ use super::{current_scoped, ScopedStorage, StorageError};
 
 /// The key provider every scope's secrets use, built once per process.
 fn keys() -> Result<Arc<dyn KeyProvider>, StorageError> {
-    static KEYS: OnceLock<Result<Arc<dyn KeyProvider>, String>> = OnceLock::new();
-    KEYS.get_or_init(|| {
-        crate::security::keyring::encrypted_file_backend::storage_master_key().map(|master| {
-            Arc::new(DerivedKeys::new(Zeroizing::new(master))) as Arc<dyn KeyProvider>
-        })
-    })
-    .clone()
-    .map_err(|error| StorageError::crypto(format!("no master key for storage secrets: {error}")))
+    // Only a built provider is cached; a failed key load is retried next call.
+    static KEYS: OnceLock<Arc<dyn KeyProvider>> = OnceLock::new();
+    if let Some(keys) = KEYS.get() {
+        return Ok(Arc::clone(keys));
+    }
+    let master = crate::security::keyring::encrypted_file_backend::storage_master_key().map_err(
+        |error| StorageError::crypto(format!("no master key for storage secrets: {error}")),
+    )?;
+    let built: Arc<dyn KeyProvider> = Arc::new(DerivedKeys::new(Zeroizing::new(master)));
+    Ok(Arc::clone(KEYS.get_or_init(|| built)))
 }
 
 /// The secret store for this call when the host configured a backend, in
