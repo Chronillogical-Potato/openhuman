@@ -7,22 +7,18 @@
 
 use std::sync::Arc;
 
-use chrono::Utc;
 use openhuman_core::config::Config;
 use openhuman_core::security::approval::store;
 use openhuman_core::security::approval::types::{ApprovalDecision, PendingApproval};
 
 fn pending(id: &str) -> PendingApproval {
-    PendingApproval {
-        request_id: id.to_string(),
-        tool_name: "shell".to_string(),
-        action_summary: format!("run {id}"),
-        args_redacted: serde_json::json!({ "cmd": "ls" }),
-        created_at: Utc::now(),
-        expires_at: None,
-        source_context: None,
-        tool_call_id: None,
-    }
+    PendingApproval::new(
+        id,
+        "shell",
+        format!("run {id}"),
+        serde_json::json!({ "cmd": "ls" }),
+        None,
+    )
 }
 
 #[test]
