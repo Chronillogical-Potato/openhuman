@@ -24,6 +24,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("status"),
         schemas("load"),
         schemas("browser_check_readiness"),
+        schemas("browser_forget_sites"),
         schemas("computer_status"),
     ]
 }
@@ -45,6 +46,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("browser_check_readiness"),
             handler: handle_browser_check_readiness,
+        },
+        RegisteredController {
+            schema: schemas("browser_forget_sites"),
+            handler: handle_browser_forget_sites,
         },
         RegisteredController {
             schema: schemas("computer_status"),
@@ -127,6 +132,23 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 },
             ],
         },
+        "browser_forget_sites" => ControllerSchema {
+            namespace: "modules",
+            function: "browser_forget_sites",
+            description: "Forget what finished browser tasks learned about one site, or about every site.",
+            inputs: vec![FieldSchema {
+                name: "site",
+                ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                comment: "The site's host or an address on it; omit to forget every site.",
+                required: false,
+            }],
+            outputs: vec![FieldSchema {
+                name: "forgotten",
+                ty: TypeSchema::U64,
+                comment: "How many sites were forgotten.",
+                required: true,
+            }],
+        },
         "computer_status" => ControllerSchema {
             namespace: "modules",
             function: "computer_status",
@@ -159,6 +181,18 @@ pub fn schemas(function: &str) -> ControllerSchema {
     }
 }
 
+/// What the settings page's Chrome check shows when Chrome would not start:
+/// where to fix a missing Chrome, or else the module's own reason.
+fn readiness_error(detail: &str) -> String {
+    if super::browser::chrome_not_found(detail) {
+        "Chrome was not found. Set Chrome path below to the Chrome program (for example \
+         /Applications/Google Chrome.app/Contents/MacOS/Google Chrome), save, and test again."
+            .to_owned()
+    } else {
+        format!("Chrome could not start: {detail}")
+    }
+}
+
 fn handle_browser_check_readiness(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let mut config = config_rpc::load_config_with_timeout().await?;
@@ -185,15 +219,41 @@ fn handle_browser_check_readiness(_params: Map<String, Value>) -> ControllerFutu
                     "error": if closed { None } else { Some("Chrome session could not close cleanly") }}),
                 )
             }
-            Ok(Err(_)) => Ok(
+            Ok(Err(error)) => Ok(
                 serde_json::json!({"module_ready": true, "chrome_ready": false,
-                "error": "Chrome could not start; check browser settings and allowed websites"}),
+                "error": readiness_error(&error.to_string())}),
             ),
             Err(_) => Ok(
                 serde_json::json!({"module_ready": true, "chrome_ready": false,
                 "error": "Chrome launch timed out"}),
             ),
         }
+    })
+}
+
+fn handle_browser_forget_sites(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        // A blank or non-text site must not read as "every site".
+        let site = match params.get("site") {
+            None | Some(Value::Null) => None,
+            Some(Value::String(site)) if !site.trim().is_empty() => Some(site.trim().to_owned()),
+            Some(_) => {
+                return Err(
+                    "`site` must name a site (a host or an address); omit it to forget every site"
+                        .to_owned(),
+                )
+            }
+        };
+        let config = config_rpc::load_config_with_timeout().await?;
+        let forgotten = super::browser_sites::forget(&config, site.as_deref())
+            .await
+            .map_err(|error| format!("could not forget learned site data: {error}"))?;
+        tracing::info!(
+            forgotten,
+            all = site.is_none(),
+            "[browser-sites] forgot learned site data"
+        );
+        Ok(serde_json::json!({ "forgotten": forgotten }))
     })
 }
 

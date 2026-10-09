@@ -98,7 +98,7 @@ are compiled out, or whose `DomainGroup` is off, stays absent.
 - `.action_dir(dir)`: sugar over `.config()` for the agent's read/write
   root.
 - `.backend_url(url)`.
-- `.backend_transport(Arc<dyn BackendTransport>)` — bind the transport this
+- `.backend_transport(Arc<dyn BackendTransport>)`: bind the transport this
   core's handlers reach the hosted backend through (`backend::transport`). The
   context carries it and every `derive_with` child inherits it. Optional:
   without it the core resolves the process-global transport
@@ -192,7 +192,7 @@ Two guards keep SaaS work from falling back to process-wide state:
 
 ## Shared tokio tuning constants
 
-`runtime/mod.rs` declares two constants every multi-thread runtime that may
+[`runtime/mod.rs`](../../runtime/mod.rs) declares two constants every multi-thread runtime that may
 host an agent turn must set:
 
 - `AGENT_WORKER_STACK_BYTES` (20 MiB): a single agent turn is a very large
@@ -210,3 +210,5 @@ host an agent turn must set:
 
 - [../README.md](../README.md): the rest of `core/`, covering dispatch,
   registry, event bus, transport, and CLI.
+- [Embedding OpenHuman](../../../../../gitbooks/developing/embedding.md)
+- [Deep architecture reference](../../../../../gitbooks/developing/architecture.md)

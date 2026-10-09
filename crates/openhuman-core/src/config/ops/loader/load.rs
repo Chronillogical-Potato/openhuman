@@ -28,8 +28,14 @@ const CONFIG_LOAD_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(
 /// resolution found. Normalization still runs, because that is a shaping step
 /// handlers depend on, not a re-read.
 pub async fn load_config_with_timeout() -> Result<Config, String> {
-    if let Some(mut config) = crate::core::runtime::context::CoreContext::current_embedder_config()
-    {
+    // SaaS reads only the task's own scope, as `Config::load_or_init` does, so
+    // a task that lost its user scope fails rather than getting the operator's.
+    let scoped = if crate::core::runtime::is_saas() {
+        crate::core::runtime::CoreContext::scoped().and_then(|ctx| ctx.embedder_config().cloned())
+    } else {
+        crate::core::runtime::context::CoreContext::current_embedder_config()
+    };
+    if let Some(mut config) = scoped {
         normalize_loaded_config(&mut config).await;
         return Ok(config);
     }

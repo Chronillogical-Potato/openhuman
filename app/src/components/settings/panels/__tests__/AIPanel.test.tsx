@@ -1,7 +1,8 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { listConnections as listComposioConnections } from '../../../../lib/composio/composioApi';
+import { getCoreStateSnapshot, setCoreStateSnapshot } from '../../../../lib/coreState/store';
 import { I18nProvider } from '../../../../lib/i18n/I18nContext';
 import {
   clearCloudProviderKey,
@@ -22,6 +23,7 @@ import {
 import { creditsApi } from '../../../../services/api/creditsApi';
 import { callCoreRpc } from '../../../../services/coreRpcClient';
 import { renderWithProviders } from '../../../../test/test-utils';
+import { createLocalSessionToken } from '../../../../utils/localSession';
 import { connectOpenRouterViaOAuth } from '../../../../utils/openrouterOAuth';
 import { openUrl } from '../../../../utils/openUrl';
 import { isTauri } from '../../../../utils/tauriCommands/common';
@@ -241,9 +243,23 @@ const baseConnections = [
   { id: 'pending-cal', toolkit: 'googlecalendar', status: 'PENDING' },
 ];
 
+// AIPanel tests mount no CoreStateProvider, so the session hooks read the
+// module-level snapshot store. Seed it with a real (non-local) session so the
+// managed OpenHuman row — which only exists for real sessions — is available.
+const originalCoreState = getCoreStateSnapshot();
+function seedSessionToken(sessionToken: string | null) {
+  setCoreStateSnapshot({
+    ...originalCoreState,
+    snapshot: { ...originalCoreState.snapshot, sessionToken },
+  });
+}
+
 describe('AIPanel', () => {
+  afterEach(() => setCoreStateSnapshot(originalCoreState));
+
   beforeEach(() => {
     vi.clearAllMocks();
+    seedSessionToken('header.payload.signature');
     vi.mocked(isTauri).mockReturnValue(false);
     vi.mocked(loadAISettings).mockResolvedValue(baseSettings);
     vi.mocked(loadLocalProviderSnapshot).mockResolvedValue(baseLocalSnapshot);
@@ -317,6 +333,14 @@ describe('AIPanel', () => {
     expect(
       screen.getByText(/Choose which provider each task uses on the Routing tab/i)
     ).toBeInTheDocument();
+  });
+
+  it('omits the managed OpenHuman row for a local ("Continue Locally") session', async () => {
+    seedSessionToken(createLocalSessionToken());
+    renderWithProviders(<AIPanel />);
+    await waitFor(() => expect(screen.getAllByText(/^LLM Providers$/).length).toBeGreaterThan(0));
+    expect(screen.queryByTestId('provider-row-openhuman')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Always on$/i)).not.toBeInTheDocument();
   });
 
   it('shows the per-workload routing tables directly, with no mode selector', async () => {

@@ -19,18 +19,14 @@
 //! | `execute`         | `composio_execute`                                                 |
 //! | `triggers`        | GitHub repos + trigger CRUD + trigger history                      |
 //! | `providers_ops`   | `composio_get_user_profile`, `composio_refresh_all_identities`     |
-//! | `sync`            | `composio_sync`, `run_sync_pass` (connector records → memory)      |
 //! | `direct_mode`     | `composio_get_mode`, `composio_set_api_key`, `_clear_...`          |
 //! | `user_scopes`     | per-toolkit agent scope prefs, in a workspace JSON file            |
-//! | `pass_failure`    | when a connector pass failed; the sync retry schedule (openhuman#6255) |
 
 mod connections;
 mod direct_mode;
 mod error_utils;
 mod execute;
-mod pass_failure;
 mod providers_ops;
-mod sync;
 mod toolkits;
 mod tools_ops;
 mod triggers;
@@ -40,7 +36,7 @@ mod user_scopes;
 
 pub use connections::{
     active_connection_ids, composio_authorize, composio_delete_connection,
-    composio_list_connections,
+    composio_list_connections, ComposioDeleteResult,
 };
 pub use direct_mode::{composio_clear_api_key, composio_get_mode, composio_set_api_key};
 pub(crate) use error_utils::{report_composio_op_error, should_forward_tags};
@@ -48,7 +44,6 @@ pub use execute::composio_execute;
 pub use providers_ops::{
     composio_get_user_profile, composio_refresh_all_identities, RefreshIdentitiesReport,
 };
-pub use sync::{composio_sync, run_sync_pass, SyncPassOutcome, SYNC_PASS_MAX_ITEMS};
 pub use toolkits::{
     composio_list_agent_ready_toolkits, composio_list_capabilities, composio_list_toolkits,
 };
@@ -93,17 +88,12 @@ pub(crate) use super::connected_integrations::sync_cache_with_connections;
 #[cfg(test)]
 pub(crate) use crate::config::Config;
 #[cfg(test)]
-pub(crate) use crate::integrations::composio::providers::SyncReason;
-#[cfg(test)]
 pub(crate) use connections::enrich_connections_with_identity;
 #[cfg(test)]
 pub(crate) use error_utils::{
     backend_mode_without_session, classify_composio_failure_tag, direct_mode_without_key,
     extract_backend_returned_status,
 };
-#[cfg(test)]
-pub(crate) use sync::parse_sync_reason;
-
 #[cfg(test)]
 #[path = "../ops_tests.rs"]
 mod tests;

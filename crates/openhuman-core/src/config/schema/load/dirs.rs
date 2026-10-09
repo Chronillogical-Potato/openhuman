@@ -322,7 +322,16 @@ pub(crate) async fn resolve_runtime_config_dirs(
 /// revision separately: a switch between those two reads pairs workspace A
 /// with B's revision, and a receiver comparing revisions then ranks the stale
 /// A above the B it should yield to.
-pub async fn active_workspace_snapshot() -> Result<(PathBuf, u64)> {
+/// Returned boxed and `#[inline(never)]` on purpose: other crates await this
+/// (`openhuman-rpc`, `openhuman-embed`), and an `async fn` body is otherwise
+/// re-instantiated inside every calling crate's state machine. Boxing here
+/// keeps one copy, compiled in this crate.
+#[inline(never)]
+pub fn active_workspace_snapshot() -> futures::future::BoxFuture<'static, Result<(PathBuf, u64)>> {
+    Box::pin(active_workspace_snapshot_inner())
+}
+
+async fn active_workspace_snapshot_inner() -> Result<(PathBuf, u64)> {
     // An embedding host that supplied its own `Config` is authoritative, and
     // `config::ops::load_config_with_timeout` already short-circuits on it for
     // exactly this reason. Resolving from disk/env here instead would answer
@@ -332,9 +341,13 @@ pub async fn active_workspace_snapshot() -> Result<(PathBuf, u64)> {
     // mismatch there is not a wrong banner, it is *no* banner, permanently,
     // with only a `debug!` line to say so. See AGENTS.md, "CoreBuilder::config
     // alone configures boot and nothing else".
-    if let Some(config) = crate::core::runtime::context::CoreContext::current_embedder_config() {
-        let revision = super::active_workspace::publish_active_workspace(&config.workspace_dir);
-        return Ok((config.workspace_dir, revision));
+    if let Some(workspace_dir) =
+        crate::core::runtime::context::CoreContext::with_current_embedder_config(|config| {
+            config.workspace_dir.clone()
+        })
+    {
+        let revision = super::active_workspace::publish_active_workspace(&workspace_dir);
+        return Ok((workspace_dir, revision));
     }
     let (default_openhuman_dir, default_workspace_dir) = default_config_and_workspace_dirs()?;
     let (_, workspace_dir, source) =

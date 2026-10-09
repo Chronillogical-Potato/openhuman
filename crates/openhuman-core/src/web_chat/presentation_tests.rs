@@ -142,6 +142,7 @@ async fn delivery_stores_the_reply_before_announcing_it() {
             parent_thread_id: None,
             labels: None,
             personality_id: None,
+            working_dir: None,
         },
     )
     .expect("thread created");

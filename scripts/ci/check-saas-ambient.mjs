@@ -57,9 +57,9 @@ export const RULES = [
   },
 ];
 
-// The helpers that implement the scoped forms are the one place the bare
-// forms belong.
-const EXEMPT_FILES = new Set([
+// The helpers that implement the scoped spawns are the one place a bare
+// spawn belongs. Every other rule still applies to them.
+const BARE_SPAWN_EXEMPT = new Set([
   "crates/openhuman-core/src/core/runtime/spawn.rs",
 ]);
 
@@ -136,8 +136,11 @@ async function main() {
   const findings = [];
   for (const path of await rustFiles(scanRoot)) {
     const rel = relative(repoRoot, path).split(sep).join("/");
-    if (isTestFile(rel) || EXEMPT_FILES.has(rel)) continue;
-    findings.push(...scan(rel, await readFile(path, "utf8")));
+    if (isTestFile(rel)) continue;
+    const found = scan(rel, await readFile(path, "utf8"));
+    findings.push(
+      ...(BARE_SPAWN_EXEMPT.has(rel) ? found.filter((f) => f.rule !== "bare-spawn") : found),
+    );
   }
 
   if (writeBaseline) {
@@ -179,6 +182,6 @@ async function main() {
   return 1;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (fileURLToPath(import.meta.url) === resolve(process.argv[1] ?? "")) {
   process.exit(await main());
 }

@@ -483,7 +483,6 @@ async fn composio_remaining_controller_paths_validate_without_live_services() {
         (63, "openhuman.composio_list_github_repos"),
         (64, "openhuman.composio_create_trigger"),
         (65, "openhuman.composio_get_user_profile"),
-        (66, "openhuman.composio_sync"),
         (67, "openhuman.composio_get_user_scopes"),
         (68, "openhuman.composio_set_user_scopes"),
         (69, "openhuman.composio_list_available_triggers"),
@@ -750,6 +749,22 @@ async fn memory_v2_controller_surface_is_reachable() {
     for (offset, method) in methods.into_iter().enumerate() {
         let response = rpc(&harness.rpc_base, 100 + offset as i64, method, json!({})).await;
         assert_rpc_completed(&response, method);
+    }
+    for (offset, method) in [
+        "openhuman.memory_conversations_get",
+        "openhuman.memory_context_get",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let response = rpc(&harness.rpc_base, 200 + offset as i64, method, json!({})).await;
+        let message = response["error"]["message"]
+            .as_str()
+            .expect("retired memory method returns a dispatch error");
+        assert!(
+            message.starts_with(UNKNOWN_METHOD_PREFIX),
+            "{method}: {response}"
+        );
     }
 }
 

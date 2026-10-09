@@ -139,6 +139,79 @@ pub fn install() {
     )));
 }
 
+/// Installs the session store the host's configuration asks for, before the
+/// core boots.
+///
+/// With no storage URL (`OPENHUMAN_STORAGE_URL`, else `[storage] url`) this is
+/// [`install`]: the classic on-disk layout, unchanged. With one, the backend is
+/// opened, made the process's storage backend
+/// ([`openhuman_core::storage::install`]), and TinyAgents'
+/// `DriverSessionStores` is installed over it: every agent's transcripts, turn
+/// states, records and journal in that backend, one storage scope per agent.
+///
+/// A single-process backend (SQLite, memory, files) also interrupts an
+/// agent's in-flight turns the first time it is opened, since only an earlier
+/// process can have left them. MongoDB does not: several processes may share
+/// that database, and another one may own those turns.
+///
+/// # Errors
+///
+/// When a URL is configured but cannot be parsed or opened. A deployment that
+/// asked for a backend must not quietly fall back to local files.
+pub async fn install_for_host() -> anyhow::Result<()> {
+    let url = match std::env::var(openhuman_core::storage::STORAGE_URL_VAR) {
+        Ok(url) if !url.trim().is_empty() => Some(url.trim().to_string()),
+        _ => match openhuman_core::config::rpc::load_config_with_timeout().await {
+            Ok(config) => openhuman_core::storage::configured_url(&config),
+            // An unreadable config keeps the desktop booting on the classic
+            // layout, as it always has. Remote deployments pin the backend
+            // with `OPENHUMAN_STORAGE_URL`, which never reads the config.
+            Err(error) => {
+                tracing::warn!(
+                    "[session_store] config unavailable ({error}); keeping the on-disk layout"
+                );
+                None
+            }
+        },
+    };
+    install_for_url(url).await
+}
+
+/// [`install_for_host`] with the URL already resolved: `None` installs the
+/// classic on-disk store, a URL opens that backend and installs
+/// `DriverSessionStores` over it.
+///
+/// # Errors
+///
+/// When `url` cannot be parsed or opened.
+pub async fn install_for_url(url: Option<String>) -> anyhow::Result<()> {
+    use anyhow::Context as _;
+
+    let Some(url) = url else {
+        // Drop a backend an earlier call installed, so storage operations do
+        // not keep writing to it while the classic layout is in force.
+        openhuman_core::storage::clear();
+        install();
+        return Ok(());
+    };
+    let backend = openhuman_core::storage::open(&url)
+        .await
+        .context("opening the configured storage backend")?;
+    let single_process = !openhuman_core::storage::driver_is_shared(backend.driver());
+    let provider = tinyagents_session::DriverSessionStores::new(Arc::clone(&backend))
+        .context("starting the session store bridge")?
+        .recover_on_open(single_process);
+    // Only a fully working bridge makes the backend the process's storage.
+    openhuman_core::storage::install(backend);
+    tracing::info!(
+        target: "openhuman_rpc::session_store",
+        recover_on_open = single_process,
+        "[session_store] installed the storage-backed session store"
+    );
+    openhuman_core::agent::session_store::install(Arc::new(provider));
+    Ok(())
+}
+
 #[cfg(test)]
 #[path = "mod_tests.rs"]
 mod tests;

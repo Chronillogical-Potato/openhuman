@@ -161,10 +161,12 @@ async fn external_channel_cannot_rehydrate_a_local_image() {
         },
     )]);
     let origin = AgentTurnOrigin::ExternalChannel {
+        sender_name: None,
         channel: "telegram".into(),
         sender: None,
         reply_target: "chat".into(),
         message_id: "message".into(),
+        history_key: None,
     };
     let mut context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
     context.origin = Some(origin);

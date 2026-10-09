@@ -99,6 +99,20 @@ fn locale_reply_directive_renders_known_locales() {
     assert!(zh.contains("Simplified Chinese"));
 }
 
+/// Every non-English locale the app offers (`app/src/lib/i18n/types.ts`) gets
+/// a directive; de, ja, ko, pl and tr used to fall through to none.
+#[test]
+fn locale_reply_directive_covers_every_app_locale() {
+    for locale in [
+        "zh-CN", "hi", "es", "ar", "fr", "bn", "pt", "de", "ru", "id", "it", "ja", "ko", "pl", "tr",
+    ] {
+        assert!(
+            locale_reply_directive(locale).is_some(),
+            "no reply directive for app locale {locale}"
+        );
+    }
+}
+
 // ── PTT field additions (Task 1 of global-ptt plan) ─────────────────────────
 
 #[test]

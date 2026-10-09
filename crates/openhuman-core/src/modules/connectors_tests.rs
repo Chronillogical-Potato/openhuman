@@ -54,7 +54,6 @@ fn every_member_this_host_names_is_one_the_module_serves() {
         methods::DELETE_CONNECTION,
         methods::LIST_TOOLS,
         methods::EXECUTE,
-        methods::SYNC,
         methods::LIST_CAPABILITIES,
     ] {
         assert!(

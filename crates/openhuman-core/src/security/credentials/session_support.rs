@@ -359,6 +359,16 @@ impl BackendCredential {
 pub const LOCAL_SESSION_BACKEND_UNAVAILABLE: &str =
     "BACKEND_UNAVAILABLE: hosted account data is unavailable for the offline local session";
 
+/// Error [`OpenHumanBackendModel::resolve_bearer`](crate::inference::provider::OpenHumanBackendModel)
+/// returns for the offline local session. The local credential authenticates
+/// no TinyHumans account, so managed inference has nothing to bill or route;
+/// sending the token anyway earned a backend `401` that read to the user as an
+/// expired session (#6932). Distinct from
+/// [`LOCAL_SESSION_BACKEND_UNAVAILABLE`] because the chat surface renders this
+/// one as its own failure class.
+pub const LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE: &str =
+    "BACKEND_UNAVAILABLE: managed inference is unavailable for the offline local session";
+
 /// Resolve the backend credential for `config`: the API key when one is
 /// stored, else the live app-session token with exactly the classification
 /// [`require_live_session_token`] has always applied.
@@ -536,8 +546,8 @@ pub fn session_token_from_profile(profile: Option<&AuthProfile>) -> Option<Strin
 /// when there is one; a host that discovers its config from disk has no API
 /// key by construction (it is only ever installed by a library runtime).
 pub fn ambient_config_has_api_key() -> bool {
-    crate::core::runtime::CoreContext::current_embedder_config()
-        .is_some_and(|config| super::api_key::has_api_key(&config))
+    crate::core::runtime::CoreContext::with_current_embedder_config(super::api_key::has_api_key)
+        .unwrap_or(false)
 }
 
 #[cfg(test)]

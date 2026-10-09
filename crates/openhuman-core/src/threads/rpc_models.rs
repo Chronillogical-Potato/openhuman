@@ -17,6 +17,20 @@ pub struct CreateConversationThreadRequest {
     pub labels: Option<Vec<String>>,
     #[serde(default)]
     pub personality_id: Option<String>,
+    /// Working folder the new thread's agent acts in. Absent or empty uses the
+    /// global `action_dir`.
+    #[serde(default)]
+    pub action_dir: Option<String>,
+}
+
+/// Request to bind or clear the working folder of a thread that has no
+/// messages yet.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateConversationThreadWorkingDirRequest {
+    pub thread_id: String,
+    /// Absolute folder path; empty clears back to the global `action_dir`.
+    pub action_dir: String,
 }
 
 /// Summary information for a workspace-backed conversation thread.
@@ -37,6 +51,9 @@ pub struct ConversationThreadSummary {
     pub labels: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub personality_id: Option<String>,
+    /// Working folder bound to this thread; absent means the global default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub action_dir: Option<String>,
 }
 
 /// A single persisted conversation message.

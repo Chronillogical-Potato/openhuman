@@ -569,26 +569,6 @@ export function handleIntegrations(ctx) {
     return true;
   }
 
-  // ── Composio sync ──────────────────────────────────────────
-  if (
-    method === "POST" &&
-    /^\/agent-integrations\/composio\/sync\/?$/.test(url)
-  ) {
-    if (mockBehavior.composioSyncFails === "400") {
-      json(res, 400, { success: false, error: "Mock sync failure" });
-      return true;
-    }
-    if (
-      mockBehavior.composioSyncFails === "500" ||
-      mockBehavior.composioSyncFails === "1"
-    ) {
-      json(res, 500, { success: false, error: "Mock sync failure" });
-      return true;
-    }
-    json(res, 200, { success: true, data: { items_synced: 3 } });
-    return true;
-  }
-
   // ── Parallel search ────────────────────────────────────────
   if (
     method === "POST" &&

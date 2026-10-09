@@ -25,8 +25,6 @@ import {
   type RecallAnswer,
 } from '../../services/api/memoryApi';
 import {
-  Alert,
-  AlertDescription,
   Button,
   Card,
   Label,
@@ -36,6 +34,7 @@ import {
   ToggleGroupRoot,
 } from '../ui';
 import { CenteredLoadingState } from '../ui/LoadingState';
+import MemoryErrorAlert from './MemoryErrorAlert';
 import MemoryHitRow from './MemoryHitRow';
 import MemoryPackPreview from './MemoryPackPreview';
 
@@ -92,7 +91,7 @@ export default function MemoryAskTab({ fetchModes }: MemoryAskTabProps) {
       }
     } catch (err) {
       log('%s failed: %o', raw ? 'fetch' : 'recall', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
     } finally {
       setBusy(false);
     }
@@ -167,11 +166,7 @@ export default function MemoryAskTab({ fetchModes }: MemoryAskTabProps) {
             </form>
           </Card>
 
-          {error !== null && (
-            <Alert variant="destructive" data-testid="memory-ask-error">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          {error !== null && <MemoryErrorAlert message={error} data-testid="memory-ask-error" />}
 
           {busy && <CenteredLoadingState label={t('memoryPage.ask.thinking')} />}
 

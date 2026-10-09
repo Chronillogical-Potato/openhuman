@@ -51,7 +51,7 @@ pub(super) async fn dictation_ws_handler(
     })
 }
 
-fn authorize_dictation_request(
+pub(super) fn authorize_dictation_request(
     headers: &axum::http::HeaderMap,
     query: &DictationQuery,
 ) -> Result<(), DictationAuthError> {
@@ -94,7 +94,7 @@ fn authorize_dictation_request(
 }
 
 #[derive(Clone, Copy, Debug)]
-enum DictationAuthError {
+pub(super) enum DictationAuthError {
     Forbidden,
     Unauthorized,
 }

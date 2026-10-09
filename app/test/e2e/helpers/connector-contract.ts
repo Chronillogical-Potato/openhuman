@@ -132,18 +132,6 @@ export function runConnectorContract(config: ConnectorContractConfig): void {
       console.log(`${LOG} PASS: connected state persists`);
     });
 
-    // Renamed from the misleading "composio_sync RPC routes to mock backend"
-    // (plan.md §3): composio_sync short-circuits with no HTTP for connectors
-    // without a native provider, so the real, verifiable contract is that the
-    // call does not tear down the WebDriver session.
-    it('composio_sync does not tear down the session', async function () {
-      this.timeout(30_000);
-      clearRequestLog();
-      await callOpenhumanRpc('openhuman.composio_sync', { toolkit: slug });
-      await assertSessionNotNuked();
-      console.log(`${LOG} PASS: sync does not nuke session`);
-    });
-
     it('composio_execute routes a basic task', async function () {
       this.timeout(30_000);
       clearRequestLog();

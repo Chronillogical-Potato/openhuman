@@ -10,6 +10,7 @@ fn make_thread(id: &str, labels: Vec<String>) -> CreateConversationThread {
         parent_thread_id: None,
         labels: Some(labels),
         personality_id: None,
+        working_dir: None,
     }
 }
 

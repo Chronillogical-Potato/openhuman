@@ -10,6 +10,7 @@ const ALL_FUNCTIONS: &[&str] = &[
     "generate_title",
     "update_labels",
     "update_title",
+    "update_working_dir",
     "message_update",
     "delete",
     "purge",
@@ -24,6 +25,7 @@ const ALL_FUNCTIONS: &[&str] = &[
     "todos_get",
     "edit_message",
     "regenerate",
+    "search",
 ];
 
 #[test]

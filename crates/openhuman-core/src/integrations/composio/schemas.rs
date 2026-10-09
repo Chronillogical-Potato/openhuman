@@ -14,7 +14,6 @@
 //!   - `composio.create_trigger`      → `openhuman.composio_create_trigger`
 //!   - `composio.get_user_profile`    → `openhuman.composio_get_user_profile`
 //!   - `composio.refresh_all_identities` → `openhuman.composio_refresh_all_identities`
-//!   - `composio.sync`                → `openhuman.composio_sync`
 
 mod definitions;
 mod handlers_connections;

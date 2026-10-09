@@ -29,6 +29,7 @@ mod cli_rpc_only;
 mod cost_budget;
 mod credential_scrub;
 mod embedder_hooks;
+mod failure_policy;
 mod fetched_site;
 mod loop_guards;
 mod memory_pack;
@@ -43,6 +44,7 @@ mod tool_output;
 mod tool_output_file_read;
 mod tool_policy;
 mod turn_context;
+mod unmet_deliverable;
 
 pub(crate) use approval::ApprovalSecurityMiddleware;
 pub(crate) use cli_rpc_only::CliRpcOnlyMiddleware;
@@ -61,6 +63,7 @@ pub(crate) use tool_policy::ToolPolicyMiddleware;
 pub(crate) use turn_context::{
     render_unanswered_steps, TranscriptSnapshot, TranscriptSnapshotSink, TurnContextMiddleware,
 };
+pub(super) use unmet_deliverable::install as install_unmet_deliverable;
 
 /// Render the canonical TinyTools content blocks at the OpenHuman boundary.
 /// Middleware that used the retired string-shaped harness result must not

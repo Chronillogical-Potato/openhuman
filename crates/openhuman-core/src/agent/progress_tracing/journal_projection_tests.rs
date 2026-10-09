@@ -20,6 +20,7 @@ fn obs(offset: u64, ts: u64, event: AgentEvent) -> AgentObservation {
 
 fn tool_completed(call: &str, name: &str, error: Option<&str>) -> AgentEvent {
     AgentEvent::ToolCompleted {
+        parent_call_id: None,
         call_id: CallId::new(call),
         tool_name: name.to_string(),
         started_at_ms: Some(1_020),
@@ -54,6 +55,7 @@ fn single_turn(tool_error: Option<&str>) -> Vec<AgentObservation> {
             2,
             1_020,
             AgentEvent::ToolStarted {
+                parent_call_id: None,
                 call_id: CallId::new("t1"),
                 tool_name: "lookup".to_string(),
                 input: None,
@@ -76,6 +78,7 @@ fn single_turn(tool_error: Option<&str>) -> Vec<AgentObservation> {
             1_070,
             AgentEvent::RunCompleted {
                 run_id: RunId::new("run-1"),
+                outcome: None,
             },
         ),
     ]
@@ -111,6 +114,7 @@ fn subagent_turn() -> Vec<AgentObservation> {
             3,
             1_030,
             AgentEvent::ToolStarted {
+                parent_call_id: None,
                 call_id: CallId::new("scout-tool"),
                 tool_name: "read_file".to_string(),
                 input: None,
@@ -141,6 +145,7 @@ fn subagent_turn() -> Vec<AgentObservation> {
             1_100,
             AgentEvent::RunCompleted {
                 run_id: RunId::new("run-1"),
+                outcome: None,
             },
         ),
     ]
@@ -254,6 +259,7 @@ fn projects_failed_subagent_from_child_run_failed() {
             AgentEvent::RunFailed {
                 run_id: RunId::new("run-1"),
                 error: "provider unavailable".to_string(),
+                outcome: None,
             },
         ),
         obs(
@@ -261,6 +267,7 @@ fn projects_failed_subagent_from_child_run_failed() {
             1_030,
             AgentEvent::RunCompleted {
                 run_id: RunId::new("run-1"),
+                outcome: None,
             },
         ),
     ];
@@ -316,6 +323,7 @@ fn projects_turn_content_from_root_model_io() {
             1_030,
             AgentEvent::RunCompleted {
                 run_id: RunId::new("run-1"),
+                outcome: None,
             },
         ),
     ];

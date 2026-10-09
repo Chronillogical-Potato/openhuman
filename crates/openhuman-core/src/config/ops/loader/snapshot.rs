@@ -15,6 +15,11 @@ pub fn snapshot_config_json(config: &Config) -> Result<serde_json::Value, String
         value["search"][provider]["api_key"] = serde_json::Value::Null;
     }
     value["seltz"]["api_key"] = serde_json::Value::Null;
+    // A storage URL may carry database credentials; show it redacted.
+    if let Some(url) = config.storage.url.as_deref() {
+        value["storage"]["url"] =
+            serde_json::Value::String(crate::config::schema::storage::redact_url(url));
+    }
     #[cfg(feature = "modules")]
     let browser_billing_route = crate::modules::desktop::billing_route(config);
     #[cfg(not(feature = "modules"))]
@@ -77,6 +82,8 @@ pub fn client_config_json(config: &Config) -> serde_json::Value {
         // The composer's thinking-level default (`runtime.reasoning_effort`);
         // `null` means the provider decides.
         "reasoning_effort": config.runtime.reasoning_effort,
+        // Per-model thinking levels (`runtime.reasoning_effort_by_model`).
+        "reasoning_effort_by_model": config.runtime.reasoning_effort_by_model,
         "app_version": app_version,
         "api_key_set": api_key_set,
         "model_routes": model_routes,
