@@ -101,8 +101,8 @@ Results, per-task patches, harness logs and the per-call meter records are commi
 | --- | --- | --- | --- |
 | Wall time (p50) | **19.8 s** | 46.5 s | 28.4 s (OpenCode) |
 | Tokens | **167k** | 435k | 370k (Codex) |
-| Cost | **$0.0077** | $0.012 | $0.0077 (OpenCode) |
-| Peak process RAM | **68 MB** | 524 MB | 123 MB (Codex) |
+| Cost | $0.0077 | $0.012 | $0.0077 (OpenCode, a tie) |
+| Peak process RAM | **68 MB** | 523 MB | 123 MB (Codex) |
 | CPU time | **1.3 s** | 10.4 s | 2.9 s (DeepSeek Harness) |
 | Static prompt (system + tools) | **4.6k tokens** | 7.7k | 6.2k (DeepSeek Harness) |
 | Tasks resolved | 7 / 10 | 10 / 10 | 10 / 10 (four harnesses) |
@@ -201,19 +201,18 @@ Measured, from the public [`swe-x86-1`](https://github.com/tinyhumansai/openhuma
 | Static prompt (system + tools) | **4.6k** | 12.0k | 7.7k | 6.7k | 7.6k | 13.2k |
 | Cold start to first model call | 0.8 s | 0.3 s | **0.2 s** | 1.2 s | 5.5 s | 10.0 s |
 
-By design (products change, so check each project before relying on this):
+By design, as of October 2026 (these projects move fast, so check each one before relying on a row):
 
 | | OpenHuman | Claude Code / Codex | OpenCode | OpenClaw / Hermes |
 | --- | --- | --- | --- | --- |
 | License | GPL-3.0 | Proprietary / Apache-2.0 | MIT | MIT |
 | Core language | Rust | TypeScript / Rust | TypeScript | TypeScript / Python |
-| Embeddable as a library | Typed Rust API, many agents per process | SDKs that drive a CLI process | Server API | Partial |
-| Desktop app for non-developers | Yes | Partial | No | No |
-| Any model, local or BYOK | Yes, 26 providers plus local | Vendor models first | Yes | Yes |
-| Persistent memory with citations | Yes, pluggable engine | Project notes | No | Plugin or self-learning |
-| Managed OAuth integrations | 119 apps, plus MCP | MCP | MCP | Bring your own |
-| Messaging channels | 14 | No | No | A few |
-| Visual workflows | Yes, agent-drafted | No | No | Scripts |
+| Embed in your own program | Typed Rust API, many agents in one process | SDKs that drive a CLI process | Server API and SDK | Run as a separate process |
+| Any model, local or BYOK | 26 providers plus local servers | Vendor models first | Yes | Yes |
+| Persistent memory with citations | Pluggable engine, recalled every turn | Project notes files | Project notes files | Plugin or self-learning |
+| Managed OAuth integrations | 119 apps, plus MCP | MCP | MCP | Bring your own, plus MCP |
+| Messaging channels | 14 in the shipped build | No | No | Yes |
+| Visual workflows | Agent-drafted, reviewed on a canvas | No | No | Scripts |
 
 ---
 
