@@ -142,3 +142,38 @@ fn knobs_and_seams_forward_unchanged() {
     assert_eq!(summary.tool_ranker.as_deref(), Some("test-ranker"));
     assert_eq!(summary.controller_extensions, vec![DomainGroup::Hosted]);
 }
+
+struct HostRanker;
+
+#[async_trait::async_trait]
+impl ToolRanker for HostRanker {
+    fn kind(&self) -> &'static str {
+        "host-ranker"
+    }
+    async fn rank(
+        &self,
+        _intent: &str,
+        _context: &tinytools::RankContext,
+        _candidates: &[tinytools::RankCandidate],
+        _limit: usize,
+    ) -> Result<Vec<tinytools::RankHit>, tinytools::RankError> {
+        Ok(Vec::new())
+    }
+}
+
+#[test]
+fn a_ranker_on_a_wrapped_embed_builder_is_kept() {
+    let embed = openhuman_embed::RuntimeBuilder::new().tool_ranker(Arc::new(HostRanker));
+    let summary = connected(RuntimeBuilder::from_embed(embed));
+    assert_eq!(summary.tool_ranker.as_deref(), Some("host-ranker"));
+}
+
+#[test]
+fn turning_jev_back_on_does_not_replace_a_host_ranker() {
+    let summary = connected(
+        RuntimeBuilder::new()
+            .tool_ranker(Arc::new(HostRanker))
+            .jev_ranker(true),
+    );
+    assert_eq!(summary.tool_ranker.as_deref(), Some("host-ranker"));
+}
