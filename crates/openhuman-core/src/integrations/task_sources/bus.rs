@@ -77,42 +77,39 @@ async fn fire_for_connection(
     toolkit: &str,
     connection_id: &str,
 ) {
-    {
-        let config = config.clone();
-        let sources = match store::list_sources(&config) {
-            Ok(sources) => sources,
-            Err(e) => {
-                tracing::debug!(error = %e, "[task_sources:bus] list_sources failed, skipping");
-                return;
-            }
-        };
-
-        for source in sources
-            .into_iter()
-            .filter(|s| s.enabled && s.provider == provider)
-        {
-            // If the source pins a specific connection, only fire for it.
-            if let Some(pinned) = source.connection_id.as_deref() {
-                if pinned != connection_id {
-                    continue;
-                }
-            }
-            tracing::info!(
-                source_id = %source.id,
-                toolkit = %toolkit,
-                "[task_sources:bus] connection created → one-shot fetch"
-            );
-            // Spawn each fetch independently so the event handler does not
-            // block dispatch on N sequential network round-trips (same
-            // pattern as the periodic poll). Each fetch captures its own
-            // owned config + source.
-            let config = config.clone();
-            // Scoped: the fetch keeps the scope's agent context.
-            crate::core::runtime::spawn_scoped(async move {
-                let _ = pipeline::run_source_once(&config, &source, FetchReason::ConnectionCreated)
-                    .await;
-            });
+    let sources = match store::list_sources(&config) {
+        Ok(sources) => sources,
+        Err(e) => {
+            tracing::debug!(error = %e, "[task_sources:bus] list_sources failed, skipping");
+            return;
         }
+    };
+
+    for source in sources
+        .into_iter()
+        .filter(|s| s.enabled && s.provider == provider)
+    {
+        // If the source pins a specific connection, only fire for it.
+        if let Some(pinned) = source.connection_id.as_deref() {
+            if pinned != connection_id {
+                continue;
+            }
+        }
+        tracing::info!(
+            source_id = %source.id,
+            toolkit = %toolkit,
+            "[task_sources:bus] connection created → one-shot fetch"
+        );
+        // Spawn each fetch independently so the event handler does not
+        // block dispatch on N sequential network round-trips (same
+        // pattern as the periodic poll). Each fetch captures its own
+        // owned config + source.
+        let config = config.clone();
+        // Scoped: the fetch keeps the scope's agent context.
+        crate::core::runtime::spawn_scoped(async move {
+            let _ =
+                pipeline::run_source_once(&config, &source, FetchReason::ConnectionCreated).await;
+        });
     }
 }
 
