@@ -70,7 +70,7 @@ pub fn start_periodic_poll() {
         tracing::debug!("[task_sources:periodic] scheduler already running, skipping start");
         return;
     }
-    tokio::spawn(async move {
+    crate::core::runtime::spawn_scoped(async move {
         tracing::info!(
             tick_seconds = TICK_SECONDS,
             "[task_sources:periodic] scheduler starting"
@@ -87,8 +87,12 @@ async fn run_loop() {
     ticker.tick().await;
     loop {
         ticker.tick().await;
-        if let Err(e) = run_one_tick().await {
-            tracing::warn!(error = %e, "[task_sources:periodic] tick failed (continuing)");
+        // `local`, then every agent that keeps its sources in its own storage
+        // scope (`crate::storage::agents`).
+        for (agent, result) in crate::storage::agents::for_each_scope("task_sources", run_one_tick).await {
+            if let Err(e) = result {
+                tracing::warn!(error = %e, agent = agent.as_deref().unwrap_or("local"), "[task_sources:periodic] tick failed (continuing)");
+            }
         }
     }
 }

@@ -75,7 +75,23 @@ pub async fn run(config: Config) -> Result<()> {
     loop {
         interval.tick().await;
         tick_once(&config, &security, &mut last_emitted_health).await;
+        tick_agents(&config, &security).await;
     }
+}
+
+/// The same poll for every agent that keeps its jobs in its own storage scope
+/// (`crate::storage::agents`): a job an agent scheduled from its own turn
+/// lives there, and runs there — under that agent's context and, when the
+/// agent is live, its configuration. Only the `local` pass reports the
+/// scheduler's health; an agent pass still reports a failing job.
+pub(crate) async fn tick_agents(config: &Config, security: &Arc<SecurityPolicy>) {
+    crate::storage::agents::for_each_agent("cron", || async {
+        let config = crate::core::runtime::CoreContext::current_embedder_config()
+            .unwrap_or_else(|| config.clone());
+        let mut steady = Some(true);
+        tick_once(&config, security, &mut steady).await;
+    })
+    .await;
 }
 
 /// Single poll cycle of the scheduler loop, extracted so tests can drive

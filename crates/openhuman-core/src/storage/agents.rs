@@ -150,10 +150,9 @@ fn agent_contexts(fallback: Option<&Arc<CoreContext>>) -> Vec<(String, Arc<CoreC
 }
 
 /// Runs `step` for every storage scope background work must cover: once
-/// under the current context (the `local` scope, outside SaaS mode), then —
-/// when a storage backend is installed — once under each known agent's
-/// context. Steps run one after another; each result is returned with the
-/// agent it ran for (`None` for `local`).
+/// under the current context (the `local` scope, outside SaaS mode), then
+/// once per known agent ([`for_each_agent`]). Each result is returned with
+/// the agent it ran for (`None` for `local`).
 ///
 /// `label` names the caller in logs.
 pub async fn for_each_scope<T, F, Fut>(label: &str, step: F) -> Vec<(Option<String>, T)>
@@ -162,18 +161,35 @@ where
     Fut: Future<Output = T>,
 {
     let mut results = Vec::new();
-    let saas = crate::core::runtime::mode::is_saas();
-    if !saas {
+    if !crate::core::runtime::mode::is_saas() {
         results.push((None, step().await));
     }
+    for (agent, value) in for_each_agent(label, step).await {
+        results.push((Some(agent), value));
+    }
+    results
+}
+
+/// Runs `step` once under each known agent's context, one after another —
+/// only when a storage backend is installed, since without one the stores do
+/// not split by agent and the `local` pass already covers everything.
+///
+/// For a loop that handles the `local` scope itself (the cron scheduler keeps
+/// its process-wide health tracking there) and needs the agents on top.
+pub async fn for_each_agent<T, F, Fut>(label: &str, step: F) -> Vec<(String, T)>
+where
+    F: Fn() -> Fut,
+    Fut: Future<Output = T>,
+{
     if installed().is_none() {
-        return results;
+        return Vec::new();
     }
     let fallback = CoreContext::current();
+    let mut results = Vec::new();
     for (agent, context) in agent_contexts(fallback.as_ref()) {
         tracing::trace!(%agent, label, "[storage::agents] visiting agent scope");
         let value = CoreContext::scope(context, step()).await;
-        results.push((Some(agent), value));
+        results.push((agent, value));
     }
     results
 }
