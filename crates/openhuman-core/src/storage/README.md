@@ -88,11 +88,18 @@ runs under the process default context and on its own would only see
   (`CoreContext::for_agent`). `for_each_agent` skips `local`.
 - `within_agent(agent, fut)` / `context_for(agent)`: re-enter an agent's
   scope when background work learned whose record it is handling.
+- `find_owner(label, probe)`: the scope (`local` first, then each agent)
+  where a record named only by id lives — for event subscribers, whose
+  events carry ids but no agent.
 
 Users: the cron scheduler (`cron::scheduler::tick_agents`), the task-source
 poller, the flows boot sweep and schedule-trigger reconcile, the run reaper,
-and the device tunnel (a paired device's frames run as the agent that paired
-it, `security::devices::owner`). Without a backend these run once, as
+the device tunnel (a paired device's frames run as the agent that paired
+it, `security::devices::owner`), and the event subscribers: a flow's
+schedule tick, run digest and dedup settlement run as the flow's owner
+(`flows::bus::owner`); Composio app-event triggers and new connections are
+matched in every scope; a cron job's completion notification is stored with
+the job's owner. Without a backend these run once, as
 before. In SaaS mode agent ids are not recorded and `local` is skipped;
 per-user background work there is `user_agents::background`.
 
