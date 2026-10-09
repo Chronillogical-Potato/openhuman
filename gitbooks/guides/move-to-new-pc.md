@@ -1,122 +1,114 @@
 ---
 description: >-
-  Carry your OpenHuman persona, memory, workspace, and model/provider config to
-  a new computer, and understand which secrets travel and which you re-enter.
+  Carry your OpenHuman persona, workspace and model config to a new computer,
+  and learn which secrets travel and which you re-enter.
 icon: truck
 ---
 
 # Move OpenHuman to a new PC
 
-**Goal:** set up OpenHuman on a new machine so it picks up where the old one left off (same memory, same persona, same settings), with credentials handled at a safe level of detail.
-
-The short version: **copy one folder, sign back in.** The nuance is in what a folder copy does and does not carry, which this guide makes explicit so you're not surprised.
-
----
+This guide sets up OpenHuman on a new machine so it picks up where the old one left off, with the same persona and settings and your memory reconnected. In short, copy one folder and sign back in. The details below cover what a folder copy does and does not carry.
 
 ## Prerequisites
 
-- Both computers available (or a backup of the old one's data folder).
+- Both computers, or a backup of the old one's data folder.
 - Your OpenHuman sign-in credentials.
-- A way to move files between them (external drive, secure file transfer, etc.).
+- A way to move files between them, such as an external drive or a secure file transfer.
 
 ## What lives where
 
-Everything OpenHuman persists is in a single folder:
+Everything OpenHuman keeps on disk is in one folder:
 
-| Platform      | Data folder                 |
-| ------------- | --------------------------- |
-| macOS / Linux | `~/.openhuman/`             |
-| Windows       | `%USERPROFILE%\.openhuman\` |
+| Platform | Data folder |
+| --- | --- |
+| macOS and Linux | `~/.openhuman/` |
+| Windows | `%USERPROFILE%\.openhuman\` |
 
-Inside it, the things you care about migrating:
+These are the parts you care about moving:
 
-| What                                                   | Where (inside the data folder)                | Travels with a folder copy?       |
-| ------------------------------------------------------ | --------------------------------------------- | --------------------------------- |
-| **Memory items**                                       | In your engine (TinyHumans or CortexDB)       | Sign in again / re-enter the key  |
-| **Persona & behavior**                                 | `SOUL.md`, `IDENTITY.md`, `ROLE.md`           | Yes                               |
-| **Config** (models, providers, routing, autonomy)      | `config.toml`                                 | Yes                               |
-| **Session history**                                    | `sessions/`, `session_raw/`                   | Yes                               |
-| **Approval history**                                   | `approval/approval.db`                        | Yes                               |
-| **OS-stored secrets** (session token, some local keys) | Your OS keychain, **not** in this folder      | No (re-established on sign-in)    |
-| **Integration access** (Gmail, Slack, …)               | Brokered by the backend, tied to your account | No (reconnects on sign-in)        |
+| What | Where | Travels with a folder copy? |
+| --- | --- | --- |
+| Memory items | In your engine (TinyHumans or CortexDB) | No. Sign in again or re-enter the key |
+| Persona and behavior | `SOUL.md`, `IDENTITY.md`, `ROLE.md` | Yes |
+| Config (models, providers, routing, autonomy) | `config.toml` | Yes |
+| Session history | `sessions/`, `session_raw/` | Yes |
+| Approval history | `approval/approval.db` | Yes |
+| OS-stored secrets (session token, some local keys) | Your OS keychain, not this folder | No. Re-established on sign-in |
+| Integration access (Gmail, Slack, and so on) | Held by the backend against your account | No. Reconnects on sign-in |
 
 {% hint style="info" %}
-**Why some things don't travel, and why that's fine.** OpenHuman deliberately keeps secrets out of loose files. Your session token and certain local secrets live in the operating system's secure store (Keychain / Credential Manager / Secret Service), and your integration tokens are held by the backend against your account. So the folder copy carries your _data and persona_; **signing in on the new machine re-establishes the secrets and integrations.** You never hand-copy raw tokens between machines.
+OpenHuman keeps secrets out of loose files on purpose. Your session token and some local secrets live in the operating system's secure store (Keychain, Credential Manager or Secret Service), and the backend holds your integration tokens against your account. The folder copy carries your data and persona, and signing in on the new machine restores the secrets and integrations. You never copy raw tokens by hand.
 {% endhint %}
-
----
 
 ## Steps
 
 ### 1. Quit OpenHuman on the old machine
 
-Fully close the app so nothing is mid-write to the database. A clean copy needs a quiet source.
+Close the app fully so nothing is mid-write to the database. A clean copy needs a quiet source.
 
 ### 2. Copy the data folder
 
-Copy the **entire** data folder from the old machine to the same location on the new one:
+Copy the entire data folder from the old machine to the same location on the new one:
 
-- macOS / Linux: copy `~/.openhuman/` → `~/.openhuman/`
-- Windows: copy `%USERPROFILE%\.openhuman\` → `%USERPROFILE%\.openhuman\`
+- macOS and Linux: copy `~/.openhuman/` to `~/.openhuman/`.
+- Windows: copy `%USERPROFILE%\.openhuman\` to `%USERPROFILE%\.openhuman\`.
 
-Copy the whole folder rather than cherry-picking. It keeps memory, persona, config, and history consistent with each other.
+Copy the whole folder instead of picking files. That keeps memory settings, persona, config and history consistent with each other.
 
-The data folder holds config and memory but **not** the files the agent created or edited in its action sandbox. Also copy your **projects/action folder**, by default `~/OpenHuman/projects` (or wherever you pointed the action directory). Otherwise those project files stay behind on the old PC. That folder also holds `Files` (`~/OpenHuman/projects/Files`), where the decks, documents and generated images and videos the agent delivers are saved.
+The data folder holds config but not the files the agent created or edited in its action sandbox. Also copy your projects folder, by default `~/OpenHuman/projects`, or wherever you pointed the action directory. Otherwise those project files stay on the old PC. That folder also holds `Files` (`~/OpenHuman/projects/Files`), where the agent saves the decks, documents, images and videos it delivers.
 
 {% hint style="warning" %}
-Copy it somewhere secure. This folder contains your personal memory in readable form. Treat the transfer like moving personal documents.
+Copy it somewhere secure. The folder contains your personal data in readable form, so treat the transfer like moving personal documents.
 {% endhint %}
 
 ### 3. Install OpenHuman on the new machine
 
-Install the current build from [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman). If the data folder is already in place, the app will find it on launch. (Order doesn't strictly matter; installing first and copying after works too, as long as the app isn't running while you copy.)
+Install the current build from [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman) or the [latest release](https://github.com/tinyhumansai/openhuman/releases/latest). If the data folder is already in place, the app finds it on launch. The order does not matter much. You can install first and copy after, as long as the app is not running during the copy.
 
 ### 4. Launch and sign in
 
-Open the app and sign in with the **same account**. Signing in:
+Open the app and sign in with the same account. Signing in:
 
 - Re-establishes your session token in the new machine's OS keychain.
-- Reconnects your account so backend-brokered integrations come back.
+- Reconnects your account, so integrations held by the backend come back.
 
-### 5. Reconnect anything account-scoped
+### 5. Reconnect anything tied to your account
 
-- **Integrations** (Gmail, Slack, etc.): confirm they show as connected under **Settings**. If any need a fresh OAuth approval, re-approve them. Each takes a quick click.
-- **Bring-your-own keys:** if you had entered your own provider API key, a Composio direct key, or similar **local** secrets, re-enter them on the new machine. Those are stored in the OS keychain and don't come across in the folder.
+- **Integrations** (Gmail, Slack and so on): confirm they show as connected under **Settings**. If one needs a fresh OAuth approval, approve it again. It takes one click.
+- **Your own keys:** if you entered your own provider API key, a Composio direct key or similar local secrets, enter them again. They live in the OS keychain and do not travel in the folder.
 
-### 6. Re-check model / provider config
+### 6. Re-check model and provider config
 
-Your `config.toml` came along, so model routing and provider choices should already match. If you used a [local model](local-model.md), remember that **Ollama/LM Studio is separate software** and the model weights live in its own store, not in the OpenHuman data folder. Install the runtime on the new machine and pull the same models yourself (for example `ollama pull bge-m3`); OpenHuman does not download them.
-
----
+Your `config.toml` came along, so model routing and provider choices should already match. If you used a [local model](local-model.md), remember that Ollama or LM Studio is separate software, and the model weights live in its own store, not in the OpenHuman data folder. Install the runtime on the new machine and pull the same models yourself, for example `ollama pull bge-m3`. OpenHuman does not download them.
 
 ## Success checks
 
-The migration worked when:
+The move worked when:
 
-- [ ] The **Memory** tab on the new machine shows your existing summaries. Your memory came across.
-- [ ] The assistant replies in your configured style, and your display name/persona is intact.
-- [ ] Connected integrations show as connected under **Settings** (reconnect any that don't).
+- [ ] The Memory tab on the new machine shows your existing summaries.
+- [ ] The assistant replies in your configured style, and your display name and persona are intact.
+- [ ] Connected integrations show as connected under **Settings**. Reconnect any that do not.
 - [ ] Your autonomy tier and settings match what you had (check **Settings → Agents → Agent access**).
-- [ ] If you use local AI: the runtime is installed and running on the new machine, you have pulled the models your workloads name, and a turn routed to the local provider answers.
+- [ ] If you use local AI, the runtime is installed and running, you have pulled the models your workloads name, and a turn routed to the local provider answers.
 
 ## Common failures
 
-| Symptom                                     | Cause                                                                     | Fix                                                                                          |
-| ------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| New machine starts fresh, no memory         | Data folder wasn't in the right place, or app was running during the copy | Quit the app, place the folder at `~/.openhuman/` (or `%USERPROFILE%\.openhuman\`), relaunch |
-| Signed in but integrations are disconnected | Integration access is account/backend-scoped, not in the folder           | Reconnect each integration in Settings (one OAuth click each)                                |
-| Local model doesn't work on the new PC      | Ollama/LM Studio and the weights aren't on the new machine                | Install the runtime and pull the models yourself; see [local model guide](local-model.md)    |
-| Assistant lost its personality              | `SOUL.md` / `IDENTITY.md` weren't copied                                  | Copy the **whole** data folder, not just the database                                        |
-| Sign-in stalls on the new machine           | An auth/handler issue unrelated to migration                              | See [Troubleshooting Sign-In](../overview/troubleshooting-sign-in.md)                        |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| The new machine starts fresh with no memory | The data folder was in the wrong place, or the app was running during the copy | Quit the app, place the folder at `~/.openhuman/` (or `%USERPROFILE%\.openhuman\`), and relaunch |
+| Signed in but integrations are disconnected | Integration access is tied to your account, not the folder | Reconnect each integration in Settings. Each takes one OAuth click |
+| The local model does not work on the new PC | Ollama or LM Studio and the weights are not on the new machine | Install the runtime and pull the models yourself. See the [local model guide](local-model.md) |
+| The assistant lost its personality | `SOUL.md` and `IDENTITY.md` were not copied | Copy the whole data folder, not just the database |
+| Sign-in stalls on the new machine | An auth or handler issue unrelated to the move | See [Troubleshooting sign-in](../overview/troubleshooting-sign-in.md) |
 
 ## Recovery
 
-- **Keep the old machine's folder until you've verified the new one.** Don't wipe the source until every success check passes.
-- If the new machine won't start at all, treat it as a fresh-install problem: [Recover from a failed installation](recover-failed-installation.md). Your copied folder is safe to move aside and restore.
+- Keep the old machine's folder until you have verified the new one. Do not wipe the source until every success check passes.
+- If the new machine will not start at all, treat it as a fresh-install problem and follow [Recover from a failed installation](recover-failed-installation.md). Your copied folder is safe to move aside and restore.
 
 ## See also
 
-- [Recover from a failed installation](recover-failed-installation.md): same data folder, different problem.
+- [Recover from a failed installation](recover-failed-installation.md): the same data folder, a different problem.
 - [Keep sensitive data private](privacy-sensitive-data.md): why secrets are stored the way they are.
-- [Use OpenHuman with a local model](local-model.md): re-standing-up a runtime on the new machine.
-- [OS Keyring & Secret Storage](../features/os-keyring-and-secret-storage.md): what the keychain holds instead of the folder.
+- [Use OpenHuman with a local model](local-model.md): setting up a runtime on the new machine.
+- [OS keyring and secret storage](../features/os-keyring-and-secret-storage.md): what the keychain holds instead of the folder.
