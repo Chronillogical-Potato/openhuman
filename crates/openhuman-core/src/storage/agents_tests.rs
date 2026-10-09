@@ -152,3 +152,14 @@ async fn without_a_backend_only_the_local_scope_runs() {
     assert_eq!(within_agent(None, async { 7 }).await, 7);
     AgentContextRegistry::deregister("agents-test-unvisited", &agent);
 }
+
+#[tokio::test]
+async fn without_a_backend_the_live_pass_runs_only_local() {
+    if installed().is_some() {
+        return;
+    }
+    let agent = live_agent("agents-test-live-pass");
+    let runs = for_each_live_scope("test", || async { 1 }).await;
+    assert_eq!(runs, vec![(None, 1)]);
+    AgentContextRegistry::deregister("agents-test-live-pass", &agent);
+}
