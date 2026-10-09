@@ -511,7 +511,7 @@ fn each_user_sees_only_their_own_threads() {
 
     // A hidden method answers unknown-method even with bad params, rather
     // than its parameter errors.
-    let (_, body) = call("alice", "openhuman.threads_regenerate", json!({}));
+    let (_, body) = call("alice", "openhuman.threads_update_working_dir", json!({}));
     let error = body["error"].to_string();
     assert!(!error.contains("missing"), "{body}");
 
