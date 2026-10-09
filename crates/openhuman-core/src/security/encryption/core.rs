@@ -5,7 +5,6 @@ use aes_gcm::{
 };
 use argon2::{self, Algorithm, Argon2, Params, Version};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 /// Salt length for Argon2id key derivation
 const SALT_LENGTH: usize = 16;

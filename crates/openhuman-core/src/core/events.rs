@@ -24,7 +24,7 @@
 
 /// Voice-domain events.
 #[non_exhaustive]
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum VoiceEvent {
     /// A PTT session committed a transcript to a thread. Carries only
     /// length/timing — never the raw text, per the PII-safe logging rule.
@@ -38,7 +38,7 @@ pub enum VoiceEvent {
 }
 
 /// A tool call made while answering a committed turn: name and id only.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ConversationToolCall {
     /// Tool name.
     pub name: String,
@@ -49,7 +49,7 @@ pub struct ConversationToolCall {
 /// Top-level domain event. Non-exhaustive so new variants can be added
 /// without breaking existing match arms.
 #[non_exhaustive]
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum DomainEvent {
     // ── Agent ───────────────────────────────────────────────────────────
     /// An agent turn has started processing.
