@@ -151,6 +151,11 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           run: "pnpm agent:runtime-boundary",
         },
         {
+          name: "saas-ambient",
+          when: core,
+          run: "pnpm saas:ambient",
+        },
+        {
           name: "ignored-tests-ratchet",
           when: rust,
           run: "pnpm rust:ignored-tests",
@@ -174,6 +179,13 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           name: "feature-forwarding",
           when: true,
           run: "node scripts/ci/check-feature-forwarding.mjs",
+        },
+        {
+          // core -> embed -> tinyhumans -> rpc -> app/cli/tui; cheap, and a
+          // manifest edit anywhere can break it, so always on.
+          name: "crate-chain",
+          when: true,
+          run: "node scripts/ci/check-crate-chain.mjs",
         },
         {
           name: "module-pins",

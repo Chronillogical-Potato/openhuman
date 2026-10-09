@@ -8,11 +8,11 @@ database is provisioned and connected, and the order a launch runs in. This
 module owns the OpenHuman side: where the credential comes from, which
 workspace the agent deploys from, and whether the tools are offered at all.
 
-The whole domain is one file, `mod.rs`, around a single type, `Account`.
+The whole domain is one file, [`mod.rs`](./mod.rs), around a single type, `Account`.
 
 ## How it works
 
-At tool-registry build time, `tools::ops` (in `src/tools/ops.rs`) asks this
+At tool-registry build time, `tools::ops` (in [`src/tools/ops.rs`](../tools/ops.rs)) asks this
 module for an account. If one resolves, the account's ten tools are appended
 to the agent's tool list. If none resolves, nothing is registered.
 
@@ -58,7 +58,7 @@ plain strings, so a host (OpenCompany keeps one hosting key per company in that
 company's secret store) can reach the tools without naming `tinyhosts` in its
 own dependency graph.
 
-Configuration lives in `HostingConfig` (`src/config/schema/hosting.rs`):
+Configuration lives in `HostingConfig` ([`src/config/schema/hosting.rs`](../config/schema/hosting.rs)):
 `enabled`, `provider` (default `vercel`), `api_key` (empty means "read the
 provider's environment variable"), and `team` (empty means the personal
 account). Its `Debug` impl redacts the key.
@@ -83,7 +83,7 @@ account). Its `Debug` impl redacts the key.
 
 ## Agent tools
 
-All ten are implemented in `vendor/tinyhosts/src/tools/`. Tools with an
+All ten are implemented in [`vendor/tinyhosts/src/tools/`](../../../../vendor/tinyhosts/src/tools/). Tools with an
 external effect return `true` from `Tool::external_effect`, which the agent
 harness reads to route the call through approval.
 
@@ -122,7 +122,7 @@ enforces it.
 
 - Provider behavior (endpoints, deployment states, database provisioning,
   launch ordering, the tool implementations and their argument validation)
-  belongs to `tinyhosts` (`vendor/tinyhosts`, upstream
+  belongs to `tinyhosts` ([`vendor/tinyhosts`](../../../../vendor/tinyhosts/), upstream
   `tinyhumansai/tinyhosts`). Nothing in this module knows the word
   `readyState`, and nothing in `tinyhosts` knows what a workspace is.
 - Approval routing belongs to the agent harness, via `external_effect`.
@@ -147,10 +147,17 @@ enforces it.
 
 ## Tests
 
-`hosting_tests.rs` covers the seam only: account resolution from config and
+[`hosting_tests.rs`](./hosting_tests.rs) covers the seam only: account resolution from config and
 the tool set handed back. The tools themselves, workspace containment, and the
 rollback guard are tested in `tinyhosts` against a mock of the provider API.
 
 ```bash
 cargo test -p openhuman --features hosting hosting::
 ```
+
+## Further reading
+
+- [Parent module README](../../README.md)
+- [Hosting](../../../../gitbooks/features/hosting.md)
+- [Cloud deploy](../../../../gitbooks/features/cloud-deploy.md)
+- [tinyhosts](../../../../vendor/tinyhosts/README.md)

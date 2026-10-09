@@ -1,8 +1,8 @@
 # capabilities
 
 Tauri v2 capability files. A capability says which windows may use which
-permissions. This directory has one, `default.json`, and `tauri_build` picks
-it up at build time (`build.rs` reruns when the directory changes).
+permissions. This directory has one, [`default.json`](default.json), and `tauri_build` picks
+it up at build time ([`build.rs`](../build.rs) reruns when the directory changes).
 
 ## default.json
 
@@ -27,7 +27,7 @@ The `$schema` field points at `../gen/schemas/desktop-schema.json`, which
 
 - Granting a permission here does nothing for a command that no permission
   file lists. App commands are ACL-checked, so a new command needs an entry in
-  `permissions/` as well as in `generate_handler!`.
+  [`permissions/`](../permissions/) as well as in `generate_handler!`.
 - The `overlay` label is listed, but no window uses it. The push-to-talk
   overlay that `ptt_overlay.rs` creates is labeled `ptt-overlay`, which this
   capability does not cover, so that window gets no permissions (event
@@ -36,3 +36,8 @@ The `$schema` field points at `../gen/schemas/desktop-schema.json`, which
   to an unscoped permission. Ordinary `http(s)` links from the main webview
   are handled by `external_navigation.rs`, which opens them in the default
   browser.
+
+## Further reading
+
+- [`gitbooks/developing/architecture/tauri-shell.md`](../../../gitbooks/developing/architecture/tauri-shell.md): the Tauri shell.
+- [`crates/openhuman-app/README.md`](../README.md): the openhuman-app crate README.

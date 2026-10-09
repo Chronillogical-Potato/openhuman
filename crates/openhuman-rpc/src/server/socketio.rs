@@ -1,12 +1,12 @@
 //! Socket.IO live-event bridge to the desktop shell.
 //!
 //! `spawn_web_channel_bridge` spawns one forwarding task per source. Domain
-//! broadcast channels: web-chat events (`openhuman_core::web_chat`), dictation hotkeys
-//! and transcription results (`openhuman_core::voice::dictation_listener`), overlay
-//! attention bubbles (`openhuman_core::desktop::overlay::subscribe_attention_events`,
+//! broadcast channels: web-chat events (`openhuman::web_chat`), dictation hotkeys
+//! and transcription results (`openhuman::voice::dictation_listener`), overlay
+//! attention bubbles (`openhuman::desktop::overlay::subscribe_attention_events`,
 //! see `desktop/overlay/README.md`), core notifications
-//! (`openhuman_core::desktop::notifications`), and shell companion state
-//! (`COMPANION_STATE_BUS`). `DomainEvent`s read off `openhuman_core::core::bus::BUS`:
+//! (`openhuman::desktop::notifications`), and shell companion state
+//! (`COMPANION_STATE_BUS`). `DomainEvent`s read off `openhuman::core::bus::BUS`:
 //! session expiry, MCP setup secret requests, memory sync and tree-build
 //! progress, channel listener health, and active-workspace changes. Web-chat
 //! events go to the initiating client's room and the `thread:<id>` room
@@ -37,7 +37,7 @@ use serde_json::Value;
 use socketioxide::extract::{AckSender, Data, SocketRef, TryData};
 use socketioxide::SocketIo;
 
-use openhuman_core::web_chat::{GuardrailPayload, WebChannelEvent};
+use crate::core_host::web_chat::{GuardrailPayload, WebChannelEvent};
 
 /// Shell-originated companion lifecycle events that still need to reach
 /// Socket.IO-only surfaces such as the native macOS notch WKWebView.
@@ -276,7 +276,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
             // `TryData` lets us treat a missing/malformed `auth` payload as a
             // soft failure (no panic) and reject the connect cleanly.
             let supplied = handshake.ok().and_then(|h| h.token).unwrap_or_default();
-            if !openhuman_core::core::auth::verify_bearer_token(&supplied) {
+            if !crate::core_host::core::auth::verify_bearer_token(&supplied) {
                 log::warn!(
                     "[socketio] rejecting connect: missing or invalid bearer client={}",
                     client_id
@@ -317,9 +317,9 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                 let socket = socket.clone();
                 let client_id = client_id.clone();
                 tokio::spawn(async move {
-                    match openhuman_core::config::active_workspace_snapshot().await {
+                    match crate::core_host::config::active_workspace_snapshot().await {
                         Ok((dir, revision)) => {
-                            let handle = openhuman_core::config::workspace_handle(&dir);
+                            let handle = crate::core_host::config::workspace_handle(&dir);
                             // One snapshot, not two reads: resolved
                             // separately, a switch between them would pair
                             // this workspace with the *next* one's revision,
@@ -359,8 +359,8 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                     );
 
                     // Invoke the method through the same logic used by the HTTP RPC endpoint.
-                    let response = match openhuman_core::core::invoke::invoke_method(
-                        openhuman_core::core::invoke::default_state(),
+                    let response = match crate::core_host::core::invoke::invoke_method(
+                        crate::core_host::core::invoke::default_state(),
                         payload.method.as_str(),
                         payload.params,
                     )
@@ -401,9 +401,9 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                     payload.message.len()
                 );
                     if let Some(run_mode) = payload.run_mode.as_deref() {
-                        match openhuman_core::agent::tinyagents::run_mode::parse_mode_label(run_mode) {
+                        match crate::core_host::agent::tinyagents::run_mode::parse_mode_label(run_mode) {
                             Some(mode) => {
-                                openhuman_core::agent::tinyagents::run_mode::set_mode(&thread_id, mode);
+                                crate::core_host::agent::tinyagents::run_mode::set_mode(&thread_id, mode);
                             }
                             None => log::warn!(
                                 "[socketio] chat:start thread_id={thread_id} ignoring unrecognized run_mode={run_mode}"
@@ -412,7 +412,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                     }
 
                     // Trigger the web channel's chat logic.
-                    match openhuman_core::web_chat::start_chat(
+                    match crate::core_host::web_chat::start_chat(
                         &client_id,
                         &payload.thread_id,
                         &payload.message,
@@ -420,7 +420,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                         payload.temperature,
                         payload.locale,
                         payload.queue_mode,
-                        openhuman_core::web_chat::ChatRequestMetadata::default(),
+                        crate::core_host::web_chat::ChatRequestMetadata::default(),
                     )
                     .await
                     {
@@ -448,7 +448,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                             // every other `chat_error`: by `error_type`, plus
                             // a typed `guardrail` payload it doesn't have to
                             // parse out of `message`.
-                            if let openhuman_core::web_chat::StartChatError::Guardrail {
+                            if let crate::core_host::web_chat::StartChatError::Guardrail {
                                 verdict,
                                 score,
                                 reasons,
@@ -481,7 +481,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                         client_id,
                         payload.thread_id
                     );
-                    let _ = openhuman_core::web_chat::cancel_chat_scoped(
+                    let _ = crate::core_host::web_chat::cancel_chat_scoped(
                         &client_id,
                         &payload.thread_id,
                         payload.request_id.as_deref(),
@@ -557,7 +557,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
     // 1. Web channel events → per-client rooms.
     let io_web = io.clone();
     tokio::spawn(async move {
-        let mut rx = openhuman_core::web_chat::subscribe_web_channel_events();
+        let mut rx = crate::core_host::web_chat::subscribe_web_channel_events();
         loop {
             let event = match rx.recv().await {
                 Ok(event) => event,
@@ -584,7 +584,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
 
     // 2. Dictation hotkey events → broadcast to all connected clients.
     tokio::spawn(async move {
-        let mut rx = openhuman_core::voice::dictation_listener::subscribe_dictation_events();
+        let mut rx = crate::core_host::voice::dictation_listener::subscribe_dictation_events();
         loop {
             let event = match rx.recv().await {
                 Ok(event) => event,
@@ -634,7 +634,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
 
     // 3. Overlay attention events → broadcast to all clients.
     tokio::spawn(async move {
-        let mut rx = openhuman_core::desktop::overlay::subscribe_attention_events();
+        let mut rx = crate::core_host::desktop::overlay::subscribe_attention_events();
         loop {
             let event = match rx.recv().await {
                 Ok(event) => event,
@@ -662,7 +662,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
     //    chat session is active. Pattern mirrors the overlay attention
     //    bridge above — fire-and-forget, no per-client routing.
     tokio::spawn(async move {
-        let mut rx = openhuman_core::desktop::notifications::subscribe_core_notifications();
+        let mut rx = crate::core_host::desktop::notifications::subscribe_core_notifications();
         loop {
             let event = match rx.recv().await {
                 Ok(event) => event,
@@ -705,7 +705,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
             let max_attempts = (MAX_WAIT_SECS * 1000) / RETRY_INTERVAL_MS;
             let mut attempts: u64 = 0;
             loop {
-                if let Some(bus) = openhuman_core::core::bus::BUS.get() {
+                if let Some(bus) = crate::core_host::core::bus::BUS.get() {
                     break bus;
                 }
                 attempts += 1;
@@ -724,7 +724,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
             let Some(event) = rx.recv().await else {
                 break;
             };
-            if let openhuman_core::core::events::DomainEvent::SessionExpired { source, reason } =
+            if let crate::core_host::core::events::DomainEvent::SessionExpired { source, reason } =
                 event
             {
                 // Other publishers may emit a backend 401 while this core is
@@ -732,7 +732,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                 // correctly keeps that credential, so the UI must not receive
                 // a contradictory sign-out event from this independent bus
                 // consumer. Real JWT expiry still broadcasts as before.
-                if openhuman_core::security::credentials::session_support::current_session_is_local(
+                if crate::core_host::security::credentials::session_support::current_session_is_local(
                 )
                 .await
                 {
@@ -778,7 +778,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
             let max_attempts = (MAX_WAIT_SECS * 1000) / RETRY_INTERVAL_MS;
             let mut attempts: u64 = 0;
             loop {
-                if let Some(bus) = openhuman_core::core::bus::BUS.get() {
+                if let Some(bus) = crate::core_host::core::bus::BUS.get() {
                     break bus;
                 }
                 attempts += 1;
@@ -797,12 +797,12 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
             let Some(event) = rx.recv().await else {
                 break;
             };
-            if let openhuman_core::core::events::DomainEvent::ActiveWorkspaceChanged {
+            if let crate::core_host::core::events::DomainEvent::ActiveWorkspaceChanged {
                 workspace_dir,
                 revision,
             } = event
             {
-                let handle = openhuman_core::config::workspace_handle(&workspace_dir);
+                let handle = crate::core_host::config::workspace_handle(&workspace_dir);
                 log::info!(
                     "[socketio] broadcast workspace_changed workspace={handle} revision={revision}"
                 );
@@ -816,7 +816,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
 
     // 5. Transcription results → broadcast to all connected clients.
     tokio::spawn(async move {
-        let mut rx = openhuman_core::voice::dictation_listener::subscribe_transcription_results();
+        let mut rx = crate::core_host::voice::dictation_listener::subscribe_transcription_results();
         loop {
             let text = match rx.recv().await {
                 Ok(text) => text,
@@ -849,7 +849,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
             let max_attempts = (MAX_WAIT_SECS * 1000) / RETRY_INTERVAL_MS;
             let mut attempts: u64 = 0;
             loop {
-                if let Some(bus) = openhuman_core::core::bus::BUS.get() {
+                if let Some(bus) = crate::core_host::core::bus::BUS.get() {
                     break bus;
                 }
                 attempts += 1;
@@ -869,7 +869,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                 break;
             };
             match event {
-                openhuman_core::core::events::DomainEvent::HarnessInitProgress {
+                crate::core_host::core::events::DomainEvent::HarnessInitProgress {
                     step_id,
                     state,
                     message,
@@ -883,7 +883,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                     });
                     let _ = io_memory_sync.emit("init:progress", &payload);
                 }
-                openhuman_core::core::events::DomainEvent::HarnessInitCompleted {
+                crate::core_host::core::events::DomainEvent::HarnessInitCompleted {
                     overall,
                     failed_required,
                 } => {
@@ -898,7 +898,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                 // truth and the Workflows UI keeps a 2s poller as fallback, so
                 // a dropped event here (broadcast lag) only delays the live
                 // update, never corrupts run history.
-                openhuman_core::core::events::DomainEvent::FlowRunProgress {
+                crate::core_host::core::events::DomainEvent::FlowRunProgress {
                     run_id,
                     node_id,
                     status,
@@ -923,7 +923,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                 // instead of waiting for the blocking `flows_run` RPC to
                 // resolve or the first `FlowRunProgress` step. Best-effort,
                 // same rationale as `flow:run_progress` above.
-                openhuman_core::core::events::DomainEvent::FlowRunStarted { flow_id, run_id } => {
+                crate::core_host::core::events::DomainEvent::FlowRunStarted { flow_id, run_id } => {
                     let payload = serde_json::json!({
                         "flow_id": flow_id,
                         "run_id": run_id,
@@ -942,7 +942,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                 // canvas/sidebar can flip a run to Completed/Failed live
                 // instead of relying on a poll to notice. Best-effort, same
                 // rationale as the other `flow:*` bridges.
-                openhuman_core::core::events::DomainEvent::FlowRunFinished {
+                crate::core_host::core::events::DomainEvent::FlowRunFinished {
                     flow_id,
                     run_id,
                     status,
@@ -966,7 +966,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                 // — most importantly, so an agent `save_workflow` becomes
                 // visible in a canvas the user has open (audit F6). Best-effort;
                 // the UI's refetch-on-focus is the backstop.
-                openhuman_core::core::events::DomainEvent::FlowChanged {
+                crate::core_host::core::events::DomainEvent::FlowChanged {
                     flow_id,
                     kind,
                     actor,
@@ -991,7 +991,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                 // bridge — because a flow run has no chat thread/client to
                 // target; the Workflows UI listens process-wide and filters
                 // by `flow_id`/`run_id` client-side.
-                openhuman_core::core::events::DomainEvent::FlowApprovalRequested {
+                crate::core_host::core::events::DomainEvent::FlowApprovalRequested {
                     request_id,
                     flow_id,
                     run_id,
@@ -1036,7 +1036,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
             let max_attempts = (MAX_WAIT_SECS * 1000) / RETRY_INTERVAL_MS;
             let mut attempts: u64 = 0;
             loop {
-                if let Some(bus) = openhuman_core::core::bus::BUS.get() {
+                if let Some(bus) = crate::core_host::core::bus::BUS.get() {
                     break bus;
                 }
                 attempts += 1;
@@ -1056,7 +1056,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                 break;
             };
             let payload = match event {
-                openhuman_core::core::events::DomainEvent::ChannelConnected { channel } => {
+                crate::core_host::core::events::DomainEvent::ChannelConnected { channel } => {
                     log::debug!(
                         "[socketio] broadcast channel:connection-updated {channel} -> connected"
                     );
@@ -1066,7 +1066,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                         None,
                     ))
                 }
-                openhuman_core::core::events::DomainEvent::ChannelDisconnected {
+                crate::core_host::core::events::DomainEvent::ChannelDisconnected {
                     channel,
                     reason,
                 } => {
@@ -1243,7 +1243,7 @@ fn event_alias(name: &str) -> Option<String> {
 /// request is no longer parked, so a socket that already has the card just
 /// re-renders the same one.
 fn replay_parked_approval(socket: &SocketRef, thread_id: &str) {
-    let Some(gate) = openhuman_core::security::approval::ApprovalGate::try_global() else {
+    let Some(gate) = crate::core_host::security::approval::ApprovalGate::try_global() else {
         return;
     };
     let Some(row) = gate.parked_request_for_thread(thread_id) else {
@@ -1251,7 +1251,7 @@ fn replay_parked_approval(socket: &SocketRef, thread_id: &str) {
     };
     let client_id = socket.id.to_string();
     let expires_at = row.expires_at.map(|t| t.to_rfc3339());
-    let mut event = openhuman_core::web_chat::approval_request_event(
+    let mut event = crate::core_host::web_chat::approval_request_event(
         &row.request_id,
         &row.tool_name,
         &row.action_summary,
@@ -1264,7 +1264,7 @@ fn replay_parked_approval(socket: &SocketRef, thread_id: &str) {
     // Replay is a fresh emit to a newly-joined socket, not a resend of the
     // original event, so stamp `ts` with "now" (same clock as
     // `publish_web_channel_event`) rather than leaving it unset.
-    event.ts = Some(openhuman_core::web_chat::unix_epoch_ms());
+    event.ts = Some(crate::core_host::web_chat::unix_epoch_ms());
     let Ok(payload) = serde_json::to_value(&event) else {
         return;
     };
@@ -1282,12 +1282,12 @@ fn replay_parked_approval(socket: &SocketRef, thread_id: &str) {
 /// UI the same fire-and-forget way, so the same reconciliation applies.
 fn replay_parked_plan_review(socket: &SocketRef, thread_id: &str) {
     let Some(row) =
-        openhuman_core::agent::plan_review::gate::global().parked_review_for_thread(thread_id)
+        crate::core_host::agent::plan_review::gate::global().parked_review_for_thread(thread_id)
     else {
         return;
     };
     let client_id = socket.id.to_string();
-    let mut event = openhuman_core::web_chat::plan_review_request_event(
+    let mut event = crate::core_host::web_chat::plan_review_request_event(
         &row.request_id,
         &row.summary,
         &row.steps,
@@ -1296,7 +1296,7 @@ fn replay_parked_plan_review(socket: &SocketRef, thread_id: &str) {
         row.tool_call_id.as_deref(),
         row.expires_at.as_deref(),
     );
-    event.ts = Some(openhuman_core::web_chat::unix_epoch_ms());
+    event.ts = Some(crate::core_host::web_chat::unix_epoch_ms());
     let Ok(payload) = serde_json::to_value(&event) else {
         return;
     };

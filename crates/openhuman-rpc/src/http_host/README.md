@@ -18,7 +18,8 @@ the four controllers to the core's registry with
 domain family of its own, so the runtime's `DomainSet` gates it with the
 platform surface). The server calls the panicking wrapper
 `ensure_registered()` from both `install_cli_server` and
-`build_core_http_router`, so every host that runs the RPC server (the desktop
+`build_core_http_router`, and `crate::host` adds the same controllers
+(`http_host::extension()`) to its builders, so every host that runs the RPC server (the desktop
 app and the `openhuman-core` binary) exposes `http_host.*`. Registration is
 idempotent. A host that embeds the core without this crate's server, such as
 the TUI or an `openhuman-embed` library host, has no `http_host` surface.
@@ -72,14 +73,14 @@ servers never survive a restart.
 
 | File | What it does |
 | --- | --- |
-| `mod.rs` | Module wiring, `register_controllers`, `ensure_registered`, the `http_host` namespace description, `LOG_PREFIX = "[http_host]"`. |
-| `types.rs` | Serde types: `StartHostedDirParams`, `HostedDirLookupParams`, `HostedDirServerInfo`, `HostedDirAuth`, and the `*Result` response shapes. |
-| `ops.rs` | The in-process server manager: the `HostedDirRegistry` singleton (a `Mutex<HashMap>` behind a `OnceLock`), `start`/`list`/`get`/`stop`/`stop_all`, finished-task pruning, collision checks, the shutdown hook. |
-| `handlers.rs` | The per-server `axum` router: auth check, path resolution, streamed files, directory listings. |
-| `auth.rs` | Basic-auth verification, default username resolution from the session or environment, username sanitizing, password generation. |
-| `path_utils.rs` | Directory canonicalization, request-path traversal checks, bind-host and label sanitizing, link builders, `escape_html`, `content_type_for_path`, `redact_path_for_log`. |
-| `rpc.rs` | Thin adapters from ops to `Outcome<T>`. |
-| `schemas.rs` | `ControllerSchema`s and `handle_*` handlers; `all_controller_schemas` and `all_registered_controllers`. |
+| [`mod.rs`](mod.rs) | Module wiring, `register_controllers`, `ensure_registered`, the `http_host` namespace description, `LOG_PREFIX = "[http_host]"`. |
+| [`types.rs`](types.rs) | Serde types: `StartHostedDirParams`, `HostedDirLookupParams`, `HostedDirServerInfo`, `HostedDirAuth`, and the `*Result` response shapes. |
+| [`ops.rs`](ops.rs) | The in-process server manager: the `HostedDirRegistry` singleton (a `Mutex<HashMap>` behind a `OnceLock`), `start`/`list`/`get`/`stop`/`stop_all`, finished-task pruning, collision checks, the shutdown hook. |
+| [`handlers.rs`](handlers.rs) | The per-server `axum` router: auth check, path resolution, streamed files, directory listings. |
+| [`auth.rs`](auth.rs) | Basic-auth verification, default username resolution from the session or environment, username sanitizing, password generation. |
+| [`path_utils.rs`](path_utils.rs) | Directory canonicalization, request-path traversal checks, bind-host and label sanitizing, link builders, `escape_html`, `content_type_for_path`, `redact_path_for_log`. |
+| [`rpc.rs`](rpc.rs) | Thin adapters from ops to `Outcome<T>`. |
+| [`schemas.rs`](schemas.rs) | `ControllerSchema`s and `handle_*` handlers; `all_controller_schemas` and `all_registered_controllers`. |
 
 ## Public surface
 
@@ -107,7 +108,7 @@ Namespace `http_host`, invoked as `openhuman.http_host_<function>`:
 ## Boundaries
 
 - The controller contract (`ControllerSchema`, `Outcome`,
-  `register_controller_extension`) is the core's (`openhuman_core::core`).
+  `register_controller_extension`) is the core's (`openhuman::core`).
 - The default username comes from the core's config
   (`config::load_config_with_timeout`) and session state
   (`security::credentials::session_support::build_session_state`); this
@@ -132,11 +133,16 @@ Namespace `http_host`, invoked as `openhuman.http_host_<function>`:
 
 ## Tests
 
-`http_host_tests.rs` (mounted from `mod.rs`) covers a start, list and stop
+[`http_host_tests.rs`](http_host_tests.rs) (mounted from [`mod.rs`](mod.rs)) covers a start, list and stop
 round trip with Basic auth, path traversal rejection, and username
-sanitizing and resolution. `schemas_tests.rs` checks schema and handler
+sanitizing and resolution. [`schemas_tests.rs`](schemas_tests.rs) checks schema and handler
 parity, required inputs and the unknown-function fallback.
 
 ```bash
 cargo test -p openhuman-rpc http_host
 ```
+
+## Further reading
+
+- [`gitbooks/developing/architecture.md`](../../../../gitbooks/developing/architecture.md): architecture overview.
+- [`crates/openhuman-rpc/README.md`](../../README.md): the openhuman-rpc crate README.

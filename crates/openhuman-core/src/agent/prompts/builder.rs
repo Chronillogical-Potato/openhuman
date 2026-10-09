@@ -101,6 +101,9 @@ fn global_style_block(workspace_dir: &Path) -> String {
 #[derive(Default)]
 pub struct SystemPromptBuilder {
     pub(super) sections: Vec<Box<dyn PromptSection>>,
+    /// Render the sections alone: no grounding contract or writing-style
+    /// block is appended. See [`Self::verbatim`].
+    pub(super) verbatim: bool,
 }
 
 impl SystemPromptBuilder {
@@ -120,6 +123,7 @@ impl SystemPromptBuilder {
                 Box::new(DateTimeSection),
                 Box::new(RuntimeSection),
             ],
+            verbatim: false,
         }
     }
 
@@ -173,7 +177,10 @@ impl SystemPromptBuilder {
         // agent-specific prose scoped to the agent that owns it.
         sections.push(Box::new(WorkspaceSection));
 
-        Self { sections }
+        Self {
+            sections,
+            verbatim: false,
+        }
     }
 
     /// Build from a fully-assembled prompt string — no section wrapping.
@@ -185,6 +192,17 @@ impl SystemPromptBuilder {
     pub fn from_final_body(body: String) -> Self {
         Self {
             sections: vec![Box::new(ArchetypePromptSection::new(body))],
+            verbatim: false,
+        }
+    }
+
+    /// Exactly `body`: no section, grounding contract or writing-style block
+    /// is composed around it. For a host that owns its whole prompt
+    /// ([`PromptSource::Verbatim`](crate::agent::harness::definition::PromptSource::Verbatim)).
+    pub fn verbatim(body: String) -> Self {
+        Self {
+            sections: vec![Box::new(ArchetypePromptSection::new(body))],
+            verbatim: true,
         }
     }
 
@@ -221,6 +239,7 @@ impl SystemPromptBuilder {
                 // `agents_md_enabled` gate is off.
                 Box::new(AgentsInstructionsSection),
             ],
+            verbatim: false,
         }
     }
 
@@ -281,11 +300,13 @@ impl SystemPromptBuilder {
         // Grounding is skipped when the agent's own prompt already carries
         // the contract under the shared heading (the orchestrator does), so
         // it never ships twice.
-        if !has_grounding {
-            buckets[tier_index(PromptTier::Stable)].push(GROUNDING_BODY.trim_end().to_string());
+        if !self.verbatim {
+            if !has_grounding {
+                buckets[tier_index(PromptTier::Stable)].push(GROUNDING_BODY.trim_end().to_string());
+            }
+            buckets[tier_index(PromptTier::Stable)]
+                .push(global_style_block(ctx.workspace_dir).trim_end().to_string());
         }
-        buckets[tier_index(PromptTier::Stable)]
-            .push(global_style_block(ctx.workspace_dir).trim_end().to_string());
 
         let mut text = String::new();
         let mut breakpoints: Vec<usize> = Vec::new();

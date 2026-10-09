@@ -572,3 +572,54 @@ async fn publish_web_channel_event_preserves_an_explicit_ts() {
     .await;
     assert_eq!(ev.ts, Some(123));
 }
+
+/// A SaaS user's stream carries only events stamped with that user's agent:
+/// `publish_web_channel_event` stamps the publishing scope's agent, and an
+/// event published outside any agent scope belongs to no user.
+#[tokio::test]
+async fn published_events_carry_the_publishing_agent() {
+    use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
+    let mut rx = subscribe_web_channel_events();
+    let marker = format!("agent-stamp-{}", uuid::Uuid::new_v4());
+    let ctx = CoreContext::for_test(DomainSet::full(), None).derive_with(
+        ContextOverlay::new(
+            crate::config::Config::default(),
+            DomainSet::full(),
+            Default::default(),
+        )
+        .session_agent("u-alice"),
+    );
+    CoreContext::scope(ctx, async {
+        publish_web_channel_event(WebChannelEvent {
+            event: "chat_done".into(),
+            thread_id: marker.clone(),
+            ..Default::default()
+        });
+    })
+    .await;
+    publish_web_channel_event(WebChannelEvent {
+        event: "chat_done".into(),
+        thread_id: format!("{marker}-unscoped"),
+        ..Default::default()
+    });
+
+    let mut seen = Vec::new();
+    while seen.len() < 2 {
+        let ev = rx.recv().await.unwrap();
+        if ev.thread_id.starts_with(&marker) {
+            seen.push(ev);
+        }
+    }
+    let scoped = seen.iter().find(|e| e.thread_id == marker).unwrap();
+    assert!(scoped.belongs_to("u-alice"));
+    assert!(!scoped.belongs_to("u-bob"));
+    let unscoped = seen.iter().find(|e| e.thread_id != marker).unwrap();
+    assert!(
+        !unscoped.belongs_to("u-alice"),
+        "unstamped events belong to no user"
+    );
+    assert!(
+        !serde_json::to_string(scoped).unwrap().contains("u-alice"),
+        "the stamp is not serialized"
+    );
+}

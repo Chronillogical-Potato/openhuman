@@ -4,7 +4,7 @@ Everything host-specific about reaching the TinyHumans backend: where it is,
 how requests are attributed, and which product they are attributed to. The
 core holds none of this. It asks the installed `BackendTransport`
 (`SdkBackendTransport` in [`../transport/`](../transport/README.md)) through
-`openhuman_core::backend::{base_url, inference_base_url, product_identity,
+the core's `backend::{base_url, inference_base_url, product_identity,
 attribution_headers}`, and the transport answers from the three files here.
 
 ## How it works
@@ -75,7 +75,7 @@ header-safe characters and clamped to 64 bytes. `attribution_headers()`
 builds that map.
 
 `backend_client_builder(profile)` returns a `reqwest::ClientBuilder` with the
-platform TLS backend (`openhuman_core::util::tls::tls_client_builder`, which
+platform TLS backend (`openhuman_embed::__host::util::tls::tls_client_builder`, which
 picks schannel on Windows and rustls elsewhere), HTTP/1 only, redirects
 disabled, a 15 s connect timeout and the attribution headers as defaults. The
 request timeout depends on the `TransportProfile`: 120 s for `Api` and 60 s
@@ -104,28 +104,28 @@ process.
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Declares the three modules and re-exports the common names (`ProductIdentity`, `set_product_identity`, `effective_backend_api_url`, `DEFAULT_API_BASE_URL`, and so on). |
-| `url.rs` | Base-URL resolution, environment overrides, staging default, and the inference-endpoint guard for control-plane calls. Re-exports a few URL helpers from the core (`join_url`, `normalize_api_base_url`, `host_is_local`). |
-| `headers.rs` | `attribution_headers`, `backend_client_builder`, `build_backend_client`, `TAURI_VERSION_ENV_VAR`. |
-| `product.rs` | `ProductIdentity`, `set_product_identity`, `product_identity`, `product_identity_header(s)`, `PRODUCT_IDENTITY_HEADER`, `DEFAULT_PRODUCT_IDENTITY`. |
+| [`mod.rs`](mod.rs) | Declares the three modules and re-exports the common names (`ProductIdentity`, `set_product_identity`, `effective_backend_api_url`, `DEFAULT_API_BASE_URL`, and so on). |
+| [`url.rs`](url.rs) | Base-URL resolution, environment overrides, staging default, and the inference-endpoint guard for control-plane calls. Re-exports a few URL helpers from the core (`join_url`, `normalize_api_base_url`, `host_is_local`). |
+| [`headers.rs`](headers.rs) | `attribution_headers`, `backend_client_builder`, `build_backend_client`, `TAURI_VERSION_ENV_VAR`. |
+| [`product.rs`](product.rs) | `ProductIdentity`, `set_product_identity`, `product_identity`, `product_identity_header(s)`, `PRODUCT_IDENTITY_HEADER`, `DEFAULT_PRODUCT_IDENTITY`. |
 
 ## Key types and entry points
 
-- `effective_backend_api_url(&Option<String>)` (`url.rs`): the base for any
+- `effective_backend_api_url(&Option<String>)` ([`url.rs`](url.rs)): the base for any
   non-inference backend call. `hosted::client::HostedClient` and the
   transport's `base_url(ControlPlane)` both use it.
 - `effective_api_url(&Option<String>)` (`url.rs`): the inference base, used by
   the transport's `base_url(Inference)`.
-- `build_backend_client(TransportProfile)` (`headers.rs`): the `reqwest`
+- `build_backend_client(TransportProfile)` ([`headers.rs`](headers.rs)): the `reqwest`
   client every hosted request rides.
-- `set_product_identity(ProductIdentity)` (`product.rs`): re-exported at the
+- `set_product_identity(ProductIdentity)` ([`product.rs`](product.rs)): re-exported at the
   crate root; also reachable through `InstallOptions::product_identity`.
 
 ## Boundaries
 
 - The core owns the questions (`backend::base_url` and friends in
-  `crates/openhuman-core/src/backend/mod.rs`) and the URL utilities this file
-  re-exports (`openhuman_core::util::url`). It owns the app-environment
+  [`crates/openhuman-core/src/backend/mod.rs`](../../../openhuman-core/src/backend/mod.rs)) and the URL utilities this file
+  re-exports (`openhuman_embed::__host::util::url`). It owns the app-environment
   reading too (`config::app_env`).
 - Do not put the `x-sdk-name` header on third-party endpoints, MCP servers,
   BYOK inference endpoints or presigned storage redirects. These helpers are
@@ -144,9 +144,15 @@ process.
 
 ## Tests
 
-`headers_tests.rs`, `product_tests.rs` and `url_tests.rs` sit beside their
+[`headers_tests.rs`](headers_tests.rs), [`product_tests.rs`](product_tests.rs) and [`url_tests.rs`](url_tests.rs) sit beside their
 modules.
 
 ```bash
 cargo test -p openhuman-tinyhumans backend::
 ```
+
+## Further reading
+
+- [`gitbooks/developing/tinyhumans-api-key.md`](../../../../gitbooks/developing/tinyhumans-api-key.md): running on a TinyHumans API key.
+- [`crates/openhuman-tinyhumans/README.md`](../../README.md): the openhuman-tinyhumans crate README.
+- [`vendor/tinyhumans-sdk/README.md`](../../../../vendor/tinyhumans-sdk/README.md): tinyhumans-sdk.

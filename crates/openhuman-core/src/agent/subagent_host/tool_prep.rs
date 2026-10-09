@@ -106,7 +106,7 @@ pub(super) fn filter_tool_indices(
         .enumerate()
         .filter(|(_, tool)| {
             let name = tool.name();
-            if disallowed_tool_matches(disallowed, name) {
+            if crate::tools::rules::glob_list_matches(disallowed, name) {
                 return false;
             }
             // The CCR recovery tool is advertised to any agent that has a tool
@@ -146,16 +146,6 @@ pub(super) fn retain_parent_visible_tool_indices(
     indices.retain(|&index| parent_visible.contains(parent_tools[index].name()));
 }
 
-pub(super) fn disallowed_tool_matches(disallowed: &[String], name: &str) -> bool {
-    disallowed.iter().any(|entry| {
-        if let Some(prefix) = entry.strip_suffix('*') {
-            name.starts_with(prefix)
-        } else {
-            entry == name
-        }
-    })
-}
-
 #[cfg(test)]
 #[path = "tool_prep_tests.rs"]
 mod tests;
@@ -171,13 +161,59 @@ mod recovery_visibility_tests;
 /// [`PromptContext`], `File` sources are read from disk relative to the
 /// workspace `prompts/` directory or the agent crate's bundled prompts.
 ///
+/// The allowed indices whose tools the sub-agent's rules let it list. A
+/// withheld tool stays allowed — the harness gate decides calls — but is kept
+/// off the specs and catalogue the host renders into the child's prompt.
+pub(super) fn rule_listed_indices(
+    allowed: &[usize],
+    tools: &[Box<dyn Tool>],
+    rules: Option<&tinyagents_harness::tool::ToolRulePolicy>,
+) -> Vec<usize> {
+    let Some(rules) = rules else {
+        return allowed.to_vec();
+    };
+    allowed
+        .iter()
+        .copied()
+        .filter(|&i| {
+            let tool = tools[i].as_ref();
+            let surface = if tool.exposure() == tinytools::ToolExposure::Deferred {
+                tinytools::Surface::Search
+            } else {
+                tinytools::Surface::Catalog
+            };
+            rules
+                .rules
+                .visible(&tinytools::ToolSubject::of(tool), &rules.context, surface)
+        })
+        .collect()
+}
+
+/// The prompt catalogue entries for `indices`.
+pub(super) fn prompt_tools_for<'a>(
+    indices: &[usize],
+    tools: &'a [Box<dyn Tool>],
+) -> Vec<crate::agent::prompts::PromptTool<'a>> {
+    indices
+        .iter()
+        .map(|&i| {
+            let tool = tools[i].as_ref();
+            crate::agent::prompts::PromptTool {
+                name: std::borrow::Cow::Borrowed(tool.name()),
+                description: std::borrow::Cow::Borrowed(tool.description()),
+                parameters_schema: Some(tool.parameters_schema().to_string()),
+            }
+        })
+        .collect()
+}
+
 pub(super) fn load_prompt_source(
     source: &PromptSource,
     ctx: &PromptContext<'_>,
 ) -> Result<String, SubagentRunError> {
     let workspace_dir = ctx.workspace_dir;
     match source {
-        PromptSource::Inline(body) => Ok(body.clone()),
+        PromptSource::Inline(body) | PromptSource::Verbatim(body) => Ok(body.clone()),
         PromptSource::Dynamic(build) => build(ctx).map_err(|e| SubagentRunError::PromptLoad {
             path: format!("<dynamic:{}>", ctx.agent_id),
             source: std::io::Error::other(e.to_string()),

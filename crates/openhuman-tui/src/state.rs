@@ -10,7 +10,7 @@
 //! into the transcript. Events for a different `client_id` are ignored, so a
 //! process-wide broadcast bus can be drained safely.
 
-use openhuman_core::web_chat::WebChannelEvent;
+use openhuman_rpc::embed::chat_surface::WebChannelEvent;
 
 /// The kind of a transcript entry — drives colour / prefix in the renderer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

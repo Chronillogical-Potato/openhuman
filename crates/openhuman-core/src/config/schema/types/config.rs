@@ -155,6 +155,14 @@ pub struct Config {
     #[serde(default)]
     pub autonomy: AutonomyConfig,
 
+    /// Operator tool rules (`[tool_rules]`): allow / deny / hide / approval
+    /// patterns over tool names, families and tags, applied to every agent's
+    /// catalogue, `tool_search` and calls. See `tinytools::ToolRules` and
+    /// `crate::tools::rules`. Empty by default, which restricts nothing.
+    #[serde(default)]
+    #[schemars(with = "serde_json::Value")]
+    pub tool_rules: tinytools::ToolRules,
+
     #[serde(default)]
     pub desktop: DesktopConfig,
 
@@ -420,6 +428,11 @@ pub struct Config {
     /// Hosting provider credentials and switch (`hosting` feature).
     #[serde(default)]
     pub hosting: HostingConfig,
+
+    /// Storage backend for state on the `tinystoragedrivers` ports
+    /// (`[storage]`). Empty keeps the classic on-disk layout.
+    #[serde(default)]
+    pub storage: StorageConfig,
 
     #[serde(default)]
     pub voice_server: VoiceServerConfig,

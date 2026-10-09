@@ -92,10 +92,16 @@ fn domain_families_are_refused_until_they_are_isolated() {
     let mut i = inputs(&f, &[]);
     i.domains = DomainSet::harness();
     let found = violations(&i);
-    for name in ["agent", "memory", "threads", "config", "security"] {
+    for name in ["agent", "config", "security"] {
         assert!(
             found.contains(&Violation::Domain(name)),
             "{name}: {found:?}"
+        );
+    }
+    for isolated in ["threads", "memory"] {
+        assert!(
+            !found.contains(&Violation::Domain(isolated)),
+            "{isolated} is isolated per user: {found:?}"
         );
     }
 }

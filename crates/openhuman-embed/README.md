@@ -70,7 +70,7 @@ agent id, so a turn only resumes its own agent's thread.
 The second entry point is `Core`, for a host that built a `CoreRuntime` with
 `CoreBuilder` itself. `Core::from_runtime` wraps it and exposes typed
 sub-facades (`config()`, `auth()`, `agent()`). These go through
-`CoreRuntime::invoke` (the private `call` helper in `src/call.rs`), so they
+`CoreRuntime::invoke` (the private `call` helper in [`src/call.rs`](src/call.rs)), so they
 honour `DomainSet` gating and absorb the variable `{result, logs}` envelope
 that controllers emit. `CoreAgent` runs the runtime's orchestrator over the
 `inference.agent_chat` RPC. `Core::raw()` is the escape hatch for a call the
@@ -375,38 +375,41 @@ agent to another. See [`src/agent/README.md`](src/agent/README.md).
 
 | Path | What it does |
 | --- | --- |
-| `src/lib.rs` | Re-exports (core runtime types, `Tool`, `ToolGroups`, the backend port, `session_store`, `agent_progress`) and `Core`, the typed facade over a caller-built `CoreRuntime`. |
+| [`src/lib.rs`](src/lib.rs) | Re-exports (core runtime types, `Tool`, `ToolGroups`, the backend port, `session_store`, `agent_progress`) and `Core`, the typed facade over a caller-built `CoreRuntime`. |
 | [`src/runtime/`](src/runtime/README.md) | `Runtime`, `RuntimeBuilder`, `ApiKey`, and the `CoreGuard` that owns process-scoped state until the last handle drops. |
 | [`src/agent/`](src/agent/README.md) | `Agent`, `AgentSpec`, `AgentDefinitionSpec`, `AgentLayout`, `MemoryBinding`, the build step, and permanent tool attachments. |
 | [`src/harness/`](src/harness/README.md) | `Harness` and `HarnessBuilder`, plus the shared input types: `Access`, `Provider`, `Workspace`, `McpServer`, skill copying, `HarnessError`. |
-| `src/turn.rs` | `Turn`, `TurnRequest`, `TurnOutcome`, `Route`: one turn, its ambient scopes, and its dispatch to an agent or to the orchestrator. |
-| `src/call.rs` | The private typed dispatch helper over `CoreRuntime::invoke` that every facade method uses. |
-| `src/config.rs`, `src/auth.rs`, `src/core_agent.rs` | The `Core` sub-facades: runtime flags, credentials (`Session`, `AuthState`), and the orchestrator turn. |
-| `src/memory.rs` | `Memory`, the per-tenant memory facade returned by `Runtime::memory`. |
-| `src/error.rs` | `CoreError`, the error every facade call returns (`Domain`, `Unavailable`, `Rpc`, route refusals). |
+| [`src/turn.rs`](src/turn.rs) | `Turn`, `TurnRequest`, `TurnOutcome`, `Route`: one turn, its ambient scopes, and its dispatch to an agent or to the orchestrator. |
+| [`src/call.rs`](src/call.rs) | The private typed dispatch helper over `CoreRuntime::invoke` that every facade method uses. |
+| [`src/config.rs`](src/config.rs), [`src/auth.rs`](src/auth.rs), [`src/core_agent.rs`](src/core_agent.rs) | The `Core` sub-facades: runtime flags, credentials (`Session`, `AuthState`), and the orchestrator turn. |
+| [`src/memory.rs`](src/memory.rs) | `Memory`, the per-tenant memory facade returned by `Runtime::memory`. |
+| [`src/process.rs`](src/process.rs), [`src/process_sentry.rs`](src/process_sentry.rs) | Host lifecycle helpers: the agent-sized tokio runtime, logging init, dotenv and launch overrides, the master key, and (`crash-reporting`) the Sentry `ClientOptions` with the single `before_send` chain. |
+| [`src/artifacts.rs`](src/artifacts.rs), [`src/chat_surface.rs`](src/chat_surface.rs), [`src/identity.rs`](src/identity.rs), [`src/modules.rs`](src/modules.rs) | Curated host facades: artifact file resolution, the in-process web-chat event stream, the signed-in identity peek, bundled module releases. `config` also carries `load_or_init`, `load_config_with_timeout`, `default_root_openhuman_dir`, `read_active_user_id`. |
+| [`src/host_internals.rs`](src/host_internals.rs) | `__host` (doc-hidden): an explicit list of core modules for `openhuman-tinyhumans` and `openhuman-rpc` only. |
+| [`src/error.rs`](src/error.rs) | `CoreError`, the error every facade call returns (`Domain`, `Unavailable`, `Rpc`, route refusals). |
 | [`examples/`](examples/README.md) | Runnable programs: one turn on a harness, and two agents on one runtime. |
 | [`tests/`](tests/README.md) | End-to-end suites against `wiremock` providers. |
 
 ## Key types and entry points
 
-- `Runtime` and `RuntimeBuilder` (`src/runtime/`): build once per process,
+- `Runtime` and `RuntimeBuilder` ([`src/runtime/`](src/runtime/)): build once per process,
   then call `Runtime::agent`. `Runtime::core()` gives non-turn access
   (config, auth) without exposing a way to start a turn.
-- `AgentSpec` (`src/agent/spec.rs`): the pure-data description of an agent.
+- `AgentSpec` ([`src/agent/spec.rs`](src/agent/spec.rs)): the pure-data description of an agent.
   Ids must match `^[a-z0-9][a-z0-9_-]{0,63}$`.
-- `Agent` (`src/agent/mod.rs`): a cheap clone handle. `run`, `turn`,
+- `Agent` ([`src/agent/mod.rs`](src/agent/mod.rs)): a cheap clone handle. `run`, `turn`,
   `attach_tools`, and path accessors (`action_dir`, `home_dir`,
   `skills_dir`, `transcripts_dir`).
-- `Turn` and `TurnOutcome` (`src/turn.rs`): configure, then `send`.
-- `Access` (`src/harness/access.rs`): the autonomy tier and turn origin,
+- `Turn` and `TurnOutcome` ([`src/turn.rs`](src/turn.rs)): configure, then `send`.
+- `Access` ([`src/harness/access.rs`](src/harness/access.rs)): the autonomy tier and turn origin,
   always set together. Presets are `readonly`, `supervised` (the default)
   and `full`.
-- `Provider` (`src/harness/provider.rs`): `openai_compatible(base_url, key)`
+- `Provider` ([`src/harness/provider.rs`](src/harness/provider.rs)): `openai_compatible(base_url, key)`
   plus `model`, or `inherit()` for the machine's configured inference.
-- `Workspace` (`src/harness/workspace.rs`): `Ephemeral` (default), `Dir`,
+- `Workspace` ([`src/harness/workspace.rs`](src/harness/workspace.rs)): `Ephemeral` (default), `Dir`,
   `Stateless`, or `Inherit`.
-- `Harness` (`src/harness/mod.rs`): one runtime, one agent.
-- `Core` (`src/lib.rs`): the typed facade over a caller-built runtime.
+- `Harness` ([`src/harness/mod.rs`](src/harness/mod.rs)): one runtime, one agent.
+- `Core` ([`src/lib.rs`](src/lib.rs)): the typed facade over a caller-built runtime.
 
 ## One model call, no runtime: `Completer`
 
@@ -447,6 +450,43 @@ included) and the gateway-reported cost come back on the response; a
 Cohere, Ollama, mock) for hosts that keep their own vector index, with the
 signature format unchanged so stored vectors stay in their partition.
 
+## Locked-down agents: `HostOnly`
+
+An agent that reads untrusted input (a PR diff) and must never act takes
+`ToolScopeSpec::HostOnly`: the tools it can see and call are the ones the host
+supplies (`AgentSpec::tools`, `Agent::attach_tools`) and nothing else.
+
+```rust,no_run
+use openhuman_embed::{AgentDefinitionSpec, AgentSpec, HostTurnTools, ToolScopeSpec};
+# fn read_only_tools() -> Vec<Box<dyn openhuman_embed::Tool>> { Vec::new() }
+let spec = AgentSpec::new("reviewer")
+    .definition(
+        AgentDefinitionSpec::new()
+            .bare_prompt("You review pull requests.")
+            .tools(ToolScopeSpec::HostOnly),
+    )
+    .tools(|_| HostTurnTools::advertised(read_only_tools()));
+```
+
+- No config-derived tool is built and no delegation tool is synthesised, so
+  shell, file writes, network, memory, skills, MCP and sub-agents do not exist
+  for the model. A deny-by-default gate refuses any other name it calls anyway.
+- Access and sandbox are forced read-only, whatever `Access` was set (even
+  after `AgentSpec::config`). Declaring MCP servers or skills is an error.
+- The agent needs its own prompt. `bare_prompt(text)` makes `text` the whole
+  system prompt: no identity, safety, tools, workspace or memory section.
+
+Host tools should themselves be read-only: `HostOnly` bounds which tools
+exist, not what they do.
+
+Per turn, `Turn::response_format(ResponseFormat)` (the `complete` type) and
+`Turn::max_tokens(n)` apply to every call of the tool loop on any runtime-owned
+agent. `TurnOutcome` then carries `structured` (the reply parsed as JSON),
+`finish_reason`, `answered_model`, and `usage.reasoning_tokens`.
+`Turn::untrusted_input(true)` reads the message as data, so the prompt-injection
+guard and screen are skipped. It is accepted only on a `HostOnly` agent; any
+other agent refuses the turn (`untrusted_input_requires_host_only`).
+
 ## Feature flags
 
 Every feature is a pass-through to the same-named feature on
@@ -455,7 +495,7 @@ Every feature is a pass-through to the same-named feature on
 `flows`, `skills`, `mcp`, `crash-reporting`, `channels`, `whatsapp-web`,
 `file-logging` and `scheduler-gate`. A gate added to the core has to be
 forwarded here (and then by `openhuman-tinyhumans` and `openhuman-cli`);
-`scripts/ci/check-feature-forwarding.mjs` checks the chain.
+[`scripts/ci/check-feature-forwarding.mjs`](../../scripts/ci/check-feature-forwarding.mjs) checks the chain.
 
 Two features also gate this crate's own surface. `mcp` adds `HttpHeader`,
 `McpAuthConfig`, `McpServer`, `AgentSpec::mcp` and `HarnessBuilder::mcp`.
@@ -478,10 +518,10 @@ has the resulting binary sizes and per-agent memory.
 - No backend client. The hosted transport, product identity, login-token
   exchange and `/auth/me` live in `openhuman-tinyhumans`.
 - The agent loop, transcripts, session identity and tool-call parsing belong
-  to `vendor/tinyagents` (repo `tinyhumansai/tinyagents`); the `Tool` trait
+  to [`vendor/tinyagents`](../../vendor/tinyagents/) (repo `tinyhumansai/tinyagents`); the `Tool` trait
   belongs to its nested `tinytools`. Use the `Tool` re-exported here: a
   separately added `tinytools` builds an incompatible type.
-- Memory contracts come from `vendor/tinymemory` (`tinymemory-api`).
+- Memory contracts come from [`vendor/tinymemory`](../../vendor/tinymemory/) (`tinymemory-api`).
 
 ## Gotchas
 
@@ -495,18 +535,12 @@ has the resulting binary sizes and per-agent memory.
   dropped.
 - Build the tokio runtime yourself. A turn is a deep async state machine,
   and a nested sub-agent overflows tokio's default 2 MiB worker stack, so
-  `#[tokio::main]` is not enough. The constants live in the core crate, so
-  the host needs the `openhuman` package as a dependency to name them:
+  `#[tokio::main]` is not enough. `embed::process` builds one sized for
+  turns (`AGENT_WORKER_STACK_BYTES`, `MAX_BLOCKING_THREADS`, both re-exported
+  there), so the host needs no core dependency to name them:
 
   ```rust,no_run
-  use openhuman_core::core::runtime::{AGENT_WORKER_STACK_BYTES, MAX_BLOCKING_THREADS};
-
-  let runtime = tokio::runtime::Builder::new_multi_thread()
-      .enable_all()
-      .thread_stack_size(AGENT_WORKER_STACK_BYTES)
-      .max_blocking_threads(MAX_BLOCKING_THREADS)
-      .build()
-      .expect("tokio runtime");
+  let runtime = openhuman_embed::process::tokio_runtime().expect("tokio runtime");
   ```
 
 - Access has two halves. The autonomy tier drives `SecurityPolicy`, and the
@@ -544,7 +578,17 @@ cargo test -p openhuman-embed --features inference,mcp,skills
 cargo test -p openhuman-embed --features inference,mcp,skills --test runtime_agents
 ```
 
-The repository-root `examples/embed_headless.rs` and `examples/embed_kernel.rs`
-drive `CoreBuilder` directly, without this crate. They are `[[example]]`
-targets of `openhuman-cli`:
+The repository-root [`examples/embed_headless.rs`](../../examples/embed_headless.rs) and [`examples/embed_kernel.rs`](../../examples/embed_kernel.rs)
+use this crate's `Runtime` (`Runtime::builder()`, then `core_runtime().invoke`
+for raw RPC methods). They are `[[example]]` targets of `openhuman-cli`:
 `cargo run -p openhuman-cli --example embed_headless`.
+
+## Further reading
+
+- [`crates/openhuman-embed/examples/README.md`](examples/README.md): the examples module README.
+- [`gitbooks/developing/embedding.md`](../../gitbooks/developing/embedding.md): embedding the core in another product.
+- [`gitbooks/developing/tinyhumans-api-key.md`](../../gitbooks/developing/tinyhumans-api-key.md): running on a TinyHumans API key.
+- [`gitbooks/developing/architecture.md`](../../gitbooks/developing/architecture.md): architecture overview.
+- [`gitbooks/developing/architecture/agent-harness.md`](../../gitbooks/developing/architecture/agent-harness.md): the agent harness.
+- [`gitbooks/developing/loadable-modules.md`](../../gitbooks/developing/loadable-modules.md): loadable modules.
+- [`crates/README.md`](../README.md): crates overview.

@@ -7,13 +7,15 @@ surrounding routes (health, schema, SSE, WebSockets, the OpenAI-compatible
 events onto Socket.IO for the desktop webviews. The desktop app's embedded
 core and `openhuman-core run` / `serve` both run it. Dispatch itself is the
 core's: every transport here resolves a method through
-`openhuman_core::core::invoke::invoke_method`.
+`openhuman::core::invoke::invoke_method`.
 
 ## How it works
 
 ### Starting a server
 
-There are two ways in, and both end in `serve`:
+There are two ways in, and both end in `serve`. (`crate::host::cli` and
+`host::desktop` are the same two paths with the TinyHumans backend
+connected on the builder; `host::desktop` enters at `build_and_serve`.)
 
 ```text
  openhuman-core run|serve                 desktop shell (core_process.rs)
@@ -25,14 +27,19 @@ There are two ways in, and both end in `serve`:
              \                                  /
               v                                v
           run_server_with_services(host, port, ServiceSet, ...)
-            HostKind: TauriShell if embedded, else detect_standalone()
-            TokenSource: Fixed(bearer) if handed in, else EnvOrFile
-            OPENHUMAN_E2E set -> ToolGroups::advertised()
+            preset: RuntimeBuilder::desktop() if embedded (HostKind::TauriShell)
+                    else RuntimeBuilder::cli() (detect_standalone())
+                    both: DomainSet::full, discovered config,
+                    OPENHUMAN_E2E set -> ToolGroups::advertised()
+            server_builder: services, TokenSource::Fixed(bearer) if handed
+                    in (else EnvOrFile), listen host/port if given
+          build_and_serve(builder, ready_tx, shutdown_token)
             session_store::install()            (before boot: recovery)
-            CoreBuilder::new(..).build()
+            RuntimeBuilder::build()             (claims the embed runtime slot)
               |
               v
-          serve(&runtime, ready_tx, shutdown_token)
+            serve(runtime.core_runtime(), ready_tx, shutdown_token)
+            drop(runtime)                       (releases the slot)
 ```
 
 `run_server` and `run_server_embedded` use `ServiceSet::desktop()` with
@@ -93,7 +100,7 @@ outermost to innermost:
 | `/v1/*` | the core's OpenAI-compatible router (`inference::http`) | core bearer or the user-managed external API key |
 
 The bearer is the per-launch RPC token the core owns
-(`openhuman_core::core::auth`); `auth.rs` is only the route policy over it.
+(`openhuman::core::auth`); [`auth.rs`](auth.rs) is only the route policy over it.
 
 ### A failed call
 
@@ -143,36 +150,36 @@ directly.
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Module wiring and the public re-exports. |
-| `serve.rs` | `serve` and `EmbeddedReadySignal`. |
-| `shims.rs` | `run_server`, `run_server_headless`, `run_server_embedded`, `run_server_embedded_with_ready`, plus host and port defaults. |
-| `cli.rs` | `install_cli_server` and the launcher it installs. |
-| `auth.rs` | `rpc_auth_middleware`: public paths, query-token paths, and the `/v1` external-key check. |
-| `classify.rs` | `classify_failure` and `FailureDisposition`. Pure. |
-| `socketio.rs` | Socket.IO handshake auth, client event handlers, the event bridge, the companion seam, and the event payload types. |
-| `dev_connect.rs` | `GET /dev/connect`. |
-| `testing.rs` | Test-only environment lock shared by this crate's tests. |
-| `http/mod.rs` | `build_core_http_router`, the body limit, root and 404 handlers, request log middleware. |
-| `http/rpc_handler.rs` | `POST /rpc`. |
-| `http/cors.rs` | CORS headers and preflight over the shared origin rule. |
-| `http/health.rs` | `GET /health` and `GET /schema`. |
-| `http/events.rs` | The three SSE routes. |
-| `http/dictation.rs`, `http/live_voice.rs` | WebSocket upgrade guards; the sessions themselves live in the core's `voice` domain. |
-| `http/oauth_mcp.rs` | MCP OAuth callback, handing off to `mcp::registry::oauth::complete`. |
-| `http/pages.rs` | Static HTML pages for OAuth callbacks. |
+| [`mod.rs`](mod.rs) | Module wiring and the public re-exports. |
+| [`serve.rs`](serve.rs) | `serve` and `EmbeddedReadySignal`. |
+| [`shims.rs`](shims.rs) | `run_server`, `run_server_headless`, `run_server_embedded`, `run_server_embedded_with_ready`, plus host and port defaults. |
+| [`cli.rs`](cli.rs) | `install_cli_server` and the launcher it installs. |
+| [`auth.rs`](auth.rs) | `rpc_auth_middleware`: public paths, query-token paths, and the `/v1` external-key check. |
+| [`classify.rs`](classify.rs) | `classify_failure` and `FailureDisposition`. Pure. |
+| [`socketio.rs`](socketio.rs) | Socket.IO handshake auth, client event handlers, the event bridge, the companion seam, and the event payload types. |
+| [`dev_connect.rs`](dev_connect.rs) | `GET /dev/connect`. |
+| [`testing.rs`](testing.rs) | Test-only environment lock shared by this crate's tests. |
+| [`http/mod.rs`](http/mod.rs) | `build_core_http_router`, the body limit, root and 404 handlers, request log middleware. |
+| [`http/rpc_handler.rs`](http/rpc_handler.rs) | `POST /rpc`. |
+| [`http/cors.rs`](http/cors.rs) | CORS headers and preflight over the shared origin rule. |
+| [`http/health.rs`](http/health.rs) | `GET /health` and `GET /schema`. |
+| [`http/events.rs`](http/events.rs) | The three SSE routes. |
+| [`http/dictation.rs`](http/dictation.rs), [`http/live_voice.rs`](http/live_voice.rs) | WebSocket upgrade guards; the sessions themselves live in the core's `voice` domain. |
+| [`http/oauth_mcp.rs`](http/oauth_mcp.rs) | MCP OAuth callback, handing off to `mcp::registry::oauth::complete`. |
+| [`http/pages.rs`](http/pages.rs) | Static HTML pages for OAuth callbacks. |
 
 ## Key entry points
 
-- `install_cli_server()` (`cli.rs`): call once before `run_core_from_args`.
+- `install_cli_server()` ([`cli.rs`](cli.rs)): call once before `run_core_from_args`.
   It also registers the `http_host` controllers.
 - `serve(&CoreRuntime, Option<oneshot::Sender<EmbeddedReadySignal>>,
   Option<CancellationToken>)` (`serve.rs`).
-- `run_server_embedded_with_ready(..., rpc_token)` (`shims.rs`): pass the
+- `run_server_embedded_with_ready(..., rpc_token)` ([`shims.rs`](shims.rs)): pass the
   bearer the shell already holds so the server never reads it from the
   environment.
 - `build_core_http_router(socketio_enabled)` and `rpc_handler`
-  (`http/`): for tests that want the router without a listener.
-- `publish_companion_state_changed(payload)` (`socketio.rs`).
+  ([`http/`](http/)): for tests that want the router without a listener.
+- `publish_companion_state_changed(payload)` ([`socketio.rs`](socketio.rs)).
 
 ## Boundaries
 
@@ -182,8 +189,8 @@ directly.
 - The `/v1` inference router, the dictation and live-voice sessions, and the
   MCP OAuth completion are domain code in the core, mounted here behind the
   core's `http-server` gate.
-- The token is minted and verified by `openhuman_core::core::auth`; listener
-  port selection is `openhuman_core::platform::connectivity::rpc`.
+- The token is minted and verified by `openhuman::core::auth`; listener
+  port selection is `openhuman::platform::connectivity::rpc`.
 - The event payload types (`WebChannelEvent` and friends) are constructed by
   core domains; this module only transports them.
 
@@ -201,16 +208,22 @@ directly.
   loopback or `tauri.localhost` host). Both read
   `OPENHUMAN_CORE_ALLOWED_ORIGINS`.
 - `OPENHUMAN_E2E` switches tool groups to `ToolGroups::advertised()` in the
-  `run_server*` shims so the browser E2E mock model can call tools. Library
+  embed `desktop` / `cli` presets the `run_server*` shims start from, so the browser E2E mock model can call tools. Library
   hosts are unaffected.
 
 ## Tests
 
 Sibling `*_tests.rs` files cover auth route policy, failure classification,
-the shims, Socket.IO, `/dev/connect`, and each route module under `http/`
+the shims, Socket.IO, `/dev/connect`, and each route module under [`http/`](http/)
 (including the `/rpc` handler's Sentry routing and the `/v1` mount in
 `inference_route_tests.rs`).
 
 ```bash
 cargo test -p openhuman-rpc --features crash-reporting server::
 ```
+
+## Further reading
+
+- [`gitbooks/developing/architecture.md`](../../../../gitbooks/developing/architecture.md): architecture overview.
+- [`gitbooks/developing/architecture/security.md`](../../../../gitbooks/developing/architecture/security.md): security.
+- [`crates/openhuman-rpc/README.md`](../../README.md): the openhuman-rpc crate README.

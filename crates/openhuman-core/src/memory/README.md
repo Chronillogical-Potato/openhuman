@@ -29,7 +29,7 @@ The core never keeps a TinyHumans credential of its own. The bearer is
 fetched from the host's credential seam (`resolve_backend_credential`) on
 every request, so a refreshed session takes effect at once and signing out
 turns memory off. The hosted engine does not go through the core's
-`BackendTransport`: `engine.rs` hands TinyMemory's CortexDB client an
+`BackendTransport`: [`engine.rs`](./engine.rs) hands TinyMemory's CortexDB client an
 `EngineSettings` with the endpoint, the attribution headers from
 `backend::attribution_headers` and an `EngineCredential::Dynamic(HostBearer)`,
 and TinyMemory's own HTTP client calls the backend's `/memory/*` routes. The
@@ -65,7 +65,7 @@ Memory follows TinyMemory's standard layout (`tinymemory_tools::MemoryLayout`):
  +-- agent:<memory agent>   one agent's conversations, one turn per item
 ```
 
-A `MemoryIdentity` (in `scope.rs`) is the acting agent definition and, for a
+A `MemoryIdentity` (in [`scope.rs`](./scope.rs)) is the acting agent definition and, for a
 team member, its team. The host scopes one around every agent turn with
 `scope::within_agent` or `scope::within`, which set a task-local.
 `MemoryIdentity::resolve` turns it into a `ResolvedIdentity` (layout root plus
@@ -90,14 +90,14 @@ on each turn. The person's actor is `user:<id>` (`scope::actor_of_root`),
 which is also the retired root still read during the move while
 `[memory] legacy_user_segment_read` is on. A signed-out session gets its
 root from a random install id minted once and recorded in
-`<workspace>/memory/local_root.json` as `user:local-<id>` (`local_root.rs`),
+`<workspace>/memory/local_root.json` as `user:local-<id>` ([`local_root.rs`](./local_root.rs)),
 used as `org:local-<id>`. If that file cannot be written or read, the
 session has no root and memory stays off.
 
 ### Around every turn
 
-TinyMemory's `AgentMemory` runs the lifecycle. `lifecycle/mod.rs` builds one
-for an identity under the `[memory.recall]` policy, and `lifecycle/hooks.rs`
+TinyMemory's `AgentMemory` runs the lifecycle. [`lifecycle/mod.rs`](./lifecycle/mod.rs) builds one
+for an identity under the `[memory.recall]` policy, and [`lifecycle/hooks.rs`](./lifecycle/hooks.rs)
 has the three hooks the agent calls:
 
 ```text
@@ -141,7 +141,7 @@ A few details hang off the turn. For a message that arrived on a channel,
 `lifecycle::sender::channel_actor` records the sender as the observed actor
 (`user:+1555...` for phone-addressed channels, `user:<email>`, otherwise
 `<channel>:<sender>`). The session host records the channel/thread pairing
-in `channels.rs` so a channel's memory can be forgotten later. With
+in [`channels.rs`](./channels.rs) so a channel's memory can be forgotten later. With
 `[memory.recall] date_hint` on, `lifecycle::date_hint::extract` makes one
 small model call to work out which days the user means; a late or bad
 answer just leaves the pack in its normal order. The pack's citations are
@@ -152,14 +152,14 @@ for the chat's memory chips (`tools::take_turn_citations`).
 
 `post_turn` and brain ingests return TinyMemory `BackgroundJob` values
 (belief builds, deferred ingests) instead of running them inline.
-`lifecycle/jobs.rs` queues them in `<workspace>/memory/jobs.json`,
+[`lifecycle/jobs.rs`](./lifecycle/jobs.rs) queues them in `<workspace>/memory/jobs.json`,
 de-duplicates them (two builds of one scope are one build), and runs each
 once it is at least `[memory.recall] build_delay_secs` old, because a belief
 build reads facts the engine extracts from the writes and that extraction
 lags. An engine that cannot consolidate answers `Skipped`; the hosted engine
 builds on its own schedule (`Scheduled`).
 
-Memory registers two system cron jobs, handled by `bus.rs`:
+Memory registers two system cron jobs, handled by [`bus.rs`](./bus.rs):
 
 ```text
 CronSystemJobDue
@@ -176,15 +176,15 @@ CronSystemJobDue
 ### The brain and sources
 
 The brain is the set of documents every agent under a root shares, filed at
-`source:<connector>` nodes with no agent id (`brain.rs`). A file ingested
+`source:<connector>` nodes with no agent id ([`brain.rs`](./brain.rs)). A file ingested
 from the UI (`memory_brain_ingest`) goes under `files`; synced sources are
-filed by what they read. Files are converted through `convert.rs`: PDF,
+filed by what they read. Files are converted through [`convert.rs`](./convert.rs): PDF,
 DOCX, PPTX and XLSX go through TinyMemory's `OfficeConverter` on Tokio's
 blocking pool when the `documents` feature is on, then `NativeConverter`
 handles text, markdown, HTML and code. Every ingest queues a belief build of
 the source's scope.
 
-Sources (`sources/`) are the `[[memory.sources]]` registry in `config.toml`:
+Sources ([`sources/`](./sources/)) are the `[[memory.sources]]` registry in `config.toml`:
 a folder, a file, a web page, a GitHub repository or an RSS feed, plus how
 often to sync it (at least every 15 minutes). Sync reads through
 `tinymemory-integrations`' readers and stores each item as a `Document`
@@ -199,7 +199,7 @@ Deleting a chat thread, forgetting a channel (one thread deletion per thread
 it owned) or removing a source with `forget_items` asks the engine to delete
 for good: matched items are forgotten by `memory_ids` with an explicit
 `redact_events` cascade (the engine's default keeps events). When memory is
-off, or the call fails, `deletion.rs` records a `PendingDeletion` (`Thread`
+off, or the call fails, [`deletion.rs`](./deletion.rs) records a `PendingDeletion` (`Thread`
 or `Source`) in `<workspace>/memory/pending_deletions.json`. The queue is
 drained on the next stored credential (the `memory::pending_deletions`
 subscriber on `CredentialChanged`, any kind but `cleared`) and on every
@@ -211,17 +211,17 @@ scope.
 Three flows upload data the user already has locally, and each refuses to
 start without explicit consent and resumes after a restart:
 
-- `backfill.rs` stores chats from before turns were logged, walking the
+- [`backfill.rs`](./backfill.rs) stores chats from before turns were logged, walking the
   thread store and writing the same turn items the live hooks would, tagged
   `backfill`. It stops short of the first turn live logging already stored.
   Progress is in `conversations_backfill.json`.
-- `import.rs` (with `import_retry.rs`) imports a v1 store from
+- [`import.rs`](./import.rs) (with [`import_retry.rs`](./import_retry.rs)) imports a v1 store from
   `<workspace>/memory/memory.db` through `tinymemory-import`. A blocking
   reader walks the store, the async side scrubs, stores and checkpoints
   every 25 items in `import_state.json`. Transient engine failures retry
   with backoff; a stop caused by something that will not pass on its own
   (credits exhausted, signed out) waits for the user.
-- `layout_migration/` moves memory written before layout v3 from the legacy
+- [`layout_migration/`](./layout_migration/) moves memory written before layout v3 from the legacy
   `app:tinymemory/...` tree into the per-user tree. It copies page by page,
   verifies each item by reading it back, switches reads and writes only
   after everything copyable is verified, catches up on writes made in
@@ -239,7 +239,7 @@ Anything unknown counts as not free.
 ### The RPC surface is confined
 
 The `memory_*` RPCs (and the MCP memory tools that dispatch through them)
-go through `confine.rs`. It resolves the identity in scope (the agent of a
+go through [`confine.rs`](./confine.rs). It resolves the identity in scope (the agent of a
 running turn, else the config's own root identity), fills an unset `reach`
 with that identity's subtree, refuses a wider reach with `INVALID_REQUEST`,
 and places a `learn` with no namespace at the identity's learnings node.
@@ -250,37 +250,37 @@ The agent `memory` tool applies the same confinement and overwrites any
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Module declarations and re-exports (`memory_is_on`, `MemoryTool`, the controller aggregators, `register_memory_subscribers`). |
-| `engine.rs` | `resolve` binds the configured engine or says why memory is off; per-fingerprint cache; host engine install; CortexDB key storage. |
-| `guard.rs` | `ScrubbingEngine`: scrubs every write and times every engine call. |
-| `scope.rs` | `MemoryIdentity`, `ResolvedIdentity`, resolution order, `within` / `within_agent`, layout v3 roots. |
-| `local_root.rs` | The persistent install-id root of a signed-out session. |
-| `lifecycle/mod.rs` | Builds `AgentMemory` for an identity under the `[memory.recall]` policy. |
-| `lifecycle/hooks.rs` | `pre_turn`, `post_turn`, `compaction`; `TurnPack`, `MemoryTurn`. |
-| `lifecycle/jobs.rs` | The persisted background job queue and the `memory_background` run. |
-| `lifecycle/views.rs` | Policy get/set, pack preview, agents list, jobs list/run for the UI. |
-| `lifecycle/sender.rs` | Maps a channel message's sender to an observed actor. |
-| `lifecycle/date_hint.rs` | Optional model call that works out which days a turn refers to. |
-| `ops.rs` | Engine list/get/set, recall, fetch, learn, forget, erase all, items list. |
-| `confine.rs` | Confines the RPC surface to the acting identity's subtree. |
-| `explore.rs` | The facet explorer behind `memory_explore` and `memory_items_get`. |
-| `brain.rs` | Brain source mapping and the `memory_brain_*` ops. |
-| `convert.rs` | The document converter chain used by brain ingest and file sources. |
-| `sources/` | The `[[memory.sources]]` registry (`mod.rs`), sync state (`state.rs`) and sync (`sync.rs`). |
-| `channels.rs` | Channel to thread records, for forgetting a channel. |
-| `deletion.rs` | Hard deletes and the pending-deletion queue with its drain. |
-| `backfill.rs` | Consent-gated, resumable storing of past chats. |
-| `import.rs`, `import_retry.rs` | Consent-gated, resumable v1 import, and retrying refused items. |
-| `layout_migration/` | Legacy tree to per-user tree migration: `job.rs` (end to end), `copy.rs`, `map.rs` (placement), `cleanup.rs`, `claim.rs`, `state.rs`, `service.rs` (RPC/tick entry points), `app_host.rs` (the real host). |
-| `billing.rs` | Whether background rewrites are free for the user right now. |
-| `files.rs` | Owner-only (0600 / 0700 on unix) writes of the local state files. |
-| `tools.rs` | The single `memory` agent tool and per-turn citations. |
-| `bus.rs` | The cron subscriber and the pending-deletions subscriber. |
-| `schemas.rs`, `schemas/defs.rs`, `schemas/handlers.rs` | The `openhuman.memory_*` controller schemas and thin handlers. |
-| `types.rs` | RPC request and view shapes; contract types are re-exported from `tinymemory_api`. |
-| `error.rs` | `MemoryError` and the seven stable error codes. |
-| `status.rs` | The memory row of `subsystems.status`. |
-| `test_fixtures.rs` | Shared in-memory engines for the unit tests. |
+| [`mod.rs`](./mod.rs) | Module declarations and re-exports (`memory_is_on`, `MemoryTool`, the controller aggregators, `register_memory_subscribers`). |
+| [`engine.rs`](./engine.rs) | `resolve` binds the configured engine or says why memory is off; per-fingerprint cache; host engine install; CortexDB key storage. |
+| [`guard.rs`](./guard.rs) | `ScrubbingEngine`: scrubs every write and times every engine call. |
+| [`scope.rs`](./scope.rs) | `MemoryIdentity`, `ResolvedIdentity`, resolution order, `within` / `within_agent`, layout v3 roots. |
+| [`local_root.rs`](./local_root.rs) | The persistent install-id root of a signed-out session. |
+| [`lifecycle/mod.rs`](./lifecycle/mod.rs) | Builds `AgentMemory` for an identity under the `[memory.recall]` policy. |
+| [`lifecycle/hooks.rs`](./lifecycle/hooks.rs) | `pre_turn`, `post_turn`, `compaction`; `TurnPack`, `MemoryTurn`. |
+| [`lifecycle/jobs.rs`](./lifecycle/jobs.rs) | The persisted background job queue and the `memory_background` run. |
+| [`lifecycle/views.rs`](./lifecycle/views.rs) | Policy get/set, pack preview, agents list, jobs list/run for the UI. |
+| [`lifecycle/sender.rs`](./lifecycle/sender.rs) | Maps a channel message's sender to an observed actor. |
+| [`lifecycle/date_hint.rs`](./lifecycle/date_hint.rs) | Optional model call that works out which days a turn refers to. |
+| [`ops.rs`](./ops.rs) | Engine list/get/set, recall, fetch, learn, forget, erase all, items list. |
+| [`confine.rs`](./confine.rs) | Confines the RPC surface to the acting identity's subtree. |
+| [`explore.rs`](./explore.rs) | The facet explorer behind `memory_explore` and `memory_items_get`. |
+| [`brain.rs`](./brain.rs) | Brain source mapping and the `memory_brain_*` ops. |
+| [`convert.rs`](./convert.rs) | The document converter chain used by brain ingest and file sources. |
+| [`sources/`](./sources/) | The `[[memory.sources]]` registry (`mod.rs`), sync state (`state.rs`) and sync (`sync.rs`). |
+| [`channels.rs`](./channels.rs) | Channel to thread records, for forgetting a channel. |
+| [`deletion.rs`](./deletion.rs) | Hard deletes and the pending-deletion queue with its drain. |
+| [`backfill.rs`](./backfill.rs) | Consent-gated, resumable storing of past chats. |
+| [`import.rs`](./import.rs), [`import_retry.rs`](./import_retry.rs) | Consent-gated, resumable v1 import, and retrying refused items. |
+| [`layout_migration/`](./layout_migration/) | Legacy tree to per-user tree migration: `job.rs` (end to end), `copy.rs`, `map.rs` (placement), `cleanup.rs`, `claim.rs`, `state.rs`, `service.rs` (RPC/tick entry points), `app_host.rs` (the real host). |
+| [`billing.rs`](./billing.rs) | Whether background rewrites are free for the user right now. |
+| [`files.rs`](./files.rs) | Owner-only (0600 / 0700 on unix) writes of the local state files. |
+| [`tools.rs`](./tools.rs) | The single `memory` agent tool and per-turn citations. |
+| [`bus.rs`](./bus.rs) | The cron subscriber and the pending-deletions subscriber. |
+| [`schemas.rs`](./schemas.rs), [`schemas/defs.rs`](./schemas/defs.rs), [`schemas/handlers.rs`](./schemas/handlers.rs) | The `openhuman.memory_*` controller schemas and thin handlers. |
+| [`types.rs`](./types.rs) | RPC request and view shapes; contract types are re-exported from `tinymemory_api`. |
+| [`error.rs`](./error.rs) | `MemoryError` and the seven stable error codes. |
+| [`status.rs`](./status.rs) | The memory row of `subsystems.status`. |
+| [`test_fixtures.rs`](./test_fixtures.rs) | Shared in-memory engines for the unit tests. |
 
 ## Key types and entry points
 
@@ -294,14 +294,14 @@ The agent `memory` tool applies the same confinement and overwrites any
   (`lifecycle/hooks.rs`): what the agent harness calls.
 - `lifecycle::jobs::enqueue` and `run_due` (`lifecycle/jobs.rs`): the
   background queue.
-- `MemoryTool` and `run_action` (`tools.rs`): the `recall | fetch | learn |
+- `MemoryTool` and `run_action` ([`tools.rs`](./tools.rs)): the `recall | fetch | learn |
   forget` tool. `learn` stamps the item with facts the model does not choose:
   workspace, thread id, memory agent id, the learnings namespace, the tool
   call, and `source.kind = agent`.
 - `deletion::forget_thread` (`deletion.rs`): called by `threads` when a
   thread is deleted. `channels::forget_channel` is called by `channels` on
   disconnect.
-- `MemoryError` (`error.rs`): every RPC failure carries one of `MEMORY_OFF`,
+- `MemoryError` ([`error.rs`](./error.rs)): every RPC failure carries one of `MEMORY_OFF`,
   `UNSUPPORTED`, `INVALID_REQUEST`, `UNAUTHORIZED`, `INSUFFICIENT_CREDITS`,
   `UNAVAILABLE` or `ENGINE` in `data.code`. The two account-wide refusals are
   split out so a caller can tell "top up" and "try later" apart from an
@@ -327,17 +327,17 @@ All methods are `openhuman.memory_<function>`, listed in
 ## Persistence
 
 There is no local memory database: items live in the engine. Local state
-files under `<workspace>/memory/`, written owner-only through `files.rs`:
+files under `<workspace>/memory/`, written owner-only through [`files.rs`](./files.rs):
 
 | File | Owner |
 | --- | --- |
 | `jobs.json` | `lifecycle/jobs.rs` |
 | `channel_threads.json` | `channels.rs` |
 | `pending_deletions.json` | `deletion.rs` |
-| `sources_state.json` | `sources/state.rs` |
+| `sources_state.json` | [`sources/state.rs`](./sources/state.rs) |
 | `conversations_backfill.json` | `backfill.rs` |
 | `import_state.json` | `import.rs` |
-| `layout_migration.json` | `layout_migration/state.rs` |
+| `layout_migration.json` | [`layout_migration/state.rs`](./layout_migration/state.rs) |
 | `local_root.json` | `local_root.rs` |
 
 The sources registry is `[[memory.sources]]` in `config.toml`. The CortexDB
@@ -370,7 +370,7 @@ sits in the app directory shared by all accounts
   global config instead would write to the wrong memory.
 - Every write must go through a bound engine so the scrubber sees it. Do not
   hold a raw `MemoryEngine` outside `engine.rs`.
-- RPC handlers must call through `confine.rs`, not `ops.rs` directly, or a
+- RPC handlers must call through `confine.rs`, not [`ops.rs`](./ops.rs) directly, or a
   caller can read another root's memory.
 - A new local state file should be written with `files::write_private`.
 - `engine::invalidate` clears the engine cache; tests that swap engines rely
@@ -379,9 +379,16 @@ sits in the app directory shared by all accounts
 ## Tests
 
 Unit tests sit beside each module as `<module>_tests.rs`, using the
-in-memory engines in `test_fixtures.rs`. Run them with
+in-memory engines in [`test_fixtures.rs`](./test_fixtures.rs). Run them with
 `cargo test -p openhuman memory::` or `pnpm debug rust memory`. Integration
 coverage is in `tests/memory_v2_e2e.rs` (JSON-RPC and a full web-chat turn
 against the mock backend, run with `cargo test -p openhuman-cli --test
 memory_v2_e2e`) and `tests/memory_cortexdb_live.rs` (live CortexDB, opt-in).
 The UI flow is `app/test/playwright/specs/memory-v2.spec.ts`.
+
+## Further reading
+
+- [Memory (product)](../../../../gitbooks/features/memory.md)
+- [Memory architecture](../../../../gitbooks/developing/architecture/memory.md)
+- [Memory tools](../../../../gitbooks/features/native-tools/memory-tools.md)
+- [tinymemory submodule](../../../../vendor/tinymemory/README.md)

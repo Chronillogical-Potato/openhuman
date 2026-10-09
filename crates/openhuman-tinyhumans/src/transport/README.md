@@ -47,7 +47,7 @@ keeps no hosted URL or header policy of its own:
 
 ### Error mapping
 
-`map_sdk_error` in `error.rs` maps each `tinyhumans_sdk::Error` variant onto a
+`map_sdk_error` in [`error.rs`](error.rs) maps each `tinyhumans_sdk::Error` variant onto a
 `BackendTransportError` variant one for one (`Url`, `Http`, `Status`,
 `Header`, `Decode`, `RouteNotExposed`, `Envelope`, with `Other` as a
 catch-all), so the core's classifiers in `backend/client.rs` and the
@@ -76,15 +76,15 @@ The core recovers from the two differently (`BackendApiError` variants in
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | `SdkBackendTransport` and its `BackendTransport` impl. |
-| `error.rs` | `map_sdk_error`, plus the channel-message path parser and the unmatched-route check. |
+| [`mod.rs`](mod.rs) | `SdkBackendTransport` and its `BackendTransport` impl. |
+| [`error.rs`](error.rs) | `map_sdk_error`, plus the channel-message path parser and the unmatched-route check. |
 
 ## Key types and entry points
 
 - `SdkBackendTransport::new()` builds the transport; it fails only when a
   `reqwest::Client` cannot be built.
 - `SdkBackendTransport::shared()` returns it as `Arc<dyn BackendTransport>`,
-  ready for `openhuman_core::backend::install_backend_transport`.
+  ready for `openhuman_embed::__host::backend::install_backend_transport`.
 - `map_sdk_error` is public (re-exported at the crate root) for code that
   calls the SDK and needs the same translation.
 
@@ -98,9 +98,9 @@ and RPC, and answers backend-touching calls with
 
 - The port (`BackendTransport`, `BackendRequest`, `BackendTransportError`,
   `BaseUrlPurpose`, `TransportProfile`) lives in
-  `crates/openhuman-core/src/backend/transport/`. Credential resolution is the
+  [`crates/openhuman-core/src/backend/transport/`](../../../openhuman-core/src/backend/transport/). Credential resolution is the
   core's (`security::credentials::session_support`).
-- Routes live in the vendored SDK (`vendor/tinyhumans-sdk`,
+- Routes live in the vendored SDK ([`vendor/tinyhumans-sdk`](../../../../vendor/tinyhumans-sdk/),
   `tinyhumansai/tinyhumans-sdk`). A missing backend route goes into the SDK's
   route registry and is named from the core; this transport never grows a
   route implementation of its own. A route the SDK does not expose fails with
@@ -113,11 +113,18 @@ and RPC, and answers backend-touching calls with
 
 ## Tests
 
-`transport_tests.rs` pins the wire shape against a wiremock backend: bearer
+[`transport_tests.rs`](transport_tests.rs) pins the wire shape against a wiremock backend: bearer
 versus `x-api-key`, attribution headers, `Status` and `Envelope` mapping, and
-SDK route refusal. `channel_404_tests.rs` pins the two channel-message 404
+SDK route refusal. [`channel_404_tests.rs`](channel_404_tests.rs) pins the two channel-message 404
 cases.
 
 ```bash
 cargo test -p openhuman-tinyhumans transport::
 ```
+
+## Further reading
+
+- [`gitbooks/developing/tinyhumans-api-key.md`](../../../../gitbooks/developing/tinyhumans-api-key.md): running on a TinyHumans API key.
+- [`gitbooks/developing/architecture.md`](../../../../gitbooks/developing/architecture.md): architecture overview.
+- [`crates/openhuman-tinyhumans/README.md`](../../README.md): the openhuman-tinyhumans crate README.
+- [`vendor/tinyhumans-sdk/README.md`](../../../../vendor/tinyhumans-sdk/README.md): tinyhumans-sdk.

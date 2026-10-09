@@ -38,56 +38,134 @@ pub enum MigrationOutcome {
 }
 
 // ── Core operations ───────────────────────────────────────────────────────────
+//
+// `get` / `set` / `delete` serve a user's secrets from the storage backend
+// when the host configured one (`crate::storage::secrets`, the acting agent's
+// scope), else from the process backend. The `process_*` functions always use
+// the process backend: the availability probe and the app-level keys
+// (`get_or_create_random`, `migrate_from_file` — the config encryption key)
+// belong to this process, not to an agent.
 
-/// Retrieve a secret from the active backend.
+/// The storage-backed secret store for this call, when one is configured.
+fn storage_secrets() -> Result<Option<tinystoragedrivers::secrets::DocumentSecrets>, KeyringError> {
+    crate::storage::secrets::current()
+        .map_err(|error| KeyringError::Backend(format!("storage secrets: {error}")))
+}
+
+fn storage_error(error: crate::storage::StorageError) -> KeyringError {
+    KeyringError::Backend(format!("storage secrets: {error}"))
+}
+
+/// Retrieve a secret: from the storage backend when one is configured,
+/// else from the process backend.
 ///
 /// Returns `Ok(None)` when no entry exists for this user + key combination.
 /// Never logs the secret value.
 pub fn get(user_id: &str, key: &str) -> Result<Option<String>, KeyringError> {
-    log::debug!("[keyring] get user_id={user_id} key={key}");
+    use tinystoragedrivers::secrets::SecretStore as _;
+    let Some(secrets) = storage_secrets()? else {
+        return process_get(user_id, key);
+    };
+    log::debug!("[keyring] get (storage)");
+    let name = namespaced_key(user_id, key);
+    let write_back = secrets.clone();
+    let value =
+        crate::storage::block_on(async move { secrets.get(&name).await }).map_err(storage_error)?;
+    let Some(value) = value else {
+        // Not on the backend yet: adopt a secret an earlier process-keyring
+        // install stored, so enabling a backend does not hide it.
+        let legacy = process_get(user_id, key).ok().flatten();
+        if let Some(legacy) = &legacy {
+            let name = namespaced_key(user_id, key);
+            let bytes = zeroize::Zeroizing::new(legacy.as_bytes().to_vec());
+            match crate::storage::block_on(async move { write_back.set(&name, &bytes).await }) {
+                Ok(()) => log::debug!("[keyring] adopted process-backend secret into storage"),
+                Err(_) => log::warn!("[keyring] could not adopt process-backend secret"),
+            }
+        }
+        return Ok(legacy);
+    };
+    String::from_utf8(value.to_vec())
+        .map(Some)
+        .map_err(|source| KeyringError::InvalidUtf8 {
+            key: key.to_string(),
+            source,
+        })
+}
+
+/// Store a secret: in the storage backend when one is configured, else in
+/// the process backend. Overwrites any existing entry. Never logs the value.
+pub fn set(user_id: &str, key: &str, value: &str) -> Result<(), KeyringError> {
+    use tinystoragedrivers::secrets::SecretStore as _;
+    let Some(secrets) = storage_secrets()? else {
+        return process_set(user_id, key, value);
+    };
+    log::debug!("[keyring] set (storage)");
+    let name = namespaced_key(user_id, key);
+    let value = zeroize::Zeroizing::new(value.as_bytes().to_vec());
+    crate::storage::block_on(async move { secrets.set(&name, &value).await }).map_err(storage_error)
+}
+
+/// Delete a secret: from the storage backend when one is configured, else
+/// from the process backend. Idempotent.
+pub fn delete(user_id: &str, key: &str) -> Result<(), KeyringError> {
+    use tinystoragedrivers::secrets::SecretStore as _;
+    let Some(secrets) = storage_secrets()? else {
+        return process_delete(user_id, key);
+    };
+    log::debug!("[keyring] delete (storage)");
+    let name = namespaced_key(user_id, key);
+    crate::storage::block_on(async move { secrets.delete(&name).await.map(|_| ()) })
+        .map_err(storage_error)?;
+    // Also drop an adoptable process-backend copy so it cannot resurface.
+    if process_delete(user_id, key).is_err() {
+        log::warn!("[keyring] delete: process-backend copy not removed");
+    }
+    Ok(())
+}
+
+// ── Process backend ───────────────────────────────────────────────────────────
+
+/// Retrieve a secret from the process backend.
+///
+/// Returns `Ok(None)` when no entry exists for this user + key combination.
+/// Never logs the secret value.
+pub(crate) fn process_get(user_id: &str, key: &str) -> Result<Option<String>, KeyringError> {
+    log::debug!("[keyring] get");
     let namespaced = namespaced_key(user_id, key);
     let result = backend().get(&namespaced);
     match &result {
-        Ok(Some(_)) => log::debug!("[keyring] get hit user_id={user_id} key={key}"),
-        Ok(None) => log::debug!("[keyring] get miss user_id={user_id} key={key}"),
-        Err(e) => log::warn!(
-            "[keyring] get error user_id={user_id} key={key}: {e} | detail={}",
-            e.diagnostic()
-        ),
+        Ok(Some(_)) => log::debug!("[keyring] get hit"),
+        Ok(None) => log::debug!("[keyring] get miss"),
+        Err(e) => log::warn!("[keyring] get error: {e} | detail={}", e.diagnostic()),
     }
     result
 }
 
-/// Store a secret in the active backend.
+/// Store a secret in the process backend.
 ///
 /// Overwrites any existing entry for this user + key. Never logs the value.
-pub fn set(user_id: &str, key: &str, value: &str) -> Result<(), KeyringError> {
-    log::debug!("[keyring] set user_id={user_id} key={key}");
+pub(crate) fn process_set(user_id: &str, key: &str, value: &str) -> Result<(), KeyringError> {
+    log::debug!("[keyring] set");
     let namespaced = namespaced_key(user_id, key);
     let result = backend().set(&namespaced, value);
     match &result {
-        Ok(()) => log::debug!("[keyring] set ok user_id={user_id} key={key}"),
-        Err(e) => log::warn!(
-            "[keyring] set error user_id={user_id} key={key}: {e} | detail={}",
-            e.diagnostic()
-        ),
+        Ok(()) => log::debug!("[keyring] set ok"),
+        Err(e) => log::warn!("[keyring] set error: {e} | detail={}", e.diagnostic()),
     }
     result
 }
 
-/// Delete a secret from the active backend.
+/// Delete a secret from the process backend.
 ///
 /// Returns `Ok(())` even if no entry existed (idempotent).
-pub fn delete(user_id: &str, key: &str) -> Result<(), KeyringError> {
-    log::debug!("[keyring] delete user_id={user_id} key={key}");
+pub(crate) fn process_delete(user_id: &str, key: &str) -> Result<(), KeyringError> {
+    log::debug!("[keyring] delete");
     let namespaced = namespaced_key(user_id, key);
     let result = backend().delete(&namespaced);
     match &result {
-        Ok(()) => log::debug!("[keyring] delete ok user_id={user_id} key={key}"),
-        Err(e) => log::warn!(
-            "[keyring] delete error user_id={user_id} key={key}: {e} | detail={}",
-            e.diagnostic()
-        ),
+        Ok(()) => log::debug!("[keyring] delete ok"),
+        Err(e) => log::warn!("[keyring] delete error: {e} | detail={}", e.diagnostic()),
     }
     result
 }
@@ -103,6 +181,10 @@ pub fn delete(user_id: &str, key: &str) -> Result<(), KeyringError> {
 /// the macOS access-permission dialogs they trigger) when polled by
 /// wallet guards or snapshot loops.
 pub fn is_available() -> bool {
+    // Secrets on a storage backend do not depend on the OS keychain.
+    if matches!(storage_secrets(), Ok(Some(_))) {
+        return true;
+    }
     let mut cached = AVAILABILITY_CACHE.lock();
     if let Some(val) = *cached {
         return val;
@@ -150,10 +232,10 @@ fn probe_availability() -> bool {
         // Without this, `set` fails with "item already exists" (-25299) on
         // every launch after the first, causing `is_available` to incorrectly
         // return false even when the keychain is fully functional.
-        let _ = delete(PROBE_USER, PROBE_KEY);
-        set(PROBE_USER, PROBE_KEY, PROBE_VALUE)?;
-        let readback = get(PROBE_USER, PROBE_KEY)?;
-        delete(PROBE_USER, PROBE_KEY)?;
+        let _ = process_delete(PROBE_USER, PROBE_KEY);
+        process_set(PROBE_USER, PROBE_KEY, PROBE_VALUE)?;
+        let readback = process_get(PROBE_USER, PROBE_KEY)?;
+        process_delete(PROBE_USER, PROBE_KEY)?;
         Ok(readback.as_deref() == Some(PROBE_VALUE))
     })();
 
@@ -195,7 +277,7 @@ pub fn get_or_create_random(
         ));
     }
 
-    if let Some(existing) = get(user_id, key)? {
+    if let Some(existing) = process_get(user_id, key)? {
         log::debug!(
             "[keyring] get_or_create_random returning existing value user_id={user_id} key={key}"
         );
@@ -208,10 +290,10 @@ pub fn get_or_create_random(
     let hex_value = hex_encode(&bytes);
 
     log::debug!("[keyring] get_or_create_random creating new entry user_id={user_id} key={key}");
-    set(user_id, key, &hex_value)?;
+    process_set(user_id, key, &hex_value)?;
 
     // Verify write succeeded.
-    let readback = get(user_id, key)?;
+    let readback = process_get(user_id, key)?;
     if readback.as_deref() != Some(&hex_value) {
         log::warn!(
             "[keyring] get_or_create_random write verification failed user_id={user_id} key={key}"
@@ -246,7 +328,7 @@ pub fn migrate_from_file(
     );
 
     // Step 1: check if already migrated.
-    if get(user_id, key)?.is_some() {
+    if process_get(user_id, key)?.is_some() {
         log::debug!("[keyring] migrate_from_file already migrated user_id={user_id} key={key}");
         return Ok(MigrationOutcome::AlreadyMigrated);
     }
@@ -274,10 +356,10 @@ pub fn migrate_from_file(
 
     // Step 4: write to backend.
     log::debug!("[keyring] migrate_from_file writing to backend user_id={user_id} key={key}");
-    set(user_id, key, &value)?;
+    process_set(user_id, key, &value)?;
 
     // Step 5: verify read-back matches.
-    let readback = get(user_id, key)?;
+    let readback = process_get(user_id, key)?;
     if readback.as_deref() != Some(value.as_str()) {
         log::warn!(
             "[keyring] migrate_from_file verification failed user_id={user_id} key={key}; NOT deleting source file"

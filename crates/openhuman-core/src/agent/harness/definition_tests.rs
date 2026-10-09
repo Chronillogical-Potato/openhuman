@@ -16,6 +16,7 @@ fn make_def(id: &str) -> AgentDefinition {
         skill_filter: None,
         extra_tools: vec![],
         deferred_tools: Vec::new(),
+        tool_rules: None,
         max_iterations: 8,
         iteration_policy: Default::default(),
         max_result_chars: None,

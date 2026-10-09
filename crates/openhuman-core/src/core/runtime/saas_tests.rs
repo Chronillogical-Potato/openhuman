@@ -28,6 +28,7 @@ max_agents_open = 8
 idle_evict_secs = 60
 shared_backend_api_key = true
 custom_definitions = true
+require_user_signature = false
 "#,
     )
     .unwrap();
@@ -41,6 +42,7 @@ custom_definitions = true
     assert_eq!(config.max_agents_open, 8);
     assert_eq!(config.idle_evict_secs, 60);
     assert!(config.shared_backend_api_key && config.custom_definitions);
+    assert!(!config.require_user_signature);
 }
 
 #[test]
@@ -80,7 +82,17 @@ fn the_operator_plane_lives_under_the_root() {
 
 #[test]
 fn the_saas_presets_are_closed() {
-    assert_eq!(DomainSet::saas(), DomainSet::none());
+    assert_eq!(
+        DomainSet::saas(),
+        DomainSet {
+            operator: true,
+            threads: true,
+            channels: true,
+            memory: true,
+            ..DomainSet::none()
+        },
+        "the operator plane plus the user families isolated so far"
+    );
     let services = ServiceSet::saas();
     assert!(services.rpc_http);
     assert_eq!(

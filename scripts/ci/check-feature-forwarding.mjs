@@ -4,7 +4,8 @@
 //
 // See scripts/lib/feature-forwarding.mjs for the three assertions and why they
 // are shaped this way (#4919). Short version: the shell sets
-// `default-features = false` on `openhuman_core`, so every gate the product
+// `default-features = false` on `openhuman-rpc` (its only openhuman
+// dependency, which forwards each gate down to the core), so every gate the product
 // needs must be forwarded by hand. When someone forgets, the domain vanishes
 // from the shipped app with no build error — that is how #4901 (voice, 56
 // users, ~93k Sentry events) and #4918 (tokenjuice-treesitter, silent soft
@@ -15,13 +16,14 @@
 // deliberately smaller.
 //
 // It also checks the library chain the core is re-declared by — embed,
-// tinyhumans and cli (#6364). Those three lists were maintained by hand: a gate
+// tinyhumans, rpc, then the cli and tui hosts on rpc (#6364). Those lists were maintained by hand: a gate
 // dropped from the core and left behind is a cargo error nobody reads as drift
 // (#6360), and a gate ADDED to the core and forgotten is silent, because the
 // product lanes only ever resolve names against `openhuman-cli`.
 //
 // Usage: check-feature-forwarding.mjs [core-manifest] [shell-manifest] [product-features]
 //                                     [embed-manifest] [tinyhumans-manifest] [cli-manifest]
+//                                     [rpc-manifest] [tui-manifest]
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,6 +43,7 @@ import {
   parseFeatureTable,
   parseProductFeatures,
   parseShellForwardedFeatures,
+  rpcForwardedGates,
 } from '../lib/feature-forwarding.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -48,11 +51,12 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 function usage() {
   return (
     'Usage: check-feature-forwarding.mjs [core-manifest] [shell-manifest] [product-features]\n' +
-    '                                    [embed-manifest] [tinyhumans-manifest] [cli-manifest]'
+    '                                    [embed-manifest] [tinyhumans-manifest] [cli-manifest]\n' +
+    '                                    [rpc-manifest] [tui-manifest]'
   );
 }
 
-const [coreArg, shellArg, productArg, embedArg, tinyhumansArg, cliArg, extra] =
+const [coreArg, shellArg, productArg, embedArg, tinyhumansArg, cliArg, rpcArg, tuiArg, extra] =
   process.argv.slice(2);
 if (coreArg === '--help' || coreArg === '-h') {
   console.log(usage());
@@ -77,6 +81,8 @@ const tinyhumansPath = tinyhumansArg
   ? resolve(tinyhumansArg)
   : resolve(REPO_ROOT, 'crates/openhuman-tinyhumans/Cargo.toml');
 const cliPath = cliArg ? resolve(cliArg) : resolve(REPO_ROOT, 'crates/openhuman-cli/Cargo.toml');
+const rpcPath = rpcArg ? resolve(rpcArg) : resolve(REPO_ROOT, 'crates/openhuman-rpc/Cargo.toml');
+const tuiPath = tuiArg ? resolve(tuiArg) : resolve(REPO_ROOT, 'crates/openhuman-tui/Cargo.toml');
 
 let coreToml;
 let shellToml;
@@ -84,6 +90,8 @@ let productText;
 let embedToml;
 let tinyhumansToml;
 let cliToml;
+let rpcToml;
+let tuiToml;
 try {
   coreToml = readFileSync(corePath, 'utf8');
   shellToml = readFileSync(shellPath, 'utf8');
@@ -91,6 +99,8 @@ try {
   embedToml = readFileSync(embedPath, 'utf8');
   tinyhumansToml = readFileSync(tinyhumansPath, 'utf8');
   cliToml = readFileSync(cliPath, 'utf8');
+  rpcToml = readFileSync(rpcPath, 'utf8');
+  tuiToml = readFileSync(tuiPath, 'utf8');
 } catch (err) {
   console.error(`Could not read inputs: ${err.message}`);
   process.exit(2);
@@ -138,10 +148,12 @@ console.log('');
 console.log(formatReport(defaults, { coreDefaults, shell, allowlist: INTENTIONALLY_NOT_FORWARDED }));
 
 // Assertion 4: the library chain (#6364). The core's gates are re-declared by
-// embed, then tinyhumans, then cli, and each hop can drop one.
+// embed, then tinyhumans, then rpc (and cli), and each hop can drop one.
 const embedFeatures = parseFeatureTable(embedToml);
 const tinyhumansFeatures = parseFeatureTable(tinyhumansToml);
 const cliFeatures = parseFeatureTable(cliToml);
+const rpcFeatures = parseFeatureTable(rpcToml);
+const tuiFeatures = parseFeatureTable(tuiToml);
 
 // Guard the guard, same as above: a parser that found nothing would turn every
 // chain assertion into a rubber stamp.
@@ -149,6 +161,8 @@ for (const [path, table] of [
   [embedPath, embedFeatures],
   [tinyhumansPath, tinyhumansFeatures],
   [cliPath, cliFeatures],
+  [rpcPath, rpcFeatures],
+  [tuiPath, tuiFeatures],
 ]) {
   if (table.size === 0) {
     console.error(
@@ -161,6 +175,8 @@ for (const [path, table] of [
 
 const embedGates = [...embedFeatures.keys()].filter(name => name !== 'default');
 const tinyhumansGates = [...tinyhumansFeatures.keys()].filter(name => name !== 'default');
+// What a host must forward from rpc: its gates minus rpc's own local ones.
+const rpcHostGates = rpcForwardedGates(rpcFeatures);
 
 const chain = [
   {
@@ -174,14 +190,22 @@ const chain = [
     sources: [{ crate: 'openhuman-embed', gates: embedGates, required: true }],
   },
   {
+    // rpc sits on tinyhumans alone and forwards every one of its gates
+    // (product gates plus `jev`); its server/client/store gates are local.
+    crate: 'openhuman-rpc',
+    features: rpcFeatures,
+    sources: [{ crate: 'openhuman-tinyhumans', gates: tinyhumansGates, required: true }],
+  },
+  {
+    // The hosts sit on rpc alone (no core/tinyhumans edge any more).
     crate: 'openhuman-cli',
     features: cliFeatures,
-    sources: [
-      { crate: 'openhuman-core', gates: coreFeatureNames, required: true },
-      // Optional: the cli forwards to both parents, but only for the gates
-      // tinyhumans actually has — `e2e-test-support` is core-only.
-      { crate: 'openhuman-tinyhumans', gates: tinyhumansGates, required: false },
-    ],
+    sources: [{ crate: 'openhuman-rpc', gates: rpcHostGates, required: true }],
+  },
+  {
+    crate: 'openhuman-tui',
+    features: tuiFeatures,
+    sources: [{ crate: 'openhuman-rpc', gates: rpcHostGates, required: true }],
   },
 ].map(link =>
   diffChainForwarding({
@@ -192,7 +216,7 @@ const chain = [
 );
 
 console.log('');
-console.log('Library chain (core -> embed -> tinyhumans -> cli):');
+console.log('Library chain (core -> embed -> tinyhumans -> rpc -> cli/tui; app on its rpc dependency):');
 for (const result of chain) {
   console.log(
     formatChainReport(result, {

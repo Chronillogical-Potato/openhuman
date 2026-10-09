@@ -8,8 +8,8 @@ use serde_json::{json, Value};
 use tinyhumans_sdk::api::types::IntegrationTokenRequest;
 
 use super::handoff::decrypt_handoff_blob;
-use openhuman_core::config::Config;
-use openhuman_core::core::Outcome;
+use openhuman_embed::__host::config::Config;
+use openhuman_embed::__host::core::Outcome;
 
 use super::types::{IntegrationSummary, IntegrationTokensHandoff};
 use crate::hosted::client::{CredentialKind, HostedClient};

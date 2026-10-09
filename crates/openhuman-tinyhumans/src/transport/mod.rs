@@ -6,10 +6,10 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use openhuman_core::backend::{
+use openhuman_embed::__host::security::credentials::session_support::BackendCredential;
+use openhuman_embed::{
     BackendRequest, BackendTransport, BackendTransportError, BaseUrlPurpose, TransportProfile,
 };
-use openhuman_core::security::credentials::session_support::BackendCredential;
 use reqwest::Method;
 use serde_json::Value;
 use tinyhumans_sdk::TinyHumansClient;
@@ -41,7 +41,7 @@ impl SdkBackendTransport {
     }
 
     /// [`Self::new`] as a shared handle ready for
-    /// [`install_backend_transport`](openhuman_core::backend::install_backend_transport).
+    /// [`install_backend_transport`](openhuman_embed::install_backend_transport).
     pub fn shared() -> anyhow::Result<Arc<dyn BackendTransport>> {
         Ok(Arc::new(Self::new()?))
     }

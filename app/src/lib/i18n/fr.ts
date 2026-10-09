@@ -465,7 +465,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'Mémoire',
   'welcome.th.featureEmbeddings': 'Embeddings',
   'welcome.th.featureBilling': 'Facturation',
-  'welcome.th.credit': '5 $ de crédit pour commencer',
   'welcome.th.cta': 'Continuer avec TinyHumans',
   'welcome.th.providers': 'Connectez-vous avec Google, GitHub ou X',
   'welcome.self.title': 'Je le configure moi-même',
@@ -4115,6 +4114,37 @@ const messages: TranslationMap = {
   'skills.detail.author': 'Auteur',
   'skills.detail.license': 'Licence',
   'skills.detail.description': 'Description',
+  'skills.detail.overview': 'Aperçu',
+  'skills.registry.firstFetchHint':
+    'Chargement du catalogue de compétences. Le premier téléchargement peut prendre une minute.',
+  'skills.registry.refreshing':
+    'Affichage du catalogue enregistré pendant le chargement d’une copie à jour.',
+  'skills.registry.offline': 'Hors ligne : affichage du catalogue enregistré du {time}.',
+  'skills.registry.offlineNoTime': 'Hors ligne : affichage du catalogue enregistré.',
+  'skills.registry.unreachable':
+    'Impossible de joindre le registre de compétences. Vérifiez votre connexion et réessayez.',
+  'skills.registry.rateLimited':
+    'Le registre de compétences est surchargé. Réessayez dans {seconds} s.',
+  'skills.registry.rateLimitedShortly':
+    'Le registre de compétences est surchargé. Réessayez dans un instant.',
+  'skills.registry.viewSource': 'Voir la source',
+  'skills.registry.noDirectDownload':
+    'Cette entrée n’a pas de SKILL.md à télécharger. Ouvrez sa page source pour l’installer autrement.',
+  'skills.registry.upstreamAmbiguous':
+    'Plusieurs auteurs publient une compétence sous ce nom et le catalogue ne précise pas laquelle, elle ne peut donc pas être installée automatiquement.',
+  'skills.scan.title': "L'analyse de sécurité a bloqué cette compétence",
+  'skills.scan.description':
+    "OpenHuman a téléchargé et analysé {name} deux fois, et l'analyse de sécurité l'a bloquée les deux fois. Elle n'a pas été installée.",
+  'skills.scan.findingsLabel': "Ce que l'analyse a trouvé",
+  'skills.scan.warning':
+    'Installez-la uniquement si vous faites confiance à sa provenance. Bloquer est le choix sûr.',
+  'skills.scan.block': "Bloquer l'installation",
+  'skills.scan.installAnyway': 'Installer quand même',
+  'skills.scan.verdictBlock': 'Bloqué',
+  'skills.scan.verdictWarn': 'Avertissement',
+  'skills.scan.declinedTitle': 'Installation bloquée',
+  'skills.scan.declinedHint':
+    "La compétence n'a pas été installée car l'analyse de sécurité l'a bloquée.",
   'skills.detail.source': 'URL source',
   'skills.detail.tags': 'Étiquettes',
   'skills.detail.version': 'Version',
@@ -5158,6 +5188,17 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'La mémoire est désactivée',
   'memoryPage.off.description': 'Choisissez un fournisseur de mémoire pour commencer à mémoriser.',
   'memoryPage.off.action': 'Choisir un fournisseur',
+  'memoryPage.disabled.title': 'La mémoire est désactivée',
+  'memoryPage.disabled.description':
+    'OpenHuman ne mémorise et ne rappelle rien. Choisissez un fournisseur pour réactiver la mémoire.',
+  'memoryPage.engine.disabled.title': 'Désactivée',
+  'memoryPage.engine.disabled.description':
+    "Désactivez complètement la mémoire. Rien n'est enregistré ni rappelé, et vos connexions sont conservées.",
+  'memoryPage.engine.disabled.action': 'Désactiver la mémoire',
+  'memoryPage.engine.disabled.banner':
+    "Rien n'est enregistré ni rappelé. Choisissez un fournisseur ci-dessous pour réactiver la mémoire.",
+  'memoryPage.engine.disabled.toast': 'Mémoire désactivée',
+  'memoryPage.engine.disabled.toastFailed': 'Impossible de désactiver la mémoire',
   'memoryPage.engine.inUse': 'Utilisé',
   'memoryPage.announcement.title': 'Inférence de mémoire gratuite sur CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex a été retiré le 7 oct.',
