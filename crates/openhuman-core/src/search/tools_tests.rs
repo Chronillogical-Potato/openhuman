@@ -264,3 +264,54 @@ fn a_rejected_backend_credential_asks_for_the_right_fix() {
     assert!(!key.contains("Sign in again"), "{key}");
     assert!(!exhausts_providers("tinysearch.backend_unauthorized: rejected"));
 }
+
+/// Drain `rx` for a `SessionExpired` whose source is `source`.
+fn session_expired_from(
+    rx: &mut tinybus::Receiver<crate::core::events::DomainEvent>,
+    source: &str,
+) -> bool {
+    loop {
+        match rx.try_recv() {
+            Ok(crate::core::events::DomainEvent::SessionExpired { source: seen, .. })
+                if seen == source =>
+            {
+                return true;
+            }
+            Ok(_) | Err(tinybus::TryRecvError::Lagged(_)) => continue,
+            Err(_) => return false,
+        }
+    }
+}
+
+/// A user on their own inference key never reached a backend call that
+/// noticed a dead session, so search kept failing on it with no sign-in
+/// prompt. A managed-search 401 on the session now starts re-auth itself.
+#[tokio::test]
+async fn a_rejected_session_starts_re_authentication() {
+    crate::core::bus::init().await.expect("bus init");
+    let mut rx = crate::core::bus::BUS
+        .get()
+        .expect("event bus initialized")
+        .receiver();
+    on_backend_unauthorized("test_marker_session_search", false);
+    assert!(session_expired_from(
+        &mut rx,
+        "search.test_marker_session_search"
+    ));
+}
+
+/// A rejected TinyHumans API key has no session to expire, so it must never
+/// sign the user out.
+#[tokio::test]
+async fn a_rejected_api_key_does_not_sign_the_user_out() {
+    crate::core::bus::init().await.expect("bus init");
+    let mut rx = crate::core::bus::BUS
+        .get()
+        .expect("event bus initialized")
+        .receiver();
+    on_backend_unauthorized("test_marker_api_key_search", true);
+    assert!(!session_expired_from(
+        &mut rx,
+        "search.test_marker_api_key_search"
+    ));
+}
