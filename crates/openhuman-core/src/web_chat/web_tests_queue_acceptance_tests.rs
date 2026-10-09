@@ -407,3 +407,64 @@ async fn web_queue_remove_retracts_one_item_and_emits_event() {
 
     cancel_parked_turn(thread_id, &block).await;
 }
+
+/// `chat_done` is the client's go-ahead for its next message, so it must not
+/// go out while the finished turn still holds the thread's in-flight slot: a
+/// message sent on it would interrupt the finished request and publish a
+/// "cancelled" `chat_error` for it. The test holds the slot map's lock while
+/// the turn completes; `chat_done` may only arrive after the lock is dropped,
+/// and by then the slot is gone.
+#[tokio::test]
+async fn chat_done_is_published_only_after_the_in_flight_slot_is_released() {
+    let _serial = FORCED_ERROR_TEST_LOCK.lock().await;
+    let workspace = tempfile::tempdir().expect("workspace");
+    let block = TestRunChatTaskBlock {
+        succeed_in: Some(workspace.path().to_path_buf()),
+        ..make_block()
+    };
+    set_test_run_chat_task_block(Some(block.clone())).await;
+    let thread_id = "chat-done-after-slot-release";
+    let request_id = start_parked_turn(thread_id, &block).await;
+    let mut events = crate::web_chat::subscribe_web_channel_events();
+    let is_done = |event: &crate::web_chat::WebChannelEvent| {
+        event.event == "chat_done" && event.request_id == request_id
+    };
+
+    let held = crate::web_chat::ops::IN_FLIGHT.lock().await;
+    block.release.notify_one();
+    let early = timeout(Duration::from_millis(500), async {
+        loop {
+            if let Ok(event) = events.recv().await {
+                if is_done(&event) {
+                    return event;
+                }
+            }
+        }
+    })
+    .await;
+    assert!(
+        early.is_err(),
+        "chat_done went out while the turn still held its in-flight slot"
+    );
+    drop(held);
+
+    timeout(Duration::from_secs(5), async {
+        loop {
+            if let Ok(event) = events.recv().await {
+                if is_done(&event) {
+                    return;
+                }
+            }
+        }
+    })
+    .await
+    .expect("chat_done after the slot is released");
+    assert!(
+        !in_flight_entries_for_test()
+            .await
+            .iter()
+            .any(|(key, _)| key == thread_id),
+        "the slot is released by the time chat_done is seen"
+    );
+    set_test_run_chat_task_block(None).await;
+}

@@ -21,6 +21,7 @@ pub struct BrowserSettingsPatch {
     pub download_dir: Option<String>,
     pub max_task_steps: Option<usize>,
     pub task_timeout_secs: Option<u64>,
+    pub learn_from_tasks: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -117,8 +118,16 @@ pub async fn apply_browser_settings(
         }
         browser.task_timeout_secs = timeout;
     }
+    if let Some(learn) = update.learn_from_tasks {
+        browser.learn_from_tasks = learn;
+    }
     config.browser = browser;
     config.save().await.map_err(|e| e.to_string())?;
+    // Tools built before the switch hold the config they were built with.
+    #[cfg(feature = "modules")]
+    if let Some(learn) = update.learn_from_tasks {
+        crate::modules::browser_sites::note_switch(&config.workspace_dir, learn);
+    }
     let snapshot = snapshot_config_json(config)?;
     Ok(Outcome::new(
         snapshot,
@@ -177,6 +186,63 @@ pub async fn apply_analytics_settings(
             config.config_path.display()
         )],
     ))
+}
+
+/// Sets the user's time zone (`None`, or a blank name, follows the device
+/// again). The name must be an IANA zone; it is stored in its canonical form.
+pub async fn apply_user_timezone(
+    config: &mut Config,
+    timezone: Option<String>,
+) -> Result<Outcome<serde_json::Value>, String> {
+    let requested = timezone.as_deref().map(str::trim).filter(|z| !z.is_empty());
+    let next = match requested {
+        None => None,
+        Some(zone) => Some(
+            crate::config::normalize_time_zone(zone)
+                .ok_or_else(|| format!("{zone:?} is not an IANA time zone (e.g. Asia/Kolkata)"))?,
+        ),
+    };
+    // Build the reply before committing, so nothing after the save can fail
+    // and report a stored change as failed; a failed save restores the
+    // caller's config to what is on disk.
+    let previous = std::mem::replace(&mut config.user_timezone, next);
+    let snapshot = match snapshot_config_json(config) {
+        Ok(snapshot) => snapshot,
+        Err(error) => {
+            config.user_timezone = previous;
+            return Err(error);
+        }
+    };
+    if let Err(error) = config.save().await {
+        config.user_timezone = previous;
+        return Err(error.to_string());
+    }
+    let chosen = config.user_timezone.as_deref().unwrap_or("device");
+    log::info!("[config] user time zone set: {chosen}");
+    Ok(Outcome::new(
+        snapshot,
+        vec![format!(
+            "time zone saved to {}",
+            config.config_path.display()
+        )],
+    ))
+}
+
+/// Loads the configuration, sets the user's time zone, and saves it.
+pub async fn load_and_apply_user_timezone(
+    timezone: Option<String>,
+) -> Result<Outcome<serde_json::Value>, String> {
+    let mut config = load_config_with_timeout().await?;
+    apply_user_timezone(&mut config, timezone).await
+}
+
+/// The user's time zone setting, the device's zone, and the one in effect.
+pub fn user_timezone_json(config: &Config) -> serde_json::Value {
+    json!({
+        "timezone": config.user_timezone,
+        "device": crate::config::device_time_zone(),
+        "effective": config.time_zone(),
+    })
 }
 
 /// Loads the configuration, applies analytics settings updates, and saves it.

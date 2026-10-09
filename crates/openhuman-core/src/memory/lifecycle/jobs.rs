@@ -109,13 +109,9 @@ fn read(workspace_dir: &Path) -> JobQueue {
 
 fn write(workspace_dir: &Path, queue: &JobQueue) {
     let file = path(workspace_dir);
-    let result = file
-        .parent()
-        .map_or(Ok(()), std::fs::create_dir_all)
-        .and_then(|()| {
-            let json = serde_json::to_vec_pretty(queue).map_err(std::io::Error::other)?;
-            std::fs::write(&file, json)
-        });
+    let result = serde_json::to_vec_pretty(queue)
+        .map_err(std::io::Error::other)
+        .and_then(|json| crate::memory::files::write_private(&file, &json));
     if let Err(error) = result {
         tracing::warn!(%error, "[memory:jobs] writing the job queue failed");
     }
@@ -190,7 +186,9 @@ pub enum Selection {
 }
 
 /// Runs the selected jobs. Returns the runs it recorded. A job that fails is
-/// kept with its error and retried on a later run, up to a few attempts.
+/// kept with its error and retried on a later run, up to a few attempts; an
+/// account-wide refusal does not count as one. The run that gives up says so
+/// in its reason.
 pub async fn run(config: &Config, selection: Selection) -> MemoryResult<Vec<JobRun>> {
     let bound = engine::resolve(config).engine()?;
     let _guard = LOCK.lock().await;
@@ -272,19 +270,31 @@ pub async fn run(config: &Config, selection: Selection) -> MemoryResult<Vec<JobR
                 );
             }
             Err(error) => {
-                queued.attempts += 1;
+                // A refusal of the whole account (no credits, a rejected
+                // credential, an unreachable engine) says nothing about the
+                // job, so it keeps its attempts and waits: dropping it would
+                // leave a permanent gap in the beliefs (#6718).
+                let account_wide = MemoryError::from(error.clone()).is_account_wide();
+                if !account_wide {
+                    queued.attempts += 1;
+                }
                 queued.last_error = Some(error.to_string());
                 record.outcome = "failed".to_string();
-                record.reason = Some(error.to_string());
                 tracing::warn!(
                     id = %queued.id,
                     job = %name,
                     attempts = queued.attempts,
+                    account_wide,
                     %error,
                     "[memory:jobs] run failed"
                 );
                 if queued.attempts < MAX_ATTEMPTS {
+                    record.reason = Some(error.to_string());
                     queue.pending.push(queued);
+                } else {
+                    record.reason = Some(format!(
+                        "dropped after {MAX_ATTEMPTS} failed attempts: {error}"
+                    ));
                 }
             }
         }

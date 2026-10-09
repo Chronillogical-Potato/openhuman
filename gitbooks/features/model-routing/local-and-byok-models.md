@@ -32,7 +32,7 @@ Speech is configured separately from the LLM workload fields, and the two halves
 
 There is no local STT engine: speech-to-text is either the hosted proxy or a third-party API you supply a key for, while TTS keeps a local option in Piper. OpenHuman does not install Piper: install the binary and a voice yourself, set `PIPER_BIN`, and set `tts_provider = "piper"`.
 
-That last row is deliberately about **inference data only**. Sign-in, managed integration OAuth, billing, and hosted features such as meeting agents still use the OpenHuman backend even when inference is entirely yours, so running local models is not by itself a guarantee that nothing leaves the machine. If you want a hard guarantee that no inference leaves the machine, use [Privacy Mode](../privacy-mode.md), which enforces the local-only path in the Rust core rather than relying on configuration alone.
+That last row is deliberately about **inference data only**. Sign-in, managed integration OAuth, billing, and hosted features such as media generation and managed web search still use the OpenHuman backend even when inference is entirely yours, so running local models is not by itself a guarantee that nothing leaves the machine. If you want a hard guarantee that no inference leaves the machine, use [Privacy Mode](../privacy-mode.md), which enforces the local-only path in the Rust core rather than relying on configuration alone.
 
 ## Route A: local models
 
@@ -69,7 +69,7 @@ Two traps worth calling out:
 - **Gemma 3 is split by size.** The 270M and 1B builds are text-only. Vision starts at 4B. Picking `gemma3:1b-it-qat` for vision gets you a text-only model.
 - **`gemma3n` is not `gemma3`.** Despite the name, Gemma 3n is a separate, text-only model on Ollama. It is a fine chat model and a bad vision model.
 
-For embeddings, prefer **`bge-m3`** (1024 dimensions). Memory v2 does not use local embeddings; the memory engine embeds on its own side.
+For embeddings, prefer **`bge-m3`** (1024 dimensions). Note what that does and does not cover. An `embeddings_provider` of `ollama:bge-m3` routes OpenHuman's own embedding calls to your machine. It does not move memory: the engine embeds on its own side, so recall still runs wherever the engine runs. Those are three separate decisions, and no one switch covers all of them: this field routes OpenHuman's embeddings, [Privacy Mode](../privacy-mode.md) enforces where *inference* may go, and the memory engine you choose decides where memory lives.
 
 ### 3. Point OpenHuman at it
 
@@ -103,7 +103,7 @@ The full set of workload fields is `chat_provider`, `reasoning_provider`, `agent
 
 #### Attaching images in chat needs one more flag
 
-`vision_provider` routes the **vision workload** — image summaries and the OCR/description path. It does not by itself let you attach an image to a chat or agent turn.
+`vision_provider` routes the **vision workload**: image summaries and the OCR/description path. It does not by itself let you attach an image to a chat or agent turn.
 
 A turn only rehydrates image attachments when the resolved chat model is known to accept them, and for a local model that knowledge comes from the per-model registry, not from `vision_provider`. Set the model's **vision** flag in Settings → AI (the custom-model dialog), which records it in `model_registry`:
 
@@ -114,7 +114,7 @@ provider = "ollama"
 vision = true
 ```
 
-Without that flag the images are stripped before dispatch and the model answers from the text alone — fluently, and with no indication that it never saw the picture.
+Without that flag the images are stripped before dispatch and the model answers from the text alone, fluently, and with no indication that it never saw the picture.
 
 See [Local AI (optional)](local-ai.md) for endpoint overrides, the other runtimes, and troubleshooting.
 

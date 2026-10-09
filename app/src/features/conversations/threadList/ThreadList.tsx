@@ -3,9 +3,21 @@ import type { RefObject } from 'react';
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { Thread } from '../../../types/thread';
 import { isImeCompositionKeyEvent } from '../Conversations';
+import { folderBasename, groupThreads, isThreadPinned, type ThreadGroupKey } from './groupThreads';
+
+/** i18n key for each section header. */
+const GROUP_LABEL_KEYS: Record<ThreadGroupKey, string> = {
+  pinned: 'chat.sidebar.group.pinned',
+  today: 'chat.sidebar.group.today',
+  yesterday: 'chat.sidebar.group.yesterday',
+  previous7Days: 'chat.sidebar.group.previous7Days',
+  previous30Days: 'chat.sidebar.group.previous30Days',
+  older: 'chat.sidebar.group.older',
+};
 
 interface ThreadListProps {
-  /** Threads visible after the sidebar's search/tab filtering. */
+  /** Threads visible after the sidebar's tab filtering. Searching them is the
+   *  global (Cmd/Ctrl+K) palette's job, which also matches message text. */
   threads: Thread[];
   selectedThreadId: string | null;
   onCreateThread: () => void;
@@ -13,6 +25,17 @@ interface ThreadListProps {
   onSelectThread: (threadId: string) => void;
   /** Stable, human-readable title for a thread id. */
   resolveTitle: (threadId: string) => string;
+  /** Whether a thread has an agent turn in flight; its title shimmers while true. */
+  isThreadRunning?: (threadId: string) => boolean;
+  /** Threads whose reply finished while another thread was selected. */
+  unreadThreadIds?: ReadonlySet<string>;
+  /**
+   * Pin state per thread. Defaults to the persisted `pinned` label; the parent
+   * passes its own when it applies a pin optimistically ahead of the reload.
+   */
+  isPinned?: (thread: Thread) => boolean;
+  /** Pin or unpin a thread. The pin action is hidden when omitted. */
+  onTogglePin?: (thread: Thread, pinned: boolean) => void;
   onRequestDelete: (thread: Thread) => void;
   // Inline title rename — controlled by the parent so the edit state stays
   // co-located with the rest of the panel's thread state.
@@ -38,6 +61,10 @@ export function ThreadList({
   onCreateThread,
   onSelectThread,
   resolveTitle,
+  isThreadRunning,
+  unreadThreadIds,
+  isPinned = isThreadPinned,
+  onTogglePin,
   onRequestDelete,
   editingThreadId,
   editTitleValue,
@@ -49,6 +76,172 @@ export function ThreadList({
   onBlurTitle,
 }: ThreadListProps) {
   const { t } = useT();
+  // Recomputed per render on purpose: a list left open overnight should move
+  // yesterday's rows out of "Today" on the next update without a timer.
+  const groups = groupThreads(threads, new Date(), isPinned);
+  const renderRow = (thread: Thread) => {
+    const running = Boolean(isThreadRunning?.(thread.id));
+    const unread = !running && Boolean(unreadThreadIds?.has(thread.id));
+    const pinned = isPinned(thread);
+    return (
+      <div
+        key={thread.id}
+        data-testid={`thread-row-${thread.id}`}
+        // The working folder rides on the row as a native tooltip rather than a
+        // second line, so the list keeps one `h-8` rhythm.
+        title={
+          thread.actionDir
+            ? t('chat.sidebar.workingFolder').replace('{folder}', folderBasename(thread.actionDir))
+            : undefined
+        }
+        data-analytics-id="chat-sidebar-thread-row"
+        role="button"
+        tabIndex={0}
+        onClick={() => onSelectThread(thread.id)}
+        onKeyDown={e => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onSelectThread(thread.id);
+          }
+        }}
+        // A rounded pill per row, separated by spacing rather than
+        // hairlines — six dividers in a short list read as a table, not a
+        // list of destinations. Alpha fills so the row lifts identically
+        // whether the list is projected into the (translucent) app sidebar
+        // or rendered inside the opaque chat aside.
+        // Fixed `h-8` matching SidebarNav's rows: the hover-revealed
+        // actions are taller than the title's line box, so a padding-sized
+        // row would grow 4px the moment the pointer entered it and the
+        // whole list would shift under the cursor.
+        className={`group flex h-8 w-full flex-none cursor-pointer items-center rounded-md px-3 text-left transition-colors ${
+          selectedThreadId === thread.id
+            ? 'bg-surface/70'
+            : 'hover:bg-surface/40 dark:hover:bg-surface/60'
+        }`}>
+        <div className="flex w-full min-w-0 items-center gap-1.5">
+          {editingThreadId === thread.id ? (
+            <input
+              ref={editTitleInputRef}
+              value={editTitleValue}
+              onClick={e => e.stopPropagation()}
+              onChange={e => onEditTitleValueChange(e.target.value)}
+              onKeyDown={e => {
+                e.stopPropagation();
+                // Ignore the Enter that confirms an IME composition
+                // candidate (CJK input) so it doesn't prematurely commit.
+                if (isImeCompositionKeyEvent(e)) return;
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  onCommitTitle(thread.id);
+                } else if (e.key === 'Escape') {
+                  // Escape is an explicit cancel — suppress the commit the
+                  // ensuing blur would otherwise fire.
+                  onCancelEditTitle();
+                }
+              }}
+              onBlur={() => onBlurTitle(thread.id)}
+              aria-label={t('chat.editThreadTitle')}
+              data-testid={`thread-title-input-${thread.id}`}
+              className="h-5 min-w-0 flex-1 border-b border-primary-400 bg-transparent py-0 text-xs font-medium leading-none text-content-secondary outline-hidden"
+              autoFocus
+            />
+          ) : (
+            <p
+              data-running={running ? 'true' : undefined}
+              aria-busy={running || undefined}
+              className={`truncate flex-1 text-[14px] ${
+                selectedThreadId === thread.id ? 'font-semibold text-content' : 'text-content-muted'
+              } ${running ? 'shimmer motion-reduce:animate-none' : ''}`}>
+              {resolveTitle(thread.id)}
+            </p>
+          )}
+          {/* Unread only while idle: a running row already says "something is
+              happening" through its shimmer, and a dot beside it would claim a
+              finished reply that does not exist yet. Hidden on hover so the
+              trailing actions take its slot instead of crowding it. */}
+          {unread && (
+            <span
+              data-testid={`thread-unread-${thread.id}`}
+              role="img"
+              aria-label={t('chat.sidebar.unread')}
+              title={t('chat.sidebar.unread')}
+              className="h-1.5 w-1.5 flex-none rounded-full bg-primary-500 group-hover:hidden"
+            />
+          )}
+          {onTogglePin && (
+            <button
+              type="button"
+              data-testid={`thread-pin-${thread.id}`}
+              data-analytics-id={pinned ? 'chat-sidebar-unpin-thread' : 'chat-sidebar-pin-thread'}
+              onClick={e => {
+                e.stopPropagation();
+                onTogglePin(thread, !pinned);
+              }}
+              aria-label={pinned ? t('chat.sidebar.unpinThread') : t('chat.sidebar.pinThread')}
+              aria-pressed={pinned}
+              title={pinned ? t('chat.sidebar.unpinThread') : t('chat.sidebar.pinThread')}
+              className={`hidden h-5 w-5 flex-none items-center justify-center rounded transition-colors hover:bg-surface/60 group-hover:inline-flex ${
+                pinned ? 'text-primary-500' : 'text-content-faint hover:text-primary-500'
+              }`}>
+              <svg
+                className="h-3 w-3"
+                fill={pinned ? 'currentColor' : 'none'}
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 3l5 5-3 1-4 4 1 5-2 2-4-4-5 5v-1l4-5-4-4 2-2 5 1 4-4z"
+                />
+              </svg>
+            </button>
+          )}
+          <button
+            type="button"
+            data-analytics-id="chat-sidebar-edit-thread-title"
+            onClick={e => {
+              e.stopPropagation();
+              onStartEditTitle(thread.id);
+            }}
+            aria-label={t('chat.editThreadTitle')}
+            title={t('chat.editThreadTitle')}
+            // `hidden`, not `opacity-0`: the title gets the full row width
+            // until hover reveals the trailing actions.
+            className="hidden h-5 w-5 flex-none items-center justify-center rounded text-content-faint transition-colors hover:bg-surface/60 hover:text-primary-500 group-hover:inline-flex">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            data-analytics-id="chat-sidebar-delete-thread"
+            onClick={e => {
+              e.stopPropagation();
+              onRequestDelete(thread);
+            }}
+            className="hidden h-5 w-5 flex-none items-center justify-center rounded text-content-faint transition-colors hover:bg-surface/60 hover:text-coral-500 group-hover:inline-flex"
+            title={t('chat.deleteThread')}>
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+    );
+  };
   return (
     // Card background / rounded corners come from TwoPanelLayout's pane styling.
     <div className="h-full flex flex-col">
@@ -77,7 +270,7 @@ export function ThreadList({
           `pb-2` makes the 8px gap below the button match the chat separator's
           8px lower margin above it, so the action is optically centred between
           the primary navigation and the first conversation. */}
-      <div className="flex-none overflow-hidden px-2 pb-2 [scrollbar-gutter:stable_both-edges] [scrollbar-width:thin]">
+      <div className="flex flex-none flex-col gap-1.5 overflow-hidden px-2 pb-2 [scrollbar-gutter:stable_both-edges] [scrollbar-width:thin]">
         {/* "New conversation" as a row, not a header icon. It is the same
           affordance as a thread row — pick a conversation to work in — so it
           takes the same shape: `h-8` pill, same radius, same hover fill, same
@@ -178,113 +371,20 @@ export function ThreadList({
         {threads.length === 0 ? (
           <p className="px-4 py-6 text-xs text-content-faint text-center">{t('chat.noThreads')}</p>
         ) : (
-          threads.map(thread => (
-            <div
-              key={thread.id}
-              data-testid={`thread-row-${thread.id}`}
-              data-analytics-id="chat-sidebar-thread-row"
-              role="button"
-              tabIndex={0}
-              onClick={() => onSelectThread(thread.id)}
-              onKeyDown={e => {
-                if (e.target !== e.currentTarget) return;
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  onSelectThread(thread.id);
-                }
-              }}
-              // A rounded pill per row, separated by spacing rather than
-              // hairlines — six dividers in a short list read as a table, not a
-              // list of destinations. Alpha fills so the row lifts identically
-              // whether the list is projected into the (translucent) app sidebar
-              // or rendered inside the opaque chat aside.
-              // Fixed `h-8` matching SidebarNav's rows: the hover-revealed
-              // actions are taller than the title's line box, so a padding-sized
-              // row would grow 4px the moment the pointer entered it and the
-              // whole list would shift under the cursor.
-              className={`group flex h-8 w-full flex-none cursor-pointer items-center rounded-md px-3 text-left transition-colors ${
-                selectedThreadId === thread.id
-                  ? 'bg-surface/70'
-                  : 'hover:bg-surface/40 dark:hover:bg-surface/60'
-              }`}>
-              <div className="flex w-full min-w-0 items-center gap-1.5">
-                {editingThreadId === thread.id ? (
-                  <input
-                    ref={editTitleInputRef}
-                    value={editTitleValue}
-                    onClick={e => e.stopPropagation()}
-                    onChange={e => onEditTitleValueChange(e.target.value)}
-                    onKeyDown={e => {
-                      e.stopPropagation();
-                      // Ignore the Enter that confirms an IME composition
-                      // candidate (CJK input) so it doesn't prematurely commit.
-                      if (isImeCompositionKeyEvent(e)) return;
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        onCommitTitle(thread.id);
-                      } else if (e.key === 'Escape') {
-                        // Escape is an explicit cancel — suppress the commit the
-                        // ensuing blur would otherwise fire.
-                        onCancelEditTitle();
-                      }
-                    }}
-                    onBlur={() => onBlurTitle(thread.id)}
-                    aria-label={t('chat.editThreadTitle')}
-                    data-testid={`thread-title-input-${thread.id}`}
-                    className="h-5 min-w-0 flex-1 border-b border-primary-400 bg-transparent py-0 text-xs font-medium leading-none text-content-secondary outline-hidden"
-                    autoFocus
-                  />
-                ) : (
-                  <p
-                    className={`truncate flex-1 text-[14px] ${
-                      selectedThreadId === thread.id
-                        ? 'font-semibold text-content'
-                        : 'text-content-muted'
-                    }`}>
-                    {resolveTitle(thread.id)}
-                  </p>
-                )}
-                <button
-                  type="button"
-                  data-analytics-id="chat-sidebar-edit-thread-title"
-                  onClick={e => {
-                    e.stopPropagation();
-                    onStartEditTitle(thread.id);
-                  }}
-                  aria-label={t('chat.editThreadTitle')}
-                  title={t('chat.editThreadTitle')}
-                  // `hidden`, not `opacity-0`: the title gets the full row width
-                  // until hover reveals the trailing actions.
-                  className="hidden h-5 w-5 flex-none items-center justify-center rounded text-content-faint transition-colors hover:bg-surface/60 hover:text-primary-500 group-hover:inline-flex">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                    />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  data-analytics-id="chat-sidebar-delete-thread"
-                  onClick={e => {
-                    e.stopPropagation();
-                    onRequestDelete(thread);
-                  }}
-                  className="hidden h-5 w-5 flex-none items-center justify-center rounded text-content-faint transition-colors hover:bg-surface/60 hover:text-coral-500 group-hover:inline-flex"
-                  title={t('chat.deleteThread')}>
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
+          // Each section is a labelled group so screen readers announce
+          // "Today, list" etc. The header is a plain muted caption, not a
+          // control: sections are not collapsible, so they should not look it.
+          groups.map(group => (
+            <section
+              key={group.key}
+              data-testid={`thread-group-${group.key}`}
+              aria-label={t(GROUP_LABEL_KEYS[group.key])}
+              className="flex flex-col gap-0.5">
+              <h3 className="px-3 pb-0.5 pt-2 text-[11px] font-medium uppercase tracking-wide text-content-faint first:pt-0">
+                {t(GROUP_LABEL_KEYS[group.key])}
+              </h3>
+              {group.threads.map(renderRow)}
+            </section>
           ))
         )}
       </div>

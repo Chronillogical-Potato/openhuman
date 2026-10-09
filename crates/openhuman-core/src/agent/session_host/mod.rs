@@ -38,6 +38,9 @@ mod codec;
 mod driver;
 mod factory;
 mod hooks;
+// Tool surface for live voice sessions (`voice::live`).
+#[cfg(feature = "voice")]
+mod live_tools;
 mod managed_tools;
 mod policy;
 mod prefix_snapshot;

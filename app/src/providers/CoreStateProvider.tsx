@@ -33,6 +33,7 @@ import { store } from '../store';
 import { resetUserScopedState } from '../store/resetActions';
 import { loadThreads, resetThreadCachesPreservingSelection } from '../store/threadSlice';
 import { getActiveUserId, setActiveUserId } from '../store/userScopedStorage';
+import { markIdentityFlipSeed } from '../utils/bootstrapActiveUser';
 import { isLocalSessionToken } from '../utils/localSession';
 import {
   getSessionToken,
@@ -210,6 +211,10 @@ async function handleIdentityFlip(opts: { reason: string; nextUserId: string }):
   const { reason, nextUserId } = opts;
   log('identity flip restart reason=%s nextUserId=%s', reason, `****${nextUserId.slice(-4)}`);
   setActiveUserId(nextUserId);
+  // Survive the relaunch. In local core mode the next boot primes from the
+  // core's `active_user.toml`, which still names the previous user and would
+  // undo the line above -- restarting again, forever (#4545).
+  markIdentityFlipSeed(nextUserId);
   store.dispatch(resetUserScopedState());
   socketService.disconnect();
   await restartApp();

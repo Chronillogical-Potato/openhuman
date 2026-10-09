@@ -174,6 +174,82 @@ const TOOL_TIMEOUT_GRACE_SECS: u64 = 5;
 
 /// Pure core of [`resolve_tool_deadline`]: the inherited timeout is a parameter
 /// so tests can table-drive it without touching the process-global.
+/// Run `cmd` to completion with its output captured, or kill it -- and every
+/// process it started -- when `deadline` passes.
+///
+/// `tokio::time::timeout(deadline, cmd.output())` only abandons the future.
+/// Without `kill_on_drop` the child is not even signalled, and a shell's
+/// pipeline (`grep -r … | head`) is a set of grandchildren that no kill of the
+/// direct child reaches anyway. One `grep -rl … /` the shell tool had reported
+/// as "timed out after 600s and was killed" ran on for half an hour at a full
+/// core inside a two-CPU container, starving the agent that had started it.
+///
+/// So the child is spawned as the leader of its own process group and the
+/// whole group is signalled when the deadline fires. The result has the same
+/// shape as `timeout(deadline, cmd.output())`, so a caller's match arms do not
+/// change. Stdio is set the way `output()` sets it: stdin closed, both output
+/// streams captured.
+pub async fn output_or_kill(
+    cmd: &mut tokio::process::Command,
+    deadline: Duration,
+) -> Result<std::io::Result<std::process::Output>, tokio::time::error::Elapsed> {
+    use std::process::Stdio;
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+    own_process_group(cmd.as_std_mut());
+    let child = match cmd.spawn() {
+        Ok(child) => child,
+        Err(error) => return Ok(Err(error)),
+    };
+    let pid = child.id();
+    match tokio::time::timeout(deadline, child.wait_with_output()).await {
+        Ok(output) => Ok(output),
+        Err(elapsed) => {
+            if let Some(pid) = pid {
+                kill_process_group(pid);
+            }
+            Err(elapsed)
+        }
+    }
+}
+
+/// Make `cmd` the leader of a new process group when it is spawned, so that
+/// [`kill_process_group`] can reach everything it starts. A no-op off Unix.
+pub fn own_process_group(cmd: &mut std::process::Command) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = cmd;
+    }
+}
+
+/// Send SIGKILL to the process group led by `pid` -- a child spawned via
+/// [`own_process_group`] and everything it started. Off Unix the direct child
+/// is what `kill_on_drop` reaches and no group exists to signal.
+pub fn kill_process_group(pid: u32) {
+    #[cfg(unix)]
+    {
+        let Ok(pid) = i32::try_from(pid) else {
+            return;
+        };
+        // SAFETY: a signal to a process group this process created; the kernel
+        // validates the target, and a negative pid addresses the group.
+        unsafe {
+            libc::kill(-pid, libc::SIGKILL);
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = pid;
+    }
+}
+
 #[cfg(test)]
 fn resolve_tool_deadline_with(policy: ToolTimeout, inherited_secs: u64) -> (Option<Duration>, u64) {
     resolve_with(&build_settings(inherited_secs), policy)

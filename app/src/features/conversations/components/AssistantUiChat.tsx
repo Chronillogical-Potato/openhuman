@@ -15,6 +15,7 @@ import { AgentRunningStatus } from '../aui/AgentRunningStatus';
 import { ChatConversationMap } from '../aui/ChatConversationMap';
 import { ComposerTriggers } from '../aui/ComposerTriggers';
 import { ContextUsage } from '../aui/ContextUsage';
+import { InterruptedTurnNotice } from '../aui/InterruptedTurnNotice';
 import { ChatSources } from './aui/ChatSources';
 import { ChatToolFallback } from './ChatToolParts';
 
@@ -113,6 +114,8 @@ export function AssistantUiChat({
   inputValue,
   onInputValueChange,
   onEscape,
+  onRecallLastPrompt,
+  composerPlaceholder,
   attachments,
   onAttachFiles,
   onRemoveAttachment,
@@ -142,7 +145,12 @@ export function AssistantUiChat({
   composerReplacement?: ReactNode;
   inputValue: string;
   onInputValueChange: (value: string) => void;
-  onEscape?: () => void;
+  /** Returns whether Escape acted (stopped a run); `false` lets the key through. */
+  onEscape?: () => boolean | void;
+  /** ArrowUp in an empty composer: recall the last prompt; returns whether it did. */
+  onRecallLastPrompt?: () => boolean;
+  /** State-aware placeholder (running / waiting on the user); default otherwise. */
+  composerPlaceholder?: string;
   attachments: Attachment[];
   onAttachFiles: (files: FileList | File[] | null) => Promise<void>;
   onRemoveAttachment: (id: string) => void;
@@ -314,6 +322,8 @@ export function AssistantUiChat({
       // Phase / reasoning round / active tool for the turn in flight. Reads the
       // runtime's `extras`, so it needs no props and no dependency here.
       RunningStatus: AgentRunningStatus,
+      // A crashed turn's partial reply and its "Interrupted" marker.
+      TranscriptFooter: InterruptedTurnNotice,
       // The web pages the turn fetched, grouped from its `source` parts into
       // one collapsed disclosure under the answer.
       SourceGroup: ChatSources,
@@ -367,6 +377,8 @@ export function AssistantUiChat({
           onModelChange={onModelChange}
           loadError={loadError}
           onEscape={onEscape}
+          onRecallLastPrompt={onRecallLastPrompt}
+          composerPlaceholder={composerPlaceholder}
         />
       </ChatConversationMap>
     </AssistantUiRuntimeProvider>

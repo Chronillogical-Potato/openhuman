@@ -34,13 +34,12 @@ export type SourceKind =
   | 'link'
   | 'github'
   | 'rss'
-  | 'composio'
   | 'conversation'
   | 'agent'
   | 'import';
 
 /** The source kinds a user can register as a synced Documents source. */
-export type DocumentSourceKind = 'folder' | 'file' | 'link' | 'github' | 'rss' | 'composio';
+export type DocumentSourceKind = 'folder' | 'file' | 'link' | 'github' | 'rss';
 
 export const DOCUMENT_SOURCE_KINDS: readonly DocumentSourceKind[] = [
   'folder',
@@ -48,7 +47,6 @@ export const DOCUMENT_SOURCE_KINDS: readonly DocumentSourceKind[] = [
   'link',
   'github',
   'rss',
-  'composio',
 ];
 
 /** The kinds a learning can be stored as. */
@@ -213,6 +211,12 @@ export interface ItemsListRequest {
   cursor?: string;
   /** Explorer path; the core narrows `filter` by each step. */
   path?: PathStep[];
+  /**
+   * Snippet listing: a conversation's or chunked document's `text` may be
+   * only its start, which the engine lists without assembling each item.
+   * Read an item whole with `memoryItemsGet` when it is opened.
+   */
+  preview?: boolean;
 }
 
 // ─── Explorer ────────────────────────────────────────────────────────────────
@@ -328,11 +332,38 @@ export interface ImportScan {
 
 export type ImportPhase = 'idle' | 'running' | 'done' | 'error';
 
+/** `memory_migration_scan`: whether memory from before the per-user layout is left to move. */
+export interface MigrationScan {
+  needed: boolean;
+  /** The legacy tree may be shared with other accounts here; moving it needs consent. */
+  shared: boolean;
+}
+
+export type MigrationPhase = 'idle' | 'copying' | 'paused' | 'copied' | 'cleaning' | 'cleaned';
+
+export interface MigrationState {
+  phase: MigrationPhase;
+  copied: number;
+  /** Items that could not be moved; they stay in the legacy tree. */
+  failures?: { id: string; reason: string }[];
+  /** Items the legacy tree holds only part of. */
+  incomplete?: string[];
+  error?: string | null;
+}
+
+export interface MigrationStatus {
+  state: MigrationState;
+  running: boolean;
+  interrupted: boolean;
+}
+
 export interface ImportState {
   phase: ImportPhase;
   imported: number;
   total: number;
   error?: string | null;
+  /** Items the engine refused; `memoryImportRetryFailed` stores them again. */
+  failed?: number;
 }
 
 /** Progress of storing past chats (`memory_conversations_backfill_*`). */
@@ -522,6 +553,8 @@ export type MemoryErrorCode =
   | 'UNSUPPORTED'
   | 'INVALID_REQUEST'
   | 'UNAUTHORIZED'
+  | 'INSUFFICIENT_CREDITS'
+  | 'UNAVAILABLE'
   | 'ENGINE';
 
 const MEMORY_ERROR_CODES: readonly MemoryErrorCode[] = [
@@ -529,6 +562,8 @@ const MEMORY_ERROR_CODES: readonly MemoryErrorCode[] = [
   'UNSUPPORTED',
   'INVALID_REQUEST',
   'UNAUTHORIZED',
+  'INSUFFICIENT_CREDITS',
+  'UNAVAILABLE',
   'ENGINE',
 ];
 
@@ -587,19 +622,58 @@ export function memoryErrorCode(err: unknown): MemoryErrorCode | null {
   }
   const message = (err as { message?: unknown }).message;
   if (typeof message === 'string') {
-    const match = /^\s*(MEMORY_OFF|UNSUPPORTED|INVALID_REQUEST|UNAUTHORIZED|ENGINE)\b/.exec(
-      message
-    );
+    const match =
+      /^\s*(MEMORY_OFF|UNSUPPORTED|INVALID_REQUEST|UNAUTHORIZED|INSUFFICIENT_CREDITS|UNAVAILABLE|ENGINE)\b/.exec(
+        message
+      );
     if (match) return match[1] as MemoryErrorCode;
   }
   return null;
 }
 
-/** Human-readable text of any thrown value. */
-export function memoryErrorMessage(err: unknown): string {
+/**
+ * The account-wide refusals whose raw message is engine detail, each told
+ * apart from an engine fault and from an empty memory: out of credits means
+ * "top up", unreachable means "try again". `UNAUTHORIZED` keeps its own
+ * message, which names the rejected key or session.
+ */
+const REFUSAL_KEYS: Partial<Record<MemoryErrorCode, string>> = {
+  INSUFFICIENT_CREDITS: 'memory.error.insufficientCredits',
+  UNAVAILABLE: 'memory.error.unavailable',
+};
+
+/**
+ * Human-readable text of any thrown value. Given `t`, an account-wide refusal
+ * reads as its translated explanation instead of the engine's raw message.
+ */
+export function memoryErrorMessage(
+  err: unknown,
+  t?: (key: string, fallback?: string) => string
+): string {
+  const code = memoryErrorCode(err);
+  const key = code ? REFUSAL_KEYS[code] : undefined;
+  if (t && key) return t(key);
   if (err instanceof Error) return err.message;
   if (err && typeof err === 'object' && 'message' in err) return String(err.message);
   return String(err);
+}
+
+/**
+ * True when `message` is the out-of-credits explanation `memoryErrorMessage`
+ * produced (with `t`). That translated text is returned for
+ * `INSUFFICIENT_CREDITS` and for nothing else, so the views that keep only the
+ * message can still offer a top-up instead of an error.
+ *
+ * Known edge: a message produced in one language no longer matches after the
+ * user switches language, so that stale message falls back to the error alert
+ * (it still explains the top-up). The next failed action re-derives it.
+ */
+export function isOutOfCreditsMessage(
+  message: string | null,
+  t: (key: string, fallback?: string) => string
+): boolean {
+  const key = REFUSAL_KEYS.INSUFFICIENT_CREDITS;
+  return message !== null && key !== undefined && message === t(key);
 }
 
 /** True when the engine state means memory is usable (an engine is set and not off). */
@@ -637,6 +711,15 @@ export function memoryLearn(req: LearnRequest): Promise<{ id: string }> {
 
 export function memoryForget(ids: string[]): Promise<{ forgotten: number }> {
   return call<{ forgotten: number }>(CORE_RPC_METHODS.memoryForget, { ids });
+}
+
+/**
+ * Erase the user's entire memory, for good: every source, conversation and
+ * fact the bound engine holds for this account. The core refuses without
+ * `confirm: true`, so the interlock is always sent explicitly here.
+ */
+export function memoryEraseAll(): Promise<{ erased_scopes: number }> {
+  return call<{ erased_scopes: number }>(CORE_RPC_METHODS.memoryEraseAll, { confirm: true });
 }
 
 export function memoryItemsList(req: ItemsListRequest = {}): Promise<ItemsPage> {
@@ -749,4 +832,29 @@ export function memoryConversationsBackfillStart(): Promise<BackfillView> {
 
 export function memoryImportStatus(): Promise<{ state: ImportState }> {
   return call<{ state: ImportState }>(CORE_RPC_METHODS.memoryImportStatus);
+}
+
+/** Stores again the items a finished import skipped because the engine refused them. */
+export function memoryImportRetryFailed(): Promise<{ state: ImportState }> {
+  return call<{ state: ImportState }>(CORE_RPC_METHODS.memoryImportRetryFailed);
+}
+
+// ─── Move into the per-user layout ───────────────────────────────────────────
+
+export function memoryMigrationScan(): Promise<MigrationScan> {
+  return call<MigrationScan>(CORE_RPC_METHODS.memoryMigrationScan);
+}
+
+/** "Migrate now". `takeover` is the user's consent to take a tree other accounts may share. */
+export function memoryMigrationStart(takeover = false): Promise<MigrationStatus> {
+  return call<MigrationStatus>(CORE_RPC_METHODS.memoryMigrationStart, { takeover });
+}
+
+export function memoryMigrationStatus(): Promise<MigrationStatus> {
+  return call<MigrationStatus>(CORE_RPC_METHODS.memoryMigrationStatus);
+}
+
+/** Puts the items that could not be moved back in line for the next run. */
+export function memoryMigrationRetry(): Promise<MigrationState> {
+  return call<MigrationState>(CORE_RPC_METHODS.memoryMigrationRetry);
 }

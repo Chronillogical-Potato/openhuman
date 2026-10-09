@@ -976,7 +976,7 @@ pub fn all_tools_with_runtime(
 /// defaults to `Platform`. Under `harness()`, the Agent/Memory/Threads/Config/
 /// Security tools remain while gate-family and generic Platform tools drop.
 /// (Names verified against each Tool impl's `fn name()` on 2026-07-13.)
-fn tool_group(name: &str) -> crate::core::all::DomainGroup {
+pub(crate) fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     use crate::core::all::DomainGroup;
 
     // Gate families with a domain-exclusive name prefix are matched by prefix

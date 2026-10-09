@@ -47,7 +47,7 @@ On Windows the `openhuman://` URL scheme is registered to the running executable
 
 The Tauri shell now emits a `log::error!` line at startup when this happens. Look for it in your log file (default `%USERPROFILE%\.openhuman\logs\openhuman.*.log`):
 
-```
+```text
 [deep-link] openhuman:// scheme registration unhealthy — OAuth callbacks may never reach the app.
 register_all_error=…, hkcu_status=NotRegistered|MissingCommand|Stale { … }|ReadError(…)
 ```

@@ -87,6 +87,7 @@ fn cm(channel: &str, reply_target: &str) -> traits::ChannelMessage {
         reply_target: reply_target.into(),
         thread_ts: None,
         timestamp: 0,
+        sender_name: None,
     }
 }
 
@@ -109,10 +110,12 @@ fn channel_context_block_for_telegram_includes_routing_hint() {
     let block = build_channel_context_block(&cm("telegram", "123456"));
     assert!(block.contains("[Channel context]"));
     assert!(block.contains("\"telegram\""));
-    assert!(block.contains("\"123456\""));
-    // Hint must steer the model toward announce mode with the same channel/target.
-    assert!(block.contains("announce"));
-    assert!(block.contains("cron_add"));
+    // Reminders return to this chat on their own: the hint says so and does
+    // not ask the model to copy a delivery target.
+    assert!(block.contains("delivered back to this chat automatically"));
+    assert!(!block.contains("\"123456\""));
+    assert!(!block.contains("announce"));
+    assert!(!block.contains("cron_add"));
 }
 
 #[test]
@@ -120,7 +123,6 @@ fn channel_context_block_for_discord_and_slack_share_shape() {
     for ch in ["discord", "slack", "matrix"] {
         let block = build_channel_context_block(&cm(ch, "chan-42"));
         assert!(block.contains(ch), "missing channel name in `{ch}` block");
-        assert!(block.contains("chan-42"));
-        assert!(block.contains("announce"));
+        assert!(block.contains("delivered back to this chat automatically"));
     }
 }

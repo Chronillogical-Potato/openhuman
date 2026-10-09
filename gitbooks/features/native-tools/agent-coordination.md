@@ -18,12 +18,10 @@ Beyond doing the work, the agent has tools for _organising_ the work - planning 
 | `list_subagents` / `close_subagent`               | Inspect reusable workers for the parent thread or explicitly retire one.                                        |
 | `spawn_worker_thread`                             | Explicit background work tracked as a separate worker thread.                                                   |
 | `delegate`                                        | Hand a task to a specialist (e.g. an archetype with different prompts/tools/permissions).                       |
-| `archetype_delegation`                            | Route to a named archetype - vision, image, video, presentation, workflow builder, etc.                         |
+| `spawn_parallel_agents`                           | Fan one task out to several specialists at once and merge what they return.                                     |
 | `use_skill`                                       | Load an inline skill's playbook and tools (coding, web3, system, scheduling, docs, mcp) and call them directly. |
-| `skill_delegation`                                | Hand off to a [skill](../integrations/README.md#skills) installed in the workspace.                             |
-| `ask_clarification`                               | Pause and ask the user a precise question instead of guessing.                                                  |
+| `ask_user_clarification`                          | Pause and ask the user a precise question instead of guessing.                                                  |
 | `plan_exit`                                       | Exit a planning phase and start executing.                                                                      |
-| `check_onboarding_status` / `complete_onboarding` | Gate behaviour on whether the user has finished onboarding.                                                     |
 
 `spawn_subagent` and archetype delegation calls accept an optional `model` field for a one-off exact model pin. If it is omitted, the harness uses config-level per-agent pins when present and otherwise falls back to the normal model-routing hints. Model, sandbox mode, parent thread, action root, and task key are part of reusable sub-agent compatibility, so materially different work gets a separate worker.
 

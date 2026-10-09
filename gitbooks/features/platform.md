@@ -52,24 +52,24 @@ OpenHuman is built as a native application rather than a web wrapper for three r
 
 ## Architecture at a glance
 
-```
-┌──────────────────────────────────────────────────┐
-│ Tauri shell - windowing, OS integration │
-└──────────────────────────────────────────────────┘
- │ JSON-RPC ↕
-┌──────────────────────────────────────────────────┐
-│ Rust core (`openhuman` sidecar) │
-│ • Memory, integrations, source sync │
-│ • Model router, TokenJuice, native tools │
-│ • Voice (STT in, TTS out, Meet agent) │
-└──────────────────────────────────────────────────┘
- │
-┌──────────────────────────────────────────────────┐
-│ React frontend - screens, navigation │
-└──────────────────────────────────────────────────┘
+```text
+┌────────────────────────────────────────────────────────┐
+│ Tauri shell (Wry)  ·  windowing, OS integration, IPC   │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │ Rust core, in-process (no sidecar)               │  │
+│  │  • Memory, integrations, source sync             │  │
+│  │  • Model router, TokenJuice, native tools        │  │
+│  │  • Voice (STT in, TTS out, live voice agent)     │  │
+│  └──────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────┘
+                      ▲ JSON-RPC over loopback HTTP
+                      │
+┌────────────────────────────────────────────────────────┐
+│ React frontend  ·  screens, navigation                 │
+└────────────────────────────────────────────────────────┘
 ```
 
-The shell is a delivery vehicle (windowing, process lifecycle, IPC). All product logic lives in the Rust core. The React frontend talks to the core over JSON-RPC. See [Architecture](../developing/architecture/) for the full picture.
+The shell is a delivery vehicle (windowing, process lifecycle, IPC). All product logic lives in the Rust core, which runs as a tokio task **inside** the shell process rather than as a separate binary the shell launches. The React frontend talks to it over JSON-RPC on loopback. See [Architecture](../developing/architecture/README.md) for the full picture.
 
 ---
 
@@ -81,8 +81,9 @@ configured with that core URL and bearer token.
 
 A private browser UI is possible for development/preview by serving the Vite
 frontend and pointing it at the remote core, but it is not a full replacement
-for the desktop shell. Native deep links, tray controls, OS keychain access, CEF
-account scanners, and screen/window integrations still require the Tauri app.
+for the desktop shell. Native deep links, tray controls, OS keychain access, the
+native iMessage scanner, and screen and window integrations still require the
+Tauri app.
 See [Cloud Deploy](cloud-deploy.md#remote-ui-choices) for the current remote UI
 setup.
 
@@ -104,4 +105,4 @@ Source sync and live LLM calls require connectivity. When the network returns, t
 
 ## Auto-update
 
-The desktop shell auto-updates itself via Tauri's updater plugin against a manifest published on GitHub Releases. The OpenHuman core sidecar ships inside the same bundle, so a shell update upgrades both.
+The desktop shell auto-updates itself via Tauri's updater plugin against a manifest published on GitHub Releases. The core is linked into the shell, so a shell update upgrades both; there is no separate core update. Details, including the retry policy and why a signature failure is never retried, are in [Auto-update](../overview/auto-update.md).

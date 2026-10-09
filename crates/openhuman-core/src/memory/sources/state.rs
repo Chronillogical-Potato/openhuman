@@ -47,13 +47,9 @@ fn read_all(workspace_dir: &Path) -> BTreeMap<String, SourceState> {
 
 fn write_all(workspace_dir: &Path, all: &BTreeMap<String, SourceState>) {
     let file = path(workspace_dir);
-    let result = file
-        .parent()
-        .map_or(Ok(()), std::fs::create_dir_all)
-        .and_then(|()| {
-            let json = serde_json::to_vec_pretty(all).map_err(std::io::Error::other)?;
-            std::fs::write(&file, json)
-        });
+    let result = serde_json::to_vec_pretty(all)
+        .map_err(std::io::Error::other)
+        .and_then(|json| crate::memory::files::write_private(&file, &json));
     if let Err(error) = result {
         tracing::warn!(error = %error, "[memory:sources] writing sync state failed");
     }
@@ -102,5 +98,30 @@ pub fn reset_interrupted(workspace_dir: &Path) {
     }
     if changed {
         write_all(workspace_dir, &all);
+    }
+}
+
+/// Files the removed Composio memory sync kept beside the source state.
+const ORPHANED_CONNECTOR_FILES: [&str; 2] = ["connector_items.json", "connection_roots.json"];
+
+/// Best-effort removal of the files the removed Composio memory sync left in
+/// `<workspace>/memory/`. Nothing reads them any more; a failure is logged
+/// and ignored.
+pub fn remove_orphaned_connector_files(workspace_dir: &Path) {
+    let dir = workspace_dir.join("memory");
+    for name in ORPHANED_CONNECTOR_FILES {
+        let path = dir.join(name);
+        match std::fs::remove_file(&path) {
+            Ok(()) => tracing::debug!(
+                file = name,
+                "[memory:sources] removed orphaned connector file"
+            ),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => tracing::debug!(
+                file = name,
+                %error,
+                "[memory:sources] could not remove orphaned connector file"
+            ),
+        }
     }
 }

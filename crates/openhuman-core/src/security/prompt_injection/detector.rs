@@ -158,6 +158,12 @@ static BASE64_RE: Lazy<Regex> = Lazy::new(|| {
 //     "fetch", "return", "output". The remaining verbs ("dump", "leak",
 //     "expose", "exfiltrate", etc.) are rarely used in benign technical
 //     writing and strongly imply adversarial intent.
+//     The credential nouns end at a word boundary, and "tokens" in the plural
+//     only counts with a credential qualifier ("access tokens", "stored
+//     tokens"): language-model text says "print the next 20 tokens" and
+//     "display the total tokens used", and a bare `token` matched inside
+//     "tokens" there and scored a task request as credential extraction
+//     (0.46 + 0.18 = 0.64, Review, turn refused before any work).
 //   - override.role_hijack: "you are now" only counts when a role follows it
 //     ("you are now a…", "you are now DAN"), and the DAN branches only count
 //     when "unrestricted"/"no restrictions" sits within two words of "dan".
@@ -193,7 +199,7 @@ static DETECTION_RULES: &[DetectionRule] = &[
         code: "exfiltrate.credentials_with_intent",
         message: "Attempts to extract credentials, secrets, or tokens (verb + target).",
         score: 0.46,
-        pattern: r"(reveal|print|dump|leak|display|share|expose|exfiltrate)\s+(\S+\s+){0,2}(the|your|my|all|stored|active|internal|hidden|configured|saved|env|environment)\s+(\S+\s+){0,3}(api\s*key|secret|token|password|private\s+key|credentials?|session\s+cookie|jwt|bearer)",
+        pattern: r"(reveal|print|dump|leak|display|share|expose|exfiltrate)\s+(\S+\s+){0,2}(the|your|my|all|stored|active|internal|hidden|configured|saved|env|environment)\s+(\S+\s+){0,3}(api\s*keys?|secrets?|passwords?|private\s+keys?|credentials?|session\s+cookies?|jwts?|bearer|(access|auth|api|oauth|refresh|session|secret|csrf|login|account|stored|saved|configured|active|internal|hidden|env|environment)\s+tokens?|token)\b",
     },
     DetectionRule {
         code: "tool.abuse",

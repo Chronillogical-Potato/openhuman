@@ -93,8 +93,8 @@ pub use identity_cost::{CostConfig, ModelPricing};
 pub use local_ai::{LocalAiConfig, LocalAiUsage};
 pub use memory::{
     migrate_legacy_source, MemoryAgentConfig, MemoryConfig, MemoryConversationsConfig,
-    MemoryEngineSettings, MemoryRecallConfig, MemorySourceConfig, MemorySourceKind,
-    MEMORY_CORTEXDB_KEY_NAME,
+    MemoryEngineSettings, MemoryLayoutMode, MemoryRecallConfig, MemorySourceConfig,
+    MemorySourceKind, MEMORY_CORTEXDB_KEY_NAME,
 };
 pub use modules::{ModuleOverride, ModulesConfig};
 pub use node::NodeConfig;
@@ -131,7 +131,9 @@ pub use update::{UpdateConfig, UpdateRestartStrategy};
 pub use web_chat_config::WebChatConfig;
 mod voice_server;
 pub use voice_server::{SttEngine, VoiceActivationMode, VoiceServerConfig};
+pub mod voice_live;
 pub mod voice_providers;
+pub use voice_live::LiveVoiceConfig;
 pub use voice_providers::{
     generate_voice_provider_id, is_voice_slug_reserved, BuiltinVoiceProvider, VoiceCapability,
     VoiceProviderCreds, BUILTIN_VOICE_PROVIDERS,
