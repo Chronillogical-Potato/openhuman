@@ -66,3 +66,22 @@ fn bad_input_is_refused() {
     assert!(store(&alice, UserCredentialKind::Session, "t", Some("tomorrow")).is_err());
     assert!(!has(&alice));
 }
+
+#[test]
+fn installing_one_kind_replaces_the_other() {
+    let tmp = tempfile::tempdir().unwrap();
+    let alice = agent(&tmp, "alice-rotates");
+    store(&alice, UserCredentialKind::ApiKey, "old-key", None).unwrap();
+    store(&alice, UserCredentialKind::Session, "new-jwt", None).unwrap();
+    assert_eq!(
+        resolve_backend_credential(&alice).unwrap(),
+        BackendCredential::Session("new-jwt".into()),
+        "the old API key no longer wins"
+    );
+    store(&alice, UserCredentialKind::ApiKey, "newer-key", None).unwrap();
+    assert_eq!(
+        resolve_backend_credential(&alice).unwrap(),
+        BackendCredential::ApiKey("newer-key".into())
+    );
+    assert!(clear(&alice).unwrap());
+}
