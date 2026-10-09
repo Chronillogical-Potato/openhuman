@@ -105,7 +105,7 @@ pub(crate) async fn remix_final_reply(
             let intent = reading.reply_intent;
             let reply = reply.to_owned();
             let request_id = request_id.to_owned();
-            tokio::spawn(async move {
+            crate::core::runtime::spawn_scoped(async move {
                 match host.engine.learn_for_reply(intent, &reply).await {
                     Ok(Some(r)) => log::info!(
                         "[tinymemes] slang research request_id={request_id} added={} \
@@ -134,7 +134,7 @@ pub(crate) async fn remix_final_reply(
             let request_id = request_id.to_owned();
             // Only a short, generic meme concept derived from this is searched.
             let moment = user_message.to_owned();
-            tokio::spawn(async move {
+            crate::core::runtime::spawn_scoped(async move {
                 match host.engine.learn_memes(intent, &moment).await {
                     Ok(Some(r)) => log::info!(
                         "[tinymemes] meme research request_id={request_id} query={:?} found={} \
