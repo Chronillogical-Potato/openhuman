@@ -743,8 +743,9 @@ fn a_users_turn_reaches_inference_with_their_own_credential() {
     let port = free_port();
     let child = core_command(&d, &["--port", &port.to_string()])
         .env("BACKEND_URL", format!("http://127.0.0.1:{backend}"))
+        .env("RUST_LOG", "debug")
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stderr(std::fs::File::create(d.tmp.path().join("core.log")).unwrap())
         .spawn()
         .expect("spawn openhuman-core");
     let server = Server(child);
