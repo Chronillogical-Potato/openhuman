@@ -203,7 +203,7 @@ impl SecurityPolicy {
         // is ever trusted — never `/tmp` itself. Created here with restrictive
         // perms and refused if it exists as a symlink (TOCTOU hardening, since
         // `/tmp` is world-writable and the name is predictable).
-        match ensure_openhuman_scratch_dir().filter(|_| !saas) {
+        match (!saas).then(ensure_openhuman_scratch_dir).flatten() {
             Some(scratch) => {
                 let scratch_str = scratch.to_string_lossy().to_string();
                 if trusted_roots.iter().any(|r| r.path == scratch_str) {
