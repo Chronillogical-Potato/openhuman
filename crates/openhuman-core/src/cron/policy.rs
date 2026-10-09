@@ -18,6 +18,10 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use rusqlite::{params, Connection, OptionalExtension};
+use serde_json::{json, Value};
+use tinystoragedrivers::{CollectionSpec, Precondition, Query};
+
+use crate::storage::{block_on_anyhow, current_scoped, DocumentStore, DocumentStoreExt};
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
@@ -58,8 +62,49 @@ fn open(config: &Config) -> Result<Connection> {
     Ok(conn)
 }
 
+/// Collection holding one document per job with a non-default policy, used
+/// instead of the SQLite table when the host configured a storage backend.
+const POLICIES: &str = "cron_job_policies";
+
+/// The document store to use for this call, when the host configured one.
+fn documents() -> Result<Option<std::sync::Arc<dyn DocumentStore>>> {
+    Ok(current_scoped()
+        .context("[cron:policy] resolve the storage scope")?
+        .map(|scoped| std::sync::Arc::clone(scoped.documents())))
+}
+
+async fn declare(
+    docs: &std::sync::Arc<dyn DocumentStore>,
+) -> Result<(), crate::storage::StorageError> {
+    docs.ensure_collection(&CollectionSpec::new(POLICIES)).await
+}
+
+fn from_doc(doc: &Value) -> JobPolicy {
+    JobPolicy {
+        retries: doc
+            .get("retries")
+            .and_then(Value::as_u64)
+            .map(|n| u32::try_from(n).unwrap_or(u32::MAX)),
+        single_flight: doc
+            .get("single_flight")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+    }
+}
+
 /// The policy stored for `job_id`; the default when none is.
 pub fn get_policy(config: &Config, job_id: &str) -> Result<JobPolicy> {
+    if let Some(docs) = documents()? {
+        let id = job_id.to_string();
+        return block_on_anyhow(async move {
+            declare(&docs).await?;
+            Ok(docs
+                .get(POLICIES, &id)
+                .await?
+                .map(|stored| from_doc(&stored.doc))
+                .unwrap_or_default())
+        });
+    }
     let conn = open(config)?;
     let row = conn
         .query_row(
@@ -84,6 +129,18 @@ pub fn set_policy(config: &Config, job_id: &str, policy: JobPolicy) -> Result<()
         return clear_policy(config, job_id);
     }
     tracing::debug!(job_id, ?policy, "[cron:policy] storing job policy");
+    if let Some(docs) = documents()? {
+        let id = job_id.to_string();
+        let doc = json!({
+            "retries": policy.retries,
+            "single_flight": policy.single_flight,
+        });
+        return block_on_anyhow(async move {
+            declare(&docs).await?;
+            docs.put(POLICIES, &id, doc, Precondition::None).await?;
+            Ok(())
+        });
+    }
     open(config)?.execute(
         "INSERT INTO cron_job_policies (job_id, retries, single_flight) VALUES (?1, ?2, ?3)
          ON CONFLICT(job_id) DO UPDATE SET retries = ?2, single_flight = ?3",
@@ -98,6 +155,14 @@ pub fn set_policy(config: &Config, job_id: &str, policy: JobPolicy) -> Result<()
 
 /// Remove `job_id`'s policy; it reverts to the default.
 pub fn clear_policy(config: &Config, job_id: &str) -> Result<()> {
+    if let Some(docs) = documents()? {
+        let id = job_id.to_string();
+        return block_on_anyhow(async move {
+            declare(&docs).await?;
+            docs.delete(POLICIES, &id, Precondition::None).await?;
+            Ok(())
+        });
+    }
     open(config)?.execute(
         "DELETE FROM cron_job_policies WHERE job_id = ?1",
         params![job_id],
@@ -107,6 +172,21 @@ pub fn clear_policy(config: &Config, job_id: &str) -> Result<()> {
 
 /// Remove every stored policy.
 pub(crate) fn clear_all_policies(config: &Config) -> Result<usize> {
+    if let Some(docs) = documents()? {
+        return block_on_anyhow(async move {
+            declare(&docs).await?;
+            let mut removed = 0;
+            for stored in docs.query_all(POLICIES, &Query::all()).await? {
+                if docs
+                    .delete(POLICIES, &stored.id, Precondition::None)
+                    .await?
+                {
+                    removed += 1;
+                }
+            }
+            Ok(removed)
+        });
+    }
     Ok(open(config)?.execute("DELETE FROM cron_job_policies", [])?)
 }
 
