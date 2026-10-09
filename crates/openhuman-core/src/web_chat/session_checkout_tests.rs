@@ -567,8 +567,14 @@ async fn two_agents_with_the_same_thread_id_get_their_own_cache_slots() {
     };
     let key_a = CoreContext::scope(agent_ctx("asha"), async { key_for(&thread_id) }).await;
     let key_b = CoreContext::scope(agent_ctx("ravi"), async { key_for(&thread_id) }).await;
-    assert_eq!(key_a, format!("asha::{thread_id}"));
-    assert_eq!(key_b, format!("ravi::{thread_id}"));
+    assert_ne!(key_a, key_b);
+    assert_ne!(key_a, thread_id);
+    // Delimiter-looking input cannot forge another scope's key.
+    use crate::web_chat::ops::scoped_key;
+    assert_ne!(scoped_key(Some("a"), "b::c"), scoped_key(Some("a::b"), "c"));
+    assert_ne!(scoped_key(None, "a::b"), scoped_key(Some("a"), "b"));
+    assert_ne!(scoped_key(None, "\u{1f}1:ab"), scoped_key(Some("a"), "b"));
+    assert_ne!(scoped_key(Some("a"), "bc"), scoped_key(Some("ab"), "c"));
 
     // Evicting the thread clears every agent's slot for it.
     {

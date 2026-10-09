@@ -39,11 +39,31 @@ pub(crate) fn key_for(thread_id: &str) -> String {
     scoped_key(agent.as_deref(), thread_id)
 }
 
+/// Injective encoding of `(session_agent, thread_id)`. Both parts are caller
+/// controlled, so a plain `agent::thread` join would let `("a", "b::c")` and
+/// `("a::b", "c")` (or an unscoped `"a::b"`) share one slot. A scoped key is
+/// `\x1f<agent byte length>:<agent><thread>`; an unscoped key is the bare
+/// thread id, except that an id starting with `\x1f` gets a second `\x1f`
+/// prepended so it can never look like a scoped key.
 pub(crate) fn scoped_key(session_agent: Option<&str>, thread_id: &str) -> String {
     match session_agent {
-        Some(agent) => format!("{agent}::{thread_id}"),
+        Some(agent) => format!("\u{1f}{}:{agent}{thread_id}", agent.len()),
+        None if thread_id.starts_with('\u{1f}') => format!("\u{1f}{thread_id}"),
         None => thread_id.to_string(),
     }
+}
+
+/// The thread id a [`scoped_key`] was built from, ignoring its agent scope.
+fn thread_id_of_key(key: &str) -> Option<&str> {
+    let Some(rest) = key.strip_prefix('\u{1f}') else {
+        return Some(key);
+    };
+    if rest.starts_with('\u{1f}') {
+        return Some(rest);
+    }
+    let (len, tail) = rest.split_once(':')?;
+    let len: usize = len.parse().ok()?;
+    tail.get(len..)
 }
 
 pub(crate) fn event_session_id_for(client_id: &str, thread_id: &str) -> String {
@@ -83,7 +103,7 @@ pub async fn invalidate_thread_sessions(thread_id: &str) {
     let mut sessions = THREAD_SESSIONS.lock().await;
     let keys_to_remove: Vec<String> = sessions
         .keys()
-        .filter(|k| k.as_str() == thread_id || k.ends_with(&format!("::{thread_id}")))
+        .filter(|k| thread_id_of_key(k) == Some(thread_id))
         .cloned()
         .collect();
     for key in &keys_to_remove {
