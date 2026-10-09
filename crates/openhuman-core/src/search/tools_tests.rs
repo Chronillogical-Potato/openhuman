@@ -235,3 +235,32 @@ async fn a_refused_call_does_not_reach_the_module() {
         result.text()
     );
 }
+
+#[test]
+fn a_rejected_provider_key_names_the_provider_and_the_fix() {
+    let message = user_facing_error(
+        "search ExecuteTool failed: tinysearch.provider_unauthorized: tavily rejected the \
+         configured API key (HTTP 401)",
+    );
+    assert_eq!(
+        message,
+        "Web search is unavailable: tavily rejected the configured API key (HTTP 401). Update \
+         the key under Connections → Search, or remove it to use managed search."
+    );
+    assert!(!exhausts_providers(
+        "tinysearch.provider_unauthorized: tavily rejected the configured API key (HTTP 401)"
+    ));
+}
+
+#[test]
+fn a_rejected_backend_credential_asks_for_the_right_fix() {
+    assert!(
+        user_facing_error("tinysearch.backend_unauthorized: rejected")
+            .contains("sign-in has expired")
+    );
+    assert!(backend_unauthorized_message(false).contains("Sign in again"));
+    let key = backend_unauthorized_message(true);
+    assert!(key.contains("rejected the configured API key"), "{key}");
+    assert!(!key.contains("Sign in again"), "{key}");
+    assert!(!exhausts_providers("tinysearch.backend_unauthorized: rejected"));
+}
