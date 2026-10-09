@@ -52,11 +52,10 @@ fn saas_policy_skips_the_shared_projects_and_scratch_grants() {
         "/tmp/openhuman must not be granted in SaaS"
     );
 
+    let scratch_available = ensure_openhuman_scratch_dir().is_some();
     let single = roots(false);
     assert!(single.contains(&projects));
-    // The scratch dir is only granted when it can be created safely (not a
-    // symlink, hardenable permissions); that is host state, not policy.
-    if ensure_openhuman_scratch_dir().is_some() {
-        assert!(single.contains(&scratch));
-    }
+    // Granted exactly when the dir can be created safely (not a symlink,
+    // hardenable permissions): an unsafe path must not be granted.
+    assert_eq!(single.contains(&scratch), scratch_available);
 }
