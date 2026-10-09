@@ -1,6 +1,10 @@
 <h1 align="center">OpenHuman</h1>
 
 <p align="center">
+ <img src="./demo.gif" alt="A walkthrough of the OpenHuman desktop app" />
+</p>
+
+<p align="center">
  <strong>The open-source agent harness that runs fast, runs cheap, and runs hundreds of agents in one process.</strong><br/>
  A Rust core you can use as a desktop app or embed as a library.
 </p>
@@ -42,107 +46,93 @@
 
 > **Early beta.** OpenHuman is under active development, so expect rough edges. The checklist for leaving beta is public: [#6047](https://github.com/tinyhumansai/openhuman/issues/6047).
 
+
 ---
 
 ## Why OpenHuman
 
-Most agent harnesses are a Node or Python process per agent, a large system prompt, and a bill that grows with every turn. OpenHuman is a Rust core built to do the same work with less of everything: fewer tokens sent to the model, less memory per agent, less CPU per task. The same core runs a desktop app for people and a library for developers who want to put hundreds of agents behind one product.
+Most agent harnesses run one Node or Python process per agent, send a large system prompt on every call, and get more expensive with every turn. OpenHuman is a Rust core that does the same work with less of everything. It is also the only feature-rich open-source harness built to run large fleets of agents.
 
 <table>
 <tr>
-<td width="33%" valign="top">
+<td width="50%" valign="top">
 
 ### Fast
 
-Fastest wall time in the latest public SWE-bench run: **20 s** per solved task at the median, against 28 to 62 s for the other six harnesses. The first token comes back in 1.2 s, also the fastest. An agent turn starts cold in 102 ms.
+The fastest wall time in the latest public SWE-bench run: **20 s** per solved task at the median, against 28 to 62 s for the other six harnesses. The first token arrives in 1.2 s, and an agent turn starts cold in 102 ms.
 
 </td>
-<td width="33%" valign="top">
+<td width="50%" valign="top">
 
 ### Cheap
 
-**2.6x fewer tokens** per solved task than the median harness, and the lowest total spend of the run ($0.05 for all ten tasks, against $0.08 to $0.35). The smallest static prompt (4.6k tokens), and [token compression](./gitbooks/features/token-compression.md) shrinks tool output before it reaches the model.
+**2.6x fewer tokens** per solved task than the median harness, and the lowest total spend of the run. It sends the smallest prompt of the field, and [token compression](./gitbooks/features/token-compression.md) shrinks tool output before the model sees it.
 
 </td>
-<td width="33%" valign="top">
+</tr>
+<tr>
+<td width="50%" valign="top">
 
 ### Efficient at scale
 
-**68 MB** peak memory and **1.3 CPU-seconds** per solved task, about 8x less than the median harness. In one process, each extra agent costs about 1.8 MiB: [500 agents measured](./gitbooks/developing/performance.md) in 1.4 GiB, roughly 25 times denser than 500 separate processes.
+**68 MB** of memory and **1.3 CPU-seconds** per solved task, about 8x less than the median harness. Inside one process each extra agent costs about 1.8 MiB, so [500 agents](./gitbooks/developing/performance.md) fit in 1.4 GiB.
+
+</td>
+<td width="50%" valign="top">
+
+### Built for developers
+
+OpenHuman is a library first. Call an agent as a function from your own Rust code, or run a fleet of feature-rich agents (memory, tools, integrations, sandboxes) inside one process. Every engine is chosen by config and every capability is a Cargo feature.
 
 </td>
 </tr>
 </table>
 
-That last column is the point. OpenHuman is the only feature-rich open-source harness built to run large fleets of agents. Claude Code, Codex, OpenCode, OpenClaw and Hermes run one agent per process, so a hundred agents means a hundred runtimes, a hundred heaps and a hundred copies of the system prompt to keep warm. OpenHuman runs the hundred as values inside one Rust process, each with its own model, tools, memory and sandbox, and still ships memory, integrations, channels, workflows and a desktop app on top.
-
-It is also programmable all the way down. Every engine (LLM, embeddings, memory, search) is chosen by config, every capability is a Cargo feature or a lazily loaded native module, and the whole core is a typed Rust API: [`openhuman-embed`](./crates/openhuman-embed/README.md).
-
 ---
 
-## Benchmarks you can check
+## Benchmarks
 
 <p align="center">
  <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./gitbooks/.gitbook/assets/benchmarks/swe-x86-1-dark.png" />
   <source media="(prefers-color-scheme: light)" srcset="./gitbooks/.gitbook/assets/benchmarks/swe-x86-1.png" />
-  <img alt="SWE-bench Verified run swe-x86-1: OpenHuman against Claude Code, Codex, OpenCode, OpenClaw, Hermes and DeepSeek Harness on ten panels (tasks solved, cost, tokens, prompt size, cache hit, time to first token, wall time, cold start, CPU, RAM)" src="./gitbooks/.gitbook/assets/benchmarks/swe-x86-1.png" />
+  <img alt="SWE-bench Verified run swe-x86-1: OpenHuman against six other harnesses on ten panels" src="./gitbooks/.gitbook/assets/benchmarks/swe-x86-1.png" />
  </picture>
 </p>
 
-Every number above comes from [tinyhumansai/openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks), a separate public repository. It runs OpenHuman, Claude Code, Codex, OpenCode, OpenClaw, Hermes and DeepSeek Harness on the same SWE-bench Verified tasks, and it holds them to the same conditions:
+The numbers come from [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks), a public repository anyone can rerun. It puts OpenHuman, Claude Code, Codex, OpenCode, OpenClaw, Hermes and DeepSeek Harness on the same SWE-bench Verified tasks with the same model, the same key and the same container limits, and it measures every call from the wire through one metering proxy. The latest run, [`swe-x86-1`](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md), is ten tasks: a smoke test, not a ranking.
 
-- The same model (`deepseek/deepseek-v4.1-flash`, reasoning `high`), pinned to one provider with fallbacks off, so the prompt cache is never split.
-- The same OpenRouter key, held only by a metering proxy that sits between every harness and the model. Tokens, latency, cache hits and cost are read off the wire, not from each harness's own accounting.
-- The same container: 4 vCPU, 8 GB, no swap, one harness at a time on a quiet host.
-- The same grader: the official `swebench.harness.run_evaluation`.
-
-Results, per-task patches, harness logs and the per-call meter records are committed. The [results site](https://tinyhumansai.github.io/openhuman-benchmarks/) rebuilds on every push, and [`RUNBOOK.md`](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/RUNBOOK.md) reproduces a run on your own machine with your own key. OpenHuman is vendored there as a submodule, so moving the pin benchmarks any build.
-
-| `swe-x86-1`, per solved task | OpenHuman | Median of the other six | Best of the other six |
-| --- | --- | --- | --- |
-| Wall time (p50) | **19.8 s** | 46.5 s | 28.4 s (OpenCode) |
-| Tokens | **167k** | 435k | 370k (Codex) |
-| Cost | $0.0077 | $0.012 | $0.0077 (OpenCode, a tie) |
-| Peak process RAM | **68 MB** | 523 MB | 123 MB (Codex) |
-| CPU time | **1.3 s** | 10.4 s | 2.9 s (DeepSeek Harness) |
-| Static prompt (system + tools) | **4.6k tokens** | 7.7k | 6.2k (DeepSeek Harness) |
-| Tasks resolved | 7 / 10 | 10 / 10 | 10 / 10 (four harnesses) |
-
-The density gap is the part of these results that compounds. At 68 MB and 1.3 CPU-seconds per solved task, against a median of 523 MB and 10.4 s, the same box holds several times as many OpenHuman agents before it runs out of memory or cores. Inside one process the gap widens further, because each extra agent shares the runtime and costs about 1.8 MiB.
-
-Read the last row too. OpenHuman spends its context well, but it resolved fewer tasks than four of the six, and closing that gap is the current work. Ten tasks is a smoke test, so a one-task difference is noise. In this run the task containers also had internet access, which the benchmark repository flags as a contamination risk; later runs sit on a network that reaches only the meter proxy. The raw rows are in [`results/swe-x86-1/summary.md`](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md), and the in-process numbers (agent density, cold start, binary size) are in [performance](./gitbooks/developing/performance.md) and [`docs/library-benchmarking.md`](./docs/library-benchmarking.md).
+| Per solved task | OpenHuman | Median of the other six |
+| --- | --- | --- |
+| Wall time | **19.8 s** | 46.5 s |
+| Tokens | **167k** | 435k |
+| Peak memory | **68 MB** | 523 MB |
+| CPU time | **1.3 s** | 10.4 s |
+| Tasks resolved | 7 / 10 | 10 / 10 |
 
 ---
 
 ## For users
 
-<p align="center">
- <img src="./demo.gif" alt="A walkthrough of the OpenHuman desktop app" />
-</p>
+You want an assistant that knows your work, acts in the apps you already use, and does not send everything to someone else's cloud. That is what the desktop app is for. Download it for Windows, macOS or Linux from [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) or [GitHub Releases](https://github.com/tinyhumansai/openhuman/releases/latest) (terminal installs are in [INSTALL.md](./INSTALL.md)).
 
-Download the desktop app for Windows, macOS or Linux from [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) or [GitHub Releases](https://github.com/tinyhumansai/openhuman/releases/latest). Homebrew, `.deb`, AUR and install scripts are in [INSTALL.md](./INSTALL.md), and the first ten minutes are in [Getting started](./gitbooks/overview/getting-started.md).
+| If you want to | OpenHuman gives you |
+| --- | --- |
+| Stop re-explaining context | A [memory](./gitbooks/features/memory.md) of your files, repos and apps, recalled before every reply, with citations |
+| Get real work done, not just answers | [Native tools](./gitbooks/features/native-tools/README.md) for search, browsing, code, documents, voice and media, plus an [orchestrator](./gitbooks/features/orchestration.md) for big jobs |
+| Work inside your apps | [119 one-click integrations](./gitbooks/features/integrations/README.md), [MCP servers and skills](./gitbooks/features/integrations/mcp-and-skills.md) |
+| Reach it from anywhere | [14 messaging channels](./gitbooks/features/channels.md), including Telegram, Discord, iMessage and email |
+| Automate the boring parts | [Workflows](./gitbooks/features/workflows.md) the agent drafts for you to review and save |
+| Choose your model and your bill | [Local models or your own key](./gitbooks/features/model-routing/local-and-byok-models.md), with [automatic routing](./gitbooks/features/model-routing/README.md) |
+| Keep your data yours | [Privacy Mode](./gitbooks/features/privacy-mode.md), the [OS keyring](./gitbooks/features/os-keyring-and-secret-storage.md) and an [approval gate](./gitbooks/features/approval-gate.md) |
 
-What you can do with it:
-
-- [Chat](./gitbooks/features/chat.md) with an assistant that sees your files and apps, and hand bigger jobs to [the orchestrator](./gitbooks/features/orchestration.md), which splits them across sub-agents.
-- Give it a [memory](./gitbooks/features/memory.md) of your documents, folders, repos, feeds and connected apps. It recalls what matters before each turn and cites its sources.
-- Connect [119 apps through one-click OAuth](./gitbooks/features/integrations/README.md), add [MCP servers and skills](./gitbooks/features/integrations/mcp-and-skills.md), and fire agents from [triggers](./gitbooks/features/integrations/triggers.md).
-- Describe an automation and let the agent draft it as a [workflow](./gitbooks/features/workflows.md) you review on a canvas, built on the open [tinyflows](https://github.com/tinyhumansai/tinyflows) engine.
-- Talk to it where you already are: 14 [messaging channels](./gitbooks/features/channels.md) in the shipped build, including Telegram, Discord, iMessage and native email.
-- Use the [native tools](./gitbooks/features/native-tools/README.md): [web search](./gitbooks/features/native-tools/web-search.md), a [scraper](./gitbooks/features/native-tools/web-scraper.md), a [coder](./gitbooks/features/native-tools/coder.md), [documents](./gitbooks/features/native-tools/documents.md), [browser and computer control](./gitbooks/features/native-tools/browser-and-computer.md), [voice](./gitbooks/features/native-tools/voice.md), [image and video generation](./gitbooks/features/native-tools/media-generation.md) and [scheduling](./gitbooks/features/native-tools/cron.md).
-- Run on any model: the managed route, [local models or your own key](./gitbooks/features/model-routing/local-and-byok-models.md) for 26 providers, with [automatic routing](./gitbooks/features/model-routing/README.md) between them.
-- Keep data on your machine with one-switch [Privacy Mode](./gitbooks/features/privacy-mode.md), secrets in the [OS keyring](./gitbooks/features/os-keyring-and-secret-storage.md), and risky actions behind the [approval gate](./gitbooks/features/approval-gate.md).
-- Track [goals and todos](./gitbooks/features/goals-and-todos.md), let it [learn your preferences](./gitbooks/features/personalization.md), and watch [cost and usage](./gitbooks/features/billing-and-usage.md) per call.
-- Make it yours with [themes](./gitbooks/features/theming.md) and [the mascot](./gitbooks/features/mascot/README.md), or take it further with the [wallet](./gitbooks/features/wallet.md), [hosting](./gitbooks/features/hosting.md) and the [iOS companion](./gitbooks/features/ios-companion.md).
-
-Not sure where to start? The [guides](./gitbooks/guides/README.md) walk through real setups: a [personal assistant](./gitbooks/guides/personal-assistant.md), a [fully local model](./gitbooks/guides/local-model.md), [private data](./gitbooks/guides/privacy-sensitive-data.md) and more.
+New to it? Start with [Getting started](./gitbooks/overview/getting-started.md) or one of the [guides](./gitbooks/guides/README.md).
 
 ---
 
 ## For developers
 
-OpenHuman is a library first. The desktop app, the browser UI, the terminal client and the JSON-RPC server are all hosts around the same core, and your product can be one more.
+OpenHuman is a library-first harness. You add it to an existing Rust codebase and call an agent the way you call any other function: no sidecar process, no daemon, no RPC hop. When one agent is not enough, the same runtime holds hundreds of them, each with its own model, tools, memory and sandbox, at a fraction of the memory and tokens other harnesses spend.
 
 ```rust
 use openhuman_embed::{Access, Harness, Provider, Workspace};
@@ -158,64 +148,32 @@ let reply = agent.run("Summarize what you can see in this directory.").await?;
 println!("{}", reply.reply);
 ```
 
-That is one agent. A [`Runtime`](./crates/openhuman-embed/README.md) holds any number of them in one process, each with its own model, access tier, working directory, MCP servers, skills and sandbox, and each costing about 1.8 MiB of memory once the first is up. One [TinyHumans API key](./gitbooks/developing/tinyhumans-api-key.md) turns on managed inference, search, embeddings, voice and integrations for all of them, or you bring your own providers.
-
-```text
-   your product        desktop app       terminal (TUI)     JSON-RPC / CLI
-        |                   |                  |                   |
-        v                   v                  v                   v
-  openhuman-embed     openhuman-app      openhuman-tui       openhuman-rpc
-        |                   |                  |                   |
-        +---------+---------+------------------+-------------------+
-                  |
-                  v
-           openhuman-core   agents, memory, tools, security, channels, flows
-                  |
-     +------------+-------------+--------------------+
-     v            v             v                    v
- tinyagents   tinymemory   native modules       backend transport
- (agent loop) (memory)     (search, docs,       (openhuman-tinyhumans,
-                            browser, voice...)   optional)
-```
-
-Where to go next:
-
-- [Rust quickstart](./gitbooks/developing/quickstart.md): from an empty crate to many agents on one runtime, step by step.
-- [Embedding reference](./gitbooks/developing/embedding.md): `Runtime`, `AgentSpec`, access tiers, providers, MCP, skills, sessions and narrow builds.
-- [Architecture](./gitbooks/developing/architecture/README.md) and the [agent harness](./gitbooks/developing/architecture/agent-harness.md): how a turn runs, from prompt to tool call to transcript.
-- [Pluggable engines](./gitbooks/developing/engines.md) and [loadable modules](./gitbooks/developing/loadable-modules.md): swap the LLM, memory or search engine, and add capabilities without recompiling.
-- [Performance](./gitbooks/developing/performance.md): the agent-density sweep, cold start and binary sizes, with methodology.
-- [Building the Rust core](./gitbooks/developing/building-rust-core.md) and the [crates overview](./crates/README.md): what each crate in the workspace is for.
+Start with the [Rust quickstart](./gitbooks/developing/quickstart.md), then the [embedding reference](./gitbooks/developing/embedding.md). Architecture, engines, modules and performance are in the [developer docs](./gitbooks/developing/README.md).
 
 ---
 
 ## How it compares
 
-Measured, from the public [`swe-x86-1`](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md) run (same model, same key, same container; lower is better except tasks resolved):
+High-level comparison (products change, so verify against each project).
 
-| | OpenHuman | Claude Code | Codex | OpenCode | OpenClaw | Hermes |
-| --- | --- | --- | --- | --- | --- | --- |
-| Tasks resolved | 7/10 | 10/10 | 7/10 | 10/10 | 9/10 | 10/10 |
-| Wall time per solved task (p50) | **19.8 s** | 37.8 s | 36.1 s | 28.4 s | 62 s | 58.5 s |
-| Tokens per solved task | **167k** | 428k | 370k | 390k | 442k | 482k |
-| Total cost, 10 tasks | **$0.05** | $0.35 | $0.12 | $0.08 | $0.10 | $0.08 |
-| Peak process RAM | **68 MB** | 231 MB | 123 MB | 1.06 GB | 1.57 GB | 816 MB |
-| CPU time per solved task | **1.3 s** | 4.7 s | 3.3 s | 17.2 s | 26.7 s | 16.1 s |
-| Static prompt (system + tools) | **4.6k** | 12.0k | 7.7k | 6.7k | 7.6k | 13.2k |
-| Cold start to first model call | 0.8 s | 0.3 s | **0.2 s** | 1.2 s | 5.5 s | 10.0 s |
-
-By design, as of October 2026 (these projects move fast, so check each one before relying on a row):
-
-| | OpenHuman | Claude Code / Codex | OpenCode | OpenClaw / Hermes |
-| --- | --- | --- | --- | --- |
-| License | GPL-3.0 | Proprietary / Apache-2.0 | MIT | MIT |
-| Core language | Rust | TypeScript / Rust | TypeScript | TypeScript / Python |
-| Embed in your own program | Typed Rust API, many agents in one process | SDKs that drive a CLI process | Server API and SDK | Run as a separate process |
-| Any model, local or BYOK | 26 providers plus local servers | Vendor models first | Yes | Yes |
-| Persistent memory with citations | Pluggable engine, recalled every turn | Project notes files | Project notes files | Plugin or self-learning |
-| Managed OAuth integrations | 119 apps, plus MCP | MCP | MCP | Bring your own, plus MCP |
-| Messaging channels | 14 in the shipped build | No | No | Yes |
-| Visual workflows | Agent-drafted, reviewed on a canvas | No | No | Scripts |
+|                         | Claude Cowork     | OpenClaw          | Hermes Agent      | OpenHuman                                                          |
+| ----------------------- | ----------------- | ----------------- | ----------------- | ------------------------------------------------------------------ |
+| **Open source**         | 🚫 Proprietary    | ✅ MIT            | ✅ MIT            | ✅ GPL-3.0                                                         |
+| **Simple to start**     | ✅ Desktop + CLI  | ⚠️ Terminal-first | ⚠️ Terminal-first | ✅ Clean UI, minutes                                               |
+| **Cost**                | ⚠️ Sub + add-ons  | ⚠️ BYO models     | ⚠️ BYO models     | ✅ 2.6x fewer tokens, one subscription                             |
+| **Agent fleets**        | 🚫 One session    | ⚠️ Process per agent | ⚠️ Process per agent | 🚀 Hundreds of agents in one process, ~1.8 MiB each          |
+| **Embeddable library**  | ⚠️ SDK over a CLI | 🚫 None           | ⚠️ Python package | 🚀 Typed Rust API                                                  |
+| **Memory**              | ✅ Chat-scoped    | ⚠️ Plugin-reliant | ✅ Self-learning  | 🚀 Pluggable engine, recall before every turn, citations          |
+| **Integrations**        | ⚠️ Few connectors | ⚠️ BYO            | ⚠️ BYO            | 🚀 119 managed-auth OAuth apps, MCP, skills                        |
+| **Source sync**         | 🚫 None           | 🚫 None           | 🚫 None           | ✅ Folders, repos, feeds and apps synced into memory               |
+| **Orchestration**       | ⚠️ Sub-tasks      | ⚠️ Single loop    | ⚠️ Single loop    | 🚀 Agent graphs with checkpoints                                   |
+| **Workflows**           | 🚫 None           | ⚠️ Scripts        | ⚠️ Scripts        | 🚀 Visual, durable, agent-drafted, approval-gated                  |
+| **Messaging channels**  | 🚫 None           | ✅ Many           | ✅ Several        | ✅ 14 in the shipped build, including native email                 |
+| **Local-only mode**     | 🚫 Cloud-only     | ⚠️ BYO local      | ⚠️ BYO local      | ✅ One-switch Privacy Mode                                         |
+| **Observability**       | 🚫 Opaque         | ⚠️ Logs           | ⚠️ Logs           | ✅ Replayable run journals, per-call cost                          |
+| **Public benchmarks**   | 🚫 None           | 🚫 None           | 🚫 None           | ✅ [Reproducible, wire-metered](https://github.com/tinyhumansai/openhuman-benchmarks) |
+| **Model routing**       | 🚫 Single vendor  | ⚠️ Manual         | ⚠️ Manual         | ✅ Built-in                                                        |
+| **Native tools**        | ✅ Code-focused   | ✅ Code-focused   | ✅ Code-focused   | ✅ Code, search, scraper, browser, voice, media generation         |
 
 ---
 
@@ -233,13 +191,6 @@ The short path:
 
 Contributors get free merch and special access on [Discord](https://guild.tinyhumans.ai/).
 
-## Where this is heading
-
-The open work is tracked in public issues: leaving beta ([#6047](https://github.com/tinyhumansai/openhuman/issues/6047)), an agent-to-agent protocol ([#3463](https://github.com/tinyhumansai/openhuman/issues/3463)), pluggable memory adapters ([#5390](https://github.com/tinyhumansai/openhuman/issues/5390)), external agent runtimes over ACP ([#4731](https://github.com/tinyhumansai/openhuman/issues/4731)) and a managed local model runtime ([#6130](https://github.com/tinyhumansai/openhuman/issues/6130)). Thousands of agents on one box is the direction; 500 is what has been measured. See the [roadmap](./gitbooks/overview/roadmap.md).
-
-## License
-
-OpenHuman is licensed under [GPL-3.0](./LICENSE).
 
 ## Star history
 
