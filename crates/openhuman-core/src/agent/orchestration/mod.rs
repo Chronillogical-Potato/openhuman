@@ -19,6 +19,7 @@ pub mod agent_teams;
 pub(crate) mod background_completions;
 pub(crate) mod background_delivery;
 pub mod command_center;
+pub(crate) mod completion_notice;
 pub(crate) mod delegation;
 pub(crate) mod fleet_tools;
 mod ops;
