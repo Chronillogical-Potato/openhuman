@@ -44,15 +44,21 @@ backend-touching call (billing, `/agent-integrations/*` tools, channel relay,
 cloud voice) answers with `BackendApiError::BackendUnavailable`, which the RPC
 layer renders as a `BACKEND_UNAVAILABLE:` error that observability demotes.
 
-The crate depends on `openhuman-embed` for the library facade and also on
-`openhuman-core` directly, because it needs surfaces embed does not re-export:
-`backend::transport` (to install the transport) and `core::all` (to register
-controllers).
+The crate's only openhuman dependency is `openhuman-embed`
+(`scripts/ci/check-crate-chain.mjs` holds the chain core -> embed ->
+tinyhumans -> rpc -> hosts). The public embed API covers the transport port
+(`BackendTransport`, `install_backend_transport`, ...) and the seam types
+(`embed::seams::{ControllerExtension, ToolRanker, ...}`); the deeper core
+internals the transport and hosted controllers need (`backend::BackendClient`,
+`core::all`'s registry types, `security::credentials`, `config`) come through
+embed's `#[doc(hidden)] __host` module, an explicit list kept in embed.
 
 ### Installing into a process
 
-`install(InstallOptions)` in `src/install.rs` is the entry point for hosts that
-boot the core themselves. It does four things, in this order:
+`install(InstallOptions)` in `src/install.rs` is the compatibility entry point
+for hosts that still boot the core themselves. It resolves the same `Wiring`
+(`install::wiring`) the builder uses and applies it to the process globals.
+It does four things, in this order:
 
 1. If `InstallOptions::product_identity` is set, it stores the new
    `ProductIdentity` (the `x-sdk-name` header value) and drops any transport it
@@ -62,11 +68,11 @@ boot the core themselves. It does four things, in this order:
    `hosted::extension()` with the core through
    `core::all::register_controller_extension`. The core treats an identical
    re-registration as a no-op.
-3. With the `jev` feature and `tool_ranker` true (the default), it calls
-   `jev::install_jev_ranker()`, which replaces the process-wide `tool_search`
-   ranker in place.
+3. With the `jev` feature and `tool_ranker` true (the default), it installs a
+   `jev::TinyHumansJevRanker` as the process-wide `tool_search` ranker,
+   replacing the previous one in place.
 4. It builds one `SdkBackendTransport` and installs it with
-   `openhuman_core::backend::transport::install_backend_transport`. On a later
+   `openhuman_embed::install_backend_transport`. On a later
    call it reuses the transport it already built, re-installing it into the
    core slot if something cleared it (tests do this).
 
@@ -84,16 +90,27 @@ The CLI does this in `crates/openhuman-cli/src/main.rs` before
 `run_core_from_args`; in-process test suites do it through
 `tests/support/tinyhumans_boot.rs`.
 
-### Library hosts: RuntimeBuilder
+### The configuration path: RuntimeBuilder
 
-`RuntimeBuilder` in `src/runtime.rs` wraps `openhuman_embed::RuntimeBuilder`
-and mirrors it method for method (`workspace`, `api_key`, `backend_url`,
-`provider`, `access`, `services`, `domains`, `tool_groups`, `host_kind`,
-`session`, `config`). It adds `product_identity` and `hosted_controllers`,
-which feed `InstallOptions`. `build()` calls `install`, binds the returned
-transport to the embed builder with `backend_transport`, and boots the
-runtime. `into_embed()` drops back to the plain embed builder with no backend
-connection, and `from_embed()` starts from an already-configured one.
+`RuntimeBuilder` in `src/runtime.rs` wraps `openhuman_embed::RuntimeBuilder`.
+It starts from `new()`, a host preset (`library()`, `desktop()`, `cli()`,
+`tui()`) or `from_embed()`, and forwards every embed knob unchanged
+(`workspace`, `workspace_dir`, `action_dir`, `config_source`, `token`,
+`listen`, `api_key`, `backend_url`, `provider`, `access`, `services`,
+`domains`, `tool_groups`, `host_kind`, `session`, `config`, `session_store`,
+`memory_engine`) and every seam option (`controller_extension`, `tool_ranker`,
+`post_turn_hook`, `tool_hook`, `server_launcher`, `live_policy`). It adds
+`product_identity`, `hosted_controllers` and `jev_ranker`, which feed
+`InstallOptions`.
+
+`connect()` returns the embed builder with the TinyHumans connection applied
+through embed's own options: the product identity is set, the SDK transport
+is installed as the process global and bound with `backend_transport`, the
+hosted proxies go in with `controller_extension`, and the Jev ranker with
+`tool_ranker` (restored when the runtime drops). A host `tool_ranker` replaces
+the Jev one. `build()` is `connect()` then boot; `run_from_args()` is
+`connect()` then the embed CLI dispatcher. `into_embed()` drops back to the
+plain embed builder with no backend connection.
 
 ```rust
 use openhuman_tinyhumans::{embed::Workspace, RuntimeBuilder};
