@@ -154,7 +154,7 @@ If you already run Claude Code, Codex, OpenClaw or Hermes, the concepts carry ov
 | Models | [Local models (Ollama, LM Studio, MLX) and BYOK for 26 providers](./gitbooks/features/model-routing/local-and-byok-models.md), with [automatic model routing](./gitbooks/features/model-routing/README.md) |
 | Channels | [14 messaging channels](./gitbooks/features/channels.md) as agent front ends: Telegram, Discord, iMessage, email and more |
 | Workflows | [Durable workflow graphs](./gitbooks/features/workflows.md) on [tinyflows](https://github.com/tinyhumansai/tinyflows): cron, event or manual triggers, approval nodes, resume after a pause |
-| Safety | [Approval gate](./gitbooks/features/approval-gate.md), sandboxed execution, [Privacy Mode](./gitbooks/features/privacy-mode.md) for local-only runs, secrets in the [OS keyring](./gitbooks/features/os-keyring-and-secret-storage.md) |
+| Safety | [Approval gate](./gitbooks/features/approval-gate.md), [sandboxed execution](./gitbooks/features/privacy-and-security.md) (OS jail or Docker), [Privacy Mode](./gitbooks/features/privacy-mode.md) for local-only runs, secrets in the [OS keyring](./gitbooks/features/os-keyring-and-secret-storage.md) |
 | Observability | Replayable run journals and [per-call cost and usage](./gitbooks/features/billing-and-usage.md) |
 
 Start with [Getting started](./gitbooks/overview/getting-started.md) or the [guides](./gitbooks/guides/README.md).
