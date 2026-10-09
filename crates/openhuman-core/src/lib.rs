@@ -113,6 +113,10 @@ pub use core::types::HostKind;
 pub fn run_core_from_args(args: &[String]) -> anyhow::Result<()> {
     core::cli::load_dotenv_for_cli()?;
     platform::service::apply_startup_restart_delay_from_env();
-    security::keyring::init_master_key().map_err(anyhow::Error::msg)?;
+    // A SaaS boot roots the keyring under its operator directory
+    // (`saas::build`), so it must not be latched to the home directory here.
+    if !core::runtime::mode::requested_in(args, std::env::var("OPENHUMAN_MODE").ok().as_deref()) {
+        security::keyring::init_master_key().map_err(anyhow::Error::msg)?;
+    }
     core::cli::run_from_cli_args(args)
 }
