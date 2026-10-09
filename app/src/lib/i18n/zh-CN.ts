@@ -4770,11 +4770,14 @@ const messages: TranslationMap = {
   'memoryPage.off.description': '选择一个记忆提供方即可开始记忆。',
   'memoryPage.off.action': '选择提供方',
   'memoryPage.disabled.title': '记忆已停用',
-  'memoryPage.disabled.description': 'OpenHuman 不会存储或回忆任何内容。选择一个提供方即可重新开启记忆。',
+  'memoryPage.disabled.description':
+    'OpenHuman 不会存储或回忆任何内容。选择一个提供方即可重新开启记忆。',
   'memoryPage.engine.disabled.title': '已停用',
-  'memoryPage.engine.disabled.description': '完全关闭记忆。不会存储或回忆任何内容，你的连接设置会保留。',
+  'memoryPage.engine.disabled.description':
+    '完全关闭记忆。不会存储或回忆任何内容，你的连接设置会保留。',
   'memoryPage.engine.disabled.action': '停用记忆',
-  'memoryPage.engine.disabled.banner': '当前不会存储或回忆任何内容。在下方选择一个提供方即可重新开启记忆。',
+  'memoryPage.engine.disabled.banner':
+    '当前不会存储或回忆任何内容。在下方选择一个提供方即可重新开启记忆。',
   'memoryPage.engine.disabled.toast': '记忆已停用',
   'memoryPage.engine.disabled.toastFailed': '无法停用记忆',
   'memoryPage.engine.inUse': '使用中',

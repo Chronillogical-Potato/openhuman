@@ -23,7 +23,9 @@ export default function MemoryOffState({ reason, disabled, onOpenEngine }: Memor
         icon={<LuBrain className="h-6 w-6 text-primary-500" aria-hidden />}
         title={disabled ? t('memoryPage.disabled.title') : t('memoryPage.off.title')}
         description={
-          disabled ? t('memoryPage.disabled.description') : reason || t('memoryPage.off.description')
+          disabled
+            ? t('memoryPage.disabled.description')
+            : reason || t('memoryPage.off.description')
         }
         actionLabel={t('memoryPage.off.action')}
         onAction={onOpenEngine}

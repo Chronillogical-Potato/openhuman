@@ -5138,11 +5138,14 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'Elige un proveedor de memoria para empezar a recordar.',
   'memoryPage.off.action': 'Elegir proveedor',
   'memoryPage.disabled.title': 'La memoria está desactivada',
-  'memoryPage.disabled.description': 'OpenHuman no guarda ni recuerda nada. Elige un proveedor para volver a activar la memoria.',
+  'memoryPage.disabled.description':
+    'OpenHuman no guarda ni recuerda nada. Elige un proveedor para volver a activar la memoria.',
   'memoryPage.engine.disabled.title': 'Desactivada',
-  'memoryPage.engine.disabled.description': 'Desactiva la memoria por completo. No se guarda ni se recuerda nada, y tus conexiones se conservan.',
+  'memoryPage.engine.disabled.description':
+    'Desactiva la memoria por completo. No se guarda ni se recuerda nada, y tus conexiones se conservan.',
   'memoryPage.engine.disabled.action': 'Desactivar memoria',
-  'memoryPage.engine.disabled.banner': 'No se guarda ni se recuerda nada. Elige un proveedor abajo para volver a activar la memoria.',
+  'memoryPage.engine.disabled.banner':
+    'No se guarda ni se recuerda nada. Elige un proveedor abajo para volver a activar la memoria.',
   'memoryPage.engine.disabled.toast': 'Memoria desactivada',
   'memoryPage.engine.disabled.toastFailed': 'No se pudo desactivar la memoria',
   'memoryPage.engine.inUse': 'En uso',

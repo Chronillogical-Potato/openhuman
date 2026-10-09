@@ -434,7 +434,12 @@ describe('MemoryEngineTab', () => {
   });
 
   describe('Disabled', () => {
-    const DISABLED: EngineState = { engine: 'none', has_key: false, status: 'off', fetch_modes: [] };
+    const DISABLED: EngineState = {
+      engine: 'none',
+      has_key: false,
+      status: 'off',
+      fetch_modes: [],
+    };
 
     it('turns memory off completely with one click', async () => {
       hoisted.engineSet.mockResolvedValue(DISABLED);

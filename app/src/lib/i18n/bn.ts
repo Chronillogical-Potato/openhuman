@@ -5043,11 +5043,14 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'মনে রাখা শুরু করতে একটি মেমোরি প্রদানকারী বেছে নিন।',
   'memoryPage.off.action': 'প্রদানকারী বেছে নিন',
   'memoryPage.disabled.title': 'মেমরি নিষ্ক্রিয়',
-  'memoryPage.disabled.description': 'OpenHuman কিছুই সংরক্ষণ বা স্মরণ করছে না। মেমরি আবার চালু করতে একটি প্রদানকারী বেছে নিন।',
+  'memoryPage.disabled.description':
+    'OpenHuman কিছুই সংরক্ষণ বা স্মরণ করছে না। মেমরি আবার চালু করতে একটি প্রদানকারী বেছে নিন।',
   'memoryPage.engine.disabled.title': 'নিষ্ক্রিয়',
-  'memoryPage.engine.disabled.description': 'মেমরি সম্পূর্ণ বন্ধ করুন। কিছুই সংরক্ষণ বা স্মরণ করা হয় না, এবং আপনার সংযোগগুলো রাখা থাকে।',
+  'memoryPage.engine.disabled.description':
+    'মেমরি সম্পূর্ণ বন্ধ করুন। কিছুই সংরক্ষণ বা স্মরণ করা হয় না, এবং আপনার সংযোগগুলো রাখা থাকে।',
   'memoryPage.engine.disabled.action': 'মেমরি নিষ্ক্রিয় করুন',
-  'memoryPage.engine.disabled.banner': 'কিছুই সংরক্ষণ বা স্মরণ করা হচ্ছে না। মেমরি আবার চালু করতে নিচে একটি প্রদানকারী বেছে নিন।',
+  'memoryPage.engine.disabled.banner':
+    'কিছুই সংরক্ষণ বা স্মরণ করা হচ্ছে না। মেমরি আবার চালু করতে নিচে একটি প্রদানকারী বেছে নিন।',
   'memoryPage.engine.disabled.toast': 'মেমরি নিষ্ক্রিয় করা হয়েছে',
   'memoryPage.engine.disabled.toastFailed': 'মেমরি নিষ্ক্রিয় করা যায়নি',
   'memoryPage.engine.inUse': 'ব্যবহৃত হচ্ছে',

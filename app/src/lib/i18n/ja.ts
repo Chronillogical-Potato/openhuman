@@ -5360,11 +5360,14 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'メモリプロバイダーを選ぶと記憶を始めます。',
   'memoryPage.off.action': 'プロバイダーを選ぶ',
   'memoryPage.disabled.title': 'メモリーは無効です',
-  'memoryPage.disabled.description': 'OpenHuman は何も保存・想起していません。メモリーを再び有効にするにはプロバイダーを選択してください。',
+  'memoryPage.disabled.description':
+    'OpenHuman は何も保存・想起していません。メモリーを再び有効にするにはプロバイダーを選択してください。',
   'memoryPage.engine.disabled.title': '無効',
-  'memoryPage.engine.disabled.description': 'メモリーを完全にオフにします。何も保存・想起されず、接続設定はそのまま保持されます。',
+  'memoryPage.engine.disabled.description':
+    'メモリーを完全にオフにします。何も保存・想起されず、接続設定はそのまま保持されます。',
   'memoryPage.engine.disabled.action': 'メモリーを無効にする',
-  'memoryPage.engine.disabled.banner': '何も保存・想起されていません。メモリーを再び有効にするには、下のプロバイダーを選択してください。',
+  'memoryPage.engine.disabled.banner':
+    '何も保存・想起されていません。メモリーを再び有効にするには、下のプロバイダーを選択してください。',
   'memoryPage.engine.disabled.toast': 'メモリーを無効にしました',
   'memoryPage.engine.disabled.toastFailed': 'メモリーを無効にできませんでした',
   'memoryPage.engine.inUse': '使用中',

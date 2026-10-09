@@ -5043,11 +5043,14 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'याद रखना शुरू करने के लिए एक मेमोरी प्रदाता चुनें।',
   'memoryPage.off.action': 'प्रदाता चुनें',
   'memoryPage.disabled.title': 'मेमोरी अक्षम है',
-  'memoryPage.disabled.description': 'OpenHuman कुछ भी सहेज या याद नहीं कर रहा है। मेमोरी फिर से चालू करने के लिए कोई प्रदाता चुनें।',
+  'memoryPage.disabled.description':
+    'OpenHuman कुछ भी सहेज या याद नहीं कर रहा है। मेमोरी फिर से चालू करने के लिए कोई प्रदाता चुनें।',
   'memoryPage.engine.disabled.title': 'अक्षम',
-  'memoryPage.engine.disabled.description': 'मेमोरी पूरी तरह बंद करें। कुछ भी सहेजा या याद नहीं किया जाता, और आपके कनेक्शन बने रहते हैं।',
+  'memoryPage.engine.disabled.description':
+    'मेमोरी पूरी तरह बंद करें। कुछ भी सहेजा या याद नहीं किया जाता, और आपके कनेक्शन बने रहते हैं।',
   'memoryPage.engine.disabled.action': 'मेमोरी अक्षम करें',
-  'memoryPage.engine.disabled.banner': 'कुछ भी सहेजा या याद नहीं किया जा रहा है। मेमोरी फिर से चालू करने के लिए नीचे कोई प्रदाता चुनें।',
+  'memoryPage.engine.disabled.banner':
+    'कुछ भी सहेजा या याद नहीं किया जा रहा है। मेमोरी फिर से चालू करने के लिए नीचे कोई प्रदाता चुनें।',
   'memoryPage.engine.disabled.toast': 'मेमोरी अक्षम की गई',
   'memoryPage.engine.disabled.toastFailed': 'मेमोरी अक्षम नहीं की जा सकी',
   'memoryPage.engine.inUse': 'इस्तेमाल में',
