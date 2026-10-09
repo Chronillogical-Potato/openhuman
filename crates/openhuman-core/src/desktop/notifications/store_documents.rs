@@ -40,7 +40,7 @@ use super::types::{
     NotificationStatus,
 };
 use crate::storage::documents::{compare_and_swap, text, Repo, CAS_ATTEMPTS};
-use crate::storage::{DocumentStore, DocumentStoreExt, ScopedStorage, StorageError};
+use crate::storage::{DocumentStore, DocumentStoreExt, StorageError};
 
 const NOTIFICATIONS: &str = "integration_notifications";
 const DEDUP: &str = "notification_dedup";
@@ -188,7 +188,7 @@ pub(super) struct Docs(Repo);
 
 impl Docs {
     #[cfg(test)]
-    pub(super) fn over(scoped: &ScopedStorage) -> Self {
+    pub(super) fn over(scoped: &crate::storage::ScopedStorage) -> Self {
         Self(Repo::over(scoped, DOMAIN, collections))
     }
 

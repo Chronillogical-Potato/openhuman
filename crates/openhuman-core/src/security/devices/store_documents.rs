@@ -17,7 +17,7 @@ use tinystoragedrivers::{CollectionSpec, Filter, IndexSpec, Precondition, Query,
 
 use crate::security::devices::types::PairedDevice;
 use crate::storage::documents::{compare_and_swap, text, Repo};
-use crate::storage::{DocumentStoreExt, ScopedStorage};
+use crate::storage::DocumentStoreExt;
 
 const DEVICES: &str = "paired_devices";
 const DOMAIN: &str = "devices::store";
@@ -50,7 +50,7 @@ pub(super) struct Docs(Repo);
 
 impl Docs {
     #[cfg(test)]
-    pub(super) fn over(scoped: &ScopedStorage) -> Self {
+    pub(super) fn over(scoped: &crate::storage::ScopedStorage) -> Self {
         Self(Repo::over(scoped, DOMAIN, collections))
     }
 

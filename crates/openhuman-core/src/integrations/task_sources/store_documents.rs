@@ -28,7 +28,7 @@ use super::types::{
 };
 use crate::integrations::composio::providers::NormalizedTask;
 use crate::storage::documents::{compare_and_swap, text, Repo};
-use crate::storage::{DocumentStoreExt, ScopedStorage};
+use crate::storage::DocumentStoreExt;
 
 const SOURCES: &str = "task_sources";
 const INGESTED: &str = "ingested_tasks";
@@ -135,7 +135,7 @@ pub(super) struct Docs(Repo);
 
 impl Docs {
     #[cfg(test)]
-    pub(super) fn over(scoped: &ScopedStorage) -> Self {
+    pub(super) fn over(scoped: &crate::storage::ScopedStorage) -> Self {
         Self(Repo::over(scoped, DOMAIN, collections))
     }
 
