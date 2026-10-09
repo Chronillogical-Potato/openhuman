@@ -12,14 +12,14 @@ these domains exist.
 
 ### Registration
 
-`extension()` in `mod.rs` collects every domain's
+`extension()` in [`mod.rs`](mod.rs) collects every domain's
 `all_<domain>_registered_controllers()` into one `ControllerExtension` tagged
 `DomainGroup::Hosted`, together with the `NAMESPACES` table that
 `namespace_description` serves for the namespaces only this surface uses
 (`billing`, `team`, `referral`, `announcements`). `crate::install()` passes
 the extension to `core::all::register_controller_extension`; the crate root
 also re-exports it as `hosted_controllers` for hosts that register it
-themselves. `crates/openhuman-core/src/core/all.rs` is the extension point and
+themselves. [`crates/openhuman-core/src/core/all.rs`](../../../openhuman-core/src/core/all.rs) is the extension point and
 never grows a `billing` or `team` branch of its own.
 
 Three domains (`webhooks`, `channel_link`, `oauth`) put methods into
@@ -107,8 +107,8 @@ status, transport phrases, budget exhaustion) keep matching them.
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | `extension()`, `NAMESPACES`, module declarations. |
-| `client.rs` | `HostedClient`, `CredentialKind`, `map_error`. |
+| [`mod.rs`](mod.rs) | `extension()`, `NAMESPACES`, module declarations. |
+| [`client.rs`](client.rs) | `HostedClient`, `CredentialKind`, `map_error`. |
 | [`billing/`](billing/README.md) | Plans, Stripe and Coinbase purchase and top-up flows, credit balance and transactions, auto-recharge, saved cards, coupons (`/payments/*`, `/coupons/*`). |
 | [`team/`](team/README.md) | Team CRUD, membership, role changes, invites, usage (`/teams/me/usage`), active-team switching. |
 | [`referral/`](referral/README.md) | Referral stats and claiming a code (`/referral/*`). |
@@ -116,7 +116,7 @@ status, transport phrases, budget exhaustion) keep matching them.
 | [`webhooks/`](webhooks/README.md) | Backend-managed webhook tunnel CRUD and the bandwidth budget (`/webhooks/core*`). |
 | [`channel_link/`](channel_link/README.md) | Linking the managed Telegram and Discord bots to the account: link-token issuance and the start/check flows. `managed.rs` polls `GET /auth/me` and stores a `channel:<id>:managed_dm` credential marker on success. |
 | [`oauth/`](oauth/README.md) | Backend-brokered OAuth integrations (`/auth/{provider}/connect`, `/auth/integrations*`). `handoff.rs` decrypts the AES-256-GCM token handoff. |
-| `test_support.rs` | Wiremock fixtures shared by this tree's tests (test builds only). |
+| [`test_support.rs`](test_support.rs) | Wiremock fixtures shared by this tree's tests (test builds only). |
 
 ## RPC surface
 
@@ -141,7 +141,7 @@ contracts.
   rest of `channels`. The `channels.*` schemas used by `channel_link` come
   from the `tinychannels-bus` contract through the core's
   `channels::contract_schema`.
-- Routes come from the vendored SDK (`vendor/tinyhumans-sdk`). Where the SDK
+- Routes come from the vendored SDK ([`vendor/tinyhumans-sdk`](../../../../vendor/tinyhumans-sdk/)). Where the SDK
   has no typed method, a domain uses the SDK's raw request primitive
   (`billing`, and `oauth`'s `POST /auth/integrations/{id}/client-key`).
   `team`'s `POST /teams` and `DELETE /teams/{id}` are not in the SDK's route
@@ -165,9 +165,20 @@ contracts.
 
 Each domain has `ops_tests.rs` and `schemas_tests.rs` beside its modules
 (plus `managed_tests.rs` and `handoff_tests.rs` where those files exist), and
-`client_tests.rs` covers `HostedClient` and the error mapping. They run
-against wiremock through `test_support.rs`.
+[`client_tests.rs`](client_tests.rs) covers `HostedClient` and the error mapping. They run
+against wiremock through [`test_support.rs`](test_support.rs).
 
 ```bash
 cargo test -p openhuman-tinyhumans hosted::
 ```
+
+## Further reading
+
+- [`crates/openhuman-tinyhumans/src/hosted/announcements/README.md`](announcements/README.md): the announcements module README.
+- [`crates/openhuman-tinyhumans/src/hosted/billing/README.md`](billing/README.md): the billing module README.
+- [`crates/openhuman-tinyhumans/src/hosted/channel_link/README.md`](channel_link/README.md): the channel_link module README.
+- [`crates/openhuman-tinyhumans/src/hosted/oauth/README.md`](oauth/README.md): the oauth module README.
+- [`crates/openhuman-tinyhumans/src/hosted/referral/README.md`](referral/README.md): the referral module README.
+- [`crates/openhuman-tinyhumans/src/hosted/team/README.md`](team/README.md): the team module README.
+- [`crates/openhuman-tinyhumans/src/hosted/webhooks/README.md`](webhooks/README.md): the webhooks module README.
+- [`gitbooks/developing/tinyhumans-api-key.md`](../../../../gitbooks/developing/tinyhumans-api-key.md): running on a TinyHumans API key.

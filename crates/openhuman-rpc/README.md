@@ -100,11 +100,11 @@ for the hosts that still call them:
 
 | Path | What it does |
 | --- | --- |
-| `src/lib.rs` | Module wiring and re-exports (`tinyhumans`, the client helpers, `unwrap_rpc`). |
-| `src/host.rs` | `server` / `session-store` features: the shared host boot — `cli`, `desktop` / `serve_desktop`, `tui`, and the `*_builder` each starts from. |
-| `src/envelope.rs` | `RpcRequest`, `RpcSuccess`, `RpcFailure`, `RpcError`, `JSONRPC_VERSION`, `SERVER_ERROR_CODE`, and the client half: `request_body`, `decode_response`. |
-| `src/origin.rs` | `is_origin_allowed_with_extra` and `ALLOWED_ORIGINS_ENV`: the browser-origin allowlist. Pure; the caller reads the environment. |
-| `src/client.rs` | `http-client` feature: `post_json_rpc`, `bearer_header`, `redact_url_for_log`, `HttpRpcResponse`. |
+| [`src/lib.rs`](src/lib.rs) | Module wiring and re-exports (`tinyhumans`, the client helpers, `unwrap_rpc`). |
+| [`src/host.rs`](src/host.rs) | `server` / `session-store` features: the shared host boot — `cli`, `desktop` / `serve_desktop`, `tui`, and the `*_builder` each starts from. |
+| [`src/envelope.rs`](src/envelope.rs) | `RpcRequest`, `RpcSuccess`, `RpcFailure`, `RpcError`, `JSONRPC_VERSION`, `SERVER_ERROR_CODE`, and the client half: `request_body`, `decode_response`. |
+| [`src/origin.rs`](src/origin.rs) | `is_origin_allowed_with_extra` and `ALLOWED_ORIGINS_ENV`: the browser-origin allowlist. Pure; the caller reads the environment. |
+| [`src/client.rs`](src/client.rs) | `http-client` feature: `post_json_rpc`, `bearer_header`, `redact_url_for_log`, `HttpRpcResponse`. |
 | [`src/server/`](src/server/README.md) | `server` feature: the axum router, auth and CORS middleware, the `/rpc` handler, SSE and WebSocket routes, Socket.IO, `/dev/connect`, the listener (`serve`) and the `run_server*` entry points. |
 | [`src/http_host/`](src/http_host/README.md) | `server` feature: ad-hoc Basic-auth static directory servers and their `http_host.*` controllers. |
 | [`src/session_store/`](src/session_store/README.md) | `session-store` feature: `SqliteSessionStores`, the classic on-disk session layout behind TinyAgents' session store port. |
@@ -155,21 +155,21 @@ gate must forward to the same gate on `openhuman-tinyhumans`, which
 The root workspace declares this crate with `default-features = false`, so
 each consumer names what it needs. `openhuman-cli` enables `server`,
 `openhuman-tui` enables `session-store` only (it runs the core without a
-server), and `crates/openhuman-app/Cargo.toml`, outside the workspace,
+server), and [`crates/openhuman-app/Cargo.toml`](../openhuman-app/Cargo.toml), outside the workspace,
 enables `http-client` and `server`.
 
 ## Consumers
 
-- `crates/openhuman-app`: `core_process.rs` runs the embedded server
+- [`crates/openhuman-app`](../openhuman-app/): `core_process.rs` runs the embedded server
   (`run_server_embedded_with_ready`) and reads its `EmbeddedReadySignal`;
   `core_rpc.rs` wraps `post_json_rpc` to reach the embedded core and
   self-hosted runtimes (#3865); `session/link.rs` and `local_data_reset.rs`
   build requests with `request_body` and decode with `decode_response`;
   `lib.rs` calls `install_cli_server` before `run_core_from_args`.
-- `crates/openhuman-cli`: `main.rs` calls `install_cli_server`; root
+- [`crates/openhuman-cli`](../openhuman-cli/): `main.rs` calls `install_cli_server`; root
   `tests/*.rs` suites (for example `json_rpc_e2e.rs`) build the router with
   `build_core_http_router`.
-- `crates/openhuman-tui`: `unwrap_rpc` is its decode point, and
+- [`crates/openhuman-tui`](../openhuman-tui/): `unwrap_rpc` is its decode point, and
   `runner.rs` calls `session_store::install()`.
 
 ## Boundaries
@@ -188,7 +188,7 @@ enables `http-client` and `server`.
   method branches to the server. `http_host` joins the registry as a
   controller extension.
 - The session store port, transcript format and run ledger belong to
-  `vendor/tinyagents` (`tinyagents-session`). `session_store` only arranges
+  [`vendor/tinyagents`](../../vendor/tinyagents/) (`tinyagents-session`). `session_store` only arranges
   those building blocks into OpenHuman's layout.
 - Backend auth, login-token exchange and `/auth/me` belong to
   `openhuman-tinyhumans`, not here.
@@ -221,10 +221,18 @@ server-failure wire bytes), the origin allowlist, failure classification,
 the `/rpc` handler's Sentry routing (with `crash-reporting`), CORS, auth
 route policy, the SSE and WebSocket routes, Socket.IO, `/dev/connect`,
 `http_host` and the session store. End-to-end JSON-RPC behavior lives in the
-root `tests/json_rpc_e2e.rs`.
+root [`tests/json_rpc_e2e.rs`](../../tests/json_rpc_e2e.rs).
 
 ```bash
 cargo test -p openhuman-rpc --features crash-reporting
 cargo test -p openhuman-cli --test json_rpc_e2e
 pnpm debug rust openhuman_rpc
 ```
+
+## Further reading
+
+- [`gitbooks/developing/architecture.md`](../../gitbooks/developing/architecture.md): architecture overview.
+- [`gitbooks/developing/architecture/tauri-shell.md`](../../gitbooks/developing/architecture/tauri-shell.md): the Tauri shell.
+- [`gitbooks/developing/embedding.md`](../../gitbooks/developing/embedding.md): embedding the core in another product.
+- [`gitbooks/developing/testing-strategy.md`](../../gitbooks/developing/testing-strategy.md): testing strategy.
+- [`crates/README.md`](../README.md): crates overview.

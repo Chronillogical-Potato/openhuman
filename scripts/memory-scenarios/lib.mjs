@@ -1,5 +1,5 @@
 // Harness plumbing shared by run.mjs and the scenarios: a headless core over
-// JSON-RPC (shaped like scripts/life-scenarios/run.mjs), the composer's event
+// JSON-RPC (shaped like openhuman-benchmarks' life-scenarios/run.mjs), the composer's event
 // stream, a turn driver, an RPC log, the findings list and the ledger of every
 // id a run stored.
 

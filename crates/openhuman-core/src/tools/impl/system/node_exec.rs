@@ -24,8 +24,8 @@
 use crate::agent::host_runtime::RuntimeAdapter;
 use crate::runtime::javascript::NodeBootstrap;
 use crate::security::{CommandClass, GateDecision, SecurityPolicy};
+use crate::tools::schema_cache::static_schema;
 use async_trait::async_trait;
-use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
 use tinytools::ToolRunContext;
@@ -110,28 +110,7 @@ impl Tool for NodeExecTool {
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "inline_code": {
-                    "type": "string",
-                    "description": "JavaScript source passed to `node -e`. Mutually exclusive with script_path."
-                },
-                "script_path": {
-                    "type": "string",
-                    "description": "Path (relative to workspace) to a .js/.mjs/.cjs file. Mutually exclusive with inline_code."
-                },
-                "args": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Positional arguments appended after the script. Ignored for inline_code."
-                },
-                "timeout_secs": {
-                    "type": "integer",
-                    "description": "Optional wall-clock timeout (seconds) before the process is killed. No timeout by default — long-running scripts run to completion. Capped at 1800s; 0 disables."
-                }
-            }
-        })
+        static_schema!(include_str!("parameters/node_exec.json"))
     }
 
     fn permission_level(&self) -> PermissionLevel {
@@ -661,3 +640,7 @@ fn resolve_script_path(
 #[cfg(test)]
 #[path = "node_exec_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "node_exec_schema_tests.rs"]
+mod schema_tests;

@@ -333,7 +333,16 @@ const TOOL_LESS: &[crate::core::all::DomainGroup] = {
     // `Channels` joined this list when the three `whatsapp_data_*` tools went —
     // the channel runtime,
     // its controllers and its inbound dispatch are all still there.
-    &[G::Config, G::Security, G::Modules, G::Channels, G::Hosted]
+    // `Operator` is the SaaS provisioning plane: controllers for the gateway,
+    // never tools an agent could call on itself.
+    &[
+        G::Config,
+        G::Security,
+        G::Modules,
+        G::Channels,
+        G::Hosted,
+        G::Operator,
+    ]
 };
 
 #[path = "ops_tests_capability_gating_tests.rs"]
