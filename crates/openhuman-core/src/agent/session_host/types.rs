@@ -409,6 +409,12 @@ pub struct OpenHumanSessionHost {
     /// keeps those settings instead of having them silently replaced by
     /// whatever the process-global registry holds under the same id.
     pub(super) definition: Option<Arc<crate::agent::harness::definition::AgentDefinition>>,
+    /// Built by `from_config_host_only`: the belt is the host's tools alone.
+    pub(super) host_only: bool,
+    /// The next messages are untrusted data, so `run_single` skips the
+    /// prompt guard. Only ever set on a `host_only` session; see
+    /// [`OpenHumanSessionHost::set_untrusted_input`].
+    pub(super) untrusted_input: bool,
     /// Mirrors the agent definition's `omit_memory_context` flag: when set,
     /// a new session does not get the compiled `context.md` prepended to its
     /// first user message. Defaults to `false` (inject) for agents built

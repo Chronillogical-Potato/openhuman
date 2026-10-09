@@ -31,7 +31,7 @@
 //! The child files are an implementation detail.
 
 pub(crate) use builder::provider_role_for_definition;
-pub use builder::{HostTools, HostTurnTools, TurnContext};
+pub use builder::{HostOnlyToolPolicy, HostTools, HostTurnTools, TurnContext};
 
 mod builder;
 mod codec;
