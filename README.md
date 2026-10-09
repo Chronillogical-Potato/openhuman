@@ -135,7 +135,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <td width="50%" valign="top">
 
-<h3>TokenJuice: big outputs, small bills</h3>
+<h3>RLM token compression</h3>
 
 <p>OpenHuman shrinks large tool results before the AI reads them. For very large ones, the AI gets a handle it can search instead, an idea from <a href="https://arxiv.org/abs/2512.24601">Recursive Language Models</a>. Nothing is thrown away.</p>
 
@@ -145,7 +145,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <td width="50%" valign="top">
 
-<h3>Jev: the right tool, first time</h3>
+<h3>Jev: instant, accurate tool search</h3>
 
 <p>A tiny model whose only job is picking the right tool. Out of 1,215 tools, it picks the right one first 62% of the time. Keyword search manages 22.5%.</p>
 
@@ -159,7 +159,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <td width="50%" valign="top">
 
-<h3>TinyBus: plug-in parts</h3>
+<h3>Unified Rust bus</h3>
 
 <p>Each feature, like search, documents or voice, is its own plug-in, an idea borrowed from the <a href="https://www.freedesktop.org/wiki/Software/dbus/">Linux system bus</a>. A plug-in loads only when needed, and if one gets stuck, the rest keep working.</p>
 
@@ -183,21 +183,21 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <td width="50%" valign="top">
 
-<h3>Conversations that stay cheap</h3>
+<h3>Instant browser and desktop control</h3>
 
-<p>AI providers charge less for text they have seen before. OpenHuman keeps the start of each chat identical, even after a restart, so long chats stay cheap.</p>
+<p>The agent drives a real Chrome browser and your desktop apps. It reads the screen the way a screen reader does, as named buttons and fields, so it never guesses from screenshots. It asks before anything it cannot undo and stops at payment pages.</p>
 
-<p><a href="./gitbooks/developing/architecture/agent-harness.md">Agent harness</a> · <a href="https://github.com/tinyhumansai/tinyagents">tinyagents</a></p>
+<p><a href="./gitbooks/features/native-tools/browser-and-computer.md">Browser and computer control</a> · <a href="https://github.com/tinyhumansai/tinycomputer">tinycomputer</a></p>
 
 </td>
 
 <td width="50%" valign="top">
 
-<h3>Swap any part</h3>
+<h3>A Rust core</h3>
 
-<p>Change the AI model, memory or search with a setting instead of code. Stripped down, the whole core is a 51 MB file.</p>
+<p>The whole harness is compiled Rust in one process, with no Node or Python underneath. It starts in a tenth of a second and used 68 MB at peak on our coding tasks. Stripped down, the core is a 51 MB file.</p>
 
-<p><a href="./gitbooks/developing/engines.md">Pluggable engines</a> · <a href="./gitbooks/developing/performance.md">Build sizes</a></p>
+<p><a href="./gitbooks/developing/architecture.md">Architecture</a> · <a href="./gitbooks/developing/performance.md">Performance</a></p>
 
 </td>
 
