@@ -586,7 +586,12 @@ their modules as `*_tests.rs`.
 ```bash
 cargo test -p openhuman-embed --features inference,mcp,skills
 cargo test -p openhuman-embed --features inference,mcp,skills --test runtime_agents
+cargo test -p openhuman-embed --features inference,mcp,skills --test cron_agents
 ```
+
+`tests/cron_agents.rs` runs a cron job as a runtime agent with its host tool under the
+`TrustedAutomation { Cron }` origin, records a system job handler's error, and starts and
+stops the scheduler with the runtime.
 
 The repository-root [`examples/embed_headless.rs`](../../examples/embed_headless.rs) and [`examples/embed_kernel.rs`](../../examples/embed_kernel.rs)
 use this crate's `Runtime` (`Runtime::builder()`, then `core_runtime().invoke`
