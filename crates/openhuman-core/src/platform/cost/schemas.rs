@@ -30,6 +30,7 @@ fn default_usage_days() -> u32 {
     30
 }
 
+/// `cost_report` params. Each report takes only what its schema declares.
 #[derive(Debug, Deserialize, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ReportParams {
@@ -37,6 +38,16 @@ struct ReportParams {
     days: Option<u32>,
     #[serde(default)]
     group_by: Vec<super::report::GroupKey>,
+    #[serde(default)]
+    filter: super::report::ReportFilter,
+}
+
+/// `cost_cache_report` params.
+#[derive(Debug, Deserialize, Default)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CacheReportParams {
+    #[serde(default)]
+    days: Option<u32>,
     #[serde(default)]
     filter: super::report::ReportFilter,
     #[serde(default)]
@@ -316,9 +327,11 @@ fn handle_cost_get_usage_log(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
-fn parse_report_params(params: Map<String, Value>) -> Result<ReportParams, String> {
+fn parse_report_params<T: serde::de::DeserializeOwned + Default>(
+    params: Map<String, Value>,
+) -> Result<T, String> {
     if params.is_empty() {
-        return Ok(ReportParams::default());
+        return Ok(T::default());
     }
     serde_json::from_value(Value::Object(params)).map_err(|e| format!("invalid params: {e}"))
 }
@@ -328,7 +341,7 @@ fn handle_cost_report(params: Map<String, Value>) -> ControllerFuture {
         let cid = new_correlation_id();
         log::debug!(target: "cost_rpc", "[cost_rpc][{cid}] cost_report.entry");
         let config = config_rpc::load_config_with_timeout().await?;
-        let p = parse_report_params(params)?;
+        let p: ReportParams = parse_report_params(params)?;
         let days = p.days.unwrap_or_else(default_usage_days);
         let outcome = cost_rpc::usage_report(&config, days, &p.group_by, &p.filter)
             .map_err(|e| e.to_string())?;
@@ -341,7 +354,7 @@ fn handle_cost_cache_report(params: Map<String, Value>) -> ControllerFuture {
         let cid = new_correlation_id();
         log::debug!(target: "cost_rpc", "[cost_rpc][{cid}] cost_cache_report.entry");
         let config = config_rpc::load_config_with_timeout().await?;
-        let p = parse_report_params(params)?;
+        let p: CacheReportParams = parse_report_params(params)?;
         let days = p.days.unwrap_or_else(default_usage_days);
         let limit = p.limit.unwrap_or(200);
         let outcome =

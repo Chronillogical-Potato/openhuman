@@ -274,7 +274,10 @@ pub fn record_embedding_usage(
         cost_source: CostSource::Estimated,
         run_id: None,
         root_run_id: None,
-        scope: UsageScope::default(),
+        scope: UsageScope {
+            origin: Some(super::report::EMBEDDING_ORIGIN.to_string()),
+            ..UsageScope::ambient(Some(provider), None)
+        },
         timestamp: chrono::Utc::now(),
     };
     log::debug!(

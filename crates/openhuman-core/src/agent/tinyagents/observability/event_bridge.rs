@@ -370,6 +370,7 @@ impl OpenhumanEventBridge {
         let estimate = Self::estimate_call_cost(&self.model, usage);
         let provider_cost = carried
             .as_ref()
+            .filter(|u| !u.cost_is_estimate)
             .map(|u| u.charged_amount_usd)
             .filter(|c| c.is_finite() && *c > 0.0);
         let cost_is_estimate = provider_cost.is_none();

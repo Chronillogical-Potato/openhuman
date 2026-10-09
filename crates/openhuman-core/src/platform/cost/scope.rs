@@ -46,9 +46,15 @@ pub(crate) fn describe_origin(
         Some(AgentTurnOrigin::WebChat { thread_id, .. }) => {
             (Some(thread_id.clone()), Some("web_chat".to_string()))
         }
-        Some(AgentTurnOrigin::ExternalChannel { channel, .. }) => {
-            (None, Some(format!("channel:{channel}")))
-        }
+        // A channel conversation's history key is its stable identity.
+        Some(AgentTurnOrigin::ExternalChannel {
+            channel,
+            history_key,
+            ..
+        }) => (
+            history_key.clone().filter(|key| !key.trim().is_empty()),
+            Some(format!("channel:{channel}")),
+        ),
         Some(AgentTurnOrigin::TrustedAutomation { source, .. }) => {
             let label = match source {
                 TrustedAutomationSource::Cron => "cron",

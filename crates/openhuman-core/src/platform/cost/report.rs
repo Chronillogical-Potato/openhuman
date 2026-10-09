@@ -86,6 +86,9 @@ impl GroupKey {
     }
 }
 
+/// The `origin` of an embedding batch's record.
+pub const EMBEDDING_ORIGIN: &str = "embedding";
+
 /// The group value of a record that does not carry that attribute (recorded
 /// before attribution existed, or outside any thread).
 pub const UNKNOWN: &str = "unknown";
@@ -97,8 +100,10 @@ fn route_label(model: &str) -> &'static str {
     }
 }
 
-/// Which records a report covers. Every set field must match.
+/// Which records a report covers. Every set field must match. Unknown keys
+/// are refused, so a misspelt filter cannot widen a report to everything.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ReportFilter {
     #[serde(default)]
     pub thread_id: Option<String>,
@@ -285,11 +290,25 @@ pub fn build_cache_report(
     to: DateTime<Utc>,
     filter: &ReportFilter,
 ) -> CacheReport {
-    let mut ordered: Vec<&CostRecord> = records.iter().filter(|r| filter.admits(r)).collect();
-    ordered.sort_by_key(|r| r.usage.timestamp);
+    // Embedding batches never read a prompt cache; they would only dilute the
+    // ratio and show up as zero-hit calls.
+    let mut ordered: Vec<&CostRecord> = records
+        .iter()
+        .filter(|r| r.usage.scope.origin.as_deref() != Some(EMBEDDING_ORIGIN))
+        .filter(|r| filter.admits(r))
+        .collect();
+    // The id breaks timestamp ties, so the same records always classify the
+    // same way.
+    ordered.sort_by(|a, b| {
+        a.usage
+            .timestamp
+            .cmp(&b.usage.timestamp)
+            .then_with(|| a.id.cmp(&b.id))
+    });
     // A call is a repeat only against an earlier call with the same cache
-    // identity: a model switch or another agent prompt starts a fresh cache.
-    let mut caches_seen: HashSet<(String, String, Option<String>)> = HashSet::new();
+    // identity: a model, provider or agent prompt switch starts a fresh cache.
+    type CacheIdentity = (String, String, Option<String>, Option<String>);
+    let mut caches_seen: HashSet<CacheIdentity> = HashSet::new();
     let mut report = CacheReport {
         from,
         to,
@@ -305,17 +324,27 @@ pub fn build_cache_report(
         let cached = usage.cached_input_tokens.min(usage.input_tokens);
         let thread = usage.scope.thread_id.clone();
         let repeat = thread.as_ref().is_some_and(|t| {
-            !caches_seen.insert((t.clone(), usage.model.clone(), usage.scope.agent_id.clone()))
+            !caches_seen.insert((
+                t.clone(),
+                usage.model.clone(),
+                usage.scope.agent_id.clone(),
+                usage.scope.provider.clone(),
+            ))
         });
         let cold = repeat && cached == 0 && usage.input_tokens > 0;
         if cold {
             report.cold_calls += 1;
         }
-        if let Some(price) = super::catalog::lookup(&usage.model) {
-            let premium = (price.input_per_mtok_usd - price.cached_input_per_mtok_usd).max(0.0);
-            let uncached = usage.input_tokens - cached;
-            report.uncached_premium_usd += uncached as f64 / 1_000_000.0 * premium;
-        }
+        // Through the tier-aware estimator: what this call's input cost against
+        // what it would have cost had every input token been cached.
+        let actual = super::catalog::estimate_cost_usd(&usage.model, usage.input_tokens, 0, cached);
+        let all_cached = super::catalog::estimate_cost_usd(
+            &usage.model,
+            usage.input_tokens,
+            0,
+            usage.input_tokens,
+        );
+        report.uncached_premium_usd += (actual - all_cached).max(0.0);
         report.input_tokens += usage.input_tokens;
         report.cached_input_tokens += cached;
         report.calls.push(CacheCall {
