@@ -101,6 +101,8 @@ pub(super) fn decrypt_config_secrets(config: &mut Config, openhuman_dir: &Path) 
     let store = crate::security::keyring::SecretStore::new(openhuman_dir, true);
 
     decrypt_optional_secret(&store, &mut config.api_key, "api_key")?;
+    // A MongoDB URL carries the database password.
+    decrypt_optional_secret(&store, &mut config.storage.url, "storage.url")?;
 
     decrypt_optional_secret(&store, &mut config.seltz.api_key, "seltz.api_key")?;
     decrypt_optional_secret(
@@ -216,6 +218,8 @@ pub(super) fn encrypt_config_secrets(config: &mut Config) -> Result<()> {
     let store = crate::security::keyring::SecretStore::new(parent_dir, true);
 
     encrypt_optional_secret(&store, &mut config.api_key, "api_key")?;
+    // A MongoDB URL carries the database password.
+    encrypt_optional_secret(&store, &mut config.storage.url, "storage.url")?;
 
     encrypt_optional_secret(&store, &mut config.seltz.api_key, "seltz.api_key")?;
     encrypt_optional_secret(

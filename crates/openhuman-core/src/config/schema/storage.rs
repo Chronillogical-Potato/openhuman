@@ -38,14 +38,22 @@ impl std::fmt::Debug for StorageConfig {
     }
 }
 
-/// `url` with any `user:password@` userinfo replaced by `***@`.
+/// `url` with any `user:password@` userinfo replaced by `***@`, and the
+/// query string and fragment dropped (they can carry tokens, such as MongoDB's
+/// `authMechanismProperties`).
 pub fn redact_url(url: &str) -> String {
-    match (url.find("://"), url.rfind('@')) {
+    let end = url.find(['?', '#']).unwrap_or(url.len());
+    let (base, trimmed) = (&url[..end], end < url.len());
+    let mut out = match (base.find("://"), base.rfind('@')) {
         (Some(scheme), Some(at)) if at > scheme => {
-            format!("{}://***@{}", &url[..scheme], &url[at + 1..])
+            format!("{}://***@{}", &base[..scheme], &base[at + 1..])
         }
-        _ => url.to_string(),
+        _ => base.to_string(),
+    };
+    if trimmed {
+        out.push_str("?***");
     }
+    out
 }
 
 #[cfg(test)]
