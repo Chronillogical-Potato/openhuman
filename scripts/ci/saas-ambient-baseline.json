@@ -175,13 +175,6 @@
     "occurrence": 1
   },
   {
-    "rule": "ambient-config",
-    "path": "crates/openhuman-core/src/config/ops/loader/load.rs",
-    "line": 79,
-    "text": "Config::load_or_init().await",
-    "occurrence": 1
-  },
-  {
     "rule": "env-mutation",
     "path": "crates/openhuman-core/src/config/ops/loader/runtime_flags.rs",
     "line": 70,
