@@ -127,7 +127,9 @@ Most agent harnesses run one heavy process per agent and resend a big prompt on 
 
 ## Major innovations
 
-These are the design choices behind those numbers. Each card links to the docs and the code.
+Most agent harnesses are a simple loop: send everything to the model, wait, repeat. That works for one agent, but it gets slow and expensive quickly, and it falls apart when you run hundreds.
+
+OpenHuman rethinks the parts that cost the most: how much text the AI has to read, how it finds the right tool, how features load, and how much machine the whole thing needs. The six ideas below are where the speed and savings above come from. Each card links to the docs if you want the details.
 
 <table>
 
