@@ -108,7 +108,7 @@ fn to_source(stored: &Versioned<Value>) -> Result<TaskSource> {
     };
     Ok(TaskSource {
         id: stored.id.clone(),
-        provider: ProviderSlug::parse(field("provider")?)?,
+        provider: ProviderSlug::parse(field("provider")?).map_err(|error| anyhow!(error))?,
         connection_id: text(doc, "connection_id").map(str::to_string),
         name: text(doc, "name").map(str::to_string),
         enabled: doc.get("enabled").and_then(Value::as_bool).unwrap_or(true),
