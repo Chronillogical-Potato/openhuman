@@ -278,7 +278,7 @@ Next: the [Rust quickstart](./gitbooks/developing/quickstart.md), the [embedding
 
 ---
 
-## How it compares
+## How it compares?
 
 Here is OpenHuman next to the harnesses most people already use. The top four rows come from our [public benchmark](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md): ten SWE-bench coding tasks, with the same model and container for every harness. Each number is per solved task. The rest compare features.
 
