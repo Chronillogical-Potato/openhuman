@@ -9,6 +9,7 @@
 mod attachment_input;
 mod memory_ingest;
 mod permanent;
+mod tool_rules;
 #[path = "runtime_session_turn.rs"]
 mod turn;
 
@@ -93,9 +94,7 @@ struct OpenHumanTurnPrelude {
     allowed_subagent_ids: std::collections::HashSet<String>,
     sandbox_mode: crate::agent::harness::definition::SandboxMode,
     runtime_config: Option<Arc<crate::config::Config>>,
-    /// This session's tool-rule layers (`crate::tools::rules::session_rule_set`):
-    /// the operator's `[tool_rules]` and the agent definition's layer. Each
-    /// turn evaluates them in its own channel/agent/origin context.
+    /// This session's tool-rule layers; see `tool_rules.rs`.
     tool_rules: Arc<tinytools::ToolRuleSet>,
     /// The one authoritative, request-refreshable composition of executable
     /// tools, policy, and provider schema. Generic runtime owns the immutable
@@ -1025,10 +1024,7 @@ impl OpenHumanSessionHost {
                     .map(|definition| definition.sandbox_mode)
                     .unwrap_or(crate::agent::harness::definition::SandboxMode::None),
                 runtime_config: self.runtime_config.clone(),
-                tool_rules: Arc::new(crate::tools::rules::session_rule_set(
-                    self.runtime_config.as_deref(),
-                    self.resolved_definition().as_deref(),
-                )),
+                tool_rules: self.session_tool_rules(),
                 tool_surface: Arc::new(std::sync::Mutex::new(OpenHumanTurnToolSurface {
                     tools: self.tools.clone(),
                     synthesized_tools: self.synthesized_tools.clone(),
@@ -1200,24 +1196,8 @@ impl OpenHumanSessionHost {
                         }
                         options.run_context.data.current_synthesized_tools =
                             Some(current_synthesized_tools);
-                        if !prelude.tool_rules.is_permissive() {
-                            let origin = options
-                                .run_context
-                                .data
-                                .origin
-                                .as_ref()
-                                .map(crate::agent::turn_origin::AgentTurnOrigin::class);
-                            let context = crate::tools::rules::rule_context(
-                                Some(&policy_channel),
-                                Some(&prelude.agent_definition_id),
-                                origin.as_deref(),
-                            );
-                            options.run_context.data.tool_rules =
-                                Some(Arc::new(crate::tools::rules::turn_rule_policy(
-                                    prelude.tool_rules.clone(),
-                                    context,
-                                )));
-                        }
+                        options.run_context.data.tool_rules =
+                            prelude.turn_tool_rules(&policy_channel, &options.run_context.data);
                         options.run_context.data.tool_policy =
                             Some(crate::agent::tinyagents::ToolPolicyEnforcement {
                                 policy: prelude.tool_policy.clone(),
