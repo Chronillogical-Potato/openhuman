@@ -270,6 +270,19 @@ pub async fn sweep_expired_parked_runs(config: &Config) -> usize {
 /// resumable — only `pending_approval` is). Best-effort by construction: a store
 /// error is logged and the sweep returns what it managed.
 pub async fn sweep_orphaned_running_runs_on_boot(config: &Config) -> usize {
+    // `local`, then every agent that keeps its runs in its own storage scope
+    // (`crate::storage::agents`).
+    crate::storage::agents::for_each_scope("flows boot sweep", || {
+        sweep_orphaned_running_runs_in_scope(config)
+    })
+    .await
+    .into_iter()
+    .map(|(_, swept)| swept)
+    .sum()
+}
+
+/// [`sweep_orphaned_running_runs_on_boot`] for the current storage scope.
+async fn sweep_orphaned_running_runs_in_scope(config: &Config) -> usize {
     let now_str = Utc::now().to_rfc3339();
     const REASON: &str =
         "Run interrupted by an app restart — no live run was executing this row after boot.";

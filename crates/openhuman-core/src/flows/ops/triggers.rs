@@ -244,6 +244,28 @@ fn log_webhook_trigger_deferred(flow: &Flow, enabled: bool) {
 /// was lost some other way) gets its schedule re-registered on the next
 /// boot without the user having to toggle it off and on.
 pub async fn reconcile_schedule_triggers_on_boot(config: &Config) -> Result<(), String> {
+    // `local`, then every agent that keeps its flows in its own storage scope
+    // (`crate::storage::agents`); each scope's flows get their cron jobs in
+    // that scope, where the scheduler visits them.
+    let mut errors = Vec::new();
+    for (agent, result) in crate::storage::agents::for_each_scope("flows schedule reconcile", || {
+        reconcile_schedule_triggers_in_scope(config)
+    })
+    .await
+    {
+        if let Err(error) = result {
+            errors.push(format!("{}: {error}", agent.as_deref().unwrap_or("local")));
+        }
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("; "))
+    }
+}
+
+/// [`reconcile_schedule_triggers_on_boot`] for the current storage scope.
+async fn reconcile_schedule_triggers_in_scope(config: &Config) -> Result<(), String> {
     let (flows, skipped) = store::list_enabled_flows(config).map_err(|e| e.to_string())?;
     if skipped > 0 {
         // R-M4: a corrupt/unmigratable row must not abort boot reconciliation
