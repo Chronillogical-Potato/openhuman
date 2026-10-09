@@ -83,6 +83,7 @@ pub mod skills;
 pub mod test_support;
 pub mod threads;
 pub mod tools;
+pub mod user_agents;
 pub mod util;
 pub mod voice;
 pub mod web3;

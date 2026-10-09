@@ -395,7 +395,7 @@ pub async fn delete_after(
 pub async fn thread_delete(
     request: DeleteConversationThreadRequest,
 ) -> Result<Outcome<ApiEnvelope<DeleteConversationThreadResponse>>, String> {
-    let config = crate::config::Config::load_or_init()
+    let config = crate::config::rpc::load_config_with_timeout()
         .await
         .map_err(|e| format!("load config: {e}"))?;
     run_to_completion("thread_delete", thread_delete_inner(config, request)).await

@@ -1,3 +1,4 @@
+pub mod budget;
 pub mod catalog;
 mod global;
 pub mod report;

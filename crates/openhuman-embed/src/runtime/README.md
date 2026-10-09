@@ -63,17 +63,17 @@ releases `RUNTIME_LIVE`.
 
 | File | What it does |
 | --- | --- |
-| `mod.rs` | `Runtime`, `RuntimeError`, `CoreGuard` and the `RUNTIME_LIVE` process slot. |
-| `builder.rs` | `RuntimeBuilder`, plus the helpers the harness reuses: `apply_provider`, `effective_host_kind`, `default_domains`, `default_services`. |
-| `api_key.rs` | `ApiKey`, a newtype over the TinyHumans key whose `Debug` does not print it. |
+| [`mod.rs`](mod.rs) | `Runtime`, `RuntimeError`, `CoreGuard` and the `RUNTIME_LIVE` process slot. |
+| [`builder.rs`](builder.rs) | `RuntimeBuilder`, plus the helpers the harness reuses: `apply_provider`, `effective_host_kind`, `default_domains`, `default_services`. |
+| [`api_key.rs`](api_key.rs) | `ApiKey`, a newtype over the TinyHumans key whose `Debug` does not print it. |
 
 ## Key types and entry points
 
-- `RuntimeBuilder` (`builder.rs`): `workspace`, `api_key`, `backend_url`,
+- `RuntimeBuilder` ([`builder.rs`](builder.rs)): `workspace`, `api_key`, `backend_url`,
   `backend_transport`, `memory_engine`, `session_store`, `provider`,
   `access`, `services`, `domains`, `tool_groups`, `host_kind`, `session`,
   `config`, then `build`.
-- `Runtime` (`mod.rs`): `agent(spec)` builds an agent; `agent_ids()` lists
+- `Runtime` ([`mod.rs`](mod.rs)): `agent(spec)` builds an agent; `agent_ids()` lists
   the live ones; `core()` returns the narrow `HarnessCore` (config, auth);
   `memory(root)` returns one tenant's `memory::Memory`; `root_dir()` and
   `workspace_dir()` give paths; `domains()`, `tool_groups()` and `services()`
@@ -104,11 +104,11 @@ override reaches them.
   `openhuman_core::core::runtime`. See its
   [README](../../../openhuman-core/src/core/runtime/README.md).
 - No backend transport is installed here. `openhuman-tinyhumans`'s
-  `RuntimeBuilder` (`crates/openhuman-tinyhumans/src/runtime.rs`) wraps this
+  `RuntimeBuilder` ([`crates/openhuman-tinyhumans/src/runtime.rs`](../../../openhuman-tinyhumans/src/runtime.rs)) wraps this
   builder and installs the SDK transport on `build()`; see
   [`gitbooks/developing/tinyhumans-api-key.md`](../../../../gitbooks/developing/tinyhumans-api-key.md).
 - The session store port (`SessionStoreProvider`) is defined by
-  `vendor/tinyagents` and the core's `agent::session_store`; the classic
+  [`vendor/tinyagents`](../../../../vendor/tinyagents/) and the core's `agent::session_store`; the classic
   on-disk provider lives in `openhuman-rpc`'s `session_store`.
 
 ## Gotchas
@@ -129,10 +129,16 @@ override reaches them.
 
 ## Tests
 
-`builder_tests.rs` and `api_key_tests.rs` sit beside their modules. The
+[`builder_tests.rs`](builder_tests.rs) and [`api_key_tests.rs`](api_key_tests.rs) sit beside their modules. The
 end-to-end suites in [`../../tests/`](../../tests/README.md) build real
 runtimes.
 
 ```bash
 cargo test -p openhuman-embed --features inference,mcp,skills runtime::
 ```
+
+## Further reading
+
+- [`gitbooks/developing/embedding.md`](../../../../gitbooks/developing/embedding.md): embedding the core in another product.
+- [`gitbooks/developing/tinyhumans-api-key.md`](../../../../gitbooks/developing/tinyhumans-api-key.md): running on a TinyHumans API key.
+- [`crates/openhuman-embed/README.md`](../../README.md): the openhuman-embed crate README.

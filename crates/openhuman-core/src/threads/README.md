@@ -63,7 +63,7 @@ Every store entry point is synchronous and takes `parking_lot` locks across
 fsync'd file I/O. Calling one straight from an `async fn` parks a tokio worker
 thread for the whole wait, so all request paths go through
 `store::blocking`, which runs each call on the blocking pool. Responses are
-wrapped in `ApiEnvelope` by `ops/support.rs` (`envelope`, `counts`), which also
+wrapped in `ApiEnvelope` by [`ops/support.rs`](./ops/support.rs) (`envelope`, `counts`), which also
 resolves the workspace dir and converts between store types and wire types.
 
 ### Deleting and purging
@@ -79,7 +79,7 @@ Purge does the same for every thread and calls the parse-independent
 
 ### Edit and regenerate
 
-`ops/edit.rs` implements `threads.edit_message` and `threads.regenerate`. Both
+[`ops/edit.rs`](./ops/edit.rs) implements `threads.edit_message` and `threads.regenerate`. Both
 cancel the thread's in-flight turn with `web_chat::cancel_chat`, fork the
 session transcript at a cut point, truncate the message log to match
 (`delete_after`), drop the turn snapshots for every turn the fork removed,
@@ -103,7 +103,7 @@ The cut point comes from the reply id bridge described above:
 A new thread starts with a placeholder title. As soon as the user sends, an
 interim title derived from the first message is written
 (`support::update_thread_with_fallback_title`). `thread_generate_title`
-(`ops/title_generation.rs`) later asks the model for a summary title using the
+([`ops/title_generation.rs`](./ops/title_generation.rs)) later asks the model for a summary title using the
 `tinyagents_harness::title` helpers. `is_replaceable_title` only allows it to
 replace the placeholder, or the interim title during the first exchange;
 anything the user typed is left alone. Logs use the `[threads:title]` prefix
@@ -134,7 +134,7 @@ snapshot from an unclean shutdown is marked the same way. The
 
 ### Channel persistence
 
-`store::register_conversation_persistence_subscriber` (`store/bus.rs`)
+`store::register_conversation_persistence_subscriber` ([`store/bus.rs`](./store/bus.rs))
 subscribes to `DomainEvent::ChannelMessage*` on the core bus and mirrors
 inbound and processed channel turns into the store, using
 `conversation_history_key` for the thread id. It is registered from
@@ -155,34 +155,34 @@ label from threads and renames `welcome*` session transcripts to
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Module declarations, re-exports of the RPC models, error type, controller aggregators and the welcome migration. |
-| `rpc_models.rs` | Serde request and response types for the namespace (`ConversationThreadSummary`, `ConversationMessageRecord`, the `*Request` types). |
-| `error.rs` | `ThreadsError` (`NotFound`, `Message`) and its structured RPC error with kind `ThreadNotFound`, so the frontend can drop a stale thread. |
-| `ops.rs` | Re-exports the operations from `ops/`. |
-| `ops/crud.rs` | List, upsert, create, message list/append/update, `delete_after`, delete, labels, title, and `transcript_search`. `message_append` enforces the multimodal attachment limits for user messages. |
-| `ops/edit.rs` | Edit and regenerate (see above). |
-| `ops/title_generation.rs` | Model-generated titles and the replaceable-title rule. |
-| `ops/working_dir.rs` | Validating and binding a thread's working folder. |
-| `ops/search.rs` | `threads.search`: cross-thread search with snippets for the global `Cmd`/`Ctrl+K` search. |
-| `ops/transcript.rs` | `threads.transcript_get`: paginated display items from `tinyagents_session::transcript::view`. |
-| `ops/usage.rs` | `threads.token_usage`: token and cost totals from `transcript::spend::thread_spend`, re-priced, with per-sub-agent rows and the last turn's tokens for the context gauge. |
-| `ops/live_state.rs` | `threads.goal_get` and `threads.todos_get`: one-shot reads of the thread's agent goal and todo list for hydration on load. |
-| `ops/turn_state_ops.rs` | `threads.turn_state_*` over the snapshot store. |
-| `ops/purge.rs` | Workspace-wide purge. |
-| `ops/support.rs` | Envelopes, workspace resolution, `run_to_completion`, type conversions, fallback titles. |
-| `schemas/` | `schema_defs.rs` (controller schemas), `handlers.rs` (param parsing, thin handlers), `registry.rs` (the controller list). |
-| `store/` | Re-export of `tinyagents_session::threads`, the `blocking` wrappers and the channel bus subscriber. See [store/README.md](store/README.md). |
-| `turn_state/` | `mirror/observe.rs` (progress projection) and `rpc_types.rs` (turn-state RPC payloads). |
-| `welcome_migration.rs` | The one-shot welcome-agent migration. |
+| [`mod.rs`](./mod.rs) | Module declarations, re-exports of the RPC models, error type, controller aggregators and the welcome migration. |
+| [`rpc_models.rs`](./rpc_models.rs) | Serde request and response types for the namespace (`ConversationThreadSummary`, `ConversationMessageRecord`, the `*Request` types). |
+| [`error.rs`](./error.rs) | `ThreadsError` (`NotFound`, `Message`) and its structured RPC error with kind `ThreadNotFound`, so the frontend can drop a stale thread. |
+| [`ops.rs`](./ops.rs) | Re-exports the operations from [`ops/`](./ops/). |
+| [`ops/crud.rs`](./ops/crud.rs) | List, upsert, create, message list/append/update, `delete_after`, delete, labels, title, and `transcript_search`. `message_append` enforces the multimodal attachment limits for user messages. |
+| [`ops/edit.rs`](./ops/edit.rs) | Edit and regenerate (see above). |
+| [`ops/title_generation.rs`](./ops/title_generation.rs) | Model-generated titles and the replaceable-title rule. |
+| [`ops/working_dir.rs`](./ops/working_dir.rs) | Validating and binding a thread's working folder. |
+| [`ops/search.rs`](./ops/search.rs) | `threads.search`: cross-thread search with snippets for the global `Cmd`/`Ctrl+K` search. |
+| [`ops/transcript.rs`](./ops/transcript.rs) | `threads.transcript_get`: paginated display items from `tinyagents_session::transcript::view`. |
+| [`ops/usage.rs`](./ops/usage.rs) | `threads.token_usage`: token and cost totals from `transcript::spend::thread_spend`, re-priced, with per-sub-agent rows and the last turn's tokens for the context gauge. |
+| [`ops/live_state.rs`](./ops/live_state.rs) | `threads.goal_get` and `threads.todos_get`: one-shot reads of the thread's agent goal and todo list for hydration on load. |
+| [`ops/turn_state_ops.rs`](./ops/turn_state_ops.rs) | `threads.turn_state_*` over the snapshot store. |
+| [`ops/purge.rs`](./ops/purge.rs) | Workspace-wide purge. |
+| [`ops/support.rs`](./ops/support.rs) | Envelopes, workspace resolution, `run_to_completion`, type conversions, fallback titles. |
+| [`schemas/`](./schemas/) | `schema_defs.rs` (controller schemas), `handlers.rs` (param parsing, thin handlers), `registry.rs` (the controller list). |
+| [`store/`](./store/) | Re-export of `tinyagents_session::threads`, the `blocking` wrappers and the channel bus subscriber. See [store/README.md](store/README.md). |
+| [`turn_state/`](./turn_state/) | `mirror/observe.rs` (progress projection) and `rpc_types.rs` (turn-state RPC payloads). |
+| [`welcome_migration.rs`](./welcome_migration.rs) | The one-shot welcome-agent migration. |
 
 ## Key types and entry points
 
-- `store::blocking::*` (`store/blocking.rs`): the async API every caller in the core should use for thread and message storage.
-- `ConversationThread`, `ConversationMessage` (`store/mod.rs`): the store types. `ConversationMessage` and `ConversationMessagePatch` are host names for `ThreadMessage` and `ThreadMessagePatch`.
-- `ConversationThreadSummary`, `ConversationMessageRecord` (`rpc_models.rs`): their wire forms.
-- `ThreadsError` (`error.rs`): the error type for handlers that can report a missing thread.
-- `ops::token_usage` (`ops/usage.rs`): also called by `agent/context_breakdown.rs`.
-- `ObserveProgress` (`turn_state/mirror/observe.rs`): the trait `web_chat::progress_bridge` uses to feed the mirror.
+- `store::blocking::*` ([`store/blocking.rs`](./store/blocking.rs)): the async API every caller in the core should use for thread and message storage.
+- `ConversationThread`, `ConversationMessage` ([`store/mod.rs`](./store/mod.rs)): the store types. `ConversationMessage` and `ConversationMessagePatch` are host names for `ThreadMessage` and `ThreadMessagePatch`.
+- `ConversationThreadSummary`, `ConversationMessageRecord` ([`rpc_models.rs`](./rpc_models.rs)): their wire forms.
+- `ThreadsError` ([`error.rs`](./error.rs)): the error type for handlers that can report a missing thread.
+- `ops::token_usage` ([`ops/usage.rs`](./ops/usage.rs)): also called by `agent/context_breakdown.rs`.
+- `ObserveProgress` ([`turn_state/mirror/observe.rs`](./turn_state/mirror/observe.rs)): the trait `web_chat::progress_bridge` uses to feed the mirror.
 
 ## RPC surface
 
@@ -230,9 +230,15 @@ todo-editing surface here.
 ## Tests
 
 Tests sit beside their modules as `*_tests.rs` (for example
-`ops/edit_tests.rs`, `ops/search_tests.rs`, `store/bus_tests.rs`,
-`transcript_host_tests.rs`). Tests that read the process config serialize on
+[`ops/edit_tests.rs`](./ops/edit_tests.rs), [`ops/search_tests.rs`](./ops/search_tests.rs), [`store/bus_tests.rs`](./store/bus_tests.rs),
+[`transcript_host_tests.rs`](./transcript_host_tests.rs)). Tests that read the process config serialize on
 `crate::config::TEST_ENV_LOCK` and point `OPENHUMAN_WORKSPACE` at a temp dir.
 Run them with `cargo test -p openhuman threads::` or
 `pnpm debug rust threads::`. The store's own tests live in
 `vendor/tinyagents/crates/tinyagents-session/src/threads/`.
+
+## Further reading
+
+- [Chat](../../../../gitbooks/features/chat.md)
+- [Agent harness architecture](../../../../gitbooks/developing/architecture/agent-harness.md)
+- [Frontend architecture](../../../../gitbooks/developing/architecture/frontend.md)

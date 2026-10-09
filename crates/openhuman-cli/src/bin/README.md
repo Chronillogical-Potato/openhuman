@@ -1,8 +1,8 @@
 # bin
 
 Auxiliary binaries declared as `[[bin]]` targets in
-`crates/openhuman-cli/Cargo.toml`, next to the primary `openhuman-core`
-binary (`src/main.rs`, described in the [crate README](../../README.md)). One
+[`crates/openhuman-cli/Cargo.toml`](../../Cargo.toml), next to the primary `openhuman-core`
+binary ([`src/main.rs`](../main.rs), described in the [crate README](../../README.md)). One
 is a test fixture, one is an experimental multi-tenant supervisor, and the
 rest are benchmarks. None of them ship in the desktop product.
 
@@ -14,12 +14,12 @@ failing to link:
 
 | Binary | Source | Required features | Purpose |
 | --- | --- | --- | --- |
-| `test-mcp-stub` | `test_mcp_stub.rs` | none | Minimal stdio MCP server that tests spawn. |
-| `openhuman-fleet` | `fleet.rs` | `http-server`, `bin-tools` | Process-per-user supervisor and reverse proxy. |
-| `tool-search-bench` | `tool_search_bench.rs` | none (`jev`, in `default`, for the Jev ranker) | Accuracy and cost of each `tool_search` ranker. |
-| `tool-dialect-bench` | `tool_dialect_bench.rs` | none | Manual A/B of text tool-call dialects against a local Ollama model. |
-| `rss-bench` | `rss_bench.rs` | `rss-bench` | Steady-state RSS of an embedded agent roster. |
-| `library-profile` | `library_profile/main.rs` | `rss-bench` (add `rss-bench-dhat` for heap profiles) | Hermetic library profiling scenarios. |
+| `test-mcp-stub` | [`test_mcp_stub.rs`](test_mcp_stub.rs) | none | Minimal stdio MCP server that tests spawn. |
+| `openhuman-fleet` | [`fleet.rs`](fleet.rs) | `http-server`, `bin-tools` | Process-per-user supervisor and reverse proxy. |
+| `tool-search-bench` | [`tool_search_bench.rs`](tool_search_bench.rs) | none (`jev`, in `default`, for the Jev ranker) | Accuracy and cost of each `tool_search` ranker. |
+| `tool-dialect-bench` | [`tool_dialect_bench.rs`](tool_dialect_bench.rs) | none | Manual A/B of text tool-call dialects against a local Ollama model. |
+| `rss-bench` | [`rss_bench.rs`](rss_bench.rs) | `rss-bench` | Steady-state RSS of an embedded agent roster. |
+| `library-profile` | [`library_profile/main.rs`](library_profile/main.rs) | `rss-bench` (add `rss-bench-dhat` for heap profiles) | Hermetic library profiling scenarios. |
 
 `http-server` and `jev` are in `default`; `bin-tools`, `rss-bench` and
 `rss-bench-dhat` are not. A plain `cargo build -p openhuman-cli` therefore
@@ -33,10 +33,10 @@ for one `echo` tool, over newline-delimited JSON-RPC on stdin and stdout, and
 exits when stdin closes. `initialize` reports `PROTOCOL_VERSION`
 (`2025-11-25`). It depends on nothing beyond `serde_json`. Tests spawn it
 through `env!("CARGO_BIN_EXE_test-mcp-stub")`, which makes Cargo build it for
-every test run: `tests/mcp_registry_e2e.rs`,
-`tests/mcp_registry_multi_server.rs`, `tests/agent_harness_e2e.rs`,
-`tests/json_rpc_e2e.rs`, `tests/in_process/domain_modules_e2e.rs` and
-`tests/raw_coverage/tool_registry_approval_raw_coverage_e2e.rs`.
+every test run: [`tests/mcp_registry_e2e.rs`](../../../../tests/mcp_registry_e2e.rs),
+[`tests/mcp_registry_multi_server.rs`](../../../../tests/mcp_registry_multi_server.rs), [`tests/agent_harness_e2e.rs`](../../../../tests/agent_harness_e2e.rs),
+[`tests/json_rpc_e2e.rs`](../../../../tests/json_rpc_e2e.rs), [`tests/in_process/domain_modules_e2e.rs`](../../../../tests/in_process/domain_modules_e2e.rs) and
+[`tests/raw_coverage/tool_registry_approval_raw_coverage_e2e.rs`](../../../../tests/raw_coverage/tool_registry_approval_raw_coverage_e2e.rs).
 
 ### openhuman-fleet
 
@@ -88,7 +88,7 @@ intent. The catalogue is real: every tool the orchestrator session registers
 (built as a session builds it, in a temp workspace), plus the recorded
 Composio catalogues under `tests/fixtures/composio_*.json` (about 1,000
 actions across nine toolkits) as deferred per-action tools. The intents are
-`tests/fixtures/tool_search/intents.jsonl`, each labelled with the tool it
+[`tests/fixtures/tool_search/intents.jsonl`](../../../../tests/fixtures/tool_search/intents.jsonl), each labelled with the tool it
 should reach, or `none`.
 
 Rankers: `bm25` (`tinytools::Bm25Ranker`, the harness fallback), `overlap`
@@ -159,9 +159,9 @@ cargo build --release -p openhuman-cli --features rss-bench --bin rss-bench
 
 Hermetic, Rust-only profiling workloads that run production code paths in
 fresh processes, with network inference replaced by a deterministic provider
-(`library_profile/mock.rs`). `harness.rs` holds the measurement plumbing and
+([`library_profile/mock.rs`](library_profile/mock.rs)). `harness.rs` holds the measurement plumbing and
 the pinned output schema (`harness::ProfileResult`). Each scenario is a
-module under `library_profile/scenarios/`, selected as
+module under [`library_profile/scenarios/`](library_profile/scenarios/), selected as
 `library-profile <scenario>`:
 
 | Scenario | Measures |
@@ -185,10 +185,10 @@ The `memory-ingest` and `cold-phases` scenarios went away with the in-process
 memory engine (openhuman#6161). Bringing them back means measuring the memory
 module over the bus, which is a different scenario (see `scenarios/mod.rs`).
 
-The driver scripts under `scripts/profile/` build it with
+The driver scripts under [`scripts/profile/`](../../../../scripts/profile/) build it with
 `cargo build --release --features rss-bench --bin library-profile`
 (`library-heap.sh` uses `--features rss-bench-dhat`). The slim recipe from
-`docs/library-benchmarking.md` (`library-bench.sh --slim`) builds both
+[`docs/library-benchmarking.md`](../../../../docs/library-benchmarking.md) (`library-bench.sh --slim`) builds both
 benchmark binaries without the contributor defaults:
 
 ```bash
@@ -198,19 +198,19 @@ cargo build --release -p openhuman-cli --no-default-features --features rss-benc
 
 ## Boundaries
 
-- The `openhuman-core` entry point is `src/main.rs`, one directory up, not
+- The `openhuman-core` entry point is [`src/main.rs`](../main.rs), one directory up, not
   here.
-- Profiling drivers and result handling live in `scripts/profile/`; the
+- Profiling drivers and result handling live in [`scripts/profile/`](../../../../scripts/profile/); the
   pure RSS sampling code lives in the core (`platform::proc_metrics`).
 - The rankers being measured live elsewhere: BM25 and the `ToolRanker` trait
   in `tinytools`, overlap ranking in `tinyagents-harness`, the Jev ranker in
-  `crates/openhuman-tinyhumans/src/jev/`.
+  [`crates/openhuman-tinyhumans/src/jev/`](../../../openhuman-tinyhumans/src/jev/).
 
 ## Gotchas
 
 - The manifest sets `autobins = false`, so a `.rs` file in this directory is
   a binary only when it has a `[[bin]]` entry. That is what lets
-  `fleet_tests.rs` and `rss_bench_tests.rs` sit here beside their binaries
+  [`fleet_tests.rs`](fleet_tests.rs) and [`rss_bench_tests.rs`](rss_bench_tests.rs) sit here beside their binaries
   without Cargo trying to build them as executables. A new binary needs both
   the file and the manifest entry.
 - `tool-search-bench`'s `jev` row and `tool-dialect-bench` make real network
@@ -218,9 +218,9 @@ cargo build --release -p openhuman-cli --no-default-features --features rss-benc
 
 ## Tests
 
-`fleet_tests.rs` (port assignment, user scoping, provisioning, bearer parsing) and
-`rss_bench_tests.rs` sit beside their binaries, and
-`library_profile/scenarios/` has `fleet_tests.rs` and
+[`fleet_tests.rs`](fleet_tests.rs) (port assignment, user scoping, provisioning, bearer parsing) and
+[`rss_bench_tests.rs`](rss_bench_tests.rs) sit beside their binaries, and
+[`library_profile/scenarios/`](library_profile/scenarios/) has `fleet_tests.rs` and
 `subagent_storm_tests.rs`. They build with the binary's required features.
 `test-mcp-stub` is exercised by the MCP suites listed above.
 

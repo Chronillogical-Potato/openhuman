@@ -8,9 +8,11 @@
 //! [`boot_guard`](super::boot_guard) finds nothing unsafe.
 //!
 //! The per-user surface lands phase by phase. Until then the presets are
-//! closed: [`DomainSet::saas`] enables no domain family, so a SaaS core
-//! answers only its always-on infrastructure (`core.*`, `/health`, `/schema`)
-//! and refuses every domain method as unknown.
+//! closed: [`DomainSet::saas`] enables only the operator plane
+//! (`user_agents.*`), so a SaaS core answers its always-on infrastructure
+//! (`core.*`, `/health`, `/schema`) and provisioning, and refuses every user
+//! domain method as unknown. [`build`] installs the process's
+//! [`AgentHost`](crate::user_agents::AgentHost).
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -128,10 +130,13 @@ impl ServiceSet {
 }
 
 impl DomainSet {
-    /// The domain families a SaaS core serves. None yet: each family opens as
-    /// its per-user isolation lands.
+    /// The domain families a SaaS core serves: the operator plane. No user
+    /// family yet; each opens as its per-user isolation lands.
     pub fn saas() -> Self {
-        Self::none()
+        Self {
+            operator: true,
+            ..Self::none()
+        }
     }
 }
 
@@ -203,7 +208,12 @@ pub async fn build(
     if let Some(port) = port {
         builder = builder.port(port);
     }
-    builder.build().await
+    let runtime = builder.build().await?;
+    crate::user_agents::host::install(Arc::new(crate::user_agents::AgentHost::new(
+        config,
+        runtime.context().clone(),
+    )));
+    Ok(runtime)
 }
 
 #[cfg(test)]

@@ -48,15 +48,15 @@ Running the core in-process instead of behind a socket is also why it's cheap to
 
 ## Crates
 
-- `crates/openhuman-app/` - Tauri v2 desktop host; excluded from the root workspace, built from its own manifest.
-- `crates/openhuman-core/` - Cargo package `openhuman`: business domains, the controller contract and in-process dispatch, `CoreBuilder`/`CoreRuntime`. It is a library: no binary, no JSON-RPC server, and no dependency on `tinyhumans-sdk`.
-- `crates/openhuman-embed/` - typed library facade (`openhuman_embed::Runtime` / `Agent`, with `Harness` as a one-agent shorthand) for embedding the core in another product.
-- `crates/openhuman-rpc/` - JSON-RPC 2.0 over the core: the envelopes, the browser-origin allowlist, the HTTP client used by the app and TUI, and the whole server (axum router, auth middleware, Socket.IO, `/dev/connect`, the listener bind). The contract types themselves (`Outcome`, `ControllerSchema`, `StructuredRpcError`) live in the core.
-- `crates/openhuman-tinyhumans/` - the TinyHumans layer: the SDK-backed backend transport, the hosted RPC proxy domains, a `RuntimeBuilder` that boots connected, and the host-side login and session owner. The only crate allowed to depend on `tinyhumans-sdk`, and the first thing every host installs.
-- `crates/openhuman-cli/` - the `openhuman-core` binary, the developer and benchmark bins, and every root `tests/` and `examples/` target.
-- `crates/openhuman-tui/` - standalone terminal frontend that boots the core in-process.
+- [`crates/openhuman-app/`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-app) - Tauri v2 desktop host; excluded from the root workspace, built from its own manifest.
+- [`crates/openhuman-core/`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-core) - Cargo package `openhuman`: business domains, the controller contract and in-process dispatch, `CoreBuilder`/`CoreRuntime`. It is a library: no binary, no JSON-RPC server, and no dependency on `tinyhumans-sdk`.
+- [`crates/openhuman-embed/`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-embed) - typed library facade (`openhuman_embed::Runtime` / `Agent`, with `Harness` as a one-agent shorthand) for embedding the core in another product.
+- [`crates/openhuman-rpc/`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-rpc) - JSON-RPC 2.0 over the core: the envelopes, the browser-origin allowlist, the HTTP client used by the app and TUI, and the whole server (axum router, auth middleware, Socket.IO, `/dev/connect`, the listener bind). The contract types themselves (`Outcome`, `ControllerSchema`, `StructuredRpcError`) live in the core.
+- [`crates/openhuman-tinyhumans/`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-tinyhumans) - the TinyHumans layer: the SDK-backed backend transport, the hosted RPC proxy domains, a `RuntimeBuilder` that boots connected, and the host-side login and session owner. The only crate allowed to depend on `tinyhumans-sdk`, and the first thing every host installs.
+- [`crates/openhuman-cli/`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-cli) - the `openhuman-core` binary, the developer and benchmark bins, and every root `tests/` and `examples/` target.
+- [`crates/openhuman-tui/`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-tui) - standalone terminal frontend that boots the core in-process.
 
-The full table is under "Repository layout" in the [deep architecture reference](../architecture.md).
+The full table is under "Repository layout" in the [deep architecture reference](../architecture.md); per-crate notes are in [`crates/README.md`](https://github.com/tinyhumansai/openhuman/blob/main/crates/README.md).
 
 ## Data flow
 
@@ -92,3 +92,10 @@ See [Privacy & Security](../../features/privacy-and-security.md) for the full pi
 - **Repo:** [github.com/tinyhumansai/openhuman](https://github.com/tinyhumansai/openhuman). GNU GPL3.
 - **Issues and PRs** are welcome. The project is in early beta.
 - For contributors, the canonical developer guide is [deep architecture reference](../architecture.md).
+
+## Further reading
+
+- [Agent harness](agent-harness.md), [Memory](memory.md) and [Security](security.md) for the deep dives.
+- [Frontend](frontend.md) and [Tauri shell](tauri-shell.md) for the two outer layers.
+- [Loadable modules](../loadable-modules.md) and [Pluggable engines](../engines.md) for what plugs into the core.
+- [`AGENTS.md`](https://github.com/tinyhumansai/openhuman/blob/main/AGENTS.md) for the repo-wide rules, including which `vendor/` submodule owns what.

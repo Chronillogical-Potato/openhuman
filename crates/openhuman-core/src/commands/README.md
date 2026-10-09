@@ -5,7 +5,7 @@ slash-command menu offer right now? It has a single read-only controller,
 `commands.list`, that merges the core's fixed built-in slash commands with the
 live skill and workflow catalogs. The frontend calls it once
 (`openhuman.commands_list` from
-`app/src/features/conversations/aui/useSlashCommandSource.ts`) instead of
+[`app/src/features/conversations/aui/useSlashCommandSource.ts`](../../../../app/src/features/conversations/aui/useSlashCommandSource.ts)) instead of
 making three separate calls.
 
 Listing a command here never runs it. Each entry tells the frontend how to
@@ -34,7 +34,7 @@ ops::commands_list
 CommandsListResponse { commands: [CommandEntry, ...] }
 ```
 
-The built-ins come from the `BUILTINS` table in `ops.rs`: `/new`, `/clear`,
+The built-ins come from the `BUILTINS` table in [`ops.rs`](./ops.rs): `/new`, `/clear`,
 `/plan`, `/build`, `/goal`, `/todo` and `/stop`. For each one the `id` is the
 bare name (`"new"`), while `label` and `insert` keep the leading slash
 (`"/new"`). The frontend inserts the `insert` text into the composer, and the
@@ -59,10 +59,10 @@ whole palette down, and the built-ins are always returned.
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Module declarations, re-exports of `CommandEntry` and `CommandKind`, and `all_commands_registered_controllers` for the registry. |
-| `types.rs` | Wire types: `CommandKind`, `CommandEntry`, `CommandsListResponse`. |
+| [`mod.rs`](./mod.rs) | Module declarations, re-exports of `CommandEntry` and `CommandKind`, and `all_commands_registered_controllers` for the registry. |
+| [`types.rs`](./types.rs) | Wire types: `CommandKind`, `CommandEntry`, `CommandsListResponse`. |
 | `ops.rs` | The `BUILTINS` table, the in-process controller lookup, and `commands_list`. |
-| `schemas.rs` | The `commands.list` controller schema and its thin handler. |
+| [`schemas.rs`](./schemas.rs) | The `commands.list` controller schema and its thin handler. |
 
 ## Key types and entry points
 
@@ -78,7 +78,7 @@ whole palette down, and the built-ins are always returned.
 - `commands_list` (`ops.rs`) is the business operation and returns
   `Outcome<CommandsListResponse>`.
 - `all_commands_registered_controllers` (`mod.rs`) is what
-  `core/all.rs` pushes into the controller registry.
+  [`core/all.rs`](../core/all.rs) pushes into the controller registry.
 
 ## RPC / CLI surface
 
@@ -98,7 +98,7 @@ is part of the chat surface and always on.
   `crate::flows` (backed by the `tinyflows` submodule).
 - The menu UI, its local command registry and the merge with
   frontend-only commands live in the app (`useSlashCommandSource.ts` and
-  `app/src/lib/commands/`).
+  [`app/src/lib/commands/`](../../../../app/src/lib/commands/)).
 
 ## Gotchas
 
@@ -112,6 +112,12 @@ is part of the chat surface and always on.
 
 ## Tests
 
-Tests sit beside each module (`ops_tests.rs`, `schemas_tests.rs`,
-`types_tests.rs`). Run them with `cargo test -p openhuman commands::` or
+Tests sit beside each module ([`ops_tests.rs`](./ops_tests.rs), [`schemas_tests.rs`](./schemas_tests.rs),
+[`types_tests.rs`](./types_tests.rs)). Run them with `cargo test -p openhuman commands::` or
 `pnpm debug rust commands::`.
+
+## Further reading
+
+- [Parent module README](../../README.md)
+- [Deep architecture reference](../../../../gitbooks/developing/architecture.md)
+- [Chat](../../../../gitbooks/features/chat.md)
