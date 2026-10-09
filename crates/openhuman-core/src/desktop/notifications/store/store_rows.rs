@@ -5,8 +5,9 @@ use chrono::{DateTime, Utc};
 
 use super::super::types::{IntegrationNotification, NotificationStatus};
 
-
-pub(super) fn rows_to_notifications(mut rows: rusqlite::Rows<'_>) -> Result<Vec<IntegrationNotification>> {
+pub(super) fn rows_to_notifications(
+    mut rows: rusqlite::Rows<'_>,
+) -> Result<Vec<IntegrationNotification>> {
     let mut out = Vec::new();
     while let Some(row) = rows
         .next()
@@ -68,4 +69,3 @@ fn row_to_notification(row: &rusqlite::Row<'_>) -> Result<IntegrationNotificatio
         scored_at,
     })
 }
-
