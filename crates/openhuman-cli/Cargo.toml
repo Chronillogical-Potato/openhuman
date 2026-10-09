@@ -117,6 +117,12 @@ name = "cost_cap_removed"
 path = "../../tests/cost_cap_removed.rs"
 
 [[test]]
+# Installs a backend into the process-wide storage slot, so it needs its own
+# process: in a shared one it would reroute other suites' approvals.
+name = "storage_approvals_e2e"
+path = "../../tests/storage_approvals_e2e.rs"
+
+[[test]]
 name = "embedded_server_shutdown_e2e"
 path = "../../tests/embedded_server_shutdown_e2e.rs"
 
