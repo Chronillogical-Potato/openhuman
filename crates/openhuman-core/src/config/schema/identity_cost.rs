@@ -10,8 +10,8 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct CostConfig {
-    /// Retained for **recording**, not enforcement: nothing refuses a request
-    /// on cost any more. `CostTracker::record_usage` is a no-op when this is
+    /// Retained for **recording**, not enforcement: on its own it refuses
+    /// nothing (only opt-in [`Self::budgets`] can). `CostTracker::record_usage` is a no-op when this is
     /// `false`; `record_usage_unconditional` (the dashboard/telemetry path)
     /// ignores it.
     ///
