@@ -1,12 +1,12 @@
 <h1 align="center">OpenHuman</h1>
 
 <p align="center">
- <img src="./demo.gif" alt="A walkthrough of the OpenHuman desktop app" />
+ <strong>The fastest, cheapest, most efficient open-source agent harness. Run more than 500 agents on a $10 VPS.</strong><br/>
+ A desktop app for people. A Rust library for developers.
 </p>
 
 <p align="center">
- <strong>The fast, cheap, open-source agent harness. Run 500 agents on a $10 VPS.</strong><br/>
- A desktop app for people. A Rust library for developers.
+ <img src="./demo.gif" alt="A walkthrough of the OpenHuman desktop app" />
 </p>
 
 <p align="center">
@@ -45,7 +45,6 @@
 </p>
 
 > **Early beta.** OpenHuman is under active development, so expect rough edges. The checklist for leaving beta is public: [#6047](https://github.com/tinyhumansai/openhuman/issues/6047).
-
 
 ---
 
@@ -204,7 +203,6 @@ Read [`CONTRIBUTING.md`](./CONTRIBUTING.md), or let an AI coding agent guide you
 More: [Getting set up](./gitbooks/developing/getting-set-up.md), [`AGENTS.md`](./AGENTS.md) and the [crates overview](./crates/README.md). Much of OpenHuman lives in its own repos under [`vendor/`](./vendor), and those welcome contributions too.
 
 Contributors get free merch and special access on [Discord](https://guild.tinyhumans.ai/).
-
 
 ## Star history
 
