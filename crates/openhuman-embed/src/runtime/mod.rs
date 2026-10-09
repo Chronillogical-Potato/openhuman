@@ -224,6 +224,9 @@ pub struct Runtime {
     /// The config every agent starts from. Already carries the runtime-wide
     /// defaults (backend URL, access, provider model, supplied overrides).
     base_config: Config,
+    /// Why the discovered config could not be loaded, when it could not:
+    /// `base_config` is then a placeholder and agents are refused.
+    config_unavailable: Option<String>,
     /// Where `Workspace::Inherit` resolved to, for the per-agent layout rule.
     inherited: bool,
     domains: DomainSet,
@@ -253,6 +256,13 @@ impl Runtime {
     /// agent (any clone of it) is alive.
     pub fn agent(&self, spec: AgentSpec) -> Result<Agent, AgentError> {
         let id = spec.id().to_string();
+        if let Some(error) = &self.config_unavailable {
+            log::warn!("[embed][runtime] agent refused id={id}: config unavailable");
+            return Err(AgentError::Invalid(format!(
+                "the runtime's config failed to load ({error}); refusing to start an agent \
+                 on a default workspace"
+            )));
+        }
         // Held across `instantiate` (fs layout only, no turn, no await) so a
         // concurrent `agent()` call for the same id cannot pass the duplicate
         // check while this one is still being built. Releasing the lock
@@ -299,6 +309,11 @@ impl Runtime {
     /// [`MemoryError::InvalidRequest`](crate::memory::MemoryError::InvalidRequest)
     /// when `root` is not a valid layout root, or is the store root itself.
     pub fn memory(&self, root: &str) -> crate::memory::MemoryResult<crate::memory::Memory> {
+        if let Some(error) = &self.config_unavailable {
+            return Err(crate::memory::MemoryError::InvalidRequest(format!(
+                "the runtime's config failed to load ({error})"
+            )));
+        }
         crate::memory::Memory::bind(self.base_config.clone(), root)
     }
 
@@ -392,6 +407,7 @@ impl Runtime {
         >,
         seams: Option<seams::InstalledSeams>,
         base_config: Config,
+        config_unavailable: Option<String>,
         inherited: bool,
         domains: DomainSet,
         tool_groups: ToolGroups,
@@ -408,6 +424,7 @@ impl Runtime {
                 seams,
             }),
             base_config,
+            config_unavailable,
             inherited,
             domains,
             tool_groups,
