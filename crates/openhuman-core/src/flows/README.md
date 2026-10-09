@@ -233,6 +233,19 @@ so the digest subscriber, `flows_delete`, the `memory` node adapter
 (`tinyflows::memory_adapter::OpenHumanMemory`) and the agent tools all tag the
 same way.
 
+### On a storage backend
+
+With a storage backend configured (`OPENHUMAN_STORAGE_URL` / `[storage] url`,
+see `crate::storage`), the catalog (`store.rs`), drafts (`draft_store.rs`),
+per-flow state and the run checkpointer move off `flows/flows.db`,
+`flows/drafts/` and `flows/checkpoints.db` onto the document port, in the
+acting agent's scope: `tinyflows_drivers::catalog::FlowCatalogDocuments`,
+`FlowStateDocuments` (through `tinyflows/state.rs`'s `FlowState`, which the
+engine's `StateStore` and the dedup settlement share) and
+`DriverCheckpointer`. When the scope cannot be resolved (SaaS mode with no
+acting agent) flow state fails every call rather than falling back to the
+local file.
+
 ## Layout
 
 Top level:

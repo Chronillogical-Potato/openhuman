@@ -92,6 +92,25 @@ fn an_unsafe_deployment_is_refused_before_it_binds() {
 }
 
 #[test]
+fn an_unsafe_tool_allowlist_is_refused_before_it_binds() {
+    let d = deployment(true);
+    std::fs::write(
+        &d.config,
+        format!(
+            "root = {:?}\ntool_allowlist = [\"coding\", \"host_shell\"]\n\n[sandbox]\nnetwork = \"host\"\n",
+            d.root.display().to_string()
+        ),
+    )
+    .unwrap();
+    let output = core_command(&d, &[]).output().expect("run openhuman-core");
+    assert!(!output.status.success(), "an unsafe allowlist must fail");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("not tool groups"), "{stderr}");
+    assert!(stderr.contains("network `host`"), "{stderr}");
+    assert!(!d.root.join("operator").exists());
+}
+
+#[test]
 fn saas_mode_without_an_operator_config_is_refused() {
     let output = Command::new(env!("CARGO_BIN_EXE_openhuman-core"))
         .args(["run", "--mode", "saas"])

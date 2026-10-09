@@ -149,8 +149,9 @@ user's `Config`. The first SaaS boot locks it (`lock_mode`), and from then on
 through `runtime/saas.rs`:
 
 - `SaasConfig` is the **operator's** file. It sets `root`,
-  `service_token_file` (defaults to `<root>/service.token`), `tool_allowlist`,
-  `rpc_allowlist_extra`, `max_agents_open`, `idle_evict_secs`,
+  `service_token_file` (defaults to `<root>/service.token`), `tool_allowlist`
+  (host tool groups, see `user_agents/README.md`), `[sandbox]` (the shell
+  container), `rpc_allowlist_extra`, `max_agents_open`, `idle_evict_secs`,
   `shared_backend_api_key`, `custom_definitions` and `require_user_signature`
   (default `true`). Unknown keys are refused.
 - `runtime/boot_guard.rs` refuses the boot, listing every problem at once,
@@ -160,7 +161,10 @@ through `runtime/saas.rs`:
   - single-user or back-door environment variables are set
     (`OPENHUMAN_WORKSPACE`, `OPENHUMAN_DEV_CONNECT`, backend tokens,
     `OPENHUMAN_CORE_TOKEN`, approval gate or sandbox switched off);
-  - an allowlist is non-empty before its isolation has shipped;
+  - `tool_allowlist` names something other than a tool group, or allowlists
+    `host_shell` without a working Docker, with network `host`, no image, or
+    non-positive limits;
+  - `rpc_allowlist_extra` is non-empty (the per-user RPC surface is fixed);
   - the root is relative, missing, world-writable or inside `~/.openhuman`;
   - the service token is missing, readable by others, or shorter than 32 bytes.
 - The operator plane boots with its own config under `<root>/operator/`, so

@@ -263,7 +263,7 @@ memory.
 | `memory_sources_sync` | `{id?}` | `{started: string[]}` |
 | `memory_jobs_list` | `{}` | `{pending: QueuedJob[], history: JobRun[]}` |
 | `memory_jobs_run` | `{id?}` | `{runs: JobRun[]}`; ignores the build delay |
-| `memory_import_scan` | `{}` | `{found, counts?: {documents, conversations, learnings}}` |
+| `memory_import_scan` | `{}` | `{found, counts?: {documents, conversations, learnings}}`; counts (and the import) leave out anything v1 synced from Composio/connectors (Gmail, Slack, Notion, Linear, GitHub, ClickUp, ...): `skill-*`/`source:*` documents, email and connector-prefixed chunk sources, `*-sync:*` chunk owners, `skill-*` profile facets and graph namespaces. Conversations, memory-source folders/files, learnings, events, graph, goals and persona still come across |
 | `memory_import_start` | `{consent: true}` | `{state: ImportState}` |
 | `memory_import_status` | `{}` | `{state: ImportState}` |
 | `memory_import_retry_failed` | `{}` | `{state: ImportState}`; stores again the items a finished import skipped because the engine refused them (`ImportState.failed` counts them) |
