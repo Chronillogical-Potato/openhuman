@@ -32,6 +32,7 @@ fn a_configured_backend_holds_keyring_and_credential_secrets() {
     HttpCredentialsStore::new(&state, false)
         .upsert(&HttpCredential::bearer("legacy-http", "ghp-legacy"))
         .unwrap();
+    keyring::set("legacy-user", "old_token", "old-value").unwrap();
     let profiles_file = std::fs::read(state.join("auth-profiles.json")).unwrap();
     let http_file = std::fs::read(state.join("http-credentials.json")).unwrap();
 
@@ -51,6 +52,15 @@ fn a_configured_backend_holds_keyring_and_credential_secrets() {
     assert!(keyring::is_available());
     keyring::delete("user-1", "api_token").unwrap();
     assert!(keyring::get("user-1", "api_token").unwrap().is_none());
+
+    // A secret the process keyring held is adopted on first read, and a
+    // delete removes it from both places so it cannot resurface.
+    assert_eq!(
+        keyring::get("legacy-user", "old_token").unwrap().as_deref(),
+        Some("old-value")
+    );
+    keyring::delete("legacy-user", "old_token").unwrap();
+    assert!(keyring::get("legacy-user", "old_token").unwrap().is_none());
 
     let profiles = AuthProfilesStore::new(&state, false);
     profiles
