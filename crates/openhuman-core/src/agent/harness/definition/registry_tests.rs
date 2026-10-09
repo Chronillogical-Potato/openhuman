@@ -60,8 +60,16 @@ fn builtins_only_registry_holds_builtins_only() {
 }
 
 #[test]
-fn an_extra_or_file_sourced_definition_is_not_builtins_only() {
-    let base = AgentDefinitionRegistry::builtins_only();
-    let extra = base.with_definitions([named("own-worker", "added")]);
-    assert!(extra.holds_builtins_only(), "an extra Builtin-sourced id still matches the id set only if present");
+fn an_extra_definition_is_not_builtins_only() {
+    let extra = AgentDefinitionRegistry::builtins_only()
+        .with_definitions([named("own-worker", "added")]);
+    assert!(!extra.holds_builtins_only());
+}
+
+#[test]
+fn a_file_sourced_override_is_not_builtins_only() {
+    let mut overridden = named("orchestrator", "from a workspace file");
+    overridden.source = DefinitionSource::File("/ws/agents/orchestrator.toml".into());
+    let registry = AgentDefinitionRegistry::builtins_only().with_definitions([overridden]);
+    assert!(!registry.holds_builtins_only());
 }

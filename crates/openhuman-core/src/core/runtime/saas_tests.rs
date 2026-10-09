@@ -114,3 +114,30 @@ fn the_saas_presets_are_closed() {
         ServiceSet::none()
     );
 }
+
+#[test]
+fn boot_refuses_an_unseeded_definition_registry() {
+    let err = verify_builtin_definitions(None).unwrap_err().to_string();
+    assert!(err.contains("not seeded"), "{err}");
+}
+
+#[test]
+fn boot_accepts_a_builtins_only_registry() {
+    let registry = crate::agent::harness::AgentDefinitionRegistry::builtins_only();
+    verify_builtin_definitions(Some(&registry)).unwrap();
+}
+
+#[test]
+fn boot_refuses_a_registry_with_workspace_definitions() {
+    use crate::agent::harness::{AgentDefinitionRegistry, DefinitionSource};
+    let mut custom = AgentDefinitionRegistry::builtins_only()
+        .get("orchestrator")
+        .cloned()
+        .expect("built-in orchestrator");
+    custom.source = DefinitionSource::File("/ws/agents/orchestrator.toml".into());
+    let registry = AgentDefinitionRegistry::builtins_only().with_definitions([custom]);
+    let err = verify_builtin_definitions(Some(&registry))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("built-ins only"), "{err}");
+}
