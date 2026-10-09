@@ -85,6 +85,9 @@ impl AgentHost {
 
     /// Create agent `id`'s directories. Returns whether it was new.
     pub fn provision(&self, id: &UserAgentId) -> Result<bool, String> {
+        // Under the open-agent lock, like `deprovision`, so the two never
+        // interleave on one agent's directory.
+        let _guard = self.lock();
         let layout = self.layout(id);
         if layout.meta_path.exists() {
             log::debug!("[user_agents] provision agent={id}: already provisioned");
@@ -146,6 +149,11 @@ impl AgentHost {
         let mut open = self.lock();
         if let Some(slot) = open.get_mut(id) {
             slot.last_used = now;
+        }
+        // Every open sweeps agents idle past `idle_evict_secs`, so they close
+        // even when no new user arrives.
+        self.sweep_idle_locked(&mut open, now);
+        if let Some(slot) = open.get(id) {
             return Ok(Arc::clone(&slot.state));
         }
 
@@ -244,16 +252,22 @@ impl AgentHost {
         self.evict_locked(&mut open, Instant::now());
     }
 
-    fn evict_locked(&self, open: &mut HashMap<UserAgentId, Slot>, now: Instant) {
+    /// Close agents idle past `idle_evict_secs` that nothing is using.
+    fn sweep_idle_locked(&self, open: &mut HashMap<UserAgentId, Slot>, now: Instant) {
         let idle_limit = Duration::from_secs(self.saas.idle_evict_secs);
-        let in_use = |slot: &Slot| Arc::strong_count(&slot.state) > 1;
         open.retain(|id, slot| {
-            let keep = in_use(slot) || now.duration_since(slot.last_used) < idle_limit;
+            let keep = Arc::strong_count(&slot.state) > 1
+                || now.duration_since(slot.last_used) < idle_limit;
             if !keep {
                 log::debug!("[user_agents] evicted idle agent={id}");
             }
             keep
         });
+    }
+
+    fn evict_locked(&self, open: &mut HashMap<UserAgentId, Slot>, now: Instant) {
+        let in_use = |slot: &Slot| Arc::strong_count(&slot.state) > 1;
+        self.sweep_idle_locked(open, now);
         // Still full: make room by closing the least recently used idle one.
         if open.len() >= self.saas.max_agents_open.max(1) {
             let victim = open
