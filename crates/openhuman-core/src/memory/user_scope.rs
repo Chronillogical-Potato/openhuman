@@ -41,7 +41,10 @@ pub fn confinement_in(saas: bool, config: &Config) -> MemoryResult<Option<Namesp
     match raw.parse::<Namespace>() {
         Ok(root) if root != Namespace::ROOT => Ok(Some(root)),
         Ok(_) | Err(_) => {
-            tracing::error!(root = raw, "[memory:user_scope] no valid confinement root in SaaS mode");
+            tracing::error!(
+                root = raw,
+                "[memory:user_scope] no valid confinement root in SaaS mode"
+            );
             Err(MemoryError::invalid(
                 "memory is unavailable: this agent has no valid memory root",
             ))
