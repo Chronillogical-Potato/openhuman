@@ -38,9 +38,9 @@ and post-dispatch, move a failure out of the default.
 
 | File | Role |
 | --- | --- |
-| `mod.rs` | `PoolRunError`, the shared `run_inline` dispatch, and `classify`. |
-| `node.rs` / `python.rs` | Per-language `enabled()` and `run_inline()`; they differ only in which language they name. |
-| `types.rs` | `PoolExecOutcome` (with `queue_wait` kept apart from `elapsed`), `PoolLang`, `PoolSettings`. |
+| [`mod.rs`](./mod.rs) | `PoolRunError`, the shared `run_inline` dispatch, and `classify`. |
+| [`node.rs`](./node.rs) / [`python.rs`](./python.rs) | Per-language `enabled()` and `run_inline()`; they differ only in which language they name. |
+| [`types.rs`](./types.rs) | `PoolExecOutcome` (with `queue_wait` kept apart from `elapsed`), `PoolLang`, `PoolSettings`. |
 
 ## Why it exists
 

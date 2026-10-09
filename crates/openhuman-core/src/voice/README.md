@@ -27,7 +27,7 @@ and third-party APIs.
 ### Provider routing
 
 Every STT and TTS request is resolved to a provider string, and the factory in
-`factory/` turns that string into a boxed `SttProvider` or `TtsProvider`. The
+[`factory/`](./factory/) turns that string into a boxed `SttProvider` or `TtsProvider`. The
 grammar is small:
 
 | String | STT | TTS |
@@ -43,7 +43,7 @@ through to the slug lookup and fail by name rather than silently degrading;
 error.
 
 Which string applies is decided by `effective_stt_provider` and
-`effective_tts_provider` in `factory/helpers.rs`. TTS walks the top-level
+`effective_tts_provider` in [`factory/helpers.rs`](./factory/helpers.rs). TTS walks the top-level
 `config.tts_provider`, then `config.local_ai.tts_provider`, then defaults to
 `"cloud"`. STT walks `config.stt_provider` and `config.local_ai.stt_provider`
 but accepts a value only if it names a specific provider. An empty value or
@@ -70,13 +70,13 @@ Settings is not shadowed by a legacy `"cloud"` default.
 
 The local-AI service's STT path in
 `inference/host_runtime/service/speech.rs` resolves its provider the same way,
-which is why `voice_transcribe` in `ops.rs` goes through
+which is why `voice_transcribe` in [`ops.rs`](./ops.rs) goes through
 `local_ai::service::transcribe_with_prompt` rather than calling a provider
 directly.
 
 ### File and byte transcription
 
-`voice.transcribe` and `voice.transcribe_bytes` (both in `ops.rs`) run the same
+`voice.transcribe` and `voice.transcribe_bytes` (both in [`ops.rs`](./ops.rs)) run the same
 sequence. The bytes variant first writes the audio to a temp file under
 `openhuman_voice_input` (extension checked by `normalize_extension`) and removes
 it afterwards. The audio then goes through the effective STT provider. The
@@ -89,8 +89,8 @@ result is a `VoiceSpeechResult` carrying both the cleaned `text` and the
 
 ### Hotkey dictation
 
-The dictation server lives in `server/` (see [server/README.md](server/README.md)).
-A hotkey press starts a recording through `audio_capture.rs`; release (or a
+The dictation server lives in [`server/`](./server/) (see [server/README.md](server/README.md)).
+A hotkey press starts a recording through [`audio_capture.rs`](./audio_capture.rs); release (or a
 second tap, depending on `ActivationMode`) stops it and hands the WAV to a
 background pipeline:
 
@@ -124,7 +124,7 @@ isolated, unregistered `VoiceServer` on purpose.
 
 ### Always-on listening
 
-`always_on/` keeps the microphone open and uses VAD to cut the stream into
+[`always_on/`](./always_on/) keeps the microphone open and uses VAD to cut the stream into
 utterances, so no hotkey is needed (see [always_on/README.md](always_on/README.md)).
 It is opt-in through `config.voice_server.always_on_enabled` and pauses while
 the screen is locked (macOS only; other platforms have no lock signal yet).
@@ -134,7 +134,7 @@ through `dictation_listener::publish_transcription`.
 
 ### Broadcast channels and events
 
-`dictation_listener.rs` owns two process-global `tokio::sync::broadcast`
+[`dictation_listener.rs`](./dictation_listener.rs) owns two process-global `tokio::sync::broadcast`
 channels: `DictationEvent` (`pressed` / `released`) through
 `publish_dictation_event` / `subscribe_dictation_events`, and transcript text
 through `publish_transcription` / `subscribe_transcription_results`. The
@@ -144,7 +144,7 @@ frontend without Tauri-side shortcut registration. The same file starts and
 stops the core-side rdev listener (`start_if_enabled` / `stop`) and normalizes
 hotkey strings with `normalize_hotkey_for_rdev`.
 
-Typed events go through the process-wide `BUS`. `bus.rs` publishes
+Typed events go through the process-wide `BUS`. [`bus.rs`](./bus.rs) publishes
 `DomainEvent::Voice(VoiceEvent::PttTranscriptCommitted)` with the thread id,
 session id, text length, held milliseconds and a watchdog flag. The raw
 transcript is never included.
@@ -161,16 +161,16 @@ provider returns the same shape (Piper with a synthetic viseme timeline).
 
 ### Live voice agents
 
-`live/` runs realtime, two-way speech sessions with the agent, including tool
-calls. One WebSocket at `/ws/live-voice` is one session. `live/providers.rs`
+[`live/`](./live/) runs realtime, two-way speech sessions with the agent, including tool
+calls. One WebSocket at `/ws/live-voice` is one session. [`live/providers.rs`](./live/providers.rs)
 knows four providers: `gemini-hosted` (a backend-minted Gemini Live relay
-ticket), `elevenlabs-hosted` (a backend-signed agent URL from `realtime.rs`),
+ticket), `elevenlabs-hosted` (a backend-signed agent URL from [`realtime.rs`](./realtime.rs)),
 `gemini` (BYOK with `provider:google`) and `sarvam` (BYOK with
-`provider:sarvam`). `live/session.rs` builds the orchestrator's session host
+`provider:sarvam`). [`live/session.rs`](./live/session.rs) builds the orchestrator's session host
 for the thread, wraps its tools in `agent::tinyagents::live_harness` (approval,
 tool policy, CLI/RPC-only filtering, credential scrubbing) and starts a
 `tinyagents_live::LiveAgent` inside a `voice` external-channel origin and
-approval chat scope. `live/persist.rs` writes final transcripts back into the
+approval chat scope. [`live/persist.rs`](./live/persist.rs) writes final transcripts back into the
 thread.
 
 ```text
@@ -211,7 +211,7 @@ provider's wire format.
 
 ### Realtime harness turns
 
-`realtime_harness/` is the older ElevenLabs Agents path. The backend relays each
+[`realtime_harness/`](./realtime_harness/) is the older ElevenLabs Agents path. The backend relays each
 turn of a hosted ElevenLabs session down the socket as `voice:harness`, and
 `handle_voice_harness_turn` (spawned from
 `platform/socket/event_handlers.rs`) runs the local orchestrator agent, the same
@@ -220,7 +220,7 @@ one chat and the meet bot use, then streams the reply back as
 
 ### Streaming dictation WebSocket
 
-`streaming.rs` handles `/ws/dictation` (mounted and authenticated by
+[`streaming.rs`](./streaming.rs) handles `/ws/dictation` (mounted and authenticated by
 `crates/openhuman-rpc/src/server/http/dictation.rs`). The client sends PCM16
 16 kHz mono binary frames and a `{"type":"stop"}` text frame; the core
 accumulates the audio, encodes WAV through the `tinyvoice` module, and returns
@@ -232,51 +232,51 @@ per tick would multiply request count for text the client discards.
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Feature gate and exports. Re-exports the factory, ops, schemas and types, and defines `cloud_transcribe_default_model()` (`"whisper-v1"`). |
-| `types.rs` | RPC result types `VoiceSpeechResult`, `VoiceTtsResult`, `VoiceStatus`, with `From` conversions from the local-AI types. |
+| [`mod.rs`](./mod.rs) | Feature gate and exports. Re-exports the factory, ops, schemas and types, and defines `cloud_transcribe_default_model()` (`"whisper-v1"`). |
+| [`types.rs`](./types.rs) | RPC result types `VoiceSpeechResult`, `VoiceTtsResult`, `VoiceStatus`, with `From` conversions from the local-AI types. |
 | `ops.rs` | `voice_status`, `voice_transcribe`, `voice_transcribe_bytes`, `voice_tts`, `normalize_extension`. All return `Outcome<T>`. |
-| `factory/` | Provider traits and implementations. `entry.rs` has `create_*_provider`, `default_*_provider`, `DEFAULT_STT_MODEL`, `DEFAULT_PIPER_VOICE`; `traits.rs` the traits; `stt_providers.rs` (`CloudSttProvider`, `ExternalSttProvider`); `tts_providers.rs` (`CloudTtsProvider`, `PiperTtsProvider`, `ExternalTtsProvider`); `helpers.rs` (`split_slug_model`, `effective_*_provider`, slug lookup in `config.voice_providers`). |
-| `schemas/` | Controller schemas and handlers. `registry.rs` lists the methods and chains in the `live` controllers; `params.rs` and `helpers.rs` parse input; `handlers.rs` with `handlers/transcribe_tts.rs` and `handlers/provider_server.rs` hold the `handle_voice_*` and `handle_overlay_stt_notify` functions. |
-| `cloud_transcribe.rs` | Auth adapter for hosted STT: resolves the backend credential and calls `tinyinference_voice::cloud` against `/openai/v1/audio/transcriptions`. |
-| `local_speech.rs` | Config adapter for Piper: resolves the binary and voice through the local runtime and calls `tinyinference-voice`. |
-| `postprocess.rs` | Config adapter for LLM transcript cleanup (`cleanup_transcription`). |
-| `streaming.rs` | `/ws/dictation` handler (`handle_dictation_ws`). Compiled only with both `voice` and `http-server`. |
-| `reply_speech.rs` | Agent reply synthesis through the backend speech endpoint (`synthesize_reply`, `ReplySpeechOptions`). |
-| `server.rs`, `server/` | The `VoiceServer` dictation runtime: hotkey loop, recording lifecycle, gates, delivery, global singleton. [README](server/README.md). |
-| `always_on.rs`, `always_on/` | VAD-driven continuous listening, screen-lock pause, wake word and intent routing. [README](always_on/README.md). |
-| `audio_capture.rs` | Microphone recording to 16 kHz mono WAV (`start_recording`, `RecordingHandle`, `RecordingResult`, `list_input_devices`) with peak RMS and the host microphone-permission policy. The `cpal` stream is `tinyvoice::capture`. |
-| `hotkey.rs` | Re-export of `tinyvoice::hotkey`: `ActivationMode`, `HotkeyEvent`, `HotkeyCombination`, `parse_hotkey`, `start_listener`. Its tests live in tinyvoice. |
-| `dictation_listener.rs` | The two broadcast channels and the core-side rdev listener lifecycle. |
-| `bus.rs` | `publish_ptt_transcript_committed`. |
+| [`factory/`](./factory/) | Provider traits and implementations. `entry.rs` has `create_*_provider`, `default_*_provider`, `DEFAULT_STT_MODEL`, `DEFAULT_PIPER_VOICE`; `traits.rs` the traits; `stt_providers.rs` (`CloudSttProvider`, `ExternalSttProvider`); `tts_providers.rs` (`CloudTtsProvider`, `PiperTtsProvider`, `ExternalTtsProvider`); `helpers.rs` (`split_slug_model`, `effective_*_provider`, slug lookup in `config.voice_providers`). |
+| [`schemas/`](./schemas/) | Controller schemas and handlers. `registry.rs` lists the methods and chains in the [`live`](./live) controllers; `params.rs` and `helpers.rs` parse input; `handlers.rs` with `handlers/transcribe_tts.rs` and `handlers/provider_server.rs` hold the `handle_voice_*` and `handle_overlay_stt_notify` functions. |
+| [`cloud_transcribe.rs`](./cloud_transcribe.rs) | Auth adapter for hosted STT: resolves the backend credential and calls `tinyinference_voice::cloud` against `/openai/v1/audio/transcriptions`. |
+| [`local_speech.rs`](./local_speech.rs) | Config adapter for Piper: resolves the binary and voice through the local runtime and calls `tinyinference-voice`. |
+| [`postprocess.rs`](./postprocess.rs) | Config adapter for LLM transcript cleanup (`cleanup_transcription`). |
+| [`streaming.rs`](./streaming.rs) | `/ws/dictation` handler (`handle_dictation_ws`). Compiled only with both `voice` and `http-server`. |
+| [`reply_speech.rs`](./reply_speech.rs) | Agent reply synthesis through the backend speech endpoint (`synthesize_reply`, `ReplySpeechOptions`). |
+| [`server.rs`](./server.rs), [`server/`](./server/) | The `VoiceServer` dictation runtime: hotkey loop, recording lifecycle, gates, delivery, global singleton. [README](server/README.md). |
+| [`always_on.rs`](./always_on.rs), [`always_on/`](./always_on/) | VAD-driven continuous listening, screen-lock pause, wake word and intent routing. [README](always_on/README.md). |
+| [`audio_capture.rs`](./audio_capture.rs) | Microphone recording to 16 kHz mono WAV (`start_recording`, `RecordingHandle`, `RecordingResult`, `list_input_devices`) with peak RMS and the host microphone-permission policy. The `cpal` stream is `tinyvoice::capture`. |
+| [`hotkey.rs`](./hotkey.rs) | Re-export of `tinyvoice::hotkey`: `ActivationMode`, `HotkeyEvent`, `HotkeyCombination`, `parse_hotkey`, `start_listener`. Its tests live in tinyvoice. |
+| [`dictation_listener.rs`](./dictation_listener.rs) | The two broadcast channels and the core-side rdev listener lifecycle. |
+| [`bus.rs`](./bus.rs) | `publish_ptt_transcript_committed`. |
 | `live/` | Live voice agents: `providers.rs`, `session.rs`, `ws.rs` (`http-server` only), `persist.rs`, `ops.rs` / `schemas.rs` (`voice.live_*`), `types.rs`, `error.rs`, and `prompt.md` (voice guidance for the model). |
-| `realtime.rs` | `mint_voice_agent_signed_url`: a short-lived signed WebSocket URL from the backend's `/voice-agent/get-signed-url`. The provider API key never leaves the server. |
-| `realtime_harness.rs`, `realtime_harness/` | `voice:harness` turn handler: `prompt.rs` (prompt extraction), `agent.rs` (per-turn orchestrator), `chat_delivery.rs` (socket emits, deferred chat delivery), `turn_handler.rs`. |
-| `audio_toolkit/` | Podcast generation and email delivery (`audio_toolkit` RPC namespace and agent tools), under the same `voice` gate. [README](audio_toolkit/README.md). |
-| `cli.rs` | `openhuman voice` / `openhuman dictate`: a blocking standalone dictation server. Domain-owned because it never returns and does not fit the controller registry. |
-| `compile_status.rs` | `VOICE_COMPILED_IN`, compiled in both feature states. |
-| `stub.rs` | The disabled-voice facade, compiled only when `voice` is off. |
+| [`realtime.rs`](./realtime.rs) | `mint_voice_agent_signed_url`: a short-lived signed WebSocket URL from the backend's `/voice-agent/get-signed-url`. The provider API key never leaves the server. |
+| [`realtime_harness.rs`](./realtime_harness.rs), [`realtime_harness/`](./realtime_harness/) | `voice:harness` turn handler: `prompt.rs` (prompt extraction), `agent.rs` (per-turn orchestrator), `chat_delivery.rs` (socket emits, deferred chat delivery), `turn_handler.rs`. |
+| [`audio_toolkit/`](./audio_toolkit/) | Podcast generation and email delivery (`audio_toolkit` RPC namespace and agent tools), under the same `voice` gate. [README](audio_toolkit/README.md). |
+| [`cli.rs`](./cli.rs) | `openhuman voice` / `openhuman dictate`: a blocking standalone dictation server. Domain-owned because it never returns and does not fit the controller registry. |
+| [`compile_status.rs`](./compile_status.rs) | `VOICE_COMPILED_IN`, compiled in both feature states. |
+| [`stub.rs`](./stub.rs) | The disabled-voice facade, compiled only when `voice` is off. |
 
 ## Key types and entry points
 
-- `SttProvider` / `TtsProvider` (`factory/traits.rs`) are the traits every
+- `SttProvider` / `TtsProvider` ([`factory/traits.rs`](./factory/traits.rs)) are the traits every
   backend implements. `SttResult` carries `text` and the `provider` that
   produced it.
-- `create_stt_provider` / `create_tts_provider` (`factory/entry.rs`) map a
+- `create_stt_provider` / `create_tts_provider` ([`factory/entry.rs`](./factory/entry.rs)) map a
   provider string to an implementation. Add a new engine as a branch here plus a
   sibling module; the doc comment in `entry.rs` describes how Kokoro would be
   added.
-- `effective_stt_provider` / `effective_tts_provider` (`factory/helpers.rs`)
+- `effective_stt_provider` / `effective_tts_provider` ([`factory/helpers.rs`](./factory/helpers.rs))
   decide which provider string applies for a given config.
 - `voice_transcribe`, `voice_transcribe_bytes`, `voice_tts`, `voice_status`
   (`ops.rs`) are the business operations behind the core RPCs.
-- `VoiceServer` (`server/runtime.rs`) with `global_server`, `try_global_server`,
-  `start_if_enabled` and `run_standalone` (`server/singleton.rs`).
+- `VoiceServer` ([`server/runtime.rs`](./server/runtime.rs)) with `global_server`, `try_global_server`,
+  `start_if_enabled` and `run_standalone` ([`server/singleton.rs`](./server/singleton.rs)).
 - `always_on::start_if_enabled` / `always_on::stop` start and stop continuous
   listening; the config controller calls `start_if_enabled` again after
   voice-server settings are saved.
-- `synthesize_reply` (`reply_speech.rs`) and `transcribe_cloud`
-  (`cloud_transcribe.rs`) are the direct hosted-backend entry points.
-- `handle_live_voice_ws` (`live/ws.rs`) and `handle_dictation_ws`
+- `synthesize_reply` ([`reply_speech.rs`](./reply_speech.rs)) and `transcribe_cloud`
+  ([`cloud_transcribe.rs`](./cloud_transcribe.rs)) are the direct hosted-backend entry points.
+- `handle_live_voice_ws` ([`live/ws.rs`](./live/ws.rs)) and `handle_dictation_ws`
   (`streaming.rs`) are the WebSocket handlers the RPC crate mounts.
 - `handle_voice_harness_turn` (`realtime_harness/`) runs one realtime harness
   turn.
@@ -307,9 +307,9 @@ All methods are in the `voice` namespace and registered through
 | `voice.live_settings_get`, `voice.live_settings_set` | Read or patch `[voice_live]`: default provider and per-provider model, voice and language. |
 | `voice.live_test_provider` | Open a live session, wait for `Ready`, close; returns `{ ok, latency_ms, error }`. |
 
-The CLI adapter in `cli.rs` is registered in `core/all.rs` without a feature
+The CLI adapter in [`cli.rs`](./cli.rs) is registered in `core/all.rs` without a feature
 gate, so a voice-less build answers `openhuman voice` with a "voice disabled"
-error from the stub. The `audio_toolkit` namespace is documented in its own
+error from the stub. The [`audio_toolkit`](./audio_toolkit) namespace is documented in its own
 README.
 
 ## Persistence
@@ -366,7 +366,7 @@ server, listener and always-on mode when gating credentials change),
 ## Gotchas
 
 - The `voice` feature is default-on, but `pub mod voice` always compiles as a
-  facade. With the feature off, `stub.rs` replaces the real modules and mirrors
+  facade. With the feature off, [`stub.rs`](./stub.rs) replaces the real modules and mirrors
   the surface other code depends on (`server`, `dictation_listener`,
   `always_on`, `streaming`, `live::ws`, `reply_speech`, `cloud_transcribe`,
   `cli`, `create_stt_provider`, `effective_stt_provider`, `SttProvider`,
@@ -403,7 +403,7 @@ server, listener and always-on mode when gating credentials change),
 ## Tests
 
 Tests sit beside their modules as `<module>_tests.rs` (for example
-`ops_tests.rs`, `factory/factory_tests.rs`, `live/session_tests.rs`), wired with
+[`ops_tests.rs`](./ops_tests.rs), [`factory/factory_tests.rs`](./factory/factory_tests.rs), [`live/session_tests.rs`](./live/session_tests.rs)), wired with
 `#[path = ...]`. Run them with `cargo test -p openhuman voice::` or
 `pnpm debug rust voice`. Check the disabled build with
 `cargo check --no-default-features` plus every product feature except `voice`.

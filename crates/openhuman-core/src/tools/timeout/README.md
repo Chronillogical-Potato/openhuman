@@ -23,7 +23,7 @@ Highest precedence first:
 | File | Role |
 | --- | --- |
 | `crates/openhuman-core/src/tools/timeout/mod.rs` | Entire module: constants, env parsing, pure resolver, atomic-backed runtime value, setter, public accessors. |
-| `crates/openhuman-core/src/tools/timeout/mod_tests.rs` | Unit tests for the module, run via the `#[path = "mod_tests.rs"] mod tests` include in `mod.rs`. |
+| `crates/openhuman-core/src/tools/timeout/mod_tests.rs` | Unit tests for the module, run via the `#[path = "mod_tests.rs"] mod tests` include in [`mod.rs`](./mod.rs). |
 
 ## Public surface
 

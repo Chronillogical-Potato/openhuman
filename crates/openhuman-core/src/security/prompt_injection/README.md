@@ -20,7 +20,7 @@ Centralized, deterministic prompt-injection screening. Given a user-provided pro
 
 ## Public surface
 
-Re-exported from `mod.rs` (all defined in `detector.rs`):
+Re-exported from [`mod.rs`](./mod.rs) (all defined in [`detector.rs`](./detector.rs)):
 
 - `enforce_prompt_input(input: &str, context: PromptEnforcementContext) -> PromptEnforcementDecision`: the entry point for user-facing prompts.
 - `scan_tool_definition(field: &str, text: &str) -> Option<ToolDefinitionScanHit>`: same rules applied to remote MCP tool descriptions and titles; any non-`Allow` verdict is a hit and the registry rejects the tool.

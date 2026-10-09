@@ -86,31 +86,31 @@ process lifecycle and the JSONL protocol are `tinyruntime_pyserver`.
 | --- | --- |
 | [`client/`](client/README.md) | The single import point for `modules::runtime` (`execute`, `resolve`, `RuntimeCallError`). With the `modules` feature off it re-exports `disabled.rs`, which answers every call with `RuntimeCallError::Unavailable`. |
 | [`node/`](node/README.md) | `NodeBootstrap`, the Node toolchain client (behind `runtime-node`), plus the ungated native-tool bridge (`ops.rs`, `types.rs`) and the `javascript.*` controllers (`schemas.rs`, `rpc.rs`). `stub.rs` carries the `NodeBootstrap` type surface when `runtime-node` is off. |
-| [`javascript/`](javascript/README.md) | A re-export facade over `node` so callers import a language slot (`crate::runtime::javascript`) instead of a backend. No logic. |
+| [`javascript/`](javascript/README.md) | A re-export facade over [`node`](./node) so callers import a language slot (`crate::runtime::javascript`) instead of a backend. No logic. |
 | [`python/`](python/README.md) | `PythonBootstrap`, the Python interpreter client. |
 | [`python_server/`](python_server/README.md) | Host side of the persistent Python worker: `ensure_started`, `status`, the backend registry and Kompress provisioning (`ensure_kompress`, `request_kompress`). |
 | [`pool/`](pool/README.md) | Pooled inline execution (`run_inline` per language), the per-language enable decision, and `PoolRunError` classification. |
 
 ## Key types and entry points
 
-- `NodeBootstrap`, `ResolvedNode`, `NodeSource` (`node/bootstrap.rs`) are the
+- `NodeBootstrap`, `ResolvedNode`, `NodeSource` ([`node/bootstrap.rs`](./node/bootstrap.rs)) are the
   Node toolchain client and its answer. `ShellTool` holds an
   `Option<Arc<NodeBootstrap>>`.
-- `PythonBootstrap`, `ResolvedPython`, `PythonSource` (`python/bootstrap.rs`)
+- `PythonBootstrap`, `ResolvedPython`, `PythonSource` ([`python/bootstrap.rs`](./python/bootstrap.rs))
   are the Python equivalents.
 - `pool::node::run_inline`, `pool::python::run_inline`, `PoolExecOutcome`,
-  `PoolRunError`, `PoolSettings` (`pool/`) are what `node_exec` and
+  `PoolRunError`, `PoolSettings` ([`pool/`](./pool/)) are what `node_exec` and
   `python_exec` call and match on.
 - `python_server::ensure_started`, `status`, `request_kompress`
-  (`python_server/`) start the worker and send it a compress request.
-- `runtime::node::execute_tool` and `list_tools` (`node/ops.rs`) build the
+  ([`python_server/`](./python_server/)) start the worker and send it a compress request.
+- `runtime::node::execute_tool` and `list_tools` ([`node/ops.rs`](./node/ops.rs)) build the
   full agent tool registry (`tools::ops::all_tools_with_runtime`) and run one
   tool by name, publishing `ToolExecutionStarted` and
   `ToolExecutionCompleted` on the bus with session id `"javascript"`.
 
 ## RPC / CLI surface
 
-With `runtime-node` on, `node/schemas.rs` registers the `javascript`
+With `runtime-node` on, [`node/schemas.rs`](./node/schemas.rs) registers the [`javascript`](./javascript)
 namespace through `core/all.rs`:
 
 | Method | Description |
@@ -131,7 +131,7 @@ namespace through `core/all.rs`:
   covered in [`modules/registry`](../modules/registry/README.md).
 - The exec tools that use these clients live in
   `crates/openhuman-core/src/tools/impl/system/`.
-- Runtime settings (`node`, `runtime_python`, `runtime_pool`) are defined
+- Runtime settings ([`node`](./node), `runtime_python`, `runtime_pool`) are defined
   under `config/schema/`.
 
 ## Gotchas
@@ -143,8 +143,8 @@ namespace through `core/all.rs`:
   instead of failing to build.
 - `runtime-node` (default on, and in `scripts/ci/product-features.txt`) gates
   the managed Node client, the `javascript.*` controllers, `node_exec`,
-  `npm_exec` and the `node_runtime` harness step. `node/ops.rs` and
-  `node/types.rs` stay ungated because the flows `oh:` native-tool backend
+  `npm_exec` and the `node_runtime` harness step. [`node/ops.rs`](./node/ops.rs) and
+  [`node/types.rs`](./node/types.rs) stay ungated because the flows `oh:` native-tool backend
   uses them in every build.
 - `PoolRunError` classification reads the module's error text
   ("pool is at capacity", "failed after dispatch"). Anything unrecognised is

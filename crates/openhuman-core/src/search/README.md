@@ -125,15 +125,15 @@ as a direct-only provider, and a keyless managed-Parallel selection is dropped.
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Module declarations. Without the `modules` feature it provides a stub `build_search_tools` that returns nothing. |
-| `providers.rs` | `ResolvedProvider`, `ProviderStatus`, `resolve`, `role_order`, `effective_role_providers`, and role key helpers (`ROLES`, `role_key`, `parse_role`). |
-| `render.rs` | `render`, `subject`, `provider_label`, and the text, markdown, and metadata builders. |
-| `tools.rs` | `TinySearchTool` (the `tinytools::Tool` bridge), `build_search_tools`, `user_facing_error`, the exhaustion latch, and the egress check. `modules` feature only. |
-| `bus.rs` | `CredentialRefreshSubscriber` (`search::credential_refresh`). `modules` feature only. |
+| [`mod.rs`](./mod.rs) | Module declarations. Without the `modules` feature it provides a stub `build_search_tools` that returns nothing. |
+| [`providers.rs`](./providers.rs) | `ResolvedProvider`, `ProviderStatus`, `resolve`, `role_order`, `effective_role_providers`, and role key helpers (`ROLES`, `role_key`, `parse_role`). |
+| [`render.rs`](./render.rs) | `render`, `subject`, `provider_label`, and the text, markdown, and metadata builders. |
+| [`tools.rs`](./tools.rs) | `TinySearchTool` (the `tinytools::Tool` bridge), `build_search_tools`, `user_facing_error`, the exhaustion latch, and the egress check. `modules` feature only. |
+| [`bus.rs`](./bus.rs) | `CredentialRefreshSubscriber` (`search::credential_refresh`). `modules` feature only. |
 
 ## Key types and entry points
 
-- `build_search_tools(&Config)` (`tools.rs`, stub in `mod.rs`) is what the tool
+- `build_search_tools(&Config)` ([`tools.rs`](./tools.rs), stub in [`mod.rs`](./mod.rs)) is what the tool
   registry calls. It returns an empty list when search is off or nothing is
   usable.
 - `TinySearchTool` (`tools.rs`) wraps one `ToolSpec`. `TinySearchTool::new`
@@ -195,8 +195,8 @@ read and written through `config/ops/search.rs`.
 
 ## Tests
 
-Tests sit beside each file (`providers_tests.rs`, `render_tests.rs`,
-`tools_tests.rs`, `bus_tests.rs`). Module config tests are in
+Tests sit beside each file ([`providers_tests.rs`](./providers_tests.rs), [`render_tests.rs`](./render_tests.rs),
+[`tools_tests.rs`](./tools_tests.rs), [`bus_tests.rs`](./bus_tests.rs)). Module config tests are in
 `modules/search/config_tests.rs`.
 
 ```bash

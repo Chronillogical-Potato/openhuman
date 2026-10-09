@@ -38,22 +38,22 @@ startup, and two are driven by events rather than calls. In boot order:
 
 The event-driven pieces:
 
-- `health` keeps an in-memory component registry. Its subscriber listens to
+- [`health`](./health) keeps an in-memory component registry. Its subscriber listens to
   `system` and `channel` domain events and marks components ok or in error.
   `GET /health` on the RPC server reads the verdict: 503 only when a critical
   component (`core`) is unhealthy, 200 with a `degraded` flag otherwise.
-- `service` turns a restart or shutdown request into
+- [`service`](./service) turns a restart or shutdown request into
   `DomainEvent::SystemRestartRequested` or `SystemShutdownRequested`. Its
   subscribers respawn the process or exit after a short flush window.
-  `update` uses the same restart path after staging a new binary.
-- `socket` goes the other way. It is the core's own Socket.IO client to the
+  [`update`](./update) uses the same restart path after staging a new binary.
+- [`socket`](./socket) goes the other way. It is the core's own Socket.IO client to the
   hosted backend, and it republishes inbound server events onto the bus
   (`WebhookIncomingRequest`, `ComposioTriggerReceived`,
   `ChannelInboundMessage`, device tunnel events) for other domains to handle.
 
 Some members read state other domains own instead of keeping their own.
-`doctor` reads the daemon state file `service` writes and the memory engine
-status from `memory`. `connectivity` reads the `SocketManager` state to tell
+[`doctor`](./doctor) reads the daemon state file `service` writes and the memory engine
+status from `memory`. [`connectivity`](./connectivity) reads the `SocketManager` state to tell
 the frontend which of its connection channels is broken.
 
 ## Layout
@@ -75,16 +75,16 @@ the frontend which of its connection channels is broken.
 
 There is no type shared across the family. The ones contributors touch most:
 
-- `HealthSnapshot`, `mark_component_ok`, `mark_component_error` (`health/`)
+- `HealthSnapshot`, `mark_component_ok`, `mark_component_error` ([`health/`](./health/))
   for reporting component state.
 - `CostTracker` and `cost::init_global` / `try_global` / `rebind_global`
-  (`cost/global.rs`). The tracker is bound to one workspace, and signing in or
+  ([`cost/global.rs`](./cost/global.rs)). The tracker is bound to one workspace, and signing in or
   out rebinds it so usage lands in the right user's ledger.
-- `DoctorReport` (`doctor/core/types.rs`).
-- `SocketManager` and `token_provider_from_config` (`socket/`).
-- `pick_listen_port_for_host` and its variants (`connectivity/`), used by the
+- `DoctorReport` ([`doctor/core/types.rs`](./doctor/core/types.rs)).
+- `SocketManager` and `token_provider_from_config` ([`socket/`](./socket/)).
+- `pick_listen_port_for_host` and its variants ([`connectivity/`](./connectivity/)), used by the
   RPC host when binding.
-- `ServiceStatus` and the restart and shutdown publishers (`service/`).
+- `ServiceStatus` and the restart and shutdown publishers ([`service/`](./service/)).
 
 ## RPC / CLI surface
 
@@ -92,14 +92,14 @@ Method names are `openhuman.<namespace>_<function>`.
 
 | Namespace | Functions |
 | --- | --- |
-| `about_app` | `list`, `lookup`, `search` |
+| [`about_app`](./about_app) | `list`, `lookup`, `search` |
 | `connectivity` | `diag` |
-| `cost` | `get_dashboard`, `get_daily_history`, `get_summary`, `get_usage_log` |
-| `doctor` | `report`, `models` |
+| [`cost`](./cost) | `get_dashboard`, `get_daily_history`, `get_summary`, `get_usage_log` |
+| [`doctor`](./doctor) | `report`, `models` |
 | `health` | `snapshot`, `system_info` |
 | `service` | `install`, `start`, `stop`, `status`, `uninstall`, `restart`, `shutdown`, `daemon_host_get`, `daemon_host_set` |
 | `socket` | `connect`, `connect_with_session`, `disconnect`, `emit`, `state` |
-| `update` | `version`, `check`, `apply`, `run` |
+| [`update`](./update) | `version`, `check`, `apply`, `run` |
 
 Agent tools from this family (registered in `tools/ops.rs`):
 `health_snapshot`, `health_system_info`, `doctor_health`, `doctor_models`,

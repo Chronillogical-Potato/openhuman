@@ -10,21 +10,21 @@ build carries all of it.
 Callers are spread across the core. Every acting tool consults
 `SecurityPolicy` before it runs, the agent harness asks the approval gate
 before a prompted call, the credentials domain owns the `auth.*` RPC
-namespace, and the RPC server asks `pairing.rs` whether a bind needs a token.
+namespace, and the RPC server asks [`pairing.rs`](./pairing.rs) whether a bind needs a token.
 
 ## How it works
 
 ### The policy and its off switch
 
-`SecurityPolicy` (`policy/types.rs`) is the value every tool receives. It is
+`SecurityPolicy` ([`policy/types.rs`](./policy/types.rs)) is the value every tool receives. It is
 built once per agent session by `SecurityPolicy::from_config`
-(`policy/enforcement.rs`) from the `[autonomy]` config block, the workspace dir
+([`policy/enforcement.rs`](./policy/enforcement.rs)) from the `[autonomy]` config block, the workspace dir
 and the action dir. That constructor is the single chokepoint between config
 and policy, so it also injects the default trusted roots: the projects home
 (`~/OpenHuman/projects`) as read-write, the configured `action_dir` as
 read-write (skipped when the action dir sits at or above `workspace_dir`), the
 tool-result artifacts directory as read-only, and the namespaced scratch dir
-(`/tmp/openhuman`, never `/tmp` itself) as read-write.
+([`/tmp/openhuman`](.//tmp/openhuman), never [`/tmp`](.//tmp) itself) as read-write.
 
 The policy is off by default. `AutonomyConfig::enabled`
 (`config/schema/autonomy.rs`) defaults to `false`, and `from_config` copies it
@@ -39,13 +39,13 @@ answer when it is off:
 
 | Function | File | Disabled result |
 | --- | --- | --- |
-| `gate_decision` | `policy/command_checks.rs` | `GateDecision::Allow` |
+| `gate_decision` | [`policy/command_checks.rs`](./policy/command_checks.rs) | `GateDecision::Allow` |
 | `check_gated_command` | `policy/command_checks.rs` | `Ok(class)`, no structural guard |
 | `validate_command_execution` | `policy/command_checks.rs` | `Ok(risk)`, no allowlist |
 | `is_command_allowed` | `policy/command_checks.rs` | `true` |
 | `can_act` | `policy/enforcement.rs` | `true` |
 | `record_action`, `is_rate_limited` | `policy/enforcement.rs` | never limited |
-| `is_path_string_allowed` | `policy/path_checks.rs` | `true` after the floor checks |
+| `is_path_string_allowed` | [`policy/path_checks.rs`](./policy/path_checks.rs) | `true` after the floor checks |
 | `is_resolved_path_allowed_for` | `policy/path_checks.rs` | `true` after the floor check |
 | `check_resolved_against_forbidden` | `policy/path_checks.rs` | `Ok(())` after the floor check |
 
@@ -61,7 +61,7 @@ and hold in every configuration:
   matched by path segment, case-insensitively: `.ssh`, `.gnupg`, `.aws`,
   `.azure`, `.kube`, `keychains`, and the Windows pairs
   `Microsoft\{Protect,Credentials,Crypto,Vault}`. System roots are matched by
-  absolute prefix: `/etc`, `/root`, `/boot`, `/proc`, `/sys`, `/system`,
+  absolute prefix: [`/etc`](.//etc), [`/root`](.//root), [`/boot`](.//boot), [`/proc`](.//proc), [`/sys`](.//sys), `/system`,
   `C:\Windows`, `C:\Program Files`, `C:\Program Files (x86)`,
   `C:\ProgramData`. A trusted-root grant cannot reach these either, and the
   per-turn workspace grant is checked after this test, so it cannot either.
@@ -130,18 +130,18 @@ The invariants that hold with the policy enabled:
   process substitution, backticks, background `&`) that could smuggle a
   command past the approval the human read.
 - Interactive approval requests expire as denied after ten minutes
-  (`DEFAULT_APPROVAL_TTL` in `approval/gate.rs`; the Flow Canvas copilot path
+  (`DEFAULT_APPROVAL_TTL` in [`approval/gate.rs`](./approval/gate.rs); the Flow Canvas copilot path
   uses a three-minute window).
 
 The shell-string scanning itself (segment splitting, quoting, heredoc
 stripping, segment classification, hidden-execution detection) is
 `tinybox_core::shell`, in `vendor/tinybox/crates/tinybox-core`.
-`policy/command_checks.rs` composes it with the tier.
+[`policy/command_checks.rs`](./policy/command_checks.rs) composes it with the tier.
 
 ### Hot-swapping the policy
 
 A session builds its policy once and shares it immutably with every tool, so a
-settings change would otherwise wait for a new session. `live_policy.rs` holds
+settings change would otherwise wait for a new session. [`live_policy.rs`](./live_policy.rs) holds
 the current policy in a process-global cell. `install` is called at bootstrap
 (`core/runtime/bootstrap.rs`) and at channel startup, and `reload_from` is
 called by the config save path (`config/ops/agent.rs`) so `current()` reflects
@@ -151,7 +151,7 @@ observe the swap at the next session boundary.
 
 ### Approval
 
-`approval/` is the human-in-the-loop gate for calls the policy prompts on.
+[`approval/`](./approval/) is the human-in-the-loop gate for calls the policy prompts on.
 The gate persists a pending row, publishes `DomainEvent::ApprovalRequested` so
 the UI can show a card, parks the tool future on a oneshot, and wakes on the
 `approval_decide` RPC or a typed chat reply. Timeouts and denials fail closed.
@@ -176,22 +176,22 @@ decision. See [approval/README.md](approval/README.md).
 | [`keyring_consent/`](keyring_consent/README.md) | Consent gate for falling back from the OS keychain to local encrypted storage. |
 | [`pii/`](pii/README.md) | Fully local PII and identification-risk scanner. |
 | [`prompt_injection/`](prompt_injection/README.md) | Deterministic prompt-injection screening (`Allow`, `Review`, `Block`). |
-| `live_policy.rs` | Process-global, hot-swappable current `SecurityPolicy` and privacy mode. |
-| `scrub.rs` | Secret and PII scrubbing with the host's policy (`Policy::corroborated`) over TinyMemory's scrubbers. |
-| `audit.rs` | Append-only JSON audit log of agent actions (`AuditLogger`). |
-| `pairing.rs` | Non-loopback bind guard for the core RPC token; re-exports channel pairing helpers. |
-| `core.rs` | `redact()`, the 4-character-prefix log redaction. |
-| `ops.rs` | `security_policy_info_for_config` and `load_and_get_security_policy_info`. |
-| `schemas.rs` | The `security.policy_info` controller. |
-| `tools.rs` | `SecurityPolicyInfoTool`, the only agent-callable tool in this domain. |
-| `secrets.rs` | One-line re-export of `keyring::encrypted_store` for older import paths. |
+| [`live_policy.rs`](./live_policy.rs) | Process-global, hot-swappable current `SecurityPolicy` and privacy mode. |
+| [`scrub.rs`](./scrub.rs) | Secret and PII scrubbing with the host's policy (`Policy::corroborated`) over TinyMemory's scrubbers. |
+| [`audit.rs`](./audit.rs) | Append-only JSON audit log of agent actions (`AuditLogger`). |
+| [`pairing.rs`](./pairing.rs) | Non-loopback bind guard for the core RPC token; re-exports channel pairing helpers. |
+| [`core.rs`](./core.rs) | `redact()`, the 4-character-prefix log redaction. |
+| [`ops.rs`](./ops.rs) | `security_policy_info_for_config` and `load_and_get_security_policy_info`. |
+| [`schemas.rs`](./schemas.rs) | The `security.policy_info` controller. |
+| [`tools.rs`](./tools.rs) | `SecurityPolicyInfoTool`, the only agent-callable tool in this domain. |
+| [`secrets.rs`](./secrets.rs) | One-line re-export of `keyring::encrypted_store` for older import paths. |
 
 ## Key types and entry points
 
-- `SecurityPolicy` (`policy/types.rs`): the policy value. Build it with
+- `SecurityPolicy` ([`policy/types.rs`](./policy/types.rs)): the policy value. Build it with
   `SecurityPolicy::from_config`. Its methods are the enforcement entry points
   listed above, plus `enforce_tool_operation` (tier plus hourly budget for an
-  acting tool) and `validate_path`-style helpers in `policy/path_checks.rs`.
+  acting tool) and `validate_path`-style helpers in [`policy/path_checks.rs`](./policy/path_checks.rs).
 - `AutonomyLevel` (`ReadOnly`, `Supervised`, `Full`), `CommandClass` (`Read`,
   `Write`, `Network`, `Install`, `Destructive`) and `GateDecision` (`Allow`,
   `Prompt`, `Block`), all in `policy/types.rs`.
@@ -202,20 +202,20 @@ decision. See [approval/README.md](approval/README.md).
   strings so the harness and model can tell a policy refusal from a tool
   failure.
 - `validate_path_within_root`, `openhuman_scratch_dir`,
-  `ensure_openhuman_scratch_dir` (`policy/enforcement.rs`).
+  `ensure_openhuman_scratch_dir` ([`policy/enforcement.rs`](./policy/enforcement.rs)).
 - `live_policy::{install, current, reload_from, reload_privacy,
   set_action_dir}` (`live_policy.rs`).
-- `scrub::{sanitize_text, sanitize_json, has_likely_secret}` (`scrub.rs`):
+- `scrub::{sanitize_text, sanitize_json, has_likely_secret}` ([`scrub.rs`](./scrub.rs)):
   used by the approval store, memory writes, flow memory tools and artifact
   offload, so they all redact the same way.
-- `AuditLogger` and `get_or_create_workspace_audit_logger` (`audit.rs`).
+- `AuditLogger` and `get_or_create_workspace_audit_logger` ([`audit.rs`](./audit.rs)).
 - `is_public_bind` and `ensure_core_rpc_token_for_bind` (`pairing.rs`): refuse
   a non-loopback RPC bind without an `OPENHUMAN_CORE_TOKEN`
   (`CORE_TOKEN_ENV_VAR`). `PairingGuard`, `constant_time_eq` and the token
   helpers are re-exported from `tinychannels_bus::security`.
-- `SecretStore` (re-exported from `keyring/`): encrypted-on-disk secrets whose
+- `SecretStore` (re-exported from [`keyring/`](./keyring/)): encrypted-on-disk secrets whose
   master key lives in keychain-backed storage.
-- The `egress` and `pii` re-exports at the crate root: `enforce_egress`,
+- The [`egress`](./egress) and [`pii`](./pii) re-exports at the crate root: `enforce_egress`,
   `emit_external_transfer`, `local_only_blocks`, `local_only_tool_block`,
   `EgressDescriptor`, and `scan_pii` with its result types.
 
@@ -231,10 +231,10 @@ This file registers one controller through `core/all.rs`:
 the same payload to the agent. Command and path gating is enforced inside the
 engine and is never an agent-callable tool.
 
-The subfolders register their own namespaces: `approval.*` (`approval/`),
-`auth.*` (`credentials/`), `devices.*` (`devices/`), `encrypt.secret` and
-`decrypt.secret` (`encryption/`), and
-`keyring_consent.*` (`keyring_consent/`). Their READMEs list the methods.
+The subfolders register their own namespaces: `approval.*` ([`approval/`](./approval/)),
+`auth.*` ([`credentials/`](./credentials/)), `devices.*` ([`devices/`](./devices/)), `encrypt.secret` and
+`decrypt.secret` ([`encryption/`](./encryption/)), and
+`keyring_consent.*` ([`keyring_consent/`](./keyring_consent/)). Their READMEs list the methods.
 
 ## Boundaries
 
@@ -250,7 +250,7 @@ The subfolders register their own namespaces: `approval.*` (`approval/`),
   `tinychannels` (`vendor/tinychannels`).
 - The core never obtains, validates, exchanges or refreshes a credential.
   Login-token exchange and `/auth/me` belong to the host's session owner
-  (`openhuman_tinyhumans::session`). `credentials/` only accepts one through
+  (`openhuman_tinyhumans::session`). [`credentials/`](./credentials/) only accepts one through
   `auth.set_credential`.
 - The tinyagents runtime holds no authority. The bridge that answers its
   "may this tool run?" question is `agent/tinyagents/host/security_gate.rs`.
@@ -259,7 +259,7 @@ The subfolders register their own namespaces: `approval.*` (`approval/`),
 
 - Tests that exercise the allowlist, the tier or containment must build their
   config with `enabled: true`. With the shipped default they pass vacuously.
-  `policy/policy_disabled_tests.rs` pins the contract of the disabled path.
+  [`policy/policy_disabled_tests.rs`](./policy/policy_disabled_tests.rs) pins the contract of the disabled path.
 - Do not move a floor check below the `if !self.enabled` return. The floor is
   the part a future edit is most likely to take with it.
 - `SecurityPolicy::default()` is enabled, `AutonomyConfig::default()` is not.
@@ -272,7 +272,7 @@ The subfolders register their own namespaces: `approval.*` (`approval/`),
 ## Tests
 
 Each file has a sibling `<module>_tests.rs`; the policy suites live in
-`policy/` (`policy_tests.rs`, `policy_disabled_tests.rs`,
+[`policy/`](./policy/) (`policy_tests.rs`, `policy_disabled_tests.rs`,
 `policy_trusted_roots_tests.rs`, `policy_workspace_internal_tests.rs`,
 `proptest_tests.rs` and others). Run them with
 `cargo test -p openhuman security::` or `pnpm debug rust security`.

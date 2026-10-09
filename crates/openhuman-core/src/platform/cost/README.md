@@ -22,14 +22,14 @@ Local API-usage cost tracking for the agent. Records per-call token usage and co
 | `crates/openhuman-core/src/platform/cost/global.rs`        | Process-global `OnceCell<Arc<CostTracker>>` singleton: `init_global`, `try_global`, `record_provider_usage`, and `build_token_usage` (provider `UsageInfo` → `TokenUsage`).                                             |
 | `crates/openhuman-core/src/platform/cost/rpc.rs`           | RPC-facing handlers (`dashboard`, `daily_history`, `summary`) returning `Outcome<Value>`; DTO types; `resolve_tracker` with a cached fallback tracker + error-replay TTL.                                            |
 | `crates/openhuman-core/src/platform/cost/schemas.rs`       | Controller schemas + `handle_*` JSON-RPC dispatchers; `all_controller_schemas` / `all_registered_controllers`.                                                                                                          |
-| `crates/openhuman-core/src/platform/cost/tracker_tests.rs` | Sibling test suite for `tracker.rs` (`#[path]`-included).                                                                                                                                                               |
+| `crates/openhuman-core/src/platform/cost/tracker_tests.rs` | Sibling test suite for [`tracker.rs`](./tracker.rs) (`#[path]`-included).                                                                                                                                                               |
 | `crates/openhuman-core/src/platform/cost/catalog.rs` | Static per-model pricing + context-window catalog (`ModelPrice`, `lookup`, `estimate_cost_usd`, `PRICING_AS_OF`) and the tinyagents model-catalog adapters. |
 | `crates/openhuman-core/src/platform/cost/route.rs` | `CostRoute` / `route_for_model`: derives from the model id whether a record counts against OpenHuman-managed credits or is BYOK/local (#5016). |
 | `crates/openhuman-core/src/platform/cost/tools.rs` | Read-only, default-on LLM tools (`cost_get_dashboard`, `cost_get_daily_history`, …) re-exported through `crates/openhuman-core/src/tools/mod.rs`. |
 
 ## Public surface
 
-From `mod.rs` re-exports:
+From [`mod.rs`](./mod.rs) re-exports:
 
 - `CostTracker`: the tracker (`tracker`).
 - `init_global`, `rebind_global`, `try_global`, `record_provider_usage` (`global`).
@@ -49,7 +49,7 @@ Namespace `cost` (methods `openhuman.cost_*` via the registry):
 | `cost_get_summary`       | none                                         | Live session / daily / monthly cost summary.                                                               |
 | `cost_get_usage_log`     | `days?`, `limit?`                            | Recent local records, newest first, bounded to 1,000 rows.                                                |
 
-Handlers load config via `config_rpc::load_config_with_timeout`, then delegate to `rpc.rs`. RPC DTOs (`CostDashboardDto`, `DailyCostEntryDto`, `ModelStatsDto`, `CostSummaryDto`, `UsageLogRecordDto`) add presentation fields not on the domain types: `provider` (derived from the `provider/model` prefix), `percent_of_total`, and dashboard threshold/`enabled` flags from `cost.dashboard`. Usage-log records preserve the persisted token provenance fields (`cached_input_tokens`, `cache_creation_tokens`, `reasoning_tokens`, `cost_source`) for migration audit callers for the dedicated usage-log tab.
+Handlers load config via `config_rpc::load_config_with_timeout`, then delegate to [`rpc.rs`](./rpc.rs). RPC DTOs (`CostDashboardDto`, `DailyCostEntryDto`, `ModelStatsDto`, `CostSummaryDto`, `UsageLogRecordDto`) add presentation fields not on the domain types: `provider` (derived from the `provider/model` prefix), `percent_of_total`, and dashboard threshold/`enabled` flags from `cost.dashboard`. Usage-log records preserve the persisted token provenance fields (`cached_input_tokens`, `cache_creation_tokens`, `reasoning_tokens`, `cost_source`) for migration audit callers for the dedicated usage-log tab.
 
 ## Events
 
@@ -65,7 +65,7 @@ None. The module has no `bus.rs` and no `DomainEvent` publishers/subscribers.
 ## Dependencies
 
 - `crate::config`: `CostConfig` / `Config` (legacy display target, dashboard currency/enabled, `workspace_dir`); `config::rpc::load_config_with_timeout` in schemas.
-- `crate::inference::provider::types::UsageInfo` (re-exported as `crate::inference::provider::UsageInfo`): provider usage payload translated into `TokenUsage` in `global.rs`.
+- `crate::inference::provider::types::UsageInfo` (re-exported as `crate::inference::provider::UsageInfo`): provider usage payload translated into `TokenUsage` in [`global.rs`](./global.rs).
 - `crate::core::all`: `ControllerFuture`, `RegisteredController` for controller registration.
 - `crate::core`: `ControllerSchema`, `FieldSchema`, `TypeSchema`.
 - `crate::core::Outcome`: RPC return wrapper.

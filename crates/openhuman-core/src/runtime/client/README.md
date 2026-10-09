@@ -24,8 +24,8 @@ simply is not there, not like a missing symbol.
 
 | File | Role |
 | --- | --- |
-| `mod.rs` | The feature-gated re-export: `modules::runtime`'s `execute`, `pool_stats`, `resolve`, `RuntimeCallError` when `modules` is on, `disabled`'s copies when it is off. |
-| `disabled.rs` | The `modules`-off stand-in. Same three-variant `RuntimeCallError` as the real client, so callers match identically in both builds; every function returns `Unavailable` with a message naming the missing feature. |
+| [`mod.rs`](./mod.rs) | The feature-gated re-export: `modules::runtime`'s `execute`, `pool_stats`, `resolve`, `RuntimeCallError` when `modules` is on, `disabled`'s copies when it is off. |
+| [`disabled.rs`](./disabled.rs) | The `modules`-off stand-in. Same three-variant `RuntimeCallError` as the real client, so callers match identically in both builds; every function returns `Unavailable` with a message naming the missing feature. |
 
 ## Public surface
 

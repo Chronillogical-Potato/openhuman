@@ -66,19 +66,19 @@ subscriber all listen to.
    approval can never be blocked by a hook.
 
 3. The queue mode decides what happens to a turn already in flight on the
-   thread. `QueueMode` (`types.rs`) has five values. `Interrupt` (the default)
+   thread. `QueueMode` ([`types.rs`](./types.rs)) has five values. `Interrupt` (the default)
    cancels the current turn and starts this one. `Steer`, `Followup` and
    `Collect` map to TinyAgents run-queue lanes (`QueueMode::queue_lane`) and
    are pushed onto the running turn's `RunQueue` instead of starting a turn;
    with nothing in flight they start a normal turn.
    `Parallel` starts an isolated fork alongside whatever is running
-   (`ops/parallel_turn.rs`), tracked in its own `PARALLEL_IN_FLIGHT` table
+   ([`ops/parallel_turn.rs`](./ops/parallel_turn.rs)), tracked in its own `PARALLEL_IN_FLIGHT` table
    keyed by request id so it never touches interrupt or queue semantics.
 
 4. For a primary turn, `start_chat` records an `InFlightEntry` in `IN_FLIGHT`
    and spawns a task (under `CoreContext::propagate`) that drives
    `run_task::run_chat_task` through `run_turn_under_cancel_and_deadline`
-   (`ops/turn_guards.rs`). That wrapper puts four things around the same
+   ([`ops/turn_guards.rs`](./ops/turn_guards.rs)). That wrapper puts four things around the same
    future: a cooperative `CancellationToken`, the wall-clock backstop, the
    `AgentTurnOrigin::WebChat` scope, and the `APPROVAL_CHAT_CONTEXT`
    task-local.
@@ -102,9 +102,9 @@ subscriber all listen to.
    and emits an `inference_heartbeat` every `INFERENCE_HEARTBEAT_SECS` (20 s)
    so a long silent prefill does not trip the frontend's roughly 120 s
    silence timeout (#4270). Sub-agent arms live in
-   `progress_bridge_subagent_events.rs`; time to first visible output is
-   stamped by `turn_timing.rs`; at the end of a turn
-   `journal_shadow.rs` compares the live trace spans with the spans
+   [`progress_bridge_subagent_events.rs`](./progress_bridge_subagent_events.rs); time to first visible output is
+   stamped by [`turn_timing.rs`](./turn_timing.rs); at the end of a turn
+   [`journal_shadow.rs`](./journal_shadow.rs) compares the live trace spans with the spans
    reprojected from the durable journal and logs what differs.
 
 7. On success the spawned task calls `presentation::deliver_response`. It
@@ -120,7 +120,7 @@ subscriber all listen to.
    `web_chat.suggestions_enabled`.
 
 8. On failure, `run_chat_task` first consults the per-thread budget signal
-   (`ops/budget_correlation.rs`). An empty 200 on the same provider binding as
+   ([`ops/budget_correlation.rs`](./ops/budget_correlation.rs)). An empty 200 on the same provider binding as
    a recent budget-exhausted failure is reclassified as out-of-credits (#3386),
    because the managed route closes the stream cleanly when credits run out.
    The spawned task then runs the error string through
@@ -143,7 +143,7 @@ events (they become the turn's reply text), so they carry no key.
 
 Background-delivery notices (`agent::orchestration::background_delivery`) and
 goal continuations enter through `run_system_turn_on_thread`
-(`ops/system_turn.rs`) instead of `start_chat`. They skip ingress, `IN_FLIGHT`
+([`ops/system_turn.rs`](./ops/system_turn.rs)) instead of `start_chat`. They skip ingress, `IN_FLIGHT`
 and the progress bridge, run with `SYSTEM_CLIENT_ID` ("system"), and return
 the reply text for the caller to deliver. They still go through the same
 session checkout, so the model sees the conversation and the turn lands in the
@@ -161,14 +161,14 @@ turn failed".
 
 ### Session cache fingerprint
 
-`SessionCacheFingerprint` (`types.rs`) decides when a cached agent can be
+`SessionCacheFingerprint` ([`types.rs`](./types.rs)) decides when a cached agent can be
 reused. It holds the model override, the resolved effective model (so a
 changed managed default rebuilds even without a picker override), temperature,
 target agent id, provider binding, an autonomy signature and a model-registry
 signature (toggling a model's vision flag keeps the model id but must
 rebuild). A miss logs the fields that differ. Adding a dimension that should
 force a rebuild means adding a field there and filling it in
-`build_session_fingerprint` (`session.rs`).
+`build_session_fingerprint` ([`session.rs`](./session.rs)).
 
 `session::effective_session_config` applies a concrete picker provider and
 model to the per-turn config clone. Managed `openrouter/...` defaults restore
@@ -179,7 +179,7 @@ that feeds the fingerprint's binding.
 
 ### Cancellation and the backstop
 
-`cancel_chat` and `cancel_chat_scoped` (`ops/channel_ops.rs`) cancel by
+`cancel_chat` and `cancel_chat_scoped` ([`ops/channel_ops.rs`](./ops/channel_ops.rs)) cancel by
 thread, or by request id when one is given. A stale cancel for a superseded
 request is ignored (`cancel_should_target`) so the newer turn survives. Without
 a request id, a cancel also stops the thread's parallel forks and detached
@@ -197,8 +197,8 @@ gets a terminal event instead of an endless heartbeat stream (#4746).
 
 ### The event bus
 
-`event_bus.rs` holds an in-process `tokio::sync::broadcast` channel of
-`WebChannelEvent` (the type is defined in `channel_event.rs`). Any domain can
+[`event_bus.rs`](./event_bus.rs) holds an in-process `tokio::sync::broadcast` channel of
+`WebChannelEvent` (the type is defined in [`channel_event.rs`](./channel_event.rs)). Any domain can
 publish to it with `publish_web_channel_event`; consumers call
 `subscribe_web_channel_events`. It also registers process-lifetime,
 `OnceLock`-guarded subscribers on `core::bus::BUS` that turn `DomainEvent`s
@@ -210,7 +210,7 @@ into socket events:
 | `register_artifact_surface_subscriber` | `ArtifactPending`, `ArtifactReady`, `ArtifactFailed` | `artifact_pending`, `artifact_ready`, `artifact_failed` |
 | `register_agent_surface_subscriber` | thread goal, todo and run-mode changes; run-queue queued, delivered, dispatched and interrupted | `thread_goal_updated`, `thread_goal_cleared`, `thread_todos_changed`, `run_mode_changed`, `queue_item_queued`, `queue_item_delivered` |
 | `register_memory_activity_surface_subscriber` | `MemoryStored`, `MemoryRecalled` | `memory_activity` |
-| `register_egress_surface_subscriber` (`egress_surface.rs`) | `ExternalTransferPending`, only when the transfer carries chat routing | `external_transfer_pending` |
+| `register_egress_surface_subscriber` ([`egress_surface.rs`](./egress_surface.rs)) | `ExternalTransferPending`, only when the transfer carries chat routing | `external_transfer_pending` |
 
 They are registered from `core/runtime/bootstrap.rs` and
 `channels/runtime/startup/start_channels.rs`; the TUI registers the approval
@@ -220,41 +220,41 @@ and artifact bridges itself (`openhuman-tui/src/runner.rs`).
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Module wiring and re-exports. No business logic. |
-| `ops.rs` | Thin shell over `ops/`; re-exports the request surface and state. |
-| `ops/start_chat.rs` | `start_chat` and `StartChatError`: ingress, guardrail, approval-reply routing, queue dispatch, and the spawned turn body that delivers or classifies. |
-| `ops/channel_ops.rs` | `cancel_chat`, `cancel_chat_scoped`, and the `channel_web_*` RPC handlers. |
-| `ops/parallel_turn.rs` | Spawns and cancels `QueueMode::Parallel` forks. |
-| `ops/system_turn.rs` | `run_system_turn_on_thread` for host-authored turns. |
-| `ops/state.rs` | `THREAD_SESSIONS`, `IN_FLIGHT`, `PARALLEL_IN_FLIGHT`, keying helpers, `invalidate_thread_sessions`, `cancel_should_target`. |
-| `ops/turn_guards.rs` | `run_turn_under_cancel_and_deadline`, the wall-clock backstop, Sentry suppression and timeout tagging. |
-| `ops/budget_correlation.rs` | `THREAD_BUDGET_SIGNALS` and `classify_budget_correlation` for the empty-200-after-budget case. |
-| `ops/test_hooks.rs` | Debug/test hooks that force or block `run_chat_task`. |
-| `run_task.rs` | `run_chat_task`: checkout, progress bridge, run, budget correlation on error, checkin. |
-| `session.rs` | Session checkout and checkin, fingerprinting, `CheckoutPolicy`, target agent id, locale reply directive, per-turn provider and model routing. |
-| `progress_bridge.rs` | `spawn_progress_bridge`: `AgentProgress` to `WebChannelEvent`, turn-state mirror, heartbeat. |
-| `progress_bridge_subagent_events.rs` | The bridge's `AgentProgress::Subagent*` handlers. |
-| `turn_timing.rs` | Time to first visible output, and rate limiting for live `turn_cost` events. |
-| `journal_shadow.rs` | Compares live trace spans with spans reprojected from the journal and logs divergences. |
-| `presentation.rs` | `deliver_response` (persist, then one `chat_done`), `deliver_response_single_bubble` for core-initiated turns, and legacy `chat_segment` helpers. |
-| `reply_persistence.rs` | `persist_delivered_reply`: durable reply row under the deterministic reply id. |
-| `suggestions.rs` | Post-turn follow-up suggestions (`chat_suggestions`). |
-| `channel_event.rs` | `WebChannelEvent` and its payload types (`TurnUsagePayload`, `GuardrailPayload`, `QueueItemPayload`, `ChatSuggestion`, ...). |
-| `event_bus.rs` | The broadcast channel and the `DomainEvent` surface subscribers. |
-| `egress_surface.rs` | The `external_transfer_pending` bridge. |
-| `web_errors.rs` | Thin shell over `web_errors/`: `classify.rs` (the classification ladder and `ClassifiedError`), `backend_error_code.rs`, `budget.rs`, `retry.rs`, `timeout.rs`. The class to copy table is in `inference/failure_copy/`. |
-| `schemas.rs` | Controller schemas and thin handlers for the `channel` namespace. |
+| [`mod.rs`](./mod.rs) | Module wiring and re-exports. No business logic. |
+| [`ops.rs`](./ops.rs) | Thin shell over [`ops/`](./ops/); re-exports the request surface and state. |
+| [`ops/start_chat.rs`](./ops/start_chat.rs) | `start_chat` and `StartChatError`: ingress, guardrail, approval-reply routing, queue dispatch, and the spawned turn body that delivers or classifies. |
+| [`ops/channel_ops.rs`](./ops/channel_ops.rs) | `cancel_chat`, `cancel_chat_scoped`, and the `channel_web_*` RPC handlers. |
+| [`ops/parallel_turn.rs`](./ops/parallel_turn.rs) | Spawns and cancels `QueueMode::Parallel` forks. |
+| [`ops/system_turn.rs`](./ops/system_turn.rs) | `run_system_turn_on_thread` for host-authored turns. |
+| [`ops/state.rs`](./ops/state.rs) | `THREAD_SESSIONS`, `IN_FLIGHT`, `PARALLEL_IN_FLIGHT`, keying helpers, `invalidate_thread_sessions`, `cancel_should_target`. |
+| [`ops/turn_guards.rs`](./ops/turn_guards.rs) | `run_turn_under_cancel_and_deadline`, the wall-clock backstop, Sentry suppression and timeout tagging. |
+| [`ops/budget_correlation.rs`](./ops/budget_correlation.rs) | `THREAD_BUDGET_SIGNALS` and `classify_budget_correlation` for the empty-200-after-budget case. |
+| [`ops/test_hooks.rs`](./ops/test_hooks.rs) | Debug/test hooks that force or block `run_chat_task`. |
+| [`run_task.rs`](./run_task.rs) | `run_chat_task`: checkout, progress bridge, run, budget correlation on error, checkin. |
+| [`session.rs`](./session.rs) | Session checkout and checkin, fingerprinting, `CheckoutPolicy`, target agent id, locale reply directive, per-turn provider and model routing. |
+| [`progress_bridge.rs`](./progress_bridge.rs) | `spawn_progress_bridge`: `AgentProgress` to `WebChannelEvent`, turn-state mirror, heartbeat. |
+| [`progress_bridge_subagent_events.rs`](./progress_bridge_subagent_events.rs) | The bridge's `AgentProgress::Subagent*` handlers. |
+| [`turn_timing.rs`](./turn_timing.rs) | Time to first visible output, and rate limiting for live `turn_cost` events. |
+| [`journal_shadow.rs`](./journal_shadow.rs) | Compares live trace spans with spans reprojected from the journal and logs divergences. |
+| [`presentation.rs`](./presentation.rs) | `deliver_response` (persist, then one `chat_done`), `deliver_response_single_bubble` for core-initiated turns, and legacy `chat_segment` helpers. |
+| [`reply_persistence.rs`](./reply_persistence.rs) | `persist_delivered_reply`: durable reply row under the deterministic reply id. |
+| [`suggestions.rs`](./suggestions.rs) | Post-turn follow-up suggestions (`chat_suggestions`). |
+| [`channel_event.rs`](./channel_event.rs) | `WebChannelEvent` and its payload types (`TurnUsagePayload`, `GuardrailPayload`, `QueueItemPayload`, `ChatSuggestion`, ...). |
+| [`event_bus.rs`](./event_bus.rs) | The broadcast channel and the `DomainEvent` surface subscribers. |
+| [`egress_surface.rs`](./egress_surface.rs) | The `external_transfer_pending` bridge. |
+| [`web_errors.rs`](./web_errors.rs) | Thin shell over [`web_errors/`](./web_errors/): `classify.rs` (the classification ladder and `ClassifiedError`), `backend_error_code.rs`, `budget.rs`, `retry.rs`, `timeout.rs`. The class to copy table is in `inference/failure_copy/`. |
+| [`schemas.rs`](./schemas.rs) | Controller schemas and thin handlers for the `channel` namespace. |
 | `types.rs` | `QueueMode`, `SessionEntry`, `SessionCacheFingerprint`, `InFlightEntry`, `ParallelEntry`, `WebChatTaskResult`, `ChatRequestMetadata`, RPC param structs. |
 
 ## Key types and entry points
 
-- `start_chat` (`ops/start_chat.rs`) is the entry point for every user turn.
+- `start_chat` ([`ops/start_chat.rs`](./ops/start_chat.rs)) is the entry point for every user turn.
   It returns the new request id, or a `StartChatError`.
 - `run_system_turn_on_thread` (`ops/system_turn.rs`) runs a host-authored turn
   on a thread's own session and returns the reply text.
 - `cancel_chat` / `cancel_chat_scoped` (`ops/channel_ops.rs`) stop a turn by
   thread or request id.
-- `invalidate_thread_sessions` (`ops/state.rs`) drops a thread's cached agent.
+- `invalidate_thread_sessions` ([`ops/state.rs`](./ops/state.rs)) drops a thread's cached agent.
   Thread edit and regenerate (`threads/ops/edit.rs`) and channel remote
   control (`channels/host/remote_control.rs`) call it.
 - `ChatRequestMetadata` (`types.rs`) is per-request metadata (`speak_reply`,
@@ -270,7 +270,7 @@ and artifact bridges itself (`openhuman-tui/src/runner.rs`).
   socket surface.
 - `persist_delivered_reply` and `pick_target_agent_id` are also used by the
   cron scheduler's origin delivery (`cron/scheduler/origin_delivery.rs`).
-- `classify_inference_error` (`web_errors/classify.rs`) maps a flattened
+- `classify_inference_error` ([`web_errors/classify.rs`](./web_errors/classify.rs)) maps a flattened
   error string to a `ClassifiedError`.
 
 ## RPC surface
@@ -329,10 +329,10 @@ because the in-app chat is core product surface (#5002).
 
 ## Tests
 
-Tests live in sibling `*_tests.rs` files. `web_tests.rs` and its
+Tests live in sibling `*_tests.rs` files. [`web_tests.rs`](./web_tests.rs) and its
 `web_tests_*_tests.rs` siblings cover `start_chat`, cancellation, queueing,
 session concurrency and error classification end to end;
-`mod_test_support_tests.rs` is the debug/test `test_support` module
+[`mod_test_support_tests.rs`](./mod_test_support_tests.rs) is the debug/test `test_support` module
 (`classify_error_for_test`). The rest are per-file unit tests.
 
 ```bash

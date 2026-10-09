@@ -61,7 +61,7 @@ the renderer also starts blank.
 
 ### Introspection
 
-The `introspect.rs` functions read state and change nothing.
+The [`introspect.rs`](./introspect.rs) functions read state and change nothing.
 `workspace_root` reports `Config::workspace_dir` and whether it exists.
 `list_workspace_files` walks the tree with an explicit stack (no async
 recursion), defaulting to depth 2, clamped to 6, and stopping at 2000 entries
@@ -78,7 +78,7 @@ reads inside the workspace:
 
 1. A lexical component walk rejects `..` and any root or prefix component
    (`C:\`, `\\?\`) before touching the filesystem. `./` is allowed.
-2. The workspace root is canonicalized (on macOS `/var` resolves to
+2. The workspace root is canonicalized (on macOS [`/var`](.//var) resolves to
    `/private/var`), the relative path is joined onto it, and the candidate is
    canonicalized and checked with `starts_with`. This second step catches a
    symlink pointing out of the workspace, which the lexical walk cannot see.
@@ -92,21 +92,21 @@ listings never follow a link out of the workspace.
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Declares `introspect`, `rpc` and `schemas`; re-exports `all_test_support_controller_schemas` and `all_test_support_registered_controllers`. |
-| `rpc.rs` | `reset()`, the `OPENHUMAN_E2E_MODE` guard and `ResetSummary`. |
-| `introspect.rs` | The read-only probes, their result types, `resolve_workspace_relative` and `walk_dir`. |
-| `schemas.rs` | Controller schemas and thin `handle_*` functions that call `rpc` or `introspect` and serialize with `Outcome::into_cli_compatible_json`. |
+| [`mod.rs`](./mod.rs) | Declares `introspect`, `rpc` and `schemas`; re-exports `all_test_support_controller_schemas` and `all_test_support_registered_controllers`. |
+| [`rpc.rs`](./rpc.rs) | `reset()`, the `OPENHUMAN_E2E_MODE` guard and `ResetSummary`. |
+| [`introspect.rs`](./introspect.rs) | The read-only probes, their result types, `resolve_workspace_relative` and `walk_dir`. |
+| [`schemas.rs`](./schemas.rs) | Controller schemas and thin `handle_*` functions that call `rpc` or `introspect` and serialize with `Outcome::into_cli_compatible_json`. |
 
 ## Key types and entry points
 
-- `rpc::reset() -> Result<Outcome<ResetSummary>, String>` (`rpc.rs`).
+- `rpc::reset() -> Result<Outcome<ResetSummary>, String>` ([`rpc.rs`](./rpc.rs)).
 - `introspect::workspace_root`, `list_workspace_files(rel_root, max_depth)`,
   `read_workspace_file(rel_path, max_bytes)`, `in_flight_chats`,
   `wallet_prepared_quotes` (`introspect.rs`).
 - Result types: `WorkspaceRoot`, `ListEntry` and `ListResult`,
   `ReadFileResult`, `InFlightEntryView` and `InFlightResult`,
   `PreparedQuotesResult` (`introspect.rs`).
-- `all_test_support_registered_controllers()` (`mod.rs`), which
+- `all_test_support_registered_controllers()` ([`mod.rs`](./mod.rs)), which
   `core/all.rs` pushes under `DomainGroup::Platform`.
   `all_test_support_controller_schemas()` has no consumer outside this module.
 
@@ -149,7 +149,7 @@ The E2E runner, its helpers and the token-file reader live under
 
 ## Tests
 
-`rpc_tests.rs` covers the `OPENHUMAN_E2E_MODE` guard. `introspect_tests.rs`
+[`rpc_tests.rs`](./rpc_tests.rs) covers the `OPENHUMAN_E2E_MODE` guard. [`introspect_tests.rs`](./introspect_tests.rs)
 covers `resolve_workspace_relative` (`..` with missing and existing targets,
 leading `/` and `./`, and on Unix a symlink out of the workspace); the RPCs
 themselves are exercised by the E2E specs.

@@ -8,9 +8,9 @@ plus the `LocalOnly` enforcement chokepoint built on top of it.
 
 | File | Purpose |
 | --- | --- |
-| `types.rs` | `EgressDescriptor`, `DataKind`, `EgressReason`, `IdentificationRisk`: the descriptor contract |
-| `emit.rs` | `emit_external_transfer`, the single publish chokepoint, plus per-turn dedup |
-| `enforce.rs` | `local_only_blocks` (pure decision) and its two side-effecting wrappers, `enforce_egress` / `local_only_tool_block` |
+| [`types.rs`](./types.rs) | `EgressDescriptor`, `DataKind`, `EgressReason`, `IdentificationRisk`: the descriptor contract |
+| [`emit.rs`](./emit.rs) | `emit_external_transfer`, the single publish chokepoint, plus per-turn dedup |
+| [`enforce.rs`](./enforce.rs) | `local_only_blocks` (pure decision) and its two side-effecting wrappers, `enforce_egress` / `local_only_tool_block` |
 
 ## Public surface
 
@@ -75,4 +75,4 @@ Both `enforce_egress` and `local_only_tool_block` read the live mode via
 
 ## Tests
 
-- `types_tests.rs`, `emit_tests.rs`, `enforce_tests.rs`.
+- [`types_tests.rs`](./types_tests.rs), [`emit_tests.rs`](./emit_tests.rs), [`enforce_tests.rs`](./enforce_tests.rs).

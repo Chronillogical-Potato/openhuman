@@ -14,8 +14,8 @@ through [`modules::runtime`](../../modules/runtime.rs).
 
 | File | Role |
 | --- | --- |
-| `mod.rs` | Export-focused: submodule decls and `pub use` re-exports. |
-| `bootstrap.rs` | The interpreter client. `PythonBootstrap` (`resolve`, `probe_installed`, `try_cached`), `ResolvedPython`, `PythonSource`. |
+| [`mod.rs`](./mod.rs) | Export-focused: submodule decls and `pub use` re-exports. |
+| [`bootstrap.rs`](./bootstrap.rs) | The interpreter client. `PythonBootstrap` (`resolve`, `probe_installed`, `try_cached`), `ResolvedPython`, `PythonSource`. |
 
 ## Public surface
 

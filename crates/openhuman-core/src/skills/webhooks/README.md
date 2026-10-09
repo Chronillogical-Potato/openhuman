@@ -21,13 +21,13 @@ Client-side webhook **tunnel routing** for OpenHuman. The backend provisions and
 | `crates/openhuman-core/src/skills/webhooks/types.rs` | Serde domain types: `WebhookRequest`, `WebhookResponseData`, `TunnelRegistration`, `WebhookActivityEntry`, `WebhookDebugLogEntry`, debug result wrappers, `WebhookDebugEvent`. |
 | `crates/openhuman-core/src/skills/webhooks/router.rs` | `WebhookRouter` — route map + ownership rules, disk persistence (generation-counter, spawn_blocking offload), bounded debug log ring (`MAX_DEBUG_LOG_ENTRIES = 250`), debug-event broadcast channel. |
 | `crates/openhuman-core/src/skills/webhooks/ops.rs` | RPC handler logic returning `RpcOutcome<T>`: local routing ops (`list_registrations`, `list_logs`, `clear_logs`, `register_echo`, `unregister_echo`, `register_agent`, `trigger_agent`), and `build_echo_response`. |
-| `crates/openhuman-core/src/skills/webhooks/schemas.rs` | Controller schemas + `handle_*` fns + `all_controller_schemas` / `all_registered_controllers`; deserializes params, delegates to `ops.rs`. |
+| `crates/openhuman-core/src/skills/webhooks/schemas.rs` | Controller schemas + `handle_*` fns + `all_controller_schemas` / `all_registered_controllers`; deserializes params, delegates to [`ops.rs`](./ops.rs). |
 | `crates/openhuman-core/src/skills/webhooks/bus.rs` | `WebhookRequestSubscriber` (`EventHandler`): the incoming-request routing flow; helpers `decode_webhook_body`, `run_agent_trigger`, `build_agent_response`. |
 | `crates/openhuman-core/src/skills/webhooks/{webhooks_tests,bus_tests,ops_tests,router_tests,schemas_tests,types_tests}.rs` | Test suites, each pulled into its sibling source file via `#[cfg(test)] #[path = "..."] mod tests;` (no inline test modules). |
 
 ## Public surface
 
-Re-exported from `mod.rs`:
+Re-exported from [`mod.rs`](./mod.rs):
 
 - `WebhookRouter` (from `router`).
 - `all_webhooks_controller_schemas`, `all_webhooks_registered_controllers` (from `schemas`).
@@ -57,7 +57,7 @@ None. This domain owns no `tools.rs` agent tools.
 
 ## Events
 
-Subscriber (in `bus.rs`): `WebhookRequestSubscriber`, with `name() = "webhook::request_handler"` and `domains() = ["webhook"]`. Registered in `register_domain_subscribers()` (`crates/openhuman-core/src/core/runtime/subscribers.rs`, called from `bootstrap_core_runtime()`), gated on the `Skills` domain group being enabled (`plan.skills`) and installed at most once per process; `channels/runtime/startup/start_channels.rs` deliberately does not register it, to avoid double-registration when both startup paths run in the same process.
+Subscriber (in [`bus.rs`](./bus.rs)): `WebhookRequestSubscriber`, with `name() = "webhook::request_handler"` and `domains() = ["webhook"]`. Registered in `register_domain_subscribers()` (`crates/openhuman-core/src/core/runtime/subscribers.rs`, called from `bootstrap_core_runtime()`), gated on the `Skills` domain group being enabled (`plan.skills`) and installed at most once per process; `channels/runtime/startup/start_channels.rs` deliberately does not register it, to avoid double-registration when both startup paths run in the same process.
 
 - Subscribes: `DomainEvent::WebhookIncomingRequest` (published by the socket transport in `socket/event_handlers.rs`).
 - Publishes: `DomainEvent::WebhookRegistered` / `WebhookUnregistered` (from the router on registration changes; `WebhookUnregistered`, the `registration_changed` debug event and the route re-persist all fire only when a registration was actually removed. Unregistering an absent tunnel is a silent no-op that returns `Ok(false)`, see #6091), `DomainEvent::WebhookReceived` (when routed to a target), `DomainEvent::WebhookProcessed` (always, with status/elapsed/error).

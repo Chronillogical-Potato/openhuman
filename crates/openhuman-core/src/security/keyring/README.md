@@ -26,12 +26,12 @@ OS-keychain-backed secret storage with pluggable test and debug backends, plus a
 | `crates/openhuman-core/src/security/keyring/crypto.rs` | Shared ChaCha20-Poly1305 helpers (`chacha20_encrypt`/`chacha20_decrypt`), random-byte generation, hex encode/decode. Used by both `encrypted_store` and `encrypted_file_backend`. |
 | `crates/openhuman-core/src/security/keyring/error.rs` | `KeyringError` (thiserror) with variants `Os`/`InvalidUtf8`/`MigrationReadFailed`/`VerifyFailed`/`MigrationDeleteFailed`/`RandomGeneration`/`Crypto`/`Backend`, plus a log-safe `diagnostic()` that preserves the `keyring::Error` variant and `OSStatus`. |
 | `crates/openhuman-core/src/security/keyring/keyring_tests.rs` | Module tests (backend isolation via `force_backend_for_test`). |
-| `crates/openhuman-core/src/security/keyring/store_tests.rs`, `store_tests_2_tests.rs`, `store_test_scope_tests.rs` | Test-isolation regressions: test builds ignore `OPENHUMAN_WORKSPACE`, production resolution still honours it, scoped workspaces do not share secrets, and a deleted scoped workspace cannot reset the default store. |
-| `crates/openhuman-core/src/security/keyring/encrypted_store_tests.rs`, `encrypted_store_crypto_migration_tests.rs`, `encrypted_store_key_management_tests.rs` | `SecretStore` tests (wired via `#[path]` from `encrypted_store.rs`). |
+| `crates/openhuman-core/src/security/keyring/store_tests.rs`, [`store_tests_2_tests.rs`](./store_tests_2_tests.rs), [`store_test_scope_tests.rs`](./store_test_scope_tests.rs) | Test-isolation regressions: test builds ignore `OPENHUMAN_WORKSPACE`, production resolution still honours it, scoped workspaces do not share secrets, and a deleted scoped workspace cannot reset the default store. |
+| `crates/openhuman-core/src/security/keyring/encrypted_store_tests.rs`, [`encrypted_store_crypto_migration_tests.rs`](./encrypted_store_crypto_migration_tests.rs), [`encrypted_store_key_management_tests.rs`](./encrypted_store_key_management_tests.rs) | `SecretStore` tests (wired via `#[path]` from [`encrypted_store.rs`](./encrypted_store.rs)). |
 
 ## Public surface
 
-Re-exported from `mod.rs`:
+Re-exported from [`mod.rs`](./mod.rs):
 
 - `KeyringBackend`: backend trait (`get`/`set`/`delete`/`name`).
 - `SecretStore`: config-field encrypt/decrypt; `encrypt`/`decrypt`/`decrypt_and_migrate`/`needs_migration`/`is_encrypted`/`new`.

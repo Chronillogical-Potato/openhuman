@@ -7,7 +7,7 @@ flows code-runner capability call into it when the agent runs in sandboxed
 mode. The core process itself always runs on the host; only the spawned
 command is confined.
 
-`mod.rs` names three separate questions. Where a tool runs is this folder.
+[`mod.rs`](./mod.rs) names three separate questions. Where a tool runs is this folder.
 Which tools are allowed is the security and tool policy
 (`security/`, `tools/agent_policy/`). Whether a tool needs host access at all
 is the elevated-op escape hatch, which is also declared here.
@@ -42,7 +42,7 @@ backend, execute.
 
 ### Resolving a policy
 
-`resolve_sandbox_policy` (`ops.rs`) maps the agent's declared
+`resolve_sandbox_policy` ([`ops.rs`](./ops.rs)) maps the agent's declared
 `SandboxMode` (`agent::harness::definition`) to a `SandboxBackendKind`:
 
 - `None` and `ReadOnly` resolve to `SandboxBackendKind::None`.
@@ -52,7 +52,7 @@ backend, execute.
   `OPENHUMAN_SANDBOX` (`SANDBOX_OFF_ENV`) to `off`, `none`, `0`, `false` or
   `disabled`, case-insensitive. This is for hosts that already isolate the
   core (a container, a CI or benchmark image, a VM), where the outer isolation
-  permits work such as package installs or `/etc` edits that the action-dir
+  permits work such as package installs or [`/etc`](.//etc) edits that the action-dir
   jail would refuse.
 
 The rest of the policy follows from that. `workspace_root` is the action dir
@@ -60,7 +60,7 @@ and `state_dir` is the core's internal `workspace_dir`. `allow_network` is
 `!is_remote_session` for `Sandboxed` and `true` for the other modes.
 `env_passthrough` is `SANDBOX_ENV_PASSTHROUGH`. `docker_overrides` is filled
 from `[runtime.docker]` only for the Docker backend, and the mount lists come
-from `grants.rs` only for the Local backend.
+from [`grants.rs`](./grants.rs) only for the Local backend.
 
 ### The None backend
 
@@ -84,7 +84,7 @@ user's project:
   command is wrapped to redirect its output into these files, because some
   backends (macOS Seatbelt) rebuild the command and drop piped stdio.
 - `sandbox_scratch_root(state_dir)/<uuid>/`, exported as `TMPDIR`, `TEMP` and
-  `TMP` unless the caller set them. `/tmp` is not granted, so this is where
+  `TMP` unless the caller set them. [`/tmp`](.//tmp) is not granted, so this is where
   `mktemp`, compilers and package managers write.
 
 Both are granted read-write for that spawn only and are removed on drop
@@ -101,10 +101,10 @@ controlled by `[runtime.local_jail]` (`LocalJailConfig`):
 | --- | --- | --- |
 | `~/.cargo/bin`, `~/.cargo/{config.toml,config,env}` | read-only | `toolchain_homes`, when present |
 | `~/.cargo/registry`, `~/.cargo/git` | read-write | `toolchain_homes`, when present |
-| `~/.rustup`, `~/.nvm`, `~/.npm`, `/usr/local`, `/opt` | read-only | `toolchain_homes`, when present |
+| `~/.rustup`, `~/.nvm`, `~/.npm`, [`/usr/local`](.//usr/local), [`/opt`](.//opt) | read-only | `toolchain_homes`, when present |
 | git config files and their `include` targets (canonicalized, depth 8) | read-only | `toolchain_homes`, when present |
 | `extra_read_only`, `extra_read_write` | as listed | always, subject to the floor |
-| `/proc` | read-only | only with `allow_proc = true` (default off) |
+| [`/proc`](.//proc) | read-only | only with `allow_proc = true` (default off) |
 
 The credential floor applies to every grant: any path that
 `SecurityPolicy::is_always_forbidden` rejects, or that is a parent of a
@@ -119,12 +119,12 @@ environment.
 it with `DockerCli::run_one_shot`. The container is `docker run --rm` with the
 host action dir mounted read-write at `/workspace`, network `none` by default,
 `--cap-drop ALL` plus any extra drops, `--security-opt no-new-privileges`, a
-read-only rootfs with `/tmp` and `/var/tmp` tmpfs mounts, memory and CPU
+read-only rootfs with [`/tmp`](.//tmp) and [`/var/tmp`](.//var/tmp) tmpfs mounts, memory and CPU
 limits (512 MB and 1 CPU by default), and only the passthrough env plus the
 request's env. Containers carry the label `openhuman.sandbox=true` so
 `cleanup_orphaned_containers` can kill leftovers. `validate_docker_policy`
-rejects host networking and a mount or workspace root of `/`, `/etc`,
-`/proc`, `/sys` or the Docker socket.
+rejects host networking and a mount or workspace root of `/`, [`/etc`](.//etc),
+[`/proc`](.//proc), [`/sys`](.//sys) or the Docker socket.
 
 ### Backend status
 
@@ -139,16 +139,16 @@ Local derives its status from which jail backend was picked
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Re-exports, and `pub use tinybox_jail as cwd_jail` so host call sites have a stable path. |
-| `types.rs` | `SandboxBackendKind`, `SandboxPolicy`, `DockerOverrides`, exec request and result, handle and status, `ElevatedOp`, `ELEVATED_TOOLS`. |
-| `ops.rs` | Policy resolution, backend creation, routed execution (None and Local paths), the env allowlist, the host off switch, elevated ops. |
-| `grants.rs` | The Local jail's filesystem grant set and its credential floor. |
-| `docker.rs` | Policy-to-`OneShot` mapping, availability probe, orphan cleanup, Docker policy validation. |
-| `schemas.rs` | The `sandbox.*` controllers. |
+| [`mod.rs`](./mod.rs) | Re-exports, and `pub use tinybox_jail as cwd_jail` so host call sites have a stable path. |
+| [`types.rs`](./types.rs) | `SandboxBackendKind`, `SandboxPolicy`, `DockerOverrides`, exec request and result, handle and status, `ElevatedOp`, `ELEVATED_TOOLS`. |
+| [`ops.rs`](./ops.rs) | Policy resolution, backend creation, routed execution (None and Local paths), the env allowlist, the host off switch, elevated ops. |
+| [`grants.rs`](./grants.rs) | The Local jail's filesystem grant set and its credential floor. |
+| [`docker.rs`](./docker.rs) | Policy-to-`OneShot` mapping, availability probe, orphan cleanup, Docker policy validation. |
+| [`schemas.rs`](./schemas.rs) | The `sandbox.*` controllers. |
 
 ## Key types and entry points
 
-- `SandboxPolicy` (`types.rs`): the resolved per-call policy. It is
+- `SandboxPolicy` ([`types.rs`](./types.rs)): the resolved per-call policy. It is
   serializable so `sandbox.resolve_policy` can return it.
 - `SandboxBackendKind` (`types.rs`): `None`, `Local`, `Docker`.
 - `resolve_sandbox_policy(mode, action_dir, state_dir, runtime_config,
@@ -217,8 +217,8 @@ The settings surface (`get_sandbox_settings`, `[security.sandbox]` and
 
 ## Tests
 
-Sibling suites: `types_tests.rs`, `ops_tests.rs`, `grants_tests.rs`,
-`schemas_tests.rs`, `docker_tests.rs` and `docker_exec_tests.rs`.
+Sibling suites: [`types_tests.rs`](./types_tests.rs), [`ops_tests.rs`](./ops_tests.rs), [`grants_tests.rs`](./grants_tests.rs),
+[`schemas_tests.rs`](./schemas_tests.rs), [`docker_tests.rs`](./docker_tests.rs) and [`docker_exec_tests.rs`](./docker_exec_tests.rs).
 `ops_tests.rs` pins `local_status_for_backend` so a host with no OS jail
 reports `Inactive` rather than `Ready` (#3235). Run with
 `cargo test -p openhuman sandbox::` or `pnpm debug rust sandbox`.

@@ -23,8 +23,8 @@ Self-update domain for the `openhuman-core` binary. Checks GitHub Releases (`tin
 | `crates/openhuman-core/src/platform/update/*_tests.rs` | Sibling test suites (`core_tests`, `ops_tests`, `ops_tests_2_tests`, `scheduler_tests`, `schemas_tests`), included via `#[path]`. |
 
 ## Public surface
-- Types (`types.rs`): `UpdateInfo`, `VersionInfo`, `UpdateRunResult`, `UpdateApplyResult`, `GitHubRelease`, `GitHubAsset`.
-- Core fns (`core.rs`, re-exported via `core::*`): `current_version() -> &'static str`, `platform_triple() -> &'static str`, `check_available() -> Result<UpdateInfo, String>`, `download_and_stage(...)`, `download_and_stage_with_version(...)`.
+- Types ([`types.rs`](./types.rs)): `UpdateInfo`, `VersionInfo`, `UpdateRunResult`, `UpdateApplyResult`, `GitHubRelease`, `GitHubAsset`.
+- Core fns ([`core.rs`](./core.rs), re-exported via `core::*`): `current_version() -> &'static str`, `platform_triple() -> &'static str`, `check_available() -> Result<UpdateInfo, String>`, `download_and_stage(...)`, `download_and_stage_with_version(...)`.
 - `update::rpc` (alias of `ops`): `update_version`, `update_check`, `update_apply`, `update_run`: all returning `Outcome<Value>`.
 - `update::scheduler::run(UpdateConfig)`: background loop entry point.
 - `all_update_controller_schemas()` / `all_update_registered_controllers()`.

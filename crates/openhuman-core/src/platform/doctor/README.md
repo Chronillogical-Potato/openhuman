@@ -17,15 +17,15 @@ Diagnostic / self-check domain for OpenHuman. Runs a synchronous battery of prob
 
 | File | Role |
 | --- | --- |
-| `crates/openhuman-core/src/platform/doctor/mod.rs` | Module docstring + exports. Declares `core`, `ops`, `schemas`; re-exports `core::*`, `ops::*` (also aliased `pub use ops as rpc`), and the schema controller pair. |
+| `crates/openhuman-core/src/platform/doctor/mod.rs` | Module docstring + exports. Declares [`core`](./core), `ops`, `schemas`; re-exports `core::*`, `ops::*` (also aliased `pub use ops as rpc`), and the schema controller pair. |
 | `crates/openhuman-core/src/platform/doctor/core.rs` | All diagnostic logic + types. `run()` entry point and every `check_*` probe; `run_models()`; severity helpers; OS-specific disk/command helpers. |
 | `crates/openhuman-core/src/platform/doctor/ops.rs` | Async JSON-RPC/CLI controller surface (`doctor_report`, `doctor_models`) wrapping the sync `core` logic in `spawn_blocking` and returning `Outcome<T>`. |
 | `crates/openhuman-core/src/platform/doctor/schemas.rs` | Controller schemas + registry (`all_controller_schemas`, `all_registered_controllers`, `handle_report`/`handle_models`). |
-| `crates/openhuman-core/src/platform/doctor/core_tests.rs` | Test suite for `core.rs` (via `#[path = "core_tests.rs"] mod tests`). |
+| `crates/openhuman-core/src/platform/doctor/core_tests.rs` | Test suite for [`core.rs`](./core.rs) (via `#[path = "core_tests.rs"] mod tests`). |
 
 ## Public surface
 
-From `mod.rs` re-exports (`core::*`):
+From [`mod.rs`](./mod.rs) re-exports (`core::*`):
 
 - Types: `Severity` (`Ok`/`Warn`/`Error`), `DiagnosticItem`, `DoctorSummary`, `DoctorReport`, `ModelProbeOutcome`, `ModelProbeEntry`, `ModelProbeSummary`, `ModelProbeReport`.
 - Functions: `run(&Config, MemoryChunkCount) -> Result<DoctorReport>` (blocking-only: keep no `.await` inside; async probes are resolved by the caller and passed in), `run_models(&Config, use_cache) -> Result<ModelProbeReport>`.
@@ -51,7 +51,7 @@ Both handlers load config via `config_rpc::load_config_with_timeout()` and retur
 
 ## Agent tools
 
-None. This domain owns no agent tools (no `tools.rs`).
+None. This domain owns no agent tools (no [`tools.rs`](./tools.rs)).
 
 ## Events
 
@@ -80,7 +80,7 @@ None of its own (no `store.rs`). It only **reads** existing state owned by other
 ## Notes / gotchas
 
 - `run()` is **strictly blocking** by contract (file system, sqlite, blocking HTTP). `reqwest::blocking::Client` panics inside a tokio runtime, so `ops::doctor_report` runs the whole thing in `tokio::task::spawn_blocking`. Do not add `.await` inside `core::run`.
-- An async probe therefore arrives as an **argument**, resolved in `ops` before the blocking hop: `MemoryEngineCheck` is the first of them. Do not reach for `Handle::block_on` inside `core`: it panics on a current-thread runtime and deadlocks the multi-thread one whose worker it is already occupying.
+- An async probe therefore arrives as an **argument**, resolved in `ops` before the blocking hop: `MemoryEngineCheck` is the first of them. Do not reach for `Handle::block_on` inside [`core`](./core): it panics on a current-thread runtime and deadlocks the multi-thread one whose worker it is already occupying.
 - An engine that is down is reported as an error and memory being off as a warning, so the doctor names what is wrong instead of showing an empty store.
 - `run_models` / `doctor.models` is effectively a **stub**: it enumerates providers from `inference::provider::list_providers` but marks every entry `Skipped` with message "model catalog refresh removed" (catalog refresh was removed). It never actually probes auth/availability despite the schema description.
 - The embedding probe is capped at a 3s timeout to avoid stalling on a slow Ollama daemon; non-ollama providers short-circuit to OK.

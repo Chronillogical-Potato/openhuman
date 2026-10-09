@@ -13,7 +13,7 @@ owns no logic of its own: every symbol it exposes is a `pub use`.
 
 | File | Role |
 | --- | --- |
-| `mod.rs` | Entire module (26 lines). Module docstring plus `pub use` re-exports, some gated by the `runtime-node` feature. No types, no logic, no tests. |
+| [`mod.rs`](./mod.rs) | Entire module (26 lines). Module docstring plus `pub use` re-exports, some gated by the `runtime-node` feature. No types, no logic, no tests. |
 
 ## Gating (`runtime-node`)
 

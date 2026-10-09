@@ -22,7 +22,7 @@ Diagnostics for the local core's reachability and the live backend Socket.IO sta
 
 ## Public surface
 
-- `connectivity::all_connectivity_controller_schemas()` / `all_connectivity_registered_controllers()`: registry entry points (re-exported from `schemas.rs`).
+- `connectivity::all_connectivity_controller_schemas()` / `all_connectivity_registered_controllers()`: registry entry points (re-exported from [`schemas.rs`](./schemas.rs)).
 - `connectivity::ops::is_port_in_use(port: u16) -> bool`.
 - `connectivity::rpc::ConnectivityDiagResponse`: serialized diag payload (`socket_state`, `last_ws_error`, `socket_loop_active`, `socket_loop_stopped_on_failure`, `sidecar_pid`, `listen_port`, `listen_port_in_use`). The two booleans are the core's own statement of whether its backend reconnect loop is running and, if not, whether it stopped on a terminal failure (no usable session token); the frontend's connectivity chip keys "no link wanted" vs "down, retrying" vs "stopped, sign in again" off them rather than inferring liveness from `socket_state` (#6256, #6270).
 - `connectivity::rpc::snapshot() -> ConnectivityDiagResponse` and `connectivity::rpc::diag() -> Result<Outcome<Value>, String>`.
