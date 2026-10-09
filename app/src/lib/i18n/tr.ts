@@ -5391,7 +5391,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'Bellek',
   'welcome.th.featureEmbeddings': 'Vektör temsilleri',
   'welcome.th.featureBilling': 'Faturalandırma',
-  'welcome.th.credit': 'Başlangıç için 5 $ kredi',
   'welcome.th.cta': 'TinyHumans ile devam et',
   'welcome.th.providers': 'Google, GitHub veya X ile oturum açın',
   'welcome.self.title': 'Kendim kuracağım',

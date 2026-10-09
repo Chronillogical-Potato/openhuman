@@ -409,7 +409,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': '记忆',
   'welcome.th.featureEmbeddings': '嵌入',
   'welcome.th.featureBilling': '计费',
-  'welcome.th.credit': '起步赠送 $5 额度',
   'welcome.th.cta': '使用 TinyHumans 继续',
   'welcome.th.providers': '使用 Google、GitHub 或 X 登录',
   'welcome.self.title': '自己设置',

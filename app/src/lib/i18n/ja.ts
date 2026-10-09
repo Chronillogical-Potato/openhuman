@@ -5737,7 +5737,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'メモリー',
   'welcome.th.featureEmbeddings': '埋め込み',
   'welcome.th.featureBilling': '請求',
-  'welcome.th.credit': '最初に使える5ドル分のクレジット',
   'welcome.th.cta': 'TinyHumansで続ける',
   'welcome.th.providers': 'Google、GitHub、Xでサインイン',
   'welcome.self.title': '自分で設定する',

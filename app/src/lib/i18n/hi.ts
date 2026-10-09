@@ -452,7 +452,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'मेमोरी',
   'welcome.th.featureEmbeddings': 'एम्बेडिंग',
   'welcome.th.featureBilling': 'बिलिंग',
-  'welcome.th.credit': 'शुरुआत के लिए $5 का क्रेडिट',
   'welcome.th.cta': 'TinyHumans के साथ जारी रखें',
   'welcome.th.providers': 'Google, GitHub या X से साइन इन करें',
   'welcome.self.title': 'मैं खुद सेट अप करूँगा',

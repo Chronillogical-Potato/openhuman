@@ -436,7 +436,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'الذاكرة',
   'welcome.th.featureEmbeddings': 'التضمينات',
   'welcome.th.featureBilling': 'الفوترة',
-  'welcome.th.credit': 'رصيد 5$ للبدء',
   'welcome.th.cta': 'المتابعة مع TinyHumans',
   'welcome.th.providers': 'سجّل الدخول عبر Google أو GitHub أو X',
   'welcome.self.title': 'سأُعدّه بنفسي',

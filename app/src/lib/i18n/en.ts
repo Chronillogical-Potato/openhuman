@@ -327,7 +327,6 @@ const en: TranslationMap = {
   'welcome.th.featureMemory': 'Memory',
   'welcome.th.featureEmbeddings': 'Embeddings',
   'welcome.th.featureBilling': 'Billing',
-  'welcome.th.credit': '$5 of credit to start',
   'welcome.th.cta': 'Continue with TinyHumans',
   'welcome.th.providers': 'Sign in with Google, GitHub or X',
   'welcome.self.title': 'Set it up myself',

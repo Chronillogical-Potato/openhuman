@@ -456,7 +456,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'Память',
   'welcome.th.featureEmbeddings': 'Эмбеддинги',
   'welcome.th.featureBilling': 'Оплата',
-  'welcome.th.credit': '5 $ кредита для начала',
   'welcome.th.cta': 'Продолжить с TinyHumans',
   'welcome.th.providers': 'Войдите через Google, GitHub или X',
   'welcome.self.title': 'Настрою сам',

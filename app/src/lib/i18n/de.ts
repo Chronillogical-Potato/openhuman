@@ -469,7 +469,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'Gedächtnis',
   'welcome.th.featureEmbeddings': 'Embeddings',
   'welcome.th.featureBilling': 'Abrechnung',
-  'welcome.th.credit': '5 $ Guthaben zum Start',
   'welcome.th.cta': 'Weiter mit TinyHumans',
   'welcome.th.providers': 'Mit Google, GitHub oder X anmelden',
   'welcome.self.title': 'Selbst einrichten',

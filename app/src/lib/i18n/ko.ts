@@ -443,7 +443,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': '메모리',
   'welcome.th.featureEmbeddings': '임베딩',
   'welcome.th.featureBilling': '결제',
-  'welcome.th.credit': '시작 크레딧 $5',
   'welcome.th.cta': 'TinyHumans로 계속하기',
   'welcome.th.providers': 'Google, GitHub 또는 X로 로그인',
   'welcome.self.title': '직접 설정하기',

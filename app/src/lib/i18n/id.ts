@@ -455,7 +455,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'Memori',
   'welcome.th.featureEmbeddings': 'Embedding',
   'welcome.th.featureBilling': 'Penagihan',
-  'welcome.th.credit': 'Kredit $5 untuk memulai',
   'welcome.th.cta': 'Lanjutkan dengan TinyHumans',
   'welcome.th.providers': 'Masuk dengan Google, GitHub, atau X',
   'welcome.self.title': 'Siapkan sendiri',
