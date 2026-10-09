@@ -151,29 +151,4 @@ impl AgentDefinitionRegistry {
     pub fn global_arc() -> Option<Arc<Self>> {
         GLOBAL.get().cloned()
     }
-
-    /// The catalogue sub-agent lookups resolve through: the ambient agent
-    /// context's own registry when it carries one, else the process registry.
-    pub fn current() -> Option<Arc<Self>> {
-        crate::core::runtime::CoreContext::current()
-            .and_then(|ctx| ctx.definitions())
-            .or_else(Self::global_arc)
-    }
-
-    /// A copy of this registry with `definitions` added, replacing any
-    /// definition with the same id.
-    pub fn with_definitions(&self, definitions: impl IntoIterator<Item = AgentDefinition>) -> Self {
-        let mut registry = Self::default();
-        for definition in self.list() {
-            registry.insert(definition.clone());
-        }
-        for definition in definitions {
-            registry.insert(definition);
-        }
-        registry
-    }
 }
-
-#[cfg(test)]
-#[path = "registry_tests.rs"]
-mod tests;

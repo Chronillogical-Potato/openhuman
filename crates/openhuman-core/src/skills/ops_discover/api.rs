@@ -11,7 +11,7 @@ use crate::skills::ops_types::{Workflow, TRUST_MARKER};
 
 use super::scan::{discover_filtered, ALL_ROOT_KINDS, WORKFLOW_ROOT_KINDS};
 
-type MetadataCacheKey = (PathBuf, Option<PathBuf>, bool, Option<String>);
+type MetadataCacheKey = (PathBuf, Option<PathBuf>, bool);
 static METADATA_CACHE: LazyLock<RwLock<HashMap<MetadataCacheKey, Vec<Workflow>>>> =
     LazyLock::new(|| RwLock::new(HashMap::new()));
 static METADATA_GENERATION: AtomicU64 = AtomicU64::new(0);
@@ -83,12 +83,7 @@ pub fn discovery_home_dir() -> Option<PathBuf> {
 pub fn load_workflow_metadata(workspace_dir: &Path) -> Vec<Workflow> {
     let trusted = is_workspace_trusted(workspace_dir);
     let home = discovery_home_dir();
-    let key = (
-        workspace_dir.to_path_buf(),
-        home.clone(),
-        trusted,
-        crate::core::runtime::agent_scope::current_agent_id(),
-    );
+    let key = (workspace_dir.to_path_buf(), home.clone(), trusted);
     if let Ok(cache) = METADATA_CACHE.read() {
         if let Some(workflows) = cache.get(&key) {
             return workflows.clone();

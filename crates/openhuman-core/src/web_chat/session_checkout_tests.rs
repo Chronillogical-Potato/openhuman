@@ -16,12 +16,12 @@ use super::{
 };
 use crate::agent::OpenHumanSessionHost;
 use crate::config::Config;
-use crate::web_chat::ops::{key_for, thread_sessions};
+use crate::web_chat::ops::{key_for, THREAD_SESSIONS};
 use crate::web_chat::types::SessionCacheFingerprint;
 use tinyagents_session::transcript::TranscriptMessage;
 use tinytools_agent::dialect::TranscriptEntry;
 
-pub(super) fn test_config(tmp: &tempfile::TempDir) -> Config {
+fn test_config(tmp: &tempfile::TempDir) -> Config {
     let config = Config {
         workspace_dir: tmp.path().join("workspace"),
         action_dir: tmp.path().join("workspace"),
@@ -32,7 +32,7 @@ pub(super) fn test_config(tmp: &tempfile::TempDir) -> Config {
     config
 }
 
-pub(super) fn unique_thread(tag: &str) -> String {
+fn unique_thread(tag: &str) -> String {
     format!("thread-checkout-{tag}-{}", uuid::Uuid::new_v4())
 }
 
@@ -86,7 +86,7 @@ fn prose(history: &[TranscriptEntry]) -> Vec<String> {
         .collect()
 }
 
-pub(super) fn host_seeded_with(config: &Config, marker: &str) -> OpenHumanSessionHost {
+fn host_seeded_with(config: &Config, marker: &str) -> OpenHumanSessionHost {
     let mut host = OpenHumanSessionHost::from_config_for_agent(config, "orchestrator").unwrap();
     host.seed_resume_from_messages(
         vec![
@@ -100,10 +100,7 @@ pub(super) fn host_seeded_with(config: &Config, marker: &str) -> OpenHumanSessio
 }
 
 async fn evict(thread_id: &str) {
-    thread_sessions()
-        .lock_owned()
-        .await
-        .remove(&key_for(thread_id));
+    THREAD_SESSIONS.lock().await.remove(&key_for(thread_id));
 }
 
 #[tokio::test]
@@ -152,7 +149,7 @@ async fn checkout_cold_boots_from_the_thread_transcript_and_checkin_keeps_it_war
     );
 
     checkin_session_agent(&thread_id, agent, fingerprint).await;
-    assert!(thread_sessions()
+    assert!(THREAD_SESSIONS
         .lock()
         .await
         .contains_key(&key_for(&thread_id)));
@@ -176,7 +173,7 @@ async fn checkout_cold_boots_from_the_thread_transcript_and_checkin_keeps_it_war
         "warm checkout must carry the same history"
     );
     // Checked out means removed: nobody else can drive this agent meanwhile.
-    assert!(!thread_sessions()
+    assert!(!THREAD_SESSIONS
         .lock()
         .await
         .contains_key(&key_for(&thread_id)));
@@ -262,7 +259,7 @@ async fn a_fork_never_takes_or_returns_the_cached_agent() {
     // Built fresh: no transcript on disk for this thread, so an empty history.
     assert!(prose(&agent.history()).is_empty());
     // The primary's cached agent was left in place.
-    assert!(thread_sessions()
+    assert!(THREAD_SESSIONS
         .lock()
         .await
         .contains_key(&key_for(&thread_id)));
@@ -551,6 +548,67 @@ fn chat_agent_id_selects_the_web_chat_agent_and_defaults_to_the_orchestrator() {
     );
 }
 
+/// Thread ids are chosen by callers, so two embedded agents can pick the same
+/// one. Each must get its own cache slot, or the second agent's turn would
+/// check out the first agent's live session and its history.
+#[tokio::test]
+async fn two_agents_with_the_same_thread_id_get_their_own_cache_slots() {
+    use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
+
+    let thread_id = unique_thread("agents");
+    assert_eq!(key_for(&thread_id), thread_id, "no agent scope: bare id");
+
+    let parent = CoreContext::for_test(DomainSet::full(), None);
+    let agent_ctx = |agent: &str| {
+        parent.derive_with(
+            ContextOverlay::new(Config::default(), DomainSet::full(), Default::default())
+                .session_agent(agent),
+        )
+    };
+    let key_a = CoreContext::scope(agent_ctx("asha"), async { key_for(&thread_id) }).await;
+    let key_b = CoreContext::scope(agent_ctx("ravi"), async { key_for(&thread_id) }).await;
+    assert_ne!(key_a, key_b);
+    assert_ne!(key_a, thread_id);
+    // Delimiter-looking input cannot forge another scope's key.
+    use crate::web_chat::ops::scoped_key;
+    assert_ne!(scoped_key(Some("a"), "b::c"), scoped_key(Some("a::b"), "c"));
+    assert_ne!(scoped_key(None, "a::b"), scoped_key(Some("a"), "b"));
+    assert_ne!(scoped_key(None, "\u{1f}1:ab"), scoped_key(Some("a"), "b"));
+    assert_ne!(scoped_key(Some("a"), "bc"), scoped_key(Some("ab"), "c"));
+
+    // Evicting the thread clears every agent's slot for it.
+    {
+        let tmp = tempfile::tempdir().unwrap();
+        let config = test_config(&tmp);
+        let fingerprint =
+            super::build_session_fingerprint(&config, None, None, "orchestrator".into(), "chat");
+        let mut sessions = THREAD_SESSIONS.lock().await;
+        for key in [&key_a, &key_b] {
+            sessions.insert(
+                key.clone(),
+                crate::web_chat::types::SessionEntry {
+                    agent: host_seeded_with(&config, "x"),
+                    fingerprint: fingerprint.clone(),
+                },
+            );
+        }
+    }
+    // Under one agent's scope only that agent's slot goes.
+    CoreContext::scope(agent_ctx("asha"), async {
+        crate::web_chat::ops::invalidate_thread_sessions(&thread_id).await;
+    })
+    .await;
+    {
+        let sessions = THREAD_SESSIONS.lock().await;
+        assert!(!sessions.contains_key(&key_a), "asha's slot is evicted");
+        assert!(sessions.contains_key(&key_b), "ravi's slot survives");
+    }
+    // A host-level invalidation (no agent scope) clears every agent's slot.
+    crate::web_chat::ops::invalidate_thread_sessions(&thread_id).await;
+    let sessions = THREAD_SESSIONS.lock().await;
+    assert!(!sessions.contains_key(&key_a) && !sessions.contains_key(&key_b));
+}
+
 /// A host-authored turn adopts the thread's agent whatever settings built it,
 /// but never one built against another workspace: after a different user
 /// signs in, the old user's live session must not answer for the new one.
@@ -637,7 +695,7 @@ async fn each_checkout_arms_the_reply_language_from_its_own_locale() {
     // Reused cached agent, the user switched the UI to English: the Spanish
     // directives already in the history are superseded explicitly.
     assert!(
-        thread_sessions()
+        THREAD_SESSIONS
             .lock()
             .await
             .contains_key(&key_for(&thread_id)),
@@ -651,7 +709,7 @@ async fn each_checkout_arms_the_reply_language_from_its_own_locale() {
     checkin_session_agent(&thread_id, agent, fingerprint).await;
 
     // Reused again, now Hindi: re-armed with the new language.
-    assert!(thread_sessions()
+    assert!(THREAD_SESSIONS
         .lock()
         .await
         .contains_key(&key_for(&thread_id)));

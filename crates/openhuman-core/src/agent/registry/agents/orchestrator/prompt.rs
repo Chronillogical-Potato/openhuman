@@ -153,13 +153,13 @@ fn render_withheld_specialists(ctx: &PromptContext<'_>) -> String {
         );
         return String::new();
     }
-    let Some(registry) = AgentDefinitionRegistry::current() else {
+    let Some(registry) = AgentDefinitionRegistry::global() else {
         tracing::debug!(
             "[orchestrator-prompt] no agent registry; withheld-specialist section omitted"
         );
         return String::new();
     };
-    let Some(definition) = resolve_definition(&registry, ctx.agent_id) else {
+    let Some(definition) = resolve_definition(registry, ctx.agent_id) else {
         tracing::debug!(
             agent = ctx.agent_id,
             "[orchestrator-prompt] agent id does not resolve to a registry entry"
@@ -237,8 +237,8 @@ fn render_withheld_specialists(ctx: &PromptContext<'_>) -> String {
 /// visible set exactly like [`render_withheld_specialists`], never hand-written,
 /// so a pack or allowlist change moves the prose with it (#6302).
 fn hand_off_route(ctx: &PromptContext<'_>, specialist: &str) -> Option<String> {
-    let registry = AgentDefinitionRegistry::current()?;
-    let definition = resolve_definition(&registry, ctx.agent_id)?;
+    let registry = AgentDefinitionRegistry::global()?;
+    let definition = resolve_definition(registry, ctx.agent_id)?;
     let listed = definition
         .subagents
         .iter()
@@ -297,10 +297,10 @@ fn run_workflow_route(ctx: &PromptContext<'_>) -> Option<String> {
 /// is callable for an agent only when its belt mentions one of the pack's tools.
 fn belt_lists(ctx: &PromptContext<'_>, tool: &str) -> bool {
     use crate::agent::harness::definition::ToolScope;
-    let Some(registry) = AgentDefinitionRegistry::current() else {
+    let Some(registry) = AgentDefinitionRegistry::global() else {
         return false;
     };
-    let Some(definition) = resolve_definition(&registry, ctx.agent_id) else {
+    let Some(definition) = resolve_definition(registry, ctx.agent_id) else {
         return false;
     };
     match &definition.tools {

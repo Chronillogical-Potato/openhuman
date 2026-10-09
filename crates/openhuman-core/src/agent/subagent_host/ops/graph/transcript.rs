@@ -56,8 +56,7 @@ pub(super) fn persist_subagent_transcript(
 ) {
     use tinyagents_session::transcript;
 
-    let root = crate::agent::session_store::transcript_root(workspace_dir);
-    let path = match transcript::resolve_keyed_transcript_path(&root, transcript_stem) {
+    let path = match transcript::resolve_keyed_transcript_path(workspace_dir, transcript_stem) {
         Ok(p) => p,
         Err(err) => {
             tracing::debug!(

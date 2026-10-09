@@ -72,10 +72,10 @@ subscriber all listen to.
    are pushed onto the running turn's `RunQueue` instead of starting a turn;
    with nothing in flight they start a normal turn.
    `Parallel` starts an isolated fork alongside whatever is running
-   ([`ops/parallel_turn.rs`](./ops/parallel_turn.rs)), tracked in its own `parallel_in_flight()` table
+   ([`ops/parallel_turn.rs`](./ops/parallel_turn.rs)), tracked in its own `PARALLEL_IN_FLIGHT` table
    keyed by request id so it never touches interrupt or queue semantics.
 
-4. For a primary turn, `start_chat` records an `InFlightEntry` in `in_flight()`
+4. For a primary turn, `start_chat` records an `InFlightEntry` in `IN_FLIGHT`
    and spawns a task (under `CoreContext::propagate`) that drives
    `run_task::run_chat_task` through `run_turn_under_cancel_and_deadline`
    ([`ops/turn_guards.rs`](./ops/turn_guards.rs)). That wrapper puts four things around the same
@@ -85,7 +85,7 @@ subscriber all listen to.
 
 5. `run_chat_task` checks the session agent out of the per-thread cache
    (`session::checkout_session_agent`). The entry is removed from
-   `thread_sessions()` for the duration of the turn so two turns can never
+   `THREAD_SESSIONS` for the duration of the turn so two turns can never
    drive one agent. It is reused when its `SessionCacheFingerprint` still
    matches; otherwise a new agent is built. A new agent needs no history
    seeding: `set_thread_id` binds the session's durable identity
@@ -143,7 +143,7 @@ events (they become the turn's reply text), so they carry no key.
 
 Background-delivery notices (`agent::orchestration::background_delivery`) and
 goal continuations enter through `run_system_turn_on_thread`
-([`ops/system_turn.rs`](./ops/system_turn.rs)) instead of `start_chat`. They skip ingress, `in_flight()`
+([`ops/system_turn.rs`](./ops/system_turn.rs)) instead of `start_chat`. They skip ingress, `IN_FLIGHT`
 and the progress bridge, run with `SYSTEM_CLIENT_ID` ("system"), and return
 the reply text for the caller to deliver. They still go through the same
 session checkout, so the model sees the conversation and the turn lands in the
@@ -226,9 +226,9 @@ and artifact bridges itself (`openhuman-tui/src/runner.rs`).
 | [`ops/channel_ops.rs`](./ops/channel_ops.rs) | `cancel_chat`, `cancel_chat_scoped`, and the `channel_web_*` RPC handlers. |
 | [`ops/parallel_turn.rs`](./ops/parallel_turn.rs) | Spawns and cancels `QueueMode::Parallel` forks. |
 | [`ops/system_turn.rs`](./ops/system_turn.rs) | `run_system_turn_on_thread` for host-authored turns. |
-| [`ops/state.rs`](./ops/state.rs) | `thread_sessions()`, `in_flight()`, `parallel_in_flight()`, keying helpers, `invalidate_thread_sessions`, `cancel_should_target`. Each table is a slot of the ambient agent context, so two embedded agents never share an entry; outside an agent context it is the process default. |
+| [`ops/state.rs`](./ops/state.rs) | `THREAD_SESSIONS`, `IN_FLIGHT`, `PARALLEL_IN_FLIGHT`, keying helpers, `invalidate_thread_sessions`, `cancel_should_target`. |
 | [`ops/turn_guards.rs`](./ops/turn_guards.rs) | `run_turn_under_cancel_and_deadline`, the wall-clock backstop, Sentry suppression and timeout tagging. |
-| [`ops/budget_correlation.rs`](./ops/budget_correlation.rs) | `thread_budget_signals()` and `classify_budget_correlation` for the empty-200-after-budget case. |
+| [`ops/budget_correlation.rs`](./ops/budget_correlation.rs) | `THREAD_BUDGET_SIGNALS` and `classify_budget_correlation` for the empty-200-after-budget case. |
 | [`ops/test_hooks.rs`](./ops/test_hooks.rs) | Debug/test hooks that force or block `run_chat_task`. |
 | [`run_task.rs`](./run_task.rs) | `run_chat_task`: checkout, progress bridge, run, budget correlation on error, checkin. |
 | [`session.rs`](./session.rs) | Session checkout and checkin, fingerprinting, `CheckoutPolicy`, target agent id, locale reply directive, per-turn provider and model routing. |
@@ -317,7 +317,7 @@ because the in-app chat is core product surface (#5002).
 - Attachment staging must stay ahead of prompt scanning and persistence.
 - A reply persistence error is non-fatal: the reply is announced anyway, since
   the client's own append is still a working fallback.
-- Host-authored turns are not in `in_flight()`, so they neither interrupt nor
+- Host-authored turns are not in `IN_FLIGHT`, so they neither interrupt nor
   get interrupted by user messages. Callers gate on idleness themselves.
 - Debug/test hooks (`set_test_forced_run_chat_task_error`,
   `RUN_CHAT_TASK_TEST_LOCK`, `set_test_run_chat_task_block`,

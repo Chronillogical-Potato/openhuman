@@ -54,12 +54,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
             function: "list_pending",
             description:
                 "List pending approval requests awaiting a user decision in the current session.",
-            inputs: vec![FieldSchema {
-                name: "agent_id",
-                ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-                comment: "Only the requests this embedded agent parked. Omit to list every request.",
-                required: false,
-            }],
+            inputs: vec![],
             outputs: vec![FieldSchema {
                 name: "pending",
                 ty: TypeSchema::Array(Box::new(TypeSchema::Ref("PendingApproval"))),
@@ -118,13 +113,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
                          source_context names a flow), or \"deny\".",
                     required: true,
                 },
-                FieldSchema {
-                    name: "agent_id",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-                    comment: "Decide as this embedded agent; refused when the request belongs to \
-                              another agent.",
-                    required: false,
-                },
             ],
             outputs: vec![FieldSchema {
                 name: "decided",
@@ -179,10 +167,9 @@ pub fn schemas(function: &str) -> ControllerSchema {
     }
 }
 
-fn handle_list_pending(params: Map<String, Value>) -> ControllerFuture {
+fn handle_list_pending(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let agent_id = read_optional_string(&params, "agent_id")?;
-        let outcome = approval_rpc::approval_list_pending(agent_id.as_deref())
+        let outcome = approval_rpc::approval_list_pending()
             .await
             .map_err(|e| e.to_string())?;
         to_json(outcome)
@@ -218,11 +205,9 @@ fn handle_decide(params: Map<String, Value>) -> ControllerFuture {
                  approve_once|approve_always_for_tool|approve_always_for_flow|deny, got '{decision_str}'"
             )
         })?;
-        let agent_id = read_optional_string(&params, "agent_id")?;
-        let outcome =
-            approval_rpc::approval_decide(request_id.trim(), decision, agent_id.as_deref())
-                .await
-                .map_err(|e| e.to_string())?;
+        let outcome = approval_rpc::approval_decide(request_id.trim(), decision)
+            .await
+            .map_err(|e| e.to_string())?;
         to_json(outcome)
     })
 }
@@ -265,17 +250,6 @@ fn read_optional_u64(params: &Map<String, Value>, key: &str) -> Result<Option<u6
         Some(Value::Null) | None => Ok(None),
         Some(other) => Err(format!(
             "invalid '{key}': expected unsigned integer, got {}",
-            type_name(other)
-        )),
-    }
-}
-
-fn read_optional_string(params: &Map<String, Value>, key: &str) -> Result<Option<String>, String> {
-    match params.get(key) {
-        Some(Value::String(s)) if !s.trim().is_empty() => Ok(Some(s.trim().to_string())),
-        Some(Value::String(_)) | Some(Value::Null) | None => Ok(None),
-        Some(other) => Err(format!(
-            "invalid '{key}': expected string, got {}",
             type_name(other)
         )),
     }

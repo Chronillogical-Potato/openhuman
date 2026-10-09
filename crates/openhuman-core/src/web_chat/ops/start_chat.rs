@@ -20,7 +20,7 @@ use super::super::run_task::run_chat_task;
 use super::super::types::{ChatRequestMetadata, InFlightEntry, QueueMode};
 use super::super::web_errors::classify_inference_error;
 use super::parallel_turn::spawn_parallel_turn;
-use super::state::{cancel_in_flight_gracefully, in_flight, key_for};
+use super::state::{cancel_in_flight_gracefully, key_for, IN_FLIGHT};
 use super::turn_guards::{
     run_turn_under_cancel_and_deadline, sentry_suppression_reason, timeout_bound_tag,
 };
@@ -371,7 +371,7 @@ async fn start_chat_inner(
 
     // Non-interrupt modes: push into the running turn's queue and return.
     if !matches!(parsed_mode, QueueMode::Interrupt) {
-        let in_flight = in_flight().lock_owned().await;
+        let in_flight = IN_FLIGHT.lock().await;
         if let Some(existing) = in_flight.get(&map_key) {
             let item_id = uuid::Uuid::new_v4().to_string();
             let text_preview = crate::agent::queued_turn::text_preview(&message);
@@ -425,7 +425,7 @@ async fn start_chat_inner(
     }
 
     {
-        let mut in_flight = in_flight().lock_owned().await;
+        let mut in_flight = IN_FLIGHT.lock().await;
 
         if let Some(existing) = in_flight.remove(&map_key) {
             let cancelled_id = cancel_in_flight_gracefully(existing);
@@ -526,7 +526,7 @@ async fn start_chat_inner(
                     // Release any in-flight slot we still own and stop. The
                     // `request_id` guard below prevents clobbering a newer turn that
                     // replaced us on the interrupt path.
-                    let mut in_flight = in_flight().lock_owned().await;
+                    let mut in_flight = IN_FLIGHT.lock().await;
                     if let Some(current) = in_flight.get(&map_key_task) {
                         if current.request_id == request_id_task {
                             in_flight.remove(&map_key_task);
@@ -622,7 +622,7 @@ async fn start_chat_inner(
 
             // Drain followup messages queued during this turn.
             let followups = {
-                let mut in_flight = in_flight().lock_owned().await;
+                let mut in_flight = IN_FLIGHT.lock().await;
                 let followups = if let Some(current) = in_flight.get(&map_key_task) {
                     if current.request_id == request_id_task {
                         let fups = current.run_queue.drain(QueueLane::Followup).await;
@@ -683,7 +683,7 @@ async fn start_chat_inner(
     ));
 
     {
-        let mut in_flight = in_flight().lock_owned().await;
+        let mut in_flight = IN_FLIGHT.lock().await;
         in_flight.insert(
             map_key,
             InFlightEntry {

@@ -25,7 +25,6 @@ fn pending(id: &str, created_secs_ago: i64, expires_in: Option<i64>) -> PendingA
             node_id: None,
         }),
         tool_call_id: Some(format!("call-{id}")),
-        agent_id: None,
     }
 }
 
@@ -372,28 +371,4 @@ fn expiry_is_compared_below_a_millisecond() {
         .unwrap()
         .is_empty());
     assert_eq!(store.expire_stale(due).unwrap().len(), 1);
-}
-
-#[test]
-fn the_parking_agent_round_trips_and_names_the_pending_owner() {
-    let store = docs();
-    let mut owned = pending("owned", 10, None);
-    owned.agent_id = Some("alpha".to_string());
-    store.insert_pending(&owned, "s1").unwrap();
-    store
-        .insert_pending(&pending("process", 5, None), "s1")
-        .unwrap();
-
-    let listed = store.list_pending().unwrap();
-    assert_eq!(listed[0].agent_id.as_deref(), Some("alpha"));
-    assert_eq!(listed[1].agent_id, None);
-    assert_eq!(
-        store.pending_agent("owned").unwrap(),
-        Some(Some("alpha".to_string()))
-    );
-    assert_eq!(store.pending_agent("process").unwrap(), Some(None));
-    assert_eq!(store.pending_agent("missing").unwrap(), None);
-
-    store.decide("owned", ApprovalDecision::Deny).unwrap();
-    assert_eq!(store.pending_agent("owned").unwrap(), None);
 }

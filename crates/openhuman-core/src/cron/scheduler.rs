@@ -75,46 +75,6 @@ pub async fn run(config: Config) -> Result<()> {
     loop {
         interval.tick().await;
         tick_once(&config, &security, &mut last_emitted_health).await;
-        tick_live_agents().await;
-    }
-}
-
-/// Runs the due jobs of every live embedded agent, each under that agent's
-/// own context: its config, provider route, policy and job database. An
-/// agent that is not live has no context to run under, so its jobs stay
-/// dormant until it is instantiated again.
-pub(crate) async fn tick_live_agents() {
-    for (agent_id, ctx) in crate::core::runtime::AgentContextRegistry::live() {
-        let agent = agent_id.clone();
-        crate::core::runtime::CoreContext::scope(ctx, async move {
-            let config = match crate::config::ops::load_current_or_init().await {
-                Ok(config) => config,
-                Err(error) => {
-                    tracing::debug!(agent = %agent, %error, "[cron:scheduler] agent config unavailable");
-                    return;
-                }
-            };
-            if !crate::cron::store::db_path(&config).exists() {
-                return;
-            }
-            let jobs = match due_jobs(&config, Utc::now()) {
-                Ok(jobs) => jobs,
-                Err(error) => {
-                    tracing::warn!(agent = %agent, "[cron:scheduler] agent poll db_error: {error}");
-                    return;
-                }
-            };
-            if jobs.is_empty() {
-                return;
-            }
-            let Some(security) = crate::security::live_policy::effective() else {
-                tracing::warn!(agent = %agent, "[cron:scheduler] agent has no policy; jobs skipped");
-                return;
-            };
-            tracing::debug!(agent = %agent, due_count = jobs.len(), "[cron:scheduler] running agent jobs");
-            process_due_jobs(&config, &security, jobs).await;
-        })
-        .await;
     }
 }
 

@@ -80,7 +80,6 @@ pub(crate) fn test_main_def() -> AgentDefinition {
         ],
         delegate_name: None,
         agent_tier: AgentTier::Chat,
-        searches_connected_mcp: false,
         source: DefinitionSource::Builtin,
         graph: Default::default(),
     }
@@ -123,7 +122,6 @@ pub(crate) fn test_inherit_echo_def() -> AgentDefinition {
         subagents: vec![],
         delegate_name: None,
         agent_tier: crate::agent::harness::definition::AgentTier::Worker,
-        searches_connected_mcp: false,
         source: DefinitionSource::Builtin,
         graph: Default::default(),
     }
@@ -162,7 +160,6 @@ pub(crate) fn test_inherit_parallel_worker_def() -> AgentDefinition {
         subagents: vec![],
         delegate_name: None,
         agent_tier: crate::agent::harness::definition::AgentTier::Worker,
-        searches_connected_mcp: false,
         source: DefinitionSource::Builtin,
         graph: Default::default(),
     }

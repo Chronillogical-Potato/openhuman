@@ -43,7 +43,6 @@ pub const AGENT_WORKER_STACK_BYTES: usize = 20 * 1024 * 1024;
 /// `.thread_stack_size(AGENT_WORKER_STACK_BYTES)` on every such runtime.
 pub const MAX_BLOCKING_THREADS: usize = 64;
 
-pub mod agent_scope;
 pub mod boot_guard;
 mod bootstrap;
 pub mod builder;
@@ -55,7 +54,6 @@ pub mod services;
 pub mod spawn;
 pub(crate) mod subscribers;
 
-pub use agent_scope::{agent_scope_dir, current_slot, AgentContextRegistry, AgentScopedState};
 pub use builder::{CoreBuilder, CoreRuntime, DomainSet, ServiceSet, TokenSource};
 pub use context::{ContextOverlay, CoreContext};
 pub use mode::{current_mode, is_saas, Mode};

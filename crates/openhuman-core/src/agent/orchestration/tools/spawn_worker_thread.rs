@@ -88,7 +88,7 @@ impl Tool for SpawnWorkerThreadTool {
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
-        let agent_ids: Vec<String> = AgentDefinitionRegistry::current()
+        let agent_ids: Vec<String> = AgentDefinitionRegistry::global()
             .map(|reg| reg.list().iter().map(|d| d.id.clone()).collect())
             .unwrap_or_default();
 
@@ -269,7 +269,7 @@ impl SpawnWorkerThreadTool {
             }
         }
 
-        let registry = AgentDefinitionRegistry::current()
+        let registry = AgentDefinitionRegistry::global()
             .ok_or_else(|| anyhow::anyhow!("AgentDefinitionRegistry not initialised"))?;
 
         let definition = registry

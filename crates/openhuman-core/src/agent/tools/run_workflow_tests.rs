@@ -162,26 +162,3 @@ fn account_spawn_trips_the_process_backstop() {
     let err = last.expect_err("the spawn backstop must trip within 600 accounted spawns");
     assert!(err.contains("backstop"), "got: {err}");
 }
-
-#[tokio::test]
-async fn each_agent_owns_its_workflow_await_guard() {
-    use crate::core::runtime::agent_scope::test_agent_context;
-    use crate::core::runtime::{context::CoreContext, DomainSet};
-    let root = CoreContext::for_test(DomainSet::full(), None);
-    let alpha = test_agent_context(&root, "alpha");
-    let beta = test_agent_context(&root, "beta");
-    let key = "agent-guard-shared-key".to_string();
-
-    let held = CoreContext::scope(std::sync::Arc::clone(&alpha), async {
-        super::guard::acquire_await(key.clone()).expect("alpha acquires")
-    })
-    .await;
-
-    let beta_result =
-        CoreContext::scope(beta, async { super::guard::acquire_await(key.clone()) }).await;
-    assert!(beta_result.is_ok(), "beta is not blocked by alpha's await");
-    let alpha_again =
-        CoreContext::scope(alpha, async { super::guard::acquire_await(key.clone()) }).await;
-    assert!(alpha_again.is_err(), "alpha still holds its own key");
-    drop(held);
-}

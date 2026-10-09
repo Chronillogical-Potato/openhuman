@@ -372,7 +372,7 @@ impl ContinueSubagentTool {
         }
 
         // Look up the agent definition
-        let registry = match AgentDefinitionRegistry::current() {
+        let registry = match AgentDefinitionRegistry::global() {
             Some(reg) => reg,
             None => {
                 return Ok(ToolResult::error(

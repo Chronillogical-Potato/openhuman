@@ -997,7 +997,6 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                     run_id,
                     tool_name,
                     summary,
-                    agent_id: _,
                 } => {
                     let payload = serde_json::json!({
                         "request_id": request_id,

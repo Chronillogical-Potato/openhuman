@@ -11,7 +11,7 @@ use super::super::event_bus::publish_web_channel_event;
 use super::super::types::ChatRequestMetadata;
 use super::parallel_turn::{cancel_parallel_turn_by_request_id, cancel_parallel_turns_for_thread};
 use super::start_chat::start_chat;
-use super::state::{cancel_in_flight_gracefully, cancel_should_target, in_flight, key_for};
+use super::state::{cancel_in_flight_gracefully, cancel_should_target, key_for, IN_FLIGHT};
 
 /// Cancel whatever turn is currently running on a thread (unscoped stop).
 ///
@@ -68,7 +68,7 @@ async fn cancel_chat_inner(
     let mut removed_request_id: Option<String> = None;
 
     {
-        let mut in_flight = in_flight().lock_owned().await;
+        let mut in_flight = IN_FLIGHT.lock().await;
         // #4760: only tear down the primary turn when the cancel is unscoped OR
         // targets exactly the request that is running. A stale cancel for an
         // already-superseded request must be a no-op so the newer turn lives.
@@ -185,10 +185,10 @@ async fn cancel_chat_inner(
 
 /// Is a primary or parallel turn still running on `thread_id`?
 async fn thread_has_live_turn(thread_id: &str, map_key: &str) -> bool {
-    if super::state::in_flight().lock().await.contains_key(map_key) {
+    if IN_FLIGHT.lock().await.contains_key(map_key) {
         return true;
     }
-    super::state::parallel_in_flight()
+    super::state::PARALLEL_IN_FLIGHT
         .lock()
         .await
         .values()
@@ -268,7 +268,7 @@ fn queue_item_json(
 
 pub async fn channel_web_queue_status(thread_id: &str) -> Result<Outcome<Value>, String> {
     let map_key = key_for(thread_id);
-    let in_flight = in_flight().lock_owned().await;
+    let in_flight = IN_FLIGHT.lock().await;
     if let Some(entry) = in_flight.get(&map_key) {
         let status = entry.run_queue.status().await;
         let items: Vec<Value> = entry
@@ -324,7 +324,7 @@ pub async fn channel_web_queue_remove(
         return Err("item_id is required".to_string());
     }
     let map_key = key_for(thread_id);
-    let in_flight = in_flight().lock_owned().await;
+    let in_flight = IN_FLIGHT.lock().await;
     let Some(entry) = in_flight.get(&map_key) else {
         return Ok(Outcome::single_log(
             json!({
@@ -366,7 +366,7 @@ pub async fn channel_web_queue_remove(
 
 pub async fn channel_web_queue_clear(thread_id: &str) -> Result<Outcome<Value>, String> {
     let map_key = key_for(thread_id);
-    let in_flight = in_flight().lock_owned().await;
+    let in_flight = IN_FLIGHT.lock().await;
     if let Some(entry) = in_flight.get(&map_key) {
         let dropped = entry.run_queue.clear().await;
         log::info!(

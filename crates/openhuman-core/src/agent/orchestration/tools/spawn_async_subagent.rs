@@ -168,7 +168,7 @@ impl Tool for SpawnAsyncSubagentTool {
         let agent_ids: Vec<String> = if scoped {
             self.advertised_ids.clone()
         } else {
-            AgentDefinitionRegistry::current()
+            AgentDefinitionRegistry::global()
                 .map(|reg| reg.list().iter().map(|d| d.id.clone()).collect())
                 .unwrap_or_default()
         };

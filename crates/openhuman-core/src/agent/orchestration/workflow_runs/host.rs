@@ -68,7 +68,7 @@ impl OpenHumanWorkflowExecutor {
     fn admit_child(&self, agent_id: &str) -> Result<(), OrchestrationError> {
         match self.safety_tier {
             WorkflowSafetyTier::ReadOnly => {
-                let registry = AgentDefinitionRegistry::current().ok_or_else(|| {
+                let registry = AgentDefinitionRegistry::global().ok_or_else(|| {
                     OrchestrationError(
                         "workflow safety admission requires the agent registry".to_owned(),
                     )

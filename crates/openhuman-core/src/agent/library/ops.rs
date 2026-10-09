@@ -13,7 +13,7 @@ pub async fn list_definition_metadata() -> Result<Vec<AgentDefinitionDisplay>, S
         AgentDefinitionRegistry::init_global(&config.workspace_dir)
             .map_err(|e| format!("failed to initialise AgentDefinitionRegistry: {e}"))?;
     }
-    let registry = AgentDefinitionRegistry::current()
+    let registry = AgentDefinitionRegistry::global()
         .ok_or_else(|| "AgentDefinitionRegistry not initialised".to_string())?;
     let definitions = registry
         .list()

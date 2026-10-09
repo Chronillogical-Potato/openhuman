@@ -3,35 +3,26 @@
 //! and mutate them.
 
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::Duration;
 
+use once_cell::sync::Lazy;
 use serde_json::json;
 use tokio::sync::Mutex;
 
 use super::super::types::{InFlightEntry, ParallelEntry, SessionEntry};
 
-type ThreadSessions = Mutex<HashMap<String, SessionEntry>>;
-type InFlight = Mutex<HashMap<String, InFlightEntry>>;
-type ParallelInFlight = Mutex<HashMap<String, ParallelEntry>>;
+pub(crate) static THREAD_SESSIONS: Lazy<Mutex<HashMap<String, SessionEntry>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
-/// The current agent context's per-thread session cache.
-pub(crate) fn thread_sessions() -> Arc<ThreadSessions> {
-    crate::core::runtime::current_slot::<ThreadSessions>()
-}
-
-/// The current agent context's primary in-flight turns, keyed by thread.
-pub(crate) fn in_flight() -> Arc<InFlight> {
-    crate::core::runtime::current_slot::<InFlight>()
-}
+pub(crate) static IN_FLIGHT: Lazy<Mutex<HashMap<String, InFlightEntry>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
 /// Parallel (forked) turns, keyed by `request_id`. A separate lane from
-/// [`in_flight`] (which holds one primary, interrupt-able turn per thread) so
-/// any number of concurrent `QueueMode::Parallel` turns can run on the same
-/// thread without touching interrupt/steer/queue semantics.
-pub(crate) fn parallel_in_flight() -> Arc<ParallelInFlight> {
-    crate::core::runtime::current_slot::<ParallelInFlight>()
-}
+/// `IN_FLIGHT` (which holds one primary, interrupt-able turn per thread) so any
+/// number of concurrent `QueueMode::Parallel` turns can run on the same thread
+/// without touching interrupt/steer/queue semantics. See `QueueMode::Parallel`.
+pub(crate) static PARALLEL_IN_FLIGHT: Lazy<Mutex<HashMap<String, ParallelEntry>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
 /// The map key for `thread_id` in the calling scope.
 ///
@@ -123,11 +114,12 @@ pub(crate) fn cancel_in_flight_gracefully(entry: InFlightEntry) -> String {
 }
 
 pub async fn invalidate_thread_sessions(thread_id: &str) {
-    // Under an embedded agent only that agent's entry goes. Outside an agent
-    // scope every entry for the thread in the current table goes.
+    // Under an embedded agent only that agent's slot goes: another agent that
+    // picked the same thread id keeps its live session. Outside an agent scope
+    // (a host-level edit or delete of the thread) every scope's slot goes.
     let active_agent = crate::core::runtime::CoreContext::current()
         .and_then(|context| context.session_agent().map(str::to_owned));
-    let mut sessions = thread_sessions().lock_owned().await;
+    let mut sessions = THREAD_SESSIONS.lock().await;
     let keys_to_remove: Vec<String> = match active_agent {
         Some(_) => {
             let key = key_for(thread_id);
@@ -156,7 +148,7 @@ pub async fn invalidate_thread_sessions(thread_id: &str) {
 }
 
 pub async fn in_flight_entries_for_test() -> Vec<(String, String)> {
-    let guard = in_flight().lock_owned().await;
+    let guard = IN_FLIGHT.lock().await;
     guard
         .iter()
         .map(|(k, v)| (k.clone(), v.request_id.clone()))
@@ -172,7 +164,7 @@ pub async fn drain_queued_turns_for_test(
     thread_id: &str,
     lane: tinyagents_harness::run_queue::QueueLane,
 ) -> Vec<crate::agent::queued_turn::QueuedTurn> {
-    let guard = in_flight().lock_owned().await;
+    let guard = IN_FLIGHT.lock().await;
     match guard.get(&key_for(thread_id)) {
         Some(entry) => entry.run_queue.drain(lane).await,
         None => Vec::new(),
@@ -182,7 +174,7 @@ pub async fn drain_queued_turns_for_test(
 /// Test accessor: `(request_id, thread_id)` for every in-flight parallel turn.
 #[cfg(any(test, debug_assertions))]
 pub async fn parallel_in_flight_entries_for_test() -> Vec<(String, String)> {
-    let guard = parallel_in_flight().lock_owned().await;
+    let guard = PARALLEL_IN_FLIGHT.lock().await;
     guard
         .iter()
         .map(|(request_id, entry)| (request_id.clone(), entry.thread_id.clone()))
@@ -208,7 +200,3 @@ pub fn cancel_should_target(requested: Option<&str>, in_flight: &str) -> bool {
         None => true,
     }
 }
-
-#[cfg(test)]
-#[path = "state_tests.rs"]
-mod tests;

@@ -230,19 +230,6 @@ impl AgentDefinitionSpec {
     }
 }
 
-impl AgentDefinitionSpec {
-    /// Materialize this spec as a worker sub-agent named `id`: it executes
-    /// and delegates nothing further.
-    pub(crate) fn into_subagent_core(self, id: &str) -> Result<AgentDefinition, AgentError> {
-        let mut def = self.into_core(id)?;
-        def.agent_tier = openhuman_core::agent::harness::definition::AgentTier::Worker;
-        def.subagents.clear();
-        def.delegate_name = None;
-        def.searches_connected_mcp = false;
-        Ok(def)
-    }
-}
-
 /// The built-in definition every embedded agent starts from.
 const ORCHESTRATOR_ID: &str = "orchestrator";
 

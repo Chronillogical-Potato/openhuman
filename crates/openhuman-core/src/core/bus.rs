@@ -83,9 +83,7 @@ pub const EVENTS_INTERFACE: &str = "ai.tinyhumans.openhuman.Events";
 /// `MemoryTreeBuildProgress`, `CacheRebuilt`) — nothing publishes them any
 /// more — and adds `ConversationTurnCommitted` (memory's conversation
 /// ingestion) and `CronSystemJobDue` (host-owned cron jobs).
-/// `1.9.0` adds an optional `agent_id` to `ApprovalRequested`,
-/// `ApprovalDecided` and `FlowApprovalRequested` (additive).
-pub const EVENTS_VERSION: Version = Version::new(1, 9, 0);
+pub const EVENTS_VERSION: Version = Version::new(1, 8, 0);
 
 /// The bus. Initialised once by [`init`]; safe to touch before that.
 pub static BUS: OnceBus<DomainEvent> = OnceBus::new();

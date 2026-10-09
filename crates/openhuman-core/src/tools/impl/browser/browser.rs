@@ -543,8 +543,10 @@ impl Tool for BrowserTool {
         context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         if let Some(thread_id) = context.and_then(ToolRunContext::thread_id) {
-            let scope = crate::core::runtime::agent_scope_dir(self.client.config());
-            let key = format!("{}:{thread_id}", scope.display());
+            let key = format!(
+                "{}:{thread_id}",
+                self.client.config().workspace_dir.display()
+            );
             if let Ok(mut held) = self.thread_key.lock() {
                 *held = Some(key);
             }

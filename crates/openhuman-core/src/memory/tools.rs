@@ -19,7 +19,7 @@
 
 use crate::tools::schema_cache::static_schema;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
@@ -37,20 +37,16 @@ use super::types::{FetchParams, ForgetParams, LearnParams, RecallParams, TurnCit
 /// Most citations kept per thread between two drains.
 const MAX_TURN_CITATIONS: usize = 20;
 
-type TurnCitations = Mutex<HashMap<String, Vec<TurnCitation>>>;
-
 /// Citations `recall` produced during a thread's in-flight turn, drained by
 /// the chat surface once the turn returns ([`take_turn_citations`]).
-fn turn_citations() -> Arc<TurnCitations> {
-    crate::core::runtime::current_slot::<TurnCitations>()
-}
+static TURN_CITATIONS: LazyLock<Mutex<HashMap<String, Vec<TurnCitation>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 fn record_turn_citations(thread_id: &str, citations: &[tinymemory_api::Citation]) {
     if citations.is_empty() {
         return;
     }
-    let citations_by_thread = turn_citations();
-    let mut all = citations_by_thread
+    let mut all = TURN_CITATIONS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     let entry = all.entry(thread_id.to_string()).or_default();
@@ -71,8 +67,7 @@ pub fn record_pack_citations(thread_id: &str, citations: Vec<TurnCitation>) {
     if citations.is_empty() {
         return;
     }
-    let citations_by_thread = turn_citations();
-    let mut all = citations_by_thread
+    let mut all = TURN_CITATIONS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     let entry = all.entry(thread_id.to_string()).or_default();
@@ -90,7 +85,7 @@ pub fn record_pack_citations(thread_id: &str, citations: Vec<TurnCitation>) {
 /// `thread_id` since the last drain.
 #[must_use]
 pub fn take_turn_citations(thread_id: &str) -> Vec<TurnCitation> {
-    turn_citations()
+    TURN_CITATIONS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .remove(thread_id)
@@ -358,10 +353,6 @@ impl Tool for MemoryTool {
 #[cfg(test)]
 #[path = "tools_tests.rs"]
 mod tests;
-
-#[cfg(test)]
-#[path = "tools_agent_tests.rs"]
-mod agent_tests;
 
 #[cfg(test)]
 #[path = "tools_schema_tests.rs"]

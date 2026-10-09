@@ -16,7 +16,7 @@
 //! for the thread.
 
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::OnceLock;
 
 use parking_lot::Mutex;
 use tinyagents_harness::middleware::{RunMode, RunModeHandle};
@@ -24,10 +24,9 @@ use tinyagents_harness::middleware::{RunMode, RunModeHandle};
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 
-type RunModeRegistry = Mutex<HashMap<String, RunModeHandle>>;
-
-fn registry() -> Arc<RunModeRegistry> {
-    crate::core::runtime::current_slot::<RunModeRegistry>()
+fn registry() -> &'static Mutex<HashMap<String, RunModeHandle>> {
+    static REGISTRY: OnceLock<Mutex<HashMap<String, RunModeHandle>>> = OnceLock::new();
+    REGISTRY.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 /// Returns the [`RunModeHandle`] for `thread_id`, creating one (starting in
@@ -35,8 +34,7 @@ fn registry() -> Arc<RunModeRegistry> {
 /// the same underlying atomic, so every clone (a live turn's middleware, this
 /// registry's own copy, a later RPC call) observes the same live value.
 pub fn handle_for_thread(thread_id: &str) -> RunModeHandle {
-    let registry = registry();
-    let mut map = registry.lock();
+    let mut map = registry().lock();
     map.entry(thread_id.to_string())
         .or_insert_with(|| RunModeHandle::new(RunMode::Build))
         .clone()

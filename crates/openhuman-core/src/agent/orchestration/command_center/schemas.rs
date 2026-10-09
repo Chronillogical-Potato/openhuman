@@ -147,11 +147,9 @@ fn handle_agent_work_control(params: Map<String, Value>) -> ControllerFuture {
 /// Resolve an agent id to its registry display name, if the registry is up and
 /// the agent is known. Returns `None` otherwise (e.g. custom/removed agents).
 fn resolve_display_name(agent_id: &str) -> Option<String> {
-    AgentDefinitionRegistry::current().and_then(|registry| {
-        registry
-            .get(agent_id)
-            .map(|definition| definition.display_name().to_string())
-    })
+    AgentDefinitionRegistry::global()
+        .and_then(|registry| registry.get(agent_id))
+        .map(|definition| definition.display_name().to_string())
 }
 
 fn to_json<T: serde::Serialize>(value: T) -> Result<Value, String> {

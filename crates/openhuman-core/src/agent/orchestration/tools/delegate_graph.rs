@@ -12,6 +12,7 @@
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::orchestration::delegation::run_subagent_delegation_with_parent_context;
+use crate::config::Config;
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
@@ -110,7 +111,7 @@ impl Tool for DelegateGraphTool {
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
-        let agent_ids: Vec<String> = AgentDefinitionRegistry::current()
+        let agent_ids: Vec<String> = AgentDefinitionRegistry::global()
             .map(|reg| reg.list().iter().map(|d| d.id.clone()).collect())
             .unwrap_or_default();
 
@@ -211,7 +212,7 @@ impl DelegateGraphTool {
             .map(|n| (n as usize).min(MAX_MAX_REVISIONS))
             .unwrap_or(DEFAULT_MAX_REVISIONS);
 
-        let registry = match AgentDefinitionRegistry::current() {
+        let registry = match AgentDefinitionRegistry::global() {
             Some(reg) => reg,
             None => {
                 return Ok(ToolResult::error(
@@ -228,7 +229,7 @@ impl DelegateGraphTool {
             }
         };
 
-        let config = match crate::config::ops::load_current_or_init().await {
+        let config = match Config::load_or_init().await {
             Ok(cfg) => Arc::new(cfg),
             Err(e) => {
                 return Ok(ToolResult::error(format!(

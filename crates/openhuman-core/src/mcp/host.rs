@@ -116,7 +116,7 @@ impl McpHost {
     /// client cannot be built.
     pub fn open(config: &Config) -> anyhow::Result<Self> {
         let client = client_config(config);
-        Self::from_client_config(&host_key(config), &client)
+        Self::from_client_config(config.workspace_dir.as_path(), &client)
     }
 
     /// Builds a host over `workspace` from an already-converted client
@@ -126,9 +126,6 @@ impl McpHost {
     /// conversion: a host and the entry stored beside it can never disagree
     /// about which identity and proxy they were built with.
     fn from_client_config(workspace: &Path, client: &McpClientConfig) -> anyhow::Result<Self> {
-        std::fs::create_dir_all(workspace).map_err(|error| {
-            anyhow::anyhow!("failed to create the mcp store directory: {error}")
-        })?;
         Ok(Self {
             dynamic: McpRegistry::new(
                 Store::open(workspace)
@@ -183,7 +180,7 @@ impl McpHost {
 /// race; if one did, its service is returned and the freshly-built one is
 /// dropped.
 pub fn for_config(config: &Config) -> anyhow::Result<Arc<McpHost>> {
-    let workspace = host_key(config);
+    let workspace = config.workspace_dir.clone();
 
     // A host already under this workspace needs no re-opening: it would be
     // wasteful (and, on the common path, a plain Mutex of the shared map held
@@ -214,7 +211,6 @@ pub fn for_config(config: &Config) -> anyhow::Result<Arc<McpHost>> {
         return Ok(Arc::clone(&existing.host));
     }
 
-    tracing::debug!(key = ?workspace, "[mcp] opened host");
     hosts.insert(
         workspace,
         HostEntry {
@@ -225,36 +221,6 @@ pub fn for_config(config: &Config) -> anyhow::Result<Arc<McpHost>> {
     );
 
     Ok(service)
-}
-
-/// The service for `config` when one exists, without creating an agent's.
-///
-/// Outside an agent context this is [`for_config`]. Under one, an agent that
-/// never installed a server has no store on disk, and a read (listing
-/// connections or tools) must not create one: it answers with an error the
-/// read paths already treat as "nothing connected".
-///
-/// # Errors
-///
-/// When the agent has no host yet, or [`for_config`] fails.
-pub fn lookup(config: &Config) -> anyhow::Result<Arc<McpHost>> {
-    let key = host_key(config);
-    if key != config.workspace_dir {
-        let open = HOSTS.get().and_then(|hosts| {
-            hosts
-                .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner())
-                .get(&key)
-                .map(|entry| Arc::clone(&entry.host))
-        });
-        if let Some(host) = open {
-            return Ok(host);
-        }
-        if !Store::path_for(&key).exists() {
-            anyhow::bail!("the agent has no mcp host yet");
-        }
-    }
-    for_config(config)
 }
 
 /// Opens the service for `config` and marks its workspace the default.
@@ -297,51 +263,12 @@ pub fn init(config: &Config) -> anyhow::Result<()> {
 /// [`for_config`] would still report nothing connected.
 #[must_use]
 pub fn try_service() -> Option<Arc<McpHost>> {
-    if let Some(agent_host) = current_agent_host() {
-        return agent_host;
-    }
     let hosts = HOSTS
         .get()?
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
 
     resolve(DEFAULT_WORKSPACE.get().map(PathBuf::as_path), &hosts)
-}
-
-/// Removes the host of agent `agent_id` on `workspace_dir` from the open set
-/// and hands it back, so the caller can close its connections. `None` when
-/// the agent never opened one.
-pub fn take_agent_host(workspace_dir: &Path, agent_id: &str) -> Option<Arc<McpHost>> {
-    let key = workspace_dir.join("agents").join(agent_id);
-    let entry = HOSTS
-        .get()?
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-        .remove(&key)?;
-    tracing::debug!(agent = %agent_id, "[mcp] agent host evicted");
-    Some(entry.host)
-}
-
-/// Where the host for `config` keeps its stores: the workspace, or the
-/// agent's own directory beneath it when an agent context is current.
-fn host_key(config: &Config) -> PathBuf {
-    crate::core::runtime::agent_scope_dir(config)
-}
-
-/// The current agent's host, when a turn runs under an agent context.
-///
-/// `None` outside an agent context; `Some(None)` when the agent's host cannot
-/// be opened, which must not fall back to another agent's or the default one.
-fn current_agent_host() -> Option<Option<Arc<McpHost>>> {
-    let agent = crate::core::runtime::agent_scope::current_agent_id()?;
-    let opened = crate::core::runtime::CoreContext::with_current_embedder_config(lookup)?;
-    Some(match opened {
-        Ok(host) => Some(host),
-        Err(error) => {
-            tracing::debug!(agent = %agent, ?error, "[mcp] agent host unavailable");
-            None
-        }
-    })
 }
 
 /// The rule [`try_service`] applies, as a function of its inputs.
@@ -564,7 +491,3 @@ pub fn proxy_for_mcp() -> Option<McpProxyConfig> {
 #[cfg(test)]
 #[path = "host_tests.rs"]
 mod tests;
-
-#[cfg(test)]
-#[path = "host_agent_tests.rs"]
-mod agent_tests;

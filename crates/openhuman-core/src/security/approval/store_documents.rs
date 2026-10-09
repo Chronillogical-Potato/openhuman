@@ -110,7 +110,6 @@ fn to_pending(stored: &Versioned<Value>) -> PendingApproval {
                 .ok()
         }),
         tool_call_id: text(doc, "tool_call_id").map(str::to_string),
-        agent_id: text(doc, "agent_id").map(str::to_string),
     }
 }
 
@@ -186,7 +185,6 @@ impl Docs {
                 .transpose()
                 .context("[approval::store] serialize source_context")?,
             "tool_call_id": pending.tool_call_id,
-            "agent_id": pending.agent_id,
             "pending": true,
         });
         let id = pending.request_id.clone();
@@ -269,18 +267,6 @@ impl Docs {
                 .iter()
                 .map(to_pending)
                 .collect())
-        })
-    }
-
-    /// The agent that parked the still-undecided `request_id`: `None` when no
-    /// such request is pending, `Some(None)` for one the process parked.
-    pub(super) fn pending_agent(&self, request_id: &str) -> Result<Option<Option<String>>> {
-        let id = request_id.to_string();
-        self.run(|docs| async move {
-            Ok(docs.get(APPROVALS, &id).await?.and_then(|stored| {
-                (stored.doc.get("pending") == Some(&json!(true)))
-                    .then(|| text(&stored.doc, "agent_id").map(str::to_string))
-            }))
         })
     }
 

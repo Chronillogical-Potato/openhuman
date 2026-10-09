@@ -99,7 +99,7 @@ pub async fn session_kv_store() -> Option<Arc<dyn Store>> {
         log::debug!("[session-store] registering the host session store's kv on RunContext.stores");
         return Some(stores.kv);
     }
-    let cfg = match crate::config::ops::load_current_or_init().await {
+    let cfg = match crate::config::Config::load_or_init().await {
         Ok(cfg) => cfg,
         Err(err) => {
             log::warn!("[session-store] cannot resolve config for store registration: {err:#}");

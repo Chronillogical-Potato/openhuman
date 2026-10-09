@@ -177,7 +177,7 @@ pub(super) fn agent_node_role(config: &Config, node: &tinyflows::model::Node) ->
             tracing::debug!(target: "flows", %error,
                 "[flows] readiness: agent definition registry unavailable; using registry fallback");
         }
-        let definition = AgentDefinitionRegistry::current().and_then(|r| r.get(agent_ref).cloned());
+        let definition = AgentDefinitionRegistry::global().and_then(|r| r.get(agent_ref));
         let custom = crate::agent::registry::find_custom_in_config(config, agent_ref);
         if definition.is_some() || custom.is_some() {
             let entry_model = if definition.is_some() {
@@ -193,7 +193,7 @@ pub(super) fn agent_node_role(config: &Config, node: &tinyflows::model::Node) ->
                 override_model
                     .as_deref()
                     .or(config.default_model.as_deref()),
-                definition.as_ref(),
+                definition,
             );
         }
     }

@@ -17,20 +17,11 @@ use tinyflows_schedule::DeliveryStatus;
 use tinyflows_schedule::{CronJob, CronJobPatch, CronRun, DeliveryConfig, Schedule, SessionTarget};
 use tinyflows_sqlite::schedule::{self as upstream, AgentJobSpec, CronStoreOptions};
 
-/// The job database for `config`: `<workspace>/cron/jobs.db`, or the agent's
-/// own `<workspace>/agents/<id>/cron/jobs.db` under an embedded agent's
-/// context, so an agent lists, edits and runs only the jobs it created.
-pub fn db_path(config: &Config) -> std::path::PathBuf {
-    crate::core::runtime::agent_scope_dir(config)
-        .join("cron")
-        .join("jobs.db")
-}
-
-/// Builds the store options from the host config: [`db_path`],
+/// Builds the store options from the host config: `<workspace>/cron/jobs.db`,
 /// `cron.max_run_history`, `scheduler.max_tasks`.
 fn opts(config: &Config) -> CronStoreOptions {
     CronStoreOptions {
-        db_path: db_path(config),
+        db_path: config.workspace_dir.join("cron").join("jobs.db"),
         max_run_history: config.cron.max_run_history,
         max_tasks: config.scheduler.max_tasks,
     }

@@ -338,8 +338,9 @@ impl AgentOrchestrationSession {
 
         let progress_sink = parent.on_progress.clone();
         if let Some(progress) = progress_sink.clone() {
-            let resolved_display_name = AgentDefinitionRegistry::current()
-                .and_then(|reg| reg.get(&agent_id).map(|def| def.display_name().to_string()));
+            let resolved_display_name = AgentDefinitionRegistry::global()
+                .and_then(|reg| reg.get(&agent_id))
+                .map(|def| def.display_name().to_string());
             let _ = progress
                 .send(AgentProgress::SubagentSpawned {
                     agent_id: agent_id.clone(),
@@ -663,7 +664,7 @@ fn resolve_definition(request: &SpawnAgentRequest) -> Result<AgentDefinition, Or
         return Err(OrchestrationError::InvalidSpawnRequest);
     }
     let registry =
-        AgentDefinitionRegistry::current().ok_or(OrchestrationError::RegistryUnavailable)?;
+        AgentDefinitionRegistry::global().ok_or(OrchestrationError::RegistryUnavailable)?;
     registry
         .get(agent_id)
         .cloned()

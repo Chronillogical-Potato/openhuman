@@ -14,7 +14,7 @@ use super::super::event_bus::publish_web_channel_event;
 use super::super::run_task::run_chat_task;
 use super::super::types::{ChatRequestMetadata, ParallelEntry};
 use super::super::web_errors::classify_inference_error;
-use super::state::{key_for, parallel_in_flight, unscope};
+use super::state::{key_for, unscope, PARALLEL_IN_FLIGHT};
 use super::turn_guards::{
     run_turn_under_cancel_and_deadline, sentry_suppression_reason, timeout_bound_tag,
 };
@@ -22,7 +22,7 @@ use super::turn_guards::{
 /// Spawn an independent, forked (`QueueMode::Parallel`) turn. It snapshots the
 /// thread's history-at-start (inside `run_chat_task` with `fork = true`), runs
 /// concurrently with any other turn on the thread, and on completion delivers
-/// its response (append-only) and removes itself from [`parallel_in_flight`].
+/// its response (append-only) and removes itself from `PARALLEL_IN_FLIGHT`.
 /// Emits the same per-`request_id` stream events as a primary turn, so the UI
 /// can render it as an interleaved branch.
 #[allow(clippy::too_many_arguments)]
@@ -197,14 +197,11 @@ pub(crate) async fn spawn_parallel_turn(
                 }
             }
 
-            parallel_in_flight()
-                .lock_owned()
-                .await
-                .remove(&map_key_task);
+            PARALLEL_IN_FLIGHT.lock().await.remove(&map_key_task);
         },
     ));
 
-    parallel_in_flight().lock_owned().await.insert(
+    PARALLEL_IN_FLIGHT.lock().await.insert(
         map_key,
         ParallelEntry {
             thread_id: key_for(thread_id),
@@ -220,7 +217,7 @@ pub(crate) async fn spawn_parallel_turn(
 pub(crate) async fn cancel_parallel_turns_for_thread(thread_id: &str) -> Vec<String> {
     let mut cancelled = Vec::new();
     let scoped_thread = key_for(thread_id);
-    let mut parallel = parallel_in_flight().lock_owned().await;
+    let mut parallel = PARALLEL_IN_FLIGHT.lock().await;
     let request_ids: Vec<String> = parallel
         .iter()
         .filter(|(_, entry)| entry.thread_id == scoped_thread)
@@ -254,7 +251,7 @@ pub(crate) async fn cancel_parallel_turn_by_request_id(
 ) -> Vec<String> {
     let map_key = key_for(request_id);
     let scoped_thread = key_for(thread_id);
-    let mut parallel = parallel_in_flight().lock_owned().await;
+    let mut parallel = PARALLEL_IN_FLIGHT.lock().await;
     let matches = parallel
         .get(&map_key)
         .map(|entry| entry.thread_id == scoped_thread)

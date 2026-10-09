@@ -233,7 +233,7 @@ pub(super) fn register_turn_tools_and_agents(
     // remains the deferred follow-up.
     let mut registered_agents: HashSet<String> = HashSet::new();
     let mut runtime_agent_count = 0usize;
-    if let Some(runtime) = crate::agent::harness::definition::AgentDefinitionRegistry::current() {
+    if let Some(runtime) = crate::agent::harness::definition::AgentDefinitionRegistry::global() {
         for def in runtime.list() {
             if registered_agents.insert(def.id.clone()) {
                 let _ =

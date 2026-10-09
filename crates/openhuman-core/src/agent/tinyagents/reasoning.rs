@@ -14,17 +14,16 @@
 //! Nothing set means the provider keeps its own default.
 
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::OnceLock;
 
 use parking_lot::Mutex;
 use tinyinference_llm::model::{ReasoningConfig, ReasoningEffort};
 
 use crate::config::Config;
 
-type ThreadEfforts = Mutex<HashMap<String, ReasoningEffort>>;
-
-fn thread_efforts() -> Arc<ThreadEfforts> {
-    crate::core::runtime::current_slot::<ThreadEfforts>()
+fn thread_efforts() -> &'static Mutex<HashMap<String, ReasoningEffort>> {
+    static EFFORTS: OnceLock<Mutex<HashMap<String, ReasoningEffort>>> = OnceLock::new();
+    EFFORTS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 /// The effort a thread's user picked, if any.
@@ -34,8 +33,7 @@ pub(crate) fn thread_effort(thread_id: &str) -> Option<ReasoningEffort> {
 
 /// Records (`Some`) or clears (`None`) a thread's chosen effort.
 pub(crate) fn set_thread_effort(thread_id: &str, effort: Option<ReasoningEffort>) {
-    let efforts = thread_efforts();
-    let mut map = efforts.lock();
+    let mut map = thread_efforts().lock();
     let previous = match effort {
         Some(effort) => map.insert(thread_id.to_string(), effort),
         None => map.remove(thread_id),

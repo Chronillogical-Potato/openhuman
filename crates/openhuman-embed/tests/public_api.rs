@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
 use openhuman_embed::{
-    Access, Agent, AgentDefinitionSpec, AgentError, AgentSpec, AgentTurnOrigin, ApiKey,
-    ApprovalDecision, Approvals, ApprovalsError, Core, CoreBuilder, CoreError, CoreRuntime,
-    DomainSet, GroupMode, Harness, HostKind, PendingApproval, Provider, RemoveAgent, Runtime,
-    RuntimeBuilder, RuntimeConfig, SandboxModeSpec, ServiceSet, ToolGroups, ToolScopeSpec,
-    TrustedAccess, TrustedAutomationSource, Workspace, DEFAULT_MAX_AGENTS,
+    Access, Agent, AgentDefinitionSpec, AgentSpec, AgentTurnOrigin, ApiKey, Core, CoreBuilder,
+    CoreRuntime, DomainSet, GroupMode, Harness, HostKind, Provider, Runtime, RuntimeBuilder,
+    RuntimeConfig, SandboxModeSpec, ServiceSet, ToolGroups, ToolScopeSpec, TrustedAccess,
+    TrustedAutomationSource, Workspace,
 };
 
 #[test]
@@ -28,23 +27,6 @@ fn exposes_the_host_facing_embedding_contract() {
     fn accepts_agent(_: Agent) {}
     fn accepts_agent_spec(_: AgentSpec) {}
     fn accepts_api_key(_: ApiKey) {}
-    fn agent_approvals(agent: &Agent) -> Approvals {
-        agent.approvals()
-    }
-    fn lists_pending(approvals: &Approvals) -> Result<Vec<PendingApproval>, ApprovalsError> {
-        approvals.pending()
-    }
-    fn removes_agent<'a>(runtime: &'a Runtime, id: &str) -> RemoveAgent<'a> {
-        runtime.remove_agent(id).purge()
-    }
-    fn lifecycle_errors(error: &AgentError) -> Option<usize> {
-        match error {
-            AgentError::AgentLimit { limit } => Some(*limit),
-            AgentError::UnknownId(_) => None,
-            AgentError::Call(CoreError::AgentRemoved { .. }) => None,
-            _ => None,
-        }
-    }
 
     let _ = accepts_core;
     let _ = accepts_builder;
@@ -59,16 +41,9 @@ fn exposes_the_host_facing_embedding_contract() {
     let _ = accepts_agent;
     let _ = accepts_agent_spec;
     let _ = accepts_api_key;
-    let _ = agent_approvals;
-    let _ = lists_pending;
-    let _ = removes_agent;
-    let _ = lifecycle_errors;
-    let _ = ApprovalDecision::ApproveOnce;
-    assert_eq!(DEFAULT_MAX_AGENTS, 1024);
     let _ = Runtime::builder()
         .api_key("th_public_api")
-        .backend_url("https://backend.example")
-        .max_agents(DEFAULT_MAX_AGENTS);
+        .backend_url("https://backend.example");
     let _ = AgentSpec::new("public-api")
         .system_prompt("You are a test.")
         .definition(
@@ -76,13 +51,7 @@ fn exposes_the_host_facing_embedding_contract() {
                 .tools(ToolScopeSpec::Named(vec!["read_file".into()]))
                 .sandbox(SandboxModeSpec::ReadOnly),
         )
-        .subagents([("public-api-helper", AgentDefinitionSpec::new())])
-        .access(
-            Access::readonly()
-                .auto_approve(["read_file"])
-                .auto_approve_all(false)
-                .approval_gate(true),
-        )
+        .access(Access::readonly())
         .action_dir("/tmp/embed-public-api")
         .include_user_skills(false)
         .config(|_config| {});

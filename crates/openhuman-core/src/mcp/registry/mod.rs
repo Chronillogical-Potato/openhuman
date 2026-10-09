@@ -108,7 +108,7 @@ pub mod connections {
     /// [`disconnect_for_config`] exist: the ambient form resolves through the
     /// process default, which stops answering once a second workspace is open.
     pub async fn connected_overview_for_config(config: &Config) -> Vec<ConnectedServerOverview> {
-        match host::lookup(config) {
+        match host::for_config(config) {
             Ok(service) => service.dynamic().connected_overview().await,
             Err(error) => {
                 tracing::debug!(
@@ -129,7 +129,7 @@ pub mod connections {
     /// its connect finishes. Listing is not authorization — a call still
     /// needs a live connection.
     pub async fn cached_overview_for_config(config: &Config) -> Vec<ConnectedServerOverview> {
-        let service = match host::lookup(config) {
+        let service = match host::for_config(config) {
             Ok(service) => service,
             Err(error) => {
                 tracing::debug!(?error, "[mcp] no host for workspace; no cached tools");
@@ -165,7 +165,7 @@ pub mod connections {
     pub async fn all_connected_tools_for_config(
         config: &Config,
     ) -> Vec<(String, String, tinymcp_bus::McpTool)> {
-        match host::lookup(config) {
+        match host::for_config(config) {
             Ok(service) => service.dynamic().connections().all_connected_tools().await,
             Err(error) => {
                 tracing::debug!(?error, "[mcp] no host for workspace; reporting no tools");
@@ -206,7 +206,7 @@ pub mod connections {
         config: &Config,
         server_id: &str,
     ) -> Option<Vec<tinymcp_bus::McpTool>> {
-        match host::lookup(config) {
+        match host::for_config(config) {
             Ok(service) => service.dynamic().connections().tools_for(server_id).await,
             Err(error) => {
                 tracing::debug!(?error, server_id, "[mcp] no host for workspace; no tools");
@@ -231,7 +231,7 @@ pub mod connections {
 
     /// Whether a server has a live entry in `config`'s workspace.
     pub async fn is_connected_for_config(config: &Config, server_id: &str) -> bool {
-        match host::lookup(config) {
+        match host::for_config(config) {
             Ok(service) => {
                 service
                     .dynamic()
@@ -252,7 +252,7 @@ pub mod connections {
 
     /// Why a server's most recent attempt in `config`'s workspace hit a 401.
     pub async fn auth_hint_for_config(config: &Config, server_id: &str) -> Option<&'static str> {
-        match host::lookup(config) {
+        match host::for_config(config) {
             Ok(service) => Some(
                 service
                     .dynamic()
@@ -320,7 +320,7 @@ pub mod connections {
     /// through [`connect`] already named a workspace and should close over the
     /// same one.
     pub async fn disconnect_for_config(config: &Config, server_id: &str) -> bool {
-        match host::lookup(config) {
+        match host::for_config(config) {
             Ok(service) => service.dynamic().connections().disconnect(server_id).await,
             Err(error) => {
                 tracing::debug!(?error, "[mcp] no host for workspace; nothing to disconnect");
@@ -331,7 +331,7 @@ pub mod connections {
 
     /// The most recent failure message for a server in `config`'s workspace.
     pub async fn last_error_for_config(config: &Config, server_id: &str) -> Option<String> {
-        match host::lookup(config) {
+        match host::for_config(config) {
             Ok(service) => service.dynamic().connections().last_error(server_id).await,
             Err(error) => {
                 tracing::debug!(
@@ -356,7 +356,7 @@ pub mod boot {
     /// Never fails: a server that cannot connect is logged and skipped, because
     /// one broken third-party integration must not stop the core coming up.
     pub async fn spawn_installed_servers(config: &Config) {
-        let service = match host::lookup(config) {
+        let service = match host::for_config(config) {
             Ok(service) => service,
             Err(error) => {
                 tracing::warn!("[mcp] the service could not be opened: {error}");

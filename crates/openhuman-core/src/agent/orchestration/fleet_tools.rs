@@ -44,7 +44,7 @@ impl FleetToolSet {
 
     /// Resolve the set for `agent_definition_id` from the global registry.
     pub(crate) fn for_parent(agent_definition_id: &str) -> Self {
-        let Some(registry) = AgentDefinitionRegistry::current() else {
+        let Some(registry) = AgentDefinitionRegistry::global() else {
             return Self::all();
         };
         let Some(definition) = registry.get(agent_definition_id) else {

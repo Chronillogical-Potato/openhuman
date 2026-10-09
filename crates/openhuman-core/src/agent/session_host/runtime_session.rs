@@ -94,7 +94,6 @@ struct OpenHumanTurnPrelude {
         Option<Arc<tinyagents_harness::run_queue::RunQueue<crate::agent::queued_turn::QueuedTurn>>>,
     allowed_subagent_ids: std::collections::HashSet<String>,
     sandbox_mode: crate::agent::harness::definition::SandboxMode,
-    definition: Option<Arc<crate::agent::harness::definition::AgentDefinition>>,
     runtime_config: Option<Arc<crate::config::Config>>,
     /// This session's tool-rule layers; see `tool_rules.rs`.
     tool_rules: Arc<tinytools::ToolRuleSet>,
@@ -352,18 +351,19 @@ impl OpenHumanTurnPrelude {
     }
 
     /// Rebuild every delegation-dependent tool view from the current cached
-    /// integration set, replacing rather than appending. A revoked delegate is
-    /// removed from the executable source, schema, and policy together before
-    /// this request is prepared.
+    /// integration set. This mirrors the legacy refresh's replace-not-append
+    /// semantics, but keeps the mutable authority in hook state rather than a
+    /// second turn loop. A revoked delegate is removed from the executable
+    /// source, schema, and policy together before this request is prepared.
     fn refresh_delegation_tool_surface(&self) -> anyhow::Result<()> {
         use crate::agent::harness::definition::AgentDefinitionRegistry;
         use crate::tools::agent_policy::ToolPolicyEngine;
         use crate::tools::orchestrator_tools::collect_orchestrator_tools;
 
-        let Some(registry) = AgentDefinitionRegistry::current() else {
+        let Some(registry) = AgentDefinitionRegistry::global() else {
             return Ok(());
         };
-        let Some(definition) = self.session_definition(&registry) else {
+        let Some(definition) = registry.get(&self.agent_definition_id).cloned() else {
             return Ok(());
         };
         if definition.subagents.is_empty() {
@@ -385,7 +385,7 @@ impl OpenHumanTurnPrelude {
             .tool_surface
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let mut collected = collect_orchestrator_tools(&definition, &registry, &integrations);
+        let mut collected = collect_orchestrator_tools(&definition, registry, &integrations);
         #[cfg(feature = "mcp")]
         collected.extend(mcp_tools);
         let rebuilt = self.rebuilt_recorded_tools(
@@ -1008,7 +1008,6 @@ impl OpenHumanSessionHost {
                     .resolved_definition()
                     .map(|definition| definition.sandbox_mode)
                     .unwrap_or(crate::agent::harness::definition::SandboxMode::None),
-                definition: self.resolved_definition(),
                 runtime_config: self.runtime_config.clone(),
                 tool_rules: self.session_tool_rules(),
                 tool_surface: Arc::new(std::sync::Mutex::new(OpenHumanTurnToolSurface {

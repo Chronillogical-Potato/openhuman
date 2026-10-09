@@ -42,10 +42,6 @@ pub struct PendingApproval {
     /// workflows) and for rows persisted before this field existed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tool_call_id: Option<String>,
-    /// The embedded agent whose turn parked this call. `None` for the
-    /// process's own sessions and for rows persisted before this field.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub agent_id: Option<String>,
 }
 
 impl PendingApproval {
@@ -67,7 +63,6 @@ impl PendingApproval {
             expires_at,
             source_context: None,
             tool_call_id: None,
-            agent_id: None,
         }
     }
 
@@ -78,12 +73,6 @@ impl PendingApproval {
     pub fn with_source_context(mut self, ctx: ApprovalSourceContext) -> Self {
         self.source_context = Some(ctx);
         self
-    }
-
-    /// Whether this row is visible to `agent`: `None` sees the process's own
-    /// rows, `Some(id)` sees only that agent's.
-    pub fn belongs_to(&self, agent: Option<&str>) -> bool {
-        self.agent_id.as_deref() == agent
     }
 }
 

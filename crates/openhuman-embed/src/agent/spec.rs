@@ -52,7 +52,6 @@ pub struct AgentSpec {
     config_fn: Option<ConfigEdit>,
     host_tools: Option<openhuman_core::agent::HostTools>,
     memory: Option<MemoryBinding>,
-    subagents: Vec<(String, AgentDefinitionSpec)>,
 }
 
 /// Whose memory an agent reads and writes: the memory agent id its turns are
@@ -102,9 +101,9 @@ impl AgentSpec {
     ///
     /// The id must match `^[a-z0-9][a-z0-9_-]{0,63}$` (checked at
     /// [`Runtime::agent`](crate::Runtime::agent)); it names the agent's
-    /// directories and transcripts. The built-in ids (`orchestrator`,
-    /// `summarizer`, …) are reserved for the shipped definitions and refused
-    /// with [`AgentError::ReservedId`](crate::AgentError::ReservedId).
+    /// directories and transcripts. Avoid the built-in ids (`orchestrator`,
+    /// `summarizer`, …): the runtime-wide delegation catalog resolves those
+    /// to the shipped definitions.
     pub fn new(id: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -126,7 +125,6 @@ impl AgentSpec {
             config_fn: None,
             host_tools: None,
             memory: None,
-            subagents: Vec::new(),
         }
     }
 
@@ -256,21 +254,6 @@ impl AgentSpec {
         self
     }
 
-    /// Sub-agents only this agent can delegate to, each under its own id.
-    ///
-    /// Each becomes a `delegate_<id>` tool on this agent and a worker in this
-    /// agent's own catalogue; other agents on the runtime never see it. Ids
-    /// follow the agent-id rules and must not name a built-in definition.
-    pub fn subagents<I, S>(mut self, subagents: I) -> Self
-    where
-        I: IntoIterator<Item = (S, AgentDefinitionSpec)>,
-        S: Into<String>,
-    {
-        self.subagents
-            .extend(subagents.into_iter().map(|(id, spec)| (id.into(), spec)));
-        self
-    }
-
     /// Arbitrary edits to the agent's config, applied last.
     ///
     /// The escape hatch for the config fields the spec does not model — not
@@ -376,7 +359,6 @@ impl AgentSpec {
             config_fn: self.config_fn,
             host_tools: self.host_tools,
             memory: self.memory,
-            subagents: self.subagents,
         }
     }
 }
@@ -402,7 +384,6 @@ pub(crate) struct AgentSpecParts {
     pub(crate) config_fn: Option<ConfigEdit>,
     pub(crate) host_tools: Option<openhuman_core::agent::HostTools>,
     pub(crate) memory: Option<MemoryBinding>,
-    pub(crate) subagents: Vec<(String, AgentDefinitionSpec)>,
 }
 
 impl std::fmt::Debug for AgentSpec {

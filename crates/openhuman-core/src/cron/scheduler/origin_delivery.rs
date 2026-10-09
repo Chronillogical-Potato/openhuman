@@ -69,14 +69,8 @@ pub(crate) async fn append_to_origin_transcript(
         append_background_message, BackgroundAppend, BackgroundAppendOutcome,
         FileTranscriptLocator, SessionRef, TranscriptMessage,
     };
+    let locator = FileTranscriptLocator::new(workspace_dir.to_path_buf());
     let session = SessionRef::scoped(append.thread_id.to_string(), append.agent_id.to_string());
-    if let Some(agent) = crate::core::runtime::agent_scope::current_agent_id() {
-        use tinyagents_session::transcript::TranscriptLocator;
-        crate::agent::session_store::AgentTranscriptFiles::new(workspace_dir, &agent)
-            .session_exists(&session);
-    }
-    let locator =
-        FileTranscriptLocator::new(crate::agent::session_store::transcript_root(workspace_dir));
     let options = BackgroundAppend::new(
         append.idempotency_key,
         serde_json::json!({

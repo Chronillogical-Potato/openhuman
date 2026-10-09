@@ -198,20 +198,6 @@ impl ApprovalGate {
             return (GateOutcome::Allow, None);
         }
 
-        if !forced
-            && !matches!(&origin, AgentTurnOrigin::Unknown)
-            && crate::core::runtime::CoreContext::current_approvals_disabled()
-        {
-            tracing::info!(
-                tool = tool_name,
-                origin_class = %origin.class(),
-                agent_id = crate::core::runtime::agent_scope::current_agent_id().as_deref().unwrap_or(""),
-                auto_approved = true,
-                "[approval::gate] approval gate off for this agent — allowing without prompt"
-            );
-            return (GateOutcome::Allow, None);
-        }
-
         // "Always allow" allowlist shortcut — the user's persisted
         // `autonomy.auto_approve` set. Read from the live policy first so a
         // grant made earlier in this session (which writes config + reloads the
@@ -405,10 +391,6 @@ impl ApprovalGate {
 
         let request_id = uuid::Uuid::new_v4().to_string();
         let now = chrono::Utc::now();
-        let agent_id = crate::core::runtime::agent_scope::current_agent_id();
-        let thread_key = chat_thread_id
-            .as_deref()
-            .map(|thread_id| thread_route_key(agent_id.as_deref(), thread_id));
         // Resolve the clamped park TTL up front so the persisted `expires_at`
         // and the actual wait below (see `resolve_park_ttl` further down)
         // use the same value — see `Self::resolve_park_ttl` and the
@@ -453,7 +435,6 @@ impl ApprovalGate {
             expires_at,
             source_context: source_context.clone(),
             tool_call_id: tool_call_id.map(str::to_string),
-            agent_id: agent_id.clone(),
         };
 
         // Register the waiter BEFORE persisting the row so a fast
@@ -468,10 +449,10 @@ impl ApprovalGate {
         }
         // Record the thread → request mapping so an inbound chat reply on this
         // thread can be routed to `approval_decide` (see web channel ingress).
-        if let Some(thread_key) = thread_key.as_ref() {
+        if let Some(thread_id) = chat_thread_id.as_ref() {
             self.thread_to_request
                 .lock()
-                .insert(thread_key.clone(), request_id.clone());
+                .insert(thread_id.clone(), request_id.clone());
         }
         // Record the full routing correlation (thread/client/tool_call_id) so
         // whichever path resolves this request's decision — `decide()`, the
@@ -485,12 +466,11 @@ impl ApprovalGate {
                 client_id: chat_client_id.clone(),
                 tool_call_id: tool_call_id.map(str::to_string),
                 forced,
-                agent_id: agent_id.clone(),
             },
         );
         if let Err(err) = store::insert_pending(&self.config, &pending, &self.session_id) {
             self.evict_waiter(&request_id);
-            self.clear_thread(&thread_key, &request_id);
+            self.clear_thread(&chat_thread_id, &request_id);
             self.take_request_route(&request_id);
             tracing::error!(
                 error = %err,
@@ -513,7 +493,6 @@ impl ApprovalGate {
             tool = tool_name,
             thread_id = chat_thread_id.as_deref().unwrap_or("<none>"),
             client_id = chat_client_id.as_deref().unwrap_or("<none>"),
-            agent_id = agent_id.as_deref().unwrap_or("<none>"),
             "[approval::gate] publishing ApprovalRequested (surface fires only if thread_id+client_id are both set)"
         );
         BUS.publish(DomainEvent::ApprovalRequested {
@@ -525,7 +504,6 @@ impl ApprovalGate {
             client_id: chat_client_id.clone(),
             tool_call_id: tool_call_id.map(str::to_string),
             expires_at: expires_at.map(|t| t.to_rfc3339()),
-            agent_id: agent_id.clone(),
         });
 
         // Flow-origin surface bridge (flow-approval-surface, PR3): a flow run
@@ -555,7 +533,6 @@ impl ApprovalGate {
                 run_id: run_id.clone(),
                 tool_name: tool_name.to_string(),
                 summary: action_summary.to_string(),
-                agent_id: agent_id.clone(),
             });
             // The workspace the flow parked in, so the approval banner is
             // dropped by a client that has since switched away rather than
@@ -624,7 +601,7 @@ impl ApprovalGate {
         let mut waiter_guard = WaiterGuard {
             gate: self,
             request_id: request_id.clone(),
-            thread_key: thread_key.clone(),
+            thread_id: chat_thread_id.clone(),
             docs: store::capture_docs(),
             armed: true,
         };
@@ -649,7 +626,7 @@ impl ApprovalGate {
         waiter_guard.disarm();
         // The routing mappings are only needed while parked; clear them on
         // every exit (decision, channel drop, or timeout).
-        self.clear_thread(&thread_key, &request_id);
+        self.clear_thread(&chat_thread_id, &request_id);
         outcome
     }
 }

@@ -178,7 +178,7 @@ impl OpenHumanTurnPrelude {
             return;
         };
         let prelude = self.clone();
-        crate::core::runtime::spawn_scoped(async move {
+        tokio::spawn(async move {
             let Some(config) = prelude.memory_config().await else {
                 return;
             };

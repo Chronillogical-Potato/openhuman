@@ -103,7 +103,7 @@ impl OpenHumanSessionHost {
         use crate::agent::harness::definition::AgentDefinitionRegistry;
         use crate::tools::orchestrator_tools::collect_orchestrator_tools;
 
-        let Some(reg) = AgentDefinitionRegistry::current() else {
+        let Some(reg) = AgentDefinitionRegistry::global() else {
             // No registry — there's nothing we can do until the
             // registry is initialised. The agent's surface stays at
             // whatever the builder produced.
@@ -125,7 +125,7 @@ impl OpenHumanSessionHost {
         // `retain` can never withdraw a durable tool's spec.
         let synthed = super::super::builder::drop_synthesized_name_collisions(
             &self.tools,
-            collect_orchestrator_tools(&def, &reg, &self.connected_integrations),
+            collect_orchestrator_tools(&def, reg, &self.connected_integrations),
         );
         let synthed_names: std::collections::HashSet<String> =
             synthed.iter().map(|t| t.name().to_string()).collect();

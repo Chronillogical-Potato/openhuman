@@ -535,8 +535,15 @@ fn all_variants_have_correct_domain() {
     }
 }
 
-/// [`DomainEvent::ApprovalRequested`] must never carry a `session_id`, which
-/// could hold the JSON-RPC bearer and leak through any Debug print.
+/// Regression guard. An earlier revision of
+/// [`DomainEvent::ApprovalRequested`] published a `session_id`
+/// field that historically carried the verbatim JSON-RPC bearer.
+/// Any downstream subscriber that Debug-printed the event (audit
+/// pipeline, `tracing` instrumentation, panic backtrace) leaked
+/// the credential. The field has been removed from the variant;
+/// this test fails loudly if it ever comes back, by name, via
+/// Debug — the bus does not derive `Serialize` so the audit-side
+/// risk lives entirely in the Debug surface.
 #[test]
 fn approval_requested_does_not_surface_session_id() {
     let event = DomainEvent::ApprovalRequested {
@@ -548,7 +555,6 @@ fn approval_requested_does_not_surface_session_id() {
         client_id: Some("c-1".to_string()),
         tool_call_id: None,
         expires_at: None,
-        agent_id: None,
     };
     let dbg = format!("{event:?}");
     assert!(
