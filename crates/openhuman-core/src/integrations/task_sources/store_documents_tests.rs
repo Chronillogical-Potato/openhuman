@@ -53,9 +53,17 @@ fn sources_round_trip_oldest_first() {
     assert_eq!(first, source_with_time("b", first.created_at));
     std::thread::sleep(std::time::Duration::from_millis(5));
     store.add_source(&source("a")).unwrap();
-    let ids: Vec<String> = store.list_sources().unwrap().into_iter().map(|s| s.id).collect();
+    let ids: Vec<String> = store
+        .list_sources()
+        .unwrap()
+        .into_iter()
+        .map(|s| s.id)
+        .collect();
     assert_eq!(ids, ["b", "a"]);
-    assert!(store.add_source(&source("a")).is_err(), "an id is added once");
+    assert!(
+        store.add_source(&source("a")).is_err(),
+        "an id is added once"
+    );
     let missing = store.get_source("nope").unwrap_err();
     assert!(missing.to_string().contains("not found"));
 }
@@ -91,6 +99,8 @@ fn update_applies_the_patch_and_validates_it() {
 
     let notion = FilterSpec::Notion {
         database_id: None,
+        assigned_to_me: false,
+        status: None,
         extra: json!({}),
     };
     let error = store
@@ -135,7 +145,9 @@ fn the_ingest_ledger_is_edit_aware() {
     assert!(!store.was_ingested("s", "1").unwrap());
     store.mark_ingested("s", &original).unwrap();
     assert!(store.was_ingested("s", "1").unwrap());
-    assert!(store.is_ingested("s", "1", &content_hash(&original)).unwrap());
+    assert!(store
+        .is_ingested("s", "1", &content_hash(&original))
+        .unwrap());
     let edited = task("1", "Fix it properly");
     assert!(!store.is_ingested("s", "1", &content_hash(&edited)).unwrap());
     store.mark_ingested("s", &edited).unwrap();
@@ -191,9 +203,14 @@ fn a_corrupt_source_is_an_error_not_a_panic() {
     store
         .0
         .run(|docs| async move {
-            docs.put(SOURCES, "bad", json!({ "provider": "github" }), Precondition::Absent)
-                .await
-                .map(|_| ())
+            docs.put(
+                SOURCES,
+                "bad",
+                json!({ "provider": "github" }),
+                Precondition::Absent,
+            )
+            .await
+            .map(|_| ())
         })
         .unwrap();
     assert!(store.get_source("bad").is_err());

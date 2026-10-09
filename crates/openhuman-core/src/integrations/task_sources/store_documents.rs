@@ -23,7 +23,9 @@ use serde_json::{json, Map, Value};
 use tinystoragedrivers::{CollectionSpec, Filter, IndexSpec, Precondition, Query, Sort, Versioned};
 
 use super::store::{apply_patch, content_hash, IngestedTaskRef};
-use super::types::{FetchReason, FilterSpec, ProviderSlug, SourceTarget, TaskSource, TaskSourcePatch};
+use super::types::{
+    FetchReason, FilterSpec, ProviderSlug, SourceTarget, TaskSource, TaskSourcePatch,
+};
 use crate::integrations::composio::providers::NormalizedTask;
 use crate::storage::documents::{compare_and_swap, text, Repo};
 use crate::storage::{DocumentStoreExt, ScopedStorage};
@@ -64,13 +66,22 @@ fn to_doc(source: &TaskSource) -> Result<Value> {
         "target".into(),
         json!(serde_json::to_string(&source.target).context("serialize task source target")?),
     );
-    doc.insert("max_tasks_per_fetch".into(), json!(source.max_tasks_per_fetch));
+    doc.insert(
+        "max_tasks_per_fetch".into(),
+        json!(source.max_tasks_per_fetch),
+    );
     doc.insert("created_at".into(), json!(source.created_at.to_rfc3339()));
-    doc.insert("created_ms".into(), json!(source.created_at.timestamp_millis()));
+    doc.insert(
+        "created_ms".into(),
+        json!(source.created_at.timestamp_millis()),
+    );
     let optional = [
         ("connection_id", source.connection_id.clone()),
         ("name", source.name.clone()),
-        ("last_fetch_at", source.last_fetch_at.map(|at| at.to_rfc3339())),
+        (
+            "last_fetch_at",
+            source.last_fetch_at.map(|at| at.to_rfc3339()),
+        ),
         ("last_status", source.last_status.clone()),
     ];
     for (field, value) in optional {
@@ -218,10 +229,16 @@ impl Docs {
 
     fn ledger_entry(&self, source_id: &str, external_id: &str) -> Result<Option<Versioned<Value>>> {
         let key = ingested_id(source_id, external_id);
-        self.0.run(|docs| async move { docs.get(INGESTED, &key).await })
+        self.0
+            .run(|docs| async move { docs.get(INGESTED, &key).await })
     }
 
-    pub(super) fn is_ingested(&self, source_id: &str, external_id: &str, hash: &str) -> Result<bool> {
+    pub(super) fn is_ingested(
+        &self,
+        source_id: &str,
+        external_id: &str,
+        hash: &str,
+    ) -> Result<bool> {
         Ok(self
             .ledger_entry(source_id, external_id)?
             .is_some_and(|stored| text(&stored.doc, "content_hash") == Some(hash)))
@@ -270,15 +287,19 @@ impl Docs {
 
     pub(super) fn remove_ingested(&self, source_id: &str, external_id: &str) -> Result<bool> {
         let key = ingested_id(source_id, external_id);
-        self.0.run(|docs| async move { docs.delete(INGESTED, &key, Precondition::None).await })
+        self.0
+            .run(|docs| async move { docs.delete(INGESTED, &key, Precondition::None).await })
     }
 
-    pub(super) fn list_ingested(&self, source_id: &str, limit: usize) -> Result<Vec<NormalizedTask>> {
-        let query = Query::filter(
-            Filter::eq("source_id", source_id).and(Filter::exists("payload", true)),
-        )
-        .sort(Sort::desc("ingested_ms"))
-        .limit(limit.max(1));
+    pub(super) fn list_ingested(
+        &self,
+        source_id: &str,
+        limit: usize,
+    ) -> Result<Vec<NormalizedTask>> {
+        let query =
+            Query::filter(Filter::eq("source_id", source_id).and(Filter::exists("payload", true)))
+                .sort(Sort::desc("ingested_ms"))
+                .limit(limit.max(1));
         self.0.run(|docs| async move {
             let page = docs.query(INGESTED, &query).await?;
             Ok(page
