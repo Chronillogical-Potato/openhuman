@@ -493,6 +493,27 @@ fn each_user_sees_only_their_own_threads() {
     assert_eq!(bob_ids, vec!["shared-id".to_string()], "bob: {bob_list}");
     assert!(bob_list.to_string().contains("bob's"), "{bob_list}");
     assert!(!bob_list.to_string().contains("alice's"), "{bob_list}");
+    // And the other way: alice keeps her own `shared-id`, untouched by bob's.
+    assert!(
+        alice_ids.contains(&"shared-id".to_string()),
+        "alice: {alice_list}"
+    );
+    assert!(alice_list.to_string().contains("alice's"), "{alice_list}");
+    assert!(!alice_list.to_string().contains("bob's"), "{alice_list}");
+
+    // A SaaS user cannot point a thread at a host folder.
+    let (_, body) = call(
+        "alice",
+        "openhuman.threads_create_new",
+        json!({ "action_dir": "/etc" }),
+    );
+    assert!(body.get("error").is_some(), "{body}");
+
+    // A hidden method answers unknown-method even with bad params, rather
+    // than its parameter errors.
+    let (_, body) = call("alice", "openhuman.threads_regenerate", json!({}));
+    let error = body["error"].to_string();
+    assert!(!error.contains("missing"), "{body}");
 
     // Each user's threads live in their own workspace.
     for (agent, owner) in [(&alice, "alice"), (&bob, "bob")] {

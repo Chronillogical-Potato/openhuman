@@ -945,7 +945,7 @@ pub fn schema_for_rpc_method(method: &str) -> Option<ControllerSchema> {
     let found = view
         .iter()
         .chain(internal_registry().iter())
-        .find(|g| g.controller.rpc_method_name() == method && group_allowed(g.group))
+        .find(|g| g.controller.rpc_method_name() == method && visible(g))
         .map(|g| g.controller.schema.clone());
     found
 }

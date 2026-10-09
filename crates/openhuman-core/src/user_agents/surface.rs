@@ -88,14 +88,31 @@ pub fn validate_user_thread_id(id: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Whether the current work runs for a SaaS user.
+fn in_user_scope() -> bool {
+    is_saas()
+        && CoreContext::current()
+            .as_deref()
+            .and_then(CoreContext::session_agent)
+            .is_some()
+}
+
+/// A SaaS user cannot pick a thread's working folder: their threads always
+/// act in their own sandbox. Any folder is refused in user scope; outside it
+/// nothing changes.
+pub fn check_working_dir(action_dir: Option<&str>) -> Result<(), String> {
+    match action_dir.map(str::trim).filter(|dir| !dir.is_empty()) {
+        Some(_) if in_user_scope() => {
+            Err("a thread's working folder cannot be chosen here".to_string())
+        }
+        _ => Ok(()),
+    }
+}
+
 /// [`validate_user_thread_id`] when the current work runs for a SaaS user;
 /// otherwise every id the single-user core accepts stays accepted.
 pub fn check_thread_id(id: &str) -> Result<(), String> {
-    let user_scope = CoreContext::current()
-        .as_deref()
-        .and_then(CoreContext::session_agent)
-        .is_some();
-    if is_saas() && user_scope {
+    if in_user_scope() {
         validate_user_thread_id(id)
     } else {
         Ok(())
