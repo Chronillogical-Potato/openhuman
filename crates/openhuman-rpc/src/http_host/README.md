@@ -107,7 +107,7 @@ Namespace `http_host`, invoked as `openhuman.http_host_<function>`:
 ## Boundaries
 
 - The controller contract (`ControllerSchema`, `Outcome`,
-  `register_controller_extension`) is the core's (`openhuman_core::core`).
+  `register_controller_extension`) is the core's (`openhuman::core`).
 - The default username comes from the core's config
   (`config::load_config_with_timeout`) and session state
   (`security::credentials::session_support::build_session_state`); this

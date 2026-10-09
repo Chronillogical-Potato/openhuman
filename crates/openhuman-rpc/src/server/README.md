@@ -7,7 +7,7 @@ surrounding routes (health, schema, SSE, WebSockets, the OpenAI-compatible
 events onto Socket.IO for the desktop webviews. The desktop app's embedded
 core and `openhuman-core run` / `serve` both run it. Dispatch itself is the
 core's: every transport here resolves a method through
-`openhuman_core::core::invoke::invoke_method`.
+`openhuman::core::invoke::invoke_method`.
 
 ## How it works
 
@@ -93,7 +93,7 @@ outermost to innermost:
 | `/v1/*` | the core's OpenAI-compatible router (`inference::http`) | core bearer or the user-managed external API key |
 
 The bearer is the per-launch RPC token the core owns
-(`openhuman_core::core::auth`); `auth.rs` is only the route policy over it.
+(`openhuman::core::auth`); `auth.rs` is only the route policy over it.
 
 ### A failed call
 
@@ -182,8 +182,8 @@ directly.
 - The `/v1` inference router, the dictation and live-voice sessions, and the
   MCP OAuth completion are domain code in the core, mounted here behind the
   core's `http-server` gate.
-- The token is minted and verified by `openhuman_core::core::auth`; listener
-  port selection is `openhuman_core::platform::connectivity::rpc`.
+- The token is minted and verified by `openhuman::core::auth`; listener
+  port selection is `openhuman::platform::connectivity::rpc`.
 - The event payload types (`WebChannelEvent` and friends) are constructed by
   core domains; this module only transports them.
 
