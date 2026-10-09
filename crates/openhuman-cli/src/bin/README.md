@@ -86,7 +86,7 @@ cargo build -p openhuman-cli --features bin-tools --bin openhuman-fleet
   here.
 - Benchmarks and profiling drivers live in [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks);
   the pure RSS sampling code they use stays in the core
-  (`platform::proc_metrics`), behind the core's `rss-bench` feature.
+  (`platform::proc_metrics`).
 
 ## Gotchas
 
