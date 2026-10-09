@@ -4491,6 +4491,7 @@ dependencies = [
  "tinyjuice-bus",
  "tinymcp",
  "tinymcp-bus",
+ "tinymemes",
  "tinymemory-api",
  "tinymemory-integrations",
  "tinymemory-tools",
@@ -7813,6 +7814,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "tinyinference-decisions"
+version = "0.3.0"
+dependencies = [
+ "async-trait",
+ "httpdate",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tokio",
+]
+
+[[package]]
 name = "tinyinference-embeddings"
 version = "0.3.0"
 dependencies = [
@@ -8025,6 +8039,21 @@ dependencies = [
  "schemars 1.2.2",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "tinymemes"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "futures",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tinyinference-decisions",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
