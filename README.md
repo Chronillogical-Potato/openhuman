@@ -15,7 +15,7 @@
 
 <p align="center">
  <a href="https://tinyhumans.gitbook.io/openhuman/">Docs</a> ·
- <a href="./gitbooks/developing/quickstart.md">Rust quickstart</a> ·
+ <a href="https://tinyhumans.gitbook.io/openhuman/developing/quickstart">Rust quickstart</a> ·
  <a href="https://tinyhumansai.github.io/openhuman-benchmarks/">Benchmarks</a> ·
  <a href="https://github.com/tinyhumansai/openhuman/discussions">Discussions</a> ·
  <a href="https://guild.tinyhumans.ai/">Discord</a> ·
@@ -83,7 +83,7 @@ Most agent harnesses run one heavy process per agent and resend a big prompt on 
 
 <h3>Fast</h3>
 
-<p><a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md">Benchmark results</a> · <a href="./gitbooks/developing/performance.md">Cold-start numbers</a></p>
+<p><a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md">Benchmark results</a> · <a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">Cold-start numbers</a></p>
 
 <p>Finishes coding tasks in about 20 seconds, the fastest of seven AI agent tools we tested. Starts up in a tenth of a second.</p>
 
@@ -93,7 +93,7 @@ Most agent harnesses run one heavy process per agent and resend a big prompt on 
 
 <h3>Cheap</h3>
 
-<p><a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md">Cost and token data</a> · <a href="./gitbooks/features/token-compression.md">How compression works</a></p>
+<p><a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md">Cost and token data</a> · <a href="https://tinyhumans.gitbook.io/openhuman/features/token-compression">How compression works</a></p>
 
 <p>Uses 2.6x fewer tokens than the typical agent tool, and had the lowest total bill in our test.</p>
 
@@ -107,7 +107,7 @@ Most agent harnesses run one heavy process per agent and resend a big prompt on 
 
 <h3>Efficient at scale</h3>
 
-<p><a href="./gitbooks/developing/performance.md">Fleet measurements</a> · <a href="./docs/library-benchmarking.md">Methodology</a></p>
+<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">Fleet measurements</a> · <a href="./docs/library-benchmarking.md">Methodology</a></p>
 
 <p>Uses about 8x less memory and CPU than the typical agent tool. Run more than 500 agents on a $10 server.</p>
 
@@ -117,7 +117,7 @@ Most agent harnesses run one heavy process per agent and resend a big prompt on 
 
 <h3>Built for developers</h3>
 
-<p><a href="./gitbooks/developing/quickstart.md">Rust quickstart</a> · <a href="./gitbooks/developing/embedding.md">Embedding guide</a> · <a href="./crates/openhuman-embed/examples">Examples</a></p>
+<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/quickstart">Rust quickstart</a> · <a href="https://tinyhumans.gitbook.io/openhuman/developing/embedding">Embedding guide</a> · <a href="./crates/openhuman-embed/examples">Examples</a></p>
 
 <p>Use it as a Rust library: call an agent like any other function, or run a whole fleet from one small server.</p>
 
@@ -150,7 +150,7 @@ OpenHuman rethinks the parts that cost the most: how much text the AI has to rea
 
 <h3>RLM token compression</h3>
 
-<p><a href="https://arxiv.org/abs/2512.24601">RLM paper</a> · <a href="./gitbooks/features/token-compression.md">How it works</a></p>
+<p><a href="https://arxiv.org/abs/2512.24601">RLM paper</a> · <a href="https://tinyhumans.gitbook.io/openhuman/features/token-compression">How it works</a></p>
 
 <p>Built on <a href="https://arxiv.org/abs/2512.24601">Recursive Language Models</a>. Large tool results get compressed before the AI reads them. For very large ones, the AI gets a handle it can search instead of reading it all. Nothing is thrown away.</p>
 
@@ -160,7 +160,7 @@ OpenHuman rethinks the parts that cost the most: how much text the AI has to rea
 
 <h3>Jev: instant, accurate tool search</h3>
 
-<p><a href="./gitbooks/developing/jev.md">Jev</a> · <a href="./docs/plans/jev-tool-search-baseline.md">The measurements</a></p>
+<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/jev">Jev</a> · <a href="./docs/plans/jev-tool-search-baseline.md">The measurements</a></p>
 
 <p>Jev is a tiny model that finds the right tool out of 1,215. The right one is in its top picks 86.8% of the time, against 70.5% for keyword search.</p>
 
@@ -174,7 +174,7 @@ OpenHuman rethinks the parts that cost the most: how much text the AI has to rea
 
 <h3>Unified Rust bus</h3>
 
-<p><a href="./gitbooks/developing/loadable-modules.md">How plug-ins work</a></p>
+<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/loadable-modules">How plug-ins work</a></p>
 
 <p>Every feature, like search, documents or voice, plugs into one Rust bus, an idea borrowed from the <a href="https://www.freedesktop.org/wiki/Software/dbus/">Linux system bus</a>. A feature loads only when needed, and if one gets stuck, the rest keep working.</p>
 
@@ -184,7 +184,7 @@ OpenHuman rethinks the parts that cost the most: how much text the AI has to rea
 
 <h3>Deeply integrated memory</h3>
 
-<p><a href="./gitbooks/features/memory.md">How memory works</a> · <a href="./gitbooks/developing/engines.md">Memory engines</a></p>
+<p><a href="https://tinyhumans.gitbook.io/openhuman/features/memory">How memory works</a> · <a href="https://tinyhumans.gitbook.io/openhuman/developing/engines">Memory engines</a></p>
 
 <p>Memory comes built in. Before every turn, OpenHuman picks out only what matters, within a token budget, and hands it to the AI with citations. It works out of the box, and you can swap in a different memory engine with a setting.</p>
 
@@ -198,7 +198,7 @@ OpenHuman rethinks the parts that cost the most: how much text the AI has to rea
 
 <h3>Instant browser and desktop control</h3>
 
-<p><a href="./gitbooks/features/native-tools/browser-and-computer.md">Browser and computer control</a> · <a href="./gitbooks/developing/jev.md">Jev</a></p>
+<p><a href="https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer">Browser and computer control</a> · <a href="https://tinyhumans.gitbook.io/openhuman/developing/jev">Jev</a></p>
 
 <p>The agent uses a real browser and your desktop apps. Jev picks each click from the buttons on screen, with no screenshots. It stops before any payment.</p>
 
@@ -208,7 +208,7 @@ OpenHuman rethinks the parts that cost the most: how much text the AI has to rea
 
 <h3>A programmable Rust core</h3>
 
-<p><a href="./gitbooks/developing/quickstart.md">Rust quickstart</a> · <a href="./gitbooks/developing/performance.md">Performance</a></p>
+<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/quickstart">Rust quickstart</a> · <a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">Performance</a></p>
 
 <p>The whole harness is compiled Rust in one process, so it starts in a tenth of a second and stays light: 68 MB at peak on our coding tasks. The same core is a library. Call an agent from your own Rust code, or run hundreds of them side by side on one small server.</p>
 
@@ -253,20 +253,20 @@ If you use Claude Code, Codex, OpenClaw or Hermes, you already know the ideas: a
 
 | Capability | What OpenHuman ships |
 | --- | --- |
-| Configurable memory | [Built-in memory over your files, repos, feeds and apps](./gitbooks/features/memory.md), recalled before every turn with citations, on the memory engine you choose |
-| Voice agents | A [live voice agent](./gitbooks/features/native-tools/voice.md) you can interrupt mid-sentence, plus dictation and spoken replies |
-| Computer and browser control | [Drives a real Chrome browser and your desktop apps](./gitbooks/features/native-tools/browser-and-computer.md), asking before anything it cannot undo |
-| Search | [Search engines and search agents](./gitbooks/features/native-tools/web-search.md): Exa and Gemini included, Brave, Tavily, Parallel and more with your own key, grounded answers with citations and Deep Research |
-| Tools | [Native tools](./gitbooks/features/native-tools/README.md): shell and coder, scraper, documents, image and video generation, cron |
-| MCP and skills | [MCP servers and skill bundles](./gitbooks/features/integrations/mcp-and-skills.md) |
-| OAuth integrations | [119 apps through Composio](./gitbooks/features/integrations/README.md), with [triggers](./gitbooks/features/integrations/triggers.md) that start the agent when something happens |
-| Models | [Local models (Ollama, LM Studio, MLX) and BYOK for 26 providers](./gitbooks/features/model-routing/local-and-byok-models.md), with [automatic model routing](./gitbooks/features/model-routing/README.md) |
-| Channels | [14 messaging channels](./gitbooks/features/channels.md) as agent front ends: Telegram, Discord, iMessage, email and more |
-| Workflows | [Durable workflow graphs](./gitbooks/features/workflows.md): cron, event or manual triggers, approval steps, resume after a pause |
-| Safety | [Approval gate](./gitbooks/features/approval-gate.md), [sandboxed execution](./gitbooks/features/privacy-and-security.md) (OS jail or Docker), [Privacy Mode](./gitbooks/features/privacy-mode.md) for local-only runs, secrets in the [OS keyring](./gitbooks/features/os-keyring-and-secret-storage.md) |
-| Usage tracking | [Per-call cost and token usage](./gitbooks/features/billing-and-usage.md), plus replayable run journals |
+| Configurable memory | [Built-in memory over your files, repos, feeds and apps](https://tinyhumans.gitbook.io/openhuman/features/memory), recalled before every turn with citations, on the memory engine you choose |
+| Voice agents | A [live voice agent](https://tinyhumans.gitbook.io/openhuman/features/native-tools/voice) you can interrupt mid-sentence, plus dictation and spoken replies |
+| Computer and browser control | [Drives a real Chrome browser and your desktop apps](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer), asking before anything it cannot undo |
+| Search | [Search engines and search agents](https://tinyhumans.gitbook.io/openhuman/features/native-tools/web-search): Exa and Gemini included, Brave, Tavily, Parallel and more with your own key, grounded answers with citations and Deep Research |
+| Tools | [Native tools](https://tinyhumans.gitbook.io/openhuman/features/native-tools): shell and coder, scraper, documents, image and video generation, cron |
+| MCP and skills | [MCP servers and skill bundles](https://tinyhumans.gitbook.io/openhuman/features/integrations/mcp-and-skills) |
+| OAuth integrations | [119 apps through Composio](https://tinyhumans.gitbook.io/openhuman/features/integrations), with [triggers](https://tinyhumans.gitbook.io/openhuman/features/integrations/triggers) that start the agent when something happens |
+| Models | [Local models (Ollama, LM Studio, MLX) and BYOK for 26 providers](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-and-byok-models), with [automatic model routing](https://tinyhumans.gitbook.io/openhuman/features/model-routing) |
+| Channels | [14 messaging channels](https://tinyhumans.gitbook.io/openhuman/features/channels) as agent front ends: Telegram, Discord, iMessage, email and more |
+| Workflows | [Durable workflow graphs](https://tinyhumans.gitbook.io/openhuman/features/workflows): cron, event or manual triggers, approval steps, resume after a pause |
+| Safety | [Approval gate](https://tinyhumans.gitbook.io/openhuman/features/approval-gate), [sandboxed execution](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security) (OS jail or Docker), [Privacy Mode](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode) for local-only runs, secrets in the [OS keyring](https://tinyhumans.gitbook.io/openhuman/features/os-keyring-and-secret-storage) |
+| Usage tracking | [Per-call cost and token usage](https://tinyhumans.gitbook.io/openhuman/features/billing-and-usage), plus replayable run journals |
 
-Start with [Getting started](./gitbooks/overview/getting-started.md) or the [guides](./gitbooks/guides/README.md).
+Start with [Getting started](https://tinyhumans.gitbook.io/openhuman/overview/getting-started) or the [guides](https://tinyhumans.gitbook.io/openhuman/guides).
 
 ---
 
@@ -288,7 +288,7 @@ let reply = agent.run("Summarize what you can see in this directory.").await?;
 println!("{}", reply.reply);
 ```
 
-Next: the [Rust quickstart](./gitbooks/developing/quickstart.md), the [embedding guide](./gitbooks/developing/embedding.md) and the [developer docs](./gitbooks/developing/README.md).
+Next: the [Rust quickstart](https://tinyhumans.gitbook.io/openhuman/developing/quickstart), the [embedding guide](https://tinyhumans.gitbook.io/openhuman/developing/embedding) and the [developer docs](https://tinyhumans.gitbook.io/openhuman/developing).
 
 ---
 
@@ -324,7 +324,7 @@ Read [`CONTRIBUTING.md`](./CONTRIBUTING.md), or let an AI coding agent guide you
 2. Fork and clone the repo. Run `git submodule update --init --recursive`, then `pnpm install`.
 3. Run `pnpm dev` for UI work or `pnpm dev:app` for the desktop app. Before you open a PR, run `pnpm typecheck`, `pnpm format:check` and `cargo check --manifest-path Cargo.toml`.
 
-More in [Getting set up](./gitbooks/developing/getting-set-up.md), [`AGENTS.md`](./AGENTS.md) and the [crates overview](./crates/README.md). Many parts of OpenHuman live in their own repos under [`vendor/`](./vendor), and they welcome contributions too.
+More in [Getting set up](https://tinyhumans.gitbook.io/openhuman/developing/getting-set-up), [`AGENTS.md`](./AGENTS.md) and the [crates overview](./crates/README.md). Many parts of OpenHuman live in their own repos under [`vendor/`](./vendor), and they welcome contributions too.
 
 Contributors get free merch and special access on [Discord](https://guild.tinyhumans.ai/).
 
