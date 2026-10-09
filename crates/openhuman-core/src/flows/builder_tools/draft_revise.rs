@@ -1,5 +1,6 @@
 //! `revise_workflow`: validate a revised draft and emit a proposal (never persists).
 
+use crate::tools::schema_cache::static_schema;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -50,33 +51,7 @@ impl Tool for ReviseWorkflowTool {
     }
 
     fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string",
-                    "description": "Human-readable name for the (revised) proposed flow."
-                },
-                "graph": {
-                    "type": "object",
-                    "description": "The full REVISED tinyflows WorkflowGraph: { name?, nodes: [...], edges: [...] }. Apply your changes to the prior draft and pass the whole graph — see propose_workflow for node kinds and config shapes.",
-                    "properties": {
-                        "nodes": { "type": "array" },
-                        "edges": { "type": "array" }
-                    },
-                    "required": ["nodes", "edges"]
-                },
-                "instruction": {
-                    "type": "string",
-                    "description": "The revision instruction that motivated this change (e.g. 'add a Slack step after the summary'). Echoed back for the review card; does not affect validation."
-                },
-                "require_approval": {
-                    "type": "boolean",
-                    "description": "Force a human-approval gate on every outbound action once saved. Defaults to true for agent-proposed flows."
-                }
-            },
-            "required": ["name", "graph"]
-        })
+        static_schema!(include_str!("parameters/revise_workflow.json"))
     }
 
     fn permission_level(&self) -> PermissionLevel {
@@ -152,3 +127,7 @@ impl Tool for ReviseWorkflowTool {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "draft_revise_schema_tests.rs"]
+mod schema_tests;

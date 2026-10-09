@@ -7,6 +7,7 @@
 //! redirect or feed data to a running sub-agent
 //! without waiting for it to finish or restarting it. Mirrors Codex `send_input`.
 
+use crate::tools::schema_cache::static_schema;
 use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::orchestration::running_subagents::{self, SteerError};
 use async_trait::async_trait;
@@ -72,30 +73,7 @@ impl Tool for SteerSubagentTool {
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
-        json!({
-            "type": "object",
-            "required": ["message"],
-            "properties": {
-                "task_id": {
-                    "type": "string",
-                    "description": "Transient task_id returned by reusable async delegation."
-                },
-                "subagent_session_id": {
-                    "type": "string",
-                    "description": "Durable subagent_session_id returned by reusable async delegation. Preferred over task_id for cross-turn messaging."
-                },
-                "message": {
-                    "type": "string",
-                    "description": "Instruction or data to inject into the running sub-agent."
-                },
-                "mode": {
-                    "type": "string",
-                    "enum": ["steer", "collect"],
-                    "default": "steer",
-                    "description": "steer = a new instruction the sub-agent must address; collect = silent additional context."
-                }
-            }
-        })
+        static_schema!(include_str!("parameters/steer_subagent.json"))
     }
 
     fn permission_level(&self) -> PermissionLevel {
@@ -221,3 +199,7 @@ impl SteerSubagentTool {
 #[cfg(test)]
 #[path = "steer_subagent_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "steer_subagent_schema_tests.rs"]
+mod schema_tests;
