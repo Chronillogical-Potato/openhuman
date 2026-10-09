@@ -270,7 +270,7 @@ The agent `memory` tool applies the same confinement and overwrites any
 | [`channels.rs`](./channels.rs) | Channel to thread records, for forgetting a channel. |
 | [`deletion.rs`](./deletion.rs) | Hard deletes and the pending-deletion queue with its drain. |
 | [`backfill.rs`](./backfill.rs) | Consent-gated, resumable storing of past chats. |
-| [`import.rs`](./import.rs), [`import_retry.rs`](./import_retry.rs) | Consent-gated, resumable v1 import, and retrying refused items. |
+| [`import.rs`](./import.rs), [`import_retry.rs`](./import_retry.rs) | Consent-gated, resumable v1 import, and retrying refused items. Skips what v1 synced from Composio connectors (`import_open.rs::open_legacy` turns on `LegacyWorkspace::skip_connector_syncs`); the connectors re-sync it. |
 | [`layout_migration/`](./layout_migration/) | Legacy tree to per-user tree migration: `job.rs` (end to end), `copy.rs`, `map.rs` (placement), `cleanup.rs`, `claim.rs`, `state.rs`, `service.rs` (RPC/tick entry points), `app_host.rs` (the real host). |
 | [`billing.rs`](./billing.rs) | Whether background rewrites are free for the user right now. |
 | [`files.rs`](./files.rs) | Owner-only (0600 / 0700 on unix) writes of the local state files. |

@@ -7,11 +7,11 @@
 //! narrowing axes, and [`build`], which refuses to boot unless
 //! [`boot_guard`](super::boot_guard) finds nothing unsafe.
 //!
-//! The per-user surface lands phase by phase. Until then the presets are
-//! closed: [`DomainSet::saas`] enables only the operator plane
-//! (`user_agents.*`), so a SaaS core answers its always-on infrastructure
-//! (`core.*`, `/health`, `/schema`) and provisioning, and refuses every user
-//! domain method as unknown. [`build`] installs the process's
+//! [`DomainSet::saas`] enables the operator plane (`user_agents.*`) and the
+//! user families whose per-user isolation has landed (threads, channels for
+//! web chat, memory). The operator scope reaches only its own plane, and a
+//! user only the reviewed `user_agents::surface::USER_METHODS`. [`build`]
+//! seeds the built-in agent definitions and installs the process's
 //! [`AgentHost`](crate::user_agents::AgentHost).
 
 use std::path::{Path, PathBuf};
@@ -26,7 +26,7 @@ use crate::core::types::HostKind;
 use crate::tools::toolpacks::ToolGroups;
 
 /// The operator's SaaS deployment settings.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SaasConfig {
     /// Root of every user's state and the operator's own. Must be an absolute,
@@ -36,12 +36,16 @@ pub struct SaasConfig {
     /// `<root>/service.token`.
     #[serde(default)]
     pub service_token_file: Option<PathBuf>,
-    /// Tool groups the operator opts back in. Refused by the boot guard until
-    /// per-user sandboxing ships.
+    /// Host tool groups the operator opts users into
+    /// (`user_agents::tools::SaasToolGroup`: `host_files`, `host_shell`).
+    /// Empty by default: users get no tool that reaches the host.
     #[serde(default)]
     pub tool_allowlist: Vec<String>,
-    /// Extra RPC methods the operator exposes. Refused by the boot guard until
-    /// the per-user RPC surface ships.
+    /// The container every user shell command runs in.
+    #[serde(default)]
+    pub sandbox: SaasSandboxConfig,
+    /// Extra RPC methods the operator exposes. Refused by the boot guard: the
+    /// per-user RPC surface is the reviewed `user_agents::surface` list.
     #[serde(default)]
     pub rpc_allowlist_extra: Vec<String>,
     /// Most user agents kept open at once.
@@ -60,6 +64,52 @@ pub struct SaasConfig {
     /// (see `user_agents::gateway`).
     #[serde(default = "default_true")]
     pub require_user_signature: bool,
+}
+
+/// `[sandbox]`: the one-shot container a user's shell command runs in. The
+/// user's `sandbox/` directory is its only writable mount; the root filesystem
+/// is read-only and every capability is dropped (`sandbox::docker`).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SaasSandboxConfig {
+    /// Image to run in. Use one whose default user is not root.
+    #[serde(default = "default_sandbox_image")]
+    pub image: String,
+    /// Docker network. `none` (the default) gives the container no network;
+    /// `host` is refused at boot.
+    #[serde(default = "default_sandbox_network")]
+    pub network: String,
+    #[serde(default = "default_sandbox_memory_mb")]
+    pub memory_limit_mb: u64,
+    #[serde(default = "default_sandbox_cpus")]
+    pub cpu_limit: f64,
+}
+
+impl Default for SaasSandboxConfig {
+    fn default() -> Self {
+        Self {
+            image: default_sandbox_image(),
+            network: default_sandbox_network(),
+            memory_limit_mb: default_sandbox_memory_mb(),
+            cpu_limit: default_sandbox_cpus(),
+        }
+    }
+}
+
+fn default_sandbox_image() -> String {
+    "alpine:3.20".to_string()
+}
+
+fn default_sandbox_network() -> String {
+    "none".to_string()
+}
+
+fn default_sandbox_memory_mb() -> u64 {
+    512
+}
+
+fn default_sandbox_cpus() -> f64 {
+    1.0
 }
 
 fn default_true() -> bool {
@@ -81,6 +131,7 @@ impl SaasConfig {
             root: root.into(),
             service_token_file: None,
             tool_allowlist: Vec::new(),
+            sandbox: SaasSandboxConfig::default(),
             rpc_allowlist_extra: Vec::new(),
             max_agents_open: default_max_agents_open(),
             idle_evict_secs: default_idle_evict_secs(),
@@ -172,6 +223,11 @@ pub async fn build(
     let domains = DomainSet::saas();
     let token = ServiceToken::read(&config.service_token_path());
     let env: Vec<(String, String)> = std::env::vars().collect();
+    let sandbox_available = if boot_guard::needs_sandbox(&config) {
+        crate::sandbox::docker::is_docker_available().await
+    } else {
+        false
+    };
     boot_guard::check(&BootInputs {
         host_kind: HostKind::Saas,
         services,
@@ -180,6 +236,7 @@ pub async fn build(
         token: &token,
         env: &env,
         home: dirs::home_dir(),
+        sandbox_available,
     })?;
     let ServiceToken::Valid(bearer) = token else {
         unreachable!("boot guard accepts only a valid service token");
@@ -223,10 +280,22 @@ pub async fn build(
         builder = builder.port(port);
     }
     let runtime = builder.build().await?;
-    crate::user_agents::host::install(Arc::new(crate::user_agents::AgentHost::new(
+    // Built-in agent definitions only. The registry is process-wide and the
+    // first initialiser wins, so seeding it here also stops a lazy init from
+    // loading one user's workspace definitions for everyone.
+    crate::agent::harness::AgentDefinitionRegistry::init_global_builtins()?;
+    log::info!(
+        "[saas] agent definitions: {} built-in(s), no workspace or home overrides",
+        crate::agent::harness::AgentDefinitionRegistry::global()
+            .map(|r| r.len())
+            .unwrap_or(0)
+    );
+    let host = Arc::new(crate::user_agents::AgentHost::new(
         config,
         runtime.context().clone(),
-    )));
+    ));
+    crate::user_agents::host::install(Arc::clone(&host));
+    crate::user_agents::background::spawn(host);
     Ok(runtime)
 }
 

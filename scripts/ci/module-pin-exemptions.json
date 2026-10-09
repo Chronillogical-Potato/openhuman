@@ -9,7 +9,7 @@
     "is a deliberate edit to this file, which is a reviewable diff.",
     "",
     "Delete an entry the moment the pins are reconciled. An exemption that has",
-    "stopped being true fails the gate too — `expect` must still match."
+    "stopped being true fails the gate too \u2014 `expect` must still match."
   ],
   "exemptions": [
     {
@@ -18,14 +18,19 @@
       "reason": "Pin carries the test-file rename commits after the v0.7.3 release; re-pin to the next tinywallet release containing them."
     },
     {
-      "id": "tinycomputer",
-      "expect": "v0.9.1-2-g2b0ee5c",
-      "reason": "Pin carries the cpal 0.18 bump (tinycomputer#72, needed so cpal shares alsa-sys with tinyvoice) past the release tag; re-pin to the next release of this module."
-    },
-    {
       "id": "tinybox",
       "expect": "v0.1.15-2-g392a1f07",
       "reason": "Pin carries the Seatbelt process-group fix (tinybox#24) merged after the v0.1.15 release; re-pin to the next tinybox release containing it and delete this entry."
+    },
+    {
+      "id": "tinysearch",
+      "expect": "v0.3.6-6-gb52d8f88",
+      "reason": "Inherited from main (16a0967f): the submodule pin carries six commits past the v0.3.6 release the registry downloads; surfaced here only because this PR touches vendor/. Re-pin to the next tinysearch release and delete this entry."
+    },
+    {
+      "id": "tinymcp",
+      "expect": "v0.5.0",
+      "reason": "Inherited from main (16a0967f): vendor/tinymcp is on the v0.5.0 tag while the registry still downloads v0.4.0. Move the registry to v0.5.0 with checksums from the published release, then delete this entry."
     }
   ]
 }

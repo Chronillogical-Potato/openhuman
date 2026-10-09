@@ -91,6 +91,7 @@
 - [Hooks](developing/hooks.md)
 - [MCP Server](developing/mcp-server.md)
 - [Claude Code CLI provider](developing/providers/claude-code.md)
+- [TinyComputer browser on Linux and Docker](developing/tinycomputer-docker.md)
 - [Theming (Token System)](developing/theming.md)
 - [Testing Strategy](developing/testing-strategy.md)
 - [E2E Testing](developing/e2e-testing.md)

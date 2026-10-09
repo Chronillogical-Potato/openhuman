@@ -5,7 +5,7 @@
 //! |---|---|---|
 //! | [`cli`] | `tinyhumans::install` → `server::install_cli_server` → `run_core_from_args` | [`cli_builder`]: the `cli` preset, connected, with the server launcher and the `http_host` controllers |
 //! | [`desktop`] | `tinyhumans::install` + `server::run_server_embedded_with_ready` | [`desktop_builder`]: the `desktop` preset, connected, with the bearer, listener, services, server launcher and `http_host` controllers |
-//! | [`tui`] | `tinyhumans::install` + `session_store::install` + `CoreBuilder(full, none)` | [`tui_builder`]: the `tui` preset, connected, with the on-disk session store |
+//! | [`tui`] | `tinyhumans::install` + `session_store::install_for_host` + `CoreBuilder(full, none)` | [`tui_builder`]: the `tui` preset, connected, with the on-disk session store ([`tui`] swaps in the configured storage URL's store) |
 //!
 //! Each `*_builder` returns a [`tinyhumans::RuntimeBuilder`] so a host can
 //! adjust it (product identity, hooks, a different ranker) before handing it
@@ -20,7 +20,9 @@
 //! - The desktop and CLI servers install the on-disk session store for the
 //!   life of the process (see `server::shims::build_and_serve`), exactly as the
 //!   `run_server*` shims do; the TUI hands it to the builder, which restores
-//!   the previous provider when its runtime drops at exit.
+//!   the previous provider when its runtime drops at exit. Both honour a
+//!   storage URL (`OPENHUMAN_STORAGE_URL`, else `[storage] url`): with one,
+//!   conversations live in that backend instead of the on-disk layout.
 //! - Builder seams follow embed's install/restore rules: the hosted and
 //!   `http_host` controllers and the server launcher stay for the process; the
 //!   Jev ranker is restored when the runtime drops. A desktop server that
@@ -183,14 +185,27 @@ pub fn tui_builder() -> RuntimeBuilder {
 /// core for the session; `Runtime::core_runtime` hands the TUI its
 /// `CoreRuntime`.
 ///
+/// Conversations stay in the classic on-disk layout, as the desktop keeps
+/// them, unless a storage URL (`OPENHUMAN_STORAGE_URL` / `[storage] url`) is
+/// set: then [`tui_builder`]'s on-disk store is replaced with the storage-backed
+/// one ([`crate::session_store::provider_for_host`]).
+///
 /// # Errors
 ///
-/// The transport or runtime could not be built.
+/// A configured storage URL could not be opened, or the transport or runtime
+/// could not be built.
 #[cfg(feature = "session-store")]
-pub async fn tui(
-) -> Result<openhuman_tinyhumans::embed::Runtime, openhuman_tinyhumans::RuntimeError> {
+pub async fn tui() -> anyhow::Result<openhuman_tinyhumans::embed::Runtime> {
     log::debug!("[rpc:host] tui: building connected runtime");
-    let runtime = tui_builder().build().await?;
+    let session_store = crate::session_store::provider_for_host().await?;
+    let runtime = tui_builder()
+        .session_store(session_store)
+        .build()
+        .await
+        .map_err(|error| {
+            log::warn!("[rpc:host] tui: runtime build failed: {error}");
+            anyhow::Error::new(error)
+        })?;
     log::info!("[rpc:host] tui: core built (DomainSet::full, ServiceSet::none)");
     Ok(runtime)
 }

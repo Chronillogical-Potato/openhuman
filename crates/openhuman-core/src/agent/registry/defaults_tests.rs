@@ -38,6 +38,7 @@ fn custom_entry(id: &str) -> AgentRegistryEntry {
         system_prompt: Some("You are a meticulous finance analyst.".to_string()),
         tool_allowlist: vec!["memory".to_string(), "web_search".to_string()],
         tool_denylist: vec!["file_write".to_string()],
+        tool_rules: None,
         subagents: AgentSubagentPolicy::from_allowlist(vec!["researcher".to_string()]),
         tags: vec!["finance".to_string()],
         metadata: Value::Null,
@@ -122,6 +123,7 @@ fn entry_to_definition_to_entry_round_trip_preserves_key_fields() {
         system_prompt: None,
         tool_allowlist: tools_to_allowlist(&def.tools, &def.extra_tools),
         tool_denylist: def.disallowed_tools.clone(),
+        tool_rules: None,
         subagents: AgentSubagentPolicy::from_allowlist(
             def.subagents
                 .iter()

@@ -19,6 +19,7 @@
 //! misconfigured deployment stops at boot instead of at its first write.
 
 pub mod documents;
+pub mod secrets;
 
 use std::future::Future;
 use std::sync::{Arc, LazyLock, OnceLock, RwLock};
@@ -179,6 +180,21 @@ where
         .as_ref()
         .map_err(|error| StorageError::backend(error.clone()))?;
     bridge.run(future)?
+}
+
+/// [`block_on`] for a future whose error is an `anyhow::Error` — the stores
+/// tinyflows puts on the ports return those, with typed errors (such as
+/// `FlowUpdateError`) a caller may downcast, so they pass through unchanged.
+///
+/// # Errors
+///
+/// The future's own error, or the bridge's when it cannot start.
+pub fn block_on_anyhow<T, F>(future: F) -> anyhow::Result<T>
+where
+    F: Future<Output = anyhow::Result<T>> + Send + 'static,
+    T: Send + 'static,
+{
+    block_on(async move { Ok(future.await) })?
 }
 
 /// Whether a backend with this driver name may be shared by several

@@ -131,11 +131,14 @@ impl SecurityPolicy {
         // channels-startup injection is skipped on cores with no listening
         // integrations (web-chat-only), and a freshly reloaded config wouldn't
         // carry an in-memory edit anyway. A user-granted entry is left as-is.
+        // SaaS: the projects home and `/tmp/openhuman` are shared by every user
+        // of the process, so neither is granted there.
+        let saas = crate::core::runtime::is_saas();
         let mut trusted_roots = autonomy_config.trusted_roots.clone();
         let projects_path = crate::config::default_projects_dir()
             .to_string_lossy()
             .to_string();
-        if !trusted_roots.iter().any(|r| r.path == projects_path) {
+        if !saas && !trusted_roots.iter().any(|r| r.path == projects_path) {
             trusted_roots.push(TrustedRoot {
                 path: projects_path,
                 access: TrustedAccess::ReadWrite,
@@ -200,7 +203,7 @@ impl SecurityPolicy {
         // is ever trusted — never `/tmp` itself. Created here with restrictive
         // perms and refused if it exists as a symlink (TOCTOU hardening, since
         // `/tmp` is world-writable and the name is predictable).
-        match ensure_openhuman_scratch_dir() {
+        match (!saas).then(ensure_openhuman_scratch_dir).flatten() {
             Some(scratch) => {
                 let scratch_str = scratch.to_string_lossy().to_string();
                 if trusted_roots.iter().any(|r| r.path == scratch_str) {

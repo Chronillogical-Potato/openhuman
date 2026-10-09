@@ -1,9 +1,13 @@
-# The `openhuman-core` binary, the developer/benchmark bins, and every root
-# `tests/*.rs` / `examples/*.rs` target. They used to live in the core package;
-# they moved here because a core that carries no backend client cannot host the
-# binary that must talk to the hosted backend — `main.rs` installs the
-# `openhuman-tinyhumans` transport before dispatching, and the mock-backend
-# integration suites boot the same way through `tests/support/tinyhumans_boot.rs`.
+# The `openhuman-core` binary, the ops bins (`openhuman-fleet`, the MCP test
+# stub), and every root `tests/*.rs` / `examples/*.rs` target.
+#
+# The binary is a host like the desktop app and the TUI: its normal
+# dependencies name `openhuman-rpc` and no other openhuman crate (chain: core
+# -> embed -> tinyhumans -> rpc -> app/cli/tui; enforced by
+# `scripts/ci/check-crate-chain.mjs`). `main.rs` is `openhuman_rpc::host::cli`.
+# The integration tests still reach into the core directly, so the core, embed
+# and tinyhumans are DEV-dependencies here: they build into the test and
+# example targets and never into the shipped binary.
 #
 # Auto-discovery is off because Cargo only scans beside this manifest; the
 # repository layout gate (`scripts/ci/check-openhuman-rust-layout.mjs`)
@@ -88,6 +92,17 @@ path = "../../tests/storage_approvals_e2e.rs"
 # storage backend into the process-wide slot.
 name = "storage_domains_e2e"
 path = "../../tests/storage_domains_e2e.rs"
+
+[[test]]
+# Its own binary: it installs a storage backend into the process-wide slot.
+name = "storage_flows_e2e"
+path = "../../tests/storage_flows_e2e.rs"
+
+[[test]]
+# Its own binary: it installs a storage backend into the process-wide slot and
+# sets the keyring master-key environment.
+name = "storage_secrets_e2e"
+path = "../../tests/storage_secrets_e2e.rs"
 
 [[test]]
 name = "embedded_server_shutdown_e2e"
@@ -230,36 +245,39 @@ name = "embed_kernel"
 path = "../../examples/embed_kernel.rs"
 
 [dependencies]
-# Direct core access: every test and bin names `openhuman_core::` paths.
-# `default-features = false` so the gates below are the only ones on.
-openhuman-core = { path = "../openhuman-core", package = "openhuman", default-features = false }
-openhuman-tinyhumans = { path = "../openhuman-tinyhumans", default-features = false }
+# The only openhuman crate the binary depends on. Every gate below forwards to
+# it, and it forwards down the chain to the core.
 openhuman-rpc = { workspace = true, features = ["server"] }
 anyhow = "1.0"
-async-trait = "0.1"
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio", "query", "ws", "macros"] }
-chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.5", features = ["derive"], optional = true }
-dotenvy = "0.15"
 env_logger = "0.11"
-futures = "0.3"
 libc = "0.2"
 log = "0.4"
 reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "stream", "http2", "multipart", "socks"] }
-sentry = { version = "0.47.0", default-features = false, optional = true, features = ["backtrace", "contexts", "panic", "tracing", "debug-images", "httpdate"] }
-serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tempfile = "3"
-tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
-tinytools = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools" }
-tinytools-agent = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools-agent" }
 tokio = { version = "1", features = ["full"] }
-toml = "1.0"
-tracing = "0.1"
 uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
+# Root tests and examples reach into the core, embed and tinyhumans directly.
+# Dev-only, so none of them is an edge of the shipped binary. Same spelling as
+# the library crates' own manifests (`default-features = false`; the gates come
+# from this crate's features through `openhuman-rpc`), so the dev graphs unify
+# and `cargo test -p` reuses one core build.
+openhuman-core = { path = "../openhuman-core", package = "openhuman", default-features = false }
+openhuman-embed = { workspace = true }
+openhuman-tinyhumans = { workspace = true }
 aes-gcm = "0.10"
+async-trait = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+futures = "0.3"
+serde = { version = "1", features = ["derive"] }
+tempfile = "3"
+tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
+tinytools = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools" }
+toml = "1.0"
+tracing = "0.1"
 # The TinyComputer contract, for the live computer-use e2e (`computer_bali_live_e2e`).
 tinycomputer-bus = { path = "../../vendor/tinycomputer/crates/tinycomputer-bus" }
 # sentry's TestTransport for the observability before_send smoke tests;
@@ -295,35 +313,50 @@ urlencoding = "2.1"
 wiremock = "0.6"
 
 [features]
-# Same contributor set as the core's `default`, forwarded. The product lanes
-# pass `--features "$(scripts/ci/product-features.sh)"`; every product gate
-# name resolves here so `cargo test --workspace --features ...` keeps working.
-default = ["openhuman-core/default", "openhuman-tinyhumans/default", "jev"]
-# The Jev-backed `tool_search` ranker; `openhuman-tinyhumans`'s own gate.
-jev = ["openhuman-tinyhumans/jev"]
-http-server = ["openhuman-core/http-server", "openhuman-tinyhumans/http-server"]
-inference = ["openhuman-core/inference", "openhuman-tinyhumans/inference"]
-documents = ["openhuman-core/documents", "openhuman-tinyhumans/documents"]
-hosting = ["openhuman-core/hosting", "openhuman-tinyhumans/hosting"]
-modules = ["openhuman-core/modules", "openhuman-tinyhumans/modules"]
-voice = ["openhuman-core/voice", "openhuman-tinyhumans/voice"]
-web3 = ["openhuman-core/web3", "openhuman-tinyhumans/web3"]
+# The contributor set: the core's `[features] default` gates (listed, because
+# `openhuman-rpc`'s own default carries only its server and client) plus the
+# Jev ranker. The product lanes pass `--features
+# "$(scripts/ci/product-features.sh)"`; every product gate name resolves here.
+default = [
+    "media",
+    "skills",
+    "flows",
+    "mcp",
+    "channels",
+    "http-server",
+    "scheduler-gate",
+    "file-logging",
+    "modules",
+    "jev",
+]
+# Every gate forwards to `openhuman-rpc` alone (chain: rpc -> tinyhumans ->
+# embed -> core); `scripts/ci/check-feature-forwarding.mjs` checks the link.
+# The Jev-backed `tool_search` ranker.
+jev = ["openhuman-rpc/jev"]
+http-server = ["openhuman-rpc/http-server"]
+inference = ["openhuman-rpc/inference"]
+documents = ["openhuman-rpc/documents"]
+hosting = ["openhuman-rpc/hosting"]
+modules = ["openhuman-rpc/modules"]
+voice = ["openhuman-rpc/voice"]
+web3 = ["openhuman-rpc/web3"]
 # Storage drivers for `[storage] url` (see the core `storage` domain).
-storage-sqlite = ["openhuman-core/storage-sqlite", "openhuman-tinyhumans/storage-sqlite"]
-storage-mongodb = ["openhuman-core/storage-mongodb", "openhuman-tinyhumans/storage-mongodb"]
-storage-file = ["openhuman-core/storage-file", "openhuman-tinyhumans/storage-file"]
-runtime-node = ["openhuman-core/runtime-node", "openhuman-tinyhumans/runtime-node"]
-media = ["openhuman-core/media", "openhuman-tinyhumans/media"]
-flows = ["openhuman-core/flows", "openhuman-tinyhumans/flows"]
-skills = ["openhuman-core/skills", "openhuman-tinyhumans/skills"]
-mcp = ["openhuman-core/mcp", "openhuman-tinyhumans/mcp"]
-channels = ["openhuman-core/channels", "openhuman-tinyhumans/channels"]
-whatsapp-web = ["openhuman-core/whatsapp-web", "openhuman-tinyhumans/whatsapp-web"]
-e2e-test-support = ["openhuman-core/e2e-test-support"]
-file-logging = ["openhuman-core/file-logging", "openhuman-tinyhumans/file-logging"]
-scheduler-gate = ["openhuman-core/scheduler-gate", "openhuman-tinyhumans/scheduler-gate"]
-# Sentry init in `main.rs` plus the `observability_smoke` test target.
-crash-reporting = ["dep:sentry", "openhuman-core/crash-reporting", "openhuman-tinyhumans/crash-reporting"]
+storage-sqlite = ["openhuman-rpc/storage-sqlite"]
+storage-mongodb = ["openhuman-rpc/storage-mongodb"]
+storage-file = ["openhuman-rpc/storage-file"]
+runtime-node = ["openhuman-rpc/runtime-node"]
+media = ["openhuman-rpc/media"]
+flows = ["openhuman-rpc/flows"]
+skills = ["openhuman-rpc/skills"]
+mcp = ["openhuman-rpc/mcp"]
+channels = ["openhuman-rpc/channels"]
+whatsapp-web = ["openhuman-rpc/whatsapp-web"]
+e2e-test-support = ["openhuman-rpc/e2e-test-support"]
+file-logging = ["openhuman-rpc/file-logging"]
+scheduler-gate = ["openhuman-rpc/scheduler-gate"]
+# Sentry init in `main.rs` (through `embed::process::sentry`) plus the
+# `observability_smoke` test target.
+crash-reporting = ["openhuman-rpc/crash-reporting"]
 # CLI argument parsing + logger init for `openhuman-fleet`.
 bin-tools = ["dep:clap"]
 

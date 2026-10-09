@@ -19,6 +19,7 @@ pub mod caps;
 pub mod langfuse_export;
 pub mod memory_adapter;
 pub mod observability;
+pub mod state;
 #[cfg(test)]
 #[path = "tinyflows_tests.rs"]
 mod tests;

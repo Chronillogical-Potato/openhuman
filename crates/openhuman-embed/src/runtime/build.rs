@@ -223,7 +223,17 @@ impl RuntimeBuilder {
         }
 
         if seams.has_pending_live_policy() {
-            seams.install_live_policy(&base_config.workspace_dir, &base_config.action_dir);
+            if config_unavailable.is_some() {
+                // The base config is a placeholder: its directories are the
+                // default root, not the operator's install, so a policy
+                // scoped to them would guard the wrong tree. Keep the policy
+                // the core's bootstrap installed.
+                log::warn!(
+                    "[embed][runtime] live policy not installed: discovered config unavailable"
+                );
+            } else {
+                seams.install_live_policy(&base_config.workspace_dir, &base_config.action_dir);
+            }
         }
 
         if let Some(session) = self.session.take() {

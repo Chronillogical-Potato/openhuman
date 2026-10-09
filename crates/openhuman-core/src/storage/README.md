@@ -52,6 +52,24 @@ on `storage-mongodb`.
   approvals (`security::approval`), paired devices (`security::devices`),
   notifications (`desktop::notifications`) and task sources
   (`integrations::task_sources`).
+- tinyflows' own stores on the ports (`tinyflows-drivers`), picked per call
+  the same way: cron jobs and runs (`cron::store`, `CronDocuments`), the flow
+  catalog and drafts (`flows::store`, `flows::draft_store`,
+  `FlowCatalogDocuments`), per-flow engine state and dedup settlement
+  (`flows::tinyflows::state::FlowState`), and the flow-run checkpointer
+  (`DriverCheckpointer`). The delegation graph's checkpointer uses
+  tinyagents-graph's `DriverCheckpointer`.
+- `block_on_anyhow(future)`: `block_on` for those stores, whose errors are
+  `anyhow::Error` (a typed `FlowUpdateError` passes through unchanged).
+- Approvals (`security::approval`), through `store_documents.rs`.
+- Secrets (`storage::secrets`): the keyring's user secrets
+  (`security::keyring::get` / `set` / `delete`) and the credential stores'
+  files (`auth-profiles.json`, `http-credentials.json`) become encrypted
+  documents (`DocumentSecrets`, `enc2:`) in the acting agent's scope. Each
+  scope's data key is derived with HKDF-SHA256 from the keyring master key
+  (`OPENHUMAN_KEYRING_MASTER_KEY` / `_FILE`, else the OS keychain); with no
+  master key they fail closed. The config encryption key stays on the
+  process keyring, because `config.toml` is loaded before any agent acts.
 
 ## Boundaries
 

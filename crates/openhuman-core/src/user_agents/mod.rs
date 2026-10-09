@@ -14,6 +14,7 @@
 //!
 //! [`CoreContext`]: crate::core::runtime::CoreContext
 
+pub mod background;
 pub mod credentials;
 pub mod gateway;
 pub mod host;
@@ -21,6 +22,7 @@ pub mod layout;
 pub mod ops;
 pub mod schemas;
 pub mod surface;
+pub mod tools;
 pub mod types;
 
 pub use host::{current, AgentHost, UserAgentState};

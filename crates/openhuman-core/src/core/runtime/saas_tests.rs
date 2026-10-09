@@ -7,6 +7,7 @@ fn loads_an_operator_file_with_defaults() {
     std::fs::write(&path, "root = \"/srv/openhuman\"\n").unwrap();
     let config = SaasConfig::load(&path).unwrap();
     assert_eq!(config, SaasConfig::new("/srv/openhuman"));
+    assert_eq!(config.sandbox.network, "none");
     assert_eq!(
         config.service_token_path(),
         PathBuf::from("/srv/openhuman/service.token")
@@ -22,13 +23,19 @@ fn reads_every_operator_setting() {
         r#"
 root = "/srv/oh"
 service_token_file = "/run/secrets/gateway"
-tool_allowlist = ["documents"]
+tool_allowlist = ["host_shell"]
 rpc_allowlist_extra = ["threads.list"]
 max_agents_open = 8
 idle_evict_secs = 60
 shared_backend_api_key = true
 custom_definitions = true
 require_user_signature = false
+
+[sandbox]
+image = "registry.example/sandbox:1"
+network = "egress"
+memory_limit_mb = 256
+cpu_limit = 0.5
 "#,
     )
     .unwrap();
@@ -37,7 +44,11 @@ require_user_signature = false
         config.service_token_path(),
         PathBuf::from("/run/secrets/gateway")
     );
-    assert_eq!(config.tool_allowlist, vec!["documents".to_string()]);
+    assert_eq!(config.tool_allowlist, vec!["host_shell".to_string()]);
+    assert_eq!(config.sandbox.image, "registry.example/sandbox:1");
+    assert_eq!(config.sandbox.network, "egress");
+    assert_eq!(config.sandbox.memory_limit_mb, 256);
+    assert_eq!(config.sandbox.cpu_limit, 0.5);
     assert_eq!(config.rpc_allowlist_extra, vec!["threads.list".to_string()]);
     assert_eq!(config.max_agents_open, 8);
     assert_eq!(config.idle_evict_secs, 60);

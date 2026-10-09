@@ -231,6 +231,16 @@ missing row, reschedules a drifted one, and removes the retired
 `memory_context_refresh` row. It runs from [`core/runtime/services.rs`](../core/runtime/services.rs) and from
 [`security/credentials/ops/user_scope.rs`](../security/credentials/ops/user_scope.rs).
 
+### On a storage backend
+
+With a storage backend configured (`OPENHUMAN_STORAGE_URL` / `[storage] url`,
+see `crate::storage`), every `store` function is served by
+`tinyflows_drivers::schedule::CronDocuments` instead of `cron/jobs.db`: the
+same jobs and runs on the document port, in the acting agent's storage scope,
+with the same history cap and due-job batch size. `reschedule_after_run`
+advances a job only if its stored schedule still matches the job that fired,
+so two processes sharing one database don't double-advance it.
+
 ## Layout
 
 | Path | What it does |
