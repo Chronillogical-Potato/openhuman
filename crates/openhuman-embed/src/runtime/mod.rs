@@ -367,9 +367,19 @@ impl Runtime {
             .expect("runtime core is present until the last guard owner drops")
     }
 
-    /// The core runtime under this handle, for the transport layer
-    /// (`openhuman-rpc` serves it) — not for turns, which belong to agents.
-    #[doc(hidden)]
+    /// The core runtime under this handle: the controller registry a host
+    /// dispatches JSON-RPC methods through in-process
+    /// ([`CoreRuntime::invoke`]).
+    ///
+    /// This is the operator-host escape hatch. The JSON-RPC server serves it,
+    /// and the terminal UI drives its threads, config and auth screens with
+    /// it. Library embedders should prefer [`Runtime::agent`] for turns and
+    /// [`Runtime::core`] for typed config/auth access, because a raw invoke
+    /// carries no agent's provider route or access tier.
+    ///
+    /// The handle stays valid while this `Runtime` is alive. Keep the
+    /// `Runtime` for the whole session: dropping it tears the core down even
+    /// if a clone of this `Arc` is still held.
     pub fn core_runtime(&self) -> &Arc<CoreRuntime> {
         self.core_ref().raw()
     }

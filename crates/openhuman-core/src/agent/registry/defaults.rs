@@ -36,6 +36,7 @@ fn default_entry_from_definition(def: AgentDefinition) -> AgentRegistryEntry {
         system_prompt: None,
         tool_allowlist: tools_to_allowlist(&def.tools, &def.extra_tools),
         tool_denylist: def.disallowed_tools,
+        tool_rules: def.tool_rules,
         subagents: AgentSubagentPolicy::from_allowlist(
             def.subagents
                 .into_iter()
@@ -94,6 +95,7 @@ pub fn definition_from_registry_entry(entry: &AgentRegistryEntry) -> AgentDefini
         skill_filter: None,
         extra_tools: Vec::new(),
         deferred_tools: Vec::new(),
+        tool_rules: entry.tool_rules.clone(),
         max_iterations: 8,
         iteration_policy: IterationPolicy::Strict,
         max_result_chars: None,

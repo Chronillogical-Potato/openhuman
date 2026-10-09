@@ -81,7 +81,7 @@ fn draw_chat(frame: &mut Frame, area: Rect, state: &TranscriptState, ui: &UiStat
 }
 
 fn draw_logs(frame: &mut Frame, area: Rect, ui: &UiState) {
-    let lines = openhuman_core::core::logging::tui_log_lines();
+    let lines = openhuman_rpc::embed::process::tui_log_lines();
     let text = if lines.is_empty() {
         Text::from("Core logs will appear here as OpenHuman starts.")
     } else {

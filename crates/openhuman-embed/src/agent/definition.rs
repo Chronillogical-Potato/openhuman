@@ -59,6 +59,7 @@ pub struct AgentDefinitionSpec {
     bare_prompt: bool,
     tools: Option<ToolScopeSpec>,
     disallowed_tools: Vec<String>,
+    tool_rules: Option<tinytools::ToolRules>,
     sandbox: SandboxModeSpec,
     max_iterations: Option<usize>,
     temperature: Option<f64>,
@@ -114,6 +115,15 @@ impl AgentDefinitionSpec {
     {
         self.disallowed_tools
             .extend(tools.into_iter().map(Into::into));
+        self
+    }
+
+    /// Pattern rules narrowing which tools the agent may see and call — on
+    /// the catalogue, `tool_search` and every call. Stacks with
+    /// [`Self::tools`], [`Self::disallow_tools`] and the runtime config's
+    /// `[tool_rules]`; it can only narrow. See [`tinytools::ToolRules`].
+    pub fn tool_rules(mut self, rules: tinytools::ToolRules) -> Self {
+        self.tool_rules = Some(rules);
         self
     }
 
@@ -184,6 +194,9 @@ impl AgentDefinitionSpec {
             ToolScopeSpec::HostOnly => ToolScope::Named(Vec::new()),
         };
         def.disallowed_tools.extend(self.disallowed_tools);
+        if let Some(rules) = self.tool_rules {
+            def.tool_rules = Some(rules);
+        }
         def.sandbox_mode = match self.sandbox {
             _ if host_only => SandboxMode::ReadOnly,
             SandboxModeSpec::None => SandboxMode::None,

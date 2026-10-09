@@ -4,11 +4,17 @@ Auxiliary binaries declared as `[[bin]]` targets in
 [`crates/openhuman-cli/Cargo.toml`](../../Cargo.toml), next to the primary `openhuman-core`
 binary ([`src/main.rs`](../main.rs), described in the [crate README](../../README.md)). One
 is a test fixture and the other an experimental multi-tenant supervisor.
-Neither ships in the desktop product. The benchmark and profiling binaries
-that used to live here (`tool-search-bench`, `tool-dialect-bench`,
-`rss-bench`, `library-profile`) moved to the `profile/` crate of
-[openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks), which builds them against a vendored checkout
-of this workspace.
+Neither ships in the desktop product, and neither names an OpenHuman crate:
+the CLI's normal dependencies stop at `openhuman-rpc`.
+
+The benchmark and profiling binaries that used to live here
+(`tool-search-bench`, `tool-dialect-bench`, `rss-bench`, `library-profile`)
+reached deep into core internals (`agent::harness`, `platform::proc_metrics`,
+`flows`, provider factories) that the curated facade does not expose. They
+moved, with their `scripts/profile/` drivers, to the `profile/` crate of
+[openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks) (#6944), which builds them against a vendored
+checkout of this workspace; the `rss-bench` / `rss-bench-dhat` gates went
+with them.
 
 ## How it works
 
@@ -93,7 +99,7 @@ cargo build -p openhuman-cli --features bin-tools --bin openhuman-fleet
 - The manifest sets `autobins = false`, so a `.rs` file in this directory is
   a binary only when it has a `[[bin]]` entry. That is what lets
   [`fleet_tests.rs`](fleet_tests.rs) sit here beside its binary
-  without Cargo trying to build them as executables. A new binary needs both
+  without Cargo trying to build it as an executable. A new binary needs both
   the file and the manifest entry.
 
 ## Tests

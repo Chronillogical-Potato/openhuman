@@ -168,7 +168,29 @@ pub fn provider() -> Arc<dyn SessionStoreProvider> {
 /// When a URL is configured but cannot be parsed or opened. A deployment that
 /// asked for a backend must not quietly fall back to local files.
 pub async fn install_for_host() -> anyhow::Result<()> {
-    let url = match std::env::var(crate::core_host::storage::STORAGE_URL_VAR) {
+    install_for_url(configured_storage_url().await).await
+}
+
+/// The session store the host's configuration asks for, as a provider a
+/// runtime builder's `session_store` option takes (what [`crate::host::tui`]
+/// wires). [`install_for_host`] installs the same provider process-wide
+/// instead.
+///
+/// Resolves the storage URL exactly as [`install_for_host`] does and has the
+/// same side effect on the process's storage backend: a configured backend is
+/// opened and installed, and with no URL any earlier backend is cleared.
+///
+/// # Errors
+///
+/// When a URL is configured but cannot be parsed or opened.
+pub async fn provider_for_host() -> anyhow::Result<Arc<dyn SessionStoreProvider>> {
+    provider_for_url(configured_storage_url().await).await
+}
+
+/// The storage URL the host asks for: `OPENHUMAN_STORAGE_URL`, else
+/// `[storage] url` from the config, else `None` (the classic layout).
+async fn configured_storage_url() -> Option<String> {
+    match std::env::var(crate::core_host::storage::STORAGE_URL_VAR) {
         Ok(url) if !url.trim().is_empty() => Some(url.trim().to_string()),
         _ => match crate::core_host::config::rpc::load_config_with_timeout().await {
             Ok(config) => crate::core_host::storage::configured_url(&config),
@@ -176,14 +198,13 @@ pub async fn install_for_host() -> anyhow::Result<()> {
             // layout, as it always has. Remote deployments pin the backend
             // with `OPENHUMAN_STORAGE_URL`, which never reads the config.
             Err(error) => {
-                tracing::warn!(
-                    "[session_store] config unavailable ({error}); keeping the on-disk layout"
+                log::warn!(
+                    "[rpc:session_store] config unavailable ({error}); keeping the on-disk layout"
                 );
                 None
             }
         },
-    };
-    install_for_url(url).await
+    }
 }
 
 /// [`install_for_host`] with the URL already resolved: `None` installs the
@@ -194,14 +215,31 @@ pub async fn install_for_host() -> anyhow::Result<()> {
 ///
 /// When `url` cannot be parsed or opened.
 pub async fn install_for_url(url: Option<String>) -> anyhow::Result<()> {
+    let provider = provider_for_url(url).await?;
+    log::debug!("[rpc:session_store] installing process-wide (host configuration)");
+    crate::core_host::agent::session_store::install(provider);
+    Ok(())
+}
+
+/// [`provider_for_host`] with the URL already resolved: `None` is the classic
+/// on-disk [`provider`] (any earlier storage backend cleared), a URL opens
+/// that backend, makes it the process's storage backend and returns
+/// `DriverSessionStores` over it.
+///
+/// # Errors
+///
+/// When `url` cannot be parsed or opened.
+pub async fn provider_for_url(
+    url: Option<String>,
+) -> anyhow::Result<Arc<dyn SessionStoreProvider>> {
     use anyhow::Context as _;
 
     let Some(url) = url else {
         // Drop a backend an earlier call installed, so storage operations do
         // not keep writing to it while the classic layout is in force.
         crate::core_host::storage::clear();
-        install();
-        return Ok(());
+        log::debug!("[rpc:session_store] no storage url; classic on-disk layout");
+        return Ok(provider());
     };
     let backend = crate::core_host::storage::open(&url)
         .await
@@ -212,13 +250,11 @@ pub async fn install_for_url(url: Option<String>) -> anyhow::Result<()> {
         .recover_on_open(single_process);
     // Only a fully working bridge makes the backend the process's storage.
     crate::core_host::storage::install(backend);
-    tracing::info!(
-        target: "openhuman_rpc::session_store",
-        recover_on_open = single_process,
-        "[session_store] installed the storage-backed session store"
+    log::info!(
+        "[rpc:session_store] opened the storage-backed session store \
+         recover_on_open={single_process}"
     );
-    crate::core_host::agent::session_store::install(Arc::new(provider));
-    Ok(())
+    Ok(Arc::new(provider))
 }
 
 #[cfg(test)]

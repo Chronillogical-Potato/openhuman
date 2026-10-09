@@ -304,6 +304,10 @@ impl OpenHumanDefinitionRegistry {
             model: model_for(&def.model),
             subagents: declared_subagent_ids(def),
             tools: self.tools_for(def),
+            // The definition's rule layer (its `tool_rules` plus its
+            // `disallowed_tools` as a deny), enforced by the harness gate on
+            // the catalogue, `tool_search` and every call of a hosted run.
+            tool_rules: crate::tools::rules::agent_rule_layer(def),
         }
     }
 
@@ -351,7 +355,9 @@ impl OpenHumanDefinitionRegistry {
                 // named scope. Under `Wildcard` it is meaningless — everything
                 // is already in scope.
                 names.extend(def.extra_tools.iter().cloned());
-                names.retain(|name| !disallows_tool(&def.disallowed_tools, name));
+                names.retain(|name| {
+                    !crate::tools::rules::glob_list_matches(&def.disallowed_tools, name)
+                });
                 dedupe_preserving_order(&mut names);
                 // Deliberately *not* collapsed to `Wildcard` when empty: an
                 // agent configured with no tools, or one whose whole scope was
@@ -365,7 +371,9 @@ impl OpenHumanDefinitionRegistry {
                 Some(registered) => {
                     let mut names: Vec<String> = registered
                         .iter()
-                        .filter(|name| !disallows_tool(&def.disallowed_tools, name))
+                        .filter(|name| {
+                            !crate::tools::rules::glob_list_matches(&def.disallowed_tools, name)
+                        })
                         .cloned()
                         .collect();
                     dedupe_preserving_order(&mut names);
@@ -476,26 +484,6 @@ fn model_for(spec: &ModelSpec) -> Option<String> {
         ModelSpec::Exact(name) => Some(name.clone()),
         ModelSpec::Hint(_) => Some(spec.resolve("")),
     }
-}
-
-/// Whether `name` is blocked by a definition's `disallowed_tools`.
-///
-/// Mirrors the private `definition_disallows_tool` in
-/// `agent/session_host/builder/factory.rs`, including its trailing-`*`
-/// prefix-match form. Duplicated rather than imported because that helper is
-/// module-private and Phase 4 must not edit existing files.
-///
-/// TODO(phase4): make `definition_disallows_tool` `pub(crate)` in
-/// `agent/session_host/builder/factory.rs` and delete this copy, so the
-/// denylist grammar has one implementation.
-fn disallows_tool(disallowed: &[String], name: &str) -> bool {
-    disallowed.iter().any(|entry| {
-        if let Some(prefix) = entry.strip_suffix('*') {
-            name.starts_with(prefix)
-        } else {
-            entry == name
-        }
-    })
 }
 
 /// Drops repeated names while keeping first-occurrence order.

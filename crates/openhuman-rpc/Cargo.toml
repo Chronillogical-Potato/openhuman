@@ -52,6 +52,11 @@ hosting = ["openhuman-tinyhumans/hosting"]
 modules = ["openhuman-tinyhumans/modules"]
 voice = ["openhuman-tinyhumans/voice"]
 web3 = ["openhuman-tinyhumans/web3"]
+# Storage drivers for `[storage] url` (see the core `storage` domain and
+# `session_store::install_for_host`).
+storage-sqlite = ["openhuman-tinyhumans/storage-sqlite"]
+storage-mongodb = ["openhuman-tinyhumans/storage-mongodb"]
+storage-file = ["openhuman-tinyhumans/storage-file"]
 runtime-node = ["openhuman-tinyhumans/runtime-node"]
 media = ["openhuman-tinyhumans/media"]
 flows = ["openhuman-tinyhumans/flows"]
@@ -64,6 +69,9 @@ channels = ["openhuman-tinyhumans/channels"]
 whatsapp-web = ["openhuman-tinyhumans/whatsapp-web"]
 file-logging = ["openhuman-tinyhumans/file-logging"]
 scheduler-gate = ["openhuman-tinyhumans/scheduler-gate"]
+# E2E builds only (`openhuman.test_reset`); default-OFF. The desktop app
+# and the CLI forward it from their own `e2e-test-support` gate.
+e2e-test-support = ["openhuman-tinyhumans/e2e-test-support"]
 
 [dependencies]
 # The only openhuman crate this layer depends on. Core internals the server

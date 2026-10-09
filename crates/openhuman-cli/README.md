@@ -1,8 +1,8 @@
 # openhuman-cli
 
-This crate builds the `openhuman-core` binary, a handful of developer and
-benchmark binaries, and every root `tests/*.rs` and `examples/*.rs` target in
-the repository. The core ([`crates/openhuman-core`](../openhuman-core/), package `openhuman`) is a
+This crate builds the `openhuman-core` binary, two ops binaries
+(`openhuman-fleet`, `test-mcp-stub`), and every root `tests/*.rs` and
+`examples/*.rs` target in the repository. The core ([`crates/openhuman-core`](../openhuman-core/), package `openhuman`) is a
 library with no backend client and no JSON-RPC server, and it declares no
 bin, test or example targets of its own. Anything that must run as a process
 against the hosted backend, or test the core the way a host boots it, lives
@@ -13,27 +13,27 @@ here.
 ### Where it sits
 
 ```text
-                         openhuman-cli
-                     (bins, tests, examples)
-                      |        |         |
-                      v        v         v
-        openhuman-tinyhumans  openhuman-rpc   openhuman-core
-          (SDK transport,     (JSON-RPC       (domains, CLI
-           hosted proxies,     server,         dispatcher,
-           session owner)      run_server*)    controller registry)
-                |                  |
-                v                  |
-         openhuman-embed           |
-                |                  |
-                +--------+---------+
-                         v
-                  openhuman-core
+   openhuman-cli  (openhuman-core binary, ops bins)
+        |
+        v   the only normal OpenHuman dependency
+   openhuman-rpc  (host::cli, JSON-RPC server, session store)
+        |
+        v
+   openhuman-tinyhumans  (SDK transport, hosted proxies, session owner)
+        |
+        v
+   openhuman-embed  (Runtime/RuntimeBuilder, process helpers, facades)
+        |
+        v
+   openhuman-core  (domains, CLI dispatcher, controller registry)
 ```
 
-The crate depends on the core directly (every bin and test names
-`openhuman_core::` paths), on `openhuman-tinyhumans` for the backend
-transport, and on `openhuman-rpc` (with its `server` feature) for the
-JSON-RPC server that `run` and `serve` start.
+The binary depends on `openhuman-rpc` alone
+(`scripts/ci/check-crate-chain.mjs` enforces it), and every feature gate
+forwards to `openhuman-rpc/<gate>`. The root tests and examples still reach
+into the core: `openhuman-core`, `openhuman-embed` and `openhuman-tinyhumans`
+are **dev-dependencies**, so they are compiled into test and example targets
+and never into the shipped binary.
 
 ### Startup of `openhuman-core`
 
@@ -42,27 +42,21 @@ JSON-RPC server that `run` and `serve` start.
 1. `restore_default_sigpipe()` resets `SIGPIPE` to the default on unix, so
    piping output into `head` ends the process quietly instead of panicking
    on `EPIPE`.
-2. `dotenvy::dotenv()` loads a repo-local `.env` before Sentry starts, so a
-   DSN defined only there is visible. The CLI dispatcher later runs
-   `load_dotenv_for_cli`, which honors `OPENHUMAN_DOTENV_PATH`.
-3. With the `crash-reporting` feature, `sentry::init` resolves the DSN from
+2. `embed::process::load_dotenv_for_cli()` loads `.env` (or
+   `OPENHUMAN_DOTENV_PATH`) before Sentry starts, so a DSN defined only there
+   is visible. Variables already in the environment win.
+3. With the `crash-reporting` feature, Sentry starts with
+   `embed::process::sentry::client_options`: the DSN from
    `OPENHUMAN_CORE_SENTRY_DSN`, then `OPENHUMAN_SENTRY_DSN`, at runtime and
-   then at compile time. Its `before_send` drops known-noise event classes
-   through the `openhuman_core::core::observability::is_*_event` predicates
-   (transient provider failures, budget and credit exhaustion, session
-   expiry, connectivity blips, stale releases, and others), strips
-   `server_name`, attaches only the account id as the Sentry user, and
-   scrubs secrets from messages and exception values with
-   `openhuman_core::core::log_redaction::scrub_secrets`. The release tag is
-   `openhuman@<version>[+<sha>]`, matching the frontend.
-4. `openhuman_tinyhumans::install(InstallOptions::default())` installs the
-   SDK-backed backend transport, registers the hosted RPC proxies and the
-   Jev ranker. A failure here exits with status 1.
-5. `openhuman_rpc::server::install_cli_server()` hands the core the JSON-RPC
-   server launcher, which the core cannot depend on.
-6. `openhuman_core::run_core_from_args(&args)` loads `.env` again with the
-   CLI rules, applies any startup restart delay, initializes the keyring
-   master key and dispatches the subcommand.
+   then at compile time; the release tag `openhuman@<version>[+<sha>]`; and
+   embed's shared `before_send` chain (the same one the desktop shell and the
+   TUI install), which drops known-noise classes, strips `server_name`, falls
+   back to the credential identity for the user id, and scrubs secrets.
+4. `openhuman_rpc::host::cli(&args)` does the rest: it connects the
+   TinyHumans backend (SDK transport, hosted RPC proxies, Jev ranker), puts
+   the JSON-RPC server behind `run` / `serve`, registers the `http_host`
+   controllers, and runs the core's dispatcher. A failure exits with
+   status 1.
 
 ### Subcommands
 
@@ -129,7 +123,7 @@ targets: `observability_smoke` (`crash-reporting`), `computer_bali_live_e2e`
 
 In-process suites that reach the (mock) backend call
 `tinyhumans_boot::boot()` from [`tests/support/tinyhumans_boot.rs`](../../tests/support/tinyhumans_boot.rs) first, which
-runs `openhuman_tinyhumans::install`. Without it every backend call answers
+runs `openhuman_tinyhumans::install` (a dev-dependency here). Without it every backend call answers
 `BACKEND_UNAVAILABLE:`. Suites that spawn the `openhuman-core` binary get the
 transport from `main.rs`.
 
@@ -139,9 +133,9 @@ transport from `main.rs`.
 | --- | --- |
 | [`Cargo.toml`](Cargo.toml) | All `[[bin]]`, `[[test]]` and `[[example]]` targets, feature forwarding. |
 | [`src/main.rs`](src/main.rs) | The `openhuman-core` binary entry point described above. |
-| [`src/bin/`](src/bin/README.md) | Developer binaries: `test-mcp-stub`, `openhuman-fleet`. The benchmark binaries live in [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks) (`profile/`). |
+| [`src/bin/`](src/bin/README.md) | Ops binaries: `test-mcp-stub`, `openhuman-fleet`. The benchmark binaries live in [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks) (`profile/`, #6944). |
 | `../../tests/*.rs` | 27 `[[test]]` targets, including the two aggregators. See [`tests/README.md`](../../tests/README.md). |
-| `../../examples/*.rs` | 2 `[[example]]` targets: `embed_headless` and `embed_kernel`. |
+| `../../examples/*.rs` | 2 `[[example]]` targets on the `openhuman_embed::Runtime` API: `embed_headless` and `embed_kernel`. |
 | `../../build.rs` | Shared build script: generates the `raw_coverage_all` and `in_process_all` module lists and exports `OPENHUMAN_REPOSITORY_ROOT`. |
 
 ## Targets
@@ -154,19 +148,18 @@ transport from `main.rs`.
 
 ## Features
 
-The default set mirrors the core's contributor default plus
-`openhuman-tinyhumans/default` and `jev`. Every core gate (`http-server`,
-`inference`, `voice`, `web3`, `channels`, `media`, `modules`, and the rest) is
-forwarded to both `openhuman-core` and `openhuman-tinyhumans`, so the product
-lanes' feature list resolves here unchanged; [`scripts/ci/check-feature-forwarding.mjs`](../../scripts/ci/check-feature-forwarding.mjs)
-checks the chain. `e2e-test-support` forwards to the core only; `rss-bench` is
-not forwarded, since the benchmark crate that uses it enables it on the core directly.
-Gates local to this crate:
+The default set is the core's contributor default (listed by name, because
+`openhuman-rpc`'s own default carries only its server and client) plus
+`jev`. Every gate (`http-server`, `inference`, `voice`, `web3`, `storage-*`,
+`channels`, `media`, `modules`, `e2e-test-support`, and the rest) forwards to
+`openhuman-rpc/<gate>`, which forwards it down the chain, so the product
+lanes' feature list resolves here unchanged;
+[`scripts/ci/check-feature-forwarding.mjs`](../../scripts/ci/check-feature-forwarding.mjs) checks the link. `rss-bench` is
+not forwarded, since the benchmark crate that uses it enables it on the core
+directly. Gates local to this crate:
 
 | Feature | Purpose |
 | --- | --- |
-| `jev` | The Jev `tool_search` ranker (`openhuman-tinyhumans/jev`). |
-| `crash-reporting` | Sentry init in `main.rs` and the `observability_smoke` target. |
 | `bin-tools` | `clap` for `openhuman-fleet`. |
 
 ## Boundaries
@@ -179,8 +172,12 @@ Gates local to this crate:
   [`crates/openhuman-rpc`](../openhuman-rpc/). The backend transport and login belong to
   [`crates/openhuman-tinyhumans`](../openhuman-tinyhumans/).
 - The terminal UI is [`crates/openhuman-tui`](../openhuman-tui/); the desktop host is
-  [`crates/openhuman-app`](../openhuman-app/), which embeds the core directly and does not use
-  this binary.
+  [`crates/openhuman-app`](../openhuman-app/). Both are hosts on `openhuman-rpc` like this one and
+  do not use this binary (the app's `core` subcommand runs the same
+  `host::cli`).
+- The binary never names the core, embed or tinyhumans directly; reach new
+  core behavior through embed's facade (re-exported as
+  `openhuman_rpc::embed`).
 
 ## Gotchas
 
@@ -203,8 +200,8 @@ pnpm test:rust          # scripts/test-rust-with-mock.sh, the canonical runner
 pnpm debug rust <filter>
 ```
 
-`main_tests.rs` (built with `crash-reporting`) covers the secret scrubbing
-that `before_send` applies (bearer tokens and provider API keys).
+`main_tests.rs` (built with `crash-reporting`) covers the environment and
+release resolution, and pins that the shared chain still scrubs secrets.
 
 ## Further reading
 

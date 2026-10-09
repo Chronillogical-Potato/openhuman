@@ -1,5 +1,5 @@
 use super::*;
-use openhuman_core::agent::artifacts::FileRoots;
+use openhuman_rpc::embed::artifacts::FileRoots;
 
 #[test]
 fn sanitize_rejects_path_separators() {
@@ -22,7 +22,7 @@ fn sanitize_accepts_plain_names() {
 }
 
 async fn ready_artifact(workspace: &Path, files_dir: &Path) -> String {
-    use openhuman_core::agent::artifacts::{create_artifact, finalize_artifact, ArtifactKind};
+    use openhuman_rpc::embed::artifacts::{create_artifact, finalize_artifact, ArtifactKind};
     let (meta, path) = create_artifact(
         workspace,
         files_dir,
@@ -75,7 +75,7 @@ async fn resolve_source_rejects_unknown_ids_and_paths() {
 
 #[tokio::test]
 async fn resolve_source_refuses_a_file_the_store_does_not_vouch_for() {
-    use openhuman_core::agent::artifacts::{ArtifactKind, ArtifactMeta, ArtifactStatus};
+    use openhuman_rpc::embed::artifacts::{ArtifactKind, ArtifactMeta, ArtifactStatus};
     let temp = tempfile::tempdir().unwrap();
     let secret = temp.path().join("secret.txt");
     std::fs::write(&secret, b"private").unwrap();
@@ -110,7 +110,7 @@ async fn resolve_source_refuses_a_file_the_store_does_not_vouch_for() {
 /// refused because that root is not one of the vouched-for files folders.
 #[tokio::test]
 async fn resolve_source_refuses_a_record_that_claims_its_own_root() {
-    use openhuman_core::agent::artifacts::{ArtifactKind, ArtifactMeta, ArtifactStatus};
+    use openhuman_rpc::embed::artifacts::{ArtifactKind, ArtifactMeta, ArtifactStatus};
     let temp = tempfile::tempdir().unwrap();
     let home = temp.path().join("home");
     std::fs::create_dir_all(&home).unwrap();

@@ -39,9 +39,9 @@ run-ledger rows a dead process left running are settled. The `run_server*`
 shims in [`../server/`](../server/README.md) (and so `host::desktop`) call it
 for the life of the process. `provider()` returns the same provider for a
 runtime builder's `session_store` option, which installs it on build and
-restores the previous one on drop; `host::tui` uses that. The TUI itself
-still calls `install()` from [`crates/openhuman-tui/src/runner.rs`](../../../openhuman-tui/src/runner.rs) until it
-moves to `host::tui`.
+restores the previous one on drop; `host::tui` uses that (through
+`provider_for_host()`, below), and the TUI
+([`crates/openhuman-tui/src/runner.rs`](../../../openhuman-tui/src/runner.rs)) boots through `host::tui`.
 
 `install()` builds the provider with `resolving(context_workspace_dir)`,
 so the workspace is looked up on every `for_agent` call rather than fixed at
@@ -69,7 +69,9 @@ tinyagents_store/{kv,journal}/               run status, goals, todos,
 
 ## A storage-backed store instead
 
-`install_for_host()` is what the server shims and the TUI call. With no
+`install_for_host()` is what the server shims call; `host::tui` calls
+`provider_for_host()`, which resolves the same URL and returns the provider
+for its runtime builder instead of installing it process-wide. With no
 storage URL configured (`OPENHUMAN_STORAGE_URL`, else `[storage] url` in
 `config.toml`) it is `install()` above, unchanged. With one, it opens that
 backend (`openhuman_core::storage::open`), makes it the process's storage
@@ -90,14 +92,15 @@ each other's transcripts, turn states, records or journals. A single-process
 backend (SQLite, memory, files) interrupts an agent's in-flight turns the
 first time it is opened; MongoDB does not, because another process may own
 them. A URL that cannot be parsed or opened fails the boot rather than
-falling back to local files. `install_for_url` is the same with the URL
-already resolved, for tests and hosts that read it themselves.
+falling back to local files. `install_for_url` / `provider_for_url` are the
+same with the URL already resolved, for tests and hosts that read it
+themselves.
 
 ## Layout
 
 | File | What it does |
 | --- | --- |
-| [`mod.rs`](mod.rs) | `SqliteSessionStores` (`at`, `resolving`), its `SessionStoreProvider` impl (`for_agent`, `recover`, `destination_key`, `workspace_dir`), `install()`, and `install_for_host()` / `install_for_url()`, which install `DriverSessionStores` when a storage URL is configured. |
+| [`mod.rs`](mod.rs) | `SqliteSessionStores` (`at`, `resolving`), its `SessionStoreProvider` impl (`for_agent`, `recover`, `destination_key`, `workspace_dir`), `install()`, `install_for_host()` / `install_for_url()`, which install `DriverSessionStores` when a storage URL is configured, and `provider_for_host()` / `provider_for_url()`, which return that provider for a runtime builder. |
 
 ## Key types and entry points
 
