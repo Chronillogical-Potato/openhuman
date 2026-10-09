@@ -39,6 +39,7 @@ import { useCoreState } from '../providers/CoreStateProvider';
 import {
   type EngineDescriptor,
   type EngineState,
+  isMemoryDisabled,
   isMemoryOn,
   memoryEngineGet,
   memoryEnginesList,
@@ -141,8 +142,9 @@ export default function Memory() {
     },
   };
 
-  const activeLabel =
-    engines.find(e => e.id === engine?.engine)?.label ?? engine?.engine ?? t('nav.brain');
+  const activeLabel = isMemoryDisabled(engine)
+    ? t('memoryPage.engine.disabled.title')
+    : (engines.find(e => e.id === engine?.engine)?.label ?? engine?.engine ?? t('nav.brain'));
 
   const body = (() => {
     if (chip === null || engine === null) {
