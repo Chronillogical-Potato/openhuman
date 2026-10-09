@@ -11,7 +11,7 @@
 
 pub use openhuman_core::{
     agent, backend, channels, config, core, desktop, inference, integrations, mcp, platform,
-    security, tools, util, voice, web3, web_chat,
+    security, storage, tools, user_agents, util, voice, web3, web_chat,
 };
 
 pub use openhuman_core::run_core_from_args;
