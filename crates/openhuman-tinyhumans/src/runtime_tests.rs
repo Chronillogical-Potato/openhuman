@@ -4,7 +4,7 @@
 
 use super::*;
 use openhuman_embed::seams::DomainGroup;
-use openhuman_embed::BuilderSummary;
+use openhuman_embed::{BackendTransport, BuilderSummary};
 
 fn connected(builder: RuntimeBuilder) -> BuilderSummary {
     builder.connect().expect("connect").summary()
