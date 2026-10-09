@@ -39,3 +39,12 @@ fn a_syntax_error_reports_the_toml_location() {
 fn a_type_error_is_an_error() {
     assert!(config_from_toml_str("default_temperature = \"hot\"").is_err());
 }
+
+#[test]
+fn a_type_error_names_the_field_path() {
+    let err = config_from_toml_str("[agent]\nagent_timeout_secs = \"soon\"").unwrap_err();
+    assert!(
+        err.to_string().starts_with("agent.agent_timeout_secs: "),
+        "{err}"
+    );
+}
