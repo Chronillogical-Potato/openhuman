@@ -385,6 +385,26 @@ fn named_scope_drops_denied_tools_and_keeps_extras() {
     );
 }
 
+#[test]
+fn the_projection_carries_the_definition_rule_layer() {
+    let mut def = synthetic("worker", AgentTier::Worker, &[]);
+    def.disallowed_tools = vec!["web_*".into()];
+    let projected = registry_of(vec![def.clone()]).project(&def);
+    let layer = projected.tool_rules.expect("a rule layer");
+    assert_eq!(layer.name.as_deref(), Some("agent:worker"));
+    let set = tinytools::ToolRuleSet::single(layer);
+    let context = tinytools::RuleContext::new();
+    assert!(!set.visible(
+        &tinytools::ToolSubject::named("web_fetch"),
+        &context,
+        tinytools::Surface::Search
+    ));
+
+    let mut open = synthetic("open", AgentTier::Worker, &[]);
+    open.disallowed_tools.clear();
+    assert!(registry_of(vec![open.clone()]).project(&open).tool_rules.is_none());
+}
+
 // ── config-backed custom agents ───────────────────────────────────────
 
 fn config_with(entries: Vec<AgentRegistryEntry>) -> Arc<Config> {
