@@ -95,8 +95,8 @@ impl CoreProcessHandle {
     pub fn new(port: u16) -> Self {
         // CURRENT_RPC_TOKEN is intentionally NOT set here. It is published by
         // ensure_running() only after the embedded server has been spawned
-        // with this token handed over via the in-memory `rpc_token` arg of
-        // `run_server_embedded_with_ready`. Setting it here would advertise
+        // with this token handed over in memory (`DesktopOptions::rpc_token`
+        // of `openhuman_rpc::host::desktop`). Setting it here would advertise
         // a token that an existing process listening on the port (the
         // harness-attach fast-path) has never seen, causing 401s on every
         // authenticated call.
