@@ -55,7 +55,12 @@ fn chat_is_open_but_other_channel_methods_are_not() {
         "openhuman.threads_regenerate",
         false
     ));
-    assert!(visible_in(true, true, "openhuman.memory_recall", false));
+    assert!(visible_in(
+        true,
+        Scope::User,
+        "openhuman.memory_recall",
+        false
+    ));
     for method in [
         "openhuman.memory_engine_set",
         "openhuman.memory_policy_set",
