@@ -134,8 +134,8 @@ fn stores_at(workspace: &Path) -> AgentStores {
 /// sweep runs; the workspace is resolved per call because the desktop rebinds
 /// it when a different user signs in.
 pub fn install() {
-    openhuman_core::agent::session_store::install(Arc::new(SqliteSessionStores::resolving(
-        openhuman_core::agent::session_store::context_workspace_dir,
+    crate::core_host::agent::session_store::install(Arc::new(SqliteSessionStores::resolving(
+        crate::core_host::agent::session_store::context_workspace_dir,
     )));
 }
 

@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use tokio_util::sync::CancellationToken;
 
-use openhuman_core::core::runtime::CoreRuntime;
+use crate::core_host::core::runtime::CoreRuntime;
 
 /// Metadata sent back to the Tauri host once the embedded core has selected
 /// and bound its listen port.
@@ -73,27 +73,27 @@ pub async fn serve(
     // and reachable from the network. See issue #1919. The self-generated
     // {workspace}/core.token does NOT count — remote clients cannot read it,
     // so treating it as "explicit" would be fail-open.
-    if openhuman_core::security::pairing::is_public_bind(&resolved_host)
+    if crate::core_host::security::pairing::is_public_bind(&resolved_host)
         && !runtime.has_operator_token()
     {
         log::error!(
             "[core] SECURITY: refusing to bind on public address {resolved_host} without an \
                  explicit operator-supplied RPC token. Set {} in your environment (or hand the \
                  bearer in-memory via the embedded core handle) to secure the RPC endpoint.",
-            openhuman_core::core::auth::CORE_TOKEN_ENV_VAR
+            crate::core_host::core::auth::CORE_TOKEN_ENV_VAR
         );
         eprintln!(
             "\n\x1b[1;31m[SECURITY]\x1b[0m Refusing to bind on {resolved_host} without {}.\n\
                  The auto-generated {{workspace}}/core.token does NOT secure a public bind —\n\
                  remote clients cannot read it. Set {} in your environment to secure the\n\
                  RPC endpoint, or bind on a loopback address.\n",
-            openhuman_core::core::auth::CORE_TOKEN_ENV_VAR,
-            openhuman_core::core::auth::CORE_TOKEN_ENV_VAR
+            crate::core_host::core::auth::CORE_TOKEN_ENV_VAR,
+            crate::core_host::core::auth::CORE_TOKEN_ENV_VAR
         );
         anyhow::bail!(
             "refusing to bind on non-loopback address {resolved_host} without an explicit \
                  operator-supplied RPC token ({})",
-            openhuman_core::core::auth::CORE_TOKEN_ENV_VAR
+            crate::core_host::core::auth::CORE_TOKEN_ENV_VAR
         );
     }
 
@@ -104,11 +104,11 @@ pub async fn serve(
     // nothing to take over: another live core on the port (the desktop
     // app's, another checkout's) is a neighbour, so move to a free port.
     let occupied_by_core = if ready_tx.is_some() {
-        openhuman_core::platform::connectivity::rpc::OccupiedByCore::Takeover
+        crate::core_host::platform::connectivity::rpc::OccupiedByCore::Takeover
     } else {
-        openhuman_core::platform::connectivity::rpc::OccupiedByCore::Fallback
+        crate::core_host::platform::connectivity::rpc::OccupiedByCore::Fallback
     };
-    let pick = openhuman_core::platform::connectivity::rpc::pick_listen_port_for_host_with(
+    let pick = crate::core_host::platform::connectivity::rpc::pick_listen_port_for_host_with(
         host.as_str(),
         preferred_port,
         occupied_by_core,
@@ -141,7 +141,7 @@ pub async fn serve(
             move |req: axum::extract::Request, next: axum::middleware::Next| {
                 let ctx = Arc::clone(&ctx);
                 async move {
-                    openhuman_core::core::runtime::CoreContext::scope(ctx, next.run(req)).await
+                    crate::core_host::core::runtime::CoreContext::scope(ctx, next.run(req)).await
                 }
             },
         ),
@@ -153,7 +153,7 @@ pub async fn serve(
 
     log::info!(
         "[core] OpenHuman core is ready — listening on http://{bind_addr} (version {})",
-        openhuman_core::core::invoke::default_state().core_version
+        crate::core_host::core::invoke::default_state().core_version
     );
     log::info!("[rpc:http] JSON-RPC — POST http://{bind_addr}/rpc (JSON-RPC 2.0)");
     if runtime.services().socketio {
@@ -182,7 +182,7 @@ pub async fn serve(
             .await
     } else {
         axum::serve(listener, app)
-            .with_graceful_shutdown(openhuman_core::core::shutdown::signal())
+            .with_graceful_shutdown(crate::core_host::core::shutdown::signal())
             .await
     };
     if let Err(error) = &served {

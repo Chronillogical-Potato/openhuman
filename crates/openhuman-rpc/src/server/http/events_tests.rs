@@ -32,7 +32,7 @@ fn active_workspace_resolution_failure_is_nonfatal() {
 
 #[test]
 fn domain_event_payload_includes_redacted_detail_and_workspace_handle() {
-    let event = openhuman_core::core::events::DomainEvent::McpServerProbeTimedOut {
+    let event = crate::core_host::core::events::DomainEvent::McpServerProbeTimedOut {
         server_id: "server-1".into(),
         qualified_name: "example.test/mcp".into(),
         probe_timeout_secs: 10,
@@ -77,7 +77,7 @@ async fn events_require_a_credential_and_reject_unknown_bind_tokens() {
 
 #[tokio::test]
 async fn events_bind_token_is_client_bound_and_single_use() {
-    let token = openhuman_core::core::event_bind_tokens::issue("right", None)
+    let token = crate::core_host::core::event_bind_tokens::issue("right", None)
         .expect("bind token")
         .token;
 
@@ -98,10 +98,10 @@ async fn events_bind_token_is_client_bound_and_single_use() {
 
 #[tokio::test]
 async fn events_stream_forwards_only_the_bound_client() {
-    use openhuman_core::web_chat::{publish_web_channel_event, WebChannelEvent};
+    use crate::core_host::web_chat::{publish_web_channel_event, WebChannelEvent};
     use tokio_stream::StreamExt;
 
-    let token = openhuman_core::core::event_bind_tokens::issue("stream-client", None)
+    let token = crate::core_host::core::event_bind_tokens::issue("stream-client", None)
         .expect("bind token")
         .token;
     let response = events_handler(HeaderMap::new(), query("stream-client", Some(&token))).await;
@@ -140,7 +140,7 @@ async fn domain_events_require_a_bearer() {
 #[tokio::test(flavor = "current_thread")]
 async fn domain_events_stream_config_then_published_events() {
     use futures::StreamExt;
-    use openhuman_core::core::events::DomainEvent;
+    use crate::core_host::core::events::DomainEvent;
     use std::ffi::OsString;
 
     let workspace = tempfile::tempdir().expect("workspace tempdir");
@@ -148,13 +148,13 @@ async fn domain_events_stream_config_then_published_events() {
         "OPENHUMAN_WORKSPACE",
         OsString::from(workspace.path()),
     )]);
-    openhuman_core::core::auth::init_rpc_token_with_value("events-http-tests-token")
+    crate::core_host::core::auth::init_rpc_token_with_value("events-http-tests-token")
         .expect("initialize test bearer");
-    let token = openhuman_core::core::auth::get_rpc_token()
+    let token = crate::core_host::core::auth::get_rpc_token()
         .expect("test bearer initialized")
         .to_string();
-    if openhuman_core::core::bus::BUS.get().is_none() {
-        openhuman_core::core::bus::init()
+    if crate::core_host::core::bus::BUS.get().is_none() {
+        crate::core_host::core::bus::init()
             .await
             .expect("initialize in-process event bus");
     }
@@ -175,7 +175,7 @@ async fn domain_events_stream_config_then_published_events() {
         .expect("SSE bytes");
     assert!(String::from_utf8_lossy(&config).contains("event: config"));
 
-    openhuman_core::core::bus::BUS.publish(DomainEvent::SystemStartup {
+    crate::core_host::core::bus::BUS.publish(DomainEvent::SystemStartup {
         component: "events-test".into(),
     });
     let event = tokio::time::timeout(std::time::Duration::from_secs(1), chunks.next())

@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use super::rpc_handler;
 use crate::server::testing::EnvVarGuard;
-use openhuman_core::core::invoke::default_state;
+use crate::core_host::core::invoke::default_state;
 
 #[tokio::test(flavor = "current_thread")]
 async fn structured_rpc_error_envelope_passes_through_generic_dispatch() {
@@ -80,7 +80,7 @@ async fn thread_not_found_rpc_error_does_not_report_to_sentry() {
             // `report_error_message` are captured directly via
             // `sentry::capture_message` and must not be picked up here too
             // (otherwise this test sees double events).
-            if metadata.target() == openhuman_core::core::observability::REPORT_ERROR_TRACING_TARGET
+            if metadata.target() == crate::core_host::core::observability::REPORT_ERROR_TRACING_TARGET
             {
                 return sentry::integrations::tracing::EventFilter::Ignore;
             }
@@ -198,7 +198,7 @@ async fn unknown_method_severity_split_by_probe_allow_list() {
             // Mirror production: diagnostics from the report_* helpers are
             // captured directly via `sentry::capture_message`, so the bridge
             // must ignore their marker target to avoid double events.
-            if metadata.target() == openhuman_core::core::observability::REPORT_ERROR_TRACING_TARGET
+            if metadata.target() == crate::core_host::core::observability::REPORT_ERROR_TRACING_TARGET
             {
                 return sentry::integrations::tracing::EventFilter::Ignore;
             }
@@ -308,7 +308,7 @@ async fn invalid_memory_ingest_is_not_reported_to_sentry() {
 
     let subscriber = tracing_subscriber::registry().with(
         sentry::integrations::tracing::layer().event_filter(|metadata| {
-            if metadata.target() == openhuman_core::core::observability::REPORT_ERROR_TRACING_TARGET
+            if metadata.target() == crate::core_host::core::observability::REPORT_ERROR_TRACING_TARGET
             {
                 return sentry::integrations::tracing::EventFilter::Ignore;
             }

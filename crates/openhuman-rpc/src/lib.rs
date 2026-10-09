@@ -1,8 +1,8 @@
 //! OpenHuman's JSON-RPC protocol, on both sides of the wire.
 //!
 //! The core owns what a controller *is*: its schema, the
-//! [`Outcome`](openhuman_core::core::Outcome) it returns, and in-process
-//! dispatch ([`openhuman_core::core::invoke::invoke_method`]). This crate owns
+//! [`Outcome`](crate::core_host::core::Outcome) it returns, and in-process
+//! dispatch ([`crate::core_host::core::invoke::invoke_method`]). This crate owns
 //! how that is exposed over JSON-RPC 2.0, and sits above the core:
 //!
 //! - [`RpcRequest`], [`RpcSuccess`], [`RpcFailure`] and [`RpcError`] are the
@@ -40,5 +40,5 @@ pub use envelope::{
     decode_response, request_body, RpcError, RpcFailure, RpcRequest, RpcSuccess, JSONRPC_VERSION,
     SERVER_ERROR_CODE,
 };
-pub use openhuman_core::core::unwrap_rpc;
+pub use crate::core_host::core::unwrap_rpc;
 pub use origin::{is_origin_allowed_with_extra, ALLOWED_ORIGINS_ENV};

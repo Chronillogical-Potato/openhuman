@@ -6,7 +6,7 @@ use crate::server::testing::EnvVarGuard;
 fn e2e_environment_enables_advertised_tool_groups() {
     let _guard = EnvVarGuard::set_many(vec![("OPENHUMAN_E2E", "1".into())]);
     let builder =
-        openhuman_core::core::runtime::CoreBuilder::new(openhuman_core::core::types::HostKind::Cli);
+        crate::core_host::core::runtime::CoreBuilder::new(crate::core_host::core::types::HostKind::Cli);
     let _ = super::apply_e2e_tool_groups(builder);
 }
 
@@ -47,7 +47,7 @@ fn server_shim_refuses_public_bind_without_operator_token() {
                         ),
                         ("OPENHUMAN_CORE_TOKEN", OsString::from("")),
                     ]);
-                    let services = openhuman_core::core::runtime::ServiceSet::headless_api();
+                    let services = crate::core_host::core::runtime::ServiceSet::headless_api();
 
                     let error = super::run_server_with_services(
                         Some("0.0.0.0"),

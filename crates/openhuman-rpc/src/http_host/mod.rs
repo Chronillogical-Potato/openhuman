@@ -28,7 +28,7 @@ pub use schemas::{
 
 pub(crate) const LOG_PREFIX: &str = "[http_host]";
 
-use openhuman_core::core::all::{register_controller_extension, ControllerExtension, DomainGroup};
+use crate::core_host::core::all::{register_controller_extension, ControllerExtension, DomainGroup};
 
 const NAMESPACES: &[(&str, &str)] = &[(
     "http_host",

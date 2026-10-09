@@ -1,5 +1,5 @@
 //! Server entry points kept for the hosts that predate
-//! [`CoreBuilder`](openhuman_core::core::runtime::CoreBuilder).
+//! [`CoreBuilder`](crate::core_host::core::runtime::CoreBuilder).
 //!
 //! Each `run_server*` function is a thin shim that composes a `CoreBuilder`
 //! and calls [`serve`](super::serve::serve).
@@ -38,7 +38,7 @@ pub async fn run_server(
 
 /// Runs the request/response-only HTTP API without detached background jobs.
 pub async fn run_server_headless(host: Option<&str>, port: Option<u16>) -> anyhow::Result<()> {
-    let services = openhuman_core::core::runtime::ServiceSet::headless_api();
+    let services = crate::core_host::core::runtime::ServiceSet::headless_api();
     run_server_with_services(host, port, services, false, None, None, None).await
 }
 
@@ -66,7 +66,7 @@ pub async fn run_server_embedded(
 /// When the caller already holds the per-launch RPC bearer in memory (the
 /// Tauri shell now that the core runs in-process — PR #1061), it should
 /// pass `Some(token)` so the embedded server can seed its auth subsystem
-/// via `openhuman_core::core::auth::init_rpc_token_with_value` without ever
+/// via `crate::core_host::core::auth::init_rpc_token_with_value` without ever
 /// reading `OPENHUMAN_CORE_TOKEN` from the process environment.  Passing
 /// `None` preserves the env-as-config fallback (CLI / docker / cloud).
 pub async fn run_server_embedded_with_ready(
@@ -99,7 +99,7 @@ async fn run_server_inner(
     ready_tx: Option<tokio::sync::oneshot::Sender<EmbeddedReadySignal>>,
     rpc_token: Option<std::sync::Arc<String>>,
 ) -> anyhow::Result<()> {
-    let mut services = openhuman_core::core::runtime::ServiceSet::desktop();
+    let mut services = crate::core_host::core::runtime::ServiceSet::desktop();
     services.socketio = socketio_enabled;
     run_server_with_services(
         host,
@@ -116,7 +116,7 @@ async fn run_server_inner(
 async fn run_server_with_services(
     host: Option<&str>,
     port: Option<u16>,
-    services: openhuman_core::core::runtime::ServiceSet,
+    services: crate::core_host::core::runtime::ServiceSet,
     embedded_core: bool,
     shutdown_token: Option<CancellationToken>,
     ready_tx: Option<tokio::sync::oneshot::Sender<EmbeddedReadySignal>>,
@@ -129,15 +129,15 @@ async fn run_server_with_services(
     // Tauri shell; standalone splits CLI / Docker via `detect_standalone`).
     // See the pluggable-core work (`core::runtime`).
     let host_kind = if embedded_core {
-        openhuman_core::core::types::HostKind::TauriShell
+        crate::core_host::core::types::HostKind::TauriShell
     } else {
-        openhuman_core::core::types::HostKind::detect_standalone()
+        crate::core_host::core::types::HostKind::detect_standalone()
     };
     let token = match rpc_token {
-        Some(token) => openhuman_core::core::runtime::TokenSource::Fixed(token),
-        None => openhuman_core::core::runtime::TokenSource::EnvOrFile,
+        Some(token) => crate::core_host::core::runtime::TokenSource::Fixed(token),
+        None => crate::core_host::core::runtime::TokenSource::EnvOrFile,
     };
-    let mut builder = openhuman_core::core::runtime::CoreBuilder::new(host_kind)
+    let mut builder = crate::core_host::core::runtime::CoreBuilder::new(host_kind)
         .token(token)
         .services(services);
     // The browser E2E harness scripts direct tool calls through its mock model.
@@ -160,10 +160,10 @@ async fn run_server_with_services(
 }
 
 fn apply_e2e_tool_groups(
-    builder: openhuman_core::core::runtime::CoreBuilder,
-) -> openhuman_core::core::runtime::CoreBuilder {
+    builder: crate::core_host::core::runtime::CoreBuilder,
+) -> crate::core_host::core::runtime::CoreBuilder {
     if std::env::var_os("OPENHUMAN_E2E").is_some() {
-        builder.tool_groups(openhuman_core::tools::toolpacks::ToolGroups::advertised())
+        builder.tool_groups(crate::core_host::tools::toolpacks::ToolGroups::advertised())
     } else {
         builder
     }
