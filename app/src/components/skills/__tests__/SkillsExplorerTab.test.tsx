@@ -235,6 +235,45 @@ describe('SkillsExplorerTab', () => {
     expect(tileCount()).toBe(5);
   });
 
+  it('advances the pager from the requested page while a page is still loading', async () => {
+    const { skillsApi } = await import('../../../services/api/skillsApi');
+    const { skillRegistryApi } = await import('../../../services/api/skillRegistryApi');
+    vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
+    const entries: CatalogEntry[] = Array.from({ length: 130 }, (_, i) => ({
+      ...MOCK_CATALOG_ENTRY,
+      id: `slow-skill-${i}`,
+      name: `Slow Skill ${i}`,
+    }));
+    await serveCatalog(entries);
+
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Slow Skill 0')).toBeInTheDocument();
+    });
+
+    vi.mocked(skillRegistryApi.browsePage).mockImplementation(() => new Promise(() => {}));
+    const pager = screen.getByTestId('registry-pagination');
+
+    await act(async () => {
+      fireEvent.click(within(pager).getByRole('button', { name: 'Next page' }));
+    });
+    await act(async () => {
+      fireEvent.click(within(pager).getByRole('button', { name: 'Next page' }));
+    });
+
+    expect(skillRegistryApi.browsePage).toHaveBeenCalledWith(
+      expect.objectContaining({ page: 2, pageSize: 25 })
+    );
+    expect(skillRegistryApi.browsePage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 3, pageSize: 25 })
+    );
+  });
+
   it('searches catalog via RPC when typing in search box', async () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     const { skillRegistryApi } = await import('../../../services/api/skillRegistryApi');

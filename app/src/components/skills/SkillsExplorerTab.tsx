@@ -1138,7 +1138,7 @@ export default function SkillsExplorerTab({ onToast, view }: SkillsExplorerTabPr
             : undefined
         }
         pagination={{
-          page: catalogPage?.page ?? catalogPageNum,
+          page: catalogPageNum,
           pageSize: catalogPageSize,
           total: catalogPage?.total,
           onPageChange: setCatalogPageNum,
