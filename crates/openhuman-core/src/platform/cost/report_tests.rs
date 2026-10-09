@@ -363,3 +363,15 @@ fn a_misspelt_filter_key_does_not_deserialize() {
     }));
     assert!(parsed.is_err());
 }
+
+#[test]
+fn a_thread_begun_before_the_window_is_already_seen() {
+    let (from, to) = window();
+    // September 30th: before the window, only seeds the thread's cache.
+    let mut before = record((1, 9), "model/a", Some("t9"), Some("x"), 1000, 0, 0.1, true);
+    before.usage.timestamp = from - chrono::Duration::hours(2);
+    let inside = record((1, 9), "model/a", Some("t9"), Some("x"), 1000, 0, 0.1, true);
+    let report = build_cache_report(&[before, inside], from, to, &ReportFilter::default());
+    assert_eq!(report.calls.len(), 1, "the earlier call is not reported");
+    assert_eq!(report.cold_calls, 1, "its first call in range is a repeat");
+}

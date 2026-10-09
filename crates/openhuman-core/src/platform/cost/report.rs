@@ -86,6 +86,10 @@ impl GroupKey {
     }
 }
 
+/// How far before a cache report's window its records are read, to know
+/// which threads were already under way when the window opened.
+pub const CACHE_LOOKBACK: chrono::Duration = chrono::Duration::hours(24);
+
 /// The `origin` of an embedding batch's record.
 pub const EMBEDDING_ORIGIN: &str = "embedding";
 
@@ -283,7 +287,10 @@ pub struct CacheReport {
     pub uncached_premium_usd: f64,
 }
 
-/// The cache behaviour of `records` that pass `filter`, oldest call first.
+/// The cache behaviour of the `records` in `[from, to]` that pass `filter`,
+/// oldest call first. Records from before `from` are not reported; they only
+/// tell which caches a call in range could already have found warm (see
+/// [`CACHE_LOOKBACK`]).
 pub fn build_cache_report(
     records: &[CostRecord],
     from: DateTime<Utc>,
@@ -321,8 +328,24 @@ pub fn build_cache_report(
     };
     for record in ordered {
         let usage = &record.usage;
+        if usage.timestamp > to {
+            continue;
+        }
         let cached = usage.cached_input_tokens.min(usage.input_tokens);
         let thread = usage.scope.thread_id.clone();
+        // A call from before the window only marks its cache as seen, so a
+        // thread that began earlier is a repeat from its first call in range.
+        if usage.timestamp < from {
+            if let Some(t) = thread {
+                caches_seen.insert((
+                    t,
+                    usage.model.clone(),
+                    usage.scope.agent_id.clone(),
+                    usage.scope.provider.clone(),
+                ));
+            }
+            continue;
+        }
         let repeat = thread.as_ref().is_some_and(|t| {
             !caches_seen.insert((
                 t.clone(),
