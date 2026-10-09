@@ -428,7 +428,7 @@ impl CoreContext {
                 })),
             }
         };
-        Arc::new(CoreContext {
+        crate::storage::agents::registered(Arc::new(CoreContext {
             host_kind: self.host_kind,
             workspace_binding: RwLock::new(shared_binding),
             domains,
@@ -438,7 +438,7 @@ impl CoreContext {
             backend_transport: self.backend_transport.clone(),
             turn_origin: self.turn_origin.clone(),
             session_agent: overlay.session_agent.or_else(|| self.session_agent.clone()),
-        })
+        }))
     }
 
     /// The agent a host session store scopes work under this context to, if
@@ -740,6 +740,8 @@ pub async fn init_stores(cfg: &crate::config::Config, domains: crate::core::runt
 
 #[path = "context_turn_origin.rs"]
 mod turn_origin_scope;
+#[path = "context_agent.rs"]
+mod agent_scope;
 
 #[cfg(test)]
 #[path = "context_tests.rs"]
