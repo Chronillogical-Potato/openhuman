@@ -7543,6 +7543,7 @@ dependencies = [
 name = "tinyflows-catalog"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "hex",
  "serde",
  "serde_json",
@@ -7564,14 +7565,19 @@ dependencies = [
 name = "tinyflows-drivers"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-trait",
+ "chrono",
  "serde",
  "serde_json",
  "sha2 0.11.0",
  "tinyflows",
+ "tinyflows-catalog",
+ "tinyflows-schedule",
  "tinystoragedrivers-core",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
