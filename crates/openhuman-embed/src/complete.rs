@@ -373,7 +373,7 @@ fn parse_json_reply(text: &str) -> Option<Value> {
 #[derive(Debug)]
 pub struct CompletionTrace<'a> {
     /// The request as the host built it. The route's bearer is never part of
-    /// a request, so this is safe to export.
+    /// a request; the message content is.
     pub request: &'a CompletionRequest,
     /// The response, or the error the call ended with.
     pub outcome: Result<&'a CompletionResponse, &'a CoreError>,

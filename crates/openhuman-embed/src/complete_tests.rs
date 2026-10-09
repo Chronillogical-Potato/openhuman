@@ -227,3 +227,49 @@ async fn raw_cost_survives_a_usage_block_without_tokens() {
     let usage = response.usage.expect("the provider reported a cost");
     assert_eq!(usage.cost_usd, Some(0.5));
 }
+
+#[tokio::test]
+async fn provider_failure_maps_to_an_rpc_error() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/chat/completions"))
+        .respond_with(ResponseTemplate::new(400).set_body_string("bad request"))
+        .mount(&server)
+        .await;
+    let request = CompletionRequest::new("m", vec![ChatMessage::user("x")]);
+    let err = completer(&server)
+        .complete(request)
+        .await
+        .expect_err("a 400 must surface as an error");
+    assert!(
+        matches!(err, CoreError::Rpc { method, .. } if method == COMPLETE),
+        "{err:?}"
+    );
+}
+
+#[tokio::test]
+async fn slow_provider_hits_the_timeout_branch() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/chat/completions"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(body("late", "stop"))
+                .set_delay(Duration::from_millis(2_000)),
+        )
+        .mount(&server)
+        .await;
+    let request = CompletionRequest::new("m", vec![ChatMessage::user("x")]);
+    let err = completer(&server)
+        .timeout(Duration::from_millis(50))
+        .complete(request)
+        .await
+        .expect_err("the call must time out before the delayed reply");
+    match err {
+        CoreError::Rpc { method, message } => {
+            assert_eq!(method, COMPLETE);
+            assert_eq!(message, "timed out after 50ms");
+        }
+        other => panic!("expected a timeout Rpc error, got {other:?}"),
+    }
+}
