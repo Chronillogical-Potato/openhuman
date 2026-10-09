@@ -16,7 +16,7 @@ pub(super) fn saas_scoped_config() -> Option<anyhow::Result<Config>> {
         crate::core::runtime::is_saas(),
         // The task's own scope only: falling back to the process default
         // would hand a task that lost its user scope the operator's config.
-        crate::core::runtime::CoreContext::scoped().and_then(|ctx| ctx.embedder_config.clone()),
+        crate::core::runtime::CoreContext::scoped().and_then(|ctx| ctx.embedder_config().cloned()),
     )
 }
 
