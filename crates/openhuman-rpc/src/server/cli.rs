@@ -17,13 +17,20 @@ pub fn install_cli_server() {
 fn launch(request: ServeRequest) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send>> {
     Box::pin(async move {
         log::debug!(
-            "[rpc:cli] starting server host={:?} port={:?} socketio={} headless_api={}",
+            "[rpc:cli] starting server host={:?} port={:?} socketio={} headless_api={} mode={}",
             request.host,
             request.port,
             request.socketio_enabled,
-            request.headless_api
+            request.headless_api,
+            request.mode
         );
-        if request.headless_api {
+        if request.mode == openhuman_core::core::runtime::Mode::Saas {
+            let config = request
+                .saas_config
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("--mode saas needs --saas-config <file>"))?;
+            super::run_server_saas(request.host.as_deref(), request.port, config).await
+        } else if request.headless_api {
             super::run_server_headless(request.host.as_deref(), request.port).await
         } else {
             super::run_server(

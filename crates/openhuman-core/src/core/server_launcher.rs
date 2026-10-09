@@ -22,6 +22,61 @@ pub struct ServeRequest {
     pub socketio_enabled: bool,
     /// Request/response API only, with no background services.
     pub headless_api: bool,
+    /// The operating mode (`--mode`).
+    pub mode: crate::core::runtime::Mode,
+    /// The operator's SaaS config file (`--saas-config`); required in SaaS mode.
+    pub saas_config: Option<std::path::PathBuf>,
+}
+
+/// `openhuman-core run --help`.
+pub const RUN_HELP: &str = "\
+Usage: openhuman run [--host <addr>] [--port <u16>] [--jsonrpc-only|--headless-api]
+                     [--mode single-user|saas] [--saas-config <file>] [-v|--verbose]
+
+  --host <addr>          Bind address (default: 127.0.0.1 or OPENHUMAN_CORE_HOST)
+  --port <u16>           Listen address port (default: 7788 or OPENHUMAN_CORE_PORT)
+  --jsonrpc-only         HTTP JSON-RPC only; disable Socket.IO
+  --headless-api         HTTP JSON-RPC only; disable all background services
+  --mode <mode>          single-user (default) or saas (or OPENHUMAN_MODE=saas)
+  --saas-config <file>   The operator's SaaS config; required with --mode saas
+  -v, --verbose          Shorthand for RUST_LOG=debug when RUST_LOG is unset
+
+Logging: set RUST_LOG (e.g. RUST_LOG=debug openhuman run). Default level is info.";
+
+/// Resolve the operating mode from `--mode`, `OPENHUMAN_MODE` and
+/// `--saas-config`.
+///
+/// The environment can only raise the mode to SaaS, never lower it: a
+/// deployment that sets `OPENHUMAN_MODE=saas` cannot be talked back into
+/// single-user by a flag. SaaS needs an operator config, and a config without
+/// SaaS is a mistake worth refusing rather than ignoring.
+pub fn resolve_mode(
+    flag: Option<&str>,
+    env: Option<&str>,
+    saas_config: Option<std::path::PathBuf>,
+) -> anyhow::Result<(crate::core::runtime::Mode, Option<std::path::PathBuf>)> {
+    use crate::core::runtime::Mode;
+    let parse = |raw: &str, source: &str| {
+        raw.parse::<Mode>()
+            .map_err(|e| anyhow::anyhow!("{source}: {e}"))
+    };
+    let from_flag = flag.map(|raw| parse(raw, "--mode")).transpose()?;
+    let from_env = env
+        .filter(|raw| !raw.trim().is_empty())
+        .map(|raw| parse(raw, "OPENHUMAN_MODE"))
+        .transpose()?;
+    let mode = if from_env == Some(Mode::Saas) {
+        Mode::Saas
+    } else {
+        from_flag.unwrap_or_default()
+    };
+    match (mode, &saas_config) {
+        (Mode::Saas, None) => anyhow::bail!("--mode saas needs --saas-config <file>"),
+        (Mode::SingleUser, Some(_)) => {
+            anyhow::bail!("--saas-config is only meaningful with --mode saas")
+        }
+        _ => Ok((mode, saas_config)),
+    }
 }
 
 /// Starts a server for a [`ServeRequest`] and resolves when it stops.
