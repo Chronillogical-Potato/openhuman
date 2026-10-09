@@ -114,3 +114,31 @@ fn ensure_orchestrator_enabled_rejects_disabled_orchestrator() {
         "orchestrator agent cannot be disabled"
     );
 }
+
+#[test]
+fn a_patch_sets_and_clears_tool_rules() {
+    let mut entry = custom_agent("custom", true);
+    let rules = tinytools::ToolRules::from_allow_deny(Vec::<String>::new(), ["shell"]);
+    apply_patch(
+        &mut entry,
+        AgentRegistryPatch {
+            tool_rules: Some(rules.clone()),
+            ..AgentRegistryPatch::default()
+        },
+    );
+    assert_eq!(entry.tool_rules, Some(rules));
+    let definition = crate::agent::registry::defaults::definition_from_registry_entry(&entry);
+    assert!(
+        definition.tool_rules.is_some(),
+        "the entry's rules reach the definition"
+    );
+
+    apply_patch(
+        &mut entry,
+        AgentRegistryPatch {
+            tool_rules: Some(tinytools::ToolRules::default()),
+            ..AgentRegistryPatch::default()
+        },
+    );
+    assert_eq!(entry.tool_rules, None, "an empty rule set clears the field");
+}

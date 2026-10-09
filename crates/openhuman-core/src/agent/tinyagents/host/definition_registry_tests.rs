@@ -402,7 +402,10 @@ fn the_projection_carries_the_definition_rule_layer() {
 
     let mut open = synthetic("open", AgentTier::Worker, &[]);
     open.disallowed_tools.clear();
-    assert!(registry_of(vec![open.clone()]).project(&open).tool_rules.is_none());
+    assert!(registry_of(vec![open.clone()])
+        .project(&open)
+        .tool_rules
+        .is_none());
 }
 
 // ── config-backed custom agents ───────────────────────────────────────
