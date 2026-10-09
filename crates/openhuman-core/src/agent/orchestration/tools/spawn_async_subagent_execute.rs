@@ -553,6 +553,7 @@ impl SpawnAsyncSubagentTool {
                                 );
                                 // An incomplete run may still have produced a full
                                 // proposal before stalling — preserve it durably too.
+                                let status_output = framed.clone();
                                 let framed = attach_workflow_proposal(
                                     &background_workspace_dir,
                                     background_parent_thread_id.as_deref(),
@@ -565,7 +566,7 @@ impl SpawnAsyncSubagentTool {
                                     .completed(&outcome.task_id, &outcome.agent_id, framed)
                                     .await;
                                 let _ = status_tx.send(DetachedSubagentStatus::Completed {
-                                    output: framed.clone(),
+                                    output: status_output,
                                     iterations: outcome.iterations,
                                 });
                                 if emit_lifecycle_effects {
