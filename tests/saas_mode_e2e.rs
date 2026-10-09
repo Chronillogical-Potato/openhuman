@@ -768,7 +768,7 @@ fn a_users_turn_reaches_inference_with_their_own_credential() {
         &base,
         Some(BEARER),
         "openhuman.user_agents_set_credential",
-        json!({ "agent_id": alice, "kind": "api_key", "token": "alice-api-key" }),
+        json!({ "agent_id": alice, "kind": "session", "token": "alice-session-jwt" }),
     );
     assert!(body.get("result").is_some(), "{body}");
 
@@ -788,7 +788,7 @@ fn a_users_turn_reaches_inference_with_their_own_credential() {
     let inference = loop {
         let left = until.saturating_duration_since(Instant::now());
         match requests.recv_timeout(left) {
-            Ok((path, auth)) if auth.contains("alice-api-key") => break Some((path, auth)),
+            Ok((path, auth)) if auth.contains("alice-session-jwt") => break Some((path, auth)),
             Ok(other) => seen.push(other),
             Err(_) => break None,
         }
@@ -796,6 +796,6 @@ fn a_users_turn_reaches_inference_with_their_own_credential() {
     let (_, auth) = inference.unwrap_or_else(|| {
         panic!("alice's turn never reached the backend with her key; saw {seen:?}")
     });
-    assert_eq!(auth, "Bearer alice-api-key");
+    assert_eq!(auth, "Bearer alice-session-jwt");
     drop(server);
 }
