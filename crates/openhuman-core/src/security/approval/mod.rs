@@ -18,6 +18,7 @@ pub mod redact;
 pub mod rpc;
 pub mod schemas;
 pub mod store;
+mod store_documents;
 pub mod types;
 
 pub use gate::{

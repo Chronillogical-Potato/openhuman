@@ -60,7 +60,7 @@ account is out of managed credits.
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Declares `generation`. |
+| [`mod.rs`](./mod.rs) | Declares [`generation`](./generation). |
 | [`generation/`](generation/README.md) | The three `media_*` tools, the guarded OpenRouter generators, the local-reference policy, and the artifact wrapper. |
 
 Inside `generation/`:
@@ -73,12 +73,12 @@ Inside `generation/`:
 
 ## Key types and entry points
 
-- `build_media_tools(&Config, &Path)` (`generation/tools.rs`) is the registry
+- `build_media_tools(&Config, &Path)` ([`generation/tools.rs`](./generation/tools.rs)) is the registry
   entry point. It returns an empty list, not an error, when no backend is
   reachable.
-- `managed_generators(&Config)` (`generation/provider.rs`) builds
+- `managed_generators(&Config)` ([`generation/provider.rs`](./generation/provider.rs)) builds
   `MediaGenerators { image, video }` against the backend proxy.
-- `MediaArtifactTool` (`generation/artifact_tool.rs`) is the artifact-tracking
+- `MediaArtifactTool` ([`generation/artifact_tool.rs`](./generation/artifact_tool.rs)) is the artifact-tracking
   wrapper, following the same `create_artifact_for_call` /
   `finalize_artifact` / `fail_artifact` pattern the document and presentation
   tools use.
@@ -121,8 +121,8 @@ Inside `generation/`:
 
 ## Tests
 
-`generation/tools_tests.rs` (tool schemas, reference policy, flows over mock
-generators) and `generation/artifact_tool_tests.rs` (artifact filing and
+[`generation/tools_tests.rs`](./generation/tools_tests.rs) (tool schemas, reference policy, flows over mock
+generators) and [`generation/artifact_tool_tests.rs`](./generation/artifact_tool_tests.rs) (artifact filing and
 per-entry failure).
 
 ```bash
@@ -131,3 +131,9 @@ cargo test -p openhuman media::
 
 User-facing docs:
 [`gitbooks/features/native-tools/media-generation.md`](../../../../gitbooks/features/native-tools/media-generation.md).
+
+## Further reading
+
+- [Image and video generation](../../../../gitbooks/features/native-tools/media-generation.md)
+- [Image tools](../../../../gitbooks/features/native-tools/image-tools.md)
+- [Native tools overview](../../../../gitbooks/features/native-tools/README.md)

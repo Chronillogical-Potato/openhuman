@@ -113,22 +113,22 @@ box.
 
 | File | What it does |
 | --- | --- |
-| `mod.rs` | Module declarations and the design notes. No re-exports. |
-| `types.rs` | `Gateway`, `GatewaySpec`, `Reach`, `SshReach`, `Confinement`, `ActiveGateway`, `GatewaySummary`, `GatewayStatus`, and `validate_remote_transport`. |
-| `store.rs` | Reads and writes `gateways.json` in the shell data dir (`file_logging::resolve_data_dir`). |
-| `ops.rs` | `activate` decides what a spec needs; `endpoint_of` answers for non-provisioning specs; `Provisioned` and its `tear_down`. |
-| `provision.rs` | The four tinybox steps, port selection and cleanup on failure. |
-| `registry.rs` | The active gateway, its held-open `Provisioned`, status and the activation lock. |
-| `commands.rs` | The Tauri commands. Each one resolves arguments and delegates to `store` or `registry`. |
+| [`mod.rs`](mod.rs) | Module declarations and the design notes. No re-exports. |
+| [`types.rs`](types.rs) | `Gateway`, `GatewaySpec`, `Reach`, `SshReach`, `Confinement`, `ActiveGateway`, `GatewaySummary`, `GatewayStatus`, and `validate_remote_transport`. |
+| [`store.rs`](store.rs) | Reads and writes `gateways.json` in the shell data dir (`file_logging::resolve_data_dir`). |
+| [`ops.rs`](ops.rs) | `activate` decides what a spec needs; `endpoint_of` answers for non-provisioning specs; `Provisioned` and its `tear_down`. |
+| [`provision.rs`](provision.rs) | The four tinybox steps, port selection and cleanup on failure. |
+| [`registry.rs`](registry.rs) | The active gateway, its held-open `Provisioned`, status and the activation lock. |
+| [`commands.rs`](commands.rs) | The Tauri commands. Each one resolves arguments and delegates to `store` or `registry`. |
 
 ## Key types and entry points
 
-- `GatewaySpec` (`types.rs`) is what the user configured.
+- `GatewaySpec` ([`types.rs`](types.rs)) is what the user configured.
 - `ActiveGateway` (`types.rs`) is what activation produces: `id`, `rpc_url`,
   optional `token`. It never leaves the shell.
 - `GatewaySummary` (`types.rs`) is the credential-free view the renderer gets
   from `gateway_list`: id, label and kind.
-- `registry::current` (`registry.rs`) is called by `active_rpc_endpoint` in
+- `registry::current` ([`registry.rs`](registry.rs)) is called by `active_rpc_endpoint` in
   `lib.rs` on every endpoint lookup.
 - `registry::activate` (`registry.rs`) is the only writer of the active state.
 
@@ -146,13 +146,13 @@ box.
 ## Boundaries
 
 - Box lifecycle, SSH reach, Docker confinement and port forwarding are
-  implemented in the `vendor/tinybox` submodule (`tinyhumansai/tinybox`,
+  implemented in the [`vendor/tinybox`](../../../../vendor/tinybox/) submodule (`tinyhumansai/tinybox`,
   crates `tinybox-core`, `tinybox-host`, `tinybox-ssh`, `tinybox-docker`).
   Fix behavior there, not here.
 - The `openhuman-core serve` command, its bearer check and `/health` belong to
-  the core and `crates/openhuman-rpc`.
+  the core and [`crates/openhuman-rpc`](../../../openhuman-rpc/).
 - The frontend's gateway picker (`GatewaySection`) and its `coreMode` setting
-  live in `app/src`.
+  live in [`app/src`](../../../../app/src/).
 
 ## Gotchas
 
@@ -172,9 +172,15 @@ box.
 
 ## Tests
 
-`ops_tests.rs`, `registry_tests.rs`, `store_tests.rs` and `types_tests.rs` sit
-in this directory and are declared from `mod.rs`.
+[`ops_tests.rs`](ops_tests.rs), [`registry_tests.rs`](registry_tests.rs), [`store_tests.rs`](store_tests.rs) and [`types_tests.rs`](types_tests.rs) sit
+in this directory and are declared from [`mod.rs`](mod.rs).
 
 ```bash
 cargo test --manifest-path crates/openhuman-app/Cargo.toml gateway::
 ```
+
+## Further reading
+
+- [`gitbooks/developing/architecture/tauri-shell.md`](../../../../gitbooks/developing/architecture/tauri-shell.md): the Tauri shell.
+- [`crates/openhuman-app/README.md`](../../README.md): the openhuman-app crate README.
+- [`crates/openhuman-rpc/README.md`](../../../openhuman-rpc/README.md): the openhuman-rpc crate README.

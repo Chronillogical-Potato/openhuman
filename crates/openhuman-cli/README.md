@@ -2,7 +2,7 @@
 
 This crate builds the `openhuman-core` binary, a handful of developer and
 benchmark binaries, and every root `tests/*.rs` and `examples/*.rs` target in
-the repository. The core (`crates/openhuman-core`, package `openhuman`) is a
+the repository. The core ([`crates/openhuman-core`](../openhuman-core/), package `openhuman`) is a
 library with no backend client and no JSON-RPC server, and it declares no
 bin, test or example targets of its own. Anything that must run as a process
 against the hosted backend, or test the core the way a host boots it, lives
@@ -37,7 +37,7 @@ JSON-RPC server that `run` and `serve` start.
 
 ### Startup of `openhuman-core`
 
-`src/main.rs` is short and runs in a fixed order:
+[`src/main.rs`](src/main.rs) is short and runs in a fixed order:
 
 1. `restore_default_sigpipe()` resets `SIGPIPE` to the default on unix, so
    piping output into `head` ends the process quietly instead of panicking
@@ -86,7 +86,7 @@ The banner goes to stderr so stdout stays clean JSON.
 
 ### Tests and examples are targets of this crate
 
-Cargo only auto-discovers `tests/` and `examples/` beside the manifest, and
+Cargo only auto-discovers [`tests/`](../../tests/) and [`examples/`](../../examples/) beside the manifest, and
 the files live at the repository root. So the manifest turns discovery off
 (`autotests = false`, `autoexamples = false`, `autobins = false`,
 `autobenches = false`) and declares each target explicitly with a path back
@@ -100,17 +100,17 @@ required-features = ["voice"]
 ```
 
 Every new `tests/<name>.rs` or `examples/<name>.rs` file needs such an entry.
-`pnpm rust:layout` (`scripts/ci/check-openhuman-rust-layout.mjs`) fails on a
+`pnpm rust:layout` ([`scripts/ci/check-openhuman-rust-layout.mjs`](../../scripts/ci/check-openhuman-rust-layout.mjs)) fails on a
 missing or stale entry, and on any target table in the core manifest.
 
 Two targets aggregate whole directories, so files there need no entry. The
-shared root `build.rs` (wired with `build = "../../build.rs"`) globs them into
+shared root [`build.rs`](../../build.rs) (wired with `build = "../../build.rs"`) globs them into
 generated module lists:
 
-- `raw_coverage_all` (`tests/raw_coverage_all.rs`) includes every
+- `raw_coverage_all` ([`tests/raw_coverage_all.rs`](../../tests/raw_coverage_all.rs)) includes every
   `tests/raw_coverage/*.rs` suite as a module. It needs `voice` and
   `inference`.
-- `in_process_all` (`tests/in_process_all.rs`) includes every
+- `in_process_all` ([`tests/in_process_all.rs`](../../tests/in_process_all.rs)) includes every
   `tests/in_process/*.rs` suite. These boot the core router in the test
   process and are gate-free.
 
@@ -128,7 +128,7 @@ targets: `observability_smoke` (`crash-reporting`), `computer_bali_live_e2e`
 (`media`).
 
 In-process suites that reach the (mock) backend call
-`tinyhumans_boot::boot()` from `tests/support/tinyhumans_boot.rs` first, which
+`tinyhumans_boot::boot()` from [`tests/support/tinyhumans_boot.rs`](../../tests/support/tinyhumans_boot.rs) first, which
 runs `openhuman_tinyhumans::install`. Without it every backend call answers
 `BACKEND_UNAVAILABLE:`. Suites that spawn the `openhuman-core` binary get the
 transport from `main.rs`.
@@ -137,9 +137,9 @@ transport from `main.rs`.
 
 | Path | What it does |
 | --- | --- |
-| `Cargo.toml` | All `[[bin]]`, `[[test]]` and `[[example]]` targets, feature forwarding. |
-| `src/main.rs` | The `openhuman-core` binary entry point described above. |
-| [`src/bin/`](src/bin/README.md) | Developer and benchmark binaries: `test-mcp-stub`, `openhuman-fleet`, `rss-bench`, `library-profile`, `tool-search-bench`, `tool-dialect-bench`. |
+| [`Cargo.toml`](Cargo.toml) | All `[[bin]]`, `[[test]]` and `[[example]]` targets, feature forwarding. |
+| [`src/main.rs`](src/main.rs) | The `openhuman-core` binary entry point described above. |
+| [`src/bin/`](src/bin/README.md) | Developer binaries: `test-mcp-stub`, `openhuman-fleet`. The benchmark binaries live in [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks) (`profile/`). |
 | `../../tests/*.rs` | 27 `[[test]]` targets, including the two aggregators. See [`tests/README.md`](../../tests/README.md). |
 | `../../examples/*.rs` | 2 `[[example]]` targets: `embed_headless` and `embed_kernel`. |
 | `../../build.rs` | Shared build script: generates the `raw_coverage_all` and `in_process_all` module lists and exports `OPENHUMAN_REPOSITORY_ROOT`. |
@@ -149,12 +149,8 @@ transport from `main.rs`.
 | Target | Source | Required features |
 | --- | --- | --- |
 | `openhuman-core` | `src/main.rs` | none |
-| `test-mcp-stub` | `src/bin/test_mcp_stub.rs` | none |
-| `openhuman-fleet` | `src/bin/fleet.rs` | `http-server`, `bin-tools` |
-| `tool-search-bench` | `src/bin/tool_search_bench.rs` | none (`jev` for the Jev ranker) |
-| `tool-dialect-bench` | `src/bin/tool_dialect_bench.rs` | none |
-| `rss-bench` | `src/bin/rss_bench.rs` | `rss-bench` |
-| `library-profile` | `src/bin/library_profile/main.rs` | `rss-bench` (add `rss-bench-dhat` for heap profiles) |
+| `test-mcp-stub` | [`src/bin/test_mcp_stub.rs`](src/bin/test_mcp_stub.rs) | none |
+| `openhuman-fleet` | [`src/bin/fleet.rs`](src/bin/fleet.rs) | `http-server`, `bin-tools` |
 
 ## Features
 
@@ -162,28 +158,28 @@ The default set mirrors the core's contributor default plus
 `openhuman-tinyhumans/default` and `jev`. Every core gate (`http-server`,
 `inference`, `voice`, `web3`, `channels`, `media`, `modules`, and the rest) is
 forwarded to both `openhuman-core` and `openhuman-tinyhumans`, so the product
-lanes' feature list resolves here unchanged; `scripts/ci/check-feature-forwarding.mjs`
-checks the chain. `e2e-test-support` and `rss-bench` forward to the core only.
+lanes' feature list resolves here unchanged; [`scripts/ci/check-feature-forwarding.mjs`](../../scripts/ci/check-feature-forwarding.mjs)
+checks the chain. `e2e-test-support` forwards to the core only; `rss-bench` is
+not forwarded, since the benchmark crate that uses it enables it on the core directly.
 Gates local to this crate:
 
 | Feature | Purpose |
 | --- | --- |
-| `jev` | The Jev `tool_search` ranker (`openhuman-tinyhumans/jev`) plus the clients `tool-search-bench` measures it with. |
+| `jev` | The Jev `tool_search` ranker (`openhuman-tinyhumans/jev`). |
 | `crash-reporting` | Sentry init in `main.rs` and the `observability_smoke` target. |
 | `bin-tools` | `clap` for `openhuman-fleet`. |
-| `rss-bench-dhat` | dhat heap profiling for `library-profile`; implies `rss-bench`. |
 
 ## Boundaries
 
 - Subcommand parsing and dispatch live in the core
-  (`crates/openhuman-core/src/core/cli.rs`, `core/agent_cli.rs`). New
+  ([`crates/openhuman-core/src/core/cli.rs`](../openhuman-core/src/core/cli.rs), `core/agent_cli.rs`). New
   functionality is a controller registered in `core/all.rs`, reached through
   the generic namespace dispatch, not a new branch in `cli.rs`.
 - The JSON-RPC server, Socket.IO and the listener belong to
-  `crates/openhuman-rpc`. The backend transport and login belong to
-  `crates/openhuman-tinyhumans`.
-- The terminal UI is `crates/openhuman-tui`; the desktop host is
-  `crates/openhuman-app`, which embeds the core directly and does not use
+  [`crates/openhuman-rpc`](../openhuman-rpc/). The backend transport and login belong to
+  [`crates/openhuman-tinyhumans`](../openhuman-tinyhumans/).
+- The terminal UI is [`crates/openhuman-tui`](../openhuman-tui/); the desktop host is
+  [`crates/openhuman-app`](../openhuman-app/), which embeds the core directly and does not use
   this binary.
 
 ## Gotchas
@@ -191,7 +187,7 @@ Gates local to this crate:
 - Sentry's `before_send` filters are defense in depth. The primary
   suppression for each noise class lives at its emit site in the core; add
   new filters there first.
-- The `[[test]]` comment block in `Cargo.toml` about product-gated targets
+- The `[[test]]` comment block in [`Cargo.toml`](Cargo.toml) about product-gated targets
   still says autodiscovery stays on for the other targets. It does not:
   `autotests = false`, and every target is declared.
 - Do not export `CARGO_TARGET_DIR`; the repository already configures a
@@ -209,3 +205,12 @@ pnpm debug rust <filter>
 
 `main_tests.rs` (built with `crash-reporting`) covers the secret scrubbing
 that `before_send` applies (bearer tokens and provider API keys).
+
+## Further reading
+
+- [`gitbooks/developing/building-rust-core.md`](../../gitbooks/developing/building-rust-core.md): building the Rust core.
+- [`gitbooks/developing/testing-strategy.md`](../../gitbooks/developing/testing-strategy.md): testing strategy.
+- [`gitbooks/developing/performance.md`](../../gitbooks/developing/performance.md): performance.
+- [`crates/README.md`](../README.md): crates overview.
+- [`crates/openhuman-core/README.md`](../openhuman-core/README.md): the openhuman-core crate README.
+- [`tests/README.md`](../../tests/README.md): root tests.

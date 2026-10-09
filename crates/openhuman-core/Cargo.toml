@@ -149,7 +149,10 @@ tinyagents-graph = { path = "../../vendor/tinyagents/crates/tinyagents-graph", f
     "sqlite",
 ] }
 tinyagents-registry = { path = "../../vendor/tinyagents/crates/tinyagents-registry" }
-tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
+tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session", features = ["storage-drivers"] }
+# The storage ports and the URL-to-backend facade (`storage` domain). No driver
+# by default: the `storage-*` features below add them.
+tinystoragedrivers = { path = "../../vendor/tinyagents/vendor/tinystoragedrivers/crates/tinystoragedrivers", default-features = false, features = ["blocking"] }
 tinyagents-runtime = { path = "../../vendor/tinyagents/crates/tinyagents-runtime" }
 tinyagents-orchestration = { path = "../../vendor/tinyagents/crates/tinyagents-orchestration" }
 tinyinference-core = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
@@ -380,6 +383,7 @@ zeroize = "1"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
 hkdf = "0.12"
 hex = "0.4"
+hmac = "0.12"
 tokio-util = { version = "0.7", features = ["rt", "io"] }
 # tokio-tungstenite is declared per-target below so the TLS backend
 # (native-tls on Windows, rustls on macOS / Linux) matches the reqwest
@@ -665,6 +669,12 @@ tokio = { version = "1", features = ["test-util"] }
 proptest = "1"
 
 [features]
+# Storage drivers for `[storage] url` / `OPENHUMAN_STORAGE_URL` (see the
+# `storage` domain). Memory is always available. Off in the product until a
+# desktop domain moves onto the ports; a cloud build turns on `storage-mongodb`.
+storage-sqlite = ["tinystoragedrivers/sqlite"]
+storage-mongodb = ["tinystoragedrivers/mongodb"]
+storage-file = ["tinystoragedrivers/file"]
 # THE CONTRIBUTOR SET — not the product set.
 #
 # This list is what a bare `cargo check`, `cargo test` and rust-analyzer
@@ -1023,11 +1033,12 @@ whatsapp-web = ["channels", "tinychannels/whatsapp-web"]
 # this feature so the wipe RPC isn't even registered, let alone reachable.
 e2e-test-support = []
 # Library-side gate for the embedded-RSS benchmark (#5046): the one prompt
-# renderer hook in `agent/prompts/render_helpers` that the benchmark bins in
-# `crates/openhuman-cli` need. Default-OFF and absent from
+# renderer hook in `agent/prompts/render_helpers` (and the mock provider) that
+# the benchmark bins need. Default-OFF and absent from
 # `scripts/ci/product-features.txt`, so nothing shipped enables it. The
 # `rss-bench` / `library-profile` binaries and the `rss-bench-dhat` profiling
-# variant live in `crates/openhuman-cli`.
+# variant live in tinyhumansai/openhuman-benchmarks (`profile/`), which
+# enables this gate on the core directly.
 rss-bench = []
 # Battery/AC probe feeding the scheduler's throttle decision. Default-ON.
 # When off there is no hardware probe: `sample_power` reports "on AC, no charge

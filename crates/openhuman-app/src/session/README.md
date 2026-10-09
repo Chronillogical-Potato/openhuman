@@ -2,7 +2,7 @@
 
 The desktop shell's login glue. Login-token exchange, `GET /auth/me`, the
 current-user cache and the credential handoff are implemented in
-`crates/openhuman-tinyhumans` (`SessionManager`). This module gives that
+[`crates/openhuman-tinyhumans`](../../../openhuman-tinyhumans/) (`SessionManager`). This module gives that
 manager a link to the core, exposes it to the renderer as Tauri commands, and
 forwards its change events to the renderer as Tauri events.
 
@@ -46,9 +46,9 @@ loopback), and decodes with `openhuman_rpc::decode_response`.
 
 | File | What it does |
 | --- | --- |
-| `mod.rs` | `SessionHost`, `install`, the event names, and `peek_user_id`. |
-| `link.rs` | `HttpCoreLink`, the `CoreLink` over the shell's RPC path. |
-| `commands.rs` | The `auth_*` Tauri commands, each a one-line delegate to the manager. |
+| [`mod.rs`](mod.rs) | `SessionHost`, `install`, the event names, and `peek_user_id`. |
+| [`link.rs`](link.rs) | `HttpCoreLink`, the `CoreLink` over the shell's RPC path. |
+| [`commands.rs`](commands.rs) | The `auth_*` Tauri commands, each a one-line delegate to the manager. |
 
 ## Tauri commands
 
@@ -66,7 +66,7 @@ stable `PREFIX:` so the frontend can classify it without parsing prose.
 
 ## Key types and entry points
 
-- `SessionHost` (`mod.rs`) is managed Tauri state holding
+- `SessionHost` ([`mod.rs`](mod.rs)) is managed Tauri state holding
   `Arc<SessionManager<HttpCoreLink>>`.
 - `install(app, desktop)` (`mod.rs`) is called once from `lib.rs`.
 - `peek_user_id()` (`mod.rs`) returns the signed-in user id synchronously; the
@@ -76,7 +76,7 @@ stable `PREFIX:` so the frontend can classify it without parsing prose.
 ## Boundaries
 
 - Auth endpoints, token validation, caching and identity live in
-  `crates/openhuman-tinyhumans` (`openhuman_tinyhumans::session`). Changes to
+  [`crates/openhuman-tinyhumans`](../../../openhuman-tinyhumans/) (`openhuman_tinyhumans::session`). Changes to
   login behavior belong there.
 - Credential storage and what the core does with a credential (user-dir
   activation, gated services) belong to the core
@@ -86,8 +86,14 @@ stable `PREFIX:` so the frontend can classify it without parsing prose.
 
 ## Tests
 
-`commands_tests.rs` covers the command delegates.
+[`commands_tests.rs`](commands_tests.rs) covers the command delegates.
 
 ```bash
 cargo test --manifest-path crates/openhuman-app/Cargo.toml session::
 ```
+
+## Further reading
+
+- [`gitbooks/developing/architecture/tauri-shell.md`](../../../../gitbooks/developing/architecture/tauri-shell.md): the Tauri shell.
+- [`crates/openhuman-app/README.md`](../../README.md): the openhuman-app crate README.
+- [`crates/openhuman-tinyhumans/README.md`](../../../openhuman-tinyhumans/README.md): the openhuman-tinyhumans crate README.

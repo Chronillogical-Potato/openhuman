@@ -26,17 +26,17 @@ Owns remote skill catalogs and installed-skill lifecycle:
 
 | File | Purpose |
 | --- | --- |
-| `mod.rs` | Feature gate (`skills` Cargo feature) and module wiring; re-exports the controller aggregators |
-| `ops.rs` | Catalog fetch/cache, boot refresh, browse/search/sources/categories, entry ids, download-URL derivation, `find_catalog_entry`, `install_from_catalog` |
-| `download.rs` | `SKILL.md` locations for ClawHub (file API) and skills.sh (GitHub repo probe plus tree lookup) |
-| `store.rs` | Catalog cache at `~/.openhuman/skill-registry/cache.json`, with a 1-hour TTL, kept past TTL for stale-while-revalidate; `OPENHUMAN_SKILL_REGISTRY_CACHE_DIR` relocates it (tests) |
-| `tools.rs` | LLM-callable tools `skill_registry_browse`, `skill_registry_search`, `skill_registry_sources`, `skill_registry_install`, `skill_registry_uninstall` |
-| `types.rs` | `CatalogEntry` |
-| `schemas/controller_schemas.rs` | `skill_registry_*` `ControllerSchema` definitions and the registered-controller table |
-| `schemas/handlers.rs` | Thin RPC handlers dispatching into `ops.rs` |
-| `schemas/wire_types.rs` | Request/response payload types for the handlers |
-| `stub.rs` | No-op facade compiled in when the `skills` feature is off |
-| `agent/skill_setup/` | Built-in `skill_setup` agent (`agent.toml`, `prompt.md`, `prompt.rs`) |
+| [`mod.rs`](./mod.rs) | Feature gate (`skills` Cargo feature) and module wiring; re-exports the controller aggregators |
+| [`ops.rs`](./ops.rs) | Catalog fetch/cache, boot refresh, browse/search/sources/categories, entry ids, download-URL derivation, `find_catalog_entry`, `install_from_catalog` |
+| [`download.rs`](./download.rs) | `SKILL.md` locations for ClawHub (file API) and skills.sh (GitHub repo probe plus tree lookup) |
+| [`store.rs`](./store.rs) | Catalog cache at `~/.openhuman/skill-registry/cache.json`, with a 1-hour TTL, kept past TTL for stale-while-revalidate; `OPENHUMAN_SKILL_REGISTRY_CACHE_DIR` relocates it (tests) |
+| [`tools.rs`](./tools.rs) | LLM-callable tools `skill_registry_browse`, `skill_registry_search`, `skill_registry_sources`, `skill_registry_install`, `skill_registry_uninstall` |
+| [`types.rs`](./types.rs) | `CatalogEntry` |
+| [`schemas/controller_schemas.rs`](./schemas/controller_schemas.rs) | `skill_registry_*` `ControllerSchema` definitions and the registered-controller table |
+| [`schemas/handlers.rs`](./schemas/handlers.rs) | Thin RPC handlers dispatching into `ops.rs` |
+| [`schemas/wire_types.rs`](./schemas/wire_types.rs) | Request/response payload types for the handlers |
+| [`stub.rs`](./stub.rs) | No-op facade compiled in when the `skills` feature is off |
+| [`agent/skill_setup/`](./agent/skill_setup/) | Built-in `skill_setup` agent (`agent.toml`, `prompt.md`, `prompt.rs`) |
 
 ## RPC surface
 
@@ -49,28 +49,28 @@ all under the `skill_registry` namespace:
 - `categories`: distinct categories present in the catalog.
 - `install`: install a catalog entry by `entry_id` into user scope.
 - `uninstall`: remove an installed user-scope skill by slug.
-- `schemas`: return the `skill_registry` controller schemas (CLI/RPC smoke-test generation).
+- [`schemas`](./schemas): return the `skill_registry` controller schemas (CLI/RPC smoke-test generation).
 
 ## Agent tools and the `skill_setup` agent
 
-`tools.rs` exposes the browse/search/sources/install/uninstall operations as
+[`tools.rs`](./tools.rs) exposes the browse/search/sources/install/uninstall operations as
 LLM-callable tools (`SkillRegistryBrowseTool`, `SkillRegistrySearchTool`,
 `SkillRegistrySourcesTool`, `SkillRegistryInstallTool`,
 `SkillRegistryUninstallTool`), re-exported through the
 `#[cfg(feature = "skills")]` glob in `crates/openhuman-core/src/tools/mod.rs`.
 
-`agent/skill_setup/` is a built-in agent (id `skill_setup`, delegate name
+[`agent/skill_setup/`](./agent/skill_setup/) is a built-in agent (id `skill_setup`, delegate name
 `setup_skills`) whose tool belt is the five tools above plus
 `list_workflows`, `describe_workflow`, `install_workflow_from_url`,
 `uninstall_workflow`, and `ask_user_clarification`. It is registered in
 `crates/openhuman-core/src/agent/registry/agents/loader.rs` behind
-`#[cfg(feature = "skills")]`, which embeds `agent/skill_setup/agent.toml` via
+`#[cfg(feature = "skills")]`, which embeds [`agent/skill_setup/agent.toml`](./agent/skill_setup/agent.toml) via
 `include_str!` and wires `agent/skill_setup/prompt.rs::build` as its prompt
 builder.
 
 ## Disabled build
 
-When the `skills` Cargo feature is off, `stub.rs` takes the place of this
+When the `skills` Cargo feature is off, [`stub.rs`](./stub.rs) takes the place of this
 module: the controller aggregators return empty vectors and
 `ops::start_boot_catalog_refresh` is a no-op, so the always-on call sites in
 `core/all.rs` and `core/runtime/services.rs` keep compiling without the real
@@ -114,3 +114,10 @@ Security notes:
   hardened URL installer (HTTPS-only, size cap, private-IP rejection,
   `SKILL.md` requirement) applies to catalog installs too.
 - HTTP localhost installs require `OPENHUMAN_SKILL_INSTALL_ALLOW_LOCAL_HTTP=1` and are intended for local fixtures only.
+
+## Further reading
+
+- [Parent module (`skills`)](../README.md)
+- [MCP servers and skills](../../../../../gitbooks/features/integrations/mcp-and-skills.md)
+- [tinyskills submodule](../../../../../vendor/tinyskills/README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)

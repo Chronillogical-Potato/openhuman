@@ -63,24 +63,24 @@ releases `RUNTIME_LIVE`.
 
 | File | What it does |
 | --- | --- |
-| `mod.rs` | `Runtime`, `RuntimeError`, `CoreGuard` and the `RUNTIME_LIVE` process slot. |
-| `builder.rs` | `RuntimeBuilder`, its knobs and `ConfigSource` (`Resolved`: embed hands the core a config; `Discovered`: the core loads the operator's install, as desktop/CLI/TUI do). |
-| `build.rs` | `RuntimeBuilder::build`: validation, config resolution, seam install, `CoreBuilder` boot; `apply_provider`, `effective_host_kind`. |
-| `presets.rs` | Host presets `library`/`desktop`/`cli`/`tui` and the library defaults `default_domains`, `default_services`. |
-| `seams.rs` | Process-global seams as builder options (`controller_extension`, `tool_ranker`, `post_turn_hook`, `tool_hook`, `server_launcher`, `live_policy`) and the guard that restores the restorable ones on drop. |
-| `run.rs` | `RuntimeBuilder::run_from_args` / `run_from_args`: install the builder's process-global pieces for the process, then run the core's CLI dispatcher. |
-| `api_key.rs` | `ApiKey`, a newtype over the TinyHumans key whose `Debug` does not print it. |
+| [`mod.rs`](mod.rs) | `Runtime`, `RuntimeError`, `CoreGuard` and the `RUNTIME_LIVE` process slot. |
+| [`builder.rs`](builder.rs) | `RuntimeBuilder`, its knobs and `ConfigSource` (`Resolved`: embed hands the core a config; `Discovered`: the core loads the operator's install, as desktop/CLI/TUI do). |
+| [`build.rs`](build.rs) | `RuntimeBuilder::build`: validation, config resolution, seam install, `CoreBuilder` boot; `apply_provider`, `effective_host_kind`. |
+| [`presets.rs`](presets.rs) | Host presets `library`/`desktop`/`cli`/`tui` and the library defaults `default_domains`, `default_services`. |
+| [`seams.rs`](seams.rs) | Process-global seams as builder options (`controller_extension`, `tool_ranker`, `post_turn_hook`, `tool_hook`, `server_launcher`, `live_policy`) and the guard that restores the restorable ones on drop. |
+| [`run.rs`](run.rs) | `RuntimeBuilder::run_from_args` / `run_from_args`: install the builder's process-global pieces for the process, then run the core's CLI dispatcher. |
+| [`api_key.rs`](api_key.rs) | `ApiKey`, a newtype over the TinyHumans key whose `Debug` does not print it. |
 
 ## Key types and entry points
 
-- `RuntimeBuilder` (`builder.rs`): `workspace`, `workspace_dir`,
+- `RuntimeBuilder` ([`builder.rs`](builder.rs)): `workspace`, `workspace_dir`,
   `action_dir`, `config_source`, `api_key`, `backend_url`,
   `backend_transport`, `memory_engine`, `session_store`, `provider`,
   `access`, `services`, `domains`, `tool_groups`, `host_kind`, `token`,
   `listen` (`listen_host`, `listen_port`), `session`, `config`, the seam
-  options (`seams.rs`), then `build` or `run_from_args`. Presets
-  (`presets.rs`): `library()` (= `new()`), `desktop()`, `cli()`, `tui()`.
-- `Runtime` (`mod.rs`): `agent(spec)` builds an agent; `agent_ids()` lists
+  options ([`seams.rs`](seams.rs)), then `build` or `run_from_args`. Presets
+  ([`presets.rs`](presets.rs)): `library()` (= `new()`), `desktop()`, `cli()`, `tui()`.
+- `Runtime` ([`mod.rs`](mod.rs)): `agent(spec)` builds an agent; `agent_ids()` lists
   the live ones; `core()` returns the narrow `HarnessCore` (config, auth);
   `memory(root)` returns one tenant's `memory::Memory`; `root_dir()` and
   `workspace_dir()` give paths; `domains()`, `tool_groups()` and `services()`
@@ -111,11 +111,11 @@ override reaches them.
   `openhuman_core::core::runtime`. See its
   [README](../../../openhuman-core/src/core/runtime/README.md).
 - No backend transport is installed here. `openhuman-tinyhumans`'s
-  `RuntimeBuilder` (`crates/openhuman-tinyhumans/src/runtime.rs`) wraps this
+  `RuntimeBuilder` ([`crates/openhuman-tinyhumans/src/runtime.rs`](../../../openhuman-tinyhumans/src/runtime.rs)) wraps this
   builder and installs the SDK transport on `build()`; see
   [`gitbooks/developing/tinyhumans-api-key.md`](../../../../gitbooks/developing/tinyhumans-api-key.md).
 - The session store port (`SessionStoreProvider`) is defined by
-  `vendor/tinyagents` and the core's `agent::session_store`; the classic
+  [`vendor/tinyagents`](../../../../vendor/tinyagents/) and the core's `agent::session_store`; the classic
   on-disk provider lives in `openhuman-rpc`'s `session_store`.
 
 ## Gotchas
@@ -136,10 +136,16 @@ override reaches them.
 
 ## Tests
 
-`builder_tests.rs` and `api_key_tests.rs` sit beside their modules. The
+[`builder_tests.rs`](builder_tests.rs) and [`api_key_tests.rs`](api_key_tests.rs) sit beside their modules. The
 end-to-end suites in [`../../tests/`](../../tests/README.md) build real
 runtimes.
 
 ```bash
 cargo test -p openhuman-embed --features inference,mcp,skills runtime::
 ```
+
+## Further reading
+
+- [`gitbooks/developing/embedding.md`](../../../../gitbooks/developing/embedding.md): embedding the core in another product.
+- [`gitbooks/developing/tinyhumans-api-key.md`](../../../../gitbooks/developing/tinyhumans-api-key.md): running on a TinyHumans API key.
+- [`crates/openhuman-embed/README.md`](../../README.md): the openhuman-embed crate README.
