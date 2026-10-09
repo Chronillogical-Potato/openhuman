@@ -39,3 +39,7 @@ pub(crate) fn managed(config: &Config) -> Option<Arc<dyn tinymemes::Evaluator>> 
         }
     }
 }
+
+#[cfg(test)]
+#[path = "jev_tests.rs"]
+mod tests;

@@ -60,3 +60,7 @@ impl tinymemes::WebSearch for OpenHumanSearch {
             .collect())
     }
 }
+
+#[cfg(test)]
+#[path = "search_tests.rs"]
+mod tests;

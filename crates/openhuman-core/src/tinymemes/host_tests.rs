@@ -85,3 +85,106 @@ fn the_fingerprint_follows_the_provider_settings() {
     changed.inference_url = Some("https://openrouter.ai/api/v1".into());
     assert_ne!(fingerprint(&changed), base);
 }
+
+fn config_in(dir: &std::path::Path) -> Config {
+    let mut config = Config::default();
+    config.config_path = dir.join("config.toml");
+    config.workspace_dir = dir.join("workspace");
+    config.secrets.encrypt = false;
+    config
+}
+
+#[test]
+fn remixed_ids_are_deduplicated_persisted_and_capped() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let host = host_for(&config_in(dir.path())).expect("engine");
+    host.mark_remixed("m1".into());
+    host.mark_remixed("m1".into());
+    host.mark_remixed("m2".into());
+    assert!(host.is_remixed("m1") && host.is_remixed("m2"));
+    assert!(!host.is_remixed("m3"));
+    let saved = load_remixed(&dir.path().join("workspace").join(DIR));
+    assert_eq!(saved, ["m1", "m2"]);
+
+    let mut ids: VecDeque<String> = (0..REMIXED_CAP + 3).map(|i| i.to_string()).collect();
+    cap_remixed(&mut ids);
+    assert_eq!(ids.len(), REMIXED_CAP);
+    assert_eq!(ids.front().map(String::as_str), Some("3"));
+}
+
+#[test]
+fn learned_state_survives_an_engine_rebuild() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let config = config_in(dir.path());
+    let first = host_for(&config).expect("engine");
+    assert!(Arc::ptr_eq(&first, &host_for(&config).unwrap()));
+    first.mark_remixed("kept".into());
+
+    // A settings change rebuilds the engine but keeps what it learned.
+    let mut changed = config.clone();
+    changed.inference_url = Some("https://openrouter.ai/api/v1".into());
+    let rebuilt = host_for(&changed).expect("engine");
+    assert!(!Arc::ptr_eq(&first, &rebuilt));
+    assert!(rebuilt.is_remixed("kept"));
+}
+
+#[test]
+fn indexes_round_trip_through_disk() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let config = config_in(dir.path());
+    let host = host_for(&config).expect("engine");
+    host.save_index();
+    host.save_memes();
+    let state = dir.path().join("workspace").join(DIR);
+    assert!(state.join(INDEX_FILE).exists());
+    assert!(state.join(MEME_INDEX_FILE).exists());
+    assert_eq!(
+        load_slang_index(&state).to_json(),
+        host.engine.slang_index().to_json()
+    );
+    assert_eq!(
+        load_meme_index(&state).to_json(),
+        host.engine.meme_index().to_json()
+    );
+}
+
+#[test]
+fn unreadable_state_files_start_fresh() {
+    let dir = tempfile::TempDir::new().unwrap();
+    for file in [INDEX_FILE, MEME_INDEX_FILE, REMIXED_FILE] {
+        std::fs::write(dir.path().join(file), "not json").unwrap();
+    }
+    assert_eq!(load_slang_index(dir.path()).len("IN"), 0);
+    assert_eq!(load_meme_index(dir.path()).len("IN"), 0);
+    assert!(load_remixed(dir.path()).is_empty());
+    // Missing files are a fresh start too.
+    let empty = tempfile::TempDir::new().unwrap();
+    assert_eq!(load_slang_index(empty.path()).len("IN"), 0);
+    assert_eq!(load_meme_index(empty.path()).len("IN"), 0);
+}
+
+#[test]
+fn the_meme_cooldown_follows_its_env_override() {
+    if std::env::var(MEME_COOLDOWN_ENV).is_err() {
+        assert_eq!(
+            rating_policy().meme_cooldown_turns,
+            RatingPolicy::default().meme_cooldown_turns
+        );
+    }
+}
+
+#[test]
+fn a_failed_write_leaves_no_temp_file() {
+    let dir = tempfile::TempDir::new().unwrap();
+    // Renaming over a directory fails; the temp file must be cleaned up.
+    let target = dir.path().join("taken");
+    std::fs::create_dir(&target).unwrap();
+    std::fs::write(target.join("child"), "x").unwrap();
+    assert!(write_atomic(&target, "{}").is_err());
+    let leftovers: Vec<_> = std::fs::read_dir(dir.path())
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_name().to_string_lossy().ends_with(".tmp"))
+        .collect();
+    assert!(leftovers.is_empty());
+}

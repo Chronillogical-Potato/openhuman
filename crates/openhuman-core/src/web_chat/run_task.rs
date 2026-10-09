@@ -301,21 +301,16 @@ pub(crate) async fn run_chat_task(
     // original wording, and skips the budget-exhausted placeholder. Fails open.
     #[cfg(feature = "tinymemes")]
     if let Ok(ref mut task_result) = result {
-        let is_placeholder = task_result.full_response == inference_budget_exceeded_user_message();
-        if !is_placeholder && !task_result.full_response.trim().is_empty() {
-            if let Some(remixed) = crate::tinymemes::remix_final_reply(
-                &config,
-                thread_id,
-                request_id,
-                message,
-                &task_result.full_response,
-                turn_started.elapsed(),
-            )
-            .await
-            {
-                task_result.full_response = remixed;
-            }
-        }
+        crate::tinymemes::remix_task_reply(
+            &config,
+            thread_id,
+            request_id,
+            message,
+            &mut task_result.full_response,
+            inference_budget_exceeded_user_message(),
+            turn_started.elapsed(),
+        )
+        .await;
     }
 
     agent.set_on_progress(None);

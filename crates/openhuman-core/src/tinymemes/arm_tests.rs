@@ -54,3 +54,12 @@ fn runtime_flag_overrides_the_build_default() {
         Mode::Ab { percent: 50 }
     );
 }
+
+#[test]
+fn arms_have_log_names() {
+    assert_eq!(Arm::Disabled.as_str(), "disabled");
+    assert_eq!(Arm::Control.as_str(), "control");
+    assert_eq!(Arm::Treatment.as_str(), "treatment");
+    // The live flag resolves without panicking whatever the environment holds.
+    let _ = mode();
+}

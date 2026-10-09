@@ -38,10 +38,47 @@ pub(crate) fn holds_text_stream(thread_id: &str) -> bool {
     arm::assign(arm::mode(), thread_id) == Arm::Treatment
 }
 
+/// Remix a finished task's reply in place, when it is a real answer (not
+/// empty, not the `placeholder` sent when the inference budget ran out) and
+/// the thread is in the treatment arm. Fails open: the reply is left
+/// untouched on any error.
+pub(crate) async fn remix_task_reply(
+    config: &Config,
+    thread_id: &str,
+    request_id: &str,
+    user_message: &str,
+    full_response: &mut String,
+    placeholder: &str,
+    turn_elapsed: Duration,
+) {
+    if !should_remix(full_response, placeholder) {
+        return;
+    }
+    if let Some(remixed) = remix_final_reply(
+        arm::assign(arm::mode(), thread_id),
+        config,
+        thread_id,
+        request_id,
+        user_message,
+        full_response,
+        turn_elapsed,
+    )
+    .await
+    {
+        *full_response = remixed;
+    }
+}
+
+/// Whether a finished reply is worth remixing at all.
+fn should_remix(reply: &str, placeholder: &str) -> bool {
+    reply != placeholder && !reply.trim().is_empty()
+}
+
 /// Remix a finished turn's reply. Returns the text to deliver instead, or
 /// `None` to deliver the original. `turn_elapsed` is the agent turn's own
 /// duration, logged for both arms so throughput can be compared.
-pub(crate) async fn remix_final_reply(
+async fn remix_final_reply(
+    arm: Arm,
     config: &Config,
     thread_id: &str,
     request_id: &str,
@@ -49,74 +86,116 @@ pub(crate) async fn remix_final_reply(
     reply: &str,
     turn_elapsed: Duration,
 ) -> Option<String> {
-    let arm = arm::assign(arm::mode(), thread_id);
-    let bucket = arm::bucket(thread_id);
-    let turn_ms = turn_elapsed.as_millis();
-    match arm {
-        Arm::Disabled => return None,
-        Arm::Control => {
-            log::info!(
-                "[tinymemes] turn arm=control bucket={bucket} request_id={request_id} \
-                 turn_ms={turn_ms} remix_ms=0 outcome=not_remixed"
-            );
-            return None;
-        }
-        Arm::Treatment => {}
+    let turn = TurnInfo {
+        request_id,
+        bucket: arm::bucket(thread_id),
+        turn_ms: turn_elapsed.as_millis(),
+    };
+    if !gate(arm, &turn) {
+        return None;
     }
-
     let started = Instant::now();
-    // Engine lookup (credentials, first-use state files) and the thread read
-    // are blocking file work, so they run off the async runtime.
-    let blocking_config = config.clone();
-    let blocking_thread = thread_id.to_owned();
-    let loaded = crate::core::runtime::spawn_blocking_scoped(move || {
-        let host = host::host_for(&blocking_config)?;
-        let messages = crate::threads::store::get_messages(
-            blocking_config.workspace_dir.clone(),
-            &blocking_thread,
-        )
-        .map_err(|e| log::warn!("[tinymemes] thread history unavailable: {e}"))
-        .ok();
-        Some((host, messages))
-    })
-    .await
-    .ok()
-    .flatten();
-    let Some((host, messages)) = loaded else {
-        log_outcome(
-            request_id,
-            bucket,
-            turn_ms,
-            started,
-            "engine_unavailable",
-            None,
-        );
+    let Some((host, messages)) = load(config, thread_id).await else {
+        log_outcome(&turn, started, "engine_unavailable", None);
         return None;
     };
     // Fail open: without the thread, the reading would judge the reply out of
     // context, so the original goes out instead.
     let Some(messages) = messages else {
-        log_outcome(
-            request_id,
-            bucket,
-            turn_ms,
-            started,
-            "history_unavailable",
-            None,
-        );
+        log_outcome(&turn, started, "history_unavailable", None);
         return None;
     };
-    let turns = host::history_turns(&messages, user_message, |id| host.is_remixed(id));
+    remix_with(
+        &host,
+        &messages,
+        &turn,
+        started,
+        user_message,
+        reply,
+        budget(),
+    )
+    .await
+}
 
-    let budget = std::env::var(TIMEOUT_ENV)
+/// Per-turn identifiers for the A/B log line.
+#[derive(Clone, Copy)]
+struct TurnInfo<'a> {
+    request_id: &'a str,
+    bucket: u8,
+    turn_ms: u128,
+}
+
+/// Whether the arm runs the remix. The control arm logs its turn for the
+/// throughput comparison; a disabled flag does nothing at all.
+fn gate(arm: Arm, turn: &TurnInfo<'_>) -> bool {
+    match arm {
+        Arm::Disabled => false,
+        Arm::Control => {
+            log::info!(
+                "[tinymemes] turn arm={} bucket={} request_id={} turn_ms={} remix_ms=0 \
+                 outcome=not_remixed",
+                arm.as_str(),
+                turn.bucket,
+                turn.request_id,
+                turn.turn_ms
+            );
+            false
+        }
+        Arm::Treatment => true,
+    }
+}
+
+/// The workspace's engine and the thread as stored. Engine lookup
+/// (credentials, first-use state files) and the thread read are blocking file
+/// work, so they run off the async runtime. `None` when no engine can be
+/// built; the inner `None` when the thread cannot be read.
+async fn load(
+    config: &Config,
+    thread_id: &str,
+) -> Option<(
+    std::sync::Arc<host::Host>,
+    Option<Vec<crate::threads::store::ConversationMessage>>,
+)> {
+    let config = config.clone();
+    let thread_id = thread_id.to_owned();
+    crate::core::runtime::spawn_blocking_scoped(move || {
+        let host = host::host_for(&config)?;
+        let messages =
+            crate::threads::store::get_messages(config.workspace_dir.clone(), &thread_id)
+                .map_err(|e| log::warn!("[tinymemes] thread history unavailable: {e}"))
+                .ok();
+        Some((host, messages))
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+/// The remix time budget: `OPENHUMAN_TINYMEMES_TIMEOUT_MS`, else 20 s.
+fn budget() -> Duration {
+    std::env::var(TIMEOUT_ENV)
         .ok()
         .and_then(|v| v.parse::<u64>().ok())
         .map(Duration::from_millis)
-        .unwrap_or(DEFAULT_TIMEOUT);
+        .unwrap_or(DEFAULT_TIMEOUT)
+}
+
+/// Read, rate, and remix `reply` against the thread, within `budget`.
+async fn remix_with(
+    host: &std::sync::Arc<host::Host>,
+    messages: &[crate::threads::store::ConversationMessage],
+    turn: &TurnInfo<'_>,
+    started: Instant,
+    user_message: &str,
+    reply: &str,
+    budget: Duration,
+) -> Option<String> {
+    let request_id = turn.request_id;
+    let turns = host::history_turns(messages, user_message, |id| host.is_remixed(id));
     let outcome = match tokio::time::timeout(budget, host.engine.process(&turns, reply)).await {
         Ok(outcome) => outcome,
         Err(_) => {
-            log_outcome(request_id, bucket, turn_ms, started, "timeout", None);
+            log_outcome(turn, started, "timeout", None);
             return None;
         }
     };
@@ -196,23 +275,38 @@ pub(crate) async fn remix_final_reply(
     } else {
         "unchanged"
     };
-    log_outcome(request_id, bucket, turn_ms, started, result, Some(&outcome));
+    log_outcome(turn, started, result, Some(&outcome));
     remixed.then_some(outcome.reply)
 }
 
 fn log_outcome(
-    request_id: &str,
-    bucket: u8,
-    turn_ms: u128,
+    turn: &TurnInfo<'_>,
     started: Instant,
     result: &str,
     outcome: Option<&tinymemes::Outcome>,
 ) {
-    let remix_ms = started.elapsed().as_millis();
+    log::info!(
+        "{}",
+        turn_line(turn, started.elapsed().as_millis(), result, outcome)
+    );
+}
+
+/// The treatment arm's per-turn log line. No user content goes in it.
+fn turn_line(
+    turn: &TurnInfo<'_>,
+    remix_ms: u128,
+    result: &str,
+    outcome: Option<&tinymemes::Outcome>,
+) -> String {
+    let TurnInfo {
+        request_id,
+        bucket,
+        turn_ms,
+    } = *turn;
     let rating = outcome.and_then(|o| o.rating);
     let remix = outcome.and_then(|o| o.remix.as_ref());
     let reading = outcome.and_then(|o| o.reading.as_ref());
-    log::info!(
+    format!(
         "[tinymemes] turn arm=treatment bucket={bucket} request_id={request_id} turn_ms={turn_ms} \
          remix_ms={remix_ms} outcome={result} score={} tier={} mode={} memes={} rewrite_kept={} \
          dupes={} slang_enough={} wants_search={} meme_pick={} meme_p={} matches={}",
@@ -251,5 +345,9 @@ fn log_outcome(
         reading
             .and_then(|r| r.reply_matches_user)
             .map_or_else(|| "none".to_owned(), |p| format!("{p:.2}")),
-    );
+    )
 }
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod tests;

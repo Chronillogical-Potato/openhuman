@@ -199,12 +199,7 @@ pub(crate) fn host_for(config: &Config) -> Option<Arc<Host>> {
         engine.slang_index().len("IN"),
         engine.meme_index().len("IN")
     );
-    let host = Arc::new(Host {
-        engine,
-        dir,
-        remixed: Mutex::new(remixed),
-        fingerprint: fp,
-    });
+    let host = Arc::new(Host::new(engine, dir, remixed, fp));
     hosts.insert(workspace_dir.to_path_buf(), host.clone());
     Some(host)
 }
@@ -284,6 +279,21 @@ fn rating_policy() -> RatingPolicy {
 }
 
 impl Host {
+    /// A host over `engine`, keeping its state files in `dir`.
+    pub(crate) fn new(
+        engine: MemeEngine,
+        dir: PathBuf,
+        remixed: VecDeque<String>,
+        fingerprint: u64,
+    ) -> Self {
+        Self {
+            engine,
+            dir,
+            remixed: Mutex::new(remixed),
+            fingerprint,
+        }
+    }
+
     pub(crate) fn is_remixed(&self, message_id: &str) -> bool {
         self.remixed
             .lock()
