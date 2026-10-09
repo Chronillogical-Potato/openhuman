@@ -100,5 +100,6 @@ mod tests;
 
 #[allow(unused_imports)]
 pub use session_host::{
-    HostTools, HostTurnTools, OpenHumanSessionHost, SessionHostBuilder, TurnContext, TurnOverrides,
+    HostOnlyToolPolicy, HostTools, HostTurnTools, OpenHumanSessionHost, SessionHostBuilder,
+    TurnContext, TurnOverrides,
 };

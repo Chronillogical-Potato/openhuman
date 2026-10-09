@@ -1,8 +1,8 @@
 use super::*;
-use openhuman_core::core::observability::{
+use openhuman_embed::__host::core::observability::{
     expected_error_kind, is_api_key_rejected_message, is_session_expired_message,
 };
-use openhuman_core::security::credentials::{AuthService, APP_SESSION_PROVIDER};
+use openhuman_embed::__host::security::credentials::{AuthService, APP_SESSION_PROVIDER};
 use serde_json::json;
 use tempfile::TempDir;
 use wiremock::matchers::{header, method, path};
@@ -137,7 +137,7 @@ fn offline_local_session_fails_before_any_request() {
         .expect("local refuses");
     assert_eq!(
         err,
-        openhuman_core::security::credentials::session_support::LOCAL_SESSION_BACKEND_UNAVAILABLE
+        openhuman_embed::__host::security::credentials::session_support::LOCAL_SESSION_BACKEND_UNAVAILABLE
     );
     assert!(expected_error_kind(&err).is_some());
 }

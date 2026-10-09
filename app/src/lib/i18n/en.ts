@@ -327,7 +327,6 @@ const en: TranslationMap = {
   'welcome.th.featureMemory': 'Memory',
   'welcome.th.featureEmbeddings': 'Embeddings',
   'welcome.th.featureBilling': 'Billing',
-  'welcome.th.credit': '$5 of credit to start',
   'welcome.th.cta': 'Continue with TinyHumans',
   'welcome.th.providers': 'Sign in with Google, GitHub or X',
   'welcome.self.title': 'Set it up myself',
@@ -4696,6 +4695,32 @@ const en: TranslationMap = {
   'skills.detail.author': 'Author',
   'skills.detail.license': 'License',
   'skills.detail.description': 'Description',
+  'skills.detail.overview': 'Overview',
+  'skills.registry.firstFetchHint': 'Loading the skill catalog. The first fetch can take a minute.',
+  'skills.registry.refreshing': 'Showing the saved catalog while a fresh copy loads.',
+  'skills.registry.offline': 'Offline: showing the saved catalog from {time}.',
+  'skills.registry.offlineNoTime': 'Offline: showing the saved catalog.',
+  'skills.registry.unreachable':
+    'Could not reach the skill registry. Check your connection and try again.',
+  'skills.registry.rateLimited': 'The skill registry is busy. Try again in {seconds}s.',
+  'skills.registry.rateLimitedShortly': 'The skill registry is busy. Try again shortly.',
+  'skills.registry.viewSource': 'View source',
+  'skills.registry.noDirectDownload':
+    'This entry has no SKILL.md to download. Open its source page to install it another way.',
+  'skills.registry.upstreamAmbiguous':
+    'More than one author publishes a skill with this name and the catalog does not say which one this is, so it cannot be installed automatically.',
+  'skills.scan.title': 'Security scan blocked this skill',
+  'skills.scan.description':
+    'OpenHuman downloaded and scanned {name} twice, and the security scan blocked it both times. It has not been installed.',
+  'skills.scan.findingsLabel': 'What the scan found',
+  'skills.scan.warning':
+    'Install it only if you trust where it came from. Blocking is the safe choice.',
+  'skills.scan.block': 'Block install',
+  'skills.scan.installAnyway': 'Install anyway',
+  'skills.scan.verdictBlock': 'Blocked',
+  'skills.scan.verdictWarn': 'Warning',
+  'skills.scan.declinedTitle': 'Install blocked',
+  'skills.scan.declinedHint': 'The skill was not installed because the security scan blocked it.',
   'skills.run.title': 'Workflow',
   'skills.detail.source': 'Source URL',
   'skills.detail.tags': 'Tags',
@@ -5322,6 +5347,17 @@ const en: TranslationMap = {
   'memoryPage.off.title': 'Memory is off',
   'memoryPage.off.description': 'Pick a memory provider to start remembering.',
   'memoryPage.off.action': 'Choose a provider',
+  'memoryPage.disabled.title': 'Memory is disabled',
+  'memoryPage.disabled.description':
+    "OpenHuman isn't storing or recalling anything. Choose a provider to turn memory back on.",
+  'memoryPage.engine.disabled.title': 'Disabled',
+  'memoryPage.engine.disabled.description':
+    'Turn memory off completely. Nothing is stored or recalled, and your connections are kept for later.',
+  'memoryPage.engine.disabled.action': 'Disable memory',
+  'memoryPage.engine.disabled.banner':
+    'Nothing is being stored or recalled. Pick a provider below to turn memory back on.',
+  'memoryPage.engine.disabled.toast': 'Memory disabled',
+  'memoryPage.engine.disabled.toastFailed': "Couldn't disable memory",
   'memoryPage.engine.inUse': 'In use',
   'memoryPage.announcement.title': 'Free Memory Inference on CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex was retired on Oct 7.',

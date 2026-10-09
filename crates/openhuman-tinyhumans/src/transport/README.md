@@ -84,7 +84,7 @@ The core recovers from the two differently (`BackendApiError` variants in
 - `SdkBackendTransport::new()` builds the transport; it fails only when a
   `reqwest::Client` cannot be built.
 - `SdkBackendTransport::shared()` returns it as `Arc<dyn BackendTransport>`,
-  ready for `openhuman_core::backend::install_backend_transport`.
+  ready for `openhuman_embed::__host::backend::install_backend_transport`.
 - `map_sdk_error` is public (re-exported at the crate root) for code that
   calls the SDK and needs the same translation.
 

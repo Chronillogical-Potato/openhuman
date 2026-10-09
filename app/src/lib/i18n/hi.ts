@@ -452,7 +452,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'मेमोरी',
   'welcome.th.featureEmbeddings': 'एम्बेडिंग',
   'welcome.th.featureBilling': 'बिलिंग',
-  'welcome.th.credit': 'शुरुआत के लिए $5 का क्रेडिट',
   'welcome.th.cta': 'TinyHumans के साथ जारी रखें',
   'welcome.th.providers': 'Google, GitHub या X से साइन इन करें',
   'welcome.self.title': 'मैं खुद सेट अप करूँगा',
@@ -4035,6 +4034,33 @@ const messages: TranslationMap = {
   'skills.detail.author': 'लेखक',
   'skills.detail.license': 'लाइसेंस',
   'skills.detail.description': 'विवरण',
+  'skills.detail.overview': 'सारांश',
+  'skills.registry.firstFetchHint':
+    'स्किल कैटलॉग लोड हो रहा है। पहली बार लाने में एक मिनट लग सकता है।',
+  'skills.registry.refreshing': 'नई कॉपी लोड होने तक सहेजा गया कैटलॉग दिखाया जा रहा है।',
+  'skills.registry.offline': 'ऑफ़लाइन: {time} का सहेजा गया कैटलॉग दिखाया जा रहा है।',
+  'skills.registry.offlineNoTime': 'ऑफ़लाइन: सहेजा गया कैटलॉग दिखाया जा रहा है।',
+  'skills.registry.unreachable':
+    'स्किल रजिस्ट्री तक नहीं पहुँच सके। अपना कनेक्शन जाँचें और फिर कोशिश करें।',
+  'skills.registry.rateLimited': 'स्किल रजिस्ट्री व्यस्त है। {seconds} सेकंड बाद फिर कोशिश करें।',
+  'skills.registry.rateLimitedShortly': 'स्किल रजिस्ट्री व्यस्त है। थोड़ी देर में फिर कोशिश करें।',
+  'skills.registry.viewSource': 'स्रोत देखें',
+  'skills.registry.noDirectDownload':
+    'इस प्रविष्टि में डाउनलोड करने के लिए कोई SKILL.md नहीं है। इसे दूसरे तरीके से इंस्टॉल करने के लिए इसका स्रोत पेज खोलें।',
+  'skills.registry.upstreamAmbiguous':
+    'इस नाम से एक से ज़्यादा लेखक स्किल प्रकाशित करते हैं और कैटलॉग यह नहीं बताता कि यह कौन-सी है, इसलिए इसे अपने आप इंस्टॉल नहीं किया जा सकता।',
+  'skills.scan.title': 'सुरक्षा स्कैन ने इस स्किल को ब्लॉक कर दिया',
+  'skills.scan.description':
+    'OpenHuman ने {name} को दो बार डाउनलोड और स्कैन किया, और दोनों बार सुरक्षा स्कैन ने इसे ब्लॉक किया। इसे इंस्टॉल नहीं किया गया है।',
+  'skills.scan.findingsLabel': 'स्कैन को क्या मिला',
+  'skills.scan.warning':
+    'इसे तभी इंस्टॉल करें जब आपको इसके स्रोत पर भरोसा हो। ब्लॉक करना सुरक्षित विकल्प है।',
+  'skills.scan.block': 'इंस्टॉल ब्लॉक करें',
+  'skills.scan.installAnyway': 'फिर भी इंस्टॉल करें',
+  'skills.scan.verdictBlock': 'ब्लॉक किया गया',
+  'skills.scan.verdictWarn': 'चेतावनी',
+  'skills.scan.declinedTitle': 'इंस्टॉल ब्लॉक किया गया',
+  'skills.scan.declinedHint': 'सुरक्षा स्कैन ने इसे ब्लॉक किया, इसलिए स्किल इंस्टॉल नहीं हुई।',
   'skills.detail.source': 'स्रोत URL',
   'skills.detail.tags': 'टैग्स',
   'skills.detail.version': 'संस्करण',
@@ -5043,6 +5069,17 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'मेमोरी बंद है',
   'memoryPage.off.description': 'याद रखना शुरू करने के लिए एक मेमोरी प्रदाता चुनें।',
   'memoryPage.off.action': 'प्रदाता चुनें',
+  'memoryPage.disabled.title': 'मेमोरी अक्षम है',
+  'memoryPage.disabled.description':
+    'OpenHuman कुछ भी सहेज या याद नहीं कर रहा है। मेमोरी फिर से चालू करने के लिए कोई प्रदाता चुनें।',
+  'memoryPage.engine.disabled.title': 'अक्षम',
+  'memoryPage.engine.disabled.description':
+    'मेमोरी पूरी तरह बंद करें। कुछ भी सहेजा या याद नहीं किया जाता, और आपके कनेक्शन बने रहते हैं।',
+  'memoryPage.engine.disabled.action': 'मेमोरी अक्षम करें',
+  'memoryPage.engine.disabled.banner':
+    'कुछ भी सहेजा या याद नहीं किया जा रहा है। मेमोरी फिर से चालू करने के लिए नीचे कोई प्रदाता चुनें।',
+  'memoryPage.engine.disabled.toast': 'मेमोरी अक्षम की गई',
+  'memoryPage.engine.disabled.toastFailed': 'मेमोरी अक्षम नहीं की जा सकी',
   'memoryPage.engine.inUse': 'इस्तेमाल में',
   'memoryPage.announcement.title': 'CortexDB पर मुफ़्त मेमोरी इन्फ़रेंस',
   'memoryPage.announcement.retired': 'TinyCortex 7 अक्टूबर को बंद हुआ।',

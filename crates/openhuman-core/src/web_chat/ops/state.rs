@@ -39,6 +39,20 @@ pub(crate) fn key_for(thread_id: &str) -> String {
     scoped_key(agent.as_deref(), thread_id)
 }
 
+/// `key` with the calling scope's agent prefix removed: the id the caller
+/// chose, for handing back to it.
+pub(crate) fn unscope(key: &str) -> String {
+    let agent = crate::core::runtime::CoreContext::current()
+        .and_then(|context| context.session_agent().map(str::to_owned));
+    match agent {
+        Some(agent) => key
+            .strip_prefix(&scoped_key(Some(&agent), ""))
+            .unwrap_or(key)
+            .to_string(),
+        None => key.to_string(),
+    }
+}
+
 /// Injective encoding of `(session_agent, thread_id)`. Both parts are caller
 /// controlled, so a plain `agent::thread` join would let `("a", "b::c")` and
 /// `("a::b", "c")` (or an unscoped `"a::b"`) share one slot. A scoped key is

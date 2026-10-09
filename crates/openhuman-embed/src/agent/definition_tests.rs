@@ -36,6 +36,48 @@ fn setters_override_one_aspect_each() {
 }
 
 #[test]
+fn bare_prompt_is_verbatim_with_nothing_composed_around_it() {
+    let def = AgentDefinitionSpec::new()
+        .bare_prompt("Review.")
+        .into_core("alpha")
+        .expect("definition");
+    assert!(matches!(def.system_prompt, PromptSource::Verbatim(ref p) if p == "Review."));
+    assert!(def.omit_identity && def.omit_safety_preamble && def.omit_memory_context);
+}
+
+#[test]
+fn system_prompt_after_bare_prompt_is_wrapped_again() {
+    let def = AgentDefinitionSpec::new()
+        .bare_prompt("Review.")
+        .system_prompt("Be terse.")
+        .into_core("alpha")
+        .expect("definition");
+    assert!(matches!(def.system_prompt, PromptSource::Inline(ref p) if p == "Be terse."));
+}
+
+#[test]
+fn host_only_is_an_empty_read_only_belt_that_cannot_delegate() {
+    let def = AgentDefinitionSpec::new()
+        .bare_prompt("Review.")
+        .tools(ToolScopeSpec::HostOnly)
+        .sandbox(SandboxModeSpec::None)
+        .into_core("alpha")
+        .expect("definition");
+    assert!(matches!(def.tools, ToolScope::Named(ref names) if names.is_empty()));
+    assert_eq!(def.sandbox_mode, SandboxMode::ReadOnly);
+    assert!(def.subagents.is_empty());
+}
+
+#[test]
+fn host_only_without_a_prompt_is_refused() {
+    let err = AgentDefinitionSpec::new()
+        .tools(ToolScopeSpec::HostOnly)
+        .into_core("alpha")
+        .expect_err("the orchestrator prompt does not describe a host-only agent");
+    assert!(matches!(err, AgentError::Invalid(_)));
+}
+
+#[test]
 fn tool_rules_reach_the_core_definition() {
     let rules = tinytools::ToolRules::from_allow_deny(Vec::<String>::new(), ["mcp_*"]);
     let def = AgentDefinitionSpec::new()

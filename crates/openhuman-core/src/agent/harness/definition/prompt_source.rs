@@ -30,6 +30,11 @@ pub enum PromptSource {
     /// deserializable from TOML — TOML-authored agents must use `inline`
     /// or `file`.
     Dynamic(PromptBuilder),
+    /// The whole system prompt, verbatim: no identity, safety, tools,
+    /// workspace or memory section is composed around it. For a library host
+    /// that owns its prompt outright (`AgentDefinitionSpec::bare_prompt` in
+    /// `openhuman-embed`).
+    Verbatim(String),
 }
 
 impl std::fmt::Debug for PromptSource {
@@ -38,6 +43,7 @@ impl std::fmt::Debug for PromptSource {
             PromptSource::Inline(s) => f.debug_tuple("Inline").field(&s).finish(),
             PromptSource::File { path } => f.debug_struct("File").field("path", path).finish(),
             PromptSource::Dynamic(_) => f.debug_tuple("Dynamic").field(&"<fn>").finish(),
+            PromptSource::Verbatim(s) => f.debug_tuple("Verbatim").field(&s).finish(),
         }
     }
 }
@@ -59,6 +65,7 @@ impl Serialize for PromptSource {
             // there) which is intentional: RPC consumers treat Dynamic
             // sources as "built-in, runtime-generated".
             PromptSource::Dynamic(_) => map.serialize_entry("dynamic", &serde_json::Value::Null)?,
+            PromptSource::Verbatim(s) => map.serialize_entry("verbatim", s)?,
         }
         map.end()
     }
@@ -71,10 +78,12 @@ impl<'de> Deserialize<'de> for PromptSource {
         enum Shape {
             Inline(String),
             File { path: String },
+            Verbatim(String),
         }
         Shape::deserialize(deserializer).map(|s| match s {
             Shape::Inline(body) => PromptSource::Inline(body),
             Shape::File { path } => PromptSource::File { path },
+            Shape::Verbatim(body) => PromptSource::Verbatim(body),
         })
     }
 }

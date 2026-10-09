@@ -4,43 +4,51 @@
 //! every request it:
 //!
 //! 1. answers `404` for routes a SaaS core never serves — the OpenAI-compatible
-//!    `/v1`, every `/events` stream, the WebSockets, `/dev/connect` and the MCP
-//!    OAuth callback;
+//!    `/v1`, the `/events/*` debug streams, the WebSockets, `/dev/connect` and
+//!    the MCP OAuth callback — and for the `/events` chat stream outside a
+//!    user's scope;
 //! 2. with no `X-OpenHuman-User`, runs it on the operator plane (the bearer
 //!    check downstream still applies);
 //! 3. with one, checks the service bearer **first** — so an unauthenticated
 //!    caller learns nothing about which users exist and cannot open agents —
 //!    then the signature, then runs the request under that user's agent.
 //!
-//! The decision itself lives in `openhuman_core::user_agents::gateway`.
+//! The decision itself lives in `crate::core_host::user_agents::gateway`.
 
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::core_host::core::runtime::CoreContext;
+use crate::core_host::user_agents::gateway::{
+    resolve_scope, GatewayScope, USER_HEADER, USER_SIG_HEADER,
+};
 use axum::extract::Request;
 use axum::http::{header, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
-use openhuman_core::core::runtime::CoreContext;
-use openhuman_core::user_agents::gateway::{
-    resolve_scope, GatewayScope, USER_HEADER, USER_SIG_HEADER,
-};
 
 /// Route prefixes a SaaS core never serves.
 pub(crate) const CLOSED_IN_SAAS: &[&str] = &[
     "/v1",
-    "/events",
+    "/events/",
     "/ws/",
     "/socket.io",
     "/dev/connect",
     "/oauth/",
 ];
 
+/// A prefix ending in `/` closes only what lies beneath it; any other prefix
+/// closes the path itself and everything beneath it.
 pub(crate) fn is_closed_in_saas(path: &str) -> bool {
     CLOSED_IN_SAAS.iter().any(|prefix| {
-        path == prefix.trim_end_matches('/')
-            || path.starts_with(prefix)
-                && (prefix.ends_with('/') || path[prefix.len()..].starts_with('/'))
+        if prefix.ends_with('/') {
+            path.starts_with(prefix)
+        } else {
+            path == *prefix
+                || path
+                    .strip_prefix(prefix)
+                    .is_some_and(|rest| rest.starts_with('/'))
+        }
     })
 }
 
@@ -72,6 +80,10 @@ pub(crate) async fn saas_gateway(operator: Arc<CoreContext>, req: Request, next:
     // signature check.
     let mut user_headers = req.headers().get_all(USER_HEADER).iter();
     let Some(first) = user_headers.next() else {
+        // The chat event stream is a user's; the operator has none.
+        if path == "/events" {
+            return refuse(404, "not found");
+        }
         return CoreContext::scope(operator, next.run(req)).await;
     };
     if user_headers.next().is_some() {
@@ -83,10 +95,10 @@ pub(crate) async fn saas_gateway(operator: Arc<CoreContext>, req: Request, next:
         return refuse(400, "unreadable user header");
     };
 
-    let Some(secret) = openhuman_core::core::auth::get_rpc_token() else {
+    let Some(secret) = crate::core_host::core::auth::get_rpc_token() else {
         return refuse(503, "the core is not ready");
     };
-    if !bearer(&req).is_some_and(openhuman_core::core::auth::verify_bearer_token) {
+    if !bearer(&req).is_some_and(crate::core_host::core::auth::verify_bearer_token) {
         return refuse(401, "unauthorized");
     }
     let signature = header_str(&req, USER_SIG_HEADER).map(str::to_owned);

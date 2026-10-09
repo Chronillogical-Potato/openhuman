@@ -158,6 +158,19 @@ pub enum AgentChatTarget<'a> {
         /// badly still spent what it spent, and a host that meters only
         /// successes bills nothing for the ones that cost most.
         usage: Option<&'a std::sync::Mutex<Option<crate::agent::tinyagents::host::LastTurnUsage>>>,
+        /// Build the session from `host` alone: no config-derived, delegation,
+        /// memory, skill or MCP tool, and a deny-by-default gate for any other
+        /// name. See [`OpenHumanSessionHost::from_config_host_only`].
+        host_only: bool,
+        /// Skip the prompt-injection guard: the message is untrusted data (a
+        /// PR diff) the agent reads, not an instruction. Refused unless
+        /// `host_only`, whose agent has nothing it could be talked into doing.
+        untrusted_input: bool,
+        /// A response format and output cap for every model call of the turn,
+        /// and the slot its final call is reported into.
+        shape: Option<
+            &'a std::sync::Arc<crate::agent::tinyagents::response_shape::ResponseShapeScope>,
+        >,
     },
 }
 
@@ -174,12 +187,18 @@ impl std::fmt::Debug for AgentChatTarget<'_> {
                 host,
                 seed,
                 usage,
+                host_only,
+                untrusted_input,
+                shape,
             } => f
                 .debug_struct("Definition")
                 .field("definition", &definition.id)
                 .field("host_tools", &host.is_some())
                 .field("seed_rows", &seed.map_or(0, <[(String, String)]>::len))
                 .field("meters", &usage.is_some())
+                .field("host_only", host_only)
+                .field("untrusted_input", untrusted_input)
+                .field("shaped", &shape.is_some())
                 .finish(),
         }
     }
@@ -196,6 +215,12 @@ fn build_turn_agent(
             log::debug!("[inference] agent_chat building agent_id={id}");
             OpenHumanSessionHost::from_config_for_agent(config, id)
         }
+        AgentChatTarget::Definition {
+            definition,
+            host,
+            host_only: true,
+            ..
+        } => OpenHumanSessionHost::from_config_host_only(config, definition, *host, session_id),
         AgentChatTarget::Definition {
             definition, host, ..
         } => match host {
@@ -286,7 +311,21 @@ pub async fn agent_chat_reply_for(
     cwd: Option<String>,
     route: Option<crate::config::schema::EphemeralRoute>,
 ) -> Result<AgentChatReply, String> {
-    enforce_user_prompt_or_reject(message, "local_ai.ops.agent_chat")?;
+    match target {
+        AgentChatTarget::Definition {
+            untrusted_input: true,
+            host_only,
+            ..
+        } => {
+            if !host_only {
+                return Err("untrusted_input is only allowed on a host-only agent".to_string());
+            }
+            log::debug!(
+                "[inference] agent_chat untrusted input on a host-only agent; guard skipped"
+            );
+        }
+        _ => enforce_user_prompt_or_reject(message, "local_ai.ops.agent_chat")?,
+    }
 
     // TAURI-RUST-RS: an upstream caller (frontend, JSON-RPC client) can pass
     // `model_override: Some("")`. See `normalize_model_override` for the
@@ -352,6 +391,13 @@ pub async fn agent_chat_reply_for(
         agent.set_thread_id(Some(id));
         log::debug!("[inference] agent_chat bound session for thread_id={id}");
     }
+    if let AgentChatTarget::Definition {
+        untrusted_input: true,
+        ..
+    } = target
+    {
+        agent.set_untrusted_input(true).map_err(|e| e.to_string())?;
+    }
     // A seeded turn replaces resume rather than adding to it.
     //
     // The three calls are one operation and the order is load-bearing:
@@ -412,7 +458,23 @@ pub async fn agent_chat_reply_for(
         effective_agent_chat_origin(),
         agent.run_single(message),
     );
-    let outcome = run.await;
+    let run: futures::future::BoxFuture<'_, _> = match target {
+        AgentChatTarget::Definition {
+            untrusted_input: true,
+            ..
+        } => Box::pin(crate::agent::tinyagents::host::with_untrusted_input_turn(
+            run,
+        )),
+        _ => Box::pin(run),
+    };
+    let outcome = match target {
+        AgentChatTarget::Definition {
+            shape: Some(scope), ..
+        } => {
+            crate::agent::tinyagents::response_shape::with_response_shape(scope.clone(), run).await
+        }
+        _ => run.await,
+    };
     // Before the `?`. A turn that failed still spent what it spent, and the
     // session that counted it is about to go out of scope with the error.
     if let AgentChatTarget::Definition {

@@ -456,7 +456,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'Память',
   'welcome.th.featureEmbeddings': 'Эмбеддинги',
   'welcome.th.featureBilling': 'Оплата',
-  'welcome.th.credit': '5 $ кредита для начала',
   'welcome.th.cta': 'Продолжить с TinyHumans',
   'welcome.th.providers': 'Войдите через Google, GitHub или X',
   'welcome.self.title': 'Настрою сам',
@@ -4072,6 +4071,34 @@ const messages: TranslationMap = {
   'skills.detail.author': 'Автор',
   'skills.detail.license': 'Лицензия',
   'skills.detail.description': 'Описание',
+  'skills.detail.overview': 'Обзор',
+  'skills.registry.firstFetchHint':
+    'Загрузка каталога навыков. Первая загрузка может занять минуту.',
+  'skills.registry.refreshing': 'Показан сохранённый каталог, пока загружается свежая копия.',
+  'skills.registry.offline': 'Нет связи: показан сохранённый каталог от {time}.',
+  'skills.registry.offlineNoTime': 'Нет связи: показан сохранённый каталог.',
+  'skills.registry.unreachable':
+    'Не удалось связаться с реестром навыков. Проверьте подключение и попробуйте снова.',
+  'skills.registry.rateLimited': 'Реестр навыков перегружен. Повторите через {seconds} с.',
+  'skills.registry.rateLimitedShortly': 'Реестр навыков перегружен. Повторите чуть позже.',
+  'skills.registry.viewSource': 'Открыть источник',
+  'skills.registry.noDirectDownload':
+    'У этой записи нет SKILL.md для загрузки. Откройте страницу источника, чтобы установить её другим способом.',
+  'skills.registry.upstreamAmbiguous':
+    'Навык с таким названием публикуют несколько авторов, а каталог не уточняет, какой из них имеется в виду, поэтому его нельзя установить автоматически.',
+  'skills.scan.title': 'Проверка безопасности заблокировала этот навык',
+  'skills.scan.description':
+    'OpenHuman дважды загрузил и проверил {name}, и проверка безопасности оба раза его заблокировала. Навык не установлен.',
+  'skills.scan.findingsLabel': 'Что нашла проверка',
+  'skills.scan.warning':
+    'Устанавливайте его, только если доверяете источнику. Безопаснее всего заблокировать установку.',
+  'skills.scan.block': 'Заблокировать установку',
+  'skills.scan.installAnyway': 'Всё равно установить',
+  'skills.scan.verdictBlock': 'Заблокировано',
+  'skills.scan.verdictWarn': 'Предупреждение',
+  'skills.scan.declinedTitle': 'Установка заблокирована',
+  'skills.scan.declinedHint':
+    'Навык не установлен, потому что его заблокировала проверка безопасности.',
   'skills.detail.source': 'URL источника',
   'skills.detail.tags': 'Теги',
   'skills.detail.version': 'Версия',
@@ -5095,6 +5122,17 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'Память выключена',
   'memoryPage.off.description': 'Выберите провайдера памяти, чтобы начать запоминать.',
   'memoryPage.off.action': 'Выбрать провайдера',
+  'memoryPage.disabled.title': 'Память отключена',
+  'memoryPage.disabled.description':
+    'OpenHuman ничего не сохраняет и не вспоминает. Выберите провайдера, чтобы снова включить память.',
+  'memoryPage.engine.disabled.title': 'Отключена',
+  'memoryPage.engine.disabled.description':
+    'Полностью отключите память. Ничего не сохраняется и не вспоминается, а ваши подключения сохраняются.',
+  'memoryPage.engine.disabled.action': 'Отключить память',
+  'memoryPage.engine.disabled.banner':
+    'Ничего не сохраняется и не вспоминается. Выберите провайдера ниже, чтобы снова включить память.',
+  'memoryPage.engine.disabled.toast': 'Память отключена',
+  'memoryPage.engine.disabled.toastFailed': 'Не удалось отключить память',
   'memoryPage.engine.inUse': 'Используется',
   'memoryPage.announcement.title': 'Бесплатный инференс памяти в CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex выведен из работы 7 окт.',

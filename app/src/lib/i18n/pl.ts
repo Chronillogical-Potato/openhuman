@@ -458,7 +458,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'Pamięć',
   'welcome.th.featureEmbeddings': 'Embeddingi',
   'welcome.th.featureBilling': 'Rozliczenia',
-  'welcome.th.credit': '5 $ kredytu na start',
   'welcome.th.cta': 'Kontynuuj z TinyHumans',
   'welcome.th.providers': 'Zaloguj się przez Google, GitHub lub X',
   'welcome.self.title': 'Skonfiguruję to sam',
@@ -4083,6 +4082,36 @@ const messages: TranslationMap = {
   'skills.detail.author': 'Autor',
   'skills.detail.license': 'Licencja',
   'skills.detail.description': 'Opis',
+  'skills.detail.overview': 'Przegląd',
+  'skills.registry.firstFetchHint':
+    'Wczytywanie katalogu umiejętności. Pierwsze pobranie może potrwać minutę.',
+  'skills.registry.refreshing': 'Wyświetlany jest zapisany katalog, gdy wczytuje się świeża kopia.',
+  'skills.registry.offline': 'Offline: wyświetlany jest zapisany katalog z {time}.',
+  'skills.registry.offlineNoTime': 'Offline: wyświetlany jest zapisany katalog.',
+  'skills.registry.unreachable':
+    'Nie udało się połączyć z rejestrem umiejętności. Sprawdź połączenie i spróbuj ponownie.',
+  'skills.registry.rateLimited':
+    'Rejestr umiejętności jest przeciążony. Spróbuj ponownie za {seconds} s.',
+  'skills.registry.rateLimitedShortly':
+    'Rejestr umiejętności jest przeciążony. Spróbuj ponownie za chwilę.',
+  'skills.registry.viewSource': 'Zobacz źródło',
+  'skills.registry.noDirectDownload':
+    'Ten wpis nie ma pliku SKILL.md do pobrania. Otwórz jego stronę źródłową, aby zainstalować go w inny sposób.',
+  'skills.registry.upstreamAmbiguous':
+    'Kilku autorów publikuje umiejętność o tej nazwie, a katalog nie wskazuje, o którą chodzi, więc nie można jej zainstalować automatycznie.',
+  'skills.scan.title': 'Skan bezpieczeństwa zablokował tę umiejętność',
+  'skills.scan.description':
+    'OpenHuman dwukrotnie pobrał i przeskanował {name}, a skan bezpieczeństwa za każdym razem ją zablokował. Nie została zainstalowana.',
+  'skills.scan.findingsLabel': 'Co znalazł skan',
+  'skills.scan.warning':
+    'Instaluj tylko wtedy, gdy ufasz źródłu. Zablokowanie to bezpieczny wybór.',
+  'skills.scan.block': 'Zablokuj instalację',
+  'skills.scan.installAnyway': 'Zainstaluj mimo to',
+  'skills.scan.verdictBlock': 'Zablokowane',
+  'skills.scan.verdictWarn': 'Ostrzeżenie',
+  'skills.scan.declinedTitle': 'Instalacja zablokowana',
+  'skills.scan.declinedHint':
+    'Umiejętność nie została zainstalowana, ponieważ zablokował ją skan bezpieczeństwa.',
   'skills.detail.source': 'URL źródła',
   'skills.detail.tags': 'Tagi',
   'skills.detail.version': 'Wersja',
@@ -5110,6 +5139,17 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'Pamięć jest wyłączona',
   'memoryPage.off.description': 'Wybierz dostawcę pamięci, aby zacząć zapamiętywać.',
   'memoryPage.off.action': 'Wybierz dostawcę',
+  'memoryPage.disabled.title': 'Pamięć jest wyłączona',
+  'memoryPage.disabled.description':
+    'OpenHuman niczego nie zapisuje ani nie przywołuje. Wybierz dostawcę, aby ponownie włączyć pamięć.',
+  'memoryPage.engine.disabled.title': 'Wyłączona',
+  'memoryPage.engine.disabled.description':
+    'Całkowicie wyłącz pamięć. Nic nie jest zapisywane ani przywoływane, a Twoje połączenia zostają zachowane.',
+  'memoryPage.engine.disabled.action': 'Wyłącz pamięć',
+  'memoryPage.engine.disabled.banner':
+    'Nic nie jest zapisywane ani przywoływane. Wybierz dostawcę poniżej, aby ponownie włączyć pamięć.',
+  'memoryPage.engine.disabled.toast': 'Pamięć wyłączona',
+  'memoryPage.engine.disabled.toastFailed': 'Nie udało się wyłączyć pamięci',
   'memoryPage.engine.inUse': 'W użyciu',
   'memoryPage.announcement.title': 'Darmowe wnioskowanie pamięci w CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex wycofano 7 paź.',

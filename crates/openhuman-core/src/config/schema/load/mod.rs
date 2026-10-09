@@ -7,6 +7,7 @@ mod env;
 mod env_overlay;
 mod impl_load;
 mod migrate;
+mod parse;
 mod saas_scope;
 mod secrets;
 
@@ -57,6 +58,7 @@ pub(crate) use dirs::ACTIVE_USER_STATE_FILE;
 pub(crate) use impl_load::parse_config_with_recovery;
 #[cfg(test)]
 pub(crate) use migrate::{migrate_cloud_provider_slugs, migrate_legacy_inference_url};
+pub(crate) use parse::config_from_toml_str;
 #[cfg(test)]
 pub(crate) use std::path::PathBuf;
 

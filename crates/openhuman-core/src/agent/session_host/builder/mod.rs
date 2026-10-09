@@ -11,11 +11,13 @@ pub(crate) use factory::provider_role_for_definition;
 mod builder_build;
 mod dispatcher;
 mod factory;
+mod host_only;
 mod host_tools;
 mod iteration_cap;
 mod permanent_tool;
 mod setters;
 
+pub use host_only::HostOnlyToolPolicy;
 pub use host_tools::{HostTools, HostTurnTools, TurnContext};
 
 #[cfg(test)]

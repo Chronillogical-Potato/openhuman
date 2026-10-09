@@ -5,8 +5,10 @@ use crate::security::credentials::session_support::{
 use crate::user_agents::layout::{agent_config, UserAgentLayout};
 use crate::user_agents::UserAgentId;
 
+/// Credential secrets live in the process keyring keyed by agent id, which
+/// every test in this binary shares; each test therefore uses its own users.
 fn agent(tmp: &tempfile::TempDir, user: &str) -> Config {
-    let id = UserAgentId::for_user(user).unwrap();
+    let id = UserAgentId::for_user(&format!("{user}-{}", uuid::Uuid::new_v4())).unwrap();
     let layout = UserAgentLayout::new(tmp.path(), &id);
     std::fs::create_dir_all(&layout.workspace_dir).unwrap();
     agent_config(&layout, &id)

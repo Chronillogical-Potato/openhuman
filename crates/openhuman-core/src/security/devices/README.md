@@ -83,6 +83,18 @@ DDL is created idempotently on every connection open (`with_connection`). `peer_
 
 Separately, encrypted X25519 private keys are persisted as `enc2:` strings (via `keyring::SecretStore`, ChaCha20-Poly1305) keyed by `channel_id` in the in-memory `PERSISTED_KEYPAIRS` map, allowing keypair reconstruction for reconnect handshakes.
 
+### On a storage backend
+
+When the host configured a storage backend (`OPENHUMAN_STORAGE_URL` /
+`[storage] url`, see `crate::storage`), every `store` function uses
+`store_documents.rs` instead of `devices.db`: the same operations on the
+`tinystoragedrivers` document port, under the current call's storage scope
+(the acting agent; `local` on a single-user host; refused in SaaS mode with
+no acting agent). One `paired_devices` document per `channel_id`. Pairing replaces the
+document; touching and revoking are compare-and-swap, so a touch never
+revives a device another process revoked. With no backend configured (the desktop default)
+`devices.db` is used as described above.
+
 ## Dependencies
 
 - `crate::config` (`Config`, `config::rpc::load_config_with_timeout`): workspace paths and config loading for handlers.

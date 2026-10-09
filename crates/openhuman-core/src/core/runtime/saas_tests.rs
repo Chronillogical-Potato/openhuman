@@ -87,6 +87,8 @@ fn the_saas_presets_are_closed() {
         DomainSet {
             operator: true,
             threads: true,
+            channels: true,
+            memory: true,
             ..DomainSet::none()
         },
         "the operator plane plus the user families isolated so far"

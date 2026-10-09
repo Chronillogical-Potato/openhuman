@@ -25,27 +25,27 @@ const LEGACY_LIMIT_ENTRIES = [
   // runtime compatibility work. They are being split along semantic seams.
   // `spawn_async_subagent_execute.rs`: 847 -> 821 when the argument prologue
   // moved to `spawn_async_subagent_args.rs`, 821 -> 809 via
-  // `AbortReport::deliver`. Still exempt because the rest of that function's
+  // `AbortReport::deliver`, 809 -> 795 via `CompletionTarget`. Still exempt because the rest of that function's
   // phases close over locals whose types are not nameable from this module
   // (see that fragment's header); taking it under 750 needs a visibility
   // change in `subagent_sessions`.
   [
     "crates/openhuman-core/src/agent/orchestration/tools/spawn_async_subagent_execute.rs",
-    799,
+    795,
   ],
   // `spawn_subagent_tool_impl.rs` had its entry DELETED, not lowered: the
   // parameter schema moved to `spawn_subagent_parameters.rs` and the file is
   // under the general 750 limit, so it needs no exception at all.
   // The session-todo integration added transcript metadata construction to
   // this already-exempt composition seam. Keep its allowance exact.
-  ["crates/openhuman-core/src/agent/session_host/runtime_session.rs", 1469],
+  ["crates/openhuman-core/src/agent/session_host/runtime_session.rs", 1470],
   // Session-host factory still assembles the product's deliberately coupled
   // provider, security, memory, tool and prompt policy.  Generic session
   // state moved to tinyagents-runtime; this remaining composition is split in
   // a follow-up without reintroducing an old harness/session exception.
   ["crates/openhuman-core/src/agent/session_host/builder/factory.rs", 977],
   ["crates/openhuman-core/src/agent/subagent_host/lifecycle.rs", 1309],
-  ["crates/openhuman-core/src/agent/subagent_host/ops/runner.rs", 1151],
+  ["crates/openhuman-core/src/agent/subagent_host/ops/runner.rs", 1150],
   ["crates/openhuman-core/src/tools/ops.rs", 1209],
   ["crates/openhuman-core/src/web_chat/progress_bridge.rs", 1304],
   // These established external test modules grew with upstream coverage. Pin

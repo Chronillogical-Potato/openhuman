@@ -545,6 +545,182 @@ fn each_user_sees_only_their_own_threads() {
     drop(server);
 }
 
+/// Open `/events?client_id=` for `user` and forward each SSE `data:` line.
+fn user_events(base: &str, user: &str, client_id: &str) -> std::sync::mpsc::Receiver<String> {
+    use openhuman_core::user_agents::gateway::{sign, USER_HEADER, USER_SIG_HEADER};
+    use std::io::BufRead;
+    let (tx, rx) = std::sync::mpsc::channel();
+    let url = format!("{base}/events?client_id={client_id}");
+    let user = user.to_string();
+    std::thread::spawn(move || {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(None)
+            .build()
+            .unwrap();
+        let Ok(response) = client
+            .get(&url)
+            .bearer_auth(BEARER)
+            .header(USER_HEADER, &user)
+            .header(USER_SIG_HEADER, sign(BEARER, &user, now()))
+            .send()
+        else {
+            return;
+        };
+        let _ = tx.send(format!("status:{}", response.status().as_u16()));
+        for line in std::io::BufReader::new(response).lines() {
+            let Ok(line) = line else { break };
+            if let Some(data) = line.strip_prefix("data:") {
+                if tx.send(data.trim().to_string()).is_err() {
+                    break;
+                }
+            }
+        }
+    });
+    rx
+}
+
+#[test]
+fn chat_events_reach_only_the_user_whose_turn_produced_them() {
+    let d = deployment(true);
+    // Point the backend at a closed port so the turn fails fast — the failure
+    // is itself an event on the owner's stream, without any real inference.
+    let port = free_port();
+    let child = core_command(&d, &["--port", &port.to_string()])
+        .env("BACKEND_URL", "http://127.0.0.1:9")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn openhuman-core");
+    let server = Server(child);
+    let base = format!("http://127.0.0.1:{port}");
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(120);
+    while !client
+        .get(format!("{base}/health"))
+        .send()
+        .is_ok_and(|r| r.status().is_success())
+    {
+        assert!(Instant::now() < deadline, "SaaS core never became healthy");
+        std::thread::sleep(Duration::from_millis(250));
+    }
+    provision(&client, &base, "alice");
+    provision(&client, &base, "bob");
+
+    // The operator has no chat stream.
+    let status = client
+        .get(format!("{base}/events?client_id=c1"))
+        .bearer_auth(BEARER)
+        .send()
+        .unwrap()
+        .status()
+        .as_u16();
+    assert_eq!(status, 404);
+
+    // Both users listen on the same client id.
+    let alice_events = user_events(&base, "alice", "c1");
+    let bob_events = user_events(&base, "bob", "c1");
+    for (who, rx) in [("alice", &alice_events), ("bob", &bob_events)] {
+        let first = rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        assert_eq!(first, "status:200", "{who}'s stream opens");
+    }
+
+    // A reserved thread id is refused before any turn starts.
+    let (_, body) = user_rpc_with(
+        &client,
+        &base,
+        BEARER,
+        "alice",
+        None,
+        "openhuman.channel_web_chat",
+        json!({ "client_id": "c1", "thread_id": "channel:slack:x", "message": "hello" }),
+    );
+    assert!(body.get("error").is_some(), "{body}");
+
+    let (status, body) = user_rpc_with(
+        &client,
+        &base,
+        BEARER,
+        "alice",
+        None,
+        "openhuman.channel_web_chat",
+        json!({ "client_id": "c1", "thread_id": "chat-1", "message": "hello" }),
+    );
+    assert_eq!(status, 200, "{body}");
+
+    let mut alice_got = Vec::new();
+    let until = Instant::now() + Duration::from_secs(30);
+    while Instant::now() < until {
+        match alice_events.recv_timeout(Duration::from_millis(500)) {
+            Ok(data) if data.contains("chat-1") => {
+                alice_got.push(data);
+                if alice_got
+                    .iter()
+                    .any(|e| e.contains("error") || e.contains("done"))
+                {
+                    break;
+                }
+            }
+            Ok(_) | Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+            Err(e) => panic!("alice's stream closed: {e}"),
+        }
+    }
+    assert!(!alice_got.is_empty(), "alice receives her turn's events");
+    assert!(
+        alice_got.iter().all(|e| !e.contains("\"agent\"")),
+        "the routing stamp is not on the wire: {alice_got:?}"
+    );
+
+    std::thread::sleep(Duration::from_secs(1));
+    let leaked: Vec<String> = bob_events.try_iter().collect();
+    assert!(
+        leaked.is_empty(),
+        "bob shares the client id but must see none of alice's events: {leaked:?}"
+    );
+    drop(server);
+}
+
+#[test]
+fn users_reach_their_memory_but_not_its_configuration() {
+    let d = deployment(true);
+    let (server, base, client) = start(&d);
+    provision(&client, &base, "alice");
+    let call = |method: &str, params: Value| {
+        user_rpc_with(&client, &base, BEARER, "alice", None, method, params)
+    };
+
+    // Reachable: with no backend in this test the engine is off, so recall
+    // answers with memory's own error — not "unknown method".
+    let (_, body) = call(
+        "openhuman.memory_recall",
+        json!({ "question": "anything?" }),
+    );
+    let text = body.to_string();
+    assert!(
+        !text.contains("unknown method"),
+        "memory_recall is on the surface: {text}"
+    );
+    let (_, body) = call("openhuman.memory_engine_get", json!({}));
+    assert!(body.get("result").is_some(), "{body}");
+
+    // Not reachable: anything that changes where memory lives or reads the host.
+    for method in [
+        "openhuman.memory_engine_set",
+        "openhuman.memory_policy_set",
+        "openhuman.memory_sources_add",
+        "openhuman.memory_import_start",
+    ] {
+        let (_, body) = call(method, json!({}));
+        assert!(
+            body.to_string().contains("unknown method"),
+            "{method} must be absent: {body}"
+        );
+    }
+    drop(server);
+}
+
 #[test]
 fn a_duplicate_or_unreadable_user_header_is_refused() {
     use openhuman_core::user_agents::gateway::USER_HEADER;
