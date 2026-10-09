@@ -144,6 +144,15 @@ fn without_a_fallback_only_live_contexts_are_visited() {
 #[test]
 fn registering_forgets_agents_whose_contexts_are_all_gone() {
     drop(agent_context("agents-test-gone"));
-    let _other = agent_context("agents-test-other-live");
-    assert!(!LIVE.lock().unwrap().contains_key("agents-test-gone"));
+    // Each registration prunes; a concurrent walk of the registry may hold the
+    // dropped context for an instant, so give it a few registrations.
+    let forgotten = (0..100).any(|_| {
+        let _other = agent_context("agents-test-other-live");
+        let gone = !LIVE.lock().unwrap().contains_key("agents-test-gone");
+        if !gone {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        gone
+    });
+    assert!(forgotten);
 }
