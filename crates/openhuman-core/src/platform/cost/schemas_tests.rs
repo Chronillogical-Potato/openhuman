@@ -84,7 +84,7 @@ fn report_params_parse_camel_case_and_reject_unknown_keys() {
     params.insert("days".into(), serde_json::json!(7));
     params.insert("groupBy".into(), serde_json::json!(["day", "agent"]));
     params.insert("filter".into(), serde_json::json!({ "thread_id": "t1" }));
-    let p = parse_report_params(params).unwrap();
+    let p: ReportParams = parse_report_params(params).unwrap();
     assert_eq!(p.days, Some(7));
     assert_eq!(
         p.group_by,
@@ -99,16 +99,42 @@ fn report_params_parse_camel_case_and_reject_unknown_keys() {
     // declared is rejected like any other unknown key.
     let mut snake = Map::new();
     snake.insert("group_by".into(), serde_json::json!(["model"]));
-    assert!(parse_report_params(snake).is_err());
+    assert!(parse_report_params::<ReportParams>(snake).is_err());
 
     let mut unknown = Map::new();
     unknown.insert("unexpected".into(), serde_json::json!(1));
-    assert!(parse_report_params(unknown).is_err());
+    assert!(parse_report_params::<ReportParams>(unknown).is_err());
 
     let mut bad = Map::new();
     bad.insert("groupBy".into(), serde_json::json!(["colour"]));
-    assert!(parse_report_params(bad).is_err());
-    assert_eq!(parse_report_params(Map::new()).unwrap().days, None);
+    assert!(parse_report_params::<ReportParams>(bad).is_err());
+    assert_eq!(
+        parse_report_params::<ReportParams>(Map::new())
+            .unwrap()
+            .days,
+        None
+    );
+}
+
+#[test]
+fn each_report_takes_only_its_own_params() {
+    let mut limit = Map::new();
+    limit.insert("limit".into(), serde_json::json!(5));
+    assert!(parse_report_params::<ReportParams>(limit.clone()).is_err());
+    let p: CacheReportParams = parse_report_params(limit).unwrap();
+    assert_eq!(p.limit, Some(5));
+
+    let mut group = Map::new();
+    group.insert("groupBy".into(), serde_json::json!(["day"]));
+    assert!(parse_report_params::<CacheReportParams>(group).is_err());
+}
+
+#[test]
+fn a_misspelt_filter_key_is_refused() {
+    let mut params = Map::new();
+    params.insert("filter".into(), serde_json::json!({ "threadId": "t1" }));
+    assert!(parse_report_params::<ReportParams>(params.clone()).is_err());
+    assert!(parse_report_params::<CacheReportParams>(params).is_err());
 }
 
 #[test]
