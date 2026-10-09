@@ -51,7 +51,7 @@ The script checks the file it downloads, but the script itself is not signed. It
 
 ## Homebrew
 
-A community Homebrew cask exists (`brew install --cask openhuman`). It can lag a release behind, so prefer the download or the script above.
+A Homebrew cask also exists (`brew install --cask openhuman`). It can lag a release behind, so prefer the download or the script above.
 
 ## Troubleshooting
 
