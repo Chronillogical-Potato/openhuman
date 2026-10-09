@@ -4672,6 +4672,7 @@ dependencies = [
  "tinymcp-bus",
  "tinymemory-api",
  "tinymemory-tools",
+ "tinytools",
  "tokio",
  "url",
  "uuid",
