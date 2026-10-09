@@ -515,3 +515,47 @@ fn every_subagent_terminal_event_schedules_a_drain_for_the_parent_thread() {
         None
     );
 }
+
+#[tokio::test]
+async fn a_dropped_delivery_releases_its_slot_and_lease() {
+    // A delivery future dropped mid-turn (shutdown, cancellation) must not
+    // strand the thread: the slot frees and the batch is claimable again.
+    let _g = test_guard().await;
+    let ws = workspace();
+    let w = ws.path();
+    record(w, "bd-drop", "sub-1", "alpha", "thread-drop").await;
+    let router = router_for_workspace(w);
+
+    let abandoned = tokio::time::timeout(
+        Duration::from_millis(50),
+        try_deliver_with(
+            "thread-drop".into(),
+            router.clone(),
+            |_t, _n| std::future::pending::<Result<String, String>>(),
+            |_t, _n| async move { unreachable!("not a failure") },
+        ),
+    )
+    .await;
+    assert!(abandoned.is_err(), "the turn never finished");
+
+    let delivered = Arc::new(Mutex::new(false));
+    let flag = Arc::clone(&delivered);
+    try_deliver_with(
+        "thread-drop".into(),
+        router,
+        move |_t, _n| {
+            let flag = Arc::clone(&flag);
+            async move {
+                *flag.lock().expect("flag") = true;
+                Ok::<String, String>("presented".into())
+            }
+        },
+        |_t, _n| async move { unreachable!("must not give up") },
+    )
+    .await;
+    assert!(
+        *delivered.lock().expect("flag"),
+        "the next drain delivers the batch"
+    );
+    assert!(pending_for(w, "thread-drop").is_empty());
+}
