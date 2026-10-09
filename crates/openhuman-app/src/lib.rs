@@ -2391,7 +2391,7 @@ pub fn run() {
     // Tauri's default async runtime uses tokio multi-thread workers with
     // a ~2 MB stack. The in-process core (spawned by
     // `core_process::CoreProcessHandle::ensure_running` via
-    // `tokio::spawn(run_server_embedded(..))`) runs *on* that runtime, so
+    // `tokio::spawn(openhuman_rpc::host::desktop(..))`) runs *on* that runtime, so
     // every JSON-RPC handler — including the deep tower
     // `web channel chat → orchestrator turn → integration action tool
     // → composio execute → load_config_with_timeout` (and, at the time, the
