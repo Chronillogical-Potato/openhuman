@@ -73,10 +73,13 @@ pub(crate) mod builder;
 mod presets;
 mod run;
 mod seams;
+mod summary;
 
 pub use api_key::ApiKey;
 pub use builder::{ConfigSource, RuntimeBuilder};
 pub use run::run_from_args;
+#[doc(hidden)]
+pub use summary::BuilderSummary;
 
 use std::collections::HashMap;
 use std::path::Path;
