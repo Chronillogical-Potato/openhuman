@@ -659,7 +659,9 @@ pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String
 
 /// Opens the durable, cross-process checkpointer a `flows_run` uses via
 /// `tinyflows::engine::run_with_checkpointer` — this host's
-/// [`SqliteCheckpointer`], stored under `<workspace_dir>/flows/checkpoints.db`.
+/// [`SqliteCheckpointer`], stored under `<workspace_dir>/flows/checkpoints.db`,
+/// or, when the host configured a storage backend ([`crate::storage`]),
+/// `tinyflows_drivers::DriverCheckpointer` over it in the acting agent's scope.
 ///
 /// It became host-owned when tinyflows vendored its state-graph runtime and
 /// dropped the SQLite backend with it (tinyflows PR #43). The port keeps the
@@ -669,6 +671,14 @@ pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String
 pub fn open_flow_checkpointer(
     config: &Config,
 ) -> anyhow::Result<Arc<dyn tinyflows::engine::Checkpointer<serde_json::Value>>> {
+    if let Some(scoped) = crate::storage::current_scoped()? {
+        tracing::debug!(target: "flows", "[flows] opening checkpointer on the storage backend");
+        return Ok(Arc::new(
+            tinyflows_drivers::DriverCheckpointer::<serde_json::Value>::new(Arc::clone(
+                scoped.documents(),
+            )),
+        ));
+    }
     let db_path = config.workspace_dir.join("flows").join("checkpoints.db");
     if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent)

@@ -81,6 +81,9 @@ tinyflows-catalog = { path = "../../vendor/tinyflows/crates/tinyflows-catalog", 
 # The cron job/run store half (`schedule`) is unconditional, so `tinyflows-sqlite`
 # is too; only its `catalog` half (which needs the engine) rides the `flows` gate.
 tinyflows-sqlite = { path = "../../vendor/tinyflows/crates/tinyflows-sqlite", default-features = false, features = ["schedule"] }
+# The flow engine's checkpointer and state on the storage ports, used instead of
+# `flows/checkpoints.db` when a storage backend is configured (`storage`).
+tinyflows-drivers = { path = "../../vendor/tinyflows/crates/tinyflows-drivers", optional = true }
 # The authoring copilot's words: the `workflow_builder` / `flow_discovery`
 # standing archetypes and the turn brief that opens a builder turn. Harness-free
 # by construction — it names no tool trait and no model client — so this host
@@ -147,6 +150,7 @@ tinyagents-definition = { path = "../../vendor/tinyagents/crates/tinyagents-defi
 tinyagents-live = { path = "../../vendor/tinyagents/crates/tinyagents-live", optional = true }
 tinyagents-graph = { path = "../../vendor/tinyagents/crates/tinyagents-graph", features = [
     "sqlite",
+    "storage-drivers",
 ] }
 tinyagents-registry = { path = "../../vendor/tinyagents/crates/tinyagents-registry" }
 tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session", features = ["storage-drivers"] }
@@ -912,7 +916,7 @@ media = ["tinyagents-harness/media"]
 # runtime `DomainSet::flows` flag (#4796): the feature narrows the compile-time
 # surface, `DomainSet` gates it at runtime.
 # NOTE: this gate does NOT drop `tinyagents` itself — 26+ domains consume it.
-flows = ["dep:tinyflows", "dep:tinyflows-catalog", "dep:tinyflows-copilot", "tinyflows-sqlite/catalog"]
+flows = ["dep:tinyflows", "dep:tinyflows-catalog", "dep:tinyflows-copilot", "dep:tinyflows-drivers", "tinyflows-sqlite/catalog"]
 # Skills domains: `openhuman::skills` (metadata/discovery/install),
 # `openhuman::skill_runtime` (SKILL.md execution + the skill_executor agent),
 # and `openhuman::skill_registry` (remote catalogs + the skill_setup agent).
