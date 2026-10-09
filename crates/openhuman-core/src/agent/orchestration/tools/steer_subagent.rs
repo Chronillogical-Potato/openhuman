@@ -7,11 +7,10 @@
 //! redirect or feed data to a running sub-agent
 //! without waiting for it to finish or restarting it. Mirrors Codex `send_input`.
 
-use crate::tools::schema_cache::static_schema;
 use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::orchestration::running_subagents::{self, SteerError};
+use crate::tools::schema_cache::static_schema;
 use async_trait::async_trait;
-use serde_json::json;
 use std::sync::Arc;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::run_queue::QueueLane;

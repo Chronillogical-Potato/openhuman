@@ -21,12 +21,11 @@
 //! extract a managed Node.js distribution if no compatible `node` is on
 //! `PATH`. Subsequent calls reuse the cached install.
 
-use crate::tools::schema_cache::static_schema;
 use crate::agent::host_runtime::RuntimeAdapter;
 use crate::runtime::javascript::NodeBootstrap;
 use crate::security::{CommandClass, GateDecision, SecurityPolicy};
+use crate::tools::schema_cache::static_schema;
 use async_trait::async_trait;
-use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
 use tinytools::ToolRunContext;

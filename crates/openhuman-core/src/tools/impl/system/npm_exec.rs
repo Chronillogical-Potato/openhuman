@@ -17,12 +17,11 @@
 //! metacharacters (guarded server-side). Free-form args go through
 //! POSIX-safe single-quoting.
 
-use crate::tools::schema_cache::static_schema;
 use crate::agent::host_runtime::RuntimeAdapter;
 use crate::runtime::javascript::NodeBootstrap;
 use crate::security::{CommandClass, GateDecision, SecurityPolicy};
+use crate::tools::schema_cache::static_schema;
 use async_trait::async_trait;
-use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
 use tinytools::ToolRunContext;
