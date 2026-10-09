@@ -88,7 +88,10 @@ fn to_doc(n: &IntegrationNotification) -> Value {
     doc.insert("raw_payload".into(), json!(n.raw_payload.to_string()));
     doc.insert("status".into(), json!(n.status.as_str()));
     doc.insert("received_at".into(), json!(n.received_at.to_rfc3339()));
-    doc.insert("received_ms".into(), json!(n.received_at.timestamp_millis()));
+    doc.insert(
+        "received_ms".into(),
+        json!(n.received_at.timestamp_millis()),
+    );
     let optional = [
         ("account_id", n.account_id.as_ref().map(|v| json!(v))),
         ("importance_score", n.importance_score.map(|v| json!(v))),
