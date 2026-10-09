@@ -167,3 +167,20 @@ fn deprovisioning_twice_in_a_second_archives_twice() {
         .count();
     assert_eq!(archived, 2);
 }
+
+#[test]
+fn opening_an_open_agent_sweeps_the_idle_ones() {
+    let tmp = tempfile::tempdir().unwrap();
+    // Everything is idle the moment it is released.
+    let host = host(&tmp, 4, 0);
+    let (a, b) = (agent("alice"), agent("bob"));
+    host.provision(&a).unwrap();
+    host.provision(&b).unwrap();
+    drop(host.open(&a).unwrap());
+    let held = host.open(&b).unwrap();
+    // Re-opening bob (already open) closes idle alice.
+    let again = host.open(&b).unwrap();
+    assert!(!host.is_open(&a), "alice was idle and is closed");
+    assert!(host.is_open(&b), "bob is in use and stays");
+    drop((held, again));
+}
