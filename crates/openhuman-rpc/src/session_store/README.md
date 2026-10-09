@@ -12,17 +12,22 @@ enables by itself.
 ## How it works
 
 ```text
- host startup                                   core, during a turn
- ------------                                   -------------------
- session_store::install()                       agent::session_store::current()
-   SqliteSessionStores::resolving(                provider.for_agent(agent id)
-     context_workspace_dir)                        |
-   -> agent::session_store::install(..)            v
-                                                stores_at(<current workspace>)
- CoreBuilder::build()                             transcripts  FileTranscriptLocator
-   provider.recover()                             turn_states  TurnStateStore
-     mark_all_interrupted (turns)                 kv, journal  open_session_stores
-     interrupt_orphaned_agent_runs (ledger)
+ host startup
+   session_store::install()
+     SqliteSessionStores::resolving(context_workspace_dir)
+     -> agent::session_store::install(provider)
+   CoreBuilder::build()
+     provider.recover()
+       turn_state::store::mark_all_interrupted    (turn snapshots)
+       run_ledger::interrupt_orphaned_agent_runs  (run ledger)
+
+ during a turn
+   agent::session_store::current()
+     provider.for_agent(agent id)
+       stores_at(<current workspace>)
+         transcripts   FileTranscriptLocator
+         turn_states   TurnStateStore
+         kv, journal   open_session_stores
 ```
 
 `install()` puts a provider into the core's process slot

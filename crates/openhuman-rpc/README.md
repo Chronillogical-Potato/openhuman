@@ -15,27 +15,34 @@ it; the core and `openhuman-embed` do not.
 A request to a running core takes this path:
 
 ```text
- client                                   core process
- ------                                   ------------
- app/src coreRpcClient (fetch)   POST /rpc
- openhuman-app core_rpc.rs   -------------->  axum router (build_core_http_router)
-   post_json_rpc + request_body                 |
-                                                | CoreContext::scope   (serve)
-                                                | socket.io layer      (if enabled)
-                                                | cors_middleware      origin allowlist
-                                                | rpc_auth_middleware  bearer check
-                                                | request log
-                                                v
-                                              rpc_handler
-                                                | invoke_method(state, method, params)
-                                                v            (core: registry, params,
-                                              controller      DomainSet gate, handler)
-                                                |
-                                                | Ok(value)   -> RpcSuccess { result }
-                                                | Err(string) -> StructuredRpcError::decode
-                                                |                classify_failure (Sentry)
-                                                v                RpcFailure { code -32000 }
- decode_response(status, body)  <------------  HTTP 200 (success and failure alike)
+ client                          core process
+ ------                          ------------
+ app/src coreRpcClient (fetch)
+ openhuman-app core_rpc.rs
+   request_body + post_json_rpc
+        |  POST /rpc
+        v
+ axum router (build_core_http_router)
+   CoreContext::scope         added by serve
+   socket.io layer            if enabled
+   cors_middleware            origin allowlist
+   rpc_auth_middleware        bearer check
+   request log
+        |
+        v
+ rpc_handler
+   invoke_method(state, method, params)
+        |   core: registry lookup, params rules,
+        |         DomainSet gate, controller handler
+        v
+   Ok(value)   -> RpcSuccess { result }
+   Err(string) -> StructuredRpcError::decode
+                  classify_failure (how loudly to report)
+                  RpcFailure { error.code = -32000 }
+        |
+        |  HTTP 200 for success and failure alike
+        v
+ decode_response(status, body) -> Result<Value, String>
 ```
 
 The server never interprets a method. `rpc_handler` hands the method name and
