@@ -44,6 +44,15 @@ Contribute & Star us on GitHub: https://github.com/tinyhumansai/openhuman
 /// Returns an error if the command fails, parameters are invalid, or if
 /// the subcommand/namespace is unknown.
 pub fn run_from_cli_args(args: &[String]) -> Result<()> {
+    run_from_cli_args_with(args, None)
+}
+
+/// [`run_from_cli_args`] with a host-supplied boot description for `run` /
+/// `serve`; see [`crate::run_core_from_args_with`].
+pub fn run_from_cli_args_with(
+    args: &[String],
+    host_boot: Option<crate::core::server_launcher::HostBoot>,
+) -> Result<()> {
     load_dotenv_for_cli()?;
 
     let launch = parse_launch_options(args)?;
@@ -69,7 +78,7 @@ pub fn run_from_cli_args(args: &[String]) -> Result<()> {
 
     // Match on the first argument to determine the subcommand.
     match args[0].as_str() {
-        "run" | "serve" => run_server_command(&args[1..]),
+        "run" | "serve" => run_server_command(&args[1..], host_boot),
         "mcp" | "mcp-server" => crate::mcp::server::run_stdio_from_cli(&args[1..]),
         // Keep the historical names as a migration diagnostic now that the
         // terminal frontend is its own workspace crate and executable.
