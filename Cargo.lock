@@ -7321,7 +7321,7 @@ dependencies = [
 
 [[package]]
 name = "tinycomputer-accessibility"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "arboard",
  "cpal",
@@ -7334,7 +7334,7 @@ dependencies = [
 
 [[package]]
 name = "tinycomputer-bus"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -7479,7 +7479,7 @@ dependencies = [
 
 [[package]]
 name = "tinyhosts"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "async-trait",
