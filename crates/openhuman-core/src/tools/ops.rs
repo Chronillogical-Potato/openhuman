@@ -930,7 +930,7 @@ pub fn all_tools_with_runtime(
     let mut tools: Vec<Box<dyn Tool>> = if let Some(set) = domains {
         tools
             .into_iter()
-            .filter(|t| set.allows(tool_group(t.name())))
+            .filter(|t| crate::user_agents::tools::admits(t.name(), set.allows(tool_group(t.name()))))
             .collect()
     } else {
         // No ambient context (unit tests / pre-boot) ⇒ no domain filtering.
