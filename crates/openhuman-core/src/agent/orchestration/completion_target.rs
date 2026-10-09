@@ -4,7 +4,7 @@
 //! awaiting input) records the same way, in the same workspace router, for the
 //! same parent thread. The queue itself is [`super::background_completions`].
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use super::background_completions::{record_awaiting_input, record_completion, record_failure};
 
@@ -89,7 +89,7 @@ impl TestWorkspace {
         Self(tempfile::tempdir().expect("tempdir"))
     }
 
-    pub(crate) fn path(&self) -> &Path {
+    pub(crate) fn path(&self) -> &std::path::Path {
         self.0.path()
     }
 }
