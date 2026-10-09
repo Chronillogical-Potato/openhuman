@@ -2,14 +2,13 @@
 //!
 //! A session composes its rule layers once — the operator's `[tool_rules]`
 //! and its agent definition's layer — and every turn evaluates them in that
-//! turn's own context (channel, agent, origin), installed on
+//! session's context (channel, agent), installed on
 //! `OpenHumanRunContext::tool_rules` for the harness gate.
 
 use std::sync::Arc;
 
 use super::{OpenHumanSessionHost, OpenHumanTurnPrelude, OpenHumanTurnToolSurface};
 use crate::agent::tinyagents::host::OpenHumanRunContext;
-use crate::agent::turn_origin::AgentTurnOrigin;
 use tinyagents_harness::tool::ToolRulePolicy;
 use tinyagents_runtime::SessionTurnRequest;
 use tinytools::{Surface, ToolSubject};
@@ -80,12 +79,12 @@ impl OpenHumanTurnPrelude {
         if self.tool_rules.is_permissive() {
             return None;
         }
-        let origin = run_context.origin.as_ref().map(AgentTurnOrigin::class);
-        let context = crate::tools::rules::rule_context(
-            Some(channel),
-            Some(&self.agent_definition_id),
-            origin.as_deref(),
-        );
+        // The session's own context only (channel, agent), never the turn's
+        // origin: the host-rendered catalogue is cached for the session, and
+        // it must list exactly what this policy admits on every turn.
+        let _ = run_context;
+        let context =
+            crate::tools::rules::rule_context(Some(channel), Some(&self.agent_definition_id), None);
         Some(Arc::new(crate::tools::rules::turn_rule_policy(
             self.tool_rules.clone(),
             context,

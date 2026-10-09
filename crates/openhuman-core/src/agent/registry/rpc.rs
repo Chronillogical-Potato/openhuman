@@ -105,7 +105,8 @@ impl CreateCustomRequest {
             system_prompt: self.system_prompt,
             tool_allowlist: self.tool_allowlist,
             tool_denylist: self.tool_denylist,
-            tool_rules: self.tool_rules.filter(|rules| !rules.is_permissive()),
+            // Passed through: an empty set clears the entry's rules (`apply_patch`).
+            tool_rules: self.tool_rules,
             subagents: self.subagents,
             tags: self.tags,
             metadata: self.metadata.unwrap_or(Value::Null),

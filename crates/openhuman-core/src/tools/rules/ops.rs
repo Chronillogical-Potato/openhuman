@@ -24,6 +24,11 @@ pub fn glob_list_matches(patterns: &[String], name: &str) -> bool {
 /// Name prefix of every layer an agent definition contributes.
 const AGENT_LAYER_PREFIX: &str = "agent:";
 
+/// Name of the operator's `[tool_rules]` layer; an author's own name is kept
+/// as a `config:<own>` suffix. Composition sets both prefixes itself, so an
+/// operator cannot name a layer into looking like an agent's (or back).
+const OPERATOR_LAYER: &str = "config";
+
 /// The rule layer an agent definition contributes: its `tool_rules`, plus a
 /// `deny` for its `disallowed_tools`, so a denied tool is refused on every
 /// surface — including `tool_search` and a call by a guessed name — not only
@@ -58,9 +63,10 @@ pub fn session_rule_set(config: Option<&Config>, def: Option<&AgentDefinition>) 
     let mut set = ToolRuleSet::new();
     if let Some(config) = config {
         let mut layer = config.tool_rules.clone();
-        if layer.name.is_none() {
-            layer.name = Some("config".to_string());
-        }
+        layer.name = Some(match layer.name.take() {
+            Some(own) => format!("{OPERATOR_LAYER}:{own}"),
+            None => OPERATOR_LAYER.to_string(),
+        });
         set.push(layer);
     }
     if let Some(layer) = def.and_then(agent_rule_layer) {
@@ -111,11 +117,12 @@ pub fn child_rule_policy(
         Some(parent) => {
             let mut inherited = ToolRuleSet::new();
             for layer in &parent.rules.layers {
-                let is_agent_layer = layer
-                    .name
-                    .as_deref()
-                    .is_some_and(|name| name.starts_with(AGENT_LAYER_PREFIX));
-                if !is_agent_layer {
+                // Only the operator's layer is inherited; its name is set by
+                // `session_rule_set`, never taken verbatim from the author.
+                let is_operator_layer = layer.name.as_deref().is_some_and(|name| {
+                    name == OPERATOR_LAYER || name.starts_with(&format!("{OPERATOR_LAYER}:"))
+                });
+                if is_operator_layer {
                     inherited.push(layer.clone());
                 }
             }
