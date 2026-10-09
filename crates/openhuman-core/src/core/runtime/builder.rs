@@ -700,6 +700,13 @@ impl CoreRuntime {
         &self.ctx
     }
 
+    /// The config this runtime booted with: the caller-supplied one, or the
+    /// one `build()` discovered from `config.toml` and the environment.
+    /// `None` when discovery failed (workspace-bound stores were skipped).
+    pub fn config(&self) -> Option<&Config> {
+        self.config.as_ref()
+    }
+
     /// Dispatch an RPC method in-process — the same path the HTTP `/rpc` handler
     /// and the CLI use ([`crate::core::invoke::invoke_method`]). No network involved.
     pub async fn invoke(
