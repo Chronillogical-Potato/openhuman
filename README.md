@@ -149,7 +149,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <p><a href="./gitbooks/developing/jev.md">Jev</a> · <a href="./docs/plans/jev-tool-search-baseline.md">The measurements</a></p>
 
-<p>Jev is a tiny model that finds the right tool in one step, so the AI does not waste calls trying the wrong ones. Out of 1,215 tools, the right one makes its shortlist 86.8% of the time, and Jev picks it first 62% of the time. Keyword search manages 70.5% and 22.5%.</p>
+<p>Jev is a tiny model that finds the right tool out of 1,215. The right one is in its top picks 86.8% of the time, against 70.5% for keyword search.</p>
 
 </td>
 
@@ -183,11 +183,11 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <td width="50%" valign="top">
 
-<h3>Instant browser and desktop control</h3>
+<h3>Browser and desktop control</h3>
 
 <p><a href="./gitbooks/features/native-tools/browser-and-computer.md">Browser and computer control</a> · <a href="./gitbooks/developing/jev.md">Jev</a> · <a href="https://github.com/tinyhumansai/tinycomputer">tinycomputer</a></p>
 
-<p>The agent drives a real Chrome browser and your desktop apps, and Jev decides every click. The screen is read as a list of named buttons and fields, like a screen reader sees it, and Jev answers small questions about it: which button, which field, done yet? No screenshots, no pixel guessing. It asks before anything it cannot undo and stops at payment pages.</p>
+<p>The agent uses a real browser and your desktop apps. Jev picks each click from the buttons on screen, with no screenshots. It stops before any payment.</p>
 
 </td>
 
