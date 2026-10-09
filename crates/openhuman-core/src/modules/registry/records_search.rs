@@ -10,7 +10,7 @@ pub(crate) const TINYSEARCH: ModuleRecord = ModuleRecord {
     object_path: tinysearch_bus::names::OBJECT_PATH,
     version: "0.4.0",
     release_url: "https://github.com/tinyhumansai/tinysearch/releases/tag/v0.4.0",
-    // Verbatim from the published v0.3.3 checksum.toml; the same host set as
+    // Verbatim from the published v0.4.0 checksum.toml; the same host set as
     // the other native modules (macOS, Ubuntu, Windows).
     assets: &[
         PlatformAsset {

@@ -13,7 +13,7 @@ use crate::modules::types::{LoadPolicy, ModuleRecord, PlatformAsset};
 /// Lazy, because a host that never runs a skill, a flow step, or a `node_exec`
 /// should not pay a download and a `dlopen` for the ability to.
 ///
-/// The digests below are v0.2.9's, taken verbatim from that release's
+/// The digests below are v0.2.12's, taken verbatim from that release's
 /// `checksum.toml`. Until it existed this record carried no assets at all and
 /// the module was reachable only from a developer build named by
 /// `modules.local` or found on `OPENHUMAN_MODULE_PATH` — so on any machine that
