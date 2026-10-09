@@ -4,7 +4,7 @@
 //! resolution. This module owns "what a tick actually does" so it can be
 //! exercised against a real chat.db without a Tauri runtime.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use async_trait::async_trait;
 
