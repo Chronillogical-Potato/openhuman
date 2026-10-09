@@ -54,7 +54,9 @@ static SLOTS: Mutex<()> = Mutex::new(());
 
 #[tokio::test]
 async fn a_storage_url_installs_the_driver_backed_store() {
-    let _turn = SLOTS.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _turn = SLOTS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let previous = openhuman_core::agent::session_store::installed();
     install_for_url(Some("memory".into())).await.unwrap();
 
@@ -76,7 +78,12 @@ async fn a_storage_url_installs_the_driver_backed_store() {
         .turn_states
         .put(&TurnState::started("t", "r", 8, "2026-01-01T00:00:00Z"))
         .unwrap();
-    assert!(provider.for_agent("bob").turn_states.get("t").unwrap().is_none());
+    assert!(provider
+        .for_agent("bob")
+        .turn_states
+        .get("t")
+        .unwrap()
+        .is_none());
 
     openhuman_core::storage::clear();
     openhuman_core::agent::session_store::restore(previous);
@@ -84,18 +91,25 @@ async fn a_storage_url_installs_the_driver_backed_store() {
 
 #[tokio::test]
 async fn no_url_keeps_the_classic_layout() {
-    let _turn = SLOTS.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _turn = SLOTS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let previous = openhuman_core::agent::session_store::installed();
     install_for_url(None).await.unwrap();
     let provider = openhuman_core::agent::session_store::installed().unwrap();
-    assert!(provider.workspace_dir().is_some(), "the file layout is installed");
+    assert!(
+        provider.workspace_dir().is_some(),
+        "the file layout is installed"
+    );
     assert!(openhuman_core::storage::installed().is_none());
     openhuman_core::agent::session_store::restore(previous);
 }
 
 #[tokio::test]
 async fn an_unusable_url_fails_the_boot() {
-    let _turn = SLOTS.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _turn = SLOTS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let previous = openhuman_core::agent::session_store::installed();
     let error = install_for_url(Some("ftp://nowhere".into()))
         .await

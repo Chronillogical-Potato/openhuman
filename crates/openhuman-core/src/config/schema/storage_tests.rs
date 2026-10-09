@@ -20,7 +20,10 @@ fn debug_never_prints_credentials() {
     };
     let shown = format!("{config:?}");
     assert!(!shown.contains("hunter2"), "{shown}");
-    assert!(shown.contains("mongodb://***@db.internal/openhuman"), "{shown}");
+    assert!(
+        shown.contains("mongodb://***@db.internal/openhuman"),
+        "{shown}"
+    );
     assert_eq!(redact_url("sqlite:/tmp/x"), "sqlite:/tmp/x");
     assert_eq!(redact_url("mongodb://h/db"), "mongodb://h/db");
 }

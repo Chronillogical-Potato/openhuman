@@ -53,5 +53,7 @@ fn install_installed_and_clear() {
 #[test]
 fn agent_scopes_match_the_session_store() {
     assert_eq!(scope_for_agent("agent-7").as_str(), "agent-7");
-    assert!(scope_for_agent("has a space").as_str().starts_with("sha256:"));
+    assert!(scope_for_agent("has a space")
+        .as_str()
+        .starts_with("sha256:"));
 }
