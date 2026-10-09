@@ -73,8 +73,9 @@ pub fn get(user_id: &str, key: &str) -> Result<Option<String>, KeyringError> {
         .map_err(storage_error)?;
     value
         .map(|bytes| {
-            String::from_utf8(bytes.to_vec()).map_err(|_| KeyringError::InvalidUtf8 {
+            String::from_utf8(bytes.to_vec()).map_err(|source| KeyringError::InvalidUtf8 {
                 key: key.to_string(),
+                source,
             })
         })
         .transpose()
