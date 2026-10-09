@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
- <strong>The fast, cheap, open-source agent harness that scales to fleets.</strong><br/>
+ <strong>The fast, cheap, open-source agent harness. Run a hundred agents on a $5 VPS.</strong><br/>
  A desktop app for people. A Rust library for developers.
 </p>
 
@@ -51,7 +51,7 @@
 
 ## Why OpenHuman
 
-Most harnesses run one heavy process per agent and resend a big prompt on every call. OpenHuman is a Rust core that does the same work with less of everything, and it is the only feature-rich open-source harness built to run large fleets of agents.
+Most harnesses run one heavy process per agent and resend a big prompt on every call. OpenHuman is a Rust core that does the same work with less of everything, and it is the only feature-rich open-source harness built to run large fleets of agents. Where other harnesses need a beefy machine per handful of agents, OpenHuman runs a hundred on a $5 server.
 
 <table>
 <tr>
@@ -75,14 +75,14 @@ Most harnesses run one heavy process per agent and resend a big prompt on every 
 
 ### Efficient at scale
 
-**8x less** memory and CPU per task. Each extra agent costs about 1.8 MiB, so [500 agents](./gitbooks/developing/performance.md) fit in one process.
+**8x less** memory and CPU per task. Each extra agent costs about 1.8 MiB: [100 agents](./gitbooks/developing/performance.md) in 356 MiB fit on a $5, 1 GB VPS, and 500 fit in 1.4 GiB.
 
 </td>
 <td width="50%" valign="top">
 
 ### Built for developers
 
-A library first. Call an agent like a function from your Rust code, or run a fleet of full-featured agents in one process.
+A library first. Call an agent like a function from your Rust code, or run a fleet of full-featured agents from one small server.
 
 </td>
 </tr>
@@ -132,7 +132,7 @@ Start with [Getting started](./gitbooks/overview/getting-started.md) or the [gui
 
 ## For developers
 
-OpenHuman is a library-first harness. Add it to your Rust codebase and call an agent like any other function. No sidecar, no daemon. When you need more, one runtime holds hundreds of agents, each with its own model, tools, memory and sandbox.
+OpenHuman is a library-first harness. Add it to your Rust codebase and call an agent like any other function. No sidecar, no daemon. When you need more, one runtime holds hundreds of agents, each with its own model, tools, memory and sandbox. A fleet of a hundred runs on a $5 VPS, so a product with an agent per customer does not need a cluster to start.
 
 ```rust
 use openhuman_embed::{Access, Harness, Provider, Workspace};
@@ -161,7 +161,7 @@ Products change, so verify against each project.
 | **Open source**         | 🚫 Proprietary    | ✅ MIT            | ✅ MIT            | ✅ GPL-3.0                                                         |
 | **Simple to start**     | ✅ Desktop + CLI  | ⚠️ Terminal-first | ⚠️ Terminal-first | ✅ Clean UI, minutes                                               |
 | **Cost**                | ⚠️ Sub + add-ons  | ⚠️ BYO models     | ⚠️ BYO models     | ✅ 2.6x fewer tokens                                               |
-| **Agent fleets**        | 🚫 One session    | ⚠️ Process per agent | ⚠️ Process per agent | 🚀 Hundreds per process                                       |
+| **Agent fleets**        | 🚫 One session    | ⚠️ Process per agent | ⚠️ Process per agent | 🚀 100 agents on a $5 VPS                                     |
 | **Embeddable library**  | ⚠️ SDK over a CLI | 🚫 None           | ⚠️ Python package | 🚀 Typed Rust API                                                  |
 | **Memory**              | ✅ Chat-scoped    | ⚠️ Plugin-reliant | ✅ Self-learning  | 🚀 Recalled every turn, with citations                            |
 | **Integrations**        | ⚠️ Few connectors | ⚠️ BYO            | ⚠️ BYO            | 🚀 119 OAuth apps, MCP, skills                                     |
