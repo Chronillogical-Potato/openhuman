@@ -40,7 +40,7 @@ scheduler-gate = ["openhuman-embed/scheduler-gate"]
 # The only openhuman crate this layer depends on. Core internals the
 # transport and hosted controllers need come through embed's `#[doc(hidden)]`
 # `__host` module, an explicit list kept in embed; there is no direct
-# `openhuman-core` edge (scripts/ci/check-crate-chain.mjs).
+# `openhuman-core` edge (chain: core -> embed -> tinyhumans -> rpc -> hosts).
 openhuman-embed = { path = "../openhuman-embed", default-features = false }
 # The vendored TinyHumans SDK: the only crate in the tree that may depend on
 # it. `default-features = false` drops the Socket.IO client; realtime stays

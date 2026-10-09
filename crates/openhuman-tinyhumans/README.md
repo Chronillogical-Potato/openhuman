@@ -44,9 +44,8 @@ backend-touching call (billing, `/agent-integrations/*` tools, channel relay,
 cloud voice) answers with `BackendApiError::BackendUnavailable`, which the RPC
 layer renders as a `BACKEND_UNAVAILABLE:` error that observability demotes.
 
-The crate's only openhuman dependency is `openhuman-embed`
-(`scripts/ci/check-crate-chain.mjs` holds the chain core -> embed ->
-tinyhumans -> rpc -> hosts). The public embed API covers the transport port
+The crate's only openhuman dependency is `openhuman-embed`, per the chain
+core -> embed -> tinyhumans -> rpc -> hosts. The public embed API covers the transport port
 (`BackendTransport`, `install_backend_transport`, ...) and the seam types
 (`embed::seams::{ControllerExtension, ToolRanker, ...}`); the deeper core
 internals the transport and hosted controllers need (`backend::BackendClient`,
