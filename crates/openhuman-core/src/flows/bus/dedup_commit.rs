@@ -11,7 +11,7 @@ use std::sync::{Arc, LazyLock, Mutex};
 use tinybus::EventHandler;
 use tinyflows::model::NodeKind;
 use tinyflows::nodes::control_flow::dedup_settle::{self, CommitOutcome, Settlement};
-use tinyflows_sqlite::flows::SqliteStateStore;
+use crate::flows::tinyflows::state::FlowState;
 
 /// Listens for `DomainEvent::FlowRunFinished` and settles every `dedup` node
 /// in the finished flow's graph — the host half of the commit-on-success
@@ -246,7 +246,7 @@ impl DedupCommitSubscriber {
         tracing::trace!(target: "flows", %flow_id, %run_id, "[dedup-commit] acquired per-flow commit lock");
         self.maybe_test_delay().await;
 
-        let state = SqliteStateStore::new(store::dir(&self.config), format!("flow:{flow_id}"));
+        let state = FlowState::open(&self.config, format!("flow:{flow_id}"));
         for node_id in node_ids {
             self.settle_node(&state, &node_id, success, flow_id, run_id);
         }
@@ -259,7 +259,7 @@ impl DedupCommitSubscriber {
     /// `tinyflows`' pure commit/release logic, logging each outcome.
     fn settle_node(
         &self,
-        store: &SqliteStateStore,
+        store: &FlowState,
         node_id: &str,
         success: bool,
         flow_id: &str,
