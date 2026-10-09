@@ -3,24 +3,19 @@
 //! Used by both [`super::encrypted_store::SecretStore`] (config field encryption)
 //! and [`super::encrypted_file_backend::EncryptedFileBackend`] (secrets file encryption).
 
-use chacha20poly1305::aead::{Aead, KeyInit, OsRng};
-use chacha20poly1305::{AeadCore, ChaCha20Poly1305, Key, Nonce};
+use chacha20poly1305::aead::OsRng;
+use tinystoragedrivers::secrets::crypto as secrets_crypto;
 
 pub(super) const NONCE_LEN: usize = 12;
 pub(super) const KEY_LEN: usize = 32;
 
 /// Encrypt `plaintext` with ChaCha20-Poly1305. Returns `nonce || ciphertext || tag`.
+///
+/// The cipher is `tinystoragedrivers`' (`secrets::crypto`), the same format
+/// its secret stores read and write.
 pub(super) fn chacha20_encrypt(key: &[u8; KEY_LEN], plaintext: &[u8]) -> Result<Vec<u8>, String> {
-    let cipher = ChaCha20Poly1305::new(Key::from_slice(key));
-    let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-    let ciphertext = cipher
-        .encrypt(&nonce, plaintext)
-        .map_err(|e| format!("ChaCha20 encryption failed: {e}"))?;
-
-    let mut blob = Vec::with_capacity(NONCE_LEN + ciphertext.len());
-    blob.extend_from_slice(&nonce);
-    blob.extend_from_slice(&ciphertext);
-    Ok(blob)
+    secrets_crypto::encrypt(key, plaintext)
+        .map_err(|e| format!("ChaCha20 encryption failed: {e}"))
 }
 
 /// Decrypt a `nonce || ciphertext || tag` blob produced by [`chacha20_encrypt`].
@@ -28,11 +23,8 @@ pub(super) fn chacha20_decrypt(key: &[u8; KEY_LEN], blob: &[u8]) -> Result<Vec<u
     if blob.len() <= NONCE_LEN {
         return Err("encrypted blob too short (missing nonce)".to_string());
     }
-    let (nonce_bytes, ciphertext) = blob.split_at(NONCE_LEN);
-    let nonce = Nonce::from_slice(nonce_bytes);
-    let cipher = ChaCha20Poly1305::new(Key::from_slice(key));
-    cipher
-        .decrypt(nonce, ciphertext)
+    secrets_crypto::decrypt(key, blob)
+        .map(|plaintext| plaintext.to_vec())
         .map_err(|_| "decryption failed — wrong key or tampered data".to_string())
 }
 
