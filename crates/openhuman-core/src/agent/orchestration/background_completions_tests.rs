@@ -701,14 +701,22 @@ impl CompletionStore for FullDisk {
     }
 }
 
-#[test]
-fn a_store_that_keeps_failing_degrades_to_memory_instead_of_losing_the_result() {
-    let _guard = test_guard();
+#[tokio::test]
+async fn a_store_that_keeps_failing_degrades_to_memory_instead_of_losing_the_result() {
+    let _guard = crate::config::TEST_ENV_LOCK.lock().await;
     let ws = workspace();
     let w = ws.path();
     install_store_for_test(w, Arc::new(FullDisk(InMemoryCompletionStore::new())));
 
-    record(w, "sess-fd", "sub-1", "must not be lost", Some("thread-fd"));
+    record_completion(
+        w,
+        "sess-fd",
+        "sub-1",
+        "researcher",
+        "must not be lost",
+        Some("thread-fd".into()),
+    )
+    .await;
 
     let pending = pending_for(w, "thread-fd");
     assert_eq!(pending.len(), 1, "the result is held in memory");

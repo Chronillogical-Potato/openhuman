@@ -291,9 +291,7 @@ where
     // turn on the same thread. Skip if a delivery is already in flight. The
     // guard frees the slot, and any lease still held, even if this future is
     // dropped mid-turn.
-    let Some(mut slot) = DeliverySlot::claim(&thread_id, router.clone()) else {
-        return None;
-    };
+    let mut slot = DeliverySlot::claim(&thread_id, router.clone())?;
 
     // A busy thread defers *before* the claim: the claim counts a delivery
     // attempt, and a user who keeps typing must not burn a record's budget.
