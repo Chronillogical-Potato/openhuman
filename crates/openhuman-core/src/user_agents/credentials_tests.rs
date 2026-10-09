@@ -110,3 +110,40 @@ fn every_profile_of_the_other_kind_is_removed() {
     assert!(clear(&alice).unwrap());
     assert!(!has(&alice));
 }
+
+#[test]
+fn concurrent_stores_of_different_kinds_leave_exactly_one_kind() {
+    let tmp = tempfile::tempdir().unwrap();
+    for round in 0..8 {
+        let user = agent(&tmp, &format!("race{round}"));
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(2));
+        let spawn = |kind, token: &'static str| {
+            let (user, barrier) = (user.clone(), barrier.clone());
+            std::thread::spawn(move || {
+                barrier.wait();
+                store(&user, kind, token, None).unwrap();
+            })
+        };
+        let session = spawn(UserCredentialKind::Session, "race-jwt");
+        let key = spawn(UserCredentialKind::ApiKey, "race-key");
+        session.join().unwrap();
+        key.join().unwrap();
+
+        // Whichever store ran last owns the agent; the other kind is gone.
+        let provider_present = |provider: &str| {
+            let auth = AuthService::from_config(&user);
+            let id = crate::security::credentials::normalize_provider(provider).unwrap();
+            auth.load_profiles()
+                .unwrap()
+                .profiles
+                .values()
+                .any(|profile| profile.provider == id)
+        };
+        let has_key = provider_present(api_key::API_KEY_PROVIDER);
+        let has_session = provider_present(APP_SESSION_PROVIDER);
+        assert!(
+            has_key != has_session,
+            "round {round}: exactly one kind must remain (key={has_key}, session={has_session})"
+        );
+    }
+}
