@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
- <strong>The fast, cheap, open-source agent harness. Run a hundred agents on a $5 VPS.</strong><br/>
+ <strong>The fast, cheap, open-source agent harness. Run 500 agents on a $10 VPS.</strong><br/>
  A desktop app for people. A Rust library for developers.
 </p>
 
@@ -49,9 +49,25 @@
 
 ---
 
+## Install
+
+Download the desktop app from [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) or the [latest release](https://github.com/tinyhumansai/openhuman/releases/latest).
+
+| Platform | Install |
+| --- | --- |
+| macOS | `brew install --cask openhuman` |
+| Windows | The signed `.msi` from the [latest release](https://github.com/tinyhumansai/openhuman/releases/latest) |
+| Debian / Ubuntu | `sudo apt-get install ./OpenHuman_*_amd64.deb` after downloading the `.deb` |
+| Arch | The [`openhuman-bin`](./packages/arch/openhuman-bin/) AUR recipe |
+| Script (macOS, Linux) | `curl -fsSL https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/install.sh \| bash` |
+
+The script path has no signature check, so prefer a package where you can. Platform notes and troubleshooting are in [INSTALL.md](./INSTALL.md).
+
+---
+
 ## Why OpenHuman
 
-Most harnesses run one heavy process per agent and resend a big prompt on every call. OpenHuman is a Rust core that does the same work with less of everything, and it is the only feature-rich open-source harness built to run large fleets of agents. Where other harnesses need a beefy machine per handful of agents, OpenHuman runs a hundred on a $5 server.
+Most harnesses run one heavy process per agent and resend a big prompt on every call. OpenHuman is a Rust core that does the same work with less of everything, and it is the only feature-rich open-source harness built to run large fleets of agents. Where other harnesses need a beefy machine per handful of agents, OpenHuman runs 500 on a $10 server.
 
 <table>
 <tr>
@@ -75,7 +91,7 @@ Most harnesses run one heavy process per agent and resend a big prompt on every 
 
 ### Efficient at scale
 
-**8x less** memory and CPU per task. Each extra agent costs about 1.8 MiB: [100 agents](./gitbooks/developing/performance.md) in 356 MiB fit on a $5, 1 GB VPS, and 500 fit in 1.4 GiB.
+**8x less** memory and CPU per task. Each extra agent costs about 1.8 MiB: [500 agents](./gitbooks/developing/performance.md) fit in 1.4 GiB, which is a $10, 2 GB VPS.
 
 </td>
 <td width="50%" valign="top">
@@ -114,7 +130,7 @@ Seven harnesses, the same SWE-bench tasks, the same model, key and container, ev
 
 ## For users
 
-An assistant that knows your work, acts in your apps and keeps your data yours. [Download it](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) for Windows, macOS or Linux, or see [INSTALL.md](./INSTALL.md).
+An assistant that knows your work, acts in your apps and keeps your data yours. [Install it](#install) and you are chatting in minutes.
 
 | You want to | You get |
 | --- | --- |
@@ -132,7 +148,7 @@ Start with [Getting started](./gitbooks/overview/getting-started.md) or the [gui
 
 ## For developers
 
-OpenHuman is a library-first harness. Add it to your Rust codebase and call an agent like any other function. No sidecar, no daemon. When you need more, one runtime holds hundreds of agents, each with its own model, tools, memory and sandbox. A fleet of a hundred runs on a $5 VPS, so a product with an agent per customer does not need a cluster to start.
+OpenHuman is a library-first harness. Add it to your Rust codebase and call an agent like any other function. No sidecar, no daemon. When you need more, one runtime holds hundreds of agents, each with its own model, tools, memory and sandbox. A fleet of 500 runs on a $10 VPS, so a product with an agent per customer does not need a cluster to start.
 
 ```rust
 use openhuman_embed::{Access, Harness, Provider, Workspace};
@@ -161,7 +177,7 @@ Products change, so verify against each project.
 | **Open source**         | 🚫 Proprietary    | ✅ MIT            | ✅ MIT            | ✅ GPL-3.0                                                         |
 | **Simple to start**     | ✅ Desktop + CLI  | ⚠️ Terminal-first | ⚠️ Terminal-first | ✅ Clean UI, minutes                                               |
 | **Cost**                | ⚠️ Sub + add-ons  | ⚠️ BYO models     | ⚠️ BYO models     | ✅ 2.6x fewer tokens                                               |
-| **Agent fleets**        | 🚫 One session    | ⚠️ Process per agent | ⚠️ Process per agent | 🚀 100 agents on a $5 VPS                                     |
+| **Agent fleets**        | 🚫 One session    | ⚠️ Process per agent | ⚠️ Process per agent | 🚀 500 agents on a $10 VPS                                    |
 | **Embeddable library**  | ⚠️ SDK over a CLI | 🚫 None           | ⚠️ Python package | 🚀 Typed Rust API                                                  |
 | **Memory**              | ✅ Chat-scoped    | ⚠️ Plugin-reliant | ✅ Self-learning  | 🚀 Recalled every turn, with citations                            |
 | **Integrations**        | ⚠️ Few connectors | ⚠️ BYO            | ⚠️ BYO            | 🚀 119 OAuth apps, MCP, skills                                     |
