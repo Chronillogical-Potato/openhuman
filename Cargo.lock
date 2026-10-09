@@ -7497,7 +7497,7 @@ dependencies = [
 
 [[package]]
 name = "tinyhumans-sdk"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "futures",
@@ -7577,7 +7577,6 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "sha2 0.11.0",
  "thiserror 2.0.20",
  "tinyinference-core",
  "tinytools-agent",
@@ -7765,7 +7764,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-api"
-version = "1.25.0"
+version = "1.26.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -7778,7 +7777,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-integrations"
-version = "1.25.0"
+version = "1.26.0"
 dependencies = [
  "async-trait",
  "calamine",
@@ -7805,7 +7804,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-tools"
-version = "1.25.0"
+version = "1.26.0"
 dependencies = [
  "chrono",
  "futures",
@@ -7845,7 +7844,7 @@ dependencies = [
 
 [[package]]
 name = "tinyskills"
-version = "0.2.9"
+version = "0.2.10"
 dependencies = [
  "cap-fs-ext",
  "cap-std",
