@@ -86,30 +86,6 @@ impl EncryptionKey {
     }
 }
 
-/// Get the path to the OpenHuman data directory.
-/// If an active user is set, returns the user-scoped directory under the
-/// env-aware root returned by `default_root_openhuman_dir()`
-/// (for example `~/.openhuman/users/{user_id}` in production or
-/// `~/.openhuman-staging/users/{user_id}` when `OPENHUMAN_APP_ENV=staging`);
-/// otherwise it falls back to that root directory itself.
-pub fn get_data_dir() -> Result<PathBuf, String> {
-    let root_dir = crate::config::default_root_openhuman_dir()
-        .map_err(|e| format!("Cannot determine app data directory: {e}"))?;
-    std::fs::create_dir_all(&root_dir)
-        .map_err(|e| format!("Failed to create data directory: {e}"))?;
-
-    let data_dir = if let Some(user_id) = crate::config::read_active_user_id(&root_dir) {
-        let user_dir = crate::config::user_openhuman_dir(&root_dir, &user_id);
-        std::fs::create_dir_all(&user_dir)
-            .map_err(|e| format!("Failed to create user data directory: {e}"))?;
-        user_dir
-    } else {
-        root_dir
-    };
-
-    Ok(data_dir)
-}
-
 #[cfg(test)]
 #[path = "core_tests.rs"]
 mod tests;
