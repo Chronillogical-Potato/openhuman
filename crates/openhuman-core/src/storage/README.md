@@ -52,6 +52,15 @@ on `storage-mongodb`.
   approvals (`security::approval`), paired devices (`security::devices`),
   notifications (`desktop::notifications`) and task sources
   (`integrations::task_sources`).
+- Approvals (`security::approval`), through `store_documents.rs`.
+- Secrets (`storage::secrets`): the keyring's user secrets
+  (`security::keyring::get` / `set` / `delete`) and the credential stores'
+  files (`auth-profiles.json`, `http-credentials.json`) become encrypted
+  documents (`DocumentSecrets`, `enc2:`) in the acting agent's scope. Each
+  scope's data key is derived with HKDF-SHA256 from the keyring master key
+  (`OPENHUMAN_KEYRING_MASTER_KEY` / `_FILE`, else the OS keychain); with no
+  master key they fail closed. The config encryption key stays on the
+  process keyring, because `config.toml` is loaded before any agent acts.
 
 ## Boundaries
 

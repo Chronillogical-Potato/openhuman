@@ -7914,6 +7914,7 @@ dependencies = [
  "tinystoragedrivers-core",
  "tinystoragedrivers-file",
  "tinystoragedrivers-mongodb",
+ "tinystoragedrivers-secrets",
  "tinystoragedrivers-sqlite",
 ]
 
@@ -7949,6 +7950,21 @@ dependencies = [
  "mongodb",
  "serde_json",
  "tinystoragedrivers-core",
+]
+
+[[package]]
+name = "tinystoragedrivers-secrets"
+version = "0.4.0"
+dependencies = [
+ "async-trait",
+ "chacha20poly1305",
+ "fs4",
+ "hkdf 0.12.4",
+ "serde_json",
+ "sha2 0.10.9",
+ "tinystoragedrivers-core",
+ "tokio",
+ "zeroize",
 ]
 
 [[package]]

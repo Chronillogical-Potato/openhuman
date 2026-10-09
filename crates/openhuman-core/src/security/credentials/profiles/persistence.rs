@@ -18,6 +18,11 @@ use super::{
     PERSIST_RETRY_BASE_MS, PROFILES_FILENAME,
 };
 
+/// The secret the profiles live in on a storage backend
+/// ([`crate::storage::secrets`]): the same JSON as `auth-profiles.json`,
+/// encrypted as one secret in the acting agent's scope.
+const STORAGE_SECRET_NAME: &str = "file:auth-profiles.json";
+
 impl AuthProfilesStore {
     pub(super) fn save_locked(&self, data: &AuthProfilesData) -> Result<()> {
         let mut persisted = PersistedAuthProfiles {
@@ -114,6 +119,56 @@ impl AuthProfilesStore {
     }
 
     pub(super) fn read_persisted_locked(&self) -> Result<PersistedAuthProfiles> {
+        if let Some(secrets) = crate::storage::secrets::current()? {
+            let Some(bytes) = crate::storage::secrets::get_blocking(&secrets, STORAGE_SECRET_NAME)?
+            else {
+                // First use of the backend: adopt the profiles the on-disk
+                // store holds, so they do not vanish from reads and the next
+                // save cannot replace them with an empty set. The file is left
+                // in place (never deleted by this path).
+                let legacy = self.read_file_locked()?;
+                if self.path.exists() && !legacy.profiles.is_empty() {
+                    let json = serde_json::to_vec(&legacy)
+                        .context("Failed to serialize migrated auth profiles")?;
+                    // A failed adoption keeps the legacy profiles readable;
+                    // the next read retries it.
+                    match crate::storage::secrets::set_blocking(
+                        &secrets,
+                        STORAGE_SECRET_NAME,
+                        &json,
+                    ) {
+                        Ok(()) => tracing::info!(
+                            "[credentials] migrated auth profiles file to storage secret"
+                        ),
+                        Err(_) => tracing::warn!(
+                            "[credentials] auth profiles migration to storage failed; will retry"
+                        ),
+                    }
+                }
+                return Ok(legacy);
+            };
+            // No quarantine on a storage backend: an unparseable record is an
+            // error, so a later write can never replace profiles it could not
+            // read.
+            let mut persisted: PersistedAuthProfiles = serde_json::from_slice(&bytes)
+                .context("auth profile record on the storage backend is not valid JSON")?;
+            if persisted.schema_version == 0 {
+                persisted.schema_version = CURRENT_SCHEMA_VERSION;
+            }
+            if persisted.schema_version > CURRENT_SCHEMA_VERSION {
+                anyhow::bail!(
+                    "Unsupported auth profile schema version {} (max supported: {})",
+                    persisted.schema_version,
+                    CURRENT_SCHEMA_VERSION
+                );
+            }
+            return Ok(persisted);
+        }
+        self.read_file_locked()
+    }
+
+    /// Reads the on-disk `auth-profiles.json` store (empty when absent).
+    fn read_file_locked(&self) -> Result<PersistedAuthProfiles> {
         if !self.path.exists() {
             return Ok(PersistedAuthProfiles::default());
         }
@@ -163,6 +218,12 @@ impl AuthProfilesStore {
     }
 
     pub(super) fn write_persisted_locked(&self, persisted: &PersistedAuthProfiles) -> Result<()> {
+        if let Some(secrets) = crate::storage::secrets::current()? {
+            let json =
+                serde_json::to_vec(persisted).context("Failed to serialize auth profiles")?;
+            crate::storage::secrets::set_blocking(&secrets, STORAGE_SECRET_NAME, &json)?;
+            return Ok(());
+        }
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent).with_context(|| {
                 format!(

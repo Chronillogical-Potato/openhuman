@@ -68,6 +68,21 @@ The workspace dir resolves from `init_workspace`, else `OPENHUMAN_WORKSPACE`, el
 
 Both file backends keep every secret in one file, so a `set` of one key rewrites all of them. That read-modify-write cycle is guarded by `file_store::lock_for_write`. An in-process mutex is not sufficient, because a desktop core, another process embedding the same core, and a `cargo test` run that inherited `OPENHUMAN_WORKSPACE` can all address the same path.
 
+### On a storage backend
+
+When the host configured a storage backend (`OPENHUMAN_STORAGE_URL` /
+`[storage] url`, see `crate::storage`), `get`, `set` and `delete` serve the
+secret from `storage::secrets` instead: one encrypted document per
+namespaced key in the acting agent's storage scope, under a per-scope key
+derived from the master key above. `is_available` reports `true` without
+probing. The app-level keys stay on the process backend: the availability
+probe, `get_or_create_random` and `migrate_from_file` (the config
+encryption key, `secretstore.master_key`) use `process_get` / `process_set` /
+`process_delete`. `backend_name` keeps naming the process backend, which is
+what the consent UI describes. The `enc2:` cipher itself is
+`tinystoragedrivers::secrets::crypto` (byte-compatible; its fixtures were
+written by this module), used by `crypto.rs` and `SecretStore`.
+
 ## Dependencies
 
 Internal openhuman/core modules: none. The keyring module's own files only `use crate::security::keyring::*` (self-internal). It is a leaf infrastructure module. External crates: `keyring`, `chacha20poly1305`, `serde_json`, `parking_lot`, `thiserror`, `anyhow`, `chrono`, `dirs`.

@@ -663,4 +663,6 @@
 #                      not add a native build dependency.
 # 332/311/3 2026-10-04 Memory lifecycle refresh removed five packages/names
 #                      from the Linux flows graph; native builds remain at 3.
-flows:336:314:2
+# 337/315/2 2026-10-09 secrets on the storage backend add the first-party
+#                      tinystoragedrivers-secrets crate (one package, one name).
+flows:337:315:2
