@@ -1,5 +1,11 @@
 use super::*;
 
+use std::sync::Arc;
+
+use crate::agent::harness::definition::AgentDefinition;
+use crate::config::Config;
+use tinytools::ToolRuleSet;
+
 use tinytools::{Surface, ToolSubject};
 
 fn definition(id: &str) -> AgentDefinition {
