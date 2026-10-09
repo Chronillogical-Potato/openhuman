@@ -62,11 +62,37 @@ tinyagents_store/{kv,journal}/               run status, goals, todos,
                                              turn journal
 ```
 
+## A storage-backed store instead
+
+`install_for_host()` is what the server shims and the TUI call. With no
+storage URL configured (`OPENHUMAN_STORAGE_URL`, else `[storage] url` in
+`config.toml`) it is `install()` above, unchanged. With one, it opens that
+backend (`openhuman_core::storage::open`), makes it the process's storage
+backend, and installs TinyAgents' `DriverSessionStores` over it instead:
+
+```text
+ install_for_host()
+   storage URL?   no  -> install()   (the layout above)
+                  yes -> storage::open(url) -> storage::install(backend)
+                         DriverSessionStores::new(backend)
+                           .recover_on_open(driver != "mongodb")
+                         -> agent::session_store::install(provider)
+```
+
+Every agent then gets its own storage scope (its id, or `sha256:` of an id
+that is not a valid scope), so agents sharing one MongoDB database never see
+each other's transcripts, turn states, records or journals. A single-process
+backend (SQLite, memory, files) interrupts an agent's in-flight turns the
+first time it is opened; MongoDB does not, because another process may own
+them. A URL that cannot be parsed or opened fails the boot rather than
+falling back to local files. `install_for_url` is the same with the URL
+already resolved, for tests and hosts that read it themselves.
+
 ## Layout
 
 | File | What it does |
 | --- | --- |
-| [`mod.rs`](mod.rs) | `SqliteSessionStores` (`at`, `resolving`), its `SessionStoreProvider` impl (`for_agent`, `recover`, `destination_key`, `workspace_dir`), and `install()`. |
+| [`mod.rs`](mod.rs) | `SqliteSessionStores` (`at`, `resolving`), its `SessionStoreProvider` impl (`for_agent`, `recover`, `destination_key`, `workspace_dir`), `install()`, and `install_for_host()` / `install_for_url()`, which install `DriverSessionStores` when a storage URL is configured. |
 
 ## Key types and entry points
 
@@ -112,6 +138,16 @@ runs as a doctest.
 ```bash
 cargo test -p openhuman-rpc session_store
 ```
+
+## Scope of the storage-backed layout
+
+A configured storage URL moves what the installed `SessionStoreProvider`
+serves: the agent loop's transcripts, turn states, records and journal. Host
+readers that still resolve `workspace/session_raw` or the workspace turn-state
+and journal files directly (thread history paging, turn-state RPCs, run replay,
+cron origin delivery, graph subagent transcripts) have not moved onto the
+provider yet and are tracked as follow-ups; until they do, treat a storage URL
+as opt-in and not yet a drop-in for the desktop layout.
 
 ## Further reading
 

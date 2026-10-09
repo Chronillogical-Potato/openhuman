@@ -13,7 +13,19 @@ use tinyagents_session::transcript::import::ops::open_session_stores;
 
 /// Reap every run left non-terminal by a previous process, returning the number
 /// of runs moved to `Cancelled`. Best-effort; never blocks boot.
+///
+/// Skipped on a storage backend other processes may share (MongoDB): there a
+/// non-terminal status can belong to a run another replica is still driving,
+/// and cancelling it would hide that run from active and late-attach status.
 pub(crate) async fn reap_orphaned_runs(workspace: &Path) -> usize {
+    reap_unless_shared(workspace, crate::storage::installed_is_shared()).await
+}
+
+async fn reap_unless_shared(workspace: &Path, shared: bool) -> usize {
+    if shared {
+        log::info!("[agent] startup run sweep skipped: the storage backend is shared");
+        return 0;
+    }
     log::debug!(
         "[agent] startup run sweep workspace={}",
         workspace.display()

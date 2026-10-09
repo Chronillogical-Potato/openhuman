@@ -324,6 +324,13 @@ tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crate
 tinyinference-local = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
 tinyinference-voice = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-voice" }
 
+[patch."https://github.com/tinyhumansai/tinystoragedrivers"]
+# tinyflows names the storage crates by git tag; redirect them to the copy
+# tinyagents vendors so this world links one `DocumentStore` trait and one
+# `libsqlite3-sys`. Mirrors the root Cargo.toml.
+tinystoragedrivers-core = { path = "../../vendor/tinyagents/vendor/tinystoragedrivers/crates/tinystoragedrivers-core" }
+tinystoragedrivers-sqlite = { path = "../../vendor/tinyagents/vendor/tinystoragedrivers/crates/tinystoragedrivers-sqlite" }
+
 [patch.crates-io]
 # Keep reqwest defaults disabled in this independent Cargo world too. Without
 # this patch, the registry release reintroduces native-tls/OpenSSL on Linux.

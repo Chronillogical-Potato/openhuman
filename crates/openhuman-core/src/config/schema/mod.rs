@@ -29,6 +29,8 @@ mod hooks;
 pub use hooks::HooksConfig;
 pub mod hosting;
 pub use hosting::HostingConfig;
+pub mod storage;
+pub use storage::StorageConfig;
 mod identity_cost;
 mod load;
 pub use load::{
