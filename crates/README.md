@@ -25,32 +25,27 @@ Arrows point from a crate to what it depends on (normal `[dependencies]`,
 taken from each `Cargo.toml`).
 
 ```text
-   openhuman-app      openhuman-tui      openhuman-cli       executables
-        |  |  |         |  |  |            |  |  |
-        |  |  +---------|--|--+------------|--|--+---+
-        |  |            |  |               |  |      |
-        |  +------------|--+---------------+  |      |
-        |               |  |                  |      |
-        v               v  v                  v      v
-   +-----------------------------+   +---------------------------+
-   |    openhuman-tinyhumans     |   |       openhuman-rpc       |
-   | (SDK transport, hosted RPC, |   | (JSON-RPC server, client, |
-   |  session owner, Jev)        |   |  session store)           |
-   +-----------------------------+   +---------------------------+
-        |              |                          |
-        |              v                          |
-        |       vendor/tinyhumans-sdk             |
-        v                                         |
-   +-----------------------------+                |
-   |       openhuman-embed       |                |
-   |   (Runtime -> Agent facade) |                |
-   +-----------------------------+                |
-        |                                         |
-        v                                         v
-   +----------------------------------------------------------+
-   |                     openhuman-core                       |
-   |  (domains, controller registry, BackendTransport port)   |
-   +----------------------------------------------------------+
+  openhuman-app      openhuman-tui      openhuman-cli      (executables)
+        |                  |                  |
+        +------------------+------------------+
+        |   each of the three depends on all three crates below
+        |
+        +-----------------------+-------------------------+
+        |                       |                         |
+        v                       v                         |
+  openhuman-tinyhumans    openhuman-rpc                   |
+    |          |          (server, client,                |
+    |          |           session store)                 |
+    |          v                |                         |
+    |   vendor/tinyhumans-sdk   |                         |
+    v                           |                         |
+  openhuman-embed               |                         |
+    |                           |                         |
+    v                           v                         v
+  +--------------------------------------------------------------+
+  |                        openhuman-core                        |
+  |    (domains, controller registry, BackendTransport port)     |
+  +--------------------------------------------------------------+
 ```
 
 The same edges as a list:
