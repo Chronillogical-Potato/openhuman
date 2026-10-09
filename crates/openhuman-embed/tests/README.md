@@ -27,6 +27,8 @@ recorded on the wrong server.
 | File | What it proves |
 | --- | --- |
 | [`common/mod.rs`](common/mod.rs) | Shared helpers: `runtime()`, `offline_config()`, `provider(reply)`, `stub_backend()`, `chat_completion`, `tool_call_completion`, and request inspectors (`chat_requests`, `tool_names`, `tool_results`). |
+| [`facades.rs`](facades.rs) | The runtime-free curated facades (`artifacts`, `chat_surface`, `identity`, `config` helpers, `modules`), the compile-status constants and `schema_for_rpc_method`. |
+| [`seams_runtime.rs`](seams_runtime.rs) | A controller extension is invokable after a real `build()`, a `live_policy` is applied after boot, and hooks are removed on drop while the extension outlives the runtime. |
 | [`harness_embed.rs`](harness_embed.rs) | A `Harness` runs a real turn with no transport and no background services, routes it to the mock provider, and binds nothing. |
 | [`runtime_agents.rs`](runtime_agents.rs) | Several agents on one runtime keep their own provider, access tier, skills, MCP servers and working directory, and the runtime's API key reaches a mocked managed backend as a bearer. |
 | [`session_store.rs`](session_store.rs) | On a `Stateless` workspace with `InMemorySessionStores`, transcripts, journal and run status land in the store per agent, a reopened agent resumes from the store, and nothing durable is written to the scratch directory. |
