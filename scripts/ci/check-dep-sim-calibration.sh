@@ -95,6 +95,17 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
-EXPECTED_NAMES=311
+# 316 -> 311 on 2026-10-05: the upstream Memory lifecycle refresh removed
+# five names from the Linux flows graph; native builds remain at three.
+# 311 -> 320 on 2026-10-07: tinyskills v0.2.8 (#7054) brings cap-std and its
+# dependencies into the flows graph.
+# 320 -> 313 on 2026-10-09: the tinyagents and tinyflows mains shed seven
+# names from the flows graph.
+# 313 -> 314 on 2026-10-09: the config loader names the failing field path
+# through `serde_path_to_error` (pure Rust, no dependencies; already in the
+# product graph through axum).
+# This matches the current `flows:336:314:2` entry in
+# scripts/kernel-floor.limits; its preceding entries are historical.
+EXPECTED_NAMES=314
 
 exec python3 scripts/dep-sim.py --cut-nothing --expect-names "${EXPECTED_NAMES}"

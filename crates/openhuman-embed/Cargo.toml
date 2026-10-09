@@ -17,12 +17,17 @@ hosting = ["openhuman-core/hosting"]
 modules = ["openhuman-core/modules"]
 voice = ["openhuman-core/voice"]
 web3 = ["openhuman-core/web3"]
+# Storage drivers for `[storage] url` (see the core `storage` domain).
+storage-sqlite = ["openhuman-core/storage-sqlite"]
+storage-mongodb = ["openhuman-core/storage-mongodb"]
+storage-file = ["openhuman-core/storage-file"]
 runtime-node = ["openhuman-core/runtime-node"]
 media = ["openhuman-core/media"]
 flows = ["openhuman-core/flows"]
 skills = ["openhuman-core/skills"]
 mcp = ["openhuman-core/mcp"]
-crash-reporting = ["openhuman-core/crash-reporting"]
+# Also carries `process::sentry`, the shared Sentry options + before_send chain.
+crash-reporting = ["dep:sentry", "openhuman-core/crash-reporting"]
 channels = ["openhuman-core/channels"]
 whatsapp-web = ["openhuman-core/whatsapp-web"]
 file-logging = ["openhuman-core/file-logging"]
@@ -35,6 +40,10 @@ anyhow = "1"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# `process::sentry` (crash-reporting): the client options and before_send
+# chain hosts share. Same version and minimal features as the core's, which
+# carries the transport/backtrace features through `openhuman-core/crash-reporting`.
+sentry = { version = "0.47.0", default-features = false, optional = true }
 tempfile = "3"
 thiserror = "2"
 # The memory facade (`memory`) speaks TinyMemory's contract types; same path as
@@ -47,6 +56,13 @@ tinymcp-bus = { path = "../../vendor/tinymcp/crates/tinymcp-bus" }
 # conversations in its own database, and the in-memory provider; same path as
 # the core's so one copy resolves.
 tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
+# The wire request/response types `complete` converts to; same path as the
+# core's so one copy resolves.
+tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
+tinyinference-embeddings = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
+# `RuntimeBuilder::tool_ranker` takes `tinytools::ToolRanker`; same vendored
+# path as the core's so the trait unifies.
+tinytools = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
 url = "2"
 uuid = { version = "1", features = ["v4"] }

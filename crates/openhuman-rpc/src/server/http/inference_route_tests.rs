@@ -13,7 +13,7 @@ use axum::body::Body;
 use axum::http::{header, Method, Request, StatusCode};
 use tower::ServiceExt;
 
-use openhuman_core::core::auth::CORE_TOKEN_ENV_VAR;
+use crate::core_host::core::auth::CORE_TOKEN_ENV_VAR;
 
 use super::build_core_http_router;
 
@@ -36,10 +36,10 @@ fn ensure_test_rpc_auth() -> String {
         // binaries don't collide (they run in separate processes anyway).
         unsafe { std::env::set_var(CORE_TOKEN_ENV_VAR, TEST_RPC_TOKEN) };
         let tmp = tempfile::tempdir().expect("tempdir for token file");
-        openhuman_core::core::auth::init_rpc_token(tmp.path())
+        crate::core_host::core::auth::init_rpc_token(tmp.path())
             .expect("init rpc auth token for http tests");
     });
-    openhuman_core::core::auth::get_rpc_token()
+    crate::core_host::core::auth::get_rpc_token()
         .expect("rpc bearer must be installed after ensure_test_rpc_auth")
         .to_string()
 }

@@ -29,8 +29,11 @@ mod hooks;
 pub use hooks::HooksConfig;
 pub mod hosting;
 pub use hosting::HostingConfig;
+pub mod storage;
+pub use storage::StorageConfig;
 mod identity_cost;
 mod load;
+pub(crate) use load::config_from_toml_str;
 pub use load::{
     action_dir_env_override, active_user_marker_path, active_workspace_dir,
     active_workspace_dir_cached, active_workspace_snapshot, clear_active_user, default_action_dir,
@@ -89,12 +92,14 @@ pub use context::{CompactionSettings, CompactionStrategy, ContextConfig};
 pub use cron::CronConfig;
 pub use dashboard::{DashboardConfig, DiagramViewerConfig, EventStreamConfig, ModelHealthConfig};
 pub use dictation::{DictationActivationMode, DictationConfig};
-pub use identity_cost::{CostConfig, ModelPricing};
+pub use identity_cost::{
+    BudgetAction, BudgetPeriod, BudgetPolicy, BudgetScope, CostConfig, ModelPricing,
+};
 pub use local_ai::{LocalAiConfig, LocalAiUsage};
 pub use memory::{
     migrate_legacy_source, MemoryAgentConfig, MemoryConfig, MemoryConversationsConfig,
-    MemoryEngineSettings, MemoryRecallConfig, MemorySourceConfig, MemorySourceKind,
-    MEMORY_CORTEXDB_KEY_NAME,
+    MemoryEngineSettings, MemoryLayoutMode, MemoryRecallConfig, MemorySourceConfig,
+    MemorySourceKind, MEMORY_CORTEXDB_KEY_NAME,
 };
 pub use modules::{ModuleOverride, ModulesConfig};
 pub use node::NodeConfig;
@@ -131,7 +136,9 @@ pub use update::{UpdateConfig, UpdateRestartStrategy};
 pub use web_chat_config::WebChatConfig;
 mod voice_server;
 pub use voice_server::{SttEngine, VoiceActivationMode, VoiceServerConfig};
+pub mod voice_live;
 pub mod voice_providers;
+pub use voice_live::LiveVoiceConfig;
 pub use voice_providers::{
     generate_voice_provider_id, is_voice_slug_reserved, BuiltinVoiceProvider, VoiceCapability,
     VoiceProviderCreds, BUILTIN_VOICE_PROVIDERS,

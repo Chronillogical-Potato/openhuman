@@ -6,8 +6,8 @@
 
 use serde_json::Value;
 
-use openhuman_core::config::Config;
-use openhuman_core::core::Outcome;
+use openhuman_embed::__host::config::Config;
+use openhuman_embed::__host::core::Outcome;
 
 use crate::hosted::client::HostedClient;
 

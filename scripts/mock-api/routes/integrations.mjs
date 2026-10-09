@@ -3,8 +3,20 @@ import { behavior, parseBehaviorJson, setMockBehavior } from "../state.mjs";
 import { listMockLlmModels } from "./llm/shared.mjs";
 
 // The web E2E core must never fetch the public Hermes catalog. Keep the
-// fixture small but representative: registry smoke tests need sources and
-// browse results, while search tests need both `git` and `docker` matches.
+// fixture representative: registry smoke tests need sources and browse
+// results, search tests need both `git` and `docker` matches, and the
+// explorer needs more than one 25-row page to exercise server paging.
+const SKILL_REGISTRY_FILLER = Array.from({ length: 30 }, (_, i) => ({
+  name: `fixture-skill-${String(i).padStart(2, "0")}`,
+  description: "Registry paging fixture.",
+  category: "productivity",
+  source: "fixture-pack",
+  tags: [],
+  platforms: ["linux", "macos", "windows"],
+  commands: [],
+  envVars: [],
+}));
+
 const SKILL_REGISTRY_CATALOG = [
   {
     name: "git-workflow",
@@ -28,14 +40,48 @@ const SKILL_REGISTRY_CATALOG = [
     commands: ["docker"],
     envVars: [],
   },
+  ...SKILL_REGISTRY_FILLER,
 ];
+
+// The skill named by `skillRegistryScanBlocked` carries a zero-width space,
+// which the supply-chain scan blocks; `skillRegistryScanVariant` changes its
+// text, and so its digest.
+function skillRegistryDocument(name, scanBlocked, variant) {
+  const suffix = variant ? ` (${variant})` : "";
+  const body = scanBlocked ? `Run the steps\u200b in order.${suffix}\n` : "";
+  return `---\nname: ${name}\ndescription: Mock registry skill ${name}.\n---\n\n# ${name}\n${body}`;
+}
 
 export function handleIntegrations(ctx) {
   const { method, url, parsedBody, res } = ctx;
   const mockBehavior = behavior();
 
   if (method === "GET" && /^\/skills\/catalog\.json\/?(?:\?.*)?$/.test(url)) {
+    if (mockBehavior.skillRegistryUnavailable === "true") {
+      json(res, 503, { success: false, error: "skill registry unavailable" });
+      return true;
+    }
     json(res, 200, SKILL_REGISTRY_CATALOG);
+    return true;
+  }
+
+  const skillDocument =
+    method === "GET" &&
+    url.match(/^\/skills\/([a-z0-9-]+)\/SKILL\.md(?:\?.*)?$/);
+  if (skillDocument) {
+    const name = skillDocument[1];
+    if (!SKILL_REGISTRY_CATALOG.some((entry) => entry.name === name)) {
+      json(res, 404, { success: false, error: "no such skill" });
+      return true;
+    }
+    res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
+    res.end(
+      skillRegistryDocument(
+        name,
+        mockBehavior.skillRegistryScanBlocked === name,
+        mockBehavior.skillRegistryScanVariant ?? "",
+      ),
+    );
     return true;
   }
 
@@ -569,26 +615,6 @@ export function handleIntegrations(ctx) {
     return true;
   }
 
-  // ── Composio sync ──────────────────────────────────────────
-  if (
-    method === "POST" &&
-    /^\/agent-integrations\/composio\/sync\/?$/.test(url)
-  ) {
-    if (mockBehavior.composioSyncFails === "400") {
-      json(res, 400, { success: false, error: "Mock sync failure" });
-      return true;
-    }
-    if (
-      mockBehavior.composioSyncFails === "500" ||
-      mockBehavior.composioSyncFails === "1"
-    ) {
-      json(res, 500, { success: false, error: "Mock sync failure" });
-      return true;
-    }
-    json(res, 200, { success: true, data: { items_synced: 3 } });
-    return true;
-  }
-
   // ── Parallel search ────────────────────────────────────────
   if (
     method === "POST" &&
@@ -694,7 +720,11 @@ export function handleIntegrations(ctx) {
           requestId: "exa-answer",
           answer: `Mock Exa answer for ${query}`,
           citations: [
-            { id: "c0", url: "https://exa.example.com/answer", title: "Exa source" },
+            {
+              id: "c0",
+              url: "https://exa.example.com/answer",
+              title: "Exa source",
+            },
           ],
           costDollars: { total: 0.005 },
         },
@@ -707,7 +737,11 @@ export function handleIntegrations(ctx) {
         data: {
           requestId: "exa-similar",
           results: [
-            { id: "s0", url: "https://exa.example.com/similar", title: "Similar page" },
+            {
+              id: "s0",
+              url: "https://exa.example.com/similar",
+              title: "Similar page",
+            },
           ],
           costDollars: { total: 0.005 },
         },

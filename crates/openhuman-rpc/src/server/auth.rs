@@ -1,6 +1,6 @@
 //! Bearer-token authentication for the core's HTTP API.
 //!
-//! The token itself is owned by [`openhuman_core::core::auth`]; this module is
+//! The token itself is owned by `openhuman::core::auth`; this module is
 //! the route policy on top of it.
 //!
 //! Endpoints exempt from auth (checked by [`rpc_auth_middleware`]):
@@ -33,9 +33,9 @@ use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde_json::json;
 
-use openhuman_core::config::Config;
-use openhuman_core::inference::http::EXTERNAL_OPENAI_COMPAT_PROVIDER;
-use openhuman_core::security::credentials::AuthService;
+use crate::core_host::config::Config;
+use crate::core_host::inference::http::EXTERNAL_OPENAI_COMPAT_PROVIDER;
+use crate::core_host::security::credentials::AuthService;
 
 /// Paths that bypass bearer-token authentication.
 ///
@@ -97,7 +97,7 @@ fn is_public_path(path: &str) -> bool {
 /// Add new entries here only for SSE / WebSocket routes whose clients cannot
 /// send headers and that carry per-user data. The follow-up approvals stream
 /// (#1339) is the next planned addition.
-const QUERY_TOKEN_PATHS: &[&str] = &["/events/webhooks", "/ws/dictation"];
+const QUERY_TOKEN_PATHS: &[&str] = &["/events/webhooks", "/ws/dictation", "/ws/live-voice"];
 
 /// Axum middleware: enforce `Authorization: Bearer <token>` on all protected
 /// endpoints.
@@ -114,7 +114,7 @@ pub async fn rpc_auth_middleware(req: axum::extract::Request, next: Next) -> Res
         return next.run(req).await;
     }
 
-    let Some(expected) = openhuman_core::core::auth::get_rpc_token() else {
+    let Some(expected) = crate::core_host::core::auth::get_rpc_token() else {
         // Shouldn't happen in production — token is always initialized before
         // the router starts serving. Deny to be safe.
         log::error!("[auth] RPC token not initialized — denying request to {path}");
@@ -136,7 +136,7 @@ pub async fn rpc_auth_middleware(req: axum::extract::Request, next: Next) -> Res
         .and_then(|v| v.strip_prefix("Bearer "))
         .unwrap_or("");
 
-    if openhuman_core::core::auth::bearer_matches(header_token, expected) {
+    if crate::core_host::core::auth::bearer_matches(header_token, expected) {
         log::trace!("[auth] authorized request to {path} (header)");
         return next.run(req).await;
     }
@@ -152,7 +152,7 @@ pub async fn rpc_auth_middleware(req: axum::extract::Request, next: Next) -> Res
     // this is not a separate credential — only a transport workaround.
     if QUERY_TOKEN_PATHS.contains(&path.as_str()) {
         if let Some(query_token) = extract_query_token(req.uri().query()) {
-            if openhuman_core::core::auth::bearer_matches(&query_token, expected) {
+            if crate::core_host::core::auth::bearer_matches(&query_token, expected) {
                 log::trace!("[auth] authorized request to {path} (query token)");
                 return next.run(req).await;
             }
@@ -182,7 +182,9 @@ fn verify_external_inference_bearer_for_config(config: &Config, supplied: &str) 
 
     let auth = AuthService::from_config(config);
     match auth.get_provider_bearer_token(EXTERNAL_OPENAI_COMPAT_PROVIDER, None) {
-        Ok(Some(expected)) => openhuman_core::core::auth::bearer_matches(supplied, expected.trim()),
+        Ok(Some(expected)) => {
+            crate::core_host::core::auth::bearer_matches(supplied, expected.trim())
+        }
         Ok(None) => false,
         Err(err) => {
             log::warn!("[auth] failed to read external inference bearer: {err}");

@@ -1,10 +1,11 @@
-//! `OpenHumanSessionHost::from_config` factory methods and the internal
-//! `build_session_agent_inner` constructor.
+//! `OpenHumanSessionHost::from_config` factory methods and internal `build_session_agent_inner` constructor.
 
 use super::dispatcher::{resolve_dispatcher_kind, DispatcherKind};
+use super::host_tools::derive_turn_workspace_descriptor;
 use super::should_synthesize_delegation_tools;
-use crate::agent::harness::definition::NO_TOOLS_SENTINEL;
-use crate::agent::harness::definition::{AgentDefinitionRegistry, PromptSource, ToolScope};
+use crate::agent::harness::definition::{
+    AgentDefinitionRegistry, PromptSource, ToolScope, NO_TOOLS_SENTINEL,
+};
 use crate::agent::host_runtime;
 use crate::agent::prompts::SystemPromptBuilder;
 use crate::agent::session_host::types::OpenHumanSessionHost;
@@ -13,7 +14,7 @@ use crate::security::SecurityPolicy;
 use crate::tools;
 use anyhow::Result;
 use std::sync::Arc;
-use tinytools::{PermissionLevel, Tool};
+use tinytools::Tool;
 use tinytools_agent::dialect::{
     CodeDialect, NativeDialect, PFormatDialect, ToolDialect, XmlDialect,
 };
@@ -29,9 +30,8 @@ impl OpenHumanSessionHost {
 
     /// Constructs an `OpenHumanSessionHost` instance from a global system configuration.
     ///
-    /// Thin wrapper around [`OpenHumanSessionHost::from_config_for_agent`] that always
-    /// targets the orchestrator definition. This preserves the legacy
-    /// "main agent = orchestrator" behaviour for CLI / REPL / any caller
+    /// Thin wrapper around [`OpenHumanSessionHost::from_config_for_agent`] targeting the
+    /// orchestrator for legacy CLI / REPL callers.
     /// that does not participate in the #525 onboarding-routing flow.
     ///
     /// Callers that need to select a different agent at session-build
@@ -147,7 +147,7 @@ impl OpenHumanSessionHost {
         config: &Config,
         agent_id: &str,
         target_def: Option<&crate::agent::harness::definition::AgentDefinition>,
-        read_only_tools_only: bool,
+        host_only: bool,
         host: Option<&super::HostTools>,
         session_id: Option<&str>,
     ) -> Result<Self> {
@@ -197,37 +197,29 @@ impl OpenHumanSessionHost {
         let base_config: Arc<Config> = Arc::new(config.clone());
         let tool_config: Arc<Config> = Arc::clone(&base_config);
 
-        let mut tools = tools::ops::all_tools_with_runtime(
-            Arc::clone(&tool_config),
-            &security,
-            runtime,
-            audit,
-            &tool_config.browser,
-            &tool_config.http_request,
-            &tool_config.action_dir,
-            &tool_config.agents,
-            &tool_config,
-            workspace_descriptor
-                .as_ref()
-                .map(|descriptor| descriptor.root.as_path()),
-        );
+        // Host-only (`host_only.rs`): no config-derived tool is even built.
+        let mut tools = if host_only {
+            Vec::new()
+        } else {
+            tools::ops::all_tools_with_runtime(
+                Arc::clone(&tool_config),
+                &security,
+                runtime,
+                audit,
+                &tool_config.browser,
+                &tool_config.http_request,
+                &tool_config.action_dir,
+                &tool_config.agents,
+                &tool_config,
+                workspace_descriptor
+                    .as_ref()
+                    .map(|descriptor| descriptor.root.as_path()),
+            )
+        };
 
         // Filter tools by the user preference loaded above.
         if !enabled_tools.is_empty() {
             crate::tools::filter_tools_by_user_preference(&mut tools, &enabled_tools);
-        }
-
-        if read_only_tools_only {
-            let before = tools.len();
-            tools.retain(|tool| {
-                tool.permission_level() <= PermissionLevel::ReadOnly
-                    && !matches!(tool.scope(), tinytools::ToolScope::CliRpcOnly)
-            });
-            log::info!(
-                "[agent::builder] read-only tool filter applied: before={} after={}",
-                before,
-                tools.len()
-            );
         }
 
         // Route the main agent's chat through the unified per-workload
@@ -351,6 +343,7 @@ impl OpenHumanSessionHost {
         let prompt_builder = match target_def {
             Some(def) => match &def.system_prompt {
                 PromptSource::Dynamic(build) => SystemPromptBuilder::from_dynamic(*build),
+                PromptSource::Verbatim(text) => SystemPromptBuilder::verbatim(text.clone()),
                 PromptSource::Inline(text) => SystemPromptBuilder::for_subagent(
                     text.clone(),
                     def.omit_identity,
@@ -437,6 +430,8 @@ impl OpenHumanSessionHost {
             target_def,
             crate::agent::harness::definition::AgentDefinitionRegistry::global(),
         ) {
+            // Host-only: no delegation; the host's names join an empty belt.
+            _ if host_only => (Vec::new(), Some(super::host_only::empty_belt())),
             (Some(def), Some(reg)) => {
                 let synthed = if should_synthesize_delegation_tools(def) {
                     tools::orchestrator_tools::collect_orchestrator_tools(
@@ -591,7 +586,9 @@ impl OpenHumanSessionHost {
         // below so an agent that explicitly disallows it still has it removed.
         // A summary names the tool in its footer too, and summaries run with
         // the router off, so either one makes the tool necessary.
-        super::ensure_tinyjuice_tools_visible(&mut visible, agent_id, config);
+        if !host_only {
+            super::ensure_tinyjuice_tools_visible(&mut visible, agent_id, config);
+        }
 
         if let Some(def) = target_def {
             if !def.disallowed_tools.is_empty() {
@@ -709,7 +706,7 @@ impl OpenHumanSessionHost {
         // itself MUST be `None` to avoid recursive self-summarization).
         let payload_summarizer: Option<
             std::sync::Arc<dyn crate::agent::tinyagents::payload_summarizer::PayloadSummarizer>,
-        > = if super::summarizes_tool_output(agent_id, config) {
+        > = if !host_only && super::summarizes_tool_output(agent_id, config) {
             match crate::agent::harness::definition::AgentDefinitionRegistry::global() {
                 Some(reg) => match reg.get("summarizer") {
                     Some(summarizer_def) => {
@@ -779,7 +776,8 @@ impl OpenHumanSessionHost {
             &mut visible,
         )?;
         let session_definition = super::host_tools::scope_def(target_def, &merged_host_tools);
-        let host_policy = merged_host_tools.policy;
+        let host_policy =
+            super::host_only::session_policy(host_only, &tools, merged_host_tools.policy);
         let withheld_tool_names = merged_host_tools.withheld;
         let mut builder = OpenHumanSessionHost::builder()
             .crate_native_provider(provider_role, Arc::clone(&base_config))
@@ -799,7 +797,9 @@ impl OpenHumanSessionHost {
             .workspace_dir(config.workspace_dir.clone())
             .action_dir(config.action_dir.clone())
             .workspace_descriptor(workspace_descriptor)
-            .workflows({
+            .workflows(if host_only {
+                Vec::new()
+            } else {
                 let mut catalogue = crate::skills::load_workflow_metadata(&config.workspace_dir);
                 #[cfg(feature = "flows")]
                 catalogue.extend(crate::flows::catalogue::flow_entries(config));
@@ -833,14 +833,12 @@ impl OpenHumanSessionHost {
                 definitions,
                 security_policy: security,
                 post_turn_hooks: agent.post_turn_hooks.clone(),
-                // The caller's own definition, when this session was built from
-                // one rather than from a registry id. `AgentSpec::into_core`
-                // re-stamps the built-in orchestrator under the caller's id, so
-                // ids like `harness`/`alpha`/`beta` reach hosted resolution as
-                // names no registry holds; without handing the definition over
-                // here the lookup misses and the turn is rejected as a policy
-                // failure before any provider call (#6404/#6392/#6393).
-                session_definition: session_definition.clone().map(Arc::new),
+                session_definition: session_definition.clone().map(|definition| {
+                    Arc::new(super::host_tools::add_permanent_tools(
+                        definition,
+                        &agent.permanent_tool_names,
+                    ))
+                }),
             })
         });
         if agent.hosted_base.is_none() {
@@ -983,21 +981,4 @@ pub(crate) fn provider_role_for_definition(
         })
         .flatten();
     provider_role_for(master_hint.as_deref().or(default_model))
-}
-
-fn derive_turn_workspace_descriptor() -> Option<tinytools::WorkspaceDescriptor> {
-    let root = crate::agent::turn_workspace::current()?;
-    if !root.is_dir() {
-        tracing::warn!(
-            root = %root.display(),
-            "[turn_workspace] scoped root is not an existing directory — \
-             falling back to the shared action_dir cwd for this turn"
-        );
-        return None;
-    }
-    tracing::debug!(
-        root = %root.display(),
-        "[turn_workspace] turn bound to the embedder's per-turn root as default cwd"
-    );
-    Some(tinytools::WorkspaceDescriptor::new(root).with_policy_id("turn-workspace"))
 }

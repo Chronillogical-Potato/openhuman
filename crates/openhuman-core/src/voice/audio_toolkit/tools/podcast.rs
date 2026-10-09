@@ -1,3 +1,4 @@
+use crate::tools::schema_cache::static_schema;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -140,22 +141,9 @@ impl Tool for AudioGenerateAndEmailPodcastTool {
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
-        json!({
-            "type": "object",
-            "required": ["text", "to", "subject", "body"],
-            "properties": {
-                "text": { "type": "string", "description": "Text to synthesize into audio." },
-                "to": { "type": "string", "description": "Recipient email address." },
-                "subject": { "type": "string", "description": "Email subject line." },
-                "body": { "type": "string", "description": "Email body text." },
-                "title": { "type": "string", "description": "Optional title used in the default file name." },
-                "output_path": { "type": "string", "description": "Optional workspace-relative output path." },
-                "provider": { "type": "string", "description": "Optional TTS provider override (`cloud` or `piper`)." },
-                "voice": { "type": "string", "description": "Optional voice id for the chosen provider." },
-                "format": { "type": "string", "enum": ["mp3", "wav"], "description": "Desired audio format." },
-                "attachment_name": { "type": "string", "description": "Optional attachment file name override." }
-            }
-        })
+        static_schema!(include_str!(
+            "parameters/audio_generate_and_email_podcast.json"
+        ))
     }
 
     fn permission_level(&self) -> PermissionLevel {
@@ -226,3 +214,7 @@ fn optional_format(
         other => Err(anyhow::anyhow!("invalid format `{other}`")),
     }
 }
+
+#[cfg(test)]
+#[path = "podcast_schema_tests.rs"]
+mod schema_tests;

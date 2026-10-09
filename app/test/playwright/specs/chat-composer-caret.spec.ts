@@ -63,6 +63,7 @@
  */
 import { expect, type Locator, type Page, test } from '@playwright/test';
 
+import { clearChatComposer, composerText, replaceChatComposerText } from '../helpers/chat-composer';
 import {
   bootAuthenticatedPage,
   dismissWalkthroughIfPresent,
@@ -87,12 +88,8 @@ async function openChat(page: Page): Promise<Locator> {
   await dismissWalkthroughIfPresent(page);
   const input = page.getByTestId('chat-message-input');
   await expect(input).toBeVisible();
+  await clearChatComposer(input);
   return input;
-}
-
-/** Composer text. `textContent`, because the element is a contenteditable div. */
-function composerText(input: Locator): Promise<string> {
-  return input.evaluate(node => node.textContent ?? '');
 }
 
 /**
@@ -124,24 +121,6 @@ async function placeCaret(page: Page, input: Locator, index: number): Promise<vo
   await page.waitForTimeout(100);
 }
 
-/**
- * Put exactly `text` in the composer, starting from empty.
- *
- * The clear is load-bearing: `Conversations` persists the draft per thread
- * through redux-persist, so a second test booting as the same user can open
- * with the previous test's text already in the composer. Typing on top of that
- * silently produced a different string and the polls below just timed out —
- * which reads as a hang, not as a data problem.
- */
-async function seed(page: Page, input: Locator, text: string): Promise<void> {
-  await input.click();
-  await page.keyboard.press('ControlOrMeta+a');
-  await page.keyboard.press('Delete');
-  await expect.poll(() => composerText(input), { timeout: 15_000 }).toBe('');
-  await page.keyboard.type(text);
-  await expect.poll(() => composerText(input), { timeout: 15_000 }).toBe(text);
-}
-
 test.describe('Chat composer — caret on mid-string edits', () => {
   test.beforeEach(async () => {
     await resetMock();
@@ -154,7 +133,7 @@ test.describe('Chat composer — caret on mid-string edits', () => {
    */
   test('moving the caret without editing keeps it where it was put', async ({ page }) => {
     const input = await openChat(page);
-    await seed(page, input, 'hello world');
+    await replaceChatComposerText(input, 'hello world');
 
     await placeCaret(page, input, 5);
     expect(await caretOffset(input)).toBe(5);
@@ -220,7 +199,7 @@ test.describe('Chat composer — caret on mid-string edits', () => {
    */
   test('typing mid-string leaves the caret after the inserted character', async ({ page }) => {
     const input = await openChat(page);
-    await seed(page, input, 'hello world');
+    await replaceChatComposerText(input, 'hello world');
 
     await placeCaret(page, input, 5);
     expect(
@@ -248,7 +227,7 @@ test.describe('Chat composer — caret on mid-string edits', () => {
     page,
   }) => {
     const input = await openChat(page);
-    await seed(page, input, 'hello world');
+    await replaceChatComposerText(input, 'hello world');
 
     await placeCaret(page, input, 5);
     await page.keyboard.type('A');
@@ -282,7 +261,7 @@ test.describe('Chat composer — caret on mid-string edits', () => {
     page,
   }) => {
     const input = await openChat(page);
-    await seed(page, input, 'hello world');
+    await replaceChatComposerText(input, 'hello world');
 
     await placeCaret(page, input, 5);
     await page.keyboard.press('Backspace');
@@ -306,7 +285,7 @@ test.describe('Chat composer — caret on mid-string edits', () => {
    */
   test('Shift+Enter inserts a newline mid-string without sending', async ({ page }) => {
     const input = await openChat(page);
-    await seed(page, input, 'hello world');
+    await replaceChatComposerText(input, 'hello world');
 
     await placeCaret(page, input, 5);
     await page.keyboard.press('Shift+Enter');

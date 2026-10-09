@@ -2,22 +2,22 @@
 //!
 //! [`classify_failure`] is pure so the routing can be tested without a server.
 //! Whether an error is a session expiry is core's call
-//! ([`openhuman_core::core::session_expiry`]); this module only decides how
+//! (`openhuman::core::session_expiry`); this module only decides how
 //! loudly the transport reports it.
 
-use openhuman_core::core::session_expiry::is_session_expired_error;
+use crate::core_host::core::session_expiry::is_session_expired_error;
 
 /// Returns `true` when the error is the wallet's "not configured yet" message.
 ///
 /// Wallet-backed RPCs return
-/// [`openhuman_core::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE`] before
+/// `openhuman::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE` before
 /// setup. That is expected user state, not an internal failure.
 ///
 /// Matched against the shared wallet constant (exact equality) so a wording
 /// change in the wallet layer fails the coupling test in `classify_tests.rs`
 /// rather than silently letting the noise back into Sentry.
 pub(super) fn is_wallet_not_configured_error(msg: &str) -> bool {
-    msg == openhuman_core::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE
+    msg == crate::core_host::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE
 }
 
 /// How the `/rpc` handler reports a failed call, in priority order.
@@ -95,13 +95,13 @@ pub(super) const USAGE_BACKOFF_CLIENT_MESSAGE: &str =
 /// The order is significant: the first matching rule wins, exactly as the
 /// handler's `if`/`else` chain did before it was extracted.
 pub(super) fn classify_failure(message: &str, expected_user_state: bool) -> FailureDisposition {
-    use openhuman_core::core::observability;
+    use crate::core_host::core::observability;
 
     if expected_user_state {
         FailureDisposition::ExpectedUserState
     } else if is_wallet_not_configured_error(message) {
         FailureDisposition::WalletNotConfigured
-    } else if openhuman_core::core::params::is_param_validation_error(message) {
+    } else if crate::core_host::core::params::is_param_validation_error(message) {
         FailureDisposition::ParamValidation
     } else if is_session_expired_error(message) {
         FailureDisposition::SessionExpired
@@ -110,10 +110,10 @@ pub(super) fn classify_failure(message: &str, expected_user_state: bool) -> Fail
     } else if observability::is_transient_message_failure(message) {
         FailureDisposition::TransientDownstream
     } else if let Some(unknown_method) =
-        openhuman_core::core::dispatch::unknown_method_name(message)
+        crate::core_host::core::dispatch::unknown_method_name(message)
     {
         FailureDisposition::UnknownMethod {
-            probe: openhuman_core::core::dispatch::is_known_probe_method(unknown_method),
+            probe: crate::core_host::core::dispatch::is_known_probe_method(unknown_method),
         }
     } else {
         FailureDisposition::Unexpected

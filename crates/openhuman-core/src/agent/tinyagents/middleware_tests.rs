@@ -393,6 +393,8 @@ fn embedder_hook_mw(
 
 #[path = "middleware_approval_guard_tests.rs"]
 mod approval_guard_tests;
+#[path = "middleware_classified_failure_fetch_tests.rs"]
+mod classified_failure_fetch_tests;
 #[path = "middleware_classified_failure_tests.rs"]
 mod classified_failure_tests;
 #[path = "middleware_command_exit_failure_tests.rs"]

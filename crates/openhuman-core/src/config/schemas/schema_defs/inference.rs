@@ -127,6 +127,10 @@ pub(super) fn lookup(function: &str) -> Option<ControllerSchema> {
                     "reasoning_effort",
                     "Default reasoning effort for agent turns: none, minimal, low, medium, high or xhigh. Empty string clears it back to the provider default.",
                 ),
+                optional_string(
+                    "reasoning_effort_model",
+                    "When set, reasoning_effort is saved as this model id's own thinking level instead of the global default; an empty reasoning_effort removes the model's entry.",
+                ),
             ],
             outputs: vec![json_output("snapshot", "Updated config snapshot.")],
         }),

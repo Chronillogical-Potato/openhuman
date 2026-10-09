@@ -1,5 +1,5 @@
 use super::*;
-use openhuman_core::security::credentials::session_support::BackendCredential;
+use openhuman_embed::__host::security::credentials::session_support::BackendCredential;
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};

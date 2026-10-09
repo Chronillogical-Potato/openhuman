@@ -20,6 +20,7 @@ async fn stored_digests(config: &Config, flow_id: &str) -> Vec<tinymemory_api::H
             limit: Some(100),
             cursor: None,
             path: Vec::new(),
+            preview: false,
         },
     )
     .await

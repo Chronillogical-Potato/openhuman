@@ -6,7 +6,7 @@ use crate::memory::test_fixtures::{bind_reference, config_in};
 use serde_json::{json, Map, Value};
 
 /// Every method of the spec's RPC table (`docs/specs/memory-v2.md`), exactly.
-const SPEC_METHODS: [&str; 29] = [
+const SPEC_METHODS: [&str; 35] = [
     "openhuman.memory_engines_list",
     "openhuman.memory_engine_get",
     "openhuman.memory_engine_set",
@@ -17,6 +17,7 @@ const SPEC_METHODS: [&str; 29] = [
     "openhuman.memory_fetch",
     "openhuman.memory_learn",
     "openhuman.memory_forget",
+    "openhuman.memory_erase_all",
     "openhuman.memory_items_list",
     "openhuman.memory_explore",
     "openhuman.memory_items_get",
@@ -36,6 +37,11 @@ const SPEC_METHODS: [&str; 29] = [
     "openhuman.memory_import_scan",
     "openhuman.memory_import_start",
     "openhuman.memory_import_status",
+    "openhuman.memory_import_retry_failed",
+    "openhuman.memory_migration_scan",
+    "openhuman.memory_migration_start",
+    "openhuman.memory_migration_status",
+    "openhuman.memory_migration_retry",
 ];
 
 fn object(value: Value) -> Map<String, Value> {
@@ -102,6 +108,7 @@ fn required_inputs_match_the_spec() {
     assert_eq!(optional("sources_remove"), ["forget_items"]);
     assert_eq!(optional("sources_sync"), ["id"]);
     assert_eq!(required("import_start"), ["consent"]);
+    assert_eq!(optional("migration_start"), ["takeover"]);
     assert_eq!(optional("pack_preview"), ["query", "thread_id", "agent_id"]);
     assert_eq!(required("brain_search"), ["query"]);
     assert_eq!(
@@ -121,6 +128,7 @@ fn required_inputs_match_the_spec() {
         "sources_list",
         "import_scan",
         "import_status",
+        "import_retry_failed",
     ] {
         assert!(schema(empty).inputs.is_empty(), "{empty} takes no params");
     }
@@ -137,6 +145,8 @@ async fn invalid_params_are_rejected_as_invalid_request() {
         ("fetch", json!({"mode": "keyword"})),
         ("learn", json!({"confidence": 0.5})),
         ("forget", json!({"ids": "not-a-list"})),
+        ("erase_all", json!({"confirm": "yes"})),
+        ("erase_all", json!({"confirm": false})),
         ("sources_add", json!({"kind": "folder"})),
         ("sources_remove", json!({})),
         ("policy_set", json!({"budget_tokens": "many"})),
@@ -161,6 +171,7 @@ async fn memory_off_surfaces_the_memory_off_code() {
         ("fetch", json!({"query": "q"})),
         ("learn", json!({"text": "t"})),
         ("forget", json!({"ids": ["a"]})),
+        ("erase_all", json!({"confirm": true})),
         ("items_list", json!({})),
         ("explore", json!({"facet": "kind"})),
         ("items_get", json!({"ids": ["a"]})),
@@ -226,6 +237,20 @@ async fn read_handlers_answer_over_a_bound_engine() {
     let forgotten = call(&config, "forget", json!({"ids": [id]})).await.unwrap();
     let forgotten = forgotten.get("result").unwrap_or(&forgotten);
     assert_eq!(forgotten["forgotten"], 1);
+
+    call(&config, "learn", json!({"text": "Drinks tea"}))
+        .await
+        .unwrap();
+    let erased = call(&config, "erase_all", json!({"confirm": true}))
+        .await
+        .unwrap();
+    let erased = erased.get("result").unwrap_or(&erased);
+    assert_eq!(erased["erased_scopes"], 1);
+    let listed = call(&config, "items_list", json!({"limit": 5}))
+        .await
+        .unwrap();
+    let listed = listed.get("result").unwrap_or(&listed);
+    assert!(listed["items"].as_array().unwrap().is_empty());
 }
 
 #[tokio::test]

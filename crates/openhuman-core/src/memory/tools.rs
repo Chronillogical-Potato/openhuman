@@ -17,6 +17,7 @@
 //! everything under its root, never another root's (another tenant's or
 //! team's). A `reach` in the model's filter is overwritten.
 
+use crate::tools::schema_cache::static_schema;
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex};
 
@@ -186,6 +187,10 @@ impl CallFacts {
     }
 }
 
+/// What a `learn` result tells the model: the write was accepted, and
+/// recall may not find it for a moment.
+pub const LEARN_STATUS: &str = "saved; searchable in recall shortly";
+
 fn arg_str(args: &Value, key: &str) -> Option<String> {
     args.get(key)
         .and_then(Value::as_str)
@@ -238,17 +243,24 @@ pub async fn run_action(config: &Config, args: &Value, facts: &CallFacts) -> Too
             Ok(mut params) => {
                 params.meta = None;
                 let kind = params.kind.unwrap_or(tinymemory_api::LearningKind::Fact);
-                ops::learn(config, params, Some(facts.learn_meta()))
-                    .await
-                    .map(|view| {
-                        BUS.publish(DomainEvent::MemoryStored {
-                            key: view.id.clone(),
-                            category: kind.as_str().to_string(),
-                            namespace: "learnings".to_string(),
-                        });
-                        json!(view)
-                    })
-                    .map_err(render_error)
+                // Accepted, not visible: indexing can take minutes on a
+                // hosted engine and the turn must not wait for it.
+                ops::learn_with(
+                    config,
+                    params,
+                    Some(facts.learn_meta()),
+                    tinymemory_api::WriteOptions::accepted(),
+                )
+                .await
+                .map(|view| {
+                    BUS.publish(DomainEvent::MemoryStored {
+                        key: view.id.clone(),
+                        category: kind.as_str().to_string(),
+                        namespace: "learnings".to_string(),
+                    });
+                    json!({"id": view.id, "status": LEARN_STATUS})
+                })
+                .map_err(render_error)
             }
             Err(error) => Err(error),
         },
@@ -294,33 +306,14 @@ impl Tool for MemoryTool {
          `learn` stores a durable fact, preference, procedure or correction about the \
          user or their work, shared with every agent working alongside you; `forget` \
          removes items by id. Relevant memory is already added to each turn as \
-         <memory-context>; use `recall` or `fetch` to look further. Recall before asking \
+         <memory-context>; use `recall` or `fetch` to look further, and set `refers_to` when \
+         the question is about a particular time. Recall before asking \
          the user something they may already have told you; learn things worth \
          remembering next time."
     }
 
     fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string",
-                    "enum": ["recall", "fetch", "learn", "forget"],
-                    "description": "What to do."
-                },
-                "question": {"type": "string", "description": "recall: the question to answer from memory."},
-                "query": {"type": "string", "description": "fetch: what to search for."},
-                "mode": {"type": "string", "enum": ["hybrid", "keyword", "vector"], "description": "fetch: retrieval mode; only the engine's declared modes work (hybrid is always safe)."},
-                "filter": {"type": "object", "description": "recall/fetch: metadata filter, e.g. {\"kinds\": [\"learning\"], \"workspace\": \"/path\", \"repo\": \"owner/name\"}."},
-                "limit": {"type": "integer", "minimum": 1, "maximum": 100, "description": "recall/fetch: most results."},
-                "cursor": {"type": "string", "description": "fetch: next-page cursor."},
-                "text": {"type": "string", "description": "learn: the learning, one self-contained sentence."},
-                "kind": {"type": "string", "enum": ["preference", "fact", "procedure", "correction", "other"], "description": "learn: what kind of learning (default fact)."},
-                "confidence": {"type": "number", "minimum": 0, "maximum": 1, "description": "learn: confidence (default 0.8)."},
-                "ids": {"type": "array", "items": {"type": "string"}, "description": "forget: item ids to remove."}
-            },
-            "required": ["action"]
-        })
+        static_schema!(include_str!("parameters/memory.json"))
     }
 
     fn permission_level(&self) -> PermissionLevel {
@@ -360,3 +353,7 @@ impl Tool for MemoryTool {
 #[cfg(test)]
 #[path = "tools_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "tools_schema_tests.rs"]
+mod schema_tests;

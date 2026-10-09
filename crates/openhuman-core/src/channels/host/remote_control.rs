@@ -77,6 +77,7 @@ impl RemoteControlHost for RuntimeRemoteControl<'_> {
                 parent_thread_id: None,
                 labels: Some(thread.labels),
                 personality_id: None,
+                working_dir: None,
             },
         )
         .map(drop)

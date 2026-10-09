@@ -1,6 +1,6 @@
 use super::*;
 use crate::hosted::test_support;
-use openhuman_core::core::observability::is_session_expired_message;
+use openhuman_embed::__host::core::observability::is_session_expired_message;
 use serde_json::json;
 use tempfile::TempDir;
 use wiremock::matchers::{method, path};

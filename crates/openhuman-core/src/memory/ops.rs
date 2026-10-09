@@ -1,5 +1,5 @@
 //! Engine-facing operations: list and select engines, recall, fetch, learn,
-//! forget and list items.
+//! forget, erase everything and list items.
 //!
 //! Every operation takes the [`Config`] it runs against, so the RPC handlers
 //! (which load config per call) and the agent tool (which carries its
@@ -8,18 +8,20 @@
 
 use chrono::Utc;
 use tinymemory_api::{
-    FetchRequest, ForgetTarget, ItemId, LearningKind, ListRequest, MemoryMeta, MetaFilter,
-    RecallRequest, StoreItem, StoreReceipt,
+    EraseRequest, FetchRequest, ForgetTarget, ItemId, LearningKind, ListRequest, MemoryMeta,
+    MetaFilter, RecallRequest, StoreItem, StoreReceipt, TimeHint, WriteOptions,
 };
 
 use crate::config::Config;
 
-use super::engine::{self, Binding, BoundEngine, CORTEXDB_ENGINE, TINYHUMANS_ENGINE};
+use super::engine::{
+    self, Binding, BoundEngine, CORTEXDB_ENGINE, DISABLED_ENGINE, TINYHUMANS_ENGINE,
+};
 use super::error::{MemoryError, MemoryResult};
 use super::types::{
-    clamp_limit, EngineSetParams, EngineStatus, EngineView, EnginesListView, FetchParams,
-    FetchView, ForgetParams, ForgetView, ItemsListParams, ItemsListView, LearnParams, LearnView,
-    RecallParams, RecallView,
+    clamp_limit, EngineSetParams, EngineStatus, EngineView, EnginesListView, EraseAllParams,
+    EraseAllView, FetchParams, FetchView, ForgetParams, ForgetView, ItemsListParams, ItemsListView,
+    LearnParams, LearnView, RecallParams, RecallView, RefersTo,
 };
 
 /// Default confidence of a learning stored without one.
@@ -85,6 +87,19 @@ pub async fn engine_get(config: &Config) -> EngineView {
 /// store for a key). The caller persists `config`.
 pub fn apply_engine_set(config: &mut Config, params: &EngineSetParams) -> MemoryResult<()> {
     let engine_id = params.engine.trim();
+    if engine_id == DISABLED_ENGINE {
+        // Turning memory off keeps every engine's endpoint and key, so
+        // switching back needs no re-entry.
+        if params.endpoint.is_some() || params.api_key.is_some() {
+            return Err(MemoryError::invalid(
+                "disabling memory takes no endpoint or API key",
+            ));
+        }
+        config.memory.engine = DISABLED_ENGINE.to_string();
+        engine::invalidate();
+        tracing::info!("[memory:ops] memory disabled");
+        return Ok(());
+    }
     if !tinymemory_integrations::list_engines()
         .iter()
         .any(|descriptor| descriptor.id == engine_id)
@@ -142,6 +157,17 @@ fn bound(config: &Config) -> MemoryResult<BoundEngine> {
     engine::resolve(config).engine()
 }
 
+/// The [`TimeHint`] for `refers_to`, in the user's time zone
+/// ([`Config::time_zone`]).
+fn time_hint(config: &Config, refers_to: Option<RefersTo>) -> MemoryResult<Option<TimeHint>> {
+    let Some(RefersTo { from, to }) = refers_to else {
+        return Ok(None);
+    };
+    TimeHint::new(from, to.unwrap_or(from), Some(config.time_zone()))
+        .map(Some)
+        .map_err(MemoryError::from)
+}
+
 /// `memory_recall`.
 pub async fn recall(config: &Config, params: RecallParams) -> MemoryResult<RecallView> {
     let bound = bound(config)?;
@@ -150,6 +176,7 @@ pub async fn recall(config: &Config, params: RecallParams) -> MemoryResult<Recal
         filter: confine_filter(config, params.filter.unwrap_or_default()),
         limit: clamp_limit(params.limit),
         instructions: None,
+        refers_to: time_hint(config, params.refers_to)?,
     };
     request.validate()?;
     let answer = bound.engine.recall(request).await?;
@@ -187,6 +214,8 @@ pub async fn fetch(config: &Config, params: FetchParams) -> MemoryResult<FetchVi
         limit: clamp_limit(params.limit),
         cursor: params.cursor,
         beliefs: 0,
+        max_scopes: None,
+        refers_to: time_hint(config, params.refers_to)?,
     };
     request.validate()?;
     let page = bound.engine.fetch(request).await?;
@@ -246,7 +275,8 @@ fn merge_meta(meta: &mut MemoryMeta, host: MemoryMeta) {
         turns,
         agent_id,
         tool_call,
-        observed_at
+        observed_at,
+        derive
     );
     meta.source = host.source;
     // The host's node is authoritative: a caller cannot write into another
@@ -259,14 +289,27 @@ fn merge_meta(meta: &mut MemoryMeta, host: MemoryMeta) {
     }
 }
 
-/// `memory_learn`.
+/// `memory_learn`: returns once the learning is readable.
 pub async fn learn(
     config: &Config,
     params: LearnParams,
     host_meta: Option<MemoryMeta>,
 ) -> MemoryResult<LearnView> {
+    learn_with(config, params, host_meta, WriteOptions::visible()).await
+}
+
+/// [`learn`], returning as soon as `options` allows. The agent's `memory`
+/// tool passes [`WriteOptions::accepted`] so a turn never waits on the
+/// engine indexing the learning.
+pub async fn learn_with(
+    config: &Config,
+    params: LearnParams,
+    host_meta: Option<MemoryMeta>,
+    options: WriteOptions,
+) -> MemoryResult<LearnView> {
     let item = learning_item(params, host_meta)?;
-    let receipt = store_item(config, item).await?;
+    let bound = bound(config)?;
+    let receipt = store_on_with(&bound, item, options).await?;
     Ok(LearnView { id: receipt.id.0 })
 }
 
@@ -281,11 +324,21 @@ pub async fn store_item(config: &Config, mut item: StoreItem) -> MemoryResult<St
 
 /// Stores `item` on `bound`; the bound engine scrubs it ([`super::guard`]).
 pub async fn store_on(bound: &BoundEngine, item: StoreItem) -> MemoryResult<StoreReceipt> {
+    store_on_with(bound, item, WriteOptions::visible()).await
+}
+
+/// [`store_on`], returning as soon as `options` allows.
+pub async fn store_on_with(
+    bound: &BoundEngine,
+    item: StoreItem,
+    options: WriteOptions,
+) -> MemoryResult<StoreReceipt> {
     let kind = item.kind();
-    let receipt = bound.engine.store(item).await?;
+    let receipt = bound.engine.store_with(item, options).await?;
     tracing::debug!(
         engine = %bound.id,
         kind = kind.as_str(),
+        wait = ?options.wait,
         replayed = receipt.replayed,
         "[memory:ops] item stored"
     );
@@ -343,6 +396,42 @@ pub async fn forget(config: &Config, params: ForgetParams) -> MemoryResult<Forge
     })
 }
 
+/// `memory_erase_all`: erases everything the bound engine holds, the whole
+/// tree, every kind. Needs `confirm: true`.
+///
+/// On the hosted engine this is one `DELETE /memory`, which erases the
+/// caller's entire hosted memory (every scope under their tenant, the
+/// pre-v3 layout's included). On CortexDB reached directly it erases every
+/// kind scope of the bound layout (the person's `org:<id>` subtree under
+/// layout v3, and the retired `user:<id>` one while it is still read); a legacy tree is left alone, because on a self-hosted CortexDB
+/// other accounts may share it (see `layout_migration`). An engine that
+/// cannot erase answers `UNSUPPORTED`.
+pub async fn erase_all(config: &Config, params: EraseAllParams) -> MemoryResult<EraseAllView> {
+    if !params.confirm {
+        return Err(MemoryError::invalid(
+            "erasing all memory needs confirm: true; nothing erased comes back",
+        ));
+    }
+    let bound = bound(config)?;
+    let mut request = EraseRequest::new(tinymemory_api::Reach::subtree(
+        tinymemory_api::Namespace::ROOT,
+    ));
+    request.whole_tree = true;
+    tracing::info!(engine = %bound.id, "[memory:ops] erase_all: erasing the whole memory");
+    let report = bound.engine.erase(request).await.map_err(|error| {
+        tracing::warn!(engine = %bound.id, error = %error, "[memory:ops] erase_all failed");
+        MemoryError::from(error)
+    })?;
+    tracing::info!(
+        engine = %bound.id,
+        erased_scopes = report.erased_scopes,
+        "[memory:ops] erase_all: done"
+    );
+    Ok(EraseAllView {
+        erased_scopes: report.erased_scopes,
+    })
+}
+
 /// The ids among `ids` naming an item in `reach`, read through `get` in
 /// chunks of its id limit.
 async fn within_reach(
@@ -376,7 +465,11 @@ pub async fn items_list(config: &Config, params: ItemsListParams) -> MemoryResul
         cursor: params.cursor,
     };
     request.validate()?;
-    let page = bound.engine.list(request).await?;
+    let page = if params.preview {
+        bound.engine.list_preview(request).await?
+    } else {
+        bound.engine.list(request).await?
+    };
     Ok(ItemsListView {
         items: page.items,
         next_cursor: page.next_cursor,

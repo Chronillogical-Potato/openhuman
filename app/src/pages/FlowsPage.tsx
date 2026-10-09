@@ -570,6 +570,7 @@ export default function FlowsPage() {
           which read as a different page depending on how it was reached. */}
       <div className="h-full p-4" data-testid="flows-page">
         <SettingsTabbedPage
+          fullWidth
           title={t('flows.page.title')}
           description={t('flows.page.description')}
           headerAction={

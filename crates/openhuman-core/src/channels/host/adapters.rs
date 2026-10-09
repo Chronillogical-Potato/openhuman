@@ -205,6 +205,7 @@ impl ConversationStore for ConversationHistoryStore {
                 parent_thread_id: None,
                 labels: None,
                 personality_id: None,
+                working_dir: None,
             },
         )
         .map_err(|e| anyhow::anyhow!(e))?;
@@ -248,8 +249,8 @@ impl AllowlistStore for ConfigAllowlistStore {
         let contents = tokio::fs::read_to_string(&config_path)
             .await
             .with_context(|| format!("failed to read config file: {}", config_path.display()))?;
-        let mut config: Config =
-            toml::from_str(&contents).context("failed to parse config.toml for allowlist")?;
+        let mut config: Config = crate::config::schema::config_from_toml_str(&contents)
+            .context("failed to parse config.toml for allowlist")?;
         config.config_path = config_path;
         config.workspace_dir = openhuman_dir.join("workspace");
 

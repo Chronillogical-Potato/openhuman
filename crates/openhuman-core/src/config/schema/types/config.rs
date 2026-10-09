@@ -50,7 +50,9 @@ pub struct CustomEmbeddingsConfig {
 }
 
 /// Top-level configuration (config.toml root).
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+///
+/// `Clone` is implemented by hand in `config_clone.rs` so it is emitted once.
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Config {
     #[serde(skip)]
     pub workspace_dir: PathBuf,
@@ -131,6 +133,12 @@ pub struct Config {
     /// name. `None` preserves the existing default-language behaviour.
     #[serde(default)]
     pub output_language: Option<String>,
+
+    /// The user's IANA time zone (`Asia/Kolkata`), chosen in Settings →
+    /// Account. `None` follows the device. Read it through
+    /// [`Config::time_zone`], which also validates it.
+    #[serde(default)]
+    pub user_timezone: Option<String>,
 
     /// Models (by exact ID match OR shell-style glob like `gpt-5*`, `o1-*`) that
     /// MUST NOT receive a `temperature` parameter. Used for reasoning models
@@ -413,6 +421,11 @@ pub struct Config {
     #[serde(default)]
     pub hosting: HostingConfig,
 
+    /// Storage backend for state on the `tinystoragedrivers` ports
+    /// (`[storage]`). Empty keeps the classic on-disk layout.
+    #[serde(default)]
+    pub storage: StorageConfig,
+
     #[serde(default)]
     pub voice_server: VoiceServerConfig,
 
@@ -443,6 +456,11 @@ pub struct Config {
     /// TTS routing string. Grammar: `"cloud"` | `"piper"` | `"<slug>:<voice>"`.
     #[serde(default)]
     pub tts_provider: Option<String>,
+
+    /// Live voice agent settings: the default live provider and each
+    /// provider's model / voice / language (`voice::live`).
+    #[serde(default)]
+    pub voice_live: crate::config::schema::voice_live::LiveVoiceConfig,
 
     #[serde(default)]
     pub integrations: IntegrationsConfig,
