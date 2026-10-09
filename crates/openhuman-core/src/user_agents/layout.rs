@@ -76,6 +76,9 @@ pub fn agent_config(layout: &UserAgentLayout, id: &UserAgentId) -> Config {
         action_dir: layout.sandbox_dir.clone(),
         ..Config::default()
     };
+    // Artifacts land in the agent's sandbox, never the host's shared
+    // `~/OpenHuman/projects/Files`.
+    config.files_dir_override = Some(layout.sandbox_dir.join("files"));
     config.memory.agent_id = Some(id.to_string());
     config.memory.root = Some(memory_root(id));
 

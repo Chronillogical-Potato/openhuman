@@ -109,6 +109,60 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         Ok(())
     }
 
+    /// Nested-call form of the `before_tool` enforcement above.
+    ///
+    /// `before_tool` never runs for a call a tool makes through
+    /// `ToolExecutionContext::call_tool`, so without this a `Deny` hook could
+    /// be bypassed by any tool that calls another. Mirrors `before_tool`:
+    /// `Deny` and `Ask` refuse (a nested call can never be parked for a human).
+    /// A `ProceedWith` rewrite cannot be applied to a call the middleware may
+    /// not mutate, so it refuses too rather than letting the un-narrowed
+    /// arguments through.
+    async fn check_nested_tool(
+        &self,
+        _ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+        _state: &(),
+        call: &TaToolCall,
+    ) -> TaResult<()> {
+        let context = crate::agent::hooks::ToolHookContext {
+            event: crate::agent::hooks::ToolHookEvent::PreToolUse,
+            call_id: call.id.clone(),
+            tool_name: call.name.clone(),
+            arguments: call.arguments.clone(),
+            success: None,
+            duration_ms: None,
+            output: None,
+            error: None,
+            session_id: None,
+            agent_id: None,
+        };
+        for hook in &self.hooks {
+            let refusal = match hook.before_tool_decision(&context).await {
+                crate::agent::hooks::ToolHookDecision::Proceed => continue,
+                crate::agent::hooks::ToolHookDecision::ProceedWith(_) => {
+                    "rewrites the call, which a nested call cannot apply".to_string()
+                }
+                crate::agent::hooks::ToolHookDecision::Deny(reason) => {
+                    format!("denied: {reason}")
+                }
+                crate::agent::hooks::ToolHookDecision::Ask(reason) => {
+                    format!("requires approval, unavailable for a nested call: {reason}")
+                }
+            };
+            tracing::info!(
+                hook = hook.name(),
+                tool = context.tool_name,
+                "[tinyagents::mw] nested tool call refused by tool hook"
+            );
+            return Err(tinyagents_harness::error::TinyAgentsError::Tool(format!(
+                "tool hook '{}' refused nested call to {}: {refusal}",
+                hook.name(),
+                context.tool_name
+            )));
+        }
+        Ok(())
+    }
+
     async fn after_tool(
         &self,
         _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,

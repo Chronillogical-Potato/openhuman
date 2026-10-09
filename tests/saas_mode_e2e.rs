@@ -226,7 +226,13 @@ fn a_safe_deployment_serves_core_and_the_operator_plane_behind_the_gateway_beare
         .and_then(Value::as_str)
         .unwrap_or_else(|| panic!("agent_id in {result}"))
         .to_string();
-    assert!(agent_id.starts_with("u-"), "{agent_id}");
+    assert_eq!(
+        agent_id,
+        openhuman_core::user_agents::UserAgentId::for_user("alice@example.com")
+            .unwrap()
+            .to_string(),
+        "the agent id is the deterministic hash of the user id"
+    );
     assert!(!body.to_string().contains("alice"), "{body}");
     assert!(d
         .root
@@ -270,6 +276,14 @@ fn a_safe_deployment_serves_core_and_the_operator_plane_behind_the_gateway_beare
             .join("active_user.toml")
             .exists(),
         "a SaaS boot never activates a desktop user"
+    );
+    let desktop = d.tmp.path().join(".openhuman");
+    let leaked: Vec<_> = std::fs::read_dir(&desktop)
+        .map(|entries| entries.flatten().map(|e| e.file_name()).collect())
+        .unwrap_or_default();
+    assert!(
+        leaked.is_empty(),
+        "a SaaS boot writes nothing under ~/.openhuman (keyring included): {leaked:?}"
     );
     drop(server);
 }
@@ -507,5 +521,41 @@ fn each_user_sees_only_their_own_threads() {
     }
     let (_, body) = call("alice", "openhuman.threads_regenerate", json!({}));
     assert!(body.get("error").is_some(), "{body}");
+    drop(server);
+}
+
+#[test]
+fn a_duplicate_or_unreadable_user_header_is_refused() {
+    use openhuman_core::user_agents::gateway::USER_HEADER;
+    let d = deployment(true);
+    let (server, base, client) = start(&d);
+    let body =
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "openhuman.user_agents_list", "params": {} });
+
+    // Two user headers: refused, never run as the operator.
+    let status = client
+        .post(format!("{base}/rpc"))
+        .bearer_auth(BEARER)
+        .header(USER_HEADER, "alice")
+        .header(USER_HEADER, "bob")
+        .json(&body)
+        .send()
+        .unwrap()
+        .status()
+        .as_u16();
+    assert_eq!(status, 400);
+
+    // A header value that is valid HTTP but not text: refused too.
+    let unreadable = reqwest::header::HeaderValue::from_bytes(b"alice\xff").unwrap();
+    let status = client
+        .post(format!("{base}/rpc"))
+        .bearer_auth(BEARER)
+        .header(USER_HEADER, unreadable)
+        .json(&body)
+        .send()
+        .unwrap()
+        .status()
+        .as_u16();
+    assert_eq!(status, 400);
     drop(server);
 }

@@ -153,9 +153,9 @@ pub(crate) struct CoreGuard {
     /// Held for its `Drop`: an ephemeral workspace lives exactly as long as
     /// the last owner of this guard.
     workspace: ResolvedWorkspace,
-    /// Whether this runtime installed the process's session store, which is
-    /// removed with it.
-    session_store: bool,
+    /// The provider this runtime installed, if any. It is removed only while
+    /// it still owns the process slot.
+    session_store: Option<Arc<dyn openhuman_core::agent::session_store::SessionStoreProvider>>,
     previous_session_store:
         Option<Arc<dyn openhuman_core::agent::session_store::SessionStoreProvider>>,
 }
@@ -166,9 +166,10 @@ impl Drop for CoreGuard {
         // first lets another builder initialize process-scoped state while
         // this runtime's keyring, bearer, event bus and subscribers are live.
         drop(self.core.take());
-        if self.session_store {
-            openhuman_core::agent::session_store::clear();
-            openhuman_core::agent::session_store::restore(self.previous_session_store.take());
+        if let Some(installed) = self.session_store.take() {
+            if openhuman_core::agent::session_store::clear_if(&installed) {
+                openhuman_core::agent::session_store::restore(self.previous_session_store.take());
+            }
         }
         // For an ephemeral workspace, take ownership of the temp path and
         // remove it with a short retry. The core's memory/session writers keep
@@ -370,7 +371,7 @@ impl Runtime {
     pub(crate) fn new(
         core: Core,
         workspace: ResolvedWorkspace,
-        session_store: bool,
+        session_store: Option<Arc<dyn openhuman_core::agent::session_store::SessionStoreProvider>>,
         previous_session_store: Option<
             Arc<dyn openhuman_core::agent::session_store::SessionStoreProvider>,
         >,

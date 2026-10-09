@@ -63,6 +63,23 @@ pub fn clear() -> bool {
     had
 }
 
+/// Clears the installed provider only when it is still the provider claimed
+/// by the caller. This keeps a runtime from removing a replacement installed
+/// by another owner after the runtime itself has been dropped.
+pub fn clear_if(expected: &Arc<dyn SessionStoreProvider>) -> bool {
+    let mut installed = PROVIDER.write().unwrap_or_else(PoisonError::into_inner);
+    if installed
+        .as_ref()
+        .is_some_and(|current| Arc::ptr_eq(current, expected))
+    {
+        installed.take();
+        tracing::info!("[session_store] host session store removed");
+        true
+    } else {
+        false
+    }
+}
+
 pub fn restore(provider: Option<Arc<dyn SessionStoreProvider>>) {
     *PROVIDER.write().unwrap_or_else(PoisonError::into_inner) = provider;
 }

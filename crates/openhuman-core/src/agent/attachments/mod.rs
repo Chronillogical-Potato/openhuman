@@ -585,19 +585,6 @@ pub(crate) async fn stage_turn(
     stage(message, thread.unwrap_or("direct"), &config, &scope).await
 }
 
-/// The session prelude's typed enrichment hook. Both image forwarding and
-/// source blocks are derived before adding contextual prose.
-pub(crate) fn enrich_request_input(
-    input: &mut tinyinference_llm::message::Message,
-    context: &mut crate::agent::tinyagents::host::OpenHumanRunContext,
-    original_text: &str,
-    enriched: &str,
-) {
-    context.attachment_placeholders =
-        std::sync::Arc::new(image_references(input, &context.attachment_placeholders));
-    *input = enrich_input(input.clone(), original_text, enriched);
-}
-
 #[cfg(test)]
 #[path = "mod_tests.rs"]
 mod tests;

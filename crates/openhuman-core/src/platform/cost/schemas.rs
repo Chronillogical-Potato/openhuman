@@ -30,6 +30,30 @@ fn default_usage_days() -> u32 {
     30
 }
 
+/// `cost_report` params. Each report takes only what its schema declares.
+#[derive(Debug, Deserialize, Default)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ReportParams {
+    #[serde(default)]
+    days: Option<u32>,
+    #[serde(default)]
+    group_by: Vec<super::report::GroupKey>,
+    #[serde(default)]
+    filter: super::report::ReportFilter,
+}
+
+/// `cost_cache_report` params.
+#[derive(Debug, Deserialize, Default)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CacheReportParams {
+    #[serde(default)]
+    days: Option<u32>,
+    #[serde(default)]
+    filter: super::report::ReportFilter,
+    #[serde(default)]
+    limit: Option<usize>,
+}
+
 fn default_usage_limit() -> usize {
     250
 }
@@ -40,6 +64,8 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schema_for("cost_get_daily_history"),
         schema_for("cost_get_summary"),
         schema_for("cost_get_usage_log"),
+        schema_for("cost_report"),
+        schema_for("cost_cache_report"),
     ]
 }
 
@@ -60,6 +86,14 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_for("cost_get_usage_log"),
             handler: handle_cost_get_usage_log,
+        },
+        RegisteredController {
+            schema: schema_for("cost_report"),
+            handler: handle_cost_report,
+        },
+        RegisteredController {
+            schema: schema_for("cost_cache_report"),
+            handler: handle_cost_cache_report,
         },
     ]
 }
@@ -128,6 +162,42 @@ fn schema_for(function: &str) -> ControllerSchema {
             outputs: vec![json_output(
                 "usage_log",
                 "Usage records plus category totals, newest records first.",
+            )],
+        },
+        "cost_report" => ControllerSchema {
+            namespace: "cost",
+            function: "report",
+            description:
+                "Usage report over the last `days`: calls, input/output/cached/cache-write/\
+                          reasoning tokens, cost split into provider-charged and estimated, and \
+                          the prompt-cache hit ratio — in total and grouped by any of day, week, \
+                          month, model, provider, route, agent, thread, origin, session_agent.",
+            inputs: vec![days_input(), group_by_input(), filter_input()],
+            outputs: vec![json_output(
+                "report",
+                "`totals` and `rows` (one per group, most expensive first), each with a `key` map.",
+            )],
+        },
+        "cost_cache_report" => ControllerSchema {
+            namespace: "cost",
+            function: "cache_report",
+            description: "Prompt-cache behaviour over the last `days`, call by call: hit ratio, \
+                          cold calls (a repeat call in a thread that read nothing from the cache) \
+                          and what uncached input cost above the cached rate.",
+            inputs: vec![
+                days_input(),
+                filter_input(),
+                FieldSchema {
+                    name: "limit",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
+                    comment: "Newest calls to list (default 200, clamped to [1, 1000]); totals \
+                              cover every call.",
+                    required: false,
+                },
+            ],
+            outputs: vec![json_output(
+                "cache_report",
+                "`calls`, `cache_hit_ratio`, `cold_calls` and `uncached_premium_usd`.",
             )],
         },
         _ => ControllerSchema {
@@ -255,6 +325,83 @@ fn handle_cost_get_usage_log(params: Map<String, Value>) -> ControllerFuture {
         );
         json
     })
+}
+
+fn parse_report_params<T: serde::de::DeserializeOwned + Default>(
+    params: Map<String, Value>,
+) -> Result<T, String> {
+    if params.is_empty() {
+        return Ok(T::default());
+    }
+    serde_json::from_value(Value::Object(params)).map_err(|e| format!("invalid params: {e}"))
+}
+
+fn handle_cost_report(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let cid = new_correlation_id();
+        log::debug!(target: "cost_rpc", "[cost_rpc][{cid}] cost_report.entry");
+        let config = config_rpc::load_config_with_timeout().await?;
+        let p: ReportParams = parse_report_params(params)?;
+        let days = p.days.unwrap_or_else(default_usage_days);
+        let outcome = cost_rpc::usage_report(&config, days, &p.group_by, &p.filter)
+            .map_err(|e| e.to_string())?;
+        to_json(outcome)
+    })
+}
+
+fn handle_cost_cache_report(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let cid = new_correlation_id();
+        log::debug!(target: "cost_rpc", "[cost_rpc][{cid}] cost_cache_report.entry");
+        let config = config_rpc::load_config_with_timeout().await?;
+        let p: CacheReportParams = parse_report_params(params)?;
+        let days = p.days.unwrap_or_else(default_usage_days);
+        let limit = p.limit.unwrap_or(200);
+        let outcome =
+            cost_rpc::cache_report(&config, days, &p.filter, limit).map_err(|e| e.to_string())?;
+        to_json(outcome)
+    })
+}
+
+fn days_input() -> FieldSchema {
+    FieldSchema {
+        name: "days",
+        ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
+        comment: "Trailing days to cover (default 30, clamped to [1, 366]).",
+        required: false,
+    }
+}
+
+fn group_by_input() -> FieldSchema {
+    FieldSchema {
+        name: "groupBy",
+        ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(TypeSchema::Enum {
+            variants: vec![
+                "day",
+                "week",
+                "month",
+                "model",
+                "provider",
+                "route",
+                "agent",
+                "thread",
+                "origin",
+                "session_agent",
+            ],
+        })))),
+        comment: "Dimensions to group by, in order; omit for totals only.",
+        required: false,
+    }
+}
+
+fn filter_input() -> FieldSchema {
+    FieldSchema {
+        name: "filter",
+        ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
+        comment: "Optional `{thread_id, agent_id, model, provider, route, origin, \
+                  session_agent}`; every set field must match.",
+        required: false,
+    }
 }
 
 fn to_json(outcome: Outcome<Value>) -> Result<Value, String> {

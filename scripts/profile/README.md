@@ -2,18 +2,18 @@
 
 Reproducible benchmarking scripts for the OpenHuman Rust core as an embedded
 library (no RPC server), built around the `library-profile` and `rss-bench`
-binaries (see `crates/openhuman-cli/src/bin/library_profile/main.rs`).
+binaries (see [`crates/openhuman-cli/src/bin/library_profile/main.rs`](../../crates/openhuman-cli/src/bin/library_profile/main.rs) and [`rss_bench.rs`](../../crates/openhuman-cli/src/bin/rss_bench.rs)).
 
-Six driver scripts: `library-bench.sh` (per-scenario RSS/duration),
-`library-cpu.sh` (samply), `library-heap.sh` (dhat), `library-fleet.sh`
-(fleet-scale sweep + budget gate), `library-instances.sh` (multi-process
-instance sweep), and `rss-bench.sh` (embedded-roster RSS, #5046).
+Six driver scripts: [`library-bench.sh`](./library-bench.sh) (per-scenario RSS/duration),
+[`library-cpu.sh`](./library-cpu.sh) (samply), [`library-heap.sh`](./library-heap.sh) (dhat), [`library-fleet.sh`](./library-fleet.sh)
+(fleet-scale sweep + budget gate), [`library-instances.sh`](./library-instances.sh) (multi-process
+instance sweep), and [`rss-bench.sh`](./rss-bench.sh) (embedded-roster RSS, #5046). A seventh, [`library-pool-gate.sh`](./library-pool-gate.sh), is the runtime-pool regression gate.
 
-Benchmarks run from these scripts, not in CI.
+Benchmarks run from these scripts, not in CI. For the server-process counterpart see [`scripts/bench/`](../bench/README.md).
 
 ## Scripts
 
-### `rss-bench.sh` — embedded agent-roster RSS (#5046)
+### `rss-bench.sh`: embedded agent-roster RSS (#5046)
 
 Builds the stripped-release `rss-bench` binary, runs its fixture tests, then
 measures steady-state RSS/PSS of 5 fresh processes × {1, 8} agents against the
@@ -25,7 +25,7 @@ CI job until benchmarks moved out of CI.
 ./scripts/profile/rss-bench.sh --skip-build --out /path/rss.json
 ```
 
-### `library-bench.sh` — RSS/duration benchmark
+### `library-bench.sh`: RSS/duration benchmark
 
 Builds `library-profile` + `rss-bench`, runs each scenario N times as a fresh
 process, and aggregates median/min/max duration, settled RSS, retained delta,
@@ -39,7 +39,7 @@ and peak delta into `summary.json` + `summary.md`.
 
 Results land in `target/profile/rust-library/bench-<timestamp>/` (or `--out DIR`).
 
-### `library-cpu.sh` — CPU profile via samply
+### `library-cpu.sh`: CPU profile via samply
 
 Wraps `samply record` around one scenario, isolated from persistence/timezone
 noise by default (matching the documented cold-path CPU recipe).
@@ -50,7 +50,7 @@ noise by default (matching the documented cold-path CPU recipe).
 samply load target/profile/rust-library/subagent-storm-cpu.json.gz
 ```
 
-### `library-heap.sh` — live heap attribution via dhat
+### `library-heap.sh`: live heap attribution via dhat
 
 Builds the `rss-bench-dhat` variant and runs one scenario under dhat. RSS and
 timing numbers from this build are perturbed by instrumentation; use it only
@@ -62,7 +62,7 @@ for allocation-site/retained-bytes attribution, not for RSS comparisons.
 # target/profile/rust-library/dhat-agent-turn.json
 ```
 
-### `library-fleet.sh` — fleet sweep + 2 GB / 2 vCPU budget gate
+### `library-fleet.sh`: fleet sweep + 2 GB / 2 vCPU budget gate
 
 Builds `library-profile` + `rss-bench`, sweeps the `fleet` scenario (N
 concurrent live agents with latency-realistic mock inference) across a list
@@ -78,17 +78,17 @@ Results land in `target/profile/rust-library/fleet-<timestamp>/` (or
 `--out DIR`). Exits nonzero if any swept N reports `fits: false` (use
 `--no-gate` to report only). The script's `--help` documents the budget math.
 
-### `library-instances.sh` — multi-instance (many-processes) sweep
+### `library-instances.sh`: multi-instance (many-processes) sweep
 
 Spawns N independent `library-profile` processes (each a live instance held
 alive via `OPENHUMAN_PROFILE_HOLD_SECS`), staggered on startup, and measures
-**per-process** cost and box survivability — the opencompany "N independent
+**per-process** cost and box survivability, the opencompany "N independent
 processes/containers" deployment model, as opposed to `library-fleet.sh`'s
 "N agents in one process" model. Samples aggregate sum-RSS + live count every
 2s while instances hold, captures a `vm_stat` snapshot at peak (and a
 best-effort `footprint` sample if that macOS tool is present), then
 aggregates per swept N: launched/ok counts, median settled RSS per instance,
-mean and peak aggregate sum-RSS, and — on Linux, where it's meaningful —
+mean and peak aggregate sum-RSS, and, on Linux, where it's meaningful , 
 summed PSS.
 
 ```bash
@@ -98,11 +98,11 @@ summed PSS.
 
 Results land in `target/profile/rust-library/instances-<timestamp>/` (or
 `--out DIR`). Refuses to spawn more than `--max-instances` (default 200)
-without an explicit raise — see the script's `--help` for the RAM math. Exits
+without an explicit raise, see the script's `--help` for the RAM math. Exits
 nonzero with `--gate` if any instance failed to complete cleanly (nonzero
 exit or missing/invalid JSON); default is report-only.
 
-### `library-pool-gate.sh` — runtime pool regression gate (#5106)
+### `library-pool-gate.sh`: runtime pool regression gate (#5106)
 
 Drives the `skill-run` scenario with K parallel skill runs and asserts the DoD:
 with the shared runtime pool ON, the process tree grows by ~one pooled worker,
@@ -136,3 +136,10 @@ All scripts require `jq` for JSON parsing/aggregation; `library-cpu.sh` also
 requires `samply` (`cargo install samply`). Build commands use
 `GGML_NATIVE=OFF` to work around the Apple Silicon whisper-rs/llama.cpp NEON
 fp16 build issue.
+
+## Further reading
+
+- [`docs/library-benchmarking.md`](../../docs/library-benchmarking.md) and [`docs/library-minimal-recipe.md`](../../docs/library-minimal-recipe.md), the methodology behind these scripts.
+- [Performance and footprint](../../gitbooks/developing/performance.md) for the published numbers and [Embedding OpenHuman](../../gitbooks/developing/embedding.md) for the library these scripts measure.
+- [`crates/openhuman-embed/`](../../crates/openhuman-embed/README.md), the facade the scenarios drive.
+- The public [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks) repo.

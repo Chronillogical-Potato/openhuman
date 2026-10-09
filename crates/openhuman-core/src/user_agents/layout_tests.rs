@@ -59,3 +59,11 @@ fn the_policy_is_on_and_closed() {
     assert!(!autonomy.allow_tool_install);
     assert!(autonomy.trusted_roots.is_empty());
 }
+
+#[test]
+fn artifacts_land_in_the_agents_sandbox() {
+    let id = UserAgentId::for_user("alice").unwrap();
+    let layout = UserAgentLayout::new(std::path::Path::new("/srv/oh"), &id);
+    let config = agent_config(&layout, &id);
+    assert!(config.files_dir().starts_with(&layout.sandbox_dir));
+}

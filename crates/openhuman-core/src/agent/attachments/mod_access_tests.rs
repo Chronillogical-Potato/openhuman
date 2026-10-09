@@ -4,10 +4,12 @@ const UPLOAD: &str = "caption [FILE:data:text/plain;name=note.txt;base64,YQ==]";
 
 fn external_origin() -> crate::agent::turn_origin::AgentTurnOrigin {
     crate::agent::turn_origin::AgentTurnOrigin::ExternalChannel {
+        sender_name: None,
         channel: "test".into(),
         sender: None,
         reply_target: "test".into(),
         message_id: "test".into(),
+        history_key: None,
     }
 }
 

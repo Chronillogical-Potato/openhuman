@@ -32,6 +32,7 @@ async fn list(config: &Config, filter: MetaFilter) -> Vec<tinymemory_api::Hit> {
             limit: Some(100),
             cursor: None,
             path: Vec::new(),
+            preview: false,
         },
     )
     .await
@@ -88,6 +89,11 @@ async fn remember_keyed_replaces_the_previous_value() {
     assert_eq!(items.len(), 1);
     assert!(items[0].text.contains("second"));
     assert_eq!(flow_key_of(&items[0].meta), Some("k"));
+    assert_eq!(
+        items[0].meta.derive,
+        Some(false),
+        "nothing derived from flow state"
+    );
 }
 
 #[tokio::test]

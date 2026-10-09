@@ -414,6 +414,8 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
             output: Some(output),
             partial: None,
             interrupted: outcome.early_exit_tool.is_some() || outcome.hit_cap,
+            // `None` lets the runtime derive the outcome from `interrupted`.
+            outcome: None,
         })
     }
 }
@@ -450,6 +452,7 @@ fn driver_failure(error: impl std::fmt::Display) -> DriverFailure {
     DriverFailure {
         error: RuntimeError::Driver(error.to_string()),
         partial: None,
+        outcome: None,
     }
 }
 
@@ -482,7 +485,7 @@ fn ensure_snapshot_tools_are_executable(
 }
 
 fn driver_error_with_snapshot(
-    error: impl std::fmt::Display,
+    error: anyhow::Error,
     snapshot: &crate::agent::tinyagents::TranscriptSnapshotSink,
     sidecar: &std::sync::Arc<
         std::sync::Mutex<crate::agent::tinyagents::host::run_context::SessionTurnSidecar>,
@@ -490,6 +493,21 @@ fn driver_error_with_snapshot(
     elapsed: std::time::Duration,
     fallback_model: &str,
 ) -> DriverFailure {
+    // Classify from the typed harness error when the chain carries one, rather
+    // than matching on its rendered text.
+    let typed = error
+        .chain()
+        .find_map(|cause| cause.downcast_ref::<tinyagents_harness::TinyAgentsError>());
+    let stalled = matches!(
+        typed,
+        Some(tinyagents_harness::TinyAgentsError::GenerationStalled)
+    );
+    let terminal = typed.map(|typed| {
+        tinyagents_harness::terminal::TerminalOutcome::from_error(
+            typed,
+            tinyagents_harness::terminal::TimeoutPhase::AfterTurn,
+        )
+    });
     let error = error.to_string();
     let guard = snapshot
         .lock()
@@ -531,15 +549,15 @@ fn driver_error_with_snapshot(
         observed.resolved_route = guard.resolved_route.clone();
     }
     if guard.messages.is_empty() {
-        return driver_failure(error);
+        let mut failure = driver_failure(error);
+        failure.outcome = terminal;
+        return failure;
     }
     let accepted_end = guard.accepted_end();
     let history = guard.messages[..accepted_end].to_vec();
     let unanswered =
         crate::agent::tinyagents::render_unanswered_steps(&guard.messages[accepted_end..]);
-    let display = if error
-        .contains(&tinyagents_harness::TinyAgentsError::GenerationStalled.to_string())
-    {
+    let display = if stalled {
         // The model's streamed narration was stopped before it could repeat
         // indefinitely. Preserve the completed tools as a useful, bounded
         // partial rather than showing only the failed model's process text.
@@ -566,7 +584,9 @@ fn driver_error_with_snapshot(
             output: None,
             partial: Some(TranscriptPartial::new(display)),
             interrupted: true,
+            outcome: terminal.clone(),
         }),
+        outcome: terminal,
     }
 }
 

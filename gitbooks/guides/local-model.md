@@ -27,7 +27,7 @@ For the config reference (provider strings, endpoint overrides, every workload f
 ## Privacy implications
 
 - Workloads you route locally run on-device. Nothing about that work is sent out.
-- Anything you leave on the default route still goes through the OpenHuman [model router](../features/model-routing/). Local AI only changes the workloads you move.
+- Anything you leave on the default route still goes through the OpenHuman [model router](../features/model-routing/README.md). Local AI only changes the workloads you move.
 - Without [Privacy Mode](../features/privacy-mode.md), lightweight hints routed locally can fall back to the remote provider if the runtime is unreachable. Turn on `local_only` privacy mode if strict locality matters; then an unreachable runtime makes the request fail instead.
 
 ---
@@ -114,4 +114,4 @@ Some workloads use the backend unless you configure something else: speech-to-te
 
 - [Local AI (optional)](../features/model-routing/local-ai.md): the config reference.
 - [Keep sensitive data private](privacy-sensitive-data.md): the plain-language version of local vs external.
-- [Automatic Model Routing](../features/model-routing/): how tasks get matched to models.
+- [Automatic Model Routing](../features/model-routing/README.md): how tasks get matched to models.

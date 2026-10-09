@@ -4,6 +4,10 @@
  * adds one with `memory_learn`, and deletes with `memory_forget`. Beliefs the
  * background builder distilled (tagged `belief`) carry a "Built belief" badge.
  *
+ * Beliefs are built by a queued background job minutes behind the writes, so
+ * an empty list while a build is pending reads as "still building", never as
+ * "no memory" (#6718).
+ *
  * debug logging: DEBUG=openhuman:memory:learnings
  */
 import debug from 'debug';
@@ -18,10 +22,12 @@ import {
   memoryErrorMessage,
   memoryForget,
   memoryItemsList,
+  memoryJobsList,
   memoryLearn,
 } from '../../services/api/memoryApi';
-import { Alert, AlertDescription, Button, Card, Label, NativeSelect, TextArea } from '../ui';
+import { Button, Card, Label, NativeSelect, TextArea } from '../ui';
 import { CenteredLoadingState } from '../ui/LoadingState';
+import MemoryErrorAlert from './MemoryErrorAlert';
 import MemoryHitRow from './MemoryHitRow';
 
 const log = debug('openhuman:memory:learnings');
@@ -38,6 +44,7 @@ export default function MemoryLearningsTab() {
   const [kind, setKind] = useState<LearningKind>('fact');
   const [adding, setAdding] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [buildsPending, setBuildsPending] = useState(false);
 
   const kindLabel = (k: LearningKind): string => {
     switch (k) {
@@ -64,6 +71,28 @@ export default function MemoryLearningsTab() {
     return page;
   }, []);
 
+  // Only asked when the list is empty; a failure leaves the plain empty state.
+  const empty = items !== null && items.length === 0;
+  useEffect(() => {
+    if (!empty) return;
+    let cancelled = false;
+    memoryJobsList()
+      .then(jobs => {
+        if (cancelled) return;
+        const pending = (jobs.pending ?? []).filter(job => job.job?.job === 'build_beliefs');
+        log('empty list: %d belief build(s) pending', pending.length);
+        setBuildsPending(pending.length > 0);
+      })
+      .catch(err => {
+        if (cancelled) return;
+        log('jobs list failed: %o', err);
+        setBuildsPending(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [empty]);
+
   const reload = useCallback(async () => {
     setError(null);
     try {
@@ -72,10 +101,10 @@ export default function MemoryLearningsTab() {
       setCursor(page.next_cursor ?? null);
     } catch (err) {
       log('list failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
       setItems(prev => prev ?? []);
     }
-  }, [loadPage]);
+  }, [loadPage, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,13 +117,13 @@ export default function MemoryLearningsTab() {
       .catch(err => {
         if (cancelled) return;
         log('list failed: %o', err);
-        setError(memoryErrorMessage(err));
+        setError(memoryErrorMessage(err, t));
         setItems([]);
       });
     return () => {
       cancelled = true;
     };
-  }, [loadPage]);
+  }, [loadPage, t]);
 
   const loadMore = async () => {
     if (!cursor) return;
@@ -104,7 +133,7 @@ export default function MemoryLearningsTab() {
       setItems(prev => [...(prev ?? []), ...(page.items ?? [])]);
       setCursor(page.next_cursor ?? null);
     } catch (err) {
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
     } finally {
       setLoadingMore(false);
     }
@@ -123,7 +152,7 @@ export default function MemoryLearningsTab() {
       await reload();
     } catch (err) {
       log('learn failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
     } finally {
       setAdding(false);
     }
@@ -137,7 +166,7 @@ export default function MemoryLearningsTab() {
       setItems(prev => (prev ?? []).filter(item => item.id !== id));
     } catch (err) {
       log('forget failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
     } finally {
       setDeleting(null);
     }
@@ -186,17 +215,19 @@ export default function MemoryLearningsTab() {
         </form>
       </Card>
 
-      {error !== null && (
-        <Alert variant="destructive" data-testid="memory-learnings-error">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+      {error !== null && <MemoryErrorAlert message={error} data-testid="memory-learnings-error" />}
 
       {items === null ? (
         <CenteredLoadingState label={t('memoryPage.loading')} />
       ) : (
         <Card title={t('memoryPage.learnings.listTitle')} data-testid="memory-learnings-list">
-          {items.length === 0 ? (
+          {items.length === 0 && buildsPending ? (
+            <p
+              className="px-4 py-3 text-sm text-content-muted"
+              data-testid="memory-learnings-deriving">
+              {t('memoryPage.learnings.deriving')}
+            </p>
+          ) : items.length === 0 ? (
             <p
               className="px-4 py-3 text-sm text-content-muted"
               data-testid="memory-learnings-empty">

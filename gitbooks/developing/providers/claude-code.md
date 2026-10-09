@@ -1,8 +1,14 @@
+---
+description: >-
+  Routing a workload through the Claude Code CLI or the Claude Agent SDK.
+icon: terminal
+---
+
 # Claude Code CLI provider
 
 OpenHuman can route any chat workload through Anthropic's `claude` CLI instead of calling the Anthropic HTTP API directly. The CLI handles model selection, auth, and prompt-cache management; OpenHuman drives it as a long-lived, session-resuming child process, parses its stream-json output, and hands it an MCP endpoint so the model can reach native OpenHuman state (memory, threads, agents, search). This is one of several pluggable LLM backends; see [Engines](../engines.md) for the full list.
 
-The provider itself, `ClaudeCodeProvider`, is owned by `tinyagents-harness` (vendor/tinyagents), not by OpenHuman: see [its README](../../../vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/README.md) for the full file map and implementation notes. OpenHuman only wires it up in `crates/openhuman-core/src/inference/provider/factory/subprocess_providers.rs`, which supplies the MCP endpoint (`OpenHumanMcpEndpoint`, below) and reads the resulting model string back into its own routing.
+The provider itself, `ClaudeCodeProvider`, is owned by `tinyagents-harness` (vendor/tinyagents), not by OpenHuman: see [its README](https://github.com/tinyhumansai/tinyagents/blob/main/crates/tinyagents-harness/src/providers/claude_code/README.md) for the full file map and implementation notes. OpenHuman only wires it up in `crates/openhuman-core/src/inference/provider/factory/subprocess_providers.rs`, which supplies the MCP endpoint (`OpenHumanMcpEndpoint`, below) and reads the resulting model string back into its own routing.
 
 ## Requirements
 
@@ -38,7 +44,7 @@ The status RPC is on the existing inference namespace:
 openhuman-core rpc openhuman.inference_claude_code_status
 ```
 
-Returns one of (`CliStatus` in [`tinyagents-harness`'s `claude_code/types.rs`](../../../vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/types.rs)):
+Returns one of (`CliStatus` in [`tinyagents-harness`'s `claude_code/types.rs`](https://github.com/tinyhumansai/tinyagents/blob/main/crates/tinyagents-harness/src/providers/claude_code/types.rs)):
 
 - `{"status":"ok","version":"2.0.4","path":"/usr/local/bin/claude"}`: ready
 - `{"status":"not_installed"}`: no usable `claude` was found through the
@@ -53,7 +59,7 @@ installations. When the CLI is found through a fallback, its directory and
 user bin directories are prepended to the child process `PATH`, while the
 inherited entries remain available.
 
-The same status is rendered in the settings panel via `ClaudeCodeStatusCard` ([`app/src/components/settings/panels/ai/ClaudeCodeStatusCard.tsx`](../../../app/src/components/settings/panels/ai/ClaudeCodeStatusCard.tsx)).
+The same status is rendered in the settings panel via `ClaudeCodeStatusCard` ([`app/src/components/settings/panels/ai/ClaudeCodeStatusCard.tsx`](https://github.com/tinyhumansai/openhuman/blob/main/app/src/components/settings/panels/ai/ClaudeCodeStatusCard.tsx)).
 
 ## Per-turn behavior
 
@@ -91,7 +97,7 @@ The `openhuman.inference_claude_code_auth_status` RPC reports the richer state f
 
 ## Tool surface exposed to the CLI
 
-The CLI sees these tools as `mcp__openhuman__<name>`, served over the loopback HTTP MCP endpoint described above (the same tool set the stdio MCP server in [`crates/openhuman-core/src/mcp/server/`](../../../crates/openhuman-core/src/mcp/server/) exposes to other MCP clients):
+The CLI sees these tools as `mcp__openhuman__<name>`, served over the loopback HTTP MCP endpoint described above (the same tool set the stdio MCP server in [`crates/openhuman-core/src/mcp/server/`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-core/src/mcp/server) exposes to other MCP clients):
 
 - `core.list_tools`, `core.tool_instructions`
 - `memory.recall`, `memory.fetch`, `memory.list`, `memory.learn`, `memory.forget`
@@ -104,5 +110,5 @@ The MCP server enforces `SecurityPolicy::ToolOperation` checks; `agent.run_subag
 
 - Vision input is forwarded as native image blocks when pasted images are available to the Claude Code provider. Images that cannot be read are sent as a short text notice.
 - Every role routed to `claude-code:` shares the same `MAX_CONCURRENT_TURNS` semaphore; under load a CC turn waits in queue rather than failing fast.
-- Cost accounting from the CLI's `result.total_cost_usd` is captured in the mapper but not yet wired into OpenHuman's billing layer ([`crates/openhuman-core/src/platform/cost/`](../../../crates/openhuman-core/src/platform/cost/)).
+- Cost accounting from the CLI's `result.total_cost_usd` is captured in the mapper but not yet wired into OpenHuman's billing layer ([`crates/openhuman-core/src/platform/cost/`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-core/src/platform/cost)).
 - Linux and Windows run the CLI unconfined; the Seatbelt jail is macOS-only.

@@ -13,8 +13,34 @@ use crate::threads::{
 };
 use tinyagents_harness::title::{
     build_title_request, is_auto_generated_thread_title, sanitize_generated_title,
-    title_log_fingerprint,
+    title_from_user_message, title_log_fingerprint,
 };
+
+/// Whether the summarizer may replace `title`.
+///
+/// Two titles are ours to replace: the creation placeholder (`Chat Oct 6 …`)
+/// and the interim title derived from the first user message. The interim one
+/// is written the moment the user sends — before any reply exists to summarize
+/// — so without this the real summary that runs on the finished reply found a
+/// non-placeholder title and never ran. Anything else was typed by the user
+/// and is left alone.
+///
+/// The interim title is only replaceable during the first exchange
+/// (`agent_replies <= 1`). A summary that happens to equal the interim title
+/// would otherwise look interim forever and be re-summarized on every turn.
+pub(crate) fn is_replaceable_title(
+    title: &str,
+    first_user_message: Option<&str>,
+    agent_replies: usize,
+) -> bool {
+    if is_auto_generated_thread_title(title) {
+        return true;
+    }
+    agent_replies <= 1
+        && first_user_message
+            .and_then(title_from_user_message)
+            .is_some_and(|interim| interim == title.trim())
+}
 
 /// Generates a durable thread title from the first user message and assistant reply.
 pub async fn thread_generate_title(
@@ -32,12 +58,23 @@ pub async fn thread_generate_title(
         return Err(ThreadsError::not_found(request.thread_id));
     };
 
-    if !is_auto_generated_thread_title(&thread.title) {
+    let messages =
+        conversations::blocking::get_messages(dir.clone(), request.thread_id.clone()).await?;
+    let first_user_message = messages
+        .iter()
+        .find(|message| message.sender == "user" && !message.content.trim().is_empty())
+        .map(|message| message.content.trim().to_string());
+
+    let agent_replies = messages
+        .iter()
+        .filter(|message| message.sender == "agent")
+        .count();
+    if !is_replaceable_title(&thread.title, first_user_message.as_deref(), agent_replies) {
         tracing::debug!(
             thread_id = %request.thread_id,
             title_len = thread.title.chars().count(),
             title_hash = %title_log_fingerprint(&thread.title),
-            "{THREAD_TITLE_LOG_PREFIX} skipping non-placeholder title"
+            "{THREAD_TITLE_LOG_PREFIX} skipping user-chosen title"
         );
         return Ok(envelope(
             thread_to_summary(thread),
@@ -46,13 +83,7 @@ pub async fn thread_generate_title(
         ));
     }
 
-    let messages =
-        conversations::blocking::get_messages(dir.clone(), request.thread_id.clone()).await?;
-    let Some(first_user_message) = messages
-        .iter()
-        .find(|message| message.sender == "user" && !message.content.trim().is_empty())
-        .map(|message| message.content.trim().to_string())
-    else {
+    let Some(first_user_message) = first_user_message else {
         tracing::debug!(
             thread_id = %request.thread_id,
             "{THREAD_TITLE_LOG_PREFIX} no user message yet; skipping"
@@ -189,3 +220,7 @@ pub async fn thread_generate_title(
         None,
     ))
 }
+
+#[cfg(test)]
+#[path = "title_generation_tests.rs"]
+mod tests;

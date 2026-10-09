@@ -58,6 +58,28 @@ fn enforce_local_only_inference_errors_on_external_when_local_only() {
         .to_string()
         .contains("Local-only privacy mode"));
 
+    // Both the default factory and a thread-attached managed picker route must
+    // hit the managed resolver's privacy gate before any backend client exists.
+    for route in ["openhuman", "openrouter/author/picked-model:free"] {
+        let result = if route == "openhuman" {
+            create_chat_model_from_string("chat", route, &Config::default(), 0.0)
+        } else {
+            managed_backend::make_openhuman_backend_model_for_thread(
+                "chat",
+                &Config::default(),
+                route,
+                true,
+                Some("privacy-test-thread"),
+            )
+            .map(|(model, _)| model)
+        };
+        let error = match result {
+            Err(error) => error,
+            Ok(_) => panic!("managed inference must be refused in LocalOnly mode"),
+        };
+        assert!(error.to_string().contains("Local-only privacy mode"));
+    }
+
     // Local provider passes.
     enforce_local_only_inference("chat", "ollama:llama3")
         .expect("local provider must be permitted in LocalOnly mode");

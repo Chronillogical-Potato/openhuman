@@ -208,6 +208,22 @@ pub mod streaming {
     pub async fn handle_dictation_ws(_socket: WebSocket, _config: Arc<Config>) {}
 }
 
+// `live::ws::handle_live_voice_ws`: with voice off there are no live
+// providers, so the upgraded socket is dropped immediately.
+#[cfg(feature = "http-server")]
+pub mod live {
+    pub mod ws {
+        use std::sync::Arc;
+
+        use axum::extract::ws::WebSocket;
+
+        use crate::config::Config;
+
+        /// Drop the upgraded socket immediately — live voice is compiled out.
+        pub async fn handle_live_voice_ws(_socket: WebSocket, _config: Arc<Config>) {}
+    }
+}
+
 // ---------------------------------------------------------------------------
 // reply_speech::{synthesize_reply, ReplySpeechOptions, ReplySpeechResult, ...}
 // ---------------------------------------------------------------------------

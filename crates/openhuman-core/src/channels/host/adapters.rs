@@ -205,6 +205,7 @@ impl ConversationStore for ConversationHistoryStore {
                 parent_thread_id: None,
                 labels: None,
                 personality_id: None,
+                working_dir: None,
             },
         )
         .map_err(|e| anyhow::anyhow!(e))?;

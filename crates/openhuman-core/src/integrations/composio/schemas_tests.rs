@@ -25,7 +25,6 @@ fn every_known_schema_key_resolves() {
         "list_tools",
         "execute",
         "get_user_profile",
-        "sync",
         "list_trigger_history",
         "get_user_scopes",
         "set_user_scopes",
@@ -63,17 +62,6 @@ fn execute_schema_requires_tool_and_accepts_optional_arguments() {
     let args = s.inputs.iter().find(|f| f.name == "arguments");
     assert!(args.is_some());
     assert!(!args.unwrap().required);
-}
-
-#[test]
-fn sync_schema_requires_connection_id_and_optional_reason() {
-    let s = schemas("sync");
-    assert!(s
-        .inputs
-        .iter()
-        .any(|f| f.name == "connection_id" && f.required));
-    let reason = s.inputs.iter().find(|f| f.name == "reason");
-    assert!(reason.is_some_and(|f| !f.required));
 }
 
 // ── read_required / read_required_non_empty / read_optional ────

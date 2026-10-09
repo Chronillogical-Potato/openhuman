@@ -3,7 +3,7 @@ description: Artifact-capture layer that makes E2E tests debuggable. Logs, trace
 icon: eye
 ---
 
-# Agent Observability for E2E
+# Agent Observability
 
 This doc describes the artifact-capture layer that makes the desktop app
 inspectable by coding agents (Codex, Claude Code, Cursor) through the
@@ -20,7 +20,7 @@ bash app/scripts/e2e-agent-review.sh
 
 Artifacts land under:
 
-```
+```text
 app/test/e2e/artifacts/<ISO-timestamp>-agent-review/
   01-welcome.png
   01-welcome.source.xml
@@ -92,7 +92,7 @@ schemas and `prompt_cache_key` the harness assembled), and every response
 yields one summary line and one JSONL record in
 `target/debug-logs/inference-capture.jsonl`:
 
-```
+```text
 [capture] #000 200 model=z-ai/glm-5.3-flash msgs=2 tools=19 served_by=StreamLake ttfb=7.38s total=8.43s prompt=12344 cached=12288 cache_key=tap-25675927a3f2160d
 ```
 

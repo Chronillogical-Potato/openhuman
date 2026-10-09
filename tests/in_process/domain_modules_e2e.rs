@@ -21,14 +21,22 @@ struct TestHarness {
 }
 
 async fn setup() -> TestHarness {
+    setup_with_config(None).await
+}
+
+async fn setup_with_config(memory_config: Option<&str>) -> TestHarness {
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
     let openhuman_home = home.join(".openhuman");
     write_min_config(&openhuman_home);
+    if let Some(memory_config) = memory_config {
+        std::fs::write(openhuman_home.join("config.toml"), memory_config)
+            .expect("write test config");
+    }
 
     let guards = vec![
         EnvVarGuard::set_to_path("HOME", home),
-        EnvVarGuard::unset("OPENHUMAN_WORKSPACE"),
+        EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", &openhuman_home.join("workspace")),
         EnvVarGuard::unset("BACKEND_URL"),
         EnvVarGuard::unset("VITE_BACKEND_URL"),
         EnvVarGuard::unset("OPENHUMAN_API_URL"),
@@ -141,6 +149,57 @@ async fn target_domain_schemas_are_exposed_over_http_schema_catalog() {
             "schema catalog must expose {method}"
         );
     }
+
+    harness.join.abort();
+}
+
+#[tokio::test]
+async fn legacy_memory_backend_is_off_and_persisted_through_json_rpc() {
+    let _lock = env_lock_async().await;
+    let harness = setup_with_config(Some(
+        r#"
+[memory]
+backend = "sqlite"
+embedding_model = "local-embedding"
+"#,
+    ))
+    .await;
+    let config_path = harness._tmp.path().join(".openhuman/config.toml");
+
+    let engine = rpc(
+        &harness.rpc_base,
+        30_000,
+        "openhuman.memory_engine_get",
+        json!({}),
+    )
+    .await;
+    let engine = payload(&engine, "memory_engine_get");
+    assert_eq!(engine.get("status").and_then(Value::as_str), Some("off"));
+    assert!(engine
+        .get("reason")
+        .and_then(Value::as_str)
+        .is_some_and(|reason| reason.contains("legacy memory backend")),
+        "expected legacy migration reason, got: {engine}"
+    );
+
+    let saved_config = rpc(
+        &harness.rpc_base,
+        30_001,
+        "openhuman.config_set_onboarding_completed",
+        json!({ "value": true }),
+    )
+    .await;
+    assert_eq!(payload(&saved_config, "save migrated config"), &json!(true));
+
+    let saved = tokio::fs::read_to_string(&config_path)
+        .await
+        .expect("read migrated config");
+    let saved_config: toml::Value = toml::from_str(&saved).unwrap();
+    assert!(
+        !saved_config["memory"].as_table().unwrap().contains_key("backend"),
+        "legacy key must not be persisted in [memory]: {saved}"
+    );
+    assert!(saved.contains("engine = \"\""), "off state must be persisted: {saved}");
 
     harness.join.abort();
 }
