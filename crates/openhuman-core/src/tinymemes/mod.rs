@@ -125,10 +125,45 @@ pub(crate) async fn remix_final_reply(
         }
     }
 
+    // Meme research, off the critical path: a meme was allowed but nothing in
+    // the catalog fit. New GIFs are vetted before Jev can pick them.
+    if outcome.wants_more_memes() {
+        if let Some(reading) = &outcome.reading {
+            let host = host.clone();
+            let intent = reading.reply_intent;
+            let request_id = request_id.to_owned();
+            // Only a short, generic meme concept derived from this is searched.
+            let moment = user_message.to_owned();
+            tokio::spawn(async move {
+                match host.engine.learn_memes(intent, &moment).await {
+                    Ok(Some(r)) => log::info!(
+                        "[tinymemes] meme research request_id={request_id} query={:?} found={} \
+                         approved={} pending={} rejected_rating={} rejected_topic={} duplicates={} \
+                         failed_jev={}",
+                        r.query,
+                        r.found,
+                        r.approved,
+                        r.pending,
+                        r.rejected_rating,
+                        r.rejected_topic,
+                        r.duplicates,
+                        r.failed_verification
+                    ),
+                    Ok(None) => {
+                        log::debug!("[tinymemes] meme research skipped (repeat, budget, or busy)")
+                    }
+                    Err(e) => log::warn!("[tinymemes] meme research failed: {e}"),
+                }
+                host.save_memes();
+            });
+        }
+    }
+
     let remixed = outcome.remix.is_some() && outcome.reply.trim() != reply.trim();
     let result = if remixed {
         host.mark_remixed(crate::threads::store::run_reply_message_id(request_id));
         host.save_index();
+        host.save_memes();
         "remixed"
     } else if outcome.skipped.is_some() && outcome.rating.is_none() {
         "error"
@@ -153,8 +188,8 @@ fn log_outcome(
     let reading = outcome.and_then(|o| o.reading.as_ref());
     log::info!(
         "[tinymemes] turn arm=treatment bucket={bucket} request_id={request_id} turn_ms={turn_ms} \
-         remix_ms={remix_ms} outcome={result} score={} tier={} memes={} rewrite_kept={} \
-         slang_enough={} wants_search={}",
+         remix_ms={remix_ms} outcome={result} score={} tier={} mode={} memes={} rewrite_kept={} \
+         dupes={} slang_enough={} wants_search={} meme_pick={} meme_p={}",
         rating.map_or(-1, |r| i32::from(r.score)),
         rating.map_or("none", |r| match r.tier {
             tinymemes::Tier::Off => "off",
@@ -162,11 +197,27 @@ fn log_outcome(
             tinymemes::Tier::Spicy => "spicy",
             tinymemes::Tier::Unhinged => "unhinged",
         }),
+        remix.map_or("none", |r| match r.mode {
+            tinymemes::RemixMode::Rewrite => "rewrite",
+            tinymemes::RemixMode::MemeOnly => "meme_only",
+        }),
         remix.map_or(0, |r| r.memes.len()),
         remix.is_none_or(|r| r.rewrite_kept),
+        remix.map_or(0, |r| r.duplicates_removed),
         reading
             .and_then(|r| r.slang_enough)
             .map_or_else(|| "none".to_owned(), |p| format!("{p:.2}")),
         reading.is_some_and(|r| r.wants_more_slang(0.5)),
+        reading.map_or_else(
+            || "none".to_owned(),
+            |r| match &r.meme {
+                tinymemes::reading::MemePick::Pick(t) => t.replace(' ', "_"),
+                tinymemes::reading::MemePick::NoneFit => "none_fit".to_owned(),
+                tinymemes::reading::MemePick::Unasked => "unasked".to_owned(),
+            }
+        ),
+        reading
+            .and_then(|r| r.meme_p)
+            .map_or_else(|| "none".to_owned(), |p| format!("{p:.2}")),
     );
 }

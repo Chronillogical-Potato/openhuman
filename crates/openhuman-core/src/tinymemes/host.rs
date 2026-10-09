@@ -20,6 +20,10 @@ use crate::threads::store::ConversationMessage;
 
 const DIR: &str = "tinymemes";
 const INDEX_FILE: &str = "slang-index.json";
+const MEME_INDEX_FILE: &str = "meme-index.json";
+/// Newly learned GIFs are pending until a person approves them; `0` auto-approves
+/// GIFs that pass every check instead.
+pub(crate) const MEME_REVIEW_ENV: &str = "OPENHUMAN_TINYMEMES_MEME_REVIEW";
 const REMIXED_FILE: &str = "remixed.json";
 /// Remixed-message ids remembered per workspace (oldest dropped first).
 const REMIXED_CAP: usize = 4000;
@@ -108,10 +112,22 @@ pub(crate) fn host_for(config: &Config) -> Option<Arc<Host>> {
         }
     };
 
+    let search = openhuman_search(config);
+    let meme_policy = tinymemes::MemeIndexPolicy {
+        auto_approve: std::env::var(MEME_REVIEW_ENV).is_ok_and(|v| v.trim() == "0"),
+        ..tinymemes::MemeIndexPolicy::default()
+    };
+    let meme_index = match std::fs::read_to_string(dir.join(MEME_INDEX_FILE)) {
+        Ok(json) => tinymemes::MemeIndex::from_json(&json, meme_policy).unwrap_or_else(|e| {
+            log::warn!("[tinymemes] meme index unreadable, starting fresh: {e}");
+            tinymemes::MemeIndex::new(meme_policy)
+        }),
+        Err(_) => tinymemes::MemeIndex::new(meme_policy),
+    };
     let (researcher, research_label): (Option<Arc<dyn SlangResearcher>>, &str) =
         match env.web_researcher(&http) {
             Some(r) => (Some(Arc::new(r)), "env:openrouter-web"),
-            None => match openhuman_search(config) {
+            None => match search.clone() {
                 Some(search) => (
                     Some(Arc::new(SearchResearcher::new(search, chat.clone()))),
                     "openhuman-search",
@@ -121,8 +137,9 @@ pub(crate) fn host_for(config: &Config) -> Option<Arc<Host>> {
         };
 
     let mut builder = MemeEngine::builder(jev, chat)
-        .source(Arc::new(tinymemes::source::Imgflip::new(http)))
+        .source(Arc::new(tinymemes::source::Imgflip::new(http.clone())))
         .slang_index(Arc::new(index))
+        .meme_index(Arc::new(meme_index))
         .policy(rating_policy())
         // Research runs in the background after delivery, never on the
         // reply's critical path.
@@ -130,11 +147,24 @@ pub(crate) fn host_for(config: &Config) -> Option<Arc<Host>> {
     if let Some(researcher) = researcher {
         builder = builder.researcher(researcher);
     }
+    let meme_research_label = match search {
+        Some(search) => {
+            builder = builder
+                .meme_researcher(Arc::new(tinymemes::GiphyPageResearcher::new(search, http)));
+            if meme_policy.auto_approve {
+                "giphy-pages"
+            } else {
+                "giphy-pages (review)"
+            }
+        }
+        None => "off (no search provider)",
+    };
     let engine = builder.build();
     log::info!(
         "[tinymemes] engine ready chat={chat_label} jev={jev_label} research={research_label} \
-         slang_terms={}",
-        engine.slang_index().len("IN")
+         meme_research={meme_research_label} slang_terms={} learned_memes={}",
+        engine.slang_index().len("IN"),
+        engine.meme_index().len("IN")
     );
     let host = Arc::new(Host {
         engine,
@@ -187,6 +217,13 @@ impl Host {
         };
         if let Err(e) = std::fs::write(self.dir.join(REMIXED_FILE), snapshot) {
             log::warn!("[tinymemes] cannot save remixed ids: {e}");
+        }
+    }
+
+    pub(crate) fn save_memes(&self) {
+        let json = self.engine.meme_index().to_json();
+        if let Err(e) = std::fs::write(self.dir.join(MEME_INDEX_FILE), json) {
+            log::warn!("[tinymemes] cannot save meme index: {e}");
         }
     }
 
