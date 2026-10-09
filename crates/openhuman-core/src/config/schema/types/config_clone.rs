@@ -32,6 +32,7 @@ impl Clone for Config {
             dashboard: self.dashboard.clone(),
             observability: self.observability.clone(),
             autonomy: self.autonomy.clone(),
+            tool_rules: self.tool_rules.clone(),
             desktop: self.desktop.clone(),
             computer: self.computer.clone(),
             hooks: self.hooks.clone(),

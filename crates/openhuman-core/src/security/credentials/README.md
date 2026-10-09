@@ -82,6 +82,17 @@ Note: `list_provider_credentials_by_prefix` and the Composio-direct/secret helpe
 - Loads migrate legacy `enc:`/`enc2:` cipher fields and promote secrets into the keychain; unrecoverable (un-decryptable / bad-`kind`) profiles are dropped rather than poisoning the whole store; unparseable files are quarantined to `auth-profiles.corrupt-<ts>.json` and reset to empty.
 - Mutations are guarded by `auth-profiles.lock` (PID-stamped). Stale/leaked/malformed locks are reclaimed by liveness + age checks to avoid the "stuck on Initializing OpenHuman" hang.
 
+### On a storage backend
+
+With a storage backend configured (`crate::storage`), `auth-profiles.json`
+and `http-credentials.json` are not written to disk: the same JSON is kept as
+one encrypted secret each (`file:auth-profiles.json`,
+`file:http-credentials.json`) in the acting agent's scope
+(`storage::secrets`), and per-profile keychain secrets go there through the
+keyring. An unparseable record is an error rather than quarantined, so a
+write never replaces profiles it could not read. Writes are last-writer-wins
+across processes; the local file lock still serializes one host.
+
 ## Dependencies
 
 - `crate::config`: `Config`, config load (`load_config_with_timeout`), user-dir activation (`default_root_openhuman_dir`, `user_openhuman_dir`, `read/write/clear_active_user`, `pre_login_user_dir`), onboarding state.

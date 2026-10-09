@@ -125,8 +125,9 @@ default is 3 s.
 
 [`ranker_tests.rs`](ranker_tests.rs), [`route_tests.rs`](route_tests.rs) and [`evaluator_tests.rs`](evaluator_tests.rs) sit beside their
 modules and use the config and env seams rather than the process
-environment. The ranker comparison harness is a separate binary, `tool-search-bench`, in
-the `profile/` crate of [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks)
+environment. The ranker comparison harness (`tool-search-bench`) moved out of
+`openhuman-cli` with the other benchmarks (#6944), to the `profile/` crate of
+[openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks)
 (`cargo run --manifest-path profile/Cargo.toml --bin tool-search-bench`).
 
 ```bash

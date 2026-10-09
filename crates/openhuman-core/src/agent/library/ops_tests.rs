@@ -17,6 +17,7 @@ fn definition() -> AgentDefinition {
         skill_filter: None,
         extra_tools: vec!["memory_search".to_string(), "web_search".to_string()],
         deferred_tools: Vec::new(),
+        tool_rules: None,
         max_iterations: 8,
         iteration_policy: Default::default(),
         max_result_chars: None,

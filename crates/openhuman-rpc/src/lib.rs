@@ -28,9 +28,19 @@
 //! - [`host`]: the shared host boot, one entry per host shape
 //!   ([`host::cli`], [`host::desktop`], [`host::tui`]).
 //! - [`tinyhumans`] (and through it `tinyhumans::embed`): the curated library
-//!   facade hosts configure a runtime with.
+//!   facade hosts configure a runtime with. [`embed`] is the same crate as
+//!   `tinyhumans::embed`, re-exported here so a host (app, CLI, TUI) that
+//!   depends on this crate alone names it in one step.
+//!
+//! Hosts depend on `openhuman-rpc` and nothing else from this repository
+//! (`scripts/ci/check-crate-chain.mjs` enforces it). What they reach is the
+//! curated surface above; the doc-hidden `__host` list stays internal to the
+//! layers.
 
 pub use openhuman_tinyhumans as tinyhumans;
+/// The embed facade (`openhuman_embed`): runtime builder, process helpers,
+/// config/artifact/chat-surface facades. Same crate as `tinyhumans::embed`.
+pub use openhuman_tinyhumans::embed;
 
 /// Core internals for this crate's own modules, through embed's doc-hidden
 /// `__host` list. Crate-private: never re-exported on a public path.

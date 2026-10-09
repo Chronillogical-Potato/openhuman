@@ -76,3 +76,18 @@ fn host_only_without_a_prompt_is_refused() {
         .expect_err("the orchestrator prompt does not describe a host-only agent");
     assert!(matches!(err, AgentError::Invalid(_)));
 }
+
+#[test]
+fn tool_rules_reach_the_core_definition() {
+    let rules = tinytools::ToolRules::from_allow_deny(Vec::<String>::new(), ["mcp_*"]);
+    let def = AgentDefinitionSpec::new()
+        .tool_rules(rules.clone())
+        .into_core("narrow")
+        .unwrap();
+    assert_eq!(def.tool_rules, Some(rules));
+    assert!(AgentDefinitionSpec::new()
+        .into_core("open")
+        .unwrap()
+        .tool_rules
+        .is_none());
+}

@@ -32,6 +32,10 @@ channels = ["openhuman-core/channels"]
 whatsapp-web = ["openhuman-core/whatsapp-web"]
 file-logging = ["openhuman-core/file-logging"]
 scheduler-gate = ["openhuman-core/scheduler-gate"]
+# Exposes the destructive `openhuman.test_reset` RPC for E2E builds only.
+# Default-OFF everywhere; forwarded so the desktop E2E build can reach it
+# through the chain instead of naming the core directly.
+e2e-test-support = ["openhuman-core/e2e-test-support"]
 
 [dependencies]
 async-trait = "0.1"
@@ -62,6 +66,7 @@ tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crate
 tinyinference-embeddings = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
 # `RuntimeBuilder::tool_ranker` takes `tinytools::ToolRanker`; same vendored
 # path as the core's so the trait unifies.
+# `AgentDefinitionSpec::tool_rules` takes the shared tool-rule vocabulary too.
 tinytools = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
 url = "2"

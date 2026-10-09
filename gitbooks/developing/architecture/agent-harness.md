@@ -254,6 +254,59 @@ Canonical `tinytools_agent::dialect::ToolDialect` implementations provide transc
 
 Every text dialect shares one parser: a `<tool_call>` body is tried as P-Format, then as a code call, then as JSON, so a model that mixes forms is still understood. Persisted session histories can contain suffixes in any of these shapes, so the session shell keeps the dispatcher around to parse and replay them faithfully when a transcript is resumed.
 
+### Tool rules: allow, deny, hide, approve
+
+You can restrict which tools an agent sees and calls with pattern rules. The
+rule language is `tinytools::ToolRules`, and the tinyagents loop enforces it
+through `RunPolicy::tool_rules`. One rule set decides all three surfaces: the
+tool schemas on the request, `tool_search` and the deferred catalogue, and
+every call, nested calls included. A tool a rule removes therefore cannot be
+found through search or called by a guessed name.
+
+Rules come from three places and stack as layers. Every layer must admit a
+tool:
+
+1. **`[tool_rules]` in `config.toml`.** The operator's layer, applied to every
+   agent, sub-agents included.
+2. **Agent definitions.**
+   - `disallowed_tools` and `tool_rules` in the definition TOML.
+   - `tool_rules` on the agent registry entry, which `agent.registry`
+     patches can set.
+   - `AgentDefinitionSpec::tool_rules` for an embedder.
+3. **Sub-agents.** A child inherits the operator's layers but not its parent
+   agent's own restrictions, because an orchestrator usually disallows
+   exactly the tools it delegates. It then adds its own definition's layer.
+
+```toml
+[[tool_rules.rules]]
+id = "only-github-mcp"
+effect = "deny"                  # allow | deny | hide | require_approval | auto_approve
+match = { name = "mcp_*" }       # name / family / tags globs, category, exposure,
+except = { family = "github" }   # permission bounds, side_effects, arg
+reason = "Only the GitHub MCP server is approved."
+
+[[tool_rules.rules]]
+effect = "deny"
+match = { name = "shell" }
+when = { channel = "telegram" }  # context: channel, agent
+```
+
+How rules behave:
+
+- **Precedence.** `deny` wins inside a layer. `hide` keeps a tool callable but
+  unlisted. `require_approval` defers a call exactly like a tool that declares
+  `approval_required`; `auto_approve` waives that declaration.
+- **Patterns.** Globs support `*` and `?` and ignore ASCII case, so `gmail_*`
+  matches `GMAIL_SEND_EMAIL`. Name lists on a definition (`disallowed_tools`)
+  use the same grammar through `tools::rules::glob_list_matches`. That
+  function is now the only implementation of the matcher.
+- **Refusals.** A refused call is answered with the rule's id, layer and
+  reason.
+
+Code: `crates/openhuman-core/src/tools/rules/`. Each session composes its layers
+once (`session_rule_set`); each turn evaluates them in its own context
+(`OpenHumanRunContext::tool_rules`).
+
 ### Context management mid-loop
 
 Long tool-calling chains can blow past the context window. Two layers handle that:
