@@ -102,7 +102,7 @@ async fn start_serves_files_with_basic_auth() {
 fn register_controllers_adds_http_host_namespace_idempotently() {
     crate::http_host::register_controllers().expect("first registration");
     crate::http_host::register_controllers().expect("re-registration is a no-op");
-    let schemas = openhuman_core::core::all::all_controller_schemas();
+    let schemas = crate::core_host::core::all::all_controller_schemas();
     let functions: Vec<&str> = schemas
         .iter()
         .filter(|s| s.namespace == "http_host")

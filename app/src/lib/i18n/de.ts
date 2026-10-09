@@ -4136,6 +4136,37 @@ const messages: TranslationMap = {
   'skills.detail.author': 'Autor',
   'skills.detail.license': 'Lizenz',
   'skills.detail.description': 'Beschreibung',
+  'skills.detail.overview': 'Überblick',
+  'skills.registry.firstFetchHint':
+    'Der Skill-Katalog wird geladen. Der erste Abruf kann eine Minute dauern.',
+  'skills.registry.refreshing':
+    'Der gespeicherte Katalog wird angezeigt, während eine aktuelle Kopie lädt.',
+  'skills.registry.offline': 'Offline: gespeicherter Katalog vom {time} wird angezeigt.',
+  'skills.registry.offlineNoTime': 'Offline: der gespeicherte Katalog wird angezeigt.',
+  'skills.registry.unreachable':
+    'Die Skill-Registry ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.',
+  'skills.registry.rateLimited':
+    'Die Skill-Registry ist ausgelastet. Versuche es in {seconds} s erneut.',
+  'skills.registry.rateLimitedShortly':
+    'Die Skill-Registry ist ausgelastet. Versuche es gleich noch einmal.',
+  'skills.registry.viewSource': 'Quelle ansehen',
+  'skills.registry.noDirectDownload':
+    'Dieser Eintrag hat keine SKILL.md zum Herunterladen. Öffne seine Quellseite, um ihn auf anderem Weg zu installieren.',
+  'skills.registry.upstreamAmbiguous':
+    'Mehrere Autoren veröffentlichen einen Skill mit diesem Namen, und der Katalog sagt nicht, welcher gemeint ist. Er kann daher nicht automatisch installiert werden.',
+  'skills.scan.title': 'Der Sicherheitsscan hat diesen Skill blockiert',
+  'skills.scan.description':
+    'OpenHuman hat {name} zweimal heruntergeladen und geprüft, und der Sicherheitsscan hat ihn beide Male blockiert. Er wurde nicht installiert.',
+  'skills.scan.findingsLabel': 'Was der Scan gefunden hat',
+  'skills.scan.warning':
+    'Installiere ihn nur, wenn du der Quelle vertraust. Blockieren ist die sichere Wahl.',
+  'skills.scan.block': 'Installation blockieren',
+  'skills.scan.installAnyway': 'Trotzdem installieren',
+  'skills.scan.verdictBlock': 'Blockiert',
+  'skills.scan.verdictWarn': 'Warnung',
+  'skills.scan.declinedTitle': 'Installation blockiert',
+  'skills.scan.declinedHint':
+    'Der Skill wurde nicht installiert, weil der Sicherheitsscan ihn blockiert hat.',
   'skills.detail.source': 'Quell-URL',
   'skills.detail.tags': 'Schlagworte',
   'skills.detail.version': 'Version',

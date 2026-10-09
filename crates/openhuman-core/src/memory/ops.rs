@@ -9,7 +9,7 @@
 use chrono::Utc;
 use tinymemory_api::{
     EraseRequest, FetchRequest, ForgetTarget, ItemId, LearningKind, ListRequest, MemoryMeta,
-    RecallRequest, StoreItem, StoreReceipt, TimeHint, WriteOptions,
+    MetaFilter, RecallRequest, StoreItem, StoreReceipt, TimeHint, WriteOptions,
 };
 
 use crate::config::Config;
@@ -173,7 +173,7 @@ pub async fn recall(config: &Config, params: RecallParams) -> MemoryResult<Recal
     let bound = bound(config)?;
     let request = RecallRequest {
         question: params.question,
-        filter: params.filter.unwrap_or_default(),
+        filter: confine_filter(config, params.filter.unwrap_or_default()),
         limit: clamp_limit(params.limit),
         instructions: None,
         refers_to: time_hint(config, params.refers_to)?,
@@ -210,7 +210,7 @@ pub async fn fetch(config: &Config, params: FetchParams) -> MemoryResult<FetchVi
     let request = FetchRequest {
         query: params.query,
         mode,
-        filter: params.filter.unwrap_or_default(),
+        filter: confine_filter(config, params.filter.unwrap_or_default()),
         limit: clamp_limit(params.limit),
         cursor: params.cursor,
         beliefs: 0,
@@ -314,7 +314,10 @@ pub async fn learn_with(
 }
 
 /// Scrubs `item` and stores it on the bound engine.
-pub async fn store_item(config: &Config, item: StoreItem) -> MemoryResult<StoreReceipt> {
+pub async fn store_item(config: &Config, mut item: StoreItem) -> MemoryResult<StoreReceipt> {
+    if let Some(root) = super::user_scope::confinement(config) {
+        super::user_scope::clamp_item(&mut item, &root);
+    }
     let bound = bound(config)?;
     store_on(&bound, item).await
 }
@@ -373,7 +376,12 @@ pub async fn forget(config: &Config, params: ForgetParams) -> MemoryResult<Forge
         return Err(MemoryError::invalid("forget needs at least one id"));
     }
     let bound = bound(config)?;
-    let ids = match params.reach {
+    // A SaaS user forgets only what lies in their own tree.
+    let reach = match super::user_scope::confinement(config) {
+        Some(root) => Some(super::user_scope::clamp_reach(params.reach, &root)),
+        None => params.reach,
+    };
+    let ids = match reach {
         Some(reach) => within_reach(&bound, ids, reach).await?,
         None => ids,
     };
@@ -449,7 +457,10 @@ async fn within_reach(
 pub async fn items_list(config: &Config, params: ItemsListParams) -> MemoryResult<ItemsListView> {
     let bound = bound(config)?;
     let request = ListRequest {
-        filter: super::explore::narrowed(params.filter, &params.path)?,
+        filter: confine_filter(
+            config,
+            super::explore::narrowed(params.filter, &params.path)?,
+        ),
         limit: clamp_limit(params.limit),
         cursor: params.cursor,
     };
@@ -463,6 +474,15 @@ pub async fn items_list(config: &Config, params: ItemsListParams) -> MemoryResul
         items: page.items,
         next_cursor: page.next_cursor,
     })
+}
+
+/// `filter`, confined to the SaaS user's tree when `config` has one
+/// ([`super::user_scope`]).
+pub(crate) fn confine_filter(config: &Config, filter: MetaFilter) -> MetaFilter {
+    match super::user_scope::confinement(config) {
+        Some(root) => super::user_scope::clamp_filter(filter, &root),
+        None => filter,
+    }
 }
 
 #[cfg(test)]

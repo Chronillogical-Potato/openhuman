@@ -18,7 +18,8 @@ the four controllers to the core's registry with
 domain family of its own, so the runtime's `DomainSet` gates it with the
 platform surface). The server calls the panicking wrapper
 `ensure_registered()` from both `install_cli_server` and
-`build_core_http_router`, so every host that runs the RPC server (the desktop
+`build_core_http_router`, and `crate::host` adds the same controllers
+(`http_host::extension()`) to its builders, so every host that runs the RPC server (the desktop
 app and the `openhuman-core` binary) exposes `http_host.*`. Registration is
 idempotent. A host that embeds the core without this crate's server, such as
 the TUI or an `openhuman-embed` library host, has no `http_host` surface.
@@ -107,7 +108,7 @@ Namespace `http_host`, invoked as `openhuman.http_host_<function>`:
 ## Boundaries
 
 - The controller contract (`ControllerSchema`, `Outcome`,
-  `register_controller_extension`) is the core's (`openhuman_core::core`).
+  `register_controller_extension`) is the core's (`openhuman::core`).
 - The default username comes from the core's config
   (`config::load_config_with_timeout`) and session state
   (`security::credentials::session_support::build_session_state`); this

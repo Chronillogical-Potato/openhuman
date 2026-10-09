@@ -13,10 +13,11 @@ enables by itself.
 
 ```text
  host startup
-   session_store::install()
+   session_store::install()            (servers: process lifetime)
+   or RuntimeBuilder::session_store(session_store::provider())   (host::tui)
      SqliteSessionStores::resolving(context_workspace_dir)
      -> agent::session_store::install(provider)
-   CoreBuilder::build()
+   RuntimeBuilder::build()
      provider.recover()
        turn_state::store::mark_all_interrupted    (turn snapshots)
        run_ledger::interrupt_orphaned_agent_runs  (run ledger)
@@ -30,13 +31,17 @@ enables by itself.
          kv, journal   open_session_stores
 ```
 
-`install()` puts a provider into the core's process slot
-(`openhuman_core::agent::session_store::install`). It has to run before the
-core boots, because boot calls the provider's `recover()`: turns an unclean
-shutdown left in flight are marked interrupted, and run-ledger rows a dead
-process left running are settled. Both `run_server*` shims in
-[`../server/`](../server/README.md) call it, and the TUI calls it from
-[`crates/openhuman-tui/src/runner.rs`](../../../openhuman-tui/src/runner.rs).
+`install()` puts a provider into the core's process slot (the core's
+`agent::session_store::install`, reached through embed's `__host`). It has to
+run before the core boots, because boot calls the provider's `recover()`:
+turns an unclean shutdown left in flight are marked interrupted, and
+run-ledger rows a dead process left running are settled. The `run_server*`
+shims in [`../server/`](../server/README.md) (and so `host::desktop`) call it
+for the life of the process. `provider()` returns the same provider for a
+runtime builder's `session_store` option, which installs it on build and
+restores the previous one on drop; `host::tui` uses that. The TUI itself
+still calls `install()` from [`crates/openhuman-tui/src/runner.rs`](../../../openhuman-tui/src/runner.rs) until it
+moves to `host::tui`.
 
 `install()` builds the provider with `resolving(context_workspace_dir)`,
 so the workspace is looked up on every `for_agent` call rather than fixed at
@@ -114,7 +119,7 @@ already resolved, for tests and hosts that read it themselves.
   This module only arranges those building blocks into OpenHuman's
   directory layout. Changes to the formats belong upstream.
 - The process slot, the scoped override and `current()` belong to the core
-  (`openhuman_core::agent::session_store`). The core and `openhuman-embed`
+  (`agent::session_store` in package `openhuman`). The core and `openhuman-embed`
   reach session state only through that port, with a fallback to the same
   workspace files for hosts that install no store.
 - Session identity (`SessionRef`: thread id plus agent id, no timestamp) and
@@ -123,7 +128,7 @@ already resolved, for tests and hosts that read it themselves.
 
 ## Gotchas
 
-- Install before `CoreBuilder::build`, or the boot-time recovery sweep runs
+- Install before the runtime builds, or the boot-time recovery sweep runs
   against no provider and interrupted turns stay marked as running.
 - This provider does not isolate agents. Do not use it for a multi-tenant
   host.

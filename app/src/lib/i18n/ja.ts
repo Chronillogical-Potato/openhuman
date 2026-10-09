@@ -4729,6 +4729,36 @@ const messages: TranslationMap = {
   'skills.detail.author': '作成者',
   'skills.detail.license': 'ライセンス',
   'skills.detail.description': '説明',
+  'skills.detail.overview': '概要',
+  'skills.registry.firstFetchHint':
+    'スキルカタログを読み込んでいます。初回の取得には1分ほどかかることがあります。',
+  'skills.registry.refreshing': '最新のコピーを読み込む間、保存済みのカタログを表示しています。',
+  'skills.registry.offline': 'オフライン：{time} に保存したカタログを表示しています。',
+  'skills.registry.offlineNoTime': 'オフライン：保存済みのカタログを表示しています。',
+  'skills.registry.unreachable':
+    'スキルレジストリに接続できませんでした。接続を確認して、もう一度お試しください。',
+  'skills.registry.rateLimited':
+    'スキルレジストリが混み合っています。{seconds} 秒後にもう一度お試しください。',
+  'skills.registry.rateLimitedShortly':
+    'スキルレジストリが混み合っています。しばらくしてからもう一度お試しください。',
+  'skills.registry.viewSource': 'ソースを表示',
+  'skills.registry.noDirectDownload':
+    'このエントリにはダウンロードできる SKILL.md がありません。別の方法でインストールするには、ソースページを開いてください。',
+  'skills.registry.upstreamAmbiguous':
+    'この名前のスキルを複数の作者が公開しており、カタログにはどれのことか記載がないため、自動ではインストールできません。',
+  'skills.scan.title': 'セキュリティスキャンがこのスキルをブロックしました',
+  'skills.scan.description':
+    'OpenHuman は {name} を2回ダウンロードしてスキャンし、セキュリティスキャンは2回ともブロックしました。インストールされていません。',
+  'skills.scan.findingsLabel': 'スキャンで見つかった内容',
+  'skills.scan.warning':
+    '入手元を信頼できる場合にのみインストールしてください。ブロックが安全な選択です。',
+  'skills.scan.block': 'インストールをブロック',
+  'skills.scan.installAnyway': 'それでもインストール',
+  'skills.scan.verdictBlock': 'ブロック',
+  'skills.scan.verdictWarn': '警告',
+  'skills.scan.declinedTitle': 'インストールをブロックしました',
+  'skills.scan.declinedHint':
+    'セキュリティスキャンがブロックしたため、スキルはインストールされませんでした。',
   'skills.run.title': 'ワークフロー',
   'skills.detail.source': 'ソース URL',
   'skills.detail.tags': 'タグ',

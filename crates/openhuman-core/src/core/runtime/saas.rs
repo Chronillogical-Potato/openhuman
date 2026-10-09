@@ -148,6 +148,7 @@ impl DomainSet {
             operator: true,
             threads: true,
             channels: true,
+            memory: true,
             ..Self::none()
         }
     }
