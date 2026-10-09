@@ -71,6 +71,21 @@ No `bus.rs` in this module. It only publishes; the subscriber (`ApprovalSurfaceS
 
 SQLite DB at `{workspace_dir}/approval/approval.db`, table `pending_approvals` (opened per-call via `with_connection`, schema + column migration applied idempotently). Columns: `request_id` (PK), `tool_name`, `action_summary`, `args_redacted` (JSON), `session_id`, `created_at`, `expires_at`, `decided_at`, `decision`, plus the after-action audit columns `executed_at`, `execution_outcome`, `execution_error` (added by `migrate_columns` for v1 DBs). Pending rows survive restart; expired rows are lazily transitioned to a terminal `deny` decision; `record_execution` is write-once (`executed_at IS NULL` guard) and sanitizes/caps error text to 512 chars to keep secrets/PII out of the durable log.
 
+### On a storage backend
+
+When the host configured a storage backend (`OPENHUMAN_STORAGE_URL` /
+`[storage] url`, see `crate::storage`), every `store` function uses
+`store_documents.rs` instead of `approval.db`: the same operations on the
+`tinystoragedrivers` document port, under the current call's storage scope
+(the acting agent; `local` on a single-user host; refused in SaaS mode with
+no acting agent). Collections `approvals` (one document per `request_id`)
+and `approval_flow_trust` (one per `(flow_id, tool_name)`). The SQL guards
+become preconditions: insert-only for new requests, compare-and-swap for
+decide, expiry and `record_execution`, so two processes on one database
+decide a request at most once. `args_redacted` and `source_context` are
+stored as JSON strings. With no backend configured (the desktop default)
+`approval.db` is used exactly as above.
+
 ## Dependencies
 
 - `crate::core::bus::BUS` + `crate::core::events::DomainEvent` to surface approval prompts/decisions.
