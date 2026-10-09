@@ -38,7 +38,7 @@ use super::completion_notice::BackgroundCompletionFormatter;
 /// How long a settled record (delivered / gave up / tombstoned) is kept before
 /// compaction drops it. Dropping a settled record also drops its dedupe and its
 /// tombstone, so this must outlive any child's interest in its parent.
-const SETTLED_RETENTION: Duration = Duration::from_secs(30 * 24 * 60 * 60);
+const SETTLED_RETENTION: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 
 /// Retries for a failed store write before a completion is reported lost.
 const RECORD_RETRIES: u32 = 3;
@@ -67,6 +67,12 @@ struct HostState {
     /// Threads the user stopped and has not yet re-engaged. Closes the
     /// spawn/register race: a child that registers after Stop is rejected.
     stopped_threads: HashSet<String>,
+    /// Threads deleted (or purged) in this process. Unlike a stopped thread they
+    /// never reopen: a child that registers late, or a straggler that records
+    /// after the delete sweep (the cooperative-abort race), is rejected for good.
+    deleted_threads: HashSet<String>,
+    /// Workspaces whose log boot recovery has already scanned this process.
+    recovered_workspaces: HashSet<PathBuf>,
 }
 
 fn state() -> std::sync::MutexGuard<'static, HostState> {
@@ -85,8 +91,14 @@ fn completion_store_path(workspace_dir: &Path) -> PathBuf {
 }
 
 fn entry_for(workspace_dir: &Path) -> Arc<Entry> {
-    let mut st = state();
-    if let Some(entry) = st.routers.get(workspace_dir) {
+    if let Some(entry) = state().routers.get(workspace_dir) {
+        return entry.clone();
+    }
+    // Opening replays the whole log, so it happens outside the state lock; this
+    // dedicated lock keeps two callers from opening two writers on one log.
+    static OPEN_LOCK: Mutex<()> = Mutex::new(());
+    let _open = OPEN_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    if let Some(entry) = state().routers.get(workspace_dir) {
         return entry.clone();
     }
     let path = completion_store_path(workspace_dir);
@@ -110,7 +122,8 @@ fn entry_for(workspace_dir: &Path) -> Arc<Entry> {
         router: Arc::new(router),
         store,
     });
-    st.routers
+    state()
+        .routers
         .insert(workspace_dir.to_path_buf(), entry.clone());
     log::debug!(
         "[background_completions] opened router workspace_dir={}",
