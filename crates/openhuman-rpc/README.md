@@ -15,13 +15,13 @@ it; the core and `openhuman-embed` do not.
 A request to a running core takes this path:
 
 ```text
- client                          core process
- ------                          ------------
+ client side
  app/src coreRpcClient (fetch)
  openhuman-app core_rpc.rs
    request_body + post_json_rpc
         |  POST /rpc
         v
+ core process
  axum router (build_core_http_router)
    CoreContext::scope         added by serve
    socket.io layer            if enabled
