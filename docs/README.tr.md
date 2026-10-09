@@ -107,7 +107,7 @@ macOS ve Linux betiğinin ne yapacağını önceden görmek için komutun sonuna
 
 <h3>Ölçekte verimli</h3>
 
-<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">Filo ölçümleri</a> · <a href="./library-benchmarking.md">Yöntem</a></p>
+<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">Filo ölçümleri</a> · <a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/profile/docs/library-benchmarking.md">Yöntem</a></p>
 
 <p>Tipik bir ajan aracından yaklaşık 8 kat daha az bellek ve işlemci kullanır. 10 dolarlık bir sunucuda 500'den fazla ajan çalıştırın.</p>
 

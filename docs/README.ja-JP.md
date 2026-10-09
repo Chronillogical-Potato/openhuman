@@ -107,7 +107,7 @@ macOS と Linux のスクリプトが何を行うかを事前に確認するに�
 
 <h3>大規模でも効率的</h3>
 
-<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">エージェント群の計測</a> · <a href="./library-benchmarking.md">測定方法</a></p>
+<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">エージェント群の計測</a> · <a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/profile/docs/library-benchmarking.md">測定方法</a></p>
 
 <p>一般的なエージェントツールに比べ、メモリと CPU の使用量は約8分の1です。月10ドルのサーバーで500以上のエージェントを動かせます。</p>
 

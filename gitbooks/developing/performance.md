@@ -72,27 +72,27 @@ The compiled registry pins fourteen records across twelve module names, because 
 
 ## How to reproduce
 
-Every number above comes from the driver scripts under `scripts/profile/`. They are built around `crates/openhuman-cli/src/bin/library_profile/main.rs` (the scenarios) and the `library-profile` and `rss-bench` binaries. The benchmarks run from these scripts, not in CI.
+Every number above comes from the driver scripts in the [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks) repository, under `profile/scripts/`. They are built around `profile/src/bin/library_profile/main.rs` there (the scenarios) and the `library-profile` and `rss-bench` binaries, compiled against a vendored checkout of this repository. The benchmarks run from these scripts, not in CI. Run the commands below from an openhuman-benchmarks checkout, except the dependency-floor ratchet, which runs here.
 
 ```bash
 # RSS/duration medians across fresh processes, all scenarios
-./scripts/profile/library-bench.sh
+./profile/scripts/library-bench.sh
 
 # Same, against the slim (--no-default-features) recipe
-./scripts/profile/library-bench.sh --slim
+./profile/scripts/library-bench.sh --slim
 
 # Fleet sweep + the 2 GB / 2 vCPU budget gate
-./scripts/profile/library-fleet.sh --agents "50,100,500" --target 1000 --budget-mib 2048
+./profile/scripts/library-fleet.sh --agents "50,100,500" --target 1000 --budget-mib 2048
 
 # Many-processes counterpart to the fleet sweep
-./scripts/profile/library-instances.sh --instances "10,25,50" --hold-secs 30
+./profile/scripts/library-instances.sh --instances "10,25,50" --hold-secs 30
 
 # Dependency-floor ratchet
 scripts/kernel-floor.sh flows
 ```
 
-`scripts/profile/README.md` documents the remaining scripts: `library-cpu.sh` for CPU profiling with samply and `library-heap.sh` for live-heap attribution with dhat. Full methodology, caveats and the per-scenario breakdown are in
-[`docs/library-benchmarking.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/library-benchmarking.md) and
+[`profile/scripts/README.md`](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/profile/scripts/README.md) documents the remaining scripts: `library-cpu.sh` for CPU profiling with samply and `library-heap.sh` for live-heap attribution with dhat. Full methodology, caveats and the per-scenario breakdown are in
+[`profile/docs/library-benchmarking.md`](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/profile/docs/library-benchmarking.md) and
 [`docs/library-minimal-recipe.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/library-minimal-recipe.md).
 
 ## Measurement conditions

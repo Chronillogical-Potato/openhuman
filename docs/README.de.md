@@ -107,7 +107,7 @@ Die meisten Agent-Harnesses starten pro Agent einen schweren Prozess und senden 
 
 <h3>Effizient im großen Maßstab</h3>
 
-<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">Messungen mit Agentenflotten</a> · <a href="./library-benchmarking.md">Methodik</a></p>
+<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">Messungen mit Agentenflotten</a> · <a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/profile/docs/library-benchmarking.md">Methodik</a></p>
 
 <p>Braucht etwa 8x weniger Arbeitsspeicher und CPU als das typische Agent-Tool. Betreibe mehr als 500 Agenten auf einem Server für 10 $.</p>
 
