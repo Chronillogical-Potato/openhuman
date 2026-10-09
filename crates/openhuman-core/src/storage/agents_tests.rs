@@ -77,7 +77,10 @@ fn a_dropped_sibling_context_does_not_hide_a_live_one() {
 
 #[test]
 fn reset_recorded_forgets_what_was_recorded() {
-    RECORDED.lock().unwrap().insert("agents-test-recorded".into());
+    RECORDED
+        .lock()
+        .unwrap()
+        .insert("agents-test-recorded".into());
     reset_recorded();
     assert!(!RECORDED.lock().unwrap().contains("agents-test-recorded"));
 }
