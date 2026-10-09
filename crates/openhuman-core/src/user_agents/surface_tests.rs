@@ -35,7 +35,7 @@ fn the_saas_planes_never_overlap() {
     );
     assert!(!visible_in(
         true,
-        true,
+        Scope::User,
         "openhuman.config_get_config",
         false
     ));
