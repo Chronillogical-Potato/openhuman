@@ -278,13 +278,20 @@ pub fn bind_with_root(config: &Config, root: Option<&str>) -> MemoryResult<Bound
             };
         }
     }
-    if host_engine().is_some() && root.is_some() {
+    // As in `resolve`: a SaaS process never hands out the process-wide host
+    // engine, which every user would share.
+    let host = if crate::core::runtime::is_saas() {
+        None
+    } else {
+        host_engine()
+    };
+    if host.is_some() && root.is_some() {
         return Err(MemoryError::Engine(
             "the host's memory engine cannot be bound below a scope root".to_string(),
         ));
     }
     if root.is_none() {
-        if let Some(bound) = host_engine() {
+        if let Some(bound) = host {
             return Ok(bound);
         }
     }

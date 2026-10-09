@@ -186,9 +186,14 @@ pub fn current_policy() -> Policy {
 /// `true` when the signed-out override is active. Cheap atomic load —
 /// safe to call from hot paths (e.g. per-LLM-call short-circuit in
 /// `OpenHumanBackendModel`).
+///
+/// Always `false` in SaaS mode: there, signed in is a fact about each user,
+/// checked against that user's own credential when it is used, and one
+/// process-wide flag would let one user's expiry (or the operator's lack of a
+/// credential) stop every user's model calls.
 #[cfg(not(test))]
 pub fn is_signed_out() -> bool {
-    SIGNED_OUT.load(Ordering::Acquire)
+    !crate::core::runtime::is_saas() && SIGNED_OUT.load(Ordering::Acquire)
 }
 
 #[cfg(test)]
@@ -213,9 +218,15 @@ pub fn is_signed_out() -> bool {
 /// forever in the `paused_poll_ms` branch of [`wait_for_capacity`].
 /// Gating at the writer is a belt-and-braces companion to the reader-side
 /// guard added in PR #1552.
+///
+/// A no-op in SaaS mode (see [`is_signed_out`]).
 #[cfg(not(test))]
 pub fn set_signed_out(signed_out: bool) {
     if STATE.get().is_none() {
+        return;
+    }
+    if crate::core::runtime::is_saas() {
+        log::debug!("[scheduler_gate] SaaS: ignoring process-wide signed_out={signed_out}");
         return;
     }
     let prev = SIGNED_OUT.swap(signed_out, Ordering::AcqRel);

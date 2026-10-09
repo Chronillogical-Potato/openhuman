@@ -364,3 +364,15 @@ fn a_root_aliasing_the_desktop_install_is_refused() {
         );
     }
 }
+
+#[test]
+fn an_uppercase_host_network_or_an_infinite_cpu_limit_is_refused() {
+    let mut f = fixture();
+    f.config.tool_allowlist = vec!["host_shell".into()];
+    f.config.sandbox.network = "HOST".into();
+    f.config.sandbox.cpu_limit = f64::INFINITY;
+    let mut i = inputs(&f, &[]);
+    i.sandbox_available = true;
+    let found = violations(&i);
+    assert_eq!(found.len(), 2, "{found:?}");
+}
