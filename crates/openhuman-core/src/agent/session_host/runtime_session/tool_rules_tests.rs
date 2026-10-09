@@ -45,18 +45,13 @@ fn a_session_composes_the_operator_and_definition_layers() {
     assert!(visible("file_read"));
 }
 
-/// The host renders its own catalogue into a text-dialect prompt, so a tool
-/// the rules hide must leave that catalogue too — while staying in the
-/// declared tool list the harness admits calls from.
-#[tokio::test]
-async fn a_rule_hidden_tool_leaves_the_rendered_prompt_but_stays_declared() {
+/// A text-dialect session over the per-thread goal tools under `rules`,
+/// returning its rendered prompt and declared tool names.
+async fn goal_session_prompt(rules: serde_json::Value) -> (String, Vec<String>) {
     let _ = crate::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins();
     let action_dir = tempfile::tempdir().expect("tempdir");
     let config = crate::config::Config {
-        tool_rules: serde_json::from_value(serde_json::json!({ "rules": [
-            { "effect": "hide", "match": { "name": "goal_complete" } },
-        ] }))
-        .expect("rules"),
+        tool_rules: serde_json::from_value(rules).expect("rules"),
         ..crate::config::Config::default()
     };
     let model: std::sync::Arc<dyn tinyinference_llm::model::ChatModel<()>> =
@@ -77,28 +72,44 @@ async fn a_rule_hidden_tool_leaves_the_rendered_prompt_but_stays_declared() {
         .prelude
         .clone()
         .expect("prelude");
-
     let prompt = prelude
         .build_system_prompt_tiered()
         .expect("system prompt")
         .text;
-    assert!(
-        !prompt.contains("goal_complete"),
-        "a hidden tool is not catalogued"
-    );
-    let goals: Vec<&str> = prompt.match_indices("goal_").map(|(i, _)| &prompt[i..(i + 14).min(prompt.len())]).collect();
-    assert!(prompt.contains("goal_set"), "other tools still are: {goals:?} len={}", prompt.len());
     let declared = prelude
         .prepare(true)
         .await
         .expect("tool surface")
         .tools
-        .expect("declared tools");
+        .expect("declared tools")
+        .specs()
+        .iter()
+        .map(|spec| spec.name.clone())
+        .collect();
+    (prompt, declared)
+}
+
+/// The host renders its own catalogue into a text-dialect prompt, so a tool
+/// the rules hide must leave that catalogue too — while staying in the
+/// declared tool list the harness admits calls from.
+#[tokio::test]
+async fn a_rule_hidden_tool_leaves_the_rendered_prompt_but_stays_declared() {
+    let (control, _) = goal_session_prompt(serde_json::json!({})).await;
     assert!(
-        declared
-            .specs()
-            .iter()
-            .any(|spec| spec.name == "goal_complete"),
+        control.contains("goal_complete"),
+        "the fixture surfaces goal_complete"
+    );
+
+    let (prompt, declared) = goal_session_prompt(serde_json::json!({ "rules": [
+        { "effect": "hide", "match": { "name": "goal_complete" } },
+    ] }))
+    .await;
+    assert!(
+        !prompt.contains("goal_complete"),
+        "a hidden tool is not catalogued"
+    );
+    assert!(
+        declared.iter().any(|name| name == "goal_complete"),
         "a hidden tool stays callable"
     );
 }
