@@ -90,17 +90,10 @@ pub async fn run(config: Config) -> Result<()> {
 pub(crate) async fn tick_agents(config: &Config, last_emitted_health: &mut Option<bool>) {
     let health = std::sync::Mutex::new(*last_emitted_health);
     crate::storage::agents::for_each_agent("cron", || async {
-        let config = crate::core::runtime::CoreContext::current_embedder_config()
-            .unwrap_or_else(|| config.clone());
-        let security = Arc::new(SecurityPolicy::from_config(
-            &config.autonomy,
-            &config.workspace_dir,
-            &config.action_dir,
-        ));
         let mut steady = *health
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        tick_once(&config, &security, &mut steady).await;
+        tick_agent_scope(config, &mut steady).await;
         *health
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner) = steady;
@@ -109,6 +102,19 @@ pub(crate) async fn tick_agents(config: &Config, last_emitted_health: &mut Optio
     *last_emitted_health = health
         .into_inner()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
+}
+
+/// One agent's pass: the poll under the current (agent) context, with that
+/// agent's configuration when it has one and a policy built from it.
+async fn tick_agent_scope(config: &Config, last_emitted_health: &mut Option<bool>) {
+    let config = crate::core::runtime::CoreContext::current_embedder_config()
+        .unwrap_or_else(|| config.clone());
+    let security = Arc::new(SecurityPolicy::from_config(
+        &config.autonomy,
+        &config.workspace_dir,
+        &config.action_dir,
+    ));
+    tick_once(&config, &security, last_emitted_health).await;
 }
 
 /// Single poll cycle of the scheduler loop, extracted so tests can drive

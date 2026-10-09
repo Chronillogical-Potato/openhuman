@@ -84,3 +84,47 @@ fn reset_recorded_forgets_what_was_recorded() {
     reset_recorded();
     assert!(!RECORDED.lock().unwrap().contains("agents-test-recorded"));
 }
+
+fn memory_backend() -> Arc<dyn StorageBackend> {
+    Arc::new(crate::storage::MemoryStorage::new())
+}
+
+#[test]
+fn a_recorded_agent_is_visited_through_the_fallback_context() {
+    let backend = memory_backend();
+    reset_recorded();
+    record_in(Arc::clone(&backend), "agents-test-recorded-only");
+    assert!(recorded(Arc::clone(&backend)).contains(&"agents-test-recorded-only".to_string()));
+
+    let fallback = CoreContext::for_test(DomainSet::full(), None);
+    let visited = agent_contexts_in(Some(backend), Some(&fallback));
+    let (_, context) = visited
+        .iter()
+        .find(|(id, _)| id == "agents-test-recorded-only")
+        .expect("the recorded agent is visited");
+    assert_eq!(context.session_agent(), Some("agents-test-recorded-only"));
+}
+
+#[test]
+fn recording_is_skipped_for_an_agent_already_recorded_to_that_backend() {
+    let first = memory_backend();
+    reset_recorded();
+    record_in(Arc::clone(&first), "agents-test-once");
+    // A second backend is only populated once the cache is reset.
+    let second = memory_backend();
+    record_in(Arc::clone(&second), "agents-test-once");
+    assert!(recorded(Arc::clone(&second)).is_empty());
+    reset_recorded();
+    record_in(Arc::clone(&second), "agents-test-once");
+    assert_eq!(recorded(second), vec!["agents-test-once".to_string()]);
+}
+
+#[test]
+fn without_a_fallback_only_live_contexts_are_visited() {
+    let backend = memory_backend();
+    reset_recorded();
+    record_in(Arc::clone(&backend), "agents-test-no-fallback");
+    assert!(!agent_contexts_in(Some(backend), None)
+        .iter()
+        .any(|(id, _)| id == "agents-test-no-fallback"));
+}

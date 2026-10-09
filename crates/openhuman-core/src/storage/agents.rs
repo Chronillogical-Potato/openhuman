@@ -98,6 +98,11 @@ fn record(agent: &str) {
     let Some(backend) = installed() else {
         return;
     };
+    record_in(backend, agent);
+}
+
+/// [`record`] against an explicit `backend`.
+fn record_in(backend: Arc<dyn StorageBackend>, agent: &str) {
     if RECORDED
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -143,6 +148,20 @@ fn recorded(backend: Arc<dyn StorageBackend>) -> Vec<String> {
 /// The agents [`for_each_scope`] visits, each with the context to visit it
 /// under: its live context when one exists, else `fallback` acting for it.
 fn agent_contexts(fallback: Option<&Arc<CoreContext>>) -> Vec<(String, Arc<CoreContext>)> {
+    let backend = if crate::core::runtime::mode::is_saas() {
+        None
+    } else {
+        installed()
+    };
+    agent_contexts_in(backend, fallback)
+}
+
+/// [`agent_contexts`] with the backend whose recorded agents are visited
+/// made explicit (`None` visits live contexts only).
+fn agent_contexts_in(
+    backend: Option<Arc<dyn StorageBackend>>,
+    fallback: Option<&Arc<CoreContext>>,
+) -> Vec<(String, Arc<CoreContext>)> {
     let mut contexts: BTreeMap<String, Arc<CoreContext>> = BTreeMap::new();
     {
         let mut live = LIVE
@@ -157,13 +176,11 @@ fn agent_contexts(fallback: Option<&Arc<CoreContext>>) -> Vec<(String, Arc<CoreC
             !entries.is_empty()
         });
     }
-    if !crate::core::runtime::mode::is_saas() {
-        if let (Some(backend), Some(fallback)) = (installed(), fallback) {
-            for agent in recorded(backend) {
-                contexts
-                    .entry(agent.clone())
-                    .or_insert_with(|| fallback.for_agent(&agent));
-            }
+    if let (Some(backend), Some(fallback)) = (backend, fallback) {
+        for agent in recorded(backend) {
+            contexts
+                .entry(agent.clone())
+                .or_insert_with(|| fallback.for_agent(&agent));
         }
     }
     contexts.into_iter().collect()
