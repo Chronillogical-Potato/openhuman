@@ -477,8 +477,15 @@ async fn event_owner(config: &crate::config::Config, event: &DomainEvent) -> Opt
     let DomainEvent::CronJobCompleted { job_id, .. } = event else {
         return None;
     };
+    // Noted by the scheduler as the job completed — the only record of a
+    // one-shot job, which is deleted before the event is published.
+    if let Some(agent) = crate::cron::completion_owner::take(job_id) {
+        return Some(agent);
+    }
     // No backend: every record is `local`.
     crate::storage::installed()?;
+    // Found in `local` (`Some(None)`) and found nowhere (`None`) both mean
+    // the notification is stored in `local`.
     crate::storage::agents::find_owner("notification owner", || async {
         crate::cron::get_job(config, job_id).is_ok()
     })

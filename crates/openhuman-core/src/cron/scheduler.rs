@@ -263,6 +263,9 @@ pub(super) async fn execute_and_persist_job(
     )
     .await;
 
+    // The job ran as its agent (when it had one); a one-shot job is already
+    // deleted, so subscribers learn the owner here, not from the store.
+    crate::cron::completion_owner::note(&job.id);
     BUS.publish(DomainEvent::CronJobCompleted {
         job_id: job.id.clone(),
         success,
