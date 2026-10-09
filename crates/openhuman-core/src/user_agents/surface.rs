@@ -16,6 +16,10 @@ use crate::core::runtime::{is_saas, CoreContext};
 /// Every RPC method a user may dispatch. Grows as each family's per-user
 /// isolation lands; a method is listed only once nothing it touches is
 /// shared between users.
+///
+/// `threads_delete` and `threads_purge` stay off: their cleanup cancels
+/// detached work by bare thread id (and, for purge, process-wide), which would
+/// reach other users' work until it is scoped per agent.
 pub const USER_METHODS: &[&str] = &[
     // Conversation threads: all state lives under the agent's workspace.
     "openhuman.threads_list",
@@ -26,8 +30,6 @@ pub const USER_METHODS: &[&str] = &[
     "openhuman.threads_message_update",
     "openhuman.threads_update_labels",
     "openhuman.threads_update_title",
-    "openhuman.threads_delete",
-    "openhuman.threads_purge",
     "openhuman.threads_turn_state_get",
     "openhuman.threads_turn_state_list",
     "openhuman.threads_turn_state_history",
