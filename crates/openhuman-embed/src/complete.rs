@@ -248,6 +248,9 @@ impl CompletionRequest {
 }
 
 /// Token and cost accounting for one completion.
+///
+/// When the provider reports only a cost (no typed usage block), the token
+/// fields are zero and only [`cost_usd`](Self::cost_usd) is meaningful.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CompletionUsage {
     /// Prompt tokens, including cached ones.

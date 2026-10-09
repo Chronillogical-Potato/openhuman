@@ -197,3 +197,33 @@ fn completer_debug_redacts_the_bearer() {
     let completer = Completer::new(Route::openai_compatible("https://h/v1", "sk-secret"));
     assert!(!format!("{completer:?}").contains("sk-secret"));
 }
+
+#[tokio::test]
+async fn json_object_format_rejects_a_non_object_reply() {
+    let server = server_replying(body("[1,2]", "stop")).await;
+    let request = CompletionRequest::new("m", vec![ChatMessage::user("x")])
+        .response_format(ResponseFormat::JsonObject);
+    let response = completer(&server).complete(request).await.unwrap();
+    assert_eq!(response.text, "[1,2]");
+    assert_eq!(response.structured, None);
+}
+
+#[tokio::test]
+async fn json_object_format_keeps_an_object_reply() {
+    let server = server_replying(body("{\"ok\":true}", "stop")).await;
+    let request = CompletionRequest::new("m", vec![ChatMessage::user("x")])
+        .response_format(ResponseFormat::JsonObject);
+    let response = completer(&server).complete(request).await.unwrap();
+    assert_eq!(response.structured, Some(json!({"ok": true})));
+}
+
+#[tokio::test]
+async fn raw_cost_survives_a_usage_block_without_tokens() {
+    let mut reply = body("hi", "stop");
+    reply["usage"] = json!({"cost": 0.5});
+    let server = server_replying(reply).await;
+    let request = CompletionRequest::new("m", vec![ChatMessage::user("x")]);
+    let response = completer(&server).complete(request).await.unwrap();
+    let usage = response.usage.expect("the provider reported a cost");
+    assert_eq!(usage.cost_usd, Some(0.5));
+}
