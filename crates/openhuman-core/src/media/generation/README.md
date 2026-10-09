@@ -48,5 +48,4 @@ credits are exhausted.
 
 ## Where to look next
 
-See [`../README.md`](../README.md) for the media domain overview and how
-this relates to [`../image`](../image/README.md).
+See [`../README.md`](../README.md) for the media domain overview.

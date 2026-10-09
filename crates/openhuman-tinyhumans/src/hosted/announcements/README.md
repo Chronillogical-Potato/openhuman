@@ -46,10 +46,10 @@ anything. Dismissal is tracked client-side by announcement id
 - `crate::security::credentials::session_support::require_live_session_token`:
   rejects an expired token locally instead of firing a doomed backend 401
   (same guard as `billing/ops.rs`).
-- `crate::hosted::client::HostedClient` — resolves the core's credential first
+- `crate::hosted::client::HostedClient`: resolves the core's credential first
   (no request without one), builds the SDK client with the product identity,
   and maps SDK errors onto the core's RPC sentinels.
-- `crate::rpc::RpcOutcome` (re-export of `openhuman_rpc`) — return wrapper
+- `crate::rpc::RpcOutcome` (re-export of `openhuman_rpc`): return wrapper
   carrying value + log line.
 
 ## Gating

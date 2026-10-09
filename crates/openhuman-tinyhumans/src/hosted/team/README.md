@@ -68,11 +68,11 @@ None local. State lives in the hosted backend. The only stored value it reads is
 
 ## Dependencies
 
-- `crate::backend::url::effective_backend_api_url` — resolves the backend base URL from `Config.api_url`.
-- `crate::hosted::client::HostedClient` — resolves the core's backend credential first (no request without one), builds the SDK's `TinyHumansClient`, and maps SDK errors onto the core's RPC sentinels.
-- `crate::config::Config` — config passed into every op; `config::rpc::load_config_with_timeout` loads it inside each `handle_*`.
-- `crate::core::all::{ControllerFuture, RegisteredController}` and `crate::core::{ControllerSchema, FieldSchema, TypeSchema}` — controller registry types.
-- `crate::rpc::RpcOutcome` — return wrapper (`single_log`).
+- `crate::backend::url::effective_backend_api_url`: resolves the backend base URL from `Config.api_url`.
+- `crate::hosted::client::HostedClient`: resolves the core's backend credential first (no request without one), builds the SDK's `TinyHumansClient`, and maps SDK errors onto the core's RPC sentinels.
+- `crate::config::Config`: config passed into every op; `config::rpc::load_config_with_timeout` loads it inside each `handle_*`.
+- `crate::core::all::{ControllerFuture, RegisteredController}` and `crate::core::{ControllerSchema, FieldSchema, TypeSchema}`: controller registry types.
+- `crate::rpc::RpcOutcome`: return wrapper (`single_log`).
 - `tinyhumans-sdk` typed `teams()` client; `serde` / `serde_json` for params and bodies.
 
 ## Used by
