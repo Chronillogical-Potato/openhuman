@@ -143,17 +143,19 @@ Why it wins comes down to doing less per step. The core is compiled Rust running
 
 ## For users
 
-An assistant that knows your work, acts in your apps and keeps your data yours. [Install it](#install) and you are chatting in minutes.
+If you already run Claude Code, Codex, OpenClaw or Hermes, the concepts carry over: an agent loop with tools, subagents, MCP, skills, BYOK models and persistent memory. OpenHuman puts all of it in a desktop app, a terminal UI and a headless server, on the same Rust core.
 
-| You want to | You get |
+| Capability | What OpenHuman ships |
 | --- | --- |
-| Stop repeating yourself | [Memory](./gitbooks/features/memory.md) of your files, repos and apps, with citations |
-| Get work done | [Native tools](./gitbooks/features/native-tools/README.md) and an [orchestrator](./gitbooks/features/orchestration.md) for big jobs |
-| Use your apps | [119 integrations](./gitbooks/features/integrations/README.md), [MCP and skills](./gitbooks/features/integrations/mcp-and-skills.md) |
-| Chat from anywhere | [14 channels](./gitbooks/features/channels.md): Telegram, Discord, iMessage, email |
-| Automate | [Workflows](./gitbooks/features/workflows.md) the agent drafts for you |
-| Pick your model | [Local or your own key](./gitbooks/features/model-routing/local-and-byok-models.md), with [auto routing](./gitbooks/features/model-routing/README.md) |
-| Stay private | [Privacy Mode](./gitbooks/features/privacy-mode.md) and an [approval gate](./gitbooks/features/approval-gate.md) |
+| Persistent memory | [RAG over your files, repos, feeds and apps](./gitbooks/features/memory.md), recalled before every turn, answers with citations |
+| Tools | [Native tools](./gitbooks/features/native-tools/README.md): shell and coder, web search, scraper, browser and computer use, documents, voice, image and video generation, cron |
+| Subagents | An [orchestrator](./gitbooks/features/orchestration.md) that delegates to subagents in agent graphs with checkpoints |
+| MCP and skills | [MCP servers and skill bundles](./gitbooks/features/integrations/mcp-and-skills.md), plus [119 managed OAuth integrations](./gitbooks/features/integrations/README.md) and [triggers](./gitbooks/features/integrations/triggers.md) |
+| Models | [Local models (Ollama, LM Studio, MLX) and BYOK for 26 providers](./gitbooks/features/model-routing/local-and-byok-models.md), with [automatic model routing](./gitbooks/features/model-routing/README.md) |
+| Channels | [14 messaging channels](./gitbooks/features/channels.md) as agent front ends: Telegram, Discord, iMessage, email and more |
+| Workflows | [Durable workflow graphs](./gitbooks/features/workflows.md) on [tinyflows](https://github.com/tinyhumansai/tinyflows): cron, event or manual triggers, approval nodes, resume after a pause |
+| Safety | [Approval gate](./gitbooks/features/approval-gate.md), sandboxed execution, [Privacy Mode](./gitbooks/features/privacy-mode.md) for local-only runs, secrets in the [OS keyring](./gitbooks/features/os-keyring-and-secret-storage.md) |
+| Observability | Replayable run journals and [per-call cost and usage](./gitbooks/features/billing-and-usage.md) |
 
 Start with [Getting started](./gitbooks/overview/getting-started.md) or the [guides](./gitbooks/guides/README.md).
 
