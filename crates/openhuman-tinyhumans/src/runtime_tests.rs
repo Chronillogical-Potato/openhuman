@@ -18,7 +18,7 @@ fn connect_wires_transport_hosted_controllers_and_ranker() {
     #[cfg(feature = "jev")]
     assert_eq!(
         summary.tool_ranker.as_deref(),
-        Some(crate::jev::TinyHumansJevRanker::new().kind_name())
+        Some(ToolRanker::kind(&crate::jev::TinyHumansJevRanker::new()))
     );
     #[cfg(not(feature = "jev"))]
     assert!(summary.tool_ranker.is_none());
@@ -102,9 +102,10 @@ fn knobs_and_seams_forward_unchanged() {
         }
         async fn rank(
             &self,
-            _query: &str,
+            _intent: &str,
+            _context: &openhuman_embed::seams::RankContext,
             _candidates: &[openhuman_embed::seams::RankCandidate],
-            _ctx: &openhuman_embed::seams::RankContext,
+            _limit: usize,
         ) -> Result<Vec<openhuman_embed::seams::RankHit>, openhuman_embed::seams::RankError>
         {
             Ok(Vec::new())
