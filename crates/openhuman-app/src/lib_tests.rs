@@ -1008,8 +1008,10 @@ fn registered_ipc_commands() -> std::collections::BTreeSet<String> {
         .find("tauri::generate_handler![")
         .expect("generate_handler! call in lib.rs");
     let body = &src[start + "tauri::generate_handler![".len()..];
-    let body = &body[..body.find(']').expect("closing ] of generate_handler!")];
+    // Stop at the first line that closes the macro; `#[cfg(...)]` attributes
+    // inside it carry their own `]`.
     body.lines()
+        .take_while(|line| !line.trim_start().starts_with(']'))
         .map(|line| line.split("//").next().unwrap_or("").trim())
         .filter(|line| !line.is_empty() && !line.starts_with("#["))
         .flat_map(|line| line.split(','))
