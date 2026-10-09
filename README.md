@@ -185,9 +185,9 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>Instant browser and desktop control</h3>
 
-<p><a href="./gitbooks/features/native-tools/browser-and-computer.md">Browser and computer control</a> · <a href="https://github.com/tinyhumansai/tinycomputer">tinycomputer</a></p>
+<p><a href="./gitbooks/features/native-tools/browser-and-computer.md">Browser and computer control</a> · <a href="./gitbooks/developing/jev.md">Jev</a> · <a href="https://github.com/tinyhumansai/tinycomputer">tinycomputer</a></p>
 
-<p>The agent drives a real Chrome browser and your desktop apps. It reads the screen the way a screen reader does, as named buttons and fields, so it never guesses from screenshots. It asks before anything it cannot undo and stops at payment pages.</p>
+<p>The agent drives a real Chrome browser and your desktop apps, and Jev decides every click. The screen is read as a list of named buttons and fields, like a screen reader sees it, and Jev answers small questions about it: which button, which field, done yet? No screenshots, no pixel guessing. It asks before anything it cannot undo and stops at payment pages.</p>
 
 </td>
 
