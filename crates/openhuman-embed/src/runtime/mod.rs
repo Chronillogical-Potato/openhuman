@@ -68,10 +68,15 @@
 //! worker stack overflows.
 
 mod api_key;
+mod build;
 pub(crate) mod builder;
+mod presets;
+mod run;
+mod seams;
 
 pub use api_key::ApiKey;
-pub use builder::RuntimeBuilder;
+pub use builder::{ConfigSource, RuntimeBuilder};
+pub use run::run_from_args;
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -158,6 +163,9 @@ pub(crate) struct CoreGuard {
     session_store: Option<Arc<dyn openhuman_core::agent::session_store::SessionStoreProvider>>,
     previous_session_store:
         Option<Arc<dyn openhuman_core::agent::session_store::SessionStoreProvider>>,
+    /// Process-global seams this runtime installed; dropping restores the
+    /// restorable ones (see [`seams`]).
+    seams: Option<seams::InstalledSeams>,
 }
 
 impl Drop for CoreGuard {
@@ -171,6 +179,7 @@ impl Drop for CoreGuard {
                 openhuman_core::agent::session_store::restore(self.previous_session_store.take());
             }
         }
+        drop(self.seams.take());
         // For an ephemeral workspace, take ownership of the temp path and
         // remove it with a short retry. The core's memory/session writers keep
         // running a moment after a turn returns and can recreate workspace
@@ -340,7 +349,10 @@ impl Runtime {
             .expect("runtime core is present until the last guard owner drops")
     }
 
-    pub(crate) fn core_runtime(&self) -> &Arc<CoreRuntime> {
+    /// The core runtime under this handle, for the transport layer
+    /// (`openhuman-rpc` serves it) — not for turns, which belong to agents.
+    #[doc(hidden)]
+    pub fn core_runtime(&self) -> &Arc<CoreRuntime> {
         self.core_ref().raw()
     }
 
@@ -375,6 +387,7 @@ impl Runtime {
         previous_session_store: Option<
             Arc<dyn openhuman_core::agent::session_store::SessionStoreProvider>,
         >,
+        seams: Option<seams::InstalledSeams>,
         base_config: Config,
         inherited: bool,
         domains: DomainSet,
@@ -389,6 +402,7 @@ impl Runtime {
                 workspace,
                 session_store,
                 previous_session_store,
+                seams,
             }),
             base_config,
             inherited,
