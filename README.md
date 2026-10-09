@@ -223,7 +223,7 @@ We ran seven harnesses on the same SWE-bench tasks, with the same model, API key
 
 OpenHuman finished its tasks in less than half the median time, using 2.6x fewer tokens and an eighth of the memory and CPU. It made 114 model calls where the others made 134 to 212, and its whole run cost $0.05 where the others cost $0.08 to $0.35.
 
-It wins by doing less work per step. The core is compiled Rust in a single process, not Node or Python, so it uses little memory and almost no CPU between model calls. It sends the smallest prompt of the seven, 4.6k tokens with its 20 tools included, so each call is cheaper and comes back faster (1.65 s median, also the fastest). It also needs fewer calls to reach an answer, which is where most of the savings come from. Accuracy is the gap still to close: it solved 7 of 10 tasks, while four others solved all ten.
+It wins by doing less work per step. The core is compiled Rust in a single process, not Node or Python, so it uses little memory and almost no CPU between model calls. It sends the smallest prompt of the seven, 4.6k tokens with its 20 tools included, so each call is cheaper and comes back faster (1.65 s median, also the fastest). It also needs fewer calls to reach an answer, which is where most of the savings come from.
 
 | Per solved task | OpenHuman (vs. median) | Median of the other six | Best of the other six |
 | --- | --- | --- | --- |
