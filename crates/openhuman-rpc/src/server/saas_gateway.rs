@@ -13,19 +13,19 @@
 //!    caller learns nothing about which users exist and cannot open agents —
 //!    then the signature, then runs the request under that user's agent.
 //!
-//! The decision itself lives in `openhuman_core::user_agents::gateway`.
+//! The decision itself lives in `crate::core_host::user_agents::gateway`.
 
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::core_host::core::runtime::CoreContext;
+use crate::core_host::user_agents::gateway::{
+    resolve_scope, GatewayScope, USER_HEADER, USER_SIG_HEADER,
+};
 use axum::extract::Request;
 use axum::http::{header, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
-use openhuman_core::core::runtime::CoreContext;
-use openhuman_core::user_agents::gateway::{
-    resolve_scope, GatewayScope, USER_HEADER, USER_SIG_HEADER,
-};
 
 /// Route prefixes a SaaS core never serves.
 pub(crate) const CLOSED_IN_SAAS: &[&str] = &[
@@ -95,10 +95,10 @@ pub(crate) async fn saas_gateway(operator: Arc<CoreContext>, req: Request, next:
         return refuse(400, "unreadable user header");
     };
 
-    let Some(secret) = openhuman_core::core::auth::get_rpc_token() else {
+    let Some(secret) = crate::core_host::core::auth::get_rpc_token() else {
         return refuse(503, "the core is not ready");
     };
-    if !bearer(&req).is_some_and(openhuman_core::core::auth::verify_bearer_token) {
+    if !bearer(&req).is_some_and(crate::core_host::core::auth::verify_bearer_token) {
         return refuse(401, "unauthorized");
     }
     let signature = header_str(&req, USER_SIG_HEADER).map(str::to_owned);

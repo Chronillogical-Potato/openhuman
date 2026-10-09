@@ -3,8 +3,8 @@
 use serde::de::DeserializeOwned;
 use serde_json::{Map, Value};
 
-use openhuman_core::core::all::{ControllerFuture, RegisteredController};
-use openhuman_core::core::{ControllerSchema, FieldSchema, TypeSchema};
+use crate::core_host::core::all::{ControllerFuture, RegisteredController};
+use crate::core_host::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 use super::types::{HostedDirLookupParams, StartHostedDirParams};
 

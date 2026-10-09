@@ -399,13 +399,14 @@ export function formatReport(result, { coreDefaults, shell, allowlist = {} }) {
   return lines.join('\n');
 }
 
-// ── the library chain: core → embed → tinyhumans → cli (#6364) ─────────────
+// ── the library chain: core → embed → tinyhumans → rpc, and cli (#6364) ───
 //
 // The shell is not the only manifest that re-declares the core's gates. The
 // library layers forward them 1:1 three more times:
 //
 //   openhuman-embed       <gate> = ["openhuman-core/<gate>"]
 //   openhuman-tinyhumans  <gate> = ["openhuman-embed/<gate>"]
+//   openhuman-rpc         <gate> = ["openhuman-tinyhumans/<gate>"]
 //   openhuman-cli         <gate> = ["openhuman-core/<gate>", "openhuman-tinyhumans/<gate>"]
 //
 // Nothing enforced those three lists, and they fail in both directions:
@@ -454,6 +455,14 @@ export const CHAIN_LOCAL_GATES = {
   'openhuman-tinyhumans': {
     jev: 'This crate owns the gate: the Jev-backed `tool_search` ranker (`tinytools-jev` over the TinyHumans System One proxy).',
   },
+  'openhuman-rpc': {
+    'http-client':
+      'The authenticated JSON-RPC HTTP client (`post_json_rpc`); transport code this crate owns, with no core twin.',
+    server:
+      "The core's JSON-RPC server (router, Socket.IO, listener) and the shared host boot; lives only in this crate.",
+    'session-store':
+      'The on-disk session store (`session_store`) behind the TinyAgents port; a host-side provider, not a core gate.',
+  },
   'openhuman-cli': {
     'bin-tools': 'CLI argument parsing + logger init for the `openhuman-fleet` binary.',
   },
@@ -477,7 +486,7 @@ export function parseFeatureTable(toml) {
  *
  *   `{ crate, gates, required: true }`  — every gate must be declared here and
  *      must forward to `<crate>/<gate>`. That is core → embed, embed →
- *      tinyhumans, core → cli.
+ *      tinyhumans, tinyhumans → rpc, core → cli.
  *   `{ crate, gates, required: false }` — only gates this crate ALREADY
  *      declares have to carry the forward. That is tinyhumans → cli: the cli
  *      forwards to both parents, but only for the gates tinyhumans has, and a

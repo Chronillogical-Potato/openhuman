@@ -12,7 +12,7 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde_json::json;
 
-use openhuman_core::core::types::AppState;
+use crate::core_host::core::types::AppState;
 
 pub(crate) mod cors;
 mod dictation;
@@ -77,7 +77,7 @@ pub fn build_core_http_router(socketio_enabled: bool) -> Router {
             get(crate::server::dev_connect::dev_connect_handler),
         )
         // OpenAI-compatible inference endpoint (/v1/chat/completions, /v1/models)
-        .nest("/v1", openhuman_core::inference::http::router())
+        .nest("/v1", crate::core_host::inference::http::router())
         // Apply `AppState` here so the outer router becomes `Router<()>` and
         // matches any state-less sub-router merged into it.
         .with_state(AppState {
@@ -131,9 +131,9 @@ async fn http_request_log_middleware(req: Request, next: Next) -> Response {
 
 /// Handler for the root endpoint, returning server information and available endpoints.
 async fn root_handler() -> impl IntoResponse {
-    let api_server = match openhuman_core::config::Config::load_or_init().await {
-        Ok(cfg) => openhuman_core::backend::base_url(&cfg.api_url).ok(),
-        Err(_) => openhuman_core::backend::base_url(&None).ok(),
+    let api_server = match crate::core_host::config::Config::load_or_init().await {
+        Ok(cfg) => crate::core_host::backend::base_url(&cfg.api_url).ok(),
+        Err(_) => crate::core_host::backend::base_url(&None).ok(),
     };
 
     (

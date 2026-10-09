@@ -4657,7 +4657,7 @@ dependencies = [
  "futures",
  "log",
  "once_cell",
- "openhuman",
+ "openhuman-tinyhumans",
  "rand 0.10.2",
  "reqwest 0.12.28",
  "serde",

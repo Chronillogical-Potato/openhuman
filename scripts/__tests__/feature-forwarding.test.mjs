@@ -748,7 +748,7 @@ e2e-test-support = ["openhuman-core/e2e-test-support"]
   assert.ok(result.ok, formatChainReport(result));
 });
 
-test('the checked-in embed, tinyhumans and cli manifests forward the whole chain', () => {
+test('the checked-in embed, tinyhumans, rpc and cli manifests forward the whole chain', () => {
   const read = name => readFileSync(resolve(REPO_ROOT, `crates/${name}/Cargo.toml`), 'utf8');
   const core = parseCoreFeatureNames(
     readFileSync(resolve(REPO_ROOT, 'crates/openhuman-core/Cargo.toml'), 'utf8')
@@ -756,12 +756,14 @@ test('the checked-in embed, tinyhumans and cli manifests forward the whole chain
   const embed = parseFeatureTable(read('openhuman-embed'));
   const tinyhumans = parseFeatureTable(read('openhuman-tinyhumans'));
   const cli = parseFeatureTable(read('openhuman-cli'));
+  const rpc = parseFeatureTable(read('openhuman-rpc'));
   // Guards the guard: empty tables would make every assertion below vacuous.
   assert.ok(core.length > 0, 'expected to parse at least one core gate');
   for (const [name, table] of [
     ['openhuman-embed', embed],
     ['openhuman-tinyhumans', tinyhumans],
     ['openhuman-cli', cli],
+    ['openhuman-rpc', rpc],
   ]) {
     assert.ok(table.size > 0, `expected to parse features from ${name}`);
   }
@@ -776,6 +778,11 @@ test('the checked-in embed, tinyhumans and cli manifests forward the whole chain
       crate: 'openhuman-tinyhumans',
       features: tinyhumans,
       sources: [{ crate: 'openhuman-embed', gates: gatesOf(embed), required: true }],
+    },
+    {
+      crate: 'openhuman-rpc',
+      features: rpc,
+      sources: [{ crate: 'openhuman-tinyhumans', gates: gatesOf(tinyhumans), required: true }],
     },
     {
       crate: 'openhuman-cli',
@@ -795,6 +802,30 @@ test('the checked-in embed, tinyhumans and cli manifests forward the whole chain
     });
     assert.ok(result.ok, formatChainReport(result, { notForwarded }));
   }
+});
+
+test('rpc must forward every tinyhumans gate, jev included, and keep its own gates local', () => {
+  const rpc = parseFeatureTable(`
+[features]
+default = ["http-client", "server"]
+http-client = ["dep:reqwest"]
+server = ["http-server", "dep:axum", "session-store"]
+session-store = ["dep:tinyagents-session"]
+http-server = ["openhuman-tinyhumans/http-server"]
+voice = ["openhuman-tinyhumans/voice"]
+`);
+  const result = diffChainForwarding({
+    crate: 'openhuman-rpc',
+    features: rpc,
+    sources: [
+      { crate: 'openhuman-tinyhumans', gates: ['http-server', 'voice', 'jev'], required: true },
+    ],
+    localGates: CHAIN_LOCAL_GATES['openhuman-rpc'],
+  });
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.missing, [{ gate: 'jev', source: 'openhuman-tinyhumans' }]);
+  assert.deepEqual(result.unknown, [], 'http-client/server/session-store are rpc-local');
+  assert.deepEqual(result.staleLocal, []);
 });
 
 test('every chain allow-list entry carries a reason', () => {
@@ -839,6 +870,7 @@ test('the checker reports the chain and fails when a layer drops a gate', () => 
         embedPath,
         resolve(REPO_ROOT, 'crates/openhuman-tinyhumans/Cargo.toml'),
         resolve(REPO_ROOT, 'crates/openhuman-cli/Cargo.toml'),
+        resolve(REPO_ROOT, 'crates/openhuman-rpc/Cargo.toml'),
       ],
       { encoding: 'utf8' }
     );
