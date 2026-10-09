@@ -42,10 +42,10 @@ where
 
 /// Box a cleanup function without registering it.
 ///
-/// For a caller that wants to run a hook through [`run_hook_list`] itself —
-/// a test above all, which must not reach into the process-wide registry: in
-/// a test binary that registry holds every other test's hooks, the shared
-/// memory engine's shutdown among them.
+/// For a caller that wants to hold a hook itself — a test above all, which
+/// must not reach into the process-wide registry: in a test binary that
+/// registry holds every other test's hooks, the shared memory engine's
+/// shutdown among them.
 pub fn boxed_hook<F, Fut>(hook: F) -> ShutdownHook
 where
     F: Fn() -> Fut + Send + Sync + 'static,
