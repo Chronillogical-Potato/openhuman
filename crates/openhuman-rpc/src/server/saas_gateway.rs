@@ -142,14 +142,7 @@ pub(crate) fn decide(
         log::debug!("[rpc:saas] refusing a request with more than one {USER_SIG_HEADER}");
         return Err(refuse(400, "more than one user signature header"));
     }
-    let signature = match signature.map(|v| v.to_str()) {
-        None => None,
-        Some(Ok(value)) => Some(value),
-        Some(Err(_)) => {
-            log::debug!("[rpc:saas] refusing an unreadable {USER_SIG_HEADER}");
-            return Err(refuse(400, "unreadable user signature header"));
-        }
-    };
+    let signature = signature.and_then(|value| value.to_str().ok());
     resolve(Some(user), signature, secret, now).map_err(|refusal| {
         refuse(refusal.status, &refusal.message)
     })
