@@ -391,7 +391,10 @@ zeroize = "1"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
 hkdf = "0.12"
 hex = "0.4"
-hmac = "0.12"
+# The SaaS gateway signature. 0.13 on sha2 0.11, the versions tinychannels-bus
+# already brings, so it adds no package to the graph.
+hmac = "0.13"
+sha2_011 = { package = "sha2", version = "0.11" }
 tokio-util = { version = "0.7", features = ["rt", "io"] }
 # tokio-tungstenite is declared per-target below so the TLS backend
 # (native-tls on Windows, rustls on macOS / Linux) matches the reqwest
