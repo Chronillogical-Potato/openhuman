@@ -1,23 +1,20 @@
 ---
 description: >-
-  Hosting the headless openhuman-core on a server: DigitalOcean App Platform,
-  Fly.io, Docker Compose on any VPS, or an Oracle Cloud Terraform stack, plus
-  the bearer token, workspace volume, and secret-storage rules each one needs.
+  Run the headless openhuman-core on a server: DigitalOcean App Platform, Fly.io,
+  Docker Compose on any VPS, or an Oracle Cloud Terraform stack, with the bearer
+  token, workspace volume and secret storage each one needs.
 icon: cloud
 ---
 
-# Cloud Deploy
+# Cloud deploy
 
-**Who this page is for:** an operator running the core as a server process. A
-desktop user never needs any of it; the shell already runs a core in-process.
+This page is for operators who want to run the core as a server process. Desktop users never need it, because the desktop app already runs a core in-process.
 
-OpenHuman is a desktop app, but its **Rust core** (`openhuman-core`) is a
-headless JSON-RPC server that can be hosted in the cloud. Deploying the core
-separately is useful for:
+OpenHuman is a desktop app, but its Rust core (`openhuman-core`) is also a headless JSON-RPC server that you can host in the cloud. Hosting the core separately is useful for:
 
-- Multi-device access, point several desktop clients at the same hosted core
-- Internal testers without local Rust toolchains
-- Long-running cron jobs / webhooks that should outlive a laptop session
+- Reaching the same core from several devices.
+- Internal testers without a local Rust toolchain.
+- Long-running cron jobs and webhooks that should outlive a laptop session.
 
 This guide covers five deploy paths, easiest first:
 
@@ -27,29 +24,15 @@ This guide covers five deploy paths, easiest first:
 4. [Fly.io](#4-flyio)
 5. [Oracle Cloud Infrastructure: Terraform on Always Free](#5-oracle-cloud-infrastructure-terraform-on-always-free)
 
-What gets deployed in every path: a single container running
-`openhuman-core serve` on port `7788`. Public hosts should sit behind the
-provider's TLS, for example `https://core.example.com/rpc`. Private-only hosts
-on localhost, RFC1918 networks, or tailnets such as Tailscale can use
-plain HTTP, for example `http://100.x.x.x:7788/rpc`, when the core is not
-reachable from the public internet. The desktop app already knows how to talk
-to a remote core: it has a first-class **Settings → Core connection** panel
-that persists the RPC URL and bearer token, so nothing has to be put in an
-environment file.
+Every path deploys a single container running `openhuman-core serve` on port `7788`. Public hosts should sit behind the provider's TLS, for example `https://core.example.com/rpc`. Private-only hosts on localhost, RFC1918 networks or tailnets such as Tailscale can use plain HTTP, for example `http://100.x.x.x:7788/rpc`, when the core is not reachable from the public internet. The desktop app can talk to a remote core directly. **Settings > Core connection** saves the RPC URL and bearer token, so you don't need an environment file on the desktop.
 
 ---
 
 ## Remote UI choices
 
-OpenHuman's supported remote deployment is **core remote, UI local**: run
-`openhuman-core` on a Linux server and point a desktop client at that RPC URL.
-The deployed core does not serve the full React/Tauri UI as a production web
-app yet. Desktop-only features still need the Tauri shell, including tray
-controls, native deep links, the native iMessage scanner, OS keychain integration, and
-window/screen affordances.
+The supported remote setup is core remote, UI local. Run `openhuman-core` on a Linux server and point a desktop client at its RPC URL. The deployed core does not serve the full UI as a production web app yet. Desktop-only features still need the desktop app: tray controls, native deep links, the native iMessage scanner, OS keychain integration and window and screen features.
 
-For a browser-accessible UI on a private server today, use the Vite web build as
-a development/preview surface against the remote core:
+For a browser UI on a private server today, use the Vite web build as a development and preview surface against the remote core:
 
 ```bash
 # On the server, run the core with an explicit token.
@@ -85,10 +68,9 @@ not recommended because every RPC call carries the bearer token.
 
 ---
 
-## Single source of truth for the bearer token
+## The bearer token
 
-Every `/rpc` call carries `Authorization: Bearer <token>`. The core has two
-ways to load that token at startup ([`crates/openhuman-core/src/core/auth.rs`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-core/src/core/auth.rs)):
+Every `/rpc` call carries `Authorization: Bearer <token>`. The core can load that token in two ways at startup:
 
 1. **`OPENHUMAN_CORE_TOKEN` environment variable**: pre-seeded by the caller
    (Tauri shell, Docker, App Platform, systemd unit, …). The core uses this
@@ -97,14 +79,9 @@ ways to load that token at startup ([`crates/openhuman-core/src/core/auth.rs`](h
    _only when `OPENHUMAN_CORE_TOKEN` is unset_. Standalone `openhuman-core run`
    uses this so CLI clients can `cat` the file.
 
-**Rule of thumb for any remote / dockerized deploy: always set
-`OPENHUMAN_CORE_TOKEN`.** Do not rely on `core.token` in a container.
-Ephemeral filesystems lose it on redeploy, and any client trying to read the
-file from outside the container will get a stale or empty value. The two
-paths are deliberately mutually exclusive at startup; mixing them is the most
-common reason behind "the dashboard gets 401 after I redeployed".
+For any remote or Docker deploy, always set `OPENHUMAN_CORE_TOKEN`. Do not rely on `core.token` in a container. Ephemeral filesystems lose it on redeploy, and a client reading the file from outside the container gets a stale or empty value. The two paths are mutually exclusive on purpose. Mixing them is the most common cause of "the dashboard gets 401 after I redeployed".
 
-To check what the _running_ core is using, run [`scripts/print-core-token.sh`](https://github.com/tinyhumansai/openhuman/blob/main/scripts/print-core-token.sh)
+To check what the running core is using, run [`scripts/print-core-token.sh`](https://github.com/tinyhumansai/openhuman/blob/main/scripts/print-core-token.sh)
 on the host (or inside the container with `docker compose exec`):
 
 ```bash
@@ -113,11 +90,7 @@ scripts/print-core-token.sh --redact    # first 8 hex chars + '…' (safe for lo
 scripts/print-core-token.sh             # full value (pipe straight into a client)
 ```
 
-The desktop app's first-run picker and **Settings → Core connection** both
-expose a **Test connection** button next to the Core RPC URL and token fields.
-It fires `core.ping` against the typed URL with the typed token and reports one
-of three outcomes inline, connected, auth failed or unreachable, before
-anything is persisted.
+The desktop app's first-run picker and **Settings > Core connection** both have a **Test connection** button next to the Core RPC URL and token fields. It sends `core.ping` to the URL you typed with the token you typed, and reports one of three results before anything is saved: connected, auth failed or unreachable.
 
 ---
 
@@ -134,8 +107,7 @@ anything is persisted.
 | `OPENHUMAN_CORE_PORT`               | no       | Defaults to `7788`.                                                                                                                                                                                                                                                            |
 | `RUST_LOG`                          | no       | `info` is fine; `debug` for triage.                                                                                                                                                                                                                                            |
 
-Endpoints exposed by the running container, with the route policy from
-[`crates/openhuman-rpc/src/server/auth.rs`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-rpc/src/server/auth.rs):
+The running container exposes these endpoints:
 
 | Endpoint | Auth |
 | --- | --- |
@@ -149,27 +121,22 @@ Endpoints exposed by the running container, with the route policy from
 | `GET /dev/connect` | Exempt from the middleware, guarded in the handler instead: a debug build or an explicit opt-in, a loopback `app` origin and `Host`, and no cross-site navigation. It should not be reachable on a deployed core. |
 | `POST /v1/chat/completions`, `GET /v1/models` | The OpenAI-compatible surface, behind core's `http-server` gate. These accept the core bearer or an external provider key, so they are executable too, not just `/rpc`. |
 
-Treat only `/health`, `/` and `/schema` as genuinely unauthenticated. `/events`,
-`/oauth/mcp/callback` and `/dev/connect` are exempt from the *header* check but
-each carries its own guard; the two executable surfaces are `/rpc` and `/v1/*`.
+Only `/health`, `/` and `/schema` are truly unauthenticated. `/events`, `/oauth/mcp/callback` and `/dev/connect` skip the header check but each has its own guard. The two executable surfaces are `/rpc` and `/v1/*`.
 
 The `OPENHUMAN_WORKSPACE` directory (`/home/openhuman/.openhuman` inside the
-container) holds the core's config, sqlite databases, and skill state. **Mount
-it on a persistent volume** in every production deploy or you will lose data on
-restart.
+container) holds the core's config, SQLite databases and skill state. Mount it on a persistent volume in every production deploy, or you will lose data on restart.
 
 ---
 
 ## 1. DigitalOcean App Platform: one-click
 
-Click the button below to create a new App Platform application from this
-repository's [`.do/app.yaml`](https://github.com/tinyhumansai/openhuman/blob/main/.do/app.yaml):
+Click the button below to create an App Platform application from this repository's [`.do/app.yaml`](https://github.com/tinyhumansai/openhuman/blob/main/.do/app.yaml):
 
 [![Deploy to DO](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/tinyhumansai/openhuman/tree/main)
 
 Then, in the App Platform UI, **before the first deploy completes**:
 
-1. Open the **Settings → App-Level Environment Variables** tab.
+1. Open the **Settings > App-Level Environment Variables** tab.
 2. Replace the placeholder `OPENHUMAN_CORE_TOKEN` value with a strong secret
    (`openssl rand -hex 32`). Mark it encrypted.
 3. If you are deploying staging, change `OPENHUMAN_APP_ENV` to `staging` and
@@ -180,17 +147,13 @@ App Platform handles TLS, restart-on-crash, log streaming, and rolling
 redeploys on `git push` (set `deploy_on_push: true` in `.do/app.yaml` to
 opt-in).
 
-> **Persistence note:** App Platform Basic does not provide block storage. The
-> core's workspace lives in the container's ephemeral filesystem and is lost
-> on redeploy. For durable storage, attach a managed database or upgrade to a
-> tier that supports volumes. See the [Compose path](#3-any-vps-via-docker-compose)
-> for a self-host alternative with persistent volumes out of the box.
+> **Persistence:** App Platform Basic has no block storage. The core's workspace lives in the container's ephemeral filesystem and is lost on redeploy. For durable storage, attach a managed database or upgrade to a tier that supports volumes. The [Compose path](#3-any-vps-via-docker-compose) gives you persistent volumes out of the box.
 
 ---
 
 ## 2. DigitalOcean App Platform: manual via doctl
 
-If you'd rather not click through the UI:
+If you prefer not to click through the UI:
 
 ```bash
 # One-time: install doctl and authenticate.
@@ -397,14 +360,11 @@ docker compose exec openhuman-core /bin/sh -c \
   'echo -n "$OPENHUMAN_CORE_TOKEN" | head -c 8; echo "…"'
 
 # 4. Re-paste the new token on every desktop client, in
-# Settings -> Core connection. Clients that still hold the old token get
+# Settings > Core connection. Clients that still hold the old token get
 # HTTP 401 on the next /rpc call, which is expected rather than a regression.
 ```
 
-For App Platform, do the same in **Settings → App-Level Environment
-Variables**: edit the `OPENHUMAN_CORE_TOKEN` secret and let App Platform
-redeploy. There is no separate token file to delete; the env var is the only
-state.
+For App Platform, do the same in **Settings > App-Level Environment Variables**. Edit the `OPENHUMAN_CORE_TOKEN` secret and let App Platform redeploy. There is no token file to delete. The environment variable is the only state.
 
 ### Putting it behind TLS
 
@@ -421,11 +381,7 @@ core.example.com {
 
 ## Pointing the desktop app at a hosted core
 
-Configure this in the app, not in a file. **Settings → Core connection**
-(`app/src/components/settings/panels/CoreConnectionPanel.tsx`) takes the core's
-RPC URL and bearer token, offers a **Test connection** button that fires
-`core.ping` against the typed values, and shows live reachability for the
-active core. The pre-router first-run picker accepts the same two fields.
+Set this up in the app, not in a file. **Settings > Core connection** takes the core's RPC URL and bearer token. It has a **Test connection** button that sends `core.ping` with the values you typed, and it shows live reachability for the active core. The first-run picker accepts the same two fields.
 
 Enter the server's URL and the token you set on it:
 
@@ -434,19 +390,12 @@ Enter the server's URL and the token you set on it:
 | Public host behind TLS | `https://core.example.com/rpc` |
 | Private tailnet-only VM | `http://100.x.x.x:7788/rpc` |
 
-Saving persists the choice and restarts the app, so the normal boot gate re-runs
-against the new mode. A URL with no path is treated as the core's base and
-`/rpc` is appended for you, and a `user:pass@host` URL is rejected because the
-token field is the only credential path.
+Saving stores the choice and restarts the app, so the normal startup checks run against the new core. A URL with no path is treated as the core's base, and `/rpc` is added for you. A `user:pass@host` URL is rejected, because the token field is the only way to give a credential.
 
-Plain `http://` is accepted without complaint only for loopback and
-private-network hosts, which includes RFC1918 ranges and the Tailscale
-`100.64.0.0/10` range (`isLocalOrPrivateNetworkHost` in
-`app/src/utils/configPersistence.ts`). A public `http://` host still saves, but
-the panel warns.
+Plain `http://` is accepted without a warning only for loopback and private-network hosts, including RFC1918 ranges and the Tailscale `100.64.0.0/10` range. A public `http://` host still saves, but the panel warns you.
 
 {% hint style="warning" %}
-**A private address is not encryption.** Over plain `http://`, every `/rpc`
+A private address is not encryption. Over plain `http://`, every `/rpc`
 request carries the bearer token in cleartext, and that token is the only
 credential the core checks. Anyone who can observe the link can read it and
 replay it, and "private" covers a shared office LAN, a hotel network and a
@@ -455,59 +404,33 @@ HTTP as safe only on a link you control end to end, such as loopback or an
 encrypted overlay like Tailscale or WireGuard. Use HTTPS for anything else.
 {% endhint %}
 
-`VITE_OPENHUMAN_CORE_RPC_URL` in `app/.env.local` is a build-time fallback only.
-The saved panel value outranks it, as does the shell's own `core_rpc_url`
-command, so setting it will not move a desktop client onto a remote core.
+`VITE_OPENHUMAN_CORE_RPC_URL` in `app/.env.local` is only a build-time fallback. The saved panel value outranks it, so setting it will not move a desktop client onto a remote core.
 
 ### Troubleshooting: sign-in fails after OAuth on a cloud runtime
 
-Symptom: OAuth in the browser completes ("close this and return to the app"),
-but the desktop then shows a sign-in error, while the **same** account signs in
-fine on the local (embedded) runtime (issue #3025).
+The symptom: OAuth in the browser completes ("close this and return to the app"), but the desktop then shows a sign-in error, while the same account signs in fine on the local (embedded) runtime.
 
-The desktop shell validates the fresh session token against the backend
-(`GET /auth/me`) itself and only then hands the credential to the core
-(`auth.set_credential`). On a cloud runtime that handoff travels to your
-server, so the usual causes are:
+The desktop app checks the fresh session token against the backend (`GET /auth/me`) itself and only then hands the credential to the core (`auth.set_credential`). On a cloud runtime that handoff goes to your server. The usual causes are:
 
-- **Wrong RPC token or URL.** A token mismatch surfaces as HTTP 401 on `/rpc`;
-  re-paste the token (see "Rotating the bearer token") and check the URL.
-- **Outdated core.** Older cores predate `auth.set_credential`; the desktop
-  still sends the legacy `auth_store_session` name through an alias, but a
-  core older than that alias rejects the call. Update the server to a current
-  release.
-- **`BACKEND_URL` unset or wrong on the server.** The remote core does not
-  validate the session any more, but every backend call it makes on your
-  behalf (billing, teams, managed inference) still goes there. It must be
-  `https://api.tinyhumans.ai` for prod (or the staging URL).
+- **Wrong RPC token or URL.** A token mismatch shows up as HTTP 401 on `/rpc`. Paste the token again (see "Rotating the bearer token") and check the URL.
+- **Outdated core.** Older cores do not have `auth.set_credential`. The desktop still sends the older `auth_store_session` name through an alias, but a core older than that alias rejects the call. Update the server to a current release.
+- **`BACKEND_URL` unset or wrong on the server.** The remote core no longer validates the session, but every backend call it makes for you (billing, teams, managed inference) still goes there. It must be `https://api.tinyhumans.ai` for production, or the staging URL.
 
-Check the desktop log for the shell's session-owner lines (`[session]`) and
-the remote core log for `[credentials][set-credential]`. The desktop reports a
-cloud-specific, actionable message for these instead of a generic "try again"
-(issue #3025).
+Check the desktop log for `[session]` lines and the remote core log for `[credentials][set-credential]`. For these cases the desktop shows a specific message instead of a generic "try again".
 
 ### Headless sign-in
 
-A cloud core has no browser to complete OAuth in. Obtain a credential
-elsewhere and hand it to the core at boot:
+A cloud core has no browser to complete OAuth in. Get a credential elsewhere and hand it to the core at startup:
 
-- `OPENHUMAN_BACKEND_API_KEY=<key>`: a TinyHumans API key (recommended; no
-  user identity, nothing to expire).
+- `OPENHUMAN_BACKEND_API_KEY=<key>`: a TinyHumans API key. This is the recommended option. It has no user identity and nothing to expire.
 - `OPENHUMAN_BACKEND_SESSION_TOKEN=<jwt>`: a session JWT with a subject claim.
 
-Either installs the credential only when the store has none of that kind; to
-rotate, clear first (`openhuman-core auth clear_credential --kind api-key`).
+Either one installs the credential only when the store has none of that kind. To rotate, clear it first (`openhuman-core auth clear_credential --kind api-key`).
 The same operation is available over RPC as `openhuman.auth_clear_credential`.
 
 ### Headless without a TinyHumans account
 
-Custom cloud providers (`inference_url` + `api_key`, or an entry in
-`cloud_providers`) are only built when a backend session or TinyHumans API key
-exists. Without one, every turn fails with
-`SESSION_EXPIRED: backend session not active — sign in to use custom providers`.
-Caller-owned runtimes are exempt from that gate, and `local-openai` is one of
-them, so any hosted OpenAI-compatible endpoint can run a headless core with no
-account:
+Custom cloud providers (`inference_url` and `api_key`, or an entry in `cloud_providers`) are built only when a backend session or TinyHumans API key exists. Without one, every turn fails with a `SESSION_EXPIRED: backend session not active` error. Runtimes you supply yourself are exempt, and `local-openai` is one of them. So any hosted OpenAI-compatible endpoint can run a headless core with no account:
 
 1. Set `LOCAL_OPENAI_URL=https://<your endpoint>/v1` in the core's environment
    (`OPENHUMAN_LOCAL_INFERENCE_URL` also works and overrides it).
@@ -518,29 +441,15 @@ account:
    (and `vision_provider`, `memory_provider`, `embeddings_provider` if you want
    them off the managed route) to `local-openai:<model-id>`, plus
    `default_model: "<model-id>"`. Those are the whole set the controller
-   accepts; see `crates/openhuman-core/src/config/ops/model.rs`.
+   accepts.
 
-`openhuman.inference_agent_chat_simple` is the quickest end-to-end check.
-Managed features (integrations, teams, hosted voice) still need a TinyHumans
-credential; see [Local models and bring your own key](model-routing/local-and-byok-models.md).
+`openhuman.inference_agent_chat_simple` is the quickest end-to-end check. Managed features (integrations, teams, hosted voice) still need a TinyHumans credential. See [Local models and bring your own key](model-routing/local-and-byok-models.md).
 
 ### Secret storage in containers
 
-In `production` and `staging` the keyring backend is `encrypted_file`, and its
-master key is loaded from the OS keychain. A container has no keychain, so the
-first write that stores a provider key fails with `Failed to encrypt api_key`
-(`[keyring] set error ... master key unavailable`). Supply the master key from
-the environment instead: `OPENHUMAN_KEYRING_MASTER_KEY` (64 hex characters) or
-`OPENHUMAN_KEYRING_MASTER_KEY_FILE` (a secret mount), described in "What you
-need before you start" (#6926). On a release that predates those variables, set
-`OPENHUMAN_KEYRING_BACKEND=file`, which keeps secrets in
-`$OPENHUMAN_WORKSPACE/dev-keychain.json` (plaintext, `0600`); put the workspace
-volume on encrypted storage and treat the host as the secret boundary.
+In `production` and `staging`, the keyring backend is `encrypted_file`, and its master key is loaded from the OS keychain. A container has no keychain, so the first write that stores a provider key fails with `Failed to encrypt api_key` (`[keyring] set error ... master key unavailable`). Supply the master key from the environment instead: `OPENHUMAN_KEYRING_MASTER_KEY` (64 hex characters) or `OPENHUMAN_KEYRING_MASTER_KEY_FILE` (a secret mount). Both are described in "What you need before you start". On a release older than those variables, set `OPENHUMAN_KEYRING_BACKEND=file`. That keeps secrets in `$OPENHUMAN_WORKSPACE/dev-keychain.json` (plaintext, mode `0600`), so put the workspace volume on encrypted storage and treat the host as the secret boundary.
 
-Mount the key file without group- or world-write permissions. The core rejects
-group- or world-writable files, while read-only group/world access may be
-accepted for container secret mounts; any process able to read the file can
-decrypt the entire keyring. Restrict the mode where the mount is declared:
+Mount the key file without group or world write permission. The core rejects group-writable and world-writable files. Read-only group or world access may be accepted for container secret mounts, but any process that can read the file can decrypt the whole keyring. Restrict the mode where the mount is declared:
 
 - Kubernetes: Secret volumes are root-owned, and `runAsUser` does not change
   the owner of a projected Secret. For a non-root core, use an init container
@@ -598,11 +507,7 @@ decrypt the entire keyring. Restrict the mode where the mount is declared:
 
 ## Named-volume ownership and the Docker entrypoint
 
-Docker creates named volumes owned `root:root` by default. Because the core
-runs as the non-root `openhuman` user (UID 10001), the first write after the
-banner (`init_rpc_token → write_token_file` into `$OPENHUMAN_WORKSPACE`)
-would raise `Permission denied (os error 13)` if nothing fixes the ownership
-first.
+Docker creates named volumes owned by `root:root`. The core runs as the non-root `openhuman` user (UID 10001), so its first write into `$OPENHUMAN_WORKSPACE` would fail with `Permission denied (os error 13)` if nothing fixed the ownership first.
 
 The image ships a dedicated entrypoint at
 `/usr/local/bin/docker-entrypoint-core.sh` that:
@@ -614,22 +519,15 @@ The image ships a dedicated entrypoint at
 3. Calls `exec gosu openhuman openhuman-core "$@"` to drop privileges and
    hand off to the binary.
 
-This is **idempotent**: on a freshly-created volume the chown heals the
-root-owned directory; on a volume that was already healed the chown is a
-no-op. No manual `docker volume rm` is required when upgrading from images
-predating this fix.
+This is idempotent. On a new volume the chown fixes the root-owned directory. On a volume that was already fixed, it does nothing. You don't need to run `docker volume rm` when upgrading from an older image.
 
-The entrypoint is named `docker-entrypoint-core.sh` and wired **only** into
-the root `Dockerfile`. The E2E image (`e2e/docker-entrypoint.sh`) is
-unaffected.
+The entrypoint is used only by the root `Dockerfile`. The E2E image (`e2e/docker-entrypoint.sh`) is unaffected.
 
 ---
 
 ## 4. Fly.io
 
-[Fly.io](https://fly.io) is a good fit for `openhuman-core`: it handles TLS
-automatically, supports persistent volumes on all tiers, and can auto-stop
-idle machines to cut costs.
+[Fly.io](https://fly.io) suits `openhuman-core`. It handles TLS automatically, supports persistent volumes on all tiers, and can stop idle machines to cut costs.
 
 ### Prerequisites
 
@@ -642,8 +540,7 @@ idle machines to cut costs.
 fly launch --no-deploy --config .fly/fly.toml
 ```
 
-Fly.io detects the `Dockerfile` automatically. Choose a region close to your
-users and skip the first deploy when prompted. This generates a config file.
+Fly.io finds the `Dockerfile` automatically. Choose a region close to your users and skip the first deploy when prompted. This generates a config file.
 
 ### Step 2: Configure `.fly/fly.toml`
 
@@ -675,7 +572,7 @@ primary_region = '<your-region>'
   auto_start_machines = true
   # min_machines_running = 0 fully stops the machine when idle (cheapest), but
   # the first request after idle pays a cold-start penalty (container boot +
-  # Rust binary init — several seconds). Set to 1 to keep one machine warm.
+  # Rust binary init, several seconds). Set to 1 to keep one machine warm.
   min_machines_running = 0
   processes = ['app']
 
@@ -697,8 +594,7 @@ primary_region = '<your-region>'
 fly volumes create openhuman_workspace --size 5 --region <your-region> --config .fly/fly.toml
 ```
 
-**Mount the workspace on a persistent volume** or data is lost on every
-redeploy.
+Mount the workspace on a persistent volume, or data is lost on every redeploy.
 
 ### Step 4: Set secrets
 
@@ -712,14 +608,12 @@ fly secrets set OPENHUMAN_APP_ENV="production"
 fly secrets set OPENHUMAN_AUTO_UPDATE_RPC_MUTATIONS_ENABLED="false"
 fly secrets set OPENHUMAN_AUTO_UPDATE_RESTART_STRATEGY="supervisor"
 
-# Optional — error reporting and analytics:
+# Optional: error reporting and analytics:
 fly secrets set OPENHUMAN_CORE_SENTRY_DSN="https://<key>@o<org>.ingest.sentry.io/<project>"
 fly secrets set OPENHUMAN_ANALYTICS_ENABLED="true"
 ```
 
-Save the value of `OPENHUMAN_CORE_TOKEN`. You will need it to connect the
-desktop app later. **Anyone with this token can drive the core**; treat it
-like a password and rotate it with `fly secrets set OPENHUMAN_CORE_TOKEN="$(openssl rand -hex 32)"`
+Save the value of `OPENHUMAN_CORE_TOKEN`. You need it to connect the desktop app later. Anyone with this token can drive the core, so treat it like a password and rotate it with `fly secrets set OPENHUMAN_CORE_TOKEN="$(openssl rand -hex 32)"`
 after any suspected leak.
 
 ### Step 5: Deploy
@@ -736,8 +630,7 @@ curl -fsS https://<your-app-name>.fly.dev/health
 
 ### Step 6: Point the desktop app at the hosted core
 
-In the desktop app, open **Settings → Core connection**, switch it to the
-remote core, and enter:
+In the desktop app, open **Settings > Core connection**, switch it to the remote core, and enter:
 
 - URL: `https://<your-app-name>.fly.dev/rpc`
 - Token: the value you set in Step 4
@@ -772,7 +665,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # Pin the Fly action to a tagged release (or a full commit SHA) rather
-      # than `@master` — tracking a moving branch trusts every future commit
+      # than `@master`. Tracking a moving branch trusts every future commit
       # pushed there, including any made by a compromised maintainer account.
       - uses: superfly/flyctl-actions/setup-flyctl@1.5
       - run: flyctl deploy --remote-only --config .fly/fly.toml
@@ -803,28 +696,15 @@ redeploy:
 fly logs --config .fly/fly.toml
 ```
 
-### Known gotcha: UID mismatch on volumes
+### Known issue: user ID mismatch on volumes
 
-If you switch between building from `Dockerfile` (which creates the
-`openhuman` user at UID 10001) and pulling the pre-built GHCR image (which
-uses UID 1000), files already written to the persistent volume will be owned
-by the old UID and produce `Permission denied (os error 13)` on startup.
+If you switch between building from the `Dockerfile` (which creates the `openhuman` user at UID 10001) and pulling the pre-built GHCR image (which uses UID 1000), files already on the persistent volume belong to the old UID. The core then fails at startup with `Permission denied (os error 13)`.
 
-The same thing happens to a Docker named volume that outlives an image
-upgrade, and to any workspace a **root** `docker exec` wrote into. `docker
-exec` does not run the entrypoint, so it lands as root and leaves a
-`root:root` `config.toml` behind (the core writes it at mode 0600, so the
-runtime user then cannot open it at all).
+The same thing happens to a Docker named volume that outlives an image upgrade, and to any workspace that a root `docker exec` wrote into. `docker exec` does not run the entrypoint, so it runs as root and leaves a `root:root` `config.toml` behind. The core writes that file with mode 0600, so the runtime user then cannot open it at all.
 
-`scripts/docker-entrypoint-core.sh` now repairs this automatically: it chowns
-the workspace **recursively** on every start, skipping entries already owned
-correctly. If the repair cannot run, for example `cap_drop: ALL` without
-`cap_add: CHOWN`, the entrypoint refuses to start rather than booting a container that answers
-`/health` with 200 while every config RPC returns `Permission denied
-(os error 13)`, and prints the exact `chown` to run. Look for
-`[docker-entrypoint] pre-heal` / `FATAL` lines in the container log.
+`scripts/docker-entrypoint-core.sh` repairs this automatically. On every start it recursively chowns the workspace and skips entries that already have the right owner. If the repair cannot run (for example `cap_drop: ALL` without `cap_add: CHOWN`), the entrypoint refuses to start and prints the exact `chown` to run. Otherwise you would get a container that answers `/health` with 200 while every config RPC returns `Permission denied (os error 13)`. Look for `[docker-entrypoint] pre-heal` and `FATAL` lines in the container log.
 
-Fix an older container by SSH-ing in and re-owning the workspace:
+To fix an older container, SSH in and re-own the workspace:
 
 ```bash
 fly ssh console --config .fly/fly.toml
@@ -833,8 +713,7 @@ exit
 fly machine restart --config .fly/fly.toml
 ```
 
-The Docker equivalent. Derive the ids from the container rather than hard-coding
-them, so this stays correct whichever image you are running:
+The Docker equivalent derives the ids from the container instead of hard-coding them, so it stays correct whichever image you run:
 
 ```bash
 docker exec -u 0 openhuman-core sh -c \
@@ -842,9 +721,7 @@ docker exec -u 0 openhuman-core sh -c \
 docker restart openhuman-core
 ```
 
-To see which UID owns what before repairing. Note `docker exec` defaults to
-**root**, so ask about the runtime user explicitly rather than trusting a bare
-`id`:
+To see which UID owns what before repairing, ask about the runtime user explicitly. `docker exec` defaults to root, so a bare `id` would be misleading:
 
 ```bash
 docker exec openhuman-core sh -c 'id openhuman; ls -ln /home/openhuman/.openhuman/config.toml'
@@ -854,15 +731,10 @@ docker exec openhuman-core sh -c 'id openhuman; ls -ln /home/openhuman/.openhuma
 
 ## Smoke test
 
-Two failure modes guard the cloud deploy path:
+Two smoke checks cover the cloud deploy path:
 
-- **`docker-image`**: sets `OPENHUMAN_CORE_TOKEN` and mounts no volume.
-  Protects the DigitalOcean App Platform path (`.do/app.yaml`) where the
-  token is always pre-set and no persistent volume is used.
-- **`docker-volume-permissions`**: omits `OPENHUMAN_CORE_TOKEN` and mounts
-  a fresh anonymous volume at `/home/openhuman/.openhuman`. Reproduces the
-  exact failure mode of issue #2065 and asserts that `/health` returns 200
-  and that `Permission denied (os error 13)` is absent from the logs.
+- `docker-image` sets `OPENHUMAN_CORE_TOKEN` and mounts no volume. It covers the DigitalOcean App Platform path (`.do/app.yaml`), where the token is always set and no persistent volume is used.
+- `docker-volume-permissions` omits `OPENHUMAN_CORE_TOKEN` and mounts a fresh anonymous volume at `/home/openhuman/.openhuman`. It reproduces the volume ownership failure and asserts that `/health` returns 200 and that `Permission denied (os error 13)` is absent from the logs.
 
 Run the smoke check locally:
 
@@ -913,8 +785,8 @@ except through the load balancer.
 
 ## See also
 
-- [Privacy & Security](privacy-and-security.md): the trust model a server-hosted core inherits.
-- [OS Keyring & Secret Storage](os-keyring-and-secret-storage.md): why a container needs a keyring master key.
+- [Privacy and security](privacy-and-security.md): the trust model a server-hosted core inherits.
+- [OS keyring and secret storage](os-keyring-and-secret-storage.md): why a container needs a keyring master key.
 - [Local models and bring your own key](model-routing/local-and-byok-models.md): running a headless core with no TinyHumans account.
-- [Building the Rust Core](../developing/building-rust-core.md): compiling the binary a non-Docker host runs.
+- [Building the Rust core](../developing/building-rust-core.md): compiling the binary a non-Docker host runs.
 - [Architecture](../developing/architecture.md): what the core owns versus the shell.
