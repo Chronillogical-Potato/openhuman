@@ -1,0 +1,460 @@
+//! Notifications on the `tinystoragedrivers` document port.
+//!
+//! Used instead of `notifications/notifications.db` when the host configured
+//! a storage backend ([`crate::storage`]); the functions in `store.rs` pick it
+//! per call. Records live under the current call's storage scope (the acting
+//! agent, `local` on a single-user host).
+//!
+//! # Layout
+//!
+//! | Collection | Document id | Holds |
+//! | --- | --- | --- |
+//! | `integration_notifications` | notification id | one ingested notification |
+//! | `notification_dedup` | hash of provider, account, title, body | when that content last arrived |
+//! | `notification_settings` | provider | one provider's settings |
+//! | `core_notifications` | event id | one persisted core notification event |
+//!
+//! Optional columns are left out of a document rather than stored as `null`,
+//! so "is unscored" is a missing field on every driver. `received_ms` (epoch
+//! milliseconds) orders the list, since RFC 3339 strings with differing
+//! fractional digits do not sort as instants.
+//!
+//! The SQL store makes "insert unless the same content arrived in the last
+//! minute" atomic with `BEGIN IMMEDIATE`. Here every insert advances a
+//! `notification_dedup` document under compare-and-swap first, so two
+//! processes ingesting the same notification at once insert it once.
+
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use anyhow::{Context, Result};
+use chrono::{DateTime, Duration, Utc};
+use serde_json::{json, Map, Value};
+use sha2::{Digest, Sha256};
+use tinystoragedrivers::{
+    CollectionSpec, ErrorKind, Filter, IndexSpec, Precondition, Query, Sort, Versioned,
+};
+
+use super::types::{
+    CoreNotificationEvent, IntegrationNotification, NotificationSettings, NotificationStats,
+    NotificationStatus,
+};
+use crate::storage::documents::{compare_and_swap, text, Repo, CAS_ATTEMPTS};
+use crate::storage::{DocumentStore, DocumentStoreExt, ScopedStorage, StorageError};
+
+const NOTIFICATIONS: &str = "integration_notifications";
+const DEDUP: &str = "notification_dedup";
+const SETTINGS: &str = "notification_settings";
+const CORE: &str = "core_notifications";
+const DOMAIN: &str = "notifications::store";
+
+/// How long identical content counts as a duplicate.
+const DEDUP_WINDOW_SECS: i64 = 60;
+
+fn collections() -> Vec<CollectionSpec> {
+    vec![
+        CollectionSpec::new(NOTIFICATIONS)
+            .index(IndexSpec::new("by_provider", ["provider", "received_ms"]))
+            .index(IndexSpec::new("by_status", ["status"])),
+        CollectionSpec::new(DEDUP),
+        CollectionSpec::new(SETTINGS),
+        CollectionSpec::new(CORE).index(IndexSpec::new("by_read", ["read", "timestamp_ms"])),
+    ]
+}
+
+/// The document store for this call, when the host configured one.
+pub(super) fn current() -> Result<Option<Docs>> {
+    Ok(Repo::current(DOMAIN, collections)?.map(Docs))
+}
+
+fn status_of(raw: Option<&str>) -> NotificationStatus {
+    match raw {
+        Some("read") => NotificationStatus::Read,
+        Some("acted") => NotificationStatus::Acted,
+        Some("dismissed") => NotificationStatus::Dismissed,
+        _ => NotificationStatus::Unread,
+    }
+}
+
+fn parse_time(raw: Option<&str>) -> Option<DateTime<Utc>> {
+    raw.and_then(|value| value.parse().ok())
+}
+
+fn to_doc(n: &IntegrationNotification) -> Value {
+    let mut doc = Map::new();
+    doc.insert("provider".into(), json!(n.provider));
+    doc.insert("title".into(), json!(n.title));
+    doc.insert("body".into(), json!(n.body));
+    doc.insert("raw_payload".into(), json!(n.raw_payload.to_string()));
+    doc.insert("status".into(), json!(n.status.as_str()));
+    doc.insert("received_at".into(), json!(n.received_at.to_rfc3339()));
+    doc.insert("received_ms".into(), json!(n.received_at.timestamp_millis()));
+    let optional = [
+        ("account_id", n.account_id.as_ref().map(|v| json!(v))),
+        ("importance_score", n.importance_score.map(|v| json!(v))),
+        ("triage_action", n.triage_action.as_ref().map(|v| json!(v))),
+        ("triage_reason", n.triage_reason.as_ref().map(|v| json!(v))),
+        ("scored_at", n.scored_at.map(|v| json!(v.to_rfc3339()))),
+    ];
+    for (field, value) in optional {
+        if let Some(value) = value {
+            doc.insert(field.into(), value);
+        }
+    }
+    Value::Object(doc)
+}
+
+fn to_notification(stored: &Versioned<Value>) -> IntegrationNotification {
+    let doc = &stored.doc;
+    let raw_payload = text(doc, "raw_payload").map_or(Value::Null, |raw| {
+        serde_json::from_str(raw).unwrap_or_else(|_| Value::String(raw.to_string()))
+    });
+    IntegrationNotification {
+        id: stored.id.clone(),
+        provider: text(doc, "provider").unwrap_or_default().to_string(),
+        account_id: text(doc, "account_id").map(str::to_string),
+        title: text(doc, "title").unwrap_or_default().to_string(),
+        body: text(doc, "body").unwrap_or_default().to_string(),
+        raw_payload,
+        importance_score: doc
+            .get("importance_score")
+            .and_then(Value::as_f64)
+            .map(|score| score as f32),
+        triage_action: text(doc, "triage_action").map(str::to_string),
+        triage_reason: text(doc, "triage_reason").map(str::to_string),
+        status: status_of(text(doc, "status")),
+        received_at: parse_time(text(doc, "received_at")).unwrap_or_else(Utc::now),
+        scored_at: parse_time(text(doc, "scored_at")),
+    }
+}
+
+/// The dedup document id for one piece of content. Each part is length
+/// prefixed, so no two distinct tuples hash the same input.
+fn dedup_id(provider: &str, account_id: Option<&str>, title: &str, body: &str) -> String {
+    let mut hasher = Sha256::new();
+    for part in [Some(provider), account_id, Some(title), Some(body)] {
+        match part {
+            Some(part) => hasher.update(format!("{}:{part};", part.len())),
+            None => hasher.update("-;"),
+        }
+    }
+    hex::encode(hasher.finalize())
+}
+
+/// Records that content arrived at `received_ms`. With `skip_recent`, does
+/// nothing and returns `false` when the same content already arrived within
+/// [`DEDUP_WINDOW_SECS`] of `now_ms`.
+async fn claim_content(
+    docs: &Arc<dyn DocumentStore>,
+    id: &str,
+    received_ms: i64,
+    now_ms: i64,
+    skip_recent: bool,
+) -> Result<bool, StorageError> {
+    let window_start = now_ms - DEDUP_WINDOW_SECS * 1000;
+    for _ in 0..CAS_ATTEMPTS {
+        let stored = docs.get(DEDUP, id).await?;
+        let last = stored
+            .as_ref()
+            .and_then(|stored| stored.doc.get("last_ms"))
+            .and_then(Value::as_i64);
+        if skip_recent && last.is_some_and(|last| last >= window_start) {
+            return Ok(false);
+        }
+        let precondition = stored
+            .as_ref()
+            .map_or(Precondition::Absent, Versioned::unchanged);
+        let last_ms = last.map_or(received_ms, |last| last.max(received_ms));
+        match docs
+            .put(DEDUP, id, json!({ "last_ms": last_ms }), precondition)
+            .await
+        {
+            Ok(_) => return Ok(true),
+            Err(error) if error.kind() == ErrorKind::Conflict => {}
+            Err(error) => return Err(error),
+        }
+    }
+    Err(StorageError::conflict(format!(
+        "notification dedup {id} kept changing under {CAS_ATTEMPTS} attempts"
+    )))
+}
+
+/// The notification store over one scoped document handle.
+#[derive(Clone)]
+pub(super) struct Docs(Repo);
+
+impl Docs {
+    #[cfg(test)]
+    pub(super) fn over(scoped: &ScopedStorage) -> Self {
+        Self(Repo::over(scoped, DOMAIN, collections))
+    }
+
+    /// Inserts `n`, failing if its id exists. With `skip_recent`, returns
+    /// `false` instead when the same content arrived in the last minute.
+    pub(super) fn insert(&self, n: &IntegrationNotification, skip_recent: bool) -> Result<bool> {
+        let id = n.id.clone();
+        let doc = to_doc(n);
+        let dedup = dedup_id(&n.provider, n.account_id.as_deref(), &n.title, &n.body);
+        let received_ms = n.received_at.timestamp_millis();
+        let now_ms = Utc::now().timestamp_millis();
+        self.0.run(|docs| async move {
+            if !claim_content(&docs, &dedup, received_ms, now_ms, skip_recent).await? {
+                return Ok(false);
+            }
+            docs.put(NOTIFICATIONS, &id, doc, Precondition::Absent)
+                .await?;
+            Ok(true)
+        })
+    }
+
+    pub(super) fn exists_recent(
+        &self,
+        provider: &str,
+        account_id: Option<&str>,
+        title: &str,
+        body: &str,
+    ) -> Result<bool> {
+        let id = dedup_id(provider, account_id, title, body);
+        let window_start = (Utc::now() - Duration::seconds(DEDUP_WINDOW_SECS)).timestamp_millis();
+        self.0.run(|docs| async move {
+            Ok(docs
+                .get(DEDUP, &id)
+                .await?
+                .and_then(|stored| stored.doc.get("last_ms").and_then(Value::as_i64))
+                .is_some_and(|last| last >= window_start))
+        })
+    }
+
+    pub(super) fn list(
+        &self,
+        limit: usize,
+        offset: usize,
+        provider: Option<&str>,
+        min_score: Option<f32>,
+    ) -> Result<Vec<IntegrationNotification>> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+        let mut filter = Filter::All;
+        if let Some(provider) = provider {
+            filter = filter.and(Filter::eq("provider", provider));
+        }
+        if let Some(score) = min_score {
+            filter = filter.and(
+                Filter::exists("importance_score", false)
+                    .or(Filter::gte("importance_score", f64::from(score))),
+            );
+        }
+        let query = Query::filter(filter)
+            .sort(Sort::desc("received_ms"))
+            .limit(offset.saturating_add(limit));
+        self.0.run(|docs| async move {
+            let page = docs.query(NOTIFICATIONS, &query).await?;
+            Ok(page
+                .items
+                .iter()
+                .skip(offset)
+                .take(limit)
+                .map(to_notification)
+                .collect())
+        })
+    }
+
+    pub(super) fn update_triage(
+        &self,
+        id: &str,
+        score: f32,
+        action: &str,
+        reason: &str,
+    ) -> Result<bool> {
+        let (score, action, reason) = (f64::from(score), action.to_string(), reason.to_string());
+        let scored_at = Utc::now().to_rfc3339();
+        self.set(id, move |next| {
+            next["importance_score"] = json!(score);
+            next["triage_action"] = json!(action);
+            next["triage_reason"] = json!(reason);
+            next["scored_at"] = json!(scored_at);
+        })
+    }
+
+    pub(super) fn set_status(&self, id: &str, status: NotificationStatus) -> Result<bool> {
+        self.set(id, move |next| next["status"] = json!(status.as_str()))
+    }
+
+    /// Applies `edit` to notification `id`; `false` when it does not exist.
+    fn set(&self, id: &str, edit: impl Fn(&mut Value) + Send + 'static) -> Result<bool> {
+        let id = id.to_string();
+        self.0.run(|docs| async move {
+            let changed = compare_and_swap(&docs, NOTIFICATIONS, &id, |doc| {
+                let mut next = doc.clone();
+                edit(&mut next);
+                Some(next)
+            })
+            .await?;
+            Ok(changed.is_some())
+        })
+    }
+
+    pub(super) fn unread_count(&self) -> Result<i64> {
+        self.0.run(|docs| async move {
+            let count = docs
+                .count(NOTIFICATIONS, &Filter::eq("status", "unread"))
+                .await?;
+            Ok(i64::try_from(count).unwrap_or(i64::MAX))
+        })
+    }
+
+    /// Aggregates over every notification in the scope. The port has no
+    /// `GROUP BY`, so the counts are folded here; the notification center
+    /// holds one user's notifications, which keeps this bounded in practice.
+    pub(super) fn stats(&self) -> Result<NotificationStats> {
+        self.0.run(|docs| async move {
+            let mut stats = NotificationStats {
+                total: 0,
+                unread: 0,
+                unscored: 0,
+                by_provider: HashMap::new(),
+                by_action: HashMap::new(),
+            };
+            for stored in docs.query_all(NOTIFICATIONS, &Query::all()).await? {
+                let doc = &stored.doc;
+                stats.total += 1;
+                if text(doc, "status") == Some("unread") {
+                    stats.unread += 1;
+                }
+                if doc.get("importance_score").is_none() {
+                    stats.unscored += 1;
+                }
+                let provider = text(doc, "provider").unwrap_or_default().to_string();
+                *stats.by_provider.entry(provider).or_default() += 1;
+                if let Some(action) = text(doc, "triage_action") {
+                    *stats.by_action.entry(action.to_string()).or_default() += 1;
+                }
+            }
+            Ok(stats)
+        })
+    }
+
+    pub(super) fn upsert_settings(&self, settings: &NotificationSettings) -> Result<()> {
+        let id = settings.provider.clone();
+        let doc = json!({
+            "enabled": settings.enabled,
+            "importance_threshold": f64::from(settings.importance_threshold),
+            "route_to_orchestrator": settings.route_to_orchestrator,
+        });
+        self.0.run(|docs| async move {
+            docs.put(SETTINGS, &id, doc, Precondition::None)
+                .await
+                .map(|_| ())
+        })
+    }
+
+    pub(super) fn get_settings(&self, provider: &str) -> Result<NotificationSettings> {
+        let id = provider.to_string();
+        self.0.run(|docs| async move {
+            let defaults = NotificationSettings {
+                provider: id.clone(),
+                ..NotificationSettings::default()
+            };
+            let Some(stored) = docs.get(SETTINGS, &id).await? else {
+                return Ok(defaults);
+            };
+            let doc = &stored.doc;
+            Ok(NotificationSettings {
+                enabled: doc
+                    .get("enabled")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(defaults.enabled),
+                importance_threshold: doc
+                    .get("importance_threshold")
+                    .and_then(Value::as_f64)
+                    .map_or(defaults.importance_threshold, |value| value as f32),
+                route_to_orchestrator: doc
+                    .get("route_to_orchestrator")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(defaults.route_to_orchestrator),
+                provider: id,
+            })
+        })
+    }
+
+    pub(super) fn insert_core_notification(&self, event: &CoreNotificationEvent) -> Result<bool> {
+        let id = event.id.clone();
+        let doc = json!({
+            "payload": serde_json::to_string(event)
+                .context("[notifications::store] serialize core notification failed")?,
+            "timestamp_ms": event.timestamp_ms,
+            "read": false,
+            "created_at": Utc::now().to_rfc3339(),
+        });
+        self.0.run(|docs| async move {
+            match docs.put(CORE, &id, doc, Precondition::Absent).await {
+                Ok(_) => Ok(true),
+                // A re-publish of the same event id is ignored.
+                Err(error) if error.kind() == ErrorKind::Conflict => Ok(false),
+                Err(error) => Err(error),
+            }
+        })
+    }
+
+    pub(super) fn list_core_notifications(
+        &self,
+        only_unread: bool,
+        limit: usize,
+    ) -> Result<Vec<CoreNotificationEvent>> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+        let filter = if only_unread {
+            Filter::eq("read", false)
+        } else {
+            Filter::All
+        };
+        let query = Query::filter(filter)
+            .sort(Sort::desc("timestamp_ms"))
+            .limit(limit);
+        self.0.run(|docs| async move {
+            let page = docs.query(CORE, &query).await?;
+            Ok(page
+                .items
+                .iter()
+                .filter_map(|stored| {
+                    let payload = text(&stored.doc, "payload")?;
+                    serde_json::from_str(payload)
+                        .map_err(|error| {
+                            // A single corrupt record must not break the sync-down.
+                            tracing::warn!(
+                                %error,
+                                "[notifications::store] skipping undeserializable core notification"
+                            );
+                        })
+                        .ok()
+                })
+                .collect())
+        })
+    }
+
+    pub(super) fn mark_core_notification_read(&self, id: &str) -> Result<bool> {
+        let id = id.to_string();
+        self.0.run(|docs| async move {
+            let marked = compare_and_swap(&docs, CORE, &id, |doc| {
+                let mut next = doc.clone();
+                next["read"] = json!(true);
+                Some(next)
+            })
+            .await?;
+            Ok(marked.is_some())
+        })
+    }
+
+    pub(super) fn unread_core_notification_count(&self) -> Result<i64> {
+        self.0.run(|docs| async move {
+            let count = docs.count(CORE, &Filter::eq("read", false)).await?;
+            Ok(i64::try_from(count).unwrap_or(i64::MAX))
+        })
+    }
+}
+
+#[cfg(test)]
+#[path = "store_documents_tests.rs"]
+mod tests;
