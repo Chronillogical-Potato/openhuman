@@ -8,7 +8,7 @@ use openhuman_core::config::Config;
 use openhuman_core::core::runtime::CoreBuilder;
 use openhuman_core::core::types::HostKind;
 
-use super::builder::ConfigSource;
+use super::builder::{requests_background_services, ConfigSource};
 use super::presets::{default_domains, default_services};
 use super::{ApiKey, Runtime, RuntimeBuilder, RuntimeError, RUNTIME_LIVE};
 use crate::harness::workspace::ResolvedWorkspace;
@@ -244,7 +244,7 @@ impl RuntimeBuilder {
         let previous_session_store = session_store_cleanup.previous.take();
         log::debug!("[embed][runtime] built host_kind={host_kind:?}");
 
-        Ok(Runtime::new(
+        let runtime = Runtime::new(
             core,
             resolved,
             installed_session_store,
@@ -257,7 +257,13 @@ impl RuntimeBuilder {
             tool_groups,
             self.provider,
             self.access,
-        ))
+            self.max_agents,
+        );
+        if requests_background_services(services) {
+            log::debug!("[embed][runtime] starting background services {services:?}");
+            runtime.start_services().await;
+        }
+        Ok(runtime)
     }
 
     /// The config a [`ConfigSource::Resolved`] runtime hands the core.

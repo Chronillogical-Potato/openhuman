@@ -14,6 +14,7 @@ fn ctx(dir: &str) -> Arc<CoreContext> {
         backend_transport: None,
         turn_origin: None,
         session_agent: None,
+        agent: Default::default(),
     })
 }
 
@@ -45,6 +46,7 @@ fn ctx_with_config(config: crate::config::Config) -> Arc<CoreContext> {
         backend_transport: None,
         turn_origin: None,
         session_agent: None,
+        agent: Default::default(),
     })
 }
 
@@ -84,6 +86,21 @@ async fn the_current_dispatch_sees_the_scoped_embedder_config() {
     let scoped = scoped.expect("a scoped embedder config is visible to the dispatch");
     assert_eq!(scoped.default_model.as_deref(), Some("scoped-model"));
     assert_eq!(scoped.workspace_dir, PathBuf::from("/tmp/scoped-ws"));
+}
+
+#[test]
+fn a_synchronous_scope_serves_its_context_to_blocking_readers() {
+    // The session builder is synchronous and reads the ambient context while
+    // it assembles a belt; a host agent's session has to be built inside its
+    // own context, not the process default.
+    let mut config = crate::config::Config::default();
+    config.default_model = Some("sync-scoped-model".into());
+
+    let seen = CoreContext::sync_scope(ctx_with_config(config), || {
+        CoreContext::current_embedder_config().and_then(|config| config.default_model)
+    });
+
+    assert_eq!(seen.as_deref(), Some("sync-scoped-model"));
 }
 
 #[tokio::test]
@@ -366,6 +383,7 @@ fn degraded_context_rejects_workspace_bound_stores() {
         backend_transport: None,
         turn_origin: None,
         session_agent: None,
+        agent: Default::default(),
     };
 
     // `workspace_dir()` is the gate every workspace-bound store goes

@@ -243,6 +243,15 @@ ordered `PromptSection`s into the system prompt, optionally as a
 renders the exact prompt a live session would send, by building a real
 session host and calling `build_system_prompt`.
 
+### Host agents
+
+[`host_agents.rs`](./host_agents.rs) is a process-wide `HostAgentResolver` slot (installed and
+cleared like the session store). An embedding host registers its agents there; cron agent
+jobs and workflow `agent` nodes ask it first. On a hit the session is built as that agent
+(`HostAgent::session_host()` under `CoreContext::sync_scope`: its definition and prompt, host
+tools, provider route and own `CoreContext`) and the turn runs inside `HostAgent::scope()`.
+A miss falls through to the registries, unchanged.
+
 ### Triage
 
 External events (Composio triggers, incoming webhooks, task-source cards,

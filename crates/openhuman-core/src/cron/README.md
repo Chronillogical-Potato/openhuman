@@ -362,8 +362,24 @@ Cron publishes, through [`core/bus.rs`](../core/bus.rs), these `DomainEvent` var
 - `scheduler_gate` lives here for historical reasons, but the poll loop does not
   consult it. Its consumers are `modules/memory_host.rs` and
   [`security/credentials/`](../security/credentials/).
-- Run Now and the poll loop share `ACTIVE_RUNS`. A long-running job blocks its
-  own next tick, not other jobs.
+- Dispatch is non-blocking: each due job is spawned onto a `JoinSet` bounded by
+  `scheduler.max_concurrent` (`scheduler/dispatch.rs`), so one long job does not hold
+  up the poll loop. A job is claimed (`scheduler/in_flight.rs`, shared with Run Now and
+  the `cron_run` tool) from dispatch until its run is persisted, and the scheduler never
+  dispatches a claimed job. A recurring job's `next_run` is advanced at dispatch
+  (at-most-once per slot), then recomputed from the finish time as before.
+- Per-job `JobPolicy { retries, single_flight }` lives in a host-owned
+  `cron_job_policies` table in `jobs.db` (`policy.rs`); `CronJob` belongs to
+  `tinyflows-schedule`. No row is the default policy. `retries: Some(0)` means exactly one
+  attempt; with `single_flight` a slot that comes due mid-run is recorded as a `skipped`
+  run, and Run Now refuses while the job runs. The table stays in SQLite even with a
+  storage backend configured.
+- System jobs: `system_job_handlers::register(name, handler)` installs an awaited in-process
+  handler; the scheduler still publishes `CronSystemJobDue`, then records the handler's
+  result as the run's status. With no handler, behaviour is unchanged.
+- Host agents: `agent::host_agents` is a process-wide `HostAgentResolver`. Cron agent jobs
+  (`scheduler/agent_run.rs`) and workflow `agent` nodes consult it before the registries and run
+  as the embedder's agent (its prompt, host tools and own `CoreContext`).
 - A cron agent turn must suppress transcript autoload, or it resumes an
   unrelated conversation. Any new cron path that builds a session host needs
   `start_cron_turn_clean`.

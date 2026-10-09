@@ -89,7 +89,7 @@ runs under the process default context and on its own would only see
 - `within_agent(agent, fut)` / `context_for(agent)`: re-enter an agent's
   scope when background work learned whose record it is handling.
 
-Users: the cron scheduler (`cron::scheduler::tick_agents`), the task-source
+Users: the cron scheduler (`cron::scheduler::tick_live_agents`), the task-source
 poller, the flows boot sweep and schedule-trigger reconcile, the run reaper,
 and the device tunnel (a paired device's frames run as the agent that paired
 it, `security::devices::owner`). Without a backend these run once, as

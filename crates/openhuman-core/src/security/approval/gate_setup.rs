@@ -87,11 +87,11 @@ impl ApprovalGate {
         ttl
     }
 
-    /// Whether `tool_name` is on the user's "Always allow" list. Prefers the
+    /// Whether `tool_name` is on the user's "Always allow" list. Prefers the agent or
     /// process-global live policy (so a grant made this session is seen
     /// immediately) and falls back to the gate's boot-time config snapshot.
     fn tool_is_auto_approved(&self, tool_name: &str) -> bool {
-        if let Some(policy) = crate::security::live_policy::current() {
+        if let Some(policy) = crate::security::live_policy::effective() {
             return policy.auto_approve.iter().any(|t| t == tool_name);
         }
         self.config
@@ -111,7 +111,7 @@ impl ApprovalGate {
     /// this flag — see the `matches!` guard at the call site below. This method only reports the
     /// user's setting; it does not know about origin.
     fn is_auto_approve_all_enabled(&self) -> bool {
-        if let Some(policy) = crate::security::live_policy::current() {
+        if let Some(policy) = crate::security::live_policy::effective() {
             return policy.auto_approve_all;
         }
         self.config.autonomy.auto_approve_all

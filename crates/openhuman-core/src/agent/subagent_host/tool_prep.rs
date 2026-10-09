@@ -75,7 +75,7 @@ pub(super) fn is_subagent_spawn_tool(name: &str) -> bool {
     // which let wildcard-scoped children inherit the orchestrator's spawn
     // surface. Resolve the override names via the registry so the strip
     // stays in lockstep with `collect_orchestrator_tools`'s naming.
-    if let Some(registry) = crate::agent::harness::definition::AgentDefinitionRegistry::global() {
+    if let Some(registry) = crate::agent::harness::definition::AgentDefinitionRegistry::current() {
         return registry
             .list()
             .iter()

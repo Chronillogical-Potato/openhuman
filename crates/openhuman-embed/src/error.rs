@@ -106,6 +106,16 @@ pub enum CoreError {
         /// RPC method the invalid route was attached to.
         method: &'static str,
     },
+
+    /// The agent was removed from its runtime: a turn sent afterwards is
+    /// refused, and one in flight when it was removed ends with this.
+    #[error("{method}: agent {agent_id:?} was removed")]
+    AgentRemoved {
+        /// RPC method the turn was dispatching.
+        method: &'static str,
+        /// The removed agent.
+        agent_id: String,
+    },
 }
 
 impl CoreError {
@@ -156,7 +166,8 @@ impl CoreError {
             | CoreError::Encode { method, .. }
             | CoreError::Decode { method, .. }
             | CoreError::InsecureRoute { method, .. }
-            | CoreError::InvalidRoute { method } => method,
+            | CoreError::InvalidRoute { method }
+            | CoreError::AgentRemoved { method, .. } => method,
         }
     }
 

@@ -72,9 +72,90 @@ impl ApprovalGate {
                 client_id: route.as_ref().and_then(|r| r.client_id.clone()),
                 tool_call_id: route.and_then(|r| r.tool_call_id),
                 resolution: None,
+                agent_id: row.agent_id.clone(),
             });
         }
         Ok(decided)
+    }
+
+    /// [`Self::decide`] on behalf of `agent`: refuses with
+    /// [`ApprovalError::WrongAgent`] when the request was parked by any other
+    /// agent (or by the process itself), so one agent cannot answer another's
+    /// approval.
+    pub fn decide_for_agent(
+        &self,
+        agent: &str,
+        request_id: &str,
+        decision: ApprovalDecision,
+    ) -> anyhow::Result<Option<PendingApproval>> {
+        let owner = match self
+            .request_routes
+            .lock()
+            .get(request_id)
+            .map(|route| route.agent_id.clone())
+        {
+            Some(owner) => Some(owner),
+            None => store::pending_agent(&self.config, request_id)?,
+        };
+        if let Some(owner) = owner {
+            if owner.as_deref() != Some(agent) {
+                tracing::warn!(
+                    request_id = %request_id,
+                    agent_id = %agent,
+                    owner = owner.as_deref().unwrap_or("<process>"),
+                    "[approval::gate] decision refused: request belongs to another agent"
+                );
+                return Err(ApprovalError::WrongAgent {
+                    request_id: request_id.to_string(),
+                }
+                .into());
+            }
+        }
+        self.decide(request_id, decision)
+    }
+
+    /// Deny every undecided request `agent` parked, resolving its waiters.
+    /// Returns how many rows were denied.
+    pub fn deny_all_for_agent(&self, agent: &str, resolution: &str) -> anyhow::Result<usize> {
+        if !store::exists(&self.config) {
+            return Ok(0);
+        }
+        let rows = store::list_pending_for_agent(&self.config, Some(agent))?;
+        let mut denied = 0;
+        for row in rows {
+            let Some(decided) = store::decide(&self.config, &row.request_id, ApprovalDecision::Deny)?
+            else {
+                continue;
+            };
+            denied += 1;
+            if let Some(tx) = self.take_waiter(&decided.request_id) {
+                let _ = tx.send(ApprovalDecision::Deny);
+            }
+            let route = self.take_request_route(&decided.request_id);
+            if let Some(thread_id) = route.as_ref().and_then(|r| r.thread_id.as_deref()) {
+                self.clear_thread_route_if_owned(
+                    &thread_route_key(Some(agent), thread_id),
+                    &decided.request_id,
+                );
+            }
+            BUS.publish(DomainEvent::ApprovalDecided {
+                request_id: decided.request_id.clone(),
+                tool_name: decided.tool_name.clone(),
+                decision: ApprovalDecision::Deny.as_str().to_string(),
+                thread_id: route.as_ref().and_then(|r| r.thread_id.clone()),
+                client_id: route.as_ref().and_then(|r| r.client_id.clone()),
+                tool_call_id: route.and_then(|r| r.tool_call_id),
+                resolution: Some(resolution.to_string()),
+                agent_id: Some(agent.to_string()),
+            });
+        }
+        tracing::info!(
+            agent_id = %agent,
+            denied,
+            resolution,
+            "[approval::gate] denied every pending request of the agent"
+        );
+        Ok(denied)
     }
 
     /// Classify a [`Self::decide`] miss — i.e. when `decide` returned
@@ -116,6 +197,15 @@ impl ApprovalGate {
     /// updates the DB but cannot resume an action — see [`store::list_pending`].
     pub fn list_pending(&self) -> anyhow::Result<Vec<PendingApproval>> {
         store::list_pending(&self.config)
+    }
+
+    /// [`Self::list_pending`] narrowed to `agent`'s rows; `None` lists the
+    /// process's own rows.
+    pub fn list_pending_for_agent(
+        &self,
+        agent: Option<&str>,
+    ) -> anyhow::Result<Vec<PendingApproval>> {
+        store::list_pending_for_agent(&self.config, agent)
     }
 
     /// List recently decided rows for durable audit views.
@@ -213,10 +303,21 @@ impl ApprovalGate {
         waiters.remove(request_id);
     }
 
-    /// The request_id of the approval currently parked on `thread_id`, if any.
-    /// Used by the web channel to route an inbound yes/no reply to a decision.
+    /// The request_id of the approval currently parked on `thread_id` by the
+    /// ambient context's agent, if any. Used by the web channel to route an
+    /// inbound yes/no reply to a decision.
     pub fn pending_for_thread(&self, thread_id: &str) -> Option<String> {
-        self.thread_to_request.lock().get(thread_id).cloned()
+        let agent = crate::core::runtime::agent_scope::current_agent_id();
+        self.pending_for_agent_thread(agent.as_deref(), thread_id)
+    }
+
+    /// The request_id `agent` (`None`: the process) has parked on
+    /// `thread_id`, if any.
+    pub fn pending_for_agent_thread(&self, agent: Option<&str>, thread_id: &str) -> Option<String> {
+        self.thread_to_request
+            .lock()
+            .get(&thread_route_key(agent, thread_id))
+            .cloned()
     }
 
     /// The full pending row parked on `thread_id`, if any.
@@ -264,9 +365,9 @@ impl ApprovalGate {
     }
 
     /// Drop the thread → request mapping when it still belongs to this request.
-    fn clear_thread(&self, thread_id: &Option<String>, request_id: &str) {
-        if let Some(t) = thread_id {
-            self.clear_thread_route_if_owned(t, request_id);
+    fn clear_thread(&self, thread_key: &Option<String>, request_id: &str) {
+        if let Some(key) = thread_key {
+            self.clear_thread_route_if_owned(key, request_id);
         }
     }
 
@@ -275,10 +376,10 @@ impl ApprovalGate {
     /// replacement turn may have already parked a new approval on the same
     /// thread and overwritten the entry; clearing unconditionally would delete
     /// the *new* request's routing (#4774).
-    fn clear_thread_route_if_owned(&self, thread_id: &str, request_id: &str) {
+    fn clear_thread_route_if_owned(&self, thread_key: &str, request_id: &str) {
         let mut map = self.thread_to_request.lock();
-        if map.get(thread_id).is_some_and(|rid| rid == request_id) {
-            map.remove(thread_id);
+        if map.get(thread_key).is_some_and(|rid| rid == request_id) {
+            map.remove(thread_key);
         }
     }
 }

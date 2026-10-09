@@ -228,3 +228,27 @@ fn a_cap_too_small_for_a_provider_minimum_budget_keeps_the_effort_only() {
         Some(ReasoningConfig::effort(ReasoningEffort::Low))
     );
 }
+
+#[tokio::test]
+async fn reasoning_effort_stays_with_the_agent_that_chose_it() {
+    use crate::core::runtime::agent_scope::test_agent_context;
+    use crate::core::runtime::{context::CoreContext, DomainSet};
+    let root = CoreContext::for_test(DomainSet::full(), None);
+    let alpha = test_agent_context(&root, "alpha");
+    let beta = test_agent_context(&root, "beta");
+    let thread = "effort-shared-thread";
+
+    CoreContext::scope(std::sync::Arc::clone(&alpha), async {
+        set_thread_effort(thread, Some(ReasoningEffort::High));
+    })
+    .await;
+
+    assert_eq!(
+        CoreContext::scope(alpha, async { thread_effort(thread) }).await,
+        Some(ReasoningEffort::High)
+    );
+    assert_eq!(
+        CoreContext::scope(beta, async { thread_effort(thread) }).await,
+        None
+    );
+}

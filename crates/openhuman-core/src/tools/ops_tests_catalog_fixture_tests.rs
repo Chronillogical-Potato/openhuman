@@ -40,6 +40,7 @@ fn full_product_features_enabled() -> bool {
         ("file-logging", cfg!(feature = "file-logging")),
         ("runtime-node", cfg!(feature = "runtime-node")),
         ("hosting", cfg!(feature = "hosting")),
+        ("tinymemes", cfg!(feature = "tinymemes")),
     ];
     let declared: std::collections::BTreeSet<_> = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),

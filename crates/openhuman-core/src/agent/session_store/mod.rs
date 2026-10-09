@@ -16,7 +16,10 @@
 
 use std::sync::{Arc, LazyLock, PoisonError, RwLock};
 
+pub use agent_transcripts::{agent_transcript_root, AgentTranscriptFiles};
 pub use tinyagents_session::port::{AgentStores, SessionStoreProvider};
+
+mod agent_transcripts;
 
 static PROVIDER: LazyLock<RwLock<Option<Arc<dyn SessionStoreProvider>>>> =
     LazyLock::new(|| RwLock::new(None));
@@ -136,10 +139,28 @@ pub fn transcripts_or_files(
     workspace_dir: &std::path::Path,
 ) -> Arc<dyn tinyagents_session::transcript::TranscriptLocator> {
     transcripts_for(agent_id).unwrap_or_else(|| {
-        Arc::new(tinyagents_session::transcript::FileTranscriptLocator::new(
-            workspace_dir,
-        ))
+        match crate::core::runtime::agent_scope::current_agent_id() {
+            Some(embedded) => {
+                log::debug!(
+                    "[session_store] transcripts under the agent's directory agent={embedded}"
+                );
+                Arc::new(AgentTranscriptFiles::new(workspace_dir, &embedded))
+            }
+            None => Arc::new(tinyagents_session::transcript::FileTranscriptLocator::new(
+                workspace_dir,
+            )),
+        }
     })
+}
+
+/// The workspace root transcripts are written under: the agent's own
+/// directory under an embedded agent's context, else `workspace_dir`.
+#[must_use]
+pub fn transcript_root(workspace_dir: &std::path::Path) -> std::path::PathBuf {
+    match crate::core::runtime::agent_scope::current_agent_id() {
+        Some(agent) => agent_transcript_root(workspace_dir, &agent),
+        None => workspace_dir.to_path_buf(),
+    }
 }
 
 /// The stores of the agent the current [`CoreContext`] works for — the one

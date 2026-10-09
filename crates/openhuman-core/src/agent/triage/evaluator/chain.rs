@@ -7,7 +7,6 @@ use std::time::Duration;
 
 use anyhow::Context;
 
-use crate::config::Config;
 use crate::cron::scheduler_gate::LlmPermit;
 
 use super::super::envelope::TriggerEnvelope;
@@ -77,7 +76,7 @@ fn retry_state() -> &'static RetryState {
 /// 5. On local failure, return `TriageOutcome::Deferred` so the
 ///    caller can retry when a local arm is available.
 pub async fn run_triage(envelope: &TriggerEnvelope) -> anyhow::Result<TriageOutcome> {
-    let config = Config::load_or_init()
+    let config = crate::config::ops::load_current_or_init()
         .await
         .context("loading config for triage turn")?;
     let cloud = resolve_provider_with_config(&config)

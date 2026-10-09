@@ -101,10 +101,14 @@ fn next_user_error(
 
 #[path = "scheduler_classifier_and_delivery_tests.rs"]
 mod classifier_and_delivery_tests;
+#[path = "scheduler_dispatch_tests.rs"]
+mod dispatch_tests;
 #[path = "scheduler_frequency_tests.rs"]
 mod frequency_tests;
 #[path = "scheduler_halt_and_persist_tests.rs"]
 mod halt_and_persist_tests;
+#[path = "scheduler_host_agent_tests.rs"]
+mod host_agent_tests;
 #[path = "scheduler_transcript_isolation_tests.rs"]
 mod transcript_isolation_tests;
 
@@ -312,61 +316,4 @@ async fn a_pipeline_reports_its_last_stage_rather_than_pipefail() {
         "`false | true` is a success under a plain `-lc`; pipefail would make it \
          a failure and re-status every existing job with a pipeline in it: {output}"
     );
-}
-
-fn agent_context_with_config(
-    agent: &str,
-    config: Config,
-) -> Arc<crate::core::runtime::CoreContext> {
-    use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
-    CoreContext::for_test(DomainSet::full(), None).derive_with(
-        ContextOverlay::new(config, DomainSet::full(), Default::default()).session_agent(agent),
-    )
-}
-
-#[tokio::test]
-async fn an_agent_pass_polls_with_its_own_config_and_reports_health() {
-    let tmp = TempDir::new().unwrap();
-    let config = test_config(&tmp).await;
-    let context = agent_context_with_config("cron-test-agent", config);
-    let mut health = None;
-    crate::core::runtime::CoreContext::scope(context, tick_agent_scope(&mut health)).await;
-    assert_eq!(health, Some(true), "a successful poll reports healthy");
-}
-
-#[tokio::test]
-async fn an_agent_pass_without_its_own_config_is_skipped() {
-    use crate::core::runtime::{CoreContext, DomainSet};
-    // `for_agent` swaps only the identity: no configuration of the agent's own.
-    let fallback = CoreContext::for_test(DomainSet::full(), None);
-    let mut health = None;
-    CoreContext::scope(
-        fallback.for_agent("cron-test-recorded"),
-        tick_agent_scope(&mut health),
-    )
-    .await;
-    assert_eq!(health, None, "nothing ran, so nothing was reported");
-}
-
-#[tokio::test]
-async fn an_agent_keeps_its_policy_across_ticks_until_re_derived() {
-    let tmp = TempDir::new().unwrap();
-    let config = test_config(&tmp).await;
-    let first = agent_context_with_config("cron-test-policy", config.clone());
-    let a = agent_policy(&first, &config);
-    let b = agent_policy(&first, &config);
-    assert!(Arc::ptr_eq(&a, &b), "the same context keeps one policy");
-    let second = agent_context_with_config("cron-test-policy", config.clone());
-    assert!(!Arc::ptr_eq(&a, &agent_policy(&second, &config)));
-}
-
-#[tokio::test]
-async fn tick_agents_without_a_backend_leaves_the_health_tracker_alone() {
-    // The lib test binary installs no storage backend, so no agent is visited.
-    if crate::storage::installed().is_some() {
-        return;
-    }
-    let mut health = Some(false);
-    tick_agents(&mut health).await;
-    assert_eq!(health, Some(false));
 }

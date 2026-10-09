@@ -334,6 +334,7 @@ default = [
     "file-logging",
     "modules",
     "jev",
+    "tinymemes",
 ]
 # Every gate forwards to `openhuman-rpc` alone (chain: rpc -> tinyhumans ->
 # embed -> core); `scripts/ci/check-feature-forwarding.mjs` checks the link.
@@ -343,6 +344,7 @@ http-server = ["openhuman-rpc/http-server"]
 inference = ["openhuman-rpc/inference"]
 documents = ["openhuman-rpc/documents"]
 hosting = ["openhuman-rpc/hosting"]
+tinymemes = ["openhuman-rpc/tinymemes"]
 modules = ["openhuman-rpc/modules"]
 voice = ["openhuman-rpc/voice"]
 web3 = ["openhuman-rpc/web3"]

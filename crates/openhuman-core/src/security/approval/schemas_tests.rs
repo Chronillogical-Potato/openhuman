@@ -2,11 +2,13 @@ use super::*;
 use serde_json::json;
 
 #[test]
-fn schemas_list_pending_has_no_inputs() {
+fn schemas_list_pending_takes_only_an_optional_agent() {
     let s = schemas("list_pending");
     assert_eq!(s.namespace, "approval");
     assert_eq!(s.function, "list_pending");
-    assert!(s.inputs.is_empty());
+    assert_eq!(s.inputs.len(), 1);
+    assert_eq!(s.inputs[0].name, "agent_id");
+    assert!(!s.inputs[0].required);
 }
 
 #[test]
@@ -15,7 +17,11 @@ fn schemas_decide_requires_request_id_and_decision() {
     let names: Vec<_> = s.inputs.iter().map(|f| f.name).collect();
     assert!(names.contains(&"request_id"));
     assert!(names.contains(&"decision"));
-    assert!(s.inputs.iter().all(|f| f.required));
+    assert!(s
+        .inputs
+        .iter()
+        .all(|f| f.required == (f.name != "agent_id")));
+    assert!(names.contains(&"agent_id"));
 }
 
 #[test]
