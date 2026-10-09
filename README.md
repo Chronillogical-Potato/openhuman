@@ -74,6 +74,8 @@ Fastest wall time in the latest public SWE-bench run: **20 s** per solved task a
 </tr>
 </table>
 
+That last column is the point. OpenHuman is the only feature-rich open-source harness built to run large fleets of agents. Claude Code, Codex, OpenCode, OpenClaw and Hermes run one agent per process, so a hundred agents means a hundred runtimes, a hundred heaps and a hundred copies of the system prompt to keep warm. OpenHuman runs the hundred as values inside one Rust process, each with its own model, tools, memory and sandbox, and still ships memory, integrations, channels, workflows and a desktop app on top.
+
 It is also programmable all the way down. Every engine (LLM, embeddings, memory, search) is chosen by config, every capability is a Cargo feature or a lazily loaded native module, and the whole core is a typed Rust API: [`openhuman-embed`](./crates/openhuman-embed/README.md).
 
 ---
@@ -106,6 +108,8 @@ Results, per-task patches, harness logs and the per-call meter records are commi
 | CPU time | **1.3 s** | 10.4 s | 2.9 s (DeepSeek Harness) |
 | Static prompt (system + tools) | **4.6k tokens** | 7.7k | 6.2k (DeepSeek Harness) |
 | Tasks resolved | 7 / 10 | 10 / 10 | 10 / 10 (four harnesses) |
+
+The density gap is the part of these results that compounds. At 68 MB and 1.3 CPU-seconds per solved task, against a median of 523 MB and 10.4 s, the same box holds several times as many OpenHuman agents before it runs out of memory or cores. Inside one process the gap widens further, because each extra agent shares the runtime and costs about 1.8 MiB.
 
 Read the last row too. OpenHuman spends its context well, but it resolved fewer tasks than four of the six, and closing that gap is the current work. Ten tasks is a smoke test, so a one-task difference is noise. In this run the task containers also had internet access, which the benchmark repository flags as a contamination risk; later runs sit on a network that reaches only the meter proxy. The raw rows are in [`results/swe-x86-1/summary.md`](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md), and the in-process numbers (agent density, cold start, binary size) are in [performance](./gitbooks/developing/performance.md) and [`docs/library-benchmarking.md`](./docs/library-benchmarking.md).
 
