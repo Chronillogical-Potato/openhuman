@@ -64,15 +64,22 @@ releases `RUNTIME_LIVE`.
 | File | What it does |
 | --- | --- |
 | `mod.rs` | `Runtime`, `RuntimeError`, `CoreGuard` and the `RUNTIME_LIVE` process slot. |
-| `builder.rs` | `RuntimeBuilder`, plus the helpers the harness reuses: `apply_provider`, `effective_host_kind`, `default_domains`, `default_services`. |
+| `builder.rs` | `RuntimeBuilder`, its knobs and `ConfigSource` (`Resolved`: embed hands the core a config; `Discovered`: the core loads the operator's install, as desktop/CLI/TUI do). |
+| `build.rs` | `RuntimeBuilder::build`: validation, config resolution, seam install, `CoreBuilder` boot; `apply_provider`, `effective_host_kind`. |
+| `presets.rs` | Host presets `library`/`desktop`/`cli`/`tui` and the library defaults `default_domains`, `default_services`. |
+| `seams.rs` | Process-global seams as builder options (`controller_extension`, `tool_ranker`, `post_turn_hook`, `tool_hook`, `server_launcher`, `live_policy`) and the guard that restores the restorable ones on drop. |
+| `run.rs` | `RuntimeBuilder::run_from_args` / `run_from_args`: install the builder's process-global pieces for the process, then run the core's CLI dispatcher. |
 | `api_key.rs` | `ApiKey`, a newtype over the TinyHumans key whose `Debug` does not print it. |
 
 ## Key types and entry points
 
-- `RuntimeBuilder` (`builder.rs`): `workspace`, `api_key`, `backend_url`,
+- `RuntimeBuilder` (`builder.rs`): `workspace`, `workspace_dir`,
+  `action_dir`, `config_source`, `api_key`, `backend_url`,
   `backend_transport`, `memory_engine`, `session_store`, `provider`,
-  `access`, `services`, `domains`, `tool_groups`, `host_kind`, `session`,
-  `config`, then `build`.
+  `access`, `services`, `domains`, `tool_groups`, `host_kind`, `token`,
+  `listen` (`listen_host`, `listen_port`), `session`, `config`, the seam
+  options (`seams.rs`), then `build` or `run_from_args`. Presets
+  (`presets.rs`): `library()` (= `new()`), `desktop()`, `cli()`, `tui()`.
 - `Runtime` (`mod.rs`): `agent(spec)` builds an agent; `agent_ids()` lists
   the live ones; `core()` returns the narrow `HarnessCore` (config, auth);
   `memory(root)` returns one tenant's `memory::Memory`; `root_dir()` and

@@ -383,6 +383,9 @@ agent to another. See [`src/agent/README.md`](src/agent/README.md).
 | `src/call.rs` | The private typed dispatch helper over `CoreRuntime::invoke` that every facade method uses. |
 | `src/config.rs`, `src/auth.rs`, `src/core_agent.rs` | The `Core` sub-facades: runtime flags, credentials (`Session`, `AuthState`), and the orchestrator turn. |
 | `src/memory.rs` | `Memory`, the per-tenant memory facade returned by `Runtime::memory`. |
+| `src/process.rs`, `src/process_sentry.rs` | Host lifecycle helpers: the agent-sized tokio runtime, logging init, dotenv and launch overrides, the master key, and (`crash-reporting`) the Sentry `ClientOptions` with the single `before_send` chain. |
+| `src/artifacts.rs`, `src/chat_surface.rs`, `src/identity.rs`, `src/modules.rs` | Curated host facades: artifact file resolution, the in-process web-chat event stream, the signed-in identity peek, bundled module releases. `config` also carries `load_or_init`, `load_config_with_timeout`, `default_root_openhuman_dir`, `read_active_user_id`. |
+| `src/host_internals.rs` | `__host` (doc-hidden): an explicit list of core modules for `openhuman-tinyhumans` and `openhuman-rpc` only. |
 | `src/error.rs` | `CoreError`, the error every facade call returns (`Domain`, `Unavailable`, `Rpc`, route refusals). |
 | [`examples/`](examples/README.md) | Runnable programs: one turn on a harness, and two agents on one runtime. |
 | [`tests/`](tests/README.md) | End-to-end suites against `wiremock` providers. |
