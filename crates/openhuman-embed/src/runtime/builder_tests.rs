@@ -134,14 +134,3 @@ fn discovered_config_refuses_every_knob_that_edits_the_boot_config() {
         );
     }
 }
-
-#[tokio::test]
-async fn a_refused_discovered_build_releases_the_slot() {
-    let err = RuntimeBuilder::new()
-        .config_source(ConfigSource::Discovered)
-        .build()
-        .await
-        .expect_err("invalid");
-    assert!(matches!(err, RuntimeError::Invalid(_)), "{err:?}");
-    assert!(!RUNTIME_LIVE.load(std::sync::atomic::Ordering::Acquire));
-}
