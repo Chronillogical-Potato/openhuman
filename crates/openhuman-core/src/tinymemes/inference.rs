@@ -65,12 +65,12 @@ pub(crate) fn routes_to_openrouter(config: &Config) -> bool {
     let route_is_openrouter = config
         .memory_provider
         .as_deref()
-        .map(str::trim)
+        .map(|p| p.trim().to_ascii_lowercase())
         .is_some_and(|p| p.starts_with("openrouter:") || p == "openrouter");
     let url_is_openrouter = config
         .inference_url
         .as_deref()
-        .is_some_and(|u| u.contains("openrouter.ai"));
+        .is_some_and(|u| u.to_ascii_lowercase().contains("openrouter.ai"));
     route_is_openrouter || url_is_openrouter
 }
 

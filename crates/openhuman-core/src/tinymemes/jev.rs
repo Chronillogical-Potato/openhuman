@@ -15,14 +15,16 @@ use tinymemes::decisions::{Client, ClientConfig};
 
 use crate::config::Config;
 use crate::security::credentials::session_support::{
-    is_local_session_token, resolve_backend_credential,
+    is_local_session_token, resolve_backend_credential, BackendCredential,
 };
 
 pub(crate) fn managed(config: &Config) -> Option<Arc<dyn tinymemes::Evaluator>> {
-    let secret = resolve_backend_credential(config).ok()?.into_secret();
-    if is_local_session_token(&secret) {
-        return None;
-    }
+    // Only a session token can be the offline local session; an API key is
+    // never classified by its shape.
+    let secret = match resolve_backend_credential(config).ok()? {
+        BackendCredential::Session(token) if is_local_session_token(&token) => return None,
+        BackendCredential::Session(token) | BackendCredential::ApiKey(token) => token,
+    };
     let base = crate::backend::base_url(&config.api_url).ok()?;
     let mut client = ClientConfig::tinyhumans_openrouter(secret);
     client.base_url = base;

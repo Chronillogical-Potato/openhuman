@@ -8,7 +8,9 @@ fn flag_values_parse() {
     assert_eq!(mode_from(Some("1")), Mode::On);
     assert_eq!(mode_from(Some("ab")), Mode::Ab { percent: 50 });
     assert_eq!(mode_from(Some("ab:20")), Mode::Ab { percent: 20 });
-    assert_eq!(mode_from(Some("ab:300")), Mode::Off);
+    assert_eq!(mode_from(Some("ab:300")), Mode::Ab { percent: 100 });
+    assert_eq!(mode_from(Some("ab:99999")), Mode::Ab { percent: 100 });
+    assert_eq!(mode_from(Some("ab:-5")), Mode::Off);
     assert_eq!(mode_from(Some("ab:250")), Mode::Ab { percent: 100 });
     assert_eq!(mode_from(Some("ab:100")), Mode::Ab { percent: 100 });
     assert_eq!(mode_from(Some("sometimes")), Mode::Off);

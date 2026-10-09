@@ -722,7 +722,7 @@ async fn hold_text_stream_suppresses_text_delta_but_keeps_interim() {
             match bus.recv().await {
                 Ok(ev) if ev.thread_id == "thread-hold" => {
                     let done = ev.event == "chat_interim";
-                    seen.push(ev.event.clone());
+                    seen.push((ev.event.clone(), ev.full_response.clone()));
                     if done {
                         return seen;
                     }
@@ -735,6 +735,11 @@ async fn hold_text_stream_suppresses_text_delta_but_keeps_interim() {
     .await
     .expect("chat_interim within timeout");
 
-    assert!(!events.iter().any(|e| e == "text_delta"), "{events:?}");
-    assert!(events.iter().any(|e| e == "chat_interim"));
+    assert!(!events.iter().any(|(e, _)| e == "text_delta"), "{events:?}");
+    // The interim bubble carries the held narration itself.
+    let interim = events.iter().find(|(e, _)| e == "chat_interim").unwrap();
+    assert_eq!(
+        interim.1.as_deref(),
+        Some("Let me check the release notes for you first.")
+    );
 }

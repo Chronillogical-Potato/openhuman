@@ -65,7 +65,24 @@ pub(crate) async fn remix_final_reply(
     }
 
     let started = Instant::now();
-    let Some(host) = host::host_for(config) else {
+    // Engine lookup (credentials, first-use state files) and the thread read
+    // are blocking file work, so they run off the async runtime.
+    let blocking_config = config.clone();
+    let blocking_thread = thread_id.to_owned();
+    let loaded = crate::core::runtime::spawn_blocking_scoped(move || {
+        let host = host::host_for(&blocking_config)?;
+        let messages = crate::threads::store::get_messages(
+            blocking_config.workspace_dir.clone(),
+            &blocking_thread,
+        )
+        .map_err(|e| log::warn!("[tinymemes] thread history unavailable: {e}"))
+        .ok();
+        Some((host, messages))
+    })
+    .await
+    .ok()
+    .flatten();
+    let Some((host, messages)) = loaded else {
         log_outcome(
             request_id,
             bucket,
@@ -76,11 +93,19 @@ pub(crate) async fn remix_final_reply(
         );
         return None;
     };
-    let messages = crate::threads::store::get_messages(config.workspace_dir.clone(), thread_id)
-        .unwrap_or_else(|e| {
-            log::debug!("[tinymemes] thread history unavailable: {e}");
-            Vec::new()
-        });
+    // Fail open: without the thread, the reading would judge the reply out of
+    // context, so the original goes out instead.
+    let Some(messages) = messages else {
+        log_outcome(
+            request_id,
+            bucket,
+            turn_ms,
+            started,
+            "history_unavailable",
+            None,
+        );
+        return None;
+    };
     let turns = host::history_turns(&messages, user_message, |id| host.is_remixed(id));
 
     let budget = std::env::var(TIMEOUT_ENV)
@@ -96,9 +121,12 @@ pub(crate) async fn remix_final_reply(
         }
     };
 
+    // Whether the delivered reply actually changed.
+    let remixed = outcome.remix.is_some() && outcome.reply.trim() != reply.trim();
+
     // Slang research, off the critical path, only for a reply that was
-    // remixed and only when Jev judged the index short of slang for it.
-    if let (Some(reading), Some(_)) = (&outcome.reading, &outcome.remix) {
+    // actually remixed and only when Jev judged the index short of slang for it.
+    if let (Some(reading), true) = (&outcome.reading, remixed) {
         let policy = host.engine.slang_index().policy();
         if reading.wants_more_slang(policy.search_below) {
             let host = host.clone();
@@ -158,7 +186,6 @@ pub(crate) async fn remix_final_reply(
         }
     }
 
-    let remixed = outcome.remix.is_some() && outcome.reply.trim() != reply.trim();
     let result = if remixed {
         host.mark_remixed(crate::threads::store::run_reply_message_id(request_id));
         host.save_index();
