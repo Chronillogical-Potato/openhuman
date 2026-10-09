@@ -10,7 +10,7 @@
 //! |---|---|---|
 //! | [`controller_extension`](RuntimeBuilder::controller_extension) | before boot | kept: the registry has no removal; re-registering the same controllers is a no-op |
 //! | [`tool_ranker`](RuntimeBuilder::tool_ranker) | before boot | the previous ranker is restored, if ours still holds the slot |
-//! | [`post_turn_hook`](RuntimeBuilder::post_turn_hook) / [`tool_hook`](RuntimeBuilder::tool_hook) | before boot, replacing a same-named hook | ours removed, a replaced same-named hook restored |
+//! | [`post_turn_hook`](RuntimeBuilder::post_turn_hook) / [`tool_hook`](RuntimeBuilder::tool_hook) | before boot, replacing a same-named hook | newest first, while ours still holds the name: ours removed, a replaced same-named hook restored |
 //! | [`server_launcher`](RuntimeBuilder::server_launcher) | before boot | kept: first install wins for the process |
 //! | [`live_policy`](RuntimeBuilder::live_policy) | after boot | kept: the next boot (or a config reload) installs its own |
 //!
@@ -88,12 +88,16 @@ impl HostSeams {
                 let previous = embedder_post_turn_hooks()
                     .into_iter()
                     .find(|existing| existing.name() == name);
-                replace_embedder_post_turn_hook(&name, Some(hook));
+                replace_embedder_post_turn_hook(&name, Some(Arc::clone(&hook)));
                 log::debug!(
                     "[embed][seams] post-turn hook installed name={name} replaced={}",
                     previous.is_some()
                 );
-                (name, previous)
+                InstalledHook {
+                    name,
+                    ours: hook,
+                    previous,
+                }
             })
             .collect();
 
@@ -105,12 +109,16 @@ impl HostSeams {
                 let previous = embedder_tool_hooks()
                     .into_iter()
                     .find(|existing| existing.name() == name);
-                replace_embedder_tool_hook(&name, Some(hook));
+                replace_embedder_tool_hook(&name, Some(Arc::clone(&hook)));
                 log::debug!(
                     "[embed][seams] tool hook installed name={name} replaced={}",
                     previous.is_some()
                 );
-                (name, previous)
+                InstalledHook {
+                    name,
+                    ours: hook,
+                    previous,
+                }
             })
             .collect();
 
@@ -127,13 +135,20 @@ impl HostSeams {
 /// A ranker we installed, and what held the slot before it.
 type InstalledRanker = (Arc<dyn ToolRanker>, Option<Arc<dyn ToolRanker>>);
 
+/// A hook we installed under `name`, and what held that name before it.
+struct InstalledHook<H: ?Sized> {
+    name: String,
+    ours: Arc<H>,
+    previous: Option<Arc<H>>,
+}
+
 /// Seams a runtime installed. Dropping it restores the restorable ones; see
 /// the module docs.
 pub(crate) struct InstalledSeams {
     ranker: Option<InstalledRanker>,
-    /// Our hook names, and the same-named hook each one replaced.
-    post_turn_hooks: Vec<(String, Option<Arc<dyn PostTurnHook>>)>,
-    tool_hooks: Vec<(String, Option<Arc<dyn ToolHook>>)>,
+    /// Our hooks, in install order, each with the same-named hook it replaced.
+    post_turn_hooks: Vec<InstalledHook<dyn PostTurnHook>>,
+    tool_hooks: Vec<InstalledHook<dyn ToolHook>>,
     /// Installed only once the core has booted.
     live_policy: Option<Arc<SecurityPolicy>>,
     restore: bool,
@@ -187,13 +202,37 @@ impl Drop for InstalledSeams {
                 log::debug!("[embed][seams] tool ranker replaced since build; left alone");
             }
         }
-        for (name, previous) in self.post_turn_hooks.drain(..) {
-            replace_embedder_post_turn_hook(&name, previous);
-            log::debug!("[embed][seams] post-turn hook restored name={name}");
+        // Newest first: a second same-named hook recorded the first as its
+        // `previous`, so unwinding in install order would put the first back
+        // over the original. And only while ours still holds the name, so a
+        // hook installed after build is not clobbered.
+        while let Some(hook) = self.post_turn_hooks.pop() {
+            let current = embedder_post_turn_hooks()
+                .into_iter()
+                .find(|existing| existing.name() == hook.name);
+            if current.is_some_and(|now| Arc::ptr_eq(&now, &hook.ours)) {
+                replace_embedder_post_turn_hook(&hook.name, hook.previous);
+                log::debug!("[embed][seams] post-turn hook restored name={}", hook.name);
+            } else {
+                log::debug!(
+                    "[embed][seams] post-turn hook replaced since build; left alone name={}",
+                    hook.name
+                );
+            }
         }
-        for (name, previous) in self.tool_hooks.drain(..) {
-            replace_embedder_tool_hook(&name, previous);
-            log::debug!("[embed][seams] tool hook restored name={name}");
+        while let Some(hook) = self.tool_hooks.pop() {
+            let current = embedder_tool_hooks()
+                .into_iter()
+                .find(|existing| existing.name() == hook.name);
+            if current.is_some_and(|now| Arc::ptr_eq(&now, &hook.ours)) {
+                replace_embedder_tool_hook(&hook.name, hook.previous);
+                log::debug!("[embed][seams] tool hook restored name={}", hook.name);
+            } else {
+                log::debug!(
+                    "[embed][seams] tool hook replaced since build; left alone name={}",
+                    hook.name
+                );
+            }
         }
     }
 }
