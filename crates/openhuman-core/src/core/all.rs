@@ -89,11 +89,12 @@ fn group_allowed(group: DomainGroup) -> bool {
 /// Whether `g` is live in the ambient scope: its family is enabled and, for a
 /// SaaS user, the method is on the user surface (`user_agents::surface`).
 fn visible(g: &GroupedController) -> bool {
-    group_allowed(g.group)
-        && crate::user_agents::surface::method_visible(
-            &g.controller.rpc_method_name(),
-            g.group == DomainGroup::Operator,
-        )
+    group_allowed(g.group) && on_surface(g)
+}
+
+fn on_surface(g: &GroupedController) -> bool {
+    let operator = g.group == DomainGroup::Operator;
+    crate::user_agents::surface::method_visible(&g.controller.rpc_method_name(), operator)
 }
 
 /// The global static registry of all controllers, initialized once on first access.
