@@ -22,7 +22,23 @@ struct AgentParams {
     agent_id: String,
 }
 
-const FUNCTIONS: [&str; 4] = ["provision", "deprovision", "list", "status"];
+#[derive(Deserialize)]
+struct CredentialParams {
+    agent_id: String,
+    kind: super::credentials::UserCredentialKind,
+    token: String,
+    #[serde(default)]
+    expires_at: Option<String>,
+}
+
+const FUNCTIONS: [&str; 6] = [
+    "provision",
+    "deprovision",
+    "list",
+    "status",
+    "set_credential",
+    "clear_credential",
+];
 
 pub fn all_user_agents_controller_schemas() -> Vec<ControllerSchema> {
     FUNCTIONS.iter().map(|f| user_agents_schemas(f)).collect()
@@ -45,6 +61,14 @@ pub fn all_user_agents_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: user_agents_schemas("status"),
             handler: handle_status,
+        },
+        RegisteredController {
+            schema: user_agents_schemas("set_credential"),
+            handler: handle_set_credential,
+        },
+        RegisteredController {
+            schema: user_agents_schemas("clear_credential"),
+            handler: handle_clear_credential,
         },
     ]
 }
@@ -97,6 +121,45 @@ pub fn user_agents_schemas(function: &str) -> ControllerSchema {
                     required: true,
                 },
                 bool_field("open", "Whether it is loaded right now."),
+                bool_field("has_credential", "Whether a backend credential is installed."),
+            ],
+        },
+        "set_credential" => ControllerSchema {
+            namespace: "user_agents",
+            function: "set_credential",
+            description: "Install the TinyHumans credential the gateway holds for a user agent. \
+                          The core stores it beside the agent's state and never validates or echoes it.",
+            inputs: vec![
+                string_field("agent_id", "The agent the credential belongs to."),
+                FieldSchema {
+                    name: "kind",
+                    ty: TypeSchema::Enum {
+                        variants: vec!["session", "api_key"],
+                    },
+                    comment: "A session JWT or an API key.",
+                    required: true,
+                },
+                string_field("token", "The credential."),
+                FieldSchema {
+                    name: "expires_at",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "RFC 3339 expiry of a session, so an expired one is refused locally.",
+                    required: false,
+                },
+            ],
+            outputs: vec![
+                string_field("agent_id", "The agent."),
+                bool_field("has_credential", "Always true on success."),
+            ],
+        },
+        "clear_credential" => ControllerSchema {
+            namespace: "user_agents",
+            function: "clear_credential",
+            description: "Remove every credential a user agent holds.",
+            inputs: vec![string_field("agent_id", "The agent.")],
+            outputs: vec![
+                string_field("agent_id", "The agent."),
+                bool_field("has_credential", "Always false on success."),
             ],
         },
         _ => ControllerSchema {
@@ -131,6 +194,25 @@ fn handle_status(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let payload = deserialize_params::<AgentParams>(params)?;
         to_json(super::ops::status(&payload.agent_id)?)
+    })
+}
+
+fn handle_set_credential(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let payload = deserialize_params::<CredentialParams>(params)?;
+        to_json(super::ops::set_credential(
+            &payload.agent_id,
+            payload.kind,
+            &payload.token,
+            payload.expires_at.as_deref(),
+        )?)
+    })
+}
+
+fn handle_clear_credential(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let payload = deserialize_params::<AgentParams>(params)?;
+        to_json(super::ops::clear_credential(&payload.agent_id)?)
     })
 }
 

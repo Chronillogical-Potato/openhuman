@@ -13,7 +13,9 @@ process. A single-user core never serves it: its controllers belong to
 | `types.rs` | `UserAgentId` (`u-` + 32 hex chars of `sha256(user_id)`), its metadata, and the operator-plane result types |
 | `layout.rs` | `<root>/agents/<id>/{agent.toml, config.toml, workspace/, sandbox/}`, archived agents, and `agent_config`: the forced paths, memory binding and autonomy policy |
 | `host.rs` | `AgentHost`: provisioning, lazy open, LRU and idle eviction (never of an agent in use), each agent's derived `CoreContext`, `current()` |
-| `ops.rs` | `provision` / `deprovision` / `list` / `status`, returning `Outcome<T>` |
+| `gateway.rs` | Which context a gateway request runs under: the operator plane, or the agent of the user named in `X-OpenHuman-User`, after the signature check |
+| `credentials.rs` | A user agent's TinyHumans credential, stored beside its config |
+| `ops.rs` | `provision` / `deprovision` / `list` / `status` / `set_credential` / `clear_credential`, returning `Outcome<T>` |
 | `schemas.rs` | The `user_agents.*` controllers |
 
 ## Rules
@@ -32,3 +34,34 @@ process. A single-user core never serves it: its controllers belong to
   the session store and the per-thread caches key on.
 - **Deprovisioning archives.** The agent's directory moves to
   `<root>/deprovisioned/<id>-<unix-secs>/`. Nothing is deleted.
+
+## Gateway contract
+
+```text
+Authorization: Bearer <service token>                                  every request
+X-OpenHuman-User: <gateway user id>                                    work for a user
+X-OpenHuman-User-Sig: t=<unix secs>,v1=<hex hmac-sha256(token, "<t>.<user id>")>
+```
+
+- No user header: the request runs on the operator plane.
+- With one, `openhuman-rpc`'s `saas_gateway` layer handles it in this order:
+  1. It checks the bearer **before** anything else. An unauthenticated caller
+     cannot tell which users exist, and cannot open agents.
+  2. It checks the signature: ±60 s, bound to the user id. It is required
+     unless the operator sets `require_user_signature = false`.
+  3. It opens the user's agent, which must already be provisioned
+     (`403` otherwise).
+  4. It runs the request under that agent's context. A user's context cannot
+     reach the operator plane.
+- Routes a SaaS core never serves answer `404`: `/v1`, `/events*`, `/ws/*`,
+  `/socket.io`, `/dev/connect` and `/oauth/*`.
+
+## Credentials
+
+The gateway installs each user's session JWT or API key with
+`user_agents.set_credential`. The credential is stored in the agent's own
+auth-profile store, so any backend call made under that agent's context
+resolves that user's credential and no other. The process-wide
+`auth.set_credential` / `clear_credential` refuse in SaaS mode, because they
+activate a user directory and rebind process globals. The core never validates
+or echoes a credential.

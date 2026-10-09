@@ -79,6 +79,11 @@ impl AgentHost {
         }
     }
 
+    /// The operator's settings this host runs with.
+    pub fn saas(&self) -> &SaasConfig {
+        &self.saas
+    }
+
     fn layout(&self, id: &UserAgentId) -> UserAgentLayout {
         UserAgentLayout::new(&self.saas.root, id)
     }
@@ -243,6 +248,7 @@ impl AgentHost {
             agent_id: id.clone(),
             created_at: meta.created_at,
             open: self.is_open(id),
+            has_credential: super::credentials::has(&layout::agent_config(&layout, id)),
         }))
     }
 

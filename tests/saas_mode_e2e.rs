@@ -150,11 +150,10 @@ fn rpc_with(
     (status, response.json().unwrap_or(Value::Null))
 }
 
-#[test]
-fn a_safe_deployment_serves_core_and_the_operator_plane_behind_the_gateway_bearer() {
-    let d = deployment(true);
+/// Start a SaaS core on deployment `d` and wait until it is healthy.
+fn start(d: &Deployment) -> (Server, String, reqwest::blocking::Client) {
     let port = free_port();
-    let child = core_command(&d, &["--port", &port.to_string()])
+    let child = core_command(d, &["--port", &port.to_string()])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
@@ -179,6 +178,13 @@ fn a_safe_deployment_serves_core_and_the_operator_plane_behind_the_gateway_beare
         assert!(Instant::now() < deadline, "SaaS core never became healthy");
         std::thread::sleep(Duration::from_millis(250));
     }
+    (server, base, client)
+}
+
+#[test]
+fn a_safe_deployment_serves_core_and_the_operator_plane_behind_the_gateway_bearer() {
+    let d = deployment(true);
+    let (server, base, client) = start(&d);
 
     let (status, _) = rpc(&client, &base, None, "core.ping");
     assert_eq!(status, 401, "no bearer, no access");
@@ -279,5 +285,177 @@ fn a_safe_deployment_serves_core_and_the_operator_plane_behind_the_gateway_beare
         leaked.is_empty(),
         "a SaaS boot writes nothing under ~/.openhuman (keyring included): {leaked:?}"
     );
+    drop(server);
+}
+
+fn now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+}
+
+/// POST /rpc for gateway user `user`, signed unless `sig` overrides it.
+fn user_rpc(
+    client: &reqwest::blocking::Client,
+    base: &str,
+    bearer: &str,
+    user: &str,
+    sig: Option<&str>,
+    method: &str,
+) -> (u16, Value) {
+    use openhuman_core::user_agents::gateway::{sign, USER_HEADER, USER_SIG_HEADER};
+    let signature = sig
+        .map(str::to_owned)
+        .unwrap_or_else(|| sign(BEARER, user, now()));
+    let response = client
+        .post(format!("{base}/rpc"))
+        .bearer_auth(bearer)
+        .header(USER_HEADER, user)
+        .header(USER_SIG_HEADER, signature)
+        .json(&json!({ "jsonrpc": "2.0", "id": 1, "method": method, "params": {} }))
+        .send()
+        .expect("POST /rpc");
+    let status = response.status().as_u16();
+    (status, response.json().unwrap_or(Value::Null))
+}
+
+#[test]
+fn gateway_requests_run_under_the_named_users_agent() {
+    let d = deployment(true);
+    let (server, base, client) = start(&d);
+
+    // Provision alice and hand the core her credential; bob stays unknown.
+    let (_, body) = rpc_with(
+        &client,
+        &base,
+        Some(BEARER),
+        "openhuman.user_agents_provision",
+        json!({ "user_id": "alice" }),
+    );
+    let alice = openhuman_core::user_agents::UserAgentId::for_user("alice").unwrap();
+    assert!(body.to_string().contains(alice.as_str()), "{body}");
+    let (_, body) = rpc_with(
+        &client,
+        &base,
+        Some(BEARER),
+        "openhuman.user_agents_set_credential",
+        json!({ "agent_id": alice.as_str(), "kind": "session", "token": "alice-session-jwt" }),
+    );
+    assert!(body.get("result").is_some(), "{body}");
+    assert!(!body.to_string().contains("alice-session-jwt"), "{body}");
+    let (_, body) = rpc_with(
+        &client,
+        &base,
+        Some(BEARER),
+        "openhuman.user_agents_status",
+        json!({ "agent_id": alice.as_str() }),
+    );
+    assert!(
+        body.to_string().contains("\"has_credential\":true"),
+        "{body}"
+    );
+
+    // A signed request for alice runs under her agent.
+    let (status, body) = user_rpc(&client, &base, BEARER, "alice", None, "core.ping");
+    assert_eq!(status, 200, "{body}");
+    assert!(body.get("result").is_some(), "{body}");
+
+    // A user's scope cannot reach the operator plane.
+    let (_, body) = user_rpc(
+        &client,
+        &base,
+        BEARER,
+        "alice",
+        None,
+        "openhuman.user_agents_list",
+    );
+    assert!(
+        body.get("error").is_some(),
+        "operator methods are not a user's: {body}"
+    );
+
+    // Refusals: bad bearer first, then signatures, then provisioning.
+    let (status, body) = user_rpc(&client, &base, "wrong-bearer", "alice", None, "core.ping");
+    assert_eq!(status, 401, "{body}");
+    let (status, body) = user_rpc(&client, &base, "wrong-bearer", "bob", None, "core.ping");
+    assert_eq!(
+        status, 401,
+        "an unauthenticated caller cannot probe users: {body}"
+    );
+    let (status, body) = user_rpc(
+        &client,
+        &base,
+        BEARER,
+        "alice",
+        Some("t=1,v1=00"),
+        "core.ping",
+    );
+    assert_eq!(status, 401, "{body}");
+    let forged = openhuman_core::user_agents::gateway::sign(BEARER, "alice", now());
+    let (status, body) = user_rpc(&client, &base, BEARER, "bob", Some(&forged), "core.ping");
+    assert_eq!(status, 401, "alice's signature does not cover bob: {body}");
+    let (status, body) = user_rpc(&client, &base, BEARER, "bob", None, "core.ping");
+    assert_eq!(status, 403, "bob is not provisioned: {body}");
+
+    // Single-user surfaces are closed.
+    for path in ["/events", "/events/domain", "/v1/models", "/dev/connect"] {
+        let status = client
+            .get(format!("{base}{path}"))
+            .bearer_auth(BEARER)
+            .send()
+            .unwrap()
+            .status()
+            .as_u16();
+        assert_eq!(status, 404, "{path}");
+    }
+
+    // The credential lives in alice's own directory.
+    let agent_dir = d.root.join("agents").join(alice.as_str());
+    let stored: Vec<_> = std::fs::read_dir(&agent_dir)
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .collect();
+    assert!(
+        stored.iter().any(|name| name.contains("auth")),
+        "credential store beside alice's config: {stored:?}"
+    );
+    drop(server);
+}
+
+#[test]
+fn a_duplicate_or_unreadable_user_header_is_refused() {
+    use openhuman_core::user_agents::gateway::USER_HEADER;
+    let d = deployment(true);
+    let (server, base, client) = start(&d);
+    let body =
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "openhuman.user_agents_list", "params": {} });
+
+    // Two user headers: refused, never run as the operator.
+    let status = client
+        .post(format!("{base}/rpc"))
+        .bearer_auth(BEARER)
+        .header(USER_HEADER, "alice")
+        .header(USER_HEADER, "bob")
+        .json(&body)
+        .send()
+        .unwrap()
+        .status()
+        .as_u16();
+    assert_eq!(status, 400);
+
+    // A header value that is valid HTTP but not text: refused too.
+    let unreadable = reqwest::header::HeaderValue::from_bytes(b"alice\xff").unwrap();
+    let status = client
+        .post(format!("{base}/rpc"))
+        .bearer_auth(BEARER)
+        .header(USER_HEADER, unreadable)
+        .json(&body)
+        .send()
+        .unwrap()
+        .status()
+        .as_u16();
+    assert_eq!(status, 400);
     drop(server);
 }
