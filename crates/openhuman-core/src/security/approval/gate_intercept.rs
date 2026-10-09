@@ -52,13 +52,7 @@ impl ApprovalGate {
         // external_effect tool from an unlabelled call site.
         // SaaS has no per-user approval surface: never park, allow only what
         // the deployment's sandboxed tool groups open.
-        if crate::core::runtime::is_saas() {
-            let outcome = match crate::user_agents::tools::gate_verdict(tool_name) {
-                Ok(()) => GateOutcome::Allow,
-                Err(why) => GateOutcome::Deny {
-                    reason: format!("{POLICY_DENIED_MARKER} {why}"),
-                },
-            };
+        if let Some(outcome) = saas_outcome_with(crate::core::runtime::is_saas(), tool_name) {
             return (outcome, None);
         }
         let origin = turn_origin::current().unwrap_or(AgentTurnOrigin::Unknown);
@@ -651,5 +645,27 @@ impl ApprovalGate {
         // every exit (decision, channel drop, or timeout).
         self.clear_thread(&thread_key, &request_id);
         outcome
+    }
+}
+
+/// The gate's outcome in SaaS, `None` outside it. SaaS has no per-user approval
+/// surface, so the gate never parks there; the verdict comes from the
+/// deployment's allowlisted tool groups.
+pub(crate) fn saas_outcome_with(saas: bool, tool_name: &str) -> Option<GateOutcome> {
+    if !saas {
+        return None;
+    }
+    Some(saas_outcome(crate::user_agents::tools::gate_verdict(
+        tool_name,
+    )))
+}
+
+/// Maps a SaaS gate verdict to a [`GateOutcome`].
+pub(crate) fn saas_outcome(verdict: Result<(), String>) -> GateOutcome {
+    match verdict {
+        Ok(()) => GateOutcome::Allow,
+        Err(why) => GateOutcome::Deny {
+            reason: format!("{POLICY_DENIED_MARKER} {why}"),
+        },
     }
 }

@@ -193,7 +193,21 @@ pub fn current_policy() -> Policy {
 /// credential) stop every user's model calls.
 #[cfg(not(test))]
 pub fn is_signed_out() -> bool {
-    !crate::core::runtime::is_saas() && SIGNED_OUT.load(Ordering::Acquire)
+    signed_out_with(
+        crate::core::runtime::is_saas(),
+        SIGNED_OUT.load(Ordering::Acquire),
+    )
+}
+
+/// The signed-out verdict for a process in `saas` mode whose process-wide flag
+/// reads `flag`: always `false` in SaaS.
+pub(crate) fn signed_out_with(saas: bool, flag: bool) -> bool {
+    !saas && flag
+}
+
+/// Whether a process-wide signed-out write takes effect: never in SaaS.
+pub(crate) fn accepts_signed_out_write_with(saas: bool) -> bool {
+    !saas
 }
 
 #[cfg(test)]
@@ -225,7 +239,7 @@ pub fn set_signed_out(signed_out: bool) {
     if STATE.get().is_none() {
         return;
     }
-    if crate::core::runtime::is_saas() {
+    if !accepts_signed_out_write_with(crate::core::runtime::is_saas()) {
         log::debug!("[scheduler_gate] SaaS: ignoring process-wide signed_out={signed_out}");
         return;
     }

@@ -20,7 +20,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::core_host::core::runtime::CoreContext;
 use crate::core_host::user_agents::gateway::{
-    resolve_scope, GatewayScope, USER_HEADER, USER_SIG_HEADER,
+    resolve_scope, GatewayRefusal, GatewayScope, USER_HEADER, USER_SIG_HEADER,
 };
 use axum::extract::Request;
 use axum::http::{header, StatusCode};
@@ -69,44 +69,13 @@ fn bearer(req: &Request) -> Option<&str> {
 
 /// The SaaS request layer; `operator` is the runtime's own context.
 pub(crate) async fn saas_gateway(operator: Arc<CoreContext>, req: Request, next: Next) -> Response {
-    let path = req.uri().path();
-    if is_closed_in_saas(path) {
-        log::debug!("[rpc:saas] {path} is not served in SaaS mode");
-        return refuse(404, "not found");
-    }
-
-    // Absent means the operator plane. Present but unreadable, or present
-    // twice, is refused: falling back to the operator would skip the user
-    // signature check.
-    let mut user_headers = req.headers().get_all(USER_HEADER).iter();
-    let Some(first) = user_headers.next() else {
-        // The chat event stream is a user's; the operator has none.
-        if path == "/events" {
-            return refuse(404, "not found");
-        }
-        return CoreContext::scope(operator, next.run(req)).await;
-    };
-    if user_headers.next().is_some() {
-        log::debug!("[rpc:saas] refusing a request with more than one {USER_HEADER}");
-        return refuse(400, "more than one user header");
-    }
-    let Ok(user) = first.to_str().map(str::to_owned) else {
-        log::debug!("[rpc:saas] refusing an unreadable {USER_HEADER}");
-        return refuse(400, "unreadable user header");
-    };
-
-    let Some(secret) = crate::core_host::core::auth::get_rpc_token() else {
-        return refuse(503, "the core is not ready");
-    };
-    if !bearer(&req).is_some_and(crate::core_host::core::auth::verify_bearer_token) {
-        return refuse(401, "unauthorized");
-    }
-    let signature = header_str(&req, USER_SIG_HEADER).map(str::to_owned);
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or_default();
-    match resolve_scope(Some(&user), signature.as_deref(), secret, now) {
+    let secret = crate::core_host::core::auth::get_rpc_token();
+    match decide(&req, secret, now, resolve_scope) {
+        Err(response) => response,
         Ok(GatewayScope::User(agent)) => {
             let ctx = Arc::clone(agent.context());
             // Holding the state for the request keeps the agent from being
@@ -116,8 +85,66 @@ pub(crate) async fn saas_gateway(operator: Arc<CoreContext>, req: Request, next:
             response
         }
         Ok(GatewayScope::Operator) => CoreContext::scope(operator, next.run(req)).await,
-        Err(refusal) => refuse(refusal.status, &refusal.message),
     }
+}
+
+/// Which scope a request runs under, or the response that refuses it.
+///
+/// `secret` is the service bearer (`None` before the core has one), `now` is
+/// unix seconds and `resolve` maps the checked headers to a scope
+/// ([`resolve_scope`] in production). Taking them as arguments keeps the
+/// decision free of process-wide state.
+pub(crate) fn decide(
+    req: &Request,
+    secret: Option<&str>,
+    now: u64,
+    resolve: impl FnOnce(Option<&str>, Option<&str>, &str, u64) -> Result<GatewayScope, GatewayRefusal>,
+) -> Result<GatewayScope, Response> {
+    let path = req.uri().path();
+    if is_closed_in_saas(path) {
+        log::debug!("[rpc:saas] {path} is not served in SaaS mode");
+        return Err(refuse(404, "not found"));
+    }
+
+    // Absent means the operator plane. Present but unreadable, or present
+    // twice, is refused: falling back to the operator would skip the user
+    // signature check.
+    let mut user_headers = req.headers().get_all(USER_HEADER).iter();
+    let Some(first) = user_headers.next() else {
+        // The chat event stream is a user's; the operator has none.
+        if path == "/events" {
+            return Err(refuse(404, "not found"));
+        }
+        return Ok(GatewayScope::Operator);
+    };
+    if user_headers.next().is_some() {
+        log::debug!("[rpc:saas] refusing a request with more than one {USER_HEADER}");
+        return Err(refuse(400, "more than one user header"));
+    }
+    let Ok(user) = first.to_str() else {
+        log::debug!("[rpc:saas] refusing an unreadable {USER_HEADER}");
+        return Err(refuse(400, "unreadable user header"));
+    };
+
+    let Some(secret) = secret else {
+        return Err(refuse(503, "the core is not ready"));
+    };
+    if !bearer(req)
+        .is_some_and(|supplied| crate::core_host::core::auth::bearer_matches(supplied, secret))
+    {
+        return Err(refuse(401, "unauthorized"));
+    }
+    // Checked after the bearer, so an unauthenticated caller learns nothing.
+    // A second signature must not be ignored in favour of the first.
+    let mut sig_headers = req.headers().get_all(USER_SIG_HEADER).iter();
+    let signature = sig_headers.next();
+    if sig_headers.next().is_some() {
+        log::debug!("[rpc:saas] refusing a request with more than one {USER_SIG_HEADER}");
+        return Err(refuse(400, "more than one user signature header"));
+    }
+    let signature = signature.and_then(|value| value.to_str().ok());
+    resolve(Some(user), signature, secret, now)
+        .map_err(|refusal| refuse(refusal.status, &refusal.message))
 }
 
 #[cfg(test)]

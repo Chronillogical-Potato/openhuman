@@ -53,3 +53,24 @@ async fn current_follows_the_agent_context_and_falls_back_to_the_process() {
         "a context without its own catalogue resolves through the process"
     );
 }
+
+#[test]
+fn builtins_only_registry_holds_builtins_only() {
+    assert!(AgentDefinitionRegistry::builtins_only().holds_builtins_only());
+}
+
+#[test]
+fn an_extra_definition_is_not_builtins_only() {
+    let extra =
+        AgentDefinitionRegistry::builtins_only().with_definitions([named("own-worker", "added")]);
+    assert!(!extra.holds_builtins_only());
+}
+
+#[test]
+fn a_file_sourced_override_is_not_builtins_only() {
+    let mut overridden = named("orchestrator", "from a workspace file");
+    overridden.source =
+        crate::agent::harness::DefinitionSource::File("/ws/agents/orchestrator.toml".into());
+    let registry = AgentDefinitionRegistry::builtins_only().with_definitions([overridden]);
+    assert!(!registry.holds_builtins_only());
+}

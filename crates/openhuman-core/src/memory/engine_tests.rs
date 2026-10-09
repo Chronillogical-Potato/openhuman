@@ -380,3 +380,35 @@ async fn switching_to_v3_persists_and_rebinds_the_persons_own_config() {
         "the caller's copy is not the source of truth"
     );
 }
+
+#[test]
+fn saas_never_admits_the_host_engine() {
+    assert!(!admits_host_engine_with(true));
+    assert!(admits_host_engine_with(false));
+}
+
+#[test]
+fn host_binding_is_ignored_in_saas() {
+    assert_eq!(host_binding_with(true, Some(1), None).unwrap(), None);
+    // The scope-root refusal never fires in SaaS: the host engine is not
+    // in play at all.
+    assert_eq!(
+        host_binding_with(true, Some(1), Some("user:a")).unwrap(),
+        None
+    );
+}
+
+#[test]
+fn host_binding_is_used_without_a_scope_root_outside_saas() {
+    assert_eq!(host_binding_with(false, Some(1), None).unwrap(), Some(1));
+    assert_eq!(host_binding_with::<u8>(false, None, None).unwrap(), None);
+}
+
+#[test]
+fn host_binding_refuses_a_scope_root_outside_saas() {
+    assert!(host_binding_with(false, Some(1), Some("user:a")).is_err());
+    assert_eq!(
+        host_binding_with::<u8>(false, None, Some("user:a")).unwrap(),
+        None
+    );
+}

@@ -223,7 +223,7 @@ pub fn resolve(config: &Config) -> Binding {
     if let Some(bound) = host_engine() {
         // A host engine is one store for the whole process: in SaaS it would
         // put every user in one engine, so it is ignored there.
-        if !crate::core::runtime::is_saas() {
+        if admits_host_engine_with(crate::core::runtime::is_saas()) {
             return Binding::On(bound);
         }
         tracing::warn!("[memory:engine] ignoring the host engine in SaaS mode");
@@ -280,22 +280,37 @@ pub fn bind_with_root(config: &Config, root: Option<&str>) -> MemoryResult<Bound
     }
     // As in `resolve`: a SaaS process never hands out the process-wide host
     // engine, which every user would share.
-    let host = if crate::core::runtime::is_saas() {
-        None
+    if let Some(bound) = host_binding_with(crate::core::runtime::is_saas(), host_engine(), root)? {
+        return Ok(bound);
+    }
+    resolve_configured(config, root).engine()
+}
+
+/// Whether the process-wide host engine may be used: never in SaaS, where one
+/// engine would put every user in the same store.
+pub(crate) fn admits_host_engine_with(saas: bool) -> bool {
+    !saas
+}
+
+/// The host engine `bind_with_root` returns for `root`, if any. `host` is
+/// ignored in SaaS; outside it the host engine has one layout of its own, so
+/// it cannot be bound below a scope root.
+pub(crate) fn host_binding_with<T>(
+    saas: bool,
+    host: Option<T>,
+    root: Option<&str>,
+) -> MemoryResult<Option<T>> {
+    let host = if admits_host_engine_with(saas) {
+        host
     } else {
-        host_engine()
+        None
     };
     if host.is_some() && root.is_some() {
         return Err(MemoryError::Engine(
             "the host's memory engine cannot be bound below a scope root".to_string(),
         ));
     }
-    if root.is_none() {
-        if let Some(bound) = host {
-            return Ok(bound);
-        }
-    }
-    resolve_configured(config, root).engine()
+    Ok(if root.is_none() { host } else { None })
 }
 
 /// The configured engine with its scope root (`None` legacy).

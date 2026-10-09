@@ -99,9 +99,11 @@ pub async fn run(config: Config) -> Result<()> {
 }
 
 /// Runs the due jobs of every live embedded agent, each under that agent's
-/// own context: its config, provider route, policy and job database. An
-/// agent that is not live has no context to run under, so its jobs stay
-/// dormant until it is instantiated again.
+/// own context: its config, provider route, policy and job store. An agent
+/// that is not live has no context to run under — no host tools or prompt
+/// for its agent jobs — so its jobs stay dormant until it is instantiated
+/// again, including when a storage backend still records it
+/// (`crate::storage::agents`).
 pub(crate) async fn tick_live_agents(dispatcher: &mut JobDispatcher) {
     for (agent_id, ctx) in crate::core::runtime::AgentContextRegistry::live() {
         let agent = agent_id.clone();
@@ -114,7 +116,7 @@ pub(crate) async fn tick_live_agents(dispatcher: &mut JobDispatcher) {
                     return;
                 }
             };
-            if !crate::cron::store::db_path(&config).exists() {
+            if !agent_jobs_may_exist(&config) {
                 return;
             }
             let jobs = match due_jobs(&config, Utc::now()) {
@@ -136,6 +138,13 @@ pub(crate) async fn tick_live_agents(dispatcher: &mut JobDispatcher) {
         })
         .await;
     }
+}
+
+/// Whether an agent can have jobs to poll: with a storage backend its jobs
+/// live in the backend under its scope (`crate::storage`), so there is always
+/// something to ask; without one, only once its own `jobs.db` exists.
+pub(crate) fn agent_jobs_may_exist(config: &Config) -> bool {
+    crate::storage::installed().is_some() || crate::cron::store::db_path(config).exists()
 }
 
 /// Single poll cycle of the scheduler loop, extracted so tests can drive
@@ -254,6 +263,9 @@ pub(super) async fn execute_and_persist_job(
     )
     .await;
 
+    // The job ran as its agent (when it had one); a one-shot job is already
+    // deleted, so subscribers learn the owner here, not from the store.
+    crate::cron::completion_owner::note(&job.id);
     BUS.publish(DomainEvent::CronJobCompleted {
         job_id: job.id.clone(),
         success,

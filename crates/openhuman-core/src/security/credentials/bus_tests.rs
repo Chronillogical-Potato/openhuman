@@ -28,3 +28,24 @@ async fn handle_ignores_non_auth_events() {
         "non-auth event must not flip the override"
     );
 }
+
+#[tokio::test]
+async fn session_expired_in_saas_returns_before_any_teardown() {
+    let s = SessionExpiredSubscriber::new();
+    scheduler_gate::set_signed_out(false);
+    // In single-user mode this would load the config and may flip the gate;
+    // in SaaS it must return at once, leaving the gate untouched.
+    tokio::time::timeout(
+        std::time::Duration::from_secs(1),
+        s.handle_with(
+            true,
+            &DomainEvent::SessionExpired {
+                source: "test".into(),
+                reason: "401".into(),
+            },
+        ),
+    )
+    .await
+    .expect("SaaS early return must not await the config load");
+    assert!(!scheduler_gate::is_signed_out());
+}

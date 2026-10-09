@@ -189,7 +189,13 @@ impl EventHandler<DomainEvent> for FlowRunDigestSubscriber {
             status,
         } = event
         {
-            self.handle_finished(flow_id, run_id, status).await;
+            // Settle the run as the agent its flow belongs to (`super::owner`).
+            let owner = super::owner::flow_owner(&self.config, flow_id).await;
+            crate::storage::agents::within_agent(
+                owner.as_deref(),
+                self.handle_finished(flow_id, run_id, status),
+            )
+            .await;
         }
     }
 }

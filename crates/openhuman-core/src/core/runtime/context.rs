@@ -692,6 +692,9 @@ pub async fn init_stores(cfg: &crate::config::Config, domains: crate::core::runt
 #[path = "context_turn_origin.rs"]
 mod turn_origin_scope;
 
+#[path = "context_for_agent.rs"]
+mod for_agent_scope;
+
 #[path = "context_agent.rs"]
 mod agent_parts;
 
