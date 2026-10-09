@@ -1039,7 +1039,10 @@ fn allowed_ipc_commands() -> (
         let doc: toml::Value = toml::from_str(&text).expect("parse permission file");
         for perm in doc["permission"].as_array().expect("[[permission]] array") {
             identifiers.insert(perm["identifier"].as_str().unwrap().to_string());
-            let allow = perm["commands"]["allow"].as_array().cloned().unwrap_or_default();
+            let allow = perm["commands"]["allow"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
             commands.extend(allow.iter().map(|c| c.as_str().unwrap().to_string()));
         }
     }
