@@ -54,6 +54,7 @@ fn external_channel() -> AgentTurnOrigin {
     AgentTurnOrigin::ExternalChannel {
         channel: "telegram".into(),
         sender: Some("someone".into()),
+        sender_name: None,
         reply_target: "chat-1".into(),
         message_id: "m-1".into(),
         history_key: None,

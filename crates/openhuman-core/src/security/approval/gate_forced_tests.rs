@@ -120,6 +120,7 @@ async fn forced_approval_still_denies_automation_and_channel_origins() {
         AgentTurnOrigin::ExternalChannel {
             channel: "telegram".into(),
             sender: None,
+            sender_name: None,
             reply_target: "chat".into(),
             message_id: "m".into(),
             history_key: None,
