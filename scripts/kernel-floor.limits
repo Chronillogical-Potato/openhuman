@@ -658,4 +658,9 @@
 #                      not add a native build dependency.
 # 332/311/3 2026-10-04 Memory lifecycle refresh removed five packages/names
 #                      from the Linux flows graph; native builds remain at 3.
-flows:342:320:3
+#   334/312/2  2026-10-09  The tinyagents bump (tinyagents-tasks, tinystoragedrivers)
+#                      no longer pulls the PNG optimizer chain (oxipng, rgb,
+#                      libdeflater, libdeflate-sys, bitvec and friends), so the
+#                      flows profile resolves 8 fewer packages / names and one
+#                      fewer native build. Measured on CI (Linux).
+flows:334:312:2
