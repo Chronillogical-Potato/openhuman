@@ -156,11 +156,11 @@ pub enum ResponseFormat {
 }
 
 impl ResponseFormat {
-    fn wants_json(&self) -> bool {
+    pub(crate) fn wants_json(&self) -> bool {
         !matches!(self, ResponseFormat::Text)
     }
 
-    fn into_wire(self) -> tinyinference_llm::model::ResponseFormat {
+    pub(crate) fn into_wire(self) -> tinyinference_llm::model::ResponseFormat {
         use tinyinference_llm::model::ResponseFormat as Wire;
         match self {
             ResponseFormat::Text => Wire::Text,

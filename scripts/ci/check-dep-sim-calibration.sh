@@ -101,8 +101,11 @@ cd "$(dirname "$0")/../.."
 # dependencies into the flows graph.
 # 320 -> 313 on 2026-10-09: the tinyagents and tinyflows mains shed seven
 # names from the flows graph.
-# This matches the current `flows:335:313:2` entry in
+# 313 -> 314 on 2026-10-09: the config loader names the failing field path
+# through `serde_path_to_error` (pure Rust, no dependencies; already in the
+# product graph through axum).
+# This matches the current `flows:336:314:2` entry in
 # scripts/kernel-floor.limits; its preceding entries are historical.
-EXPECTED_NAMES=313
+EXPECTED_NAMES=314
 
 exec python3 scripts/dep-sim.py --cut-nothing --expect-names "${EXPECTED_NAMES}"

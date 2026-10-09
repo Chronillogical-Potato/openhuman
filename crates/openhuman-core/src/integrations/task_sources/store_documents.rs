@@ -28,7 +28,7 @@ use super::types::{
 };
 use crate::integrations::composio::providers::NormalizedTask;
 use crate::storage::documents::{compare_and_swap, text, Repo};
-use crate::storage::DocumentStoreExt;
+use crate::storage::{DocumentStoreExt, StorageError};
 
 const SOURCES: &str = "task_sources";
 const INGESTED: &str = "ingested_tasks";
@@ -193,10 +193,12 @@ impl Docs {
     pub(super) fn remove_source(&self, id: &str) -> Result<()> {
         let key = id.to_string();
         let removed = self.0.run(|docs| async move {
-            let removed = docs.delete(SOURCES, &key, Precondition::None).await?;
-            docs.delete_where(INGESTED, &Filter::eq("source_id", key))
+            // Ledger first: if the source delete then fails, the source is
+            // still there (and merely re-ingests), instead of a ledger with no
+            // owner that a later source with the same id would inherit.
+            docs.delete_where(INGESTED, &Filter::eq("source_id", key.clone()))
                 .await?;
-            Ok(removed)
+            docs.delete(SOURCES, &key, Precondition::None).await
         })?;
         if removed {
             Ok(())
@@ -249,8 +251,20 @@ impl Docs {
     }
 
     pub(super) fn mark_ingested(&self, source_id: &str, task: &NormalizedTask) -> Result<()> {
+        self.mark_ingested_at(source_id, task, Utc::now())
+    }
+
+    /// [`Self::mark_ingested`] with the ingestion time supplied.
+    fn mark_ingested_at(
+        &self,
+        source_id: &str,
+        task: &NormalizedTask,
+        now: DateTime<Utc>,
+    ) -> Result<()> {
+        // The SQL ledger has a foreign key to the source; keep that parent
+        // check so a fetch racing a removal does not leave an orphan entry.
+        self.get_source(source_id)?;
         let key = ingested_id(source_id, &task.external_id);
-        let now = Utc::now();
         let doc = json!({
             "source_id": source_id,
             "external_id": task.external_id,
@@ -302,11 +316,23 @@ impl Docs {
                 .limit(limit.max(1));
         self.0.run(|docs| async move {
             let page = docs.query(INGESTED, &query).await?;
-            Ok(page
-                .items
+            page.items
                 .iter()
-                .filter_map(|stored| serde_json::from_str(text(&stored.doc, "payload")?).ok())
-                .collect())
+                .map(|stored| {
+                    let raw = text(&stored.doc, "payload").ok_or_else(|| {
+                        StorageError::serialization(format!(
+                            "ingested task {} has no payload",
+                            stored.id
+                        ))
+                    })?;
+                    serde_json::from_str(raw).map_err(|error| {
+                        StorageError::serialization(format!(
+                            "ingested task {} payload is not valid: {error}",
+                            stored.id
+                        ))
+                    })
+                })
+                .collect::<Result<Vec<NormalizedTask>, StorageError>>()
         })
     }
 

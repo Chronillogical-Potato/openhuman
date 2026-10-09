@@ -347,6 +347,33 @@ pub fn get_decision(config: &Config, request_id: &str) -> Result<Option<Approval
     })
 }
 
+/// The document store of the current call, for a caller that decides later
+/// from outside this call's task scope (a `Drop`), where the acting agent is
+/// no longer installed. A scope that cannot be resolved is kept as an error,
+/// so the later decision fails instead of switching to the SQLite store.
+pub(super) fn capture_docs() -> Result<Option<super::store_documents::Docs>, String> {
+    super::store_documents::current().map_err(|error| error.to_string())
+}
+
+/// [`decide`] against a store captured by [`capture_docs`].
+pub(super) fn decide_captured(
+    config: &Config,
+    captured: &Result<Option<super::store_documents::Docs>, String>,
+    request_id: &str,
+    decision: ApprovalDecision,
+) -> Result<Option<PendingApproval>> {
+    match captured {
+        Ok(Some(docs)) => {
+            publish_expired(&docs.expire_stale(Utc::now())?);
+            docs.decide(request_id, decision)
+        }
+        Ok(None) => decide(config, request_id, decision),
+        Err(error) => Err(anyhow::anyhow!(
+            "[approval::store] storage scope was unresolved when the request parked: {error}"
+        )),
+    }
+}
+
 /// Mark a pending row as decided and return the now-decided row.
 /// Returns `Ok(None)` if no row matched (already decided, expired, or
 /// unknown id).

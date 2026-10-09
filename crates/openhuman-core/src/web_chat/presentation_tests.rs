@@ -55,6 +55,7 @@ async fn chat_done_carries_timing_when_a_snapshot_is_supplied() {
         cost_usd: 0.01,
         context_window: 8000,
         subagents: Vec::new(),
+        reasoning_tokens: 0,
     };
     let timing = crate::web_chat::turn_timing::TurnTimingSnapshot {
         first_token_ms: Some(120),

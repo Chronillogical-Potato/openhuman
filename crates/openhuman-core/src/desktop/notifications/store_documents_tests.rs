@@ -2,6 +2,8 @@ use super::*;
 use crate::desktop::notifications::types::CoreNotificationCategory;
 use crate::storage::{MemoryStorage, Scope, StorageBackend};
 
+const WS: &str = "/workspace/a";
+
 fn docs_in(storage: &MemoryStorage, scope: &str) -> Docs {
     Docs::over(&storage.for_scope(&Scope::new(scope).unwrap()).unwrap())
 }
@@ -88,11 +90,97 @@ fn identical_content_within_a_minute_is_skipped() {
 #[test]
 fn content_older_than_the_window_is_not_a_duplicate() {
     let store = docs();
-    store.insert(&note("a", "slack", "hi", 120), false).unwrap();
+    let dedup = dedup_id("slack", Some("acct"), "New message", "hi");
+    let stale = (Utc::now() - Duration::seconds(120)).timestamp_millis();
+    store
+        .0
+        .run(|docs| async move {
+            docs.put(
+                DEDUP,
+                &dedup,
+                json!({ "last_ms": stale }),
+                Precondition::Absent,
+            )
+            .await
+            .map(|_| ())
+        })
+        .unwrap();
     assert!(!store
         .exists_recent("slack", Some("acct"), "New message", "hi")
         .unwrap());
     assert!(store.insert(&note("b", "slack", "hi", 0), true).unwrap());
+}
+
+#[test]
+fn dedup_follows_arrival_not_the_notifications_own_timestamp() {
+    let store = docs();
+    // A delayed event (stamped two minutes ago) and a future-dated one both
+    // arrived now, so identical content right after is a duplicate either way.
+    assert!(store
+        .insert(&note("a", "slack", "late", 120), true)
+        .unwrap());
+    assert!(!store.insert(&note("b", "slack", "late", 0), true).unwrap());
+    assert!(store
+        .insert(&note("c", "slack", "future", -3600), true)
+        .unwrap());
+    assert!(!store
+        .insert(&note("d", "slack", "future", 0), true)
+        .unwrap());
+}
+
+#[test]
+fn a_failed_insert_releases_its_dedup_claim() {
+    let store = docs();
+    store
+        .insert(&note("taken", "slack", "first", 0), false)
+        .unwrap();
+    // Same id, new content: the claim succeeds, the notification put fails.
+    assert!(store
+        .insert(&note("taken", "slack", "second", 0), true)
+        .is_err());
+    assert!(
+        !store
+            .exists_recent("slack", Some("acct"), "New message", "second")
+            .unwrap(),
+        "the claim was rolled back"
+    );
+    assert!(store
+        .insert(&note("fresh", "slack", "second", 0), true)
+        .unwrap());
+}
+
+#[test]
+fn workspaces_keep_core_notifications_apart() {
+    let store = docs();
+    assert!(store
+        .insert_core_notification("/workspace/a", &event("e", 1))
+        .unwrap());
+    assert!(store
+        .insert_core_notification("/workspace/b", &event("e", 2))
+        .unwrap());
+    let a = store
+        .list_core_notifications("/workspace/a", false, 10)
+        .unwrap();
+    assert_eq!(a.len(), 1);
+    assert_eq!(a[0].timestamp_ms, 1);
+    assert!(store
+        .mark_core_notification_read("/workspace/a", "e")
+        .unwrap());
+    assert_eq!(
+        store
+            .unread_core_notification_count("/workspace/a")
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        store
+            .unread_core_notification_count("/workspace/b")
+            .unwrap(),
+        1
+    );
+    assert!(!store
+        .mark_core_notification_read("/workspace/c", "e")
+        .unwrap());
 }
 
 #[test]
@@ -168,49 +256,54 @@ fn settings_default_then_upsert() {
 #[test]
 fn core_notifications_persist_once_and_mark_read() {
     let store = docs();
-    assert!(store.insert_core_notification(&event("a", 1)).unwrap());
-    assert!(!store.insert_core_notification(&event("a", 1)).unwrap());
-    assert!(store.insert_core_notification(&event("b", 2)).unwrap());
-    let all = store.list_core_notifications(false, 10).unwrap();
+    assert!(store.insert_core_notification(WS, &event("a", 1)).unwrap());
+    assert!(!store.insert_core_notification(WS, &event("a", 1)).unwrap());
+    assert!(store.insert_core_notification(WS, &event("b", 2)).unwrap());
+    let all = store.list_core_notifications(WS, false, 10).unwrap();
     assert_eq!(
         all.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(),
         ["b", "a"]
     );
     assert_eq!(all[0], event("b", 2));
-    assert_eq!(store.unread_core_notification_count().unwrap(), 2);
-    assert!(store.mark_core_notification_read("b").unwrap());
+    assert_eq!(store.unread_core_notification_count(WS).unwrap(), 2);
+    assert!(store.mark_core_notification_read(WS, "b").unwrap());
     assert!(
-        store.mark_core_notification_read("b").unwrap(),
+        store.mark_core_notification_read(WS, "b").unwrap(),
         "still exists"
     );
-    assert!(!store.mark_core_notification_read("missing").unwrap());
-    let unread = store.list_core_notifications(true, 10).unwrap();
+    assert!(!store.mark_core_notification_read(WS, "missing").unwrap());
+    let unread = store.list_core_notifications(WS, true, 10).unwrap();
     assert_eq!(
         unread.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(),
         ["a"]
     );
-    assert_eq!(store.unread_core_notification_count().unwrap(), 1);
-    assert!(store.list_core_notifications(false, 0).unwrap().is_empty());
+    assert_eq!(store.unread_core_notification_count(WS).unwrap(), 1);
+    assert!(store
+        .list_core_notifications(WS, false, 0)
+        .unwrap()
+        .is_empty());
 }
 
 #[test]
 fn a_corrupt_core_payload_is_skipped() {
     let store = docs();
-    store.insert_core_notification(&event("good", 1)).unwrap();
+    store
+        .insert_core_notification(WS, &event("good", 1))
+        .unwrap();
     store
         .0
         .run(|docs| async move {
             docs.put(
                 CORE,
                 "bad",
-                json!({ "payload": "not json", "timestamp_ms": 2, "read": false }),
+                json!({ "workspace": WS, "payload": "not json", "timestamp_ms": 2, "read": false }),
                 Precondition::Absent,
             )
             .await
             .map(|_| ())
         })
         .unwrap();
-    let listed = store.list_core_notifications(false, 10).unwrap();
+    let listed = store.list_core_notifications(WS, false, 10).unwrap();
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].id, "good");
 }

@@ -45,14 +45,16 @@ pub async fn run_server_headless(host: Option<&str>, port: Option<u16>) -> anyho
 /// Runs a SaaS core: many users behind a trusted gateway, booted from the
 /// operator's config file and refused unless its boot guard passes.
 ///
-/// No session store is installed: the SaaS presets enable no domain that
-/// keeps conversations yet.
+/// The on-disk session store is installed before boot. It resolves the
+/// workspace of the context each call runs under, so every user agent keeps
+/// its sessions, transcripts and turn states in its own workspace.
 pub async fn run_server_saas(
     host: Option<&str>,
     port: Option<u16>,
     saas_config: &std::path::Path,
 ) -> anyhow::Result<()> {
     let config = openhuman_core::core::runtime::SaasConfig::load(saas_config)?;
+    crate::session_store::install();
     let runtime =
         openhuman_core::core::runtime::saas::build(config, host.map(str::to_owned), port).await?;
     super::serve::serve(&runtime, None, None).await

@@ -4,7 +4,7 @@ Everything host-specific about reaching the TinyHumans backend: where it is,
 how requests are attributed, and which product they are attributed to. The
 core holds none of this. It asks the installed `BackendTransport`
 (`SdkBackendTransport` in [`../transport/`](../transport/README.md)) through
-`openhuman_core::backend::{base_url, inference_base_url, product_identity,
+the core's `backend::{base_url, inference_base_url, product_identity,
 attribution_headers}`, and the transport answers from the three files here.
 
 ## How it works
@@ -75,7 +75,7 @@ header-safe characters and clamped to 64 bytes. `attribution_headers()`
 builds that map.
 
 `backend_client_builder(profile)` returns a `reqwest::ClientBuilder` with the
-platform TLS backend (`openhuman_core::util::tls::tls_client_builder`, which
+platform TLS backend (`openhuman_embed::__host::util::tls::tls_client_builder`, which
 picks schannel on Windows and rustls elsewhere), HTTP/1 only, redirects
 disabled, a 15 s connect timeout and the attribution headers as defaults. The
 request timeout depends on the `TransportProfile`: 120 s for `Api` and 60 s
@@ -125,7 +125,7 @@ process.
 
 - The core owns the questions (`backend::base_url` and friends in
   [`crates/openhuman-core/src/backend/mod.rs`](../../../openhuman-core/src/backend/mod.rs)) and the URL utilities this file
-  re-exports (`openhuman_core::util::url`). It owns the app-environment
+  re-exports (`openhuman_embed::__host::util::url`). It owns the app-environment
   reading too (`config::app_env`).
 - Do not put the `x-sdk-name` header on third-party endpoints, MCP servers,
   BYOK inference endpoints or presigned storage redirects. These helpers are

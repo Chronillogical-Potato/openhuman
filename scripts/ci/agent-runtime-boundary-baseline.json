@@ -331,14 +331,14 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_async_subagent_execute.rs",
-    "line": 418,
+    "line": 424,
     "text": "let join = tokio::spawn(crate::agent::turn_origin::propagate(",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_async_subagent_execute.rs",
-    "line": 419,
+    "line": 425,
     "text": "crate::agent::turn_workspace::propagate(async move {",
     "occurrence": 1
   },
@@ -1060,7 +1060,7 @@
     "rule": "openhuman-upstream-reexport",
     "path": "crates/openhuman-core/src/agent/orchestration/types.rs",
     "line": 12,
-    "text": "pub use tinyagents_graph::orchestration::OrchestrationTaskStatus;",
+    "text": "pub use tinyagents_tasks::OrchestrationTaskStatus;",
     "occurrence": 1
   },
   {

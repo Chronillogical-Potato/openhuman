@@ -89,8 +89,6 @@ pub fn add_source(
     let now = Utc::now();
     let filter_json = serde_json::to_string(&filter).context("serialize task source filter")?;
     let target_json = serde_json::to_string(&target).context("serialize task source target")?;
-    let interval_i64 = i64::try_from(interval_secs)
-        .context("task source interval_secs exceeds SQLite INTEGER range")?;
 
     if let Some(docs) = super::store_documents::current()? {
         return docs.add_source(&TaskSource {
@@ -109,6 +107,9 @@ pub fn add_source(
         });
     }
 
+    // SQLite-only bound: the document store holds the full `u64`.
+    let interval_i64 = i64::try_from(interval_secs)
+        .context("task source interval_secs exceeds SQLite INTEGER range")?;
     with_connection(config, |conn| {
         conn.execute(
             "INSERT INTO task_sources (

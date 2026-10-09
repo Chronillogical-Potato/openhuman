@@ -139,7 +139,7 @@ transport from `main.rs`.
 | --- | --- |
 | [`Cargo.toml`](Cargo.toml) | All `[[bin]]`, `[[test]]` and `[[example]]` targets, feature forwarding. |
 | [`src/main.rs`](src/main.rs) | The `openhuman-core` binary entry point described above. |
-| [`src/bin/`](src/bin/README.md) | Developer and benchmark binaries: `test-mcp-stub`, `openhuman-fleet`, `rss-bench`, `library-profile`, `tool-search-bench`, `tool-dialect-bench`. |
+| [`src/bin/`](src/bin/README.md) | Developer binaries: `test-mcp-stub`, `openhuman-fleet`. The benchmark binaries live in [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks) (`profile/`). |
 | `../../tests/*.rs` | 27 `[[test]]` targets, including the two aggregators. See [`tests/README.md`](../../tests/README.md). |
 | `../../examples/*.rs` | 2 `[[example]]` targets: `embed_headless` and `embed_kernel`. |
 | `../../build.rs` | Shared build script: generates the `raw_coverage_all` and `in_process_all` module lists and exports `OPENHUMAN_REPOSITORY_ROOT`. |
@@ -151,10 +151,6 @@ transport from `main.rs`.
 | `openhuman-core` | `src/main.rs` | none |
 | `test-mcp-stub` | [`src/bin/test_mcp_stub.rs`](src/bin/test_mcp_stub.rs) | none |
 | `openhuman-fleet` | [`src/bin/fleet.rs`](src/bin/fleet.rs) | `http-server`, `bin-tools` |
-| `tool-search-bench` | [`src/bin/tool_search_bench.rs`](src/bin/tool_search_bench.rs) | none (`jev` for the Jev ranker) |
-| `tool-dialect-bench` | [`src/bin/tool_dialect_bench.rs`](src/bin/tool_dialect_bench.rs) | none |
-| `rss-bench` | [`src/bin/rss_bench.rs`](src/bin/rss_bench.rs) | `rss-bench` |
-| `library-profile` | [`src/bin/library_profile/main.rs`](src/bin/library_profile/main.rs) | `rss-bench` (add `rss-bench-dhat` for heap profiles) |
 
 ## Features
 
@@ -163,15 +159,15 @@ The default set mirrors the core's contributor default plus
 `inference`, `voice`, `web3`, `channels`, `media`, `modules`, and the rest) is
 forwarded to both `openhuman-core` and `openhuman-tinyhumans`, so the product
 lanes' feature list resolves here unchanged; [`scripts/ci/check-feature-forwarding.mjs`](../../scripts/ci/check-feature-forwarding.mjs)
-checks the chain. `e2e-test-support` and `rss-bench` forward to the core only.
+checks the chain. `e2e-test-support` forwards to the core only; `rss-bench` is
+not forwarded, since the benchmark crate that uses it enables it on the core directly.
 Gates local to this crate:
 
 | Feature | Purpose |
 | --- | --- |
-| `jev` | The Jev `tool_search` ranker (`openhuman-tinyhumans/jev`) plus the clients `tool-search-bench` measures it with. |
+| `jev` | The Jev `tool_search` ranker (`openhuman-tinyhumans/jev`). |
 | `crash-reporting` | Sentry init in `main.rs` and the `observability_smoke` target. |
 | `bin-tools` | `clap` for `openhuman-fleet`. |
-| `rss-bench-dhat` | dhat heap profiling for `library-profile`; implies `rss-bench`. |
 
 ## Boundaries
 
