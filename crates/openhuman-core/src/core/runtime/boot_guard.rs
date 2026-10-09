@@ -70,15 +70,18 @@ pub enum ServiceToken {
 impl ServiceToken {
     /// Read and vet the token at `path`: present, owner-only, and long enough.
     pub fn read(path: &Path) -> Self {
+        use std::io::Read;
         let display = path.display();
-        let raw = match std::fs::read_to_string(path) {
-            Ok(raw) => raw,
+        // One open handle for both checks, so the permissions vetted are the
+        // permissions of the file whose bytes are read.
+        let mut file = match std::fs::File::open(path) {
+            Ok(file) => file,
             Err(e) => return Self::Invalid(format!("cannot read {display}: {e}")),
         };
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            match std::fs::metadata(path) {
+            match file.metadata() {
                 Ok(meta) if meta.permissions().mode() & 0o077 != 0 => {
                     return Self::Invalid(format!(
                         "{display} is readable by others (mode {:o}); chmod 600 it",
@@ -88,6 +91,10 @@ impl ServiceToken {
                 Ok(_) => {}
                 Err(e) => return Self::Invalid(format!("cannot stat {display}: {e}")),
             }
+        }
+        let mut raw = String::new();
+        if let Err(e) = file.read_to_string(&mut raw) {
+            return Self::Invalid(format!("cannot read {display}: {e}"));
         }
         let token = raw.trim();
         if token.len() < MIN_SERVICE_TOKEN_LEN {
