@@ -87,8 +87,8 @@ fn root() -> PathBuf {
 
 #[test]
 fn the_sandbox_policy_is_a_locked_down_container() {
-    let action = root().join("agents/u-abc/sandbox");
-    let state = root().join("agents/u-abc/workspace");
+    let action = root().join("agents/u-0123456789abcdef0123456789abcdef/sandbox");
+    let state = root().join("agents/u-0123456789abcdef0123456789abcdef/workspace");
     let policy =
         sandbox_policy_with(&root(), &SaasSandboxConfig::default(), &action, &state).unwrap();
     assert_eq!(policy.backend, SandboxBackendKind::Docker);
@@ -107,7 +107,7 @@ fn a_named_network_allows_egress() {
         network: "egress".into(),
         ..SaasSandboxConfig::default()
     };
-    let action = root().join("agents/u-abc/sandbox");
+    let action = root().join("agents/u-0123456789abcdef0123456789abcdef/sandbox");
     let policy = sandbox_policy_with(&root(), &config, &action, &action).unwrap();
     assert!(policy.allow_network);
 }
@@ -116,11 +116,11 @@ fn a_named_network_allows_egress() {
 fn the_sandbox_refuses_anything_but_a_user_sandbox() {
     let config = SaasSandboxConfig::default();
     for dir in [
-        "/srv/oh/agents/u-abc/workspace",
+        "/srv/oh/agents/u-0123456789abcdef0123456789abcdef/workspace",
         "/srv/oh/operator/sandbox",
         "/srv/oh/agents/sandbox",
         "/tmp/sandbox",
-        "/srv/oh/agents/u-abc/sandbox/nested",
+        "/srv/oh/agents/u-0123456789abcdef0123456789abcdef/sandbox/nested",
         "/srv/oh/agents/../sandbox",
         "/srv/oh/agents/not-an-agent/sandbox",
     ] {
@@ -139,6 +139,6 @@ fn the_host_network_is_refused() {
         network: "host".into(),
         ..SaasSandboxConfig::default()
     };
-    let action = root().join("agents/u-abc/sandbox");
+    let action = root().join("agents/u-0123456789abcdef0123456789abcdef/sandbox");
     assert!(sandbox_policy_with(&root(), &config, &action, &action).is_err());
 }
