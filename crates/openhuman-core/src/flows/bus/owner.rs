@@ -13,8 +13,7 @@ use std::sync::{LazyLock, Mutex};
 use crate::config::Config;
 
 /// Flows whose owner this process has resolved (`None` = `local`).
-static OWNERS: LazyLock<Mutex<HashMap<String, Option<String>>>> =
-    LazyLock::new(Default::default);
+static OWNERS: LazyLock<Mutex<HashMap<String, Option<String>>>> = LazyLock::new(Default::default);
 
 /// The agent `flow_id` belongs to: `None` for `local`, or when no scope has
 /// the flow (the handler then reports the flow as unknown, as before).
