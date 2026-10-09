@@ -25,8 +25,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use openhuman_embed::seams::{
-    ControllerExtension, PostTurnHook, SecurityPolicy, ServerLauncher, ToolHook, ToolRanker,
+    ControllerExtension, PostTurnHook, SecurityPolicy, ServerLauncher, ToolHook,
 };
+use tinytools::ToolRanker;
+
 use openhuman_embed::{
     Access, ApiKey, ConfigSource, DomainSet, HostKind, Provider, Runtime, RuntimeConfig,
     ServiceSet, Session, SessionStoreProvider, TokenSource, ToolGroups, Workspace,

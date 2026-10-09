@@ -47,7 +47,7 @@ layer renders as a `BACKEND_UNAVAILABLE:` error that observability demotes.
 The crate's only openhuman dependency is `openhuman-embed`, per the chain
 core -> embed -> tinyhumans -> rpc -> hosts. The public embed API covers the transport port
 (`BackendTransport`, `install_backend_transport`, ...) and the seam types
-(`embed::seams::{ControllerExtension, ToolRanker, ...}`); the deeper core
+(`embed::seams::{ControllerExtension, ...}`; the ranker trait is `tinytools::ToolRanker`, taken from the same vendored path); the deeper core
 internals the transport and hosted controllers need (`backend::BackendClient`,
 `core::all`'s registry types, `security::credentials`, `config`) come through
 embed's `#[doc(hidden)] __host` module, an explicit list kept in embed.

@@ -36,7 +36,7 @@ pub struct BuilderSummary {
     pub has_session_store: bool,
     /// The group of each controller extension, in registration order.
     pub controller_extensions: Vec<DomainGroup>,
-    /// The [`kind`](crate::seams::ToolRanker::kind) of the tool ranker.
+    /// The [`kind`](tinytools::ToolRanker::kind) of the tool ranker.
     pub tool_ranker: Option<String>,
     pub post_turn_hooks: Vec<String>,
     pub tool_hooks: Vec<String>,
