@@ -286,7 +286,7 @@ impl Docs {
     }
 
     /// Applies `edit` to notification `id`; `false` when it does not exist.
-    fn set(&self, id: &str, edit: impl Fn(&mut Value) + Send + 'static) -> Result<bool> {
+    fn set(&self, id: &str, edit: impl Fn(&mut Value) + Send + Sync + 'static) -> Result<bool> {
         let id = id.to_string();
         self.0.run(|docs| async move {
             let changed = compare_and_swap(&docs, NOTIFICATIONS, &id, |doc| {
