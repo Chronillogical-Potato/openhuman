@@ -20,6 +20,7 @@ use super::fetch::{connectable_toolkit_slugs, resolve_toolkit_description};
 ///
 /// Returns `None` when we couldn't even build a client (no auth),
 /// signalling the caller should NOT cache this result.
+///
 /// Returned boxed and `#[inline(never)]` on purpose: an `async fn` body is
 /// otherwise re-instantiated inside every crate / codegen unit that awaits it,
 /// and these state machines are large. Boxing here keeps one copy, compiled in
