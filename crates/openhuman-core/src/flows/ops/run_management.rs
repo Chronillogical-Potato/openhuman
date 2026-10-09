@@ -278,7 +278,7 @@ pub async fn sweep_orphaned_running_runs_on_boot(config: &Config) -> usize {
     // sweeping it would drop that run's checkpoint — so the agent scopes are
     // left alone there, as the agent run reaper does.
     if crate::storage::installed_is_shared() && !crate::core::runtime::mode::is_saas() {
-        log::info!("[flows] boot sweep: agent scopes skipped, the storage backend is shared");
+        tracing::info!(target: "flows", "[flows] boot sweep: agent scopes skipped, the storage backend is shared");
         return sweep_orphaned_running_runs_in_scope(config).await;
     }
     crate::storage::agents::for_each_scope("flows boot sweep", || {
