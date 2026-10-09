@@ -164,7 +164,9 @@ fn ledger_lists_refs_oldest_first_and_tasks_newest_first() {
     store
         .mark_ingested_at("s", &task("1", "one"), base - chrono::Duration::seconds(10))
         .unwrap();
-    store.mark_ingested_at("s", &task("2", "two"), base).unwrap();
+    store
+        .mark_ingested_at("s", &task("2", "two"), base)
+        .unwrap();
     store.add_source(&source("other")).unwrap();
     store.mark_ingested("other", &task("9", "nine")).unwrap();
     let refs: Vec<String> = store

@@ -182,7 +182,11 @@ pub fn list_core_notifications(
     limit: usize,
 ) -> Result<Vec<CoreNotificationEvent>> {
     if let Some(docs) = super::store_documents::current()? {
-        return docs.list_core_notifications(&config.workspace_dir.to_string_lossy(), only_unread, limit);
+        return docs.list_core_notifications(
+            &config.workspace_dir.to_string_lossy(),
+            only_unread,
+            limit,
+        );
     }
     with_connection(config, |conn| {
         let sql = if only_unread {
