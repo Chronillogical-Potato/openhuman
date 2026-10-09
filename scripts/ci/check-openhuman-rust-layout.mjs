@@ -25,13 +25,13 @@ const LEGACY_LIMIT_ENTRIES = [
   // runtime compatibility work. They are being split along semantic seams.
   // `spawn_async_subagent_execute.rs`: 847 -> 821 when the argument prologue
   // moved to `spawn_async_subagent_args.rs`, 821 -> 809 via
-  // `AbortReport::deliver`. Still exempt because the rest of that function's
+  // `AbortReport::deliver`, 809 -> 788 via `CompletionTarget`. Still exempt because the rest of that function's
   // phases close over locals whose types are not nameable from this module
   // (see that fragment's header); taking it under 750 needs a visibility
   // change in `subagent_sessions`.
   [
     "crates/openhuman-core/src/agent/orchestration/tools/spawn_async_subagent_execute.rs",
-    799,
+    788,
   ],
   // `spawn_subagent_tool_impl.rs` had its entry DELETED, not lowered: the
   // parameter schema moved to `spawn_subagent_parameters.rs` and the file is
