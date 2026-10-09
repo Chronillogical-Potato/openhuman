@@ -185,10 +185,14 @@ a TypeSafe or OpenRouter key.
 
 ## Running the benchmark
 
+The `tool-search-bench` binary now lives in the openhuman-benchmarks
+repository (#6944), with the rest of the bench rig; `openhuman-cli` no longer
+builds it. Its flags are unchanged:
+
 ```bash
-cargo run -p openhuman-cli --bin tool-search-bench -- --ranker all --misses
-cargo run -p openhuman-cli --bin tool-search-bench -- --ranker jev --family --embedding
-cargo run -p openhuman-cli --bin tool-search-bench -- --dump-catalogue
+tool-search-bench --ranker all --misses
+tool-search-bench --ranker jev --family --embedding
+tool-search-bench --dump-catalogue
 ```
 
 `OPENHUMAN_BACKEND_API_KEY` (or `TYPESAFE_API_KEY`) selects the credential;

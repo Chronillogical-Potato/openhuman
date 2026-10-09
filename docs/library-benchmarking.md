@@ -1,5 +1,10 @@
 # Library benchmarking environment
 
+> **Moved.** The `library-profile` and `rss-bench` binaries and the
+> `scripts/profile/` drivers this document describes now live in the
+> openhuman-benchmarks repository (#6944); `crates/openhuman-cli` no longer
+> builds them. The methodology and results below are kept for reference.
+
 ## Purpose
 
 "opencompany" wants to embed the OpenHuman Rust core as a library: no always-on

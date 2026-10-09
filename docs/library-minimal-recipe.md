@@ -1,5 +1,10 @@
 # Library-minimal feature recipe
 
+> **Note.** The bench bins (`library-profile`, `rss-bench`) referenced below
+> moved to the openhuman-benchmarks repository (#6944). The `openhuman-cli`
+> `rss-bench` / `rss-bench-dhat` gates are gone; the core keeps its own
+> `rss-bench` hook for that repository.
+
 A **supported, measured** compile-time feature recipe for embedding the OpenHuman
 Rust core as a library in "opencompany" — headless, no RPC server, no Tauri
 shell, targeting 100-1000 live agents in a 2 GB RAM / 2 vCPU box.
@@ -32,15 +37,9 @@ registers the hosted controllers when it builds the runtime. This connects the
 API key to managed inference, integrations, channel relay and cloud voice when
 their feature and runtime gates are enabled.
 
-- To build the profiling harness against the same recipe, add the dev-only
-  `rss-bench` feature and the two bench bins:
-
-  ```bash
-  cargo build --release \
-    -p openhuman-cli \
-    --no-default-features --features "rss-bench,skills,flows" \
-    --bin library-profile --bin rss-bench
-  ```
+- The profiling harness that used to build against the same recipe
+  (`library-profile`, `rss-bench`) lives in the openhuman-benchmarks
+  repository (#6944).
 
 There is **no** `library-minimal` meta-feature in `Cargo.toml`, on purpose — see
 [Why no alias](#why-no-cargotoml-alias) below.

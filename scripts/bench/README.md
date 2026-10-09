@@ -6,6 +6,10 @@ verdict.
 
 ## How this differs from `scripts/profile/`
 
+(`scripts/profile/` and its `library-profile` / `rss-bench` binaries moved to
+the openhuman-benchmarks repository, #6944. The comparison is kept because it
+still explains what this tier does and does not see.)
+
 Both measure resources; they answer different questions, and the difference is
 the reason this directory exists rather than another scenario in the old one.
 

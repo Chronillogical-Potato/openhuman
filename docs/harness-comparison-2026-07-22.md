@@ -1,5 +1,8 @@
 # Agent harness resource-footprint comparison
 
+> **Note.** The `scripts/profile/` drivers cited below moved to the
+> openhuman-benchmarks repository (#6944).
+
 Date: 2026-07-22
 Method: web research against primary sources where they exist (GitHub repos and
 issue trackers, official docs), with every weakly-sourced figure flagged. Our

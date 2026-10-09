@@ -136,31 +136,17 @@ effort sheds crates from it.
 
 ## How to reproduce
 
-Every number above comes from the driver scripts under `scripts/profile/`,
-built around `crates/openhuman-cli/src/bin/library_profile/main.rs`
-(scenario implementations) and the `library-profile` / `rss-bench` binaries.
-Benchmarks run from these scripts, not in CI.
+Every number above came from the `library-profile` / `rss-bench` binaries and
+their `scripts/profile/` drivers. Those now live in the openhuman-benchmarks
+repository (#6944), which builds the core directly; this repository no longer
+carries them. Benchmarks never ran in CI.
 
 ```bash
-# RSS/duration medians across fresh processes, all scenarios
-./scripts/profile/library-bench.sh
-
-# Same, against the slim (--no-default-features) recipe
-./scripts/profile/library-bench.sh --slim
-
-# Fleet sweep + the 2 GB / 2 vCPU budget gate
-./scripts/profile/library-fleet.sh --agents "50,100,500" --target 1000 --budget-mib 2048
-
-# Many-processes counterpart to the fleet sweep
-./scripts/profile/library-instances.sh --instances "10,25,50" --hold-secs 30
-
-# Dependency-floor ratchet
+# Dependency-floor ratchet (still here)
 scripts/kernel-floor.sh flows
 ```
 
-`scripts/profile/README.md` documents the remaining scripts (`library-cpu.sh`
-for CPU profiling via samply, `library-heap.sh` for live-heap attribution via
-dhat). Full methodology, caveats, and the per-scenario breakdown live in
+Full methodology, caveats, and the per-scenario breakdown live in
 [`docs/library-benchmarking.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/library-benchmarking.md) and
 [`docs/library-minimal-recipe.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/library-minimal-recipe.md).
 

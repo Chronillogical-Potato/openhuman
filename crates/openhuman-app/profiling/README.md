@@ -82,11 +82,8 @@ pnpm profile:tauri --pid <PID> --duration 15
 | `--stacks`, `--no-stacks` | on for macOS | Turn the `/usr/bin/sample` capture on or off. |
 
 For the smaller embedded-core-only Linux RSS and PSS benchmark, use the
-`rss-bench` binary in `crates/openhuman-cli`:
-
-```bash
-cargo build --release -p openhuman-cli --features rss-bench --bin rss-bench
-```
+`rss-bench` binary in the openhuman-benchmarks repository (#6944); it no
+longer builds from `crates/openhuman-cli`.
 
 ## Layout
 
