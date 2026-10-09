@@ -124,6 +124,57 @@ fn a_scope_bound_user_is_not_overwritten() {
 }
 
 #[test]
+fn a_user_without_an_id_gets_the_fallback_and_keeps_its_fields() {
+    let mut event = event("boom", &[]);
+    event.user = Some(sentry::User {
+        username: Some("operator".into()),
+        ..Default::default()
+    });
+    let user = before_send(event, fixed_user).expect("kept").user.unwrap();
+    assert_eq!(user.id.as_deref(), Some("user-123"));
+    assert_eq!(user.username.as_deref(), Some("operator"));
+}
+
+#[test]
+fn breadcrumbs_tags_extra_and_request_are_scrubbed() {
+    use sentry::protocol::{Breadcrumb, Request, Value};
+    let secret = "api_key=sk-abc123";
+    let mut event = event("boom", &[("detail", secret)]);
+    let mut crumb = Breadcrumb {
+        message: Some(secret.into()),
+        ..Default::default()
+    };
+    crumb
+        .data
+        .insert("nested".into(), serde_json::json!({ "list": [secret] }));
+    event.breadcrumbs.values.push(crumb);
+    event.extra.insert("body".into(), Value::String(secret.into()));
+    let mut request = Request {
+        query_string: Some(secret.into()),
+        data: Some(secret.into()),
+        cookies: Some("session=abc".into()),
+        ..Default::default()
+    };
+    request
+        .headers
+        .insert("Authorization".into(), "Bearer abc123xyz".into());
+    event.request = Some(request);
+
+    let kept = before_send(event, no_user).expect("kept");
+    let redacted = "api_key=[REDACTED]";
+    assert_eq!(kept.tags["detail"], redacted);
+    let crumb = &kept.breadcrumbs.values[0];
+    assert_eq!(crumb.message.as_deref(), Some(redacted));
+    assert_eq!(crumb.data["nested"]["list"][0], redacted);
+    assert_eq!(kept.extra["body"], redacted);
+    let request = kept.request.expect("request kept");
+    assert_eq!(request.query_string.as_deref(), Some(redacted));
+    assert_eq!(request.data.as_deref(), Some(redacted));
+    assert_eq!(request.cookies, None);
+    assert_eq!(request.headers["Authorization"], "Bearer [REDACTED]");
+}
+
+#[test]
 fn exception_values_are_scrubbed() {
     let mut event = event("boom", &[]);
     event.exception.values.push(sentry::protocol::Exception {
