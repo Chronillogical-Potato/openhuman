@@ -4753,6 +4753,8 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.20",
  "tinyagents-session",
+ "tinyinference-embeddings",
+ "tinyinference-llm",
  "tinymcp-bus",
  "tinymemory-api",
  "tinymemory-tools",
