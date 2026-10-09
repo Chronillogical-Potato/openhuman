@@ -185,6 +185,9 @@ async fn archetype_delegation_defaults_to_async_with_durable_session_e2e() {
         .is_empty(),
         "finished result queued for background delivery"
     );
+    crate::agent::orchestration::background_completions::forget_workspace_for_test(
+        workspace.path(),
+    );
 }
 
 #[tokio::test]
@@ -323,6 +326,9 @@ async fn continue_subagent_resumes_idle_durable_session_e2e() {
     assert!(
         provider.saw("original task from an earlier turn"),
         "persisted history was replayed into the resumed run"
+    );
+    crate::agent::orchestration::background_completions::forget_workspace_for_test(
+        workspace.path(),
     );
 }
 
