@@ -148,5 +148,8 @@ async fn refuses_tools_smuggled_through_provider_options() {
     let err = complete_once(&unreachable_endpoint(), request)
         .await
         .expect_err("tools must not reach the provider via provider_options");
-    assert!(err.contains("provider_options may not set `tools`"), "{err}");
+    assert!(
+        err.contains("provider_options may not set `tools`"),
+        "{err}"
+    );
 }
