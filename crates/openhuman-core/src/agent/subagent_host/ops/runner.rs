@@ -984,7 +984,7 @@ async fn run_typed_mode(
                     options.thread_id.clone(),
                     options
                         .run_context
-                        .for_subagent(&definition, config.as_ref().ok().map(AsRef::as_ref)),
+                        .for_subagent(definition, config.as_ref().ok().map(AsRef::as_ref)),
                     options.worker_thread_id.clone(),
                     parent.workspace_dir.clone(),
                     workspace_descriptor.clone(),
