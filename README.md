@@ -125,13 +125,15 @@ A library first. Call an agent like a function from your Rust code, or run a fle
 
 Seven harnesses, the same SWE-bench tasks, the same model, key and container, every call metered on the wire. It is all public and reproducible in [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks). Latest run: [`swe-x86-1`](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md), ten tasks.
 
-| Per solved task | OpenHuman | Others (median) |
-| --- | --- | --- |
-| Wall time | **19.8 s** | 46.5 s |
-| Tokens | **167k** | 435k |
-| Memory | **68 MB** | 523 MB |
-| CPU | **1.3 s** | 10.4 s |
-| Tasks solved | 7 / 10 | 10 / 10 |
+| `swe-x86-1`, per solved task | OpenHuman | Median of the other six | Best of the other six |
+| --- | --- | --- | --- |
+| Wall time (p50) | **19.8 s** | 46.5 s | 28.4 s (OpenCode) |
+| Tokens | **167k** | 435k | 370k (Codex) |
+| Cost | $0.0077 | $0.012 | $0.0077 (OpenCode, a tie) |
+| Peak memory | **68 MB** | 523 MB | 123 MB (Codex) |
+| CPU time | **1.3 s** | 10.4 s | 2.9 s (DeepSeek Harness) |
+| System prompt | **4.6k tokens** | 7.7k | 6.2k (DeepSeek Harness) |
+| Tasks solved | 7 / 10 | 10 / 10 | 10 / 10 (four harnesses) |
 
 ---
 
