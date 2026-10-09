@@ -66,8 +66,9 @@ loop is cancelled, so a failed push leaves the previous pending credential
 still revalidating.
 
 `store_api_key(key)` stores a TinyHumans API key with no backend round trip
-and no user identity. `logout()` and `clear_api_key()` clear the credential in
-the core and forget the cache.
+and no user identity. `logout()` clears the session credential in the core,
+stops any revalidation, forgets the cache and clears `identity`;
+`clear_api_key()` clears the stored API key.
 
 ### Current user
 
