@@ -4524,6 +4524,7 @@ dependencies = [
  "tinyflows",
  "tinyflows-catalog",
  "tinyflows-copilot",
+ "tinyflows-drivers",
  "tinyflows-schedule",
  "tinyflows-sqlite",
  "tinyhosts",
@@ -7373,9 +7374,11 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "tinyagents-harness",
  "tinyagents-tasks",
  "tinyinference-llm",
+ "tinystoragedrivers-core",
  "tinytools",
  "tokio",
  "tracing",
@@ -7786,6 +7789,20 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "tinyflows-drivers"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "tinyflows",
+ "tinystoragedrivers-core",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
