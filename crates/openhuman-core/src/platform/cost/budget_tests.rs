@@ -36,7 +36,12 @@ fn policy(
 }
 
 fn call<'a>(model: &'a str, scope: &'a UsageScope) -> CallUnderCheck<'a> {
-    CallUnderCheck { model, scope }
+    CallUnderCheck {
+        model,
+        scope,
+        estimated_usd: 0.0,
+        estimated_tokens: 0,
+    }
 }
 
 #[test]
@@ -315,4 +320,75 @@ fn token_limits_compare_exactly_and_totals_saturate() {
     limit.max_tokens = Some(1u64 << 53);
     let verdict = evaluate(&[limit], &[near], call("m", &scope), now());
     assert!(verdict.refusal().is_none(), "{verdict:?}");
+}
+
+#[test]
+fn an_invalid_usd_cap_fails_closed() {
+    let scope = UsageScope::default();
+    for bad in [-1.0, f64::NAN] {
+        let mut cap = policy(
+            BudgetScope::Global,
+            BudgetPeriod::Month,
+            0.0,
+            BudgetAction::Refuse,
+        );
+        cap.max_usd = Some(bad);
+        let verdict = evaluate(&[cap], &[], call("m", &scope), now());
+        assert!(verdict.refusal().is_some(), "{bad}: {verdict:?}");
+    }
+}
+
+#[test]
+fn a_nan_cost_record_does_not_poison_the_total() {
+    let scope = UsageScope::default();
+    let mut corrupt = spend(10, "m", None, None, 0.0);
+    corrupt.usage.cost_usd = f64::NAN;
+    let real = spend(11, "m", None, None, 5.0);
+    let cap = policy(
+        BudgetScope::Global,
+        BudgetPeriod::Month,
+        4.0,
+        BudgetAction::Refuse,
+    );
+    let verdict = evaluate(&[cap], &[corrupt, real], call("m", &scope), now());
+    assert!(verdict.refusal().is_some(), "{verdict:?}");
+}
+
+#[test]
+fn the_calls_own_estimate_counts() {
+    let scope = UsageScope::default();
+    let earlier = spend(10, "m", None, None, 0.9);
+    let cap = policy(
+        BudgetScope::Global,
+        BudgetPeriod::Month,
+        1.0,
+        BudgetAction::Refuse,
+    );
+    let mut big = call("m", &scope);
+    big.estimated_usd = 0.2;
+    assert!(evaluate(&[cap.clone()], &[earlier.clone()], big, now())
+        .refusal()
+        .is_some());
+    assert!(evaluate(&[cap], &[earlier], call("m", &scope), now())
+        .refusal()
+        .is_none());
+}
+
+#[test]
+fn a_nan_warn_fraction_falls_back_to_the_default() {
+    let scope = UsageScope::default();
+    let mut cap = policy(
+        BudgetScope::Global,
+        BudgetPeriod::Month,
+        1.0,
+        BudgetAction::Warn,
+    );
+    cap.warn_fraction = f64::NAN;
+    let verdict = evaluate(
+        &[cap],
+        &[spend(10, "m", None, None, 0.85)],
+        call("m", &scope),
+        now(),
+    );
+    assert_eq!(verdict.hits.len(), 1, "{verdict:?}");
 }

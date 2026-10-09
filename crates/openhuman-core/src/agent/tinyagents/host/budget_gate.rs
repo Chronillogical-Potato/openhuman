@@ -101,6 +101,9 @@ pub struct OpenHumanBudgetGate {
     /// other background wiring sites opt in with
     /// [`Self::as_background_work`](Self::as_background_work).
     background: bool,
+    /// The ledger budgets are checked against; `None` reads the process-wide
+    /// cost tracker. Set by tests.
+    tracker: Option<Arc<cost::CostTracker>>,
 }
 
 impl OpenHumanBudgetGate {
@@ -124,6 +127,7 @@ impl OpenHumanBudgetGate {
             compression,
             last_model: RwLock::new(fallback),
             background: false,
+            tracker: None,
         }
     }
 
@@ -135,6 +139,13 @@ impl OpenHumanBudgetGate {
     /// **not** opt in: the gate's `Paused` arm waits for background work to be
     /// re-enabled, which for a user-initiated chat means waiting until the turn
     /// times out.
+    /// Check budgets against `tracker` instead of the process-wide one.
+    #[cfg(test)]
+    pub(crate) fn with_tracker(mut self, tracker: Arc<cost::CostTracker>) -> Self {
+        self.tracker = Some(tracker);
+        self
+    }
+
     pub fn as_background_work(mut self) -> Self {
         self.background = true;
         self
@@ -154,7 +165,7 @@ impl OpenHumanBudgetGate {
         if policies.is_empty() {
             return None;
         }
-        let Some(tracker) = cost::try_global() else {
+        let Some(tracker) = self.tracker.clone().or_else(cost::try_global) else {
             log::debug!("[tinyagents][budget] budgets configured but no cost tracker; not checked");
             return None;
         };
@@ -167,6 +178,11 @@ impl OpenHumanBudgetGate {
     /// with no file on disk, or one that does not parse, keeps the policies
     /// the gate was built with.
     fn live_budgets(&self) -> Vec<crate::config::BudgetPolicy> {
+        // An embedder's in-memory config is authoritative: a file on disk
+        // must not replace the budgets it supplied.
+        if crate::core::runtime::CoreContext::current_embedder_config().is_some() {
+            return self.config.cost.budgets.clone();
+        }
         #[derive(serde::Deserialize, Default)]
         struct File {
             #[serde(default)]
@@ -181,8 +197,8 @@ impl OpenHumanBudgetGate {
             Ok(raw) => match toml::from_str::<File>(&raw) {
                 Ok(file) => file.cost.budgets,
                 Err(error) => {
-                    log::debug!(
-                        "[tinyagents][budget] config budgets unreadable ({error}); using the session's"
+                    log::warn!(
+                        "[tinyagents][budget] config budgets unreadable ({error}); keeping the session's"
                     );
                     self.config.cost.budgets.clone()
                 }
@@ -217,6 +233,15 @@ impl OpenHumanBudgetGate {
         let call = cost::budget::CallUnderCheck {
             model: &model,
             scope: &scope,
+            estimated_usd: cost::catalog::estimate_cost_usd(
+                &model,
+                est.estimated_input_tokens,
+                est.estimated_output_tokens,
+                0,
+            ),
+            estimated_tokens: est
+                .estimated_input_tokens
+                .saturating_add(est.estimated_output_tokens),
         };
         let verdict = match cost::budget::check_call(policies, tracker, call, chrono::Utc::now()) {
             Ok(verdict) => verdict,

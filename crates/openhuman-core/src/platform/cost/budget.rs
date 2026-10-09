@@ -21,12 +21,19 @@ use crate::config::{BudgetAction, BudgetPeriod, BudgetPolicy, BudgetScope};
 
 use super::types::{CostRecord, UsageScope};
 
-/// The call being checked: its model and attribution.
+/// The call being checked: its model, attribution and estimated size. The
+/// estimate counts towards the limits, so a call that would itself cross one
+/// is refused rather than the call after it.
 #[derive(Debug, Clone, Copy)]
 pub struct CallUnderCheck<'a> {
     pub model: &'a str,
     pub scope: &'a UsageScope,
+    pub estimated_usd: f64,
+    pub estimated_tokens: u64,
 }
+
+/// The warn fraction used when a policy's is not a number.
+pub const DEFAULT_WARN_FRACTION: f64 = 0.8;
 
 /// One policy that is at or near its limit for this call.
 #[derive(Debug, Clone, PartialEq)]
@@ -137,23 +144,49 @@ pub fn evaluate(
             if bucket_of(policy.scope, &usage.model, &usage.scope) != Some(bucket) {
                 continue;
             }
-            spent_usd += usage.cost_usd;
+            // A record with a non-finite cost is corrupt; it counts as free
+            // rather than turning the whole total into NaN.
+            if usage.cost_usd.is_finite() {
+                spent_usd += usage.cost_usd.max(0.0);
+            }
             // Saturating: a corrupt record must not wrap a total back under
             // its limit.
             tokens = tokens.saturating_add(usage.input_tokens.saturating_add(usage.output_tokens));
         }
+        if call.estimated_usd.is_finite() {
+            spent_usd += call.estimated_usd.max(0.0);
+        }
+        tokens = tokens.saturating_add(call.estimated_tokens);
+        // An invalid USD cap (negative, NaN) fails closed: it refuses rather
+        // than silently disabling the budget.
+        let invalid_cap = policy
+            .max_usd
+            .is_some_and(|max| !max.is_finite() || max < 0.0);
+        if invalid_cap {
+            log::warn!(
+                "[cost][budget] budget `{}` has an invalid max_usd {:?}; treating it as reached",
+                policy.name.as_deref().unwrap_or("unnamed"),
+                policy.max_usd
+            );
+        }
         let over = |spent: f64, max: Option<f64>, fraction: f64| {
-            max.is_some_and(|max| max >= 0.0 && spent >= max * fraction)
+            max.is_some_and(|max| spent >= max * fraction)
         };
-        let warn_fraction = policy.warn_fraction.clamp(0.0, 1.0);
-        // Token limits compare as integers; only the warn threshold, a
-        // fraction of the limit, is computed in floating point.
-        let exceeded = over(spent_usd, policy.max_usd, 1.0)
+        let warn_fraction = if policy.warn_fraction.is_finite() {
+            policy.warn_fraction.clamp(0.0, 1.0)
+        } else {
+            DEFAULT_WARN_FRACTION
+        };
+        // Token limits compare as integers, the warn threshold in per-mille.
+        let warn_per_mille = (warn_fraction * 1000.0).round() as u128;
+        let exceeded = invalid_cap
+            || over(spent_usd, policy.max_usd, 1.0)
             || policy.max_tokens.is_some_and(|max| tokens >= max);
-        let warning = over(spent_usd, policy.max_usd, warn_fraction)
-            || policy.max_tokens.is_some_and(|max| {
-                tokens >= max || (tokens as f64) >= (max as f64) * warn_fraction
-            });
+        let warning = exceeded
+            || over(spent_usd, policy.max_usd, warn_fraction)
+            || policy
+                .max_tokens
+                .is_some_and(|max| u128::from(tokens) * 1000 >= u128::from(max) * warn_per_mille);
         if exceeded || warning {
             verdict.hits.push(BudgetHit {
                 policy: policy

@@ -316,3 +316,21 @@ fn a_call_is_checked_against_its_own_model() {
         .check_budgets_against(&estimate_for("planner"), &policies, &tracker)
         .is_some());
 }
+
+#[tokio::test]
+async fn acquire_refuses_an_over_budget_call() {
+    let (_tmp, tracker) = ledger_with(2.0, "planner");
+    let gate = budgeted_gate(crate::config::BudgetAction::Refuse).with_tracker(Arc::new(tracker));
+    let err = match gate.acquire(&estimate_for("planner")).await {
+        Err(err) => err,
+        Ok(_) => panic!("an over-budget call must be refused"),
+    };
+    match err {
+        tinyagents_harness::error::TinyAgentsError::LimitExceeded(message) => {
+            assert!(message.starts_with("BUDGET_EXCEEDED:"), "{message}");
+        }
+        other => panic!("expected LimitExceeded, got {other:?}"),
+    }
+    // The same gate admits an agent the budget does not cover.
+    assert!(gate.acquire(&estimate_for("orchestrator")).await.is_ok());
+}
