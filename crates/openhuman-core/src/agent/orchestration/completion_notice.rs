@@ -49,12 +49,14 @@ impl BackgroundAgentOutcome {
     pub(crate) fn of(record: &CompletionRecord) -> Self {
         match record.status {
             CompletionStatus::Success => Self::Completed,
-            CompletionStatus::Incomplete if record.label.as_deref() == Some(AWAITING_INPUT_LABEL) => {
+            CompletionStatus::Incomplete
+                if record.label.as_deref() == Some(AWAITING_INPUT_LABEL) =>
+            {
                 Self::AwaitingInput
             }
-            CompletionStatus::Incomplete | CompletionStatus::Failed | CompletionStatus::Cancelled => {
-                Self::Failed
-            }
+            CompletionStatus::Incomplete
+            | CompletionStatus::Failed
+            | CompletionStatus::Cancelled => Self::Failed,
         }
     }
 }

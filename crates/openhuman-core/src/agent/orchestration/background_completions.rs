@@ -32,8 +32,8 @@ use tinyagents_tasks::{
     DEFAULT_MAX_ATTEMPTS,
 };
 
-pub(crate) use super::completion_notice::{BackgroundAgentOutcome, AWAITING_INPUT_LABEL};
 use super::completion_notice::BackgroundCompletionFormatter;
+pub(crate) use super::completion_notice::{BackgroundAgentOutcome, AWAITING_INPUT_LABEL};
 
 /// How long a settled record (delivered / gave up / tombstoned) is kept before
 /// compaction drops it. Dropping a settled record also drops its dedupe and its
@@ -487,12 +487,15 @@ fn cancel_deleted_parent(entry: &Entry, thread_id: &str) -> usize {
              error={error}"
         );
     }
-    entry.router.cancel_parent(thread_id).unwrap_or_else(|error| {
-        log::error!(
-            "[background_completions] cancel_parent failed thread_id={thread_id} error={error}"
-        );
-        0
-    })
+    entry
+        .router
+        .cancel_parent(thread_id)
+        .unwrap_or_else(|error| {
+            log::error!(
+                "[background_completions] cancel_parent failed thread_id={thread_id} error={error}"
+            );
+            0
+        })
 }
 
 /// Drop every queued completion for `thread_id` and gate late results from the

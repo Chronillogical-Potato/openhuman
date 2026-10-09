@@ -475,8 +475,18 @@ fn a_delete_survives_a_restart_and_is_not_lifted_by_a_new_spawn() {
     // the deleted thread must be aborted rather than treated as a user returning
     // to a stopped thread, and its result must stay dropped.
     forget_workspace_for_test(w);
-    assert!(mark_stopped_task_if_thread_stopped(w, "thread-del-restart", "sub-late"));
-    record(w, "sess-dr", "sub-late", "stale", Some("thread-del-restart"));
+    assert!(mark_stopped_task_if_thread_stopped(
+        w,
+        "thread-del-restart",
+        "sub-late"
+    ));
+    record(
+        w,
+        "sess-dr",
+        "sub-late",
+        "stale",
+        Some("thread-del-restart"),
+    );
     assert!(pending_ids(w, "thread-del-restart").is_empty());
 }
 
@@ -504,12 +514,22 @@ fn clear_all_also_withdraws_a_completion_a_delivery_has_leased() {
     record(w, "sess-l", "sub-1", "x", Some("thread-leased"));
     let router = router_for_workspace(w);
     // A delivery claimed it: the record is leased but still pending in the store.
-    assert_eq!(router.claim_pending("thread-leased", usize::MAX).unwrap().len(), 1);
+    assert_eq!(
+        router
+            .claim_pending("thread-leased", usize::MAX)
+            .unwrap()
+            .len(),
+        1
+    );
 
     assert_eq!(clear_all(w), 1);
 
     assert!(pending_ids(w, "thread-leased").is_empty());
-    assert_eq!(router.mark_delivered(&["sub-1"]).unwrap(), 0, "nothing left to settle");
+    assert_eq!(
+        router.mark_delivered(&["sub-1"]).unwrap(),
+        0,
+        "nothing left to settle"
+    );
 }
 
 #[test]
