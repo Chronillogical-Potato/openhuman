@@ -55,6 +55,15 @@ impl EventHandler<DomainEvent> for SessionExpiredSubscriber {
     }
 
     async fn handle(&self, event: &DomainEvent) {
+        self.handle_with(crate::core::runtime::is_saas(), event)
+            .await;
+    }
+}
+
+impl SessionExpiredSubscriber {
+    /// [`EventHandler::handle`] with the process mode passed in, so the SaaS
+    /// early return is testable without the process-wide mode lock.
+    pub(crate) async fn handle_with(&self, saas: bool, event: &DomainEvent) {
         let DomainEvent::SessionExpired { source, reason } = event else {
             return;
         };
@@ -62,7 +71,7 @@ impl EventHandler<DomainEvent> for SessionExpiredSubscriber {
         // SaaS: the credential belongs to one user and the gateway owns its
         // refresh (`user_agents.set_credential`). Nothing process-wide is torn
         // down; the failing call already reports the 401 to that user.
-        if crate::core::runtime::is_saas() {
+        if saas {
             tracing::warn!(
                 source = %source,
                 reason = %reason,
