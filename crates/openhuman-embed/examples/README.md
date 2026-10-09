@@ -40,6 +40,12 @@ OPENHUMAN_EXAMPLE_TINYHUMANS_API_KEY=th_... \
   cargo run -p openhuman-embed --example two_agents -- "Describe this directory."
 ```
 
+The example uses the plain `openhuman_embed::Runtime::builder()`, which
+installs no backend transport. Without one the core has no default backend
+URL, so on the managed path also set `OPENHUMAN_EXAMPLE_BACKEND_URL` to the
+backend's inference base, or managed calls answer `BACKEND_UNAVAILABLE:`. A
+real host would build with `openhuman_tinyhumans::RuntimeBuilder` instead.
+
 ## Optional settings
 
 | Variable | Effect |
