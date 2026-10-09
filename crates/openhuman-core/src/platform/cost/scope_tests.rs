@@ -20,8 +20,21 @@ fn each_origin_maps_to_its_thread_and_label() {
         message_id: "m".into(),
     };
     assert_eq!(
-        describe_origin(Some(&channel)).1.as_deref(),
-        Some("channel:telegram")
+        describe_origin(Some(&channel)),
+        (None, Some("channel:telegram".into()))
+    );
+    // A channel conversation's history key is its thread.
+    let conversation = AgentTurnOrigin::ExternalChannel {
+        channel: "telegram".into(),
+        sender: None,
+        sender_name: None,
+        history_key: Some("telegram:42".into()),
+        reply_target: "r".into(),
+        message_id: "m".into(),
+    };
+    assert_eq!(
+        describe_origin(Some(&conversation)).0.as_deref(),
+        Some("telegram:42")
     );
     let cron = AgentTurnOrigin::TrustedAutomation {
         job_id: "j".into(),
