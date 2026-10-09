@@ -35,6 +35,8 @@ channels = ["openhuman-embed/channels"]
 whatsapp-web = ["openhuman-embed/whatsapp-web"]
 file-logging = ["openhuman-embed/file-logging"]
 scheduler-gate = ["openhuman-embed/scheduler-gate"]
+# E2E builds only (`openhuman.test_reset`); default-OFF.
+e2e-test-support = ["openhuman-embed/e2e-test-support"]
 
 [dependencies]
 # The only openhuman crate this layer depends on. Core internals the

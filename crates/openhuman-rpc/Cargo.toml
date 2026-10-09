@@ -64,6 +64,9 @@ channels = ["openhuman-tinyhumans/channels"]
 whatsapp-web = ["openhuman-tinyhumans/whatsapp-web"]
 file-logging = ["openhuman-tinyhumans/file-logging"]
 scheduler-gate = ["openhuman-tinyhumans/scheduler-gate"]
+# E2E builds only (`openhuman.test_reset`); default-OFF. The desktop app
+# and the CLI forward it from their own `e2e-test-support` gate.
+e2e-test-support = ["openhuman-tinyhumans/e2e-test-support"]
 
 [dependencies]
 # The only openhuman crate this layer depends on. Core internals the server
