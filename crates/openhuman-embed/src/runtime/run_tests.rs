@@ -39,7 +39,7 @@ fn split_for_cli_moves_process_globals_out_and_drops_live_policy() {
     assert!(globals.seams.server_launcher.is_some());
     let summary = rest.summary();
     assert!(!summary.has_server_launcher, "installed once, not twice");
-        assert!(!summary.has_live_policy);
+    assert!(!summary.has_live_policy);
 }
 
 #[test]
@@ -54,13 +54,16 @@ fn the_launcher_takes_the_handed_over_builder_once() {
 
 #[test]
 fn split_for_cli_keeps_the_session_store_for_a_stateless_workspace() {
-    use openhuman_core::agent::session_store::InMemorySessionStores;
-    let store: Arc<dyn SessionStoreProvider> = Arc::new(InMemorySessionStores::default());
+    use crate::session_store::InMemorySessionStores;
+    let store: Arc<dyn SessionStoreProvider> = Arc::new(InMemorySessionStores::new());
     let builder = configured()
         .workspace(crate::Workspace::Stateless)
         .session_store(store);
     let (rest, globals) = builder.split_for_cli();
-    assert!(globals.session_store.is_some(), "installed as a process global");
+    assert!(
+        globals.session_store.is_some(),
+        "installed as a process global"
+    );
     assert!(
         rest.summary().has_session_store,
         "and still on the builder, so `build()` accepts the stateless workspace"
