@@ -72,8 +72,10 @@ fn seams_are_live_after_build_and_unwound_on_drop() {
             );
             let backend = stub_backend().await;
 
-            let mut policy = SecurityPolicy::default();
-            policy.max_actions_per_hour = POLICY_MARKER;
+            let policy = SecurityPolicy {
+                max_actions_per_hour: POLICY_MARKER,
+                ..SecurityPolicy::default()
+            };
 
             let runtime = Runtime::builder()
                 .config(offline_config())
