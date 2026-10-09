@@ -223,7 +223,7 @@ pub fn resolve(config: &Config) -> Binding {
     if let Some(bound) = host_engine() {
         // A host engine is one store for the whole process: in SaaS it would
         // put every user in one engine, so it is ignored there.
-        if admits_host_engine_with::<BoundEngine>(crate::core::runtime::is_saas()) {
+        if admits_host_engine_with(crate::core::runtime::is_saas()) {
             return Binding::On(bound);
         }
         tracing::warn!("[memory:engine] ignoring the host engine in SaaS mode");
@@ -288,7 +288,7 @@ pub fn bind_with_root(config: &Config, root: Option<&str>) -> MemoryResult<Bound
 
 /// Whether the process-wide host engine may be used: never in SaaS, where one
 /// engine would put every user in the same store.
-pub(crate) fn admits_host_engine_with<T>(saas: bool) -> bool {
+pub(crate) fn admits_host_engine_with(saas: bool) -> bool {
     !saas
 }
 
@@ -300,7 +300,7 @@ pub(crate) fn host_binding_with<T>(
     host: Option<T>,
     root: Option<&str>,
 ) -> MemoryResult<Option<T>> {
-    let host = if admits_host_engine_with::<T>(saas) {
+    let host = if admits_host_engine_with(saas) {
         host
     } else {
         None
