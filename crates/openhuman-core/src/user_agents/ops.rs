@@ -3,8 +3,11 @@
 //! Gateway user ids are taken here and turned into agent ids at once; they
 //! are never logged, stored or returned.
 
+use super::credentials::{self, UserCredentialKind};
 use super::host::{self, AgentHost};
-use super::types::{DeprovisionResult, ProvisionResult, UserAgentId, UserAgentSummary};
+use super::types::{
+    CredentialResult, DeprovisionResult, ProvisionResult, UserAgentId, UserAgentSummary,
+};
 use crate::core::Outcome;
 
 fn require_host() -> Result<std::sync::Arc<AgentHost>, String> {
@@ -78,6 +81,63 @@ pub(crate) fn status_on(
     Ok(Outcome::single_log(
         summary,
         format!("status of {agent_id}"),
+    ))
+}
+
+/// Install the backend credential the gateway holds for agent `agent_id`.
+pub fn set_credential(
+    agent_id: &str,
+    kind: UserCredentialKind,
+    token: &str,
+    expires_at: Option<&str>,
+) -> Result<Outcome<CredentialResult>, String> {
+    set_credential_on(&*require_host()?, agent_id, kind, token, expires_at)
+}
+
+pub(crate) fn set_credential_on(
+    host: &AgentHost,
+    agent_id: &str,
+    kind: UserCredentialKind,
+    token: &str,
+    expires_at: Option<&str>,
+) -> Result<Outcome<CredentialResult>, String> {
+    let agent_id = UserAgentId::parse(agent_id)?;
+    let state = host.open(&agent_id)?;
+    credentials::store(&state.config, kind, token, expires_at)?;
+    log::info!("[user_agents] credential installed for agent={agent_id} kind={kind:?}");
+    Ok(Outcome::single_log(
+        CredentialResult {
+            agent_id: agent_id.clone(),
+            has_credential: true,
+        },
+        format!("credential installed for {agent_id}"),
+    ))
+}
+
+/// Remove every credential agent `agent_id` holds.
+pub fn clear_credential(agent_id: &str) -> Result<Outcome<CredentialResult>, String> {
+    clear_credential_on(&*require_host()?, agent_id)
+}
+
+pub(crate) fn clear_credential_on(
+    host: &AgentHost,
+    agent_id: &str,
+) -> Result<Outcome<CredentialResult>, String> {
+    let agent_id = UserAgentId::parse(agent_id)?;
+    let state = host.open(&agent_id)?;
+    let removed = credentials::clear(&state.config)?;
+    log::info!("[user_agents] credential cleared for agent={agent_id} removed={removed}");
+    let log = if removed {
+        format!("credential cleared for {agent_id}")
+    } else {
+        format!("{agent_id} held no credential")
+    };
+    Ok(Outcome::single_log(
+        CredentialResult {
+            agent_id,
+            has_credential: false,
+        },
+        log,
     ))
 }
 

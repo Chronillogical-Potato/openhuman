@@ -99,8 +99,10 @@ cd "$(dirname "$0")/../.."
 # five names from the Linux flows graph; native builds remain at three.
 # 311 -> 320 on 2026-10-07: tinyskills v0.2.8 (#7054) brings cap-std and its
 # dependencies into the flows graph.
-# This matches the current `flows:342:320:3` entry in
+# 320 -> 313 on 2026-10-09: the tinyagents and tinyflows mains shed seven
+# names from the flows graph.
+# This matches the current `flows:335:313:2` entry in
 # scripts/kernel-floor.limits; its preceding entries are historical.
-EXPECTED_NAMES=320
+EXPECTED_NAMES=313
 
 exec python3 scripts/dep-sim.py --cut-nothing --expect-names "${EXPECTED_NAMES}"

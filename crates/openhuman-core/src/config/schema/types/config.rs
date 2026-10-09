@@ -421,6 +421,11 @@ pub struct Config {
     #[serde(default)]
     pub hosting: HostingConfig,
 
+    /// Storage backend for state on the `tinystoragedrivers` ports
+    /// (`[storage]`). Empty keeps the classic on-disk layout.
+    #[serde(default)]
+    pub storage: StorageConfig,
+
     #[serde(default)]
     pub voice_server: VoiceServerConfig,
 
