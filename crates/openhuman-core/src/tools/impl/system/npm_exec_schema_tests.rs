@@ -29,6 +29,6 @@ fn expected_npm_exec() -> serde_json::Value {
 
 #[test]
 fn npm_exec_static_schema_matches_json_literal() {
-    let tool = todo!("construct tool");
-    assert_eq!(Tool::parameters_schema(&tool), expected_npm_exec());
+    let tool = NpmExecTool::new(std::sync::Arc::new(crate::security::SecurityPolicy::default()), std::sync::Arc::new(crate::agent::host_runtime::NativeRuntime::new()), std::sync::Arc::new(NodeBootstrap::new(std::sync::Arc::new(crate::config::Config::default()))));
+    assert_eq!(tinytools::Tool::parameters_schema(&tool), expected_npm_exec());
 }

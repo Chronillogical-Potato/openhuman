@@ -31,6 +31,6 @@ fn expected_dry_run_workflow() -> serde_json::Value {
 
 #[test]
 fn dry_run_workflow_static_schema_matches_json_literal() {
-    let tool = todo!("construct tool");
-    assert_eq!(Tool::parameters_schema(&tool), expected_dry_run_workflow());
+    let tool = DryRunWorkflowTool::new(std::sync::Arc::new(crate::config::Config::default()));
+    assert_eq!(tinytools::Tool::parameters_schema(&tool), expected_dry_run_workflow());
 }

@@ -28,6 +28,6 @@ fn expected_node_exec() -> serde_json::Value {
 
 #[test]
 fn node_exec_static_schema_matches_json_literal() {
-    let tool = todo!("construct tool");
-    assert_eq!(Tool::parameters_schema(&tool), expected_node_exec());
+    let tool = NodeExecTool::new(std::sync::Arc::new(crate::security::SecurityPolicy::default()), std::sync::Arc::new(crate::agent::host_runtime::NativeRuntime::new()), std::sync::Arc::new(NodeBootstrap::new(std::sync::Arc::new(crate::config::Config::default()))), crate::config::RuntimePoolConfig::default(), std::path::PathBuf::from("."));
+    assert_eq!(tinytools::Tool::parameters_schema(&tool), expected_node_exec());
 }

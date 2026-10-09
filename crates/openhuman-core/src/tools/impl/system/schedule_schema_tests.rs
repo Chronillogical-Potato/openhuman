@@ -45,6 +45,6 @@ fn expected_schedule() -> serde_json::Value {
 
 #[test]
 fn schedule_static_schema_matches_json_literal() {
-    let tool = todo!("construct tool");
-    assert_eq!(Tool::parameters_schema(&tool), expected_schedule());
+    let tool = ScheduleTool::new(std::sync::Arc::new(crate::security::SecurityPolicy::default()), crate::config::Config::default());
+    assert_eq!(tinytools::Tool::parameters_schema(&tool), expected_schedule());
 }

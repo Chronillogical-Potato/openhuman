@@ -75,6 +75,6 @@ fn expected_cron_add() -> serde_json::Value {
 
 #[test]
 fn cron_add_static_schema_matches_json_literal() {
-    let tool = todo!("construct tool");
-    assert_eq!(Tool::parameters_schema(&tool), expected_cron_add());
+    let tool = CronAddTool::new(std::sync::Arc::new(crate::config::Config::default()), std::sync::Arc::new(crate::security::SecurityPolicy::default()));
+    assert_eq!(tinytools::Tool::parameters_schema(&tool), expected_cron_add());
 }

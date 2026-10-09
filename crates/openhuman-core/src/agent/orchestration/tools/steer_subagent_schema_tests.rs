@@ -30,6 +30,6 @@ fn expected_steer_subagent() -> serde_json::Value {
 
 #[test]
 fn steer_subagent_static_schema_matches_json_literal() {
-    let tool = todo!("construct tool");
-    assert_eq!(Tool::parameters_schema(&tool), expected_steer_subagent());
+    let tool = SteerSubagentTool;
+    assert_eq!(tinytools::Tool::parameters_schema(&tool), expected_steer_subagent());
 }

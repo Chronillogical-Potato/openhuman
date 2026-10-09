@@ -31,6 +31,6 @@ fn expected_flow_memory_remember() -> serde_json::Value {
 
 #[test]
 fn flow_memory_remember_static_schema_matches_json_literal() {
-    let tool = todo!("construct tool");
-    assert_eq!(Tool::parameters_schema(&tool), expected_flow_memory_remember());
+    let tool = FlowMemoryRememberTool::new(std::sync::Arc::new(crate::security::SecurityPolicy::default()));
+    assert_eq!(tinytools::Tool::parameters_schema(&tool), expected_flow_memory_remember());
 }

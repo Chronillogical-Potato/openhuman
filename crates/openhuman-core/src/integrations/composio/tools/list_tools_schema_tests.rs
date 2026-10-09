@@ -31,6 +31,6 @@ fn expected_composio_list_tools() -> serde_json::Value {
 
 #[test]
 fn composio_list_tools_static_schema_matches_json_literal() {
-    let tool = todo!("construct tool");
-    assert_eq!(Tool::parameters_schema(&tool), expected_composio_list_tools());
+    let tool = ComposioListToolsTool::new(std::sync::Arc::new(crate::config::Config::default()));
+    assert_eq!(tinytools::Tool::parameters_schema(&tool), expected_composio_list_tools());
 }

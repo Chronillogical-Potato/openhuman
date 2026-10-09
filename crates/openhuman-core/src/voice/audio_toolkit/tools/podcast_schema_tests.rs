@@ -22,6 +22,6 @@ fn expected_audio_generate_and_email_podcast() -> serde_json::Value {
 
 #[test]
 fn audio_generate_and_email_podcast_static_schema_matches_json_literal() {
-    let tool = todo!("construct tool");
-    assert_eq!(Tool::parameters_schema(&tool), expected_audio_generate_and_email_podcast());
+    let tool = AudioGenerateAndEmailPodcastTool::new(std::sync::Arc::new(crate::config::Config::default()), std::sync::Arc::new(crate::security::SecurityPolicy::default()));
+    assert_eq!(tinytools::Tool::parameters_schema(&tool), expected_audio_generate_and_email_podcast());
 }
