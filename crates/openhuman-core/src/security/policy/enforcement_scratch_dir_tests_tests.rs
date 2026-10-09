@@ -27,7 +27,11 @@ fn roots(saas: bool) -> Vec<String> {
         &tmp.path().join("ws"),
         &tmp.path().join("act"),
     );
-    policy.trusted_roots.iter().map(|r| r.path.clone()).collect()
+    policy
+        .trusted_roots
+        .iter()
+        .map(|r| r.path.clone())
+        .collect()
 }
 
 #[test]
@@ -37,8 +41,14 @@ fn saas_policy_skips_the_shared_projects_and_scratch_grants() {
         .to_string();
     let scratch = openhuman_scratch_dir().to_string_lossy().to_string();
     let saas = roots(true);
-    assert!(!saas.contains(&projects), "projects home must not be granted in SaaS");
-    assert!(!saas.contains(&scratch), "/tmp/openhuman must not be granted in SaaS");
+    assert!(
+        !saas.contains(&projects),
+        "projects home must not be granted in SaaS"
+    );
+    assert!(
+        !saas.contains(&scratch),
+        "/tmp/openhuman must not be granted in SaaS"
+    );
 
     let single = roots(false);
     assert!(single.contains(&projects));

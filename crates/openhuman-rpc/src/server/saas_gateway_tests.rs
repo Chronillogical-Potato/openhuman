@@ -120,10 +120,7 @@ mod decision {
 
     #[tokio::test]
     async fn no_user_header_runs_on_the_operator_plane() {
-        assert_eq!(
-            status(app(Some(SECRET)), "/rpc", &[]).await,
-            StatusCode::OK
-        );
+        assert_eq!(status(app(Some(SECRET)), "/rpc", &[]).await, StatusCode::OK);
     }
 
     #[tokio::test]
@@ -160,7 +157,10 @@ mod decision {
     #[tokio::test]
     async fn a_valid_signed_user_is_admitted() {
         let headers = [bearer_header(), user("alice"), sig("alice", NOW)];
-        assert_eq!(status(app(Some(SECRET)), "/rpc", &headers).await, StatusCode::OK);
+        assert_eq!(
+            status(app(Some(SECRET)), "/rpc", &headers).await,
+            StatusCode::OK
+        );
     }
 
     #[tokio::test]

@@ -365,14 +365,12 @@ impl ShellTool {
         // SaaS: every command runs in the user's container, whatever the
         // agent's sandbox mode says, and never on the host.
         let saas_action_dir = self.effective_action_dir_for_context(context);
-        if let Some(resolved) =
-            saas_sandbox_with(crate::core::runtime::is_saas(), || {
-                crate::user_agents::tools::sandbox_policy(
-                    &saas_action_dir,
-                    &self.security.workspace_dir,
-                )
-            })
-        {
+        if let Some(resolved) = saas_sandbox_with(crate::core::runtime::is_saas(), || {
+            crate::user_agents::tools::sandbox_policy(
+                &saas_action_dir,
+                &self.security.workspace_dir,
+            )
+        }) {
             let action_dir = saas_action_dir;
             return match resolved {
                 Ok(policy) => {

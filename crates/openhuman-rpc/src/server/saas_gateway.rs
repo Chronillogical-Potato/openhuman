@@ -129,9 +129,9 @@ pub(crate) fn decide(
     let Some(secret) = secret else {
         return Err(refuse(503, "the core is not ready"));
     };
-    if !bearer(req).is_some_and(|supplied| {
-        crate::core_host::core::auth::bearer_matches(supplied, secret)
-    }) {
+    if !bearer(req)
+        .is_some_and(|supplied| crate::core_host::core::auth::bearer_matches(supplied, secret))
+    {
         return Err(refuse(401, "unauthorized"));
     }
     // Checked after the bearer, so an unauthenticated caller learns nothing.
@@ -143,9 +143,8 @@ pub(crate) fn decide(
         return Err(refuse(400, "more than one user signature header"));
     }
     let signature = signature.and_then(|value| value.to_str().ok());
-    resolve(Some(user), signature, secret, now).map_err(|refusal| {
-        refuse(refusal.status, &refusal.message)
-    })
+    resolve(Some(user), signature, secret, now)
+        .map_err(|refusal| refuse(refusal.status, &refusal.message))
 }
 
 #[cfg(test)]
