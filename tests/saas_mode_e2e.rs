@@ -214,7 +214,7 @@ fn a_safe_deployment_serves_core_and_the_operator_plane_behind_the_gateway_beare
     assert_eq!(status, 200);
     assert!(body.get("result").is_some(), "core.ping answers: {body}");
 
-    // No domain family is isolated per user yet, so none is served.
+    // The operator plane serves none of the user families.
     for method in [
         "openhuman.threads_list",
         "openhuman.config_get_config",
@@ -559,8 +559,9 @@ fn each_user_sees_only_their_own_threads() {
         );
         assert!(body.get("error").is_some(), "{id}: {body}");
     }
-    let (_, body) = call("alice", "openhuman.threads_regenerate", json!({}));
-    assert!(body.get("error").is_some(), "{body}");
+    // A method off the user surface is unknown, not a parameter error.
+    let (_, body) = call("alice", "openhuman.config_get_config", json!({}));
+    assert!(body.to_string().contains("unknown method"), "{body}");
     drop(server);
 }
 

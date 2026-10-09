@@ -7,11 +7,11 @@
 //! narrowing axes, and [`build`], which refuses to boot unless
 //! [`boot_guard`](super::boot_guard) finds nothing unsafe.
 //!
-//! The per-user surface lands phase by phase. Until then the presets are
-//! closed: [`DomainSet::saas`] enables only the operator plane
-//! (`user_agents.*`), so a SaaS core answers its always-on infrastructure
-//! (`core.*`, `/health`, `/schema`) and provisioning, and refuses every user
-//! domain method as unknown. [`build`] installs the process's
+//! [`DomainSet::saas`] enables the operator plane (`user_agents.*`) and the
+//! user families whose per-user isolation has landed (threads, channels for
+//! web chat, memory). The operator scope reaches only its own plane, and a
+//! user only the reviewed `user_agents::surface::USER_METHODS`. [`build`]
+//! seeds the built-in agent definitions and installs the process's
 //! [`AgentHost`](crate::user_agents::AgentHost).
 
 use std::path::{Path, PathBuf};
