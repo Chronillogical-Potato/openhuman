@@ -377,7 +377,10 @@ async fn direct_connected_integrations_fetches_schemas_without_backend_composio_
             let hits = backend_hits.clone();
             async move {
                 hits.fetch_add(1, Ordering::SeqCst);
-                (StatusCode::UNAUTHORIZED, Json(json!({"error":"SESSION_EXPIRED"})))
+                (
+                    StatusCode::UNAUTHORIZED,
+                    Json(json!({"error":"SESSION_EXPIRED"})),
+                )
             }
         }),
     );

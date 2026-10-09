@@ -250,10 +250,7 @@ async fn fetch_connected_integrations_uncached_inner(
             // every Composio request on the user's direct route. Failure is
             // non-fatal — lazy resolution can still discover actions later.
             let tools = match super::super::client::direct_list_tools(
-                config,
-                direct,
-                &allowlist,
-                None,
+                config, direct, &allowlist, None,
             )
             .await
             {
