@@ -429,14 +429,14 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/session_host/runtime_session.rs",
-    "line": 266,
+    "line": 268,
     "text": "crate::agent::turn_origin::current_is_user_authored().then(|| request.input.text());",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/session_host/runtime_session.rs",
-    "line": 670,
+    "line": 669,
     "text": "workspace_descriptor: crate::agent::harness::current_parent()",
     "occurrence": 1
   },
@@ -1128,43 +1128,57 @@
   },
   {
     "rule": "openhuman-upstream-reexport",
+    "path": "crates/openhuman-embed/src/embeddings.rs",
+    "line": 18,
+    "text": "pub use tinyinference_embeddings::{",
+    "occurrence": 1
+  },
+  {
+    "rule": "openhuman-upstream-reexport",
+    "path": "crates/openhuman-embed/src/embeddings.rs",
+    "line": 26,
+    "text": "pub use tinyinference_embeddings::{Error as EmbeddingError, Result as EmbeddingResult};",
+    "occurrence": 1
+  },
+  {
+    "rule": "openhuman-upstream-reexport",
     "path": "crates/openhuman-embed/src/lib.rs",
-    "line": 121,
+    "line": 123,
     "text": "pub use tinyagents_session::port::{",
     "occurrence": 1
   },
   {
     "rule": "openhuman-upstream-reexport",
     "path": "crates/openhuman-embed/src/lib.rs",
-    "line": 125,
+    "line": 127,
     "text": "pub use tinyagents_session::testkit::conformance::{",
     "occurrence": 1
   },
   {
     "rule": "openhuman-upstream-reexport",
     "path": "crates/openhuman-embed/src/lib.rs",
-    "line": 129,
+    "line": 131,
     "text": "pub use tinyagents_session::transcript::{",
     "occurrence": 1
   },
   {
     "rule": "openhuman-upstream-reexport",
     "path": "crates/openhuman-embed/src/lib.rs",
-    "line": 134,
+    "line": 136,
     "text": "pub use tinyagents_session::turn_state::{TurnLifecycle, TurnState};",
     "occurrence": 1
   },
   {
     "rule": "openhuman-upstream-reexport",
     "path": "crates/openhuman-embed/src/lib.rs",
-    "line": 136,
+    "line": 138,
     "text": "pub use tinyagents_session::{Result as StoreResult, TinyAgentsError as StoreError};",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-moved-symbol-alias",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/tool/mod.rs",
-    "line": 138,
+    "line": 141,
     "text": "pub struct ToolRegistry<State: Send + Sync, Ctx: Send + Sync> {",
     "occurrence": 1
   },
@@ -1437,14 +1451,14 @@
   {
     "rule": "tinyagents-tool-calling-facade",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/agent_loop/tools.rs",
-    "line": 2420,
+    "line": 2398,
     "text": "use tinytools_agent::repair::args;",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-tool-calling-facade",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/lib.rs",
-    "line": 117,
+    "line": 118,
     "text": "pub use tinytools_agent;",
     "occurrence": 1
   },
