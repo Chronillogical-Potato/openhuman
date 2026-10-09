@@ -71,6 +71,31 @@ on `storage-mongodb`.
   master key they fail closed. The config encryption key stays on the
   process keyring, because `config.toml` is loaded before any agent acts.
 
+## Background work and agent scopes
+
+Work done inside an agent's turn runs under that agent's `CoreContext`
+(`session_agent`, set for embed agents and SaaS user agents), so with a
+backend installed its records land in that agent's scope. Background work
+runs under the process default context and on its own would only see
+`local`. `storage::agents` closes the gap:
+
+- `registered(context)`: `CoreContext::derive_with` records every agent
+  context it builds (live, by agent id), and the agent id is written to the
+  backend's `local` scope (`storage_agents`) so a restarted process still
+  knows it.
+- `for_each_scope(label, step)`: runs `step` for `local`, then under each
+  known agent's context — its live one, or the default context acting for it
+  (`CoreContext::for_agent`). `for_each_agent` skips `local`.
+- `within_agent(agent, fut)` / `context_for(agent)`: re-enter an agent's
+  scope when background work learned whose record it is handling.
+
+Users: the cron scheduler (`cron::scheduler::tick_agents`), the task-source
+poller, the flows boot sweep and schedule-trigger reconcile, the run reaper,
+and the device tunnel (a paired device's frames run as the agent that paired
+it, `security::devices::owner`). Without a backend these run once, as
+before. In SaaS mode agent ids are not recorded and `local` is skipped;
+per-user background work there is `user_agents::background`.
+
 ## Boundaries
 
 The ports, drivers, scopes and conformance suites are tinystoragedrivers';
