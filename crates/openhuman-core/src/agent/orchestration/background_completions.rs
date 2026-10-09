@@ -502,6 +502,26 @@ pub(crate) fn recover_pending_threads(workspace_dir: &Path) -> Vec<String> {
     threads
 }
 
+/// Forget everything this process knows about `workspace_dir`, as a restart
+/// would: the router (and its open log handle) and every thread/session mapping
+/// that points at it. The on-disk log is untouched.
+#[cfg(test)]
+pub(crate) fn forget_workspace_for_test(workspace_dir: &Path) {
+    let mut st = state();
+    st.routers.remove(workspace_dir);
+    let gone: Vec<String> = st
+        .thread_workspaces
+        .iter()
+        .filter(|(_, ws)| ws.as_path() == workspace_dir)
+        .map(|(thread, _)| thread.clone())
+        .collect();
+    for thread in gone {
+        st.thread_workspaces.remove(&thread);
+        st.stopped_threads.remove(&thread);
+    }
+    st.session_threads.clear();
+}
+
 #[cfg(test)]
 #[path = "background_completions_tests.rs"]
 mod tests;
