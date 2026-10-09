@@ -111,12 +111,26 @@ impl FlowTriggerSubscriber {
         })
     }
 
+    /// The configuration to handle an event under: the acting agent's own
+    /// when the handler runs as one (`super::owner`, `crate::storage::agents`)
+    /// — its provider, access policy and action directory — else the one this
+    /// subscriber was registered with.
+    pub(super) fn config_for_scope(&self) -> Arc<Config> {
+        let acting = crate::core::runtime::CoreContext::current()
+            .is_some_and(|context| context.session_agent().is_some());
+        match acting.then(crate::core::runtime::CoreContext::current_embedder_config) {
+            Some(Some(config)) => Arc::new(config),
+            _ => Arc::clone(&self.config),
+        }
+    }
+
     /// `DomainEvent::FlowScheduleTick` — a `flow`-type cron job fired. Loads
     /// the one named flow, checks it is still enabled with a `schedule`
     /// trigger (it may have been disabled/edited since the job was
     /// registered), and dispatches it with an empty trigger payload.
     async fn handle_schedule_tick(&self, flow_id: &str) {
-        let flow = match store::get_flow(&self.config, flow_id) {
+        let config = self.config_for_scope();
+        let flow = match store::get_flow(&config, flow_id) {
             Ok(Some(flow)) => flow,
             Ok(None) => {
                 tracing::debug!(target: "flows", %flow_id, "[flows] schedule tick for unknown/removed flow — ignoring");
@@ -149,7 +163,8 @@ impl FlowTriggerSubscriber {
     /// dispatches each match with the event payload as the run input
     /// (seeded into `run.trigger`, per the node-catalog contract).
     async fn handle_app_event(&self, toolkit: &str, trigger_slug: &str, payload: &Value) {
-        let (flows, skipped) = match store::list_enabled_flows(&self.config) {
+        let config = self.config_for_scope();
+        let (flows, skipped) = match store::list_enabled_flows(&config) {
             Ok(result) => result,
             Err(e) => {
                 tracing::warn!(target: "flows", %toolkit, %trigger_slug, error = %e, "[flows] failed to list enabled flows for app_event dispatch");
@@ -198,7 +213,7 @@ impl FlowTriggerSubscriber {
             return;
         };
 
-        let config = self.config.clone();
+        let config = self.config_for_scope();
         // Scoped: the run keeps the owner's context the handler entered.
         crate::core::runtime::spawn_scoped(async move {
             // Held for the lifetime of the run; released on drop (including

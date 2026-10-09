@@ -20,13 +20,22 @@ static OWNERS: LazyLock<Mutex<HashMap<String, Option<String>>>> = LazyLock::new(
 pub(super) async fn flow_owner(config: &Config, flow_id: &str) -> Option<String> {
     // No backend: every record is `local`.
     crate::storage::installed()?;
-    if let Some(owner) = OWNERS
+    let cached = OWNERS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .get(flow_id)
-        .cloned()
-    {
-        return owner;
+        .cloned();
+    if let Some(owner) = cached {
+        // Still there? A removed flow's id may be reused, or the flow moved:
+        // re-check the cached scope and resolve again when it lost the flow.
+        let still_there = crate::storage::agents::within_agent(owner.as_deref(), async {
+            matches!(crate::flows::store::get_flow(config, flow_id), Ok(Some(_)))
+        })
+        .await;
+        if still_there {
+            return owner;
+        }
+        forget(flow_id);
     }
     let found = crate::storage::agents::find_owner("flow owner", || async {
         matches!(crate::flows::store::get_flow(config, flow_id), Ok(Some(_)))
@@ -47,7 +56,6 @@ pub(super) async fn flow_owner(config: &Config, flow_id: &str) -> Option<String>
 }
 
 /// Forgets a cached owner (a removed flow's id may be reused).
-#[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn forget(flow_id: &str) {
     OWNERS
         .lock()
