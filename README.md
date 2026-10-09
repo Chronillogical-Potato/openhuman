@@ -135,21 +135,21 @@ The speed and density above come from a handful of design choices most harnesses
 
 <td width="50%" valign="top">
 
-<h3>TokenJuice: RLM-style context</h3>
+<h3>TokenJuice: big outputs, small bills</h3>
 
-<p>Big tool output never lands in the prompt whole. TinyJuice compresses it by kind (JSON, diffs, logs, code, HTML) and turns large results into handles the agent queries with <code>juice_find</code>, <code>juice_extract</code> and <code>juice_summarize</code>. The full original stays one <code>juice_retrieve</code> away, so nothing is lost.</p>
+<p>A tool can return a huge build log or a 600-message email thread. Pasting all of that into the prompt means paying for every line. OpenHuman shrinks it first, and when a result is really big it hands the agent a handle instead, so the agent can search inside it, pull out one part or ask for a summary. That is the idea behind <a href="https://arxiv.org/abs/2512.24601">Recursive Language Models</a>. The full original is kept, in case the agent needs it.</p>
 
-<p><a href="./gitbooks/features/token-compression.md">Token compression</a> · <a href="https://github.com/tinyhumansai/tinyjuice">tinyjuice</a></p>
+<p><a href="https://arxiv.org/abs/2512.24601">RLM paper</a> · <a href="./gitbooks/features/token-compression.md">How it works</a> · <a href="https://github.com/tinyhumansai/tinyjuice">tinyjuice</a></p>
 
 </td>
 
 <td width="50%" valign="top">
 
-<h3>Jev: decisions without prose</h3>
+<h3>Jev: the right tool, first time</h3>
 
-<p>Picking a tool should not cost a paragraph of reasoning. Jev is a small decision model that scores a fixed set of options. On 1,215 candidate tools it picks the right one first <b>62%</b> of the time against BM25's 22.5%, and cuts needless tool calls from 26 to 1 out of 31.</p>
+<p>Give an agent a thousand tools and it burns tokens just deciding which one to use, then often picks wrong. Jev is a small model that only makes choices: you show it the options and it says how likely each one is. With 1,215 tools on the table it gets the right one first 62% of the time, where keyword search gets 22.5%. It also stopped calling tools nobody asked for: 1 stray call in 31 requests, down from 26.</p>
 
-<p><a href="./gitbooks/developing/jev.md">Jev</a> · <a href="./docs/plans/jev-tool-search-baseline.md">Tool-search baseline</a></p>
+<p><a href="./gitbooks/developing/jev.md">Jev</a> · <a href="./docs/plans/jev-tool-search-baseline.md">The measurements</a></p>
 
 </td>
 
@@ -159,9 +159,9 @@ The speed and density above come from a handful of design choices most harnesses
 
 <td width="50%" valign="top">
 
-<h3>TinyBus: capabilities as modules</h3>
+<h3>TinyBus: load only what you use</h3>
 
-<p>Search, documents, browser and computer use, voice, wallet, MCP and more are native modules behind small, versioned contract crates. Fourteen are pinned by SHA-256 and loaded lazily, so an agent that never opens a PDF never pays for the PDF engine.</p>
+<p>Search, documents, browser control, voice, the wallet and MCP each live in their own module behind a small, fixed interface. A module loads the first time an agent needs it. If you never open a PDF, you never pay for the PDF engine. Each module is pinned to an exact release and checked against its checksum before it runs.</p>
 
 <p><a href="./gitbooks/developing/loadable-modules.md">Loadable modules</a> · <a href="https://github.com/tinyhumansai/tinybus">tinybus</a></p>
 
@@ -169,11 +169,11 @@ The speed and density above come from a handful of design choices most harnesses
 
 <td width="50%" valign="top">
 
-<h3>One API key for everything</h3>
+<h3>One key for everything</h3>
 
-<p>A single TinyHumans key covers managed inference (including the OpenRouter catalogue), web search, embeddings, voice, media generation, integrations and Jev. Pass it once in code or as one environment variable. Bring your own providers instead whenever you like.</p>
+<p>Setting up an agent usually means one account for the model, another for search, more for embeddings, voice and every app you connect. Here a single TinyHumans key covers all of it, including the full OpenRouter model catalogue. Would you rather use your own providers? Plug them in instead.</p>
 
-<p><a href="./gitbooks/developing/tinyhumans-api-key.md">The TinyHumans API key</a> · <a href="./gitbooks/developing/engines.md">Engines</a></p>
+<p><a href="./gitbooks/developing/tinyhumans-api-key.md">The API key</a> · <a href="./gitbooks/developing/engines.md">Supported engines</a></p>
 
 </td>
 
@@ -183,9 +183,9 @@ The speed and density above come from a handful of design choices most harnesses
 
 <td width="50%" valign="top">
 
-<h3>Cache-stable sessions</h3>
+<h3>Conversations that stay cheap</h3>
 
-<p>A conversation maps to one transcript, deterministically. A resumed thread reuses its exact system prompt and tool list, so the provider's prefix cache stays warm across restarts, and compaction seals old generations on disk instead of erasing them.</p>
+<p>Model providers charge much less for the part of a prompt that matches the previous call. OpenHuman keeps the start of every conversation byte-for-byte the same, even after a restart, so long chats keep that discount. When a chat grows too long it gets summarized, and the full history stays on disk.</p>
 
 <p><a href="./gitbooks/developing/architecture/agent-harness.md">Agent harness</a> · <a href="https://github.com/tinyhumansai/tinyagents">tinyagents</a></p>
 
@@ -193,11 +193,11 @@ The speed and density above come from a handful of design choices most harnesses
 
 <td width="50%" valign="top">
 
-<h3>Pluggable to the core</h3>
+<h3>Swap any part</h3>
 
-<p>The LLM, embeddings, memory engine and web search are all chosen by config. Every capability is a Cargo feature, so a stripped build with nothing enabled is 51 MiB and you compile only what your product uses.</p>
+<p>The model, the memory engine, web search and embeddings are settings, so changing one does not mean changing code. Developers can also leave features out at build time. With all of them off, the whole core is a 51 MB file.</p>
 
-<p><a href="./gitbooks/developing/engines.md">Pluggable engines</a> · <a href="./gitbooks/developing/performance.md">Performance</a></p>
+<p><a href="./gitbooks/developing/engines.md">Pluggable engines</a> · <a href="./gitbooks/developing/performance.md">Build sizes</a></p>
 
 </td>
 
