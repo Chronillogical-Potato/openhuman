@@ -53,7 +53,7 @@ fn recovery_interrupts_turns_left_in_flight() {
 static SLOTS: Mutex<()> = Mutex::new(());
 
 /// Puts the process-global storage backend back as a test found it.
-fn restore_backend(previous: Option<Arc<dyn tinystoragedrivers::StorageBackend>>) {
+fn restore_backend(previous: Option<Arc<dyn openhuman_core::storage::StorageBackend>>) {
     match previous {
         Some(backend) => {
             openhuman_core::storage::install(backend);
