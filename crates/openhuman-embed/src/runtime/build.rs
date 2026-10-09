@@ -126,6 +126,14 @@ impl RuntimeBuilder {
             Some(self.resolve_config(&resolved).await?)
         };
 
+        // The seams are the last fallible step before side effects a failed
+        // build cannot undo (the stored API key, the host memory engine), so
+        // a refused controller extension leaves neither behind. Restorable
+        // seams are undone by this guard if the boot below fails.
+        let mut seams = std::mem::take(&mut self.seams)
+            .install()
+            .map_err(RuntimeError::Invalid)?;
+
         // Before `CoreBuilder::build()`: the scheduler gate reads the credential
         // store exactly once, at boot, to decide whether it is signed in.
         let has_api_key = match (self.api_key.as_ref(), config.as_ref()) {
@@ -140,11 +148,15 @@ impl RuntimeBuilder {
         // applicator, so host policy follows the effective behaviour: only a
         // *usable* runtime-default route exempts an inherited install from
         // its session gate. An API key is a credential in its own right.
+        // Discovered has no config yet, but the provider is applied to the
+        // agents' base config after boot (see below), so judge it by the
+        // model it carries itself.
         let routed_provider_effective = self.provider.has_usable_route()
-            && config
-                .as_ref()
-                .and_then(|config| config.default_model.as_deref())
-                .is_some_and(|model| !model.trim().is_empty());
+            && match config.as_ref() {
+                Some(config) => config.default_model.as_deref(),
+                None => self.provider.model_name(),
+            }
+            .is_some_and(|model| !model.trim().is_empty());
         let host_kind = effective_host_kind(
             self.host_kind,
             inherit,
@@ -169,11 +181,6 @@ impl RuntimeBuilder {
             installed: installed_session_store,
             previous: previous_session_store,
         };
-
-        // Restorable seams are undone by this guard if the boot below fails.
-        let mut seams = std::mem::take(&mut self.seams)
-            .install()
-            .map_err(RuntimeError::Invalid)?;
 
         log::debug!(
             "[embed][runtime] building host_kind={host_kind:?} config_source={:?} \
@@ -213,8 +220,8 @@ impl RuntimeBuilder {
         let core = Core::from_runtime(Arc::new(runtime));
 
         // Discovered: agents start from the config the core just loaded.
-        let mut base_config = match config.take() {
-            Some(config) => config,
+        let (mut base_config, config_unavailable) = match config.take() {
+            Some(config) => (config, None),
             None => discovered_base_config().await,
         };
         if discovered {
@@ -242,6 +249,7 @@ impl RuntimeBuilder {
             previous_session_store,
             Some(seams),
             base_config,
+            config_unavailable,
             inherit,
             domains,
             tool_groups,
@@ -293,15 +301,21 @@ impl RuntimeBuilder {
 
 /// The base config for agents of a runtime whose core discovered its own:
 /// the same `load_or_init` the core just ran, so the two agree.
-async fn discovered_base_config() -> Config {
+///
+/// When it fails the core has already booted without its workspace-bound
+/// stores. The runtime still comes up (a host that never creates an agent,
+/// like the desktop shell, keeps working), but the failure is returned with
+/// the placeholder config so [`Runtime::agent`] refuses instead of laying an
+/// agent out under the default root, a different workspace and credential
+/// store from the one the operator selected.
+async fn discovered_base_config() -> (Config, Option<String>) {
     match Config::load_or_init().await {
-        Ok(config) => config,
+        Ok(config) => (config, None),
         Err(error) => {
-            // The core logged the same failure and skipped its workspace-bound
-            // stores; agents fall back to defaults rather than failing a host
-            // that may never create one.
-            log::warn!("[embed][runtime] discovered config failed to load: {error:#}");
-            Config::default()
+            log::warn!(
+                "[embed][runtime] discovered config failed to load; agents will be refused: {error:#}"
+            );
+            (Config::default(), Some(format!("{error:#}")))
         }
     }
 }
