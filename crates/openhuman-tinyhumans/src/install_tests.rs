@@ -35,6 +35,8 @@ fn options_turn_controllers_and_ranker_off() {
 
 #[test]
 fn wiring_reuses_the_process_transport() {
+    // A product-identity change drops the cached transport; hold its lock.
+    let _guard = crate::backend::product::product_identity_test_lock();
     let first = wiring(&InstallOptions::default()).expect("first");
     let second = wiring(&InstallOptions::default()).expect("second");
     assert!(Arc::ptr_eq(&first.transport, &second.transport));
@@ -42,6 +44,8 @@ fn wiring_reuses_the_process_transport() {
 
 #[test]
 fn install_registers_hosted_controllers_and_installs_the_ranker() {
+    // A product-identity change drops the cached transport; hold its lock.
+    let _guard = crate::backend::product::product_identity_test_lock();
     let transport = install(InstallOptions::default()).expect("install");
     assert!(is_installed());
     assert!(
