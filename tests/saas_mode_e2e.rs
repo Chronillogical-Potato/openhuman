@@ -788,23 +788,15 @@ fn a_users_turn_reaches_inference_with_their_own_credential() {
     let inference = loop {
         let left = until.saturating_duration_since(Instant::now());
         match requests.recv_timeout(left) {
-            Ok((path, auth)) if auth.contains("alice-session-jwt") => {
-                eprintln!("DEBUG hit={path}");
-                break Some((path, auth));
-            }
+            Ok((path, auth)) if path.contains("/chat/completions") => break Some((path, auth)),
             Ok(other) => seen.push(other),
             Err(_) => break None,
         }
     };
     let (_, auth) = inference.unwrap_or_else(|| {
-        panic!("alice's turn never reached the backend with her key; saw {seen:?}")
+        panic!("alice's turn never reached inference; saw {seen:?}")
     });
     assert_eq!(auth, "Bearer alice-session-jwt");
-    eprintln!("DEBUG first={:?}", inference_path_dbg(&requests));
     drop(server);
 }
 
-fn inference_path_dbg(rx: &std::sync::mpsc::Receiver<(String, String)>) -> Vec<(String, String)> {
-    std::thread::sleep(Duration::from_secs(5));
-    rx.try_iter().collect()
-}
