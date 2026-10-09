@@ -124,7 +124,10 @@ Before every model call, the agent's budget gate (`OpenHumanBudgetGate::acquire`
 - **Refuse:** a `refuse` policy at or over its limit refuses the call with `TinyAgentsError::LimitExceeded("BUDGET_EXCEEDED: …")`, before any scheduler slot is taken.
 - **Warn:** a `warn` policy, or any policy past `warn_fraction`, logs a warning.
 - **Unattributed calls:** a call without the policy's attribute is outside it. For example, a call with no thread is outside a per-thread budget.
-- **Live policies:** the gate re-reads `[[cost.budgets]]` from the session's `config.toml` on every check, so a change applies to threads already open.
-- **Soft cap under concurrency:** the check reads the ledger and reserves nothing. Calls that start together can each pass and overshoot a limit by at most the calls in flight; the next call is refused.
+- **The call itself counts:** its estimated cost and tokens are added to the bucket's total, so a call that would itself cross a limit is refused.
+- **Invalid caps fail closed:** a negative or NaN `max_usd` refuses (with a warning). A NaN `warn_fraction` uses 0.8, and records with a non-finite cost count as free.
+- **Live policies:** the gate re-reads `[[cost.budgets]]` from the session's `config.toml` on every check, so a change applies to threads already open. It keeps the policies it was built with when the file is missing or does not parse (logged at warn), and always for an embedder-supplied config, whose in-memory budgets are authoritative.
+- **Soft cap under concurrency:** the check reads the ledger and reserves nothing. Calls that start together can each pass, and the overshoot is bounded by the estimates of the calls in flight. Spend is known once a call is recorded; a provider reply with no usage is not recorded and so does not count.
+- **Agent calls only:** the gate covers model calls made through the agent harness. Direct `ChatModel` callers (chat follow-up suggestions, Flow Canvas LLM nodes) are not metered against budgets yet.
 - **No `provider` scope yet:** the gate does not see a call's provider before it is made.
 - **No checking at all** when no budgets are configured, when there is no cost tracker, or when the ledger cannot be read. The budget check never fails a call for a reason of its own.
