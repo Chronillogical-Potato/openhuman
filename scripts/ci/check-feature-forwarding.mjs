@@ -4,7 +4,8 @@
 //
 // See scripts/lib/feature-forwarding.mjs for the three assertions and why they
 // are shaped this way (#4919). Short version: the shell sets
-// `default-features = false` on `openhuman_core`, so every gate the product
+// `default-features = false` on `openhuman-rpc` (its only openhuman
+// dependency, which forwards each gate down to the core), so every gate the product
 // needs must be forwarded by hand. When someone forgets, the domain vanishes
 // from the shipped app with no build error — that is how #4901 (voice, 56
 // users, ~93k Sentry events) and #4918 (tokenjuice-treesitter, silent soft
@@ -15,14 +16,14 @@
 // deliberately smaller.
 //
 // It also checks the library chain the core is re-declared by — embed,
-// tinyhumans, rpc and cli (#6364). Those three lists were maintained by hand: a gate
+// tinyhumans, rpc, then the cli and tui hosts on rpc (#6364). Those lists were maintained by hand: a gate
 // dropped from the core and left behind is a cargo error nobody reads as drift
 // (#6360), and a gate ADDED to the core and forgotten is silent, because the
 // product lanes only ever resolve names against `openhuman-cli`.
 //
 // Usage: check-feature-forwarding.mjs [core-manifest] [shell-manifest] [product-features]
 //                                     [embed-manifest] [tinyhumans-manifest] [cli-manifest]
-//                                     [rpc-manifest]
+//                                     [rpc-manifest] [tui-manifest]
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
