@@ -159,9 +159,9 @@ The speed and density above come from a handful of design choices most harnesses
 
 <td width="50%" valign="top">
 
-<h3>TinyBus: load only what you use</h3>
+<h3>TinyBus: a system bus for agents</h3>
 
-<p>Search, documents, browser control, voice, the wallet and MCP each live in their own module behind a small, fixed interface. A module loads the first time an agent needs it. If you never open a PDF, you never pay for the PDF engine. Each module is pinned to an exact release and checked against its checksum before it runs.</p>
+<p>Linux desktops keep apps apart with <a href="https://www.freedesktop.org/wiki/Software/dbus/">D-Bus</a>: each program offers named services on a shared bus, and others call them without knowing how they work inside. TinyBus brings that design to agents. Search, documents, browser control, voice, the wallet and MCP are separate modules that talk over the bus through small, versioned interfaces. Every call has a deadline, so one stuck module cannot freeze the rest, and a module loads only the first time an agent needs it. If you never open a PDF, you never pay for the PDF engine.</p>
 
 <p><a href="./gitbooks/developing/loadable-modules.md">Loadable modules</a> · <a href="https://github.com/tinyhumansai/tinybus">tinybus</a></p>
 
