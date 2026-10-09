@@ -64,10 +64,12 @@ async fn inherited_origin_stays_unlabelled_without_an_outer_scope() {
 async fn inherited_origin_preserves_a_non_cli_origin_verbatim() {
     let observed = with_origin(
         AgentTurnOrigin::ExternalChannel {
+            sender_name: None,
             channel: "telegram".into(),
             sender: Some("u-42".into()),
             reply_target: "chat-7".into(),
             message_id: "m-9".into(),
+            history_key: None,
         },
         async {
             let captured = capture();
@@ -84,6 +86,7 @@ async fn inherited_origin_preserves_a_non_cli_origin_verbatim() {
             sender,
             reply_target,
             message_id,
+            ..
         }) => {
             assert_eq!(channel, "telegram");
             assert_eq!(sender.as_deref(), Some("u-42"));
@@ -257,10 +260,12 @@ async fn spawn_does_not_manufacture_an_origin() {
 async fn spawn_preserves_an_untrusted_origin_verbatim() {
     let observed = with_origin(
         AgentTurnOrigin::ExternalChannel {
+            sender_name: None,
             channel: "telegram".into(),
             sender: Some("u-42".into()),
             reply_target: "chat-7".into(),
             message_id: "m-9".into(),
+            history_key: None,
         },
         async {
             spawn(async { current() })

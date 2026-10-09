@@ -1,3 +1,10 @@
+---
+description: >-
+  File-based hooks that observe and gate an agent turn, with a
+  Cursor-compatible contract.
+icon: link
+---
+
 # Hooks
 
 A hook is a script you own that OpenHuman runs at a specific moment (before a
@@ -198,9 +205,9 @@ every tool call.
 Three RPC methods, on the `hooks` namespace:
 
 ```bash
-openhuman hooks list      # what is configured, from which file, and whether it is wired
-openhuman hooks reload    # re-read every layer
-openhuman hooks test --event beforeShellExecution \
+openhuman-core hooks list      # what is configured, from which file, and whether it is wired
+openhuman-core hooks reload    # re-read every layer
+openhuman-core hooks test --event beforeShellExecution \
   --payload '{"command":"rm -rf /","sandbox":false}'
 ```
 
@@ -256,8 +263,12 @@ Both need `chmod +x`.
 
 ## Implementation
 
-`crates/openhuman-core/src/hooks/`: `types` (the wire contract), `config` (the file and its
-layering), `matcher`, `exec` (one hook: stdin, timeout, exit codes),
-`engine` (selection, ordering, aggregation), `context` (the envelope),
-`bridge` (mounting on the harness's existing tool and turn seams), `ops` (the
-moments with no existing seam), `followup`.
+The engine and the whole `hooks.json` contract live upstream, in
+`tinyagents_runtime::command_hooks`: the types, the file and its layering, the
+matcher, running one hook (stdin, timeout, exit codes), selection and ordering
+and aggregation, the context envelope, and follow-ups.
+
+What stays in `crates/openhuman-core/src/hooks/` is the host half: `bridge`
+(mounting the engine on the harness's existing tool and turn seams), `ops` (the
+moments with no existing seam), `host`, `schemas` (the RPC surface) and
+`prompt_eval`. The beside-code `README.md` there is the authoritative split.

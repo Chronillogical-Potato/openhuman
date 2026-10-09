@@ -204,7 +204,10 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       checks: [
         {
           name: "pnpm-install",
-          when: areas.frontend || areas.i18n || areas.scripts,
+          // ex63: also for a core change, so rust-core-coverage's mock backend
+          // (scripts/mock-api-server.mjs imports `ws`) can start when no
+          // frontend file changed. One install per VM: lanes share a checkout.
+          when: areas.frontend || areas.i18n || areas.scripts || (ex63 && core),
           run: "pnpm install --frozen-lockfile",
         },
         {
@@ -288,6 +291,13 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       targetDir: targetDir("cov"),
       env: covEnv,
       checks: [
+        // hosted: rust-cov has a runner of its own, so it installs the node
+        // deps the mock backend needs itself (ex63 reuses frontend's install).
+        {
+          name: "pnpm-install",
+          when: !ex63 && core,
+          run: "pnpm install --frozen-lockfile",
+        },
         {
           name: "test-modules",
           when: core,
@@ -303,7 +313,10 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
         {
           name: "rust-core-coverage",
           when: core,
-          needs: ["test-modules"],
+          needs: [
+            "test-modules",
+            ex63 ? "frontend:pnpm-install" : "pnpm-install",
+          ],
           // Doctests and tui coverage run on pushes to main instead (see above).
           // ex63: the core's unit tests run under cargo-nextest, one process
           // per test and in parallel (the guest image ships cargo-nextest).
@@ -367,6 +380,7 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
             "cargo test --manifest-path Cargo.toml -p openhuman --no-default-features --lib --" +
             " core::all:: core::cli:: core::invoke:: core::session_expiry:: core::legacy_aliases:: core::runtime::" +
             " agent::registry::agents::loader:: commands::ops::tests:: memory::people::contacts_gate_tests::" +
+            " memory::layout_migration::" +
             " openhuman::config:: openhuman::platform::socket::event_handlers:: tools::schemas:: tools::ops::tests::",
         },
         {

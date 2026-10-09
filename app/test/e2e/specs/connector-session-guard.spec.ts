@@ -120,19 +120,6 @@ describe('Composio connector session guard (cross-cutting, #2286)', () => {
     console.log(`${LOG} PASS: 500 on delete does not log user out`);
   });
 
-  it('500 on composio/sync does NOT log user out (#2286)', async function () {
-    this.timeout(60_000);
-    setMockBehavior('composioSyncFails', '1');
-
-    for (const slug of GUARD_TOOLKITS) {
-      clearRequestLog();
-      await callOpenhumanRpc('openhuman.composio_sync', { toolkit: slug });
-    }
-
-    await assertSessionNotNuked();
-    console.log(`${LOG} PASS: 500 on sync does not log user out`);
-  });
-
   it('navigating to Skills page with FAILED connections does NOT log user out (#2286)', async function () {
     this.timeout(60_000);
     // Set all connections as FAILED

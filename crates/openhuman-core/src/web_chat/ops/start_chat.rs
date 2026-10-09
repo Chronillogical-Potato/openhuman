@@ -131,7 +131,36 @@ fn prompt_guard_user_message(action: PromptEnforcementAction) -> &'static str {
     }
 }
 
-pub async fn start_chat(
+/// Returned boxed and `#[inline(never)]` on purpose: other crates await this
+/// (`openhuman-rpc`, `openhuman-embed`), and an `async fn` body is otherwise
+/// re-instantiated inside every calling crate's state machine. Boxing here
+/// keeps one copy, compiled in this crate.
+#[allow(clippy::too_many_arguments)]
+#[inline(never)]
+pub fn start_chat<'a>(
+    client_id: &'a str,
+    thread_id: &'a str,
+    message: &'a str,
+    model_override: Option<String>,
+    temperature: Option<f64>,
+    locale: Option<String>,
+    queue_mode: Option<String>,
+    metadata: ChatRequestMetadata,
+) -> futures::future::BoxFuture<'a, Result<String, StartChatError>> {
+    Box::pin(start_chat_inner(
+        client_id,
+        thread_id,
+        message,
+        model_override,
+        temperature,
+        locale,
+        queue_mode,
+        metadata,
+    ))
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn start_chat_inner(
     client_id: &str,
     thread_id: &str,
     message: &str,
@@ -508,29 +537,24 @@ pub async fn start_chat(
             };
 
             // A terminal socket event is also the UI's permission to submit a
-            // replacement turn.  Defer `chat_error` until after the in-flight
-            // slot below has been removed: publishing it while the failed slot
-            // is still present lets an immediate retry interrupt the dead run
-            // and inherit its failed model state.
+            // replacement turn. Defer both terminals until after the in-flight
+            // slot below has been removed: publishing either while the slot is
+            // still present lets the next message interrupt this finished run,
+            // which then gets a spurious "cancelled" chat_error (and, after a
+            // failure, lets an immediate retry inherit its failed model state).
+            // The reply is stored now, before the slot is released (#6034).
+            let mut deferred_done = None;
             let deferred_error = match result {
                 Ok(chat_result) => {
-                    crate::web_chat::presentation::deliver_response(
-                        &client_id_task,
+                    crate::web_chat::presentation::persist_reply(
                         &thread_id_task,
                         &request_id_task,
                         &chat_result.full_response,
-                        &user_message,
                         &chat_result.citations,
-                        chat_result.usage.as_ref(),
-                        // The workspace the turn ran in, so the reply is stored
-                        // there before it is announced (#6034).
                         Some(chat_result.workspace_dir.as_path()),
-                        chat_result.timing,
-                        // The main single-user turn is the only surface with
-                        // a human waiting on a next-message suggestion (C5).
-                        true,
                     )
                     .await;
+                    deferred_done = Some(chat_result);
                     None
                 }
                 Err(err) => {
@@ -616,6 +640,21 @@ pub async fn start_chat(
             // Socket subscribers then observe the old terminal event before
             // any inference_start from the follow-up, even if it starts at
             // once on another task.
+            if let Some(chat_result) = deferred_done {
+                crate::web_chat::presentation::announce_reply(
+                    &client_id_task,
+                    &thread_id_task,
+                    &request_id_task,
+                    &chat_result.full_response,
+                    &user_message,
+                    &chat_result.citations,
+                    chat_result.usage.as_ref(),
+                    chat_result.timing,
+                    // The main single-user turn is the only surface with a
+                    // human waiting on a next-message suggestion (C5).
+                    true,
+                );
+            }
             if let Some(event) = deferred_error {
                 publish_web_channel_event(event);
             }

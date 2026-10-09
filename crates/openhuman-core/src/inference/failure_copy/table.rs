@@ -32,6 +32,7 @@ pub(crate) struct FailureCopy {
 pub(crate) enum FailureClass {
     CodexSessionExpired,
     SessionExpired,
+    LocalSessionManagedUnavailable,
     ActionBudget,
     MaxIterations,
     TurnTimeout,
@@ -91,6 +92,21 @@ pub(crate) fn failure_copy(class: FailureClass) -> &'static FailureCopy {
             false,
             "Your OpenHuman session has expired. \
                  Please sign in again to continue."
+        ),
+        // The offline local profile is a working sign-in with no TinyHumans
+        // account behind it, so the managed model cannot run for it — but
+        // nothing about it has expired (#6932). `auth_error`/`config` because
+        // the fix is a setting the user owns; emphatically NOT
+        // `session_expired`, whose wire token signs the user out.
+        LocalSessionManagedUnavailable => row!(
+            "chat_error.local_session_managed_unavailable",
+            "auth_error",
+            "config",
+            false,
+            "You're on the local offline profile, which has no OpenHuman account behind \
+                 it, so the managed (cloud) model can't run. Sign in to use managed models, \
+                 or switch routing to \"Use Your Own Models\" in Connections → API keys → LLM \
+                 and add your own provider."
         ),
         ActionBudget => row!(
             "chat_error.action_budget",

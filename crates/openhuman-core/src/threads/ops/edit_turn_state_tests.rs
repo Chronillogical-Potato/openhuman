@@ -107,6 +107,7 @@ async fn seed_message_log(dir: &std::path::Path, thread_id: &str) {
             parent_thread_id: None,
             labels: None,
             personality_id: None,
+            working_dir: None,
         },
     )
     .await

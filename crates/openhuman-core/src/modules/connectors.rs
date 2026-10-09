@@ -352,35 +352,6 @@ where
         .map_err(|error| format!("{member}: {error}"))
 }
 
-/// Call a long-running member with a deadline sized for it.
-///
-/// The default bus deadline (30s) fits request-shaped members. `Sync` is not
-/// one: the module pages a whole connected account through inside the call —
-/// "a full sync is minutes of paging" is its own documentation — and a 30s
-/// deadline made the host report failure while the module went on to finish
-/// (observed live: timeout at 30s, `run finished … ingested=200` at 38s, and
-/// a Sync button that spun forever on a run that had actually succeeded).
-///
-/// # Errors
-///
-/// As [`call`].
-pub async fn call_slow<Request, Reply>(
-    config: &Config,
-    member: &str,
-    request: Request,
-) -> Result<Reply, String>
-where
-    Request: Serialize + Send,
-    Reply: DeserializeOwned,
-{
-    const SLOW_MEMBER_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15 * 60);
-    let proxy = proxy(config).await?.with_timeout(SLOW_MEMBER_TIMEOUT);
-    proxy
-        .call::<Reply>(member, (request,))
-        .await
-        .map_err(|error| format!("{member}: {error}"))
-}
-
 /// Call a member that takes no arguments.
 ///
 /// # Errors

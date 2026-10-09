@@ -2,7 +2,7 @@
 description: >-
   Pair an iOS companion app to your desktop OpenHuman over an end-to-end
   encrypted tunnel, scanned from a QR code.
-icon: smartphone
+icon: mobile-screen
 ---
 
 # iOS Companion
@@ -15,13 +15,15 @@ The iOS Companion lets you reach your desktop OpenHuman from your phone: you sca
 
 The desktop core is always the source of truth. The phone is a thin client. It does not run its own agent, it relays requests to the core and renders the results.
 
+What is experimental here is the **client**, not the core. The core's pairing domain is complete and wired into the controller registry (`crates/openhuman-core/src/security/devices/`): it registers the channel, derives the keys, persists the device, and tracks peer status. Earlier contributor notes described pairing as blocked on an unmerged backend change; that is no longer the case. Two real gaps remain, both noted below: there is no desktop screen for managing paired devices, and revocation is local-side only.
+
 ---
 
 ## What it is
 
 Pairing is brokered by the Rust `devices` domain in the core. The core registers a pairing channel with the tinyhumans backend's `tunnel:*` Socket.IO relay, generates a fresh X25519 keypair, and renders a QR code. The phone scans it, generates **its own** X25519 keypair, and connects back over the same relay. The backend is a **blind forwarder**: it relays opaque frames and never sees plaintext.
 
-Once paired, the device shows up in **Settings → Devices** on the desktop with an online/offline dot, and can be revoked at any time.
+Pairing and revocation are core RPCs, not a desktop screen. The old **Settings → Devices** page was removed and its slug now redirects to **Settings → Account** (`app/src/components/settings/settingsRouteRegistry.ts`), and nothing in the desktop frontend calls the `devices_*` methods. Listing and revoking a paired device means calling the core directly for now.
 
 ---
 
@@ -47,10 +49,10 @@ Desktop core                         Backend relay              iOS app
      |-- X25519 DH + derive session keys   |                        |
      |-- persist PairedDevice              |                        |
      |-- publish DevicePaired event        |                        |
-     |   device appears in Devices list    |                        |
+     |   devices_list now returns it       |                        |
 ```
 
-The QR payload (carried as an `openhuman://pair?...` deep link) contains the channel id (`cid`), a single-use pairing token (`pt`), the core's public key (`cpk`), an optional LAN URL (`rpc`), and an expiry (`exp`). The pairing token is single-use, hashed at rest on the backend, and the QR is rejected client-side once `exp` has passed (the backend enforces the real ~10 minute TTL).
+The QR payload (carried as an `openhuman://pair?...` deep link) contains the channel id (`cid`), a single-use pairing token (`pt`), the core's public key (`cpk`), an optional LAN URL (`rpc`), and an expiry (`exp`). The pairing token is single-use and the QR is rejected client-side once `exp` has passed. The core does not choose that expiry: it stores and republishes whatever `pairingExpiresAt` the backend returns in its `tunnel:register` ACK, so the real TTL is the backend's.
 
 ---
 
@@ -83,8 +85,11 @@ The phone may reach the core three ways. `TransportManager` (`app/src/services/t
 
 Paired devices are persisted by the core in SQLite (`{workspace_dir}/devices/devices.db`, table `paired_devices`): channel id, label, the device's public key, a SHA-256 hash of the core session token, and timestamps. The core's X25519 private key is stored encrypted at rest (via the OS keyring `SecretStore`) so handshakes survive a restart.
 
+- **Create**: `devices_create_pairing` registers the channel, mints and persists the keypair, and returns the QR fields.
 - **List**: `devices_list` returns non-revoked devices, overlaying a live `peer_online` flag sourced from `tunnel:peer-status` (online status is never persisted).
 - **Revoke**: `devices_revoke` soft-deletes the device, tears down all in-memory and tunnel state for the channel, and publishes a `DeviceRevoked` event. Today revocation is local-side: the backend channel is left to expire via its pairing-token TTL (a backend revoke endpoint is a follow-up).
+
+All three are reachable over JSON-RPC as `openhuman.devices_create_pairing`, `openhuman.devices_list` and `openhuman.devices_revoke`, and on the CLI through the generic namespace dispatcher: `openhuman-core devices create_pairing`, `openhuman-core devices list`, `openhuman-core devices revoke --channel_id <id>`.
 
 ---
 
@@ -92,3 +97,5 @@ Paired devices are persisted by the core in SQLite (`{workspace_dir}/devices/dev
 
 - [Privacy & Security](privacy-and-security.md): how OpenHuman handles your data and keys.
 - [Voice](native-tools/voice.md): push-to-talk and dictation, the headline use case for a phone companion.
+- [Architecture](../developing/architecture.md): where the iOS client sits relative to the core.
+- [OS Keyring & Secret Storage](os-keyring-and-secret-storage.md): where the core's X25519 private key is kept.

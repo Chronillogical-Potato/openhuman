@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useT } from '../../lib/i18n/I18nContext';
 import { checkBackendHealthy } from '../../services/backendHealth';
 import {
+  beginAwaitingAuthCallback,
   beginDeepLinkAuthProcessing,
   completeDeepLinkAuthProcessing,
+  endAwaitingAuthCallback,
   getDeepLinkAuthState,
 } from '../../store/deepLinkAuthState';
 import type { OAuthProviderConfig } from '../../types/oauth';
@@ -190,8 +192,13 @@ const OAuthProviderButton = ({
     const timer = window.setTimeout(() => {
       log('[%s] timeout -> reset isLoading', provider.id);
       reset();
-      // 90s with no deep-link is a strong "something went wrong" signal even
-      // if the user never refocused the app. Probe so we can attribute it.
+      // Stop holding the hand-off screen: after this long the browser is not
+      // coming back on its own, and a spinner with no end is worse than a
+      // screen that says so.
+      endAwaitingAuthCallback();
+      // Five minutes with no deep-link is a strong "something went wrong"
+      // signal even if the user never refocused the app. Probe so we can
+      // attribute it.
       probeBackendOnReturn('timeout');
     }, OAUTH_LOADING_TIMEOUT_MS);
 
@@ -340,7 +347,12 @@ const OAuthProviderButton = ({
         window.location.href = loginUrl;
       }
       browserOpenedRef.current = true;
+      // The launch step is done, but the sign-in is not: the user is now in
+      // another window. Mark that explicitly so the UI can hold a hand-off
+      // screen until the callback lands, instead of snapping back to the
+      // sign-in buttons a second after the browser opens.
       completeDeepLinkAuthProcessing();
+      beginAwaitingAuthCallback();
     } catch (error) {
       completeDeepLinkAuthProcessing();
       const message = getOAuthStartupFailureMessage(provider, error);

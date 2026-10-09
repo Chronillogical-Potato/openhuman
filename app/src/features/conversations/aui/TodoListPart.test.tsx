@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { mapCoreTodoStatus, toAuiTodoItems, TodoListPart } from './TodoListPart';
@@ -52,16 +52,33 @@ const baseProps = {
 };
 
 describe('TodoListPart', () => {
-  it('renders the todo list from the tool result', () => {
+  it('renders a one-line receipt that expands to the snapshot', () => {
     render(
       <TodoListPart
         {...baseProps}
+        toolCallId="call-receipt"
         args={{} as never}
-        result={{ todos: [{ content: 'Write tests', status: 'in_progress' }] } as never}
+        result={
+          {
+            todos: [
+              { content: 'Write tests', status: 'completed' },
+              { content: 'Ship it', status: 'in_progress' },
+              { content: 'Celebrate', status: 'pending' },
+            ],
+          } as never
+        }
         status={{ type: 'complete' }}
       />
     );
-    expect(screen.getByText('Write tests')).toBeInTheDocument();
+    const toggle = screen.getByRole('button', { expanded: false });
+    expect(toggle).toHaveTextContent('1/3');
+    expect(toggle).toHaveTextContent('Ship it');
+    // Collapsed: the full list is not repeated in the transcript.
+    expect(screen.queryByText('Celebrate')).toBeNull();
+
+    fireEvent.click(toggle);
+    expect(screen.getByRole('button', { expanded: true })).toBeInTheDocument();
+    expect(screen.getByText('Celebrate')).toBeInTheDocument();
   });
 
   it('renders nothing when there are no items', () => {

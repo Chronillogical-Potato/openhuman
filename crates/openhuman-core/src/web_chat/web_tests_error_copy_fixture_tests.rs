@@ -28,6 +28,7 @@ const EXPECTED: &[(
 )] = &[
     ("codex_expired", "Codex authentication token is expired; sign in again", "provider_error", "auth", false, None, Some("openai_codex"), None, "Your Codex session has expired. Please reconnect it in Settings → Integrations."),
     ("session_expired", "SESSION_EXPIRED", "session_expired", "auth", false, None, None, None, "Your OpenHuman session has expired. Please sign in again to continue."),
+    ("local_session_managed", "BACKEND_UNAVAILABLE: managed inference is unavailable for the offline local session", "auth_error", "config", false, None, None, None, "You're on the local offline profile, which has no OpenHuman account behind it, so the managed (cloud) model can't run. Sign in to use managed models, or switch routing to \"Use Your Own Models\" in Connections → API keys → LLM and add your own provider."),
     ("action_budget", "Action blocked: rate limit exceeded for tool curl", "action_budget_exceeded", "openhuman_budget", true, None, None, None, "You've hit OpenHuman's per-hour action budget — this is a local safety cap, not your AI provider. The window decays gradually; you can keep chatting in this thread and tool-heavy steps will resume as the budget refills."),
     ("max_iterations", "Agent exceeded maximum tool iterations (10)", "max_iterations", "agent_loop", true, None, None, None, "The agent ran the maximum number of tool steps for one turn without finishing. This usually means a tool kept failing (often a rate limit on a web fetch). You can retry the same question in this thread once the underlying limit clears."),
     ("turn_timeout_marker", "openhuman_turn_wall_clock_timeout: agent turn exceeded its 600s wall-clock budget", "turn_timeout", "agent_loop", true, None, None, None, "This turn ran past its time budget without finishing and was stopped so it wouldn't hang. This usually means a tool call or a delegated sub-agent stalled. You can retry your question in this thread."),
@@ -67,7 +68,7 @@ const EXPECTED: &[(
 
 #[test]
 fn every_failure_class_keeps_its_exact_copy_and_wire_values() {
-    assert_eq!(EXPECTED.len(), 37, "fixture row count drifted");
+    assert_eq!(EXPECTED.len(), 38, "fixture row count drifted");
     for (case, input, error_type, source, retryable, retry_after_ms, provider, fallback, message) in
         EXPECTED
     {
@@ -316,6 +317,11 @@ const EXPECTED_COPY_KEYS: &[(&str, &str, &str)] = &[
         r#"{"provider":"openai_codex"}"#,
     ),
     ("session_expired", "chat_error.session_expired", "null"),
+    (
+        "local_session_managed",
+        "chat_error.local_session_managed_unavailable",
+        "null",
+    ),
     ("action_budget", "chat_error.action_budget", "null"),
     ("max_iterations", "chat_error.max_iterations", "null"),
     ("turn_timeout_marker", "chat_error.turn_timeout", "null"),

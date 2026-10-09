@@ -445,6 +445,7 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
         channel: options.channel_name,
         timestamp: 1,
         thread_ts: options.thread_ts,
+        sender_name: None,
     };
     if let Some(inbound_envelope) = options.inbound_envelope {
         process_channel_runtime_message(

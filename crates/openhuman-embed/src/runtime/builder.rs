@@ -20,6 +20,22 @@ use crate::harness::workspace::ResolvedWorkspace;
 use crate::harness::{Access, Provider, Workspace};
 use crate::{Core, Session};
 
+struct SessionStoreCleanup {
+    installed: Option<Arc<dyn SessionStoreProvider>>,
+    previous: Option<Arc<dyn SessionStoreProvider>>,
+}
+
+impl Drop for SessionStoreCleanup {
+    fn drop(&mut self) {
+        let Some(installed) = self.installed.take() else {
+            return;
+        };
+        if openhuman_core::agent::session_store::clear_if(&installed) {
+            openhuman_core::agent::session_store::restore(self.previous.take());
+        }
+    }
+}
+
 /// Builder for a [`Runtime`]. Obtain with [`Runtime::builder`].
 pub struct RuntimeBuilder {
     workspace: Workspace,
@@ -244,7 +260,6 @@ impl RuntimeBuilder {
         if let Some(engine) = self.memory_engine.clone() {
             openhuman_core::memory::engine::install_host_engine(engine);
         }
-        let session_store = self.session_store.is_some();
         let inherit = self.workspace.is_operator_owned();
         let resolved = ResolvedWorkspace::resolve(&self.workspace, None).map_err(map_ws)?;
 
@@ -313,10 +328,14 @@ impl RuntimeBuilder {
 
         // Install only after all fallible workspace/config resolution has
         // completed; core boot performs recovery against this provider.
-        let previous_session_store = self
-            .session_store
+        let installed_session_store = self.session_store.clone();
+        let previous_session_store = installed_session_store
             .clone()
             .and_then(openhuman_core::agent::session_store::install);
+        let mut session_store_cleanup = SessionStoreCleanup {
+            installed: installed_session_store,
+            previous: previous_session_store,
+        };
 
         log::debug!(
             "[embed][runtime] building host_kind={:?} inherit_workspace={inherit} \
@@ -337,10 +356,6 @@ impl RuntimeBuilder {
         let runtime = match builder.build().await {
             Ok(runtime) => runtime,
             Err(error) => {
-                if session_store {
-                    openhuman_core::agent::session_store::clear();
-                    openhuman_core::agent::session_store::restore(previous_session_store);
-                }
                 return Err(RuntimeError::Build(error));
             }
         };
@@ -348,18 +363,17 @@ impl RuntimeBuilder {
 
         if let Some(session) = self.session {
             if let Err(error) = core.auth().store(session).await {
-                if session_store {
-                    openhuman_core::agent::session_store::clear();
-                    openhuman_core::agent::session_store::restore(previous_session_store);
-                }
                 return Err(error.into());
             }
         }
 
+        let installed_session_store = session_store_cleanup.installed.take();
+        let previous_session_store = session_store_cleanup.previous.take();
+
         Ok(Runtime::new(
             core,
             resolved,
-            session_store,
+            installed_session_store,
             previous_session_store,
             config,
             inherit,

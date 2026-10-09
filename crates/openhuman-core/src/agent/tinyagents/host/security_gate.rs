@@ -414,6 +414,26 @@ impl SecurityGate for OpenHumanSecurityGate {
     /// choice. A refusal at any stage is still terminal, and `channel_approved`
     /// is carried forward so a later prompting stage does not ask twice.
     async fn authorize_tool(&self, call: &ToolCallRequest) -> TaResult<GateDecision> {
+        // A nested call (made by a running tool, not the model) can never be
+        // parked for a human, and the stages below prompt. Fail closed rather
+        // than prompt or guess which stages would have: nested calls are off
+        // (`RunLimits::max_nested_depth = 0`) and stay refused here until the
+        // host decides how to authorize them.
+        if call.is_nested() {
+            tracing::warn!(
+                target: "tinyagents",
+                tool = %call.tool_name,
+                "[tinyagents::host::security] nested tool call refused (fail closed)"
+            );
+            return Ok(GateDecision::deny(
+                PolicyDenial::PolicyDenied {
+                    tool: &call.tool_name,
+                    policy: "nested tool calls",
+                    reason: "Tools may not call other tools in this session.",
+                }
+                .render(),
+            ));
+        }
         let policy = self.effective_policy();
         #[cfg(feature = "modules")]
         let desktop_approval_disabled = match self.resolve_tool(&call.tool_name) {

@@ -189,6 +189,7 @@ impl Memory {
                 limit: query.limit,
                 cursor: query.cursor,
                 path: Vec::new(),
+                preview: false,
             },
         )
         .await
@@ -218,6 +219,7 @@ impl Memory {
         ops::recall(
             &self.config,
             types::RecallParams {
+                refers_to: None,
                 question: question.into(),
                 filter: Some(self.reading(agent_id)?),
                 limit,
@@ -236,6 +238,7 @@ impl Memory {
         ops::fetch(
             &self.config,
             types::FetchParams {
+                refers_to: None,
                 query: query.into(),
                 mode: None,
                 filter: Some(MetaFilter {
