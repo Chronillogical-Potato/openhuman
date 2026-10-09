@@ -154,8 +154,11 @@ the host registered with `ops::set_bundled_releases_dir` (the Tauri shell does
 this in `crates/openhuman-app/src/lib.rs`), the `OPENHUMAN_BUNDLED_MODULES`
 environment variable, and `bundled-modules/` beside the executable. Only an
 existing directory counts. Bundled files go through the same digest and
-admission checks as downloaded ones. A plain `cargo build` host has no bundle
-and uses the release cache.
+admission checks as downloaded ones. Where the archive itself cannot ship (a
+notarized macOS app), the bundle carries the archive's digest marker in its
+place. When a bundled artifact exists but is refused, the load fails with a
+"repair the installation" message instead of falling through to a download.
+A plain `cargo build` host has no bundle and uses the release cache.
 
 ### Install directory
 
