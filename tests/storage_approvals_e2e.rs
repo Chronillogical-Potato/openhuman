@@ -49,12 +49,20 @@ fn a_configured_backend_holds_the_approvals_instead_of_approval_db() {
     assert_eq!(store::purge_session(&config, "session").unwrap(), 0);
 
     assert!(
-        !workspace.path().join("approval").join("approval.db").exists(),
+        !workspace
+            .path()
+            .join("approval")
+            .join("approval.db")
+            .exists(),
         "nothing was written to the classic database"
     );
 
     // Without a backend the classic database is back in use.
     assert!(openhuman_core::storage::clear());
     assert!(store::list_pending(&config).unwrap().is_empty());
-    assert!(workspace.path().join("approval").join("approval.db").exists());
+    assert!(workspace
+        .path()
+        .join("approval")
+        .join("approval.db")
+        .exists());
 }

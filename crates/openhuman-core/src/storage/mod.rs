@@ -22,7 +22,7 @@ use std::future::Future;
 use std::sync::{Arc, LazyLock, OnceLock, RwLock};
 
 pub use tinystoragedrivers::{
-    Blocking, DocumentStore, DocumentStoreExt, Scope, ScopedStorage, StorageBackend,
+    Blocking, DocumentStore, DocumentStoreExt, MemoryStorage, Scope, ScopedStorage, StorageBackend,
     StorageConfig as StorageUrl, StorageError,
 };
 
