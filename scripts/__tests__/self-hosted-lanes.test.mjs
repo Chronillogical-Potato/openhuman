@@ -561,7 +561,7 @@ test("peak RSS follows the process tree, including setsid'd descendants", () => 
 });
 
 test("the rust-core path filter arms the lane for every crate the tui depends on", () => {
-  const filter = readFileSync(".github/ci-paths-filter.yml", "utf8");
+  const filter = fs.readFileSync(".github/ci-paths-filter.yml", "utf8");
   const block = filter.split(/^rust-tauri:/m)[0].split(/^rust-core:/m)[1];
   for (const crate of ["core", "embed", "tinyhumans", "rpc", "cli", "tui"]) {
     assert.ok(block.includes(`'crates/openhuman-${crate}/**'`), crate);
