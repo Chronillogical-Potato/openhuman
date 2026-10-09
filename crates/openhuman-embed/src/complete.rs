@@ -270,8 +270,9 @@ pub struct CompletionResponse {
     /// The visible reply text (reasoning content excluded).
     pub text: String,
     /// `text` parsed as JSON, when a JSON [`ResponseFormat`] was requested and
-    /// the reply parses. `None` with a JSON format means the model returned
-    /// something that is not JSON — check
+    /// the reply parses. A [`ResponseFormat::JsonObject`] reply must parse to
+    /// an object, otherwise this is `None`. `None` with a JSON format means the
+    /// model returned something that is not the requested JSON — check
     /// [`finish_reason`](Self::finish_reason) for `"length"` first.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub structured: Option<Value>,
@@ -291,9 +292,17 @@ pub struct CompletionResponse {
 }
 
 impl CompletionResponse {
-    fn from_wire(response: ModelResponse, wants_json: bool) -> Self {
+    fn from_wire(response: ModelResponse, format: Option<&ResponseFormat>) -> Self {
         let text = response.text();
-        let structured = wants_json.then(|| parse_json_reply(&text)).flatten();
+        // `JsonObject` promises an object, so a parseable scalar or array is
+        // not a structured reply. `JsonSchema` may describe any JSON type, so
+        // it keeps whatever parses.
+        let structured = format
+            .filter(|format| format.wants_json())
+            .and_then(|_| parse_json_reply(&text))
+            .filter(|value| {
+                !matches!(format, Some(ResponseFormat::JsonObject)) || value.is_object()
+            });
         let raw = response.raw;
         let answered_model = raw
             .as_ref()
@@ -304,16 +313,25 @@ impl CompletionResponse {
             .as_ref()
             .and_then(|raw| raw.pointer("/usage/cost"))
             .and_then(Value::as_f64);
-        let usage = response.usage.map(|usage| CompletionUsage {
-            input_tokens: usage.input_tokens,
-            output_tokens: usage.output_tokens,
-            cached_tokens: usage.cache_read_tokens,
-            reasoning_tokens: usage.reasoning_tokens,
-            cost_usd: usage
-                .charged_amount
-                .map(|amount| amount.micros as f64 / 1_000_000.0)
-                .or(raw_cost),
-        });
+        let usage = match response.usage {
+            Some(usage) => Some(CompletionUsage {
+                input_tokens: usage.input_tokens,
+                output_tokens: usage.output_tokens,
+                cached_tokens: usage.cache_read_tokens,
+                reasoning_tokens: usage.reasoning_tokens,
+                cost_usd: usage
+                    .charged_amount
+                    .map(|amount| amount.micros as f64 / 1_000_000.0)
+                    .or(raw_cost),
+            }),
+            // Some gateways report `usage.cost` in the raw body without the
+            // typed usage block. Keep the provider's cost rather than dropping
+            // it; the token counts are unknown and stay zero.
+            None => raw_cost.map(|cost| CompletionUsage {
+                cost_usd: Some(cost),
+                ..CompletionUsage::default()
+            }),
+        };
         Self {
             text,
             structured,
@@ -439,10 +457,7 @@ impl Completer {
 
     async fn dispatch(&self, request: CompletionRequest) -> Result<CompletionResponse, CoreError> {
         let endpoint = self.checked_endpoint(&request)?;
-        let wants_json = request
-            .response_format
-            .as_ref()
-            .is_some_and(ResponseFormat::wants_json);
+        let format = request.response_format.clone();
         let call = openhuman_core::inference::host_runtime::ops::complete_once(
             &endpoint,
             request.into_wire(),
@@ -460,7 +475,7 @@ impl Completer {
             method: COMPLETE,
             message,
         })?;
-        Ok(CompletionResponse::from_wire(response, wants_json))
+        Ok(CompletionResponse::from_wire(response, format.as_ref()))
     }
 
     fn checked_endpoint(
