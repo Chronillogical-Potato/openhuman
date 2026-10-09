@@ -39,9 +39,8 @@ run-ledger rows a dead process left running are settled. The `run_server*`
 shims in [`../server/`](../server/README.md) (and so `host::desktop`) call it
 for the life of the process. `provider()` returns the same provider for a
 runtime builder's `session_store` option, which installs it on build and
-restores the previous one on drop; `host::tui` uses that. The TUI itself
-still calls `install()` from `crates/openhuman-tui/src/runner.rs` until it
-moves to `host::tui`.
+restores the previous one on drop; `host::tui` uses that, and the TUI
+(`crates/openhuman-tui/src/runner.rs`) boots through `host::tui`.
 
 `install()` builds the provider with `resolving(context_workspace_dir)`,
 so the workspace is looked up on every `for_agent` call rather than fixed at
