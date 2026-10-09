@@ -214,7 +214,7 @@ fn a_safe_deployment_serves_core_and_the_operator_plane_behind_the_gateway_beare
     assert_eq!(status, 200);
     assert!(body.get("result").is_some(), "core.ping answers: {body}");
 
-    // No domain family is isolated per user yet, so none is served.
+    // The operator plane serves none of the user families.
     for method in [
         "openhuman.threads_list",
         "openhuman.config_get_config",
@@ -559,8 +559,9 @@ fn each_user_sees_only_their_own_threads() {
         );
         assert!(body.get("error").is_some(), "{id}: {body}");
     }
-    let (_, body) = call("alice", "openhuman.threads_regenerate", json!({}));
-    assert!(body.get("error").is_some(), "{body}");
+    // A method off the user surface is unknown, not a parameter error.
+    let (_, body) = call("alice", "openhuman.config_get_config", json!({}));
+    assert!(body.to_string().contains("unknown method"), "{body}");
     drop(server);
 }
 
@@ -737,6 +738,123 @@ fn users_reach_their_memory_but_not_its_configuration() {
             "{method} must be absent: {body}"
         );
     }
+    drop(server);
+}
+
+/// A fake backend: answers every request `500` and reports each request's
+/// path and `Authorization` header.
+fn recording_backend() -> (u16, std::sync::mpsc::Receiver<(String, String)>) {
+    use std::io::{BufRead, BufReader, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        for stream in listener.incoming().flatten() {
+            let tx = tx.clone();
+            std::thread::spawn(move || {
+                let mut reader = BufReader::new(stream.try_clone().unwrap());
+                let mut line = String::new();
+                if reader.read_line(&mut line).is_err() {
+                    return;
+                }
+                let path = line.split_whitespace().nth(1).unwrap_or("").to_string();
+                let mut auth = String::new();
+                loop {
+                    let mut header = String::new();
+                    if reader.read_line(&mut header).unwrap_or(0) == 0 || header == "\r\n" {
+                        break;
+                    }
+                    if let Some((name, value)) = header.split_once(':') {
+                        if name.eq_ignore_ascii_case("authorization") {
+                            auth = value.trim().to_string();
+                        }
+                    }
+                }
+                let _ = tx.send((path, auth));
+                let mut stream = stream;
+                let _ = stream.write_all(
+                    b"HTTP/1.1 500 Internal Server Error\r\ncontent-length: 0\r\nconnection: close\r\n\r\n",
+                );
+            });
+        }
+    });
+    (port, rx)
+}
+
+#[test]
+fn a_users_turn_reaches_inference_with_their_own_credential() {
+    // The operator holds no credential. A process-wide "signed out" flag used
+    // to park every user's model call behind it; each user's credential is
+    // what counts.
+    let d = deployment(true);
+    let (backend, requests) = recording_backend();
+    let port = free_port();
+    let child = core_command(&d, &["--port", &port.to_string()])
+        .env("BACKEND_URL", format!("http://127.0.0.1:{backend}"))
+        .env("RUST_LOG", "debug")
+        .stdout(std::fs::File::create(d.tmp.path().join("core.log")).unwrap())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn openhuman-core");
+    let server = Server(child);
+    let base = format!("http://127.0.0.1:{port}");
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(120);
+    while !client
+        .get(format!("{base}/health"))
+        .send()
+        .is_ok_and(|r| r.status().is_success())
+    {
+        assert!(Instant::now() < deadline, "SaaS core never became healthy");
+        std::thread::sleep(Duration::from_millis(250));
+    }
+    let alice = provision(&client, &base, "alice");
+    let (_, body) = rpc_with(
+        &client,
+        &base,
+        Some(BEARER),
+        "openhuman.user_agents_set_credential",
+        json!({ "agent_id": alice, "kind": "session", "token": "alice-session-jwt" }),
+    );
+    assert!(body.get("result").is_some(), "{body}");
+
+    let (status, body) = user_rpc_with(
+        &client,
+        &base,
+        BEARER,
+        "alice",
+        None,
+        "openhuman.channel_web_chat",
+        json!({ "client_id": "c1", "thread_id": "chat-1", "message": "hello" }),
+    );
+    assert_eq!(status, 200, "{body}");
+
+    let until = Instant::now() + Duration::from_secs(60);
+    let mut seen = Vec::new();
+    let inference = loop {
+        let left = until.saturating_duration_since(Instant::now());
+        match requests.recv_timeout(left) {
+            Ok((path, auth)) if path.contains("/chat/completions") => break Some((path, auth)),
+            Ok(other) => seen.push(other),
+            Err(_) => break None,
+        }
+    };
+    let (_, auth) = inference.unwrap_or_else(|| {
+        let log = std::fs::read_to_string(d.tmp.path().join("core.log")).unwrap_or_default();
+        let notable: Vec<&str> = log
+            .lines()
+            .filter(|l| !l.contains("[scheduler_gate]"))
+            .collect();
+        panic!(
+            "alice's turn never reached inference; saw {} other request(s). Core log:\n{}",
+            seen.len(),
+            notable[notable.len().saturating_sub(120)..].join("\n")
+        )
+    });
+    assert_eq!(auth, "Bearer alice-session-jwt");
     drop(server);
 }
 
