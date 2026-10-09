@@ -320,7 +320,34 @@ pub fn load_dotenv_for_cli() -> Result<()> {
 /// # Arguments
 ///
 /// * `args` - Command-line arguments for the `run` command (e.g., `--port`).
-fn run_server_command(args: &[String]) -> Result<()> {
+fn run_server_command(
+    args: &[String],
+    host_boot: Option<crate::core::server_launcher::HostBoot>,
+) -> Result<()> {
+    let Some((request, verbose)) = parse_serve_args(
+        args,
+        std::env::var("OPENHUMAN_MODE").ok().as_deref(),
+        host_boot,
+    )?
+    else {
+        return Ok(());
+    };
+    let log_scope = CliLogDefault::Global;
+    crate::core::logging::init_for_cli_run(verbose, log_scope);
+    launch_server(request)
+}
+
+/// Parse the `run` / `serve` flags into the [`ServeRequest`] the launcher
+/// receives, plus the `--verbose` switch. `None` means `--help` was printed.
+///
+/// Only flags the operator typed set a request field; everything else stays
+/// unset so the launcher's builder (see `ServeRequest::host_boot`) keeps its
+/// own value.
+fn parse_serve_args(
+    args: &[String],
+    env_mode: Option<&str>,
+    host_boot: Option<crate::core::server_launcher::HostBoot>,
+) -> Result<Option<(crate::core::server_launcher::ServeRequest, bool)>> {
     let mut port: Option<u16> = None;
     let mut host: Option<String> = None;
     let mut socketio_enabled = true;
@@ -328,7 +355,6 @@ fn run_server_command(args: &[String]) -> Result<()> {
     let mut mode_flag: Option<String> = None;
     let mut saas_config: Option<std::path::PathBuf> = None;
     let mut verbose = false;
-    let log_scope = CliLogDefault::Global;
     let mut i = 0usize;
 
     // Manual argument parsing loop for specific flags.
@@ -379,7 +405,7 @@ fn run_server_command(args: &[String]) -> Result<()> {
             }
             "-h" | "--help" => {
                 println!("{}", crate::core::server_launcher::RUN_HELP);
-                return Ok(());
+                return Ok(None);
             }
             other => return Err(anyhow::anyhow!("unknown run arg: {other}")),
         }
@@ -387,11 +413,25 @@ fn run_server_command(args: &[String]) -> Result<()> {
 
     let (mode, saas_config) = crate::core::server_launcher::resolve_mode(
         mode_flag.as_deref(),
-        std::env::var("OPENHUMAN_MODE").ok().as_deref(),
+        env_mode,
         saas_config,
     )?;
-    crate::core::logging::init_for_cli_run(verbose, log_scope);
+    Ok(Some((
+        crate::core::server_launcher::ServeRequest {
+            host,
+            port,
+            socketio_enabled,
+            headless_api,
+            mode,
+            saas_config,
+            host_boot,
+        },
+        verbose,
+    )))
+}
 
+/// Start the installed server launcher for `request` on a fresh tokio runtime.
+fn launch_server(request: crate::core::server_launcher::ServeRequest) -> Result<()> {
     // Initialize the Tokio multi-threaded runtime.
     //
     // A single agent turn is a very large async state machine (system prompt +
@@ -412,14 +452,7 @@ fn run_server_command(args: &[String]) -> Result<()> {
              openhuman_rpc::server::install_cli_server() before run_core_from_args"
         )
     })?;
-    rt.block_on(launcher(crate::core::server_launcher::ServeRequest {
-        host,
-        port,
-        socketio_enabled,
-        headless_api,
-        mode,
-        saas_config,
-    }))?;
+    rt.block_on(launcher(request))?;
     Ok(())
 }
 
