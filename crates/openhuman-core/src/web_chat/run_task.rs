@@ -160,6 +160,9 @@ pub(crate) async fn run_chat_task(
     // can attribute the run (`agent.id` attr / `agent.turn:<id>` trace name).
     let mut bridge_metadata = metadata.clone();
     bridge_metadata.agent_id = Some(current_fp.target_agent_id.clone());
+    // A TinyMemes treatment thread surfaces only the remixed reply, so the
+    // original answer text is not streamed ahead of it.
+    bridge_metadata.hold_text_stream = crate::tinymemes::holds_text_stream(thread_id);
     let bridge = spawn_progress_bridge(
         progress_rx,
         client_id.to_string(),
@@ -296,7 +299,7 @@ pub(crate) async fn run_chat_task(
         let is_placeholder = task_result.full_response == inference_budget_exceeded_user_message();
         if !is_placeholder && !task_result.full_response.trim().is_empty() {
             if let Some(remixed) = crate::tinymemes::remix_final_reply(
-                &task_result.workspace_dir,
+                &config,
                 thread_id,
                 request_id,
                 message,

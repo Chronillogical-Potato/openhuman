@@ -18,9 +18,12 @@
 
 mod arm;
 mod host;
-mod key;
+mod inference;
+mod jev;
+#[cfg(feature = "modules")]
+mod search;
 
-use std::path::Path;
+use crate::config::Config;
 use std::time::{Duration, Instant};
 
 pub(crate) use arm::Arm;
@@ -28,11 +31,18 @@ pub(crate) use arm::Arm;
 const TIMEOUT_ENV: &str = "OPENHUMAN_TINYMEMES_TIMEOUT_MS";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(20);
 
+/// Whether this thread's answer text must be held back from streaming because
+/// its final reply will be remixed (treatment arm). The UI then shows only the
+/// remixed reply instead of the original streaming in and being replaced.
+pub(crate) fn holds_text_stream(thread_id: &str) -> bool {
+    arm::assign(arm::mode(), thread_id) == Arm::Treatment
+}
+
 /// Remix a finished turn's reply. Returns the text to deliver instead, or
 /// `None` to deliver the original. `turn_elapsed` is the agent turn's own
 /// duration, logged for both arms so throughput can be compared.
 pub(crate) async fn remix_final_reply(
-    workspace_dir: &Path,
+    config: &Config,
     thread_id: &str,
     request_id: &str,
     user_message: &str,
@@ -55,7 +65,7 @@ pub(crate) async fn remix_final_reply(
     }
 
     let started = Instant::now();
-    let Some(host) = host::host_for(workspace_dir) else {
+    let Some(host) = host::host_for(config) else {
         log_outcome(
             request_id,
             bucket,
@@ -66,7 +76,7 @@ pub(crate) async fn remix_final_reply(
         );
         return None;
     };
-    let messages = crate::threads::store::get_messages(workspace_dir.to_path_buf(), thread_id)
+    let messages = crate::threads::store::get_messages(config.workspace_dir.clone(), thread_id)
         .unwrap_or_else(|e| {
             log::debug!("[tinymemes] thread history unavailable: {e}");
             Vec::new()

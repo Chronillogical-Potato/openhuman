@@ -333,7 +333,14 @@ pub(crate) fn spawn_progress_bridge(
         std::sync::Mutex<Option<super::turn_timing::TurnTimingSnapshot>>,
     > = std::sync::Arc::new(std::sync::Mutex::new(None));
     let timing_snapshot_for_task = timing_snapshot.clone();
+    let hold_text_stream = metadata.hold_text_stream;
     crate::core::runtime::spawn_scoped(async move {
+        if hold_text_stream {
+            log::debug!(
+                "[web_channel][bridge] holding text_delta stream (reply is post-processed) request_id={}",
+                request_id
+            );
+        }
         log::debug!(
             "[web_channel][bridge] spawned client_id={} thread_id={} request_id={} speak_reply={:?} source={:?} session_id={:?}",
             client_id,
@@ -1028,19 +1035,21 @@ pub(crate) fn spawn_progress_bridge(
                     // Buffer the round's narration so it can be flushed as an
                     // interim bubble if a tool call closes this round.
                     pending_narration.push_str(&delta);
-                    publish_seq_stamped(
-                        &mut emit_seq,
-                        WebChannelEvent {
-                            event: "text_delta".to_string(),
-                            client_id: client_id.clone(),
-                            thread_id: thread_id.clone(),
-                            request_id: request_id.clone(),
-                            round: Some(iteration),
-                            delta: Some(delta),
-                            delta_kind: Some("text".to_string()),
-                            ..Default::default()
-                        },
-                    );
+                    if !hold_text_stream {
+                        publish_seq_stamped(
+                            &mut emit_seq,
+                            WebChannelEvent {
+                                event: "text_delta".to_string(),
+                                client_id: client_id.clone(),
+                                thread_id: thread_id.clone(),
+                                request_id: request_id.clone(),
+                                round: Some(iteration),
+                                delta: Some(delta),
+                                delta_kind: Some("text".to_string()),
+                                ..Default::default()
+                            },
+                        );
+                    }
                 }
                 AgentProgress::ThinkingDelta { delta, iteration } => {
                     publish_seq_stamped(

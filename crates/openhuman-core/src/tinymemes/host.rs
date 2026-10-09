@@ -6,10 +6,15 @@
 //!   next reading can tell Jev which assistant turns carry the bot's own style.
 
 use std::collections::{HashMap, VecDeque};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, LazyLock, Mutex};
 
-use tinymemes::{IndexPolicy, MemeEngine, SlangIndex, Turn};
+use tinymemes::{
+    ChatModel, EnvConfig, Evaluator, IndexPolicy, MemeEngine, RatingPolicy, SearchResearcher,
+    SlangIndex, SlangResearcher, Turn,
+};
+
+use crate::config::Config;
 
 use crate::threads::store::ConversationMessage;
 
@@ -19,9 +24,8 @@ const REMIXED_FILE: &str = "remixed.json";
 /// Remixed-message ids remembered per workspace (oldest dropped first).
 const REMIXED_CAP: usize = 4000;
 
-pub(crate) const MODEL_ENV: &str = "OPENHUMAN_TINYMEMES_MODEL";
-pub(crate) const KEY_ENV: &str = "OPENHUMAN_TINYMEMES_OPENROUTER_KEY";
-const DEFAULT_MODEL: &str = "deepseek/deepseek-v4-flash";
+/// Replies to wait after a meme before sending another (0 = no cooldown).
+pub(crate) const MEME_COOLDOWN_ENV: &str = "OPENHUMAN_TINYMEMES_MEME_COOLDOWN";
 
 pub(crate) struct Host {
     pub(crate) engine: MemeEngine,
@@ -33,8 +37,17 @@ static HOSTS: LazyLock<Mutex<HashMap<PathBuf, Arc<Host>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// The engine for a workspace, built on first use. `None` if it cannot be
-/// built (logged once per attempt; the turn then goes out unchanged).
-pub(crate) fn host_for(workspace_dir: &Path) -> Option<Arc<Host>> {
+/// built (the turn then goes out unchanged).
+///
+/// Backends, each overridable by `TINYMEMES_*` env (see `tinymemes::env`):
+///
+/// | piece | default (OpenHuman) | env override |
+/// | --- | --- | --- |
+/// | chat model | OpenHuman's `summarization` provider | `TINYMEMES_OPENROUTER_KEY` (+ `TINYMEMES_MODEL`) |
+/// | Jev | OpenHuman-managed; the LLM fallback when unavailable | `TINYMEMES_JEV` (+ its key variables) |
+/// | slang research | OpenHuman web search + the chat model | `TINYMEMES_OPENROUTER_KEY` (OpenRouter web plugin) |
+pub(crate) fn host_for(config: &Config) -> Option<Arc<Host>> {
+    let workspace_dir = config.workspace_dir.as_path();
     let mut hosts = HOSTS.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(host) = hosts.get(workspace_dir) {
         return Some(host.clone());
@@ -56,25 +69,71 @@ pub(crate) fn host_for(workspace_dir: &Path) -> Option<Arc<Host>> {
         .and_then(|json| serde_json::from_str(&json).ok())
         .unwrap_or_default();
 
-    let key = std::env::var(KEY_ENV)
-        .ok()
-        .filter(|k| !k.trim().is_empty())
-        .unwrap_or_else(|| super::key::OPENROUTER_KEY.to_owned());
-    let model = std::env::var(MODEL_ENV).unwrap_or_else(|_| DEFAULT_MODEL.to_owned());
-    let engine = match MemeEngine::openrouter(&key, &model) {
-        Ok(builder) => builder
-            .slang_index(Arc::new(index))
-            // Research runs in the background after delivery, never on the
-            // reply's critical path.
-            .learn_inline(None)
-            .build(),
-        Err(e) => {
-            log::warn!("[tinymemes] engine build failed: {e}");
-            return None;
+    let env = EnvConfig::from_env();
+    let http = reqwest::Client::new();
+
+    let (chat, chat_label): (Arc<dyn ChatModel>, String) = match env.chat_model(&http) {
+        Some(model) => (model, format!("env:openrouter/{}", env.model_id())),
+        None => (
+            Arc::new(super::inference::OpenHumanChatModel::new(config.clone())),
+            format!("openhuman:{}", super::inference::resolved_model(config)),
+        ),
+    };
+
+    // Jev: OpenHuman-managed always, unless TINYMEMES_JEV overrides it. With
+    // no managed Jev (signed out / offline session), OpenHuman's LLM answers
+    // Jev's questions instead.
+    let (jev, jev_label): (Arc<dyn Evaluator>, &str) = if env.forces_llm_jev() {
+        (
+            tinymemes::env::llm_jev(chat.clone()),
+            "llm (TINYMEMES_JEV=llm)",
+        )
+    } else {
+        let overridden = match env.jev {
+            Some(_) => env.jev().unwrap_or_else(|e| {
+                log::warn!("[tinymemes] TINYMEMES_JEV override unusable, using managed: {e}");
+                None
+            }),
+            None => None,
+        };
+        match overridden {
+            Some((jev, label)) => (jev, label),
+            None => match super::jev::managed(config) {
+                Some(jev) => (jev, "openhuman-managed"),
+                None => (
+                    tinymemes::env::llm_jev(chat.clone()),
+                    "llm (managed jev unavailable)",
+                ),
+            },
         }
     };
+
+    let (researcher, research_label): (Option<Arc<dyn SlangResearcher>>, &str) =
+        match env.web_researcher(&http) {
+            Some(r) => (Some(Arc::new(r)), "env:openrouter-web"),
+            None => match openhuman_search(config) {
+                Some(search) => (
+                    Some(Arc::new(SearchResearcher::new(search, chat.clone()))),
+                    "openhuman-search",
+                ),
+                None => (None, "off (no search provider)"),
+            },
+        };
+
+    let mut builder = MemeEngine::builder(jev, chat)
+        .source(Arc::new(tinymemes::source::Imgflip::new(http)))
+        .slang_index(Arc::new(index))
+        .policy(rating_policy())
+        // Research runs in the background after delivery, never on the
+        // reply's critical path.
+        .learn_inline(None);
+    if let Some(researcher) = researcher {
+        builder = builder.researcher(researcher);
+    }
+    let engine = builder.build();
     log::info!(
-        "[tinymemes] engine ready model={model} slang_terms={}",
+        "[tinymemes] engine ready chat={chat_label} jev={jev_label} research={research_label} \
+         slang_terms={}",
         engine.slang_index().len("IN")
     );
     let host = Arc::new(Host {
@@ -84,6 +143,28 @@ pub(crate) fn host_for(workspace_dir: &Path) -> Option<Arc<Host>> {
     });
     hosts.insert(workspace_dir.to_path_buf(), host.clone());
     Some(host)
+}
+
+#[cfg(feature = "modules")]
+fn openhuman_search(config: &Config) -> Option<Arc<dyn tinymemes::WebSearch>> {
+    super::search::OpenHumanSearch::available(config)
+        .map(|s| Arc::new(s) as Arc<dyn tinymemes::WebSearch>)
+}
+
+#[cfg(not(feature = "modules"))]
+fn openhuman_search(_config: &Config) -> Option<Arc<dyn tinymemes::WebSearch>> {
+    None
+}
+
+fn rating_policy() -> RatingPolicy {
+    let mut policy = RatingPolicy::default();
+    if let Some(turns) = std::env::var(MEME_COOLDOWN_ENV)
+        .ok()
+        .and_then(|v| v.trim().parse::<usize>().ok())
+    {
+        policy.meme_cooldown_turns = turns;
+    }
+    policy
 }
 
 impl Host {
