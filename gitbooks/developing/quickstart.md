@@ -42,6 +42,8 @@ The default feature set is the contributor build. To ship less code, turn defaul
 openhuman-embed = { git = "https://github.com/tinyhumansai/openhuman", package = "openhuman-embed", default-features = false, features = ["inference", "mcp"] }
 ```
 
+Cargo applies `[patch]` tables only from the top-level workspace, so the ones in OpenHuman's [root `Cargo.toml`](https://github.com/tinyhumansai/openhuman/blob/main/Cargo.toml) do not reach your crate. They make every crate share one copy of `tinytools` and `tinyinference`. If dependency resolution fails over those crates, or you see two incompatible `tinytools` types, add the same `[patch]` sections to your own workspace.
+
 Every feature forwards to the same-named feature on the core. `mcp` and `skills` also gate `AgentSpec::mcp` and `AgentSpec::skills_dir`, so enable them if your agents need those.
 
 ## Step 2: build the tokio runtime yourself
