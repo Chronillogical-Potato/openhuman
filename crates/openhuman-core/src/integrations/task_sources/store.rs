@@ -141,14 +141,6 @@ pub fn list_sources(config: &Config) -> Result<Vec<TaskSource>> {
     })
 }
 
-/// Apply a partial patch to a task source.
-///
-/// **Implementation note:** this function opens three separate SQLite
-/// connections (read-modify-write + read-back). At settings-panel scale the
-/// overhead is acceptable, but there is a theoretical TOCTOU window between
-/// the initial `get_source` and the subsequent `UPDATE`. A future refactor
-/// could fold all three operations into a single `with_connection` call using
-/// a SQL `UPDATE … RETURNING` pattern.
 /// Applies `patch` to `source`, as both stores do.
 ///
 /// # Errors
@@ -186,6 +178,15 @@ pub(super) fn apply_patch(source: &mut TaskSource, patch: TaskSourcePatch) -> Re
     Ok(())
 }
 
+/// Apply a partial patch to a task source.
+///
+/// **Implementation note:** this function opens three separate SQLite
+/// connections (read-modify-write + read-back). At settings-panel scale the
+/// overhead is acceptable, but there is a theoretical TOCTOU window between
+/// the initial `get_source` and the subsequent `UPDATE`. A future refactor
+/// could fold all three operations into a single `with_connection` call using
+/// a SQL `UPDATE … RETURNING` pattern. The document store applies the patch
+/// under compare-and-swap, so it has no such window.
 pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Result<TaskSource> {
     if let Some(docs) = super::store_documents::current()? {
         return docs.update_source(id, patch);
