@@ -159,8 +159,6 @@ pub fn install() {
 /// When a URL is configured but cannot be parsed or opened. A deployment that
 /// asked for a backend must not quietly fall back to local files.
 pub async fn install_for_host() -> anyhow::Result<()> {
-    use anyhow::Context as _;
-
     let url = match std::env::var(openhuman_core::storage::STORAGE_URL_VAR) {
         Ok(url) if !url.trim().is_empty() => Some(url.trim().to_string()),
         _ => match openhuman_core::config::rpc::load_config_with_timeout().await {
@@ -173,6 +171,19 @@ pub async fn install_for_host() -> anyhow::Result<()> {
             }
         },
     };
+    install_for_url(url).await
+}
+
+/// [`install_for_host`] with the URL already resolved: `None` installs the
+/// classic on-disk store, a URL opens that backend and installs
+/// `DriverSessionStores` over it.
+///
+/// # Errors
+///
+/// When `url` cannot be parsed or opened.
+pub async fn install_for_url(url: Option<String>) -> anyhow::Result<()> {
+    use anyhow::Context as _;
+
     let Some(url) = url else {
         install();
         return Ok(());
