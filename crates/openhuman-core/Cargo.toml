@@ -353,6 +353,9 @@ tokio = { version = "1", features = ["full"] }
 once_cell = "1.19"
 parking_lot = "0.12"
 log = "0.4"
+# Final-reply slang + meme remix (runtime flag OPENHUMAN_TINYMEMES, off by
+# default). Local path until the tinymemes repo is published and vendored.
+tinymemes = { path = "../../../tinymemes" }
 libc = "0.2"
 nu-ansi-term = "0.50"
 base64 = "0.22"

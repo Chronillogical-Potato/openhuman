@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 
 import { createCodeBlockPre } from '../../../components/markdown/CodeBlock';
+import { MarkdownImage } from '../../../components/markdown/MarkdownImage';
 import { hasLatexContent, normalizeLatexDelimiters } from '../../../utils/latex';
 import { openUrl } from '../../../utils/openUrl';
 import { openWorkspacePath } from '../../../utils/tauriCommands/workspacePaths';
@@ -65,7 +66,7 @@ export function BubbleMarkdown({
   // Memoize the `pre` override so it stays reference-stable across re-renders
   // that don't change tone (avoids remounting code blocks on every keystroke).
   const markdownComponents = useMemo(
-    () => ({ a: MarkdownAnchor, pre: createCodeBlockPre(tone) }),
+    () => ({ a: MarkdownAnchor, img: MarkdownImage, pre: createCodeBlockPre(tone) }),
     [tone]
   );
 

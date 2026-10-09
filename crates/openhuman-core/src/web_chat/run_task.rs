@@ -174,6 +174,7 @@ pub(crate) async fn run_chat_task(
     // wrappers below hold a pointer rather than inlining the whole future into
     // this already-large `run_chat_task` frame (which otherwise overflows the
     // default test-thread stack — see the channels web-turn coverage tests).
+    let turn_started = std::time::Instant::now();
     let turn = Box::pin(agent.run_single_with_origin(message, Some(origin)));
     let mut result = match turn.await {
         Ok(response) => {
@@ -284,6 +285,27 @@ pub(crate) async fn run_chat_task(
                     0,
                     false,
                 );
+            }
+        }
+    }
+
+    // TinyMemes: remix the final reply (slang + memes) when the flag puts this
+    // thread in the treatment arm. Runs after reply speech so TTS reads the
+    // original wording, and skips the budget-exhausted placeholder. Fails open.
+    if let Ok(ref mut task_result) = result {
+        let is_placeholder = task_result.full_response == inference_budget_exceeded_user_message();
+        if !is_placeholder && !task_result.full_response.trim().is_empty() {
+            if let Some(remixed) = crate::tinymemes::remix_final_reply(
+                &task_result.workspace_dir,
+                thread_id,
+                request_id,
+                message,
+                &task_result.full_response,
+                turn_started.elapsed(),
+            )
+            .await
+            {
+                task_result.full_response = remixed;
             }
         }
     }

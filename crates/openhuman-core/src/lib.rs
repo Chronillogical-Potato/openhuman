@@ -83,6 +83,7 @@ pub mod storage;
 #[cfg(feature = "e2e-test-support")]
 pub mod test_support;
 pub mod threads;
+pub mod tinymemes;
 pub mod tools;
 pub mod user_agents;
 pub mod util;
