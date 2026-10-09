@@ -84,6 +84,8 @@ pub struct CreateCustomRequest {
     #[serde(default)]
     pub tool_denylist: Vec<String>,
     #[serde(default)]
+    pub tool_rules: Option<tinytools::ToolRules>,
+    #[serde(default)]
     pub subagents: AgentSubagentPolicy,
     #[serde(default)]
     pub tags: Vec<String>,
