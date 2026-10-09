@@ -78,9 +78,13 @@ async fn claim_skips_a_busy_thread_and_leaves_the_queue_intact() {
     clear_busy("bd-busy");
     assert!(
         claim_ready(&router, "thread-busy").is_some(),
-        "a deferral leaves the record claimable, with no attempt counted"
+        "a deferral leaves the record claimable"
     );
-    assert_eq!(pending_for(w, "thread-busy")[0].attempts, 1);
+    assert_eq!(
+        pending_for(w, "thread-busy")[0].attempts,
+        1,
+        "only the claim after the deferral counted an attempt"
+    );
 }
 
 #[tokio::test]

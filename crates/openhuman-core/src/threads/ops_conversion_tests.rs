@@ -353,9 +353,6 @@ async fn thread_delete_removes_persisted_turn_state_snapshot() {
     // Queue a finished background sub-agent result for this thread; deleting the
     // thread must discard it so it's never delivered into a dead thread.
     use crate::agent::orchestration::background_completions as bg;
-    // A child registered on the thread first, which is how the thread's
-    // completions are located when it is deleted.
-    bg::mark_stopped_task_if_thread_stopped(&dir, thread_id, "sub-del-1");
     bg::record_completion(
         &dir,
         "sess-del",

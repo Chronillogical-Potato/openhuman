@@ -103,7 +103,7 @@ fn discard_for_thread_removes_matching_and_drops_stragglers() {
     record(w, "sess-d1", "sub-b", "y", Some("thread-KEEP"));
     record(w, "sess-d2", "sub-c", "z", Some("thread-DEL"));
 
-    assert_eq!(discard_for_thread("thread-DEL"), 2);
+    assert_eq!(discard_for_thread(w, "thread-DEL"), 2);
     assert!(pending_ids(w, "thread-DEL").is_empty());
     assert_eq!(pending_ids(w, "thread-KEEP"), ["sub-b"]);
 }
@@ -113,14 +113,9 @@ fn record_after_discard_is_dropped_by_the_cancelled_parent() {
     let _guard = test_guard();
     let ws = workspace();
     let w = ws.path();
-    // A child registered on the thread (this is how the workspace is learned),
-    // then the thread is deleted.
-    assert!(!mark_stopped_task_if_thread_stopped(
-        w,
-        "thread-race",
-        "sub-reg"
-    ));
-    discard_for_thread("thread-race");
+    // The thread is deleted before this process ever saw a child of it: the
+    // delete still writes the cancelled-parent marker in the caller's workspace.
+    discard_for_thread(w, "thread-race");
     // A straggler that records after the sweep (the cooperative-abort race) is
     // dropped rather than queued.
     record(w, "sess-race", "sub-late", "stale", Some("thread-race"));
@@ -131,6 +126,31 @@ fn record_after_discard_is_dropped_by_the_cancelled_parent() {
 }
 
 #[test]
+fn a_child_registering_after_its_thread_was_deleted_is_aborted_and_stays_dropped() {
+    let _guard = test_guard();
+    let ws = workspace();
+    let w = ws.path();
+    assert!(!mark_stopped_task_if_thread_stopped(
+        w,
+        "thread-del-reg",
+        "sub-a"
+    ));
+    discard_for_thread(w, "thread-del-reg");
+
+    // A child spawned before the delete registers after it: it must be aborted,
+    // and registering must not lift the delete (unlike a stopped thread, a
+    // deleted one never reopens).
+    assert!(mark_stopped_task_if_thread_stopped(
+        w,
+        "thread-del-reg",
+        "sub-b"
+    ));
+    record(w, "sess-del", "sub-a", "straggler", Some("thread-del-reg"));
+    record(w, "sess-del", "sub-b", "late child", Some("thread-del-reg"));
+    assert!(pending_ids(w, "thread-del-reg").is_empty());
+}
+
+#[test]
 fn clear_all_withdraws_every_pending_completion() {
     let _guard = test_guard();
     let ws = workspace();
@@ -138,14 +158,41 @@ fn clear_all_withdraws_every_pending_completion() {
     record(w, "sess-c1", "sub-1", "a", Some("t1"));
     record(w, "sess-c2", "sub-2", "b", Some("t2"));
 
-    let removed = clear_all();
-    assert!(
-        removed >= 2,
-        "expected at least the two just queued, got {removed}"
-    );
+    let removed = clear_all(w);
+    assert_eq!(removed, 2);
     assert!(pending_ids(w, "t1").is_empty());
     assert!(pending_ids(w, "t2").is_empty());
-    assert_eq!(clear_all(), 0);
+    assert_eq!(clear_all(w), 0);
+}
+
+#[test]
+fn clear_all_is_scoped_to_its_workspace() {
+    let _guard = test_guard();
+    let purged = workspace();
+    let other = workspace();
+    record(purged.path(), "sess-p", "sub-1", "a", Some("t-purged"));
+    record(other.path(), "sess-o", "sub-2", "b", Some("t-other"));
+
+    assert_eq!(clear_all(purged.path()), 1);
+
+    assert!(pending_ids(purged.path(), "t-purged").is_empty());
+    assert_eq!(
+        pending_ids(other.path(), "t-other"),
+        ["sub-2"],
+        "another workspace's completions are untouched"
+    );
+    record(other.path(), "sess-o", "sub-3", "c", Some("t-other"));
+    assert_eq!(pending_ids(other.path(), "t-other").len(), 2);
+}
+
+#[test]
+fn recovery_is_claimed_once_per_workspace() {
+    let _guard = test_guard();
+    let ws = workspace();
+    assert!(claim_recovery(ws.path()));
+    assert!(!claim_recovery(ws.path()));
+    forget_workspace_for_test(ws.path());
+    assert!(claim_recovery(ws.path()), "a restart scans again");
 }
 
 #[test]
