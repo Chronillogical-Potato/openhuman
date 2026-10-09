@@ -365,7 +365,7 @@ impl ShellTool {
         // SaaS: every command runs in the user's container, whatever the
         // agent's sandbox mode says, and never on the host.
         let saas_action_dir = self.effective_action_dir_for_context(context);
-        if let Some(resolved) = saas_sandbox_with(crate::core::runtime::is_saas(), || {
+        if let Some(resolved) = super::shell_saas::saas_sandbox_with(crate::core::runtime::is_saas(), || {
             crate::user_agents::tools::sandbox_policy(
                 &saas_action_dir,
                 &self.security.workspace_dir,
@@ -380,7 +380,7 @@ impl ShellTool {
                 Err(why) => {
                     tracing::warn!(reason = %why, "[shell] SaaS sandbox refused the command");
                     // Nothing ran: report it as not allowed.
-                    saas_sandbox_refusal(&why)
+                    super::shell_saas::saas_sandbox_refusal(&why)
                 }
             };
         }
@@ -542,7 +542,7 @@ impl ShellTool {
         let mut extra_env = std::collections::HashMap::new();
         // A managed runtime's PATH names host directories, which a SaaS
         // container cannot see.
-        if passes_runtime_path_with(crate::core::runtime::is_saas()) {
+        if super::shell_saas::passes_runtime_path_with(crate::core::runtime::is_saas()) {
             if let Some(path) = self.runtime_path_for_command(command).await {
                 extra_env.insert("PATH".into(), path.into());
             }
@@ -734,30 +734,6 @@ fn versioned_executable(executable: &str, prefix: &str) -> bool {
     executable
         .strip_prefix(prefix)
         .is_some_and(|suffix| !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit()))
-}
-
-/// In SaaS, resolves the container policy every command must run in; `None`
-/// outside SaaS, where the agent's sandbox mode decides.
-pub(crate) fn saas_sandbox_with(
-    saas: bool,
-    resolve: impl FnOnce() -> Result<crate::sandbox::SandboxPolicy, String>,
-) -> Option<Result<crate::sandbox::SandboxPolicy, String>> {
-    saas.then(resolve)
-}
-
-/// The result for a SaaS command whose sandbox could not be set up: nothing
-/// ran, so it is reported as not allowed, and never falls back to the host.
-pub(crate) fn saas_sandbox_refusal(why: &str) -> (bool, ToolResult) {
-    (
-        false,
-        ToolResult::error(format!("Sandbox unavailable: {why}")),
-    )
-}
-
-/// Whether the managed runtime's `PATH` is passed into a sandboxed command.
-/// Not in SaaS: it names host directories a container cannot see.
-pub(crate) fn passes_runtime_path_with(saas: bool) -> bool {
-    !saas
 }
 
 #[cfg(test)]
