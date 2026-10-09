@@ -53,17 +53,21 @@
 
 ## Install
 
-Download the desktop app from [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) or the [latest release](https://github.com/tinyhumansai/openhuman/releases/latest).
+The easiest way is to download the desktop app from [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) or the [latest release](https://github.com/tinyhumansai/openhuman/releases/latest). There is a `.dmg` for macOS, an `.msi` or `.exe` for Windows, and a `.deb` or `.AppImage` for Linux.
 
-| Platform | Install |
-| --- | --- |
-| macOS | `brew install --cask openhuman` |
-| Windows | The signed `.msi` from the [latest release](https://github.com/tinyhumansai/openhuman/releases/latest) |
-| Debian / Ubuntu | `sudo apt-get install ./OpenHuman_*_amd64.deb` after downloading the `.deb` |
-| Arch | The [`openhuman-bin`](./packages/arch/openhuman-bin/) AUR recipe |
-| Script (macOS, Linux) | `curl -fsSL https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/install.sh \| bash` |
+Prefer the terminal? The install script picks the right package for your system, checks its checksum and installs it:
 
-The script does not check signatures, so use a package when you can. Platform notes and fixes are in [INSTALL.md](./INSTALL.md).
+```bash
+# macOS and Linux
+curl -fsSL https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/install.sh | bash
+```
+
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/install.ps1 | iex
+```
+
+Add `--dry-run` (or `-DryRun` on Windows) to see what it would do first. Other options and troubleshooting are in [INSTALL.md](./INSTALL.md).
 
 ---
 
