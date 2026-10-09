@@ -136,7 +136,7 @@ existing single-tenant call sites keep working unmodified.
 
 ## Shared tokio tuning constants
 
-`runtime/mod.rs` declares two constants every multi-thread runtime that may
+[`runtime/mod.rs`](../../runtime/mod.rs) declares two constants every multi-thread runtime that may
 host an agent turn must set:
 
 - `AGENT_WORKER_STACK_BYTES` (20 MiB): a single agent turn is a very large

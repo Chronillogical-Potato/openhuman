@@ -5,9 +5,9 @@ OpenHuman backend. It owns `IntegrationClient`, the one HTTP client every
 backend-proxied integration uses for `/agent-integrations/*`, a small family
 of managed agent tools built on it (Google Places, stock and market data,
 Twilio calls), and three child sub-domains: Composio connectors, task sources,
-and managed file storage. Callers are the tool registry in `tools/ops.rs`, the
-controller registry in `core/all.rs`, and a few other domains (`web3`,
-`modules/connectors.rs`, `tools/schemas/apify.rs`) that borrow the client.
+and managed file storage. Callers are the tool registry in [`tools/ops.rs`](../tools/ops.rs), the
+controller registry in [`core/all.rs`](../core/all.rs), and a few other domains (`web3`,
+[`modules/connectors.rs`](../modules/connectors.rs), [`tools/schemas/apify.rs`](../tools/schemas/apify.rs)) that borrow the client.
 
 Most integrations never see a provider API key. The backend holds the keys,
 bills each call, applies rate limits and markup, and returns a
@@ -18,7 +18,7 @@ endpoint path and a JSON body.
 
 ### Building a client
 
-`build_client(&Config)` in `client/pricing.rs` decides whether integrations
+`build_client(&Config)` in [`client/pricing.rs`](./client/pricing.rs) decides whether integrations
 are available at all. It returns `Option<Arc<IntegrationClient>>`:
 
 ```text
@@ -55,7 +55,7 @@ gate their own tool registration.
 ### One JSON request
 
 `post`, `get`, `patch` and `delete` all go through `request_json` in
-`client/requests.rs`. The steps run in this order:
+[`client/requests.rs`](./client/requests.rs). The steps run in this order:
 
 ```text
 request_json(method, path, body)
@@ -76,7 +76,7 @@ JSON traffic does not use a `reqwest::Client` built here. It rides the
 process-wide `BackendTransport` port (`crate::backend::transport`), which
 `openhuman-tinyhumans` installs. The `Integrations` profile sets TLS, the
 timeout and the attribution headers, including the sanitized `x-sdk-name`
-product identity (see `crates/openhuman-tinyhumans/src/backend/headers.rs`).
+product identity (see [`crates/openhuman-tinyhumans/src/backend/headers.rs`](../../../openhuman-tinyhumans/src/backend/headers.rs)).
 The client asks the transport not to unwrap the envelope so `parse_envelope`
 can see `success: false` and report the backend's own `error` string.
 
@@ -86,7 +86,7 @@ method accepts both a bare payload and a `success: false` envelope.
 
 ### Errors
 
-`map_transport_error` in `client/errors.rs` turns a `BackendTransportError`
+`map_transport_error` in [`client/errors.rs`](./client/errors.rs) turns a `BackendTransportError`
 into an `anyhow::Error` and routes it through
 `core::observability::report_error_or_expected` so expected failures stay out
 of Sentry:
@@ -110,7 +110,7 @@ sign-out.
 
 ### Budget gate
 
-`client/budget_gate.rs` refuses managed calls once the account's AI credits
+[`client/budget_gate.rs`](./client/budget_gate.rs) refuses managed calls once the account's AI credits
 are exhausted, so a tool call does not spend a round trip the backend would
 reject. `managed_budget_applies_to_path` limits it to `/agent-integrations/*`
 minus `/agent-integrations/pricing`, and it only runs when the client was built
@@ -133,7 +133,7 @@ backoff.
 
 ### Binary downloads
 
-`get_bytes` in `client/download.rs` is the one request that does not use the
+`get_bytes` in [`client/download.rs`](./client/download.rs) is the one request that does not use the
 backend transport. It only accepts
 `/agent-integrations/file-storage/files/<id>/download` and refuses anything
 else. That route answers with a 302 to a presigned S3 URL, and `get_bytes`
@@ -161,7 +161,7 @@ Composio key has no backend session to serve that route.
 `tools/ops.rs` builds one client with `build_client` and registers this
 folder's tools only if it gets one, each family behind its
 `config.integrations.<provider>.is_active()` flag (`IntegrationToggle` in
-`config/schema/tools/integrations.rs`: `enabled`, plus a non-empty `api_key`
+[`config/schema/tools/integrations.rs`](../config/schema/tools/integrations.rs): `enabled`, plus a non-empty `api_key`
 in BYO mode):
 
 | Toggle | Tools | Backend paths |
@@ -174,7 +174,7 @@ File storage tools come from `file_storage::build_file_storage_tools`, called
 separately from `tools/ops.rs`, because they need `action_dir` and a
 `SecurityPolicy` rather than a toggle. Composio tools come from
 `composio::all_composio_agent_tools`. All three families are re-exported into
-the global tool namespace by `tools/mod.rs`:
+the global tool namespace by [`tools/mod.rs`](../tools/mod.rs):
 
 ```rust
 pub use crate::integrations::composio::tools::*;
@@ -190,20 +190,20 @@ a `DomainSet` without integrations hides them.
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Module declarations and re-exports (`IntegrationClient`, `build_client`, `pricing_for_config`, the shared types, `tinytools::ToolScope`). |
-| `client.rs` | Declares the `client/` submodules and re-exports the public pieces. See [client/README.md](client/README.md). |
-| `client/construct.rs` | The `IntegrationClient` struct, its constructors, URL sanitization, credential-endpoint checks and `auth_headers`. |
+| [`mod.rs`](./mod.rs) | Module declarations and re-exports (`IntegrationClient`, `build_client`, `pricing_for_config`, the shared types, `tinytools::ToolScope`). |
+| [`client.rs`](./client.rs) | Declares the `client/` submodules and re-exports the public pieces. See [client/README.md](client/README.md). |
+| [`client/construct.rs`](./client/construct.rs) | The `IntegrationClient` struct, its constructors, URL sanitization, credential-endpoint checks and `auth_headers`. |
 | `client/requests.rs` | Route guard, egress disclosure and enforcement, budget check, and the JSON verbs plus `upload_multipart`. |
 | `client/errors.rs` | Transport error mapping, 401 handling for both credential kinds, envelope parsing, bounded error-detail extraction. |
 | `client/download.rs` | `get_bytes`: the two-client download with manual redirect following. |
 | `client/pricing.rs` | Pricing cache, `pricing_for_config`, `build_client`. |
 | `client/budget_gate.rs` | Credits-exhausted pre-check and the shared `/teams/me/usage` failure backoff. |
-| `types.rs` | `BackendResponse<T>` envelope and the pricing types. |
-| `tools.rs`, `tools/` | The managed tools: `google_places.rs`, `stock_prices.rs`, `twilio.rs`. `tools.rs` only declares and re-exports. |
+| [`types.rs`](./types.rs) | `BackendResponse<T>` envelope and the pricing types. |
+| [`tools.rs`](./tools.rs), `tools/` | The managed tools: `google_places.rs`, `stock_prices.rs`, `twilio.rs`. `tools.rs` only declares and re-exports. |
 | [`composio/`](composio/README.md) | Composio connector sub-domain: toolkit catalogs, connections, triggers, direct-auth mode, the `tinyconnectors` module bridge, `composio_*` agent tools and RPC. |
 | [`task_sources/`](task_sources/README.md) | Pulls work items from GitHub, Notion, Linear and ClickUp through the Composio providers, dedups and enriches them, and drops cards on the `task-sources` thread board. |
 | [`file_storage/`](file_storage/README.md) | `storage_*` tools over the backend's S3-backed file storage (upload, download, list, link, visibility, delete). |
-| `test_support.rs`, `test_support_backend.rs` | In-process axum fake of the integration backend (`spawn_fake_integration_backend`, records every request). Not a module of this domain: `tools/ops_tests.rs` includes it with `#[path = "../integrations/test_support.rs"]`. |
+| [`test_support.rs`](./test_support.rs), [`test_support_backend.rs`](./test_support_backend.rs) | In-process axum fake of the integration backend (`spawn_fake_integration_backend`, records every request). Not a module of this domain: [`tools/ops_tests.rs`](../tools/ops_tests.rs) includes it with `#[path = "../integrations/test_support.rs"]`. |
 
 ## Key types and entry points
 
@@ -242,13 +242,13 @@ This folder registers no controllers of its own. Its children do, both under
 ## Boundaries
 
 - Web search is not here. Provider implementations, tool schemas and role
-  dispatch live in the `vendor/tinysearch` module (owned by the `tinysearch`
+  dispatch live in the [`vendor/tinysearch`](../../../../vendor/tinysearch/) module (owned by the `tinysearch`
   repo); OpenHuman's host policy over it (routes, enabled providers, which
-  tool surface is active) is in `crates/openhuman-core/src/search/`.
+  tool surface is active) is in [`crates/openhuman-core/src/search/`](../search/).
   `integrations.parallel` and `integrations.tinyfish` remain in the config
   schema for old files; `tools/ops.rs` registers no search tools from them.
 - The backend transport, attribution headers, backend URL defaults and
-  product identity belong to `crates/openhuman-tinyhumans` (`backend/`). The
+  product identity belong to [`crates/openhuman-tinyhumans`](../../../openhuman-tinyhumans/) (`backend/`). The
   core only asks through `crate::backend`. Classification of what a backend
   response means stays in the transport; this folder only maps the typed
   errors it gets back.
@@ -258,9 +258,9 @@ This folder registers no controllers of its own. Its children do, both under
   the credentials subscriber that handles `DomainEvent::SessionExpired`. This
   folder only publishes the event.
 - OAuth connector module behavior (account linking, action execution,
-  webhooks) belongs to `vendor/tinyconnectors`; `composio/` holds the host
+  webhooks) belongs to [`vendor/tinyconnectors`](../../../../vendor/tinyconnectors/); `composio/` holds the host
   side.
-- Media generation (`media/generation/`) and web3 (`web3/client.rs`) reuse
+- Media generation ([`media/generation/`](../media/generation/)) and web3 ([`web3/client.rs`](../web3/client.rs)) reuse
   `IntegrationClient` but live in their own domains.
 
 ## Gotchas
@@ -284,10 +284,10 @@ This folder registers no controllers of its own. Its children do, both under
 
 ## Tests
 
-Tests sit beside their modules: `client_tests.rs` (which includes the
-`x-sdk-name` check across both transports), `client_api_key_tests.rs`,
-`client_error_propagation_tests.rs`, `client_session_expiry_tests.rs`,
-`client/budget_gate_tests.rs`, `client/pricing_tests.rs`, `mod_tests.rs` and
+Tests sit beside their modules: [`client_tests.rs`](./client_tests.rs) (which includes the
+`x-sdk-name` check across both transports), [`client_api_key_tests.rs`](./client_api_key_tests.rs),
+[`client_error_propagation_tests.rs`](./client_error_propagation_tests.rs), [`client_session_expiry_tests.rs`](./client_session_expiry_tests.rs),
+[`client/budget_gate_tests.rs`](./client/budget_gate_tests.rs), [`client/pricing_tests.rs`](./client/pricing_tests.rs), [`mod_tests.rs`](./mod_tests.rs) and
 `tools/*_tests.rs`. Each child sub-domain carries its own.
 
 ```bash

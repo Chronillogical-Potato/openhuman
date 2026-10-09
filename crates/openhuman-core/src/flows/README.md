@@ -6,7 +6,7 @@ saved-flow lifecycle (create, edit, enable, run, resume, cancel), the bridge
 from trigger events to runs, the agent tools and sub-agents that author and
 suggest flows, and the adapters that let the vendored `tinyflows` engine call
 real OpenHuman services. The engine itself (graph model, validation,
-compilation, execution) lives in `vendor/tinyflows/`.
+compilation, execution) lives in [`vendor/tinyflows/`](../../../../vendor/tinyflows/).
 
 Callers are the JSON-RPC/CLI surface (`flows.*`, used by the Workflows UI), the
 event bus (cron ticks and Composio triggers), and agents that hold the flow
@@ -45,27 +45,27 @@ the engine, the capability seam).
 ### Saving a flow
 
 A graph arrives as raw JSON, from the canvas, an import, a draft promotion or
-an agent tool. `ops::validate_and_migrate_graph` (in `ops/validation.rs`) runs
+an agent tool. `ops::validate_and_migrate_graph` (in [`ops/validation.rs`](./ops/validation.rs)) runs
 it through `tinyflows::migrate::migrate` to upgrade older schemas, deserializes
 it into a `WorkflowGraph`, and rejects anything `tinyflows::validate::validate`
 refuses. Engine-compatibility checks map topology problems onto
 `FlowValidationError`.
 
 Agent-authored graphs pass one more stack, `run_builder_gates` in
-`ops/builder_gates.rs`. It is the single definition of the author-time hard
+[`ops/builder_gates.rs`](./ops/builder_gates.rs). It is the single definition of the author-time hard
 gates, run in increasing cost order and short-circuiting on the first failure:
 engine compatibility, binding resolvability, agent-ref resolvability,
-connection refs (`ops/connection_ref_gate.rs`: a `composio:<toolkit>:<id>` ref
+connection refs ([`ops/connection_ref_gate.rs`](./ops/connection_ref_gate.rs): a `composio:<toolkit>:<id>` ref
 must name a connected account of the same toolkit as the slug), tool contracts
-(`ops/tool_contract_gate.rs`: the slug must exist in the live Composio catalog
+([`ops/tool_contract_gate.rs`](./ops/tool_contract_gate.rs): the slug must exist in the live Composio catalog
 and every required arg must be present), and required-arg resolvability.
 `propose_workflow`, `revise_workflow`, `edit_workflow`, `save_workflow`, and the
 `strict` create/update RPC path all route through it, so agent saves and UI
 saves cannot validate differently. Softer findings come back as warnings
-instead: `ops/wiring_warnings.rs` flags unwired required args and bindings to
+instead: [`ops/wiring_warnings.rs`](./ops/wiring_warnings.rs) flags unwired required args and bindings to
 output fields the action does not produce.
 
-`flows_create` (in `ops/definitions.rs`) then applies two server-side rules
+`flows_create` (in [`ops/definitions.rs`](./ops/definitions.rs)) then applies two server-side rules
 regardless of what the caller asked for:
 
 1. A graph whose trigger fires without a human (`schedule`, `app_event`,
@@ -84,12 +84,12 @@ Every graph change is kept as a revision (`flows_get_history`,
 `flows_rollback`).
 
 Drafts are separate, non-live working copies stored as files under
-`<workspace>/flows/drafts/` (`draft_store.rs`, `ops/drafts.rs`). Promoting a
+`<workspace>/flows/drafts/` ([`draft_store.rs`](./draft_store.rs), [`ops/drafts.rs`](./ops/drafts.rs)). Promoting a
 draft runs the same create/update gates as a normal save.
 
 ### Enabling and triggers
 
-`flows_set_enabled` (in `ops/triggers.rs`) binds or unbinds the flow's
+`flows_set_enabled` (in [`ops/triggers.rs`](./ops/triggers.rs)) binds or unbinds the flow's
 automatic dispatch based on its trigger node:
 
 | Trigger kind | What enabling does |
@@ -101,7 +101,7 @@ automatic dispatch based on its trigger node:
 
 `flows_update` rebinds a schedule when an enabled flow's trigger kind or config
 changes, so a new cron expression takes effect. At boot,
-`reconcile_schedule_triggers_on_boot` (called from `core/runtime/services.rs`)
+`reconcile_schedule_triggers_on_boot` (called from [`core/runtime/services.rs`](../core/runtime/services.rs))
 re-arms schedules for every enabled flow.
 
 ```text
@@ -120,14 +120,14 @@ re-arms schedules for every enabled flow.
 
 ### Running a flow
 
-There are two entry points in `ops/run.rs`. `flows_run` blocks until the run
+There are two entry points in [`ops/run.rs`](./ops/run.rs). `flows_run` blocks until the run
 settles; `flows_run_detached` validates synchronously, then spawns the run and
 returns `{ run_id, status: "running", detached: true }` at once. The detached
 form exists because the harness caps one tool call at 120 seconds and a flow
 with a research agent node easily runs longer. The UI "Run" button and the
 `run_flow` agent tool use the detached path; the copilot polls `get_flow_run`.
 
-Both share one body, `run_flow_body` in `ops/execution.rs`:
+Both share one body, `run_flow_body` in [`ops/execution.rs`](./ops/execution.rs):
 
 ```text
  prepare_flow_run      validate declared inputs, compile-check, mint thread_id
@@ -163,14 +163,14 @@ before any run row exists.
 
 A run that reaches a gated node without trust parks as `pending_approval`. Its
 state lives in a durable SQLite checkpoint (`checkpoints.db`), so it survives a
-restart. `flows_resume` (in `ops/resume.rs`) continues it, but only after
+restart. `flows_resume` (in [`ops/resume.rs`](./ops/resume.rs)) continues it, but only after
 checking that the supplied `approvals` name at least one of the row's actually
 pending node ids. The engine treats any resume call as approval, so this guard
 is the host's enforcement. `flows_approval_manifest` computes, ahead of time,
 every trust key a fully pre-authorized run would need, so the save-and-enable
 card can ask once instead of parking node by node.
 
-`flows_cancel_run` (in `ops/run_management.rs`) signals an in-flight run
+`flows_cancel_run` (in [`ops/run_management.rs`](./ops/run_management.rs)) signals an in-flight run
 through `run_registry::cancel` and lets that run's own cancel arm write the
 terminal row. For a parked or orphaned run it writes `cancelled` itself and
 drops the checkpoint. Two sweeps clean up after crashes:
@@ -179,11 +179,11 @@ process, and `sweep_expired_parked_runs` expires old parked runs.
 
 ### After a run
 
-Three bus subscribers, all constructed in `core/runtime/subscribers.rs`, react
-to run events. `FlowRunDigestSubscriber` (`bus/run_digest.rs`) writes a short
+Three bus subscribers, all constructed in [`core/runtime/subscribers.rs`](../core/runtime/subscribers.rs), react
+to run events. `FlowRunDigestSubscriber` ([`bus/run_digest.rs`](./bus/run_digest.rs)) writes a short
 digest of each successful run into memory, tagged `flow:<id>` and
 `flow_run_digest`, keeping the newest 50 per flow. `DedupCommitSubscriber`
-(`bus/dedup_commit.rs`) settles the `dedup` node's exactly-once contract: on
+([`bus/dedup_commit.rs`](./bus/dedup_commit.rs)) settles the `dedup` node's exactly-once contract: on
 success it folds each node's tentative key set into its committed set; on
 failure it drops the tentative keys so the items are retried. Commits are
 serialized per flow. `FlowTriggerSubscriber` is the trigger bridge described
@@ -193,15 +193,15 @@ above.
 
 Two built-in sub-agents live under `agents/`, each with an `agent.toml` and a
 `prompt::build`, registered by path from the `BUILTINS` slice in
-`agent/registry/agents/loader.rs`:
+[`agent/registry/agents/loader.rs`](../agent/registry/agents/loader.rs):
 
 - `workflow_builder` is the authoring copilot. `flows_build` (in
-  `ops/builder.rs`) runs one turn of it from a structured request (create,
+  [`ops/builder.rs`](./ops/builder.rs)) runs one turn of it from a structured request (create,
   revise, repair, build), streams progress onto a chat thread when asked
-  (`ops/streaming.rs`), and returns the `workflow_proposal` it produced plus its
-  final text. `ops/trail_off.rs` detects a turn that ended in a question or a
+  ([`ops/streaming.rs`](./ops/streaming.rs)), and returns the `workflow_proposal` it produced plus its
+  final text. [`ops/trail_off.rs`](./ops/trail_off.rs) detects a turn that ended in a question or a
   gate failure instead of a proposal. The overall bound is 600 seconds.
-- `flow_discovery` is a read-only scout. `flows_discover` (in `ops/discovery.rs`)
+- `flow_discovery` is a read-only scout. `flows_discover` (in [`ops/discovery.rs`](./ops/discovery.rs))
   runs it over the user's data; it ends by calling `suggest_workflows`, and the
   suggestions are stored for the UI (`flows_list_suggestions`,
   `flows_dismiss_suggestion`, `flows_mark_suggestion_built`).
@@ -217,7 +217,7 @@ makes a real Composio call, limited to Read-scope actions on a connected
 toolkit. `resume_flow_run` is `Execute`-gated because resuming lets approved
 nodes fire.
 
-The long authoring manual is a bundled skill (`skills/mod.rs`, needs both the
+The long authoring manual is a bundled skill ([`skills/mod.rs`](./skills/mod.rs), needs both the
 `flows` and `skills` features): the portable `flow-authoring` pages from
 `tinyflows-copilot`, registered with OpenHuman's native skill runtime. Binding
 rules stay in the agent prompt; reference material the model looks up goes in
@@ -226,9 +226,9 @@ the skill.
 ### Flow memory
 
 Memory has no namespaces, so a flow's memory is the set of items tagged
-`flow:<id>` (plus `flows`). The tag helpers in `memory_tools.rs` (`flow_tag`,
+`flow:<id>` (plus `flows`). The tag helpers in [`memory_tools.rs`](./memory_tools.rs) (`flow_tag`,
 `flow_key_tag`, `flow_meta`, `flow_filter`, `cross_flow_filter`,
-`remember_keyed`, `forget_matching`, `FLOWS_TAG`) are re-exported from `mod.rs`
+`remember_keyed`, `forget_matching`, `FLOWS_TAG`) are re-exported from [`mod.rs`](./mod.rs)
 so the digest subscriber, `flows_delete`, the `memory` node adapter
 (`tinyflows::memory_adapter::OpenHumanMemory`) and the agent tools all tag the
 same way.
@@ -240,18 +240,18 @@ Top level:
 | Path | What it does |
 | --- | --- |
 | `mod.rs` | Module declarations and re-exports: model types from `tinyflows_catalog`, node contracts, store helpers for the seam, flow-memory helpers. |
-| `ops.rs`, `ops/` | Business operations returning `Outcome<T>`. See the table below. |
-| `schemas.rs`, `schemas/`, `schemas_handlers.rs` | Controller schemas (split into `builder_schemas.rs`, `definition_schemas.rs`, `draft_schemas.rs`, `run_schemas.rs`) and thin handlers that load config, read params and call `ops::flows_*`. |
-| `store.rs` | Binds `tinyflows_sqlite::flows` to `<workspace_dir>/flows`. Every function only substitutes the directory; anything else in a body is host policy leaking into persistence. |
+| [`ops.rs`](./ops.rs), `ops/` | Business operations returning `Outcome<T>`. See the table below. |
+| [`schemas.rs`](./schemas.rs), `schemas/`, [`schemas_handlers.rs`](./schemas_handlers.rs) | Controller schemas (split into `builder_schemas.rs`, `definition_schemas.rs`, `draft_schemas.rs`, `run_schemas.rs`) and thin handlers that load config, read params and call `ops::flows_*`. |
+| [`store.rs`](./store.rs) | Binds `tinyflows_sqlite::flows` to `<workspace_dir>/flows`. Every function only substitutes the directory; anything else in a body is host policy leaking into persistence. |
 | `draft_store.rs` | Same binding for `tinyflows_sqlite::drafts`. |
-| `bus.rs`, `bus/` | The three subscribers: `trigger.rs`, `run_digest.rs`, `dedup_commit.rs`. |
-| `tools.rs` | `ProposeWorkflowTool` (`propose_workflow`) and `RunFlowTool` (`run_flow`). |
-| `builder_tools.rs`, `builder_tools/` | The 22 `workflow_builder` tools, split by role: `draft_revise.rs`, `draft_edit.rs`, `draft_validate.rs`, `flow_reads.rs`, `run_control.rs`, `persistence.rs`, `connection_reads.rs`, `catalog_search.rs`, `tool_contract.rs`, `kind_reads.rs`, `dry_run.rs`. |
-| `discovery_tools.rs` | `SuggestWorkflowsTool` (`suggest_workflows`). |
+| [`bus.rs`](./bus.rs), `bus/` | The three subscribers: `trigger.rs`, `run_digest.rs`, `dedup_commit.rs`. |
+| [`tools.rs`](./tools.rs) | `ProposeWorkflowTool` (`propose_workflow`) and `RunFlowTool` (`run_flow`). |
+| [`builder_tools.rs`](./builder_tools.rs), `builder_tools/` | The 22 `workflow_builder` tools, split by role: `draft_revise.rs`, `draft_edit.rs`, `draft_validate.rs`, `flow_reads.rs`, `run_control.rs`, `persistence.rs`, `connection_reads.rs`, `catalog_search.rs`, `tool_contract.rs`, `kind_reads.rs`, `dry_run.rs`. |
+| [`discovery_tools.rs`](./discovery_tools.rs) | `SuggestWorkflowsTool` (`suggest_workflows`). |
 | `memory_tools.rs` | `FlowMemoryRecallTool`, `FlowMemoryRememberTool`, and the flow-memory tag helpers. |
 | `agents/` | `workflow_builder/` and `flow_discovery/` built-in agent definitions and prompt builders. |
-| `catalogue.rs` | `flow_entries` lists saved flows as `Workflow` entries with `WorkflowScope::Flow`, so the skill catalogue and `skill_search` show one list. |
-| `node_contracts.rs` | Host overlay on `tinyflows::catalog`'s node-kind contracts (which `tool_call` slugs resolve to Composio or native `oh:` tools, which trigger kinds dispatch here). |
+| [`catalogue.rs`](./catalogue.rs) | `flow_entries` lists saved flows as `Workflow` entries with `WorkflowScope::Flow`, so the skill catalogue and `skill_search` show one list. |
+| [`node_contracts.rs`](./node_contracts.rs) | Host overlay on `tinyflows::catalog`'s node-kind contracts (which `tool_call` slugs resolve to Composio or native `oh:` tools, which trigger kinds dispatch here). |
 | `skills/` | Registers the bundled `flow-authoring` skill. |
 | `tinyflows/` | The capability seam. See [tinyflows/README.md](tinyflows/README.md). |
 
@@ -271,17 +271,17 @@ Top level:
 - `ops::flows_run` / `ops::flows_run_detached` (`ops/run.rs`): start a run,
   blocking or fire-and-forget.
 - `ops::flows_create` / `ops::flows_update` (`ops/definitions.rs`,
-  `ops/updates.rs`): the save paths that enforce born-disabled and forced
+  [`ops/updates.rs`](./ops/updates.rs)): the save paths that enforce born-disabled and forced
   approval.
 - `ops::validate_and_migrate_graph` (`ops/validation.rs`): the one
   structural-validation door.
 - `run_builder_gates` (`ops/builder_gates.rs`): the agent-authored hard-gate
   stack.
-- `RunRowFinalizer` (`ops/run_rows.rs`): drop guard that keeps a run row from
+- `RunRowFinalizer` ([`ops/run_rows.rs`](./ops/run_rows.rs)): drop guard that keeps a run row from
   being wedged at `running`.
 - `tinyflows::build_capabilities` / `tinyflows::open_flow_checkpointer`
-  (`tinyflows/caps/`): wire the engine to OpenHuman for one run.
-- `bus::FlowTriggerSubscriber` (`bus/trigger.rs`): the trigger-to-run bridge.
+  ([`tinyflows/caps/`](./tinyflows/caps/)): wire the engine to OpenHuman for one run.
+- `bus::FlowTriggerSubscriber` ([`bus/trigger.rs`](./bus/trigger.rs)): the trigger-to-run bridge.
 - Model types, re-exported from `tinyflows_catalog` and not owned here: `Flow`,
   `FlowConnection`, `FlowDraft`, `FlowImport`, `FlowRevision`, `FlowRun`,
   `FlowRunStep`, `FlowRunTrigger`, `FlowSuggestion`, `FlowValidation`,
@@ -292,7 +292,7 @@ Top level:
 
 All methods live in the `flows` namespace (`openhuman.flows_<name>` over
 JSON-RPC), registered through `all_flows_registered_controllers()` in
-`core/all.rs`.
+[`core/all.rs`](../core/all.rs).
 
 | Group | Methods |
 | --- | --- |
@@ -302,7 +302,7 @@ JSON-RPC), registered through `all_flows_registered_controllers()` in
 | Discovery | `discover`, `list_suggestions`, `dismiss_suggestion`, `mark_suggestion_built` |
 | Drafts | `draft_create`, `draft_get`, `draft_update`, `draft_list`, `draft_delete`, `draft_promote` |
 
-Agent tools: `core`'s `tools/ops.rs` adds 27 flows tools to the tool list
+Agent tools: `core`'s [`tools/ops.rs`](../tools/ops.rs) adds 27 flows tools to the tool list
 (`propose_workflow`, `run_flow`, the 22 builder tools, `suggest_workflows`,
 `flow_memory_recall`, `flow_memory_remember`), each behind the `flows` feature.
 
@@ -316,7 +316,7 @@ Agent tools: `core`'s `tools/ops.rs` adds 27 flows tools to the tool list
   Fix engine and storage behavior there, not here.
 - `cron/` owns scheduling. This domain only arms and removes `JobType::Flow`
   jobs; the scheduler publishes `DomainEvent::FlowScheduleTick`.
-- `integrations/composio/` owns the Composio catalog, connections and trigger
+- [`integrations/composio/`](../integrations/composio/) owns the Composio catalog, connections and trigger
   ingestion. Flows reads them for gates, pickers and `tool_call` execution.
 - `memory/` owns storage. Flows only tags items.
 - The approval gate (`approval::gate`) decides when a node parks. The approval
@@ -332,7 +332,7 @@ Agent tools: `core`'s `tools/ops.rs` adds 27 flows tools to the tool list
   reference is a registration site (`core::all`, the subscribers in
   `core::runtime::subscribers`, the boot sweeps in `core::runtime::services`,
   the tool list in `tools::ops`, the `BUILTINS` entries, the catalogue extension
-  in `agent/session_host/builder/factory.rs`), and a registration site wants
+  in [`agent/session_host/builder/factory.rs`](../agent/session_host/builder/factory.rs)), and a registration site wants
   absence when the feature is off. A stub would make `flows.*` a known method
   that fails at runtime. If an always-compiled domain ever gains a real `use
   crate::flows::...`, convert to the facade-plus-stub shape used by `voice/`.
@@ -347,8 +347,8 @@ Agent tools: `core`'s `tools/ops.rs` adds 27 flows tools to the tool list
 
 ## Tests
 
-Tests sit beside their modules as `*_tests.rs` files (`ops_tests.rs`,
-`bus_tests.rs`, `schemas_tests.rs`, the builder tool and agent prompt tests,
+Tests sit beside their modules as `*_tests.rs` files ([`ops_tests.rs`](./ops_tests.rs),
+[`bus_tests.rs`](./bus_tests.rs), [`schemas_tests.rs`](./schemas_tests.rs), the builder tool and agent prompt tests,
 and the seam's own suite under `tinyflows/`). `store.rs` has no test
 attachment; the store's behavior is covered in `tinyflows-sqlite`.
 
@@ -361,5 +361,5 @@ Related docs: [gitbooks/features/workflows.md](../../../../gitbooks/features/wor
 (user-facing feature), [gitbooks/developing/architecture/flows-on-tinyagents.md](../../../../gitbooks/developing/architecture/flows-on-tinyagents.md)
 (run pipeline and security model; it still describes lowering onto
 `tinyagents`, while the vendored crate now carries its own runtime under
-`vendor/tinyflows/crates/tinyflows/src/graph/`), and
+[`vendor/tinyflows/crates/tinyflows/src/graph/`](../../../../vendor/tinyflows/crates/tinyflows/src/graph/)), and
 [../cron/README.md](../cron/README.md) (`JobType::Flow`).

@@ -6,10 +6,10 @@ the model-health dashboard, the provider respond queue, and opt-in native
 desktop control. A headless or embedded host has little use for any of it,
 which is why these domains are grouped here and tagged `DomainGroup::Desktop`.
 
-This is not the Tauri shell. The shell lives in `crates/openhuman-app/` and
+This is not the Tauri shell. The shell lives in [`crates/openhuman-app/`](../../../openhuman-app/) and
 owns windows, the tray, and native OS integration. This folder is the
 business logic those windows reach over JSON-RPC and Socket.IO. The browser
-SPA uses the same RPC surface; the TUI (`crates/openhuman-tui`) uses little of
+SPA uses the same RPC surface; the TUI ([`crates/openhuman-tui`](../../../openhuman-tui/)) uses little of
 it.
 
 ## How it works
@@ -39,12 +39,12 @@ Each one meets the frontend in one of two ways:
 
 Request and response flows (the app-state snapshot, the notification list,
 model health, the respond queue, desktop status) are ordinary controllers
-registered under `DomainGroup::Desktop` in `core/all.rs`. Push flows use
+registered under `DomainGroup::Desktop` in [`core/all.rs`](../core/all.rs). Push flows use
 process-global `tokio::sync::broadcast` channels that the Socket.IO server in
-`crates/openhuman-rpc` subscribes to and forwards. Notifications get onto
+[`crates/openhuman-rpc`](../../../openhuman-rpc/) subscribes to and forwards. Notifications get onto
 their channel through `NotificationBridgeSubscriber` (`notifications::bridge`),
 which translates selected `DomainEvent`s; it is registered at startup from
-`core/runtime/subscribers.rs`. Overlay attention events are published
+[`core/runtime/subscribers.rs`](../core/runtime/subscribers.rs). Overlay attention events are published
 directly by any caller.
 
 ### Desktop control
@@ -55,14 +55,14 @@ actions. It is opt-in per computer. The enabled flag lives in
 `<workspace>/state/desktop-control.json` and fails closed when the file is
 missing or corrupt. Control is only supported on macOS and Windows, and only
 when the core's HTTP listener is bound to loopback
-(`set_listener_is_loopback`, set from `core/runtime/builder.rs` once the
+(`set_listener_is_loopback`, set from [`core/runtime/builder.rs`](../core/runtime/builder.rs) once the
 address is known). The tools refuse to run when the listener is not loopback
 or control is disabled.
 
 The agent tools are `desktop_list_apps`, `desktop_list_windows`,
 `desktop_launch`, `desktop_snapshot`, `desktop_find`, `desktop_goal`, and
 `desktop_continue_goal` (`DesktopTool` with a `DesktopToolKind`, registered in
-`tools/ops.rs`). A `desktop_goal` call hands one bounded task to the module,
+[`tools/ops.rs`](../tools/ops.rs)). A `desktop_goal` call hands one bounded task to the module,
 which runs and verifies several actions in that call. When the operator turns
 desktop approvals on (`config.desktop.approvals_enabled`), the module can stop
 on a pending action. `confirmation.rs` keeps those one-use decisions for ten
@@ -70,13 +70,13 @@ minutes and exposes them through `desktop_pending` and `desktop_confirm`. With
 approvals off (the default), `approvals_disabled_for` lets these seven tools
 skip only the approval park; permission caps, denies, OS grants, and the
 action budget still apply. The agent-facing instructions are in
-`control/WORKFLOW.md`.
+[`control/WORKFLOW.md`](./control/WORKFLOW.md).
 
 ## Layout
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Declares the members. Only `control` is feature-gated. |
+| [`mod.rs`](./mod.rs) | Declares the members. Only `control` is feature-gated. |
 | [`app_state/`](app_state/README.md) | The snapshot the shell polls (`app_state_snapshot`): stored credential and user, local-AI and service status, onboarding tasks, keyring status, config-recovery notice. Owns `state/app-state.json` and `update_local_state`. |
 | `control/` | Opt-in native desktop control: enablement and status (`ops.rs`), pending-action decisions (`confirmation.rs`), the `desktop_*` agent tools (`tools.rs`), and internal-only controllers (`schemas.rs`). `modules` feature only. Agent guidance in `WORKFLOW.md`. |
 | [`dashboard/`](dashboard/README.md) | Read-only per-model health table for Settings, built from `model_registry` and the `dashboard.model_health` thresholds. Also the `dashboard_model_health` agent tool. |
@@ -86,18 +86,18 @@ action budget still apply. The agent-facing instructions are in
 
 ## Key types and entry points
 
-- `app_state::snapshot()` (`app_state/ops/snapshot.rs`) assembles
+- `app_state::snapshot()` ([`app_state/ops/snapshot.rs`](./app_state/ops/snapshot.rs)) assembles
   `AppStateSnapshot` from peer domains. It never calls the backend; the user
   it reports is what the host passed in through `auth.set_credential`.
 - `notifications::register_notification_bridge_subscriber(config)` and
   `notifications::publish_core_notification` / `subscribe_core_notifications`
-  (`notifications/bus.rs`) are the push path for the notification center.
+  ([`notifications/bus.rs`](./notifications/bus.rs)) are the push path for the notification center.
 - `overlay::publish_attention(OverlayAttentionEvent)` returns how many
   subscribers received the event (zero means it was dropped).
 - `control::status`, `control::set_enabled`, and `control::probe`
-  (`control/ops.rs`) back the Connections page.
-- `DesktopTool` and `DesktopToolKind` (`control/tools.rs`) are the desktop
-  agent tools, re-exported through `tools/mod.rs`.
+  ([`control/ops.rs`](./control/ops.rs)) back the Connections page.
+- `DesktopTool` and `DesktopToolKind` ([`control/tools.rs`](./control/tools.rs)) are the desktop
+  agent tools, re-exported through [`tools/mod.rs`](../tools/mod.rs).
 
 ## RPC / CLI surface
 
@@ -115,11 +115,11 @@ Method names are `openhuman.<namespace>_<function>`.
 
 - Windows, tray, notch window, and OS integration belong to the Tauri shell
   (`crates/openhuman-app/`). The notch window host is
-  `crates/openhuman-app/src/notch_window.rs`.
-- Socket.IO forwarding belongs to `crates/openhuman-rpc/src/server/socketio.rs`.
+  [`crates/openhuman-app/src/notch_window.rs`](../../../openhuman-app/src/notch_window.rs).
+- Socket.IO forwarding belongs to [`crates/openhuman-rpc/src/server/socketio.rs`](../../../openhuman-rpc/src/server/socketio.rs).
 - OS accessibility (AX and IOKit FFI, the Swift helper, focus, permissions,
   the Globe key) belongs to the `tinycomputer-accessibility` crate in
-  `vendor/tinycomputer` (upstream `tinyhumansai/tinycomputer`). Desktop
+  [`vendor/tinycomputer`](../../../../vendor/tinycomputer/) (upstream `tinyhumansai/tinycomputer`). Desktop
   observation, interaction, and Jev-driven goals belong to the `tinycomputer`
   module; this folder calls it through `tinycomputer-bus`.
 - The live current user belongs to the host's session owner

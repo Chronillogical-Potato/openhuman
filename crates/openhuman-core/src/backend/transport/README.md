@@ -16,11 +16,11 @@ panicking.
 
 | File | Purpose |
 | --- | --- |
-| `mod.rs` | `BackendTransport` trait, `BackendRequest`, `TransportProfile`, `credential_headers`, `parse_body_text`, `unwrap_envelope`, `compose_url` |
-| `error.rs` | `BackendTransportError`, the core-owned mirror of the variants classifiers match on |
-| `install.rs` | Process-global install/resolve for the transport, plus the `CoreContext`-scoped lookup |
-| `plain.rs` | `cfg(test)`-only reqwest transport, so this crate's tests do not need a host crate |
-| `transport_tests.rs` | Tests for `mod.rs` (included via `#[path]`) |
+| [`mod.rs`](./mod.rs) | `BackendTransport` trait, `BackendRequest`, `TransportProfile`, `credential_headers`, `parse_body_text`, `unwrap_envelope`, `compose_url` |
+| [`error.rs`](./error.rs) | `BackendTransportError`, the core-owned mirror of the variants classifiers match on |
+| [`install.rs`](./install.rs) | Process-global install/resolve for the transport, plus the `CoreContext`-scoped lookup |
+| [`plain.rs`](./plain.rs) | `cfg(test)`-only reqwest transport, so this crate's tests do not need a host crate |
+| [`transport_tests.rs`](./transport_tests.rs) | Tests for `mod.rs` (included via `#[path]`) |
 
 ## Key types
 
@@ -62,7 +62,7 @@ Everything else under `crates/openhuman-core/src/api/` (routes in `rest.rs`,
 attribution headers in `headers.rs`, URL resolution in `config.rs`) calls
 through this trait rather than building `reqwest` requests directly. The
 only production implementation is `SdkBackendTransport` in
-`crates/openhuman-tinyhumans`, built on top of the vendored `tinyhumans-sdk`,
+[`crates/openhuman-tinyhumans`](../../../../openhuman-tinyhumans/), built on top of the vendored `tinyhumans-sdk`,
 and installed once per process by `openhuman_tinyhumans::install` (or
 `RuntimeBuilder` for library hosts, or `CoreBuilder::backend_transport`).
 

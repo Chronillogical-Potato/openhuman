@@ -41,7 +41,7 @@ other MCP hosts that call into it.
 
 ### The service holder
 
-`host.rs` keeps a process-wide map (`HOSTS`) from workspace path to one
+[`host.rs`](./host.rs) keeps a process-wide map (`HOSTS`) from workspace path to one
 `McpHost`. An `McpHost` wraps the `tinymcp` service and exposes its three
 parts: `dynamic()` (the user-declared registry), `static_servers()` (the
 TOML-declared set) and `audit()` (the write-audit store). The library holds no
@@ -83,14 +83,14 @@ definition).
 Three things are host policy rather than protocol:
 
 - Prompt-injection detection over remote tool definitions.
-  `registry::tools_safe_for_agent` (`registry/mod.rs`) drops a tool whose
+  `registry::tools_safe_for_agent` ([`registry/mod.rs`](./registry/mod.rs)) drops a tool whose
   description trips a rule, and logs and publishes `McpToolRejected` with the
   rule code only, never the offending text. The lexical half (control
   characters, prompt-template fences, length caps) lives in the
   `tinymcp-bus` contract and is applied by its display accessors.
 - Events. `tinymcp` reports outcomes in return values. Turning them into
-  `DomainEvent`s happens here: `registry/ops.rs` for RPC-driven lifecycle
-  events, `registry/supervisor_events.rs` for what the reconnect supervisor
+  `DomainEvent`s happens here: [`registry/ops.rs`](./registry/ops.rs) for RPC-driven lifecycle
+  events, [`registry/supervisor_events.rs`](./registry/supervisor_events.rs) for what the reconnect supervisor
   observed, and `tools_safe_for_agent` for rejections. `audit/` publishes
   nothing.
 - The proxy decision. `host::proxy_for_mcp` applies OpenHuman's proxy scope
@@ -102,7 +102,7 @@ Three things are host policy rather than protocol:
 The static set is declared in config TOML (`[[mcp_client.servers]]`) and is
 reached through `mcp::config_servers` and the `mcp_list_servers`,
 `mcp_list_tools` and `mcp_call_tool` bridge tools plus per-tool
-`mcp_<server>_<tool>` tools in `tools/impl/network/`. The dynamic set is the
+`mcp_<server>_<tool>` tools in [`tools/impl/network/`](../tools/impl/network/). The dynamic set is the
 user's `mcp.json` document, edited through `mcp_clients.config_get` and
 `config_set`, browsed from the Smithery and official catalogs, and reached
 through the `mcp_registry_*` tools and installed-server actions. Both are
@@ -112,7 +112,7 @@ compiled out with the `mcp` feature.
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Family root: `start`, `start_boot_jobs`, the configured tool-cache refresh, the supervisor spawn, and the `http_client` and `config_servers` re-export modules. |
+| [`mod.rs`](./mod.rs) | Family root: `start`, `start_boot_jobs`, the configured tool-cache refresh, the supervisor spawn, and the `http_client` and `config_servers` re-export modules. |
 | `host.rs` | The per-workspace `McpHost` holder, config conversion (`client_config`, `static_registry`), `oauth_redirect_uri`, `proxy_for_mcp`. |
 | [`registry/`](registry/README.md) | The `mcp_clients` RPC namespace (including `mcp.json`), the `mcp_registry_*` agent tools, installed-server action tools (`action_tool.rs`), supervisor event translation, the injection screen, and the `boot`, `supervisor`, `oauth` and `connections` helpers. |
 | [`audit/`](audit/README.md) | The `mcp_audit` RPC namespace over the write-audit log. |
@@ -126,7 +126,7 @@ directories, and hold only `pub use` re-exports of `tinymcp`:
   `redact_endpoint`, `render_tool_result`, and `tinymcp_bus` wire types
   (`McpRemoteTool`, `McpServerToolResult`, `McpSseEvent`, the OAuth challenge
   and metadata types). It is always compiled because the ungated `gitbooks`
-  tool (`tools/impl/network/gitbooks.rs`) dials `McpHttpClient`.
+  tool ([`tools/impl/network/gitbooks.rs`](../tools/impl/network/gitbooks.rs)) dials `McpHttpClient`.
 - `config_servers` (`mcp` feature): `McpStdioClient`, `McpRegistrySource`,
   `McpServerDefinition`, `McpServerRegistry`, `McpTransportClient`, and
   `tinymcp_bus::McpAuthConfig` re-exported as `McpDefinitionAuth`. That is a
@@ -150,18 +150,18 @@ directories, and hold only `pub use` re-exports of `tinymcp`:
 
 ## RPC surface
 
-Registered through `core/all.rs`:
+Registered through [`core/all.rs`](../core/all.rs):
 
-- `mcp_clients.*` (`registry/schemas/`): `registry_search`,
+- `mcp_clients.*` ([`registry/schemas/`](./registry/schemas/)): `registry_search`,
   `registry_get`, `registry_settings_get`, `registry_settings_set`,
   `installed_list`, `config_get`, `config_set`, `update_env`, `uninstall`,
   `set_enabled`, `detect_auth`, `oauth_begin`, `connect`, `disconnect`,
   `status`, `list_tools`, `tool_call`. On the wire these are
   `openhuman.mcp_clients_<function>`.
-- `mcp_audit.list` (`audit/schemas.rs`): rows from the write-audit log.
+- `mcp_audit.list` ([`audit/schemas.rs`](./audit/schemas.rs)): rows from the write-audit log.
 
 The `openhuman-core mcp` server is not an RPC domain. It is a CLI entry wired
-through `core/cli.rs` that translates each MCP `tools/call` into an existing
+through [`core/cli.rs`](../core/cli.rs) that translates each MCP `tools/call` into an existing
 registered core RPC method.
 
 Agent tools registered from this folder: `mcp_registry_search`,
@@ -174,7 +174,7 @@ servers. There is no install tool: servers are added by the user in
 
 ## Boundaries
 
-- `tinymcp` (`vendor/tinymcp`, repo `tinyhumansai/tinymcp`) owns the
+- `tinymcp` ([`vendor/tinymcp`](../../../../vendor/tinymcp/), repo `tinyhumansai/tinymcp`) owns the
   transports, handshakes, OAuth discovery, the dynamic registry and its
   SQLite store, the supervisor, the write-audit store, and the generic server
   half (`tinymcp::server`). Fix protocol or client behavior there and move the
@@ -186,12 +186,12 @@ servers. There is no install tool: servers are added by the user in
   `McpAuthConfig`, which `host.rs` converts from.
 - The `mcp_*` bridge tools over the static set live in
   `tools/impl/network/`; MCP tools in the cross-surface discovery registry
-  are assembled by `tools/registry/`.
+  are assembled by [`tools/registry/`](../tools/registry/).
 - `tinymcp` is a path dependency on `vendor/tinymcp` with
   `default-features = false` (see the `tinymcp` block in
-  `crates/openhuman-core/Cargo.toml` for why it is not the pinned release).
+  [`crates/openhuman-core/Cargo.toml`](../../Cargo.toml) for why it is not the pinned release).
   The loadable-module release pin is in
-  `modules/registry/records_mcp_connectors.rs`.
+  [`modules/registry/records_mcp_connectors.rs`](../modules/registry/records_mcp_connectors.rs).
 
 ## Gotchas
 
@@ -209,7 +209,7 @@ servers. There is no install tool: servers are added by the user in
 
 ## Tests
 
-Each module has a sibling `*_tests.rs` (`host_tests.rs`, and the suites under
+Each module has a sibling `*_tests.rs` ([`host_tests.rs`](./host_tests.rs), and the suites under
 `registry/`, `audit/` and `server/`, including the wire and HTTP golden tests
 in `server/`). Run with `cargo test -p openhuman mcp::` or
 `pnpm debug rust mcp`, and check the disabled build with

@@ -2,7 +2,7 @@
 
 Tools that act on the agent loop itself, its todo list, or the user's stored
 preferences, rather than on files, memory, or the network. `crate::tools`
-re-exports everything here (`tools/mod.rs` re-exports `crate::agent::tools`),
+re-exports everything here ([`tools/mod.rs`](../../tools/mod.rs) re-exports `crate::agent::tools`),
 and `tools::ops` registers them into the tool catalog; nothing outside this
 crate should construct them directly.
 
@@ -11,12 +11,12 @@ crate should construct them directly.
 | Tool | File | Wire name (if different) |
 | --- | --- | --- |
 | `AskClarificationTool` | `tinyagents_harness::tools` | `ask_user_clarification` |
-| `DelegateTool` | `delegate.rs` | `delegate` |
-| `PlanExitTool` | `plan_exit.rs` | `plan_exit` |
+| `DelegateTool` | [`delegate.rs`](./delegate.rs) | `delegate` |
+| `PlanExitTool` | [`plan_exit.rs`](./plan_exit.rs) | `plan_exit` |
 | `RememberPreferenceTool` | `remember_preference.rs` | `remember_preference` |
 | `SavePreferenceTool` | `save_preference.rs` | `save_preference` |
-| `RunWorkflowTool`, `AwaitWorkflowTool` | `run_workflow.rs` | `run_workflow`, `await_workflow` |
-| `TodoTool` | `todo.rs` | `todo` |
+| `RunWorkflowTool`, `AwaitWorkflowTool` | [`run_workflow.rs`](./run_workflow.rs) | `run_workflow`, `await_workflow` |
+| `TodoTool` | [`todo.rs`](./todo.rs) | `todo` |
 
 `RunWorkflowTool` and `AwaitWorkflowTool` are compiled in only with the
 `skills` feature; a build without it omits both tools from the catalog

@@ -1,6 +1,6 @@
 # Providers
 
-Implementations live in `vendor/tinychannels/src/providers/`, not here. `mod.rs` re-exports each provider module from `tinychannels::providers`, which keeps the stable `crate::channels::providers::<name>` path, and via `channels/mod.rs` the shorter `crate::channels::<name>` path. Provider construction is upstream too: `runtime/startup.rs` calls `tinychannels::build_channels` with a credential-hydrated config and the `channels::host` capability surface.
+Implementations live in [`vendor/tinychannels/src/providers/`](../../../../../vendor/tinychannels/src/providers/), not here. [`mod.rs`](./mod.rs) re-exports each provider module from `tinychannels::providers`, which keeps the stable `crate::channels::providers::<name>` path, and via [`channels/mod.rs`](../mod.rs) the shorter `crate::channels::<name>` path. Provider construction is upstream too: `runtime/startup.rs` calls `tinychannels::build_channels` with a credential-hydrated config and the `channels::host` capability surface.
 
 ## Providers
 
@@ -33,11 +33,11 @@ What a provider can do beyond send/receive is declared once, upstream, in `tinyc
 - `host/channel_events.rs::ChannelTurnStateSubscriber` records busy state for `/status`.
 - `bus/`'s progressive reply shows draft, thinking and filler bubbles only where `progressive_edits` is set.
 
-Ported providers reach host capabilities (voice, approvals, conversation history, shutdown, event sink) through the `tinychannels::host::ProviderContext` built in `channels::host` instead of calling OpenHuman internals directly; see `channels/host/mod.rs`.
+Ported providers reach host capabilities (voice, approvals, conversation history, shutdown, event sink) through the `tinychannels::host::ProviderContext` built in `channels::host` instead of calling OpenHuman internals directly; see [`channels/host/mod.rs`](../host/mod.rs).
 
 ## Adding a provider
 
-Provider transport, registration (`ChannelDefinition` metadata in `tinychannels::controllers`) and its capability entry belong upstream in `vendor/tinychannels`. Once a provider exists there:
+Provider transport, registration (`ChannelDefinition` metadata in `tinychannels::controllers`) and its capability entry belong upstream in [`vendor/tinychannels`](../../../../../vendor/tinychannels/). Once a provider exists there:
 
 1. Add it to the `pub use tinychannels::providers::{...}` list in `providers/mod.rs`.
 2. Add the matching `pub use providers::<name>` / `pub use <name>::<Name>Channel` pair to `channels/mod.rs`.
