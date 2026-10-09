@@ -204,5 +204,13 @@ fn a_safe_deployment_serves_only_core_built_ins_behind_the_gateway_bearer() {
             .exists(),
         "a SaaS boot never activates a desktop user"
     );
+    let desktop = d.tmp.path().join(".openhuman");
+    let leaked: Vec<_> = std::fs::read_dir(&desktop)
+        .map(|entries| entries.flatten().map(|e| e.file_name()).collect())
+        .unwrap_or_default();
+    assert!(
+        leaked.is_empty(),
+        "a SaaS boot writes nothing under ~/.openhuman (keyring included): {leaked:?}"
+    );
     drop(server);
 }
