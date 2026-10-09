@@ -132,6 +132,8 @@ Most agent harnesses run one heavy process per agent and resend a big prompt on 
  <img src="./docs/oh-v-hermes.gif" alt="Hermes vs OpenHuman" />
 </p>
 
+<p align="center"><em>Same prompt, side by side: "Write me a story about agent harnesses in the form of an anime story, write it into an HTML page and open it for me."<br/>OpenHuman finished in 20 s, using 15k tokens for $0.0054. Hermes took 9 min 40 s, using 37k tokens for $0.0082.</em></p>
+
 ---
 
 ## Major innovations
@@ -194,7 +196,7 @@ OpenHuman rethinks the parts that cost the most: how much text the AI has to rea
 
 <td width="50%" valign="top">
 
-<h3>Browser and desktop control</h3>
+<h3>Instant browser and desktop control</h3>
 
 <p><a href="./gitbooks/features/native-tools/browser-and-computer.md">Browser and computer control</a> · <a href="./gitbooks/developing/jev.md">Jev</a></p>
 
@@ -247,19 +249,22 @@ It wins by doing less work per step. The core is compiled Rust in a single proce
 
 ## For users
 
-If you use Claude Code, Codex, OpenClaw or Hermes, you already know the ideas: an agent loop with tools, subagents, MCP, skills, BYOK models and persistent memory. OpenHuman has all of them, in a desktop app, a terminal app or a headless server.
+If you use Claude Code, Codex, OpenClaw or Hermes, you already know the ideas: an agent loop with tools, MCP, skills, BYOK models and memory. OpenHuman has all of them, in a desktop app, a terminal app or a headless server.
 
 | Capability | What OpenHuman ships |
 | --- | --- |
-| Persistent memory | [RAG over your files, repos, feeds and apps](./gitbooks/features/memory.md), recalled before every turn, answers with citations |
-| Tools | [Native tools](./gitbooks/features/native-tools/README.md): shell and coder, web search, scraper, browser and computer use, documents, voice, image and video generation, cron |
-| Subagents | An [orchestrator](./gitbooks/features/orchestration.md) that delegates to subagents in agent graphs with checkpoints |
-| MCP and skills | [MCP servers and skill bundles](./gitbooks/features/integrations/mcp-and-skills.md), plus [119 managed OAuth integrations](./gitbooks/features/integrations/README.md) and [triggers](./gitbooks/features/integrations/triggers.md) |
+| Configurable memory | [Built-in memory over your files, repos, feeds and apps](./gitbooks/features/memory.md), recalled before every turn with citations, on the memory engine you choose |
+| Voice agents | A [live voice agent](./gitbooks/features/native-tools/voice.md) you can interrupt mid-sentence, plus dictation and spoken replies |
+| Computer and browser control | [Drives a real Chrome browser and your desktop apps](./gitbooks/features/native-tools/browser-and-computer.md), asking before anything it cannot undo |
+| Search | [Search engines and search agents](./gitbooks/features/native-tools/web-search.md): Exa and Gemini included, Brave, Tavily, Parallel and more with your own key, grounded answers with citations and Deep Research |
+| Tools | [Native tools](./gitbooks/features/native-tools/README.md): shell and coder, scraper, documents, image and video generation, cron |
+| MCP and skills | [MCP servers and skill bundles](./gitbooks/features/integrations/mcp-and-skills.md) |
+| OAuth integrations | [119 apps through Composio](./gitbooks/features/integrations/README.md), with [triggers](./gitbooks/features/integrations/triggers.md) that start the agent when something happens |
 | Models | [Local models (Ollama, LM Studio, MLX) and BYOK for 26 providers](./gitbooks/features/model-routing/local-and-byok-models.md), with [automatic model routing](./gitbooks/features/model-routing/README.md) |
 | Channels | [14 messaging channels](./gitbooks/features/channels.md) as agent front ends: Telegram, Discord, iMessage, email and more |
 | Workflows | [Durable workflow graphs](./gitbooks/features/workflows.md): cron, event or manual triggers, approval steps, resume after a pause |
 | Safety | [Approval gate](./gitbooks/features/approval-gate.md), [sandboxed execution](./gitbooks/features/privacy-and-security.md) (OS jail or Docker), [Privacy Mode](./gitbooks/features/privacy-mode.md) for local-only runs, secrets in the [OS keyring](./gitbooks/features/os-keyring-and-secret-storage.md) |
-| Observability | Replayable run journals and [per-call cost and usage](./gitbooks/features/billing-and-usage.md) |
+| Usage tracking | [Per-call cost and token usage](./gitbooks/features/billing-and-usage.md), plus replayable run journals |
 
 Start with [Getting started](./gitbooks/overview/getting-started.md) or the [guides](./gitbooks/guides/README.md).
 
