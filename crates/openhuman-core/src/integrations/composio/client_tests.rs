@@ -420,6 +420,8 @@ async fn direct_connected_integrations_fetches_schemas_without_backend_composio_
             true,
         )
         .expect("store offline local session token");
+    crate::security::credentials::api_key::store_api_key(&config, "th_test_backend_key")
+        .expect("store backend API key");
     config.composio.mode = "direct".into();
     config.composio.pin_host_credential(
         crate::config::ComposioHostCredential::direct("ck_test_spawn_direct")
