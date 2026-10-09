@@ -112,6 +112,19 @@ DevTools client can attach to it. Run the same SPA in Chrome instead:
   desktop core's port; the default scans 7788-7808), `OPENHUMAN_CORE_TOKEN`, and
   `OPENHUMAN_WORKSPACE` (point it at a scratch dir for a clean profile).
 
+Scripted browser runs (Playwright, headless): `pnpm debug web` boots a
+throwaway stack (the mock backend, a fresh `openhuman-core serve` on a scratch
+workspace, Vite with `OPENHUMAN_VITE_NO_WATCH=1`) and signs in through the real
+GitHub button, which the mock answers like the backend. `--script <file.mjs>`
+runs a scenario against the signed-in page (default export receives `page`,
+`mock.set(key, value)` for mock behaviors such as `llmStreamScript`, `rpc`,
+`screenshot` and `log`); without it the stack stays up until Ctrl-C. Logs and
+screenshots go to `target/debug-logs/web-<ts>/`. Example:
+`scripts/debug/web-scripts/stop-mid-turn.mjs`. Set `OPENHUMAN_VITE_NO_WATCH=1`
+on any Vite run that dies with `ENOSPC: System limit for number of file
+watchers reached`. `--headed` needs the full Chromium build
+(`pnpm --filter openhuman-app exec playwright install chromium`).
+
 Long CI build or test commands must run through
 `scripts/ci-cancel-aware.sh`. Do not export `CARGO_TARGET_DIR`; the repository
 already configures shared build output where appropriate.
@@ -288,6 +301,14 @@ UI rules:
 - Use `isTauri()` or catch `invoke` failures. Do not inspect
   `window.__TAURI__` directly.
 - Canonical visual tokens live in `app/src/styles/tokens.css`.
+- Always build UI from the shadcn primitives in `app/src/components/ui/`
+  (`Button`, `Badge`, `Alert`, `Card`, `ModalShell`/`Dialog`, `Popover`,
+  `Tooltip`, `Tabs`/`ChipTabs`, `TextField`, `NativeSelect`, `Toast`, ...).
+  Do not hand-roll a surface a primitive already covers (a banner is an
+  `Alert`, a dismiss control is a `Button`, a notification is `toast.add`).
+  When a primitive is missing, add it to `components/ui/` from the shadcn
+  registry (`components.json`, `base-nova` style), adapted to the app's
+  tokens, `Button` and lucide icons, then use it.
 
 ## Tauri shell
 
@@ -328,8 +349,13 @@ Additional rules:
 - Domain tools live with their domain and are re-exported through
   `crates/openhuman-core/src/tools/mod.rs`. Keep only cross-cutting tools in
   `tools/impl/`.
-- Stable memory collection scope belongs in `metadata.path_scope`; item IDs
-  are deduplication keys.
+- Memory scope comes from the namespace, never from metadata or model
+  arguments: `memory::scope` resolves the acting identity to a layout root
+  and memory agent id, and under layout v3 the engine is bound with
+  `EngineSettings::scope_root` = `user:<id>` (`memory::scope::user_root`),
+  below which TinyMemory places `ws:`/`source:`/`agent:` nodes and
+  `app:<kind>` leaves (`vendor/tinymemory/docs/architecture/cortex-layout.md`).
+  Item ids are deduplication keys.
 - Update `crates/openhuman-core/src/platform/about_app/` when user-visible capabilities
   change.
 - The controller contract lives in core: every domain operation returns
@@ -578,7 +604,22 @@ sits above `openhuman-embed` and is installed once per process
 `CoreBuilder::backend_transport`). A core with no transport installed runs
 agents, memory, tools and RPC without any TinyHumans connection and answers
 backend-touching calls with `BackendApiError::BackendUnavailable` /
-`BACKEND_UNAVAILABLE:`. Never add `tinyhumans-sdk` back to the core; the only
+`BACKEND_UNAVAILABLE:`.
+
+**Exception: hosted memory.** The `tinyhumans` memory engine does not go
+through `BackendTransport`. `memory/engine.rs` builds TinyMemory's CortexDB
+engine with `EngineSettings { endpoint, headers, scope_root, .. }` and
+`EngineCredential::Dynamic(HostBearer)`, and TinyMemory's own `reqwest`
+client (`tinymemory-integrations/src/cortex/transport`) calls the backend's
+`/memory/*` routes. The core supplies only the pieces: the endpoint from
+`backend::base_url` (or `[memory.engines.tinyhumans] endpoint`), the
+attribution headers (`x-sdk-name`, …) from `backend::attribution_headers`, and a `BearerSource`
+that calls `resolve_backend_credential` on every request. So memory needs a
+transport installed for the URL (unless an endpoint is configured), but none
+of its requests pass through it,
+and transport-level policy (route registry, `map_sdk_error`) does not apply
+to them. The `cortexdb` engine likewise calls CortexDB directly with the
+user's key. Never add `tinyhumans-sdk` back to the core; the only
 crate allowed to depend on it is `openhuman-tinyhumans` (`cargo tree -p
 openhuman -i tinyhumans-sdk` must stay empty). Every host that boots a core
 (`crates/openhuman-app/src/main.rs` and `lib.rs::run`,

@@ -103,7 +103,7 @@ The agent reaches the wallet through six tools:
 
 Notice there is **no agent tool that executes a transfer.** The agent can prepare a quote, but actually moving funds (`execute_prepared`) goes through the RPC surface, where it must be explicitly confirmed and pass the owner-binding check. Combined with the prepare-then-confirm flow and the per-thread quote binding, this keeps the agent from silently spending funds.
 
-Because these are financial actions, they should be surfaced through the [approval gate](approval-gate.md) so a human confirms before money moves. Treat every transfer as a high-stakes action.
+Because these are financial actions, the shape of every write is prepare-then-confirm: a quote is bound to the conversation that asked for it, expires after five minutes, and is consumed when it executes, so two confirmations cannot double-submit. The [approval gate](approval-gate.md) is the second layer, and it only applies once you have turned the autonomy policy on, which is **off by default**. Treat every transfer as a high-stakes action and read that page before relying on the gate.
 
 ---
 

@@ -194,10 +194,12 @@ async fn canonical_adapter_scopes_tool_execution_to_the_run_origin() {
     let mut host = crate::agent::tinyagents::host::OpenHumanRunContext::new();
     host.origin = Some(
         crate::agent::turn_origin::AgentTurnOrigin::ExternalChannel {
+            sender_name: None,
             channel: "test".into(),
             sender: None,
             reply_target: "room".into(),
             message_id: "message".into(),
+            history_key: None,
         },
     );
     let run = host.into_tinyagents(RunConfig::new("origin-observer"));

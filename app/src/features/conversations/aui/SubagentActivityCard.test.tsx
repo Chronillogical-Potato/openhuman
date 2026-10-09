@@ -30,6 +30,17 @@ describe('SubagentActivityCard', () => {
     expect(card).toHaveAttribute('data-status', 'failed');
   });
 
+  it('shows an incomplete delegation as a partial state with a status announcement', () => {
+    render(
+      <SubagentActivityCard
+        activity={{ taskId: 't', agentId: 'researcher', status: 'incomplete', toolCalls: [] }}
+      />
+    );
+    const card = screen.getByTestId('assistant-ui-subagent-call');
+    expect(card).toHaveAttribute('data-state', 'incomplete');
+    expect(screen.getByTestId('subagent-incomplete')).toHaveAttribute('role', 'status');
+  });
+
   it('marks a cancelled delegation as cancelled', () => {
     render(
       <SubagentActivityCard

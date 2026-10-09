@@ -4,7 +4,11 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ToolTimelineEntry } from '../../../store/chatRuntimeSlice';
 import { ParallelAgentsCard } from './ParallelAgentsCard';
 
-vi.mock('../../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) => key }) }));
+vi.mock('../../../lib/i18n/I18nContext', () => ({
+  useT: () => ({
+    t: (key: string) => (key === 'chat.subagents.ofTotal' ? '{complete} of {total}' : key),
+  }),
+}));
 vi.mock('../../../providers/AssistantUiRuntimeProvider', () => ({ useAuiThreadId: () => 't1' }));
 vi.mock('./SubagentActivityCard', () => ({ SubagentActivityCard: () => null }));
 
@@ -51,9 +55,19 @@ describe('ParallelAgentsCard', () => {
     ];
     renderCard('running');
     const header = screen.getByTestId('parallel-agents-header');
-    expect(header).toHaveTextContent('chat.subagents.ofTotal');
+    expect(header).toHaveTextContent('2 of 3');
     expect(header).toHaveTextContent('chat.subagents.runningCount · chat.subagents.failedCount');
     expect(screen.queryByTestId('parallel-agents-aggregating')).toBeNull();
+  });
+
+  it('reports an incomplete worker as partial rather than silently complete', () => {
+    timeline.entries = [child('a', 1, 'completed'), child('b', 2, 'incomplete')];
+    renderCard('complete');
+    const header = screen.getByTestId('parallel-agents-header');
+    expect(header).toHaveTextContent('1 of 2');
+    expect(header).toHaveTextContent('chat.subagents.incompleteCount');
+    expect(header).not.toHaveTextContent('chat.subagents.runningCount');
+    expect(header).not.toHaveTextContent('chat.subagents.failedCount');
   });
 
   it('says the parent is processing once every worker is back but the call is still open', () => {

@@ -101,6 +101,7 @@ fn make_block() -> TestRunChatTaskBlock {
         started: Arc::new(AtomicBool::new(false)),
         dropped: Arc::new(AtomicBool::new(false)),
         release: Arc::new(tokio::sync::Notify::new()),
+        succeed_in: None,
     }
 }
 

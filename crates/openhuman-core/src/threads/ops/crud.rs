@@ -395,14 +395,17 @@ pub async fn delete_after(
 pub async fn thread_delete(
     request: DeleteConversationThreadRequest,
 ) -> Result<Outcome<ApiEnvelope<DeleteConversationThreadResponse>>, String> {
-    let dir = workspace_dir().await?;
-    run_to_completion("thread_delete", thread_delete_inner(dir, request)).await
+    let config = crate::config::Config::load_or_init()
+        .await
+        .map_err(|e| format!("load config: {e}"))?;
+    run_to_completion("thread_delete", thread_delete_inner(config, request)).await
 }
 
 async fn thread_delete_inner(
-    dir: PathBuf,
+    config: crate::config::Config,
     request: DeleteConversationThreadRequest,
 ) -> Result<Outcome<ApiEnvelope<DeleteConversationThreadResponse>>, String> {
+    let dir: PathBuf = config.workspace_dir.clone();
     let deleted = conversations::blocking::delete_thread(
         dir.clone(),
         request.thread_id.clone(),
@@ -438,12 +441,22 @@ async fn thread_delete_inner(
     // mirrors conversation-derived state) remains on disk; the
     // thread row itself is already gone at this point so the caller
     // sees a partial failure they can act on instead of silent drift.
-    turn_state::store::delete(dir, &request.thread_id).map_err(|err| {
+    turn_state::store::delete(dir.clone(), &request.thread_id).map_err(|err| {
         format!(
             "thread {} deleted but turn-snapshot cleanup failed: {err}",
             request.thread_id
         )
     })?;
+    // The thread's conversation memory goes too, for good (by `memory_ids`).
+    // Memory off (signed out) or a failed forget queues the deletion for the
+    // next sign-in (`memory::deletion`) rather than failing the delete: the
+    // thread itself is already gone.
+    let forgotten = crate::memory::deletion::forget_thread(&config, &request.thread_id).await;
+    log::debug!(
+        "[threads] thread_delete thread_id={} memory_items_forgotten={}",
+        request.thread_id,
+        forgotten
+    );
     Ok(envelope(
         DeleteConversationThreadResponse { deleted },
         None,

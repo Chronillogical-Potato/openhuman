@@ -76,6 +76,23 @@ fn direct_subagent_child_shares_tinyagents_and_host_cancellation_tree() {
 }
 
 #[test]
+fn cancelling_a_direct_child_reaches_host_data_and_spares_the_parent() {
+    let parent = OpenHumanRunContext::new()
+        .into_tinyagents(tinyagents_harness::context::RunConfig::new("root-iso"));
+    let (_, child) = direct_subagent_child(
+        &parent,
+        "iso-task",
+        tinyagents_harness::context::RunConfig::new("child-iso"),
+    )
+    .expect("direct child");
+
+    child.cancellation.cancel();
+    assert!(child.data.cancellation.is_cancelled());
+    assert!(!parent.cancellation.is_cancelled());
+    assert!(!parent.data.cancellation.is_cancelled());
+}
+
+#[test]
 fn child_inherits_tree_handles_but_isolates_observations_and_usage() {
     let mut parent = OpenHumanRunContext::new();
     parent.thread_id = Some("thread-a".to_string());

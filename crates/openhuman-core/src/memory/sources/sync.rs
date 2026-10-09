@@ -1,10 +1,9 @@
 //! Syncing sources into memory.
 //!
-//! Non-Composio sources are read through `tinymemory-sources`' readers
+//! Sources are read through `tinymemory-integrations`' readers
 //! (`collect_items`), which turn each file, page, commit or feed entry into a
 //! `Document` with its metadata filled. Every item is scrubbed and stored on
 //! the bound engine; per-item failures are logged and skipped, not fatal.
-//! Composio sources go through [`super::composio`].
 
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -28,16 +27,14 @@ use super::state;
 static RUNNING: LazyLock<Mutex<HashSet<(PathBuf, String)>>> =
     LazyLock::new(|| Mutex::new(HashSet::new()));
 
-/// The `tinymemory-sources` entry that reads `source`; `None` for Composio,
-/// which syncs through the connector module instead.
-pub(super) fn reader_entry(source: &MemorySourceConfig) -> MemoryResult<Option<MemorySourceEntry>> {
+/// The `tinymemory-integrations` entry that reads `source`.
+pub(super) fn reader_entry(source: &MemorySourceConfig) -> MemoryResult<MemorySourceEntry> {
     let kind = match source.kind {
         MemorySourceKind::Folder => SourceKind::Folder,
         MemorySourceKind::File => SourceKind::File,
         MemorySourceKind::Link => SourceKind::WebPage,
         MemorySourceKind::Github => SourceKind::GithubRepo,
         MemorySourceKind::Rss => SourceKind::RssFeed,
-        MemorySourceKind::Composio => return Ok(None),
     };
     let mut entry = MemorySourceEntry::new(source.id.clone(), kind, source.label.clone());
     match source.kind {
@@ -50,7 +47,7 @@ pub(super) fn reader_entry(source: &MemorySourceConfig) -> MemoryResult<Option<M
     entry
         .validate()
         .map_err(|error| MemoryError::invalid(error.to_string()))?;
-    Ok(Some(entry))
+    Ok(entry)
 }
 
 /// Fills the per-kind read caps the user did not set: a GitHub repo reads at
@@ -73,9 +70,7 @@ fn apply_kind_defaults(entry: &mut MemorySourceEntry) {
 /// Reads `source` and stores what it yields. Returns the number stored.
 pub async fn sync_one(config: &Config, source: &MemorySourceConfig) -> MemoryResult<u64> {
     let bound = engine::resolve(config).engine()?;
-    let Some(entry) = reader_entry(source)? else {
-        return super::composio::sync_toolkit(config, &bound, source).await;
-    };
+    let entry = reader_entry(source)?;
     let reader = reader_for_request(&entry.kind);
     let collected = collect_items(
         reader.as_ref(),
@@ -96,38 +91,41 @@ pub async fn sync_one(config: &Config, source: &MemorySourceConfig) -> MemoryRes
         config,
         &bound,
         collected.items,
-        (source.kind, &source.target, &source.id),
+        (source.kind, &source.id),
         &super::layout_of_source(config, source),
     )
     .await
 }
 
 /// Files `items` into `layout`'s brain, each under the brain source it
-/// belongs to (`memory::brain::brain_source`), and queues one belief build
-/// per source it touched. Returns how many were stored.
+/// belongs to (`memory::brain::brain_node`), and queues one belief build
+/// per node it touched. Returns how many were stored.
 pub(crate) async fn store_all(
     config: &Config,
     bound: &BoundEngine,
     items: Vec<tinymemory_api::StoreItem>,
-    (kind, target, source_id): (crate::config::schema::MemorySourceKind, &str, &str),
+    (kind, source_id): (crate::config::schema::MemorySourceKind, &str),
     layout: &tinymemory_tools::MemoryLayout,
 ) -> MemoryResult<u64> {
     let mut stored = 0u64;
+    let mut failed = 0u64;
     let mut last_error = None;
     let mut touched = std::collections::BTreeSet::new();
     for item in items {
-        let brain_source = crate::memory::brain::brain_source(kind, target, &item);
-        let item = crate::memory::brain::file_into(layout, &brain_source, item)?;
+        let brain_source = crate::memory::brain::brain_source(kind);
+        let node = crate::memory::brain::brain_node(config, layout, &brain_source, &item)?;
+        let item = crate::memory::brain::file_into(node.clone(), item);
         match store_on(bound, item).await {
             Ok(_) => {
                 stored += 1;
-                touched.insert(brain_source);
+                touched.insert(node);
             }
             // Out of credits or unreachable refuses every item, so stop
             // rather than fail each one in turn.
             Err(error) if error.is_account_wide() => return Err(error),
             Err(error) => {
                 tracing::debug!(id = %source_id, code = error.code(), "[memory:sources] item store failed");
+                failed += 1;
                 last_error = Some(error);
             }
         }
@@ -137,17 +135,16 @@ pub(crate) async fn store_all(
     let automatic =
         bound.engine.descriptor().consolidation == tinymemory_api::Consolidation::Automatic;
     let jobs = touched
-        .iter()
+        .into_iter()
         .filter(|_| !automatic)
-        .filter_map(|source| layout.brain(source).ok())
         .map(|node| tinymemory_tools::BackgroundJob::BuildBeliefs {
             request: tinymemory_api::ConsolidateRequest::new(tinymemory_api::Reach::exact(node))
                 .kinds([tinymemory_api::ItemKind::Document]),
         })
         .collect();
     crate::memory::lifecycle::jobs::enqueue(config, layout.root(), jobs).await;
-    match (stored, last_error) {
-        (0, Some(error)) => Err(error),
+    match last_error {
+        Some(error) if stored == 0 && failed > 0 => Err(error),
         _ => Ok(stored),
     }
 }

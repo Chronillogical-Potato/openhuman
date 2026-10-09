@@ -52,6 +52,7 @@ fn turn_with_usage(usages: &[Usage]) -> Vec<AgentObservation> {
         1_010 + offset * 10,
         AgentEvent::RunCompleted {
             run_id: RunId::new("run-1"),
+            outcome: None,
         },
     ));
     events
@@ -220,6 +221,7 @@ fn subagent_usage_does_not_roll_into_the_parent_turn() {
             1_070,
             AgentEvent::RunCompleted {
                 run_id: RunId::new("run-1"),
+                outcome: None,
             },
         ),
     ];
@@ -297,6 +299,7 @@ fn unknown_tool_call_projects_a_failed_tool_span() {
             1_030,
             AgentEvent::RunCompleted {
                 run_id: RunId::new("run-1"),
+                outcome: None,
             },
         ),
     ];
@@ -364,6 +367,7 @@ fn unknown_tool_call_inside_a_subagent_projects_a_child_tool_span() {
             1_050,
             AgentEvent::RunCompleted {
                 run_id: RunId::new("run-1"),
+                outcome: None,
             },
         ),
     ];

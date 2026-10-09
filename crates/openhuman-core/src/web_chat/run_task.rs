@@ -88,7 +88,16 @@ pub(crate) async fn run_chat_task(
                 .store(true, std::sync::atomic::Ordering::SeqCst);
             tokio::select! {
                 _ = block.release.notified() => {
-                    return Err("test block released".to_string());
+                    return match block.succeed_in.clone() {
+                        Some(workspace_dir) => Ok(WebChatTaskResult {
+                            full_response: "parked reply".to_string(),
+                            citations: Vec::new(),
+                            usage: None,
+                            workspace_dir,
+                            timing: None,
+                        }),
+                        None => Err("test block released".to_string()),
+                    };
                 }
                 _ = tokio::time::sleep(std::time::Duration::from_secs(30)) => {
                     return Err("test block elapsed".to_string());

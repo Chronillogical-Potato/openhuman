@@ -352,6 +352,7 @@ impl Tool for FlowMemoryRecallTool {
         match crate::memory::ops::recall(
             &config,
             RecallParams {
+                refers_to: None,
                 question: query.to_string(),
                 filter: Some(filter),
                 limit: Some(limit),

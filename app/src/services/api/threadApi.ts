@@ -10,6 +10,7 @@ import type {
   ThreadDeleteData,
   ThreadMessage,
   ThreadMessagesData,
+  ThreadSearchHit,
   ThreadsListData,
 } from '../../types/thread';
 import type {
@@ -78,6 +79,15 @@ export const threadApi = {
     });
     const data = unwrapEnvelope(response);
     return { ...data, messages: data.messages.map(normalizeThreadMessage) };
+  },
+
+  /** Message text search across every thread, newest first. */
+  searchMessages: async (query: string, limit?: number): Promise<ThreadSearchHit[]> => {
+    const response = await callCoreRpc<Envelope<{ hits?: ThreadSearchHit[] }>>({
+      method: 'openhuman.threads_search',
+      params: { query, limit },
+    });
+    return unwrapEnvelope(response)?.hits ?? [];
   },
 
   appendMessage: async (threadId: string, message: ThreadMessage): Promise<ThreadMessage> => {

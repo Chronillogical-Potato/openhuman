@@ -115,23 +115,6 @@ where
         .map_err(|error| normalize_error(member, error))
 }
 
-/// Call a long-running member with a deadline sized for it (see
-/// `modules::connectors::call_slow` for why `Sync` needs one).
-#[cfg(feature = "modules")]
-pub async fn call_slow<Request, Reply>(
-    config: &crate::config::Config,
-    member: &str,
-    request: Request,
-) -> Result<Reply, String>
-where
-    Request: serde::Serialize + Send,
-    Reply: serde::de::DeserializeOwned,
-{
-    crate::modules::connectors::call_slow(config, member, request)
-        .await
-        .map_err(|error| normalize_error(member, error))
-}
-
 /// Call one member with an argument. Always fails without the `modules` feature.
 ///
 /// # Errors
@@ -139,24 +122,6 @@ where
 /// Always, explaining that this build has no module loader.
 #[cfg(not(feature = "modules"))]
 pub async fn call<Request, Reply>(
-    _config: &crate::config::Config,
-    member: &str,
-    _request: Request,
-) -> Result<Reply, String>
-where
-    Request: serde::Serialize + Send,
-    Reply: serde::de::DeserializeOwned,
-{
-    Err(format!("{member}: {WITHOUT_MODULES}"))
-}
-
-/// Call a long-running member. Always fails without the `modules` feature.
-///
-/// # Errors
-///
-/// Always, explaining that this build has no module loader.
-#[cfg(not(feature = "modules"))]
-pub async fn call_slow<Request, Reply>(
     _config: &crate::config::Config,
     member: &str,
     _request: Request,

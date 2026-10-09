@@ -25,6 +25,7 @@ const ALL_FUNCTIONS: &[&str] = &[
     "todos_get",
     "edit_message",
     "regenerate",
+    "search",
 ];
 
 #[test]

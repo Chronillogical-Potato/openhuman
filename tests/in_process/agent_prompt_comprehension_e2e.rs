@@ -1059,3 +1059,126 @@ fn orchestrator_prompt_names_only_discoverable_delegates() {
         );
     });
 }
+
+/// Waits for the `chat_done` of `request_id` and panics on its `chat_error`.
+/// Terminal events of other requests (a superseded turn's "cancelled", say)
+/// are skipped, so a multi-turn test never mistakes another turn's terminal
+/// for the one it just sent.
+async fn wait_for_request_done(
+    rx: &mut tokio::sync::mpsc::UnboundedReceiver<Value>,
+    request_id: &str,
+) {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(180);
+    loop {
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        let event = match tokio::time::timeout(remaining, rx.recv()).await {
+            Ok(Some(event)) => event,
+            Ok(None) => panic!("SSE channel closed waiting for {request_id}"),
+            Err(_) => panic!("timed out waiting for chat_done of {request_id}"),
+        };
+        if event.get("request_id").and_then(Value::as_str) != Some(request_id) {
+            continue;
+        }
+        match event.get("event").and_then(Value::as_str) {
+            Some("chat_done") => return,
+            Some("chat_error") => panic!("request {request_id} failed: {event}"),
+            _ => {}
+        }
+    }
+}
+
+/// The last user message of an OpenAI-shaped chat request, as text.
+fn last_user_text(request: &Value) -> String {
+    request
+        .pointer("/body/messages")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .rev()
+        .find(|m| m["role"] == "user")
+        .map(|m| match &m["content"] {
+            Value::String(text) => text.clone(),
+            other => other.to_string(),
+        })
+        .unwrap_or_default()
+}
+
+/// The web chat's interface locale reaches the model on every turn of one
+/// thread, over the real JSON-RPC chat path against a scripted upstream:
+/// Spanish gets the Spanish instruction; switching to English sends an English
+/// one that supersedes it; Hindi re-arms Hindi; a turn that sends no locale
+/// (as host-authored turns do) carries none.
+#[test]
+fn the_interface_locale_reaches_the_model_on_every_turn() {
+    run_on_agent_stack("interface_locale_directive", || async {
+        let _lock = env_lock_async().await;
+        reset_script(vec![
+            text_completion("Hola."),
+            text_completion("Hello."),
+            text_completion("Namaste."),
+            text_completion("Ok."),
+        ]);
+        // No follow-up suggestions: their post-turn model call would take the
+        // next scripted reply and add a request this test does not expect.
+        let stack = boot_stack("[web_chat]\nsuggestions_enabled = false\n").await;
+        let client_id = "locale-directive";
+        let (mut events, ready) =
+            spawn_sse_collector(format!("{}/events?client_id={client_id}", stack.rpc_base));
+        wait_for_sse_ready(ready).await;
+        let turns = [
+            ("hola", Some("es")),
+            ("and now?", Some("en")),
+            ("namaste ji", Some("hi")),
+            ("no locale here", None),
+        ];
+        for (id, (message, locale)) in turns.into_iter().enumerate() {
+            let mut params = json!({
+                "client_id": client_id,
+                "thread_id": "thread-locale",
+                "message": message,
+                "model_override": "e2e-mock-model",
+            });
+            if let Some(locale) = locale {
+                params["locale"] = json!(locale);
+            }
+            let resp = post_json_rpc(
+                &stack.rpc_base,
+                20 + id as i64,
+                "openhuman.channel_web_chat",
+                params,
+            )
+            .await;
+            assert_no_jsonrpc_error(&resp, "channel_web_chat");
+            let request_id = resp
+                .pointer("/result/request_id")
+                .or_else(|| resp.pointer("/result/result/request_id"))
+                .and_then(Value::as_str)
+                .unwrap_or_else(|| panic!("channel_web_chat returned no request_id: {resp}"))
+                .to_string();
+            wait_for_request_done(&mut events, &request_id).await;
+        }
+
+        let requests = captured().clone();
+        assert_eq!(requests.len(), 4, "one model request per turn: {requests:#?}");
+        let turn = |words: &str| {
+            requests
+                .iter()
+                .map(last_user_text)
+                .find(|text| text.ends_with(words))
+                .unwrap_or_else(|| {
+                    let seen: Vec<String> = requests.iter().map(last_user_text).collect();
+                    panic!("no request whose user message is {words:?}: {seen:#?}")
+                })
+        };
+        let spanish = turn("hola");
+        assert!(spanish.contains("Respond in Spanish"), "{spanish}");
+        let english = turn("and now?");
+        assert!(english.contains("Respond in English"), "{english}");
+        assert!(!english.contains("Respond in Spanish"), "{english}");
+        let hindi = turn("namaste ji");
+        assert!(hindi.contains("Respond in Hindi"), "{hindi}");
+        let none = turn("no locale here");
+        assert!(!none.contains("User language:"), "{none}");
+        assert!(none.contains("Current Date & Time:"), "fixture: the clock line is there: {none}");
+    });
+}

@@ -3,7 +3,7 @@ description: Release cadence, version policy, OAuth-and-installer rules. How shi
 icon: ship
 ---
 
-# Release policy: latest desktop builds and OAuth
+# Release Policy
 
 This runbook describes how we avoid users completing OAuth (including Gmail) on outdated desktop installers while the canonical flow is the latest release.
 
@@ -37,19 +37,19 @@ Implementation: `app/src/utils/oauthAppVersionGate.ts`, `app/src/utils/desktopDe
 2. When dropping support for older installs, set `VITE_MINIMUM_SUPPORTED_APP_VERSION` to the new floor before or with that release (repo Actions variables + both workflow steps above).
 3. Remove, redirect, or retire older stable installers and stale updater entries from user-facing surfaces (GitHub Release assets, website, CDN, updater feed). Confirm deprecated artifacts are not reachable from default install/update flows.
 4. Smoke-test Gmail connect on a fresh install from releases/latest.
-5. Complete the [manual smoke checklist](../../docs/RELEASE-MANUAL-SMOKE.md), then paste the completed sign-off block (verbatim, with every checked item left checked) as a GitHub commit comment on the `v<version>-staging` tagged commit that QA validated (there is no release PR in the promotion flow). Before approving the production run, the `Release-Approval` required reviewer verifies (a) the sign-off comment exists on the staging-tagged commit and (b) the production run actually targets that validated content: pass the staging-tagged SHA as `commit_sha`, or confirm nothing but `[skip ci]` version-bump commits separate it from the run's target. Anything more than bump commits means new content QA never smoked: re-run staging first.
+5. Complete the [manual smoke checklist](https://github.com/tinyhumansai/openhuman/blob/main/docs/RELEASE-MANUAL-SMOKE.md), then paste the completed sign-off block (verbatim, with every checked item left checked) as a GitHub commit comment on the `v<version>-staging` tagged commit that QA validated (there is no release PR in the promotion flow). Before approving the production run, the `Release-Approval` required reviewer verifies (a) the sign-off comment exists on the staging-tagged commit and (b) the production run actually targets that validated content: pass the staging-tagged SHA as `commit_sha`, or confirm nothing but `[skip ci]` version-bump commits separate it from the run's target. Anything more than bump commits means new content QA never smoked: re-run staging first.
 
 ## Branch model and CI lanes
 
 Two long-lived branches, two CI lanes:
 
-- `main`: where all feature/fix PRs land. Every PR runs CI Fast ([`ci-fast.yml`](../../.github/workflows/ci-fast.yml)), with quality checks and complete unit-test suites for changed areas, gated at ≥ 80% diff coverage.
-- `release`: a maintainer-promoted snapshot of `main` that releases are cut from. PRs targeting `release` and every push to `release` run CI Full ([`ci-full.yml`](../../.github/workflows/ci-full.yml)): complete unit suites, Rust mock-backend E2E, Playwright web E2E, and the full desktop E2E matrix on Linux/macOS/Windows. The `CI Full Gate` check aggregates every lane except the Playwright spec run, which is non-blocking signal for now (`continue-on-error`, flaky under CI contention, #3615): a green gate does not prove Playwright specs passed, so check that lane's result in the run before cutting. Only the Playwright artifact _build_ is gated.
+- `main`: where all feature/fix PRs land. Every PR runs CI Fast ([`ci-fast.yml`](https://github.com/tinyhumansai/openhuman/blob/main/.github/workflows/ci-fast.yml)), with quality checks and complete unit-test suites for changed areas, gated at ≥ 80% diff coverage.
+- `release`: a maintainer-promoted snapshot of `main` that releases are cut from. PRs targeting `release` and every push to `release` run CI Full ([`ci-full.yml`](https://github.com/tinyhumansai/openhuman/blob/main/.github/workflows/ci-full.yml)): complete unit suites, Rust mock-backend E2E, Playwright web E2E, and desktop E2E on Linux. macOS and Windows desktop E2E are a manual dispatch whose inputs default to off until a native driver lands for each, so cross-platform desktop signal is opt-in rather than part of the matrix. The `CI Full Gate` check aggregates every lane except the Playwright spec run, which is non-blocking signal for now (`continue-on-error`, flaky under CI contention, #3615): a green gate does not prove Playwright specs passed, so check that lane's result in the run before cutting. Only the Playwright artifact _build_ is gated.
 
 The cycle:
 
-1. A maintainer dispatches [`promote-main-to-release.yml`](../../.github/workflows/promote-main-to-release.yml), which pushes a merge commit from `main` into `release` (no PR). Re-dispatching refreshes `release` with main's latest while preserving fix commits already on `release`; when `release` already contains `main` it's a no-op.
-2. CI Full runs on the promotion push. If it finds breakage, anyone with write access opens a fix PR directly against `release`; fix PRs run both lanes (CI Lite for quick lint/coverage feedback and CI Full as the merge-blocking `CI Full Gate` check), and the post-merge push re-runs CI Full on the merge result.
+1. A maintainer dispatches [`promote-main-to-release.yml`](https://github.com/tinyhumansai/openhuman/blob/main/.github/workflows/promote-main-to-release.yml), which pushes a merge commit from `main` into `release` (no PR). Re-dispatching refreshes `release` with main's latest while preserving fix commits already on `release`; when `release` already contains `main` it's a no-op.
+2. CI Full runs on the promotion push. If it finds breakage, anyone with write access opens a fix PR directly against `release`; fix PRs run both lanes (CI Fast for quick lint and coverage feedback, CI Full as the merge-blocking `CI Full Gate` check), and the post-merge push re-runs CI Full on the merge result.
 3. Once CI Full is green on `release` HEAD, cut production with `release-production.yml`. Staging may instead be dispatched from `main` when QA needs to validate main before promotion. The release workflows do not query or enforce the `CI Full Gate`; operators verify the relevant CI evidence before cutting.
 4. A cut sourced from `release` back-merges `release` into `main` (`scripts/release/merge-release-into-main.sh`: fast-forward when possible, else a versioned merge commit such as `chore(release): merge release v1.2.4 back into main`), so bump commits and fix commits flow back. A staging cut sourced from `main` needs no back-merge. Version-bump commits carry `[skip ci]`.
 
@@ -61,14 +61,14 @@ Two first-class GitHub Actions workflows, one per environment. Pick by intent ra
 
 | Workflow                                                                   | Branch              | Bumps                                              | Tags pushed          | Concurrency group    | Use when                                                                                |
 | -------------------------------------------------------------------------- | ------------------- | -------------------------------------------------- | -------------------- | -------------------- | --------------------------------------------------------------------------------------- |
-| [`release-staging.yml`](../../.github/workflows/release-staging.yml)       | `main` or `release` | `patch` only                                       | `v<version>-staging` | `release-staging`    | Cutting a staging build for QA from the selected branch.                                |
-| [`release-production.yml`](../../.github/workflows/release-production.yml) | `release`           | `patch` / `minor` / `major` (`release_type` input) | `v<version>`         | `release-production` | Shipping a production release from validated `release` HEAD (or a pinned `commit_sha`). |
+| [`release-staging.yml`](https://github.com/tinyhumansai/openhuman/blob/main/.github/workflows/release-staging.yml)       | `main` or `release` | `patch` only                                       | `v<version>-staging` | `release-staging`    | Cutting a staging build for QA from the selected branch.                                |
+| [`release-production.yml`](https://github.com/tinyhumansai/openhuman/blob/main/.github/workflows/release-production.yml) | `release`           | `patch` / `minor` / `major` (`release_type` input) | `v<version>`         | `release-production` | Shipping a production release from validated `release` HEAD (or a pinned `commit_sha`). |
 
-The matrix build / sign / Sentry-DIF / artifact-upload pipeline used by both flows lives in [`.github/workflows/build-desktop.yml`](../../.github/workflows/build-desktop.yml) as a `workflow_call` reusable workflow. The two top-level workflows above own ref resolution, version bumping, tagging, and publish/cleanup; the build itself is shared.
+The matrix build / sign / Sentry-DIF / artifact-upload pipeline used by both flows lives in [`.github/workflows/build-desktop.yml`](https://github.com/tinyhumansai/openhuman/blob/main/.github/workflows/build-desktop.yml) as a `workflow_call` reusable workflow. The two top-level workflows above own ref resolution, version bumping, tagging, and publish/cleanup; the build itself is shared.
 
 ### Android / Google Play
 
-Android releases are handled by the separate [`.github/workflows/android-compile.yml`](../../.github/workflows/android-compile.yml) workflow, which builds a release Android App Bundle (`.aab`), signs it with the Play upload key, and uploads it to Google Play when publishing is enabled. The workflow keeps the unsigned and signed AABs as Actions artifacts for audit/debugging.
+Android releases are handled by the separate [`.github/workflows/android-compile.yml`](https://github.com/tinyhumansai/openhuman/blob/main/.github/workflows/android-compile.yml) workflow, which builds a release Android App Bundle (`.aab`), signs it with the Play upload key, and uploads it to Google Play when publishing is enabled. The workflow keeps the unsigned and signed AABs as Actions artifacts for audit/debugging.
 
 Manual Android uploads use the same workflow:
 
@@ -145,6 +145,6 @@ Rotate `XGITHUB_APP_PRIVATE_KEY` every quarter (and immediately on any suspected
 3. Trigger a low-risk verification run (e.g. Release (Staging)) and confirm the Generate GitHub App token step succeeds and the push authenticates.
    Do not use Release Production for this check unless you intentionally want to cut a real bump commit: even with `create_release = false`, `prepare-build` still bumps the version and commits to `release` (staging with `create_tag = false` does too, but skips the tag/build and is the lower-risk probe).
 4. Back in App settings → Private keys, delete the old key so only the freshly-issued one remains valid.
-5. Record the rotation date (PR description, ops log, or `docs/OPERATIONS.md`) so the next quarter's owner can see when it last happened.
+5. Record the rotation date in the PR description or the ops log so the next quarter's owner can see when it last happened.
 
 Rotating invalidates any copy of the old key that may have leaked, capping the exposure window at one quarter.

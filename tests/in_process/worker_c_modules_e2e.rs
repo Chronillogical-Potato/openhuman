@@ -483,7 +483,6 @@ async fn composio_remaining_controller_paths_validate_without_live_services() {
         (63, "openhuman.composio_list_github_repos"),
         (64, "openhuman.composio_create_trigger"),
         (65, "openhuman.composio_get_user_profile"),
-        (66, "openhuman.composio_sync"),
         (67, "openhuman.composio_get_user_scopes"),
         (68, "openhuman.composio_set_user_scopes"),
         (69, "openhuman.composio_list_available_triggers"),

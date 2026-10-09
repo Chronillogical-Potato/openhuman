@@ -1,9 +1,9 @@
 //! The Composio provider surface: curated catalogs, scope verdicts, the
-//! identity vocabulary and the run types, all from
+//! identity vocabulary and the task types, all from
 //! [`crate::integrations::composio::contract`]. They are `&'static str`
 //! tables, pure functions and inert payload types. Reading a connected
 //! account goes through the connector module ([`super::module_client`]):
-//! profile fetch, action execution and sync (`ops::sync::run_sync_pass`).
+//! profile fetch and action execution.
 
 // ── The contract half ───────────────────────────────────────────────────────
 pub use crate::integrations::composio::contract::catalogs::{
@@ -18,6 +18,5 @@ pub use crate::integrations::composio::contract::tasks::{
     GithubFetchMode, NormalizedTask, TaskContainer, TaskFetchFilter, TaskKind,
 };
 pub use crate::integrations::composio::contract::{
-    render_connected_identities_section, ConnectedIdentity, ProviderUserProfile, SyncOutcome,
-    SyncReason,
+    render_connected_identities_section, ConnectedIdentity, ProviderUserProfile,
 };

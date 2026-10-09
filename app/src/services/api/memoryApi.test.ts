@@ -11,10 +11,12 @@ import {
   memoryEngineGet,
   memoryEngineSet,
   memoryEnginesList,
+  memoryEraseAll,
   memoryErrorCode,
   memoryErrorMessage,
   memoryFetch,
   memoryForget,
+  memoryImportRetryFailed,
   memoryImportScan,
   memoryImportStart,
   memoryImportStatus,
@@ -71,6 +73,7 @@ describe('memoryApi wire calls', () => {
       { text: 't', kind: 'fact' },
     ],
     ['forget', () => memoryForget(['a', 'b']), 'openhuman.memory_forget', { ids: ['a', 'b'] }],
+    ['erase all', () => memoryEraseAll(), 'openhuman.memory_erase_all', { confirm: true }],
     [
       'items list',
       () => memoryItemsList({ filter: { kinds: ['learning'] }, limit: 20, cursor: 'c' }),
@@ -142,6 +145,12 @@ describe('memoryApi wire calls', () => {
       { consent: true },
     ],
     ['import status', () => memoryImportStatus(), 'openhuman.memory_import_status', {}],
+    [
+      'import retry failed',
+      () => memoryImportRetryFailed(),
+      'openhuman.memory_import_retry_failed',
+      {},
+    ],
   ];
 
   it.each(cases)('%s', async (_name, invoke, method, params) => {

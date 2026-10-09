@@ -5,7 +5,7 @@ icon: file-contract
 
 # Terms & Conditions
 
-Last Updated: 02/02/2026
+Last Updated: 2026-02-02
 
 These Terms & Conditions (“Terms”) govern your use of the Service. By installing, accessing, or using the Service, you agree to be bound by these Terms. If you do not agree, you must not use the Service.
 

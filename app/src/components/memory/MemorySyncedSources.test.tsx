@@ -88,6 +88,15 @@ describe('MemorySyncedSources', () => {
     await waitFor(() => expect(screen.queryByTestId('memory-add-source')).not.toBeInTheDocument());
   });
 
+  it('offers every source kind except Composio', async () => {
+    renderWithProviders(<MemorySyncedSources />);
+    fireEvent.click(await screen.findByTestId('memory-sources-add'));
+    const kinds = Array.from(
+      (screen.getByTestId('memory-add-source-kind') as HTMLSelectElement).options
+    ).map(option => option.value);
+    expect(kinds).toEqual(['folder', 'file', 'link', 'github', 'rss']);
+  });
+
   it('adds a GitHub source and keeps the dialog open on failure', async () => {
     hoisted.add.mockRejectedValue(new Error('INVALID_REQUEST: repo not found'));
     renderWithProviders(<MemorySyncedSources />);
