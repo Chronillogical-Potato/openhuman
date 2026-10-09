@@ -476,7 +476,7 @@ Hooks run via `tokio::spawn`, so the user gets their answer before any of them f
 
 ## Interrupts: graceful cancellation
 
-Cancellation is the tinyagents steering channel. When the user hits Ctrl+C or sends `/stop`, the runner forwards the request into the harness's steering/cancellation seam, which stops the loop at the same safe points the fence used to guard, before each tool execution, before each sub-agent spawn, before each provider call:
+Cancellation is the tinyagents steering channel. When the user hits Ctrl+C or sends `/stop`, the runner forwards the request into the harness's steering/cancellation seam, which stops the loop at safe points: before each tool execution, before each sub-agent spawn and before each provider call:
 
 - Every running sub-agent shares the cancellation scope and bails at its next checkpoint.
 - In-flight provider streams are dropped.
