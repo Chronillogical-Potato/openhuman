@@ -74,7 +74,8 @@ also given. `--last` or `--resume` picks the first thread from
 
  send:   runtime.invoke("openhuman.channel_web_chat",
                         { client_id, thread_id, message, queue_mode, ... })
- cancel: runtime.invoke("openhuman.channel_web_cancel", { client_id, thread_id })
+ cancel: runtime.invoke("openhuman.channel_web_cancel",
+                        { client_id, thread_id })
 ```
 
 Before entering the loop, `app::run` loads the thread's existing transcript

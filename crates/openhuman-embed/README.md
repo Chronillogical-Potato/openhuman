@@ -250,7 +250,7 @@ The on-disk layout under a runtime-owned root:
   config.toml, auth-profiles.json, core.token     runtime-wide
   workspace/
     session_db/sessions.db                        runtime-wide run ledger
-    session_raw/                                  transcripts, one per thread+agent
+    session_raw/                                  transcripts (thread + agent)
     agents/<id>/skills/                           each agent's skills root
   agents/<id>/action/                             default action_dir per agent
 ```
