@@ -48,3 +48,9 @@ fn a_type_error_names_the_field_path() {
         "{err}"
     );
 }
+
+#[test]
+fn a_non_finite_float_is_rejected_with_its_field_path() {
+    let err = config_from_toml_str("default_temperature = nan").unwrap_err();
+    assert!(err.to_string().starts_with("default_temperature: "), "{err}");
+}
