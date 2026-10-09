@@ -74,42 +74,69 @@ Most harnesses run one heavy process per agent and resend a big prompt on every 
 <table>
 <tr>
 <td width="50%" valign="top">
-
-### Fast
-
-**20 s** per solved SWE-bench task, the fastest of seven harnesses (others: 28 to 62 s). Cold start in 102 ms.
-
-[Benchmark results](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md) · [Cold-start numbers](./gitbooks/developing/performance.md)
-
+<h3>Fast</h3>
+<p><b>20 s</b> per solved SWE-bench task, the fastest of seven harnesses (others: 28 to 62 s). Cold start in 102 ms.</p>
+<p><a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md">Benchmark results</a> · <a href="./gitbooks/developing/performance.md">Cold-start numbers</a></p>
 </td>
 <td width="50%" valign="top">
-
-### Cheap
-
-**2.6x fewer tokens** per solved task and the lowest total spend. Small prompts, plus token compression on tool output.
-
-[Cost and token data](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md) · [How compression works](./gitbooks/features/token-compression.md)
-
+<h3>Cheap</h3>
+<p><b>2.6x fewer tokens</b> per solved task and the lowest total spend. Small prompts, plus token compression on tool output.</p>
+<p><a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md">Cost and token data</a> · <a href="./gitbooks/features/token-compression.md">How compression works</a></p>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top">
-
-### Efficient at scale
-
-**8x less** memory and CPU per task. Each extra agent costs about 1.8 MiB: 500 agents fit in 1.4 GiB, which is a $10, 2 GB VPS.
-
-[Fleet measurements](./gitbooks/developing/performance.md) · [Methodology](./docs/library-benchmarking.md)
-
+<h3>Efficient at scale</h3>
+<p><b>8x less</b> memory and CPU per task. Each extra agent costs about 1.8 MiB: 500 agents fit in 1.4 GiB, which is a $10, 2 GB VPS.</p>
+<p><a href="./gitbooks/developing/performance.md">Fleet measurements</a> · <a href="./docs/library-benchmarking.md">Methodology</a></p>
 </td>
 <td width="50%" valign="top">
+<h3>Built for developers</h3>
+<p>A library first. Call an agent like a function from your Rust code, or run a fleet of full-featured agents from one small server.</p>
+<p><a href="./gitbooks/developing/quickstart.md">Rust quickstart</a> · <a href="./gitbooks/developing/embedding.md">Embedding guide</a> · <a href="./crates/openhuman-embed/examples">Examples</a></p>
+</td>
+</tr>
+</table>
 
-### Built for developers
+---
 
-A library first. Call an agent like a function from your Rust code, or run a fleet of full-featured agents from one small server.
+## Major innovations
 
-[Rust quickstart](./gitbooks/developing/quickstart.md) · [Embedding guide](./gitbooks/developing/embedding.md) · [Examples](./crates/openhuman-embed/examples)
-
+<table>
+<tr>
+<td width="50%" valign="top">
+<h3>TokenJuice: RLM-style context</h3>
+<p>Big tool output never lands in the prompt whole. TinyJuice compresses it by kind (JSON, diffs, logs, code, HTML) and turns large results into handles the agent queries with <code>juice_find</code>, <code>juice_extract</code> and <code>juice_summarize</code>. The full original stays one <code>juice_retrieve</code> away, so nothing is lost.</p>
+<p><a href="./gitbooks/features/token-compression.md">Token compression</a> · <a href="https://github.com/tinyhumansai/tinyjuice">tinyjuice</a></p>
+</td>
+<td width="50%" valign="top">
+<h3>Jev: decisions without prose</h3>
+<p>Picking a tool should not cost a paragraph of reasoning. Jev is a small decision model that scores a fixed set of options. On 1,215 candidate tools it picks the right one first <b>62%</b> of the time against BM25's 22.5%, and cuts needless tool calls from 26 to 1 out of 31.</p>
+<p><a href="./gitbooks/developing/jev.md">Jev</a> · <a href="./docs/plans/jev-tool-search-baseline.md">Tool-search baseline</a></p>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<h3>TinyBus: capabilities as modules</h3>
+<p>Search, documents, browser and computer use, voice, wallet, MCP and more are native modules behind small, versioned contract crates. Fourteen are pinned by SHA-256 and loaded lazily, so an agent that never opens a PDF never pays for the PDF engine.</p>
+<p><a href="./gitbooks/developing/loadable-modules.md">Loadable modules</a> · <a href="https://github.com/tinyhumansai/tinybus">tinybus</a></p>
+</td>
+<td width="50%" valign="top">
+<h3>One API key for everything</h3>
+<p>A single TinyHumans key covers managed inference (including the OpenRouter catalogue), web search, embeddings, voice, media generation, integrations and Jev. Pass it once in code or as one environment variable. Bring your own providers instead whenever you like.</p>
+<p><a href="./gitbooks/developing/tinyhumans-api-key.md">The TinyHumans API key</a> · <a href="./gitbooks/developing/engines.md">Engines</a></p>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<h3>Cache-stable sessions</h3>
+<p>A conversation maps to one transcript, deterministically. A resumed thread reuses its exact system prompt and tool list, so the provider's prefix cache stays warm across restarts, and compaction seals old generations on disk instead of erasing them.</p>
+<p><a href="./gitbooks/developing/architecture/agent-harness.md">Agent harness</a> · <a href="https://github.com/tinyhumansai/tinyagents">tinyagents</a></p>
+</td>
+<td width="50%" valign="top">
+<h3>Pluggable to the core</h3>
+<p>The LLM, embeddings, memory engine and web search are all chosen by config. Every capability is a Cargo feature, so a stripped build with nothing enabled is 51 MiB and you compile only what your product uses.</p>
+<p><a href="./gitbooks/developing/engines.md">Pluggable engines</a> · <a href="./gitbooks/developing/performance.md">Performance</a></p>
 </td>
 </tr>
 </table>
