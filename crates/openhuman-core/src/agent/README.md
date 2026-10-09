@@ -139,7 +139,8 @@ In order:
    (`tinyagents/journal.rs`) writes the same events to a durable JSONL
    store that the replay RPCs read.
 8. If the loop paused at its model-call cap without a conclusion, the driver
-   runs a tools-disabled grounded close (`session_host/driver/grounded_close.rs`).
+   runs a tools-disabled grounded close
+   (`session_host/driver/grounded_close.rs`).
 9. The runtime commits the turn. `OpenHumanTranscriptCodec`
    (`session_host/codec.rs`) converts between durable `TranscriptMessage`
    rows and model `Message`s. After the durable commit, the host publishes
@@ -353,17 +354,17 @@ All controllers register under `DomainGroup::Agent` in `core/all.rs`.
 | `agent` | `schemas.rs` | `chat`, `chat_simple`, `server_status`, `list_definitions`, `get_definition`, `reload_definitions`, `triage_evaluate`, `graph_topologies`, `registry_snapshot`, `context_breakdown` |
 | `agent` | `tinyagents/replay/` | `runs_active`, `run_status`, `run_events` (read-only journal replay) |
 | `agent` | `tinyagents/run_mode.rs` | `set_run_mode`, `get_run_mode` |
-| `agent_registry` | `registry/` | default and custom agent CRUD, enablement, tool policy |
-| `harness_init` | `harness_init/` | first-run provisioning status and control |
-| `plan_review` | `plan_review/` | `decide` and friends |
-| `ai` | `artifacts/` | artifact listing and retrieval |
-| `run_ledger` | `session_db/` | run ledger queries |
-| `session_import` | `session_import/` | legacy import |
-| `agent_work` | `orchestration/command_center` | command center views |
-| `workflow_run` | `orchestration/workflow_runs` | workflow runs |
-| `agent_team` | `orchestration/agent_teams` | teams |
-| `worktree` | `orchestration/worktree_schemas.rs` | worktrees |
-| `subagent` | `orchestration/subagent_control.rs` | running sub-agent control |
+| `agent_registry` | `registry/` | `list`, `available_tools`, `get`, `upsert_custom`, `create_custom`, `update`, `set_enabled`, `remove` |
+| `harness_init` | `harness_init/` | `status`, `run` |
+| `plan_review` | `plan_review/` | `decide` |
+| `ai` | `artifacts/` | `list_artifacts`, `get_artifact`, `delete_artifact`, `regenerate` |
+| `run_ledger` | `session_db/` | `list`, `get`, `events` |
+| `session_import` | `session_import/` | `run` |
+| `agent_work` | `orchestration/command_center` | `list`, `control` |
+| `workflow_run` | `orchestration/workflow_runs` | `list_definitions`, `list`, `get`, `start`, `stop`, `resume` |
+| `agent_team` | `orchestration/agent_teams` | `create`, `list`, `get`, `assign_task`, `claim_task`, `message_member`, `list_messages`, `complete_task`, `shutdown_member`, `close`, `start_member` |
+| `worktree` | `orchestration/worktree_schemas.rs` | `list`, `status`, `diff`, `remove` |
+| `subagent` | `orchestration/subagent_control.rs` | `cancel`, `steer` for running sub-agents |
 
 `agent.chat` and `agent.chat_simple` load config and call
 `inference::host_runtime::rpc::agent_chat` / `agent_chat_simple`, which
