@@ -14,7 +14,7 @@ A full sweep of 24 targets takes about 20 seconds; nothing is compiled, the
 tool only runs `cargo metadata` and parses source.
 
 The run avoids side effects on the tree: `cargo metadata` rewrites a
-`Cargo.lock` that is stale relative to its manifest (`crates/openhuman-app`'s
+`Cargo.lock` that is stale relative to its manifest ([`crates/openhuman-app`](../../crates/openhuman-app/README.md)'s
 lockfile in particular), or creates one where a target had none, so `run.sh`
 records each target's lockfile state (present, with its exact contents, or
 absent) before analyzing it and restores that state afterwards — restoring on
@@ -27,10 +27,10 @@ update` / `cargo generate-lockfile`) if you want it refreshed.
 
 | File | Role |
 | --- | --- |
-| `run.sh` | Discovers targets, runs `tinyanalyzer` once per target, then calls `report.mjs`. `--help` lists the flags. |
-| `report.mjs` | Folds the per-target JSON into `REPORT.md` and `summary.json`. Re-runnable on its own: `node scripts/dep-audit/report.mjs --reports target/dep-audit`. |
-| `tinyanalyzer.toml` | Shared analyzer config passed to every target (`--config`). Holds the `ignore_unused` list; see below before editing it. |
-| `../../docs/dep-audit/<date>.md` | Committed snapshots from `--snapshot` runs, for diffing against the next run. |
+| [`run.sh`](./run.sh) | Discovers targets, runs `tinyanalyzer` once per target, then calls `report.mjs`. `--help` lists the flags. |
+| [`report.mjs`](./report.mjs) | Folds the per-target JSON into `REPORT.md` and `summary.json`. Re-runnable on its own: `node scripts/dep-audit/report.mjs --reports target/dep-audit`. |
+| [`tinyanalyzer.toml`](./tinyanalyzer.toml) | Shared analyzer config passed to every target (`--config`). Holds the `ignore_unused` list; see below before editing it. |
+| [`../../docs/dep-audit/<date>.md`](../../docs/dep-audit/2026-09-19.md) | Committed snapshots from `--snapshot` runs, for diffing against the next run. |
 
 ## Prerequisites
 
@@ -43,7 +43,7 @@ update` / `cargo generate-lockfile`) if you want it refreshed.
 `run.sh` builds the target list itself, so a new submodule is picked up
 automatically:
 
-1. `root` — the OpenHuman workspace (`Cargo.toml` at the repo root).
+1. `root` — the OpenHuman workspace ([`Cargo.toml`](../../Cargo.toml) at the repo root).
 2. `openhuman-app` — the Tauri host. It is `exclude`d from the root
    workspace and has its own `Cargo.lock`, so it is a separate graph.
 3. Every entry of `git submodule status --recursive` that has a `Cargo.toml`,
@@ -177,3 +177,10 @@ listed; cargo unifies it.
   carry file, complexity and dead-code findings that this report ignores.
   `tinyanalyzer vendor/<name>` opens the interactive dashboard over the same
   data.
+
+## Further reading
+
+- [`scripts/README.md`](../README.md) for the rest of the tooling, and [`scripts/ci/`](../ci/README.md) for the merge gates.
+- [`docs/dep-audit/`](../../docs/dep-audit/2026-09-19.md), the committed snapshots.
+- [`AGENTS.md`](../../AGENTS.md) for the `assert-shed.sh` / `dep-sim.py` rule before claiming a dependency reduction.
+- [Building the Rust core](../../gitbooks/developing/building-rust-core.md) and the [`vendor/`](../../vendor) submodules the audit walks.

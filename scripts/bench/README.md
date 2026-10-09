@@ -1,15 +1,15 @@
 # `scripts/bench/` — agent-scale benchmarks
 
-Drive a **real `openhuman-core` server process** at concurrency against a
-mocked LLM, sample its CPU and memory from the outside, and report a leak
-verdict.
+Drive a **real [`openhuman-core`](../../crates/openhuman-cli/README.md) server process** at concurrency against a
+mocked LLM ([`mock-llm.mjs`](./mock-llm.mjs)), sample its CPU and memory from the outside, and report a leak
+verdict. The pieces are [`run-agent-scale.sh`](./run-agent-scale.sh), [`driver.mjs`](./driver.mjs), [`sampler.mjs`](./sampler.mjs) and [`analyze.mjs`](./analyze.mjs).
 
 ## How this differs from `scripts/profile/`
 
 Both measure resources; they answer different questions, and the difference is
 the reason this directory exists rather than another scenario in the old one.
 
-|                | `scripts/profile/`                      | `scripts/bench/` (here)                       |
+|                | [`scripts/profile/`](../profile/README.md)                      | `scripts/bench/` (here)                       |
 | -------------- | --------------------------------------- | --------------------------------------------- |
 | Core runs as   | a library, embedded in the bench binary | a normally-built `openhuman-core serve` process |
 | Driven through | direct `Agent` calls                    | JSON-RPC over HTTP `/rpc`                      |
@@ -138,6 +138,8 @@ you reproduce this setup by hand:
 
 ## Baseline
 
+See [`FINDINGS.md`](./FINDINGS.md) for the longer write-up of these runs.
+
 From a 5-minute run at concurrency 8, tool-depth 1, on one machine — indicative,
 not a target, and not yet reproduced across hosts:
 
@@ -231,6 +233,8 @@ accumulates — so a leak hunt should use at least 1.
 
 ## Tests
 
+The tests are in [`analyze.test.mjs`](./analyze.test.mjs).
+
 ```bash
 node --test scripts/bench/analyze.test.mjs
 ```
@@ -239,3 +243,10 @@ The analyzer's failure mode is silence: wrong math reports "pass" on a leaking
 run and nobody notices. The tests drive it with synthetic series whose correct
 verdict is known by construction — a steady leak, a plateau, a flat line,
 thread and FD growth, CPU drift — so a regression in the leak math fails loudly.
+
+## Further reading
+
+- [`scripts/profile/`](../profile/README.md), the in-process counterpart.
+- [Performance and footprint](../../gitbooks/developing/performance.md) for the published numbers, and the public [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks) repo for the cross-harness rig.
+- [`docs/library-benchmarking.md`](../../docs/library-benchmarking.md) for the embedded-library methodology.
+- [`scripts/ci/product-features.sh`](../ci/README.md), which defines the shipped feature set the release build uses.

@@ -2,14 +2,14 @@
 
 Reproducible benchmarking scripts for the OpenHuman Rust core as an embedded
 library (no RPC server), built around the `library-profile` and `rss-bench`
-binaries (see `crates/openhuman-cli/src/bin/library_profile/main.rs`).
+binaries (see [`crates/openhuman-cli/src/bin/library_profile/main.rs`](../../crates/openhuman-cli/src/bin/library_profile/main.rs) and [`rss_bench.rs`](../../crates/openhuman-cli/src/bin/rss_bench.rs)).
 
-Six driver scripts: `library-bench.sh` (per-scenario RSS/duration),
-`library-cpu.sh` (samply), `library-heap.sh` (dhat), `library-fleet.sh`
-(fleet-scale sweep + budget gate), `library-instances.sh` (multi-process
-instance sweep), and `rss-bench.sh` (embedded-roster RSS, #5046).
+Six driver scripts: [`library-bench.sh`](./library-bench.sh) (per-scenario RSS/duration),
+[`library-cpu.sh`](./library-cpu.sh) (samply), [`library-heap.sh`](./library-heap.sh) (dhat), [`library-fleet.sh`](./library-fleet.sh)
+(fleet-scale sweep + budget gate), [`library-instances.sh`](./library-instances.sh) (multi-process
+instance sweep), and [`rss-bench.sh`](./rss-bench.sh) (embedded-roster RSS, #5046). A seventh, [`library-pool-gate.sh`](./library-pool-gate.sh), is the runtime-pool regression gate.
 
-Benchmarks run from these scripts, not in CI.
+Benchmarks run from these scripts, not in CI. For the server-process counterpart see [`scripts/bench/`](../bench/README.md).
 
 ## Scripts
 
@@ -136,3 +136,10 @@ All scripts require `jq` for JSON parsing/aggregation; `library-cpu.sh` also
 requires `samply` (`cargo install samply`). Build commands use
 `GGML_NATIVE=OFF` to work around the Apple Silicon whisper-rs/llama.cpp NEON
 fp16 build issue.
+
+## Further reading
+
+- [`docs/library-benchmarking.md`](../../docs/library-benchmarking.md) and [`docs/library-minimal-recipe.md`](../../docs/library-minimal-recipe.md), the methodology behind these scripts.
+- [Performance and footprint](../../gitbooks/developing/performance.md) for the published numbers and [Embedding OpenHuman](../../gitbooks/developing/embedding.md) for the library these scripts measure.
+- [`crates/openhuman-embed/`](../../crates/openhuman-embed/README.md), the facade the scenarios drive.
+- The public [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks) repo.
