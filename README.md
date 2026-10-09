@@ -137,7 +137,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>RLM token compression</h3>
 
-<p>OpenHuman shrinks large tool results before the AI reads them. For very large ones, the AI gets a handle it can search instead, an idea from <a href="https://arxiv.org/abs/2512.24601">Recursive Language Models</a>. Nothing is thrown away.</p>
+<p>Built on <a href="https://arxiv.org/abs/2512.24601">Recursive Language Models</a>. Large tool results get compressed before the AI reads them. For very large ones, the AI gets a handle it can search instead of reading it all. Nothing is thrown away.</p>
 
 <p><a href="https://arxiv.org/abs/2512.24601">RLM paper</a> · <a href="./gitbooks/features/token-compression.md">How it works</a> · <a href="https://github.com/tinyhumansai/tinyjuice">tinyjuice</a></p>
 
@@ -147,7 +147,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>Jev: instant, accurate tool search</h3>
 
-<p>A tiny model whose only job is picking the right tool. Out of 1,215 tools, it picks the right one first 62% of the time. Keyword search manages 22.5%.</p>
+<p>Jev is a tiny model that finds the right tool in one step, so the AI does not waste calls trying the wrong ones. Out of 1,215 tools, it picks the right one first 62% of the time, against 22.5% for keyword search.</p>
 
 <p><a href="./gitbooks/developing/jev.md">Jev</a> · <a href="./docs/plans/jev-tool-search-baseline.md">The measurements</a></p>
 
@@ -161,7 +161,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>Unified Rust bus</h3>
 
-<p>Each feature, like search, documents or voice, is its own plug-in, an idea borrowed from the <a href="https://www.freedesktop.org/wiki/Software/dbus/">Linux system bus</a>. A plug-in loads only when needed, and if one gets stuck, the rest keep working.</p>
+<p>Every feature, like search, documents or voice, plugs into one Rust bus, an idea borrowed from the <a href="https://www.freedesktop.org/wiki/Software/dbus/">Linux system bus</a>. A feature loads only when needed, and if one gets stuck, the rest keep working.</p>
 
 <p><a href="./gitbooks/developing/loadable-modules.md">Loadable modules</a> · <a href="https://github.com/tinyhumansai/tinybus">tinybus</a></p>
 
