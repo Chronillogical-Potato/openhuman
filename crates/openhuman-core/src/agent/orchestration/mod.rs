@@ -47,8 +47,8 @@ pub use ops::{AgentOrchestrationSession, OrchestrationError};
 
 /// Release the background-completion logs this process holds open. The core
 /// calls this on exit so a data reset can delete the workspace directory.
-pub fn release_background_completion_stores() -> usize {
-    background_completions::release_all()
+pub async fn release_background_completion_stores() -> usize {
+    background_completions::release_all().await
 }
 pub use subagent_control::{
     all_controller_schemas as all_subagent_control_controller_schemas,

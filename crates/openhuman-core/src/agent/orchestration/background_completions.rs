@@ -27,9 +27,9 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use tinyagents_tasks::{
-    CompletionRecord, CompletionResult, CompletionRouter, CompletionState, CompletionStore,
-    InMemoryCompletionStore, JsonlCompletionStore, NotifyMode, RecordOutcome, TombstoneOutcome,
-    DEFAULT_MAX_ATTEMPTS,
+    CompletionRecord, CompletionResult, CompletionRouter, CompletionState, CompletionStatus,
+    CompletionStore, InMemoryCompletionStore, JsonlCompletionStore, NotifyMode, RecordOutcome,
+    TombstoneOutcome, DEFAULT_MAX_ATTEMPTS,
 };
 
 use super::completion_notice::BackgroundCompletionFormatter;
@@ -39,6 +39,9 @@ pub(crate) use super::completion_notice::{BackgroundAgentOutcome, AWAITING_INPUT
 /// compaction drops it. Dropping a settled record also drops its dedupe and its
 /// tombstone, so this must outlive any child's interest in its parent.
 const SETTLED_RETENTION: Duration = Duration::from_secs(7 * 24 * 60 * 60);
+
+/// How long shutdown waits for a router still in use before dropping it.
+const RELEASE_DRAIN: Duration = Duration::from_secs(3);
 
 /// Retries for a failed store write before a completion is reported lost.
 const RECORD_RETRIES: u32 = 3;
@@ -258,6 +261,13 @@ pub(crate) async fn record_outcome(
             return;
         }
     }
+    if is_marked_deleted(&entry_for(workspace_dir), &thread_id) {
+        log::debug!(
+            "[background_completions] dropping completion task_id={task_id} for deleted \
+             thread_id={thread_id}"
+        );
+        return;
+    }
     note_thread_workspace(&thread_id, workspace_dir);
     note_session_thread(parent_session, &thread_id);
 
@@ -362,12 +372,36 @@ pub(crate) async fn record_awaiting_input(
 /// when the core server stops (`openhuman_rpc::server::serve`), so the completion logs'
 /// file handles close before a data reset removes their directory (Windows
 /// refuses to delete an open file) and a later boot starts from the logs alone.
-/// A delivery still in flight keeps its own router handle until it finishes; the
-/// next record or spawn reopens the log. Returns how many routers were released.
-pub(crate) fn release_all() -> usize {
-    let mut st = state();
-    let released = st.routers.len();
-    *st = HostState::default();
+/// A router a delivery (or a record) is still using is kept registered until that
+/// work lets go, for at most [`RELEASE_DRAIN`], so a reopened log never has two
+/// writers; past the deadline the stragglers are dropped with a warning. Returns
+/// how many routers were released.
+pub(crate) async fn release_all() -> usize {
+    let deadline = tokio::time::Instant::now() + RELEASE_DRAIN;
+    let mut released = 0;
+    loop {
+        let retained = {
+            let mut st = state();
+            let before = st.routers.len();
+            st.routers
+                .retain(|_, e| Arc::strong_count(e) > 1 || Arc::strong_count(&e.router) > 1);
+            released += before - st.routers.len();
+            st.routers.len()
+        };
+        if retained == 0 {
+            break;
+        }
+        if tokio::time::Instant::now() >= deadline {
+            log::warn!(
+                "[background_completions] {retained} router(s) still in use at shutdown; \
+                 dropping them anyway"
+            );
+            released += retained;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    *state() = HostState::default();
     log::info!("[background_completions] released {released} router(s) on core shutdown");
     released
 }
@@ -467,12 +501,19 @@ pub(crate) fn mark_collected(workspace_dir: &Path, task_id: &str) -> bool {
 /// the marker is written even when no child of the thread was seen by this
 /// process. Returns the number of queued completions removed.
 pub(crate) fn discard_for_thread(workspace_dir: &Path, thread_id: &str) -> usize {
-    {
+    let seen = {
         let mut st = state();
         st.deleted_threads.insert(thread_id.to_string());
         st.stopped_threads.remove(thread_id);
-    }
+        st.thread_workspaces.contains_key(thread_id)
+    };
     let entry = entry_for(workspace_dir);
+    // Nothing in this process or on disk refers to the thread (an ordinary chat
+    // thread that never spawned background work): the in-memory gate is enough
+    // and no log line is written for it.
+    if !seen && entry.router.pending_for(thread_id).is_empty() {
+        return 0;
+    }
     let removed = cancel_deleted_parent(&entry, thread_id);
     log::debug!(
         "[background_completions] discard_for_thread thread_id={thread_id} removed={removed}"
@@ -483,7 +524,8 @@ pub(crate) fn discard_for_thread(workspace_dir: &Path, thread_id: &str) -> usize
 /// Task id of the durable "this thread was deleted" marker. The router's
 /// cancelled-parent marker cannot tell a delete from a Stop (a Stop is lifted
 /// when the user returns), so a delete also leaves this one, which nothing
-/// lifts.
+/// lifts. It is stored `Pending` (with no parent, so nothing ever claims it):
+/// compaction only drops settled records, and a deletion must outlive them.
 fn deleted_marker_id(thread_id: &str) -> String {
     format!("\u{1}host-thread-deleted:{thread_id}")
 }
@@ -495,7 +537,15 @@ fn is_marked_deleted(entry: &Entry, thread_id: &str) -> bool {
 /// Cancel `thread_id` for good in `entry`'s router and write the deleted marker.
 /// Failures are logged; the in-memory deleted set still gates this process.
 fn cancel_deleted_parent(entry: &Entry, thread_id: &str) -> usize {
-    if let Err(error) = entry.router.tombstone(&deleted_marker_id(thread_id)) {
+    let marker = CompletionRecord::new(
+        deleted_marker_id(thread_id),
+        "",
+        "",
+        CompletionStatus::Incomplete,
+        CompletionResult::default(),
+    )
+    .with_notify_mode(NotifyMode::Off);
+    if let Err(error) = entry.store.put(&marker) {
         log::error!(
             "[background_completions] could not persist the deleted marker thread_id={thread_id} \
              error={error}"

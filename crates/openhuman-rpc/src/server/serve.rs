@@ -195,7 +195,7 @@ pub async fn serve(
     runtime.exit_cleanup().await;
     // Close the per-workspace background-completion logs (they replay from disk
     // on the next boot) so a data reset can delete the workspace directory.
-    openhuman_core::agent::orchestration::release_background_completion_stores();
+    openhuman_core::agent::orchestration::release_background_completion_stores().await;
 
     served?;
     Ok(())
