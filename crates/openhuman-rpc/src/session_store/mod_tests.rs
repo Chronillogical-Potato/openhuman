@@ -52,12 +52,25 @@ fn recovery_interrupts_turns_left_in_flight() {
 /// The provider and storage slots are process-wide; these tests take turns.
 static SLOTS: Mutex<()> = Mutex::new(());
 
+/// Puts the process-global storage backend back as a test found it.
+fn restore_backend(previous: Option<Arc<dyn tinystoragedrivers::StorageBackend>>) {
+    match previous {
+        Some(backend) => {
+            openhuman_core::storage::install(backend);
+        }
+        None => {
+            openhuman_core::storage::clear();
+        }
+    }
+}
+
 #[tokio::test]
 async fn a_storage_url_installs_the_driver_backed_store() {
     let _turn = SLOTS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     let previous = openhuman_core::agent::session_store::installed();
+    let previous_backend = openhuman_core::storage::installed();
     install_for_url(Some("memory".into())).await.unwrap();
 
     let provider = openhuman_core::agent::session_store::installed().unwrap();
@@ -85,7 +98,7 @@ async fn a_storage_url_installs_the_driver_backed_store() {
         .unwrap()
         .is_none());
 
-    openhuman_core::storage::clear();
+    restore_backend(previous_backend);
     openhuman_core::agent::session_store::restore(previous);
 }
 
@@ -95,6 +108,7 @@ async fn no_url_keeps_the_classic_layout() {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     let previous = openhuman_core::agent::session_store::installed();
+    let previous_backend = openhuman_core::storage::installed();
     install_for_url(None).await.unwrap();
     let provider = openhuman_core::agent::session_store::installed().unwrap();
     assert!(
@@ -102,6 +116,7 @@ async fn no_url_keeps_the_classic_layout() {
         "the file layout is installed"
     );
     assert!(openhuman_core::storage::installed().is_none());
+    restore_backend(previous_backend);
     openhuman_core::agent::session_store::restore(previous);
 }
 
@@ -124,9 +139,40 @@ async fn restoring_the_classic_layout_clears_a_previous_backend() {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     let previous = openhuman_core::agent::session_store::installed();
+    let previous_backend = openhuman_core::storage::installed();
     install_for_url(Some("memory".into())).await.unwrap();
     assert!(openhuman_core::storage::installed().is_some());
     install_for_url(None).await.unwrap();
     assert!(openhuman_core::storage::installed().is_none());
+    restore_backend(previous_backend);
     openhuman_core::agent::session_store::restore(previous);
+}
+
+#[tokio::test]
+async fn the_host_reads_the_storage_url_from_the_environment() {
+    let _turn = SLOTS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let previous = openhuman_core::agent::session_store::installed();
+    let previous_backend = openhuman_core::storage::installed();
+    let var = openhuman_core::storage::STORAGE_URL_VAR;
+    let old = std::env::var_os(var);
+
+    std::env::set_var(var, " memory ");
+    let booted = install_for_host().await;
+    let driver = openhuman_core::storage::installed().map(|b| b.driver());
+
+    std::env::set_var(var, "ftp://nowhere");
+    let refused = install_for_host().await;
+
+    match old {
+        Some(value) => std::env::set_var(var, value),
+        None => std::env::remove_var(var),
+    }
+    restore_backend(previous_backend);
+    openhuman_core::agent::session_store::restore(previous);
+
+    booted.unwrap();
+    assert_eq!(driver, Some("memory"));
+    assert!(refused.is_err(), "an unusable env URL fails the boot");
 }

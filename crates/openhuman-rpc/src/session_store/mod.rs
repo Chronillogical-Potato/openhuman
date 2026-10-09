@@ -161,16 +161,18 @@ pub fn install() {
 pub async fn install_for_host() -> anyhow::Result<()> {
     let url = match std::env::var(openhuman_core::storage::STORAGE_URL_VAR) {
         Ok(url) if !url.trim().is_empty() => Some(url.trim().to_string()),
-        // A config that cannot be loaded may be hiding a `[storage] url`:
-        // fail the boot rather than quietly choosing the classic layout.
-        _ => {
-            let config = openhuman_core::config::rpc::load_config_with_timeout()
-                .await
-                .map_err(|error| {
-                    anyhow::anyhow!("loading the config to read [storage]: {error}")
-                })?;
-            openhuman_core::storage::configured_url(&config)
-        }
+        _ => match openhuman_core::config::rpc::load_config_with_timeout().await {
+            Ok(config) => openhuman_core::storage::configured_url(&config),
+            // An unreadable config keeps the desktop booting on the classic
+            // layout, as it always has. Remote deployments pin the backend
+            // with `OPENHUMAN_STORAGE_URL`, which never reads the config.
+            Err(error) => {
+                tracing::warn!(
+                    "[session_store] config unavailable ({error}); keeping the on-disk layout"
+                );
+                None
+            }
+        },
     };
     install_for_url(url).await
 }
