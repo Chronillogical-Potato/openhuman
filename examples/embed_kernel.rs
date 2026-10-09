@@ -33,7 +33,10 @@
 //! cargo run --example embed_kernel
 //! ```
 
-use openhuman_core::{CoreBuilder, DomainSet, HostKind, ServiceSet};
+//! Built with the library API (`openhuman_embed::Runtime`) on an ephemeral
+//! workspace, so running it touches nothing in `~/.openhuman`.
+
+use openhuman_embed::{DomainSet, HostKind, Runtime, ServiceSet};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -43,21 +46,23 @@ async fn main() -> anyhow::Result<()> {
     let mut domains = DomainSet::kernel();
     domains.memory = true;
 
-    let runtime = CoreBuilder::new(HostKind::Cli)
+    let runtime = Runtime::builder()
+        .host_kind(HostKind::Cli)
         .domains(domains)
         .services(ServiceSet::none())
         .build()
         .await?;
+    let core = runtime.core_runtime();
 
     // Always available — `core.*` is kernel transport, not a domain.
-    let version = runtime
+    let version = core
         .invoke("core.version", serde_json::json!({}))
         .await
         .map_err(|e| anyhow::anyhow!("core.version failed: {e}"))?;
     println!("core.version -> {version}");
 
     // Enabled: memory was opted in above.
-    match runtime
+    match core
         .invoke("openhuman.memory_list_namespaces", serde_json::json!({}))
         .await
     {
@@ -69,7 +74,7 @@ async fn main() -> anyhow::Result<()> {
     // not a registered handler returning "agent disabled". Absence is the
     // contract: a registered-but-failing method teaches a model the capability
     // exists and makes it retry.
-    match runtime
+    match core
         .invoke("openhuman.agent_list_definitions", serde_json::json!({}))
         .await
     {

@@ -8,6 +8,7 @@ pub mod crypto;
 pub mod rpc;
 pub mod schemas;
 pub mod store;
+mod store_documents;
 pub mod tunnel_client;
 pub mod types;
 

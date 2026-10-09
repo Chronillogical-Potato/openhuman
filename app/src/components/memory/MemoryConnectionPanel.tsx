@@ -62,11 +62,16 @@ export interface MemoryConnectionPanelProps {
   onSubmit: () => void;
 }
 
+/** Free hosted memory per plan; memory inference itself is never charged. */
+const MEMORY_QUOTA = { BASIC: '1 GB', PRO: '20 GB' } as const;
+
 /**
  * One way to connect CortexDB, shown under its chip on Memory → Provider: what
  * it is, what it needs (nothing via TinyHumans, a key for your own account, an
  * endpoint and key for Local), its action, and via TinyHumans one line on
- * who hosts it and the plan's unlimited memory, with the fair-use terms.
+ * who hosts it and that memory inference is free on the plan; the info popover holds the
+ * details: the plan's quota (Basic 1 GB, Pro 20 GB), that memory inference is
+ * never charged, and the fair-use terms.
  */
 export default function MemoryConnectionPanel({
   option,
@@ -90,6 +95,7 @@ export default function MemoryConnectionPanel({
   const baseId = useId();
   const formId = `${baseId}-form`;
   const busy = saving !== null;
+  const planName = plan === 'PRO' ? 'Pro' : plan === 'BASIC' ? 'Basic' : null;
 
   const keyField = (value: string, onChange: (value: string) => void) => {
     const saved = active && state.has_key;
@@ -125,11 +131,8 @@ export default function MemoryConnectionPanel({
     <>
       <p className="text-xs leading-relaxed text-content-secondary">
         <span data-testid="memory-engine-builtin-note">
-          {plan === 'BASIC' || plan === 'PRO'
-            ? t('memoryPage.engine.builtin.summaryPlan').replace(
-                '{plan}',
-                plan === 'PRO' ? 'Pro' : 'Basic'
-              )
+          {planName
+            ? t('memoryPage.engine.builtin.summaryPlan').replace('{plan}', planName)
             : t('memoryPage.engine.builtin.summaryUpgrade')}
         </span>
         <PopoverRoot>
@@ -151,6 +154,21 @@ export default function MemoryConnectionPanel({
             className="w-80 text-xs"
             data-testid="memory-engine-fair-use">
             <p className="font-semibold text-content">{t('memoryPage.engine.fairUse.summary')}</p>
+            <ul
+              className="mt-1.5 list-disc space-y-1 pl-4 leading-relaxed text-content-muted"
+              data-testid="memory-engine-quota">
+              <li>
+                {planName
+                  ? t('memoryPage.engine.quota.plan')
+                      .replace('{plan}', planName)
+                      .replace('{storage}', MEMORY_QUOTA[plan as 'BASIC' | 'PRO'])
+                  : t('memoryPage.engine.quota.all')}
+              </li>
+              <li>{t('memoryPage.engine.quota.inference')}</li>
+            </ul>
+            <p className="mt-2.5 font-semibold text-content">
+              {t('memoryPage.engine.fairUse.heading')}
+            </p>
             <ul className="mt-1.5 list-disc space-y-1 pl-4 leading-relaxed text-content-muted">
               <li>{t('memoryPage.engine.fairUse.own')}</li>
               <li>{t('memoryPage.engine.fairUse.noAbuse')}</li>

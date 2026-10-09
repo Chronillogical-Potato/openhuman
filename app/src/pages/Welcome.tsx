@@ -341,14 +341,6 @@ const Welcome = () => {
                       </li>
                     ))}
                   </ul>
-                  {/* A quiet highlight, not a second button. `bg-primary-50`
-                      alone rendered near-white in dark mode, because the accent
-                      ramps are identical in both themes and only the shade
-                      chosen changes — so the dark shade has to be picked
-                      explicitly. */}
-                  <div className="rounded-lg border border-primary-200 bg-primary-50 px-3 py-1.5 text-center text-xs font-medium text-primary-700 dark:border-primary-500/30 dark:bg-primary-500/10 dark:text-primary-300">
-                    {t('welcome.th.credit')}
-                  </div>
                   <div className="mt-auto space-y-3">
                     {/* TODO: replace this inline provider reveal with a single `openUrl` to a
                         tinyhumans.ai login page that returns

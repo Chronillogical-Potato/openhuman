@@ -253,6 +253,10 @@ fn apply_patch(entry: &mut AgentRegistryEntry, patch: AgentRegistryPatch) {
     if let Some(tool_denylist) = patch.tool_denylist {
         entry.tool_denylist = tool_denylist;
     }
+    if let Some(tool_rules) = patch.tool_rules {
+        // An empty rule set clears the field rather than storing a no-op.
+        entry.tool_rules = (!tool_rules.is_permissive()).then_some(tool_rules);
+    }
     if let Some(subagents) = patch.subagents {
         entry.subagents = subagents;
     }

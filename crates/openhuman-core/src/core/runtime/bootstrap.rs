@@ -140,6 +140,20 @@ pub(crate) async fn bootstrap_core_runtime(
                 "[runtime] reconciled {reconciled} orphaned detached sub-agent task(s) on startup"
             );
         }
+
+        // --- Undelivered background completions ----------------------------
+        // A detached sub-agent that finished in a previous process but whose
+        // result never reached its chat thread is still pending in the durable
+        // completion log (`<workspace>/.openhuman/background_completions.jsonl`).
+        // Schedule its delivery turn through the normal idle-gated path.
+        let redelivering =
+            crate::agent::orchestration::background_delivery::recover_on_boot(&workspace_dir);
+        if redelivering > 0 {
+            log::info!(
+                "[runtime] scheduled redelivery of undelivered background completions for \
+                 {redelivering} thread(s) on startup"
+            );
+        }
     } else {
         log::debug!(
             "[boot] agent run-ledger + orchestration task reconciliation SKIPPED — Agent domain disabled"
@@ -272,6 +286,7 @@ pub(crate) async fn bootstrap_core_runtime(
                 crate::core::types::HostKind::Cli => "cli",
                 crate::core::types::HostKind::Docker => "docker",
                 crate::core::types::HostKind::Library => "library",
+                crate::core::types::HostKind::Saas => "saas",
             },
         },
     );

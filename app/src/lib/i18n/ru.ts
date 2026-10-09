@@ -456,7 +456,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'Память',
   'welcome.th.featureEmbeddings': 'Эмбеддинги',
   'welcome.th.featureBilling': 'Оплата',
-  'welcome.th.credit': '5 $ кредита для начала',
   'welcome.th.cta': 'Продолжить с TinyHumans',
   'welcome.th.providers': 'Войдите через Google, GitHub или X',
   'welcome.self.title': 'Настрою сам',
@@ -4072,6 +4071,34 @@ const messages: TranslationMap = {
   'skills.detail.author': 'Автор',
   'skills.detail.license': 'Лицензия',
   'skills.detail.description': 'Описание',
+  'skills.detail.overview': 'Обзор',
+  'skills.registry.firstFetchHint':
+    'Загрузка каталога навыков. Первая загрузка может занять минуту.',
+  'skills.registry.refreshing': 'Показан сохранённый каталог, пока загружается свежая копия.',
+  'skills.registry.offline': 'Нет связи: показан сохранённый каталог от {time}.',
+  'skills.registry.offlineNoTime': 'Нет связи: показан сохранённый каталог.',
+  'skills.registry.unreachable':
+    'Не удалось связаться с реестром навыков. Проверьте подключение и попробуйте снова.',
+  'skills.registry.rateLimited': 'Реестр навыков перегружен. Повторите через {seconds} с.',
+  'skills.registry.rateLimitedShortly': 'Реестр навыков перегружен. Повторите чуть позже.',
+  'skills.registry.viewSource': 'Открыть источник',
+  'skills.registry.noDirectDownload':
+    'У этой записи нет SKILL.md для загрузки. Откройте страницу источника, чтобы установить её другим способом.',
+  'skills.registry.upstreamAmbiguous':
+    'Навык с таким названием публикуют несколько авторов, а каталог не уточняет, какой из них имеется в виду, поэтому его нельзя установить автоматически.',
+  'skills.scan.title': 'Проверка безопасности заблокировала этот навык',
+  'skills.scan.description':
+    'OpenHuman дважды загрузил и проверил {name}, и проверка безопасности оба раза его заблокировала. Навык не установлен.',
+  'skills.scan.findingsLabel': 'Что нашла проверка',
+  'skills.scan.warning':
+    'Устанавливайте его, только если доверяете источнику. Безопаснее всего заблокировать установку.',
+  'skills.scan.block': 'Заблокировать установку',
+  'skills.scan.installAnyway': 'Всё равно установить',
+  'skills.scan.verdictBlock': 'Заблокировано',
+  'skills.scan.verdictWarn': 'Предупреждение',
+  'skills.scan.declinedTitle': 'Установка заблокирована',
+  'skills.scan.declinedHint':
+    'Навык не установлен, потому что его заблокировала проверка безопасности.',
   'skills.detail.source': 'URL источника',
   'skills.detail.tags': 'Теги',
   'skills.detail.version': 'Версия',
@@ -5095,27 +5122,44 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'Память выключена',
   'memoryPage.off.description': 'Выберите провайдера памяти, чтобы начать запоминать.',
   'memoryPage.off.action': 'Выбрать провайдера',
+  'memoryPage.disabled.title': 'Память отключена',
+  'memoryPage.disabled.description':
+    'OpenHuman ничего не сохраняет и не вспоминает. Выберите провайдера, чтобы снова включить память.',
+  'memoryPage.engine.disabled.title': 'Отключена',
+  'memoryPage.engine.disabled.description':
+    'Полностью отключите память. Ничего не сохраняется и не вспоминается, а ваши подключения сохраняются.',
+  'memoryPage.engine.disabled.action': 'Отключить память',
+  'memoryPage.engine.disabled.banner':
+    'Ничего не сохраняется и не вспоминается. Выберите провайдера ниже, чтобы снова включить память.',
+  'memoryPage.engine.disabled.toast': 'Память отключена',
+  'memoryPage.engine.disabled.toastFailed': 'Не удалось отключить память',
   'memoryPage.engine.inUse': 'Используется',
-  'memoryPage.announcement.title': 'Безлимитная память на CortexDB',
+  'memoryPage.announcement.title': 'Бесплатный инференс памяти в CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex выведен из работы 7 окт.',
-  'memoryPage.announcement.highlight': 'Бесплатный перенос и безлимитное использование CortexDB.',
+  'memoryPage.announcement.highlight':
+    'Бесплатная миграция, а за инференс памяти никогда не взимается плата.',
   'memoryPage.announcement.rest':
-    'Он быстрее и умнее, а ваши данные никогда не используются для обучения.',
+    'Basic включает 1 ГБ хранилища памяти, а Pro 20 ГБ. Она быстрее и умнее, а ваши данные никогда не используются для обучения.',
   'memoryPage.announcement.dismiss': 'Скрыть',
+  'memoryPage.alphaNotice':
+    'Ранняя альфа: память ещё тестируется. Извлечение, импорт и хранение могут работать неожиданно или меняться между версиями.',
   'memoryPage.engine.cortex.description':
     'Движок памяти с ранжированным поиском и обоснованными ответами.',
   'memoryPage.engine.chip.label': 'Как подключить CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': 'Безлимит',
+  'memoryPage.engine.chip.free': 'Бесплатно',
   'memoryPage.engine.chip.apikey': 'Ваш ключ CortexDB',
   'memoryPage.engine.chip.selfhost': 'Локально',
-  'memoryPage.engine.fairUse.summary':
-    'К безлимитной памяти применяется политика добросовестного использования',
+  'memoryPage.engine.fairUse.summary': 'О бесплатном инференсе памяти',
+  'memoryPage.engine.quota.plan': 'Ваш тариф {plan} включает {storage} хранилища памяти.',
+  'memoryPage.engine.quota.all': 'Basic включает 1 ГБ хранилища памяти, а Pro 20 ГБ.',
+  'memoryPage.engine.quota.inference': 'За инференс памяти плата не взимается.',
+  'memoryPage.engine.fairUse.heading': 'Добросовестное использование',
   'memoryPage.engine.offPrompt': 'Выберите провайдера ниже, чтобы начать запоминать.',
   'memoryPage.engine.builtin.summaryPlan':
-    'Размещено TinyHumans, безлимитная память на вашем тарифе {plan}.',
+    'Бесплатный инференс памяти в вашем тарифе {plan}, размещённый TinyHumans.',
   'memoryPage.engine.builtin.summaryUpgrade':
-    'Размещено TinyHumans. Безлимитная память на тарифах Basic и Pro.',
+    'Бесплатный инференс памяти в тарифах Basic и Pro, размещённый TinyHumans.',
   'memoryPage.engine.apiKeyOption.connected': 'Подключено с вашим ключом API CortexDB.',
   'memoryPage.engine.selfHost.connected': 'Подключено к CortexDB по адресу {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Загружайте свой контент для собственного использования.',

@@ -224,8 +224,10 @@ pub(super) async fn migration_source(config_path: &Path, contents: &str) -> Stri
 }
 
 async fn parse_toml_off_worker(contents: String) -> Result<Box<Config>, String> {
-    match tokio::task::spawn_blocking(move || toml::from_str::<Config>(&contents).map(Box::new))
-        .await
+    match tokio::task::spawn_blocking(move || {
+        super::parse::config_from_toml_str(&contents).map(Box::new)
+    })
+    .await
     {
         Ok(Ok(config)) => Ok(config),
         Ok(Err(parse_err)) => Err(parse_err.to_string()),
@@ -285,6 +287,9 @@ async fn describe_config_ownership(_path: &Path) -> String {
 
 impl Config {
     pub async fn load_or_init() -> Result<Self> {
+        if let Some(scoped) = super::saas_scope::saas_scoped_config() {
+            return scoped;
+        }
         let (default_openhuman_dir, default_workspace_dir) = default_config_and_workspace_dirs()?;
         Self::load_or_init_with_env_lookup(
             &default_openhuman_dir,

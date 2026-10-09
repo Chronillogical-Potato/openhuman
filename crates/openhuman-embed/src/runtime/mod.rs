@@ -68,10 +68,18 @@
 //! worker stack overflows.
 
 mod api_key;
+mod build;
 pub(crate) mod builder;
+mod presets;
+mod run;
+mod seams;
+mod summary;
 
 pub use api_key::ApiKey;
-pub use builder::RuntimeBuilder;
+pub use builder::{ConfigSource, RuntimeBuilder};
+pub use run::run_from_args;
+#[doc(hidden)]
+pub use summary::BuilderSummary;
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -158,6 +166,9 @@ pub(crate) struct CoreGuard {
     session_store: Option<Arc<dyn openhuman_core::agent::session_store::SessionStoreProvider>>,
     previous_session_store:
         Option<Arc<dyn openhuman_core::agent::session_store::SessionStoreProvider>>,
+    /// Process-global seams this runtime installed; dropping restores the
+    /// restorable ones (see [`seams`]).
+    seams: Option<seams::InstalledSeams>,
 }
 
 impl Drop for CoreGuard {
@@ -171,6 +182,7 @@ impl Drop for CoreGuard {
                 openhuman_core::agent::session_store::restore(self.previous_session_store.take());
             }
         }
+        drop(self.seams.take());
         // For an ephemeral workspace, take ownership of the temp path and
         // remove it with a short retry. The core's memory/session writers keep
         // running a moment after a turn returns and can recreate workspace
@@ -212,6 +224,9 @@ pub struct Runtime {
     /// The config every agent starts from. Already carries the runtime-wide
     /// defaults (backend URL, access, provider model, supplied overrides).
     base_config: Config,
+    /// Why the discovered config could not be loaded, when it could not:
+    /// `base_config` is then a placeholder and agents are refused.
+    config_unavailable: Option<String>,
     /// Where `Workspace::Inherit` resolved to, for the per-agent layout rule.
     inherited: bool,
     domains: DomainSet,
@@ -241,6 +256,13 @@ impl Runtime {
     /// agent (any clone of it) is alive.
     pub fn agent(&self, spec: AgentSpec) -> Result<Agent, AgentError> {
         let id = spec.id().to_string();
+        if let Some(error) = &self.config_unavailable {
+            log::warn!("[embed][runtime] agent refused id={id}: config unavailable");
+            return Err(AgentError::Invalid(format!(
+                "the runtime's config failed to load ({error}); refusing to start an agent \
+                 on a default workspace"
+            )));
+        }
         // Held across `instantiate` (fs layout only, no turn, no await) so a
         // concurrent `agent()` call for the same id cannot pass the duplicate
         // check while this one is still being built. Releasing the lock
@@ -287,6 +309,11 @@ impl Runtime {
     /// [`MemoryError::InvalidRequest`](crate::memory::MemoryError::InvalidRequest)
     /// when `root` is not a valid layout root, or is the store root itself.
     pub fn memory(&self, root: &str) -> crate::memory::MemoryResult<crate::memory::Memory> {
+        if let Some(error) = &self.config_unavailable {
+            return Err(crate::memory::MemoryError::InvalidRequest(format!(
+                "the runtime's config failed to load ({error})"
+            )));
+        }
         crate::memory::Memory::bind(self.base_config.clone(), root)
     }
 
@@ -340,7 +367,20 @@ impl Runtime {
             .expect("runtime core is present until the last guard owner drops")
     }
 
-    pub(crate) fn core_runtime(&self) -> &Arc<CoreRuntime> {
+    /// The core runtime under this handle: the controller registry a host
+    /// dispatches JSON-RPC methods through in-process
+    /// ([`CoreRuntime::invoke`]).
+    ///
+    /// This is the operator-host escape hatch. The JSON-RPC server serves it,
+    /// and the terminal UI drives its threads, config and auth screens with
+    /// it. Library embedders should prefer [`Runtime::agent`] for turns and
+    /// [`Runtime::core`] for typed config/auth access, because a raw invoke
+    /// carries no agent's provider route or access tier.
+    ///
+    /// The handle stays valid while this `Runtime` is alive. Keep the
+    /// `Runtime` for the whole session: dropping it tears the core down even
+    /// if a clone of this `Arc` is still held.
+    pub fn core_runtime(&self) -> &Arc<CoreRuntime> {
         self.core_ref().raw()
     }
 
@@ -375,7 +415,9 @@ impl Runtime {
         previous_session_store: Option<
             Arc<dyn openhuman_core::agent::session_store::SessionStoreProvider>,
         >,
+        seams: Option<seams::InstalledSeams>,
         base_config: Config,
+        config_unavailable: Option<String>,
         inherited: bool,
         domains: DomainSet,
         tool_groups: ToolGroups,
@@ -389,8 +431,10 @@ impl Runtime {
                 workspace,
                 session_store,
                 previous_session_store,
+                seams,
             }),
             base_config,
+            config_unavailable,
             inherited,
             domains,
             tool_groups,

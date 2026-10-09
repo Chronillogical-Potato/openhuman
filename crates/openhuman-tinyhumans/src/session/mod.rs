@@ -18,7 +18,7 @@
 //!
 //! Invariant kept from the standalone `openhuman-session` crate this module
 //! absorbed: it may use core *utilities* (`util::tls`, `crate::backend::product`,
-//! `openhuman_rpc::unwrap_rpc`) but must never call `openhuman_core::security::*`
+//! `openhuman_rpc::unwrap_rpc`) but must never call `openhuman_embed::__host::security::*`
 //! or dispatch into a core except through [`CoreLink`] — the host owns the
 //! login, the core only takes the credential.
 

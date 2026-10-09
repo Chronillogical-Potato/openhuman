@@ -1,12 +1,11 @@
 /**
  * Memory → Migration: everything about bringing memory forward from earlier
  * versions, in one place instead of a banner over every chip. Holds the
- * CortexDB announcement and the import-then-organize flow
- * (`MemoryImportBanner`), whose steps stay visible, disabled, once done.
+ * import-then-organize flow (`MemoryImportBanner`), whose steps stay visible,
+ * disabled, once done. The CortexDB announcement lives on Memory → Provider.
  */
 import type { ReactNode } from 'react';
 
-import MemoryCortexAnnouncement from './MemoryCortexAnnouncement';
 import MemoryImportBanner from './MemoryImportBanner';
 
 interface MemoryMigrationTabProps {
@@ -19,7 +18,6 @@ interface MemoryMigrationTabProps {
 export default function MemoryMigrationTab({ engineLabel, offState }: MemoryMigrationTabProps) {
   return (
     <div className="w-full space-y-5 animate-fade-up" data-testid="memory-migration-tab">
-      <MemoryCortexAnnouncement />
       {offState ?? <MemoryImportBanner engineLabel={engineLabel} />}
     </div>
   );

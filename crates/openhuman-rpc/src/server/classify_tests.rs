@@ -5,7 +5,7 @@ fn is_wallet_not_configured_error_matches_wallet_constant() {
     // The classifier keys off the wallet layer's exact "not configured"
     // message so wallet-backed RPCs stay out of Sentry.
     assert!(is_wallet_not_configured_error(
-        openhuman_core::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE
+        crate::core_host::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE
     ));
 }
 
@@ -15,7 +15,7 @@ fn is_wallet_not_configured_error_is_coupled_to_the_wallet_constant() {
     // constant the classifier matches, this fails — preventing the noise from
     // silently returning to Sentry. Mirrors the param-validation prefix locks.
     assert_eq!(
-        openhuman_core::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE,
+        crate::core_host::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE,
         "wallet is not configured; run wallet setup first"
     );
 }
@@ -51,14 +51,14 @@ fn classify_failure_expected_user_state_flag_wins() {
 fn classify_failure_routes_each_boundary_class() {
     assert_eq!(
         classify_failure(
-            openhuman_core::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE,
+            crate::core_host::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE,
             false
         ),
         FailureDisposition::WalletNotConfigured
     );
     assert_eq!(
         classify_failure(
-            &openhuman_core::core::params::unknown_param_message(
+            &crate::core_host::core::params::unknown_param_message(
                 "api_key",
                 "config",
                 "update_model_settings"
@@ -75,7 +75,7 @@ fn classify_failure_routes_each_boundary_class() {
         classify_failure(
             &format!(
                 "{}totally.made.up.method",
-                openhuman_core::core::dispatch::UNKNOWN_METHOD_PREFIX
+                crate::core_host::core::dispatch::UNKNOWN_METHOD_PREFIX
             ),
             false
         ),
@@ -94,7 +94,7 @@ fn classify_failure_param_validation_outranks_session_expiry() {
     // could have expired anything.
     assert_eq!(
         classify_failure(
-            &openhuman_core::core::params::missing_required_param_message(
+            &crate::core_host::core::params::missing_required_param_message(
                 "token",
                 "Session expired token"
             ),

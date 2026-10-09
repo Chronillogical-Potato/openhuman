@@ -458,7 +458,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'Memória',
   'welcome.th.featureEmbeddings': 'Embeddings',
   'welcome.th.featureBilling': 'Cobrança',
-  'welcome.th.credit': 'US$ 5 de crédito para começar',
   'welcome.th.cta': 'Continuar com TinyHumans',
   'welcome.th.providers': 'Entre com Google, GitHub ou X',
   'welcome.self.title': 'Configurar por conta própria',
@@ -4087,6 +4086,35 @@ const messages: TranslationMap = {
   'skills.detail.author': 'Autor',
   'skills.detail.license': 'Licença',
   'skills.detail.description': 'Descrição',
+  'skills.detail.overview': 'Visão geral',
+  'skills.registry.firstFetchHint':
+    'Carregando o catálogo de habilidades. A primeira busca pode levar um minuto.',
+  'skills.registry.refreshing': 'Mostrando o catálogo salvo enquanto uma cópia nova é carregada.',
+  'skills.registry.offline': 'Offline: mostrando o catálogo salvo de {time}.',
+  'skills.registry.offlineNoTime': 'Offline: mostrando o catálogo salvo.',
+  'skills.registry.unreachable':
+    'Não foi possível acessar o registro de habilidades. Verifique sua conexão e tente novamente.',
+  'skills.registry.rateLimited':
+    'O registro de habilidades está ocupado. Tente novamente em {seconds} s.',
+  'skills.registry.rateLimitedShortly':
+    'O registro de habilidades está ocupado. Tente novamente em instantes.',
+  'skills.registry.viewSource': 'Ver origem',
+  'skills.registry.noDirectDownload':
+    'Esta entrada não tem um SKILL.md para baixar. Abra a página de origem para instalá-la de outra forma.',
+  'skills.registry.upstreamAmbiguous':
+    'Mais de um autor publica uma habilidade com este nome e o catálogo não diz qual é esta, então ela não pode ser instalada automaticamente.',
+  'skills.scan.title': 'A verificação de segurança bloqueou esta skill',
+  'skills.scan.description':
+    'O OpenHuman baixou e verificou {name} duas vezes, e a verificação de segurança a bloqueou nas duas. Ela não foi instalada.',
+  'skills.scan.findingsLabel': 'O que a verificação encontrou',
+  'skills.scan.warning': 'Instale apenas se você confia na origem. Bloquear é a opção segura.',
+  'skills.scan.block': 'Bloquear instalação',
+  'skills.scan.installAnyway': 'Instalar mesmo assim',
+  'skills.scan.verdictBlock': 'Bloqueado',
+  'skills.scan.verdictWarn': 'Aviso',
+  'skills.scan.declinedTitle': 'Instalação bloqueada',
+  'skills.scan.declinedHint':
+    'A skill não foi instalada porque a verificação de segurança a bloqueou.',
   'skills.detail.source': 'URL de origem',
   'skills.detail.tags': 'Tags',
   'skills.detail.version': 'Versão',
@@ -5111,26 +5139,45 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'A memória está desativada',
   'memoryPage.off.description': 'Escolha um provedor de memória para começar a lembrar.',
   'memoryPage.off.action': 'Escolher provedor',
+  'memoryPage.disabled.title': 'A memória está desativada',
+  'memoryPage.disabled.description':
+    'O OpenHuman não está guardando nem recuperando nada. Escolha um provedor para reativar a memória.',
+  'memoryPage.engine.disabled.title': 'Desativada',
+  'memoryPage.engine.disabled.description':
+    'Desative a memória por completo. Nada é guardado ou recuperado, e suas conexões são mantidas.',
+  'memoryPage.engine.disabled.action': 'Desativar memória',
+  'memoryPage.engine.disabled.banner':
+    'Nada está sendo guardado ou recuperado. Escolha um provedor abaixo para reativar a memória.',
+  'memoryPage.engine.disabled.toast': 'Memória desativada',
+  'memoryPage.engine.disabled.toastFailed': 'Não foi possível desativar a memória',
   'memoryPage.engine.inUse': 'Em uso',
-  'memoryPage.announcement.title': 'Memória ilimitada com o CortexDB',
+  'memoryPage.announcement.title': 'Inferência de memória gratuita no CortexDB',
   'memoryPage.announcement.retired': 'O TinyCortex foi aposentado em 7 de out.',
-  'memoryPage.announcement.highlight': 'Migração grátis e uso ilimitado no CortexDB.',
+  'memoryPage.announcement.highlight':
+    'Migração gratuita, e a inferência de memória nunca é cobrada.',
   'memoryPage.announcement.rest':
-    'É mais rápido e inteligente, e seus dados nunca são usados para treinamento.',
+    'O Basic inclui 1 GB de armazenamento de memória e o Pro inclui 20 GB. É mais rápida e inteligente, e seus dados nunca são usados para treinamento.',
   'memoryPage.announcement.dismiss': 'Dispensar',
+  'memoryPage.alphaNotice':
+    'Alfa inicial: a memória ainda está em testes. A recuperação, as importações e o armazenamento podem se comportar de forma inesperada ou mudar entre versões.',
   'memoryPage.engine.cortex.description':
     'Motor de memória com recuperação ordenada e respostas fundamentadas.',
   'memoryPage.engine.chip.label': 'Como conectar o CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': 'Ilimitada',
+  'memoryPage.engine.chip.free': 'Grátis',
   'memoryPage.engine.chip.apikey': 'Sua chave do CortexDB',
   'memoryPage.engine.chip.selfhost': 'Local',
-  'memoryPage.engine.fairUse.summary': 'A memória ilimitada está sujeita a uso justo',
+  'memoryPage.engine.fairUse.summary': 'Sobre a inferência de memória gratuita',
+  'memoryPage.engine.quota.plan': 'Seu plano {plan} inclui {storage} de armazenamento de memória.',
+  'memoryPage.engine.quota.all':
+    'O Basic inclui 1 GB de armazenamento de memória e o Pro inclui 20 GB.',
+  'memoryPage.engine.quota.inference': 'A inferência de memória nunca é cobrada.',
+  'memoryPage.engine.fairUse.heading': 'Uso justo',
   'memoryPage.engine.offPrompt': 'Escolha um provedor abaixo para começar a lembrar.',
   'memoryPage.engine.builtin.summaryPlan':
-    'Hospedado pela TinyHumans, com memória ilimitada no seu plano {plan}.',
+    'Inferência de memória gratuita no seu plano {plan}, hospedada pela TinyHumans.',
   'memoryPage.engine.builtin.summaryUpgrade':
-    'Hospedado pela TinyHumans. Memória ilimitada nos planos Basic e Pro.',
+    'Inferência de memória gratuita no Basic e no Pro, hospedada pela TinyHumans.',
   'memoryPage.engine.apiKeyOption.connected': 'Conectado com sua chave de API do CortexDB.',
   'memoryPage.engine.selfHost.connected': 'Conectado ao CortexDB em {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Envie seu próprio conteúdo, para seu próprio uso.',

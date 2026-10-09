@@ -455,7 +455,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'Memori',
   'welcome.th.featureEmbeddings': 'Embedding',
   'welcome.th.featureBilling': 'Penagihan',
-  'welcome.th.credit': 'Kredit $5 untuk memulai',
   'welcome.th.cta': 'Lanjutkan dengan TinyHumans',
   'welcome.th.providers': 'Masuk dengan Google, GitHub, atau X',
   'welcome.self.title': 'Siapkan sendiri',
@@ -4060,6 +4059,33 @@ const messages: TranslationMap = {
   'skills.detail.author': 'Penulis',
   'skills.detail.license': 'Lisensi',
   'skills.detail.description': 'Deskripsi',
+  'skills.detail.overview': 'Ringkasan',
+  'skills.registry.firstFetchHint':
+    'Memuat katalog skill. Pengambilan pertama bisa memakan waktu satu menit.',
+  'skills.registry.refreshing': 'Menampilkan katalog tersimpan sementara salinan baru dimuat.',
+  'skills.registry.offline': 'Offline: menampilkan katalog tersimpan dari {time}.',
+  'skills.registry.offlineNoTime': 'Offline: menampilkan katalog tersimpan.',
+  'skills.registry.unreachable':
+    'Tidak dapat menjangkau registri skill. Periksa koneksi Anda lalu coba lagi.',
+  'skills.registry.rateLimited': 'Registri skill sedang sibuk. Coba lagi dalam {seconds} dtk.',
+  'skills.registry.rateLimitedShortly': 'Registri skill sedang sibuk. Coba lagi sebentar lagi.',
+  'skills.registry.viewSource': 'Lihat sumber',
+  'skills.registry.noDirectDownload':
+    'Entri ini tidak memiliki SKILL.md untuk diunduh. Buka halaman sumbernya untuk memasangnya dengan cara lain.',
+  'skills.registry.upstreamAmbiguous':
+    'Lebih dari satu penulis menerbitkan skill dengan nama ini dan katalog tidak menyebutkan yang mana, sehingga tidak dapat dipasang otomatis.',
+  'skills.scan.title': 'Pemindaian keamanan memblokir skill ini',
+  'skills.scan.description':
+    'OpenHuman mengunduh dan memindai {name} dua kali, dan pemindaian keamanan memblokirnya dua kali. Skill ini belum dipasang.',
+  'skills.scan.findingsLabel': 'Yang ditemukan pemindaian',
+  'skills.scan.warning':
+    'Pasang hanya jika Anda memercayai sumbernya. Memblokir adalah pilihan yang aman.',
+  'skills.scan.block': 'Blokir pemasangan',
+  'skills.scan.installAnyway': 'Tetap pasang',
+  'skills.scan.verdictBlock': 'Diblokir',
+  'skills.scan.verdictWarn': 'Peringatan',
+  'skills.scan.declinedTitle': 'Pemasangan diblokir',
+  'skills.scan.declinedHint': 'Skill tidak dipasang karena pemindaian keamanan memblokirnya.',
   'skills.detail.source': 'URL Sumber',
   'skills.detail.tags': 'Tag',
   'skills.detail.version': 'Versi',
@@ -5083,26 +5109,44 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'Memori nonaktif',
   'memoryPage.off.description': 'Pilih penyedia memori untuk mulai mengingat.',
   'memoryPage.off.action': 'Pilih penyedia',
+  'memoryPage.disabled.title': 'Memori dinonaktifkan',
+  'memoryPage.disabled.description':
+    'OpenHuman tidak menyimpan atau mengingat apa pun. Pilih penyedia untuk menyalakan memori lagi.',
+  'memoryPage.engine.disabled.title': 'Nonaktif',
+  'memoryPage.engine.disabled.description':
+    'Matikan memori sepenuhnya. Tidak ada yang disimpan atau diingat, dan koneksi Anda tetap tersimpan.',
+  'memoryPage.engine.disabled.action': 'Nonaktifkan memori',
+  'memoryPage.engine.disabled.banner':
+    'Tidak ada yang disimpan atau diingat. Pilih penyedia di bawah untuk menyalakan memori lagi.',
+  'memoryPage.engine.disabled.toast': 'Memori dinonaktifkan',
+  'memoryPage.engine.disabled.toastFailed': 'Tidak dapat menonaktifkan memori',
   'memoryPage.engine.inUse': 'Digunakan',
-  'memoryPage.announcement.title': 'Memori tanpa batas di CortexDB',
+  'memoryPage.announcement.title': 'Inferensi memori gratis di CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex dipensiunkan pada 7 Okt.',
-  'memoryPage.announcement.highlight': 'Migrasi gratis dan penggunaan tanpa batas di CortexDB.',
+  'memoryPage.announcement.highlight':
+    'Migrasi gratis, dan inferensi memori tidak pernah dikenai biaya.',
   'memoryPage.announcement.rest':
-    'Lebih cepat dan cerdas, dan data Anda tidak pernah dipakai untuk pelatihan.',
+    'Basic mencakup 1 GB penyimpanan memori dan Pro mencakup 20 GB. Lebih cepat dan lebih cerdas, dan data Anda tidak pernah dipakai untuk pelatihan.',
   'memoryPage.announcement.dismiss': 'Tutup',
+  'memoryPage.alphaNotice':
+    'Alfa awal: memori masih diuji. Pemanggilan, impor, dan penyimpanan dapat berperilaku tak terduga atau berubah antar rilis.',
   'memoryPage.engine.cortex.description':
     'Mesin memori dengan pemanggilan berperingkat dan jawaban berdasar.',
   'memoryPage.engine.chip.label': 'Cara menghubungkan CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
-  'memoryPage.engine.chip.free': 'Tanpa batas',
+  'memoryPage.engine.chip.free': 'Gratis',
   'memoryPage.engine.chip.apikey': 'Kunci CortexDB Anda',
   'memoryPage.engine.chip.selfhost': 'Lokal',
-  'memoryPage.engine.fairUse.summary': 'Memori tanpa batas tunduk pada kebijakan penggunaan wajar',
+  'memoryPage.engine.fairUse.summary': 'Tentang inferensi memori gratis',
+  'memoryPage.engine.quota.plan': 'Paket {plan} Anda mencakup {storage} penyimpanan memori.',
+  'memoryPage.engine.quota.all': 'Basic mencakup 1 GB penyimpanan memori dan Pro mencakup 20 GB.',
+  'memoryPage.engine.quota.inference': 'Inferensi memori tidak pernah dikenai biaya.',
+  'memoryPage.engine.fairUse.heading': 'Penggunaan wajar',
   'memoryPage.engine.offPrompt': 'Pilih penyedia di bawah untuk mulai mengingat.',
   'memoryPage.engine.builtin.summaryPlan':
-    'Dihosting oleh TinyHumans, dengan memori tanpa batas di paket {plan} Anda.',
+    'Inferensi memori gratis di paket {plan} Anda, dihosting oleh TinyHumans.',
   'memoryPage.engine.builtin.summaryUpgrade':
-    'Dihosting oleh TinyHumans. Memori tanpa batas di paket Basic dan Pro.',
+    'Inferensi memori gratis di Basic dan Pro, dihosting oleh TinyHumans.',
   'memoryPage.engine.apiKeyOption.connected': 'Terhubung dengan kunci API CortexDB Anda.',
   'memoryPage.engine.selfHost.connected': 'Terhubung ke CortexDB di {endpoint}.',
   'memoryPage.engine.fairUse.own': 'Serap konten Anda sendiri, untuk penggunaan sendiri.',

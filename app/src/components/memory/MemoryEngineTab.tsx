@@ -4,8 +4,9 @@
  *
  * - TinyHumans (`builtin`, the default): the `tinyhumans` engine, the
  *   TinyHumans backend's `/memory/*` API (CortexDB hosted per account),
- *   authenticated by sign-in. Free; Basic and Pro plans ingest at no extra
- *   cost under the fair-use terms the panel states. Signed out (or on a local
+ *   authenticated by sign-in. Free: Basic includes 1 GB of memory and Pro
+ *   20 GB, memory inference is never charged, and the fair-use terms the
+ *   panel states apply. Signed out (or on a local
  *   session) it cannot be selected.
  * - Your API key (`apikey`): the `cortexdb` engine on CortexDB's managed API.
  *   The endpoint is fixed; only the key is entered.
@@ -21,7 +22,8 @@
  *
  * Which chip is in use is derived from `memory_engine_get`: `tinyhumans` is
  * TinyHumans, and `cortexdb` is Local when its endpoint is loopback, else your
- * API key. Engines that are not supported yet are listed as coming soon.
+ * API key. `none` is the Disabled card beside it: memory turned off on purpose,
+ * with every connection's settings kept. Engines that are not supported yet are listed as coming soon.
  *
  * debug logging: DEBUG=openhuman:memory:engine
  */
@@ -33,7 +35,9 @@ import { useCoreState } from '../../providers/CoreStateProvider';
 import {
   type EngineSetRequest,
   type EngineState,
+  isMemoryDisabled,
   isMemoryOn,
+  MEMORY_DISABLED_ENGINE,
   memoryEngineSet,
   memoryErrorMessage,
 } from '../../services/api/memoryApi';
@@ -44,7 +48,9 @@ import { ModalShell } from '../ui/ModalShell';
 import { toast } from '../ui/Toast';
 import MemoryComingSoon from './MemoryComingSoon';
 import MemoryConnectionPanel from './MemoryConnectionPanel';
+import MemoryCortexAnnouncement from './MemoryCortexAnnouncement';
 import MemoryCortexCard from './MemoryCortexCard';
+import MemoryDisabledCard from './MemoryDisabledCard';
 import MemoryProviderLogo, { type MemoryProviderOption } from './MemoryProviderLogo';
 
 export { CORTEXDB_SELF_HOST_DOCS_URL } from './MemoryConnectionPanel';
@@ -103,7 +109,7 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
   const selected: EngineOption = picked ?? active ?? 'builtin';
   // The key or Local connection whose modal is open.
   const [dialog, setDialog] = useState<Exclude<EngineOption, 'builtin'> | null>(null);
-  const [saving, setSaving] = useState<EngineOption | null>(null);
+  const [saving, setSaving] = useState<EngineOption | 'disabled' | null>(null);
   const [errors, setErrors] = useState<Partial<Record<EngineOption, string>>>({});
   const [cloudKey, setCloudKey] = useState('');
   // Untouched (null) shows the configured local endpoint, which may arrive
@@ -157,10 +163,42 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
     return <CenteredLoadingState label={t('memoryPage.loading')} />;
   }
 
+  const disabled = isMemoryDisabled(state);
+
+  // Disabled: memory off on purpose. Every connection's settings are kept,
+  // so picking a provider again turns it back on.
+  const disable = async () => {
+    setSaving('disabled');
+    try {
+      const next = await memoryEngineSet({ engine: MEMORY_DISABLED_ENGINE });
+      log('memory disabled: status=%s', next.status);
+      onStateChange(next);
+      setPicked(null);
+      toast.add({ type: 'success', title: t('memoryPage.engine.disabled.toast') });
+    } catch (err) {
+      log('disable failed: %o', err);
+      toast.add({
+        type: 'error',
+        title: t('memoryPage.engine.disabled.toastFailed'),
+        description: memoryErrorMessage(err, t),
+      });
+    } finally {
+      setSaving(null);
+    }
+  };
+
   // Off: a plain prompt to pick a provider. The core's reason is developer
   // text ("legacy memory backend is unsupported…"), so it is not shown here;
   // degraded and down keep theirs, which names what is wrong.
   const statusBanner = (() => {
+    if (disabled) {
+      return (
+        <Alert variant="info" data-testid="memory-engine-status-disabled">
+          <AlertTitle>{t('memoryPage.disabled.title')}</AlertTitle>
+          <AlertDescription>{t('memoryPage.engine.disabled.banner')}</AlertDescription>
+        </Alert>
+      );
+    }
     if (!on) {
       return (
         <Alert variant="info" data-testid="memory-engine-status-off">
@@ -253,7 +291,7 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
       active={option === active}
       signedIn={signedIn}
       plan={plan}
-      saving={saving}
+      saving={saving === 'disabled' ? null : saving}
       error={errors[option]}
       cloudKey={cloudKey}
       onCloudKey={setCloudKey}
@@ -305,6 +343,9 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
     <div
       className={`@container ${embedded ? 'space-y-5' : 'w-full space-y-6 animate-fade-up'}`}
       data-testid="memory-engine-tab">
+      {/* Onboarding embeds this tab; the announcement is for Memory → Provider only.
+          Keyed by user so the per-user dismissal is re-read on an account switch. */}
+      {!embedded && <MemoryCortexAnnouncement key={snapshot.auth.userId ?? 'signed-out'} />}
       {statusBanner}
 
       {/* Sized like one cell of the coming-soon grid below, not the full width.
@@ -317,6 +358,14 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
           status={status}>
           {selected === 'builtin' ? panel('builtin') : connectedLine(selected)}
         </MemoryCortexCard>
+        {/* Onboarding embeds this tab to pick a provider, not to opt out. */}
+        {!embedded && (
+          <MemoryDisabledCard
+            active={disabled}
+            saving={saving !== null}
+            onDisable={() => void disable()}
+          />
+        )}
       </div>
 
       {dialog && (

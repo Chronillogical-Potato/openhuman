@@ -21,6 +21,8 @@ import {
   parseProductFeatures,
   parseShellForwardedFeatures,
   resolveEnabledFeatures,
+  rpcForwardedGates,
+  SHELL_RPC_LOCAL_GATES,
   stripComments,
 } from '../lib/feature-forwarding.mjs';
 
@@ -62,7 +64,7 @@ default = ["voice"]
 
 test('parses the shell forwarded list across multiple lines', () => {
   const toml = `
-openhuman_core = { path = "../..", package = "openhuman", default-features = false, features = [
+openhuman-rpc = { path = "../openhuman-rpc", default-features = false, features = [
     "media",
     "voice",
 ] }
@@ -74,7 +76,7 @@ openhuman_core = { path = "../..", package = "openhuman", default-features = fal
 });
 
 test('detects when the shell inherits defaults instead of forwarding', () => {
-  const toml = 'openhuman_core = { path = "../..", package = "openhuman" }\n';
+  const toml = 'openhuman-rpc = { path = "../openhuman-rpc" }\n';
   assert.deepEqual(parseShellForwardedFeatures(toml), { defaultFeatures: true, features: [] });
 });
 
@@ -86,7 +88,7 @@ test('comment stripping does not truncate on a # inside a quoted value', () => {
 
 test('a commented-out gate does not count as forwarded', () => {
   const toml = `
-openhuman_core = { path = "../..", package = "openhuman", default-features = false, features = [
+openhuman-rpc = { path = "../openhuman-rpc", default-features = false, features = [
     # "voice",
     "media",
 ] }
@@ -202,6 +204,16 @@ test('a gate the shell forwards but the product does not claim is flagged', () =
   });
   assert.equal(result.ok, false);
   assert.deepEqual(result.unexpected, ['web3']);
+});
+
+test("the shell's openhuman-rpc local gates are not read as unexpected product gates", () => {
+  const result = checkProductForwarding({
+    productFeatures: PRODUCT,
+    coreFeatureNames: CORE_GATES,
+    shell: { defaultFeatures: false, features: ['server', 'http-client', 'jev', 'media', 'voice'] },
+  });
+  assert.ok(result.ok, JSON.stringify(result));
+  assert.deepEqual(Object.keys(SHELL_RPC_LOCAL_GATES).sort(), ['http-client', 'jev', 'server']);
 });
 
 test('a product gate that is not a real core gate is flagged', () => {
@@ -466,7 +478,7 @@ test('reads TOML literal strings, not just basic strings', () => {
   assert.deepEqual(parseCoreFeatureGraph("[features]\ndefault = ['documents']\ndocuments = ['modules']\n").get('documents'), ['modules']);
   assert.deepEqual(
     parseShellForwardedFeatures(
-      "openhuman_core = { path = \"../..\", default-features = false, features = ['voice'] }\n",
+      "openhuman-rpc = { path = \"../openhuman-rpc\", default-features = false, features = ['voice'] }\n",
     ).features,
     ['voice'],
   );
@@ -690,65 +702,61 @@ test('a forward to a gate the crate below no longer has is named as drift', () =
     crate: 'openhuman-cli',
     features: parseFeatureTable(`
 [features]
-default = ["openhuman-core/default"]
-media = ["openhuman-core/media", "openhuman-tinyhumans/media"]
-voice = ["openhuman-core/voice", "openhuman-tinyhumans/voice"]
-e2e-test-support = ["openhuman-core/e2e-test-support"]
+default = ["media"]
+media = ["openhuman-rpc/media"]
+voice = ["openhuman-rpc/voice"]
 `),
-    sources: [
-      coreSource(),
-      // tinyhumans dropped `voice`; the cli still points at it.
-      { crate: 'openhuman-tinyhumans', gates: ['media'], required: false },
-    ],
+    // rpc dropped `voice`; the cli still points at it.
+    sources: [{ crate: 'openhuman-rpc', gates: ['media'], required: true }],
   });
   assert.equal(result.ok, false);
-  assert.deepEqual(result.dangling, [{ gate: 'voice', item: 'openhuman-tinyhumans/voice' }]);
+  assert.deepEqual(result.dangling, [{ gate: 'voice', item: 'openhuman-rpc/voice' }]);
   assert.match(formatChainReport(result), /no longer exists/);
 });
 
-test('the cli must forward to tinyhumans as well where tinyhumans has the gate', () => {
+test('a host forwarding a gate straight to the core is misrouted, not accepted', () => {
+  // The hosts sit on rpc alone: a forward that skips the chain is the edge
+  // `check-crate-chain.mjs` forbids, and this check names it too.
   const result = diffChainForwarding({
     crate: 'openhuman-cli',
     features: parseFeatureTable(`
 [features]
-default = ["openhuman-core/default"]
 media = ["openhuman-core/media"]
-voice = ["openhuman-core/voice"]
-e2e-test-support = ["openhuman-core/e2e-test-support"]
+voice = ["openhuman-rpc/voice"]
 `),
-    sources: [
-      coreSource(),
-      { crate: 'openhuman-tinyhumans', gates: ['media', 'voice'], required: false },
-    ],
+    sources: [{ crate: 'openhuman-rpc', gates: ['media', 'voice'], required: true }],
   });
   assert.equal(result.ok, false);
   assert.deepEqual(
     result.misrouted.map(m => m.expected),
-    ['openhuman-tinyhumans/media', 'openhuman-tinyhumans/voice']
+    ['openhuman-rpc/media']
   );
 });
 
-test('an optional source never demands a gate the crate below it does not have', () => {
-  // `e2e-test-support` is core-only: requiring `openhuman-tinyhumans/e2e-test-support`
-  // would be a forward to a gate that does not exist, i.e. a cargo error.
+test("a host need not forward rpc's own local gates", () => {
+  const rpc = parseFeatureTable(`
+[features]
+default = ["http-client", "server"]
+http-client = ["dep:reqwest"]
+server = ["http-server", "session-store"]
+session-store = []
+http-server = ["openhuman-tinyhumans/http-server"]
+voice = ["openhuman-tinyhumans/voice"]
+`);
+  assert.deepEqual(rpcForwardedGates(rpc), ['http-server', 'voice']);
   const result = diffChainForwarding({
-    crate: 'openhuman-cli',
+    crate: 'openhuman-tui',
     features: parseFeatureTable(`
 [features]
-default = ["openhuman-core/default"]
-media = ["openhuman-core/media", "openhuman-tinyhumans/media"]
-voice = ["openhuman-core/voice", "openhuman-tinyhumans/voice"]
-e2e-test-support = ["openhuman-core/e2e-test-support"]
+http-server = ["openhuman-rpc/http-server"]
+voice = ["openhuman-rpc/voice"]
 `),
-    sources: [
-      coreSource(),
-      { crate: 'openhuman-tinyhumans', gates: ['media', 'voice'], required: false },
-    ],
+    sources: [{ crate: 'openhuman-rpc', gates: rpcForwardedGates(rpc), required: true }],
   });
   assert.ok(result.ok, formatChainReport(result));
 });
 
-test('the checked-in embed, tinyhumans and cli manifests forward the whole chain', () => {
+test('the checked-in embed, tinyhumans, rpc, cli and tui manifests forward the whole chain', () => {
   const read = name => readFileSync(resolve(REPO_ROOT, `crates/${name}/Cargo.toml`), 'utf8');
   const core = parseCoreFeatureNames(
     readFileSync(resolve(REPO_ROOT, 'crates/openhuman-core/Cargo.toml'), 'utf8')
@@ -756,12 +764,16 @@ test('the checked-in embed, tinyhumans and cli manifests forward the whole chain
   const embed = parseFeatureTable(read('openhuman-embed'));
   const tinyhumans = parseFeatureTable(read('openhuman-tinyhumans'));
   const cli = parseFeatureTable(read('openhuman-cli'));
+  const rpc = parseFeatureTable(read('openhuman-rpc'));
+  const tui = parseFeatureTable(read('openhuman-tui'));
   // Guards the guard: empty tables would make every assertion below vacuous.
   assert.ok(core.length > 0, 'expected to parse at least one core gate');
   for (const [name, table] of [
     ['openhuman-embed', embed],
     ['openhuman-tinyhumans', tinyhumans],
     ['openhuman-cli', cli],
+    ['openhuman-rpc', rpc],
+    ['openhuman-tui', tui],
   ]) {
     assert.ok(table.size > 0, `expected to parse features from ${name}`);
   }
@@ -778,12 +790,19 @@ test('the checked-in embed, tinyhumans and cli manifests forward the whole chain
       sources: [{ crate: 'openhuman-embed', gates: gatesOf(embed), required: true }],
     },
     {
+      crate: 'openhuman-rpc',
+      features: rpc,
+      sources: [{ crate: 'openhuman-tinyhumans', gates: gatesOf(tinyhumans), required: true }],
+    },
+    {
       crate: 'openhuman-cli',
       features: cli,
-      sources: [
-        { crate: 'openhuman-core', gates: core, required: true },
-        { crate: 'openhuman-tinyhumans', gates: gatesOf(tinyhumans), required: false },
-      ],
+      sources: [{ crate: 'openhuman-rpc', gates: rpcForwardedGates(rpc), required: true }],
+    },
+    {
+      crate: 'openhuman-tui',
+      features: tui,
+      sources: [{ crate: 'openhuman-rpc', gates: rpcForwardedGates(rpc), required: true }],
     },
   ];
   for (const link of links) {
@@ -795,6 +814,30 @@ test('the checked-in embed, tinyhumans and cli manifests forward the whole chain
     });
     assert.ok(result.ok, formatChainReport(result, { notForwarded }));
   }
+});
+
+test('rpc must forward every tinyhumans gate, jev included, and keep its own gates local', () => {
+  const rpc = parseFeatureTable(`
+[features]
+default = ["http-client", "server"]
+http-client = ["dep:reqwest"]
+server = ["http-server", "dep:axum", "session-store"]
+session-store = ["dep:tinyagents-session"]
+http-server = ["openhuman-tinyhumans/http-server"]
+voice = ["openhuman-tinyhumans/voice"]
+`);
+  const result = diffChainForwarding({
+    crate: 'openhuman-rpc',
+    features: rpc,
+    sources: [
+      { crate: 'openhuman-tinyhumans', gates: ['http-server', 'voice', 'jev'], required: true },
+    ],
+    localGates: CHAIN_LOCAL_GATES['openhuman-rpc'],
+  });
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.missing, [{ gate: 'jev', source: 'openhuman-tinyhumans' }]);
+  assert.deepEqual(result.unknown, [], 'http-client/server/session-store are rpc-local');
+  assert.deepEqual(result.staleLocal, []);
 });
 
 test('every chain allow-list entry carries a reason', () => {
@@ -839,6 +882,8 @@ test('the checker reports the chain and fails when a layer drops a gate', () => 
         embedPath,
         resolve(REPO_ROOT, 'crates/openhuman-tinyhumans/Cargo.toml'),
         resolve(REPO_ROOT, 'crates/openhuman-cli/Cargo.toml'),
+        resolve(REPO_ROOT, 'crates/openhuman-rpc/Cargo.toml'),
+        resolve(REPO_ROOT, 'crates/openhuman-tui/Cargo.toml'),
       ],
       { encoding: 'utf8' }
     );

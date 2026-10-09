@@ -53,6 +53,7 @@ mod policy_denial;
 pub(crate) mod reaper;
 pub(crate) mod reasoning;
 pub(crate) mod replay;
+pub mod response_shape;
 mod routes;
 mod steering_forwarder;
 pub(crate) mod stop_hooks;
@@ -65,6 +66,7 @@ mod turn_policy;
 mod turn_run_error;
 mod turn_run_finalize;
 mod turn_runner;
+mod turn_runner_boxed;
 mod use_skill_dispatch;
 mod verify_before_finish;
 

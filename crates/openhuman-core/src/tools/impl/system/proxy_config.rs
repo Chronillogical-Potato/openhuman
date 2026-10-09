@@ -2,6 +2,7 @@ use crate::config::{
     runtime_proxy_config, set_runtime_proxy_config, Config, ProxyConfig, ProxyScope,
 };
 use crate::security::SecurityPolicy;
+use crate::tools::schema_cache::static_schema;
 use crate::util::MaybeSet;
 use async_trait::async_trait;
 use serde_json::{json, Value};
@@ -27,12 +28,13 @@ impl ProxyConfigTool {
             )
         })?;
 
-        let mut parsed: Config = toml::from_str(&contents).map_err(|error| {
-            anyhow::anyhow!(
-                "Failed to parse config file {}: {error}",
-                self.config.config_path.display()
-            )
-        })?;
+        let mut parsed: Config =
+            crate::config::schema::config_from_toml_str(&contents).map_err(|error| {
+                anyhow::anyhow!(
+                    "Failed to parse config file {}: {error}",
+                    self.config.config_path.display()
+                )
+            })?;
         parsed.config_path = self.config.config_path.clone();
         parsed.workspace_dir = self.config.workspace_dir.clone();
         Ok(parsed)
@@ -320,54 +322,7 @@ impl Tool for ProxyConfigTool {
     }
 
     fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string",
-                    "enum": ["get", "set", "disable", "list_services", "apply_env", "clear_env"],
-                    "default": "get"
-                },
-                "enabled": {
-                    "type": "boolean",
-                    "description": "Enable or disable proxy"
-                },
-                "scope": {
-                    "type": "string",
-                    "description": "Proxy scope: environment | openhuman | services"
-                },
-                "http_proxy": {
-                    "type": ["string", "null"],
-                    "description": "HTTP proxy URL"
-                },
-                "https_proxy": {
-                    "type": ["string", "null"],
-                    "description": "HTTPS proxy URL"
-                },
-                "all_proxy": {
-                    "type": ["string", "null"],
-                    "description": "Fallback proxy URL for all protocols"
-                },
-                "no_proxy": {
-                    "description": "Comma-separated string or array of NO_PROXY entries",
-                    "oneOf": [
-                        {"type": "string"},
-                        {"type": "array", "items": {"type": "string"}}
-                    ]
-                },
-                "services": {
-                    "description": "Comma-separated string or array of service selectors used when scope=services",
-                    "oneOf": [
-                        {"type": "string"},
-                        {"type": "array", "items": {"type": "string"}}
-                    ]
-                },
-                "clear_env": {
-                    "type": "boolean",
-                    "description": "When action=disable, clear process proxy environment variables"
-                }
-            }
-        })
+        static_schema!(include_str!("parameters/proxy_config.json"))
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
@@ -408,3 +363,7 @@ impl Tool for ProxyConfigTool {
 #[cfg(test)]
 #[path = "proxy_config_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "proxy_config_schema_tests.rs"]
+mod schema_tests;

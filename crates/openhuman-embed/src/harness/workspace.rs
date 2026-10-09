@@ -99,7 +99,7 @@ impl ResolvedWorkspace {
     /// Materialize `workspace`, creating directories as needed.
     ///
     /// The layout for the harness-owned variants mirrors
-    /// `crates/openhuman-core/src/bin/library_profile/harness.rs::fixture()`, which is the recipe
+    /// `profile/src/bin/library_profile/harness.rs::fixture()` in openhuman-benchmarks, which is the recipe
     /// already proven against real turns: a `workspace/` for internal state and
     /// a sibling `action/` for the agent's read/write root. Keeping them
     /// siblings rather than nesting matters — `is_workspace_internal_path`

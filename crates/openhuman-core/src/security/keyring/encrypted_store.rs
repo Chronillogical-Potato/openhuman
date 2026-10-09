@@ -27,8 +27,6 @@
 // encryptions always produce `enc2:` (ChaCha20-Poly1305).
 
 use anyhow::{Context, Result};
-use chacha20poly1305::aead::{Aead, KeyInit, OsRng};
-use chacha20poly1305::{AeadCore, ChaCha20Poly1305, Key, Nonce};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -74,21 +72,9 @@ impl SecretStore {
             return Ok(plaintext.to_string());
         }
 
-        let key_bytes = self.load_or_create_key()?;
-        let key = Key::from_slice(&key_bytes);
-        let cipher = ChaCha20Poly1305::new(key);
-
-        let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-        let ciphertext = cipher
-            .encrypt(&nonce, plaintext.as_bytes())
-            .map_err(|e| anyhow::anyhow!("Encryption failed: {e}"))?;
-
-        // Prepend nonce to ciphertext for storage
-        let mut blob = Vec::with_capacity(NONCE_LEN + ciphertext.len());
-        blob.extend_from_slice(&nonce);
-        blob.extend_from_slice(&ciphertext);
-
-        Ok(format!("enc2:{}", hex_encode(&blob)))
+        let key = self.cipher_key()?;
+        tinystoragedrivers::secrets::crypto::encrypt_enc2(&key, plaintext.as_bytes())
+            .map_err(|e| anyhow::anyhow!("Encryption failed: {e}"))
     }
 
     /// Decrypt a secret.
@@ -148,19 +134,24 @@ impl SecretStore {
             blob.len() > NONCE_LEN,
             "Encrypted value too short (missing nonce)"
         );
-
-        let (nonce_bytes, ciphertext) = blob.split_at(NONCE_LEN);
-        let nonce = Nonce::from_slice(nonce_bytes);
-        let key_bytes = self.load_or_create_key()?;
-        let key = Key::from_slice(&key_bytes);
-        let cipher = ChaCha20Poly1305::new(key);
-
-        let plaintext_bytes = cipher
-            .decrypt(nonce, ciphertext)
+        let key = self.cipher_key()?;
+        let plaintext_bytes = tinystoragedrivers::secrets::crypto::decrypt(&key, &blob)
             .map_err(|_| anyhow::anyhow!("Decryption failed — wrong key or tampered data"))?;
 
-        String::from_utf8(plaintext_bytes)
+        String::from_utf8(plaintext_bytes.to_vec())
             .context("Decrypted secret is not valid UTF-8 — corrupt data")
+    }
+
+    /// The config encryption key as the fixed-size array the cipher takes.
+    fn cipher_key(&self) -> Result<Zeroizing<[u8; KEY_LEN]>> {
+        let bytes = self.load_or_create_key()?;
+        let key: [u8; KEY_LEN] = bytes.as_slice().try_into().map_err(|_| {
+            anyhow::anyhow!(
+                "config encryption key is {} bytes, expected {KEY_LEN}",
+                bytes.len()
+            )
+        })?;
+        Ok(Zeroizing::new(key))
     }
 
     /// Decrypt using legacy XOR cipher (insecure, for backward compatibility only).
