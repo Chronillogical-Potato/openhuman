@@ -560,7 +560,7 @@ fn release_all_closes_every_router_and_the_log_stays_replayable() {
 
     assert!(release_all() >= 1);
     assert!(
-        state().routers.get(w).is_none(),
+        !state().routers.contains_key(w),
         "the router (and its log handle) is dropped"
     );
     assert!(
