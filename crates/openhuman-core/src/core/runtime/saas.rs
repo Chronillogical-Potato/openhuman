@@ -268,6 +268,16 @@ pub async fn build(
         builder = builder.port(port);
     }
     let runtime = builder.build().await?;
+    // Built-in agent definitions only. The registry is process-wide and the
+    // first initialiser wins, so seeding it here also stops a lazy init from
+    // loading one user's workspace definitions for everyone.
+    crate::agent::harness::AgentDefinitionRegistry::init_global_builtins()?;
+    log::info!(
+        "[saas] agent definitions: {} built-in(s), no workspace or home overrides",
+        crate::agent::harness::AgentDefinitionRegistry::global()
+            .map(|r| r.len())
+            .unwrap_or(0)
+    );
     let host = Arc::new(crate::user_agents::AgentHost::new(
         config,
         runtime.context().clone(),
