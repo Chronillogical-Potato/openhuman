@@ -148,15 +148,7 @@ impl RuntimeBuilder {
         // applicator, so host policy follows the effective behaviour: only a
         // *usable* runtime-default route exempts an inherited install from
         // its session gate. An API key is a credential in its own right.
-        // Discovered has no config yet, but the provider is applied to the
-        // agents' base config after boot (see below), so judge it by the
-        // model it carries itself.
-        let routed_provider_effective = self.provider.has_usable_route()
-            && match config.as_ref() {
-                Some(config) => config.default_model.as_deref(),
-                None => self.provider.model_id(),
-            }
-            .is_some_and(|model| !model.trim().is_empty());
+        let routed_provider_effective = routed_provider_effective(&self.provider, config.as_ref());
         let host_kind = effective_host_kind(
             self.host_kind,
             inherit,
@@ -318,6 +310,22 @@ async fn discovered_base_config() -> (Config, Option<String>) {
             (Config::default(), Some(format!("{error:#}")))
         }
     }
+}
+
+/// Whether the runtime-default provider route would actually take effect. An
+/// endpoint without a model is deliberately ignored by the route applicator,
+/// so host policy follows the effective behaviour: only a usable route with a
+/// model exempts an inherited install from its session gate. A
+/// [`ConfigSource::Discovered`] build has no config yet (`None`), but the
+/// provider is applied to the agents' base config after boot, so it is judged
+/// by the model it carries itself.
+pub(super) fn routed_provider_effective(provider: &Provider, config: Option<&Config>) -> bool {
+    provider.has_usable_route()
+        && match config {
+            Some(config) => config.default_model.as_deref(),
+            None => provider.model_id(),
+        }
+        .is_some_and(|model| !model.trim().is_empty())
 }
 
 fn store_api_key(config: &Config, key: &ApiKey) -> Result<(), RuntimeError> {
