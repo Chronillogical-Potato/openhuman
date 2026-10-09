@@ -265,7 +265,7 @@ impl EventHandler<DomainEvent> for FlowTriggerSubscriber {
                 payload,
                 ..
             } => {
-                crate::storage::agents::for_each_scope("flows app_event", || {
+                crate::storage::agents::for_each_live_scope("flows app_event", || {
                     self.handle_app_event(toolkit, trigger, payload)
                 })
                 .await;

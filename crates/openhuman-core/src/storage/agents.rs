@@ -159,10 +159,17 @@ fn contexts_in(
 }
 
 /// The context to act for `agent` under: its live context when one exists,
-/// else the current context acting for it (`CoreContext::for_agent`).
+/// else — outside SaaS mode — the current context acting for it
+/// (`CoreContext::for_agent`).
 pub fn context_for(agent: &str) -> Option<Arc<CoreContext>> {
-    AgentContextRegistry::get(agent)
-        .or_else(|| CoreContext::current().map(|current| current.for_agent(agent)))
+    AgentContextRegistry::get(agent).or_else(|| {
+        // SaaS acts only through a user's own live context: a copy of the
+        // operator's would carry the wrong configuration.
+        if crate::core::runtime::mode::is_saas() {
+            return None;
+        }
+        CoreContext::current().map(|current| current.for_agent(agent))
+    })
 }
 
 /// Runs `fut` acting for `agent` when there is one — background work that
@@ -225,10 +232,46 @@ where
     if installed().is_none() {
         return Vec::new();
     }
+    visit(label, contexts(), step).await
+}
+
+/// [`for_each_scope`], visiting only live agents (`AgentContextRegistry`):
+/// for work that acts as the agent — runs its flows, fetches with its
+/// connections — and so needs the agent's own configuration and tools, which
+/// a recorded agent's stand-in context (`CoreContext::for_agent`) lacks.
+pub async fn for_each_live_scope<T, F, Fut>(label: &str, step: F) -> Vec<(Option<String>, T)>
+where
+    F: Fn() -> Fut,
+    Fut: Future<Output = T>,
+{
     let mut results = Vec::new();
-    for (agent, context) in contexts() {
+    if !crate::core::runtime::mode::is_saas() {
+        results.push((None, step().await));
+    }
+    if installed().is_none() {
+        return results;
+    }
+    for (agent, value) in visit(label, AgentContextRegistry::live(), step).await {
+        results.push((Some(agent), value));
+    }
+    results
+}
+
+/// Runs `step` under each of `contexts`, building each step inside its
+/// agent's scope, so anything it reads while being set up is the agent's.
+async fn visit<T, F, Fut>(
+    label: &str,
+    contexts: Vec<(String, Arc<CoreContext>)>,
+    step: F,
+) -> Vec<(String, T)>
+where
+    F: Fn() -> Fut,
+    Fut: Future<Output = T>,
+{
+    let mut results = Vec::new();
+    for (agent, context) in contexts {
         tracing::trace!(%agent, label, "[storage::agents] visiting agent scope");
-        let value = CoreContext::scope(context, step()).await;
+        let value = CoreContext::scope(context, async { step().await }).await;
         results.push((agent, value));
     }
     results

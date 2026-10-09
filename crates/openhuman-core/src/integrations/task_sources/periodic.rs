@@ -101,7 +101,7 @@ async fn run_loop() {
         // `local`, then every agent that keeps its sources in its own storage
         // scope (`crate::storage::agents`).
         for (agent, result) in
-            crate::storage::agents::for_each_scope("task_sources", run_one_tick).await
+            crate::storage::agents::for_each_live_scope("task_sources", run_one_tick).await
         {
             if let Err(e) = result {
                 tracing::warn!(error = %e, agent = agent.as_deref().unwrap_or("local"), "[task_sources:periodic] tick failed (continuing)");
