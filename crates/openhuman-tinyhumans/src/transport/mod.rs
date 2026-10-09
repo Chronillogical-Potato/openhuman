@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use openhuman_embed::__host::backend::{
+use openhuman_embed::{
     BackendRequest, BackendTransport, BackendTransportError, BaseUrlPurpose, TransportProfile,
 };
 use openhuman_embed::__host::security::credentials::session_support::BackendCredential;

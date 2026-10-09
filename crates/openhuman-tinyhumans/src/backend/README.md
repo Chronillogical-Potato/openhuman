@@ -4,7 +4,7 @@ Everything host-specific about reaching the TinyHumans backend: where it is,
 how requests are attributed, and which product they are attributed to. The
 core holds none of this. It asks the installed `BackendTransport`
 (`SdkBackendTransport` in [`../transport/`](../transport/README.md)) through
-`openhuman_embed::__host::backend::{base_url, inference_base_url, product_identity,
+the core's `backend::{base_url, inference_base_url, product_identity,
 attribution_headers}`, and the transport answers from the three files here.
 
 ## How it works
