@@ -129,8 +129,7 @@ override reaches them.
 
 ## Tests
 
-`builder_tests.rs` and `mod_tests.rs` (when present) sit beside their
-modules; the end-to-end suites in [`../../tests/`](../../tests/README.md)
+`builder_tests.rs` and `api_key_tests.rs` sit beside their modules; the end-to-end suites in [`../../tests/`](../../tests/README.md)
 build real runtimes.
 
 ```bash
