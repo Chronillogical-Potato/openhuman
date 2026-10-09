@@ -33,6 +33,7 @@ fn inputs<'a>(f: &'a Fixture, env: &'a [(String, String)]) -> BootInputs<'a> {
         token: &f.token,
         env,
         home: Some(PathBuf::from("/home/nobody")),
+        sandbox_available: false,
     }
 }
 
@@ -153,13 +154,55 @@ fn a_shared_backend_key_needs_the_operator_opt_in() {
 }
 
 #[test]
-fn allowlists_are_refused_until_their_isolation_ships() {
+fn unknown_tool_groups_and_rpc_extras_are_refused() {
     let mut f = fixture();
     f.config.tool_allowlist = vec!["coding".into()];
     f.config.rpc_allowlist_extra = vec!["config.get_config".into()];
     let found = violations(&inputs(&f, &[]));
     assert!(found.contains(&Violation::ToolAllowlist(vec!["coding".into()])));
     assert!(found.contains(&Violation::RpcAllowlist(vec!["config.get_config".into()])));
+}
+
+#[test]
+fn known_tool_groups_are_accepted() {
+    let mut f = fixture();
+    f.config.tool_allowlist = vec!["host_files".into()];
+    assert_eq!(check(&inputs(&f, &[])), Ok(()));
+}
+
+#[test]
+fn host_shell_needs_a_working_sandbox() {
+    let mut f = fixture();
+    f.config.tool_allowlist = vec!["host_shell".into()];
+    let found = violations(&inputs(&f, &[]));
+    assert!(
+        matches!(&found[..], [Violation::Sandbox(why)] if why.contains("Docker")),
+        "{found:?}"
+    );
+
+    let mut i = inputs(&f, &[]);
+    i.sandbox_available = true;
+    assert_eq!(check(&i), Ok(()));
+}
+
+#[test]
+fn a_sandbox_on_the_host_network_is_refused() {
+    let mut f = fixture();
+    f.config.tool_allowlist = vec!["host_shell".into()];
+    f.config.sandbox.network = "host".into();
+    f.config.sandbox.memory_limit_mb = 0;
+    let mut i = inputs(&f, &[]);
+    i.sandbox_available = true;
+    let found = violations(&i);
+    assert_eq!(found.len(), 2, "{found:?}");
+    assert!(found.iter().all(|v| matches!(v, Violation::Sandbox(_))));
+}
+
+#[test]
+fn the_sandbox_is_not_checked_without_host_shell() {
+    let mut f = fixture();
+    f.config.sandbox.network = "host".into();
+    assert_eq!(check(&inputs(&f, &[])), Ok(()));
 }
 
 #[test]
