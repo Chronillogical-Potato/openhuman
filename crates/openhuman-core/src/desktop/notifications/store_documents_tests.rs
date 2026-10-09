@@ -177,7 +177,7 @@ fn core_notifications_persist_once_and_mark_read() {
         ["b", "a"]
     );
     assert_eq!(all[0], event("b", 2));
-    assert_eq!(store.unread_core_notification_count(WS, WS).unwrap(), 2);
+    assert_eq!(store.unread_core_notification_count(WS).unwrap(), 2);
     assert!(store.mark_core_notification_read(WS, "b").unwrap());
     assert!(
         store.mark_core_notification_read(WS, "b").unwrap(),
@@ -189,7 +189,7 @@ fn core_notifications_persist_once_and_mark_read() {
         unread.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(),
         ["a"]
     );
-    assert_eq!(store.unread_core_notification_count(WS, WS).unwrap(), 1);
+    assert_eq!(store.unread_core_notification_count(WS).unwrap(), 1);
     assert!(store.list_core_notifications(WS, false, 0).unwrap().is_empty());
 }
 
@@ -203,7 +203,7 @@ fn a_corrupt_core_payload_is_skipped() {
             docs.put(
                 CORE,
                 "bad",
-                json!({ "payload": "not json", "timestamp_ms": 2, "read": false }),
+                json!({ "workspace": WS, "payload": "not json", "timestamp_ms": 2, "read": false }),
                 Precondition::Absent,
             )
             .await
