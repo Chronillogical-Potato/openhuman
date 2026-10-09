@@ -52,7 +52,7 @@ backend, execute.
   `OPENHUMAN_SANDBOX` (`SANDBOX_OFF_ENV`) to `off`, `none`, `0`, `false` or
   `disabled`, case-insensitive. This is for hosts that already isolate the
   core (a container, a CI or benchmark image, a VM), where the outer isolation
-  permits work such as package installs or [`/etc`](.//etc) edits that the action-dir
+  permits work such as package installs or `/etc` edits that the action-dir
   jail would refuse.
 
 The rest of the policy follows from that. `workspace_root` is the action dir
@@ -84,7 +84,7 @@ user's project:
   command is wrapped to redirect its output into these files, because some
   backends (macOS Seatbelt) rebuild the command and drop piped stdio.
 - `sandbox_scratch_root(state_dir)/<uuid>/`, exported as `TMPDIR`, `TEMP` and
-  `TMP` unless the caller set them. [`/tmp`](.//tmp) is not granted, so this is where
+  `TMP` unless the caller set them. `/tmp` is not granted, so this is where
   `mktemp`, compilers and package managers write.
 
 Both are granted read-write for that spawn only and are removed on drop
@@ -101,10 +101,10 @@ controlled by `[runtime.local_jail]` (`LocalJailConfig`):
 | --- | --- | --- |
 | `~/.cargo/bin`, `~/.cargo/{config.toml,config,env}` | read-only | `toolchain_homes`, when present |
 | `~/.cargo/registry`, `~/.cargo/git` | read-write | `toolchain_homes`, when present |
-| `~/.rustup`, `~/.nvm`, `~/.npm`, [`/usr/local`](.//usr/local), [`/opt`](.//opt) | read-only | `toolchain_homes`, when present |
+| `~/.rustup`, `~/.nvm`, `~/.npm`, `/usr/local`, `/opt` | read-only | `toolchain_homes`, when present |
 | git config files and their `include` targets (canonicalized, depth 8) | read-only | `toolchain_homes`, when present |
 | `extra_read_only`, `extra_read_write` | as listed | always, subject to the floor |
-| [`/proc`](.//proc) | read-only | only with `allow_proc = true` (default off) |
+| `/proc` | read-only | only with `allow_proc = true` (default off) |
 
 The credential floor applies to every grant: any path that
 `SecurityPolicy::is_always_forbidden` rejects, or that is a parent of a
@@ -119,12 +119,12 @@ environment.
 it with `DockerCli::run_one_shot`. The container is `docker run --rm` with the
 host action dir mounted read-write at `/workspace`, network `none` by default,
 `--cap-drop ALL` plus any extra drops, `--security-opt no-new-privileges`, a
-read-only rootfs with [`/tmp`](.//tmp) and [`/var/tmp`](.//var/tmp) tmpfs mounts, memory and CPU
+read-only rootfs with `/tmp` and `/var/tmp` tmpfs mounts, memory and CPU
 limits (512 MB and 1 CPU by default), and only the passthrough env plus the
 request's env. Containers carry the label `openhuman.sandbox=true` so
 `cleanup_orphaned_containers` can kill leftovers. `validate_docker_policy`
-rejects host networking and a mount or workspace root of `/`, [`/etc`](.//etc),
-[`/proc`](.//proc), [`/sys`](.//sys) or the Docker socket.
+rejects host networking and a mount or workspace root of `/`, `/etc`,
+`/proc`, `/sys` or the Docker socket.
 
 ### Backend status
 

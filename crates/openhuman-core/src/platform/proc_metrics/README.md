@@ -8,7 +8,7 @@ figures.
 
 | File | Role |
 | --- | --- |
-| `crates/openhuman-core/src/platform/proc_metrics/mod.rs` | `ProcSample`, `sample_self`, [`/proc`](.//proc) parsers, and roster/report aggregation. |
+| `crates/openhuman-core/src/platform/proc_metrics/mod.rs` | `ProcSample`, `sample_self`, `/proc` parsers, and roster/report aggregation. |
 | `crates/openhuman-core/src/platform/proc_metrics/tree.rs` | `sample_tree`, `ChildSample`, `TreeSample`: process-*tree* RSS including descendants. |
 
 ## `ProcSample`
@@ -19,11 +19,11 @@ RSS), `threads`, `binary_size_bytes`, `cpu_user_ms` / `cpu_system_ms`, and
 `open_fds` (`None` when the platform lookup is unavailable, never a
 misleading zero).
 
-`sample_self` supports Linux ([`/proc/self/status`](.//proc/self/status) + [`/proc/self/smaps_rollup`](.//proc/self/smaps_rollup)
-+ [`/proc/self/stat`](.//proc/self/stat)) and macOS (`proc_pidinfo` / `proc_pid_rusage`); it
+`sample_self` supports Linux (`/proc/self/status` + `/proc/self/smaps_rollup`
++ `/proc/self/stat`) and macOS (`proc_pidinfo` / `proc_pid_rusage`); it
 returns a structured `anyhow::Result` error elsewhere rather than fabricating
 a reading. `parse_status` and `parse_smaps_rollup` are OS-agnostic, take
-`&str`, and are unit-tested against literal [`/proc`](.//proc) text without a live
+`&str`, and are unit-tested against literal `/proc` text without a live
 filesystem.
 
 ## Aggregation

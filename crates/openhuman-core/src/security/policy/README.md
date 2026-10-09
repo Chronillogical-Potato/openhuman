@@ -88,10 +88,10 @@ Each of these must not be weakened to make a feature work:
 - `is_always_forbidden` (`path_checks.rs`) does a case-insensitive,
   segment-based match against `SENSITIVE_COMPONENTS` (`.ssh`, `.gnupg`,
   `.aws`, `.azure`, `.kube`, `keychains`, Windows DPAPI dirs) plus a prefix
-  match against `SYSTEM_PREFIXES` ([`/etc`](.//etc), [`/root`](.//root), [`/boot`](.//boot), [`/proc`](.//proc), [`/sys`](.//sys),
+  match against `SYSTEM_PREFIXES` (`/etc`, `/root`, `/boot`, `/proc`, `/sys`,
   `/system`, `C:\Windows`, `C:\Program Files[  (x86)]`, `C:\ProgramData`).
   It is unconditional; a `trusted_root` grant can never reach these paths.
-  Gray-area directories ([`/usr`](.//usr), [`/opt`](.//opt), [`/var`](.//var), `~/Library`) deliberately
+  Gray-area directories (`/usr`, `/opt`, `/var`, `~/Library`) deliberately
   stay in the user-overridable `forbidden_paths` list instead, so a grant can
   still reach, for example, `/usr/local/...`.
 - `classify_command`'s fail-closed floor ([`command_checks.rs`](./command_checks.rs)): a

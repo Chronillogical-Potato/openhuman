@@ -24,7 +24,7 @@ and policy, so it also injects the default trusted roots: the projects home
 (`~/OpenHuman/projects`) as read-write, the configured `action_dir` as
 read-write (skipped when the action dir sits at or above `workspace_dir`), the
 tool-result artifacts directory as read-only, and the namespaced scratch dir
-([`/tmp/openhuman`](.//tmp/openhuman), never [`/tmp`](.//tmp) itself) as read-write.
+(`/tmp/openhuman`, never `/tmp` itself) as read-write.
 
 The policy is off by default. `AutonomyConfig::enabled`
 (`config/schema/autonomy.rs`) defaults to `false`, and `from_config` copies it
@@ -61,7 +61,7 @@ and hold in every configuration:
   matched by path segment, case-insensitively: `.ssh`, `.gnupg`, `.aws`,
   `.azure`, `.kube`, `keychains`, and the Windows pairs
   `Microsoft\{Protect,Credentials,Crypto,Vault}`. System roots are matched by
-  absolute prefix: [`/etc`](.//etc), [`/root`](.//root), [`/boot`](.//boot), [`/proc`](.//proc), [`/sys`](.//sys), `/system`,
+  absolute prefix: `/etc`, `/root`, `/boot`, `/proc`, `/sys`, `/system`,
   `C:\Windows`, `C:\Program Files`, `C:\Program Files (x86)`,
   `C:\ProgramData`. A trusted-root grant cannot reach these either, and the
   per-turn workspace grant is checked after this test, so it cannot either.

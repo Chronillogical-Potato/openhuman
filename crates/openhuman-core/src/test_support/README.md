@@ -78,7 +78,7 @@ reads inside the workspace:
 
 1. A lexical component walk rejects `..` and any root or prefix component
    (`C:\`, `\\?\`) before touching the filesystem. `./` is allowed.
-2. The workspace root is canonicalized (on macOS [`/var`](.//var) resolves to
+2. The workspace root is canonicalized (on macOS `/var` resolves to
    `/private/var`), the relative path is joined onto it, and the candidate is
    canonicalized and checked with `starts_with`. This second step catches a
    symlink pointing out of the workspace, which the lexical walk cannot see.
