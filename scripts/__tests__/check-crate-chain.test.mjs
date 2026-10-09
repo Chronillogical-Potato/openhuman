@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
@@ -182,6 +182,4 @@ test('the real repository passes through the CLI', () => {
   const result = spawnSync('node', [CHECKER], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.match(result.stdout, /OK: every crate depends only on the layer below it/);
-  // Unused import guard for cpSync in older Node lint configs.
-  assert.equal(typeof cpSync, 'function');
 });
