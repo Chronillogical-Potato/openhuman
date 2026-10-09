@@ -8,7 +8,7 @@ use crate::config::rpc as config_rpc;
 use crate::core::all::ControllerFuture;
 use crate::integrations::composio::{ops, providers};
 
-use super::util::{read_optional, read_required, read_required_non_empty, to_json};
+use super::util::{read_required, read_required_non_empty, to_json};
 
 pub(super) fn handle_get_user_profile(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
@@ -22,15 +22,6 @@ pub(super) fn handle_refresh_all_identities(_params: Map<String, Value>) -> Cont
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         to_json(ops::composio_refresh_all_identities(&config).await?)
-    })
-}
-
-pub(super) fn handle_sync(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let config = config_rpc::load_config_with_timeout().await?;
-        let connection_id = read_required_non_empty(&params, "connection_id")?;
-        let reason = read_optional::<String>(&params, "reason")?;
-        to_json(ops::composio_sync(&config, &connection_id, reason).await?)
     })
 }
 

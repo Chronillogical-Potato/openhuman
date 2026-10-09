@@ -368,11 +368,13 @@ impl OpenhumanEventBridge {
         // estimate precedence, so credit-metered backends surface real billing
         // rather than a token-rate estimate).
         let estimate = Self::estimate_call_cost(&self.model, usage);
-        let call_cost = carried
+        let provider_cost = carried
             .as_ref()
+            .filter(|u| !u.cost_is_estimate)
             .map(|u| u.charged_amount_usd)
-            .filter(|c| c.is_finite() && *c > 0.0)
-            .unwrap_or(estimate);
+            .filter(|c| c.is_finite() && *c > 0.0);
+        let cost_is_estimate = provider_cost.is_none();
+        let call_cost = provider_cost.unwrap_or(estimate);
         // The context window + cache-creation/reasoning breakdown only exist on
         // the carried provider usage (the crate `Usage` mapping drops them); fall
         // back to the catalogue window and the crate token counts when absent.
@@ -400,7 +402,7 @@ impl OpenhumanEventBridge {
             iteration,
             charged_from_provider = carried
                 .as_ref()
-                .map(|u| u.charged_amount_usd > 0.0)
+                .map(|u| !u.cost_is_estimate && u.charged_amount_usd > 0.0)
                 .unwrap_or(false),
             call_cost,
             context_window,
@@ -441,8 +443,12 @@ impl OpenhumanEventBridge {
             .with_context_window(context_window)
             .with_cached_input_tokens(usage.cache_read_tokens)
             .with_cache_creation_tokens(cache_creation_tokens)
-            .with_reasoning_tokens(reasoning_tokens)
-            .with_charged_usd(call_cost);
+            .with_reasoning_tokens(reasoning_tokens);
+        let usage_info = if cost_is_estimate {
+            usage_info.with_estimated_usd(call_cost)
+        } else {
+            usage_info.with_charged_usd(call_cost)
+        };
         if reasoning_tokens > 0 || cache_creation_tokens > 0 {
             log::debug!(
                 "[cost] recording reasoning/cache-creation tokens model={} reasoning_tokens={} cache_creation_tokens={}",
@@ -451,7 +457,15 @@ impl OpenhumanEventBridge {
                 cache_creation_tokens
             );
         }
-        crate::platform::cost::record_provider_usage(&self.model, &usage_info);
+        let subagent = self
+            .scope
+            .as_ref()
+            .map(|child| (child.agent_id.as_str(), child.task_id.as_str()));
+        crate::platform::cost::record_provider_usage_scoped(
+            &self.model,
+            &usage_info,
+            crate::platform::cost::UsageScope::ambient(Some(&self.provider_id), subagent),
+        );
 
         // The cost footer is a top-level surface; for a child run the global
         // cost tracker feed above is the authoritative accounting and the parent

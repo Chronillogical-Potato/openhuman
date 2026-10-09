@@ -33,12 +33,12 @@ Inside it, the things you care about migrating:
 | What                                                   | Where (inside the data folder)                | Travels with a folder copy?       |
 | ------------------------------------------------------ | --------------------------------------------- | --------------------------------- |
 | **Memory items**                                       | In your engine (TinyHumans or CortexDB)       | Sign in again / re-enter the key  |
-| **Persona & behavior**                                 | `SOUL.md`, `IDENTITY.md`, `ROLE.md`           | ✅ Yes                            |
-| **Config** (models, providers, routing, autonomy)      | `config.toml`                                 | ✅ Yes                            |
-| **Session history**                                    | `sessions/`, `session_raw/`                   | ✅ Yes                            |
-| **Approval history**                                   | `approval/approval.db`                        | ✅ Yes                            |
-| **OS-stored secrets** (session token, some local keys) | Your OS keychain, **not** in this folder      | ❌ No (re-established on sign-in) |
-| **Integration access** (Gmail, Slack, …)               | Brokered by the backend, tied to your account | ❌ No (reconnects on sign-in)     |
+| **Persona & behavior**                                 | `SOUL.md`, `IDENTITY.md`, `ROLE.md`           | Yes                               |
+| **Config** (models, providers, routing, autonomy)      | `config.toml`                                 | Yes                               |
+| **Session history**                                    | `sessions/`, `session_raw/`                   | Yes                               |
+| **Approval history**                                   | `approval/approval.db`                        | Yes                               |
+| **OS-stored secrets** (session token, some local keys) | Your OS keychain, **not** in this folder      | No (re-established on sign-in)    |
+| **Integration access** (Gmail, Slack, …)               | Brokered by the backend, tied to your account | No (reconnects on sign-in)        |
 
 {% hint style="info" %}
 **Why some things don't travel, and why that's fine.** OpenHuman deliberately keeps secrets out of loose files. Your session token and certain local secrets live in the operating system's secure store (Keychain / Credential Manager / Secret Service), and your integration tokens are held by the backend against your account. So the folder copy carries your _data and persona_; **signing in on the new machine re-establishes the secrets and integrations.** You never hand-copy raw tokens between machines.
@@ -118,3 +118,5 @@ The migration worked when:
 
 - [Recover from a failed installation](recover-failed-installation.md): same data folder, different problem.
 - [Keep sensitive data private](privacy-sensitive-data.md): why secrets are stored the way they are.
+- [Use OpenHuman with a local model](local-model.md): re-standing-up a runtime on the new machine.
+- [OS Keyring & Secret Storage](../features/os-keyring-and-secret-storage.md): what the keychain holds instead of the folder.

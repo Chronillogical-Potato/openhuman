@@ -88,8 +88,10 @@ pub mod agent_progress {
 mod agent;
 mod auth;
 mod call;
+pub mod complete;
 mod config;
 mod core_agent;
+pub mod embeddings;
 mod error;
 mod harness;
 pub mod memory;
@@ -135,6 +137,10 @@ pub mod session_store {
     /// The error and result the key-value and journal seams return.
     pub use tinyagents_session::{Result as StoreResult, TinyAgentsError as StoreError};
 }
+pub use complete::{
+    ChatMessage, Completer, CompletionObserver, CompletionRequest, CompletionResponse,
+    CompletionTrace, CompletionUsage,
+};
 pub use session_store::{InMemorySessionStores, SessionStoreProvider};
 pub use turn::{absolute, Route, Turn, TurnOutcome, TurnRequest};
 

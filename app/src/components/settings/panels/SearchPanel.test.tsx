@@ -379,6 +379,24 @@ describe('SearchPanel — connected providers', () => {
   });
 });
 
+describe('SearchPanel — wizard chrome', () => {
+  test('Connected group cites the Routing tab normally', async () => {
+    await renderPanel();
+    expect(screen.getByTestId('search-providers')).toHaveTextContent(
+      'settings.search.connectedDesc'
+    );
+  });
+
+  // The copy points at a Routing tab the onboarding wizard hides.
+  test('Connected group carries no description when the tab chrome is hidden', async () => {
+    renderWithProviders(<SearchPanel embedded hideTabChrome />);
+    await screen.findByTestId('search-providers');
+    expect(screen.getByTestId('search-providers')).not.toHaveTextContent(
+      'settings.search.connectedDesc'
+    );
+  });
+});
+
 describe('SearchPanel — add a provider', () => {
   const withTinyFish = () =>
     settings({

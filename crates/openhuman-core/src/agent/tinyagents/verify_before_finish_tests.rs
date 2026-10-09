@@ -138,7 +138,38 @@ fn check_is_a_harness_instruction_that_names_the_spec_rules() {
         "check both readings",
         "equivalent paths or workflows",
         "outcomes, notifications and state changes",
+        // A check's own leftovers can fail the request: asked for a single
+        // polyglot source file, an agent compiled it to verify the C path and
+        // left `cmain` beside it. Asked to replace secrets in a repository's
+        // files, another also rewrote its history, and the check that diffed
+        // against the original commit found it gone.
+        "not as your checks left it",
+        "remove what your checks created",
+        "compiled binaries",
+        "exactly what was asked for, no more",
+        "irreversible change the request did not ask for",
+        "rewriting history",
+        "say so in your answer instead of making it",
         "re-run the affected checks",
+        // The verifier of a filter fed adversarial HTML the agent had never
+        // tried; a classifier was graded on images it had not seen; a
+        // weight-matrix recovery was declared done with a third of the rows
+        // checked against an oracle it could query at will.
+        "inputs you have not seen",
+        "adversarial ones for anything that filters or validates",
+        "check every part of the result against it, not a sample",
+        // The request's allowed-command list said `:wq`; the agent wrote `wq`
+        // and ticked the box. A query had a reference time to meet; the agent
+        // measured against the original instead.
+        "exact interface the request names",
+        "allowed or forbidden elements where a list is given",
+        "state the measured value",
+        "stop exploring and",
+        "Once every check the contract names passes",
+        "named test still failing or never run",
+        "make the result satisfy both and test each",
+        "let the evidence decide in this order",
+        "the prose label last",
     ] {
         assert!(check.contains(needle), "check must mention `{needle}`");
     }

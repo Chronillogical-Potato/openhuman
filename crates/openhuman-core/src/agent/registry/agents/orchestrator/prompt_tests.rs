@@ -39,6 +39,26 @@ fn render_installed_skills_lists_skills_and_names_the_hand_offs_it_is_given() {
     // than again in every skills section.
     assert!(!out.contains("Handoff Plan"));
     assert!(ARCHETYPE.contains("Act on a returned `## Handoff Plan` yourself"));
+    assert!(
+        ARCHETYPE.contains("Think in the workspace, not in your head")
+            && ARCHETYPE.contains("goes into a scratch file or a small program as you go"),
+        "the think-in-the-workspace rule is part of the archetype"
+    );
+    assert!(
+        ARCHETYPE.contains("is tested, not argued")
+            && ARCHETYPE.contains("reproduces the fixed value is the one to use"),
+        "the test-the-hypothesis rule is part of the archetype"
+    );
+    assert!(
+        ARCHETYPE.contains("write down the acceptance contract")
+            && ARCHETYPE.contains("source of truth over any metric of your own"),
+        "the contract-first rule is part of the archetype"
+    );
+    assert!(
+        ARCHETYPE.contains("implement so that every reading is satisfied")
+            && ARCHETYPE.contains("let the evidence decide in this order"),
+        "the satisfy-every-reading rule is part of the archetype"
+    );
     assert!(out.contains("- **ascii-art**: ASCII art via pyfiglet"));
     assert!(out.contains("- **no-dir**: (no description)"));
 

@@ -19,6 +19,7 @@
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 
+import { useManagedInferenceAvailable } from '../../../../hooks/useLocalSession';
 import { useT } from '../../../../lib/i18n/I18nContext';
 import type { ProviderAuthError } from '../../../../services/api/aiSettingsApi';
 import Alert, { AlertDescription } from '../../../ui/Alert';
@@ -106,6 +107,7 @@ export const ProviderAuthSection = ({
   onEditCustomProvider,
   addOpen: controlledAddOpen,
   onAddOpenChange,
+  hideAddButton = false,
 }: {
   draft: AISettings;
   persist: (next: AISettings) => Promise<void>;
@@ -139,8 +141,17 @@ export const ProviderAuthSection = ({
    */
   addOpen?: boolean;
   onAddOpenChange?: (open: boolean) => void;
+  /**
+   * Hide the standalone "Add a provider" button.
+   *
+   * The onboarding wizard renders the provider catalog inline, so the button
+   * opened a dialog onto a list already on screen — two ways to do one thing,
+   * and the loudest control on a step whose primary action is Continue.
+   */
+  hideAddButton?: boolean;
 }) => {
   const { t } = useT();
+  const managedAvailable = useManagedInferenceAvailable();
   const [localAddOpen, setLocalAddOpen] = useState(false);
   const hostControlsAdd = controlledAddOpen !== undefined;
   const addOpen = controlledAddOpen ?? localAddOpen;
@@ -164,10 +175,19 @@ export const ProviderAuthSection = ({
 
   const bySlug = (slug: string) => draft.cloudProviders.find(cp => cp.slug === slug);
   const connectedCloud = BUILTIN_CLOUD_PROVIDER_SLUGS.filter(slug => bySlug(slug));
+
   const connectedLocal = LOCAL_RUNTIME_SLUGS.filter(slug => bySlug(slug));
   const customProviders = draft.cloudProviders.filter(
     cp => !BUILTIN_RESERVED_SLUGS.includes(cp.slug)
   );
+  // An empty "Connected" card is a heading over nothing. It used to be
+  // guaranteed non-empty by the always-on managed row; now that the row is
+  // gated on a real session, a local user with no keys yet got a bare box.
+  const hasConnected =
+    managedAvailable ||
+    connectedCloud.length > 0 ||
+    customProviders.length > 0 ||
+    connectedLocal.length > 0;
 
   // Three categories, each a different question rather than a slice of one:
   // cloud wants an API key, local wants an endpoint on this machine, CLI wants
@@ -268,7 +288,7 @@ export const ProviderAuthSection = ({
         )}
         {codexAuthError ? <ProviderSetupErrorNotice error={codexAuthError} /> : null}
 
-        {!hostControlsAdd && (
+        {!hostControlsAdd && !hideAddButton && (
           <div className="flex justify-end">
             <AddProviderButton onClick={() => setAddOpen(true)} />
           </div>
@@ -277,128 +297,147 @@ export const ProviderAuthSection = ({
         {loading && <CenteredLoadingState label={t('common.loading')} />}
 
         {/* ─── Connected ────────────────────────────────────────────────────
-          Managed leads and is always present. #3760: it renders a badge, not a
-          disabled toggle — a locked switch reads as switchable-but-broken and
-          invites a fight the user cannot win. */}
-        <ProviderGroup
-          title={t('settings.ai.providers.groupConnected')}
-          description={t('settings.ai.providers.connectedDesc')}
-          card
-          data-testid="provider-group-connected">
-          <ProviderListRow
-            slug="openhuman"
-            label={t('settings.ai.routing.managed')}
-            tone={BUILTIN_PROVIDER_META.openhuman?.tone ?? ''}
-            detail={t('settings.ai.providers.managedDetail')}
-            control={<Badge variant="success">{t('settings.ai.routing.managedAlwaysOn')}</Badge>}
-            data-testid="provider-row-openhuman"
-          />
+          Managed leads WHEN IT EXISTS. It used to render unconditionally, so a
+          self-hosting user — signed in with "Continue Locally", no TinyHumans
+          account behind the session — was told OpenHuman "chooses a model for
+          each task" and shown an "Always on" badge for a service they do not
+          have. That is the first thing the inference step shows them, and it
+          is false. The row now follows the same rule the search and embeddings
+          panels already apply.
 
-          {connectedCloud.map(slug => {
-            const existing = bySlug(slug)!;
-            const meta = BUILTIN_PROVIDER_META[slug];
-            const label = meta?.label ?? slug;
-            const actions: ProviderRowAction[] = [
-              {
-                label: t('settings.ai.providers.replaceKey'),
-                onSelect: () => onOpenKeyDialog(slug, null),
-              },
-            ];
-            return (
+          #3760: it renders a badge, not a disabled toggle — a locked switch
+          reads as switchable-but-broken and invites a fight the user cannot
+          win. */}
+        {hasConnected && (
+          <ProviderGroup
+            title={t('settings.ai.providers.groupConnected')}
+            /* The description says "Managed is always on as a fallback. Choose
+             which provider each task uses on the Routing tab." Both halves are
+             wrong without a managed session: there is no managed fallback, and
+             the onboarding wizard hides the Routing tab. Shown only where both
+             are true. */
+            description={managedAvailable ? t('settings.ai.providers.connectedDesc') : undefined}
+            card
+            data-testid="provider-group-connected">
+            {managedAvailable && (
               <ProviderListRow
-                key={slug}
-                slug={slug}
-                label={label}
-                tone={meta?.tone ?? ''}
-                detail={existing.maskedKey || hostOf(existing.endpoint)}
+                slug="openhuman"
+                label={t('settings.ai.routing.managed')}
+                tone={BUILTIN_PROVIDER_META.openhuman?.tone ?? ''}
+                detail={t('settings.ai.providers.managedDetail')}
+                control={
+                  <Badge variant="success">{t('settings.ai.routing.managedAlwaysOn')}</Badge>
+                }
+                data-testid="provider-row-openhuman"
+              />
+            )}
+
+            {connectedCloud.map(slug => {
+              const existing = bySlug(slug)!;
+              const meta = BUILTIN_PROVIDER_META[slug];
+              const label = meta?.label ?? slug;
+              const actions: ProviderRowAction[] = [
+                {
+                  label: t('settings.ai.providers.replaceKey'),
+                  onSelect: () => onOpenKeyDialog(slug, null),
+                },
+              ];
+              return (
+                <ProviderListRow
+                  key={slug}
+                  slug={slug}
+                  label={label}
+                  tone={meta?.tone ?? ''}
+                  detail={existing.maskedKey || hostOf(existing.endpoint)}
+                  detailMono
+                  control={
+                    <Switch
+                      id={`provider-toggle-${slug}`}
+                      checked
+                      onCheckedChange={async () => await removeProvider(existing, false)}
+                      disabled={busyAction === `toggle-${slug}`}
+                      aria-label={providerToggleAriaLabel(t, true, label)}
+                    />
+                  }
+                  actions={actions}
+                  actionsLabel={formatI18n(t('settings.ai.providers.rowActions'), {
+                    provider: label,
+                  })}
+                  data-testid={`provider-row-${slug}`}
+                />
+              );
+            })}
+
+            {customProviders.map(existing => (
+              <ProviderListRow
+                key={existing.id}
+                slug={existing.slug}
+                label={existing.label}
+                tone={BUILTIN_PROVIDER_META.custom?.tone ?? ''}
+                detail={hostOf(existing.endpoint) || existing.maskedKey}
                 detailMono
+                badge={<Badge variant="primary">{t('settings.ai.providers.custom')}</Badge>}
                 control={
                   <Switch
-                    id={`provider-toggle-${slug}`}
+                    id={`provider-toggle-${existing.slug}`}
                     checked
                     onCheckedChange={async () => await removeProvider(existing, false)}
-                    disabled={busyAction === `toggle-${slug}`}
-                    aria-label={providerToggleAriaLabel(t, true, label)}
-                  />
-                }
-                actions={actions}
-                actionsLabel={formatI18n(t('settings.ai.providers.rowActions'), {
-                  provider: label,
-                })}
-                data-testid={`provider-row-${slug}`}
-              />
-            );
-          })}
-
-          {customProviders.map(existing => (
-            <ProviderListRow
-              key={existing.id}
-              slug={existing.slug}
-              label={existing.label}
-              tone={BUILTIN_PROVIDER_META.custom?.tone ?? ''}
-              detail={hostOf(existing.endpoint) || existing.maskedKey}
-              detailMono
-              badge={<Badge variant="primary">{t('settings.ai.providers.custom')}</Badge>}
-              control={
-                <Switch
-                  id={`provider-toggle-${existing.slug}`}
-                  checked
-                  onCheckedChange={async () => await removeProvider(existing, false)}
-                  disabled={busyAction === `toggle-${existing.slug}`}
-                  aria-label={providerToggleAriaLabel(t, true, existing.label)}
-                />
-              }
-              actions={[
-                { label: t('common.edit'), onSelect: () => onEditCustomProvider(existing) },
-                {
-                  label: t('common.remove'),
-                  destructive: true,
-                  onSelect: () => void removeProvider(existing, false),
-                },
-              ]}
-              actionsLabel={formatI18n(t('settings.ai.providers.rowActions'), {
-                provider: existing.label,
-              })}
-              data-testid={`provider-row-${existing.slug}`}
-            />
-          ))}
-
-          {connectedLocal.map(slug => {
-            const existing = bySlug(slug)!;
-            const label = LOCAL_CHIP_LABEL[slug as LocalChipSlug];
-            return (
-              <ProviderListRow
-                key={slug}
-                slug={slug}
-                label={label}
-                tone={LOCAL_CHIP_TONE[slug as LocalChipSlug]}
-                // The endpoint is the thing that breaks on a local runtime, so
-                // it is shown in full rather than reduced to a host.
-                detail={existing.endpoint || t('settings.ai.providers.connected')}
-                detailMono
-                control={
-                  <Switch
-                    id={`local-runtime-toggle-${slug}`}
-                    checked
-                    onCheckedChange={async () => await removeProvider(existing, true)}
-                    disabled={busyAction === `toggle-${slug}`}
-                    aria-label={providerToggleAriaLabel(t, true, label)}
+                    disabled={busyAction === `toggle-${existing.slug}`}
+                    aria-label={providerToggleAriaLabel(t, true, existing.label)}
                   />
                 }
                 actions={[
+                  { label: t('common.edit'), onSelect: () => onEditCustomProvider(existing) },
                   {
-                    label: t('settings.ai.editEndpoint'),
-                    onSelect: () => onOpenKeyDialog(slug, label),
+                    label: t('common.remove'),
+                    destructive: true,
+                    onSelect: () => void removeProvider(existing, false),
                   },
                 ]}
                 actionsLabel={formatI18n(t('settings.ai.providers.rowActions'), {
-                  provider: label,
+                  provider: existing.label,
                 })}
-                data-testid={`provider-row-${slug}`}
+                data-testid={`provider-row-${existing.slug}`}
               />
-            );
-          })}
-        </ProviderGroup>
+            ))}
+
+            {connectedLocal.map(slug => {
+              const existing = bySlug(slug)!;
+              const label = LOCAL_CHIP_LABEL[slug as LocalChipSlug];
+              return (
+                <ProviderListRow
+                  key={slug}
+                  slug={slug}
+                  label={label}
+                  tone={LOCAL_CHIP_TONE[slug as LocalChipSlug]}
+                  // The endpoint is the thing that breaks on a local runtime, so
+                  // it is shown in full rather than reduced to a host.
+                  detail={existing.endpoint || t('settings.ai.providers.connected')}
+                  detailMono
+                  control={
+                    <Switch
+                      id={`local-runtime-toggle-${slug}`}
+                      checked
+                      onCheckedChange={async () => await removeProvider(existing, true)}
+                      disabled={busyAction === `toggle-${slug}`}
+                      aria-label={providerToggleAriaLabel(t, true, label)}
+                    />
+                  }
+                  actions={[
+                    {
+                      label: t('settings.ai.editEndpoint'),
+                      onSelect: () => onOpenKeyDialog(slug, label),
+                    },
+                  ]}
+                  actionsLabel={formatI18n(t('settings.ai.providers.rowActions'), {
+                    provider: label,
+                  })}
+                  data-testid={`provider-row-${slug}`}
+                />
+              );
+            })}
+          </ProviderGroup>
+        )}
 
         {/* ─── CLI logins ────────────────────────────────────────────────
           Only Claude Code earns a row here, and only once connected: it owns a

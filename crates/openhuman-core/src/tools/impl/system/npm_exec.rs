@@ -323,7 +323,7 @@ impl NpmExecTool {
         // Bounded only when the caller asked for a deadline; otherwise run to
         // completion (no harness/tool timeout on long installs/builds).
         let result = match explicit_timeout {
-            Some(timeout) => tokio::time::timeout(timeout, cmd.output()).await,
+            Some(timeout) => crate::tools::timeout::output_or_kill(&mut cmd, timeout).await,
             None => Ok(cmd.output().await),
         };
 

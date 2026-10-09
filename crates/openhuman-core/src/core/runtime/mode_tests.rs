@@ -33,3 +33,26 @@ fn relocking_the_same_mode_is_fine_but_switching_fails() {
     assert!(err.contains("saas"), "{err}");
     assert_eq!(slot.get(), Some(&Mode::Saas));
 }
+
+#[test]
+fn saas_requests_are_spotted_before_parsing() {
+    let args = |a: &[&str]| a.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    assert!(requested_in(&args(&["run", "--mode", "saas"]), None));
+    assert!(requested_in(&args(&["run", "--mode=saas"]), None));
+    assert!(requested_in(&args(&["run"]), Some("saas")));
+    assert!(!requested_in(
+        &args(&["run", "--mode", "single-user"]),
+        None
+    ));
+    assert!(!requested_in(&args(&["run"]), None));
+    assert!(!requested_in(&args(&["run", "saas"]), Some("")));
+}
+
+#[test]
+fn a_saas_core_needs_the_saas_boot() {
+    use crate::core::types::HostKind;
+    // This test process is never locked to SaaS.
+    assert!(admit_core(HostKind::Cli, false).is_ok());
+    let refused = admit_core(HostKind::Saas, false).unwrap_err();
+    assert!(refused.contains("saas::build"), "{refused}");
+}

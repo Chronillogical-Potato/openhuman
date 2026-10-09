@@ -1,13 +1,14 @@
 ---
 description: >-
   Go from a fresh install to a working personal assistant that knows your
-  context, respects your boundaries, and acts only with your approval.
+  context, respects the boundaries you set, and, at the supervised tier, acts
+  only with your approval.
 icon: robot
 ---
 
 # Create my personal AI assistant
 
-**Goal:** a working assistant that has some memory of your world, replies in a style you like, and never takes a real-world action without your say-so.
+**Goal:** a working assistant that has some memory of your world, replies in a style you like, and, once you put it on the supervised tier, takes no real-world action without your say-so.
 
 This is the "start here" guide. It assumes nothing beyond a downloaded app.
 
@@ -24,7 +25,7 @@ This is the "start here" guide. It assumes nothing beyond a downloaded app.
 
 - Signing in **does not** grant ongoing access to anything. Every integration is a separate, explicit OAuth approval you can revoke later.
 - Your memory is stored by the engine you choose: hosted TinyHumans or your own CortexDB. With neither, memory is off.
-- By default, chat/reasoning runs through the OpenHuman-hosted [model router](../features/model-routing/). If you want inference on-device instead, see [Use OpenHuman with a local model](local-model.md).
+- By default, chat/reasoning runs through the OpenHuman-hosted [model router](../features/model-routing/README.md). If you want inference on-device instead, see [Use OpenHuman with a local model](local-model.md).
 - Full detail: [Keep sensitive data private](privacy-sensitive-data.md).
 
 ---
@@ -49,19 +50,43 @@ If you're not sure, pick **Cloud**. You can change any of this later in **Settin
 An assistant with no memory is just a chatbot. Connect at least one source so it has context to draw on:
 
 - Open **Settings** and connect an integration (Gmail is the common starting point). Each connection is a one-click OAuth approval.
-- Once connected, add the integration as a source under **Connections → Memory → Brain** (kind `composio`); it syncs into [Memory](../features/memory.md) on a schedule.
+- Add folders, files or links as sources under **Connections → Memory** so they sync into [Memory](../features/memory.md) on a schedule.
 
 ### 4. Set your boundaries
 
-Open **Settings → Agents → Agent access**. This controls how much the assistant can do on its own:
+Open `config.toml` in your data folder (`~/.openhuman/config.toml`, or
+`%USERPROFILE%\.openhuman\config.toml` on Windows) and turn the policy on:
 
-| Tier                       | What it means                                                                                                      |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| **Read-only**              | The assistant can observe and answer, but never acts (no sending, no file writes, no commands).                    |
-| **Supervised** _(default)_ | It can act, but any state-changing, network, install, or destructive action is **parked for your approval** first. |
-| **Full**                   | Routine actions run automatically; network/install/destructive actions still ask.                                  |
+```toml
+[autonomy]
+enabled = true
+level = "supervised"   # "readonly" | "supervised" | "full"
+```
 
-Leave it on **Supervised** unless you have a reason not to. Nothing with an external effect will happen in a chat without you saying yes. This is the [Approval Gate](../features/approval-gate.md), and it's on by default.
+| Tier           | What it means                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `readonly`     | The assistant can observe and answer, but never acts (no sending, no file writes, no commands).                    |
+| `supervised`   | It can act, but any state-changing, network, install, or destructive action is **parked for your approval** first, unless its tool is on your always-allow list. |
+| `full`         | Routine actions run automatically; network, install and destructive actions still ask.                             |
+
+{% hint style="warning" %}
+**The policy is off until you set `enabled = true`.** It is not on out of the
+box, and there is no user-facing switch for the tier: the panel that holds the
+radios is a developer-only deep link. Until you turn it on, acting tool calls
+run without a prompt. Credential stores (`~/.ssh`, `~/.gnupg`, `~/.aws`) and
+system roots stay blocked either way.
+{% endhint %}
+
+`supervised` is the right starting point. With it on, nothing with an external
+effect happens in a chat without you saying yes: that is the
+[Approval Gate](../features/approval-gate.md). The one exception is a tool you
+put on the always-allow list, by answering **Always allow** to a prompt. That
+tool runs from then on without a fresh approval. Remove it from the list in
+**Settings → Agent access** when you want per-call review back.
+
+**Settings → Agent access** holds the rest of the boundary once the policy is
+on: the trusted roots, the always-allow list, the action timeout and the
+workspace-only switch.
 
 ### 5. Shape its personality (optional)
 
@@ -99,12 +124,12 @@ You have a working assistant when **all** of these are true:
 | Sign-in returns to the welcome screen            | The OAuth callback didn't reach the app                                | Follow [Troubleshooting Sign-In](../overview/troubleshooting-sign-in.md)                          |
 | Connected a source but memory stays empty        | Source not added or not synced yet, or the OAuth scope is too narrow    | Press sync on the source; re-check the connection in Settings                                     |
 | Assistant answers generically, ignores your data | It answered without recalling memory                                   | Ask again and reference the source explicitly ("from my email…"); confirm the source is connected |
-| It performed an action you didn't expect         | Autonomy tier may be set to **Full**                                   | Set **Settings → Agents → Agent access** back to **Supervised**                                   |
+| It performed an action you didn't expect         | The autonomy policy is off, or `level` is `full`                       | Set `[autonomy] enabled = true` and `level = "supervised"` in `config.toml`                       |
 
 ## Recovery
 
-- **Reset boundaries fast:** if the assistant is doing too much, drop the tier to **Read-only** in Agent access. It takes effect on the next turn and blocks all acting immediately.
-- **Nothing you connect is permanent:** revoke any integration from Settings; chunks already in your local memory stay (they're yours), and the next sync tick stops pulling that source.
+- **Reset boundaries fast:** if the assistant is doing too much, set both `enabled = true` and `level = "readonly"` in `config.toml`. The level alone changes nothing while `enabled` is `false`, because the whole policy is inert then. With both set, it takes effect on the next turn and blocks all acting immediately.
+- **Nothing you connect is permanent:** revoke any integration from Settings; items already stored in your memory engine stay until you forget them (or tick **Also delete memory from this source** when disconnecting), and the next sync tick stops pulling that source.
 - **If the app itself won't start,** see [Recover from a failed installation](recover-failed-installation.md). Your configuration is preserved by default.
 
 ---

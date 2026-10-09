@@ -41,10 +41,12 @@ pub struct DevConnectQuery {
 
 /// Whether the route is live in this process.
 pub fn dev_connect_enabled() -> bool {
-    dev_connect_enabled_with(
-        cfg!(debug_assertions),
-        std::env::var(DEV_CONNECT_ENV).ok().as_deref(),
-    )
+    // Never on a SaaS core: the route is auth-exempt and hands out the bearer.
+    !openhuman_core::core::runtime::is_saas()
+        && dev_connect_enabled_with(
+            cfg!(debug_assertions),
+            std::env::var(DEV_CONNECT_ENV).ok().as_deref(),
+        )
 }
 
 pub(crate) fn dev_connect_enabled_with(debug_build: bool, env: Option<&str>) -> bool {

@@ -5,7 +5,7 @@ icon: vial
 
 # Testing Strategy
 
-How OpenHuman tests its product. Source of truth for "where does my test go?". Companion to [`TEST-COVERAGE-MATRIX.md`](../../docs/TEST-COVERAGE-MATRIX.md).
+How OpenHuman tests its product. Source of truth for "where does my test go?". Companion to [`TEST-COVERAGE-MATRIX.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/TEST-COVERAGE-MATRIX.md).
 
 ---
 
@@ -15,9 +15,9 @@ How OpenHuman tests its product. Source of truth for "where does my test go?". C
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | **Rust unit**        | Sibling `<module>_tests.rs` files beside the module under `crates/openhuman-core/src/<domain>/`, or a `tests/` subdir under a domain (e.g. `crates/openhuman-core/src/channels/tests/`); inline `#[cfg(test)] mod` blocks and files named `tests.rs`/`test.rs` fail `pnpm rust:layout` | Pure domain logic, schemas, RPC handler shape, in-memory state machines                                                                         | `cargo test`                                                                                                  |
 | **Rust integration** | `tests/*.rs` at repo root, each an explicit `[[test]]` target in `crates/openhuman-cli/Cargo.toml` (`autotests = false`); `tests/raw_coverage/*.rs` is globbed by `build.rs` into the single `raw_coverage_all` target | Full domain wiring with real Tokio runtime, mock external services, JSON-RPC end-to-end (`tests/json_rpc_e2e.rs`), domain × domain interactions | `pnpm test:rust` (which calls `bash scripts/test-rust-with-mock.sh`)                                          |
-| **Vitest unit**      | Co-located as `*.test.ts(x)` next to source under `app/src/**`, or under `app/src/**/__tests__/`                                                      | React components, hooks, store slices, pure utilities, service-layer adapters                                                                   | `pnpm test:unit`                                                                                              |
+| **Vitest unit**      | Co-located as `*.test.ts(x)` next to source under `app/src/**`, or under `app/src/**/__tests__/`                                                      | React components, hooks, store slices, pure utilities, service-layer adapters                                                                   | `pnpm test` (root) or `pnpm --filter openhuman-app test:unit`                                                 |
 | **WDIO E2E**         | `app/test/e2e/specs/*.spec.ts`                                                                                                                        | Full desktop flow: UI → Tauri → in-process core → JSON-RPC; user-visible behaviour                                                              | All platforms: Linux CI drives the Wry-based debug build (macOS/Windows desktop E2E is disabled until a native driver lands, #5485). See [E2E Testing](e2e-testing.md). |
-| **Manual smoke**     | [`docs/RELEASE-MANUAL-SMOKE.md`](../../docs/RELEASE-MANUAL-SMOKE.md)                                                                                  | OS-level surfaces drivers cannot assert: TCC permission prompts, Gatekeeper, code signing, DMG install, OS-native toasts                        | Human at release-cut, signed off in release PR                                                                |
+| **Manual smoke**     | [`docs/RELEASE-MANUAL-SMOKE.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/RELEASE-MANUAL-SMOKE.md)                                                                                  | OS-level surfaces drivers cannot assert: TCC permission prompts, Gatekeeper, code signing, DMG install, OS-native toasts                        | Human at release-cut; the completed sign-off block is pasted as a GitHub commit comment on the `v<version>-staging` tagged commit QA validated. There is no release PR in the promotion flow, see [Release Policy](release-policy.md) |
 
 ---
 
@@ -79,7 +79,7 @@ A spec that asserts only the happy path is incomplete.
 - **Element helpers**: `clickNativeButton`, `waitForWebView`, `clickToggle` in `helpers/element-helpers.ts`, use these instead of raw `XCUIElementType*` selectors.
 - **Shared flows**: `completeOnboardingIfVisible`, `navigateViaHash`, `navigateToSkills`, `walkOnboarding` in `helpers/shared-flows.ts`.
 - **Core RPC from spec**: `callOpenhumanRpc` in `helpers/core-rpc.ts`, drives the embedded core directly when a UI step would be brittle.
-- **Platform guards**: `isTauriDriver`, `isMac2`, `supportsExecuteScript` in `helpers/platform.ts` (the first two are legacy shims; everything runs on the Appium Chromium driver now).
+- **Platform guards**: `isTauriDriver` and `supportsExecuteScript` in `helpers/platform.ts`. Desktop E2E runs the debug binary under Xvfb through `tauri-driver` on Linux; the Appium Chromium-driver backend went away with CEF, and macOS and Windows have no automated desktop session yet.
 - **Artifact capture on failure**: `captureFailureArtifacts` runs from `wdio.conf.ts`, screenshots + DOM dumps land under `app/test/e2e/artifacts/`.
 
 ---
@@ -111,13 +111,13 @@ cargo check --manifest-path crates/openhuman-app/Cargo.toml
 pnpm typecheck
 pnpm lint
 pnpm format:check
-pnpm test:unit
+pnpm test            # vitest, via the app workspace
 
 # Rust integration with mock backend
 pnpm test:rust
 
 # E2E (slow - run when behaviour changes user-visibly)
-pnpm test:e2e:build
+pnpm --filter openhuman-app test:e2e:build
 bash app/scripts/e2e-run-spec.sh test/e2e/specs/<your-spec>.spec.ts <id>
 ```
 
@@ -125,7 +125,7 @@ bash app/scripts/e2e-run-spec.sh test/e2e/specs/<your-spec>.spec.ts <id>
 
 ## Not driver-automatable - manual smoke required
 
-Some surfaces cannot be driven by WDIO / Appium because they cross OS-level trust boundaries or hardware paths. The complete checklist + sign-off block lives in [`docs/RELEASE-MANUAL-SMOKE.md`](../../docs/RELEASE-MANUAL-SMOKE.md), that file is the source of truth for what must be verified per release. Examples of what it covers:
+Some surfaces cannot be driven by WDIO / Appium because they cross OS-level trust boundaries or hardware paths. The complete checklist + sign-off block lives in [`docs/RELEASE-MANUAL-SMOKE.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/RELEASE-MANUAL-SMOKE.md), that file is the source of truth for what must be verified per release. Examples of what it covers:
 
 - macOS TCC permission prompts (Accessibility, Input Monitoring, Microphone)
 - Gatekeeper signature validation on first launch
@@ -140,7 +140,7 @@ If a feature has no automated coverage AND is not on the manual smoke list, trea
 
 ## Coverage matrix as the contract
 
-Every feature leaf in the [coverage matrix](../../docs/TEST-COVERAGE-MATRIX.md) maps to:
+Every feature leaf in the [coverage matrix](https://github.com/tinyhumansai/openhuman/blob/main/docs/TEST-COVERAGE-MATRIX.md) maps to:
 
 1. A test path or paths, **or**
 2. A justified `🚫` with a manual-smoke entry.
@@ -204,7 +204,7 @@ git -C vendor/tinyagents submodule update --init --recursive
 *Falsified:* deinitialising `vendor/tinyagents/vendor/tinytools` and re-running
 `cargo test -p openhuman-tinyhumans` gives, with **no** `test result` line:
 
-```
+```text
 error: failed to get `tinytools` as a dependency of package `openhuman-cli v0.63.31`
   failed to load source for dependency `tinytools`
   No such file or directory (os error 2)
@@ -255,7 +255,7 @@ Tracked as openhuman#6512; per-profile detail in openhuman#6486.
 `183 passed; 0 failed`. It is **not** a requirement there.
 
 *Reported for `openhuman --lib`:* `web_chat` aborts with
-`fatal runtime error: stack overflow` without it, which is why `ci-lite.yml`
+`fatal runtime error: stack overflow` without it, which is why the CI lane
 exports it. Not reproduced here: treat that as the reason the CI command above
 carries it, and re-verify before relying on it elsewhere.
 

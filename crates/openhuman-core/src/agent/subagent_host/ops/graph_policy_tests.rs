@@ -221,6 +221,7 @@ fn mirrored_tool_results_are_hidden_from_the_worker_thread_chat() {
                 parent_thread_id: Some("parent-1".to_string()),
                 labels: Some(vec!["tasks".to_string()]),
                 personality_id: None,
+                working_dir: None,
             },
         )
         .unwrap();

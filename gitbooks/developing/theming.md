@@ -1,4 +1,11 @@
-# Theming
+---
+description: >-
+  The CSS token system behind every theme: how tokens are defined, how
+  Tailwind consumes them, and how to add one.
+icon: palette
+---
+
+# Theming (Token System)
 
 OpenHuman is fully re-skinnable at runtime. Colours and fonts are driven by CSS
 variables (the "tokens"), so a theme is just a set of values for those variables.

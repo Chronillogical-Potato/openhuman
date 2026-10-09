@@ -112,3 +112,6 @@ mod env_overlay_context_tests;
 mod env_overlay_tests;
 #[path = "load_migration_tests.rs"]
 mod migration_tests;
+
+#[path = "load_managed_provider_tests.rs"]
+mod managed_provider_tests;
