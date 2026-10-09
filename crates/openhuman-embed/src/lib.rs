@@ -140,14 +140,14 @@ pub use runtime::BuilderSummary;
 pub use runtime::{run_from_args, ApiKey, ConfigSource, Runtime, RuntimeBuilder, RuntimeError};
 
 /// The types the [`RuntimeBuilder`] seam options take: controller
-/// extensions, the `tool_search` ranker, embedder hooks, the CLI server
-/// launcher and the live security policy.
+/// extensions, embedder hooks, the CLI server launcher and the live security
+/// policy. A `tool_search` ranker implements `tinytools::ToolRanker`; take
+/// `tinytools` from the vendored path (`vendor/tinyagents/vendor/tinytools`)
+/// so the trait unifies — re-exporting it here would break the
+/// agent-runtime ownership boundary.
 pub mod seams {
     pub use openhuman_core::agent::hooks::{PostTurnHook, ToolHook};
     pub use openhuman_core::agent::hooks::{ToolHookContext, ToolHookDecision, TurnContext};
-    pub use openhuman_core::agent::tinyagents::discovery::{
-        RankCandidate, RankContext, RankError, RankHit, ToolRanker,
-    };
     pub use openhuman_core::core::all::{ControllerExtension, DomainGroup};
     pub use openhuman_core::core::server_launcher::{ServeRequest, ServerLauncher};
     pub use openhuman_core::security::SecurityPolicy;
