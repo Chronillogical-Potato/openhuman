@@ -1033,11 +1033,12 @@ whatsapp-web = ["channels", "tinychannels/whatsapp-web"]
 # this feature so the wipe RPC isn't even registered, let alone reachable.
 e2e-test-support = []
 # Library-side gate for the embedded-RSS benchmark (#5046): the one prompt
-# renderer hook in `agent/prompts/render_helpers` that the benchmark bins in
-# `crates/openhuman-cli` need. Default-OFF and absent from
+# renderer hook in `agent/prompts/render_helpers` (and the mock provider) that
+# the benchmark bins need. Default-OFF and absent from
 # `scripts/ci/product-features.txt`, so nothing shipped enables it. The
 # `rss-bench` / `library-profile` binaries and the `rss-bench-dhat` profiling
-# variant live in `crates/openhuman-cli`.
+# variant live in tinyhumansai/openhuman-benchmarks (`profile/`), which
+# enables this gate on the core directly.
 rss-bench = []
 # Battery/AC probe feeding the scheduler's throttle decision. Default-ON.
 # When off there is no hardware probe: `sample_power` reports "on AC, no charge

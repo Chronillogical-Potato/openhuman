@@ -129,7 +129,7 @@ macOS اور Linux کی اسکرپٹ کیا کرے گی، یہ پہلے دیکھ
 
 <h3>بڑے پیمانے پر موثر</h3>
 
-<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">بیڑے کی پیمائشیں</a> · <a href="./library-benchmarking.md">طریقہ کار</a></p>
+<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">بیڑے کی پیمائشیں</a> · <a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/profile/docs/library-benchmarking.md">طریقہ کار</a></p>
 
 <p>عام ایجنٹ ٹول کے مقابلے میں تقریباً 8 گنا کم میموری اور CPU استعمال کرتا ہے۔ $10 کے سرور پر 500 سے زیادہ ایجنٹ چلائیں۔</p>
 

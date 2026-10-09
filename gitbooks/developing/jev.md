@@ -98,10 +98,12 @@ Without an embedding provider, or without a credential for the selected route, t
 
 ## Running the benchmark
 
+`tool-search-bench` lives in the `profile/` crate of [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks). From a checkout of that repository:
+
 ```bash
-cargo run -p openhuman-cli --bin tool-search-bench -- --ranker all --misses
-cargo run -p openhuman-cli --bin tool-search-bench -- --ranker jev --family --embedding
-cargo run -p openhuman-cli --bin tool-search-bench -- --dump-catalogue
+cargo run --manifest-path profile/Cargo.toml --bin tool-search-bench -- --ranker all --misses
+cargo run --manifest-path profile/Cargo.toml --bin tool-search-bench -- --ranker jev --family --embedding
+cargo run --manifest-path profile/Cargo.toml --bin tool-search-bench -- --dump-catalogue
 ```
 
 `OPENHUMAN_BACKEND_API_KEY` (or `TYPESAFE_API_KEY`) selects the credential. Without one, the bench ranks through the signed-in TinyHumans session, as the product does.

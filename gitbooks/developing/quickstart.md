@@ -243,7 +243,7 @@ A few rules keep a large fleet small and predictable:
 - Pick a sandbox mode per agent through `AgentDefinitionSpec`: `SandboxModeSpec::None`, `ReadOnly` (write and execute tools are removed) or `Sandboxed` (commands run in the platform jail or Docker).
 - For a cloud host serving many users from one process, use `Workspace::stateless()` with a `SessionStoreProvider` so conversations live in your own database. The embed crate README covers it under "Conversations in a host store".
 
-To measure your own numbers, the scripts and method are in [`docs/library-benchmarking.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/library-benchmarking.md). The public benchmark results and rig are in [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks).
+To measure your own numbers, the scripts and method are in [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks) ([`profile/docs/library-benchmarking.md`](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/profile/docs/library-benchmarking.md)), alongside the public benchmark results and rig.
 
 ## Other ways in
 

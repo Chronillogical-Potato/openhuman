@@ -107,7 +107,7 @@ irm https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/instal
 
 <h3>大规模下依然高效</h3>
 
-<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">集群测量数据</a> · <a href="./library-benchmarking.md">测试方法</a></p>
+<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">集群测量数据</a> · <a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/profile/docs/library-benchmarking.md">测试方法</a></p>
 
 <p>内存和 CPU 用量约为一般智能体工具的八分之一。在一台 10 美元的服务器上运行 500 多个智能体。</p>
 
