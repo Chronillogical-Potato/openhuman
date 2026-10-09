@@ -211,6 +211,12 @@ chain core, embed, tinyhumans, cli.
 - The core never obtains, validates, exchanges or refreshes a credential. It
   takes one through `auth.set_credential`. Login-token exchange, `GET
   /auth/me` and the current-user cache live in `session/` here.
+- Hosted memory does not ride this transport. The core's `memory/engine.rs`
+  hands TinyMemory's own HTTP client an endpoint from `backend::base_url`,
+  the attribution headers from `backend::attribution_headers` and a bearer
+  source, so memory needs the transport installed for its URL and headers,
+  but `/memory/*` requests never pass through `SdkBackendTransport` and the
+  SDK route registry does not apply to them.
 - Realtime Socket.IO stays on the core's own `platform::socket` transport; the
   SDK is built with `default-features = false`, which drops its socket client.
 - The generic Jev types (`JevRanker`, `JevEvaluator`, `JevStrategy`) live in
