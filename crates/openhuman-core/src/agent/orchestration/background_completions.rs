@@ -308,6 +308,76 @@ pub(crate) async fn record_awaiting_input(
     .await;
 }
 
+/// Where one detached child's completion lands: its workspace (which router),
+/// the parent session (the idle gate) and the parent chat thread (the router's
+/// parent key). Built once at spawn so every terminal path records the same way.
+#[derive(Clone, Debug)]
+pub(crate) struct CompletionTarget {
+    workspace_dir: PathBuf,
+    parent_session: String,
+    parent_thread_id: Option<String>,
+}
+
+impl CompletionTarget {
+    pub(crate) fn new(
+        workspace_dir: PathBuf,
+        parent_session: String,
+        parent_thread_id: Option<String>,
+    ) -> Self {
+        Self {
+            workspace_dir,
+            parent_session,
+            parent_thread_id,
+        }
+    }
+
+    /// Queue a finished result. See [`record_completion`].
+    pub(crate) async fn completed(&self, task_id: &str, agent_id: &str, summary: String) {
+        record_completion(
+            &self.workspace_dir,
+            &self.parent_session,
+            task_id,
+            agent_id,
+            summary,
+            self.parent_thread_id.clone(),
+        )
+        .await;
+    }
+
+    /// Queue a failure. See [`record_failure`].
+    pub(crate) async fn failed(&self, task_id: &str, agent_id: &str, error: &str) {
+        record_failure(
+            &self.workspace_dir,
+            &self.parent_session,
+            task_id,
+            agent_id,
+            error,
+            self.parent_thread_id.clone(),
+        )
+        .await;
+    }
+
+    /// Queue an awaiting-input pause. See [`record_awaiting_input`].
+    pub(crate) async fn awaiting_input(
+        &self,
+        task_id: &str,
+        agent_id: &str,
+        question: &str,
+        checkpointed: bool,
+    ) {
+        record_awaiting_input(
+            &self.workspace_dir,
+            &self.parent_session,
+            task_id,
+            agent_id,
+            question,
+            checkpointed,
+            self.parent_thread_id.clone(),
+        )
+        .await;
+    }
+}
+
 /// Undelivered completions for `thread_id`, oldest first (read-only; includes
 /// records an in-flight delivery currently holds).
 pub(crate) fn pending_for(workspace_dir: &Path, thread_id: &str) -> Vec<CompletionRecord> {
