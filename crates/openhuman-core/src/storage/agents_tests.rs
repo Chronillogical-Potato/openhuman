@@ -59,3 +59,25 @@ async fn without_a_backend_only_the_local_scope_runs() {
     assert_eq!(runs[0].0, None);
     assert!(for_each_agent("test", || async {}).await.is_empty());
 }
+
+#[test]
+fn a_dropped_sibling_context_does_not_hide_a_live_one() {
+    let first = agent_context("agents-test-siblings");
+    let second = agent_context("agents-test-siblings");
+    drop(second);
+    let (_, found) = agent_contexts(None)
+        .into_iter()
+        .find(|(id, _)| id == "agents-test-siblings")
+        .expect("the first context is still live");
+    assert!(Arc::ptr_eq(&found, &first));
+    assert!(context_for("agents-test-siblings").is_some());
+    drop((found, first));
+    assert!(!live_agents().contains(&"agents-test-siblings".to_string()));
+}
+
+#[test]
+fn reset_recorded_forgets_what_was_recorded() {
+    RECORDED.lock().unwrap().insert("agents-test-recorded".into());
+    reset_recorded();
+    assert!(!RECORDED.lock().unwrap().contains("agents-test-recorded"));
+}
