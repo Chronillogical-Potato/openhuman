@@ -982,15 +982,9 @@ async fn run_typed_mode(
                     task_id,
                     definition.iteration_policy == IterationPolicy::Extended,
                     options.thread_id.clone(),
-                    {
-                        let mut run_context = options.run_context.clone();
-                        run_context.tool_rules = crate::tools::rules::child_rule_policy(
-                            options.run_context.tool_rules.as_deref(),
-                            config.as_ref().ok().map(|c| c.as_ref()),
-                            &definition,
-                        );
-                        run_context
-                    },
+                    options
+                        .run_context
+                        .for_subagent(&definition, config.as_ref().ok().map(AsRef::as_ref)),
                     options.worker_thread_id.clone(),
                     parent.workspace_dir.clone(),
                     workspace_descriptor.clone(),

@@ -145,6 +145,34 @@ pub fn child_rule_policy(
     }))
 }
 
+/// Installs a turn's rules (`OpenHumanRunContext::tool_rules`) as the harness
+/// `RunPolicy::tool_rules`, which applies them to the catalogue, `tool_search`
+/// and every call. A permissive or absent policy leaves the default.
+pub fn install_turn_rules(
+    policy: &mut tinyagents_harness::runtime::RunPolicy,
+    rules: Option<Arc<ToolRulePolicy>>,
+) {
+    let Some(rules) = rules.filter(|rules| !rules.is_permissive()) else {
+        return;
+    };
+    tracing::debug!(
+        layers = rules.rules.layers.len(),
+        context = ?rules.context,
+        "[tool_rules] turn harness carries tool rules"
+    );
+    policy.tool_rules = (*rules).clone();
+}
+
+impl crate::agent::tinyagents::host::OpenHumanRunContext {
+    /// This context for a sub-agent run of `def`, carrying
+    /// [`child_rule_policy`]'s rules in place of the parent's.
+    pub(crate) fn for_subagent(&self, def: &AgentDefinition, config: Option<&Config>) -> Self {
+        let mut child = self.clone();
+        child.tool_rules = child_rule_policy(self.tool_rules.as_deref(), config, def);
+        child
+    }
+}
+
 /// The harness policy for one turn: `rules` evaluated in `context`.
 #[must_use]
 pub fn turn_rule_policy(rules: Arc<ToolRuleSet>, context: RuleContext) -> ToolRulePolicy {

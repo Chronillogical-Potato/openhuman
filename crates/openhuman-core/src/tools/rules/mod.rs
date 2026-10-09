@@ -19,8 +19,8 @@
 mod ops;
 
 pub use ops::{
-    agent_rule_layer, child_rule_policy, glob_list_matches, rule_context, session_rule_set,
-    turn_rule_policy,
+    agent_rule_layer, child_rule_policy, glob_list_matches, install_turn_rules, rule_context,
+    session_rule_set, turn_rule_policy,
 };
 
 #[cfg(test)]
