@@ -18,7 +18,7 @@ The model parameter on any chat call can take one of two shapes:
 
 The rule is the whole of it: strip a `hint:` prefix, look the remainder up in the route table, and fall through to the default provider with the name unchanged if there is no entry. A name without the prefix is never rewritten.
 
-The route table is `[[model_routes]]` in `config.toml`, one entry per hint (`ModelRouteConfig` in `crates/openhuman-core/src/config/schema/routes.rs`), with `[[embedding_routes]]` doing the same for embeddings. Resolution and provider construction live in `crates/openhuman-core/src/inference/`. Hints can be remapped at runtime without restarting the core.
+The route table is `[[model_routes]]` in `config.toml`, one entry per hint (`ModelRouteConfig` in [`crates/openhuman-core/src/config/schema/routes.rs`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-core/src/config/schema/routes.rs)), with `[[embedding_routes]]` doing the same for embeddings. Resolution and provider construction live in [`crates/openhuman-core/src/inference/`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-core/src/inference) (see its [README](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-core/src/inference/README.md)). Hints can be remapped at runtime without restarting the core.
 
 ## Common hints
 
@@ -96,3 +96,5 @@ Routing isn't a UI dropdown. The agent loop itself emits hints based on what it'
 - [Native Tools](../native-tools/README.md). different tool calls hint at different routes.
 - [Local models & bring your own key](local-and-byok-models.md). run on your own key or fully on-device.
 - [Local AI (optional)](local-ai.md). Add your own local runtime as a provider; lightweight chat hints can run on-device.
+- [Pluggable engines](../../developing/engines.md). How the provider layers are chosen by config.
+- [One TinyHumans API key](../../developing/tinyhumans-api-key.md). The single key behind managed routing.

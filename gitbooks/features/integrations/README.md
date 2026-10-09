@@ -9,9 +9,9 @@ icon: plug
 
 OpenHuman ships with backend-proxied access to the connector platform's managed-auth catalog, **119 toolkits** as the app knows them. Connecting one through the managed path is a one-click OAuth flow inside the app: no API keys to wire by hand, and no plugin marketplace to navigate.
 
-That figure is the catalog the app ships (`KNOWN_COMPOSIO_TOOLKITS` in `app/src/components/composio/toolkitMeta.tsx`, pinned at 119 by `toolkitMeta.test.tsx`). What you can actually connect is whatever the backend's allowlist returns when the page loads, and the per-toolkit action schemas are fetched live, so no number in this repository bounds the total actions reachable.
+That figure is the catalog the app ships (`KNOWN_COMPOSIO_TOOLKITS` in [`app/src/components/composio/toolkitMeta.tsx`](https://github.com/tinyhumansai/openhuman/blob/main/app/src/components/composio/toolkitMeta.tsx), pinned at 119 by [`toolkitMeta.test.tsx`](https://github.com/tinyhumansai/openhuman/blob/main/app/src/components/composio/toolkitMeta.test.tsx)). What you can actually connect is whatever the backend's allowlist returns when the page loads, and the per-toolkit action schemas are fetched live, so no number in this repository bounds the total actions reachable.
 
-Under the hood, the connector layer is powered by [Composio](https://composio.dev). In the default managed mode, OpenHuman's backend owns the Composio API key, OAuth token brokering, rate limits, and trigger webhook fan-out. If you switch to direct mode, the core talks to Composio with your own Composio API key; synchronous tool calls work, but real-time trigger webhooks must be configured on your own webhook infrastructure.
+Under the hood, the connector layer is powered by [Composio](https://composio.dev) (the module is [`tinyconnectors`](https://github.com/tinyhumansai/tinyconnectors)). In the default managed mode, OpenHuman's backend owns the Composio API key, OAuth token brokering, rate limits, and trigger webhook fan-out. If you switch to direct mode, the core talks to Composio with your own Composio API key; synchronous tool calls work, but real-time trigger webhooks must be configured on your own webhook infrastructure.
 
 Once a service is connected, it shows up in four places at once:
 
@@ -88,3 +88,6 @@ See [Privacy & Security](../privacy-and-security.md) for the full boundary.
 
 - [Triggers](triggers.md), live events from connected integrations and how they fire agent actions.
 - [Memory](../memory.md)
+- [MCP Servers & Skills](mcp-and-skills.md), the open-tooling path beyond the curated catalog.
+- [`integrations` domain](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-core/src/integrations/README.md), the Rust side of this page.
+- [Architecture](../../developing/architecture/README.md), for how the backend proxy fits the core.

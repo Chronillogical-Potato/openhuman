@@ -22,7 +22,7 @@ Local API-usage cost tracking for the agent. Records per-call token usage and co
 | `crates/openhuman-core/src/platform/cost/global.rs`        | Process-global `OnceCell<Arc<CostTracker>>` singleton: `init_global`, `try_global`, `record_provider_usage`, and `build_token_usage` (provider `UsageInfo` → `TokenUsage`).                                             |
 | `crates/openhuman-core/src/platform/cost/rpc.rs`           | RPC-facing handlers (`dashboard`, `daily_history`, `summary`) returning `Outcome<Value>`; DTO types; `resolve_tracker` with a cached fallback tracker + error-replay TTL.                                            |
 | `crates/openhuman-core/src/platform/cost/schemas.rs`       | Controller schemas + `handle_*` JSON-RPC dispatchers; `all_controller_schemas` / `all_registered_controllers`.                                                                                                          |
-| `crates/openhuman-core/src/platform/cost/tracker_tests.rs` | Sibling test suite for `tracker.rs` (`#[path]`-included).                                                                                                                                                               |
+| `crates/openhuman-core/src/platform/cost/tracker_tests.rs` | Sibling test suite for [`tracker.rs`](./tracker.rs) (`#[path]`-included).                                                                                                                                                               |
 | `crates/openhuman-core/src/platform/cost/catalog.rs` | Static per-model pricing + context-window catalog (`ModelPrice`, `lookup`, `estimate_cost_usd`, `PRICING_AS_OF`) and the tinyagents model-catalog adapters. |
 | `crates/openhuman-core/src/platform/cost/route.rs` | `CostRoute` / `route_for_model`: derives from the model id whether a record counts against OpenHuman-managed credits or is BYOK/local (#5016). |
 | `crates/openhuman-core/src/platform/cost/scope.rs` | `UsageScope::ambient`: a record's attribution (thread, origin, agent definition, sub-agent task, embedded/SaaS user agent, provider) read from the recording task's turn origin, memory identity and `CoreContext`. |
@@ -32,7 +32,7 @@ Local API-usage cost tracking for the agent. Records per-call token usage and co
 
 ## Public surface
 
-From `mod.rs` re-exports:
+From [`mod.rs`](./mod.rs) re-exports:
 
 - `CostTracker`: the tracker (`tracker`).
 - `init_global`, `rebind_global`, `try_global`, `record_provider_usage` (`global`).
@@ -58,7 +58,7 @@ Both reports are also CLI commands: `openhuman-core cost report --days 7 --group
 
 **Attribution.** Every recorded call carries an optional `scope` (`UsageScope`): the thread, what started the turn, the agent definition (or the delegated sub-agent and its task), the embedded/SaaS user agent and the provider. The event bridge passes the provider and sub-agent, and the rest comes from the recording task. Records written before attribution have no `scope` and group as `unknown`.
 
-Handlers load config via `config_rpc::load_config_with_timeout`, then delegate to `rpc.rs`. RPC DTOs (`CostDashboardDto`, `DailyCostEntryDto`, `ModelStatsDto`, `CostSummaryDto`, `UsageLogRecordDto`) add presentation fields not on the domain types: `provider` (derived from the `provider/model` prefix), `percent_of_total`, and dashboard threshold/`enabled` flags from `cost.dashboard`. Usage-log records preserve the persisted token provenance fields (`cached_input_tokens`, `cache_creation_tokens`, `reasoning_tokens`, `cost_source`) for migration audit callers for the dedicated usage-log tab.
+Handlers load config via `config_rpc::load_config_with_timeout`, then delegate to [`rpc.rs`](./rpc.rs). RPC DTOs (`CostDashboardDto`, `DailyCostEntryDto`, `ModelStatsDto`, `CostSummaryDto`, `UsageLogRecordDto`) add presentation fields not on the domain types: `provider` (derived from the `provider/model` prefix), `percent_of_total`, and dashboard threshold/`enabled` flags from `cost.dashboard`. Usage-log records preserve the persisted token provenance fields (`cached_input_tokens`, `cache_creation_tokens`, `reasoning_tokens`, `cost_source`) for migration audit callers for the dedicated usage-log tab.
 
 ## Events
 
@@ -74,7 +74,7 @@ None. The module has no `bus.rs` and no `DomainEvent` publishers/subscribers.
 ## Dependencies
 
 - `crate::config`: `CostConfig` / `Config` (legacy display target, dashboard currency/enabled, `workspace_dir`); `config::rpc::load_config_with_timeout` in schemas.
-- `crate::inference::provider::types::UsageInfo` (re-exported as `crate::inference::provider::UsageInfo`): provider usage payload translated into `TokenUsage` in `global.rs`.
+- `crate::inference::provider::types::UsageInfo` (re-exported as `crate::inference::provider::UsageInfo`): provider usage payload translated into `TokenUsage` in [`global.rs`](./global.rs).
 - `crate::core::all`: `ControllerFuture`, `RegisteredController` for controller registration.
 - `crate::core`: `ControllerSchema`, `FieldSchema`, `TypeSchema`.
 - `crate::core::Outcome`: RPC return wrapper.
@@ -131,3 +131,9 @@ Before every model call, the agent's budget gate (`OpenHumanBudgetGate::acquire`
 - **Agent calls only:** the gate covers model calls made through the agent harness. Direct `ChatModel` callers (chat follow-up suggestions, Flow Canvas LLM nodes) are not metered against budgets yet.
 - **No `provider` scope yet:** the gate does not see a call's provider before it is made.
 - **No checking at all** when no budgets are configured, when there is no cost tracker, or when the ledger cannot be read. The budget check never fails a call for a reason of its own.
+
+## Further reading
+
+- [Parent module (`platform`)](../README.md)
+- [Billing and usage](../../../../../gitbooks/features/billing-and-usage.md)
+- [Platform and availability](../../../../../gitbooks/features/platform.md)

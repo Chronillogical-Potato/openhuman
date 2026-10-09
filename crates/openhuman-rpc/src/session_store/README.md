@@ -36,7 +36,7 @@ core boots, because boot calls the provider's `recover()`: turns an unclean
 shutdown left in flight are marked interrupted, and run-ledger rows a dead
 process left running are settled. Both `run_server*` shims in
 [`../server/`](../server/README.md) call it, and the TUI calls it from
-`crates/openhuman-tui/src/runner.rs`.
+[`crates/openhuman-tui/src/runner.rs`](../../../openhuman-tui/src/runner.rs).
 
 `install()` builds the provider with `resolving(context_workspace_dir)`,
 so the workspace is looked up on every `for_agent` call rather than fixed at
@@ -66,7 +66,7 @@ tinyagents_store/{kv,journal}/               run status, goals, todos,
 
 | File | What it does |
 | --- | --- |
-| `mod.rs` | `SqliteSessionStores` (`at`, `resolving`), its `SessionStoreProvider` impl (`for_agent`, `recover`, `destination_key`, `workspace_dir`), and `install()`. |
+| [`mod.rs`](mod.rs) | `SqliteSessionStores` (`at`, `resolving`), its `SessionStoreProvider` impl (`for_agent`, `recover`, `destination_key`, `workspace_dir`), and `install()`. |
 
 ## Key types and entry points
 
@@ -84,7 +84,7 @@ tinyagents_store/{kv,journal}/               run status, goals, todos,
 
 - The port (`SessionStoreProvider`, `AgentStores`), the transcript format
   and locator, turn states, the run ledger and the kv/journal stores are all
-  `tinyagents-session` (`vendor/tinyagents`, repo `tinyhumansai/tinyagents`).
+  `tinyagents-session` ([`vendor/tinyagents`](../../../../vendor/tinyagents/), repo `tinyhumansai/tinyagents`).
   This module only arranges those building blocks into OpenHuman's
   directory layout. Changes to the formats belong upstream.
 - The process slot, the scoped override and `current()` belong to the core
@@ -104,7 +104,7 @@ tinyagents_store/{kv,journal}/               run status, goals, todos,
 
 ## Tests
 
-`mod_tests.rs` runs the TinyAgents conformance suite against this layout,
+[`mod_tests.rs`](mod_tests.rs) runs the TinyAgents conformance suite against this layout,
 checks that the workspace follows the resolver, and checks that recovery
 interrupts turns left in flight. The `SqliteSessionStores` doc example also
 runs as a doctest.
@@ -112,3 +112,9 @@ runs as a doctest.
 ```bash
 cargo test -p openhuman-rpc session_store
 ```
+
+## Further reading
+
+- [`gitbooks/developing/architecture/agent-harness.md`](../../../../gitbooks/developing/architecture/agent-harness.md): the agent harness.
+- [`gitbooks/developing/architecture.md`](../../../../gitbooks/developing/architecture.md): architecture overview.
+- [`crates/openhuman-rpc/README.md`](../../README.md): the openhuman-rpc crate README.
