@@ -125,6 +125,10 @@ A library first. Call an agent like a function from your Rust code, or run a fle
 
 Seven harnesses, the same SWE-bench tasks, the same model, key and container, every call metered on the wire. It is all public and reproducible in [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks). Latest run: [`swe-x86-1`](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md), ten tasks.
 
+The outcome: OpenHuman finished its solved tasks in less than half the median time, on 2.6x fewer tokens, with an eighth of the memory and CPU. Across the whole run it made 114 model calls where the others made 134 to 212, and it spent $0.05 in total where the others spent $0.08 to $0.35.
+
+Why it wins comes down to doing less per step. The core is compiled Rust running in one process, not a Node or Python runtime, so it idles at a fraction of the memory and burns almost no CPU between model calls. It sends the smallest prompt in the field (a 944-token system prompt and 20 tool schemas), so every call is cheaper and answers faster (1.65 s median latency, also the fastest). And it reaches an answer in fewer calls, which is where most of the token and time savings come from. The gap still to close is accuracy: it solved 7 of 10 tasks, where four harnesses solved all ten.
+
 | `swe-x86-1`, per solved task | OpenHuman | Median of the other six | Best of the other six |
 | --- | --- | --- | --- |
 | Wall time (p50) | **19.8 s** | 46.5 s | 28.4 s (OpenCode) |
