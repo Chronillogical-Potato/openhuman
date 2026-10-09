@@ -185,10 +185,10 @@ async fn cancel_chat_inner(
 
 /// Is a primary or parallel turn still running on `thread_id`?
 async fn thread_has_live_turn(thread_id: &str, map_key: &str) -> bool {
-    if IN_FLIGHT.lock().await.contains_key(map_key) {
+    if super::state::in_flight().lock().await.contains_key(map_key) {
         return true;
     }
-    super::state::PARALLEL_IN_FLIGHT
+    super::state::parallel_in_flight()
         .lock()
         .await
         .values()
