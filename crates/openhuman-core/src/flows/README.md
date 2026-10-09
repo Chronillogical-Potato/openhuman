@@ -17,11 +17,11 @@ tools.
 ### The pieces
 
 ```text
-   Workflows UI            chat agent / workflow_builder        event bus
-        |                          |                                |
-        | flows.* RPC              | flow tools                     | FlowScheduleTick
-        v                          v                                | ComposioTriggerReceived
-   schemas.rs ------------->  ops/*  <----------------------  bus/trigger.rs
+   Workflows UI        chat agent / workflow_builder     event bus
+        |                      |                            |
+        | flows.* RPC          | flow tools                 | schedule tick,
+        v                      v                            | Composio trigger
+   schemas.rs --------->  ops/*  <-----------------  bus/trigger.rs
                                |  |
           validate, gate,      |  |  compile + run
           persist              |  |
