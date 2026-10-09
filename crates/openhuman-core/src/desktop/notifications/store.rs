@@ -7,7 +7,7 @@
 //! same `with_connection` pattern as the cron domain.
 
 use anyhow::{Context, Result};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use rusqlite::{params, Connection};
 
 use crate::config::Config;
