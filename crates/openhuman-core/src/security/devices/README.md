@@ -109,3 +109,11 @@ Separately, encrypted X25519 private keys are persisted as `enc2:` strings (via 
 - `tunnel:register` uses `SocketManager::emit_with_ack` and expects backend ACK shape `{channelId, pairingToken, pairingExpiresAt}` with a 10-second timeout.
 - `PairingSession` and the keypair maps are in-memory only (TTL/cleanup deferred to backend semantics); they are cleared on revoke.
 - Outbound `tunnel:frame` payloads are capped at 64 KB; callers are expected to stay ≤ 100 frames/s.
+
+## Further reading
+
+- [Parent module (`security`)](../README.md)
+- [Security architecture](../../../../../gitbooks/developing/architecture/security.md)
+- [Privacy and security](../../../../../gitbooks/features/privacy-and-security.md)
+- [Approval gate](../../../../../gitbooks/features/approval-gate.md)
+- [OS keyring and secret storage](../../../../../gitbooks/features/os-keyring-and-secret-storage.md)

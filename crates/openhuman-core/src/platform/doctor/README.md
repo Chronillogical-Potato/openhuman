@@ -87,3 +87,9 @@ None of its own (no `store.rs`). It only **reads** existing state owned by other
 - `model_matches` treats `name` vs `name:tag` as a match only when at most one side is tagged; two differently-tagged names are not considered equal.
 - Severity rollup: `DoctorSummary` counts `Ok`/`Warn`/`Error` items; checks are intentionally lenient (missing optional dirs/tools → `Warn`, not `Error`).
 - OS-specific helpers (`available_disk_space_mb`, `check_command_available`, `check_claude_agent_sdk`) set `CREATE_NO_WINDOW` on Windows to avoid console flashes.
+
+## Further reading
+
+- [Parent module (`platform`)](../README.md)
+- [Platform and availability](../../../../../gitbooks/features/platform.md)
+- [Recover a failed installation](../../../../../gitbooks/guides/recover-failed-installation.md)

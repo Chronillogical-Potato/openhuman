@@ -18,7 +18,7 @@ is mounted as a submodule of [`load/dirs.rs`](./load/dirs.rs) via `#[path]`.
 | `config.toml` section | File | Struct |
 | --- | --- | --- |
 | `[agent]`, `[orchestrator]`, `[teams.*]`, `[agents.*]` | [`agent.rs`](./agent.rs) | `AgentConfig`, `OrchestratorModelConfig`, `TeamModelConfig`, `DelegateAgentConfig` |
-| `[autonomy]` | [`autonomy.rs`](./autonomy.rs) | `AutonomyConfig` — feeds `security::SecurityPolicy` |
+| `[autonomy]` | [`autonomy.rs`](./autonomy.rs) | `AutonomyConfig`: feeds `security::SecurityPolicy` |
 | `[[capability_providers]]` | [`capability_providers.rs`](./capability_providers.rs) | `CapabilityProviderConfig` |
 | `[channels_config]`, `[sandbox]` | [`channels.rs`](./channels.rs) | `ChannelsConfig` and per-provider configs re-exported from `tinychannels_bus`; `SandboxConfig`, `ResourceLimitsConfig`, `AuditConfig`, and `SecurityConfig` (only `DaemonConfig` embeds the last one) |
 | `[claude_agent_sdk]` | [`claude_agent_sdk.rs`](./claude_agent_sdk.rs) | `ClaudeAgentSdkConfig` |
@@ -41,7 +41,7 @@ is mounted as a submodule of [`load/dirs.rs`](./load/dirs.rs) via `#[path]`.
 | `[[model_routes]]`, `[[embedding_routes]]` | [`routes.rs`](./routes.rs) | `ModelRouteConfig`, `EmbeddingRouteConfig` |
 | `[runtime]` (+ `[runtime.docker]`), `[shell]`, `[reliability]`, `[scheduler]` | [`runtime.rs`](./runtime.rs) | `RuntimeConfig`, `DockerRuntimeConfig`, `ShellConfig`, `ReliabilityConfig`, `SchedulerConfig` |
 | `[runtime_pool]` | [`runtime_pool.rs`](./runtime_pool.rs) | `RuntimePoolConfig`, `RuntimePoolLangConfig` |
-| `[runtime.local_jail]` | [`runtime_local_jail.rs`](./runtime_local_jail.rs) | `LocalJailConfig` — filesystem grants for the local OS jail |
+| `[runtime.local_jail]` | [`runtime_local_jail.rs`](./runtime_local_jail.rs) | `LocalJailConfig`: filesystem grants for the local OS jail |
 | `[runtime_python]` | [`runtime_python.rs`](./runtime_python.rs) | `RuntimePythonConfig` |
 | `[scheduler_gate]` | [`scheduler_gate.rs`](./scheduler_gate.rs) | `SchedulerGateConfig`, `SchedulerGateMode` |
 | `[memory]` (engine, `engines.<id>`, `conversations`, `context`, `sources`, embedding settings) | [`memory.rs`](./memory.rs) | `MemoryConfig`, `MemoryEngineSettings`, `MemoryConversationsConfig`, `MemoryContextConfig`, `MemorySourceConfig` (see [`docs/specs/memory-v2.md`](../../../../../docs/specs/memory-v2.md)) |
@@ -192,3 +192,5 @@ Per-section `*_tests.rs` files, plus [`load_tests.rs`](./load_tests.rs) (split i
   schema-version upgrades run during load.
 - [../../security/README.md](../../security/README.md): enforces the
   `action_dir` / `workspace_dir` boundary this module only describes.
+- [Settings](../../../../../gitbooks/features/settings.md)
+- [Deep architecture reference](../../../../../gitbooks/developing/architecture.md)

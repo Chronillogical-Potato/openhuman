@@ -99,3 +99,9 @@ Discovered consumers (`crate::security::keyring::*`):
 - The `SecretStore` master-key file is write-once. On Windows it survives transient AV-scanner sharing violations via retry/backoff and attempts `icacls` ACL self-repair on permission errors. Decoded keys are cached so repeated decrypts (for example, snapshot polls) hit memory.
 - Legacy formats: `SecretStore` migrates `enc:` (XOR) to `enc2:` (ChaCha20-Poly1305) on decrypt; `EncryptedFileBackend` migrates plaintext `dev-keychain.json` to `secrets.enc` (renaming the legacy file `.json.migrated`).
 - Errors never carry secret values, only namespaced keys. `diagnostic()` is safe to log and preserves the underlying `keyring::Error` variant and `OSStatus`.
+
+## Further reading
+
+- [Parent module (`security`)](../README.md)
+- [OS keyring and secret storage](../../../../../gitbooks/features/os-keyring-and-secret-storage.md)
+- [Security architecture](../../../../../gitbooks/developing/architecture/security.md)

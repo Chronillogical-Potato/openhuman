@@ -182,3 +182,10 @@ sent, not here.
 - Restart-on-failure in `RuntimePythonServer::request` means a transient
   worker crash is invisible to callers except for added latency on the retried
   call.
+
+## Further reading
+
+- [Parent module (`runtime`)](../README.md)
+- [tinyruntime submodule](../../../../../vendor/tinyruntime/README.md)
+- [System and utilities tools](../../../../../gitbooks/features/native-tools/system-and-utilities.md)
+- [Loadable modules](../../../../../gitbooks/developing/loadable-modules.md)

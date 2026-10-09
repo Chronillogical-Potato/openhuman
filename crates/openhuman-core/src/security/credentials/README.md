@@ -104,3 +104,9 @@ Many domains consume `AuthService` / session helpers / Composio-direct key, incl
 - An embedder host (`CoreContext::current_embedder_config()` is set) keeps the credential under its own `config_path` scope and never touches the operator's global `active_user.toml`.
 - Local offline sessions are detected purely by the JWT signature segment being literally `local` (`is_local_session_token`); they are never sent anywhere and are never treated as expired.
 - Secrets are never logged; debug lines record only lengths/markers, honoring the CLAUDE.md redaction rule.
+
+## Further reading
+
+- [Parent module (`security`)](../README.md)
+- [OS keyring and secret storage](../../../../../gitbooks/features/os-keyring-and-secret-storage.md)
+- [Security architecture](../../../../../gitbooks/developing/architecture/security.md)

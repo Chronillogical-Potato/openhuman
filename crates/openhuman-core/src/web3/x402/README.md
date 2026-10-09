@@ -146,3 +146,10 @@ its record with `pending_record` ([`records.rs`](./records.rs)), which applies t
   tool (always expects a 402) and the generic `http_request` tool's
   opportunistic 402 fallback. Both funnel through `handle_402_and_pay` and the
   same ledger, so spending is tracked consistently regardless of entry point.
+
+## Further reading
+
+- [Parent module (`web3`)](../README.md)
+- [Wallet](../../../../../gitbooks/features/wallet.md)
+- [tinywallet submodule](../../../../../vendor/tinywallet/README.md)
+- [Loadable modules](../../../../../gitbooks/developing/loadable-modules.md)

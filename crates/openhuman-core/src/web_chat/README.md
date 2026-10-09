@@ -339,3 +339,9 @@ session concurrency and error classification end to end;
 cargo test -p openhuman web_chat
 pnpm debug rust web_chat
 ```
+
+## Further reading
+
+- [Chat](../../../../gitbooks/features/chat.md)
+- [Agent harness architecture](../../../../gitbooks/developing/architecture/agent-harness.md)
+- [Frontend architecture](../../../../gitbooks/developing/architecture/frontend.md)

@@ -38,3 +38,10 @@ agent-tool surface for voice generally lives in `voice/schemas/` and
 - Recording setup runs on a blocking thread (`audio_capture::start_recording`) so the event loop stays responsive to a `Released` event that some keys, including `Fn`, fire almost immediately. A release or a second press that arrives during that setup is buffered as a stop intent and applied once the recording handle is ready, with a minimum post-setup recording window (1500ms) so very quick releases still capture real speech.
 - `stop()` cancels the run-loop's `CancellationToken` and polls for up to 5 seconds for the state to reach `Stopped`, since a fast logout/login cycle should not see a stale `Idle`/`Recording` state and skip a restart.
 - State updates carry a `generation` counter so a stale background pipeline task from a superseded recording cannot overwrite the state of a newer one.
+
+## Further reading
+
+- [Parent module (`voice`)](../README.md)
+- [Voice tools](../../../../../gitbooks/features/native-tools/voice.md)
+- [tinyvoice submodule](../../../../../vendor/tinyvoice/README.md)
+- [Chat](../../../../../gitbooks/features/chat.md)

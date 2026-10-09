@@ -151,3 +151,10 @@ Each member keeps sibling `*_tests.rs` files.
 cargo test -p openhuman desktop::
 pnpm debug rust desktop::
 ```
+
+## Further reading
+
+- [Parent module README](../../README.md)
+- [Tauri shell](../../../../gitbooks/developing/architecture/tauri-shell.md)
+- [Frontend](../../../../gitbooks/developing/architecture/frontend.md)
+- [openhuman-app crate](../../../openhuman-app/README.md)

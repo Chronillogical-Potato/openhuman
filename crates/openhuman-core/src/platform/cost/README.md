@@ -89,3 +89,9 @@ None. The module has no `bus.rs` and no `DomainEvent` publishers/subscribers.
 - Legacy `budget_utilization` is clamped to `1.0` in the RPC payload; `budget_status` is computed from the raw (unclamped) utilisation against `warn`/`alert` thresholds. A non-positive monthly limit forces `BudgetStatus::Normal` and `0.0` utilisation.
 - All amounts are stored/computed in USD; `currency` is a presentation hint only.
 - Time bucketing is UTC throughout (`naive_utc().date()`); model is the bucket key for per-model stats, and `provider` is derived from the `provider/model` slash prefix in DTO mapping.
+
+## Further reading
+
+- [Parent module (`platform`)](../README.md)
+- [Billing and usage](../../../../../gitbooks/features/billing-and-usage.md)
+- [Platform and availability](../../../../../gitbooks/features/platform.md)

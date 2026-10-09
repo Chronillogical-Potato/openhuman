@@ -58,3 +58,8 @@ tests in [`../tests/`](../tests/README.md) cover the same paths against mocks.
 The repository-root [`examples/embed_headless.rs`](../../../examples/embed_headless.rs) and [`examples/embed_kernel.rs`](../../../examples/embed_kernel.rs)
 use `CoreBuilder` directly, without this crate; run them with
 `cargo run -p openhuman-cli --example embed_headless`.
+
+## Further reading
+
+- [`gitbooks/developing/embedding.md`](../../../gitbooks/developing/embedding.md): embedding the core in another product.
+- [`crates/openhuman-embed/README.md`](../README.md): the openhuman-embed crate README.

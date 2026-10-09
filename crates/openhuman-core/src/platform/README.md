@@ -141,3 +141,9 @@ lifecycle tests deterministic.
 cargo test -p openhuman platform::
 pnpm debug rust platform::
 ```
+
+## Further reading
+
+- [Platform and availability](../../../../gitbooks/features/platform.md)
+- [Tauri shell architecture](../../../../gitbooks/developing/architecture/tauri-shell.md)
+- [Architecture overview](../../../../gitbooks/developing/architecture.md)

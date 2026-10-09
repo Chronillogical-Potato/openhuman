@@ -75,3 +75,9 @@ The editable surface is restricted to the `BOOTSTRAP_FILES` allowlist (`SOUL.md`
 - `WorkspaceFile` intentionally omits the absolute on-disk path to avoid leaking host filesystem layout over RPC.
 - The persona/bootstrap surface has no `store.rs`, `bus.rs`, or `types.rs`: no event-bus subscribers, no persisted in-memory state beyond plain files. `tools.rs` and `state.rs` are the exceptions to an otherwise stateless-handler domain.
 - The module's own `init_workspace` is unrelated to `keyring::init_workspace` (same name, different domain).
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Settings](../../../../../gitbooks/features/settings.md)
+- [Deep architecture reference](../../../../../gitbooks/developing/architecture.md)

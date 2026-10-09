@@ -71,3 +71,9 @@ In-memory only. State lives in a process-global `RESPOND_QUEUE` (`static OnceLoc
 - **Queue id is deterministic** (`provider:account_id:event_kind:entity_id`), so re-ingesting the same entity upserts (removes + re-prepends) rather than duplicating.
 - **Process-global mutable state** means tests must serialize around `RESPOND_QUEUE`; `ops_tests.rs` uses a `TEST_MUTEX` + `store::clear_queue()` to avoid interleaving under cargo's parallel runner. Mutex poisoning is recovered via `into_inner()`.
 - **Snake_case contract is intentional and shared** between request (`ProviderEvent`) and response (`RespondQueueItem`) so callers see one consistent shape.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Tauri shell](../../../../../gitbooks/developing/architecture/tauri-shell.md)
+- [Connections](../../../../../gitbooks/features/connections.md)

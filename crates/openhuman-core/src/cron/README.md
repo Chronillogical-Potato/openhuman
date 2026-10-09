@@ -374,3 +374,9 @@ Tests sit beside their modules as `<module>_tests.rs` (for example
 cargo test -p openhuman cron::
 pnpm debug rust cron
 ```
+
+## Further reading
+
+- [Parent module README](../../README.md)
+- [Cron and scheduling](../../../../gitbooks/features/native-tools/cron.md)
+- [Workflows](../../../../gitbooks/features/workflows.md)

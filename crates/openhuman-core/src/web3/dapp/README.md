@@ -44,3 +44,10 @@ Namespace `web3_dapp` (method form `openhuman.web3_dapp_<function>`):
 - No backend call is involved in preparing a dapp call; deBridge is only used by `swap` and `bridge`. Signing and broadcast still go through the wallet's crate-internal `sign_and_broadcast_evm`, same as the other two families.
 - The quote id returned by `call` is bound to the chat thread that prepared it, TTL'd at 5 minutes, and restored with a refreshed TTL on a failed broadcast; see the parent [README](../README.md) for the shared quote store.
 - BTC and Solana are out of scope here. `dapp` is EVM-only.
+
+## Further reading
+
+- [Parent module (`web3`)](../README.md)
+- [Wallet](../../../../../gitbooks/features/wallet.md)
+- [tinywallet submodule](../../../../../vendor/tinywallet/README.md)
+- [Loadable modules](../../../../../gitbooks/developing/loadable-modules.md)

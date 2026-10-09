@@ -63,3 +63,10 @@ None: the module holds no state. The diag snapshot reads only the environment, t
 - `socket_state` is funneled through `serde_json` (not `Debug`) so the lowercased wire shape stays stable; `"uninitialized"` is reported when the `SocketManager` singleton isn't installed (early startup / tests).
 - `is_port_in_use` returns `false` on non-`AddrInUse` bind errors (e.g. permission denied) so a port isn't misreported as occupied.
 - No agent tools and no event-bus subscribers in this module.
+
+## Further reading
+
+- [Parent module (`platform`)](../README.md)
+- [Platform and availability](../../../../../gitbooks/features/platform.md)
+- [Tauri shell architecture](../../../../../gitbooks/developing/architecture/tauri-shell.md)
+- [Architecture overview](../../../../../gitbooks/developing/architecture.md)

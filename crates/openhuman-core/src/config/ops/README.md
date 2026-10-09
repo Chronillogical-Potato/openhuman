@@ -106,3 +106,9 @@ After saving, a loaded TinySearch module is refreshed privately.
 `ops_model_and_local_ai_tests.rs`, `ops_voice_and_autonomy_tests.rs`) can reach
 them through `use super::*`; they carry no runtime meaning outside test
 builds.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Settings](../../../../../gitbooks/features/settings.md)
+- [Deep architecture reference](../../../../../gitbooks/developing/architecture.md)

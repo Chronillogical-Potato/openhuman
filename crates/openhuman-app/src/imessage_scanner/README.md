@@ -104,3 +104,8 @@ Full Disk Access.
 cargo test --manifest-path crates/openhuman-app/Cargo.toml imessage_scanner::
 cargo test --manifest-path crates/openhuman-app/Cargo.toml imessage_scanner::tick_tests -- --ignored
 ```
+
+## Further reading
+
+- [`gitbooks/developing/architecture/tauri-shell.md`](../../../../gitbooks/developing/architecture/tauri-shell.md): the Tauri shell.
+- [`crates/openhuman-app/README.md`](../../README.md): the openhuman-app crate README.

@@ -222,3 +222,9 @@ Sibling suites: [`types_tests.rs`](./types_tests.rs), [`ops_tests.rs`](./ops_tes
 `ops_tests.rs` pins `local_status_for_backend` so a host with no OS jail
 reports `Inactive` rather than `Ready` (#3235). Run with
 `cargo test -p openhuman sandbox::` or `pnpm debug rust sandbox`.
+
+## Further reading
+
+- [Privacy and security](../../../../gitbooks/features/privacy-and-security.md)
+- [Security architecture](../../../../gitbooks/developing/architecture/security.md)
+- [tinybox submodule](../../../../vendor/tinybox/README.md)

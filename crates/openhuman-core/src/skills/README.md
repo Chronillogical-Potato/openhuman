@@ -253,3 +253,9 @@ registry round-trip, an orchestrator turn calling `list_workflows` and
 live in `vendor/tinyskills/crates/tinyskills/tests/`. Run with
 `cargo test -p openhuman skills::` or `pnpm debug rust skills`, and check the
 disabled build with `cargo check --no-default-features`.
+
+## Further reading
+
+- [MCP servers and skills](../../../../gitbooks/features/integrations/mcp-and-skills.md)
+- [tinyskills submodule](../../../../vendor/tinyskills/README.md)
+- [Agent harness architecture](../../../../gitbooks/developing/architecture/agent-harness.md)

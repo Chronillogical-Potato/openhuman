@@ -153,3 +153,9 @@ The additive idempotent `ingested_tasks.card_id` migration preserves older datab
 - **`update_source` TOCTOU.** Documented theoretical read-modify-write window across three connections; acceptable at settings-panel scale.
 - **Enrichment is intentionally LLM-free**: deterministic and unit-testable; the heavy reasoning happens in the downstream triage turn.
 - `clear_all` exists for the E2E `test_reset` RPC.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Triggers](../../../../../gitbooks/features/integrations/triggers.md)
+- [Goals and todos](../../../../../gitbooks/features/goals-and-todos.md)

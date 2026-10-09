@@ -155,3 +155,9 @@ same real type in both builds.
 - [`crates/openhuman-core/src/platform/about_app/catalog_auth_channels_team.rs`](../../platform/about_app/catalog_auth_channels_team.rs): the
   `channels.mcp_registry_browse` / `mcp_server_install` /
   `mcp_server_connect` capability entries.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [MCP registry](../../../../../gitbooks/developing/architecture/mcp-registry.md)
+- [MCP servers and skills](../../../../../gitbooks/features/integrations/mcp-and-skills.md)

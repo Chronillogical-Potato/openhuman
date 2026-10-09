@@ -60,3 +60,7 @@ connection test.
 See [`../provider`](../provider/README.md) for the equivalent story on the
 chat-model side, and [`../README.md`](../README.md) for how this fits into
 the wider `inference` domain.
+
+## Further reading
+
+- [Local AI](../../../../../gitbooks/features/model-routing/local-ai.md)

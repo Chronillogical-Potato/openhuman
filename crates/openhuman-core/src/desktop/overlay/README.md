@@ -48,3 +48,9 @@ None. State is purely an in-memory broadcast channel; events not consumed when p
 - **Channel capacity is 64**: a slow/absent overlay consumer causes `Lagged` drops (logged as a warning by the bridge), not back-pressure.
 - Keep `message` short: the overlay types it out character-by-character and auto-dismisses after `ttl_ms` (frontend default when `None`). The notch treats the literal messages `Listening` and `Processing` as reserved status words.
 - The bridge emits two event names (`overlay:attention` and `overlay_attention`) for client compatibility.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Tauri shell](../../../../../gitbooks/developing/architecture/tauri-shell.md)
+- [The mascot](../../../../../gitbooks/features/mascot/README.md)

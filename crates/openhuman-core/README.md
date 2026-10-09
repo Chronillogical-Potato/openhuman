@@ -292,3 +292,9 @@ Further reading:
 ranker), and
 [`gitbooks/developing/embedding.md`](../../gitbooks/developing/embedding.md)
 (embedding the core).
+
+## Further reading
+
+- [Building the Rust core](../../gitbooks/developing/building-rust-core.md)
+- [Crates overview](../README.md)
+- [Repository conventions (AGENTS.md)](../../AGENTS.md)

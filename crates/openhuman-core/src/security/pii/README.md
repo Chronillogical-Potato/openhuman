@@ -66,3 +66,10 @@ whether content is safe to send off-device.
 ## Tests
 
 - [`detector_tests.rs`](./detector_tests.rs), [`pii_tests.rs`](./pii_tests.rs).
+
+## Further reading
+
+- [Parent module (`security`)](../README.md)
+- [Privacy mode](../../../../../gitbooks/features/privacy-mode.md)
+- [Privacy and security](../../../../../gitbooks/features/privacy-and-security.md)
+- [Security architecture](../../../../../gitbooks/developing/architecture/security.md)

@@ -2,7 +2,7 @@
 
 Opt-in **Model Context Protocol (MCP) server** that exposes a curated, security-gated slice of OpenHuman's tool surface (Memory v2 reads/writes, core/agent introspection, subagent execution, web search) and bundled prompt assets to external MCP clients (Claude Desktop, Cursor, Windsurf, …). Started via `openhuman-core mcp`: stdio transport by default, or `--transport http` for Streamable HTTP + SSE on a local bind address. It is a JSON-RPC dispatcher, not a registered RPC domain: it has no `schemas.rs`/controllers and is wired only through [`crates/openhuman-core/src/core/cli.rs`](../../core/cli.rs), translating each MCP `tools/call` into an existing registered core RPC method.
 
-The generic server half — JSON-RPC protocol, client-provenance sessions, argument validators, and the stdio and Streamable HTTP transports — lives in `tinymcp::server` ([`vendor/tinymcp`](../../../../../vendor/tinymcp/)). This module is the host half: it implements `tinymcp::McpServerHandler` ([`handler.rs`](./handler.rs)) over OpenHuman's config, security policy, write audit, agent turns, tool catalog, prompt resources and subagent depth.
+The generic server half (JSON-RPC protocol, client-provenance sessions, argument validators, and the stdio and Streamable HTTP transports: lives in `tinymcp::server` ([`vendor/tinymcp`](../../../../../vendor/tinymcp/)). This module is the host half: it implements `tinymcp::McpServerHandler` ([`handler.rs`](./handler.rs)) over OpenHuman's config, security policy, write audit, agent turns, tool catalog, prompt resources and subagent depth.
 
 ## Responsibilities
 
@@ -108,3 +108,9 @@ No `store.rs`. The only durable side effect is the **MCP write-audit log**, writ
 - **Resource catalog parity is CI-enforced:** `resources.rs` content is `include_str!`-embedded at compile time and the `catalog_mirrors_builtins` test fails if a built-in subagent lacks a matching `openhuman://prompts/agents/<id>` entry.
 - **`agent.run_subagent` limits:** runs a fresh single-turn agent session tagged with an `mcp:<agent_id>:<uuid>` event context.
 - **stdio logging defaults to `warn`** on stderr (so failures surface in client UIs); `--verbose` → `debug`; a user-set `RUST_LOG` always wins. Stdout is reserved for protocol messages only.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [MCP server](../../../../../gitbooks/developing/mcp-server.md)
+- [MCP servers and skills](../../../../../gitbooks/features/integrations/mcp-and-skills.md)

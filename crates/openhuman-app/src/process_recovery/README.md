@@ -73,3 +73,8 @@ Each file compiles only on its own platform.
 ```bash
 cargo test --manifest-path crates/openhuman-app/Cargo.toml process_recovery::
 ```
+
+## Further reading
+
+- [`gitbooks/developing/architecture/tauri-shell.md`](../../../../gitbooks/developing/architecture/tauri-shell.md): the Tauri shell.
+- [`crates/openhuman-app/README.md`](../../README.md): the openhuman-app crate README.

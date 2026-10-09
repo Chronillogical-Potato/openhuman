@@ -163,3 +163,8 @@ cargo test -p openhuman --no-default-features --features e2e-test-support --lib 
 CI runs only the introspect tests, in the `gate-contract-tests-features` lane
 of `scripts/ci/self-hosted/lanes-plan.mjs`
 (`--features mcp,e2e-test-support ... test_support::introspect::`).
+
+## Further reading
+
+- [Testing strategy](../../../../gitbooks/developing/testing-strategy.md)
+- [Integration test layout](../../../../tests/README.md)

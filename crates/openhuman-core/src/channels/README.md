@@ -163,3 +163,10 @@ Unit tests sit beside their modules as `*_tests.rs` files (for example [`bus_tes
 cargo test -p openhuman channels::
 pnpm debug rust channels::
 ```
+
+## Further reading
+
+- [Parent module README](../../README.md)
+- [Messaging channels](../../../../gitbooks/features/channels.md)
+- [Deep architecture reference](../../../../gitbooks/developing/architecture.md)
+- [tinychannels](../../../../vendor/tinychannels/README.md)

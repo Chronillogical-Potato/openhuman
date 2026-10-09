@@ -44,3 +44,8 @@ See [`../README.md`](../README.md) for the integrations domain overview.
 `BackendTransportError` becomes the `anyhow::Error` every verb method
 returns; `IntegrationClient::map_transport_error` in `AGENTS.md` refers to
 this function.
+
+## Further reading
+
+- [Third-party integrations](../../../../../gitbooks/features/integrations/README.md)
+- [Connections](../../../../../gitbooks/features/connections.md)

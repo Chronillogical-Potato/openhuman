@@ -56,3 +56,9 @@ None. The module reads from in-memory `Config`; it stores no state.
 - **Placeholder contract is load-bearing.** `quality_score` / `hallucination_rate` are always `None` and `agents_using` / `tasks_evaluated` always `0`. The frontend treats null quality/hallucination as "no signal", collapsing badges to `staging`. When telemetry lands, populate these in `ops::model_health`, not in the transport layer.
 - Disabled feature (`dashboard.model_health.enabled == false`) returns `Err("model health disabled")`, which the handler surfaces as an RPC error.
 - This is the only view in the domain so far; `mod.rs` is intentionally export-only per the canonical module shape (no `store.rs`, [`tools.rs`](./tools.rs), or `bus.rs`: the domain is stateless, owns no agent tools, and has no event subscribers).
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Frontend](../../../../../gitbooks/developing/architecture/frontend.md)
+- [Billing, cost and usage](../../../../../gitbooks/features/billing-and-usage.md)

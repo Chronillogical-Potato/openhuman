@@ -111,3 +111,9 @@ SQLite DB at `{workspace_dir}/notifications/notifications.db`, opened per-call v
 - Routing re-reads provider settings just before escalation so a mid-flight settings toggle takes effect; routing requires `score >= importance_threshold` AND `route_to_orchestrator`.
 - Dedup window is a hard-coded 60 seconds (`exists_recent` / `insert_if_not_recent`).
 - The bridge bus is fire-and-forget: with no subscribers, events are dropped (`publish_core_notification` returns the receiver count).
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Notifications and activity](../../../../../gitbooks/features/notifications-and-activity.md)
+- [Tauri shell](../../../../../gitbooks/developing/architecture/tauri-shell.md)

@@ -48,3 +48,10 @@ what `runtime/` actually calls. `modules::runtime` has more surface (a
   `tinyruntime` module gets loaded and admitted.
 - [`runtime/node`](../node/README.md) and [`runtime/python`](../python/README.md)
   for the toolchain clients that sit on top of this facade.
+
+## Further reading
+
+- [Parent module (`runtime`)](../README.md)
+- [tinyruntime submodule](../../../../../vendor/tinyruntime/README.md)
+- [System and utilities tools](../../../../../gitbooks/features/native-tools/system-and-utilities.md)
+- [Loadable modules](../../../../../gitbooks/developing/loadable-modules.md)

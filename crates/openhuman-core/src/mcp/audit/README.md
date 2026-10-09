@@ -64,3 +64,9 @@ appears never to have happened, rather than erroring.
   `AuditStore`.
 - `crates/openhuman-core/src/core/all.rs`: registers
   `all_mcp_audit_internal_controllers()`.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [MCP registry](../../../../../gitbooks/developing/architecture/mcp-registry.md)
+- [Security architecture](../../../../../gitbooks/developing/architecture/security.md)

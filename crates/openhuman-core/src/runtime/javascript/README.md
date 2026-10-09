@@ -85,3 +85,10 @@ Handlers live in `runtime::node::rpc`, load config via
   is no persistent tool cache at this layer.
 - See [`runtime/node/README.md`](../node/README.md) for everything the facade
   forwards to, including what moved out to the `tinyruntime` module.
+
+## Further reading
+
+- [Parent module (`runtime`)](../README.md)
+- [tinyruntime submodule](../../../../../vendor/tinyruntime/README.md)
+- [System and utilities tools](../../../../../gitbooks/features/native-tools/system-and-utilities.md)
+- [Loadable modules](../../../../../gitbooks/developing/loadable-modules.md)

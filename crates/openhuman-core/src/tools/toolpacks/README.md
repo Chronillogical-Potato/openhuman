@@ -171,3 +171,11 @@ effect forwarding, dual-registry binding) and
 [`toolpacks_tests_scoping_and_visibility_tests.rs`](./toolpacks_tests_scoping_and_visibility_tests.rs)
 (`scope_use_skill_spec`, `render_pack_filtered` filtering, `route_sentence`,
 rebinding); [`groups_tests.rs`](./groups_tests.rs) (`GroupMode` defaults and narrowing rules).
+
+## Further reading
+
+- [Parent module (`tools`)](../README.md)
+- [Native tools overview](../../../../../gitbooks/features/native-tools/README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)
+- [Approval gate](../../../../../gitbooks/features/approval-gate.md)
+- [tinyagents submodule](../../../../../vendor/tinyagents/README.md)

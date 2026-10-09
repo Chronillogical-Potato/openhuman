@@ -127,3 +127,8 @@ turn lifecycle are in `../session_host/`; `run_subagent`,
   this README describes only what remains in `harness/` today.
 
 Related: [`gitbooks/developing/architecture/agent-harness.md`](../../../../../gitbooks/developing/architecture/agent-harness.md).
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [The orchestrator](../../../../../gitbooks/features/orchestration.md)

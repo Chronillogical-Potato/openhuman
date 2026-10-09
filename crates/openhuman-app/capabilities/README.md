@@ -36,3 +36,8 @@ The `$schema` field points at `../gen/schemas/desktop-schema.json`, which
   to an unscoped permission. Ordinary `http(s)` links from the main webview
   are handled by `external_navigation.rs`, which opens them in the default
   browser.
+
+## Further reading
+
+- [`gitbooks/developing/architecture/tauri-shell.md`](../../../gitbooks/developing/architecture/tauri-shell.md): the Tauri shell.
+- [`crates/openhuman-app/README.md`](../README.md): the openhuman-app crate README.

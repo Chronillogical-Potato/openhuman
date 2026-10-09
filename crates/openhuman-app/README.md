@@ -361,3 +361,15 @@ cargo test --manifest-path crates/openhuman-app/Cargo.toml gateway::
 ```
 
 Desktop E2E specs live under [`app/test/e2e/specs/`](../../app/test/e2e/specs/).
+
+## Further reading
+
+- [`crates/openhuman-app/capabilities/README.md`](capabilities/README.md): the capabilities module README.
+- [`crates/openhuman-app/profiling/README.md`](profiling/README.md): the profiling module README.
+- [`gitbooks/developing/architecture/tauri-shell.md`](../../gitbooks/developing/architecture/tauri-shell.md): the Tauri shell.
+- [`gitbooks/developing/architecture.md`](../../gitbooks/developing/architecture.md): architecture overview.
+- [`gitbooks/developing/architecture/frontend.md`](../../gitbooks/developing/architecture/frontend.md): the frontend.
+- [`gitbooks/developing/building-rust-core.md`](../../gitbooks/developing/building-rust-core.md): building the Rust core.
+- [`gitbooks/developing/tinyhumans-api-key.md`](../../gitbooks/developing/tinyhumans-api-key.md): running on a TinyHumans API key.
+- [`gitbooks/developing/performance.md`](../../gitbooks/developing/performance.md): performance.
+- [`crates/openhuman-app/permissions/README.md`](permissions/README.md): the permissions module README.

@@ -157,3 +157,9 @@ the axum stub backend and stub `CoreLink` in [`test_support.rs`](test_support.rs
 ```bash
 cargo test -p openhuman-tinyhumans session::
 ```
+
+## Further reading
+
+- [`gitbooks/developing/tinyhumans-api-key.md`](../../../../gitbooks/developing/tinyhumans-api-key.md): running on a TinyHumans API key.
+- [`gitbooks/developing/architecture/security.md`](../../../../gitbooks/developing/architecture/security.md): security.
+- [`crates/openhuman-tinyhumans/README.md`](../../README.md): the openhuman-tinyhumans crate README.

@@ -443,3 +443,7 @@ pnpm debug rust core::
 - [runtime/README.md](runtime/README.md)
 - [../security/README.md](../security/README.md)
 - [Architecture overview](../../../../gitbooks/developing/architecture.md)
+- [Parent module README](../../README.md)
+- [Building the Rust core](../../../../gitbooks/developing/building-rust-core.md)
+- [Embedding OpenHuman](../../../../gitbooks/developing/embedding.md)
+- [openhuman-rpc crate](../../../openhuman-rpc/README.md)

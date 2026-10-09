@@ -53,3 +53,9 @@ This module only orchestrates and reports; it does not reimplement downloads.
 - Controllers are registered under `DomainGroup::Agent` via
   `agent::harness_init::all_harness_init_registered_controllers` in
   [`core/all.rs`](../../core/all.rs).
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)
+- [Deep architecture reference](../../../../../gitbooks/developing/architecture.md)

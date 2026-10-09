@@ -156,3 +156,9 @@ ranking works.
 under `agents/`: `loader_tests.rs` (+ `loader_tests_orchestrator_tier_tests.rs`,
 `loader_tests_builtin_registration_tests.rs`, `loader_tests_specialist_agents_tests.rs`)
 and a `prompt_tests.rs` beside almost every archetype's `prompt.rs`.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)
+- [The orchestrator](../../../../../gitbooks/features/orchestration.md)

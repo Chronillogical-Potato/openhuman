@@ -145,3 +145,9 @@ event.
   containing `/`, `\`, or `.`. Filename stems are lowercased ASCII
   `[a-z0-9_-]`, capped at 80 chars, fallback `artifact`.
 - Log prefix is `[artifacts]` (`[tool][artifacts]` in `tools.rs`).
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)
+- [Chat](../../../../../gitbooks/features/chat.md)

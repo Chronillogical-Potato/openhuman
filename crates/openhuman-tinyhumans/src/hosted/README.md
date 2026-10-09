@@ -171,3 +171,14 @@ against wiremock through [`test_support.rs`](test_support.rs).
 ```bash
 cargo test -p openhuman-tinyhumans hosted::
 ```
+
+## Further reading
+
+- [`crates/openhuman-tinyhumans/src/hosted/announcements/README.md`](announcements/README.md): the announcements module README.
+- [`crates/openhuman-tinyhumans/src/hosted/billing/README.md`](billing/README.md): the billing module README.
+- [`crates/openhuman-tinyhumans/src/hosted/channel_link/README.md`](channel_link/README.md): the channel_link module README.
+- [`crates/openhuman-tinyhumans/src/hosted/oauth/README.md`](oauth/README.md): the oauth module README.
+- [`crates/openhuman-tinyhumans/src/hosted/referral/README.md`](referral/README.md): the referral module README.
+- [`crates/openhuman-tinyhumans/src/hosted/team/README.md`](team/README.md): the team module README.
+- [`crates/openhuman-tinyhumans/src/hosted/webhooks/README.md`](webhooks/README.md): the webhooks module README.
+- [`gitbooks/developing/tinyhumans-api-key.md`](../../../../gitbooks/developing/tinyhumans-api-key.md): running on a TinyHumans API key.

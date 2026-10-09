@@ -294,3 +294,10 @@ Tests sit beside their modules: [`client_tests.rs`](./client_tests.rs) (which in
 cargo test -p openhuman integrations::
 pnpm debug rust integrations
 ```
+
+## Further reading
+
+- [Parent module README](../../README.md)
+- [Third-party integrations](../../../../gitbooks/features/integrations/README.md)
+- [Integration tools](../../../../gitbooks/features/native-tools/integrations.md)
+- [Connections](../../../../gitbooks/features/connections.md)

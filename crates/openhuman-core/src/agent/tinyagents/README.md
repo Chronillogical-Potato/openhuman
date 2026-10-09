@@ -132,3 +132,9 @@ through the typed parent run.
 - `journal.rs` is best-effort: store opening and every write swallow errors behind a `[journal]` log line rather than failing a turn. `reaper.rs` logs its sweep under `[agent] startup run sweep`.
 - `defer_turn_completed_to_caller` (a `run_turn_via_tinyagents_shared` parameter, issue #4457) exists because the chat/session path emits its own `TurnCompleted` after streaming a post-run checkpoint; callers without that step (channel/CLI) pass `false` and rely on this seam's emit.
 - [gitbooks/developing/architecture/agent-harness.md](../../../../../gitbooks/developing/architecture/agent-harness.md) is the narrative overview of the turn lifecycle and where this seam sits in it.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [tinyagents](../../../../../vendor/tinyagents/README.md)
+- [Agent runtime upstream boundary](../../../../../docs/specs/agent-runtime-upstream-boundary.md)

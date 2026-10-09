@@ -157,3 +157,10 @@ None. The module publishes or subscribes no `DomainEvent`s and has no `bus.rs`. 
 - EVM is one `WalletChain::Evm` variant across 6 networks (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain) selected by `EvmNetwork` (defaults to `ethereum_mainnet`); other chains ignore `evmNetwork`. BTC rejects token transfers. Swaps, bridges and contract calls are not in the wallet; they live in the [`web3`](../README.md) module.
 - RPC endpoints are overridable per chain/network via `OPENHUMAN_WALLET_RPC_*` env vars (used by tests pointing at an axum mock). Log lines redact URLs to scheme and host.
 - `balances`: only EVM reads live (Ethereum mainnet); BTC/Solana/Tron call their providers but fall back to zero with `ProviderStatus::Missing` on error.
+
+## Further reading
+
+- [Parent module (`web3`)](../README.md)
+- [Wallet](../../../../../gitbooks/features/wallet.md)
+- [tinywallet submodule](../../../../../vendor/tinywallet/README.md)
+- [Loadable modules](../../../../../gitbooks/developing/loadable-modules.md)

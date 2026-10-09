@@ -61,3 +61,5 @@ currently still uses the legacy batch proxy.
 ## Related docs
 
 - [gitbooks/developing/agent-observability.md](../../../../../gitbooks/developing/agent-observability.md)
+- [Parent module README](../README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)

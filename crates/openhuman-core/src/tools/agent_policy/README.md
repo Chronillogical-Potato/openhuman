@@ -65,3 +65,11 @@ Re-exported from [`mod.rs`](./mod.rs):
 - `ToolPolicyAction::RequireApproval` is handled (routed to `blocked_tool_names`) but the engine never produces it.
 - `visible_tool_names_for_prompt()` inserts `NO_TOOLS_ALLOWED_SENTINEL` when restrictions exist but nothing is allowed, so callers can distinguish an empty-but-restricted surface from an unrestricted one.
 - `truncate_utf8` keeps `render_tool_policy_boundary` output within `max_bytes` on a char boundary, appending `\n[...truncated]` only when there is room.
+
+## Further reading
+
+- [Parent module (`tools`)](../README.md)
+- [Native tools overview](../../../../../gitbooks/features/native-tools/README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)
+- [Approval gate](../../../../../gitbooks/features/approval-gate.md)
+- [tinyagents submodule](../../../../../vendor/tinyagents/README.md)

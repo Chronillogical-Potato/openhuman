@@ -78,3 +78,10 @@ None. No `store.rs`: staged binaries are written to the filesystem (current-exe 
 - Sentry hygiene: transport-level reqwest failures (`is_connect`/`is_timeout`/`is_request`) and transient HTTP statuses are logged at `warn` and skipped from `report_error`; a regression guard test hits an unroutable TEST-NET-1 host to lock the classifier.
 - Test env locking: tests touching `update_apply` take `config::TEST_ENV_LOCK` because the mutation policy is resolved through the process-global `OPENHUMAN_WORKSPACE` env var and would otherwise race.
 - Network-hitting paths (`update_check` success, `update_apply` success, scheduler `tick`) are deferred to integration tests, not unit-tested.
+
+## Further reading
+
+- [Parent module (`platform`)](../README.md)
+- [Auto-update](../../../../../gitbooks/overview/auto-update.md)
+- [Release policy](../../../../../gitbooks/developing/release-policy.md)
+- [Platform and availability](../../../../../gitbooks/features/platform.md)

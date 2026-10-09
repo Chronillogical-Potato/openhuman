@@ -85,3 +85,9 @@ No `store.rs`. State is per-session and in-memory:
 - **`autocompact_enabled()` is `config.enabled && config.autocompact_enabled`**, and `microcompact_keep_recent()` is `0` when `microcompact_enabled` is off: the manager folds the config gates so the turn reads one value per knob.
 - Prompt rendering does not belong in this module; add it to `agent::prompts`.
 - **`channels_prompt::build_system_prompt` deliberately bypasses `SystemPromptBuilder`** to keep production channel prompt bytes stable for prefix-cache hits; it is a standalone free function despite living under `context/`.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)
+- [Smart token compression](../../../../../gitbooks/features/token-compression.md)

@@ -41,3 +41,9 @@ survive that boundary on its own.
 - [`vendor/tinyagents`](../../../../../vendor/tinyagents/) (`tinyagents-orchestration::subagent`,
   `tinyagents-graph`) for the lifecycle and delegation-graph mechanics this
   module adapts rather than reimplements.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)
+- [The orchestrator](../../../../../gitbooks/features/orchestration.md)

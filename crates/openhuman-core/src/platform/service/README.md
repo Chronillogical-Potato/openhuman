@@ -111,3 +111,10 @@ Both subscribers are registered idempotently from `crates/openhuman-core/src/cor
 - Windows command spawns set `CREATE_NO_WINDOW` (`common::no_window`) so polled `schtasks /Query` calls don't flash a console.
 - Lifecycle RPCs are deliberately **not** unit-tested (they mutate real OS state or kill the process); RPC-adapter coverage lives in `tests/json_rpc_e2e.rs`. `daemon_host_get`/`set` and the restart/shutdown publish paths are unit-tested.
 - `daemon.rs::state_file_path` and `common.rs::state_file_path` (mock) both compute paths next to config but for different files (`daemon_state.json` vs the mock state file).
+
+## Further reading
+
+- [Parent module (`platform`)](../README.md)
+- [Platform and availability](../../../../../gitbooks/features/platform.md)
+- [Tauri shell architecture](../../../../../gitbooks/developing/architecture/tauri-shell.md)
+- [Architecture overview](../../../../../gitbooks/developing/architecture.md)

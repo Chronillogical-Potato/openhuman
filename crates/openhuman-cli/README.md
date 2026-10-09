@@ -209,3 +209,12 @@ pnpm debug rust <filter>
 
 `main_tests.rs` (built with `crash-reporting`) covers the secret scrubbing
 that `before_send` applies (bearer tokens and provider API keys).
+
+## Further reading
+
+- [`gitbooks/developing/building-rust-core.md`](../../gitbooks/developing/building-rust-core.md): building the Rust core.
+- [`gitbooks/developing/testing-strategy.md`](../../gitbooks/developing/testing-strategy.md): testing strategy.
+- [`gitbooks/developing/performance.md`](../../gitbooks/developing/performance.md): performance.
+- [`crates/README.md`](../README.md): crates overview.
+- [`crates/openhuman-core/README.md`](../openhuman-core/README.md): the openhuman-core crate README.
+- [`tests/README.md`](../../tests/README.md): root tests.

@@ -77,3 +77,10 @@ No dependencies on other `openhuman` domains: capability metadata for other doma
 - `Capability` fields are all `&'static str` / copy types, so `Capability` is `Copy` and the read APIs cheaply return owned `Vec`s by copying.
 - A capability's `domain` is a free-text label and does not always equal its `category` wire name (e.g. `embeddings`, `wallet`, `runtime_python`, `devices`, `desktop_companion`, `security`, `tools`, `memory`).
 - `CapabilityCategory::FromStr` is lenient (case-insensitive, accepts `local-ai`/`local ai`/`localai` aliases); `as_str` emits the canonical snake_case wire name used by serde.
+
+## Further reading
+
+- [Parent module (`platform`)](../README.md)
+- [Platform and availability](../../../../../gitbooks/features/platform.md)
+- [Tauri shell architecture](../../../../../gitbooks/developing/architecture/tauri-shell.md)
+- [Architecture overview](../../../../../gitbooks/developing/architecture.md)

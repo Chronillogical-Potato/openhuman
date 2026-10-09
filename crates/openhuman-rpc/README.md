@@ -192,3 +192,11 @@ cargo test -p openhuman-rpc --features crash-reporting
 cargo test -p openhuman-cli --test json_rpc_e2e
 pnpm debug rust openhuman_rpc
 ```
+
+## Further reading
+
+- [`gitbooks/developing/architecture.md`](../../gitbooks/developing/architecture.md): architecture overview.
+- [`gitbooks/developing/architecture/tauri-shell.md`](../../gitbooks/developing/architecture/tauri-shell.md): the Tauri shell.
+- [`gitbooks/developing/embedding.md`](../../gitbooks/developing/embedding.md): embedding the core in another product.
+- [`gitbooks/developing/testing-strategy.md`](../../gitbooks/developing/testing-strategy.md): testing strategy.
+- [`crates/README.md`](../README.md): crates overview.

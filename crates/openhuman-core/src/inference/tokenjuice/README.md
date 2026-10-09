@@ -109,3 +109,8 @@ callback stay here.
   from here: it is not yet a `tinyjuice-bus` name constant.
 - Contract crate: `tinyjuice-bus` ([`vendor/tinyjuice/crates/tinyjuice-bus`](../../../../../vendor/tinyjuice/crates/tinyjuice-bus/),
   path dependency in [`crates/openhuman-core/Cargo.toml`](../../../Cargo.toml)).
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [tinyjuice](../../../../../vendor/tinyjuice/README.md)

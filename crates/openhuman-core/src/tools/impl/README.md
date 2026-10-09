@@ -49,3 +49,11 @@ tested but no production assembly site constructs it today.
   descriptor as `action_dir` plus a `ReadWrite` trusted root on a per-call
   clone of `SecurityPolicy`. They must stay in step; `is_always_forbidden` and
   `is_workspace_internal_path` are evaluated before any trusted-root shortcut.
+
+## Further reading
+
+- [Parent module (`tools`)](../README.md)
+- [Native tools overview](../../../../../gitbooks/features/native-tools/README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)
+- [Approval gate](../../../../../gitbooks/features/approval-gate.md)
+- [tinyagents submodule](../../../../../vendor/tinyagents/README.md)

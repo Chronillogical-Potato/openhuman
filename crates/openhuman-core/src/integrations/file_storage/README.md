@@ -109,3 +109,8 @@ for `resolve_upload_path` (traversal escape, directory rejection) and
 and end-to-end flows for each tool against a `wiremock` backend (multipart
 upload, 302-to-presigned download, link, visibility, delete, envelope errors).
 </content>
+
+## Further reading
+
+- [Third-party integrations](../../../../../gitbooks/features/integrations/README.md)
+- [Connections](../../../../../gitbooks/features/connections.md)

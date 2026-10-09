@@ -152,3 +152,8 @@ Tests sit beside each file ([`text_tests.rs`](./text_tests.rs), [`retry_tests.rs
 [`redact_tests.rs`](./redact_tests.rs), [`url_tests.rs`](./url_tests.rs), [`params_tests.rs`](./params_tests.rs)). Run them with
 `cargo test -p openhuman util::` or `pnpm debug rust util::`. The
 `truncate_with_ellipsis` doctest runs under `cargo test -p openhuman --doc`.
+
+## Further reading
+
+- [Architecture overview](../../../../gitbooks/developing/architecture.md)
+- [Testing strategy](../../../../gitbooks/developing/testing-strategy.md)

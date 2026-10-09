@@ -62,3 +62,9 @@ long conversation's generations without reading the whole chain.
   child agent run instead of the top-level session.
 - [`vendor/tinyagents`](../../../../../vendor/tinyagents/) for the session, resume, and transcript mechanics this
   module wraps rather than reimplements.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)
+- [Memory architecture](../../../../../gitbooks/developing/architecture/memory.md)

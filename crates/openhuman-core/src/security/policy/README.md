@@ -130,3 +130,11 @@ Each of these must not be weakened to make a feature work:
 - [`proptest_tests.rs`](./proptest_tests.rs): property tests over command classification.
 - [`enforcement_scratch_dir_tests_tests.rs`](./enforcement_scratch_dir_tests_tests.rs): `openhuman_scratch_dir` is
   namespaced on every platform and `ensure_openhuman_scratch_dir` creates it.
+
+## Further reading
+
+- [Parent module (`security`)](../README.md)
+- [Security architecture](../../../../../gitbooks/developing/architecture/security.md)
+- [Privacy and security](../../../../../gitbooks/features/privacy-and-security.md)
+- [Approval gate](../../../../../gitbooks/features/approval-gate.md)
+- [OS keyring and secret storage](../../../../../gitbooks/features/os-keyring-and-secret-storage.md)

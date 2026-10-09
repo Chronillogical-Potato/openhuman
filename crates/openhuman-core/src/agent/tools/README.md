@@ -56,3 +56,9 @@ instead of registering them as disabled.
   to these conceptually but live separately because they carry more
   lifecycle state.
 - `crate::agent::todos` for the store `TodoTool` reads and writes.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)
+- [Native tools](../../../../../gitbooks/features/native-tools/README.md)

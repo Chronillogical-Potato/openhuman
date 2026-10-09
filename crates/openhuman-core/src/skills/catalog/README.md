@@ -114,3 +114,10 @@ Security notes:
   hardened URL installer (HTTPS-only, size cap, private-IP rejection,
   `SKILL.md` requirement) applies to catalog installs too.
 - HTTP localhost installs require `OPENHUMAN_SKILL_INSTALL_ALLOW_LOCAL_HTTP=1` and are intended for local fixtures only.
+
+## Further reading
+
+- [Parent module (`skills`)](../README.md)
+- [MCP servers and skills](../../../../../gitbooks/features/integrations/mcp-and-skills.md)
+- [tinyskills submodule](../../../../../vendor/tinyskills/README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)

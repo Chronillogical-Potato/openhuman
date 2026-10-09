@@ -43,3 +43,10 @@ when the caller is not signed in.
 
 - Recipient and sender addresses default to the wallet's own derived address for the chain family when omitted.
 - The quote id returned by `quote` is bound to the chat thread that prepared it; see the parent [README](../README.md) for the quote store's TTL and ownership rules, which this module shares with `bridge` and `dapp`.
+
+## Further reading
+
+- [Parent module (`web3`)](../README.md)
+- [Wallet](../../../../../gitbooks/features/wallet.md)
+- [tinywallet submodule](../../../../../vendor/tinywallet/README.md)
+- [Loadable modules](../../../../../gitbooks/developing/loadable-modules.md)

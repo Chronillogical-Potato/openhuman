@@ -370,3 +370,9 @@ need a real module load a local build through `TINYSEARCH_TEST_MODULE`,
 
 See also `gitbooks/developing/performance.md` for how on-demand modules keep a
 minimal build small.
+
+## Further reading
+
+- [Loadable modules](../../../../gitbooks/developing/loadable-modules.md)
+- [tinybus submodule](../../../../vendor/tinybus/README.md)
+- [Architecture overview](../../../../gitbooks/developing/architecture.md)

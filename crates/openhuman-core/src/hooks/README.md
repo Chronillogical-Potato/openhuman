@@ -255,3 +255,6 @@ the engine in `tinyagents-runtime`. Run the host tests with
 
 - [gitbooks/developing/hooks.md](../../../../gitbooks/developing/hooks.md): the `hooks.json` guide for hook authors.
 - [gitbooks/developing/architecture/security.md](../../../../gitbooks/developing/architecture/security.md): the approval gate and autonomy policy that still apply after a hook allows.
+- [Parent module README](../../README.md)
+- [Agent harness architecture](../../../../gitbooks/developing/architecture/agent-harness.md)
+- [tinyagents](../../../../vendor/tinyagents/README.md)

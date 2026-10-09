@@ -385,3 +385,10 @@ coverage is in `tests/memory_v2_e2e.rs` (JSON-RPC and a full web-chat turn
 against the mock backend, run with `cargo test -p openhuman-cli --test
 memory_v2_e2e`) and `tests/memory_cortexdb_live.rs` (live CortexDB, opt-in).
 The UI flow is `app/test/playwright/specs/memory-v2.spec.ts`.
+
+## Further reading
+
+- [Memory (product)](../../../../gitbooks/features/memory.md)
+- [Memory architecture](../../../../gitbooks/developing/architecture/memory.md)
+- [Memory tools](../../../../gitbooks/features/native-tools/memory-tools.md)
+- [tinymemory submodule](../../../../vendor/tinymemory/README.md)

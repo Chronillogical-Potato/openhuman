@@ -136,3 +136,9 @@ runtimes.
 ```bash
 cargo test -p openhuman-embed --features inference,mcp,skills runtime::
 ```
+
+## Further reading
+
+- [`gitbooks/developing/embedding.md`](../../../../gitbooks/developing/embedding.md): embedding the core in another product.
+- [`gitbooks/developing/tinyhumans-api-key.md`](../../../../gitbooks/developing/tinyhumans-api-key.md): running on a TinyHumans API key.
+- [`crates/openhuman-embed/README.md`](../../README.md): the openhuman-embed crate README.

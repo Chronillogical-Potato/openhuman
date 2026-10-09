@@ -249,3 +249,11 @@ attribution header tests are in
 [`crates/openhuman-tinyhumans/src/transport/transport_tests.rs`](../../../openhuman-tinyhumans/src/transport/transport_tests.rs).
 
 Run with `cargo test -p openhuman backend::` or `pnpm debug rust backend::`.
+
+## Further reading
+
+- [Parent module README](../../README.md)
+- [One TinyHumans API key](../../../../gitbooks/developing/tinyhumans-api-key.md)
+- [Deep architecture reference](../../../../gitbooks/developing/architecture.md)
+- [openhuman-tinyhumans crate](../../../openhuman-tinyhumans/README.md)
+- [tinyhumans-sdk](../../../../vendor/tinyhumans-sdk/README.md)

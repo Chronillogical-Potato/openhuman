@@ -116,3 +116,7 @@ including node model overrides, custom registry pins, and the session builder's
 configured default. It shares the builder's role resolver before deciding whether
 a session is required. A separate summarization provider does not determine the
 session requirement for that agent.
+
+## Further reading
+
+- [Automatic model routing](../../../../../gitbooks/features/model-routing/README.md)

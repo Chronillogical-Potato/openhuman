@@ -241,3 +241,9 @@ Tests sit beside their modules as `*_tests.rs` files (`ops_*_tests.rs`, [`schema
 cargo test -p openhuman config::
 pnpm debug rust config::
 ```
+
+## Further reading
+
+- [Parent module README](../../README.md)
+- [Settings](../../../../gitbooks/features/settings.md)
+- [Deep architecture reference](../../../../gitbooks/developing/architecture.md)

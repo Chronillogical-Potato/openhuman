@@ -42,3 +42,9 @@ Two policy points here: `channel_has_approval_surface` follows the provider's `c
 - [`supervision_tests.rs`](./supervision_tests.rs).
 - [`dispatch_tests.rs`](./dispatch_tests.rs) (helpers: ACK reaction categories, context block shape), [`dispatch/mod_scoping_tests_tests.rs`](./dispatch/mod_scoping_tests_tests.rs) (`build_visible_tool_set` / `AgentScoping`), [`dispatch/mod_approval_surface_gating_tests_tests.rs`](./dispatch/mod_approval_surface_gating_tests_tests.rs) (`channel_has_approval_surface`), [`dispatch/routing_connected_fallback_tests_tests.rs`](./dispatch/routing_connected_fallback_tests_tests.rs) (`connected_with_fallback`: authoritative snapshot vs cached fallback on unavailable/timeout).
 - End-to-end dispatch coverage lives in `channels/tests/` (`runtime_dispatch`, `runtime_tool_calls`, `discord_integration`, `telegram_integration`, `health`).
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Messaging channels](../../../../../gitbooks/features/channels.md)
+- [tinychannels](../../../../../vendor/tinychannels/README.md)

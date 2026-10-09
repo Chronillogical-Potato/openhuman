@@ -194,3 +194,9 @@ agent isolation is [`tests/runtime_agents.rs`](../../tests/runtime_agents.rs), a
 cargo test -p openhuman-embed --features inference,mcp,skills agent::
 cargo test -p openhuman-embed --features inference,mcp,skills --test attached_tools
 ```
+
+## Further reading
+
+- [`gitbooks/developing/embedding.md`](../../../../gitbooks/developing/embedding.md): embedding the core in another product.
+- [`gitbooks/developing/architecture/agent-harness.md`](../../../../gitbooks/developing/architecture/agent-harness.md): the agent harness.
+- [`crates/openhuman-embed/README.md`](../../README.md): the openhuman-embed crate README.

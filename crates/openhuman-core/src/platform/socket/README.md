@@ -103,3 +103,9 @@ None of its own. State (`status`, `socket_id`, `error`, attached `WebhookRouter`
 - The ping-timeout warning carries the connection age, the number of Engine.IO pings the connection ever received, and the frames sent since the last server frame; a successful handshake after an outage logs `Reconnected after Ns (N failed attempt(s))`. Both exist so a drop report can be root-caused from the log alone (#6256): drops that always land at the same connection age point at a lifetime ceiling on the path (#5603), zero pings on a minutes-old connection point at the server.
 - Redirect following only persists the "update BACKEND_URL" warning for permanent redirects (301/308); temporary (302/307) hops don't (CodeRabbit, #1547).
 - No agent tools and no `bus.rs`: this is a transport domain that publishes events for others to handle.
+
+## Further reading
+
+- [Parent module (`platform`)](../README.md)
+- [Architecture overview](../../../../../gitbooks/developing/architecture.md)
+- [Platform and availability](../../../../../gitbooks/features/platform.md)

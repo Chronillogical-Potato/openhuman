@@ -131,3 +131,9 @@ cargo test -p openhuman media::
 
 User-facing docs:
 [`gitbooks/features/native-tools/media-generation.md`](../../../../gitbooks/features/native-tools/media-generation.md).
+
+## Further reading
+
+- [Image and video generation](../../../../gitbooks/features/native-tools/media-generation.md)
+- [Image tools](../../../../gitbooks/features/native-tools/image-tools.md)
+- [Native tools overview](../../../../gitbooks/features/native-tools/README.md)

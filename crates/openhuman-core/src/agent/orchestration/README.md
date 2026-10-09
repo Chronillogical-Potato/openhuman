@@ -211,3 +211,10 @@ what the harness exposes to the child.
 - `worktree.rs` only ever operates on the user's project repo rooted at the
   agent's `action_dir`, never on OpenHuman's own source tree; `remove`
   refuses a dirty worktree unless `force = true`.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)
+- [The orchestrator](../../../../../gitbooks/features/orchestration.md)
+- [Agent coordination tools](../../../../../gitbooks/features/native-tools/agent-coordination.md)

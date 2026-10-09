@@ -76,3 +76,10 @@ Both `enforce_egress` and `local_only_tool_block` read the live mode via
 ## Tests
 
 - [`types_tests.rs`](./types_tests.rs), [`emit_tests.rs`](./emit_tests.rs), [`enforce_tests.rs`](./enforce_tests.rs).
+
+## Further reading
+
+- [Parent module (`security`)](../README.md)
+- [Privacy mode](../../../../../gitbooks/features/privacy-mode.md)
+- [Privacy and security](../../../../../gitbooks/features/privacy-and-security.md)
+- [Security architecture](../../../../../gitbooks/developing/architecture/security.md)

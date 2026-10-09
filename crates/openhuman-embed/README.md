@@ -509,3 +509,13 @@ The repository-root [`examples/embed_headless.rs`](../../examples/embed_headless
 drive `CoreBuilder` directly, without this crate. They are `[[example]]`
 targets of `openhuman-cli`:
 `cargo run -p openhuman-cli --example embed_headless`.
+
+## Further reading
+
+- [`crates/openhuman-embed/examples/README.md`](examples/README.md): the examples module README.
+- [`gitbooks/developing/embedding.md`](../../gitbooks/developing/embedding.md): embedding the core in another product.
+- [`gitbooks/developing/tinyhumans-api-key.md`](../../gitbooks/developing/tinyhumans-api-key.md): running on a TinyHumans API key.
+- [`gitbooks/developing/architecture.md`](../../gitbooks/developing/architecture.md): architecture overview.
+- [`gitbooks/developing/architecture/agent-harness.md`](../../gitbooks/developing/architecture/agent-harness.md): the agent harness.
+- [`gitbooks/developing/loadable-modules.md`](../../gitbooks/developing/loadable-modules.md): loadable modules.
+- [`crates/README.md`](../README.md): crates overview.

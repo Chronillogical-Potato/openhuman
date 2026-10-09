@@ -71,3 +71,9 @@ Listed commands that are no longer registered, which are harmless but stale:
 Plugin permissions (`core:*`, `notification:*`, `opener:*`, `deep-link:*`,
 `updater:*`) are not defined here; they come from the plugins and are granted
 directly in the capability.
+
+## Further reading
+
+- [`gitbooks/developing/architecture/tauri-shell.md`](../../../gitbooks/developing/architecture/tauri-shell.md): the Tauri shell.
+- [`gitbooks/developing/architecture/security.md`](../../../gitbooks/developing/architecture/security.md): security.
+- [`crates/openhuman-app/README.md`](../README.md): the openhuman-app crate README.

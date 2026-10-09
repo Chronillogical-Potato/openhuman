@@ -64,3 +64,10 @@ openhuman-core skill_runtime resolve_runtimes --runtime all
 openhuman-core skill_runtime run --skill_id git-helper --inputs '{}'
 openhuman-core skill_runtime recent_runs --limit 10
 ```
+
+## Further reading
+
+- [Parent module (`skills`)](../README.md)
+- [MCP servers and skills](../../../../../gitbooks/features/integrations/mcp-and-skills.md)
+- [tinyskills submodule](../../../../../vendor/tinyskills/README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)

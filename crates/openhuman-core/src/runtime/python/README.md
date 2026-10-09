@@ -60,3 +60,10 @@ client, no archive crates, no `walkdir`, no `fs2`: those went with the pipeline.
   blocking on a bus round trip.
 - Inline Python code goes through `runtime::pool::python`, which routes to the
   module's warm workers.
+
+## Further reading
+
+- [Parent module (`runtime`)](../README.md)
+- [tinyruntime submodule](../../../../../vendor/tinyruntime/README.md)
+- [System and utilities tools](../../../../../gitbooks/features/native-tools/system-and-utilities.md)
+- [Loadable modules](../../../../../gitbooks/developing/loadable-modules.md)

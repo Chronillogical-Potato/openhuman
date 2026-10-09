@@ -363,3 +363,8 @@ Related docs: [gitbooks/features/workflows.md](../../../../gitbooks/features/wor
 `tinyagents`, while the vendored crate now carries its own runtime under
 [`vendor/tinyflows/crates/tinyflows/src/graph/`](../../../../vendor/tinyflows/crates/tinyflows/src/graph/)), and
 [../cron/README.md](../cron/README.md) (`JobType::Flow`).
+
+## Further reading
+
+- [Parent module README](../../README.md)
+- [tinyflows](../../../../vendor/tinyflows/README.md)

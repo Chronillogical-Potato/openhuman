@@ -115,3 +115,9 @@ is part of the chat surface and always on.
 Tests sit beside each module ([`ops_tests.rs`](./ops_tests.rs), [`schemas_tests.rs`](./schemas_tests.rs),
 [`types_tests.rs`](./types_tests.rs)). Run them with `cargo test -p openhuman commands::` or
 `pnpm debug rust commands::`.
+
+## Further reading
+
+- [Parent module README](../../README.md)
+- [Deep architecture reference](../../../../gitbooks/developing/architecture.md)
+- [Chat](../../../../gitbooks/features/chat.md)

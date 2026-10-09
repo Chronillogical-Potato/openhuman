@@ -116,3 +116,9 @@ its own:
 ```bash
 cargo test --manifest-path crates/openhuman-app/profiling/Cargo.toml
 ```
+
+## Further reading
+
+- [`gitbooks/developing/performance.md`](../../../gitbooks/developing/performance.md): performance.
+- [`gitbooks/developing/architecture/tauri-shell.md`](../../../gitbooks/developing/architecture/tauri-shell.md): the Tauri shell.
+- [`crates/openhuman-app/README.md`](../README.md): the openhuman-app crate README.

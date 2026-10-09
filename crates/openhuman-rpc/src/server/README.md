@@ -214,3 +214,9 @@ the shims, Socket.IO, `/dev/connect`, and each route module under [`http/`](http
 ```bash
 cargo test -p openhuman-rpc --features crash-reporting server::
 ```
+
+## Further reading
+
+- [`gitbooks/developing/architecture.md`](../../../../gitbooks/developing/architecture.md): architecture overview.
+- [`gitbooks/developing/architecture/security.md`](../../../../gitbooks/developing/architecture/security.md): security.
+- [`crates/openhuman-rpc/README.md`](../../README.md): the openhuman-rpc crate README.

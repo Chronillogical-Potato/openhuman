@@ -276,3 +276,10 @@ Each file has a sibling `<module>_tests.rs`; the policy suites live in
 `policy_trusted_roots_tests.rs`, `policy_workspace_internal_tests.rs`,
 `proptest_tests.rs` and others). Run them with
 `cargo test -p openhuman security::` or `pnpm debug rust security`.
+
+## Further reading
+
+- [Security architecture](../../../../gitbooks/developing/architecture/security.md)
+- [Privacy and security](../../../../gitbooks/features/privacy-and-security.md)
+- [Approval gate](../../../../gitbooks/features/approval-gate.md)
+- [OS keyring and secret storage](../../../../gitbooks/features/os-keyring-and-secret-storage.md)

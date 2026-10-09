@@ -65,7 +65,7 @@ security model); this README covers only the host seam.
   `remember`/`forget`); `remember`/`forget` hard-refuse any scope other than
   `"flow"`. Scopes are memory v2 tag filters: `user` reads everything,
   `flow` reads the run's own `flow:<id>` items, `flows` reads every flow's
-  items (tag `flows`) — the same tags the `flow_memory_*` agent tools use.
+  items (tag `flows`), the same tags the `flow_memory_*` agent tools use.
   `recall` returns the engine's answer plus citations, `search` raw hits;
   `flavour` and `people` are unsupported in v2 (unknown slug / empty
   listing).
@@ -107,3 +107,9 @@ SSRF/allowlist rejections rather than a mock round-trip),
 [`memory_adapter_tests.rs`](./memory_adapter_tests.rs) (the `memory` node adapter against an in-memory
 reference engine), plus a `<module>_tests.rs` file beside most modules
 above.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Workflows](../../../../../gitbooks/features/workflows.md)
+- [tinyflows](../../../../../vendor/tinyflows/README.md)

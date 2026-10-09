@@ -152,3 +152,9 @@ user message via `current_datetime_line`).
 - [`agent/debug/`](../debug/): `dump_agent_prompt` / `dump_all_agent_prompts` ([`mod.rs`](./mod.rs))
   build the same `PromptContext` to render each agent's prompt,
   `dump_writer.rs` writes it to disk, `prompt_size.rs` measures it.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)
+- [Personalization and self-learning](../../../../../gitbooks/features/personalization.md)

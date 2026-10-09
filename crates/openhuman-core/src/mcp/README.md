@@ -214,3 +214,11 @@ Each module has a sibling `*_tests.rs` ([`host_tests.rs`](./host_tests.rs), and 
 in `server/`). Run with `cargo test -p openhuman mcp::` or
 `pnpm debug rust mcp`, and check the disabled build with
 `cargo check --no-default-features`.
+
+## Further reading
+
+- [Parent module README](../../README.md)
+- [MCP servers and skills](../../../../gitbooks/features/integrations/mcp-and-skills.md)
+- [MCP registry](../../../../gitbooks/developing/architecture/mcp-registry.md)
+- [MCP server](../../../../gitbooks/developing/mcp-server.md)
+- [tinymcp](../../../../vendor/tinymcp/README.md)

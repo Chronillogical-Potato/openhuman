@@ -85,3 +85,9 @@ Does not own a `store.rs`. Its effects are written through other layers:
 - **5→6 shares one version bump for two modules.** Both `repair_http_request_limits` and `reconcile_orphaned_providers` run; the gate advances to 6 only if both succeed. Re-running the one that already succeeded on the next launch is a no-op.
 - Adding a migration: add a `mod` with a `<name>_tests.rs`, bump `CURRENT_SCHEMA_VERSION`, and add a `if config.schema_version == N` branch in `run_pending` that calls the module and bumps and saves on success (see the mod.rs docstring). Do not rely on a migration to initialise fresh workspaces; they never cross any gate. Put creation-time seeding in `seed_new_workspace` instead.
 - Migration `run(...)` fns return `anyhow::Result<…>` to match the runner's dispatch signature even when the transform is currently infallible, so a future I/O-backed step slots in without churning the runner.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Settings](../../../../../gitbooks/features/settings.md)
+- [Deep architecture reference](../../../../../gitbooks/developing/architecture.md)

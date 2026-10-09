@@ -86,3 +86,9 @@ None of its own; stateless adapter. The only state it reads is the backend crede
 - `paymentMethodId` is `urlencoding::encode`'d into the path; empty/whitespace ids are rejected.
 - `get_transactions` defaults to `limit=20`, `offset=0`; the handler tolerates an empty params map.
 - Input-validation unit tests live inline in [`ops.rs`](ops.rs) and run without network/session/filesystem state.
+
+## Further reading
+
+- [`gitbooks/developing/tinyhumans-api-key.md`](../../../../../gitbooks/developing/tinyhumans-api-key.md): running on a TinyHumans API key.
+- [`crates/openhuman-tinyhumans/src/hosted/README.md`](../README.md): hosted proxies.
+- [`vendor/tinyhumans-sdk/README.md`](../../../../../vendor/tinyhumans-sdk/README.md): tinyhumans-sdk.

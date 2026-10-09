@@ -112,3 +112,9 @@ runs as a doctest.
 ```bash
 cargo test -p openhuman-rpc session_store
 ```
+
+## Further reading
+
+- [`gitbooks/developing/architecture/agent-harness.md`](../../../../gitbooks/developing/architecture/agent-harness.md): the agent harness.
+- [`gitbooks/developing/architecture.md`](../../../../gitbooks/developing/architecture.md): architecture overview.
+- [`crates/openhuman-rpc/README.md`](../../README.md): the openhuman-rpc crate README.

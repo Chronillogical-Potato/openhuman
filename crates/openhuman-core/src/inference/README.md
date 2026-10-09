@@ -321,3 +321,10 @@ Tests sit beside their modules as `<module>_tests.rs` (for example [`ops_tests.r
 shared config take `inference_test_guard()` / `inference_test_guard_async()` from
 [`host_runtime/mod.rs`](./host_runtime/mod.rs). Run them with `cargo test -p openhuman inference::` or
 `pnpm debug rust inference`. JSON-RPC behavior is covered in [`tests/json_rpc_e2e.rs`](../../../../tests/json_rpc_e2e.rs).
+
+## Further reading
+
+- [Parent module README](../../README.md)
+- [Automatic model routing](../../../../gitbooks/features/model-routing/README.md)
+- [Local models and bring your own key](../../../../gitbooks/features/model-routing/local-and-byok-models.md)
+- [Pluggable engines](../../../../gitbooks/developing/engines.md)

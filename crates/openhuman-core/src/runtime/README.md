@@ -159,3 +159,9 @@ Tests sit beside their modules as `*_tests.rs`. Run them with
 
 See `gitbooks/developing/performance.md` for how pooling and in-process
 execution feed into the project's density and cold-start numbers.
+
+## Further reading
+
+- [tinyruntime submodule](../../../../vendor/tinyruntime/README.md)
+- [System and utilities tools](../../../../gitbooks/features/native-tools/system-and-utilities.md)
+- [Loadable modules](../../../../gitbooks/developing/loadable-modules.md)

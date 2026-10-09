@@ -73,3 +73,8 @@ Consumed in-process across the codebase (discoverable via `grep scheduler_gate`)
 - **`init_global` is idempotent** (`std::sync::Once`); live config changes go through `update_config`, which recomputes the policy immediately.
 - **Server-mode detection** never infers server from "no battery" alone (desktops have none); it requires Linux + no battery + no `DISPLAY`/`WAYLAND_DISPLAY`, or explicit env / k8s / docker signals.
 - `PauseReason::OnBattery` and `CpuPressure` are the active power-aware (#1073) reasons; `Unknown` is a placeholder fallback.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Cron and scheduling](../../../../../gitbooks/features/native-tools/cron.md)

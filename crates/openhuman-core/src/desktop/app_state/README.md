@@ -49,3 +49,9 @@ The signed-in identity for prompts and Sentry is `security::credentials::identit
 
 - [`ops_tests.rs`](./ops_tests.rs), [`recovery_signal_tests.rs`](./recovery_signal_tests.rs), [`schemas_tests.rs`](./schemas_tests.rs).
 - JSON-RPC shape: [`tests/json_rpc_e2e.rs`](../../../../../tests/json_rpc_e2e.rs) (`json_rpc_app_state_snapshot_returns_runtime_shape`), [`tests/in_process/config_auth_app_state_connectivity_e2e.rs`](../../../../../tests/in_process/config_auth_app_state_connectivity_e2e.rs).
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Tauri shell](../../../../../gitbooks/developing/architecture/tauri-shell.md)
+- [Frontend](../../../../../gitbooks/developing/architecture/frontend.md)

@@ -407,3 +407,9 @@ Tests sit beside their modules as `<module>_tests.rs` (for example
 `#[path = ...]`. Run them with `cargo test -p openhuman voice::` or
 `pnpm debug rust voice`. Check the disabled build with
 `cargo check --no-default-features` plus every product feature except `voice`.
+
+## Further reading
+
+- [Voice tools](../../../../gitbooks/features/native-tools/voice.md)
+- [tinyvoice submodule](../../../../vendor/tinyvoice/README.md)
+- [Chat](../../../../gitbooks/features/chat.md)

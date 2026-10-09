@@ -204,3 +204,9 @@ their own tests.
 cargo test -p openhuman --features web3 web3::
 cargo check -p openhuman --no-default-features   # stub drift
 ```
+
+## Further reading
+
+- [Wallet](../../../../gitbooks/features/wallet.md)
+- [tinywallet submodule](../../../../vendor/tinywallet/README.md)
+- [Loadable modules](../../../../gitbooks/developing/loadable-modules.md)

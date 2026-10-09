@@ -87,3 +87,9 @@ None local. State lives in the hosted backend. The only stored value it reads is
 - **Validation precedence is deterministic** (tested): `team_id` is normalized before `user_id` before `role`, so error messages are stable regardless of which other fields are also invalid.
 - `update_team` only includes `name` in the body when present and non-empty after trimming; an empty/whitespace name is dropped rather than sent.
 - Missing/blank session token yields `no backend session token; run auth_store_session first` before any network attempt.
+
+## Further reading
+
+- [`gitbooks/developing/tinyhumans-api-key.md`](../../../../../gitbooks/developing/tinyhumans-api-key.md): running on a TinyHumans API key.
+- [`crates/openhuman-tinyhumans/src/hosted/README.md`](../README.md): hosted proxies.
+- [`vendor/tinyhumans-sdk/README.md`](../../../../../vendor/tinyhumans-sdk/README.md): tinyhumans-sdk.

@@ -72,3 +72,10 @@ state across jobs). Set `enabled` explicitly per language to override.
 - **A worker is still a child of this process.** A TinyBus module is a `cdylib`
   loaded in-process, so the resident cost and the process-tree shape the
   `library-profile skill-run` gate asserts on are unchanged by the move.
+
+## Further reading
+
+- [Parent module (`runtime`)](../README.md)
+- [tinyruntime submodule](../../../../../vendor/tinyruntime/README.md)
+- [System and utilities tools](../../../../../gitbooks/features/native-tools/system-and-utilities.md)
+- [Loadable modules](../../../../../gitbooks/developing/loadable-modules.md)

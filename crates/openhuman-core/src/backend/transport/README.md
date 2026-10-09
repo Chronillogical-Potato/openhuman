@@ -72,3 +72,10 @@ Read `crates/openhuman-core/src/api/README.md` for the routes and error
 classification that sit above this port, and `crates/openhuman-tinyhumans/`
 for the real transport and how it maps SDK errors onto
 `BackendTransportError`.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [One TinyHumans API key](../../../../../gitbooks/developing/tinyhumans-api-key.md)
+- [openhuman-tinyhumans crate](../../../../openhuman-tinyhumans/README.md)
+- [tinyhumans-sdk](../../../../../vendor/tinyhumans-sdk/README.md)

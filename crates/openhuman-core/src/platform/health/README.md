@@ -88,3 +88,10 @@ None on disk. State lives in a process-global `OnceLock<HealthRegistry>` (lazy-i
 - `restart_count` uses `saturating_add` (won't overflow).
 - The `system_info` schema declares `pid` as `TypeSchema::U64`, matching `SystemInfo.pid: u32`, which serializes as a JSON number. It declared `TypeSchema::String` until #6074; the wire value has always been a number, so that fix moved only the declaration: and with it the generated frontend types and the model-facing tool `output_schema`.
 - [`bus.rs`](./bus.rs) short-circuits double registration via a `OnceLock` and warns (does not panic) if the bus isn't initialized.
+
+## Further reading
+
+- [Parent module (`platform`)](../README.md)
+- [Platform and availability](../../../../../gitbooks/features/platform.md)
+- [Tauri shell architecture](../../../../../gitbooks/developing/architecture/tauri-shell.md)
+- [Architecture overview](../../../../../gitbooks/developing/architecture.md)

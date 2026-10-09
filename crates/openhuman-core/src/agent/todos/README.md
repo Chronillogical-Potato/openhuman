@@ -11,3 +11,9 @@ only OpenHuman agent-runtime adapters:
 The model-facing `todo` tool lives in `crate::agent::tools::todo`. The list
 reaches the frontend through the `todo` tool call in the turn's progress
 events; there is no `openhuman.todos_*` JSON-RPC API.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Goals and todos](../../../../../gitbooks/features/goals-and-todos.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)

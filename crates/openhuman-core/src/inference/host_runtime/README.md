@@ -18,3 +18,9 @@ and integration seams:
 
 Code here must call TinyInference directly. Do not copy local-runtime behavior
 back into this host module.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Automatic model routing](../../../../../gitbooks/features/model-routing/README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)

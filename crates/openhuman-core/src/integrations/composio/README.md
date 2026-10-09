@@ -193,3 +193,9 @@ Published from `ops/` via `crate::core::bus::BUS.publish` (`crate::core::events:
 - **Direct-mode 401 short-circuit** (`direct_auth/mod.rs`): after `DIRECT_INVALID_API_KEY_THRESHOLD` (3) consecutive `401 Invalid API key` responses for the same fingerprinted key, further polls short-circuit with a stable user-facing message instead of re-hitting Composio.
 - **Contract gate is per-action, per-turn** (`contract_gate.rs`, #4853): only gates `ComposioActionTool` (the per-action surface the orchestrator reaches through `tool_search`), not the generic `composio_execute` dispatcher, MCP bridges, or Workflow dispatchers; those are tracked as follow-up.
 </content>
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Third-party integrations](../../../../../gitbooks/features/integrations/README.md)
+- [tinyconnectors](../../../../../vendor/tinyconnectors/README.md)

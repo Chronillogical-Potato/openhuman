@@ -105,3 +105,20 @@ pnpm test:rust
 
 Root `tests/*.rs` and `examples/*.rs` are targets of `openhuman-cli`; see its
 README for the explicit `[[test]]` entries they need.
+
+## Further reading
+
+- [`crates/openhuman-app/README.md`](openhuman-app/README.md): the openhuman-app crate README.
+- [`crates/openhuman-cli/README.md`](openhuman-cli/README.md): the openhuman-cli crate README.
+- [`crates/openhuman-core/README.md`](openhuman-core/README.md): the openhuman-core crate README.
+- [`crates/openhuman-embed/README.md`](openhuman-embed/README.md): the openhuman-embed crate README.
+- [`crates/openhuman-rpc/README.md`](openhuman-rpc/README.md): the openhuman-rpc crate README.
+- [`crates/openhuman-tinyhumans/README.md`](openhuman-tinyhumans/README.md): the openhuman-tinyhumans crate README.
+- [`crates/openhuman-tui/README.md`](openhuman-tui/README.md): the openhuman-tui crate README.
+- [`gitbooks/developing/architecture.md`](../gitbooks/developing/architecture.md): architecture overview.
+- [`gitbooks/developing/building-rust-core.md`](../gitbooks/developing/building-rust-core.md): building the Rust core.
+- [`gitbooks/developing/embedding.md`](../gitbooks/developing/embedding.md): embedding the core in another product.
+- [`gitbooks/developing/loadable-modules.md`](../gitbooks/developing/loadable-modules.md): loadable modules.
+- [`gitbooks/developing/architecture/tauri-shell.md`](../gitbooks/developing/architecture/tauri-shell.md): the Tauri shell.
+- [`AGENTS.md`](../AGENTS.md): project conventions.
+- [`scripts/README.md`](../scripts/README.md): scripts.

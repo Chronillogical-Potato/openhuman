@@ -44,3 +44,9 @@ Provider transport, registration (`ChannelDefinition` metadata in `tinychannels:
 3. If the provider's secret lives outside `config.toml` (keyring or env), extend `hydrate_channel_credentials` in `runtime/startup/credentials.rs` the way `email` and `yuanbao` do; `tinychannels::build_channels` expects an already-hydrated config.
 
 Do not reimplement provider transport logic, or branch on a provider name for behaviour a capability flag describes; add the flag upstream instead.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Messaging channels](../../../../../gitbooks/features/channels.md)
+- [tinychannels](../../../../../vendor/tinychannels/README.md)

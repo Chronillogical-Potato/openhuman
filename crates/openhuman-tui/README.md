@@ -236,3 +236,12 @@ cargo test -p openhuman-tui
 ([`scripts/release/build-apt-packages.sh`](../../scripts/release/build-apt-packages.sh)).
 
 [ratatui]: https://ratatui.rs
+
+## Further reading
+
+- [`gitbooks/developing/architecture.md`](../../gitbooks/developing/architecture.md): architecture overview.
+- [`gitbooks/developing/architecture/agent-harness.md`](../../gitbooks/developing/architecture/agent-harness.md): the agent harness.
+- [`gitbooks/developing/embedding.md`](../../gitbooks/developing/embedding.md): embedding the core in another product.
+- [`gitbooks/developing/building-rust-core.md`](../../gitbooks/developing/building-rust-core.md): building the Rust core.
+- [`crates/README.md`](../README.md): crates overview.
+- [`gitbooks/developing/testing-strategy.md`](../../gitbooks/developing/testing-strategy.md): testing strategy.

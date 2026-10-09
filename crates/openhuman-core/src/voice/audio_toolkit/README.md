@@ -85,3 +85,10 @@ No durable domain store. Side effects are filesystem writes within the workspace
 - `email_podcast` re-validates `audio_path` (workspace-relative, no `..`) independently of `generate_podcast`; the combined flow overwrites the email request's `audio_path` with the freshly generated file's path.
 - Email capture mode is feature/env-gated: enabled under `feature = "e2e-test-support"` or when `OPENHUMAN_EMAIL_CAPTURE_DIR` is non-empty; otherwise SMTP send requires `channels_config.email` to be configured (`from_address` falls back to `openhuman@localhost.test`).
 - `AudioEmailDeliveryResult.mode` is `"capture"` or `"smtp"` to indicate which path ran.
+
+## Further reading
+
+- [Parent module (`voice`)](../README.md)
+- [Voice tools](../../../../../gitbooks/features/native-tools/voice.md)
+- [tinyvoice submodule](../../../../../vendor/tinyvoice/README.md)
+- [Chat](../../../../../gitbooks/features/chat.md)

@@ -100,3 +100,10 @@ Note that nothing in the production startup path currently constructs a `Webhook
 - Persistence is fire-and-forget and may not flush before process exit; a lost write only replays the most recent registration change on next startup.
 - `decode_webhook_body` returns `{}` for empty bodies and wraps non-JSON-but-valid-UTF-8 bodies under a `"raw"` key; invalid base64 is a hard error (→ 400).
 - All request/response bodies are base64-encoded over the wire (`WebhookRequest.body` / `WebhookResponseData.body`).
+
+## Further reading
+
+- [Parent module (`skills`)](../README.md)
+- [MCP servers and skills](../../../../../gitbooks/features/integrations/mcp-and-skills.md)
+- [tinyskills submodule](../../../../../vendor/tinyskills/README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)

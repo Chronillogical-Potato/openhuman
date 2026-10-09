@@ -66,3 +66,10 @@ dependency admission checks in [`../host.rs`](../host.rs) run.
   definitions this folder's records are built from.
 - [`../host.rs`](../host.rs) for the broker that actually resolves, downloads, verifies,
   and loads a record this registry returns.
+
+## Further reading
+
+- [Parent module (`modules`)](../README.md)
+- [Loadable modules](../../../../../gitbooks/developing/loadable-modules.md)
+- [tinybus submodule](../../../../../vendor/tinybus/README.md)
+- [Architecture overview](../../../../../gitbooks/developing/architecture.md)

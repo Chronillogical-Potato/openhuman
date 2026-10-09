@@ -37,3 +37,10 @@ Unchanged from before the move:
 
 [`blocking_tests.rs`](./blocking_tests.rs) and [`bus_tests.rs`](./bus_tests.rs) cover the wiring; the store's own tests
 live in `vendor/tinyagents/crates/tinyagents-session/src/threads/`.
+
+## Further reading
+
+- [Parent module (`threads`)](../README.md)
+- [Chat](../../../../../gitbooks/features/chat.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)
+- [Frontend architecture](../../../../../gitbooks/developing/architecture/frontend.md)

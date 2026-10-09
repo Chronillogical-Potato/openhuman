@@ -108,3 +108,9 @@ SQLite DB at `{workspace_dir}/approval/approval.db`, table `pending_approvals` (
 ## Tests
 
 - [`gate_tests.rs`](./gate_tests.rs), [`store_tests.rs`](./store_tests.rs), [`redact_tests.rs`](./redact_tests.rs), [`schemas_tests.rs`](./schemas_tests.rs), [`types_tests.rs`](./types_tests.rs).
+
+## Further reading
+
+- [Parent module (`security`)](../README.md)
+- [Approval gate](../../../../../gitbooks/features/approval-gate.md)
+- [Security architecture](../../../../../gitbooks/developing/architecture/security.md)

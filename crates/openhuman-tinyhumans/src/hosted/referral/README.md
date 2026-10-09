@@ -64,3 +64,9 @@ None of its own. The domain is stateless: it reads the backend credential throug
 - Eligibility for `claim` ("only users who have not yet subscribed") is enforced **by the backend**, not in this module: it merely forwards the request.
 - Trimming/whitespace-dropping of `deviceFingerprint` happens in both `ops::claim_referral` and the schema handler `handle_referral_claim` (defensive, redundant filtering).
 - The module deliberately runs server-side like the billing domain to avoid WebView `fetch` "Load failed" failures.
+
+## Further reading
+
+- [`gitbooks/developing/tinyhumans-api-key.md`](../../../../../gitbooks/developing/tinyhumans-api-key.md): running on a TinyHumans API key.
+- [`crates/openhuman-tinyhumans/src/hosted/README.md`](../README.md): hosted proxies.
+- [`vendor/tinyhumans-sdk/README.md`](../../../../../vendor/tinyhumans-sdk/README.md): tinyhumans-sdk.

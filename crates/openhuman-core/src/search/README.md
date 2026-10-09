@@ -203,3 +203,9 @@ Tests sit beside each file ([`providers_tests.rs`](./providers_tests.rs), [`rend
 cargo test -p openhuman search::
 pnpm debug rust search::
 ```
+
+## Further reading
+
+- [Web search](../../../../gitbooks/features/native-tools/web-search.md)
+- [tinysearch submodule](../../../../vendor/tinysearch/README.md)
+- [Native tools overview](../../../../gitbooks/features/native-tools/README.md)

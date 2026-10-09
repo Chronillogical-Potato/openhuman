@@ -48,3 +48,9 @@ pnpm debug rust session_store
 
 Add a new scenario as a new file rather than a second `#[test]` in an
 existing one, and reuse [`common/`](common/) for mocks.
+
+## Further reading
+
+- [`gitbooks/developing/embedding.md`](../../../gitbooks/developing/embedding.md): embedding the core in another product.
+- [`gitbooks/developing/testing-strategy.md`](../../../gitbooks/developing/testing-strategy.md): testing strategy.
+- [`crates/openhuman-embed/README.md`](../README.md): the openhuman-embed crate README.

@@ -132,3 +132,9 @@ environment. The ranker comparison harness is a separate binary:
 ```bash
 cargo test -p openhuman-tinyhumans jev::
 ```
+
+## Further reading
+
+- [`gitbooks/developing/jev.md`](../../../../gitbooks/developing/jev.md): Jev.
+- [`gitbooks/developing/performance.md`](../../../../gitbooks/developing/performance.md): performance.
+- [`crates/openhuman-tinyhumans/README.md`](../../README.md): the openhuman-tinyhumans crate README.

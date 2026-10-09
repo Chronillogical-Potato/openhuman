@@ -154,3 +154,10 @@ rollback guard are tested in `tinyhosts` against a mock of the provider API.
 ```bash
 cargo test -p openhuman --features hosting hosting::
 ```
+
+## Further reading
+
+- [Parent module README](../../README.md)
+- [Hosting](../../../../gitbooks/features/hosting.md)
+- [Cloud deploy](../../../../gitbooks/features/cloud-deploy.md)
+- [tinyhosts](../../../../vendor/tinyhosts/README.md)

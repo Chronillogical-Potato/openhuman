@@ -233,3 +233,10 @@ Registry tests are split by concern under `ops_tests*.rs` (default registry,
 capability gating, domain families, Composio registration, REPL tools,
 execution and serde). Every other module has a sibling `*_tests.rs`. Run with
 `cargo test -p openhuman tools::` or `pnpm debug rust tools`.
+
+## Further reading
+
+- [Native tools overview](../../../../gitbooks/features/native-tools/README.md)
+- [Agent harness architecture](../../../../gitbooks/developing/architecture/agent-harness.md)
+- [Approval gate](../../../../gitbooks/features/approval-gate.md)
+- [tinyagents submodule](../../../../vendor/tinyagents/README.md)

@@ -236,3 +236,9 @@ Tests sit beside their modules as `*_tests.rs` (for example
 Run them with `cargo test -p openhuman threads::` or
 `pnpm debug rust threads::`. The store's own tests live in
 `vendor/tinyagents/crates/tinyagents-session/src/threads/`.
+
+## Further reading
+
+- [Chat](../../../../gitbooks/features/chat.md)
+- [Agent harness architecture](../../../../gitbooks/developing/architecture/agent-harness.md)
+- [Frontend architecture](../../../../gitbooks/developing/architecture/frontend.md)

@@ -256,3 +256,18 @@ cargo test -p openhuman-tinyhumans
 cargo test -p openhuman-tinyhumans session::
 pnpm debug rust openhuman_tinyhumans
 ```
+
+## Further reading
+
+- [`gitbooks/developing/tinyhumans-api-key.md`](../../gitbooks/developing/tinyhumans-api-key.md): running on a TinyHumans API key.
+- [`gitbooks/developing/architecture.md`](../../gitbooks/developing/architecture.md): architecture overview.
+- [`gitbooks/developing/embedding.md`](../../gitbooks/developing/embedding.md): embedding the core in another product.
+- [`crates/README.md`](../README.md): crates overview.
+- [`vendor/tinyhumans-sdk/README.md`](../../vendor/tinyhumans-sdk/README.md): tinyhumans-sdk.
+- [`src/hosted/announcements/`](src/hosted/announcements/README.md): the `announcements` module README.
+- [`src/hosted/billing/`](src/hosted/billing/README.md): the `billing` module README.
+- [`src/hosted/channel_link/`](src/hosted/channel_link/README.md): the `channel_link` module README.
+- [`src/hosted/oauth/`](src/hosted/oauth/README.md): the `oauth` module README.
+- [`src/hosted/referral/`](src/hosted/referral/README.md): the `referral` module README.
+- [`src/hosted/team/`](src/hosted/team/README.md): the `team` module README.
+- [`src/hosted/webhooks/`](src/hosted/webhooks/README.md): the `webhooks` module README.

@@ -18,3 +18,9 @@ What stays in OpenHuman:
 - [`projector.rs`](./projector.rs): `journal_message_from_transcript`, the
   `JournalProjector` handed to the upstream importer so journal records carry
   the host's reconstructed sidecar metadata.
+
+## Further reading
+
+- [Parent module README](../README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)
+- [Chat](../../../../../gitbooks/features/chat.md)

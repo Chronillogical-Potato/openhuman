@@ -53,3 +53,10 @@ are skipped with a stderr note rather than aborting the sample.
 - [`docs/library-benchmarking.md`](../../../../../docs/library-benchmarking.md)
  : documents the benchmark methodology and points readers here for the
   sampling implementation.
+
+## Further reading
+
+- [Parent module (`platform`)](../README.md)
+- [Platform and availability](../../../../../gitbooks/features/platform.md)
+- [Tauri shell architecture](../../../../../gitbooks/developing/architecture/tauri-shell.md)
+- [Architecture overview](../../../../../gitbooks/developing/architecture.md)

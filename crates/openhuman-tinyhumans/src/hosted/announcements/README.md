@@ -57,3 +57,9 @@ anything. Dismissal is tracked client-side by announcement id
 `announcements` is part of `DomainGroup::Hosted` ([`crates/openhuman-core/src/core/all.rs`](../../../../openhuman-core/src/core/all.rs)).
 `DomainSet::embedded` sets `hosted: false`, dropping the whole `Hosted` group
 as a unit, so this controller and its siblings do not register there.
+
+## Further reading
+
+- [`gitbooks/developing/tinyhumans-api-key.md`](../../../../../gitbooks/developing/tinyhumans-api-key.md): running on a TinyHumans API key.
+- [`crates/openhuman-tinyhumans/src/hosted/README.md`](../README.md): hosted proxies.
+- [`vendor/tinyhumans-sdk/README.md`](../../../../../vendor/tinyhumans-sdk/README.md): tinyhumans-sdk.

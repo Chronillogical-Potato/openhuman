@@ -138,3 +138,10 @@ crate: those went with the machinery.
 - **A toolchain without `npm` still resolves.** `npm_bin` is derived when the
   provider does not report it: refusing would take `node_exec` down along with
   `npm_exec`, for an install that runs `node` perfectly well.
+
+## Further reading
+
+- [Parent module (`runtime`)](../README.md)
+- [tinyruntime submodule](../../../../../vendor/tinyruntime/README.md)
+- [System and utilities tools](../../../../../gitbooks/features/native-tools/system-and-utilities.md)
+- [Loadable modules](../../../../../gitbooks/developing/loadable-modules.md)

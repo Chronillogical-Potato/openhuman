@@ -75,3 +75,11 @@ No owned persistence. `diagnostics()` reads the MCP write-audit log through `cra
 - Denial reasons containing any of `Bearer `, `sk-`, `ghp_`, `-----BEGIN` are replaced wholesale with `[redacted: sensitive content]`, then truncated to 240 chars; entries are bounded to 50, and blank tool names are dropped.
 - Capability-provider ids are slugged to lowercase alphanumerics with `-`/`_`/`.` separators (max 96 chars); invalid or post-normalization-duplicate ids return `CapabilityProviderRegistryError`.
 - `version` on every entry is the core crate version (`CARGO_PKG_VERSION`), used as the registry schema/version marker.
+
+## Further reading
+
+- [Parent module (`tools`)](../README.md)
+- [Native tools overview](../../../../../gitbooks/features/native-tools/README.md)
+- [Agent harness architecture](../../../../../gitbooks/developing/architecture/agent-harness.md)
+- [Approval gate](../../../../../gitbooks/features/approval-gate.md)
+- [tinyagents submodule](../../../../../vendor/tinyagents/README.md)
