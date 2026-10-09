@@ -31,7 +31,7 @@ Every HTTP-client construction site that talks to external HTTPS endpoints, incl
 
 - `crates/openhuman-core/src/config/schema/proxy.rs`: proxy-aware client builders (primary and fallback).
 - `crates/openhuman-core/src/integrations/client/construct.rs` and `crates/openhuman-core/src/integrations/composio/client/connections.rs`.
-- `crates/openhuman-core/src/search/tools/*.rs` (`tavily`, `exa`, `brave`, `searxng`, `querit`, `seltz`) — search-tool HTTP clients.
+- `crates/openhuman-core/src/search/tools/*.rs` (`tavily`, `exa`, `brave`, `searxng`, `querit`, `seltz`): search-tool HTTP clients.
 - `crates/openhuman-core/src/desktop/app_state/ops/current_user_fetch.rs`.
 - `crates/openhuman-tinyhumans/src/backend/headers.rs` (REST API client profiles for the TinyHumans backend transport).
 

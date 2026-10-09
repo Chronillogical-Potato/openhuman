@@ -36,7 +36,7 @@ Re-exported from [`mod.rs`](./mod.rs):
 - `KeyringBackend`: backend trait (`get`/`set`/`delete`/`name`).
 - `SecretStore`: config-field encrypt/decrypt; `encrypt`/`decrypt`/`decrypt_and_migrate`/`needs_migration`/`is_encrypted`/`new`.
 - `KeyringError`: error enum with `diagnostic()`.
-- `init_master_key`: load the app master key at startup (staging/prod only) — from the environment (`OPENHUMAN_KEYRING_MASTER_KEY` inline, or `OPENHUMAN_KEYRING_MASTER_KEY_FILE` naming a file; 64 hex characters, exactly one of the two) when set, otherwise from the OS keychain. A set-but-malformed variable is a boot error, not a fall-through; the source is logged at `info`, the value never. Key files must not be group- or world-writable; read-only group/world access is supported for secret mounts, but any principal able to read the file can decrypt the keyring.
+- `init_master_key`: load the app master key at startup (staging/prod only), from the environment (`OPENHUMAN_KEYRING_MASTER_KEY` inline, or `OPENHUMAN_KEYRING_MASTER_KEY_FILE` naming a file; 64 hex characters, exactly one of the two) when set, otherwise from the OS keychain. A set-but-malformed variable is a boot error, not a fall-through; the source is logged at `info`, the value never. Key files must not be group- or world-writable; read-only group/world access is supported for secret mounts, but any principal able to read the file can decrypt the keyring.
 - `init_workspace`: register the workspace dir for file and encrypted-file backends.
 - `get`, `set`, `delete`, `get_or_create_random`, `is_available`, `migrate_from_file`, `MigrationOutcome`.
 - `force_backend_for_test`: `pub(crate)`, test-only.
@@ -58,7 +58,7 @@ None. There is no `bus.rs`, and the module publishes and subscribes to no `Domai
 Secret storage backend, selected once and frozen in a `OnceLock`:
 
 - `os` (production default outside staging/prod special-casing): native OS credential store, macOS Keychain, Windows Credential Manager, or Linux Secret Service, under service name `"openhuman"`.
-- `encrypted_file` (staging/production, and via `OPENHUMAN_KEYRING_BACKEND=encrypted_file`): single ChaCha20-Poly1305 file `{workspace}/secrets.enc`, encrypted with a master key loaded once — from `OPENHUMAN_KEYRING_MASTER_KEY` / `OPENHUMAN_KEYRING_MASTER_KEY_FILE` when set, otherwise from the OS keychain (`openhuman` / `app:master_key`). Files are written `0600` on Unix via temp-file plus atomic rename.
+- `encrypted_file` (staging/production, and via `OPENHUMAN_KEYRING_BACKEND=encrypted_file`): single ChaCha20-Poly1305 file `{workspace}/secrets.enc`, encrypted with a master key loaded once, from `OPENHUMAN_KEYRING_MASTER_KEY` / `OPENHUMAN_KEYRING_MASTER_KEY_FILE` when set, otherwise from the OS keychain (`openhuman` / `app:master_key`). Files are written `0600` on Unix via temp-file plus atomic rename.
 - `file` (dev default, `cfg(test)`, or `OPENHUMAN_KEYRING_BACKEND=file`): plaintext JSON `{workspace}/dev-keychain.json`. Not encrypted; test and debug use only.
 - `mock` (test-only): in-memory `HashMap`.
 

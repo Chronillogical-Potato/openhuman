@@ -63,14 +63,14 @@ None of its own (no `store.rs`). It only **reads** existing state owned by other
 
 ## Dependencies
 
-- `crate::config::{Config, rpc}` — reads the live config for all probes; `config_rpc::load_config_with_timeout` in the handlers.
-- `crate::platform::service::daemon` — `state_file_path` for the daemon heartbeat/component snapshot.
-- `crate::memory::status` — the memory engine's status (`ok`/`degraded`/`down`/`off`), taken by `ops` before the blocking hop and passed to `run` as a `MemoryEngineCheck`.
-- `crate::inference::embedding_host::effective_embedding_settings` — resolves the intended embedding provider/model.
-- `crate::inference::{provider, local}` — `provider::list_providers` (model targets) and `local::ollama_base_url` (embedding probe).
-- `crate::backend::inference_base_url` — asks the installed transport for the inference base URL; `crate::security::credentials::jwt::get_session_token` for sign-in state.
-- `crate::core::all::{ControllerFuture, RegisteredController}`, `crate::core::{ControllerSchema, FieldSchema, TypeSchema}` — controller/schema plumbing.
-- `crate::rpc::RpcOutcome` — handler return contract.
+- `crate::config::{Config, rpc}`: reads the live config for all probes; `config_rpc::load_config_with_timeout` in the handlers.
+- `crate::platform::service::daemon`: `state_file_path` for the daemon heartbeat/component snapshot.
+- `crate::memory::status`: the memory engine's status (`ok`/`degraded`/`down`/`off`), taken by `ops` before the blocking hop and passed to `run` as a `MemoryEngineCheck`.
+- `crate::inference::embedding_host::effective_embedding_settings`: resolves the intended embedding provider/model.
+- `crate::inference::{provider, local}`: `provider::list_providers` (model targets) and `local::ollama_base_url` (embedding probe).
+- `crate::backend::inference_base_url`: asks the installed transport for the inference base URL; `crate::security::credentials::jwt::get_session_token` for sign-in state.
+- `crate::core::all::{ControllerFuture, RegisteredController}`, `crate::core::{ControllerSchema, FieldSchema, TypeSchema}`: controller/schema plumbing.
+- `crate::rpc::RpcOutcome`: handler return contract.
 - External: `reqwest` (blocking client + URL parse), `serde`/`serde_json`, `chrono`, `anyhow`.
 
 ## Used by

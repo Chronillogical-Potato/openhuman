@@ -71,17 +71,17 @@ None of its own. State (`status`, `socket_id`, `error`, attached `WebhookRouter`
 
 ## Dependencies
 
-- `crate::platform::socket::models` — `ConnectionStatus`, `SocketState` DTOs.
-- `crate::platform::socket::url::websocket_url`, `crate::backend::require_base_url` (asks the installed transport, which resolves `effective_backend_api_url`), `crate::security::credentials::session_support::get_session_token` — URL derivation and session-token lookup.
-- `crate::core::all` — `ControllerFuture`, `RegisteredController` for the controller registry.
-- `crate::core::{ControllerSchema, FieldSchema, TypeSchema}` — RPC schema types.
-- `crate::core::bus::BUS.publish` / `crate::core::events::DomainEvent` — for routing inbound events.
-- `crate::core::observability::report_error_or_expected` — one-shot sustained-outage classification at the failure threshold.
-- `crate::skills::webhooks` — `WebhookRouter` (attached for parse-error logging / response emission) and `WebhookRequest`.
-- `crate::integrations::composio` — `ComposioTriggerEvent` DTO for `composio:trigger` deserialization.
-- `crate::security::devices::tunnel_client` — `TunnelPeerStatus`, `TunnelFrame` DTOs for tunnel events.
-- `crate::config` — `Config` + `rpc::load_config_with_timeout` for `connect_with_session`.
-- `crate::util::utf8_safe_prefix_at_byte_boundary` — UTF-8-safe log truncation of raw packets.
+- `crate::platform::socket::models`: `ConnectionStatus`, `SocketState` DTOs.
+- `crate::platform::socket::url::websocket_url`, `crate::backend::require_base_url` (asks the installed transport, which resolves `effective_backend_api_url`), `crate::security::credentials::session_support::get_session_token`: URL derivation and session-token lookup.
+- `crate::core::all`: `ControllerFuture`, `RegisteredController` for the controller registry.
+- `crate::core::{ControllerSchema, FieldSchema, TypeSchema}`: RPC schema types.
+- `crate::core::bus::BUS.publish` / `crate::core::events::DomainEvent`: for routing inbound events.
+- `crate::core::observability::report_error_or_expected`: one-shot sustained-outage classification at the failure threshold.
+- `crate::skills::webhooks`: `WebhookRouter` (attached for parse-error logging / response emission) and `WebhookRequest`.
+- `crate::integrations::composio`: `ComposioTriggerEvent` DTO for `composio:trigger` deserialization.
+- `crate::security::devices::tunnel_client`: `TunnelPeerStatus`, `TunnelFrame` DTOs for tunnel events.
+- `crate::config`: `Config` + `rpc::load_config_with_timeout` for `connect_with_session`.
+- `crate::util::utf8_safe_prefix_at_byte_boundary`: UTF-8-safe log truncation of raw packets.
 
 ## Used by
 

@@ -21,29 +21,29 @@ Credential management for the backend credential the core authenticates with and
 | File | Role |
 | --- | --- |
 | [`mod.rs`](./mod.rs) | Export-focused. Re-exports `core::*`, [`ops`](./ops) (also as `rpc`), Composio-direct helpers, schema controllers (`all_credentials_controller_schemas` / `all_credentials_registered_controllers`), `crate::backend::BackendClient`, and `jwt::user_id_from_profile_payload`. |
-| [`core.rs`](./core.rs) | `AuthService` facade over `AuthProfilesStore` — store/get/remove/set-active profiles, resolve bearer token, profile-id selection logic (override → active → default → any-for-provider), provider normalization, state-dir derivation. |
-| [`profiles.rs`](./profiles.rs) | The persistence engine. `AuthProfile` / `TokenSet` / `AuthProfileKind` / `AuthProfilesData` types and `AuthProfilesStore` — atomic JSON read/write, keychain vs encrypted-JSON secret handling, legacy migration, corrupt-store quarantine, PID-aware stale-lock recovery. |
+| [`core.rs`](./core.rs) | `AuthService` facade over `AuthProfilesStore`: store/get/remove/set-active profiles, resolve bearer token, profile-id selection logic (override → active → default → any-for-provider), provider normalization, state-dir derivation. |
+| [`profiles.rs`](./profiles.rs) | The persistence engine. `AuthProfile` / `TokenSet` / `AuthProfileKind` / `AuthProfilesData` types and `AuthProfilesStore`: atomic JSON read/write, keychain vs encrypted-JSON secret handling, legacy migration, corrupt-store quarantine, PID-aware stale-lock recovery. |
 | [`api_key.rs`](./api_key.rs) | The `api-key` profile: `store_api_key[_in]`, `get_api_key[_in]`, `has_api_key[_in]`, `clear_api_key`. |
 | [`ops.rs`](./ops.rs) + `ops/` | Business logic + RPC entry points (returns `RpcOutcome<T>`). [`ops/credential.rs`](./ops/credential.rs) (`set_credential` / `clear_credential`, plus the historical `store_session` / `clear_session` names), [`ops/user_scope.rs`](./ops/user_scope.rs) (user-dir activation and process-global rebinding), [`ops/gated_services.rs`](./ops/gated_services.rs) (credential-gated services), [`ops/boot_env.rs`](./ops/boot_env.rs) (env seeding), [`ops/session_query.rs`](./ops/session_query.rs) (`auth_get_state`, `auth_get_session_token_json`), [`ops/provider_credentials.rs`](./ops/provider_credentials.rs), [`ops/composio.rs`](./ops/composio.rs), [`ops/secrets.rs`](./ops/secrets.rs). Re-exported as `rpc`. |
 | [`schemas.rs`](./schemas.rs) | `auth.*` controller schemas + `handle_*` dispatchers delegating to `ops`. Defines `all_controller_schemas` / `all_registered_controllers`. |
 | [`session_support.rs`](./session_support.rs) | `CredentialKind`, `BackendCredential`, `resolve_backend_credential`, `require_live_session_token`, `has_backend_credential`, `build_session_state`, `get_session_token`, `load_app_session_profile`, `user_id_from_jwt_claims`, local-session detection/slug, field parsing. Shared by RPC and the HTTP host. |
 | [`identity.rs`](./identity.rs) | The signed-in user's identity slot (`peek_credential_user_identity`), seeded from the host-supplied payload for prompts and Sentry. |
 | [`responses.rs`](./responses.rs) | Response DTOs: `AuthStateResponse`, `AuthProfileSummary`. |
-| [`bus.rs`](./bus.rs) | `SessionExpiredSubscriber` — `EventHandler` for `DomainEvent::SessionExpired`. |
+| [`bus.rs`](./bus.rs) | `SessionExpiredSubscriber`: `EventHandler` for `DomainEvent::SessionExpired`. |
 | [`tools.rs`](./tools.rs) | Agent tools `credential_list`, `session_state`, `oauth_connect_url`, `oauth_list` (these two dispatch the hosted `auth_oauth_*` controllers by wire name through the registry and answer `BACKEND_UNAVAILABLE:` without the hosted layer). |
 | `*_tests.rs` | Sibling test suites (`#[path = ...]`). |
 
 ## Public surface
 
-- **`AuthService`** ([`core.rs`](./core.rs)) — `from_config`, `new`, `load_profiles`, `store_provider_token`, `set_active_profile`, `remove_profile`, `get_profile`, `get_provider_bearer_token`.
-- **Constants** — `APP_SESSION_PROVIDER` (`"app-session"`), `DEFAULT_AUTH_PROFILE_NAME` (`"default"`), `COMPOSIO_DIRECT_PROVIDER` (`"composio-direct"`), `api_key::API_KEY_PROVIDER` (`"api-key"`).
-- **Credential kinds** — `session_support::CredentialKind {Session, ApiKey, Local}` (wire values `"session"`, `"api-key"`, `"local"`). `session_support::resolve_backend_credential` returns `BackendCredential::ApiKey` when a key is stored (before any session classification) and `BackendCredential::Session` otherwise; `BackendOAuthClient::authed_json` sends an API key as `x-api-key` and a session as `Authorization: Bearer`, while `OpenHumanBackendModel::resolve_bearer` sends the key as the bearer for managed inference. Every backend caller goes through it (integrations, voice, channels, webhooks, hosted proxies); bearer-only seams (connector proxy route, memory-host `SessionBearer`, the Socket.IO handshake) use `backend_bearer_secret`, which returns the key first and the stored session otherwise — the backend accepts a key as `Authorization: Bearer` by its `tiny_` prefix. Cloud embeddings mirror `resolve_bearer`. `has_backend_credential` is the boot-time "signed in?" question the scheduler gate asks; `SessionExpired` is ignored for an API-key runtime and for a local session. A local session also has no managed bearer: `resolve_backend_credential` answers `LOCAL_SESSION_BACKEND_UNAVAILABLE` and `resolve_bearer` answers `LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE`, so neither hosted REST nor managed inference sends a token the backend will only 401 (#6932).
-- **Helpers** — `normalize_provider`, `default_profile_id`, `select_profile_id`, `state_dir_from_config`, `profile_id`.
-- **Types** ([`profiles.rs`](./profiles.rs)) — `AuthProfile`, `AuthProfileKind` (`OAuth`/`Token`), `TokenSet`, `AuthProfilesData`, `AuthProfilesStore`.
-- **Ops/RPC** ([`ops`](./ops), re-exported as `rpc`) — `set_credential`, `clear_credential`, `store_session`, `clear_session`, `SetCredentialRequest`, `seed_api_key_from_env`, `seed_session_from_env`, `auth_get_state`, `auth_get_session_token_json`, `store_provider_credentials`, `remove_provider_credentials`, `list_provider_credentials`, `list_provider_credentials_by_prefix`, `encrypt_secret`, `decrypt_secret`, `start_credential_gated_services`, `stop_credential_gated_services`.
-- **Composio-direct** — `store_composio_api_key`, `get_composio_api_key`, `clear_composio_api_key`, `rpc_store_composio_api_key`.
-- **Backend re-exports** — `crate::backend::BackendClient` and `jwt::user_id_from_profile_payload`. The OAuth connect/handoff types (`IntegrationSummary`, `IntegrationTokensHandoff`) and `decrypt_handoff_blob` moved to `crates/openhuman-tinyhumans/src/hosted/oauth/` with the OAuth flows themselves.
-- **Schema controllers** — `all_credentials_controller_schemas`, `all_credentials_registered_controllers`.
+- **`AuthService`** ([`core.rs`](./core.rs)): `from_config`, `new`, `load_profiles`, `store_provider_token`, `set_active_profile`, `remove_profile`, `get_profile`, `get_provider_bearer_token`.
+- **Constants**: `APP_SESSION_PROVIDER` (`"app-session"`), `DEFAULT_AUTH_PROFILE_NAME` (`"default"`), `COMPOSIO_DIRECT_PROVIDER` (`"composio-direct"`), `api_key::API_KEY_PROVIDER` (`"api-key"`).
+- **Credential kinds**: `session_support::CredentialKind {Session, ApiKey, Local}` (wire values `"session"`, `"api-key"`, `"local"`). `session_support::resolve_backend_credential` returns `BackendCredential::ApiKey` when a key is stored (before any session classification) and `BackendCredential::Session` otherwise; `BackendOAuthClient::authed_json` sends an API key as `x-api-key` and a session as `Authorization: Bearer`, while `OpenHumanBackendModel::resolve_bearer` sends the key as the bearer for managed inference. Every backend caller goes through it (integrations, voice, channels, webhooks, hosted proxies); bearer-only seams (connector proxy route, memory-host `SessionBearer`, the Socket.IO handshake) use `backend_bearer_secret`, which returns the key first and the stored session otherwise: the backend accepts a key as `Authorization: Bearer` by its `tiny_` prefix. Cloud embeddings mirror `resolve_bearer`. `has_backend_credential` is the boot-time "signed in?" question the scheduler gate asks; `SessionExpired` is ignored for an API-key runtime and for a local session. A local session also has no managed bearer: `resolve_backend_credential` answers `LOCAL_SESSION_BACKEND_UNAVAILABLE` and `resolve_bearer` answers `LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE`, so neither hosted REST nor managed inference sends a token the backend will only 401 (#6932).
+- **Helpers**: `normalize_provider`, `default_profile_id`, `select_profile_id`, `state_dir_from_config`, `profile_id`.
+- **Types** ([`profiles.rs`](./profiles.rs)): `AuthProfile`, `AuthProfileKind` (`OAuth`/`Token`), `TokenSet`, `AuthProfilesData`, `AuthProfilesStore`.
+- **Ops/RPC** ([`ops`](./ops), re-exported as `rpc`): `set_credential`, `clear_credential`, `store_session`, `clear_session`, `SetCredentialRequest`, `seed_api_key_from_env`, `seed_session_from_env`, `auth_get_state`, `auth_get_session_token_json`, `store_provider_credentials`, `remove_provider_credentials`, `list_provider_credentials`, `list_provider_credentials_by_prefix`, `encrypt_secret`, `decrypt_secret`, `start_credential_gated_services`, `stop_credential_gated_services`.
+- **Composio-direct**: `store_composio_api_key`, `get_composio_api_key`, `clear_composio_api_key`, `rpc_store_composio_api_key`.
+- **Backend re-exports**: `crate::backend::BackendClient` and `jwt::user_id_from_profile_payload`. The OAuth connect/handoff types (`IntegrationSummary`, `IntegrationTokensHandoff`) and `decrypt_handoff_blob` moved to `crates/openhuman-tinyhumans/src/hosted/oauth/` with the OAuth flows themselves.
+- **Schema controllers**: `all_credentials_controller_schemas`, `all_credentials_registered_controllers`.
 
 ## RPC / controllers
 
@@ -67,7 +67,7 @@ Note: `list_provider_credentials_by_prefix` and the Composio-direct/secret helpe
 
 ## Agent tools
 
-[`tools.rs`](./tools.rs) — `credential_list`, `session_state` (the stored credential state and user, no token material), `oauth_connect_url`, `oauth_list` (these two dispatch the hosted `auth_oauth_*` controllers by wire name through the registry and answer `BACKEND_UNAVAILABLE:` without the hosted layer).
+[`tools.rs`](./tools.rs): `credential_list`, `session_state` (the stored credential state and user, no token material), `oauth_connect_url`, `oauth_list` (these two dispatch the hosted `auth_oauth_*` controllers by wire name through the registry and answer `BACKEND_UNAVAILABLE:` without the hosted layer).
 
 ## Events
 
@@ -84,14 +84,14 @@ Note: `list_provider_credentials_by_prefix` and the Composio-direct/secret helpe
 
 ## Dependencies
 
-- `crate::config` — `Config`, config load (`load_config_with_timeout`), user-dir activation (`default_root_openhuman_dir`, `user_openhuman_dir`, `read/write/clear_active_user`, `pre_login_user_dir`), onboarding state.
-- `crate::security::keyring` — `SecretStore` (encrypt/decrypt) and OS keychain `get`/`set`/`delete`/`is_available`.
-- `crate::cron::scheduler_gate` — signed-out override flipped on install/removal/expiry.
-- `crate::memory::conversations` — purge pre-login threads, bind conversation persistence after activation.
-- `crate::memory` — bind memory client to the active workspace after activation.
-- `crate::inference::host_runtime`, `crate::voice::{server,dictation_listener,always_on}` — credential-gated services started/stopped.
-- `crate::backend` — `BackendClient`, `backend::base_url` (via the installed transport); [`jwt.rs`](./jwt.rs) — JWT `exp` decode and `user_id_from_profile_payload`.
-- `crate::core::all` (`ControllerFuture`, `RegisteredController`), `crate::core` (`ControllerSchema`/`FieldSchema`/`TypeSchema`), `crate::core::events::DomainEvent` + `tinybus::EventHandler`, `crate::rpc::RpcOutcome` — controller registry + RPC envelope + event bus.
+- `crate::config`: `Config`, config load (`load_config_with_timeout`), user-dir activation (`default_root_openhuman_dir`, `user_openhuman_dir`, `read/write/clear_active_user`, `pre_login_user_dir`), onboarding state.
+- `crate::security::keyring`: `SecretStore` (encrypt/decrypt) and OS keychain `get`/`set`/`delete`/`is_available`.
+- `crate::cron::scheduler_gate`: signed-out override flipped on install/removal/expiry.
+- `crate::memory::conversations`: purge pre-login threads, bind conversation persistence after activation.
+- `crate::memory`: bind memory client to the active workspace after activation.
+- `crate::inference::host_runtime`, `crate::voice::{server,dictation_listener,always_on}`: credential-gated services started/stopped.
+- `crate::backend`: `BackendClient`, `backend::base_url` (via the installed transport); [`jwt.rs`](./jwt.rs): JWT `exp` decode and `user_id_from_profile_payload`.
+- `crate::core::all` (`ControllerFuture`, `RegisteredController`), `crate::core` (`ControllerSchema`/`FieldSchema`/`TypeSchema`), `crate::core::events::DomainEvent` + `tinybus::EventHandler`, `crate::rpc::RpcOutcome`: controller registry + RPC envelope + event bus.
 
 ## Used by
 
