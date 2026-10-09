@@ -1283,7 +1283,15 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': '{name} sayfasını aç',
   'mcp.installed.emptyAddInJson': 'mcp.json içinde bir tane ekleyin',
   'mcp.registry.intro':
-    'MCP sunucularından oluşan bir dizin. Bir sunucuyu açmak sizi kurulum talimatlarının bulunduğu kendi sayfasına götürür; sunucuyu mcp.json sekmesinden ekleyin.',
+    'MCP sunucularından oluşan bir dizin. Kurulum gerektirmeyen barındırılan sunucular tek tıkla eklenir; diğerleri için kurulum talimatlarını görmek üzere sunucunun sayfasını açın ve onu mcp.json sekmesinde tanımlayın.',
+  'mcp.registry.action.add': 'Ekle',
+  'mcp.registry.action.added': 'Eklendi',
+  'mcp.registry.action.adding': 'Ekleniyor…',
+  'mcp.registry.aria.add': '{name} ekle',
+  'mcp.registry.needsSetup':
+    'Bu sunucunun eklenmeden önce kurulması gerekiyor. Kurulum talimatları için sayfasını açın.',
+  'mcp.registry.addFailed': 'Bu sunucu eklenemedi.',
+  'mcp.registry.connectFailed': 'Eklendi ancak sunucu bağlanmadı.',
   'mcp.json.loadFailedTitle': 'mcp.json okunamadı',
   'mcp.json.loadFailedBody':
     'Çekirdek yanıt vermediği için belge gösterilmiyor. Boş bir düzenleyici, sunucularınızı silen bir kaydetmeye yol açabilirdi.',

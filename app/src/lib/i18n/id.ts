@@ -1240,7 +1240,15 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': 'Buka halaman {name}',
   'mcp.installed.emptyAddInJson': 'Tambahkan di mcp.json',
   'mcp.registry.intro':
-    'Direktori server MCP. Membuka server membawa Anda ke halamannya sendiri, tempat petunjuk pemasangan berada; tambahkan di tab mcp.json.',
+    'Direktori server MCP. Server hosted yang tidak memerlukan penyiapan ditambahkan dengan satu klik; untuk server lainnya, buka halamannya untuk petunjuk pemasangan lalu deklarasikan di tab mcp.json.',
+  'mcp.registry.action.add': 'Tambah',
+  'mcp.registry.action.added': 'Ditambahkan',
+  'mcp.registry.action.adding': 'Menambahkan…',
+  'mcp.registry.aria.add': 'Tambah {name}',
+  'mcp.registry.needsSetup':
+    'Server ini perlu disiapkan sebelum dapat ditambahkan. Buka halamannya untuk petunjuk pemasangan.',
+  'mcp.registry.addFailed': 'Tidak dapat menambahkan server ini.',
+  'mcp.registry.connectFailed': 'Ditambahkan, tetapi server tidak terhubung.',
   'mcp.json.loadFailedTitle': 'Tidak dapat membaca mcp.json',
   'mcp.json.loadFailedBody':
     'Inti tidak menjawab, jadi dokumen tidak ditampilkan. Editor kosong akan mengundang penyimpanan yang menghapus server Anda.',

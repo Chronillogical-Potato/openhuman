@@ -1213,7 +1213,15 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': '{name} 페이지 열기',
   'mcp.installed.emptyAddInJson': 'mcp.json에서 추가',
   'mcp.registry.intro':
-    'MCP 서버 디렉터리입니다. 서버를 열면 설치 안내가 있는 해당 서버의 페이지로 이동합니다. mcp.json 탭에서 추가하세요.',
+    'MCP 서버 디렉터리입니다. 설정이 필요 없는 호스팅 서버는 한 번의 클릭으로 추가됩니다. 그 밖의 서버는 해당 페이지에서 설치 안내를 확인한 뒤 mcp.json 탭에서 선언하세요.',
+  'mcp.registry.action.add': '추가',
+  'mcp.registry.action.added': '추가됨',
+  'mcp.registry.action.adding': '추가 중…',
+  'mcp.registry.aria.add': '{name} 추가',
+  'mcp.registry.needsSetup':
+    '이 서버는 추가하기 전에 설정이 필요합니다. 설치 안내를 보려면 해당 페이지를 여세요.',
+  'mcp.registry.addFailed': '이 서버를 추가할 수 없습니다.',
+  'mcp.registry.connectFailed': '추가했지만 서버가 연결되지 않았습니다.',
   'mcp.json.loadFailedTitle': 'mcp.json을 읽을 수 없습니다',
   'mcp.json.loadFailedBody':
     '코어가 응답하지 않아 문서를 표시하지 않습니다. 빈 편집기는 서버를 지우는 저장을 유도할 수 있습니다.',

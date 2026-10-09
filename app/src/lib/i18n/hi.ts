@@ -1227,7 +1227,15 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': '{name} का पेज खोलें',
   'mcp.installed.emptyAddInJson': 'mcp.json में जोड़ें',
   'mcp.registry.intro':
-    'MCP सर्वरों की निर्देशिका। किसी सर्वर को खोलने पर आप उसके अपने पेज पर पहुँचते हैं, जहाँ इंस्टॉल निर्देश होते हैं; उसे mcp.json टैब में जोड़ें।',
+    'MCP सर्वरों की निर्देशिका। जिन होस्टेड सर्वरों को किसी सेटअप की ज़रूरत नहीं होती, वे एक क्लिक में जुड़ जाते हैं; बाकी सर्वरों के लिए इंस्टॉल निर्देशों हेतु उनका पेज खोलें और उन्हें mcp.json टैब में जोड़ें।',
+  'mcp.registry.action.add': 'जोड़ें',
+  'mcp.registry.action.added': 'जोड़ा गया',
+  'mcp.registry.action.adding': 'जोड़ा जा रहा है…',
+  'mcp.registry.aria.add': '{name} जोड़ें',
+  'mcp.registry.needsSetup':
+    'इस सर्वर को जोड़ने से पहले सेटअप की ज़रूरत है। इंस्टॉल निर्देशों के लिए इसका पेज खोलें।',
+  'mcp.registry.addFailed': 'यह सर्वर जोड़ा नहीं जा सका।',
+  'mcp.registry.connectFailed': 'जोड़ा गया, लेकिन सर्वर कनेक्ट नहीं हुआ।',
   'mcp.json.loadFailedTitle': 'mcp.json पढ़ा नहीं जा सका',
   'mcp.json.loadFailedBody':
     'कोर ने जवाब नहीं दिया, इसलिए दस्तावेज़ नहीं दिखाया गया। खाली संपादक ऐसा सेव करने को प्रेरित करेगा जो आपके सर्वर मिटा दे।',

@@ -1199,7 +1199,15 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': 'فتح صفحة {name}',
   'mcp.installed.emptyAddInJson': 'أضِف واحدًا في mcp.json',
   'mcp.registry.intro':
-    'دليل لخوادم MCP. فتح خادم ينقلك إلى صفحته الخاصة حيث توجد تعليمات التثبيت؛ أضفه من تبويب mcp.json.',
+    'دليل لخوادم MCP. تُضاف الخوادم المستضافة التي لا تحتاج إلى إعداد بنقرة واحدة؛ أما غيرها فافتح صفحته لقراءة تعليمات التثبيت ثم أضفه من تبويب mcp.json.',
+  'mcp.registry.action.add': 'إضافة',
+  'mcp.registry.action.added': 'تمت الإضافة',
+  'mcp.registry.action.adding': 'جارٍ الإضافة…',
+  'mcp.registry.aria.add': 'إضافة {name}',
+  'mcp.registry.needsSetup':
+    'يحتاج هذا الخادم إلى إعداد قبل إضافته. افتح صفحته لقراءة تعليمات التثبيت.',
+  'mcp.registry.addFailed': 'تعذّرت إضافة هذا الخادم.',
+  'mcp.registry.connectFailed': 'تمت الإضافة، لكن الخادم لم يتصل.',
   'mcp.json.loadFailedTitle': 'تعذّر قراءة mcp.json',
   'mcp.json.loadFailedBody':
     'لم يستجب النواة، لذا لا يُعرض المستند. محرر فارغ قد يدفع إلى حفظ يمسح خوادمك.',
