@@ -104,12 +104,12 @@ cargo build --release -p openhuman-cli --features rss-bench --bin rss-bench
   "Other child process". On macOS, WKWebView's WebContent and GPU processes
   are started by the system rather than as children of the app, so they fall
   outside the host's process tree and are not counted at all.
-- The tool reads the default output path relative to where it runs. Through
+- The default output path is relative to the working directory. Through
   `pnpm profile:tauri` that is the repository root.
 
 ## Tests
 
-`src/main_tests.rs` covers argument parsing, classification and stack parsing.
+`src/main_tests.rs` covers argument parsing, process classification and tree grouping, report building, and stack parsing.
 This crate is outside both the root workspace and the app crate, so run it on
 its own:
 
