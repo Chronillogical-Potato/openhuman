@@ -83,7 +83,7 @@ impl OpenHumanSessionHost {
 
 /// Applies the pending one-turn overrides to this turn's resume mode.
 pub(in crate::agent::session_host) fn begin_turn_resume(
-    state: &mut OpenHumanSessionState,
+    state: &mut super::OpenHumanSessionState,
     resume: &mut ResumeMode,
 ) {
     let overrides = std::mem::take(&mut state.pending_turn_overrides);
