@@ -2,7 +2,7 @@
 
 Opt-in **Model Context Protocol (MCP) server** that exposes a curated, security-gated slice of OpenHuman's tool surface (Memory v2 reads/writes, core/agent introspection, subagent execution, web search) and bundled prompt assets to external MCP clients (Claude Desktop, Cursor, Windsurf, …). Started via `openhuman-core mcp`: stdio transport by default, or `--transport http` for Streamable HTTP + SSE on a local bind address. It is a JSON-RPC dispatcher, not a registered RPC domain: it has no `schemas.rs`/controllers and is wired only through [`crates/openhuman-core/src/core/cli.rs`](../../core/cli.rs), translating each MCP `tools/call` into an existing registered core RPC method.
 
-The generic server half (JSON-RPC protocol, client-provenance sessions, argument validators, and the stdio and Streamable HTTP transports: lives in `tinymcp::server` ([`vendor/tinymcp`](../../../../../vendor/tinymcp/)). This module is the host half: it implements `tinymcp::McpServerHandler` ([`handler.rs`](./handler.rs)) over OpenHuman's config, security policy, write audit, agent turns, tool catalog, prompt resources and subagent depth.
+The generic server half (JSON-RPC protocol, client-provenance sessions, argument validators, and the stdio and Streamable HTTP transports) lives in `tinymcp::server` ([`vendor/tinymcp`](../../../../../vendor/tinymcp/)). This module is the host half: it implements `tinymcp::McpServerHandler` ([`handler.rs`](./handler.rs)) over OpenHuman's config, security policy, write audit, agent turns, tool catalog, prompt resources and subagent depth.
 
 ## Responsibilities
 
