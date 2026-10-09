@@ -7,13 +7,9 @@ icon: diagram-project
 
 # Memory
 
-`crates/openhuman-core/src/memory/` is the host layer over TinyMemory: it drives
-the agent memory lifecycle around every turn, with a memory pack recalled before
-the model runs, the turn logged on both sides, memory recalled into compaction
-checkpoints, and belief builds run in the background.
+`crates/openhuman-core/src/memory/` is the host layer over TinyMemory. It runs the agent memory lifecycle around every turn. A memory pack is recalled before the model runs, the turn is logged on both sides, memory is recalled into compaction checkpoints, and belief builds run in the background.
 
-The behaviour is specified in `docs/specs/memory-v2.md`; the user-facing feature
-is [Memory](../../features/memory.md).
+The behavior is specified in [`docs/specs/memory-v2.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/specs/memory-v2.md). The user-facing feature is [Memory](../../features/memory.md).
 
 ## TinyMemory crates (`vendor/tinymemory/crates/`)
 
@@ -56,7 +52,7 @@ is [Memory](../../features/memory.md).
 The turn's `MemoryTurn` (config, identity, thread, pack) rides
 `OpenHumanRunContext::memory_turn`; a child run has its own.
 
-Chat thread persistence is not memory: it is `tinyagents_session::threads`,
+Chat thread persistence is not memory. It is `tinyagents_session::threads`,
 wrapped by `crates/openhuman-core/src/threads/store`.
 
 The MCP server exposes `memory.recall`, `memory.fetch`, `memory.list`,

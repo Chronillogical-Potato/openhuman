@@ -7,21 +7,11 @@ icon: link
 
 # Hooks
 
-A hook is a script you own that OpenHuman runs at a specific moment (before a
-tool executes, after a file is edited, when a turn finishes) and whose answer
-the agent obeys. It is how you make the agent follow a rule that lives in your
-repository rather than in our code: block `rm -rf`, run the formatter after every
-edit, write an audit line per tool call, refuse to read `.env`.
+A hook is a script you own. OpenHuman runs it at a set moment, such as before a tool runs, after a file is edited or when a turn finishes, and the agent obeys its answer. Hooks let you enforce rules that live in your repository instead of in our code. You can block `rm -rf`, run the formatter after every edit, write an audit line per tool call, or refuse to read `.env`.
 
-The contract is deliberately the same as
-[Cursor's](https://cursor.com/docs/hooks): same file name, same event names,
-same stdin envelope, same stdout decision, same exit codes. A hook script written
-for either host runs on the other unchanged.
+The contract matches [Cursor's](https://cursor.com/docs/hooks): the same file name, event names, stdin envelope, stdout decision and exit codes. A hook script written for either host runs on the other unchanged.
 
-> There is a second, unrelated meaning of "hook" in this codebase: the in-process
-> Rust traits in `crates/openhuman-core/src/agent/hooks.rs` that an *embedding host* installs
-> by compiling against the core. Those are for building a product on top of
-> OpenHuman. This page is about the file-based kind, for using OpenHuman.
+> "Hook" has a second, unrelated meaning in this codebase: the in-process Rust traits in `crates/openhuman-core/src/agent/hooks.rs`. An embedding host installs those by compiling against the core. This page is about the file-based kind.
 
 ## The file
 
@@ -46,8 +36,7 @@ for either host runs on the other unchanged.
 }
 ```
 
-Four locations are read, and **they concatenate: a more specific file cannot
-remove a broader one's rules**:
+OpenHuman reads four locations and concatenates them. A more specific file cannot remove a broader file's rules.
 
 | Layer | Path |
 | ----- | ---- |
@@ -56,53 +45,45 @@ remove a broader one's rules**:
 | Workspace | `<workspace_dir>/hooks.json` |
 | Project | `<action_dir>/.openhuman/hooks.json` |
 
-Concatenation is safe because the **strictest verdict wins**: across every hook
-that ran, deny beats ask beats allow. Adding a hook can never loosen a policy
-another one set, which is what lets a repository ship its own `hooks.json` onto
-a machine an operator has already locked down.
+Concatenation is safe because the strictest verdict wins. Across every hook that ran, deny beats ask, and ask beats allow. Adding a hook never loosens a policy that another hook set. A repository can therefore ship its own `hooks.json` onto a machine an operator has already locked down.
 
 ### Fields
 
 | Field | Meaning |
 | ----- | ------- |
-| `command` | Program to run (or the prompt text, for `"type": "prompt"`). Runs with its own `hooks.json` directory as cwd. |
+| `command` | Program to run, or the prompt text for `"type": "prompt"`. It runs with the directory of its `hooks.json` as the working directory. |
 | `type` | `command` (default) or `prompt`. |
-| `matcher` | Which occurrences reach this hook, see below. Absent means all. |
+| `matcher` | Which occurrences reach this hook. See Matchers below. Absent means all. |
 | `timeout` | Seconds. Falls back to `[hooks] default_timeout_secs` (30). |
-| `failClosed` | Treat a crashed, missing, or timed-out hook as a denial. Default `false`. |
+| `failClosed` | Treat a crashed, missing or timed-out hook as a denial. Default `false`. |
 | `loop_limit` | Follow-ups this hook may inject per session. Default 5; `0` means unlimited. |
 | `model` | Model override for a `prompt` hook. |
 | `enabled` | Set `false` to park a hook without deleting it. |
 
 ## The protocol
 
-The event arrives on **stdin** as one JSON object. The decision goes to
-**stdout**. The exit code decides how stdout is read:
+The event arrives on stdin as one JSON object. The decision goes to stdout. The exit code decides how stdout is read:
 
 | Exit | Meaning |
 | ---- | ------- |
 | `0` | stdout is the decision. Empty stdout is a no-op. |
 | `2` | Deny, whatever stdout said. stderr becomes the reason the agent is told. |
-| anything else | Failure. **Fails open** (the action proceeds) unless `failClosed`. |
+| anything else | Failure. It fails open (the action proceeds) unless `failClosed` is set. |
 
-A timeout, a missing interpreter, and unparseable stdout all take that same
-failure path. That symmetry is the point: a hook that denies only when it
-manages to run is not a security control, so `failClosed` covers every way a
-script can fail to answer.
+A timeout, a missing interpreter and unparseable stdout all take the same failure path. A hook that denies only when it manages to run is not a security control, so `failClosed` covers every way a script can fail to answer.
 
-stdout is parsed leniently: the last standalone JSON object wins, so a script
-that logs progress before answering works as written.
+stdout is parsed leniently. The last standalone JSON object wins, so a script that logs progress before answering works as written.
 
 ### Decision object
 
-Every field is optional, and each event honours the subset it defines:
+Every field is optional. Each event honors the subset it defines:
 
 ```json
 {
   "permission": "allow" | "deny" | "ask",
   "user_message": "shown to the human",
   "agent_message": "shown to the model",
-  "updated_input": { "…": "replacement tool arguments" },
+  "updated_input": { "...": "replacement tool arguments" },
   "additional_context": "appended to the tool result",
   "continue": false,
   "followup_message": "sent as another user turn",
@@ -110,22 +91,18 @@ Every field is optional, and each event honours the subset it defines:
 }
 ```
 
-`ask` escalates to the approval gate where one is available; inside the tool
-middleware, which has no approval channel, it denies rather than quietly
-allowing.
+`ask` goes to the approval gate where one exists. Inside the tool middleware, which has no approval channel, it denies instead of quietly allowing.
 
 ## Events
 
-`hook_event_name` in the envelope tells a script which moment it is in. Names are
-matched loosely: `preToolUse`, `PreToolUse` and `pre_tool_use` are the same
-event, and Claude Code's `UserPromptSubmit` aliases onto `beforeSubmitPrompt`.
+`hook_event_name` in the envelope tells a script which moment it is in. Names match loosely: `preToolUse`, `PreToolUse` and `pre_tool_use` are the same event, and Claude Code's `UserPromptSubmit` maps to `beforeSubmitPrompt`.
 
-| Event | Fires | Honours |
+| Event | Fires | Honors |
 | ----- | ----- | ------- |
 | `preToolUse` | before any tool | `permission`, `updated_input`, `agent_message` |
 | `postToolUse` | after a tool succeeded | `additional_context` |
 | `postToolUseFailure` | after a tool failed | - |
-| `beforeShellExecution` | before `shell` / `node_exec` / … | `permission`, `agent_message` |
+| `beforeShellExecution` | before `shell` / `node_exec` / ... | `permission`, `agent_message` |
 | `afterShellExecution` | after one completed | - |
 | `beforeReadFile` | before `file_read` / `read_diff` | `permission` |
 | `afterFileEdit` | after `file_write` / `edit` / `apply_patch` | - |
@@ -136,30 +113,15 @@ event, and Claude Code's `UserPromptSubmit` aliases onto `beforeSubmitPrompt`.
 | `stop` | after a turn | `followup_message` |
 | `afterAgentResponse` | on the assistant's message | - |
 
-`sessionStart`, `sessionEnd`, `preCompact`, `afterAgentThought` and `subagentStop`
-are defined: they parse, match, execute, and can be exercised with `hooks test`,
-but the core does not fire them yet. (`subagentStop` is the near miss: the handler
-`hooks::ops::subagent_stopped` is complete, but the in-progress
-`agent/subagent_host` cutover currently fires only `subagentStart` and returns
-without ever calling the stop side.) Configuring one
-produces a load warning saying so, and `hooks list` reports `"wired": false` for
-it. That is deliberate: a hook that silently never runs is the worst thing this
-system can do to you.
+`sessionStart`, `sessionEnd`, `preCompact`, `afterAgentThought` and `subagentStop` are defined. They parse, match and execute, and you can exercise them with `hooks test`, but the core does not fire them yet. Configuring one produces a load warning, and `hooks list` reports `"wired": false` for it. A hook that silently never runs would be worse, so the warning is deliberate.
 
 ### Derived events
 
-OpenHuman has no separate "shell execution" or "file read" call site: those are
-the `shell`, `file_read` and `file_write` tools going through the ordinary tool
-seam. So the shell, file and MCP events are *derived* from tool calls, and their
-payloads are reshaped the way a Cursor hook expects: a `command` string, a
-`file_path`, an `edits` array. Both the generic `preToolUse` and the specialised
-event fire, generic first.
+OpenHuman has no separate "shell execution" or "file read" call site. Those are the `shell`, `file_read` and `file_write` tools going through the ordinary tool path. The shell, file and MCP events are therefore derived from tool calls, and their payloads are reshaped the way a Cursor hook expects: a `command` string, a `file_path`, an `edits` array. The generic `preToolUse` fires first, then the specialized event.
 
 ## Matchers
 
-One string, matched against a subject the event chooses: the tool name for tool
-events, the command line for shell events, the path for file events, the agent id
-for subagent events.
+A matcher is one string, matched against a subject the event chooses. That is the tool name for tool events, the command line for shell events, the path for file events and the agent id for subagent events.
 
 * absent or `*`: everything
 * `Shell`: a literal, case-insensitive name
@@ -167,17 +129,13 @@ for subagent events.
 * `MCP:search_docs`: an MCP tool by name
 * anything containing punctuation: a regular expression (`^rm\b`, `\.rs$`)
 
-An invalid regex matches **nothing** and logs.
+An invalid regex matches nothing and is logged.
 
 ## Latency
 
-Gating events run their hooks sequentially and the turn waits; a denial
-short-circuits the rest. Observational events (`afterShellExecution`,
-`postToolUseFailure`, `afterAgentResponse`, …) are dispatched onto a background
-task and the turn never waits, so an audit hook that hangs must not hang the agent.
+Gating events run their hooks one after another and the turn waits. A denial skips the rest. Observational events (`afterShellExecution`, `postToolUseFailure`, `afterAgentResponse` and others) run on a background task and the turn never waits, so a hung audit hook cannot hang the agent.
 
-When nothing is configured, the harness bridge is not installed at all, so an
-unconfigured host pays nothing per tool call.
+When nothing is configured, the harness bridge is not installed, so an unconfigured host pays nothing per tool call.
 
 ## Environment
 
@@ -189,20 +147,17 @@ Hook processes inherit the core's environment plus:
 
 ## Prompt hooks
 
-`"type": "prompt"` writes the policy in English instead of shell. The text is
-sent to a model with the event JSON substituted for `$ARGUMENTS`, and the model
-answers `{"ok": true}` or `{"ok": false, "reason": "…"}`.
+With `"type": "prompt"` you write the policy in English instead of shell. The text goes to a model with the event JSON substituted for `$ARGUMENTS`, and the model answers `{"ok": true}` or `{"ok": false, "reason": "..."}`.
 
 ```json
 { "command": "Deny if $ARGUMENTS deletes anything outside /tmp.", "type": "prompt" }
 ```
 
-It costs a model call per event, so put it on rare, high-stakes moments, not on
-every tool call.
+Each event costs a model call, so use prompt hooks for rare, high-stakes moments, not every tool call.
 
 ## Inspecting and debugging
 
-Three RPC methods, on the `hooks` namespace:
+Three commands cover it:
 
 ```bash
 openhuman-core hooks list      # what is configured, from which file, and whether it is wired
@@ -211,13 +166,9 @@ openhuman-core hooks test --event beforeShellExecution \
   --payload '{"command":"rm -rf /","sandbox":false}'
 ```
 
-Over JSON-RPC the same three are `openhuman.hooks_list`, `openhuman.hooks_reload`
-and `openhuman.hooks_test`.
+Over JSON-RPC they are `openhuman.hooks_list`, `openhuman.hooks_reload` and `openhuman.hooks_test`.
 
-`hooks test` fires one synthetic event in the foreground and reports what each
-matching hook decided, including hooks for observational events that a real
-dispatch would run detached. Debug a hook with it rather than by asking the agent
-to do the dangerous thing to see whether the rule fires.
+`hooks test` fires one synthetic event in the foreground and reports what each matching hook decided. That includes hooks on observational events, which a real dispatch would run in the background. Use it to debug a hook instead of asking the agent to do the dangerous thing to see whether the rule fires.
 
 ## Host switches
 
@@ -254,7 +205,7 @@ echo '{"permission":"deny","agent_message":"Secrets files are off limits. Ask th
 
 ```sh
 #!/bin/sh
-cat > /dev/null            # drain stdin; this hook does not read the event
+cat > /dev/null            # drain stdin, this hook ignores the event
 cargo fmt >/dev/null 2>&1
 echo '{}'
 ```
@@ -263,12 +214,6 @@ Both need `chmod +x`.
 
 ## Implementation
 
-The engine and the whole `hooks.json` contract live upstream, in
-`tinyagents_runtime::command_hooks`: the types, the file and its layering, the
-matcher, running one hook (stdin, timeout, exit codes), selection and ordering
-and aggregation, the context envelope, and follow-ups.
+The engine and the whole `hooks.json` contract live upstream in `tinyagents_runtime::command_hooks`. That covers the types, the file and its layering, the matcher, running one hook (stdin, timeout, exit codes), selection, ordering and aggregation, the context envelope, and follow-ups.
 
-What stays in `crates/openhuman-core/src/hooks/` is the host half: `bridge`
-(mounting the engine on the harness's existing tool and turn seams), `ops` (the
-moments with no existing seam), `host`, `schemas` (the RPC surface) and
-`prompt_eval`. The beside-code `README.md` there is the authoritative split.
+`crates/openhuman-core/src/hooks/` holds the host half: `bridge` (mounts the engine on the harness's tool and turn paths), `ops` (moments with no existing path), `host`, `schemas` (the RPC surface) and `prompt_eval`. The `README.md` beside the code is the authoritative split.

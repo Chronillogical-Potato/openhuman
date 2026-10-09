@@ -1,18 +1,17 @@
 ---
-description: Artifact-capture layer that makes E2E tests debuggable. Logs, traces, screenshots.
+description: >-
+  How to see what the app and the agent did: E2E artifacts, the inference
+  capture proxy, and Langfuse traces.
 icon: eye
 ---
 
-# Agent Observability
+# Agent observability
 
-This doc describes the artifact-capture layer that makes the desktop app
-inspectable by coding agents (Codex, Claude Code, Cursor) through the
-existing WDIO / tauri-driver E2E harness (see [E2E Testing](e2e-testing.md)).
+This page covers three ways to see what OpenHuman did. E2E artifacts let a coding agent (Codex, Claude Code, Cursor) inspect the desktop app through the WDIO harness (see [E2E testing](e2e-testing.md)). The capture proxy shows what the core sent to inference. Langfuse traces cover real agent runs.
 
-It is intentionally narrow: one canonical onboarding + privacy flow with
-on-disk screenshots, page-source dumps, and mock backend request logs.
+The E2E layer is narrow on purpose. It covers one onboarding and privacy flow and saves screenshots, page-source dumps and mock backend request logs to disk.
 
-## TL;DR
+## Quick start
 
 ```bash
 bash app/scripts/e2e-agent-review.sh
@@ -46,7 +45,7 @@ The script prints the resolved artifact directory at the end.
 | ---------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | Helper           | `app/test/e2e/helpers/artifacts.ts`                                                                        | Run dir, `captureCheckpoint`, `captureFailureArtifacts`, `saveMockRequestLog` |
 | WDIO hook        | `app/test/wdio.conf.ts` (`afterTest`)                                                                      | Always dumps screenshot + source on any failing test                          |
-| Canonical spec   | `app/test/e2e/specs/agent-review.spec.ts`                                                                  | Welcome → onboarding → privacy panel with named checkpoints                   |
+| Canonical spec   | `app/test/e2e/specs/agent-review.spec.ts`                                                                  | Welcome, onboarding, then the privacy panel, with named checkpoints                   |
 | Wrapper script   | `app/scripts/e2e-agent-review.sh`                                                                          | Build + run + print artifact dir                                              |
 | Stable selectors | `data-testid` on `OnboardingNextButton`, `Onboarding` overlay + skip button, `WelcomeStep`, `PrivacyPanel` | Agent-reliable navigation anchors                                             |
 
@@ -70,11 +69,11 @@ saveMockRequestLog("after-connect-click", getRequestLog());
 
 `captureCheckpoint` numbers captures so the run dir reads chronologically.
 `captureFailureArtifacts` is wired into `wdio.conf.ts` and fires
-automatically on any failing test, specs should not call it directly.
+automatically on any failing test. Specs should not call it directly.
 
 ## Inference on the wire: the capture proxy
 
-Logs tell you a turn was slow; they do not tell you what the harness sent or
+Logs tell you a turn was slow. They do not tell you what the harness sent or
 which endpoint answered. `scripts/debug/capture-first-inference.mjs`
 (`pnpm debug capture`) is a loopback proxy between the core and its inference
 backend that records both sides:
@@ -101,17 +100,19 @@ route instead of the hosted backend. Non-2xx response bodies are saved next to
 the request dumps so an HTML 503 from an ingress is not lost behind a generic
 "model error".
 
-What to look for across the turns of one thread: `cache_key` must stay
-identical (it is the harness's stable-prefix fingerprint and OpenRouter's
-sticky-routing key), `served_by` should not change, and `cached` should
-approach `prompt` from the second call on. Each of those drifting has been a
-real bug (openhuman#6434). The proxy binds loopback only and refuses a
-plaintext non-loopback upstream unless overridden, because it forwards the
-bearer verbatim; `--help` lists every `CAPTURE_*` knob.
+Across the turns of one thread, check three things. `cache_key` must stay
+identical, because it is the harness's stable-prefix fingerprint and
+OpenRouter's sticky-routing key. `served_by` should not change. `cached`
+should approach `prompt` from the second call on. A drift in any of them has
+been a real bug.
 
-## Production agent traces are a separate mechanism
+The proxy binds loopback only. It refuses a plaintext non-loopback upstream
+unless you override that, because it forwards the bearer token verbatim.
+`--help` lists every `CAPTURE_*` option.
 
-Everything above is about E2E artifacts on disk. For a real agent run, the
+## Production agent traces
+
+Everything above is about local artifacts. For a real agent run, the
 core can export trace spans to Langfuse instead: when
 `observability.share_usage_data` is on (the default), a completed run's spans
 go to the OpenHuman backend's Langfuse ingestion proxy over the same session
@@ -123,11 +124,11 @@ metadata (names, timings, token and cost figures) but drops content. See
 `crates/openhuman-core/src/agent/progress_tracing/langfuse.rs` and
 `crates/openhuman-core/src/config/schema/observability.rs`.
 
-## What is intentionally out of scope
+## Out of scope for the E2E layer
 
-- Visual baselines / image diffs across every component state.
+- Visual baselines and image diffs across every component state.
 - Screenshot capture on every click (too noisy).
 - Live integrations (Gmail, Notion, Telegram); mock server only.
-- New test framework / reporter.
+- A new test framework or reporter.
 
-Widen to more flows only after this loop proves out.
+Add more flows only after this loop proves itself.

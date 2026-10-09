@@ -1,25 +1,25 @@
 ---
 description: >-
-  A step-by-step path from an empty Cargo project to many agents running on one
-  OpenHuman runtime in your own Rust process.
+  Go from an empty Cargo project to many agents on one OpenHuman runtime in
+  your own Rust process.
 icon: rocket
 ---
 
-# Rust Quickstart
+# Build agents in Rust: quickstart
 
-This page takes you from an empty Cargo project to a fleet of agents running in one process. Each step builds on the last and ends with code you can run. The full reference for every type used here is [Embedding OpenHuman](embedding.md).
+This page takes you from an empty Cargo project to a fleet of agents in one process. Each step builds on the last and ends with code you can run. [Embedding OpenHuman](embedding.md) is the full reference for every type used here.
 
 ## What you get
 
-`openhuman-embed` runs the OpenHuman core inside your binary. There is no daemon to start and no RPC hop: a turn is a function call. You build one `Runtime` per process, then create as many `Agent`s on it as you need. Each agent has its own model, access tier, working directory, MCP servers and skills.
+`openhuman-embed` runs the OpenHuman core inside your binary. There is no daemon to start and no RPC hop, so a turn is a function call. You build one `Runtime` per process, then create as many `Agent`s on it as you need. Each agent has its own model, access tier, working directory, MCP servers and skills.
 
-Sharing one process is where the density comes from. The fixed bootstrap cost is paid once, and each extra agent adds a marginal cost. With a mock inference provider, 500 agents in one process measured about 1.8 MiB of marginal memory each. Thousands of agents per box is the direction, not a measured result. The numbers and how to reproduce them are on the [Performance](performance.md) page.
+Sharing one process is where the density comes from. The bootstrap cost is paid once, and each extra agent adds a small marginal cost. With a mock inference provider, 500 agents in one process used about 1.8 MiB of marginal memory each. Thousands of agents per box is a goal, not a measured result. The numbers and how to reproduce them are on the [Performance](performance.md) page.
 
 ## Prerequisites
 
 You need Rust 1.96.1 or newer, the version pinned in [`rust-toolchain.toml`](https://github.com/tinyhumansai/openhuman/blob/main/rust-toolchain.toml). You also need an API key for any OpenAI-compatible endpoint, or a TinyHumans API key (see step 6).
 
-If you depend on OpenHuman through Cargo as shown below, Cargo fetches the vendored submodules for you. If you build from a clone of the repository instead, initialize them first:
+If you depend on OpenHuman through Cargo as shown below, Cargo fetches the vendored submodules for you. If you build from a clone, initialize them first:
 
 ```bash
 git submodule update --init --recursive vendor/
@@ -42,13 +42,13 @@ The default feature set is the contributor build. To ship less code, turn defaul
 openhuman-embed = { git = "https://github.com/tinyhumansai/openhuman", package = "openhuman-embed", default-features = false, features = ["inference", "mcp"] }
 ```
 
-Cargo applies `[patch]` tables only from the top-level workspace, so the ones in OpenHuman's [root `Cargo.toml`](https://github.com/tinyhumansai/openhuman/blob/main/Cargo.toml) do not reach your crate. They make every crate share one copy of `tinytools` and `tinyinference`. If dependency resolution fails over those crates, or you see two incompatible `tinytools` types, add the same `[patch]` sections to your own workspace.
+Cargo applies `[patch]` tables only from the top-level workspace, so the ones in OpenHuman's [root `Cargo.toml`](https://github.com/tinyhumansai/openhuman/blob/main/Cargo.toml) do not reach your crate. They make every crate share one copy of `tinytools` and `tinyinference`. If dependency resolution fails over those crates, or you see two incompatible `tinytools` types, copy the same `[patch]` sections into your own workspace.
 
-Every feature forwards to the same-named feature on the core. `mcp` and `skills` also gate `AgentSpec::mcp` and `AgentSpec::skills_dir`, so enable them if your agents need those.
+Each feature forwards to the same-named feature on the core. `mcp` and `skills` also gate `AgentSpec::mcp` and `AgentSpec::skills_dir`, so enable them if your agents need those.
 
 ## Step 2: build the tokio runtime yourself
 
-Do not use `#[tokio::main]`. A turn is a large async state machine, and a sub-agent nested inside a turn overflows tokio's default 2 MiB worker stack, which aborts the process. Build the runtime with the stack size and blocking-thread limit the core exports:
+Do not use `#[tokio::main]`. A turn is a large async state machine, and a sub-agent nested inside a turn overflows tokio's default 2 MiB worker stack and aborts the process. Build the runtime with the stack size and blocking-thread limit that the core exports:
 
 ```rust
 use openhuman_core::core::runtime::{AGENT_WORKER_STACK_BYTES, MAX_BLOCKING_THREADS};
@@ -97,7 +97,7 @@ async fn run() -> anyhow::Result<()> {
 }
 ```
 
-Pass the API root as the URL; `/chat/completions` is appended for you. `Workspace::Ephemeral` is removed when the harness drops, so nothing touches an existing install. `Access::readonly()` allows no writes and no shell, which makes it safe to point at any directory.
+Pass the API root as the URL. `/chat/completions` is appended for you. `Workspace::Ephemeral` is removed when the harness drops, so nothing touches an existing install. `Access::readonly()` allows no writes and no shell, which makes it safe to point at any directory.
 
 A complete runnable version, with progress streaming, is the [`run_turn` example](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/examples/run_turn.rs):
 
@@ -110,7 +110,7 @@ OPENHUMAN_EXAMPLE_MODEL=gpt-5 \
 
 ## Step 4: many agents on one runtime
 
-When you need more than one agent, build the `Runtime` directly and create agents from `AgentSpec`s. This is what `Harness` does underneath, so moving to it later is a small change.
+When you need more than one agent, build the `Runtime` directly and create agents from `AgentSpec`s. `Harness` does this underneath, so moving over later is a small change.
 
 ```rust
 use openhuman_embed::{Access, AgentSpec, Provider, Runtime, Workspace};
@@ -157,9 +157,9 @@ Agent ids must match `^[a-z0-9][a-z0-9_-]{0,63}$`. Avoid the built-in ids such a
 
 The access tier is the main safety control:
 
-* `Access::readonly()` observes only.
-* `Access::supervised()` can act, but risky operations wait for a human decision. It turns the autonomy policy on for that agent, so an unattended process stalls at the first approval until the ten-minute timeout denies it.
-* `Access::full()` acts autonomously with real shell and file access under `action_dir`. Point it at a directory you are willing to have changed. Credential stores such as `~/.ssh` stay blocked regardless.
+- `Access::readonly()` observes only.
+- `Access::supervised()` can act, but risky operations wait for a human decision. It turns the autonomy policy on for that agent, so an unattended process stalls at the first approval until the ten-minute timeout denies it.
+- `Access::full()` acts autonomously with real shell and file access under `action_dir`. Point it at a directory you are willing to have changed. Credential stores such as `~/.ssh` stay blocked regardless.
 
 `action_dir` is the agent's read and write root. `.trust(path, access)` grants a directory outside it.
 
@@ -209,7 +209,7 @@ The core awaits every send, so a receiver that stops draining stalls the turn. T
 
 ## Step 6: managed inference with one API key
 
-Instead of bringing a provider key for each agent, you can give the runtime a single TinyHumans API key. Agents that name no `Provider` then run on managed inference, and backend features such as integrations and search use the same key. See [One TinyHumans API key](tinyhumans-api-key.md) for what it unlocks.
+Instead of a provider key for each agent, you can give the runtime one TinyHumans API key. Agents that name no `Provider` then run on managed inference, and backend features such as integrations and search use the same key. See [One TinyHumans API key](tinyhumans-api-key.md) for what it unlocks.
 
 `openhuman-embed` alone installs no backend transport, so hosted surfaces answer `BACKEND_UNAVAILABLE:`. To boot connected, use the `RuntimeBuilder` from `openhuman-tinyhumans`, which mirrors the embed builder and installs the transport on `build()`:
 
@@ -237,11 +237,11 @@ For a headless process that boots the core itself, set `OPENHUMAN_BACKEND_API_KE
 
 A few rules keep a large fleet small and predictable:
 
-* Run one `Runtime` per process. A second `build()` returns `RuntimeError::AlreadyRunning`, because the keyring, event bus and domain subscribers are process-wide. Add agents, not runtimes.
-* Build narrow. A headless build with `--no-default-features --features "skills,flows"` is about 60 MiB stripped, against 115.9 MiB with every gate on. The recipe is in [`docs/library-minimal-recipe.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/library-minimal-recipe.md).
-* Narrow each agent. `.tool_groups(..)`, `.domains(..)`, `ToolScopeSpec::Named(..)` and `.disallow_tools(..)` cut prompt size and the surface an agent can reach.
-* Pick a sandbox mode per agent through `AgentDefinitionSpec`: `SandboxModeSpec::None`, `ReadOnly` (write and execute tools are removed) or `Sandboxed` (commands run in the platform jail or Docker).
-* For a cloud host serving many users from one process, use `Workspace::stateless()` with a `SessionStoreProvider` so conversations live in your own database. The embed crate README covers it under "Conversations in a host store".
+- Run one `Runtime` per process. A second `build()` returns `RuntimeError::AlreadyRunning`, because the keyring, event bus and domain subscribers are process-wide. Add agents, not runtimes.
+- Build narrow. A headless build with `--no-default-features --features "skills,flows"` is about 60 MiB stripped. With every gate on it is 115.9 MiB unstripped. The recipe is in [`docs/library-minimal-recipe.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/library-minimal-recipe.md).
+- Narrow each agent. `.tool_groups(..)`, `.domains(..)`, `ToolScopeSpec::Named(..)` and `.disallow_tools(..)` cut prompt size and the surface an agent can reach.
+- Pick a sandbox mode per agent through `AgentDefinitionSpec`: `SandboxModeSpec::None`, `ReadOnly` (write and execute tools are removed) or `Sandboxed` (commands run in the platform jail or Docker).
+- For a cloud host serving many users from one process, use `Workspace::stateless()` with a `SessionStoreProvider` so conversations live in your own database. The embed crate README covers it under "Conversations in a host store".
 
 To measure your own numbers, the scripts and method are in [`docs/library-benchmarking.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/library-benchmarking.md). The public benchmark results and rig are in [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks).
 
@@ -249,16 +249,16 @@ To measure your own numbers, the scripts and method are in [`docs/library-benchm
 
 You do not have to embed the library to use the core.
 
-The JSON-RPC server runs the same core behind HTTP. Start it with `openhuman-core serve`; `GET /schema` lists every method, `GET /health` reports liveness, and `GET /events` streams events. The server lives in [`crates/openhuman-rpc`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-rpc/README.md).
+The JSON-RPC server runs the same core behind HTTP. Start it with `openhuman-core serve`. `GET /schema` lists every method, `GET /health` reports liveness and `GET /events` streams events. The server lives in [`crates/openhuman-rpc`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-rpc/README.md).
 
-The CLI is the `openhuman-core` binary, which exposes the same controllers as subcommands and is documented in [`crates/openhuman-cli`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-cli/README.md).
+The CLI is the `openhuman-core` binary. It exposes the same controllers as subcommands and is documented in [`crates/openhuman-cli`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-cli/README.md).
 
 The terminal client is `openhuman-tui`, a ratatui front end that boots the core in its own process and drives the same chat surface as the desktop app. See [`crates/openhuman-tui`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-tui/README.md).
 
 ## Next steps
 
-* [Embedding OpenHuman](embedding.md) is the full reference for `AgentSpec`, `Access`, workspaces, MCP, skills and the examples.
-* [Architecture](architecture/architecture.md) and the [agent harness](architecture/agent-harness.md) explain how a turn runs.
-* [Loadable modules](loadable-modules.md) covers the module contracts the core composes.
-* [Pluggable engines](engines.md) covers the inference, memory and search backends an agent chooses by config.
-* [Performance and footprint](performance.md) has the measured density, cold-start and binary-size numbers.
+- [Embedding OpenHuman](embedding.md) is the full reference for `AgentSpec`, `Access`, workspaces, MCP, skills and the examples.
+- [Architecture](architecture.md) and the [agent harness](architecture/agent-harness.md) explain how a turn runs.
+- [Loadable modules](loadable-modules.md) covers the module contracts the core composes.
+- [Pluggable engines](engines.md) covers the inference, memory and search backends an agent chooses by config.
+- [Performance and footprint](performance.md) has the measured density, cold-start and binary-size numbers.

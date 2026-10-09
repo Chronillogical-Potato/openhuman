@@ -1,97 +1,97 @@
 ---
 description: >-
-  The chat surface: composer, slash commands, mentions, model and effort
+  The chat screen: composer, slash commands, mentions, model and effort
   pickers, the context ring, the tool timeline, approvals, sub-agent cards,
-  artifacts and threads.
+  files and threads.
 icon: comments
 ---
 
 # Chat
 
-Chat is where almost everything happens. It is not a text box with a send button: a turn here can call tools, spawn sub-agents, stop to ask you something, park an action for approval, produce files, and bill itself, and the transcript shows all of it in order.
+Chat is where almost everything happens. A turn here can call tools, spawn sub-agents, stop to ask you a question, wait for your approval, produce files and track its own cost. The transcript shows all of it in order.
 
-Open it at **Chat** in the sidebar, or `⌘N` for a new conversation.
+Open it from **Chat** in the sidebar, or press `⌘N` for a new conversation.
 
 ## The composer
 
-The input is a rich text field rather than a plain one, which is what lets a `/` become a command chip and a popover anchor to the caret as you type. Alongside it:
+The input is a rich text field. That is how a `/` becomes a command chip and a popover follows your cursor as you type. Around it you have:
 
-* **Attach** files. An image, a PDF, an Office document or an archive is preserved in the working folder and offered to the model natively when the model and the route both support that type; otherwise it degrades to extracted text, a bounded readout, or an archive listing with accessible paths.
-* **Model**, and a separate **thinking effort**. Both apply to this conversation, not globally.
-* **Context ring**, which shows how full the context window is for this thread and opens a breakdown with per-sub-agent cost.
-* **Voice**: tap to speak, or hand the turn to the live voice agent. See [Voice](native-tools/voice.md).
-* When the box is empty, the mascot button takes you to the full-screen [mascot](mascot.md) stage.
+- **Attach**. Images, PDFs, Office documents and archives are saved in the working folder. The model gets them natively when both the model and the route support that type. Otherwise it gets extracted text, a short readout, or an archive listing.
+- **Model** and **thinking effort**. Both apply to this conversation only, not globally.
+- **Context ring**. It shows how full the context window is for this thread. Click it for a breakdown with the cost of each sub-agent.
+- **Voice**. Tap to speak, or hand the turn to the live voice agent. See [Voice](native-tools/voice.md).
+- **Mascot button**. When the box is empty, it opens the full-screen [mascot](mascot/README.md) stage.
 
 ### Slash commands
 
-Typing `/` offers three sources at once: the built-ins (`/new`, `/clear`, `/stop`, `/plan`, `/build`), the core's own command list, and your installed skills and workflows.
+Typing `/` lists the built-in commands (`/new`, `/clear`, `/stop`, `/plan`, `/build`), the core's own commands, and your installed skills and workflows.
 
 ### Mentions
 
-Typing `@` offers two sources: **memory**, searched as you type, and **files**, meaning the artifacts this thread has already produced. A mention becomes a chip, so the agent gets the reference rather than a guess at what you meant.
+Typing `@` offers your memory, searched as you type, and the files this thread has already produced. A mention becomes a chip, so the agent gets the exact reference and does not have to guess.
 
 ## Reading a turn
 
-Each assistant turn groups its reasoning and its tool calls into one chronological block, so you can see what it thought and what it did in the order it happened rather than in two separate panes.
+Each assistant turn puts its reasoning and tool calls in one block, in the order they happened.
 
-* **Tool calls** render per tool: a search shows its queries and sources, a shell call shows its command and exit, a failed call shows a failure card with the reason rather than a stack trace. Every tool runs in the core; nothing executes in the browser.
-* **Sources** appear as badges under an answer, up to four inline and then a count.
-* **Timing and cost** are on the turn, and the context ring's breakdown attributes spend to the sub-agents that caused it.
-* **Find in conversation** (`⌘F`) searches this thread only, and the right-edge rail jumps between turns.
+- Tool calls render by tool. A search shows its queries and sources. A shell call shows its command and exit code. A failed call shows the reason, not a stack trace. Every tool runs in the core, never in the browser.
+- Sources appear as badges under an answer: up to four, then a count.
+- Timing and cost are shown on the turn. The context ring attributes spend to the sub-agents that caused it.
+- **Find in conversation** (`⌘F`) searches this thread only. The rail on the right edge jumps between turns.
 
-The action bar on an assistant turn has copy, regenerate, a thumbs up or down that is remembered, read-aloud, and export as Markdown. On your own turns you can edit and resend, which branches the conversation: the branch picker moves between versions.
+An assistant turn has copy, regenerate, thumbs up or down (remembered), read aloud, and export as Markdown. On your own turns you can edit and resend. That branches the conversation, and the branch picker switches between versions.
 
 ## When the agent needs you
 
-Four different kinds of stop, all inline:
+The agent can stop for four reasons, all shown inline:
 
-| Stop              | What it looks like                                                                                                                                          |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Approval**      | A card naming the tool and a redacted one-line summary of the action. Approve once, always allow that tool, or deny. See [Approval Gate](approval-gate.md). |
-| **Permission**    | A connector or provider needs authorizing; the card collects exactly the fields that provider needs.                                                        |
-| **Clarification** | The agent asks a direct question and waits.                                                                                                                 |
-| **Plan review**   | A proposed plan with approve, reject, or revise-with-feedback.                                                                                              |
+| Stop | What you see |
+| --- | --- |
+| Approval | A card naming the tool and a redacted one-line summary. Approve once, always allow that tool, or deny. See [Approval gate](approval-gate.md). |
+| Permission | A connector or provider needs authorizing. The card asks for exactly the fields that provider needs. |
+| Clarification | The agent asks a direct question and waits. |
+| Plan review | A proposed plan. Approve it, reject it, or ask for a revision with feedback. |
 
-A background or scheduled turn has nobody to ask, so an approval raised outside a live chat collects in a deck you can decide later. Undecided requests deny themselves after ten minutes.
+A background or scheduled turn has nobody to ask. Approvals raised outside a live chat collect in a deck you can decide later. Undecided requests are denied after ten minutes.
 
 ## Sub-agents
 
-When a turn delegates, each child appears as its own card: a nested transcript, its own status, a reply box when it is waiting on you, and a cancel button. Delegation is asynchronous, so the parent keeps working and the card fills in as the child reports. Detached background agents, scheduled runs and memory syncs collect in a separate inbox card rather than interrupting the thread.
+When a turn delegates work, each child gets its own card. The card has a nested transcript, a status, a reply box if the child is waiting on you, and a cancel button. Delegation is asynchronous, so the parent keeps working while the card fills in. Detached background agents, scheduled runs and memory syncs collect in a separate inbox card so they don't interrupt the thread.
 
 ## Files the agent makes
 
-Anything the agent produces that is meant for you, a document, a deck, an image, a render, becomes an artifact: a chip above the composer opens a panel with download, reveal in folder, and delete. Only finished artifacts persist across a restart; a failed one offers a retry.
+Anything the agent produces for you, such as a document, a deck, an image or a render, becomes an artifact. A chip above the composer opens a panel where you can download it, reveal it in its folder, or delete it. Only finished artifacts survive a restart. A failed one offers a retry.
 
 ## Workflow proposals
 
-Ask for an automation and the agent proposes a graph. The proposal is validate-only: it arrives as a card with the node list and three choices, save and enable, dismiss, or open it on the canvas. That card is the only path from a proposal to a saved automation, which is deliberate. See [Workflows](workflows.md).
+If you ask for an automation, the agent proposes a graph. The proposal is validate-only. It arrives as a card with the node list and three choices: save and enable, dismiss, or open on the canvas. That card is the only way to turn a proposal into a saved automation. See [Workflows](workflows.md).
 
 ## Threads
 
-The sidebar lists your conversations. You can create, select, rename inline, and delete behind a confirmation. Turns on different threads run **concurrently**, so starting something slow in one conversation does not block another.
+The sidebar lists your conversations. You can create, select, rename and delete them (delete asks for confirmation). Turns on different threads run at the same time, so a slow task in one conversation does not block another.
 
-Threads carry a goal and a to-do list when the agent sets them, shown as a pinned list and a banner with its token budget. Both are read-only in the UI today: the agent maintains them, you do not edit them there.
+A thread can carry a goal and a to-do list that the agent sets. They show as a pinned list and a banner with the token budget. The agent maintains them. You can't edit them in the UI yet.
 
-A long conversation is compacted rather than truncated. The compaction seals what came before and opens a new generation that records the sealed one as its parent, so nothing is deleted on disk even though the model only reads the head. There is no UI for browsing those generations yet.
+A long conversation is compacted, not truncated. Compaction seals what came before and starts a new generation that points back to the sealed one. Nothing is deleted on disk, though the model reads only the latest generation. There is no UI for browsing older generations yet.
 
 ## Keyboard
 
-| Shortcut    | Action                    |
-| ----------- | ------------------------- |
-| `⌘K` / `⌘P` | Command palette           |
-| `⌘N`        | New conversation          |
-| `⌘F`        | Find in this conversation |
-| `⌘B`        | Toggle the sidebar        |
-| `⌘,`        | Settings                  |
-| `⌘/` or `?` | Shortcut sheet            |
+| Shortcut | Action |
+| --- | --- |
+| `⌘K` / `⌘P` | Command palette |
+| `⌘N` | New conversation |
+| `⌘F` | Find in this conversation |
+| `⌘B` | Toggle the sidebar |
+| `⌘,` | Settings |
+| `⌘/` or `?` | Shortcut sheet |
 
 ## Not here yet
 
-Stated so you don't go looking: there is no thread search, pinning, folders or archiving in the sidebar; no UI for setting a thread goal or ticking a to-do; no browser for compaction generations; and follow-up suggestion chips are built but have no producer, so the row stays empty.
+So you don't go looking: the sidebar has no thread search, pinning, folders or archiving. There is no UI to set a thread goal or tick a to-do, and no browser for compaction generations. Follow-up suggestion chips exist in the UI but nothing produces them yet, so that row stays empty.
 
 ## See also
 
-* [Memory](memory.md): what the agent recalls before it answers, and what it writes after.
-* [The Orchestrator](orchestration.md): how delegation is planned.
-* [Available Tools](native-tools/): what those tool cards are calling.
-* [Notifications & Activity](notifications-and-activity.md): what happens when a turn finishes while you are elsewhere.
+- [Memory](memory.md): what the agent recalls before it answers, and what it writes after.
+- [The Orchestrator](orchestration.md): how delegation is planned.
+- [Available tools](native-tools/README.md): what those tool cards are calling.
+- [Notifications and activity](notifications-and-activity.md): what happens when a turn finishes while you are elsewhere.

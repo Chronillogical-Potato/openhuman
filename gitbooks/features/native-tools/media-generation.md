@@ -1,34 +1,34 @@
 ---
 description: >-
-  Ask for an image or a video and dedicated media agents generate it: image
-  generation and editing (Seedream / SeedEdit), plus text-to-video and
-  animate-a-reference-image (Seedance / Veo), saved straight into your
-  workspace.
+  Ask for an image or a video and dedicated media agents generate it, with
+  image editing and animation of a reference image, saved into your workspace.
 icon: clapperboard
 ---
 
-# Image & Video Generation
+# Image and video generation
 
-OpenHuman can _make_ media, not just read it. Ask the assistant to "generate an image of…", "edit this screenshot to…", or "animate this photo into a short clip" and a dedicated media sub-agent takes over. No plugin, no API key, no separate billing.
+OpenHuman can make media, not just read it. Ask for "an image of…", "edit this screenshot to…" or "animate this photo into a short clip", and a dedicated media sub-agent takes over. You need no plugin, no API key and no separate billing.
 
 ## What it can do
 
-- **Image generation & editing.** Text-to-image and image editing through hosted GMI models (**Seedream** for generation, **SeedEdit** for edits).
-- **Video generation.** Text-to-video, or animate a reference image into a clip (**Seedance** / **Veo**). Video is asynchronous: the agent kicks off the render and collects the clip when it's done.
-- **Model discovery.** The agent can list the currently available media models and pick the right one for the job.
+- **Image generation and editing.** Text-to-image and image editing through hosted GMI models (Seedream for generation, SeedEdit for edits).
+- **Video generation.** Text-to-video, or animate a reference image into a clip (Seedance or Veo). Video is asynchronous. The agent starts the render and collects the clip when it is done.
+- **Model discovery.** The agent can list the media models available now and pick the right one.
 
 ## How it works
 
-The `media_generation` domain (`crates/openhuman-core/src/media/generation/`) exposes three agent tools (generate image, generate video, list models) backed by the OpenHuman backend's media-generation provider. The backend owns the provider keys, billing, and rate limiting; your subscription covers it like any other model call.
+The `media_generation` domain (`crates/openhuman-core/src/media/generation/`) gives the agent three tools: generate image, generate video and list models. They use the OpenHuman backend's media-generation provider. The backend owns the provider keys, billing and rate limiting, and your subscription covers it like any other model call.
 
-The tools submit the job and then poll on a 4-second cadence (up to 180 s for images, 420 s for video), so the agent, and you, get live progress instead of a hung call. Finished artifacts are downloaded into the agent's `generated-media/` folder in your workspace and returned as local file paths, ready to attach, post, or edit further.
+The tools submit a job and then poll every 4 seconds, for up to 180 seconds for images and 420 seconds for video. You and the agent see live progress instead of a hung call. Finished files are downloaded into the `generated-media/` folder of your workspace and returned as local file paths, ready to attach, post or edit further.
 
 ## Privacy
 
-Prompts and reference media for these tools are sent to the OpenHuman backend and on to the hosted media provider. This is disclosed in the in-app capability catalog (`intelligence.image_generation` / `intelligence.video_generation`, both Beta). Note that [Privacy Mode](../privacy-mode.md)'s local-only enforcement currently covers **inference providers only**. The media tools still call the backend, so avoid using them if you need strict no-egress today. Extending enforcement to integrations and network tools is a planned later slice.
+Prompts and reference media go to the OpenHuman backend and on to the hosted media provider. The in-app capability catalog discloses this (`intelligence.image_generation` and `intelligence.video_generation`, both Beta).
+
+[Privacy mode](../privacy-mode.md) local-only enforcement covers inference providers only. The media tools still call the backend, so avoid them if you need strict no-egress today.
 
 ## See also
 
-- [Image Tools](image-tools.md) covers the reading side: attachments, image metadata, and the vision model slot.
-- [Available Tools](README.md) lists the full native toolbelt.
-- [Billing, Cost & Usage](../billing-and-usage.md) explains how media jobs are metered.
+- [Image tools](image-tools.md): attachments, image metadata and the vision model slot.
+- [Native tools](README.md): the full toolbelt.
+- [Billing, cost and usage](../billing-and-usage.md): how media jobs are metered.

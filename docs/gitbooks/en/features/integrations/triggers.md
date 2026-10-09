@@ -1,135 +1,124 @@
 ---
 description: >-
-  Live events from connected integrations (a new Gmail message, a Notion edit, a
-  Stripe charge) arrive as triggers, get classified by a triage agent, and can
-  fire agent actions automatically.
+  Live events from connected apps (a new Gmail message, a Notion edit, a Stripe
+  charge) arrive as triggers, get sorted by a triage agent, and can start agent
+  actions automatically.
 icon: bolt
 ---
 
 # Triggers
 
-A connected integration is not just a place the agent can read from on demand. It is also a **source of live events**. When someone sends you an email, edits a Notion page, opens a GitHub issue on one of your repos, charges a card on Stripe, or DMs you on Slack, OpenHuman receives that event in near-real-time and can decide whether to do something about it.
+A connected integration is more than a place the agent can read from on demand. It is also a source of live events. When someone emails you, edits a Notion page, opens a GitHub issue on your repo, charges a card on Stripe or DMs you on Slack, OpenHuman gets the event within moments and decides whether to act on it.
 
-This page is about that pipeline: how triggers arrive, how they get classified, and how a trigger can turn into a full agent action without you typing a thing.
+This page covers how triggers arrive, how they are sorted, and how one can turn into a full agent action without you typing anything.
 
 ## What a trigger is
 
-A trigger is an external event published by an integration you've connected. Common shapes:
+A trigger is an external event published by an integration you have connected. Some examples:
 
-| Integration  | Example trigger                                                   |
-| ------------ | ----------------------------------------------------------------- |
-| **Gmail**    | `GMAIL_NEW_GMAIL_MESSAGE`, new mail in inbox                      |
-| **Slack**    | `SLACK_NEW_MESSAGE`, channel/DM message you were mentioned in     |
-| **Notion**   | `NOTION_PAGE_UPDATED`, a tracked page changed                     |
-| **GitHub**   | `GITHUB_ISSUE_OPENED`, `GITHUB_PULL_REQUEST_OPENED` on your repos |
-| **Stripe**   | `STRIPE_CHARGE_SUCCEEDED`, a successful charge on your account    |
-| **Calendar** | `GOOGLE_CALENDAR_EVENT_CREATED`, a new event on your calendar     |
+| Integration | Example trigger                                                   |
+| ----------- | ----------------------------------------------------------------- |
+| Gmail       | `GMAIL_NEW_GMAIL_MESSAGE`, new mail in your inbox                 |
+| Slack       | `SLACK_NEW_MESSAGE`, a channel or DM message that mentions you    |
+| Notion      | `NOTION_PAGE_UPDATED`, a tracked page changed                     |
+| GitHub      | `GITHUB_ISSUE_OPENED`, `GITHUB_PULL_REQUEST_OPENED` on your repos |
+| Stripe      | `STRIPE_CHARGE_SUCCEEDED`, a successful charge on your account    |
+| Calendar    | `GOOGLE_CALENDAR_EVENT_CREATED`, a new event on your calendar     |
 
-The full set comes from the [Composio](https://composio.dev) connector layer that powers [third-party integrations](./). When a connection is active, the relevant trigger subscriptions are wired up automatically.
+The full set comes from the [Composio](https://composio.dev) connector layer behind [third-party integrations](README.md). When a connection is active, the matching trigger subscriptions are set up for you.
 
 ### Gmail OAuth scopes
 
-Gmail trigger subscriptions require message-read access on the connected Google account. Fresh OpenHuman Gmail authorizations request `https://www.googleapis.com/auth/gmail.readonly` so `GMAIL_NEW_GMAIL_MESSAGE` can be enabled and the native Gmail sync path can read the new message metadata.
+Gmail triggers need message-read access on the connected Google account. New Gmail authorizations request `https://www.googleapis.com/auth/gmail.readonly`, so `GMAIL_NEW_GMAIL_MESSAGE` can be enabled and the native Gmail sync can read new message metadata. If you connected Gmail before this scope was requested, reconnect it from Settings before enabling Gmail triggers.
 
-If an older Gmail connection was created before this scope was requested, reconnect Gmail from Settings before enabling Gmail triggers.
+## How a trigger reaches the agent
 
-## Where triggers come from, end to end
-
-```
+```text
 ┌────────────────────┐
-│ third-party API │ Gmail / Slack / Notion / GitHub / ...
+│ third-party API    │ Gmail / Slack / Notion / GitHub / ...
 └─────────┬──────────┘
- │ webhook
- ▼
+          │ webhook
+          ▼
 ┌────────────────────┐
-│ OpenHuman backend │ HMAC-verifies the webhook, normalises the payload
+│ OpenHuman backend  │ verifies the webhook signature, cleans up the payload
 └─────────┬──────────┘
- │ Socket.IO event ("composio:trigger")
- ▼
+          │ Socket.IO event ("composio:trigger")
+          ▼
 ┌────────────────────┐
-│ Rust core │ publishes DomainEvent::ComposioTriggerReceived
-│ (your laptop) │ on the in-process event bus
+│ Rust core          │ publishes a trigger-received event
+│ (your computer)    │ on the in-process event bus
 └─────────┬──────────┘
- │
- ▼
+          │
+          ▼
 ┌────────────────────┐
-│ Trigger Triage │ classifies: drop / acknowledge / react / escalate
+│ Trigger triage     │ drop / acknowledge / react / escalate
 └─────────┬──────────┘
- │
- ▼
+          │
+          ▼
 ┌────────────────────┐
-│ One of: │
-│ - nothing │ ← drop
-│ - memory note │ ← acknowledge
-│ - Trigger Reactor │ ← react (1-2 tool calls)
-│ - Orchestrator │ ← escalate (full multi-step planning)
+│ One of:            │
+│ - nothing          │ ← drop
+│ - memory note      │ ← acknowledge
+│ - Trigger reactor  │ ← react (1-2 tool calls)
+│ - Orchestrator     │ ← escalate (full multi-step planning)
 └────────────────────┘
 ```
 
-The webhook never reaches your machine raw. The backend is what holds the OAuth token and what receives the webhook directly from the third-party. It does HMAC verification, normalises the payload, and forwards it to your Rust core over the existing authenticated socket. Your laptop sees a clean, validated `ComposioTriggerReceived` event on the bus, nothing else.
+The raw webhook never reaches your machine. The backend holds the OAuth token and receives the webhook from the third party. It verifies the HMAC signature, cleans up the payload and forwards it to your core over the existing authenticated socket. Your computer only sees a validated event.
 
 ## The triage step
 
-Before any action runs, every trigger goes through the [`trigger_triage`](../../../../../../../crates/openhuman-core/src/agent/registry/agents/trigger_triage/) agent. Its only job is to decide what the rest of the system should do.
+Before anything runs, the `trigger_triage` agent looks at every trigger. Its only job is to decide what happens next. It picks exactly one of four actions:
 
-It picks exactly one of four actions:
+| Action        | What happens                                                                                      | When it is used                                                                                                                                    |
+| ------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `drop`        | Nothing. The trigger is logged and discarded.                                                     | Spam, duplicates and noise. This is the default for things you don't care about.                                                                   |
+| `acknowledge` | A short memory note is saved. No agent runs.                                                      | Passive notices worth remembering, such as "a new page was created in archive".                                                                    |
+| `react`       | The `trigger_reactor` agent runs with one or two tool calls.                                      | A small one-step effect: store a memory entry, post a quick acknowledgement, mark a thread read.                                                   |
+| `escalate`    | The full orchestrator agent takes over and plans.                                                 | Anything that needs reasoning or several steps: drafting a reply, updating several Notion pages, deciding how to handle an inbound issue.          |
 
-| Action            | What happens                                                                                                                                          | When to use                                                                                                                                                  |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **`drop`**        | Nothing. Trigger is silently logged and discarded.                                                                                                    | Spam, duplicates, irrelevant noise. The default for things you don't care about.                                                                             |
-| **`acknowledge`** | A short memory note is persisted, no agent runs.                                                                                                      | Passive notifications worth remembering ("a new page was created in archive").                                                                               |
-| **`react`**       | The [`trigger_reactor`](../../../../../../../crates/openhuman-core/src/agent/registry/agents/trigger_reactor/) agent runs with one or two tool calls. | A small, single-step side effect: store a memory entry, post a quick acknowledgement, mark a thread read.                                                    |
-| **`escalate`**    | The full **orchestrator** agent takes over with planning capability.                                                                                  | Anything that needs reasoning, multiple steps, or multiple skills: drafting a reply, updating several Notion pages, deciding how to triage an inbound issue. |
+The triage agent has the same memory and workspace context as the rest of the agent. It can tell whether a trigger relates to what you are working on, who is involved, and whether you have asked OpenHuman to act on this kind of thing before.
 
-The triage agent has the same memory and workspace context the rest of the agent has. It can tell whether a trigger is relevant to something you're currently working on, who the people involved are, and whether it's the kind of thing you've asked OpenHuman to act on before.
+## When a trigger becomes an agent action
 
-## When a trigger turns into an agent action
+This is what separates "OpenHuman has a Gmail integration" from "OpenHuman is on call for your inbox".
 
-This is the part that distinguishes "OpenHuman has a Gmail integration" from "OpenHuman is on call for your inbox":
+**React** is the cheap path. The trigger reactor is a narrow specialist with a hard budget of a couple of tool calls. It suits writing a one-line memory note ("saw a new Stripe charge for $84, customer X"), marking a Slack message handled because it is the same automated alert you have already triaged twice this week, or storing a structured record of an event you might look up later.
 
-* **`react`** is the cheap path. The Trigger Reactor is a narrow specialist with a hard budget of a couple of tool calls. It's perfect for: writing a one-line memory note that says "saw a new charge from Stripe for $84, customer X, merchant Y", silently marking a Slack message as handled because it's the same automated alert you've already triaged twice this week, or storing a structured record of an event the user might want to look up later.
-* **`escalate`** is the heavy path. When the Triage agent decides the trigger needs real work, it hands off to the Orchestrator with a self-contained task description. The orchestrator has access to your full skill surface, tools, and memory. From there it might:
-  * Draft a reply to an important email and queue it for your approval.
-  * Pull up the relevant Notion / Linear / Drive context for an inbound issue and write a structured comment.
-  * Update three connected systems based on a single inbound event ("this customer's plan changed in Stripe, update HubSpot, post in #revenue, and add a note to their Notion file").
+**Escalate** is the heavy path. When triage decides a trigger needs real work, it hands the orchestrator a self-contained task description. The orchestrator has your full set of skills, tools and memory. It might:
 
-In both cases the action runs on your machine, against your configured memory engine, with the same model-routing and tool surface the rest of the agent uses.
+- Draft a reply to an important email and queue it for your approval.
+- Pull the relevant Notion, Linear or Drive context for an inbound issue and write a structured comment.
+- Update three connected systems from one event, such as a customer's plan changing in Stripe, which updates HubSpot, posts in #revenue and adds a note to their Notion file.
 
-## Why a triage step at all
+Either way, the action runs on your machine, against your configured memory engine, with the same model routing and tools as the rest of the agent.
 
-It's tempting to skip the classifier and just pipe every trigger straight into the orchestrator. That's a bad idea for two reasons:
+## Why triage exists
 
-1. **Most triggers are noise.** A connected Gmail account fires dozens of triggers an hour, the vast majority of which the user doesn't care about. Running the orchestrator on each would burn budget and produce a constant stream of background activity.
-2. **Different triggers deserve different ceilings.** An automated Stripe receipt and a personal Slack DM should not cost the same number of tokens to handle. Triage lets the cheap path be cheap and reserves the orchestrator for things that earn it.
+You could pipe every trigger straight into the orchestrator. That would be a mistake for two reasons.
 
-Triage runs on the fast model tier (see [Automatic Model Routing](../model-routing/)) so the classification itself is sub-second.
+1. Most triggers are noise. A connected Gmail account fires dozens of triggers an hour, and you care about few of them. Running the orchestrator on each would burn budget and create a constant stream of background activity.
+2. Triggers deserve different budgets. An automated Stripe receipt and a personal Slack DM should not cost the same number of tokens. Triage keeps the cheap path cheap and saves the orchestrator for events that earn it.
+
+Triage runs on the fast model tier (see [Model routing](../model-routing/README.md)), so classification takes well under a second.
 
 ## Configuration and opt-out
 
-* **On by default.** Once an integration is connected, its triggers feed into the pipeline automatically.
-* **Opt-out.** The triage path is gated on the `OPENHUMAN_TRIGGER_TRIAGE_DISABLED` environment variable. Setting it to `1` / `true` / `yes` turns off agent classification and falls back to passive logging only. The integration itself stays connected; only the auto-action behaviour is suppressed.
-* **Per-trigger settings.** Trigger settings (which integrations and event types should be evaluated) are managed under **Settings**; the underlying RPC methods are `update_composio_trigger_settings` / `get_composio_trigger_settings`.
-* **Audit log.** Every trigger, regardless of decision, is written to the trigger history so you can see what arrived, what the classifier decided, and what (if anything) ran. Decisions and escalations are also published as `TriggerEvaluated` / `TriggerEscalated` events on the in-process bus, which means anything inside the core can subscribe to them.
+- **On by default.** Once an integration is connected, its triggers feed the pipeline automatically.
+- **Opt out.** Set the `OPENHUMAN_TRIGGER_TRIAGE_DISABLED` environment variable to `1`, `true` or `yes`. Agent classification turns off and triggers are only logged. The integration stays connected. Only the automatic actions stop.
+- **Per-trigger settings.** Choose which integrations and event types are evaluated under **Settings**. The RPC methods are `get_composio_trigger_settings` and `update_composio_trigger_settings`.
+- **Audit log.** Every trigger is written to the trigger history, whatever the decision, so you can see what arrived, what triage decided and what ran. Decisions and escalations are also published as `TriggerEvaluated` and `TriggerEscalated` events on the in-process bus, so anything inside the core can subscribe.
 
 ## Privacy boundary
 
-Triggers follow the same boundary as the rest of the product (see [Privacy & Security](../privacy-and-security/)):
+Triggers follow the same boundary as the rest of the product (see [Privacy and security](../privacy-and-security.md)):
 
-* The third-party token lives on the backend, never on your laptop.
-* The webhook is HMAC-verified by the backend before it reaches your machine.
-* The trigger payload is processed by your local core; classification and any reaction run on your machine, against your configured memory engine.
-* Memory notes written by `acknowledge` / `react` / `escalate` paths are stored as learnings in your memory engine when memory is on.
-
-## Implementation pointers (for developers)
-
-* Triage agent: `crates/openhuman-core/src/agent/registry/agents/trigger_triage/`
-* Reactor agent: `crates/openhuman-core/src/agent/registry/agents/trigger_reactor/`
-* Composio bus subscriber: `crates/openhuman-core/src/integrations/composio/bus.rs` (`ComposioTriggerSubscriber`)
-* Trigger history persistence: `crates/openhuman-core/src/integrations/composio/trigger_history.rs`
-* Domain events: `DomainEvent::ComposioTriggerReceived`, `DomainEvent::TriggerEscalated` in `crates/openhuman-core/src/core/events.rs`
-* Trigger settings RPC: `update_composio_trigger_settings` / `get_composio_trigger_settings` in `crates/openhuman-core/src/config/`
+- The third-party token lives on the backend and never on your computer.
+- The backend verifies the webhook signature before anything reaches your machine.
+- Your local core processes the payload. Classification and any reaction run on your machine, against your configured memory engine.
+- Notes written by the acknowledge, react and escalate paths are stored as learnings in your memory engine when memory is on.
 
 ## See also
 
-* [Third-party Integrations](./), the catalog of services triggers come from.
-* [Memory sources](../memory.md), the polling counterpart, periodic ingest of source data into memory.
+- [Third-party integrations](README.md): the catalog of services triggers come from.
+- [Memory sources](../memory.md): the polling counterpart, which pulls source data into memory on a schedule.
