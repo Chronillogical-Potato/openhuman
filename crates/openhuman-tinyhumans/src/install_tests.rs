@@ -2,6 +2,7 @@
 //! resolves to and that `install` applies it to the process globals.
 
 use super::*;
+#[cfg(feature = "jev")]
 use openhuman_embed::__host::agent::tinyagents::discovery::installed_tool_ranker;
 use openhuman_embed::seams::DomainGroup;
 
