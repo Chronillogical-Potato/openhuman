@@ -42,6 +42,7 @@ import {
   parseFeatureTable,
   parseProductFeatures,
   parseShellForwardedFeatures,
+  rpcForwardedGates,
 } from '../lib/feature-forwarding.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -50,11 +51,11 @@ function usage() {
   return (
     'Usage: check-feature-forwarding.mjs [core-manifest] [shell-manifest] [product-features]\n' +
     '                                    [embed-manifest] [tinyhumans-manifest] [cli-manifest]\n' +
-    '                                    [rpc-manifest]'
+    '                                    [rpc-manifest] [tui-manifest]'
   );
 }
 
-const [coreArg, shellArg, productArg, embedArg, tinyhumansArg, cliArg, rpcArg, extra] =
+const [coreArg, shellArg, productArg, embedArg, tinyhumansArg, cliArg, rpcArg, tuiArg, extra] =
   process.argv.slice(2);
 if (coreArg === '--help' || coreArg === '-h') {
   console.log(usage());
@@ -80,6 +81,7 @@ const tinyhumansPath = tinyhumansArg
   : resolve(REPO_ROOT, 'crates/openhuman-tinyhumans/Cargo.toml');
 const cliPath = cliArg ? resolve(cliArg) : resolve(REPO_ROOT, 'crates/openhuman-cli/Cargo.toml');
 const rpcPath = rpcArg ? resolve(rpcArg) : resolve(REPO_ROOT, 'crates/openhuman-rpc/Cargo.toml');
+const tuiPath = tuiArg ? resolve(tuiArg) : resolve(REPO_ROOT, 'crates/openhuman-tui/Cargo.toml');
 
 let coreToml;
 let shellToml;
@@ -88,6 +90,7 @@ let embedToml;
 let tinyhumansToml;
 let cliToml;
 let rpcToml;
+let tuiToml;
 try {
   coreToml = readFileSync(corePath, 'utf8');
   shellToml = readFileSync(shellPath, 'utf8');
@@ -96,6 +99,7 @@ try {
   tinyhumansToml = readFileSync(tinyhumansPath, 'utf8');
   cliToml = readFileSync(cliPath, 'utf8');
   rpcToml = readFileSync(rpcPath, 'utf8');
+  tuiToml = readFileSync(tuiPath, 'utf8');
 } catch (err) {
   console.error(`Could not read inputs: ${err.message}`);
   process.exit(2);
@@ -148,6 +152,7 @@ const embedFeatures = parseFeatureTable(embedToml);
 const tinyhumansFeatures = parseFeatureTable(tinyhumansToml);
 const cliFeatures = parseFeatureTable(cliToml);
 const rpcFeatures = parseFeatureTable(rpcToml);
+const tuiFeatures = parseFeatureTable(tuiToml);
 
 // Guard the guard, same as above: a parser that found nothing would turn every
 // chain assertion into a rubber stamp.
@@ -156,6 +161,7 @@ for (const [path, table] of [
   [tinyhumansPath, tinyhumansFeatures],
   [cliPath, cliFeatures],
   [rpcPath, rpcFeatures],
+  [tuiPath, tuiFeatures],
 ]) {
   if (table.size === 0) {
     console.error(
@@ -168,6 +174,8 @@ for (const [path, table] of [
 
 const embedGates = [...embedFeatures.keys()].filter(name => name !== 'default');
 const tinyhumansGates = [...tinyhumansFeatures.keys()].filter(name => name !== 'default');
+// What a host must forward from rpc: its gates minus rpc's own local ones.
+const rpcHostGates = rpcForwardedGates(rpcFeatures);
 
 const chain = [
   {
@@ -188,14 +196,15 @@ const chain = [
     sources: [{ crate: 'openhuman-tinyhumans', gates: tinyhumansGates, required: true }],
   },
   {
+    // The hosts sit on rpc alone (no core/tinyhumans edge any more).
     crate: 'openhuman-cli',
     features: cliFeatures,
-    sources: [
-      { crate: 'openhuman-core', gates: coreFeatureNames, required: true },
-      // Optional: the cli forwards to both parents, but only for the gates
-      // tinyhumans actually has — `e2e-test-support` is core-only.
-      { crate: 'openhuman-tinyhumans', gates: tinyhumansGates, required: false },
-    ],
+    sources: [{ crate: 'openhuman-rpc', gates: rpcHostGates, required: true }],
+  },
+  {
+    crate: 'openhuman-tui',
+    features: tuiFeatures,
+    sources: [{ crate: 'openhuman-rpc', gates: rpcHostGates, required: true }],
   },
 ].map(link =>
   diffChainForwarding({
@@ -206,7 +215,7 @@ const chain = [
 );
 
 console.log('');
-console.log('Library chain (core -> embed -> tinyhumans -> rpc; core/tinyhumans -> cli):');
+console.log('Library chain (core -> embed -> tinyhumans -> rpc -> cli/tui; app on its rpc dependency):');
 for (const result of chain) {
   console.log(
     formatChainReport(result, {
