@@ -50,7 +50,7 @@ fn recovery_interrupts_turns_left_in_flight() {
 }
 
 /// The provider and storage slots are process-wide; these tests take turns.
-static SLOTS: Mutex<()> = Mutex::new(());
+static SLOTS: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 /// Puts the process-global storage backend back as a test found it.
 fn restore_backend(previous: Option<Arc<dyn crate::core_host::storage::StorageBackend>>) {
@@ -66,9 +66,7 @@ fn restore_backend(previous: Option<Arc<dyn crate::core_host::storage::StorageBa
 
 #[tokio::test]
 async fn a_storage_url_installs_the_driver_backed_store() {
-    let _turn = SLOTS
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _turn = SLOTS.lock().await;
     let previous = crate::core_host::agent::session_store::installed();
     let previous_backend = crate::core_host::storage::installed();
     install_for_url(Some("memory".into())).await.unwrap();
@@ -104,9 +102,7 @@ async fn a_storage_url_installs_the_driver_backed_store() {
 
 #[tokio::test]
 async fn no_url_keeps_the_classic_layout() {
-    let _turn = SLOTS
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _turn = SLOTS.lock().await;
     let previous = crate::core_host::agent::session_store::installed();
     let previous_backend = crate::core_host::storage::installed();
     install_for_url(None).await.unwrap();
@@ -122,9 +118,7 @@ async fn no_url_keeps_the_classic_layout() {
 
 #[tokio::test]
 async fn an_unusable_url_fails_the_boot() {
-    let _turn = SLOTS
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _turn = SLOTS.lock().await;
     let previous = crate::core_host::agent::session_store::installed();
     let error = install_for_url(Some("ftp://nowhere".into()))
         .await
@@ -135,9 +129,7 @@ async fn an_unusable_url_fails_the_boot() {
 
 #[tokio::test]
 async fn restoring_the_classic_layout_clears_a_previous_backend() {
-    let _turn = SLOTS
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _turn = SLOTS.lock().await;
     let previous = crate::core_host::agent::session_store::installed();
     let previous_backend = crate::core_host::storage::installed();
     install_for_url(Some("memory".into())).await.unwrap();
@@ -150,9 +142,7 @@ async fn restoring_the_classic_layout_clears_a_previous_backend() {
 
 #[tokio::test]
 async fn the_host_reads_the_storage_url_from_the_environment() {
-    let _turn = SLOTS
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _turn = SLOTS.lock().await;
     let previous = crate::core_host::agent::session_store::installed();
     let previous_backend = crate::core_host::storage::installed();
     let var = crate::core_host::storage::STORAGE_URL_VAR;
