@@ -144,16 +144,18 @@ fn dedup_id(provider: &str, account_id: Option<&str>, title: &str, body: &str) -
     hex::encode(hasher.finalize())
 }
 
-/// Records that content arrived at `received_ms`. With `skip_recent`, does
-/// nothing and returns `false` when the same content already arrived within
-/// [`DEDUP_WINDOW_SECS`] of `now_ms`.
+/// Records that the content arrived at `now_ms` (the wall clock, never the
+/// notification's own timestamp, which a provider controls). With
+/// `skip_recent`, does nothing and returns `None` when the same content
+/// already arrived within [`DEDUP_WINDOW_SECS`] of `now_ms`. Otherwise
+/// returns the previous arrival time (`Some(None)` when there was none), so a
+/// failed insert can restore it with [`release_content`].
 async fn claim_content(
     docs: &Arc<dyn DocumentStore>,
     id: &str,
-    received_ms: i64,
     now_ms: i64,
     skip_recent: bool,
-) -> Result<bool, StorageError> {
+) -> Result<Option<Option<i64>>, StorageError> {
     let window_start = now_ms - DEDUP_WINDOW_SECS * 1000;
     for _ in 0..CAS_ATTEMPTS {
         let stored = docs.get(DEDUP, id).await?;
@@ -162,17 +164,16 @@ async fn claim_content(
             .and_then(|stored| stored.doc.get("last_ms"))
             .and_then(Value::as_i64);
         if skip_recent && last.is_some_and(|last| last >= window_start) {
-            return Ok(false);
+            return Ok(None);
         }
         let precondition = stored
             .as_ref()
             .map_or(Precondition::Absent, Versioned::unchanged);
-        let last_ms = last.map_or(received_ms, |last| last.max(received_ms));
         match docs
-            .put(DEDUP, id, json!({ "last_ms": last_ms }), precondition)
+            .put(DEDUP, id, json!({ "last_ms": now_ms }), precondition)
             .await
         {
-            Ok(_) => return Ok(true),
+            Ok(_) => return Ok(Some(last)),
             Err(error) if error.kind() == ErrorKind::Conflict => {}
             Err(error) => return Err(error),
         }
@@ -180,6 +181,40 @@ async fn claim_content(
     Err(StorageError::conflict(format!(
         "notification dedup {id} kept changing under {CAS_ATTEMPTS} attempts"
     )))
+}
+
+/// Undoes a [`claim_content`] whose notification was never stored, so a retry
+/// is not reported as a duplicate. Best effort: it only restores the claim if
+/// it is still the one made at `claimed_ms`; a failure is logged, since the
+/// caller is already returning the insert's own error.
+async fn release_content(
+    docs: &Arc<dyn DocumentStore>,
+    id: &str,
+    claimed_ms: i64,
+    previous: Option<i64>,
+) {
+    let outcome: Result<(), StorageError> = async {
+        let Some(stored) = docs.get(DEDUP, id).await? else {
+            return Ok(());
+        };
+        if stored.doc.get("last_ms").and_then(Value::as_i64) != Some(claimed_ms) {
+            return Ok(());
+        }
+        match previous {
+            Some(last) => {
+                docs.put(DEDUP, id, json!({ "last_ms": last }), stored.unchanged())
+                    .await?;
+            }
+            None => {
+                docs.delete(DEDUP, id, stored.unchanged()).await?;
+            }
+        }
+        Ok(())
+    }
+    .await;
+    if let Err(error) = outcome {
+        tracing::warn!(%error, "[notifications::store] could not release dedup claim");
+    }
 }
 
 /// The notification store over one scoped document handle.
@@ -198,14 +233,18 @@ impl Docs {
         let id = n.id.clone();
         let doc = to_doc(n);
         let dedup = dedup_id(&n.provider, n.account_id.as_deref(), &n.title, &n.body);
-        let received_ms = n.received_at.timestamp_millis();
         let now_ms = Utc::now().timestamp_millis();
         self.0.run(|docs| async move {
-            if !claim_content(&docs, &dedup, received_ms, now_ms, skip_recent).await? {
+            let Some(previous) = claim_content(&docs, &dedup, now_ms, skip_recent).await? else {
                 return Ok(false);
+            };
+            if let Err(error) = docs
+                .put(NOTIFICATIONS, &id, doc, Precondition::Absent)
+                .await
+            {
+                release_content(&docs, &dedup, now_ms, previous).await;
+                return Err(error);
             }
-            docs.put(NOTIFICATIONS, &id, doc, Precondition::Absent)
-                .await?;
             Ok(true)
         })
     }
