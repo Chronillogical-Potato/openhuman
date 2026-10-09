@@ -16,9 +16,9 @@ use openhuman_core::config::Config;
 use openhuman_core::core::runtime::{
     ContextOverlay, CoreBuilder, CoreContext, DomainSet, ServiceSet,
 };
-use openhuman_core::core::HostKind;
 use openhuman_core::cron::{self, Schedule};
 use openhuman_core::storage::agents::for_each_scope;
+use openhuman_core::HostKind;
 
 fn job_names(config: &Config) -> Vec<String> {
     cron::list_jobs(config)
