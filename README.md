@@ -107,7 +107,7 @@ Most agent harnesses run one heavy process per agent and resend a big prompt on 
 
 <h3>Efficient at scale</h3>
 
-<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">Fleet measurements</a> · <a href="./docs/library-benchmarking.md">Methodology</a></p>
+<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">Fleet measurements</a> · <a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/profile/docs/library-benchmarking.md">Methodology</a></p>
 
 <p>Uses about 8x less memory and CPU than the typical agent tool. Run more than 500 agents on a $10 server.</p>
 

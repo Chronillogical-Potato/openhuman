@@ -45,7 +45,7 @@ scope for builtin; without it every memory call answers 403.
 
 ## Headless, but shaped like the desktop app
 
-Same rig as [`../life-scenarios`](../life-scenarios/README.md): the core runs
+Same rig as [`life-scenarios`](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/life-scenarios/README.md) in openhuman-benchmarks: the core runs
 as `openhuman-core serve` with **its own `HOME`** under
 `target/memory-scenarios/<run-id>/<engine>/home`, and turns go through
 `openhuman.channel_web_chat` with the reply on `GET /events`, exactly like the
@@ -180,4 +180,4 @@ A finding's `basis` is **READ** when it was seen (a response, a log line) and
 - [Memory](../../gitbooks/features/memory.md) and [Memory architecture](../../gitbooks/developing/architecture/memory.md), the behavior under test.
 - [`vendor/tinymemory/`](../../vendor/tinymemory) and its repo, [tinyhumansai/tinymemory](https://github.com/tinyhumansai/tinymemory).
 - [`docs/specs/memory-v2.md`](../../docs/specs/memory-v2.md) for the layout spec.
-- [`scripts/life-scenarios/`](../life-scenarios/README.md) and [`scripts/README.md`](../README.md).
+- [`life-scenarios/`](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/life-scenarios/README.md) in openhuman-benchmarks, and [`scripts/README.md`](../README.md).

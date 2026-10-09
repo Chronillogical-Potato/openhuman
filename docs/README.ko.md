@@ -107,7 +107,7 @@ macOS와 Linux 스크립트가 무엇을 하는지 미리 보려면 명령 끝�
 
 <h3>대규모에서도 효율적입니다</h3>
 
-<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">대규모 실행 측정 결과</a> · <a href="./library-benchmarking.md">측정 방법</a></p>
+<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">대규모 실행 측정 결과</a> · <a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/profile/docs/library-benchmarking.md">측정 방법</a></p>
 
 <p>일반적인 에이전트 도구보다 메모리와 CPU를 약 8배 적게 씁니다. $10짜리 서버 한 대에서 500개 이상의 에이전트를 실행하세요.</p>
 

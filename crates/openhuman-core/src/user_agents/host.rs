@@ -64,10 +64,13 @@ impl std::fmt::Debug for AgentHost {
     }
 }
 
-/// The domain families a user agent's context serves. None yet: each family
-/// opens once its per-user isolation lands.
+/// The domain families a user agent's context serves. Within them, only the
+/// methods on [`USER_METHODS`](super::surface::USER_METHODS) are reachable.
 pub fn user_domains() -> DomainSet {
-    DomainSet::none()
+    DomainSet {
+        threads: true,
+        ..DomainSet::none()
+    }
 }
 
 impl AgentHost {

@@ -45,49 +45,10 @@ path = "src/bin/fleet.rs"
 # (no `http-server`) this target is skipped rather than failing to link.
 required-features = ["http-server", "bin-tools"]
 
-# Embedded-RSS benchmark harness (#5046). Gated behind the default-OFF
-# `rss-bench` feature so no benchmark code enters the shipped build. Build with
-# `cargo build --release --features rss-bench --bin rss-bench`.
-#
-# It survives the engine removal because it never measured the engine: it builds
-# an `Agent` roster over its own in-file `NoopMemory` and samples RSS, and its
-# own doc comment explains that it hand-rolls that store rather than asking the
-# factory, because `create_memory(backend = "none")` never returned a no-op
-# backend. What the feature used to name the engine crates for was two
-# `library-profile` *scenarios* — see that target's comment below; the binary
-# itself is still here.
-# `tool-search-bench` — the `tool_search` ranker comparison (bm25 / overlap /
-# jev) over the real orchestrator registry plus the recorded Composio
-# catalogues. Always builds; the `jev` ranker is compiled in with the `jev`
-# feature and runs only when a key is in the environment.
-[[bin]]
-name = "tool-search-bench"
-path = "src/bin/tool_search_bench.rs"
-
-# Manual, network-touching A/B of the text tool-call dialects against a local
-# Ollama model: prompt tokens and call accuracy per `agent.tool_dispatcher`
-# value. Never run by CI; see the file's docs for the invocation.
-[[bin]]
-name = "tool-dialect-bench"
-path = "src/bin/tool_dialect_bench.rs"
-
-[[bin]]
-name = "rss-bench"
-path = "src/bin/rss_bench.rs"
-required-features = ["rss-bench"]
-
-# Stateful library profiling workloads (real sub-agent delegation, flows graphs
-# and skill runs under a hermetic mock provider). Local/dev only, and the
-# subject of every script in `scripts/profile/`.
-#
-# Two of its scenarios are gone with the in-process engine: `memory-ingest`
-# drained the memory queue and `cold-phases` checkpointed the engine bootstrap
-# through `tinymemory_core::store::MemoryClient`. The other six never named an
-# engine symbol, which is why this binary survives rather than going with them.
-[[bin]]
-name = "library-profile"
-path = "src/bin/library_profile/main.rs"
-required-features = ["rss-bench"]
+# The benchmark and profiling binaries (`library-profile`, `rss-bench`,
+# `tool-search-bench`, `tool-dialect-bench`) and their driver scripts live in
+# tinyhumansai/openhuman-benchmarks (`profile/`), which builds them against a
+# vendored checkout of this workspace.
 
 # ── Integration tests that need a PRODUCT gate ──────────────────────────────
 #
@@ -115,6 +76,12 @@ required-features = ["rss-bench"]
 # spend state order-dependent.
 name = "cost_cap_removed"
 path = "../../tests/cost_cap_removed.rs"
+
+[[test]]
+# Installs a backend into the process-wide storage slot, so it needs its own
+# process: in a shared one it would reroute other suites' approvals.
+name = "storage_approvals_e2e"
+path = "../../tests/storage_approvals_e2e.rs"
 
 [[test]]
 name = "embedded_server_shutdown_e2e"
@@ -267,7 +234,6 @@ async-trait = "0.1"
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio", "query", "ws", "macros"] }
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.5", features = ["derive"], optional = true }
-dhat = { version = "0.3", optional = true }
 dotenvy = "0.15"
 env_logger = "0.11"
 futures = "0.3"
@@ -281,10 +247,6 @@ tempfile = "3"
 tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
 tinytools = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools" }
 tinytools-agent = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools-agent" }
-# The Jev ranker `tool-search-bench` measures; gated with the crate's `jev`
-# feature so the bin builds without a Jev client.
-tinytools-jev = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools-jev", optional = true }
-tinyjevclient = { git = "https://github.com/tinyhumansai/tinyjevclient", rev = "84b3983c7e1e14f7515658ceafabb6c4e7967c94", optional = true }
 tokio = { version = "1", features = ["full"] }
 toml = "1.0"
 tracing = "0.1"
@@ -331,9 +293,8 @@ wiremock = "0.6"
 # pass `--features "$(scripts/ci/product-features.sh)"`; every product gate
 # name resolves here so `cargo test --workspace --features ...` keeps working.
 default = ["openhuman-core/default", "openhuman-tinyhumans/default", "jev"]
-# The Jev-backed `tool_search` ranker; `openhuman-tinyhumans`'s own gate, plus
-# the client `tool-search-bench` measures it with.
-jev = ["openhuman-tinyhumans/jev", "dep:tinytools-jev", "dep:tinyjevclient"]
+# The Jev-backed `tool_search` ranker; `openhuman-tinyhumans`'s own gate.
+jev = ["openhuman-tinyhumans/jev"]
 http-server = ["openhuman-core/http-server", "openhuman-tinyhumans/http-server"]
 inference = ["openhuman-core/inference", "openhuman-tinyhumans/inference"]
 documents = ["openhuman-core/documents", "openhuman-tinyhumans/documents"]
@@ -353,15 +314,12 @@ mcp = ["openhuman-core/mcp", "openhuman-tinyhumans/mcp"]
 channels = ["openhuman-core/channels", "openhuman-tinyhumans/channels"]
 whatsapp-web = ["openhuman-core/whatsapp-web", "openhuman-tinyhumans/whatsapp-web"]
 e2e-test-support = ["openhuman-core/e2e-test-support"]
-rss-bench = ["openhuman-core/rss-bench"]
 file-logging = ["openhuman-core/file-logging", "openhuman-tinyhumans/file-logging"]
 scheduler-gate = ["openhuman-core/scheduler-gate", "openhuman-tinyhumans/scheduler-gate"]
 # Sentry init in `main.rs` plus the `observability_smoke` test target.
 crash-reporting = ["dep:sentry", "openhuman-core/crash-reporting", "openhuman-tinyhumans/crash-reporting"]
 # CLI argument parsing + logger init for `openhuman-fleet`.
 bin-tools = ["dep:clap"]
-# dhat heap profiling for `library-profile`; perturbs RSS, so opt-in only.
-rss-bench-dhat = ["rss-bench", "dep:dhat"]
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
