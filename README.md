@@ -114,8 +114,7 @@ Read the last row too. OpenHuman spends its context well, but it resolved fewer 
 ## For users
 
 <p align="center">
- <!-- Product demo. Replace with the UI walkthrough GIF once it lands in gitbooks/.gitbook/assets/. -->
- <img src="./gitbooks/.gitbook/assets/demo.png" alt="The OpenHuman desktop app" />
+ <img src="./demo.gif" alt="A walkthrough of the OpenHuman desktop app" />
 </p>
 
 Download the desktop app for Windows, macOS or Linux from [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) or [GitHub Releases](https://github.com/tinyhumansai/openhuman/releases/latest). Homebrew, `.deb`, AUR and install scripts are in [INSTALL.md](./INSTALL.md), and the first ten minutes are in [Getting started](./gitbooks/overview/getting-started.md).
