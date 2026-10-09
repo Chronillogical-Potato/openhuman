@@ -7009,6 +7009,7 @@ version = "2.1.3"
 dependencies = [
  "async-trait",
  "serde",
+ "tinytools",
 ]
 
 [[package]]
