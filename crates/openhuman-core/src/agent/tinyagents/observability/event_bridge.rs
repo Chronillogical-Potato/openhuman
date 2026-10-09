@@ -368,11 +368,12 @@ impl OpenhumanEventBridge {
         // estimate precedence, so credit-metered backends surface real billing
         // rather than a token-rate estimate).
         let estimate = Self::estimate_call_cost(&self.model, usage);
-        let call_cost = carried
+        let provider_cost = carried
             .as_ref()
             .map(|u| u.charged_amount_usd)
-            .filter(|c| c.is_finite() && *c > 0.0)
-            .unwrap_or(estimate);
+            .filter(|c| c.is_finite() && *c > 0.0);
+        let cost_is_estimate = provider_cost.is_none();
+        let call_cost = provider_cost.unwrap_or(estimate);
         // The context window + cache-creation/reasoning breakdown only exist on
         // the carried provider usage (the crate `Usage` mapping drops them); fall
         // back to the catalogue window and the crate token counts when absent.
@@ -441,8 +442,12 @@ impl OpenhumanEventBridge {
             .with_context_window(context_window)
             .with_cached_input_tokens(usage.cache_read_tokens)
             .with_cache_creation_tokens(cache_creation_tokens)
-            .with_reasoning_tokens(reasoning_tokens)
-            .with_charged_usd(call_cost);
+            .with_reasoning_tokens(reasoning_tokens);
+        let usage_info = if cost_is_estimate {
+            usage_info.with_estimated_usd(call_cost)
+        } else {
+            usage_info.with_charged_usd(call_cost)
+        };
         if reasoning_tokens > 0 || cache_creation_tokens > 0 {
             log::debug!(
                 "[cost] recording reasoning/cache-creation tokens model={} reasoning_tokens={} cache_creation_tokens={}",

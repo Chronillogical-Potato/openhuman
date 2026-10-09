@@ -183,7 +183,9 @@ pub(super) fn build_token_usage(model: &str, usage: &BilledUsage) -> Option<Toke
         return None;
     }
     let total_tokens = usage.input_tokens.saturating_add(usage.output_tokens);
-    let provider_charged = usage.charged_amount_usd.is_finite() && usage.charged_amount_usd > 0.0;
+    let provider_charged = !usage.cost_is_estimate
+        && usage.charged_amount_usd.is_finite()
+        && usage.charged_amount_usd > 0.0;
     Some(TokenUsage {
         model: model.to_string(),
         input_tokens: usage.input_tokens,
