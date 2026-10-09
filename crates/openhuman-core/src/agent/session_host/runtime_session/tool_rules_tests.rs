@@ -86,7 +86,8 @@ async fn a_rule_hidden_tool_leaves_the_rendered_prompt_but_stays_declared() {
         !prompt.contains("goal_complete"),
         "a hidden tool is not catalogued"
     );
-    assert!(prompt.contains("goal_set"), "other tools still are: {}", &prompt[prompt.len().saturating_sub(3000)..]);
+    let goals: Vec<&str> = prompt.match_indices("goal_").map(|(i, _)| &prompt[i..(i + 14).min(prompt.len())]).collect();
+    assert!(prompt.contains("goal_set"), "other tools still are: {goals:?} len={}", prompt.len());
     let declared = prelude
         .prepare(true)
         .await
