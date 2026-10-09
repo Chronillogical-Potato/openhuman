@@ -411,21 +411,34 @@ pub(crate) fn resume_stopped_thread(thread_id: &str) {
 /// narrow interval the registry sweep cannot see the child; tombstoning its task
 /// id here keeps it rejected even after a later user turn reopens the thread.
 /// Also notes which workspace holds the thread's completions, so a later
-/// thread-scoped Stop or delete can find the router. Returns whether the thread
-/// is stopped.
+/// thread-scoped Stop or delete can find the router. The first child this
+/// process spawns on a thread lifts any cancelled-parent marker an earlier
+/// process left behind (a Stop before a restart): a live spawn proves the user
+/// re-engaged the thread. Returns whether the thread is stopped.
 pub(crate) fn mark_stopped_task_if_thread_stopped(
     workspace_dir: &Path,
     thread_id: &str,
     task_id: &str,
 ) -> bool {
-    note_thread_workspace(thread_id, workspace_dir);
-    if !state().stopped_threads.contains(thread_id) {
-        return false;
+    let (first_sight, stopped) = {
+        let mut st = state();
+        let first_sight = st
+            .thread_workspaces
+            .insert(thread_id.to_string(), workspace_dir.to_path_buf())
+            .is_none();
+        (first_sight, st.stopped_threads.contains(thread_id))
+    };
+    let router = router_for_workspace(workspace_dir);
+    if stopped {
+        if let Err(error) = router.tombstone(task_id) {
+            log::warn!("[background_completions] tombstone failed task_id={task_id} error={error}");
+        }
+        return true;
     }
-    if let Err(error) = router_for_workspace(workspace_dir).tombstone(task_id) {
-        log::warn!("[background_completions] tombstone failed task_id={task_id} error={error}");
+    if first_sight {
+        router.resume_parent(thread_id);
     }
-    true
+    false
 }
 
 /// Withdraw every queued completion across all open workspaces. Called on a full
