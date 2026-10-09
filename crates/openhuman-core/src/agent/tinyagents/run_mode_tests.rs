@@ -31,3 +31,27 @@ fn mode_label_round_trips() {
     assert_eq!(parse_mode_label("build"), Some(RunMode::Build));
     assert_eq!(parse_mode_label("nonsense"), None);
 }
+
+#[tokio::test]
+async fn plan_mode_stays_with_the_agent_that_set_it() {
+    use crate::core::runtime::agent_scope::test_agent_context;
+    use crate::core::runtime::{context::CoreContext, DomainSet};
+    let root = CoreContext::for_test(DomainSet::full(), None);
+    let alpha = test_agent_context(&root, "alpha");
+    let beta = test_agent_context(&root, "beta");
+    let thread = "plan-mode-shared-thread";
+
+    CoreContext::scope(std::sync::Arc::clone(&alpha), async {
+        set_mode(thread, RunMode::Plan);
+    })
+    .await;
+
+    assert_eq!(
+        CoreContext::scope(alpha, async { get_mode(thread) }).await,
+        RunMode::Plan
+    );
+    assert_eq!(
+        CoreContext::scope(beta, async { get_mode(thread) }).await,
+        RunMode::Build
+    );
+}

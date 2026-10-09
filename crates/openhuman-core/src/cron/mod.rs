@@ -16,7 +16,7 @@ pub mod ops;
 pub mod origin;
 mod schemas;
 pub mod seed;
-mod store;
+pub(crate) mod store;
 pub mod system_jobs;
 pub mod tools;
 

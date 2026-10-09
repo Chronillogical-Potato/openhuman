@@ -7,6 +7,9 @@
 
 use std::path::Path;
 
+use openhuman_core::agent::harness::definition::{
+    AgentDefinition, AgentDefinitionRegistry, SubagentEntry,
+};
 use openhuman_core::core::all::DomainGroup;
 use openhuman_core::core::runtime::{ContextOverlay, DomainSet};
 use openhuman_core::tools::toolpacks::{GroupMode, ToolGroups};
@@ -22,6 +25,10 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         id: id.clone(),
         reason,
     })?;
+    let catalogue = process_catalogue();
+    if catalogue.get(&id).is_some() {
+        return Err(AgentError::ReservedId(id));
+    }
 
     // A host-only agent must never act, whatever else the spec says, so its
     // exclusions are settled before any of the spec is applied.
@@ -160,7 +167,6 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
     }
 
     // ── definition ───────────────────────────────────────────────────────
-    #[cfg_attr(not(feature = "mcp"), allow(unused_mut))]
     let mut definition = parts.definition.into_core(&id)?;
     // Every declared server's tools are registered as their own
     // `mcp_<server>_<tool>`, deferred by default. A wildcard belt reaches them
@@ -170,6 +176,8 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
     if !parts.mcp_servers.is_empty() {
         opt_named_belt_into_discovery(&mut definition.tools);
     }
+
+    let definitions = own_catalogue(&catalogue, &id, &mut definition, parts.subagents)?;
 
     // ── narrowing ────────────────────────────────────────────────────────
     let domains = match parts.domains {
@@ -188,23 +196,43 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
     };
 
     // ── context ──────────────────────────────────────────────────────────
+    let mut context_config = config.clone();
+    context_config.ephemeral_route = provider.route().and_then(|route| {
+        openhuman_core::config::schema::EphemeralRoute::from_params(
+            Some(route.base_url.clone()),
+            Some(route.api_key.clone()),
+        )
+    });
     let overlay = ContextOverlay {
-        config: config.clone(),
+        config: context_config,
         domains,
         tool_groups,
         user_skill_roots: parts.include_user_skills,
         // A host session store keeps each agent's conversations apart by id.
         session_agent: Some(id.to_string()),
+        agent_policy: Some(std::sync::Arc::new(
+            openhuman_core::security::SecurityPolicy::from_config(
+                &config.autonomy,
+                &config.workspace_dir,
+                &config.action_dir,
+            )
+            .with_privacy_mode(config.privacy.mode),
+        )),
+        approvals_disabled: !access.approval_gate_enabled(),
+        definitions,
     };
     let ctx = runtime.core_runtime().context().derive_with(overlay);
+    openhuman_core::core::runtime::AgentContextRegistry::register(&id, &ctx);
 
     log::debug!(
         "[embed][agent] instantiated id={id} action_dir={} routed={} access_origin={} \
-         user_skills={}",
+         user_skills={} tier={:?} approval_gate={}",
         config.action_dir.display(),
         provider.is_routed(),
         access.turn_origin().is_some(),
-        parts.include_user_skills
+        parts.include_user_skills,
+        config.autonomy.level,
+        access.approval_gate_enabled()
     );
 
     Ok(AgentInner {
@@ -220,8 +248,54 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         access,
         layout,
         host_tools: parts.host_tools,
+        lifecycle: super::lifecycle::Lifecycle::new(),
         host_only,
     })
+}
+
+/// The process catalogue: the booted registry, or the built-ins when none
+/// was initialised.
+fn process_catalogue() -> std::sync::Arc<AgentDefinitionRegistry> {
+    AgentDefinitionRegistry::global_arc()
+        .unwrap_or_else(|| std::sync::Arc::new(AgentDefinitionRegistry::builtins_only()))
+}
+
+/// The catalogue an agent with its own sub-agents delegates through: the
+/// process catalogue plus the agent and its sub-agents. `None` (resolve
+/// through the process catalogue) for an agent without sub-agents.
+fn own_catalogue(
+    catalogue: &AgentDefinitionRegistry,
+    id: &str,
+    definition: &mut AgentDefinition,
+    subagents: Vec<(String, super::AgentDefinitionSpec)>,
+) -> Result<Option<std::sync::Arc<AgentDefinitionRegistry>>, AgentError> {
+    if subagents.is_empty() {
+        return Ok(None);
+    }
+    let mut own = Vec::with_capacity(subagents.len() + 1);
+    let mut seen = std::collections::HashSet::new();
+    for (sub_id, spec) in subagents {
+        validate_agent_id(&sub_id).map_err(|reason| AgentError::InvalidId {
+            id: sub_id.clone(),
+            reason,
+        })?;
+        if catalogue.get(&sub_id).is_some() {
+            return Err(AgentError::ReservedId(sub_id));
+        }
+        if sub_id == id || !seen.insert(sub_id.clone()) {
+            return Err(AgentError::DuplicateId(sub_id));
+        }
+        definition
+            .subagents
+            .push(SubagentEntry::AgentId(sub_id.clone()));
+        own.push(spec.into_subagent_core(&sub_id)?);
+    }
+    own.push(definition.clone());
+    log::debug!(
+        "[embed][agent] id={id} owns a catalogue with {} sub-agent(s)",
+        own.len() - 1
+    );
+    Ok(Some(std::sync::Arc::new(catalogue.with_definitions(own))))
 }
 
 /// Adds `tool_search` to a named belt that lacks it. A wildcard belt already

@@ -172,9 +172,8 @@ pub(crate) fn create_workflow_inner(
 
     let scope_root = match params.scope {
         WorkflowScope::User => {
-            let home =
-                home_dir.ok_or_else(|| "could not resolve user home directory".to_string())?;
-            home.join(".openhuman").join("workflows")
+            crate::skills::write_root::user_workflow_root(workspace_dir, home_dir)
+                .ok_or_else(|| "could not resolve user home directory".to_string())?
         }
         WorkflowScope::Project => {
             if !is_workspace_trusted(workspace_dir) {

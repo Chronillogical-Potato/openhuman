@@ -73,6 +73,8 @@ pub mod schemas;
 pub mod search;
 #[cfg(feature = "skills")]
 pub mod tools;
+#[cfg(feature = "skills")]
+pub mod write_root;
 
 #[cfg(all(test, feature = "skills"))]
 #[path = "e2e_plumbing_tests.rs"]

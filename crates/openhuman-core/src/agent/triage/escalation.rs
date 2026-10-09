@@ -240,7 +240,7 @@ async fn dispatch_target_agent(agent_id: &str, prompt: &str) -> anyhow::Result<S
         ));
     }
 
-    let config = Config::load_or_init()
+    let config = crate::config::ops::load_current_or_init()
         .await
         .context("loading config for sub-agent dispatch")?;
 
@@ -248,7 +248,7 @@ async fn dispatch_target_agent(agent_id: &str, prompt: &str) -> anyhow::Result<S
 
     // `build_root_parent` (inside `build_triage_parent`) guarantees the registry
     // is initialised, so this lookup for the target definition is safe here.
-    let registry = AgentDefinitionRegistry::global()
+    let registry = AgentDefinitionRegistry::current()
         .ok_or_else(|| anyhow!("AgentDefinitionRegistry not initialised"))?;
     let definition = registry
         .get(agent_id)

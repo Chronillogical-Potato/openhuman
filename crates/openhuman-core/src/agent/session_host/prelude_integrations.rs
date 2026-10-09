@@ -10,6 +10,25 @@ use tinyagents_runtime::ToolSnapshot;
 use super::OpenHumanTurnPrelude;
 
 impl OpenHumanTurnPrelude {
+    /// The session's own definition, else the catalogue's entry for its id.
+    pub(super) fn session_definition(
+        &self,
+        registry: &crate::agent::harness::definition::AgentDefinitionRegistry,
+    ) -> Option<crate::agent::harness::definition::AgentDefinition> {
+        let definition = self
+            .definition
+            .as_deref()
+            .cloned()
+            .or_else(|| registry.get(&self.agent_definition_id).cloned());
+        if definition.is_none() {
+            tracing::trace!(
+                agent = %self.agent_definition_id,
+                "[session] no definition resolved; delegation surface unchanged"
+            );
+        }
+        definition
+    }
+
     /// Takes the declarations the tinyagents session restored for this
     /// thread. Called before the boundary refresh so the rebuilt surface can
     /// include them.
@@ -157,7 +176,15 @@ impl OpenHumanTurnPrelude {
     /// Called before the tool-surface lock is taken to keep lock order stable.
     #[cfg(feature = "mcp")]
     pub(super) fn collect_mcp_search_tools(&self) -> Vec<Box<dyn tinytools::Tool>> {
-        if self.agent_definition_id != "orchestrator" {
+        if !self
+            .definition
+            .as_ref()
+            .is_some_and(|definition| definition.searches_connected_mcp)
+        {
+            tracing::trace!(
+                agent = %self.agent_definition_id,
+                "[mcp] agent does not search connected MCP tools"
+            );
             return Vec::new();
         }
         let Some(config) = self.runtime_config.as_ref() else {
@@ -191,7 +218,7 @@ impl OpenHumanTurnPrelude {
         }
         let config = match self.runtime_config.clone() {
             Some(config) => Some(config),
-            None => crate::config::Config::load_or_init()
+            None => crate::config::ops::load_current_or_init()
                 .await
                 .ok()
                 .map(Arc::new),
@@ -240,7 +267,7 @@ impl OpenHumanTurnPrelude {
         let skills_changed = self.drain_host_events();
         let config = match self.runtime_config.clone() {
             Some(config) => Some(config),
-            None => crate::config::Config::load_or_init()
+            None => crate::config::ops::load_current_or_init()
                 .await
                 .ok()
                 .map(Arc::new),

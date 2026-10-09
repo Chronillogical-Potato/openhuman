@@ -531,15 +531,10 @@ pub enum DomainEvent {
     },
 
     // ── Approval ────────────────────────────────────────────────────────
-    /// Agent attempted a tool call that produces an external side
-    /// effect; awaiting user approval. Published by `ApprovalGate`
-    /// before parking the tool-call future. Issue #1339.
-    ///
-    /// Note: this variant intentionally does not carry a `session_id`.
-    /// Session provenance is internal to `ApprovalGate`; downstream
-    /// surfaces (frontend approval card, audit log readers, web channel
-    /// bridge) only need the request correlation id plus optional chat
-    /// thread/client routing.
+    /// Agent attempted a tool call that produces an external side effect;
+    /// awaiting user approval. Published by `ApprovalGate` before parking the
+    /// tool-call future. Carries no `session_id`: consumers need only the
+    /// request id plus optional chat thread/client routing.
     ApprovalRequested {
         /// Unique id used to correlate the decision back to the
         /// parked future.
@@ -570,6 +565,9 @@ pub enum DomainEvent {
         /// expiry or the publish site hasn't been updated yet.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         expires_at: Option<String>,
+        /// The embedded agent whose turn parked this call, if any.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        agent_id: Option<String>,
     },
     /// User decided a pending approval. Published by `approval_decide`
     /// RPC handler after the gate's parked future resolves.
@@ -600,17 +598,16 @@ pub enum DomainEvent {
         /// decision (approve or a deliberate deny).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         resolution: Option<String>,
+        /// Mirrored from `ApprovalRequested::agent_id`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        agent_id: Option<String>,
     },
-    /// A `Workflow`-origin tool call parked in the `ApprovalGate` (issue
-    /// flow-approval-surface, PR2/PR3). Unlike `ApprovalRequested`, this
-    /// event carries no `thread_id`/`client_id` — a flow run has neither, so
-    /// the generic chat-routed socket bridge
-    /// (`web_chat::event_bus::ApprovalSurfaceSubscriber`)
-    /// silently drops it (that gap was the original silent-deadlock bug).
-    /// Published by `ApprovalGate::intercept_audited` alongside the existing
-    /// `ApprovalRequested`, bridged by `openhuman_rpc::server::socketio` directly to a
-    /// broadcast (not per-room) `flow_approval_request` Socket.IO event so
-    /// the Workflows UI can surface and resolve the park without polling.
+    /// A `Workflow`-origin tool call parked in the `ApprovalGate`. It carries
+    /// no `thread_id`/`client_id` (a flow run has neither), so the chat-routed
+    /// `web_chat::event_bus::ApprovalSurfaceSubscriber` ignores it. Published
+    /// by `ApprovalGate::intercept_audited` alongside `ApprovalRequested` and
+    /// bridged by `openhuman_rpc::server::socketio` to a broadcast
+    /// `flow_approval_request` Socket.IO event for the Workflows UI.
     FlowApprovalRequested {
         /// Unique id used to correlate the decision back to the parked
         /// future — pass to `approval_decide` unchanged.
@@ -625,6 +622,9 @@ pub enum DomainEvent {
         /// Short human-readable summary of the action (redacted, same as
         /// `ApprovalRequested::action_summary`).
         summary: String,
+        /// The embedded agent whose flow run parked this call.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        agent_id: Option<String>,
     },
 
     // ── Egress (privacy spine) ──────────────────────────────────────────

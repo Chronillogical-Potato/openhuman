@@ -47,8 +47,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use once_cell::sync::Lazy;
-
 use tinyagents_harness::events::{EventSink, HarnessRunStatus};
 use tinyagents_harness::ids::{ComponentId, HarnessPhase, RunId, ThreadId};
 use tinyagents_harness::observability::{
@@ -62,11 +60,14 @@ use tinyagents_session::transcript::import::ops::open_session_stores;
 /// Best-effort live request → durable tinyagents journal stream map. The web
 /// progress bridge uses this at turn end to shadow-project spans from the
 /// journal and compare them against the live `SpanCollector` path during C4 S3.
-static REQUEST_JOURNAL_RUNS: Lazy<Mutex<HashMap<String, String>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+fn request_journal_runs() -> std::sync::Arc<RequestJournalRuns> {
+    crate::core::runtime::current_slot::<RequestJournalRuns>()
+}
+
+type RequestJournalRuns = Mutex<HashMap<String, String>>;
 
 pub(crate) fn register_request_journal_run(request_id: &str, run_id: &str) {
-    match REQUEST_JOURNAL_RUNS.lock() {
+    match request_journal_runs().lock() {
         Ok(mut runs) => {
             runs.insert(request_id.to_string(), run_id.to_string());
             log::debug!(
@@ -85,7 +86,7 @@ pub(crate) fn register_request_journal_run(request_id: &str, run_id: &str) {
 }
 
 pub(crate) fn take_request_journal_run(request_id: &str) -> Option<String> {
-    REQUEST_JOURNAL_RUNS
+    request_journal_runs()
         .lock()
         .ok()
         .and_then(|mut runs| runs.remove(request_id))
@@ -95,7 +96,7 @@ pub(crate) fn take_request_journal_run(request_id: &str) -> Option<String> {
 /// `tinyagents_store/` subtree holds the journal + kv stores. Async because the
 /// config load is async; errors are surfaced so callers can log-and-skip.
 async fn resolve_workspace() -> anyhow::Result<PathBuf> {
-    let config = crate::config::Config::load_or_init()
+    let config = crate::config::ops::load_current_or_init()
         .await
         .map_err(|e| anyhow::anyhow!("[journal] load config for workspace: {e}"))?;
     Ok(config.workspace_dir)
@@ -263,3 +264,7 @@ pub(crate) async fn read_run_events(
         .await
         .map_err(|e| anyhow::anyhow!("[journal] read_run_events failed run_id={run_id}: {e}"))
 }
+
+#[cfg(test)]
+#[path = "journal_tests.rs"]
+mod tests;

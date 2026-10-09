@@ -318,7 +318,7 @@ struct GetDefinitionParams {
 fn handle_get_definition(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p = deserialize_params::<GetDefinitionParams>(params)?;
-        let registry = crate::agent::harness::AgentDefinitionRegistry::global()
+        let registry = crate::agent::harness::AgentDefinitionRegistry::current()
             .ok_or_else(|| "AgentDefinitionRegistry not initialised".to_string())?;
         match registry.get(p.id.trim()) {
             Some(def) => Ok(serde_json::json!({ "definition": def })),

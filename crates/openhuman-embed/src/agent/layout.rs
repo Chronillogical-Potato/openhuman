@@ -8,10 +8,17 @@
 //!   config.toml, auth-profiles.json, core.token      runtime-wide
 //!   workspace/
 //!     session_db/sessions.db                         runtime-wide run ledger
-//!     agents/<id>/{SOUL.md, skills/}                     the agent's home
-//!     session_raw/<ts>_<id>.jsonl                    its transcripts
+//!     agents/<id>/{SOUL.md, skills/, workflows/}     the agent's home
+//!     agents/<id>/session_raw/<stem>.jsonl           its transcripts
+//!     agents/<id>/cron/jobs.db                       its cron jobs
 //!   agents/<id>/action/                              its default action_dir
 //! ```
+//!
+//! Its MCP host keeps its store in the agent home too.
+//!
+//! Transcripts an agent wrote to the shared `workspace/session_raw/` before
+//! this layout are still read, and are copied into the agent's directory
+//! before they are written to again.
 
 use std::path::{Path, PathBuf};
 
@@ -36,7 +43,11 @@ impl AgentLayout {
         Self {
             home: workspace_dir.join("agents").join(id),
             skills: workspace_dir.join("agents").join(id).join("skills"),
-            transcripts: workspace_dir.join("session_raw"),
+            transcripts: openhuman_core::agent::session_store::agent_transcript_root(
+                workspace_dir,
+                id,
+            )
+            .join("session_raw"),
             action_dir,
         }
     }

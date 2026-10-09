@@ -198,6 +198,8 @@ async fn find_approval_decided(
     }
 }
 
+#[path = "gate_agent_tests.rs"]
+mod agent_tests;
 #[path = "gate_core_flow_tests.rs"]
 mod core_flow_tests;
 #[path = "gate_forced_tests.rs"]

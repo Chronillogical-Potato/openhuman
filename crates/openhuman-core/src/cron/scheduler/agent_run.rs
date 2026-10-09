@@ -48,7 +48,8 @@ pub(super) async fn run_agent_job_for_run(
     let selected_agent_id = job.agent_id.as_deref().unwrap_or("orchestrator");
     {
         let agent_id = selected_agent_id;
-        if let Some(registry) = crate::agent::harness::definition::AgentDefinitionRegistry::global()
+        if let Some(registry) =
+            crate::agent::harness::definition::AgentDefinitionRegistry::current()
         {
             if let Some(def) = registry.get(agent_id) {
                 tracing::debug!(
