@@ -86,15 +86,37 @@ pub mod agent_progress {
 }
 
 mod agent;
+pub mod artifacts;
 mod auth;
 mod call;
-mod config;
+pub mod chat_surface;
+pub mod config;
 mod core_agent;
 mod error;
 mod harness;
+pub mod identity;
 pub mod memory;
+#[cfg(feature = "modules")]
+pub mod modules;
+pub mod process;
 mod runtime;
 mod turn;
+
+/// Core internals for `openhuman-tinyhumans` and `openhuman-rpc` only; see
+/// the module docs. Not part of the host-facing API.
+#[doc(hidden)]
+#[path = "host_internals.rs"]
+pub mod __host;
+
+/// Look up the schema of a registered RPC method (`openhuman.<ns>_<fn>`).
+pub use openhuman_core::core::all::schema_for_rpc_method;
+pub use openhuman_core::core::ControllerSchema;
+/// Whether this build carries the HTTP server surface the router mounts.
+pub use openhuman_core::core::http_server_status::HTTP_SERVER_COMPILED_IN;
+/// Why a listen-port pick failed (another live core holds the port, ...).
+pub use openhuman_core::platform::connectivity::rpc::PickListenPortError;
+/// Whether this build carries the voice domain.
+pub use openhuman_core::voice::VOICE_COMPILED_IN;
 
 pub use agent::ToolAttachmentError;
 pub use agent::{
@@ -110,7 +132,18 @@ pub use harness::{
 };
 #[cfg(feature = "mcp")]
 pub use harness::{HttpHeader, McpAuthConfig, McpServer};
-pub use runtime::{ApiKey, Runtime, RuntimeBuilder, RuntimeError};
+pub use runtime::{run_from_args, ApiKey, ConfigSource, Runtime, RuntimeBuilder, RuntimeError};
+
+/// The types the [`RuntimeBuilder`] seam options take: controller
+/// extensions, the `tool_search` ranker, embedder hooks, the CLI server
+/// launcher and the live security policy.
+pub mod seams {
+    pub use openhuman_core::agent::hooks::{PostTurnHook, ToolHook};
+    pub use openhuman_core::agent::tinyagents::discovery::ToolRanker;
+    pub use openhuman_core::core::all::{ControllerExtension, DomainGroup};
+    pub use openhuman_core::core::server_launcher::{ServeRequest, ServerLauncher};
+    pub use openhuman_core::security::SecurityPolicy;
+}
 
 /// The session store port: what a host implements to keep every agent's
 /// conversations in its own database ([`RuntimeBuilder::session_store`]),
