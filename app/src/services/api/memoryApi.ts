@@ -677,6 +677,14 @@ export function isOutOfCreditsMessage(
 }
 
 /** True when the engine state means memory is usable (an engine is set and not off). */
+/** Engine id that turns memory off completely (`memory_engine_set`). */
+export const MEMORY_DISABLED_ENGINE = 'none';
+
+/** Whether memory was turned off on purpose (the `none` engine). */
+export function isMemoryDisabled(state: EngineState | null | undefined): boolean {
+  return state?.engine === MEMORY_DISABLED_ENGINE;
+}
+
 export function isMemoryOn(state: EngineState | null | undefined): boolean {
   return Boolean(state && state.engine && state.status !== 'off');
 }

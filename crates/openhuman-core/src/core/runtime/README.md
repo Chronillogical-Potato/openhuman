@@ -98,7 +98,7 @@ are compiled out, or whose `DomainGroup` is off, stays absent.
 - `.action_dir(dir)`: sugar over `.config()` for the agent's read/write
   root.
 - `.backend_url(url)`.
-- `.backend_transport(Arc<dyn BackendTransport>)` — bind the transport this
+- `.backend_transport(Arc<dyn BackendTransport>)`: bind the transport this
   core's handlers reach the hosted backend through (`backend::transport`). The
   context carries it and every `derive_with` child inherits it. Optional:
   without it the core resolves the process-global transport
@@ -152,7 +152,8 @@ through `runtime/saas.rs`:
   `service_token_file` (defaults to `<root>/service.token`), `tool_allowlist`
   (host tool groups, see `user_agents/README.md`), `[sandbox]` (the shell
   container), `rpc_allowlist_extra`, `max_agents_open`, `idle_evict_secs`,
-  `shared_backend_api_key` and `custom_definitions`. Unknown keys are refused.
+  `shared_backend_api_key`, `custom_definitions` and `require_user_signature`
+  (default `true`). Unknown keys are refused.
 - `runtime/boot_guard.rs` refuses the boot, listing every problem at once,
   when:
   - the host kind is not `Saas`;
@@ -172,7 +173,8 @@ through `runtime/saas.rs`:
 
 The SaaS presets are closed. `DomainSet::saas()` registers the operator plane
 (`DomainGroup::Operator`, the `user_agents.*` controllers) and the user
-families whose per-user isolation has landed (threads). `user_agents::surface`
+families whose per-user isolation has landed (threads, channels for web chat,
+memory). `user_agents::surface`
 keeps the two planes apart: the operator scope reaches only the operator
 plane, and a user's scope only the reviewed `USER_METHODS`.
 `saas::build` installs the process's `user_agents::AgentHost`. Each open user
@@ -196,7 +198,7 @@ Two guards keep SaaS work from falling back to process-wide state:
 
 ## Shared tokio tuning constants
 
-`runtime/mod.rs` declares two constants every multi-thread runtime that may
+[`runtime/mod.rs`](../../runtime/mod.rs) declares two constants every multi-thread runtime that may
 host an agent turn must set:
 
 - `AGENT_WORKER_STACK_BYTES` (20 MiB): a single agent turn is a very large
@@ -214,3 +216,5 @@ host an agent turn must set:
 
 - [../README.md](../README.md): the rest of `core/`, covering dispatch,
   registry, event bus, transport, and CLI.
+- [Embedding OpenHuman](../../../../../gitbooks/developing/embedding.md)
+- [Deep architecture reference](../../../../../gitbooks/developing/architecture.md)

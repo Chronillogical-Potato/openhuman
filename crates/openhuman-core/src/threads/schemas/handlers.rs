@@ -37,6 +37,9 @@ pub(super) fn handle_upsert(params: Map<String, Value>) -> ControllerFuture {
 pub(super) fn handle_create_new(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p = parse::<CreateConversationThreadRequest>(params)?;
+        // A SaaS user acts only in their own sandbox; a caller-chosen working
+        // folder would point the thread at the host.
+        crate::user_agents::surface::check_working_dir(p.action_dir.as_deref())?;
         to_json(ops::thread_create_new(p).await?)
     })
 }

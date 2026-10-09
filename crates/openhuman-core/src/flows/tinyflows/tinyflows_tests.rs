@@ -145,6 +145,7 @@ fn custom_registry_entry(enabled: bool) -> crate::agent::registry::AgentRegistry
         system_prompt: Some("You are a meticulous finance analyst.".to_string()),
         tool_allowlist: vec!["memory_search".to_string()],
         tool_denylist: Vec::new(),
+        tool_rules: None,
         subagents: AgentSubagentPolicy::default(),
         tags: Vec::new(),
         metadata: json!(null),

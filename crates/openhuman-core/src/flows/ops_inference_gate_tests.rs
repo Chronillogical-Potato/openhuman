@@ -195,6 +195,7 @@ fn agent_node_role_prefers_custom_registry_entry_model_pin_over_default() {
         system_prompt: None,
         tool_allowlist: Vec::new(),
         tool_denylist: Vec::new(),
+        tool_rules: None,
         subagents: Default::default(),
         tags: Vec::new(),
         metadata: Value::Null,

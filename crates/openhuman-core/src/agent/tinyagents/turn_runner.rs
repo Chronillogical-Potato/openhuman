@@ -32,6 +32,7 @@ use tinyagents_harness::ids::TaskId;
 use tinyagents_harness::run_queue::RunQueue;
 use tinyagents_session::transcript::TranscriptMessage;
 
+use super::turn_runner_boxed::run_turn_via_tinyagents_inner;
 use super::ToolPolicyEnforcement;
 
 /// The durable root entry point for hosted turns.  It intentionally carries no
@@ -189,7 +190,7 @@ pub(crate) async fn run_root_turn_via_hosted_agent(
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn run_turn_via_tinyagents_inner(
+pub(super) async fn run_turn_via_tinyagents_body(
     mut run_context: OpenHumanRunContext,
     turn_models: TurnModels,
     provider_id: String,
@@ -248,7 +249,7 @@ async fn run_turn_via_tinyagents_inner(
     // the caller via `build_turn_models`: the seam is crate-native and names no `Provider` (#4249,
     // Phase 5). The telemetry id (`{provider_id}.{model}` in Langfuse) rides in as a param.
     let AssembledTurnHarness {
-        harness,
+        mut harness,
         cursor,
         tool_names,
         failure_map,
@@ -295,7 +296,9 @@ async fn run_turn_via_tinyagents_inner(
         ),
         has_thread,
         run_context.memory_turn.clone(),
+        run_context.tool_rules.clone(),
     );
+    super::response_shape::install(&mut harness, hosted_root.is_some());
 
     // Fail-closed registry validation gate (issue #4249, Workstream 10 — registry).
     // The projected `CapabilityRegistry` produced these diagnostics during

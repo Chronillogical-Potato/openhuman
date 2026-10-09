@@ -50,7 +50,7 @@ fn reveal_logs_folder_errors_when_uninitialized() {
     // If logging hasn't been initialized, the command must surface a
     // typed error so the UI can show it instead of silently launching
     // an `open` against an empty path.
-    if openhuman_core::core::logging::log_directory().is_none() {
+    if openhuman_rpc::embed::process::log_directory().is_none() {
         let err = reveal_logs_folder().expect_err("must error pre-init");
         assert!(err.contains("not initialized"), "unexpected error: {err}");
     }

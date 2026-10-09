@@ -455,7 +455,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'Memori',
   'welcome.th.featureEmbeddings': 'Embedding',
   'welcome.th.featureBilling': 'Penagihan',
-  'welcome.th.credit': 'Kredit $5 untuk memulai',
   'welcome.th.cta': 'Lanjutkan dengan TinyHumans',
   'welcome.th.providers': 'Masuk dengan Google, GitHub, atau X',
   'welcome.self.title': 'Siapkan sendiri',
@@ -4060,6 +4059,33 @@ const messages: TranslationMap = {
   'skills.detail.author': 'Penulis',
   'skills.detail.license': 'Lisensi',
   'skills.detail.description': 'Deskripsi',
+  'skills.detail.overview': 'Ringkasan',
+  'skills.registry.firstFetchHint':
+    'Memuat katalog skill. Pengambilan pertama bisa memakan waktu satu menit.',
+  'skills.registry.refreshing': 'Menampilkan katalog tersimpan sementara salinan baru dimuat.',
+  'skills.registry.offline': 'Offline: menampilkan katalog tersimpan dari {time}.',
+  'skills.registry.offlineNoTime': 'Offline: menampilkan katalog tersimpan.',
+  'skills.registry.unreachable':
+    'Tidak dapat menjangkau registri skill. Periksa koneksi Anda lalu coba lagi.',
+  'skills.registry.rateLimited': 'Registri skill sedang sibuk. Coba lagi dalam {seconds} dtk.',
+  'skills.registry.rateLimitedShortly': 'Registri skill sedang sibuk. Coba lagi sebentar lagi.',
+  'skills.registry.viewSource': 'Lihat sumber',
+  'skills.registry.noDirectDownload':
+    'Entri ini tidak memiliki SKILL.md untuk diunduh. Buka halaman sumbernya untuk memasangnya dengan cara lain.',
+  'skills.registry.upstreamAmbiguous':
+    'Lebih dari satu penulis menerbitkan skill dengan nama ini dan katalog tidak menyebutkan yang mana, sehingga tidak dapat dipasang otomatis.',
+  'skills.scan.title': 'Pemindaian keamanan memblokir skill ini',
+  'skills.scan.description':
+    'OpenHuman mengunduh dan memindai {name} dua kali, dan pemindaian keamanan memblokirnya dua kali. Skill ini belum dipasang.',
+  'skills.scan.findingsLabel': 'Yang ditemukan pemindaian',
+  'skills.scan.warning':
+    'Pasang hanya jika Anda memercayai sumbernya. Memblokir adalah pilihan yang aman.',
+  'skills.scan.block': 'Blokir pemasangan',
+  'skills.scan.installAnyway': 'Tetap pasang',
+  'skills.scan.verdictBlock': 'Diblokir',
+  'skills.scan.verdictWarn': 'Peringatan',
+  'skills.scan.declinedTitle': 'Pemasangan diblokir',
+  'skills.scan.declinedHint': 'Skill tidak dipasang karena pemindaian keamanan memblokirnya.',
   'skills.detail.source': 'URL Sumber',
   'skills.detail.tags': 'Tag',
   'skills.detail.version': 'Versi',
@@ -5083,6 +5109,17 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'Memori nonaktif',
   'memoryPage.off.description': 'Pilih penyedia memori untuk mulai mengingat.',
   'memoryPage.off.action': 'Pilih penyedia',
+  'memoryPage.disabled.title': 'Memori dinonaktifkan',
+  'memoryPage.disabled.description':
+    'OpenHuman tidak menyimpan atau mengingat apa pun. Pilih penyedia untuk menyalakan memori lagi.',
+  'memoryPage.engine.disabled.title': 'Nonaktif',
+  'memoryPage.engine.disabled.description':
+    'Matikan memori sepenuhnya. Tidak ada yang disimpan atau diingat, dan koneksi Anda tetap tersimpan.',
+  'memoryPage.engine.disabled.action': 'Nonaktifkan memori',
+  'memoryPage.engine.disabled.banner':
+    'Tidak ada yang disimpan atau diingat. Pilih penyedia di bawah untuk menyalakan memori lagi.',
+  'memoryPage.engine.disabled.toast': 'Memori dinonaktifkan',
+  'memoryPage.engine.disabled.toastFailed': 'Tidak dapat menonaktifkan memori',
   'memoryPage.engine.inUse': 'Digunakan',
   'memoryPage.announcement.title': 'Inferensi memori gratis di CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex dipensiunkan pada 7 Okt.',

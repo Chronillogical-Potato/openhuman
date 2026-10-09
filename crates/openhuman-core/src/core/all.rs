@@ -83,17 +83,18 @@ fn active_domain_set() -> Option<crate::core::runtime::DomainSet> {
 /// (full, no filter) so pre-boot unit tests and non-context callers see every
 /// domain, exactly as before #4796.
 fn group_allowed(group: DomainGroup) -> bool {
-    active_domain_set().is_none_or(|s| s.allows(group))
+    active_domain_set().map_or(group != DomainGroup::Operator, |s| s.allows(group))
 }
 
 /// Whether `g` is live in the ambient scope: its family is enabled and, for a
 /// SaaS user, the method is on the user surface (`user_agents::surface`).
 fn visible(g: &GroupedController) -> bool {
-    group_allowed(g.group)
-        && crate::user_agents::surface::method_visible(
-            &g.controller.rpc_method_name(),
-            g.group == DomainGroup::Operator,
-        )
+    group_allowed(g.group) && on_surface(g)
+}
+
+fn on_surface(g: &GroupedController) -> bool {
+    let operator = g.group == DomainGroup::Operator;
+    crate::user_agents::surface::method_visible(&g.controller.rpc_method_name(), operator)
 }
 
 /// The global static registry of all controllers, initialized once on first access.
@@ -914,18 +915,14 @@ pub fn cli_handler_for_namespace(namespace: &str) -> Option<CliHandler> {
 
 /// Looks up an RPC method name based on namespace and function.
 pub fn rpc_method_from_parts(namespace: &str, function: &str) -> Option<String> {
-    // Searches the FULL (unfiltered) registry: this backs parameter validation
-    // and CLI routing, which are harmless for an about-to-be-rejected gated
-    // method — the DomainSet gate is enforced at dispatch
-    // (`try_invoke_registered_rpc`), not here. See that fn for the rationale.
+    // The full registry (CLI routing, param validation; the DomainSet gate is at
+    // dispatch), minus methods the SaaS user surface hides in this scope.
     let view = registry_view();
-    let found = view
-        .iter()
-        .find(|g| {
-            g.controller.schema.namespace == namespace && g.controller.schema.function == function
-        })
-        .map(|g| g.controller.rpc_method_name());
-    found
+    let found = view.iter().find(|g| {
+        let s = &g.controller.schema;
+        s.namespace == namespace && s.function == function && on_surface(g)
+    });
+    found.map(|g| g.controller.rpc_method_name())
 }
 
 /// Retrieves the schema for a specific RPC method.
@@ -941,7 +938,6 @@ pub fn schema_for_rpc_method(method: &str) -> Option<ControllerSchema> {
     // call with bad params would return the controller's validation error
     // instead of method-not-found, leaking the hidden RPC surface. No ambient
     // context ⇒ `group_allowed` is `true` ⇒ unfiltered, identical to pre-#4796.
-    // The SaaS user surface applies here too (`visible`), for the same reason.
     let view = registry_view();
     let found = view
         .iter()

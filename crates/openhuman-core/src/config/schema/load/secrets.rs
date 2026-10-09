@@ -101,6 +101,15 @@ pub(super) fn decrypt_config_secrets(config: &mut Config, openhuman_dir: &Path) 
     let store = crate::security::keyring::SecretStore::new(openhuman_dir, true);
 
     decrypt_optional_secret(&store, &mut config.api_key, "api_key")?;
+    // A MongoDB URL carries the database password.
+    // Fail closed: if the sealed URL cannot be opened, keep the ciphertext so
+    // the storage backend fails to open at boot instead of the field being
+    // cleared into the "no URL" sentinel (the classic on-disk layout).
+    let sealed_storage_url = config.storage.url.clone();
+    decrypt_optional_secret(&store, &mut config.storage.url, "storage.url")?;
+    if config.storage.url.is_none() && sealed_storage_url.is_some() {
+        config.storage.url = sealed_storage_url;
+    }
 
     decrypt_optional_secret(&store, &mut config.seltz.api_key, "seltz.api_key")?;
     decrypt_optional_secret(
@@ -216,6 +225,8 @@ pub(super) fn encrypt_config_secrets(config: &mut Config) -> Result<()> {
     let store = crate::security::keyring::SecretStore::new(parent_dir, true);
 
     encrypt_optional_secret(&store, &mut config.api_key, "api_key")?;
+    // A MongoDB URL carries the database password.
+    encrypt_optional_secret(&store, &mut config.storage.url, "storage.url")?;
 
     encrypt_optional_secret(&store, &mut config.seltz.api_key, "seltz.api_key")?;
     encrypt_optional_secret(

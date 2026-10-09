@@ -184,3 +184,80 @@ fn recovery_of_an_empty_workspace_is_a_no_op() {
     let id = agent("empty");
     recover_workspace(&id, tmp.path());
 }
+
+#[test]
+fn an_agent_in_use_is_not_archived_from_under_it() {
+    let tmp = tempfile::tempdir().unwrap();
+    let host = host(&tmp, 4, 60);
+    let id = agent("alice");
+    host.provision(&id).unwrap();
+    let state = host.open(&id).unwrap();
+    let err = host.deprovision(&id).unwrap_err();
+    assert!(err.contains("in use"), "{err}");
+    assert!(host.is_open(&id), "a refused deprovision leaves it open");
+    drop(state);
+    assert!(host.deprovision(&id).unwrap());
+    assert!(!host.is_open(&id));
+}
+
+#[test]
+fn deprovisioning_twice_in_a_second_archives_twice() {
+    let tmp = tempfile::tempdir().unwrap();
+    let host = host(&tmp, 4, 60);
+    let id = agent("alice");
+    for _ in 0..2 {
+        host.provision(&id).unwrap();
+        assert!(host.deprovision(&id).unwrap());
+    }
+    let archived = std::fs::read_dir(layout::archive_dir(tmp.path()))
+        .unwrap()
+        .count();
+    assert_eq!(archived, 2);
+}
+
+#[test]
+fn opening_an_open_agent_sweeps_the_idle_ones() {
+    let tmp = tempfile::tempdir().unwrap();
+    // Everything is idle the moment it is released.
+    let host = host(&tmp, 4, 0);
+    let (a, b) = (agent("alice"), agent("bob"));
+    host.provision(&a).unwrap();
+    host.provision(&b).unwrap();
+    drop(host.open(&a).unwrap());
+    let held = host.open(&b).unwrap();
+    // Re-opening bob (already open) closes idle alice.
+    let again = host.open(&b).unwrap();
+    assert!(!host.is_open(&a), "alice was idle and is closed");
+    assert!(host.is_open(&b), "bob is in use and stays");
+    drop((held, again));
+}
+
+#[test]
+fn one_unreadable_agent_does_not_hide_the_rest() {
+    let tmp = tempfile::tempdir().unwrap();
+    let host = host(&tmp, 4, 60);
+    let (a, b) = (agent("alice"), agent("bob"));
+    host.provision(&a).unwrap();
+    host.provision(&b).unwrap();
+    std::fs::write(
+        UserAgentLayout::new(tmp.path(), &a).meta_path,
+        "not toml = [",
+    )
+    .unwrap();
+    let listed = host.list().unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].agent_id, b);
+}
+
+#[test]
+fn a_provisioned_config_needs_no_agent_slot() {
+    let tmp = tempfile::tempdir().unwrap();
+    let host = host(&tmp, 1, 60);
+    let (a, b) = (agent("alice"), agent("bob"));
+    host.provision(&a).unwrap();
+    host.provision(&b).unwrap();
+    let _held = host.open(&a).unwrap();
+    assert!(host.open(&b).is_err(), "the only slot is taken");
+    assert!(host.provisioned_config(&b).is_ok());
+    assert!(host.provisioned_config(&agent("nobody")).is_err());
+}

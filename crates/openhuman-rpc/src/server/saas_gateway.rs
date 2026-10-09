@@ -13,19 +13,19 @@
 //!    caller learns nothing about which users exist and cannot open agents —
 //!    then the signature, then runs the request under that user's agent.
 //!
-//! The decision itself lives in `openhuman_core::user_agents::gateway`.
+//! The decision itself lives in `crate::core_host::user_agents::gateway`.
 
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::core_host::core::runtime::CoreContext;
+use crate::core_host::user_agents::gateway::{
+    resolve_scope, GatewayScope, USER_HEADER, USER_SIG_HEADER,
+};
 use axum::extract::Request;
 use axum::http::{header, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
-use openhuman_core::core::runtime::CoreContext;
-use openhuman_core::user_agents::gateway::{
-    resolve_scope, GatewayScope, USER_HEADER, USER_SIG_HEADER,
-};
 
 /// Route prefixes a SaaS core never serves.
 pub(crate) const CLOSED_IN_SAAS: &[&str] = &[
@@ -75,18 +75,30 @@ pub(crate) async fn saas_gateway(operator: Arc<CoreContext>, req: Request, next:
         return refuse(404, "not found");
     }
 
-    let Some(user) = header_str(&req, USER_HEADER).map(str::to_owned) else {
+    // Absent means the operator plane. Present but unreadable, or present
+    // twice, is refused: falling back to the operator would skip the user
+    // signature check.
+    let mut user_headers = req.headers().get_all(USER_HEADER).iter();
+    let Some(first) = user_headers.next() else {
         // The chat event stream is a user's; the operator has none.
         if path == "/events" {
             return refuse(404, "not found");
         }
         return CoreContext::scope(operator, next.run(req)).await;
     };
+    if user_headers.next().is_some() {
+        log::debug!("[rpc:saas] refusing a request with more than one {USER_HEADER}");
+        return refuse(400, "more than one user header");
+    }
+    let Ok(user) = first.to_str().map(str::to_owned) else {
+        log::debug!("[rpc:saas] refusing an unreadable {USER_HEADER}");
+        return refuse(400, "unreadable user header");
+    };
 
-    let Some(secret) = openhuman_core::core::auth::get_rpc_token() else {
+    let Some(secret) = crate::core_host::core::auth::get_rpc_token() else {
         return refuse(503, "the core is not ready");
     };
-    if !bearer(&req).is_some_and(openhuman_core::core::auth::verify_bearer_token) {
+    if !bearer(&req).is_some_and(crate::core_host::core::auth::verify_bearer_token) {
         return refuse(401, "unauthorized");
     }
     let signature = header_str(&req, USER_SIG_HEADER).map(str::to_owned);

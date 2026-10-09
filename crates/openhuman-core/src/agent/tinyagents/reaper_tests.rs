@@ -35,6 +35,19 @@ async fn workspace_adapter_reaps_and_empty_workspace_is_a_noop() {
     let _ = std::fs::remove_dir_all(&tmp);
 }
 
+/// A shared backend never reaps: the run may belong to another replica.
+#[tokio::test]
+async fn a_shared_backend_leaves_running_work_alone() {
+    let tmp = std::env::temp_dir().join(format!("oh-reaper-{}", uuid::Uuid::new_v4()));
+    let store = FileStatusStore::new(open_session_stores(&tmp).kv);
+    let run = seed_status(&store, ExecutionStatus::Running).await;
+    assert_eq!(reap_unless_shared(&tmp, true).await, 0);
+    let status = store.get_status(&run).await.unwrap().expect("present");
+    assert_eq!(status.status, ExecutionStatus::Running);
+    assert_eq!(reap_unless_shared(&tmp, false).await, 1);
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
 /// The sweep has to happen on the path a **build-only** embedder takes.
 ///
 /// `CoreRuntime::invoke` dispatches `openhuman.agent_runs_active` the moment

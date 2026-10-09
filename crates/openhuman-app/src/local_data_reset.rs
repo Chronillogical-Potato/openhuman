@@ -89,7 +89,7 @@ pub async fn reset_local_data(
     // below to fail with `ERROR_SHARING_VIOLATION` (os error 32). Drop
     // the writer guard now so the background flushing thread exits and
     // the file handle is closed before the removal walks the tree.
-    let log_guard_dropped = openhuman_core::core::logging::shutdown_file_guard();
+    let log_guard_dropped = openhuman_rpc::embed::process::shutdown_file_guard();
     log::info!("[core] reset_local_data: shutdown_file_guard dropped guard = {log_guard_dropped}");
 
     // ── 4. Remove the paths ─────────────────────────────────────────────

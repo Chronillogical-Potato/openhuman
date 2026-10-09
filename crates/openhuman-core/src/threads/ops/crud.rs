@@ -395,7 +395,7 @@ pub async fn delete_after(
 pub async fn thread_delete(
     request: DeleteConversationThreadRequest,
 ) -> Result<Outcome<ApiEnvelope<DeleteConversationThreadResponse>>, String> {
-    let config = crate::config::Config::load_or_init()
+    let config = crate::config::rpc::load_config_with_timeout()
         .await
         .map_err(|e| format!("load config: {e}"))?;
     run_to_completion("thread_delete", thread_delete_inner(config, request)).await
@@ -425,8 +425,10 @@ async fn thread_delete_inner(
     // nowhere left to deliver to — abort + cleanup is the whole behavior.
     let cancelled =
         crate::agent::orchestration::running_subagents::cancel_for_thread(&request.thread_id);
-    let discarded =
-        crate::agent::orchestration::background_completions::discard_for_thread(&request.thread_id);
+    let discarded = crate::agent::orchestration::background_completions::discard_for_thread(
+        &dir,
+        &request.thread_id,
+    );
     log::debug!(
         "[threads] thread_delete thread_id={} cancelled_subagents={} discarded_completions={}",
         request.thread_id,
