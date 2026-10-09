@@ -1,5 +1,7 @@
 ---
-description: The full architecture reference for the OpenHuman codebase: repo layout, runtime, sockets, skills, memory, security and the iOS client.
+description: >-
+  The full architecture reference for the OpenHuman codebase: repo layout,
+  runtime, sockets, skills, memory, security and the iOS client.
 icon: code-branch
 ---
 
