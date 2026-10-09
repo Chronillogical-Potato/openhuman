@@ -25,6 +25,8 @@ Local API-usage cost tracking for the agent. Records per-call token usage and co
 | `crates/openhuman-core/src/platform/cost/tracker_tests.rs` | Sibling test suite for `tracker.rs` (`#[path]`-included).                                                                                                                                                               |
 | `crates/openhuman-core/src/platform/cost/catalog.rs` | Static per-model pricing + context-window catalog (`ModelPrice`, `lookup`, `estimate_cost_usd`, `PRICING_AS_OF`) and the tinyagents model-catalog adapters. |
 | `crates/openhuman-core/src/platform/cost/route.rs` | `CostRoute` / `route_for_model`: derives from the model id whether a record counts against OpenHuman-managed credits or is BYOK/local (#5016). |
+| `crates/openhuman-core/src/platform/cost/scope.rs` | `UsageScope::ambient`: a record's attribution (thread, origin, agent definition, sub-agent task, embedded/SaaS user agent, provider) read from the recording task's turn origin, memory identity and `CoreContext`. |
+| `crates/openhuman-core/src/platform/cost/report.rs` | Pure usage reports over ledger records: `build_report` (group by day/week/month/model/provider/route/agent/thread/origin/session_agent; tokens, charged vs estimated cost, cache-hit ratio) and `build_cache_report` (per-call hits, cold calls, uncached premium). |
 | `crates/openhuman-core/src/platform/cost/tools.rs` | Read-only, default-on LLM tools (`cost_get_dashboard`, `cost_get_daily_history`, …) re-exported through `crates/openhuman-core/src/tools/mod.rs`. |
 
 ## Public surface
@@ -48,6 +50,12 @@ Namespace `cost` (methods `openhuman.cost_*` via the registry):
 | `cost_get_daily_history` | `days?` (u32, default 7, clamped `[1, 366]`) | Ordered daily entries, oldest first, gaps zero-filled.                                                     |
 | `cost_get_summary`       | none                                         | Live session / daily / monthly cost summary.                                                               |
 | `cost_get_usage_log`     | `days?`, `limit?`                            | Recent local records, newest first, bounded to 1,000 rows.                                                |
+| `cost_report`            | `days?`, `groupBy?`, `filter?`               | Totals plus one row per group (most expensive first): calls, input/output/cached/cache-write/reasoning tokens, `cost_usd` split into `charged_usd` / `estimated_usd`, `cache_hit_ratio`. |
+| `cost_cache_report`      | `days?`, `filter?`, `limit?`                 | Per-call prompt-cache hits (newest `limit`), overall `cache_hit_ratio`, `cold_calls` (a repeat call in a thread with no cache read) and `uncached_premium_usd`. |
+
+Both reports are also CLI commands: `openhuman-core cost report --days 7 --groupBy '["day","agent"]'`, `openhuman-core cost cache_report --filter '{"thread_id":"…"}'`.
+
+**Attribution.** Every recorded call carries an optional `scope` (`UsageScope`): the thread, what started the turn, the agent definition (or the delegated sub-agent and its task), the embedded/SaaS user agent and the provider. The event bridge passes the provider and sub-agent, and the rest comes from the recording task. Records written before attribution have no `scope` and group as `unknown`.
 
 Handlers load config via `config_rpc::load_config_with_timeout`, then delegate to `rpc.rs`. RPC DTOs (`CostDashboardDto`, `DailyCostEntryDto`, `ModelStatsDto`, `CostSummaryDto`, `UsageLogRecordDto`) add presentation fields not on the domain types: `provider` (derived from the `provider/model` prefix), `percent_of_total`, and dashboard threshold/`enabled` flags from `cost.dashboard`. Usage-log records preserve the persisted token provenance fields (`cached_input_tokens`, `cache_creation_tokens`, `reasoning_tokens`, `cost_source`) for migration audit callers for the dedicated usage-log tab.
 
