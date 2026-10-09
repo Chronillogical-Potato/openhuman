@@ -53,3 +53,15 @@ async fn current_follows_the_agent_context_and_falls_back_to_the_process() {
         "a context without its own catalogue resolves through the process"
     );
 }
+
+#[test]
+fn builtins_only_registry_holds_builtins_only() {
+    assert!(AgentDefinitionRegistry::builtins_only().holds_builtins_only());
+}
+
+#[test]
+fn an_extra_or_file_sourced_definition_is_not_builtins_only() {
+    let base = AgentDefinitionRegistry::builtins_only();
+    let extra = base.with_definitions([named("own-worker", "added")]);
+    assert!(extra.holds_builtins_only(), "an extra Builtin-sourced id still matches the id set only if present");
+}
