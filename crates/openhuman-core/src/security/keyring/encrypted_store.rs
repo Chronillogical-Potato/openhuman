@@ -27,8 +27,6 @@
 // encryptions always produce `enc2:` (ChaCha20-Poly1305).
 
 use anyhow::{Context, Result};
-use chacha20poly1305::aead::{Aead, KeyInit, OsRng};
-use chacha20poly1305::{AeadCore, ChaCha20Poly1305, Key, Nonce};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
