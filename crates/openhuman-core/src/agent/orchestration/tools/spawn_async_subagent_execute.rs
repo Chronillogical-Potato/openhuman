@@ -381,11 +381,12 @@ impl SpawnAsyncSubagentTool {
         let background_agent_id = definition.id.clone();
         let background_task_id = task_id.clone();
         let background_parent_session = parent_session.clone();
-        let completion_target = crate::agent::orchestration::background_completions::CompletionTarget::new(
-            parent.workspace_dir.clone(),
-            parent_session.clone(),
-            parent_thread_id.clone(),
-        );
+        let completion_target =
+            crate::agent::orchestration::background_completions::CompletionTarget::new(
+                parent.workspace_dir.clone(),
+                parent_session.clone(),
+                parent_thread_id.clone(),
+            );
         let background_worker_thread_id = worker_thread_id.clone();
         let background_store = store.clone();
         let background_subagent_session_id = durable_session.subagent_session_id.clone();
@@ -486,7 +487,11 @@ impl SpawnAsyncSubagentTool {
                                 // delivery back into the parent chat (the session
                                 // runtime drains this when the session is next idle).
                                 completion_target
-                                    .completed(&outcome.task_id, &outcome.agent_id, delivery_summary)
+                                    .completed(
+                                        &outcome.task_id,
+                                        &outcome.agent_id,
+                                        delivery_summary,
+                                    )
                                     .await;
                                 if emit_lifecycle_effects {
                                     crate::agent::orchestration::subagent_events::publish_subagent_completed(
