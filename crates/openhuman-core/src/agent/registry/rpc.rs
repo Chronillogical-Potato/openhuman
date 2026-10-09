@@ -105,6 +105,7 @@ impl CreateCustomRequest {
             system_prompt: self.system_prompt,
             tool_allowlist: self.tool_allowlist,
             tool_denylist: self.tool_denylist,
+            tool_rules: self.tool_rules.filter(|rules| !rules.is_permissive()),
             subagents: self.subagents,
             tags: self.tags,
             metadata: self.metadata.unwrap_or(Value::Null),
