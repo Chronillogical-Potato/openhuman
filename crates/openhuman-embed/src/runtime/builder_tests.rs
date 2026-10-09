@@ -44,8 +44,10 @@ fn a_discovered_build_judges_the_route_by_the_provider_model() {
         None
     ));
     // Resolved: the assembled config's model decides.
-    let mut config = openhuman_core::config::Config::default();
-    config.default_model = Some("gpt-test".into());
+    let mut config = openhuman_core::config::Config {
+        default_model: Some("gpt-test".into()),
+        ..Default::default()
+    };
     assert!(routed_provider_effective(&routed, Some(&config)));
     config.default_model = Some("  ".into());
     assert!(!routed_provider_effective(&routed, Some(&config)));
