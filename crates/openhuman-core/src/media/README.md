@@ -17,7 +17,8 @@ The work is split across three owners. This crate holds only the host policy.
  media::generation::build_media_tools(config, action_dir)
      |
      |-- provider::managed_generators(config)
-     |     BackendClient -> raw_client() + url_for("/agent-integrations/openrouter")
+     |     BackendClient: raw_client(), url_for(OPENROUTER_PROXY_PATH)
+     |       (OPENROUTER_PROXY_PATH = "/agent-integrations/openrouter")
      |     no backend transport installed -> None -> no media tools
      |
      |     MediaGenerators { image, video }, each wrapped in a Guard:
