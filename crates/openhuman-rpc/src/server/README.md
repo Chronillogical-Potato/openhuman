@@ -38,7 +38,8 @@ connected on the builder; `host::cli` hands that builder to the core CLI and
             server_builder: services, TokenSource::Fixed(bearer) if handed
                     in (else EnvOrFile), listen host/port if given
           build_and_serve(builder, ready_tx, shutdown_token)
-            session_store::install_for_host()   (before boot: recovery)
+            session_store::install_for_host()   (before boot: recovery; skipped when
+                                                 the builder carries its own store)
             RuntimeBuilder::build()             (claims the embed runtime slot)
               |
               v
