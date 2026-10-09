@@ -35,7 +35,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use serde_json::json;
-use tinyagents_tasks::{CompletionFormatter, CompletionRecord, CompletionRouter};
+use tinyagents_tasks::{CompletionRecord, CompletionRouter};
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
