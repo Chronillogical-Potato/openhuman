@@ -6,7 +6,36 @@ impl ApprovalGate {
     /// thread routing cleared, `pending_approvals` row left open) and
     /// `*park_bound_elapsed` is set so the bounded caller can render its own
     /// fast-path result instead of a `Deny`.
-    async fn intercept_audited_inner(
+    ///
+    /// Returned boxed and `#[inline(never)]` on purpose: an `async fn` body is
+    /// otherwise re-instantiated inside every crate / codegen unit that awaits
+    /// it, and this state machine is large. Boxing here keeps one copy,
+    /// compiled in this crate.
+    #[allow(clippy::too_many_arguments)]
+    #[inline(never)]
+    fn intercept_audited_inner<'a>(
+        &'a self,
+        tool_name: &'a str,
+        action_summary: &'a str,
+        args_redacted: serde_json::Value,
+        park_bound: Option<Duration>,
+        park_bound_elapsed: &'a mut bool,
+        tool_call_id: Option<&'a str>,
+        forced: bool,
+    ) -> futures::future::BoxFuture<'a, (GateOutcome, Option<String>)> {
+        Box::pin(self.intercept_audited_inner_body(
+            tool_name,
+            action_summary,
+            args_redacted,
+            park_bound,
+            park_bound_elapsed,
+            tool_call_id,
+            forced,
+        ))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn intercept_audited_inner_body(
         &self,
         tool_name: &str,
         action_summary: &str,
@@ -501,9 +530,7 @@ impl ApprovalGate {
             // user, whereas not publishing recreates the silent deadlock this
             // bridge exists to fix.
             let workspace = match crate::config::active_workspace_snapshot().await {
-                Ok((dir, revision)) => {
-                    Some((crate::config::workspace_handle(&dir), revision))
-                }
+                Ok((dir, revision)) => Some((crate::config::workspace_handle(&dir), revision)),
                 Err(error) => {
                     tracing::warn!(
                         request_id = %request_id,

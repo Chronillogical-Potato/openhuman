@@ -72,6 +72,12 @@ pub(crate) struct SessionCacheFingerprint {
     /// change) — without this the stale session would be reused. Mirrors
     /// [`Self::autonomy_signature`].
     pub(super) model_registry_signature: String,
+    /// The workspace the agent was built against. A cached agent carries its
+    /// workspace's transcripts, memory binding and identity; reusing it after
+    /// the workspace changed (a different user signed in, or another embedded
+    /// agent asked for the same thread id) would hand one owner another's
+    /// conversation.
+    pub(super) workspace_dir: std::path::PathBuf,
 }
 
 pub(super) struct SessionEntry {
