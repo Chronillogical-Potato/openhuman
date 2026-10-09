@@ -1801,6 +1801,10 @@ const messages: TranslationMap = {
   'about.update.status.error': 'Verifica aggiornamento fallita',
   'about.update.status.default': 'Verifica aggiornamenti',
   'welcome.continueLocallyExperimental': 'Continua Localmente (Sperimentale)',
+  'auth.profileSwitch.title': 'Accedere con un profilo separato?',
+  'auth.profileSwitch.body':
+    "L'accesso cloud sposterà OpenHuman su un profilo account separato. Le tue conversazioni, la memoria e le impostazioni dei provider locali resteranno su questo dispositivo in users/{profileId}. Per tornare, esci e scegli la sessione locale nella schermata di benvenuto.",
+  'auth.profileSwitch.continue': "Continua con l'accesso",
   'welcome.localSessionStarting': 'Avvio sessione locale...',
   'welcome.coreConfigUnreadable':
     'Il runtime non è riuscito a leggere il proprio file di configurazione. config.toml potrebbe appartenere a un altro account utente oppure essere inaccessibile al processo per un altro motivo. Riavvia il runtime e, se non basta, correggi la proprietà della cartella di lavoro o ricrea il suo volume.',

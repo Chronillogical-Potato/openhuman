@@ -1733,6 +1733,10 @@ const messages: TranslationMap = {
   'about.update.status.error': 'فشل التحقق من التحديثات',
   'about.update.status.default': 'التحقق من التحديثات',
   'welcome.continueLocallyExperimental': 'المتابعة محليًا (تجريبي)',
+  'auth.profileSwitch.title': 'هل تريد تسجيل الدخول بملف شخصي منفصل؟',
+  'auth.profileSwitch.body':
+    'سيؤدي تسجيل الدخول السحابي إلى نقل OpenHuman إلى ملف حساب منفصل. ستظل محادثاتك وذاكرتك وإعدادات المزوّد المحلية على هذا الجهاز في users/{profileId}. للعودة إليها، سجّل الخروج واختر الجلسة المحلية من شاشة الترحيب.',
+  'auth.profileSwitch.continue': 'متابعة تسجيل الدخول',
   'welcome.localSessionStarting': 'بدء الجلسة المحلية...',
   'welcome.coreConfigUnreadable':
     'تعذّر على بيئة التشغيل قراءة ملف الإعدادات الخاص بها. قد يكون الملف config.toml مملوكًا لحساب مستخدم آخر، أو غير متاح لعملية التشغيل لسبب آخر. أعد تشغيل بيئة التشغيل، وإن لم يُجدِ ذلك فأصلح ملكية مجلد العمل أو أعد إنشاء وحدة التخزين الخاصة به.',

@@ -1813,6 +1813,10 @@ const messages: TranslationMap = {
   'about.update.status.error': 'Échec de la vérification des mises à jour',
   'about.update.status.default': 'Rechercher des mises à jour',
   'welcome.continueLocallyExperimental': 'Continuer en local (Expérimental)',
+  'auth.profileSwitch.title': 'Se connecter avec un profil distinct ?',
+  'auth.profileSwitch.body':
+    'La connexion au cloud basculera OpenHuman vers un profil de compte distinct. Vos conversations, votre mémoire et vos réglages de fournisseurs locaux resteront sur cet appareil dans users/{profileId}. Pour y revenir, déconnectez-vous puis choisissez la session locale sur l’écran d’accueil.',
+  'auth.profileSwitch.continue': 'Continuer la connexion',
   'welcome.localSessionStarting': 'Démarrage de la session locale...',
   'welcome.coreConfigUnreadable':
     "L'environnement d'exécution n'a pas pu lire son fichier de configuration. config.toml appartient peut-être à un autre compte utilisateur, ou reste inaccessible au processus pour une autre raison. Redémarrez l'environnement d'exécution puis, si cela ne suffit pas, corrigez les droits du répertoire de travail ou recréez son volume.",

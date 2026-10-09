@@ -1803,6 +1803,10 @@ const messages: TranslationMap = {
   'about.update.status.error': 'Error al verificar actualizaciones',
   'about.update.status.default': 'Buscar actualizaciones',
   'welcome.continueLocallyExperimental': 'Continuar localmente (Experimental)',
+  'auth.profileSwitch.title': '¿Iniciar sesión con un perfil distinto?',
+  'auth.profileSwitch.body':
+    'Al iniciar sesión en la nube, OpenHuman cambiará a un perfil de cuenta separado. Tus conversaciones, memoria y ajustes de proveedores locales seguirán en este dispositivo, en users/{profileId}. Para volver, cierra sesión y elige la sesión local en la pantalla de bienvenida.',
+  'auth.profileSwitch.continue': 'Continuar con el inicio de sesión',
   'welcome.localSessionStarting': 'Iniciando sesión local...',
   'welcome.coreConfigUnreadable':
     'El entorno de ejecución no pudo leer su archivo de configuración. Es posible que config.toml pertenezca a otra cuenta de usuario o que resulte inaccesible para el proceso por otro motivo. Reinicia el entorno de ejecución y, si eso no ayuda, repara la propiedad del espacio de trabajo o vuelve a crear su volumen.',
