@@ -154,6 +154,14 @@ impl Access {
     /// scoped-down agent.
     pub(crate) fn apply(&self, config: &mut openhuman_core::config::Config) {
         config.autonomy.level = self.level;
+        // The tier only binds while the policy is on, and the core ships it
+        // off (`[autonomy] enabled = false`). Without this, `readonly()` and
+        // `supervised()` would leave shell and file writes wide open. `full()`
+        // keeps whatever the base config says, so existing automation hosts
+        // see no change.
+        if self.level != AutonomyLevel::Full {
+            config.autonomy.enabled = true;
+        }
         config.autonomy.allow_tool_install = self.allow_tool_install;
         config.autonomy.trusted_roots = self.trusted_roots.clone();
         // `auto_approve_all` is deliberately NOT set for `full()`. The origin

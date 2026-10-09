@@ -287,6 +287,9 @@ async fn describe_config_ownership(_path: &Path) -> String {
 
 impl Config {
     pub async fn load_or_init() -> Result<Self> {
+        if let Some(scoped) = super::saas_scope::saas_scoped_config() {
+            return scoped;
+        }
         let (default_openhuman_dir, default_workspace_dir) = default_config_and_workspace_dirs()?;
         Self::load_or_init_with_env_lookup(
             &default_openhuman_dir,

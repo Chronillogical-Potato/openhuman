@@ -1,14 +1,18 @@
+pub mod budget;
 pub mod catalog;
 mod global;
+pub mod report;
 pub mod route;
 mod rpc;
 mod schemas;
+pub mod scope;
 pub mod tools;
 pub mod tracker;
 pub mod types;
 
 pub use global::{
-    init_global, rebind_global, record_embedding_usage, record_provider_usage, try_global,
+    init_global, rebind_global, record_embedding_usage, record_provider_usage,
+    record_provider_usage_scoped, try_global,
 };
 pub use route::{route_for_model, CostRoute};
 pub use schemas::{
@@ -18,7 +22,7 @@ pub use schemas::{
 pub use tracker::CostTracker;
 pub use types::{
     BudgetStatus, CostDashboard, CostRecord, CostSource, CostSummary, DailyCostEntry, ModelStats,
-    TokenUsage,
+    TokenUsage, UsageScope,
 };
 
 /// Serialises tests that touch the process-global [`CostTracker`].

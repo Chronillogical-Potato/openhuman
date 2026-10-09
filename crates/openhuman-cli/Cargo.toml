@@ -188,6 +188,10 @@ name = "cli_sigpipe"
 path = "../../tests/cli_sigpipe.rs"
 
 [[test]]
+name = "saas_mode_e2e"
+path = "../../tests/saas_mode_e2e.rs"
+
+[[test]]
 name = "composio_list_tools_stack_overflow_regression"
 path = "../../tests/composio_list_tools_stack_overflow_regression.rs"
 
@@ -337,6 +341,10 @@ hosting = ["openhuman-core/hosting", "openhuman-tinyhumans/hosting"]
 modules = ["openhuman-core/modules", "openhuman-tinyhumans/modules"]
 voice = ["openhuman-core/voice", "openhuman-tinyhumans/voice"]
 web3 = ["openhuman-core/web3", "openhuman-tinyhumans/web3"]
+# Storage drivers for `[storage] url` (see the core `storage` domain).
+storage-sqlite = ["openhuman-core/storage-sqlite", "openhuman-tinyhumans/storage-sqlite"]
+storage-mongodb = ["openhuman-core/storage-mongodb", "openhuman-tinyhumans/storage-mongodb"]
+storage-file = ["openhuman-core/storage-file", "openhuman-tinyhumans/storage-file"]
 runtime-node = ["openhuman-core/runtime-node", "openhuman-tinyhumans/runtime-node"]
 media = ["openhuman-core/media", "openhuman-tinyhumans/media"]
 flows = ["openhuman-core/flows", "openhuman-tinyhumans/flows"]

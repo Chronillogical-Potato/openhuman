@@ -98,7 +98,7 @@ are compiled out, or whose `DomainGroup` is off, stays absent.
 - `.action_dir(dir)`: sugar over `.config()` for the agent's read/write
   root.
 - `.backend_url(url)`.
-- `.backend_transport(Arc<dyn BackendTransport>)` — bind the transport this
+- `.backend_transport(Arc<dyn BackendTransport>)`: bind the transport this
   core's handlers reach the hosted backend through (`backend::transport`). The
   context carries it and every `derive_with` child inherits it. Optional:
   without it the core resolves the process-global transport
@@ -134,9 +134,64 @@ by `CoreRuntime::invoke`); `CoreContext::current` falls back to a
 process-wide default context when no scope is active, which is what lets
 existing single-tenant call sites keep working unmodified.
 
+## Operating mode: `SingleUser` and `Saas`
+
+`runtime/mode.rs` holds the process mode. `SingleUser` is today's
+behaviour and the default: the desktop app, the CLI and embedders. `Saas`
+serves many users from one process, one agent per user, behind a trusted
+gateway that authenticates them. The mode belongs to the process, not to any
+user's `Config`. The first SaaS boot locks it (`lock_mode`), and from then on
+`CoreContext::init_with_config` refuses every non-SaaS core. Code asks
+`is_saas()`, which reads an unset slot as `SingleUser`.
+
+`openhuman-core run --mode saas --saas-config <file>` (or
+`OPENHUMAN_MODE=saas`, which can raise the mode but never lower it) boots
+through `runtime/saas.rs`:
+
+- `SaasConfig` is the **operator's** file. It sets `root`,
+  `service_token_file` (defaults to `<root>/service.token`), `tool_allowlist`,
+  `rpc_allowlist_extra`, `max_agents_open`, `idle_evict_secs`,
+  `shared_backend_api_key` and `custom_definitions`. Unknown keys are refused.
+- `runtime/boot_guard.rs` refuses the boot, listing every problem at once,
+  when:
+  - the host kind is not `Saas`;
+  - services or domains go beyond `ServiceSet::saas()` / `DomainSet::saas()`;
+  - single-user or back-door environment variables are set
+    (`OPENHUMAN_WORKSPACE`, `OPENHUMAN_DEV_CONNECT`, backend tokens,
+    `OPENHUMAN_CORE_TOKEN`, approval gate or sandbox switched off);
+  - an allowlist is non-empty before its isolation has shipped;
+  - the root is relative, missing, world-writable or inside `~/.openhuman`;
+  - the service token is missing, readable by others, or shorter than 32 bytes.
+- The operator plane boots with its own config under `<root>/operator/`, so
+  it never resolves `~/.openhuman` or an `active_user.toml`. The gateway
+  bearer is the RPC token.
+
+The SaaS presets are closed. `DomainSet::saas()` enables only the operator
+plane (`DomainGroup::Operator`, the `user_agents.*` controllers), so a SaaS
+core answers its built-ins (`core.*`, `/health`, `/schema`) and provisioning,
+and nothing a user could reach, until each family's per-user isolation lands.
+`saas::build` installs the process's `user_agents::AgentHost`. Each open user
+agent runs under a context derived from the operator's, with its own forced
+config and `session_agent` (see `user_agents/README.md`).
+
+Two guards keep SaaS work from falling back to process-wide state:
+
+- **Config redirect.** In SaaS, `Config::load_or_init()` returns the config the
+  current context carries and fails outside any context
+  (`config/schema/load/saas_scope.rs`). It never resolves
+  `OPENHUMAN_WORKSPACE`, `active_user.toml` or `~/.openhuman`.
+- **Scoped spawns.** `runtime/spawn.rs`'s `spawn_scoped` /
+  `spawn_blocking_scoped` carry the caller's `CoreContext` and memory identity
+  into the spawned task. `scripts/ci/check-saas-ambient.mjs` (`pnpm
+  saas:ambient`) ratchets the bare spawns, direct `load_or_init` calls,
+  environment writes and `home_dir()` lookups that remain.
+
+`DomainSet` lives in `runtime/domain_set.rs` and `DomainGroup` in
+`core/domain_group.rs`. Both are re-exported from their old paths.
+
 ## Shared tokio tuning constants
 
-`runtime/mod.rs` declares two constants every multi-thread runtime that may
+[`runtime/mod.rs`](../../runtime/mod.rs) declares two constants every multi-thread runtime that may
 host an agent turn must set:
 
 - `AGENT_WORKER_STACK_BYTES` (20 MiB): a single agent turn is a very large
@@ -154,3 +209,5 @@ host an agent turn must set:
 
 - [../README.md](../README.md): the rest of `core/`, covering dispatch,
   registry, event bus, transport, and CLI.
+- [Embedding OpenHuman](../../../../../gitbooks/developing/embedding.md)
+- [Deep architecture reference](../../../../../gitbooks/developing/architecture.md)

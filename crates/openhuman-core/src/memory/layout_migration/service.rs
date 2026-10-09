@@ -147,7 +147,7 @@ pub fn start(
         return false;
     }
     let guard = RunGuard(workspace);
-    tokio::spawn(async move {
+    crate::core::runtime::spawn_scoped(async move {
         let _guard = guard;
         let outcome = run(&config, host.as_ref(), trigger, || {
             let paused = paused();

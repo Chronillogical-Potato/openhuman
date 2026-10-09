@@ -8,6 +8,7 @@ mod env_overlay;
 mod impl_load;
 mod migrate;
 mod parse;
+mod saas_scope;
 mod secrets;
 
 pub use active_workspace::active_workspace_dir_cached;
