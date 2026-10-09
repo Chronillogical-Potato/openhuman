@@ -376,7 +376,10 @@ impl ShellTool {
                 }
                 Err(why) => {
                     tracing::warn!(reason = %why, "[shell] SaaS sandbox refused the command");
-                    (true, ToolResult::error(format!("Sandbox unavailable: {why}")))
+                    (
+                        true,
+                        ToolResult::error(format!("Sandbox unavailable: {why}")),
+                    )
                 }
             };
         }
