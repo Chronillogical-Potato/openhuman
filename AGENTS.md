@@ -54,8 +54,9 @@ the root tests keep reaching into the core.
 - The frontend and Tauri shell present or orchestrate core behavior. Do not
   duplicate core policy in TypeScript or shell code.
 - The desktop core runs as a tokio task managed by
-  `crates/openhuman-app/src/core_process.rs` (`openhuman_rpc::host::desktop`). Frontend RPC uses the per-launch bearer
-  returned through the `core_rpc_token` command.
+  `crates/openhuman-app/src/core_process.rs` (`openhuman_rpc::host::desktop`).
+  Frontend RPC uses the per-launch bearer returned through the
+  `core_rpc_token` command.
 - `OPENHUMAN_CORE_REUSE_EXISTING=1` connects the shell to an external core for
   debugging.
 
@@ -384,8 +385,9 @@ Additional rules:
   (`http-client` feature), and the whole server (`server` feature): the axum
   router and handlers, auth middleware, Socket.IO, `/dev/connect`, the
   listener bind (`openhuman_rpc::server::serve`) and the `run_server*` entry
-  points. A host that runs `openhuman-core run`/`serve` calls
-  `openhuman_rpc::server::install_cli_server()` before `run_core_from_args`.
+  points. `openhuman_rpc::host::cli` gives the core this crate's server as
+  the `run`/`serve` launcher (the older `install_cli_server()` +
+  `run_core_from_args` pair does the same for embedders that predate it).
   Domain-owned HTTP handlers the router mounts (`inference::http`, the
   dictation WebSocket) stay in their domains behind core's `http-server`
   feature. The `http_host` static-directory file server lives here too
