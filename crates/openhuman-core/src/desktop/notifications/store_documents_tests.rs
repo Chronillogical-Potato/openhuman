@@ -219,7 +219,7 @@ fn a_corrupt_core_payload_is_skipped() {
 fn an_unparseable_raw_payload_reads_as_a_string() {
     let stored = Versioned {
         id: "x".to_string(),
-        version: Default::default(),
+        version: tinystoragedrivers::Version::FIRST,
         doc: json!({ "raw_payload": "plain text", "status": "weird" }),
     };
     let read = to_notification(&stored);
