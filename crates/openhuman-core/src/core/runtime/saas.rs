@@ -222,6 +222,11 @@ pub async fn build(
     let domains = DomainSet::saas();
     let token = ServiceToken::read(&config.service_token_path());
     let env: Vec<(String, String)> = std::env::vars().collect();
+    let sandbox_available = if boot_guard::needs_sandbox(&config) {
+        crate::sandbox::docker::is_docker_available().await
+    } else {
+        false
+    };
     boot_guard::check(&BootInputs {
         host_kind: HostKind::Saas,
         services,
@@ -230,6 +235,7 @@ pub async fn build(
         token: &token,
         env: &env,
         home: dirs::home_dir(),
+        sandbox_available,
     })?;
     let ServiceToken::Valid(bearer) = token else {
         unreachable!("boot guard accepts only a valid service token");

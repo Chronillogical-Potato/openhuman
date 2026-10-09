@@ -109,6 +109,9 @@ pub struct BootInputs<'a> {
     pub token: &'a ServiceToken,
     pub env: &'a [(String, String)],
     pub home: Option<PathBuf>,
+    /// Whether the container sandbox answered (probed only when an
+    /// allowlisted tool group needs it).
+    pub sandbox_available: bool,
 }
 
 /// One reason a SaaS core refuses to boot.
@@ -119,6 +122,7 @@ pub enum Violation {
     Domain(&'static str),
     Env { var: String, why: &'static str },
     ToolAllowlist(Vec<String>),
+    Sandbox(String),
     RpcAllowlist(Vec<String>),
     Root(String),
     ServiceToken(String),
@@ -131,10 +135,11 @@ impl std::fmt::Display for Violation {
             Self::Service(name) => write!(f, "service `{name}` is not allowed in SaaS mode"),
             Self::Domain(name) => write!(f, "domain family `{name}` is not isolated per user yet"),
             Self::Env { var, why } => write!(f, "environment variable {var} is set: {why}"),
-            Self::ToolAllowlist(groups) => write!(
+            Self::ToolAllowlist(entries) => write!(
                 f,
-                "tool_allowlist {groups:?}: no tool group can be opted in until per-user sandboxing ships"
+                "tool_allowlist {entries:?}: not tool groups (known: host_files, host_shell)"
             ),
+            Self::Sandbox(why) => write!(f, "sandbox: {why}"),
             Self::RpcAllowlist(methods) => write!(
                 f,
                 "rpc_allowlist_extra {methods:?}: no RPC method can be opted in until the per-user RPC surface ships"
@@ -219,11 +224,11 @@ pub fn check(inputs: &BootInputs<'_>) -> Result<(), BootGuardError> {
         }
     }
 
-    if !inputs.config.tool_allowlist.is_empty() {
-        violations.push(Violation::ToolAllowlist(
-            inputs.config.tool_allowlist.clone(),
-        ));
+    let unknown = crate::user_agents::tools::unknown_entries(&inputs.config.tool_allowlist);
+    if !unknown.is_empty() {
+        violations.push(Violation::ToolAllowlist(unknown));
     }
+    violations.extend(sandbox_problems(inputs).into_iter().map(Violation::Sandbox));
     if !inputs.config.rpc_allowlist_extra.is_empty() {
         violations.push(Violation::RpcAllowlist(
             inputs.config.rpc_allowlist_extra.clone(),
@@ -246,6 +251,35 @@ pub fn check(inputs: &BootInputs<'_>) -> Result<(), BootGuardError> {
         }
         Err(BootGuardError { violations })
     }
+}
+
+/// Why the allowlisted tool groups cannot run safely, if they cannot.
+fn sandbox_problems(inputs: &BootInputs<'_>) -> Vec<String> {
+    if !needs_sandbox(inputs.config) {
+        return Vec::new();
+    }
+    let sandbox = &inputs.config.sandbox;
+    let mut problems = Vec::new();
+    if !inputs.sandbox_available {
+        problems.push("host_shell is allowlisted but Docker is not available".to_string());
+    }
+    if sandbox.network.trim() == "host" {
+        problems.push("network `host` defeats the sandbox".to_string());
+    }
+    if sandbox.image.trim().is_empty() {
+        problems.push("no image is set".to_string());
+    }
+    if sandbox.memory_limit_mb == 0 || !(sandbox.cpu_limit > 0.0) {
+        problems.push("memory_limit_mb and cpu_limit must be positive".to_string());
+    }
+    problems
+}
+
+/// Whether `config` allowlists a group that needs the container sandbox.
+pub fn needs_sandbox(config: &SaasConfig) -> bool {
+    crate::user_agents::tools::parse_allowlist(&config.tool_allowlist)
+        .iter()
+        .any(|group| group.needs_sandbox())
 }
 
 fn root_problem(root: &Path, home: Option<&Path>) -> Option<String> {
