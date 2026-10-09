@@ -57,7 +57,8 @@ boot a signed-in user into an empty profile.
 
 The agent's action directory (`Config::action_dir`, where acting tools read and write) is separate from
 the workspace. It comes from `action_dir_override` in the file, then `OPENHUMAN_ACTION_DIR`, then the
-default projects directory (`OPENHUMAN_PROJECTS_DIR` or a folder under the user's home).
+default projects directory (`OPENHUMAN_PROJECTS_DIR`, else `~/OpenHuman/projects`). Agent deliverables
+go to `~/OpenHuman/projects/Files` unless overridden (`resolve_files_dir`).
 
 ### Loading
 
