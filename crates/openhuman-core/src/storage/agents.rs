@@ -252,7 +252,7 @@ where
     let mut results = Vec::new();
     for (agent, context) in agent_contexts(fallback.as_ref()) {
         tracing::trace!(%agent, label, "[storage::agents] visiting agent scope");
-        let value = CoreContext::scope(context, step()).await;
+        let value = CoreContext::scope(context, async { step().await }).await;
         results.push((agent, value));
     }
     results

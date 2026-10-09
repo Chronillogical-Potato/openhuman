@@ -63,12 +63,10 @@ pub(super) async fn owner_of(
         let Ok(config) = crate::config::rpc::load_config_with_timeout().await else {
             return None;
         };
-        Some(
-            super::store::get_device(&config, channel_id)
-                .ok()
-                .flatten()
-                .is_some(),
-        )
+        // A read error is not "not here": report the scope as unsearched.
+        super::store::get_device(&config, channel_id)
+            .ok()
+            .map(|device| device.is_some())
     })
     .await;
     if let Some(owner) = found
