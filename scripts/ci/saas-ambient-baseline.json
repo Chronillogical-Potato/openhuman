@@ -1,0 +1,1402 @@
+[
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/debug/mod.rs",
+    "line": 159,
+    "text": "Config::load_or_init()",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/harness/definition/registry.rs",
+    "line": 76,
+    "text": "let config = crate::config::Config::load_or_init().await?;",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/agent/hooks.rs",
+    "line": 307,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/multimodal.rs",
+    "line": 128,
+    "text": "let config = crate::config::Config::load_or_init()",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/agent/orchestration/agent_teams/runtime.rs",
+    "line": 182,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/agent/orchestration/background_delivery.rs",
+    "line": 148,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/orchestration/background_delivery.rs",
+    "line": 208,
+    "text": "let config = match crate::config::Config::load_or_init().await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/orchestration/background_delivery.rs",
+    "line": 362,
+    "text": "let config = crate::config::Config::load_or_init()",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/agent/orchestration/ops.rs",
+    "line": 416,
+    "text": "let handle = tokio::spawn(crate::agent::turn_origin::propagate(",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/agent/orchestration/run_ledger_finalize.rs",
+    "line": 77,
+    "text": "let result = tokio::task::spawn_blocking(move || {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/orchestration/spawn_parallel_graph/run.rs",
+    "line": 180,
+    "text": "match crate::config::Config::load_or_init().await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/orchestration/tools/delegate_graph.rs",
+    "line": 232,
+    "text": "let config = match Config::load_or_init().await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_async_subagent_execute.rs",
+    "line": 418,
+    "text": "let join = tokio::spawn(crate::agent::turn_origin::propagate(",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/agent/orchestration/workflow_runs/engine/lifecycle.rs",
+    "line": 71,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/orchestration/workflow_runs/engine/lifecycle.rs",
+    "line": 72,
+    "text": "match Config::load_or_init().await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/agent/orchestration/workflow_runs/engine/lifecycle.rs",
+    "line": 211,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 2
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/orchestration/workflow_runs/engine/lifecycle.rs",
+    "line": 212,
+    "text": "match Config::load_or_init().await {",
+    "occurrence": 2
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/session_host/prelude_integrations.rs",
+    "line": 194,
+    "text": "None => crate::config::Config::load_or_init()",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/session_host/prelude_integrations.rs",
+    "line": 243,
+    "text": "None => crate::config::Config::load_or_init()",
+    "occurrence": 2
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/agent/session_host/runtime_session.rs",
+    "line": 732,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/agent/session_host/runtime_session.rs",
+    "line": 734,
+    "text": "let transcript = tokio::task::spawn_blocking(move || {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/agent/session_host/runtime_session/memory_ingest.rs",
+    "line": 181,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/agent/session_host/runtime_session_progress.rs",
+    "line": 72,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/agent/session_host/tool_progress.rs",
+    "line": 232,
+    "text": "let forwarder = tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/session_host/turn/tools.rs",
+    "line": 30,
+    "text": "None => match crate::config::Config::load_or_init().await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/session_import/live.rs",
+    "line": 102,
+    "text": "let cfg = match crate::config::Config::load_or_init().await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/session_import/schemas.rs",
+    "line": 98,
+    "text": "let config = crate::config::Config::load_or_init()",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/agent/subagent_host/ops/graph/dispatch.rs",
+    "line": 262,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/subagent_host/ops/runner.rs",
+    "line": 323,
+    "text": "let loaded_config: LoadedConfig = Box::pin(crate::config::Config::load_or_init())",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/tinyagents/journal.rs",
+    "line": 98,
+    "text": "let config = crate::config::Config::load_or_init()",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/tinyagents/payload_summarizer.rs",
+    "line": 113,
+    "text": "let config_loaded = crate::config::Config::load_or_init().await;",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/tinyagents/replay/schemas.rs",
+    "line": 224,
+    "text": "let config = crate::config::Config::load_or_init()",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/tools/todo.rs",
+    "line": 62,
+    "text": "None => crate::config::Config::load_or_init()",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/triage/escalation.rs",
+    "line": 243,
+    "text": "let config = Config::load_or_init()",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/agent/triage/evaluator/chain.rs",
+    "line": 80,
+    "text": "let config = Config::load_or_init()",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/agent/turn_origin.rs",
+    "line": 369,
+    "text": "tokio::spawn(propagate(fut))",
+    "occurrence": 1
+  },
+  {
+    "rule": "home-dir",
+    "path": "crates/openhuman-core/src/channels/host/adapters.rs",
+    "line": 245,
+    "text": ".map(|u| u.home_dir().to_path_buf())",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/channels/runtime/dispatch/processor/turn.rs",
+    "line": 114,
+    "text": "_acknowledgment_task = Some(AbortOnDropHandle::new(tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/channels/runtime/dispatch/processor/turn.rs",
+    "line": 234,
+    "text": "Some(AbortOnDropHandle::new(tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/channels/runtime/dispatch/routing.rs",
+    "line": 61,
+    "text": "let config = match Config::load_or_init().await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/channels/runtime/startup/start_channels.rs",
+    "line": 370,
+    "text": "let provider_bridge = AbortOnDropHandle::new(tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/config/migrations/mod.rs",
+    "line": 107,
+    "text": "tokio::task::spawn_blocking(move || phase_out_profile_md::run(&workspace_dir)).await;",
+    "occurrence": 1
+  },
+  {
+    "rule": "home-dir",
+    "path": "crates/openhuman-core/src/config/ops/agent.rs",
+    "line": 307,
+    "text": "let Some(home) = dirs::home_dir() else {",
+    "occurrence": 1
+  },
+  {
+    "rule": "home-dir",
+    "path": "crates/openhuman-core/src/config/ops/agent.rs",
+    "line": 325,
+    "text": "if let Some(home) = dirs::home_dir() {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/config/ops/loader/load.rs",
+    "line": 36,
+    "text": "match tokio::time::timeout(CONFIG_LOAD_TIMEOUT, Config::load_or_init()).await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "env-mutation",
+    "path": "crates/openhuman-core/src/config/ops/loader/runtime_flags.rs",
+    "line": 70,
+    "text": "std::env::set_var(BROWSER_ALLOW_ALL_ENV, \"1\");",
+    "occurrence": 1
+  },
+  {
+    "rule": "env-mutation",
+    "path": "crates/openhuman-core/src/config/ops/loader/runtime_flags.rs",
+    "line": 74,
+    "text": "std::env::remove_var(BROWSER_ALLOW_ALL_ENV);",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/config/ops/ui.rs",
+    "line": 359,
+    "text": "tokio::task::spawn_blocking(move || {",
+    "occurrence": 1
+  },
+  {
+    "rule": "home-dir",
+    "path": "crates/openhuman-core/src/config/schema/load/dirs.rs",
+    "line": 56,
+    "text": ".map(|u| u.home_dir().to_path_buf())",
+    "occurrence": 1
+  },
+  {
+    "rule": "home-dir",
+    "path": "crates/openhuman-core/src/config/schema/load/dirs.rs",
+    "line": 83,
+    "text": ".map(|u| u.home_dir().to_path_buf())",
+    "occurrence": 2
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/config/schema/load/impl_load.rs",
+    "line": 227,
+    "text": "match tokio::task::spawn_blocking(move || toml::from_str::<Config>(&contents).map(Box::new))",
+    "occurrence": 1
+  },
+  {
+    "rule": "env-mutation",
+    "path": "crates/openhuman-core/src/config/schema/proxy.rs",
+    "line": 344,
+    "text": "std::env::set_var(key, &value);",
+    "occurrence": 1
+  },
+  {
+    "rule": "env-mutation",
+    "path": "crates/openhuman-core/src/config/schema/proxy.rs",
+    "line": 345,
+    "text": "std::env::set_var(lowercase_key, value);",
+    "occurrence": 1
+  },
+  {
+    "rule": "env-mutation",
+    "path": "crates/openhuman-core/src/config/schema/proxy.rs",
+    "line": 347,
+    "text": "std::env::remove_var(key);",
+    "occurrence": 1
+  },
+  {
+    "rule": "env-mutation",
+    "path": "crates/openhuman-core/src/config/schema/proxy.rs",
+    "line": 348,
+    "text": "std::env::remove_var(lowercase_key);",
+    "occurrence": 1
+  },
+  {
+    "rule": "env-mutation",
+    "path": "crates/openhuman-core/src/config/schema/proxy.rs",
+    "line": 353,
+    "text": "std::env::remove_var(key);",
+    "occurrence": 2
+  },
+  {
+    "rule": "env-mutation",
+    "path": "crates/openhuman-core/src/config/schema/proxy.rs",
+    "line": 354,
+    "text": "std::env::remove_var(key.to_ascii_lowercase());",
+    "occurrence": 1
+  },
+  {
+    "rule": "home-dir",
+    "path": "crates/openhuman-core/src/config/schema/types/defaults.rs",
+    "line": 16,
+    "text": "UserDirs::new().map_or_else(|| PathBuf::from(\".\"), |u| u.home_dir().to_path_buf());",
+    "occurrence": 1
+  },
+  {
+    "rule": "env-mutation",
+    "path": "crates/openhuman-core/src/config/test_env.rs",
+    "line": 145,
+    "text": "std::env::set_var(key, value.as_ref());",
+    "occurrence": 1
+  },
+  {
+    "rule": "env-mutation",
+    "path": "crates/openhuman-core/src/config/test_env.rs",
+    "line": 152,
+    "text": "std::env::remove_var(key);",
+    "occurrence": 1
+  },
+  {
+    "rule": "env-mutation",
+    "path": "crates/openhuman-core/src/config/test_env.rs",
+    "line": 167,
+    "text": "Some(_) if key == WORKSPACE => std::env::remove_var(key),",
+    "occurrence": 1
+  },
+  {
+    "rule": "env-mutation",
+    "path": "crates/openhuman-core/src/config/test_env.rs",
+    "line": 168,
+    "text": "Some(value) => std::env::set_var(key, value),",
+    "occurrence": 1
+  },
+  {
+    "rule": "env-mutation",
+    "path": "crates/openhuman-core/src/config/test_env.rs",
+    "line": 169,
+    "text": "None => std::env::remove_var(key),",
+    "occurrence": 1
+  },
+  {
+    "rule": "env-mutation",
+    "path": "crates/openhuman-core/src/core/agent_cli.rs",
+    "line": 717,
+    "text": "std::env::set_var(\"RUST_LOG\", \"error\");",
+    "occurrence": 1
+  },
+  {
+    "rule": "env-mutation",
+    "path": "crates/openhuman-core/src/core/logging.rs",
+    "line": 608,
+    "text": "std::env::set_var(\"RUST_LOG\", default);",
+    "occurrence": 1
+  },
+  {
+    "rule": "home-dir",
+    "path": "crates/openhuman-core/src/core/runtime/context.rs",
+    "line": 265,
+    "text": "dirs::home_dir()",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/core/runtime/context.rs",
+    "line": 290,
+    "text": "None => crate::config::Config::load_or_init().await,",
+    "occurrence": 1
+  },
+  {
+    "rule": "home-dir",
+    "path": "crates/openhuman-core/src/core/runtime/saas.rs",
+    "line": 168,
+    "text": "home: dirs::home_dir(),",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/core/runtime/services.rs",
+    "line": 30,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/core/runtime/services.rs",
+    "line": 31,
+    "text": "match crate::config::Config::load_or_init().await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/core/runtime/services.rs",
+    "line": 64,
+    "text": "tokio::spawn(async {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/core/runtime/services.rs",
+    "line": 65,
+    "text": "match crate::config::Config::load_or_init().await {",
+    "occurrence": 2
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/core/runtime/services.rs",
+    "line": 95,
+    "text": "tokio::spawn(async {",
+    "occurrence": 2
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/core/runtime/services.rs",
+    "line": 97,
+    "text": "match crate::config::Config::load_or_init().await {",
+    "occurrence": 3
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/core/runtime/services.rs",
+    "line": 123,
+    "text": "tokio::spawn(async {",
+    "occurrence": 3
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/core/runtime/services.rs",
+    "line": 124,
+    "text": "match crate::config::Config::load_or_init().await {",
+    "occurrence": 4
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/core/runtime/services.rs",
+    "line": 174,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 2
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/core/runtime/services.rs",
+    "line": 175,
+    "text": "let config = match crate::config::Config::load_or_init().await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/core/runtime/services.rs",
+    "line": 286,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 3
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/core/runtime/services.rs",
+    "line": 307,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 4
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/core/runtime/services.rs",
+    "line": 352,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 5
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/core/runtime/services.rs",
+    "line": 354,
+    "text": "let config = match Config::load_or_init().await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/core/runtime/subscribers.rs",
+    "line": 176,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/cron/ops.rs",
+    "line": 264,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/cron/scheduler_gate/throttle.rs",
+    "line": 140,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/cron/scheduler_gate/throttle.rs",
+    "line": 145,
+    "text": "let signals = match tokio::task::spawn_blocking(move || signals::sample(&env)).await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/desktop/app_state/ops/runtime_snapshot.rs",
+    "line": 140,
+    "text": "let status = tokio::task::spawn_blocking(move || {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/desktop/app_state/ops/snapshot.rs",
+    "line": 67,
+    "text": "tokio::task::spawn_blocking(move || load_app_session_profile(&config_for_profile))",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/desktop/notifications/rpc.rs",
+    "line": 91,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/flows/bus/trigger.rs",
+    "line": 202,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/flows/ops/run.rs",
+    "line": 121,
+    "text": "tokio::spawn(crate::core::runtime::context::CoreContext::propagate(",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/flows/tinyflows/caps/resolver.rs",
+    "line": 45,
+    "text": "let loaded = tokio::task::spawn_blocking(move || {",
+    "occurrence": 1
+  },
+  {
+    "rule": "home-dir",
+    "path": "crates/openhuman-core/src/hooks/host.rs",
+    "line": 31,
+    "text": "HookEnvironment::new(PRODUCT_NAME, dirs::home_dir())",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/hooks/host.rs",
+    "line": 54,
+    "text": "let loaded = tokio::task::spawn_blocking(move || {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/inference/host_runtime/ops/agent_chat.rs",
+    "line": 397,
+    "text": "tokio::spawn(async move { while rx.recv().await.is_some() {} });",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/inference/host_runtime/ops/runtime_ops.rs",
+    "line": 29,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/inference/http/server.rs",
+    "line": 72,
+    "text": "let config = match Config::load_or_init().await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/inference/http/server.rs",
+    "line": 275,
+    "text": "let config = match Config::load_or_init().await {",
+    "occurrence": 2
+  },
+  {
+    "rule": "home-dir",
+    "path": "crates/openhuman-core/src/inference/provider/factory/access_gates.rs",
+    "line": 179,
+    "text": ".map(|d| d.home_dir().join(\".openhuman\"))",
+    "occurrence": 1
+  },
+  {
+    "rule": "home-dir",
+    "path": "crates/openhuman-core/src/inference/provider/openhuman_backend_model.rs",
+    "line": 167,
+    "text": ".map(|dirs| dirs.home_dir().join(\".openhuman\"))",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/inference/provider/ops/models/catalog_listing.rs",
+    "line": 49,
+    "text": "let config = crate::config::Config::load_or_init()",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/inference/schemas/claude_code_handlers.rs",
+    "line": 21,
+    "text": "let status = tokio::task::spawn_blocking(",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/inference/schemas/claude_code_handlers.rs",
+    "line": 34,
+    "text": "let auth = tokio::task::spawn_blocking(",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/inference/tokenjuice/mod.rs",
+    "line": 295,
+    "text": "None => match crate::config::Config::load_or_init().await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/inference/tokenjuice/mod.rs",
+    "line": 435,
+    "text": "let config = crate::config::Config::load_or_init()",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/inference/tokenjuice/mod.rs",
+    "line": 449,
+    "text": "let config = crate::config::Config::load_or_init()",
+    "occurrence": 2
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/inference/tokenjuice/mod.rs",
+    "line": 471,
+    "text": "let config = crate::config::Config::load_or_init()",
+    "occurrence": 3
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/inference/tokenjuice/mod.rs",
+    "line": 483,
+    "text": "let config = crate::config::Config::load_or_init()",
+    "occurrence": 4
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/inference/tokenjuice/schemas.rs",
+    "line": 355,
+    "text": "let config = crate::config::Config::load_or_init()",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/inference/tokenjuice/schemas.rs",
+    "line": 374,
+    "text": "let mut config = crate::config::Config::load_or_init()",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/integrations/composio/bus/config_changed_subscriber.rs",
+    "line": 64,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/integrations/composio/bus/connection_created_subscriber.rs",
+    "line": 91,
+    "text": "tokio::spawn(async move { on_connection_created(toolkit, connection_id).await });",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/integrations/composio/bus/trigger_subscriber.rs",
+    "line": 103,
+    "text": "match tokio::task::spawn_blocking(move || {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/integrations/composio/bus/trigger_subscriber.rs",
+    "line": 207,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/integrations/composio/ops/connections.rs",
+    "line": 99,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/integrations/task_sources/bus.rs",
+    "line": 91,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/integrations/task_sources/periodic.rs",
+    "line": 73,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/integrations/test_support_backend.rs",
+    "line": 730,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/mcp/mod.rs",
+    "line": 87,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/mcp/mod.rs",
+    "line": 96,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 2
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/mcp/mod.rs",
+    "line": 139,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 3
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/mcp/registry/config_ops.rs",
+    "line": 73,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/mcp/server/local.rs",
+    "line": 78,
+    "text": "let handle = tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "env-mutation",
+    "path": "crates/openhuman-core/src/mcp/server/stdio.rs",
+    "line": 136,
+    "text": "std::env::set_var(\"RUST_LOG\", level);",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/mcp/server/test_support.rs",
+    "line": 29,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/mcp/server/write_dispatch.rs",
+    "line": 150,
+    "text": "let _ = std::thread::spawn(move || {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/memory/backfill.rs",
+    "line": 386,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/memory/import.rs",
+    "line": 312,
+    "text": "let counts = tokio::task::spawn_blocking(move || count_legacy(&workspace_dir))",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/memory/import.rs",
+    "line": 551,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/memory/import.rs",
+    "line": 584,
+    "text": "let reader = tokio::task::spawn_blocking(move || {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/memory/lifecycle/hooks.rs",
+    "line": 241,
+    "text": "let task = tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/memory/sources/sync.rs",
+    "line": 183,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/modules/ops.rs",
+    "line": 256,
+    "text": "let found_on_search_path = tokio::task::spawn_blocking(move || {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/platform/doctor/ops.rs",
+    "line": 20,
+    "text": "let report = tokio::task::spawn_blocking(move || doctor::run(&config_clone, memory))",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/platform/service/bus.rs",
+    "line": 118,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/platform/service/bus.rs",
+    "line": 176,
+    "text": "tokio::spawn(async {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/platform/socket/event_handlers.rs",
+    "line": 125,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/platform/socket/event_handlers.rs",
+    "line": 248,
+    "text": "tokio::spawn(crate::voice::realtime_harness::handle_voice_harness_turn(",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/platform/socket/manager.rs",
+    "line": 444,
+    "text": "let handle = tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "home-dir",
+    "path": "crates/openhuman-core/src/sandbox/ops.rs",
+    "line": 116,
+    "text": "resolve_local_jail_grants(dirs::home_dir().as_deref(), &runtime_config.local_jail)",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/sandbox/ops.rs",
+    "line": 444,
+    "text": "let wait_result = tokio::task::spawn_blocking(move || {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/security/credentials/ops/gated_services.rs",
+    "line": 22,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/security/credentials/ops/gated_services.rs",
+    "line": 84,
+    "text": "tokio::task::spawn_blocking(move || {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/security/credentials/ops/gated_services.rs",
+    "line": 104,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 2
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/security/credentials/ops/gated_services.rs",
+    "line": 132,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 3
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/security/credentials/ops/gated_services.rs",
+    "line": 156,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 4
+  },
+  {
+    "rule": "home-dir",
+    "path": "crates/openhuman-core/src/security/keyring/store.rs",
+    "line": 231,
+    "text": "let home = dirs::home_dir().unwrap_or_else(|| {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/skills/catalog/ops.rs",
+    "line": 65,
+    "text": "tokio::spawn(async {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/skills/catalog/ops.rs",
+    "line": 193,
+    "text": "tokio::spawn(async {",
+    "occurrence": 2
+  },
+  {
+    "rule": "home-dir",
+    "path": "crates/openhuman-core/src/skills/catalog/store.rs",
+    "line": 40,
+    "text": "dirs::home_dir().map(|h| h.join(\".openhuman\").join(CACHE_DIR))",
+    "occurrence": 1
+  },
+  {
+    "rule": "home-dir",
+    "path": "crates/openhuman-core/src/skills/ops_create.rs",
+    "line": 125,
+    "text": "let home = dirs::home_dir();",
+    "occurrence": 1
+  },
+  {
+    "rule": "home-dir",
+    "path": "crates/openhuman-core/src/skills/ops_discover/api.rs",
+    "line": 65,
+    "text": "dirs::home_dir()",
+    "occurrence": 1
+  },
+  {
+    "rule": "home-dir",
+    "path": "crates/openhuman-core/src/skills/ops_install/fetch.rs",
+    "line": 112,
+    "text": "let home = dirs::home_dir();",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/skills/runtime/run_machinery.rs",
+    "line": 64,
+    "text": "let config_snapshot = match Config::load_or_init().await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/skills/runtime/run_machinery.rs",
+    "line": 160,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/skills/runtime/run_machinery.rs",
+    "line": 166,
+    "text": "let mut config = match Config::load_or_init().await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/skills/runtime/run_machinery.rs",
+    "line": 219,
+    "text": "let bridge = tokio::spawn(run_log::drain_to_log(rx, log_path.clone()));",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/skills/runtime/schemas.rs",
+    "line": 336,
+    "text": "let config = crate::config::Config::load_or_init()",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/skills/runtime/tools.rs",
+    "line": 51,
+    "text": "let config = Config::load_or_init()",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/skills/schemas/helpers.rs",
+    "line": 20,
+    "text": "match tokio::time::timeout(std::time::Duration::from_secs(30), Config::load_or_init()).await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/skills/schemas/helpers.rs",
+    "line": 47,
+    "text": "match tokio::time::timeout(std::time::Duration::from_secs(30), Config::load_or_init()).await {",
+    "occurrence": 2
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/skills/webhooks/bus.rs",
+    "line": 130,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/skills/webhooks/router.rs",
+    "line": 554,
+    "text": "tokio::task::spawn_blocking(do_write);",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/threads/ops/edit.rs",
+    "line": 103,
+    "text": "tokio::task::spawn_blocking(move || {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/threads/ops/edit.rs",
+    "line": 170,
+    "text": "let (prompt, cut_request_id) = tokio::task::spawn_blocking(move || {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/threads/ops/edit.rs",
+    "line": 363,
+    "text": "let result = tokio::task::spawn_blocking(move || {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/threads/ops/support.rs",
+    "line": 18,
+    "text": "Config::load_or_init()",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/threads/ops/support.rs",
+    "line": 50,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/threads/ops/title_generation.rs",
+    "line": 49,
+    "text": "let config = Config::load_or_init()",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/threads/store/blocking.rs",
+    "line": 72,
+    "text": "match tokio::task::spawn_blocking(f).await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/tools/impl/document/engine.rs",
+    "line": 33,
+    "text": "let config = match crate::config::Config::load_or_init().await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/tools/impl/presentation/engine.rs",
+    "line": 65,
+    "text": "loaded_config = match crate::config::Config::load_or_init().await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/tools/registry/ops.rs",
+    "line": 43,
+    "text": "let config = Config::load_or_init().await.map_err(|err| {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/voice/always_on/lock_watcher.rs",
+    "line": 15,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/voice/always_on/processor.rs",
+    "line": 102,
+    "text": "let format = match tokio::task::spawn_blocking(move || spawn_capture_thread(tx)).await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/voice/always_on/processor.rs",
+    "line": 125,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/voice/always_on/processor.rs",
+    "line": 323,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 2
+  },
+  {
+    "rule": "ambient-config",
+    "path": "crates/openhuman-core/src/voice/cli.rs",
+    "line": 79,
+    "text": "let mut config = match crate::config::Config::load_or_init().await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/voice/dictation_listener.rs",
+    "line": 176,
+    "text": "let task = tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/voice/realtime_harness/turn_handler.rs",
+    "line": 200,
+    "text": "let forwarder = tokio::spawn(forward_reply_deltas(",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/voice/realtime_harness/turn_handler.rs",
+    "line": 217,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/voice/schemas/handlers/provider_server.rs",
+    "line": 483,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/voice/server/hotkey_listener.rs",
+    "line": 120,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/voice/server/runtime.rs",
+    "line": 218,
+    "text": "tokio::task::spawn_blocking(move || {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/voice/server/runtime.rs",
+    "line": 418,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/voice/server/singleton.rs",
+    "line": 73,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/voice/server/singleton.rs",
+    "line": 101,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 2
+  },
+  {
+    "rule": "env-mutation",
+    "path": "crates/openhuman-core/src/web3/wallet/test_support.rs",
+    "line": 94,
+    "text": "std::env::set_var(name, format!(\"http://127.0.0.1:{port}\"));",
+    "occurrence": 1
+  },
+  {
+    "rule": "env-mutation",
+    "path": "crates/openhuman-core/src/web3/wallet/test_support.rs",
+    "line": 107,
+    "text": "Some(v) => std::env::set_var(name, v),",
+    "occurrence": 1
+  },
+  {
+    "rule": "env-mutation",
+    "path": "crates/openhuman-core/src/web3/wallet/test_support.rs",
+    "line": 108,
+    "text": "None => std::env::remove_var(name),",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/web_chat/ops/parallel_turn.rs",
+    "line": 50,
+    "text": "let handle = tokio::spawn(crate::core::runtime::context::CoreContext::propagate(",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/web_chat/ops/parallel_turn.rs",
+    "line": 225,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/web_chat/ops/parallel_turn.rs",
+    "line": 258,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 2
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/web_chat/ops/start_chat.rs",
+    "line": 482,
+    "text": "let handle = tokio::spawn(crate::core::runtime::context::CoreContext::propagate(",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/web_chat/ops/start_chat.rs",
+    "line": 703,
+    "text": "tokio::spawn(crate::core::runtime::context::CoreContext::propagate(",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/web_chat/ops/state.rs",
+    "line": 88,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/web_chat/ops/system_turn.rs",
+    "line": 83,
+    "text": "let progress_drain = tokio::spawn(async move { while progress_rx.recv().await.is_some() {} });",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/web_chat/presentation.rs",
+    "line": 235,
+    "text": "let persisted = tokio::task::spawn_blocking(move || {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/web_chat/progress_bridge.rs",
+    "line": 336,
+    "text": "tokio::spawn(async move {",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/web_chat/suggestions.rs",
+    "line": 87,
+    "text": "tokio::spawn(crate::core::runtime::context::CoreContext::propagate(",
+    "occurrence": 1
+  }
+]

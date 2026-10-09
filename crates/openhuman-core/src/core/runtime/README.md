@@ -166,9 +166,28 @@ through `runtime/saas.rs`:
   it never resolves `~/.openhuman` or an `active_user.toml`. The gateway
   bearer is the RPC token.
 
-The SaaS presets are closed. `DomainSet::saas()` enables no domain family, so
-a SaaS core answers only its built-ins (`core.*`, `/health`, `/schema`) until
-each family's per-user isolation lands.
+The SaaS presets are closed. `DomainSet::saas()` enables only the operator
+plane (`DomainGroup::Operator`, the `user_agents.*` controllers), so a SaaS
+core answers its built-ins (`core.*`, `/health`, `/schema`) and provisioning,
+and nothing a user could reach, until each family's per-user isolation lands.
+`saas::build` installs the process's `user_agents::AgentHost`. Each open user
+agent runs under a context derived from the operator's, with its own forced
+config and `session_agent` (see `user_agents/README.md`).
+
+Two guards keep SaaS work from falling back to process-wide state:
+
+- **Config redirect.** In SaaS, `Config::load_or_init()` returns the config the
+  current context carries and fails outside any context
+  (`config/schema/load/saas_scope.rs`). It never resolves
+  `OPENHUMAN_WORKSPACE`, `active_user.toml` or `~/.openhuman`.
+- **Scoped spawns.** `runtime/spawn.rs`'s `spawn_scoped` /
+  `spawn_blocking_scoped` carry the caller's `CoreContext` and memory identity
+  into the spawned task. `scripts/ci/check-saas-ambient.mjs` (`pnpm
+  saas:ambient`) ratchets the bare spawns, direct `load_or_init` calls,
+  environment writes and `home_dir()` lookups that remain.
+
+`DomainSet` lives in `runtime/domain_set.rs` and `DomainGroup` in
+`core/domain_group.rs`. Both are re-exported from their old paths.
 
 ## Shared tokio tuning constants
 
