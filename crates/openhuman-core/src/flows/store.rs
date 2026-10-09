@@ -45,9 +45,6 @@ pub(crate) fn run<T: Send + 'static>(
 /// `flows.db`, `checkpoints.db` and the `drafts/` directory are all created
 /// under it by the crate on first use.
 pub fn dir(config: &Config) -> PathBuf {
-    if let Some(docs) = documents(config)? {
-        return run(async move { docs.dir().await });
-    }
     config.workspace_dir.join("flows")
 }
 
