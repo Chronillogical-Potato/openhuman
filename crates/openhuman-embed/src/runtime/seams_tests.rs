@@ -3,9 +3,7 @@
 
 use super::*;
 use openhuman_core::agent::hooks::{ToolHookContext, TurnContext};
-use openhuman_core::agent::tinyagents::discovery::{
-    RankCandidate, RankContext, RankError, RankHit,
-};
+use tinytools::{RankCandidate, RankContext, RankError, RankHit, ToolRanker};
 
 static RANKER_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
