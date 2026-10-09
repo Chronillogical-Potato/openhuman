@@ -4,8 +4,7 @@
 //! [`evaluate`] is a pure function of the policies, the ledger records of the
 //! period and the call about to be made, so every rule is testable without a
 //! ledger. For each policy it works out which bucket the call falls in — all
-//! calls (`global`), or this call's thread, agent, model, provider or user
-//! agent — sums that bucket's spend and tokens over the period, and compares
+//! calls (`global`), or this call's thread, agent, model or user agent — sums that bucket's spend and tokens over the period, and compares
 //! them with the limits:
 //!
 //! - at or over a limit, a `refuse` policy refuses the call and a `warn`
@@ -105,7 +104,6 @@ fn bucket_of<'a>(scope: BudgetScope, model: &'a str, usage: &'a UsageScope) -> O
         BudgetScope::Model => Some(model),
         BudgetScope::Thread => usage.thread_id.as_deref(),
         BudgetScope::Agent => usage.agent_id.as_deref(),
-        BudgetScope::Provider => usage.provider.as_deref(),
         BudgetScope::SessionAgent => usage.session_agent.as_deref(),
     }
 }

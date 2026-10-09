@@ -63,7 +63,7 @@ pub struct CostConfig {
 }
 
 /// One budget: a limit on spend and/or tokens over a period, for every call
-/// or for each thread, agent, model, provider or user agent.
+/// or for each thread, agent, model or user agent.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct BudgetPolicy {
@@ -105,7 +105,6 @@ pub enum BudgetScope {
     /// The agent definition making the call.
     Agent,
     Model,
-    Provider,
     /// The embedded or SaaS user agent.
     SessionAgent,
 }

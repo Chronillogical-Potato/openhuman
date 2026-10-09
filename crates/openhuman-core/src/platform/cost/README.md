@@ -27,7 +27,7 @@ Local API-usage cost tracking for the agent. Records per-call token usage and co
 | `crates/openhuman-core/src/platform/cost/route.rs` | `CostRoute` / `route_for_model`: derives from the model id whether a record counts against OpenHuman-managed credits or is BYOK/local (#5016). |
 | `crates/openhuman-core/src/platform/cost/scope.rs` | `UsageScope::ambient`: a record's attribution (thread, origin, agent definition, sub-agent task, embedded/SaaS user agent, provider) read from the recording task's turn origin, memory identity and `CoreContext`. |
 | `crates/openhuman-core/src/platform/cost/report.rs` | Pure usage reports over ledger records: `build_report` (group by day/week/month/model/provider/route/agent/thread/origin/session_agent; tokens, charged vs estimated cost, cache-hit ratio) and `build_cache_report` (per-call hits, cold calls, uncached premium). |
-| `crates/openhuman-core/src/platform/cost/budget.rs` | Budgets (`[[cost.budgets]]`): `evaluate` / `check_call` sum a policy's bucket (global, or this call's thread/agent/model/provider/user agent) over its day or month and report warnings and refusals. The agent budget gate (`agent/tinyagents/host/budget_gate.rs`) runs it before every model call. |
+| `crates/openhuman-core/src/platform/cost/budget.rs` | Budgets (`[[cost.budgets]]`): `evaluate` / `check_call` sum a policy's bucket (global, or this call's thread/agent/model/user agent) over its day or month and report warnings and refusals. The agent budget gate (`agent/tinyagents/host/budget_gate.rs`) runs it before every model call. |
 | `crates/openhuman-core/src/platform/cost/tools.rs` | Read-only, default-on LLM tools (`cost_get_dashboard`, `cost_get_daily_history`, …) re-exported through `crates/openhuman-core/src/tools/mod.rs`. |
 
 ## Public surface
@@ -90,7 +90,7 @@ None. The module has no `bus.rs` and no `DomainEvent` publishers/subscribers.
 
 ## Notes / gotchas
 
-- **`cost.enabled` gates `record_usage`, not telemetry.** The agent path uses `record_usage_unconditional`, so the local usage ledger continues to grow when this flag is false. The core no longer enforces a cost cap; hosted-credit exhaustion is enforced by the backend.
+- **`cost.enabled` gates `record_usage`, not telemetry.** The agent path uses `record_usage_unconditional`, so the local usage ledger continues to grow when this flag is false. The legacy `monthly_limit_usd` only drives the dashboard; the only caps the core enforces are the opt-in `[[cost.budgets]]` below. Hosted-credit exhaustion is enforced by the backend.
 - The global tracker is a one-shot `OnceCell`; `init_global` is idempotent and never panics on construction failure (it logs and leaves `try_global() == None`). Callers before bootstrap (e.g. unit tests) must treat the absence as a soft no-op.
 - `record_provider_usage` skips all-zero `UsageInfo` payloads (`input==0 && output==0 && charged==0.0`) so providers that don't echo usage don't inflate the request count.
 - Provider-charged USD is persisted directly with `cost_source = provider_charged`; otherwise usage remains `estimated`. Cached input tokens are clamped to `input_tokens` during provider usage translation.
@@ -112,7 +112,7 @@ action = "refuse"        # or "warn" (default)
 
 [[cost.budgets]]
 name = "planner per day"
-scope = "agent"          # global (default) | thread | agent | model | provider | session_agent
+scope = "agent"          # global (default) | thread | agent | model | session_agent
 match = "planner"        # omit to apply to each value separately
 period = "day"
 max_usd = 2.0
