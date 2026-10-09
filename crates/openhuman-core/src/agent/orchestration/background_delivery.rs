@@ -29,7 +29,7 @@
 
 use std::collections::HashSet;
 use std::future::Future;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
@@ -223,25 +223,9 @@ async fn try_deliver(thread_id: String) {
 /// it is logged at error and the chain ends; that is the one path on which a
 /// result is genuinely lost, and it requires the conversation store to be
 /// failing as well as the agent.
-async fn persist_undelivered(thread_id: String, notice: String) {
+async fn persist_undelivered(workspace_dir: PathBuf, thread_id: String, notice: String) {
     let run_id = format!("bgdeliver-undelivered-{}", uuid::Uuid::new_v4());
-    let config = match crate::config::Config::load_or_init().await {
-        Ok(config) => config,
-        Err(error) => {
-            log::error!(
-                "[background_delivery] undelivered results LOST — could not load config to \
-                 persist them thread_id={thread_id} run_id={run_id} error={error:#}"
-            );
-            return;
-        }
-    };
-    match persist_delivery_reply(
-        config.workspace_dir.clone(),
-        &thread_id,
-        &run_id,
-        notice,
-        false,
-    ) {
+    match persist_delivery_reply(workspace_dir, &thread_id, &run_id, notice, false) {
         Ok(()) => log::warn!(
             "[background_delivery] delivery turn gave up; wrote results into the thread \
              verbatim instead thread_id={thread_id} run_id={run_id}"
@@ -274,18 +258,18 @@ async fn try_deliver_with<F, Fut, G, GFut>(
     }
     // Claim the delivery slot — held for the WHOLE delivery (including the
     // awaited turn) so a concurrent completion can't start a second delivery
-    // turn on the same thread. Skip if a delivery is already in flight.
-    {
-        let mut d = delivering().lock().expect("delivering poisoned");
-        if !d.insert(thread_id.clone()) {
-            return;
-        }
-    }
+    // turn on the same thread. Skip if a delivery is already in flight. The
+    // guard frees the slot, and any lease still held, even if this future is
+    // dropped mid-turn.
+    let Some(mut slot) = DeliverySlot::claim(&thread_id, router.clone()) else {
+        return;
+    };
 
     // A busy thread defers *before* the claim: the claim counts a delivery
     // attempt, and a user who keeps typing must not burn a record's budget.
     if let Some(batch) = claim_ready(&router, &thread_id) {
         let task_ids: Vec<String> = batch.iter().map(|c| c.task_id.clone()).collect();
+        slot.hold(&task_ids);
         let notice = router.formatter().format_batch(&batch);
         log::info!(
             "[background_delivery] delivering {} batched background result(s) thread_id={thread_id}",
@@ -295,7 +279,8 @@ async fn try_deliver_with<F, Fut, G, GFut>(
             Ok(_) => {
                 if let Err(error) = router.mark_delivered(&task_ids) {
                     // The reply is already in the thread; the record stays
-                    // pending and is re-delivered after a restart (at-least-once).
+                    // pending, so a later drain or a restart delivers it again
+                    // (at-least-once).
                     log::error!(
                         "[background_delivery] delivered but could not settle records \
                          thread_id={thread_id} tasks=[{}] error={error}",
@@ -353,11 +338,46 @@ async fn try_deliver_with<F, Fut, G, GFut>(
         }
     }
 
-    // Release the slot only AFTER the turn settles.
-    delivering()
-        .lock()
-        .expect("delivering poisoned")
-        .remove(&thread_id);
+    // The slot is released only AFTER the turn settles (on drop).
+}
+
+/// The per-thread delivery slot, plus the lease on the batch being delivered.
+/// Dropping it frees both: `release` on an already-settled record is a no-op,
+/// so a settled batch is untouched and an abandoned one is claimable again.
+struct DeliverySlot {
+    thread_id: String,
+    router: Arc<CompletionRouter>,
+    held: Vec<String>,
+}
+
+impl DeliverySlot {
+    /// `None` when a delivery is already in flight for the thread.
+    fn claim(thread_id: &str, router: Arc<CompletionRouter>) -> Option<Self> {
+        let mut d = delivering().lock().expect("delivering poisoned");
+        if !d.insert(thread_id.to_string()) {
+            return None;
+        }
+        Some(Self {
+            thread_id: thread_id.to_string(),
+            router,
+            held: Vec::new(),
+        })
+    }
+
+    fn hold(&mut self, task_ids: &[String]) {
+        self.held = task_ids.to_vec();
+    }
+}
+
+impl Drop for DeliverySlot {
+    fn drop(&mut self) {
+        if !self.held.is_empty() {
+            self.router.release(&self.held);
+        }
+        if let Ok(mut d) = delivering().lock() {
+            d.remove(&self.thread_id);
+        }
+    }
 }
 
 /// Run one system-authored delivery turn on an existing conversation thread.
@@ -370,10 +390,11 @@ async fn try_deliver_with<F, Fut, G, GFut>(
 /// the turn lands in the thread's transcript instead of a competing one that a
 /// later cold-boot resume would prefer — which is how a restart used to drop
 /// every turn before the delivery notice.
-async fn run_system_turn_on_thread(thread_id: String, prompt: String) -> Result<String, String> {
-    let config = crate::config::Config::load_or_init()
-        .await
-        .map_err(|error| format!("load config: {error:#}"))?;
+async fn run_system_turn_on_thread(
+    workspace_dir: PathBuf,
+    thread_id: String,
+    prompt: String,
+) -> Result<String, String> {
     let run_id = format!("bgdeliver-{}", uuid::Uuid::new_v4());
     let result = crate::web_chat::run_system_turn_on_thread(
         &thread_id,
@@ -387,7 +408,7 @@ async fn run_system_turn_on_thread(thread_id: String, prompt: String) -> Result<
         result,
         |content, success| {
             persist_delivery_reply(
-                config.workspace_dir.clone(),
+                workspace_dir.clone(),
                 &thread_id,
                 &run_id,
                 content.to_string(),
