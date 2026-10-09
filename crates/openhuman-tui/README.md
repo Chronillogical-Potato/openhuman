@@ -226,7 +226,6 @@ Unit tests are `*_tests.rs` siblings (`state_tests.rs` needs no terminal).
 
 ```bash
 cargo test -p openhuman-tui
-pnpm debug rust openhuman_tui
 ```
 
 ## Packaging
