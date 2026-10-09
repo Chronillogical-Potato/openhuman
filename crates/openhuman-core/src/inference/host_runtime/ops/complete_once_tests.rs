@@ -153,3 +153,18 @@ async fn refuses_tools_smuggled_through_provider_options() {
         "{err}"
     );
 }
+
+#[tokio::test]
+async fn provider_error_is_returned_as_a_prefixed_string() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/chat/completions"))
+        .respond_with(ResponseTemplate::new(400).set_body_string("unknown model"))
+        .mount(&server)
+        .await;
+    let request = ModelRequest::new(vec![Message::user("hi")]).with_model("m".to_string());
+    let err = complete_once(&endpoint(&server), request)
+        .await
+        .expect_err("a 400 from the provider must surface as an error");
+    assert!(err.starts_with("complete_once: "), "{err}");
+}

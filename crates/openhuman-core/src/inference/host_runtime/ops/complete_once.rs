@@ -72,11 +72,11 @@ pub async fn complete_once(
             "complete_once: provider_options may not set `{key}`; use the typed request fields"
         ));
     }
+    // Blank is refused, but the id itself goes out exactly as the caller named it.
     let model_id = request
         .model
         .as_deref()
-        .map(str::trim)
-        .filter(|model| !model.is_empty())
+        .filter(|model| !model.trim().is_empty())
         .ok_or_else(|| "complete_once: request.model is required".to_string())?
         .to_string();
 
