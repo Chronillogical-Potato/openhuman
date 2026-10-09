@@ -216,7 +216,7 @@ Configuration and packaging:
 | `tauri.conf.json` | Windows, bundle resources (agent prompts and `bundled-modules`), updater and installer settings. |
 | `capabilities/` | The capability granted to the `main` and `overlay` windows. See [`capabilities/`](capabilities/README.md). |
 | `permissions/` | App permission sets referenced by the capability. See [`permissions/`](permissions/README.md). |
-| `bundled-modules/` | Installer resource directory for prebuilt module releases. See [`bundled-modules/`](bundled-modules/README.md). |
+| `bundled-modules/` | Installer resource directory for native module releases. Empty in git (only `.gitkeep`; everything else is ignored). Release builds fill it with `scripts/release/stage-modules.mjs`, laid out as `<id>/<version>/<host_key>/<archive>`, and `setup()` hands it to `openhuman_core::modules::ops::set_bundled_releases_dir`. Its contents still pass the core's digest and TinyBus admission checks. On macOS, `scripts/release/macos-bundled-modules.sh` signs and checks it. |
 | `build.rs` | Runs `tauri_build`, and empties `bundle.resources` for non-release builds. |
 | `profiling/` | Standalone CPU and RAM profiler for a running app. See [`profiling/`](profiling/README.md). |
 | `Info.plist`, `entitlements.sidecar.plist`, `nsis-hooks.nsh`, `main.desktop`, `postinst`, `postrm` | Platform packaging files for macOS, the Windows installer, and Linux packages. |
