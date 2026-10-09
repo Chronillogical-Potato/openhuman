@@ -31,6 +31,22 @@ impl Drop for SessionStoreCleanup {
     }
 }
 
+/// Releases [`RUNTIME_LIVE`] unless disarmed: held across
+/// [`RuntimeBuilder::build`]'s boot so a failed or cancelled build never
+/// leaves the process slot claimed.
+struct SlotClaim {
+    armed: bool,
+}
+
+impl Drop for SlotClaim {
+    fn drop(&mut self) {
+        if self.armed {
+            RUNTIME_LIVE.store(false, std::sync::atomic::Ordering::Release);
+            log::debug!("[embed][runtime] build did not complete; process slot released");
+        }
+    }
+}
+
 impl RuntimeBuilder {
     /// Build the core and return a runtime ready to host agents.
     ///
@@ -47,14 +63,17 @@ impl RuntimeBuilder {
             return Err(RuntimeError::AlreadyRunning);
         }
         // From here on every early return must release the slot, or a failed
-        // build would permanently poison the process against retrying.
-        match self.build_inner().await {
-            Ok(runtime) => Ok(runtime),
-            Err(e) => {
-                RUNTIME_LIVE.store(false, std::sync::atomic::Ordering::Release);
-                Err(e)
-            }
+        // build would permanently poison the process against retrying. The
+        // claim is a drop guard rather than a match on the result so that a
+        // *cancelled* build (the future dropped mid-boot, as the desktop
+        // shell's startup timeout does to its server task) releases it too.
+        let mut claim = SlotClaim { armed: true };
+        let result = self.build_inner().await;
+        if result.is_ok() {
+            // The runtime's `CoreGuard` owns the slot from here.
+            claim.armed = false;
         }
+        result
     }
 
     /// Refuse combinations the chosen [`ConfigSource`] cannot honour.
