@@ -335,9 +335,16 @@ These are shell-local and unrelated to the core feature forwarding above.
   `core_rpc::core_rpc_url_value` always reach the embedded core through
   `OPENHUMAN_CORE_RPC_URL`, even when a gateway is active. The session link
   goes through `active_rpc_endpoint` and follows the gateway.
-- Without a build-time `AppManifest`, Tauri allows every app command
-  registered in `generate_handler!`. The `permissions/*.toml` files are
-  referenced by the capability but do not by themselves gate app commands.
+- Registering a command in `generate_handler!` is not enough. Because this
+  crate defines app permissions in `permissions/`, Tauri enforces the ACL on
+  app commands too, and the webview gets "not allowed. Command not found" for
+  any command no granted permission lists. Add every new command to a
+  permission file. At the time of writing several registered commands are in
+  no permission file (the `gateway_*` commands, `mcp_*`,
+  `claude_code_login_launch`, `mascot_window_*`, `set_titlebar_for_sidebar`,
+  `recover_port_conflict`, `force_quit_port_owner`, `check_core_update`,
+  `apply_core_update`, `process_diagnostics_list_owned`,
+  `overlay_parent_rpc_url`). See [`permissions/`](permissions/README.md).
 - Tests for this crate do not run under `pnpm test:rust`, which only covers the
   root workspace.
 
