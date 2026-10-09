@@ -42,8 +42,18 @@ fn touch_marks_live_devices_only() {
     store.touch_device("live").unwrap();
     store.touch_device("gone").unwrap();
     store.touch_device("missing").unwrap();
-    assert!(store.get_device("live").unwrap().unwrap().last_seen_at.is_some());
-    assert!(store.get_device("gone").unwrap().unwrap().last_seen_at.is_none());
+    assert!(store
+        .get_device("live")
+        .unwrap()
+        .unwrap()
+        .last_seen_at
+        .is_some());
+    assert!(store
+        .get_device("gone")
+        .unwrap()
+        .unwrap()
+        .last_seen_at
+        .is_none());
 }
 
 #[test]

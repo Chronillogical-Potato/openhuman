@@ -71,7 +71,9 @@ impl Docs {
             "revoked": false,
         });
         self.0.run(|docs| async move {
-            let version = docs.put(DEVICES, &id, doc.clone(), Precondition::None).await?;
+            let version = docs
+                .put(DEVICES, &id, doc.clone(), Precondition::None)
+                .await?;
             Ok(to_device(&Versioned { id, version, doc }))
         })
     }
@@ -110,9 +112,8 @@ impl Docs {
 
     pub(super) fn get_device(&self, channel_id: &str) -> Result<Option<PairedDevice>> {
         let id = channel_id.to_string();
-        self.0.run(|docs| async move {
-            Ok(docs.get(DEVICES, &id).await?.as_ref().map(to_device))
-        })
+        self.0
+            .run(|docs| async move { Ok(docs.get(DEVICES, &id).await?.as_ref().map(to_device)) })
     }
 
     pub(super) fn list_devices(&self) -> Result<Vec<PairedDevice>> {

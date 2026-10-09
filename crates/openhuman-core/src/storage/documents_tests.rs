@@ -20,9 +20,14 @@ fn run_declares_the_collections_and_returns_the_result() {
     let storage = MemoryStorage::new();
     let repo = repo(&storage, "local");
     repo.run(|docs| async move {
-        docs.put(THINGS, "a", json!({ "state": "open" }), Precondition::Absent)
-            .await
-            .map(|_| ())
+        docs.put(
+            THINGS,
+            "a",
+            json!({ "state": "open" }),
+            Precondition::Absent,
+        )
+        .await
+        .map(|_| ())
     })
     .unwrap();
     let state = repo
@@ -47,8 +52,13 @@ fn compare_and_swap_applies_declines_and_skips_missing() {
     let repo = repo(&storage, "local");
     let (closed, declined, missing) = repo
         .run(|docs| async move {
-            docs.put(THINGS, "a", json!({ "state": "open" }), Precondition::Absent)
-                .await?;
+            docs.put(
+                THINGS,
+                "a",
+                json!({ "state": "open" }),
+                Precondition::Absent,
+            )
+            .await?;
             let close = |doc: &Value| {
                 (text(doc, "state") == Some("open")).then(|| json!({ "state": "closed" }))
             };
@@ -58,7 +68,10 @@ fn compare_and_swap_applies_declines_and_skips_missing() {
             Ok((closed, declined, missing))
         })
         .unwrap();
-    assert_eq!(closed.map(|stored| stored.doc), Some(json!({ "state": "closed" })));
+    assert_eq!(
+        closed.map(|stored| stored.doc),
+        Some(json!({ "state": "closed" }))
+    );
     assert!(declined.is_none(), "already closed");
     assert!(missing.is_none());
 }
@@ -68,9 +81,14 @@ fn concurrent_swaps_apply_once() {
     let storage = MemoryStorage::new();
     let repo = repo(&storage, "local");
     repo.run(|docs| async move {
-        docs.put(THINGS, "a", json!({ "state": "open" }), Precondition::Absent)
-            .await
-            .map(|_| ())
+        docs.put(
+            THINGS,
+            "a",
+            json!({ "state": "open" }),
+            Precondition::Absent,
+        )
+        .await
+        .map(|_| ())
     })
     .unwrap();
     let winners: usize = (0..8)
@@ -79,8 +97,7 @@ fn concurrent_swaps_apply_once() {
             std::thread::spawn(move || {
                 repo.run(|docs| async move {
                     compare_and_swap(&docs, THINGS, "a", |doc| {
-                        (text(doc, "state") == Some("open"))
-                            .then(|| json!({ "state": "closed" }))
+                        (text(doc, "state") == Some("open")).then(|| json!({ "state": "closed" }))
                     })
                     .await
                 })
