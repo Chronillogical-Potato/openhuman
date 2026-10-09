@@ -366,9 +366,14 @@ fn the_calls_own_estimate_counts() {
     );
     let mut big = call("m", &scope);
     big.estimated_usd = 0.2;
-    assert!(evaluate(&[cap.clone()], &[earlier.clone()], big, now())
-        .refusal()
-        .is_some());
+    assert!(evaluate(
+        std::slice::from_ref(&cap),
+        std::slice::from_ref(&earlier),
+        big,
+        now()
+    )
+    .refusal()
+    .is_some());
     assert!(evaluate(&[cap], &[earlier], call("m", &scope), now())
         .refusal()
         .is_none());
