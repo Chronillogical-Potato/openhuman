@@ -7,7 +7,7 @@ use crate::core_host::core::server_launcher::{install_server_launcher, ServeRequ
 
 /// Install this crate's server as the one the core CLI's `run` / `serve`
 /// subcommands start. Call once, before
-/// [`run_core_from_args`](crate::core_host::run_core_from_args); later calls are
+/// `run_core_from_args`; later calls are
 /// no-ops.
 pub fn install_cli_server() {
     crate::http_host::ensure_registered();

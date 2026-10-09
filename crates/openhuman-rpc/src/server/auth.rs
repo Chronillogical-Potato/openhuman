@@ -1,6 +1,6 @@
 //! Bearer-token authentication for the core's HTTP API.
 //!
-//! The token itself is owned by [`crate::core_host::core::auth`]; this module is
+//! The token itself is owned by `openhuman::core::auth`; this module is
 //! the route policy on top of it.
 //!
 //! Endpoints exempt from auth (checked by [`rpc_auth_middleware`]):

@@ -1,7 +1,7 @@
 //! `GET /dev/connect` — hand this core to a browser-hosted dev renderer.
 //!
 //! The desktop shell mints the RPC bearer per launch and keeps it in memory
-//! (see [`crate::core_host::core::auth`]), so nothing on disk lets a browser tab reach the
+//! (see `openhuman::core::auth`), so nothing on disk lets a browser tab reach the
 //! running desktop core. This route closes that gap for development: it
 //! redirects to a loopback Vite dev server's `/__dev-connect` page with the
 //! RPC URL and bearer in the URL **fragment**, and that page seeds them into

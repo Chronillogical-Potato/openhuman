@@ -2,7 +2,7 @@
 //!
 //! Same upgrade guard as `/ws/dictation` (origin allowlist plus the core bearer
 //! from the `Authorization` header or `?token=`); the session itself is
-//! `crate::core_host::voice::live::ws::handle_live_voice_ws`.
+//! `openhuman::voice::live::ws::handle_live_voice_ws`.
 
 use std::sync::Arc;
 

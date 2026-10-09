@@ -1,5 +1,5 @@
 //! Server entry points kept for the hosts that predate
-//! [`CoreBuilder`](crate::core_host::core::runtime::CoreBuilder).
+//! `CoreBuilder`.
 //!
 //! Each `run_server*` function is a thin shim that composes a `CoreBuilder`
 //! and calls [`serve`](super::serve::serve).
@@ -66,7 +66,7 @@ pub async fn run_server_embedded(
 /// When the caller already holds the per-launch RPC bearer in memory (the
 /// Tauri shell now that the core runs in-process — PR #1061), it should
 /// pass `Some(token)` so the embedded server can seed its auth subsystem
-/// via `crate::core_host::core::auth::init_rpc_token_with_value` without ever
+/// via `openhuman::core::auth::init_rpc_token_with_value` without ever
 /// reading `OPENHUMAN_CORE_TOKEN` from the process environment.  Passing
 /// `None` preserves the env-as-config fallback (CLI / docker / cloud).
 pub async fn run_server_embedded_with_ready(

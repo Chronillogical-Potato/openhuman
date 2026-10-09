@@ -1,12 +1,12 @@
 //! Socket.IO live-event bridge to the desktop shell.
 //!
 //! `spawn_web_channel_bridge` spawns one forwarding task per source. Domain
-//! broadcast channels: web-chat events (`crate::core_host::web_chat`), dictation hotkeys
-//! and transcription results (`crate::core_host::voice::dictation_listener`), overlay
-//! attention bubbles (`crate::core_host::desktop::overlay::subscribe_attention_events`,
+//! broadcast channels: web-chat events (`openhuman::web_chat`), dictation hotkeys
+//! and transcription results (`openhuman::voice::dictation_listener`), overlay
+//! attention bubbles (`openhuman::desktop::overlay::subscribe_attention_events`,
 //! see `desktop/overlay/README.md`), core notifications
-//! (`crate::core_host::desktop::notifications`), and shell companion state
-//! (`COMPANION_STATE_BUS`). `DomainEvent`s read off `crate::core_host::core::bus::BUS`:
+//! (`openhuman::desktop::notifications`), and shell companion state
+//! (`COMPANION_STATE_BUS`). `DomainEvent`s read off `openhuman::core::bus::BUS`:
 //! session expiry, MCP setup secret requests, memory sync and tree-build
 //! progress, channel listener health, and active-workspace changes. Web-chat
 //! events go to the initiating client's room and the `thread:<id>` room
