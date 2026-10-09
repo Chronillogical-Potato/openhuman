@@ -32,7 +32,10 @@ fn glob_list_keeps_the_legacy_exact_and_prefix_forms() {
 #[test]
 fn glob_list_now_also_takes_inner_wildcards_and_any_case() {
     let patterns = vec!["mcp_*_delete_*".to_string(), "gmail_*".to_string()];
-    assert!(glob_list_matches(&patterns, "mcp_github_delete_repo_abc123"));
+    assert!(glob_list_matches(
+        &patterns,
+        "mcp_github_delete_repo_abc123"
+    ));
     assert!(glob_list_matches(&patterns, "GMAIL_SEND_EMAIL"));
 }
 
@@ -51,7 +54,12 @@ fn disallowed_tools_become_a_deny_rule_on_every_surface() {
     let context = rule_context(None, None, None);
     assert!(!visible(&set, "shell", &context));
     assert!(!set.visible(&ToolSubject::named("web_fetch"), &context, Surface::Search));
-    let call = set.evaluate(&ToolSubject::named("web_fetch"), &context, Surface::Call, None);
+    let call = set.evaluate(
+        &ToolSubject::named("web_fetch"),
+        &context,
+        Surface::Call,
+        None,
+    );
     assert!(!call.callable);
     assert!(call.refusal("web_fetch").contains("disallowed_tools"));
     assert!(visible(&set, "file_read", &context));
@@ -65,7 +73,7 @@ fn a_definition_rule_layer_keeps_its_own_name_and_adds_the_denylist() {
     );
     def.disallowed_tools = vec!["file_delete".into()];
     let layer = agent_rule_layer(&def).expect("a layer");
-    assert_eq!(layer.name.as_deref(), Some("custom"));
+    assert_eq!(layer.name.as_deref(), Some("agent:writer/custom"));
     let set = ToolRuleSet::single(layer);
     let context = rule_context(None, None, None);
     assert!(visible(&set, "file_read", &context));
@@ -135,4 +143,47 @@ except = { family = "github" }
     .expect("config parses");
     assert_eq!(config.tool_rules.rules.len(), 1);
     assert_eq!(config.tool_rules.rules[0].id.as_deref(), Some("no-mcp"));
+}
+
+#[test]
+fn a_child_inherits_operator_layers_but_not_its_parents_agent_layer() {
+    let mut config = Config::default();
+    config.tool_rules = tinytools::ToolRules::from_allow_deny(Vec::<String>::new(), ["shell"]);
+    let mut orchestrator = definition("orchestrator");
+    orchestrator.disallowed_tools = vec!["file_*".into()];
+    let parent = turn_rule_policy(
+        Arc::new(session_rule_set(Some(&config), Some(&orchestrator))),
+        rule_context(
+            Some("telegram"),
+            Some("orchestrator"),
+            Some("ExternalChannel(telegram)"),
+        ),
+    );
+    let mut worker = definition("code_executor");
+    worker.disallowed_tools = vec!["web_*".into()];
+
+    let child = child_rule_policy(Some(&parent), None, &worker).expect("child rules");
+    assert_eq!(child.context.get("agent"), Some("code_executor"));
+    assert_eq!(child.context.get("channel"), Some("telegram"));
+    assert!(
+        !visible(&child.rules, "shell", &child.context),
+        "operator layer inherited"
+    );
+    assert!(
+        visible(&child.rules, "file_write", &child.context),
+        "parent agent layer dropped"
+    );
+    assert!(
+        !visible(&child.rules, "web_fetch", &child.context),
+        "own layer added"
+    );
+}
+
+#[test]
+fn a_child_without_parent_rules_takes_the_operator_layer() {
+    let mut config = Config::default();
+    config.tool_rules = tinytools::ToolRules::from_allow_deny(Vec::<String>::new(), ["shell"]);
+    let child = child_rule_policy(None, Some(&config), &definition("worker")).expect("rules");
+    assert!(!visible(&child.rules, "shell", &child.context));
+    assert!(child_rule_policy(None, None, &definition("worker")).is_none());
 }

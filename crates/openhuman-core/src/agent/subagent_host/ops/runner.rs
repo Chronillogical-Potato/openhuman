@@ -710,10 +710,7 @@ async fn run_typed_mode(
             let name = tool.name();
             if definition.extra_tools.iter().any(|n| n == name)
                 && !allowed_indices.contains(&i)
-                && !crate::tools::rules::glob_list_matches(
-                    &definition.disallowed_tools,
-                    name,
-                )
+                && !crate::tools::rules::glob_list_matches(&definition.disallowed_tools, name)
                 && !is_subagent_spawn_tool(name)
             {
                 allowed_indices.push(i);

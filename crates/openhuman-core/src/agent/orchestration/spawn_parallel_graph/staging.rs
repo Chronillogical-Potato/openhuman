@@ -96,7 +96,6 @@ pub(crate) fn worktree_request_for_task(task: &ParallelAgentTask) -> ParallelWor
     }
 }
 
-
 fn definition_visible_tool_permissions(
     definition: &AgentDefinition,
     parent: &ParentExecutionContext,

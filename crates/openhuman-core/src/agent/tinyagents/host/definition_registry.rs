@@ -355,7 +355,9 @@ impl OpenHumanDefinitionRegistry {
                 // named scope. Under `Wildcard` it is meaningless — everything
                 // is already in scope.
                 names.extend(def.extra_tools.iter().cloned());
-                names.retain(|name| !crate::tools::rules::glob_list_matches(&def.disallowed_tools, name));
+                names.retain(|name| {
+                    !crate::tools::rules::glob_list_matches(&def.disallowed_tools, name)
+                });
                 dedupe_preserving_order(&mut names);
                 // Deliberately *not* collapsed to `Wildcard` when empty: an
                 // agent configured with no tools, or one whose whole scope was
@@ -369,7 +371,9 @@ impl OpenHumanDefinitionRegistry {
                 Some(registered) => {
                     let mut names: Vec<String> = registered
                         .iter()
-                        .filter(|name| !crate::tools::rules::glob_list_matches(&def.disallowed_tools, name))
+                        .filter(|name| {
+                            !crate::tools::rules::glob_list_matches(&def.disallowed_tools, name)
+                        })
                         .cloned()
                         .collect();
                     dedupe_preserving_order(&mut names);

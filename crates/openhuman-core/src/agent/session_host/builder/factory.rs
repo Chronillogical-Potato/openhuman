@@ -606,12 +606,15 @@ impl OpenHumanSessionHost {
                                     .filter(|t| t.exposure() != tinytools::ToolExposure::Hidden)
                                     .map(|t| t.name().to_string()),
                             )
-                            .filter(|name| !crate::tools::rules::glob_list_matches(&def.disallowed_tools, name))
+                            .filter(|name| {
+                                !crate::tools::rules::glob_list_matches(&def.disallowed_tools, name)
+                            })
                             .collect();
                     }
                     ToolScope::Named(_) => {
-                        visible
-                            .retain(|name| !crate::tools::rules::glob_list_matches(&def.disallowed_tools, name));
+                        visible.retain(|name| {
+                            !crate::tools::rules::glob_list_matches(&def.disallowed_tools, name)
+                        });
                     }
                 }
                 // Disallowing every tool must remain a zero-tool scope. An
@@ -927,7 +930,6 @@ fn resolve_target_definition(
         agent_id
     ))
 }
-
 
 /// Resolve the provider/workload role for a session build.
 ///

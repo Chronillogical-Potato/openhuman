@@ -146,7 +146,6 @@ pub(super) fn retain_parent_visible_tool_indices(
     indices.retain(|&index| parent_visible.contains(parent_tools[index].name()));
 }
 
-
 #[cfg(test)]
 #[path = "tool_prep_tests.rs"]
 mod tests;

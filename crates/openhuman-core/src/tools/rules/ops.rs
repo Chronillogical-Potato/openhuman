@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use tinyagents_harness::tool::ToolRulePolicy;
-use tinytools::{RuleContext, RuleEffect, ToolRule, ToolRuleSet, ToolRules, glob_matches};
+use tinytools::{glob_matches, RuleContext, RuleEffect, ToolRule, ToolRuleSet, ToolRules};
 
 use crate::agent::harness::definition::AgentDefinition;
 use crate::config::Config;
@@ -20,6 +20,9 @@ use crate::config::Config;
 pub fn glob_list_matches(patterns: &[String], name: &str) -> bool {
     patterns.iter().any(|pattern| glob_matches(pattern, name))
 }
+
+/// Name prefix of every layer an agent definition contributes.
+const AGENT_LAYER_PREFIX: &str = "agent:";
 
 /// The rule layer an agent definition contributes: its `tool_rules`, plus a
 /// `deny` for its `disallowed_tools`, so a denied tool is refused on every
@@ -38,9 +41,13 @@ pub fn agent_rule_layer(def: &AgentDefinition) -> Option<ToolRules> {
     if layer.is_permissive() {
         return None;
     }
-    if layer.name.is_none() {
-        layer.name = Some(format!("agent:{}", def.id));
-    }
+    // Always `agent:<id>`, keeping an author's own name as a suffix: the
+    // prefix is how a sub-agent tells its parent's agent layer from the
+    // operator's layers it inherits (see `child_rule_policy`).
+    layer.name = Some(match layer.name.take() {
+        Some(own) => format!("{AGENT_LAYER_PREFIX}{}/{own}", def.id),
+        None => format!("{AGENT_LAYER_PREFIX}{}", def.id),
+    });
     Some(layer)
 }
 
@@ -70,7 +77,11 @@ pub fn session_rule_set(config: Option<&Config>, def: Option<&AgentDefinition>) 
 /// The context `when` conditions match: `channel`, `agent`, `origin`. Absent
 /// or blank values are left out, so a condition on them does not match.
 #[must_use]
-pub fn rule_context(channel: Option<&str>, agent: Option<&str>, origin: Option<&str>) -> RuleContext {
+pub fn rule_context(
+    channel: Option<&str>,
+    agent: Option<&str>,
+    origin: Option<&str>,
+) -> RuleContext {
     let mut context = RuleContext::new();
     for (key, value) in [("channel", channel), ("agent", agent), ("origin", origin)] {
         if let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) {
@@ -82,10 +93,12 @@ pub fn rule_context(channel: Option<&str>, agent: Option<&str>, origin: Option<&
 
 /// The rule policy for a sub-agent run of `def`.
 ///
-/// The child keeps every layer its parent turn carried — a sub-agent is never
-/// less restricted than the run that spawned it — and adds its own
-/// definition's layer. A parent without rules (an entry point that built its
-/// context from scratch) contributes the operator's `[tool_rules]` instead.
+/// The child keeps every operator layer its parent turn carried — the
+/// `[tool_rules]` an operator set bind every agent in the tree — and adds its
+/// own definition's layer. It does **not** inherit the parent *agent's* layer:
+/// an orchestrator commonly disallows exactly the tools it delegates to its
+/// workers. A parent without rules (an entry point that built its context
+/// from scratch) contributes the operator's `[tool_rules]` directly.
 /// The context keeps the parent's `channel` and `origin`; `agent` becomes the
 /// child's id. `None` when nothing restricts the child.
 #[must_use]
@@ -95,7 +108,19 @@ pub fn child_rule_policy(
     def: &AgentDefinition,
 ) -> Option<Arc<ToolRulePolicy>> {
     let mut set = match parent {
-        Some(parent) => (*parent.rules).clone(),
+        Some(parent) => {
+            let mut inherited = ToolRuleSet::new();
+            for layer in &parent.rules.layers {
+                let is_agent_layer = layer
+                    .name
+                    .as_deref()
+                    .is_some_and(|name| name.starts_with(AGENT_LAYER_PREFIX));
+                if !is_agent_layer {
+                    inherited.push(layer.clone());
+                }
+            }
+            inherited
+        }
         None => session_rule_set(config, None),
     };
     if let Some(layer) = agent_rule_layer(def) {
