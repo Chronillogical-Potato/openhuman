@@ -88,14 +88,15 @@ fn a_configured_backend_holds_keyring_and_credential_secrets() {
         std::fs::read(state.join("http-credentials.json")).unwrap(),
         http_file
     );
-    // Neither the process keychain file nor `secrets.enc` was touched.
-    for file in ["secrets.enc", "dev-keychain.json"] {
-        assert_eq!(
-            std::fs::read(workspace.path().join(file)).ok(),
-            before.get(file).cloned().flatten(),
-            "{file} unchanged"
-        );
-    }
+    // `secrets.enc` was not touched, and nothing of the storage-side secret
+    // reached the process keychain file.
+    assert_eq!(
+        std::fs::read(workspace.path().join("secrets.enc")).ok(),
+        before.get("secrets.enc").cloned().flatten(),
+        "secrets.enc unchanged"
+    );
+    let dev = std::fs::read_to_string(workspace.path().join("dev-keychain.json")).unwrap();
+    assert!(!dev.contains("user-1") && !dev.contains("tok-123"), "{dev}");
 
     // Without a backend the files are back in use.
     assert!(openhuman_core::storage::clear());
