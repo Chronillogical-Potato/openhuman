@@ -6,7 +6,10 @@ fn keys(byte: u8) -> Arc<dyn KeyProvider> {
 }
 
 fn secrets_in(storage: &MemoryStorage, scope: &str, key: u8) -> DocumentSecrets {
-    over(&storage.for_scope(&Scope::new(scope).unwrap()).unwrap(), keys(key))
+    over(
+        &storage.for_scope(&Scope::new(scope).unwrap()).unwrap(),
+        keys(key),
+    )
 }
 
 #[test]
@@ -16,7 +19,10 @@ fn a_secret_round_trips_from_sync_code() {
     assert!(get_blocking(&secrets, "user:token").unwrap().is_none());
     set_blocking(&secrets, "user:token", b"s3cret").unwrap();
     assert_eq!(
-        get_blocking(&secrets, "user:token").unwrap().unwrap().as_slice(),
+        get_blocking(&secrets, "user:token")
+            .unwrap()
+            .unwrap()
+            .as_slice(),
         b"s3cret"
     );
 }
@@ -40,7 +46,12 @@ fn scopes_and_keys_keep_secrets_apart() {
 #[test]
 fn the_stored_document_holds_no_plaintext() {
     let storage = MemoryStorage::new();
-    set_blocking(&secrets_in(&storage, "local", 7), "user:token", b"plain-value").unwrap();
+    set_blocking(
+        &secrets_in(&storage, "local", 7),
+        "user:token",
+        b"plain-value",
+    )
+    .unwrap();
     let docs = storage
         .for_scope(&Scope::new("local").unwrap())
         .unwrap()

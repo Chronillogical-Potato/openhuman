@@ -47,8 +47,7 @@ pub enum MigrationOutcome {
 // belong to this process, not to an agent.
 
 /// The storage-backed secret store for this call, when one is configured.
-fn storage_secrets(
-) -> Result<Option<tinystoragedrivers::secrets::DocumentSecrets>, KeyringError> {
+fn storage_secrets() -> Result<Option<tinystoragedrivers::secrets::DocumentSecrets>, KeyringError> {
     crate::storage::secrets::current()
         .map_err(|error| KeyringError::Backend(format!("storage secrets: {error}")))
 }
@@ -69,8 +68,8 @@ pub fn get(user_id: &str, key: &str) -> Result<Option<String>, KeyringError> {
     };
     log::debug!("[keyring] get (storage) user_id={user_id} key={key}");
     let name = namespaced_key(user_id, key);
-    let value = crate::storage::block_on(async move { secrets.get(&name).await })
-        .map_err(storage_error)?;
+    let value =
+        crate::storage::block_on(async move { secrets.get(&name).await }).map_err(storage_error)?;
     value
         .map(|bytes| {
             String::from_utf8(bytes.to_vec()).map_err(|source| KeyringError::InvalidUtf8 {
@@ -91,8 +90,7 @@ pub fn set(user_id: &str, key: &str, value: &str) -> Result<(), KeyringError> {
     log::debug!("[keyring] set (storage) user_id={user_id} key={key}");
     let name = namespaced_key(user_id, key);
     let value = zeroize::Zeroizing::new(value.as_bytes().to_vec());
-    crate::storage::block_on(async move { secrets.set(&name, &value).await })
-        .map_err(storage_error)
+    crate::storage::block_on(async move { secrets.set(&name, &value).await }).map_err(storage_error)
 }
 
 /// Delete a secret: from the storage backend when one is configured, else
@@ -109,7 +107,6 @@ pub fn delete(user_id: &str, key: &str) -> Result<(), KeyringError> {
 }
 
 // ── Process backend ───────────────────────────────────────────────────────────
-
 
 /// Retrieve a secret from the process backend.
 ///

@@ -14,8 +14,7 @@ pub(super) const KEY_LEN: usize = 32;
 /// The cipher is `tinystoragedrivers`' (`secrets::crypto`), the same format
 /// its secret stores read and write.
 pub(super) fn chacha20_encrypt(key: &[u8; KEY_LEN], plaintext: &[u8]) -> Result<Vec<u8>, String> {
-    secrets_crypto::encrypt(key, plaintext)
-        .map_err(|e| format!("ChaCha20 encryption failed: {e}"))
+    secrets_crypto::encrypt(key, plaintext).map_err(|e| format!("ChaCha20 encryption failed: {e}"))
 }
 
 /// Decrypt a `nonce || ciphertext || tag` blob produced by [`chacha20_encrypt`].

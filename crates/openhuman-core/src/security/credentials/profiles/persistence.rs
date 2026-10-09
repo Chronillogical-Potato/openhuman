@@ -18,7 +18,6 @@ use super::{
     PERSIST_RETRY_BASE_MS, PROFILES_FILENAME,
 };
 
-
 /// The secret the profiles live in on a storage backend
 /// ([`crate::storage::secrets`]): the same JSON as `auth-profiles.json`,
 /// encrypted as one secret in the acting agent's scope.
