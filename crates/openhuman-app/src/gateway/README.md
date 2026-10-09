@@ -70,8 +70,11 @@ progress callback, which the registry turns into `GatewayStatus::Activating
    tinybox `HostRef` (`local` or `ssh`) and confinement to a `SandboxRef`
    (`passthrough` or `docker`). Docker boxes get `NetworkPolicy::Egress` and
    publish the in-box core port `CORE_PORT_IN_BOX` (7788) to a host port.
-   Creation retries up to `PORT_ATTEMPTS` (8) times when the host port turns
-   out to be taken.
+   That host port is chosen by the shell (a free local port, or a random
+   ephemeral port on a remote machine) because tinybox cannot report a port
+   Docker picked. Creation retries up to `PORT_ATTEMPTS` (8) times when
+   Docker says the port is taken. A passthrough box publishes nothing; the
+   core listens on 7788 on the target machine directly.
 2. Start the core detached (`start_core`). `core_command` runs
    `<binary> serve` (or `openhuman-core serve` from the image's `PATH`) with
    `OPENHUMAN_CORE_TOKEN` set to a freshly minted bearer,
