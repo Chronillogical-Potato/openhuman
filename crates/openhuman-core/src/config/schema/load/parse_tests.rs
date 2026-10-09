@@ -57,3 +57,12 @@ fn a_non_finite_float_is_rejected_with_its_field_path() {
         "{err}"
     );
 }
+
+#[test]
+fn a_non_finite_optional_float_is_rejected_not_unset() {
+    let err = config_from_toml_str("[agent]\nnested = { values = [1.0, inf] }").unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "agent.nested.values[1]: non-finite float inf is not a valid config value"
+    );
+}
