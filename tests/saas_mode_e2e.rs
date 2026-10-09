@@ -423,3 +423,39 @@ fn gateway_requests_run_under_the_named_users_agent() {
     );
     drop(server);
 }
+
+#[test]
+fn a_duplicate_or_unreadable_user_header_is_refused() {
+    use openhuman_core::user_agents::gateway::USER_HEADER;
+    let d = deployment(true);
+    let (server, base, client) = start(&d);
+    let body =
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "openhuman.user_agents_list", "params": {} });
+
+    // Two user headers: refused, never run as the operator.
+    let status = client
+        .post(format!("{base}/rpc"))
+        .bearer_auth(BEARER)
+        .header(USER_HEADER, "alice")
+        .header(USER_HEADER, "bob")
+        .json(&body)
+        .send()
+        .unwrap()
+        .status()
+        .as_u16();
+    assert_eq!(status, 400);
+
+    // A header value that is valid HTTP but not text: refused too.
+    let unreadable = reqwest::header::HeaderValue::from_bytes(b"alice\xff").unwrap();
+    let status = client
+        .post(format!("{base}/rpc"))
+        .bearer_auth(BEARER)
+        .header(USER_HEADER, unreadable)
+        .json(&body)
+        .send()
+        .unwrap()
+        .status()
+        .as_u16();
+    assert_eq!(status, 400);
+    drop(server);
+}
