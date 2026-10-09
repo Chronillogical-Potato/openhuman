@@ -7,7 +7,7 @@
 //! per type. Syntax errors still carry TOML line and column; a type error keeps
 //! the serde message but not the location.
 
-use super::Config;
+use crate::config::Config;
 
 /// Parse a `config.toml` document into a [`Config`].
 #[inline(never)]
