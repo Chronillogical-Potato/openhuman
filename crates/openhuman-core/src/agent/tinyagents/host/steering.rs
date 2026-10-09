@@ -2,7 +2,7 @@
 
 use std::sync::OnceLock;
 
-use tinyagents_graph::orchestration::SteeringRegistry;
+use tinyagents_tasks::SteeringRegistry;
 #[cfg(test)]
 use tinyagents_harness::ids::TaskId;
 use tinyagents_harness::steering::{SteeringCommandKind, SteeringHandle, SteeringPolicy};

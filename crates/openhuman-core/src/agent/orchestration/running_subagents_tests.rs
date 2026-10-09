@@ -9,7 +9,7 @@ use crate::agent::tinyagents::host::steering::shared_steering_registry;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-use tinyagents_graph::orchestration::OrchestrationTaskStatus;
+use tinyagents_tasks::OrchestrationTaskStatus;
 use tinyagents_harness::ids::TaskId;
 use tinyagents_harness::run_queue::{QueueLane, RunQueue};
 use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};

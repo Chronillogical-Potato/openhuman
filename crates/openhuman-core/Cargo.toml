@@ -152,6 +152,7 @@ tinyagents-registry = { path = "../../vendor/tinyagents/crates/tinyagents-regist
 tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
 tinyagents-runtime = { path = "../../vendor/tinyagents/crates/tinyagents-runtime" }
 tinyagents-orchestration = { path = "../../vendor/tinyagents/crates/tinyagents-orchestration" }
+tinyagents-tasks = { path = "../../vendor/tinyagents/crates/tinyagents-tasks" }
 tinyinference-core = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
 tinyinference-embeddings = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
 tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }

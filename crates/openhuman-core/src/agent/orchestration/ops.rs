@@ -39,7 +39,7 @@ use crate::core::events::DomainEvent;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use thiserror::Error;
-use tinyagents_graph::orchestration::{
+use tinyagents_tasks::{
     DetachedTaskRegistry, DetachedTaskRegistryError, DetachedTaskWaitOutcome,
     OrchestrationTaskStatus,
 };

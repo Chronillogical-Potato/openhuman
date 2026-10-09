@@ -12,7 +12,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
-use tinyagents_graph::orchestration::{
+use tinyagents_tasks::{
     open_jsonl_task_store_or_memory, reconcile_orphaned_tasks, InMemoryTaskStore,
     OrchestrationTaskFilter, OrchestrationTaskRecord, TaskStore, TaskStoreRegistry,
 };

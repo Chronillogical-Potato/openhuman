@@ -2,7 +2,7 @@
 //! sub-agent: the `RunQueue` compatibility lane, and the TinyAgents
 //! `SteeringHandle` fast path for runs that have registered one.
 
-use tinyagents_graph::orchestration::DetachedTaskRegistryError;
+use tinyagents_tasks::DetachedTaskRegistryError;
 use tinyagents_harness::ids::TaskId;
 use tinyagents_harness::run_queue::QueueLane;
 use tinyagents_harness::steering::SteeringCommand;

@@ -6,7 +6,7 @@
 use super::*;
 use crate::agent::orchestration::running_subagents::roster::snapshot_for_parent;
 use crate::agent::orchestration::running_subagents::task_ledger::task_store_for_workspace;
-use tinyagents_graph::orchestration::{
+use tinyagents_tasks::{
     OrchestrationTaskKind, OrchestrationTaskResult, OrchestrationTaskSpec,
 };
 use tinyagents_harness::ids::TaskId;
