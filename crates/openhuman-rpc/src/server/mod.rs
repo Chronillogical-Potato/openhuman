@@ -31,5 +31,6 @@ pub use http::{build_core_http_router, rpc_handler};
 pub use serve::{serve, EmbeddedReadySignal};
 pub use shims::{
     run_server, run_server_embedded, run_server_embedded_with_ready, run_server_headless,
+    run_server_saas,
 };
 pub use socketio::publish_companion_state_changed;
