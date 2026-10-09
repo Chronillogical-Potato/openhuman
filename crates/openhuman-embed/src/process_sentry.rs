@@ -163,8 +163,8 @@ pub fn known_noise(event: &Event<'static>) -> Option<&'static str> {
 }
 
 /// The `before_send` hook: drop known noise, otherwise strip the hostname,
-/// fill a missing user id from `user_id`, and scrub secrets from the message
-/// and exception values.
+/// fill a missing user id from `user_id`, and scrub secrets from every
+/// free-form field ([`scrub_event`]).
 pub fn before_send(mut event: Event<'static>, user_id: UserIdSource) -> Option<Event<'static>> {
     if let Some(filter) = known_noise(&event) {
         // Metadata only: the message can carry backend bodies and tokens.
@@ -175,21 +175,69 @@ pub fn before_send(mut event: Event<'static>, user_id: UserIdSource) -> Option<E
         return None;
     }
     event.server_name = None;
-    if event.user.is_none() {
-        event.user = user_id().map(|id| sentry::User {
-            id: Some(id),
-            ..Default::default()
-        });
+    // A user without an id (only an ip or username, say) still gets the
+    // fallback id; whatever else it carries is kept.
+    if event
+        .user
+        .as_ref()
+        .and_then(|user| user.id.as_ref())
+        .is_none()
+    {
+        if let Some(id) = user_id() {
+            event.user.get_or_insert_with(Default::default).id = Some(id);
+        }
+    }
+    scrub_event(&mut event);
+    Some(event)
+}
+
+/// Scrub every free-form field an event can carry to Sentry: the message,
+/// exception values, breadcrumbs, tags, extra data and the request. The
+/// transport submits the envelope as is, and `send_default_pii: false` does
+/// not sanitize fields that code populated explicitly.
+pub fn scrub_event(event: &mut Event<'static>) {
+    if let Some(message) = event.message.take() {
+        event.message = Some(scrub_secrets(&message));
     }
     for exception in &mut event.exception.values {
         if let Some(value) = exception.value.as_deref() {
             exception.value = Some(scrub_secrets(value));
         }
     }
-    if let Some(message) = event.message.take() {
-        event.message = Some(scrub_secrets(&message));
+    for crumb in &mut event.breadcrumbs.values {
+        if let Some(message) = crumb.message.take() {
+            crumb.message = Some(scrub_secrets(&message));
+        }
+        crumb.data.values_mut().for_each(scrub_value);
     }
-    Some(event)
+    event
+        .tags
+        .values_mut()
+        .for_each(|tag| *tag = scrub_secrets(tag));
+    event.extra.values_mut().for_each(scrub_value);
+    if let Some(request) = event.request.as_mut() {
+        request.cookies = None;
+        for field in [&mut request.query_string, &mut request.data] {
+            if let Some(text) = field.take() {
+                *field = Some(scrub_secrets(&text));
+            }
+        }
+        request
+            .headers
+            .values_mut()
+            .for_each(|header| *header = scrub_secrets(header));
+    }
+}
+
+/// Scrub every string inside a JSON value, recursively.
+fn scrub_value(value: &mut sentry::protocol::Value) {
+    use sentry::protocol::Value;
+    match value {
+        Value::String(text) => *text = scrub_secrets(text),
+        Value::Array(items) => items.iter_mut().for_each(scrub_value),
+        Value::Object(map) => map.values_mut().for_each(scrub_value),
+        _ => {}
+    }
 }
 
 /// The shared secret scrubber the chain applies.

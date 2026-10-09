@@ -31,6 +31,29 @@ fn inherited_workspace_without_a_host_credential_keeps_installed_session_policy(
 }
 
 #[test]
+fn a_discovered_build_judges_the_route_by_the_provider_model() {
+    let routed = Provider::openai_compatible("https://llm.example", "sk-test");
+    // Discovered: no config yet, so the provider's own model decides.
+    assert!(routed_provider_effective(
+        &routed.clone().model("gpt-test"),
+        None
+    ));
+    assert!(!routed_provider_effective(&routed, None));
+    assert!(!routed_provider_effective(
+        &Provider::inherit().model("gpt-test"),
+        None
+    ));
+    // Resolved: the assembled config's model decides.
+    let mut config = openhuman_core::config::Config {
+        default_model: Some("gpt-test".into()),
+        ..Default::default()
+    };
+    assert!(routed_provider_effective(&routed, Some(&config)));
+    config.default_model = Some("  ".into());
+    assert!(!routed_provider_effective(&routed, Some(&config)));
+}
+
+#[test]
 fn default_services_start_no_background_writers() {
     // cron, the login-gated services and memory sync each write to the workspace on their
     // own schedule. A library call that started them would become a background
