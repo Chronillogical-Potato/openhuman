@@ -3,24 +3,44 @@ use serde_json::json;
 
 fn expected_schemas() -> Vec<(DesktopToolKind, serde_json::Value)> {
     vec![
-        (DesktopToolKind::Apps, json!({"type":"object","properties":{}})),
-        (DesktopToolKind::Windows, json!({"type":"object","properties":{
-                "app":{"type":"string","description":"Optional application name"}}})),
-        (DesktopToolKind::Launch, json!({"type":"object","properties":{
+        (
+            DesktopToolKind::Apps,
+            json!({"type":"object","properties":{}}),
+        ),
+        (
+            DesktopToolKind::Windows,
+            json!({"type":"object","properties":{
+                "app":{"type":"string","description":"Optional application name"}}}),
+        ),
+        (
+            DesktopToolKind::Launch,
+            json!({"type":"object","properties":{
                 "app":{"type":"string","description":"Application name, e.g. Spotify or TextEdit"}},
-                "required":["app"],"additionalProperties":false})),
-        (DesktopToolKind::Snapshot, json!({"type":"object","properties":{
+                "required":["app"],"additionalProperties":false}),
+        ),
+        (
+            DesktopToolKind::Snapshot,
+            json!({"type":"object","properties":{
                 "app":{"type":"string"}, "window_id":{"type":"string","minLength":1,"description":"Exact window ID from desktop_list_windows"}, "skeleton":{"type":"boolean"},
-                "root_ref":{"type":"string"}, "max_depth":{"type":"integer","minimum":1,"maximum":12}}})),
-        (DesktopToolKind::Find, json!({"type":"object","properties":{
+                "root_ref":{"type":"string"}, "max_depth":{"type":"integer","minimum":1,"maximum":12}}}),
+        ),
+        (
+            DesktopToolKind::Find,
+            json!({"type":"object","properties":{
                 "app":{"type":"string"},"role":{"type":"string"},"name":{"type":"string"},
-                "root":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":20}}})),
-        (DesktopToolKind::Act, json!({"type":"object","properties":{
+                "root":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":20}}}),
+        ),
+        (
+            DesktopToolKind::Act,
+            json!({"type":"object","properties":{
                 "operation":{"type":"string","enum":["click","focus","type","check","uncheck","expand","collapse"]},
                 "ref_id":{"type":"string","description":"Snapshot-qualified ref from desktop_snapshot or desktop_find"},
                 "text":{"type":"string","description":"Required for type"}},
-                "required":["operation","ref_id"]})),
-        (DesktopToolKind::Goal, json!({"type":"object","properties":{
+                "required":["operation","ref_id"]}),
+        ),
+        (
+            DesktopToolKind::Goal,
+            json!({"type":"object","properties":{
                 "app":{"type":"string","description":"Native app to control"},
                 "window":{"type":"string","description":"Optional exact title of an observed app window"},
                 "window_id":{"type":"string","minLength":1,"description":"Optional exact window ID from desktop_list_windows; binds actions and verification to that native window"},
@@ -38,10 +58,14 @@ fn expected_schemas() -> Vec<(DesktopToolKind, serde_json::Value)> {
                 "max_steps":{"type":"integer","minimum":1,"maximum":20},
                 "max_model_calls":{"type":"integer","minimum":1,"maximum":40},
                 "max_elapsed_ms":{"type":"integer","minimum":1000,"maximum":300000}},
-                "required":["app","goal","allowed_operations","allowed_targets","success"],"additionalProperties":false})),
-        (DesktopToolKind::ContinueGoal, json!({"type":"object","properties":{
+                "required":["app","goal","allowed_operations","allowed_targets","success"],"additionalProperties":false}),
+        ),
+        (
+            DesktopToolKind::ContinueGoal,
+            json!({"type":"object","properties":{
                 "confirmation_id":{"type":"string","description":"One-use handle approved by the user in Connections"}},
-                "required":["confirmation_id"]})),
+                "required":["confirmation_id"]}),
+        ),
     ]
 }
 

@@ -29,10 +29,7 @@ macro_rules! static_schema {
     ($src:expr) => {{
         static SCHEMA: ::std::sync::LazyLock<::serde_json::Value> =
             ::std::sync::LazyLock::new(|| {
-                $crate::tools::schema_cache::parse_embedded(
-                    concat!(file!(), ":", line!()),
-                    $src,
-                )
+                $crate::tools::schema_cache::parse_embedded(concat!(file!(), ":", line!()), $src)
             });
         ::std::clone::Clone::clone(&*SCHEMA)
     }};

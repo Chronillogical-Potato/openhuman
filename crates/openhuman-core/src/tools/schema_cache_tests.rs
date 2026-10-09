@@ -12,10 +12,13 @@ fn parse_embedded_panics_with_site_on_malformed_json() {
     parse_embedded("test:1", "{ nope");
 }
 
+fn cached() -> serde_json::Value {
+    static_schema!(r#"{"a":1}"#)
+}
+
 #[test]
 fn static_schema_clones_independently() {
-    let mut first = static_schema!(r#"{"a":1}"#);
+    let mut first = cached();
     first["a"] = serde_json::json!(2);
-    let second = static_schema!(r#"{"a":1}"#);
-    assert_eq!(second["a"], 1);
+    assert_eq!(cached()["a"], 1);
 }
