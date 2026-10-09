@@ -18,9 +18,10 @@
 //! learnings_limit = 8
 //! brain_limit = 6
 //! history_limit = 6
-//! team_limit = 3
+//! team_limit = 0                   # other agents' turns; 0 leaves the section out
 //! build_beliefs_every = 10         # turns between belief builds; 0 turns them off
 //! pre_turn_timeout_ms = 1500
+//! date_hint = false                # a model call works out which days a turn is about
 //! compaction_timeout_ms = 8000
 //! build_delay_secs = 300           # how far belief builds run behind the writes
 //!
@@ -78,11 +79,17 @@ impl fmt::Debug for LegacyBackend {
     }
 }
 
+/// Whether `value` is set (serde's skip test for a field that defaults to
+/// on).
+fn is_true(value: &bool) -> bool {
+    *value
+}
+
 /// The `[memory]` section.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct MemoryConfig {
-    /// The selected engine id (`tinyhumans` or `cortexdb`).
+    /// The selected engine id (`tinyhumans` or `cortexdb`), or `none` when memory is disabled.
     pub engine: String,
     #[serde(rename = "backend", default, skip_serializing)]
     #[schemars(skip)]
@@ -105,6 +112,12 @@ pub struct MemoryConfig {
     /// Unset is the default root.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub root: Option<String>,
+    /// Where memory sits on the engine: `legacy` (the shared
+    /// `app:tinymemory` tree, the default) or `v3` (the signed-in person's
+    /// own `org:<id>` subtree, chats pooled at `ws:main`). Switched by the
+    /// layout migration once the person's memory has moved, never by hand.
+    #[serde(skip_serializing_if = "MemoryLayoutMode::is_legacy")]
+    pub layout: MemoryLayoutMode,
     /// Turn logging.
     pub conversations: MemoryConversationsConfig,
     /// The per-turn context pack and the lifecycle's timings.
@@ -127,6 +140,48 @@ pub struct MemoryConfig {
     /// Per-agent-definition memory settings, keyed by agent definition id.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub agents: BTreeMap<String, MemoryAgentConfig>,
+    /// File GitHub documents one scope per repository
+    /// (`source:github/project:<owner>--<repo>`) rather than all in
+    /// `source:github`. On by default: a turn reads at most four brain
+    /// scopes (the ones its query names, then the most recently written), so
+    /// a scope per repository keeps each one small without adding reads.
+    /// Written only when off, since on is the default.
+    #[serde(skip_serializing_if = "is_true")]
+    pub split_github_by_repo: bool,
+    /// Attribute what memory stores to who said or did it (CortexDB's
+    /// `observed_actor`): an assistant turn to its agent, a synced email to
+    /// its sender. Off by default, and off nothing on the wire changes. Only
+    /// the `cortexdb` engine honours it, and a write CortexDB refuses for it
+    /// is written again without it.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub observed_actor: bool,
+    /// While memory written below the earlier `user:<id>` scope root is
+    /// moved to the person's `org:<id>` root (cortexdb-saas
+    /// `reroot-user-segment`), layout v3 still reads and forgets below it
+    /// too, merged by item id; writes go only to `org:<id>`. On by default;
+    /// turn it off once the move is verified. Written only when off.
+    #[serde(skip_serializing_if = "is_true")]
+    pub legacy_user_segment_read: bool,
+}
+
+/// `[memory] layout`: where memory sits on the engine.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum MemoryLayoutMode {
+    /// The shared `app:tinymemory` tree, as before layout v3.
+    #[default]
+    Legacy,
+    /// The person's own `org:<id>` subtree, every kind under a leaf of its
+    /// own, chats pooled at `ws:main`.
+    V3,
+}
+
+impl MemoryLayoutMode {
+    /// Whether this is the legacy layout (the default, so it is not written).
+    #[must_use]
+    pub fn is_legacy(&self) -> bool {
+        *self == Self::Legacy
+    }
 }
 
 /// `[memory.agents.<definition>]`: one agent definition's memory.
@@ -167,6 +222,7 @@ impl Default for MemoryConfig {
             engines: BTreeMap::new(),
             agent_id: None,
             root: None,
+            layout: MemoryLayoutMode::Legacy,
             conversations: MemoryConversationsConfig::default(),
             recall: MemoryRecallConfig::default(),
             sources: Vec::new(),
@@ -175,6 +231,9 @@ impl Default for MemoryConfig {
             embedding_dimensions: DEFAULT_EMBEDDING_DIMENSIONS,
             embedding_rate_limit_per_min: DEFAULT_EMBEDDING_RATE_LIMIT_PER_MIN,
             agents: BTreeMap::new(),
+            split_github_by_repo: true,
+            observed_actor: false,
+            legacy_user_segment_read: true,
         }
     }
 }
@@ -239,13 +298,19 @@ pub struct MemoryRecallConfig {
     pub brain_limit: u32,
     /// This agent's earlier turns.
     pub history_limit: u32,
-    /// Other agents' turns under the same root; `0` leaves the section out.
+    /// Other agents' turns under the same root; `0`, the default, leaves the
+    /// section out (with pooled chats there is no such section either way).
     pub team_limit: u32,
     /// Turns between belief builds of an agent's conversations; `0` turns
     /// them off.
     pub build_beliefs_every: u32,
     /// How long a turn waits for its pack before running without one.
     pub pre_turn_timeout_ms: u64,
+    /// Whether a small model call, beside the recall, works out which days
+    /// the turn is about so the pack leads with memories from them. Off by
+    /// default: it costs a model call per turn and often misses the
+    /// pre-turn deadline.
+    pub date_hint: bool,
     /// How long a compaction waits for its recalled context.
     pub compaction_timeout_ms: u64,
     /// How long a queued belief build waits before it runs, so the engine's
@@ -261,16 +326,18 @@ impl Default for MemoryRecallConfig {
             learnings_limit: 8,
             brain_limit: 6,
             history_limit: 6,
-            team_limit: 3,
+            team_limit: 0,
             build_beliefs_every: 10,
             pre_turn_timeout_ms: DEFAULT_PRE_TURN_TIMEOUT_MS,
+            date_hint: false,
             compaction_timeout_ms: DEFAULT_COMPACTION_TIMEOUT_MS,
             build_delay_secs: DEFAULT_BUILD_DELAY_SECS,
         }
     }
 }
 
-/// What a document source reads.
+/// What a document source reads. The `composio` kind was removed: a saved
+/// entry of that kind is dropped at load.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum MemorySourceKind {
@@ -284,19 +351,16 @@ pub enum MemorySourceKind {
     Github,
     /// An RSS or Atom feed.
     Rss,
-    /// A connected Composio toolkit.
-    Composio,
 }
 
 impl MemorySourceKind {
     /// Every kind, in display order.
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 5] = [
         Self::Folder,
         Self::File,
         Self::Link,
         Self::Github,
         Self::Rss,
-        Self::Composio,
     ];
 
     /// Wire name.
@@ -308,7 +372,6 @@ impl MemorySourceKind {
             Self::Link => "link",
             Self::Github => "github",
             Self::Rss => "rss",
-            Self::Composio => "composio",
         }
     }
 
@@ -330,7 +393,7 @@ pub struct MemorySourceConfig {
     pub id: String,
     /// What the source reads.
     pub kind: MemorySourceKind,
-    /// Path, URL, `owner/repo`, feed URL or Composio toolkit.
+    /// Path, URL, `owner/repo` or feed URL.
     pub target: String,
     /// Display label.
     #[serde(default)]
@@ -356,7 +419,9 @@ where
 }
 
 /// Decodes source entries leniently: an entry that does not parse is dropped
-/// with a warning naming only its index and reason (never its contents).
+/// with a warning naming only its index and reason (never its contents). This
+/// is also how a saved `composio` source (a removed kind) disappears: its
+/// `kind` no longer parses.
 pub(crate) fn decode_sources_lenient(raw: Vec<serde_json::Value>) -> Vec<MemorySourceConfig> {
     raw.into_iter()
         .enumerate()
@@ -367,7 +432,7 @@ pub(crate) fn decode_sources_lenient(raw: Vec<serde_json::Value>) -> Vec<MemoryS
                     tracing::warn!(
                         index,
                         error = %error,
-                        "[memory:config] dropping unreadable memory source entry"
+                        "[memory:config] dropping unreadable or removed-kind memory source entry"
                     );
                     None
                 }
@@ -379,7 +444,7 @@ pub(crate) fn decode_sources_lenient(raw: Vec<serde_json::Value>) -> Vec<MemoryS
 /// Maps one legacy v1 `[[memory_sources]]` entry onto a v2 source.
 ///
 /// v1 kinds map as `folder`→`folder`, `file`→`file`, `web_page`→`link`,
-/// `github_repo`→`github`, `rss_feed`→`rss`, `composio`→`composio`. The v1
+/// `github_repo`→`github`, `rss_feed`→`rss`. The v1 `composio`,
 /// `twitter_query` and `conversation` kinds have no v2 equivalent and are
 /// dropped, as is anything else unrecognised or missing its target.
 #[must_use]
@@ -399,13 +464,15 @@ pub fn migrate_legacy_source(value: &serde_json::Value) -> Option<MemorySourceCo
         "web_page" => MemorySourceKind::Link,
         "github_repo" => MemorySourceKind::Github,
         "rss_feed" => MemorySourceKind::Rss,
-        "composio" => MemorySourceKind::Composio,
+        "composio" => {
+            tracing::warn!("[memory:config] dropping legacy composio memory source (removed kind)");
+            return None;
+        }
         _ => return None,
     };
     let target = match kind {
         MemorySourceKind::Folder | MemorySourceKind::File => text("path")?,
         MemorySourceKind::Link | MemorySourceKind::Github | MemorySourceKind::Rss => text("url")?,
-        MemorySourceKind::Composio => text("toolkit")?,
     };
     if object.get("enabled").and_then(serde_json::Value::as_bool) == Some(false) {
         return None;

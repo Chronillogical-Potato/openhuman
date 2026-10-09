@@ -138,7 +138,6 @@ pub(super) fn build_session_agent(
     target_agent_id: &str,
     model_override: Option<String>,
     temperature: Option<f64>,
-    locale: Option<&str>,
 ) -> Result<OpenHumanSessionHost, String> {
     let effective = effective_session_config(config, model_override.as_deref(), temperature);
     let provider_role = provider_role_for_model_override(effective.default_model.as_deref());
@@ -150,17 +149,6 @@ pub(super) fn build_session_agent(
         client_id,
         thread_id
     );
-
-    let locale_directive = locale.and_then(locale_reply_directive);
-    if let Some(s) = locale_directive.as_deref() {
-        log::info!(
-            "[web-channel] injecting locale directive client={} thread={} locale={} directive={:?}",
-            client_id,
-            thread_id,
-            locale.unwrap_or(""),
-            s
-        );
-    }
 
     let agent_result = OpenHumanSessionHost::from_config_for_agent(&effective, target_agent_id);
 
@@ -191,21 +179,31 @@ pub(crate) fn locale_reply_directive(locale: &str) -> Option<String> {
     let language = match locale.trim() {
         "ar" => "Arabic",
         "bn" => "Bengali",
+        "de" => "German",
         "es" => "Spanish",
         "fr" => "French",
         "hi" => "Hindi",
         "id" => "Indonesian",
         "it" => "Italian",
+        "ja" => "Japanese",
+        "ko" => "Korean",
+        "pl" => "Polish",
         "pt" => "Portuguese",
         "ru" => "Russian",
+        "tr" => "Turkish",
         "zh-CN" | "zh" => "Simplified Chinese",
         _ => return None,
     };
-    Some(format!(
+    Some(reply_directive_for(language))
+}
+
+/// The reply-language instruction for `language`.
+fn reply_directive_for(language: &str) -> String {
+    format!(
         "User language: the user's interface is set to {language}. \
          Respond in {language} unless the user explicitly asks for a different language. \
          Keep proper nouns, code, and command names untranslated."
-    ))
+    )
 }
 
 /// Byte offset of the first difference between two signature strings, or
@@ -301,6 +299,10 @@ pub(super) fn fingerprint_diff(
             &next.autonomy_signature,
         ));
     }
+    if prior.workspace_dir != next.workspace_dir {
+        // Paths can carry usernames or tenant ids; log only that it moved.
+        diff.push("workspace_dir changed".to_string());
+    }
     if prior.model_registry_signature != next.model_registry_signature {
         diff.push(describe_signature_change(
             "model_registry_signature",
@@ -330,6 +332,7 @@ pub(super) fn build_session_fingerprint(
         target_agent_id,
         autonomy_signature: autonomy_signature(config),
         model_registry_signature: model_registry_signature(config),
+        workspace_dir: config.workspace_dir.clone(),
     }
 }
 
@@ -401,8 +404,12 @@ pub(crate) async fn checkout_session_agent(
     };
 
     let (agent, fingerprint) = match prior {
+        // `AdoptCached` takes the thread's agent whatever settings it was
+        // built with, but never one built for another workspace.
         Some(entry)
-            if entry.fingerprint == fingerprint || policy == CheckoutPolicy::AdoptCached =>
+            if entry.fingerprint == fingerprint
+                || (policy == CheckoutPolicy::AdoptCached
+                    && entry.fingerprint.workspace_dir == fingerprint.workspace_dir) =>
         {
             log::info!(
                 "[web-channel] reusing cached session agent id={} for client={} thread={}",
@@ -442,7 +449,6 @@ pub(crate) async fn checkout_session_agent(
                     &target_agent_id,
                     model_override,
                     temperature,
-                    locale,
                 )?,
                 fingerprint,
             )
@@ -455,11 +461,39 @@ pub(crate) async fn checkout_session_agent(
                 &target_agent_id,
                 model_override,
                 temperature,
-                locale,
             )?,
             fingerprint,
         ),
     };
+
+    // Every checkout re-arms the reply language from this turn's locale: a
+    // reused agent may have been built under a different one, and `None`
+    // (English, or no locale sent) must clear a stale instruction.
+    let mut agent = agent;
+    let directive = match locale.and_then(locale_reply_directive) {
+        Some(directive) => Some(directive),
+        // Messages this session already sent carry another language's
+        // directive; an explicit English one supersedes them rather than
+        // leaving the last of them standing in the history.
+        None if locale.map(str::trim) == Some("en")
+            && agent.reply_language_directive().is_some() =>
+        {
+            Some(reply_directive_for("English"))
+        }
+        None => None,
+    };
+    if directive.is_some() {
+        log::info!(
+            "[web-channel] reply language directive armed client={} thread={} locale={}",
+            client_id,
+            thread_id,
+            locale.unwrap_or("")
+        );
+    }
+    agent.set_reply_language_directive(directive);
+    // Re-read per message too, so a zone changed in Settings applies to the
+    // next message of an open conversation.
+    agent.set_time_zone(Some(config.time_zone()));
 
     // Cold-boot resume needs no seeding here. `set_thread_id` binds the
     // session's durable identity and the turn resumes by it, reading the one

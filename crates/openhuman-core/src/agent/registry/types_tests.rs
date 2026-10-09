@@ -31,6 +31,7 @@ fn subagent_policy_serializes_as_section() {
         system_prompt: None,
         tool_allowlist: Vec::new(),
         tool_denylist: Vec::new(),
+        tool_rules: None,
         subagents: AgentSubagentPolicy::from_allowlist(vec!["researcher".to_string()]),
         tags: Vec::new(),
         metadata: Value::Null,

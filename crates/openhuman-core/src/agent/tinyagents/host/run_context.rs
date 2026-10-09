@@ -62,7 +62,13 @@ pub(crate) fn direct_subagent_child(
         .data
         .child()
         .with_cancellation(parent.cancellation.clone());
-    let child = parent.child(child_config, child_data)?;
+    let mut child = parent.child(child_config, child_data)?;
+    // TinyAgents gives the child a linked `child_token()` of the parent's, so a
+    // parent cancel cascades down but cancelling the child (policy timeout,
+    // steering) leaves the parent running. Point the host carrier at that same
+    // child token; otherwise it keeps the parent's token and the host tools
+    // observe (and could trigger) the wrong scope.
+    child.data.cancellation = child.cancellation.clone();
     Ok((task_key, child))
 }
 
@@ -84,6 +90,10 @@ pub struct LastTurnUsage {
     pub cost_usd: f64,
     pub context_window: u64,
     pub subagents: Vec<SubagentUsageEntry>,
+    /// Reasoning/thinking tokens the turn's own model calls spent. Reported
+    /// only for a turn run with a response-shape scope (library agent turns,
+    /// `agent::tinyagents::response_shape`); `0` elsewhere.
+    pub reasoning_tokens: u64,
 }
 
 /// Runtime-written sidecars for one OpenHuman session transition.
@@ -294,6 +304,13 @@ pub struct OpenHumanRunContext {
     /// harness keeps them off the wire, indexes them for search and still
     /// admits a call by name. Empty for every turn without such a list.
     pub(crate) deferred_tool_names: Arc<std::collections::HashSet<String>>,
+    /// Tool rules for this turn (`crate::tools::rules`): the operator's and
+    /// the agent definition's layers, evaluated in this turn's channel/agent
+    /// context. Installed as the harness `RunPolicy::tool_rules`, which
+    /// applies them to the catalogue, `tool_search` and every call. A child
+    /// run inherits its parent's layers (see [`Self::child`]) and may only add
+    /// to them. `None` restricts nothing.
+    pub(crate) tool_rules: Option<Arc<tinyagents_harness::tool::ToolRulePolicy>>,
     /// Context middleware snapshot prepared for this exact turn.
     pub(crate) context_middleware: Option<TurnContextMiddleware>,
     /// Model/harness sidecars consumed only after a durable commit.
@@ -357,6 +374,7 @@ impl OpenHumanRunContext {
             current_tools: None,
             current_synthesized_tools: None,
             deferred_tool_names: Arc::new(std::collections::HashSet::new()),
+            tool_rules: None,
             context_middleware: None,
             session_sidecar: Arc::new(Mutex::new(SessionTurnSidecar::default())),
             required_output: None,

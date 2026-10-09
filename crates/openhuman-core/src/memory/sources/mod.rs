@@ -1,14 +1,12 @@
 //! Document sources: the registry persisted in `[[memory.sources]]`, and sync.
 //!
 //! A source names something to read — a folder, a file, a web page, a GitHub
-//! repository, an RSS feed or a connected Composio toolkit — and how often.
-//! Sync reads it through `tinymemory-sources` (or, for Composio, the connector
-//! module) and stores each item as a `Document` whose `meta.source` is
+//! repository or an RSS feed — and how often. Sync reads it through
+//! `tinymemory-integrations`' readers and stores each item as a `Document` whose `meta.source` is
 //! `{kind, id: <source id>}`, so removing a source can forget exactly its
 //! items. Sync runs on demand ([`start_sync`]) and from the
 //! `memory_sources_sync` cron job ([`sync_due`]).
 
-pub mod composio;
 pub mod state;
 mod sync;
 
@@ -58,7 +56,7 @@ pub fn list(config: &Config) -> Vec<SourceView> {
 }
 
 /// Normalises a target for `kind`: GitHub accepts `owner/repo` or a URL;
-/// network kinds must be http(s) URLs; a Composio target is a toolkit slug.
+/// network kinds must be http(s) URLs.
 pub fn normalize_target(kind: MemorySourceKind, target: &str) -> MemoryResult<String> {
     let target = target.trim();
     if target.is_empty() {
@@ -81,16 +79,6 @@ pub fn normalize_target(kind: MemorySourceKind, target: &str) -> MemoryResult<St
             }
         }
         MemorySourceKind::Link | MemorySourceKind::Rss => http_url(target),
-        MemorySourceKind::Composio => {
-            if target
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
-            {
-                Ok(target.to_ascii_lowercase())
-            } else {
-                Err(MemoryError::invalid("a Composio target is a toolkit slug"))
-            }
-        }
     }
 }
 
@@ -110,7 +98,7 @@ pub fn apply_add(
 ) -> MemoryResult<MemorySourceConfig> {
     let kind = MemorySourceKind::parse(&params.kind).ok_or_else(|| {
         MemoryError::invalid(format!(
-            "unknown source kind `{}` (folder, file, link, github, rss, composio)",
+            "unknown source kind `{}` (folder, file, link, github, rss)",
             params.kind.trim()
         ))
     })?;
@@ -167,19 +155,33 @@ pub fn apply_remove(config: &mut Config, id: &str) -> Option<MemorySourceConfig>
     Some(removed)
 }
 
-/// Forgets every item source `id` stored. Memory off is not an error here:
-/// there is nothing reachable to forget.
+/// Forgets, for good, every item source `id` stored (by `memory_ids`, with
+/// an explicit `redact_events` cascade). Memory off is not an error here:
+/// the deletion is queued ([`crate::memory::deletion`]) and runs on the next
+/// sign-in. A failure is queued the same way, and returned.
 pub async fn forget_items(config: &Config, id: &str) -> MemoryResult<usize> {
+    let pending = || crate::memory::deletion::PendingDeletion::Source {
+        source_id: id.to_string(),
+    };
     let bound = match engine::resolve(config).engine() {
         Ok(bound) => bound,
-        Err(MemoryError::Off(_)) => return Ok(0),
+        Err(MemoryError::Off(_)) => {
+            crate::memory::deletion::enqueue(&config.workspace_dir, pending());
+            return Ok(0);
+        }
         Err(error) => return Err(error),
     };
     let filter = MetaFilter {
         source_id: Some(id.to_string()),
         ..MetaFilter::default()
     };
-    let report = bound.engine.forget(ForgetTarget::Filter(filter)).await?;
+    let report = match bound.engine.forget(ForgetTarget::Filter(filter)).await {
+        Ok(report) => report,
+        Err(error) => {
+            crate::memory::deletion::enqueue(&config.workspace_dir, pending());
+            return Err(error.into());
+        }
+    };
     tracing::debug!(id = %id, forgotten = report.forgotten, "[memory:sources] items forgotten");
     Ok(report.forgotten)
 }

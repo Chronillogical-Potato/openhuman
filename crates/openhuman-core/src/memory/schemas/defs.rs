@@ -4,7 +4,7 @@
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 /// Every function of the namespace, in spec order.
-pub const FUNCTIONS: [&str; 29] = [
+pub const FUNCTIONS: [&str; 35] = [
     "engines_list",
     "engine_get",
     "engine_set",
@@ -15,6 +15,7 @@ pub const FUNCTIONS: [&str; 29] = [
     "fetch",
     "learn",
     "forget",
+    "erase_all",
     "items_list",
     "explore",
     "items_get",
@@ -34,6 +35,11 @@ pub const FUNCTIONS: [&str; 29] = [
     "import_scan",
     "import_start",
     "import_status",
+    "import_retry_failed",
+    "migration_scan",
+    "migration_start",
+    "migration_status",
+    "migration_retry",
 ];
 
 fn field(name: &'static str, ty: TypeSchema, comment: &'static str, required: bool) -> FieldSchema {
@@ -169,11 +175,24 @@ pub fn schema(function: &str) -> ControllerSchema {
             inputs: vec![req("ids", TypeSchema::Array(Box::new(TypeSchema::String)), "Item ids."), reach()],
             outputs: out("{forgotten: number}"),
         },
+        "erase_all" => ControllerSchema {
+            namespace: "memory",
+            function: "erase_all",
+            description: "Erase all memory the bound engine holds, for good. On the hosted engine this erases the account's entire hosted memory.",
+            inputs: vec![req("confirm", TypeSchema::Bool, "Must be true: nothing erased comes back.")],
+            outputs: out("{erased_scopes: number}"),
+        },
         "items_list" => ControllerSchema {
             namespace: "memory",
             function: "items_list",
             description: "Page through stored items, newest first.",
-            inputs: vec![filter(), limit(), cursor(), path()],
+            inputs: vec![
+                filter(),
+                limit(),
+                cursor(),
+                path(),
+                opt("preview", TypeSchema::Bool, "Snippet listing: a conversation or chunked document may carry only its start; read it whole with items_get."),
+            ],
             outputs: out("{items: Hit[], next_cursor?}"),
         },
         "explore" => ControllerSchema {
@@ -201,7 +220,7 @@ pub fn schema(function: &str) -> ControllerSchema {
             function: "policy_get",
             description: "The memory lifecycle's policy: turn logging, the per-turn pack and its budgets, and the root and agent id work outside an agent resolves to.",
             inputs: vec![],
-            outputs: out("{log_conversations, recall: {enabled, budget_tokens, learnings_limit, brain_limit, history_limit, team_limit, build_beliefs_every, pre_turn_timeout_ms, compaction_timeout_ms, build_delay_secs}, root, agent_id, host_bound}"),
+            outputs: out("{log_conversations, recall: {enabled, budget_tokens, learnings_limit, brain_limit, history_limit, team_limit, build_beliefs_every, pre_turn_timeout_ms, date_hint, compaction_timeout_ms, build_delay_secs}, root, agent_id, host_bound}"),
         },
         "policy_set" => ControllerSchema {
             namespace: "memory",
@@ -360,6 +379,41 @@ pub fn schema(function: &str) -> ControllerSchema {
             description: "Progress of the v1 import.",
             inputs: vec![],
             outputs: out("{state: ImportState}"),
+        },
+        "import_retry_failed" => ControllerSchema {
+            namespace: "memory",
+            function: "import_retry_failed",
+            description: "Store again the items a finished v1 import skipped because the engine refused them.",
+            inputs: vec![],
+            outputs: out("{state: ImportState}"),
+        },
+        "migration_scan" => ControllerSchema {
+            namespace: "memory",
+            function: "migration_scan",
+            description: "Whether memory from before the per-user layout is left to move.",
+            inputs: vec![],
+            outputs: out("{needed: bool, shared: bool}"),
+        },
+        "migration_start" => ControllerSchema {
+            namespace: "memory",
+            function: "migration_start",
+            description: "Move memory from before the per-user layout now. takeover: true agrees to take a legacy tree other accounts on this machine may share.",
+            inputs: vec![opt("takeover", TypeSchema::Bool, "Consent to take a shared legacy tree.")],
+            outputs: out("{state: MigrationState, running: bool, interrupted: bool}"),
+        },
+        "migration_status" => ControllerSchema {
+            namespace: "memory",
+            function: "migration_status",
+            description: "Progress of the move into the per-user layout.",
+            inputs: vec![],
+            outputs: out("{state: MigrationState, running: bool, interrupted: bool}"),
+        },
+        "migration_retry" => ControllerSchema {
+            namespace: "memory",
+            function: "migration_retry",
+            description: "Put the items the move could not store back in line for the next run.",
+            inputs: vec![],
+            outputs: out("MigrationState"),
         },
         _ => ControllerSchema {
             namespace: "memory",

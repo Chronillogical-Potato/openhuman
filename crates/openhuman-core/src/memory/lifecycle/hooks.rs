@@ -170,6 +170,11 @@ pub struct PreTurnInput {
     /// The session resumes a thread whose earlier turns were compacted out
     /// of the prompt: the pack opens with what the thread holds.
     pub resumed_after_compaction: bool,
+    /// Who sent the message, when it is someone other than the memory's
+    /// owner: a channel's sender ([`super::sender::channel_actor`]). Logged
+    /// as the turn's observed actor, which the engine sends only with
+    /// `[memory] observed_actor` on.
+    pub observed_actor: Option<tinymemory_api::ObservedActor>,
 }
 
 /// Logs the user turn and recalls the pack it is given, within
@@ -216,6 +221,23 @@ pub async fn pre_turn(
     let thread_id = input.thread_id.clone();
     let agent_id = identity.agent_id.clone();
     let started = std::time::Instant::now();
+    let timeout = Duration::from_millis(config.memory.recall.pre_turn_timeout_ms.max(1));
+    // Runs beside the turn log and the reads (tinymemory joins all three) and
+    // answers by the turn's own deadline less a margin, counted from now, so
+    // the pack is still ranked and returned before the turn stops waiting.
+    let date_hint = (recall && logging && config.memory.recall.date_hint).then(|| {
+        let config = config.clone();
+        let text = input.user_text.clone();
+        let deadline =
+            tokio::time::Instant::now() + timeout.saturating_sub(Duration::from_millis(100));
+        async move {
+            let zone = config.time_zone();
+            tokio::time::timeout_at(deadline, super::date_hint::extract(&config, &text, &zone))
+                .await
+                .ok()
+                .flatten()
+        }
+    });
     let task = tokio::spawn(async move {
         // The first turn after a compaction gets one pack that leads with the
         // thread's earlier turns, under the turn's own budget and dedupe.
@@ -225,10 +247,11 @@ pub async fn pre_turn(
                 let mut pre = PreTurn::new(&input.thread_id, input.turn_index, &input.user_text);
                 pre.in_prompt_from = input.in_prompt_from;
                 pre.at = Some(input.at);
-                let context = if resumed {
-                    memory.pre_turn_resumed(pre).await
-                } else {
-                    memory.pre_turn(pre).await
+                pre.observed_actor = input.observed_actor.clone();
+                let context = match date_hint {
+                    Some(hint) => memory.pre_turn_dated(pre, resumed, hint).await,
+                    None if resumed => memory.pre_turn_resumed(pre).await,
+                    None => memory.pre_turn(pre).await,
                 };
                 match context {
                     Ok(context) => {
@@ -280,7 +303,6 @@ pub async fn pre_turn(
             TurnPack::refused(&error, engine_id)
         })
     });
-    let timeout = Duration::from_millis(config.memory.recall.pre_turn_timeout_ms.max(1));
     let pack = match tokio::time::timeout(timeout, task).await {
         Ok(Ok(pack)) => pack,
         Ok(Err(error)) => {

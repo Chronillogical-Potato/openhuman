@@ -17,6 +17,7 @@ fn channel_message(channel: &str, reply_target: &str, content: &str) -> ChannelM
         channel: channel.to_string(),
         timestamp: 1,
         thread_ts: None,
+        sender_name: None,
     }
 }
 

@@ -7,7 +7,6 @@ fn desktop_plan_enables_every_job() {
     assert_eq!(
         plan,
         BootstrapJobPlan {
-            composio_integration_sync: true,
             memory_jobs: true,
             task_source_pollers: true,
             module_preload: true,
@@ -19,7 +18,6 @@ fn desktop_plan_enables_every_job() {
 #[test]
 fn job_free_presets_enable_nothing() {
     let empty = BootstrapJobPlan {
-        composio_integration_sync: false,
         memory_jobs: false,
         task_source_pollers: false,
         module_preload: false,
@@ -34,7 +32,7 @@ fn each_concern_flag_enables_exactly_its_job() {
     let mut integrations = ServiceSet::none();
     integrations.integrations = true;
     let plan = bootstrap_job_plan(&integrations);
-    assert!(plan.composio_integration_sync);
+    assert!(plan.module_preload);
     assert!(!plan.memory_jobs);
     assert!(!plan.task_source_pollers);
 
@@ -42,7 +40,7 @@ fn each_concern_flag_enables_exactly_its_job() {
     memory_sync.memory_sync = true;
     let plan = bootstrap_job_plan(&memory_sync);
     assert!(plan.memory_jobs);
-    assert!(!plan.composio_integration_sync);
+    assert!(!plan.module_preload);
     assert!(!plan.task_source_pollers);
 }
 
@@ -52,7 +50,7 @@ fn disabling_one_concern_disables_only_its_job() {
     let mut services = ServiceSet::desktop();
     services.integrations = false;
     let plan = bootstrap_job_plan(&services);
-    assert!(!plan.composio_integration_sync);
+    assert!(!plan.module_preload);
     assert!(plan.memory_jobs);
     assert!(plan.task_source_pollers);
 
@@ -60,7 +58,7 @@ fn disabling_one_concern_disables_only_its_job() {
     services.memory_sync = false;
     let plan = bootstrap_job_plan(&services);
     assert!(!plan.memory_jobs);
-    assert!(plan.composio_integration_sync);
+    assert!(plan.module_preload);
 }
 
 /// `channels` gates NO bootstrap job.

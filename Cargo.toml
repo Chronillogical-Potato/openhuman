@@ -29,13 +29,16 @@ exclude = [
 ]
 
 [workspace.package]
-version = "0.64.12"
+version = "0.64.15"
 edition = "2021"
 license = "GPL-3.0-only"
 repository = "https://github.com/tinyhumansai/openhuman"
 
 [workspace.dependencies]
-openhuman-core = { path = "crates/openhuman-core", package = "openhuman" }
+# The library chain: core -> embed -> tinyhumans -> rpc -> app/cli/tui. Hosts
+# name `openhuman-rpc` only (`scripts/ci/check-crate-chain.mjs`). There is no
+# `openhuman-core` entry on purpose: one spelled here carried the core's whole
+# `default` feature set into whichever member named it.
 openhuman-rpc = { path = "crates/openhuman-rpc", default-features = false }
 openhuman-embed = { path = "crates/openhuman-embed", default-features = false }
 openhuman-tinyhumans = { path = "crates/openhuman-tinyhumans", default-features = false }
@@ -48,6 +51,14 @@ openhuman-tinyhumans = { path = "crates/openhuman-tinyhumans", default-features 
 # `Tool` trait. Without this, MCP tools would not satisfy the harness's trait.
 tinytools = { path = "vendor/tinyagents/vendor/tinytools/crates/tinytools" }
 tinytools-agent = { path = "vendor/tinyagents/vendor/tinytools/crates/tinytools-agent" }
+
+[patch."https://github.com/tinyhumansai/tinystoragedrivers"]
+# tinyflows names the storage crates by git tag so it can build on its own.
+# Redirect them to the copy tinyagents vendors — the one the session store and
+# the core `storage` domain link — so there is exactly one `DocumentStore`
+# trait and one `libsqlite3-sys` (`links = "sqlite3"`) in the graph.
+tinystoragedrivers-core = { path = "vendor/tinyagents/vendor/tinystoragedrivers/crates/tinystoragedrivers-core" }
+tinystoragedrivers-sqlite = { path = "vendor/tinyagents/vendor/tinystoragedrivers/crates/tinystoragedrivers-sqlite" }
 
 [patch."https://github.com/tinyhumansai/tinyinference"]
 tinyinference-core = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }

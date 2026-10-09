@@ -63,3 +63,51 @@ async fn the_tools_own_deadline_says_it_was_timeout_secs() {
         "tool timeout not attributed: {out}"
     );
 }
+
+/// "timed out … and was killed" has to be true of the whole pipeline, not just
+/// the shell: the model acts on that message, and a survivor keeps consuming
+/// the container the model is still working in.
+#[cfg(not(windows))]
+#[tokio::test]
+async fn the_tools_deadline_kills_the_commands_grandchildren_too() {
+    let dir = std::env::temp_dir().join(format!("oh-shell-pgkill-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let pidfile = dir.join("grandchild.pid");
+    let tool = ShellTool::new(
+        test_security(AutonomyLevel::Full),
+        test_runtime(),
+        test_audit(),
+    );
+    let result = tool
+        .execute(json!({
+            "command": format!("sleep 30 & echo $! > {}; wait", pidfile.display()),
+            "timeout_secs": 1
+        }))
+        .await
+        .unwrap();
+    assert!(result.is_error);
+    assert!(
+        result.output().contains("timed out after 1s"),
+        "{}",
+        result.output()
+    );
+
+    let grandchild: i32 = std::fs::read_to_string(&pidfile)
+        .expect("the shell wrote its background child's pid before the deadline")
+        .trim()
+        .parse()
+        .unwrap();
+    let mut gone = false;
+    for _ in 0..100 {
+        if unsafe { libc::kill(grandchild, 0) } != 0 {
+            gone = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(
+        gone,
+        "grandchild {grandchild} survived the shell tool's deadline"
+    );
+}

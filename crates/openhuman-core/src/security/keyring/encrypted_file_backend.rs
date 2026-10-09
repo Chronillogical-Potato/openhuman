@@ -45,6 +45,11 @@ type MasterKeyInit = Result<Option<[u8; KEY_LEN]>, String>;
 /// Process-wide master-key outcome, set once by [`init_master_key`].
 static MASTER_KEY: OnceLock<MasterKeyInit> = OnceLock::new();
 
+/// Set when [`init_master_key`] found the OS keychain unable to provide the
+/// key, so storage secrets reuse that outcome instead of retrying the
+/// keychain (and its prompt) on their first operation.
+static KEYCHAIN_UNAVAILABLE: OnceLock<()> = OnceLock::new();
+
 // ── Public API for core startup ──────────────────────────────────────────────
 
 /// Initialize the keyring subsystem: set the workspace directory and load
@@ -109,10 +114,51 @@ pub fn init_master_key() -> Result<(), String> {
                 // Surface the denied state to the frontend instead of silently
                 // resetting — this is the "warn before reset" the issue asks for.
                 crate::security::keyring_consent::policy::notify_master_key_unavailable(&e);
+                let _ = KEYCHAIN_UNAVAILABLE.set(());
                 Ok(None)
             }
         }
     })
+}
+
+/// The master key that encrypts secrets on a configured storage backend
+/// ([`crate::storage::secrets`]): the key [`init_master_key`] loaded when
+/// there is one, otherwise the same resolution run once for storage —
+/// [`MASTER_KEY_ENV`] / [`MASTER_KEY_FILE_ENV`] first, then the OS keychain.
+///
+/// # Errors
+///
+/// When no source can provide the key. Storage secrets then fail closed:
+/// they are never written unencrypted or under a freshly minted key that
+/// would orphan the ones already stored.
+pub(crate) fn storage_master_key() -> Result<[u8; KEY_LEN], String> {
+    // Only a loaded key is cached: a failure (locked keychain, denied prompt)
+    // is retried on the next call so secrets recover once access is restored.
+    static STORAGE_MASTER_KEY: OnceLock<[u8; KEY_LEN]> = OnceLock::new();
+    if let Some(Ok(Some(key))) = MASTER_KEY.get() {
+        return Ok(*key);
+    }
+    // `init_master_key` already tried the keychain this session and it
+    // failed: reuse that outcome, do not prompt again. (`Ok(None)` alone also
+    // means "backend needs no key / init skipped", which must still load.)
+    if KEYCHAIN_UNAVAILABLE.get().is_some() {
+        return Err("OS keychain master key unavailable this session".into());
+    }
+    if let Some(key) = STORAGE_MASTER_KEY.get() {
+        return Ok(*key);
+    }
+    match try_load_master_key() {
+        Ok((key, source)) => {
+            log::info!("[keyring:storage] master key loaded from {source}");
+            Ok(*STORAGE_MASTER_KEY.get_or_init(|| key))
+        }
+        Err(MasterKeyError::Configured(_) | MasterKeyError::Keychain(_)) => {
+            // Fixed message: the underlying error can carry a path taken
+            // from `MASTER_KEY_FILE_ENV`.
+            log::error!("[keyring:storage] master key unavailable");
+            Err("master key unavailable".into())
+        }
+    }
 }
 
 /// Runs `init` at most once per `cell` and reports its outcome on every call.

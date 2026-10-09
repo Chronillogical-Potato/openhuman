@@ -1,5 +1,6 @@
 //! `dry_run_workflow`: execute a DRAFT against tinyflows MOCK capabilities (ungated, F7).
 
+use crate::tools::schema_cache::static_schema;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -142,31 +143,7 @@ impl Tool for DryRunWorkflowTool {
     }
 
     fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "draft_id": {
-                    "type": "string",
-                    "description": "A working draft to simulate. Provide one of draft_id / flow_id / graph (draft_id wins)."
-                },
-                "flow_id": {
-                    "type": "string",
-                    "description": "A saved flow to simulate. Provide one of draft_id / flow_id / graph."
-                },
-                "graph": {
-                    "type": "object",
-                    "description": "An inline tinyflows WorkflowGraph to simulate: { nodes: [...], edges: [...] }. Provide one of draft_id / flow_id / graph.",
-                    "properties": {
-                        "nodes": { "type": "array" },
-                        "edges": { "type": "array" }
-                    },
-                    "required": ["nodes", "edges"]
-                },
-                "input": {
-                    "description": "Optional trigger input passed to the run (defaults to {})."
-                }
-            }
-        })
+        static_schema!(include_str!("parameters/dry_run_workflow.json"))
     }
 
     fn permission_level(&self) -> PermissionLevel {
@@ -420,3 +397,7 @@ impl Tool for DryRunWorkflowTool {
         }))?))
     }
 }
+
+#[cfg(test)]
+#[path = "dry_run_schema_tests.rs"]
+mod schema_tests;

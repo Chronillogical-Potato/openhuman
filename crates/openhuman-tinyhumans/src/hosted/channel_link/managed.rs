@@ -10,10 +10,10 @@ use tinychannels_bus::controllers::{
     TelegramLoginCheckResult, TelegramLoginStartResult,
 };
 
-use openhuman_core::config::app_env::{app_env_from_env, is_staging_app_env};
-use openhuman_core::config::Config;
-use openhuman_core::core::Outcome;
-use openhuman_core::security::credentials;
+use openhuman_embed::__host::config::app_env::{app_env_from_env, is_staging_app_env};
+use openhuman_embed::__host::config::Config;
+use openhuman_embed::__host::core::Outcome;
+use openhuman_embed::__host::security::credentials;
 
 use super::ops::link_token_payload;
 use crate::hosted::client::HostedClient;

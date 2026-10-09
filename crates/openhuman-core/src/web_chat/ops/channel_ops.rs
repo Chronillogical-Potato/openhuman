@@ -114,6 +114,18 @@ async fn cancel_chat_inner(
     // system turn on the thread, which reads as "Stop did nothing". Abort them
     // first, then drop anything already queued for delivery, so no result lands
     // in the gap. A scoped cancel names one turn and leaves the rest alone.
+    // A turn cancelled cooperatively may never publish a terminal event, which
+    // would leave its session marked busy and defer this thread's background
+    // deliveries until restart.
+    //
+    // Only once nothing is left running on the thread: a scoped cancel can leave
+    // the primary or a parallel turn alive, and those still owe a terminal event.
+    if cancelled_any.is_some() && !thread_has_live_turn(thread_id, &map_key).await {
+        crate::agent::orchestration::background_delivery::clear_busy_for_thread(thread_id);
+        // A drain that fired while the cancelled turn counted as busy returned
+        // without claiming anything; ask for another.
+        crate::agent::orchestration::background_delivery::kick_delivery(thread_id);
+    }
     let subagents_cancelled = if request_id.is_none() {
         // Gate completion recording before aborting: Tokio abort is
         // cooperative, so a child already finishing can otherwise enqueue in
@@ -171,6 +183,18 @@ async fn cancel_chat_inner(
     })
 }
 
+/// Is a primary or parallel turn still running on `thread_id`?
+async fn thread_has_live_turn(thread_id: &str, map_key: &str) -> bool {
+    if IN_FLIGHT.lock().await.contains_key(map_key) {
+        return true;
+    }
+    super::state::PARALLEL_IN_FLIGHT
+        .lock()
+        .await
+        .values()
+        .any(|entry| entry.thread_id == thread_id)
+}
+
 pub async fn channel_web_chat(
     client_id: &str,
     thread_id: &str,
@@ -182,6 +206,9 @@ pub async fn channel_web_chat(
     run_mode: Option<String>,
     metadata: ChatRequestMetadata,
 ) -> Result<Outcome<Value>, String> {
+    // A SaaS user chooses the thread id; the same rules as `threads_upsert`
+    // apply (no reserved prefixes, no path-like ids). No-op outside SaaS.
+    crate::user_agents::surface::check_thread_id(thread_id.trim())?;
     // Mirrors the socket `chat:start` payload's `run_mode` handling
     // (`openhuman_rpc::server::socketio`): apply it before starting the turn so
     // `plan_mode_middleware` sees the requested mode from the first tool

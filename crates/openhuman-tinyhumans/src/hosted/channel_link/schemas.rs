@@ -2,10 +2,10 @@ use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
-use openhuman_core::config::rpc as config_rpc;
-use openhuman_core::core::all::{ControllerFuture, RegisteredController};
-use openhuman_core::core::Outcome;
-use openhuman_core::core::{ControllerSchema, FieldSchema, TypeSchema};
+use openhuman_embed::__host::config::rpc as config_rpc;
+use openhuman_embed::__host::core::all::{ControllerFuture, RegisteredController};
+use openhuman_embed::__host::core::Outcome;
+use openhuman_embed::__host::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -83,7 +83,7 @@ pub fn channel_link_schemas(function: &str) -> ControllerSchema {
             }],
         },
         f if CHANNEL_FUNCTIONS.contains(&f) => {
-            openhuman_core::channels::contract_schema::contract_controller_schema(f)
+            openhuman_embed::__host::channels::contract_schema::contract_controller_schema(f)
         }
         _ => ControllerSchema {
             namespace: "auth",

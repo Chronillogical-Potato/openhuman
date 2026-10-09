@@ -109,13 +109,9 @@ fn read(workspace_dir: &Path) -> JobQueue {
 
 fn write(workspace_dir: &Path, queue: &JobQueue) {
     let file = path(workspace_dir);
-    let result = file
-        .parent()
-        .map_or(Ok(()), std::fs::create_dir_all)
-        .and_then(|()| {
-            let json = serde_json::to_vec_pretty(queue).map_err(std::io::Error::other)?;
-            std::fs::write(&file, json)
-        });
+    let result = serde_json::to_vec_pretty(queue)
+        .map_err(std::io::Error::other)
+        .and_then(|json| crate::memory::files::write_private(&file, &json));
     if let Err(error) = result {
         tracing::warn!(%error, "[memory:jobs] writing the job queue failed");
     }
@@ -164,6 +160,12 @@ pub async fn enqueue(config: &Config, root: &Namespace, jobs: Vec<BackgroundJob>
     if added > 0 {
         write(&config.workspace_dir, &queue);
     }
+}
+
+/// Whether `workspace_dir` has queued jobs waiting. A cheap, lock-free read
+/// for a host deciding which workspaces are worth a run.
+pub fn has_pending(workspace_dir: &Path) -> bool {
+    !read(workspace_dir).pending.is_empty()
 }
 
 /// The queue as it stands.

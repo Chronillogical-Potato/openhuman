@@ -82,6 +82,7 @@ function stateOf(activity: SubagentActivity): TaskCardState {
   if (isActiveTimelineStatus(activity.status)) return 'working';
   if (activity.status === 'failed') return 'failed';
   if (activity.status === 'cancelled') return 'cancelled';
+  if (activity.status === 'incomplete') return 'incomplete';
   return 'done';
 }
 
@@ -140,11 +141,20 @@ export function SubagentActivityCard({ activity }: { activity: SubagentActivity 
   const name = activity.displayName ?? activity.agentId ?? 'subagent';
   const elapsed = activity.elapsedMs !== undefined ? formatElapsed(activity.elapsedMs) : undefined;
   const awaiting = state === 'waiting';
+  const incomplete = state === 'incomplete';
   const hasTranscript = (activity.transcript?.length ?? 0) > 0 || activity.toolCalls.length > 0;
 
   const actions =
-    awaiting || activity.worktreePath ? (
+    awaiting || incomplete || activity.worktreePath ? (
       <div className="flex flex-col gap-2.5">
+        {incomplete ? (
+          <p
+            role="status"
+            data-testid="subagent-incomplete"
+            className="text-[12px] font-medium text-amber-800 dark:text-amber-200">
+            {t('conversations.subagent.incompleteTitle')}
+          </p>
+        ) : null}
         {awaiting ? (
           <div data-testid="subagent-awaiting-user" className="flex flex-col gap-1.5">
             <p className="text-[12px] font-medium text-amber-800 dark:text-amber-200">
@@ -164,7 +174,7 @@ export function SubagentActivityCard({ activity }: { activity: SubagentActivity 
     ) : undefined;
 
   const resultNode =
-    activity.output && (state === 'done' || state === 'failed') ? (
+    activity.output && (state === 'done' || state === 'failed' || state === 'incomplete') ? (
       <p className="m-0 whitespace-pre-wrap">{activity.output}</p>
     ) : undefined;
 

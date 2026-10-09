@@ -362,6 +362,29 @@ impl ShellTool {
             );
         }
 
+        // SaaS: every command runs in the user's container, whatever the
+        // agent's sandbox mode says, and never on the host.
+        if crate::core::runtime::is_saas() {
+            let action_dir = self.effective_action_dir_for_context(context);
+            return match crate::user_agents::tools::sandbox_policy(
+                &action_dir,
+                &self.security.workspace_dir,
+            ) {
+                Ok(policy) => {
+                    self.run_in_policy(policy, command, requested_timeout, &action_dir)
+                        .await
+                }
+                Err(why) => {
+                    tracing::warn!(reason = %why, "[shell] SaaS sandbox refused the command");
+                    // Nothing ran: report it as not allowed.
+                    (
+                        false,
+                        ToolResult::error(format!("Sandbox unavailable: {why}")),
+                    )
+                }
+            };
+        }
+
         // When the agent's sandbox mode is `Sandboxed`, route execution
         // through the sandbox backend (Docker or OS-level jail) instead
         // of the normal runtime. Security checks above still apply.
@@ -437,7 +460,7 @@ impl ShellTool {
             if explicit_timeout.is_some() { "explicit" } else { "no" }
         );
         let result = match explicit_timeout {
-            Some(timeout) => tokio::time::timeout(timeout, cmd.output()).await,
+            Some(timeout) => crate::tools::timeout::output_or_kill(&mut cmd, timeout).await,
             None => Ok(cmd.output().await),
         };
 
@@ -488,16 +511,27 @@ impl ShellTool {
         requested_timeout: Option<u64>,
         action_dir: &Path,
     ) -> (bool, ToolResult) {
-        use crate::sandbox;
-
         let config = crate::config::RuntimeConfig::default();
-        let policy = sandbox::resolve_sandbox_policy(
+        let policy = crate::sandbox::resolve_sandbox_policy(
             crate::agent::harness::definition::SandboxMode::Sandboxed,
             action_dir,
             &self.security.workspace_dir,
             &config,
             false,
         );
+        self.run_in_policy(policy, command, requested_timeout, action_dir)
+            .await
+    }
+
+    /// Execute a command under a resolved sandbox `policy`.
+    async fn run_in_policy(
+        &self,
+        policy: crate::sandbox::SandboxPolicy,
+        command: &str,
+        requested_timeout: Option<u64>,
+        action_dir: &Path,
+    ) -> (bool, ToolResult) {
+        use crate::sandbox;
 
         tracing::debug!(
             backend = ?policy.backend,
@@ -506,8 +540,12 @@ impl ShellTool {
         );
 
         let mut extra_env = std::collections::HashMap::new();
-        if let Some(path) = self.runtime_path_for_command(command).await {
-            extra_env.insert("PATH".into(), path.into());
+        // A managed runtime's PATH names host directories, which a SaaS
+        // container cannot see.
+        if !crate::core::runtime::is_saas() {
+            if let Some(path) = self.runtime_path_for_command(command).await {
+                extra_env.insert("PATH".into(), path.into());
+            }
         }
 
         // Apply the same Git config hardening to local and sandboxed shells.

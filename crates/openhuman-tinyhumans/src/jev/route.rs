@@ -8,9 +8,9 @@
 //! calls somewhere they did not choose. `auto` keeps the historical order and
 //! only reaches for the other two when there is no TinyHumans credential.
 
-use openhuman_core::config::Config;
-use openhuman_core::inference::provider::factory::lookup_key_for_slug;
-use openhuman_core::security::credentials::session_support::resolve_backend_credential;
+use openhuman_embed::__host::config::Config;
+use openhuman_embed::__host::inference::provider::factory::lookup_key_for_slug;
+use openhuman_embed::__host::security::credentials::session_support::resolve_backend_credential;
 use tinyjevclient::ClientConfig;
 use tinytools::RankError;
 

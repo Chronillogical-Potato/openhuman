@@ -23,6 +23,7 @@ use crate::agent::subagent_host::{
     run_subagent_with_parent, SubagentRunOptions, SubagentRunStatus,
 };
 use crate::agent::tinyagents::host::delegation::run_or_resume_with_tracing;
+use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::config::Config;
 use tinyagents_graph::checkpoint::Checkpointer;
 use tinyagents_graph::delegation::{
@@ -33,6 +34,25 @@ use tinyagents_harness::context::{RunConfig, RunContext};
 use tinytools::WorkspaceDescriptor;
 
 const LOG_TARGET: &str = "agent_orchestration::delegation";
+
+/// Derives one delegation stage's run context and host data from the stage
+/// parent. The host carrier is pointed at the stage run's own linked child
+/// token, so a graph cancel still reaches the stage through the parent while
+/// cancelling the stage leaves the graph (and its siblings) running.
+pub(crate) fn stage_run_contexts(
+    stage_parent: &RunContext<OpenHumanRunContext>,
+    workspace: Option<WorkspaceDescriptor>,
+) -> tinyagents_harness::Result<(RunContext<OpenHumanRunContext>, OpenHumanRunContext)> {
+    let mut stage_context = stage_parent.data.child();
+    stage_context.workspace = workspace.or(stage_context.workspace);
+    let mut stage_run = stage_parent.child(
+        RunConfig::new(format!("delegation-stage-{}", uuid::Uuid::new_v4())),
+        stage_context.clone(),
+    )?;
+    stage_context.cancellation = stage_run.cancellation.clone();
+    stage_run.data.cancellation = stage_run.cancellation.clone();
+    Ok((stage_run, stage_context))
+}
 
 /// Typed live entrypoint for the durable delegation graph.
 ///
@@ -61,11 +81,10 @@ pub(crate) async fn run_subagent_delegation_with_parent_context(
     // durable graphs simply expire (orphaned tasks are reconciled at boot per
     // 07.2). Checkpoint metadata (thread/checkpoint/parent/run ids) stays
     // inspectable through the crate `Checkpointer` API.
-    let checkpoint_db = config.workspace_dir.join("graph_checkpoints.db");
-    let checkpointer: Arc<dyn Checkpointer<DelegationState>> = Arc::new(
-        SqliteCheckpointer::<DelegationState>::open(&checkpoint_db)
-            .map_err(|e| format!("open durable graph checkpoint store: {e}"))?,
-    );
+    //
+    // With a storage backend configured (`crate::storage`) the checkpoints
+    // live there instead, in the acting agent's scope.
+    let checkpointer = open_delegation_checkpointer(&config)?;
 
     tracing::info!(
         target: LOG_TARGET,
@@ -89,25 +108,17 @@ pub(crate) async fn run_subagent_delegation_with_parent_context(
         // Re-entrant per-stage worker: clones its captures each call so the graph
         // node handler stays `Fn` while each stage dispatches a fresh sub-agent.
         let parent_workspace_descriptor = parent_workspace_descriptor.clone();
-        let stage_cancellation = graph_cancellation.clone();
         let stage_parent = live_parent.clone();
         let run_stage = move |stage: DelegationStage, state: DelegationState| {
             let definition = definition.clone();
             let task = task_prompt.clone();
             let workspace_descriptor = parent_workspace_descriptor.clone();
-            let cancellation = stage_cancellation.clone();
             let stage_parent = stage_parent.clone();
             async move {
                 let prompt = build_stage_prompt(stage, &task, &state);
-                let mut stage_context = stage_parent.data.child();
-                stage_context.workspace = workspace_descriptor.clone().or(stage_context.workspace);
-                stage_context.cancellation = cancellation;
-                let stage_parent = stage_parent
-                    .child(
-                        RunConfig::new(format!("delegation-stage-{}", uuid::Uuid::new_v4())),
-                        stage_context.clone(),
-                    )
-                    .map_err(|error| format!("delegation stage context: {error}"))?;
+                let (stage_parent, stage_context) =
+                    stage_run_contexts(&stage_parent, workspace_descriptor.clone())
+                        .map_err(|error| format!("delegation stage context: {error}"))?;
                 match run_subagent_with_parent(
                     &stage_parent,
                     definition,
@@ -283,3 +294,32 @@ fn delegation_subagent_options(
         run_queue: None,
     }
 }
+
+/// Open the delegation graph's durable checkpointer: the acting agent's scope
+/// on the storage backend when one is installed, else `graph_checkpoints.db`
+/// under the workspace.
+pub fn open_delegation_checkpointer(
+    config: &Config,
+) -> Result<Arc<dyn Checkpointer<DelegationState>>, String> {
+    match crate::storage::current_scoped()
+        .map_err(|e| format!("resolve the storage scope for graph checkpoints: {e}"))?
+    {
+        Some(scoped) => Ok(Arc::new(
+            tinyagents_graph::checkpoint::DriverCheckpointer::<DelegationState>::with_prefix(
+                Arc::clone(scoped.documents()),
+                "delegation_graph",
+            ),
+        )),
+        None => {
+            let checkpoint_db = config.workspace_dir.join("graph_checkpoints.db");
+            Ok(Arc::new(
+                SqliteCheckpointer::<DelegationState>::open(&checkpoint_db)
+                    .map_err(|e| format!("open durable graph checkpoint store: {e}"))?,
+            ))
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "delegation_tests.rs"]
+mod tests;

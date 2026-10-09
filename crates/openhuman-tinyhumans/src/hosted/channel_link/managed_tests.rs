@@ -80,7 +80,7 @@ async fn check_flows_read_auth_me_and_store_the_marker_when_linked() {
     let tg = telegram_login_check(&config, "lt").await.unwrap().value;
     assert!(tg.linked);
     assert_eq!(tg.details.unwrap()["telegramId"], json!("tg-42"));
-    let stored = openhuman_core::security::credentials::ops::list_provider_credentials(
+    let stored = openhuman_embed::__host::security::credentials::ops::list_provider_credentials(
         &config,
         Some("channel:telegram:managed_dm".to_string()),
     )

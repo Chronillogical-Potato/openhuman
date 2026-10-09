@@ -284,7 +284,7 @@ async fn execute_unsandboxed(
         cmd.env(k, v);
     }
 
-    let result = tokio::time::timeout(timeout, cmd.output()).await;
+    let result = crate::tools::timeout::output_or_kill(&mut cmd, timeout).await;
     match result {
         Ok(Ok(output)) => Ok(SandboxExecResult {
             exit_code: output.status.code().unwrap_or(-1),
@@ -451,7 +451,13 @@ async fn execute_local_jail(
                         }
                         Ok(None) => {
                             if start.elapsed() > timeout {
+                                // The jailed command is a shell with a
+                                // pipeline behind it: signal its whole group,
+                                // then the child itself, and reap it so the
+                                // timeout report is true of every process.
+                                crate::tools::timeout::kill_process_group(child.id());
                                 let _ = child.kill();
+                                let _ = child.wait();
                                 return Ok((-1, true));
                             }
                             std::thread::sleep(Duration::from_millis(50));

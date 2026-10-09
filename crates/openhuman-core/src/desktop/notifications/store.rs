@@ -1,10 +1,13 @@
 //! SQLite persistence for `IntegrationNotification` records.
 //!
+//! With a storage backend configured ([`crate::storage`]) every function
+//! here is served from the document port instead (`store_documents.rs`).
+//!
 //! Uses a synchronous `rusqlite::Connection` opened per call, following the
 //! same `with_connection` pattern as the cron domain.
 
 use anyhow::{Context, Result};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use rusqlite::{params, Connection};
 
 use crate::config::Config;
@@ -106,6 +109,9 @@ fn with_connection<T>(config: &Config, f: impl FnOnce(&Connection) -> Result<T>)
 
 /// Persist a new notification to the store.
 pub fn insert(config: &Config, n: &IntegrationNotification) -> Result<()> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.insert(n, false).map(|_| ());
+    }
     with_connection(config, |conn| {
         conn.execute(
             "INSERT INTO integration_notifications
@@ -144,6 +150,9 @@ pub fn insert(config: &Config, n: &IntegrationNotification) -> Result<()> {
 /// event is ignored (no duplicates). Returns `true` when a new row was written,
 /// `false` when an event with the same id already existed.
 pub fn insert_core_notification(config: &Config, event: &CoreNotificationEvent) -> Result<bool> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.insert_core_notification(&config.workspace_dir.to_string_lossy(), event);
+    }
     with_connection(config, |conn| {
         let payload = serde_json::to_string(event)
             .context("[notifications::store] serialize core notification failed")?;
@@ -172,6 +181,13 @@ pub fn list_core_notifications(
     only_unread: bool,
     limit: usize,
 ) -> Result<Vec<CoreNotificationEvent>> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.list_core_notifications(
+            &config.workspace_dir.to_string_lossy(),
+            only_unread,
+            limit,
+        );
+    }
     with_connection(config, |conn| {
         let sql = if only_unread {
             "SELECT payload FROM core_notifications WHERE read = 0
@@ -207,6 +223,9 @@ pub fn list_core_notifications(
 /// Mark a persisted core notification as read so it isn't re-surfaced on the
 /// next sync-down. Returns `true` when a row was updated.
 pub fn mark_core_notification_read(config: &Config, id: &str) -> Result<bool> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.mark_core_notification_read(&config.workspace_dir.to_string_lossy(), id);
+    }
     with_connection(config, |conn| {
         let affected = conn
             .execute(
@@ -220,6 +239,9 @@ pub fn mark_core_notification_read(config: &Config, id: &str) -> Result<bool> {
 
 /// Count unread persisted core notifications.
 pub fn unread_core_notification_count(config: &Config) -> Result<i64> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.unread_core_notification_count(&config.workspace_dir.to_string_lossy());
+    }
     with_connection(config, |conn| {
         let count: i64 = conn
             .query_row(
@@ -236,6 +258,9 @@ pub fn unread_core_notification_count(config: &Config) -> Result<i64> {
 ///
 /// Returns `true` when inserted, `false` when skipped as duplicate.
 pub fn insert_if_not_recent(config: &Config, n: &IntegrationNotification) -> Result<bool> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.insert(n, true);
+    }
     with_connection(config, |conn| {
         conn.execute_batch("BEGIN IMMEDIATE")
             .context("[notifications::store] begin insert_if_not_recent tx failed")?;
@@ -313,6 +338,9 @@ pub fn list(
     provider_filter: Option<&str>,
     min_score: Option<f32>,
 ) -> Result<Vec<IntegrationNotification>> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.list(limit, offset, provider_filter, min_score);
+    }
     with_connection(config, |conn| {
         // Build a dynamic query instead of relying on nullable-aware WHERE
         // logic so the SQL stays readable for future contributors.
@@ -360,6 +388,13 @@ pub fn update_triage(
     action: &str,
     reason: &str,
 ) -> Result<()> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.update_triage(id, score, action, reason).map(|found| {
+            if !found {
+                tracing::warn!(id = %id, action = %action, "[notifications::store] update_triage matched no rows");
+            }
+        });
+    }
     with_connection(config, |conn| {
         let now = Utc::now().to_rfc3339();
         let updated = conn
@@ -393,6 +428,13 @@ pub fn update_triage(
 
 /// Transition a notification from `unread` to `read`.
 pub fn mark_read(config: &Config, id: &str) -> Result<()> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.set_status(id, NotificationStatus::Read).map(|found| {
+            if !found {
+                tracing::warn!(id = %id, "[notifications::store] mark_read matched no rows");
+            }
+        });
+    }
     with_connection(config, |conn| {
         let updated = conn
             .execute(
@@ -414,6 +456,9 @@ pub fn mark_read(config: &Config, id: &str) -> Result<()> {
 
 /// Count unread notifications.
 pub fn unread_count(config: &Config) -> Result<i64> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.unread_count();
+    }
     with_connection(config, |conn| {
         let count: i64 = conn
             .query_row(
@@ -435,6 +480,9 @@ pub fn exists_recent(
     title: &str,
     body: &str,
 ) -> Result<bool> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.exists_recent(provider, account_id, title, body);
+    }
     with_connection(config, |conn| {
         let count: i64 = match account_id {
             Some(aid) => conn.query_row(
@@ -463,6 +511,9 @@ pub fn exists_recent(
 ///
 /// Returns `true` when at least one row matched and was updated.
 pub fn mark_dismissed(config: &Config, id: &str) -> Result<bool> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.set_status(id, NotificationStatus::Dismissed);
+    }
     with_connection(config, |conn| {
         let updated = conn
             .execute(
@@ -484,6 +535,9 @@ pub fn mark_dismissed(config: &Config, id: &str) -> Result<bool> {
 ///
 /// Returns `true` when at least one row matched and was updated.
 pub fn mark_acted(config: &Config, id: &str) -> Result<bool> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.set_status(id, NotificationStatus::Acted);
+    }
     with_connection(config, |conn| {
         let updated = conn
             .execute(
@@ -503,6 +557,9 @@ pub fn mark_acted(config: &Config, id: &str) -> Result<bool> {
 
 /// Return aggregate statistics for the notification intelligence pipeline.
 pub fn stats(config: &Config) -> Result<super::types::NotificationStats> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.stats();
+    }
     use std::collections::HashMap;
     with_connection(config, |conn| {
         let total: i64 = conn
@@ -587,6 +644,9 @@ pub fn stats(config: &Config) -> Result<super::types::NotificationStats> {
 
 /// Upsert provider-level notification settings.
 pub fn upsert_settings(config: &Config, settings: &NotificationSettings) -> Result<()> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.upsert_settings(settings);
+    }
     with_connection(config, |conn| {
         conn.execute(
             "INSERT INTO notification_settings (provider, enabled, importance_threshold, route_to_orchestrator)
@@ -609,6 +669,9 @@ pub fn upsert_settings(config: &Config, settings: &NotificationSettings) -> Resu
 
 /// Read provider-level notification settings with defaults when missing.
 pub fn get_settings(config: &Config, provider: &str) -> Result<NotificationSettings> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.get_settings(provider);
+    }
     with_connection(config, |conn| {
         let mut stmt = conn
             .prepare(
@@ -638,72 +701,8 @@ pub fn get_settings(config: &Config, provider: &str) -> Result<NotificationSetti
     })
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Row conversion helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-fn rows_to_notifications(mut rows: rusqlite::Rows<'_>) -> Result<Vec<IntegrationNotification>> {
-    let mut out = Vec::new();
-    while let Some(row) = rows
-        .next()
-        .context("[notifications::store] row iteration failed")?
-    {
-        out.push(row_to_notification(row)?);
-    }
-    Ok(out)
-}
-
-fn row_to_notification(row: &rusqlite::Row<'_>) -> Result<IntegrationNotification> {
-    let raw_payload_str: String = row.get(5)?;
-    let raw_payload: serde_json::Value = serde_json::from_str(&raw_payload_str)
-        .unwrap_or(serde_json::Value::String(raw_payload_str));
-
-    let status_str: String = row.get(9)?;
-    let status = match status_str.as_str() {
-        "read" => NotificationStatus::Read,
-        "acted" => NotificationStatus::Acted,
-        "dismissed" => NotificationStatus::Dismissed,
-        _ => NotificationStatus::Unread,
-    };
-
-    let received_at_str: String = row.get(10)?;
-    let received_at: DateTime<Utc> = received_at_str.parse().unwrap_or_else(|e| {
-        tracing::warn!(
-            raw = %received_at_str,
-            error = %e,
-            "[notifications::store] invalid received_at, using now"
-        );
-        Utc::now()
-    });
-
-    let scored_at_str: Option<String> = row.get(11)?;
-    let scored_at: Option<DateTime<Utc>> = scored_at_str.and_then(|s| match s.parse() {
-        Ok(t) => Some(t),
-        Err(e) => {
-            tracing::warn!(
-                raw = %s,
-                error = %e,
-                "[notifications::store] invalid scored_at, treating as unscored"
-            );
-            None
-        }
-    });
-
-    Ok(IntegrationNotification {
-        id: row.get(0)?,
-        provider: row.get(1)?,
-        account_id: row.get(2)?,
-        title: row.get(3)?,
-        body: row.get(4)?,
-        raw_payload,
-        importance_score: row.get(6)?,
-        triage_action: row.get(7)?,
-        triage_reason: row.get(8)?,
-        status,
-        received_at,
-        scored_at,
-    })
-}
+mod store_rows;
+use store_rows::rows_to_notifications;
 
 #[cfg(test)]
 #[path = "store_tests.rs"]

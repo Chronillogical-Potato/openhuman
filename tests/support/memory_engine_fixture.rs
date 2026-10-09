@@ -322,6 +322,10 @@ pub async fn forget(
                 .collect()
         })
         .unwrap_or_default();
+    // CortexDB's default cascade, `derived_only`, keeps the events.
+    if body["cascade"].as_str() != Some("redact_events") {
+        return ok(json!({ "deleted": { "events": 0 }, "requested": ids.len(), "matched": 0 }));
+    }
     let before = state.events.lock().unwrap().len();
     state
         .events

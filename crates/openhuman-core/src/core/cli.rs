@@ -316,6 +316,8 @@ fn run_server_command(args: &[String]) -> Result<()> {
     let mut host: Option<String> = None;
     let mut socketio_enabled = true;
     let mut headless_api = false;
+    let mut mode_flag: Option<String> = None;
+    let mut saas_config: Option<std::path::PathBuf> = None;
     let mut verbose = false;
     let log_scope = CliLogDefault::Global;
     let mut i = 0usize;
@@ -354,26 +356,31 @@ fn run_server_command(args: &[String]) -> Result<()> {
                 verbose = true;
                 i += 1;
             }
+            "--mode" | "--saas-config" => {
+                let value = args
+                    .get(i + 1)
+                    .ok_or_else(|| anyhow::anyhow!("missing value for {}", args[i]))?
+                    .clone();
+                if args[i] == "--mode" {
+                    mode_flag = Some(value);
+                } else {
+                    saas_config = Some(value.into());
+                }
+                i += 2;
+            }
             "-h" | "--help" => {
-                println!("Usage: openhuman run [--host <addr>] [--port <u16>] [--jsonrpc-only|--headless-api] [-v|--verbose]");
-                println!();
-                println!(
-                    "  --host <addr>    Bind address (default: 127.0.0.1 or OPENHUMAN_CORE_HOST)"
-                );
-                println!(
-                    "  --port <u16>     Listen address port (default: 7788 or OPENHUMAN_CORE_PORT)"
-                );
-                println!("  --jsonrpc-only   HTTP JSON-RPC only; disable Socket.IO");
-                println!("  --headless-api   HTTP JSON-RPC only; disable all background services");
-                println!("  -v, --verbose    Shorthand for RUST_LOG=debug when RUST_LOG is unset");
-                println!();
-                println!("Logging: set RUST_LOG (e.g. RUST_LOG=debug openhuman run). Default level is info.");
+                println!("{}", crate::core::server_launcher::RUN_HELP);
                 return Ok(());
             }
             other => return Err(anyhow::anyhow!("unknown run arg: {other}")),
         }
     }
 
+    let (mode, saas_config) = crate::core::server_launcher::resolve_mode(
+        mode_flag.as_deref(),
+        std::env::var("OPENHUMAN_MODE").ok().as_deref(),
+        saas_config,
+    )?;
     crate::core::logging::init_for_cli_run(verbose, log_scope);
 
     // Initialize the Tokio multi-threaded runtime.
@@ -401,6 +408,8 @@ fn run_server_command(args: &[String]) -> Result<()> {
         port,
         socketio_enabled,
         headless_api,
+        mode,
+        saas_config,
     }))?;
     Ok(())
 }

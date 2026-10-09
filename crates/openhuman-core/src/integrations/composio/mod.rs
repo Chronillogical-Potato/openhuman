@@ -24,11 +24,6 @@
 //!   connection-created and config-changed subscribers keep the
 //!   integrations cache fresh.
 //!
-//! - **Memory sync** (`ops::sync`) — `composio_sync` / `run_sync_pass` read a
-//!   connection through the connector module and store the records via
-//!   `memory::sources::composio`. Scheduling is memory's (v2 source
-//!   schedules); this domain has no periodic loop.
-//!
 //! ## Socket.IO trigger flow
 //!
 //! ```text
@@ -64,7 +59,7 @@ pub mod trigger_history;
 pub mod types;
 
 pub use crate::agent::prompts::types::ConnectedIntegration;
-pub use crate::integrations::composio::providers::{ProviderUserProfile, SyncOutcome, SyncReason};
+pub use crate::integrations::composio::providers::ProviderUserProfile;
 pub use action_tool::ComposioActionTool;
 pub use bus::{
     register_composio_trigger_subscriber, ComposioConfigChangedSubscriber,

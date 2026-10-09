@@ -331,8 +331,6 @@ pub fn spawn_channels_service() -> Option<tokio::task::JoinHandle<()>> {
 /// [`start_bootstrap_jobs`] launches. Each field maps 1:1 to one spawn site.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BootstrapJobPlan {
-    /// Composio periodic connection sync (`composio::start_periodic_sync`).
-    pub composio_integration_sync: bool,
     /// Memory background work: seed memory's cron jobs and recover source
     /// sync state an interrupted process left `syncing`.
     pub memory_jobs: bool,
@@ -345,17 +343,14 @@ pub(crate) struct BootstrapJobPlan {
 
 /// Pure flag→job mapping for [`start_bootstrap_jobs`]. No side effects.
 ///
-/// Note the Composio integration sync AND the one-shot Composio source reconcile
-/// both ride `services.integrations` — both no-op without active Composio
-/// connections, so they share the one concern flag. `channels` gates NO
-/// bootstrap job (its remaining meaning is exactly `spawn_channels_service`).
+/// `channels` gates NO bootstrap job (its remaining meaning is exactly
+/// `spawn_channels_service`).
 pub(crate) fn bootstrap_job_plan(services: &ServiceSet) -> BootstrapJobPlan {
     BootstrapJobPlan {
-        composio_integration_sync: services.integrations,
         memory_jobs: services.memory_sync,
         task_source_pollers: services.cron,
-        // Module preload is background boot work like the integrations sync
-        // and rides the same flag.
+        // Module preload is background boot work and rides the integrations
+        // flag.
         module_preload: services.integrations,
     }
 }
@@ -386,20 +381,11 @@ pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
         log::debug!("[runtime.bootstrap] native module preload disabled by ServiceSet");
     }
 
-    // Integrations — no bootstrap job. Composio → memory syncs run on memory
-    // source schedules (`memory::sources`), not a host loop here.
-    if plan.composio_integration_sync {
-        log::debug!(
-            "[runtime.bootstrap] composio integrations enabled; memory syncs run on memory source schedules"
-        );
-    } else {
-        log::debug!("[runtime.bootstrap] composio integrations disabled by ServiceSet");
-    }
-
     // Memory: seed the `memory_context_refresh` / `memory_sources_sync` cron
     // jobs (idempotent) and mark sources a killed process left `syncing` idle.
     if plan.memory_jobs {
         crate::memory::sources::state::reset_interrupted(&config.workspace_dir);
+        crate::memory::sources::state::remove_orphaned_connector_files(&config.workspace_dir);
         if let Err(error) = crate::cron::system_jobs::ensure_memory_jobs(config) {
             log::warn!("[runtime.bootstrap] seeding memory cron jobs failed: {error}");
         }

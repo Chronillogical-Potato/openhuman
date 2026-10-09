@@ -1,10 +1,13 @@
+---
+description: >-
+  How to run the OpenHuman core inside your own Rust program: one Runtime,
+  with any number of separately configured Agents on it.
+icon: code
+---
+
 # Embedding OpenHuman
 
-`openhuman-embed` is a typed Rust library for running the OpenHuman core
-in-process inside another product. It is the same core that ships in the
-desktop app and the CLI, minus the Tauri shell and the RPC server: business
-rules, agent turns, memory, tools and sandboxing, called directly from your
-own binary.
+`openhuman-embed` is a typed Rust library that runs the OpenHuman core inside your own product. It is the same core that ships in the desktop app and the CLI, without the Tauri shell and the RPC server. You call business rules, agent turns, memory, tools and sandboxing directly from your own binary.
 
 ## Adding the dependency
 
@@ -24,11 +27,11 @@ openhuman-embed = { git = "https://github.com/tinyhumansai/openhuman", package =
 
 Every feature on this crate forwards to the same-named feature on
 `openhuman-core`: `default`, `http-server`, `inference`, `documents`,
-`hosting`, `modules`, `voice`, `web3`, `runtime-node`, `contacts`, `media`,
+`hosting`, `modules`, `voice`, `web3`, `runtime-node`, `media`,
 `flows`, `skills`, `mcp`, `crash-reporting`, `channels`,
-`sandbox-bubblewrap`,
-`whatsapp-web`, `file-logging`, `scheduler-gate`. Two of them also gate
-items on this crate's own surface: `mcp` gates `HttpHeader`,
+`whatsapp-web`, `file-logging`, `scheduler-gate` (eighteen entries including
+`default`). Two of them also gate
+items on this crate's own API: `mcp` gates `HttpHeader`,
 `McpAuthConfig`, `McpServer`, `AgentSpec::mcp` and `HarnessBuilder::mcp`;
 `skills` gates `AgentSpec::skills_dir` and `HarnessBuilder::skills_dir`.
 
@@ -44,10 +47,7 @@ if let Some(identity) = ProductIdentity::new("opencompany") {
 
 ## Two steps: a Runtime, then any number of Agents
 
-The library API has two levels. First, one `Runtime` for the process:
-features, background services, backend URL, the TinyHumans API key. Then
-any number of independently configured agents on it, each with its own
-provider, access tier, working directory, MCP servers and skills.
+The library API has two levels. First you build one `Runtime` for the process. It holds features, background services, the backend URL and the TinyHumans API key. Then you add any number of separately configured agents to it. Each agent has its own provider, access tier, working directory, MCP servers and skills.
 
 ```rust,no_run
 use openhuman_embed::{Access, AgentSpec, McpServer, Provider, Runtime, Workspace};
@@ -89,19 +89,20 @@ println!("{}", again.reply);
 # }
 ```
 
-An agent owns its provider and model, its access tier and turn origin, its
-`action_dir`, its MCP servers, its skills root
-(`<workspace>/agents/<id>/skills/`), its system prompt, its tool scope and
-sandbox mode, and a narrowed domain set or tool-group list. Every turn
-dispatches under that agent's own context, so config, domain gating,
-tool-group filtering and skill discovery all read that agent's settings and
-never another agent's. Transcripts are keyed by agent id, and a turn resumes
-only its own thread.
+An agent owns:
 
-The runtime owns the workspace and credential store, the event bus, the
-keyring, background services, the registered domain set (agents can only
-narrow it, so enable `mcp` or `skills` at runtime build time if any agent
-needs them), and the API key.
+- its provider and model
+- its access tier and turn origin
+- its `action_dir`
+- its MCP servers
+- its skills root (`<workspace>/agents/<id>/skills/`)
+- its system prompt
+- its tool scope and sandbox mode
+- a narrowed domain set or tool-group list
+
+Every turn runs under that agent's own context. Config, domain gating, tool-group filtering and skill discovery all read that agent's settings and never another agent's. Transcripts are keyed by agent id, and a turn resumes only its own thread.
+
+The runtime owns the workspace and credential store, the event bus, the keyring, background services, the registered domain set and the API key. Agents can only narrow the domain set, so enable `mcp` or `skills` at runtime build time if any agent needs them.
 
 Layout under a runtime-owned root:
 
@@ -121,7 +122,7 @@ desktop's own narrower set. Chain builder methods to override:
 - `.system_prompt(text)` and `.definition(spec)` for the prompt, tool scope,
   disallowed tools, sandbox mode, iteration cap, temperature, display name
   and delegation blurb (`AgentDefinitionSpec`).
-- `.provider(Provider)` / `.model(id)` for which model answers and where.
+- `.provider(Provider)` and `.model(id)` for which model answers and where.
 - `.access(Access)` for what the agent may do.
 - `.tool_groups(ToolGroups)` and `.domains(DomainSet)` to narrow further,
   never wider than the runtime's own set.
@@ -129,14 +130,14 @@ desktop's own narrower set. Chain builder methods to override:
 - `.skills_dir(path)` to copy skill bundles into this agent's own root.
 - `.include_user_skills(bool)` to also let the agent see the operator's
   `~/.openhuman/skills` (off by default).
-- `.action_dir(path)` for the agent's read/write root.
+- `.action_dir(path)` for the agent's read and write root.
 - `.trust(path, access)` to grant a directory outside `action_dir`.
 - `.tools(factory)` to hand the agent real in-process tools built fresh per
   turn, rather than routing host callbacks through an MCP server.
 - `.config(f)` as an escape hatch for config fields the spec does not model.
 
 Agent ids must match `^[a-z0-9][a-z0-9_-]{0,63}$`; avoid the built-in ids
-(`orchestrator`, `summarizer`, ...), which the runtime-wide delegation
+(`orchestrator`, `summarizer` and so on), which the runtime-wide delegation
 catalog resolves to the shipped definitions.
 
 ## Access tiers
@@ -149,8 +150,12 @@ silently refuse, which reads as a weak model rather than a missing scope.
 - `Access::readonly()`: observe only, no writes, no shell, no network side
   effects. Safe default for an untrusted prompt.
 - `Access::supervised()`: act, but park risky operations for a human
-  decision. The approval gate stays on, so an unattended harness stalls here
-  until an approval answers or the ten-minute TTL denies it.
+  decision. Unlike the desktop default, this turns the autonomy policy on
+  for that agent (`Access` sets the policy flag as well as the tier), so the
+  approval gate really is live and an unattended harness stalls here until an
+  approval answers or the ten-minute TTL denies it. The user-facing default is
+  the opposite: `[autonomy] enabled = false`, where the gate is inert. See
+  [Approval gate](../features/approval-gate.md).
 - `Access::full()`: act autonomously, no approval pauses. Grants real shell
   and file access under `action_dir`; point it at a directory you are
   willing to have changed. Hard blocks still apply regardless of tier:
@@ -169,8 +174,8 @@ already configured with: the account's managed backend, a local Ollama or
 LM Studio, or a configured BYOK provider. `Provider::openai_compatible(url,
 key)` points a turn at a specific OpenAI-compatible endpoint and bearer;
 `/chat/completions` is appended to `url`, so pass the API root. `.model(id)`
-pins the model id on either; it is advisory, since a model no configured
-provider serves falls back rather than erroring.
+pins the model id on either; it is advisory, because a model that no configured
+provider serves falls back instead of failing.
 
 An agent that names its own `Provider` never touches the runtime's API key.
 One that names none inherits the runtime's default: managed inference on
@@ -216,13 +221,8 @@ include them.
 
 `McpServer::stdio(name, command, args)` launches a local subprocess
 speaking newline-delimited JSON-RPC; `McpServer::http(name, endpoint)`
-reaches a remote server over Streamable HTTP. Both support `.env(...)` or
-`.auth(McpAuthConfig)`, `.allow_tools([...])` / `.deny_tools([...])` to
-narrow which remote tools an agent sees (worth setting for a large server,
-since every exposed tool costs prompt budget), `.timeout_secs(n)` and
-`.description(text)`. Servers declared through `AgentSpec::mcp` are private
-to that agent; other agents on the same runtime do not see them. Servers are
-fixed at build time: there is no way to add one to a running harness.
+reaches a remote server over Streamable HTTP. Both support `.env(...)` or `.auth(McpAuthConfig)`. `.allow_tools([...])` and `.deny_tools([...])` narrow which remote tools an agent sees, which is worth doing for a large server because every exposed tool costs prompt budget. `.timeout_secs(n)` and `.description(text)` are also available. Servers declared through `AgentSpec::mcp` are private
+to that agent; other agents on the same runtime do not see them. Servers are fixed at build time. You cannot add one to a running harness.
 
 ## Skills
 
@@ -231,7 +231,7 @@ fixed at build time: there is no way to add one to a running harness.
 copied rather than symlinked because skill discovery rejects symlinked
 bundles. `.include_user_skills(true)` additionally lets the agent discover
 skills the operator installed under `~/.openhuman/skills`; the default
-hides them, since an embedded agent should see what its host installed, not
+hides them, because an embedded agent should see what its host installed, not
 what the machine's user did.
 
 ## Multi-turn sessions and progress streaming
@@ -265,11 +265,7 @@ println!("{}", outcome.reply);
 # Ok(()) }
 ```
 
-`.seed(history)` replaces a session's history for one turn with the caller's
-own rows (`(role, content)` pairs) rather than reading the transcript; only
-a runtime-owned `Agent` can honour it, since it silently discards whatever
-that session held, and it is meant to be paired with a session id the turn
-is not sharing with turns that expect their history intact. `.meter(f)`
+`.seed(history)` replaces a session's history for one turn with your own `(role, content)` rows instead of reading the transcript. Only a runtime-owned `Agent` can honor it. It silently discards whatever the session held, so pair it with a session id that no other turn shares. `.meter(f)`
 reports what a turn spent, including a turn that ran and then failed.
 
 ## Scheduling
@@ -429,8 +425,9 @@ the first backend-touching dispatch:
 openhuman_tinyhumans::install(openhuman_tinyhumans::InstallOptions::default())?;
 ```
 
-That call also registers the hosted RPC proxies (billing, team, referral,
-announcements) into the core's controller registry. See
+That call also registers the seven hosted RPC proxy domains (billing, team,
+referral, announcements, webhooks, channel linking and backend-brokered OAuth)
+into the core's controller registry. See
 [One API key for everything](tinyhumans-api-key.md) for what a TinyHumans
 API key unlocks once it is installed this way.
 
@@ -446,13 +443,13 @@ agent that names its own `Provider` never touches the key at all.
 ## One runtime per process
 
 The keyring master key, the RPC bearer, the global event bus and the
-process's domain subscribers are process-scoped, so a second runtime would
+process's domain subscribers are process-scoped. A second runtime would
 silently share them while believing it had a separate workspace.
-`RuntimeBuilder::build` returns `RuntimeError::AlreadyRunning` instead;
-agents, not runtimes, are the unit of multiplicity within one process.
+`RuntimeBuilder::build` returns `RuntimeError::AlreadyRunning` instead.
+Within one process, add agents, not runtimes.
 
-Build the tokio runtime yourself rather than using `#[tokio::main]`. A turn
-is a large async state machine, and a sub-agent nesting inside it overflows
+Build the tokio runtime yourself instead of using `#[tokio::main]`. A turn
+is a large async state machine, and a nested sub-agent overflows
 tokio's default 2 MiB worker stack:
 
 ```rust,no_run
@@ -468,7 +465,7 @@ let runtime = tokio::runtime::Builder::new_multi_thread()
 
 ## A narrow build, measured
 
-`docs/library-minimal-recipe.md` measures a headless recipe aimed at
+[`docs/library-minimal-recipe.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/library-minimal-recipe.md) measures a headless recipe aimed at
 100 to 1,000 live agents on a 2 GB RAM / 2 vCPU box:
 
 ```bash
@@ -519,11 +516,12 @@ bundles. The repository-root `examples/embed_headless.rs` and
 directly, without this crate; run them with `cargo run --example
 embed_headless`.
 
-Tests worth reading alongside the examples: `tests/harness_embed.rs` proves
+Tests worth reading alongside the examples, all under
+`crates/openhuman-embed/tests/`: `harness_embed.rs` proves
 `Harness` runs a real turn against a mocked provider with nothing else
-bound; `tests/runtime_agents.rs` runs three agents with different
+bound; `runtime_agents.rs` runs three agents with different
 providers, access tiers, skills, MCP servers and working directories on one
-runtime; `tests/public_api.rs` pins the host-facing embedding contract at
+runtime; `public_api.rs` pins the host-facing embedding contract at
 compile time. Run them with:
 
 ```bash

@@ -222,6 +222,8 @@ impl CoreContext {
                 .map(|t| t.name())
                 .unwrap_or("<process-global>")
         );
+        crate::core::runtime::mode::admit_core(host_kind, DEFAULT_CONTEXT.get().is_some())
+            .map_err(|e| anyhow::anyhow!("[core-context] {e}"))?;
         // 1. Ensure all controllers are registered before anything dispatches.
         let _ = crate::core::all::all_registered_controllers();
 
@@ -543,15 +545,13 @@ impl CoreContext {
         Ok(())
     }
 
-    /// Run `fut` with `ctx` as the ambient [`CoreContext::current`]. The dispatch
-    /// layer wraps each handler invocation in this; multi-tenant hosts pass the
-    /// tenant's context here so the handler's `current()` reads isolated state.
+    /// Run `fut` with `ctx` as the ambient [`CoreContext::current`]: dispatch wraps
+    /// each handler in this, and multi-tenant hosts pass the tenant's context.
     pub async fn scope<F: Future>(ctx: Arc<CoreContext>, fut: F) -> F::Output {
         CURRENT_CONTEXT.scope(ctx, fut).await
     }
 
-    /// [`scope`](Self::scope) for a synchronous closure, e.g. building a
-    /// session for a host-registered agent under its own context.
+    /// [`scope`](Self::scope) for a synchronous closure.
     pub fn sync_scope<R>(ctx: Arc<CoreContext>, f: impl FnOnce() -> R) -> R {
         CURRENT_CONTEXT.sync_scope(ctx, f)
     }

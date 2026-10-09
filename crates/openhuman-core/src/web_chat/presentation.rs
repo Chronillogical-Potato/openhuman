@@ -60,10 +60,6 @@ pub(crate) async fn deliver_response(
     timing: Option<super::turn_timing::TurnTimingSnapshot>,
     suggest_follow_ups: bool,
 ) {
-    let usage_payload = usage_payload(usage);
-    let timing_payload =
-        timing.map(|snapshot| snapshot.into_payload(usage.map(|u| u.output_tokens)));
-
     // Keep the response byte-for-byte in one assistant message. The legacy
     // segmentation helpers remain available to channel-specific callers/tests,
     // but the interactive web surface must not cut or reformat model output.
@@ -76,68 +72,31 @@ pub(crate) async fn deliver_response(
         // not the reply (#6034). Only this single-bubble branch persists — the
         // segmented branch below hands the client one row per segment to write,
         // and a full-text row beside those would read as a duplicate answer.
-        if let Some(dir) = workspace_dir {
-            // The store appends under a process-wide lock and fsyncs, and its
-            // existence check folds the whole threads log (#5156) — blocking
-            // work that has no business holding a runtime worker while a turn
-            // is settling. Hand it to the blocking pool and await the handle,
-            // which keeps the ordering this whole change rests on.
-            let (dir, thread, request, reply, cites) = (
-                dir.to_path_buf(),
-                thread_id.to_string(),
-                request_id.to_string(),
-                full_response.to_string(),
-                citations.to_vec(),
-            );
-            let persisted = tokio::task::spawn_blocking(move || {
-                super::reply_persistence::persist_delivered_reply(
-                    &dir, &thread, &request, &reply, &cites,
-                )
-            })
-            .await;
-            match persisted {
-                Ok(Ok(stored)) => {
-                    if stored {
-                        log::debug!(
-                            "[web-channel] persisted reply before announcing it thread_id={thread_id} request_id={request_id}"
-                        );
-                    }
-                }
-                // Deliberately non-fatal: announce anyway. The client's own
-                // append still persists the reply in the common case, and a
-                // storage failure must not also cost the user the delivery.
-                Ok(Err(err)) => log::warn!(
-                    "[web-channel] could not persist reply before announcing it \
-                     thread_id={thread_id} request_id={request_id} error={err}"
-                ),
-                Err(err) => log::warn!(
-                    "[web-channel] reply persistence task did not run \
-                     thread_id={thread_id} request_id={request_id} error={err}"
-                ),
-            }
-        }
-
-        // Single bubble — emit chat_done directly.
-        publish_chat_done(
-            client_id,
+        persist_reply(
             thread_id,
             request_id,
             full_response,
             citations,
-            usage_payload,
-            timing_payload,
+            workspace_dir,
+        )
+        .await;
+        announce_reply(
+            client_id,
+            thread_id,
+            request_id,
+            full_response,
+            user_message,
+            citations,
+            usage,
+            timing,
+            suggest_follow_ups,
         );
-        if suggest_follow_ups {
-            super::suggestions::spawn_follow_up_suggestions(
-                client_id.to_string(),
-                thread_id.to_string(),
-                request_id.to_string(),
-                user_message.to_string(),
-                full_response.to_string(),
-            );
-        }
         return;
     }
+
+    let usage_payload = usage_payload(usage);
+    let timing_payload =
+        timing.map(|snapshot| snapshot.into_payload(usage.map(|u| u.output_tokens)));
 
     let total = segments.len() as u32;
 
@@ -238,6 +197,96 @@ pub(crate) async fn deliver_response(
         ..Default::default()
     });
 
+    if suggest_follow_ups {
+        super::suggestions::spawn_follow_up_suggestions(
+            client_id.to_string(),
+            thread_id.to_string(),
+            request_id.to_string(),
+            user_message.to_string(),
+            full_response.to_string(),
+        );
+    }
+}
+
+/// Stores a single-bubble reply in the thread log before it is announced
+/// (#6034): once the row is on disk, a `chat_done` that is never delivered or
+/// painted costs the user a repaint, not the reply. A storage failure is
+/// logged and never blocks the announcement. `None` stores nothing.
+pub(crate) async fn persist_reply(
+    thread_id: &str,
+    request_id: &str,
+    full_response: &str,
+    citations: &[crate::memory::types::TurnCitation],
+    workspace_dir: Option<&std::path::Path>,
+) {
+    if let Some(dir) = workspace_dir {
+        // The store appends under a process-wide lock and fsyncs, and its
+        // existence check folds the whole threads log (#5156) — blocking
+        // work that has no business holding a runtime worker while a turn
+        // is settling. Hand it to the blocking pool and await the handle,
+        // which keeps the ordering this whole change rests on.
+        let (dir, thread, request, reply, cites) = (
+            dir.to_path_buf(),
+            thread_id.to_string(),
+            request_id.to_string(),
+            full_response.to_string(),
+            citations.to_vec(),
+        );
+        let persisted = tokio::task::spawn_blocking(move || {
+            super::reply_persistence::persist_delivered_reply(
+                &dir, &thread, &request, &reply, &cites,
+            )
+        })
+        .await;
+        match persisted {
+            Ok(Ok(stored)) => {
+                if stored {
+                    log::debug!(
+                        "[web-channel] persisted reply before announcing it thread_id={thread_id} request_id={request_id}"
+                    );
+                }
+            }
+            // Deliberately non-fatal: announce anyway. The client's own
+            // append still persists the reply in the common case, and a
+            // storage failure must not also cost the user the delivery.
+            Ok(Err(err)) => log::warn!(
+                "[web-channel] could not persist reply before announcing it \
+                 thread_id={thread_id} request_id={request_id} error={err}"
+            ),
+            Err(err) => log::warn!(
+                "[web-channel] reply persistence task did not run \
+                 thread_id={thread_id} request_id={request_id} error={err}"
+            ),
+        }
+    }
+}
+
+/// Announces a reply already stored by [`persist_reply`]: the terminal
+/// `chat_done`, then (for the main chat turn) the follow-up suggestions.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn announce_reply(
+    client_id: &str,
+    thread_id: &str,
+    request_id: &str,
+    full_response: &str,
+    user_message: &str,
+    citations: &[crate::memory::types::TurnCitation],
+    usage: Option<&LastTurnUsage>,
+    timing: Option<super::turn_timing::TurnTimingSnapshot>,
+    suggest_follow_ups: bool,
+) {
+    let usage_payload = usage_payload(usage);
+    let timing_payload =
+        timing.map(|snapshot| snapshot.into_payload(usage.map(|u| u.output_tokens)));
+    publish_chat_done(
+        client_id,
+        thread_id,
+        request_id,
+        full_response,
+        citations,
+        usage_payload,
+        timing_payload,
+    );
     if suggest_follow_ups {
         super::suggestions::spawn_follow_up_suggestions(
             client_id.to_string(),

@@ -333,7 +333,7 @@ pub(crate) fn spawn_progress_bridge(
         std::sync::Mutex<Option<super::turn_timing::TurnTimingSnapshot>>,
     > = std::sync::Arc::new(std::sync::Mutex::new(None));
     let timing_snapshot_for_task = timing_snapshot.clone();
-    tokio::spawn(async move {
+    crate::core::runtime::spawn_scoped(async move {
         log::debug!(
             "[web_channel][bridge] spawned client_id={} thread_id={} request_id={} speak_reply={:?} source={:?} session_id={:?}",
             client_id,

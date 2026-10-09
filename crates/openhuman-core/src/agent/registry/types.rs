@@ -77,6 +77,11 @@ pub struct AgentRegistryEntry {
     /// Tool names that must be hidden even if they match the allowlist.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tool_denylist: Vec<String>,
+    /// Pattern rules narrowing this agent's tools on every surface (see
+    /// `tinytools::ToolRules`), on top of the allowlist and denylist.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<Value>")]
+    pub tool_rules: Option<tinytools::ToolRules>,
     /// Subagent delegation policy. Only ids in `allowlist` may be spawned.
     #[serde(default, skip_serializing_if = "AgentSubagentPolicy::is_empty")]
     pub subagents: AgentSubagentPolicy,
@@ -157,6 +162,8 @@ pub struct AgentRegistryPatch {
     pub tool_allowlist: Option<Vec<String>>,
     #[serde(default)]
     pub tool_denylist: Option<Vec<String>>,
+    #[serde(default)]
+    pub tool_rules: Option<tinytools::ToolRules>,
     #[serde(default)]
     pub subagents: Option<AgentSubagentPolicy>,
     #[serde(default)]
