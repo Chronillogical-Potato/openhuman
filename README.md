@@ -161,7 +161,7 @@ The speed and density above come from a handful of design choices most harnesses
 
 <h3>TinyBus: plug-in parts</h3>
 
-<p>Inspired by the <a href="https://www.freedesktop.org/wiki/Software/dbus/">Linux system bus</a>. Each skill, like search, documents or voice, is its own plug-in. It loads only when needed, and if one breaks, the rest keep working.</p>
+<p>Inspired by the <a href="https://www.freedesktop.org/wiki/Software/dbus/">Linux system bus</a>. Each feature, like search, documents or voice, is its own plug-in. It loads only when needed, and if one gets stuck, the rest keep working.</p>
 
 <p><a href="./gitbooks/developing/loadable-modules.md">Loadable modules</a> · <a href="https://github.com/tinyhumansai/tinybus">tinybus</a></p>
 
