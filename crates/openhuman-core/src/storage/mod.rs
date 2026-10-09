@@ -18,6 +18,7 @@
 //! driver the build does not carry fails at [`open`] naming the feature, so a
 //! misconfigured deployment stops at boot instead of at its first write.
 
+pub mod agents;
 pub mod documents;
 pub mod secrets;
 
@@ -102,7 +103,10 @@ pub async fn open(url: &str) -> Result<Arc<dyn StorageBackend>, StorageError> {
 
 /// Makes `backend` the process's storage backend; returns the previous one.
 pub fn install(backend: Arc<dyn StorageBackend>) -> Option<Arc<dyn StorageBackend>> {
-    BACKEND.install(backend)
+    let previous = BACKEND.install(backend);
+    // Agents derived before the backend existed still need recording.
+    agents::record_live();
+    previous
 }
 
 /// The installed backend, when the host configured one.
