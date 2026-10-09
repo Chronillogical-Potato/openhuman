@@ -41,7 +41,7 @@ impl SdkBackendTransport {
     }
 
     /// [`Self::new`] as a shared handle ready for
-    /// [`install_backend_transport`](openhuman_embed::__host::backend::install_backend_transport).
+    /// [`install_backend_transport`](openhuman_embed::install_backend_transport).
     pub fn shared() -> anyhow::Result<Arc<dyn BackendTransport>> {
         Ok(Arc::new(Self::new()?))
     }

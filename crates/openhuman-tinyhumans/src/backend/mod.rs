@@ -2,7 +2,7 @@
 //! is, how requests are attributed, and who they are attributed to.
 //!
 //! The core knows none of this. It asks the installed
-//! [`BackendTransport`](openhuman_embed::__host::backend::BackendTransport) —
+//! [`BackendTransport`](openhuman_embed::BackendTransport) —
 //! [`SdkBackendTransport`](crate::SdkBackendTransport) — which answers from
 //! these modules:
 //!

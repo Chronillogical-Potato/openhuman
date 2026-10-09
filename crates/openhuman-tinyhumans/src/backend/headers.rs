@@ -7,13 +7,13 @@
 //! shell, when it hosts the core) and `x-sdk-name` (the product identity from
 //! [`crate::backend::product`]). This is TinyHumans header policy, so it lives
 //! with the TinyHumans transport; the core only asks the installed
-//! [`BackendTransport`](openhuman_embed::__host::backend::BackendTransport) for them.
+//! [`BackendTransport`](openhuman_embed::BackendTransport) for them.
 
 use anyhow::{Context, Result};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use std::time::Duration;
 
-use openhuman_embed::__host::backend::TransportProfile;
+use openhuman_embed::TransportProfile;
 
 /// Upper bound on the `x-core-version` / `x-tauri-version` header values. A
 /// version string is short; anything longer is a misconfigured environment and
