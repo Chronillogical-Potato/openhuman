@@ -25,7 +25,7 @@
 </p>
 
 <p align="center">
- <img src="./demo.gif" alt="A walkthrough of the OpenHuman desktop app" />
+ <img src="./docs/demo.gif" alt="A walkthrough of the OpenHuman desktop app" />
 </p>
 
 <p align="center">
