@@ -83,7 +83,8 @@ pnpm profile:tauri --pid <PID> --duration 15
 
 For the smaller embedded-core-only Linux RSS and PSS benchmark, use the
 `rss-bench` binary in the `profile/` crate of
-[openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks), from a checkout of that repository:
+[openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks) (#6944); it no longer builds from
+`crates/openhuman-cli`. From a checkout of that repository:
 
 ```bash
 ./profile/scripts/rss-bench.sh

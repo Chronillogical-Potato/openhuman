@@ -22,9 +22,9 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifier
 use serde_json::json;
 use tokio::sync::broadcast;
 
-use openhuman_core::core::runtime::CoreRuntime;
-use openhuman_core::web_chat;
-use openhuman_core::web_chat::WebChannelEvent;
+use openhuman_rpc::embed::chat_surface as web_chat;
+use openhuman_rpc::embed::chat_surface::WebChannelEvent;
+use openhuman_rpc::embed::CoreRuntime;
 
 use super::cockpit::{
     array_at, row_from_value, Overlay, OverlayKind, OverlayRow, PendingApproval, PendingPlanReview,

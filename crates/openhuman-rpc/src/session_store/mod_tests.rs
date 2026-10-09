@@ -166,3 +166,66 @@ async fn the_host_reads_the_storage_url_from_the_environment() {
     assert_eq!(driver, Some("memory"));
     assert!(refused.is_err(), "an unusable env URL fails the boot");
 }
+
+#[tokio::test]
+async fn provider_for_url_returns_the_store_without_installing_it() {
+    let _turn = SLOTS.lock().await;
+    let previous = crate::core_host::agent::session_store::installed();
+    let previous_backend = crate::core_host::storage::installed();
+    crate::core_host::agent::session_store::restore(None);
+
+    let backed = provider_for_url(Some("memory".into())).await.unwrap();
+    let backed_key = backed.destination_key();
+    let backend_driver = crate::core_host::storage::installed().map(|b| b.driver());
+    let left_uninstalled = crate::core_host::agent::session_store::installed().is_none();
+
+    let classic = provider_for_url(None).await.unwrap();
+    let cleared = crate::core_host::storage::installed().is_none();
+
+    restore_backend(previous_backend);
+    crate::core_host::agent::session_store::restore(previous);
+
+    assert!(
+        backed_key
+            .as_deref()
+            .is_some_and(|key| key.starts_with("memory://")),
+        "{backed_key:?}"
+    );
+    assert_eq!(backend_driver, Some("memory"), "the backend is installed");
+    assert!(
+        left_uninstalled,
+        "the provider is handed back, not installed"
+    );
+    assert!(
+        classic.workspace_dir().is_some(),
+        "no URL is the file layout"
+    );
+    assert!(cleared, "no URL clears an earlier backend");
+}
+
+#[tokio::test]
+async fn provider_for_host_reads_the_storage_url_from_the_environment() {
+    let _turn = SLOTS.lock().await;
+    let previous_backend = crate::core_host::storage::installed();
+    let var = crate::core_host::storage::STORAGE_URL_VAR;
+    let old = std::env::var_os(var);
+
+    std::env::set_var(var, "memory");
+    let booted = provider_for_host().await.map(|p| p.destination_key());
+    std::env::set_var(var, "ftp://nowhere");
+    let refused = provider_for_host().await;
+
+    match old {
+        Some(value) => std::env::set_var(var, value),
+        None => std::env::remove_var(var),
+    }
+    restore_backend(previous_backend);
+
+    let key = booted.unwrap();
+    assert!(
+        key.as_deref()
+            .is_some_and(|key| key.starts_with("memory://")),
+        "{key:?}"
+    );
+    assert!(refused.is_err(), "an unusable env URL fails the TUI boot");
+}

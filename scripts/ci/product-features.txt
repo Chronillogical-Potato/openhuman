@@ -11,7 +11,8 @@
 #     scripts/ci/product-features.sh, so they keep compiling and testing the
 #     code the product actually ships even though `default` no longer does.
 #
-# Why the split (#4901, #4919): the shell declares `openhuman_core` with
+# Why the split (#4901, #4919): the shell declares its core dependency (now
+# `openhuman-rpc`, which forwards each gate down the chain to the core) with
 # `default-features = false`, so it never inherited `default` anyway. Before
 # this file, the guard worked by diffing the shell's list against `default` —
 # which meant SHRINKING `default` made the guard pass vacuously and silently

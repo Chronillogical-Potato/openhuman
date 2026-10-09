@@ -32,6 +32,10 @@ channels = ["openhuman-core/channels"]
 whatsapp-web = ["openhuman-core/whatsapp-web"]
 file-logging = ["openhuman-core/file-logging"]
 scheduler-gate = ["openhuman-core/scheduler-gate"]
+# Exposes the destructive `openhuman.test_reset` RPC for E2E builds only.
+# Default-OFF everywhere; forwarded so the desktop E2E build can reach it
+# through the chain instead of naming the core directly.
+e2e-test-support = ["openhuman-core/e2e-test-support"]
 
 [dependencies]
 async-trait = "0.1"
