@@ -50,6 +50,17 @@ impl ApprovalGate {
         // `AgentTurnOrigin` around `run_turn`. Unlabelled callers map to
         // `Unknown`, which is denied — the gate refuses to execute an
         // external_effect tool from an unlabelled call site.
+        // SaaS has no per-user approval surface: never park, allow only what
+        // the deployment's sandboxed tool groups open.
+        if crate::core::runtime::is_saas() {
+            let outcome = match crate::user_agents::tools::gate_verdict(tool_name) {
+                Ok(()) => GateOutcome::Allow,
+                Err(why) => GateOutcome::Deny {
+                    reason: format!("{POLICY_DENIED_MARKER} {why}"),
+                },
+            };
+            return (outcome, None);
+        }
         let origin = turn_origin::current().unwrap_or(AgentTurnOrigin::Unknown);
         if forced
             && !matches!(
