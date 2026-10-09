@@ -464,7 +464,7 @@ impl CoreProcessHandle {
              aborting embedded startup task before retry"
         );
         self.cancel_shutdown_token(" after startup timeout").await;
-        self.abort_task(" after startup timeout").await;
+        self.abort_task(" after startup timeout", true).await;
         format!(
             "core process did not become ready within {CORE_READY_TIMEOUT_MS}ms \
              (port={port}, ready_signal={received_ready}, port_open={port_open}, \
@@ -631,11 +631,13 @@ impl CoreProcessHandle {
     /// `shutdown` (cleanup-on-drop semantics) and `send_terminate_signal`
     /// (cooperative early teardown from `RunEvent::ExitRequested`).
     ///
-    /// Waits (bounded) for the aborted task to actually finish: aborting only
-    /// marks it, and its future — which owns the embed runtime — is dropped
-    /// at the task's next poll. The process holds one embed runtime at a
-    /// time, so a respawn that raced that drop would fail to build its own.
-    async fn abort_task(&self, log_context: &str) {
+    /// With `wait_release`, waits (bounded) for the aborted task to actually
+    /// finish: aborting only marks it, and its future — which owns the embed
+    /// runtime — is dropped at the task's next poll. The process holds one
+    /// embed runtime at a time, so a respawn that raced that drop would fail
+    /// to build its own. App shutdown passes `false`: nothing respawns, and
+    /// the UI thread should not wait.
+    async fn abort_task(&self, log_context: &str, wait_release: bool) {
         let task = {
             let mut task_guard = self.task.lock().await;
             task_guard.take()
@@ -645,6 +647,9 @@ impl CoreProcessHandle {
         };
         log::info!("[core] aborting embedded core server task{log_context}");
         task.abort();
+        if !wait_release {
+            return;
+        }
         match timeout(Duration::from_secs(ABORT_DRAIN_SECS), task).await {
             Ok(_) => log::debug!("[core] aborted embedded core server task released{log_context}"),
             Err(_) => log::warn!(
@@ -723,7 +728,7 @@ impl CoreProcessHandle {
     pub async fn send_terminate_signal(&self) {
         self.cancel_shutdown_token(" on app shutdown").await;
         self.drain_task_briefly().await;
-        self.abort_task(" on app shutdown").await;
+        self.abort_task(" on app shutdown", false).await;
     }
 
     /// Wait a bounded moment for the server task to finish on its own after
