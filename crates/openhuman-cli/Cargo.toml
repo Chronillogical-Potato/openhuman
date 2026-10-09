@@ -88,6 +88,12 @@ name = "storage_approvals_e2e"
 path = "../../tests/storage_approvals_e2e.rs"
 
 [[test]]
+# Its own binary for the same reason as storage_approvals_e2e: it installs a
+# storage backend into the process-wide slot.
+name = "storage_domains_e2e"
+path = "../../tests/storage_domains_e2e.rs"
+
+[[test]]
 name = "embedded_server_shutdown_e2e"
 path = "../../tests/embedded_server_shutdown_e2e.rs"
 

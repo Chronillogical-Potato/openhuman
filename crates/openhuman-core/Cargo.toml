@@ -155,6 +155,7 @@ tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session
 tinystoragedrivers = { path = "../../vendor/tinyagents/vendor/tinystoragedrivers/crates/tinystoragedrivers", default-features = false, features = ["blocking"] }
 tinyagents-runtime = { path = "../../vendor/tinyagents/crates/tinyagents-runtime" }
 tinyagents-orchestration = { path = "../../vendor/tinyagents/crates/tinyagents-orchestration" }
+tinyagents-tasks = { path = "../../vendor/tinyagents/crates/tinyagents-tasks" }
 tinyinference-core = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
 tinyinference-embeddings = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
 tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
@@ -934,7 +935,7 @@ flows = ["dep:tinyflows", "dep:tinyflows-catalog", "dep:tinyflows-copilot", "tin
 # out of `skills::types` and ~236 files consume them, so those inert serde
 # types are a type carve-out, not part of the gated behaviour. See
 # `crates/openhuman-core/src/skills/stub.rs`.
-skills = []
+skills = ["tinyskills/registry"]
 # MCP domains, all under the `mcp/` family: `mcp::server` (the `openhuman mcp`
 # stdio/HTTP server exposing our tool surface), `mcp::registry` (dynamic
 # Smithery installs — SQLite, lifecycle, `mcp_clients` RPC namespace),

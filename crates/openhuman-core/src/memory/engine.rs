@@ -221,7 +221,12 @@ pub fn resolve(config: &Config) -> Binding {
         }
     }
     if let Some(bound) = host_engine() {
-        return Binding::On(bound);
+        // A host engine is one store for the whole process: in SaaS it would
+        // put every user in one engine, so it is ignored there.
+        if !crate::core::runtime::is_saas() {
+            return Binding::On(bound);
+        }
+        tracing::warn!("[memory:engine] ignoring the host engine in SaaS mode");
     }
     let root = if super::scope::layout_is_v3(config) {
         match super::scope::user_root(config) {

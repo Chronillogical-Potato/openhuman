@@ -50,6 +50,16 @@ pub const USER_METHODS: &[&str] = &[
     "openhuman.channel_web_queue_status",
     "openhuman.channel_web_queue_clear",
     "openhuman.channel_web_queue_remove",
+    // Memory: reads and writes confined to the user's own tree
+    // (`memory::user_scope`). Engine and policy changes, sources, imports and
+    // backfills stay closed: they reach the host or change where memory lives.
+    "openhuman.memory_recall",
+    "openhuman.memory_fetch",
+    "openhuman.memory_learn",
+    "openhuman.memory_forget",
+    "openhuman.memory_items_list",
+    "openhuman.memory_explore",
+    "openhuman.memory_engine_get",
 ];
 
 /// Whether `method` (of an operator-plane controller or not) may be

@@ -124,6 +124,19 @@ SQLite at `<workspace_dir>/task_sources/sources.db` (WAL, 5s busy timeout, migra
 
 The additive idempotent `ingested_tasks.card_id` migration preserves older databases. App-level defaults (enabled flag, default interval, per-fetch cap, auto_proactive) live in config (`TaskSourcesConfig`), not the store.
 
+### On a storage backend
+
+When the host configured a storage backend (`OPENHUMAN_STORAGE_URL` /
+`[storage] url`, see `crate::storage`), every `store` function uses
+`store_documents.rs` instead of `sources.db`: the same operations on the
+`tinystoragedrivers` document port, under the current call's storage scope
+(the acting agent; `local` on a single-user host; refused in SaaS mode with
+no acting agent). Collections `task_sources` (one per source) and `ingested_tasks` (one
+per `(source_id, external_id)`). `update_source` applies the patch under
+compare-and-swap, and removing a source removes its ledger entries (the
+SQL cascade). With no backend configured (the desktop default)
+`sources.db` is used as described above.
+
 ## Dependencies
 
 - `crate::core::all`: `ControllerFuture`, `RegisteredController` for the RPC registry.

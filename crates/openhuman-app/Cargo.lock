@@ -4510,6 +4510,7 @@ dependencies = [
  "tinyagents-registry",
  "tinyagents-runtime",
  "tinyagents-session",
+ "tinyagents-tasks",
  "tinybox-core",
  "tinybox-docker",
  "tinybox-jail",
@@ -8043,7 +8044,7 @@ dependencies = [
 
 [[package]]
 name = "tinymcp"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8070,7 +8071,7 @@ dependencies = [
 
 [[package]]
 name = "tinymcp-bus"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "schemars 1.2.2",
  "serde",
@@ -8159,7 +8160,7 @@ dependencies = [
 
 [[package]]
 name = "tinyskills"
-version = "0.2.8"
+version = "0.2.9"
 dependencies = [
  "cap-fs-ext",
  "cap-std",
