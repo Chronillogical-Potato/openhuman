@@ -199,7 +199,8 @@ impl FlowTriggerSubscriber {
         };
 
         let config = self.config.clone();
-        tokio::spawn(async move {
+        // Scoped: the run keeps the owner's context the handler entered.
+        crate::core::runtime::spawn_scoped(async move {
             // Held for the lifetime of the run; released on drop (including
             // on panic) by `InFlightGuard`.
             let _guard = guard;
@@ -247,13 +248,28 @@ impl EventHandler<DomainEvent> for FlowTriggerSubscriber {
 
     async fn handle(&self, event: &DomainEvent) {
         match event {
-            DomainEvent::FlowScheduleTick { flow_id } => self.handle_schedule_tick(flow_id).await,
+            // The flow runs as the agent it belongs to (`super::owner`).
+            DomainEvent::FlowScheduleTick { flow_id } => {
+                let owner = super::owner::flow_owner(&self.config, flow_id).await;
+                crate::storage::agents::within_agent(
+                    owner.as_deref(),
+                    self.handle_schedule_tick(flow_id),
+                )
+                .await
+            }
+            // Every scope's flows may listen for this trigger: match them in
+            // each, so each run starts as its flow's owner.
             DomainEvent::ComposioTriggerReceived {
                 toolkit,
                 trigger,
                 payload,
                 ..
-            } => self.handle_app_event(toolkit, trigger, payload).await,
+            } => {
+                crate::storage::agents::for_each_scope("flows app_event", || {
+                    self.handle_app_event(toolkit, trigger, payload)
+                })
+                .await;
+            }
             DomainEvent::WebhookIncomingRequest { .. } => {
                 // Best-effort deviation (documented, not silently skipped —
                 // see `flows::ops::log_webhook_trigger_deferred` for the

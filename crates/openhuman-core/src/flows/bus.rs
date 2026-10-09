@@ -15,6 +15,7 @@
 mod tests;
 
 mod dedup_commit;
+mod owner;
 mod run_digest;
 mod trigger;
 

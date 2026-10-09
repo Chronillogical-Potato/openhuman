@@ -171,6 +171,21 @@ pub async fn within_agent<F: Future>(agent: Option<&str>, fut: F) -> F::Output {
     }
 }
 
+/// The scope a record lives in, for background work that holds only its id
+/// (an event naming a flow, a job, a device): the first scope — `local`
+/// first, then each known agent ([`for_each_scope`]) — where `probe` finds
+/// it. `Some(None)` is `local`, `Some(Some(agent))` an agent, `None` nowhere.
+pub async fn find_owner<F, Fut>(label: &str, probe: F) -> Option<Option<String>>
+where
+    F: Fn() -> Fut,
+    Fut: Future<Output = bool>,
+{
+    for_each_scope(label, probe)
+        .await
+        .into_iter()
+        .find_map(|(agent, found)| found.then_some(agent))
+}
+
 /// Runs `step` for every storage scope background work must cover: once
 /// under the current context (the `local` scope, outside SaaS mode), then
 /// once per known agent ([`for_each_agent`]). Each result is returned with
