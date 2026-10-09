@@ -414,6 +414,19 @@ and stops it with the runtime; `start_services` / `stop_services` control it
 explicitly. See [`gitbooks/developing/embedding.md`](../../gitbooks/developing/embedding.md#scheduling)
 and `tests/cron_agents.rs`.
 
+### Channels
+
+`Runtime::channels().telegram(TelegramChannelSpec::new(token, agent_id))`
+starts a Telegram listener whose every message is a turn of that runtime
+agent: its prompt, its host tools and the chat's history. The agent must
+exist first (`ChannelError::UnknownAgent` otherwise), and if it is dropped
+later the bot answers that it is unavailable rather than falling back to the
+orchestrator. Turns run as `ExternalChannel` and are capped at read-only:
+tools that write or reach outside are withheld or refused at once. The
+returned `ChannelListener` stops the bot when it is dropped. Behind the
+`channels` feature (on by default). See the gitbook's "Channels" section and
+`tests/channel_agents.rs`.
+
 ## Tools on an agent
 
 `AgentSpec::tools` gives an agent the host's own in-process tools, each with
@@ -549,7 +562,7 @@ Every feature is a pass-through to the same-named feature on
 forwarded here (and then by `openhuman-tinyhumans` and `openhuman-cli`);
 [`scripts/ci/check-feature-forwarding.mjs`](../../scripts/ci/check-feature-forwarding.mjs) checks the chain.
 
-Two features also gate this crate's own surface. `mcp` adds `HttpHeader`,
+Three features also gate this crate's own surface. `channels` adds `Runtime::channels`, `Channels`, `TelegramChannelSpec`, `ChannelListener`, `ChannelError` and `StreamMode`. `mcp` adds `HttpHeader`,
 `McpAuthConfig`, `McpServer`, `AgentSpec::mcp` and `HarnessBuilder::mcp`.
 `skills` adds `AgentSpec::skills_dir` and `HarnessBuilder::skills_dir`.
 
@@ -629,8 +642,10 @@ their modules as `*_tests.rs`.
 cargo test -p openhuman-embed --features inference,mcp,skills
 cargo test -p openhuman-embed --features inference,mcp,skills --test runtime_agents
 cargo test -p openhuman-embed --features inference,mcp,skills --test cron_agents
+cargo test -p openhuman-embed --features inference,mcp,skills --test channel_agents
 ```
 
+`tests/channel_agents.rs` drives a runtime agent from a mocked Telegram Bot API: the bound agent answers with its prompt and read-only host tool under the `ExternalChannel` origin, its write tool is withheld and refused, and the reply is posted back to the chat.
 `tests/cron_agents.rs` runs a cron job as a runtime agent with its host tool under the
 `TrustedAutomation { Cron }` origin, records a system job handler's error, and starts and
 stops the scheduler with the runtime.

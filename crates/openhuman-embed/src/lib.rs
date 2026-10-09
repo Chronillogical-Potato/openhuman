@@ -99,6 +99,8 @@ mod agent;
 pub mod artifacts;
 mod auth;
 mod call;
+#[cfg(feature = "channels")]
+pub mod channels;
 pub mod chat_surface;
 pub mod complete;
 pub mod config;
@@ -137,6 +139,8 @@ pub use agent::{
     ApprovalsError, MemoryBinding, PendingApproval, SandboxModeSpec, ToolScopeSpec,
 };
 pub use auth::{Auth, AuthState, Session};
+#[cfg(feature = "channels")]
+pub use channels::{ChannelError, ChannelListener, Channels, StreamMode, TelegramChannelSpec};
 pub use config::{Config, RuntimeFlags};
 pub use core_agent::CoreAgent;
 pub use cron::{

@@ -48,6 +48,8 @@ When the user has connected at least one listening integration, the core spawns 
 
 Per-sender history is kept in memory in `ChannelRuntimeContext` ([`context.rs`](./context.rs)), keyed by `conversation_history_key` (channel, sender, reply target, thread). When a turn fails with a context-window overflow, the processor compacts that sender's history and asks the user to resend. Turns have a timeout (`message_timeout_secs`). Channel turns do no per-turn memory recall or autosave: memory reaches a session through `context.md`, injected by the session host, and committed turns are ingested from the `ConversationTurnCommitted` event.
 
+A channel can instead be bound to a host-registered agent with `config.agent.channel_agents` (channel name to agent id): `runtime/dispatch/host_agent/` then builds that agent's session and runs the turn as it, under the channel's `ExternalChannel` origin capped at read-only, and refuses the message when the bound agent is missing. See [runtime/README.md](runtime/README.md#channels-bound-to-a-host-agent).
+
 The listener supervisor reports through `OpenHumanListenerObserver`, which publishes `DomainEvent::ChannelConnected`, `ChannelDisconnected` and `HealthRestarted`. The full runtime walk-through, including account lifetime and logout, is in [runtime/README.md](runtime/README.md).
 
 ### Path 2: backend-relayed inbound (`ChannelInboundSubscriber`)
