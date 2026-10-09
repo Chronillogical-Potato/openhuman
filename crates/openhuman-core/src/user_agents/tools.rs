@@ -202,7 +202,12 @@ pub fn sandbox_policy_with(
     state_dir: &Path,
 ) -> Result<SandboxPolicy, String> {
     let agents = super::layout::agents_dir(saas_root);
-    let is_user_sandbox = action_dir.parent().and_then(Path::parent) == Some(agents.as_path())
+    let agent_dir = action_dir.parent();
+    let is_user_sandbox = agent_dir.and_then(Path::parent) == Some(agents.as_path())
+        && agent_dir
+            .and_then(Path::file_name)
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| super::types::UserAgentId::parse(name).is_ok())
         && action_dir.file_name().is_some_and(|name| name == "sandbox");
     if !is_user_sandbox {
         return Err(format!(

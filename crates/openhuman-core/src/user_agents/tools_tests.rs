@@ -121,6 +121,8 @@ fn the_sandbox_refuses_anything_but_a_user_sandbox() {
         "/srv/oh/agents/sandbox",
         "/tmp/sandbox",
         "/srv/oh/agents/u-abc/sandbox/nested",
+        "/srv/oh/agents/../sandbox",
+        "/srv/oh/agents/not-an-agent/sandbox",
     ] {
         let dir = PathBuf::from(dir);
         assert!(
