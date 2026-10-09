@@ -3,7 +3,7 @@
 The desktop host for OpenHuman on Windows, macOS and Linux. It is a thin Tauri
 v2 application on Wry (WKWebView, WebView2, WebKitGTK) that links the Rust core
 as a library and runs the core's HTTP/JSON-RPC server as a tokio task inside
-the GUI process. The React frontend in `app/` runs in the main webview and
+the GUI process. The React frontend in [`app/`](../../app/) runs in the main webview and
 talks to that core over loopback HTTP. Everything else in this crate is
 platform glue the webview cannot do on its own: windows and tray, deep links,
 native notifications, global hotkeys, auto-update, login, and process
@@ -11,7 +11,7 @@ recovery.
 
 Three names refer to this crate. The Cargo package is `openhuman-app`, the
 library is `openhuman`, and the executable is `OpenHuman`. Only the package
-name follows the `crates/` layout; the library and binary names are shipped
+name follows the [`crates/`](../) layout; the library and binary names are shipped
 identities.
 
 For the user-facing tour of windows, tray and data flow, see
@@ -89,7 +89,7 @@ a backend transport (the core carries none of its own), then looks at
    plugin panics there), the opener, `external_navigation`, deep-link,
    notification, global-shortcut and updater plugins, and managed state for
    hotkeys, the staged app update and the iMessage scanner registry.
-6. `setup()`: points the core at the installer's `bundled-modules/` resource
+6. `setup()`: points the core at the installer's [`bundled-modules/`](bundled-modules/) resource
    directory, verifies `openhuman://` registration (Windows registry
    read-back, Linux xdg-utils), drains deep links that arrived early, removes
    a stale macOS LaunchAgent in debug builds, then creates the
@@ -164,67 +164,67 @@ Core lifecycle and RPC:
 
 | Path | What it does |
 | --- | --- |
-| `src/main.rs` | Binary entry. Installs the backend transport and routes `core`, `mcp` and GUI launches. |
-| `src/lib.rs` | `run()`, `run_core_from_args()`, most `#[tauri::command]`s, tray, menu, the `generate_handler!` list and the run-event loop. |
-| `src/core_process.rs` | `CoreProcessHandle`: start, restart, shut down the embedded server; stale-listener takeover; port-conflict recovery. |
-| `src/core_rpc.rs` | `relay_http_rpc`, `post_json_rpc`, and helpers for shell-side calls to the embedded core (`core_rpc_url_value`, `apply_auth`). |
-| `src/process_kill.rs` | Cross-platform TERM and force-kill helpers and the exit-time orphan sweep. |
-| `src/process_recovery.rs` | Finds and reaps OpenHuman processes left by hard exits. See [`src/process_recovery/`](src/process_recovery/README.md). |
-| `src/gateway/` | Routes the frontend to a core in a container, over SSH, or both (feature `gateways`). See [`src/gateway/`](src/gateway/README.md). |
-| `src/session/` | Login, logout and current user, via `openhuman-tinyhumans`. See [`src/session/`](src/session/README.md). |
+| [`src/main.rs`](src/main.rs) | Binary entry. Installs the backend transport and routes `core`, `mcp` and GUI launches. |
+| [`src/lib.rs`](src/lib.rs) | `run()`, `run_core_from_args()`, most `#[tauri::command]`s, tray, menu, the `generate_handler!` list and the run-event loop. |
+| [`src/core_process.rs`](src/core_process.rs) | `CoreProcessHandle`: start, restart, shut down the embedded server; stale-listener takeover; port-conflict recovery. |
+| [`src/core_rpc.rs`](src/core_rpc.rs) | `relay_http_rpc`, `post_json_rpc`, and helpers for shell-side calls to the embedded core (`core_rpc_url_value`, `apply_auth`). |
+| [`src/process_kill.rs`](src/process_kill.rs) | Cross-platform TERM and force-kill helpers and the exit-time orphan sweep. |
+| [`src/process_recovery.rs`](src/process_recovery.rs) | Finds and reaps OpenHuman processes left by hard exits. See [`src/process_recovery/`](src/process_recovery/README.md). |
+| [`src/gateway/`](src/gateway/) | Routes the frontend to a core in a container, over SSH, or both (feature `gateways`). See [`src/gateway/`](src/gateway/README.md). |
+| [`src/session/`](src/session/) | Login, logout and current user, via `openhuman-tinyhumans`. See [`src/session/`](src/session/README.md). |
 
 Platform integration:
 
 | Path | What it does |
 | --- | --- |
-| `src/deep_link_ipc.rs` | Linux: a second launch forwards `openhuman://` URLs to the primary over a Unix socket; the primary emits `deep-link://new-url`. |
-| `src/deep_link_ipc_windows.rs` | Windows: the same over a named pipe. |
-| `src/deep_link_registration_check.rs` | Windows: reads back the `HKCU\Software\Classes\openhuman` registration and logs a redacted health report. |
-| `src/loopback_oauth.rs` | One-shot `http://127.0.0.1:<port>/auth` listener used as the RFC 8252 OAuth redirect; emits `loopback-oauth-callback`. |
-| `src/external_navigation.rs` | Plugin that cancels top-level `http(s)` navigation away from the app origin and opens the URL in the default browser. |
-| `src/native_notifications/` | Notification permission and delivery, real on macOS. See [`src/native_notifications/`](src/native_notifications/README.md). |
-| `src/imessage_scanner/` | macOS: reads `chat.db` and ingests conversations into memory. See [`src/imessage_scanner/`](src/imessage_scanner/README.md). |
-| `src/dictation_hotkeys.rs`, `src/ptt_hotkeys.rs` | Global shortcut parsing and state for dictation and push-to-talk. |
-| `src/ptt_overlay.rs` | Borderless always-on-top window for push-to-talk, rendering the `/ptt-overlay` route. |
-| `src/mascot_native_window.rs`, `src/notch_window.rs` | macOS: native NSPanel plus WKWebView hosts for the floating mascot and the notch activity pill. |
-| `src/window_state.rs` | Saves and restores main window position and size, with a DPI guard and work-area clamping. |
-| `src/directory_picker.rs` | Native folder chooser for the folder memory source. |
-| `src/workspace_paths.rs` | Open, reveal or preview a file, only after resolving it inside the active workspace. |
+| [`src/deep_link_ipc.rs`](src/deep_link_ipc.rs) | Linux: a second launch forwards `openhuman://` URLs to the primary over a Unix socket; the primary emits `deep-link://new-url`. |
+| [`src/deep_link_ipc_windows.rs`](src/deep_link_ipc_windows.rs) | Windows: the same over a named pipe. |
+| [`src/deep_link_registration_check.rs`](src/deep_link_registration_check.rs) | Windows: reads back the `HKCU\Software\Classes\openhuman` registration and logs a redacted health report. |
+| [`src/loopback_oauth.rs`](src/loopback_oauth.rs) | One-shot `http://127.0.0.1:<port>/auth` listener used as the RFC 8252 OAuth redirect; emits `loopback-oauth-callback`. |
+| [`src/external_navigation.rs`](src/external_navigation.rs) | Plugin that cancels top-level `http(s)` navigation away from the app origin and opens the URL in the default browser. |
+| [`src/native_notifications/`](src/native_notifications/) | Notification permission and delivery, real on macOS. See [`src/native_notifications/`](src/native_notifications/README.md). |
+| [`src/imessage_scanner/`](src/imessage_scanner/) | macOS: reads `chat.db` and ingests conversations into memory. See [`src/imessage_scanner/`](src/imessage_scanner/README.md). |
+| [`src/dictation_hotkeys.rs`](src/dictation_hotkeys.rs), [`src/ptt_hotkeys.rs`](src/ptt_hotkeys.rs) | Global shortcut parsing and state for dictation and push-to-talk. |
+| [`src/ptt_overlay.rs`](src/ptt_overlay.rs) | Borderless always-on-top window for push-to-talk, rendering the `/ptt-overlay` route. |
+| [`src/mascot_native_window.rs`](src/mascot_native_window.rs), [`src/notch_window.rs`](src/notch_window.rs) | macOS: native NSPanel plus WKWebView hosts for the floating mascot and the notch activity pill. |
+| [`src/window_state.rs`](src/window_state.rs) | Saves and restores main window position and size, with a DPI guard and work-area clamping. |
+| [`src/directory_picker.rs`](src/directory_picker.rs) | Native folder chooser for the folder memory source. |
+| [`src/workspace_paths.rs`](src/workspace_paths.rs) | Open, reveal or preview a file, only after resolving it inside the active workspace. |
 
 Updates, reset and diagnostics:
 
 | Path | What it does |
 | --- | --- |
-| `src/app_update.rs` | Bounded retry policy for the updater download. The update commands themselves are in `lib.rs`. |
-| `src/local_data_reset.rs` | `reset_local_data`: asks the core which paths to remove, shuts the core down so its file handles close, removes the active user's local data, and starts the core again. |
-| `src/reset_reboot_schedule.rs` | Windows: schedules deletion at next reboot when files are locked during a reset. |
-| `src/file_logging.rs` | Resolves the data dir and calls `openhuman_core::core::logging::init_for_embedded`; `reveal_logs_folder`, `logs_folder_path`. |
-| `src/stderr_panic_hook.rs` | Stops a closed parent stderr pipe from turning log writes into panics. |
+| [`src/app_update.rs`](src/app_update.rs) | Bounded retry policy for the updater download. The update commands themselves are in `lib.rs`. |
+| [`src/local_data_reset.rs`](src/local_data_reset.rs) | `reset_local_data`: asks the core which paths to remove, shuts the core down so its file handles close, removes the active user's local data, and starts the core again. |
+| [`src/reset_reboot_schedule.rs`](src/reset_reboot_schedule.rs) | Windows: schedules deletion at next reboot when files are locked during a reset. |
+| [`src/file_logging.rs`](src/file_logging.rs) | Resolves the data dir and calls `openhuman_core::core::logging::init_for_embedded`; `reveal_logs_folder`, `logs_folder_path`. |
+| [`src/stderr_panic_hook.rs`](src/stderr_panic_hook.rs) | Stops a closed parent stderr pipe from turning log writes into panics. |
 
 Other commands:
 
 | Path | What it does |
 | --- | --- |
-| `src/artifact_commands.rs` | Copies an agent artifact into the Downloads folder. |
-| `src/mcp_commands.rs` | Locates the `openhuman-core` binary and opens an MCP client's config file for the user. |
-| `src/claude_code.rs` | Opens a native terminal running `claude auth login` for the Claude Code provider. |
+| [`src/artifact_commands.rs`](src/artifact_commands.rs) | Copies an agent artifact into the Downloads folder. |
+| [`src/mcp_commands.rs`](src/mcp_commands.rs) | Locates the `openhuman-core` binary and opens an MCP client's config file for the user. |
+| [`src/claude_code.rs`](src/claude_code.rs) | Opens a native terminal running `claude auth login` for the Claude Code provider. |
 
 Configuration and packaging:
 
 | Path | What it does |
 | --- | --- |
-| `tauri.conf.json` | Windows, bundle resources (agent prompts and `bundled-modules`), updater and installer settings. |
-| `capabilities/` | The capability granted to the `main` and `overlay` windows. See [`capabilities/`](capabilities/README.md). |
-| `permissions/` | App permission sets referenced by the capability. See [`permissions/`](permissions/README.md). |
-| `bundled-modules/` | Installer resource directory for native module releases. Empty in git (only `.gitkeep`; everything else is ignored). Release builds fill it with `scripts/release/stage-modules.mjs`, laid out as `<id>/<version>/<host_key>/<archive>`, and `setup()` hands it to `openhuman_core::modules::ops::set_bundled_releases_dir`. Its contents still pass the core's digest and TinyBus admission checks. On macOS, `scripts/release/macos-bundled-modules.sh` signs and checks it. |
-| `build.rs` | Runs `tauri_build`, and empties `bundle.resources` for non-release builds. |
-| `profiling/` | Standalone CPU and RAM profiler for a running app. See [`profiling/`](profiling/README.md). |
+| [`tauri.conf.json`](tauri.conf.json) | Windows, bundle resources (agent prompts and `bundled-modules`), updater and installer settings. |
+| [`capabilities/`](capabilities/) | The capability granted to the `main` and `overlay` windows. See [`capabilities/`](capabilities/README.md). |
+| [`permissions/`](permissions/) | App permission sets referenced by the capability. See [`permissions/`](permissions/README.md). |
+| [`bundled-modules/`](bundled-modules/) | Installer resource directory for native module releases. Empty in git (only `.gitkeep`; everything else is ignored). Release builds fill it with [`scripts/release/stage-modules.mjs`](../../scripts/release/stage-modules.mjs), laid out as `<id>/<version>/<host_key>/<archive>`, and `setup()` hands it to `openhuman_core::modules::ops::set_bundled_releases_dir`. Its contents still pass the core's digest and TinyBus admission checks. On macOS, [`scripts/release/macos-bundled-modules.sh`](../../scripts/release/macos-bundled-modules.sh) signs and checks it. |
+| [`build.rs`](build.rs) | Runs `tauri_build`, and empties `bundle.resources` for non-release builds. |
+| [`profiling/`](profiling/) | Standalone CPU and RAM profiler for a running app. See [`profiling/`](profiling/README.md). |
 | `Info.plist`, `entitlements.sidecar.plist`, `nsis-hooks.nsh`, `main.desktop`, `postinst`, `postrm` | Platform packaging files for macOS, the Windows installer, and Linux packages. |
 
 ## IPC commands
 
 The authoritative list is the `tauri::generate_handler!` call near the end of
-`run()` in `src/lib.rs`. Grouped:
+`run()` in [`src/lib.rs`](src/lib.rs). Grouped:
 
 | Group | Commands |
 | --- | --- |
@@ -252,15 +252,15 @@ Events the shell emits to the renderer include `auth://changed`,
 - `openhuman::run()` (`src/lib.rs`) starts the GUI.
 - `openhuman::run_core_from_args(args)` (`src/lib.rs`) runs the core CLI
   in-process.
-- `CoreProcessHandle` (`src/core_process.rs`) is managed Tauri state for the
+- `CoreProcessHandle` ([`src/core_process.rs`](src/core_process.rs)) is managed Tauri state for the
   embedded server: `ensure_running`, `restart`, `shutdown`,
   `send_terminate_signal`, `rpc_url`, `rpc_token`, `port`.
 - `active_rpc_endpoint` (`src/lib.rs`) is the single answer to "where does RPC
   go"; the endpoint commands and the session link both call it.
-- `SessionHost` (`src/session/mod.rs`) is managed state wrapping the
+- `SessionHost` ([`src/session/mod.rs`](src/session/mod.rs)) is managed state wrapping the
   `openhuman_tinyhumans::SessionManager`.
 - `gateway::registry::current` and `gateway::registry::activate`
-  (`src/gateway/registry.rs`) hold the active gateway.
+  ([`src/gateway/registry.rs`](src/gateway/registry.rs)) hold the active gateway.
 
 ## Building
 
@@ -279,8 +279,8 @@ default features are off, every product gate must be listed by hand:
 `channels`, `media`, `inference`, `voice`, `web3`, `documents`, `modules`,
 `flows`, `skills`, `mcp`, `crash-reporting`, `http-server`, `scheduler-gate`,
 `file-logging`, `runtime-node`, `hosting`. A gate missing here disappears from
-the shipped app with no build error. `scripts/ci/check-feature-forwarding.mjs`
-compares the list with `scripts/ci/product-features.txt`, and `lib.rs` has two
+the shipped app with no build error. [`scripts/ci/check-feature-forwarding.mjs`](../../scripts/ci/check-feature-forwarding.mjs)
+compares the list with [`scripts/ci/product-features.txt`](../../scripts/ci/product-features.txt), and `lib.rs` has two
 `const _: () = assert!(...)` guards (`VOICE_COMPILED_IN`,
 `HTTP_SERVER_COMPILED_IN`) that fail the build if `voice` or `http-server` is
 dropped.
@@ -290,7 +290,7 @@ embedded server and the relay), `openhuman-tinyhumans` with `jev` (backend
 transport and the session owner), and the `tinybox-*` crates behind
 `gateways`.
 
-The `[patch]` tables mirror the root `Cargo.toml` for `tinytools`, the
+The `[patch]` tables mirror the root [`Cargo.toml`](Cargo.toml) for `tinytools`, the
 `tinyinference-*` crates, `tinyflows` and `tinychannels`. Keep them in sync:
 drift makes Cargo resolve two copies of the same crate, and their types stop
 being interchangeable (a shell `dyn Tool` would no longer be the core's).
@@ -304,21 +304,21 @@ These are shell-local and unrelated to the core feature forwarding above.
 
 | Feature | Meaning |
 | --- | --- |
-| `gateways` (default) | Compiles in `src/gateway/` and the `tinybox-*` crates. Off, the gateway commands are absent and `active_rpc_endpoint` always answers with the embedded core. |
+| `gateways` (default) | Compiles in [`src/gateway/`](src/gateway/) and the `tinybox-*` crates. Off, the gateway commands are absent and `active_rpc_endpoint` always answers with the embedded core. |
 | `custom-protocol` | Serves the bundled `frontendDist` from `tauri://localhost` instead of the Vite `devUrl`. `cargo tauri build` turns it on; never add it to `default`. |
-| `e2e-test-support` | Forwards `openhuman_core/e2e-test-support` to expose `openhuman.test_reset`. The E2E build (`app/scripts/e2e-build.sh`) enables it. |
+| `e2e-test-support` | Forwards `openhuman_core/e2e-test-support` to expose `openhuman.test_reset`. The E2E build ([`app/scripts/e2e-build.sh`](../../app/scripts/e2e-build.sh)) enables it. |
 
 ## Boundaries
 
 - Business rules, persistence, agents, memory and RPC methods belong to
-  `crates/openhuman-core`. The shell orchestrates and presents; it does not
+  [`crates/openhuman-core`](../openhuman-core/). The shell orchestrates and presents; it does not
   duplicate core policy.
-- The JSON-RPC server, envelopes and HTTP client live in `crates/openhuman-rpc`.
+- The JSON-RPC server, envelopes and HTTP client live in [`crates/openhuman-rpc`](../openhuman-rpc/).
 - Login-token exchange, `/auth/me`, the user cache and the backend transport
-  live in `crates/openhuman-tinyhumans`. The shell only exposes them as
+  live in [`crates/openhuman-tinyhumans`](../openhuman-tinyhumans/). The shell only exposes them as
   commands and forwards events.
 - Box provisioning, SSH reach and Docker confinement are implemented in the
-  `vendor/tinybox` submodule (`tinyhumansai/tinybox`).
+  [`vendor/tinybox`](../../vendor/tinybox/) submodule (`tinyhumansai/tinybox`).
 - No JavaScript injection into child webviews. New behavior goes into Rust IPC
   hooks, and new Tauri plugins must be audited for `js_init_script`.
 - The app runs on Wry. Do not reintroduce CEF or CDP-scanner assumptions. The
@@ -336,7 +336,7 @@ These are shell-local and unrelated to the core feature forwarding above.
   `OPENHUMAN_CORE_RPC_URL`, even when a gateway is active. The session link
   goes through `active_rpc_endpoint` and follows the gateway.
 - Registering a command in `generate_handler!` is not enough. Because this
-  crate defines app permissions in `permissions/`, Tauri enforces the ACL on
+  crate defines app permissions in [`permissions/`](permissions/), Tauri enforces the ACL on
   app commands too, and the webview gets "not allowed. Command not found" for
   any command no granted permission lists. Add every new command to a
   permission file. At the time of writing several registered commands are in
@@ -351,13 +351,25 @@ These are shell-local and unrelated to the core feature forwarding above.
 ## Tests
 
 Tests are `*_tests.rs` siblings of each module (and under
-`src/process_recovery/` and `src/native_notifications/macos/` for modules
+[`src/process_recovery/`](src/process_recovery/) and [`src/native_notifications/macos/`](src/native_notifications/macos/) for modules
 defined inline). Run them directly, as CI does
-(`.github/workflows/test-reusable.yml`):
+([`.github/workflows/test-reusable.yml`](../../.github/workflows/test-reusable.yml)):
 
 ```bash
 cargo test --manifest-path crates/openhuman-app/Cargo.toml
 cargo test --manifest-path crates/openhuman-app/Cargo.toml gateway::
 ```
 
-Desktop E2E specs live under `app/test/e2e/specs/`.
+Desktop E2E specs live under [`app/test/e2e/specs/`](../../app/test/e2e/specs/).
+
+## Further reading
+
+- [`crates/openhuman-app/capabilities/README.md`](capabilities/README.md): the capabilities module README.
+- [`crates/openhuman-app/profiling/README.md`](profiling/README.md): the profiling module README.
+- [`gitbooks/developing/architecture/tauri-shell.md`](../../gitbooks/developing/architecture/tauri-shell.md): the Tauri shell.
+- [`gitbooks/developing/architecture.md`](../../gitbooks/developing/architecture.md): architecture overview.
+- [`gitbooks/developing/architecture/frontend.md`](../../gitbooks/developing/architecture/frontend.md): the frontend.
+- [`gitbooks/developing/building-rust-core.md`](../../gitbooks/developing/building-rust-core.md): building the Rust core.
+- [`gitbooks/developing/tinyhumans-api-key.md`](../../gitbooks/developing/tinyhumans-api-key.md): running on a TinyHumans API key.
+- [`gitbooks/developing/performance.md`](../../gitbooks/developing/performance.md): performance.
+- [`crates/openhuman-app/permissions/README.md`](permissions/README.md): the permissions module README.

@@ -38,7 +38,7 @@ server = [
 # `session_raw/` / `session_db/` / `tinyagents_store/` layout behind
 # TinyAgents' session store port. On with `server`; the TUI, which runs the
 # core without the server, turns it on by itself.
-session-store = ["dep:tinyagents-session", "dep:tinyagents-harness", "dep:chrono", "dep:anyhow"]
+session-store = ["dep:tinyagents-session", "dep:tinyagents-harness", "dep:chrono", "dep:anyhow", "tinyagents-session/storage-drivers"]
 # Forwarded so the server's Sentry-routing tests run against a core that
 # reports to Sentry.
 crash-reporting = ["openhuman-core/crash-reporting"]

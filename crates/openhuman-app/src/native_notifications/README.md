@@ -53,8 +53,8 @@ plugin.
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | The three commands and the inline `macos` submodule (`permission_state`, `request_permission`, `show`, bundle check, status mapping). |
-| `macos/native_notifications_tests.rs` | Tests for the inline `macos` submodule. The directory holds only this file because the submodule itself is defined inside `mod.rs`. |
+| [`mod.rs`](mod.rs) | The three commands and the inline `macos` submodule (`permission_state`, `request_permission`, `show`, bundle check, status mapping). |
+| [`macos/native_notifications_tests.rs`](macos/native_notifications_tests.rs) | Tests for the inline `macos` submodule. The directory holds only this file because the submodule itself is defined inside `mod.rs`. |
 
 ## Tauri commands
 
@@ -80,3 +80,8 @@ cargo test --manifest-path crates/openhuman-app/Cargo.toml native_notifications:
 ```
 
 The tests compile only on macOS.
+
+## Further reading
+
+- [`gitbooks/developing/architecture/tauri-shell.md`](../../../../gitbooks/developing/architecture/tauri-shell.md): the Tauri shell.
+- [`crates/openhuman-app/README.md`](../../README.md): the openhuman-app crate README.

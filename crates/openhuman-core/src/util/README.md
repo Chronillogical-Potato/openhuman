@@ -36,13 +36,13 @@ copy.
 
 | Path | What it does |
 | --- | --- |
-| `text.rs` | Char-count truncation (`truncate_with_ellipsis`, `truncate_with_suffix`), byte-capped truncation with an ellipsis (`truncate_at_byte_boundary`), and byte-index rounding to a char boundary (`floor_char_boundary`, `ceil_char_boundary`, `utf8_safe_prefix_at_byte_boundary`). |
-| `retry.rs` | `retry_with_backoff` (sync, `std::thread::sleep`) and `retry_with_backoff_async` (`tokio::time::sleep`), plus `is_transient_fs_error`. |
-| `redact.rs` | `redact` hashes a string to 8 hex chars for log lines. `redact_url_for_log` replaces URL userinfo with `redacted`. |
-| `url.rs` | `normalize_api_base_url`, `normalize_backend_api_base_url`, `join_url`, `host_is_local`. |
-| `params.rs` | `read_required` and `read_optional`, the shared param decoders for controller handlers. |
-| `sanitize.rs` | A re-export of `tinymcp_bus::sanitize`: `sanitize_for_llm`, `strip_control_chars`, `strip_instruction_fences`, `truncate_utf8_safe`, `MAX_DESCRIPTION_BYTES`, `MAX_TITLE_BYTES`. |
-| `types.rs` | `MaybeSet<T>` (`Set`, `Unset`, `Null`). |
+| [`text.rs`](./text.rs) | Char-count truncation (`truncate_with_ellipsis`, `truncate_with_suffix`), byte-capped truncation with an ellipsis (`truncate_at_byte_boundary`), and byte-index rounding to a char boundary (`floor_char_boundary`, `ceil_char_boundary`, `utf8_safe_prefix_at_byte_boundary`). |
+| [`retry.rs`](./retry.rs) | `retry_with_backoff` (sync, `std::thread::sleep`) and `retry_with_backoff_async` (`tokio::time::sleep`), plus `is_transient_fs_error`. |
+| [`redact.rs`](./redact.rs) | `redact` hashes a string to 8 hex chars for log lines. `redact_url_for_log` replaces URL userinfo with `redacted`. |
+| [`url.rs`](./url.rs) | `normalize_api_base_url`, `normalize_backend_api_base_url`, `join_url`, `host_is_local`. |
+| [`params.rs`](./params.rs) | `read_required` and `read_optional`, the shared param decoders for controller handlers. |
+| [`sanitize.rs`](./sanitize.rs) | A re-export of `tinymcp_bus::sanitize`: `sanitize_for_llm`, `strip_control_chars`, `strip_instruction_fences`, `truncate_utf8_safe`, `MAX_DESCRIPTION_BYTES`, `MAX_TITLE_BYTES`. |
+| [`types.rs`](./types.rs) | `MaybeSet<T>` (`Set`, `Unset`, `Null`). |
 | [`tls/`](tls/README.md) | `tls_client_builder()`, the platform-conditional TLS backend for `reqwest` clients. |
 
 ## Key types and entry points
@@ -118,7 +118,7 @@ null" (`Null`) in partial-update payloads. The caller today is
 
 ### Re-exports
 
-`mod.rs` re-exports `read_optional`, `read_required`, `redact_url_for_log`,
+[`mod.rs`](./mod.rs) re-exports `read_optional`, `read_required`, `redact_url_for_log`,
 the `retry` functions, the `text` functions and `MaybeSet` at the module root,
 so `crate::util::truncate_with_ellipsis` works without naming the submodule.
 `redact::redact`, `sanitize::*`, `url::*` and `tls::tls_client_builder` are
@@ -131,7 +131,7 @@ uses.
 - The sanitization rule is owned by `tinymcp_bus` (`vendor/tinymcp`).
 - Hosted-backend URL resolution (defaults, `BACKEND_URL` overrides) belongs
   to the installed backend transport in `crates/openhuman-tinyhumans`, asked
-  through `crate::backend`. `url.rs` only does string and URL shape work.
+  through `crate::backend`. [`url.rs`](./url.rs) only does string and URL shape work.
 - Secret scrubbing for logs and Sentry lives in `core::log_redaction` and
   `core::observability`. `redact` is only a stable hash for identifiers.
 
@@ -148,7 +148,12 @@ uses.
 
 ## Tests
 
-Tests sit beside each file (`text_tests.rs`, `retry_tests.rs`,
-`redact_tests.rs`, `url_tests.rs`, `params_tests.rs`). Run them with
+Tests sit beside each file ([`text_tests.rs`](./text_tests.rs), [`retry_tests.rs`](./retry_tests.rs),
+[`redact_tests.rs`](./redact_tests.rs), [`url_tests.rs`](./url_tests.rs), [`params_tests.rs`](./params_tests.rs)). Run them with
 `cargo test -p openhuman util::` or `pnpm debug rust util::`. The
 `truncate_with_ellipsis` doctest runs under `cargo test -p openhuman --doc`.
+
+## Further reading
+
+- [Architecture overview](../../../../gitbooks/developing/architecture.md)
+- [Testing strategy](../../../../gitbooks/developing/testing-strategy.md)
