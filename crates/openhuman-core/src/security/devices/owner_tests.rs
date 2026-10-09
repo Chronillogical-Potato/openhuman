@@ -55,14 +55,13 @@ fn scoped_config(dir: &std::path::Path) -> crate::config::Config {
 async fn a_device_found_in_the_local_scope_belongs_to_local_and_is_remembered() {
     let tmp = tempfile::tempdir().unwrap();
     let config = scoped_config(tmp.path());
-    super::super::store::insert_device(&config, "owner-test-found", "label", "pk", "hash")
-        .unwrap();
+    super::super::store::insert_device(&config, "owner-test-found", "label", "pk", "hash").unwrap();
     let context = crate::core::runtime::CoreContext::for_test_with_config(
         crate::core::runtime::DomainSet::full(),
         config,
     );
-    let owner = crate::core::runtime::CoreContext::scope(context, owner_of("owner-test-found", None))
-        .await;
+    let owner =
+        crate::core::runtime::CoreContext::scope(context, owner_of("owner-test-found", None)).await;
     assert_eq!(owner, None);
     assert_eq!(cached("owner-test-found"), Some(None));
 }
@@ -74,8 +73,9 @@ async fn a_channel_no_scope_knows_is_local_and_not_remembered() {
         crate::core::runtime::DomainSet::full(),
         scoped_config(tmp.path()),
     );
-    let owner = crate::core::runtime::CoreContext::scope(context, owner_of("owner-test-missing", None))
-        .await;
+    let owner =
+        crate::core::runtime::CoreContext::scope(context, owner_of("owner-test-missing", None))
+            .await;
     assert_eq!(owner, None);
     assert_eq!(cached("owner-test-missing"), None);
 }

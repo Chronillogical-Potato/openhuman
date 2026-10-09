@@ -313,3 +313,25 @@ async fn a_pipeline_reports_its_last_stage_rather_than_pipefail() {
          a failure and re-status every existing job with a pipeline in it: {output}"
     );
 }
+
+#[tokio::test]
+async fn an_agent_pass_polls_with_its_own_config_and_reports_health() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp).await;
+    let mut health = None;
+    tick_agent_scope(&config, &mut health).await;
+    assert_eq!(health, Some(true), "a successful poll reports healthy");
+}
+
+#[tokio::test]
+async fn tick_agents_without_a_backend_leaves_the_health_tracker_alone() {
+    // The lib test binary installs no storage backend, so no agent is visited.
+    if crate::storage::installed().is_some() {
+        return;
+    }
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp).await;
+    let mut health = Some(false);
+    tick_agents(&config, &mut health).await;
+    assert_eq!(health, Some(false));
+}
