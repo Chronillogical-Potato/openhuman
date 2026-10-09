@@ -105,8 +105,10 @@ impl CreateCustomRequest {
             system_prompt: self.system_prompt,
             tool_allowlist: self.tool_allowlist,
             tool_denylist: self.tool_denylist,
-            // Passed through: an empty set clears the entry's rules (`apply_patch`).
-            tool_rules: self.tool_rules,
+            // A new entry never stores a no-op rule set. (Clearing is an
+            // `update`: `AgentRegistryPatch` passes an empty set through to
+            // `apply_patch`, which clears the field.)
+            tool_rules: self.tool_rules.filter(|rules| !rules.is_permissive()),
             subagents: self.subagents,
             tags: self.tags,
             metadata: self.metadata.unwrap_or(Value::Null),
