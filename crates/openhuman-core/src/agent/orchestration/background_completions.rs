@@ -359,7 +359,7 @@ pub(crate) async fn record_awaiting_input(
 }
 
 /// Drop every workspace's router and all process-local state about them. Called
-/// when the core stops (`CoreRuntime::exit_cleanup`), so the completion logs'
+/// when the core server stops (`openhuman_rpc::server::serve`), so the completion logs'
 /// file handles close before a data reset removes their directory (Windows
 /// refuses to delete an open file) and a later boot starts from the logs alone.
 /// A delivery still in flight keeps its own router handle until it finishes; the
