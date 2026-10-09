@@ -623,3 +623,66 @@ async fn a_dropped_delivery_releases_its_slot_and_lease() {
     );
     assert!(pending_for(w, "thread-drop").is_empty());
 }
+
+#[tokio::test]
+async fn a_failed_turn_under_the_ceiling_asks_for_a_backoff_retry() {
+    // A checkout failure publishes no AgentError, so nothing else would retry a
+    // quiet thread; the loop hands back the delay to try again after.
+    let _g = test_guard().await;
+    let ws = workspace();
+    let w = ws.path();
+    record(w, "bd-retry", "sub-1", "alpha", "thread-retry").await;
+    let router = router_for_workspace(w);
+
+    let retry = try_deliver_with(
+        "thread-retry".into(),
+        router.clone(),
+        |_t, _n| async move { Err::<String, String>("session checkout failed".to_string()) },
+        |_t, _n| async move { unreachable!("one failure must not give up") },
+    )
+    .await;
+    assert_eq!(retry, Some(retry_backoff(1)));
+
+    let delivered = try_deliver_with(
+        "thread-retry".into(),
+        router,
+        |_t, _n| async move { Ok::<String, String>("presented".to_string()) },
+        |_t, _n| async move { unreachable!("a success must not give up") },
+    )
+    .await;
+    assert_eq!(delivered, None, "a delivered batch needs no retry");
+}
+
+#[test]
+fn the_retry_backoff_grows_and_is_capped() {
+    assert!(retry_backoff(2) > retry_backoff(1));
+    assert_eq!(retry_backoff(40), retry_backoff(5));
+}
+
+#[tokio::test]
+async fn boot_recovery_schedules_a_delivery_for_every_thread_with_undelivered_results() {
+    let _g = test_guard().await;
+    let ws = workspace();
+    let w = ws.path();
+    record(
+        w,
+        "bd-boot",
+        "sub-1",
+        "finished before the crash",
+        "thread-boot-sched",
+    )
+    .await;
+    forget_workspace_for_test(w);
+    scheduled_for_test().lock().expect("scheduled").clear();
+
+    assert_eq!(recover_on_boot(w), 1);
+    assert!(scheduled_for_test()
+        .lock()
+        .expect("scheduled")
+        .contains(&("thread-boot-sched".to_string(), RECOVERY_DELAY)));
+    assert_eq!(
+        recover_on_boot(w),
+        0,
+        "a workspace is scanned once per process"
+    );
+}

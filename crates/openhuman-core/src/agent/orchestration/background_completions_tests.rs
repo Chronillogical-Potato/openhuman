@@ -634,7 +634,10 @@ async fn release_all_waits_for_a_router_still_in_use() {
     let releasing = tokio::spawn(release_all());
     // Well inside the drain window: still waiting on the held router.
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-    assert!(!releasing.is_finished(), "waits while a delivery holds the router");
+    assert!(
+        !releasing.is_finished(),
+        "waits while a delivery holds the router"
+    );
     drop(in_use);
     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     assert!(releasing.await.unwrap() >= 1);
@@ -647,7 +650,10 @@ async fn release_all_gives_up_waiting_after_the_drain_window() {
     let w = ws.path();
     let _held_forever = router_for_workspace(w);
     let released = release_all().await;
-    assert!(released >= 1, "stragglers are dropped once the window passes");
+    assert!(
+        released >= 1,
+        "stragglers are dropped once the window passes"
+    );
     assert!(!state().routers.contains_key(w));
 }
 

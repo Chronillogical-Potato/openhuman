@@ -281,6 +281,14 @@ pub(crate) async fn record_outcome(
         log::warn!("[background_completions] dropping headless completion task_id={task_id}");
         return;
     };
+    if !workspace_dir.is_dir() {
+        // The workspace was removed (a data reset) while the child ran; do not
+        // recreate it just to log a result nobody can receive.
+        log::warn!(
+            "[background_completions] dropping completion task_id={task_id}: workspace is gone"
+        );
+        return;
+    }
     {
         // The in-memory gates back up the router's durable cancelled-parent
         // marker, so a failed `cancel_parent` write cannot let a late result in.
@@ -316,14 +324,6 @@ pub(crate) async fn record_outcome(
     } else {
         record
     };
-    if !workspace_dir.is_dir() {
-        // The workspace was removed (a data reset) while the child ran; do not
-        // recreate it just to log a result nobody can receive.
-        log::warn!(
-            "[background_completions] dropping completion task_id={task_id}: workspace is gone"
-        );
-        return;
-    }
     let router = router_for_workspace(workspace_dir);
     let mut outcome_of_record = router
         .record_with_retries(record.clone(), RECORD_RETRIES)
