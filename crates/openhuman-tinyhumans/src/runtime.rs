@@ -115,7 +115,8 @@ impl RuntimeBuilder {
 
     /// Whether the Jev `tool_search` ranker is installed (default `true`;
     /// needs the `jev` feature). Off, the harness ranks with BM25 alone
-    /// unless [`tool_ranker`](Self::tool_ranker) supplies another.
+    /// unless [`tool_ranker`](Self::tool_ranker) supplies another. A host
+    /// ranker, however it was set, always wins over the Jev one.
     pub fn jev_ranker(mut self, enabled: bool) -> Self {
         self.install.tool_ranker = enabled;
         self
@@ -263,7 +264,14 @@ impl RuntimeBuilder {
             inner = inner.controller_extension(extension);
         }
         if let Some(ranker) = wiring.ranker {
-            inner = inner.tool_ranker(ranker);
+            // A ranker already on the embed builder (from `from_embed`, or
+            // `tool_ranker` followed by `jev_ranker(true)`) is the host's
+            // choice; the Jev ranker never replaces it.
+            if inner.summary().tool_ranker.is_some() {
+                log::debug!("[tinyhumans] host tool ranker kept; Jev ranker skipped");
+            } else {
+                inner = inner.tool_ranker(ranker);
+            }
         }
         Ok(inner)
     }
