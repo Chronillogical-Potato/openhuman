@@ -20,8 +20,7 @@ use super::types::PairingSession;
 
 /// Channels whose owner this process has resolved: `Some(agent)`, or `None`
 /// for `local`.
-static OWNERS: LazyLock<Mutex<HashMap<String, Option<String>>>> =
-    LazyLock::new(Default::default);
+static OWNERS: LazyLock<Mutex<HashMap<String, Option<String>>>> = LazyLock::new(Default::default);
 
 /// Records that `channel_id` belongs to `agent` (`None` = `local`).
 pub(super) fn remember(channel_id: &str, agent: Option<String>) {
@@ -41,10 +40,7 @@ fn cached(channel_id: &str) -> Option<Option<String>> {
 
 /// The agent `channel_id` belongs to, resolved as described above. A channel
 /// no scope knows yet (a handshake still in flight) is `local`.
-pub(super) async fn owner_of(
-    channel_id: &str,
-    pending: Option<&PairingSession>,
-) -> Option<String> {
+pub(super) async fn owner_of(channel_id: &str, pending: Option<&PairingSession>) -> Option<String> {
     if let Some(session) = pending {
         return session.agent.clone();
     }
