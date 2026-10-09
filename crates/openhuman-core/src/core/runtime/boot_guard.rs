@@ -269,7 +269,7 @@ fn sandbox_problems(inputs: &BootInputs<'_>) -> Vec<String> {
     if sandbox.image.trim().is_empty() {
         problems.push("no image is set".to_string());
     }
-    if sandbox.memory_limit_mb == 0 || !(sandbox.cpu_limit > 0.0) {
+    if sandbox.memory_limit_mb == 0 || sandbox.cpu_limit.is_nan() || sandbox.cpu_limit <= 0.0 {
         problems.push("memory_limit_mb and cpu_limit must be positive".to_string());
     }
     problems
