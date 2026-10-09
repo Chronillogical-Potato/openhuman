@@ -1,91 +1,82 @@
 ---
 description: >-
-  The notification center, the quiet notice tray, and where background work
-  now surfaces: everything OpenHuman tells you about, and everything it does
-  while you are not watching.
+  The notification center, the notice tray, and where background work shows
+  up: what OpenHuman tells you about, and what it does while you are away.
 icon: bell
 ---
 
-# Notifications & Activity
+# Notifications and activity
 
-OpenHuman surfaces two kinds of "what's happening": **notifications** (things you should look at, like an important Slack message, a failed webhook, or a high-priority email) and **activity** (a ledger of what the agent did on its own while you weren't watching).
+OpenHuman shows two kinds of "what is happening". Notifications are things you should look at, like an important Slack message, a failed webhook or a high-priority email. Activity is a record of what the agent did on its own while you were not watching.
 
-Both live on the **Notifications** page. There is no longer an Activity hub or a Routines screen. Both addresses still resolve, but not to what they used to show: `/activity` redirects to **Settings → Account**, and `/routines` to [Workflows](workflows.md). The notification feeds moved here, and the scheduler moved to Workflows → Schedules.
+Both live on the Notifications page. There is no Activity hub or Routines screen. `/activity` redirects to **Settings → Account**, and `/routines` redirects to [Workflows](workflows.md). The scheduler lives under Workflows → Schedules.
 
----
+## Notification center
 
-## Notification Center
-
-The notification center is fed by two independent streams, which render as two stacked sections on the Notifications page.
+Two independent streams feed the notification center. They show as two stacked sections on the Notifications page.
 
 ### Integration notifications
 
-Notifications captured from connected accounts (Gmail, Slack, WhatsApp, Discord, …) are ingested through the `notification.ingest` RPC, persisted to a per-workspace SQLite store, and then **triaged by a local LLM in the background**. Ingest returns immediately; triage runs in a spawned task and back-fills the score a moment later, so a freshly arrived item can briefly show as unscored.
+Notifications from connected accounts (Gmail, Slack, WhatsApp, Discord and others) come in through the `notification.ingest` RPC. They are saved to a per-workspace SQLite store, then triaged by a local LLM in the background. Ingest returns immediately. Triage runs in a spawned task and fills in the score a moment later, so a new item can briefly show as unscored.
 
-Triage assigns each notification an **action**, which maps to a fixed importance score between 0.0 and 1.0:
+Triage gives each notification an action, which maps to a fixed importance score from 0.0 to 1.0:
 
-| Triage action | Score | What it means                    |
-| ------------- | ----- | -------------------------------- |
-| `drop`        | 0.10  | Noise, not worth surfacing       |
-| `acknowledge` | 0.35  | Low value, informational         |
-| `react`       | 0.65  | Worth a follow-up                |
-| `escalate`    | 0.90  | High priority, hand to the agent |
+| Triage action | Score | What it means |
+| --- | --- | --- |
+| `drop` | 0.10 | Noise, not worth surfacing |
+| `acknowledge` | 0.35 | Low value, informational |
+| `react` | 0.65 | Worth a follow-up |
+| `escalate` | 0.90 | High priority, hand to the agent |
 
-Only `react` and `escalate` are considered "routed" actions; `drop` and `acknowledge` stay quiet. Each ingested item carries a one-sentence `triage_reason` justifying the classifier's call, plus a lifecycle status: **unread → read → acted → dismissed**. Duplicate content received within a 60-second window collapses to a single entry.
+Only `react` and `escalate` are routed. `drop` and `acknowledge` stay quiet. Each item carries a one-sentence `triage_reason` explaining the call, and a status that moves from unread to read to acted to dismissed. Duplicate content received within 60 seconds collapses into one entry.
 
-### System (core-bridge) notifications
+### System notifications
 
-The second stream translates selected internal events into compact, user-facing alerts and pushes them over the socket bridge as they happen. These are persisted before broadcast, so anything fired while the app was closed syncs down on the next open. Each carries a **category** and an in-app deep link:
+The second stream turns selected internal events into short alerts and pushes them over the socket bridge as they happen. They are saved before they are sent, so anything fired while the app was closed syncs on the next open. Each has a category and an in-app deep link:
 
-| Source event         | Category | Surfaces when                             |
-| -------------------- | -------- | ----------------------------------------- |
-| Cron job completed   | Agents   | Always (success or failure)               |
-| Webhook processed    | System   | **Only on failure**; successes are silent |
-| Sub-agent finished   | Agents   | Always                                    |
-| Sub-agent failed     | Agents   | Always                                    |
-| Notification triaged | Agents   | Only when routed (`escalate`/`react`)     |
-| API key rejected     | System   | Always; links to the LLM settings tab     |
+| Source event | Category | Shows when |
+| --- | --- | --- |
+| Cron job completed | Agents | Always (success or failure) |
+| Webhook processed | System | Only on failure. Successes are silent. |
+| Sub-agent finished | Agents | Always |
+| Sub-agent failed | Agents | Always |
+| Notification triaged | Agents | Only when routed (`escalate` or `react`) |
+| API key rejected | System | Always. Links to the LLM settings tab. |
 
-The category set the notification center understands is **messages, agents, skills, system, meetings, reminders, important**. The page shows a filter chip row, but only for the categories that actually appear in the current feed, plus **Mark all read** and **Clear**. Clicking a notification marks it read and follows its deep link. Some core notifications carry **action buttons** and are pinned to the top. The feed holds the most recent 200 items.
+The categories are messages, agents, skills, system, meetings, reminders and important. The page shows filter chips only for categories present in the current feed, plus **Mark all read** and **Clear**. Clicking a notification marks it read and follows its deep link. Some system notifications have action buttons and are pinned to the top. The feed holds the most recent 200 items.
 
-### Per-provider routing & thresholds
+### Per-provider routing and thresholds
 
-Every provider has its own settings (`notification.settings_set`), letting you tune the noise per source:
+Each provider has its own settings (`notification.settings_set`), so you can tune the noise per source:
 
-| Setting                 | Effect                                                                         |
-| ----------------------- | ------------------------------------------------------------------------------ |
-| `enabled`               | When off, that provider's notifications are not ingested at all                |
-| `importance_threshold`  | Minimum score (0.0 to 1.0) to display; `0.0` shows everything                  |
-| `route_to_orchestrator` | When on, high-importance (`react`/`escalate`) items are forwarded to the agent |
+| Setting | Effect |
+| --- | --- |
+| `enabled` | When off, that provider's notifications are not ingested at all. |
+| `importance_threshold` | Minimum score (0.0 to 1.0) to display. `0.0` shows everything. |
+| `route_to_orchestrator` | When on, high-importance (`react` or `escalate`) items are forwarded to the agent. |
 
-Auto-routing re-reads the provider's settings the moment before escalating, so toggling a setting mid-flight takes effect immediately. A notification is only routed to the agent when its score clears the provider threshold **and** `route_to_orchestrator` is enabled.
+Auto-routing re-reads the provider's settings just before it escalates, so a change takes effect immediately. A notification goes to the agent only when its score clears the provider threshold and `route_to_orchestrator` is on.
 
-These per-provider settings have no UI today: the page that edited them was removed, so they are set through the RPC or by hand. The per-category preferences gate **ingest**, not just display, which is worth knowing before changing one.
-
----
+These per-provider settings have no UI today. Set them through the RPC or by hand. They gate ingest, not just display, so keep that in mind before changing one.
 
 ## The notice tray
 
-Separate from the notification center, a quiet tray in the bottom-right corner collects **things you can act on**: a provider key that was rejected, a plan limit reached, a keyring consent prompt. It replaced the full-width banners that used to push the chat down. Repeats of the same problem bump a count rather than stacking, and the tray is in-memory, so it clears on restart.
+A quiet tray in the bottom-right corner collects things you can act on: a rejected provider key, a reached plan limit, a keyring consent prompt. Repeats of the same problem bump a count instead of stacking. The tray lives in memory, so it clears on restart.
 
-Product announcements arrive separately again, as a modal shown once per signed-in session, with the ids you have already seen remembered.
+Product announcements arrive separately, as a modal shown once per signed-in session. OpenHuman remembers the ids you have already seen.
 
----
-
-## Where background work surfaces
+## Where background work shows up
 
 | Kind of background work | Where to look |
 | --- | --- |
-| Scheduled jobs and their run history | **Workflows → Schedules**. See [Cron & Scheduling](native-tools/cron.md). |
+| Scheduled jobs and their run history | **Workflows → Schedules**. See [Cron and scheduling](native-tools/cron.md). |
 | Workflow runs | **Workflows → Runs** |
 | Memory belief builds and source syncs | **Connections → Memory → Background** |
 | Detached sub-agents and async delegation | The background inbox card in the thread that started them. See [Chat](chat.md). |
-| Everything above, as notifications | The Notifications page, Agents category |
-
----
+| All of the above, as notifications | The Notifications page, Agents category |
 
 ## See also
 
-- [Cron & Scheduling](native-tools/cron.md): the scheduling engine and the agent tools behind the Schedules view.
+- [Cron and scheduling](native-tools/cron.md): the scheduling engine and the agent tools behind the Schedules view.
 - [Triggers](integrations/triggers.md): webhooks and inbound events that can raise a notification.
 - [Chat](chat.md): where an approval or a sub-agent result lands when you are in the conversation.

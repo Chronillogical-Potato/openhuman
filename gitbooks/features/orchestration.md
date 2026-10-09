@@ -1,54 +1,57 @@
 ---
 description: >-
   OpenHuman is an orchestrator, not a chatbot: durable agent graphs, visual
-  workflows, sub-agent fleets, and a split-brain always-on layer, all in one
-  coherent stack.
+  workflows, sub-agent fleets and an always-on two-agent layer.
 icon: sitemap
 ---
 
-# The Orchestrator
+# The orchestrator
 
 <figure><img src="../.gitbook/assets/orchestration.png" alt=""><figcaption><p>OpenHuman orchestrating a fleet of agents.</p></figcaption></figure>
 
-Most harnesses run one agent in one loop. OpenHuman is built as an **orchestrator**: a stack for coordinating many agents, over long horizons, across machines. It does this durably, observably, and under your control.
-
-Four layers make that real:
+Most harnesses run one agent in one loop. OpenHuman coordinates many agents over long stretches of time, across machines. It does this durably, visibly and under your control. Four layers make that work.
 
 ## 1. Graphs, not loops
 
-Every agent turn runs on [tinyagents](https://github.com/tinyhumansai/tinyagents), our open-source graph engine. Multi-step work compiles to **state-machine graphs with conditional routing**: `plan → execute ⇄ review → finalize` for delegation, phase DAGs for multi-agent workflow runs, and map-reduce fan-out for parallel workers. All of it has **durable checkpointing**. A graph can pause mid-run (for your answer, for an approval, for a restart) and resume exactly where it stopped.
+Every agent turn runs on [tinyagents](https://github.com/tinyhumansai/tinyagents), our open-source graph engine. Multi-step work compiles to state-machine graphs with conditional routing:
 
-## 2. Sub-agent fleets that don't get lost
+- `plan → execute ⇄ review → finalize` for delegation.
+- Phase DAGs for multi-agent workflow runs.
+- Map-reduce fan-out for parallel workers.
 
-The orchestrator spawns specialized sub-agents (up to 3 levels deep), reuses compatible idle workers instead of re-spawning, and routes each to the right model tier: heavy reasoning for the core, a fast **burst tier** for low-context workers. Reliability is structural: a no-progress circuit breaker stops loops, and stuck children hand back a `question` (pause + resume on your answer) or an `Incomplete` root-cause summary, never silence. See the [Agent Harness](../developing/architecture/agent-harness.md).
+All of it is checkpointed. A graph can pause mid-run, for your answer, an approval or a restart, and resume exactly where it stopped.
+
+## 2. Sub-agent fleets that do not get lost
+
+The orchestrator spawns specialized sub-agents, up to 3 levels deep. It reuses compatible idle workers instead of spawning new ones. It also routes each worker to the right model tier: heavy reasoning for the core, and a fast burst tier for low-context workers.
+
+Reliability is built in. A no-progress circuit breaker stops loops. A stuck child hands back a `question` (pause and resume on your answer) or an `Incomplete` root-cause summary, never silence. See the [agent harness](../developing/architecture/agent-harness.md).
 
 ## 3. Workflows you can see
 
-[Workflows](workflows.md) lift orchestration out of the chat: the agent _proposes_ a typed graph of triggers, agents, tools and conditions; you review it on a canvas and save it. Runs are durable, approval-gated, and fully inspectable step-by-step, powered by open-source [tinyflows](https://github.com/tinyhumansai/tinyflows).
+[Workflows](workflows.md) move orchestration out of the chat. The agent proposes a typed graph of triggers, agents, tools and conditions. You review it on a canvas and save it. Runs are durable, gated by approvals and inspectable step by step. They run on the open-source [tinyflows](https://github.com/tinyhumansai/tinyflows) engine.
 
-## 4. An always-on split brain
+## 4. An always-on two-agent layer
 
-Inbound traffic hits a **fast reflex agent** that triages in seconds and hands a deep **reasoning core** a concise brief; the core does the multi-step work and delegates to workers. Mid-task steering input can be delivered into a live session, and 20:1 compression keeps week-long sessions bounded.
+Inbound traffic first reaches a fast reflex agent that triages in seconds. It hands a concise brief to a deeper reasoning core, which does the multi-step work and delegates to workers. You can steer a task mid-run, because input can be delivered into a live session. 20:1 compression keeps week-long sessions bounded.
 
-## What's next
+## What is next
 
-The scripted-orchestration idea this page used to advertise, agents writing control flow as small programs in a sandboxed REPL, is **not being built**: the harness dropped that runtime and the tool no longer exists. The substrate above, graphs with checkpointing under a trust model, is the shape orchestration takes.
+Agents writing control flow as small programs in a sandboxed REPL is not being built. The harness dropped that runtime and the tool no longer exists. Graphs with checkpointing under a trust model are the shape orchestration takes.
 
-What is tracked in the open instead: an [agent-to-agent protocol](https://github.com/tinyhumansai/openhuman/issues/3463) so a graph can span instances, and durable swarm task graphs. See the [roadmap](../overview/roadmap.md).
+Two items are on the [roadmap](../overview/roadmap.md): an agent-to-agent protocol so a graph can span instances, and durable swarm task graphs.
 
----
+## How it differs
 
-## Why this differentiates
-
-|                 | Single-agent harnesses (Claude Code, OpenClaw, Hermes) | OpenHuman                                                       |
-| --------------- | ------------------------------------------------------ | --------------------------------------------------------------- |
-| Execution model | One loop, one context                                  | Compiled graphs, conditional routing, checkpoint/resume         |
-| Parallelism     | Manual / plugin                                        | Native sub-agent fleets, map-reduce fan-out, worker reuse       |
-| Automation      | Scripts & cron                                         | Visual, durable, approval-gated workflows                       |
-| Always-on       | None                                                   | Split-brain reflex + reasoning core, mid-task steering          |
+| | Single-agent harnesses (Claude Code, OpenClaw, Hermes) | OpenHuman |
+| --- | --- | --- |
+| Execution model | One loop, one context | Compiled graphs, conditional routing, checkpoint and resume |
+| Parallelism | Manual or plugin | Native sub-agent fleets, map-reduce fan-out, worker reuse |
+| Automation | Scripts and cron | Visual, durable, approval-gated workflows |
+| Always-on | None | Reflex agent plus reasoning core, mid-task steering |
 
 ## See also
 
 - [Workflows](workflows.md)
-- [Agent Harness](../developing/architecture/agent-harness.md): the developer deep-dive on graphs, breakers, journals.
-- [Agent Coordination tools](native-tools/agent-coordination.md): the user-facing spawn/delegate surface.
+- [Agent harness](../developing/architecture/agent-harness.md): the developer deep dive on graphs, breakers and journals.
+- [Agent coordination tools](native-tools/agent-coordination.md): the spawn and delegate surface.
