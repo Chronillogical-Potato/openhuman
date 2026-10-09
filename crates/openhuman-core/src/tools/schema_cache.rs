@@ -39,3 +39,7 @@ macro_rules! static_schema {
 }
 
 pub(crate) use static_schema;
+
+#[cfg(test)]
+#[path = "schema_cache_tests.rs"]
+mod tests;

@@ -44,3 +44,17 @@ fn expected_schemas() -> Vec<(DesktopToolKind, serde_json::Value)> {
                 "required":["confirmation_id"]})),
     ]
 }
+
+#[test]
+fn desktop_static_schemas_match_json_literals() {
+    let config = std::sync::Arc::new(crate::config::Config::default());
+    for (kind, expected) in expected_schemas() {
+        let tool = DesktopTool::new(config.clone(), kind);
+        assert_eq!(
+            tinytools::Tool::parameters_schema(&tool),
+            expected,
+            "{}",
+            tinytools::Tool::name(&tool)
+        );
+    }
+}
