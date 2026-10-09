@@ -69,7 +69,8 @@ subscriber all listen to.
    thread. `QueueMode` (`types.rs`) has five values. `Interrupt` (the default)
    cancels the current turn and starts this one. `Steer`, `Followup` and
    `Collect` map to TinyAgents run-queue lanes (`QueueMode::queue_lane`) and
-   are pushed onto the thread's `RunQueue` instead of starting a turn.
+   are pushed onto the running turn's `RunQueue` instead of starting a turn;
+   with nothing in flight they start a normal turn.
    `Parallel` starts an isolated fork alongside whatever is running
    (`ops/parallel_turn.rs`), tracked in its own `PARALLEL_IN_FLIGHT` table
    keyed by request id so it never touches interrupt or queue semantics.

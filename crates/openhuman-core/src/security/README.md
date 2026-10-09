@@ -232,8 +232,8 @@ the same payload to the agent. Command and path gating is enforced inside the
 engine and is never an agent-callable tool.
 
 The subfolders register their own namespaces: `approval.*` (`approval/`),
-`auth.*` (`credentials/`), `devices.*` (`devices/`), `encryption.*` plus the
-`encrypt_secret` and `decrypt_secret` shims (`encryption/`), and
+`auth.*` (`credentials/`), `devices.*` (`devices/`), `encrypt.secret` and
+`decrypt.secret` (`encryption/`), and
 `keyring_consent.*` (`keyring_consent/`). Their READMEs list the methods.
 
 ## Boundaries
