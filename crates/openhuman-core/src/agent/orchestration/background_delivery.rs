@@ -94,6 +94,12 @@ pub(crate) fn clear_busy_for_thread(thread_id: &str) -> usize {
     cleared
 }
 
+/// Ask for a delivery attempt on `thread_id` soon (after a Stop cleared a stale
+/// busy mark, or anything else that may have left a drain without its trigger).
+pub(crate) fn kick_delivery(thread_id: &str) {
+    schedule_delivery(thread_id.to_string(), Duration::from_millis(300));
+}
+
 struct BackgroundDeliveryHandler;
 
 #[async_trait]

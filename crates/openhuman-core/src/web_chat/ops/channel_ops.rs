@@ -117,8 +117,14 @@ async fn cancel_chat_inner(
     // A turn cancelled cooperatively may never publish a terminal event, which
     // would leave its session marked busy and defer this thread's background
     // deliveries until restart.
-    if removed_request_id.is_some() || request_id.is_none() {
+    //
+    // Only once nothing is left running on the thread: a scoped cancel can leave
+    // the primary or a parallel turn alive, and those still owe a terminal event.
+    if cancelled_any.is_some() && !thread_has_live_turn(thread_id, &map_key).await {
         crate::agent::orchestration::background_delivery::clear_busy_for_thread(thread_id);
+        // A drain that fired while the cancelled turn counted as busy returned
+        // without claiming anything; ask for another.
+        crate::agent::orchestration::background_delivery::kick_delivery(thread_id);
     }
     let subagents_cancelled = if request_id.is_none() {
         // Gate completion recording before aborting: Tokio abort is
@@ -175,6 +181,18 @@ async fn cancel_chat_inner(
         request_id: cancelled_any,
         subagents_cancelled,
     })
+}
+
+/// Is a primary or parallel turn still running on `thread_id`?
+async fn thread_has_live_turn(thread_id: &str, map_key: &str) -> bool {
+    if IN_FLIGHT.lock().await.contains_key(map_key) {
+        return true;
+    }
+    super::state::PARALLEL_IN_FLIGHT
+        .lock()
+        .await
+        .values()
+        .any(|entry| entry.thread_id == thread_id)
 }
 
 pub async fn channel_web_chat(
