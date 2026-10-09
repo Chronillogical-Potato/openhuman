@@ -8,7 +8,9 @@
 //!     the UI can list recently ingested items.
 //!
 //! Mirrors the `cron` domain's `with_connection` + migrate-on-open
-//! pattern.
+//! pattern. With a storage backend configured ([`crate::storage`]) every
+//! function here is served from the document port instead
+//! (`store_documents.rs`).
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -90,6 +92,23 @@ pub fn add_source(
     let interval_i64 = i64::try_from(interval_secs)
         .context("task source interval_secs exceeds SQLite INTEGER range")?;
 
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.add_source(&TaskSource {
+            id,
+            provider,
+            connection_id,
+            name,
+            enabled: true,
+            filter,
+            interval_secs,
+            target,
+            max_tasks_per_fetch,
+            created_at: now,
+            last_fetch_at: None,
+            last_status: None,
+        });
+    }
+
     with_connection(config, |conn| {
         conn.execute(
             "INSERT INTO task_sources (
@@ -116,6 +135,9 @@ pub fn add_source(
 }
 
 pub fn get_source(config: &Config, id: &str) -> Result<TaskSource> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.get_source(id);
+    }
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(&format!("{SELECT_SOURCE_COLUMNS} WHERE id = ?1"))?;
         let mut rows = stmt.query(params![id])?;
@@ -128,6 +150,9 @@ pub fn get_source(config: &Config, id: &str) -> Result<TaskSource> {
 }
 
 pub fn list_sources(config: &Config) -> Result<Vec<TaskSource>> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.list_sources();
+    }
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(&format!(
             "{SELECT_SOURCE_COLUMNS} ORDER BY created_at ASC, id ASC"
@@ -224,6 +249,9 @@ pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Resul
 }
 
 pub fn remove_source(config: &Config, id: &str) -> Result<()> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.remove_source(id);
+    }
     let changed = with_connection(config, |conn| {
         conn.execute("DELETE FROM task_sources WHERE id = ?1", params![id])
             .context("Failed to delete task source")
@@ -242,6 +270,9 @@ pub fn record_fetch(
     reason: FetchReason,
     status: &str,
 ) -> Result<()> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.record_fetch(id, finished_at, reason, status);
+    }
     let line = format!("{}: {status}", reason.as_str());
     with_connection(config, |conn| {
         conn.execute(
@@ -262,6 +293,9 @@ pub fn is_ingested(
     external_id: &str,
     hash: &str,
 ) -> Result<bool> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.is_ingested(source_id, external_id, hash);
+    }
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(
             "SELECT content_hash FROM ingested_tasks WHERE source_id = ?1 AND external_id = ?2",
@@ -283,6 +317,9 @@ pub fn is_ingested(
 /// todo board, the ledger row itself is the record. The column stays so
 /// older databases open unchanged.
 pub fn mark_ingested(config: &Config, source_id: &str, task: &NormalizedTask) -> Result<()> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.mark_ingested(source_id, task);
+    }
     let hash = content_hash(task);
     let payload = serde_json::to_string(task).context("serialize ingested task payload")?;
     let now = Utc::now().to_rfc3339();
@@ -307,6 +344,9 @@ pub fn mark_ingested(config: &Config, source_id: &str, task: &NormalizedTask) ->
 /// content hash. The pipeline uses it to tell an edited upstream task from a
 /// brand-new one in its logs.
 pub fn was_ingested(config: &Config, source_id: &str, external_id: &str) -> Result<bool> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.was_ingested(source_id, external_id);
+    }
     with_connection(config, |conn| {
         let mut stmt =
             conn.prepare("SELECT 1 FROM ingested_tasks WHERE source_id = ?1 AND external_id = ?2")?;
@@ -318,6 +358,9 @@ pub fn was_ingested(config: &Config, source_id: &str, external_id: &str) -> Resu
 /// Return ingested task ids for one source. Used by reconciliation to prune
 /// ledger rows that no longer match the upstream source/filter.
 pub fn list_ingested_refs(config: &Config, source_id: &str) -> Result<Vec<IngestedTaskRef>> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.list_ingested_refs(source_id);
+    }
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(
             "SELECT external_id FROM ingested_tasks
@@ -339,6 +382,9 @@ pub fn list_ingested_refs(config: &Config, source_id: &str) -> Result<Vec<Ingest
 
 /// Delete one ingested ledger row after its board card has been reconciled.
 pub fn remove_ingested(config: &Config, source_id: &str, external_id: &str) -> Result<bool> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.remove_ingested(source_id, external_id);
+    }
     let changed = with_connection(config, |conn| {
         conn.execute(
             "DELETE FROM ingested_tasks WHERE source_id = ?1 AND external_id = ?2",
@@ -355,6 +401,9 @@ pub fn list_ingested(
     source_id: &str,
     limit: usize,
 ) -> Result<Vec<NormalizedTask>> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.list_ingested(source_id, limit);
+    }
     // Floor of 1: a caller passing `limit = 0` still gets at least one row
     // rather than a confusing empty result; `unwrap_or(50)` is the fallback
     // in the unlikely event that `limit` exceeds `i64::MAX`.
@@ -380,6 +429,9 @@ pub fn list_ingested(
 /// Delete every task source (+ cascade ingested rows). Used by the E2E
 /// `test_reset` RPC.
 pub fn clear_all(config: &Config) -> Result<usize> {
+    if let Some(docs) = super::store_documents::current()? {
+        return docs.clear_all();
+    }
     with_connection(config, |conn| {
         let removed = conn
             .execute("DELETE FROM task_sources", params![])
