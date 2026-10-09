@@ -104,7 +104,7 @@ namespace commands, the device tunnel, and `CoreRuntime::invoke`.
  invoke_method(method, params)
    |
    +-- schema_for_rpc_method(method)  (built-in, internal, extensions)
-   |      found: params_to_object -> validate_params -> try_invoke_registered_rpc
+   |     found: params_to_object -> validate_params -> try_invoke_registered_rpc
    |               |  group disabled under DomainSet -> treated as unknown
    |               |  else run handler inside CoreContext::scope
    |               v

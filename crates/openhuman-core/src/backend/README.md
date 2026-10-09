@@ -22,7 +22,7 @@ round trip with the SDK's route policy.
 
 ```text
 domain code (channels, voice, memory billing, ...)
-    |  BackendClient::from_config(&config)?.authed_json(cred, method, path, body)
+    |  BackendClient::from_config(&cfg)?.authed_json(cred, method, path, body)
     v
 BackendClient                                  backend/client.rs
     |  endpoint checks (HTTPS or loopback; API key only to managed host)
