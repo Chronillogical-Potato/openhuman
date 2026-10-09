@@ -23,7 +23,7 @@ changed-line diff-cover check (>= 80%) in `ci-lite.yml`.
 
 ## Running locally
 
-Only `check-openhuman-rust-layout.mjs` is wired to a pnpm script
+Only `check-openhuman-rust-layout.mjs` and `check-crate-chain.mjs` are wired to a pnpm script
 (`pnpm rust:layout`); the rest are invoked directly, e.g.
 `node scripts/ci/check-feature-forwarding.mjs` or
 `bash scripts/ci/orch-ip-gate.sh`, and can be run the same way locally. Every
