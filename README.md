@@ -280,16 +280,16 @@ Next: the [Rust quickstart](./gitbooks/developing/quickstart.md), the [embedding
 
 ## How it compares
 
-Here is OpenHuman next to the harnesses most people already use. The top rows come from our [public benchmark](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md): same model, same tasks, same container. The rest compare features.
+Here is OpenHuman next to the harnesses most people already use. The top four rows come from our [public benchmark](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md): ten SWE-bench coding tasks, with the same model and container for every harness. Each number is per solved task. The rest compare features.
 
 In short, the others are great for one person working with one agent. OpenHuman does that too, and it is also the open-source option you can embed as a library and scale to a fleet. Products change quickly, so check each project before you decide.
 
 |                         | Claude Code          | Codex                | OpenClaw             | Hermes Agent         | OpenHuman                                |
 | ----------------------- | -------------------- | -------------------- | -------------------- | -------------------- | ---------------------------------------- |
-| **Time per task**       | 37.8 s               | 36.1 s               | 62 s                 | 58.5 s               | 🚀 19.8 s                                |
-| **Tokens per task**     | 428k                 | 370k                 | 442k                 | 482k                 | 🚀 167k                                  |
-| **Peak memory**         | 231 MB               | 123 MB               | 1.57 GB              | 816 MB               | 🚀 68 MB                                 |
-| **Total bill**          | $0.35                | $0.12                | $0.10                | $0.08                | 🚀 $0.05                                 |
+| **Median task time**    | 37.8 s               | 36.1 s               | 62 s                 | 58.5 s               | 🚀 19.8 s                                 |
+| **Avg tokens per task** | 428k                 | 370k                 | 442k                 | 482k                 | 🚀 167k                                   |
+| **Peak memory**         | 231 MB               | 123 MB               | 1.57 GB              | 816 MB               | 🚀 68 MB                                  |
+| **Avg cost per task**   | $0.04                | $0.02                | $0.01                | $0.008               | 🚀 $0.0077                                |
 | **Open source**         | 🚫 Proprietary       | ✅ Apache-2.0        | ✅ MIT               | ✅ MIT               | ✅ GPL-3.0                               |
 | **Agent fleets**        | ⚠️ Process per agent | ⚠️ Process per agent | ⚠️ Process per agent | ⚠️ Process per agent | 🚀 500 agents on a $10 VPS               |
 | **Embeddable library**  | ⚠️ SDK over a CLI    | ⚠️ SDK over a CLI    | 🚫 None              | ⚠️ Python package    | 🚀 Typed Rust API                        |
@@ -299,8 +299,6 @@ In short, the others are great for one person working with one agent. OpenHuman 
 | **Browser and desktop** | ⚠️ Browser via MCP   | ⚠️ Browser via MCP   | ✅ Browser           | ✅ Browser           | ✅ Browser and desktop apps              |
 | **Workflows**           | 🚫 None              | 🚫 None              | ⚠️ Scripts           | ⚠️ Scripts           | 🚀 Visual, agent-drafted                 |
 | **Model choice**        | ⚠️ Anthropic models  | ⚠️ OpenAI-first      | ✅ Any               | ✅ Any               | ✅ Any, with built-in routing            |
-| **Local-only mode**     | 🚫 Cloud-only        | ⚠️ BYO local         | ⚠️ BYO local         | ⚠️ BYO local         | ✅ One-switch Privacy Mode               |
-| **Public benchmarks**   | 🚫 None              | 🚫 None              | 🚫 None              | 🚫 None              | ✅ Public, reproducible                  |
 
 ---
 
