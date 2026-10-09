@@ -234,10 +234,12 @@ forwarding, and the library chain (`openhuman-embed`, then
 | `rss-bench` | no | no | Hooks for the `rss-bench` profiling bin |
 
 Gates come in two shapes. A leaf gate removes the module (`hosting`, `media`,
-`flows`, `modules`). A facade gate keeps the module declared and swaps in a
-`stub.rs` with matching signatures, so always-on callers need no `#[cfg]`
-(`web3`, `channels`, `skills`, `mcp`, `voice`, `runtime-node`). Stub drift is
-only caught by `cargo check --no-default-features`. Every compile-time gate
+`flows`, `modules`). A facade gate keeps the module declared and gates most
+of its contents inside its own `mod.rs` (`channels`, `mcp`, `skills`,
+`voice`, `web3`, `runtime-node`). Several facades also swap in a `stub.rs`
+with matching signatures so always-on callers need no `#[cfg]` (`web3` and
+its `wallet` and `x402` members, `skills`, `voice`, `runtime/node`). Stub
+drift is only caught by `cargo check --no-default-features`. Every compile-time gate
 composes with the matching runtime `DomainSet` flag. The kernel floor profile
 is `--no-default-features --features flows`. Read the policy comments above
 `[features]` in `Cargo.toml` before changing either list, and test both the
