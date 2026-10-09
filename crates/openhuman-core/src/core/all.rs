@@ -914,23 +914,14 @@ pub fn cli_handler_for_namespace(namespace: &str) -> Option<CliHandler> {
 
 /// Looks up an RPC method name based on namespace and function.
 pub fn rpc_method_from_parts(namespace: &str, function: &str) -> Option<String> {
-    // Searches the FULL (unfiltered) registry: this backs parameter validation
-    // and CLI routing, which are harmless for an about-to-be-rejected gated
-    // method — the DomainSet gate is enforced at dispatch
-    // (`try_invoke_registered_rpc`), not here. See that fn for the rationale.
+    // The full registry (CLI routing, param validation; the DomainSet gate is at
+    // dispatch), minus methods the SaaS user surface hides in this scope.
     let view = registry_view();
-    let found = view
-        .iter()
-        .find(|g| {
-            g.controller.schema.namespace == namespace
-                && g.controller.schema.function == function
-                && crate::user_agents::surface::method_visible(
-                    &g.controller.rpc_method_name(),
-                    g.group == DomainGroup::Operator,
-                )
-        })
-        .map(|g| g.controller.rpc_method_name());
-    found
+    let found = view.iter().find(|g| {
+        let s = &g.controller.schema;
+        s.namespace == namespace && s.function == function && on_surface(g)
+    });
+    found.map(|g| g.controller.rpc_method_name())
 }
 
 /// Retrieves the schema for a specific RPC method.
