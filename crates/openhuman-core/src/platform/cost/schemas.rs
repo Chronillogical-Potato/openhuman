@@ -31,11 +31,11 @@ fn default_usage_days() -> u32 {
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ReportParams {
     #[serde(default)]
     days: Option<u32>,
-    #[serde(default, alias = "group_by")]
+    #[serde(default)]
     group_by: Vec<super::report::GroupKey>,
     #[serde(default)]
     filter: super::report::ReportFilter,

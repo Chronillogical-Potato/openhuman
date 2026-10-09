@@ -79,7 +79,7 @@ fn new_correlation_id_is_unique_across_calls() {
 }
 
 #[test]
-fn report_params_accept_both_spellings_and_reject_unknown_keys() {
+fn report_params_parse_camel_case_and_reject_unknown_keys() {
     let mut params = Map::new();
     params.insert("days".into(), serde_json::json!(7));
     params.insert("groupBy".into(), serde_json::json!(["day", "agent"]));
@@ -95,9 +95,15 @@ fn report_params_accept_both_spellings_and_reject_unknown_keys() {
     );
     assert_eq!(p.filter.thread_id.as_deref(), Some("t1"));
 
+    // The wire contract is camelCase; the snake_case spelling the schema never
+    // declared is rejected like any other unknown key.
     let mut snake = Map::new();
     snake.insert("group_by".into(), serde_json::json!(["model"]));
-    assert_eq!(parse_report_params(snake).unwrap().group_by.len(), 1);
+    assert!(parse_report_params(snake).is_err());
+
+    let mut unknown = Map::new();
+    unknown.insert("unexpected".into(), serde_json::json!(1));
+    assert!(parse_report_params(unknown).is_err());
 
     let mut bad = Map::new();
     bad.insert("groupBy".into(), serde_json::json!(["colour"]));
