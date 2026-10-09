@@ -305,11 +305,7 @@ pub fn build_cache_report(
         let cached = usage.cached_input_tokens.min(usage.input_tokens);
         let thread = usage.scope.thread_id.clone();
         let repeat = thread.as_ref().is_some_and(|t| {
-            !caches_seen.insert((
-                t.clone(),
-                usage.model.clone(),
-                usage.scope.agent_id.clone(),
-            ))
+            !caches_seen.insert((t.clone(), usage.model.clone(), usage.scope.agent_id.clone()))
         });
         let cold = repeat && cached == 0 && usage.input_tokens > 0;
         if cold {

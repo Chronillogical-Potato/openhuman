@@ -238,3 +238,50 @@ fn cache_report_prices_the_uncached_premium_for_known_models() {
         None => assert_eq!(report.uncached_premium_usd, 0.0),
     }
 }
+
+#[test]
+fn a_model_switch_in_a_thread_is_not_a_cold_call() {
+    let (from, to) = window();
+    let records = vec![
+        record((2, 9), "model/a", Some("t9"), Some("x"), 1000, 0, 0.1, true),
+        // First call on another model: its cache could not have been warm.
+        record(
+            (2, 10),
+            "model/b",
+            Some("t9"),
+            Some("x"),
+            1000,
+            0,
+            0.1,
+            true,
+        ),
+        // Same model again, still nothing cached: genuinely cold.
+        record(
+            (2, 11),
+            "model/b",
+            Some("t9"),
+            Some("x"),
+            1000,
+            0,
+            0.1,
+            true,
+        ),
+    ];
+    let report = build_cache_report(&records, from, to, &ReportFilter::default());
+    assert_eq!(report.cold_calls, 1);
+    assert_eq!(
+        report.calls.iter().map(|c| c.cold).collect::<Vec<_>>(),
+        vec![false, false, true]
+    );
+}
+
+#[test]
+fn an_estimated_cost_lands_in_estimated_usd_not_charged() {
+    use crate::inference::provider::BilledUsage;
+    let estimated = BilledUsage::from_counts(100, 10).with_estimated_usd(0.25);
+    let usage = crate::platform::cost::global::build_token_usage("model/a", &estimated).unwrap();
+    assert_eq!(usage.cost_source, CostSource::Estimated);
+    let charged = BilledUsage::from_counts(100, 10).with_charged_usd(0.25);
+    let usage = crate::platform::cost::global::build_token_usage("model/a", &charged).unwrap();
+    assert_eq!(usage.cost_source, CostSource::ProviderCharged);
+}
