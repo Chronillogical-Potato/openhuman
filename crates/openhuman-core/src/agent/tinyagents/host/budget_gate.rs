@@ -198,10 +198,9 @@ impl OpenHumanBudgetGate {
         policies: &[crate::config::BudgetPolicy],
         tracker: &cost::CostTracker,
     ) -> Option<String> {
-        // The provider this session's calls go to, so `provider` budgets have
-        // a bucket; the user agent comes from the ambient context.
-        let provider = crate::platform::cost::provider_of_model(&self.attributed_model());
-        let mut scope = cost::UsageScope::ambient(provider.as_deref(), None);
+        // The user agent (`session_agent` budgets) comes from the ambient
+        // context; the agent and thread from the estimate.
+        let mut scope = cost::UsageScope::ambient(None, None);
         if let Some(agent) = est.agent_id.as_ref().filter(|a| !a.is_empty()) {
             scope.agent_id = Some(agent.clone());
         }
