@@ -5,7 +5,7 @@
 //! agent/skill/MCP/artifact views, Git review, and a multiline composer.
 //! Chat uses the **same `web_chat` surface** the desktop app drives (`openhuman.channel_web_chat` /
 //! `openhuman.channel_web_cancel` +
-//! [`web_chat::subscribe_web_channel_events`](openhuman_core::web_chat::subscribe_web_channel_events)).
+//! [`web_chat::subscribe_web_channel_events`](openhuman_rpc::embed::chat_surface::subscribe_web_channel_events)).
 //! It boots the core in-process — no HTTP, no sockets — via
 //! `CoreBuilder::new(HostKind::Cli).domains(DomainSet::full()).services(ServiceSet::none())`
 //! and streams a live transcript in the terminal.
