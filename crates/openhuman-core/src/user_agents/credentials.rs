@@ -34,7 +34,8 @@ pub enum UserCredentialKind {
     ApiKey,
 }
 
-/// Store `token` as agent `config`'s credential of `kind`.
+/// Store `token` as agent `config`'s credential of `kind`, replacing any
+/// credential of the other kind.
 ///
 /// `expires_at` (RFC 3339) lets the core reject an expired session locally
 /// instead of sending a doomed request.
@@ -69,6 +70,22 @@ pub fn store(
                 )
                 .map_err(|e| e.to_string())?;
         }
+    }
+    // Then drop the other kind, which would otherwise keep winning (an API
+    // key is resolved before a session). The new credential is written first,
+    // so a failure here never leaves the agent with none; it is reported so
+    // the gateway can retry.
+    let replaced = match kind {
+        UserCredentialKind::Session => api_key::clear_api_key(config).map_err(|e| e.to_string()),
+        UserCredentialKind::ApiKey => AuthService::from_config(config)
+            .remove_profile(APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME)
+            .map_err(|e| e.to_string()),
+    };
+    if let Err(error) = replaced {
+        log::warn!("[user_agents][credentials] stored {kind:?} but could not remove the other kind: {error}");
+        return Err(format!(
+            "stored the new credential but could not remove the previous one: {error}"
+        ));
     }
     log::debug!(
         "[user_agents][credentials] stored {kind:?} credential in {}",
