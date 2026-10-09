@@ -683,6 +683,45 @@ fn chat_events_reach_only_the_user_whose_turn_produced_them() {
 }
 
 #[test]
+fn users_reach_their_memory_but_not_its_configuration() {
+    let d = deployment(true);
+    let (server, base, client) = start(&d);
+    provision(&client, &base, "alice");
+    let call = |method: &str, params: Value| {
+        user_rpc_with(&client, &base, BEARER, "alice", None, method, params)
+    };
+
+    // Reachable: with no backend in this test the engine is off, so recall
+    // answers with memory's own error — not "unknown method".
+    let (_, body) = call(
+        "openhuman.memory_recall",
+        json!({ "question": "anything?" }),
+    );
+    let text = body.to_string();
+    assert!(
+        !text.contains("unknown method"),
+        "memory_recall is on the surface: {text}"
+    );
+    let (_, body) = call("openhuman.memory_engine_get", json!({}));
+    assert!(body.get("result").is_some(), "{body}");
+
+    // Not reachable: anything that changes where memory lives or reads the host.
+    for method in [
+        "openhuman.memory_engine_set",
+        "openhuman.memory_policy_set",
+        "openhuman.memory_sources_add",
+        "openhuman.memory_import_start",
+    ] {
+        let (_, body) = call(method, json!({}));
+        assert!(
+            body.to_string().contains("unknown method"),
+            "{method} must be absent: {body}"
+        );
+    }
+    drop(server);
+}
+
+#[test]
 fn a_duplicate_or_unreadable_user_header_is_refused() {
     use openhuman_core::user_agents::gateway::USER_HEADER;
     let d = deployment(true);
