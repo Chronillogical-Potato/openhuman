@@ -39,3 +39,16 @@ fn bucket_is_fixed_across_builds() {
     assert_eq!(bucket("thread-abc"), bucket("thread-abc"));
     assert_eq!(bucket(""), (0xcbf2_9ce4_8422_2325_u64 % 100) as u8);
 }
+
+#[test]
+fn runtime_flag_overrides_the_build_default() {
+    assert_eq!(resolve_mode(None, None), Mode::Off);
+    assert_eq!(resolve_mode(None, Some("on")), Mode::On);
+    assert_eq!(resolve_mode(None, Some("ab:30")), Mode::Ab { percent: 30 });
+    // A deployment can always switch a shipped default back off.
+    assert_eq!(resolve_mode(Some("off"), Some("on")), Mode::Off);
+    assert_eq!(
+        resolve_mode(Some("ab"), Some("on")),
+        Mode::Ab { percent: 50 }
+    );
+}

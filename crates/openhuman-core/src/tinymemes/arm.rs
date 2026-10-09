@@ -10,8 +10,17 @@
 //! Assignment is by a stable hash of the thread id, so a thread keeps its arm
 //! for its whole life and across restarts. The flag is read on every turn, so
 //! it can change without a restart.
+//!
+//! A build can ship with a different default: set `OPENHUMAN_TINYMEMES_DEFAULT`
+//! (same values) in the environment of the `cargo build` that produces the
+//! release, and it is baked in. The runtime `OPENHUMAN_TINYMEMES` still wins
+//! whenever it is set, so a deployment can always be switched back off.
 
 pub(crate) const FLAG_ENV: &str = "OPENHUMAN_TINYMEMES";
+
+/// Default baked in at build time (`OPENHUMAN_TINYMEMES_DEFAULT` during
+/// `cargo build`); `None` means off.
+const BUILD_DEFAULT: Option<&str> = option_env!("OPENHUMAN_TINYMEMES_DEFAULT");
 
 /// Parsed flag value.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -63,7 +72,15 @@ pub(crate) fn mode_from(value: Option<&str>) -> Mode {
 }
 
 pub(crate) fn mode() -> Mode {
-    mode_from(std::env::var(FLAG_ENV).ok().as_deref())
+    resolve_mode(std::env::var(FLAG_ENV).ok().as_deref(), BUILD_DEFAULT)
+}
+
+/// The runtime value when set, else the build-time default, else off.
+pub(crate) fn resolve_mode(runtime: Option<&str>, build_default: Option<&str>) -> Mode {
+    match runtime {
+        Some(value) => mode_from(Some(value)),
+        None => mode_from(build_default),
+    }
 }
 
 /// Stable 0..100 bucket for a thread (FNV-1a, so it does not change between
