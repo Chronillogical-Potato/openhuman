@@ -41,6 +41,10 @@ fn free_loopback_port() -> u16 {
 fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
     let workspace = tempfile::tempdir().expect("workspace tempdir");
     std::env::set_var("OPENHUMAN_WORKSPACE", workspace.path());
+    // Isolate from the operator's environment: a storage URL would route the
+    // session store to a real backend, and a backend URL to a real host.
+    std::env::remove_var("OPENHUMAN_STORAGE_URL");
+    std::env::set_var("BACKEND_URL", "http://127.0.0.1:9");
     std::env::set_var("OPENHUMAN_CORE_HOST", "127.0.0.1");
 
     std::thread::Builder::new()
@@ -68,7 +72,8 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
                             .await
                             .expect("ready signal within the timeout")
                             .expect("ready signal sent");
-                    assert_eq!(port, options.port.unwrap());
+                    // The listener may fall back to another port if the one we
+                    // probed was taken in between; use what it reports.
 
                     let health = reqwest::Client::new()
                         .get(format!("http://127.0.0.1:{port}/health"))

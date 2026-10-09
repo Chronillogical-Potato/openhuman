@@ -63,6 +63,8 @@ fn hook_installed() -> bool {
 
 #[test]
 fn seams_are_live_after_build_and_unwound_on_drop() {
+    // The runtime must not pick up a storage backend from the operator's shell.
+    std::env::remove_var("OPENHUMAN_STORAGE_URL");
     let tokio = runtime();
     tokio.block_on(async {
         tokio::spawn(async {
