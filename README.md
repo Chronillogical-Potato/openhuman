@@ -127,6 +127,11 @@ Most agent harnesses run one heavy process per agent and resend a big prompt on 
 
 </table>
 
+
+<p align="center">
+ <img src="./docs/oh-v-hermes.gif" alt="Hermes vs OpenHuman" />
+</p>
+
 ---
 
 ## Major innovations
