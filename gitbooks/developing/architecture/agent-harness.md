@@ -5,7 +5,7 @@ description: >-
 icon: layer-group
 ---
 
-# Agent Harness
+# Agent harness
 
 `crates/openhuman-core/src/agent/` is the host side of an agent turn: the
 tool-call loop and its dialects, sub-agent dispatch and archetypes, sessions

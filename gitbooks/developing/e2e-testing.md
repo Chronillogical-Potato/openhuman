@@ -6,7 +6,7 @@ description: >-
 icon: vials
 ---
 
-# E2E Testing
+# E2E testing
 
 End-to-end coverage runs in three lanes: a Rust mock-backend suite, a
 Playwright web suite, and a desktop suite driven through `tauri-driver`. Only

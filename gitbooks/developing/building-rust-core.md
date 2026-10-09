@@ -3,7 +3,7 @@ description: Build the Rust core from scratch on a fresh machine.
 icon: terminal
 ---
 
-# Building the Rust Core
+# Building the Rust core
 
 This page is the contributor-facing reference for compiling the Rust core on a fresh machine.
 

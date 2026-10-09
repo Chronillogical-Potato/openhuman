@@ -18,12 +18,12 @@ The tree also carries a mobile shell: `AppRoutesIOS.tsx`, `pages/ios/`, the `ser
 | Section                                      | Covers                                                          |
 | -------------------------------------------- | --------------------------------------------------------------- |
 | [Architecture](#architecture-overview)       | Provider chain, build, layout, conventions                      |
-| [State Management](#state-management)        | Redux Toolkit slices, selectors, persistence                    |
-| [Services Layer](#services-layer)            | `apiClient`, `socketService`, `coreRpcClient`                   |
+| [State management](#state-management)        | Redux Toolkit slices, selectors, persistence                    |
+| [Services layer](#services-layer)            | `apiClient`, `socketService`, `coreRpcClient`                   |
 | [Providers](#providers)                      | `ThemeProvider`, `CoreState`, `Socket`, `ChatRuntime` providers |
-| [Pages & Routing](#pages--routing)           | `HashRouter`, route guards, main routes                         |
+| [Pages and routing](#pages-and-routing)      | `HashRouter`, route guards, main routes                         |
 | [Components](#components)                    | UI / settings component patterns                                |
-| [Hooks & Utilities](#hooks--utilities)       | Shared hooks, helpers, config                                   |
+| [Hooks and utilities](#hooks-and-utilities)   | Shared hooks, helpers, config                                   |
 
 ## Scale
 
@@ -147,7 +147,7 @@ Components that need the backend URL should call `useBackendUrl()` (or `getBacke
 - Rust architecture: [Architecture](../architecture.md)
 - Tauri shell: [Tauri shell](tauri-shell.md)
 
-## State Management
+## State management
 
 The application uses Redux Toolkit with Redux-Persist. There is no single root persist config: each slice that persists wraps its own reducer with `persistReducer` in `store/index.ts`, whitelisting exactly the fields that should survive a restart.
 
@@ -208,7 +208,7 @@ export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
 
 ---
 
-## Services Layer
+## Services layer
 
 The application uses singleton services for external communication. This prevents connection leaks and provides consistent API access.
 
@@ -228,7 +228,7 @@ app/src/services/
   └─ services/api/* - domain API modules (~50 files, see below)
 ```
 
-### API Client (`services/apiClient.ts`)
+### API client (`services/apiClient.ts`)
 
 Fetch-based HTTP REST client for backend communication with typed request/response handling and error handling. The backend URL is resolved at runtime (`services/backendUrl`), not baked in.
 
@@ -257,7 +257,7 @@ const result = await apiClient.post<LoginResponse>("/auth/login", {
 
 For the full list, `ls app/src/services/api/`. New feature surfaces get their own module here rather than growing `apiClient`.
 
-### Socket Service (`services/socketService.ts`)
+### Socket service (`services/socketService.ts`)
 
 Socket.io client singleton connected to the local core's socket endpoint (base URL derived from the resolved RPC URL via `coreSocket.ts`; authenticated with the core RPC token). It ingests realtime core events (connection status, channel updates) and dispatches them into Redux (`socketSlice`, `connectivitySlice`, `channelConnectionsSlice`). It also hosts the MCP-style transport (`SocketIOMCPTransportImpl` from `lib/mcp`).
 
@@ -289,7 +289,7 @@ How a call flows:
 
 Errors are classified into a stable `CoreRpcError.kind` (`auth_expired`, `transport`, `timeout`, `rate_limited`, …): callers branch on `kind`, never on message regexes. An `auth_expired` classification broadcasts `core-rpc-auth-expired`, which `CoreStateProvider` turns into a session clear.
 
-### Best Practices
+### Best practices
 
 1. Use singletons. Never create multiple service instances.
 2. Keep Tauri IPC and RPC calls in services. Do not scatter `invoke()` or raw fetches through components.
@@ -336,7 +336,7 @@ Example: `SocketProvider` owns the socket instance; Redux stores connection stat
 
 ---
 
-## Human Mascot Surface
+## Human mascot surface
 
 The mascot appears on two surfaces, deliberately. `/human`
 (`app/src/features/human/HumanPage.tsx`) is the dedicated full-bleed stage with a
@@ -432,7 +432,7 @@ the generic fallback, so a new core tool cannot reach the chat unlabelled.
 
 ---
 
-## Pages & Routing
+## Pages and routing
 
 The application uses HashRouter with protected and public route guards. Desktop routes live in `app/src/AppRoutes.tsx`; on mobile (iOS/Android) `AppRoutesIOS.tsx` renders a reduced Human/Chat/Settings set instead.
 
@@ -493,7 +493,7 @@ All three guards read `useCoreState()` (not Redux auth state) and render `RouteL
 - `PublicRoute` (`components/PublicRoute.tsx`): redirects signed-in users to `/home` (which forwards to `/chat`).
 - `DefaultRedirect` (`components/DefaultRedirect.tsx`): signed out → `/`; signed in but onboarding incomplete → `/onboarding`; otherwise → `/chat`. Waits for `snapshot.currentUser` to avoid the post-login race.
 
-### Onboarding Flow (`pages/onboarding/`)
+### Onboarding flow (`pages/onboarding/`)
 
 A routed stepper (`Onboarding.tsx` mounts nested routes inside `OnboardingLayout`):
 
@@ -536,7 +536,7 @@ Why HashRouter:
 3. Works with file:// protocol
 4. Prevents 404 on direct URL access
 
-### Deep Link Handling
+### Deep link handling
 
 Deep links are handled before routing:
 
@@ -578,9 +578,9 @@ Conventions:
 
 ---
 
-## Hooks & Utilities
+## Hooks and utilities
 
-### Custom Hooks (`hooks/`)
+### Custom hooks (`hooks/`)
 
 `app/src/hooks/` holds the app-level hooks (the [Scale](#scale) table names the command that counts them). Representative examples:
 
@@ -621,11 +621,11 @@ export const DEV_FORCE_ONBOARDING = /* dev-only VITE_DEV_FORCE_ONBOARDING */;
 > const backendUrl = await getBackendUrl();
 > ```
 
-#### Desktop Deep Link Listener (`utils/desktopDeepLinkListener.ts`)
+#### Desktop deep link listener (`utils/desktopDeepLinkListener.ts`)
 
 Handles incoming `openhuman://` deep links via the Tauri deep-link plugin: parses the URL, performs the Rust-side token exchange (bypasses CORS), stores the session, and navigates. Set up lazily from `main.tsx` so the Tauri IPC bridge is ready first.
 
-#### URL Opener (`utils/openUrl.ts`)
+#### URL opener (`utils/openUrl.ts`)
 
 Cross-platform URL opening: tries the Tauri opener plugin, falls back to `window.open`. Always use this instead of raw `window.open` so links open in the system browser.
 
@@ -642,9 +642,9 @@ Two layers provide them:
 1. `vite-plugin-node-polyfills` in `app/vite.config.ts` (`buffer`, `process`, `util`, `os`, `crypto`, `stream`, plus `Buffer`/`process`/`global` globals).
 2. `polyfills.ts`, imported first in `main.tsx`, which synchronously assigns `Buffer`/`process`/`util` onto `globalThis`/`window`/`global`/`self` before any dependent module executes.
 
-### Best Practices
+### Best practices
 
-#### Hook dependencies & cleanup
+#### Hook dependencies and cleanup
 
 ```typescript
 useEffect(() => {
