@@ -1,4 +1,4 @@
-# `scripts/bench/` — agent-scale benchmarks
+# `scripts/bench/`: agent-scale benchmarks
 
 Drive a **real [`openhuman-core`](../../crates/openhuman-cli/README.md) server process** at concurrency against a
 mocked LLM ([`mock-llm.mjs`](./mock-llm.mjs)), sample its CPU and memory from the outside, and report a leak
@@ -14,7 +14,7 @@ the reason this directory exists rather than another scenario in the old one.
 | Core runs as   | a library, embedded in the bench binary | a normally-built `openhuman-core serve` process |
 | Driven through | direct `Agent` calls                    | JSON-RPC over HTTP `/rpc`                      |
 | LLM mocked by  | a native `ChatModel` override           | an HTTP endpoint the core dials               |
-| Needs          | `--features rss-bench`                  | nothing — the shipped feature set             |
+| Needs          | `--features rss-bench`                  | nothing, the shipped feature set             |
 | Measures       | domain and harness cost in isolation    | what the OS charges the shipped binary        |
 | Best for       | attributing cost to a subsystem         | leak hunting, capacity, tail latency          |
 
@@ -31,7 +31,7 @@ but attributes less precisely. Use `profile/` to find out *what* costs; use
   core's workspace under `--out-dir` and refuses to start if that lands on
   tmpfs. This is not fussiness: tmpfs pages *are* memory, so the core's disk
   writes would be charged against the machine's RAM while the benchmark is
-  trying to attribute RAM to the core — and a sustained run fills the mount,
+  trying to attribute RAM to the core, and a sustained run fills the mount,
   after which turns fail with "Failed to write auth profile lock owner" and
   SQLite I/O errors. That looks like a leak-induced meltdown and is a full disk.
 - **Several GB free.** A 5-minute run at concurrency 8 leaves ~5 GB of memory
@@ -116,7 +116,7 @@ Two facts carry the whole design, and a change to either breaks this tier:
    would trigger, so the benchmark needs no login and the mock needs no auth
    routes. The driver seeds it before the load starts.
 
-The mock also must not listen on 11434, 8000, 8080, 1234 or 8888 — the core
+The mock also must not listen on 11434, 8000, 8080, 1234 or 8888, the core
 classifies those as local-AI endpoints and routes around them. `mock-llm.mjs`
 refuses to start on one rather than failing mysteriously later.
 
@@ -140,7 +140,7 @@ you reproduce this setup by hand:
 
 See [`FINDINGS.md`](./FINDINGS.md) for the longer write-up of these runs.
 
-From a 5-minute run at concurrency 8, tool-depth 1, on one machine — indicative,
+From a 5-minute run at concurrency 8, tool-depth 1, on one machine, indicative,
 not a target, and not yet reproduced across hosts:
 
 | Measure                | Value                          |
@@ -155,7 +155,7 @@ not a target, and not yet reproduced across hosts:
 
 Two findings from that run reproduced across repeats and are worth chasing
 rather than treating as harness noise: RSS grew ~115 KiB/turn and was **still
-growing at the end** (confounded by the 5 GB of workspace growth — needs the
+growing at the end** (confounded by the 5 GB of workspace growth, needs the
 memory-disabled comparison to settle), and **throughput fell to ~37% of its
 starting rate** under constant offered load, which the workspace growth does not
 obviously explain.
@@ -164,11 +164,11 @@ obviously explain.
 
 Memory gets three outcomes, and the middle one is the point:
 
-- **pass** — no growth trend, or growth within the per-turn budget.
-- **plateau** — grew past the budget overall, but stopped climbing by the final
+- **pass**: no growth trend, or growth within the per-turn budget.
+- **plateau**: grew past the budget overall, but stopped climbing by the final
   third of the window. The shape of a cache filling to its working set. Worth
   re-running longer to confirm the plateau holds.
-- **fail** — grew past the budget *and was still growing at the end*.
+- **fail**: grew past the budget *and was still growing at the end*.
 
 That distinction is why the analyzer fits the tail of the series separately
 rather than comparing an early average to a late one. Early-vs-late cannot tell
@@ -182,7 +182,7 @@ memory. In practice they are the least ambiguous leak signal available.
 
 **Memory verdicts can be `confounded`.** `fresh` thread mode stops conversation
 history accumulating, but it does not stop the agent persisting memory chunks
-and embeddings every turn — a 5-minute run writes gigabytes. An index over data
+and embeddings every turn, a 5-minute run writes gigabytes. An index over data
 that genuinely grew is not a leak. So when RSS fails alongside large workspace
 growth, the report marks the verdict `confounded` and says what it cannot rule
 out, rather than asserting a leak it cannot distinguish from correct behaviour.
@@ -191,7 +191,7 @@ run long enough that on-disk growth levels off while RSS keeps climbing.
 
 **Throughput held / liveness.** The analyzer checks that turns kept completing,
 because on resource metrics alone a dead process is indistinguishable from a
-healthy idle one — flat memory, no CPU, stable threads. An early version of this
+healthy idle one, flat memory, no CPU, stable threads. An early version of this
 report gave a confident PASS on a run where the core had stopped answering two
 thirds of the way in. A total outage additionally marks `livenessBroken`, which
 qualifies every other verdict; mere degradation does not, because the process
@@ -199,7 +199,7 @@ was still working and its resource numbers remain real.
 
 **CPU drift** compares CPU consumed per unit wall time between the start and
 end of the window. Under constant offered load a rising figure means each turn
-is costing more than the last — the CPU analogue of a memory leak, typically an
+is costing more than the last, the CPU analogue of a memory leak, typically an
 unbounded structure being rescanned every turn.
 
 ### Thread mode decides what you can conclude
@@ -212,7 +212,7 @@ unbounded structure being rescanned every turn.
 
 Only `fresh` supports a leak verdict. In the other two, conversation history
 accumulates *by design*, so RSS growth is expected and a leak is
-indistinguishable from correct behaviour — the analyzer reports the growth rate
+indistinguishable from correct behaviour, the analyzer reports the growth rate
 and explicitly declines to judge it. Use them for contention and tail latency,
 not for leak hunting.
 
@@ -223,13 +223,13 @@ not for leak hunting.
                    agent loop, not just a single completion)
 --latency-ms N     mean inference latency; realistic values keep many turns
 --jitter-ms N      in flight and change the concurrency profile entirely
---reply-chars N    reply size — varies serde and allocation pressure
+--reply-chars N    reply size, varies serde and allocation pressure
 --fail-rate F      fraction of completions answered 500, to exercise retries
 ```
 
 `--tool-depth 0` measures the RPC and inference path alone. Anything above zero
 puts the agent's tool loop under test, which is where per-turn state actually
-accumulates — so a leak hunt should use at least 1.
+accumulates, so a leak hunt should use at least 1.
 
 ## Tests
 
@@ -241,8 +241,8 @@ node --test scripts/bench/analyze.test.mjs
 
 The analyzer's failure mode is silence: wrong math reports "pass" on a leaking
 run and nobody notices. The tests drive it with synthetic series whose correct
-verdict is known by construction — a steady leak, a plateau, a flat line,
-thread and FD growth, CPU drift — so a regression in the leak math fails loudly.
+verdict is known by construction, a steady leak, a plateau, a flat line,
+thread and FD growth, CPU drift, so a regression in the leak math fails loudly.
 
 ## Further reading
 
