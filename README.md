@@ -233,7 +233,6 @@ It wins by doing less work per step. The core is compiled Rust in a single proce
 | Peak memory | **68 MB** (7.7x less) | 523 MB | 123 MB (Codex) |
 | CPU time | **1.3 s** (8x less) | 10.4 s | 2.9 s (DeepSeek Harness) |
 | System prompt | **4.6k tokens** (-40%) | 7.7k | 6.2k (DeepSeek Harness) |
-| Tasks solved | 7 / 10 (3 fewer) | 10 / 10 | 10 / 10 (four harnesses) |
 
 ---
 
