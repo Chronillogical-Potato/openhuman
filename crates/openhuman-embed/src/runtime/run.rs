@@ -25,7 +25,6 @@ use openhuman_core::backend::BackendTransport;
 use openhuman_core::core::server_launcher::HostBoot;
 
 use super::seams::HostSeams;
-use crate::harness::Workspace;
 use super::{RuntimeBuilder, RuntimeError};
 
 /// The pieces of a builder that are installed process-wide before the CLI
@@ -55,7 +54,7 @@ impl RuntimeBuilder {
     /// Other subcommands run in-process and use only the installed globals.
     ///
     /// The CLI initializes the keyring from the operator's install before any
-    /// subcommand runs, so this entry is for [`Workspace::Inherit`]
+    /// subcommand runs, so this entry is for [`Workspace::Inherit`](crate::Workspace::Inherit)
     /// (the `cli` preset); another workspace logs a warning.
     ///
     /// A [`live_policy`](Self::live_policy) is ignored with a warning — each
