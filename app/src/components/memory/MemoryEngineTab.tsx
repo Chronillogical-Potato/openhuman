@@ -291,7 +291,7 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
       active={option === active}
       signedIn={signedIn}
       plan={plan}
-      saving={saving}
+      saving={saving === 'disabled' ? null : saving}
       error={errors[option]}
       cloudKey={cloudKey}
       onCloudKey={setCloudKey}

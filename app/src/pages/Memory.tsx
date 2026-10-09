@@ -152,7 +152,11 @@ export default function Memory() {
       return <MemoryEngineTab state={engine} onStateChange={setEngine} />;
     }
     const offState = on ? undefined : (
-      <MemoryOffState reason={engine.reason} onOpenEngine={() => setChip('engine')} />
+      <MemoryOffState
+        reason={engine.reason}
+        disabled={isMemoryDisabled(engine)}
+        onOpenEngine={() => setChip('engine')}
+      />
     );
     if (chip === 'migration') {
       return (
