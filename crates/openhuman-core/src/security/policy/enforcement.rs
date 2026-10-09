@@ -103,6 +103,23 @@ impl SecurityPolicy {
         workspace_dir: &Path,
         action_dir: &Path,
     ) -> Self {
+        Self::from_config_with(
+            crate::core::runtime::is_saas(),
+            autonomy_config,
+            workspace_dir,
+            action_dir,
+        )
+    }
+
+    /// [`from_config`](Self::from_config) with the process mode passed in, so
+    /// the SaaS grants (no shared projects home, no shared `/tmp/openhuman`)
+    /// are testable without the process-wide mode lock.
+    pub(crate) fn from_config_with(
+        saas: bool,
+        autonomy_config: &crate::config::AutonomyConfig,
+        workspace_dir: &Path,
+        action_dir: &Path,
+    ) -> Self {
         log::info!(
             "[openhuman:policy] SecurityPolicy created: autonomy={:?}, workspace_only={}, allowed_cmds={}, max_actions/hr={}, auto_approve_all={}",
             autonomy_config.level,
@@ -133,7 +150,6 @@ impl SecurityPolicy {
         // carry an in-memory edit anyway. A user-granted entry is left as-is.
         // SaaS: the projects home and `/tmp/openhuman` are shared by every user
         // of the process, so neither is granted there.
-        let saas = crate::core::runtime::is_saas();
         let mut trusted_roots = autonomy_config.trusted_roots.clone();
         let projects_path = crate::config::default_projects_dir()
             .to_string_lossy()
