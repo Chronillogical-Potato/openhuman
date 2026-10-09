@@ -36,6 +36,8 @@ fn roots(saas: bool) -> Vec<String> {
 
 #[test]
 fn saas_policy_skips_the_shared_projects_and_scratch_grants() {
+    // `OPENHUMAN_PROJECTS_DIR` is replaced by other tests under this lock.
+    let _env = crate::config::TEST_ENV_LOCK.blocking_lock();
     let projects = crate::config::default_projects_dir()
         .to_string_lossy()
         .to_string();
@@ -52,5 +54,9 @@ fn saas_policy_skips_the_shared_projects_and_scratch_grants() {
 
     let single = roots(false);
     assert!(single.contains(&projects));
-    assert!(single.contains(&scratch));
+    // The scratch dir is only granted when it can be created safely (not a
+    // symlink, hardenable permissions); that is host state, not policy.
+    if ensure_openhuman_scratch_dir().is_some() {
+        assert!(single.contains(&scratch));
+    }
 }

@@ -59,12 +59,14 @@ async fn cost_reports_group_the_ledger_and_a_refuse_budget_stops_the_call() {
     let tracker = cost::try_global().expect("this process owns the global tracker");
 
     // Seed the ledger, oldest first.
-    let start = Utc::now() - Duration::seconds(CALLS.len() as i64 + 1);
+    // Milliseconds apart, so the ledger stays inside the current budget month
+    // even at a month boundary.
+    let start = Utc::now() - Duration::milliseconds(CALLS.len() as i64 + 1);
     for (i, (model, thread, input, cached, cost_usd)) in CALLS.iter().enumerate() {
         let mut usage = TokenUsage::new(*model, *input, 10, 0.0, 0.0);
         usage.cached_input_tokens = *cached;
         usage.cost_usd = *cost_usd;
-        usage.timestamp = start + Duration::seconds(i as i64);
+        usage.timestamp = start + Duration::milliseconds(i as i64);
         usage.scope.thread_id = Some((*thread).to_string());
         usage.scope.agent_id = Some("orchestrator".to_string());
         tracker.record_usage_unconditional(usage).expect("record");
