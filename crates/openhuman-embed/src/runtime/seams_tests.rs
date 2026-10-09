@@ -162,6 +162,53 @@ fn post_turn_hooks_are_removed_and_a_replaced_one_restored() {
 }
 
 #[test]
+fn same_named_hooks_unwind_newest_first() {
+    let original: Arc<dyn PostTurnHook> = Arc::new(NamedPostTurn("seams-dup-hook"));
+    replace_embedder_post_turn_hook("seams-dup-hook", Some(Arc::clone(&original)));
+    let seams = HostSeams {
+        post_turn_hooks: vec![
+            Arc::new(NamedPostTurn("seams-dup-hook")),
+            Arc::new(NamedPostTurn("seams-dup-hook")),
+        ],
+        ..HostSeams::default()
+    }
+    .install()
+    .expect("install");
+    assert_eq!(post_turn_marker("seams-dup-hook"), Some(1));
+
+    drop(seams);
+    let restored = embedder_post_turn_hooks()
+        .into_iter()
+        .find(|hook| hook.name() == "seams-dup-hook")
+        .expect("a hook under the name");
+    assert!(
+        Arc::ptr_eq(&restored, &original),
+        "the original is back, not the runtime's first hook"
+    );
+    replace_embedder_post_turn_hook("seams-dup-hook", None);
+}
+
+#[test]
+fn a_hook_replaced_after_build_is_left_alone() {
+    let seams = HostSeams {
+        tool_hooks: vec![Arc::new(NamedToolHook("seams-late-hook"))],
+        ..HostSeams::default()
+    }
+    .install()
+    .expect("install");
+    let later: Arc<dyn ToolHook> = Arc::new(NamedToolHook("seams-late-hook"));
+    replace_embedder_tool_hook("seams-late-hook", Some(Arc::clone(&later)));
+
+    drop(seams);
+    let current = embedder_tool_hooks()
+        .into_iter()
+        .find(|hook| hook.name() == "seams-late-hook")
+        .expect("the later hook stays");
+    assert!(Arc::ptr_eq(&current, &later));
+    replace_embedder_tool_hook("seams-late-hook", None);
+}
+
+#[test]
 fn tool_hooks_are_installed_and_removed() {
     let present = |name: &str| embedder_tool_hooks().iter().any(|hook| hook.name() == name);
     let seams = HostSeams {
