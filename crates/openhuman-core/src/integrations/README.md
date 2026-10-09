@@ -24,11 +24,11 @@ are available at all. It returns `Option<Arc<IntegrationClient>>`:
 ```text
 build_client(config)
    |
-   +-- backend::base_url(config.api_url) -- Err --> None (no transport)
+   +-- backend::base_url(config.api_url) --Err--> None (no transport)
    |     (falls back to BACKEND_URL / hosted default when api_url
    |      points at a local LLM, so paths never land on Ollama)
    |
-   +-- resolve_backend_credential(config) -- Err --> None (signed out)
+   +-- resolve_backend_credential(config) --Err--> None (signed out)
    |
    +-- local offline session token? ------------> None
    +-- empty secret? -----------------------------> None (warn)
