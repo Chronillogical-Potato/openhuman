@@ -87,10 +87,12 @@ What the rows say:
 
 ## Reproducing
 
+`tool-search-bench` now lives in the `profile/` crate of [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks); run these from a checkout of that repository.
+
 ```text
-cargo run -p openhuman-cli --bin tool-search-bench -- --ranker all --misses
-cargo run -p openhuman-cli --bin tool-search-bench -- --ranker jev --family --embedding
-cargo run -p openhuman-cli --bin tool-search-bench -- --dump-catalogue
+cargo run --manifest-path profile/Cargo.toml --bin tool-search-bench -- --ranker all --misses
+cargo run --manifest-path profile/Cargo.toml --bin tool-search-bench -- --ranker jev --family --embedding
+cargo run --manifest-path profile/Cargo.toml --bin tool-search-bench -- --dump-catalogue
 ```
 
 `OPENHUMAN_BACKEND_API_KEY` (or `TYPESAFE_API_KEY`) selects the key; without

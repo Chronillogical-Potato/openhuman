@@ -738,6 +738,16 @@ fn sentry_environment_defaults_to_production_when_unset() {
 //    builds (issue OPENHUMAN-TAURI-V). Tests target the pure
 //    `message_is_localhost_dev_fetch_noise` helper so the rule can be
 //    asserted without standing up a Sentry client.
+//
+//    The filter now lives in embed's shared `before_send` chain, which this
+//    shell installs; these tests pin that the chain still carries the
+//    shell's rule, under its `localhost-dev-fetch` name.
+
+use openhuman_rpc::embed::process::sentry::message_is_localhost_dev_fetch_noise;
+
+fn event_is_localhost_dev_fetch_noise(event: &sentry::protocol::Event<'static>) -> bool {
+    openhuman_rpc::embed::process::sentry::known_noise(event) == Some("localhost-dev-fetch")
+}
 
 #[test]
 fn localhost_dev_fetch_noise_drops_vite_dev_url_1420() {
@@ -992,4 +1002,114 @@ fn single_instance_dep_enables_deep_link_feature() {
         "tauri-plugin-single-instance must enable the `deep-link` feature \
          (issue #2228 — hot-instance OAuth callback forwarding)"
     );
+}
+
+// Tauri checks every app command against `permissions/*.toml` once the app
+// ships its own permission files. A command that is registered in
+// `generate_handler!` but missing from every allow list is rejected at invoke
+// time with "<cmd> not allowed. Command not found" (#4950, `core_rpc_endpoint`,
+// the gateway picker). These tests pin the two lists to each other.
+
+/// Command names registered in `generate_handler![...]`, read from source so
+/// feature-gated commands are included whatever features this test runs with.
+fn registered_ipc_commands() -> std::collections::BTreeSet<String> {
+    let src = include_str!("lib.rs");
+    let start = src
+        .find("tauri::generate_handler![")
+        .expect("generate_handler! call in lib.rs");
+    let body = &src[start + "tauri::generate_handler![".len()..];
+    // Stop at the first line that closes the macro; `#[cfg(...)]` attributes
+    // inside it carry their own `]`.
+    body.lines()
+        .take_while(|line| !line.trim_start().starts_with(']'))
+        .map(|line| line.split("//").next().unwrap_or("").trim())
+        .filter(|line| !line.is_empty() && !line.starts_with("#["))
+        .flat_map(|line| line.split(','))
+        .map(|item| item.trim())
+        .filter(|item| !item.is_empty())
+        .map(|item| item.rsplit("::").next().unwrap_or(item).to_string())
+        .collect()
+}
+
+/// Command names allowed by any app permission file, and the permission
+/// identifiers those files define.
+fn allowed_ipc_commands() -> (
+    std::collections::BTreeSet<String>,
+    std::collections::BTreeSet<String>,
+) {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("permissions");
+    let mut commands = std::collections::BTreeSet::new();
+    let mut identifiers = std::collections::BTreeSet::new();
+    for entry in std::fs::read_dir(&dir).expect("read permissions dir") {
+        let path = entry.expect("permissions dir entry").path();
+        if path.extension().and_then(|e| e.to_str()) != Some("toml") {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).expect("read permission file");
+        let doc: toml::Value = toml::from_str(&text).expect("parse permission file");
+        for perm in doc["permission"].as_array().expect("[[permission]] array") {
+            identifiers.insert(perm["identifier"].as_str().unwrap().to_string());
+            let allow = perm["commands"]["allow"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
+            commands.extend(allow.iter().map(|c| c.as_str().unwrap().to_string()));
+        }
+    }
+    (commands, identifiers)
+}
+
+#[test]
+fn every_registered_ipc_command_is_allowed_by_a_permission() {
+    let registered = registered_ipc_commands();
+    assert!(
+        registered.contains("core_rpc_endpoint") && registered.len() > 40,
+        "generate_handler! parse looks wrong: {registered:?}"
+    );
+    let (allowed, _) = allowed_ipc_commands();
+    let missing: Vec<_> = registered.difference(&allowed).collect();
+    assert!(
+        missing.is_empty(),
+        "registered in generate_handler! but not allowed by any permissions/*.toml, \
+         so every invoke is rejected: {missing:?}"
+    );
+}
+
+#[test]
+fn every_allowed_ipc_command_is_registered() {
+    let registered = registered_ipc_commands();
+    let (allowed, _) = allowed_ipc_commands();
+    let stale: Vec<_> = allowed.difference(&registered).collect();
+    assert!(
+        stale.is_empty(),
+        "allowed in permissions/*.toml but not registered in generate_handler!: {stale:?}"
+    );
+}
+
+#[test]
+fn capabilities_reference_only_defined_app_permissions() {
+    let (_, identifiers) = allowed_ipc_commands();
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("capabilities");
+    for entry in std::fs::read_dir(&dir).expect("read capabilities dir") {
+        let path = entry.expect("capabilities dir entry").path();
+        if path.extension().and_then(|e| e.to_str()) != Some("json") {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).expect("read capability file");
+        let doc: serde_json::Value = serde_json::from_str(&text).expect("parse capability");
+        for perm in doc["permissions"].as_array().expect("permissions array") {
+            let id = perm
+                .as_str()
+                .or_else(|| perm["identifier"].as_str())
+                .expect("permission identifier");
+            // Plugin permissions are namespaced (`core:...`, `opener:...`).
+            if !id.contains(':') {
+                assert!(
+                    identifiers.contains(id),
+                    "{} references undefined app permission {id}",
+                    path.display()
+                );
+            }
+        }
+    }
 }

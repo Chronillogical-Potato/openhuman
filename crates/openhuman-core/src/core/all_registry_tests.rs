@@ -30,8 +30,11 @@ async fn full_registration_is_byte_identical() {
             .iter()
             .map(|c| c.rpc_method_name())
             .collect::<Vec<_>>();
+        // `full()` is every family a single-user core has; the SaaS operator
+        // plane is the one family it deliberately leaves out.
         let raw = view
             .iter()
+            .filter(|g| g.group != DomainGroup::Operator)
             .map(|g| g.controller.rpc_method_name())
             .collect::<Vec<_>>();
         (filtered, raw)

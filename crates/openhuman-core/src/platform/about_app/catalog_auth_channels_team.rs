@@ -104,6 +104,16 @@ Capability {
         privacy: None,
     },
 Capability {
+        id: "auth.tool_rules",
+        name: "Tool Rules",
+        domain: "auth",
+        category: CapabilityCategory::Auth,
+        description: "Allow, deny, hide or require approval for tools with name, family and tag patterns. One rule set governs what every agent is shown, what tool search finds, and what it may call, per channel if needed.",
+        how_to: "Add [[tool_rules.rules]] entries to config.toml, or tool_rules to an agent definition",
+        status: CapabilityStatus::Beta,
+        privacy: None,
+    },
+Capability {
         id: "auth.backup_recovery_phrase",
         name: "Back Up Recovery Phrase",
         domain: "auth",

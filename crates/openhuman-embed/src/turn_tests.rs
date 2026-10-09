@@ -246,6 +246,9 @@ fn a_turn_outcome_carries_what_the_turn_spent() {
         reply: "done".into(),
         session_id: "s".into(),
         usage: Some(spent.clone()),
+        structured: None,
+        finish_reason: None,
+        answered_model: None,
     };
 
     let metered = outcome.usage.as_ref().expect("a metered turn");

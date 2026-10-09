@@ -1194,7 +1194,8 @@ async fn json_rpc_config_update_browser_settings_persists_backend() {
         "openhuman.config_update_browser_settings",
         json!({
             "enabled": true,
-            "backend": "playwright"
+            "backend": "playwright",
+            "learn_from_tasks": false
         }),
     )
     .await;
@@ -1226,6 +1227,13 @@ async fn json_rpc_config_update_browser_settings_persists_backend() {
         Some("playwright"),
         "browser backend should persist in config_get response: {snapshot}"
     );
+    assert_eq!(
+        snapshot
+            .pointer("/config/browser/learn_from_tasks")
+            .and_then(Value::as_bool),
+        Some(false),
+        "switching learning off should persist in config_get response: {snapshot}"
+    );
 
     let invalid = post_json_rpc(
         &rpc_base,
@@ -1237,6 +1245,82 @@ async fn json_rpc_config_update_browser_settings_persists_backend() {
     )
     .await;
     assert_jsonrpc_error(&invalid, "invalid browser backend");
+
+    rpc_join.abort();
+}
+
+#[cfg(feature = "modules")]
+#[tokio::test]
+async fn json_rpc_modules_browser_forget_sites_removes_learned_sites() {
+    let _env_lock = json_rpc_e2e_env_lock_async().await;
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    write_min_config(&openhuman_home, "http://127.0.0.1:9");
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    // What two finished tasks left, where the core keeps it.
+    let get = post_json_rpc(&rpc_base, 41_251, "openhuman.config_get", json!({})).await;
+    let snapshot = peel_logs_envelope(assert_no_jsonrpc_error(&get, "config_get"));
+    let workspace = snapshot
+        .get("workspace_dir")
+        .and_then(Value::as_str)
+        .map(std::path::PathBuf::from)
+        .expect("config_get names the workspace");
+    let sites = workspace.join("state").join("computer").join("sites");
+    std::fs::create_dir_all(&sites).expect("sites dir");
+    for site in ["shop.test", "books.test"] {
+        std::fs::write(sites.join(format!("{site}.json")), b"{}").expect("site file");
+    }
+
+    let one = post_json_rpc(
+        &rpc_base,
+        41_252,
+        "openhuman.modules_browser_forget_sites",
+        json!({ "site": "https://www.shop.test/cart" }),
+    )
+    .await;
+    let one = peel_logs_envelope(assert_no_jsonrpc_error(&one, "forget one site"));
+    assert_eq!(
+        one.get("forgotten").and_then(Value::as_u64),
+        Some(1),
+        "{one}"
+    );
+    assert!(!sites.join("shop.test.json").exists());
+    assert!(sites.join("books.test.json").exists());
+
+    let blank = post_json_rpc(
+        &rpc_base,
+        41_253,
+        "openhuman.modules_browser_forget_sites",
+        json!({ "site": "  " }),
+    )
+    .await;
+    assert_jsonrpc_error(&blank, "a blank site forgets nothing");
+    assert!(sites.join("books.test.json").exists());
+
+    let every = post_json_rpc(
+        &rpc_base,
+        41_254,
+        "openhuman.modules_browser_forget_sites",
+        json!({}),
+    )
+    .await;
+    let every = peel_logs_envelope(assert_no_jsonrpc_error(&every, "forget every site"));
+    assert_eq!(
+        every.get("forgotten").and_then(Value::as_u64),
+        Some(1),
+        "{every}"
+    );
+    assert!(!sites.join("books.test.json").exists());
 
     rpc_join.abort();
 }
@@ -2273,7 +2357,13 @@ async fn json_rpc_cron_origin_delivery_lands_in_the_asking_thread_inner() {
 
     let mut delivered_ids: Vec<String> = Vec::new();
     for round in 0..2i64 {
-        push_forced_chat_completion(forced_text_completion(&format!("Drink water! #{round}")));
+        // Gate on the cron prompt: an unconditional FIFO entry can be taken by
+        // any other chat request in the process (a background call after the
+        // first turn), which delivered the mock default instead of this reply.
+        push_forced_chat_completion_when(
+            "Remind the user to drink water.",
+            forced_text_completion(&format!("Drink water! #{round}")),
+        );
         let run = post_json_rpc(
             &rpc_base,
             10 + round,

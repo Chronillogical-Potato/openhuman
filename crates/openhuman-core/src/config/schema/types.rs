@@ -9,6 +9,7 @@ mod defaults;
 mod model_ids;
 mod output_language;
 mod resolvers;
+mod time_zone;
 
 pub use config::{Config, CustomEmbeddingsConfig, ModelRegistryEntry};
 pub use model_ids::{
@@ -17,6 +18,7 @@ pub use model_ids::{
     MODEL_MEDIA_UNDERSTANDING, MODEL_VIDEO_GENERATION_AGENT, WORKLOAD_ROLES,
 };
 pub use output_language::{normalize_output_language, output_language_directive};
+pub use time_zone::{device_time_zone, normalize_time_zone};
 
 #[cfg(test)]
 use crate::config::schema::{CapabilityProviderTrustState, TeamModelConfig};

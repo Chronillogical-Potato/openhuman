@@ -1,4 +1,5 @@
 use super::*;
+use serde_json::json;
 
 #[test]
 fn schema_requires_task_id_and_message() {

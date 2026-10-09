@@ -67,6 +67,7 @@ fn fp(
         provider_binding: provider_binding.to_string(),
         autonomy_signature: "sig-default".to_string(),
         model_registry_signature: "registry-default".to_string(),
+        workspace_dir: std::path::PathBuf::from("/ws/a"),
     }
 }
 
@@ -101,6 +102,7 @@ fn make_block() -> TestRunChatTaskBlock {
         started: Arc::new(AtomicBool::new(false)),
         dropped: Arc::new(AtomicBool::new(false)),
         release: Arc::new(tokio::sync::Notify::new()),
+        succeed_in: None,
     }
 }
 

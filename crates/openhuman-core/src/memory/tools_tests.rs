@@ -554,3 +554,99 @@ async fn a_failed_learn_is_reported_to_the_model() {
         text(&learned)
     );
 }
+
+/// The reference engine, recording the date hint each read carried.
+struct HintRecorder {
+    inner: tinymemory_api::conformance::ReferenceEngine,
+    hints: std::sync::Mutex<Vec<Option<tinymemory_api::TimeHint>>>,
+}
+
+#[async_trait]
+impl tinymemory_api::MemoryEngine for HintRecorder {
+    fn descriptor(&self) -> &tinymemory_api::EngineDescriptor {
+        self.inner.descriptor()
+    }
+    async fn health(&self) -> tinymemory_api::EngineHealth {
+        self.inner.health().await
+    }
+    async fn recall(
+        &self,
+        req: tinymemory_api::RecallRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::RecallAnswer> {
+        self.hints.lock().unwrap().push(req.refers_to.clone());
+        self.inner.recall(req).await
+    }
+    async fn fetch(
+        &self,
+        req: tinymemory_api::FetchRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::FetchPage> {
+        self.hints.lock().unwrap().push(req.refers_to.clone());
+        self.inner.fetch(req).await
+    }
+    async fn store(
+        &self,
+        item: tinymemory_api::StoreItem,
+    ) -> tinymemory_api::Result<tinymemory_api::StoreReceipt> {
+        self.inner.store(item).await
+    }
+    async fn forget(
+        &self,
+        target: tinymemory_api::ForgetTarget,
+    ) -> tinymemory_api::Result<tinymemory_api::ForgetReport> {
+        self.inner.forget(target).await
+    }
+    async fn list(
+        &self,
+        req: tinymemory_api::ListRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::ListPage> {
+        self.inner.list(req).await
+    }
+}
+
+#[tokio::test]
+async fn refers_to_reaches_the_engine_in_the_users_time_zone() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = config_in(&tmp);
+    config.user_timezone = Some("Asia/Kolkata".into());
+    let engine = Arc::new(HintRecorder {
+        inner: tinymemory_api::conformance::ReferenceEngine::new(),
+        hints: std::sync::Mutex::new(Vec::new()),
+    });
+    crate::memory::engine::install_test_engine(&config.workspace_dir, engine.clone());
+
+    let fetched = run_action(
+        &config,
+        &json!({"action": "fetch", "query": "dinner", "refers_to": {"from": "2026-10-03", "to": "2026-10-04"}}),
+        &facts(),
+    )
+    .await;
+    assert!(!fetched.is_error, "{}", text(&fetched));
+    let recalled = run_action(
+        &config,
+        &json!({"action": "recall", "question": "dinner", "refers_to": {"from": "2026-10-03"}}),
+        &facts(),
+    )
+    .await;
+    assert!(!recalled.is_error, "{}", text(&recalled));
+    let bad = run_action(
+        &config,
+        &json!({"action": "fetch", "query": "dinner", "refers_to": {"from": "last Saturday"}}),
+        &facts(),
+    )
+    .await;
+    assert!(bad.is_error, "a non-date is a model-visible error");
+
+    let day = |d| chrono::NaiveDate::from_ymd_opt(2026, 10, d).unwrap();
+    let hints = engine.hints.lock().unwrap().clone();
+    assert_eq!(
+        hints,
+        vec![
+            Some(
+                tinymemory_api::TimeHint::new(day(3), day(4), Some("Asia/Kolkata".into())).unwrap()
+            ),
+            Some(
+                tinymemory_api::TimeHint::new(day(3), day(3), Some("Asia/Kolkata".into())).unwrap()
+            ),
+        ]
+    );
+}

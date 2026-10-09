@@ -344,21 +344,25 @@ async fn thread_delete_removes_persisted_turn_state_snapshot() {
 
     let snapshot = TurnState::started(thread_id, "req-1", 4, "2026-01-01T00:00:00Z");
     tinyagents_session::turn_state::store::put(dir.clone(), &snapshot).expect("put snapshot");
-    assert!(tinyagents_session::turn_state::store::get(dir, thread_id)
-        .unwrap()
-        .is_some());
+    assert!(
+        tinyagents_session::turn_state::store::get(dir.clone(), thread_id)
+            .unwrap()
+            .is_some()
+    );
 
     // Queue a finished background sub-agent result for this thread; deleting the
     // thread must discard it so it's never delivered into a dead thread.
     use crate::agent::orchestration::background_completions as bg;
     bg::record_completion(
+        &dir,
         "sess-del",
         "sub-del-1",
         "researcher",
         "result",
         Some(thread_id.to_string()),
-    );
-    assert_eq!(bg::pending_count("sess-del"), 1);
+    )
+    .await;
+    assert_eq!(bg::pending_for(&dir, thread_id).len(), 1);
 
     thread_delete(DeleteConversationThreadRequest {
         thread_id: thread_id.to_string(),
@@ -368,7 +372,7 @@ async fn thread_delete_removes_persisted_turn_state_snapshot() {
     .expect("delete thread");
 
     assert_eq!(
-        bg::pending_count("sess-del"),
+        bg::pending_for(&dir, thread_id).len(),
         0,
         "queued completion for the deleted thread should be discarded"
     );
@@ -408,26 +412,30 @@ async fn threads_purge_removes_valid_and_corrupted_turn_state_files() {
     // them all since no parent thread survives.
     use crate::agent::orchestration::background_completions as bg;
     bg::record_completion(
+        &dir,
         "sess-p1",
         "sub-p1",
         "researcher",
         "x",
         Some("thread-a".into()),
-    );
+    )
+    .await;
     bg::record_completion(
+        &dir,
         "sess-p2",
         "sub-p2",
         "researcher",
         "y",
         Some("thread-b".into()),
-    );
+    )
+    .await;
 
     threads_purge(EmptyRequest {})
         .await
         .expect("purge threads should also clear snapshots");
 
-    assert!(!bg::has_pending("sess-p1"));
-    assert!(!bg::has_pending("sess-p2"));
+    assert!(bg::pending_for(&dir, "thread-a").is_empty());
+    assert!(bg::pending_for(&dir, "thread-b").is_empty());
 
     if turn_state_dir.exists() {
         let remaining_json: Vec<_> = std::fs::read_dir(&turn_state_dir)
@@ -475,4 +483,33 @@ async fn thread_update_title_rejects_empty_and_whitespace_only_titles() {
             "expected empty-title error for {title:?}, got: {err}"
         );
     }
+}
+
+#[tokio::test]
+async fn thread_delete_forgets_its_conversation_memory_or_queues_it() {
+    let _env_lock = crate::config::TEST_ENV_LOCK.lock().await;
+    let workspace = tempfile::tempdir().expect("workspace");
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
+    let thread_id = "thread-delete-memory";
+    create_thread_with_title(&workspace, thread_id, "Chat Jan 1 1:00 AM").await;
+    let dir = crate::config::Config::load_or_init()
+        .await
+        .expect("load config")
+        .workspace_dir;
+
+    thread_delete(DeleteConversationThreadRequest {
+        thread_id: thread_id.to_string(),
+        deleted_at: "2026-01-01T00:02:00Z".into(),
+    })
+    .await
+    .expect("delete thread");
+
+    // Signed out in tests (memory off): the forget is queued for the next
+    // sign-in instead of being skipped.
+    assert_eq!(
+        crate::memory::deletion::pending(&dir),
+        vec![crate::memory::deletion::PendingDeletion::Thread {
+            thread_id: thread_id.to_string()
+        }]
+    );
 }

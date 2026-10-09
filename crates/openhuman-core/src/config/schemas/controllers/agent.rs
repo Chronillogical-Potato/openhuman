@@ -105,6 +105,7 @@ pub(super) fn handle_update_browser_settings(params: Map<String, Value>) -> Cont
             download_dir: update.download_dir,
             max_task_steps: update.max_task_steps,
             task_timeout_secs: update.task_timeout_secs,
+            learn_from_tasks: update.learn_from_tasks,
         };
         to_json(config_rpc::load_and_apply_browser_settings(patch).await?)
     })

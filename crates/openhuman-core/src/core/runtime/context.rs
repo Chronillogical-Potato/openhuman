@@ -222,6 +222,8 @@ impl CoreContext {
                 .map(|t| t.name())
                 .unwrap_or("<process-global>")
         );
+        crate::core::runtime::mode::admit_core(host_kind, DEFAULT_CONTEXT.get().is_some())
+            .map_err(|e| anyhow::anyhow!("[core-context] {e}"))?;
         // 1. Ensure all controllers are registered before anything dispatches.
         let _ = crate::core::all::all_registered_controllers();
 

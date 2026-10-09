@@ -534,6 +534,32 @@ pub(crate) fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "search" => ControllerSchema {
+            namespace: "threads",
+            function: "search",
+            description:
+                "Search message text across every thread (global search). Hits are newest first, each with a snippet around the match.",
+            inputs: vec![
+                FieldSchema {
+                    name: "query",
+                    ty: TypeSchema::String,
+                    comment: "Text to find; blank returns no hits.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "limit",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
+                    comment: "Max hits (default 20, capped at 100).",
+                    required: false,
+                },
+            ],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Json,
+                comment: "Envelope with hits: threadId, messageId, role, snippet, createdAt.",
+                required: true,
+            }],
+        },
         _other => ControllerSchema {
             namespace: "threads",
             function: "unknown",

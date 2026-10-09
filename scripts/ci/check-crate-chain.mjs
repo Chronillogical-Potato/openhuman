@@ -1,0 +1,293 @@
+#!/usr/bin/env node
+// Enforces the crate chain: core -> embed -> tinyhumans -> rpc -> app/cli/tui.
+//
+// Each OpenHuman crate may name exactly one OpenHuman crate among its NORMAL
+// dependencies — the layer directly below it — and the hosts (desktop app, CLI,
+// TUI) name `openhuman-rpc` only. Dev-dependencies and build-dependencies are
+// exempt: the CLI's root integration tests reach into the core on purpose, and
+// none of that reaches a shipped binary.
+//
+// A second check covers what a manifest cannot show: host source must not
+// reach core internals by path. The layers above embed get core internals
+// through embed's doc-hidden `__host` list (`core_host` inside rpc); hosts get
+// the curated facade (`openhuman_rpc::embed`, `openhuman_rpc::tinyhumans`) and
+// nothing else. So `__host`, `core_host` and `openhuman_core::` in
+// `crates/openhuman-{app,cli,tui}/src` fail the check.
+//
+// Usage: check-crate-chain.mjs [repo-root]
+// Exit 0 when the chain holds, 1 on a violation, 2 when the inputs could not
+// be read or parsed (the check refuses to pass vacuously).
+
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import { stripComments } from '../lib/feature-forwarding.mjs';
+
+/**
+ * Package name -> the OpenHuman packages it may name as normal dependencies.
+ * A package missing from this table is an unknown OpenHuman crate and fails
+ * the check until someone places it in the chain on purpose.
+ */
+export const CHAIN = {
+  openhuman: [],
+  'openhuman-embed': ['openhuman'],
+  'openhuman-tinyhumans': ['openhuman-embed'],
+  'openhuman-rpc': ['openhuman-tinyhumans'],
+  'openhuman-app': ['openhuman-rpc'],
+  'openhuman-cli': ['openhuman-rpc'],
+  'openhuman-tui': ['openhuman-rpc'],
+};
+
+/** The host crates whose `src/` must not reach core internals by path. */
+export const HOST_SOURCE_DIRS = [
+  'crates/openhuman-app/src',
+  'crates/openhuman-cli/src',
+  'crates/openhuman-tui/src',
+];
+
+/** Paths a host must never name (see the header). */
+export const FORBIDDEN_HOST_PATTERNS = [
+  { name: '__host', regex: /\b__host\b/ },
+  { name: 'core_host', regex: /\bcore_host\b/ },
+  { name: 'openhuman_core::', regex: /\bopenhuman_core::/ },
+];
+
+/** Whether a package name belongs to this repository's OpenHuman crates. */
+export function isOpenhumanPackage(name) {
+  return name === 'openhuman' || name.startsWith('openhuman-');
+}
+
+function tableBody(text, start) {
+  const rest = text.slice(start);
+  const next = rest.search(/^[ \t]*\[/m);
+  return next === -1 ? rest : rest.slice(0, next);
+}
+
+/** `[package] name = "..."`, or null. */
+export function parsePackageName(toml) {
+  const text = stripComments(toml);
+  const header = text.match(/^[ \t]*\[package\][ \t]*$/m);
+  if (!header) return null;
+  const body = tableBody(text, header.index + header[0].length);
+  const name = body.match(/^[ \t]*name[ \t]*=[ \t]*"([^"]+)"/m);
+  return name ? name[1] : null;
+}
+
+/** Root `[workspace] members = [...]`. */
+export function parseWorkspaceMembers(toml) {
+  const text = stripComments(toml);
+  const header = text.match(/^[ \t]*\[workspace\][ \t]*$/m);
+  if (!header) return [];
+  const body = tableBody(text, header.index + header[0].length);
+  const at = body.search(/^[ \t]*members[ \t]*=[ \t]*\[/m);
+  if (at === -1) return [];
+  const open = body.indexOf('[', at);
+  const close = body.indexOf(']', open);
+  return [...body.slice(open + 1, close).matchAll(/"([^"]+)"/g)].map(m => m[1]);
+}
+
+/** One dependency entry's value text (inline table or string), joined across lines. */
+function entryValue(body, valueStart) {
+  if (body[valueStart] !== '{') {
+    const end = body.indexOf('\n', valueStart);
+    return end === -1 ? body.slice(valueStart) : body.slice(valueStart, end);
+  }
+  let depth = 0;
+  for (let i = valueStart; i < body.length; i++) {
+    if (body[i] === '{') depth++;
+    else if (body[i] === '}') {
+      depth--;
+      if (depth === 0) return body.slice(valueStart, i + 1);
+    }
+  }
+  return body.slice(valueStart);
+}
+
+/**
+ * Dependencies declared in one dependency table body, as
+ * `{ key, package, workspace }`: `package` is the `package = "..."` rename when
+ * given, else the key; `workspace` marks `key.workspace = true` /
+ * `{ workspace = true }`, whose package the root `[workspace.dependencies]`
+ * table decides.
+ */
+export function parseDependencyEntries(body) {
+  const entries = [];
+  for (const match of body.matchAll(/^[ \t]*([A-Za-z0-9_-]+)((?:\.workspace)?)[ \t]*=[ \t]*/gm)) {
+    const key = match[1];
+    const value = entryValue(body, match.index + match[0].length);
+    const pkg = value.match(/package[ \t]*=[ \t]*"([^"]+)"/);
+    const workspace = match[2] === '.workspace' || /workspace[ \t]*=[ \t]*true/.test(value);
+    entries.push({ key, package: pkg ? pkg[1] : key, workspace });
+  }
+  return entries;
+}
+
+/**
+ * Every NORMAL dependency of a manifest: `[dependencies]`, the
+ * `[target.'…'.dependencies]` tables, and `[dependencies.<name>]` sub-tables.
+ * Dev- and build-dependencies are skipped.
+ */
+export function parseNormalDependencies(toml) {
+  const text = stripComments(toml);
+  const deps = [];
+  for (const header of text.matchAll(/^[ \t]*\[([^\]\n]+)\][ \t]*$/gm)) {
+    const table = header[1].trim();
+    const body = tableBody(text, header.index + header[0].length);
+    if (table === 'dependencies' || /^target\..+\.dependencies$/.test(table)) {
+      deps.push(...parseDependencyEntries(body));
+      continue;
+    }
+    const sub = table.match(/^(?:target\..+\.)?dependencies\.([A-Za-z0-9_-]+)$/);
+    if (sub) {
+      const pkg = body.match(/^[ \t]*package[ \t]*=[ \t]*"([^"]+)"/m);
+      const workspace = /^[ \t]*workspace[ \t]*=[ \t]*true/m.test(body);
+      deps.push({ key: sub[1], package: pkg ? pkg[1] : sub[1], workspace });
+    }
+  }
+  return deps;
+}
+
+/** Root `[workspace.dependencies]` as key -> package name. */
+export function parseWorkspaceDependencies(toml) {
+  const text = stripComments(toml);
+  const header = text.match(/^[ \t]*\[workspace\.dependencies\][ \t]*$/m);
+  if (!header) return new Map();
+  const body = tableBody(text, header.index + header[0].length);
+  return new Map(parseDependencyEntries(body).map(entry => [entry.key, entry.package]));
+}
+
+/**
+ * Violations of {@link CHAIN} for one manifest. Each is
+ * `{ crate, dependency, reason }`.
+ */
+export function checkManifestEdges({ crate, deps, workspaceDeps = new Map(), chain = CHAIN }) {
+  const violations = [];
+  if (!Object.prototype.hasOwnProperty.call(chain, crate)) {
+    violations.push({ crate, dependency: null, reason: 'unknown OpenHuman crate: add it to CHAIN' });
+    return violations;
+  }
+  const allowed = new Set(chain[crate]);
+  for (const dep of deps) {
+    const pkg = dep.workspace ? (workspaceDeps.get(dep.key) ?? dep.package) : dep.package;
+    if (!isOpenhumanPackage(pkg)) continue;
+    if (!allowed.has(pkg)) {
+      violations.push({
+        crate,
+        dependency: pkg,
+        reason: allowed.size
+          ? `may only depend on ${[...allowed].join(', ')} among OpenHuman crates`
+          : 'may not depend on any OpenHuman crate',
+      });
+    }
+  }
+  return violations;
+}
+
+/** `{ file, line, pattern }` for every forbidden path in one source text. */
+export function findForbiddenPaths(text, file, patterns = FORBIDDEN_HOST_PATTERNS) {
+  const hits = [];
+  text.split(/\r?\n/).forEach((line, index) => {
+    for (const { name, regex } of patterns) {
+      if (regex.test(line)) hits.push({ file, line: index + 1, pattern: name });
+    }
+  });
+  return hits;
+}
+
+function rustFiles(dir) {
+  const out = [];
+  for (const entry of readdirSync(dir)) {
+    const path = join(dir, entry);
+    if (statSync(path).isDirectory()) out.push(...rustFiles(path));
+    else if (entry.endsWith('.rs')) out.push(path);
+  }
+  return out;
+}
+
+/** Run both checks against a repository checkout. */
+export function checkRepository(root) {
+  const rootToml = readFileSync(join(root, 'Cargo.toml'), 'utf8');
+  const members = parseWorkspaceMembers(rootToml);
+  if (members.length === 0) {
+    throw new Error('parsed zero workspace members from the root Cargo.toml');
+  }
+  const workspaceDeps = parseWorkspaceDependencies(rootToml);
+  // The desktop shell is its own Cargo world, excluded from the workspace.
+  const manifestDirs = [...members, 'crates/openhuman-app'];
+  const edgeViolations = [];
+  const checked = [];
+  for (const dir of manifestDirs) {
+    const manifest = join(root, dir, 'Cargo.toml');
+    if (!existsSync(manifest)) throw new Error(`missing manifest ${relative(root, manifest)}`);
+    const toml = readFileSync(manifest, 'utf8');
+    const crate = parsePackageName(toml);
+    if (!crate) throw new Error(`no [package] name in ${relative(root, manifest)}`);
+    if (!isOpenhumanPackage(crate)) continue;
+    checked.push(crate);
+    edgeViolations.push(
+      ...checkManifestEdges({ crate, deps: parseNormalDependencies(toml), workspaceDeps })
+    );
+  }
+  const sourceViolations = [];
+  for (const dir of HOST_SOURCE_DIRS) {
+    const abs = join(root, dir);
+    if (!existsSync(abs)) throw new Error(`missing host source directory ${dir}`);
+    for (const file of rustFiles(abs)) {
+      sourceViolations.push(
+        ...findForbiddenPaths(readFileSync(file, 'utf8'), relative(root, file))
+      );
+    }
+  }
+  return { checked, edgeViolations, sourceViolations };
+}
+
+export function formatReport({ checked, edgeViolations, sourceViolations }) {
+  const lines = [`Crate chain: core -> embed -> tinyhumans -> rpc -> app/cli/tui`];
+  lines.push(`Checked ${checked.length} manifests: ${checked.join(', ')}`);
+  if (edgeViolations.length > 0) {
+    lines.push('', 'Normal-dependency edges that break the chain:');
+    for (const v of edgeViolations) {
+      lines.push(`  - ${v.crate} -> ${v.dependency ?? '?'}: ${v.reason}`);
+    }
+    lines.push(
+      '',
+      'Reach the layer below through its curated facade instead. Hosts name',
+      '`openhuman-rpc` only (`openhuman_rpc::embed`, `openhuman_rpc::tinyhumans`);',
+      'a test-only need belongs in [dev-dependencies].'
+    );
+  }
+  if (sourceViolations.length > 0) {
+    lines.push('', 'Host source reaching core internals by path:');
+    for (const v of sourceViolations) lines.push(`  - ${v.file}:${v.line}: ${v.pattern}`);
+    lines.push(
+      '',
+      'Hosts use the curated facade (`openhuman_rpc::embed::…`). `__host` /',
+      '`core_host` are internal to the library layers; add what the host needs to',
+      "embed's public facade instead."
+    );
+  }
+  if (edgeViolations.length === 0 && sourceViolations.length === 0) {
+    lines.push('OK: every crate depends only on the layer below it.');
+  }
+  return lines.join('\n');
+}
+
+function main() {
+  const root = resolve(process.argv[2] ?? resolve(dirname(fileURLToPath(import.meta.url)), '../..'));
+  let result;
+  try {
+    result = checkRepository(root);
+  } catch (err) {
+    console.error(`check-crate-chain: could not check ${root}: ${err.message}`);
+    process.exit(2);
+  }
+  const report = formatReport(result);
+  const ok = result.edgeViolations.length === 0 && result.sourceViolations.length === 0;
+  (ok ? console.log : console.error)(report);
+  process.exit(ok ? 0 : 1);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main();
+}

@@ -22,6 +22,7 @@ fn dummy_definition() -> AgentDefinition {
         skill_filter: None,
         extra_tools: vec![],
         deferred_tools: Vec::new(),
+        tool_rules: None,
         max_iterations: 1,
         iteration_policy: Default::default(),
         max_result_chars: None,
@@ -55,6 +56,22 @@ fn unary_summarizer_child_inherits_cancellation_workspace_and_lineage() {
     assert_eq!(child.data.spawn_depth, 1);
     cancellation.cancel();
     assert!(child.cancellation.is_cancelled());
+}
+
+#[test]
+fn unary_summarizer_child_host_data_uses_the_linked_child_token() {
+    let parent = OpenHumanRunContext::new().into_tinyagents(RunConfig::new("parent-link"));
+    let child = unary_child_context(&parent, "summarizer", 1, 128).expect("child context");
+
+    child.cancellation.cancel();
+    assert!(child.data.cancellation.is_cancelled());
+    assert!(!parent.cancellation.is_cancelled());
+    assert!(!parent.data.cancellation.is_cancelled());
+
+    let parent = OpenHumanRunContext::new().into_tinyagents(RunConfig::new("parent-link-2"));
+    let child = unary_child_context(&parent, "summarizer", 1, 128).expect("child context");
+    parent.cancellation.cancel();
+    assert!(child.data.cancellation.is_cancelled());
 }
 
 struct UnaryOnlyModel(AtomicBool);

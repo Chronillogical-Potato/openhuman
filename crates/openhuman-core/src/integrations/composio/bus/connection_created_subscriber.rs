@@ -1,7 +1,7 @@
 //! Routes `ComposioConnectionCreated` events: once the connection is
 //! confirmed active, refreshes the integrations cache, then (after
-//! onboarding) fetches the account profile and starts an initial
-//! `composio_sync` for toolkits with a native sync provider.
+//! onboarding) fetches the account profile for toolkits with a native
+//! identity provider.
 
 use std::time::Duration;
 
@@ -85,8 +85,7 @@ impl EventHandler<DomainEvent> for ComposioConnectionCreatedSubscriber {
             connection_id = %connection_id,
             "[composio:bus] connection_created"
         );
-        // The cache refresh runs for every toolkit; only the profile fetch and
-        // initial sync are gated on a native provider.
+        // The cache refresh runs for every toolkit; only the profile fetch is gated on a native provider.
         let toolkit = toolkit.clone();
         let connection_id = connection_id.clone();
         tokio::spawn(async move { on_connection_created(toolkit, connection_id).await });
@@ -149,7 +148,7 @@ async fn on_connection_created(toolkit: String, connection_id: String) {
                 connection_id = %connection_id,
                 last_status = ?last_status,
                 timeout_secs = CONNECTION_READY_TIMEOUT.as_secs(),
-                "[composio:bus] timed out waiting for connection to become active; skipping cache refresh + initial sync"
+                "[composio:bus] timed out waiting for connection to become active; skipping cache refresh"
             );
             return;
         }
@@ -158,7 +157,7 @@ async fn on_connection_created(toolkit: String, connection_id: String) {
                 toolkit = %toolkit,
                 connection_id = %connection_id,
                 error = %error,
-                "[composio:bus] backend lookup failed while waiting for connection; skipping cache refresh + initial sync"
+                "[composio:bus] backend lookup failed while waiting for connection; skipping cache refresh"
             );
             return;
         }
@@ -170,14 +169,14 @@ async fn on_connection_created(toolkit: String, connection_id: String) {
         tracing::info!(
             toolkit = %toolkit,
             connection_id = %connection_id,
-            "[composio:bus] onboarding not yet complete — skipping profile fetch and initial sync"
+            "[composio:bus] onboarding not yet complete — skipping profile fetch"
         );
         return;
     }
     if !crate::integrations::composio::providers::has_native_provider(&toolkit) {
         tracing::debug!(
             toolkit = %toolkit,
-            "[composio:bus] no native sync provider for toolkit; skipping profile fetch and initial sync"
+            "[composio:bus] no native identity provider for toolkit; skipping profile fetch"
         );
         return;
     }
@@ -188,25 +187,6 @@ async fn on_connection_created(toolkit: String, connection_id: String) {
             error = %e,
             "[composio:bus] connection bootstrap (profile fetch) failed"
         );
-    }
-    match ops::composio_sync(
-        &live_config,
-        &connection_id,
-        Some("connection_created".to_string()),
-    )
-    .await
-    {
-        Ok(_) => tracing::info!(
-            toolkit = %toolkit,
-            connection_id = %connection_id,
-            "[composio:bus] initial sync started"
-        ),
-        Err(error) => tracing::debug!(
-            toolkit = %toolkit,
-            connection_id = %connection_id,
-            error = %error,
-            "[composio:bus] initial sync not started (memory off or unavailable)"
-        ),
     }
 }
 

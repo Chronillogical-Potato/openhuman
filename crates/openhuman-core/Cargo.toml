@@ -81,6 +81,11 @@ tinyflows-catalog = { path = "../../vendor/tinyflows/crates/tinyflows-catalog", 
 # The cron job/run store half (`schedule`) is unconditional, so `tinyflows-sqlite`
 # is too; only its `catalog` half (which needs the engine) rides the `flows` gate.
 tinyflows-sqlite = { path = "../../vendor/tinyflows/crates/tinyflows-sqlite", default-features = false, features = ["schedule"] }
+# tinyflows' stores on the storage ports, used instead of the SQLite files when
+# a storage backend is configured (`storage`). The cron half (`schedule`) is
+# unconditional like cron itself; the catalog, flow state and checkpointer
+# (`catalog`, which needs the engine) ride the `flows` gate.
+tinyflows-drivers = { path = "../../vendor/tinyflows/crates/tinyflows-drivers", default-features = false, features = ["schedule"] }
 # The authoring copilot's words: the `workflow_builder` / `flow_discovery`
 # standing archetypes and the turn brief that opens a builder turn. Harness-free
 # by construction — it names no tool trait and no model client — so this host
@@ -147,11 +152,16 @@ tinyagents-definition = { path = "../../vendor/tinyagents/crates/tinyagents-defi
 tinyagents-live = { path = "../../vendor/tinyagents/crates/tinyagents-live", optional = true }
 tinyagents-graph = { path = "../../vendor/tinyagents/crates/tinyagents-graph", features = [
     "sqlite",
+    "storage-drivers",
 ] }
 tinyagents-registry = { path = "../../vendor/tinyagents/crates/tinyagents-registry" }
-tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
+tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session", features = ["storage-drivers"] }
+# The storage ports and the URL-to-backend facade (`storage` domain). No driver
+# by default: the `storage-*` features below add them.
+tinystoragedrivers = { path = "../../vendor/tinyagents/vendor/tinystoragedrivers/crates/tinystoragedrivers", default-features = false, features = ["blocking", "secrets"] }
 tinyagents-runtime = { path = "../../vendor/tinyagents/crates/tinyagents-runtime" }
 tinyagents-orchestration = { path = "../../vendor/tinyagents/crates/tinyagents-orchestration" }
+tinyagents-tasks = { path = "../../vendor/tinyagents/crates/tinyagents-tasks" }
 tinyinference-core = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
 tinyinference-embeddings = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
 tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
@@ -322,6 +332,7 @@ tinycomputer-accessibility = { path = "../../vendor/tinycomputer/crates/tinycomp
 tinyskills = { path = "../../vendor/tinyskills/crates/tinyskills" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+serde_path_to_error = "0.1"
 # (Removed `html2md` dep. dhat-rs profiling on real Gmail inboxes
 # showed `html2md::walk` and `html2md::tables::handle` allocating
 # ~894 MB peak heap on a 10 KB HTML input from Otter.ai-style emails
@@ -380,6 +391,10 @@ zeroize = "1"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
 hkdf = "0.12"
 hex = "0.4"
+# The SaaS gateway signature. 0.13 on sha2 0.11, the versions tinychannels-bus
+# already brings, so it adds no package to the graph.
+hmac = "0.13"
+sha2_011 = { package = "sha2", version = "0.11" }
 tokio-util = { version = "0.7", features = ["rt", "io"] }
 # tokio-tungstenite is declared per-target below so the TLS backend
 # (native-tls on Windows, rustls on macOS / Linux) matches the reqwest
@@ -388,6 +403,8 @@ futures = "0.3"
 rusqlite = { version = "=0.40.2", features = ["bundled"] }
 chrono = { version = "0.4", features = ["serde"] }
 iana-time-zone = "0.1"
+# Validates the user's IANA time zone setting (`Config::time_zone`).
+chrono-tz = "0.10"
 futures-util = "0.3"
 directories = "6"
 toml = "1.0"
@@ -624,6 +641,9 @@ tinymemory-api = { path = "../../vendor/tinymemory/crates/tinymemory-api", featu
 # write path can produce. Declared here rather than in `[dependencies]` so the
 # shipped binary never carries those two writers.
 tinyflows-sqlite = { path = "../../vendor/tinyflows/crates/tinyflows-sqlite", features = ["test-fixtures"] }
+# The document catalog's `*_for_test` fixtures, which the flows store forwards
+# in test builds.
+tinyflows-drivers = { path = "../../vendor/tinyflows/crates/tinyflows-drivers", default-features = false, features = ["schedule", "test-fixtures"] }
 # Test fixtures derive a known account from the BIP-39 vector phrase. Production
 # does not derive at all — see the note on the main `tinywallet` entry. Cargo
 # does not link dev-dependency features into the shipped binary, so enabling
@@ -663,6 +683,12 @@ tokio = { version = "1", features = ["test-util"] }
 proptest = "1"
 
 [features]
+# Storage drivers for `[storage] url` / `OPENHUMAN_STORAGE_URL` (see the
+# `storage` domain). Memory is always available. Off in the product until a
+# desktop domain moves onto the ports; a cloud build turns on `storage-mongodb`.
+storage-sqlite = ["tinystoragedrivers/sqlite"]
+storage-mongodb = ["tinystoragedrivers/mongodb"]
+storage-file = ["tinystoragedrivers/file"]
 # THE CONTRIBUTOR SET — not the product set.
 #
 # This list is what a bare `cargo check`, `cargo test` and rust-analyzer
@@ -900,7 +926,7 @@ media = ["tinyagents-harness/media"]
 # runtime `DomainSet::flows` flag (#4796): the feature narrows the compile-time
 # surface, `DomainSet` gates it at runtime.
 # NOTE: this gate does NOT drop `tinyagents` itself — 26+ domains consume it.
-flows = ["dep:tinyflows", "dep:tinyflows-catalog", "dep:tinyflows-copilot", "tinyflows-sqlite/catalog"]
+flows = ["dep:tinyflows", "dep:tinyflows-catalog", "dep:tinyflows-copilot", "tinyflows-drivers/catalog", "tinyflows-sqlite/catalog"]
 # Skills domains: `openhuman::skills` (metadata/discovery/install),
 # `openhuman::skill_runtime` (SKILL.md execution + the skill_executor agent),
 # and `openhuman::skill_registry` (remote catalogs + the skill_setup agent).
@@ -921,7 +947,7 @@ flows = ["dep:tinyflows", "dep:tinyflows-catalog", "dep:tinyflows-copilot", "tin
 # out of `skills::types` and ~236 files consume them, so those inert serde
 # types are a type carve-out, not part of the gated behaviour. See
 # `crates/openhuman-core/src/skills/stub.rs`.
-skills = []
+skills = ["tinyskills/registry"]
 # MCP domains, all under the `mcp/` family: `mcp::server` (the `openhuman mcp`
 # stdio/HTTP server exposing our tool surface), `mcp::registry` (dynamic
 # Smithery installs — SQLite, lifecycle, `mcp_clients` RPC namespace),
@@ -1021,11 +1047,12 @@ whatsapp-web = ["channels", "tinychannels/whatsapp-web"]
 # this feature so the wipe RPC isn't even registered, let alone reachable.
 e2e-test-support = []
 # Library-side gate for the embedded-RSS benchmark (#5046): the one prompt
-# renderer hook in `agent/prompts/render_helpers` that the benchmark bins in
-# `crates/openhuman-cli` need. Default-OFF and absent from
+# renderer hook in `agent/prompts/render_helpers` (and the mock provider) that
+# the benchmark bins need. Default-OFF and absent from
 # `scripts/ci/product-features.txt`, so nothing shipped enables it. The
 # `rss-bench` / `library-profile` binaries and the `rss-bench-dhat` profiling
-# variant live in `crates/openhuman-cli`.
+# variant live in tinyhumansai/openhuman-benchmarks (`profile/`), which
+# enables this gate on the core directly.
 rss-bench = []
 # Battery/AC probe feeding the scheduler's throttle decision. Default-ON.
 # When off there is no hardware probe: `sample_power` reports "on AC, no charge

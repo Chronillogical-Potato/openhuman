@@ -8,6 +8,13 @@ impl CoreContext {
             .or_else(|| DEFAULT_CONTEXT.get().cloned())
     }
 
+    /// The context scoped onto the current task, with no fallback to the
+    /// process default. SaaS uses it: there, a task that lost its scope must
+    /// fail rather than act as the operator.
+    pub fn scoped() -> Option<Arc<CoreContext>> {
+        CURRENT_CONTEXT.try_with(|ctx| ctx.clone()).ok()
+    }
+
     /// The process default context (first built), independent of any active
     /// scope. Used by the dispatch chokepoint to establish the ambient scope.
     pub fn default_context() -> Option<Arc<CoreContext>> {

@@ -84,6 +84,8 @@ pub struct CreateCustomRequest {
     #[serde(default)]
     pub tool_denylist: Vec<String>,
     #[serde(default)]
+    pub tool_rules: Option<tinytools::ToolRules>,
+    #[serde(default)]
     pub subagents: AgentSubagentPolicy,
     #[serde(default)]
     pub tags: Vec<String>,
@@ -103,6 +105,10 @@ impl CreateCustomRequest {
             system_prompt: self.system_prompt,
             tool_allowlist: self.tool_allowlist,
             tool_denylist: self.tool_denylist,
+            // A new entry never stores a no-op rule set. (Clearing is an
+            // `update`: `AgentRegistryPatch` passes an empty set through to
+            // `apply_patch`, which clears the field.)
+            tool_rules: self.tool_rules.filter(|rules| !rules.is_permissive()),
             subagents: self.subagents,
             tags: self.tags,
             metadata: self.metadata.unwrap_or(Value::Null),

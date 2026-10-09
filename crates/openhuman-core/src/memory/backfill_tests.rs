@@ -168,6 +168,7 @@ async fn stores_past_chats_once_and_skips_what_live_logging_took() {
             in_prompt_from: 0,
             at: Utc::now(),
             resumed_after_compaction: false,
+            observed_actor: None,
         },
     )
     .await;

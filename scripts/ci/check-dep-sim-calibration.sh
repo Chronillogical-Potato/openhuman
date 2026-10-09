@@ -99,8 +99,19 @@ cd "$(dirname "$0")/../.."
 # five names from the Linux flows graph; native builds remain at three.
 # 311 -> 320 on 2026-10-07: tinyskills v0.2.8 (#7054) brings cap-std and its
 # dependencies into the flows graph.
-# This matches the current `flows:342:320:3` entry in
+# 320 -> 313 on 2026-10-09: the tinyagents and tinyflows mains shed seven
+# names from the flows graph.
+# 313 -> 314 on 2026-10-09: the config loader names the failing field path
+# through `serde_path_to_error` (pure Rust, no dependencies; already in the
+# product graph through axum).
+# 314 -> 315 on 2026-10-09: secrets on the storage backend add the
+# first-party tinystoragedrivers-secrets crate (its crypto deps were already
+# in the graph).
+# 315 -> 316 on 2026-10-09: cron and flows on the storage ports add the
+# first-party tinyflows-drivers crate (one package, one name; no new
+# external crate).
+# This matches the current `flows:338:316:2` entry in
 # scripts/kernel-floor.limits; its preceding entries are historical.
-EXPECTED_NAMES=320
+EXPECTED_NAMES=316
 
 exec python3 scripts/dep-sim.py --cut-nothing --expect-names "${EXPECTED_NAMES}"

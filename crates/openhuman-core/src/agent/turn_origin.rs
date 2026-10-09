@@ -50,6 +50,10 @@ pub enum AgentTurnOrigin {
     ExternalChannel {
         channel: String,
         sender: Option<String>,
+        /// The sender's display name as the channel gives it (a WhatsApp
+        /// push or profile name, a Telegram first and last name), when it
+        /// gives one. Never a saved contact name: no channel exposes one.
+        sender_name: Option<String>,
         reply_target: String,
         message_id: String,
         /// The channel runtime's conversation-history key for this chat, set only by

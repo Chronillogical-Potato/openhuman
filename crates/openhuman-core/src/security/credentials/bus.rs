@@ -14,6 +14,9 @@
 //!    (voice / autocomplete / local AI / dictation).
 //!    Idempotent — repeat events are safe.
 //!
+//! In SaaS mode the handler does nothing process-wide: each user's
+//! credential is theirs, and the gateway refreshes it.
+//!
 //! Without this subscriber, a 401 from a background LLM call would only
 //! be detected but never acted on, and the same loop would 401 again on
 //! the next iteration. This is the fix for issue
@@ -55,6 +58,18 @@ impl EventHandler<DomainEvent> for SessionExpiredSubscriber {
         let DomainEvent::SessionExpired { source, reason } = event else {
             return;
         };
+
+        // SaaS: the credential belongs to one user and the gateway owns its
+        // refresh (`user_agents.set_credential`). Nothing process-wide is torn
+        // down; the failing call already reports the 401 to that user.
+        if crate::core::runtime::is_saas() {
+            tracing::warn!(
+                source = %source,
+                reason = %reason,
+                "[auth] SessionExpired in SaaS mode — left to the gateway; no process-wide teardown"
+            );
+            return;
+        }
 
         // (1) Stand down background workers immediately — before any async work.
         //     Cheap atomic flip; safe to call repeatedly from concurrent publishers.

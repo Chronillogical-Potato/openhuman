@@ -46,6 +46,7 @@ Applies to every release, all platforms.
 
 - [ ] **Browser readiness and setup** — Open Connections → Integrations → Computer → Browser on each desktop platform and verify the Early Alpha notice. Expected: the checksum-pinned TinyComputer module loads from the installer on Windows or the release cache on other platforms and passes TinyBus admission, module and Chrome readiness are reported separately, Test works, and saved viewport, profile, download folder, task limits, and allowed websites survive relaunch.
 - [ ] **Browser task and policy** — With an allowed Selenium test site, use a conversation to submit its web form and download File 1. Expected: `tool_search` discovers `browser`, consequential actions wait for the exact host approval, the submitted page shows “Received!”, and a completed download is verified on disk. Then restrict allowed websites and confirm a disallowed navigation is blocked.
+- [ ] **Browser learning** — In a conversation, ask for the same browser task on one allowed site twice. Expected: the second run starts without drafting a plan (debug log `[browser-sites] applied what the site's finished tasks left` with `reused_plan=true`) and ends the same way. Then click Browser → What tasks learn → Forget learned sites: it reports the sites forgotten, and the next run plans again. With Learn from finished tasks off, nothing is reused or kept.
 
 ### Wallet balances
 
