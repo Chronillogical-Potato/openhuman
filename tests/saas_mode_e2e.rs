@@ -428,6 +428,24 @@ fn gateway_requests_run_under_the_named_users_agent() {
     assert_eq!(status, 401, "alice's signature does not cover bob: {body}");
     let (status, body) = user_rpc(&client, &base, BEARER, "bob", None, "core.ping");
     assert_eq!(status, 403, "bob is not provisioned: {body}");
+    // A repeated signature header is refused, not resolved to the first value.
+    {
+        use openhuman_core::user_agents::gateway::{sign, USER_HEADER, USER_SIG_HEADER};
+        let response = client
+            .post(format!("{base}/rpc"))
+            .bearer_auth(BEARER)
+            .header(USER_HEADER, "alice")
+            .header(USER_SIG_HEADER, sign(BEARER, "alice", now()))
+            .header(USER_SIG_HEADER, sign(BEARER, "alice", now()))
+            .json(&json!({ "jsonrpc": "2.0", "id": 1, "method": "core.ping", "params": {} }))
+            .send()
+            .expect("POST /rpc");
+        assert_eq!(
+            response.status().as_u16(),
+            400,
+            "a repeated signature header"
+        );
+    }
 
     // Single-user surfaces are closed.
     for path in ["/events", "/events/domain", "/v1/models", "/dev/connect"] {
