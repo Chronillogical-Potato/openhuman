@@ -220,8 +220,12 @@ fn a_refusing_budget_refuses_the_agent_over_it() {
     assert!(refusal.starts_with("BUDGET_EXCEEDED:"), "{refusal}");
     assert!(refusal.contains("planner cap"), "{refusal}");
     assert!(
-        gate.check_budgets_against(&estimate_for("orchestrator"), &gate.live_budgets(), &tracker)
-            .is_none(),
+        gate.check_budgets_against(
+            &estimate_for("orchestrator"),
+            &gate.live_budgets(),
+            &tracker
+        )
+        .is_none(),
         "the cap matches only the planner"
     );
 }

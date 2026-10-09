@@ -284,3 +284,35 @@ action = "refuse"
     assert!((b.warn_fraction - 0.8).abs() < f64::EPSILON);
     assert!(toml::from_str::<crate::config::CostConfig>("[[budgets]]\nmax_usdd = 1\n").is_err());
 }
+
+#[test]
+fn token_limits_compare_exactly_and_totals_saturate() {
+    let scope = UsageScope::default();
+    let mut huge = spend(10, "m", None, None, 0.0);
+    huge.usage.input_tokens = u64::MAX;
+    huge.usage.output_tokens = u64::MAX;
+    let mut limit = policy(
+        BudgetScope::Global,
+        BudgetPeriod::Month,
+        1e9,
+        BudgetAction::Refuse,
+    );
+    limit.max_usd = None;
+    limit.max_tokens = Some(u64::MAX);
+    // Two saturating records reach the limit instead of wrapping under it.
+    let verdict = evaluate(
+        &[limit.clone()],
+        &[huge.clone(), huge],
+        call("m", &scope),
+        now(),
+    );
+    assert!(verdict.refusal().is_some(), "{verdict:?}");
+
+    // 2^53 - 1 tokens against a 2^53 limit: equal as f64, not as integers.
+    let mut near = spend(10, "m", None, None, 0.0);
+    near.usage.input_tokens = (1u64 << 53) - 1;
+    near.usage.output_tokens = 0;
+    limit.max_tokens = Some(1u64 << 53);
+    let verdict = evaluate(&[limit], &[near], call("m", &scope), now());
+    assert!(verdict.refusal().is_none(), "{verdict:?}");
+}

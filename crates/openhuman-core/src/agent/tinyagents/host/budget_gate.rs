@@ -225,11 +225,9 @@ impl OpenHumanBudgetGate {
                 return None;
             }
         };
-        for hit in verdict
-            .hits
-            .iter()
-            // Every hit is worth a line: a warning, or the refusal about to be
-            // returned.
+        for hit in verdict.hits.iter()
+        // Every hit is worth a line: a warning, or the refusal about to be
+        // returned.
         {
             log::warn!(
                 "[tinyagents][budget] budget `{}` for {} at ${:.4}/{:?} usd, {}/{:?} tokens (exceeded={})",
