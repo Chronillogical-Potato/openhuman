@@ -85,10 +85,7 @@ fn a_configured_backend_holds_devices_notifications_and_task_sources() {
         "notifications/notifications.db",
         "task_sources/sources.db",
     ] {
-        assert!(
-            !workspace.path().join(db).exists(),
-            "{db} was not written"
-        );
+        assert!(!workspace.path().join(db).exists(), "{db} was not written");
     }
 
     // Without a backend the classic databases are back in use.

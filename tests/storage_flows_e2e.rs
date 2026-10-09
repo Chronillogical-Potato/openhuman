@@ -58,13 +58,15 @@ async fn a_configured_backend_holds_cron_flows_and_flow_state() {
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].id, flow.id);
 
-    // Flow state: what the engine stores is what dedup settlement reads.
+    // Flow state resolves to the backend, and its records read back through
+    // the catalog's KV (the engine/dedup sharing is unit-tested in core).
     let state_config = config.clone();
     tokio::task::spawn_blocking(move || {
-        let state = FlowState::open(&state_config, "flow:digest");
-        assert!(matches!(state, FlowState::Documents(_)));
-        use tinyflows::nodes::control_flow::dedup_settle::DedupKv;
-        state.kv_set("seen", &json!(["a"])).unwrap();
+        assert!(matches!(
+            FlowState::open(&state_config, "flow:digest"),
+            FlowState::Documents(_)
+        ));
+        flows::kv_set(&state_config, "flow:digest", "seen", &json!(["a"])).unwrap();
         assert_eq!(
             flows::kv_get(&state_config, "flow:digest", "seen").unwrap(),
             Some(json!(["a"]))
@@ -74,10 +76,17 @@ async fn a_configured_backend_holds_cron_flows_and_flow_state() {
     .unwrap();
 
     for path in ["cron/jobs.db", "flows/flows.db"] {
-        assert!(!workspace.path().join(path).exists(), "{path} was not written");
+        assert!(
+            !workspace.path().join(path).exists(),
+            "{path} was not written"
+        );
     }
 
     // Without a backend the classic databases are back in use.
     assert!(openhuman_core::storage::clear());
-    assert!(flows::ops::flows_list(&config).await.unwrap().value.is_empty());
+    assert!(flows::ops::flows_list(&config)
+        .await
+        .unwrap()
+        .value
+        .is_empty());
 }
