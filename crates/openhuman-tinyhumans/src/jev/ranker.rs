@@ -9,10 +9,10 @@ use std::{
 
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
-use openhuman_core::agent::tinyagents::discovery::{
+use openhuman_embed::__host::agent::tinyagents::discovery::{
     embedding_provider_is_usable, embedding_tool_ranker,
 };
-use openhuman_core::config::Config;
+use openhuman_embed::__host::config::Config;
 use tinyjevclient::Client;
 use tinytools::{RankCandidate, RankContext, RankError, RankHit, ToolRanker};
 use tinytools_jev::{JevRanker, JevRankerConfig, JevStrategy};
@@ -87,7 +87,7 @@ impl TinyHumansJevRanker {
         Self {
             config,
             load_config: Arc::new(|| {
-                Box::pin(openhuman_core::config::ops::load_config_with_timeout())
+                Box::pin(openhuman_embed::__host::config::ops::load_config_with_timeout())
             }),
             env: Arc::new(route::process_env),
             deadline: DEFAULT_DEADLINE,
@@ -162,7 +162,7 @@ impl TinyHumansJevRanker {
         );
         log::info!(
             "[tool-search] jev ranker bound to route={route_label} backend {} ({})",
-            openhuman_core::util::redact::redact_url_for_log(&base_url),
+            openhuman_embed::__host::util::redact::redact_url_for_log(&base_url),
             if fingerprint_changed(cached.as_ref(), fingerprint) {
                 "credential or backend changed"
             } else {
@@ -186,7 +186,7 @@ impl TinyHumansJevRanker {
 /// round trip to the same recall.
 fn retriever_for(config: &Config) -> Result<Arc<dyn ToolRanker>, RankError> {
     let provider =
-        openhuman_core::inference::embedding_host::default_embedding_provider_with_config(config);
+        openhuman_embed::__host::inference::embedding_host::default_embedding_provider_with_config(config);
     if !embedding_provider_is_usable(provider.as_ref()) {
         log::info!(
             "[tool-search] embedding provider `{}` cannot embed; jev search disabled, bm25 answers",

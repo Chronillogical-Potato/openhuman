@@ -14,7 +14,7 @@ what Jev is, the benchmark numbers, and how it compares to plain BM25.
 
 `crate::install()` calls `install_jev_ranker()`, which builds a
 `TinyHumansJevRanker` and registers it through
-`openhuman_core::agent::tinyagents::discovery::install_tool_ranker`. Calling
+`openhuman_embed::__host::agent::tinyagents::discovery::install_tool_ranker`. Calling
 it again replaces the ranker in place. Install needs no login, because the
 ranker resolves everything per search.
 
