@@ -186,7 +186,9 @@ impl TinyHumansJevRanker {
 /// round trip to the same recall.
 fn retriever_for(config: &Config) -> Result<Arc<dyn ToolRanker>, RankError> {
     let provider =
-        openhuman_embed::__host::inference::embedding_host::default_embedding_provider_with_config(config);
+        openhuman_embed::__host::inference::embedding_host::default_embedding_provider_with_config(
+            config,
+        );
     if !embedding_provider_is_usable(provider.as_ref()) {
         log::info!(
             "[tool-search] embedding provider `{}` cannot embed; jev search disabled, bm25 answers",

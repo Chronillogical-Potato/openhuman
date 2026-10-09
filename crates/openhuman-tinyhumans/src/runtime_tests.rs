@@ -74,10 +74,22 @@ fn product_identity_is_set_on_connect() {
 #[test]
 fn presets_forward_to_the_embed_presets() {
     let pairs = [
-        (RuntimeBuilder::library(), openhuman_embed::RuntimeBuilder::library()),
-        (RuntimeBuilder::desktop(), openhuman_embed::RuntimeBuilder::desktop()),
-        (RuntimeBuilder::cli(), openhuman_embed::RuntimeBuilder::cli()),
-        (RuntimeBuilder::tui(), openhuman_embed::RuntimeBuilder::tui()),
+        (
+            RuntimeBuilder::library(),
+            openhuman_embed::RuntimeBuilder::library(),
+        ),
+        (
+            RuntimeBuilder::desktop(),
+            openhuman_embed::RuntimeBuilder::desktop(),
+        ),
+        (
+            RuntimeBuilder::cli(),
+            openhuman_embed::RuntimeBuilder::cli(),
+        ),
+        (
+            RuntimeBuilder::tui(),
+            openhuman_embed::RuntimeBuilder::tui(),
+        ),
     ];
     for (ours, theirs) in pairs {
         let (ours, theirs) = (ours.into_embed().summary(), theirs.summary());

@@ -5,7 +5,9 @@ fn summary_reflects_presets_and_knobs() {
     let summary = RuntimeBuilder::desktop()
         .listen("127.0.0.1", 7790)
         .action_dir("/srv/work")
-        .token(TokenSource::Fixed(std::sync::Arc::new("bearer".to_string())))
+        .token(TokenSource::Fixed(std::sync::Arc::new(
+            "bearer".to_string(),
+        )))
         .summary();
     assert_eq!(summary.host_kind, HostKind::TauriShell);
     assert!(matches!(summary.workspace, Workspace::Inherit));

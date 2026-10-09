@@ -100,7 +100,10 @@ pub(crate) struct Wiring {
 impl std::fmt::Debug for Wiring {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Wiring")
-            .field("controllers", &self.controllers.as_ref().map(|ext| ext.group))
+            .field(
+                "controllers",
+                &self.controllers.as_ref().map(|ext| ext.group),
+            )
             .field("ranker", &self.ranker.as_ref().map(|ranker| ranker.kind()))
             .finish_non_exhaustive()
     }
@@ -119,12 +122,12 @@ fn prepare(options: &InstallOptions) -> (Option<ControllerExtension>, Option<Arc
         );
         set_product_identity(identity);
         // A new identity means new attribution headers; rebuild on connect.
-        *slot().lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
+        *slot()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
     }
 
-    let controllers = options
-        .hosted_controllers
-        .then(crate::hosted::extension);
+    let controllers = options.hosted_controllers.then(crate::hosted::extension);
 
     #[cfg(feature = "jev")]
     let ranker = options.tool_ranker.then(|| {
@@ -150,7 +153,9 @@ fn slot() -> &'static Mutex<Option<Arc<SdkBackendTransport>>> {
 /// The process's SDK transport, built once and installed as the core's
 /// global (re-installed if something cleared the slot, as tests do).
 fn connect_transport() -> Result<Arc<SdkBackendTransport>, InstallError> {
-    let mut guard = slot().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut guard = slot()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Some(existing) = guard.as_ref() {
         if installed_backend_transport().is_none() {
             install_backend_transport(existing.clone());
