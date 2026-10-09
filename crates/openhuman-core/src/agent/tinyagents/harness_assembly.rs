@@ -156,6 +156,9 @@ pub(super) fn assemble_turn_harness(
     // compaction summarizer recalls under it. `None` leaves compaction
     // memory-free.
     memory_turn: Option<Arc<crate::memory::lifecycle::hooks::MemoryTurn>>,
+    // This turn's tool rules (`OpenHumanRunContext::tool_rules`): one rule set
+    // the harness applies to the catalogue, `tool_search` and every call.
+    tool_rules: Option<Arc<tinyagents_harness::tool::ToolRulePolicy>>,
 ) -> AssembledTurnHarness {
     let mut harness: AgentHarness<(), OpenHumanRunContext> = AgentHarness::new();
     // Cross-route fallback ownership (issue #4249, Workstream 02.2): populate the
@@ -181,6 +184,15 @@ pub(super) fn assemble_turn_harness(
     // `prompt-size`). Without this the harness appended a second copy of
     // both on every text-dialect call.
     policy.host_renders_tool_catalogue = true;
+    if let Some(rules) = tool_rules.filter(|rules| !rules.is_permissive()) {
+        tracing::debug!(
+            model,
+            layers = rules.rules.layers.len(),
+            context = ?rules.context,
+            "[tool_rules] turn harness carries tool rules"
+        );
+        policy.tool_rules = (*rules).clone();
+    }
     tracing::debug!(
         model,
         ?tool_dialect,
