@@ -347,6 +347,29 @@ pub fn get_decision(config: &Config, request_id: &str) -> Result<Option<Approval
     })
 }
 
+/// The document store of the current call, for a caller that decides later
+/// from outside this call's task scope (a `Drop`), where the acting agent is
+/// no longer installed.
+pub(super) fn capture_docs() -> Option<super::store_documents::Docs> {
+    super::store_documents::current().ok().flatten()
+}
+
+/// [`decide`] against a store captured by [`capture_docs`] when there is one.
+pub(super) fn decide_captured(
+    config: &Config,
+    captured: Option<&super::store_documents::Docs>,
+    request_id: &str,
+    decision: ApprovalDecision,
+) -> Result<Option<PendingApproval>> {
+    match captured {
+        Some(docs) => {
+            publish_expired(&docs.expire_stale(Utc::now())?);
+            docs.decide(request_id, decision)
+        }
+        None => decide(config, request_id, decision),
+    }
+}
+
 /// Mark a pending row as decided and return the now-decided row.
 /// Returns `Ok(None)` if no row matched (already decided, expired, or
 /// unknown id).

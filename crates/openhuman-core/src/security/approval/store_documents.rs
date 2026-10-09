@@ -66,8 +66,9 @@ fn storage(error: StorageError) -> anyhow::Error {
     anyhow!("[approval::store] storage: {error}")
 }
 
+/// Fixed-width (nanosecond, `Z`) so the strings sort in time order.
 fn rfc3339(at: DateTime<Utc>) -> String {
-    at.to_rfc3339()
+    at.to_rfc3339_opts(chrono::SecondsFormat::Nanos, true)
 }
 
 fn parse_time(raw: Option<&str>) -> Option<DateTime<Utc>> {
@@ -169,7 +170,7 @@ impl Docs {
             "session_id": session_id,
             "created_at": rfc3339(pending.created_at),
             "expires_at": pending.expires_at.map(rfc3339),
-            "expires_ts": pending.expires_at.map(|at| at.timestamp()),
+            "expires_ts": pending.expires_at.map(|at| at.timestamp_millis()),
             "source_context": pending
                 .source_context
                 .as_ref()
@@ -225,7 +226,7 @@ impl Docs {
     pub(super) fn expire_stale(&self, now: DateTime<Utc>) -> Result<Vec<PendingApproval>> {
         let deny = ApprovalDecision::Deny.as_str();
         let decided_at = rfc3339(now);
-        let now_ts = now.timestamp();
+        let now_ts = now.timestamp_millis();
         self.run(|docs| async move {
             let query =
                 Query::filter(Filter::eq("pending", true).and(Filter::lte("expires_ts", now_ts)));
@@ -242,8 +243,8 @@ impl Docs {
                     Some(next)
                 })
                 .await?;
-                if moved.is_some() {
-                    expired.push(to_pending(&stale));
+                if let Some(moved) = moved {
+                    expired.push(to_pending(&moved));
                 }
             }
             Ok(expired)
@@ -278,7 +279,18 @@ impl Docs {
         decision: ApprovalDecision,
     ) -> Result<Option<PendingApproval>> {
         let id = request_id.to_string();
-        let decided_at = rfc3339(Utc::now());
+        self.decide_at(request_id, decision, Utc::now())
+    }
+
+    /// [`decide`](Self::decide) stamped `at`, so ordering can be pinned.
+    pub(super) fn decide_at(
+        &self,
+        request_id: &str,
+        decision: ApprovalDecision,
+        at: DateTime<Utc>,
+    ) -> Result<Option<PendingApproval>> {
+        let id = request_id.to_string();
+        let decided_at = rfc3339(at);
         self.run(|docs| async move {
             let decided = update(&docs, &id, |doc| {
                 if doc.get("pending") != Some(&json!(true)) {
