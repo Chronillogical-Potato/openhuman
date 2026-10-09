@@ -110,7 +110,9 @@ pub(crate) fn register(
 ) {
     if let Some(thread_id) = parent_thread_id.as_deref() {
         if crate::agent::orchestration::background_completions::mark_stopped_task_if_thread_stopped(
-            thread_id, &task_id,
+            &workspace_dir,
+            thread_id,
+            &task_id,
         ) {
             // Stop landed after the child was spawned but before this registry
             // entry existed. The completion is tombstoned above; abort promptly
