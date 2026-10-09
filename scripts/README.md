@@ -6,8 +6,10 @@ details.
 
 ## Sub-directories
 
-The first seven have their own README; the rest are documented by the header
-comments of the scripts inside them.
+The first five have their own README; the rest are documented by the header
+comments of the scripts inside them. Benchmark, profiling and stress-test
+drivers live in
+[tinyhumansai/openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks).
 
 | Directory | Purpose |
 | --- | --- |
