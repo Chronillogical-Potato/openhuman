@@ -69,6 +69,7 @@ rust-core:
   - 'scripts/ci/assert-coverage-presence.sh'
   - 'scripts/ci/coverage-presence-allowlist.txt'
   - 'scripts/ci/check-openhuman-rust-layout.mjs'
+  - 'scripts/ci/check-crate-chain.mjs'
   - 'scripts/ci/check-agent-runtime-boundary.mjs'
   - 'scripts/ci/agent-runtime-boundary-baseline.json'
   # The ignored-test ratchet lives in rust-quality. Its checker and
