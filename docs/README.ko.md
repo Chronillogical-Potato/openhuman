@@ -107,7 +107,7 @@ macOS와 Linux 스크립트가 무엇을 하는지 미리 보려면 명령 끝�
 
 <h3>대규모에서도 효율적입니다</h3>
 
-<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">플릿 측정 결과</a> · <a href="./library-benchmarking.md">측정 방법</a></p>
+<p><a href="https://tinyhumans.gitbook.io/openhuman/developing/performance">대규모 실행 측정 결과</a> · <a href="./library-benchmarking.md">측정 방법</a></p>
 
 <p>일반적인 에이전트 도구보다 메모리와 CPU를 약 8배 적게 씁니다. $10짜리 서버 한 대에서 500개 이상의 에이전트를 실행하세요.</p>
 
@@ -263,7 +263,7 @@ Claude Code, Codex, OpenClaw, Hermes를 써 보셨다면 이미 아는 개념들
 | 모델 | [로컬 모델(Ollama, LM Studio, MLX)과 26개 제공업체용 BYOK](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-and-byok-models), 그리고 [자동 모델 라우팅](https://tinyhumans.gitbook.io/openhuman/features/model-routing) |
 | 채널 | 에이전트 프런트엔드로 쓰는 [메시징 채널 14개](https://tinyhumans.gitbook.io/openhuman/features/channels): Telegram, Discord, iMessage, 이메일 등 |
 | 워크플로 | [내구성 있는 워크플로 그래프](https://tinyhumans.gitbook.io/openhuman/features/workflows): cron, 이벤트, 수동 트리거, 승인 단계, 일시 중지 후 재개 |
-| 안전 | [승인 게이트](https://tinyhumans.gitbook.io/openhuman/features/approval-gate), [샌드박스 실행](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)(OS 감옥 또는 Docker), 로컬 전용 실행을 위한 [프라이버시 모드](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode), [OS 키링](https://tinyhumans.gitbook.io/openhuman/features/os-keyring-and-secret-storage)에 보관하는 비밀 정보 |
+| 안전 | [승인 게이트](https://tinyhumans.gitbook.io/openhuman/features/approval-gate), [샌드박스 실행](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)(OS 격리 또는 Docker), 로컬 전용 실행을 위한 [프라이버시 모드](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode), [OS 키링](https://tinyhumans.gitbook.io/openhuman/features/os-keyring-and-secret-storage)에 보관하는 비밀 정보 |
 | 사용량 추적 | [호출별 비용과 토큰 사용량](https://tinyhumans.gitbook.io/openhuman/features/billing-and-usage), 그리고 다시 재생할 수 있는 실행 기록 |
 
 [시작하기](https://tinyhumans.gitbook.io/openhuman/overview/getting-started) 또는 [가이드](https://tinyhumans.gitbook.io/openhuman/guides)부터 보세요.
