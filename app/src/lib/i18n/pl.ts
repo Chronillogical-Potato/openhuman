@@ -458,7 +458,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'Pamięć',
   'welcome.th.featureEmbeddings': 'Embeddingi',
   'welcome.th.featureBilling': 'Rozliczenia',
-  'welcome.th.credit': '5 $ kredytu na start',
   'welcome.th.cta': 'Kontynuuj z TinyHumans',
   'welcome.th.providers': 'Zaloguj się przez Google, GitHub lub X',
   'welcome.self.title': 'Skonfiguruję to sam',
@@ -5110,6 +5109,17 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'Pamięć jest wyłączona',
   'memoryPage.off.description': 'Wybierz dostawcę pamięci, aby zacząć zapamiętywać.',
   'memoryPage.off.action': 'Wybierz dostawcę',
+  'memoryPage.disabled.title': 'Pamięć jest wyłączona',
+  'memoryPage.disabled.description':
+    'OpenHuman niczego nie zapisuje ani nie przywołuje. Wybierz dostawcę, aby ponownie włączyć pamięć.',
+  'memoryPage.engine.disabled.title': 'Wyłączona',
+  'memoryPage.engine.disabled.description':
+    'Całkowicie wyłącz pamięć. Nic nie jest zapisywane ani przywoływane, a Twoje połączenia zostają zachowane.',
+  'memoryPage.engine.disabled.action': 'Wyłącz pamięć',
+  'memoryPage.engine.disabled.banner':
+    'Nic nie jest zapisywane ani przywoływane. Wybierz dostawcę poniżej, aby ponownie włączyć pamięć.',
+  'memoryPage.engine.disabled.toast': 'Pamięć wyłączona',
+  'memoryPage.engine.disabled.toastFailed': 'Nie udało się wyłączyć pamięci',
   'memoryPage.engine.inUse': 'W użyciu',
   'memoryPage.announcement.title': 'Darmowe wnioskowanie pamięci w CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex wycofano 7 paź.',
