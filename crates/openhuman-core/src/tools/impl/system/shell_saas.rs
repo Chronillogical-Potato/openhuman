@@ -1,7 +1,7 @@
 //! Shell tool behaviour that differs in SaaS mode, split out so each branch can
 //! be tested with the mode passed in.
 
-use crate::tools::ToolResult;
+use tinytools::ToolResult;
 
 /// In SaaS, resolves the container policy every command must run in; `None`
 /// outside SaaS, where the agent's sandbox mode decides.
