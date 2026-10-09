@@ -137,10 +137,23 @@ fn drain_schedule(event: &DomainEvent) -> Option<(String, Duration)> {
 
 /// Schedule a debounced delivery attempt for a thread.
 fn schedule_delivery(thread_id: String, delay: Duration) {
+    #[cfg(test)]
+    scheduled_for_test()
+        .lock()
+        .expect("scheduled")
+        .push((thread_id.clone(), delay));
     tokio::spawn(async move {
         tokio::time::sleep(delay).await;
         try_deliver(thread_id).await;
     });
+}
+
+/// Every drain the handler scheduled, so a test can assert the event ->
+/// schedule wiring without running a delivery turn.
+#[cfg(test)]
+fn scheduled_for_test() -> &'static Mutex<Vec<(String, Duration)>> {
+    static SCHEDULED: OnceLock<Mutex<Vec<(String, Duration)>>> = OnceLock::new();
+    SCHEDULED.get_or_init(|| Mutex::new(Vec::new()))
 }
 
 /// Boot recovery: redeliver completions a previous process finished but never

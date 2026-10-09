@@ -21,7 +21,7 @@
 //! stays in [`super::background_delivery`]. The wording is
 //! [`super::completion_notice`].
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
@@ -32,7 +32,7 @@ use tinyagents_tasks::{
     DEFAULT_MAX_ATTEMPTS,
 };
 
-pub(crate) use super::completion_notice::BackgroundAgentOutcome;
+pub(crate) use super::completion_notice::{BackgroundAgentOutcome, AWAITING_INPUT_LABEL};
 use super::completion_notice::BackgroundCompletionFormatter;
 
 /// How long a settled record (delivered / gave up / tombstoned) is kept before
@@ -43,8 +43,7 @@ const SETTLED_RETENTION: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 /// Retries for a failed store write before a completion is reported lost.
 const RECORD_RETRIES: u32 = 3;
 
-/// Bound on the session -> thread cache. Entries are cheap and re-learned, so
-/// overflow simply clears it.
+/// Bound on the session -> thread cache; the oldest mapping is evicted first.
 const SESSION_THREADS_CAP: usize = 4096;
 
 /// A workspace's router plus the store it sits on (kept so boot recovery and
@@ -64,6 +63,9 @@ struct HostState {
     /// Parent session id -> chat thread id, for the idle gate (busy is tracked
     /// by session; delivery by thread).
     session_threads: HashMap<String, String>,
+    /// Insertion order of `session_threads`, so the cache evicts its oldest
+    /// entry rather than every mapping at once.
+    session_order: VecDeque<String>,
     /// Threads the user stopped and has not yet re-engaged. Closes the
     /// spawn/register race: a child that registers after Stop is rejected.
     stopped_threads: HashSet<String>,
@@ -168,11 +170,18 @@ pub(crate) fn claim_recovery(workspace_dir: &Path) -> bool {
 /// Remember that `session_id` is a turn on `thread_id`.
 pub(crate) fn note_session_thread(session_id: &str, thread_id: &str) {
     let mut st = state();
-    if st.session_threads.len() >= SESSION_THREADS_CAP {
-        st.session_threads.clear();
+    if st
+        .session_threads
+        .insert(session_id.to_string(), thread_id.to_string())
+        .is_none()
+    {
+        st.session_order.push_back(session_id.to_string());
+        while st.session_order.len() > SESSION_THREADS_CAP {
+            if let Some(oldest) = st.session_order.pop_front() {
+                st.session_threads.remove(&oldest);
+            }
+        }
     }
-    st.session_threads
-        .insert(session_id.to_string(), thread_id.to_string());
 }
 
 /// The chat thread a session id belongs to: the cached mapping, else the
@@ -234,12 +243,21 @@ pub(crate) async fn record_outcome(
     let Some(thread_id) = parent_thread_id else {
         // Delivery is thread-addressed; a headless spawn has nowhere to land
         // the result. (`spawn_async_subagent` refuses to start one.)
-        log::warn!(
-            "[background_completions] dropping headless completion task_id={task_id} \
-             session={parent_session}"
-        );
+        log::warn!("[background_completions] dropping headless completion task_id={task_id}");
         return;
     };
+    {
+        // The in-memory gates back up the router's durable cancelled-parent
+        // marker, so a failed `cancel_parent` write cannot let a late result in.
+        let st = state();
+        if st.deleted_threads.contains(&thread_id) || st.stopped_threads.contains(&thread_id) {
+            log::debug!(
+                "[background_completions] dropping completion task_id={task_id} for \
+                 stopped/deleted thread_id={thread_id}"
+            );
+            return;
+        }
+    }
     note_thread_workspace(&thread_id, workspace_dir);
     note_session_thread(parent_session, &thread_id);
 
@@ -251,6 +269,11 @@ pub(crate) async fn record_outcome(
         CompletionResult::text(summary),
     )
     .with_notify_mode(NotifyMode::Followup);
+    let record = if outcome == BackgroundAgentOutcome::AwaitingInput {
+        record.with_label(AWAITING_INPUT_LABEL)
+    } else {
+        record
+    };
     let router = router_for_workspace(workspace_dir);
     match router.record_with_retries(record, RECORD_RETRIES).await {
         Ok(RecordOutcome::Recorded { .. }) => log::debug!(
@@ -627,6 +650,7 @@ pub(crate) fn forget_workspace_for_test(workspace_dir: &Path) {
     }
     st.recovered_workspaces.remove(workspace_dir);
     st.session_threads.clear();
+    st.session_order.clear();
 }
 
 #[cfg(test)]
