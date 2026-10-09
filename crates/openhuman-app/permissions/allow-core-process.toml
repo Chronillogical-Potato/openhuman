@@ -61,6 +61,50 @@ allow = [
     # restart-driven flips, causing a false re-flip and restart loop on
     # every login. (#900)
     "get_active_user_id",
+    # The renderer RPC URL handed to a child overlay webview that was spawned
+    # with `OPENHUMAN_CORE_RPC_URL` (falls back to `None` when unset).
+    "overlay_parent_rpc_url",
+
+    # =========================
+    # GATEWAYS
+    # =========================
+    # The gateway picker (`services/gatewayService.ts`, BootCheckGate and
+    # `coreModeSlice`) lists, saves, deletes and activates remote runtimes and
+    # reads the active one. These commands are registered only with the
+    # `gateways` feature; listing them here is harmless in builds without it.
+    "gateway_list",
+    "gateway_save",
+    "gateway_delete",
+    "gateway_activate",
+    "gateway_active",
+    "gateway_status",
+
+    # =========================
+    # CORE UPDATE
+    # =========================
+    # Probe and apply an update of the embedded core (`tauriCommands/core.ts`),
+    # separate from the shell bundle updater in `allow-app-update`.
+    "check_core_update",
+    "apply_core_update",
+
+    # =========================
+    # STARTUP RECOVERY
+    # =========================
+    # BootCheckGate's port-conflict recovery (`services/bootCheckService.ts`).
+    # `force_quit_port_owner` re-validates that the pid still owns the core
+    # port and refuses our own pid before it signals anything.
+    "recover_port_conflict",
+    "force_quit_port_owner",
+    "process_diagnostics_list_owned",
+
+    # =========================
+    # MCP AND CLAUDE CODE
+    # =========================
+    # MCP server settings panel: resolve the `openhuman-core` binary path and
+    # open a client's MCP config file; Claude Code provider login launcher.
+    "mcp_resolve_binary_path",
+    "mcp_open_client_config",
+    "claude_code_login_launch",
 
     # =========================
     # SESSION OWNER
@@ -74,15 +118,6 @@ allow = [
     "auth_logout",
     "auth_state",
     "auth_current_user",
-
-    # =========================
-    # SERVICE MANAGEMENT
-    # =========================
-    "service_install_direct",
-    "service_start_direct",
-    "service_stop_direct",
-    "service_status_direct",
-    "service_uninstall_direct",
 
     # =========================
     # DICTATION
@@ -102,24 +137,14 @@ allow = [
     "show_ptt_overlay",
 
     # =========================
-    # DESKTOP COMPANION
-    # =========================
-    # The desktop companion moved from core RPC into the Tauri shell. Its
-    # settings panel and hotkey bridge invoke these commands directly, so each
-    # one must be present in the main-window capability.
-    "register_companion_hotkey",
-    "unregister_companion_hotkey",
-    "companion_activate",
-    "companion_start_session",
-    "companion_stop_session",
-    "companion_status",
-    "companion_config_get",
-    "companion_config_set",
-
-    # =========================
     # WINDOW / UI
     # =========================
     "activate_main_window",
+    # RootShellLayout keeps the native titlebar in sync with the sidebar.
+    "set_titlebar_for_sidebar",
+    # Floating mascot window (native NSPanel on macOS; errors elsewhere).
+    "mascot_window_show",
+    "mascot_window_hide",
     # Notch activity indicator (transparent NSPanel pill, macOS). The Voice
     # settings panel + app boot call these via `syncNotchVisibility` to mirror
     # always-on listening state. Without these allow entries the invoke is
