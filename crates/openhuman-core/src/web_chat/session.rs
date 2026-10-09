@@ -300,11 +300,8 @@ pub(super) fn fingerprint_diff(
         ));
     }
     if prior.workspace_dir != next.workspace_dir {
-        diff.push(format!(
-            "workspace_dir: {} -> {}",
-            prior.workspace_dir.display(),
-            next.workspace_dir.display()
-        ));
+        // Paths can carry usernames or tenant ids; log only that it moved.
+        diff.push("workspace_dir changed".to_string());
     }
     if prior.model_registry_signature != next.model_registry_signature {
         diff.push(describe_signature_change(

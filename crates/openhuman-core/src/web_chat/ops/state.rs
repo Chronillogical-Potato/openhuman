@@ -100,12 +100,27 @@ pub(crate) fn cancel_in_flight_gracefully(entry: InFlightEntry) -> String {
 }
 
 pub async fn invalidate_thread_sessions(thread_id: &str) {
+    // Under an embedded agent only that agent's slot goes: another agent that
+    // picked the same thread id keeps its live session. Outside an agent scope
+    // (a host-level edit or delete of the thread) every scope's slot goes.
+    let active_agent = crate::core::runtime::CoreContext::current()
+        .and_then(|context| context.session_agent().map(str::to_owned));
     let mut sessions = THREAD_SESSIONS.lock().await;
-    let keys_to_remove: Vec<String> = sessions
-        .keys()
-        .filter(|k| thread_id_of_key(k) == Some(thread_id))
-        .cloned()
-        .collect();
+    let keys_to_remove: Vec<String> = match active_agent {
+        Some(_) => {
+            let key = key_for(thread_id);
+            sessions
+                .contains_key(&key)
+                .then_some(key)
+                .into_iter()
+                .collect()
+        }
+        None => sessions
+            .keys()
+            .filter(|k| thread_id_of_key(k) == Some(thread_id))
+            .cloned()
+            .collect(),
+    };
     for key in &keys_to_remove {
         sessions.remove(key);
     }
