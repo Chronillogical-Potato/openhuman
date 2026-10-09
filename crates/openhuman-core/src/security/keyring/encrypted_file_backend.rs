@@ -135,9 +135,8 @@ pub(crate) fn storage_master_key() -> Result<[u8; KEY_LEN], String> {
     // Only a loaded key is cached: a failure (locked keychain, denied prompt)
     // is retried on the next call so secrets recover once access is restored.
     static STORAGE_MASTER_KEY: OnceLock<[u8; KEY_LEN]> = OnceLock::new();
-    match MASTER_KEY.get() {
-        Some(Ok(Some(key))) => return Ok(*key),
-        _ => {}
+    if let Some(Ok(Some(key))) = MASTER_KEY.get() {
+        return Ok(*key);
     }
     // `init_master_key` already tried the keychain this session and it
     // failed: reuse that outcome, do not prompt again. (`Ok(None)` alone also
