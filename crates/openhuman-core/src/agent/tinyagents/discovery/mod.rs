@@ -16,9 +16,7 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
 use tinyagents_harness::tool::discover::{DiscoveryRankMode, ToolDiscoveryPolicy};
-// Re-exported so an embedder can implement the ranker it hands to
-// [`install_tool_ranker`] without taking `tinytools` as a second path.
-pub use tinytools::{RankCandidate, RankContext, RankError, RankHit, ToolRanker};
+use tinytools::ToolRanker;
 
 use crate::config::schema::ToolSearchConfig;
 
