@@ -5,13 +5,13 @@
 use crate::config::Config;
 use crate::core::events::DomainEvent;
 use crate::flows::store;
+use crate::flows::tinyflows::state::FlowState;
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex};
 use tinybus::EventHandler;
 use tinyflows::model::NodeKind;
 use tinyflows::nodes::control_flow::dedup_settle::{self, CommitOutcome, Settlement};
-use crate::flows::tinyflows::state::FlowState;
 
 /// Listens for `DomainEvent::FlowRunFinished` and settles every `dedup` node
 /// in the finished flow's graph — the host half of the commit-on-success

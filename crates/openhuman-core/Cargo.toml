@@ -636,6 +636,9 @@ tinymemory-api = { path = "../../vendor/tinymemory/crates/tinymemory-api", featu
 # write path can produce. Declared here rather than in `[dependencies]` so the
 # shipped binary never carries those two writers.
 tinyflows-sqlite = { path = "../../vendor/tinyflows/crates/tinyflows-sqlite", features = ["test-fixtures"] }
+# The document catalog's `*_for_test` fixtures, which the flows store forwards
+# in test builds.
+tinyflows-drivers = { path = "../../vendor/tinyflows/crates/tinyflows-drivers", default-features = false, features = ["schedule", "test-fixtures"] }
 # Test fixtures derive a known account from the BIP-39 vector phrase. Production
 # does not derive at all — see the note on the main `tinywallet` entry. Cargo
 # does not link dev-dependency features into the shipped binary, so enabling

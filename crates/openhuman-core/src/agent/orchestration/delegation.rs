@@ -88,12 +88,11 @@ pub(crate) async fn run_subagent_delegation_with_parent_context(
         match crate::storage::current_scoped()
             .map_err(|e| format!("resolve the storage scope for graph checkpoints: {e}"))?
         {
-            Some(scoped) => Arc::new(
-                tinyagents_graph::checkpoint::DriverCheckpointer::<DelegationState>::with_prefix(
-                    Arc::clone(scoped.documents()),
-                    "delegation_graph",
-                ),
-            ),
+            Some(scoped) => Arc::new(tinyagents_graph::checkpoint::DriverCheckpointer::<
+                DelegationState,
+            >::with_prefix(
+                Arc::clone(scoped.documents()), "delegation_graph"
+            )),
             None => {
                 let checkpoint_db = config.workspace_dir.join("graph_checkpoints.db");
                 Arc::new(

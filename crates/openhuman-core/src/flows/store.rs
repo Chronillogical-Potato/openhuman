@@ -22,8 +22,8 @@ use tinyflows_catalog::{
     Flow, FlowRevision, FlowRun, FlowRunStep, FlowSuggestion, SuggestionStatus,
 };
 
-pub use tinyflows_sqlite::flows::{FlowUpdateError, MAX_FLOW_RUNS_PER_FLOW};
 use tinyflows_drivers::catalog::FlowCatalogDocuments;
+pub use tinyflows_sqlite::flows::{FlowUpdateError, MAX_FLOW_RUNS_PER_FLOW};
 
 /// The document catalog for this call when the host configured a storage
 /// backend ([`crate::storage`]), in the acting agent's scope.
@@ -38,7 +38,6 @@ pub(crate) fn run<T: Send + 'static>(
 ) -> Result<T> {
     crate::storage::block_on_anyhow(future)
 }
-
 
 /// Where this host keeps the flow catalog: `<workspace_dir>/flows`.
 ///
@@ -78,7 +77,10 @@ pub fn create_flow(
     enabled: bool,
 ) -> Result<Flow> {
     if let Some(docs) = documents(config)? {
-        return run(async move { docs.create_flow(name, graph, require_approval, enabled).await });
+        return run(async move {
+            docs.create_flow(name, graph, require_approval, enabled)
+                .await
+        });
     }
     tinyflows_sqlite::flows::create_flow(&dir(config), name, graph, require_approval, enabled)
 }
@@ -146,8 +148,20 @@ pub fn update_flow_graph(
     if let Some(docs) = documents(config).map_err(FlowUpdateError::Store)? {
         let id = id.to_string();
         let expected_updated_at = expected_updated_at.map(str::to_string);
-        return crate::storage::block_on(async move { Ok(docs.update_flow_graph(&id, name, graph, require_approval, enabled_override, force_disarm_if_automatic, expected_updated_at.as_deref()).await) })
-            .map_err(|error| FlowUpdateError::Store(error.into()))?;
+        return crate::storage::block_on(async move {
+            Ok(docs
+                .update_flow_graph(
+                    &id,
+                    name,
+                    graph,
+                    require_approval,
+                    enabled_override,
+                    force_disarm_if_automatic,
+                    expected_updated_at.as_deref(),
+                )
+                .await)
+        })
+        .map_err(|error| FlowUpdateError::Store(error.into()))?;
     }
     tinyflows_sqlite::flows::update_flow_graph(
         &dir(config),
@@ -239,7 +253,10 @@ pub fn insert_flow_run(
         let flow_id = flow_id.to_string();
         let thread_id = thread_id.to_string();
         let started_at = started_at.to_string();
-        return run(async move { docs.insert_flow_run(&id, &flow_id, &thread_id, &started_at).await });
+        return run(async move {
+            docs.insert_flow_run(&id, &flow_id, &thread_id, &started_at)
+                .await
+        });
     }
     tinyflows_sqlite::flows::insert_flow_run(&dir(config), id, flow_id, thread_id, started_at)
 }
@@ -274,7 +291,18 @@ pub fn finish_flow_run(
         let pending_approvals = pending_approvals.to_vec();
         let error = error.map(str::to_string);
         let graph_hash = graph_hash.map(str::to_string);
-        return run(async move { docs.finish_flow_run(&id, &status, &finished_at, &steps, &pending_approvals, error.as_deref(), graph_hash.as_deref()).await });
+        return run(async move {
+            docs.finish_flow_run(
+                &id,
+                &status,
+                &finished_at,
+                &steps,
+                &pending_approvals,
+                error.as_deref(),
+                graph_hash.as_deref(),
+            )
+            .await
+        });
     }
     tinyflows_sqlite::flows::finish_flow_run(
         &dir(config),
@@ -345,7 +373,10 @@ pub fn force_run_status_for_test(
         let id = id.to_string();
         let status = status.to_string();
         let error = error.map(str::to_string);
-        return run(async move { docs.force_run_status_for_test(&id, &status, error.as_deref()).await });
+        return run(async move {
+            docs.force_run_status_for_test(&id, &status, error.as_deref())
+                .await
+        });
     }
     tinyflows_sqlite::flows::force_run_status_for_test(&dir(config), id, status, error)
 }
@@ -364,7 +395,10 @@ pub fn force_corrupt_graph_json_for_test(
     if let Some(docs) = documents(config)? {
         let flow_id = flow_id.to_string();
         let raw_graph_json = raw_graph_json.to_string();
-        return run(async move { docs.force_corrupt_graph_json_for_test(&flow_id, &raw_graph_json).await });
+        return run(async move {
+            docs.force_corrupt_graph_json_for_test(&flow_id, &raw_graph_json)
+                .await
+        });
     }
     tinyflows_sqlite::flows::force_corrupt_graph_json_for_test(
         &dir(config),

@@ -12,9 +12,9 @@
 use crate::config::Config;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use tinyflows_drivers::schedule::CronDocuments;
 use tinyflows_schedule::DeliveryStatus;
 use tinyflows_schedule::{CronJob, CronJobPatch, CronRun, DeliveryConfig, Schedule, SessionTarget};
-use tinyflows_drivers::schedule::CronDocuments;
 use tinyflows_sqlite::schedule::{self as upstream, AgentJobSpec, CronStoreOptions};
 
 /// Builds the store options from the host config: `<workspace>/cron/jobs.db`,
@@ -76,7 +76,18 @@ pub fn add_agent_job(
 ) -> Result<CronJob> {
     if let Some(docs) = documents(config)? {
         let prompt = prompt.to_string();
-        return run(async move { docs.add_agent_job(name, schedule, &prompt, session_target, model, delivery, delete_after_run).await });
+        return run(async move {
+            docs.add_agent_job(
+                name,
+                schedule,
+                &prompt,
+                session_target,
+                model,
+                delivery,
+                delete_after_run,
+            )
+            .await
+        });
     }
     upstream::add_agent_job(
         &opts(config),
@@ -107,7 +118,20 @@ pub fn add_agent_job_with_definition(
 ) -> Result<CronJob> {
     if let Some(docs) = documents(config)? {
         let prompt = prompt.to_string();
-        return run(async move { docs.add_agent_job_with_definition(name, schedule, &prompt, session_target, model, delivery, delete_after_run, agent_id, enabled).await });
+        return run(async move {
+            docs.add_agent_job_with_definition(
+                name,
+                schedule,
+                &prompt,
+                session_target,
+                model,
+                delivery,
+                delete_after_run,
+                agent_id,
+                enabled,
+            )
+            .await
+        });
     }
     upstream::add_agent_job_with_definition(
         &opts(config),
@@ -220,7 +244,10 @@ pub fn record_last_run(
 ) -> Result<()> {
     if let Some(docs) = documents(config)? {
         let (job_id, output) = (job_id.to_string(), output.to_string());
-        return run(async move { docs.record_last_run(&job_id, finished_at, success, &output).await });
+        return run(async move {
+            docs.record_last_run(&job_id, finished_at, success, &output)
+                .await
+        });
     }
     upstream::record_last_run(&opts(config), job_id, finished_at, success, output)
 }
@@ -248,8 +275,22 @@ pub fn record_run(
     duration_ms: i64,
 ) -> Result<()> {
     if let Some(docs) = documents(config)? {
-        let (job_id, status, output) = (job_id.to_string(), status.to_string(), output.map(str::to_string));
-        return run(async move { docs.record_run(&job_id, started_at, finished_at, &status, output.as_deref(), duration_ms).await });
+        let (job_id, status, output) = (
+            job_id.to_string(),
+            status.to_string(),
+            output.map(str::to_string),
+        );
+        return run(async move {
+            docs.record_run(
+                &job_id,
+                started_at,
+                finished_at,
+                &status,
+                output.as_deref(),
+                duration_ms,
+            )
+            .await
+        });
     }
     upstream::record_run(
         &opts(config),
@@ -275,8 +316,23 @@ pub fn record_run_with_delivery(
     delivery_status: Option<DeliveryStatus>,
 ) -> Result<()> {
     if let Some(docs) = documents(config)? {
-        let (job_id, status, output) = (job_id.to_string(), status.to_string(), output.map(str::to_string));
-        return run(async move { docs.record_run_with_delivery(&job_id, started_at, finished_at, &status, output.as_deref(), duration_ms, delivery_status).await });
+        let (job_id, status, output) = (
+            job_id.to_string(),
+            status.to_string(),
+            output.map(str::to_string),
+        );
+        return run(async move {
+            docs.record_run_with_delivery(
+                &job_id,
+                started_at,
+                finished_at,
+                &status,
+                output.as_deref(),
+                duration_ms,
+                delivery_status,
+            )
+            .await
+        });
     }
     upstream::record_run_with_delivery(
         &opts(config),

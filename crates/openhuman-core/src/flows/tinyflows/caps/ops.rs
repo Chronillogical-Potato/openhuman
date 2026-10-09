@@ -672,11 +672,9 @@ pub fn open_flow_checkpointer(
 ) -> anyhow::Result<Arc<dyn tinyflows::engine::Checkpointer<serde_json::Value>>> {
     if let Some(scoped) = crate::storage::current_scoped()? {
         tracing::debug!(target: "flows", "[flows] opening checkpointer on the storage backend");
-        return Ok(Arc::new(
-            tinyflows_drivers::DriverCheckpointer::<serde_json::Value>::new(Arc::clone(
-                scoped.documents(),
-            )),
-        ));
+        return Ok(Arc::new(tinyflows_drivers::DriverCheckpointer::<
+            serde_json::Value,
+        >::new(Arc::clone(scoped.documents()))));
     }
     let db_path = config.workspace_dir.join("flows").join("checkpoints.db");
     if let Some(parent) = db_path.parent() {
