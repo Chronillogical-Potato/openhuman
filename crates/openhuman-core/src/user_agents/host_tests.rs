@@ -231,3 +231,33 @@ fn opening_an_open_agent_sweeps_the_idle_ones() {
     assert!(host.is_open(&b), "bob is in use and stays");
     drop((held, again));
 }
+
+#[test]
+fn one_unreadable_agent_does_not_hide_the_rest() {
+    let tmp = tempfile::tempdir().unwrap();
+    let host = host(&tmp, 4, 60);
+    let (a, b) = (agent("alice"), agent("bob"));
+    host.provision(&a).unwrap();
+    host.provision(&b).unwrap();
+    std::fs::write(
+        UserAgentLayout::new(tmp.path(), &a).meta_path,
+        "not toml = [",
+    )
+    .unwrap();
+    let listed = host.list().unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].agent_id, b);
+}
+
+#[test]
+fn a_provisioned_config_needs_no_agent_slot() {
+    let tmp = tempfile::tempdir().unwrap();
+    let host = host(&tmp, 1, 60);
+    let (a, b) = (agent("alice"), agent("bob"));
+    host.provision(&a).unwrap();
+    host.provision(&b).unwrap();
+    let _held = host.open(&a).unwrap();
+    assert!(host.open(&b).is_err(), "the only slot is taken");
+    assert!(host.provisioned_config(&b).is_ok());
+    assert!(host.provisioned_config(&agent("nobody")).is_err());
+}

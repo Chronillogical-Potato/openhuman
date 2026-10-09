@@ -170,6 +170,16 @@ impl AgentHost {
         Ok(true)
     }
 
+    /// The forced config of provisioned agent `id`, without opening it (and
+    /// so without taking an agent slot).
+    pub fn provisioned_config(&self, id: &UserAgentId) -> Result<crate::config::Config, String> {
+        let layout = self.layout(id);
+        if !layout.meta_path.exists() {
+            return Err(format!("agent {id} is not provisioned"));
+        }
+        Ok(layout::agent_config(&layout, id))
+    }
+
     /// Agent `id`, opening it if it is provisioned and not open yet.
     pub fn open(&self, id: &UserAgentId) -> Result<Arc<UserAgentState>, String> {
         let now = Instant::now();
@@ -256,8 +266,12 @@ impl AgentHost {
             let Ok(id) = UserAgentId::parse(&name) else {
                 continue;
             };
-            if let Some(summary) = self.summary(&id)? {
-                found.push(summary);
+            // One unreadable agent must not hide the rest (or stop the
+            // background loop for everyone): log it and move on.
+            match self.summary(&id) {
+                Ok(Some(summary)) => found.push(summary),
+                Ok(None) => {}
+                Err(error) => log::warn!("[user_agents] skipping agent={id} in listing: {error}"),
             }
         }
         found.sort_by(|a, b| a.agent_id.cmp(&b.agent_id));
