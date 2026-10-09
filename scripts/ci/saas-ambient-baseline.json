@@ -457,7 +457,7 @@
   {
     "rule": "home-dir",
     "path": "crates/openhuman-core/src/core/runtime/saas.rs",
-    "line": 181,
+    "line": 182,
     "text": "home: dirs::home_dir(),",
     "occurrence": 1
   },
@@ -1010,22 +1010,29 @@
   {
     "rule": "bare-spawn",
     "path": "crates/openhuman-core/src/skills/catalog/ops.rs",
-    "line": 65,
+    "line": 48,
     "text": "tokio::spawn(async {",
     "occurrence": 1
   },
   {
-    "rule": "bare-spawn",
+    "rule": "home-dir",
     "path": "crates/openhuman-core/src/skills/catalog/ops.rs",
-    "line": 193,
-    "text": "tokio::spawn(async {",
-    "occurrence": 2
+    "line": 363,
+    "text": "dirs::home_dir().as_deref(),",
+    "occurrence": 1
   },
   {
     "rule": "home-dir",
-    "path": "crates/openhuman-core/src/skills/catalog/store.rs",
-    "line": 40,
-    "text": "dirs::home_dir().map(|h| h.join(\".openhuman\").join(CACHE_DIR))",
+    "path": "crates/openhuman-core/src/skills/catalog/registry.rs",
+    "line": 58,
+    "text": "Self::from_lookup(|name| std::env::var(name).ok(), dirs::home_dir())",
+    "occurrence": 1
+  },
+  {
+    "rule": "bare-spawn",
+    "path": "crates/openhuman-core/src/skills/catalog/test_fixtures.rs",
+    "line": 115,
+    "text": "tokio::spawn(async move {",
     "occurrence": 1
   },
   {
@@ -1045,7 +1052,7 @@
   {
     "rule": "home-dir",
     "path": "crates/openhuman-core/src/skills/ops_install/fetch.rs",
-    "line": 112,
+    "line": 121,
     "text": "let home = dirs::home_dir();",
     "occurrence": 1
   },
