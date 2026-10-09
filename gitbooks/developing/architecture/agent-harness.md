@@ -300,13 +300,13 @@ HEADLINE FINDING …
 
 `SubagentRunOutcome.artifact_paths` carries the same paths structurally, parsed out of the `[artifact]` pointers in the output, so the handoff carries paths whether the harness offloaded the result or the worker wrote the file itself. Any path the parent takes delivery of is recoverable with an ordinary `file_read` long after the child's context is gone.
 
-The summarizer is now the fallback, not the first resort. Offload catches the common case; the summarizer detour and the `tool_result_budget_bytes` truncation above still handle everything it does not, including every failure mode here. A refused or failed offload is deliberately soft: the caller keeps its inline payload and falls through to those backstops.
+The summarizer is the fallback, not the first resort. Offload catches the common case; the summarizer detour and the `tool_result_budget_bytes` truncation above still handle everything it does not, including every failure mode here. A refused or failed offload is deliberately soft: the caller keeps its inline payload and falls through to those backstops.
 
 Path hardening is fail-closed. `resolve_artifact_path` rejects absolute paths, `..` traversal, and anything that escapes its convention root after lexical normalization. When a `SecurityPolicy` is available it also refuses anything under `workspace_dir`, both by blanket containment and via `is_workspace_internal_path`. Offload targets resolve under `action_dir`, never `workspace_dir`, including the case where someone configures `action_dir` inside the workspace root, where every offload is refused rather than quietly writing to internal state.
 
 Writes log `[artifact] wrote worker artifact under action_dir`; each path a handoff carries logs `[artifact] handoff carried an artifact path to the parent`, on both the producing and the consuming side, so a run journal shows both ends of every pointer.
 
-### TokenJuice: content-aware tool-output compaction (Stage 1a)
+### TokenJuice: content-aware tool-output compaction 
 
 Before a fresh tool result enters history (and ahead of the byte-budget backstop), it passes through the TokenJuice content router in the vendored TinyJuice crate (`vendor/tinyjuice`), with OpenHuman adapters in `crates/openhuman-core/src/inference/tokenjuice/`. Inspired by Headroom, the router _detects the content kind_ (JSON, code, log, search, diff, HTML, plain text) from the bytes and/or a hint derived from the tool name and arguments, then dispatches to a specialised compressor:
 
