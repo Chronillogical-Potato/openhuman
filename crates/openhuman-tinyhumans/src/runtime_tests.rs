@@ -115,11 +115,10 @@ fn knobs_and_seams_forward_unchanged() {
         async fn rank(
             &self,
             _intent: &str,
-            _context: &openhuman_embed::seams::RankContext,
-            _candidates: &[openhuman_embed::seams::RankCandidate],
+            _context: &tinytools::RankContext,
+            _candidates: &[tinytools::RankCandidate],
             _limit: usize,
-        ) -> Result<Vec<openhuman_embed::seams::RankHit>, openhuman_embed::seams::RankError>
-        {
+        ) -> Result<Vec<tinytools::RankHit>, tinytools::RankError> {
             Ok(Vec::new())
         }
     }

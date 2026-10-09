@@ -11,8 +11,9 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use openhuman_embed::__host::agent::tinyagents::discovery::install_tool_ranker;
 use openhuman_embed::__host::core::all::register_controller_extension;
-use openhuman_embed::seams::{ControllerExtension, ToolRanker};
+use openhuman_embed::seams::ControllerExtension;
 use openhuman_embed::{install_backend_transport, installed_backend_transport};
+use tinytools::ToolRanker;
 
 use crate::backend::{set_product_identity, ProductIdentity};
 use crate::transport::SdkBackendTransport;
