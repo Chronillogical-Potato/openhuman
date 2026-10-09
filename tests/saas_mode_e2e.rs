@@ -692,3 +692,110 @@ fn users_reach_their_memory_but_not_its_configuration() {
     }
     drop(server);
 }
+
+/// A fake backend: answers every request `500` and reports each request's
+/// path and `Authorization` header.
+fn recording_backend() -> (u16, std::sync::mpsc::Receiver<(String, String)>) {
+    use std::io::{BufRead, BufReader, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        for stream in listener.incoming().flatten() {
+            let tx = tx.clone();
+            std::thread::spawn(move || {
+                let mut reader = BufReader::new(stream.try_clone().unwrap());
+                let mut line = String::new();
+                if reader.read_line(&mut line).is_err() {
+                    return;
+                }
+                let path = line.split_whitespace().nth(1).unwrap_or("").to_string();
+                let mut auth = String::new();
+                loop {
+                    let mut header = String::new();
+                    if reader.read_line(&mut header).unwrap_or(0) == 0 || header == "\r\n" {
+                        break;
+                    }
+                    if let Some((name, value)) = header.split_once(':') {
+                        if name.eq_ignore_ascii_case("authorization") {
+                            auth = value.trim().to_string();
+                        }
+                    }
+                }
+                let _ = tx.send((path, auth));
+                let mut stream = stream;
+                let _ = stream.write_all(
+                    b"HTTP/1.1 500 Internal Server Error\r\ncontent-length: 0\r\nconnection: close\r\n\r\n",
+                );
+            });
+        }
+    });
+    (port, rx)
+}
+
+#[test]
+fn a_users_turn_reaches_inference_with_their_own_credential() {
+    // The operator holds no credential. A process-wide "signed out" flag used
+    // to park every user's model call behind it; each user's credential is
+    // what counts.
+    let d = deployment(true);
+    let (backend, requests) = recording_backend();
+    let port = free_port();
+    let child = core_command(&d, &["--port", &port.to_string()])
+        .env("BACKEND_URL", format!("http://127.0.0.1:{backend}"))
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn openhuman-core");
+    let server = Server(child);
+    let base = format!("http://127.0.0.1:{port}");
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(120);
+    while !client
+        .get(format!("{base}/health"))
+        .send()
+        .is_ok_and(|r| r.status().is_success())
+    {
+        assert!(Instant::now() < deadline, "SaaS core never became healthy");
+        std::thread::sleep(Duration::from_millis(250));
+    }
+    let alice = provision(&client, &base, "alice");
+    let (_, body) = rpc_with(
+        &client,
+        &base,
+        Some(BEARER),
+        "openhuman.user_agents_set_credential",
+        json!({ "agent_id": alice, "kind": "api_key", "token": "alice-api-key" }),
+    );
+    assert!(body.get("result").is_some(), "{body}");
+
+    let (status, body) = user_rpc_with(
+        &client,
+        &base,
+        BEARER,
+        "alice",
+        None,
+        "openhuman.channel_web_chat",
+        json!({ "client_id": "c1", "thread_id": "chat-1", "message": "hello" }),
+    );
+    assert_eq!(status, 200, "{body}");
+
+    let until = Instant::now() + Duration::from_secs(60);
+    let mut seen = Vec::new();
+    let inference = loop {
+        let left = until.saturating_duration_since(Instant::now());
+        match requests.recv_timeout(left) {
+            Ok((path, auth)) if auth.contains("alice-api-key") => break Some((path, auth)),
+            Ok(other) => seen.push(other),
+            Err(_) => break None,
+        }
+    };
+    let (_, auth) = inference.unwrap_or_else(|| {
+        panic!("alice's turn never reached the backend with her key; saw {seen:?}")
+    });
+    assert_eq!(auth, "Bearer alice-api-key");
+    drop(server);
+}
