@@ -235,16 +235,17 @@ impl Docs {
         if limit == 0 {
             return Ok(Vec::new());
         }
-        let mut filter = Filter::All;
-        if let Some(provider) = provider {
-            filter = filter.and(Filter::eq("provider", provider));
-        }
-        if let Some(score) = min_score {
-            filter = filter.and(
+        let filter = [
+            provider.map(|provider| Filter::eq("provider", provider)),
+            min_score.map(|score| {
                 Filter::exists("importance_score", false)
-                    .or(Filter::gte("importance_score", f64::from(score))),
-            );
-        }
+                    .or(Filter::gte("importance_score", f64::from(score)))
+            }),
+        ]
+        .into_iter()
+        .flatten()
+        .reduce(Filter::and)
+        .unwrap_or(Filter::All);
         let query = Query::filter(filter)
             .sort(Sort::desc("received_ms"))
             .limit(offset.saturating_add(limit));
