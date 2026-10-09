@@ -22,7 +22,8 @@ media = ["openhuman-core/media"]
 flows = ["openhuman-core/flows"]
 skills = ["openhuman-core/skills"]
 mcp = ["openhuman-core/mcp"]
-crash-reporting = ["openhuman-core/crash-reporting"]
+# Also carries `process::sentry`, the shared Sentry options + before_send chain.
+crash-reporting = ["dep:sentry", "openhuman-core/crash-reporting"]
 channels = ["openhuman-core/channels"]
 whatsapp-web = ["openhuman-core/whatsapp-web"]
 file-logging = ["openhuman-core/file-logging"]
@@ -35,6 +36,10 @@ anyhow = "1"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# `process::sentry` (crash-reporting): the client options and before_send
+# chain hosts share. Same version and minimal features as the core's, which
+# carries the transport/backtrace features through `openhuman-core/crash-reporting`.
+sentry = { version = "0.47.0", default-features = false, optional = true }
 tempfile = "3"
 thiserror = "2"
 # The memory facade (`memory`) speaks TinyMemory's contract types; same path as
