@@ -129,8 +129,9 @@ override reaches them.
 
 ## Tests
 
-`builder_tests.rs` and `api_key_tests.rs` sit beside their modules; the end-to-end suites in [`../../tests/`](../../tests/README.md)
-build real runtimes.
+`builder_tests.rs` and `api_key_tests.rs` sit beside their modules. The
+end-to-end suites in [`../../tests/`](../../tests/README.md) build real
+runtimes.
 
 ```bash
 cargo test -p openhuman-embed --features inference,mcp,skills runtime::
