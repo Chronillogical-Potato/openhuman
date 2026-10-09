@@ -9,7 +9,7 @@ use std::{
     collections::HashMap,
     fs::OpenOptions,
     path::PathBuf,
-    sync::{Arc, Mutex, OnceLock},
+    sync::{Arc, Mutex},
 };
 
 use async_trait::async_trait;
@@ -130,7 +130,7 @@ pub struct OpenHumanSubagentHost {
 /// independently constructed host adapters. Durable persistence remains the
 /// cross-process authority; this prevents duplicate local child graphs.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-struct HostLifecycleKey {
+pub(super) struct HostLifecycleKey {
     checkpoint_dir: PathBuf,
     task_key: SubagentTaskKey,
 }
@@ -212,11 +212,8 @@ fn host_observer_outcome(mut outcome: SubagentRunOutcome) -> SubagentRunOutcome 
     outcome
 }
 
-static HOST_IN_FLIGHT: OnceLock<AsyncMutex<HashMap<HostLifecycleKey, Arc<HostInFlight>>>> =
-    OnceLock::new();
-
-fn host_in_flight() -> &'static AsyncMutex<HashMap<HostLifecycleKey, Arc<HostInFlight>>> {
-    HOST_IN_FLIGHT.get_or_init(|| AsyncMutex::new(HashMap::new()))
+pub(super) fn host_in_flight() -> Arc<AsyncMutex<HashMap<HostLifecycleKey, Arc<HostInFlight>>>> {
+    crate::core::runtime::current_slot()
 }
 
 fn absolute_checkpoint_dir(path: PathBuf) -> PathBuf {
@@ -304,7 +301,7 @@ impl OpenHumanSubagentHost {
             task_key: task_key.clone(),
         };
         let (entry, is_leader) = {
-            let mut entries = host_in_flight().lock().await;
+            let mut entries = host_in_flight().lock_owned().await;
             match entries.get(&lifecycle_key) {
                 Some(entry) => (entry.clone(), false),
                 None => {
@@ -342,7 +339,7 @@ impl OpenHumanSubagentHost {
         ))
         .await;
         entry.complete(result.as_ref().ok().cloned()).await;
-        let mut entries = host_in_flight().lock().await;
+        let mut entries = host_in_flight().lock_owned().await;
         if entries
             .get(&lifecycle_key)
             .is_some_and(|current| Arc::ptr_eq(current, &entry))

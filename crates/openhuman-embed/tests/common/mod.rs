@@ -177,3 +177,45 @@ pub fn tool_names(request: &wiremock::Request) -> Vec<String> {
         })
         .unwrap_or_default()
 }
+
+/// A provider that answers its first chat requests with `steps`, in order,
+/// then every later one with `fallback`.
+pub async fn scripted_provider(
+    steps: Vec<serde_json::Value>,
+    fallback: &str,
+) -> wiremock::MockServer {
+    let server = wiremock::MockServer::start().await;
+    for (index, step) in steps.into_iter().enumerate() {
+        wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .and(wiremock::matchers::path("/v1/chat/completions"))
+            .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(step))
+            .up_to_n_times(1)
+            .with_priority(u8::try_from(index + 1).unwrap_or(u8::MAX))
+            .mount(&server)
+            .await;
+    }
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path("/v1/chat/completions"))
+        .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(chat_completion(fallback)))
+        .with_priority(u8::MAX)
+        .mount(&server)
+        .await;
+    server
+}
+
+/// A routed provider on `server` with a fixed model.
+pub fn route(server: &wiremock::MockServer, model: &str) -> openhuman_embed::Provider {
+    openhuman_embed::Provider::openai_compatible(format!("{}/v1", server.uri()), "sk-test")
+        .model(model)
+}
+
+/// Polls `check` until it yields `Some` or about ten seconds pass.
+pub async fn eventually<T>(what: &str, mut check: impl FnMut() -> Option<T>) -> T {
+    for _ in 0..1000 {
+        if let Some(value) = check() {
+            return value;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    panic!("timed out waiting for {what}");
+}

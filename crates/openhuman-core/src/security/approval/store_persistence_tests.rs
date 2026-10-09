@@ -664,3 +664,84 @@ fn list_recent_decisions_marks_unparseable_args_instead_of_failing() {
         json!({ "_error": "args_redacted not valid JSON" })
     );
 }
+
+#[test]
+fn agent_id_round_trips_and_older_rows_read_as_the_process() {
+    let (config, _dir) = test_config();
+    let mut owned = PendingApproval::new("owned", "shell", "run it", json!({}), None);
+    owned.agent_id = Some("alpha".into());
+    insert_pending(&config, &owned, "session-x").unwrap();
+    insert_pending(
+        &config,
+        &PendingApproval::new("process", "shell", "run it", json!({}), None),
+        "session-x",
+    )
+    .unwrap();
+
+    let alpha = list_pending_for_agent(&config, Some("alpha")).unwrap();
+    assert_eq!(alpha.len(), 1);
+    assert_eq!(alpha[0].request_id, "owned");
+    assert_eq!(alpha[0].agent_id.as_deref(), Some("alpha"));
+    let process = list_pending_for_agent(&config, None).unwrap();
+    assert_eq!(process.len(), 1);
+    assert_eq!(process[0].request_id, "process");
+
+    assert_eq!(
+        pending_agent(&config, "owned").unwrap(),
+        Some(Some("alpha".into()))
+    );
+    assert_eq!(pending_agent(&config, "process").unwrap(), Some(None));
+    assert_eq!(pending_agent(&config, "missing").unwrap(), None);
+    decide(&config, "owned", ApprovalDecision::Deny).unwrap();
+    assert_eq!(pending_agent(&config, "owned").unwrap(), None);
+}
+
+#[test]
+fn migration_adds_the_agent_column_and_index_to_an_existing_table() {
+    let (config, _dir) = test_config();
+    let db_path = config.workspace_dir.join("approval").join("approval.db");
+    std::fs::create_dir_all(db_path.parent().unwrap()).unwrap();
+    Connection::open(&db_path)
+        .unwrap()
+        .execute_batch(
+            "CREATE TABLE pending_approvals (
+                request_id      TEXT PRIMARY KEY,
+                tool_name       TEXT NOT NULL,
+                action_summary  TEXT NOT NULL,
+                args_redacted   TEXT NOT NULL,
+                session_id      TEXT NOT NULL,
+                created_at      TEXT NOT NULL,
+                expires_at      TEXT,
+                decided_at      TEXT,
+                decision        TEXT
+            );
+            INSERT INTO pending_approvals
+                (request_id, tool_name, action_summary, args_redacted, session_id, created_at)
+            VALUES ('legacy', 'shell', 'legacy row', '{}', 'sess-X', '2030-01-01T00:00:00Z');",
+        )
+        .unwrap();
+
+    let rows = list_pending(&config).unwrap();
+    assert_eq!(rows.len(), 1);
+    assert!(
+        rows[0].agent_id.is_none(),
+        "a legacy row is the process's own"
+    );
+    let conn = Connection::open(&db_path).unwrap();
+    let columns: Vec<String> = conn
+        .prepare("PRAGMA table_info(pending_approvals)")
+        .unwrap()
+        .query_map(params![], |row| row.get::<_, String>(1))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert!(columns.iter().any(|c| c == "agent_id"));
+    let indexes: Vec<String> = conn
+        .prepare("PRAGMA index_list(pending_approvals)")
+        .unwrap()
+        .query_map(params![], |row| row.get::<_, String>(1))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert!(indexes.iter().any(|i| i == "idx_pending_approvals_agent"));
+}

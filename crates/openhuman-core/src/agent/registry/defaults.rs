@@ -113,6 +113,7 @@ pub fn definition_from_registry_entry(entry: &AgentRegistryEntry) -> AgentDefini
             .collect(),
         delegate_name: None,
         agent_tier: AgentTier::Worker,
+        searches_connected_mcp: false,
         source: DefinitionSource::CustomRegistry,
         graph: Default::default(),
     }

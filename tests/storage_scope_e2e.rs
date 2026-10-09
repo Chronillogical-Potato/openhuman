@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use openhuman_core::config::Config;
 use openhuman_core::core::runtime::{
-    ContextOverlay, CoreBuilder, CoreContext, DomainSet, ServiceSet,
+    AgentContextRegistry, ContextOverlay, CoreBuilder, CoreContext, DomainSet, ServiceSet,
 };
 use openhuman_core::cron::{self, Schedule};
 use openhuman_core::storage::agents::{find_owner, for_each_scope, within_agent};
@@ -49,6 +49,9 @@ async fn background_work_visits_every_agent_scope() {
         ContextOverlay::new(config.clone(), DomainSet::none(), Default::default())
             .session_agent("agent-e2e"),
     );
+    // How a host's agent becomes known to background work (embed does this
+    // when it builds an agent).
+    AgentContextRegistry::register("agent-e2e", &agent);
     // The store calls block on storage's own bridge thread, so they are
     // made straight from the agent's task, where its context is in scope.
     CoreContext::scope(Arc::clone(&agent), async {
@@ -84,6 +87,7 @@ async fn background_work_visits_every_agent_scope() {
     assert_eq!(missing, None);
 
     // … and, once the agent is gone, through the id the backend recorded.
+    assert!(AgentContextRegistry::deregister("agent-e2e", &agent));
     drop(agent);
     let recorded = for_each_scope("e2e", || async { job_names(&config) }).await;
     assert!(

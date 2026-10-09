@@ -46,9 +46,23 @@ pub(super) async fn run_agent_job_for_run(
     // runs with the definition's constraints instead of the generic
     // OpenHumanSessionHost::from_config defaults.
     let selected_agent_id = job.agent_id.as_deref().unwrap_or("orchestrator");
-    {
+    // A host-registered agent (`agent::host_agents`) carries its own
+    // definition, model and route; the registry overrides below are for
+    // registry agents only.
+    let is_host_agent = job
+        .agent_id
+        .as_deref()
+        .is_some_and(|id| crate::agent::host_agents::resolve(id).is_some());
+    if is_host_agent {
+        tracing::debug!(
+            job_id = %job.id,
+            agent_id = %selected_agent_id,
+            "[cron] job targets a host-registered agent"
+        );
+    } else {
         let agent_id = selected_agent_id;
-        if let Some(registry) = crate::agent::harness::definition::AgentDefinitionRegistry::global()
+        if let Some(registry) =
+            crate::agent::harness::definition::AgentDefinitionRegistry::current()
         {
             if let Some(def) = registry.get(agent_id) {
                 tracing::debug!(
@@ -141,7 +155,7 @@ pub(super) async fn run_agent_job_for_run(
                 "[cron] building isolated agent for scheduled job"
             );
             match build_agent_for_cron_job(&effective, job) {
-                Ok(BuiltCronAgent { mut agent }) => {
+                Ok(BuiltCronAgent { mut agent, context }) => {
                     // Tag events so downstream subscribers can correlate
                     // cron-triggered turns. `cron` is the channel so the
                     // event bus can filter from other flows (`cli`, `web`…).
@@ -164,6 +178,17 @@ pub(super) async fn run_agent_job_for_run(
                         origin,
                         agent.run_single(&prefixed_prompt),
                     );
+                    // A host agent's turn runs in its own context, so every
+                    // ambient read (config, domains, tool groups, session
+                    // store) sees that agent rather than the process default.
+                    let turn: std::pin::Pin<
+                        Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + '_>,
+                    > = match context {
+                        Some(context) => {
+                            Box::pin(crate::core::runtime::CoreContext::scope(context, turn))
+                        }
+                        None => Box::pin(turn),
+                    };
                     // Morning briefing only: install a 24h task-recency window
                     // so Composio task-fetch tools (Linear/ClickUp/Notion/Asana)
                     // surface only recently created/changed tasks. Other cron
@@ -221,20 +246,33 @@ pub(super) async fn run_agent_job_for_run(
 }
 
 /// Fires a `JobType::Flow` job. A system job (`system:<name>`, see
-/// [`crate::cron::system_jobs`]) publishes `DomainEvent::CronSystemJobDue`;
+/// [`crate::cron::system_jobs`]) publishes `DomainEvent::CronSystemJobDue` and,
+/// when a handler is registered for it
+/// ([`crate::cron::system_job_handlers`]), awaits that handler and returns its
+/// result;
 /// any other publishes `DomainEvent::FlowScheduleTick` for
 /// the bound flow id (stored in `job.command`, see `JobType::Flow`'s doc) and
 /// returns immediately. This job type does no work itself — dispatching the
 /// actual `flows::ops::flows_run` happens asynchronously in
 /// `flows::bus::FlowTriggerSubscriber`, which is the sole consumer of this
 /// event (kept out of the cron domain so cron stays flow-agnostic).
-pub(super) fn run_flow_schedule_job(job: &CronJob) -> (bool, String) {
+pub(super) async fn run_flow_schedule_job(job: &CronJob) -> (bool, String) {
     if let Some(name) = crate::cron::system_jobs::system_job_name(job) {
         tracing::info!(job_id = %job.id, job = %name, "[cron] system job due — publishing CronSystemJobDue");
         BUS.publish(DomainEvent::CronSystemJobDue {
             job: name.to_string(),
         });
-        return (true, format!("system job {name} dispatched"));
+        // A host-registered handler is awaited and its result is the run's
+        // result; without one the job is announce-only and `ok` on dispatch.
+        let ctx = crate::cron::system_job_handlers::SystemJobContext {
+            job_id: job.id.clone(),
+            name: name.to_string(),
+        };
+        return match crate::cron::system_job_handlers::dispatch(ctx).await {
+            Some(Ok(())) => (true, format!("system job {name} completed")),
+            Some(Err(error)) => (false, format!("system job {name} failed: {error}")),
+            None => (true, format!("system job {name} dispatched")),
+        };
     }
     let flow_id = job.command.clone();
     tracing::info!(
@@ -276,12 +314,48 @@ pub(super) fn cron_turn_overrides() -> crate::agent::session_host::TurnOverrides
 
 pub(super) struct BuiltCronAgent {
     pub(crate) agent: OpenHumanSessionHost,
+    /// The host agent's context the turn must run in, when `job.agent_id`
+    /// named a host-registered agent (`agent::host_agents`).
+    pub(crate) context: Option<std::sync::Arc<crate::core::runtime::CoreContext>>,
 }
 
+/// Build the session a cron agent job runs: the host-registered agent named
+/// by `job.agent_id` when there is one, else the registry definition.
 pub(super) fn build_agent_for_cron_job(
     config: &Config,
     job: &CronJob,
 ) -> anyhow::Result<BuiltCronAgent> {
+    let host_agent = job
+        .agent_id
+        .as_deref()
+        .and_then(crate::agent::host_agents::resolve);
+    build_cron_agent(config, job, host_agent)
+}
+
+fn build_cron_agent(
+    config: &Config,
+    job: &CronJob,
+    host_agent: Option<crate::agent::host_agents::HostAgent>,
+) -> anyhow::Result<BuiltCronAgent> {
+    if let Some(host) = host_agent {
+        // The host agent's own config (provider model and route applied),
+        // with the job's model override on top, as for a registry agent. The
+        // caller's config is not used: it is the process default's.
+        let mut effective = host.config.clone();
+        if let Some(model) = job.model.clone() {
+            effective.default_model = Some(model);
+        }
+        let agent = host.session_host(&effective, None)?;
+        tracing::debug!(
+            job_id = %job.id,
+            agent_id = %host.definition.id,
+            "[cron] built scheduled job agent from host agent"
+        );
+        return Ok(BuiltCronAgent {
+            agent,
+            context: Some(host.context),
+        });
+    }
     let agent_id = job.agent_id.as_deref().unwrap_or("orchestrator");
     match OpenHumanSessionHost::from_config_for_agent(config, agent_id) {
         Ok(agent) => {
@@ -290,7 +364,10 @@ pub(super) fn build_agent_for_cron_job(
                 agent_id = %agent_id,
                 "[cron] built scheduled job agent from definition"
             );
-            Ok(BuiltCronAgent { agent })
+            Ok(BuiltCronAgent {
+                agent,
+                context: None,
+            })
         }
         Err(e) => {
             tracing::warn!(
@@ -299,8 +376,12 @@ pub(super) fn build_agent_for_cron_job(
                 error = %e,
                 "[cron] failed to build agent from definition; falling back to canonical orchestrator"
             );
-            OpenHumanSessionHost::from_config_for_agent(config, "orchestrator")
-                .map(|agent| BuiltCronAgent { agent })
+            OpenHumanSessionHost::from_config_for_agent(config, "orchestrator").map(|agent| {
+                BuiltCronAgent {
+                    agent,
+                    context: None,
+                }
+            })
         }
     }
 }

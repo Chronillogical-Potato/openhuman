@@ -119,7 +119,7 @@ pub async fn dump_all_agent_prompts(
     AgentDefinitionRegistry::init_global(&config.workspace_dir)
         .context("initialising AgentDefinitionRegistry for prompt dump")?;
 
-    let registry = AgentDefinitionRegistry::global()
+    let registry = AgentDefinitionRegistry::current()
         .ok_or_else(|| anyhow!("AgentDefinitionRegistry missing after init"))?;
 
     let ids: Vec<String> = registry

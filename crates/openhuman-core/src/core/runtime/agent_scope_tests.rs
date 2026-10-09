@@ -1,0 +1,183 @@
+use super::*;
+use crate::core::runtime::{spawn_scoped, ContextOverlay, DomainSet};
+use crate::security::{AutonomyLevel, SecurityPolicy};
+use crate::tools::toolpacks::ToolGroups;
+
+#[derive(Default)]
+struct Counter(Mutex<u32>);
+
+fn root(dir: &str) -> Arc<CoreContext> {
+    CoreContext::for_test(DomainSet::full(), Some(PathBuf::from(dir)))
+}
+
+fn overlay(workspace: &str) -> ContextOverlay {
+    let mut config = crate::config::Config::default();
+    config.workspace_dir = PathBuf::from(workspace);
+    ContextOverlay::new(config, DomainSet::kernel(), ToolGroups::none())
+}
+
+fn agent(parent: &Arc<CoreContext>, id: &str) -> Arc<CoreContext> {
+    parent.derive_with(overlay("/tmp/agent-scope-ws").session_agent(id))
+}
+
+fn bump(ctx: &CoreContext) -> u32 {
+    let counter = ctx.agent_state().slot::<Counter>();
+    let mut value = counter.0.lock().unwrap();
+    *value += 1;
+    *value
+}
+
+#[test]
+fn every_agent_context_owns_its_slots() {
+    let parent = root("/tmp/agent-scope-root");
+    let alpha = agent(&parent, "alpha");
+    let beta = agent(&parent, "beta");
+
+    assert_eq!(bump(&alpha), 1);
+    assert_eq!(bump(&alpha), 2);
+    assert_eq!(bump(&beta), 1, "beta must not see alpha's slot");
+    assert_eq!(bump(&parent), 1, "the root context keeps its own slot");
+    assert_eq!(alpha.agent_state().len(), 1);
+}
+
+#[test]
+fn contexts_derived_without_an_agent_share_the_parent_slots() {
+    let parent = root("/tmp/agent-scope-shared");
+    let alpha = agent(&parent, "alpha");
+    let turn = alpha.derive_with(overlay("/tmp/agent-scope-ws"));
+
+    assert_eq!(bump(&alpha), 1);
+    assert_eq!(bump(&turn), 2, "a turn context keeps its agent's slots");
+    assert_eq!(turn.session_agent(), Some("alpha"));
+}
+
+#[test]
+fn clear_drops_every_slot() {
+    let state = AgentScopedState::default();
+    assert!(state.is_empty());
+    *state.slot::<Counter>().0.lock().unwrap() = 7;
+    state.clear();
+    assert!(state.is_empty());
+    assert_eq!(*state.slot::<Counter>().0.lock().unwrap(), 0);
+}
+
+#[test]
+fn derive_with_carries_policy_catalogue_and_approval_flag() {
+    let parent = root("/tmp/agent-scope-policy");
+    let policy = Arc::new(SecurityPolicy {
+        autonomy: AutonomyLevel::ReadOnly,
+        ..SecurityPolicy::default()
+    });
+    let definitions = Arc::new(crate::agent::harness::AgentDefinitionRegistry::default());
+    let mut spec = overlay("/tmp/agent-scope-ws")
+        .session_agent("alpha")
+        .agent_policy(Arc::clone(&policy))
+        .definitions(Arc::clone(&definitions));
+    spec.approvals_disabled = true;
+    let alpha = parent.derive_with(spec);
+    let turn = alpha.derive_with(overlay("/tmp/agent-scope-ws"));
+
+    for ctx in [&alpha, &turn] {
+        assert!(Arc::ptr_eq(&ctx.agent_policy().unwrap(), &policy));
+        assert!(Arc::ptr_eq(&ctx.definitions().unwrap(), &definitions));
+        assert!(ctx.approvals_disabled());
+    }
+    assert!(parent.agent_policy().is_none());
+    assert!(parent.definitions().is_none());
+    assert!(!parent.approvals_disabled());
+}
+
+#[test]
+fn registry_resolves_live_agents_only() {
+    let parent = root("/tmp/agent-scope-registry");
+    let alpha = agent(&parent, "registry-alpha");
+    let beta = agent(&parent, "registry-beta");
+    AgentContextRegistry::register("registry-alpha", &alpha);
+    AgentContextRegistry::register("registry-beta", &beta);
+
+    assert!(Arc::ptr_eq(
+        &AgentContextRegistry::get("registry-alpha").unwrap(),
+        &alpha
+    ));
+    let live: Vec<String> = AgentContextRegistry::live()
+        .into_iter()
+        .map(|(id, _)| id)
+        .filter(|id| id.starts_with("registry-"))
+        .collect();
+    assert_eq!(live, ["registry-alpha", "registry-beta"]);
+
+    drop(beta);
+    assert!(AgentContextRegistry::get("registry-beta").is_none());
+
+    let impostor = agent(&parent, "registry-alpha");
+    assert!(!AgentContextRegistry::deregister(
+        "registry-alpha",
+        &impostor
+    ));
+    assert!(AgentContextRegistry::get("registry-alpha").is_some());
+    assert!(AgentContextRegistry::deregister("registry-alpha", &alpha));
+    assert!(AgentContextRegistry::get("registry-alpha").is_none());
+}
+
+#[tokio::test]
+async fn scope_dir_and_agent_id_follow_the_ambient_context() {
+    let mut config = crate::config::Config::default();
+    config.workspace_dir = PathBuf::from("/tmp/agent-scope-dir");
+    let parent = root("/tmp/agent-scope-dir");
+    let alpha = agent(&parent, "alpha");
+
+    let (dir, id) = CoreContext::scope(alpha, async {
+        (agent_scope_dir(&config), current_agent_id())
+    })
+    .await;
+    assert_eq!(dir, PathBuf::from("/tmp/agent-scope-dir/agents/alpha"));
+    assert_eq!(id.as_deref(), Some("alpha"));
+
+    let (dir, id) = CoreContext::scope(parent, async {
+        (agent_scope_dir(&config), current_agent_id())
+    })
+    .await;
+    assert_eq!(dir, PathBuf::from("/tmp/agent-scope-dir"));
+    assert!(id.is_none());
+}
+
+#[tokio::test]
+async fn spawn_scoped_keeps_the_agent_context_and_tokio_spawn_does_not() {
+    let parent = root("/tmp/agent-scope-spawn");
+    let policy = Arc::new(SecurityPolicy {
+        autonomy: AutonomyLevel::ReadOnly,
+        ..SecurityPolicy::default()
+    });
+    let alpha = parent.derive_with(
+        overlay("/tmp/agent-scope-ws")
+            .session_agent("alpha")
+            .agent_policy(policy),
+    );
+
+    let (scoped, bare) = CoreContext::scope(alpha, async {
+        let scoped = spawn_scoped(async {
+            (
+                current_agent_id(),
+                CoreContext::current_agent_policy().map(|p| p.autonomy),
+            )
+        })
+        .await
+        .unwrap();
+        let bare = tokio::spawn(async { CoreContext::scoped().is_some() })
+            .await
+            .unwrap();
+        (scoped, bare)
+    })
+    .await;
+
+    assert_eq!(scoped.0.as_deref(), Some("alpha"));
+    assert_eq!(scoped.1, Some(AutonomyLevel::ReadOnly));
+    assert!(!bare, "a bare tokio::spawn loses the task-local context");
+}
+
+#[test]
+fn current_slot_without_a_context_uses_the_unscoped_state() {
+    let first = current_slot::<Counter>();
+    let second = current_slot::<Counter>();
+    assert!(Arc::ptr_eq(&first, &second));
+}

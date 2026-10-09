@@ -250,8 +250,9 @@ The on-disk layout under a runtime-owned root:
   config.toml, auth-profiles.json, core.token     runtime-wide
   workspace/
     session_db/sessions.db                        runtime-wide run ledger
-    session_raw/                                  transcripts (thread + agent)
-    agents/<id>/skills/                           each agent's skills root
+    agents/<id>/session_raw/                      each agent's transcripts
+    agents/<id>/skills/, workflows/               each agent's skills roots
+    agents/<id>/cron/jobs.db                      each agent's cron jobs
   agents/<id>/action/                             default action_dir per agent
 ```
 
@@ -259,33 +260,74 @@ The default `action_dir` sits beside the workspace, never inside it, because
 the core refuses agent writes beneath the workspace. An inherited workspace
 uses `<action_dir>/agents/<id>` instead.
 
-### Settings that are still runtime-wide
+### Per agent
 
-Every agent reads these from the runtime's boot config today. Each is a
-candidate follow-up in the core.
+Every agent on a runtime is isolated from its siblings on the same workspace:
 
-- `autonomy.auto_approve` and `auto_approve_all`, and the memory guard's
-  autonomy tier, come from the boot config (`security::live_policy`). Path
-  and command policy do use the agent's own tier.
-- The approval gate is on or off for the whole process, and parked approvals
-  are not labelled with an agent id. For an agent that never waits on
-  approval, use `Access::full()`, whose `TrustedAutomation` origin the gate
-  honours per turn.
-- The sub-agent catalogue is runtime-wide (built-ins plus
-  `<workspace>/agents/*.toml`). Embedded agents cannot be `delegate_*`
-  targets of each other. Do not reuse built-in ids such as `orchestrator` or
-  `summarizer` for your agents.
-- Sub-agents an agent spawns, and the experience store, read the runtime's
-  on-disk config rather than the agent's overlay.
-- Sub-agent run-ledger rows, cron jobs and the cost log stay in the
-  workspace even with a host session store.
-- Agents on one workspace share the dynamic `mcp_registry_*` MCP registry.
-  Servers declared through `AgentSpec::mcp` are per agent. The host-seeded
-  documentation server is visible to every agent.
-- `install_skill` and `create_skill` still write to `~/.openhuman`. With
-  `include_user_skills(false)` (the default) an agent does not discover the
-  operator's skills, but an install it performs lands there.
-- One API key (or session) is shared by every agent.
+- Policy and approvals: the autonomy tier, `auto_approve`, `auto_approve_all`
+  and the approval gate switch come from the agent's `Access`
+  (`auto_approve`, `auto_approve_all`, `approval_gate`). Parked approvals
+  carry the agent id; `Agent::approvals()` lists and decides only that
+  agent's requests, and a chat reply routes by agent and thread.
+- Sub-agents: `AgentSpec::subagents` declares workers only that agent can
+  delegate to. Built-in ids (`orchestrator`, `planner`, …) are reserved.
+  Detached sub-agents keep the agent's provider route.
+- MCP: each agent has its own MCP host and dynamic registry under
+  `<workspace>/agents/<id>/`, plus the servers its spec declares.
+- Transcripts: `<workspace>/agents/<id>/session_raw/`. Conversations written
+  before this layout into `<workspace>/session_raw/` stay readable and are
+  copied into the agent's directory when resumed; the shared file is never
+  changed.
+- Skills: `install_skill` and `create_skill` write user-scope bundles into
+  `<workspace>/agents/<id>/skills/` and `workflows/`, which only that agent
+  discovers. The operator's `~/.openhuman` is untouched.
+- Cron: jobs an agent creates live in `<workspace>/agents/<id>/cron/jobs.db`
+  and run under that agent's context, provider and policy.
+- Memory sources are synced per live agent, under its own context.
+- Turn tables, plan mode, reasoning effort, turn citations, budget signals,
+  the request journal, sub-agent dedupe and the `run_workflow` guard live in
+  the agent's context, so two agents can use the same thread or session id
+  at the same time.
+
+### Lifecycle
+
+`RuntimeBuilder::max_agents` caps live agents (default
+`DEFAULT_MAX_AGENTS`, 1024); `Runtime::agent` returns
+`AgentError::AgentLimit` past it. `Runtime::remove_agent(id)` denies the
+agent's parked approvals (resolution `agent_removed`), refuses new turns and
+ends the ones in flight with `CoreError::AgentRemoved` (waiting up to ten
+seconds for them to unwind), then drops its state slots and MCP host and
+deregisters its context, which leaves its cron jobs dormant. The id is
+reusable once it returns; `.purge()` also deletes the agent's home.
+Dropping the last handle to an agent tears it down the same way with
+resolution `agent_dropped`. Cancellation is cooperative: a tool already
+executing, or a sub-agent the turn detached, may finish after removal.
+
+### Still process-owned
+
+- The event bus, keyring and credential store, and the API key (or
+  session): one per runtime, shared by every agent.
+- The approval gate engine and its store. Rows are labelled and decided per
+  agent, but the store is one file per workspace.
+- Sub-agent run-ledger rows. They are keyed by unique run ids; an owner
+  column would need a schema change in the vendored `tinyagents-session`.
+- The host-installed session store (`openhuman_rpc::session_store`) keeps
+  its single-operator layout; the per-agent transcript layout applies to the
+  core's file fallback and to embedded agents.
+- Background-delivery busy flags and skill run cancellation, which are keyed
+  by unique session and run ids.
+- A per-turn `Turn::route` override reaches that turn only; detached
+  sub-agents use the agent's own route.
+
+### Out of scope
+
+- A per-agent cost log. It is accounting rather than behaviour isolation,
+  `Turn::meter` already reports per turn, and a per-agent budget is a
+  separate request.
+- Embedded agents delegating to one another. Peer delegation is a
+  cross-agent trust decision that TinyHiveMind owns.
+- An API to add a memory source to a running agent. `AgentSpec` memory
+  sources are taken when the agent is created; nothing needs more yet.
 
 ## Authentication and the backend
 
@@ -361,6 +403,29 @@ store (`RuntimeError::NoSessionStore`); a private scratch directory, removed
 with the runtime, still holds process-local caches. The desktop app, CLI and
 TUI install `openhuman_rpc::session_store`, the classic on-disk layout behind
 the same port.
+
+### Scheduling
+
+`Runtime::cron()` upserts named jobs (`JobSpec::agent` for a turn of a
+runtime agent with its host tools, `JobSpec::system` for a handler registered
+with `Runtime::on_system_job`), lists, removes, runs them now and reads their
+history. A `ServiceSet` with `cron: true` starts the scheduler on `build()`
+and stops it with the runtime; `start_services` / `stop_services` control it
+explicitly. See [`gitbooks/developing/embedding.md`](../../gitbooks/developing/embedding.md#scheduling)
+and `tests/cron_agents.rs`.
+
+### Channels
+
+`Runtime::channels().telegram(TelegramChannelSpec::new(token, agent_id))`
+starts a Telegram listener whose every message is a turn of that runtime
+agent: its prompt, its host tools and the chat's history. The agent must
+exist first (`ChannelError::UnknownAgent` otherwise), and if it is dropped
+later the bot answers that it is unavailable rather than falling back to the
+orchestrator. Turns run as `ExternalChannel` and are capped at read-only:
+tools that write or reach outside are withheld or refused at once. The
+returned `ChannelListener` stops the bot when it is dropped. Behind the
+`channels` feature (on by default). See the gitbook's "Channels" section and
+`tests/channel_agents.rs`.
 
 ## Tools on an agent
 
@@ -497,7 +562,7 @@ Every feature is a pass-through to the same-named feature on
 forwarded here (and then by `openhuman-tinyhumans` and `openhuman-cli`);
 [`scripts/ci/check-feature-forwarding.mjs`](../../scripts/ci/check-feature-forwarding.mjs) checks the chain.
 
-Two features also gate this crate's own surface. `mcp` adds `HttpHeader`,
+Three features also gate this crate's own surface. `channels` adds `Runtime::channels`, `Channels`, `TelegramChannelSpec`, `ChannelListener`, `ChannelError` and `StreamMode`. `mcp` adds `HttpHeader`,
 `McpAuthConfig`, `McpServer`, `AgentSpec::mcp` and `HarnessBuilder::mcp`.
 `skills` adds `AgentSpec::skills_dir` and `HarnessBuilder::skills_dir`.
 
@@ -576,7 +641,14 @@ their modules as `*_tests.rs`.
 ```bash
 cargo test -p openhuman-embed --features inference,mcp,skills
 cargo test -p openhuman-embed --features inference,mcp,skills --test runtime_agents
+cargo test -p openhuman-embed --features inference,mcp,skills --test cron_agents
+cargo test -p openhuman-embed --features inference,mcp,skills --test channel_agents
 ```
+
+`tests/channel_agents.rs` drives a runtime agent from a mocked Telegram Bot API: the bound agent answers with its prompt and read-only host tool under the `ExternalChannel` origin, its write tool is withheld and refused, and the reply is posted back to the chat.
+`tests/cron_agents.rs` runs a cron job as a runtime agent with its host tool under the
+`TrustedAutomation { Cron }` origin, records a system job handler's error, and starts and
+stops the scheduler with the runtime.
 
 The repository-root [`examples/embed_headless.rs`](../../examples/embed_headless.rs) and [`examples/embed_kernel.rs`](../../examples/embed_kernel.rs)
 use this crate's `Runtime` (`Runtime::builder()`, then `core_runtime().invoke`
@@ -592,3 +664,21 @@ for raw RPC methods). They are `[[example]]` targets of `openhuman-cli`:
 - [`gitbooks/developing/architecture/agent-harness.md`](../../gitbooks/developing/architecture/agent-harness.md): the agent harness.
 - [`gitbooks/developing/loadable-modules.md`](../../gitbooks/developing/loadable-modules.md): loadable modules.
 - [`crates/README.md`](../README.md): crates overview.
+
+## Relationship to other crates
+
+Its only in-repo dependency is `openhuman-core` (package `openhuman`) with
+`default-features = false`: every capability comes from a feature forwarded
+above. It does not depend on `openhuman-rpc`; `Outcome` and `StructuredRpcError`
+are core types (`openhuman_core::core`). `openhuman-app` and `openhuman-tui`
+depend on `openhuman-rpc` for its client (and the app on its server) and on
+`openhuman-core`; neither uses `openhuman-embed`.
+
+## Permanent tools on supplied agents
+
+Hosts can pass an existing configured `Agent` to another library, which adds
+its tools through `Agent::attach_tools` without constructing a replacement.
+Attachments are shared by clones, always directly advertised, and update only
+their managed system catalogue when a continuing conversation gains tools.
+See [agent attachment semantics and example](src/agent/README.md#attach-tools-to-an-existing-agent)
+for source identity, collision errors, policy composition, and runtime identity.

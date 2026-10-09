@@ -28,6 +28,7 @@ import remarkMath from 'remark-math';
 
 import { hasLatexContent, normalizeLatexDelimiters } from '../../utils/latex';
 import { extractLanguage, extractTextContent } from '../markdown/CodeBlock';
+import { MarkdownImage } from '../markdown/MarkdownImage';
 import { CitationMarker, type CitationSource } from './elements/inline-citation';
 
 /**
@@ -333,6 +334,7 @@ const defaultComponents = memoizeMarkdownComponents({
       {...props}
     />
   ),
+  img: MarkdownImage,
   hr: ({ className, ...props }) => (
     <hr className={cn('aui-md-hr border-muted-foreground/20 my-3', className)} {...props} />
   ),

@@ -14,6 +14,8 @@ sandbox_mode = "sandboxed"
 # Loader enforces: a `chat` agent must NOT list any other `chat` agent
 # in `subagents` below — handoff goes directly to `worker` specialists. See `AgentTier` in `crates/openhuman-core/src/agent/harness/definition.rs`.
 agent_tier = "chat"
+# Connected MCP servers' tools join this agent's deferred catalogue.
+searches_connected_mcp = true
 # Identity now loads from the workspace rather than from this agent's compiled
 # prompt (#5701). `IdentitySection` injects SOUL.md (product persona, shared by
 # every agent that opts in) and ROLE.md (this agent's own role brief, which used

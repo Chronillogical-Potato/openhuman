@@ -125,7 +125,7 @@ impl TextExtractor for DocumentsTextExtractor {
         use crate::modules::documents;
 
         match tokio::time::timeout(PDF_EXTRACTION_TIMEOUT, async {
-            let config = crate::config::Config::load_or_init()
+            let config = crate::config::ops::load_current_or_init()
                 .await
                 .map_err(|error| format!("config unavailable for pdf extraction: {error}"))?;
             documents::extract_text(&config, bytes)

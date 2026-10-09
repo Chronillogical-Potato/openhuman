@@ -107,66 +107,8 @@ pub struct CoreContext {
     /// ([`crate::agent::session_store`]) hands out to work under this
     /// context. `None` for booted contexts, which use the shared default.
     session_agent: Option<String>,
-}
-
-/// Per-agent overrides layered onto a booted context by
-/// [`CoreContext::derive_with`].
-///
-/// This is the seam a library host uses to run many independently configured
-/// agents on one booted core: each agent gets its own `Config` (provider
-/// routes, MCP servers, autonomy tier, `action_dir`), its own
-/// [`DomainSet`](crate::core::runtime::DomainSet), its own
-/// [`ToolGroups`](crate::tools::toolpacks::ToolGroups) and its own skill-root
-/// policy, while sharing the host identity, keyring, bus and RPC bearer of the
-/// context it derives from.
-#[derive(Debug, Clone)]
-pub struct ContextOverlay {
-    /// The config every handler dispatched under the derived context reads
-    /// through `config::ops::load_config_with_timeout()`. Keep `config_path`
-    /// equal to the parent's: credentials, auth profiles and the keyring file
-    /// backend all resolve against its parent directory.
-    pub config: crate::config::Config,
-    /// Domain families live for the derived context. Only narrowing the parent
-    /// is meaningful: controllers a booted core never registered stay absent
-    /// no matter what this says.
-    pub domains: crate::core::runtime::DomainSet,
-    /// Tool-group disclosure for the derived context.
-    pub tool_groups: crate::tools::toolpacks::ToolGroups,
-    /// Scan the operator's user-scope skill roots (`true` = today's behaviour).
-    pub user_skill_roots: bool,
-    /// The agent a host session store scopes this context's transcripts,
-    /// journal, goals and todos to. `None` keeps the parent's.
-    pub session_agent: Option<String>,
-}
-
-impl ContextOverlay {
-    /// An overlay that keeps user-scope skill roots visible.
-    pub fn new(
-        config: crate::config::Config,
-        domains: crate::core::runtime::DomainSet,
-        tool_groups: crate::tools::toolpacks::ToolGroups,
-    ) -> Self {
-        Self {
-            config,
-            domains,
-            tool_groups,
-            user_skill_roots: true,
-            session_agent: None,
-        }
-    }
-
-    /// Hide the operator's `~/.openhuman/skills` / `~/.agents/skills` from
-    /// skill discovery under the derived context.
-    pub fn without_user_skill_roots(mut self) -> Self {
-        self.user_skill_roots = false;
-        self
-    }
-
-    /// Scope a host session store to `agent_id` under the derived context.
-    pub fn session_agent(mut self, agent_id: impl Into<String>) -> Self {
-        self.session_agent = Some(agent_id.into());
-        self
-    }
+    /// What the agent this context was derived for owns.
+    agent: agent_parts::AgentParts,
 }
 
 /// The workspace a context is bound to.
@@ -323,6 +265,7 @@ impl CoreContext {
             backend_transport,
             turn_origin: None,
             session_agent: None,
+            agent: Default::default(),
         });
         let _ = DEFAULT_CONTEXT.set(ctx.clone());
 
@@ -381,7 +324,7 @@ impl CoreContext {
     /// The workspace binding is anchored to `overlay.config.workspace_dir`, so
     /// an agent with its own workspace subdirectory resolves its own memory
     /// binding lazily, exactly as an embedder-supplied config does at boot.
-    pub fn derive_with(&self, overlay: ContextOverlay) -> Arc<CoreContext> {
+    pub fn derive_with(&self, mut overlay: ContextOverlay) -> Arc<CoreContext> {
         // Clamped to what this context can already dispatch. A derived
         // overlay may only narrow: callers outside this crate (embed's
         // `Runtime::agent`, for one) already refuse a spec that names a
@@ -428,7 +371,8 @@ impl CoreContext {
                 })),
             }
         };
-        crate::storage::agents::registered(Arc::new(CoreContext {
+        let agent = self.agent.derive(&mut overlay);
+        Arc::new(CoreContext {
             host_kind: self.host_kind,
             workspace_binding: RwLock::new(shared_binding),
             domains,
@@ -438,7 +382,8 @@ impl CoreContext {
             backend_transport: self.backend_transport.clone(),
             turn_origin: self.turn_origin.clone(),
             session_agent: overlay.session_agent.or_else(|| self.session_agent.clone()),
-        }))
+            agent,
+        })
     }
 
     /// The agent a host session store scopes work under this context to, if
@@ -545,11 +490,15 @@ impl CoreContext {
         Ok(())
     }
 
-    /// Run `fut` with `ctx` as the ambient [`CoreContext::current`]. The dispatch
-    /// layer wraps each handler invocation in this; multi-tenant hosts pass the
-    /// tenant's context here so the handler's `current()` reads isolated state.
+    /// Run `fut` with `ctx` as the ambient [`CoreContext::current`]: dispatch wraps
+    /// each handler in this, and multi-tenant hosts pass the tenant's context.
     pub async fn scope<F: Future>(ctx: Arc<CoreContext>, fut: F) -> F::Output {
         CURRENT_CONTEXT.scope(ctx, fut).await
+    }
+
+    /// [`scope`](Self::scope) for a synchronous closure.
+    pub fn sync_scope<R>(ctx: Arc<CoreContext>, f: impl FnOnce() -> R) -> R {
+        CURRENT_CONTEXT.sync_scope(ctx, f)
     }
 
     /// Capture the current context now and carry it across a subsequently
@@ -588,6 +537,7 @@ impl CoreContext {
             backend_transport: None,
             turn_origin: None,
             session_agent: None,
+            agent: Default::default(),
         })
     }
 
@@ -618,6 +568,7 @@ impl CoreContext {
             backend_transport: None,
             turn_origin: None,
             session_agent: None,
+            agent: Default::default(),
         })
     }
 }
@@ -738,10 +689,18 @@ pub async fn init_stores(cfg: &crate::config::Config, domains: crate::core::runt
     }
 }
 
-#[path = "context_agent.rs"]
-mod agent_scope;
 #[path = "context_turn_origin.rs"]
 mod turn_origin_scope;
+
+#[path = "context_for_agent.rs"]
+mod for_agent_scope;
+
+#[path = "context_agent.rs"]
+mod agent_parts;
+
+#[path = "context_overlay.rs"]
+mod overlay;
+pub use overlay::ContextOverlay;
 
 #[cfg(test)]
 #[path = "context_tests.rs"]

@@ -14,6 +14,8 @@ use super::types::ChatRequestMetadata;
 
 #[path = "progress_bridge_subagent_events.rs"]
 mod subagent_events;
+#[path = "progress_bridge_text_events.rs"]
+mod text_events;
 use subagent_events::BridgeCtx;
 
 /// Cadence of the `inference_heartbeat` liveness beat the bridge emits while a
@@ -335,13 +337,14 @@ pub(crate) fn spawn_progress_bridge(
     let timing_snapshot_for_task = timing_snapshot.clone();
     crate::core::runtime::spawn_scoped(async move {
         log::debug!(
-            "[web_channel][bridge] spawned client_id={} thread_id={} request_id={} speak_reply={:?} source={:?} session_id={:?}",
+            "[web_channel][bridge] spawned client_id={} thread_id={} request_id={} speak_reply={:?} source={:?} session_id={:?} hold_text_stream={}",
             client_id,
             thread_id,
             request_id,
             metadata.speak_reply,
             metadata.source,
             metadata.session_id,
+            metadata.hold_text_stream,
         );
         let mut round: u32 = 0;
         let mut parent_max_iterations: u32 = 0;
@@ -1028,19 +1031,16 @@ pub(crate) fn spawn_progress_bridge(
                     // Buffer the round's narration so it can be flushed as an
                     // interim bubble if a tool call closes this round.
                     pending_narration.push_str(&delta);
-                    publish_seq_stamped(
-                        &mut emit_seq,
-                        WebChannelEvent {
-                            event: "text_delta".to_string(),
-                            client_id: client_id.clone(),
-                            thread_id: thread_id.clone(),
-                            request_id: request_id.clone(),
-                            round: Some(iteration),
-                            delta: Some(delta),
-                            delta_kind: Some("text".to_string()),
-                            ..Default::default()
-                        },
-                    );
+                    if !metadata.hold_text_stream {
+                        text_events::publish_text_delta(
+                            &mut emit_seq,
+                            &client_id,
+                            &thread_id,
+                            &request_id,
+                            iteration,
+                            delta,
+                        );
+                    }
                 }
                 AgentProgress::ThinkingDelta { delta, iteration } => {
                     publish_seq_stamped(

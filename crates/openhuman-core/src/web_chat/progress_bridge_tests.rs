@@ -670,3 +670,76 @@ async fn subagent_failed_carries_parent_call_id() {
     let subagent = failed.subagent.expect("subagent detail present");
     assert_eq!(subagent.parent_call_id.as_deref(), Some("call-parent-3"));
 }
+
+/// A held turn (TinyMemes treatment arm) must not stream the answer text, but
+/// narration before a tool call still surfaces as an interim bubble.
+#[tokio::test]
+async fn hold_text_stream_suppresses_text_delta_but_keeps_interim() {
+    use crate::agent::progress::AgentProgress;
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = crate::config::Config {
+        workspace_dir: tmp.path().join("workspace"),
+        action_dir: tmp.path().join("workspace"),
+        config_path: tmp.path().join("config.toml"),
+        ..Default::default()
+    };
+    let store = TurnStateStore::new(tmp.path().join("turn_states"));
+    let (tx, rx) = tokio::sync::mpsc::channel(16);
+    let mut bus = super::super::event_bus::subscribe_web_channel_events();
+    spawn_progress_bridge(
+        rx,
+        "client-hold".into(),
+        "thread-hold".into(),
+        "req-hold".into(),
+        store,
+        ChatRequestMetadata {
+            hold_text_stream: true,
+            ..Default::default()
+        },
+        config,
+    );
+
+    tx.send(AgentProgress::TextDelta {
+        delta: "Let me check the release notes for you first.".into(),
+        iteration: 1,
+    })
+    .await
+    .unwrap();
+    tx.send(AgentProgress::ToolCallStarted {
+        call_id: "tc-hold".into(),
+        tool_name: "web_search".into(),
+        arguments: serde_json::json!({}),
+        iteration: 1,
+        display_label: None,
+        display_detail: None,
+    })
+    .await
+    .unwrap();
+
+    let events = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        let mut seen = Vec::new();
+        loop {
+            match bus.recv().await {
+                Ok(ev) if ev.thread_id == "thread-hold" => {
+                    let done = ev.event == "chat_interim";
+                    seen.push((ev.event.clone(), ev.full_response.clone()));
+                    if done {
+                        return seen;
+                    }
+                }
+                Ok(_) => continue,
+                Err(err) => panic!("bus closed: {err}"),
+            }
+        }
+    })
+    .await
+    .expect("chat_interim within timeout");
+
+    assert!(!events.iter().any(|(e, _)| e == "text_delta"), "{events:?}");
+    // The interim bubble carries the held narration itself.
+    let interim = events.iter().find(|(e, _)| e == "chat_interim").unwrap();
+    assert_eq!(
+        interim.1.as_deref(),
+        Some("Let me check the release notes for you first.")
+    );
+}

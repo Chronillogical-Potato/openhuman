@@ -149,6 +149,12 @@ pub struct ChatRequestMetadata {
     /// is resolved — used purely for trace attribution (Langfuse `agent.id` /
     /// `agent.turn:<id>` trace name), never for routing.
     pub agent_id: Option<String>,
+    /// Do not stream the orchestrator's answer text (`text_delta`) to the
+    /// client; the reply arrives whole in `chat_done`. Set for threads whose
+    /// final reply is post-processed (TinyMemes treatment arm), so the user
+    /// never sees the original stream in and then get replaced. Interim
+    /// narration before tool calls is still flushed as `chat_interim`.
+    pub hold_text_stream: bool,
 }
 
 #[derive(Debug, Deserialize)]

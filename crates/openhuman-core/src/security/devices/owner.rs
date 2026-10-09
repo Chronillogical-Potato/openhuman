@@ -38,39 +38,75 @@ fn cached(channel_id: &str) -> Option<Option<String>> {
         .cloned()
 }
 
-/// The agent `channel_id` belongs to, resolved as described above. A channel
-/// no scope knows yet (a handshake still in flight) is `local`.
-pub(super) async fn owner_of(channel_id: &str, pending: Option<&PairingSession>) -> Option<String> {
+/// A scope's device lookup failed, and no other scope has the device, so its
+/// owner is unknown. The frame is dropped rather than handled as `local`:
+/// guessing could run a paired device's RPCs as the wrong agent.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct OwnerLookupFailed {
+    /// The scope whose lookup failed (`None` = `local`) and why.
+    pub(super) agent: Option<String>,
+    pub(super) error: String,
+}
+
+/// The agent `channel_id` belongs to, resolved as described above: `None`
+/// for `local`, which is also where a channel no scope knows yet (a handshake
+/// still in flight) is handled.
+///
+/// # Errors
+///
+/// [`OwnerLookupFailed`] when no scope has the device and at least one
+/// scope's lookup failed.
+pub(super) async fn owner_of(
+    channel_id: &str,
+    pending: Option<&PairingSession>,
+) -> Result<Option<String>, OwnerLookupFailed> {
     if let Some(session) = pending {
-        return session.agent.clone();
+        return Ok(session.agent.clone());
     }
     if let Some(owner) = cached(channel_id) {
-        return owner;
+        return Ok(owner);
     }
     // The configuration is loaded inside each scope: in SaaS mode loading it
     // needs an acting agent, which this tunnel task does not have.
-    let found = crate::storage::agents::for_each_scope("device owner", || async {
-        let Ok(config) = crate::config::rpc::load_config_with_timeout().await else {
-            return false;
-        };
+    let lookups = crate::storage::agents::for_each_scope("device owner", || async {
+        let config = crate::config::rpc::load_config_with_timeout()
+            .await
+            .map_err(|error| format!("load config: {error}"))?;
         super::store::get_device(&config, channel_id)
-            .ok()
-            .flatten()
-            .is_some()
+            .map(|device| device.is_some())
+            .map_err(|error| error.to_string())
     })
-    .await
-    .into_iter()
-    .find_map(|(agent, has_device)| has_device.then_some(agent));
-    match found {
-        Some(owner) => {
-            log::debug!(
-                "[devices/owner] channel_id={channel_id} belongs to agent={}",
-                owner.as_deref().unwrap_or("local")
-            );
-            remember(channel_id, owner.clone());
-            owner
+    .await;
+    let owner = decide(lookups)?;
+    if let Some(owner) = &owner {
+        log::debug!(
+            "[devices/owner] channel_id={channel_id} belongs to agent={}",
+            owner.as_deref().unwrap_or("local")
+        );
+        remember(channel_id, owner.clone());
+    }
+    Ok(owner.flatten())
+}
+
+/// The owner from each scope's lookup: the first scope that has the device
+/// (`Some(Some(agent))` / `Some(None)` for `local`); `None` when none has it
+/// and every lookup succeeded; an error when none has it and one failed.
+fn decide(
+    lookups: Vec<(Option<String>, Result<bool, String>)>,
+) -> Result<Option<Option<String>>, OwnerLookupFailed> {
+    let mut failure = None;
+    for (agent, lookup) in lookups {
+        match lookup {
+            Ok(true) => return Ok(Some(agent)),
+            Ok(false) => {}
+            Err(error) => {
+                failure.get_or_insert(OwnerLookupFailed { agent, error });
+            }
         }
-        None => None,
+    }
+    match failure {
+        Some(failure) => Err(failure),
+        None => Ok(None),
     }
 }
 

@@ -81,6 +81,7 @@ fn approval(thread_id: Option<&str>, client_id: Option<&str>) -> DomainEvent {
         client_id: client_id.map(str::to_string),
         tool_call_id: None,
         expires_at: None,
+        agent_id: None,
     }
 }
 

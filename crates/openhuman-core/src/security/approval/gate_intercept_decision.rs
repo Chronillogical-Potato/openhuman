@@ -65,6 +65,7 @@ impl ApprovalGate {
                         client_id: route.as_ref().and_then(|r| r.client_id.clone()),
                         tool_call_id: route.and_then(|r| r.tool_call_id),
                         resolution: Some("cancelled".to_string()),
+                        agent_id: row.agent_id.clone(),
                     });
                 }
                 (
@@ -164,6 +165,7 @@ impl ApprovalGate {
                             client_id: route.as_ref().and_then(|r| r.client_id.clone()),
                             tool_call_id: route.and_then(|r| r.tool_call_id),
                             resolution: Some("expired".to_string()),
+                        agent_id: row.agent_id.clone(),
                         });
                     }
                     (

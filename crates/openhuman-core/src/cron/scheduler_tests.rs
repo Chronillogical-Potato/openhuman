@@ -101,10 +101,14 @@ fn next_user_error(
 
 #[path = "scheduler_classifier_and_delivery_tests.rs"]
 mod classifier_and_delivery_tests;
+#[path = "scheduler_dispatch_tests.rs"]
+mod dispatch_tests;
 #[path = "scheduler_frequency_tests.rs"]
 mod frequency_tests;
 #[path = "scheduler_halt_and_persist_tests.rs"]
 mod halt_and_persist_tests;
+#[path = "scheduler_host_agent_tests.rs"]
+mod host_agent_tests;
 #[path = "scheduler_transcript_isolation_tests.rs"]
 mod transcript_isolation_tests;
 
@@ -315,23 +319,17 @@ async fn a_pipeline_reports_its_last_stage_rather_than_pipefail() {
 }
 
 #[tokio::test]
-async fn an_agent_pass_polls_with_its_own_config_and_reports_health() {
-    let tmp = TempDir::new().unwrap();
-    let config = test_config(&tmp).await;
-    let mut health = None;
-    tick_agent_scope(&config, &mut health).await;
-    assert_eq!(health, Some(true), "a successful poll reports healthy");
-}
-
-#[tokio::test]
-async fn tick_agents_without_a_backend_leaves_the_health_tracker_alone() {
-    // The lib test binary installs no storage backend, so no agent is visited.
+async fn without_a_backend_an_agent_needs_its_own_job_database() {
+    // The lib test binary installs no storage backend into the process slot.
     if crate::storage::installed().is_some() {
         return;
     }
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp).await;
-    let mut health = Some(false);
-    tick_agents(&config, &mut health).await;
-    assert_eq!(health, Some(false));
+    let db = crate::cron::store::db_path(&config);
+    let _ = std::fs::remove_file(&db);
+    assert!(!agent_jobs_may_exist(&config));
+    std::fs::create_dir_all(db.parent().unwrap()).unwrap();
+    std::fs::write(&db, b"").unwrap();
+    assert!(agent_jobs_may_exist(&config));
 }

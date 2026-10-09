@@ -22,8 +22,8 @@ mod store_documents;
 pub mod types;
 
 pub use gate::{
-    parse_approval_reply, ApprovalChatContext, ApprovalGate, FlowRunContext, APPROVAL_CHAT_CONTEXT,
-    APPROVAL_COPILOT_STREAM_CONTEXT, APPROVAL_FLOW_RUN_CONTEXT,
+    parse_approval_reply, ApprovalChatContext, ApprovalError, ApprovalGate, FlowRunContext,
+    APPROVAL_CHAT_CONTEXT, APPROVAL_COPILOT_STREAM_CONTEXT, APPROVAL_FLOW_RUN_CONTEXT,
 };
 pub use redact::{redact_args, summarize_action};
 pub use schemas::all_controller_schemas as all_approval_controller_schemas;

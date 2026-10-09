@@ -99,10 +99,13 @@ mod agent;
 pub mod artifacts;
 mod auth;
 mod call;
+#[cfg(feature = "channels")]
+pub mod channels;
 pub mod chat_surface;
 pub mod complete;
 pub mod config;
 mod core_agent;
+pub mod cron;
 pub mod embeddings;
 mod error;
 mod harness;
@@ -132,22 +135,31 @@ pub use openhuman_core::voice::VOICE_COMPILED_IN;
 
 pub use agent::ToolAttachmentError;
 pub use agent::{
-    Agent, AgentDefinitionSpec, AgentError, AgentLayout, AgentSpec, MemoryBinding, SandboxModeSpec,
-    ToolScopeSpec,
+    Agent, AgentDefinitionSpec, AgentError, AgentLayout, AgentSpec, ApprovalDecision, Approvals,
+    ApprovalsError, MemoryBinding, PendingApproval, SandboxModeSpec, ToolScopeSpec,
 };
 pub use auth::{Auth, AuthState, Session};
+#[cfg(feature = "channels")]
+pub use channels::{ChannelError, ChannelListener, Channels, StreamMode, TelegramChannelSpec};
 pub use config::{Config, RuntimeFlags};
 pub use core_agent::CoreAgent;
+pub use cron::{
+    Cron, CronError, JobRun, JobRunRecord, JobSchedule, JobSpec, JobTarget, ScheduledJob,
+    SystemJobContext,
+};
 pub use error::CoreError;
 pub use harness::{
     Access, Harness, HarnessBuilder, HarnessCore, HarnessError, Provider, Workspace,
 };
 #[cfg(feature = "mcp")]
 pub use harness::{HttpHeader, McpAuthConfig, McpServer};
+pub use runtime::builder::DEFAULT_MAX_AGENTS;
 /// Read-only view of a [`RuntimeBuilder`], for the layered crates' tests.
 #[doc(hidden)]
 pub use runtime::BuilderSummary;
-pub use runtime::{run_from_args, ApiKey, ConfigSource, Runtime, RuntimeBuilder, RuntimeError};
+pub use runtime::{
+    run_from_args, ApiKey, ConfigSource, RemoveAgent, Runtime, RuntimeBuilder, RuntimeError,
+};
 
 /// The types the [`RuntimeBuilder`] seam options take: controller
 /// extensions, embedder hooks, the CLI server launcher and the live security

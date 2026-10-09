@@ -268,6 +268,105 @@ println!("{}", outcome.reply);
 `.seed(history)` replaces a session's history for one turn with your own `(role, content)` rows instead of reading the transcript. Only a runtime-owned `Agent` can honor it. It silently discards whatever the session held, so pair it with a session id that no other turn shares. `.meter(f)`
 reports what a turn spent, including a turn that ran and then failed.
 
+## Scheduling
+
+OpenHuman's own cron can drive scheduled turns of a runtime's agents, with
+their host tools, and run host code on a schedule. `runtime.cron()` is a typed
+facade over the runtime's job store; jobs are named and `upsert` is idempotent
+by that name, so a host can declare its schedule on every start:
+
+```rust,no_run
+# async fn demo(runtime: &openhuman_embed::Runtime) -> Result<(), Box<dyn std::error::Error>> {
+use openhuman_embed::{JobSchedule, JobSpec};
+
+let cron = runtime.cron();
+// One turn of the runtime agent `teeny` every morning.
+cron.upsert(
+    JobSpec::agent("morning", "teeny", "Plan the day.", JobSchedule::Cron {
+        expr: "0 8 * * *".into(),
+        tz: Some("Europe/Berlin".into()),
+    })
+    .retries(0)          // exactly one attempt: the turn has side effects
+    .single_flight(true) // skip (and record) a slot that comes due mid-run
+)?;
+// Host code on a schedule; its result is the run's recorded result.
+runtime.on_system_job("digest", |_ctx| async { Ok(()) })?;
+cron.upsert(JobSpec::system("digest", "digest", JobSchedule::Every { ms: 15 * 60_000 }))?;
+
+let run = cron.run_now("morning").await?;   // same path as a scheduled run
+println!("{} {}", run.success, run.output);
+# Ok(()) }
+```
+
+- **Jobs fire only while the scheduler runs.** Build the runtime with
+  `.services(ServiceSet { cron: true, ..ServiceSet::none() })`; `build()` then
+  starts the selected services and dropping the runtime (and its agents) stops
+  them. `Runtime::start_services` / `stop_services` give explicit control.
+  Without the scheduler, jobs are stored and `run_now` still works.
+- **An agent job runs as the agent.** When `agent_id` names an agent alive on
+  the runtime, the turn uses its definition and system prompt, its
+  `AgentSpec::tools` and attached tools, its provider and its own context
+  (`agent::host_agents` resolves it for the core's cron and workflow drivers).
+  Any other id resolves through the core's agent registries. The turn's origin
+  is `TrustedAutomation { Cron }`, not the agent's own access origin. Agent jobs
+  may not run more often than every five minutes.
+- **A system job runs the host's handler.** `on_system_job(name, handler)`
+  registers an async `Fn(SystemJobContext) -> Result<(), String>`; when the job
+  comes due the scheduler still publishes `CronSystemJobDue` on the bus, then
+  awaits the handler and records `ok` or `error` with its message.
+- **Retries and overlap.** A failed run is retried `retries` times with
+  backoff; unset keeps `reliability.scheduler_retries` (2), and `0` is one
+  attempt. Two runs of one job never overlap: each due job is dispatched on
+  its own task, so a long job no longer holds up the others, `run_now` is
+  refused while a run is active, and a slot that comes due mid-run is skipped.
+  With `single_flight` that skip is recorded as a `skipped` run.
+- `cron.list()`, `cron.remove(name)` and `cron.runs(name, limit)` cover the
+  rest. Shell jobs and workflow schedule triggers are not managed here.
+
+## Channels
+
+A runtime agent can answer a messaging channel. `runtime.channels()` starts a
+channel listener bound to one agent, so every message on it is a turn of that
+agent rather than of the orchestrator:
+
+```rust,no_run
+# async fn demo(runtime: &openhuman_embed::Runtime) -> Result<(), Box<dyn std::error::Error>> {
+use openhuman_embed::{AgentSpec, TelegramChannelSpec};
+
+let agent = runtime.agent(AgentSpec::new("teeny-chat").system_prompt("You are Teeny."))?;
+let telegram = runtime.channels().telegram(
+    TelegramChannelSpec::new("123456:bot-token", "teeny-chat")
+        .allow_everyone()    // or .allowed_users(["alice", "4242"])
+        .mention_only(true), // in groups, answer only when mentioned
+)?;
+// The bot answers until the listener is stopped or dropped.
+# let _ = (agent, telegram);
+# Ok(()) }
+```
+
+- **The agent answers as itself.** Each message runs with the agent's system
+  prompt, tool scope, `AgentSpec::tools` belt and attachments, provider and
+  context. History is per chat, kept by the channel the same way it is for the
+  orchestrator. Typing indicators, streamed drafts and the reply work as for
+  any channel. Call `telegram()` from inside the tokio runtime; it spawns the
+  listener there.
+- **Bind to an agent that exists.** `telegram()` refuses an id with no live
+  agent on the runtime (`ChannelError::UnknownAgent`). If the agent is dropped
+  while the bot is running, each message gets a short "not available" reply and
+  an error is logged. The message is never handed to the orchestrator.
+- **Turns are untrusted and read-only.** Anyone who can message the bot writes
+  the turn's text, so it runs as `AgentTurnOrigin::ExternalChannel` and is
+  capped at `PermissionLevel::ReadOnly`. A tool that writes, executes or has an
+  external effect is withheld from the turn's tool list or refused at once with
+  a tool error. It never waits on an approval, because the only person who
+  could answer one is the sender. Give a public agent read-only host tools, and
+  do anything with side effects outside the chat turn (a cron job, host code).
+- **Under the hood** this is the core's channel runtime for that one bot,
+  started under the runtime's context with
+  `agent.channel_agents = { telegram = "<agent id>" }`. A core started from a
+  config file can bind a channel the same way: any channel name works as the
+  key, and the agent is resolved through `agent::host_agents`.
+
 ## Harness: the one-agent shorthand
 
 `Harness` is a `Runtime` plus exactly one agent, built from one set of

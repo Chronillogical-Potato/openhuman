@@ -9,11 +9,14 @@ readme = "README.md"
 publish = false
 
 [features]
-default = ["openhuman-core/default"]
+# `channels` is in core's default set already; enabling it here too compiles
+# the `Runtime::channels` facade in a default build.
+default = ["openhuman-core/default", "channels"]
 http-server = ["openhuman-core/http-server"]
 inference = ["openhuman-core/inference"]
 documents = ["openhuman-core/documents"]
 hosting = ["openhuman-core/hosting"]
+tinymemes = ["openhuman-core/tinymemes"]
 modules = ["openhuman-core/modules"]
 voice = ["openhuman-core/voice"]
 web3 = ["openhuman-core/web3"]
@@ -41,6 +44,8 @@ e2e-test-support = ["openhuman-core/e2e-test-support"]
 async-trait = "0.1"
 openhuman-core = { path = "../openhuman-core", package = "openhuman", default-features = false }
 anyhow = "1"
+# `JobSchedule::At` converts to and from the core's `chrono` instants.
+chrono = "0.4"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

@@ -618,6 +618,7 @@ impl EventHandler<DomainEvent> for ApprovalSurfaceSubscriber {
                 client_id,
                 tool_call_id,
                 expires_at,
+                agent_id: _,
             } => match (thread_id, client_id) {
                 (Some(thread_id), Some(client_id)) => {
                     log::info!(
@@ -650,6 +651,7 @@ impl EventHandler<DomainEvent> for ApprovalSurfaceSubscriber {
                 client_id,
                 tool_call_id,
                 resolution,
+                agent_id: _,
             } => match (thread_id, client_id) {
                 (Some(thread_id), Some(client_id)) => {
                     log::info!(

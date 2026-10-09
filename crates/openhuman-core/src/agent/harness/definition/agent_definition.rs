@@ -233,6 +233,12 @@ pub struct AgentDefinition {
     #[serde(default)]
     pub agent_tier: AgentTier,
 
+    /// Whether this agent's turns can search and call the tools of every
+    /// connected MCP server (deferred, through `tool_search`). Set for the
+    /// user-facing orchestrator; specialists reach MCP only through it.
+    #[serde(default)]
+    pub searches_connected_mcp: bool,
+
     // ── source bookkeeping ──────────────────────────────────────────────
     /// Tracks where the definition was loaded from (Builtin vs. File).
     #[serde(skip)]

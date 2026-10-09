@@ -160,6 +160,12 @@ pub(crate) async fn run_chat_task(
     // can attribute the run (`agent.id` attr / `agent.turn:<id>` trace name).
     let mut bridge_metadata = metadata.clone();
     bridge_metadata.agent_id = Some(current_fp.target_agent_id.clone());
+    // A TinyMemes treatment thread surfaces only the remixed reply, so the
+    // original answer text is not streamed ahead of it.
+    #[cfg(feature = "tinymemes")]
+    {
+        bridge_metadata.hold_text_stream = crate::tinymemes::holds_text_stream(thread_id);
+    }
     let bridge = spawn_progress_bridge(
         progress_rx,
         client_id.to_string(),
@@ -174,6 +180,8 @@ pub(crate) async fn run_chat_task(
     // wrappers below hold a pointer rather than inlining the whole future into
     // this already-large `run_chat_task` frame (which otherwise overflows the
     // default test-thread stack — see the channels web-turn coverage tests).
+    #[cfg(feature = "tinymemes")]
+    let turn_started = std::time::Instant::now();
     let turn = Box::pin(agent.run_single_with_origin(message, Some(origin)));
     let mut result = match turn.await {
         Ok(response) => {
@@ -247,6 +255,10 @@ pub(crate) async fn run_chat_task(
             }
         }
     };
+    // The agent turn's own duration for the TinyMemes A/B log, taken before
+    // reply speech so synthesis time is not counted as turn time.
+    #[cfg(feature = "tinymemes")]
+    let turn_elapsed = turn_started.elapsed();
 
     if let Ok(ref task_result) = result {
         let speak_reply = matches!(metadata.speak_reply, Some(true));
@@ -286,6 +298,23 @@ pub(crate) async fn run_chat_task(
                 );
             }
         }
+    }
+
+    // TinyMemes: remix the final reply (slang + memes) when the flag puts this
+    // thread in the treatment arm. Runs after reply speech so TTS reads the
+    // original wording, and skips the budget-exhausted placeholder. Fails open.
+    #[cfg(feature = "tinymemes")]
+    if let Ok(ref mut task_result) = result {
+        crate::tinymemes::remix_task_reply(
+            &config,
+            thread_id,
+            request_id,
+            message,
+            &mut task_result.full_response,
+            inference_budget_exceeded_user_message(),
+            turn_elapsed,
+        )
+        .await;
     }
 
     agent.set_on_progress(None);

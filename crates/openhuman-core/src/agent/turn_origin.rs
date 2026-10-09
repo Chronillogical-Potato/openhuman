@@ -281,8 +281,8 @@ pub async fn with_inherited_origin<F: std::future::Future>(
     }
 }
 
-/// Carry the origin scoped **right now** into a future that will run on
-/// another task.
+/// Carry the origin and the [`CoreContext`](crate::core::runtime::CoreContext)
+/// scoped **right now** into a future that will run on another task.
 ///
 /// A `tokio::task_local` does not cross `tokio::spawn`: a detached sub-agent
 /// (`spawn_async_subagent`, the orchestration `spawn_agent` task) starts on a
@@ -309,10 +309,17 @@ pub async fn with_inherited_origin<F: std::future::Future>(
 /// cannot manufacture trust that did not exist on the spawning task.
 pub fn propagate<F: std::future::Future>(fut: F) -> impl std::future::Future<Output = F::Output> {
     let captured = current();
+    let context = crate::core::runtime::CoreContext::scoped();
     async move {
-        match captured {
-            Some(origin) => with_origin(origin, fut).await,
-            None => fut.await,
+        let run = async move {
+            match captured {
+                Some(origin) => with_origin(origin, fut).await,
+                None => fut.await,
+            }
+        };
+        match context {
+            Some(context) => crate::core::runtime::CoreContext::scope(context, run).await,
+            None => run.await,
         }
     }
 }
