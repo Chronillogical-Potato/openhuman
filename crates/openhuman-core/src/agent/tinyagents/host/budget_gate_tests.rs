@@ -187,8 +187,19 @@ fn ledger_with(spent_usd: f64, agent: &str) -> (tempfile::TempDir, cost::CostTra
     (tmp, tracker)
 }
 
+/// A config whose `config.toml` does not exist, so the gate keeps the
+/// in-memory budgets instead of reading the developer's real file.
+fn config_without_file() -> Config {
+    Config {
+        config_path: std::env::temp_dir()
+            .join(format!("oh-budget-gate-{}", uuid::Uuid::new_v4()))
+            .join("config.toml"),
+        ..Config::default()
+    }
+}
+
 fn budgeted_gate(action: crate::config::BudgetAction) -> OpenHumanBudgetGate {
-    let mut config = Config::default();
+    let mut config = config_without_file();
     config.cost.budgets = vec![crate::config::BudgetPolicy {
         name: Some("planner cap".into()),
         scope: crate::config::BudgetScope::Agent,
@@ -286,7 +297,7 @@ fn a_missing_config_file_keeps_the_session_budgets() {
 #[test]
 fn a_call_is_checked_against_its_own_model() {
     let (_tmp, tracker) = ledger_with(2.0, "planner");
-    let mut config = Config::default();
+    let mut config = config_without_file();
     config.cost.budgets = vec![crate::config::BudgetPolicy {
         name: Some("model cap".into()),
         scope: crate::config::BudgetScope::Model,
