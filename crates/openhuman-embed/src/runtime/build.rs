@@ -295,6 +295,7 @@ fn store_api_key(config: &Config, key: &ApiKey) -> Result<(), RuntimeError> {
         config.secrets.encrypt,
         key.expose(),
     )
+    .map(|_| ())
     .map_err(RuntimeError::Build)
 }
 

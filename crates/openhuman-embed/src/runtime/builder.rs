@@ -28,7 +28,10 @@ use crate::Session;
 
 // Re-exported for the sibling test module and older call sites that reached
 // the default triples through this module.
-pub(crate) use super::build::{apply_provider, effective_host_kind};
+pub(crate) use super::build::apply_provider;
+#[cfg(test)]
+pub(crate) use super::build::effective_host_kind;
+#[cfg(test)]
 pub(crate) use super::presets::{default_domains, default_services};
 #[cfg(test)]
 pub(crate) use super::{RuntimeError, RUNTIME_LIVE};
