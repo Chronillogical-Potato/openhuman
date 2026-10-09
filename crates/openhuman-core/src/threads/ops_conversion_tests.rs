@@ -344,7 +344,7 @@ async fn thread_delete_removes_persisted_turn_state_snapshot() {
 
     let snapshot = TurnState::started(thread_id, "req-1", 4, "2026-01-01T00:00:00Z");
     tinyagents_session::turn_state::store::put(dir.clone(), &snapshot).expect("put snapshot");
-    assert!(tinyagents_session::turn_state::store::get(dir, thread_id)
+    assert!(tinyagents_session::turn_state::store::get(dir.clone(), thread_id)
         .unwrap()
         .is_some());
 
