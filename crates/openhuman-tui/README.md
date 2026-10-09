@@ -138,7 +138,7 @@ history, `Ctrl+R` searches it, `Ctrl+W` deletes a word, `Esc` cancels a
 running turn, and `Ctrl+C` / `Ctrl+D` quit.
 
 Slash commands (the full list with descriptions is `COMMANDS` in
-`src/composer.rs`): `/help`, `/new`, `/resume`, `/rename`, `/delete`,
+[`src/composer.rs`](src/composer.rs)): `/help`, `/new`, `/resume`, `/rename`, `/delete`,
 `/model`, `/permissions`, `/status`, `/usage`, `/agents`, `/skills`, `/mcp`,
 `/artifacts`, `/approvals`, `/diff`, `/review`, `/copy`, `/export`, `/clear`,
 `/logs`, `/config`, `/settings`, `/logout`, `/quit`. `/diff` runs `git` in the
@@ -148,30 +148,30 @@ agent's action directory and fails cleanly when that is not a repository.
 
 | File | What it does |
 | --- | --- |
-| `src/main.rs` | Binary entry: crash reporting, then `run_from_cli`. |
-| `src/lib.rs` | Module declarations and the public surface. |
-| `src/runner.rs` | `run_from_cli`: flags, logging, runtime, core boot, thread resolution. |
-| `src/app.rs` | The `tokio::select!` event loop, key handling, slash commands, overlays, sending and cancelling turns, the file picker and Git diff. |
-| `src/state.rs` | `TranscriptState`, the pure reducer that folds `WebChannelEvent`s into transcript entries. No terminal or I/O dependencies. |
-| `src/ui_state.rs` | `UiState`: active tab, composer, scroll, overlays, Config items and Settings actions. Pure data. |
-| `src/render.rs` | `draw`, a pure view over `TranscriptState` and `UiState`. The Logs tab reads `core::logging::tui_log_lines`. |
-| `src/composer.rs` | The multiline composer: editing, history, command completion, and the `COMMANDS` table. |
-| `src/cockpit.rs` | Overlay types (`OverlayKind`, `Overlay`, `OverlayRow`), pending approval and plan-review records, and JSON helpers; re-exports `openhuman_rpc::unwrap_rpc`. |
-| `src/controls.rs` | Config tab edits (API URL, inference URL, default model, autonomy level, privacy mode) and Settings actions (view account, log in, log out). |
-| `src/session.rs` | `InProcessLink` and the process-wide `SessionManager`. |
-| `src/terminal.rs` | `TerminalGuard` (raw mode, alternate screen, mouse capture, bracketed paste) and a panic hook that restores the terminal first. |
-| `src/crash_reporting.rs` | `init_crash_reporting`, a no-op without the `crash-reporting` feature. |
-| `tests/cli_e2e.rs` | Spawns the built binary to check `--help` output and that flags are validated before the core boots. |
+| [`src/main.rs`](src/main.rs) | Binary entry: crash reporting, then `run_from_cli`. |
+| [`src/lib.rs`](src/lib.rs) | Module declarations and the public surface. |
+| [`src/runner.rs`](src/runner.rs) | `run_from_cli`: flags, logging, runtime, core boot, thread resolution. |
+| [`src/app.rs`](src/app.rs) | The `tokio::select!` event loop, key handling, slash commands, overlays, sending and cancelling turns, the file picker and Git diff. |
+| [`src/state.rs`](src/state.rs) | `TranscriptState`, the pure reducer that folds `WebChannelEvent`s into transcript entries. No terminal or I/O dependencies. |
+| [`src/ui_state.rs`](src/ui_state.rs) | `UiState`: active tab, composer, scroll, overlays, Config items and Settings actions. Pure data. |
+| [`src/render.rs`](src/render.rs) | `draw`, a pure view over `TranscriptState` and `UiState`. The Logs tab reads `core::logging::tui_log_lines`. |
+| [`src/composer.rs`](src/composer.rs) | The multiline composer: editing, history, command completion, and the `COMMANDS` table. |
+| [`src/cockpit.rs`](src/cockpit.rs) | Overlay types (`OverlayKind`, `Overlay`, `OverlayRow`), pending approval and plan-review records, and JSON helpers; re-exports `openhuman_rpc::unwrap_rpc`. |
+| [`src/controls.rs`](src/controls.rs) | Config tab edits (API URL, inference URL, default model, autonomy level, privacy mode) and Settings actions (view account, log in, log out). |
+| [`src/session.rs`](src/session.rs) | `InProcessLink` and the process-wide `SessionManager`. |
+| [`src/terminal.rs`](src/terminal.rs) | `TerminalGuard` (raw mode, alternate screen, mouse capture, bracketed paste) and a panic hook that restores the terminal first. |
+| [`src/crash_reporting.rs`](src/crash_reporting.rs) | `init_crash_reporting`, a no-op without the `crash-reporting` feature. |
+| [`tests/cli_e2e.rs`](tests/cli_e2e.rs) | Spawns the built binary to check `--help` output and that flags are validated before the core boots. |
 
 ## Key types and entry points
 
-- `run_from_cli(args)` (`src/runner.rs`) is the public entry point.
-- `init_crash_reporting()` (`src/crash_reporting.rs`) returns a
+- `run_from_cli(args)` ([`src/runner.rs`](src/runner.rs)) is the public entry point.
+- `init_crash_reporting()` ([`src/crash_reporting.rs`](src/crash_reporting.rs)) returns a
   `sentry::ClientInitGuard` that must live for the whole process.
-- `TranscriptState`, `Entry`, `EntryKind` (`src/state.rs`) are exported so the
+- `TranscriptState`, `Entry`, `EntryKind` ([`src/state.rs`](src/state.rs)) are exported so the
   reducer can be tested without a terminal. `apply_event` is the single
   transition entry point.
-- `app::run` (`src/app.rs`) owns the loop; `LaunchOptions` carries the initial
+- `app::run` ([`src/app.rs`](src/app.rs)) owns the loop; `LaunchOptions` carries the initial
   prompt, `resume_picker` and `no_alt_screen`.
 
 ## Core methods used
@@ -223,7 +223,7 @@ All calls go through `CoreRuntime::invoke`:
 ## Tests
 
 Unit tests are `*_tests.rs` siblings (`state_tests.rs` needs no terminal).
-`tests/cli_e2e.rs` spawns the built binary.
+[`tests/cli_e2e.rs`](tests/cli_e2e.rs) spawns the built binary.
 
 ```bash
 cargo test -p openhuman-tui
@@ -232,7 +232,16 @@ cargo test -p openhuman-tui
 ## Packaging
 
 `openhuman-tui` ships alongside `openhuman-core` in the CLI tarball
-(`scripts/release/package-cli-tarball.sh`) and the apt packages
-(`scripts/release/build-apt-packages.sh`).
+([`scripts/release/package-cli-tarball.sh`](../../scripts/release/package-cli-tarball.sh)) and the apt packages
+([`scripts/release/build-apt-packages.sh`](../../scripts/release/build-apt-packages.sh)).
 
 [ratatui]: https://ratatui.rs
+
+## Further reading
+
+- [`gitbooks/developing/architecture.md`](../../gitbooks/developing/architecture.md): architecture overview.
+- [`gitbooks/developing/architecture/agent-harness.md`](../../gitbooks/developing/architecture/agent-harness.md): the agent harness.
+- [`gitbooks/developing/embedding.md`](../../gitbooks/developing/embedding.md): embedding the core in another product.
+- [`gitbooks/developing/building-rust-core.md`](../../gitbooks/developing/building-rust-core.md): building the Rust core.
+- [`crates/README.md`](../README.md): crates overview.
+- [`gitbooks/developing/testing-strategy.md`](../../gitbooks/developing/testing-strategy.md): testing strategy.

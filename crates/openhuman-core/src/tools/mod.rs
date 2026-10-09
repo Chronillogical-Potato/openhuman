@@ -4,6 +4,7 @@ pub mod ops;
 pub mod orchestrator_tools;
 pub mod registry;
 pub mod rules;
+pub(crate) mod schema_cache;
 mod schemas;
 pub mod status;
 pub mod timeout;

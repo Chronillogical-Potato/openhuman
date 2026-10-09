@@ -946,7 +946,7 @@ fn subagent_delegation_happy_path() {
 async fn subagent_delegation_happy_path_inner() {
     let _lock = env_lock();
     let fixture_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../scripts/life-scenarios/fixtures/drafts/images/handoff-hero.png");
+        .join("../../tests/fixtures/images/handoff-hero.png");
     let stack = boot_stack().await;
     let image_path = Path::new(&std::env::var("HOME").expect("test HOME"))
         .join("OpenHuman/projects/delegation-vision.png");
@@ -2160,7 +2160,7 @@ fn multi_hop_delegation_chain() {
 async fn multi_hop_delegation_chain_inner() {
     let _lock = env_lock();
     let fixture_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../scripts/life-scenarios/fixtures/drafts/images/handoff-hero.png");
+        .join("../../tests/fixtures/images/handoff-hero.png");
     let stack = boot_stack().await;
     let image_path = Path::new(&std::env::var("HOME").expect("test HOME"))
         .join("OpenHuman/projects/delegation-vision.png");

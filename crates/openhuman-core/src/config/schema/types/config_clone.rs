@@ -92,6 +92,7 @@ impl Clone for Config {
             runtime_pool: self.runtime_pool.clone(),
             tokenjuice: self.tokenjuice.clone(),
             hosting: self.hosting.clone(),
+            storage: self.storage.clone(),
             voice_server: self.voice_server.clone(),
             voice_providers: self.voice_providers.clone(),
             voice_live: self.voice_live.clone(),

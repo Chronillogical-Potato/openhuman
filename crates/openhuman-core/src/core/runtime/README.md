@@ -98,7 +98,7 @@ are compiled out, or whose `DomainGroup` is off, stays absent.
 - `.action_dir(dir)`: sugar over `.config()` for the agent's read/write
   root.
 - `.backend_url(url)`.
-- `.backend_transport(Arc<dyn BackendTransport>)` — bind the transport this
+- `.backend_transport(Arc<dyn BackendTransport>)`: bind the transport this
   core's handlers reach the hosted backend through (`backend::transport`). The
   context carries it and every `derive_with` child inherits it. Optional:
   without it the core resolves the process-global transport
@@ -166,13 +166,33 @@ through `runtime/saas.rs`:
   it never resolves `~/.openhuman` or an `active_user.toml`. The gateway
   bearer is the RPC token.
 
-The SaaS presets are closed. `DomainSet::saas()` enables no domain family, so
-a SaaS core answers only its built-ins (`core.*`, `/health`, `/schema`) until
-each family's per-user isolation lands.
+The SaaS presets are closed. `DomainSet::saas()` registers the operator plane
+(`DomainGroup::Operator`, the `user_agents.*` controllers) and the user
+families whose per-user isolation has landed (threads). `user_agents::surface`
+keeps the two planes apart: the operator scope reaches only the operator
+plane, and a user's scope only the reviewed `USER_METHODS`.
+`saas::build` installs the process's `user_agents::AgentHost`. Each open user
+agent runs under a context derived from the operator's, with its own forced
+config and `session_agent` (see `user_agents/README.md`).
+
+Two guards keep SaaS work from falling back to process-wide state:
+
+- **Config redirect.** In SaaS, `Config::load_or_init()` returns the config the
+  current context carries and fails outside any context
+  (`config/schema/load/saas_scope.rs`). It never resolves
+  `OPENHUMAN_WORKSPACE`, `active_user.toml` or `~/.openhuman`.
+- **Scoped spawns.** `runtime/spawn.rs`'s `spawn_scoped` /
+  `spawn_blocking_scoped` carry the caller's `CoreContext` and memory identity
+  into the spawned task. `scripts/ci/check-saas-ambient.mjs` (`pnpm
+  saas:ambient`) ratchets the bare spawns, direct `load_or_init` calls,
+  environment writes and `home_dir()` lookups that remain.
+
+`DomainSet` lives in `runtime/domain_set.rs` and `DomainGroup` in
+`core/domain_group.rs`. Both are re-exported from their old paths.
 
 ## Shared tokio tuning constants
 
-`runtime/mod.rs` declares two constants every multi-thread runtime that may
+[`runtime/mod.rs`](../../runtime/mod.rs) declares two constants every multi-thread runtime that may
 host an agent turn must set:
 
 - `AGENT_WORKER_STACK_BYTES` (20 MiB): a single agent turn is a very large
@@ -190,3 +210,5 @@ host an agent turn must set:
 
 - [../README.md](../README.md): the rest of `core/`, covering dispatch,
   registry, event bus, transport, and CLI.
+- [Embedding OpenHuman](../../../../../gitbooks/developing/embedding.md)
+- [Deep architecture reference](../../../../../gitbooks/developing/architecture.md)

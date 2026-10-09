@@ -8,9 +8,11 @@
 //! [`boot_guard`](super::boot_guard) finds nothing unsafe.
 //!
 //! The per-user surface lands phase by phase. Until then the presets are
-//! closed: [`DomainSet::saas`] enables no domain family, so a SaaS core
-//! answers only its always-on infrastructure (`core.*`, `/health`, `/schema`)
-//! and refuses every domain method as unknown.
+//! closed: [`DomainSet::saas`] enables only the operator plane
+//! (`user_agents.*`), so a SaaS core answers its always-on infrastructure
+//! (`core.*`, `/health`, `/schema`) and provisioning, and refuses every user
+//! domain method as unknown. [`build`] installs the process's
+//! [`AgentHost`](crate::user_agents::AgentHost).
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -54,6 +56,14 @@ pub struct SaasConfig {
     /// Let users store their own agent definitions.
     #[serde(default)]
     pub custom_definitions: bool,
+    /// Require `X-OpenHuman-User-Sig` on every request made for a user
+    /// (see `user_agents::gateway`).
+    #[serde(default = "default_true")]
+    pub require_user_signature: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn default_max_agents_open() -> usize {
@@ -76,6 +86,7 @@ impl SaasConfig {
             idle_evict_secs: default_idle_evict_secs(),
             shared_backend_api_key: false,
             custom_definitions: false,
+            require_user_signature: true,
         }
     }
 
@@ -128,10 +139,16 @@ impl ServiceSet {
 }
 
 impl DomainSet {
-    /// The domain families a SaaS core serves. None yet: each family opens as
-    /// its per-user isolation lands.
+    /// The domain families a SaaS core registers: the operator plane and the
+    /// user families whose per-user isolation has landed. User agents derive
+    /// their contexts from these; `user_agents::surface` keeps the operator
+    /// scope on its own plane and each user on the user allowlist.
     pub fn saas() -> Self {
-        Self::none()
+        Self {
+            operator: true,
+            threads: true,
+            ..Self::none()
+        }
     }
 }
 
@@ -203,7 +220,12 @@ pub async fn build(
     if let Some(port) = port {
         builder = builder.port(port);
     }
-    builder.build().await
+    let runtime = builder.build().await?;
+    crate::user_agents::host::install(Arc::new(crate::user_agents::AgentHost::new(
+        config,
+        runtime.context().clone(),
+    )));
+    Ok(runtime)
 }
 
 #[cfg(test)]

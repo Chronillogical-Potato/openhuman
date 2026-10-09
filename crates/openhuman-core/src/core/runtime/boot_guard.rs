@@ -321,7 +321,7 @@ fn service_flags(s: &ServiceSet) -> [(&'static str, bool); 12] {
     ]
 }
 
-fn domain_flags(d: &DomainSet) -> [(&'static str, bool); 20] {
+fn domain_flags(d: &DomainSet) -> [(&'static str, bool); 21] {
     [
         ("agent", d.agent),
         ("memory", d.memory),
@@ -343,6 +343,7 @@ fn domain_flags(d: &DomainSet) -> [(&'static str, bool); 20] {
         ("hosted", d.hosted),
         ("modules", d.modules),
         ("platform", d.platform),
+        ("operator", d.operator),
     ]
 }
 

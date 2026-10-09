@@ -105,6 +105,7 @@ impl Default for Config {
             runtime_pool: RuntimePoolConfig::default(),
             tokenjuice: TokenjuiceConfig::default(),
             hosting: HostingConfig::default(),
+            storage: StorageConfig::default(),
             voice_server: VoiceServerConfig::default(),
             voice_providers: Vec::new(),
             voice_live: crate::config::schema::voice_live::LiveVoiceConfig::default(),

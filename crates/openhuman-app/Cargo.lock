@@ -4476,6 +4476,7 @@ dependencies = [
  "futures-util",
  "hex",
  "hkdf",
+ "hmac 0.12.1",
  "hostname",
  "iana-time-zone",
  "keyring",
@@ -4543,6 +4544,7 @@ dependencies = [
  "tinyruntime-pyserver",
  "tinysearch-bus",
  "tinyskills",
+ "tinystoragedrivers",
  "tinytools",
  "tinytools-agent",
  "tinytools-std",
@@ -4636,7 +4638,6 @@ dependencies = [
  "tinymcp-bus",
  "tinymemory-api",
  "tinymemory-tools",
- "tinytools",
  "tokio",
  "url",
  "uuid",
@@ -7360,7 +7361,6 @@ version = "2.1.3"
 dependencies = [
  "async-trait",
  "serde",
- "tinytools",
 ]
 
 [[package]]
@@ -7409,6 +7409,7 @@ dependencies = [
  "tinyinference-image",
  "tinyinference-llm",
  "tinyinference-video",
+ "tinystoragedrivers-core",
  "tinytools",
  "tinytools-agent",
  "tokio",
@@ -7503,6 +7504,7 @@ dependencies = [
  "thiserror 2.0.20",
  "tinyagents-harness",
  "tinyagents-tasks",
+ "tinystoragedrivers-core",
  "tinystoragedrivers-sqlite",
  "tinytools-agent",
  "tokio",
@@ -7811,6 +7813,7 @@ dependencies = [
  "tinyflows",
  "tinyflows-catalog",
  "tinyflows-schedule",
+ "tinystoragedrivers-sqlite",
  "tokio",
  "tracing",
  "uuid",
@@ -8171,6 +8174,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "tinystoragedrivers"
+version = "0.4.0"
+dependencies = [
+ "tinystoragedrivers-core",
+]
+
+[[package]]
 name = "tinystoragedrivers-core"
 version = "0.4.0"
 dependencies = [
@@ -8178,6 +8188,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.20",
+ "tokio",
 ]
 
 [[package]]
