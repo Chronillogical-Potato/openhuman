@@ -4787,7 +4787,6 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "log",
- "openhuman",
  "openhuman-embed",
  "reqwest",
  "sentry",
