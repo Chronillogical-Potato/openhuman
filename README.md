@@ -67,7 +67,7 @@ curl -fsSL https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts
 irm https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/install.ps1 | iex
 ```
 
-Add `--dry-run` (or `-DryRun` on Windows) to see what it would do first. Other options and troubleshooting are in [INSTALL.md](./INSTALL.md).
+To preview what the macOS and Linux script would do, end the command with `bash -s -- --dry-run`. Other options and troubleshooting are in [INSTALL.md](./INSTALL.md).
 
 ---
 
