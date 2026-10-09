@@ -11,7 +11,7 @@
 //! - [`ComposioConnectionCreatedSubscriber`] — handles
 //!   [`DomainEvent::ComposioConnectionCreated`]: waits for the connection to
 //!   become active, refreshes the integrations cache, fetches the account
-//!   profile and starts an initial `composio_sync`.
+//!   profile.
 //! - [`ComposioConfigChangedSubscriber`] — drops and re-warms the
 //!   integrations cache when the Composio mode or API key changes.
 //!

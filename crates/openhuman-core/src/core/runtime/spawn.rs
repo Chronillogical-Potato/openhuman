@@ -27,6 +27,17 @@ where
     tokio::spawn(scoped(fut))
 }
 
+/// The context a spawned task inherits. In SaaS only the caller's own task
+/// scope is carried: an unscoped caller's task gets no context (and so fails
+/// closed) rather than the operator's default one.
+fn captured() -> Option<std::sync::Arc<CoreContext>> {
+    if super::is_saas() {
+        CoreContext::scoped()
+    } else {
+        CoreContext::current()
+    }
+}
+
 /// `fut`, wrapped to run under the caller's context and memory identity
 /// wherever it is eventually polled.
 pub fn scoped<F>(fut: F) -> impl Future<Output = F::Output> + Send
@@ -35,7 +46,13 @@ where
     F::Output: Send,
 {
     let identity = crate::memory::scope::current();
-    let fut = CoreContext::propagate(fut);
+    let ctx = captured();
+    let fut = async move {
+        match ctx {
+            Some(ctx) => CoreContext::scope(ctx, fut).await,
+            None => fut.await,
+        }
+    };
     async move {
         match identity {
             Some(identity) => crate::memory::scope::within(identity, fut).await,
@@ -45,17 +62,26 @@ where
 }
 
 /// Like `tokio::task::spawn_blocking`, but the closure runs under the caller's
-/// [`CoreContext`].
+/// [`CoreContext`] and memory identity.
 pub fn spawn_blocking_scoped<F, R>(f: F) -> JoinHandle<R>
 where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
 {
-    let ctx = CoreContext::current();
+    let ctx = captured();
+    let identity = crate::memory::scope::current();
     let handle = tokio::runtime::Handle::current();
-    tokio::task::spawn_blocking(move || match ctx {
-        Some(ctx) => handle.block_on(CoreContext::scope(ctx, async move { f() })),
-        None => f(),
+    tokio::task::spawn_blocking(move || {
+        let run = async move {
+            match identity {
+                Some(identity) => crate::memory::scope::within(identity, async move { f() }).await,
+                None => f(),
+            }
+        };
+        match ctx {
+            Some(ctx) => handle.block_on(CoreContext::scope(ctx, run)),
+            None => handle.block_on(run),
+        }
     })
 }
 

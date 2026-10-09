@@ -250,6 +250,7 @@ impl MemoryProvider for OpenHumanMemory {
             let page = crate::memory::ops::fetch(
                 &self.config,
                 FetchParams {
+                    refers_to: None,
                     query: query.to_string(),
                     mode: None,
                     filter,
@@ -270,6 +271,7 @@ impl MemoryProvider for OpenHumanMemory {
             let view = crate::memory::ops::recall(
                 &self.config,
                 RecallParams {
+                    refers_to: None,
                     question: query.to_string(),
                     filter,
                     limit: Some(limit),

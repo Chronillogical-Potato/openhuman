@@ -1,10 +1,10 @@
-//! The brain: documents every agent shares, filed by source type.
+//! The brain: documents every agent shares, filed by the connector they came
+//! from.
 //!
-//! TinyMemory's layout keeps documents at `source:<kind>` nodes below the
-//! layout root (`tinymemory_tools::MemoryLayout::brain`), with no agent id.
-//! Synced sources ([`super::sources`]) are filed there by what they read
-//! ([`brain_source`]); a file ingested from the UI by its format
-//! (`tinymemory_integrations::brain::brain_document`). Every ingest queues a
+//! TinyMemory's layout keeps documents at `source:<connector>` nodes below
+//! the layout root (`tinymemory_tools::MemoryLayout::brain`), with no agent
+//! id. Synced sources ([`super::sources`]) are filed there by what they read
+//! ([`brain_source`]); a file ingested from the UI under `files`. Every ingest queues a
 //! belief build of the source's scope (`lifecycle::jobs`).
 //!
 //! The `memory_brain_*` RPCs read and forget per source, under the root of
@@ -12,7 +12,7 @@
 
 use serde::{Deserialize, Serialize};
 use tinymemory_api::{ExploreRequest, Facet, Hit, Namespace, StoreItem, WriteOptions};
-use tinymemory_integrations::documents::{NativeConverter, RawDocument};
+use tinymemory_integrations::documents::RawDocument;
 use tinymemory_tools::{Brain, BrainSource, MemoryLayout};
 
 use crate::config::schema::MemorySourceKind;
@@ -26,48 +26,138 @@ use super::scope;
 /// Largest file `memory_brain_ingest` reads, in bytes.
 pub const MAX_INGEST_BYTES: u64 = 25 * 1024 * 1024;
 
-/// The brain source a synced item belongs to: GitHub repos to `github`,
-/// links and feeds to `web`, a Composio toolkit to its own source
-/// (`notion` is the known one), and local files by their type — PDFs to
-/// `pdf`, HTML to `web`, everything else textual to `markdown`.
+/// The brain source of local files and uploads, of every format.
+// TODO(tinymemory#214): `BrainSource::Files` once the pin carries it; the
+// node (`source:files`) is the same.
 #[must_use]
-pub fn brain_source(kind: MemorySourceKind, target: &str, item: &StoreItem) -> BrainSource {
+pub fn files_source() -> BrainSource {
+    BrainSource::Other("files".to_string())
+}
+
+/// The brain source a synced item belongs to: the connector it came from,
+/// so removing it erases one source. GitHub to `github`, links and feeds to
+/// `web`, and local files, whatever their format, to `files`.
+#[must_use]
+pub fn brain_source(kind: MemorySourceKind) -> BrainSource {
     match kind {
         MemorySourceKind::Github => BrainSource::Github,
         MemorySourceKind::Link | MemorySourceKind::Rss => BrainSource::Web,
-        MemorySourceKind::Composio => target
-            .trim()
-            .to_ascii_lowercase()
-            .parse()
-            .unwrap_or_else(|_| BrainSource::Other("composio".to_string())),
-        MemorySourceKind::Folder | MemorySourceKind::File => {
-            let mime = match item {
-                StoreItem::Document { mime, .. } => mime.as_deref().unwrap_or_default(),
-                _ => "",
-            };
-            let path = item.meta().file_path.as_deref().unwrap_or_default();
-            if mime.contains("pdf") || path.to_ascii_lowercase().ends_with(".pdf") {
-                BrainSource::Pdf
-            } else if mime.contains("html") {
-                BrainSource::Web
-            } else {
-                BrainSource::Markdown
-            }
-        }
+        MemorySourceKind::Folder | MemorySourceKind::File => files_source(),
     }
 }
 
-/// `item` placed in `layout`'s brain under `source`: the source's node, and
-/// no agent id (the brain belongs to every agent).
-pub fn file_into(
+/// Canonical form of a connector slug found on a legacy brain node
+/// (`google_drive` becomes `googledrive`), so documents filed by the removed
+/// Composio sync still migrate to the node they were filed under.
+fn legacy_connector_slug(slug: &str) -> String {
+    let key = slug.trim().to_ascii_lowercase();
+    match key.as_str() {
+        "feishu" | "lark" => "larksuite".to_string(),
+        "google_calendar" => "googlecalendar".to_string(),
+        "google_drive" => "googledrive".to_string(),
+        "google_sheets" => "googlesheets".to_string(),
+        _ => key,
+    }
+}
+
+/// The brain source a document filed under the old per-type layout belongs
+/// to now, for the migration that moves it: `old_source_id` is the id of
+/// the `source:<id>` node it sits at, `item` the document itself.
+///
+/// - Per-format nodes (`pdf`, `markdown`, `docx`, `xlsx`, `pptx`, `code`,
+///   `other`) held local files: `files`.
+/// - `web` held links and feeds, but also HTML files from a folder or an
+///   upload; a document with a file kind or a file path is a file.
+/// - Any other node was a connector: its canonical slug (`google_drive`
+///   becomes `googledrive`), so `notion`, `github` and `gmail` stay put.
+#[must_use]
+pub fn legacy_brain_node(old_source_id: &str, item: &StoreItem) -> BrainSource {
+    let id = legacy_connector_slug(old_source_id);
+    match id.as_str() {
+        "files" | "pdf" | "markdown" | "md" | "docx" | "xlsx" | "pptx" | "code" | "other" => {
+            files_source()
+        }
+        "web" => {
+            let meta = item.meta();
+            let file = matches!(
+                meta.source.kind,
+                tinymemory_api::SourceKind::File | tinymemory_api::SourceKind::Folder
+            ) || meta.file_path.is_some();
+            if file {
+                files_source()
+            } else {
+                BrainSource::Web
+            }
+        }
+        _ => id.parse().unwrap_or_else(|_| files_source()),
+    }
+}
+
+/// The repository a GitHub document belongs to, as the collection id
+/// `<owner>--<repo>` (lowercase, as GitHub's names are case-insensitive):
+/// from its `repo` (`owner/name` or a URL), else its URL. An owner name
+/// never holds `--` nor ends in `-`, so the first `--` always splits the
+/// two and no two repositories share an id (`foo-bar/repo` and
+/// `foo/bar-repo` stay apart).
+#[must_use]
+pub fn github_collection(item: &StoreItem) -> Option<String> {
+    let meta = item.meta();
+    [meta.repo.as_deref(), meta.url.as_deref()]
+        .into_iter()
+        .flatten()
+        .find_map(|raw| {
+            let path = raw
+                .trim()
+                .trim_start_matches("https://")
+                .trim_start_matches("http://")
+                .trim_start_matches("www.")
+                .trim_start_matches("github.com/");
+            // A URL's query or fragment is not part of the path.
+            let path = path.split(['?', '#']).next().unwrap_or_default();
+            let mut parts = path.split('/').filter(|part| !part.is_empty());
+            let (owner, repo) = (parts.next()?, parts.next()?);
+            let repo = repo.trim_end_matches(".git");
+            (!owner.contains('.') && !repo.is_empty())
+                .then(|| format!("{owner}--{repo}").to_ascii_lowercase())
+        })
+}
+
+/// The node `item` of `source` is filed at: the source's node, or, for
+/// GitHub with `[memory] split_github_by_repo` on, its repository's
+/// collection below it.
+pub fn brain_node(
+    config: &Config,
     layout: &MemoryLayout,
     source: &BrainSource,
-    mut item: StoreItem,
-) -> MemoryResult<StoreItem> {
+    item: &StoreItem,
+) -> MemoryResult<Namespace> {
+    brain_node_with(config.memory.split_github_by_repo, layout, source, item)
+}
+
+/// [`brain_node`] with `[memory] split_github_by_repo` given, for a caller
+/// that holds the setting rather than the config (the layout migration).
+pub fn brain_node_with(
+    split_github_by_repo: bool,
+    layout: &MemoryLayout,
+    source: &BrainSource,
+    item: &StoreItem,
+) -> MemoryResult<Namespace> {
+    if split_github_by_repo && *source == BrainSource::Github {
+        if let Some(repo) = github_collection(item) {
+            return Ok(layout.brain_collection(source, &repo)?);
+        }
+    }
+    Ok(layout.brain(source)?)
+}
+
+/// `item` placed in the brain at `node`, with no agent id (the brain
+/// belongs to every agent).
+#[must_use]
+pub fn file_into(node: Namespace, mut item: StoreItem) -> StoreItem {
     let meta = item.meta_mut();
-    meta.namespace = layout.brain(source)?;
+    meta.namespace = node;
     meta.agent_id = None;
-    Ok(item)
+    item
 }
 
 /// The layout the brain RPCs act on: the in-scope identity's.
@@ -118,24 +208,25 @@ pub async fn sources(config: &Config) -> MemoryResult<BrainSourcesView> {
             scan_limit: 20_000,
         })
         .await?;
-    let prefix = |source: &str| -> Option<String> {
-        let node: Namespace = source.parse().ok()?;
-        let last = node.segments().last()?.clone();
-        let parent_matches = node.depth() == layout.root().depth() + 1;
-        (parent_matches && last.kind() == tinymemory_api::SegmentKind::Source)
-            .then(|| last.id().to_string())
+    // A source's collections (`source:github/project:…`) count as the
+    // source's own documents.
+    let source_of = |node: &str| -> Option<String> {
+        let node: Namespace = node.parse().ok()?;
+        let segment = node.segments().get(layout.root().depth())?;
+        (segment.kind() == tinymemory_api::SegmentKind::Source).then(|| segment.id().to_string())
     };
-    let mut sources = Vec::new();
+    let mut counts = std::collections::BTreeMap::<String, u64>::new();
     let mut unfiled = 0;
     for bucket in page.buckets {
-        match prefix(&bucket.value) {
-            Some(source) => sources.push(BrainSourceCount {
-                source,
-                documents: bucket.count,
-            }),
+        match source_of(&bucket.value) {
+            Some(source) => *counts.entry(source).or_default() += bucket.count,
             None => unfiled += bucket.count,
         }
     }
+    let mut sources: Vec<BrainSourceCount> = counts
+        .into_iter()
+        .map(|(source, documents)| BrainSourceCount { source, documents })
+        .collect();
     sources.sort_by(|a, b| b.documents.cmp(&a.documents).then(a.source.cmp(&b.source)));
     Ok(BrainSourcesView {
         root: layout.root().to_string(),
@@ -186,8 +277,7 @@ pub struct BrainIngestParams {
     /// Text to file directly.
     #[serde(default)]
     pub text: Option<String>,
-    /// The source to file under; unset picks it from the file's format
-    /// (`markdown` for text).
+    /// The source to file under; unset files it under `files`.
     #[serde(default)]
     pub source: Option<String>,
     /// A title.
@@ -206,13 +296,35 @@ pub struct BrainIngestView {
     pub replayed: bool,
 }
 
+/// Resolves an ingest `path` through the security policy, the same check
+/// the file tools make ([`SecurityPolicy::validate_path`]): no null bytes or
+/// `..` traversal, the credential-store and system-root floor
+/// (`is_always_forbidden`: `~/.ssh`, `~/.aws`, `/etc`, ...) on the resolved
+/// path (so a symlink cannot reach one either), and, with `[autonomy]`
+/// enabled, workspace and trusted-root containment. A relative path lands in
+/// `action_dir`.
+///
+/// [`SecurityPolicy::validate_path`]: crate::security::SecurityPolicy::validate_path
+async fn ingest_path(config: &Config, path: &str) -> MemoryResult<std::path::PathBuf> {
+    let policy = crate::security::SecurityPolicy::from_config(
+        &config.autonomy,
+        &config.workspace_dir,
+        &config.action_dir,
+    );
+    policy.validate_path(path.trim()).await.map_err(|error| {
+        tracing::warn!("[memory:brain] ingest path refused by the security policy");
+        MemoryError::invalid(format!("cannot read the file: {error}"))
+    })
+}
+
 /// `memory_brain_ingest`: files a document in the brain and queues its
 /// source's belief build. The write waits only for the engine to accept it.
 pub async fn ingest(config: &Config, params: BrainIngestParams) -> MemoryResult<BrainIngestView> {
     let source = params.source.as_deref().map(parse_source).transpose()?;
     let mut document = match (params.path.as_deref(), params.text.as_deref()) {
         (Some(path), None) => {
-            let path = std::path::Path::new(path.trim());
+            let resolved = ingest_path(config, path).await?;
+            let path = resolved.as_path();
             let size = std::fs::metadata(path)
                 .map_err(|error| MemoryError::invalid(format!("cannot read the file: {error}")))?
                 .len();
@@ -230,14 +342,17 @@ pub async fn ingest(config: &Config, params: BrainIngestParams) -> MemoryResult<
             }
             let mut meta = tinymemory_api::MemoryMeta::default();
             meta.file_path = Some(path.display().to_string());
-            tinymemory_integrations::brain::brain_document(&NativeConverter, &raw, source, meta)
-                .await
-                .map_err(|error| {
-                    MemoryError::invalid(format!("cannot convert the file: {error}"))
-                })?
+            tinymemory_integrations::brain::brain_document(
+                super::convert::converter(),
+                &raw,
+                Some(source.unwrap_or_else(files_source)),
+                meta,
+            )
+            .await
+            .map_err(|error| MemoryError::invalid(format!("cannot convert the file: {error}")))?
         }
         (None, Some(text)) => {
-            tinymemory_tools::BrainDocument::new(source.unwrap_or(BrainSource::Markdown), text)
+            tinymemory_tools::BrainDocument::new(source.unwrap_or_else(files_source), text)
         }
         _ => return Err(MemoryError::invalid("pass exactly one of `path` or `text`")),
     };
@@ -248,7 +363,12 @@ pub async fn ingest(config: &Config, params: BrainIngestParams) -> MemoryResult<
     let ingested = brain(config)?
         .ingest_with(document, WriteOptions::accepted())
         .await?;
-    jobs::enqueue(config, layout(config).root(), vec![ingested.job]).await;
+    jobs::enqueue(
+        config,
+        layout(config).root(),
+        ingested.job.into_iter().collect(),
+    )
+    .await;
     tracing::debug!(source = %filed, replayed = ingested.receipt.replayed, "[memory:brain] ingested");
     Ok(BrainIngestView {
         id: ingested.receipt.id.to_string(),

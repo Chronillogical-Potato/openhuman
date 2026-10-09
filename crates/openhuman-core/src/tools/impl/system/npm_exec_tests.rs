@@ -1,4 +1,5 @@
 use super::*;
+use serde_json::json;
 fn absolute_sample() -> &'static str {
     if cfg!(windows) {
         "C:\\Windows\\System32"
@@ -75,10 +76,8 @@ fn resolve_cwd_allows_relative_subdir() {
 
 #[test]
 fn safe_env_vars_include_windows_process_essentials() {
-    for var in ["SystemRoot", "COMSPEC", "PATHEXT", "TEMP", "USERPROFILE"] {
-        assert!(
-            SAFE_ENV_VARS.contains(&var),
-            "{var} must be forwarded for Windows child processes"
-        );
-    }
+    crate::agent::platform_shell::assert_forwards_windows_bootstrap(
+        SAFE_ENV_VARS,
+        "npm_exec::SAFE_ENV_VARS",
+    );
 }

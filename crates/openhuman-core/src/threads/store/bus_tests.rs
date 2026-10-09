@@ -28,6 +28,7 @@ async fn persists_inbound_and_processed_turns_into_workspace_thread() {
             content: "hello".into(),
             thread_ts: Some("thread-1".into()),
             timestamp: 0,
+            sender_name: None,
         });
     inbound_envelope.conversation.kind = tinychannels_bus::channel::ConversationKind::Channel;
     inbound_envelope.conversation.scope_id = Some("T123".into());

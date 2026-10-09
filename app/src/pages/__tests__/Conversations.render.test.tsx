@@ -62,6 +62,15 @@ const { mockGetThreads, mockGetThreadMessages, mockUseUsageState } = vi.hoisted(
   })),
 }));
 // ── Module mocks ───────────────────────────────────────────────────────────
+// The chat mascot context is absent in this harness (no provider) unless a test
+// installs one, which is how the Tiny-click → live voice path is exercised.
+const { mascotContext } = vi.hoisted(() => ({
+  mascotContext: { current: undefined as undefined | { expandWithVoice: () => void } },
+}));
+vi.mock('../../features/human/chatMascot', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../features/human/chatMascot')>()),
+  useChatMascotOptional: () => mascotContext.current,
+}));
 
 vi.mock('../../services/chatService', () => ({
   chatCancel: vi.fn().mockResolvedValue({ accepted: true, turnCancelled: true }),
@@ -851,6 +860,64 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     expect(mockUpdateRuntimeSettings).toHaveBeenLastCalledWith({ reasoning_effort: '' });
   });
 
+  it('remembers the thinking level per model and sends that model its own level', async () => {
+    mockGetClientConfig.mockResolvedValue({
+      result: {
+        reasoning_effort: 'low',
+        default_model: 'deep-model',
+        reasoning_effort_by_model: { 'deep-model': 'xhigh' },
+      },
+    });
+    const { textarea, thread } = await renderSelectedConversation();
+
+    const picker = (await screen.findByTestId('composer-reasoning-effort')) as HTMLSelectElement;
+    await waitFor(() => expect(picker.value).toBe('xhigh'));
+
+    fireEvent.change(picker, { target: { value: 'medium' } });
+    expect(mockUpdateRuntimeSettings).toHaveBeenCalledWith({
+      reasoning_effort: 'medium',
+      reasoning_effort_model: 'deep-model',
+    });
+
+    await submitComposerText(textarea, 'think a bit');
+    await waitFor(() => {
+      expect(chatSend).toHaveBeenCalledWith(
+        expect.objectContaining({ threadId: thread.id, reasoningEffort: 'medium' })
+      );
+    });
+
+    // Dropping the model's own level falls back to the global one.
+    fireEvent.change(picker, { target: { value: 'default' } });
+    expect(mockUpdateRuntimeSettings).toHaveBeenLastCalledWith({
+      reasoning_effort: '',
+      reasoning_effort_model: 'deep-model',
+    });
+    await waitFor(() => expect(picker.value).toBe('low'));
+  });
+
+  it('recalls the last prompt with ArrowUp and switches the placeholder while running', async () => {
+    let finishChatSend: (() => void) | undefined;
+    vi.mocked(chatSend).mockImplementationOnce(
+      () =>
+        new Promise<string | undefined>(resolve => {
+          finishChatSend = () => resolve(undefined);
+        })
+    );
+    const { textarea } = await renderSelectedConversation();
+
+    await submitComposerText(textarea, 'recall me later');
+    await waitFor(() => expect(chatSend).toHaveBeenCalled());
+
+    // The turn is in flight: typed text would queue, and the placeholder says so.
+    await waitFor(() => expect(screen.getByText('Queue a follow-up…')).toBeInTheDocument());
+
+    await act(async () => {
+      fireEvent.keyDown(textarea, { key: 'ArrowUp' });
+    });
+    await waitFor(() => expect(textarea.textContent).toBe('recall me later'));
+    await act(async () => finishChatSend?.());
+  });
+
   it('persists a local user message and sends through chat service for valid input', async () => {
     const { textarea, thread } = await renderSelectedConversation();
 
@@ -862,13 +929,15 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
         expect.objectContaining({ content: 'hello cloud', sender: 'user', type: 'text' })
       );
     });
-    expect(chatSend).toHaveBeenCalledWith({
-      threadId: thread.id,
-      message: 'hello cloud',
-      model: 'hint:chat',
-      locale: 'en',
-      reasoningEffort: 'default',
-    });
+    expect(chatSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadId: thread.id,
+        message: 'hello cloud',
+        locale: 'en',
+        reasoningEffort: 'default',
+      })
+    );
+    expect(vi.mocked(chatSend).mock.calls[0][0]).not.toHaveProperty('model');
   });
 
   it('auto-sends a dictation transcript (autoSend) straight to chat without the composer', async () => {
@@ -886,13 +955,15 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     });
 
     await waitFor(() => {
-      expect(chatSend).toHaveBeenCalledWith({
-        threadId: thread.id,
-        message: 'play highway to hell',
-        model: 'hint:chat',
-        locale: 'en',
-        reasoningEffort: 'default',
-      });
+      expect(chatSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          threadId: thread.id,
+          message: 'play highway to hell',
+          locale: 'en',
+          reasoningEffort: 'default',
+        })
+      );
+      expect(vi.mocked(chatSend).mock.calls[0][0]).not.toHaveProperty('model');
     });
   });
 
@@ -938,13 +1009,15 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       expect(chatSend).toHaveBeenCalledTimes(1);
     });
     expect(threadApi.appendMessage).toHaveBeenCalledTimes(1);
-    expect(chatSend).toHaveBeenCalledWith({
-      threadId: thread.id,
-      message: 'slow backend',
-      model: 'hint:chat',
-      locale: 'en',
-      reasoningEffort: 'default',
-    });
+    expect(chatSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadId: thread.id,
+        message: 'slow backend',
+        locale: 'en',
+        reasoningEffort: 'default',
+      })
+    );
+    expect(vi.mocked(chatSend).mock.calls[0][0]).not.toHaveProperty('model');
     // The send cleared the composer; with an empty composer mid-send the Send
     // button morphs into the Stop button, so there is no Send affordance left
     // to fire a duplicate send.
@@ -1293,6 +1366,80 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     expect(threadApi.appendMessage).not.toHaveBeenCalled();
   });
 
+  it('re-issues a Stop pressed before the core had registered the turn', async () => {
+    // The send RPC is still in flight, so the core has no turn yet and the
+    // first cancel finds nothing. Once the RPC returns the turn exists, and the
+    // Stop must be sent again rather than letting the turn run to completion.
+    let resolveSend: (() => void) | undefined;
+    vi.mocked(chatSend).mockImplementationOnce(
+      () =>
+        new Promise<string | undefined>(resolve => {
+          resolveSend = () => resolve('req-late');
+        })
+    );
+    vi.mocked(chatCancel)
+      .mockResolvedValueOnce({ accepted: true, turnCancelled: false })
+      .mockResolvedValueOnce({ accepted: true, turnCancelled: true });
+    const { textarea, thread } = await renderSelectedConversation();
+
+    await act(async () => {
+      setComposerText(textarea, 'stop me early');
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    });
+    const stopButton = await screen.findByRole('button', { name: 'Stop generating' });
+    await act(async () => {
+      fireEvent.click(stopButton);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(chatCancel).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveSend?.();
+      await Promise.resolve();
+    });
+
+    expect(chatCancel).toHaveBeenCalledTimes(2);
+    expect(chatCancel).toHaveBeenNthCalledWith(2, thread.id);
+  });
+
+  it.each([
+    ['the cancel event never arrives', { accepted: true, turnCancelled: true }],
+    ['the cancel RPC fails', { accepted: false, turnCancelled: false }],
+  ])('settles the running state after a Stop when %s', async (_label, outcome) => {
+    vi.mocked(chatCancel).mockResolvedValueOnce(outcome);
+    const { thread, store } = await renderStreamingConversation({
+      streamingContent: 'half a thought',
+    });
+    const stopButton = await screen.findByRole('button', { name: 'Stop generating' });
+
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        fireEvent.click(stopButton);
+        await Promise.resolve();
+      });
+      // Still waiting on the core's confirmation.
+      expect(store.getState().chatRuntime.inferenceTurnLifecycleByThread[thread.id]).toBe(
+        'streaming'
+      );
+
+      await act(async () => {
+        vi.advanceTimersByTime(5_000);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(chatCancel).toHaveBeenCalledWith(thread.id);
+    expect(store.getState().chatRuntime.inferenceTurnLifecycleByThread[thread.id]).toBeUndefined();
+    expect(store.getState().thread.activeThreadIds[thread.id]).toBeUndefined();
+    expect(screen.queryByRole('button', { name: 'Stop generating' })).toBeNull();
+  });
+
   it('does not locally persist a partial across repeated Stop clicks (#4862)', async () => {
     const { thread } = await renderStreamingConversation({ streamingContent: 'half a thought' });
 
@@ -1400,6 +1547,20 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     // pins here is the absence of Stop.
     expect(screen.getByTestId('composer-human-mode')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Send message' })).not.toBeInTheDocument();
+  });
+
+  it('clicking Tiny in the idle composer starts live voice on the mascot stage', async () => {
+    const expandWithVoice = vi.fn();
+    mascotContext.current = { expandWithVoice };
+    try {
+      await renderSelectedConversation();
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('composer-human-mode'));
+      });
+      expect(expandWithVoice).toHaveBeenCalledTimes(1);
+    } finally {
+      mascotContext.current = undefined;
+    }
   });
 
   it('releases the pending-send lock when appendMessage rejects with a generic error', async () => {
@@ -2028,13 +2189,15 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     });
 
     await waitFor(() => {
-      expect(chatSend).toHaveBeenCalledWith({
-        threadId: thread.id,
-        message: 'enter send',
-        model: 'hint:chat',
-        locale: 'en',
-        reasoningEffort: 'default',
-      });
+      expect(chatSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          threadId: thread.id,
+          message: 'enter send',
+          locale: 'en',
+          reasoningEffort: 'default',
+        })
+      );
+      expect(vi.mocked(chatSend).mock.calls[0][0]).not.toHaveProperty('model');
     });
   });
 
@@ -2103,13 +2266,15 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     });
 
     await waitFor(() => {
-      expect(chatSend).toHaveBeenCalledWith({
-        threadId: thread.id,
-        message: '안녕',
-        model: 'hint:chat',
-        locale: 'en',
-        reasoningEffort: 'default',
-      });
+      expect(chatSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          threadId: thread.id,
+          message: '안녕',
+          locale: 'en',
+          reasoningEffort: 'default',
+        })
+      );
+      expect(vi.mocked(chatSend).mock.calls[0][0]).not.toHaveProperty('model');
     });
   });
 

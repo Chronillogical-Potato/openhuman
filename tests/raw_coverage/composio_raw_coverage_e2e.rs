@@ -214,7 +214,9 @@ async fn composio_controller_registry_and_scope_handlers_cover_validation_edges(
     // the test to an isolated workspace so the scope store does not depend on
     // a developer's local config.
     let workspace = tempdir().expect("isolated workspace");
-    let _workspace = WorkspaceEnvGuard::set(workspace.path());
+    let workspace_dir = workspace.path().join("workspace");
+    std::fs::create_dir_all(&workspace_dir).expect("create isolated workspace");
+    let _workspace = WorkspaceEnvGuard::set(&workspace_dir);
     let schemas = all_composio_controller_schemas();
     let registered = all_composio_registered_controllers();
     assert_eq!(schemas.len(), registered.len());
@@ -269,9 +271,7 @@ async fn composio_controller_registry_and_scope_handlers_cover_validation_edges(
     assert_eq!(reread.pointer("/admin"), Some(&json!(true)));
     assert_eq!(reread.pointer("/write"), Some(&json!(false)));
     assert!(
-        workspace
-            .path()
-            .join("workspace")
+        workspace_dir
             .join("integrations")
             .join("composio_user_scopes.json")
             .exists(),
@@ -304,7 +304,7 @@ fn composio_controller_schema_catalog_covers_all_declared_functions() {
     // (function, required input names, first output name). Assert the required
     // inputs are *present* rather than pinning `inputs.len() == N` — the exact
     // count broke whenever an additive optional param was declared (plan.md §3).
-    let expected: [(&str, &[&str], &str); 23] = [
+    let expected: [(&str, &[&str], &str); 22] = [
         ("list_toolkits", &[], "toolkits"),
         ("list_capabilities", &[], "capabilities"),
         ("list_agent_ready_toolkits", &[], "toolkits"),
@@ -317,7 +317,6 @@ fn composio_controller_schema_catalog_covers_all_declared_functions() {
         ("create_trigger", &["slug", "connection_id"], "result"),
         ("get_user_profile", &["connection_id"], "profile"),
         ("refresh_all_identities", &[], "report"),
-        ("sync", &["connection_id"], "outcome"),
         ("list_trigger_history", &["limit"], "result"),
         ("get_user_scopes", &["toolkit"], "pref"),
         ("set_user_scopes", &["toolkit", "read", "write"], "pref"),
@@ -392,11 +391,6 @@ async fn composio_controller_handlers_reject_bad_params_before_network() {
     .await
     .expect_err("profile requires connection id");
     assert!(missing_profile.contains("missing required param 'connection_id'"));
-
-    let missing_sync = composio_call(composio_controller(&registered, "sync"), json!({}))
-        .await
-        .expect_err("sync requires connection id");
-    assert!(missing_sync.contains("missing required param 'connection_id'"));
 
     let blank_available = composio_call(
         composio_controller(&registered, "list_available_triggers"),

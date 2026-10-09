@@ -35,6 +35,7 @@ mod ops;
 pub mod presentation;
 pub(crate) mod progress_bridge;
 mod reply_persistence;
+pub(crate) use reply_persistence::persist_delivered_reply;
 mod run_task;
 mod schemas;
 mod session;
@@ -103,6 +104,8 @@ pub(crate) use progress_bridge::spawn_progress_bridge;
 pub(crate) use schemas::{
     json_output, optional_bool, optional_f64, optional_string, optional_u64, required_string,
 };
+// The cron scheduler routes origin deliveries through this in every build.
+pub(crate) use session::pick_target_agent_id;
 #[cfg(any(test, debug_assertions))]
 #[allow(unused_imports)]
 pub(crate) use session::{

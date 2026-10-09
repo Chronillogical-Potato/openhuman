@@ -62,7 +62,13 @@ pub(crate) fn direct_subagent_child(
         .data
         .child()
         .with_cancellation(parent.cancellation.clone());
-    let child = parent.child(child_config, child_data)?;
+    let mut child = parent.child(child_config, child_data)?;
+    // TinyAgents gives the child a linked `child_token()` of the parent's, so a
+    // parent cancel cascades down but cancelling the child (policy timeout,
+    // steering) leaves the parent running. Point the host carrier at that same
+    // child token; otherwise it keeps the parent's token and the host tools
+    // observe (and could trigger) the wrong scope.
+    child.data.cancellation = child.cancellation.clone();
     Ok((task_key, child))
 }
 
@@ -84,6 +90,10 @@ pub struct LastTurnUsage {
     pub cost_usd: f64,
     pub context_window: u64,
     pub subagents: Vec<SubagentUsageEntry>,
+    /// Reasoning/thinking tokens the turn's own model calls spent. Reported
+    /// only for a turn run with a response-shape scope (library agent turns,
+    /// `agent::tinyagents::response_shape`); `0` elsewhere.
+    pub reasoning_tokens: u64,
 }
 
 /// Runtime-written sidecars for one OpenHuman session transition.

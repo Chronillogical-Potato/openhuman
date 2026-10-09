@@ -1,3 +1,4 @@
+import { Card } from '../../../components/ui';
 import WhatLeavesLink from '../../../features/privacy/WhatLeavesLink';
 import { useT } from '../../../lib/i18n/I18nContext';
 import OnboardingNextButton from '../components/OnboardingNextButton';
@@ -9,9 +10,11 @@ interface WelcomeStepProps {
 const WelcomeStep = ({ onNext }: WelcomeStepProps) => {
   const { t } = useT();
   return (
-    <div
+    <Card
+      padded
+      divided={false}
       data-testid="onboarding-welcome-step"
-      className="rounded-2xl bg-surface p-10 shadow-soft animate-fade-up">
+      className="animate-fade-up p-6 shadow-soft sm:p-8">
       <div className="flex flex-col items-center text-center">
         <img src="/logo.png" alt="OpenHuman" className="w-20 h-20 rounded-2xl mb-5" />
         <h1 className="text-3xl font-title text-content mb-3 leading-tight">
@@ -27,7 +30,7 @@ const WelcomeStep = ({ onNext }: WelcomeStepProps) => {
       <div className="mt-4 flex justify-center">
         <WhatLeavesLink />
       </div>
-    </div>
+    </Card>
   );
 };
 

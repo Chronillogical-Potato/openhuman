@@ -75,12 +75,24 @@ pub(crate) async fn saas_gateway(operator: Arc<CoreContext>, req: Request, next:
         return refuse(404, "not found");
     }
 
-    let Some(user) = header_str(&req, USER_HEADER).map(str::to_owned) else {
+    // Absent means the operator plane. Present but unreadable, or present
+    // twice, is refused: falling back to the operator would skip the user
+    // signature check.
+    let mut user_headers = req.headers().get_all(USER_HEADER).iter();
+    let Some(first) = user_headers.next() else {
         // The chat event stream is a user's; the operator has none.
         if path == "/events" {
             return refuse(404, "not found");
         }
         return CoreContext::scope(operator, next.run(req)).await;
+    };
+    if user_headers.next().is_some() {
+        log::debug!("[rpc:saas] refusing a request with more than one {USER_HEADER}");
+        return refuse(400, "more than one user header");
+    }
+    let Ok(user) = first.to_str().map(str::to_owned) else {
+        log::debug!("[rpc:saas] refusing an unreadable {USER_HEADER}");
+        return refuse(400, "unreadable user header");
     };
 
     let Some(secret) = openhuman_core::core::auth::get_rpc_token() else {

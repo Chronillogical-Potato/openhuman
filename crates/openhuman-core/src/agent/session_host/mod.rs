@@ -31,13 +31,16 @@
 //! The child files are an implementation detail.
 
 pub(crate) use builder::provider_role_for_definition;
-pub use builder::{HostTools, HostTurnTools, TurnContext};
+pub use builder::{HostOnlyToolPolicy, HostTools, HostTurnTools, TurnContext};
 
 mod builder;
 mod codec;
 mod driver;
 mod factory;
 mod hooks;
+// Tool surface for live voice sessions (`voice::live`).
+#[cfg(feature = "voice")]
+mod live_tools;
 mod managed_tools;
 mod policy;
 mod prefix_snapshot;

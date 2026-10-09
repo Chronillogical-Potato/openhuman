@@ -15,6 +15,7 @@ async fn setup() -> (tempfile::TempDir, crate::config::Config) {
             parent_thread_id: None,
             labels: None,
             personality_id: None,
+            working_dir: None,
         },
     )
     .await
@@ -158,10 +159,12 @@ async fn external_origin_cannot_reuse_an_existing_attachment_marker() {
     .await
     .unwrap();
     let origin = crate::agent::turn_origin::AgentTurnOrigin::ExternalChannel {
+        sender_name: None,
         channel: "test".into(),
         sender: None,
         reply_target: "room".into(),
         message_id: "message".into(),
+        history_key: None,
     };
     assert!(
         append_with_test_config(request("external", &staged, "user"), &config, Some(&origin))
@@ -217,6 +220,7 @@ async fn append_uses_host_persistence_workspace_separate_from_rpc_config() {
             parent_thread_id: None,
             labels: None,
             personality_id: None,
+            working_dir: None,
         },
     )
     .await

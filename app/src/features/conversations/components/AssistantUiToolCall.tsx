@@ -14,6 +14,7 @@ import type {
 } from '../../../store/chatRuntimeSlice';
 import { openUrl } from '../../../utils/openUrl';
 import { ToolFailureCard } from '../aui/ToolFailureCard';
+import { useLiveElapsed, useRunningSince } from '../aui/useLiveElapsed';
 import { isSearchBalanceError } from '../tools/parseWebSearchResult';
 import {
   FetchBody,
@@ -127,6 +128,11 @@ export function AssistantUiToolCallCard({
   const doneLabel = toolLabel({ ...presentation, tense: 'done' }, t);
   const failed = status === 'error';
   const awaiting = awaitingUser || status === 'awaiting_user';
+  // Live clock while the tool runs (not while it waits on the user, whose
+  // time is not the tool's). Tool parts carry no start timestamp, so the clock
+  // starts when the row first renders running — after a remount it restarts.
+  const liveRunning = running && !awaiting;
+  const liveMs = useLiveElapsed(useRunningSince(liveRunning), liveRunning);
   const outcome: ToolCallOutcome = failed
     ? 'error'
     : status === 'cancelled'
@@ -215,6 +221,10 @@ export function AssistantUiToolCallCard({
           {elapsedMs != null && !running ? (
             <span data-testid="tool-call-elapsed" className="tabular-nums">
               {formatElapsed(elapsedMs)}
+            </span>
+          ) : liveMs !== undefined && liveMs >= 1000 ? (
+            <span data-testid="tool-call-elapsed-live" className="tabular-nums">
+              {formatElapsed(Math.floor(liveMs / 1000) * 1000)}
             </span>
           ) : null}
         </>

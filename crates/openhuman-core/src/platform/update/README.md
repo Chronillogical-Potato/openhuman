@@ -23,8 +23,8 @@ Self-update domain for the `openhuman-core` binary. Checks GitHub Releases (`tin
 | `crates/openhuman-core/src/platform/update/*_tests.rs` | Sibling test suites (`core_tests`, `ops_tests`, `ops_tests_2_tests`, `scheduler_tests`, `schemas_tests`), included via `#[path]`. |
 
 ## Public surface
-- Types (`types.rs`): `UpdateInfo`, `VersionInfo`, `UpdateRunResult`, `UpdateApplyResult`, `GitHubRelease`, `GitHubAsset`.
-- Core fns (`core.rs`, re-exported via `core::*`): `current_version() -> &'static str`, `platform_triple() -> &'static str`, `check_available() -> Result<UpdateInfo, String>`, `download_and_stage(...)`, `download_and_stage_with_version(...)`.
+- Types ([`types.rs`](./types.rs)): `UpdateInfo`, `VersionInfo`, `UpdateRunResult`, `UpdateApplyResult`, `GitHubRelease`, `GitHubAsset`.
+- Core fns ([`core.rs`](./core.rs), re-exported via `core::*`): `current_version() -> &'static str`, `platform_triple() -> &'static str`, `check_available() -> Result<UpdateInfo, String>`, `download_and_stage(...)`, `download_and_stage_with_version(...)`.
 - `update::rpc` (alias of `ops`): `update_version`, `update_check`, `update_apply`, `update_run`: all returning `Outcome<Value>`.
 - `update::scheduler::run(UpdateConfig)`: background loop entry point.
 - `all_update_controller_schemas()` / `all_update_registered_controllers()`.
@@ -78,3 +78,10 @@ None. No `store.rs`: staged binaries are written to the filesystem (current-exe 
 - Sentry hygiene: transport-level reqwest failures (`is_connect`/`is_timeout`/`is_request`) and transient HTTP statuses are logged at `warn` and skipped from `report_error`; a regression guard test hits an unroutable TEST-NET-1 host to lock the classifier.
 - Test env locking: tests touching `update_apply` take `config::TEST_ENV_LOCK` because the mutation policy is resolved through the process-global `OPENHUMAN_WORKSPACE` env var and would otherwise race.
 - Network-hitting paths (`update_check` success, `update_apply` success, scheduler `tick`) are deferred to integration tests, not unit-tested.
+
+## Further reading
+
+- [Parent module (`platform`)](../README.md)
+- [Auto-update](../../../../../gitbooks/overview/auto-update.md)
+- [Release policy](../../../../../gitbooks/developing/release-policy.md)
+- [Platform and availability](../../../../../gitbooks/features/platform.md)

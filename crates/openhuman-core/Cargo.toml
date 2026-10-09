@@ -140,11 +140,19 @@ tinybox-docker = { path = "../../vendor/tinybox/crates/tinybox-docker" }
 # classification policy built on them stays in `security::policy`.
 tinybox-core = { path = "../../vendor/tinybox/crates/tinybox-core" }
 tinyagents-definition = { path = "../../vendor/tinyagents/crates/tinyagents-definition" }
+# Live (realtime voice) agent sessions: `tinyagents-live` runs a
+# `tinyliveagents` provider session (Gemini Live direct/relayed, ElevenLabs
+# Agents, the Sarvam cascade) and executes its tool calls through the turn
+# harness pipeline. Only the `voice` feature's `voice::live` uses it.
+tinyagents-live = { path = "../../vendor/tinyagents/crates/tinyagents-live", optional = true }
 tinyagents-graph = { path = "../../vendor/tinyagents/crates/tinyagents-graph", features = [
     "sqlite",
 ] }
 tinyagents-registry = { path = "../../vendor/tinyagents/crates/tinyagents-registry" }
-tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
+tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session", features = ["storage-drivers"] }
+# The storage ports and the URL-to-backend facade (`storage` domain). No driver
+# by default: the `storage-*` features below add them.
+tinystoragedrivers = { path = "../../vendor/tinyagents/vendor/tinystoragedrivers/crates/tinystoragedrivers", default-features = false, features = ["blocking"] }
 tinyagents-runtime = { path = "../../vendor/tinyagents/crates/tinyagents-runtime" }
 tinyagents-orchestration = { path = "../../vendor/tinyagents/crates/tinyagents-orchestration" }
 tinyinference-core = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
@@ -384,6 +392,8 @@ futures = "0.3"
 rusqlite = { version = "=0.40.2", features = ["bundled"] }
 chrono = { version = "0.4", features = ["serde"] }
 iana-time-zone = "0.1"
+# Validates the user's IANA time zone setting (`Config::time_zone`).
+chrono-tz = "0.10"
 futures-util = "0.3"
 directories = "6"
 toml = "1.0"
@@ -659,6 +669,12 @@ tokio = { version = "1", features = ["test-util"] }
 proptest = "1"
 
 [features]
+# Storage drivers for `[storage] url` / `OPENHUMAN_STORAGE_URL` (see the
+# `storage` domain). Memory is always available. Off in the product until a
+# desktop domain moves onto the ports; a cloud build turns on `storage-mongodb`.
+storage-sqlite = ["tinystoragedrivers/sqlite"]
+storage-mongodb = ["tinystoragedrivers/mongodb"]
+storage-file = ["tinystoragedrivers/file"]
 # THE CONTRIBUTOR SET — not the product set.
 #
 # This list is what a bare `cargo check`, `cargo test` and rust-analyzer
@@ -745,7 +761,10 @@ inference = ["tinycomputer-accessibility/microphone-probe"]
 # reference instead of extracted text
 # (`agent::multimodal::extract_pdf_text`). Slim / headless builds opt out via
 # `--no-default-features --features "<explicit list without documents>"`.
-documents = ["modules", "dep:tinydocs-bus"]
+# `tinymemory-integrations/documents-office`: memory's brain and file sources
+# read PDF, DOCX, PPTX and XLSX (memory::convert). Kept behind `documents` so
+# the parsers stay off the always-on path (kernel floor).
+documents = ["modules", "dep:tinydocs-bus", "tinymemory-integrations/documents-office"]
 # Hosting: the `hosting_*` agent tools that put a workspace on a real hosting
 # provider — a site, a managed database wired into it, its environment, its
 # domains, its deployments and the traffic they served. Default-OFF,
@@ -814,6 +833,8 @@ voice = [
     # channels-less build still links the provider stack.
     "dep:tinychannels",
     "tinychannels/email",
+    # `voice::live`: live voice agent sessions over tinyagents-live.
+    "dep:tinyagents-live",
 ]
 # Web3 family: openhuman::web3 + web3::wallet + web3::x402 — the
 # crypto wallet (multi-chain sign/broadcast), the high-level swap/bridge/dapp
@@ -1012,11 +1033,12 @@ whatsapp-web = ["channels", "tinychannels/whatsapp-web"]
 # this feature so the wipe RPC isn't even registered, let alone reachable.
 e2e-test-support = []
 # Library-side gate for the embedded-RSS benchmark (#5046): the one prompt
-# renderer hook in `agent/prompts/render_helpers` that the benchmark bins in
-# `crates/openhuman-cli` need. Default-OFF and absent from
+# renderer hook in `agent/prompts/render_helpers` (and the mock provider) that
+# the benchmark bins need. Default-OFF and absent from
 # `scripts/ci/product-features.txt`, so nothing shipped enables it. The
 # `rss-bench` / `library-profile` binaries and the `rss-bench-dhat` profiling
-# variant live in `crates/openhuman-cli`.
+# variant live in tinyhumansai/openhuman-benchmarks (`profile/`), which
+# enables this gate on the core directly.
 rss-bench = []
 # Battery/AC probe feeding the scheduler's throttle decision. Default-ON.
 # When off there is no hardware probe: `sample_power` reports "on AC, no charge

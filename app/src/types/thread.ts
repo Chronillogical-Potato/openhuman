@@ -9,6 +9,8 @@ export interface Thread {
   parentThreadId?: string;
   labels: string[];
   personalityId?: string | null;
+  /** Working folder the thread's agent acts in; absent means the global default. */
+  actionDir?: string | null;
 }
 
 export interface ThreadMessage {
@@ -38,4 +40,14 @@ export interface PurgeResultData {
   messagesDeleted: number;
   agentThreadsDeleted: number;
   agentMessagesDeleted: number;
+}
+
+/** One message matched by `openhuman.threads_search` (global search). */
+export interface ThreadSearchHit {
+  threadId: string;
+  messageId: string;
+  role: string;
+  /** Message text around the match, `…` where it was cut. */
+  snippet: string;
+  createdAt: string;
 }

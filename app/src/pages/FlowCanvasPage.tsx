@@ -303,6 +303,7 @@ function CanvasStatePage({ onBack, children }: { onBack: () => void; children: R
   return (
     <div className="h-full p-4" data-testid="flow-canvas-page">
       <SettingsTabbedPage
+        fullWidth
         title={t('flows.canvas.title')}
         description={t('flows.canvas.description')}
         leading={<CanvasBackButton onBack={onBack} />}
@@ -1265,6 +1266,7 @@ function FlowEditor({
         </div>
       </SidebarContent>
       <SettingsTabbedPage
+        fullWidth
         title={titleNode}
         description={t('flows.canvas.description')}
         headerAction={headerActions}

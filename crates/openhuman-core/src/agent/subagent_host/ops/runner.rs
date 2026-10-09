@@ -826,11 +826,9 @@ async fn run_typed_mode(
     };
 
     let system_prompt = match &definition.system_prompt {
-        PromptSource::Dynamic(build) => {
-            build(&prompt_ctx).map_err(|e| SubagentRunError::PromptLoad {
-                path: format!("<dynamic:{}>", definition.id),
-                source: std::io::Error::other(e.to_string()),
-            })?
+        // The whole prompt, with no sub-agent sections around it.
+        PromptSource::Dynamic(_) | PromptSource::Verbatim(_) => {
+            load_prompt_source(&definition.system_prompt, &prompt_ctx)?
         }
         PromptSource::Inline(_) | PromptSource::File { .. } => {
             let archetype_prompt_body = load_prompt_source(&definition.system_prompt, &prompt_ctx)?;
@@ -858,10 +856,10 @@ async fn run_typed_mode(
         append_artifact_offload_contract(system_prompt, &definition.id, &visible_tool_names);
 
     // ── Build the user message (with optional context prefix) ──────────
-    // Shared one-line stamp (#3602) so sub-agents report time in the same
-    // format as the main agent. Lives on the user message because sub-agent
-    // system prompts are byte-stable for prefix caching.
-    let now_str = crate::agent::prompts::current_datetime_line();
+    // Shared one-line stamp (#3602), in the user's zone like the main agent's.
+    // On the user message: sub-agent system prompts are byte-stable for caching.
+    let zone = config.as_ref().ok().map(|c| c.time_zone());
+    let now_str = crate::agent::prompts::current_datetime_line(zone.as_deref());
 
     let mut context_parts: Vec<&str> = Vec::new();
     if !definition.omit_memory_context {

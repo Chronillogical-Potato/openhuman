@@ -11,7 +11,8 @@ use crate::threads::{
     AppendConversationMessageRequest, ConversationMessagesRequest, CreateConversationThreadRequest,
     DeleteConversationThreadRequest, EmptyRequest, GenerateConversationThreadTitleRequest,
     UpdateConversationMessageRequest, UpdateConversationThreadLabelsRequest,
-    UpdateConversationThreadTitleRequest, UpsertConversationThreadRequest,
+    UpdateConversationThreadTitleRequest, UpdateConversationThreadWorkingDirRequest,
+    UpsertConversationThreadRequest,
 };
 
 use super::super::ops;
@@ -36,6 +37,9 @@ pub(super) fn handle_upsert(params: Map<String, Value>) -> ControllerFuture {
 pub(super) fn handle_create_new(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p = parse::<CreateConversationThreadRequest>(params)?;
+        // A SaaS user acts only in their own sandbox; a caller-chosen working
+        // folder would point the thread at the host.
+        crate::user_agents::surface::check_working_dir(p.action_dir.as_deref())?;
         to_json(ops::thread_create_new(p).await?)
     })
 }
@@ -72,6 +76,13 @@ pub(super) fn handle_update_title(params: Map<String, Value>) -> ControllerFutur
     Box::pin(async move {
         let p = parse::<UpdateConversationThreadTitleRequest>(params)?;
         to_json(ops::thread_update_title(p).await?)
+    })
+}
+
+pub(super) fn handle_update_working_dir(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let p = parse::<UpdateConversationThreadWorkingDirRequest>(params)?;
+        to_json(ops::thread_update_working_dir(p).await?)
     })
 }
 
@@ -150,6 +161,13 @@ pub(super) fn handle_todos_get(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p = parse::<ops::ThreadLiveStateRequest>(params)?;
         to_json(ops::todos_get(p).await?)
+    })
+}
+
+pub(super) fn handle_search(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let p = parse::<ops::ThreadSearchRequest>(params)?;
+        to_json(ops::thread_search(p).await?)
     })
 }
 

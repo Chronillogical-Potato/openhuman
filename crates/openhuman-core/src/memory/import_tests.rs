@@ -1,6 +1,8 @@
 use super::*;
 use crate::memory::error::{INVALID_REQUEST, MEMORY_OFF};
 use crate::memory::test_fixtures::{bind_reference, config_in, stored};
+use std::sync::Arc;
+
 use rusqlite::{params, Connection};
 use tinymemory_api::MetaFilter;
 
@@ -29,7 +31,7 @@ fn memory_doc(conn: &Connection, id: &str, namespace: &str, title: &str, content
 }
 
 /// A v1 workspace: two documents, one learning, one conversation, one facet.
-fn legacy_workspace(workspace_dir: &Path) {
+pub(super) fn legacy_workspace(workspace_dir: &Path) {
     std::fs::create_dir_all(workspace_dir.join("memory")).unwrap();
     let conn = Connection::open(workspace_dir.join("memory").join("memory.db")).unwrap();
     conn.execute_batch(LEGACY_DDL).unwrap();
@@ -54,7 +56,16 @@ fn legacy_workspace(workspace_dir: &Path) {
     .unwrap();
 }
 
-async fn wait_until_settled(config: &Config) -> ImportState {
+/// The checkpoint after document `id`. Built from `default()` and an
+/// assignment: tinymemory's `Checkpoint` is non-exhaustive from its next
+/// release, which refuses a struct literal outside the crate.
+pub(super) fn after_document(id: &str) -> Checkpoint {
+    let mut checkpoint = Checkpoint::default();
+    checkpoint.documents = Some(id.to_string());
+    checkpoint
+}
+
+pub(super) async fn wait_until_settled(config: &Config) -> ImportState {
     for _ in 0..400 {
         let state = status(config);
         if state.phase != ImportPhase::Running {
@@ -86,6 +97,96 @@ async fn scan_counts_what_a_legacy_store_holds() {
     assert_eq!(counts.documents, 2);
     assert_eq!(counts.conversations, 1);
     assert_eq!(counts.learnings, 2, "a learning doc and a profile facet");
+}
+
+/// A store from the later v1 engine: only `memory_tree/chunks.db`, with an
+/// email source of two chunks and a chat source of one.
+fn chunk_only_workspace(workspace_dir: &Path) {
+    std::fs::create_dir_all(workspace_dir.join("memory_tree")).unwrap();
+    let conn = Connection::open(workspace_dir.join("memory_tree").join("chunks.db")).unwrap();
+    conn.execute_batch(
+        "CREATE TABLE mem_tree_chunks (id TEXT PRIMARY KEY, source_kind TEXT NOT NULL,
+           source_id TEXT NOT NULL, path_scope TEXT, source_ref TEXT, owner TEXT NOT NULL,
+           timestamp_ms INTEGER NOT NULL, time_range_start_ms INTEGER NOT NULL,
+           time_range_end_ms INTEGER NOT NULL, tags_json TEXT NOT NULL DEFAULT '[]',
+           content TEXT NOT NULL, token_count INTEGER NOT NULL, seq_in_source INTEGER NOT NULL,
+           created_at_ms INTEGER NOT NULL);
+         INSERT INTO mem_tree_chunks VALUES
+           ('k1', 'email', 'e1', NULL, NULL, 'me', 1, 1, 1, '[]', 'launch moved', 3, 0, 1),
+           ('k2', 'email', 'e1', NULL, NULL, 'me', 2, 2, 2, '[]', 'to friday', 3, 1, 2),
+           ('k3', 'chat', 'c1', NULL, NULL, 'me', 3, 3, 3, '[]', 'hi there', 2, 0, 3);",
+    )
+    .unwrap();
+}
+
+#[tokio::test]
+async fn a_store_with_only_a_chunk_store_is_found_and_imported() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    chunk_only_workspace(&config.workspace_dir);
+
+    let view = scan(&config).await.unwrap();
+    assert!(view.found, "the later v1 engine wrote no memory.db");
+    let counts = view.counts.expect("counts");
+    assert_eq!(
+        (counts.documents, counts.conversations, counts.learnings),
+        (2, 0, 0),
+        "two chunk sources, counted as documents"
+    );
+
+    let engine = bind_reference(&config);
+    start(&config, true).await.unwrap();
+    let done = wait_until_settled(&config).await;
+    assert_eq!(
+        (done.phase, done.imported, done.total),
+        (ImportPhase::Done, 2, 2)
+    );
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 2);
+}
+
+#[tokio::test]
+async fn learnings_count_every_learning_section_the_import_yields() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    // Beside the fixture's learning doc and profile facet: one extracted
+    // event, one turn lesson, one graph relation and the goals file.
+    let conn = Connection::open(config.workspace_dir.join("memory").join("memory.db")).unwrap();
+    conn.execute_batch(
+        "CREATE TABLE event_log (event_id TEXT PRIMARY KEY, segment_id TEXT NOT NULL,
+           session_id TEXT NOT NULL, event_type TEXT NOT NULL, content TEXT NOT NULL,
+           subject TEXT, confidence REAL NOT NULL, created_at REAL NOT NULL);
+         INSERT INTO event_log VALUES
+           ('e1', 'seg', 's1', 'decision', 'Ship v2 on Friday.', NULL, 0.9, 1700000000.0);
+         CREATE TABLE graph_global (subject TEXT NOT NULL, predicate TEXT NOT NULL,
+           object TEXT NOT NULL, attrs_json TEXT NOT NULL, updated_at REAL NOT NULL,
+           PRIMARY KEY(subject, predicate, object));
+         INSERT INTO graph_global VALUES ('Priya', 'works_at', 'Acme', '{}', 1700000000.0);
+         UPDATE episodic_log SET lesson = 'Greet back briefly.' WHERE role = 'assistant';",
+    )
+    .unwrap();
+    drop(conn);
+    std::fs::write(
+        config.workspace_dir.join("MEMORY_GOALS.md"),
+        "Run a marathon",
+    )
+    .unwrap();
+
+    let counts = scan(&config).await.unwrap().counts.expect("counts");
+    assert_eq!(
+        (counts.documents, counts.conversations, counts.learnings),
+        (2, 1, 6),
+        "learning doc, profile facet, event, lesson, relation, goals file"
+    );
+
+    let engine = bind_reference(&config);
+    start(&config, true).await.unwrap();
+    let done = wait_until_settled(&config).await;
+    assert_eq!(
+        (done.phase, done.imported, done.total),
+        (ImportPhase::Done, 9, 9)
+    );
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 9);
 }
 
 #[test]
@@ -162,16 +263,18 @@ async fn an_interrupted_import_resumes_from_its_checkpoint() {
     write_file(
         &config.workspace_dir,
         &ImportFile {
+            listed_unconfirmed: false,
+            paused_for_credits: false,
+            failed: Vec::new(),
+            retrying: false,
             state: ImportState {
                 phase: ImportPhase::Error,
                 imported: 1,
                 total: 5,
                 error: Some("unauthorized: sign in".into()),
+                failed: 0,
             },
-            checkpoint: Checkpoint {
-                documents: Some("d1".into()),
-                ..Checkpoint::default()
-            },
+            checkpoint: after_document("d1"),
         },
     );
     assert_eq!(status(&config).phase, ImportPhase::Error);
@@ -197,11 +300,16 @@ fn a_running_state_with_no_live_import_reads_as_interrupted() {
     write_file(
         &config.workspace_dir,
         &ImportFile {
+            listed_unconfirmed: false,
+            paused_for_credits: false,
+            failed: Vec::new(),
+            retrying: false,
             state: ImportState {
                 phase: ImportPhase::Running,
                 imported: 3,
                 total: 9,
                 error: None,
+                failed: 0,
             },
             checkpoint: Checkpoint::default(),
         },
@@ -209,7 +317,11 @@ fn a_running_state_with_no_live_import_reads_as_interrupted() {
     let state = status(&config);
     assert_eq!(state.phase, ImportPhase::Error);
     assert_eq!(state.imported, 3);
-    assert!(state.error.as_deref().unwrap().contains("start it again"));
+    assert!(state
+        .error
+        .as_deref()
+        .unwrap()
+        .contains("resumes on its own"));
 }
 
 #[tokio::test]
@@ -244,4 +356,359 @@ fn a_corrupt_import_file_reads_as_idle() {
     std::fs::create_dir_all(tmp.path().join("memory")).unwrap();
     std::fs::write(file_path(tmp.path()), "garbage").unwrap();
     assert_eq!(read_file(tmp.path()).state, ImportState::default());
+}
+
+/// A reference engine that refuses a write with whatever `refuse` returns for
+/// its item, and stores it otherwise.
+struct FailingEngine {
+    inner: Arc<tinymemory_api::conformance::ReferenceEngine>,
+    refuse: fn(&tinymemory_api::StoreItem) -> Option<tinymemory_api::Error>,
+}
+
+#[async_trait::async_trait]
+impl tinymemory_api::MemoryEngine for FailingEngine {
+    fn descriptor(&self) -> &tinymemory_api::EngineDescriptor {
+        self.inner.descriptor()
+    }
+    async fn health(&self) -> tinymemory_api::EngineHealth {
+        self.inner.health().await
+    }
+    async fn recall(
+        &self,
+        req: tinymemory_api::RecallRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::RecallAnswer> {
+        self.inner.recall(req).await
+    }
+    async fn fetch(
+        &self,
+        req: tinymemory_api::FetchRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::FetchPage> {
+        self.inner.fetch(req).await
+    }
+    async fn store(
+        &self,
+        item: tinymemory_api::StoreItem,
+    ) -> tinymemory_api::Result<tinymemory_api::StoreReceipt> {
+        if let Some(error) = (self.refuse)(&item) {
+            return Err(error);
+        }
+        self.inner.store(item).await
+    }
+    async fn forget(
+        &self,
+        target: tinymemory_api::ForgetTarget,
+    ) -> tinymemory_api::Result<tinymemory_api::ForgetReport> {
+        self.inner.forget(target).await
+    }
+    async fn list(
+        &self,
+        req: tinymemory_api::ListRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::ListPage> {
+        self.inner.list(req).await
+    }
+}
+
+/// Binds a [`FailingEngine`] and returns the engine behind it.
+pub(super) fn bind_failing(
+    config: &Config,
+    refuse: fn(&tinymemory_api::StoreItem) -> Option<tinymemory_api::Error>,
+) -> Arc<tinymemory_api::conformance::ReferenceEngine> {
+    let inner = Arc::new(tinymemory_api::conformance::ReferenceEngine::new());
+    crate::memory::engine::install_test_engine(
+        &config.workspace_dir,
+        Arc::new(FailingEngine {
+            inner: inner.clone(),
+            refuse,
+        }),
+    );
+    inner
+}
+
+pub(super) fn out_of_credits(_: &tinymemory_api::StoreItem) -> Option<tinymemory_api::Error> {
+    Some(tinymemory_api::Error::Engine(
+        "[USER_INSUFFICIENT_CREDITS] insufficient credits (HTTP 402)".into(),
+    ))
+}
+
+#[tokio::test]
+async fn exhausted_credits_stop_the_import_instead_of_skipping_everything() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    let engine = bind_failing(&config, out_of_credits);
+
+    start(&config, true).await.unwrap();
+    let state = wait_until_settled(&config).await;
+    assert_eq!(state.phase, ImportPhase::Error, "{state:?}");
+    assert_eq!(state.imported, 0);
+    assert!(
+        state
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("not enough credits"),
+        "{state:?}"
+    );
+    assert!(stored(&engine, MetaFilter::default()).await.is_empty());
+    assert_eq!(
+        read_file(&config.workspace_dir).checkpoint,
+        Checkpoint::default(),
+        "the checkpoint does not move past items that were never stored"
+    );
+}
+
+#[tokio::test]
+async fn an_unreachable_engine_stops_the_import_and_a_retry_resumes_it() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    bind_failing(&config, |_| {
+        Some(tinymemory_api::Error::Unavailable(
+            "connection refused".into(),
+        ))
+    });
+
+    start(&config, true).await.unwrap();
+    let state = wait_until_settled(&config).await;
+    assert_eq!(state.phase, ImportPhase::Error, "{state:?}");
+    assert_eq!(state.imported, 0);
+
+    // The engine is back: starting again imports everything, nothing skipped.
+    let engine = bind_reference(&config);
+    start(&config, true).await.unwrap();
+    let done = wait_until_settled(&config).await;
+    assert_eq!(done.phase, ImportPhase::Done, "{done:?}");
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 5);
+}
+
+#[tokio::test]
+async fn an_item_the_engine_refuses_is_skipped_and_the_rest_imported() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    // Refuses the "Ideas" document (d2) as malformed, stores the rest.
+    let engine = bind_failing(&config, |item| {
+        matches!(item, tinymemory_api::StoreItem::Document { title: Some(title), .. } if title == "Ideas")
+            .then(|| tinymemory_api::Error::InvalidRequest("item too large".into()))
+    });
+
+    start(&config, true).await.unwrap();
+    let done = wait_until_settled(&config).await;
+    assert_eq!(done.phase, ImportPhase::Done, "{done:?}");
+    assert_eq!(done.imported, 4);
+    let items = stored(&engine, MetaFilter::default()).await;
+    assert_eq!(items.len(), 4);
+    assert!(!items.iter().any(|item| item.text.contains("oolong")));
+}
+
+#[tokio::test]
+async fn an_import_the_app_quit_during_resumes_on_its_own() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    let engine = bind_reference(&config);
+    // The app quit while the import was running, after d1 was stored.
+    write_file(
+        &config.workspace_dir,
+        &ImportFile {
+            listed_unconfirmed: false,
+            paused_for_credits: false,
+            failed: Vec::new(),
+            retrying: false,
+            state: ImportState {
+                phase: ImportPhase::Running,
+                imported: 1,
+                total: 5,
+                error: None,
+                failed: 0,
+            },
+            checkpoint: after_document("d1"),
+        },
+    );
+
+    assert!(resume_interrupted(&config).await);
+    let done = wait_until_settled(&config).await;
+    assert_eq!(done.phase, ImportPhase::Done, "{done:?}");
+    assert_eq!(done.imported, 5);
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 4);
+}
+
+#[tokio::test]
+async fn a_stopped_or_finished_import_is_not_resumed_on_its_own() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    let engine = bind_reference(&config);
+    assert!(!resume_interrupted(&config).await, "never started");
+
+    for phase in [ImportPhase::Error, ImportPhase::Done] {
+        write_file(
+            &config.workspace_dir,
+            &ImportFile {
+                listed_unconfirmed: false,
+                paused_for_credits: false,
+                failed: Vec::new(),
+                retrying: false,
+                state: ImportState {
+                    phase,
+                    imported: 0,
+                    total: 5,
+                    error: None,
+                    failed: 0,
+                },
+                checkpoint: Checkpoint::default(),
+            },
+        );
+        assert!(!resume_interrupted(&config).await, "{phase:?}");
+    }
+    assert!(stored(&engine, MetaFilter::default()).await.is_empty());
+}
+
+/// A persisted `Running` import with no live run: what the app leaves behind
+/// when it quits mid-import after storing d1.
+fn quit_mid_import(config: &Config) {
+    write_file(
+        &config.workspace_dir,
+        &ImportFile {
+            listed_unconfirmed: false,
+            paused_for_credits: false,
+            failed: Vec::new(),
+            retrying: false,
+            state: ImportState {
+                phase: ImportPhase::Running,
+                imported: 1,
+                total: 5,
+                error: None,
+                failed: 0,
+            },
+            checkpoint: after_document("d1"),
+        },
+    );
+}
+
+#[tokio::test]
+async fn the_background_job_resumes_an_interrupted_import() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    let engine = bind_reference(&config);
+    quit_mid_import(&config);
+
+    crate::memory::bus::run_system_job(&config, crate::memory::lifecycle::jobs::BACKGROUND_JOB)
+        .await;
+    let done = wait_until_settled(&config).await;
+    assert_eq!(done.phase, ImportPhase::Done, "{done:?}");
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 4);
+}
+
+#[tokio::test]
+async fn nothing_resumes_while_background_work_is_paused() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    let engine = bind_reference(&config);
+    quit_mid_import(&config);
+
+    assert!(!resume_interrupted_with(&config, always(true), billing(false)).await);
+    assert!(stored(&engine, MetaFilter::default()).await.is_empty());
+    assert_eq!(
+        read_file(&config.workspace_dir).state.phase,
+        ImportPhase::Running,
+        "left resumable for a later, unpaused tick"
+    );
+
+    assert!(resume_interrupted_with(&config, always(false), billing(false)).await);
+    assert_eq!(wait_until_settled(&config).await.phase, ImportPhase::Done);
+}
+
+/// A pause check that always answers `paused`.
+pub(super) fn billing(allowed: bool) -> BillingCheck {
+    Arc::new(move |_: &Config| allowed)
+}
+
+pub(super) fn always(paused: bool) -> PauseCheck {
+    Arc::new(move || paused)
+}
+
+/// Waits until no import run is live for `config`'s workspace.
+pub(super) async fn wait_until_no_live_run(config: &Config) {
+    for _ in 0..400 {
+        let live = RUNNING.lock().unwrap().contains(&config.workspace_dir);
+        if !live {
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    panic!("the import run never ended");
+}
+
+#[tokio::test]
+async fn a_pause_that_lands_after_the_check_stops_the_run_at_the_next_batch() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    let engine = bind_reference(&config);
+    quit_mid_import(&config);
+
+    // Not paused when the resume checks, paused by the time the run asks.
+    let asked = Arc::new(AtomicUsize::new(0));
+    let counter = asked.clone();
+    let paused: PauseCheck = Arc::new(move || counter.fetch_add(1, Ordering::SeqCst) > 0);
+
+    assert!(resume_interrupted_with(&config, paused, billing(false)).await);
+    wait_until_no_live_run(&config).await;
+    assert!(asked.load(Ordering::SeqCst) >= 2, "the run asked again");
+    assert!(
+        stored(&engine, MetaFilter::default()).await.is_empty(),
+        "nothing uploaded once paused"
+    );
+    let file = read_file(&config.workspace_dir);
+    assert_eq!(file.state.phase, ImportPhase::Running, "left resumable");
+    assert_eq!(file.checkpoint.documents.as_deref(), Some("d1"));
+
+    // Unpaused, the next tick finishes it from the checkpoint.
+    assert!(resume_interrupted_with(&config, always(false), billing(false)).await);
+    assert_eq!(wait_until_settled(&config).await.phase, ImportPhase::Done);
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 4);
+}
+
+#[tokio::test]
+async fn an_automatic_resume_that_cannot_start_is_stopped_not_retried() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    // No engine bound: memory is off, so `start` fails before any run.
+    quit_mid_import(&config);
+
+    assert!(!resume_interrupted_with(&config, always(false), billing(false)).await);
+    let state = read_file(&config.workspace_dir).state;
+    assert_eq!(state.phase, ImportPhase::Error);
+    assert_eq!(state.imported, 1, "progress is kept");
+    assert!(
+        state.error.as_deref().unwrap().contains("could not resume"),
+        "{state:?}"
+    );
+    // The next tick does not try again; the user resumes it.
+    assert!(!resume_interrupted_with(&config, always(false), billing(false)).await);
+    assert_eq!(
+        read_file(&config.workspace_dir)
+            .checkpoint
+            .documents
+            .as_deref(),
+        Some("d1"),
+        "the checkpoint read back from disk survives the failure"
+    );
+
+    // And the user's Resume continues from that checkpoint, not the start.
+    let engine = bind_reference(&config);
+    start(&config, true).await.unwrap();
+    let done = wait_until_settled(&config).await;
+    assert_eq!(done.phase, ImportPhase::Done, "{done:?}");
+    assert_eq!(done.imported, 5);
+    assert_eq!(
+        stored(&engine, MetaFilter::default()).await.len(),
+        4,
+        "d1 is not re-sent"
+    );
 }

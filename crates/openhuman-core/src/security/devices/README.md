@@ -20,7 +20,7 @@ Mobile-device pairing domain. Brokers a secure, end-to-end-encrypted tunnel betw
 | `crates/openhuman-core/src/security/devices/mod.rs` | Export-only: module docstring, `pub mod` decls, re-exports of schema registry fns and public types. |
 | `crates/openhuman-core/src/security/devices/types.rs` | Serde domain types: `PairedDevice`, `PairingSession`, and the three RPC response payloads. |
 | `crates/openhuman-core/src/security/devices/rpc.rs` | RPC handler logic for the three methods + module-level in-memory state singletons (`PENDING_KEYPAIRS`, `PERSISTED_KEYPAIRS`, `PENDING_SESSIONS`, `PEER_STATUS`), LAN-URL detection, and `SecretStore`-backed keypair persist/restore. |
-| `crates/openhuman-core/src/security/devices/schemas.rs` | Controller schemas, `all_controller_schemas`/`all_registered_controllers`, and `handle_*` bridges delegating to `rpc.rs`. Mirrors `cron/schemas.rs`. |
+| `crates/openhuman-core/src/security/devices/schemas.rs` | Controller schemas, `all_controller_schemas`/`all_registered_controllers`, and `handle_*` bridges delegating to [`rpc.rs`](./rpc.rs). Mirrors `cron/schemas.rs`. |
 | `crates/openhuman-core/src/security/devices/store.rs` | SQLite persistence (`paired_devices` table) via the per-call `with_connection` pattern. |
 | `crates/openhuman-core/src/security/devices/crypto.rs` | `DeviceKeypair` (X25519 keygen, DH, byte round-trip), `TunnelCipher` (XChaCha20-Poly1305 seal/open with a `WINDOW_SIZE`=128 replay window), and base64url helpers. |
 | `crates/openhuman-core/src/security/devices/tunnel_client.rs` | Emits/parses `tunnel:*` events over the shared `SocketManager`; wire types; `tunnel:register` uses Socket.IO ACK via `SocketManager::emit_with_ack`. Frame cap 64 KB. |
@@ -28,7 +28,7 @@ Mobile-device pairing domain. Brokers a secure, end-to-end-encrypted tunnel betw
 
 ## Public surface
 
-Re-exported from `mod.rs`:
+Re-exported from [`mod.rs`](./mod.rs):
 
 - `all_devices_controller_schemas` / `all_devices_registered_controllers` (alias for `schemas::all_controller_schemas` / `all_registered_controllers`).
 - Types: `CreatePairingResponse`, `ListDevicesResponse`, `PairedDevice`, `PairingSession`, `RevokeDeviceResponse`.
@@ -109,3 +109,11 @@ Separately, encrypted X25519 private keys are persisted as `enc2:` strings (via 
 - `tunnel:register` uses `SocketManager::emit_with_ack` and expects backend ACK shape `{channelId, pairingToken, pairingExpiresAt}` with a 10-second timeout.
 - `PairingSession` and the keypair maps are in-memory only (TTL/cleanup deferred to backend semantics); they are cleared on revoke.
 - Outbound `tunnel:frame` payloads are capped at 64 KB; callers are expected to stay ≤ 100 frames/s.
+
+## Further reading
+
+- [Parent module (`security`)](../README.md)
+- [Security architecture](../../../../../gitbooks/developing/architecture/security.md)
+- [Privacy and security](../../../../../gitbooks/features/privacy-and-security.md)
+- [Approval gate](../../../../../gitbooks/features/approval-gate.md)
+- [OS keyring and secret storage](../../../../../gitbooks/features/os-keyring-and-secret-storage.md)

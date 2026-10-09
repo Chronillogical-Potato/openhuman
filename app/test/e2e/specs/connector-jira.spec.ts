@@ -175,18 +175,6 @@ describe('Jira Composio connector flow', () => {
     console.log(`${LOG} PASS: connected state persists`);
   });
 
-  it('composio_sync does not tear down the session', async function () {
-    this.timeout(30_000);
-    clearRequestLog();
-    await callOpenhumanRpc('openhuman.composio_sync', { toolkit: TOOLKIT_SLUG });
-    // syncReq URL check removed — composio_sync does no HTTP for
-    // connectors without a native provider (the RPC short-circuits). The
-    // assertSessionNotNuked() below covers the real intent: the call
-    // does not tear down the WebDriver session.
-    await assertSessionNotNuked();
-    console.log(`${LOG} PASS: sync does not nuke session`);
-  });
-
   it('composio_execute routes a basic task', async function () {
     this.timeout(30_000);
     clearRequestLog();
@@ -195,7 +183,7 @@ describe('Jira Composio connector flow', () => {
       action: 'JIRA_LIST_ISSUES',
       params: {},
     });
-    // execReq URL check removed (see composio_sync comment above).
+    // execReq URL check removed.
     console.log(`${LOG} PASS: execute routed`);
   });
 

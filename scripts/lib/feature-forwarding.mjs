@@ -435,7 +435,11 @@ export const CHAIN_GATES_NOT_FORWARDED = {
     'e2e-test-support':
       'Exposes the destructive `openhuman.test_reset` RPC for the E2E build only. An embedder must never be able to turn a data wipe on.',
     'rss-bench':
-      'Library-side hook for the embedded-RSS benchmark (#5046). Its binaries live in `openhuman-cli`, which forwards the gate directly.',
+      'Library-side hook for the embedded-RSS benchmark (#5046). Its binaries live in tinyhumansai/openhuman-benchmarks (`profile/`), which enables the core gate directly.',
+  },
+  'openhuman-cli': {
+    'rss-bench':
+      'The benchmark binaries that used it moved to tinyhumansai/openhuman-benchmarks (`profile/`), which enables the core gate directly.',
   },
 };
 
@@ -452,8 +456,6 @@ export const CHAIN_LOCAL_GATES = {
   },
   'openhuman-cli': {
     'bin-tools': 'CLI argument parsing + logger init for the `openhuman-fleet` binary.',
-    'rss-bench-dhat':
-      'dhat heap profiling for the `library-profile` binary; perturbs RSS, so it is opt-in and has no core twin.',
   },
 };
 
