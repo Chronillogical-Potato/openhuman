@@ -7,10 +7,12 @@
 
 use std::sync::Arc;
 
-use super::{OpenHumanSessionHost, OpenHumanTurnPrelude};
+use super::{OpenHumanSessionHost, OpenHumanTurnPrelude, OpenHumanTurnToolSurface};
 use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::turn_origin::AgentTurnOrigin;
 use tinyagents_harness::tool::ToolRulePolicy;
+use tinyagents_runtime::SessionTurnRequest;
+use tinytools::{Surface, ToolSubject};
 
 impl OpenHumanSessionHost {
     /// The session's rule layers, from its config and resolved definition.
@@ -23,6 +25,51 @@ impl OpenHumanSessionHost {
 }
 
 impl OpenHumanTurnPrelude {
+    /// Names the session's rules keep off a listing — the catalogue for a
+    /// direct tool, search for a deferred one — evaluated in the session's
+    /// channel/agent context. The host renders its own tool catalogue into
+    /// the system prompt, so it must drop these exactly as the harness drops
+    /// their schemas; a hidden tool stays callable, it is just not listed.
+    pub(super) fn rule_withheld_tools(
+        &self,
+        surface: &OpenHumanTurnToolSurface,
+    ) -> std::collections::HashSet<String> {
+        if self.tool_rules.is_permissive() {
+            return std::collections::HashSet::new();
+        }
+        let context = crate::tools::rules::rule_context(
+            Some(&surface.event_channel),
+            Some(&self.agent_definition_id),
+            None,
+        );
+        surface
+            .tools
+            .iter()
+            .chain(surface.synthesized_tools.iter())
+            .filter(|tool| {
+                let surface_kind = if surface.deferred_tool_names.contains(tool.name()) {
+                    Surface::Search
+                } else {
+                    Surface::Catalog
+                };
+                !self
+                    .tool_rules
+                    .visible(&ToolSubject::of(tool.as_ref()), &context, surface_kind)
+            })
+            .map(|tool| tool.name().to_string())
+            .collect()
+    }
+
+    /// Records the user text a turn begins with, for its user-side effects.
+    pub(super) fn begin_user_effects(&self, request: &SessionTurnRequest) {
+        let user_text =
+            crate::agent::turn_origin::current_is_user_authored().then(|| request.input.text());
+        self.mutable
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .pending_user_text = user_text;
+    }
+
     /// This turn's rule policy: the session's layers in the turn's context.
     /// `None` when the session's rules restrict nothing.
     pub(super) fn turn_tool_rules(

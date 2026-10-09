@@ -18,8 +18,8 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use tinyagents_runtime::{
-    CommitReceipt, ResumePreparation, SessionBuilder, SessionTerminal, SessionTurnRequest,
-    ToolSnapshot, TranscriptTarget, TurnPreparation,
+    CommitReceipt, ResumePreparation, SessionBuilder, SessionTerminal, ToolSnapshot,
+    TranscriptTarget, TurnPreparation,
 };
 use tinyagents_session::transcript::TranscriptMeta;
 use tinyinference_llm::message::Message;
@@ -259,14 +259,6 @@ impl OpenHumanTurnPrelude {
             tools: Some(tools),
         })
     }
-    fn begin_user_effects(&self, request: &SessionTurnRequest) {
-        let user_text =
-            crate::agent::turn_origin::current_is_user_authored().then(|| request.input.text());
-        self.mutable
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .pending_user_text = user_text;
-    }
 
     fn build_system_prompt_tiered(&self) -> Result<crate::agent::prompts::TieredPrompt> {
         use crate::agent::prompts::{tool_call_format_from_dialect, PromptContext, PromptTool};
@@ -274,9 +266,11 @@ impl OpenHumanTurnPrelude {
             .tool_surface
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let withheld = self.rule_withheld_tools(&surface);
         let specs = surface
             .visible_tool_specs
             .iter()
+            .filter(|spec| !withheld.contains(&spec.name))
             .filter(|spec| {
                 self.thread_id.is_some()
                     || !crate::agent::tinyagents::harness_tool_registration::is_thread_goal_tool(
@@ -300,7 +294,9 @@ impl OpenHumanTurnPrelude {
             .collect::<Vec<_>>();
         let mut prompt_tools = PromptTool::from_tool_refs(tool_refs.iter().copied());
         prompt_tools.retain(|tool| !surface.permanent_tool_names.contains(tool.name.as_ref()));
+        prompt_tools.retain(|tool| !withheld.contains(tool.name.as_ref()));
         let mut visible_tool_names = surface.tool_policy_session.visible_tool_names_for_prompt();
+        visible_tool_names.retain(|name| !withheld.contains(name));
         visible_tool_names.retain(|name| !surface.permanent_tool_names.contains(name));
         if self.thread_id.is_none() {
             visible_tool_names.retain(|name| {
