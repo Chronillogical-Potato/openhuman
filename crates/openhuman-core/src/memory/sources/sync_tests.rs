@@ -51,25 +51,18 @@ fn reader_entry_maps_every_kind() {
         schedule_mins: None,
         namespace: None,
     };
-    let folder = reader_entry(&mk(MemorySourceKind::Folder, "/p"))
-        .unwrap()
-        .unwrap();
+    let folder = reader_entry(&mk(MemorySourceKind::Folder, "/p")).unwrap();
     assert_eq!(folder.path.as_deref(), Some("/p"));
-    let file = reader_entry(&mk(MemorySourceKind::File, "/p/a.md"))
-        .unwrap()
-        .unwrap();
+    let file = reader_entry(&mk(MemorySourceKind::File, "/p/a.md")).unwrap();
     assert_eq!(file.path.as_deref(), Some("/p/a.md"));
     for (kind, target) in [
         (MemorySourceKind::Link, "https://example.com/"),
         (MemorySourceKind::Github, "https://github.com/o/r"),
         (MemorySourceKind::Rss, "https://example.com/feed"),
     ] {
-        let entry = reader_entry(&mk(kind, target)).unwrap().unwrap();
+        let entry = reader_entry(&mk(kind, target)).unwrap();
         assert_eq!(entry.url.as_deref(), Some(target));
     }
-    assert!(reader_entry(&mk(MemorySourceKind::Composio, "gmail"))
-        .unwrap()
-        .is_none());
 }
 
 #[tokio::test]
@@ -261,7 +254,7 @@ async fn store_all_skips_a_bad_item_but_fails_when_nothing_stored() {
             &config,
             &bound,
             vec![bad.clone(), good],
-            (MemorySourceKind::Folder, "/n", "src"),
+            (MemorySourceKind::Folder, "src"),
             &tinymemory_tools::MemoryLayout::default()
         )
         .await
@@ -272,7 +265,7 @@ async fn store_all_skips_a_bad_item_but_fails_when_nothing_stored() {
         &config,
         &bound,
         vec![bad],
-        (MemorySourceKind::Folder, "/n", "src"),
+        (MemorySourceKind::Folder, "src"),
         &tinymemory_tools::MemoryLayout::default()
     )
     .await
@@ -282,7 +275,7 @@ async fn store_all_skips_a_bad_item_but_fails_when_nothing_stored() {
             &config,
             &bound,
             Vec::new(),
-            (MemorySourceKind::Folder, "/n", "src"),
+            (MemorySourceKind::Folder, "src"),
             &tinymemory_tools::MemoryLayout::default()
         )
         .await
@@ -334,7 +327,7 @@ async fn a_sync_queues_a_belief_build_only_for_an_engine_that_waits_for_one() {
             &config,
             &bound,
             vec![note()],
-            (MemorySourceKind::Folder, "/n", "src"),
+            (MemorySourceKind::Folder, "src"),
             &tinymemory_tools::MemoryLayout::default(),
         )
         .await
@@ -346,4 +339,86 @@ async fn a_sync_queues_a_belief_build_only_for_an_engine_that_waits_for_one() {
             .len();
         assert_eq!(pending, queued, "{consolidation:?}");
     }
+}
+
+#[tokio::test]
+async fn github_files_per_repository_only_when_switched_on() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    let bound = engine::resolve(&config).engine().unwrap();
+    let issue = |repo: &str, text: &str| {
+        let mut meta = tinymemory_api::MemoryMeta::default();
+        meta.repo = Some(repo.to_string());
+        tinymemory_api::StoreItem::document(text, meta)
+    };
+    let sync = |config: Config, items| {
+        let bound = bound.clone();
+        async move {
+            store_all(
+                &config,
+                &bound,
+                items,
+                (MemorySourceKind::Github, "src"),
+                &tinymemory_tools::MemoryLayout::default(),
+            )
+            .await
+            .unwrap()
+        }
+    };
+    let nodes = || async {
+        let mut nodes: Vec<String> = stored(&engine, MetaFilter::kinds([ItemKind::Document]))
+            .await
+            .into_iter()
+            .map(|hit| hit.meta.namespace.to_string())
+            .collect();
+        nodes.sort();
+        nodes
+    };
+
+    // Off: one GitHub source.
+    config.memory.split_github_by_repo = false;
+    sync(config.clone(), vec![issue("acme/api", "off")]).await;
+    assert_eq!(nodes().await, ["source:github"]);
+
+    config.memory.split_github_by_repo = true;
+    sync(
+        config.clone(),
+        vec![issue("Acme/API", "one"), issue("acme/web", "two")],
+    )
+    .await;
+    assert_eq!(
+        nodes().await,
+        [
+            "source:github",
+            "source:github/project:acme--api",
+            "source:github/project:acme--web"
+        ]
+    );
+    assert_eq!(
+        crate::memory::lifecycle::jobs::snapshot(&config)
+            .await
+            .pending
+            .len(),
+        3,
+        "one belief build per node written"
+    );
+}
+
+#[test]
+fn orphaned_connector_files_are_removed_and_missing_ones_ignored() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().join("memory");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("connector_items.json"), "{}").unwrap();
+    std::fs::write(dir.join("connection_roots.json"), "{}").unwrap();
+    std::fs::write(dir.join("sources_state.json"), "{}").unwrap();
+    state::remove_orphaned_connector_files(tmp.path());
+    assert!(!dir.join("connector_items.json").exists());
+    assert!(!dir.join("connection_roots.json").exists());
+    assert!(
+        dir.join("sources_state.json").exists(),
+        "live state is kept"
+    );
+    state::remove_orphaned_connector_files(tmp.path());
 }

@@ -15,8 +15,10 @@
 //! Every hook is bounded by a timeout and never fails a turn: an engine
 //! outage degrades memory, it does not block the agent.
 
+pub mod date_hint;
 pub mod hooks;
 pub mod jobs;
+pub mod sender;
 pub mod views;
 
 use std::sync::Arc;

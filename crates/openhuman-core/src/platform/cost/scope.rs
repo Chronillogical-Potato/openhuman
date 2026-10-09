@@ -2,7 +2,7 @@
 //!
 //! Usage is recorded deep in the agent loop, where no caller passes thread or
 //! agent ids down. They are already in scope as task-locals, though: the turn
-//! origin (thread, channel or job), the memory identity (the agent definition
+//! origin (thread, channel or job, bound on the turn's `CoreContext`), the memory identity (the agent definition
 //! acting) and the [`CoreContext`] (the embedded or SaaS user agent). The
 //! recording site adds what only it knows — the provider, and the sub-agent
 //! when a delegated child made the call.
@@ -17,7 +17,7 @@ impl UsageScope {
     /// The scope of the calling task, with `provider` and the sub-agent (its
     /// definition and task id) supplied by the recording site.
     pub fn ambient(provider: Option<&str>, subagent: Option<(&str, &str)>) -> Self {
-        let origin = crate::agent::turn_origin::current();
+        let origin = crate::core::runtime::CoreContext::current_turn_origin();
         let (thread_id, origin) = describe_origin(origin.as_ref());
         let definition = crate::memory::scope::current().and_then(|identity| identity.agent_id);
         let session_agent = crate::core::runtime::CoreContext::current()
@@ -46,9 +46,15 @@ pub(crate) fn describe_origin(
         Some(AgentTurnOrigin::WebChat { thread_id, .. }) => {
             (Some(thread_id.clone()), Some("web_chat".to_string()))
         }
-        Some(AgentTurnOrigin::ExternalChannel { channel, .. }) => {
-            (None, Some(format!("channel:{channel}")))
-        }
+        // A channel conversation's history key is its stable identity.
+        Some(AgentTurnOrigin::ExternalChannel {
+            channel,
+            history_key,
+            ..
+        }) => (
+            history_key.clone().filter(|key| !key.trim().is_empty()),
+            Some(format!("channel:{channel}")),
+        ),
         Some(AgentTurnOrigin::TrustedAutomation { source, .. }) => {
             let label = match source {
                 TrustedAutomationSource::Cron => "cron",

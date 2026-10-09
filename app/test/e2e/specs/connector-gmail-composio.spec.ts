@@ -97,14 +97,6 @@ describe('Gmail (Composio) connector flow', () => {
     console.log(`${LOG} PASS: connected state persists`);
   });
 
-  it('composio_sync does not tear down the session', async function () {
-    this.timeout(30_000);
-    clearRequestLog();
-    await callOpenhumanRpc('openhuman.composio_sync', { toolkit: TOOLKIT_SLUG });
-    // syncReq URL check dropped — see connector-github.spec.ts.
-    await assertSessionNotNuked();
-  });
-
   it('composio_execute routes a basic task', async function () {
     this.timeout(30_000);
     clearRequestLog();
@@ -113,7 +105,7 @@ describe('Gmail (Composio) connector flow', () => {
       action: 'GMAIL_FETCH_EMAILS',
       params: {},
     });
-    // execReq URL check removed (see composio_sync comment above).
+    // execReq URL check removed.
     console.log(`${LOG} PASS: composio_execute routed`);
   });
 

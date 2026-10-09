@@ -46,6 +46,7 @@ Applies to every release, all platforms.
 
 - [ ] **Browser readiness and setup** — Open Connections → Integrations → Computer → Browser on each desktop platform and verify the Early Alpha notice. Expected: the checksum-pinned TinyComputer module loads from the installer on Windows or the release cache on other platforms and passes TinyBus admission, module and Chrome readiness are reported separately, Test works, and saved viewport, profile, download folder, task limits, and allowed websites survive relaunch.
 - [ ] **Browser task and policy** — With an allowed Selenium test site, use a conversation to submit its web form and download File 1. Expected: `tool_search` discovers `browser`, consequential actions wait for the exact host approval, the submitted page shows “Received!”, and a completed download is verified on disk. Then restrict allowed websites and confirm a disallowed navigation is blocked.
+- [ ] **Browser learning** — In a conversation, ask for the same browser task on one allowed site twice. Expected: the second run starts without drafting a plan (debug log `[browser-sites] applied what the site's finished tasks left` with `reused_plan=true`) and ends the same way. Then click Browser → What tasks learn → Forget learned sites: it reports the sites forgotten, and the next run plans again. With Learn from finished tasks off, nothing is reused or kept.
 
 ### Wallet balances
 
@@ -117,9 +118,9 @@ Applies to every release, all platforms.
 
 ## Active release line
 
-> If multiple stable release lines are in flight (security backports, LTS), add a sub-section per line and check the same boxes for each. As of writing, `0.52.x` is the only active line — older minor versions are end-of-life. Fold this section to suit when more release lines exist.
+> One stable line is active at a time: the minor named by `[workspace.package] version` in the root `Cargo.toml`. Older minor versions are end-of-life. If more lines ever go in flight at once (security backports, LTS), add a sub-section per line and check the same boxes for each.
 
-### 0.52.x — current
+### Current stable line
 
 - [ ] **OAuth gate respects `VITE_MINIMUM_SUPPORTED_APP_VERSION`** (per [Release Policy](../gitbooks/developing/release-policy.md)) — Set the variable to a value above this build's version, build, attempt OAuth from the older binary. Expected: gate blocks the deep link; opens `VITE_LATEST_APP_DOWNLOAD_URL`.
 - [ ] **Gmail connect succeeds on a fresh install from `releases/latest`** — Per release-policy step 4. Expected: token exchange completes, inbox lists in-app.

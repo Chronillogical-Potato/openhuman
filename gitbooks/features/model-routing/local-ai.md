@@ -8,7 +8,7 @@ icon: microchip
 
 # Local AI (optional)
 
-OpenHuman can send any workload to a model running on your own machine: chat, reasoning, vision, memory embeddings, summary-tree building, and learning/reflection passes. Local AI is **opt-in** and **off** by default.
+OpenHuman can send any workload to a model running on your own machine: chat, reasoning, agentic turns, coding, vision, and embeddings. Local AI is **opt-in** and **off** by default.
 
 OpenHuman does not install, start, stop, or update a local runtime, and it does not download model weights. You:
 
@@ -74,7 +74,7 @@ reasoning_provider = "ollama:qwen2.5:14b"
 embeddings_provider = "ollama:bge-m3"
 ```
 
-The workload fields are `chat_provider`, `reasoning_provider`, `agentic_provider`, `coding_provider`, `vision_provider`, `memory_provider`, `embeddings_provider`, and `learning_provider`. A field that is unset, blank, or `cloud` stays on the default route. For the background features (embeddings, memory, learning), `Config::workload_local_model(...)` in `crates/openhuman-core/src/config/schema/types/resolvers.rs` treats a workload as local only when its field is `ollama:<model>`.
+The workload fields are `chat_provider`, `reasoning_provider`, `agentic_provider`, `coding_provider`, `vision_provider`, `memory_provider` and `embeddings_provider`. A field that is unset, blank, or `cloud` stays on the default route. For the background workloads, `Config::workload_local_model(...)` in `crates/openhuman-core/src/config/schema/types/resolvers.rs` treats a workload as local only when its field is `ollama:<model>`.
 
 The legacy `local_ai.usage.*` booleans are kept only so older configs migrate. They do not override the workload fields.
 
@@ -83,7 +83,6 @@ The legacy `local_ai.usage.*` booleans are kept only so older configs migrate. T
 | Workload                             | Configured by                                         | Notes                                                                                                                               |
 | ------------------------------------ | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | **Chat, reasoning, coding, agentic** | `chat_provider`, `reasoning_provider`, ...            | Any local prefix from the table above.                                                                                              |
-| **Learning / reflection**            | `learning_provider`                                   | `crates/openhuman-core/src/agent/learning/reflection.rs`.                                                                           |
 | **Vision**                           | `vision_provider`, `local_ai.vision_model_id`         | Must be a vision-capable model. See [Local vision](#local-vision).                                                                  |
 
 For lightweight chat hints (`hint:reaction`, `hint:classify`, `hint:format`, `hint:sentiment`, `hint:summarize`, `hint:medium`, `hint:tool_lite`), the [router](README.md) prefers the local provider when `local_ai.runtime_enabled = true` and it is reachable. Heavy hints (`hint:reasoning`, `hint:agentic`, `hint:coding`) stay on the default route unless the matching workload field points at a local provider.

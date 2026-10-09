@@ -238,3 +238,140 @@ fn cache_report_prices_the_uncached_premium_for_known_models() {
         None => assert_eq!(report.uncached_premium_usd, 0.0),
     }
 }
+
+#[test]
+fn a_model_switch_in_a_thread_is_not_a_cold_call() {
+    let (from, to) = window();
+    let records = vec![
+        record((2, 9), "model/a", Some("t9"), Some("x"), 1000, 0, 0.1, true),
+        // First call on another model: its cache could not have been warm.
+        record(
+            (2, 10),
+            "model/b",
+            Some("t9"),
+            Some("x"),
+            1000,
+            0,
+            0.1,
+            true,
+        ),
+        // Same model again, still nothing cached: genuinely cold.
+        record(
+            (2, 11),
+            "model/b",
+            Some("t9"),
+            Some("x"),
+            1000,
+            0,
+            0.1,
+            true,
+        ),
+    ];
+    let report = build_cache_report(&records, from, to, &ReportFilter::default());
+    assert_eq!(report.cold_calls, 1);
+    assert_eq!(
+        report.calls.iter().map(|c| c.cold).collect::<Vec<_>>(),
+        vec![false, false, true]
+    );
+}
+
+#[test]
+fn an_estimated_cost_lands_in_estimated_usd_not_charged() {
+    use crate::inference::provider::BilledUsage;
+    let estimated = BilledUsage::from_counts(100, 10).with_estimated_usd(0.25);
+    let usage = crate::platform::cost::global::build_token_usage("model/a", &estimated).unwrap();
+    assert_eq!(usage.cost_source, CostSource::Estimated);
+    let charged = BilledUsage::from_counts(100, 10).with_charged_usd(0.25);
+    let usage = crate::platform::cost::global::build_token_usage("model/a", &charged).unwrap();
+    assert_eq!(usage.cost_source, CostSource::ProviderCharged);
+}
+
+#[test]
+fn embedding_batches_stay_out_of_the_cache_report() {
+    let (from, to) = window();
+    let mut embedding = record(
+        (2, 9),
+        "voyage/voyage-3",
+        Some("t1"),
+        None,
+        5000,
+        0,
+        0.0,
+        false,
+    );
+    embedding.usage.scope.origin = Some(EMBEDDING_ORIGIN.into());
+    let mut records = sample();
+    records.push(embedding);
+    let with = build_cache_report(&records, from, to, &ReportFilter::default());
+    let without = build_cache_report(&sample(), from, to, &ReportFilter::default());
+    assert_eq!(with.calls.len(), without.calls.len());
+    assert_eq!(with.cache_hit_ratio, without.cache_hit_ratio);
+}
+
+#[test]
+fn a_provider_switch_in_a_thread_is_not_a_cold_call() {
+    let (from, to) = window();
+    let first = record((2, 9), "model/a", Some("t9"), Some("x"), 1000, 0, 0.1, true);
+    let mut second = record(
+        (2, 10),
+        "model/a",
+        Some("t9"),
+        Some("x"),
+        1000,
+        0,
+        0.1,
+        true,
+    );
+    second.usage.scope.provider = Some("openrouter".into());
+    let report = build_cache_report(&[first, second], from, to, &ReportFilter::default());
+    assert_eq!(report.cold_calls, 0, "{:?}", report.calls);
+}
+
+#[test]
+fn same_time_calls_classify_the_same_in_any_order() {
+    let (from, to) = window();
+    let mut records: Vec<CostRecord> = (0..3)
+        .map(|i| {
+            let mut r = record(
+                (2, 9),
+                "model/a",
+                Some("t9"),
+                Some("x"),
+                if i == 0 { 0 } else { 1000 },
+                0,
+                0.1,
+                true,
+            );
+            r.id = format!("r{i}");
+            r
+        })
+        .collect();
+    let forward = build_cache_report(&records, from, to, &ReportFilter::default());
+    records.reverse();
+    let backward = build_cache_report(&records, from, to, &ReportFilter::default());
+    assert_eq!(forward.cold_calls, backward.cold_calls);
+    assert_eq!(
+        forward.calls.iter().map(|c| c.cold).collect::<Vec<_>>(),
+        backward.calls.iter().map(|c| c.cold).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn a_misspelt_filter_key_does_not_deserialize() {
+    let parsed: Result<ReportFilter, _> = serde_json::from_value(serde_json::json!({
+        "threadId": "t1"
+    }));
+    assert!(parsed.is_err());
+}
+
+#[test]
+fn a_thread_begun_before_the_window_is_already_seen() {
+    let (from, to) = window();
+    // September 30th: before the window, only seeds the thread's cache.
+    let mut before = record((1, 9), "model/a", Some("t9"), Some("x"), 1000, 0, 0.1, true);
+    before.usage.timestamp = from - chrono::Duration::hours(2);
+    let inside = record((1, 9), "model/a", Some("t9"), Some("x"), 1000, 0, 0.1, true);
+    let report = build_cache_report(&[before, inside], from, to, &ReportFilter::default());
+    assert_eq!(report.calls.len(), 1, "the earlier call is not reported");
+    assert_eq!(report.cold_calls, 1, "its first call in range is a repeat");
+}

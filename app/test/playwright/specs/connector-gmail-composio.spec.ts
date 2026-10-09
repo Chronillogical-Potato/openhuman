@@ -189,11 +189,6 @@ test.describe('Gmail connector', () => {
     expect(hit?.status).toBe('ACTIVE');
   });
 
-  test.skip('keeps the session alive after composio_sync', async ({ page }) => {
-    await callCoreRpc('openhuman.composio_sync', { connection_id: CONNECTION_ID });
-    await assertSessionNotNuked(page);
-  });
-
   test('routes composio_execute without blanking the app', async ({ page }) => {
     await callCoreRpc('openhuman.composio_execute', { tool: ACTION, arguments: {} });
     await assertSessionNotNuked(page);

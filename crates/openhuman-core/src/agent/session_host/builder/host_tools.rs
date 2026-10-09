@@ -362,23 +362,20 @@ impl OpenHumanSessionHost {
     }
 }
 
-/// Compose the host belt before adding the remaining product configuration.
-pub(super) fn tool_builder(
-    host: Option<&HostTools>,
-    agent_id: &str,
-    session_id: Option<&str>,
-    mut tools: Vec<Box<dyn Tool>>,
-    mut visible: HashSet<String>,
-) -> Result<super::super::SessionHostBuilder> {
-    let merged = merge_for_turn(host, agent_id, session_id, &mut tools, &mut visible)?;
-    let mut builder = OpenHumanSessionHost::builder()
-        .tools(tools)
-        .visible_tool_names(visible)
-        .withheld_tool_names(merged.withheld)
-        .permanent_tool_names(merged.permanent);
-    // A supplied gate retains the existing replacement semantics.
-    if let Some(policy) = merged.policy {
-        builder = builder.tool_policy(policy);
+/// Binds the embedder's per-turn root as the default cwd, when it exists.
+pub(super) fn derive_turn_workspace_descriptor() -> Option<tinytools::WorkspaceDescriptor> {
+    let root = crate::agent::turn_workspace::current()?;
+    if !root.is_dir() {
+        tracing::warn!(
+            root = %root.display(),
+            "[turn_workspace] scoped root is not an existing directory — \
+             falling back to the shared action_dir cwd for this turn"
+        );
+        return None;
     }
-    Ok(builder)
+    tracing::debug!(
+        root = %root.display(),
+        "[turn_workspace] turn bound to the embedder's per-turn root as default cwd"
+    );
+    Some(tinytools::WorkspaceDescriptor::new(root).with_policy_id("turn-workspace"))
 }

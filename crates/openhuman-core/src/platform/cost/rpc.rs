@@ -514,7 +514,7 @@ pub fn cache_report(
     let tracker = resolve_tracker(config)?;
     let (from, to) = report_window(days);
     let records = tracker
-        .records_between(from, to)
+        .records_between(from - super::report::CACHE_LOOKBACK, to)
         .context("cost cache report query failed")?;
     let mut report = super::report::build_cache_report(&records, from, to, filter);
     let keep = limit.clamp(1, 1000);

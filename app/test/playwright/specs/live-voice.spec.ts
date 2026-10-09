@@ -145,10 +145,13 @@ test.describe('Live voice agent', () => {
       'aria-current',
       'page'
     );
-    await expect(page.getByTestId('live-voice-provider-gemini-hosted')).toBeVisible();
-    await expect(page.getByTestId('live-voice-provider-sarvam')).toContainText('Needs a key');
-    await expect(page.getByTestId('live-voice-test-button-sarvam')).toBeDisabled();
+    await expect(page.getByTestId('live-voice-vendor-gemini')).toContainText(
+      'Included with TinyHumans'
+    );
+    await expect(page.getByTestId('live-voice-vendor-sarvam')).toContainText('Needs a key');
 
+    await page.getByTestId('live-voice-settings-gemini').click();
+    await expect(page.getByTestId('live-voice-modal')).toBeVisible();
     await page.getByTestId('live-voice-test-button-gemini-hosted').click();
     await expect(page.getByTestId('live-voice-test-gemini-hosted')).toHaveText('Working · 123 ms');
     expect(calls).toContain('openhuman.voice_live_test_provider:gemini-hosted');

@@ -155,6 +155,13 @@ pub(super) fn handle_todos_get(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+pub(super) fn handle_search(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let p = parse::<ops::ThreadSearchRequest>(params)?;
+        to_json(ops::thread_search(p).await?)
+    })
+}
+
 pub(super) fn handle_edit_message(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p = parse::<ops::EditMessageRequest>(params)?;

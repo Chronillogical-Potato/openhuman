@@ -21,14 +21,22 @@ struct TestHarness {
 }
 
 async fn setup() -> TestHarness {
+    setup_with_config(None).await
+}
+
+async fn setup_with_config(memory_config: Option<&str>) -> TestHarness {
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
     let openhuman_home = home.join(".openhuman");
     write_min_config(&openhuman_home);
+    if let Some(memory_config) = memory_config {
+        std::fs::write(openhuman_home.join("config.toml"), memory_config)
+            .expect("write test config");
+    }
 
     let guards = vec![
         EnvVarGuard::set_to_path("HOME", home),
-        EnvVarGuard::unset("OPENHUMAN_WORKSPACE"),
+        EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", &openhuman_home.join("workspace")),
         EnvVarGuard::unset("BACKEND_URL"),
         EnvVarGuard::unset("VITE_BACKEND_URL"),
         EnvVarGuard::unset("OPENHUMAN_API_URL"),
@@ -148,22 +156,15 @@ async fn target_domain_schemas_are_exposed_over_http_schema_catalog() {
 #[tokio::test]
 async fn legacy_memory_backend_is_off_and_persisted_through_json_rpc() {
     let _lock = env_lock_async().await;
-    let harness = setup().await;
-    // A signed-out core reads the local user's config, not the top-level one.
-    let config_path = harness
-        ._tmp
-        .path()
-        .join(".openhuman/users/local/config.toml");
-    std::fs::create_dir_all(config_path.parent().expect("config dir")).expect("create config dir");
-    std::fs::write(
-        &config_path,
+    let harness = setup_with_config(Some(
         r#"
 [memory]
 backend = "sqlite"
 embedding_model = "local-embedding"
 "#,
-    )
-    .expect("write legacy config");
+    ))
+    .await;
+    let config_path = harness._tmp.path().join(".openhuman/config.toml");
 
     let engine = rpc(
         &harness.rpc_base,
@@ -177,7 +178,9 @@ embedding_model = "local-embedding"
     assert!(engine
         .get("reason")
         .and_then(Value::as_str)
-        .is_some_and(|reason| reason.contains("legacy memory backend")));
+        .is_some_and(|reason| reason.contains("legacy memory backend")),
+        "expected legacy migration reason, got: {engine}"
+    );
 
     let saved_config = rpc(
         &harness.rpc_base,
@@ -191,14 +194,12 @@ embedding_model = "local-embedding"
     let saved = tokio::fs::read_to_string(&config_path)
         .await
         .expect("read migrated config");
+    let saved_config: toml::Value = toml::from_str(&saved).unwrap();
     assert!(
-        !saved.contains("backend = \"sqlite\""),
-        "legacy key must not be persisted: {saved}"
+        !saved_config["memory"].as_table().unwrap().contains_key("backend"),
+        "legacy key must not be persisted in [memory]: {saved}"
     );
-    assert!(
-        saved.contains("engine = \"\""),
-        "off state must be persisted: {saved}"
-    );
+    assert!(saved.contains("engine = \"\""), "off state must be persisted: {saved}");
 
     harness.join.abort();
 }

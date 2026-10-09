@@ -119,10 +119,121 @@ impl MemoryEngine for RefusingEngine {
         Err(self.error.clone())
     }
 
+    async fn export(
+        &self,
+        _req: ListRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::ExportPage> {
+        Err(self.error.clone())
+    }
+
     async fn consolidate(
         &self,
         _req: tinymemory_api::ConsolidateRequest,
     ) -> tinymemory_api::Result<tinymemory_api::ConsolidateReceipt> {
         Err(self.error.clone())
+    }
+}
+
+/// The reference engine, recording which deletions it was asked for, and
+/// optionally refusing to erase the way an engine without erasure does.
+pub(crate) struct RecordingEngine {
+    pub(crate) inner: ReferenceEngine,
+    /// `"erase"` / `"forget"`, in call order.
+    pub(crate) calls: std::sync::Mutex<Vec<&'static str>>,
+    erase_unsupported: bool,
+}
+
+impl RecordingEngine {
+    /// Records and passes every call through.
+    pub(crate) fn new() -> Self {
+        Self {
+            inner: ReferenceEngine::new(),
+            calls: std::sync::Mutex::new(Vec::new()),
+            erase_unsupported: false,
+        }
+    }
+
+    /// Records, and refuses every erase with `Unsupported`.
+    pub(crate) fn without_erase() -> Self {
+        Self {
+            erase_unsupported: true,
+            ..Self::new()
+        }
+    }
+
+    /// Binds `engine` to `config`'s workspace.
+    pub(crate) fn bind(engine: &Arc<Self>, config: &Config) {
+        crate::memory::engine::install_test_engine(&config.workspace_dir, engine.clone());
+    }
+
+    /// The recorded calls.
+    pub(crate) fn calls(&self) -> Vec<&'static str> {
+        self.calls.lock().unwrap().clone()
+    }
+}
+
+#[async_trait::async_trait]
+impl MemoryEngine for RecordingEngine {
+    fn descriptor(&self) -> &tinymemory_api::EngineDescriptor {
+        self.inner.descriptor()
+    }
+
+    async fn health(&self) -> tinymemory_api::EngineHealth {
+        self.inner.health().await
+    }
+
+    async fn recall(
+        &self,
+        req: tinymemory_api::RecallRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::RecallAnswer> {
+        self.inner.recall(req).await
+    }
+
+    async fn fetch(
+        &self,
+        req: tinymemory_api::FetchRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::FetchPage> {
+        self.inner.fetch(req).await
+    }
+
+    async fn store(
+        &self,
+        item: tinymemory_api::StoreItem,
+    ) -> tinymemory_api::Result<tinymemory_api::StoreReceipt> {
+        self.inner.store(item).await
+    }
+
+    async fn forget(
+        &self,
+        target: tinymemory_api::ForgetTarget,
+    ) -> tinymemory_api::Result<tinymemory_api::ForgetReport> {
+        self.calls.lock().unwrap().push("forget");
+        self.inner.forget(target).await
+    }
+
+    async fn list(&self, req: ListRequest) -> tinymemory_api::Result<tinymemory_api::ListPage> {
+        self.inner.list(req).await
+    }
+
+    async fn export(&self, req: ListRequest) -> tinymemory_api::Result<tinymemory_api::ExportPage> {
+        self.inner.export(req).await
+    }
+
+    async fn consolidate(
+        &self,
+        req: tinymemory_api::ConsolidateRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::ConsolidateReceipt> {
+        self.inner.consolidate(req).await
+    }
+
+    async fn erase(
+        &self,
+        req: tinymemory_api::EraseRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::EraseReport> {
+        self.calls.lock().unwrap().push("erase");
+        if self.erase_unsupported {
+            return Err(tinymemory_api::Error::Unsupported("no erase".into()));
+        }
+        self.inner.erase(req).await
     }
 }

@@ -90,7 +90,41 @@ pub(super) async fn export_run_to_langfuse(
 /// status. Registering before the `run_id` is observable makes the cancel
 /// always take the signalled branch instead. `_run_guard` is held for the whole
 /// body and deregisters on any exit, including the early returns below.
-pub(super) async fn run_flow_body(
+///
+/// Returned boxed and `#[inline(never)]` on purpose: an `async fn` body is
+/// otherwise re-instantiated inside every crate / codegen unit that awaits it,
+/// and this state machine is large. Boxing here keeps one copy, compiled in
+/// this crate.
+#[allow(clippy::too_many_arguments)]
+#[inline(never)]
+pub(super) fn run_flow_body(
+    config_arc: Arc<Config>,
+    flow: Flow,
+    flow_id: String,
+    thread_id: String,
+    input: Value,
+    inputs: serde_json::Map<String, Value>,
+    trigger: FlowRunTrigger,
+    no_actionable_nodes: bool,
+    cancel_token: tokio_util::sync::CancellationToken,
+    _run_guard: run_registry::RunGuard,
+) -> futures::future::BoxFuture<'static, Result<Outcome<Value>, String>> {
+    Box::pin(run_flow_body_inner(
+        config_arc,
+        flow,
+        flow_id,
+        thread_id,
+        input,
+        inputs,
+        trigger,
+        no_actionable_nodes,
+        cancel_token,
+        _run_guard,
+    ))
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn run_flow_body_inner(
     config_arc: Arc<Config>,
     flow: Flow,
     flow_id: String,

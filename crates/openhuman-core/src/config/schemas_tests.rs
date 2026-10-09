@@ -26,6 +26,8 @@ fn every_registered_key_resolves_to_non_unknown_schema() {
         "workspace_onboarding_flag_set",
         "update_analytics_settings",
         "get_analytics_settings",
+        "update_user_timezone",
+        "get_user_timezone",
         "update_autonomy_settings",
         "get_autonomy_settings",
         "get_agent_settings",

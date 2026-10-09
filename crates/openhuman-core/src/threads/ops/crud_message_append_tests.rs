@@ -159,10 +159,12 @@ async fn external_origin_cannot_reuse_an_existing_attachment_marker() {
     .await
     .unwrap();
     let origin = crate::agent::turn_origin::AgentTurnOrigin::ExternalChannel {
+        sender_name: None,
         channel: "test".into(),
         sender: None,
         reply_target: "room".into(),
         message_id: "message".into(),
+        history_key: None,
     };
     assert!(
         append_with_test_config(request("external", &staged, "user"), &config, Some(&origin))

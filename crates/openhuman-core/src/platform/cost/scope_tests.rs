@@ -14,12 +14,27 @@ fn each_origin_maps_to_its_thread_and_label() {
     let channel = AgentTurnOrigin::ExternalChannel {
         channel: "telegram".into(),
         sender: None,
+        sender_name: None,
+        history_key: None,
         reply_target: "r".into(),
         message_id: "m".into(),
     };
     assert_eq!(
-        describe_origin(Some(&channel)).1.as_deref(),
-        Some("channel:telegram")
+        describe_origin(Some(&channel)),
+        (None, Some("channel:telegram".into()))
+    );
+    // A channel conversation's history key is its thread.
+    let conversation = AgentTurnOrigin::ExternalChannel {
+        channel: "telegram".into(),
+        sender: None,
+        sender_name: None,
+        history_key: Some("telegram:42".into()),
+        reply_target: "r".into(),
+        message_id: "m".into(),
+    };
+    assert_eq!(
+        describe_origin(Some(&conversation)).0.as_deref(),
+        Some("telegram:42")
     );
     let cron = AgentTurnOrigin::TrustedAutomation {
         job_id: "j".into(),
@@ -45,15 +60,22 @@ async fn ambient_scope_reads_the_turn_and_prefers_the_subagent() {
         client_id: "c".into(),
         request_id: None,
     };
-    let (parent, child) = crate::agent::turn_origin::with_origin(origin, async {
-        within(MemoryIdentity::agent("orchestrator"), async {
-            (
-                UsageScope::ambient(Some("openhuman"), None),
-                UsageScope::ambient(Some("openhuman"), Some(("researcher", "task-1"))),
-            )
-        })
-        .await
-    })
+    // The origin is read from the turn's `CoreContext`, which `with_origin`
+    // binds when there is a context to bind it on.
+    let ctx =
+        crate::core::runtime::CoreContext::for_test(crate::core::runtime::DomainSet::full(), None);
+    let (parent, child) = crate::core::runtime::CoreContext::scope(
+        ctx,
+        crate::agent::turn_origin::with_origin(origin, async {
+            within(MemoryIdentity::agent("orchestrator"), async {
+                (
+                    UsageScope::ambient(Some("openhuman"), None),
+                    UsageScope::ambient(Some("openhuman"), Some(("researcher", "task-1"))),
+                )
+            })
+            .await
+        }),
+    )
     .await;
     assert_eq!(parent.thread_id.as_deref(), Some("thread-9"));
     assert_eq!(parent.origin.as_deref(), Some("web_chat"));

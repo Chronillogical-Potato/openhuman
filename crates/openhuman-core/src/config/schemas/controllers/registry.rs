@@ -26,9 +26,9 @@ use super::voice::{
 use super::workspace::{
     handle_agent_server_status, handle_get_agent_paths, handle_get_analytics_settings,
     handle_get_dashboard_settings, handle_get_data_paths, handle_get_onboarding_completed,
-    handle_reset_local_data, handle_set_onboarding_completed, handle_update_agent_paths,
-    handle_update_analytics_settings, handle_workspace_onboarding_flag_exists,
-    handle_workspace_onboarding_flag_set,
+    handle_get_user_timezone, handle_reset_local_data, handle_set_onboarding_completed,
+    handle_update_agent_paths, handle_update_analytics_settings, handle_update_user_timezone,
+    handle_workspace_onboarding_flag_exists, handle_workspace_onboarding_flag_set,
 };
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
@@ -48,6 +48,8 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("workspace_onboarding_flag_set"),
         schemas("update_analytics_settings"),
         schemas("get_analytics_settings"),
+        schemas("update_user_timezone"),
+        schemas("get_user_timezone"),
         schemas("get_dashboard_settings"),
         schemas("agent_server_status"),
         schemas("reset_local_data"),
@@ -136,6 +138,14 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("get_analytics_settings"),
             handler: handle_get_analytics_settings,
+        },
+        RegisteredController {
+            schema: schemas("update_user_timezone"),
+            handler: handle_update_user_timezone,
+        },
+        RegisteredController {
+            schema: schemas("get_user_timezone"),
+            handler: handle_get_user_timezone,
         },
         RegisteredController {
             schema: schemas("get_dashboard_settings"),

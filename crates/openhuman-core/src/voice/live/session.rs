@@ -169,10 +169,12 @@ pub(crate) async fn start(
     let prepared = providers::prepare(&config, &provider, live).await?;
 
     let origin = AgentTurnOrigin::ExternalChannel {
+        sender_name: None,
         channel: "voice".to_string(),
         sender: None,
         reply_target: session_id.to_string(),
         message_id: format!("voice-live-{session_id}"),
+        history_key: None,
     };
     let mut context = OpenHumanRunContext::new();
     context.origin = Some(origin.clone());

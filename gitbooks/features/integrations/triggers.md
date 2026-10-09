@@ -35,7 +35,7 @@ If an older Gmail connection was created before this scope was requested, reconn
 
 ## Where triggers come from, end to end
 
-```
+```text
 ┌────────────────────┐
 │ third-party API │ Gmail / Slack / Notion / GitHub / ...
 └─────────┬──────────┘
@@ -70,7 +70,7 @@ The webhook never reaches your machine raw. The backend is what holds the OAuth 
 
 ## The triage step
 
-Before any action runs, every trigger goes through the [`trigger_triage`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-core/src/agent/agents/trigger_triage) agent. Its only job is to decide what the rest of the system should do.
+Before any action runs, every trigger goes through the [`trigger_triage`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-core/src/agent/registry/agents/trigger_triage) agent. Its only job is to decide what the rest of the system should do.
 
 It picks exactly one of four actions:
 
@@ -78,7 +78,7 @@ It picks exactly one of four actions:
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **`drop`**        | Nothing. Trigger is silently logged and discarded.                                                                                                             | Spam, duplicates, irrelevant noise. The default for things you don't care about.                                                                             |
 | **`acknowledge`** | A short memory note is persisted, no agent runs.                                                                                                               | Passive notifications worth remembering ("a new page was created in archive").                                                                               |
-| **`react`**       | The [`trigger_reactor`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-core/src/agent/agents/trigger_reactor) agent runs with one or two tool calls. | A small, single-step side effect: store a memory entry, post a quick acknowledgement, mark a thread read.                                                    |
+| **`react`**       | The [`trigger_reactor`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-core/src/agent/registry/agents/trigger_reactor) agent runs with one or two tool calls. | A small, single-step side effect: store a memory entry, post a quick acknowledgement, mark a thread read.                                                    |
 | **`escalate`**    | The full **orchestrator** agent takes over with planning capability.                                                                                           | Anything that needs reasoning, multiple steps, or multiple skills: drafting a reply, updating several Notion pages, deciding how to triage an inbound issue. |
 
 The triage agent has the same memory and workspace context the rest of the agent has. It can tell whether a trigger is relevant to something you're currently working on, who the people involved are, and whether it's the kind of thing you've asked OpenHuman to act on before.
@@ -123,8 +123,8 @@ Triggers follow the same boundary as the rest of the product (see [Privacy & Sec
 
 ## Implementation pointers (for developers)
 
-- Triage agent: `crates/openhuman-core/src/agent/agents/trigger_triage/`
-- Reactor agent: `crates/openhuman-core/src/agent/agents/trigger_reactor/`
+- Triage agent: `crates/openhuman-core/src/agent/registry/agents/trigger_triage/`
+- Reactor agent: `crates/openhuman-core/src/agent/registry/agents/trigger_reactor/`
 - Composio bus subscriber: `crates/openhuman-core/src/integrations/composio/bus.rs` (`ComposioTriggerSubscriber`)
 - Trigger history persistence: `crates/openhuman-core/src/integrations/composio/trigger_history.rs`
 - Domain events: `DomainEvent::ComposioTriggerReceived`, `DomainEvent::TriggerEscalated` in `crates/openhuman-core/src/core/events.rs`
