@@ -177,7 +177,7 @@ pub(super) fn load_prompt_source(
 ) -> Result<String, SubagentRunError> {
     let workspace_dir = ctx.workspace_dir;
     match source {
-        PromptSource::Inline(body) => Ok(body.clone()),
+        PromptSource::Inline(body) | PromptSource::Verbatim(body) => Ok(body.clone()),
         PromptSource::Dynamic(build) => build(ctx).map_err(|e| SubagentRunError::PromptLoad {
             path: format!("<dynamic:{}>", ctx.agent_id),
             source: std::io::Error::other(e.to_string()),

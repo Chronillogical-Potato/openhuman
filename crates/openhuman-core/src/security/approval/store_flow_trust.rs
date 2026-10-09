@@ -15,6 +15,9 @@ use crate::config::Config;
 use super::super::types::{ApprovalDecision, ApprovalSourceContext};
 use super::with_connection;
 
+/// The action summary of a flow pre-authorization audit row.
+const PREAUTHORIZATION_SUMMARY: &str = "Pre-authorized for this flow when it was saved and enabled";
+
 /// Record a save-time flow pre-authorization in the durable audit trail as a
 /// born-decided row (`decided_at = created_at`, decision
 /// `approve_always_for_flow`): it never appears in `list_pending` (which
@@ -29,6 +32,19 @@ pub fn record_flow_preauthorization(
     tool_name: &str,
     session_id: &str,
 ) -> Result<()> {
+    if let Some(docs) = super::super::store_documents::current()? {
+        return docs.insert_decided(
+            tool_name,
+            PREAUTHORIZATION_SUMMARY,
+            session_id,
+            &ApprovalSourceContext::Flow {
+                flow_id: flow_id.to_string(),
+                run_id: String::new(),
+                node_id: None,
+            },
+            ApprovalDecision::ApproveAlwaysForFlow,
+        );
+    }
     with_connection(config, |conn| {
         let now = Utc::now().to_rfc3339();
         let source_context = serde_json::to_string(&ApprovalSourceContext::Flow {
@@ -46,7 +62,7 @@ pub fn record_flow_preauthorization(
             params![
                 uuid::Uuid::new_v4().to_string(),
                 tool_name,
-                "Pre-authorized for this flow when it was saved and enabled",
+                PREAUTHORIZATION_SUMMARY,
                 "{}",
                 session_id,
                 now,
@@ -64,6 +80,9 @@ pub fn record_flow_preauthorization(
 /// flow-origin park. `INSERT OR IGNORE` makes re-granting an already-trusted
 /// pair a harmless no-op rather than a primary-key error.
 pub fn insert_flow_trust(config: &Config, flow_id: &str, tool_name: &str) -> Result<()> {
+    if let Some(docs) = super::super::store_documents::current()? {
+        return docs.insert_flow_trust(flow_id, tool_name);
+    }
     with_connection(config, |conn| {
         conn.execute(
             "INSERT OR IGNORE INTO flow_tool_trust (flow_id, tool_name, created_at)
@@ -80,6 +99,9 @@ pub fn insert_flow_trust(config: &Config, flow_id: &str, tool_name: &str) -> Res
 /// save-time pre-authorization manifest (`flows_approval_manifest`) to diff
 /// "what the graph needs" against "what is already granted".
 pub fn list_flow_trust(config: &Config, flow_id: &str) -> Result<Vec<String>> {
+    if let Some(docs) = super::super::store_documents::current()? {
+        return docs.list_flow_trust(flow_id);
+    }
     with_connection(config, |conn| {
         let mut stmt = conn
             .prepare(
@@ -105,6 +127,9 @@ pub fn delete_flow_trust(
     flow_id: &str,
     tool_names: Option<&[String]>,
 ) -> Result<usize> {
+    if let Some(docs) = super::super::store_documents::current()? {
+        return docs.delete_flow_trust(flow_id, tool_names);
+    }
     with_connection(config, |conn| {
         let removed = match tool_names {
             None => conn
@@ -135,6 +160,9 @@ pub fn delete_flow_trust(
 /// this flow" trust. Consulted by [`super::gate::ApprovalGate::intercept_audited`]
 /// before parking a `Workflow`-origin tool call.
 pub fn is_flow_tool_trusted(config: &Config, flow_id: &str, tool_name: &str) -> Result<bool> {
+    if let Some(docs) = super::super::store_documents::current()? {
+        return docs.is_flow_tool_trusted(flow_id, tool_name);
+    }
     with_connection(config, |conn| {
         let exists: bool = conn
             .query_row(

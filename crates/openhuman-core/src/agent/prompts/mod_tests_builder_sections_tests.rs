@@ -664,3 +664,27 @@ fn tools_section_json_with_an_embedded_catalogue_lists_tools_once() {
     assert!(!rendered.contains("Call as:"), "{rendered}");
     assert!(rendered.contains("Parameters:"), "{rendered}");
 }
+
+#[test]
+fn verbatim_builder_renders_the_body_and_nothing_else() {
+    let ctx = PromptContext {
+        workspace_dir: Path::new("/tmp"),
+        model_name: "test-model",
+        agent_id: "",
+        tools: &[],
+        workflows: &[],
+        dispatcher_instructions: "instr",
+        visible_tool_names: &NO_FILTER,
+        tool_call_format: ToolCallFormat::Native,
+        connected_integrations: &[],
+        connected_identities_md: String::new(),
+        user_identity: None,
+        personality_roster: vec![],
+        agents_md_global: None,
+        agents_md_local: None,
+    };
+    let rendered = SystemPromptBuilder::verbatim("Review the diff.".to_string())
+        .build(&ctx)
+        .unwrap();
+    assert_eq!(rendered.trim_end(), "Review the diff.");
+}

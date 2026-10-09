@@ -165,7 +165,8 @@ async fn async_main(
     // integrations): full domains (channel.web_chat needs the channels family,
     // so harness() is not enough), no RPC transport, no background services,
     // and conversations in the classic on-disk layout, as the desktop keeps
-    // them. `host` owns the core for the whole session: it must outlive the
+    // them, unless a storage URL (`OPENHUMAN_STORAGE_URL` / `[storage] url`)
+    // is set. `host` owns the core for the whole session: it must outlive the
     // event loop below, so it is held until `app::run` returns.
     let host = openhuman_rpc::host::tui().await?;
     let runtime = Arc::clone(host.core_runtime());

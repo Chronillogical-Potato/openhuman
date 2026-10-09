@@ -464,7 +464,7 @@ export function formatReport(result, { coreDefaults, shell, allowlist = {} }) {
 export const CHAIN_GATES_NOT_FORWARDED = {
   'openhuman-embed': {
     'rss-bench':
-      'Library-side hook for the embedded-RSS benchmark (#5046). Its binaries moved to the openhuman-benchmarks repository (#6944), which builds the core directly; no host in this repository turns it on.',
+      'Library-side hook for the embedded-RSS benchmark (#5046). Its binaries live in tinyhumansai/openhuman-benchmarks (`profile/`, #6944), which enables the core gate directly; no host in this repository turns it on.',
   },
 };
 

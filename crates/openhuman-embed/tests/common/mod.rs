@@ -38,7 +38,7 @@ pub fn chat_completion(content: &str) -> serde_json::Value {
 }
 
 /// A config that keeps the turn offline: no local runtimes and no
-/// conversation memory. Mirrors the former `library-profile` harness `fixture()` (now in openhuman-benchmarks, #6944),
+/// conversation memory. Mirrors `profile/src/bin/library_profile/harness.rs::fixture()` in openhuman-benchmarks,
 /// which is the recipe already proven against real turns.
 pub fn offline_config() -> Config {
     let mut config = Config::default();

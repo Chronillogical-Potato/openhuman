@@ -4960,6 +4960,17 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'Bellek kapalı',
   'memoryPage.off.description': 'Hatırlamaya başlamak için bir bellek sağlayıcısı seç.',
   'memoryPage.off.action': 'Sağlayıcı seç',
+  'memoryPage.disabled.title': 'Bellek devre dışı',
+  'memoryPage.disabled.description':
+    'OpenHuman hiçbir şey kaydetmiyor veya hatırlamıyor. Belleği yeniden açmak için bir sağlayıcı seçin.',
+  'memoryPage.engine.disabled.title': 'Devre dışı',
+  'memoryPage.engine.disabled.description':
+    'Belleği tamamen kapatın. Hiçbir şey kaydedilmez veya hatırlanmaz; bağlantılarınız korunur.',
+  'memoryPage.engine.disabled.action': 'Belleği devre dışı bırak',
+  'memoryPage.engine.disabled.banner':
+    'Hiçbir şey kaydedilmiyor veya hatırlanmıyor. Belleği yeniden açmak için aşağıdan bir sağlayıcı seçin.',
+  'memoryPage.engine.disabled.toast': 'Bellek devre dışı bırakıldı',
+  'memoryPage.engine.disabled.toastFailed': 'Bellek devre dışı bırakılamadı',
   'memoryPage.engine.inUse': 'Kullanımda',
   'memoryPage.announcement.title': "CortexDB'de ücretsiz bellek çıkarımı",
   'memoryPage.announcement.retired': 'TinyCortex 7 Ekim’de kullanımdan kaldırıldı.',
@@ -5391,7 +5402,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'Bellek',
   'welcome.th.featureEmbeddings': 'Vektör temsilleri',
   'welcome.th.featureBilling': 'Faturalandırma',
-  'welcome.th.credit': 'Başlangıç için 5 $ kredi',
   'welcome.th.cta': 'TinyHumans ile devam et',
   'welcome.th.providers': 'Google, GitHub veya X ile oturum açın',
   'welcome.self.title': 'Kendim kuracağım',

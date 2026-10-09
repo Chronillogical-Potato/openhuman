@@ -60,7 +60,7 @@ OpenHuman's policy.
 Arrows point at what a crate depends on. Two seams let the upper crates plug
 into the core without the core naming them:
 
-- The backend transport port (`backend/transport/`: `BackendTransport`,
+- The backend transport port ([`backend/transport/`](./src/backend/transport/): `BackendTransport`,
   `BackendRequest`, `BackendTransportError`). `openhuman-tinyhumans`
   implements it with the TinyHumans SDK and installs it once per process
   (`openhuman_tinyhumans::install`, `RuntimeBuilder`, or
@@ -96,7 +96,7 @@ Every domain operation follows one contract, defined in `core/`:
 ```
 
 Each domain exposes `all_<domain>_registered_controllers()` from its
-`schemas.rs`. `core/all.rs` collects them in `build_registered_controllers`
+`schemas.rs`. [`core/all.rs`](./src/core/all.rs) collects them in `build_registered_controllers`
 (public) and `build_internal_only_controllers` (callable by the shell, hidden
 from agent tool listings), tagging each with one `DomainGroup`. RPC method
 names are `openhuman.<namespace>_<function>`, and namespace strings are wire
@@ -105,42 +105,42 @@ server dumps the live registry.
 
 ### The event bus
 
-`core/bus.rs` owns the process-wide `BUS` (a `tinybus` bus over
-`DomainEvent`, defined in `core/events.rs`). Domains publish with
+[`core/bus.rs`](./src/core/bus.rs) owns the process-wide `BUS` (a `tinybus` bus over
+`DomainEvent`, defined in [`core/events.rs`](./src/core/events.rs)). Domains publish with
 `BUS.publish` and subscribe with an `EventHandler` in their own `bus.rs`,
 named `<domain>::<purpose>`. Subscribers are registered at startup in
-`core/runtime/subscribers.rs`. `BUS.native()` carries typed in-process
+[`core/runtime/subscribers.rs`](./src/core/runtime/subscribers.rs). `BUS.native()` carries typed in-process
 request and response calls whose values cannot be serialized. Adding an event
 means adding the variant, extending `domain()`, registering the subscriber,
 and bumping `EVENTS_VERSION`.
 
 ### Runtime composition
 
-`CoreBuilder` (`core/runtime/builder.rs`) builds a `CoreRuntime`. Three knobs
+`CoreBuilder` ([`core/runtime/builder.rs`](./src/core/runtime/builder.rs)) builds a `CoreRuntime`. Three knobs
 narrow what runs, and they can only narrow:
 
 | Knob | Selects | Presets |
 | --- | --- | --- |
 | `ServiceSet` | Background services and transports: HTTP RPC, Socket.IO, cron, channels, login-gated services, update checker, memory queue, MCP boot, integration sync | `desktop`, `headless_api`, `embedded`, `none` |
 | `DomainSet` | Which `DomainGroup` families are live: controllers, tools, stores, subscribers | `full`, `harness`, `embedded`, `kernel`, `none` |
-| `ToolGroups` | Tool visibility for agents | (see `tools/toolpacks`) |
+| `ToolGroups` | Tool visibility for agents | (see [`tools/toolpacks`](./src/tools/toolpacks/)) |
 
 `CoreRuntime::invoke` dispatches through the same `invoke_method` the RPC
 server uses. `CoreContext::derive_with` gives an embedded agent its own
 context, clamped to what the parent registered. Boot order (config,
 migrations, cost ledger, socket manager, subscribers, services) is in
-`core/runtime/bootstrap.rs` and `services.rs`; see
+[`core/runtime/bootstrap.rs`](./src/core/runtime/bootstrap.rs) and `services.rs`; see
 [`src/core/runtime/README.md`](src/core/runtime/README.md).
 
 `run_core_from_args` (`lib.rs`) is the CLI entry point used by
-`crates/openhuman-cli/src/main.rs` and the desktop binary's `core` and `mcp`
+[`crates/openhuman-cli/src/main.rs`](../openhuman-cli/src/main.rs) and the desktop binary's `core` and `mcp`
 subcommands. It loads dotenv, applies the startup restart delay, initializes
 the keyring master key, and dispatches to `core::cli`. A host that serves RPC
 calls `openhuman_rpc::server::install_cli_server()` first.
 
 ## Layout
 
-`src/core/` is infrastructure, not a domain. Everything else under `src/` is
+[`src/core/`](./src/core/) is infrastructure, not a domain. Everything else under `src/` is
 one domain family, with the module shape described in `AGENTS.md` ("Rust
 domain structure": `mod.rs`, `types.rs`, `store.rs`, `ops.rs`, `schemas.rs`,
 `tools.rs`, `bus.rs`). A `*` marks a module whose `pub mod` in `lib.rs` is
@@ -152,7 +152,7 @@ feature-gated by the feature of the same name.
 | --- | --- |
 | [`src/core/`](src/core/README.md) | Controller contract (`Outcome`, `ControllerSchema`, `StructuredRpcError`, `params`), registry (`all.rs`), in-process dispatch (`invoke.rs`, `dispatch.rs`), `BUS` and `DomainEvent`, CLI, logging and observability, runtime composition (`runtime/`). |
 | [`src/backend/`](src/backend/README.md) | The backend port and `BackendClient` (authenticated JSON, error classification). Holds no URL, header policy, or product identity; it asks the installed transport. |
-| [`src/config/`](src/config/README.md) | Config schema (`config/schema/`), load and save, settings RPC. |
+| [`src/config/`](src/config/README.md) | Config schema ([`config/schema/`](./src/config/schema/)), load and save, settings RPC. |
 | [`src/util/`](src/util/README.md) | Self-contained helpers. Always compiled. |
 | [`src/test_support/`](src/test_support/README.md)* | Wipe-and-reset hooks for E2E specs (feature `e2e-test-support`). |
 
@@ -172,7 +172,7 @@ feature-gated by the feature of the same name.
 
 | Path | What it does |
 | --- | --- |
-| [`src/tools/`](src/tools/README.md) | Assembles each session's tool list (`tools/ops.rs`), cross-cutting built-in tools, and tool policy. Domain tools live with their domain and are re-exported here. |
+| [`src/tools/`](src/tools/README.md) | Assembles each session's tool list ([`tools/ops.rs`](./src/tools/ops.rs)), cross-cutting built-in tools, and tool policy. Domain tools live with their domain and are re-exported here. |
 | [`src/security/`](src/security/README.md) | The trust boundary: autonomy policy, approvals, credentials and secrets, redaction, egress and local-only mode, listener guard. |
 | [`src/sandbox/`](src/sandbox/README.md) | Sandbox backends for tool isolation (platform jail, Docker via `tinybox`). |
 | [`src/runtime/`](src/runtime/README.md) | Client side of code execution: `node_exec`, `npm_exec`, `python_exec`, `shell`, worker pools over the `tinyruntime` module. |
@@ -203,11 +203,11 @@ feature-gated by the feature of the same name.
 
 ## Feature gates
 
-`[features] default` in `Cargo.toml` is the contributor set: what a bare
+`[features] default` in [`Cargo.toml`](./Cargo.toml) is the contributor set: what a bare
 `cargo check`, `cargo test`, or rust-analyzer builds. It is deliberately
 smaller than the product set in `scripts/ci/product-features.txt`, which the
-desktop app forwards from `crates/openhuman-app/Cargo.toml` (it disables
-default features). `scripts/ci/check-feature-forwarding.mjs` checks that
+desktop app forwards from [`crates/openhuman-app/Cargo.toml`](../openhuman-app/Cargo.toml) (it disables
+default features). [`scripts/ci/check-feature-forwarding.mjs`](../../scripts/ci/check-feature-forwarding.mjs) checks that
 forwarding, and the library chain (`openhuman-embed`, then
 `openhuman-tinyhumans`, then `openhuman-cli`).
 
@@ -231,14 +231,14 @@ forwarding, and the library chain (`openhuman-embed`, then
 | `crash-reporting` | no | yes | Sentry |
 | `whatsapp-web` | no | no | WhatsApp Web channel provider |
 | `e2e-test-support` | no | no | `openhuman::test_support` |
-| `rss-bench` | no | no | Hooks for the `rss-bench` profiling bin (now in openhuman-benchmarks, #6944) |
+| `rss-bench` | no | no | Hooks for the `rss-bench` / `library-profile` profiling bins in openhuman-benchmarks |
 
 Gates come in two shapes. A leaf gate removes the module (`hosting`, `media`,
 `flows`, `modules`). A facade gate keeps the module declared and gates most
 of its contents inside its own `mod.rs` (`channels`, `mcp`, `skills`,
 `voice`, `web3`, `runtime-node`). Several facades also swap in a `stub.rs`
 with matching signatures so always-on callers need no `#[cfg]` (`web3` and
-its `wallet` and `x402` members, `skills`, `voice`, `runtime/node`). Stub
+its `wallet` and `x402` members, `skills`, `voice`, [`runtime/node`](./src/runtime/node/)). Stub
 drift is only caught by `cargo check --no-default-features`. Every compile-time gate
 composes with the matching runtime `DomainSet` flag. The kernel floor profile
 is `--no-default-features --features flows`. Read the policy comments above
@@ -247,15 +247,17 @@ enabled and disabled builds.
 
 ## Boundaries
 
-- No binaries. `crates/openhuman-cli` declares `openhuman-core`,
+- No binaries. [`crates/openhuman-cli`](../openhuman-cli/) declares `openhuman-core`,
   `test-mcp-stub` and `openhuman-fleet`, plus every root `tests/*.rs` and
   `examples/*.rs` target. See
   [`../openhuman-cli/src/bin/README.md`](../openhuman-cli/src/bin/README.md).
+  The benchmark and profiling binaries live in
+  [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks) (`profile/`).
 - No JSON-RPC server, no HTTP client for RPC, no session store:
-  `crates/openhuman-rpc`.
-- No backend URLs, SDK, login, or `/auth/*` calls: `crates/openhuman-tinyhumans`.
+  [`crates/openhuman-rpc`](../openhuman-rpc/).
+- No backend URLs, SDK, login, or `/auth/*` calls: [`crates/openhuman-tinyhumans`](../openhuman-tinyhumans/).
   The core only accepts a credential through `auth.set_credential`.
-- No windows or native shell integration: `crates/openhuman-app`.
+- No windows or native shell integration: [`crates/openhuman-app`](../openhuman-app/).
 - Agent loop, tool-call parsing, sessions and transcripts, the `Tool` trait,
   provider wire formats, memory engines, channel backends, wallet signing,
   search providers, and hosting providers belong to their `vendor/tiny*`
@@ -282,7 +284,7 @@ with explicit `[[test]]` and `[[example]]` entries, except
 `required-features` and are skipped, not failed, under the contributor set;
 run them with the product features. A suite that boots the core in-process
 and reaches the mock backend must call `tinyhumans_boot::boot()` from
-`tests/support/tinyhumans_boot.rs` first.
+[`tests/support/tinyhumans_boot.rs`](../../tests/support/tinyhumans_boot.rs) first.
 
 Further reading:
 [`gitbooks/developing/architecture.md`](../../gitbooks/developing/architecture.md),
@@ -292,3 +294,9 @@ Further reading:
 ranker), and
 [`gitbooks/developing/embedding.md`](../../gitbooks/developing/embedding.md)
 (embedding the core).
+
+## Further reading
+
+- [Building the Rust core](../../gitbooks/developing/building-rust-core.md)
+- [Crates overview](../README.md)
+- [Repository conventions (AGENTS.md)](../../AGENTS.md)

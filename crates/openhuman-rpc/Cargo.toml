@@ -41,7 +41,7 @@ server = [
 # `session_raw/` / `session_db/` / `tinyagents_store/` layout behind
 # TinyAgents' session store port. On with `server`; the TUI, which runs the
 # core without the server, turns it on by itself.
-session-store = ["dep:tinyagents-session", "dep:tinyagents-harness", "dep:chrono", "dep:anyhow"]
+session-store = ["dep:tinyagents-session", "dep:tinyagents-harness", "dep:chrono", "dep:anyhow", "tinyagents-session/storage-drivers"]
 # The Jev `tool_search` ranker the shared host boot (`host`) wires in.
 jev = ["openhuman-tinyhumans/jev"]
 # Product gates, forwarded down the chain.
@@ -52,6 +52,11 @@ hosting = ["openhuman-tinyhumans/hosting"]
 modules = ["openhuman-tinyhumans/modules"]
 voice = ["openhuman-tinyhumans/voice"]
 web3 = ["openhuman-tinyhumans/web3"]
+# Storage drivers for `[storage] url` (see the core `storage` domain and
+# `session_store::install_for_host`).
+storage-sqlite = ["openhuman-tinyhumans/storage-sqlite"]
+storage-mongodb = ["openhuman-tinyhumans/storage-mongodb"]
+storage-file = ["openhuman-tinyhumans/storage-file"]
 runtime-node = ["openhuman-tinyhumans/runtime-node"]
 media = ["openhuman-tinyhumans/media"]
 flows = ["openhuman-tinyhumans/flows"]

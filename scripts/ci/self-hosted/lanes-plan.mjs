@@ -151,6 +151,11 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           run: "pnpm agent:runtime-boundary",
         },
         {
+          name: "saas-ambient",
+          when: core,
+          run: "pnpm saas:ambient",
+        },
+        {
           name: "ignored-tests-ratchet",
           when: rust,
           run: "pnpm rust:ignored-tests",

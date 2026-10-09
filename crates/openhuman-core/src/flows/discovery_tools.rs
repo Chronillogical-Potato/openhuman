@@ -25,6 +25,7 @@
 //! designated way to emit its result, analogous to
 //! [`super::tools::ProposeWorkflowTool`] returning a proposal.
 
+use crate::tools::schema_cache::static_schema;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -114,66 +115,7 @@ impl Tool for SuggestWorkflowsTool {
     }
 
     fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "suggestions": {
-                    "type": "array",
-                    "description": "1-8 workflow suggestions, highest-value first.",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "title": {
-                                "type": "string",
-                                "description": "Short, human-friendly title, e.g. \"Auto-file email receipts\"."
-                            },
-                            "one_liner": {
-                                "type": "string",
-                                "description": "One sentence describing what the workflow does."
-                            },
-                            "rationale": {
-                                "type": "string",
-                                "description": "Why this is suggested to THIS user, grounded in what you observed."
-                            },
-                            "trigger_hint": {
-                                "type": "string",
-                                "description": "Likely trigger: \"schedule\" | \"app_event\" | \"manual\" (only these self-fire).",
-                                "enum": ["schedule", "app_event", "manual"]
-                            },
-                            "steps_outline": {
-                                "type": "array",
-                                "items": { "type": "string" },
-                                "description": "Plain-language step outline, one per element."
-                            },
-                            "suggested_connections": {
-                                "type": "array",
-                                "items": { "type": "string" },
-                                "description": "Real connection_ref values from list_flow_connections. Never invented."
-                            },
-                            "suggested_slugs": {
-                                "type": "array",
-                                "items": { "type": "string" },
-                                "description": "Real Composio action slugs from search_tool_catalog. Never hallucinated."
-                            },
-                            "build_prompt": {
-                                "type": "string",
-                                "description": "Self-contained natural-language brief handed to the workflow-builder on \"Build this\"."
-                            },
-                            "confidence": {
-                                "type": "number",
-                                "description": "Your confidence in [0,1] that this is a genuinely useful, buildable automation."
-                            }
-                        },
-                        "required": ["title", "one_liner", "rationale", "build_prompt"]
-                    }
-                },
-                "run_id": {
-                    "type": "string",
-                    "description": "Optional correlation id for the discovery run that produced these."
-                }
-            },
-            "required": ["suggestions"]
-        })
+        static_schema!(include_str!("parameters/suggest_workflows.json"))
     }
 
     fn permission_level(&self) -> PermissionLevel {
@@ -291,3 +233,7 @@ impl Tool for SuggestWorkflowsTool {
 #[cfg(test)]
 #[path = "discovery_tools_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "discovery_tools_schema_tests.rs"]
+mod schema_tests;

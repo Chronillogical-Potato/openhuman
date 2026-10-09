@@ -100,7 +100,7 @@ outermost to innermost:
 | `/v1/*` | the core's OpenAI-compatible router (`inference::http`) | core bearer or the user-managed external API key |
 
 The bearer is the per-launch RPC token the core owns
-(`openhuman::core::auth`); `auth.rs` is only the route policy over it.
+(`openhuman::core::auth`); [`auth.rs`](auth.rs) is only the route policy over it.
 
 ### A failed call
 
@@ -150,36 +150,36 @@ directly.
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | Module wiring and the public re-exports. |
-| `serve.rs` | `serve` and `EmbeddedReadySignal`. |
-| `shims.rs` | `run_server`, `run_server_headless`, `run_server_embedded`, `run_server_embedded_with_ready`, plus host and port defaults. |
-| `cli.rs` | `install_cli_server` and the launcher it installs. |
-| `auth.rs` | `rpc_auth_middleware`: public paths, query-token paths, and the `/v1` external-key check. |
-| `classify.rs` | `classify_failure` and `FailureDisposition`. Pure. |
-| `socketio.rs` | Socket.IO handshake auth, client event handlers, the event bridge, the companion seam, and the event payload types. |
-| `dev_connect.rs` | `GET /dev/connect`. |
-| `testing.rs` | Test-only environment lock shared by this crate's tests. |
-| `http/mod.rs` | `build_core_http_router`, the body limit, root and 404 handlers, request log middleware. |
-| `http/rpc_handler.rs` | `POST /rpc`. |
-| `http/cors.rs` | CORS headers and preflight over the shared origin rule. |
-| `http/health.rs` | `GET /health` and `GET /schema`. |
-| `http/events.rs` | The three SSE routes. |
-| `http/dictation.rs`, `http/live_voice.rs` | WebSocket upgrade guards; the sessions themselves live in the core's `voice` domain. |
-| `http/oauth_mcp.rs` | MCP OAuth callback, handing off to `mcp::registry::oauth::complete`. |
-| `http/pages.rs` | Static HTML pages for OAuth callbacks. |
+| [`mod.rs`](mod.rs) | Module wiring and the public re-exports. |
+| [`serve.rs`](serve.rs) | `serve` and `EmbeddedReadySignal`. |
+| [`shims.rs`](shims.rs) | `run_server`, `run_server_headless`, `run_server_embedded`, `run_server_embedded_with_ready`, plus host and port defaults. |
+| [`cli.rs`](cli.rs) | `install_cli_server` and the launcher it installs. |
+| [`auth.rs`](auth.rs) | `rpc_auth_middleware`: public paths, query-token paths, and the `/v1` external-key check. |
+| [`classify.rs`](classify.rs) | `classify_failure` and `FailureDisposition`. Pure. |
+| [`socketio.rs`](socketio.rs) | Socket.IO handshake auth, client event handlers, the event bridge, the companion seam, and the event payload types. |
+| [`dev_connect.rs`](dev_connect.rs) | `GET /dev/connect`. |
+| [`testing.rs`](testing.rs) | Test-only environment lock shared by this crate's tests. |
+| [`http/mod.rs`](http/mod.rs) | `build_core_http_router`, the body limit, root and 404 handlers, request log middleware. |
+| [`http/rpc_handler.rs`](http/rpc_handler.rs) | `POST /rpc`. |
+| [`http/cors.rs`](http/cors.rs) | CORS headers and preflight over the shared origin rule. |
+| [`http/health.rs`](http/health.rs) | `GET /health` and `GET /schema`. |
+| [`http/events.rs`](http/events.rs) | The three SSE routes. |
+| [`http/dictation.rs`](http/dictation.rs), [`http/live_voice.rs`](http/live_voice.rs) | WebSocket upgrade guards; the sessions themselves live in the core's `voice` domain. |
+| [`http/oauth_mcp.rs`](http/oauth_mcp.rs) | MCP OAuth callback, handing off to `mcp::registry::oauth::complete`. |
+| [`http/pages.rs`](http/pages.rs) | Static HTML pages for OAuth callbacks. |
 
 ## Key entry points
 
-- `install_cli_server()` (`cli.rs`): call once before `run_core_from_args`.
+- `install_cli_server()` ([`cli.rs`](cli.rs)): call once before `run_core_from_args`.
   It also registers the `http_host` controllers.
 - `serve(&CoreRuntime, Option<oneshot::Sender<EmbeddedReadySignal>>,
   Option<CancellationToken>)` (`serve.rs`).
-- `run_server_embedded_with_ready(..., rpc_token)` (`shims.rs`): pass the
+- `run_server_embedded_with_ready(..., rpc_token)` ([`shims.rs`](shims.rs)): pass the
   bearer the shell already holds so the server never reads it from the
   environment.
 - `build_core_http_router(socketio_enabled)` and `rpc_handler`
-  (`http/`): for tests that want the router without a listener.
-- `publish_companion_state_changed(payload)` (`socketio.rs`).
+  ([`http/`](http/)): for tests that want the router without a listener.
+- `publish_companion_state_changed(payload)` ([`socketio.rs`](socketio.rs)).
 
 ## Boundaries
 
@@ -214,10 +214,16 @@ directly.
 ## Tests
 
 Sibling `*_tests.rs` files cover auth route policy, failure classification,
-the shims, Socket.IO, `/dev/connect`, and each route module under `http/`
+the shims, Socket.IO, `/dev/connect`, and each route module under [`http/`](http/)
 (including the `/rpc` handler's Sentry routing and the `/v1` mount in
 `inference_route_tests.rs`).
 
 ```bash
 cargo test -p openhuman-rpc --features crash-reporting server::
 ```
+
+## Further reading
+
+- [`gitbooks/developing/architecture.md`](../../../../gitbooks/developing/architecture.md): architecture overview.
+- [`gitbooks/developing/architecture/security.md`](../../../../gitbooks/developing/architecture/security.md): security.
+- [`crates/openhuman-rpc/README.md`](../../README.md): the openhuman-rpc crate README.

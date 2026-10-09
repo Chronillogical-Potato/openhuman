@@ -1,3 +1,4 @@
+use crate::tools::schema_cache::static_schema;
 use serde_json::{json, Value};
 use tinymcp::ServerToolSpec;
 
@@ -51,15 +52,7 @@ pub fn web_answer_tool_spec() -> McpToolSpec {
         title: "Grounded Web Answer",
         description: "Answer a question from live web sources (Gemini with Google Search grounding by default) and return the answer with its citations. `depth: deep` runs deep research when a Gemini key is configured.",
         rpc_method: Some("openhuman.tools_web_answer"),
-        input_schema: json!({
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "minLength": 1, "description": "The question to answer."},
-                "depth": {"type": "string", "enum": ["quick", "deep"], "description": "quick (default) or deep."}
-            },
-            "required": ["query"],
-            "additionalProperties": false
-        }),
+        input_schema: static_schema!(include_str!("parameters/web_answer_input.json")),
         annotations: json!({"readOnlyHint": true, "openWorldHint": true}),
     }
 }
@@ -95,21 +88,7 @@ pub fn base_tool_specs() -> Vec<McpToolSpec> {
             title: "Run Subagent",
             description: "Run a registered OpenHuman sub-agent directly from the core and return its final response.",
             rpc_method: None,
-            input_schema: json!({
-                "type": "object",
-                "properties": {
-                    "agent_id": {
-                        "type": "string",
-                        "description": "Registered sub-agent id (for example `planner`, `code_executor`, `critic`)."
-                    },
-                    "prompt": {
-                        "type": "string",
-                        "description": "Task prompt for the sub-agent. Include the context it needs because this is a fresh session."
-                    }
-                },
-                "required": ["agent_id", "prompt"],
-                "additionalProperties": false
-            }),
+            input_schema: static_schema!(include_str!("parameters/run_subagent_input.json")),
             // Sub-agent execution is the one Act-policy surface on the MCP
             // server today (see `enforce_act_policy` dispatch in `call_tool`).
             // Sub-agents can call further tools, so destructive/openWorld are
@@ -460,3 +439,7 @@ fn searxng_search_schema() -> Value {
         "additionalProperties": false
     })
 }
+
+#[cfg(test)]
+#[path = "specs_schema_tests.rs"]
+mod schema_tests;

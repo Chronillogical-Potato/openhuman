@@ -1,30 +1,31 @@
 # bin
 
 Auxiliary binaries declared as `[[bin]]` targets in
-`crates/openhuman-cli/Cargo.toml`, next to the primary `openhuman-core`
-binary (`src/main.rs`, described in the [crate README](../../README.md)). One
-is a test fixture and one is an experimental multi-tenant supervisor. Neither
-ships in the desktop product, and neither names an OpenHuman crate: the CLI's
-normal dependencies stop at `openhuman-rpc`.
+[`crates/openhuman-cli/Cargo.toml`](../../Cargo.toml), next to the primary `openhuman-core`
+binary ([`src/main.rs`](../main.rs), described in the [crate README](../../README.md)). One
+is a test fixture and the other an experimental multi-tenant supervisor.
+Neither ships in the desktop product, and neither names an OpenHuman crate:
+the CLI's normal dependencies stop at `openhuman-rpc`.
 
-The benchmark binaries that used to live here (`tool-search-bench`,
-`tool-dialect-bench`, `rss-bench`, `library-profile`) reached deep into core
-internals (`agent::harness`, `platform::proc_metrics`, `flows`, provider
-factories) that the curated facade does not expose. They were dropped along
-with their `rss-bench` / `rss-bench-dhat` gates and the `scripts/profile/`
-drivers; the bench rig lives in the separate openhuman-benchmarks repository
-(#6944).
+The benchmark and profiling binaries that used to live here
+(`tool-search-bench`, `tool-dialect-bench`, `rss-bench`, `library-profile`)
+reached deep into core internals (`agent::harness`, `platform::proc_metrics`,
+`flows`, provider factories) that the curated facade does not expose. They
+moved, with their `scripts/profile/` drivers, to the `profile/` crate of
+[openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks) (#6944), which builds them against a vendored
+checkout of this workspace; the `rss-bench` / `rss-bench-dhat` gates went
+with them.
 
 ## How it works
 
-Each binary is a separate `[[bin]]` entry (`autobins = false`), and the
-heavier ones carry `required-features` so a plain build skips them instead of
-failing to link:
+Each binary is a separate `[[bin]]` entry (`autobins = false`), and
+`openhuman-fleet` carries `required-features` so a plain build skips it
+instead of failing to link:
 
 | Binary | Source | Required features | Purpose |
 | --- | --- | --- | --- |
-| `test-mcp-stub` | `test_mcp_stub.rs` | none | Minimal stdio MCP server that tests spawn. |
-| `openhuman-fleet` | `fleet.rs` | `http-server`, `bin-tools` | Process-per-user supervisor and reverse proxy. |
+| `test-mcp-stub` | [`test_mcp_stub.rs`](test_mcp_stub.rs) | none | Minimal stdio MCP server that tests spawn. |
+| `openhuman-fleet` | [`fleet.rs`](fleet.rs) | `http-server`, `bin-tools` | Process-per-user supervisor and reverse proxy. |
 
 `http-server` is in `default`; `bin-tools` is not. A plain
 `cargo build -p openhuman-cli` therefore produces `openhuman-core` and
@@ -37,10 +38,10 @@ for one `echo` tool, over newline-delimited JSON-RPC on stdin and stdout, and
 exits when stdin closes. `initialize` reports `PROTOCOL_VERSION`
 (`2025-11-25`). It depends on nothing beyond `serde_json`. Tests spawn it
 through `env!("CARGO_BIN_EXE_test-mcp-stub")`, which makes Cargo build it for
-every test run: `tests/mcp_registry_e2e.rs`,
-`tests/mcp_registry_multi_server.rs`, `tests/agent_harness_e2e.rs`,
-`tests/json_rpc_e2e.rs`, `tests/in_process/domain_modules_e2e.rs` and
-`tests/raw_coverage/tool_registry_approval_raw_coverage_e2e.rs`.
+every test run: [`tests/mcp_registry_e2e.rs`](../../../../tests/mcp_registry_e2e.rs),
+[`tests/mcp_registry_multi_server.rs`](../../../../tests/mcp_registry_multi_server.rs), [`tests/agent_harness_e2e.rs`](../../../../tests/agent_harness_e2e.rs),
+[`tests/json_rpc_e2e.rs`](../../../../tests/json_rpc_e2e.rs), [`tests/in_process/domain_modules_e2e.rs`](../../../../tests/in_process/domain_modules_e2e.rs) and
+[`tests/raw_coverage/tool_registry_approval_raw_coverage_e2e.rs`](../../../../tests/raw_coverage/tool_registry_approval_raw_coverage_e2e.rs).
 
 ### openhuman-fleet
 
@@ -87,24 +88,24 @@ cargo build -p openhuman-cli --features bin-tools --bin openhuman-fleet
 
 ## Boundaries
 
-- The `openhuman-core` entry point is `src/main.rs`, one directory up, not
+- The `openhuman-core` entry point is [`src/main.rs`](../main.rs), one directory up, not
   here.
-- Benchmarks and profiling drivers live in the openhuman-benchmarks
-  repository (#6944); the pure RSS sampling code stays in the core
+- Benchmarks and profiling drivers live in [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks);
+  the pure RSS sampling code they use stays in the core
   (`platform::proc_metrics`).
 
 ## Gotchas
 
 - The manifest sets `autobins = false`, so a `.rs` file in this directory is
   a binary only when it has a `[[bin]]` entry. That is what lets
-  `fleet_tests.rs` sit here beside its binary without Cargo trying to build
-  it as an executable. A new binary needs both the file and the manifest
-  entry.
+  [`fleet_tests.rs`](fleet_tests.rs) sit here beside its binary
+  without Cargo trying to build it as an executable. A new binary needs both
+  the file and the manifest entry.
 
 ## Tests
 
-`fleet_tests.rs` (port assignment, user scoping, provisioning, bearer
-parsing) sits beside its binary and builds with its required features.
+[`fleet_tests.rs`](fleet_tests.rs) (port assignment, user scoping, provisioning, bearer parsing)
+sits beside its binary and builds with its required features.
 `test-mcp-stub` is exercised by the MCP suites listed above.
 
 ```bash
@@ -113,5 +114,8 @@ cargo test -p openhuman-cli --features bin-tools --bin openhuman-fleet
 
 ## See also
 
+- [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks): the benchmark and profiling binaries
+  (`profile/`), their driver scripts and the method behind the published
+  numbers.
 - [`gitbooks/developing/performance.md`](../../../../gitbooks/developing/performance.md):
-  performance notes; the benchmark rig is in openhuman-benchmarks (#6944).
+  the numbers those benchmarks feed.

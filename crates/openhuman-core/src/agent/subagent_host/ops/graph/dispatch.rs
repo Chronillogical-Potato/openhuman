@@ -183,6 +183,7 @@ pub(in super::super) async fn run_subagent_via_graph(
     // (and the telemetry id) before `turn_models` is moved into the runner.
     let native_tools = turn_models.native_tools();
     let provider_id = turn_models.provider_id().to_string();
+    let usage_provider_id = provider_id.clone();
     // `SubagentRunOptions` already carries the child context built at the tool
     // dispatch boundary. Reusing that owned value preserves its immediate
     // parent-ledger link; forking again here would hide nested child usage in a
@@ -408,17 +409,29 @@ pub(in super::super) async fn run_subagent_via_graph(
                             )
                         };
                     usage.charged_amount_usd += call_cost;
-                    crate::platform::cost::record_provider_usage(
+                    let billed = crate::inference::provider::BilledUsage::from_counts(
+                        u.input_tokens,
+                        u.output_tokens,
+                    )
+                    .with_context_window(u.context_window())
+                    .with_cached_input_tokens(u.cached_input_tokens())
+                    .with_cache_creation_tokens(u.cache_creation_tokens)
+                    .with_reasoning_tokens(u.reasoning_tokens);
+                    let billed = if !u.cost_is_estimate
+                        && u.charged_amount_usd.is_finite()
+                        && u.charged_amount_usd > 0.0
+                    {
+                        billed.with_charged_usd(call_cost)
+                    } else {
+                        billed.with_estimated_usd(call_cost)
+                    };
+                    crate::platform::cost::record_provider_usage_scoped(
                         model,
-                        &crate::inference::provider::BilledUsage::from_counts(
-                            u.input_tokens,
-                            u.output_tokens,
-                        )
-                        .with_context_window(u.context_window())
-                        .with_cached_input_tokens(u.cached_input_tokens())
-                        .with_cache_creation_tokens(u.cache_creation_tokens)
-                        .with_reasoning_tokens(u.reasoning_tokens)
-                        .with_charged_usd(call_cost),
+                        &billed,
+                        crate::platform::cost::UsageScope::ambient(
+                            Some(&usage_provider_id),
+                            Some((agent_id, task_id)),
+                        ),
                     );
                     tracing::debug!(
                         agent_id,

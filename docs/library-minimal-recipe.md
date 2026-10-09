@@ -37,9 +37,14 @@ registers the hosted controllers when it builds the runtime. This connects the
 API key to managed inference, integrations, channel relay and cloud voice when
 their feature and runtime gates are enabled.
 
-- The profiling harness that used to build against the same recipe
-  (`library-profile`, `rss-bench`) lives in the openhuman-benchmarks
-  repository (#6944).
+- To build the profiling harness against the same recipe, use the `profile/`
+  crate in [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks), which vendors this repository:
+
+  ```bash
+  cargo build --release --manifest-path profile/Cargo.toml \
+    --no-default-features --features "rss-bench,skills,flows" \
+    --bin library-profile --bin rss-bench
+  ```
 
 There is **no** `library-minimal` meta-feature in `Cargo.toml`, on purpose — see
 [Why no alias](#why-no-cargotoml-alias) below.
@@ -131,7 +136,7 @@ controllers, so these figures serve as a dated reference.
 
 All numbers were gathered on Apple-Silicon macOS, `--release` profile
 (`optimized + debuginfo`). "default" = the prior 2026-07-21 session baselines in
-[`docs/library-benchmarking.md`](library-benchmarking.md); "pure slim" =
+[`library-benchmarking.md`](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/profile/docs/library-benchmarking.md); "pure slim" =
 `--no-default-features --features rss-bench` (drops everything). Both slim numbers
 matched the prior document's 68.4 MiB baseline in that measurement session.
 
@@ -167,7 +172,7 @@ matches the `rss-bench` figure — the bench feature adds negligible code.
 | `memory-ingest` (100 msgs)              |        24.7 MiB |            8.8 MiB |              25.8 MiB |           9.3 MiB | **-1.1 MiB** |
 | `long-agent` (10 turns)                 |        46.4 MiB |            2.9 MiB | — (25-turn: 65.8 MiB) |                 — |         n/a³ |
 
-² default column from `docs/library-benchmarking.md` (2026-07-21). Those medians
+² default column from openhuman-benchmarks' `profile/docs/library-benchmarking.md` (2026-07-21). Those medians
 may not have used `OPENHUMAN_PROFILE_FORCE_UTC=1`, so treat the Δ as approximate
 (±~1 MiB). The direction and magnitude match the prior session's "slim saves
 ~3.2 MiB settled RSS" finding.
@@ -294,7 +299,7 @@ prioritization.
 
 ## See also
 
-- [`docs/library-benchmarking.md`](library-benchmarking.md) — the benchmark
+- [`library-benchmarking.md`](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/profile/docs/library-benchmarking.md) (openhuman-benchmarks) — the benchmark
   environment, scenario definitions, and default/slim baselines.
 - The original profiling session write-up covering deep memory/CPU attribution
   (why RSS is mostly not live heap) was removed from the tree; see git history

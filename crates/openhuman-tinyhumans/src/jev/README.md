@@ -90,25 +90,25 @@ default is 3 s.
 
 | Path | What it does |
 | --- | --- |
-| `mod.rs` | `install_jev_ranker()` and the re-exports. |
-| `ranker.rs` | `TinyHumansJevRanker`: per-search config and route resolution, the client cache, the embedding retriever, the `ToolRanker` impl. Test seams: `with_config_loader`, `with_env_loader`, `with_deadline`, `with_config`. |
-| `route.rs` | `JevRoute`, `resolve`, `TYPESAFE_API_KEY_ENV`, `OPENROUTER_API_KEY_ENV`. |
-| `evaluator.rs` | `TinyJevEvaluator`, the System One wire. |
+| [`mod.rs`](mod.rs) | `install_jev_ranker()` and the re-exports. |
+| [`ranker.rs`](ranker.rs) | `TinyHumansJevRanker`: per-search config and route resolution, the client cache, the embedding retriever, the `ToolRanker` impl. Test seams: `with_config_loader`, `with_env_loader`, `with_deadline`, `with_config`. |
+| [`route.rs`](route.rs) | `JevRoute`, `resolve`, `TYPESAFE_API_KEY_ENV`, `OPENROUTER_API_KEY_ENV`. |
+| [`evaluator.rs`](evaluator.rs) | `TinyJevEvaluator`, the System One wire. |
 
 ## Key types and entry points
 
-- `install_jev_ranker()` (`mod.rs`): what `install()` calls.
-- `TinyHumansJevRanker` (`ranker.rs`): the ranker; `kind()` reports
+- `install_jev_ranker()` ([`mod.rs`](mod.rs)): what `install()` calls.
+- `TinyHumansJevRanker` ([`ranker.rs`](ranker.rs)): the ranker; `kind()` reports
   `JevRanker::KIND`.
-- `JevRoute` (`route.rs`): the parsed `jev_route` setting.
-- `TinyJevEvaluator` (`evaluator.rs`): reusable on its own with any
+- `JevRoute` ([`route.rs`](route.rs)): the parsed `jev_route` setting.
+- `TinyJevEvaluator` ([`evaluator.rs`](evaluator.rs)): reusable on its own with any
   `tinyjevclient::Client`.
 
 ## Boundaries
 
 - The generic ranker types (`JevRanker`, `JevEvaluator`, `JevStrategy`,
   `JevRankerConfig`) live in
-  `vendor/tinyagents/vendor/tinytools/crates/tinytools-jev`
+  [`vendor/tinyagents/vendor/tinytools/crates/tinytools-jev`](../../../../vendor/tinyagents/vendor/tinytools/crates/tinytools-jev/)
   (`tinyhumansai/tinytools`). Changes to how Jev is asked, or to family
   staging, belong there.
 - The `ToolRanker` trait is `tinytools`'. The `tool_search` bridge and its
@@ -117,18 +117,25 @@ default is 3 s.
 - `tinyjevclient` is consumed by pinned git revision; this module owns only
   the credential, base URL and deadline.
 - Config lives in the core: `ToolSearchConfig` in
-  `crates/openhuman-core/src/config/schema/agent.rs` (`ranker` is `jev` by
+  [`crates/openhuman-core/src/config/schema/agent.rs`](../../../openhuman-core/src/config/schema/agent.rs) (`ranker` is `jev` by
   default, or `auto`, `bm25`, `compare`; plus `jev_route` and
   `jev_base_url`).
 
 ## Tests
 
-`ranker_tests.rs`, `route_tests.rs` and `evaluator_tests.rs` sit beside their
+[`ranker_tests.rs`](ranker_tests.rs), [`route_tests.rs`](route_tests.rs) and [`evaluator_tests.rs`](evaluator_tests.rs) sit beside their
 modules and use the config and env seams rather than the process
 environment. The ranker comparison harness (`tool-search-bench`) moved out of
-`openhuman-cli` with the other benchmarks, to the openhuman-benchmarks
-repository (#6944).
+`openhuman-cli` with the other benchmarks (#6944), to the `profile/` crate of
+[openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks)
+(`cargo run --manifest-path profile/Cargo.toml --bin tool-search-bench`).
 
 ```bash
 cargo test -p openhuman-tinyhumans jev::
 ```
+
+## Further reading
+
+- [`gitbooks/developing/jev.md`](../../../../gitbooks/developing/jev.md): Jev.
+- [`gitbooks/developing/performance.md`](../../../../gitbooks/developing/performance.md): performance.
+- [`crates/openhuman-tinyhumans/README.md`](../../README.md): the openhuman-tinyhumans crate README.

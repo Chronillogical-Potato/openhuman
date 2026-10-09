@@ -246,6 +246,9 @@ struct WaiterGuard<'a> {
     gate: &'a ApprovalGate,
     request_id: String,
     thread_id: Option<String>,
+    /// Storage scope of the parking call, kept for `Drop`: the acting agent's
+    /// task-local is gone by then.
+    docs: Result<Option<super::store_documents::Docs>, String>,
     armed: bool,
 }
 
@@ -277,7 +280,12 @@ impl Drop for WaiterGuard<'_> {
             self.gate
                 .clear_thread_route_if_owned(thread_id, &self.request_id);
         }
-        let decided = store::decide(&self.gate.config, &self.request_id, ApprovalDecision::Deny);
+        let decided = store::decide_captured(
+            &self.gate.config,
+            &self.docs,
+            &self.request_id,
+            ApprovalDecision::Deny,
+        );
         if let Ok(Some(row)) = decided {
             let route = self.gate.take_request_route(&self.request_id);
             BUS.publish(DomainEvent::ApprovalDecided {

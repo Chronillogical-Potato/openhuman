@@ -22,8 +22,8 @@ with `--manifest-path crates/openhuman-app/Cargo.toml`.
 ## How they layer
 
 Arrows point from a crate to what it depends on (normal `[dependencies]`,
-taken from each `Cargo.toml`). It is a strict chain: each crate names only the
-layer directly below it.
+taken from each [`Cargo.toml`](../Cargo.toml)). It is a strict chain: each crate
+names only the layer directly below it.
 
 ```text
   openhuman-app      openhuman-tui      openhuman-cli      (hosts)
@@ -51,13 +51,13 @@ The same edges as a list:
 | --- | --- |
 | `openhuman-core` | none |
 | `openhuman-embed` | `openhuman-core` |
-| `openhuman-tinyhumans` | `openhuman-embed` (plus `vendor/tinyhumans-sdk`) |
+| `openhuman-tinyhumans` | `openhuman-embed` (plus [`vendor/tinyhumans-sdk`](../vendor/tinyhumans-sdk/)) |
 | `openhuman-rpc` | `openhuman-tinyhumans` |
 | `openhuman-cli` | `openhuman-rpc` (`server`) |
 | `openhuman-tui` | `openhuman-rpc` (`session-store`) |
 | `openhuman-app` | `openhuman-rpc` (`http-client`, `server`, `jev`, the product gates) |
 
-`scripts/ci/check-crate-chain.mjs` (run by `pnpm rust:layout`) fails on any
+[`scripts/ci/check-crate-chain.mjs`](../scripts/ci/check-crate-chain.mjs) (run by `pnpm rust:layout`) fails on any
 other edge, and on a host `src/` that names `__host`, `core_host` or
 `openhuman_core::`. The layers above embed reach core internals through
 embed's doc-hidden `__host` list; the hosts use the curated facade re-exported
@@ -89,13 +89,13 @@ empty, and the core must not depend on `openhuman-rpc`.
 ## Features
 
 Cargo default features define the contributor build;
-`scripts/ci/product-features.txt` defines the shipped product. A core gate is
+[`scripts/ci/product-features.txt`](../scripts/ci/product-features.txt) defines the shipped product. A core gate is
 forwarded along the library chain (`openhuman-embed`, then
 `openhuman-tinyhumans`, then `openhuman-rpc`, then the `openhuman-cli` and
 `openhuman-tui` hosts), and the desktop app, which builds with
 `default-features = false`, forwards product gates explicitly on its
 `openhuman-rpc` dependency.
-`scripts/ci/check-feature-forwarding.mjs` checks both.
+[`scripts/ci/check-feature-forwarding.mjs`](../scripts/ci/check-feature-forwarding.mjs) checks both.
 
 ## Build and test
 
@@ -109,3 +109,20 @@ pnpm test:rust
 
 Root `tests/*.rs` and `examples/*.rs` are targets of `openhuman-cli`; see its
 README for the explicit `[[test]]` entries they need.
+
+## Further reading
+
+- [`crates/openhuman-app/README.md`](openhuman-app/README.md): the openhuman-app crate README.
+- [`crates/openhuman-cli/README.md`](openhuman-cli/README.md): the openhuman-cli crate README.
+- [`crates/openhuman-core/README.md`](openhuman-core/README.md): the openhuman-core crate README.
+- [`crates/openhuman-embed/README.md`](openhuman-embed/README.md): the openhuman-embed crate README.
+- [`crates/openhuman-rpc/README.md`](openhuman-rpc/README.md): the openhuman-rpc crate README.
+- [`crates/openhuman-tinyhumans/README.md`](openhuman-tinyhumans/README.md): the openhuman-tinyhumans crate README.
+- [`crates/openhuman-tui/README.md`](openhuman-tui/README.md): the openhuman-tui crate README.
+- [`gitbooks/developing/architecture.md`](../gitbooks/developing/architecture.md): architecture overview.
+- [`gitbooks/developing/building-rust-core.md`](../gitbooks/developing/building-rust-core.md): building the Rust core.
+- [`gitbooks/developing/embedding.md`](../gitbooks/developing/embedding.md): embedding the core in another product.
+- [`gitbooks/developing/loadable-modules.md`](../gitbooks/developing/loadable-modules.md): loadable modules.
+- [`gitbooks/developing/architecture/tauri-shell.md`](../gitbooks/developing/architecture/tauri-shell.md): the Tauri shell.
+- [`AGENTS.md`](../AGENTS.md): project conventions.
+- [`scripts/README.md`](../scripts/README.md): scripts.

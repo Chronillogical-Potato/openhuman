@@ -49,6 +49,11 @@ path = "src/bin/fleet.rs"
 # (no `http-server`) this target is skipped rather than failing to link.
 required-features = ["http-server", "bin-tools"]
 
+# The benchmark and profiling binaries (`library-profile`, `rss-bench`,
+# `tool-search-bench`, `tool-dialect-bench`) and their driver scripts live in
+# tinyhumansai/openhuman-benchmarks (`profile/`), which builds them against a
+# vendored checkout of this workspace.
+
 # ── Integration tests that need a PRODUCT gate ──────────────────────────────
 #
 # `[features] default` is the contributor set and no longer turns on `voice`,
@@ -75,6 +80,12 @@ required-features = ["http-server", "bin-tools"]
 # spend state order-dependent.
 name = "cost_cap_removed"
 path = "../../tests/cost_cap_removed.rs"
+
+[[test]]
+# Installs a backend into the process-wide storage slot, so it needs its own
+# process: in a shared one it would reroute other suites' approvals.
+name = "storage_approvals_e2e"
+path = "../../tests/storage_approvals_e2e.rs"
 
 [[test]]
 name = "embedded_server_shutdown_e2e"
@@ -146,6 +157,10 @@ path = "../../tests/cli_model_overrides_e2e.rs"
 [[test]]
 name = "cli_sigpipe"
 path = "../../tests/cli_sigpipe.rs"
+
+[[test]]
+name = "saas_mode_e2e"
+path = "../../tests/saas_mode_e2e.rs"
 
 [[test]]
 name = "composio_list_tools_stack_overflow_regression"
@@ -308,6 +323,10 @@ hosting = ["openhuman-rpc/hosting"]
 modules = ["openhuman-rpc/modules"]
 voice = ["openhuman-rpc/voice"]
 web3 = ["openhuman-rpc/web3"]
+# Storage drivers for `[storage] url` (see the core `storage` domain).
+storage-sqlite = ["openhuman-rpc/storage-sqlite"]
+storage-mongodb = ["openhuman-rpc/storage-mongodb"]
+storage-file = ["openhuman-rpc/storage-file"]
 runtime-node = ["openhuman-rpc/runtime-node"]
 media = ["openhuman-rpc/media"]
 flows = ["openhuman-rpc/flows"]

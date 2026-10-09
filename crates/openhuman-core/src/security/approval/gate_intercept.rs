@@ -591,6 +591,7 @@ impl ApprovalGate {
             gate: self,
             request_id: request_id.clone(),
             thread_id: chat_thread_id.clone(),
+            docs: store::capture_docs(),
             armed: true,
         };
 

@@ -19,7 +19,7 @@ Architecture: [overview](gitbooks/developing/architecture.md),
 | `crates/openhuman-core/src/core/` | CLI, controller contract (`Outcome`, schemas) and in-process dispatch, controller registry, event bus, runtime composition; no business logic and no JSON-RPC server |
 | `crates/openhuman-cli/` | The `openhuman-core` binary (`src/main.rs`, `openhuman_rpc::host::cli`), the ops bins (`src/bin/`: `openhuman-fleet`, `test-mcp-stub`), and every root `tests/*.rs` / `examples/*.rs` target. Normal dependency: `openhuman-rpc` only; the tests reach core, embed and tinyhumans through `[dev-dependencies]`. The benchmark bins live in the openhuman-benchmarks repository |
 | `crates/openhuman-embed/` | Library facade over the core (depends on core only): `Runtime`/`RuntimeBuilder` with host presets, `embed::process` (tokio runtime, logging, dotenv, master key, Sentry options), and the curated facades hosts use (`config`, `artifacts`, `chat_surface`, `modules`, `identity`). Its doc-hidden `__host` list is for tinyhumans and rpc only |
-| `crates/openhuman-rpc/` | Top of the library chain (depends on tinyhumans only). JSON-RPC 2.0 over the core: envelopes, HTTP client, and the server (router, Socket.IO, listener, `run_server*`); `host::{cli, desktop, tui}`, the shared host boot; re-exports `embed` and `tinyhumans` as the hosts' curated facade; plus `session_store` (`session-store` feature), the on-disk session store (`session_raw/`, `session_db/`, `tinyagents_store/`, turn states) behind TinyAgents' session store port, which the app, CLI and TUI install. Core and embed reach session state through the port (`agent::session_store`); a few legacy paths still fall back to workspace files when no store is installed |
+| `crates/openhuman-rpc/` | Top of the library chain (depends on tinyhumans only). JSON-RPC 2.0 over the core: envelopes, HTTP client, and the server (router, Socket.IO, listener, `run_server*`); `host::{cli, desktop, tui}`, the shared host boot; re-exports `embed` and `tinyhumans` as the hosts' curated facade; plus `session_store` (`session-store` feature), the on-disk session store (`session_raw/`, `session_db/`, `tinyagents_store/`, turn states) behind TinyAgents' session store port, which the app, CLI and TUI install. Core and embed reach session state through the port (`agent::session_store`); a few legacy paths still fall back to workspace files when no store is installed. With a storage URL (`OPENHUMAN_STORAGE_URL` / `[storage] url`), `install_for_host` installs TinyAgents' `DriverSessionStores` over that backend instead (core `storage` domain) |
 | `crates/openhuman-tinyhumans/` | The TinyHumans layer above embed (depends on embed only): SDK-backed backend transport, a `RuntimeBuilder` that boots connected, and the host-side login/session owner (login-token exchange, `/auth/me`, current-user cache, credential handoff) used by app and TUI |
 | `crates/openhuman-tui/` | Standalone terminal frontend; depends on `openhuman-rpc` only and boots with `openhuman_rpc::host::tui` |
 | `tests/` | Rust integration and JSON-RPC tests |
@@ -758,3 +758,25 @@ serialization.
 - Standalone debugging uses `./target/debug/openhuman-core serve`. Public
   endpoints are `GET /health`, `GET /schema`, and `GET /events`, plus the
   debug-build-only `GET /dev/connect`.
+
+<!-- gitbook-agent-instructions:start -->
+
+## GitBook Documentation Editing
+
+This repository contains documentation synced with GitBook via Git Sync.
+
+Before editing GitBook-synced Markdown, YAML, or asset files, make sure the GitBook skill is available and up to date in your local agent environment. Prefer installing or updating it with:
+
+```bash
+npx skills add gitbookio/gitbook-skills
+```
+
+This command may add or update local agent skill files. Use them only as local agent instructions; do not commit those installed skill files or any tool-generated agent configuration unless the user explicitly asks for it.
+
+If `npx` is unavailable, load the skill from:
+
+https://gitbook.com/docs/skill.md
+
+When making changes, preserve GitBook sync metadata such as frontmatter, `SUMMARY.md`, `gitbook-docs.yaml`, `.gitbook/`, and asset links unless the requested edit explicitly requires changing them.
+
+<!-- gitbook-agent-instructions:end -->

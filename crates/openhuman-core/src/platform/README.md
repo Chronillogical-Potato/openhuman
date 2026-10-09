@@ -38,22 +38,22 @@ startup, and two are driven by events rather than calls. In boot order:
 
 The event-driven pieces:
 
-- `health` keeps an in-memory component registry. Its subscriber listens to
+- [`health`](./health) keeps an in-memory component registry. Its subscriber listens to
   `system` and `channel` domain events and marks components ok or in error.
   `GET /health` on the RPC server reads the verdict: 503 only when a critical
   component (`core`) is unhealthy, 200 with a `degraded` flag otherwise.
-- `service` turns a restart or shutdown request into
+- [`service`](./service) turns a restart or shutdown request into
   `DomainEvent::SystemRestartRequested` or `SystemShutdownRequested`. Its
   subscribers respawn the process or exit after a short flush window.
-  `update` uses the same restart path after staging a new binary.
-- `socket` goes the other way. It is the core's own Socket.IO client to the
+  [`update`](./update) uses the same restart path after staging a new binary.
+- [`socket`](./socket) goes the other way. It is the core's own Socket.IO client to the
   hosted backend, and it republishes inbound server events onto the bus
   (`WebhookIncomingRequest`, `ComposioTriggerReceived`,
   `ChannelInboundMessage`, device tunnel events) for other domains to handle.
 
 Some members read state other domains own instead of keeping their own.
-`doctor` reads the daemon state file `service` writes and the memory engine
-status from `memory`. `connectivity` reads the `SocketManager` state to tell
+[`doctor`](./doctor) reads the daemon state file `service` writes and the memory engine
+status from `memory`. [`connectivity`](./connectivity) reads the `SocketManager` state to tell
 the frontend which of its connection channels is broken.
 
 ## Layout
@@ -65,7 +65,7 @@ the frontend which of its connection channels is broken.
 | [`cost/`](cost/README.md) | Token usage and USD cost: an append-only `costs.jsonl` ledger, day and month aggregates, the 7-day dashboard, the static pricing and context-window catalog (`catalog.rs`), and managed vs BYOK route classification (`route.rs`). |
 | [`doctor/`](doctor/README.md) | Self-checks over config, workspace, the daemon state file, the environment, the memory engine, and the embedding model, aggregated into a severity-tagged `DoctorReport`. Powers `openhuman doctor` and the Settings health view. |
 | [`health/`](health/README.md) | The in-process component health registry, the `HealthVerdict` behind `GET /health`, and static system info. |
-| [`proc_metrics/`](proc_metrics/README.md) | Cross-platform RSS and peak-RSS sampling for this process and its tree. Written for the `rss-bench` / `library-profile` bins, now in the openhuman-benchmarks repository (#6944). No RPC. |
+| [`proc_metrics/`](proc_metrics/README.md) | Cross-platform RSS and peak-RSS sampling for this process and its tree. Used by the `rss-bench` and `library-profile` bins in openhuman-benchmarks (`profile/`). No RPC. |
 | [`service/`](service/README.md) | Installs the core as a per-user OS service (LaunchAgent, systemd user unit, Windows scheduled task), self-restart and graceful shutdown over the bus, daemon-host tray preferences, and a file-backed mock for E2E (`OPENHUMAN_SERVICE_MOCK`). |
 | [`socket/`](socket/README.md) | The persistent Socket.IO client to the backend: hand-rolled Engine.IO and Socket.IO handshakes over a WebSocket, reconnect with backoff, a token provider re-read on every reconnect, redirect following, and inbound event dispatch. |
 | [`startup/`](startup/README.md) | One-shot workspace migrations run during boot (session layout, welcome-agent artifacts). Errors are logged and never abort startup. |
@@ -75,16 +75,16 @@ the frontend which of its connection channels is broken.
 
 There is no type shared across the family. The ones contributors touch most:
 
-- `HealthSnapshot`, `mark_component_ok`, `mark_component_error` (`health/`)
+- `HealthSnapshot`, `mark_component_ok`, `mark_component_error` ([`health/`](./health/))
   for reporting component state.
 - `CostTracker` and `cost::init_global` / `try_global` / `rebind_global`
-  (`cost/global.rs`). The tracker is bound to one workspace, and signing in or
+  ([`cost/global.rs`](./cost/global.rs)). The tracker is bound to one workspace, and signing in or
   out rebinds it so usage lands in the right user's ledger.
-- `DoctorReport` (`doctor/core/types.rs`).
-- `SocketManager` and `token_provider_from_config` (`socket/`).
-- `pick_listen_port_for_host` and its variants (`connectivity/`), used by the
+- `DoctorReport` ([`doctor/core/types.rs`](./doctor/core/types.rs)).
+- `SocketManager` and `token_provider_from_config` ([`socket/`](./socket/)).
+- `pick_listen_port_for_host` and its variants ([`connectivity/`](./connectivity/)), used by the
   RPC host when binding.
-- `ServiceStatus` and the restart and shutdown publishers (`service/`).
+- `ServiceStatus` and the restart and shutdown publishers ([`service/`](./service/)).
 
 ## RPC / CLI surface
 
@@ -92,14 +92,14 @@ Method names are `openhuman.<namespace>_<function>`.
 
 | Namespace | Functions |
 | --- | --- |
-| `about_app` | `list`, `lookup`, `search` |
+| [`about_app`](./about_app) | `list`, `lookup`, `search` |
 | `connectivity` | `diag` |
-| `cost` | `get_dashboard`, `get_daily_history`, `get_summary`, `get_usage_log` |
-| `doctor` | `report`, `models` |
+| [`cost`](./cost) | `get_dashboard`, `get_daily_history`, `get_summary`, `get_usage_log` |
+| [`doctor`](./doctor) | `report`, `models` |
 | `health` | `snapshot`, `system_info` |
 | `service` | `install`, `start`, `stop`, `status`, `uninstall`, `restart`, `shutdown`, `daemon_host_get`, `daemon_host_set` |
 | `socket` | `connect`, `connect_with_session`, `disconnect`, `emit`, `state` |
-| `update` | `version`, `check`, `apply`, `run` |
+| [`update`](./update) | `version`, `check`, `apply`, `run` |
 
 Agent tools from this family (registered in `tools/ops.rs`):
 `health_snapshot`, `health_system_info`, `doctor_health`, `doctor_models`,
@@ -141,3 +141,9 @@ lifecycle tests deterministic.
 cargo test -p openhuman platform::
 pnpm debug rust platform::
 ```
+
+## Further reading
+
+- [Platform and availability](../../../../gitbooks/features/platform.md)
+- [Tauri shell architecture](../../../../gitbooks/developing/architecture/tauri-shell.md)
+- [Architecture overview](../../../../gitbooks/developing/architecture.md)

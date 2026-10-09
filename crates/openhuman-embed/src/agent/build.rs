@@ -12,6 +12,7 @@ use openhuman_core::core::runtime::{ContextOverlay, DomainSet};
 use openhuman_core::tools::toolpacks::{GroupMode, ToolGroups};
 
 use super::{AgentError, AgentInner, AgentLayout, AgentSpec};
+use crate::harness::Access;
 use crate::runtime::Runtime;
 
 pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInner, AgentError> {
@@ -21,6 +22,25 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         id: id.clone(),
         reason,
     })?;
+
+    // A host-only agent must never act, whatever else the spec says, so its
+    // exclusions are settled before any of the spec is applied.
+    let host_only = parts.definition.is_host_only();
+    if host_only {
+        #[cfg(feature = "mcp")]
+        if !parts.mcp_servers.is_empty() {
+            return Err(AgentError::Invalid(
+                "a HostOnly agent cannot declare MCP servers; supply its tools as host tools"
+                    .into(),
+            ));
+        }
+        #[cfg(feature = "skills")]
+        if parts.skills_dir.is_some() {
+            return Err(AgentError::Invalid(
+                "a HostOnly agent cannot install skills".into(),
+            ));
+        }
+    }
 
     let base = runtime.base_config();
     let root_dir = base
@@ -51,6 +71,12 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         .unwrap_or_else(|| runtime.default_access().clone());
     for (path, grant) in parts.trusted {
         access = access.trust(path, grant);
+    }
+    if host_only {
+        // Read-only regardless of what was asked: no tier that could park a
+        // write for approval, no automation origin, no trusted roots.
+        log::debug!("[embed][agent] id={id} is host-only; forcing read-only access");
+        access = Access::readonly();
     }
     access.apply(&mut config);
 
@@ -97,6 +123,11 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         // Every agent shares the runtime's credential store and keyring; a
         // moved `config_path` would silently point this agent at another.
         config.config_path = base.config_path.clone();
+    }
+    if host_only {
+        // After the escape hatch, so it cannot loosen either.
+        Access::readonly().apply(&mut config);
+        config.mcp_client.enabled = false;
     }
 
     // Read back now, after `config_fn` (the escape hatch, applied above) has
@@ -189,6 +220,7 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         access,
         layout,
         host_tools: parts.host_tools,
+        host_only,
     })
 }
 

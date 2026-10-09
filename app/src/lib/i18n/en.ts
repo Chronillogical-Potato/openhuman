@@ -327,7 +327,6 @@ const en: TranslationMap = {
   'welcome.th.featureMemory': 'Memory',
   'welcome.th.featureEmbeddings': 'Embeddings',
   'welcome.th.featureBilling': 'Billing',
-  'welcome.th.credit': '$5 of credit to start',
   'welcome.th.cta': 'Continue with TinyHumans',
   'welcome.th.providers': 'Sign in with Google, GitHub or X',
   'welcome.self.title': 'Set it up myself',
@@ -5322,6 +5321,17 @@ const en: TranslationMap = {
   'memoryPage.off.title': 'Memory is off',
   'memoryPage.off.description': 'Pick a memory provider to start remembering.',
   'memoryPage.off.action': 'Choose a provider',
+  'memoryPage.disabled.title': 'Memory is disabled',
+  'memoryPage.disabled.description':
+    "OpenHuman isn't storing or recalling anything. Choose a provider to turn memory back on.",
+  'memoryPage.engine.disabled.title': 'Disabled',
+  'memoryPage.engine.disabled.description':
+    'Turn memory off completely. Nothing is stored or recalled, and your connections are kept for later.',
+  'memoryPage.engine.disabled.action': 'Disable memory',
+  'memoryPage.engine.disabled.banner':
+    'Nothing is being stored or recalled. Pick a provider below to turn memory back on.',
+  'memoryPage.engine.disabled.toast': 'Memory disabled',
+  'memoryPage.engine.disabled.toastFailed': "Couldn't disable memory",
   'memoryPage.engine.inUse': 'In use',
   'memoryPage.announcement.title': 'Free Memory Inference on CortexDB',
   'memoryPage.announcement.retired': 'TinyCortex was retired on Oct 7.',

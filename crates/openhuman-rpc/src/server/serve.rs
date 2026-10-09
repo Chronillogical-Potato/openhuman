@@ -136,16 +136,26 @@ pub async fn serve(
     }
 
     let ctx = Arc::clone(runtime.context());
-    let app = super::http::build_core_http_router(runtime.services().socketio).layer(
-        axum::middleware::from_fn(
+    let router = super::http::build_core_http_router(runtime.services().socketio);
+    // A SaaS core scopes each request to the user the gateway names (or the
+    // operator plane); a single-user core runs everything under its one
+    // context.
+    let app = if crate::core_host::core::runtime::is_saas() {
+        router.layer(axum::middleware::from_fn(
+            move |req: axum::extract::Request, next: axum::middleware::Next| {
+                super::saas_gateway::saas_gateway(Arc::clone(&ctx), req, next)
+            },
+        ))
+    } else {
+        router.layer(axum::middleware::from_fn(
             move |req: axum::extract::Request, next: axum::middleware::Next| {
                 let ctx = Arc::clone(&ctx);
                 async move {
                     crate::core_host::core::runtime::CoreContext::scope(ctx, next.run(req)).await
                 }
             },
-        ),
-    );
+        ))
+    };
 
     // Await startup migrations before publishing readiness or allowing
     // background writers to touch their crate-backed stores.

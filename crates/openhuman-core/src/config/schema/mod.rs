@@ -29,8 +29,11 @@ mod hooks;
 pub use hooks::HooksConfig;
 pub mod hosting;
 pub use hosting::HostingConfig;
+pub mod storage;
+pub use storage::StorageConfig;
 mod identity_cost;
 mod load;
+pub(crate) use load::config_from_toml_str;
 pub use load::{
     action_dir_env_override, active_user_marker_path, active_workspace_dir,
     active_workspace_dir_cached, active_workspace_snapshot, clear_active_user, default_action_dir,
@@ -89,7 +92,9 @@ pub use context::{CompactionSettings, CompactionStrategy, ContextConfig};
 pub use cron::CronConfig;
 pub use dashboard::{DashboardConfig, DiagramViewerConfig, EventStreamConfig, ModelHealthConfig};
 pub use dictation::{DictationActivationMode, DictationConfig};
-pub use identity_cost::{CostConfig, ModelPricing};
+pub use identity_cost::{
+    BudgetAction, BudgetPeriod, BudgetPolicy, BudgetScope, CostConfig, ModelPricing,
+};
 pub use local_ai::{LocalAiConfig, LocalAiUsage};
 pub use memory::{
     migrate_legacy_source, MemoryAgentConfig, MemoryConfig, MemoryConversationsConfig,

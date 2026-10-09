@@ -10,10 +10,12 @@
 //! * **admission / back-pressure** — [`scheduler_gate::wait_for_capacity`],
 //!   which owns the single-slot global LLM semaphore and the
 //!   AC-power / CPU / signed-out policy backoff;
-//! * **pricing hints** — [`cost::catalog::estimate_cost_usd`] on the way in.
-//!   Nothing here refuses a call on cost, and nothing here writes the cost
-//!   ledger: the event bridge records each model call under its real model, and
-//!   a second write from this gate double-counted tokens and requests;
+//! * **pricing hints and budgets** — [`cost::catalog::estimate_cost_usd`] on
+//!   the way in, and the opt-in `[[cost.budgets]]` policies, which can refuse a
+//!   call (`BUDGET_EXCEEDED`). The legacy `monthly_limit_usd` still refuses
+//!   nothing. Nothing here writes the cost ledger: the event bridge records
+//!   each model call under its real model, and a second write from this gate
+//!   double-counted tokens and requests;
 //! * **compression advice** — the agent's
 //!   [`AgentTokenjuiceCompression`] profile, which decides how much lossy
 //!   compaction that agent tolerates.
@@ -77,9 +79,8 @@ use crate::platform::cost;
 /// of state needed to bridge the two contract mismatches described in the
 /// module docs.
 pub struct OpenHumanBudgetGate {
-    /// Session config. Read only for the fallback model id — everything
-    /// budget-shaped is read live from the global cost tracker so a settings
-    /// update takes effect without rebuilding the gate.
+    /// Session config: the fallback model id, and where `[[cost.budgets]]` is
+    /// re-read from on each check (see [`Self::live_budgets`]).
     config: Arc<Config>,
     /// The agent's TokenJuice profile, which bounds how aggressive a
     /// compression hint this gate is willing to give.
@@ -100,6 +101,9 @@ pub struct OpenHumanBudgetGate {
     /// other background wiring sites opt in with
     /// [`Self::as_background_work`](Self::as_background_work).
     background: bool,
+    /// The ledger budgets are checked against; `None` reads the process-wide
+    /// cost tracker. Set by tests.
+    tracker: Option<Arc<cost::CostTracker>>,
 }
 
 impl OpenHumanBudgetGate {
@@ -123,6 +127,7 @@ impl OpenHumanBudgetGate {
             compression,
             last_model: RwLock::new(fallback),
             background: false,
+            tracker: None,
         }
     }
 
@@ -134,6 +139,13 @@ impl OpenHumanBudgetGate {
     /// **not** opt in: the gate's `Paused` arm waits for background work to be
     /// re-enabled, which for a user-initiated chat means waiting until the turn
     /// times out.
+    /// Check budgets against `tracker` instead of the process-wide one.
+    #[cfg(test)]
+    pub(crate) fn with_tracker(mut self, tracker: Arc<cost::CostTracker>) -> Self {
+        self.tracker = Some(tracker);
+        self
+    }
+
     pub fn as_background_work(mut self) -> Self {
         self.background = true;
         self
@@ -142,6 +154,118 @@ impl OpenHumanBudgetGate {
     /// The model id [`record`](Self::record) will attribute usage to.
     fn attributed_model(&self) -> String {
         self.last_model.read().clone()
+    }
+
+    /// The refusal text when a configured budget refuses this call; logs any
+    /// budget that is only near or past a `warn` limit. Never fails the call
+    /// for a reason of its own: without budgets, a cost tracker or a readable
+    /// ledger, the call goes ahead.
+    fn check_budgets(&self, est: &CallEstimate) -> Option<String> {
+        let policies = self.live_budgets();
+        if policies.is_empty() {
+            return None;
+        }
+        let Some(tracker) = self.tracker.clone().or_else(cost::try_global) else {
+            log::debug!("[tinyagents][budget] budgets configured but no cost tracker; not checked");
+            return None;
+        };
+        self.check_budgets_against(est, &policies, &tracker)
+    }
+
+    /// The `[[cost.budgets]]` in effect now. A session's gate outlives
+    /// settings changes (cached web-chat sessions keep theirs), so the
+    /// session's `config.toml` is re-read on every check; an embedder config
+    /// with no file on disk, or one that does not parse, keeps the policies
+    /// the gate was built with.
+    fn live_budgets(&self) -> Vec<crate::config::BudgetPolicy> {
+        // An embedder's in-memory config is authoritative: a file on disk
+        // must not replace the budgets it supplied.
+        if crate::core::runtime::CoreContext::current_embedder_config().is_some() {
+            return self.config.cost.budgets.clone();
+        }
+        #[derive(serde::Deserialize, Default)]
+        struct File {
+            #[serde(default)]
+            cost: Cost,
+        }
+        #[derive(serde::Deserialize, Default)]
+        struct Cost {
+            #[serde(default)]
+            budgets: Vec<crate::config::BudgetPolicy>,
+        }
+        match std::fs::read_to_string(&self.config.config_path) {
+            Ok(raw) => match toml::from_str::<File>(&raw) {
+                Ok(file) => file.cost.budgets,
+                Err(error) => {
+                    log::warn!(
+                        "[tinyagents][budget] config budgets unreadable ({error}); keeping the session's"
+                    );
+                    self.config.cost.budgets.clone()
+                }
+            },
+            Err(_) => self.config.cost.budgets.clone(),
+        }
+    }
+
+    /// [`Self::check_budgets`] against explicit policies and ledger.
+    pub(crate) fn check_budgets_against(
+        &self,
+        est: &CallEstimate,
+        policies: &[crate::config::BudgetPolicy],
+        tracker: &cost::CostTracker,
+    ) -> Option<String> {
+        // The user agent (`session_agent` budgets) comes from the ambient
+        // context; the agent and thread from the estimate.
+        let mut scope = cost::UsageScope::ambient(None, None);
+        if let Some(agent) = est.agent_id.as_ref().filter(|a| !a.is_empty()) {
+            scope.agent_id = Some(agent.clone());
+        }
+        if let Some(thread) = est.thread_id.as_ref() {
+            scope.thread_id = Some(thread.as_str().to_string());
+        }
+        // This call's own model: `last_model` is shared by every call on the
+        // gate and may already belong to another one.
+        let model = if est.model.trim().is_empty() {
+            self.attributed_model()
+        } else {
+            est.model.clone()
+        };
+        let call = cost::budget::CallUnderCheck {
+            model: &model,
+            scope: &scope,
+            estimated_usd: cost::catalog::estimate_cost_usd(
+                &model,
+                est.estimated_input_tokens,
+                est.estimated_output_tokens,
+                0,
+            ),
+            estimated_tokens: est
+                .estimated_input_tokens
+                .saturating_add(est.estimated_output_tokens),
+        };
+        let verdict = match cost::budget::check_call(policies, tracker, call, chrono::Utc::now()) {
+            Ok(verdict) => verdict,
+            Err(error) => {
+                log::warn!("[tinyagents][budget] budget check skipped: {error:#}");
+                return None;
+            }
+        };
+        for hit in verdict.hits.iter()
+        // Every hit is worth a line: a warning, or the refusal about to be
+        // returned.
+        {
+            log::warn!(
+                "[tinyagents][budget] budget `{}` for {} at ${:.4}/{:?} usd, {}/{:?} tokens (exceeded={})",
+                hit.policy,
+                hit.bucket,
+                hit.spent_usd,
+                hit.max_usd,
+                hit.tokens,
+                hit.max_tokens,
+                hit.exceeded
+            );
+        }
+        verdict.refusal().map(cost::budget::BudgetHit::refusal)
     }
 }
 
@@ -165,6 +289,15 @@ impl BudgetGate for OpenHumanBudgetGate {
     async fn acquire(&self, est: &CallEstimate) -> Result<Permit> {
         if !est.model.trim().is_empty() {
             *self.last_model.write() = est.model.clone();
+        }
+
+        // Configured budgets (`[[cost.budgets]]`) are checked before anything
+        // else, so a refused call never occupies a scheduler slot.
+        if let Some(refusal) = self.check_budgets(est) {
+            log::warn!("[tinyagents][budget] refusing model call: {refusal}");
+            return Err(tinyagents_harness::error::TinyAgentsError::LimitExceeded(
+                refusal,
+            ));
         }
 
         // Best-effort pricing. `estimate_cost_usd` returns 0.0 for an
