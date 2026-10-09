@@ -115,6 +115,35 @@ pub fn init_master_key() -> Result<(), String> {
     })
 }
 
+/// The master key that encrypts secrets on a configured storage backend
+/// ([`crate::storage::secrets`]): the key [`init_master_key`] loaded when
+/// there is one, otherwise the same resolution run once for storage —
+/// [`MASTER_KEY_ENV`] / [`MASTER_KEY_FILE_ENV`] first, then the OS keychain.
+///
+/// # Errors
+///
+/// When no source can provide the key. Storage secrets then fail closed:
+/// they are never written unencrypted or under a freshly minted key that
+/// would orphan the ones already stored.
+pub(crate) fn storage_master_key() -> Result<[u8; KEY_LEN], String> {
+    static STORAGE_MASTER_KEY: OnceLock<Result<[u8; KEY_LEN], String>> = OnceLock::new();
+    if let Some(Ok(Some(key))) = MASTER_KEY.get() {
+        return Ok(*key);
+    }
+    STORAGE_MASTER_KEY
+        .get_or_init(|| match try_load_master_key() {
+            Ok((key, source)) => {
+                log::info!("[keyring:storage] master key loaded from {source}");
+                Ok(key)
+            }
+            Err(MasterKeyError::Configured(error) | MasterKeyError::Keychain(error)) => {
+                log::error!("[keyring:storage] master key unavailable: {error}");
+                Err(error)
+            }
+        })
+        .clone()
+}
+
 /// Runs `init` at most once per `cell` and reports its outcome on every call.
 ///
 /// A configuration error is stored in the cell rather than leaving it empty
