@@ -1,0 +1,96 @@
+//! Background work reaches the records an agent keeps in its own storage
+//! scope.
+//!
+//! A job scheduled from inside an agent's context is stored in that agent's
+//! scope, so the `local` pass a background loop makes on its own never sees
+//! it; `storage::agents::for_each_scope` visits the agent too — through its
+//! live context while it exists, and through the agent id the backend
+//! recorded once it is gone (a restarted process).
+//!
+//! Its own test binary because it installs a backend into the process-wide
+//! storage slot and boots a core. One test, so nothing in it races either.
+
+use std::sync::Arc;
+
+use openhuman_core::config::Config;
+use openhuman_core::core::runtime::{
+    ContextOverlay, CoreBuilder, CoreContext, DomainSet, ServiceSet,
+};
+use openhuman_core::core::HostKind;
+use openhuman_core::cron::{self, Schedule};
+use openhuman_core::storage::agents::for_each_scope;
+
+fn job_names(config: &Config) -> Vec<String> {
+    cron::list_jobs(config)
+        .unwrap()
+        .into_iter()
+        .filter_map(|job| job.name)
+        .collect()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn background_work_visits_every_agent_scope() {
+    let workspace = tempfile::tempdir().unwrap();
+    let config = Config {
+        workspace_dir: workspace.path().join("workspace"),
+        config_path: workspace.path().join("config.toml"),
+        ..Config::default()
+    };
+    let _runtime = CoreBuilder::new(HostKind::Library)
+        .config(config.clone())
+        .services(ServiceSet::none())
+        .domains(DomainSet::none())
+        .build()
+        .await
+        .unwrap();
+    openhuman_core::storage::install(Arc::new(openhuman_core::storage::MemoryStorage::new()));
+
+    let agent = CoreContext::current().unwrap().derive_with(
+        ContextOverlay::new(config.clone(), DomainSet::none(), Default::default())
+            .session_agent("agent-e2e"),
+    );
+    let scheduled = config.clone();
+    CoreContext::scope(Arc::clone(&agent), async move {
+        tokio::task::spawn_blocking(move || {
+            cron::add_shell_job(
+                &scheduled,
+                Some("agent-job".to_string()),
+                Schedule::Every { every_ms: 60_000 },
+                "echo hi",
+            )
+            .unwrap();
+        })
+        .await
+        .unwrap();
+    })
+    .await;
+
+    // The agent's job is invisible to the `local` scope.
+    let local = config.clone();
+    assert!(tokio::task::spawn_blocking(move || job_names(&local))
+        .await
+        .unwrap()
+        .is_empty());
+
+    let visit = || async {
+        let config = config.clone();
+        tokio::task::spawn_blocking(move || job_names(&config))
+            .await
+            .unwrap()
+    };
+    // Visited through the live agent context …
+    let live = for_each_scope("e2e", || CoreContext::propagate(visit())).await;
+    assert!(
+        live.contains(&(Some("agent-e2e".to_string()), vec!["agent-job".to_string()])),
+        "{live:?}"
+    );
+
+    // … and, once the agent is gone, through the id the backend recorded.
+    drop(agent);
+    let recorded = for_each_scope("e2e", || CoreContext::propagate(visit())).await;
+    assert!(
+        recorded.contains(&(Some("agent-e2e".to_string()), vec!["agent-job".to_string()])),
+        "{recorded:?}"
+    );
+    assert!(recorded.contains(&(None, Vec::new())), "{recorded:?}");
+}
