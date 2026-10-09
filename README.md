@@ -137,7 +137,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>RLM token compression</h3>
 
-<p><a href="https://arxiv.org/abs/2512.24601">RLM paper</a> · <a href="./gitbooks/features/token-compression.md">How it works</a> · <a href="https://github.com/tinyhumansai/tinyjuice">tinyjuice</a></p>
+<p><a href="https://arxiv.org/abs/2512.24601">RLM paper</a> · <a href="./gitbooks/features/token-compression.md">How it works</a></p>
 
 <p>Built on <a href="https://arxiv.org/abs/2512.24601">Recursive Language Models</a>. Large tool results get compressed before the AI reads them. For very large ones, the AI gets a handle it can search instead of reading it all. Nothing is thrown away.</p>
 
@@ -161,7 +161,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>Unified Rust bus</h3>
 
-<p><a href="./gitbooks/developing/loadable-modules.md">Loadable modules</a> · <a href="https://github.com/tinyhumansai/tinybus">tinybus</a></p>
+<p><a href="./gitbooks/developing/loadable-modules.md">How plug-ins work</a></p>
 
 <p>Every feature, like search, documents or voice, plugs into one Rust bus, an idea borrowed from the <a href="https://www.freedesktop.org/wiki/Software/dbus/">Linux system bus</a>. A feature loads only when needed, and if one gets stuck, the rest keep working.</p>
 
@@ -171,9 +171,9 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>Deeply integrated memory</h3>
 
-<p><a href="./gitbooks/features/memory.md">How memory works</a> · <a href="./gitbooks/developing/engines.md">Memory engines</a> · <a href="https://github.com/tinyhumansai/tinymemory">tinymemory</a></p>
+<p><a href="./gitbooks/features/memory.md">How memory works</a> · <a href="./gitbooks/developing/engines.md">Memory engines</a></p>
 
-<p>Memory comes built in. Before every turn, OpenHuman picks out only what matters, within a token budget, and hands it to the AI with citations. The engine is swappable: use the default, your own CortexDB, or any engine that speaks the TinyMemory contract.</p>
+<p>Memory comes built in. Before every turn, OpenHuman picks out only what matters, within a token budget, and hands it to the AI with citations. It works out of the box, and you can swap in a different memory engine with a setting.</p>
 
 </td>
 
@@ -185,7 +185,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>Browser and desktop control</h3>
 
-<p><a href="./gitbooks/features/native-tools/browser-and-computer.md">Browser and computer control</a> · <a href="./gitbooks/developing/jev.md">Jev</a> · <a href="https://github.com/tinyhumansai/tinycomputer">tinycomputer</a></p>
+<p><a href="./gitbooks/features/native-tools/browser-and-computer.md">Browser and computer control</a> · <a href="./gitbooks/developing/jev.md">Jev</a></p>
 
 <p>The agent uses a real browser and your desktop apps. Jev picks each click from the buttons on screen, with no screenshots. It stops before any payment.</p>
 
@@ -247,7 +247,7 @@ If you use Claude Code, Codex, OpenClaw or Hermes, you already know the ideas: a
 | MCP and skills | [MCP servers and skill bundles](./gitbooks/features/integrations/mcp-and-skills.md), plus [119 managed OAuth integrations](./gitbooks/features/integrations/README.md) and [triggers](./gitbooks/features/integrations/triggers.md) |
 | Models | [Local models (Ollama, LM Studio, MLX) and BYOK for 26 providers](./gitbooks/features/model-routing/local-and-byok-models.md), with [automatic model routing](./gitbooks/features/model-routing/README.md) |
 | Channels | [14 messaging channels](./gitbooks/features/channels.md) as agent front ends: Telegram, Discord, iMessage, email and more |
-| Workflows | [Durable workflow graphs](./gitbooks/features/workflows.md) on [tinyflows](https://github.com/tinyhumansai/tinyflows): cron, event or manual triggers, approval nodes, resume after a pause |
+| Workflows | [Durable workflow graphs](./gitbooks/features/workflows.md): cron, event or manual triggers, approval steps, resume after a pause |
 | Safety | [Approval gate](./gitbooks/features/approval-gate.md), [sandboxed execution](./gitbooks/features/privacy-and-security.md) (OS jail or Docker), [Privacy Mode](./gitbooks/features/privacy-mode.md) for local-only runs, secrets in the [OS keyring](./gitbooks/features/os-keyring-and-secret-storage.md) |
 | Observability | Replayable run journals and [per-call cost and usage](./gitbooks/features/billing-and-usage.md) |
 
