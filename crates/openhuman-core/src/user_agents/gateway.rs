@@ -19,8 +19,8 @@
 
 use std::sync::Arc;
 
-use hmac::{Hmac, Mac};
-use sha2::Sha256;
+use hmac::{Hmac, KeyInit, Mac};
+use sha2_011::Sha256;
 
 use super::host::{self, UserAgentState};
 use super::types::UserAgentId;
