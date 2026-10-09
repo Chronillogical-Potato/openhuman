@@ -131,8 +131,10 @@ Method names are `openhuman.<namespace>_<function>`.
 
 - Only `control` is feature-gated (`modules`). Everything else compiles
   unconditionally. The runtime filter is `DomainSet::desktop`
-  (`core/runtime/builder.rs`). The plan for a dedicated compile-time gate is
-  in `docs/specs/2026-08-02-core-kernel-domain-reorg.md`.
+  (`core/runtime/builder.rs`). There is no `desktop` Cargo feature yet; the
+  grouping exists so one can drop the family as a unit later. (The `mod.rs`
+  doc points at `docs/specs/2026-08-02-core-kernel-domain-reorg.md`, which is
+  not in the repository.)
 - `control` checks loopback on every tool call and every confirmation, not
   just at enable time. A core bound to a non-loopback address reports
   `supported: false`.
