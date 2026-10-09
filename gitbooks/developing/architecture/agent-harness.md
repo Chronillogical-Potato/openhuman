@@ -459,7 +459,7 @@ Stop hooks fire between iterations of the tool-call loop. They're the policy lev
 
 - Budget stop hook: caps cumulative turn cost in USD using the per-iteration cost accumulator.
 - Max-iterations stop hook: caps iteration count from outside the agent's persistent config.
-- Action budget policy: `SecurityPolicy` enforces `config.autonomy.max_actions_per_hour` for side-effecting tool operations. Users can tune it in Settings -> Advanced -> Agent autonomy, or operators can override it with `OPENHUMAN_MAX_ACTIONS_PER_HOUR`.
+- Action budget policy: `SecurityPolicy` enforces `config.autonomy.max_actions_per_hour` for side-effecting tool operations. Users can tune it in Settings, Advanced, Agent autonomy, or operators can override it with `OPENHUMAN_MAX_ACTIONS_PER_HOUR`.
 
 A hook returning `Stop` aborts the loop with a clear reason the caller can surface to the user. Stop hooks are distinct from interrupts (next section): they're policy-driven, not user-driven.
 
