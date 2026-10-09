@@ -1,148 +1,86 @@
 ---
 description: >-
-  The OS keyring as root of trust: what is stored there, what is encrypted on
-  disk beside it, and what the consent prompt is asking for.
+  How OpenHuman uses the OS keyring to protect local secrets, what stays
+  encrypted on disk, and what the consent prompt asks.
 icon: key
 ---
 
-# OS Keyring & Secret Storage
+# OS keyring and secret storage
 
-OpenHuman uses the **operating system's secure credential store** to protect the secrets that must live on your device.
-
-On desktop builds, that means:
+OpenHuman uses your operating system's secure credential store to protect the secrets that must live on your device:
 
 - **macOS:** Keychain
 - **Windows:** Credential Manager
-- **Linux:** Secret Service / libsecret
+- **Linux:** Secret Service (libsecret)
 
-This is the root of trust for local secret material. OpenHuman does not rely on a plaintext `.env` file or a plaintext local config file for user credentials.
+This is the root of trust for local secrets. OpenHuman does not keep user credentials in a plaintext `.env` file or a plaintext config file.
 
----
+## What goes into the keyring
 
-## What goes into the OS keyring
+The keyring holds two kinds of secret.
 
-OpenHuman uses the OS keyring for two kinds of local secret material:
+**Credential entries.** When a feature needs a local credential slot, OpenHuman stores it in the platform keyring instead of a normal config file. Examples are locally stored provider API keys, session and bearer tokens that must stay on the device, and wallet secret material where applicable. Entries sit under OpenHuman's own key namespace, so they do not collide with other apps.
 
-### 1. Credential entries
-
-When a feature needs a local credential slot, OpenHuman stores it in the platform keyring rather than writing the raw secret into a normal config file.
-
-Examples include:
-
-- locally stored provider API keys
-- session and bearer tokens that must remain on-device
-- wallet secret material where applicable
-
-These entries are scoped under OpenHuman's own key namespace so they do not collide with unrelated apps.
-
-### 2. The master encryption key
-
-Some sensitive values still need to live **inside local files** because the application configuration itself is file-based.
-
-OpenHuman handles that by splitting storage in two:
-
-- the **secret value on disk** is stored as encrypted ciphertext
-- the **master key used to decrypt it** lives in the OS keyring
-
-This means your local config and state files can contain encrypted values without the decryption key sitting beside them in plaintext.
-
----
+**The master encryption key.** Some sensitive values must live inside local files, because the app's configuration is file-based. OpenHuman splits the storage. The secret value is stored on disk as encrypted ciphertext. The master key that decrypts it lives in the OS keyring. Your config and state files can hold encrypted values without the decryption key sitting next to them.
 
 ## What stays encrypted on disk
 
-When OpenHuman needs to persist sensitive application settings locally, it writes the **ciphertext** to disk and keeps the key in the OS keyring.
+When OpenHuman saves a sensitive setting locally, it writes the ciphertext to disk and keeps the key in the keyring. That covers:
 
-That covers local secrets such as:
+- BYO API keys for supported providers.
+- Channel and webhook secrets stored in local config.
+- Other locally saved secret settings that desktop features need.
 
-- BYO API keys for supported providers
-- channel and webhook secrets stored in local config
-- other locally persisted secret settings required for desktop features
+The encryption is authenticated, so OpenHuman detects tampering instead of silently accepting changed ciphertext. In short: the key is in the keyring, the ciphertext is in the file, and plaintext exists only in memory when needed.
 
-The encryption format is authenticated, so OpenHuman can detect tampering instead of silently accepting modified ciphertext.
+## Why this beats plaintext config
 
-In practice, the security model is:
+Plaintext secrets in config files are a risk if you have a workspace backup, a sync folder or a support bundle. With the keyring as the root secret store:
 
-- **key in keyring**
-- **ciphertext in file**
-- **plaintext only in memory when needed**
+- You can copy config files without exposing raw credentials.
+- Accidental log or file inspection is less likely to reveal secrets.
+- The decryption key belongs to the platform's credential system, not to a plaintext file the app manages.
 
----
+This does not replace full-disk encryption or OS account security. It is a narrower, stronger way to handle application secrets.
 
-## Why this is better than plaintext config
+## Managed integrations and local secrets
 
-If your machine has a local workspace backup, sync folder, or support bundle, plaintext secrets in config files are a liability.
+In the default managed integration flow, the OpenHuman backend handles third-party OAuth tokens. Your app does not need to keep those provider tokens in plaintext on your machine.
 
-Using the OS keyring as the root secret store gives OpenHuman a safer split:
+When you choose a bring-your-own-key or direct-mode path, OpenHuman treats those credentials as local secrets. It protects them with the OS keyring and encrypted local storage where needed.
 
-- config files can be copied without exposing raw credentials
-- accidental log or file inspection is less likely to reveal secrets
-- the decryption key is delegated to the platform's credential system rather than to an app-managed plaintext file
+## Migrating from older installs
 
-This is not a replacement for full-disk encryption or OS account security. It is a narrower, stronger way to handle application secrets.
+Older versions could keep local encryption material in a file. Current desktop builds move that material into the OS keyring and keep the encrypted values on disk. You do not need to re-enter your secrets.
 
----
+## When the keyring is unavailable
 
-## Managed integrations vs local secrets
+Sometimes the keyring cannot be reached. On Linux that can mean no Secret Service daemon. On macOS it can mean keychain access was denied. When that happens, OpenHuman stops and asks before it falls back to local encrypted storage.
 
-Not every secret follows the same path.
+1. **Detection.** On startup the core probes the OS keychain. If the probe fails, it classifies the reason (no daemon, locked, denied) and reports a structured `KeyringStatus` through the `openhuman.keyring_consent_status` RPC and the app snapshot.
+2. **Consent prompt.** The first time a secret must be read or written without recorded consent, a modal explains what happened, what "store locally" means and the risks. You can choose:
+   - **Use Local Encrypted Storage:** consent to ChaCha20-Poly1305 encrypted files. The master key is also on disk.
+   - **Retry OS Keychain:** probe again, which helps after you grant OS permission.
+   - **Skip:** decline local storage. Features that need secrets will be unavailable.
+3. **Saved choice.** Your choice is recorded in `app-state.json` (the `keyringConsent` field) and cached in the process. The app probes again on each launch and asks again if the keyring becomes available after a local-only session.
+4. **Settings.** **Settings → Security** shows the active storage mode, keychain availability and failure reason, with buttons to retry or change consent.
 
-### Managed integrations
+### One fallback policy
 
-For the default managed integration flow, third-party OAuth tokens are handled by the OpenHuman backend. Your local app does **not** need to persist those provider tokens in plaintext on your machine.
+Auth profiles, config secrets, the wallet mnemonic and the `secrets.enc` backend all call `keyring_consent::policy::check_secret_access()` instead of checking `is_available()` directly. No code path switches storage modes silently.
 
-### Local BYO credentials
-
-When you choose a bring-your-own-key or direct-mode path, OpenHuman treats those credentials as **local secrets** and protects them using the OS keyring plus encrypted-at-rest local storage where needed.
-
----
-
-## Migration from older installs
-
-Older versions could keep local encryption material in a file-based form.
-
-Current desktop builds migrate that material into the OS keyring and keep the encrypted payloads on disk. The goal is to move the root secret out of ordinary files and into the platform credential store, without requiring users to re-enter every secret by hand.
-
----
-
-## Consent flow when the keyring is unavailable
-
-Sometimes the OS keyring is unreachable, for example on Linux without a Secret Service daemon, or on macOS when keychain access is denied. When that happens, OpenHuman **stops and asks** before falling back to local encrypted storage.
-
-### How it works
-
-1. **Detection.** On startup the core probes the OS keychain. If the probe fails, it classifies the reason (no daemon, locked, denied) and reports a structured `KeyringStatus` via the `openhuman.keyring_consent_status` RPC and the app snapshot.
-
-2. **Consent prompt.** The first time a secret must be read or written and no consent has been recorded, a modal overlay explains what happened, what "store locally" means, and what the risks are. The user can:
-   - **Use Local Encrypted Storage**: consent to ChaCha20-Poly1305 encrypted files (master key also on disk).
-   - **Retry OS Keychain**: re-probe (useful after granting OS permission).
-   - **Skip**: decline local storage; features that need secrets will be unavailable.
-
-3. **Persisted preference.** The choice is recorded in `app-state.json` (`keyringConsent` field) and cached in-process. The app re-probes on each launch and re-prompts if the keyring becomes available after a local-only session.
-
-4. **Settings visibility.** **Settings → Security** shows the active storage mode, keychain availability, failure reason, and buttons to retry or change consent.
-
-### Unified fallback policy
-
-Auth profiles, config secrets, wallet mnemonic, and the `secrets.enc` backend all call `keyring_consent::policy::check_secret_access()` instead of raw `is_available()`. This ensures no code path silently switches storage modes.
-
-| Policy decision   | Meaning                                                    |
-| ----------------- | ---------------------------------------------------------- |
-| `Proceed`         | OS keyring available, or user consented to local encrypted |
-| `ConsentRequired` | Keyring unavailable, no consent yet; block and prompt      |
-| `Declined`        | User refused local storage; skip the secret operation      |
-
----
+| Policy decision | Meaning |
+| --- | --- |
+| `Proceed` | The OS keyring is available, or you consented to local encrypted storage. |
+| `ConsentRequired` | The keyring is unavailable and there is no consent yet. Block and prompt. |
+| `Declined` | You refused local storage. Skip the secret operation. |
 
 ## Platform note
 
-This page describes **desktop** OpenHuman: the Tauri app on macOS, Windows, and Linux.
-
-In development and test environments, the repository may use test-specific overrides so automated runs do not depend on an interactive OS keychain. That is a developer convenience, not the end-user desktop security model.
-
----
+This page describes the desktop app (Tauri) on macOS, Windows and Linux. Development and test environments may use test-specific overrides so automated runs do not need an interactive keychain. That is a developer convenience, not the end-user security model.
 
 ## See also
 
-- [Privacy & Security](privacy-and-security.md)
-- [Third-party Integrations](integrations/README.md)
+- [Privacy and security](privacy-and-security.md)
+- [Third-party integrations](integrations/README.md)
 - [Local AI (optional)](model-routing/local-ai.md)
