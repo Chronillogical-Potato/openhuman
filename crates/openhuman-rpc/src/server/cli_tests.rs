@@ -19,7 +19,7 @@ fn host_builder() -> RuntimeBuilder {
     let mut domains = DomainSet::full();
     domains.mcp = false;
     let mut services = ServiceSet::desktop();
-    services.voice = false;
+    services.cron = false;
     RuntimeBuilder::cli()
         .domains(domains)
         .services(services)
@@ -50,7 +50,7 @@ fn explicit_flags_win_over_the_host_builder() {
     assert_eq!(summary.listen_port, Some(9000));
     let services = summary.services.expect("services");
     assert!(!services.socketio, "--jsonrpc-only clears socketio");
-    assert!(!services.voice, "but keeps the builder's other choices");
+    assert!(!services.cron, "but keeps the builder's other choices");
 
     let mut headless = request();
     headless.headless_api = true;
