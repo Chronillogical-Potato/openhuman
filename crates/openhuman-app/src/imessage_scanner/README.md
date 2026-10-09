@@ -96,8 +96,11 @@ example memory turned off) counts as a failed group.
 ## Tests
 
 `imessage_scanner_tests.rs` (declared from `mod.rs`) and `tick_tests.rs`
-(declared from `tick.rs`) run on macOS only.
+(declared from `tick.rs`) build on macOS only. Two tests in `tick_tests.rs`
+read the real `~/Library/Messages/chat.db` and are `#[ignore]`d; they need
+Full Disk Access.
 
 ```bash
 cargo test --manifest-path crates/openhuman-app/Cargo.toml imessage_scanner::
+cargo test --manifest-path crates/openhuman-app/Cargo.toml imessage_scanner::tick_tests -- --ignored
 ```
