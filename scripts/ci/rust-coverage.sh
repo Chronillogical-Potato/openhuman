@@ -9,6 +9,17 @@ set -euo pipefail
 OUT="${OUT:-lcov-core.info}"
 PRODUCT_FEATURES="$(bash scripts/ci/product-features.sh)"
 
+# Sandboxed acting-tool tests deliberately do not forward RUSTUP_HOME. The
+# container installs Rust outside HOME, so its rustup proxy otherwise tries
+# to create ~/.rustup inside the write-confined jail. Put the already selected
+# toolchain binaries first; cargo --version then needs no rustup home writes.
+# Keep cargo-installed subcommands on PATH after the toolchain directory.
+if command -v rustup >/dev/null 2>&1; then
+  if COV_TOOLCHAIN_CARGO="$(rustup which cargo 2>/dev/null)"; then
+    export PATH="$(dirname "$COV_TOOLCHAIN_CARGO"):$PATH"
+  fi
+fi
+
 log() { echo "[ci][rust-cov] $*"; }
 
 # cargo-llvm-cov owns RUSTFLAGS while it instruments crates. Keeping the

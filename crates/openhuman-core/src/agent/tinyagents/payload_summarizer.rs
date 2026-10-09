@@ -73,7 +73,16 @@ pub(crate) fn unary_child_context(
         .with_max_tool_calls(max_iterations.saturating_mul(8).max(8))
         .with_max_depth(parent_ctx.config.max_depth())
         .with_max_turn_output_tokens(max_output_tokens);
-    parent_ctx.child(child_config, parent_ctx.data.child())
+    let child_data = parent_ctx
+        .data
+        .child()
+        .with_cancellation(parent_ctx.cancellation.clone());
+    let mut child = parent_ctx.child(child_config, child_data)?;
+    // TinyAgents links the child's token to the parent's; point the host
+    // carrier at that same linked token so host tools observe the child scope
+    // (parent cancel cascades down, child cancel leaves the parent running).
+    child.data.cancellation = child.cancellation.clone();
+    Ok(child)
 }
 
 impl PayloadSummarizer for SubagentPayloadSummarizer {

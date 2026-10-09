@@ -285,7 +285,9 @@ export function subagentMessages(activity: SubagentActivity): readonly AuiThread
           ? { type: 'incomplete', reason: 'error' }
           : activity.status === 'cancelled'
             ? { type: 'incomplete', reason: 'cancelled' }
-            : { type: 'complete', reason: 'stop' },
+            : activity.status === 'incomplete'
+              ? { type: 'incomplete', reason: 'other' }
+              : { type: 'complete', reason: 'stop' },
     });
   }
   return likes.map((like, index) =>

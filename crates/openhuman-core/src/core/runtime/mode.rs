@@ -67,6 +67,51 @@ pub fn is_saas() -> bool {
     current_mode() == Mode::Saas
 }
 
+/// Whether the command line or `OPENHUMAN_MODE` asks for SaaS, read before
+/// the CLI parses its arguments. The CLI skips its early keyring set-up for a
+/// SaaS boot, which roots the keyring under the operator directory instead
+/// (`saas::build`).
+pub fn requested_in(args: &[String], env: Option<&str>) -> bool {
+    let saas = |raw: &str| raw.trim().parse::<Mode>() == Ok(Mode::Saas);
+    env.is_some_and(saas)
+        || args.windows(2).any(|w| w[0] == "--mode" && saas(&w[1]))
+        || args
+            .iter()
+            .any(|a| a.strip_prefix("--mode=").is_some_and(saas))
+}
+
+static SAAS_BOOT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Claim the process's one SaaS boot. A second claim fails, even while the
+/// first boot is still building.
+pub(crate) fn reserve_saas_boot() -> Result<(), String> {
+    if SAAS_BOOT.swap(true, std::sync::atomic::Ordering::AcqRel) {
+        return Err("a SaaS core has already booted (or is booting) in this process".to_string());
+    }
+    Ok(())
+}
+
+/// Whether a core of `host_kind` may boot now. A process locked to SaaS boots
+/// nothing but its own SaaS core; a SaaS core boots only through
+/// `saas::build`, which runs the boot guard and locks the mode first, and only
+/// once per process (`core_running`: a default context already exists).
+pub(crate) fn admit_core(
+    host_kind: crate::core::types::HostKind,
+    core_running: bool,
+) -> Result<(), String> {
+    let saas_host = host_kind == crate::core::types::HostKind::Saas;
+    match (is_saas(), saas_host) {
+        (true, false) => Err(format!(
+            "this process serves SaaS; refusing a {host_kind:?} core"
+        )),
+        (false, true) => Err("a SaaS core boots only through saas::build".to_string()),
+        (true, true) if core_running => {
+            Err("this process already serves its SaaS core".to_string())
+        }
+        _ => Ok(()),
+    }
+}
+
 /// Fix the process mode. Locking the mode it already has is a no-op; locking
 /// a different one fails, because one process never serves both shapes.
 pub(crate) fn lock_mode(mode: Mode) -> Result<(), String> {

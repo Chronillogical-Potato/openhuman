@@ -29,6 +29,7 @@ async fn seed_thread(workspace: &Path, thread_id: &str, messages: &[(&str, &str)
             parent_thread_id: None,
             labels: None,
             personality_id: None,
+            working_dir: None,
         },
     )
     .await
@@ -167,6 +168,7 @@ async fn stores_past_chats_once_and_skips_what_live_logging_took() {
             in_prompt_from: 0,
             at: Utc::now(),
             resumed_after_compaction: false,
+            observed_actor: None,
         },
     )
     .await;

@@ -32,6 +32,7 @@ use tinyagents_harness::ids::TaskId;
 use tinyagents_harness::run_queue::RunQueue;
 use tinyagents_session::transcript::TranscriptMessage;
 
+use super::turn_runner_boxed::run_turn_via_tinyagents_inner;
 use super::ToolPolicyEnforcement;
 
 /// The durable root entry point for hosted turns.  It intentionally carries no
@@ -189,7 +190,7 @@ pub(crate) async fn run_root_turn_via_hosted_agent(
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn run_turn_via_tinyagents_inner(
+pub(super) async fn run_turn_via_tinyagents_body(
     mut run_context: OpenHumanRunContext,
     turn_models: TurnModels,
     provider_id: String,

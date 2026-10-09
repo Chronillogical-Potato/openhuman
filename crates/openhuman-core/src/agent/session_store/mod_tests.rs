@@ -59,7 +59,9 @@ async fn without_a_store_transcripts_are_workspace_files() {
     let dir = std::path::Path::new("/nonexistent-openhuman-workspace");
     assert_eq!(
         transcripts_or_files("u1", dir).destination_key(),
-        Some(dir.to_string_lossy().into_owned())
+        // tinyagents keys the file destination on the resolved `session_raw`
+        // directory under the workspace (tinyagents#06ad95ea).
+        Some(dir.join("session_raw").to_string_lossy().into_owned())
     );
     let provider: Arc<dyn SessionStoreProvider> = Arc::new(InMemorySessionStores::new());
     let expected = provider.for_agent("u1").transcripts.destination_key();

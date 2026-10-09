@@ -1,10 +1,11 @@
-//! `OpenHumanSessionHost::from_config` factory methods and the internal
-//! `build_session_agent_inner` constructor.
+//! `OpenHumanSessionHost::from_config` factory methods and internal `build_session_agent_inner` constructor.
 
 use super::dispatcher::{resolve_dispatcher_kind, DispatcherKind};
+use super::host_tools::derive_turn_workspace_descriptor;
 use super::should_synthesize_delegation_tools;
-use crate::agent::harness::definition::NO_TOOLS_SENTINEL;
-use crate::agent::harness::definition::{AgentDefinitionRegistry, PromptSource, ToolScope};
+use crate::agent::harness::definition::{
+    AgentDefinitionRegistry, PromptSource, ToolScope, NO_TOOLS_SENTINEL,
+};
 use crate::agent::host_runtime;
 use crate::agent::prompts::SystemPromptBuilder;
 use crate::agent::session_host::types::OpenHumanSessionHost;
@@ -29,9 +30,8 @@ impl OpenHumanSessionHost {
 
     /// Constructs an `OpenHumanSessionHost` instance from a global system configuration.
     ///
-    /// Thin wrapper around [`OpenHumanSessionHost::from_config_for_agent`] that always
-    /// targets the orchestrator definition. This preserves the legacy
-    /// "main agent = orchestrator" behaviour for CLI / REPL / any caller
+    /// Thin wrapper around [`OpenHumanSessionHost::from_config_for_agent`] targeting the
+    /// orchestrator for legacy CLI / REPL callers.
     /// that does not participate in the #525 onboarding-routing flow.
     ///
     /// Callers that need to select a different agent at session-build
@@ -833,14 +833,12 @@ impl OpenHumanSessionHost {
                 definitions,
                 security_policy: security,
                 post_turn_hooks: agent.post_turn_hooks.clone(),
-                // The caller's own definition, when this session was built from
-                // one rather than from a registry id. `AgentSpec::into_core`
-                // re-stamps the built-in orchestrator under the caller's id, so
-                // ids like `harness`/`alpha`/`beta` reach hosted resolution as
-                // names no registry holds; without handing the definition over
-                // here the lookup misses and the turn is rejected as a policy
-                // failure before any provider call (#6404/#6392/#6393).
-                session_definition: session_definition.clone().map(Arc::new),
+                session_definition: session_definition.clone().map(|definition| {
+                    Arc::new(super::host_tools::add_permanent_tools(
+                        definition,
+                        &agent.permanent_tool_names,
+                    ))
+                }),
             })
         });
         if agent.hosted_base.is_none() {
@@ -983,21 +981,4 @@ pub(crate) fn provider_role_for_definition(
         })
         .flatten();
     provider_role_for(master_hint.as_deref().or(default_model))
-}
-
-fn derive_turn_workspace_descriptor() -> Option<tinytools::WorkspaceDescriptor> {
-    let root = crate::agent::turn_workspace::current()?;
-    if !root.is_dir() {
-        tracing::warn!(
-            root = %root.display(),
-            "[turn_workspace] scoped root is not an existing directory — \
-             falling back to the shared action_dir cwd for this turn"
-        );
-        return None;
-    }
-    tracing::debug!(
-        root = %root.display(),
-        "[turn_workspace] turn bound to the embedder's per-turn root as default cwd"
-    );
-    Some(tinytools::WorkspaceDescriptor::new(root).with_policy_id("turn-workspace"))
 }

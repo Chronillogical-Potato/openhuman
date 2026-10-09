@@ -29,7 +29,8 @@
 //! - [`registry`] — the compiled-in set of loadable modules and their digests.
 //! - [`documents`] — the host half of the `tinydocs` module's three operations.
 //! - [`browser`] and [`browser_task`] — TinyComputer browser members and tasks
-//!   without linking the browser engine into the core.
+//!   without linking the browser engine into the core; [`browser_sites`] keeps
+//!   what finished tasks learned about each site for the next task there.
 //! - [`wallet`] — the host half of the `tinywallet` module, which builds and
 //!   assembles transactions while the signing key stays in this process.
 //! - [`host`] — the module broker, connection and loader.
@@ -41,7 +42,9 @@
 
 pub mod boot;
 pub mod browser;
+pub(crate) mod browser_sites;
 pub mod browser_task;
+mod browser_task_report;
 pub mod computer;
 pub mod computer_config;
 pub mod connectors;

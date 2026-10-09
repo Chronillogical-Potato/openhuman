@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "ptt-overlay",
+  "description": "Push-to-talk overlay window: listens for `ptt-overlay://active` and nothing else",
+  "platforms": ["linux", "macOS", "windows"],
+  "windows": ["ptt-overlay"],
+  "permissions": ["core:event:default"]
+}

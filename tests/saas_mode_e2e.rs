@@ -226,7 +226,13 @@ fn a_safe_deployment_serves_core_and_the_operator_plane_behind_the_gateway_beare
         .and_then(Value::as_str)
         .unwrap_or_else(|| panic!("agent_id in {result}"))
         .to_string();
-    assert!(agent_id.starts_with("u-"), "{agent_id}");
+    assert_eq!(
+        agent_id,
+        openhuman_core::user_agents::UserAgentId::for_user("alice@example.com")
+            .unwrap()
+            .to_string(),
+        "the agent id is the deterministic hash of the user id"
+    );
     assert!(!body.to_string().contains("alice"), "{body}");
     assert!(d
         .root
@@ -270,6 +276,14 @@ fn a_safe_deployment_serves_core_and_the_operator_plane_behind_the_gateway_beare
             .join("active_user.toml")
             .exists(),
         "a SaaS boot never activates a desktop user"
+    );
+    let desktop = d.tmp.path().join(".openhuman");
+    let leaked: Vec<_> = std::fs::read_dir(&desktop)
+        .map(|entries| entries.flatten().map(|e| e.file_name()).collect())
+        .unwrap_or_default();
+    assert!(
+        leaked.is_empty(),
+        "a SaaS boot writes nothing under ~/.openhuman (keyring included): {leaked:?}"
     );
     drop(server);
 }

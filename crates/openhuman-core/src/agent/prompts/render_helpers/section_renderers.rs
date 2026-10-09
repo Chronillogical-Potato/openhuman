@@ -66,7 +66,10 @@ pub fn render_datetime(ctx: &PromptContext<'_>) -> Result<String> {
 /// the prefix both busts the KV cache and goes stale across a long-lived
 /// session. The static grounding *rule* that tells the model to read this
 /// line lives in [`DateTimeSection`] / [`render_datetime`].
-pub fn current_datetime_line() -> String {
+///
+/// `zone` is the user's IANA zone ([`crate::config::Config::time_zone`]);
+/// `None`, or a name chrono-tz does not know, stamps the device's.
+pub fn current_datetime_line(zone: Option<&str>) -> String {
     // `library-cpu.sh` sets `OPENHUMAN_PROFILE_FORCE_UTC=1` to skip
     // `iana_time_zone`/CoreFoundation timezone resolution, which is itself a
     // measurable cost in a cold CPU profile. Gated on `rss-bench`, so it does
@@ -77,6 +80,18 @@ pub fn current_datetime_line() -> String {
         return format!(
             "Current Date & Time: {} UTC (UTC, UTC+00:00), {}",
             now.format("%Y-%m-%d %H:%M:%S"),
+            now.format("%A"),
+        );
+    }
+
+    if let Some(tz) = zone.and_then(|zone| zone.parse::<chrono_tz::Tz>().ok()) {
+        let now = chrono::Utc::now().with_timezone(&tz);
+        return format!(
+            "Current Date & Time: {} {} ({}, UTC{}), {}",
+            now.format("%Y-%m-%d %H:%M:%S"),
+            tz.name(),
+            now.format("%Z"),
+            now.format("%:z"),
             now.format("%A"),
         );
     }
@@ -105,6 +120,18 @@ pub fn current_datetime_line() -> String {
                 now.format("%A"),
             )
         }
+    }
+}
+
+/// What leads every user message: [`current_datetime_line`], then the
+/// reply-language instruction for the user's interface locale, when there is
+/// one. Per message, never in the cached prompt prefix, so a locale change
+/// applies from the next turn and the prefix stays byte-stable.
+pub fn turn_preamble(reply_language_directive: Option<&str>, zone: Option<&str>) -> String {
+    let now = current_datetime_line(zone);
+    match reply_language_directive {
+        Some(directive) => format!("{now}\n{directive}"),
+        None => now,
     }
 }
 

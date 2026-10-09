@@ -117,14 +117,14 @@ fn read_file(workspace_dir: &Path) -> BackfillFile {
         .unwrap_or_default()
 }
 
+/// Persists `file` atomically (staged, synced, renamed), so a crash
+/// mid-write keeps the previous progress instead of losing it.
 fn write_file(workspace_dir: &Path, file: &BackfillFile) {
-    let path = file_path(workspace_dir);
-    let result = path
-        .parent()
-        .map_or(Ok(()), std::fs::create_dir_all)
-        .and_then(|()| {
-            let json = serde_json::to_vec_pretty(file).map_err(std::io::Error::other)?;
-            std::fs::write(&path, json)
+    let result = serde_json::to_vec_pretty(file)
+        .map_err(|error| error.to_string())
+        .and_then(|json| {
+            crate::security::keyring::file_store::write_atomic(&file_path(workspace_dir), &json)
+                .map_err(|error| error.to_string())
         });
     if let Err(error) = result {
         tracing::warn!(error = %error, "[memory:backfill] writing state failed");

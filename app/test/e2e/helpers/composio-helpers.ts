@@ -241,8 +241,7 @@ export async function assertSessionNotNuked(timeout = 20_000): Promise<void> {
 
 /**
  * Inject a mock HTTP fault on all Composio routes by setting the
- * composioExecuteFails / composioDeleteFails / composioSyncFails behavior
- * knobs to trigger the given status code.
+ * composioExecuteFails / composioDeleteFails behavior knobs to trigger the given status code.
  *
  * Supported status codes: 400, 500.
  * The mock route handlers interpret knob value '400' → HTTP 400 and '500' → HTTP 500.
@@ -251,6 +250,5 @@ export function injectComposioFault(statusCode: 400 | 500): void {
   const value = String(statusCode);
   setMockBehavior('composioExecuteFails', value);
   setMockBehavior('composioDeleteFails', value);
-  setMockBehavior('composioSyncFails', value);
   console.log(`${LOG} injected composio fault: status=${statusCode}`);
 }

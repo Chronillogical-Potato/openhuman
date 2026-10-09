@@ -6,6 +6,9 @@
  * Changes from upstream:
  * - `cn` import path (`@/components/assistant-ui/lib/utils`).
  * - `../utils/range` -> `@/components/assistant-ui/utils/range`.
+ * - `SubagentItem.done`: an agent's own finished flag. Upstream marks the
+ *   first `completedCount` rows done, which is only right when workers finish
+ *   in list order; parallel workers do not.
  * No hard-coded user-facing copy — `agent.name`/`agent.model` are
  * caller-supplied props, so there is nothing to route through `useT()` here.
  */
@@ -19,6 +22,8 @@ import { mono, paper } from './surfaces';
 export interface SubagentItem {
   name: string;
   model: string;
+  /** This agent has finished; falls back to `index < completedCount` when absent. */
+  done?: boolean;
 }
 
 export function SubagentList({
@@ -45,7 +50,7 @@ export function SubagentList({
       className={cn('flex min-h-[14.5rem] w-full max-w-xs flex-col gap-2', className)}
       {...props}>
       {agents.map((agent, index) => {
-        const done = index < completedCount;
+        const done = agent.done ?? index < completedCount;
         const width = progress[index] ?? 0;
         const percentage = pct(width, 100);
 

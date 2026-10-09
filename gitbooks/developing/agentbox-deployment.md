@@ -1,9 +1,16 @@
+---
+description: >-
+  The removed AgentBox container deployment surface, kept as the record of
+  what it was and which test pins its absence.
+icon: box-archive
+---
+
 # AgentBox marketplace deployment (historical)
 
 This page describes a container surface that no longer exists in
 `openhuman-core`. A regression test,
 `agentbox_run_and_jobs_paths_are_no_longer_public` in
-`crates/openhuman-core/src/core/auth_tests.rs`, asserts that `/run` and
+`crates/openhuman-rpc/src/server/auth_tests.rs`, asserts that `/run` and
 `/jobs/{job_id}` are gone and pins the reason in a comment: the AgentBox
 marketplace surface moved out of this codebase. `OPENHUMAN_AGENTBOX_MODE`
 has no remaining reader anywhere in `crates/openhuman-core/src` today, even

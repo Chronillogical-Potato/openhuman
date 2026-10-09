@@ -7,6 +7,7 @@
 //!
 //! - engines: list / get / set, the off state, and the structured error codes;
 //! - learn -> items_list -> fetch -> recall -> forget on the hosted engine;
+//! - erase_all: the whole hosted memory in one `DELETE /memory`;
 //! - conversations settings;
 //! - sources: add a folder, sync it, read its items back, remove it;
 //! - context.md: refresh / get / set;
@@ -256,6 +257,36 @@ impl Fixture {
         .await
     }
 
+    /// [`Self::ok`] repeated until `done` holds for the result, or ten
+    /// seconds pass, when the last result is returned: for reads of a write
+    /// the engine may index after it answers. A call still unanswered at the
+    /// deadline panics.
+    async fn ok_until(&self, method: &str, params: Value, done: impl Fn(&Value) -> bool) -> Value {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        loop {
+            // The deadline bounds each call too, so a hung call cannot
+            // outlast it.
+            let left = deadline.saturating_duration_since(std::time::Instant::now());
+            let result = tokio::time::timeout(left, self.ok(method, params.clone()))
+                .await
+                .unwrap_or_else(|_| panic!("{method}: no answer within the polling deadline"));
+            if done(&result) || std::time::Instant::now() >= deadline {
+                return result;
+            }
+            // Never start a call the deadline leaves no time for: the sleep
+            // may cross it, and the last result is then the answer.
+            let pause = std::time::Duration::from_millis(100);
+            if std::time::Instant::now() + pause >= deadline {
+                return result;
+            }
+            tokio::time::sleep(pause).await;
+            // A late wake can still cross it.
+            if std::time::Instant::now() >= deadline {
+                return result;
+            }
+        }
+    }
+
     /// The unwrapped result of a call that must succeed.
     async fn ok(&self, method: &str, params: Value) -> Value {
         let response = self.call(method, params).await;
@@ -421,6 +452,7 @@ async fn memory_is_off_when_signed_out() {
         ("openhuman.memory_brain_ingest", json!({ "text": "a doc" })),
         ("openhuman.memory_jobs_run", json!({})),
         ("openhuman.memory_import_start", json!({ "consent": true })),
+        ("openhuman.memory_erase_all", json!({ "confirm": true })),
     ];
     for (method, params) in off_calls {
         assert_eq!(f.code(method, params).await, "MEMORY_OFF", "{method}");
@@ -836,6 +868,211 @@ async fn learn_list_fetch_recall_and_forget_round_trip() {
     assert_eq!(none["forgotten"], json!(0));
 }
 
+/// The `/memory/*` requests the mock logged after the first `skip`, as
+/// `METHOD path` lines.
+async fn memory_requests_since(f: &Fixture, skip: usize) -> Vec<String> {
+    f.mock
+        .request_rows()
+        .await
+        .into_iter()
+        .skip(skip)
+        .filter_map(|row| {
+            let url = row["url"].as_str()?.to_string();
+            url.starts_with("/memory/").then(|| {
+                let method = row["method"].as_str().unwrap_or("?");
+                format!("{method} {}", url.split('?').next().unwrap_or(&url))
+            })
+        })
+        .collect()
+}
+
+/// The memory calls made after the one experience write in `calls`.
+fn after_the_write(calls: &[String]) -> &[String] {
+    let writes: Vec<usize> = calls
+        .iter()
+        .enumerate()
+        .filter(|(_, call)| call.as_str() == "POST /memory/experience")
+        .map(|(index, _)| index)
+        .collect();
+    assert_eq!(writes.len(), 1, "exactly one experience write: {calls:?}");
+    &calls[writes[0] + 1..]
+}
+
+#[tokio::test]
+async fn the_agent_learn_returns_on_accept_and_recall_finds_it() {
+    let f = Fixture::new(true).await;
+    let config = openhuman_core::config::load_config_with_timeout()
+        .await
+        .expect("the signed-in config");
+    let facts = openhuman_core::memory::tools::CallFacts::of(
+        &config,
+        &openhuman_core::memory::scope::MemoryIdentity::agent("orchestrator"),
+    );
+
+    // Control: `memory_learn` over RPC returns once the write is readable, so
+    // the hosted engine reads the store back after its write.
+    let before = f.mock.request_rows().await.len();
+    f.learn("Carol keeps her standup notes in a paper notebook")
+        .await;
+    let rpc_calls = memory_requests_since(&f, before).await;
+    assert!(
+        after_the_write(&rpc_calls)
+            .iter()
+            .any(|call| call == "GET /memory/events"),
+        "the RPC learn must read its write back before returning: {rpc_calls:?}"
+    );
+
+    // The agent's tool returns on accept: nothing follows its one write (the
+    // read before it is the engine's replay lookup), and the model is told
+    // recall may lag.
+    let before = f.mock.request_rows().await.len();
+    let learned = openhuman_core::memory::tools::run_action(
+        &config,
+        &json!({"action": "learn", "text": "Dave takes his coffee with oat milk"}),
+        &facts,
+    )
+    .await;
+    assert!(!learned.is_error, "{}", learned.text());
+    let tool_calls = memory_requests_since(&f, before).await;
+    assert!(
+        after_the_write(&tool_calls).is_empty(),
+        "the agent learn must return right after its write, with no visibility reads: {tool_calls:?}"
+    );
+    let view: Value = serde_json::from_str(&learned.text()).expect("learn result json");
+    let id = view["id"].as_str().expect("learn keeps the receipt id");
+    assert_eq!(view["status"], json!("saved; searchable in recall shortly"));
+
+    // Shortly after, the learning is readable like any other.
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        let listed = f
+            .ok(
+                "openhuman.memory_items_list",
+                json!({ "filter": { "kinds": ["learning"] } }),
+            )
+            .await;
+        if ids_of(&listed, "items").iter().any(|known| known == id) {
+            break;
+        }
+        assert!(Instant::now() < deadline, "never listed: {listed}");
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+}
+
+#[tokio::test]
+async fn erase_all_needs_confirmation_and_erases_the_whole_hosted_memory() {
+    let f = Fixture::new(true).await;
+    f.learn("a fact about tea").await;
+    f.learn("a fact about coffee").await;
+    // A second hosted-memory category: a document, so a learnings-only
+    // erase cannot pass this test.
+    f.ok(
+        "openhuman.memory_brain_ingest",
+        json!({ "text": "a document about espresso machines" }),
+    )
+    .await;
+    let docs_before = f
+        .ok_until(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["document"] } }),
+            |v| !ids_of(v, "items").is_empty(),
+        )
+        .await;
+    assert!(
+        !ids_of(&docs_before, "items").is_empty(),
+        "the document was stored: {docs_before}"
+    );
+    let before = f
+        .ok_until(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["learning"] } }),
+            |v| ids_of(v, "items").len() == 2,
+        )
+        .await;
+    assert_eq!(ids_of(&before, "items").len(), 2, "{before}");
+
+    // Without its interlock nothing is sent and nothing is erased.
+    let skip = f.mock.request_rows().await.len();
+    assert_eq!(
+        f.code("openhuman.memory_erase_all", json!({})).await,
+        "INVALID_REQUEST"
+    );
+    assert_eq!(
+        f.code("openhuman.memory_erase_all", json!({ "confirm": false }))
+            .await,
+        "INVALID_REQUEST"
+    );
+    let deletes = |paths: Vec<String>| {
+        paths
+            .into_iter()
+            .filter(|p| p.starts_with("DELETE /memory"))
+            .count()
+    };
+    assert_eq!(deletes(f.mock.request_paths().await[skip..].to_vec()), 0);
+
+    let erased = f
+        .ok("openhuman.memory_erase_all", json!({ "confirm": true }))
+        .await;
+    assert!(
+        erased["erased_scopes"].as_u64().is_some_and(|n| n >= 1),
+        "{erased}"
+    );
+    assert_eq!(deletes(f.mock.request_paths().await[skip..].to_vec()), 1);
+    let after = f
+        .ok(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["learning"] } }),
+        )
+        .await;
+    assert_eq!(after["items"], json!([]), "{after}");
+    // Another account's memory is untouched, and a repeated erase is a no-op.
+    let second = f
+        .call(
+            "openhuman.auth_store_session",
+            json!({ "token": format!("{MOCK_TOKEN}-second"), "user_id": "second-user" }),
+        )
+        .await;
+    assert!(second.get("error").is_none(), "{second}");
+    f.learn("a fact that belongs to the second account").await;
+    f.sign_in().await;
+    f.ok("openhuman.memory_erase_all", json!({ "confirm": true }))
+        .await;
+    let again = f
+        .ok(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["learning"] } }),
+        )
+        .await;
+    assert_eq!(again["items"], json!([]), "{again}");
+    let second = f
+        .call(
+            "openhuman.auth_store_session",
+            json!({ "token": format!("{MOCK_TOKEN}-second"), "user_id": "second-user" }),
+        )
+        .await;
+    assert!(second.get("error").is_none(), "{second}");
+    let kept = f
+        .ok_until(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["learning"] } }),
+            |v| !ids_of(v, "items").is_empty(),
+        )
+        .await;
+    assert_eq!(ids_of(&kept, "items").len(), 1, "{kept}");
+    f.sign_in().await;
+    let docs_after = f
+        .ok(
+            "openhuman.memory_items_list",
+            json!({ "filter": { "kinds": ["document"] } }),
+        )
+        .await;
+    assert_eq!(docs_after["items"], json!([]), "{docs_after}");
+    let refetch = f
+        .ok("openhuman.memory_fetch", json!({ "query": "coffee" }))
+        .await;
+    assert_eq!(refetch["hits"], json!([]));
+}
+
 #[tokio::test]
 async fn memory_is_isolated_per_account() {
     let f = Fixture::new(true).await;
@@ -871,6 +1108,8 @@ async fn policy_get_and_set_round_trip() {
     assert_eq!(defaults["log_conversations"], json!(true));
     assert_eq!(defaults["recall"]["enabled"], json!(true));
     assert_eq!(defaults["recall"]["budget_tokens"], json!(1200));
+    // No team section by default: a pack carries the agent's own history.
+    assert_eq!(defaults["recall"]["team_limit"], json!(0));
     assert_eq!(defaults["root"], json!("root"));
     assert_eq!(defaults["host_bound"], json!(false));
 
@@ -1187,6 +1426,190 @@ async fn sources_add_sync_list_and_remove() {
 // ---------------------------------------------------------------------------
 // context.md
 // ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn local_files_and_text_file_under_the_files_source() {
+    let f = Fixture::new(true).await;
+    let path = f.home.path().join("handbook.md");
+    std::fs::write(&path, "# Handbook\n\nExpenses are filed by the fifth.").expect("write");
+
+    // Neither names a source: a file of any format, and pasted text, are
+    // local files, not a per-format source.
+    let file = f
+        .ok(
+            "openhuman.memory_brain_ingest",
+            json!({ "path": path.display().to_string() }),
+        )
+        .await;
+    assert_eq!(file["source"], json!("files"), "{file}");
+    let text = f
+        .ok(
+            "openhuman.memory_brain_ingest",
+            json!({ "text": "Payroll runs on the last Friday", "title": "Payroll" }),
+        )
+        .await;
+    assert_eq!(text["source"], json!("files"), "{text}");
+
+    let sources = f
+        .ok_until("openhuman.memory_brain_sources", json!({}), |v| {
+            v["sources"][0]["documents"] == json!(2)
+        })
+        .await;
+    let listed: Vec<(String, u64)> = sources["sources"]
+        .as_array()
+        .expect("sources")
+        .iter()
+        .map(|s| {
+            (
+                s["source"].as_str().unwrap_or_default().to_string(),
+                s["documents"].as_u64().unwrap_or_default(),
+            )
+        })
+        .collect();
+    assert_eq!(listed, [("files".to_string(), 2)], "{sources}");
+
+    let found = f
+        .ok_until(
+            "openhuman.memory_brain_search",
+            json!({ "query": "expenses", "source": "files" }),
+            |v| !v["hits"].as_array().is_none_or(Vec::is_empty),
+        )
+        .await;
+    assert_eq!(found["hits"].as_array().unwrap().len(), 1, "{found}");
+}
+
+#[tokio::test]
+async fn a_document_at_an_old_per_format_node_stays_listed_searchable_and_forgettable() {
+    let f = Fixture::new(true).await;
+    // Documents stored before the brain was filed by connector sit at a
+    // per-format node (`source:pdf`); they stay visible beside `files`.
+    let old = f
+        .ok(
+            "openhuman.memory_brain_ingest",
+            json!({ "text": "The old vendor code is PV-7023", "source": "pdf" }),
+        )
+        .await;
+    assert_eq!(old["source"], json!("pdf"), "{old}");
+    f.ok(
+        "openhuman.memory_brain_ingest",
+        json!({ "text": "The new vendor code is PV-9000" }),
+    )
+    .await;
+    let sources = f
+        .ok_until("openhuman.memory_brain_sources", json!({}), |v| {
+            v["sources"].as_array().is_some_and(|s| s.len() == 2)
+        })
+        .await;
+    let mut listed: Vec<String> = sources["sources"]
+        .as_array()
+        .expect("sources")
+        .iter()
+        .map(|s| s["source"].as_str().unwrap_or_default().to_string())
+        .collect();
+    listed.sort();
+    assert_eq!(listed, ["files", "pdf"], "{sources}");
+    let found = f
+        .ok_until(
+            "openhuman.memory_brain_search",
+            json!({ "query": "vendor code" }),
+            |v| v["hits"].as_array().is_some_and(|h| h.len() == 2),
+        )
+        .await;
+    assert_eq!(
+        found["hits"].as_array().unwrap().len(),
+        2,
+        "an unscoped search reads both: {found}"
+    );
+    let gone = f
+        .ok("openhuman.memory_brain_forget", json!({ "source": "pdf" }))
+        .await;
+    assert_eq!(gone["forgotten"], json!(1), "{gone}");
+}
+
+#[tokio::test]
+async fn composio_is_no_longer_a_memory_source_kind() {
+    let f = Fixture::new(true).await;
+    let folder = write_folder(f.home.path());
+    assert_eq!(
+        f.code(
+            "openhuman.memory_sources_add",
+            json!({ "kind": "composio", "target": "gmail" })
+        )
+        .await,
+        "INVALID_REQUEST"
+    );
+    for (kind, target) in [
+        ("folder", folder.to_string_lossy().to_string()),
+        ("file", format!("{}/launch.md", folder.to_string_lossy())),
+        ("link", "https://example.com/docs".to_string()),
+        ("github", "acme/widgets".to_string()),
+        ("rss", "https://example.com/feed.xml".to_string()),
+    ] {
+        let added = f
+            .ok(
+                "openhuman.memory_sources_add",
+                json!({ "kind": kind, "target": target }),
+            )
+            .await;
+        assert_eq!(added["source"]["kind"], json!(kind));
+    }
+}
+
+#[tokio::test]
+async fn composio_sync_is_no_longer_a_method() {
+    let f = Fixture::new(true).await;
+    let response = f
+        .call("openhuman.composio_sync", json!({ "connection_id": "c-1" }))
+        .await;
+    let message = response["error"]["message"].as_str().unwrap_or_default();
+    assert!(
+        response.get("error").is_some() && message.contains("unknown method"),
+        "composio_sync must be an unknown method: {response}"
+    );
+}
+
+#[tokio::test]
+async fn a_stale_config_with_a_composio_source_loads_without_it() {
+    let f = Fixture::new(true).await;
+    let stale = r#"
+[[memory.sources]]
+id = "src-composio"
+kind = "composio"
+target = "gmail"
+
+[[memory.sources]]
+id = "src-notes"
+kind = "folder"
+target = "/tmp/stale-notes"
+
+[[memory.sources]]
+id = "src-feed"
+kind = "rss"
+target = "https://example.com/feed.xml"
+"#;
+    for dir in [
+        f.home.path().join(".openhuman"),
+        f.home
+            .path()
+            .join(".openhuman")
+            .join("users")
+            .join(MOCK_USER_ID),
+    ] {
+        let path = dir.join("config.toml");
+        let mut text = std::fs::read_to_string(&path).expect("read config.toml");
+        text.push_str(stale);
+        std::fs::write(&path, text).expect("write config.toml");
+    }
+    let listed = f.ok("openhuman.memory_sources_list", json!({})).await;
+    let mut ids: Vec<String> = listed["sources"]
+        .as_array()
+        .expect("sources array")
+        .iter()
+        .filter_map(|s| s["id"].as_str().map(str::to_string))
+        .collect();
+    ids.sort();
+    assert_eq!(ids, ["src-feed", "src-notes"], "{listed}");
+}
 
 #[tokio::test]
 async fn brain_pack_preview_and_jobs_round_trip() {
@@ -1607,6 +2030,14 @@ async fn import_scan_finds_nothing_and_start_needs_consent() {
 
     let status = f.ok("openhuman.memory_import_status", json!({})).await;
     assert_eq!(status["state"]["phase"], json!("idle"));
+    assert_eq!(status["state"]["failed"], json!(0));
+
+    // Nothing finished, nothing skipped: there is nothing to retry.
+    assert_eq!(
+        f.code("openhuman.memory_import_retry_failed", json!({}))
+            .await,
+        "INVALID_REQUEST"
+    );
 
     // Importing uploads local data: refused without consent, signed in or not.
     assert_eq!(
@@ -1666,6 +2097,7 @@ async fn memory_v2_registers_exactly_the_documented_methods() {
         "fetch",
         "learn",
         "forget",
+        "erase_all",
         "items_list",
         "explore",
         "items_get",
@@ -1685,6 +2117,11 @@ async fn memory_v2_registers_exactly_the_documented_methods() {
         "import_scan",
         "import_start",
         "import_status",
+        "import_retry_failed",
+        "migration_scan",
+        "migration_start",
+        "migration_status",
+        "migration_retry",
     ]
     .iter()
     .map(|m| format!("openhuman.memory_{m}"))

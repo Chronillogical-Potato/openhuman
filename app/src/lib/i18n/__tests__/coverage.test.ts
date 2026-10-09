@@ -14,8 +14,10 @@ const LOCALES = [
   'ru',
   'id',
   'it',
+  'ja',
   'ko',
   'pl',
+  'tr',
 ] as const;
 
 interface LocaleModule {
@@ -52,6 +54,30 @@ describe('i18n coverage', () => {
     const flat = loadLocale(locale);
     const extra = Object.keys(flat).filter(k => !(k in enFlat));
     expect(extra).toEqual([]);
+  });
+
+  it('locale tr preserves every interpolation placeholder', () => {
+    const turkish = loadLocale('tr');
+    const placeholders = (value: string) => (value.match(/\{+[^{}]+\}+/g) ?? []).sort();
+    const mismatches = Object.entries(enFlat)
+      .filter(
+        ([key, value]) =>
+          JSON.stringify(placeholders(turkish[key] ?? '')) !== JSON.stringify(placeholders(value))
+      )
+      .map(([key]) => key);
+    expect(mismatches).toEqual([]);
+  });
+
+  it('preserves Japanese interpolation placeholders exactly', () => {
+    const japanese = loadLocale('ja');
+    const placeholders = (value: string) => value.match(/\{+[^{}]+\}+/g)?.sort() ?? [];
+    const mismatches = Object.entries(enFlat)
+      .filter(
+        ([key, value]) =>
+          JSON.stringify(placeholders(japanese[key])) !== JSON.stringify(placeholders(value))
+      )
+      .map(([key]) => key);
+    expect(mismatches).toEqual([]);
   });
 
   it.each(['en', ...LOCALES])('locale %s contains no em dashes', locale => {

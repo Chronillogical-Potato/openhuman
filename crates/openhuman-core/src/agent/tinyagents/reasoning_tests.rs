@@ -29,6 +29,27 @@ fn configured_effort_becomes_the_turn_reasoning() {
 }
 
 #[test]
+fn the_turn_models_own_level_wins_over_the_global_one() {
+    let mut config = Config::default();
+    config.runtime.reasoning_effort = Some("low".into());
+    config
+        .runtime
+        .reasoning_effort_by_model
+        .insert("deep-model".into(), "high".into());
+    config.default_model = Some("deep-model".into());
+    assert_eq!(
+        reasoning_for_config(&config),
+        Some(ReasoningConfig::effort(ReasoningEffort::High))
+    );
+    // Another model has no entry and falls back to the global level.
+    config.default_model = Some("quick-model".into());
+    assert_eq!(
+        reasoning_for_config(&config),
+        Some(ReasoningConfig::effort(ReasoningEffort::Low))
+    );
+}
+
+#[test]
 fn reasoning_disabled_without_an_effort_asks_for_none() {
     let mut config = Config::default();
     config.runtime.reasoning_enabled = Some(false);

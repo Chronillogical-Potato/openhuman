@@ -219,8 +219,37 @@ fn build_turn_agent(
 ///   thread.
 /// * The agent is built by `target`, so a library host can run one booted
 ///   core with many independently defined agents.
+///
+/// Returned boxed and `#[inline(never)]` on purpose: other crates await this
+/// (`openhuman-rpc`, `openhuman-embed`), and an `async fn` body is otherwise
+/// re-instantiated inside every calling crate's state machine. Boxing here
+/// keeps one copy, compiled in this crate.
 #[allow(clippy::too_many_arguments)]
-pub async fn agent_chat_for(
+#[inline(never)]
+pub fn agent_chat_for<'a>(
+    config: &'a mut Config,
+    target: AgentChatTarget<'a>,
+    message: &'a str,
+    model_override: Option<String>,
+    temperature: Option<f64>,
+    thread_id: Option<String>,
+    cwd: Option<String>,
+    route: Option<crate::config::schema::EphemeralRoute>,
+) -> futures::future::BoxFuture<'a, Result<Outcome<String>, String>> {
+    Box::pin(agent_chat_for_inner(
+        config,
+        target,
+        message,
+        model_override,
+        temperature,
+        thread_id,
+        cwd,
+        route,
+    ))
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn agent_chat_for_inner(
     config: &mut Config,
     target: AgentChatTarget<'_>,
     message: &str,

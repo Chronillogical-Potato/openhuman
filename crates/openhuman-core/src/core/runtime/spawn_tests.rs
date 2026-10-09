@@ -61,3 +61,17 @@ async fn outside_any_scope_spawn_scoped_is_a_plain_spawn() {
     let (_, identity) = spawn_scoped(async { seen() }).await.unwrap();
     assert_eq!(identity, None);
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn spawn_blocking_scoped_keeps_the_memory_identity() {
+    let ctx = agent_context("u-ravi");
+    let seen = CoreContext::scope(ctx, async {
+        crate::memory::scope::within(MemoryIdentity::agent("planner"), async {
+            spawn_blocking_scoped(seen).await.unwrap()
+        })
+        .await
+    })
+    .await;
+    assert_eq!(seen.0.as_deref(), Some("u-ravi"));
+    assert_eq!(seen.1.as_deref(), Some("planner"));
+}

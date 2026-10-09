@@ -57,12 +57,20 @@ pub(crate) fn schemas(function: &str) -> ControllerSchema {
             namespace: "threads",
             function: "create_new",
             description: "Create a new conversation thread with auto-generated ID and title.",
-            inputs: vec![FieldSchema {
-                name: "labels",
-                ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
-                comment: "Optional labels to assign to the new thread.",
-                required: false,
-            }],
+            inputs: vec![
+                FieldSchema {
+                    name: "labels",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
+                    comment: "Optional labels to assign to the new thread.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "action_dir",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Optional absolute working folder for the thread's agent; empty or absent uses the global action_dir.",
+                    required: false,
+                },
+            ],
             outputs: vec![FieldSchema {
                 name: "result",
                 ty: TypeSchema::Json,
@@ -185,6 +193,31 @@ pub(crate) fn schemas(function: &str) -> ControllerSchema {
                     name: "labels",
                     ty: TypeSchema::Json,
                     comment: "List of labels to assign.",
+                    required: true,
+                },
+            ],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Json,
+                comment: "Envelope with the resulting thread summary.",
+                required: true,
+            }],
+        },
+        "update_working_dir" => ControllerSchema {
+            namespace: "threads",
+            function: "update_working_dir",
+            description: "Bind or clear the working folder of a thread that has no messages yet.",
+            inputs: vec![
+                FieldSchema {
+                    name: "thread_id",
+                    ty: TypeSchema::String,
+                    comment: "Thread identifier.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "action_dir",
+                    ty: TypeSchema::String,
+                    comment: "Absolute folder path; empty clears back to the global action_dir.",
                     required: true,
                 },
             ],
@@ -498,6 +531,32 @@ pub(crate) fn schemas(function: &str) -> ControllerSchema {
                 name: "request_id",
                 ty: TypeSchema::String,
                 comment: "Request id of the restarted turn.",
+                required: true,
+            }],
+        },
+        "search" => ControllerSchema {
+            namespace: "threads",
+            function: "search",
+            description:
+                "Search message text across every thread (global search). Hits are newest first, each with a snippet around the match.",
+            inputs: vec![
+                FieldSchema {
+                    name: "query",
+                    ty: TypeSchema::String,
+                    comment: "Text to find; blank returns no hits.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "limit",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
+                    comment: "Max hits (default 20, capped at 100).",
+                    required: false,
+                },
+            ],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Json,
+                comment: "Envelope with hits: threadId, messageId, role, snippet, createdAt.",
                 required: true,
             }],
         },

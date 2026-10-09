@@ -147,6 +147,7 @@ fn persist_worker_thread(
             parent_thread_id: None,
             labels: Some(vec!["tasks".to_string()]),
             personality_id: None,
+            working_dir: None,
         },
     )
     .map_err(|err| format!("ensure_thread: {err}"))?;

@@ -53,6 +53,7 @@ async fn rejects_if_already_worker_thread() {
             parent_thread_id: None,
             labels: Some(vec!["tasks".to_string()]),
             personality_id: None,
+            working_dir: None,
         },
     )
     .unwrap();
@@ -78,6 +79,7 @@ async fn rejects_if_has_parent_thread_id() {
             parent_thread_id: Some("parent".into()),
             labels: None,
             personality_id: None,
+            working_dir: None,
         },
     )
     .unwrap();

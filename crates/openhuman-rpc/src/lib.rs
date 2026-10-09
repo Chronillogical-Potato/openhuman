@@ -18,8 +18,10 @@
 //!   [`http_host`], the static-directory file server whose `http_host.*`
 //!   controllers the server registers with the core.
 //! - Behind `session-store` (on with `server`): [`session_store`], the
-//!   on-disk session store the app, the CLI and the TUI install, so the core
-//!   itself carries no storage layout.
+//!   on-disk session store the app, the CLI and the TUI install. The core has
+//!   no storage layout of its own, but falls back to workspace files when a
+//!   host installs no provider; this is not a guarantee that the core is
+//!   persistence-free.
 
 #[cfg(feature = "http-client")]
 mod client;

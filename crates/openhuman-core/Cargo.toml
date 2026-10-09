@@ -140,6 +140,11 @@ tinybox-docker = { path = "../../vendor/tinybox/crates/tinybox-docker" }
 # classification policy built on them stays in `security::policy`.
 tinybox-core = { path = "../../vendor/tinybox/crates/tinybox-core" }
 tinyagents-definition = { path = "../../vendor/tinyagents/crates/tinyagents-definition" }
+# Live (realtime voice) agent sessions: `tinyagents-live` runs a
+# `tinyliveagents` provider session (Gemini Live direct/relayed, ElevenLabs
+# Agents, the Sarvam cascade) and executes its tool calls through the turn
+# harness pipeline. Only the `voice` feature's `voice::live` uses it.
+tinyagents-live = { path = "../../vendor/tinyagents/crates/tinyagents-live", optional = true }
 tinyagents-graph = { path = "../../vendor/tinyagents/crates/tinyagents-graph", features = [
     "sqlite",
 ] }
@@ -384,6 +389,8 @@ futures = "0.3"
 rusqlite = { version = "=0.40.2", features = ["bundled"] }
 chrono = { version = "0.4", features = ["serde"] }
 iana-time-zone = "0.1"
+# Validates the user's IANA time zone setting (`Config::time_zone`).
+chrono-tz = "0.10"
 futures-util = "0.3"
 directories = "6"
 toml = "1.0"
@@ -745,7 +752,10 @@ inference = ["tinycomputer-accessibility/microphone-probe"]
 # reference instead of extracted text
 # (`agent::multimodal::extract_pdf_text`). Slim / headless builds opt out via
 # `--no-default-features --features "<explicit list without documents>"`.
-documents = ["modules", "dep:tinydocs-bus"]
+# `tinymemory-integrations/documents-office`: memory's brain and file sources
+# read PDF, DOCX, PPTX and XLSX (memory::convert). Kept behind `documents` so
+# the parsers stay off the always-on path (kernel floor).
+documents = ["modules", "dep:tinydocs-bus", "tinymemory-integrations/documents-office"]
 # Hosting: the `hosting_*` agent tools that put a workspace on a real hosting
 # provider — a site, a managed database wired into it, its environment, its
 # domains, its deployments and the traffic they served. Default-OFF,
@@ -814,6 +824,8 @@ voice = [
     # channels-less build still links the provider stack.
     "dep:tinychannels",
     "tinychannels/email",
+    # `voice::live`: live voice agent sessions over tinyagents-live.
+    "dep:tinyagents-live",
 ]
 # Web3 family: openhuman::web3 + web3::wallet + web3::x402 — the
 # crypto wallet (multi-chain sign/broadcast), the high-level swap/bridge/dapp
