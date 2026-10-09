@@ -1,3 +1,4 @@
+use crate::tools::schema_cache::static_schema;
 use crate::config::Config;
 use crate::cron::job_builder::{create_agent_job, AgentJobInput};
 use crate::cron::origin::{current_job_origin, current_turn_may_skip_approval};
@@ -36,45 +37,7 @@ impl Tool for ScheduleTool {
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string",
-                    "enum": ["create", "add", "once", "list", "get", "cancel", "remove", "pause", "resume"],
-                    "description": "Action to perform"
-                },
-                "expression": {
-                    "type": "string",
-                    "description": "Cron expression for recurring tasks (e.g. '*/5 * * * *')."
-                },
-                "delay": {
-                    "type": "string",
-                    "description": "Delay for one-shot tasks (e.g. '30m', '2h', '1d')."
-                },
-                "run_at": {
-                    "type": "string",
-                    "description": "Absolute RFC3339 time for one-shot tasks (e.g. '2030-01-01T00:00:00Z')."
-                },
-                "command": {
-                    "type": "string",
-                    "description": "Shell command to execute. Use 'command' for shell jobs OR 'prompt' for agent jobs."
-                },
-                "prompt": {
-                    "type": "string",
-                    "description": "Agent prompt for recurring agent tasks (e.g. reminders, briefings). Use this instead of 'command' for user-facing notifications."
-                },
-                "name": {
-                    "type": "string",
-                    "description": "Short human-readable name for the job (e.g. 'drink_water_reminder'). Always provide a name."
-                },
-                "id": {
-                    "type": "string",
-                    "description": "Task ID. Required for get/cancel/remove/pause/resume."
-                }
-            },
-            "required": ["action"]
-        })
+        static_schema!(include_str!("parameters/schedule.json"))
     }
 
     fn permission_level(&self) -> PermissionLevel {
@@ -496,3 +459,7 @@ fn looks_like_shell_command(input: &str) -> bool {
 #[cfg(test)]
 #[path = "schedule_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "schedule_schema_tests.rs"]
+mod schema_tests;

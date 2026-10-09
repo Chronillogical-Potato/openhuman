@@ -7,6 +7,7 @@ mod pending;
 mod session_pool;
 #[path = "browser_task_actions.rs"]
 mod task_actions;
+use crate::tools::schema_cache::static_schema;
 use crate::modules::browser::BrowserClient;
 use crate::security::approval::{ApprovalGate, GateOutcome};
 use crate::security::SecurityPolicy;
@@ -493,10 +494,7 @@ impl Tool for BrowserTool {
         )
     }
     fn parameters_schema(&self) -> Value {
-        json!({"type":"object","properties":{
-        "action":{"type":"string","enum":["open","snapshot","read_page","click","fill","type","get_text","get_title","get_url","wait","press","hover","scroll","is_visible","find","task","task_continue","task_cancel","confirm_pending","list_downloads","wait_download","close"]},
-        "url":{"type":"string","description":"Starting HTTPS URL for open or an optional starting URL for task"},"selector":{"type":"string"},"value":{"type":"string"},"text":{"type":"string"},"key":{"type":"string"},"direction":{"type":"string"},"pixels":{"type":"integer"},"ms":{"type":"integer"},"timeout_ms":{"type":"integer"},"interactive_only":{"type":"boolean"},"compact":{"type":"boolean"},"depth":{"type":"integer"},"by":{"type":"string"},"find_action":{"type":"string"},"fill_value":{"type":"string"},"goal":{"type":"string"},"inputs":{"type":"object","additionalProperties":{"type":"string"}},"task_id":{"type":"string","description":"Task id returned by task, for task_continue and task_cancel"},"flow":{"type":"object","description":"Optional TinyComputer flow ({app, vars, steps}) to run instead of planning one from goal, e.g. a plan saved from an earlier successful run"},"answer":{"type":"string","description":"Free-text answer for a paused task; done after a needs_human pause"},"token":{"type":"string","description":"Token returned with the exact pending action"}
-    },"required":["action"]})
+        static_schema!(include_str!("parameters/browser.json"))
     }
     fn external_effect_with_args(&self, args: &Value) -> bool {
         // Gate direct mutations before perform; task steps pause for approval.
@@ -542,3 +540,7 @@ impl Tool for BrowserTool {
 #[cfg(test)]
 #[path = "browser_computer_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "browser_schema_tests.rs"]
+mod schema_tests;

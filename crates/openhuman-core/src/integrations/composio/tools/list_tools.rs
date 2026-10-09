@@ -1,5 +1,6 @@
 //! The `composio_list_tools` agent tool.
 
+use crate::tools::schema_cache::static_schema;
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -53,31 +54,7 @@ impl Tool for ComposioListToolsTool {
          argument when calling `composio_execute`."
     }
     fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "toolkits": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Optional list of toolkit slugs to filter by."
-                },
-                "tags": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Optional Composio action tags to filter by \
-                                    (OR semantics — multiple tags broaden the result, \
-                                    e.g. [\"readOnlyHint\"] or [\"repos\", \"stars\"]). \
-                                    Case-insensitive."
-                },
-                "include_unconnected": {
-                    "type": "boolean",
-                    "description": "When true, include actions from toolkits the user \
-                                    has not connected yet. Defaults to false (only \
-                                    connected toolkits)."
-                }
-            },
-            "additionalProperties": false
-        })
+        static_schema!(include_str!("parameters/composio_list_tools.json"))
     }
     fn permission_level(&self) -> PermissionLevel {
         PermissionLevel::ReadOnly
@@ -290,3 +267,7 @@ impl ComposioListToolsTool {
         (live_config, outcome)
     }
 }
+
+#[cfg(test)]
+#[path = "list_tools_schema_tests.rs"]
+mod schema_tests;
