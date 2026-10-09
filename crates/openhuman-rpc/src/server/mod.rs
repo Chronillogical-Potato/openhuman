@@ -17,11 +17,11 @@
 
 mod auth;
 mod classify;
-mod cli;
+pub(crate) mod cli;
 mod dev_connect;
 pub(crate) mod http;
 mod serve;
-mod shims;
+pub(crate) mod shims;
 mod socketio;
 #[cfg(test)]
 mod testing;

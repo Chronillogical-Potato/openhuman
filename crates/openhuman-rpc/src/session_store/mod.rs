@@ -134,9 +134,18 @@ fn stores_at(workspace: &Path) -> AgentStores {
 /// sweep runs; the workspace is resolved per call because the desktop rebinds
 /// it when a different user signs in.
 pub fn install() {
-    crate::core_host::agent::session_store::install(Arc::new(SqliteSessionStores::resolving(
+    log::debug!("[rpc:session_store] installing process-wide (context workspace)");
+    crate::core_host::agent::session_store::install(provider());
+}
+
+/// [`SqliteSessionStores`] over the current context's workspace, as the
+/// provider a runtime builder's `session_store` option takes (what
+/// [`crate::host::tui`] wires). [`install`] installs the same provider
+/// process-wide instead.
+pub fn provider() -> Arc<dyn SessionStoreProvider> {
+    Arc::new(SqliteSessionStores::resolving(
         crate::core_host::agent::session_store::context_workspace_dir,
-    )));
+    ))
 }
 
 #[cfg(test)]
