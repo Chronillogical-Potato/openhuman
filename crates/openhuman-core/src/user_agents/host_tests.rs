@@ -137,3 +137,33 @@ fn list_reports_provisioned_agents_only() {
         .collect();
     assert_eq!(open, vec![&b]);
 }
+
+#[test]
+fn an_agent_in_use_is_not_archived_from_under_it() {
+    let tmp = tempfile::tempdir().unwrap();
+    let host = host(&tmp, 4, 60);
+    let id = agent("alice");
+    host.provision(&id).unwrap();
+    let state = host.open(&id).unwrap();
+    let err = host.deprovision(&id).unwrap_err();
+    assert!(err.contains("in use"), "{err}");
+    assert!(host.is_open(&id), "a refused deprovision leaves it open");
+    drop(state);
+    assert!(host.deprovision(&id).unwrap());
+    assert!(!host.is_open(&id));
+}
+
+#[test]
+fn deprovisioning_twice_in_a_second_archives_twice() {
+    let tmp = tempfile::tempdir().unwrap();
+    let host = host(&tmp, 4, 60);
+    let id = agent("alice");
+    for _ in 0..2 {
+        host.provision(&id).unwrap();
+        assert!(host.deprovision(&id).unwrap());
+    }
+    let archived = std::fs::read_dir(layout::archive_dir(tmp.path()))
+        .unwrap()
+        .count();
+    assert_eq!(archived, 2);
+}
