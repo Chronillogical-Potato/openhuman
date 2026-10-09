@@ -83,8 +83,6 @@ fn active_domain_set() -> Option<crate::core::runtime::DomainSet> {
 /// (full, no filter) so pre-boot unit tests and non-context callers see every
 /// domain, exactly as before #4796.
 fn group_allowed(group: DomainGroup) -> bool {
-    // No context: everything but the operator plane, which only a SaaS
-    // `DomainSet` opens.
     active_domain_set().map_or(group != DomainGroup::Operator, |s| s.allows(group))
 }
 
