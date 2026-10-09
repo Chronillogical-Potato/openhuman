@@ -593,6 +593,17 @@ async fn two_agents_with_the_same_thread_id_get_their_own_cache_slots() {
             );
         }
     }
+    // Under one agent's scope only that agent's slot goes.
+    CoreContext::scope(agent_ctx("asha"), async {
+        crate::web_chat::ops::invalidate_thread_sessions(&thread_id).await;
+    })
+    .await;
+    {
+        let sessions = THREAD_SESSIONS.lock().await;
+        assert!(!sessions.contains_key(&key_a), "asha's slot is evicted");
+        assert!(sessions.contains_key(&key_b), "ravi's slot survives");
+    }
+    // A host-level invalidation (no agent scope) clears every agent's slot.
     crate::web_chat::ops::invalidate_thread_sessions(&thread_id).await;
     let sessions = THREAD_SESSIONS.lock().await;
     assert!(!sessions.contains_key(&key_a) && !sessions.contains_key(&key_b));
