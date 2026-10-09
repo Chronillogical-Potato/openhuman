@@ -40,39 +40,59 @@ fn cached(channel_id: &str) -> Option<Option<String>> {
 
 /// The agent `channel_id` belongs to, resolved as described above. A channel
 /// no scope knows yet (a handshake still in flight) is `local`.
-pub(super) async fn owner_of(channel_id: &str, pending: Option<&PairingSession>) -> Option<String> {
+///
+/// # Errors
+///
+/// [`OwnerLookupFailed`] when no scope claimed the channel and at least one
+/// could not be searched (its configuration would not load): the device may
+/// well belong to that scope, so the caller must refuse the frame instead of
+/// running it as `local`.
+pub(super) async fn owner_of(
+    channel_id: &str,
+    pending: Option<&PairingSession>,
+) -> Result<Option<String>, OwnerLookupFailed> {
     if let Some(session) = pending {
-        return session.agent.clone();
+        return Ok(session.agent.clone());
     }
     if let Some(owner) = cached(channel_id) {
-        return owner;
+        return Ok(owner);
     }
     // The configuration is loaded inside each scope: in SaaS mode loading it
     // needs an acting agent, which this tunnel task does not have.
     let found = crate::storage::agents::for_each_scope("device owner", || async {
         let Ok(config) = crate::config::rpc::load_config_with_timeout().await else {
-            return false;
+            return None;
         };
-        super::store::get_device(&config, channel_id)
-            .ok()
-            .flatten()
-            .is_some()
+        Some(
+            super::store::get_device(&config, channel_id)
+                .ok()
+                .flatten()
+                .is_some(),
+        )
     })
-    .await
-    .into_iter()
-    .find_map(|(agent, has_device)| has_device.then_some(agent));
-    match found {
-        Some(owner) => {
-            log::debug!(
-                "[devices/owner] channel_id={channel_id} belongs to agent={}",
-                owner.as_deref().unwrap_or("local")
-            );
-            remember(channel_id, owner.clone());
-            owner
-        }
-        None => None,
+    .await;
+    if let Some(owner) = found
+        .iter()
+        .find_map(|(agent, has_device)| (*has_device == Some(true)).then(|| agent.clone()))
+    {
+        log::debug!(
+            "[devices/owner] channel_id={channel_id} belongs to agent={}",
+            owner.as_deref().unwrap_or("local")
+        );
+        remember(channel_id, owner.clone());
+        return Ok(owner);
     }
+    if found.iter().any(|(_, has_device)| has_device.is_none()) {
+        log::warn!("[devices/owner] channel_id={channel_id} could not be searched in every scope");
+        return Err(OwnerLookupFailed);
+    }
+    Ok(None)
 }
+
+/// A scope's configuration would not load, so the owner of a channel could not
+/// be ruled out there.
+#[derive(Debug, PartialEq, Eq)]
+pub(super) struct OwnerLookupFailed;
 
 #[cfg(test)]
 #[path = "owner_tests.rs"]

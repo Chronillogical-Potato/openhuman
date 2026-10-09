@@ -75,7 +75,7 @@ pub async fn run(config: Config) -> Result<()> {
     loop {
         interval.tick().await;
         tick_once(&config, &security, &mut last_emitted_health).await;
-        tick_agents(&config, &mut last_emitted_health).await;
+        tick_agents(&mut last_emitted_health).await;
     }
 }
 
@@ -87,13 +87,13 @@ pub async fn run(config: Config) -> Result<()> {
 /// pass so a failure or recovery reported from an agent pass is seen by the
 /// next one); each agent pass authorizes its jobs with a policy built from
 /// that agent's own configuration.
-pub(crate) async fn tick_agents(config: &Config, last_emitted_health: &mut Option<bool>) {
+pub(crate) async fn tick_agents(last_emitted_health: &mut Option<bool>) {
     let health = std::sync::Mutex::new(*last_emitted_health);
     crate::storage::agents::for_each_agent("cron", || async {
         let mut steady = *health
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        tick_agent_scope(config, &mut steady).await;
+        tick_agent_scope(&mut steady).await;
         *health
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner) = steady;
@@ -106,15 +106,53 @@ pub(crate) async fn tick_agents(config: &Config, last_emitted_health: &mut Optio
 
 /// One agent's pass: the poll under the current (agent) context, with that
 /// agent's configuration when it has one and a policy built from it.
-async fn tick_agent_scope(config: &Config, last_emitted_health: &mut Option<bool>) {
-    let config = crate::core::runtime::CoreContext::current_embedder_config()
-        .unwrap_or_else(|| config.clone());
-    let security = Arc::new(SecurityPolicy::from_config(
+///
+/// Fails closed: an agent whose context carries no configuration of its own
+/// (one known only from the backend's record of it, not yet re-created by the
+/// host) is skipped rather than run under another agent's workspace, settings
+/// and autonomy policy. Its jobs wait for the host to derive it again.
+async fn tick_agent_scope(last_emitted_health: &mut Option<bool>) {
+    use crate::core::runtime::CoreContext;
+    let (Some(context), Some(config)) =
+        (CoreContext::current(), CoreContext::current_embedder_config())
+    else {
+        tracing::debug!(
+            "[cron:scheduler] skipping an agent scope: its context has no configuration of its own"
+        );
+        return;
+    };
+    let security = agent_policy(&context, &config);
+    tick_once(&config, &security, last_emitted_health).await;
+}
+
+/// The agent's security policy, kept across ticks so its rolling action
+/// budget is not reset by every poll. Rebuilt when the host re-derives the
+/// agent's context (a new context may carry new settings).
+fn agent_policy(
+    context: &Arc<crate::core::runtime::CoreContext>,
+    config: &Config,
+) -> Arc<SecurityPolicy> {
+    use std::collections::HashMap;
+    use std::sync::{LazyLock, Mutex};
+    static POLICIES: LazyLock<Mutex<HashMap<String, (usize, Arc<SecurityPolicy>)>>> =
+        LazyLock::new(Default::default);
+    let identity = Arc::as_ptr(context) as usize;
+    let agent = context.session_agent().unwrap_or_default().to_string();
+    let mut policies = POLICIES
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if let Some((built_for, policy)) = policies.get(&agent) {
+        if *built_for == identity {
+            return Arc::clone(policy);
+        }
+    }
+    let policy = Arc::new(SecurityPolicy::from_config(
         &config.autonomy,
         &config.workspace_dir,
         &config.action_dir,
     ));
-    tick_once(&config, &security, last_emitted_health).await;
+    policies.insert(agent, (identity, Arc::clone(&policy)));
+    policy
 }
 
 /// Single poll cycle of the scheduler loop, extracted so tests can drive

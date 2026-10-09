@@ -92,7 +92,12 @@ impl EventHandler<DomainEvent> for DeviceTunnelSubscriber {
                     .unwrap_or_else(std::sync::PoisonError::into_inner)
                     .get(channel_id.as_str())
                     .cloned();
-                let owner = super::owner::owner_of(channel_id, pending.as_ref()).await;
+                let Ok(owner) = super::owner::owner_of(channel_id, pending.as_ref()).await else {
+                    log::warn!(
+                        "[devices/bus] dropping tunnel frame channel_id={channel_id}: owner unresolved"
+                    );
+                    return;
+                };
                 crate::storage::agents::within_agent(
                     owner.as_deref(),
                     handle_tunnel_frame(channel_id, payload_b64),

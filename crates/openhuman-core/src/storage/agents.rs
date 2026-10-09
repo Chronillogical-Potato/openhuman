@@ -54,9 +54,15 @@ pub fn registered(context: Arc<CoreContext>) -> Arc<CoreContext> {
         let mut live = LIVE
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let contexts = live.entry(agent.to_string()).or_default();
-        contexts.retain(|existing| existing.strong_count() > 0);
-        contexts.push(Arc::downgrade(&context));
+        // Agents come and go; forget the ones whose contexts are all gone so
+        // the registry stays as small as the set of live agents.
+        live.retain(|_, entries| {
+            entries.retain(|entry| entry.strong_count() > 0);
+            !entries.is_empty()
+        });
+        live.entry(agent.to_string())
+            .or_default()
+            .push(Arc::downgrade(&context));
         drop(live);
         record(agent);
     }
