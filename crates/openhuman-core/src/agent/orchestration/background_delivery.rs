@@ -211,8 +211,8 @@ async fn try_deliver(thread_id: String) {
     };
     let router = background_completions::router_for_workspace(&workspace_dir);
     let turn_workspace = workspace_dir.clone();
-    try_deliver_with(
-        thread_id,
+    let retry_after = try_deliver_with(
+        thread_id.clone(),
         router,
         move |thread_id, notice| {
             let workspace_dir = turn_workspace.clone();
@@ -223,6 +223,24 @@ async fn try_deliver(thread_id: String) {
         },
     )
     .await;
+    // A failed turn that published no `AgentError` (a session checkout failure,
+    // or the only post-boot attempt) re-triggers nothing, so a quiet thread would
+    // keep its record pending for the rest of the process. The attempt ceiling
+    // bounds this: after the last attempt the record is handed to the give-up
+    // writer instead of retried.
+    if let Some(delay) = retry_after {
+        log::debug!(
+            "[background_delivery] rescheduling a failed delivery thread_id={thread_id} \
+             delay_ms={}",
+            delay.as_millis()
+        );
+        schedule_delivery(thread_id, delay);
+    }
+}
+
+/// Backoff before retrying a delivery whose record has now failed `attempts` times.
+fn retry_backoff(attempts: u32) -> Duration {
+    Duration::from_secs(2u64.saturating_pow(attempts.min(5)))
 }
 
 /// Last resort when the delivery turn has failed [`DEFAULT_MAX_ATTEMPTS`]
@@ -257,14 +275,16 @@ async fn try_deliver_with<F, Fut, G, GFut>(
     router: Arc<CompletionRouter>,
     mut deliver: F,
     on_undeliverable: G,
-) where
+) -> Option<Duration>
+where
     F: FnMut(String, String) -> Fut,
     Fut: Future<Output = Result<String, String>>,
     G: FnOnce(String, String) -> GFut,
     GFut: Future<Output = ()>,
 {
+    let mut retry_after = None;
     if is_busy(&thread_id) {
-        return;
+        return None;
     }
     // Claim the delivery slot — held for the WHOLE delivery (including the
     // awaited turn) so a concurrent completion can't start a second delivery
@@ -272,7 +292,7 @@ async fn try_deliver_with<F, Fut, G, GFut>(
     // guard frees the slot, and any lease still held, even if this future is
     // dropped mid-turn.
     let Some(mut slot) = DeliverySlot::claim(&thread_id, router.clone()) else {
-        return;
+        return None;
     };
 
     // A busy thread defers *before* the claim: the claim counts a delivery
@@ -289,7 +309,7 @@ async fn try_deliver_with<F, Fut, G, GFut>(
                 "[background_delivery] thread became busy after the claim; deferring \
                  thread_id={thread_id}"
             );
-            return;
+            return None;
         }
         let notice = router.formatter().format_batch(&batch);
         log::info!(
@@ -341,12 +361,21 @@ async fn try_deliver_with<F, Fut, G, GFut>(
                             on_undeliverable(thread_id.clone(), undelivered).await;
                         }
                     }
-                    Ok(_) => log::warn!(
-                        "[background_delivery] delivery turn failed thread_id={thread_id} \
-                         tasks=[{}] max_attempts={} error={e}",
-                        task_ids.join(","),
-                        router.max_attempts()
-                    ),
+                    Ok(_) => {
+                        log::warn!(
+                            "[background_delivery] delivery turn failed thread_id={thread_id} \
+                             tasks=[{}] max_attempts={} error={e}",
+                            task_ids.join(","),
+                            router.max_attempts()
+                        );
+                        let attempts = router
+                            .pending_for(&thread_id)
+                            .iter()
+                            .map(|r| r.attempts)
+                            .max()
+                            .unwrap_or(1);
+                        retry_after = Some(retry_backoff(attempts));
+                    }
                     Err(error) => {
                         log::error!(
                             "[background_delivery] could not record the failed delivery \
@@ -360,6 +389,7 @@ async fn try_deliver_with<F, Fut, G, GFut>(
     }
 
     // The slot is released only AFTER the turn settles (on drop).
+    retry_after
 }
 
 /// The per-thread delivery slot, plus the lease on the batch being delivered.
