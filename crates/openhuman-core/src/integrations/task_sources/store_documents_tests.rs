@@ -49,9 +49,10 @@ fn task(external_id: &str, title: &str) -> NormalizedTask {
 #[test]
 fn sources_round_trip_oldest_first() {
     let store = docs();
-    let first = store.add_source(&source("b")).unwrap();
+    let mut older = source("b");
+    older.created_at = Utc::now() - chrono::Duration::seconds(10);
+    let first = store.add_source(&older).unwrap();
     assert_eq!(first, source_with_time("b", first.created_at));
-    std::thread::sleep(std::time::Duration::from_millis(5));
     store.add_source(&source("a")).unwrap();
     let ids: Vec<String> = store
         .list_sources()
@@ -159,9 +160,12 @@ fn the_ingest_ledger_is_edit_aware() {
 fn ledger_lists_refs_oldest_first_and_tasks_newest_first() {
     let store = docs();
     store.add_source(&source("s")).unwrap();
-    store.mark_ingested("s", &task("1", "one")).unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(5));
-    store.mark_ingested("s", &task("2", "two")).unwrap();
+    let base = Utc::now();
+    store
+        .mark_ingested_at("s", &task("1", "one"), base - chrono::Duration::seconds(10))
+        .unwrap();
+    store.mark_ingested_at("s", &task("2", "two"), base).unwrap();
+    store.add_source(&source("other")).unwrap();
     store.mark_ingested("other", &task("9", "nine")).unwrap();
     let refs: Vec<String> = store
         .list_ingested_refs("s")
@@ -227,4 +231,31 @@ fn scopes_keep_sources_apart() {
     assert!(bob.list_sources().unwrap().is_empty());
     assert!(!bob.was_ingested("s", "1").unwrap());
     assert_ne!(ingested_id("a/b", "c"), ingested_id("a", "b/c"));
+}
+
+#[test]
+fn a_ledger_write_needs_its_source() {
+    let store = docs();
+    assert!(store.mark_ingested("ghost", &task("1", "one")).is_err());
+    assert!(!store.was_ingested("ghost", "1").unwrap());
+}
+
+#[test]
+fn a_corrupt_ledger_payload_is_an_error() {
+    let store = docs();
+    store.add_source(&source("s")).unwrap();
+    store
+        .0
+        .run(|docs| async move {
+            docs.put(
+                INGESTED,
+                "bad",
+                json!({ "source_id": "s", "payload": "not json", "ingested_ms": 1 }),
+                Precondition::Absent,
+            )
+            .await
+            .map(|_| ())
+        })
+        .unwrap();
+    assert!(store.list_ingested("s", 10).is_err());
 }

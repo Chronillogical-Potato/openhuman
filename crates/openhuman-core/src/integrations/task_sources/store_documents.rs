@@ -251,11 +251,20 @@ impl Docs {
     }
 
     pub(super) fn mark_ingested(&self, source_id: &str, task: &NormalizedTask) -> Result<()> {
+        self.mark_ingested_at(source_id, task, Utc::now())
+    }
+
+    /// [`Self::mark_ingested`] with the ingestion time supplied.
+    fn mark_ingested_at(
+        &self,
+        source_id: &str,
+        task: &NormalizedTask,
+        now: DateTime<Utc>,
+    ) -> Result<()> {
         // The SQL ledger has a foreign key to the source; keep that parent
         // check so a fetch racing a removal does not leave an orphan entry.
         self.get_source(source_id)?;
         let key = ingested_id(source_id, &task.external_id);
-        let now = Utc::now();
         let doc = json!({
             "source_id": source_id,
             "external_id": task.external_id,
@@ -312,13 +321,13 @@ impl Docs {
                 .iter()
                 .map(|stored| {
                     let raw = text(&stored.doc, "payload").ok_or_else(|| {
-                        StorageError::invalid(format!(
+                        StorageError::serialization(format!(
                             "ingested task {} has no payload",
                             stored.id
                         ))
                     })?;
                     serde_json::from_str(raw).map_err(|error| {
-                        StorageError::invalid(format!(
+                        StorageError::serialization(format!(
                             "ingested task {} payload is not valid: {error}",
                             stored.id
                         ))
