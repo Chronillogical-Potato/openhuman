@@ -26,7 +26,8 @@ assembled. It is called by the session builder
  Config, SecurityPolicy, AuditLogger, RuntimeAdapter, action_dir
         |
         v
- shared NodeBootstrap / PythonBootstrap     (node.enabled, runtime_python.enabled)
+ shared NodeBootstrap / PythonBootstrap
+   (node.enabled, runtime_python.enabled)
         |
         v
  base vec: shell, file_read, file_write, grep, glob, list, edit,

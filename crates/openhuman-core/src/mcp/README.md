@@ -61,11 +61,13 @@ far. `client_config` converts OpenHuman's `[mcp_client]` config into
  core/runtime/subscribers.rs (RPC enable path)   core/runtime/services.rs
                  |                                         |
                  v                                         v
-            mcp::start                            mcp::start_boot_jobs
-   registry::bus::init()                            mcp::start
-   host::init()  (failure logged, ignored)          spawn installed-server boot
-                                                    spawn configured tool-cache refresh
-                                                    spawn reconnect supervisor (Once)
+            mcp::start                        mcp::start_boot_jobs
+   registry::bus::init()                        mcp::start
+   host::init() (failure logged, ignored)       spawn installed-server boot
+                                                spawn configured tool-cache
+                                                  refresh
+                                                spawn reconnect supervisor
+                                                  (Once)
 ```
 
 Both entry points are idempotent, so the two startup paths can both call

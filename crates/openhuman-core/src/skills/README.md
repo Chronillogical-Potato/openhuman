@@ -28,11 +28,11 @@ order:
                                                        bytes must match binary
  2. User      ~/.openhuman/skills/
               ~/.agents/skills/
-              ~/.openhuman/workflows/                  (current layout)
- 3. Project   <workspace>/.openhuman/skills/           only when
-              <workspace>/.agents/skills/              <workspace>/.openhuman/trust
-              <workspace>/.openhuman/workflows/        exists
- 4. Legacy    <workspace>/skills/                      back-compat, no trust check
+              ~/.openhuman/workflows/            (current layout)
+ 3. Project   <workspace>/.openhuman/skills/     only when the marker
+              <workspace>/.agents/skills/        <workspace>/.openhuman/trust
+              <workspace>/.openhuman/workflows/  exists
+ 4. Legacy    <workspace>/skills/                back-compat, no trust check
         |
         v
  tinyskills::resolve_collisions_with
