@@ -67,9 +67,9 @@ The script does not check signatures, so use a package when you can. Platform no
 
 ---
 
-## Why OpenHuman
+## Why OpenHuman?
 
-Most agent harnesses run one heavy process per agent and resend a big prompt on every call. OpenHuman does the same work with far less. It is the only feature-rich open-source harness built for large fleets of agents: 500 of them fit on a $10 server.
+Most agent harnesses run one heavy process per agent and resend a big prompt on every call. OpenHuman does the same work with far less. It is the **only feature-rich open-source harness built for large fleets of agents**: **500 of them fit on a $10 server**.
 
 <table>
 
@@ -79,7 +79,7 @@ Most agent harnesses run one heavy process per agent and resend a big prompt on 
 
 <h3>Fast</h3>
 
-<p>Finishes coding tasks in about 20 seconds, the fastest of seven AI agent tools we tested. Starts up in a tenth of a second.</p>
+<p>Finishes coding tasks in <strong>about 20 seconds</strong>, the fastest of seven AI agent tools we tested. Starts up in <strong>a tenth of a second</strong>.</p>
 
 <p><a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md">Benchmark results</a> · <a href="./gitbooks/developing/performance.md">Cold-start numbers</a></p>
 
@@ -89,7 +89,7 @@ Most agent harnesses run one heavy process per agent and resend a big prompt on 
 
 <h3>Cheap</h3>
 
-<p>Uses 2.6x fewer tokens than the typical agent tool, and had the lowest total bill in our test.</p>
+<p>Uses <strong>2.6x fewer tokens</strong> than the typical agent tool, and had the <strong>lowest total bill</strong> in our test.</p>
 
 <p><a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md">Cost and token data</a> · <a href="./gitbooks/features/token-compression.md">How compression works</a></p>
 
@@ -103,7 +103,7 @@ Most agent harnesses run one heavy process per agent and resend a big prompt on 
 
 <h3>Efficient at scale</h3>
 
-<p>Uses about 8x less memory and CPU than the typical agent tool. Run more than 500 agents on a $10 server.</p>
+<p>Uses <strong>about 8x less memory and CPU</strong> than the typical agent tool. Run <strong>more than 500 agents on a $10 server</strong>.</p>
 
 <p><a href="./gitbooks/developing/performance.md">Fleet measurements</a> · <a href="./docs/library-benchmarking.md">Methodology</a></p>
 
@@ -113,7 +113,7 @@ Most agent harnesses run one heavy process per agent and resend a big prompt on 
 
 <h3>Built for developers</h3>
 
-<p>Use it as a Rust library: call an agent like any other function, or run a whole fleet from one small server.</p>
+<p>Use it as a <strong>Rust library</strong>: call an agent like any other function, or run <strong>a whole fleet from one small server</strong>.</p>
 
 <p><a href="./gitbooks/developing/quickstart.md">Rust quickstart</a> · <a href="./gitbooks/developing/embedding.md">Embedding guide</a> · <a href="./crates/openhuman-embed/examples">Examples</a></p>
 
@@ -137,7 +137,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>TokenJuice: big outputs, small bills</h3>
 
-<p>OpenHuman shrinks large tool results before the AI reads them. For very large ones, the AI gets a handle it can search instead, an idea from <a href="https://arxiv.org/abs/2512.24601">Recursive Language Models</a>. Nothing is thrown away.</p>
+<p>OpenHuman <strong>shrinks large tool results</strong> before the AI reads them. For very large ones, the AI gets a handle it can search instead, an idea from <a href="https://arxiv.org/abs/2512.24601">Recursive Language Models</a>. <strong>Nothing is thrown away.</strong></p>
 
 <p><a href="https://arxiv.org/abs/2512.24601">RLM paper</a> · <a href="./gitbooks/features/token-compression.md">How it works</a> · <a href="https://github.com/tinyhumansai/tinyjuice">tinyjuice</a></p>
 
@@ -147,7 +147,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>Jev: the right tool, first time</h3>
 
-<p>A tiny model whose only job is picking the right tool. Out of 1,215 tools, it picks the right one first 62% of the time. Keyword search manages 22.5%.</p>
+<p>A tiny model whose only job is picking the right tool. Out of 1,215 tools, it picks the right one first <strong>62% of the time</strong>. Keyword search manages 22.5%.</p>
 
 <p><a href="./gitbooks/developing/jev.md">Jev</a> · <a href="./docs/plans/jev-tool-search-baseline.md">The measurements</a></p>
 
@@ -161,7 +161,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>TinyBus: plug-in parts</h3>
 
-<p>Each feature, like search, documents or voice, is its own plug-in, an idea borrowed from the <a href="https://www.freedesktop.org/wiki/Software/dbus/">Linux system bus</a>. A plug-in loads only when needed, and if one gets stuck, the rest keep working.</p>
+<p>Each feature, like search, documents or voice, is <strong>its own plug-in</strong>, an idea borrowed from the <a href="https://www.freedesktop.org/wiki/Software/dbus/">Linux system bus</a>. A plug-in loads only when needed, and <strong>if one gets stuck, the rest keep working</strong>.</p>
 
 <p><a href="./gitbooks/developing/loadable-modules.md">Loadable modules</a> · <a href="https://github.com/tinyhumansai/tinybus">tinybus</a></p>
 
@@ -171,7 +171,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>One key for everything</h3>
 
-<p>One key covers AI models, search, voice and app connections, so you are not juggling ten accounts. You can still bring your own keys.</p>
+<p><strong>One key</strong> covers AI models, search, voice and app connections, so you are not juggling ten accounts. You can still bring your own keys.</p>
 
 <p><a href="./gitbooks/developing/tinyhumans-api-key.md">The API key</a> · <a href="./gitbooks/developing/engines.md">Supported engines</a></p>
 
@@ -185,7 +185,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>Conversations that stay cheap</h3>
 
-<p>AI providers charge less for text they have seen before. OpenHuman keeps the start of each chat identical, even after a restart, so long chats stay cheap.</p>
+<p>AI providers charge less for text they have seen before. OpenHuman keeps the start of each chat identical, even after a restart, so <strong>long chats stay cheap</strong>.</p>
 
 <p><a href="./gitbooks/developing/architecture/agent-harness.md">Agent harness</a> · <a href="https://github.com/tinyhumansai/tinyagents">tinyagents</a></p>
 
@@ -195,7 +195,7 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <h3>Swap any part</h3>
 
-<p>Change the AI model, memory or search with a setting instead of code. Stripped down, the whole core is a 51 MB file.</p>
+<p>Change the AI model, memory or search <strong>with a setting instead of code</strong>. Stripped down, the whole core is <strong>a 51 MB file</strong>.</p>
 
 <p><a href="./gitbooks/developing/engines.md">Pluggable engines</a> · <a href="./gitbooks/developing/performance.md">Build sizes</a></p>
 
@@ -217,21 +217,21 @@ These are the design choices behind those numbers. Each card links to the docs a
  </picture>
 </p>
 
-We ran seven harnesses on the same SWE-bench tasks, with the same model, API key and container, and metered every call. The setup and results are public in [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks), so anyone can rerun them. The latest run is [`swe-x86-1`](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md), with ten tasks.
+We ran seven harnesses on the same SWE-bench tasks, with the same model, API key and container, and metered every call. The setup and results are public in [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks), so **anyone can rerun them**. The latest run is [`swe-x86-1`](https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md), with ten tasks.
 
-OpenHuman finished its tasks in less than half the median time, using 2.6x fewer tokens and an eighth of the memory and CPU. It made 114 model calls where the others made 134 to 212, and its whole run cost $0.05 where the others cost $0.08 to $0.35.
+OpenHuman finished its tasks in **less than half the median time**, using **2.6x fewer tokens** and **an eighth of the memory and CPU**. It made 114 model calls where the others made 134 to 212, and its whole run cost **$0.05** where the others cost $0.08 to $0.35.
 
-It wins by doing less work per step. The core is compiled Rust in a single process, not Node or Python, so it uses little memory and almost no CPU between model calls. It sends the smallest prompt of the seven, 4.6k tokens with its 20 tools included, so each call is cheaper and comes back faster (1.65 s median, also the fastest). It also needs fewer calls to reach an answer, which is where most of the savings come from. Accuracy is the gap still to close: it solved 7 of 10 tasks, while four others solved all ten.
+It wins by **doing less work per step**. The core is compiled Rust in a single process, not Node or Python, so it uses little memory and almost no CPU between model calls. It sends the smallest prompt of the seven, 4.6k tokens with its 20 tools included, so each call is cheaper and comes back faster (1.65 s median, also the fastest). It also needs fewer calls to reach an answer, which is where most of the savings come from. **Accuracy is the gap still to close**: it solved 7 of 10 tasks, while four others solved all ten.
 
-| Per solved task | OpenHuman | Median of the other six | Best of the other six |
+| Per solved task | OpenHuman (vs. median) | Median of the other six | Best of the other six |
 | --- | --- | --- | --- |
-| Wall time (p50) | **19.8 s** | 46.5 s | 28.4 s (OpenCode) |
-| Tokens | **167k** | 435k | 370k (Codex) |
-| Cost | $0.0077 | $0.012 | $0.0077 (OpenCode, a tie) |
-| Peak memory | **68 MB** | 523 MB | 123 MB (Codex) |
-| CPU time | **1.3 s** | 10.4 s | 2.9 s (DeepSeek Harness) |
-| System prompt | **4.6k tokens** | 7.7k | 6.2k (DeepSeek Harness) |
-| Tasks solved | 7 / 10 | 10 / 10 | 10 / 10 (four harnesses) |
+| Wall time (p50) | **19.8 s** (2.3x faster) | 46.5 s | 28.4 s (OpenCode) |
+| Tokens | **167k** (2.6x fewer) | 435k | 370k (Codex) |
+| Cost | **$0.0077** (-36%) | $0.012 | $0.0077 (OpenCode, a tie) |
+| Peak memory | **68 MB** (7.7x less) | 523 MB | 123 MB (Codex) |
+| CPU time | **1.3 s** (8x less) | 10.4 s | 2.9 s (DeepSeek Harness) |
+| System prompt | **4.6k tokens** (-40%) | 7.7k | 6.2k (DeepSeek Harness) |
+| Tasks solved | 7 / 10 (3 fewer) | 10 / 10 | 10 / 10 (four harnesses) |
 
 ---
 
@@ -257,7 +257,7 @@ Start with [Getting started](./gitbooks/overview/getting-started.md) or the [gui
 
 ## For developers
 
-OpenHuman is a library-first harness. Add it to your Rust project and call an agent like any other function, with no sidecar or daemon to run. One runtime can hold hundreds of agents, each with its own model, tools, memory and sandbox. 500 of them fit on a $10 VPS, so a product with one agent per customer can start without a cluster.
+OpenHuman is a **library-first harness**. Add it to your Rust project and **call an agent like any other function**, with no sidecar or daemon to run. One runtime can hold hundreds of agents, each with its own model, tools, memory and sandbox. **500 of them fit on a $10 VPS**, so a product with one agent per customer can start without a cluster.
 
 ```rust
 use openhuman_embed::{Access, Harness, Provider, Workspace};
