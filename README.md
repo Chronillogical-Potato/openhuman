@@ -79,7 +79,7 @@ Most harnesses run one heavy process per agent and resend a big prompt on every 
 
 <h3>Fast</h3>
 
-<p><b>20 s</b> per solved SWE-bench task, the fastest of seven harnesses (others: 28 to 62 s). Cold start in 102 ms.</p>
+<p>Finishes coding tasks in about 20 seconds, the fastest of seven AI agent tools we tested. Starts up in a tenth of a second.</p>
 
 <p><a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md">Benchmark results</a> · <a href="./gitbooks/developing/performance.md">Cold-start numbers</a></p>
 
@@ -89,7 +89,7 @@ Most harnesses run one heavy process per agent and resend a big prompt on every 
 
 <h3>Cheap</h3>
 
-<p><b>2.6x fewer tokens</b> per solved task and the lowest total spend. Small prompts, plus token compression on tool output.</p>
+<p>Uses 2.6x fewer tokens than the typical agent tool, and had the lowest total bill in our test.</p>
 
 <p><a href="https://github.com/tinyhumansai/openhuman-benchmarks/blob/main/results/swe-x86-1/summary.md">Cost and token data</a> · <a href="./gitbooks/features/token-compression.md">How compression works</a></p>
 
@@ -103,7 +103,7 @@ Most harnesses run one heavy process per agent and resend a big prompt on every 
 
 <h3>Efficient at scale</h3>
 
-<p><b>8x less</b> memory and CPU per task. Each extra agent costs about 1.8 MiB: 500 agents fit in 1.4 GiB, which is a $10, 2 GB VPS.</p>
+<p>Uses about 8x less memory and CPU than the typical agent tool. Run more than 500 agents on a $10 server.</p>
 
 <p><a href="./gitbooks/developing/performance.md">Fleet measurements</a> · <a href="./docs/library-benchmarking.md">Methodology</a></p>
 
@@ -113,7 +113,7 @@ Most harnesses run one heavy process per agent and resend a big prompt on every 
 
 <h3>Built for developers</h3>
 
-<p>A library first. Call an agent like a function from your Rust code, or run a fleet of full-featured agents from one small server.</p>
+<p>Use it as a Rust library: call an agent like any other function, or run a whole fleet from one small server.</p>
 
 <p><a href="./gitbooks/developing/quickstart.md">Rust quickstart</a> · <a href="./gitbooks/developing/embedding.md">Embedding guide</a> · <a href="./crates/openhuman-embed/examples">Examples</a></p>
 
