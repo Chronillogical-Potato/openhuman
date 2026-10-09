@@ -91,6 +91,27 @@ pub(crate) fn reserve_saas_boot() -> Result<(), String> {
     Ok(())
 }
 
+/// Whether a core of `host_kind` may boot now. A process locked to SaaS boots
+/// nothing but its own SaaS core; a SaaS core boots only through
+/// `saas::build`, which runs the boot guard and locks the mode first, and only
+/// once per process (`core_running`: a default context already exists).
+pub(crate) fn admit_core(
+    host_kind: crate::core::types::HostKind,
+    core_running: bool,
+) -> Result<(), String> {
+    let saas_host = host_kind == crate::core::types::HostKind::Saas;
+    match (is_saas(), saas_host) {
+        (true, false) => Err(format!(
+            "this process serves SaaS; refusing a {host_kind:?} core"
+        )),
+        (false, true) => Err("a SaaS core boots only through saas::build".to_string()),
+        (true, true) if core_running => {
+            Err("this process already serves its SaaS core".to_string())
+        }
+        _ => Ok(()),
+    }
+}
+
 /// Fix the process mode. Locking the mode it already has is a no-op; locking
 /// a different one fails, because one process never serves both shapes.
 pub(crate) fn lock_mode(mode: Mode) -> Result<(), String> {

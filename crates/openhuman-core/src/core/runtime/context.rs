@@ -222,20 +222,8 @@ impl CoreContext {
                 .map(|t| t.name())
                 .unwrap_or("<process-global>")
         );
-        // A process locked to SaaS boots nothing but its own SaaS core.
-        if crate::core::runtime::mode::is_saas() && host_kind != HostKind::Saas {
-            anyhow::bail!("[core-context] this process serves SaaS; refusing a {host_kind:?} core");
-        }
-        // A SaaS core boots only through `saas::build`, which runs the boot
-        // guard and locks the mode first, and only once per process.
-        if host_kind == HostKind::Saas {
-            if !crate::core::runtime::mode::is_saas() {
-                anyhow::bail!("[core-context] a SaaS core boots only through saas::build");
-            }
-            if DEFAULT_CONTEXT.get().is_some() {
-                anyhow::bail!("[core-context] this process already serves its SaaS core");
-            }
-        }
+        crate::core::runtime::mode::admit_core(host_kind, DEFAULT_CONTEXT.get().is_some())
+            .map_err(|e| anyhow::anyhow!("[core-context] {e}"))?;
         // 1. Ensure all controllers are registered before anything dispatches.
         let _ = crate::core::all::all_registered_controllers();
 

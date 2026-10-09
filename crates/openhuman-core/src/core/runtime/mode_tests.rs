@@ -47,3 +47,12 @@ fn saas_requests_are_spotted_before_parsing() {
     assert!(!requested_in(&args(&["run"]), None));
     assert!(!requested_in(&args(&["run", "saas"]), Some("")));
 }
+
+#[test]
+fn a_saas_core_needs_the_saas_boot() {
+    use crate::core::types::HostKind;
+    // This test process is never locked to SaaS.
+    assert!(admit_core(HostKind::Cli, false).is_ok());
+    let refused = admit_core(HostKind::Saas, false).unwrap_err();
+    assert!(refused.contains("saas::build"), "{refused}");
+}
