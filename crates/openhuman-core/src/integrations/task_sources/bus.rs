@@ -132,3 +132,7 @@ pub fn register_task_sources_subscriber() {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "bus_tests.rs"]
+mod tests;
