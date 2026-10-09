@@ -794,8 +794,18 @@ fn a_users_turn_reaches_inference_with_their_own_credential() {
             Err(_) => break None,
         }
     };
-    let (_, auth) =
-        inference.unwrap_or_else(|| panic!("alice's turn never reached inference; saw {seen:?}"));
+    let (_, auth) = inference.unwrap_or_else(|| {
+        let log = std::fs::read_to_string(d.tmp.path().join("core.log")).unwrap_or_default();
+        let notable: Vec<&str> = log
+            .lines()
+            .filter(|l| l.contains("WARN") || l.contains("ERROR"))
+            .collect();
+        panic!(
+            "alice's turn never reached inference; saw {} other request(s). Core log:\n{}",
+            seen.len(),
+            notable[notable.len().saturating_sub(40)..].join("\n")
+        )
+    });
     assert_eq!(auth, "Bearer alice-session-jwt");
     drop(server);
 }
