@@ -1,87 +1,66 @@
 ---
 description: >-
-  The removed AgentBox container deployment surface, kept as the record of
-  what it was and which test pins its absence.
+  The removed AgentBox container surface, kept for anyone debugging an older
+  build.
 icon: box-archive
 ---
 
-# AgentBox marketplace deployment (historical)
+# AgentBox deployment (removed)
 
-This page describes a container surface that no longer exists in
-`openhuman-core`. A regression test,
-`agentbox_run_and_jobs_paths_are_no_longer_public` in
-`crates/openhuman-rpc/src/server/auth_tests.rs`, asserts that `/run` and
-`/jobs/{job_id}` are gone and pins the reason in a comment: the AgentBox
-marketplace surface moved out of this codebase. `OPENHUMAN_AGENTBOX_MODE`
-has no remaining reader anywhere in `crates/openhuman-core/src` today, even
-though the Dockerfile and `.env.example` still mention it; those references
-are themselves stale and due for cleanup.
+OpenHuman once shipped a container surface for the GMI Cloud AgentBox marketplace. It is gone from `openhuman-core`. A regression test, `agentbox_run_and_jobs_paths_are_no_longer_public` in `crates/openhuman-rpc/src/server/auth_tests.rs`, checks that `/run` and `/jobs/{job_id}` no longer exist.
 
-If you need to run OpenHuman on GMI Cloud's AgentBox marketplace today, this
-is not the current integration path; check with the team that owns the
-GMI Cloud deployment for where that surface lives now. The rest of this page
-is kept as a historical record of how the integration worked before removal,
-in case you are debugging an older build that still has it.
+`OPENHUMAN_AGENTBOX_MODE` has no reader left in `crates/openhuman-core/src`. The Dockerfile and `.env.example` still mention it, and those mentions are stale. If you need to run OpenHuman on AgentBox today, ask the team that owns the GMI Cloud deployment where that surface lives now.
 
-## Container contract (as it worked before removal)
+The rest of this page describes how the old surface worked. Read it only if you are debugging an older build that still has it.
 
-When `OPENHUMAN_AGENTBOX_MODE=1`, the core HTTP server exposes:
+## Container contract
 
-- `POST /run`: accept work, return `202 { "job_id": "<uuid>" }`. Body shape:
-  `{ "payload": { "message": "<string>", "thread_id": "<optional string>" } }`.
-- `GET /jobs/{job_id}`: return `{ "status": "pending|running|completed|failed", "result": ..., "error": ... }`.
-- `GET /health`: liveness.
+With `OPENHUMAN_AGENTBOX_MODE=1`, the core HTTP server exposed three routes:
 
-Both `/run` and `/jobs/*` are unauthenticated at the container boundary;
-AgentBox's edge handles auth before traffic reaches us.
+- `POST /run` accepts work and returns `202 { "job_id": "<uuid>" }`. The body is `{ "payload": { "message": "<string>", "thread_id": "<optional string>" } }`.
+- `GET /jobs/{job_id}` returns `{ "status": "pending|running|completed|failed", "result": ..., "error": ... }`.
+- `GET /health` is a liveness check.
 
-## The 4-step register wizard
+`/run` and `/jobs/*` were unauthenticated at the container boundary. AgentBox's edge handled auth before traffic reached the container.
 
-In the AgentBox console:
+## Registering in the AgentBox console
 
-1. **Basic Info**: name `OpenHuman`, description, listing identity.
-2. **Infrastructure**: Docker image source (push tagged builds to your
-   chosen registry, see "Image push" below), compute tier, region. Enable the
-   "GMI MaaS" toggle so the platform injects `GMI_MAAS_BASE_URL` and
-   `GMI_MAAS_API_KEY` at runtime.
-3. **Env Variables**: set:
+The console has a four-step wizard.
+
+1. **Basic info.** Name it `OpenHuman` and add a description.
+2. **Infrastructure.** Pick the Docker image source, compute tier and region. Turn on the "GMI MaaS" toggle so the platform injects `GMI_MAAS_BASE_URL` and `GMI_MAAS_API_KEY` at runtime.
+3. **Env variables.** Set these:
    - `OPENHUMAN_AGENTBOX_MODE=1`
-   - (optional) `OPENHUMAN_AGENTBOX_JOB_TIMEOUT_SECS` (default 600)
-   - `GMI_MODELS` to the marketplace-approved model id (e.g.
-     `deepseek-ai/DeepSeek-V4-Pro`).
-   - `OPENHUMAN_WORKSPACE` to a writable container path (e.g. `/home/openhuman/.openhuman`).
-   - `RUST_LOG=info` (or `debug` while shaking out the first deploy).
-4. **Review & Register**: confirm and test from the console panel.
+   - `OPENHUMAN_AGENTBOX_JOB_TIMEOUT_SECS` (optional, default 600)
+   - `GMI_MODELS`, the marketplace-approved model id, for example `deepseek-ai/DeepSeek-V4-Pro`
+   - `OPENHUMAN_WORKSPACE`, a writable container path such as `/home/openhuman/.openhuman`
+   - `RUST_LOG=info` (use `debug` for the first deploy)
+4. **Review and register.** Confirm, then test from the console panel.
 
-> ⚠️ The platform API key is shown ONCE on the registration confirmation
-> screen. Save it to your secrets manager immediately. It is NOT recoverable
-> from the console after that.
+The platform API key is shown once, on the registration confirmation screen. Save it to your secrets manager right away. The console cannot show it again.
 
-## Image push
+## Pushing the image
 
-Build and push from `main` using the existing `Dockerfile`:
+Build from `main` with the existing `Dockerfile` and push to your registry:
 
 ```bash
 docker build -t <registry>/openhuman-core:<tag> .
 docker push <registry>/openhuman-core:<tag>
 ```
 
-First deploy takes 10 to 25 minutes to reach `running`; later deploys are faster.
+The first deploy takes 10 to 25 minutes to reach `running`. Later deploys are faster.
 
 ## Long-running requests
 
-AgentBox treats requests >2 min as long-running. OpenHuman handles this with
-**polling** per AgentBox's documented pattern: the agent runtime is invoked
-inside the worker task, capped by `OPENHUMAN_AGENTBOX_JOB_TIMEOUT_SECS`
-(default 10 minutes). No streaming.
+AgentBox treats requests over 2 minutes as long-running, so OpenHuman used polling. The agent ran inside a worker task, capped by `OPENHUMAN_AGENTBOX_JOB_TIMEOUT_SECS` (10 minutes by default). There was no streaming.
 
-Polling clients should:
+A polling client should:
 
-1. `POST /run` and capture `job_id`.
-2. `GET /jobs/{job_id}` every 1 to 3 seconds.
+1. Send `POST /run` and keep the `job_id`.
+2. Call `GET /jobs/{job_id}` every 1 to 3 seconds.
 3. Stop when `status` is `completed` or `failed`.
-4. Note: terminal jobs are retained for 1 hour after completion, then
-   garbage-collected. Long pauses between poll and read may return `404`.
+
+Finished jobs were kept for one hour, then garbage-collected. A long pause between polling and reading can return `404`.
 
 ## Local smoke test
 
@@ -102,17 +81,8 @@ curl http://127.0.0.1:7788/jobs/<job_id>
 
 ## Troubleshooting
 
-- `404 job not found` after a successful submit: retention window (1h) has
-  elapsed, or the container restarted (in-memory store is not durable in v1).
-- `status: "failed"`, `error: "agentbox: agent runtime bridge not wired"`:
-  the production invoker stub from before Task 9 landed; rebuild against a
-  current `main`.
-- `status: "failed"`, `error: "job timeout after Ns"`: the agent invocation
-  exceeded `OPENHUMAN_AGENTBOX_JOB_TIMEOUT_SECS`. Bump the env var on the
-  next deploy.
-- `[agentbox::gmi] not registering GMI MaaS provider: missing/blank: GMI_MAAS_API_KEY`:
-  the platform did not inject the key. Re-check the wizard's "MaaS
-  integration toggle" in Step 2.
-- `[agentbox::gmi] current-thread runtime detected, skipping provider registration`:
-  the core was booted in a single-threaded tokio runtime. Use the standard
-  `serve` subcommand, which spawns a multi-thread runtime.
+- `404 job not found` after a successful submit: the one-hour retention window passed, or the container restarted. The job store was in memory only.
+- `status: "failed"` with `error: "agentbox: agent runtime bridge not wired"`: you are on a build from before the runtime bridge landed. Rebuild from a current `main`.
+- `status: "failed"` with `error: "job timeout after Ns"`: the agent ran past `OPENHUMAN_AGENTBOX_JOB_TIMEOUT_SECS`. Raise it on the next deploy.
+- `[agentbox::gmi] not registering GMI MaaS provider: missing/blank: GMI_MAAS_API_KEY`: the platform did not inject the key. Check the MaaS toggle in step 2 of the wizard.
+- `[agentbox::gmi] current-thread runtime detected, skipping provider registration`: the core booted in a single-threaded tokio runtime. Use the standard `serve` subcommand, which starts a multi-thread runtime.

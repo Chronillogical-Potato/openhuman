@@ -1,35 +1,35 @@
 ---
-description: The agent's view of the connected third-party services.
+description: How the agent uses your connected third-party services as tools.
 icon: plug
 ---
 
-# Third-party Integrations
+# Third-party integrations
 
-OpenHuman's agent can call into [the connected third-party services](../integrations/), Gmail, Notion, GitHub, Slack, Lark/Feishu, Stripe, Calendar and the long tail, through a single proxied tool surface.
+The agent can call the [services you connect](../integrations/README.md), such as Gmail, Notion, GitHub, Slack, Lark/Feishu, Stripe and Calendar, through one proxied tool surface.
 
-## How it shows up to the agent
+## How the agent sees them
 
-Once you've connected a service via OAuth, its actions become callable tools. The agent doesn't need to know whether a tool talks to Gmail or to a local file - it just calls the tool, the proxy routes the request through the OpenHuman backend with your token, and the result comes back like any other tool output.
+Once you connect a service with OAuth, its actions become callable tools. The agent does not need to know whether a tool talks to Gmail or a local file. It calls the tool, the proxy routes the request through the OpenHuman backend with your token, and the result comes back like any other tool output.
 
-A few examples of what becomes available:
+Some examples of what you can ask:
 
-* "Send a message to #engineering on Slack."
-* "Create an issue in the openhuman repo."
-* "What's on my calendar tomorrow?"
-* "Pull the last 20 Stripe charges over $1000."
+- "Send a message to #engineering on Slack."
+- "Create an issue in the openhuman repo."
+- "What's on my calendar tomorrow?"
+- "Pull the last 20 Stripe charges over $1000."
 
-## Native vs proxied
+## Native and proxied services
 
-Some services have **native providers** - Rust modules that know how to ingest the service into [memory](../memory.md) directly (e.g. Gmail's native ingest path). Others are exposed as **proxied tools** only: the agent can call them, but there's no automatic ingest yet. New native providers are added as features land.
+Some services have a native provider. That is a Rust module that ingests the service into [memory](../memory.md) directly, such as Gmail's native ingest path. Other services are proxied tools only. The agent can call them, but nothing is ingested automatically yet.
 
-Lark / Feishu currently has two surfaces: a native real-time channel for message send/receive, and a Composio-proxied workspace toolkit entry for chat, docs, wiki, and meeting actions when the backend allowlist exposes it. Historical chat/doc backfill into memory is not yet a native provider; track that separately from the live channel connector.
+Lark/Feishu has two surfaces. One is a native real-time channel for sending and receiving messages. The other is a Composio-proxied workspace toolkit for chat, docs, wiki and meeting actions, available when the backend allowlist exposes it. Backfilling old Lark chat and docs into memory is not a native provider yet.
 
 ## Privacy boundary
 
-For Composio-proxied integrations, OpenHuman's core never calls any third-party API directly. Requests go through the OpenHuman backend, which handles OAuth tokens and rate limiting. Your tokens never sit on disk in plaintext on your machine, and the agent only sees the _results_ of tool calls, not the credentials. Native channels such as Lark / Feishu use their own local configuration and should be reviewed separately from the Composio OAuth boundary.
+For Composio-proxied integrations, the core never calls a third-party API directly. Requests go through the OpenHuman backend, which handles OAuth tokens and rate limiting. Your tokens never sit on your disk in plaintext, and the agent only sees the results of tool calls, never the credentials. Native channels such as Lark/Feishu use their own local configuration, so review them separately from the Composio OAuth boundary.
 
 ## See also
 
-* [Third-party Integrations (catalog)](../integrations/) - the user-facing pitch, OAuth flow, and connection management.
-* [Memory](../memory.md) - how connected services become memory sources (Composio kind).
-* [Privacy & Security](../privacy-and-security/) - the full boundary.
+- [Third-party integrations catalog](../integrations/README.md): the OAuth flow and connection management.
+- [Memory](../memory.md): how connected services become memory sources.
+- [Privacy and security](../privacy-and-security.md): the full boundary.
