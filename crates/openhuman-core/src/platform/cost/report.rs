@@ -257,7 +257,8 @@ pub struct CacheCall {
     pub cached_input_tokens: u64,
     pub cache_write_tokens: u64,
     pub cache_hit_ratio: f64,
-    /// A call after the first in its thread that read nothing from the cache.
+    /// A call after the first in its thread (same model and agent) that read
+    /// nothing from the cache.
     pub cold: bool,
 }
 
@@ -286,7 +287,9 @@ pub fn build_cache_report(
 ) -> CacheReport {
     let mut ordered: Vec<&CostRecord> = records.iter().filter(|r| filter.admits(r)).collect();
     ordered.sort_by_key(|r| r.usage.timestamp);
-    let mut threads_seen: HashSet<String> = HashSet::new();
+    // A call is a repeat only against an earlier call with the same cache
+    // identity: a model switch or another agent prompt starts a fresh cache.
+    let mut caches_seen: HashSet<(String, String, Option<String>)> = HashSet::new();
     let mut report = CacheReport {
         from,
         to,
@@ -301,9 +304,13 @@ pub fn build_cache_report(
         let usage = &record.usage;
         let cached = usage.cached_input_tokens.min(usage.input_tokens);
         let thread = usage.scope.thread_id.clone();
-        let repeat = thread
-            .as_ref()
-            .is_some_and(|t| !threads_seen.insert(t.clone()));
+        let repeat = thread.as_ref().is_some_and(|t| {
+            !caches_seen.insert((
+                t.clone(),
+                usage.model.clone(),
+                usage.scope.agent_id.clone(),
+            ))
+        });
         let cold = repeat && cached == 0 && usage.input_tokens > 0;
         if cold {
             report.cold_calls += 1;
