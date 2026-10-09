@@ -115,7 +115,7 @@ fn entry_for(workspace_dir: &Path) -> Arc<Entry> {
         Err(error) => {
             // A workspace that cannot be written degrades to an in-memory
             // queue rather than taking background delivery down.
-            log::warn!(
+            log::error!(
                 "[background_completions] could not open {}; using an in-memory queue \
                  (completions will not survive a restart): {error}",
                 path.display()
@@ -123,11 +123,8 @@ fn entry_for(workspace_dir: &Path) -> Arc<Entry> {
             Arc::new(InMemoryCompletionStore::new())
         }
     };
-    let router = CompletionRouter::new(store.clone())
-        .with_formatter(Arc::new(BackgroundCompletionFormatter))
-        .with_max_attempts(DEFAULT_MAX_ATTEMPTS);
     let entry = Arc::new(Entry {
-        router: Arc::new(router),
+        router: Arc::new(new_router(store.clone())),
         store,
     });
     state()
@@ -138,6 +135,38 @@ fn entry_for(workspace_dir: &Path) -> Arc<Entry> {
         workspace_dir.display()
     );
     entry
+}
+
+/// Replace a workspace's failing durable store with an in-memory one that starts
+/// from the same records, so delivery keeps working in this process. The log on
+/// disk is left as it is and replays on the next boot.
+fn degrade_to_memory(workspace_dir: &Path) -> Arc<Entry> {
+    let old = entry_for(workspace_dir);
+    let store = Arc::new(InMemoryCompletionStore::new());
+    for record in old.store.list(None) {
+        if let Err(error) = store.put(&record) {
+            log::warn!("[background_completions] could not carry a record over: {error}");
+        }
+    }
+    let store: Arc<dyn CompletionStore> = store;
+    let entry = Arc::new(Entry {
+        router: Arc::new(new_router(store.clone())),
+        store,
+    });
+    state()
+        .routers
+        .insert(workspace_dir.to_path_buf(), entry.clone());
+    log::error!(
+        "[background_completions] degraded to an in-memory queue workspace_dir={}",
+        workspace_dir.display()
+    );
+    entry
+}
+
+fn new_router(store: Arc<dyn CompletionStore>) -> CompletionRouter {
+    CompletionRouter::new(store)
+        .with_formatter(Arc::new(BackgroundCompletionFormatter))
+        .with_max_attempts(DEFAULT_MAX_ATTEMPTS)
 }
 
 /// The router for `workspace_dir`, opening it on first use.
@@ -287,8 +316,29 @@ pub(crate) async fn record_outcome(
     } else {
         record
     };
+    if !workspace_dir.is_dir() {
+        // The workspace was removed (a data reset) while the child ran; do not
+        // recreate it just to log a result nobody can receive.
+        log::warn!(
+            "[background_completions] dropping completion task_id={task_id}: workspace is gone"
+        );
+        return;
+    }
     let router = router_for_workspace(workspace_dir);
-    match router.record_with_retries(record, RECORD_RETRIES).await {
+    let mut outcome_of_record = router
+        .record_with_retries(record.clone(), RECORD_RETRIES)
+        .await;
+    if let Err(error) = &outcome_of_record {
+        // The log keeps refusing writes (disk full, permissions). Keep this
+        // process delivering from memory rather than losing the result; what is
+        // already on disk replays on the next boot.
+        log::error!(
+            "[background_completions] store write failed after retries; continuing in memory \
+             task_id={task_id} thread_id={thread_id} error={error}"
+        );
+        outcome_of_record = degrade_to_memory(workspace_dir).router.record(record).await;
+    }
+    match outcome_of_record {
         Ok(RecordOutcome::Recorded { .. }) => log::debug!(
             "[background_completions] recorded task_id={task_id} thread_id={thread_id} \
              outcome={outcome:?}"
@@ -404,7 +454,21 @@ pub(crate) async fn release_all() -> usize {
         }
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
-    *state() = HostState::default();
+    {
+        // Stop and delete gates outlive the release: a detached child that
+        // finishes after shutdown must still be refused for a stopped or deleted
+        // thread, and deleted threads never reopen.
+        let mut st = state();
+        let (stopped, deleted) = (
+            std::mem::take(&mut st.stopped_threads),
+            std::mem::take(&mut st.deleted_threads),
+        );
+        *st = HostState {
+            stopped_threads: stopped,
+            deleted_threads: deleted,
+            ..HostState::default()
+        };
+    }
     log::info!("[background_completions] released {released} router(s) on core shutdown");
     released
 }
