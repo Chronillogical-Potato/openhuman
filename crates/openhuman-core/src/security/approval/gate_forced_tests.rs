@@ -136,3 +136,29 @@ async fn forced_approval_still_denies_automation_and_channel_origins() {
     }
     assert!(gate.list_pending().unwrap().is_empty());
 }
+
+#[test]
+fn saas_outcome_is_absent_outside_saas() {
+    assert!(saas_outcome_with(false, "shell").is_none());
+}
+
+#[test]
+fn saas_outcome_never_parks_and_denies_without_an_allowlisted_group() {
+    // No agent host is installed here, so no tool group is allowlisted.
+    match saas_outcome_with(true, "shell") {
+        Some(GateOutcome::Deny { reason }) => {
+            assert!(reason.starts_with(POLICY_DENIED_MARKER), "{reason}");
+            assert!(reason.contains("no approval surface"), "{reason}");
+        }
+        other => panic!("expected an immediate deny, got {other:?}"),
+    }
+}
+
+#[test]
+fn saas_outcome_maps_an_allowlisted_verdict_to_allow() {
+    use crate::user_agents::tools::{gate_verdict_with, SaasToolGroup};
+    let verdict = gate_verdict_with("shell", &[SaasToolGroup::HostShell]);
+    assert!(matches!(saas_outcome(verdict), GateOutcome::Allow));
+    let verdict = gate_verdict_with("shell", &[SaasToolGroup::HostFiles]);
+    assert!(matches!(saas_outcome(verdict), GateOutcome::Deny { .. }));
+}
