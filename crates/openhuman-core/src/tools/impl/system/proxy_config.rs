@@ -1,8 +1,8 @@
-use crate::tools::schema_cache::static_schema;
 use crate::config::{
     runtime_proxy_config, set_runtime_proxy_config, Config, ProxyConfig, ProxyScope,
 };
 use crate::security::SecurityPolicy;
+use crate::tools::schema_cache::static_schema;
 use crate::util::MaybeSet;
 use async_trait::async_trait;
 use serde_json::{json, Value};

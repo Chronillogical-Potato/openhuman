@@ -141,7 +141,9 @@ impl Tool for AudioGenerateAndEmailPodcastTool {
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
-        static_schema!(include_str!("parameters/audio_generate_and_email_podcast.json"))
+        static_schema!(include_str!(
+            "parameters/audio_generate_and_email_podcast.json"
+        ))
     }
 
     fn permission_level(&self) -> PermissionLevel {

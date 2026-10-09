@@ -1,9 +1,9 @@
-use crate::tools::schema_cache::static_schema;
 use crate::config::Config;
 use crate::cron::job_builder::{create_agent_job, AgentJobInput};
 use crate::cron::origin::{current_job_origin, current_turn_may_skip_approval};
 use crate::cron::{self, Schedule};
 use crate::security::SecurityPolicy;
+use crate::tools::schema_cache::static_schema;
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};

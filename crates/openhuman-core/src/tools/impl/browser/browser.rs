@@ -7,10 +7,10 @@ mod pending;
 mod session_pool;
 #[path = "browser_task_actions.rs"]
 mod task_actions;
-use crate::tools::schema_cache::static_schema;
 use crate::modules::browser::BrowserClient;
 use crate::security::approval::{ApprovalGate, GateOutcome};
 use crate::security::SecurityPolicy;
+use crate::tools::schema_cache::static_schema;
 use async_trait::async_trait;
 use pending::{approval_target, needs_host_confirmation, Pending};
 use serde_json::{json, Value};

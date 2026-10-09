@@ -223,13 +223,21 @@ impl Tool for DesktopTool {
     fn parameters_schema(&self) -> Value {
         match self.kind {
             DesktopToolKind::Apps => static_schema!(include_str!("parameters/desktop_apps.json")),
-            DesktopToolKind::Windows => static_schema!(include_str!("parameters/desktop_windows.json")),
-            DesktopToolKind::Launch => static_schema!(include_str!("parameters/desktop_launch.json")),
-            DesktopToolKind::Snapshot => static_schema!(include_str!("parameters/desktop_snapshot.json")),
+            DesktopToolKind::Windows => {
+                static_schema!(include_str!("parameters/desktop_windows.json"))
+            }
+            DesktopToolKind::Launch => {
+                static_schema!(include_str!("parameters/desktop_launch.json"))
+            }
+            DesktopToolKind::Snapshot => {
+                static_schema!(include_str!("parameters/desktop_snapshot.json"))
+            }
             DesktopToolKind::Find => static_schema!(include_str!("parameters/desktop_find.json")),
             DesktopToolKind::Act => static_schema!(include_str!("parameters/desktop_act.json")),
             DesktopToolKind::Goal => static_schema!(include_str!("parameters/desktop_goal.json")),
-            DesktopToolKind::ContinueGoal => static_schema!(include_str!("parameters/desktop_continue_goal.json")),
+            DesktopToolKind::ContinueGoal => {
+                static_schema!(include_str!("parameters/desktop_continue_goal.json"))
+            }
         }
     }
 

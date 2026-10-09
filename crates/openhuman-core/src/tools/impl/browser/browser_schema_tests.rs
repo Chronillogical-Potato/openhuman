@@ -10,6 +10,15 @@ fn expected_browser() -> serde_json::Value {
 
 #[test]
 fn browser_static_schema_matches_json_literal() {
-    let tool = BrowserTool::new(std::sync::Arc::new(crate::security::SecurityPolicy::default()), std::sync::Arc::new(BrowserClient::new(std::sync::Arc::new(crate::config::Config::default()))), 3);
-    assert_eq!(tinytools::Tool::parameters_schema(&tool), expected_browser());
+    let tool = BrowserTool::new(
+        std::sync::Arc::new(crate::security::SecurityPolicy::default()),
+        std::sync::Arc::new(BrowserClient::new(std::sync::Arc::new(
+            crate::config::Config::default(),
+        ))),
+        3,
+    );
+    assert_eq!(
+        tinytools::Tool::parameters_schema(&tool),
+        expected_browser()
+    );
 }
