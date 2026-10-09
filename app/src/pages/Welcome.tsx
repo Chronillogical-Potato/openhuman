@@ -11,7 +11,6 @@ import { useCoreState } from '../providers/CoreStateProvider';
 import { clearBackendUrlCache } from '../services/backendUrl';
 import { clearCoreRpcTokenCache, clearCoreRpcUrlCache } from '../services/coreRpcClient';
 import { resetCoreMode } from '../store/coreModeSlice';
-import { getActiveUserId } from '../store/userScopedStorage';
 import {
   endAwaitingAuthCallback,
   getDeepLinkAuthState,
@@ -19,6 +18,7 @@ import {
 } from '../store/deepLinkAuthState';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { resolveTheme, setThemeMode, type ThemeMode } from '../store/themeSlice';
+import { getActiveUserId } from '../store/userScopedStorage';
 import { clearAllAppData } from '../utils/clearAllAppData';
 import { clearStoredCoreMode, clearStoredCoreToken, storeRpcUrl } from '../utils/configPersistence';
 import {

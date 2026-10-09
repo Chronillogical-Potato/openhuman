@@ -122,7 +122,9 @@ describe('OAuthProviderButton', () => {
     });
 
     expect(checkBackendHealthy).toHaveBeenCalledTimes(1);
-    expect(openUrl).toHaveBeenCalledWith(expect.stringMatching(/^https:\/\/backend\.test\/auth\/google\/login/));
+    expect(openUrl).toHaveBeenCalledWith(
+      expect.stringMatching(/^https:\/\/backend\.test\/auth\/google\/login/)
+    );
   });
 
   it('does not show the local-profile warning for a cloud profile', async () => {

@@ -1804,7 +1804,8 @@ const messages: TranslationMap = {
   'about.update.status.default': 'Buscar actualizaciones',
   'welcome.continueLocallyExperimental': 'Continuar localmente (Experimental)',
   'auth.profileSwitch.title': '¿Iniciar sesión con un perfil distinto?',
-  'auth.profileSwitch.body': 'Al iniciar sesión en la nube, OpenHuman cambiará a un perfil de cuenta separado. Tus conversaciones, memoria y ajustes de proveedores locales seguirán en este dispositivo, en users/{profileId}. Para volver, cierra sesión y elige la sesión local en la pantalla de bienvenida.',
+  'auth.profileSwitch.body':
+    'Al iniciar sesión en la nube, OpenHuman cambiará a un perfil de cuenta separado. Tus conversaciones, memoria y ajustes de proveedores locales seguirán en este dispositivo, en users/{profileId}. Para volver, cierra sesión y elige la sesión local en la pantalla de bienvenida.',
   'auth.profileSwitch.continue': 'Continuar con el inicio de sesión',
   'welcome.localSessionStarting': 'Iniciando sesión local...',
   'welcome.coreConfigUnreadable':

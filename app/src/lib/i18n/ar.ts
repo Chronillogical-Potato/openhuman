@@ -1734,7 +1734,8 @@ const messages: TranslationMap = {
   'about.update.status.default': 'التحقق من التحديثات',
   'welcome.continueLocallyExperimental': 'المتابعة محليًا (تجريبي)',
   'auth.profileSwitch.title': 'هل تريد تسجيل الدخول بملف شخصي منفصل؟',
-  'auth.profileSwitch.body': 'سيؤدي تسجيل الدخول السحابي إلى نقل OpenHuman إلى ملف حساب منفصل. ستظل محادثاتك وذاكرتك وإعدادات المزوّد المحلية على هذا الجهاز في users/{profileId}. للعودة إليها، سجّل الخروج واختر الجلسة المحلية من شاشة الترحيب.',
+  'auth.profileSwitch.body':
+    'سيؤدي تسجيل الدخول السحابي إلى نقل OpenHuman إلى ملف حساب منفصل. ستظل محادثاتك وذاكرتك وإعدادات المزوّد المحلية على هذا الجهاز في users/{profileId}. للعودة إليها، سجّل الخروج واختر الجلسة المحلية من شاشة الترحيب.',
   'auth.profileSwitch.continue': 'متابعة تسجيل الدخول',
   'welcome.localSessionStarting': 'بدء الجلسة المحلية...',
   'welcome.coreConfigUnreadable':

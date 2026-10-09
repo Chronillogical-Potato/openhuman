@@ -1755,7 +1755,8 @@ const messages: TranslationMap = {
   'about.update.status.default': '업데이트 확인',
   'welcome.continueLocallyExperimental': '로컬에서 계속(실험적)',
   'auth.profileSwitch.title': '별도 프로필로 로그인할까요?',
-  'auth.profileSwitch.body': '클라우드에 로그인하면 OpenHuman이 별도의 계정 프로필로 전환됩니다. 로컬 대화, 메모리, 제공업체 설정은 이 기기의 users/{profileId}에 남아 있습니다. 돌아가려면 로그아웃한 다음 시작 화면에서 로컬 세션을 선택하세요.',
+  'auth.profileSwitch.body':
+    '클라우드에 로그인하면 OpenHuman이 별도의 계정 프로필로 전환됩니다. 로컬 대화, 메모리, 제공업체 설정은 이 기기의 users/{profileId}에 남아 있습니다. 돌아가려면 로그아웃한 다음 시작 화면에서 로컬 세션을 선택하세요.',
   'auth.profileSwitch.continue': '로그인 계속하기',
   'welcome.localSessionStarting': '로컬 세션 시작 중...',
   'welcome.coreConfigUnreadable':

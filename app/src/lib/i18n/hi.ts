@@ -1769,7 +1769,8 @@ const messages: TranslationMap = {
   'about.update.status.default': 'अपडेट चेक करें',
   'welcome.continueLocallyExperimental': 'लोकल रूप से जारी रखें (प्रायोगिक)',
   'auth.profileSwitch.title': 'अलग प्रोफ़ाइल से साइन इन करें?',
-  'auth.profileSwitch.body': 'क्लाउड साइन-इन OpenHuman को अलग खाते की प्रोफ़ाइल पर ले जाएगा। आपकी स्थानीय बातचीत, मेमोरी और प्रदाता सेटिंग्स इस डिवाइस पर users/{profileId} में रहेंगी। वापस जाने के लिए साइन आउट करें और स्वागत स्क्रीन पर स्थानीय सत्र चुनें।',
+  'auth.profileSwitch.body':
+    'क्लाउड साइन-इन OpenHuman को अलग खाते की प्रोफ़ाइल पर ले जाएगा। आपकी स्थानीय बातचीत, मेमोरी और प्रदाता सेटिंग्स इस डिवाइस पर users/{profileId} में रहेंगी। वापस जाने के लिए साइन आउट करें और स्वागत स्क्रीन पर स्थानीय सत्र चुनें।',
   'auth.profileSwitch.continue': 'साइन इन जारी रखें',
   'welcome.localSessionStarting': 'स्थानीय सत्र प्रारंभ हो रहा है...',
   'welcome.coreConfigUnreadable':

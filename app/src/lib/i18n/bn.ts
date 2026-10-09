@@ -1766,7 +1766,8 @@ const messages: TranslationMap = {
   'about.update.status.default': 'আপডেট পরীক্ষা করুন',
   'welcome.continueLocallyExperimental': 'লোকালি চালিয়ে যান (প্রায়োগিক)',
   'auth.profileSwitch.title': 'আলাদা প্রোফাইলে সাইন ইন করবেন?',
-  'auth.profileSwitch.body': 'ক্লাউডে সাইন ইন করলে OpenHuman আলাদা অ্যাকাউন্ট প্রোফাইলে যাবে। আপনার স্থানীয় কথোপকথন, মেমরি ও প্রদানকারী সেটিংস এই ডিভাইসের users/{profileId}-এ থাকবে। ফিরে যেতে সাইন আউট করে স্বাগতম স্ক্রিনে স্থানীয় সেশন বেছে নিন।',
+  'auth.profileSwitch.body':
+    'ক্লাউডে সাইন ইন করলে OpenHuman আলাদা অ্যাকাউন্ট প্রোফাইলে যাবে। আপনার স্থানীয় কথোপকথন, মেমরি ও প্রদানকারী সেটিংস এই ডিভাইসের users/{profileId}-এ থাকবে। ফিরে যেতে সাইন আউট করে স্বাগতম স্ক্রিনে স্থানীয় সেশন বেছে নিন।',
   'auth.profileSwitch.continue': 'সাইন ইন চালিয়ে যান',
   'welcome.localSessionStarting': 'স্থানীয় অধিবেশন শুরু করা হচ্ছে...',
   'welcome.coreConfigUnreadable':

@@ -1814,7 +1814,8 @@ const messages: TranslationMap = {
   'about.update.status.default': 'Rechercher des mises à jour',
   'welcome.continueLocallyExperimental': 'Continuer en local (Expérimental)',
   'auth.profileSwitch.title': 'Se connecter avec un profil distinct ?',
-  'auth.profileSwitch.body': 'La connexion au cloud basculera OpenHuman vers un profil de compte distinct. Vos conversations, votre mémoire et vos réglages de fournisseurs locaux resteront sur cet appareil dans users/{profileId}. Pour y revenir, déconnectez-vous puis choisissez la session locale sur l’écran d’accueil.',
+  'auth.profileSwitch.body':
+    'La connexion au cloud basculera OpenHuman vers un profil de compte distinct. Vos conversations, votre mémoire et vos réglages de fournisseurs locaux resteront sur cet appareil dans users/{profileId}. Pour y revenir, déconnectez-vous puis choisissez la session locale sur l’écran d’accueil.',
   'auth.profileSwitch.continue': 'Continuer la connexion',
   'welcome.localSessionStarting': 'Démarrage de la session locale...',
   'welcome.coreConfigUnreadable':

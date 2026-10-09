@@ -2023,7 +2023,8 @@ const messages: TranslationMap = {
   // Welcome: connection error messages
   'welcome.continueLocallyExperimental': 'ローカルで続行 (実験的)',
   'auth.profileSwitch.title': '別のプロフィールでサインインしますか？',
-  'auth.profileSwitch.body': 'クラウドにサインインすると、OpenHuman は別のアカウントプロフィールに切り替わります。ローカルの会話、メモリ、プロバイダー設定はこのデバイスの users/{profileId} に残ります。戻るにはサインアウトし、ようこそ画面でローカルセッションを選択してください。',
+  'auth.profileSwitch.body':
+    'クラウドにサインインすると、OpenHuman は別のアカウントプロフィールに切り替わります。ローカルの会話、メモリ、プロバイダー設定はこのデバイスの users/{profileId} に残ります。戻るにはサインアウトし、ようこそ画面でローカルセッションを選択してください。',
   'auth.profileSwitch.continue': 'サインインを続ける',
   'welcome.localSessionStarting': 'ローカルセッションを開始中...',
   'welcome.coreConfigUnreadable':

@@ -1830,7 +1830,8 @@ const messages: TranslationMap = {
   'about.update.status.default': 'Güncellemeleri denetle',
   'welcome.continueLocallyExperimental': 'Yerel olarak devam et (Deneysel)',
   'auth.profileSwitch.title': 'Ayrı bir profille oturum açılsın mı?',
-  'auth.profileSwitch.body': 'Bulut oturumu açıldığında OpenHuman ayrı bir hesap profiline geçer. Yerel konuşmalarınız, belleğiniz ve sağlayıcı ayarlarınız bu cihazda users/{profileId} konumunda kalır. Geri dönmek için oturumu kapatın ve Hoş Geldiniz ekranında yerel oturumu seçin.',
+  'auth.profileSwitch.body':
+    'Bulut oturumu açıldığında OpenHuman ayrı bir hesap profiline geçer. Yerel konuşmalarınız, belleğiniz ve sağlayıcı ayarlarınız bu cihazda users/{profileId} konumunda kalır. Geri dönmek için oturumu kapatın ve Hoş Geldiniz ekranında yerel oturumu seçin.',
   'auth.profileSwitch.continue': 'Oturum açmaya devam et',
   'welcome.localSessionStarting': 'Yerel oturum başlatılıyor...',
   'welcome.coreConfigUnreadable':

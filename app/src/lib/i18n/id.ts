@@ -1782,7 +1782,8 @@ const messages: TranslationMap = {
   'about.update.status.default': 'Periksa pembaruan',
   'welcome.continueLocallyExperimental': 'Lanjutkan Secara Lokal (Eksperimental)',
   'auth.profileSwitch.title': 'Masuk dengan profil terpisah?',
-  'auth.profileSwitch.body': 'Masuk ke cloud akan mengalihkan OpenHuman ke profil akun terpisah. Percakapan, memori, dan pengaturan penyedia lokal Anda tetap tersimpan di perangkat ini dalam users/{profileId}. Untuk kembali, keluar lalu pilih sesi lokal di layar Selamat Datang.',
+  'auth.profileSwitch.body':
+    'Masuk ke cloud akan mengalihkan OpenHuman ke profil akun terpisah. Percakapan, memori, dan pengaturan penyedia lokal Anda tetap tersimpan di perangkat ini dalam users/{profileId}. Untuk kembali, keluar lalu pilih sesi lokal di layar Selamat Datang.',
   'auth.profileSwitch.continue': 'Lanjutkan masuk',
   'welcome.localSessionStarting': 'Memulai sesi lokal...',
   'welcome.coreConfigUnreadable':

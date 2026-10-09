@@ -1782,7 +1782,8 @@ const messages: TranslationMap = {
   'about.update.status.default': 'Проверить обновления',
   'welcome.continueLocallyExperimental': 'Продолжить локально (Экспериментально)',
   'auth.profileSwitch.title': 'Войти с отдельным профилем?',
-  'auth.profileSwitch.body': 'При входе в облако OpenHuman переключится на отдельный профиль аккаунта. Ваши локальные переписки, память и настройки провайдеров останутся на этом устройстве в users/{profileId}. Чтобы вернуться к ним, выйдите из аккаунта и выберите локальную сессию на экране приветствия.',
+  'auth.profileSwitch.body':
+    'При входе в облако OpenHuman переключится на отдельный профиль аккаунта. Ваши локальные переписки, память и настройки провайдеров останутся на этом устройстве в users/{profileId}. Чтобы вернуться к ним, выйдите из аккаунта и выберите локальную сессию на экране приветствия.',
   'auth.profileSwitch.continue': 'Продолжить вход',
   'welcome.localSessionStarting': 'Запуск локального сеанса...',
   'welcome.coreConfigUnreadable':
