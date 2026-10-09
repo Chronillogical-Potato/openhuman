@@ -500,9 +500,9 @@ The assistant-ui-elements integration added a batch of additive `WebChannelEvent
 
 New/extended socket events (bridged from `DomainEvent` onto `WebChannelEvent` by `web_chat::event_bus` and `openhuman_rpc::server::socketio`):
 
-- `ts` (epoch ms) is now stamped on every event by `publish_web_channel_event` when the producer left it unset, so the frontend can order/measure latency without guessing at receive time.
+- `ts` (epoch ms) is stamped on every event by `publish_web_channel_event` when the producer left it unset, so the frontend can order/measure latency without guessing at receive time.
 - `chat_done.timing`: `{ first_token_ms, first_tool_ms, total_ms, tokens_per_second }`, threaded from the progress bridge's per-turn `TurnTiming` through `ProgressBridgeHandle::timing_snapshot()`. `tokens_per_second` is derived from `output_tokens / (total_ms / 1000)` when both are known and `total_ms > 0`.
-- `chat_cancelled`: `{ thread_id, client_id, request_id, cancel_reason: "user_stop" | "superseded", superseded_by }`. Emitted alongside (not instead of) the existing `chat_error{error_type:"cancelled"}` for one release, on both the unscoped/scoped stop path and the superseded-by-a-newer-request path, and on the parallel-turn cooperative-cancel path (which previously published no terminal event at all).
+- `chat_cancelled`: `{ thread_id, client_id, request_id, cancel_reason: "user_stop" | "superseded", superseded_by }`. Emitted alongside (not instead of) the existing `chat_error{error_type:"cancelled"}`, on both the unscoped/scoped stop path and the superseded-by-a-newer-request path, and on the parallel-turn cooperative-cancel path (which previously published no terminal event at all).
 - `chat_error{error_type:"guardrail"}`: carries a `guardrail: { verdict, score, reasons: [{code,message}] }` payload when `start_chat` rejects a message via `StartChatError::Guardrail` (the prompt-injection/security guardrail). Every other rejection stays `error_type:"inference"`. The RPC surface (`channel.web_chat`'s `Result<_, String>`) encodes the same structured verdict as a `GUARDRAIL:<json>` sentinel string (`web_chat::ops::start_chat::{GUARDRAIL_ERROR_PREFIX, is_guardrail_error_message}`, mirroring the existing `BACKEND_UNAVAILABLE:` pattern).
 - `turn_cost`: live per-turn cost readout from `AgentProgress::TurnCostUpdated`, throttled to at most one emission per 750ms per turn (the first update always emits immediately): `{ thread_id, client_id, request_id, round, usage: { input_tokens, output_tokens, cached_input_tokens, cost_usd, context_window, subagents } }`. `subagents` is always empty on this live event (it is the parent's cumulative rollup only); per-sub-agent attribution still only shows up on the terminal `chat_done.usage`.
 - `approval_decided` / `plan_review_decided`: bridged from `DomainEvent::ApprovalDecided` / `PlanReviewDecided`, which gained `thread_id`, `client_id`, `tool_call_id`, and `resolution` (`"expired"` on TTL/sweep, `"cancelled"` on a dropped decision channel, `None` for an ordinary user decision, carried on the wire as the existing `cancel_reason` field). Only surfaced when the original park had both `thread_id` and `client_id` (chat-routed).
@@ -514,7 +514,7 @@ New/extended socket events (bridged from `DomainEvent` onto `WebChannelEvent` by
 New RPCs:
 
 - `agent.set_run_mode { thread_id, mode }` / `agent.get_run_mode { thread_id }`, read/flip a thread's Plan/Build `RunModeHandle`. `channel.web_chat` also accepts an optional `run_mode: "plan" | "build"` param (mirroring the socket `chat:start` payload) so a turn can start with the thread already in the requested mode instead of racing a separate RPC call; unrecognized values are logged and ignored.
-- `threads.goal_get` / `threads.todos_get`: read a thread's current goal/todo state directly (previously only observable via the bridged events).
+- `threads.goal_get` / `threads.todos_get`: read a thread's current goal/todo state directly .
 - `threads.edit_message { thread_id, message_id, content, client_id? }` / `threads.regenerate { thread_id, message_id?, client_id? }`, both return `{ request_id }`. They cancel the thread's in-flight turn, fork the session transcript at a cut point via `TranscriptLocator::truncate_into_next_generation` (the sealed generation the fork was cut from is never touched, same "compaction never erases" guarantee), truncate the conversation-store message log and the turn-state snapshots for every dropped turn, then restart the turn with the edited content (`edit_message`) or the original prompt (`regenerate`). See `threads::ops::edit`'s module doc for the full UI-message-id -> transcript-cut-point mapping.
 - `channel.web_queue_remove { client_id, thread_id, item_id }`, remove one specific queued item from a thread's run queue.
 - `agent.context_breakdown { agent_id?, thread_id? }`, a UI-friendly view over the agent's rendered prompt size (system/tools/history split) for the composer's context-usage indicator.
@@ -524,7 +524,7 @@ New RPCs:
 
 ## Explicit run context and host capabilities
 
-`OpenHumanRunContext` is now the live carrier at the shared chat, channel, and
+`OpenHumanRunContext` is the live carrier at the shared chat, channel, and
 sub-agent turn seam. Roots snapshot their currently scoped origin, progress,
 stop hooks, dispatch state, thread, route slot, and workspace grant, then own
 or explicitly receive one cancellation token before passing the context to the
@@ -590,7 +590,7 @@ direct `tinyagents-orchestration::subagent` lifecycle. There is no
 | `mod.rs`                                          | The runner (`run_turn_via_tinyagents_shared`): installs the native `ChatModel`, host tool adapters, and middleware on an `AgentHarness`; runs one turn; caps output through `MaxTokensModel` (`agent/tinyagents/model.rs`); mirrors progress; forwards steering; and pauses gracefully at the model-call cap. |
 | `mod.rs` / `model.rs` / `tools.rs` / `convert.rs` | `RunPolicy` / `ChatModel` / `Tool` / message adapters (incl. unknown-tool policy and out-of-band reasoning forwarding).                                                                                                                                                        |
 | `observability.rs`                                | Harness `AgentEvent` → `AgentProgress` + cost; `GraphTracingSink` for graph events.                                                                                                                                                                                            |
-| `orchestration.rs`                                | Re-exported `graph::orchestration` task-store types; map-reduce fanout now uses the TinyAgents SDK surface directly.                                                                                                                                                           |
+| `orchestration.rs`                                | Re-exported `graph::orchestration` task-store types; map-reduce fanout uses the TinyAgents SDK surface directly.                                                                                                                                                           |
 | `delegation.rs`                                   | The durable `plan → execute ⇄ review → finalize` delegation graph (production worker wired in `orchestration::delegation`), checkpointed via TinyAgents' own `SqliteCheckpointer`.    |
 
 Orchestration on graphs (`crates/openhuman-core/src/agent/orchestration/`):
