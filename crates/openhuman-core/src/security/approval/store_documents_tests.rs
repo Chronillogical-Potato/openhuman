@@ -343,3 +343,32 @@ fn a_captured_store_decides_without_the_task_scope() {
     .unwrap();
     assert_eq!(decided.map(|p| p.request_id), Some("r".to_string()));
 }
+
+#[test]
+fn an_unresolved_scope_fails_the_captured_decide_instead_of_using_sqlite() {
+    let config = crate::config::Config::default();
+    let captured = Err("no acting agent".to_string());
+    let error = crate::security::approval::store::decide_captured(
+        &config,
+        &captured,
+        "r",
+        ApprovalDecision::Deny,
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("unresolved"), "{error}");
+}
+
+#[test]
+fn expiry_is_compared_below_a_millisecond() {
+    let store = docs();
+    let whole = Utc::now().with_nanosecond(0).unwrap();
+    let due = whole + Duration::nanoseconds(900_000);
+    let mut p = pending("tight", 0, None);
+    p.expires_at = Some(due);
+    store.insert_pending(&p, "s").unwrap();
+    assert!(store
+        .expire_stale(whole + Duration::nanoseconds(100_000))
+        .unwrap()
+        .is_empty());
+    assert_eq!(store.expire_stale(due).unwrap().len(), 1);
+}

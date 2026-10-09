@@ -248,7 +248,7 @@ struct WaiterGuard<'a> {
     thread_id: Option<String>,
     /// Storage scope of the parking call, kept for `Drop`: the acting agent's
     /// task-local is gone by then.
-    docs: Option<super::store_documents::Docs>,
+    docs: Result<Option<super::store_documents::Docs>, String>,
     armed: bool,
 }
 
@@ -282,7 +282,7 @@ impl Drop for WaiterGuard<'_> {
         }
         let decided = store::decide_captured(
             &self.gate.config,
-            self.docs.as_ref(),
+            &self.docs,
             &self.request_id,
             ApprovalDecision::Deny,
         );
