@@ -171,7 +171,7 @@ pub mod seams {
     pub use openhuman_core::agent::hooks::{PostTurnHook, ToolHook};
     pub use openhuman_core::agent::hooks::{ToolHookContext, ToolHookDecision, TurnContext};
     pub use openhuman_core::core::all::{ControllerExtension, DomainGroup};
-    pub use openhuman_core::core::server_launcher::{ServeRequest, ServerLauncher};
+    pub use openhuman_core::core::server_launcher::{HostBoot, ServeRequest, ServerLauncher};
     pub use openhuman_core::security::SecurityPolicy;
 }
 
