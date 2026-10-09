@@ -272,6 +272,15 @@ pub async fn sweep_expired_parked_runs(config: &Config) -> usize {
 pub async fn sweep_orphaned_running_runs_on_boot(config: &Config) -> usize {
     // `local`, then every agent that keeps its runs in its own storage scope
     // (`crate::storage::agents`).
+    //
+    // On a backend other processes share (MongoDB), a `running` row below the
+    // boot floor can belong to a run another replica is still driving, and
+    // sweeping it would drop that run's checkpoint — so the agent scopes are
+    // left alone there, as the agent run reaper does.
+    if crate::storage::installed_is_shared() && !crate::core::runtime::mode::is_saas() {
+        tracing::info!(target: "flows", "[flows] boot sweep: agent scopes skipped, the storage backend is shared");
+        return sweep_orphaned_running_runs_in_scope(config).await;
+    }
     crate::storage::agents::for_each_scope("flows boot sweep", || {
         sweep_orphaned_running_runs_in_scope(config)
     })

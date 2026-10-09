@@ -37,7 +37,11 @@ use crate::core::runtime::CoreContext;
 const AGENTS: &str = "storage_agents";
 
 /// Live agent contexts, by agent id.
-static LIVE: LazyLock<Mutex<BTreeMap<String, Weak<CoreContext>>>> = LazyLock::new(Default::default);
+///
+/// Several contexts can name one agent (each `derive_with` makes one), so each
+/// agent keeps all of its live contexts, newest last.
+static LIVE: LazyLock<Mutex<BTreeMap<String, Vec<Weak<CoreContext>>>>> =
+    LazyLock::new(Default::default);
 
 /// Agent ids this process has already recorded in the backend.
 static RECORDED: LazyLock<Mutex<HashSet<String>>> = LazyLock::new(Default::default);
@@ -47,12 +51,26 @@ static RECORDED: LazyLock<Mutex<HashSet<String>>> = LazyLock::new(Default::defau
 /// context through here.
 pub fn registered(context: Arc<CoreContext>) -> Arc<CoreContext> {
     if let Some(agent) = context.session_agent() {
-        LIVE.lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .insert(agent.to_string(), Arc::downgrade(&context));
+        let mut live = LIVE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let contexts = live.entry(agent.to_string()).or_default();
+        contexts.retain(|existing| existing.strong_count() > 0);
+        contexts.push(Arc::downgrade(&context));
+        drop(live);
         record(agent);
     }
     context
+}
+
+/// Forgets which agents were recorded, so the next [`record`] writes them to
+/// the backend now installed (or removed). Called by [`super::install`] and
+/// [`super::clear`]: the record cache describes one backend, not the process.
+pub(super) fn reset_recorded() {
+    RECORDED
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clear();
 }
 
 /// Records every live agent in the backend — for agents derived before the
@@ -80,6 +98,11 @@ fn record(agent: &str) {
     let Some(backend) = installed() else {
         return;
     };
+    record_in(backend, agent);
+}
+
+/// [`record`] against an explicit `backend`.
+fn record_in(backend: Arc<dyn StorageBackend>, agent: &str) {
     if RECORDED
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -125,26 +148,39 @@ fn recorded(backend: Arc<dyn StorageBackend>) -> Vec<String> {
 /// The agents [`for_each_scope`] visits, each with the context to visit it
 /// under: its live context when one exists, else `fallback` acting for it.
 fn agent_contexts(fallback: Option<&Arc<CoreContext>>) -> Vec<(String, Arc<CoreContext>)> {
+    let backend = if crate::core::runtime::mode::is_saas() {
+        None
+    } else {
+        installed()
+    };
+    agent_contexts_in(backend, fallback)
+}
+
+/// [`agent_contexts`] with the backend whose recorded agents are visited
+/// made explicit (`None` visits live contexts only).
+fn agent_contexts_in(
+    backend: Option<Arc<dyn StorageBackend>>,
+    fallback: Option<&Arc<CoreContext>>,
+) -> Vec<(String, Arc<CoreContext>)> {
     let mut contexts: BTreeMap<String, Arc<CoreContext>> = BTreeMap::new();
     {
         let mut live = LIVE
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        live.retain(|agent, context| match context.upgrade() {
-            Some(context) => {
+        live.retain(|agent, entries| {
+            entries.retain(|entry| entry.strong_count() > 0);
+            // The newest context that is still alive acts for the agent.
+            if let Some(context) = entries.iter().rev().find_map(Weak::upgrade) {
                 contexts.insert(agent.clone(), context);
-                true
             }
-            None => false,
+            !entries.is_empty()
         });
     }
-    if !crate::core::runtime::mode::is_saas() {
-        if let (Some(backend), Some(fallback)) = (installed(), fallback) {
-            for agent in recorded(backend) {
-                contexts
-                    .entry(agent.clone())
-                    .or_insert_with(|| fallback.for_agent(&agent));
-            }
+    if let (Some(backend), Some(fallback)) = (backend, fallback) {
+        for agent in recorded(backend) {
+            contexts
+                .entry(agent.clone())
+                .or_insert_with(|| fallback.for_agent(&agent));
         }
     }
     contexts.into_iter().collect()
@@ -157,7 +193,7 @@ pub fn context_for(agent: &str) -> Option<Arc<CoreContext>> {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .get(agent)
-        .and_then(Weak::upgrade);
+        .and_then(|entries| entries.iter().rev().find_map(Weak::upgrade));
     live.or_else(|| CoreContext::current().map(|current| current.for_agent(agent)))
 }
 

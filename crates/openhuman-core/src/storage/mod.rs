@@ -104,6 +104,8 @@ pub async fn open(url: &str) -> Result<Arc<dyn StorageBackend>, StorageError> {
 /// Makes `backend` the process's storage backend; returns the previous one.
 pub fn install(backend: Arc<dyn StorageBackend>) -> Option<Arc<dyn StorageBackend>> {
     let previous = BACKEND.install(backend);
+    // What was recorded described the previous backend.
+    agents::reset_recorded();
     // Agents derived before the backend existed still need recording.
     agents::record_live();
     previous
@@ -116,6 +118,7 @@ pub fn installed() -> Option<Arc<dyn StorageBackend>> {
 
 /// Removes the installed backend; returns whether there was one.
 pub fn clear() -> bool {
+    agents::reset_recorded();
     BACKEND.clear()
 }
 
