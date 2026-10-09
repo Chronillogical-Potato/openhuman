@@ -12,6 +12,7 @@ mod permanent;
 mod tool_rules;
 #[path = "runtime_session_turn.rs"]
 mod turn;
+pub(super) use turn::begin_turn_resume;
 
 use std::sync::Arc;
 
@@ -101,14 +102,6 @@ struct OpenHumanTurnPrelude {
     /// `ToolSnapshot`; this host surface is the source used to create it.
     tool_surface: Arc<std::sync::Mutex<OpenHumanTurnToolSurface>>,
     mutable: Arc<std::sync::Mutex<OpenHumanTurnPreludeMutable>>,
-}
-
-pub(super) fn begin_turn_resume(state: &mut OpenHumanSessionState, resume: &mut ResumeMode) {
-    let overrides = std::mem::take(&mut state.pending_turn_overrides);
-    if overrides.suppress_transcript_autoload {
-        *resume = ResumeMode::Never;
-    }
-    state.active_turn_overrides = overrides;
 }
 
 /// Host-owned tool composition from which one runtime request is prepared.
