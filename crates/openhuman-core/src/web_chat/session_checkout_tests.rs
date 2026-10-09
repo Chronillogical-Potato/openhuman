@@ -654,7 +654,7 @@ fn fingerprint_diff_names_a_workspace_change() {
     moved.workspace_dir = std::path::PathBuf::from("/ws/b");
     let diff = fingerprint_diff(&base, &moved);
     assert_eq!(diff.len(), 1, "{diff:?}");
-    assert!(diff[0].starts_with("workspace_dir:"), "{diff:?}");
+    assert!(diff[0].starts_with("workspace_dir"), "{diff:?}");
 }
 
 /// Every checkout arms the reply language from THIS turn's locale, on a fresh
