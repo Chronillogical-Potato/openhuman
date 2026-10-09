@@ -365,6 +365,11 @@ fn parse_json_reply(text: &str) -> Option<Value> {
 }
 
 /// What a [`CompletionObserver`] sees for each call.
+///
+/// The request and response carry the full message text, images and model
+/// output, because that is what the host sent and got back. The route bearer
+/// is never included. An observer that exports traces decides what leaves the
+/// process, and should redact content if its sink must not hold it.
 #[derive(Debug)]
 pub struct CompletionTrace<'a> {
     /// The request as the host built it. The route's bearer is never part of
@@ -461,23 +466,48 @@ impl Completer {
     async fn dispatch(&self, request: CompletionRequest) -> Result<CompletionResponse, CoreError> {
         let endpoint = self.checked_endpoint(&request)?;
         let format = request.response_format.clone();
+        let model = request.model.clone();
+        log::debug!(
+            "[embed] complete start method={COMPLETE} model={model} messages={}",
+            request.messages.len()
+        );
         let call = openhuman_core::inference::host_runtime::ops::complete_once(
             &endpoint,
             request.into_wire(),
         );
+        let started = std::time::Instant::now();
         let response = match self.timeout {
-            Some(limit) => tokio::time::timeout(limit, call)
-                .await
-                .map_err(|_| CoreError::Rpc {
-                    method: COMPLETE,
-                    message: format!("timed out after {}ms", limit.as_millis()),
-                })?,
+            Some(limit) => match tokio::time::timeout(limit, call).await {
+                Ok(outcome) => outcome,
+                Err(_) => {
+                    // Metadata only: method, model and elapsed time, never content.
+                    log::warn!(
+                        "[embed] complete timed out method={COMPLETE} model={model} limit_ms={} elapsed_ms={}",
+                        limit.as_millis(),
+                        started.elapsed().as_millis()
+                    );
+                    return Err(CoreError::Rpc {
+                        method: COMPLETE,
+                        message: format!("timed out after {}ms", limit.as_millis()),
+                    });
+                }
+            },
             None => call.await,
         }
-        .map_err(|message| CoreError::Rpc {
-            method: COMPLETE,
-            message,
+        .map_err(|message| {
+            log::warn!(
+                "[embed] complete failed method={COMPLETE} model={model} elapsed_ms={}",
+                started.elapsed().as_millis()
+            );
+            CoreError::Rpc {
+                method: COMPLETE,
+                message,
+            }
         })?;
+        log::debug!(
+            "[embed] complete ok method={COMPLETE} model={model} elapsed_ms={}",
+            started.elapsed().as_millis()
+        );
         Ok(CompletionResponse::from_wire(response, format.as_ref()))
     }
 

@@ -64,6 +64,14 @@ pub async fn complete_once(
                 .to_string(),
         );
     }
+    // `provider_options` is forwarded untouched, so a `tools` key there would
+    // reach the provider even though `request.tools` is empty above. The typed
+    // request fields own these keys.
+    if let Some(key) = reserved_provider_option(&request.provider_options) {
+        return Err(format!(
+            "complete_once: provider_options may not set `{key}`; use the typed request fields"
+        ));
+    }
     let model_id = request
         .model
         .as_deref()
@@ -91,6 +99,27 @@ pub async fn complete_once(
         .invoke(&(), request)
         .await
         .map_err(|e| format!("complete_once: {e}"))
+}
+
+/// Body keys that `provider_options` may not carry: the tool surface (which
+/// this op refuses) and the fields the typed request already sets.
+const RESERVED_PROVIDER_OPTIONS: &[&str] = &[
+    "model",
+    "messages",
+    "tools",
+    "tool_choice",
+    "functions",
+    "function_call",
+    "response_format",
+    "stream",
+];
+
+fn reserved_provider_option(options: &serde_json::Value) -> Option<&'static str> {
+    let object = options.as_object()?;
+    RESERVED_PROVIDER_OPTIONS
+        .iter()
+        .copied()
+        .find(|key| object.contains_key(*key))
 }
 
 #[cfg(test)]

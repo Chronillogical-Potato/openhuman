@@ -140,3 +140,13 @@ async fn requires_a_model() {
         .unwrap_err();
     assert!(err.contains("request.model is required"), "{err}");
 }
+
+#[tokio::test]
+async fn refuses_tools_smuggled_through_provider_options() {
+    let mut request = ModelRequest::new(vec![Message::user("hi")]).with_model("m".to_string());
+    request.provider_options = json!({"tools": [{"type": "function"}]});
+    let err = complete_once(&unreachable_endpoint(), request)
+        .await
+        .expect_err("tools must not reach the provider via provider_options");
+    assert!(err.contains("provider_options may not set `tools`"), "{err}");
+}
