@@ -489,8 +489,7 @@ impl SpawnAsyncSubagentTool {
                                         delivery_summary,
                                     )
                                     .await;
-                                // Terminal status is published only after the completion is durably
-                                // recorded, so a racing cancel that sees `already_finished` can rely on it.
+                                // Status is published only after the completion is recorded (a racing cancel relies on it).
                                 let _ = status_tx.send(DetachedSubagentStatus::Completed {
                                     output: outcome.output.clone(),
                                     iterations: outcome.iterations,
@@ -565,8 +564,6 @@ impl SpawnAsyncSubagentTool {
                                 completion_target
                                     .completed(&outcome.task_id, &outcome.agent_id, framed)
                                     .await;
-                                // Terminal status is published only after the completion is durably
-                                // recorded, so a racing cancel that sees `already_finished` can rely on it.
                                 let _ = status_tx.send(DetachedSubagentStatus::Completed {
                                     output: framed.clone(),
                                     iterations: outcome.iterations,
@@ -623,8 +620,6 @@ impl SpawnAsyncSubagentTool {
                                 completion_target
                                     .failed(&outcome.task_id, &outcome.agent_id, &error)
                                     .await;
-                                // Terminal status is published only after the completion is durably
-                                // recorded, so a racing cancel that sees `already_finished` can rely on it.
                                 let _ = status_tx.send(DetachedSubagentStatus::Failed {
                                     error: error.clone(),
                                 });
@@ -677,8 +672,6 @@ impl SpawnAsyncSubagentTool {
                                         checkpoint.is_some(),
                                     )
                                     .await;
-                                // Terminal status is published only after the completion is durably
-                                // recorded, so a racing cancel that sees `already_finished` can rely on it.
                                 let _ = status_tx.send(DetachedSubagentStatus::AwaitingUser {
                                     question: question.clone(),
                                 });
@@ -728,8 +721,6 @@ impl SpawnAsyncSubagentTool {
                         completion_target
                             .failed(&background_task_id, &background_agent_id, &error)
                             .await;
-                        // Terminal status is published only after the completion is durably
-                        // recorded, so a racing cancel that sees `already_finished` can rely on it.
                         let _ = status_tx.send(DetachedSubagentStatus::Failed {
                             error: error.clone(),
                         });
