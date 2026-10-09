@@ -127,7 +127,7 @@ Most harnesses run one heavy process per agent and resend a big prompt on every 
 
 ## Major innovations
 
-Speed and density are the result of a few design choices that most harnesses do not make. Each one is open source, documented and small enough to read in an afternoon.
+The speed and density above come from a handful of design choices most harnesses do not make. Each card links to the docs and the open-source code behind it.
 
 <table>
 
