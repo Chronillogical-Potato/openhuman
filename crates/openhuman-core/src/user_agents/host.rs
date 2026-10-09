@@ -107,8 +107,19 @@ impl AgentHost {
 
     /// Close agent `id` and archive its state under `<root>/deprovisioned/`.
     /// Nothing is deleted. Returns whether there was such an agent.
+    ///
+    /// The open-agent lock is held for the whole operation, so no `open` can
+    /// re-open the agent between closing it and moving its directory. An
+    /// agent still in use (a request holds its state) is not archived from
+    /// under it: deprovisioning fails and can be retried.
     pub fn deprovision(&self, id: &UserAgentId) -> Result<bool, String> {
-        self.lock().remove(id);
+        let mut open = self.lock();
+        if let Some(slot) = open.get(id) {
+            if Arc::strong_count(&slot.state) > 1 {
+                return Err(format!("agent {id} is in use; try again shortly"));
+            }
+        }
+        open.remove(id);
         let layout = self.layout(id);
         if !layout.dir.exists() {
             return Ok(false);
@@ -116,9 +127,15 @@ impl AgentHost {
         let archive = layout::archive_dir(&self.saas.root);
         std::fs::create_dir_all(&archive)
             .map_err(|e| format!("creating {}: {e}", archive.display()))?;
-        let dest = archive.join(format!("{id}-{}", unix_now()));
+        // Unique even when one user is deprovisioned twice in a second.
+        let dest = archive.join(format!(
+            "{id}-{}-{}",
+            unix_now(),
+            uuid::Uuid::new_v4().simple()
+        ));
         std::fs::rename(&layout.dir, &dest)
             .map_err(|e| format!("archiving {}: {e}", layout.dir.display()))?;
+        drop(open);
         log::info!("[user_agents] deprovisioned agent={id} (archived)");
         Ok(true)
     }
