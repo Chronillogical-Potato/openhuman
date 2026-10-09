@@ -37,8 +37,7 @@ use crate::core::runtime::CoreContext;
 const AGENTS: &str = "storage_agents";
 
 /// Live agent contexts, by agent id.
-static LIVE: LazyLock<Mutex<BTreeMap<String, Weak<CoreContext>>>> =
-    LazyLock::new(Default::default);
+static LIVE: LazyLock<Mutex<BTreeMap<String, Weak<CoreContext>>>> = LazyLock::new(Default::default);
 
 /// Agent ids this process has already recorded in the backend.
 static RECORDED: LazyLock<Mutex<HashSet<String>>> = LazyLock::new(Default::default);
@@ -128,7 +127,9 @@ fn recorded(backend: Arc<dyn StorageBackend>) -> Vec<String> {
 fn agent_contexts(fallback: Option<&Arc<CoreContext>>) -> Vec<(String, Arc<CoreContext>)> {
     let mut contexts: BTreeMap<String, Arc<CoreContext>> = BTreeMap::new();
     {
-        let mut live = LIVE.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut live = LIVE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         live.retain(|agent, context| match context.upgrade() {
             Some(context) => {
                 contexts.insert(agent.clone(), context);
