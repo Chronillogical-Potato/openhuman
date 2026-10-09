@@ -1,0 +1,183 @@
+//! The agents that keep records in their own storage scope, and a way for
+//! background work to visit each of them.
+//!
+//! Work done inside an agent's turn runs under that agent's `CoreContext`
+//! (`session_agent`), so with a storage backend installed its cron jobs,
+//! flows, approvals and the rest land in that agent's scope. Background work
+//! — the cron scheduler, pollers, boot sweeps — runs under the process
+//! default context, which names no agent, and on its own would only ever see
+//! the `local` scope. [`for_each_scope`] closes that gap: it runs a step once
+//! for `local` and once under each known agent's context.
+//!
+//! An agent is known when a context is derived for it in this process
+//! ([`registered`], called by `CoreContext::derive_with`) — the live context
+//! is used, with the agent's own configuration — or when an earlier process
+//! did and recorded its id in the backend's `local` scope
+//! (`storage_agents`), so a restart still visits agents the host has not
+//! re-created yet; those are visited under the default context with the
+//! agent swapped in (`CoreContext::for_agent`).
+//!
+//! Without a backend nothing here changes behavior: the SQLite stores do not
+//! split by agent, so [`for_each_scope`] runs the step once. In SaaS mode the
+//! process has no `local` scope and per-user background work is driven by
+//! `user_agents::background`, so agent ids are not recorded and
+//! [`for_each_scope`] visits only live agent contexts.
+
+use std::collections::{BTreeMap, HashSet};
+use std::future::Future;
+use std::sync::{Arc, LazyLock, Mutex, Weak};
+
+use serde_json::json;
+use tinystoragedrivers::{CollectionSpec, Precondition, Query, Scope};
+
+use super::{block_on, installed, DocumentStoreExt, StorageBackend};
+use crate::core::runtime::CoreContext;
+
+/// The `local`-scope collection recording which agents have their own scope.
+const AGENTS: &str = "storage_agents";
+
+/// Live agent contexts, by agent id.
+static LIVE: LazyLock<Mutex<BTreeMap<String, Weak<CoreContext>>>> =
+    LazyLock::new(Default::default);
+
+/// Agent ids this process has already recorded in the backend.
+static RECORDED: LazyLock<Mutex<HashSet<String>>> = LazyLock::new(Default::default);
+
+/// Records `context` as its agent's live context (when it names one) and
+/// returns it unchanged. `CoreContext::derive_with` passes every derived
+/// context through here.
+pub fn registered(context: Arc<CoreContext>) -> Arc<CoreContext> {
+    if let Some(agent) = context.session_agent() {
+        LIVE.lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(agent.to_string(), Arc::downgrade(&context));
+        record(agent);
+    }
+    context
+}
+
+/// Records every live agent in the backend — for agents derived before the
+/// host installed its backend. Called by [`super::install`].
+pub(super) fn record_live() {
+    let agents: Vec<String> = LIVE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .keys()
+        .cloned()
+        .collect();
+    for agent in agents {
+        record(&agent);
+    }
+}
+
+/// Writes `agent` to the backend's `storage_agents` collection, once per
+/// process. Best effort: a failure is logged and retried on the next
+/// registration, and only costs a restarted process its visits to that
+/// agent until the agent is derived again.
+fn record(agent: &str) {
+    if crate::core::runtime::mode::is_saas() {
+        return;
+    }
+    let Some(backend) = installed() else {
+        return;
+    };
+    if RECORDED
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .contains(agent)
+    {
+        return;
+    }
+    let id = agent.to_string();
+    let result = block_on(async move {
+        let docs = Arc::clone(backend.for_scope(&Scope::local())?.documents());
+        docs.ensure_collection(&CollectionSpec::new(AGENTS)).await?;
+        docs.put(AGENTS, &id, json!({}), Precondition::None).await?;
+        Ok(())
+    });
+    match result {
+        Ok(()) => {
+            RECORDED
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .insert(agent.to_string());
+            tracing::debug!(%agent, "[storage::agents] recorded agent scope");
+        }
+        Err(error) => {
+            tracing::warn!(%agent, %error, "[storage::agents] could not record agent scope");
+        }
+    }
+}
+
+/// Agent ids recorded in the backend by this or an earlier process.
+fn recorded(backend: Arc<dyn StorageBackend>) -> Vec<String> {
+    let result = block_on(async move {
+        let docs = Arc::clone(backend.for_scope(&Scope::local())?.documents());
+        docs.ensure_collection(&CollectionSpec::new(AGENTS)).await?;
+        let stored = docs.query_all(AGENTS, &Query::all()).await?;
+        Ok(stored.into_iter().map(|doc| doc.id).collect::<Vec<_>>())
+    });
+    result.unwrap_or_else(|error| {
+        tracing::warn!(%error, "[storage::agents] could not list recorded agent scopes");
+        Vec::new()
+    })
+}
+
+/// The agents [`for_each_scope`] visits, each with the context to visit it
+/// under: its live context when one exists, else `fallback` acting for it.
+fn agent_contexts(fallback: Option<&Arc<CoreContext>>) -> Vec<(String, Arc<CoreContext>)> {
+    let mut contexts: BTreeMap<String, Arc<CoreContext>> = BTreeMap::new();
+    {
+        let mut live = LIVE.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        live.retain(|agent, context| match context.upgrade() {
+            Some(context) => {
+                contexts.insert(agent.clone(), context);
+                true
+            }
+            None => false,
+        });
+    }
+    if !crate::core::runtime::mode::is_saas() {
+        if let (Some(backend), Some(fallback)) = (installed(), fallback) {
+            for agent in recorded(backend) {
+                contexts
+                    .entry(agent.clone())
+                    .or_insert_with(|| fallback.for_agent(&agent));
+            }
+        }
+    }
+    contexts.into_iter().collect()
+}
+
+/// Runs `step` for every storage scope background work must cover: once
+/// under the current context (the `local` scope, outside SaaS mode), then —
+/// when a storage backend is installed — once under each known agent's
+/// context. Steps run one after another; each result is returned with the
+/// agent it ran for (`None` for `local`).
+///
+/// `label` names the caller in logs.
+pub async fn for_each_scope<T, F, Fut>(label: &str, step: F) -> Vec<(Option<String>, T)>
+where
+    F: Fn() -> Fut,
+    Fut: Future<Output = T>,
+{
+    let mut results = Vec::new();
+    let saas = crate::core::runtime::mode::is_saas();
+    if !saas {
+        results.push((None, step().await));
+    }
+    if installed().is_none() {
+        return results;
+    }
+    let fallback = CoreContext::current();
+    for (agent, context) in agent_contexts(fallback.as_ref()) {
+        tracing::trace!(%agent, label, "[storage::agents] visiting agent scope");
+        let value = CoreContext::scope(context, step()).await;
+        results.push((Some(agent), value));
+    }
+    results
+}
+
+#[cfg(test)]
+#[path = "agents_tests.rs"]
+mod tests;
