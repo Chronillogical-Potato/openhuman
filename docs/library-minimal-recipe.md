@@ -1,5 +1,10 @@
 # Library-minimal feature recipe
 
+> **Note.** The bench bins (`library-profile`, `rss-bench`) referenced below
+> moved to the openhuman-benchmarks repository (#6944). The `openhuman-cli`
+> `rss-bench` / `rss-bench-dhat` gates are gone; the core keeps its own
+> `rss-bench` hook for that repository.
+
 A **supported, measured** compile-time feature recipe for embedding the OpenHuman
 Rust core as a library in "opencompany" — headless, no RPC server, no Tauri
 shell, targeting 100-1000 live agents in a 2 GB RAM / 2 vCPU box.

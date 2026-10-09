@@ -122,6 +122,13 @@ pub struct AgentDefinition {
     #[serde(default)]
     pub deferred_tools: Vec<String>,
 
+    /// Pattern rules narrowing this agent's tools on every surface — the
+    /// catalogue, `tool_search` and each call — on top of [`ToolScope`] and
+    /// [`AgentDefinition::disallowed_tools`]. A `[tool_rules]` table in the
+    /// agent's TOML; see `tinytools::ToolRules` and `crate::tools::rules`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_rules: Option<tinytools::ToolRules>,
+
     // ── runtime limits ──────────────────────────────────────────────────
     /// Maximum number of tool iterations for this sub-agent's task.
     #[serde(default = "defaults::max_iterations")]

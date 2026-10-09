@@ -296,6 +296,7 @@ pub(super) async fn run_turn_via_tinyagents_body(
         ),
         has_thread,
         run_context.memory_turn.clone(),
+        run_context.tool_rules.clone(),
     );
     super::response_shape::install(&mut harness, hosted_root.is_some());
 

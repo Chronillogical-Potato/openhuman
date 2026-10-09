@@ -738,6 +738,16 @@ fn sentry_environment_defaults_to_production_when_unset() {
 //    builds (issue OPENHUMAN-TAURI-V). Tests target the pure
 //    `message_is_localhost_dev_fetch_noise` helper so the rule can be
 //    asserted without standing up a Sentry client.
+//
+//    The filter now lives in embed's shared `before_send` chain, which this
+//    shell installs; these tests pin that the chain still carries the
+//    shell's rule, under its `localhost-dev-fetch` name.
+
+use openhuman_rpc::embed::process::sentry::message_is_localhost_dev_fetch_noise;
+
+fn event_is_localhost_dev_fetch_noise(event: &sentry::protocol::Event<'static>) -> bool {
+    openhuman_rpc::embed::process::sentry::known_noise(event) == Some("localhost-dev-fetch")
+}
 
 #[test]
 fn localhost_dev_fetch_noise_drops_vite_dev_url_1420() {

@@ -577,18 +577,12 @@ has the resulting binary sizes and per-agent memory.
   dropped.
 - Build the tokio runtime yourself. A turn is a deep async state machine,
   and a nested sub-agent overflows tokio's default 2 MiB worker stack, so
-  `#[tokio::main]` is not enough. The constants live in the core crate, so
-  the host needs the `openhuman` package as a dependency to name them:
+  `#[tokio::main]` is not enough. `embed::process` builds one sized for
+  turns (`AGENT_WORKER_STACK_BYTES`, `MAX_BLOCKING_THREADS`, both re-exported
+  there), so the host needs no core dependency to name them:
 
   ```rust,no_run
-  use openhuman_core::core::runtime::{AGENT_WORKER_STACK_BYTES, MAX_BLOCKING_THREADS};
-
-  let runtime = tokio::runtime::Builder::new_multi_thread()
-      .enable_all()
-      .thread_stack_size(AGENT_WORKER_STACK_BYTES)
-      .max_blocking_threads(MAX_BLOCKING_THREADS)
-      .build()
-      .expect("tokio runtime");
+  let runtime = openhuman_embed::process::tokio_runtime().expect("tokio runtime");
   ```
 
 - Access has two halves. The autonomy tier drives `SecurityPolicy`, and the
@@ -627,8 +621,8 @@ cargo test -p openhuman-embed --features inference,mcp,skills --test runtime_age
 ```
 
 The repository-root [`examples/embed_headless.rs`](../../examples/embed_headless.rs) and [`examples/embed_kernel.rs`](../../examples/embed_kernel.rs)
-drive `CoreBuilder` directly, without this crate. They are `[[example]]`
-targets of `openhuman-cli`:
+use this crate's `Runtime` (`Runtime::builder()`, then `core_runtime().invoke`
+for raw RPC methods). They are `[[example]]` targets of `openhuman-cli`:
 `cargo run -p openhuman-cli --example embed_headless`.
 
 ## Further reading

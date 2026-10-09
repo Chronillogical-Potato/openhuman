@@ -22,8 +22,10 @@ member, don't add one.
 ## Registering a new target (read this before adding a file)
 
 These targets belong to **[`crates/openhuman-cli`](../crates/openhuman-cli/README.md)**: the crate that owns the
-`openhuman-core` binary and depends on `openhuman-tinyhumans` for the backend
-transport the core library does not carry. Its manifest sets
+`openhuman-core` binary. The binary depends on `openhuman-rpc` alone; the
+tests reach the core, `openhuman-embed` and `openhuman-tinyhumans` (the
+backend transport the core library does not carry) through that crate's
+**dev-dependencies**, so none of them becomes an edge of the shipped binary. Its manifest sets
 `autotests = false` and `autoexamples = false`, because Cargo's autodiscovery
 only scans beside the manifest and the tests live at the repo root instead.
 That means `cargo test` silently runs **nothing** for a new `tests/<name>.rs`

@@ -191,6 +191,7 @@ test("the lane plan retains the shared CI checks", () => {
     "bash scripts/ci/check-gated-test-allowlist.sh",
     "bash scripts/ci/orch-ip-gate.sh",
     "node scripts/ci/check-feature-forwarding.mjs",
+    "node scripts/ci/check-crate-chain.mjs",
     "node scripts/ci/check-module-pins.mjs",
     "node scripts/ci/check-submodule-monotonic.mjs",
     "node scripts/ci/check-toolchain-image.mjs",
@@ -224,6 +225,7 @@ test("untouched areas leave only the always-on gates", () => {
   assert.deepEqual(on, [
     "static:orch-ip-gate",
     "static:feature-forwarding",
+    "static:crate-chain",
     "static:module-pins",
     "static:submodule-monotonic",
   ]);

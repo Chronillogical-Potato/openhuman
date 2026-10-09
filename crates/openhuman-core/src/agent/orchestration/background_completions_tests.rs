@@ -722,3 +722,21 @@ async fn a_store_that_keeps_failing_degrades_to_memory_instead_of_losing_the_res
     assert_eq!(pending.len(), 1, "the result is held in memory");
     assert_eq!(pending[0].result.text, "must not be lost");
 }
+
+#[tokio::test]
+async fn concurrent_degradation_installs_one_fallback() {
+    let _guard = crate::config::TEST_ENV_LOCK.lock().await;
+    let ws = workspace();
+    let w = ws.path();
+    let failing = router_for_workspace(w);
+
+    // Two records saw the same failing router; both ask to degrade.
+    let first = degrade_to_memory(w, &failing);
+    let second = degrade_to_memory(w, &failing);
+
+    assert!(
+        Arc::ptr_eq(&first.router, &second.router),
+        "the second caller reuses the fallback the first installed"
+    );
+    assert!(Arc::ptr_eq(&entry_for(w).router, &first.router));
+}
