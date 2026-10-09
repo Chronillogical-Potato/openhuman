@@ -85,3 +85,26 @@ fn installing_one_kind_replaces_the_other() {
     );
     assert!(clear(&alice).unwrap());
 }
+
+#[test]
+fn every_profile_of_the_other_kind_is_removed() {
+    let tmp = tempfile::tempdir().unwrap();
+    let alice = agent(&tmp, "alice-profiles");
+    // A non-default, active API-key profile.
+    AuthService::from_config(&alice)
+        .store_provider_token(
+            api_key::API_KEY_PROVIDER,
+            "other",
+            "side-key",
+            HashMap::new(),
+            true,
+        )
+        .unwrap();
+    store(&alice, UserCredentialKind::Session, "jwt", None).unwrap();
+    assert_eq!(
+        resolve_backend_credential(&alice).unwrap(),
+        BackendCredential::Session("jwt".into())
+    );
+    assert!(clear(&alice).unwrap());
+    assert!(!has(&alice));
+}

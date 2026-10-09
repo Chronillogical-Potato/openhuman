@@ -49,6 +49,7 @@ pub fn store(
     if token.is_empty() {
         return Err("credential is blank".to_string());
     }
+    let _serial = replacing();
     match kind {
         UserCredentialKind::ApiKey => {
             api_key::store_api_key(config, token).map_err(|e| e.to_string())?;
@@ -76,10 +77,8 @@ pub fn store(
     // so a failure here never leaves the agent with none; it is reported so
     // the gateway can retry.
     let replaced = match kind {
-        UserCredentialKind::Session => api_key::clear_api_key(config).map_err(|e| e.to_string()),
-        UserCredentialKind::ApiKey => AuthService::from_config(config)
-            .remove_profile(APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME)
-            .map_err(|e| e.to_string()),
+        UserCredentialKind::Session => remove_provider(config, api_key::API_KEY_PROVIDER),
+        UserCredentialKind::ApiKey => remove_provider(config, APP_SESSION_PROVIDER),
     };
     if let Err(error) = replaced {
         log::warn!("[user_agents][credentials] stored {kind:?} but could not remove the other kind: {error}");
@@ -98,13 +97,50 @@ pub fn store(
     Ok(())
 }
 
-/// Remove every credential agent `config` holds. Returns whether there was one.
+/// Remove every credential agent `config` holds, under any profile name.
+/// Returns whether there was one.
 pub fn clear(config: &Config) -> Result<bool, String> {
-    let had_key = api_key::clear_api_key(config).map_err(|e| e.to_string())?;
-    let had_session = AuthService::from_config(config)
-        .remove_profile(APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME)
-        .map_err(|e| e.to_string())?;
+    let _serial = replacing();
+    let had_key = remove_provider(config, api_key::API_KEY_PROVIDER)?;
+    let had_session = remove_provider(config, APP_SESSION_PROVIDER)?;
     Ok(had_key || had_session)
+}
+
+/// Serialises credential changes, so two replacements of different kinds
+/// cannot interleave their write and their removal and leave the agent with
+/// neither. Operator credential changes are rare; one process-wide lock is
+/// enough.
+fn replacing() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    LOCK.lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// Remove every profile of `provider` in agent `config`'s store, not just the
+/// default one: the resolver would pick up any active profile left behind.
+fn remove_provider(config: &Config, provider: &str) -> Result<bool, String> {
+    let auth = AuthService::from_config(config);
+    let provider_id =
+        crate::security::credentials::normalize_provider(provider).map_err(|e| e.to_string())?;
+    let names: Vec<String> = auth
+        .load_profiles()
+        .map_err(|e| e.to_string())?
+        .profiles
+        .values()
+        .filter(|profile| profile.provider == provider_id)
+        .map(|profile| profile.profile_name.clone())
+        .collect();
+    let mut removed = false;
+    for name in names {
+        removed |= auth
+            .remove_profile(provider, &name)
+            .map_err(|e| e.to_string())?;
+    }
+    // The default profile under its legacy key, if any.
+    removed |= auth
+        .remove_profile(provider, DEFAULT_AUTH_PROFILE_NAME)
+        .map_err(|e| e.to_string())?;
+    Ok(removed)
 }
 
 /// Whether agent `config` holds a credential.
