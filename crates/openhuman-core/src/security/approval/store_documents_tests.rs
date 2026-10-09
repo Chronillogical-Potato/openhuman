@@ -1,5 +1,5 @@
 use super::*;
-use chrono::Duration;
+use chrono::{Duration, Timelike};
 use tinystoragedrivers::{MemoryStorage, Scope, StorageBackend};
 
 fn docs_in(storage: &MemoryStorage, scope: &str) -> Docs {
@@ -160,15 +160,23 @@ fn execution_is_recorded_after_a_decision_and_only_once() {
     assert_eq!(stored.doc["execution_outcome"], json!("failure"));
     let error = stored.doc["execution_error"].as_str().unwrap();
     assert!(error.chars().count() <= 512, "capped");
+    assert!(
+        !error.contains("sk-abcdefghijklmnopqrstuvwxyz"),
+        "the secret is redacted before storage: {error}"
+    );
 }
 
 #[test]
 fn recent_decisions_are_newest_first_and_capped() {
     let store = docs();
-    for id in ["a", "b", "c"] {
+    let base = Utc::now();
+    for (n, id) in ["a", "b", "c"].into_iter().enumerate() {
         store.insert_pending(&pending(id, 0, None), "s").unwrap();
-        store.decide(id, ApprovalDecision::ApproveOnce).unwrap();
-        std::thread::sleep(std::time::Duration::from_millis(5));
+        // Distinct sub-second stamps (the fixed-width format must order them).
+        let at = base + Duration::milliseconds(n as i64 * 100);
+        store
+            .decide_at(id, ApprovalDecision::ApproveOnce, at)
+            .unwrap();
     }
     store
         .insert_pending(&pending("open", 0, None), "s")
@@ -288,4 +296,79 @@ fn an_unreadable_source_context_reads_as_absent() {
 fn a_missing_error_stays_missing() {
     assert!(audit_error(None).is_none());
     assert_eq!(audit_error(Some("plain")).as_deref(), Some("plain"));
+}
+
+#[test]
+fn sub_second_timestamps_order_and_expire_on_time() {
+    let store = docs();
+    let base = Utc::now();
+    // Whole-second and sub-second values in the same second must sort by time.
+    let whole = base.with_nanosecond(0).unwrap();
+    for (id, at) in [("x", whole + Duration::milliseconds(500)), ("w", whole)] {
+        let mut p = pending(id, 0, None);
+        p.created_at = at;
+        store.insert_pending(&p, "s").unwrap();
+    }
+    let ids: Vec<String> = store
+        .list_pending()
+        .unwrap()
+        .into_iter()
+        .map(|p| p.request_id)
+        .collect();
+    assert_eq!(ids, ["w", "x"]);
+
+    // An approval due 900 ms into a second is not expired at 100 ms.
+    let due = whole + Duration::milliseconds(900);
+    let mut p = pending("late", 0, None);
+    p.expires_at = Some(due);
+    store.insert_pending(&p, "s").unwrap();
+    assert!(store
+        .expire_stale(whole + Duration::milliseconds(100))
+        .unwrap()
+        .is_empty());
+    assert_eq!(store.expire_stale(due).unwrap().len(), 1);
+}
+
+#[test]
+fn a_captured_store_decides_without_the_task_scope() {
+    let store = docs();
+    store.insert_pending(&pending("r", 0, None), "s").unwrap();
+    let config = crate::config::Config::default();
+    let decided = crate::security::approval::store::decide_captured(
+        &config,
+        &Ok(Some(store.clone())),
+        "r",
+        ApprovalDecision::Deny,
+    )
+    .unwrap();
+    assert_eq!(decided.map(|p| p.request_id), Some("r".to_string()));
+}
+
+#[test]
+fn an_unresolved_scope_fails_the_captured_decide_instead_of_using_sqlite() {
+    let config = crate::config::Config::default();
+    let captured = Err("no acting agent".to_string());
+    let error = crate::security::approval::store::decide_captured(
+        &config,
+        &captured,
+        "r",
+        ApprovalDecision::Deny,
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("unresolved"), "{error}");
+}
+
+#[test]
+fn expiry_is_compared_below_a_millisecond() {
+    let store = docs();
+    let whole = Utc::now().with_nanosecond(0).unwrap();
+    let due = whole + Duration::nanoseconds(900_000);
+    let mut p = pending("tight", 0, None);
+    p.expires_at = Some(due);
+    store.insert_pending(&p, "s").unwrap();
+    assert!(store
+        .expire_stale(whole + Duration::nanoseconds(100_000))
+        .unwrap()
+        .is_empty());
+    assert_eq!(store.expire_stale(due).unwrap().len(), 1);
 }
