@@ -316,8 +316,7 @@ impl Docs {
                 .limit(limit.max(1));
         self.0.run(|docs| async move {
             let page = docs.query(INGESTED, &query).await?;
-            Ok(page
-                .items
+            page.items
                 .iter()
                 .map(|stored| {
                     let raw = text(&stored.doc, "payload").ok_or_else(|| {
@@ -333,7 +332,7 @@ impl Docs {
                         ))
                     })
                 })
-                .collect::<Result<Vec<NormalizedTask>, StorageError>>()?)
+                .collect::<Result<Vec<NormalizedTask>, StorageError>>()
         })
     }
 
