@@ -402,7 +402,7 @@ impl OpenhumanEventBridge {
             iteration,
             charged_from_provider = carried
                 .as_ref()
-                .map(|u| u.charged_amount_usd > 0.0)
+                .map(|u| !u.cost_is_estimate && u.charged_amount_usd > 0.0)
                 .unwrap_or(false),
             call_cost,
             context_window,

@@ -417,7 +417,10 @@ pub(in super::super) async fn run_subagent_via_graph(
                     .with_cached_input_tokens(u.cached_input_tokens())
                     .with_cache_creation_tokens(u.cache_creation_tokens)
                     .with_reasoning_tokens(u.reasoning_tokens);
-                    let billed = if u.charged_amount_usd.is_finite() && u.charged_amount_usd > 0.0 {
+                    let billed = if !u.cost_is_estimate
+                        && u.charged_amount_usd.is_finite()
+                        && u.charged_amount_usd > 0.0
+                    {
                         billed.with_charged_usd(call_cost)
                     } else {
                         billed.with_estimated_usd(call_cost)
