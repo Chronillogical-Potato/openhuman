@@ -26,7 +26,7 @@ use super::store::{apply_patch, content_hash, IngestedTaskRef};
 use super::types::{FetchReason, FilterSpec, ProviderSlug, SourceTarget, TaskSource, TaskSourcePatch};
 use crate::integrations::composio::providers::NormalizedTask;
 use crate::storage::documents::{compare_and_swap, text, Repo};
-use crate::storage::{DocumentStoreExt, ScopedStorage, StorageError};
+use crate::storage::{DocumentStoreExt, ScopedStorage};
 
 const SOURCES: &str = "task_sources";
 const INGESTED: &str = "ingested_tasks";
@@ -297,15 +297,6 @@ impl Docs {
         })
     }
 }
-
-impl From<StorageError> for TaskSourceStorageError {
-    fn from(error: StorageError) -> Self {
-        Self(error)
-    }
-}
-
-/// Unused marker kept private; storage errors surface through [`Repo::run`].
-struct TaskSourceStorageError(#[allow(dead_code)] StorageError);
 
 #[cfg(test)]
 #[path = "store_documents_tests.rs"]
