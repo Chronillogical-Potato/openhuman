@@ -285,14 +285,14 @@ fn sandbox_problems(inputs: &BootInputs<'_>) -> Vec<String> {
     if !inputs.sandbox_available {
         problems.push("host_shell is allowlisted but Docker is not available".to_string());
     }
-    if sandbox.network.trim() == "host" {
+    if crate::user_agents::tools::is_host_network(&sandbox.network) {
         problems.push("network `host` defeats the sandbox".to_string());
     }
     if sandbox.image.trim().is_empty() {
         problems.push("no image is set".to_string());
     }
-    if sandbox.memory_limit_mb == 0 || sandbox.cpu_limit.is_nan() || sandbox.cpu_limit <= 0.0 {
-        problems.push("memory_limit_mb and cpu_limit must be positive".to_string());
+    if sandbox.memory_limit_mb == 0 || !sandbox.cpu_limit.is_finite() || sandbox.cpu_limit <= 0.0 {
+        problems.push("memory_limit_mb and cpu_limit must be positive and finite".to_string());
     }
     problems
 }
