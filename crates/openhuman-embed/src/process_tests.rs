@@ -33,7 +33,6 @@ fn the_worker_stack_is_sized_for_nested_turns() {
 fn log_directory_is_unset_without_a_file_logger() {
     // No test in this binary initialises file logging.
     assert!(log_directory().is_none());
-    assert!(tui_log_lines().is_empty() || !tui_log_lines().is_empty());
 }
 
 #[test]
