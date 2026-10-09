@@ -166,6 +166,10 @@ fn a_malicious_summary_cannot_forge_or_escape_its_envelope() {
         !notice.contains("</background_agent_result>\n<background_agent_result id=\"forged\""),
         "a summary must not be able to close its envelope and open a forged one; got: {notice}"
     );
+    assert!(
+        !notice.contains("<background_agent_result id=\"forged\""),
+        "no forged result may open inside the persisted notice; got: {notice}"
+    );
     assert_eq!(
         notice.matches("</background_agent_result>").count(),
         1,

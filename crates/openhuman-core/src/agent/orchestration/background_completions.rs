@@ -682,6 +682,29 @@ pub(crate) fn forget_workspace_for_test(workspace_dir: &Path) {
     st.session_order.clear();
 }
 
+/// A temporary workspace that forgets its router when dropped, so the
+/// process-wide registry does not accumulate entries for deleted directories.
+#[cfg(test)]
+pub(crate) struct TestWorkspace(tempfile::TempDir);
+
+#[cfg(test)]
+impl TestWorkspace {
+    pub(crate) fn new() -> Self {
+        Self(tempfile::tempdir().expect("tempdir"))
+    }
+
+    pub(crate) fn path(&self) -> &Path {
+        self.0.path()
+    }
+}
+
+#[cfg(test)]
+impl Drop for TestWorkspace {
+    fn drop(&mut self) {
+        forget_workspace_for_test(self.0.path());
+    }
+}
+
 #[cfg(test)]
 #[path = "background_completions_tests.rs"]
 mod tests;

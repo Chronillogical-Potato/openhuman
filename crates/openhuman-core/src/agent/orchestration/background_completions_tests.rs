@@ -11,8 +11,8 @@ fn test_guard() -> MutexGuard<'static, ()> {
     crate::config::TEST_ENV_LOCK.blocking_lock()
 }
 
-fn workspace() -> tempfile::TempDir {
-    tempfile::tempdir().expect("tempdir")
+fn workspace() -> TestWorkspace {
+    TestWorkspace::new()
 }
 
 fn record(ws: &Path, session: &str, task: &str, summary: &str, thread: Option<&str>) {
@@ -285,7 +285,7 @@ fn record_awaiting_input_queues_a_framed_needs_input_for_delivery() {
     let pending = pending_for(w, "thread-ask");
     assert_eq!(pending.len(), 1);
     assert_eq!(
-        BackgroundAgentOutcome::from_status(pending[0].status),
+        BackgroundAgentOutcome::of(&pending[0]),
         BackgroundAgentOutcome::AwaitingInput
     );
     assert!(pending[0].result.text.contains("which repo?"));
@@ -309,7 +309,7 @@ fn the_outcome_survives_a_claim() {
         .claim_pending("thread-out", usize::MAX)
         .unwrap();
     assert_eq!(
-        BackgroundAgentOutcome::from_status(claimed[0].status),
+        BackgroundAgentOutcome::of(&claimed[0]),
         BackgroundAgentOutcome::Failed
     );
 }
@@ -461,4 +461,72 @@ fn undelivered_completions_are_found_again_after_a_restart() {
         "unseen result"
     );
     assert!(router_for_thread("thread-boot").is_some());
+}
+
+#[test]
+fn a_delete_survives_a_restart_and_is_not_lifted_by_a_new_spawn() {
+    let _guard = test_guard();
+    let ws = workspace();
+    let w = ws.path();
+    record(w, "sess-dr", "sub-1", "x", Some("thread-del-restart"));
+    assert_eq!(discard_for_thread(w, "thread-del-restart"), 1);
+
+    // A restart: memory is gone, the durable markers are not. A late child for
+    // the deleted thread must be aborted rather than treated as a user returning
+    // to a stopped thread, and its result must stay dropped.
+    forget_workspace_for_test(w);
+    assert!(mark_stopped_task_if_thread_stopped(w, "thread-del-restart", "sub-late"));
+    record(w, "sess-dr", "sub-late", "stale", Some("thread-del-restart"));
+    assert!(pending_ids(w, "thread-del-restart").is_empty());
+}
+
+#[test]
+fn in_memory_gates_drop_a_result_even_without_a_durable_marker() {
+    let _guard = test_guard();
+    let ws = workspace();
+    let w = ws.path();
+    // The gates are what protects the process if the durable cancel write fails.
+    state().deleted_threads.insert("thread-gate-del".into());
+    state().stopped_threads.insert("thread-gate-stop".into());
+    record(w, "sess-g", "sub-1", "x", Some("thread-gate-del"));
+    record(w, "sess-g", "sub-2", "y", Some("thread-gate-stop"));
+    assert!(pending_ids(w, "thread-gate-del").is_empty());
+    assert!(pending_ids(w, "thread-gate-stop").is_empty());
+    state().deleted_threads.remove("thread-gate-del");
+    state().stopped_threads.remove("thread-gate-stop");
+}
+
+#[test]
+fn clear_all_also_withdraws_a_completion_a_delivery_has_leased() {
+    let _guard = test_guard();
+    let ws = workspace();
+    let w = ws.path();
+    record(w, "sess-l", "sub-1", "x", Some("thread-leased"));
+    let router = router_for_workspace(w);
+    // A delivery claimed it: the record is leased but still pending in the store.
+    assert_eq!(router.claim_pending("thread-leased", usize::MAX).unwrap().len(), 1);
+
+    assert_eq!(clear_all(w), 1);
+
+    assert!(pending_ids(w, "thread-leased").is_empty());
+    assert_eq!(router.mark_delivered(&["sub-1"]).unwrap(), 0, "nothing left to settle");
+}
+
+#[test]
+fn the_session_cache_evicts_its_oldest_mapping_only() {
+    let _guard = test_guard();
+    for i in 0..(SESSION_THREADS_CAP + 5) {
+        note_session_thread(&format!("evict-sess-{i}"), "evict-thread");
+    }
+    assert_eq!(thread_for_session("evict-sess-0"), None, "oldest evicted");
+    assert_eq!(
+        thread_for_session(&format!("evict-sess-{}", SESSION_THREADS_CAP + 4)).as_deref(),
+        Some("evict-thread"),
+        "newest kept"
+    );
+    assert_eq!(
+        thread_for_session(&format!("evict-sess-{}", SESSION_THREADS_CAP / 2)).as_deref(),
+        Some("evict-thread"),
+        "the cache is not cleared wholesale"
+    );
 }
