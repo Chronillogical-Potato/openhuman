@@ -276,3 +276,21 @@ async fn resume_transitions_fire_the_notify() {
         .expect("sign-in (signed_out true->false) must wake the resume waiter")
         .expect("waiter task must not panic");
 }
+
+#[test]
+fn signed_out_is_never_true_in_saas() {
+    assert!(!signed_out_with(true, true));
+    assert!(!signed_out_with(true, false));
+}
+
+#[test]
+fn signed_out_follows_the_flag_in_single_user() {
+    assert!(signed_out_with(false, true));
+    assert!(!signed_out_with(false, false));
+}
+
+#[test]
+fn signed_out_writes_are_ignored_only_in_saas() {
+    assert!(!accepts_signed_out_write_with(true));
+    assert!(accepts_signed_out_write_with(false));
+}
