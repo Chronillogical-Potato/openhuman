@@ -138,3 +138,13 @@ runs as a doctest.
 ```bash
 cargo test -p openhuman-rpc session_store
 ```
+
+## Scope of the storage-backed layout
+
+A configured storage URL moves what the installed `SessionStoreProvider`
+serves: the agent loop's transcripts, turn states, records and journal. Host
+readers that still resolve `workspace/session_raw` or the workspace turn-state
+and journal files directly (thread history paging, turn-state RPCs, run replay,
+cron origin delivery, graph subagent transcripts) have not moved onto the
+provider yet and are tracked as follow-ups; until they do, treat a storage URL
+as opt-in and not yet a drop-in for the desktop layout.
