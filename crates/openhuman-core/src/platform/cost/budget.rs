@@ -140,20 +140,22 @@ pub fn evaluate(
                 continue;
             }
             spent_usd += usage.cost_usd;
-            tokens += usage.input_tokens + usage.output_tokens;
+            // Saturating: a corrupt record must not wrap a total back under
+            // its limit.
+            tokens = tokens.saturating_add(usage.input_tokens.saturating_add(usage.output_tokens));
         }
         let over = |spent: f64, max: Option<f64>, fraction: f64| {
             max.is_some_and(|max| max >= 0.0 && spent >= max * fraction)
         };
         let warn_fraction = policy.warn_fraction.clamp(0.0, 1.0);
+        // Token limits compare as integers; only the warn threshold, a
+        // fraction of the limit, is computed in floating point.
         let exceeded = over(spent_usd, policy.max_usd, 1.0)
-            || over(tokens as f64, policy.max_tokens.map(|t| t as f64), 1.0);
+            || policy.max_tokens.is_some_and(|max| tokens >= max);
         let warning = over(spent_usd, policy.max_usd, warn_fraction)
-            || over(
-                tokens as f64,
-                policy.max_tokens.map(|t| t as f64),
-                warn_fraction,
-            );
+            || policy.max_tokens.is_some_and(|max| {
+                tokens >= max || (tokens as f64) >= (max as f64) * warn_fraction
+            });
         if exceeded || warning {
             verdict.hits.push(BudgetHit {
                 policy: policy
