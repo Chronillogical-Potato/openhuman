@@ -67,6 +67,17 @@ async fn a_blank_api_key_is_refused_before_the_slot_is_claimed() {
     assert!(!RUNTIME_LIVE.load(std::sync::atomic::Ordering::Acquire));
 }
 
+#[tokio::test]
+async fn a_cancelled_build_releases_the_slot() {
+    // A zero deadline polls the build once and then drops it mid-boot, as the
+    // desktop shell's startup timeout drops its server task. Whatever the
+    // single poll reached, the slot must be free afterwards.
+    let outcome =
+        tokio::time::timeout(std::time::Duration::ZERO, RuntimeBuilder::new().build()).await;
+    drop(outcome);
+    assert!(!RUNTIME_LIVE.load(std::sync::atomic::Ordering::Acquire));
+}
+
 #[test]
 fn token_defaults_to_env_or_file_and_is_overridable() {
     assert!(matches!(
