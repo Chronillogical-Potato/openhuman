@@ -114,7 +114,11 @@ pub(crate) async fn tick_live_agents(dispatcher: &mut JobDispatcher) {
                     return;
                 }
             };
-            if !crate::cron::store::db_path(&config).exists() {
+            // With a storage backend the agent's jobs live in its backend
+            // scope, not in a per-workspace SQLite file.
+            if crate::storage::installed().is_none()
+                && !crate::cron::store::db_path(&config).exists()
+            {
                 return;
             }
             let jobs = match due_jobs(&config, Utc::now()) {
