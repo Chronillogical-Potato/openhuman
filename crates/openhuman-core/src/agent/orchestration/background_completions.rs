@@ -151,6 +151,20 @@ pub(crate) fn router_for_thread(thread_id: &str) -> Option<Arc<CompletionRouter>
     Some(router_for_workspace(&workspace))
 }
 
+/// The workspace holding `thread_id`'s completions, if known to this process.
+pub(crate) fn workspace_for_thread(thread_id: &str) -> Option<PathBuf> {
+    state().thread_workspaces.get(thread_id).cloned()
+}
+
+/// Claim `workspace_dir`'s boot recovery for this process. `true` exactly once
+/// per workspace, so the host can scan every workspace it opens (the bootstrap
+/// one, then any other a spawn later opens) without rescanning.
+pub(crate) fn claim_recovery(workspace_dir: &Path) -> bool {
+    state()
+        .recovered_workspaces
+        .insert(workspace_dir.to_path_buf())
+}
+
 /// Remember that `session_id` is a turn on `thread_id`.
 pub(crate) fn note_session_thread(session_id: &str, thread_id: &str) {
     let mut st = state();
@@ -409,22 +423,26 @@ pub(crate) fn mark_collected(workspace_dir: &Path, task_id: &str) -> bool {
 
 /// Drop every queued completion for `thread_id` and everything that finishes
 /// for it later. Called when the thread is deleted: the router's cancelled-parent
-/// marker is durable, so a straggler that wins the cooperative-abort race — or
-/// finishes after a restart — is dropped rather than delivered into a thread that
-/// no longer exists. Returns the number of queued completions removed.
-pub(crate) fn discard_for_thread(thread_id: &str) -> usize {
-    let Some(router) = router_for_thread(thread_id) else {
-        return 0;
-    };
-    let removed = router.cancel_parent(thread_id).unwrap_or_else(|error| {
-        log::error!(
-            "[background_completions] cancel_parent failed thread_id={thread_id} error={error}"
-        );
-        0
-    });
-    let mut st = state();
-    st.thread_workspaces.remove(thread_id);
-    st.stopped_threads.remove(thread_id);
+/// marker is durable, and the thread is also remembered as deleted in memory, so
+/// a straggler that wins the cooperative-abort race, a child that registers after
+/// the delete, or a result that finishes after a restart is dropped rather than
+/// delivered into a thread that no longer exists. Takes the caller's workspace so
+/// the marker is written even when no child of the thread was seen by this
+/// process. Returns the number of queued completions removed.
+pub(crate) fn discard_for_thread(workspace_dir: &Path, thread_id: &str) -> usize {
+    {
+        let mut st = state();
+        st.deleted_threads.insert(thread_id.to_string());
+        st.stopped_threads.remove(thread_id);
+    }
+    let removed = router_for_workspace(workspace_dir)
+        .cancel_parent(thread_id)
+        .unwrap_or_else(|error| {
+            log::error!(
+                "[background_completions] cancel_parent failed thread_id={thread_id} error={error}"
+            );
+            0
+        });
     log::debug!(
         "[background_completions] discard_for_thread thread_id={thread_id} removed={removed}"
     );
@@ -489,16 +507,17 @@ pub(crate) fn resume_stopped_thread(thread_id: &str) {
     }
 }
 
-/// Record a child that registers while its parent thread is stopped.
+/// Record a child that registers while its parent thread is stopped or deleted.
 ///
-/// Registration happens after the detached task is spawned. If Stop races that
-/// narrow interval the registry sweep cannot see the child; tombstoning its task
-/// id here keeps it rejected even after a later user turn reopens the thread.
-/// Also notes which workspace holds the thread's completions, so a later
-/// thread-scoped Stop or delete can find the router. The first child this
-/// process spawns on a thread lifts any cancelled-parent marker an earlier
-/// process left behind (a Stop before a restart): a live spawn proves the user
-/// re-engaged the thread. Returns whether the thread is stopped.
+/// Registration happens after the detached task is spawned. If Stop (or delete)
+/// races that narrow interval the registry sweep cannot see the child;
+/// tombstoning its task id here keeps it rejected even after a later user turn
+/// reopens a stopped thread. Also notes which workspace holds the thread's
+/// completions, so a later thread-scoped Stop can find the router. The first
+/// child this process spawns on a (not deleted) thread lifts any
+/// cancelled-parent marker an earlier process left behind (a Stop before a
+/// restart): a live spawn proves the user re-engaged the thread. Returns whether
+/// the child must be aborted.
 pub(crate) fn mark_stopped_task_if_thread_stopped(
     workspace_dir: &Path,
     thread_id: &str,
@@ -510,7 +529,9 @@ pub(crate) fn mark_stopped_task_if_thread_stopped(
             .thread_workspaces
             .insert(thread_id.to_string(), workspace_dir.to_path_buf())
             .is_none();
-        (first_sight, st.stopped_threads.contains(thread_id))
+        let stopped =
+            st.stopped_threads.contains(thread_id) || st.deleted_threads.contains(thread_id);
+        (first_sight, stopped)
     };
     let router = router_for_workspace(workspace_dir);
     if stopped {
@@ -525,23 +546,23 @@ pub(crate) fn mark_stopped_task_if_thread_stopped(
     false
 }
 
-/// Withdraw every queued completion across all open workspaces. Called on a full
-/// thread purge; each thread with undelivered results is cancelled durably, so
-/// stragglers are still dropped. Returns the number of completions removed.
-pub(crate) fn clear_all() -> usize {
-    let entries: Vec<Arc<Entry>> = state().routers.values().cloned().collect();
+/// Withdraw every queued completion of `workspace_dir`. Called on a full thread
+/// purge of that workspace; each thread with undelivered results is cancelled
+/// durably (and remembered as deleted), so stragglers are still dropped. Other
+/// workspaces are untouched. Returns the number of completions removed.
+pub(crate) fn clear_all(workspace_dir: &Path) -> usize {
+    let entry = entry_for(workspace_dir);
+    let parents: HashSet<String> = entry
+        .store
+        .list(None)
+        .into_iter()
+        .filter(|r| r.state == CompletionState::Pending && !r.parent_key.is_empty())
+        .map(|r| r.parent_key)
+        .collect();
     let mut removed = 0;
-    for entry in entries {
-        let parents: HashSet<String> = entry
-            .store
-            .list(None)
-            .into_iter()
-            .filter(|r| r.state == CompletionState::Pending && !r.parent_key.is_empty())
-            .map(|r| r.parent_key)
-            .collect();
-        for parent in parents {
-            removed += entry.router.cancel_parent(&parent).unwrap_or(0);
-        }
+    for parent in parents {
+        state().deleted_threads.insert(parent.clone());
+        removed += entry.router.cancel_parent(&parent).unwrap_or(0);
     }
     log::debug!("[background_completions] clear_all removed={removed}");
     removed
@@ -602,7 +623,9 @@ pub(crate) fn forget_workspace_for_test(workspace_dir: &Path) {
     for thread in gone {
         st.thread_workspaces.remove(&thread);
         st.stopped_threads.remove(&thread);
+        st.deleted_threads.remove(&thread);
     }
+    st.recovered_workspaces.remove(workspace_dir);
     st.session_threads.clear();
 }
 
