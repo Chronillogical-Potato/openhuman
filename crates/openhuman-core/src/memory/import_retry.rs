@@ -72,7 +72,7 @@ pub(super) fn begin_retry(
         failed = file.failed.len(),
         "[memory:import] retrying failed items"
     );
-    tokio::spawn(async move {
+    crate::core::runtime::spawn_scoped(async move {
         retry_run(&workspace_dir, &bound, file, paused).await;
         RUNNING
             .lock()
@@ -113,7 +113,7 @@ async fn retry_run(
         .filter(|id| !id.is_empty())
         .collect();
     let reader_dir = workspace_dir.to_path_buf();
-    let items = tokio::task::spawn_blocking(move || {
+    let items = crate::core::runtime::spawn_blocking_scoped(move || {
         let workspace = LegacyWorkspace::open(&reader_dir).map_err(|error| error.to_string())?;
         workspace
             .items()
