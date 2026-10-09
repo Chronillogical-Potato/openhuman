@@ -150,6 +150,27 @@ fn agent_contexts(fallback: Option<&Arc<CoreContext>>) -> Vec<(String, Arc<CoreC
     contexts.into_iter().collect()
 }
 
+/// The context to act for `agent` under: its live context when one exists,
+/// else the current context acting for it (`CoreContext::for_agent`).
+pub fn context_for(agent: &str) -> Option<Arc<CoreContext>> {
+    let live = LIVE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(agent)
+        .and_then(Weak::upgrade);
+    live.or_else(|| CoreContext::current().map(|current| current.for_agent(agent)))
+}
+
+/// Runs `fut` acting for `agent` when there is one — background work that
+/// learned whose record it is handling (a device's pairing agent, an event's
+/// publisher) re-enters that agent's scope — and as-is otherwise.
+pub async fn within_agent<F: Future>(agent: Option<&str>, fut: F) -> F::Output {
+    match agent.and_then(context_for) {
+        Some(context) => CoreContext::scope(context, fut).await,
+        None => fut.await,
+    }
+}
+
 /// Runs `step` for every storage scope background work must cover: once
 /// under the current context (the `local` scope, outside SaaS mode), then
 /// once per known agent ([`for_each_agent`]). Each result is returned with
