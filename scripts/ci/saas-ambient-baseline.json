@@ -457,7 +457,7 @@
   {
     "rule": "home-dir",
     "path": "crates/openhuman-core/src/core/runtime/saas.rs",
-    "line": 177,
+    "line": 181,
     "text": "home: dirs::home_dir(),",
     "occurrence": 1
   },
@@ -603,13 +603,6 @@
   },
   {
     "rule": "bare-spawn",
-    "path": "crates/openhuman-core/src/desktop/notifications/rpc.rs",
-    "line": 91,
-    "text": "tokio::spawn(async move {",
-    "occurrence": 1
-  },
-  {
-    "rule": "bare-spawn",
     "path": "crates/openhuman-core/src/flows/bus/trigger.rs",
     "line": 202,
     "text": "tokio::spawn(async move {",
@@ -646,7 +639,7 @@
   {
     "rule": "bare-spawn",
     "path": "crates/openhuman-core/src/inference/host_runtime/ops/agent_chat.rs",
-    "line": 397,
+    "line": 443,
     "text": "tokio::spawn(async move { while rx.recv().await.is_some() {} });",
     "occurrence": 1
   },
@@ -1353,7 +1346,7 @@
   {
     "rule": "bare-spawn",
     "path": "crates/openhuman-core/src/web_chat/ops/state.rs",
-    "line": 88,
+    "line": 102,
     "text": "tokio::spawn(async move {",
     "occurrence": 1
   },
