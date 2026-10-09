@@ -169,11 +169,11 @@ These are the design choices behind those numbers. Each card links to the docs a
 
 <td width="50%" valign="top">
 
-<h3>One key for everything</h3>
+<h3>Deeply integrated memory</h3>
 
-<p><a href="./gitbooks/developing/tinyhumans-api-key.md">The API key</a> · <a href="./gitbooks/developing/engines.md">Supported engines</a></p>
+<p><a href="./gitbooks/features/memory.md">How memory works</a> · <a href="./gitbooks/developing/engines.md">Memory engines</a> · <a href="https://github.com/tinyhumansai/tinymemory">tinymemory</a></p>
 
-<p>One key covers AI models, search, voice and app connections, so you are not juggling ten accounts. You can still bring your own keys.</p>
+<p>Memory comes built in. Before every turn, OpenHuman picks out only what matters, within a token budget, and hands it to the AI with citations. The engine is swappable: use the default, your own CortexDB, or any engine that speaks the TinyMemory contract.</p>
 
 </td>
 
