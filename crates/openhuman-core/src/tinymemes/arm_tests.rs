@@ -10,6 +10,11 @@ fn flag_values_parse() {
     assert_eq!(mode_from(Some("ab:20")), Mode::Ab { percent: 20 });
     assert_eq!(mode_from(Some("ab:300")), Mode::Ab { percent: 100 });
     assert_eq!(mode_from(Some("ab:99999")), Mode::Ab { percent: 100 });
+    assert_eq!(
+        mode_from(Some("ab:18446744073709551616")),
+        Mode::Ab { percent: 100 }
+    );
+    assert_eq!(mode_from(Some("ab:")), Mode::Off);
     assert_eq!(mode_from(Some("ab:-5")), Mode::Off);
     assert_eq!(mode_from(Some("ab:250")), Mode::Ab { percent: 100 });
     assert_eq!(mode_from(Some("ab:100")), Mode::Ab { percent: 100 });
@@ -38,7 +43,7 @@ fn assignment_is_stable_and_respects_the_split() {
 fn bucket_is_fixed_across_builds() {
     // FNV-1a is specified, so this value must never change; a change would
     // silently move live threads between arms.
-    assert_eq!(bucket("thread-abc"), bucket("thread-abc"));
+    assert_eq!(bucket("thread-abc"), 56);
     assert_eq!(bucket(""), (0xcbf2_9ce4_8422_2325_u64 % 100) as u8);
 }
 

@@ -255,6 +255,10 @@ pub(crate) async fn run_chat_task(
             }
         }
     };
+    // The agent turn's own duration for the TinyMemes A/B log, taken before
+    // reply speech so synthesis time is not counted as turn time.
+    #[cfg(feature = "tinymemes")]
+    let turn_elapsed = turn_started.elapsed();
 
     if let Ok(ref task_result) = result {
         let speak_reply = matches!(metadata.speak_reply, Some(true));
@@ -308,7 +312,7 @@ pub(crate) async fn run_chat_task(
             message,
             &mut task_result.full_response,
             inference_budget_exceeded_user_message(),
-            turn_started.elapsed(),
+            turn_elapsed,
         )
         .await;
     }

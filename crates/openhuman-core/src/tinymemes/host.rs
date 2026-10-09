@@ -40,6 +40,9 @@ pub(crate) struct Host {
     pub(crate) engine: MemeEngine,
     dir: PathBuf,
     remixed: Mutex<VecDeque<String>>,
+    /// Held across each index snapshot and its write, so concurrent saves land
+    /// in order and an older snapshot never replaces a newer one.
+    persist: Mutex<()>,
     /// What the engine was built from; a change rebuilds it.
     fingerprint: u64,
 }
@@ -290,6 +293,7 @@ impl Host {
             engine,
             dir,
             remixed: Mutex::new(remixed),
+            persist: Mutex::new(()),
             fingerprint,
         }
     }
@@ -302,22 +306,23 @@ impl Host {
             .any(|id| id == message_id)
     }
 
+    /// Record a delivered remix. The list stays locked through the write, so
+    /// concurrent calls persist in order.
     pub(crate) fn mark_remixed(&self, message_id: String) {
-        let snapshot = {
-            let mut ids = self.remixed.lock().unwrap_or_else(|e| e.into_inner());
-            if ids.contains(&message_id) {
-                return;
-            }
-            ids.push_back(message_id);
-            cap_remixed(&mut ids);
-            serde_json::to_string(&*ids).unwrap_or_default()
-        };
+        let mut ids = self.remixed.lock().unwrap_or_else(|e| e.into_inner());
+        if ids.contains(&message_id) {
+            return;
+        }
+        ids.push_back(message_id);
+        cap_remixed(&mut ids);
+        let snapshot = serde_json::to_string(&*ids).unwrap_or_default();
         if let Err(e) = write_atomic(&self.dir.join(REMIXED_FILE), &snapshot) {
             log::warn!("[tinymemes] cannot save remixed ids: {e}");
         }
     }
 
     pub(crate) fn save_memes(&self) {
+        let _order = self.persist.lock().unwrap_or_else(|e| e.into_inner());
         let json = self.engine.meme_index().to_json();
         if let Err(e) = write_atomic(&self.dir.join(MEME_INDEX_FILE), &json) {
             log::warn!("[tinymemes] cannot save meme index: {e}");
@@ -325,6 +330,7 @@ impl Host {
     }
 
     pub(crate) fn save_index(&self) {
+        let _order = self.persist.lock().unwrap_or_else(|e| e.into_inner());
         let json = self.engine.slang_index().to_json();
         if let Err(e) = write_atomic(&self.dir.join(INDEX_FILE), &json) {
             log::warn!("[tinymemes] cannot save slang index: {e}");

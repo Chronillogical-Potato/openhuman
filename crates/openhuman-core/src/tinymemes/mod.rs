@@ -227,7 +227,7 @@ async fn remix_with(
                     }
                     Err(e) => log::warn!("[tinymemes] slang research failed: {e}"),
                 }
-                host.save_index();
+                persist(&host, |h| h.save_index()).await;
             });
         }
     }
@@ -243,11 +243,12 @@ async fn remix_with(
             let moment = user_message.to_owned();
             crate::core::runtime::spawn_scoped(async move {
                 match host.engine.learn_memes(intent, &moment).await {
+                    // The query is derived from the user's message, so it stays
+                    // out of the log; only counters are recorded.
                     Ok(Some(r)) => log::info!(
-                        "[tinymemes] meme research request_id={request_id} query={:?} found={} \
+                        "[tinymemes] meme research request_id={request_id} found={} \
                          added={} rejected_rating={} rejected_topic={} duplicates={} \
                          failed_jev={}",
-                        r.query,
                         r.found,
                         r.added,
                         r.rejected_rating,
@@ -260,15 +261,19 @@ async fn remix_with(
                     }
                     Err(e) => log::warn!("[tinymemes] meme research failed: {e}"),
                 }
-                host.save_memes();
+                persist(&host, |h| h.save_memes()).await;
             });
         }
     }
 
     let result = if remixed {
-        host.mark_remixed(crate::threads::store::run_reply_message_id(request_id));
-        host.save_index();
-        host.save_memes();
+        let id = crate::threads::store::run_reply_message_id(request_id);
+        persist(host, move |h| {
+            h.mark_remixed(id);
+            h.save_index();
+            h.save_memes();
+        })
+        .await;
         "remixed"
     } else if outcome.skipped.is_some() && outcome.rating.is_none() {
         "error"
@@ -277,6 +282,18 @@ async fn remix_with(
     };
     log_outcome(turn, started, result, Some(&outcome));
     remixed.then_some(outcome.reply)
+}
+
+/// Run state-file writes on the blocking pool: they are synchronous
+/// serialization and file I/O, and must not stall an async worker.
+async fn persist(
+    host: &std::sync::Arc<host::Host>,
+    write: impl FnOnce(&host::Host) + Send + 'static,
+) {
+    let host = host.clone();
+    if let Err(e) = crate::core::runtime::spawn_blocking_scoped(move || write(&host)).await {
+        log::warn!("[tinymemes] state write task failed: {e}");
+    }
 }
 
 fn log_outcome(

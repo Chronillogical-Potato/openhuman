@@ -59,15 +59,15 @@ pub(crate) fn mode_from(value: Option<&str>) -> Mode {
         "" | "off" | "0" | "false" | "no" => Mode::Off,
         "on" | "1" | "true" | "yes" => Mode::On,
         "ab" => Mode::Ab { percent: 50 },
-        // Parsed wide, then capped: any numeric percentage above 100 means 100.
-        other => match other
-            .strip_prefix("ab:")
-            .and_then(|p| p.trim().parse::<u64>().ok())
-        {
-            Some(percent) => Mode::Ab {
-                percent: percent.min(100) as u8,
-            },
-            None => {
+        // Any all-digit percentage above 100 means 100, including one too
+        // large for `u64`.
+        other => match other.strip_prefix("ab:").map(str::trim) {
+            Some(digits) if !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()) => {
+                Mode::Ab {
+                    percent: digits.parse::<u64>().map_or(100, |n| n.min(100)) as u8,
+                }
+            }
+            _ => {
                 log::warn!("[tinymemes] unrecognised {FLAG_ENV} value; treating as off");
                 Mode::Off
             }
