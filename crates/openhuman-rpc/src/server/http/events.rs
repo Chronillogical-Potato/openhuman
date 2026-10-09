@@ -1,11 +1,11 @@
 //! Server-Sent Event streams: `/events`, `/events/webhooks`, `/events/domain`.
 
+use crate::core_host::core::events::DomainEvent;
 use axum::extract::Query;
 use axum::http::{header, StatusCode};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
-use crate::core_host::core::events::DomainEvent;
 use serde_json::json;
 use tokio_stream::StreamExt;
 

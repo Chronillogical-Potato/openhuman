@@ -182,7 +182,9 @@ fn verify_external_inference_bearer_for_config(config: &Config, supplied: &str) 
 
     let auth = AuthService::from_config(config);
     match auth.get_provider_bearer_token(EXTERNAL_OPENAI_COMPAT_PROVIDER, None) {
-        Ok(Some(expected)) => crate::core_host::core::auth::bearer_matches(supplied, expected.trim()),
+        Ok(Some(expected)) => {
+            crate::core_host::core::auth::bearer_matches(supplied, expected.trim())
+        }
         Ok(None) => false,
         Err(err) => {
             log::warn!("[auth] failed to read external inference bearer: {err}");

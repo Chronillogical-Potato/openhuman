@@ -187,8 +187,8 @@ pub fn tui_builder() -> RuntimeBuilder {
 ///
 /// The transport or runtime could not be built.
 #[cfg(feature = "session-store")]
-pub async fn tui() -> Result<openhuman_tinyhumans::embed::Runtime, openhuman_tinyhumans::RuntimeError>
-{
+pub async fn tui(
+) -> Result<openhuman_tinyhumans::embed::Runtime, openhuman_tinyhumans::RuntimeError> {
     log::debug!("[rpc:host] tui: building connected runtime");
     let runtime = tui_builder().build().await?;
     log::info!("[rpc:host] tui: core built (DomainSet::full, ServiceSet::none)");

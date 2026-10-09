@@ -38,9 +38,9 @@ pub(crate) use openhuman_tinyhumans::embed::__host as core_host;
 
 #[cfg(feature = "http-client")]
 mod client;
+mod envelope;
 #[cfg(any(feature = "server", feature = "session-store"))]
 pub mod host;
-mod envelope;
 #[cfg(feature = "server")]
 pub mod http_host;
 mod origin;
@@ -49,11 +49,11 @@ pub mod server;
 #[cfg(feature = "session-store")]
 pub mod session_store;
 
+pub use crate::core_host::core::unwrap_rpc;
 #[cfg(feature = "http-client")]
 pub use client::{bearer_header, post_json_rpc, redact_url_for_log, HttpRpcResponse};
 pub use envelope::{
     decode_response, request_body, RpcError, RpcFailure, RpcRequest, RpcSuccess, JSONRPC_VERSION,
     SERVER_ERROR_CODE,
 };
-pub use crate::core_host::core::unwrap_rpc;
 pub use origin::{is_origin_allowed_with_extra, ALLOWED_ORIGINS_ENV};

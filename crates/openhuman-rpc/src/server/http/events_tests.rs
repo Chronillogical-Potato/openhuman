@@ -139,8 +139,8 @@ async fn domain_events_require_a_bearer() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn domain_events_stream_config_then_published_events() {
-    use futures::StreamExt;
     use crate::core_host::core::events::DomainEvent;
+    use futures::StreamExt;
     use std::ffi::OsString;
 
     let workspace = tempfile::tempdir().expect("workspace tempdir");

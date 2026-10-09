@@ -11,7 +11,10 @@ fn cli_builder_is_the_cli_preset_with_server_and_http_host() {
     assert_eq!(summary.host_kind, HostKind::detect_standalone());
     assert_eq!(summary.domains, Some(DomainSet::full()));
     assert_eq!(summary.services, Some(ServiceSet::desktop()));
-    assert!(!summary.fixed_token, "the CLI reads its bearer from env/file");
+    assert!(
+        !summary.fixed_token,
+        "the CLI reads its bearer from env/file"
+    );
     assert!(summary.has_server_launcher, "`run`/`serve` need the server");
     assert_eq!(summary.controller_extensions, vec![DomainGroup::Platform]);
 }
@@ -75,7 +78,9 @@ fn desktop_connected_builder_binds_the_transport_and_hosted_controllers() {
         .summary();
     assert!(summary.has_backend_transport);
     assert!(summary.controller_extensions.contains(&DomainGroup::Hosted));
-    assert!(summary.controller_extensions.contains(&DomainGroup::Platform));
+    assert!(summary
+        .controller_extensions
+        .contains(&DomainGroup::Platform));
 }
 
 #[cfg(feature = "session-store")]

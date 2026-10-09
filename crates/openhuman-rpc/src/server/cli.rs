@@ -16,7 +16,9 @@ pub fn install_cli_server() {
 
 /// The [`ServerLauncher`](openhuman_tinyhumans::embed::seams::ServerLauncher)
 /// behind `run` / `serve`: the standalone server shims.
-pub(crate) fn launch(request: ServeRequest) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send>> {
+pub(crate) fn launch(
+    request: ServeRequest,
+) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send>> {
     Box::pin(async move {
         log::debug!(
             "[rpc:cli] starting server host={:?} port={:?} socketio={} headless_api={}",
