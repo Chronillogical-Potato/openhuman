@@ -364,12 +364,17 @@ impl ShellTool {
 
         // SaaS: every command runs in the user's container, whatever the
         // agent's sandbox mode says, and never on the host.
-        if crate::core::runtime::is_saas() {
-            let action_dir = self.effective_action_dir_for_context(context);
-            return match crate::user_agents::tools::sandbox_policy(
-                &action_dir,
-                &self.security.workspace_dir,
-            ) {
+        let saas_action_dir = self.effective_action_dir_for_context(context);
+        if let Some(resolved) =
+            super::shell_saas::saas_sandbox_with(crate::core::runtime::is_saas(), || {
+                crate::user_agents::tools::sandbox_policy(
+                    &saas_action_dir,
+                    &self.security.workspace_dir,
+                )
+            })
+        {
+            let action_dir = saas_action_dir;
+            return match resolved {
                 Ok(policy) => {
                     self.run_in_policy(policy, command, requested_timeout, &action_dir)
                         .await
@@ -377,10 +382,7 @@ impl ShellTool {
                 Err(why) => {
                     tracing::warn!(reason = %why, "[shell] SaaS sandbox refused the command");
                     // Nothing ran: report it as not allowed.
-                    (
-                        false,
-                        ToolResult::error(format!("Sandbox unavailable: {why}")),
-                    )
+                    super::shell_saas::saas_sandbox_refusal(&why)
                 }
             };
         }
@@ -542,7 +544,7 @@ impl ShellTool {
         let mut extra_env = std::collections::HashMap::new();
         // A managed runtime's PATH names host directories, which a SaaS
         // container cannot see.
-        if !crate::core::runtime::is_saas() {
+        if super::shell_saas::passes_runtime_path_with(crate::core::runtime::is_saas()) {
             if let Some(path) = self.runtime_path_for_command(command).await {
                 extra_env.insert("PATH".into(), path.into());
             }

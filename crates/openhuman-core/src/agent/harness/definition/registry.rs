@@ -108,6 +108,17 @@ impl AgentDefinitionRegistry {
         self.by_id.is_empty()
     }
 
+    /// Whether this registry is exactly the built-in set: the same ids as
+    /// [`Self::builtins_only`] and no definition loaded from a file or
+    /// synthesized from a user entry. SaaS boot refuses anything else.
+    pub fn holds_builtins_only(&self) -> bool {
+        let builtins = Self::builtins_only();
+        self.len() == builtins.len()
+            && self.list().iter().all(|def| {
+                def.source == super::DefinitionSource::Builtin && builtins.get(&def.id).is_some()
+            })
+    }
+
     // ── singleton API ──────────────────────────────────────────────────
 
     /// Initialise the global registry. Subsequent calls are no-ops (the
