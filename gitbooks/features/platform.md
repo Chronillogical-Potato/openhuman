@@ -14,7 +14,7 @@ OpenHuman is a native desktop app. It is not a browser extension or an Electron 
 | Platform | Architectures | Distribution |
 | --- | --- | --- |
 | macOS | Intel, Apple Silicon | `.dmg` installer, Homebrew cask (can lag a release) |
-| Windows | x64, ARM64 | `.msi` installer |
+| Windows | x64 | `.msi` or `.exe` installer |
 | Linux | x64, ARM64 | `.deb`, AppImage |
 
 Download from [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman) or the [latest release](https://github.com/tinyhumansai/openhuman/releases/latest), or use the install scripts, which check the release's SHA-256. See [INSTALL.md](https://github.com/tinyhumansai/openhuman/blob/main/INSTALL.md).
