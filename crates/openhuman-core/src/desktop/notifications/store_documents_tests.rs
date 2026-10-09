@@ -168,35 +168,35 @@ fn settings_default_then_upsert() {
 #[test]
 fn core_notifications_persist_once_and_mark_read() {
     let store = docs();
-    assert!(store.insert_core_notification(&event("a", 1)).unwrap());
-    assert!(!store.insert_core_notification(&event("a", 1)).unwrap());
-    assert!(store.insert_core_notification(&event("b", 2)).unwrap());
-    let all = store.list_core_notifications(false, 10).unwrap();
+    assert!(store.insert_core_notification(WS, &event("a", 1)).unwrap());
+    assert!(!store.insert_core_notification(WS, &event("a", 1)).unwrap());
+    assert!(store.insert_core_notification(WS, &event("b", 2)).unwrap());
+    let all = store.list_core_notifications(WS, false, 10).unwrap();
     assert_eq!(
         all.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(),
         ["b", "a"]
     );
     assert_eq!(all[0], event("b", 2));
-    assert_eq!(store.unread_core_notification_count().unwrap(), 2);
-    assert!(store.mark_core_notification_read("b").unwrap());
+    assert_eq!(store.unread_core_notification_count(WS, WS).unwrap(), 2);
+    assert!(store.mark_core_notification_read(WS, "b").unwrap());
     assert!(
-        store.mark_core_notification_read("b").unwrap(),
+        store.mark_core_notification_read(WS, "b").unwrap(),
         "still exists"
     );
-    assert!(!store.mark_core_notification_read("missing").unwrap());
-    let unread = store.list_core_notifications(true, 10).unwrap();
+    assert!(!store.mark_core_notification_read(WS, "missing").unwrap());
+    let unread = store.list_core_notifications(WS, true, 10).unwrap();
     assert_eq!(
         unread.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(),
         ["a"]
     );
-    assert_eq!(store.unread_core_notification_count().unwrap(), 1);
-    assert!(store.list_core_notifications(false, 0).unwrap().is_empty());
+    assert_eq!(store.unread_core_notification_count(WS, WS).unwrap(), 1);
+    assert!(store.list_core_notifications(WS, false, 0).unwrap().is_empty());
 }
 
 #[test]
 fn a_corrupt_core_payload_is_skipped() {
     let store = docs();
-    store.insert_core_notification(&event("good", 1)).unwrap();
+    store.insert_core_notification(WS, &event("good", 1)).unwrap();
     store
         .0
         .run(|docs| async move {
@@ -210,7 +210,7 @@ fn a_corrupt_core_payload_is_skipped() {
             .map(|_| ())
         })
         .unwrap();
-    let listed = store.list_core_notifications(false, 10).unwrap();
+    let listed = store.list_core_notifications(WS, false, 10).unwrap();
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].id, "good");
 }

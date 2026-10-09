@@ -151,7 +151,7 @@ pub fn insert(config: &Config, n: &IntegrationNotification) -> Result<()> {
 /// `false` when an event with the same id already existed.
 pub fn insert_core_notification(config: &Config, event: &CoreNotificationEvent) -> Result<bool> {
     if let Some(docs) = super::store_documents::current()? {
-        return docs.insert_core_notification(event);
+        return docs.insert_core_notification(&config.workspace_dir.to_string_lossy(), event);
     }
     with_connection(config, |conn| {
         let payload = serde_json::to_string(event)
@@ -182,7 +182,7 @@ pub fn list_core_notifications(
     limit: usize,
 ) -> Result<Vec<CoreNotificationEvent>> {
     if let Some(docs) = super::store_documents::current()? {
-        return docs.list_core_notifications(only_unread, limit);
+        return docs.list_core_notifications(&config.workspace_dir.to_string_lossy(), only_unread, limit);
     }
     with_connection(config, |conn| {
         let sql = if only_unread {
@@ -220,7 +220,7 @@ pub fn list_core_notifications(
 /// next sync-down. Returns `true` when a row was updated.
 pub fn mark_core_notification_read(config: &Config, id: &str) -> Result<bool> {
     if let Some(docs) = super::store_documents::current()? {
-        return docs.mark_core_notification_read(id);
+        return docs.mark_core_notification_read(&config.workspace_dir.to_string_lossy(), id);
     }
     with_connection(config, |conn| {
         let affected = conn
@@ -236,7 +236,7 @@ pub fn mark_core_notification_read(config: &Config, id: &str) -> Result<bool> {
 /// Count unread persisted core notifications.
 pub fn unread_core_notification_count(config: &Config) -> Result<i64> {
     if let Some(docs) = super::store_documents::current()? {
-        return docs.unread_core_notification_count();
+        return docs.unread_core_notification_count(&config.workspace_dir.to_string_lossy());
     }
     with_connection(config, |conn| {
         let count: i64 = conn

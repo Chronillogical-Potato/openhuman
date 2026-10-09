@@ -58,7 +58,10 @@ fn collections() -> Vec<CollectionSpec> {
             .index(IndexSpec::new("by_status", ["status"])),
         CollectionSpec::new(DEDUP),
         CollectionSpec::new(SETTINGS),
-        CollectionSpec::new(CORE).index(IndexSpec::new("by_read", ["read", "timestamp_ms"])),
+        CollectionSpec::new(CORE).index(IndexSpec::new(
+            "by_read",
+            ["workspace", "read", "timestamp_ms"],
+        )),
     ]
 }
 
@@ -215,6 +218,13 @@ async fn release_content(
     if let Err(error) = outcome {
         tracing::warn!(%error, "[notifications::store] could not release dedup claim");
     }
+}
+
+/// The core-notification document id: the workspace is part of the key, since
+/// each workspace's events are persisted separately in the SQL store (one
+/// database per workspace) and event ids repeat across them.
+fn core_id(workspace: &str, event_id: &str) -> String {
+    format!("{}:{workspace}/{event_id}", workspace.len())
 }
 
 /// The notification store over one scoped document handle.
@@ -421,9 +431,14 @@ impl Docs {
         })
     }
 
-    pub(super) fn insert_core_notification(&self, event: &CoreNotificationEvent) -> Result<bool> {
-        let id = event.id.clone();
+    pub(super) fn insert_core_notification(
+        &self,
+        workspace: &str,
+        event: &CoreNotificationEvent,
+    ) -> Result<bool> {
+        let id = core_id(workspace, &event.id);
         let doc = json!({
+            "workspace": workspace,
             "payload": serde_json::to_string(event)
                 .context("[notifications::store] serialize core notification failed")?,
             "timestamp_ms": event.timestamp_ms,
@@ -442,16 +457,18 @@ impl Docs {
 
     pub(super) fn list_core_notifications(
         &self,
+        workspace: &str,
         only_unread: bool,
         limit: usize,
     ) -> Result<Vec<CoreNotificationEvent>> {
         if limit == 0 {
             return Ok(Vec::new());
         }
+        let in_workspace = Filter::eq("workspace", workspace);
         let filter = if only_unread {
-            Filter::eq("read", false)
+            in_workspace.and(Filter::eq("read", false))
         } else {
-            Filter::All
+            in_workspace
         };
         let query = Query::filter(filter)
             .sort(Sort::desc("timestamp_ms"))
@@ -477,8 +494,8 @@ impl Docs {
         })
     }
 
-    pub(super) fn mark_core_notification_read(&self, id: &str) -> Result<bool> {
-        let id = id.to_string();
+    pub(super) fn mark_core_notification_read(&self, workspace: &str, id: &str) -> Result<bool> {
+        let id = core_id(workspace, id);
         self.0.run(|docs| async move {
             let marked = compare_and_swap(&docs, CORE, &id, |doc| {
                 let mut next = doc.clone();
@@ -490,9 +507,10 @@ impl Docs {
         })
     }
 
-    pub(super) fn unread_core_notification_count(&self) -> Result<i64> {
+    pub(super) fn unread_core_notification_count(&self, workspace: &str) -> Result<i64> {
+        let filter = Filter::eq("workspace", workspace).and(Filter::eq("read", false));
         self.0.run(|docs| async move {
-            let count = docs.count(CORE, &Filter::eq("read", false)).await?;
+            let count = docs.count(CORE, &filter).await?;
             Ok(i64::try_from(count).unwrap_or(i64::MAX))
         })
     }
