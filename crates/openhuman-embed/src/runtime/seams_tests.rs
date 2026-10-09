@@ -25,7 +25,7 @@ impl ToolRanker for NamedRanker {
     }
 }
 
-struct NamedPostTurn(&'static str, u8);
+struct NamedPostTurn(&'static str);
 
 #[async_trait::async_trait]
 impl PostTurnHook for NamedPostTurn {
@@ -56,9 +56,8 @@ fn ranker_kind() -> Option<&'static str> {
     installed_tool_ranker().map(|ranker| ranker.kind())
 }
 
+/// How many hooks of `name` are registered, `None` for zero.
 fn post_turn_marker(name: &str) -> Option<u8> {
-    // The marker is only reachable through `Any`-free equality on the name
-    // plus a count, so count same-named hooks instead.
     let count = embedder_post_turn_hooks()
         .iter()
         .filter(|hook| hook.name() == name)
@@ -121,7 +120,7 @@ fn persisted_seams_survive_the_guard() {
     clear_tool_ranker();
     HostSeams {
         tool_ranker: Some(Arc::new(NamedRanker("seams-persisted"))),
-        post_turn_hooks: vec![Arc::new(NamedPostTurn("seams-persisted-hook", 0))],
+        post_turn_hooks: vec![Arc::new(NamedPostTurn("seams-persisted-hook"))],
         ..HostSeams::default()
     }
     .install()
@@ -135,11 +134,11 @@ fn persisted_seams_survive_the_guard() {
 
 #[test]
 fn post_turn_hooks_are_removed_and_a_replaced_one_restored() {
-    replace_embedder_post_turn_hook("seams-replaced-hook", Some(Arc::new(NamedPostTurn("seams-replaced-hook", 1))));
+    replace_embedder_post_turn_hook("seams-replaced-hook", Some(Arc::new(NamedPostTurn("seams-replaced-hook"))));
     let seams = HostSeams {
         post_turn_hooks: vec![
-            Arc::new(NamedPostTurn("seams-replaced-hook", 2)),
-            Arc::new(NamedPostTurn("seams-new-hook", 3)),
+            Arc::new(NamedPostTurn("seams-replaced-hook")),
+            Arc::new(NamedPostTurn("seams-new-hook")),
         ],
         ..HostSeams::default()
     }
@@ -184,7 +183,7 @@ fn a_live_policy_waits_for_the_core_to_boot() {
 fn builder_options_collect_into_the_seams() {
     let builder = RuntimeBuilder::new()
         .tool_ranker(Arc::new(NamedRanker("seams-builder")))
-        .post_turn_hook(Arc::new(NamedPostTurn("seams-builder-hook", 0)))
+        .post_turn_hook(Arc::new(NamedPostTurn("seams-builder-hook")))
         .tool_hook(Arc::new(NamedToolHook("seams-builder-tool")))
         .live_policy(Arc::new(SecurityPolicy::default()));
     assert!(builder.seams.tool_ranker.is_some());
