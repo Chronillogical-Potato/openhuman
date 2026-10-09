@@ -53,7 +53,7 @@ Copy the entire data folder from the old machine to the same location on the new
 - macOS and Linux: copy `~/.openhuman/` to `~/.openhuman/`.
 - Windows: copy `%USERPROFILE%\.openhuman\` to `%USERPROFILE%\.openhuman\`.
 
-Copy the whole folder instead of picking files. That keeps memory settings, persona, config and history consistent with each other.
+Copy the whole folder instead of picking files. That keeps persona, config and history consistent with each other.
 
 The data folder holds config but not the files the agent created or edited in its action sandbox. Also copy your projects folder, by default `~/OpenHuman/projects`, or wherever you pointed the action directory. Otherwise those project files stay on the old PC. That folder also holds `Files` (`~/OpenHuman/projects/Files`), where the agent saves the decks, documents, images and videos it delivers.
 
