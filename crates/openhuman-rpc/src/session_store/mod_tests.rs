@@ -117,3 +117,16 @@ async fn an_unusable_url_fails_the_boot() {
     assert!(format!("{error:#}").contains("storage"), "{error:#}");
     openhuman_core::agent::session_store::restore(previous);
 }
+
+#[tokio::test]
+async fn restoring_the_classic_layout_clears_a_previous_backend() {
+    let _turn = SLOTS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let previous = openhuman_core::agent::session_store::installed();
+    install_for_url(Some("memory".into())).await.unwrap();
+    assert!(openhuman_core::storage::installed().is_some());
+    install_for_url(None).await.unwrap();
+    assert!(openhuman_core::storage::installed().is_none());
+    openhuman_core::agent::session_store::restore(previous);
+}

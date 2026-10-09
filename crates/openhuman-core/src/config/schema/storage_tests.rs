@@ -31,7 +31,9 @@ fn debug_never_prints_credentials() {
 #[test]
 fn redact_drops_query_and_fragment_tokens() {
     assert_eq!(
-        redact_url("mongodb://db.internal/openhuman?authMechanismProperties=AWS_SESSION_TOKEN%3Asecret"),
+        redact_url(
+            "mongodb://db.internal/openhuman?authMechanismProperties=AWS_SESSION_TOKEN%3Asecret"
+        ),
         "mongodb://db.internal/openhuman?***"
     );
     assert_eq!(

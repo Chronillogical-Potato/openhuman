@@ -166,7 +166,9 @@ pub async fn install_for_host() -> anyhow::Result<()> {
         _ => {
             let config = openhuman_core::config::rpc::load_config_with_timeout()
                 .await
-                .map_err(|error| anyhow::anyhow!("loading the config to read [storage]: {error}"))?;
+                .map_err(|error| {
+                    anyhow::anyhow!("loading the config to read [storage]: {error}")
+                })?;
             openhuman_core::storage::configured_url(&config)
         }
     };
