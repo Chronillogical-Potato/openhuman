@@ -550,3 +550,24 @@ fn the_session_cache_evicts_its_oldest_mapping_only() {
         "the cache is not cleared wholesale"
     );
 }
+
+#[test]
+fn release_all_closes_every_router_and_the_log_stays_replayable() {
+    let _guard = test_guard();
+    let ws = workspace();
+    let w = ws.path();
+    record(w, "sess-rel", "sub-1", "kept on disk", Some("thread-rel"));
+
+    assert!(release_all() >= 1);
+    assert!(
+        state().routers.get(w).is_none(),
+        "the router (and its log handle) is dropped"
+    );
+    assert!(
+        workspace_for_thread("thread-rel").is_none(),
+        "process-local maps are cleared"
+    );
+
+    // The next boot finds the undelivered completion from the log alone.
+    assert_eq!(recover_pending_threads(w), ["thread-rel"]);
+}

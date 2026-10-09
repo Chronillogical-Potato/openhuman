@@ -358,6 +358,20 @@ pub(crate) async fn record_awaiting_input(
     .await;
 }
 
+/// Drop every workspace's router and all process-local state about them. Called
+/// when the core stops (`CoreRuntime::exit_cleanup`), so the completion logs'
+/// file handles close before a data reset removes their directory (Windows
+/// refuses to delete an open file) and a later boot starts from the logs alone.
+/// A delivery still in flight keeps its own router handle until it finishes; the
+/// next record or spawn reopens the log. Returns how many routers were released.
+pub(crate) fn release_all() -> usize {
+    let mut st = state();
+    let released = st.routers.len();
+    *st = HostState::default();
+    log::info!("[background_completions] released {released} router(s) on core shutdown");
+    released
+}
+
 /// Where one detached child's completion lands: its workspace (which router),
 /// the parent session (the idle gate) and the parent chat thread (the router's
 /// parent key). Built once at spawn so every terminal path records the same way.

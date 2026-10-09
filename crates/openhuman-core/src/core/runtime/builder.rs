@@ -774,6 +774,9 @@ impl CoreRuntime {
     /// to stop either: the user runs Ollama / LM Studio / MLX themselves and
     /// OpenHuman never spawns it.
     pub async fn exit_cleanup(&self) {
+        // Close the per-workspace background-completion logs (still replayable
+        // from disk on the next boot).
+        crate::agent::orchestration::release_background_completion_stores();
         log::debug!("[core] shutdown: exit cleanup done (no owned local runtime to stop)");
     }
 
