@@ -162,7 +162,10 @@ pub(crate) async fn run_chat_task(
     bridge_metadata.agent_id = Some(current_fp.target_agent_id.clone());
     // A TinyMemes treatment thread surfaces only the remixed reply, so the
     // original answer text is not streamed ahead of it.
-    bridge_metadata.hold_text_stream = crate::tinymemes::holds_text_stream(thread_id);
+    #[cfg(feature = "tinymemes")]
+    {
+        bridge_metadata.hold_text_stream = crate::tinymemes::holds_text_stream(thread_id);
+    }
     let bridge = spawn_progress_bridge(
         progress_rx,
         client_id.to_string(),
@@ -177,6 +180,7 @@ pub(crate) async fn run_chat_task(
     // wrappers below hold a pointer rather than inlining the whole future into
     // this already-large `run_chat_task` frame (which otherwise overflows the
     // default test-thread stack — see the channels web-turn coverage tests).
+    #[cfg(feature = "tinymemes")]
     let turn_started = std::time::Instant::now();
     let turn = Box::pin(agent.run_single_with_origin(message, Some(origin)));
     let mut result = match turn.await {
@@ -295,6 +299,7 @@ pub(crate) async fn run_chat_task(
     // TinyMemes: remix the final reply (slang + memes) when the flag puts this
     // thread in the treatment arm. Runs after reply speech so TTS reads the
     // original wording, and skips the budget-exhausted placeholder. Fails open.
+    #[cfg(feature = "tinymemes")]
     if let Ok(ref mut task_result) = result {
         let is_placeholder = task_result.full_response == inference_budget_exceeded_user_message();
         if !is_placeholder && !task_result.full_response.trim().is_empty() {

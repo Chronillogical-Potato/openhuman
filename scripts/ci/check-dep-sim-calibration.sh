@@ -107,8 +107,11 @@ cd "$(dirname "$0")/../.."
 # 314 -> 315 on 2026-10-09: secrets on the storage backend add the
 # first-party tinystoragedrivers-secrets crate (its crypto deps were already
 # in the graph).
-# This matches the current `flows:337:315:2` entry in
+# 315 -> 311 on 2026-10-09: measured 333 packages / 311 names on the
+# merged main; the tinymemes PR (#7189) keeps its crates out of this profile
+# behind the `tinymemes` feature and ratchets the floor down to match.
+# This matches the current `flows:333:311:2` entry in
 # scripts/kernel-floor.limits; its preceding entries are historical.
-EXPECTED_NAMES=315
+EXPECTED_NAMES=311
 
 exec python3 scripts/dep-sim.py --cut-nothing --expect-names "${EXPECTED_NAMES}"
