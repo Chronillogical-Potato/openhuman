@@ -415,7 +415,7 @@ const OAuthProviderButton = ({
         <AlertDialogContent className="max-w-md">
           <AlertDialogTitle>{t('auth.profileSwitch.title')}</AlertDialogTitle>
           <AlertDialogDescription>
-            {t('auth.profileSwitch.body', { profileId: localProfileId ?? '' })}
+            {t('auth.profileSwitch.body').replace('{profileId}', localProfileId ?? '')}
           </AlertDialogDescription>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
