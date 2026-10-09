@@ -28,7 +28,13 @@ the `[memory]` config into either `Binding::On(BoundEngine)` or
 The core never keeps a TinyHumans credential of its own. The bearer is
 fetched from the host's credential seam (`resolve_backend_credential`) on
 every request, so a refreshed session takes effect at once and signing out
-turns memory off. Built engines are cached per config fingerprint (engine
+turns memory off. The hosted engine does not go through the core's
+`BackendTransport`: `engine.rs` hands TinyMemory's CortexDB client an
+`EngineSettings` with the endpoint, the attribution headers from
+`backend::attribution_headers` and an `EngineCredential::Dynamic(HostBearer)`,
+and TinyMemory's own HTTP client calls the backend's `/memory/*` routes. The
+`cortexdb` engine calls CortexDB directly with the stored key
+(`EngineCredential::Static`). Built engines are cached per config fingerprint (engine
 id, endpoint, credential identity, layout), so a config change, a sign-in or
 a new key rebuilds the engine on the next call without any event plumbing.
 
@@ -80,10 +86,13 @@ identity is never taken from model arguments.
 Under `[memory] layout = "v3"` everything sits below the signed-in person's
 own scope root (`org:<id>`, `scope::user_root`), and every agent's chats
 share one chat node (`ws:main`, `scope::chat_node`), with the agent id kept
-on each turn. A signed-out session gets a root of `user:local-<install id>`,
-a random UUID minted once and recorded in `<workspace>/memory/local_root.json`
-(`local_root.rs`). If that file cannot be written or read, the session has
-no root and memory stays off.
+on each turn. The person's actor is `user:<id>` (`scope::actor_of_root`),
+which is also the retired root still read during the move while
+`[memory] legacy_user_segment_read` is on. A signed-out session gets its
+root from a random install id minted once and recorded in
+`<workspace>/memory/local_root.json` as `user:local-<id>` (`local_root.rs`),
+used as `org:local-<id>`. If that file cannot be written or read, the
+session has no root and memory stays off.
 
 ### Around every turn
 
