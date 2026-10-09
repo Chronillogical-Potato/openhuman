@@ -16,7 +16,7 @@ fn spawn_subagent_parameters_schema() -> serde_json::Value {
     // Build the agent_id enum dynamically from the global registry
     // when it's been initialised. Falls back to a string-with-hint
     // when the registry hasn't been set up yet (e.g. early tests).
-    let agent_ids: Vec<String> = AgentDefinitionRegistry::global()
+    let agent_ids: Vec<String> = AgentDefinitionRegistry::current()
         .map(|reg| reg.list().iter().map(|d| d.id.clone()).collect())
         .unwrap_or_default();
 

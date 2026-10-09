@@ -79,7 +79,7 @@ pub(super) async fn resolve_target_agent(channel: &str) -> AgentScoping {
         "[dispatch::routing] selected target agent"
     );
 
-    let registry = match AgentDefinitionRegistry::global() {
+    let registry = match AgentDefinitionRegistry::current() {
         Some(reg) => reg,
         None => {
             tracing::warn!(
@@ -154,7 +154,7 @@ pub(super) async fn resolve_target_agent(channel: &str) -> AgentScoping {
             connected_integration_count = connected.len(),
             "[dispatch::routing] fetched connected integrations for delegation expansion"
         );
-        orchestrator_tools::collect_orchestrator_tools(definition, registry, &connected)
+        orchestrator_tools::collect_orchestrator_tools(definition, &registry, &connected)
     } else {
         Vec::new()
     };

@@ -132,8 +132,8 @@ pub use openhuman_core::voice::VOICE_COMPILED_IN;
 
 pub use agent::ToolAttachmentError;
 pub use agent::{
-    Agent, AgentDefinitionSpec, AgentError, AgentLayout, AgentSpec, MemoryBinding, SandboxModeSpec,
-    ToolScopeSpec,
+    Agent, AgentDefinitionSpec, AgentError, AgentLayout, AgentSpec, ApprovalDecision, Approvals,
+    ApprovalsError, MemoryBinding, PendingApproval, SandboxModeSpec, ToolScopeSpec,
 };
 pub use auth::{Auth, AuthState, Session};
 pub use config::{Config, RuntimeFlags};
@@ -144,10 +144,13 @@ pub use harness::{
 };
 #[cfg(feature = "mcp")]
 pub use harness::{HttpHeader, McpAuthConfig, McpServer};
+pub use runtime::builder::DEFAULT_MAX_AGENTS;
 /// Read-only view of a [`RuntimeBuilder`], for the layered crates' tests.
 #[doc(hidden)]
 pub use runtime::BuilderSummary;
-pub use runtime::{run_from_args, ApiKey, ConfigSource, Runtime, RuntimeBuilder, RuntimeError};
+pub use runtime::{
+    run_from_args, ApiKey, ConfigSource, RemoveAgent, Runtime, RuntimeBuilder, RuntimeError,
+};
 
 /// The types the [`RuntimeBuilder`] seam options take: controller
 /// extensions, embedder hooks, the CLI server launcher and the live security

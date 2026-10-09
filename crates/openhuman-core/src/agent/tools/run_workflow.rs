@@ -20,7 +20,7 @@
 //! If the shepherd finishes its first pass quickly the crusher gets the
 //! result inline; if not, it gets a `run_id` and can move on.
 //!
-//! Guardrails (see the `guard` module): a process-lifetime spawn backstop,
+//! Guardrails (see the `guard` module): a per-agent spawn backstop,
 //! a concurrency/nesting cap on synchronous awaits, and a re-entrancy lock
 //! keyed on workflow-id + inputs so an LLM that loses track can't tip a
 //! legitimate A→B→A chain into an unbounded loop. These are deliberately
@@ -55,55 +55,64 @@ const MAX_WAIT_SECONDS: u64 = 600;
 mod guard {
     use std::collections::HashSet;
     use std::sync::atomic::{AtomicU64, Ordering};
-    use std::sync::{LazyLock, Mutex};
+    use std::sync::{Arc, Mutex};
 
-    /// Process-lifetime backstop against a runaway spawn loop.
+    /// Per-agent lifetime backstop against a runaway spawn loop.
     const TOTAL_SPAWN_BACKSTOP: u64 = 500;
     /// Max workflows being synchronously awaited at once. Because an awaiting
     /// call holds its slot for the whole nested wait, this also bounds the
     /// depth of synchronous workflow→workflow chains.
     const MAX_ACTIVE_AWAITS: u64 = 8;
 
-    static TOTAL_SPAWNS: AtomicU64 = AtomicU64::new(0);
-    static ACTIVE_AWAITS: AtomicU64 = AtomicU64::new(0);
-    static ACTIVE_KEYS: LazyLock<Mutex<HashSet<String>>> =
-        LazyLock::new(|| Mutex::new(HashSet::new()));
+    /// The spawn counter, await count and re-entrancy keys of one agent
+    /// context.
+    #[derive(Default)]
+    struct GuardState {
+        total_spawns: AtomicU64,
+        active_awaits: AtomicU64,
+        active_keys: Mutex<HashSet<String>>,
+    }
+
+    fn state() -> Arc<GuardState> {
+        crate::core::runtime::current_slot::<GuardState>()
+    }
 
     /// RAII guard held while a call awaits a run. Dropping it frees the
     /// active-await slot and clears the re-entrancy key.
     pub struct AwaitGuard {
         key: String,
+        state: Arc<GuardState>,
     }
 
     impl Drop for AwaitGuard {
         fn drop(&mut self) {
-            ACTIVE_AWAITS.fetch_sub(1, Ordering::SeqCst);
-            if let Ok(mut keys) = ACTIVE_KEYS.lock() {
+            self.state.active_awaits.fetch_sub(1, Ordering::SeqCst);
+            if let Ok(mut keys) = self.state.active_keys.lock() {
                 keys.remove(&self.key);
             }
         }
     }
 
-    /// Account a spawn against the process-lifetime backstop. Returns `Err`
+    /// Account a spawn against the agent's backstop. Returns `Err`
     /// once the cap trips. Called by both the awaited and the fire-and-forget
     /// paths so neither can loop forever.
     pub fn account_spawn() -> Result<(), String> {
-        let n = TOTAL_SPAWNS.fetch_add(1, Ordering::SeqCst) + 1;
+        let n = state().total_spawns.fetch_add(1, Ordering::SeqCst) + 1;
         if n > TOTAL_SPAWN_BACKSTOP {
             return Err(format!(
-                "refused — process spawn backstop hit ({TOTAL_SPAWN_BACKSTOP} workflow runs \
+                "refused — spawn backstop hit ({TOTAL_SPAWN_BACKSTOP} workflow runs \
                  spawned this session). This guards against a runaway spawn loop."
             ));
         }
         Ok(())
     }
 
-    /// Test-only reader for the process-lifetime spawn counter. Used by the
+    /// Test-only reader for the agent's spawn counter. Used by the
     /// regression test that asserts a rejected spawn (e.g. unknown workflow
     /// id) doesn't consume a backstop slot.
     #[cfg(test)]
     pub fn total_spawns() -> u64 {
-        TOTAL_SPAWNS.load(Ordering::SeqCst)
+        state().total_spawns.load(Ordering::SeqCst)
     }
 
     /// Acquire an await slot + re-entrancy lock for `key` (a workflow-id +
@@ -111,7 +120,9 @@ mod guard {
     /// many awaits are in flight (nesting/fan-out cap) or the same key is
     /// already being awaited up the stack (re-entrant tight loop).
     pub fn acquire_await(key: String) -> Result<AwaitGuard, String> {
-        let mut keys = ACTIVE_KEYS
+        let state = state();
+        let mut keys = state
+            .active_keys
             .lock()
             .map_err(|_| "internal guard lock poisoned".to_string())?;
         if keys.contains(&key) {
@@ -121,7 +132,7 @@ mod guard {
                     .to_string(),
             );
         }
-        if ACTIVE_AWAITS.load(Ordering::SeqCst) >= MAX_ACTIVE_AWAITS {
+        if state.active_awaits.load(Ordering::SeqCst) >= MAX_ACTIVE_AWAITS {
             return Err(format!(
                 "refused — {MAX_ACTIVE_AWAITS} workflows are already being awaited concurrently \
                  (nesting/fan-out cap). Let some finish, or spawn with `wait_seconds: 0` to \
@@ -129,8 +140,9 @@ mod guard {
             ));
         }
         keys.insert(key.clone());
-        ACTIVE_AWAITS.fetch_add(1, Ordering::SeqCst);
-        Ok(AwaitGuard { key })
+        state.active_awaits.fetch_add(1, Ordering::SeqCst);
+        drop(keys);
+        Ok(AwaitGuard { key, state })
     }
 }
 
@@ -326,7 +338,7 @@ impl Tool for RunWorkflowTool {
         // Awaited path: take the re-entrancy/nesting slot first (so a tight
         // loop is rejected before we even spawn), then account the spawn —
         // but only once it actually starts, so a rejected spawn doesn't burn
-        // the process backstop.
+        // the backstop.
         let _guard = match guard::acquire_await(reentrancy_key(&workflow_id, &inputs)) {
             Ok(g) => g,
             Err(e) => return Ok(ToolResult::error(format!("run_workflow: {e}"))),

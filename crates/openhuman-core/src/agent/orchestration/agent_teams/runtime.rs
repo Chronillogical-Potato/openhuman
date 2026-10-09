@@ -179,7 +179,7 @@ pub async fn start_member_run(
     // worker keeps the label the approval gate needs. Inherit-only: no origin
     // in scope means the worker stays unlabelled and fails closed as before.
     let inherited_origin = crate::agent::turn_origin::capture();
-    tokio::spawn(async move {
+    crate::core::runtime::spawn_scoped(async move {
         crate::agent::turn_origin::with_inherited_origin(
             inherited_origin,
             run_member_loop(

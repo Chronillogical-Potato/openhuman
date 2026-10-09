@@ -7,8 +7,8 @@ mod runtime_flags;
 mod snapshot;
 
 pub use load::{
-    load_config_for_workspace_with_timeout, load_config_with_timeout, reload_config_from_paths,
-    reload_config_snapshot_with_timeout,
+    load_config_for_workspace_with_timeout, load_config_with_timeout, load_current_or_init,
+    reload_config_from_paths, reload_config_snapshot_with_timeout,
 };
 pub(crate) use paths::fallback_workspace_dir;
 #[cfg(test)]
@@ -43,3 +43,7 @@ mod model_registry_seed_tests;
 #[cfg(test)]
 #[path = "loader_io_chain_tests.rs"]
 mod loader_io_chain_tests;
+
+#[cfg(test)]
+#[path = "loader_current_tests.rs"]
+mod loader_current_tests;

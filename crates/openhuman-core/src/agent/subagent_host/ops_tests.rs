@@ -30,6 +30,7 @@ fn make_def_named_tools(names: &[&str]) -> AgentDefinition {
         subagents: vec![],
         delegate_name: None,
         agent_tier: crate::agent::harness::definition::AgentTier::Worker,
+        searches_connected_mcp: false,
         source: crate::agent::harness::definition::DefinitionSource::Builtin,
         graph: Default::default(),
     }

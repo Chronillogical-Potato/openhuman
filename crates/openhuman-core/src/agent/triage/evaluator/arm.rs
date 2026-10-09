@@ -80,7 +80,7 @@ pub(super) async fn try_arm(
         "[triage::evaluator] starting triage turn"
     );
 
-    let registry = AgentDefinitionRegistry::global().ok_or_else(|| {
+    let registry = AgentDefinitionRegistry::current().ok_or_else(|| {
         ArmError::Fatal(anyhow!(
             "AgentDefinitionRegistry not initialised — did startup wiring \
              skip `init_global`?"

@@ -44,11 +44,10 @@
 //! `action_dir`), its [`AgentDefinition`](openhuman_core::agent::harness::definition::AgentDefinition)
 //! (system prompt, tool scope, sandbox mode), its profile (allowlists,
 //! dedicated memory and transcripts), its skills root, its narrowed
-//! `DomainSet` and [`ToolGroups`].
+//! `DomainSet` and [`ToolGroups`], its approval settings, sub-agents, MCP
+//! host, cron jobs and per-turn state.
 //!
-//! Some settings are still read from the runtime's boot config by every
-//! agent; see the crate README's "still runtime-wide" list. They are
-//! documented rather than hidden.
+//! The crate README's "Still process-owned" list names what agents share.
 //!
 //! # One runtime per process
 //!
@@ -70,6 +69,7 @@
 mod api_key;
 mod build;
 pub(crate) mod builder;
+mod lifecycle;
 mod presets;
 mod run;
 mod seams;
@@ -77,6 +77,7 @@ mod summary;
 
 pub use api_key::ApiKey;
 pub use builder::{ConfigSource, RuntimeBuilder};
+pub use lifecycle::RemoveAgent;
 pub use run::run_from_args;
 #[doc(hidden)]
 pub use summary::BuilderSummary;
@@ -234,6 +235,7 @@ pub struct Runtime {
     provider: Provider,
     access: Access,
     agents: Mutex<HashMap<String, Weak<AgentInner>>>,
+    max_agents: usize,
 }
 
 impl Runtime {
@@ -273,6 +275,15 @@ impl Runtime {
         agents.retain(|_, weak| weak.strong_count() > 0);
         if agents.contains_key(&id) {
             return Err(AgentError::DuplicateId(id));
+        }
+        if agents.len() >= self.max_agents {
+            log::warn!(
+                "[embed][runtime] agent refused id={id}: {} live agents is the limit",
+                self.max_agents
+            );
+            return Err(AgentError::AgentLimit {
+                limit: self.max_agents,
+            });
         }
         let inner = Arc::new(crate::agent::build::instantiate(self, spec)?);
         agents.insert(id.clone(), Arc::downgrade(&inner));
@@ -423,6 +434,7 @@ impl Runtime {
         tool_groups: ToolGroups,
         provider: Provider,
         access: Access,
+        max_agents: usize,
     ) -> Self {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
@@ -441,6 +453,7 @@ impl Runtime {
             provider,
             access,
             agents: Mutex::new(HashMap::new()),
+            max_agents,
         }
     }
 }
