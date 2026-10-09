@@ -458,18 +458,41 @@ pub(crate) fn discard_for_thread(workspace_dir: &Path, thread_id: &str) -> usize
         st.deleted_threads.insert(thread_id.to_string());
         st.stopped_threads.remove(thread_id);
     }
-    let removed = router_for_workspace(workspace_dir)
-        .cancel_parent(thread_id)
-        .unwrap_or_else(|error| {
-            log::error!(
-                "[background_completions] cancel_parent failed thread_id={thread_id} error={error}"
-            );
-            0
-        });
+    let entry = entry_for(workspace_dir);
+    let removed = cancel_deleted_parent(&entry, thread_id);
     log::debug!(
         "[background_completions] discard_for_thread thread_id={thread_id} removed={removed}"
     );
     removed
+}
+
+/// Task id of the durable "this thread was deleted" marker. The router's
+/// cancelled-parent marker cannot tell a delete from a Stop (a Stop is lifted
+/// when the user returns), so a delete also leaves this one, which nothing
+/// lifts.
+fn deleted_marker_id(thread_id: &str) -> String {
+    format!("\u{1}host-thread-deleted:{thread_id}")
+}
+
+fn is_marked_deleted(entry: &Entry, thread_id: &str) -> bool {
+    entry.store.get(&deleted_marker_id(thread_id)).is_some()
+}
+
+/// Cancel `thread_id` for good in `entry`'s router and write the deleted marker.
+/// Failures are logged; the in-memory deleted set still gates this process.
+fn cancel_deleted_parent(entry: &Entry, thread_id: &str) -> usize {
+    if let Err(error) = entry.router.tombstone(&deleted_marker_id(thread_id)) {
+        log::error!(
+            "[background_completions] could not persist the deleted marker thread_id={thread_id} \
+             error={error}"
+        );
+    }
+    entry.router.cancel_parent(thread_id).unwrap_or_else(|error| {
+        log::error!(
+            "[background_completions] cancel_parent failed thread_id={thread_id} error={error}"
+        );
+        0
+    })
 }
 
 /// Drop every queued completion for `thread_id` and gate late results from the
@@ -546,7 +569,8 @@ pub(crate) fn mark_stopped_task_if_thread_stopped(
     thread_id: &str,
     task_id: &str,
 ) -> bool {
-    let (first_sight, stopped) = {
+    let entry = entry_for(workspace_dir);
+    let (first_sight, mut stopped) = {
         let mut st = state();
         let first_sight = st
             .thread_workspaces
@@ -556,15 +580,20 @@ pub(crate) fn mark_stopped_task_if_thread_stopped(
             st.stopped_threads.contains(thread_id) || st.deleted_threads.contains(thread_id);
         (first_sight, stopped)
     };
-    let router = router_for_workspace(workspace_dir);
+    // A delete outlives a restart: the durable marker, not just this process's
+    // memory, decides whether a late child belongs to a dead thread.
+    if first_sight && !stopped && is_marked_deleted(&entry, thread_id) {
+        state().deleted_threads.insert(thread_id.to_string());
+        stopped = true;
+    }
     if stopped {
-        if let Err(error) = router.tombstone(task_id) {
+        if let Err(error) = entry.router.tombstone(task_id) {
             log::warn!("[background_completions] tombstone failed task_id={task_id} error={error}");
         }
         return true;
     }
     if first_sight {
-        router.resume_parent(thread_id);
+        entry.router.resume_parent(thread_id);
     }
     false
 }
@@ -585,7 +614,7 @@ pub(crate) fn clear_all(workspace_dir: &Path) -> usize {
     let mut removed = 0;
     for parent in parents {
         state().deleted_threads.insert(parent.clone());
-        removed += entry.router.cancel_parent(&parent).unwrap_or(0);
+        removed += cancel_deleted_parent(&entry, &parent);
     }
     log::debug!("[background_completions] clear_all removed={removed}");
     removed
