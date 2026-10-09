@@ -17,8 +17,16 @@ use tinyagents_session::transcript::import::ops::open_session_stores;
 /// Skipped on a storage backend other processes may share (MongoDB): there a
 /// non-terminal status can belong to a run another replica is still driving,
 /// and cancelling it would hide that run from active and late-attach status.
+///
+/// With a storage backend every agent keeps its own status store, so the
+/// sweep visits `local` and then each known agent (`crate::storage::agents`).
 pub(crate) async fn reap_orphaned_runs(workspace: &Path) -> usize {
-    reap_unless_shared(workspace, crate::storage::installed_is_shared()).await
+    let shared = crate::storage::installed_is_shared();
+    crate::storage::agents::for_each_scope("run reaper", || reap_unless_shared(workspace, shared))
+        .await
+        .into_iter()
+        .map(|(_, reaped)| reaped)
+        .sum()
 }
 
 async fn reap_unless_shared(workspace: &Path, shared: bool) -> usize {
