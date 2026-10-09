@@ -175,7 +175,7 @@ names are `openhuman.<namespace>_<function>`:
 | `team` | `get_usage`, `list_members`, `list_teams`, `get_team`, `create_team`, `update_team`, `delete_team`, `switch_team`, `leave_team`, `join_team`, `create_invite`, `remove_member`, `change_member_role`, `list_invites`, `revoke_invite` |
 | `referral` | `get_stats`, `claim` |
 | `announcements` | `get_latest` |
-| `webhooks` | `list_tunnel`, `create_tunnel`, `get_tunnel`, `update_tunnel`, `delete_tunnel`, `get_bandwidth` (shared namespace) |
+| `webhooks` | `list_tunnels`, `create_tunnel`, `get_tunnel`, `update_tunnel`, `delete_tunnel`, `get_bandwidth` (shared namespace) |
 | `auth` | `create_channel_link_token`, `oauth_connect`, `oauth_list_integrations`, `oauth_fetch_integration_tokens`, `oauth_revoke_integration`, `oauth_fetch_client_key` (shared namespace) |
 | `channels` | `telegram_login_start`, `telegram_login_check`, `discord_link_start`, `discord_link_check` (shared namespace) |
 
