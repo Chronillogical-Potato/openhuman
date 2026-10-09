@@ -14,6 +14,8 @@ fn each_origin_maps_to_its_thread_and_label() {
     let channel = AgentTurnOrigin::ExternalChannel {
         channel: "telegram".into(),
         sender: None,
+        sender_name: None,
+        history_key: None,
         reply_target: "r".into(),
         message_id: "m".into(),
     };
