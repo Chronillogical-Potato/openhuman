@@ -84,7 +84,20 @@ impl EventHandler<DomainEvent> for DeviceTunnelSubscriber {
                 channel_id,
                 payload_b64,
             } => {
-                handle_tunnel_frame(channel_id, payload_b64).await;
+                // Handle the frame as the agent the device belongs to, so its
+                // pairing record and the RPCs it sends land in that agent's
+                // scope (`super::owner`).
+                let pending = PENDING_SESSIONS
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .get(channel_id.as_str())
+                    .cloned();
+                let owner = super::owner::owner_of(channel_id, pending.as_ref()).await;
+                crate::storage::agents::within_agent(
+                    owner.as_deref(),
+                    handle_tunnel_frame(channel_id, payload_b64),
+                )
+                .await;
             }
             _ => {}
         }
@@ -361,6 +374,11 @@ async fn handle_tunnel_frame(channel_id: &str, payload_b64: &str) {
             &session_token_hash,
         ) {
             Ok(device) => {
+                super::owner::remember(
+                    channel_id,
+                    crate::core::runtime::CoreContext::current()
+                        .and_then(|context| context.session_agent().map(str::to_string)),
+                );
                 log::info!(
                     "[devices/bus] device persisted channel_id={} label={}",
                     device.channel_id,

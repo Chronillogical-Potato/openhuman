@@ -5,6 +5,7 @@
 
 pub mod bus;
 pub mod crypto;
+mod owner;
 pub mod rpc;
 pub mod schemas;
 pub mod store;
