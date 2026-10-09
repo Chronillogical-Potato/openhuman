@@ -20,6 +20,21 @@ fn a_configured_backend_holds_keyring_and_credential_secrets() {
     std::env::set_var("OPENHUMAN_WORKSPACE", workspace.path());
     std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
     std::env::set_var("OPENHUMAN_KEYRING_MASTER_KEY", "11".repeat(32));
+
+    // Credentials written before any backend existed (the classic files).
+    let state = workspace.path().join("state");
+    AuthProfilesStore::new(&state, false)
+        .upsert_profile(
+            AuthProfile::new_token("legacy", "default", "sk-legacy".to_string()),
+            true,
+        )
+        .unwrap();
+    HttpCredentialsStore::new(&state, false)
+        .upsert(&HttpCredential::bearer("legacy-http", "ghp-legacy"))
+        .unwrap();
+    let profiles_file = std::fs::read(state.join("auth-profiles.json")).unwrap();
+    let http_file = std::fs::read(state.join("http-credentials.json")).unwrap();
+
     openhuman_core::storage::install(Arc::new(openhuman_core::storage::MemoryStorage::new()));
 
     keyring::set("user-1", "api_token", "tok-123").unwrap();
@@ -31,7 +46,6 @@ fn a_configured_backend_holds_keyring_and_credential_secrets() {
     keyring::delete("user-1", "api_token").unwrap();
     assert!(keyring::get("user-1", "api_token").unwrap().is_none());
 
-    let state = workspace.path().join("state");
     let profiles = AuthProfilesStore::new(&state, false);
     profiles
         .upsert_profile(
@@ -39,17 +53,26 @@ fn a_configured_backend_holds_keyring_and_credential_secrets() {
             true,
         )
         .unwrap();
+    // The pre-existing profile was adopted, not replaced.
     let loaded = profiles.load().unwrap();
-    assert_eq!(loaded.profiles.len(), 1);
+    assert_eq!(loaded.profiles.len(), 2);
 
     let http = HttpCredentialsStore::new(&state, false);
     http.upsert(&HttpCredential::bearer("github", "ghp-test"))
         .unwrap();
     assert!(http.get("github").unwrap().is_some());
+    assert!(http.get("legacy-http").unwrap().is_some());
 
+    // The legacy files are left untouched by the backend path.
+    assert_eq!(
+        std::fs::read(state.join("auth-profiles.json")).unwrap(),
+        profiles_file
+    );
+    assert_eq!(
+        std::fs::read(state.join("http-credentials.json")).unwrap(),
+        http_file
+    );
     for file in [
-        "state/auth-profiles.json",
-        "state/http-credentials.json",
         "secrets.enc",
         "dev-keychain.json",
     ] {
@@ -62,5 +85,6 @@ fn a_configured_backend_holds_keyring_and_credential_secrets() {
     // Without a backend the files are back in use.
     assert!(openhuman_core::storage::clear());
     assert!(http.get("github").unwrap().is_none());
-    assert!(profiles.load().unwrap().profiles.is_empty());
+    assert!(http.get("legacy-http").unwrap().is_some());
+    assert_eq!(profiles.load().unwrap().profiles.len(), 1);
 }
