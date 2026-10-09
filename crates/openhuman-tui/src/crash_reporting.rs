@@ -44,7 +44,10 @@ fn sentry_dsn() -> Option<String> {
 
 #[cfg(feature = "crash-reporting")]
 fn build_release_tag() -> String {
-    sentry::release_tag(env!("CARGO_PKG_VERSION"), option_env!("OPENHUMAN_BUILD_SHA"))
+    sentry::release_tag(
+        env!("CARGO_PKG_VERSION"),
+        option_env!("OPENHUMAN_BUILD_SHA"),
+    )
 }
 
 #[cfg(feature = "crash-reporting")]
