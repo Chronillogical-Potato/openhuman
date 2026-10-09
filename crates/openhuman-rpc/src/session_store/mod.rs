@@ -163,7 +163,7 @@ pub async fn install_for_host() -> anyhow::Result<()> {
 
     let url = match std::env::var(openhuman_core::storage::STORAGE_URL_VAR) {
         Ok(url) if !url.trim().is_empty() => Some(url.trim().to_string()),
-        _ => match openhuman_core::config::ops::loader::load_config_with_timeout().await {
+        _ => match openhuman_core::config::rpc::load_config_with_timeout().await {
             Ok(config) => openhuman_core::storage::configured_url(&config),
             Err(error) => {
                 tracing::warn!(
