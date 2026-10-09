@@ -4512,6 +4512,7 @@ dependencies = [
  "futures-util",
  "hex",
  "hkdf",
+ "hmac 0.12.1",
  "hostname",
  "iana-time-zone",
  "keyring",
