@@ -218,7 +218,7 @@ cargo build --release -p openhuman-cli --no-default-features --features rss-benc
 
 ## Tests
 
-`fleet_tests.rs` (edge and core token handling, routing) and
+`fleet_tests.rs` (port assignment, user scoping, provisioning, bearer parsing) and
 `rss_bench_tests.rs` sit beside their binaries, and
 `library_profile/scenarios/` has `fleet_tests.rs` and
 `subagent_storm_tests.rs`. They build with the binary's required features.
