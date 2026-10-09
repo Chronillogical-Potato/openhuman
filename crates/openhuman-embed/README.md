@@ -362,7 +362,6 @@ with the runtime, still holds process-local caches. The desktop app, CLI and
 TUI install `openhuman_rpc::session_store`, the classic on-disk layout behind
 the same port.
 
-<<<<<<< HEAD
 ### Scheduling
 
 `Runtime::cron()` upserts named jobs (`JobSpec::agent` for a turn of a
@@ -373,10 +372,7 @@ and stops it with the runtime; `start_services` / `stop_services` control it
 explicitly. See [`gitbooks/developing/embedding.md`](../../gitbooks/developing/embedding.md#scheduling)
 and `tests/cron_agents.rs`.
 
-### Still runtime-wide
-=======
 ## Tools on an agent
->>>>>>> upstream/main
 
 `AgentSpec::tools` gives an agent the host's own in-process tools, each with
 its own schema on the wire. The factory runs once per session build, which
@@ -599,35 +595,13 @@ for raw RPC methods). They are `[[example]]` targets of `openhuman-cli`:
 
 ## Further reading
 
-<<<<<<< HEAD
-```bash
-OPENHUMAN_EXAMPLE_BASE_URL=https://api.openai.com/v1 \
-OPENHUMAN_EXAMPLE_API_KEY=sk-… \
-OPENHUMAN_EXAMPLE_MODEL=gpt-5 \
-  cargo run -p openhuman-embed --example two_agents -- "Describe this directory."
-
-# Or managed inference, no BYOK endpoint needed:
-OPENHUMAN_EXAMPLE_TINYHUMANS_API_KEY=th_… \
-  cargo run -p openhuman-embed --example two_agents -- "Describe this directory."
-```
-
-The repository-root `examples/embed_headless.rs` (`DomainSet::harness()`,
-`ServiceSet::none()`, RPC through `CoreRuntime::invoke`) and
-`examples/embed_kernel.rs` (`DomainSet::kernel()`, then opt one family back
-in) drive `CoreBuilder` from `openhuman_core` directly, without this crate;
-they are `[[example]]` entries of the `openhuman` package, so run them with
-`cargo run --example embed_headless`.
-
-`tests/harness_embed.rs` is the end-to-end proof that `Harness` runs a real
-turn against a `wiremock` provider with nothing bound;
-`tests/runtime_agents.rs` runs three agents with different providers, access
-tiers, skills, MCP servers and working directories on one runtime and shows
-the API key reaching a mocked managed backend as a bearer;
-`tests/cron_agents.rs` runs a cron job as a runtime agent with its host tool
-under the `TrustedAutomation { Cron }` origin, records a system job handler's
-error, and starts and stops the scheduler with the runtime;
-`tests/public_api.rs` pins the host-facing embedding contract at compile
-time. Run them with `cargo test -p openhuman-embed --features inference,mcp,skills`.
+- [`crates/openhuman-embed/examples/README.md`](examples/README.md): the examples module README.
+- [`gitbooks/developing/embedding.md`](../../gitbooks/developing/embedding.md): embedding the core in another product.
+- [`gitbooks/developing/tinyhumans-api-key.md`](../../gitbooks/developing/tinyhumans-api-key.md): running on a TinyHumans API key.
+- [`gitbooks/developing/architecture.md`](../../gitbooks/developing/architecture.md): architecture overview.
+- [`gitbooks/developing/architecture/agent-harness.md`](../../gitbooks/developing/architecture/agent-harness.md): the agent harness.
+- [`gitbooks/developing/loadable-modules.md`](../../gitbooks/developing/loadable-modules.md): loadable modules.
+- [`crates/README.md`](../README.md): crates overview.
 
 ## Relationship to other crates
 
@@ -646,12 +620,3 @@ Attachments are shared by clones, always directly advertised, and update only
 their managed system catalogue when a continuing conversation gains tools.
 See [agent attachment semantics and example](src/agent/README.md#attach-tools-to-an-existing-agent)
 for source identity, collision errors, policy composition, and runtime identity.
-=======
-- [`crates/openhuman-embed/examples/README.md`](examples/README.md): the examples module README.
-- [`gitbooks/developing/embedding.md`](../../gitbooks/developing/embedding.md): embedding the core in another product.
-- [`gitbooks/developing/tinyhumans-api-key.md`](../../gitbooks/developing/tinyhumans-api-key.md): running on a TinyHumans API key.
-- [`gitbooks/developing/architecture.md`](../../gitbooks/developing/architecture.md): architecture overview.
-- [`gitbooks/developing/architecture/agent-harness.md`](../../gitbooks/developing/architecture/agent-harness.md): the agent harness.
-- [`gitbooks/developing/loadable-modules.md`](../../gitbooks/developing/loadable-modules.md): loadable modules.
-- [`crates/README.md`](../README.md): crates overview.
->>>>>>> upstream/main
