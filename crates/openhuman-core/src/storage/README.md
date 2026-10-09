@@ -52,6 +52,15 @@ on `storage-mongodb`.
   approvals (`security::approval`), paired devices (`security::devices`),
   notifications (`desktop::notifications`) and task sources
   (`integrations::task_sources`).
+- tinyflows' own stores on the ports (`tinyflows-drivers`), picked per call
+  the same way: cron jobs and runs (`cron::store`, `CronDocuments`), the flow
+  catalog and drafts (`flows::store`, `flows::draft_store`,
+  `FlowCatalogDocuments`), per-flow engine state and dedup settlement
+  (`flows::tinyflows::state::FlowState`), and the flow-run checkpointer
+  (`DriverCheckpointer`). The delegation graph's checkpointer uses
+  tinyagents-graph's `DriverCheckpointer`.
+- `block_on_anyhow(future)`: `block_on` for those stores, whose errors are
+  `anyhow::Error` (a typed `FlowUpdateError` passes through unchanged).
 
 ## Boundaries
 
