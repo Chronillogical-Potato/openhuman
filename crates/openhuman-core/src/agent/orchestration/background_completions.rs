@@ -723,6 +723,17 @@ pub(crate) fn recover_pending_threads(workspace_dir: &Path) -> Vec<String> {
     threads
 }
 
+/// Register `store` as `workspace_dir`'s completion store, so a test can inject
+/// one that fails.
+#[cfg(test)]
+pub(crate) fn install_store_for_test(workspace_dir: &Path, store: Arc<dyn CompletionStore>) {
+    let entry = Arc::new(Entry {
+        router: Arc::new(new_router(store.clone())),
+        store,
+    });
+    state().routers.insert(workspace_dir.to_path_buf(), entry);
+}
+
 /// Forget everything this process knows about `workspace_dir`, as a restart
 /// would: the router (and its open log handle) and every thread/session mapping
 /// that points at it. The on-disk log is untouched.

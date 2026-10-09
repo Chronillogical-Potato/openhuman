@@ -625,18 +625,86 @@ async fn release_all_closes_every_router_and_the_log_stays_replayable() {
     assert_eq!(recover_pending_threads(w), ["thread-rel"]);
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn release_all_waits_for_a_router_still_in_use() {
     let _guard = crate::config::TEST_ENV_LOCK.lock().await;
     let ws = workspace();
     let w = ws.path();
     let in_use = router_for_workspace(w);
     let releasing = tokio::spawn(release_all());
-    tokio::time::sleep(std::time::Duration::from_millis(120)).await;
-    assert!(
-        !releasing.is_finished(),
-        "waits while a delivery holds the router"
-    );
+    // Well inside the drain window: still waiting on the held router.
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    assert!(!releasing.is_finished(), "waits while a delivery holds the router");
     drop(in_use);
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     assert!(releasing.await.unwrap() >= 1);
+}
+
+#[tokio::test(start_paused = true)]
+async fn release_all_gives_up_waiting_after_the_drain_window() {
+    let _guard = crate::config::TEST_ENV_LOCK.lock().await;
+    let ws = workspace();
+    let w = ws.path();
+    let _held_forever = router_for_workspace(w);
+    let released = release_all().await;
+    assert!(released >= 1, "stragglers are dropped once the window passes");
+    assert!(!state().routers.contains_key(w));
+}
+
+#[tokio::test]
+async fn release_all_keeps_the_stop_and_delete_gates() {
+    let _guard = crate::config::TEST_ENV_LOCK.lock().await;
+    let ws = workspace();
+    let w = ws.path();
+    discard_pending_for_thread("thread-keep-stop");
+    state().deleted_threads.insert("thread-keep-del".into());
+    release_all().await;
+
+    // A detached child finishing after the release is still refused.
+    record_completion(w, "s", "sub-1", "r", "x", Some("thread-keep-stop".into())).await;
+    record_completion(w, "s", "sub-2", "r", "x", Some("thread-keep-del".into())).await;
+    assert!(pending_ids(w, "thread-keep-stop").is_empty());
+    assert!(pending_ids(w, "thread-keep-del").is_empty());
+    resume_stopped_thread("thread-keep-stop");
+    state().deleted_threads.remove("thread-keep-del");
+}
+
+#[test]
+fn a_completion_for_a_removed_workspace_does_not_recreate_it() {
+    let _guard = test_guard();
+    let ws = workspace();
+    let gone = ws.path().join("reset-away");
+    record(&gone, "sess-gone", "sub-1", "x", Some("thread-gone"));
+    assert!(!gone.exists(), "the workspace directory is not recreated");
+}
+
+/// A store whose writes always fail, like a full disk.
+struct FullDisk(InMemoryCompletionStore);
+
+impl CompletionStore for FullDisk {
+    fn get(&self, task_id: &str) -> Option<CompletionRecord> {
+        self.0.get(task_id)
+    }
+    fn put(&self, _record: &CompletionRecord) -> tinyagents_harness::error::Result<()> {
+        Err(tinyagents_harness::error::TinyAgentsError::Graph(
+            "disk full".into(),
+        ))
+    }
+    fn list(&self, parent_key: Option<&str>) -> Vec<CompletionRecord> {
+        self.0.list(parent_key)
+    }
+}
+
+#[test]
+fn a_store_that_keeps_failing_degrades_to_memory_instead_of_losing_the_result() {
+    let _guard = test_guard();
+    let ws = workspace();
+    let w = ws.path();
+    install_store_for_test(w, Arc::new(FullDisk(InMemoryCompletionStore::new())));
+
+    record(w, "sess-fd", "sub-1", "must not be lost", Some("thread-fd"));
+
+    let pending = pending_for(w, "thread-fd");
+    assert_eq!(pending.len(), 1, "the result is held in memory");
+    assert_eq!(pending[0].result.text, "must not be lost");
 }
