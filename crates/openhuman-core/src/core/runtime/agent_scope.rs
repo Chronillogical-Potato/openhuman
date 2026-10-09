@@ -93,15 +93,21 @@ pub struct AgentContextRegistry;
 impl AgentContextRegistry {
     /// Records `ctx` as the context of `agent_id`, replacing any dead entry.
     pub fn register(agent_id: &str, ctx: &Arc<CoreContext>) {
-        let mut map = AGENT_CONTEXTS
-            .write()
-            .unwrap_or_else(PoisonError::into_inner);
-        map.retain(|_, weak| weak.strong_count() > 0);
-        map.insert(agent_id.to_string(), Arc::downgrade(ctx));
-        log::debug!(
-            "[core-context] agent context registered agent={agent_id} live={}",
-            map.len()
-        );
+        {
+            let mut map = AGENT_CONTEXTS
+                .write()
+                .unwrap_or_else(PoisonError::into_inner);
+            map.retain(|_, weak| weak.strong_count() > 0);
+            map.insert(agent_id.to_string(), Arc::downgrade(ctx));
+            log::debug!(
+                "[core-context] agent context registered agent={agent_id} live={}",
+                map.len()
+            );
+        }
+        // With a storage backend, remember the agent there so a restarted
+        // process still visits its records (`crate::storage::agents`). After
+        // the lock is released: recording waits on the storage bridge.
+        crate::storage::agents::record(agent_id);
     }
 
     /// Removes `agent_id`'s entry when it still points at `ctx`.

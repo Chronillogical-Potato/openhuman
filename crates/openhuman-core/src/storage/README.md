@@ -79,21 +79,31 @@ backend installed its records land in that agent's scope. Background work
 runs under the process default context and on its own would only see
 `local`. `storage::agents` closes the gap:
 
-- `registered(context)`: `CoreContext::derive_with` records every agent
-  context it builds (live, by agent id), and the agent id is written to the
-  backend's `local` scope (`storage_agents`) so a restarted process still
-  knows it.
+- Known agents: the live ones are `core::runtime::AgentContextRegistry`'s
+  (embed registers each agent it builds and deregisters it on drop).
+  `AgentContextRegistry::register` also records the agent id in the
+  backend's `local` scope (`storage_agents`, `agents::record`), so a
+  restarted process still knows it; `agents::contexts()` lists both.
 - `for_each_scope(label, step)`: runs `step` for `local`, then under each
   known agent's context — its live one, or the default context acting for it
   (`CoreContext::for_agent`). `for_each_agent` skips `local`.
 - `within_agent(agent, fut)` / `context_for(agent)`: re-enter an agent's
   scope when background work learned whose record it is handling.
+- `find_owner(label, probe)`: the scope (`local` first, then each agent)
+  where a record named only by id lives — for event subscribers, whose
+  events carry ids but no agent.
 
-Users: the cron scheduler (`cron::scheduler::tick_live_agents`), the task-source
-poller, the flows boot sweep and schedule-trigger reconcile, the run reaper,
-and the device tunnel (a paired device's frames run as the agent that paired
-it, `security::devices::owner`). Without a backend these run once, as
-before. In SaaS mode agent ids are not recorded and `local` is skipped;
+Users: the task-source poller, the flows boot sweep and schedule-trigger reconcile, the run reaper,
+the device tunnel (a paired device's frames run as the agent that paired
+it, `security::devices::owner`), and the event subscribers: a flow's
+schedule tick, run digest and dedup settlement run as the flow's owner
+(`flows::bus::owner`); Composio app-event triggers and new connections are
+matched in every scope; a cron job's completion notification is stored with
+the job's owner. Without a backend these run once, as
+before. The cron scheduler visits live agents only
+(`cron::scheduler::tick_live_agents`): an agent's jobs need its live
+context (host tools, prompt) to run, so a recorded agent's jobs wait until
+it is live again; with a backend it no longer needs the agent's `jobs.db`. In SaaS mode agent ids are not recorded and `local` is skipped;
 per-user background work there is `user_agents::background`.
 
 ## Boundaries

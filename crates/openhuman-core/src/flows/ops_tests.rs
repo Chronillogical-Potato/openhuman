@@ -672,3 +672,12 @@ mod tool_contract_and_wiring_warnings_tests;
 mod triggers_and_resume_tests;
 #[path = "ops_validate_warnings_and_connections_tests.rs"]
 mod validate_warnings_and_connections_tests;
+
+#[test]
+fn the_boot_sweep_leaves_shared_backends_alone() {
+    use super::run_management::{boot_sweep_plan, BootSweepPlan};
+    assert_eq!(boot_sweep_plan(false, false), BootSweepPlan::EveryScope);
+    assert_eq!(boot_sweep_plan(false, true), BootSweepPlan::EveryScope);
+    assert_eq!(boot_sweep_plan(true, false), BootSweepPlan::LocalOnly);
+    assert_eq!(boot_sweep_plan(true, true), BootSweepPlan::Nothing);
+}

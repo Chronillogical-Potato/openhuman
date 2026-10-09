@@ -83,3 +83,31 @@ async fn a_channel_no_scope_knows_is_local_and_not_remembered() {
     assert_eq!(owner, Ok(None));
     assert_eq!(cached("owner-test-missing"), None);
 }
+
+#[test]
+fn the_first_scope_holding_the_device_owns_it() {
+    let found = decide(vec![
+        (None, Ok(false)),
+        (Some("a".into()), Err("down".into())),
+        (Some("b".into()), Ok(true)),
+    ]);
+    assert_eq!(found, Ok(Some(Some("b".to_string()))));
+    assert_eq!(decide(vec![(None, Ok(true))]), Ok(Some(None)));
+}
+
+#[test]
+fn a_failed_lookup_without_a_match_fails_closed() {
+    let failed = decide(vec![
+        (None, Ok(false)),
+        (Some("a".into()), Err("down".into())),
+    ]);
+    assert_eq!(
+        failed,
+        Err(OwnerLookupFailed {
+            agent: Some("a".to_string()),
+            error: "down".to_string(),
+        })
+    );
+    assert_eq!(decide(vec![(None, Ok(false))]), Ok(None));
+    assert_eq!(decide(Vec::new()), Ok(None));
+}

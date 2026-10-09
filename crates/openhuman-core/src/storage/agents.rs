@@ -9,64 +9,43 @@
 //! the `local` scope. [`for_each_scope`] closes that gap: it runs a step once
 //! for `local` and once under each known agent's context.
 //!
-//! An agent is known when a context is derived for it in this process
-//! ([`registered`], called by `CoreContext::derive_with`) — the live context
-//! is used, with the agent's own configuration — or when an earlier process
-//! did and recorded its id in the backend's `local` scope
-//! (`storage_agents`), so a restart still visits agents the host has not
-//! re-created yet; those are visited under the default context with the
-//! agent swapped in (`CoreContext::for_agent`).
+//! An agent is known when it is live in this process
+//! (`core::runtime::AgentContextRegistry`, which embed agents register on
+//! build) — its own context is used, with its configuration, policy and
+//! tools — or when an earlier process recorded its id in the backend's
+//! `local` scope (`storage_agents`, written by [`record`] when the agent
+//! registers), so a restart still visits agents the host has not re-created
+//! yet; those are visited under the default context acting for them
+//! (`CoreContext::for_agent`).
 //!
-//! Without a backend nothing here changes behavior: the SQLite stores do not
-//! split by agent, so [`for_each_scope`] runs the step once. In SaaS mode the
-//! process has no `local` scope and per-user background work is driven by
+//! Without a backend [`for_each_agent`] visits nothing: the SQLite stores
+//! these loops read do not split by agent. In SaaS mode the process has no
+//! `local` scope and per-user background work is driven by
 //! `user_agents::background`, so agent ids are not recorded and
-//! [`for_each_scope`] visits only live agent contexts.
+//! [`for_each_scope`] skips `local`.
 
 use std::collections::{BTreeMap, HashSet};
 use std::future::Future;
-use std::sync::{Arc, LazyLock, Mutex, Weak};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use serde_json::json;
 use tinystoragedrivers::{CollectionSpec, Precondition, Query, Scope};
 
 use super::{block_on, installed, DocumentStoreExt, StorageBackend};
-use crate::core::runtime::CoreContext;
+use crate::core::runtime::{AgentContextRegistry, CoreContext};
 
 /// The `local`-scope collection recording which agents have their own scope.
 const AGENTS: &str = "storage_agents";
 
-/// Live agent contexts, by agent id.
-///
-/// Several contexts can name one agent (each `derive_with` makes one), so each
-/// agent keeps all of its live contexts, newest last.
-static LIVE: LazyLock<Mutex<BTreeMap<String, Vec<Weak<CoreContext>>>>> =
-    LazyLock::new(Default::default);
+/// `(backend, agent id)` pairs this process has already recorded, the
+/// backend identified by its address (see [`backend_key`]).
+static RECORDED: LazyLock<Mutex<HashSet<(usize, String)>>> = LazyLock::new(Default::default);
 
-/// Agent ids this process has already recorded in the backend.
-static RECORDED: LazyLock<Mutex<HashSet<String>>> = LazyLock::new(Default::default);
-
-/// Records `context` as its agent's live context (when it names one) and
-/// returns it unchanged. `CoreContext::derive_with` passes every derived
-/// context through here.
-pub fn registered(context: Arc<CoreContext>) -> Arc<CoreContext> {
-    if let Some(agent) = context.session_agent() {
-        let mut live = LIVE
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        // Agents come and go; forget the ones whose contexts are all gone so
-        // the registry stays as small as the set of live agents.
-        live.retain(|_, entries| {
-            entries.retain(|entry| entry.strong_count() > 0);
-            !entries.is_empty()
-        });
-        live.entry(agent.to_string())
-            .or_default()
-            .push(Arc::downgrade(&context));
-        drop(live);
-        record(agent);
-    }
-    context
+/// Identifies `backend` within this process. [`reset_recorded`] runs on every
+/// install and clear, so an address reused by a later backend never inherits
+/// an earlier one's records.
+fn backend_key(backend: &Arc<dyn StorageBackend>) -> usize {
+    Arc::as_ptr(backend).cast::<()>() as usize
 }
 
 /// Forgets which agents were recorded, so the next [`record`] writes them to
@@ -79,25 +58,20 @@ pub(super) fn reset_recorded() {
         .clear();
 }
 
-/// Records every live agent in the backend — for agents derived before the
-/// host installed its backend. Called by [`super::install`].
+/// Records every live agent in the backend — for agents registered before
+/// the host installed its backend. Called by [`super::install`].
 pub(super) fn record_live() {
-    let agents: Vec<String> = LIVE
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .keys()
-        .cloned()
-        .collect();
-    for agent in agents {
+    for (agent, _) in AgentContextRegistry::live() {
         record(&agent);
     }
 }
 
 /// Writes `agent` to the backend's `storage_agents` collection, once per
-/// process. Best effort: a failure is logged and retried on the next
-/// registration, and only costs a restarted process its visits to that
-/// agent until the agent is derived again.
-fn record(agent: &str) {
+/// process. `AgentContextRegistry::register` calls it for every agent. Best
+/// effort: a failure is logged and retried on the next registration, and
+/// only costs a restarted process its visits to that agent until the agent
+/// registers again.
+pub fn record(agent: &str) {
     if crate::core::runtime::mode::is_saas() {
         return;
     }
@@ -109,10 +83,11 @@ fn record(agent: &str) {
 
 /// [`record`] against an explicit `backend`.
 fn record_in(backend: Arc<dyn StorageBackend>, agent: &str) {
+    let key = (backend_key(&backend), agent.to_string());
     if RECORDED
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .contains(agent)
+        .contains(&key)
     {
         return;
     }
@@ -128,7 +103,7 @@ fn record_in(backend: Arc<dyn StorageBackend>, agent: &str) {
             RECORDED
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .insert(agent.to_string());
+                .insert(key);
             tracing::debug!(%agent, "[storage::agents] recorded agent scope");
         }
         Err(error) => {
@@ -151,37 +126,28 @@ fn recorded(backend: Arc<dyn StorageBackend>) -> Vec<String> {
     })
 }
 
-/// The agents [`for_each_scope`] visits, each with the context to visit it
-/// under: its live context when one exists, else `fallback` acting for it.
-fn agent_contexts(fallback: Option<&Arc<CoreContext>>) -> Vec<(String, Arc<CoreContext>)> {
+/// Every agent background work should visit, each with the context to visit
+/// it under: the live ones (`AgentContextRegistry`), then — with a storage
+/// backend installed, outside SaaS mode — every agent recorded by this or an
+/// earlier process, under the current context acting for it.
+pub fn contexts() -> Vec<(String, Arc<CoreContext>)> {
     let backend = if crate::core::runtime::mode::is_saas() {
         None
     } else {
         installed()
     };
-    agent_contexts_in(backend, fallback)
+    contexts_in(backend, CoreContext::current().as_ref())
 }
 
-/// [`agent_contexts`] with the backend whose recorded agents are visited
-/// made explicit (`None` visits live contexts only).
-fn agent_contexts_in(
+/// [`contexts`] with the backend whose recorded agents are visited, and the
+/// context that acts for an agent with no live one, made explicit (`None`
+/// visits live contexts only).
+fn contexts_in(
     backend: Option<Arc<dyn StorageBackend>>,
     fallback: Option<&Arc<CoreContext>>,
 ) -> Vec<(String, Arc<CoreContext>)> {
-    let mut contexts: BTreeMap<String, Arc<CoreContext>> = BTreeMap::new();
-    {
-        let mut live = LIVE
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        live.retain(|agent, entries| {
-            entries.retain(|entry| entry.strong_count() > 0);
-            // The newest context that is still alive acts for the agent.
-            if let Some(context) = entries.iter().rev().find_map(Weak::upgrade) {
-                contexts.insert(agent.clone(), context);
-            }
-            !entries.is_empty()
-        });
-    }
+    let mut contexts: BTreeMap<String, Arc<CoreContext>> =
+        AgentContextRegistry::live().into_iter().collect();
     if let (Some(backend), Some(fallback)) = (backend, fallback) {
         for agent in recorded(backend) {
             contexts
@@ -193,14 +159,17 @@ fn agent_contexts_in(
 }
 
 /// The context to act for `agent` under: its live context when one exists,
-/// else the current context acting for it (`CoreContext::for_agent`).
+/// else — outside SaaS mode — the current context acting for it
+/// (`CoreContext::for_agent`).
 pub fn context_for(agent: &str) -> Option<Arc<CoreContext>> {
-    let live = LIVE
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .get(agent)
-        .and_then(|entries| entries.iter().rev().find_map(Weak::upgrade));
-    live.or_else(|| CoreContext::current().map(|current| current.for_agent(agent)))
+    AgentContextRegistry::get(agent).or_else(|| {
+        // SaaS acts only through a user's own live context: a copy of the
+        // operator's would carry the wrong configuration.
+        if crate::core::runtime::mode::is_saas() {
+            return None;
+        }
+        CoreContext::current().map(|current| current.for_agent(agent))
+    })
 }
 
 /// Runs `fut` acting for `agent` when there is one — background work that
@@ -211,6 +180,21 @@ pub async fn within_agent<F: Future>(agent: Option<&str>, fut: F) -> F::Output {
         Some(context) => CoreContext::scope(context, fut).await,
         None => fut.await,
     }
+}
+
+/// The scope a record lives in, for background work that holds only its id
+/// (an event naming a flow, a job, a device): the first scope — `local`
+/// first, then each known agent ([`for_each_scope`]) — where `probe` finds
+/// it. `Some(None)` is `local`, `Some(Some(agent))` an agent, `None` nowhere.
+pub async fn find_owner<F, Fut>(label: &str, probe: F) -> Option<Option<String>>
+where
+    F: Fn() -> Fut,
+    Fut: Future<Output = bool>,
+{
+    for_each_scope(label, probe)
+        .await
+        .into_iter()
+        .find_map(|(agent, found)| found.then_some(agent))
 }
 
 /// Runs `step` for every storage scope background work must cover: once
@@ -248,11 +232,46 @@ where
     if installed().is_none() {
         return Vec::new();
     }
-    let fallback = CoreContext::current();
+    visit(label, contexts(), step).await
+}
+
+/// [`for_each_scope`], visiting only live agents (`AgentContextRegistry`):
+/// for work that acts as the agent — runs its flows, fetches with its
+/// connections — and so needs the agent's own configuration and tools, which
+/// a recorded agent's stand-in context (`CoreContext::for_agent`) lacks.
+pub async fn for_each_live_scope<T, F, Fut>(label: &str, step: F) -> Vec<(Option<String>, T)>
+where
+    F: Fn() -> Fut,
+    Fut: Future<Output = T>,
+{
     let mut results = Vec::new();
-    for (agent, context) in agent_contexts(fallback.as_ref()) {
+    if !crate::core::runtime::mode::is_saas() {
+        results.push((None, step().await));
+    }
+    if installed().is_none() {
+        return results;
+    }
+    for (agent, value) in visit(label, AgentContextRegistry::live(), step).await {
+        results.push((Some(agent), value));
+    }
+    results
+}
+
+/// Runs `step` under each of `contexts`, building each step inside its
+/// agent's scope, so anything it reads while being set up is the agent's.
+async fn visit<T, F, Fut>(
+    label: &str,
+    contexts: Vec<(String, Arc<CoreContext>)>,
+    step: F,
+) -> Vec<(String, T)>
+where
+    F: Fn() -> Fut,
+    Fut: Future<Output = T>,
+{
+    let mut results = Vec::new();
+    for (agent, context) in contexts {
         tracing::trace!(%agent, label, "[storage::agents] visiting agent scope");
-        let value = CoreContext::scope(context, step()).await;
+        let value = CoreContext::scope(context, async { step().await }).await;
         results.push((agent, value));
     }
     results

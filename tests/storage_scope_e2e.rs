@@ -14,10 +14,10 @@ use std::sync::Arc;
 
 use openhuman_core::config::Config;
 use openhuman_core::core::runtime::{
-    ContextOverlay, CoreBuilder, CoreContext, DomainSet, ServiceSet,
+    AgentContextRegistry, ContextOverlay, CoreBuilder, CoreContext, DomainSet, ServiceSet,
 };
 use openhuman_core::cron::{self, Schedule};
-use openhuman_core::storage::agents::for_each_scope;
+use openhuman_core::storage::agents::{find_owner, for_each_scope, within_agent};
 use openhuman_core::HostKind;
 
 fn job_names(config: &Config) -> Vec<String> {
@@ -49,6 +49,9 @@ async fn background_work_visits_every_agent_scope() {
         ContextOverlay::new(config.clone(), DomainSet::none(), Default::default())
             .session_agent("agent-e2e"),
     );
+    // How a host's agent becomes known to background work (embed does this
+    // when it builds an agent).
+    AgentContextRegistry::register("agent-e2e", &agent);
     // The store calls block on storage's own bridge thread, so they are
     // made straight from the agent's task, where its context is in scope.
     CoreContext::scope(Arc::clone(&agent), async {
@@ -72,7 +75,19 @@ async fn background_work_visits_every_agent_scope() {
         "{live:?}"
     );
 
+    // An event naming only the job resolves to its owner, and handling it
+    // there sees the job.
+    let job_id = within_agent(Some("agent-e2e"), async {
+        cron::list_jobs(&config).unwrap()[0].id.clone()
+    })
+    .await;
+    let owner = find_owner("e2e", || async { cron::get_job(&config, &job_id).is_ok() }).await;
+    assert_eq!(owner, Some(Some("agent-e2e".to_string())));
+    let missing = find_owner("e2e", || async { cron::get_job(&config, "nope").is_ok() }).await;
+    assert_eq!(missing, None);
+
     // … and, once the agent is gone, through the id the backend recorded.
+    assert!(AgentContextRegistry::deregister("agent-e2e", &agent));
     drop(agent);
     let recorded = for_each_scope("e2e", || async { job_names(&config) }).await;
     assert!(

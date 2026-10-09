@@ -114,3 +114,31 @@ fn dedup_state_namespace(flow_id: &str) -> String {
 mod dedup_commit_lock_tests;
 #[path = "bus_subscriber_tests.rs"]
 mod subscriber_tests;
+
+#[tokio::test]
+async fn a_trigger_handled_as_an_agent_uses_the_agent_config() {
+    use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
+    let registered = crate::config::Config {
+        workspace_dir: std::path::PathBuf::from("/tmp/flows-trigger-registered"),
+        ..crate::config::Config::default()
+    };
+    let subscriber = FlowTriggerSubscriber::new(std::sync::Arc::new(registered));
+    assert_eq!(
+        subscriber.config_for_scope().workspace_dir,
+        std::path::PathBuf::from("/tmp/flows-trigger-registered"),
+        "outside an agent the registered config is used"
+    );
+    let agent_config = crate::config::Config {
+        workspace_dir: std::path::PathBuf::from("/tmp/flows-trigger-agent"),
+        ..crate::config::Config::default()
+    };
+    let agent = CoreContext::for_test(DomainSet::full(), None).derive_with(
+        ContextOverlay::new(agent_config, DomainSet::full(), Default::default())
+            .session_agent("flows-trigger-agent"),
+    );
+    let seen = CoreContext::scope(agent, async {
+        subscriber.config_for_scope().workspace_dir.clone()
+    })
+    .await;
+    assert_eq!(seen, std::path::PathBuf::from("/tmp/flows-trigger-agent"));
+}
