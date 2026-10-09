@@ -139,7 +139,10 @@ pub use runtime::{run_from_args, ApiKey, ConfigSource, Runtime, RuntimeBuilder, 
 /// launcher and the live security policy.
 pub mod seams {
     pub use openhuman_core::agent::hooks::{PostTurnHook, ToolHook};
-    pub use openhuman_core::agent::tinyagents::discovery::ToolRanker;
+    pub use openhuman_core::agent::hooks::{ToolHookContext, ToolHookDecision, TurnContext};
+    pub use openhuman_core::agent::tinyagents::discovery::{
+        RankCandidate, RankContext, RankError, RankHit, ToolRanker,
+    };
     pub use openhuman_core::core::all::{ControllerExtension, DomainGroup};
     pub use openhuman_core::core::server_launcher::{ServeRequest, ServerLauncher};
     pub use openhuman_core::security::SecurityPolicy;
