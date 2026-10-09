@@ -123,11 +123,13 @@ impl HostSeams {
     }
 }
 
+/// A ranker we installed, and what held the slot before it.
+type InstalledRanker = (Arc<dyn ToolRanker>, Option<Arc<dyn ToolRanker>>);
+
 /// Seams a runtime installed. Dropping it restores the restorable ones; see
 /// the module docs.
 pub(crate) struct InstalledSeams {
-    /// Ours, and what held the slot before.
-    ranker: Option<(Arc<dyn ToolRanker>, Option<Arc<dyn ToolRanker>>)>,
+    ranker: Option<InstalledRanker>,
     /// Our hook names, and the same-named hook each one replaced.
     post_turn_hooks: Vec<(String, Option<Arc<dyn PostTurnHook>>)>,
     tool_hooks: Vec<(String, Option<Arc<dyn ToolHook>>)>,

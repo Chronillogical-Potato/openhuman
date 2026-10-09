@@ -61,7 +61,7 @@ pub fn release_tag(version: &str, build_sha: Option<&str>) -> String {
 
 /// The first non-blank value among `candidates` (runtime env values first,
 /// then compile-time ones, as the hosts resolve their DSN).
-pub fn first_non_blank<'a>(candidates: impl IntoIterator<Item = Option<String>>) -> Option<String> {
+pub fn first_non_blank(candidates: impl IntoIterator<Item = Option<String>>) -> Option<String> {
     candidates
         .into_iter()
         .flatten()
