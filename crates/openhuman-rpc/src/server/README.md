@@ -13,7 +13,9 @@ core's: every transport here resolves a method through
 
 ### Starting a server
 
-There are two ways in, and both end in `serve`:
+There are two ways in, and both end in `serve`. (`crate::host::cli` and
+`host::desktop` are the same two paths with the TinyHumans backend
+connected on the builder; `host::desktop` enters at `build_and_serve`.)
 
 ```text
  openhuman-core run|serve                 desktop shell (core_process.rs)
@@ -25,14 +27,19 @@ There are two ways in, and both end in `serve`:
              \                                  /
               v                                v
           run_server_with_services(host, port, ServiceSet, ...)
-            HostKind: TauriShell if embedded, else detect_standalone()
-            TokenSource: Fixed(bearer) if handed in, else EnvOrFile
-            OPENHUMAN_E2E set -> ToolGroups::advertised()
+            preset: RuntimeBuilder::desktop() if embedded (HostKind::TauriShell)
+                    else RuntimeBuilder::cli() (detect_standalone())
+                    both: DomainSet::full, discovered config,
+                    OPENHUMAN_E2E set -> ToolGroups::advertised()
+            server_builder: services, TokenSource::Fixed(bearer) if handed
+                    in (else EnvOrFile), listen host/port if given
+          build_and_serve(builder, ready_tx, shutdown_token)
             session_store::install()            (before boot: recovery)
-            CoreBuilder::new(..).build()
+            RuntimeBuilder::build()             (claims the embed runtime slot)
               |
               v
-          serve(&runtime, ready_tx, shutdown_token)
+            serve(runtime.core_runtime(), ready_tx, shutdown_token)
+            drop(runtime)                       (releases the slot)
 ```
 
 `run_server` and `run_server_embedded` use `ServiceSet::desktop()` with
@@ -201,7 +208,7 @@ directly.
   loopback or `tauri.localhost` host). Both read
   `OPENHUMAN_CORE_ALLOWED_ORIGINS`.
 - `OPENHUMAN_E2E` switches tool groups to `ToolGroups::advertised()` in the
-  `run_server*` shims so the browser E2E mock model can call tools. Library
+  embed `desktop` / `cli` presets the `run_server*` shims start from, so the browser E2E mock model can call tools. Library
   hosts are unaffected.
 
 ## Tests
