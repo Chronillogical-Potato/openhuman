@@ -91,7 +91,7 @@ and the `run_workflow` tool (`agent/tools/run_workflow.rs`) call
  registry::missing_required_inputs   reject synchronously
         |
         v
- preflight::run_github_preflight     only for skills that declare a GitHub gate
+ preflight::run_github_preflight     only when the skill declares [github]
         |
         v
  spawn orchestrator run in background
@@ -240,9 +240,6 @@ flows domain contributes `Flow`-scope entries (`flows/catalogue.rs`).
   agent's `agents/<id>/skills/` rather than linking it.
 - Project-scope skills load only with the trust marker. Builtin and legacy
   roots ignore it.
-- A resumed conversation keeps the prompt it started with, so a newly
-  installed skill does not appear in an existing thread's
-  `## Installed Skills` list.
 
 ## Tests
 
