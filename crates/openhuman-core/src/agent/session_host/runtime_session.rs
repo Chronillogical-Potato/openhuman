@@ -18,8 +18,8 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use tinyagents_runtime::{
-    CommitReceipt, ResumeMode, ResumePreparation, SessionBuilder, SessionTerminal,
-    SessionTurnRequest, ToolSnapshot, TranscriptTarget, TurnPreparation,
+    CommitReceipt, ResumePreparation, SessionBuilder, SessionTerminal, SessionTurnRequest,
+    ToolSnapshot, TranscriptTarget, TurnPreparation,
 };
 use tinyagents_session::transcript::TranscriptMeta;
 use tinyinference_llm::message::Message;
