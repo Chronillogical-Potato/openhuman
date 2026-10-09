@@ -267,7 +267,7 @@ fn a_rejected_backend_credential_asks_for_the_right_fix() {
 
 /// Drain `rx` for a `SessionExpired` whose source is `source`.
 fn session_expired_from(
-    rx: &mut tinybus::Receiver<crate::core::events::DomainEvent>,
+    rx: &mut tinybus::EventReceiver<crate::core::events::DomainEvent>,
     source: &str,
 ) -> bool {
     loop {
