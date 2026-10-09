@@ -7,6 +7,9 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
+# Every product gate forwards 1:1 to `openhuman-tinyhumans`, which forwards it
+# to embed and then the core (chain: core -> embed -> tinyhumans -> rpc ->
+# hosts). `http-client`, `server` and `session-store` are this crate's own.
 [features]
 default = ["http-client", "server"]
 # Authenticated HTTP client for reaching a core's `/rpc` endpoint.
@@ -16,7 +19,7 @@ http-client = ["dep:reqwest"]
 # handlers (the `/v1` inference router, the dictation WebSocket) the router
 # mounts.
 server = [
-    "openhuman-core/http-server",
+    "http-server",
     "dep:axum",
     "dep:socketioxide",
     "dep:tokio",
@@ -39,12 +42,35 @@ server = [
 # TinyAgents' session store port. On with `server`; the TUI, which runs the
 # core without the server, turns it on by itself.
 session-store = ["dep:tinyagents-session", "dep:tinyagents-harness", "dep:chrono", "dep:anyhow"]
-# Forwarded so the server's Sentry-routing tests run against a core that
-# reports to Sentry.
-crash-reporting = ["openhuman-core/crash-reporting"]
+# The Jev `tool_search` ranker the shared host boot (`host`) wires in.
+jev = ["openhuman-tinyhumans/jev"]
+# Product gates, forwarded down the chain.
+http-server = ["openhuman-tinyhumans/http-server"]
+inference = ["openhuman-tinyhumans/inference"]
+documents = ["openhuman-tinyhumans/documents"]
+hosting = ["openhuman-tinyhumans/hosting"]
+modules = ["openhuman-tinyhumans/modules"]
+voice = ["openhuman-tinyhumans/voice"]
+web3 = ["openhuman-tinyhumans/web3"]
+runtime-node = ["openhuman-tinyhumans/runtime-node"]
+media = ["openhuman-tinyhumans/media"]
+flows = ["openhuman-tinyhumans/flows"]
+skills = ["openhuman-tinyhumans/skills"]
+mcp = ["openhuman-tinyhumans/mcp"]
+# Also lets the server's Sentry-routing tests run against a core that reports
+# to Sentry.
+crash-reporting = ["openhuman-tinyhumans/crash-reporting"]
+channels = ["openhuman-tinyhumans/channels"]
+whatsapp-web = ["openhuman-tinyhumans/whatsapp-web"]
+file-logging = ["openhuman-tinyhumans/file-logging"]
+scheduler-gate = ["openhuman-tinyhumans/scheduler-gate"]
 
 [dependencies]
-openhuman-core = { path = "../openhuman-core", package = "openhuman", default-features = false }
+# The only openhuman crate this layer depends on. Core internals the server
+# needs come through embed's `#[doc(hidden)]` `__host` list (reached as
+# `openhuman_tinyhumans::embed::__host`); there is no direct `openhuman-core`
+# edge (chain: core -> embed -> tinyhumans -> rpc -> hosts).
+openhuman-tinyhumans = { path = "../openhuman-tinyhumans", default-features = false }
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -76,4 +102,6 @@ sentry = { version = "0.47.0", default-features = false, features = ["test"] }
 tempfile = "3"
 tokio = { version = "1", features = ["full", "test-util"] }
 tower = { version = "0.5", default-features = false }
-tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "ansi", "env-filter"] }
+# Same spelling as embed's, tinyhumans' and cli's dev-dependency, so the dev
+# graphs unify and `cargo test -p openhuman-rpc` reuses their core build.
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
