@@ -86,9 +86,11 @@ fn missing_pending_session_stops_handshake_before_cipher_installation() {
 fn a_restarted_host_opens_a_fresh_handshake_from_a_paired_row() {
     let original = DeviceKeypair::generate();
     let private = original.private_bytes();
-    let secret = crate::security::devices::crypto::base64url_encode(&private);
-    let secret_store =
-        crate::security::secret_storage::SecretStore::new(std::path::Path::new("."), false);
+    let data_dir = tempfile::tempdir().unwrap();
+    let secret_store = crate::security::secret_storage::SecretStore::new(data_dir.path(), true);
+    let secret = secret_store
+        .encrypt(&crate::security::devices::crypto::base64url_encode(&private))
+        .unwrap();
     let phone = KeyPair::generate().unwrap();
     let device = super::super::types::PairedDevice {
         channel_id: "restart-channel".to_string(),
@@ -133,9 +135,11 @@ fn a_restarted_host_opens_a_fresh_handshake_from_a_paired_row() {
 #[test]
 fn restarted_pairing_rejects_mismatched_or_revoked_device_rows() {
     let original = DeviceKeypair::generate();
-    let secret = crate::security::devices::crypto::base64url_encode(&original.private_bytes());
-    let secret_store =
-        crate::security::secret_storage::SecretStore::new(std::path::Path::new("."), false);
+    let data_dir = tempfile::tempdir().unwrap();
+    let secret_store = crate::security::secret_storage::SecretStore::new(data_dir.path(), true);
+    let secret = secret_store
+        .encrypt(&crate::security::devices::crypto::base64url_encode(&original.private_bytes()))
+        .unwrap();
     let mut device = super::super::types::PairedDevice {
         channel_id: "restart-channel-revoked".to_string(),
         label: "phone".to_string(),

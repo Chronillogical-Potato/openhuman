@@ -25,6 +25,22 @@ fn a_paired_device_round_trips() {
 }
 
 #[test]
+fn encrypted_core_identity_is_stored_for_restart_and_hidden_from_device_rpc_json() {
+    let store = docs();
+    store
+        .insert_device_with_key("ch-key", "iPhone", "device-pk", "hash", Some("enc2:ciphertext"))
+        .unwrap();
+    let read = store.get_device("ch-key").unwrap().expect("stored");
+    assert_eq!(
+        read.core_private_key_encrypted.as_deref(),
+        Some("enc2:ciphertext")
+    );
+    assert!(!serde_json::to_string(&read)
+        .unwrap()
+        .contains("core_private_key_encrypted"));
+}
+
+#[test]
 fn pairing_again_cannot_revive_or_replace_the_device() {
     let store = docs();
     store.insert_device("ch-1", "old", "pk1", "h").unwrap();
