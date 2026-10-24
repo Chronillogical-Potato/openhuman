@@ -137,9 +137,7 @@ impl ApprovalResolver<crate::agent::tinyagents::host::OpenHumanRunContext>
         call: &TaToolCall,
     ) -> ApprovalResolution {
         let Some(gate) = ApprovalGate::try_global() else {
-            if approval_is_explicitly_disabled(
-                crate::security::approval::gate::try_boot_state(),
-            ) {
+            if approval_is_explicitly_disabled(crate::security::approval::gate::try_boot_state()) {
                 tracing::info!(
                     tool = %call.name,
                     "[tinyagents::mw] approval gate explicitly disabled by operator"

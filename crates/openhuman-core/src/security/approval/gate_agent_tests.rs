@@ -160,7 +160,10 @@ async fn execution_audit_uses_the_agent_scope_captured_when_parked() {
     gate.decide(&request.request_id, ApprovalDecision::ApproveOnce)
         .unwrap()
         .expect("parked approval should be decided");
-    assert!(matches!(parked.await.unwrap(), (GateOutcome::Allow, Some(_))));
+    assert!(matches!(
+        parked.await.unwrap(),
+        (GateOutcome::Allow, Some(_))
+    ));
     gate.record_execution(&request.request_id, ExecutionOutcome::Success, None);
 
     assert_eq!(
