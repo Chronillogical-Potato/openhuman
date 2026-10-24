@@ -34,11 +34,11 @@ use crate::transport::{BackendTransport, TransportProfile};
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::core::events::DomainEvent;
 use openhuman_embed::__host::core::observability::{
-    contains_transient_transport_phrase, is_transient_http_status_code, API_KEY_REJECTED_PREFIX,
-    BACKEND_UNAVAILABLE_PREFIX,
+    API_KEY_REJECTED_PREFIX, BACKEND_UNAVAILABLE_PREFIX, contains_transient_transport_phrase,
+    is_transient_http_status_code,
 };
 use openhuman_embed::__host::security::credentials::session_support::{
-    credential_fingerprint, resolve_backend_credential, BackendCredential,
+    BackendCredential, credential_fingerprint, resolve_backend_credential,
 };
 use serde_json::Value;
 use tinyhumans_sdk::{Error as SdkError, TinyHumansClient};
