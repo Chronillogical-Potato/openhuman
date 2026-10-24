@@ -434,6 +434,7 @@ mod gate_state;
 #[path = "gate_surface.rs"]
 mod gate_surface;
 
+#[cfg(test)]
 pub(crate) use gate_intercept::{saas_outcome, saas_outcome_with};
 
 #[cfg(test)]

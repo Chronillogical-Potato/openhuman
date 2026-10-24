@@ -18,10 +18,11 @@ mod keychain;
 mod lock;
 mod migration;
 mod persistence;
-pub(super) use lock::{annotate_lock_create_failure, is_lock_create_unwritable_fs};
-pub(super) use persistence::write_owner_only;
+use lock::{annotate_lock_create_failure, is_lock_create_unwritable_fs};
+#[cfg(test)]
+use persistence::write_owner_only;
 pub(crate) use persistence::is_persisted_document;
-pub(super) use persistence::{PersistedAuthProfile, PersistedAuthProfiles};
+use persistence::{PersistedAuthProfile, PersistedAuthProfiles};
 mod readonly;
 pub(crate) use persistence::STORAGE_SECRET_NAME as PROFILES_SECRET_NAME;
 mod store_core;

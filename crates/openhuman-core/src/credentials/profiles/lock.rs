@@ -37,7 +37,7 @@ use super::{
 /// not the read. Lock *contention* (`AlreadyExists` / the busy-wait timeout)
 /// and every other error deliberately do NOT match — those still propagate so
 /// genuine problems stay visible. See [`AuthProfilesStore::load`].
-fn is_lock_create_unwritable_fs(err: &anyhow::Error) -> bool {
+pub(super) fn is_lock_create_unwritable_fs(err: &anyhow::Error) -> bool {
     err.chain()
         .find_map(|cause| cause.downcast_ref::<std::io::Error>())
         .map(|io| {
@@ -49,7 +49,7 @@ fn is_lock_create_unwritable_fs(err: &anyhow::Error) -> bool {
         .unwrap_or(false)
 }
 
-fn annotate_lock_create_failure(err: anyhow::Error) -> anyhow::Error {
+pub(super) fn annotate_lock_create_failure(err: anyhow::Error) -> anyhow::Error {
     let io = err.chain().find_map(|c| c.downcast_ref::<std::io::Error>());
     let kind = io.map(|ioe| ioe.kind());
     let os_code = io.and_then(|ioe| ioe.raw_os_error());
