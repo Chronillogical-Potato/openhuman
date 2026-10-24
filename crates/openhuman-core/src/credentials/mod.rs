@@ -23,7 +23,6 @@ pub use core::{
 };
 pub use credential_ref::{CredentialRef, CredentialRefError, CredentialRefScheme, ResolvedSecret};
 pub use jwt::user_id_from_profile_payload;
-pub(crate) use ops::CREDENTIAL_MUTATION_LOCK;
 pub use ops::{
     auth_get_session_token_json, auth_get_state, clear_credential, clear_session, decrypt_secret,
     encrypt_secret, list_provider_credentials, list_provider_credentials_by_prefix,
