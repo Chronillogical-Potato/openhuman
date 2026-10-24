@@ -19,6 +19,7 @@ use tinytools::ToolResult as TaToolResult;
 use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::policy_denial::PolicyDenial;
 
+#[path = "skill_disclosure.rs"]
 mod skill_disclosure;
 use tinytools::Tool;
 
