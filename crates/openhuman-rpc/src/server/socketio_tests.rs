@@ -51,6 +51,11 @@ fn session_expiry_bridge_only_broadcasts_for_the_current_session_credential() {
         Some("expired-request-token"),
         false,
     ));
+    assert!(should_broadcast_session_expiry(
+        Some(&old_request),
+        None,
+        false,
+    ));
     assert!(!should_broadcast_session_expiry(
         None,
         Some("current-token"),

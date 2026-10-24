@@ -1054,14 +1054,14 @@ fn should_broadcast_session_expiry(
     using_api_key: bool,
 ) -> bool {
     !using_api_key
-        && request_fingerprint
-            .zip(current_token)
-            .is_some_and(|(fingerprint, token)| {
+        && request_fingerprint.is_some_and(|fingerprint| {
+            current_token.is_none_or(|token| {
                 crate::core_host::security::credentials::session_support::credential_fingerprint_matches(
                     fingerprint,
                     token,
                 )
             })
+        })
 }
 
 /// Build the `channel:connection-updated` payload broadcast when a supervised
