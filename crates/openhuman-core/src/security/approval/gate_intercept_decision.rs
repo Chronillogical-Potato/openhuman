@@ -1,3 +1,5 @@
+use super::*;
+
 impl ApprovalGate {
     /// Resolves the parked oneshot receiver against its wait bound
     /// (`min(park_bound, effective_ttl)`), handling every terminal shape: a

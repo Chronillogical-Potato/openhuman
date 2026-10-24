@@ -1,3 +1,5 @@
+use super::*;
+
 impl ApprovalGate {
     /// Install the process-global gate. Returns the existing gate if
     /// one was already installed (re-install is a no-op so repeated

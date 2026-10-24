@@ -1,3 +1,6 @@
+use super::gate_surface::publish_flow_gate_notification;
+use super::*;
+
 impl ApprovalGate {
     /// Shared core of [`Self::intercept_audited`] and
     /// [`Self::intercept_audited_bounded`]. When `park_bound` is `Some` and
