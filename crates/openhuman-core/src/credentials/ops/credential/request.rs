@@ -9,7 +9,7 @@ use crate::credentials::session_state::{
 /// `auth.set_credential` parameters.
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct SetCredentialRequest {
+pub struct SetCredentialRequest {
     /// The secret: a session JWT, an API key, or the local offline token.
     pub token: String,
     /// `"session"`, `"api-key"` or `"local"`. Defaults to classifying `token`
@@ -27,6 +27,9 @@ pub(super) struct SetCredentialRequest {
     #[serde(default)]
     pub issuing_backend: Option<String>,
 }
+
+/// Reject session credentials shortly before their real expiry.
+const EXPIRY_SKEW_SECS: i64 = 30;
 
 pub(super) fn sanitize_user(user: Option<Value>) -> Option<Value> {
     match user {

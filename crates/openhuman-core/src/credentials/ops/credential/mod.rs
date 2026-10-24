@@ -1,9 +1,13 @@
 //! Process credential request, mutation, clearing, and teardown operations.
 
 use crate::config::Config;
+use crate::credentials::ops::gated_services::{
+    spawn_integrations_cache_warm, start_credential_gated_services,
+    stop_credential_gated_services,
+};
+use crate::credentials::responses::AuthStateResponse;
 use crate::core::runtime::DispatchCtx;
 use crate::core::Outcome;
-use serde_json::Value;
 
 pub(crate) const LOG_PREFIX: &str = "[credentials][set-credential]";
 pub const PENDING_BACKEND_VALIDATION_FIELD: &str = "pendingBackendValidation";
@@ -18,6 +22,7 @@ mod teardown;
 pub use clear::{clear_credential, clear_session, store_session};
 pub use request::SetCredentialRequest;
 pub use set::set_credential;
+pub(super) use request::{resolve, Resolved};
 pub(crate) use teardown::{
     clear_session_credential, process_credential_refusal, publish_credential_changed,
     refuse_process_credential_in_saas,
