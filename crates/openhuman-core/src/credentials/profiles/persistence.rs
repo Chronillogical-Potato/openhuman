@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
+use std::path::Path;
 
 #[cfg(test)]
 use std::sync::atomic::Ordering;
@@ -35,7 +36,7 @@ use super::{
 /// `.mode()` only applies when the file is *created*, so a leftover tmp from an
 /// interrupted save would keep its old mode — hence the explicit
 /// `set_permissions` afterwards.
-fn write_owner_only(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+pub(super) fn write_owner_only(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
@@ -64,15 +65,15 @@ pub(crate) fn is_persisted_document(bytes: &[u8]) -> bool {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct PersistedAuthProfiles {
+pub(super) struct PersistedAuthProfiles {
     #[serde(default = "default_schema_version")]
-    schema_version: u32,
+    pub(super) schema_version: u32,
     #[serde(default = "default_now_rfc3339")]
-    updated_at: String,
+    pub(super) updated_at: String,
     #[serde(default)]
-    active_profiles: BTreeMap<String, String>,
+    pub(super) active_profiles: BTreeMap<String, String>,
     #[serde(default)]
-    profiles: BTreeMap<String, PersistedAuthProfile>,
+    pub(super) profiles: BTreeMap<String, PersistedAuthProfile>,
 }
 
 impl Default for PersistedAuthProfiles {
@@ -87,34 +88,34 @@ impl Default for PersistedAuthProfiles {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-struct PersistedAuthProfile {
-    provider: String,
-    profile_name: String,
-    kind: String,
+pub(super) struct PersistedAuthProfile {
+    pub(super) provider: String,
+    pub(super) profile_name: String,
+    pub(super) kind: String,
     #[serde(default)]
-    account_id: Option<String>,
+    pub(super) account_id: Option<String>,
     #[serde(default)]
-    workspace_id: Option<String>,
+    pub(super) workspace_id: Option<String>,
     #[serde(default)]
-    access_token: Option<String>,
+    pub(super) access_token: Option<String>,
     #[serde(default)]
-    refresh_token: Option<String>,
+    pub(super) refresh_token: Option<String>,
     #[serde(default)]
-    id_token: Option<String>,
+    pub(super) id_token: Option<String>,
     #[serde(default)]
-    token: Option<String>,
+    pub(super) token: Option<String>,
     #[serde(default)]
-    expires_at: Option<String>,
+    pub(super) expires_at: Option<String>,
     #[serde(default)]
-    token_type: Option<String>,
+    pub(super) token_type: Option<String>,
     #[serde(default)]
-    scope: Option<String>,
+    pub(super) scope: Option<String>,
     #[serde(default = "default_now_rfc3339")]
-    created_at: String,
+    pub(super) created_at: String,
     #[serde(default = "default_now_rfc3339")]
-    updated_at: String,
+    pub(super) updated_at: String,
     #[serde(default)]
-    metadata: BTreeMap<String, String>,
+    pub(super) metadata: BTreeMap<String, String>,
 }
 
 fn default_schema_version() -> u32 {
