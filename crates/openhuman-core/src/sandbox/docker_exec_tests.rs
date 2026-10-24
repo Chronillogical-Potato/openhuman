@@ -113,11 +113,9 @@ fn module_request_rounds_small_timeouts_up_and_rejects_unbounded_timeouts() {
     exec_request.timeout = Duration::from_millis(MAX_DOCKER_RUN_TIMEOUT_MS + 1);
     let error = build_docker_request(&policy(temp.path()), &exec_request)
         .expect_err("unbounded request must not bypass the contract limit");
-    assert!(
-        error
-            .to_string()
-            .contains("timeout exceeds the supported limit")
-    );
+    assert!(error
+        .to_string()
+        .contains("timeout exceeds the supported limit"));
 }
 
 #[cfg(all(feature = "modules", unix))]
