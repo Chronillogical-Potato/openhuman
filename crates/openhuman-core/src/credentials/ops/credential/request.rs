@@ -54,15 +54,15 @@ pub(super) fn normalize_local_user(user: Value, local_user_id: &str) -> Value {
 }
 
 /// What `set_credential` resolved before touching any state.
-pub(super) struct Resolved {
-    pub(super) kind: CredentialKind,
-    pub(super) token: String,
-    pub(super) user_id: Option<String>,
-    pub(super) user: Option<Value>,
-    pub(super) expires_at: Option<chrono::DateTime<chrono::Utc>>,
+pub(crate) struct Resolved {
+    pub(crate) kind: CredentialKind,
+    pub(crate) token: String,
+    pub(crate) user_id: Option<String>,
+    pub(crate) user: Option<Value>,
+    pub(crate) expires_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
-pub(super) fn resolve(request: SetCredentialRequest) -> Result<Resolved, String> {
+pub(crate) fn resolve(request: SetCredentialRequest) -> Result<Resolved, String> {
     let token = request.token.trim().to_string();
     if token.is_empty() {
         return Err("token is required".to_string());

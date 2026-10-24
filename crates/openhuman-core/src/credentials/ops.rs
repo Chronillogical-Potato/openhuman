@@ -15,7 +15,7 @@ pub use credential::{
     PENDING_BACKEND_VALIDATION_FIELD,
 };
 pub(crate) use credential::{
-    clear_session_credential, process_credential_refusal, CREDENTIAL_MUTATION_LOCK,
+    clear_session_credential, CREDENTIAL_MUTATION_LOCK,
 };
 pub use gated_services::{start_credential_gated_services, stop_credential_gated_services};
 pub use provider_credentials::{
@@ -27,6 +27,9 @@ pub use session_query::{auth_get_session_token_json, auth_get_state};
 
 #[cfg(test)]
 pub(crate) use secrets::secret_store_for_config;
+
+#[cfg(test)]
+pub(crate) use credential::process_credential_refusal;
 
 #[cfg(test)]
 #[path = "ops_tests.rs"]
