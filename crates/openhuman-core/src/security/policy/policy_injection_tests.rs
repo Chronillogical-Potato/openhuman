@@ -335,7 +335,6 @@ fn from_config_creates_fresh_tracker() {
         allowed_commands: vec![],
         forbidden_paths: vec![],
         max_actions_per_hour: 10,
-        max_cost_per_day_cents: 100,
         require_approval_for_medium_risk: true,
         block_high_risk_commands: true,
         ..crate::config::AutonomyConfig::default()
