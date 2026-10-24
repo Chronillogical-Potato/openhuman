@@ -13,6 +13,7 @@ fn the_offline_local_session_cannot_authenticate_managed_inference() {
     let error = managed_bearer(
         SessionTokenCheck::Live("header.payload.local".to_string()),
         "openhuman_backend_model.resolve_bearer",
+        None,
     )
     .expect_err("a local session has no managed bearer");
 
@@ -29,6 +30,7 @@ fn the_refusal_does_not_read_as_an_expired_session() {
     let error = managed_bearer(
         SessionTokenCheck::Live("header.payload.local".to_string()),
         "openhuman_backend_model.resolve_bearer",
+        None,
     )
     .expect_err("a local session has no managed bearer");
 
@@ -48,6 +50,7 @@ fn a_signed_in_session_still_authenticates_managed_inference() {
     let bearer = managed_bearer(
         SessionTokenCheck::Live("header.payload.signature".to_string()),
         "openhuman_backend_model.resolve_bearer",
+        None,
     )
     .expect("a hosted session is the bearer");
 
@@ -271,7 +274,7 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
     fn assert_no_session_expired(receiver: &mut tinybus::events::EventReceiver<DomainEvent>) {
         loop {
             match receiver.try_recv() {
-                Ok(DomainEvent::SessionExpired { source, reason }) => {
+                Ok(DomainEvent::SessionExpired { source, reason, .. }) => {
                     panic!("inspection call published SessionExpired ({source}): {reason}")
                 }
                 Ok(_) | Err(tinybus::TryRecvError::Lagged(_)) => continue,

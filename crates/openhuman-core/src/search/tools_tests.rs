@@ -275,7 +275,15 @@ async fn a_rejected_session_starts_re_authentication() {
         .get()
         .expect("event bus initialized")
         .receiver();
-    on_backend_unauthorized("test_marker_session_search", false);
+    on_backend_unauthorized(
+        "test_marker_session_search",
+        false,
+        Some(
+            crate::security::credentials::session_support::credential_fingerprint(
+                "test-session-token",
+            ),
+        ),
+    );
     assert!(session_expired_from(
         &mut rx,
         "search.test_marker_session_search"
@@ -291,7 +299,7 @@ async fn a_rejected_api_key_does_not_sign_the_user_out() {
         .get()
         .expect("event bus initialized")
         .receiver();
-    on_backend_unauthorized("test_marker_api_key_search", true);
+    on_backend_unauthorized("test_marker_api_key_search", true, None);
     assert!(!session_expired_from(
         &mut rx,
         "search.test_marker_api_key_search"

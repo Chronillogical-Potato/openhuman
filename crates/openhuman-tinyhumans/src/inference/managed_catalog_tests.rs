@@ -104,7 +104,11 @@ fn limits_request_lists_the_catalog_keyed_by_the_inference_base() {
 #[test]
 fn a_live_session_wins_over_the_provider_key() {
     assert_eq!(
-        listing_auth(SessionTokenCheck::Live("jwt".into()), "provider-key"),
+        listing_auth(
+            SessionTokenCheck::Live("jwt".into()),
+            Some("jwt"),
+            "provider-key",
+        ),
         ListingAuth::Session("jwt".into())
     );
 }
@@ -114,11 +118,11 @@ fn a_live_session_wins_over_the_provider_key() {
 #[test]
 fn without_a_live_session_the_entrys_provider_key_authenticates() {
     assert_eq!(
-        listing_auth(SessionTokenCheck::Absent, " provider-key "),
+        listing_auth(SessionTokenCheck::Absent, None, " provider-key "),
         ListingAuth::ProviderKey("provider-key".into())
     );
     assert_eq!(
-        listing_auth(SessionTokenCheck::Expired, "provider-key"),
+        listing_auth(SessionTokenCheck::Expired, Some("old-jwt"), "provider-key"),
         ListingAuth::ProviderKey("provider-key".into())
     );
 }
@@ -126,11 +130,11 @@ fn without_a_live_session_the_entrys_provider_key_authenticates() {
 #[test]
 fn with_neither_credential_the_catalog_is_empty() {
     assert_eq!(
-        listing_auth(SessionTokenCheck::Absent, ""),
+        listing_auth(SessionTokenCheck::Absent, None, ""),
         ListingAuth::Empty("no session")
     );
     assert_eq!(
-        listing_auth(SessionTokenCheck::Expired, "  "),
+        listing_auth(SessionTokenCheck::Expired, Some("old-jwt"), "  "),
         ListingAuth::Empty("session expired")
     );
 }

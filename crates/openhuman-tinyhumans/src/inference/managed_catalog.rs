@@ -16,7 +16,7 @@ use openhuman_embed::__host::inference_registry::{
 };
 use openhuman_embed::__host::security::credentials::session_support::{
     classify_session_token, load_app_session_profile, publish_local_session_expiry,
-    resolve_backend_credential, BackendCredential, SessionTokenCheck,
+    resolve_backend_credential, session_token_from_profile, BackendCredential, SessionTokenCheck,
 };
 use openhuman_embed::__host::util::url::join_url;
 use std::sync::Arc;
@@ -198,14 +198,18 @@ pub(super) enum ListingAuth {
 /// Pick the listing credential. A live session wins; without one the entry's
 /// provider-scoped key still authenticates, and only when neither exists does
 /// the catalog degrade to empty.
-pub(super) fn listing_auth(check: SessionTokenCheck, provider_key: &str) -> ListingAuth {
+pub(super) fn listing_auth(
+    check: SessionTokenCheck,
+    selected_token: Option<&str>,
+    provider_key: &str,
+) -> ListingAuth {
     let provider_key = provider_key.trim();
     match check {
         SessionTokenCheck::Live(token) => ListingAuth::Session(token),
         SessionTokenCheck::Expired => {
             // `require_live_session_token` announced this; without it an expired
             // token stays in the store with nothing prompting a re-auth.
-            publish_local_session_expiry("list_configured_models");
+            publish_local_session_expiry("list_configured_models", selected_token);
             if provider_key.is_empty() {
                 ListingAuth::Empty("session expired")
             } else {
@@ -227,17 +231,21 @@ pub(super) async fn list_models(
     // degrades to an empty list, or to the entry's own key.
     let profile = load_app_session_profile(config)?;
     let check = classify_session_token(profile.as_ref(), chrono::Utc::now());
-    let (token, session_token) = match listing_auth(check, &request.provider_key) {
-        ListingAuth::Session(token) => (token.clone(), true),
-        ListingAuth::ProviderKey(key) => {
-            log::debug!("[tinyhumans][inference] no live session; using the provider-scoped key");
-            (key, false)
-        }
-        ListingAuth::Empty(reason) => {
-            log::info!("[tinyhumans][inference] managed catalog unavailable: {reason}");
-            return empty_catalog(reason);
-        }
-    };
+    let selected_token = session_token_from_profile(profile.as_ref());
+    let (token, session_token) =
+        match listing_auth(check, selected_token.as_deref(), &request.provider_key) {
+            ListingAuth::Session(token) => (token.clone(), true),
+            ListingAuth::ProviderKey(key) => {
+                log::debug!(
+                    "[tinyhumans][inference] no live session; using the provider-scoped key"
+                );
+                (key, false)
+            }
+            ListingAuth::Empty(reason) => {
+                log::info!("[tinyhumans][inference] managed catalog unavailable: {reason}");
+                return empty_catalog(reason);
+            }
+        };
 
     let url = catalog_url(config);
     log::debug!("[tinyhumans][inference] managed catalog url={url}");

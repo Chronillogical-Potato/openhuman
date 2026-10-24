@@ -87,6 +87,7 @@ pub mod integrations;
 pub mod jev;
 pub mod jwt;
 pub(crate) mod memory;
+mod provider_oauth;
 mod register;
 mod runtime;
 pub mod session;

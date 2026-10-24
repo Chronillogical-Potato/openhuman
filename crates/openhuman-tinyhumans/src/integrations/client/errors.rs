@@ -11,6 +11,10 @@ use crate::integrations::types::BackendResponse;
 
 use super::construct::IntegrationClient;
 
+#[cfg(test)]
+#[path = "errors_tests.rs"]
+mod tests;
+
 /// Maximum length (in bytes) of backend error body included in propagated
 /// errors. Keep this bounded — error messages flow through tracing/Sentry and
 /// are surfaced in user-facing toasts, neither of which want a 100KB blob.
@@ -97,7 +101,13 @@ pub(crate) fn extract_error_detail(body: &str, max_bytes: usize) -> String {
 ///    recovery). Publishing here makes the credentials subscriber clear the
 ///    session and the UI prompt re-sign-in regardless of which call site
 ///    surfaced the 401.
-fn handle_session_jwt_unauthorized(method: &str, path: &str, url: &str, detail: &str) -> String {
+fn handle_session_jwt_unauthorized(
+    method: &str,
+    path: &str,
+    url: &str,
+    detail: &str,
+    credential_fingerprint: String,
+) -> String {
     let message = format!(
         "SESSION_EXPIRED: backend rejected session token on {method} {path} \
          (401 for {url}: {detail}) — sign in again to resume"
@@ -144,6 +154,7 @@ fn handle_session_jwt_unauthorized(method: &str, path: &str, url: &str, detail: 
         openhuman_embed::__host::core::events::DomainEvent::SessionExpired {
             source: format!("integrations.{method}:{path}"),
             reason: tinyinference_core::sanitize::sanitize_api_error(&message),
+            credential_fingerprint: Some(credential_fingerprint),
         },
     );
 
@@ -285,7 +296,10 @@ impl IntegrationClient {
                         &method_upper,
                         path,
                         url,
-                        &detail
+                        &detail,
+                        openhuman_embed::__host::security::credentials::session_support::credential_fingerprint(
+                            self.credential.secret(),
+                        ),
                     ));
                 }
                 let status_text = reqwest::StatusCode::from_u16(status)

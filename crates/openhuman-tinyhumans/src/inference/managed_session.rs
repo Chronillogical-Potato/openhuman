@@ -18,7 +18,9 @@ pub(super) fn resolve_session_bearer(
     profile_override: Option<&str>,
     operation: &str,
 ) -> anyhow::Result<String> {
-    use openhuman_embed::__host::security::credentials::session_support::classify_session_token;
+    use openhuman_embed::__host::security::credentials::session_support::{
+        classify_session_token, session_token_from_profile,
+    };
     use openhuman_embed::__host::security::credentials::{AuthService, APP_SESSION_PROVIDER};
 
     ensure_session_endpoint(endpoint)?;
@@ -27,9 +29,10 @@ pub(super) fn resolve_session_bearer(
     }
     let auth = AuthService::new(state_dir, secrets_encrypt);
     let profile = auth.get_profile(APP_SESSION_PROVIDER, profile_override)?;
+    let selected_token = session_token_from_profile(profile.as_ref());
     // Precheck recorded JWT expiry before constructing any inference request.
     let check = classify_session_token(profile.as_ref(), chrono::Utc::now());
-    managed_bearer(check, operation)
+    managed_bearer(check, operation, selected_token.as_deref())
 }
 
 /// Resolve the managed backend bearer from a read-only selected-profile
@@ -99,6 +102,7 @@ fn ensure_session_endpoint(endpoint: &str) -> anyhow::Result<()> {
 pub(super) fn managed_bearer(
     check: openhuman_embed::__host::security::credentials::session_support::SessionTokenCheck,
     operation: &str,
+    selected_token: Option<&str>,
 ) -> anyhow::Result<String> {
     use openhuman_embed::__host::security::credentials::session_support::{
         is_local_session_token, SessionTokenCheck, LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE,
@@ -113,7 +117,7 @@ pub(super) fn managed_bearer(
         }
         SessionTokenCheck::Live(token) => Ok(token),
         SessionTokenCheck::Expired => {
-            maybe_publish_local_session_expiry(operation);
+            maybe_publish_local_session_expiry(operation, selected_token);
             anyhow::bail!(
                 "SESSION_EXPIRED: backend session token expired locally — re-authentication required"
             )
@@ -131,7 +135,7 @@ pub(super) fn managed_bearer(
 /// pre-flight publish so the credentials subscriber clears state and the UI
 /// re-auths exactly as it would on a real backend 401. Deduped via the
 /// scheduler gate so N parallel managed turns in one tick don't emit N events.
-fn maybe_publish_local_session_expiry(operation: &str) {
+fn maybe_publish_local_session_expiry(operation: &str, selected_token: Option<&str>) {
     if openhuman_embed::__host::platform::llm_gate::is_signed_out() {
         return;
     }
@@ -144,6 +148,9 @@ fn maybe_publish_local_session_expiry(operation: &str) {
             source: operation.to_string(),
             reason: "backend session token expired locally — re-authentication required"
                 .to_string(),
+            credential_fingerprint: selected_token.map(
+                openhuman_embed::__host::security::credentials::session_support::credential_fingerprint,
+            ),
         },
     );
 }
@@ -182,6 +189,9 @@ pub(super) fn publish_managed_auth_failure(error: &ProviderError, context: TinyH
         openhuman_embed::__host::core::events::DomainEvent::SessionExpired {
             source: format!("openhuman_backend_model.{operation}({status})"),
             reason,
+            credential_fingerprint: context
+                .credential_fingerprint()
+                .map(|fingerprint| fingerprint.to_hex()),
         },
     );
 }

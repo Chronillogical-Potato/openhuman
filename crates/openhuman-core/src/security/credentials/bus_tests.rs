@@ -13,6 +13,68 @@ fn domain_filter_is_auth() {
     assert_eq!(s.domains(), Some(&["auth"][..]));
 }
 
+#[test]
+fn stale_session_expiry_does_not_match_a_replacement_token() {
+    let expired_request = crate::security::credentials::session_support::credential_fingerprint(
+        "request-token-before-rotation",
+    );
+    assert!(!super::session_expiry_matches_token(
+        &expired_request,
+        "replacement-token-after-rotation",
+    ));
+    assert!(super::session_expiry_matches_token(
+        &expired_request,
+        "request-token-before-rotation",
+    ));
+}
+
+#[tokio::test]
+async fn stale_session_expiry_leaves_replacement_session_and_gate_intact() {
+    use crate::core::runtime::{CoreContext, DispatchCtx, DomainSet};
+    use crate::security::credentials::session_support::{
+        credential_fingerprint, get_session_token,
+    };
+
+    let temp = tempfile::tempdir().expect("temporary workspace");
+    let config = crate::config::Config {
+        workspace_dir: temp.path().join("workspace"),
+        action_dir: temp.path().join("workspace"),
+        config_path: temp.path().join("config.toml"),
+        ..crate::config::Config::default()
+    };
+    let auth = crate::security::credentials::AuthService::from_config(&config);
+    auth.store_provider_token(
+        crate::security::credentials::APP_SESSION_PROVIDER,
+        crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+        "replacement-session-token",
+        Default::default(),
+        true,
+    )
+    .expect("store replacement session");
+    let context = CoreContext::for_test_with_config(DomainSet::full(), config.clone());
+    let ctx = DispatchCtx::new(context);
+    llm_gate::set_signed_out(false);
+
+    SessionExpiredSubscriber::new()
+        .handle_with(
+            &ctx,
+            false,
+            &DomainEvent::SessionExpired {
+                source: "test.old_request".into(),
+                reason: "401".into(),
+                credential_fingerprint: Some(credential_fingerprint("expired-session-token")),
+            },
+        )
+        .await;
+
+    assert_eq!(
+        get_session_token(&config).expect("read session").as_deref(),
+        Some("replacement-session-token"),
+        "an old request must not clear the replacement credential"
+    );
+    assert!(!llm_gate::is_signed_out());
+}
+
 #[tokio::test]
 async fn handle_ignores_non_auth_events() {
     // Domain filter is advisory — the broadcast bus still delivers all
@@ -44,6 +106,7 @@ async fn session_expired_in_saas_returns_before_any_teardown() {
             &DomainEvent::SessionExpired {
                 source: "test".into(),
                 reason: "401".into(),
+                credential_fingerprint: None,
             },
         ),
     )

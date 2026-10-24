@@ -9997,6 +9997,7 @@ dependencies = [
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "sha2 0.11.1",
  "thiserror 2.0.21",
  "tinyinference-core",
  "tinyinference-embeddings",
@@ -10150,7 +10151,7 @@ dependencies = [
 
 [[package]]
 name = "tinyjuice-module"
-version = "0.11.4"
+version = "0.11.3"
 dependencies = [
  "log",
  "serde_json",

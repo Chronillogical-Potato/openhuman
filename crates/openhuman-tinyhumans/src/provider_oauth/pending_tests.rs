@@ -1,10 +1,16 @@
 use super::*;
+use openhuman_embed::__host::config::Config;
+use openhuman_embed::__host::storage::secrets::SecretStore;
 
 fn config_in(tmp: &tempfile::TempDir) -> Config {
     Config {
         config_path: tmp.path().join("config.toml"),
         ..Config::default()
     }
+}
+
+fn secrets_for(config: &Config) -> std::sync::Arc<dyn SecretStore> {
+    store(config).unwrap().1
 }
 
 fn runtime() -> tokio::runtime::Runtime {
@@ -25,9 +31,9 @@ fn session(created_at: u64) -> Vec<u8> {
 #[test]
 fn the_fallback_store_is_shared_per_state_dir_and_not_across_dirs() {
     let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
-    let first = store(&config_in(&a)).unwrap();
-    let again = store(&config_in(&a)).unwrap();
-    let other = store(&config_in(&b)).unwrap();
+    let first = secrets_for(&config_in(&a));
+    let again = secrets_for(&config_in(&a));
+    let other = secrets_for(&config_in(&b));
 
     runtime().block_on(async {
         first.set(PENDING_SECRET, b"one").await.unwrap();
@@ -45,7 +51,7 @@ fn a_fresh_legacy_session_is_adopted_once_and_the_file_is_left_alone() {
     let legacy = tmp.path().join(LEGACY_FILE);
     let bytes = session(now_secs());
     std::fs::write(&legacy, &bytes).unwrap();
-    let secrets = store(&config_in(&tmp)).unwrap();
+    let secrets = secrets_for(&config_in(&tmp));
 
     runtime().block_on(async {
         adopt_legacy(tmp.path(), &secrets).await;
@@ -71,7 +77,7 @@ fn a_fresh_legacy_session_is_adopted_once_and_the_file_is_left_alone() {
 #[test]
 fn an_expired_or_malformed_legacy_session_is_ignored() {
     let tmp = tempfile::tempdir().unwrap();
-    let secrets = store(&config_in(&tmp)).unwrap();
+    let secrets = secrets_for(&config_in(&tmp));
 
     runtime().block_on(async {
         std::fs::write(tmp.path().join(LEGACY_FILE), session(1)).unwrap();
@@ -79,7 +85,7 @@ fn an_expired_or_malformed_legacy_session_is_ignored() {
         assert!(secrets.get(PENDING_SECRET).await.unwrap().is_none());
 
         forget_for_tests(tmp.path());
-        let secrets = store(&config_in(&tmp)).unwrap();
+        let secrets = secrets_for(&config_in(&tmp));
         std::fs::write(tmp.path().join(LEGACY_FILE), b"not json").unwrap();
         adopt_legacy(tmp.path(), &secrets).await;
         assert!(secrets.get(PENDING_SECRET).await.unwrap().is_none());
@@ -90,7 +96,7 @@ fn an_expired_or_malformed_legacy_session_is_ignored() {
 fn a_session_already_in_the_store_wins_over_the_legacy_file() {
     let tmp = tempfile::tempdir().unwrap();
     std::fs::write(tmp.path().join(LEGACY_FILE), session(now_secs())).unwrap();
-    let secrets = store(&config_in(&tmp)).unwrap();
+    let secrets = secrets_for(&config_in(&tmp));
 
     runtime().block_on(async {
         secrets.set(PENDING_SECRET, b"newer").await.unwrap();
@@ -115,7 +121,7 @@ fn an_oversized_legacy_file_is_ignored() {
         vec![b' '; (MAX_LEGACY_BYTES + 1) as usize],
     )
     .unwrap();
-    let secrets = store(&config_in(&tmp)).unwrap();
+    let secrets = secrets_for(&config_in(&tmp));
 
     runtime().block_on(async {
         adopt_legacy(tmp.path(), &secrets).await;
