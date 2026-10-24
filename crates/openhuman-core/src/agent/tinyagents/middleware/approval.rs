@@ -16,6 +16,12 @@ use crate::security::approval::{
 };
 use tinytools::Tool;
 
+fn approval_is_explicitly_disabled(
+    state: Option<crate::security::approval::gate::ApprovalGateBootState>,
+) -> bool {
+    state.is_some_and(|state| state.disabled_by_env)
+}
+
 /// `wrap_tool`: route OpenHuman's human-in-the-loop **approval gate** through a
 /// named tinyagents tool middleware (issue #4249, Phase 1). A tool with an
 /// external effect intercepts through the global [`ApprovalGate`]; a denial
@@ -131,9 +137,9 @@ impl ApprovalResolver<crate::agent::tinyagents::host::OpenHumanRunContext>
         call: &TaToolCall,
     ) -> ApprovalResolution {
         let Some(gate) = ApprovalGate::try_global() else {
-            if crate::security::approval::gate::try_boot_state()
-                .is_some_and(|state| state.disabled_by_env)
-            {
+            if approval_is_explicitly_disabled(
+                crate::security::approval::gate::try_boot_state(),
+            ) {
                 tracing::info!(
                     tool = %call.name,
                     "[tinyagents::mw] approval gate explicitly disabled by operator"

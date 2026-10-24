@@ -385,3 +385,5 @@ mod tool_output_artifact_tests;
 mod tool_output_tests;
 #[path = "middleware_tool_policy_tests.rs"]
 mod tool_policy_tests;
+#[path = "middleware_approval_unavailable_tests.rs"]
+mod approval_unavailable_tests;
