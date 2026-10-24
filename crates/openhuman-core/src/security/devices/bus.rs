@@ -261,7 +261,7 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
     let device_pubkey_b64 = handshake_payload.device_pubkey;
 
     if let Some(device) = &existing_device
-        && device.device_pubkey != device_pubkey_b64
+        && !matches_paired_device_key(device, &device_pubkey_b64)
     {
         log::warn!(
             "[devices/bus] restart handshake key mismatch for channel_id={channel_id}"
@@ -401,6 +401,17 @@ async fn recover_existing_pairing(
     else {
         return Ok(None);
     };
+    let secret_store = super::rpc::build_secret_store(&config);
+    let Some(keypair) = restore_live_pairing_key(&device, &secret_store)? else {
+        return Ok(None);
+    };
+    Ok(Some((keypair, device)))
+}
+
+fn restore_live_pairing_key(
+    device: &super::types::PairedDevice,
+    secret_store: &super::super::secret_storage::SecretStore,
+) -> Result<Option<DeviceKeypair>, String> {
     if device.revoked {
         return Ok(None);
     }
@@ -409,8 +420,11 @@ async fn recover_existing_pairing(
         // safely reconstruct the core key and require a new pairing.
         return Ok(None);
     };
-    let keypair = restore_paired_keypair(encrypted_key, &build_secret_store(&config))?;
-    Ok(Some((keypair, device)))
+    restore_paired_keypair(encrypted_key, secret_store).map(Some)
+}
+
+fn matches_paired_device_key(device: &super::types::PairedDevice, handshake_key: &str) -> bool {
+    !device.revoked && device.device_pubkey == handshake_key
 }
 
 async fn install_v2_cipher_and_ack(

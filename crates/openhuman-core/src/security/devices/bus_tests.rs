@@ -78,16 +78,76 @@ fn missing_pending_session_stops_handshake_before_cipher_installation() {
 }
 
 #[test]
-fn a_restarted_pairing_owner_restores_the_static_key_for_a_fresh_handshake() {
+fn a_restarted_host_opens_a_fresh_handshake_from_a_paired_row() {
     let original = DeviceKeypair::generate();
     let private = original.private_bytes();
-    let expected_public = original.pubkey_b64.clone();
-    let encoded = crate::security::devices::crypto::base64url_encode(&private);
+    let secret = crate::security::devices::crypto::base64url_encode(&private);
     let secret_store = crate::security::secret_storage::SecretStore::new(
         std::path::Path::new("."),
         false,
     );
+    let phone = KeyPair::generate().unwrap();
+    let device = super::super::types::PairedDevice {
+        channel_id: "restart-channel".to_string(),
+        label: "phone".to_string(),
+        device_pubkey: phone.public_key().encode(),
+        created_at: "2026-01-01T00:00:00Z".to_string(),
+        last_seen_at: None,
+        peer_online: None,
+        revoked: false,
+        core_private_key_encrypted: Some(secret),
+    };
+    let restored = restore_live_pairing_key(&device, &secret_store)
+        .unwrap()
+        .expect("non-revoked paired identity");
+    assert_eq!(restored.pubkey_b64, original.pubkey_b64);
 
-    let recovered = restore_paired_keypair(&encoded, &secret_store).expect("persisted pairing key");
-    assert_eq!(recovered.pubkey_b64, expected_public);
+    let client_ephemeral = KeyPair::generate().unwrap();
+    let payload = serde_json::to_vec(&json!({
+        "device_pubkey": phone.public_key().encode(),
+        "client_ephemeral_pubkey": client_ephemeral.public_key().encode(),
+    }))
+    .unwrap();
+    let handshake = phone
+        .seal_handshake(
+            PublicKey::decode(&restored.pubkey_b64).unwrap(),
+            &payload,
+        )
+        .unwrap();
+    let (_, plaintext) = restored.open_handshake(&handshake).unwrap();
+    let decoded: JsonHandshakePayload = serde_json::from_slice(&plaintext).unwrap();
+    assert_eq!(decoded.device_pubkey, phone.public_key().encode());
+    assert!(matches_paired_device_key(&device, &decoded.device_pubkey));
+    assert!(PENDING_SESSIONS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(&device.channel_id)
+        .is_none());
+    assert_eq!(device.device_pubkey, phone.public_key().encode(), "restart handshake does not rewrite row");
+}
+
+#[test]
+fn restarted_pairing_rejects_mismatched_or_revoked_device_rows() {
+    let original = DeviceKeypair::generate();
+    let secret = crate::security::devices::crypto::base64url_encode(&original.private_bytes());
+    let secret_store = crate::security::secret_storage::SecretStore::new(
+        std::path::Path::new("."),
+        false,
+    );
+    let mut device = super::super::types::PairedDevice {
+        channel_id: "restart-channel-revoked".to_string(),
+        label: "phone".to_string(),
+        device_pubkey: "paired-device-key".to_string(),
+        created_at: "2026-01-01T00:00:00Z".to_string(),
+        last_seen_at: None,
+        peer_online: None,
+        revoked: false,
+        core_private_key_encrypted: Some(secret),
+    };
+    assert!(!matches_paired_device_key(&device, "different-device-key"));
+    device.revoked = true;
+    assert!(restore_live_pairing_key(&device, &secret_store)
+        .unwrap()
+        .is_none());
+    assert!(!matches_paired_device_key(&device, "paired-device-key"));
 }
