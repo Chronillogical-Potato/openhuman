@@ -103,7 +103,7 @@ revives a device another process revoked. With no backend configured (the deskto
 - `crate::core::bus::BUS` (`.publish`, `.subscribe`) plus `crate::core::events::DomainEvent` and `tinybus::EventHandler`: pub/sub for device tunnel events.
 - `crate::core::all` (`ControllerFuture`, `RegisteredController`) and `crate::core::{ControllerSchema, FieldSchema, TypeSchema}`: controller registry contract.
 - `crate::core::Outcome`: RPC handler return type.
-- External crates: `rusqlite`, `chacha20poly1305`, `x25519-dalek`, `base64`, `sha2`, `chrono`, `once_cell`, `tokio`, `async_trait`, `anyhow`.
+- External crates: `tinysecurity-crypto`, `tinysecurity-bus`, `base64`, `sha2`, `chrono`, `once_cell`, `tokio`, `async_trait`, `anyhow`.
 
 ## Used by
 

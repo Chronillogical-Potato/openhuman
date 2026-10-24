@@ -201,11 +201,7 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
     //
     //   0x03 || eph_pub(32) || nonce(24) || ciphertext+tag
     //
-    // Version byte 0x03 = "sealed-handshake". The device generates an ephemeral
-    // X25519 keypair, performs DH with corePubkey, then seals its static pubkey
-    // (32 bytes) with XChaCha20-Poly1305. The core decrypts using the same
-    // ephemeral DH to recover the device's static public key, then performs a
-    // second DH (core_static ⟷ device_static) for the session key.
+    // Version byte 0x03 is the existing sealed handshake, opened by TinySecurity.
     //
     // Version byte 0x02 = "encrypted-frame" (used post-handshake, handled later).
     //
