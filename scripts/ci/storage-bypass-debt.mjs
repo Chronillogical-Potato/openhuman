@@ -68,7 +68,10 @@ export function validateCoverageDebt(findings, baseline, extension, history) {
       const previous = history.baseline.filter(
         (candidate) => sameSite(candidate) && !actual.has(key(candidate)),
       );
-      const current = findings.filter(sameSite);
+      const current = findings.filter(
+        (candidate) =>
+          sameSite(candidate) && history.changedPaths?.has(candidate.path),
+      );
       if (
         previous.length === 1 &&
         current.length === 1 &&
