@@ -104,7 +104,7 @@ pub(crate) fn backend_mode_without_session(config: &Config) -> bool {
     if crate::credentials::api_key::has_api_key(config) {
         return false;
     }
-    match crate::credentials::jwt::get_session_token(config) {
+    match crate::credentials::session_support::get_session_token(config) {
         Ok(token) => token.as_deref().map(str::trim).is_none_or(|token| {
             token.is_empty()
                 || crate::credentials::session_support::is_local_session_token(token)

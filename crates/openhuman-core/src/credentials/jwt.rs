@@ -53,7 +53,6 @@ pub fn decode_jwt_exp_unix(token: &str) -> Option<i64> {
         .and_then(|value| value.as_i64().or_else(|| value.as_f64().map(|f| f as i64)))
 }
 
-pub use crate::credentials::session_support::get_session_token;
 pub use crate::credentials::{APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
 
 /// Best-effort decode of a JWT's `exp` (expiry) claim into a UTC timestamp.

@@ -120,7 +120,7 @@ impl SessionExpiredSubscriber {
                     llm_gate::set_signed_out(false);
                     return;
                 }
-                let current_token = crate::credentials::jwt::get_session_token(&config)
+                let current_token = crate::credentials::session_support::get_session_token(&config)
                     .ok()
                     .flatten();
                 let matches = current_token.as_deref().is_some_and(|token| {

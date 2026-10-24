@@ -190,7 +190,7 @@ pub(super) fn register_domain_subscribers(
             log::info!("[auth] api-key credential present at startup — scheduler gate signed in");
             crate::platform::llm_gate::set_signed_out(false);
         } else {
-            match crate::credentials::jwt::get_session_token(&config) {
+            match crate::credentials::session_support::get_session_token(&config) {
                 Ok(Some(_)) => {
                     crate::platform::llm_gate::set_signed_out(false);
                 }
