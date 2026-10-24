@@ -1,4 +1,7 @@
-use crate::credentials::backend_credential::{direct_backend_credential, resolve_backend_credential, BackendCredential, LOCAL_SESSION_BACKEND_UNAVAILABLE};
+use crate::credentials::backend_credential::{
+    backend_bearer_secret, direct_backend_credential, resolve_backend_credential,
+    BackendCredential, LOCAL_SESSION_BACKEND_UNAVAILABLE,
+};
 use super::*;
 use crate::credentials::profiles::{AuthProfile, AuthProfileKind, TokenSet};
 use chrono::Utc;
