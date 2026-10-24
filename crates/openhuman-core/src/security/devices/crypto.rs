@@ -78,51 +78,6 @@ impl DeviceKeypair {
     }
 }
 
-/// Thin host-held handle to TinySecurity's stateful tunnel.
-pub struct TunnelCipher(tinysecurity_crypto::device::Tunnel);
-
-impl TunnelCipher {
-    /// Adopt the native tunnel after a successful TinySecurity handshake.
-    pub fn from_native(tunnel: tinysecurity_crypto::device::Tunnel) -> Self {
-        Self(tunnel)
-    }
-
-    /// Seal a frame with the native directional tunnel keys.
-    pub fn seal(&self, plaintext: &[u8]) -> Result<Vec<u8>, String> {
-        self.0.seal(plaintext).map_err(|error| error.to_string())
-    }
-
-    /// Authenticate and open a frame with native replay protection.
-    pub fn open(&mut self, frame: &[u8]) -> Result<Zeroizing<Vec<u8>>, String> {
-        self.0.open(frame).map_err(|error| error.to_string())
-    }
-
-    #[cfg(test)]
-    pub fn new(key: &[u8; 32]) -> Self {
-        let pair = tinysecurity_crypto::device::KeyPair::from_secret(Zeroizing::new(*key))
-            .expect("test key valid");
-        let public = pair.public_key();
-        let ephemeral = tinysecurity_crypto::device::KeyPair::from_secret(Zeroizing::new(
-            [key[0].wrapping_add(1).max(1); 32],
-        ))
-        .expect("test ephemeral key valid");
-        let ephemeral_public = ephemeral.public_key();
-        let keys = pair
-            .session_keys(
-                public,
-                &ephemeral,
-                ephemeral_public,
-                ephemeral_public,
-                ephemeral_public,
-            )
-            .expect("test session keys valid");
-        Self::from_native(tinysecurity_crypto::device::Tunnel::new(
-            tinysecurity_crypto::device::Role::Server,
-            keys,
-        ))
-    }
-}
-
 pub fn base64url_encode(bytes: &[u8]) -> String {
     use base64::Engine;
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)

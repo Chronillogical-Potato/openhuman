@@ -240,7 +240,7 @@ fn build_core_connect_payload(channel_id: &str) -> serde_json::Value {
 
 /// Emit a `tunnel:frame` carrying an encrypted payload for the peer.
 ///
-/// `payload_b64` is the base64url-encoded sealed frame from `TunnelCipher::seal`.
+/// `payload_b64` is the base64url-encoded sealed frame from TinySecurity's `Tunnel::seal`.
 pub async fn emit_frame(channel_id: &str, payload_b64: &str) -> Result<(), String> {
     if payload_b64.len() > 64 * 1024 {
         return Err(format!(
