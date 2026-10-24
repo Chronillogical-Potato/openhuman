@@ -277,8 +277,8 @@ fn webhook_trigger_graph() -> Value {
 
 // ── flows_list_connections (picker source) ──────────────────────────────
 
+use crate::flows::http_credentials::{HttpCredential, HttpCredentialSummary, HttpCredentialsStore};
 use crate::integrations::composio::ComposioConnection;
-use crate::security::credentials::{HttpCredential, HttpCredentialSummary, HttpCredentialsStore};
 
 fn composio_conn(id: &str, toolkit: &str, status: &str, email: Option<&str>) -> ComposioConnection {
     ComposioConnection {

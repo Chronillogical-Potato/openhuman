@@ -4,7 +4,6 @@ pub mod api_key;
 pub mod bus;
 mod core;
 pub mod credential_ref;
-pub mod http_creds;
 pub mod identity;
 pub mod jwt;
 pub mod openai_oauth;
@@ -19,9 +18,6 @@ pub mod tools;
 
 pub use core::*;
 pub use credential_ref::{CredentialRef, CredentialRefError, CredentialRefScheme, ResolvedSecret};
-pub use http_creds::{
-    HttpCredential, HttpCredentialScheme, HttpCredentialSummary, HttpCredentialsStore,
-};
 pub use jwt::user_id_from_profile_payload;
 pub use ops as rpc;
 pub use ops::*;

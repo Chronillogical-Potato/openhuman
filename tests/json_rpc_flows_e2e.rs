@@ -2437,8 +2437,8 @@ async fn json_rpc_flows_list_connections_aggregates_secret_free() {
         .await
         .expect("load config to seed http_cred");
     const SECRET: &str = "sk_live_flows_list_connections_seed";
-    openhuman_core::security::credentials::HttpCredentialsStore::from_config(&seed_config)
-        .upsert(&openhuman_core::security::credentials::HttpCredential::bearer("stripe", SECRET))
+    openhuman_core::flows::http_credentials::HttpCredentialsStore::from_config(&seed_config)
+        .upsert(&openhuman_core::flows::http_credentials::HttpCredential::bearer("stripe", SECRET))
         .expect("seed http_cred");
 
     let resp = post_json_rpc(

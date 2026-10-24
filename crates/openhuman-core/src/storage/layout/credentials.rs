@@ -24,7 +24,8 @@ use tinystoragedrivers::secrets::SecretStore as _;
 use super::state::LayoutError;
 #[cfg(feature = "legacy-import")]
 use super::Target;
-use crate::security::credentials::http_creds::{self, STORAGE_SECRET_NAME, STORE_FILENAME};
+#[cfg(feature = "flows")]
+use crate::flows::http_credentials::{self, STORAGE_SECRET_NAME, STORE_FILENAME};
 use crate::security::credentials::profiles::{self, PROFILES_FILENAME, PROFILES_SECRET_NAME};
 #[cfg(feature = "legacy-import")]
 use crate::storage;
@@ -34,8 +35,9 @@ use crate::storage;
 pub const PROFILE_PREFIX: &str = "@profile/";
 
 /// (file name beside `config.toml`, secret name on the storage backend).
-pub const FILES: [(&str, &str); 2] = [
+pub const FILES: &[(&str, &str)] = &[
     (PROFILES_FILENAME, PROFILES_SECRET_NAME),
+    #[cfg(feature = "flows")]
     (STORE_FILENAME, STORAGE_SECRET_NAME),
 ];
 
@@ -69,7 +71,14 @@ fn eligible(
     let valid = if file == PROFILES_FILENAME {
         profiles::is_persisted_document(&bytes)
     } else {
-        http_creds::is_persisted_document(&bytes)
+        #[cfg(feature = "flows")]
+        {
+            http_credentials::is_persisted_document(&bytes)
+        }
+        #[cfg(not(feature = "flows"))]
+        {
+            false
+        }
     };
     if !valid {
         tracing::warn!(target: "openhuman::storage", file, "[layout] credential file is not a valid credential document; left in place");
@@ -86,9 +95,9 @@ pub fn candidates(profile_dir: &Path) -> Result<Vec<String>, LayoutError> {
         return Ok(Vec::new());
     }
     let mut found = Vec::new();
-    for (file, _) in FILES {
+    for &(file, _) in FILES {
         if eligible(profile_dir, file)?.is_some() {
-            found.push(file.to_owned());
+            found.push(file.to_string());
         }
     }
     Ok(found)
@@ -108,7 +117,7 @@ pub fn candidates(profile_dir: &Path) -> Result<Vec<String>, LayoutError> {
 #[cfg(feature = "legacy-import")]
 pub async fn import(target: &Target) -> Result<Vec<String>, LayoutError> {
     let mut files = Vec::new();
-    for (file, secret) in FILES {
+    for &(file, secret) in FILES {
         if let Some(bytes) = eligible(&target.profile_dir, file)? {
             files.push((file, secret, bytes));
         }
@@ -152,7 +161,7 @@ pub async fn import(target: &Target) -> Result<Vec<String>, LayoutError> {
             }
         }
         tracing::info!(target: "openhuman::storage", file, "[layout] credential file imported");
-        imported.push(file.to_owned());
+        imported.push(file.to_string());
     }
     drop(backend);
     Ok(imported)

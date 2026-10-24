@@ -6,7 +6,7 @@
 //! reroute every other suite's secrets in a shared process. The tests take
 //! turns on the slot (`support/storage_case.rs`).
 
-use openhuman_core::security::credentials::http_creds::{HttpCredential, HttpCredentialsStore};
+use openhuman_core::flows::http_credentials::{HttpCredential, HttpCredentialsStore};
 use openhuman_core::security::credentials::profiles::{AuthProfile, AuthProfilesStore};
 use openhuman_core::security::secret_storage;
 
