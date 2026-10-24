@@ -7,9 +7,9 @@
 //! `local` on a single-user host).
 //!
 //! One `paired_devices` document per `channel_id`, with the SQLite columns as
-//! fields. Pairing replaces a document outright (`INSERT OR REPLACE`);
-//! touching and revoking are compare-and-swap, so a touch never revives a
-//! device another process revoked in between.
+//! fields. Pairing creates a document only when its channel id is unused;
+//! touching and revoking are compare-and-swap, so a second pairing attempt
+//! cannot replace a device or revive one revoked by another process.
 
 use anyhow::Result;
 use chrono::Utc;
@@ -106,7 +106,7 @@ impl Docs {
         });
         self.0.run(|docs| async move {
             let version = docs
-                .put(DEVICES, &id, doc.clone(), Precondition::None)
+                .put(DEVICES, &id, doc.clone(), Precondition::Absent)
                 .await?;
             Ok(to_device(&Versioned {
                 id,
