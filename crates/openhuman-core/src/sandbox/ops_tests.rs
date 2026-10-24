@@ -75,22 +75,6 @@ fn resolve_sandbox_policy_docker_runtime_forces_docker() {
     assert!(policy.allow_network);
 }
 
-#[test]
-fn is_elevated_op_known_tools() {
-    assert!(is_elevated_op("git_operations"));
-    assert!(is_elevated_op("install_tool"));
-    assert!(!is_elevated_op("shell"));
-    assert!(!is_elevated_op("file_read"));
-}
-
-#[test]
-fn build_elevated_op_creates_record() {
-    let op = build_elevated_op("git_operations", "git push", "VCS requires host access");
-    assert_eq!(op.tool_name, "git_operations");
-    assert_eq!(op.command, "git push");
-    assert!(op.reason.contains("VCS"));
-}
-
 #[tokio::test]
 async fn create_sandbox_backend_none() {
     let policy = resolve_sandbox_policy(

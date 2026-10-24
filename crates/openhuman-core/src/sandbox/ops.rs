@@ -4,8 +4,8 @@
 use super::docker;
 use super::shell_exec::{ComeBack, ShellRunOutcome};
 use super::types::{
-    ElevatedOp, SandboxBackendHandle, SandboxBackendKind, SandboxExecRequest, SandboxExecResult,
-    SandboxPolicy, SandboxStatus, ELEVATED_TOOLS,
+    SandboxBackendHandle, SandboxBackendKind, SandboxExecRequest, SandboxExecResult, SandboxPolicy,
+    SandboxStatus,
 };
 use crate::config::{RuntimeConfig, SandboxBackend, SandboxConfig};
 use crate::core::runtime::DispatchCtx;
@@ -542,26 +542,6 @@ async fn execute_unsandboxed(
     run.env = env;
     run.yield_after = yield_after;
     super::shell_exec::run_yielding(ctx, config, run).await
-}
-
-/// Check whether a tool operation is an elevated op that must run on the
-/// host even when the session is sandboxed.
-pub fn is_elevated_op(tool_name: &str) -> bool {
-    ELEVATED_TOOLS.contains(&tool_name)
-}
-
-/// Build an `ElevatedOp` for audit logging when a tool bypasses the sandbox.
-pub fn build_elevated_op(tool_name: &str, command: &str, reason: &str) -> ElevatedOp {
-    tracing::info!(
-        tool = tool_name,
-        reason = reason,
-        "[sandbox] elevated host operation"
-    );
-    ElevatedOp {
-        tool_name: tool_name.to_string(),
-        reason: reason.to_string(),
-        command: command.to_string(),
-    }
 }
 
 #[cfg(test)]
