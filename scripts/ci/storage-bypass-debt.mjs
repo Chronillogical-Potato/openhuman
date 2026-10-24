@@ -72,6 +72,7 @@ export function validateCoverageDebt(findings, baseline, extension, history) {
       if (
         previous.length === 1 &&
         current.length === 1 &&
+        history.changedPaths?.has(record.path) &&
         previous[0].path !== record.path &&
         current[0].path === record.path
       ) {
@@ -126,11 +127,14 @@ export function historicalFindings(root, scanner) {
     "diff", "--name-status", "-z", "--find-renames=50%", base, "--", "crates",
   ]).split("\0");
   const renamed = new Map();
+  const changedPaths = new Set();
   for (let at = 0; at < changes.length && changes[at];) {
     const status = changes[at++];
     const from = changes[at++];
+    changedPaths.add(from);
     if (/^[RC]/.test(status)) {
       const to = changes[at++];
+      changedPaths.add(to);
       if (status.startsWith("R")) renamed.set(from, to);
     }
   }
@@ -190,6 +194,7 @@ export function historicalFindings(root, scanner) {
     base,
     findings,
     rawFindings,
+    changedPaths,
     baseline: json(BASELINE),
     extension: json(EXTENSION, true),
     allowances: json("scripts/ci/storage-bypass-allow-reasons.json", true),

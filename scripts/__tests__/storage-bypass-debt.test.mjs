@@ -378,6 +378,7 @@ test("a unique unchanged writer may move during a module split", () => {
     baseline: [old],
     extension: [],
     findings: [old],
+    changedPaths: new Set([moved.path]),
   };
 
   assert.deepEqual(validateCoverageDebt([moved], [moved], [], history), []);
