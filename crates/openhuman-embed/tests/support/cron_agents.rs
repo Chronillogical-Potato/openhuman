@@ -53,7 +53,7 @@ impl Tool for Ping {
         self.seen
             .lock()
             .unwrap()
-            .push(openhuman_core::security::turn_origin::current());
+            .push(openhuman_core::core::runtime::turn_origin::current());
         Ok(tinytools::ToolResult::success("pinged"))
     }
 }

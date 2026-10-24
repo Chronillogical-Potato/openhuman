@@ -52,7 +52,7 @@ pub(crate) async fn run_channel_turn(
     multimodal: MultimodalConfig,
     multimodal_files: MultimodalFileConfig,
     on_progress: Option<Sender<AgentProgress>>,
-    origin: Option<crate::security::turn_origin::AgentTurnOrigin>,
+    origin: Option<crate::core::runtime::turn_origin::AgentTurnOrigin>,
     sandbox_mode: tinyagents_definition::SandboxMode,
     approval: crate::security::approval::ApprovalTurnContext,
     memory_identity: tinymemory_tools::layout::identity::Identity,
@@ -115,7 +115,9 @@ pub(crate) async fn run_channel_turn(
             let scope = crate::attachments::AttachmentAccessScope {
                 external_channel: matches!(
                     origin.as_ref(),
-                    Some(crate::security::turn_origin::AgentTurnOrigin::ExternalChannel { .. })
+                    Some(
+                        crate::core::runtime::turn_origin::AgentTurnOrigin::ExternalChannel { .. }
+                    )
                 ),
                 workspace: workspace.clone(),
             };

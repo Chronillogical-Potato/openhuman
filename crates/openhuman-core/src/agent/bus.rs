@@ -22,11 +22,11 @@ use tokio::sync::mpsc;
 
 use crate::config::MultimodalConfig;
 use crate::core::bus::BUS;
+use crate::core::runtime::turn_origin::{self, AgentTurnOrigin};
 use crate::progress::AgentProgress;
 use crate::security::prompt_injection::{
     enforce_prompt_input, PromptEnforcementAction, PromptEnforcementContext,
 };
-use crate::security::turn_origin::{self, AgentTurnOrigin};
 use tinyagents_session::transcript::TranscriptMessage;
 use tinytools::Tool;
 

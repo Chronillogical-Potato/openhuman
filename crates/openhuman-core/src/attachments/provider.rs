@@ -202,8 +202,8 @@ fn is_local_reference(source: &str) -> bool {
 }
 
 #[cfg(any(test, windows))]
-use crate::security::secure_open::normalize_windows_path_for_comparison;
-use crate::security::secure_open::secure_open;
+use crate::attachments::secure_open::normalize_windows_path_for_comparison;
+use crate::attachments::secure_open::secure_open;
 
 #[path = "provider_cache.rs"]
 mod cache;

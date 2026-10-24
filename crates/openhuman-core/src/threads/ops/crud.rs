@@ -200,7 +200,7 @@ async fn message_append_with_config(
     ctx: &DispatchCtx,
     mut request: AppendConversationMessageRequest,
     config: &crate::config::Config,
-    origin: Option<&crate::security::turn_origin::AgentTurnOrigin>,
+    origin: Option<&crate::core::runtime::turn_origin::AgentTurnOrigin>,
     persistence_dir: &std::path::Path,
 ) -> Result<Outcome<ApiEnvelope<ConversationMessageRecord>>, ThreadsError> {
     if request.message.sender == "user" {
@@ -241,7 +241,9 @@ async fn message_append_with_config(
                 || (image_count > 0 && config.multimodal.max_images == 0)
                 || matches!(
                     origin,
-                    Some(crate::security::turn_origin::AgentTurnOrigin::ExternalChannel { .. })
+                    Some(
+                        crate::core::runtime::turn_origin::AgentTurnOrigin::ExternalChannel { .. }
+                    )
                 )
             {
                 return Err(ThreadsError::Message(
@@ -252,7 +254,9 @@ async fn message_append_with_config(
                 let scope = crate::attachments::AttachmentAccessScope {
                     external_channel: matches!(
                         origin,
-                        Some(crate::security::turn_origin::AgentTurnOrigin::ExternalChannel { .. })
+                        Some(
+                            crate::core::runtime::turn_origin::AgentTurnOrigin::ExternalChannel { .. }
+                        )
                     ),
                     workspace: Some(workspace.clone()),
                 };

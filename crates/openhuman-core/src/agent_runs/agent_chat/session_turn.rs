@@ -672,7 +672,7 @@ pub(super) async fn agent_chat_reply_for_inner(
     // Overwriting that with `Cli` would silently discard the caller's own
     // trust statement and hand every such turn the blanket CLI allowance
     // instead of the narrower one it asked for.
-    let run = crate::security::turn_origin::with_origin(
+    let run = crate::core::runtime::turn_origin::with_origin(
         effective_agent_chat_origin(&turn_ctx),
         agent.run_single_with_approval(message, None, approval),
     );
