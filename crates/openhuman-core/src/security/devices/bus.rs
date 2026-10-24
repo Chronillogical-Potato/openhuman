@@ -455,6 +455,28 @@ fn take_pending_pairing_for_handshake(
     (expires_at.with_timezone(&chrono::Utc) > now).then_some((keypair, session))
 }
 
+fn restore_paired_keypair(
+    encrypted_private_key: &str,
+    secret_store: &super::super::secret_storage::SecretStore,
+) -> Result<crate::security::devices::crypto::DeviceKeypair, String> {
+    let plaintext = zeroize::Zeroizing::new(
+        secret_store
+            .decrypt(encrypted_private_key)
+            .map_err(|error| format!("[devices/bus] decrypt persisted pairing key: {error}"))?,
+    );
+    let encoded = zeroize::Zeroizing::new(
+        crate::security::devices::crypto::base64url_decode(&plaintext)
+            .map_err(|error| format!("[devices/bus] decode persisted pairing key: {error}"))?,
+    );
+    let bytes: [u8; 32] = encoded
+        .as_slice()
+        .try_into()
+        .map_err(|_| "[devices/bus] persisted pairing key must be 32 bytes".to_string())?;
+    crate::security::devices::crypto::DeviceKeypair::from_private_bytes(
+        zeroize::Zeroizing::new(bytes),
+    )
+}
+
 async fn install_v2_cipher_and_ack(
     channel_id: &str,
     static_dh: &[u8; 32],

@@ -101,6 +101,20 @@ impl DeviceKeypair {
         }
     }
 
+    /// Reconstruct a pairing identity from secret bytes obtained from the
+    /// authenticated encrypted store.
+    pub fn from_private_bytes(bytes: zeroize::Zeroizing<[u8; 32]>) -> Result<Self, String> {
+        if *bytes == [0; 32] {
+            return Err("[devices/crypto] invalid zero private key".into());
+        }
+        let private = StaticSecret::from(*bytes);
+        let public = PublicKey::from(&private);
+        Ok(Self {
+            private,
+            pubkey_b64: base64url_encode(public.as_bytes()),
+        })
+    }
+
     /// Perform X25519 DH with the peer's public key.
     ///
     /// Returns raw DH material for an HKDF key schedule; it must never be
