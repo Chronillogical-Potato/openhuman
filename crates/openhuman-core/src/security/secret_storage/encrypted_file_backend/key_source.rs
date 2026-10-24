@@ -81,9 +81,8 @@ pub(super) fn load_or_mint_master_key(
     if let Some(key) = source.load()? {
         return Ok(key);
     }
-    let bytes = Zeroizing::new(crypto::generate_random_bytes(KEY_LEN));
-    let mut key = Zeroizing::new([0; KEY_LEN]);
-    key.copy_from_slice(&bytes);
+    let key = crypto::generate_key()
+        .map_err(|error| SecretStorageError::Backend(error.to_string()))?;
     source.store(&key)?;
     let readback = source
         .load()?

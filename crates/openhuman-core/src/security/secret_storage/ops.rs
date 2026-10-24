@@ -441,7 +441,7 @@ pub(crate) fn namespaced_key(user_id: &str, key: &str) -> String {
 }
 
 pub(crate) fn hex_encode(data: &[u8]) -> String {
-    super::crypto::hex_encode(data)
+    hex::encode(data)
 }
 
 // ── Test helpers ──────────────────────────────────────────────────────────────
