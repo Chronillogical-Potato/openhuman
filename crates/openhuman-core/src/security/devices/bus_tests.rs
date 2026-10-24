@@ -75,3 +75,18 @@ fn missing_pending_session_stops_handshake_before_cipher_installation() {
     assert!(!lock_unpoisoned(&ACTIVE_CIPHERS).contains_key(channel_id));
     lock_unpoisoned(&PENDING_KEYPAIRS).remove(channel_id);
 }
+
+#[test]
+fn a_restarted_pairing_owner_restores_the_static_key_for_a_fresh_handshake() {
+    let original = DeviceKeypair::generate();
+    let private = original.private_bytes();
+    let expected_public = original.pubkey_b64.clone();
+    let encoded = crate::security::devices::crypto::base64url_encode(&private);
+    let secret_store = crate::security::secret_storage::SecretStore::new(
+        std::path::Path::new("."),
+        false,
+    );
+
+    let recovered = restore_paired_keypair(&encoded, &secret_store).expect("persisted pairing key");
+    assert_eq!(recovered.pubkey_b64, expected_public);
+}
