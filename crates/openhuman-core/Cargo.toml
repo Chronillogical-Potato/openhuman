@@ -231,6 +231,11 @@ tinychannels-bus = { version = "0.1", path = "../../vendor/tinychannels/crates/t
 # --features flows` would carry `ureq` and the archive stack for a host that
 # never loads a module. The kernel-floor ratchet catches exactly that, and did.
 tinybus = { path = "../../vendor/tinybus/crates/tinybus", default-features = false, features = ["macros", "uds"] }
+# The device tunnel's owner and wire crypto live in TinySecurity. The bus
+# contract and crypto crate use this same v0.17.1 checkout so tunnel handles
+# cannot be created from a second version of the pairing types.
+tinysecurity-bus = { path = "../../vendor/tinysecurity/crates/tinysecurity-bus" }
+tinysecurity-crypto = { path = "../../vendor/tinysecurity/crates/tinysecurity-crypto" }
 tinysearch-bus = { path = "../../vendor/tinysearch/crates/tinysearch-bus", features = ["schemars"] }
 # Registry vocabulary is available even when the loader is disabled, so the
 # pre-core client can identify and report an unavailable module safely.
