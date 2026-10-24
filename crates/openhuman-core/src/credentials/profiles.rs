@@ -5,9 +5,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 #[allow(unused_imports)]
-use std::fs::{self, OpenOptions};
-#[allow(unused_imports)]
-use std::io::Write;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -23,6 +21,7 @@ mod persistence;
 pub(super) use lock::{annotate_lock_create_failure, is_lock_create_unwritable_fs};
 pub(super) use persistence::write_owner_only;
 pub(crate) use persistence::is_persisted_document;
+pub(super) use persistence::{PersistedAuthProfile, PersistedAuthProfiles};
 mod readonly;
 pub(crate) use persistence::STORAGE_SECRET_NAME as PROFILES_SECRET_NAME;
 mod store_core;

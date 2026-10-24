@@ -3,8 +3,10 @@
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 
 #[cfg(test)]
 use std::sync::atomic::Ordering;
@@ -12,10 +14,9 @@ use std::sync::atomic::Ordering;
 #[cfg(test)]
 use super::consume_one;
 use super::{
-    profile_kind_to_string, quarantine_corrupt_store, retry_with_backoff, write_owner_only,
-    AuthProfile, AuthProfileKind, AuthProfilesData, AuthProfilesStore, EncryptedProfileFields,
-    PersistedAuthProfile, PersistedAuthProfiles, CURRENT_SCHEMA_VERSION, PERSIST_RETRY_ATTEMPTS,
-    PERSIST_RETRY_BASE_MS, PROFILES_FILENAME,
+    profile_kind_to_string, quarantine_corrupt_store, retry_with_backoff, AuthProfile,
+    AuthProfileKind, AuthProfilesData, AuthProfilesStore, EncryptedProfileFields,
+    CURRENT_SCHEMA_VERSION, PERSIST_RETRY_ATTEMPTS, PERSIST_RETRY_BASE_MS, PROFILES_FILENAME,
 };
 
 /// Write `bytes` to `path` with the file readable only by its owner.
