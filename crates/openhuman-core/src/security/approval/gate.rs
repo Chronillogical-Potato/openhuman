@@ -409,6 +409,11 @@ impl Drop for WaiterGuard<'_> {
                 resolution: Some("cancelled".to_string()),
                 agent_id: row.agent_id,
             });
+        } else if matches!(&decided, Ok(None)) {
+            // A concurrent decision may already have consumed the row. The
+            // route still belongs to this completed waiter and must not remain
+            // available to a later card click.
+            self.gate.take_request_route(&self.request_id);
         }
         tracing::warn!(
             request_id = %self.request_id,
