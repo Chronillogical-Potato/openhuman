@@ -131,11 +131,21 @@ impl ApprovalResolver<crate::agent::tinyagents::host::OpenHumanRunContext>
         call: &TaToolCall,
     ) -> ApprovalResolution {
         let Some(gate) = ApprovalGate::try_global() else {
-            tracing::warn!(
+            if crate::security::approval::gate::try_boot_state()
+                .is_some_and(|state| state.disabled_by_env)
+            {
+                tracing::info!(
+                    tool = %call.name,
+                    "[tinyagents::mw] approval gate explicitly disabled by operator"
+                );
+                return ApprovalResolution::Allow { ticket: None };
+            }
+            let reason = "Approval unavailable; external-effect tool was denied.".to_string();
+            tracing::error!(
                 tool = %call.name,
-                "[tinyagents::mw] approval gate unavailable; external-effect tool will run without interactive approval"
+                "[tinyagents::mw] approval gate unavailable; denying external-effect tool"
             );
-            return ApprovalResolution::Allow { ticket: None };
+            return ApprovalResolution::Deny { reason };
         };
         let approval_name = approval_tool_name(&call.name, &call.arguments);
         tracing::debug!(
