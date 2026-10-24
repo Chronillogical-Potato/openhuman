@@ -423,12 +423,12 @@ impl Drop for WaiterGuard<'_> {
     }
 }
 
-#[path = "gate_setup.rs"]
-mod gate_setup;
 #[path = "gate_intercept.rs"]
 mod gate_intercept;
 #[path = "gate_intercept_decision.rs"]
 mod gate_intercept_decision;
+#[path = "gate_setup.rs"]
+mod gate_setup;
 #[path = "gate_state.rs"]
 mod gate_state;
 #[path = "gate_surface.rs"]

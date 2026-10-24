@@ -94,7 +94,11 @@ impl ApprovalGate {
     /// extend `effective_ttl` past what the gate itself allows (e.g. a debug
     /// env override). Split out (rather than inlined at the call site) so it is
     /// unit testable without needing to actually park a future.
-    pub(super) fn resolve_park_ttl(effective_ttl: Duration, copilot_stream: bool, subagent: bool) -> Duration {
+    pub(super) fn resolve_park_ttl(
+        effective_ttl: Duration,
+        copilot_stream: bool,
+        subagent: bool,
+    ) -> Duration {
         let mut ttl = effective_ttl;
         if copilot_stream {
             ttl = ttl.min(COPILOT_APPROVAL_TTL);
@@ -132,7 +136,10 @@ impl ApprovalGate {
     /// Callers MUST still exclude `AgentTurnOrigin::Unknown` before trusting
     /// this flag — see the `matches!` guard at the call site below. This method only reports the
     /// user's setting; it does not know about origin.
-    pub(super) fn is_auto_approve_all_enabled(&self, ctx: &crate::core::runtime::DispatchCtx) -> bool {
+    pub(super) fn is_auto_approve_all_enabled(
+        &self,
+        ctx: &crate::core::runtime::DispatchCtx,
+    ) -> bool {
         if let Some(policy) = crate::security::live_policy::effective_in(ctx) {
             return policy.auto_approve_all;
         }

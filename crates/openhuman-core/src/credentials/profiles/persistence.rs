@@ -126,7 +126,6 @@ fn default_now_rfc3339() -> String {
     Utc::now().to_rfc3339()
 }
 
-
 /// The secret the profiles live in on a storage backend
 /// ([`crate::storage::secrets`]): the same JSON as `auth-profiles.json`,
 /// encrypted as one secret in the acting agent's scope.

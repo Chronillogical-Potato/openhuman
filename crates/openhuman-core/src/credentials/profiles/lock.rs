@@ -155,7 +155,6 @@ impl Drop for AuthProfileLockGuard {
     }
 }
 
-
 impl AuthProfilesStore {
     pub(super) fn acquire_lock(&self) -> Result<AuthProfileLockGuard> {
         // Test-only: simulate a full / read-only filesystem that can't create

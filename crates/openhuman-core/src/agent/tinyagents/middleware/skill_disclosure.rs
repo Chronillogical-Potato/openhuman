@@ -116,5 +116,4 @@ impl ToolPolicyHostState {
             Err(message) => TaToolResult::error(message),
         })
     }
-
 }

@@ -6,6 +6,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
+use crate::agent::tinyagents::host::OpenHumanRunContext;
+use crate::agent::tinyagents::policy_denial::PolicyDenial;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::{
@@ -14,14 +16,12 @@ use tinyagents_harness::middleware::{
 };
 use tinyagents_harness_tools::skills::USE_SKILL;
 use tinyinference_llm::tool::ToolCall as TaToolCall;
-use crate::agent::tinyagents::host::OpenHumanRunContext;
-use crate::agent::tinyagents::policy_denial::PolicyDenial;
 
 #[path = "skill_disclosure.rs"]
 mod skill_disclosure;
+use tinytools::Tool;
 #[cfg(test)]
 use tinytools::ToolResult as TaToolResult;
-use tinytools::Tool;
 
 /// `wrap_tool`: enforce the agent's builder-configured `ToolCallPolicy` at the tool
 /// boundary (issue #4249). The in-house engine ran this check in
