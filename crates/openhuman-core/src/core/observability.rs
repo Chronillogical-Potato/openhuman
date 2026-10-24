@@ -14,6 +14,7 @@
 //! and return `Err(_)`, but Sentry never saw it. Funnel error sites through
 //! `report_error` so they show up tagged and grep-friendly in Sentry.
 pub(crate) mod progress_tracing;
+pub mod sentry_scope;
 pub(crate) mod telemetry;
 
 #[path = "observability_channel_message.rs"]

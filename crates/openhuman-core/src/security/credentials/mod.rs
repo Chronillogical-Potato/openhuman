@@ -12,7 +12,6 @@ pub mod profiles;
 pub mod provider_credential_source;
 pub mod responses;
 mod schemas;
-pub mod sentry_scope;
 pub mod session_support;
 pub mod tools;
 

@@ -14,6 +14,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::config::Config;
+use crate::core::observability::sentry_scope;
 use crate::core::Outcome;
 use crate::security::credentials::jwt::decode_jwt_exp;
 use crate::security::credentials::responses::AuthStateResponse;
@@ -22,7 +23,7 @@ use crate::security::credentials::session_support::{
     session_token_from_profile, user_id_from_jwt_claims, CredentialKind, SESSION_EXPIRES_AT_META,
 };
 use crate::security::credentials::{
-    api_key, identity, sentry_scope, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+    api_key, identity, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 
 use super::gated_services::{
