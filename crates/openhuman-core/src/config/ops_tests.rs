@@ -5,6 +5,22 @@ use tempfile::tempdir;
 
 use crate::config::TEST_ENV_LOCK as ENV_LOCK;
 
+#[tokio::test]
+async fn sandbox_settings_reject_unpersisted_env_passthrough_updates() {
+    let tmp = tempdir().unwrap();
+    let mut config = tmp_config(&tmp);
+    let result = crate::config::ops::apply_sandbox_settings(
+        &mut config,
+        crate::config::ops::SandboxSettingsPatch {
+            env_passthrough: Some(vec!["CUSTOM_VAR".into()]),
+            ..Default::default()
+        },
+    )
+    .await;
+
+    assert!(result.unwrap_err().contains("env_passthrough"));
+}
+
 // ── apply_*_settings ─────────────────────────────────────────
 
 fn tmp_config(tmp: &tempfile::TempDir) -> Config {
