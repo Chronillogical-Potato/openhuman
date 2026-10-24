@@ -22,7 +22,7 @@ sanitization directly from `tinytools::sanitize`.
                         crate::util            (no `use crate::`)
                               |
                               v
-        external crates: serde_json, sha2, url, reqwest, tokio,
+        external crates: serde_json, url, reqwest, tokio,
                          tracing, anyhow
 ```
 
