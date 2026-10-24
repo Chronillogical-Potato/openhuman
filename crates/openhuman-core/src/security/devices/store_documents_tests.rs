@@ -25,13 +25,17 @@ fn a_paired_device_round_trips() {
 }
 
 #[test]
-fn pairing_again_replaces_the_device() {
+fn pairing_again_cannot_revive_or_replace_the_device() {
     let store = docs();
     store.insert_device("ch-1", "old", "pk1", "h").unwrap();
     store.revoke_device("ch-1").unwrap();
-    let again = store.insert_device("ch-1", "new", "pk2", "h").unwrap();
-    assert!(!again.revoked, "a re-pair clears the revocation");
-    assert_eq!(store.list_devices().unwrap()[0].label, "new");
+    assert!(store
+        .insert_device("ch-1", "new", "pk2", "h")
+        .is_err());
+    let existing = store.get_device("ch-1").unwrap().expect("stored device");
+    assert!(existing.revoked, "re-inserting must preserve revocation");
+    assert_eq!(existing.label, "old");
+    assert_eq!(existing.device_pubkey, "pk1");
 }
 
 #[test]
