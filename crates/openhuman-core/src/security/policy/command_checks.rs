@@ -429,20 +429,15 @@ impl SecurityPolicy {
             let file_url_path = word
                 .strip_prefix("file://")
                 .and_then(|_| url::Url::parse(word).ok())
-                .filter(url::Url::has_host)
-                .or_else(|| {
-                    word.strip_prefix("file://")
-                        .and_then(|_| url::Url::parse(word).ok())
-                })
                 .and_then(|url| url.to_file_path().ok());
             if word.contains("://") && file_url_path.is_none() {
                 continue;
             }
             let word = file_url_path
                 .as_ref()
-                .map(|path| path.to_string_lossy().as_ref().to_owned())
+                .map(|path| path.to_string_lossy().into_owned())
                 .unwrap_or_else(|| word.to_owned());
-            let candidate_path = PathBuf::from(word);
+            let candidate_path = PathBuf::from(&word);
             if word.contains('\0')
                 || candidate_path
                     .components()
