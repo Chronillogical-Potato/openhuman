@@ -111,19 +111,23 @@ pub(super) fn read_master_key_file(path: &Path) -> Result<String, String> {
         ));
     }
 
-    let mut options = std::fs::OpenOptions::new();
-    options.read(true);
+    // A path can change after the metadata check. Nonblocking and no-follow
+    // flags keep a raced FIFO/device/symlink from turning this read into a
+    // hang or redirecting it to a different object.
     #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        // A path can change after the metadata check. Nonblocking and no-follow
-        // flags keep a raced FIFO/device/symlink from turning this read into a
-        // hang or redirecting it to a different object.
-        options.custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW);
-    }
-    let mut file = options
-        .open(path)
-        .map_err(|e| format!("cannot read master key file: {e}"))?;
+    let mut file = {
+        use rustix::fs::{Mode, OFlags};
+        rustix::fs::open(
+            path,
+            OFlags::RDONLY | OFlags::NONBLOCK | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::empty(),
+        )
+        .map(std::fs::File::from)
+        .map_err(|e| format!("cannot read master key file: {e}"))?
+    };
+    #[cfg(not(unix))]
+    let mut file =
+        std::fs::File::open(path).map_err(|e| format!("cannot read master key file: {e}"))?;
     let metadata = file
         .metadata()
         .map_err(|e| format!("cannot inspect master key file: {e}"))?;
