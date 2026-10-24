@@ -59,7 +59,7 @@ pub(super) fn annotate_lock_create_failure(err: anyhow::Error) -> anyhow::Error 
     ))
 }
 
-fn is_pid_alive(pid: u32) -> bool {
+pub(super) fn is_pid_alive(pid: u32) -> bool {
     use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
     let target = Pid::from_u32(pid);
     let mut sys = System::new();
@@ -92,7 +92,7 @@ fn is_pid_alive(pid: u32) -> bool {
 /// the critical section concurrently. `acquire_lock` always calls this *after*
 /// `create_dir_all(parent)`, so the parent exists and `canonicalize` succeeds;
 /// if it ever fails we fall back to the raw path (no worse than before).
-fn in_process_lock_for(path: &Path) -> &'static Mutex<()> {
+pub(super) fn in_process_lock_for(path: &Path) -> &'static Mutex<()> {
     static REGISTRY: OnceLock<Mutex<HashMap<PathBuf, &'static Mutex<()>>>> = OnceLock::new();
     let key = path
         .parent()

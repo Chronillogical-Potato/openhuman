@@ -20,6 +20,8 @@ mod migration;
 mod persistence;
 use lock::{annotate_lock_create_failure, is_lock_create_unwritable_fs};
 #[cfg(test)]
+use lock::{in_process_lock_for, is_pid_alive};
+#[cfg(test)]
 use persistence::write_owner_only;
 pub(crate) use persistence::is_persisted_document;
 use persistence::{PersistedAuthProfile, PersistedAuthProfiles};
