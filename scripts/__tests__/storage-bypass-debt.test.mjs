@@ -362,3 +362,29 @@ test("a Git-recorded move preserves only the original writer and allowance", () 
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("a unique unchanged writer may move during a module split", () => {
+  const old = {
+    rule: "json-write",
+    path: "crates/openhuman-core/src/credentials/profiles.rs",
+    text: "let mut file = OpenOptions::new()",
+    occurrence: 1,
+  };
+  const moved = {
+    ...old,
+    path: "crates/openhuman-core/src/credentials/profiles/persistence.rs",
+  };
+  const history = {
+    baseline: [old],
+    extension: [],
+    findings: [old],
+  };
+
+  assert.deepEqual(validateCoverageDebt([moved], [moved], [], history), []);
+
+  const added = { ...moved, text: "fs::write(other, bytes)" };
+  assert.match(
+    validateCoverageDebt([moved, added], [moved, added], [], history).join("\n"),
+    /Core baseline growth forbidden/,
+  );
+});

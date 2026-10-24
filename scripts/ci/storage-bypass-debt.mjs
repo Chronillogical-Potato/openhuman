@@ -55,6 +55,29 @@ export function validateCoverageDebt(findings, baseline, extension, history) {
   }
   if (history) {
     const oldCore = new Set(history.baseline.map(key));
+    // A module split can move one existing writer while leaving its original
+    // file in place, so Git does not report a whole-file rename. Carry that
+    // debt forward only when the old path no longer has the site and exactly
+    // one current site has the same rule, source text, and occurrence.
+    for (const record of baseline) {
+      if (oldCore.has(key(record))) continue;
+      const sameSite = (candidate) =>
+        candidate.rule === record.rule &&
+        candidate.text === record.text &&
+        candidate.occurrence === record.occurrence;
+      const previous = history.baseline.filter(
+        (candidate) => sameSite(candidate) && !actual.has(key(candidate)),
+      );
+      const current = findings.filter(sameSite);
+      if (
+        previous.length === 1 &&
+        current.length === 1 &&
+        previous[0].path !== record.path &&
+        current[0].path === record.path
+      ) {
+        oldCore.add(key(record));
+      }
+    }
     for (const record of baseline)
       if (!oldCore.has(key(record)))
         errors.push(
