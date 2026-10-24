@@ -1,6 +1,7 @@
 //! TinyHumans host implementation of the core provider credential port.
 
 use async_trait::async_trait;
+use chrono::{DateTime, Duration, Utc};
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::credentials::{
     ProviderCredentialSource, ProviderOAuthStart, ProviderOAuthTokens,
@@ -78,7 +79,21 @@ impl ProviderCredentialSource for OpenAiProviderCredentialSource {
         })
     }
 
-    fn refresh_openai_oauth(&self, refresh_token: &str) -> Result<OAuthTokenSet, String> {
+    fn resolve_openai_oauth(
+        &self,
+        provider: &str,
+        refresh_token: &str,
+        expires_at: Option<DateTime<Utc>>,
+    ) -> Result<Option<OAuthTokenSet>, String> {
+        if provider != "provider:openai" && provider != "openai" {
+            return Err(format!("provider OAuth is unsupported for {provider}"));
+        }
+        let Some(expires_at) = expires_at else {
+            return Ok(None);
+        };
+        if expires_at > Utc::now() + Duration::minutes(2) {
+            return Ok(None);
+        }
         let config = openai_codex_config(REDIRECT_URI);
         #[cfg(test)]
         let config = if let Some(token_url) = self
@@ -108,11 +123,26 @@ impl ProviderCredentialSource for OpenAiProviderCredentialSource {
             })
             .map_err(|error| error.to_string())?
             .join()
-            .map_err(|_| "OpenAI OAuth refresh worker panicked".to_string())??;
+            .map_err(|_| "OpenAI OAuth refresh worker panicked".to_string())?;
+        let refreshed = match refreshed {
+            Ok(refreshed) => refreshed,
+            Err(error) => {
+                log::warn!("[provider-oauth] OpenAI OAuth refresh failed: {error}");
+                if expires_at <= Utc::now() {
+                    // Preserve the phrase consumed by core's inference error
+                    // classifier so this routes to Codex reconnect guidance.
+                    return Err(format!(
+                        "Codex authentication token is expired — refresh failed: {error}. \
+                         Please reconnect Codex in Settings → Integrations."
+                    ));
+                }
+                return Ok(None);
+            }
+        };
         if refreshed.access_token.trim().is_empty() {
             return Err("OAuth refresh response contained an empty access token".to_owned());
         }
-        Ok(refreshed)
+        Ok(Some(refreshed))
     }
 
     async fn clear_openai_oauth_pending(&self, config: &Config) -> Result<(), String> {

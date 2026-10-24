@@ -1,4 +1,5 @@
 use super::source::OpenAiProviderCredentialSource;
+use chrono::{Duration, Utc};
 use openhuman_embed::__host::credentials::ProviderCredentialSource;
 use tinyinference_providers::oauth::OAuthTokenSet;
 use wiremock::matchers::{method, path};
@@ -22,14 +23,43 @@ async fn refresh_runs_from_a_current_thread_runtime() {
     };
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        source.refresh_openai_oauth("old-refresh")
+        source.resolve_openai_oauth(
+            "provider:openai",
+            "old-refresh",
+            Some(Utc::now() + Duration::seconds(30)),
+        )
     }));
 
     let tokens: OAuthTokenSet = result
         .expect("current-thread refresh must not panic")
-        .expect("mock token endpoint succeeds");
+        .expect("mock token endpoint succeeds")
+        .expect("an expiring credential is refreshed");
     assert_eq!(tokens.access_token, "fresh-access");
     assert_eq!(tokens.refresh_token.as_deref(), Some("fresh-refresh"));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn expired_codex_token_keeps_reconnect_error_when_refresh_fails() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/token"))
+        .respond_with(ResponseTemplate::new(400).set_body_string("refresh rejected"))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let source = OpenAiProviderCredentialSource {
+        token_url_override: Some(format!("{}/token", server.uri())),
+    };
+
+    let error = source
+        .resolve_openai_oauth(
+            "provider:openai",
+            "expired-refresh",
+            Some(Utc::now() - Duration::seconds(1)),
+        )
+        .expect_err("expired token cannot be used after a failed refresh");
+
+    assert!(error.contains("authentication token is expired"));
 }
 
 #[test]

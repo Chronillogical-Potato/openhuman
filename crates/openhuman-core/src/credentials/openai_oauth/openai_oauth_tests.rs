@@ -40,16 +40,25 @@ impl ProviderCredentialSource for RotatingTokenSource {
         Err("unused in this test".into())
     }
 
-    fn refresh_openai_oauth(&self, refresh_token: &str) -> Result<OAuthTokenSet, String> {
+    fn resolve_openai_oauth(
+        &self,
+        provider: &str,
+        refresh_token: &str,
+        expires_at: Option<chrono::DateTime<Utc>>,
+    ) -> Result<Option<OAuthTokenSet>, String> {
+        assert_eq!(provider, OPENAI_PROVIDER_KEY);
+        assert!(
+            expires_at.is_some_and(|expires_at| expires_at <= Utc::now() + Duration::minutes(2))
+        );
         self.refresh_count.fetch_add(1, Ordering::SeqCst);
         assert_eq!(refresh_token, "rotating-refresh");
-        Ok(OAuthTokenSet {
+        Ok(Some(OAuthTokenSet {
             access_token: "fresh-access".into(),
             refresh_token: Some("rotated-refresh".into()),
             id_token: None,
             expires_in: 3600,
             issued_at: Utc::now().timestamp().max(0) as u64,
-        })
+        }))
     }
 
     async fn clear_openai_oauth_pending(
