@@ -33,7 +33,7 @@ Re-exported from [`mod.rs`](./mod.rs):
 - `all_devices_controller_schemas` / `all_devices_registered_controllers` (alias for `schemas::all_controller_schemas` / `all_registered_controllers`).
 - Types: `CreatePairingResponse`, `ListDevicesResponse`, `PairedDevice`, `PairingSession`, `RevokeDeviceResponse`.
 
-Other notable public items (used across the crate but not re-exported at the domain root): `bus::register_device_tunnel_subscriber`, `crypto::{DeviceKeypair, TunnelCipher, base64url_encode, base64url_decode}`, `tunnel_client::{emit_register, emit_connect, emit_frame, TunnelPeerStatus, TunnelFrame, TunnelRegisterResponse}`.
+Other notable public items (used across the crate but not re-exported at the domain root): `bus::register_device_tunnel_subscriber`, `crypto::{DeviceKeypair, base64url_encode, base64url_decode}`, `tunnel_client::{emit_register, emit_connect, emit_frame, TunnelPeerStatus, TunnelFrame, TunnelRegisterResponse}`.
 
 ## RPC / controllers
 
@@ -113,7 +113,7 @@ revives a device another process revoked. With no backend configured (the deskto
 
 ## Notes / gotchas
 
-- **Handshake frame format** (`bus::handle_tunnel_frame`): `0x03 || client_handshake_eph_pub(32) || nonce(24) || ciphertext+tag`. The device seals its static public key and session ephemeral public key under a key derived with HKDF-SHA256 from the handshake ephemeral-to-core-static DH, salted by `client_handshake_eph_pub || core_static_pub`. The 33-byte marker and public-key header is authenticated as associated data. The core replies with `0x04 || nonce(24) || ciphertext+tag`; its key comes from the static DH salted by the client session ephemeral public key, and its associated data is `0x04 || client_session_eph_pub`. The reply carries the server session ephemeral public key. Raw-DH `0x01` handshakes and plaintext public keys are rejected; older clients must upgrade before reconnecting. An upgraded client can reuse its pairing profile and device key while the channel and credential remain valid.
+- **Handshake framing** is implemented in TinySecurity's `device::KeyPair`: `0x03` client handshake and `0x04` acknowledgement. The host retains channel/event dispatch and the paired-row key check; it does not implement handshake crypto or HKDF.
 - **`Tunnel` frame format** is implemented in TinySecurity: `0x02 || nonce(24) || ciphertext+tag`, direction-bound session keys, and a 128-entry authenticated replay window. Wrap the tunnel in a `Mutex` at the call site (`open` takes `&mut self`).
 - The `label` persisted on pairing currently falls back to the `channel_id` (the pending session stores no real label field; `PairingSession.channel_id` is used as the label source).
 - `devices_revoke` only tears down local + in-memory state. There is **no backend revoke endpoint yet** (TODO referencing PR #709 follow-up); the backend channel is left to expire via the pairing-token TTL.
