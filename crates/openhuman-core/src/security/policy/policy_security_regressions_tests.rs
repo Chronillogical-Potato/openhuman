@@ -17,6 +17,7 @@ fn supervised_analysis_unquotes_embedded_quotes_in_find_exec_flag() {
 
     assert_eq!(analysis.segments[0].arguments[1], "-exec");
     assert!(!policy.is_command_allowed_analysis(&analysis));
+    assert!(!policy.is_command_allowed(command));
 }
 
 #[test]
