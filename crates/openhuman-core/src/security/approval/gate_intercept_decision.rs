@@ -14,7 +14,7 @@ impl ApprovalGate {
     /// (`waiter_guard.disarm()` + `self.clear_thread(...)`) themselves; this
     /// helper only resolves the `outcome`.
     #[allow(clippy::too_many_arguments)]
-    async fn resolve_park_timeout(
+    pub(super) async fn resolve_park_timeout(
         &self,
         request_id: &str,
         tool_name: &str,

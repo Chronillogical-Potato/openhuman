@@ -16,7 +16,7 @@ impl ApprovalGate {
     /// compiled in this crate.
     #[allow(clippy::too_many_arguments)]
     #[inline(never)]
-    fn intercept_audited_inner<'a>(
+    pub(super) fn intercept_audited_inner<'a>(
         &'a self,
         turn: &'a ApprovalTurnContext,
         tool_name: &'a str,
@@ -456,7 +456,7 @@ impl ApprovalGate {
         let now = chrono::Utc::now();
         // Routes key on the tenant (profile and agent), so two SaaS profiles'
         // default agents, which carry no agent id, never share one.
-        let route_tenant = super::gate::current_route_tenant();
+        let route_tenant = super::current_route_tenant();
         let agent_id = route_tenant.agent.clone();
         let thread_key = chat_thread_id
             .as_deref()
@@ -600,7 +600,7 @@ impl ApprovalGate {
             }
             Ok(())
         };
-        let registered = super::flow_surface::register_after_workspace(
+        let registered = super::super::flow_surface::register_after_workspace(
             scope.as_deref(),
             async {
                 if !matches!(&source_context, Some(ApprovalSourceContext::Flow { .. })) {
