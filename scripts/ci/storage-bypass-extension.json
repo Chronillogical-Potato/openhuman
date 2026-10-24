@@ -390,16 +390,6 @@
     "issue": "https://github.com/tinyhumansai/openhuman/issues/7421"
   },
   {
-    "rule": "json-write",
-    "path": "crates/openhuman-core/src/security/secret_storage/encrypted_file_backend/key_source.rs",
-    "line": 114,
-    "text": "let mut options = std::fs::OpenOptions::new();",
-    "occurrence": 1,
-    "classification": "machine",
-    "reason": "Reads the operator-selected master-key file with nonblocking/no-follow admission and a strict byte limit; it is an external machine secret source, not persisted OpenHuman user data.",
-    "issue": "https://github.com/senamakel/openhuman/issues/639"
-  },
-  {
     "rule": "writer-helper",
     "path": "crates/openhuman-core/src/security/secret_storage/file_store.rs",
     "line": 201,
