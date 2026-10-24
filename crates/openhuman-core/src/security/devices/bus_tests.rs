@@ -89,7 +89,9 @@ fn a_restarted_host_opens_a_fresh_handshake_from_a_paired_row() {
     let data_dir = tempfile::tempdir().unwrap();
     let secret_store = crate::security::secret_storage::SecretStore::new(data_dir.path(), true);
     let secret = secret_store
-        .encrypt(&crate::security::devices::crypto::base64url_encode(&private))
+        .encrypt(&crate::security::devices::crypto::base64url_encode(
+            &private,
+        ))
         .unwrap();
     let phone = KeyPair::generate().unwrap();
     let device = super::super::types::PairedDevice {
@@ -138,7 +140,9 @@ fn restarted_pairing_rejects_mismatched_or_revoked_device_rows() {
     let data_dir = tempfile::tempdir().unwrap();
     let secret_store = crate::security::secret_storage::SecretStore::new(data_dir.path(), true);
     let secret = secret_store
-        .encrypt(&crate::security::devices::crypto::base64url_encode(&original.private_bytes()))
+        .encrypt(&crate::security::devices::crypto::base64url_encode(
+            &original.private_bytes(),
+        ))
         .unwrap();
     let mut device = super::super::types::PairedDevice {
         channel_id: "restart-channel-revoked".to_string(),

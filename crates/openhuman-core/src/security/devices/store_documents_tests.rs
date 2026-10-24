@@ -28,7 +28,13 @@ fn a_paired_device_round_trips() {
 fn encrypted_core_identity_is_stored_for_restart_and_hidden_from_device_rpc_json() {
     let store = docs();
     store
-        .insert_device_with_key("ch-key", "iPhone", "device-pk", "hash", Some("enc2:ciphertext"))
+        .insert_device_with_key(
+            "ch-key",
+            "iPhone",
+            "device-pk",
+            "hash",
+            Some("enc2:ciphertext"),
+        )
         .unwrap();
     let read = store.get_device("ch-key").unwrap().expect("stored");
     assert_eq!(
