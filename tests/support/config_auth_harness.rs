@@ -37,11 +37,11 @@ pub use openhuman_core::credentials::{
     decrypt_secret, encrypt_secret, list_provider_credentials_by_prefix, normalize_provider,
     AuthService, APP_SESSION_PROVIDER,
 };
+pub use openhuman_core::desktop::app_state::app_state_schemas;
 pub use openhuman_core::integrations::composio::{
     clear_composio_api_key, get_composio_api_key, rpc_store_composio_api_key,
     store_composio_api_key, COMPOSIO_DIRECT_PROVIDER,
 };
-pub use openhuman_core::desktop::app_state::app_state_schemas;
 pub use openhuman_rpc::server::build_core_http_router;
 pub use openhuman_tinyhumans::backend::url::{
     api_base_from_env, app_env_from_env, default_api_base_url_for_env, effective_api_url,

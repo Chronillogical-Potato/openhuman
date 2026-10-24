@@ -1,8 +1,8 @@
+use super::*;
 use crate::credentials::backend_credential::{
     backend_bearer_secret, direct_backend_credential, resolve_backend_credential,
     BackendCredential, LOCAL_SESSION_BACKEND_UNAVAILABLE,
 };
-use super::*;
 use crate::credentials::profiles::{AuthProfile, AuthProfileKind, TokenSet};
 use chrono::Utc;
 use serde_json::json;
@@ -338,8 +338,7 @@ fn backend_bearer_secret_prefers_api_key_and_returns_none_when_empty() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
     assert_eq!(backend_bearer_secret(&config).unwrap(), None);
-    crate::credentials::api_key::store_api_key(&config, "th_test_key")
-        .expect("store API key");
+    crate::credentials::api_key::store_api_key(&config, "th_test_key").expect("store API key");
     assert_eq!(
         backend_bearer_secret(&config).unwrap().as_deref(),
         Some("th_test_key")
@@ -412,8 +411,7 @@ fn build_session_state_prefers_the_api_key_over_a_present_session() {
             true,
         )
         .expect("store session token");
-    crate::credentials::api_key::store_api_key(&config, "th_test_key")
-        .expect("store api key");
+    crate::credentials::api_key::store_api_key(&config, "th_test_key").expect("store api key");
 
     let state = build_session_state(&config).unwrap();
     assert!(state.is_authenticated);
