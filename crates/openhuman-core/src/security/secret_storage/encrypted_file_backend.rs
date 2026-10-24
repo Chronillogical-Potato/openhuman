@@ -35,6 +35,7 @@ pub const MASTER_KEY_ENV: &str = "OPENHUMAN_KEYRING_MASTER_KEY";
 pub const MASTER_KEY_FILE_ENV: &str = "OPENHUMAN_KEYRING_MASTER_KEY_FILE";
 const SECRETS_FILENAME: &str = "secrets.enc";
 const LEGACY_DEV_KEYCHAIN: &str = "dev-keychain.json";
+const KEY_LEN: usize = crypto::KEY_LEN;
 
 /// Outcome of the one-time master-key initialization: the key (`None` when
 /// the backend needs none or the OS keychain could not provide it), or the

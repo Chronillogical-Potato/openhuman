@@ -3,8 +3,7 @@
 // Secrets are encrypted using ChaCha20-Poly1305 AEAD with a random key stored
 // in the OS keychain for normal app environments. Legacy installs may still
 // have `{data_dir}/openhuman/.secret_key`; those keys are migrated into the
-// keychain on first use. Unit tests retain the file path for deterministic
-// isolation. The config file stores only hex-encoded ciphertext, never
+// keychain on first use. The config file stores only hex-encoded ciphertext, never
 // plaintext keys.
 //
 // Each encryption generates a fresh random 12-byte nonce, prepended to the
@@ -37,10 +36,7 @@ use zeroize::Zeroizing;
 use tinystoragedrivers::secrets::crypto;
 
 /// Length of the random encryption key in bytes (256-bit, matches `ChaCha20`).
-const KEY_LEN: usize = 32;
-
-/// ChaCha20-Poly1305 nonce length in bytes.
-const NONCE_LEN: usize = 12;
+const KEY_LEN: usize = crypto::KEY_LEN;
 
 /// Keychain slot used for the SecretStore master key.
 const KEYCHAIN_MASTER_KEY: &str = "secretstore.master_key";
@@ -49,7 +45,7 @@ const KEYCHAIN_MASTER_KEY: &str = "secretstore.master_key";
 #[derive(Debug, Clone)]
 pub struct SecretStore {
     /// Legacy path to the on-disk key file (`{data_dir}/openhuman/.secret_key`).
-    /// Still used for unit tests and one-time migration into the keychain.
+    /// Used for one-time migration into the keychain.
     key_path: PathBuf,
     /// Whether encryption is enabled
     enabled: bool,
@@ -98,7 +94,7 @@ impl SecretStore {
     /// This does not consult or initialize the process keyring and does not
     /// migrate legacy `enc:` values.
     pub(crate) fn decrypt_with_existing_key(value: &str, key: &str) -> Result<String> {
-        let Some(hex_str) = value.strip_prefix("enc2:") else {
+        let Some(_hex_str) = value.strip_prefix("enc2:") else {
             if value.starts_with("enc:") {
                 anyhow::bail!("legacy encrypted value is unavailable to read-only inspection");
             }
