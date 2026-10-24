@@ -425,6 +425,3 @@ pub fn session_token_from_profile(profile: Option<&AuthProfile>) -> Option<Strin
         .map(str::to_string)
 }
 
-#[cfg(test)]
-#[path = "session_support_tests.rs"]
-mod tests;

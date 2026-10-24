@@ -120,7 +120,7 @@ Many domains consume `AuthService` / session helpers / Composio-direct key, incl
 
 ## Notes / gotchas
 
-- [`mod.rs`](./mod.rs) re-exports `ops` both as `ops::*` and as `pub use ops as rpc`. Call sites use `credentials::rpc::*`; this is the documented `rpc.rs`-equivalent exception (no separate `rpc.rs` file exists).
+- [`mod.rs`](./mod.rs) re-exports `ops` both as `ops::*` and as `pub use ops as rpc`. Call sites use `credentials::ops::*`; this is the documented `rpc.rs`-equivalent exception (no separate `rpc.rs` file exists).
 - `set_credential` does heavy orchestration beyond just storing a token (directory activation, thread purge, service startup). Treat it as the install funnel, not a thin setter, except on the same-token/same-user refresh path, which only rewrites the stored payload.
 - An embedder host (`CoreContext::current_embedder_config()` is set) keeps the credential under its own `config_path` scope and never touches the operator's global `active_user.toml`.
 - Local offline sessions are detected purely by the JWT signature segment being literally `local` (`is_local_session_token`); they are never sent anywhere and are never treated as expired.

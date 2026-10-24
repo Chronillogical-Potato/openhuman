@@ -1,6 +1,7 @@
 //! Credential management for app session and provider auth profiles.
 
 pub mod api_key;
+pub mod backend_credential;
 pub mod bus;
 mod core;
 pub mod credential_ref;
@@ -12,6 +13,7 @@ pub mod profiles;
 pub mod provider_credential_source;
 pub mod responses;
 mod schemas;
+pub mod session_state;
 pub mod session_support;
 pub mod tools;
 
