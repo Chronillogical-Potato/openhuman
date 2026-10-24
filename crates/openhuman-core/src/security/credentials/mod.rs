@@ -4,7 +4,6 @@ pub mod api_key;
 pub mod bus;
 mod core;
 pub mod credential_ref;
-pub(crate) mod embedding_scope;
 pub mod http_creds;
 pub mod identity;
 pub mod jwt;
