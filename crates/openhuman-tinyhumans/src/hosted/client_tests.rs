@@ -241,12 +241,12 @@ async fn session_401_publishes_the_fingerprint_of_the_hosted_request_credential(
     let event = tokio::time::timeout(std::time::Duration::from_secs(1), async {
         loop {
             match events.recv().await {
-                Ok(DomainEvent::SessionExpired {
+                Some(DomainEvent::SessionExpired {
                     credential_fingerprint: Some(fingerprint),
                     ..
                 }) => break fingerprint,
-                Ok(_) | Err(tinybus::TryRecvError::Lagged(_)) => continue,
-                Err(err) => panic!("hosted session 401 must publish expiry: {err}"),
+                Some(_) => continue,
+                None => panic!("hosted session 401 must publish expiry"),
             }
         }
     })
