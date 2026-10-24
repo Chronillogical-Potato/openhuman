@@ -22,11 +22,13 @@ mod teardown;
 pub use clear::{clear_credential, clear_session, store_session};
 pub use request::SetCredentialRequest;
 pub use set::set_credential;
-pub(super) use request::{resolve, Resolved};
+pub(super) use request::resolve;
 pub(crate) use teardown::{
-    clear_session_credential, process_credential_refusal, publish_credential_changed,
-    refuse_process_credential_in_saas,
+    clear_session_credential, publish_credential_changed, refuse_process_credential_in_saas,
 };
+
+#[cfg(test)]
+pub(crate) use teardown::process_credential_refusal;
 
 #[cfg(test)]
 #[path = "../credential_tests.rs"]
