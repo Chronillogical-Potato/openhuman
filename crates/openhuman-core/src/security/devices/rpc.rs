@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::config::Config;
 use crate::core::Outcome;
-use crate::security::devices::crypto::{base64url_encode, DeviceKeypair, TunnelCipher};
+use crate::security::devices::crypto::{base64url_encode, DeviceKeypair};
 use crate::security::devices::store;
 use crate::security::devices::tunnel_client;
 use crate::security::devices::types::{
@@ -43,7 +43,7 @@ pub(crate) static PEER_STATUS: once_cell::sync::Lazy<Mutex<HashMap<String, bool>
 
 /// Active post-handshake tunnel ciphers (keyed by channel_id).
 pub(crate) static ACTIVE_CIPHERS: once_cell::sync::Lazy<
-    Mutex<HashMap<String, Arc<Mutex<TunnelCipher>>>>,
+    Mutex<HashMap<String, Arc<Mutex<tinysecurity_crypto::device::Tunnel>>>>,
 > = once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
 
 // ---------------------------------------------------------------------------

@@ -12,7 +12,7 @@ use std::sync::{Arc, OnceLock};
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use crate::security::devices::crypto::{base64url_encode, DeviceKeypair, TunnelCipher};
+use crate::security::devices::crypto::{base64url_encode, DeviceKeypair};
 use crate::security::devices::rpc::{
     ACTIVE_CIPHERS, PEER_STATUS, PENDING_KEYPAIRS, PENDING_SESSIONS,
 };
@@ -452,7 +452,7 @@ async fn install_v2_cipher_and_ack(
 
     super::lock_unpoisoned(&ACTIVE_CIPHERS).insert(
         channel_id.to_string(),
-        Arc::new(std::sync::Mutex::new(TunnelCipher::from_native(tunnel))),
+        Arc::new(std::sync::Mutex::new(tunnel)),
     );
     emit_frame(channel_id, &base64url_encode(&ack_frame)).await?;
     log::info!(
@@ -558,7 +558,7 @@ async fn handle_encrypted_rpc_frame(channel_id: &str, frame_bytes: &[u8]) {
 
 async fn emit_tunnel_error(
     channel_id: &str,
-    cipher: &Arc<std::sync::Mutex<TunnelCipher>>,
+    cipher: &Arc<std::sync::Mutex<Tunnel>>,
     request_id: &str,
     message: String,
 ) {
@@ -574,7 +574,7 @@ async fn emit_tunnel_error(
 
 async fn emit_tunnel_response(
     channel_id: &str,
-    cipher: &Arc<std::sync::Mutex<TunnelCipher>>,
+    cipher: &Arc<std::sync::Mutex<Tunnel>>,
     request_id: &str,
     kind: &str,
     payload: Value,
