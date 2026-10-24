@@ -46,6 +46,7 @@ dependencies = [
  "cfg-if",
  "cipher 0.4.4",
  "cpufeatures 0.2.17",
+ "zeroize",
 ]
 
 [[package]]
@@ -60,6 +61,7 @@ dependencies = [
  "ctr",
  "ghash",
  "subtle",
+ "zeroize",
 ]
 
 [[package]]
@@ -181,6 +183,7 @@ dependencies = [
  "blake2",
  "cpufeatures 0.2.17",
  "password-hash",
+ "zeroize",
 ]
 
 [[package]]
@@ -2429,6 +2432,7 @@ checksum = "f0d8a4362ccb29cb0b265253fb0a2728f592895ee6854fd9bc13f2ffda266ff1"
 dependencies = [
  "opaque-debug",
  "polyval",
+ "zeroize",
 ]
 
 [[package]]
@@ -4596,7 +4600,6 @@ dependencies = [
  "futures",
  "futures-util",
  "hex",
- "hkdf 0.12.4",
  "hmac 0.12.1",
  "hostname",
  "iana-time-zone",
@@ -4658,14 +4661,16 @@ dependencies = [
  "tinymemory-tools",
  "tinyredact",
  "tinysearch-bus",
+ "tinysecurity-bus",
+ "tinysecurity-crypto",
  "tinyskills",
  "tinyskills-drivers",
- "tinystoragedrivers",
+ "tinystoragedrivers 2.1.0",
  "tinystoragedrivers-api",
  "tinystoragedrivers-bus",
  "tinystoragedrivers-busproxy",
  "tinystoragedrivers-connect",
- "tinystoragedrivers-secrets",
+ "tinystoragedrivers-secrets 2.1.0",
  "tinystoragedrivers-types",
  "tinytools",
  "tinytools-agent",
@@ -4684,7 +4689,6 @@ dependencies = [
  "uuid",
  "walkdir",
  "windows-sys 0.61.2",
- "x25519-dalek",
  "zeroize",
  "zip 2.6.1",
  "zstd",
@@ -4789,7 +4793,7 @@ dependencies = [
  "tinyagents-harness",
  "tinyagents-session",
  "tinyinference-core",
- "tinystoragedrivers",
+ "tinystoragedrivers 2.1.0",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -5253,6 +5257,7 @@ dependencies = [
  "cpufeatures 0.2.17",
  "opaque-debug",
  "universal-hash 0.5.1",
+ "zeroize",
 ]
 
 [[package]]
@@ -5275,6 +5280,7 @@ dependencies = [
  "cpufeatures 0.2.17",
  "opaque-debug",
  "universal-hash 0.5.1",
+ "zeroize",
 ]
 
 [[package]]
@@ -7999,7 +8005,7 @@ dependencies = [
 
 [[package]]
 name = "tinyinference-decisions"
-version = "0.5.0"
+version = "0.3.1"
 dependencies = [
  "async-trait",
  "httpdate",
@@ -8058,6 +8064,7 @@ dependencies = [
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "thiserror 2.0.20",
  "tinyinference-core",
  "tinyinference-embeddings",
@@ -8281,6 +8288,81 @@ dependencies = [
 ]
 
 [[package]]
+name = "tinysecurity-approval"
+version = "0.17.1"
+dependencies = [
+ "async-trait",
+ "getrandom 0.3.4",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.20",
+ "tinysecurity-auto",
+ "tinysecurity-bus",
+ "tinysecurity-redact",
+ "tokio",
+]
+
+[[package]]
+name = "tinysecurity-auto"
+version = "0.17.1"
+dependencies = [
+ "async-trait",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.20",
+ "tinyinference-decisions",
+ "tinysecurity-bus",
+ "tinysecurity-redact",
+ "tokio",
+]
+
+[[package]]
+name = "tinysecurity-bus"
+version = "0.17.1"
+dependencies = [
+ "serde",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "tinysecurity-crypto"
+version = "0.17.1"
+dependencies = [
+ "aes",
+ "aes-gcm",
+ "argon2",
+ "aws-lc-rs",
+ "base64 0.22.1",
+ "chacha20 0.9.1",
+ "chacha20poly1305 0.10.1",
+ "getrandom 0.3.4",
+ "ghash",
+ "poly1305 0.8.0",
+ "polyval",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.20",
+ "tinysecurity-approval",
+ "tinysecurity-bus",
+ "tinystoragedrivers 0.5.0",
+ "x25519-dalek",
+ "zeroize",
+]
+
+[[package]]
+name = "tinysecurity-redact"
+version = "0.17.1"
+dependencies = [
+ "regex",
+ "serde_json",
+ "sha2 0.10.9",
+ "tinysecurity-bus",
+ "unicode-normalization",
+ "url",
+]
+
+[[package]]
 name = "tinyskills"
 version = "0.5.1"
 dependencies = [
@@ -8314,6 +8396,14 @@ dependencies = [
 
 [[package]]
 name = "tinystoragedrivers"
+version = "0.5.0"
+dependencies = [
+ "tinystoragedrivers-core",
+ "tinystoragedrivers-secrets 0.5.0",
+]
+
+[[package]]
+name = "tinystoragedrivers"
 version = "2.1.0"
 dependencies = [
  "tinystoragedrivers-api",
@@ -8322,7 +8412,7 @@ dependencies = [
  "tinystoragedrivers-document",
  "tinystoragedrivers-kv",
  "tinystoragedrivers-queue",
- "tinystoragedrivers-secrets",
+ "tinystoragedrivers-secrets 2.1.0",
  "tinystoragedrivers-types",
 ]
 
@@ -8401,6 +8491,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tinystoragedrivers-core"
+version = "0.5.0"
+dependencies = [
+ "async-trait",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tokio",
+]
+
+[[package]]
 name = "tinystoragedrivers-document"
 version = "2.1.0"
 dependencies = [
@@ -8451,6 +8552,29 @@ dependencies = [
  "tinystoragedrivers-types",
  "tokio",
  "ulid",
+]
+
+[[package]]
+name = "tinystoragedrivers-secrets"
+version = "0.5.0"
+dependencies = [
+ "async-trait",
+ "atomicwrites",
+ "chacha20poly1305 0.10.1",
+ "clack-private-fs",
+ "fs4",
+ "hkdf 0.12.4",
+ "keyring",
+ "rustix 1.1.5",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tinystoragedrivers-core",
+ "tokio",
+ "winapi-util",
+ "windows-permissions",
+ "winsafe",
+ "zeroize",
 ]
 
 [[package]]
@@ -10341,7 +10465,6 @@ checksum = "c7e468321c81fb07fa7f4c636c3972b9100f0346e5b6a9f2bd0603a52f7ed277"
 dependencies = [
  "curve25519-dalek",
  "rand_core 0.6.4",
- "serde",
  "zeroize",
 ]
 
