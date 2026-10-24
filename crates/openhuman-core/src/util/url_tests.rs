@@ -42,6 +42,9 @@ fn host_is_local_classifies_loopback_private_and_localhost() {
         "http://[::1]:1",
         "http://0.0.0.0",
         "http://10.0.0.2",
+        "http://[::ffff:127.0.0.1]",
+        "http://[fc00::1]",
+        "http://[fe80::1]",
         "http://localhost",
         "http://app.localhost",
     ];

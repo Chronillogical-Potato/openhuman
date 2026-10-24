@@ -319,6 +319,12 @@ fn redact_url_handles_plain_url() {
 }
 
 #[test]
+fn redact_url_strips_query_and_fragment() {
+    let out = redact_url_for_log("https://api.example/v1?token=secret#fragment");
+    assert_eq!(out, "https://api.example/v1");
+}
+
+#[test]
 fn redact_url_fallback_masks_userinfo_when_unparseable() {
     let out = redact_url_for_log("not-a-scheme://user:secret@host/path?token=1");
     assert!(!out.contains("secret"), "got: {out}");

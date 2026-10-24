@@ -182,6 +182,7 @@ fn is_safe_endpoint_for_bearer_accepts_tls_and_loopback() {
     assert!(is_safe_endpoint_for_bearer("http://localhost:8080/v1"));
     assert!(is_safe_endpoint_for_bearer("http://[::1]:8080/v1"));
     assert!(is_safe_endpoint_for_bearer("http://127.0.0.2:8080/v1"));
+    assert!(!is_safe_endpoint_for_bearer("http://127.evil.example/v1"));
     // Unparseable or non-URL values are refused, not silently allowed, so a
     // bearer can never ride a cleartext or ambiguous channel.
     assert!(!is_safe_endpoint_for_bearer("api.example.com"));

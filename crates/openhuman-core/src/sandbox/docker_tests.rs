@@ -19,6 +19,7 @@ fn test_policy() -> SandboxPolicy {
 #[test]
 fn policy_request_carries_network_workspace_and_read_only_mounts() {
     let mut policy = test_policy();
+    policy.allow_network = true;
     policy.workspace_root = PathBuf::from("/");
     policy.read_only_mounts = vec![PathBuf::from("/etc"), PathBuf::from("/usr/lib")];
     policy.docker_overrides = Some(DockerOverrides {
@@ -90,6 +91,7 @@ fn docker_backend_handle_maps_module_status_truthfully() {
 #[test]
 fn host_network_and_dangerous_mounts_reach_the_module_unfiltered() {
     let mut policy = test_policy();
+    policy.allow_network = true;
     policy.workspace_root = PathBuf::from("/etc");
     policy.read_only_mounts = vec![PathBuf::from("/var/run/docker.sock")];
     policy.docker_overrides = Some(DockerOverrides {
@@ -109,4 +111,17 @@ fn host_network_and_dangerous_mounts_reach_the_module_unfiltered() {
         run.read_only_mounts,
         vec!["/var/run/docker.sock".to_owned()]
     );
+}
+
+#[cfg(feature = "modules")]
+#[test]
+fn disabled_network_policy_overrides_configured_docker_network() {
+    let mut policy = test_policy();
+    policy.allow_network = false;
+    policy.docker_overrides = Some(DockerOverrides {
+        network: Some("bridge".into()),
+        ..DockerOverrides::default()
+    });
+
+    assert_eq!(policy_request(&policy).network.as_deref(), Some("none"));
 }
