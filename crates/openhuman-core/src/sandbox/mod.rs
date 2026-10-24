@@ -20,12 +20,14 @@ pub(crate) mod shell_processes;
 pub(crate) mod shell_progress;
 pub mod types;
 
-pub use ops::{command_requires_sandbox, create_sandbox_backend, execute_in_sandbox, resolve_sandbox_policy};
+pub use ops::{
+    command_requires_sandbox, create_sandbox_backend, execute_in_sandbox, resolve_sandbox_policy,
+};
 pub use schemas::{
     all_controller_schemas as all_sandbox_controller_schemas,
     all_registered_controllers as all_sandbox_registered_controllers,
 };
 pub use types::{
-    DockerOverrides, SandboxBackendHandle, SandboxBackendKind, SandboxExecRequest, SandboxExecResult,
-    SandboxIsolation, SandboxPolicy, SandboxStatus,
+    DockerOverrides, SandboxBackendHandle, SandboxBackendKind, SandboxExecRequest,
+    SandboxExecResult, SandboxIsolation, SandboxPolicy, SandboxStatus,
 };

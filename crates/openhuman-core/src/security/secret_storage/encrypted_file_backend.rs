@@ -11,10 +11,10 @@ use std::sync::OnceLock;
 
 use crate::security::secret_storage::adapter;
 use crate::security::secret_storage::backend::SecretBackend;
-use tinystoragedrivers::secrets::crypto;
 use crate::security::secret_storage::error::SecretStorageError;
 use crate::security::secret_storage::file_store;
 use crate::security::secret_storage::store::BackendKind;
+use tinystoragedrivers::secrets::crypto;
 use tinystoragedrivers::secrets::EncryptedFileSecrets;
 use zeroize::Zeroizing;
 

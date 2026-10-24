@@ -30,4 +30,3 @@ pub fn redact_url_for_log(raw: &str) -> String {
     parsed.set_fragment(None);
     parsed.to_string().trim_end_matches('/').to_string()
 }
-

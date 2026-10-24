@@ -40,6 +40,8 @@ pub use egress::{
 };
 pub use ops as rpc;
 pub use ops::*;
+#[allow(unused_imports)]
+pub use pairing::is_public_bind;
 pub use policy::validate_path_within_root;
 #[allow(unused_imports)]
 pub use policy::AutonomyLevel;
@@ -50,8 +52,6 @@ pub use policy::ToolOperation;
 pub use policy::{ensure_openhuman_scratch_dir, openhuman_scratch_dir};
 #[allow(unused_imports)]
 pub use policy::{TrustedAccess, TrustedRoot};
-#[allow(unused_imports)]
-pub use pairing::is_public_bind;
 
 pub use schemas::{
     all_controller_schemas as all_security_controller_schemas,

@@ -463,4 +463,3 @@ fn hex_decode_odd_length_fails() {
 fn hex_decode_invalid_chars_fails() {
     assert!(hex_decode("zzzz").is_err());
 }
-
