@@ -669,7 +669,9 @@ impl SecurityPolicy {
             }
 
             // Validate arguments for the command
-            let args: Vec<String> = words.map(|w| w.to_ascii_lowercase()).collect();
+            let args: Vec<String> = words
+                .map(|word| super::command_vocabulary::shell_unquote(word).to_ascii_lowercase())
+                .collect();
             if is_command_executor(base_cmd) || !self.is_args_safe(base_cmd, &args) {
                 return false;
             }
