@@ -3,14 +3,25 @@ use crate::config::user_scope::{
     activate_user_scope, rebind_after_credential_change, reload_config_or,
 };
 use crate::core::observability::sentry_scope;
-use crate::credentials::backend_credential::publish_local_session_expiry;
 use crate::credentials::session_state::{
-    build_session_state, load_app_session_profile, session_token_from_profile,
-    user_id_from_jwt_claims, CredentialKind, SESSION_EXPIRES_AT_META,
+    build_session_state, load_app_session_profile, session_token_from_profile, CredentialKind,
+    SESSION_EXPIRES_AT_META,
 };
 use crate::credentials::{
     api_key, identity, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
+
+fn rollback_failed_credential_rebind(auth: &AuthService, cause: &str) -> String {
+    if let Err(rollback) = auth.remove_profile(APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME) {
+        return format!("credential rebind failed: {cause}; rollback failed: {rollback}");
+    }
+    if let Err(rollback) = crate::config::user_scope::deactivate_user_scope() {
+        return format!(
+            "credential rebind failed: {cause}; active-user rollback failed: {rollback}"
+        );
+    }
+    cause.to_string()
+}
 
 /// Install a backend credential. See the module docs for what the core does
 /// with it; see [`SetCredentialRequest`] for what the host must supply.

@@ -3,7 +3,6 @@ use crate::config::user_scope::{deactivate_user_scope, rebind_after_credential_c
 use crate::core::observability::sentry_scope;
 use crate::core::Outcome;
 use crate::credentials::{identity, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
-use serde_json::{json, Value};
 
 /// The session teardown: gate closed first so no worker fires at a backend
 /// about to be invalidated, then profile removal, socket / workflow-bridge
