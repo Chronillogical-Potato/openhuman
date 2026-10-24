@@ -6,7 +6,7 @@ Startup data-migration runner gated by `Config::schema_version`. Each migration 
 
 ## Responsibilities
 
-- Maintain `CURRENT_SCHEMA_VERSION` (currently `14`) as the target schema version, bumped alongside every new migration.
+- Maintain `CURRENT_SCHEMA_VERSION` (currently `15`) as the target schema version, bumped alongside every new migration.
 - Run pending migrations in order, each guarded by an exact `schema_version ==` check so a failed earlier step is never skipped (the 0→1 step uses `< 1`).
 - Run registered host config normalization for brand-new and already-versioned configs; bare core has no provider normalizer.
 - Persist each version bump via `Config::save()` **only after** the migration reports success; on a save failure, roll the in-memory `schema_version` back so the next launch retries the same gate.
