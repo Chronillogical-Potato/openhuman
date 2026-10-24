@@ -30,15 +30,15 @@
 
 use std::sync::{Arc, Mutex};
 
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use tinybus::Proxy;
 use tinyconnectors_bus::names;
 
 use super::types::ModuleState;
 use super::{ops, registry};
-use crate::config::schema::{COMPOSIO_MODE_BACKEND, COMPOSIO_MODE_DIRECT};
 use crate::config::Config;
+use crate::config::schema::{COMPOSIO_MODE_BACKEND, COMPOSIO_MODE_DIRECT};
 use crate::core::slots::HookSlot;
 
 /// The module's id in [`registry`].
@@ -71,7 +71,7 @@ static MODULE_PROXY_TARGETS: HookSlot<ProxyTargetResolver> =
 #[path = "connectors/inspection.rs"]
 mod inspection;
 
-pub(crate) use inspection::{call_existing_readonly, ExistingCallError};
+pub(crate) use inspection::{ExistingCallError, call_existing_readonly};
 
 pub(crate) fn note_module_config_for_load(config: &Config, module_config: &serde_json::Value) {
     inspection::note_module_config_for_load(config, module_config);
@@ -196,7 +196,7 @@ fn route_config(
         COMPOSIO_MODE_DIRECT => {
             // The keychain wins over `config.toml`: the encrypted store is the
             // source of truth, and the file is a fallback for power users.
-            let stored = crate::security::credentials::get_composio_api_key(config)
+            let stored = crate::integrations::composio::get_composio_api_key(config)
                 .map_err(|error| format!("failed to read the stored composio api key: {error}"))?;
             let api_key = stored
                 .or_else(|| {

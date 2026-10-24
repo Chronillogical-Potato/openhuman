@@ -49,12 +49,12 @@ async fn cache_guard_async() -> tokio::sync::MutexGuard<'static, ()> {
 
 use crate::config::test_env::EnvVarGuard;
 use axum::{
+    Json, Router,
     extract::{Path, Query, State},
     http::HeaderMap,
     routing::{get, post},
-    Json, Router,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 
 struct DirectAuthFailureGuard {
@@ -214,7 +214,7 @@ fn direct_mode_config(tmp: &tempfile::TempDir) -> Config {
     c.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.into();
     crate::security::credentials::AuthService::from_config(&c)
         .store_provider_token(
-            crate::security::credentials::ops::COMPOSIO_DIRECT_PROVIDER,
+            crate::integrations::composio::COMPOSIO_DIRECT_PROVIDER,
             crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "ck_test_direct_key",
             std::collections::HashMap::new(),

@@ -12,6 +12,7 @@ pub mod daemon;
 pub mod enrichers;
 pub mod migrations;
 pub mod ops;
+pub(crate) mod proxy_tool;
 pub mod schema;
 mod schemas;
 pub mod tools;
@@ -22,7 +23,7 @@ pub mod workspace_handle;
 #[allow(unused_imports)]
 pub use daemon::DaemonConfig;
 pub use enrichers::{
-    register_enricher, register_enricher_in, run_enrichers, unregister_enricher, ConfigEnricher,
+    ConfigEnricher, register_enricher, register_enricher_in, run_enrichers, unregister_enricher,
 };
 
 /// RPC operations for configuration.
@@ -30,11 +31,11 @@ pub use ops as rpc;
 pub use ops::*;
 
 pub use schema::{
-    action_dir_env_override, active_user_marker_path, active_workspace_dir,
-    active_workspace_dir_cached, active_workspace_snapshot, clear_active_user, default_action_dir,
-    default_files_dir, default_projects_dir, default_root_openhuman_dir, pre_login_user_dir,
-    read_active_user_id, resolve_action_dir, resolve_files_dir, user_openhuman_dir,
-    write_active_user_id, PRE_LOGIN_USER_ID, WORKLOAD_ROLES,
+    PRE_LOGIN_USER_ID, WORKLOAD_ROLES, action_dir_env_override, active_user_marker_path,
+    active_workspace_dir, active_workspace_dir_cached, active_workspace_snapshot,
+    clear_active_user, default_action_dir, default_files_dir, default_projects_dir,
+    default_root_openhuman_dir, pre_login_user_dir, read_active_user_id, resolve_action_dir,
+    resolve_files_dir, user_openhuman_dir, write_active_user_id,
 };
 pub use workspace_handle::workspace_handle;
 // Crate-internal: workspace→config-dir resolver reused by the cloud embedder.
@@ -42,30 +43,30 @@ pub(crate) use schema::resolve_config_dir_for_workspace;
 pub(crate) use schema::set_cli_inference_overrides;
 #[allow(unused_imports)]
 pub use schema::{
-    apply_runtime_proxy_to_builder, build_runtime_proxy_client,
-    build_runtime_proxy_client_with_timeouts, device_time_zone, normalize_time_zone,
-    output_language_directive, runtime_proxy_config, set_runtime_proxy_config, AgentConfig,
-    AuditConfig, AutonomyConfig, BrowserComputerUseConfig, BrowserConfig, BudgetAction,
-    BudgetPeriod, BudgetPolicy, BudgetScope, CapabilityProviderConfig,
+    AgentConfig, AuditConfig, AutonomyConfig, BrowserComputerUseConfig, BrowserConfig,
+    BudgetAction, BudgetPeriod, BudgetPolicy, BudgetScope, CapabilityProviderConfig,
     CapabilityProviderTrustState, ChannelsConfig, CompactionSettings, CompactionStrategy,
     ComposioConfig, ComposioDirectBaseUrls, ComposioHostCredential, ComputerConfig, Config,
     ContextConfig, CostConfig, CronConfig, CurlConfig, DashboardConfig, DecisionModel,
     DiagramViewerConfig, DiscordConfig, DockerRuntimeConfig, EmailConfig, EmbeddingRouteConfig,
     GitbooksConfig, HttpHeader, HttpRequestConfig, IMessageConfig, IntegrationToggle,
     IntegrationsConfig, LarkConfig, LegacySearchInputs, LinqConfig, LocalAiConfig, LocalJailConfig,
-    MatrixConfig, McpAuthConfig, McpClientConfig, McpClientIdentityConfig, McpServerConfig,
-    McpToolExposure, MemoryConfig, MemoryLayoutMode, ModelRouteConfig, MultimodalConfig,
-    MultimodalFileConfig, ObservabilityConfig, OrchestratorModelConfig, PresentationMode,
-    PrivacyConfig, PrivacyMode, ProviderRoute, ProxyConfig, ProxyScope, ReliabilityConfig,
-    ResourceLimitsConfig, RuntimeConfig, SandboxBackend, SandboxConfig, SchedulerConfig,
-    SchedulerGateConfig, SchedulerGateMode, SearchConfig, SearchEngineCredentials,
+    MANAGED_SEARCH_PROVIDERS, MatrixConfig, McpAuthConfig, McpClientConfig,
+    McpClientIdentityConfig, McpServerConfig, McpToolExposure, MemoryConfig, MemoryLayoutMode,
+    ModelRouteConfig, MultimodalConfig, MultimodalFileConfig, ObservabilityConfig,
+    OrchestratorModelConfig, PresentationMode, PrivacyConfig, PrivacyMode, ProviderRoute,
+    ProxyConfig, ProxyScope, ReliabilityConfig, RuntimeConfig, SEARCH_ENGINE_BRAVE,
+    SEARCH_ENGINE_DISABLED, SEARCH_ENGINE_EXA, SEARCH_ENGINE_MANAGED, SEARCH_ENGINE_PARALLEL,
+    SEARCH_ENGINE_QUERIT, SEARCH_ENGINE_TAVILY, SEARCH_PROVIDERS, SEARCH_ROLE_ANSWER,
+    SEARCH_ROLE_CONTENTS, SEARCH_ROLE_SEARCH, SEARCH_ROLES, SandboxBackend, SandboxConfig,
+    SchedulerConfig, SchedulerGateConfig, SchedulerGateMode, SearchConfig, SearchEngineCredentials,
     SearchHostCredential, SearchProviderSettings, SearxngConfig, SecretsConfig, SecurityConfig,
     ShellConfig, SlackConfig, StreamMode, SttEngine, TeamModelConfig, TelegramConfig,
     TokenjuiceConfig, UnknownKeyedSearchProvider, UpdateConfig, UpdateRestartStrategy,
-    VoiceServerConfig, WebSearchConfig, WebhookConfig, YuanbaoConfig, MANAGED_SEARCH_PROVIDERS,
-    SEARCH_ENGINE_BRAVE, SEARCH_ENGINE_DISABLED, SEARCH_ENGINE_EXA, SEARCH_ENGINE_MANAGED,
-    SEARCH_ENGINE_PARALLEL, SEARCH_ENGINE_QUERIT, SEARCH_ENGINE_TAVILY, SEARCH_PROVIDERS,
-    SEARCH_ROLES, SEARCH_ROLE_ANSWER, SEARCH_ROLE_CONTENTS, SEARCH_ROLE_SEARCH,
+    VoiceServerConfig, WebSearchConfig, WebhookConfig, YuanbaoConfig,
+    apply_runtime_proxy_to_builder, build_runtime_proxy_client,
+    build_runtime_proxy_client_with_timeouts, device_time_zone, normalize_time_zone,
+    output_language_directive, runtime_proxy_config, set_runtime_proxy_config,
 };
 // Kept as a separate re-export (issue #4117) so the large alphabetized group
 // above stays byte-identical and rustfmt-stable.

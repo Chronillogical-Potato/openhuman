@@ -1,10 +1,10 @@
 use crate::config::{
-    runtime_proxy_config, set_runtime_proxy_config, Config, ProxyConfig, ProxyScope,
+    Config, ProxyConfig, ProxyScope, runtime_proxy_config, set_runtime_proxy_config,
 };
 use crate::security::SecurityPolicy;
 use crate::util::MaybeSet;
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::fs;
 use std::sync::Arc;
 use tinyagents_harness_tools::static_schema;
@@ -369,9 +369,9 @@ impl Tool for ProxyConfigTool {
 }
 
 #[cfg(test)]
-#[path = "proxy_config_tests.rs"]
+#[path = "proxy_tool_tests.rs"]
 mod tests;
 
 #[cfg(test)]
-#[path = "proxy_config_schema_tests.rs"]
+#[path = "proxy_tool_schema_tests.rs"]
 mod schema_tests;

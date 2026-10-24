@@ -42,6 +42,7 @@ pub const CURRENT_SCHEMA_VERSION: u32 = 15;
 /// Run registered host initializers for a new configuration before its first
 /// save. Bare core has no initializer and remains host-neutral.
 pub(crate) fn seed_new_workspace(config: &mut Config) {
+    crate::config::schema::cloud_providers::seed_cloud_providers(config);
     crate::inference::registry::normalize_config(config);
 }
 

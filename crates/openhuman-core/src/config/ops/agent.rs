@@ -60,20 +60,6 @@ pub struct AgentSettingsPatch {
     pub tool_dispatcher: Option<String>,
 }
 
-/// Partial update for the agent's editable filesystem roots.
-///
-/// `action_dir` (issue #3240) and the files folder (#5505) are editable.
-/// `workspace_dir` and `projects_dir` are intentionally read-only.
-#[derive(Debug, Clone, Default)]
-pub struct AgentPathsPatch {
-    /// New action sandbox root. `Some("")`/whitespace clears the override and
-    /// reverts to the default; `Some(path)` sets it; `None` leaves it unchanged.
-    pub action_dir: Option<String>,
-    /// New folder for agent deliverables. Same `Some("")` / `Some(path)` /
-    /// `None` semantics as `action_dir`. Affects new artifacts only.
-    pub files_dir: Option<String>,
-}
-
 /// Updates the `[autonomy]` (agent access mode) settings in the configuration.
 ///
 /// After saving, publishes a `DomainEvent::System(AutonomyConfigChanged)` so that

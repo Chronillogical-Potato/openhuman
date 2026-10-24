@@ -2,7 +2,7 @@ use super::*;
 use crate::config::Config;
 use crate::integrations::composio::module_client::module_guard;
 
-use axum::{extract::State, http::StatusCode, routing::get, Json, Router};
+use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 use serde_json::json;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -137,7 +137,7 @@ fn resolve_composio_route_disabled_errors_even_with_a_session() {
 #[tokio::test]
 async fn disabled_mode_reports_no_integrations_without_a_backend_call() {
     use crate::integrations::composio::{
-        fetch_connected_integrations_status, FetchConnectedIntegrationsStatus,
+        FetchConnectedIntegrationsStatus, fetch_connected_integrations_status,
     };
     // Default config would try the hosted backend; disabled must answer locally.
     let mut config = Config::default();
@@ -174,7 +174,7 @@ fn resolve_composio_route_direct_variant_with_stored_key() {
     // Persist the key the way the RPC layer would.
     crate::security::credentials::AuthService::from_config(&config)
         .store_provider_token(
-            crate::security::credentials::COMPOSIO_DIRECT_PROVIDER,
+            crate::integrations::composio::COMPOSIO_DIRECT_PROVIDER,
             crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "ck_test_key_redacted",
             std::collections::HashMap::new(),
@@ -236,7 +236,7 @@ fn resolve_composio_route_unknown_mode_errors() {
 
 #[test]
 fn store_get_clear_composio_api_key_roundtrip() {
-    use crate::security::credentials::{get_composio_api_key, COMPOSIO_DIRECT_PROVIDER};
+    use crate::integrations::composio::{COMPOSIO_DIRECT_PROVIDER, get_composio_api_key};
 
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = crate::config::Config::default();

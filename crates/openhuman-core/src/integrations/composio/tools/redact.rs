@@ -23,7 +23,7 @@ pub(crate) fn composio_secrets(config: &Config) -> Vec<String> {
     if composio.host_credential.is_none()
         && composio.mode.trim() == crate::config::schema::COMPOSIO_MODE_DIRECT
     {
-        if let Ok(Some(stored)) = crate::security::credentials::get_composio_api_key(config) {
+        if let Ok(Some(stored)) = crate::integrations::composio::get_composio_api_key(config) {
             secrets.push(stored);
         }
     }

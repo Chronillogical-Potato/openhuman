@@ -56,7 +56,7 @@ pub(crate) fn direct_mode_without_key(config: &Config) -> OpResult<bool> {
     if config.composio.mode.trim() != crate::config::schema::COMPOSIO_MODE_DIRECT {
         return Ok(false);
     }
-    let has_key = crate::security::credentials::get_composio_api_key(config)
+    let has_key = crate::integrations::composio::get_composio_api_key(config)
         .map_err(|e| format!("[composio] get_composio_api_key failed: {e}"))?
         .or_else(|| {
             config
@@ -166,11 +166,7 @@ pub(crate) fn classify_composio_failure_tag(rendered: &str) -> &'static str {
     let lower = rendered.to_ascii_lowercase();
     let is_transport = crate::core::observability::contains_transient_transport_phrase(rendered)
         || lower.contains("error sending request");
-    if is_transport {
-        "transport"
-    } else {
-        "non_2xx"
-    }
+    if is_transport { "transport" } else { "non_2xx" }
 }
 
 /// Extract the HTTP status code from a `Backend returned <status> ...`

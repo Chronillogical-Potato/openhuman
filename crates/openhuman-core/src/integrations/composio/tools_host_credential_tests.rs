@@ -5,15 +5,15 @@ use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::routing::get;
 use axum::{Json, Router};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tinytools::Tool;
 
 use crate::config::{ComposioHostCredential, Config};
-use crate::integrations::composio::client::{resolve_composio_route, ComposioRoute};
+use crate::integrations::composio::client::{ComposioRoute, resolve_composio_route};
 use crate::integrations::composio::connected_integrations::{
-    cache_key, read_cached_integrations_from, CachedIntegrations,
+    CachedIntegrations, cache_key, read_cached_integrations_from,
 };
-use crate::integrations::composio::tools::{live_composio_config, ComposioListConnectionsTool};
+use crate::integrations::composio::tools::{ComposioListConnectionsTool, live_composio_config};
 
 const KEY_A: &str = "ck_tenant_alpha_0001";
 const KEY_B: &str = "ck_tenant_bravo_0002";
@@ -75,7 +75,7 @@ fn shared_runtime_config(tmp: &tempfile::TempDir) -> Config {
     config.workspace_dir = tmp.path().join("workspace");
     crate::security::credentials::AuthService::from_config(&config)
         .store_provider_token(
-            crate::security::credentials::COMPOSIO_DIRECT_PROVIDER,
+            crate::integrations::composio::COMPOSIO_DIRECT_PROVIDER,
             crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
             SHARED_STORE_KEY,
             std::collections::HashMap::new(),
@@ -279,7 +279,7 @@ fn cache_key_changes_when_the_shared_stored_key_rotates_in_unpinned_direct_mode(
 
     crate::security::credentials::AuthService::from_config(&base)
         .store_provider_token(
-            crate::security::credentials::COMPOSIO_DIRECT_PROVIDER,
+            crate::integrations::composio::COMPOSIO_DIRECT_PROVIDER,
             crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "ck_tenant_rotated_0004",
             std::collections::HashMap::new(),

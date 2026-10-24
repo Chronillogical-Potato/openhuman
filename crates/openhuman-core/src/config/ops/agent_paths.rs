@@ -5,10 +5,22 @@ use std::path::{Path, PathBuf};
 use serde_json::json;
 
 use crate::config::Config;
-use crate::core::runtime::DispatchCtx;
 use crate::core::Outcome;
+use crate::core::runtime::DispatchCtx;
 
-use super::agent::AgentPathsPatch;
+/// Partial update for the agent's editable filesystem roots.
+///
+/// `action_dir` and the files folder are editable. `workspace_dir` and
+/// `projects_dir` remain read-only.
+#[derive(Debug, Clone, Default)]
+pub struct AgentPathsPatch {
+    /// New action sandbox root. `Some("")`/whitespace clears the override and
+    /// reverts to the default; `Some(path)` sets it; `None` leaves it unchanged.
+    pub action_dir: Option<String>,
+    /// New folder for agent deliverables. Same `Some("")` / `Some(path)` /
+    /// `None` semantics as `action_dir`. Affects new artifacts only.
+    pub files_dir: Option<String>,
+}
 
 /// expand_tilde` delegates here so policy and config stay byte-for-byte
 /// consistent.

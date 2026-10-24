@@ -73,14 +73,15 @@ pub use crate::integrations::composio::contract::ProviderUserProfile;
 pub use action_tool::ComposioActionTool;
 pub(crate) use auth_probe::user_is_signed_in_to_composio;
 pub use bus::{
-    register_composio_trigger_subscriber, ComposioConfigChangedSubscriber,
-    ComposioConnectionCreatedSubscriber, ComposioTriggerSubscriber,
+    ComposioConfigChangedSubscriber, ComposioConnectionCreatedSubscriber,
+    ComposioTriggerSubscriber, register_composio_trigger_subscriber,
 };
 pub use identity::connection_identity;
 pub use ops::{
-    cached_active_integrations, connected_set_hash, fetch_connected_integrations,
-    fetch_connected_integrations_status, invalidate_connected_integrations_cache,
-    FetchConnectedIntegrationsStatus,
+    COMPOSIO_DIRECT_PROVIDER, FetchConnectedIntegrationsStatus, cached_active_integrations,
+    clear_composio_api_key, connected_set_hash, fetch_connected_integrations,
+    fetch_connected_integrations_status, get_composio_api_key,
+    invalidate_connected_integrations_cache, rpc_store_composio_api_key, store_composio_api_key,
 };
 pub(crate) use schemas::all_controller_entries as all_composio_controller_entries;
 pub use schemas::{
