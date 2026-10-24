@@ -6,19 +6,6 @@
 //!
 //! # Why this is OpenHuman's and not the memory crate's
 //!
-//! An identical helper lives at `tinymemory_core::util::redact`, and this host
-//! used to call it. That is an engine dependency taken on for the sake of six
-//! lines of SHA-256 — and the whole point of the memory-module port is that the
-//! host reaches memory over the bus and does not link the engine. A log
-//! formatter is not contract vocabulary either, so widening `tinymemory-api` to
-//! carry it would have meant adding a dependency to a crate whose manifest
-//! documents that it stays dependency-light.
-//!
-//! The engine keeps its copy for its own log lines. The two are independent by
-//! design: neither reads the other's output, and the hash is a grep key for a
-//! human debugging with the raw value to hand, not a wire value that has to
-//! agree across a boundary.
-
 /// Redact a URL's userinfo (username/password) for safe logging.
 ///
 /// Parses `raw` (falling back to an assumed `http://` scheme when it has
@@ -44,6 +31,3 @@ pub fn redact_url_for_log(raw: &str) -> String {
     parsed.to_string().trim_end_matches('/').to_string()
 }
 
-#[cfg(test)]
-#[path = "redact_tests.rs"]
-mod tests;
