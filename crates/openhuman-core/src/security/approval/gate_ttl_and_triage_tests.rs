@@ -228,9 +228,9 @@ async fn a_dropped_channel_after_a_persisted_approval_allows() {
 // A caller (composio_connect) can cap the park via
 // `intercept_audited_bounded`. When the bound elapses before the gate's own
 // TTL the gate must abandon the park cancellation-safely: return `None`,
-// clear the thread→request routing so a later reply is not mis-routed (the
-// codex concern), yet LEAVE the `pending_approvals` row open so a later
-// card-click still resolves it in the DB.
+// clear the thread→request routing so a later reply is not mis-routed and
+// expire the `pending_approvals` row so a later card-click cannot approve an
+// action whose caller has already returned without running it.
 #[tokio::test]
 async fn intercept_audited_bounded_expires_row_and_clears_route() {
     let (gate, _dir) = test_gate();
