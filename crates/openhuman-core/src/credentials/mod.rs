@@ -14,7 +14,6 @@ pub mod provider_credential_source;
 pub mod responses;
 mod schemas;
 pub mod session_state;
-pub mod session_support;
 pub mod tools;
 
 pub use core::{
