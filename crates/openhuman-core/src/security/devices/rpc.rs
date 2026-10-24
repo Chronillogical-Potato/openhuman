@@ -265,7 +265,7 @@ fn find_local_ipv4() -> Option<String> {
 // ---------------------------------------------------------------------------
 
 /// Build a `SecretStore` scoped to the workspace directory.
-fn build_secret_store(config: &Config) -> SecretStore {
+pub(super) fn build_secret_store(config: &Config) -> SecretStore {
     let data_dir = config
         .config_path
         .parent()

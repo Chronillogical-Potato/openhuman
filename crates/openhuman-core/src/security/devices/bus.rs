@@ -223,15 +223,26 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
     // Claim the session and its keypair before any crypto, cipher installation
     // or ACK. The claim is single-use, and an expired or malformed expiry fails
     // closed. This also binds every handshake to the channel that created it.
-    let Some((keypair, session)) =
-        take_pending_pairing_for_handshake(channel_id, chrono::Utc::now())
-    else {
-        log::warn!(
-            "[devices/bus] no live pending session for channel_id={} — handshake ignored",
-            channel_id
-        );
-        return;
-    };
+    let (keypair, session, existing_device) =
+        if let Some((keypair, session)) =
+            take_pending_pairing_for_handshake(channel_id, chrono::Utc::now())
+        {
+            (keypair, Some(session), None)
+        } else {
+            match recover_existing_pairing(ctx, channel_id).await {
+                Ok(Some((keypair, device))) => (Arc::new(keypair), None, Some(device)),
+                Ok(None) => {
+                    log::warn!(
+                        "[devices/bus] no live pairing identity for channel_id={channel_id}"
+                    );
+                    return;
+                }
+                Err(error) => {
+                    log::warn!("[devices/bus] cannot recover pairing {channel_id}: {error}");
+                    return;
+                }
+            }
+        };
 
     let (_, plaintext) = match keypair.open_handshake(&frame_bytes) {
         Ok(opened) => opened,
@@ -248,6 +259,15 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
         }
     };
     let device_pubkey_b64 = handshake_payload.device_pubkey;
+
+    if let Some(device) = &existing_device
+        && device.device_pubkey != device_pubkey_b64
+    {
+        log::warn!(
+            "[devices/bus] restart handshake key mismatch for channel_id={channel_id}"
+        );
+        return;
+    }
 
     log::info!(
         "[devices/bus] handshake frame received channel_id={} device_pubkey_len={}",
@@ -274,58 +294,50 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
         return;
     }
 
-    // Persist the paired device. The pending session holds both the label
-    // source and the pairing credential. Fail closed when it is absent rather
-    // than persisting a hash of an empty token into the legacy column: a frame
-    // with no pending session has no valid pairing context (CodeRabbit #4355).
-    let label = session.channel_id.clone();
-    let pairing_token = session.pairing_token.clone();
-
-    // Legacy DB column name is `core_session_token_hash`; the backend no
-    // longer mints a core session token, so persist a hash of the pairing
-    // credential for this channel.
-    let session_token_hash = hash_session_token(&pairing_token);
-
-    // Load config from global env (best-effort; pairing persists even if config
-    // loading is slow — the UI will see the device on next list call).
-    if let Ok(config) = ctx.load_config().await {
-        match store::insert_device(
-            &config,
-            channel_id,
-            &label,
-            &device_pubkey_b64,
-            &session_token_hash,
-        ) {
-            Ok(device) => {
-                super::owner::remember(
-                    channel_id,
-                    ctx.tenant().ok().and_then(|tenant| tenant.agent),
-                );
-                log::info!(
-                    "[devices/bus] device persisted channel_id={} label={}",
-                    device.channel_id,
-                    device.label
-                );
-                BUS.publish(DomainEvent::DevicePaired {
-                    channel_id: channel_id.to_string(),
-                    device_pubkey: device_pubkey_b64,
-                    label: Some(label),
-                });
-            }
-            Err(e) => {
-                log::error!(
-                    "[devices/bus] failed to persist device channel_id={}: {e}",
-                    channel_id
-                );
+    if let Some(session) = session {
+        let label = session.channel_id.clone();
+        let session_token_hash = hash_session_token(&session.pairing_token);
+        match ctx.load_config().await {
+            Ok(config) => match store::insert_device_with_key(
+                &config,
+                channel_id,
+                &label,
+                &device_pubkey_b64,
+                &session_token_hash,
+                &session.core_private_key_encrypted,
+            ) {
+                Ok(device) => {
+                    super::owner::remember(
+                        channel_id,
+                        ctx.tenant().ok().and_then(|tenant| tenant.agent),
+                    );
+                    log::info!(
+                        "[devices/bus] device persisted channel_id={} label={}",
+                        device.channel_id,
+                        device.label
+                    );
+                    BUS.publish(DomainEvent::DevicePaired {
+                        channel_id: channel_id.to_string(),
+                        device_pubkey: device_pubkey_b64,
+                        label: Some(label),
+                    });
+                }
+                Err(error) => {
+                    log::error!("[devices/bus] failed to persist device {channel_id}: {error}");
+                    abandon_unpersisted_pairing(channel_id);
+                }
+            },
+            Err(error) => {
+                log::warn!("[devices/bus] could not load config to persist device {channel_id}: {error}");
                 abandon_unpersisted_pairing(channel_id);
             }
         }
-    } else {
-        log::warn!(
-            "[devices/bus] could not load config to persist device channel_id={}",
-            channel_id
+    } else if let Some(device) = existing_device {
+        log::info!(
+            "[devices/bus] restored tunnel for paired device channel_id={} label={}",
+            device.channel_id,
+            device.label
         );
-        abandon_unpersisted_pairing(channel_id);
     }
 }
 
@@ -378,6 +390,27 @@ fn restore_paired_keypair(
     crate::security::devices::crypto::DeviceKeypair::from_private_bytes(
         zeroize::Zeroizing::new(bytes),
     )
+}
+
+async fn recover_existing_pairing(
+    ctx: &DispatchCtx,
+    channel_id: &str,
+) -> Result<Option<(DeviceKeypair, super::types::PairedDevice)>, String> {
+    let config = ctx.load_config().await.map_err(|error| error.to_string())?;
+    let Some(device) = store::get_device(&config, channel_id).map_err(|error| error.to_string())?
+    else {
+        return Ok(None);
+    };
+    if device.revoked {
+        return Ok(None);
+    }
+    let Some(encrypted_key) = device.core_private_key_encrypted.as_deref() else {
+        // Rows created before durable pairing identities were added cannot
+        // safely reconstruct the core key and require a new pairing.
+        return Ok(None);
+    };
+    let keypair = restore_paired_keypair(encrypted_key, &build_secret_store(&config))?;
+    Ok(Some((keypair, device)))
 }
 
 async fn install_v2_cipher_and_ack(
