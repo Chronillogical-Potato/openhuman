@@ -2,6 +2,29 @@
 
 use super::ApprovalDecision;
 
+pub(super) fn publish_flow_approval_requested(
+    request_id: &str,
+    flow_id: &str,
+    run_id: &str,
+    tool_name: &str,
+    summary: &str,
+    agent_id: Option<&str>,
+    workspace: Option<(String, u64)>,
+) {
+    tracing::info!(request_id = %request_id, flow_id = %flow_id,
+        run_id = %run_id, tool = tool_name,
+        "[approval::gate] flow-origin park — surfacing flow_approval_request + notification");
+    crate::core::bus::BUS.publish(crate::core::events::DomainEvent::FlowApprovalRequested {
+        request_id: request_id.to_string(),
+        flow_id: flow_id.to_string(),
+        run_id: run_id.to_string(),
+        tool_name: tool_name.to_string(),
+        summary: summary.to_string(),
+        agent_id: agent_id.map(str::to_string),
+    });
+    publish_flow_gate_notification(request_id, flow_id, run_id, tool_name, summary, workspace);
+}
+
 fn now_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

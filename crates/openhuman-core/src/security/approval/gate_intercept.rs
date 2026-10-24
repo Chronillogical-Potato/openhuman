@@ -1,4 +1,4 @@
-use super::gate_surface::publish_flow_gate_notification;
+use super::gate_surface::publish_flow_approval_requested;
 use super::*;
 
 impl ApprovalGate {
@@ -578,23 +578,13 @@ impl ApprovalGate {
                 flow_id, run_id, ..
             }) = &source_context
             {
-                tracing::info!(request_id = %request_id, flow_id = %flow_id,
-                    run_id = %run_id, tool = tool_name,
-                    "[approval::gate] flow-origin park — surfacing flow_approval_request + notification");
-                BUS.publish(DomainEvent::FlowApprovalRequested {
-                    request_id: request_id.clone(),
-                    flow_id: flow_id.clone(),
-                    run_id: run_id.clone(),
-                    tool_name: tool_name.to_string(),
-                    summary: action_summary.to_string(),
-                    agent_id: agent_id.clone(),
-                });
-                publish_flow_gate_notification(
+                publish_flow_approval_requested(
                     &request_id,
                     flow_id,
                     run_id,
                     tool_name,
                     action_summary,
+                    agent_id.as_deref(),
                     workspace,
                 );
             }
