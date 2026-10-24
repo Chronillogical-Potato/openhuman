@@ -1,361 +1,117 @@
-//! X25519 key agreement + HKDF-SHA256 directional subkey derivation +
-//! XChaCha20-Poly1305 frame encryption for device tunnels.
+//! Host adapter for TinySecurity device identities and tunnel ciphers.
 //!
-//! Wire format (frame v2): `version(1=0x02) || nonce(24) || ciphertext+tag`.
-//! Frames produced with the previous `version=0x01` shape (single shared key,
-//! same key in both directions, no KDF) are no longer accepted; peers MUST
-//! upgrade before reconnecting. An upgraded client may reuse a valid pairing
-//! profile and device key.
-//!
-//! Session key derivation (`derive_session_keys`):
-//! ```text
-//!   ikm  = static_dh(32) || eph_dh(32)
-//!   salt = client_eph_pub || server_eph_pub
-//!   c2s  = HKDF-SHA256(ikm, salt, info = "openhuman-tunnel/v1/c2s", 32)
-//!   s2c  = HKDF-SHA256(ikm, salt, info = "openhuman-tunnel/v1/s2c", 32)
-//! ```
-//! Each peer holds two `XChaCha20Poly1305` instances: one for its own
-//! direction (seal) and one for the peer's (open). Static DH continues to
-//! authenticate the peer via the paired QR-code provenance; the ephemeral
-//! DH provides forward secrecy.
-//!
-//! Bootstrap messages use separate wire markers and HKDF domains:
-//! `0x03 || client_handshake_eph_pub || nonce || ciphertext` authenticates
-//! its 33-byte header and derives its key from the ephemeral-to-core DH,
-//! salted by `client_handshake_eph_pub || core_static_pub`.
-//! `0x04 || nonce || ciphertext` authenticates `0x04 || client_session_eph_pub`
-//! and derives its key from static DH, salted by `client_session_eph_pub`.
-//! Pre-upgrade raw-DH and plaintext handshakes are rejected.
-//!
-//! Replay protection still uses a sliding window over the last
-//! `WINDOW_SIZE` raw nonces, applied per opener.
+//! Cryptographic framing, X25519, HKDF, AEAD and replay protection are owned
+//! by `tinysecurity-crypto`; this module only keeps the host's encrypted-key
+//! persistence format and base64url encoding.
 
-use chacha20poly1305::{
-    aead::{Aead, AeadCore, KeyInit, OsRng as ChaChaOsRng},
-    XChaCha20Poly1305, XNonce,
-};
-use hkdf::Hkdf;
-use sha2::Sha256;
-use std::collections::VecDeque;
-use x25519_dalek::{PublicKey, StaticSecret};
+use zeroize::Zeroizing;
 
-/// Current frame version. Bumped from `0x01` to `0x02` for HKDF + directional
-/// subkeys + ephemeral DH. v1 frames are rejected with
-/// [`UnsupportedFrameVersion`].
-pub const FRAME_VERSION: u8 = 0x02;
-/// Previous frame version. Surfaced so callers can build a stable error
-/// message when an older peer sends a v1 frame post-upgrade.
-pub const LEGACY_FRAME_VERSION_V1: u8 = 0x01;
-/// Bootstrap messages use distinct wire markers so a legacy handshake cannot
-/// silently bypass the new key schedule.
-pub const HANDSHAKE_VERSION: u8 = 0x03;
-pub const HANDSHAKE_ACK_VERSION: u8 = 0x04;
-pub const HKDF_INFO_HANDSHAKE: &[u8] = b"openhuman-tunnel/v3/handshake";
-pub const HKDF_INFO_HANDSHAKE_ACK: &[u8] = b"openhuman-tunnel/v3/handshake-ack";
-const NONCE_LEN: usize = 24; // XChaCha20-Poly1305 nonce = 192 bits
-const WINDOW_SIZE: usize = 128; // replay protection window
-
-/// HKDF info tags for the two directional subkeys. Pinned strings — peer
-/// implementations MUST use byte-identical values. Versioned under `v1` so
-/// a future KDF-tag change can land without disturbing the FRAME_VERSION
-/// counter.
-pub const HKDF_INFO_C2S: &[u8] = b"openhuman-tunnel/v1/c2s";
-pub const HKDF_INFO_S2C: &[u8] = b"openhuman-tunnel/v1/s2c";
-
-/// Extract and expand bootstrap DH material before using it with an AEAD.
-/// The public salt binds the key to the exchange's ephemeral public key;
-/// the info tag separates the two bootstrap directions and session traffic.
-pub fn derive_bootstrap_key(dh: &[u8; 32], salt: &[u8], info: &[u8]) -> [u8; 32] {
-    let mut key = [0u8; 32];
-    Hkdf::<Sha256>::new(Some(salt), dh)
-        .expand(info, &mut key)
-        .expect("32-byte HKDF output fits SHA-256 limit");
-    key
-}
-
-// ---------------------------------------------------------------------------
-// Key material
-// ---------------------------------------------------------------------------
-
-/// An X25519 keypair used as the core's static device-pairing key.
+/// A persisted core identity backed by TinySecurity's native X25519 key owner.
 pub struct DeviceKeypair {
-    private: StaticSecret,
-    /// Base64url-encoded public key (returned in QR payload).
+    private: Zeroizing<[u8; 32]>,
+    native: tinysecurity_crypto::device::KeyPair,
+    /// Base64url-encoded public key returned in the QR payload.
     pub pubkey_b64: String,
 }
 
 impl DeviceKeypair {
-    /// Generate a fresh X25519 static keypair.
+    /// Generate a core identity using operating-system entropy.
     pub fn generate() -> Self {
-        let bytes: [u8; 32] = rand::random();
-        let private = StaticSecret::from(bytes);
-        let public = PublicKey::from(&private);
-        let pubkey_b64 = base64url_encode(public.as_bytes());
-        log::debug!(
-            "[devices/crypto] keypair generated pubkey_len={}",
-            pubkey_b64.len()
-        );
-        Self {
-            private,
-            pubkey_b64,
-        }
+        let mut bytes = Zeroizing::new([0u8; 32]);
+        getrandom::fill(bytes.as_mut()).expect("operating-system entropy is available");
+        Self::from_private_bytes(bytes).expect("generated X25519 key is valid")
     }
 
-    /// Reconstruct a pairing identity from secret bytes obtained from the
-    /// authenticated encrypted store.
-    pub fn from_private_bytes(bytes: zeroize::Zeroizing<[u8; 32]>) -> Result<Self, String> {
+    /// Reconstruct an identity from secret bytes obtained from authenticated
+    /// encrypted storage.
+    pub fn from_private_bytes(bytes: Zeroizing<[u8; 32]>) -> Result<Self, String> {
         if *bytes == [0; 32] {
             return Err("[devices/crypto] invalid zero private key".into());
         }
-        let private = StaticSecret::from(*bytes);
-        let public = PublicKey::from(&private);
-        Ok(Self {
-            private,
-            pubkey_b64: base64url_encode(public.as_bytes()),
-        })
+        let native = tinysecurity_crypto::device::KeyPair::from_secret(bytes.clone())
+            .map_err(|error| format!("[devices/crypto] invalid private key: {error}"))?;
+        let pubkey_b64 = native.public_key().encode();
+        Ok(Self { private: bytes, native, pubkey_b64 })
     }
 
-    /// Perform X25519 DH with the peer's public key.
-    ///
-    /// Returns raw DH material for an HKDF key schedule; it must never be
-    /// passed directly to an AEAD constructor.
-    pub fn derive_shared_secret(&self, peer_pubkey_b64: &str) -> Result<[u8; 32], String> {
-        let peer_bytes = base64url_decode(peer_pubkey_b64)
-            .map_err(|e| format!("[devices/crypto] bad peer pubkey: {e}"))?;
-        if peer_bytes.len() != 32 {
-            return Err(format!(
-                "[devices/crypto] peer pubkey must be 32 bytes, got {}",
-                peer_bytes.len()
-            ));
-        }
-        let peer_arr: [u8; 32] = peer_bytes.try_into().unwrap();
-        let peer_public = PublicKey::from(peer_arr);
-        let dh = self.private.diffie_hellman(&peer_public);
-        if dh.as_bytes().iter().all(|&byte| byte == 0) {
-            return Err("[devices/crypto] non-contributory peer public key".into());
-        }
-        log::debug!("[devices/crypto] DH completed, shared secret derived");
-        Ok(*dh.as_bytes())
-    }
-
-    /// Serialize the private key bytes for persistence (store encrypted).
+    /// Serialize the identity for encryption by the host SecretStore.
     pub fn private_bytes(&self) -> [u8; 32] {
-        self.private.to_bytes()
+        *self.private
+    }
+
+    /// Open the existing sealed v3 handshake frame.
+    pub fn open_handshake(
+        &self,
+        frame: &[u8],
+    ) -> tinysecurity_crypto::Result<(tinysecurity_crypto::device::PublicKey, Zeroizing<Vec<u8>>)> {
+        self.native.open_handshake(frame)
+    }
+
+    /// Derive server tunnel keys using TinySecurity's wire-compatible schedule.
+    pub fn session_keys(
+        &self,
+        device_static: tinysecurity_crypto::device::PublicKey,
+        server_ephemeral: &tinysecurity_crypto::device::KeyPair,
+        client_ephemeral: tinysecurity_crypto::device::PublicKey,
+        server_public: tinysecurity_crypto::device::PublicKey,
+    ) -> tinysecurity_crypto::Result<tinysecurity_crypto::device::SessionKeys> {
+        self.native.session_keys(
+            device_static,
+            server_ephemeral,
+            client_ephemeral,
+            client_ephemeral,
+            server_public,
+        )
+    }
+
+    /// Seal the existing v4 handshake acknowledgement.
+    pub fn seal_ack(
+        &self,
+        client_ephemeral: tinysecurity_crypto::device::PublicKey,
+        plaintext: &[u8],
+    ) -> tinysecurity_crypto::Result<Vec<u8>> {
+        self.native.seal_ack(client_ephemeral, plaintext)
     }
 }
 
-// ---------------------------------------------------------------------------
-// Session-key derivation (HKDF over static + ephemeral DH)
-// ---------------------------------------------------------------------------
-
-/// Two 32-byte directional subkeys derived from the static + ephemeral DH
-/// pair. `c2s` (client-to-server) is the key the device uses to seal
-/// outgoing frames; `s2c` (server-to-client) is the key the core uses for
-/// the reverse direction. Each peer's `TunnelCipher` carries both — its own
-/// direction as the `seal_cipher` and the peer's as the `open_cipher` — so
-/// a frame the server emits can never replay into the server's own decryptor
-/// (cross-direction reflection attack class).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SessionKeys {
-    pub c2s: [u8; 32],
-    pub s2c: [u8; 32],
-}
-
-/// Derive `(c2s, s2c)` from a static DH secret and an ephemeral DH secret.
-///
-/// `static_dh` authenticates the peer (it was negotiated against the
-/// long-term, paired-via-QR-code keys). `eph_dh` is negotiated against
-/// fresh ephemeral keypairs minted at session start — so even if the static
-/// keys leak later, prior session traffic cannot be recovered.
-///
-/// `salt = client_eph_pub || server_eph_pub` (in that fixed order) binds
-/// the derived keys to both halves of the ephemeral exchange so neither
-/// side can unilaterally pin the salt.
-///
-/// HKDF-SHA256 is constant-time and produces independent-looking subkeys
-/// for the two `info` tags even when the underlying IKM is the same.
-pub fn derive_session_keys(
-    static_dh: &[u8; 32],
-    eph_dh: &[u8; 32],
-    client_eph_pub: &[u8; 32],
-    server_eph_pub: &[u8; 32],
-) -> SessionKeys {
-    let mut ikm = [0u8; 64];
-    ikm[..32].copy_from_slice(static_dh);
-    ikm[32..].copy_from_slice(eph_dh);
-
-    let mut salt = [0u8; 64];
-    salt[..32].copy_from_slice(client_eph_pub);
-    salt[32..].copy_from_slice(server_eph_pub);
-
-    let h = Hkdf::<Sha256>::new(Some(&salt), &ikm);
-    let mut c2s = [0u8; 32];
-    let mut s2c = [0u8; 32];
-    h.expand(HKDF_INFO_C2S, &mut c2s)
-        .expect("hkdf expand c2s len=32 fits in Sha256 output budget");
-    h.expand(HKDF_INFO_S2C, &mut s2c)
-        .expect("hkdf expand s2c len=32 fits in Sha256 output budget");
-
-    log::debug!("[devices/crypto] derived directional session keys (HKDF-SHA256)");
-    SessionKeys { c2s, s2c }
-}
-
-/// Which side of the tunnel is operating the cipher. Drives the
-/// seal/open subkey selection in [`TunnelCipher::for_role`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TunnelRole {
-    /// Mobile / iOS device — seals with `c2s`, opens `s2c`.
-    Client,
-    /// Desktop core — seals with `s2c`, opens `c2s`.
-    Server,
-}
-
-// ---------------------------------------------------------------------------
-// Frame cipher
-// ---------------------------------------------------------------------------
-
-/// Stateful cipher for sealing / opening tunnel frames.
-///
-/// Holds two `XChaCha20Poly1305` instances: `seal_cipher` for the local
-/// direction and `open_cipher` for the peer's. When both peers derive keys
-/// via [`derive_session_keys`] and call [`TunnelCipher::for_role`] with
-/// their respective [`TunnelRole`], a frame the server emits cannot decrypt
-/// under the server's own opener (since that opener holds `c2s`, while the
-/// server seals with `s2c`).
-///
-/// Maintains a replay-protection window of the last `WINDOW_SIZE` nonces.
-/// Thread safety: wrap in a `Mutex` or `RwLock` at the call site.
-pub struct TunnelCipher {
-    seal_cipher: XChaCha20Poly1305,
-    open_cipher: XChaCha20Poly1305,
-    seen_nonces: VecDeque<[u8; NONCE_LEN]>,
-}
+/// Thin host-held handle to TinySecurity's stateful tunnel.
+pub struct TunnelCipher(tinysecurity_crypto::device::Tunnel);
 
 impl TunnelCipher {
-    /// Compatibility constructor for older unit fixtures. Production
-    /// sessions use [`Self::for_role`] with directional subkeys.
+    /// Adopt the native tunnel after a successful TinySecurity handshake.
+    pub fn from_native(tunnel: tinysecurity_crypto::device::Tunnel) -> Self {
+        Self(tunnel)
+    }
+
+    /// Seal a frame with the native directional tunnel keys.
+    pub fn seal(&self, plaintext: &[u8]) -> Result<Vec<u8>, String> {
+        self.0.seal(plaintext).map_err(|error| error.to_string())
+    }
+
+    /// Authenticate and open a frame with native replay protection.
+    pub fn open(&mut self, frame: &[u8]) -> Result<Zeroizing<Vec<u8>>, String> {
+        self.0.open(frame).map_err(|error| error.to_string())
+    }
+
     #[cfg(test)]
     pub fn new(key: &[u8; 32]) -> Self {
-        let derived = derive_bootstrap_key(
-            key,
-            b"openhuman-tunnel/compat",
-            b"openhuman-tunnel/compat/symmetric",
-        );
-        let cipher = XChaCha20Poly1305::new((&derived).into());
-        Self {
-            seal_cipher: cipher.clone(),
-            open_cipher: cipher,
-            seen_nonces: VecDeque::with_capacity(WINDOW_SIZE + 1),
-        }
-    }
-
-    /// Construct a directional cipher for the given role.
-    ///
-    /// `Client` seals with `c2s` and opens `s2c`; `Server` is the inverse.
-    /// A v2 frame the server emits will NOT decrypt under the server's own
-    /// opener (the opener holds `c2s`, the frame is sealed with `s2c`) —
-    /// closing the cross-direction reflection attack class.
-    pub fn for_role(role: TunnelRole, keys: &SessionKeys) -> Self {
-        let (seal_key, open_key) = match role {
-            TunnelRole::Client => (&keys.c2s, &keys.s2c),
-            TunnelRole::Server => (&keys.s2c, &keys.c2s),
-        };
-        log::debug!(
-            "[devices/crypto] TunnelCipher created role={:?} (directional subkeys)",
-            role
-        );
-        Self {
-            seal_cipher: XChaCha20Poly1305::new(seal_key.into()),
-            open_cipher: XChaCha20Poly1305::new(open_key.into()),
-            seen_nonces: VecDeque::with_capacity(WINDOW_SIZE + 1),
-        }
-    }
-
-    /// Seal `plaintext` into a framed ciphertext.
-    ///
-    /// Returns `version(1=0x02) || nonce(24) || ciphertext+tag`.
-    pub fn seal(&self, plaintext: &[u8]) -> Result<Vec<u8>, String> {
-        let nonce = XChaCha20Poly1305::generate_nonce(&mut ChaChaOsRng);
-        let ciphertext = self
-            .seal_cipher
-            .encrypt(&nonce, plaintext)
-            .map_err(|e| format!("[devices/crypto] seal failed: {e}"))?;
-
-        let mut frame = Vec::with_capacity(1 + NONCE_LEN + ciphertext.len());
-        frame.push(FRAME_VERSION);
-        frame.extend_from_slice(nonce.as_slice());
-        frame.extend_from_slice(&ciphertext);
-
-        log::trace!(
-            "[devices/crypto] sealed plaintext_len={} frame_len={}",
-            plaintext.len(),
-            frame.len()
-        );
-        Ok(frame)
-    }
-
-    /// Open a framed ciphertext produced by `seal`.
-    ///
-    /// Rejects frames with a wrong version byte, a replayed nonce, or
-    /// authentication failure (tampered ciphertext).
-    ///
-    /// Frames with `version = 0x01` (the pre-upgrade single-key shape) are
-    /// rejected with an explicit `UnsupportedFrameVersion` message so peers
-    /// see a clear "client upgrade required" signal instead of a generic AEAD
-    /// failure.
-    pub fn open(&mut self, frame: &[u8]) -> Result<Vec<u8>, String> {
-        if frame.is_empty() {
-            return Err("[devices/crypto] empty frame".into());
-        }
-        if frame[0] == LEGACY_FRAME_VERSION_V1 {
-            return Err(
-                "[devices/crypto] UnsupportedFrameVersion: legacy v1 frame rejected — \
-                 peer must upgrade to v2 directional subkeys before reconnecting"
-                    .into(),
-            );
-        }
-        if frame[0] != FRAME_VERSION {
-            return Err(format!(
-                "[devices/crypto] unsupported frame version: 0x{:02x}",
-                frame[0]
-            ));
-        }
-        if frame.len() < 1 + NONCE_LEN {
-            return Err("[devices/crypto] frame too short for nonce".into());
-        }
-
-        let nonce_bytes: [u8; NONCE_LEN] = frame[1..1 + NONCE_LEN].try_into().unwrap();
-        let ciphertext = &frame[1 + NONCE_LEN..];
-
-        // Replay protection: reject nonces we've already decrypted.
-        if self.seen_nonces.contains(&nonce_bytes) {
-            return Err("[devices/crypto] replayed nonce — frame rejected".into());
-        }
-
-        let nonce = XNonce::from(nonce_bytes);
-        let plaintext = self
-            .open_cipher
-            .decrypt(&nonce, ciphertext)
-            .map_err(|_| "[devices/crypto] authentication failed — tampered frame")?;
-
-        // Slide the window forward.
-        if self.seen_nonces.len() >= WINDOW_SIZE {
-            self.seen_nonces.pop_front();
-        }
-        self.seen_nonces.push_back(nonce_bytes);
-
-        log::trace!(
-            "[devices/crypto] opened frame_len={} plaintext_len={}",
-            frame.len(),
-            plaintext.len()
-        );
-        Ok(plaintext)
+        let pair = tinysecurity_crypto::device::KeyPair::from_secret(Zeroizing::new(*key))
+            .expect("test key valid");
+        let public = pair.public_key();
+        let ephemeral = tinysecurity_crypto::device::KeyPair::from_secret(
+            Zeroizing::new([key[0].wrapping_add(1).max(1); 32]),
+        )
+        .expect("test ephemeral key valid");
+        let ephemeral_public = ephemeral.public_key();
+        let keys = pair
+            .session_keys(public, &ephemeral, ephemeral_public, ephemeral_public, ephemeral_public)
+            .expect("test session keys valid");
+        Self::from_native(tinysecurity_crypto::device::Tunnel::new(
+            tinysecurity_crypto::device::Role::Server,
+            keys,
+        ))
     }
 }
-
-// ---------------------------------------------------------------------------
-// Base64url helpers
-// ---------------------------------------------------------------------------
 
 pub fn base64url_encode(bytes: &[u8]) -> String {
     use base64::Engine;
@@ -366,13 +122,5 @@ pub fn base64url_decode(s: &str) -> Result<Vec<u8>, String> {
     use base64::Engine;
     base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(s)
-        .map_err(|e| format!("base64url decode error: {e}"))
+        .map_err(|error| format!("base64url decode error: {error}"))
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-#[cfg(test)]
-#[path = "crypto_tests.rs"]
-mod tests;
