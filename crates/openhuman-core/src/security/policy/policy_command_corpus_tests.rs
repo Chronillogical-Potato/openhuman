@@ -1,7 +1,7 @@
 use super::{AutonomyLevel, CommandClass, SecurityPolicy};
 use serde::Deserialize;
 
-const COMMANDS: &str = include_str!("../../modules/fixtures/security_command_corpus.json");
+const COMMANDS: &str = include_str!("fixtures/security_command_corpus.json");
 
 #[derive(Debug, Deserialize)]
 struct Case {
