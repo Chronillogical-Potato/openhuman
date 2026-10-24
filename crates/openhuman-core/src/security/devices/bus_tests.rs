@@ -94,16 +94,24 @@ fn a_restarted_host_opens_a_fresh_handshake_from_a_paired_row() {
         ))
         .unwrap();
     let phone = KeyPair::generate().unwrap();
-    let device = super::super::types::PairedDevice {
-        channel_id: "restart-channel".to_string(),
-        label: "phone".to_string(),
-        device_pubkey: phone.public_key().encode(),
-        created_at: "2026-01-01T00:00:00Z".to_string(),
-        last_seen_at: None,
-        peer_online: None,
-        revoked: false,
-        core_private_key_encrypted: Some(secret),
-    };
+    let backend = crate::storage::test_support::memory_backend();
+    let scoped = backend
+        .for_scope(&crate::storage::Scope::new("local").unwrap())
+        .unwrap();
+    let store = super::super::store_documents::Docs::over(&scoped);
+    store
+        .insert_device_with_key(
+            "restart-channel",
+            "phone",
+            &phone.public_key().encode(),
+            "pairing-hash",
+            Some(&secret),
+        )
+        .unwrap();
+    let device = store
+        .get_device("restart-channel")
+        .unwrap()
+        .expect("paired row persisted");
     let restored = restore_live_pairing_key(&device, &secret_store)
         .unwrap()
         .expect("non-revoked paired identity");
@@ -122,15 +130,57 @@ fn a_restarted_host_opens_a_fresh_handshake_from_a_paired_row() {
     let decoded: JsonHandshakePayload = serde_json::from_slice(&plaintext).unwrap();
     assert_eq!(decoded.device_pubkey, phone.public_key().encode());
     assert!(matches_paired_device_key(&device, &decoded.device_pubkey));
+    let server_ephemeral = KeyPair::generate().unwrap();
+    let client_public = client_ephemeral.public_key();
+    let server_public = server_ephemeral.public_key();
+    let server_keys = restored
+        .session_keys(
+            phone.public_key(),
+            &server_ephemeral,
+            client_public,
+            server_public,
+        )
+        .unwrap();
+    let mut server_tunnel = Tunnel::new(Role::Server, server_keys);
+    let client_keys = phone
+        .session_keys(
+            PublicKey::decode(&restored.pubkey_b64).unwrap(),
+            &client_ephemeral,
+            server_public,
+            client_public,
+            server_public,
+        )
+        .unwrap();
+    let client_tunnel = Tunnel::new(Role::Client, client_keys);
+    let ack = restored
+        .seal_ack(
+            client_public,
+            &serde_json::to_vec(&json!({
+                "kind": "handshake_ack",
+                "server_ephemeral_pubkey": server_public.encode(),
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+    assert_eq!(ack[0], 0x04);
+    let frame = client_tunnel.seal(b"first post-restart frame").unwrap();
+    assert_eq!(
+        &*server_tunnel.open(&frame).unwrap(),
+        b"first post-restart frame"
+    );
     assert!(PENDING_SESSIONS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .get(&device.channel_id)
         .is_none());
+    let after = store
+        .get_device(&device.channel_id)
+        .unwrap()
+        .expect("paired row remains");
+    assert_eq!(after.device_pubkey, device.device_pubkey);
     assert_eq!(
-        device.device_pubkey,
-        phone.public_key().encode(),
-        "restart handshake does not rewrite row"
+        after.core_private_key_encrypted,
+        device.core_private_key_encrypted
     );
 }
 

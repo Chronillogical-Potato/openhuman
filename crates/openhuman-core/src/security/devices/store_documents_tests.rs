@@ -93,6 +93,18 @@ fn revoke_hides_the_device_and_reports_existence() {
 }
 
 #[test]
+fn revoke_discards_the_encrypted_core_identity() {
+    let store = docs();
+    store
+        .insert_device_with_key("ch-key", "phone", "device-pk", "hash", Some("enc2:key"))
+        .unwrap();
+    assert!(store.revoke_device("ch-key").unwrap());
+    let revoked = store.get_device("ch-key").unwrap().unwrap();
+    assert!(revoked.revoked);
+    assert!(revoked.core_private_key_encrypted.is_none());
+}
+
+#[test]
 fn devices_list_oldest_first() {
     let store = docs();
     store.insert_device("first", "a", "pk", "h").unwrap();

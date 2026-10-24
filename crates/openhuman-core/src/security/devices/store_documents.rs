@@ -164,6 +164,7 @@ impl Docs {
             let revoked = compare_and_swap(&docs, DEVICES, &id, |doc| {
                 let mut next = doc.clone();
                 next["revoked"] = json!(true);
+                next["core_private_key_encrypted"] = Value::Null;
                 Some(next)
             })
             .await?;
