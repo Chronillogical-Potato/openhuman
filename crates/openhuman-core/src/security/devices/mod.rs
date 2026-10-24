@@ -1,7 +1,7 @@
 //! Mobile device pairing domain.
 //!
-//! Provides X25519 key agreement + XChaCha20-Poly1305 tunnel framing between
-//! the Rust core and iOS clients, brokered by the tinyhumans backend tunnel.
+//! Uses TinySecurity's X25519 identity and tunnel APIs between the Rust core
+//! and iOS clients, brokered by the tinyhumans backend tunnel.
 
 pub mod bus;
 pub mod crypto;
