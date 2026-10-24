@@ -23,7 +23,9 @@ pub mod types;
 /// Poisoning means an interrupted update may have left state incomplete; it
 /// should not make every subsequent tunnel frame panic as well.
 pub(super) fn lock_unpoisoned<T>(mutex: &std::sync::Mutex<T>) -> std::sync::MutexGuard<'_, T> {
-    mutex.lock().unwrap()
+    mutex
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 pub(crate) use schemas::all_controller_entries;

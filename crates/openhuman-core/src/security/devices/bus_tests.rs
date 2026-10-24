@@ -1,4 +1,3 @@
-use super::*;
 use crate::security::devices::lock_unpoisoned;
 use std::sync::{Mutex, PoisonError};
 
