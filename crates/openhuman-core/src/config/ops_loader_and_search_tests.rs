@@ -30,11 +30,13 @@ async fn reset_local_data_removes_active_user_and_markers_only() {
     assert!(!user_marker.exists());
     // … but the shared root itself survives.
     assert!(default_openhuman_dir.exists());
-    assert!(outcome
-        .value
-        .get("removed_paths")
-        .and_then(|value| value.as_array())
-        .is_some_and(|paths| !paths.is_empty()));
+    assert!(
+        outcome
+            .value
+            .get("removed_paths")
+            .and_then(|value| value.as_array())
+            .is_some_and(|paths| !paths.is_empty())
+    );
 }
 
 #[tokio::test]
@@ -79,11 +81,13 @@ async fn reset_local_data_tolerates_absent_paths() {
         .unwrap();
 
     assert!(default_openhuman_dir.exists());
-    assert!(outcome
-        .value
-        .get("removed_paths")
-        .and_then(|value| value.as_array())
-        .is_some_and(|paths| paths.is_empty()));
+    assert!(
+        outcome
+            .value
+            .get("removed_paths")
+            .and_then(|value| value.as_array())
+            .is_some_and(|paths| paths.is_empty())
+    );
 }
 
 #[test]
@@ -137,10 +141,11 @@ fn core_rpc_url_from_env_uses_override_when_set() {
 fn fallback_workspace_dir_ends_in_workspace_under_openhuman() {
     let p = fallback_workspace_dir();
     assert!(p.ends_with("workspace"));
-    assert!(p
-        .parent()
-        .map(|d| d.ends_with(".openhuman"))
-        .unwrap_or(false));
+    assert!(
+        p.parent()
+            .map(|d| d.ends_with(".openhuman"))
+            .unwrap_or(false)
+    );
 }
 
 #[test]
@@ -558,11 +563,13 @@ async fn apply_search_settings_stores_and_clears_tavily_key() {
     .await
     .expect("clear Tavily key");
     assert!(cfg.search.tavily.api_key.is_none());
-    assert!(!result.value["effective_roles"]["search"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|p| p == "tavily"));
+    assert!(
+        !result.value["effective_roles"]["search"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p == "tavily")
+    );
 }
 
 #[tokio::test]
