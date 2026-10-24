@@ -1,6 +1,7 @@
 use super::*;
 use crate::core::runtime::DispatchCtx;
 use crate::credentials::api_key;
+use crate::credentials::session_state;
 
 #[tokio::test]
 async fn same_token_refresh_preserves_issuing_backend_and_refuses_rebinding() {
