@@ -2,10 +2,11 @@
 
 The trust boundary of the core. This folder decides whether an agent may run a
 command or touch a path, parks tool calls that need a human yes or no, stores
-credentials and secrets, scrubs secrets and PII out of anything persisted, and
-guards the RPC listener when it binds beyond loopback. `security/mod.rs` calls
-it the kernel security family. None of its submodules is feature-gated: every
-build carries all of it.
+secrets, scrubs secrets and PII out of anything persisted, and guards the RPC
+listener when it binds beyond loopback. Host credential custody lives in the
+top-level `credentials` domain. `security/mod.rs` calls this folder the kernel
+security family. None of its submodules is feature-gated: every build carries
+all of it.
 
 Callers are spread across the core. Every acting tool consults
 `SecurityPolicy` before it runs, the agent harness asks the approval gate
