@@ -316,16 +316,6 @@ fn cache_key(path: &Path, key: &[u8]) {
     }
 }
 
-/// Clear the cached key for `path`. Test-only — production code should never
-/// need to invalidate the cache, since the key file is write-once.
-#[cfg(test)]
-pub(super) fn clear_cached_key(path: &Path) {
-    let normalized = normalize_cache_path(path);
-    if let Ok(mut cache) = key_cache().lock() {
-        cache.remove(&normalized);
-    }
-}
-
 /// Read the key file, retrying transient errors a handful of times.
 ///
 /// Windows AV scanners (Defender, etc.) routinely hold short-lived read
