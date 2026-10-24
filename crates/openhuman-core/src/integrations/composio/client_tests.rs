@@ -2,7 +2,7 @@ use super::*;
 use crate::config::Config;
 use crate::integrations::composio::module_client::module_guard;
 
-use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
+use axum::{extract::State, http::StatusCode, routing::get, Json, Router};
 use serde_json::json;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -137,7 +137,7 @@ fn resolve_composio_route_disabled_errors_even_with_a_session() {
 #[tokio::test]
 async fn disabled_mode_reports_no_integrations_without_a_backend_call() {
     use crate::integrations::composio::{
-        FetchConnectedIntegrationsStatus, fetch_connected_integrations_status,
+        fetch_connected_integrations_status, FetchConnectedIntegrationsStatus,
     };
     // Default config would try the hosted backend; disabled must answer locally.
     let mut config = Config::default();
@@ -236,7 +236,7 @@ fn resolve_composio_route_unknown_mode_errors() {
 
 #[test]
 fn store_get_clear_composio_api_key_roundtrip() {
-    use crate::integrations::composio::{COMPOSIO_DIRECT_PROVIDER, get_composio_api_key};
+    use crate::integrations::composio::{get_composio_api_key, COMPOSIO_DIRECT_PROVIDER};
 
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = crate::config::Config::default();

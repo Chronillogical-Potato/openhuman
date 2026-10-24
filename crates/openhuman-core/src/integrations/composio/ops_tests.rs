@@ -49,12 +49,12 @@ async fn cache_guard_async() -> tokio::sync::MutexGuard<'static, ()> {
 
 use crate::config::test_env::EnvVarGuard;
 use axum::{
-    Json, Router,
     extract::{Path, Query, State},
     http::HeaderMap,
     routing::{get, post},
+    Json, Router,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::collections::HashMap;
 
 struct DirectAuthFailureGuard {

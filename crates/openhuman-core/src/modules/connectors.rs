@@ -30,15 +30,15 @@
 
 use std::sync::{Arc, Mutex};
 
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 use tinybus::Proxy;
 use tinyconnectors_bus::names;
 
 use super::types::ModuleState;
 use super::{ops, registry};
-use crate::config::Config;
 use crate::config::schema::{COMPOSIO_MODE_BACKEND, COMPOSIO_MODE_DIRECT};
+use crate::config::Config;
 use crate::core::slots::HookSlot;
 
 /// The module's id in [`registry`].
@@ -71,7 +71,7 @@ static MODULE_PROXY_TARGETS: HookSlot<ProxyTargetResolver> =
 #[path = "connectors/inspection.rs"]
 mod inspection;
 
-pub(crate) use inspection::{ExistingCallError, call_existing_readonly};
+pub(crate) use inspection::{call_existing_readonly, ExistingCallError};
 
 pub(crate) fn note_module_config_for_load(config: &Config, module_config: &serde_json::Value) {
     inspection::note_module_config_for_load(config, module_config);

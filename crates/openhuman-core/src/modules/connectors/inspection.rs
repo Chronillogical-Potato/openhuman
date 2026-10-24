@@ -1,7 +1,7 @@
 //! Bounded inspection calls to an already-ready connector runtime.
 
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;

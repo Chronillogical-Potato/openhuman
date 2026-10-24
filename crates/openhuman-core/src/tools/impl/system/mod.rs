@@ -24,8 +24,8 @@ use tinytools::ToolRunContext;
 
 pub use crate::config::proxy_tool::ProxyConfigTool;
 pub use install_tool::InstallToolTool;
-pub use lsp::{LSP_ENABLED_ENV, LspTool, lsp_capability_enabled};
-pub use retrieve_tool_output::{RetrieveToolOutputTool, retrieve_tool_output_tool};
+pub use lsp::{lsp_capability_enabled, LspTool, LSP_ENABLED_ENV};
+pub use retrieve_tool_output::{retrieve_tool_output_tool, RetrieveToolOutputTool};
 pub use schedule::ScheduleTool;
 pub use shell::ShellTool;
 pub use shell_process::ShellProcessTool;

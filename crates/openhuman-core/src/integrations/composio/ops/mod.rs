@@ -39,17 +39,18 @@ pub(crate) use connections::flow_connection_entries;
 #[cfg(all(test, feature = "flows"))]
 pub(crate) use connections::title_case_toolkit;
 pub use connections::{
-    ComposioDeleteResult, active_connection_ids, composio_authorize, composio_delete_connection,
-    composio_list_connections,
+    active_connection_ids, composio_authorize, composio_delete_connection,
+    composio_list_connections, ComposioDeleteResult,
 };
 pub use direct_mode::{
-    COMPOSIO_DIRECT_PROVIDER, clear_composio_api_key, composio_clear_api_key, composio_get_mode,
-    composio_set_api_key, get_composio_api_key, rpc_store_composio_api_key, store_composio_api_key,
+    clear_composio_api_key, composio_clear_api_key, composio_get_mode, composio_set_api_key,
+    get_composio_api_key, rpc_store_composio_api_key, store_composio_api_key,
+    COMPOSIO_DIRECT_PROVIDER,
 };
 pub(crate) use error_utils::{report_composio_op_error, should_forward_tags};
 pub use execute::composio_execute;
 pub use providers_ops::{
-    RefreshIdentitiesReport, composio_get_user_profile, composio_refresh_all_identities,
+    composio_get_user_profile, composio_refresh_all_identities, RefreshIdentitiesReport,
 };
 pub use toolkits::{
     composio_list_agent_ready_toolkits, composio_list_capabilities, composio_list_toolkits,
@@ -70,9 +71,9 @@ pub(crate) use scope_prefs::{
 // (originally at the bottom of ops.rs)
 
 pub use super::connected_integrations::{
-    FetchConnectedIntegrationsStatus, cached_active_integrations, connected_set_hash,
-    fetch_connected_integrations, fetch_connected_integrations_status,
-    invalidate_connected_integrations_cache,
+    cached_active_integrations, connected_set_hash, fetch_connected_integrations,
+    fetch_connected_integrations_status, invalidate_connected_integrations_cache,
+    FetchConnectedIntegrationsStatus,
 };
 
 // ── Type aliases re-exported for callers ──────────────────────────────────

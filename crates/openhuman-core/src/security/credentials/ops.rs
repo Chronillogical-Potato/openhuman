@@ -8,13 +8,13 @@ mod secrets;
 mod session_query;
 
 pub use boot_env::{
-    BACKEND_API_KEY_ENV, BACKEND_SESSION_TOKEN_ENV, seed_api_key_from_env, seed_session_from_env,
+    seed_api_key_from_env, seed_session_from_env, BACKEND_API_KEY_ENV, BACKEND_SESSION_TOKEN_ENV,
 };
-pub(crate) use credential::{CREDENTIAL_MUTATION_LOCK, clear_session_credential};
 pub use credential::{
-    PENDING_BACKEND_VALIDATION_FIELD, SetCredentialRequest, clear_credential, clear_session,
-    set_credential, store_session,
+    clear_credential, clear_session, set_credential, store_session, SetCredentialRequest,
+    PENDING_BACKEND_VALIDATION_FIELD,
 };
+pub(crate) use credential::{clear_session_credential, CREDENTIAL_MUTATION_LOCK};
 pub use gated_services::{start_credential_gated_services, stop_credential_gated_services};
 pub use provider_credentials::{
     list_provider_credentials, list_provider_credentials_by_prefix, remove_provider_credentials,

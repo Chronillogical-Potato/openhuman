@@ -166,7 +166,11 @@ pub(crate) fn classify_composio_failure_tag(rendered: &str) -> &'static str {
     let lower = rendered.to_ascii_lowercase();
     let is_transport = crate::core::observability::contains_transient_transport_phrase(rendered)
         || lower.contains("error sending request");
-    if is_transport { "transport" } else { "non_2xx" }
+    if is_transport {
+        "transport"
+    } else {
+        "non_2xx"
+    }
 }
 
 /// Extract the HTTP status code from a `Backend returned <status> ...`

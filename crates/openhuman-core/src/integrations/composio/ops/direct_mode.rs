@@ -1,8 +1,8 @@
 //! Direct mode (BYO API key) ops.
 
 use crate::config::Config;
-use crate::core::Outcome;
 use crate::core::runtime::DispatchCtx;
+use crate::core::Outcome;
 use crate::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
 
 use super::super::{

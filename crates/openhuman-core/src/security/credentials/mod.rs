@@ -22,9 +22,8 @@ pub use ops as rpc;
 pub use ops::*;
 pub use profiles::{AuthProfile, AuthProfileKind, TokenSet};
 pub use provider_credential_source::{
-    ProviderCredentialSource, ProviderOAuthStart, ProviderOAuthTokens,
     clear_provider_credential_source, install_provider_credential_source,
-    provider_credential_source,
+    provider_credential_source, ProviderCredentialSource, ProviderOAuthStart, ProviderOAuthTokens,
 };
 pub use schemas::{
     all_controller_schemas as all_credentials_controller_schemas,
