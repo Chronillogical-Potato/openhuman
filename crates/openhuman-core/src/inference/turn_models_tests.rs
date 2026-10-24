@@ -12,9 +12,9 @@ fn managed_fixture_config(tmp: &tempfile::TempDir) -> crate::config::Config {
         workspace_dir: tmp.path().join("workspace"),
         ..Default::default()
     };
-    crate::security::credentials::AuthService::from_config(&config)
+    crate::credentials::AuthService::from_config(&config)
         .store_provider_token(
-            crate::security::credentials::APP_SESSION_PROVIDER,
+            crate::credentials::APP_SESSION_PROVIDER,
             "default",
             "fixture-session-token",
             Default::default(),

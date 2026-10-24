@@ -164,9 +164,9 @@ fn direct_key_path(provider: &str) -> String {
 /// session-expiry event, and never opens an auth-store writer or refreshes a
 /// token.
 fn managed_credential_available(config: &Config) -> bool {
-    use crate::security::credentials::{
+    use crate::credentials::{
         api_key,
-        session_support::{
+        session_state::{
             check_session_backend, classify_session_token, is_local_session_token,
             SessionTokenCheck,
         },

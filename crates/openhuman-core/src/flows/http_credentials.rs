@@ -23,7 +23,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
-use crate::security::credentials::state_dir_from_config;
+use crate::credentials::state_dir_from_config;
 use crate::security::secret_storage::SecretStore;
 
 pub(crate) const STORE_FILENAME: &str = "http-credentials.json";

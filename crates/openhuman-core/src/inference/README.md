@@ -90,7 +90,7 @@ credential and TinyInference's `resolve_codex_routing` supplies the Codex backen
 adds the account and originator headers. TinyHumans owns the provider-facing OAuth start, callback
 exchange, Codex CLI import and token refresh behind the core's `ProviderCredentialSource` port.
 Core keeps profile persistence, credential lookup, status and disconnect state in
-[`security/credentials/openai_oauth/`](../security/credentials/openai_oauth/). TinyHumans registers
+[`credentials/openai_oauth/`](../credentials/openai_oauth/). TinyHumans registers
 the existing `inference.openai_oauth_*` RPC names.
 
 ### Local runtimes

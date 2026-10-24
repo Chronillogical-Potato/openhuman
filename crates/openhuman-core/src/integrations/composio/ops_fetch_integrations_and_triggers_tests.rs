@@ -8,10 +8,10 @@ async fn offline_local_session_never_fetches_hosted_integrations() {
     config.workspace_dir = tmp.path().join("workspace");
     config.config_path = tmp.path().join("config.toml");
     config.api_url = Some("http://127.0.0.1:1".to_owned());
-    crate::security::credentials::AuthService::from_config(&config)
+    crate::credentials::AuthService::from_config(&config)
         .store_provider_token(
-            crate::security::credentials::APP_SESSION_PROVIDER,
-            crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::credentials::APP_SESSION_PROVIDER,
+            crate::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "desktop.test.local",
             std::collections::HashMap::new(),
             true,

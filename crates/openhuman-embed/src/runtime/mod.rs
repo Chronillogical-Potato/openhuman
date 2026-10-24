@@ -564,7 +564,7 @@ impl Runtime {
     /// that change immediately. A cached bool would otherwise report `false`
     /// right after a key was stored, or `true` right after it was cleared.
     pub fn has_api_key(&self) -> bool {
-        openhuman_core::security::credentials::api_key::has_api_key(&self.base_config)
+        openhuman_core::credentials::api_key::has_api_key(&self.base_config)
     }
 
     pub(crate) fn core_ref(&self) -> &Core {

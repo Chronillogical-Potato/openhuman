@@ -289,16 +289,14 @@ impl Tool for TinySearchTool {
         if let Some(message) = local_only_search_block(&request.name) {
             return Ok(ToolResult::error(message));
         }
-        let api_key = crate::security::credentials::api_key::has_api_key(&config);
+        let api_key = crate::credentials::api_key::has_api_key(&config);
         let request_credential_fingerprint = if api_key {
             None
         } else {
-            crate::security::credentials::session_support::get_session_token(&config)
+            crate::credentials::session_state::get_session_token(&config)
                 .ok()
                 .flatten()
-                .map(|token| {
-                    crate::security::credentials::session_support::credential_fingerprint(&token)
-                })
+                .map(|token| crate::credentials::backend_credential::credential_fingerprint(&token))
         };
         match crate::modules::search::execute_tool(&ctx, &config, request).await {
             Ok(response) => {

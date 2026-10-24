@@ -259,7 +259,7 @@ fn jail_request(
                 .map(crate::security::policy::home_credential_stores)
                 .unwrap_or_default()
                 .into_iter()
-                .chain(crate::security::credentials::credential_files(config))
+                .chain(crate::credentials::credential_files(config))
                 .collect();
             credential_denials(stores, &policy.workspace_root, &policy.read_write_mounts)?
         },

@@ -11,7 +11,7 @@ fn config_in(dir: &std::path::Path) -> Config {
 }
 
 fn sign_in(config: &Config) {
-    crate::security::credentials::api_key::store_api_key(config, "backend-sentinel").unwrap();
+    crate::credentials::api_key::store_api_key(config, "backend-sentinel").unwrap();
 }
 
 fn select(config: &mut Config, providers: &[(&str, SearchProviderSettings)]) {

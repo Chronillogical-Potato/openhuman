@@ -9,14 +9,16 @@
 
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::core::Outcome;
+use openhuman_embed::__host::credentials::backend_credential::{
+    publish_local_session_expiry, resolve_backend_credential, BackendCredential,
+};
+use openhuman_embed::__host::credentials::session_state::{
+    classify_session_token, load_app_session_profile, session_token_from_profile, SessionTokenCheck,
+};
 use openhuman_embed::__host::inference_registry::{
     BoxFuture, CatalogEntry, CatalogHostRequest, CatalogLimits, CatalogListing, CatalogRequest,
     InspectionCatalogError, InspectionCatalogListing, InspectionCatalogRequest,
     PreparedInspectionCatalog, ProviderContext,
-};
-use openhuman_embed::__host::security::credentials::session_support::{
-    classify_session_token, load_app_session_profile, publish_local_session_expiry,
-    resolve_backend_credential, session_token_from_profile, BackendCredential, SessionTokenCheck,
 };
 use openhuman_embed::__host::util::url::join_url;
 use std::sync::Arc;
@@ -72,7 +74,7 @@ pub(super) fn entry() -> CatalogEntry<ProviderContext> {
 pub(super) fn inspection_entry() -> InspectionCatalogListing {
     Arc::new(|config: Config, request: InspectionCatalogRequest| {
         Box::pin(async move {
-            use openhuman_embed::__host::security::credentials::session_support::{
+            use openhuman_embed::__host::credentials::session_state::{
                 check_session_backend, classify_session_token, load_app_session_profile_read_only,
                 SessionTokenCheck,
             };
@@ -87,10 +89,8 @@ pub(super) fn inspection_entry() -> InspectionCatalogListing {
             };
             let provider_key = request.provider_key.trim();
             let api_key = if provider_key.is_empty() {
-                openhuman_embed::__host::security::credentials::api_key::get_api_key_read_only(
-                    &config,
-                )
-                .map_err(|_| InspectionCatalogError::Unavailable)?
+                openhuman_embed::__host::credentials::api_key::get_api_key_read_only(&config)
+                    .map_err(|_| InspectionCatalogError::Unavailable)?
             } else {
                 Some(provider_key.to_owned())
             };

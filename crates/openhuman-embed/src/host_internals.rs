@@ -248,43 +248,6 @@ pub mod security {
             EncryptedFileBackend, MasterKeySource, SecretBackend, SecretStorageError,
         };
     }
-    pub mod credentials {
-        pub use openhuman_core::security::credentials::{
-            channel_credential_provider, clear_provider_credential_source,
-            install_provider_credential_source, provider_credential_source, state_dir_from_config,
-            AuthService, ProviderCredentialSource, ProviderOAuthStart, ProviderOAuthTokens,
-            APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
-        };
-        pub mod openai_oauth {
-            pub use openhuman_core::security::credentials::openai_oauth::{
-                complete_openai_oauth, disconnect_openai_oauth, import_openai_oauth_from_codex_cli,
-                openai_oauth_status, persist_openai_oauth_token, persist_openai_oauth_tokens,
-                start_openai_oauth,
-            };
-        }
-        pub mod ops {
-            pub use openhuman_core::security::credentials::ops::{
-                list_provider_credentials, store_provider_credentials,
-            };
-        }
-        pub mod session_support {
-            pub use openhuman_core::security::credentials::session_support::{
-                build_session_state, check_session_backend, classify_session_token,
-                credential_fingerprint, credential_fingerprint_matches, current_session_is_local,
-                get_session_token, is_local_session_token, load_app_session_profile,
-                load_app_session_profile_read_only, publish_local_session_expiry,
-                resolve_backend_credential, session_token_for_config, session_token_from_profile,
-                BackendCredential, SessionTokenCheck, LOCAL_SESSION_BACKEND_UNAVAILABLE,
-                LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE, SESSION_EXPIRES_AT_META,
-                SESSION_ISSUING_BACKEND_META,
-            };
-        }
-        pub mod api_key {
-            pub use openhuman_core::security::credentials::api_key::{
-                get_api_key, get_api_key_in, get_api_key_read_only, store_api_key, store_api_key_in,
-            };
-        }
-    }
     pub mod approval {
         pub use openhuman_core::security::approval::{
             ApprovalChatContext, ApprovalGate, ApprovalTurnContext,
@@ -298,6 +261,53 @@ pub mod security {
     }
     pub mod pairing {
         pub use openhuman_core::security::pairing::is_public_bind;
+    }
+}
+
+/// Host credential custody and read-side auth helpers used by tinyhumans and rpc.
+pub mod credentials {
+    pub use openhuman_core::credentials::{
+        channel_credential_provider, clear_provider_credential_source,
+        install_provider_credential_source, provider_credential_source, state_dir_from_config,
+        AuthService, ProviderCredentialSource, ProviderOAuthStart, ProviderOAuthTokens,
+        APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+    };
+    pub mod openai_oauth {
+        pub use openhuman_core::credentials::openai_oauth::{
+            complete_openai_oauth, disconnect_openai_oauth, import_openai_oauth_from_codex_cli,
+            openai_oauth_status, persist_openai_oauth_token, persist_openai_oauth_tokens,
+            start_openai_oauth,
+        };
+    }
+    pub mod ops {
+        pub use openhuman_core::credentials::ops::{
+            list_provider_credentials, store_provider_credentials,
+        };
+    }
+    pub mod api_key {
+        pub use openhuman_core::credentials::api_key::{
+            get_api_key, get_api_key_in, get_api_key_read_only, store_api_key, store_api_key_in,
+        };
+    }
+    pub mod session_state {
+        pub use openhuman_core::credentials::session_state::{
+            build_session_state, check_session_backend, classify_session_token,
+            current_session_is_local, get_session_token, is_local_session_token,
+            load_app_session_profile, load_app_session_profile_read_only, local_session_user_id,
+            normalize_session_backend, parse_fields_value, profile_name_or_default,
+            require_live_session_token, session_state_from_profile, session_token_for_config,
+            session_token_from_profile, summarize_auth_profile, user_id_from_jwt_claims,
+            CredentialKind, SessionTokenCheck, LOCAL_SESSION_USER_ID, SESSION_EXPIRES_AT_META,
+            SESSION_ISSUING_BACKEND_META,
+        };
+    }
+    pub mod backend_credential {
+        pub use openhuman_core::credentials::backend_credential::{
+            ambient_config_has_api_key, backend_bearer_secret, credential_fingerprint,
+            credential_fingerprint_matches, direct_backend_credential, has_backend_credential,
+            publish_local_session_expiry, resolve_backend_credential, BackendCredential,
+            LOCAL_SESSION_BACKEND_UNAVAILABLE, LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE,
+        };
     }
 }
 

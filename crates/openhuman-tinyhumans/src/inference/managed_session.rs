@@ -18,10 +18,10 @@ pub(super) fn resolve_session_bearer(
     profile_override: Option<&str>,
     operation: &str,
 ) -> anyhow::Result<String> {
-    use openhuman_embed::__host::security::credentials::session_support::{
+    use openhuman_embed::__host::credentials::session_state::{
         classify_session_token, session_token_from_profile,
     };
-    use openhuman_embed::__host::security::credentials::{AuthService, APP_SESSION_PROVIDER};
+    use openhuman_embed::__host::credentials::{AuthService, APP_SESSION_PROVIDER};
 
     ensure_session_endpoint(endpoint)?;
     if openhuman_embed::__host::platform::llm_gate::is_signed_out() {
@@ -40,7 +40,7 @@ pub(super) fn resolve_session_bearer(
 pub(super) fn managed_bearer_for_inspection(
     config: &openhuman_embed::__host::config::Config,
 ) -> anyhow::Result<String> {
-    use openhuman_embed::__host::security::credentials::session_support::{
+    use openhuman_embed::__host::credentials::session_state::{
         check_session_backend, classify_session_token, is_local_session_token,
         load_app_session_profile_read_only, SessionTokenCheck,
     };
@@ -49,9 +49,8 @@ pub(super) fn managed_bearer_for_inspection(
         "{}/openai/v1",
         crate::backend::url::effective_api_url(&config.api_url).trim_end_matches('/')
     );
-    if let Some(key) =
-        openhuman_embed::__host::security::credentials::api_key::get_api_key_read_only(config)
-            .map_err(|_| anyhow::anyhow!("managed API key profile is unavailable or invalid"))?
+    if let Some(key) = openhuman_embed::__host::credentials::api_key::get_api_key_read_only(config)
+        .map_err(|_| anyhow::anyhow!("managed API key profile is unavailable or invalid"))?
     {
         anyhow::ensure!(
             crate::client::endpoint::is_managed_endpoint_for_api_key(&endpoint),
@@ -100,12 +99,13 @@ fn ensure_session_endpoint(endpoint: &str) -> anyhow::Result<()> {
 /// mirrors the arm `resolve_backend_credential` already applies to every
 /// backend REST caller, and keeps the local credential intact.
 pub(super) fn managed_bearer(
-    check: openhuman_embed::__host::security::credentials::session_support::SessionTokenCheck,
+    check: openhuman_embed::__host::credentials::session_state::SessionTokenCheck,
     operation: &str,
     selected_token: Option<&str>,
 ) -> anyhow::Result<String> {
-    use openhuman_embed::__host::security::credentials::session_support::{
-        is_local_session_token, SessionTokenCheck, LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE,
+    use openhuman_embed::__host::credentials::backend_credential::LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE;
+    use openhuman_embed::__host::credentials::session_state::{
+        is_local_session_token, SessionTokenCheck,
     };
 
     match check {
@@ -149,7 +149,7 @@ fn maybe_publish_local_session_expiry(operation: &str, selected_token: Option<&s
             reason: "backend session token expired locally — re-authentication required"
                 .to_string(),
             credential_fingerprint: selected_token.map(
-                openhuman_embed::__host::security::credentials::session_support::credential_fingerprint,
+                openhuman_embed::__host::credentials::backend_credential::credential_fingerprint,
             ),
         },
     );

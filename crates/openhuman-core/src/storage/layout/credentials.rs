@@ -24,9 +24,9 @@ use tinystoragedrivers::secrets::SecretStore as _;
 use super::state::LayoutError;
 #[cfg(feature = "legacy-import")]
 use super::Target;
+use crate::credentials::profiles::{self, PROFILES_FILENAME, PROFILES_SECRET_NAME};
 #[cfg(feature = "flows")]
 use crate::flows::http_credentials::{self, STORAGE_SECRET_NAME, STORE_FILENAME};
-use crate::security::credentials::profiles::{self, PROFILES_FILENAME, PROFILES_SECRET_NAME};
 #[cfg(feature = "legacy-import")]
 use crate::storage;
 

@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::config::Config;
-use crate::security::credentials::state_dir_from_config;
+use crate::credentials::state_dir_from_config;
 
 /// Resolve the managed embedder's credential directory and encryption policy.
 /// Callers with a config use its own state directory and encryption setting;

@@ -102,7 +102,7 @@ async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_
             source: "coverage-test".to_string(),
             reason: "remote token rejected".to_string(),
             credential_fingerprint: Some(
-                openhuman_core::security::credentials::session_support::credential_fingerprint(
+                openhuman_core::credentials::backend_credential::credential_fingerprint(
                     "session-expired-remote-jwt",
                 ),
             ),
@@ -414,8 +414,8 @@ async fn credentials_public_ops_cover_service_and_missing_session_error_paths() 
         .expect("create config parent");
 
     let ctx = openhuman_core::core::runtime::DispatchCtx::host_default();
-    openhuman_core::security::credentials::start_credential_gated_services(&ctx, &config).await;
-    openhuman_core::security::credentials::stop_credential_gated_services(&ctx, &config).await;
+    openhuman_core::credentials::start_credential_gated_services(&ctx, &config).await;
+    openhuman_core::credentials::stop_credential_gated_services(&ctx, &config).await;
 
     // The account-bound link-token and OAuth ops live in `openhuman-tinyhumans`
     // (`hosted::{channel_link, oauth}`); validation still runs first, and a
@@ -1077,7 +1077,7 @@ async fn auth_remote_backend_bearer_only_paths_round_trip_with_a_handed_over_ses
             .and_then(Value::as_str),
         Some("Renamed Worker")
     );
-    let identity = openhuman_core::security::credentials::identity::peek_credential_user_identity()
+    let identity = openhuman_core::credentials::identity::peek_credential_user_identity()
         .expect("set_credential should seed the identity slot");
     assert_eq!(identity.id.as_deref(), Some("remote-user-1"));
     assert_eq!(identity.name.as_deref(), Some("Renamed Worker"));
@@ -1096,7 +1096,7 @@ async fn auth_remote_backend_bearer_only_paths_round_trip_with_a_handed_over_ses
         Some(true)
     );
     assert!(
-        openhuman_core::security::credentials::identity::peek_credential_user_identity().is_none()
+        openhuman_core::credentials::identity::peek_credential_user_identity().is_none()
     );
 
     harness.join.abort();
@@ -1388,7 +1388,7 @@ fn credentials_profile_store_recovers_dropped_entries_empty_files_and_datetime_e
     let tmp = tempdir().expect("tempdir");
 
     let default_profiles =
-        openhuman_core::security::credentials::profiles::AuthProfilesData::default();
+        openhuman_core::credentials::profiles::AuthProfilesData::default();
     assert_eq!(default_profiles.schema_version, 1);
     assert!(default_profiles.profiles.is_empty());
 

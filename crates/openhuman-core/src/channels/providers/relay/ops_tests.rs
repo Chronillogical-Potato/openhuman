@@ -71,7 +71,7 @@ fn config(tmp: &tempfile::TempDir) -> Config {
     config.memory.conversations.enabled = false;
     config.agent.session_dual_write = false;
     config.agent.session_shadow_reads = false;
-    crate::security::credentials::api_key::store_api_key(&config, "test-session-fixture-key")
+    crate::credentials::api_key::store_api_key(&config, "test-session-fixture-key")
         .expect("store relay test credential");
     config
 }

@@ -103,7 +103,7 @@ and answers backend-touching calls with `HostedApiError::BackendUnavailable` /
 
 - The port lives here in [`port.rs`](port.rs); the core has no copy.
   Credential resolution is the core's generic one
-  (`security::credentials::session_support`).
+  (`credentials::session state`).
 - Routes live in the vendored SDK ([`vendor/tinyhumans-sdk`](../../../../vendor/tinyhumans-sdk/),
   `tinyhumansai/tinyhumans-sdk`). A missing backend route goes into the SDK's
   route registry and is named from this crate; this transport never grows a

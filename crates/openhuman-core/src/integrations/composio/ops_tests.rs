@@ -107,10 +107,10 @@ fn config_with_backend(tmp: &tempfile::TempDir, base: String) -> Config {
     c.workspace_dir = tmp.path().join("workspace");
     c.config_path = tmp.path().join("config.toml");
     c.api_url = Some(base);
-    crate::security::credentials::AuthService::from_config(&c)
+    crate::credentials::AuthService::from_config(&c)
         .store_provider_token(
-            crate::security::credentials::APP_SESSION_PROVIDER,
-            crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::credentials::APP_SESSION_PROVIDER,
+            crate::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "test-token",
             std::collections::HashMap::new(),
             true,
@@ -212,10 +212,10 @@ fn direct_mode_config(tmp: &tempfile::TempDir) -> Config {
     c.workspace_dir = tmp.path().join("workspace");
     c.config_path = tmp.path().join("config.toml");
     c.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.into();
-    crate::security::credentials::AuthService::from_config(&c)
+    crate::credentials::AuthService::from_config(&c)
         .store_provider_token(
             crate::integrations::composio::COMPOSIO_DIRECT_PROVIDER,
-            crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "ck_test_direct_key",
             std::collections::HashMap::new(),
             true,

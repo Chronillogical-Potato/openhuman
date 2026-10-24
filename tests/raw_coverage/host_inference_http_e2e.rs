@@ -21,7 +21,7 @@ use openhuman_core::config::Config;
 use openhuman_core::core::types::AppState;
 use openhuman_core::inference::host_runtime::local_ai_status;
 use openhuman_core::inference::http;
-use openhuman_core::security::credentials::{
+use openhuman_core::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use serde_json::{json, Value};

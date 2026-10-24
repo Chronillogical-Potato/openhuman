@@ -19,9 +19,7 @@ use super::types::{AppStateSnapshot, StoredAppState, StoredAppStatePatch};
 use super::LOG_PREFIX;
 use crate::core::runtime::DispatchCtx;
 use crate::core::Outcome;
-use crate::security::credentials::session_support::{
-    load_app_session_profile, session_state_from_profile,
-};
+use crate::credentials::session_state::{load_app_session_profile, session_state_from_profile};
 use log::{debug, warn};
 use serde_json::Value;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -68,7 +66,7 @@ pub async fn snapshot(ctx: &DispatchCtx) -> Result<Outcome<AppStateSnapshot>, St
             .await
             .unwrap_or_else(|e| Err(format!("[app_state] auth profile load task panicked: {e}")))?;
     let mut auth = session_state_from_profile(session_profile.as_ref());
-    let session_token = crate::security::credentials::session_support::session_token_for_config(
+    let session_token = crate::credentials::session_state::session_token_for_config(
         &config,
         session_profile.as_ref(),
     )

@@ -19,9 +19,8 @@ const NO_SESSION: &str =
 
 /// The backend origin and credential secret the stand-in resolves.
 fn resolve(config: &Config) -> Result<(String, String), String> {
-    use crate::security::credentials::session_support::{
-        is_local_session_token, resolve_backend_credential, BackendCredential,
-    };
+    use crate::credentials::backend_credential::{resolve_backend_credential, BackendCredential};
+    use crate::credentials::session_state::is_local_session_token;
     let credential = resolve_backend_credential(config).map_err(|_| NO_SESSION.to_string())?;
     if let BackendCredential::Session(token) = &credential {
         if is_local_session_token(token.trim()) {

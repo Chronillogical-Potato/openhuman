@@ -430,7 +430,7 @@ Cron publishes, through [`core/bus.rs`](../core/bus.rs), these `DomainEvent` var
 
 - the LLM gate (`platform::llm_gate`) is not part of cron; it used to live here, but the poll loop does not
   consult it. Its consumers are `modules/memory_host.rs` and
-  [`security/credentials/`](../security/credentials/).
+  [`credentials/`](../credentials/).
 - Dispatch is non-blocking: the module spawns each due job, bounded by
   `scheduler.max_concurrent`, so one long job does not hold up the poll loop. A
   job is claimed (module-side, shared with Run Now) from dispatch until its run

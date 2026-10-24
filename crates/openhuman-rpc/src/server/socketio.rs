@@ -712,15 +712,13 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                     continue;
                 };
                 let current_token =
-                    crate::core_host::security::credentials::session_support::get_session_token(
-                        &config,
-                    )
-                    .ok()
-                    .flatten();
+                    crate::core_host::credentials::session_state::get_session_token(&config)
+                        .ok()
+                        .flatten();
                 if !should_broadcast_session_expiry(
                     credential_fingerprint.as_deref(),
                     current_token.as_deref(),
-                    crate::core_host::security::credentials::api_key::get_api_key(&config)
+                    crate::core_host::credentials::api_key::get_api_key(&config)
                         .ok()
                         .flatten()
                         .is_some(),
@@ -736,10 +734,8 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                 // correctly keeps that credential, so the UI must not receive
                 // a contradictory sign-out event from this independent bus
                 // consumer. Real JWT expiry still broadcasts as before.
-                if crate::core_host::security::credentials::session_support::current_session_is_local(
-                    &ctx,
-                )
-                .await
+                if crate::core_host::credentials::session_state::current_session_is_local(&ctx)
+                    .await
                 {
                     log::info!(
                         "[socketio] suppress auth:session_expired for local offline credential source={}",
@@ -1056,7 +1052,7 @@ fn should_broadcast_session_expiry(
     !using_api_key
         && request_fingerprint.is_some_and(|fingerprint| {
             current_token.is_none_or(|token| {
-                crate::core_host::security::credentials::session_support::credential_fingerprint_matches(
+                crate::core_host::credentials::backend_credential::credential_fingerprint_matches(
                     fingerprint,
                     token,
                 )

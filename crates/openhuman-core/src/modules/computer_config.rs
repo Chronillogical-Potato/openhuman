@@ -18,10 +18,9 @@ use std::path::{Path, PathBuf};
 use serde_json::{json, Map, Value};
 
 use crate::config::{Config, DecisionModel};
+use crate::credentials::backend_credential::{resolve_backend_credential, BackendCredential};
+use crate::credentials::session_state::is_local_session_token;
 use crate::inference::provider::factory::lookup_key_for_slug;
-use crate::security::credentials::session_support::{
-    is_local_session_token, resolve_backend_credential, BackendCredential,
-};
 
 /// A stored provider key, falling back to its environment variable.
 fn provider_key(config: &Config, slug: &str, env: &str) -> Option<String> {

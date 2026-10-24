@@ -164,7 +164,7 @@ fn config(root: &Path, api_url: &str) -> Config {
     };
     config.secrets.encrypt = false;
     std::fs::create_dir_all(&config.workspace_dir).unwrap();
-    openhuman_core::security::credentials::api_key::store_api_key(&config, API_KEY)
+    openhuman_core::credentials::api_key::store_api_key(&config, API_KEY)
         .expect("store the TinyHumans API key");
     config
 }

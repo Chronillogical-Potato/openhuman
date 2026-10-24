@@ -2,7 +2,7 @@
 
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::core::Outcome;
-use openhuman_embed::__host::security::credentials::session_support::resolve_backend_credential;
+use openhuman_embed::__host::credentials::backend_credential::resolve_backend_credential;
 
 use crate::client::{
     flatten_authed_error, is_managed_endpoint_for_api_key, is_safe_endpoint_for_managed_bearer,

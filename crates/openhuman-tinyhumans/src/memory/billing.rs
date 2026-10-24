@@ -13,10 +13,10 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use openhuman_embed::__host::config::Config;
-use openhuman_embed::__host::memory_engines::BoundEngine;
-use openhuman_embed::__host::security::credentials::session_support::{
+use openhuman_embed::__host::credentials::backend_credential::{
     resolve_backend_credential, BackendCredential,
 };
+use openhuman_embed::__host::memory_engines::BoundEngine;
 use sha2::Digest;
 
 use crate::client::{flatten_authed_error, BackendClient};

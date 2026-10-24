@@ -172,12 +172,12 @@ pub(super) fn register_domain_subscribers(
         // API key is a plain profile write, so it lands before the gate is
         // seeded from the store below; a session token runs the full
         // `set_credential` path and seeds the gate itself when it finishes.
-        crate::security::credentials::seed_api_key_from_env(&config);
-        if std::env::var_os(crate::security::credentials::BACKEND_SESSION_TOKEN_ENV).is_some() {
+        crate::credentials::seed_api_key_from_env(&config);
+        if std::env::var_os(crate::credentials::BACKEND_SESSION_TOKEN_ENV).is_some() {
             let config = config.clone();
             let ctx = ctx.clone();
             tokio::spawn(async move {
-                crate::security::credentials::seed_session_from_env(&ctx, &config).await;
+                crate::credentials::seed_session_from_env(&ctx, &config).await;
             });
         }
 
@@ -186,11 +186,11 @@ pub(super) fn register_domain_subscribers(
         // Without this, a sidecar that boots with no stored credential would
         // happily spin up cron / channel loops and fire LLM requests that all
         // 401.
-        if crate::security::credentials::api_key::has_api_key(&config) {
+        if crate::credentials::api_key::has_api_key(&config) {
             log::info!("[auth] api-key credential present at startup — scheduler gate signed in");
             crate::platform::llm_gate::set_signed_out(false);
         } else {
-            match crate::security::credentials::jwt::get_session_token(&config) {
+            match crate::credentials::session_state::get_session_token(&config) {
                 Ok(Some(_)) => {
                     crate::platform::llm_gate::set_signed_out(false);
                 }
@@ -219,7 +219,7 @@ pub(super) fn register_domain_subscribers(
         // publish 401-derived events, so the very first 401 is routed through
         // `clear_session` + the scheduler-gate override.
         if let Some(handle) = crate::core::bus::BUS.subscribe(Arc::new(
-            crate::security::credentials::bus::SessionExpiredSubscriber::new(),
+            crate::credentials::bus::SessionExpiredSubscriber::new(),
         )) {
             std::mem::forget(handle);
         } else {

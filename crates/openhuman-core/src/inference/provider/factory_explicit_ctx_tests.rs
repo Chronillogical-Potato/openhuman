@@ -80,9 +80,9 @@ async fn managed_factory_and_probe_use_the_explicit_provider_entry() {
         workspace_dir: tmp.path().join("workspace"),
         ..Default::default()
     };
-    crate::security::credentials::AuthService::from_config(&config)
+    crate::credentials::AuthService::from_config(&config)
         .store_provider_token(
-            crate::security::credentials::APP_SESSION_PROVIDER,
+            crate::credentials::APP_SESSION_PROVIDER,
             "default",
             "fixture-session-token",
             Default::default(),
@@ -243,9 +243,9 @@ async fn hosted_cloud_slug_uses_explicit_auth_policy_and_model_entry() {
             workspace_dir: tmp.path().join("workspace"),
             ..Default::default()
         };
-        crate::security::credentials::AuthService::from_config(&config)
+        crate::credentials::AuthService::from_config(&config)
             .store_provider_token(
-                crate::security::credentials::APP_SESSION_PROVIDER,
+                crate::credentials::APP_SESSION_PROVIDER,
                 "default",
                 "fixture-session-token",
                 Default::default(),

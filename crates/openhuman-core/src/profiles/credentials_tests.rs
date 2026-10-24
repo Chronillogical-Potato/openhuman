@@ -1,9 +1,7 @@
 use super::*;
+use crate::credentials::backend_credential::{resolve_backend_credential, BackendCredential};
 use crate::profiles::layout::{profile_config, ProfileLayout};
 use crate::profiles::ProfileId;
-use crate::security::credentials::session_support::{
-    resolve_backend_credential, BackendCredential,
-};
 
 /// Credential secrets live in the process keyring keyed by agent id, which
 /// every test in this binary shares; each test therefore uses its own users.
@@ -136,7 +134,7 @@ fn concurrent_stores_of_different_kinds_leave_exactly_one_kind() {
         // Whichever store ran last owns the profile; the other kind is gone.
         let provider_present = |provider: &str| {
             let auth = AuthService::from_config(&user);
-            let id = crate::security::credentials::normalize_provider(provider).unwrap();
+            let id = crate::credentials::normalize_provider(provider).unwrap();
             auth.load_profiles()
                 .unwrap()
                 .profiles

@@ -15,9 +15,9 @@ fn isolated_config() -> (tempfile::TempDir, Config) {
 }
 
 fn store_fixture_session(config: &Config) {
-    crate::security::credentials::AuthService::from_config(config)
+    crate::credentials::AuthService::from_config(config)
         .store_provider_token(
-            crate::security::credentials::APP_SESSION_PROVIDER,
+            crate::credentials::APP_SESSION_PROVIDER,
             "default",
             "fixture-session-token",
             Default::default(),
@@ -27,7 +27,7 @@ fn store_fixture_session(config: &Config) {
 }
 
 fn store_fixture_cloud_key(config: &Config, slug: &str) {
-    crate::security::credentials::AuthService::from_config(config)
+    crate::credentials::AuthService::from_config(config)
         .store_provider_token(
             &format!("provider:{slug}"),
             "default",

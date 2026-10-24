@@ -56,14 +56,13 @@ pub async fn invoke_method(
             // error's auth-expired marker so the renderer cannot independently
             // sign out a replacement credential from the response body.
             let current = ctx.load_config().await.ok().map(|config| {
-                let token =
-                    crate::security::credentials::session_support::get_session_token(&config)
-                        .ok()
-                        .flatten();
-                let local = token.as_deref().is_some_and(
-                    crate::security::credentials::session_support::is_local_session_token,
-                );
-                let api_key = crate::security::credentials::api_key::has_api_key(&config);
+                let token = crate::credentials::session_state::get_session_token(&config)
+                    .ok()
+                    .flatten();
+                let local = token
+                    .as_deref()
+                    .is_some_and(crate::credentials::session_state::is_local_session_token);
+                let api_key = crate::credentials::api_key::has_api_key(&config);
                 (token, local, api_key)
             });
             let Some((current_token, local, api_key)) = current else {
@@ -164,7 +163,7 @@ fn request_session_failure_is_actionable(
         && request_fingerprint
             .zip(current_token)
             .is_some_and(|(fingerprint, token)| {
-                crate::security::credentials::session_support::credential_fingerprint_matches(
+                crate::credentials::backend_credential::credential_fingerprint_matches(
                     fingerprint,
                     token,
                 )

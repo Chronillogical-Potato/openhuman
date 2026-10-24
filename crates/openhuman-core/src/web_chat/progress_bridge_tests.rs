@@ -45,7 +45,7 @@ fn session_profile_attribution_prefers_email_from_stored_session() {
         config_path: tmp.path().join("config.toml"),
         ..Default::default()
     };
-    let service = crate::security::credentials::AuthService::from_config(&config);
+    let service = crate::credentials::AuthService::from_config(&config);
     let mut metadata = std::collections::HashMap::new();
     metadata.insert(
         "user_json".to_string(),
@@ -54,8 +54,8 @@ fn session_profile_attribution_prefers_email_from_stored_session() {
     metadata.insert("user_id".to_string(), "u-1".to_string());
     service
         .store_provider_token(
-            crate::security::credentials::APP_SESSION_PROVIDER,
-            crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::credentials::APP_SESSION_PROVIDER,
+            crate::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "session-token",
             metadata,
             true,

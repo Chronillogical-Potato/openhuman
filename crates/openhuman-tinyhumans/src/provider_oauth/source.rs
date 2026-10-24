@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use openhuman_embed::__host::config::Config;
-use openhuman_embed::__host::security::credentials::{
+use openhuman_embed::__host::credentials::{
     ProviderCredentialSource, ProviderOAuthStart, ProviderOAuthTokens,
 };
 use std::path::PathBuf;

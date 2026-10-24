@@ -56,7 +56,7 @@ pub(crate) fn extract_error_detail(body: &str, max_bytes: usize) -> String {
 /// when the client authenticates with the *app-session JWT* (an API-key client
 /// takes [`handle_api_key_unauthorized`] instead); that JWT rides
 /// `Authorization: Bearer`, resolved by
-/// `session_support::resolve_backend_credential`, the same resolver billing /
+/// `session_state::resolve_backend_credential`, the same resolver billing /
 /// team / webhooks / memory all use. The backend's auth middleware
 /// (`backend-openhuman`) is what answers `401 {"error":"Invalid token"}` when
 /// that JWT is expired / revoked / rotated server-side — see the identical
@@ -297,7 +297,7 @@ impl IntegrationClient {
                         path,
                         url,
                         &detail,
-                        openhuman_embed::__host::security::credentials::session_support::credential_fingerprint(
+                        openhuman_embed::__host::credentials::backend_credential::credential_fingerprint(
                             self.credential.secret(),
                         ),
                     ));

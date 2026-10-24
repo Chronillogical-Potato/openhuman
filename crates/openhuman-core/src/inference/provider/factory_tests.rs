@@ -1,7 +1,7 @@
 use super::*;
 use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::config::Config;
-use crate::security::credentials::AuthService;
+use crate::credentials::AuthService;
 use tempfile::TempDir;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -328,9 +328,7 @@ fn store_byo_key(config: &Config, slug: &str, token: &str) {
 #[tokio::test(flavor = "multi_thread")]
 async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth_profile() {
     use crate::config::test_env::EnvVarGuard;
-    use crate::security::credentials::openai_oauth::{
-        OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY,
-    };
+    use crate::credentials::openai_oauth::{OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY};
     use chrono::{Duration, Utc};
 
     let _inference_guard = crate::inference::inference_test_guard_async().await;

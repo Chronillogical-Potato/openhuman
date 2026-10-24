@@ -72,7 +72,7 @@ fn config(tmp: &TempDir) -> Config {
         config_path: tmp.path().join("config.toml"),
         ..Config::default()
     };
-    crate::security::credentials::api_key::store_api_key(&config, "cron-host-test-key")
+    crate::credentials::api_key::store_api_key(&config, "cron-host-test-key")
         .expect("store the managed inference fixture credential");
     config
 }

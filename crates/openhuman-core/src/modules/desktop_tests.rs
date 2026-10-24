@@ -11,7 +11,7 @@ use tinycomputer_bus::{names, DesktopError, DesktopResponse};
 
 use super::{call, call_with_proxy, fingerprint, jev_ready, module_config, state, MODULE_ID};
 use crate::config::Config;
-use crate::security::credentials::{api_key, AuthService};
+use crate::credentials::{api_key, AuthService};
 
 fn config_in(dir: &std::path::Path) -> Config {
     let mut config = Config::default();

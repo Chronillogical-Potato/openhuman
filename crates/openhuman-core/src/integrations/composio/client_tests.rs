@@ -26,10 +26,10 @@ async fn start_mock_backend(app: Router) -> String {
 fn config_with_session_token(tmp: &tempfile::TempDir) -> Config {
     let mut config = Config::default();
     config.config_path = tmp.path().join("config.toml");
-    crate::security::credentials::AuthService::from_config(&config)
+    crate::credentials::AuthService::from_config(&config)
         .store_provider_token(
-            crate::security::credentials::APP_SESSION_PROVIDER,
-            crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::credentials::APP_SESSION_PROVIDER,
+            crate::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "test-token",
             std::collections::HashMap::new(),
             true,
@@ -172,10 +172,10 @@ fn resolve_composio_route_direct_variant_with_stored_key() {
     config.config_path = tmp.path().join("config.toml");
     config.composio.mode = "direct".into();
     // Persist the key the way the RPC layer would.
-    crate::security::credentials::AuthService::from_config(&config)
+    crate::credentials::AuthService::from_config(&config)
         .store_provider_token(
             crate::integrations::composio::COMPOSIO_DIRECT_PROVIDER,
-            crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "ck_test_key_redacted",
             std::collections::HashMap::new(),
             true,
@@ -249,10 +249,10 @@ fn store_get_clear_composio_api_key_roundtrip() {
     );
 
     // Store under the direct-mode provider slot.
-    crate::security::credentials::AuthService::from_config(&config)
+    crate::credentials::AuthService::from_config(&config)
         .store_provider_token(
             COMPOSIO_DIRECT_PROVIDER,
-            crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "ck_secret_value_redacted",
             std::collections::HashMap::new(),
             true,
@@ -265,10 +265,10 @@ fn store_get_clear_composio_api_key_roundtrip() {
     );
 
     // Clearing the profile must remove it again.
-    crate::security::credentials::AuthService::from_config(&config)
+    crate::credentials::AuthService::from_config(&config)
         .remove_profile(
             COMPOSIO_DIRECT_PROVIDER,
-            crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::credentials::DEFAULT_AUTH_PROFILE_NAME,
         )
         .expect("remove");
     assert_eq!(
@@ -433,16 +433,16 @@ async fn direct_connected_integrations_fetches_schemas_without_backend_composio_
     let mut config = config_with_session_token(&tmp);
     config.workspace_dir = tmp.path().join("workspace");
     config.api_url = Some(backend_url);
-    crate::security::credentials::AuthService::from_config(&config)
+    crate::credentials::AuthService::from_config(&config)
         .store_provider_token(
-            crate::security::credentials::APP_SESSION_PROVIDER,
-            crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::credentials::APP_SESSION_PROVIDER,
+            crate::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "desktop.test.local",
             std::collections::HashMap::new(),
             true,
         )
         .expect("store offline local session token");
-    crate::security::credentials::api_key::store_api_key(&config, "th_test_backend_key")
+    crate::credentials::api_key::store_api_key(&config, "th_test_backend_key")
         .expect("store backend API key");
     config.composio.mode = "direct".into();
     config.composio.pin_host_credential(

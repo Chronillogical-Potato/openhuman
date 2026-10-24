@@ -28,7 +28,7 @@ use openhuman_core::security::approval::gate::{
     ApprovalChatContext, ApprovalGate, ApprovalTurnContext,
 };
 use openhuman_core::security::approval::types::{ExecutionOutcome, GateOutcome};
-use openhuman_core::security::credentials::{
+use openhuman_core::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use openhuman_rpc::server::build_core_http_router;

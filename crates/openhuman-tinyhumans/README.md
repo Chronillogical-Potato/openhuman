@@ -52,7 +52,7 @@ The crate's only openhuman dependency is `openhuman-embed`, per the chain
 core -> embed -> tinyhumans -> rpc -> hosts. The public embed API covers the seam types
 (`embed::seams::{ControllerExtension, ...}`; the ranker trait is `tinytools::ToolRanker`, taken from the same vendored path); the deeper core
 internals the transport and hosted controllers need (the registration
-functions of the core's generic registries, `core::all`'s registry types, `security::credentials`, `config`) come through
+functions of the core's generic registries, `core::all`'s registry types, `credentials`, `config`) come through
 embed's `#[doc(hidden)] __host` module, an explicit list kept in embed.
 
 ### Installing into a process
@@ -224,7 +224,7 @@ chain core, embed, tinyhumans, cli.
   `BackendTransportError` in [`src/transport/port.rs`](src/transport/port.rs)),
   the authenticated JSON client ([`src/client/`](src/client/mod.rs)) and all
   recovery from errors. The core owns only the generic credential type and
-  its resolution (`security::credentials::session_support::resolve_backend_credential`),
+  its resolution (`credentials::backend_credential::resolve_backend_credential`),
   which this crate calls. `scripts/ci/check-core-hosted-free.mjs` keeps hosted
   names out of the core.
 - Route implementations belong in the vendored SDK (`tinyhumansai/tinyhumans-sdk`,

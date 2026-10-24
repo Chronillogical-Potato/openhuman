@@ -1,6 +1,6 @@
 use super::*;
 use crate::channels::email_channel::EmailConfig;
-use crate::security::credentials::AuthService;
+use crate::credentials::AuthService;
 use std::collections::HashMap;
 use tempfile::tempdir;
 

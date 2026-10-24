@@ -435,7 +435,7 @@ sits in the app directory shared by all accounts
   middleware and the compaction summarizer live under `agent/`.
 - Chat transcripts are owned by `threads`; this folder only reads them for
   backfill and forgets their memory on delete.
-- Credentials come from `security::credentials` and the host's session
+- Credentials come from `credentials` and the host's session
   owner. The core does not sign in or refresh anything here.
 - Cron scheduling is `cron`'s; this folder only handles the due events.
 

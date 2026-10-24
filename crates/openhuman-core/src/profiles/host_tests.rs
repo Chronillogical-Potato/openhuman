@@ -148,11 +148,8 @@ async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_b
         (
             config.config_path.clone(),
             crate::storage::current_scope().unwrap(),
-            crate::security::credentials::api_key::get_api_key_read_only(config).unwrap(),
-            crate::security::credentials::session_support::load_app_session_profile_read_only(
-                config,
-            )
-            .unwrap(),
+            crate::credentials::api_key::get_api_key_read_only(config).unwrap(),
+            crate::credentials::session_state::load_app_session_profile_read_only(config).unwrap(),
             crate::profiles::provider_settings::ProfileProviderSettings::in_ctx(
                 &DispatchCtx::ambient(),
             )
@@ -168,11 +165,8 @@ async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_b
         (
             config.config_path.clone(),
             crate::storage::current_scope().unwrap(),
-            crate::security::credentials::api_key::get_api_key_read_only(config).unwrap(),
-            crate::security::credentials::session_support::load_app_session_profile_read_only(
-                config,
-            )
-            .unwrap(),
+            crate::credentials::api_key::get_api_key_read_only(config).unwrap(),
+            crate::credentials::session_state::load_app_session_profile_read_only(config).unwrap(),
             crate::profiles::provider_settings::ProfileProviderSettings::in_ctx(
                 &DispatchCtx::ambient(),
             )

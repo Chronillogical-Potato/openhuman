@@ -14,7 +14,7 @@ use crate::config::{
 use crate::core::runtime::DispatchCtx;
 use crate::threads::store as conversations;
 
-use crate::security::credentials::ops::gated_services::is_embedder_host;
+use crate::credentials::ops::gated_services::is_embedder_host;
 
 const LOG_PREFIX: &str = "[credentials][user-scope]";
 

@@ -30,11 +30,11 @@ use tinyinference_video::{
 
 use crate::client::BackendClient;
 use openhuman_embed::__host::config::Config;
-use openhuman_embed::__host::media::generation::MediaGenerators;
-use openhuman_embed::__host::security::approval::ApprovalChatContext;
-use openhuman_embed::__host::security::credentials::session_support::{
+use openhuman_embed::__host::credentials::backend_credential::{
     resolve_backend_credential, BackendCredential,
 };
+use openhuman_embed::__host::media::generation::MediaGenerators;
+use openhuman_embed::__host::security::approval::ApprovalChatContext;
 
 /// Backend route prefix that proxies OpenRouter's media API.
 pub const OPENROUTER_PROXY_PATH: &str = "/agent-integrations/openrouter";

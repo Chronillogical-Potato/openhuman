@@ -4,7 +4,7 @@ use axum::{
     routing::get,
     Router,
 };
-use openhuman_embed::__host::security::credentials::{AuthService, APP_SESSION_PROVIDER};
+use openhuman_embed::__host::credentials::{AuthService, APP_SESSION_PROVIDER};
 use std::sync::{Arc, Mutex};
 use tempfile::TempDir;
 
