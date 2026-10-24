@@ -39,7 +39,7 @@ impl ApprovalGate {
         Self::new(config, session, DEFAULT_APPROVAL_TTL)
     }
 
-    fn new(config: Config, session_id: String, ttl: Duration) -> Self {
+    pub(super) fn new(config: Config, session_id: String, ttl: Duration) -> Self {
         // Regression guard: the gate's session_id must be the per-launch
         // UUID minted by `bootstrap_core_runtime` (shape:
         // `session-<uuid>`). Any other shape risks re-introducing the
