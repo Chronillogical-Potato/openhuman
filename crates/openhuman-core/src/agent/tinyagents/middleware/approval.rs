@@ -16,10 +16,16 @@ use crate::security::approval::{
 };
 use tinytools::Tool;
 
-pub(super) fn approval_is_explicitly_disabled(
+pub(super) fn approval_resolution_without_gate(
     state: Option<crate::security::approval::gate::ApprovalGateBootState>,
-) -> bool {
-    state.is_some_and(|state| state.disabled_by_env)
+) -> ApprovalResolution {
+    if state.is_some_and(|state| state.disabled_by_env) {
+        ApprovalResolution::Allow { ticket: None }
+    } else {
+        ApprovalResolution::Deny {
+            reason: "Approval unavailable; external-effect tool was denied.".to_string(),
+        }
+    }
 }
 
 /// `wrap_tool`: route OpenHuman's human-in-the-loop **approval gate** through a
@@ -137,19 +143,20 @@ impl ApprovalResolver<crate::agent::tinyagents::host::OpenHumanRunContext>
         call: &TaToolCall,
     ) -> ApprovalResolution {
         let Some(gate) = ApprovalGate::try_global() else {
-            if approval_is_explicitly_disabled(crate::security::approval::gate::try_boot_state()) {
+            let resolution =
+                approval_resolution_without_gate(crate::security::approval::gate::try_boot_state());
+            if matches!(resolution, ApprovalResolution::Allow { .. }) {
                 tracing::info!(
                     tool = %call.name,
                     "[tinyagents::mw] approval gate explicitly disabled by operator"
                 );
-                return ApprovalResolution::Allow { ticket: None };
+                return resolution;
             }
-            let reason = "Approval unavailable; external-effect tool was denied.".to_string();
             tracing::error!(
                 tool = %call.name,
                 "[tinyagents::mw] approval gate unavailable; denying external-effect tool"
             );
-            return ApprovalResolution::Deny { reason };
+            return resolution;
         };
         let approval_name = approval_tool_name(&call.name, &call.arguments);
         tracing::debug!(

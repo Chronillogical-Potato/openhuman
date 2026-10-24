@@ -1,4 +1,4 @@
-use super::super::approval::approval_is_explicitly_disabled;
+use super::super::approval::approval_resolution_without_gate;
 use crate::security::approval::gate::ApprovalGateBootState;
 
 #[test]
@@ -16,7 +16,14 @@ fn missing_gate_is_allowed_only_after_explicit_operator_disable() {
         host: "cli",
     };
 
-    assert!(!approval_is_explicitly_disabled(None));
-    assert!(!approval_is_explicitly_disabled(Some(installed)));
-    assert!(approval_is_explicitly_disabled(Some(disabled)));
+    for state in [None, Some(installed)] {
+        assert!(matches!(
+            approval_resolution_without_gate(state),
+            tinyagents_harness::middleware::ApprovalResolution::Deny { .. }
+        ));
+    }
+    assert!(matches!(
+        approval_resolution_without_gate(Some(disabled)),
+        tinyagents_harness::middleware::ApprovalResolution::Allow { ticket: None }
+    ));
 }
