@@ -228,11 +228,11 @@ async fn a_dropped_channel_after_a_persisted_approval_allows() {
 // A caller (composio_connect) can cap the park via
 // `intercept_audited_bounded`. When the bound elapses before the gate's own
 // TTL the gate must abandon the park cancellation-safely: return `None`,
-// clear the thread→request routing so a later reply is not mis-routed (the
-// codex concern), yet LEAVE the `pending_approvals` row open so a later
-// card-click still resolves it in the DB.
+// clear the thread→request routing so a later reply is not mis-routed and
+// expire the `pending_approvals` row so a later card-click cannot approve an
+// action whose caller has already returned without running it.
 #[tokio::test]
-async fn intercept_audited_bounded_abandons_park_and_leaves_row_pending() {
+async fn intercept_audited_bounded_expires_row_and_clears_route() {
     let (gate, _dir) = test_gate();
     let gate = Arc::new(gate);
 
@@ -289,14 +289,11 @@ async fn intercept_audited_bounded_abandons_park_and_leaves_row_pending() {
         "thread → request mapping must be cleared on caller-bound abandon"
     );
 
-    // The row is LEFT open — a later human card-click still resolves it.
+    // A later human card-click cannot approve an action that will not run.
     let decided = gate
         .decide(&request_id, ApprovalDecision::ApproveOnce)
         .unwrap();
-    assert!(
-        decided.is_some(),
-        "pending row must survive the abandon so a later card-click resolves it"
-    );
+    assert!(decided.is_none(), "expired row must no longer be pending");
 }
 
 /// Tests for `effective_ttl` env-override parsing.

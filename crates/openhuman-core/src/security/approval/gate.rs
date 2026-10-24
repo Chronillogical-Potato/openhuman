@@ -336,6 +336,9 @@ pub struct ApprovalGate {
     /// `gate_intercept.rs`) so `ApprovalDecided` can mirror the same
     /// thread/client/tool_call_id the original `ApprovalRequested` carried.
     request_routes: Mutex<HashMap<String, RequestRoute>>,
+    /// Store captured at park time for approved requests whose route was
+    /// consumed by `decide` before the tool's terminal audit callback runs.
+    execution_docs: Mutex<HashMap<String, super::store_documents::Docs>>,
 }
 
 /// RAII guard that tears the parked waiter down even when the surrounding turn
@@ -406,6 +409,11 @@ impl Drop for WaiterGuard<'_> {
                 resolution: Some("cancelled".to_string()),
                 agent_id: row.agent_id,
             });
+        } else if matches!(&decided, Ok(None)) {
+            // A concurrent decision may already have consumed the row. The
+            // route still belongs to this completed waiter and must not remain
+            // available to a later card click.
+            self.gate.take_request_route(&self.request_id);
         }
         tracing::warn!(
             request_id = %self.request_id,

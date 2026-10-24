@@ -119,6 +119,63 @@ async fn each_agent_answers_from_its_own_auto_approve_list() {
 }
 
 #[tokio::test]
+async fn execution_audit_uses_the_agent_scope_captured_when_parked() {
+    let (gate, _dir) = test_gate();
+    let gate = Arc::new(gate);
+    let ctx = agent_ctx("execution-audit-agent", None, false);
+    let docs = CoreContext::scope(ctx.clone(), async {
+        crate::security::approval::store_documents::current(&gate.config).unwrap()
+    })
+    .await;
+
+    // The approval is created while this agent's storage scope is active.
+    let g = gate.clone();
+    let parked_ctx = ctx.clone();
+    let parked = tokio::spawn(async move {
+        let turn = ApprovalTurnContext::chat(chat_ctx());
+        CoreContext::scope(
+            parked_ctx,
+            turn_origin::with_origin(web_origin(), async move {
+                g.intercept_audited(&turn, "shell", "run it", serde_json::json!({}))
+                    .await
+            }),
+        )
+        .await
+    });
+    let request = loop {
+        let rows = CoreContext::scope(ctx.clone(), {
+            let gate = gate.clone();
+            async move { gate.list_pending().unwrap() }
+        })
+        .await;
+        if let Some(row) = rows.into_iter().next() {
+            break row;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    };
+
+    // The host handles the decision and the tool completion after the
+    // agent's dispatch scope has ended. Both writes must still use the
+    // storage handle captured when the request was parked.
+    gate.decide(&request.request_id, ApprovalDecision::ApproveOnce)
+        .unwrap()
+        .expect("parked approval should be decided");
+    assert!(matches!(
+        parked.await.unwrap(),
+        (GateOutcome::Allow, Some(_))
+    ));
+    gate.record_execution(&request.request_id, ExecutionOutcome::Success, None);
+
+    assert_eq!(
+        docs.execution_outcome_for_test(&request.request_id)
+            .unwrap()
+            .as_deref(),
+        Some("success"),
+        "execution outcome must be written to the approval's captured agent scope"
+    );
+}
+
+#[tokio::test]
 async fn an_agent_without_auto_approve_all_parks_under_a_process_policy_that_has_it() {
     let (gate, dir) = test_gate();
     let process = Arc::new(SecurityPolicy {
