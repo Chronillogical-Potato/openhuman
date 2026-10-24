@@ -1,7 +1,7 @@
 //! Onboarding completion and workspace flag operations.
 
-use crate::core::Outcome;
 use crate::core::runtime::DispatchCtx;
+use crate::core::Outcome;
 
 use super::loader::fallback_workspace_dir;
 

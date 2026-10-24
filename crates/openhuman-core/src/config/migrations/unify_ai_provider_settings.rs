@@ -1,7 +1,7 @@
 //! Migration 1 → 2: derive per-workload provider strings from legacy settings.
 
+use crate::config::schema::cloud_providers::{seed_cloud_providers, MigrationStats};
 use crate::config::Config;
-use crate::config::schema::cloud_providers::{MigrationStats, seed_cloud_providers};
 
 /// Run the AI-provider unification migration on the given `Config`.
 ///

@@ -17,8 +17,8 @@ use std::sync::Arc;
 
 use crate::core::slots::HookSlot;
 use tinyinference_providers::builtin::{
-    BUILTIN_CLOUD_PROVIDERS as UPSTREAM_BUILTINS, BuiltinAuthStyle,
-    BuiltinCloudProvider as UpstreamBuiltinCloudProvider, BuiltinPresets,
+    BuiltinAuthStyle, BuiltinCloudProvider as UpstreamBuiltinCloudProvider, BuiltinPresets,
+    BUILTIN_CLOUD_PROVIDERS as UPSTREAM_BUILTINS,
 };
 
 /// Counters returned by [`seed_cloud_providers`] for diagnostics.

@@ -1,10 +1,10 @@
 use crate::config::{
-    Config, ProxyConfig, ProxyScope, runtime_proxy_config, set_runtime_proxy_config,
+    runtime_proxy_config, set_runtime_proxy_config, Config, ProxyConfig, ProxyScope,
 };
 use crate::security::SecurityPolicy;
 use crate::util::MaybeSet;
 use async_trait::async_trait;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::fs;
 use std::sync::Arc;
 use tinyagents_harness_tools::static_schema;

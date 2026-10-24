@@ -1,8 +1,8 @@
 //! Model/provider config operations: AI providers, memory, runtime, local AI, Composio.
 
 use crate::config::Config;
-use crate::core::Outcome;
 use crate::core::runtime::DispatchCtx;
+use crate::core::Outcome;
 
 use super::loader::snapshot_config_json;
 
@@ -10,7 +10,7 @@ use super::loader::snapshot_config_json;
 mod model_byok_route;
 #[cfg(test)]
 use model_byok_route::BYOK_INFERENCE_SLUG;
-use model_byok_route::{ExplicitRolePins, complete_byok_route};
+use model_byok_route::{complete_byok_route, ExplicitRolePins};
 
 #[derive(Debug, Clone, Default)]
 pub struct ModelSettingsPatch {
