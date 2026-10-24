@@ -202,7 +202,9 @@ impl SecurityPolicy {
 
             let base = normalized_command_name(base_raw);
 
-            let args: Vec<String> = words.map(|w| w.to_ascii_lowercase()).collect();
+            let args: Vec<String> = words
+                .map(|w| super::command_vocabulary::shell_unquote(w).to_ascii_lowercase())
+                .collect();
             let joined_segment = cmd_part.to_ascii_lowercase();
 
             // High-risk = catastrophic / irreversible / privilege-escalating /
@@ -421,9 +423,25 @@ impl SecurityPolicy {
     pub fn check_protected_path_words(&self, words: &[String]) -> Result<(), String> {
         for word in words {
             let word = word.trim_matches(|c: char| matches!(c, ':' | '<' | '>' | '&' | '|'));
-            if word.is_empty() || word.contains("://") {
+            if word.is_empty() {
                 continue;
             }
+            let file_url_path = word
+                .strip_prefix("file://")
+                .and_then(|_| url::Url::parse(word).ok())
+                .filter(url::Url::has_host)
+                .or_else(|| {
+                    word.strip_prefix("file://")
+                        .and_then(|_| url::Url::parse(word).ok())
+                })
+                .and_then(|url| url.to_file_path().ok());
+            if word.contains("://") && file_url_path.is_none() {
+                continue;
+            }
+            let word = file_url_path
+                .as_ref()
+                .map(|path| path.to_string_lossy().as_ref().to_owned())
+                .unwrap_or_else(|| word.to_owned());
             let candidate_path = PathBuf::from(word);
             if word.contains('\0')
                 || candidate_path

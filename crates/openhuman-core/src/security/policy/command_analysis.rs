@@ -1,6 +1,6 @@
 use super::command_vocabulary::{
     classify_segment_source, effective_command, has_dangerous_env_assignment, is_assignment,
-    is_command_executor, normalized_command_name, shell_words,
+    is_command_executor, normalized_command_name, shell_unquote, shell_words,
 };
 use crate::security::policy::CommandClass;
 
@@ -56,10 +56,7 @@ impl CommandAnalysis {
             let arguments = words
                 .iter()
                 .skip(1)
-                .map(|word| {
-                    word.trim_matches(|c: char| matches!(c, '\'' | '"'))
-                        .to_owned()
-                })
+                .map(|word| shell_unquote(word))
                 .collect::<Vec<_>>();
             let lower = source.to_ascii_lowercase();
             let leading_env_assignment = is_assignment(raw_command);
