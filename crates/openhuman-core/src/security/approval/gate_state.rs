@@ -279,7 +279,7 @@ impl ApprovalGate {
     pub fn list_recent_decisions(
         &self,
         limit: usize,
-    ) -> anyhow::Result<Vec<super::types::ApprovalAuditEntry>> {
+    ) -> anyhow::Result<Vec<super::super::types::ApprovalAuditEntry>> {
         store::list_recent_decisions(&self.config, limit)
     }
 
@@ -347,7 +347,7 @@ impl ApprovalGate {
     }
 
     /// Clone the instance barrier without retaining the routing-map lock.
-    fn request_scope(&self, request_id: &str) -> Option<Arc<super::ApprovalScope>> {
+    fn request_scope(&self, request_id: &str) -> Option<Arc<super::super::ApprovalScope>> {
         self.request_routes
             .lock()
             .get(request_id)
@@ -362,7 +362,7 @@ impl ApprovalGate {
     /// Record the routing correlation for a newly-parked request. Called at
     /// park time in `intercept_audited_inner`, alongside the `thread_to_request`
     /// insert.
-    fn insert_request_route(&self, request_id: &str, route: RequestRoute) {
+    pub(super) fn insert_request_route(&self, request_id: &str, route: RequestRoute) {
         self.request_routes
             .lock()
             .insert(request_id.to_string(), route);
@@ -371,11 +371,11 @@ impl ApprovalGate {
     /// Remove and return the routing correlation for `request_id`, if any.
     /// Consumed exactly once per request — by whichever path resolves the
     /// decision first (`decide`, a TTL timeout, or a dropped channel).
-    fn take_request_route(&self, request_id: &str) -> Option<RequestRoute> {
+    pub(super) fn take_request_route(&self, request_id: &str) -> Option<RequestRoute> {
         self.request_routes.lock().remove(request_id)
     }
 
-    fn evict_waiter(&self, request_id: &str) {
+    pub(super) fn evict_waiter(&self, request_id: &str) {
         let mut waiters = self.waiters.lock();
         waiters.remove(request_id);
     }
@@ -384,7 +384,7 @@ impl ApprovalGate {
     /// ambient tenant (SaaS profile and/or embedded agent), if any. Used by
     /// the web channel to route an inbound yes/no reply to a decision.
     pub fn pending_for_thread(&self, thread_id: &str) -> Option<String> {
-        self.pending_for_tenant_thread(&super::gate::current_route_tenant(), thread_id)
+        self.pending_for_tenant_thread(&super::current_route_tenant(), thread_id)
     }
 
     /// The request_id `agent` (`None`: the process) has parked on
@@ -508,7 +508,7 @@ impl ApprovalGate {
     }
 
     /// Drop the thread → request mapping when it still belongs to this request.
-    fn clear_thread(&self, thread_key: &Option<String>, request_id: &str) {
+    pub(super) fn clear_thread(&self, thread_key: &Option<String>, request_id: &str) {
         if let Some(key) = thread_key {
             self.clear_thread_route_if_owned(key, request_id);
         }
@@ -519,7 +519,7 @@ impl ApprovalGate {
     /// replacement turn may have already parked a new approval on the same
     /// thread and overwritten the entry; clearing unconditionally would delete
     /// the *new* request's routing (#4774).
-    fn clear_thread_route_if_owned(&self, thread_key: &str, request_id: &str) {
+    pub(super) fn clear_thread_route_if_owned(&self, thread_key: &str, request_id: &str) {
         let mut map = self.thread_to_request.lock();
         if map.get(thread_key).is_some_and(|rid| rid == request_id) {
             map.remove(thread_key);
