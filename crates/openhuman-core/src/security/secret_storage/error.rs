@@ -37,6 +37,10 @@ pub enum SecretStorageError {
     #[error("Failed to generate random bytes: {0}")]
     RandomGeneration(String),
 
+    /// The encrypted file backend cannot access its master key.
+    #[error("Secret storage master key is unavailable")]
+    MasterKeyUnavailable,
+
     /// Encryption or decryption of the secrets file failed.
     #[error("Secret-storage crypto error: {0}")]
     Crypto(String),

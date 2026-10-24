@@ -5733,6 +5733,7 @@ dependencies = [
  "rand 0.10.3",
  "regex",
  "reqwest 0.12.28",
+ "rustix 1.1.5",
  "rustls",
  "schemars",
  "sentry",

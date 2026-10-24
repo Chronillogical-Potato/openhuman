@@ -39,6 +39,60 @@ fn write_profile_key(workspace: &Path, key: &[u8; KEY_LEN]) {
     file_store::write_atomic(&path, encoded.as_bytes()).unwrap();
 }
 
+struct DeniedMasterKeySource;
+
+impl key_source::MasterKeySource for DeniedMasterKeySource {
+    fn load(&self) -> Result<Option<Zeroizing<[u8; KEY_LEN]>>, SecretStorageError> {
+        Err(SecretStorageError::Backend("access denied".into()))
+    }
+
+    fn store(&self, _: &[u8; KEY_LEN]) -> Result<(), SecretStorageError> {
+        panic!("a denied source must not be written")
+    }
+}
+
+struct ClearMasterKeySourceOnDrop;
+
+impl Drop for ClearMasterKeySourceOnDrop {
+    fn drop(&mut self) {
+        key_source::clear_master_key_source();
+    }
+}
+
+#[test]
+fn encrypted_get_reports_unavailable_master_key() {
+    let workspace = secrets_tempdir();
+    let backend = EncryptedFileBackend::new(workspace.path());
+    let key = [0x42; KEY_LEN];
+    write_secret(&backend, &key, "still-present");
+
+    key_source::install_master_key_source(std::sync::Arc::new(DeniedMasterKeySource));
+    let _clear = ClearMasterKeySourceOnDrop;
+
+    assert!(matches!(
+        backend.get("user:token"),
+        Err(SecretStorageError::MasterKeyUnavailable)
+    ));
+}
+
+#[test]
+fn encrypted_delete_reports_unavailable_master_key_and_preserves_file() {
+    let workspace = secrets_tempdir();
+    let backend = EncryptedFileBackend::new(workspace.path());
+    let key = [0x42; KEY_LEN];
+    write_secret(&backend, &key, "still-present");
+    let original = std::fs::read(&backend.path).unwrap();
+
+    key_source::install_master_key_source(std::sync::Arc::new(DeniedMasterKeySource));
+    let _clear = ClearMasterKeySourceOnDrop;
+
+    assert!(matches!(
+        backend.delete("user:token"),
+        Err(SecretStorageError::MasterKeyUnavailable)
+    ));
+    assert_eq!(std::fs::read(&backend.path).unwrap(), original);
+}
+
 #[test]
 fn profile_read_only_secret_lookup_uses_only_the_selected_store() {
     let _env = crate::config::test_env::EnvVarGuard::locked_unset_many(&[

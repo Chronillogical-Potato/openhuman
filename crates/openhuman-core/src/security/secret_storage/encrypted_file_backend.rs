@@ -349,17 +349,20 @@ impl EncryptedFileBackend {
         self.get_with_key_read_only(&key, namespaced_key)
     }
 
-    fn key(&self) -> Option<Zeroizing<[u8; KEY_LEN]>> {
+    fn key(&self) -> Result<Zeroizing<[u8; KEY_LEN]>, SecretStorageError> {
         #[cfg(test)]
         {
             if let Some(source) = key_source::installed_master_key_source() {
-                return key_source::load_or_mint_master_key(source.as_ref()).ok();
+                return key_source::load_or_mint_master_key(source.as_ref())
+                    .map_err(|_| SecretStorageError::MasterKeyUnavailable);
             }
-            key_source::workspace_master_key(&self.workspace_dir).ok()
+            key_source::workspace_master_key(&self.workspace_dir)
         }
         #[cfg(not(test))]
         {
-            master_key().map(|key| Zeroizing::new(*key))
+            master_key()
+                .map(|key| Zeroizing::new(*key))
+                .ok_or(SecretStorageError::MasterKeyUnavailable)
         }
     }
 
@@ -641,26 +644,18 @@ impl EncryptedFileBackend {
 
 impl SecretBackend for EncryptedFileBackend {
     fn get(&self, namespaced_key: &str) -> Result<Option<String>, SecretStorageError> {
-        let Some(key) = self.key() else {
-            return Ok(None);
-        };
+        let key = self.key()?;
         self.get_with_key(&key, namespaced_key)
     }
 
     fn set(&self, namespaced_key: &str, value: &str) -> Result<(), SecretStorageError> {
-        let Some(key) = self.key() else {
-            return Err(SecretStorageError::Backend(
-                "master key unavailable — cannot store secrets".to_string(),
-            ));
-        };
+        let key = self.key()?;
         self.set_with_key(&key, namespaced_key, value)
     }
 
     fn delete(&self, namespaced_key: &str) -> Result<(), SecretStorageError> {
         use tinystoragedrivers::secrets::SecretStore as _;
-        let Some(key) = self.key() else {
-            return Ok(());
-        };
+        let key = self.key()?;
         let name = namespaced_key.to_string();
         self.run(&key, move |store| {
             let name = name.clone();
