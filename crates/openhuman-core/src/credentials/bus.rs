@@ -120,7 +120,7 @@ impl SessionExpiredSubscriber {
                     llm_gate::set_signed_out(false);
                     return;
                 }
-                let current_token = crate::credentials::session_support::get_session_token(&config)
+                let current_token = crate::credentials::session_state::get_session_token(&config)
                     .ok()
                     .flatten();
                 let matches = current_token.as_deref().is_some_and(|token| {
@@ -134,7 +134,7 @@ impl SessionExpiredSubscriber {
                     return;
                 }
                 let is_local_session = current_token.as_deref().is_some_and(|token| {
-                    crate::credentials::session_support::is_local_session_token(token)
+                    crate::credentials::session_state::is_local_session_token(token)
                 });
                 if is_local_session {
                     tracing::warn!(
@@ -188,7 +188,7 @@ impl SessionExpiredSubscriber {
 }
 
 fn session_expiry_matches_token(fingerprint: &str, token: &str) -> bool {
-    crate::credentials::session_support::credential_fingerprint_matches(
+    crate::credentials::backend_credential::credential_fingerprint_matches(
         fingerprint,
         token,
     )

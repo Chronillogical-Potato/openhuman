@@ -1,8 +1,8 @@
 use super::*;
 use crate::profiles::layout::{profile_config, ProfileLayout};
 use crate::profiles::ProfileId;
-use crate::credentials::session_support::{
-    resolve_backend_credential, BackendCredential,
+use crate::credentials::backend_credential::{
+    resolve_backend_credential, BackendCredential
 };
 
 /// Credential secrets live in the process keyring keyed by agent id, which

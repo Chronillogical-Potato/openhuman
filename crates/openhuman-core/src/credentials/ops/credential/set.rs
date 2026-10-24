@@ -27,7 +27,7 @@ pub async fn set_credential(
     let issuing_backend = if resolved.kind == CredentialKind::Session {
         issuing_backend
             .as_deref()
-            .map(crate::credentials::session_support::normalize_session_backend)
+            .map(crate::credentials::session_state::normalize_session_backend)
             .transpose()?
     } else {
         None
@@ -36,7 +36,7 @@ pub async fn set_credential(
 
     if resolved.kind == CredentialKind::ApiKey {
         let was_authenticated =
-            crate::credentials::session_support::has_backend_credential(config);
+            crate::credentials::backend_credential::has_backend_credential(config);
         api_key::store_api_key(config, &resolved.token).map_err(|e| e.to_string())?;
         crate::integrations::composio::invalidate_connected_integrations_cache();
         // API-key-backed runs must not retain a previous session identity in
@@ -84,7 +84,7 @@ pub async fn set_credential(
             .filter(|_| same_token)
             .and_then(|profile| {
                 profile.metadata.get(
-                    crate::credentials::session_support::SESSION_ISSUING_BACKEND_META,
+                    crate::credentials::session_state::SESSION_ISSUING_BACKEND_META,
                 )
             });
         if let (Some(previous), Some(issuing)) = (previous_backend, issuing_backend.as_ref()) {
@@ -94,7 +94,7 @@ pub async fn set_credential(
         }
         if let Some(backend) = previous_backend.cloned().or(issuing_backend) {
             metadata.insert(
-                crate::credentials::session_support::SESSION_ISSUING_BACKEND_META
+                crate::credentials::session_state::SESSION_ISSUING_BACKEND_META
                     .to_string(),
                 backend,
             );

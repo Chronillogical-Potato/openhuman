@@ -15,7 +15,7 @@ fn domain_filter_is_auth() {
 
 #[test]
 fn stale_session_expiry_does_not_match_a_replacement_token() {
-    let expired_request = crate::credentials::session_support::credential_fingerprint(
+    let expired_request = crate::credentials::backend_credential::credential_fingerprint(
         "request-token-before-rotation",
     );
     assert!(!super::session_expiry_matches_token(
@@ -31,9 +31,12 @@ fn stale_session_expiry_does_not_match_a_replacement_token() {
 #[tokio::test]
 async fn stale_session_expiry_leaves_replacement_session_and_gate_intact() {
     use crate::core::runtime::{CoreContext, DispatchCtx, DomainSet};
-    use crate::credentials::session_support::{
-        credential_fingerprint, get_session_token,
-    };
+    use crate::credentials::backend_credential::{
+    credential_fingerprint
+};
+    use crate::credentials::session_state::{
+    get_session_token
+};
 
     let temp = tempfile::tempdir().expect("temporary workspace");
     let config = crate::config::Config {

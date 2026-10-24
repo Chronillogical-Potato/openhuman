@@ -17,8 +17,11 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
-use crate::credentials::session_support::{
-    has_backend_credential, SESSION_EXPIRES_AT_META,
+use crate::credentials::backend_credential::{
+    has_backend_credential
+};
+use crate::credentials::session_state::{
+    SESSION_EXPIRES_AT_META
 };
 use crate::credentials::{
     api_key, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,

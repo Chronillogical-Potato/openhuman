@@ -171,10 +171,10 @@ async fn invoke_retired_v1_memory_method_is_unknown() {
 
 #[test]
 fn local_offline_credential_does_not_publish_backend_session_expiry() {
-    let local = crate::credentials::session_support::is_local_session_token(
+    let local = crate::credentials::session_state::is_local_session_token(
         "header.payload.local",
     );
-    let jwt = crate::credentials::session_support::is_local_session_token(
+    let jwt = crate::credentials::session_state::is_local_session_token(
         "header.payload.signature",
     );
     for error in [
@@ -212,7 +212,7 @@ fn local_offline_credential_does_not_publish_backend_session_expiry() {
 #[test]
 fn rpc_expiry_requires_matching_request_time_credential_provenance() {
     let request_fingerprint =
-        crate::credentials::session_support::credential_fingerprint("request-token");
+        crate::credentials::backend_credential::credential_fingerprint("request-token");
     let error = "SESSION_EXPIRED: backend rejected session token";
     assert!(!request_session_failure_is_actionable(
         error,

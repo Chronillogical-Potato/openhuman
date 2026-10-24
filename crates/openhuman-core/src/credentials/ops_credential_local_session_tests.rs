@@ -173,7 +173,7 @@ async fn clearing_the_session_keeps_the_api_key_on_a_storage_backend() {
     let cleared = clear_credential(
         &DispatchCtx::process_default(),
         &user_scoped,
-        Some(session_support::CredentialKind::Session),
+        Some(session_state::CredentialKind::Session),
     )
     .await
     .unwrap()

@@ -102,7 +102,7 @@ async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_
             source: "coverage-test".to_string(),
             reason: "remote token rejected".to_string(),
             credential_fingerprint: Some(
-                openhuman_core::credentials::session_support::credential_fingerprint(
+                openhuman_core::credentials::backend_credential::credential_fingerprint(
                     "session-expired-remote-jwt",
                 ),
             ),

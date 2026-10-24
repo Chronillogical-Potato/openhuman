@@ -293,11 +293,11 @@ impl Tool for TinySearchTool {
         let request_credential_fingerprint = if api_key {
             None
         } else {
-            crate::credentials::session_support::get_session_token(&config)
+            crate::credentials::session_state::get_session_token(&config)
                 .ok()
                 .flatten()
                 .map(|token| {
-                    crate::credentials::session_support::credential_fingerprint(&token)
+                    crate::credentials::backend_credential::credential_fingerprint(&token)
                 })
         };
         match crate::modules::search::execute_tool(&ctx, &config, request).await {

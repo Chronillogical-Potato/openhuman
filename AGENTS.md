@@ -455,7 +455,7 @@ sandboxing, timeouts, and progress events.
   `include_user_skills(true)`.
 - Library mode has no user login: the runtime's API key rides managed
   inference as `Authorization: Bearer` and backend REST as `x-api-key`
-  (`credentials::api_key`, `session_support::BackendCredential`).
+  (`credentials::api_key`, `session_state::BackendCredential`).
   Every backend caller resolves its credential through
   `resolve_backend_credential` (or `backend_bearer_secret` for bearer-only
   seams), never `get_session_token`, so the key covers integrations, voice,

@@ -34,7 +34,7 @@ The signed-in identity for prompts and Sentry is `credentials::identity::peek_cr
 ## Calls into
 
 - `crate::config`: `config::rpc::load_config_with_timeout`.
-- `crate::credentials`: `session_support::{load_app_session_profile, session_state_from_profile, session_token_from_profile}`; `crate::security::keyring_consent` for `KeyringStatus` / `ConsentPreference`.
+- `crate::credentials`: `session_state::{load_app_session_profile, session_state_from_profile, session_token_from_profile}`; `crate::security::keyring_consent` for `KeyringStatus` / `ConsentPreference`.
 - `crate::inference`: `LocalAiStatus` via `inference::ops::inference_status`.
 - `crate::platform::service`: `ServiceState` / `ServiceStatus`; `crate::platform::health::snapshot`.
 

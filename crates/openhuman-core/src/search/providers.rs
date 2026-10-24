@@ -80,7 +80,7 @@ pub fn backend_credential_available(config: &Config) -> bool {
     if config.profile_providers.is_some() {
         return false;
     }
-    crate::credentials::session_support::resolve_backend_credential(config).is_ok()
+    crate::credentials::backend_credential::resolve_backend_credential(config).is_ok()
 }
 
 /// Resolve every known provider, in catalog order.

@@ -60,10 +60,10 @@ pub async fn connect_with_session(
         .resolved_endpoints
         .require_control_plane()?
         .to_string();
-    let token = crate::credentials::session_support::get_session_token(&config)
+    let token = crate::credentials::session_state::get_session_token(&config)
         .map_err(|e| format!("failed to read session token: {e}"))?
         .ok_or("no session token stored — user must log in first")?;
-    if crate::credentials::session_support::is_local_session_token(&token) {
+    if crate::credentials::session_state::is_local_session_token(&token) {
         return Err("offline local session cannot connect to hosted socket".to_string());
     }
 

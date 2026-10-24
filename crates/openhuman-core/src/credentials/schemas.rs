@@ -215,7 +215,7 @@ fn handle_auth_clear_credential(ctx: DispatchCtx, params: Map<String, Value>) ->
             .filter(|k| !k.is_empty())
         {
             Some(raw) => Some(
-                crate::credentials::session_support::CredentialKind::parse(raw)
+                crate::credentials::session_state::CredentialKind::parse(raw)
                     .ok_or_else(|| format!("unknown credential kind {raw:?}"))?,
             ),
             None => None,

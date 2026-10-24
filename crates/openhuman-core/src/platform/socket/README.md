@@ -67,12 +67,12 @@ This module is a **publisher only**: it owns no `bus.rs` / `EventHandler` impls.
 
 ## Persistence
 
-None of its own. State (`status`, `socket_id`, `error`, attached `WebhookRouter`, pending ACK waiters) lives in-memory in `SharedState`. The session token is read on demand from the profile store via `crate::credentials::session_support::get_session_token` (live-refresh path); there is no `store.rs`.
+None of its own. State (`status`, `socket_id`, `error`, attached `WebhookRouter`, pending ACK waiters) lives in-memory in `SharedState`. The session token is read on demand from the profile store via `crate::credentials::session_state::get_session_token` (live-refresh path); there is no `store.rs`.
 
 ## Dependencies
 
 - `crate::platform::socket::models`: `ConnectionStatus`, `SocketState` DTOs.
-- `crate::platform::socket::url::websocket_url`, `config.resolved_endpoints.require_control_plane` (the host-resolved control-plane URL), `crate::credentials::session_support::get_session_token`: URL derivation and session-token lookup.
+- `crate::platform::socket::url::websocket_url`, `config.resolved_endpoints.require_control_plane` (the host-resolved control-plane URL), `crate::credentials::session_state::get_session_token`: URL derivation and session-token lookup.
 - `crate::core::all`: `ControllerFuture`, `RegisteredController` for the controller registry.
 - `crate::core::{ControllerSchema, FieldSchema, TypeSchema}`: RPC schema types.
 - `crate::core::bus::BUS.publish` / `crate::core::events::DomainEvent`: for routing inbound events.

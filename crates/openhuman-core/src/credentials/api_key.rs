@@ -18,7 +18,7 @@
 //! The key lives in the same auth-profile store as the app session (the
 //! parent of `config.config_path`), under its own provider id, so a runtime
 //! that has both prefers the API key (see
-//! [`resolve_backend_credential`](super::session_support::resolve_backend_credential)).
+//! [`resolve_backend_credential`](super::backend_credential::resolve_backend_credential)).
 //! It is never written to `config.toml` and never logged.
 
 use std::collections::HashMap;

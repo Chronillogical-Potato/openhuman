@@ -1,6 +1,6 @@
 use super::*;
-use crate::credentials::session_support::{
-    resolve_backend_credential, BackendCredential,
+use crate::credentials::backend_credential::{
+    resolve_backend_credential, BackendCredential
 };
 
 fn config_in(dir: &std::path::Path) -> Config {
@@ -80,7 +80,7 @@ fn a_provider_profile_named_api_key_without_the_marker_is_not_accepted() {
 
 #[test]
 fn api_key_wins_over_an_expired_session() {
-    use crate::credentials::session_support::SESSION_EXPIRES_AT_META;
+    use crate::credentials::session_state::SESSION_EXPIRES_AT_META;
     use crate::credentials::{
         AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
     };

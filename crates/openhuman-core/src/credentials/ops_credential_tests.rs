@@ -7,7 +7,7 @@ async fn same_token_refresh_preserves_issuing_backend_and_refuses_rebinding() {
     let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let key = crate::credentials::session_support::SESSION_ISSUING_BACKEND_META;
+    let key = crate::credentials::session_state::SESSION_ISSUING_BACKEND_META;
     let mut metadata = std::collections::HashMap::new();
     metadata.insert("user_id".into(), "test-user".into());
     metadata.insert(key.into(), "https://issuer.example".into());
@@ -49,7 +49,7 @@ async fn same_token_refresh_preserves_issuing_backend_and_refuses_rebinding() {
     .await
     .unwrap_err();
     assert!(error.starts_with("SESSION_BACKEND_MISMATCH"));
-    let stored = crate::credentials::session_support::load_app_session_profile(&config)
+    let stored = crate::credentials::session_state::load_app_session_profile(&config)
         .unwrap()
         .unwrap();
     assert_eq!(stored.metadata.get(key).unwrap(), "https://issuer.example");
@@ -366,7 +366,7 @@ async fn set_and_clear_api_key_credential() {
     let cleared = clear_credential(
         &DispatchCtx::process_default(),
         &config,
-        Some(session_support::CredentialKind::ApiKey),
+        Some(session_state::CredentialKind::ApiKey),
     )
     .await
     .unwrap()
@@ -432,7 +432,7 @@ async fn clearing_the_session_preserves_a_coexisting_api_key() {
     let cleared = clear_credential(
         &DispatchCtx::process_default(),
         &user_scoped,
-        Some(session_support::CredentialKind::Session),
+        Some(session_state::CredentialKind::Session),
     )
     .await
     .unwrap()
@@ -544,7 +544,7 @@ async fn clearing_the_session_preserves_the_active_key_over_a_stale_destination_
     clear_credential(
         &DispatchCtx::process_default(),
         &user_scoped,
-        Some(session_support::CredentialKind::Session),
+        Some(session_state::CredentialKind::Session),
     )
     .await
     .unwrap();

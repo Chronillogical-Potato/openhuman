@@ -102,7 +102,7 @@ pub async fn clear_credential(
             crate::integrations::composio::invalidate_connected_integrations_cache();
             logs.push("api key cleared".to_string());
         }
-        if !crate::credentials::session_support::has_backend_credential(config) {
+        if !crate::credentials::backend_credential::has_backend_credential(config) {
             crate::platform::llm_gate::set_signed_out(true);
         } else if removed_api_key {
             // Clearing the preferred API key exposes the surviving session.

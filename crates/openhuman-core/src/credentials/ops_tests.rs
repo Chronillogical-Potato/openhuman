@@ -1,10 +1,11 @@
 use super::*;
 use crate::config::test_env::EnvVarGuard;
 use crate::config::{default_root_openhuman_dir, user_openhuman_dir, write_active_user_id, Config};
-use crate::credentials::session_support::local_session_user_id;
+use crate::credentials::session_state::local_session_user_id;
 use crate::credentials::{
-    identity, session_support, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+    identity, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
+use crate::credentials::{backend_credential, session_state};
 use axum::http::StatusCode;
 use axum::routing::get;
 use axum::Router;

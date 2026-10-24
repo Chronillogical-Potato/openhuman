@@ -4,8 +4,8 @@ use serde_json::json;
 
 use crate::config::Config;
 use crate::core::Outcome;
-use crate::credentials::session_support::{
-    parse_fields_value, profile_name_or_default, summarize_auth_profile,
+use crate::credentials::session_state::{
+    parse_fields_value, profile_name_or_default, summarize_auth_profile
 };
 use crate::credentials::{normalize_provider, AuthService, APP_SESSION_PROVIDER};
 

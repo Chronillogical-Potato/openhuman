@@ -38,11 +38,11 @@ async fn push_spans(config: &Config, spans: &[TraceSpan]) -> Result<(), String> 
     if !url.starts_with("http") {
         return Err("Langfuse backend proxy URL is unavailable".to_string());
     }
-    let token = match crate::credentials::session_support::direct_backend_credential(
+    let token = match crate::credentials::backend_credential::direct_backend_credential(
         config,
         "langfuse otlp push",
     ) {
-        Some(crate::credentials::session_support::BackendCredential::Session(token)) => {
+        Some(crate::credentials::backend_credential::BackendCredential::Session(token)) => {
             token
         }
         _ => return Ok(()),

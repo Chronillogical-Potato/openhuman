@@ -224,7 +224,7 @@ chain core, embed, tinyhumans, cli.
   `BackendTransportError` in [`src/transport/port.rs`](src/transport/port.rs)),
   the authenticated JSON client ([`src/client/`](src/client/mod.rs)) and all
   recovery from errors. The core owns only the generic credential type and
-  its resolution (`credentials::session_support::resolve_backend_credential`),
+  its resolution (`credentials::backend_credential::resolve_backend_credential`),
   which this crate calls. `scripts/ci/check-core-hosted-free.mjs` keeps hosted
   names out of the core.
 - Route implementations belong in the vendored SDK (`tinyhumansai/tinyhumans-sdk`,
