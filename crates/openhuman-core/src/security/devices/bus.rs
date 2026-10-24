@@ -162,18 +162,14 @@ struct TunnelRpcPayload {
 
 async fn handle_peer_online(channel_id: &str) {
     log::info!("[devices/bus] peer online channel_id={}", channel_id);
-    PEER_STATUS
-        .lock()
-        .unwrap()
+    super::lock_unpoisoned(&PEER_STATUS)
         .insert(channel_id.to_string(), true);
     // No re-publish: the event was already published by socket::event_handlers.
 }
 
 fn handle_peer_offline(channel_id: &str) {
     log::info!("[devices/bus] peer offline channel_id={}", channel_id);
-    PEER_STATUS
-        .lock()
-        .unwrap()
+    super::lock_unpoisoned(&PEER_STATUS)
         .insert(channel_id.to_string(), false);
     // No re-publish: the event was already published by socket::event_handlers.
 }
@@ -207,7 +203,7 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
 
     // Look up the pending keypair for this channel.
     let keypair = {
-        let map = PENDING_KEYPAIRS.lock().unwrap();
+        let map = super::lock_unpoisoned(&PENDING_KEYPAIRS);
         map.get(channel_id).cloned()
     };
 
@@ -261,7 +257,7 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
             }
         };
         let core_priv = {
-            let map = PENDING_KEYPAIRS.lock().unwrap();
+            let map = super::lock_unpoisoned(&PENDING_KEYPAIRS);
             map.get(channel_id).cloned()
         };
         let Some(core_keypair) = core_priv else {
@@ -378,7 +374,7 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
     // than persisting a hash of an empty token into the legacy column: a frame
     // with no pending session has no valid pairing context (CodeRabbit #4355).
     let (label, pairing_token) = {
-        let sessions = PENDING_SESSIONS.lock().unwrap();
+        let sessions = super::lock_unpoisoned(&PENDING_SESSIONS);
         match sessions.get(channel_id) {
             Some(session) => (session.channel_id.clone(), session.pairing_token.clone()),
             None => {
@@ -444,8 +440,8 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
 /// otherwise keep being accepted for a device nothing records
 /// (`super::owner` treats a missing row as the handshake persistence window).
 pub(super) fn abandon_unpersisted_pairing(channel_id: &str) {
-    PENDING_SESSIONS.lock().unwrap().remove(channel_id);
-    ACTIVE_CIPHERS.lock().unwrap().remove(channel_id);
+    super::lock_unpoisoned(&PENDING_SESSIONS).remove(channel_id);
+    super::lock_unpoisoned(&ACTIVE_CIPHERS).remove(channel_id);
     log::warn!("[devices/bus] pairing abandoned channel_id={channel_id}: device not persisted");
 }
 
@@ -492,7 +488,7 @@ async fn install_v2_cipher_and_ack(
         &server_eph_pub_bytes,
     );
 
-    ACTIVE_CIPHERS.lock().unwrap().insert(
+    super::lock_unpoisoned(&ACTIVE_CIPHERS).insert(
         channel_id.to_string(),
         Arc::new(std::sync::Mutex::new(TunnelCipher::for_role(
             TunnelRole::Server,
@@ -540,7 +536,7 @@ async fn install_v2_cipher_and_ack(
 
 async fn handle_encrypted_rpc_frame(channel_id: &str, frame_bytes: &[u8]) {
     let cipher = {
-        let map = ACTIVE_CIPHERS.lock().unwrap();
+        let map = super::lock_unpoisoned(&ACTIVE_CIPHERS);
         map.get(channel_id).cloned()
     };
     let Some(cipher) = cipher else {
@@ -552,7 +548,7 @@ async fn handle_encrypted_rpc_frame(channel_id: &str, frame_bytes: &[u8]) {
     };
 
     let plaintext = {
-        let mut guard = cipher.lock().unwrap();
+        let mut guard = super::lock_unpoisoned(cipher);
         match guard.open(frame_bytes) {
             Ok(bytes) => bytes,
             Err(e) => {
@@ -672,7 +668,7 @@ async fn emit_tunnel_response(
         }
     };
     let encrypted = {
-        let guard = cipher.lock().unwrap();
+        let guard = super::lock_unpoisoned(cipher);
         match guard.seal(&plaintext) {
             Ok(frame) => frame,
             Err(e) => {

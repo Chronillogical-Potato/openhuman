@@ -19,6 +19,15 @@ pub(crate) use store_documents::import_source;
 pub mod tunnel_client;
 pub mod types;
 
+/// Lock device state even after a prior panicking handler poisoned its mutex.
+/// Poisoning means an interrupted update may have left state incomplete; it
+/// should not make every subsequent tunnel frame panic as well.
+pub(super) fn lock_unpoisoned<T>(mutex: &std::sync::Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    mutex
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
 pub(crate) use schemas::all_controller_entries;
 #[cfg(test)]
 pub(crate) use schemas::devices_parameter_contracts;

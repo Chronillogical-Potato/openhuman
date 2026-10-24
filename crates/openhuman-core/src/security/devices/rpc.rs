@@ -96,9 +96,7 @@ pub async fn devices_create_pairing(
     let private_b64 = base64url_encode(&keypair.private_bytes());
     match secret_store.encrypt(&private_b64) {
         Ok(enc) => {
-            PERSISTED_KEYPAIRS
-                .lock()
-                .unwrap()
+            super::lock_unpoisoned(&PERSISTED_KEYPAIRS)
                 .insert(reg.channel_id.clone(), enc);
             log::debug!(
                 "[devices/rpc] keypair private key encrypted and persisted channel_id={}",
@@ -114,9 +112,7 @@ pub async fn devices_create_pairing(
     }
 
     // Stash keypair in memory so bus.rs can complete the X25519 handshake.
-    PENDING_KEYPAIRS
-        .lock()
-        .unwrap()
+    super::lock_unpoisoned(&PENDING_KEYPAIRS)
         .insert(reg.channel_id.clone(), Arc::new(keypair));
 
     // Best-effort LAN URL detection (non-fatal if it fails).
