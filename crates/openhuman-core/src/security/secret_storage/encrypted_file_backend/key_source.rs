@@ -143,18 +143,7 @@ pub(super) fn read_master_key_file(path: &Path) -> Result<String, String> {
             ));
         }
     }
-    let mut bytes = Vec::with_capacity(4096);
-    file.by_ref()
-        .take(4097)
-        .read_to_end(&mut bytes)
-        .map_err(|e| format!("cannot read master key file: {e}"))?;
-    if bytes.len() > 4096 {
-        return Err(format!(
-            "master key file ({MASTER_KEY_FILE_ENV}) exceeds the 4096-byte limit"
-        ));
-    }
-    String::from_utf8(bytes)
-        .map_err(|_| format!("master key file ({MASTER_KEY_FILE_ENV}) is not valid UTF-8"))
+    std::fs::read_to_string(path).map_err(|e| format!("cannot read master key file: {e}"))
 }
 
 #[cfg(unix)]
