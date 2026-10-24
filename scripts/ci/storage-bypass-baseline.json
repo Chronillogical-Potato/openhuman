@@ -218,7 +218,7 @@
   },
   {
     "rule": "json-write",
-    "path": "crates/openhuman-core/src/security/credentials/http_creds.rs",
+    "path": "crates/openhuman-core/src/flows/http_credentials.rs",
     "line": 429,
     "text": "fs::write(&tmp_path, &json)",
     "occurrence": 1

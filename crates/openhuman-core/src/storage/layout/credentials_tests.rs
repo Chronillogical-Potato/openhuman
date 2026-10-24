@@ -52,7 +52,7 @@ async fn a_migration_moves_the_credential_files_into_encrypted_secrets() {
         panic!("expected a migration");
     };
     clear_master_key_source();
-    for (file, secret) in FILES {
+    for &(file, secret) in FILES {
         assert!(
             !fx.target.profile_dir.join(file).exists(),
             "{file} is deleted once archived"

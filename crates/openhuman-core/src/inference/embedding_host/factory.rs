@@ -10,10 +10,10 @@ use tinyinference_embeddings::factory::{
 use tinyinference_embeddings::{EmbeddingModel, UnavailableEmbeddingModel};
 use tinyinference_providers::route::custom_provider_string;
 
+use super::embedding_scope::credential_scope;
 use crate::inference::provider::factory::PROVIDER_OPENHUMAN;
 use crate::inference::registry::ProviderContext;
 use crate::security::approval::ApprovalChatContext;
-use crate::security::credentials::embedding_scope::credential_scope;
 use tinyinference_llm::providers::overrides::EmbeddingRequest;
 
 pub(super) fn settings(

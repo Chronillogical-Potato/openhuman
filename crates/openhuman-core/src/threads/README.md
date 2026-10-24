@@ -149,7 +149,7 @@ subscribes to `DomainEvent::ChannelMessage*` on the core bus and mirrors
 inbound and processed channel turns into the store, using
 `conversation_history_key` for the thread id. It is registered from
 `core/runtime/subscribers.rs`, `channels/runtime/startup/start_channels.rs`
-and `security/credentials/ops/user_scope.rs` (when the user dir activates).
+and `config/user_scope.rs` (when the user dir activates).
 See [store/README.md](store/README.md).
 
 ## Layout

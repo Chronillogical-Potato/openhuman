@@ -94,7 +94,7 @@ pub async fn init_stores(cfg: &crate::config::Config, domains: crate::core::runt
     match crate::security::credentials::session_support::build_session_state(cfg) {
         Ok(state) => {
             if let Some(uid) = state.user_id.as_deref() {
-                crate::security::credentials::sentry_scope::bind(uid);
+                crate::core::observability::sentry_scope::bind(uid);
             }
             // The host-supplied user payload survives restarts in the profile
             // store; seed the identity slot from it so prompt composition sees

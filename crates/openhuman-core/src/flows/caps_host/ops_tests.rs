@@ -1,6 +1,6 @@
 use super::*;
 use crate::config::Config;
-use crate::security::credentials::{HttpCredential, HttpCredentialsStore};
+use crate::flows::http_credentials::{HttpCredential, HttpCredentialsStore};
 use crate::security::SecurityPolicy;
 
 fn http_cred_store() -> (tempfile::TempDir, HttpCredentialsStore) {

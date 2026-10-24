@@ -14,7 +14,7 @@ use crate::config::{
 use crate::core::runtime::DispatchCtx;
 use crate::threads::store as conversations;
 
-use super::gated_services::is_embedder_host;
+use crate::security::credentials::ops::gated_services::is_embedder_host;
 
 const LOG_PREFIX: &str = "[credentials][user-scope]";
 
@@ -23,7 +23,7 @@ const LOG_PREFIX: &str = "[credentials][user-scope]";
 /// library `Harness`) keeps session state under its own `config_path` scope
 /// and must never change which user the operator's real install believes is
 /// active purely by virtue of running a library call.
-pub(super) fn operator_user_activation_allowed() -> bool {
+pub(crate) fn operator_user_activation_allowed() -> bool {
     if is_embedder_host() {
         return false;
     }
@@ -52,7 +52,7 @@ mod tests;
 /// anonymous pre-login conversation store is purged so a fresh account never
 /// inherits demo or scratch threads from the pre-login bucket (#1157).
 /// Returns human-readable log lines for the RPC outcome.
-pub(super) fn activate_user_scope(ctx: &DispatchCtx, user_id: &str) -> Result<Vec<String>, String> {
+pub(crate) fn activate_user_scope(ctx: &DispatchCtx, user_id: &str) -> Result<Vec<String>, String> {
     let mut logs = Vec::new();
     if !operator_user_activation_allowed() {
         log::debug!("{LOG_PREFIX} embedder host; skipping global user activation for {user_id}");
@@ -107,7 +107,7 @@ pub(super) fn activate_user_scope(ctx: &DispatchCtx, user_id: &str) -> Result<Ve
 
 /// Clear `active_user.toml` so subsequent config loads fall back to the
 /// default (unauthenticated) openhuman directory.
-pub(super) fn deactivate_user_scope() -> Result<(), String> {
+pub(crate) fn deactivate_user_scope() -> Result<(), String> {
     if !operator_user_activation_allowed() {
         return Ok(());
     }
@@ -118,7 +118,7 @@ pub(super) fn deactivate_user_scope() -> Result<(), String> {
 /// The config that reflects the current `active_user.toml` — reloaded after an
 /// activation so credentials, keys and workspaces land in the user-scoped
 /// location — or `fallback` when the reload fails.
-pub(super) async fn reload_config_or(
+pub(crate) async fn reload_config_or(
     ctx: &DispatchCtx,
     _fallback: &Config,
 ) -> Result<Config, String> {
@@ -129,7 +129,7 @@ pub(super) async fn reload_config_or(
 /// credential change: cron seeds (including memory's cron jobs), the core
 /// context, conversation persistence, and the process-global cost tracker. Returns log lines for
 /// the RPC outcome.
-pub(super) fn rebind_after_credential_change(
+pub(crate) fn rebind_after_credential_change(
     config: &Config,
     _reason: &str,
 ) -> Result<Vec<String>, String> {

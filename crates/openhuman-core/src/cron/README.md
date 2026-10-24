@@ -276,7 +276,7 @@ current ones, `memory_background` and `memory_sources_sync` (every 15 minutes),
 handled in `memory::bus`. `ensure_memory_jobs` is idempotent: it creates a
 missing row, reschedules a drifted one, and removes the retired
 `memory_context_refresh` row. It runs from [`core/runtime/services.rs`](../core/runtime/services.rs) and from
-[`security/credentials/ops/user_scope.rs`](../security/credentials/ops/user_scope.rs).
+[`config/user_scope.rs`](../config/user_scope.rs).
 
 ### Storage
 
@@ -409,7 +409,7 @@ Cron publishes, through [`core/bus.rs`](../core/bus.rs), these `DomainEvent` var
   `find_flow_schedule_job`. These rows are never created by the `cron_add`
   tool, whose `job_type` is `shell` or `agent` only.
 - `config/ops/ui.rs` calls `seed_proactive_agents`;
-  `security/credentials/ops/user_scope.rs` calls `prune_retired_jobs` and
+  `config/user_scope.rs` calls `prune_retired_jobs` and
   `ensure_memory_jobs` on user-scope activation.
 
 ## Boundaries

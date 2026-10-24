@@ -15,8 +15,8 @@ use serde_json::{json, Value};
 
 use super::*;
 use crate::config::{Config, HttpRequestConfig};
+use crate::flows::http_credentials::{HttpCredential, HttpCredentialsStore};
 use crate::modules::tinyflows as module;
-use crate::security::credentials::{HttpCredential, HttpCredentialsStore};
 use crate::security::policy::CommandClass;
 use crate::security::SecurityPolicy;
 use crate::tools::http_request_tool;

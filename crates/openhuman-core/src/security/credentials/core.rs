@@ -185,14 +185,16 @@ pub fn state_dir_from_config(config: &Config) -> PathBuf {
 #[cfg(any(feature = "modules", test))]
 pub(crate) fn credential_files(config: &Config) -> Vec<PathBuf> {
     let state_dir = state_dir_from_config(config);
-    vec![
+    let mut files = vec![
         crate::security::secret_storage::encrypted_file_backend::secrets_file(
             &crate::security::secret_storage::store::workspace_dir_for_file_backend(),
         ),
         super::profiles::profiles_file(&state_dir),
-        super::http_creds::store_file(&state_dir),
-        config.config_path.clone(),
-    ]
+    ];
+    #[cfg(feature = "flows")]
+    files.push(crate::flows::http_credentials::store_file(&state_dir));
+    files.push(config.config_path.clone());
+    files
 }
 
 pub fn default_profile_id(provider: &str) -> String {

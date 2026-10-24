@@ -23,6 +23,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
+use crate::security::credentials::state_dir_from_config;
 use crate::security::secret_storage::SecretStore;
 
 pub(crate) const STORE_FILENAME: &str = "http-credentials.json";
@@ -223,7 +224,7 @@ pub struct HttpCredentialsStore {
 
 impl HttpCredentialsStore {
     pub fn from_config(config: &Config) -> Self {
-        let state_dir = super::state_dir_from_config(config);
+        let state_dir = state_dir_from_config(config);
         Self::new(&state_dir, config.secrets.encrypt)
     }
 
@@ -462,5 +463,5 @@ fn parse_dt(raw: &str) -> DateTime<Utc> {
 }
 
 #[cfg(test)]
-#[path = "http_creds_tests.rs"]
+#[path = "http_credentials_tests.rs"]
 mod tests;

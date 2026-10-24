@@ -15,6 +15,7 @@ pub mod ops;
 pub mod schema;
 mod schemas;
 pub mod tools;
+pub(crate) mod user_scope;
 pub mod workspace;
 pub mod workspace_handle;
 
