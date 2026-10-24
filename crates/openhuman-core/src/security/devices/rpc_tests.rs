@@ -16,16 +16,13 @@ async fn failed_tunnel_connect_discards_pending_pairing_state() {
         .lock()
         .unwrap()
         .insert(channel_id.to_string(), Arc::new(DeviceKeypair::generate()));
-    PERSISTED_KEYPAIRS
-        .lock()
-        .unwrap()
-        .insert(channel_id.to_string(), "encrypted-key".to_string());
     PENDING_SESSIONS.lock().unwrap().insert(
         channel_id.to_string(),
         PairingSession {
             channel_id: channel_id.to_string(),
             pairing_token: "token".to_string(),
             core_pubkey: "public".to_string(),
+            core_private_key_encrypted: "enc2:key".to_string(),
             rpc_url: None,
             expires_at: "2030-01-01T00:00:00Z".to_string(),
             agent: None,
@@ -39,7 +36,6 @@ async fn failed_tunnel_connect_discards_pending_pairing_state() {
 
     assert_eq!(result, Err("connect failed".to_string()));
     assert!(!PENDING_KEYPAIRS.lock().unwrap().contains_key(channel_id));
-    assert!(!PERSISTED_KEYPAIRS.lock().unwrap().contains_key(channel_id));
     assert!(!PENDING_SESSIONS.lock().unwrap().contains_key(channel_id));
 }
 

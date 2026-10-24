@@ -6,6 +6,7 @@ fn session(agent: Option<&str>) -> PairingSession {
         channel_id: "owner-test".to_string(),
         pairing_token: "token".to_string(),
         core_pubkey: "pk".to_string(),
+        core_private_key_encrypted: "enc2:key".to_string(),
         rpc_url: None,
         expires_at: "2099-01-01T00:00:00Z".to_string(),
         agent: agent.map(str::to_string),
