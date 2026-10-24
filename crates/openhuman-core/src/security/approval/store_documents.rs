@@ -190,6 +190,17 @@ impl Docs {
         .map_err(storage)
     }
 
+    #[cfg(test)]
+    pub(super) fn execution_outcome_for_test(&self, request_id: &str) -> Result<Option<String>> {
+        let request_id = request_id.to_string();
+        self.run(|docs| async move {
+            let row = docs.get(APPROVALS, &request_id).await?;
+            Ok(row
+                .and_then(|row| row.doc.get("execution_outcome").cloned())
+                .and_then(|outcome| outcome.as_str().map(str::to_owned)))
+        })
+    }
+
     pub(super) fn insert_pending(&self, pending: &PendingApproval, session_id: &str) -> Result<()> {
         let doc = json!({
             "tool_name": pending.tool_name,

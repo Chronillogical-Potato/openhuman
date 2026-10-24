@@ -211,14 +211,7 @@ impl SecurityPolicy {
             let inside_workspace = canonical.starts_with(&workspace_root);
             if !inside_workspace && !canonical_in_trusted {
                 for forbidden in &self.forbidden_paths {
-                    let forbidden_expanded = if let Some(stripped) = forbidden.strip_prefix("~/") {
-                        std::env::var("HOME")
-                            .ok()
-                            .map(|h| PathBuf::from(h).join(stripped))
-                            .unwrap_or_else(|| PathBuf::from(forbidden))
-                    } else {
-                        PathBuf::from(forbidden)
-                    };
+                    let forbidden_expanded = PathBuf::from(self.expand_tilde(forbidden));
                     let forbidden_canonical = forbidden_expanded
                         .canonicalize()
                         .unwrap_or(forbidden_expanded);
@@ -238,7 +231,7 @@ impl SecurityPolicy {
         true
     }
 
-    /// Resolve a user-supplied path under the workspace, canonicalizing it
+    /// Resolve a user-supplied path under the action directory, canonicalizing it
     /// (or its parent) when present on disk. Used by [`Self::is_path_string_allowed`]
     /// to defend against symlink-based escapes that pass the string-level
     /// checks. Returns `None` only when neither the path nor its parent can
@@ -246,17 +239,11 @@ impl SecurityPolicy {
     /// string-level checks alone (which is the safe default for fresh paths
     /// whose entire chain does not yet exist).
     fn try_canonicalize_under_workspace(&self, path: &str) -> Option<PathBuf> {
-        let expanded = if let Some(stripped) = path.strip_prefix("~/") {
-            std::env::var("HOME")
-                .ok()
-                .map(|h| PathBuf::from(h).join(stripped))?
-        } else {
-            PathBuf::from(path)
-        };
+        let expanded = PathBuf::from(self.expand_tilde(path));
         let absolute = if expanded.is_absolute() {
             expanded
         } else {
-            self.workspace_dir.join(&expanded)
+            self.action_dir.join(&expanded)
         };
         if let Ok(canonical) = absolute.canonicalize() {
             return Some(canonical);

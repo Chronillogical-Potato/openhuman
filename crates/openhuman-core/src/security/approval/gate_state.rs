@@ -15,7 +15,12 @@ impl ApprovalGate {
         outcome: ExecutionOutcome,
         error: Option<&str>,
     ) {
-        match store::record_execution(&self.config, request_id, outcome, error) {
+        let captured_docs = self.execution_docs.lock().remove(request_id);
+        let result = match captured_docs {
+            Some(docs) => docs.record_execution(request_id, outcome, error),
+            None => store::record_execution(&self.config, request_id, outcome, error),
+        };
+        match result {
             Ok(true) => tracing::debug!(
                 request_id = %request_id,
                 outcome = outcome.as_str(),
@@ -85,6 +90,13 @@ impl ApprovalGate {
             // paths in `gate_intercept.rs`) still reports `None` here, which is
             // correct: this fn only fires for a live `decide()` call.
             let route = self.take_request_route(request_id);
+            if decision.is_approve() {
+                if let Some(docs) = route.as_ref().and_then(|route| route.docs.clone()) {
+                    self.execution_docs
+                        .lock()
+                        .insert(request_id.to_string(), docs);
+                }
+            }
             BUS.publish(DomainEvent::ApprovalDecided {
                 request_id: row.request_id.clone(),
                 tool_name: row.tool_name.clone(),

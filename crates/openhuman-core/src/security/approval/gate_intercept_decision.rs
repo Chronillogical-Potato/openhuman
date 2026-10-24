@@ -96,23 +96,20 @@ impl ApprovalGate {
             }
             Err(_elapsed) if park_bound_active => {
                 // Caller park bound elapsed (#4756) — NOT the gate's own TTL.
-                // Abandon the park cancellation-safely: evict the in-memory
-                // waiter and (via `clear_thread` below, on every
-                // exit) drop the routing mappings so a later chat/voice reply is
-                // not mis-routed to this now-abandoned request. Deliberately do
-                // NOT `store::decide(Deny)` — the `pending_approvals` row stays
-                // open so a later human card-click still resolves it in the DB
-                // and a re-ask sees it already-connected. Signal the elapse so
+                // Expire the approval itself as well as abandoning the park. A
+                // later card click must not approve an action whose caller has
+                // already returned without running it.
+                self.evict_waiter(request_id);
+                let _ = self.decide(request_id, ApprovalDecision::Deny);
+                // Signal the elapse so
                 // the bounded caller renders its own fast-path result rather than
                 // a `Deny`.
-                self.evict_waiter(request_id);
                 *park_bound_elapsed = true;
                 tracing::info!(
                     request_id = %request_id,
                     tool = tool_name,
                     bound_secs = wait.as_secs(),
-                    "[approval::gate] caller park bound elapsed — abandoning park (row left \
-                     pending for a later card-click; waiter + routing cleared) (#4756)"
+                    "[approval::gate] caller park bound elapsed — expiring approval and clearing routing (#634)"
                 );
                 // Placeholder outcome; the bounded caller discards it once
                 // `*park_bound_elapsed` is set (returns `None`).
