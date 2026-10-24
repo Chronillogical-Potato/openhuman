@@ -23,8 +23,8 @@ pub use tempfile::{tempdir, TempDir};
 pub use openhuman_core::config::schema::{
     AuditConfig, CapabilityProviderConfig, CapabilityProviderTrustState, DashboardConfig,
     DingTalkConfig, DiscordConfig, EventStreamConfig, IrcConfig, LarkConfig, MatrixConfig,
-    MemoryConfig, ModelHealthConfig, ProxyConfig, ProxyScope, QQConfig, ResourceLimitsConfig,
-    SandboxConfig, SecurityConfig, SlackConfig, TelegramConfig, WebhookConfig, WhatsAppConfig,
+    MemoryConfig, ModelHealthConfig, ProxyConfig, ProxyScope, QQConfig, SandboxConfig,
+    SecurityConfig, SlackConfig, TelegramConfig, WebhookConfig, WhatsAppConfig,
 };
 pub use openhuman_core::config::{
     clear_active_user, default_projects_dir, pre_login_user_dir, read_active_user_id,
@@ -34,9 +34,12 @@ pub use openhuman_core::core::events::DomainEvent;
 pub use openhuman_core::credentials::bus::SessionExpiredSubscriber;
 pub use openhuman_core::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
 pub use openhuman_core::credentials::{
-    clear_composio_api_key, decrypt_secret, encrypt_secret, get_composio_api_key,
-    list_provider_credentials_by_prefix, normalize_provider, rpc_store_composio_api_key,
-    store_composio_api_key, AuthService, APP_SESSION_PROVIDER, COMPOSIO_DIRECT_PROVIDER,
+    decrypt_secret, encrypt_secret, list_provider_credentials_by_prefix, normalize_provider,
+    AuthService, APP_SESSION_PROVIDER,
+};
+pub use openhuman_core::integrations::composio::{
+    clear_composio_api_key, get_composio_api_key, rpc_store_composio_api_key,
+    store_composio_api_key, COMPOSIO_DIRECT_PROVIDER,
 };
 pub use openhuman_core::desktop::app_state::app_state_schemas;
 pub use openhuman_rpc::server::build_core_http_router;
