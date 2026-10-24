@@ -19,7 +19,6 @@ fn test_policy() -> SandboxPolicy {
 #[test]
 fn policy_request_carries_network_workspace_and_read_only_mounts() {
     let mut policy = test_policy();
-    policy.allow_network = true;
     policy.workspace_root = PathBuf::from("/");
     policy.read_only_mounts = vec![PathBuf::from("/etc"), PathBuf::from("/usr/lib")];
     policy.docker_overrides = Some(DockerOverrides {
@@ -36,7 +35,7 @@ fn policy_request_carries_network_workspace_and_read_only_mounts() {
 #[test]
 fn policy_request_without_overrides_leaves_the_isolated_default() {
     let request = policy_request(&test_policy());
-    assert_eq!(request.network.as_deref(), Some("none"));
+    assert_eq!(request.network, None);
     assert_eq!(request.workspace.as_deref(), Some("/tmp/test-workspace"));
     assert!(request.read_only_mounts.is_empty());
 }
@@ -123,5 +122,18 @@ fn disabled_network_policy_overrides_configured_docker_network() {
         ..DockerOverrides::default()
     });
 
-    assert_eq!(policy_request(&policy).network.as_deref(), Some("none"));
+    let request = SandboxExecRequest {
+        command: "true".into(),
+        working_dir: PathBuf::from("/workspace"),
+        env: Default::default(),
+        timeout: std::time::Duration::from_secs(1),
+    };
+
+    assert_eq!(
+        build_docker_request(&policy, &request)
+            .unwrap()
+            .network
+            .as_deref(),
+        Some("none")
+    );
 }
