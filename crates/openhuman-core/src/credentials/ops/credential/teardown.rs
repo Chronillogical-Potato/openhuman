@@ -81,7 +81,7 @@ pub(crate) async fn clear_session_credential(
 /// A process-wide credential is a single-user concept: installing one
 /// activates a user directory and rebinds process globals. A SaaS process
 /// keeps one credential per profile instead (`profiles.set_credential`).
-fn refuse_process_credential_in_saas(operation: &str) -> Result<(), String> {
+pub(super) fn refuse_process_credential_in_saas(operation: &str) -> Result<(), String> {
     process_credential_refusal(crate::core::runtime::is_saas(), operation)
 }
 
@@ -102,7 +102,7 @@ pub(crate) fn process_credential_refusal(saas: bool, operation: &str) -> Result<
 
 /// Tell credential-derived caches (the search module's managed routes) to
 /// refresh. Carries only the kind, never the credential.
-fn publish_credential_changed(ctx: &DispatchCtx, kind: &str) {
+pub(super) fn publish_credential_changed(ctx: &DispatchCtx, kind: &str) {
     tracing::debug!(kind, "{LOG_PREFIX} publishing CredentialChanged");
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::CredentialChanged {
         kind: kind.to_string(),
