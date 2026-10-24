@@ -271,7 +271,7 @@ fn selected_credential(config: &Config) -> Option<(String, String)> {
         crate::config::schema::COMPOSIO_MODE_DIRECT => {
             let profile = crate::security::credentials::AuthService::get_profile_read_only(
                 config,
-                crate::security::credentials::COMPOSIO_DIRECT_PROVIDER,
+                crate::integrations::composio::COMPOSIO_DIRECT_PROVIDER,
                 None,
             )
             .ok()?;

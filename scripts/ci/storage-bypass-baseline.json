@@ -30,7 +30,7 @@
   {
     "rule": "json-write",
     "path": "crates/openhuman-core/src/config/ops/ui.rs",
-    "line": 301,
+    "line": 288,
     "text": "std::fs::write(&flag_path, \"\")",
     "occurrence": 1
   },

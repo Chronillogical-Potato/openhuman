@@ -7,7 +7,6 @@
 mod exec_adapters;
 mod install_tool;
 mod lsp;
-mod proxy_config;
 mod retrieve_tool_output;
 mod schedule;
 mod shell;
@@ -23,9 +22,9 @@ use crate::security::SecurityPolicy;
 use crate::tools::implementations::filesystem::gate::security_scoped_to_root;
 use tinytools::ToolRunContext;
 
+pub use crate::config::proxy_tool::ProxyConfigTool;
 pub use install_tool::InstallToolTool;
 pub use lsp::{lsp_capability_enabled, LspTool, LSP_ENABLED_ENV};
-pub use proxy_config::ProxyConfigTool;
 pub use retrieve_tool_output::{retrieve_tool_output_tool, RetrieveToolOutputTool};
 pub use schedule::ScheduleTool;
 pub use shell::ShellTool;

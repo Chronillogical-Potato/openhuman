@@ -75,7 +75,7 @@ fn shared_runtime_config(tmp: &tempfile::TempDir) -> Config {
     config.workspace_dir = tmp.path().join("workspace");
     crate::security::credentials::AuthService::from_config(&config)
         .store_provider_token(
-            crate::security::credentials::COMPOSIO_DIRECT_PROVIDER,
+            crate::integrations::composio::COMPOSIO_DIRECT_PROVIDER,
             crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
             SHARED_STORE_KEY,
             std::collections::HashMap::new(),
@@ -279,7 +279,7 @@ fn cache_key_changes_when_the_shared_stored_key_rotates_in_unpinned_direct_mode(
 
     crate::security::credentials::AuthService::from_config(&base)
         .store_provider_token(
-            crate::security::credentials::COMPOSIO_DIRECT_PROVIDER,
+            crate::integrations::composio::COMPOSIO_DIRECT_PROVIDER,
             crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "ck_tenant_rotated_0004",
             std::collections::HashMap::new(),

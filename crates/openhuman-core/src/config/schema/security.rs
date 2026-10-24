@@ -1,22 +1,12 @@
-//! Channel provider configuration re-exported from tinychannels, plus
-//! OpenHuman-owned security/sandbox configuration.
+//! OpenHuman-owned security and sandbox configuration.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-
-pub use tinychannels_bus::config::{
-    ChannelsConfig, DingTalkConfig, DiscordConfig, EmailConfig, IMessageConfig, IrcConfig,
-    LarkConfig, LarkReceiveMode, LinqConfig, MatrixConfig, MattermostConfig, QQConfig,
-    SignalConfig, SlackConfig, StreamMode, TelegramConfig, WebhookConfig, WhatsAppConfig,
-    YuanbaoConfig,
-};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, JsonSchema)]
 pub struct SecurityConfig {
     #[serde(default)]
     pub sandbox: SandboxConfig,
-    #[serde(default)]
-    pub resources: ResourceLimitsConfig,
     #[serde(default)]
     pub audit: AuditConfig,
 }
@@ -56,11 +46,6 @@ pub enum SandboxBackend {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
-#[derive(Default)]
-pub struct ResourceLimitsConfig {}
-
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(default)]
 pub struct AuditConfig {
     #[serde(default = "default_audit_enabled")]
     pub enabled: bool,
@@ -93,5 +78,5 @@ impl Default for AuditConfig {
 }
 
 #[cfg(test)]
-#[path = "channels_tests.rs"]
+#[path = "security_tests.rs"]
 mod tests;

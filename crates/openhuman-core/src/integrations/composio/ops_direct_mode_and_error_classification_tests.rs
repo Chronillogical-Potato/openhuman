@@ -4,7 +4,7 @@ use crate::core::runtime::DispatchCtx;
 #[tokio::test]
 async fn composio_set_api_key_rejects_invalid_direct_key_before_persisting() {
     use crate::config::TEST_ENV_LOCK;
-    use crate::security::credentials::get_composio_api_key;
+    use crate::integrations::composio::get_composio_api_key;
 
     let _env_guard = TEST_ENV_LOCK.lock().await;
     let app = Router::new().route(
@@ -46,7 +46,7 @@ async fn composio_set_api_key_rejects_invalid_direct_key_before_persisting() {
 #[tokio::test]
 async fn composio_set_api_key_validates_candidate_key_even_when_stored_key_exists() {
     use crate::config::TEST_ENV_LOCK;
-    use crate::security::credentials::{get_composio_api_key, store_composio_api_key};
+    use crate::integrations::composio::{get_composio_api_key, store_composio_api_key};
     use std::sync::{Arc, Mutex};
 
     let _env_guard = TEST_ENV_LOCK.lock().await;

@@ -193,7 +193,7 @@ fn cache_key_with_backend_url(config: &Config, backend_url: &str) -> String {
             .map(str::trim)
             .filter(|key| !key.is_empty());
         if composio.mode.trim() == crate::config::schema::COMPOSIO_MODE_DIRECT {
-            if let Ok(Some(stored)) = crate::security::credentials::get_composio_api_key(config) {
+            if let Ok(Some(stored)) = crate::integrations::composio::get_composio_api_key(config) {
                 digest.update(stored.as_bytes());
             } else if let Some(key) = inline_key {
                 digest.update(key.as_bytes());

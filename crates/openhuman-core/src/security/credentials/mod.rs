@@ -25,10 +25,6 @@ pub use provider_credential_source::{
     clear_provider_credential_source, install_provider_credential_source,
     provider_credential_source, ProviderCredentialSource, ProviderOAuthStart, ProviderOAuthTokens,
 };
-// Direct-mode (BYO Composio API key) credential helpers.
-pub use ops::{
-    clear_composio_api_key, get_composio_api_key, store_composio_api_key, COMPOSIO_DIRECT_PROVIDER,
-};
 pub use schemas::{
     all_controller_schemas as all_credentials_controller_schemas,
     all_registered_controllers as all_credentials_registered_controllers,

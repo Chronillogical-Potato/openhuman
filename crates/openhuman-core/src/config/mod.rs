@@ -12,6 +12,7 @@ pub mod daemon;
 pub mod enrichers;
 pub mod migrations;
 pub mod ops;
+pub(crate) mod proxy_tool;
 pub mod schema;
 mod schemas;
 pub mod tools;
@@ -57,15 +58,15 @@ pub use schema::{
     McpToolExposure, MemoryConfig, MemoryLayoutMode, ModelRouteConfig, MultimodalConfig,
     MultimodalFileConfig, ObservabilityConfig, OrchestratorModelConfig, PresentationMode,
     PrivacyConfig, PrivacyMode, ProviderRoute, ProxyConfig, ProxyScope, ReliabilityConfig,
-    ResourceLimitsConfig, RuntimeConfig, SandboxBackend, SandboxConfig, SchedulerConfig,
-    SchedulerGateConfig, SchedulerGateMode, SearchConfig, SearchEngineCredentials,
-    SearchHostCredential, SearchProviderSettings, SearxngConfig, SecretsConfig, SecurityConfig,
-    ShellConfig, SlackConfig, StreamMode, SttEngine, TeamModelConfig, TelegramConfig,
-    TokenjuiceConfig, UnknownKeyedSearchProvider, UpdateConfig, UpdateRestartStrategy,
-    VoiceServerConfig, WebSearchConfig, WebhookConfig, YuanbaoConfig, MANAGED_SEARCH_PROVIDERS,
-    SEARCH_ENGINE_BRAVE, SEARCH_ENGINE_DISABLED, SEARCH_ENGINE_EXA, SEARCH_ENGINE_MANAGED,
-    SEARCH_ENGINE_PARALLEL, SEARCH_ENGINE_QUERIT, SEARCH_ENGINE_TAVILY, SEARCH_PROVIDERS,
-    SEARCH_ROLES, SEARCH_ROLE_ANSWER, SEARCH_ROLE_CONTENTS, SEARCH_ROLE_SEARCH,
+    RuntimeConfig, SandboxBackend, SandboxConfig, SchedulerConfig, SchedulerGateConfig,
+    SchedulerGateMode, SearchConfig, SearchEngineCredentials, SearchHostCredential,
+    SearchProviderSettings, SearxngConfig, SecretsConfig, SecurityConfig, ShellConfig, SlackConfig,
+    StreamMode, SttEngine, TeamModelConfig, TelegramConfig, TokenjuiceConfig,
+    UnknownKeyedSearchProvider, UpdateConfig, UpdateRestartStrategy, VoiceServerConfig,
+    WebSearchConfig, WebhookConfig, YuanbaoConfig, MANAGED_SEARCH_PROVIDERS, SEARCH_ENGINE_BRAVE,
+    SEARCH_ENGINE_DISABLED, SEARCH_ENGINE_EXA, SEARCH_ENGINE_MANAGED, SEARCH_ENGINE_PARALLEL,
+    SEARCH_ENGINE_QUERIT, SEARCH_ENGINE_TAVILY, SEARCH_PROVIDERS, SEARCH_ROLES, SEARCH_ROLE_ANSWER,
+    SEARCH_ROLE_CONTENTS, SEARCH_ROLE_SEARCH,
 };
 // Kept as a separate re-export (issue #4117) so the large alphabetized group
 // above stays byte-identical and rustfmt-stable.

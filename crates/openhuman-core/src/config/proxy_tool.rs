@@ -369,9 +369,9 @@ impl Tool for ProxyConfigTool {
 }
 
 #[cfg(test)]
-#[path = "proxy_config_tests.rs"]
+#[path = "proxy_tool_tests.rs"]
 mod tests;
 
 #[cfg(test)]
-#[path = "proxy_config_schema_tests.rs"]
+#[path = "proxy_tool_schema_tests.rs"]
 mod schema_tests;

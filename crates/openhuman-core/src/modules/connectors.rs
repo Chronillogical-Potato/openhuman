@@ -196,7 +196,7 @@ fn route_config(
         COMPOSIO_MODE_DIRECT => {
             // The keychain wins over `config.toml`: the encrypted store is the
             // source of truth, and the file is a fallback for power users.
-            let stored = crate::security::credentials::get_composio_api_key(config)
+            let stored = crate::integrations::composio::get_composio_api_key(config)
                 .map_err(|error| format!("failed to read the stored composio api key: {error}"))?;
             let api_key = stored
                 .or_else(|| {

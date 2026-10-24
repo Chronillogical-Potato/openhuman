@@ -174,7 +174,7 @@ fn resolve_composio_route_direct_variant_with_stored_key() {
     // Persist the key the way the RPC layer would.
     crate::security::credentials::AuthService::from_config(&config)
         .store_provider_token(
-            crate::security::credentials::COMPOSIO_DIRECT_PROVIDER,
+            crate::integrations::composio::COMPOSIO_DIRECT_PROVIDER,
             crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "ck_test_key_redacted",
             std::collections::HashMap::new(),
@@ -236,7 +236,7 @@ fn resolve_composio_route_unknown_mode_errors() {
 
 #[test]
 fn store_get_clear_composio_api_key_roundtrip() {
-    use crate::security::credentials::{get_composio_api_key, COMPOSIO_DIRECT_PROVIDER};
+    use crate::integrations::composio::{get_composio_api_key, COMPOSIO_DIRECT_PROVIDER};
 
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = crate::config::Config::default();

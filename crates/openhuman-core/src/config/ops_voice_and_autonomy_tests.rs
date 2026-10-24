@@ -7,12 +7,10 @@ async fn get_config_snapshot_wraps_snapshot_in_rpc_outcome() {
     let cfg = tmp_config(&tmp);
     let outcome = get_config_snapshot(&cfg).await.expect("snapshot");
     assert!(outcome.value.get("config").is_some());
-    assert!(
-        outcome
-            .logs
-            .iter()
-            .any(|l| l.contains("config loaded from"))
-    );
+    assert!(outcome
+        .logs
+        .iter()
+        .any(|l| l.contains("config loaded from")));
 }
 
 #[tokio::test]
@@ -462,12 +460,10 @@ async fn apply_agent_settings_updates_timeout_and_persists_snapshot() {
         outcome.value["config"]["agent"]["agent_timeout_secs"],
         serde_json::json!(300)
     );
-    assert!(
-        outcome
-            .logs
-            .iter()
-            .any(|l| l.contains("agent settings saved to"))
-    );
+    assert!(outcome
+        .logs
+        .iter()
+        .any(|l| l.contains("agent settings saved to")));
     // With no env override, the live runtime now reflects the saved value.
     assert_eq!(crate::tools::timeout::tool_execution_timeout_secs(), 300);
 }

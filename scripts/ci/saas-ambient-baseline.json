@@ -72,7 +72,7 @@
   {
     "rule": "bare-spawn",
     "path": "crates/openhuman-core/src/config/migrations/mod.rs",
-    "line": 108,
+    "line": 116,
     "text": "tokio::task::spawn_blocking(move || phase_out_profile_md::run(&workspace_dir)).await;",
     "occurrence": 1
   },
@@ -114,7 +114,7 @@
   {
     "rule": "bare-spawn",
     "path": "crates/openhuman-core/src/config/ops/ui.rs",
-    "line": 342,
+    "line": 263,
     "text": "tokio::task::spawn_blocking(move || {",
     "occurrence": 1
   },
