@@ -178,7 +178,7 @@ decision. See [approval/README.md](approval/README.md).
 | [`live_policy.rs`](./live_policy.rs) | Process-global, hot-swappable current `SecurityPolicy` and privacy mode. |
 | [`scrub.rs`](./scrub.rs) | Secret and PII scrubbing with the host's policy (`Policy::corroborated`) over TinyMemory's scrubbers. |
 | [`audit.rs`](./audit.rs) | Append-only JSON audit log of agent actions (`AuditLogger`). |
-| [`pairing.rs`](./pairing.rs) | Non-loopback bind guard for the core RPC token; re-exports channel pairing helpers. |
+| [`pairing.rs`](./pairing.rs) | Public-bind detection used by the RPC host. |
 | [`core.rs`](./core.rs) | `redact()`, the 4-character-prefix log redaction. |
 | [`ops.rs`](./ops.rs) | `security_policy_info_for_config` and `load_and_get_security_policy_info`. |
 | [`schemas.rs`](./schemas.rs) | The `security.policy_info` controller. |
@@ -208,8 +208,7 @@ decision. See [approval/README.md](approval/README.md).
   used by the approval store, memory writes, flow memory tools and artifact
   offload, so they all redact the same way.
 - `AuditLogger` and `get_or_create_workspace_audit_logger` ([`audit.rs`](./audit.rs)).
-- `is_public_bind` and `ensure_core_rpc_token_for_bind` (`pairing.rs`): refuse
-  a non-loopback RPC bind without an `OPENHUMAN_CORE_TOKEN`
+- `is_public_bind` (`pairing.rs`): identifies non-loopback RPC bind hosts.
   (`CORE_TOKEN_ENV_VAR`). `PairingGuard`, `constant_time_eq` and the token
   helpers are re-exported from `tinychannels_bus::security`.
 - `SecretStore` (re-exported from [`keyring/`](./keyring/)): encrypted-on-disk secrets whose

@@ -19,7 +19,7 @@ const LOG_PREFIX: &str = "[keyring_consent]";
 
 static CONSENT_EVENT_PUBLISHED: AtomicBool = AtomicBool::new(false);
 
-/// Process-wide cached consent preference. Updated by [`record_consent`] and
+/// Process-wide cached consent preference. Updated by [`apply_consent`] and
 /// [`initialize`]. Read by [`check_secret_access`] and [`current_status`] so
 /// they never touch disk on the hot path.
 static CONSENT_CACHE: RwLock<Option<ConsentPreference>> = RwLock::new(None);
