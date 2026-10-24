@@ -20,6 +20,10 @@ pub struct PairedDevice {
     pub peer_online: Option<bool>,
     /// True once `devices_revoke` has been called.
     pub revoked: bool,
+    /// Encrypted core identity used only by the device tunnel after a restart.
+    /// Never included in controller/RPC serialization.
+    #[serde(skip)]
+    pub(crate) core_private_key_encrypted: Option<String>,
 }
 
 /// Short-lived pairing session created by `devices_create_pairing`.
@@ -35,6 +39,9 @@ pub struct PairingSession {
     pub pairing_token: String,
     /// Base64url-encoded X25519 public key generated for this pairing.
     pub core_pubkey: String,
+    /// Encrypted long-term identity to persist with the paired row on success.
+    #[serde(skip)]
+    pub(crate) core_private_key_encrypted: String,
     /// Optional LAN URL for the direct HTTP fast path.
     pub rpc_url: Option<String>,
     /// ISO 8601 timestamp when the pairing token expires.

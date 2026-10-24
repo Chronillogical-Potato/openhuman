@@ -1,11 +1,41 @@
 use super::*;
 use crate::config::Config;
+use std::sync::Arc;
 
 fn test_config() -> Config {
     let dir = tempfile::tempdir().expect("tempdir");
     let mut config = Config::default();
     config.workspace_dir = dir.keep();
     config
+}
+
+#[tokio::test]
+async fn failed_tunnel_connect_discards_pending_pairing_state() {
+    let channel_id = "failed-connect-cleanup";
+    PENDING_KEYPAIRS
+        .lock()
+        .unwrap()
+        .insert(channel_id.to_string(), Arc::new(DeviceKeypair::generate()));
+    PENDING_SESSIONS.lock().unwrap().insert(
+        channel_id.to_string(),
+        PairingSession {
+            channel_id: channel_id.to_string(),
+            pairing_token: "token".to_string(),
+            core_pubkey: "public".to_string(),
+            core_private_key_encrypted: "enc2:key".to_string(),
+            rpc_url: None,
+            expires_at: "2030-01-01T00:00:00Z".to_string(),
+            agent: None,
+        },
+    );
+
+    let result =
+        connect_after_reserving_pairing(channel_id, async { Err("connect failed".to_string()) })
+            .await;
+
+    assert_eq!(result, Err("connect failed".to_string()));
+    assert!(!PENDING_KEYPAIRS.lock().unwrap().contains_key(channel_id));
+    assert!(!PENDING_SESSIONS.lock().unwrap().contains_key(channel_id));
 }
 
 #[tokio::test]

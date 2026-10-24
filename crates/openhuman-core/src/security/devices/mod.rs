@@ -1,7 +1,7 @@
 //! Mobile device pairing domain.
 //!
-//! Provides X25519 key agreement + XChaCha20-Poly1305 tunnel framing between
-//! the Rust core and iOS clients, brokered by the tinyhumans backend tunnel.
+//! Uses TinySecurity's X25519 identity and tunnel APIs between the Rust core
+//! and iOS clients, brokered by the tinyhumans backend tunnel.
 
 pub mod bus;
 pub mod crypto;
@@ -18,6 +18,15 @@ pub(crate) use storage_schema::{collection_specs, upgrade_records};
 pub(crate) use store_documents::import_source;
 pub mod tunnel_client;
 pub mod types;
+
+/// Lock device state even after a prior panicking handler poisoned its mutex.
+/// Poisoning means an interrupted update may have left state incomplete; it
+/// should not make every subsequent tunnel frame panic as well.
+pub(super) fn lock_unpoisoned<T>(mutex: &std::sync::Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    mutex
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
 
 pub(crate) use schemas::all_controller_entries;
 #[cfg(test)]

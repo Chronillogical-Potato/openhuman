@@ -25,13 +25,37 @@ fn a_paired_device_round_trips() {
 }
 
 #[test]
-fn pairing_again_replaces_the_device() {
+fn encrypted_core_identity_is_stored_for_restart_and_hidden_from_device_rpc_json() {
+    let store = docs();
+    store
+        .insert_device_with_key(
+            "ch-key",
+            "iPhone",
+            "device-pk",
+            "hash",
+            Some("enc2:ciphertext"),
+        )
+        .unwrap();
+    let read = store.get_device("ch-key").unwrap().expect("stored");
+    assert_eq!(
+        read.core_private_key_encrypted.as_deref(),
+        Some("enc2:ciphertext")
+    );
+    assert!(!serde_json::to_string(&read)
+        .unwrap()
+        .contains("core_private_key_encrypted"));
+}
+
+#[test]
+fn pairing_again_cannot_revive_or_replace_the_device() {
     let store = docs();
     store.insert_device("ch-1", "old", "pk1", "h").unwrap();
     store.revoke_device("ch-1").unwrap();
-    let again = store.insert_device("ch-1", "new", "pk2", "h").unwrap();
-    assert!(!again.revoked, "a re-pair clears the revocation");
-    assert_eq!(store.list_devices().unwrap()[0].label, "new");
+    assert!(store.insert_device("ch-1", "new", "pk2", "h").is_err());
+    let existing = store.get_device("ch-1").unwrap().expect("stored device");
+    assert!(existing.revoked, "re-inserting must preserve revocation");
+    assert_eq!(existing.label, "old");
+    assert_eq!(existing.device_pubkey, "pk1");
 }
 
 #[test]
@@ -66,6 +90,18 @@ fn revoke_hides_the_device_and_reports_existence() {
     assert!(!store.revoke_device("missing").unwrap());
     assert!(store.list_devices().unwrap().is_empty());
     assert!(store.get_device("ch-1").unwrap().unwrap().revoked);
+}
+
+#[test]
+fn revoke_discards_the_encrypted_core_identity() {
+    let store = docs();
+    store
+        .insert_device_with_key("ch-key", "phone", "device-pk", "hash", Some("enc2:key"))
+        .unwrap();
+    assert!(store.revoke_device("ch-key").unwrap());
+    let revoked = store.get_device("ch-key").unwrap().unwrap();
+    assert!(revoked.revoked);
+    assert!(revoked.core_private_key_encrypted.is_none());
 }
 
 #[test]

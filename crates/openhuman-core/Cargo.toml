@@ -231,6 +231,11 @@ tinychannels-bus = { version = "0.1", path = "../../vendor/tinychannels/crates/t
 # --features flows` would carry `ureq` and the archive stack for a host that
 # never loads a module. The kernel-floor ratchet catches exactly that, and did.
 tinybus = { path = "../../vendor/tinybus/crates/tinybus", default-features = false, features = ["macros", "uds"] }
+# The device tunnel's owner and wire crypto live in TinySecurity. The bus
+# contract and crypto crate use this same v0.17.1 checkout so tunnel handles
+# cannot be created from a second version of the pairing types.
+tinysecurity-bus = { path = "../../vendor/tinysecurity/crates/tinysecurity-bus" }
+tinysecurity-crypto = { path = "../../vendor/tinysecurity/crates/tinysecurity-crypto", default-features = false, features = ["device-pairing"] }
 tinysearch-bus = { path = "../../vendor/tinysearch/crates/tinysearch-bus", features = ["schemars"] }
 # Registry vocabulary is available even when the loader is disabled, so the
 # pre-core client can identify and report an unavailable module safely.
@@ -306,8 +311,6 @@ chacha20poly1305 = "0.10"
 # Already present transitively (resolved to 1.8.x via the *-dalek / cipher
 # crates); declared directly so the keyring module can `use zeroize::Zeroizing`.
 zeroize = "1"
-x25519-dalek = { version = "2", features = ["static_secrets"] }
-hkdf = "0.12"
 hex = "0.4"
 # The host-owned SaaS gateway signature uses HMAC with SHA-256.
 hmac = "0.12"

@@ -6,16 +6,16 @@
 //!  - `devices_revoke`         — marks a device revoked and closes its tunnel channel.
 //!
 //! Keypair persistence: private key bytes are encrypted with the workspace
-//! `SecretStore` (ChaCha20-Poly1305) and stored as `enc2:` values keyed by
-//! channel_id in `PERSISTED_KEYPAIRS`. On restart, bus.rs can reconstruct the
-//! keypair for reconnect handshakes without re-generating.
+//! `SecretStore` and stored in the paired-device document. Restarted hosts
+//! reconstruct the stable identity while deriving a fresh in-memory tunnel.
 
 use std::collections::HashMap;
+use std::future::Future;
 use std::sync::{Arc, Mutex};
 
 use crate::config::Config;
 use crate::core::Outcome;
-use crate::security::devices::crypto::{base64url_encode, DeviceKeypair, TunnelCipher};
+use crate::security::devices::crypto::{base64url_encode, DeviceKeypair};
 use crate::security::devices::store;
 use crate::security::devices::tunnel_client;
 use crate::security::devices::types::{
@@ -33,12 +33,6 @@ pub(crate) static PENDING_KEYPAIRS: once_cell::sync::Lazy<
     Mutex<HashMap<String, Arc<DeviceKeypair>>>,
 > = once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
 
-/// Encrypted persisted private-key bytes (keyed by channel_id).
-/// Values are `enc2:<hex>` strings from `SecretStore::encrypt`.
-/// Populated by `devices_create_pairing`; cleared by `devices_revoke`.
-pub(crate) static PERSISTED_KEYPAIRS: once_cell::sync::Lazy<Mutex<HashMap<String, String>>> =
-    once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
-
 /// Pairing sessions pending device connection (keyed by channel_id).
 pub(crate) static PENDING_SESSIONS: once_cell::sync::Lazy<Mutex<HashMap<String, PairingSession>>> =
     once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
@@ -49,7 +43,7 @@ pub(crate) static PEER_STATUS: once_cell::sync::Lazy<Mutex<HashMap<String, bool>
 
 /// Active post-handshake tunnel ciphers (keyed by channel_id).
 pub(crate) static ACTIVE_CIPHERS: once_cell::sync::Lazy<
-    Mutex<HashMap<String, Arc<Mutex<TunnelCipher>>>>,
+    Mutex<HashMap<String, Arc<Mutex<tinysecurity_crypto::device::Tunnel>>>>,
 > = once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
 
 // ---------------------------------------------------------------------------
@@ -92,31 +86,13 @@ pub async fn devices_create_pairing(
 
     // Encrypt the private key bytes and persist in the encrypted secrets store.
     let secret_store = build_secret_store(_config);
-    let private_b64 = base64url_encode(&keypair.private_bytes());
-    match secret_store.encrypt(&private_b64) {
-        Ok(enc) => {
-            PERSISTED_KEYPAIRS
-                .lock()
-                .unwrap()
-                .insert(reg.channel_id.clone(), enc);
-            log::debug!(
-                "[devices/rpc] keypair private key encrypted and persisted channel_id={}",
-                reg.channel_id
-            );
-        }
-        Err(e) => {
-            log::warn!(
-                "[devices/rpc] could not persist encrypted keypair channel_id={}: {e}",
-                reg.channel_id
-            );
-        }
-    }
+    let private_b64 = zeroize::Zeroizing::new(base64url_encode(&keypair.private_bytes()));
+    let encrypted_private_key = secret_store
+        .encrypt(&private_b64)
+        .map_err(|error| format!("[devices/rpc] could not encrypt pairing identity: {error}"))?;
 
     // Stash keypair in memory so bus.rs can complete the X25519 handshake.
-    PENDING_KEYPAIRS
-        .lock()
-        .unwrap()
-        .insert(reg.channel_id.clone(), Arc::new(keypair));
+    super::lock_unpoisoned(&PENDING_KEYPAIRS).insert(reg.channel_id.clone(), Arc::new(keypair));
 
     // Best-effort LAN URL detection (non-fatal if it fails).
     let rpc_url = detect_lan_rpc_url();
@@ -130,12 +106,13 @@ pub async fn devices_create_pairing(
     // starts `tunnel:frame` handling, and `bus.rs` now derives the persisted
     // pairing credential from this map, so a fast inbound frame must never race
     // ahead of the entry (CodeRabbit #4355).
-    PENDING_SESSIONS.lock().unwrap().insert(
+    super::lock_unpoisoned(&PENDING_SESSIONS).insert(
         reg.channel_id.clone(),
         PairingSession {
             channel_id: reg.channel_id.clone(),
             pairing_token: reg.pairing_token.clone(),
             core_pubkey: core_pubkey.clone(),
+            core_private_key_encrypted: encrypted_private_key,
             rpc_url: rpc_url.clone(),
             expires_at: expires_at.clone(),
             agent: ctx.tenant().ok().and_then(|tenant| tenant.agent),
@@ -143,12 +120,15 @@ pub async fn devices_create_pairing(
     );
 
     // Connect as "core" role to start listening on this channel.
-    tunnel_client::emit_connect(&reg.channel_id)
-        .await
-        .map_err(|e| {
-            log::error!("[devices/rpc] tunnel:connect failed: {e}");
-            e
-        })?;
+    connect_after_reserving_pairing(
+        &reg.channel_id,
+        tunnel_client::emit_connect(&reg.channel_id),
+    )
+    .await
+    .map_err(|e| {
+        log::error!("[devices/rpc] tunnel:connect failed: {e}");
+        e
+    })?;
 
     log::debug!(
         "[devices/rpc] tunnel:connect emitted channel_id={}",
@@ -184,7 +164,7 @@ pub async fn devices_list(config: &Config) -> Result<Outcome<ListDevicesResponse
 
     // Overlay live peer-online status from in-memory map.
     {
-        let peer_map = PEER_STATUS.lock().unwrap();
+        let peer_map = super::lock_unpoisoned(&PEER_STATUS);
         for dev in &mut devices {
             let online = peer_map.get(&dev.channel_id).copied().unwrap_or(false);
             dev.peer_online = Some(online);
@@ -213,11 +193,10 @@ pub async fn devices_revoke(
         .map_err(|e| format!("[devices/rpc] revoke_device failed: {e}"))?;
 
     // Clear in-memory state for this channel, including persisted encrypted key.
-    PENDING_KEYPAIRS.lock().unwrap().remove(&channel_id);
-    PENDING_SESSIONS.lock().unwrap().remove(&channel_id);
-    PEER_STATUS.lock().unwrap().remove(&channel_id);
-    PERSISTED_KEYPAIRS.lock().unwrap().remove(&channel_id);
-    ACTIVE_CIPHERS.lock().unwrap().remove(&channel_id);
+    super::lock_unpoisoned(&PENDING_KEYPAIRS).remove(&channel_id);
+    super::lock_unpoisoned(&PENDING_SESSIONS).remove(&channel_id);
+    super::lock_unpoisoned(&PEER_STATUS).remove(&channel_id);
+    super::lock_unpoisoned(&ACTIVE_CIPHERS).remove(&channel_id);
 
     // Publish DeviceRevoked so UI and other subscribers are notified.
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::DeviceRevoked {
@@ -236,6 +215,20 @@ pub async fn devices_revoke(
         RevokeDeviceResponse { success: revoked },
         format!("device {channel_id} revoked"),
     ))
+}
+
+async fn connect_after_reserving_pairing<F>(channel_id: &str, connect: F) -> Result<(), String>
+where
+    F: Future<Output = Result<(), String>>,
+{
+    match connect.await {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            super::lock_unpoisoned(&PENDING_KEYPAIRS).remove(channel_id);
+            super::lock_unpoisoned(&PENDING_SESSIONS).remove(channel_id);
+            Err(error)
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -268,7 +261,7 @@ fn find_local_ipv4() -> Option<String> {
 // ---------------------------------------------------------------------------
 
 /// Build a `SecretStore` scoped to the workspace directory.
-fn build_secret_store(config: &Config) -> SecretStore {
+pub(super) fn build_secret_store(config: &Config) -> SecretStore {
     let data_dir = config
         .config_path
         .parent()

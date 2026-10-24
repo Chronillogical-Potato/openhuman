@@ -30,6 +30,24 @@ pub fn insert_device(
     )
 }
 
+/// Persist a newly-paired device and its encrypted long-term core identity.
+pub fn insert_device_with_key(
+    config: &Config,
+    channel_id: &str,
+    label: &str,
+    device_pubkey: &str,
+    core_session_token_hash: &str,
+    core_private_key_encrypted: &str,
+) -> Result<PairedDevice> {
+    super::store_documents::current(config)?.insert_device_with_key(
+        channel_id,
+        label,
+        device_pubkey,
+        core_session_token_hash,
+        Some(core_private_key_encrypted),
+    )
+}
+
 /// Update `last_seen_at` for a device (called on `tunnel:peer-status` online events).
 pub fn touch_device(config: &Config, channel_id: &str) -> Result<()> {
     super::store_documents::current(config)?.touch_device(channel_id)

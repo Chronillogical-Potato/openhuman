@@ -12,11 +12,7 @@ use std::sync::{Arc, OnceLock};
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use crate::security::devices::crypto::{
-    base64url_decode, base64url_encode, derive_bootstrap_key, derive_session_keys, TunnelCipher,
-    TunnelRole, HANDSHAKE_ACK_VERSION, HANDSHAKE_VERSION, HKDF_INFO_HANDSHAKE,
-    HKDF_INFO_HANDSHAKE_ACK,
-};
+use crate::security::devices::crypto::{base64url_encode, DeviceKeypair};
 use crate::security::devices::rpc::{
     ACTIVE_CIPHERS, PEER_STATUS, PENDING_KEYPAIRS, PENDING_SESSIONS,
 };
@@ -27,7 +23,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tinybus::EventHandler;
 use tinybus::SubscriptionHandle;
-use x25519_dalek::{PublicKey, StaticSecret};
+use tinysecurity_crypto::device::{KeyPair, PublicKey, Role, Tunnel};
+
+const HANDSHAKE_VERSION: u8 = 0x03;
 
 static DEVICE_TUNNEL_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
 
@@ -162,19 +160,13 @@ struct TunnelRpcPayload {
 
 async fn handle_peer_online(channel_id: &str) {
     log::info!("[devices/bus] peer online channel_id={}", channel_id);
-    PEER_STATUS
-        .lock()
-        .unwrap()
-        .insert(channel_id.to_string(), true);
+    super::lock_unpoisoned(&PEER_STATUS).insert(channel_id.to_string(), true);
     // No re-publish: the event was already published by socket::event_handlers.
 }
 
 fn handle_peer_offline(channel_id: &str) {
     log::info!("[devices/bus] peer offline channel_id={}", channel_id);
-    PEER_STATUS
-        .lock()
-        .unwrap()
-        .insert(channel_id.to_string(), false);
+    super::lock_unpoisoned(&PEER_STATUS).insert(channel_id.to_string(), false);
     // No re-publish: the event was already published by socket::event_handlers.
 }
 
@@ -200,34 +192,16 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
         }
     };
 
-    if frame_bytes.first() == Some(&crate::security::devices::crypto::FRAME_VERSION) {
+    if frame_bytes.first() == Some(&0x02) {
         handle_encrypted_rpc_frame(channel_id, &frame_bytes).await;
         return;
     }
-
-    // Look up the pending keypair for this channel.
-    let keypair = {
-        let map = PENDING_KEYPAIRS.lock().unwrap();
-        map.get(channel_id).cloned()
-    };
-
-    let Some(keypair) = keypair else {
-        log::debug!(
-            "[devices/bus] no pending keypair for channel_id={} — frame ignored",
-            channel_id
-        );
-        return;
-    };
 
     // Wire format for the handshake frame:
     //
     //   0x03 || eph_pub(32) || nonce(24) || ciphertext+tag
     //
-    // Version byte 0x03 = "sealed-handshake". The device generates an ephemeral
-    // X25519 keypair, performs DH with corePubkey, then seals its static pubkey
-    // (32 bytes) with XChaCha20-Poly1305. The core decrypts using the same
-    // ephemeral DH to recover the device's static public key, then performs a
-    // second DH (core_static ⟷ device_static) for the session key.
+    // Version byte 0x03 is the existing sealed handshake, opened by TinySecurity.
     //
     // Version byte 0x02 = "encrypted-frame" (used post-handshake, handled later).
     //
@@ -240,105 +214,51 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
         );
         return;
     }
-    let handshake_payload = {
-        // Sealed handshake: eph_pub(32) || nonce(24) || ciphertext+tag
-        if frame_bytes.len() < 1 + 32 + 24 + 16 {
-            log::warn!(
-                "[devices/bus] sealed-handshake frame too short ({} bytes) channel_id={}",
-                frame_bytes.len(),
-                channel_id
-            );
-            return;
-        }
-        let eph_pub_bytes: [u8; 32] = match frame_bytes[1..33].try_into() {
-            Ok(b) => b,
-            Err(_) => {
-                log::warn!(
-                    "[devices/bus] eph_pub slice error channel_id={}",
-                    channel_id
-                );
+    // Claim the session and its keypair before any crypto, cipher installation
+    // or ACK. The claim is single-use, and an expired or malformed expiry fails
+    // closed. This also binds every handshake to the channel that created it.
+    let (keypair, session, existing_device) = if let Some((keypair, session)) =
+        take_pending_pairing_for_handshake(channel_id, chrono::Utc::now())
+    {
+        (keypair, Some(session), None)
+    } else {
+        match recover_existing_pairing(ctx, channel_id).await {
+            Ok(Some((keypair, device))) => (Arc::new(keypair), None, Some(device)),
+            Ok(None) => {
+                log::warn!("[devices/bus] no live pairing identity for channel_id={channel_id}");
                 return;
             }
-        };
-        let core_priv = {
-            let map = PENDING_KEYPAIRS.lock().unwrap();
-            map.get(channel_id).cloned()
-        };
-        let Some(core_keypair) = core_priv else {
-            log::warn!(
-                "[devices/bus] no keypair to open sealed frame channel_id={}",
-                channel_id
-            );
-            return;
-        };
-        // DH: core_static_priv ⟷ eph_pub → session decryption key.
-        let dh_key = match core_keypair.derive_shared_secret(
-            &crate::security::devices::crypto::base64url_encode(&eph_pub_bytes),
-        ) {
-            Ok(k) => k,
-            Err(e) => {
-                log::warn!(
-                    "[devices/bus] DH with eph_pub failed channel_id={}: {e}",
-                    channel_id
-                );
-                return;
-            }
-        };
-        // Bind both public keys and the wire marker to the bootstrap key.
-        let mut salt = [0u8; 64];
-        salt[..32].copy_from_slice(&eph_pub_bytes);
-        let core_pub = match base64url_decode(&core_keypair.pubkey_b64) {
-            Ok(pubkey) if pubkey.len() == 32 => pubkey,
-            _ => return,
-        };
-        salt[32..].copy_from_slice(&core_pub);
-        let handshake_key = derive_bootstrap_key(&dh_key, &salt, HKDF_INFO_HANDSHAKE);
-        // Decrypt: nonce(24) || ciphertext+tag at offset 33.
-        let inner_frame = &frame_bytes[33..];
-        let res = {
-            // TunnelCipher::open expects version(1)||nonce(24)||ct+tag, but we already
-            // stripped the eph_pub prefix. Reconstruct a plain open call by using
-            // XChaCha20 directly on nonce||ct (inner_frame).
-            use chacha20poly1305::{
-                aead::{Aead, KeyInit, Payload},
-                XChaCha20Poly1305, XNonce,
-            };
-            if inner_frame.len() < 24 {
-                Err("[devices/bus] inner_frame too short for nonce".to_string())
-            } else {
-                let nonce = XNonce::from_slice(&inner_frame[..24]);
-                let aead = XChaCha20Poly1305::new((&handshake_key).into());
-                aead.decrypt(
-                    nonce,
-                    Payload {
-                        msg: &inner_frame[24..],
-                        aad: &frame_bytes[..33],
-                    },
-                )
-                .map_err(|_| "[devices/bus] AEAD decrypt failed on handshake frame".to_string())
-            }
-        };
-        match res {
-            Ok(plaintext_bytes) => match String::from_utf8(plaintext_bytes) {
-                Ok(s) => parse_handshake_payload(&s),
-                Err(_) => {
-                    log::warn!(
-                        "[devices/bus] decrypted handshake payload is not UTF-8 channel_id={}",
-                        channel_id
-                    );
-                    return;
-                }
-            },
-            Err(e) => {
-                log::warn!(
-                    "[devices/bus] sealed-handshake decrypt failed channel_id={}: {e}",
-                    channel_id
-                );
+            Err(error) => {
+                log::warn!("[devices/bus] cannot recover pairing {channel_id}: {error}");
                 return;
             }
         }
     };
+
+    let (_, plaintext) = match keypair.open_handshake(&frame_bytes) {
+        Ok(opened) => opened,
+        Err(error) => {
+            log::warn!("[devices/bus] sealed-handshake rejected channel_id={channel_id}: {error}");
+            return;
+        }
+    };
+    let handshake_payload = match serde_json::from_slice::<JsonHandshakePayload>(&plaintext) {
+        Ok(payload) => payload,
+        Err(error) => {
+            log::warn!(
+                "[devices/bus] malformed handshake payload channel_id={channel_id}: {error}"
+            );
+            return;
+        }
+    };
     let device_pubkey_b64 = handshake_payload.device_pubkey;
+
+    if let Some(device) = &existing_device {
+        if !matches_paired_device_key(device, &device_pubkey_b64) {
+            log::warn!("[devices/bus] restart handshake key mismatch for channel_id={channel_id}");
+            return;
+        }
+    }
 
     log::info!(
         "[devices/bus] handshake frame received channel_id={} device_pubkey_len={}",
@@ -346,96 +266,66 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
         device_pubkey_b64.len()
     );
 
-    // Derive shared secret — if this fails the device sent a bad pubkey.
-    let static_dh = match keypair.derive_shared_secret(&device_pubkey_b64) {
-        Ok(secret) => secret,
-        Err(e) => {
-            log::error!(
-                "[devices/bus] X25519 key agreement failed channel_id={}: {e}",
-                channel_id
-            );
-            return;
-        }
-    };
-
-    let Some(client_eph_pubkey) = handshake_payload.client_ephemeral_pubkey else {
+    let Some(client_eph_pubkey) = handshake_payload.client_ephemeral_pubkey.as_deref() else {
         log::warn!(
             "[devices/bus] handshake missing client ephemeral key channel_id={}",
             channel_id
         );
         return;
     };
-    if let Err(e) = install_v2_cipher_and_ack(channel_id, &static_dh, &client_eph_pubkey).await {
-        log::error!(
-            "[devices/bus] v2 handshake ack failed channel_id={}: {e}",
-            channel_id
-        );
+    if let Err(error) =
+        install_v2_cipher_and_ack(channel_id, &keypair, &device_pubkey_b64, client_eph_pubkey).await
+    {
+        log::error!("[devices/bus] v2 handshake ack failed channel_id={channel_id}: {error}");
         return;
     }
 
-    // Persist the paired device. The pending session holds both the label
-    // source and the pairing credential. Fail closed when it is absent rather
-    // than persisting a hash of an empty token into the legacy column: a frame
-    // with no pending session has no valid pairing context (CodeRabbit #4355).
-    let (label, pairing_token) = {
-        let sessions = PENDING_SESSIONS.lock().unwrap();
-        match sessions.get(channel_id) {
-            Some(session) => (session.channel_id.clone(), session.pairing_token.clone()),
-            None => {
+    if let Some(session) = session {
+        let label = session.channel_id.clone();
+        let session_token_hash = hash_session_token(&session.pairing_token);
+        match ctx.load_config().await {
+            Ok(config) => match store::insert_device_with_key(
+                &config,
+                channel_id,
+                &label,
+                &device_pubkey_b64,
+                &session_token_hash,
+                &session.core_private_key_encrypted,
+            ) {
+                Ok(device) => {
+                    super::owner::remember(
+                        channel_id,
+                        ctx.tenant().ok().and_then(|tenant| tenant.agent),
+                    );
+                    log::info!(
+                        "[devices/bus] device persisted channel_id={} label={}",
+                        device.channel_id,
+                        device.label
+                    );
+                    BUS.publish(DomainEvent::DevicePaired {
+                        channel_id: channel_id.to_string(),
+                        device_pubkey: device_pubkey_b64,
+                        label: Some(label),
+                    });
+                }
+                Err(error) => {
+                    log::error!("[devices/bus] failed to persist device {channel_id}: {error}");
+                    abandon_unpersisted_pairing(channel_id);
+                }
+            },
+            Err(error) => {
                 log::warn!(
-                    "[devices/bus] no pending session for channel_id={} — skipping persist (fail closed)",
-                    channel_id
-                );
-                return;
-            }
-        }
-    };
-
-    // Legacy DB column name is `core_session_token_hash`; the backend no
-    // longer mints a core session token, so persist a hash of the pairing
-    // credential for this channel.
-    let session_token_hash = hash_session_token(&pairing_token);
-
-    // Load config from global env (best-effort; pairing persists even if config
-    // loading is slow — the UI will see the device on next list call).
-    if let Ok(config) = ctx.load_config().await {
-        match store::insert_device(
-            &config,
-            channel_id,
-            &label,
-            &device_pubkey_b64,
-            &session_token_hash,
-        ) {
-            Ok(device) => {
-                super::owner::remember(
-                    channel_id,
-                    ctx.tenant().ok().and_then(|tenant| tenant.agent),
-                );
-                log::info!(
-                    "[devices/bus] device persisted channel_id={} label={}",
-                    device.channel_id,
-                    device.label
-                );
-                BUS.publish(DomainEvent::DevicePaired {
-                    channel_id: channel_id.to_string(),
-                    device_pubkey: device_pubkey_b64,
-                    label: Some(label),
-                });
-            }
-            Err(e) => {
-                log::error!(
-                    "[devices/bus] failed to persist device channel_id={}: {e}",
-                    channel_id
+                    "[devices/bus] could not load config to persist device {channel_id}: {error}"
                 );
                 abandon_unpersisted_pairing(channel_id);
             }
         }
-    } else {
-        log::warn!(
-            "[devices/bus] could not load config to persist device channel_id={}",
-            channel_id
+    } else if let Some(device) = existing_device {
+        log::info!(
+            "[devices/bus] restored tunnel for paired device channel_id={} label={}",
+            device.channel_id,
+            device.label
         );
-        abandon_unpersisted_pairing(channel_id);
     }
 }
 
@@ -444,103 +334,133 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
 /// otherwise keep being accepted for a device nothing records
 /// (`super::owner` treats a missing row as the handshake persistence window).
 pub(super) fn abandon_unpersisted_pairing(channel_id: &str) {
-    PENDING_SESSIONS.lock().unwrap().remove(channel_id);
-    ACTIVE_CIPHERS.lock().unwrap().remove(channel_id);
+    super::lock_unpoisoned(&PENDING_SESSIONS).remove(channel_id);
+    super::lock_unpoisoned(&ACTIVE_CIPHERS).remove(channel_id);
     log::warn!("[devices/bus] pairing abandoned channel_id={channel_id}: device not persisted");
 }
 
-fn parse_handshake_payload(raw: &str) -> HandshakePayload {
-    let trimmed = raw.trim();
-    match serde_json::from_str::<JsonHandshakePayload>(trimmed) {
-        Ok(payload) => HandshakePayload {
-            device_pubkey: payload.device_pubkey,
-            client_ephemeral_pubkey: payload.client_ephemeral_pubkey,
-        },
-        Err(_) => HandshakePayload {
-            device_pubkey: trimmed.to_string(),
-            client_ephemeral_pubkey: None,
-        },
+fn take_pending_pairing_for_handshake(
+    channel_id: &str,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Option<(
+    std::sync::Arc<crate::security::devices::crypto::DeviceKeypair>,
+    super::types::PairingSession,
+)> {
+    let session = super::lock_unpoisoned(&PENDING_SESSIONS).remove(channel_id);
+    let keypair = super::lock_unpoisoned(&PENDING_KEYPAIRS).remove(channel_id);
+    let (Some(session), Some(keypair)) = (session, keypair) else {
+        return None;
+    };
+    if session.channel_id != channel_id {
+        return None;
     }
+    let expires_at = chrono::DateTime::parse_from_rfc3339(&session.expires_at).ok()?;
+    (expires_at.with_timezone(&chrono::Utc) > now).then_some((keypair, session))
+}
+
+fn restore_paired_keypair(
+    encrypted_private_key: &str,
+    secret_store: &super::super::secret_storage::SecretStore,
+) -> Result<crate::security::devices::crypto::DeviceKeypair, String> {
+    let plaintext = zeroize::Zeroizing::new(
+        secret_store
+            .decrypt(encrypted_private_key)
+            .map_err(|error| format!("[devices/bus] decrypt persisted pairing key: {error}"))?,
+    );
+    let encoded = zeroize::Zeroizing::new(
+        crate::security::devices::crypto::base64url_decode(&plaintext)
+            .map_err(|error| format!("[devices/bus] decode persisted pairing key: {error}"))?,
+    );
+    let bytes: [u8; 32] = encoded
+        .as_slice()
+        .try_into()
+        .map_err(|_| "[devices/bus] persisted pairing key must be 32 bytes".to_string())?;
+    crate::security::devices::crypto::DeviceKeypair::from_private_bytes(zeroize::Zeroizing::new(
+        bytes,
+    ))
+}
+
+async fn recover_existing_pairing(
+    ctx: &DispatchCtx,
+    channel_id: &str,
+) -> Result<Option<(DeviceKeypair, super::types::PairedDevice)>, String> {
+    let config = ctx.load_config().await.map_err(|error| error.to_string())?;
+    let Some(device) = store::get_device(&config, channel_id).map_err(|error| error.to_string())?
+    else {
+        return Ok(None);
+    };
+    let secret_store = super::rpc::build_secret_store(&config);
+    let Some(keypair) = restore_live_pairing_key(&device, &secret_store)? else {
+        return Ok(None);
+    };
+    Ok(Some((keypair, device)))
+}
+
+fn restore_live_pairing_key(
+    device: &super::types::PairedDevice,
+    secret_store: &super::super::secret_storage::SecretStore,
+) -> Result<Option<DeviceKeypair>, String> {
+    if device.revoked {
+        return Ok(None);
+    }
+    let Some(encrypted_key) = device.core_private_key_encrypted.as_deref() else {
+        // Rows created before durable pairing identities were added cannot
+        // safely reconstruct the core key and require a new pairing.
+        return Ok(None);
+    };
+    restore_paired_keypair(encrypted_key, secret_store).map(Some)
+}
+
+fn matches_paired_device_key(device: &super::types::PairedDevice, handshake_key: &str) -> bool {
+    !device.revoked && device.device_pubkey == handshake_key
 }
 
 async fn install_v2_cipher_and_ack(
     channel_id: &str,
-    static_dh: &[u8; 32],
-    client_eph_pubkey_b64: &str,
+    core_keypair: &DeviceKeypair,
+    device_public_key: &str,
+    client_ephemeral_key: &str,
 ) -> Result<(), String> {
-    let client_eph_bytes = base64url_decode(client_eph_pubkey_b64)
-        .map_err(|e| format!("[devices/bus] bad client ephemeral pubkey: {e}"))?;
-    if client_eph_bytes.len() != 32 {
-        return Err(format!(
-            "[devices/bus] client ephemeral pubkey must be 32 bytes, got {}",
-            client_eph_bytes.len()
-        ));
-    }
-    let client_eph_arr: [u8; 32] = client_eph_bytes
-        .try_into()
-        .map_err(|_| "[devices/bus] client ephemeral pubkey slice error".to_string())?;
-    let client_eph_pub = PublicKey::from(client_eph_arr);
-
-    let server_eph_secret = StaticSecret::from(rand::random::<[u8; 32]>());
-    let server_eph_pub = PublicKey::from(&server_eph_secret);
-    let eph_dh = server_eph_secret.diffie_hellman(&client_eph_pub);
-    let server_eph_pub_bytes = *server_eph_pub.as_bytes();
-    let keys = derive_session_keys(
-        static_dh,
-        eph_dh.as_bytes(),
-        &client_eph_arr,
-        &server_eph_pub_bytes,
-    );
-
-    ACTIVE_CIPHERS.lock().unwrap().insert(
-        channel_id.to_string(),
-        Arc::new(std::sync::Mutex::new(TunnelCipher::for_role(
-            TunnelRole::Server,
-            &keys,
-        ))),
-    );
-
-    let ack = json!({
-        "kind": "handshake_ack",
-        "server_ephemeral_pubkey": base64url_encode(&server_eph_pub_bytes),
-    });
-    let ack_bytes = serde_json::to_vec(&ack)
-        .map_err(|e| format!("[devices/bus] handshake ack serialize failed: {e}"))?;
-    use chacha20poly1305::{
-        aead::{Aead, AeadCore, KeyInit, OsRng, Payload},
-        XChaCha20Poly1305,
-    };
-    let ack_key = derive_bootstrap_key(static_dh, &client_eph_arr, HKDF_INFO_HANDSHAKE_ACK);
-    let ack_nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
-    let mut ack_aad = [0u8; 33];
-    ack_aad[0] = HANDSHAKE_ACK_VERSION;
-    ack_aad[1..].copy_from_slice(&client_eph_arr);
-    let ack_ciphertext = XChaCha20Poly1305::new((&ack_key).into())
-        .encrypt(
-            &ack_nonce,
-            Payload {
-                msg: &ack_bytes,
-                aad: &ack_aad,
-            },
+    let device_public = PublicKey::decode(device_public_key)
+        .map_err(|error| format!("[devices/bus] invalid device public key: {error}"))?;
+    let client_ephemeral = PublicKey::decode(client_ephemeral_key)
+        .map_err(|error| format!("[devices/bus] invalid client ephemeral key: {error}"))?;
+    let server_ephemeral = KeyPair::generate()
+        .map_err(|error| format!("[devices/bus] generate server ephemeral key: {error}"))?;
+    let server_public = server_ephemeral.public_key();
+    let keys = core_keypair
+        .session_keys(
+            device_public,
+            &server_ephemeral,
+            client_ephemeral,
+            server_public,
         )
-        .map_err(|e| format!("[devices/bus] handshake ack seal failed: {e}"))?;
-    let mut ack_frame = Vec::with_capacity(1 + 24 + ack_ciphertext.len());
-    ack_frame.push(HANDSHAKE_ACK_VERSION);
-    ack_frame.extend_from_slice(&ack_nonce);
-    ack_frame.extend_from_slice(&ack_ciphertext);
-    let ack_b64 = base64url_encode(&ack_frame);
-    emit_frame(channel_id, &ack_b64).await?;
+        .map_err(|error| format!("[devices/bus] derive tunnel keys: {error}"))?;
+    let tunnel = Tunnel::new(Role::Server, keys);
+    let ack = serde_json::to_vec(&json!({
+        "kind": "handshake_ack",
+        "server_ephemeral_pubkey": server_public.encode(),
+    }))
+    .map_err(|error| format!("[devices/bus] handshake ack serialize failed: {error}"))?;
+    let ack_frame = core_keypair
+        .seal_ack(client_ephemeral, &ack)
+        .map_err(|error| format!("[devices/bus] handshake ack seal failed: {error}"))?;
+
+    super::lock_unpoisoned(&ACTIVE_CIPHERS).insert(
+        channel_id.to_string(),
+        Arc::new(std::sync::Mutex::new(tunnel)),
+    );
+    emit_frame(channel_id, &base64url_encode(&ack_frame)).await?;
     log::info!(
-        "[devices/bus] v2 tunnel cipher installed channel_id={} server_eph_len={}",
-        channel_id,
-        server_eph_pub_bytes.len()
+        "[devices/bus] v2 tunnel cipher installed channel_id={} server_eph_len=32",
+        channel_id
     );
     Ok(())
 }
 
 async fn handle_encrypted_rpc_frame(channel_id: &str, frame_bytes: &[u8]) {
     let cipher = {
-        let map = ACTIVE_CIPHERS.lock().unwrap();
+        let map = super::lock_unpoisoned(&ACTIVE_CIPHERS);
         map.get(channel_id).cloned()
     };
     let Some(cipher) = cipher else {
@@ -552,7 +472,7 @@ async fn handle_encrypted_rpc_frame(channel_id: &str, frame_bytes: &[u8]) {
     };
 
     let plaintext = {
-        let mut guard = cipher.lock().unwrap();
+        let mut guard = super::lock_unpoisoned(&cipher);
         match guard.open(frame_bytes) {
             Ok(bytes) => bytes,
             Err(e) => {
@@ -634,7 +554,7 @@ async fn handle_encrypted_rpc_frame(channel_id: &str, frame_bytes: &[u8]) {
 
 async fn emit_tunnel_error(
     channel_id: &str,
-    cipher: &Arc<std::sync::Mutex<TunnelCipher>>,
+    cipher: &Arc<std::sync::Mutex<Tunnel>>,
     request_id: &str,
     message: String,
 ) {
@@ -650,7 +570,7 @@ async fn emit_tunnel_error(
 
 async fn emit_tunnel_response(
     channel_id: &str,
-    cipher: &Arc<std::sync::Mutex<TunnelCipher>>,
+    cipher: &Arc<std::sync::Mutex<Tunnel>>,
     request_id: &str,
     kind: &str,
     payload: Value,
@@ -672,7 +592,7 @@ async fn emit_tunnel_response(
         }
     };
     let encrypted = {
-        let guard = cipher.lock().unwrap();
+        let guard = super::lock_unpoisoned(cipher);
         match guard.seal(&plaintext) {
             Ok(frame) => frame,
             Err(e) => {
@@ -699,3 +619,7 @@ fn hash_session_token(token: &str) -> String {
     hasher.update(token.as_bytes());
     format!("{:x}", hasher.finalize())
 }
+
+#[cfg(test)]
+#[path = "bus_tests.rs"]
+mod tests;
