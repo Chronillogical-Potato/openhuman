@@ -9,6 +9,7 @@ fn pending_session(channel_id: &str, expires_at: &str) -> PairingSession {
         channel_id: channel_id.to_string(),
         pairing_token: "token".to_string(),
         core_pubkey: "public".to_string(),
+        core_private_key_encrypted: "enc2:pending".to_string(),
         rpc_url: None,
         expires_at: expires_at.to_string(),
         agent: None,

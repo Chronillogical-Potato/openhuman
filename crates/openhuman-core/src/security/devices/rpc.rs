@@ -6,9 +6,8 @@
 //!  - `devices_revoke`         — marks a device revoked and closes its tunnel channel.
 //!
 //! Keypair persistence: private key bytes are encrypted with the workspace
-//! `SecretStore` (ChaCha20-Poly1305) and stored as `enc2:` values keyed by
-//! channel_id in `PERSISTED_KEYPAIRS`. On restart, bus.rs can reconstruct the
-//! keypair for reconnect handshakes without re-generating.
+//! `SecretStore` and stored in the paired-device document. Restarted hosts
+//! reconstruct the stable identity while deriving a fresh in-memory tunnel.
 
 use std::collections::HashMap;
 use std::future::Future;
@@ -33,12 +32,6 @@ use crate::security::secret_storage::SecretStore;
 pub(crate) static PENDING_KEYPAIRS: once_cell::sync::Lazy<
     Mutex<HashMap<String, Arc<DeviceKeypair>>>,
 > = once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
-
-/// Encrypted persisted private-key bytes (keyed by channel_id).
-/// Values are `enc2:<hex>` strings from `SecretStore::encrypt`.
-/// Populated by `devices_create_pairing`; cleared by `devices_revoke`.
-pub(crate) static PERSISTED_KEYPAIRS: once_cell::sync::Lazy<Mutex<HashMap<String, String>>> =
-    once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
 
 /// Pairing sessions pending device connection (keyed by channel_id).
 pub(crate) static PENDING_SESSIONS: once_cell::sync::Lazy<Mutex<HashMap<String, PairingSession>>> =
@@ -93,23 +86,10 @@ pub async fn devices_create_pairing(
 
     // Encrypt the private key bytes and persist in the encrypted secrets store.
     let secret_store = build_secret_store(_config);
-    let private_b64 = base64url_encode(&keypair.private_bytes());
-    match secret_store.encrypt(&private_b64) {
-        Ok(enc) => {
-            super::lock_unpoisoned(&PERSISTED_KEYPAIRS)
-                .insert(reg.channel_id.clone(), enc);
-            log::debug!(
-                "[devices/rpc] keypair private key encrypted and persisted channel_id={}",
-                reg.channel_id
-            );
-        }
-        Err(e) => {
-            log::warn!(
-                "[devices/rpc] could not persist encrypted keypair channel_id={}: {e}",
-                reg.channel_id
-            );
-        }
-    }
+    let private_b64 = zeroize::Zeroizing::new(base64url_encode(&keypair.private_bytes()));
+    let encrypted_private_key = secret_store.encrypt(&private_b64).map_err(|error| {
+        format!("[devices/rpc] could not encrypt pairing identity: {error}")
+    })?;
 
     // Stash keypair in memory so bus.rs can complete the X25519 handshake.
     super::lock_unpoisoned(&PENDING_KEYPAIRS)
@@ -133,6 +113,7 @@ pub async fn devices_create_pairing(
             channel_id: reg.channel_id.clone(),
             pairing_token: reg.pairing_token.clone(),
             core_pubkey: core_pubkey.clone(),
+            core_private_key_encrypted: encrypted_private_key,
             rpc_url: rpc_url.clone(),
             expires_at: expires_at.clone(),
             agent: ctx.tenant().ok().and_then(|tenant| tenant.agent),
@@ -216,7 +197,6 @@ pub async fn devices_revoke(
     super::lock_unpoisoned(&PENDING_KEYPAIRS).remove(&channel_id);
     super::lock_unpoisoned(&PENDING_SESSIONS).remove(&channel_id);
     super::lock_unpoisoned(&PEER_STATUS).remove(&channel_id);
-    super::lock_unpoisoned(&PERSISTED_KEYPAIRS).remove(&channel_id);
     super::lock_unpoisoned(&ACTIVE_CIPHERS).remove(&channel_id);
 
     // Publish DeviceRevoked so UI and other subscribers are notified.
@@ -249,7 +229,6 @@ where
         Ok(()) => Ok(()),
         Err(error) => {
             super::lock_unpoisoned(&PENDING_KEYPAIRS).remove(channel_id);
-            super::lock_unpoisoned(&PERSISTED_KEYPAIRS).remove(channel_id);
             super::lock_unpoisoned(&PENDING_SESSIONS).remove(channel_id);
             Err(error)
         }
