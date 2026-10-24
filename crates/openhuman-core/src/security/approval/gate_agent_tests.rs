@@ -130,18 +130,17 @@ async fn execution_audit_uses_the_agent_scope_captured_when_parked() {
 
     // The approval is created while this agent's storage scope is active.
     let g = gate.clone();
-    let parked = tokio::spawn(CoreContext::scope(
-        ctx.clone(),
-        turn_origin::with_origin(
-            web_origin(),
-            g.intercept_audited(
-                &ApprovalTurnContext::chat(chat_ctx()),
-                "shell",
-                "run it",
-                serde_json::json!({}),
-            ),
-        ),
-    ));
+    let parked = tokio::spawn(async move {
+        let turn = ApprovalTurnContext::chat(chat_ctx());
+        CoreContext::scope(
+            ctx,
+            turn_origin::with_origin(web_origin(), async move {
+                g.intercept_audited(&turn, "shell", "run it", serde_json::json!())
+                    .await
+            }),
+        )
+        .await
+    });
     let request = loop {
         let rows = CoreContext::scope(ctx.clone(), {
             let gate = gate.clone();

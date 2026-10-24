@@ -16,7 +16,7 @@ use crate::security::approval::{
 };
 use tinytools::Tool;
 
-fn approval_is_explicitly_disabled(
+pub(super) fn approval_is_explicitly_disabled(
     state: Option<crate::security::approval::gate::ApprovalGateBootState>,
 ) -> bool {
     state.is_some_and(|state| state.disabled_by_env)
