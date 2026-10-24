@@ -569,7 +569,9 @@ fn try_load_master_key_reads_the_file_source_and_is_stable_across_restarts() {
 
     let blob = crypto::encrypt(&first, b"sk-live-secret").expect("encrypt");
     assert_eq!(
-        crypto::decrypt(&second, &blob).expect("decrypt with the restarted key"),
+        crypto::decrypt(&second, &blob)
+            .expect("decrypt with the restarted key")
+            .as_slice(),
         b"sk-live-secret"
     );
 }

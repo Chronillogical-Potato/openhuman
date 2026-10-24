@@ -105,7 +105,7 @@ impl SecretStore {
             .map_err(|_| anyhow::anyhow!("invalid secret key length"))?;
         let plaintext = crypto::decrypt_enc2(&key, value)
             .map_err(|_| anyhow::anyhow!("decryption failed — wrong key or tampered data"))?;
-        String::from_utf8(plaintext).context("decrypted secret is not valid UTF-8")
+        String::from_utf8(plaintext.to_vec()).context("decrypted secret is not valid UTF-8")
     }
 
     /// Decrypt a secret and return a migrated `enc2:` value if the input used legacy `enc:` format.
