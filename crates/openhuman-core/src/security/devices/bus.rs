@@ -12,11 +12,7 @@ use std::sync::{Arc, OnceLock};
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use crate::security::devices::crypto::{
-    base64url_decode, base64url_encode, derive_bootstrap_key, derive_session_keys, TunnelCipher,
-    TunnelRole, HANDSHAKE_ACK_VERSION, HANDSHAKE_VERSION, HKDF_INFO_HANDSHAKE,
-    HKDF_INFO_HANDSHAKE_ACK,
-};
+use crate::security::devices::crypto::{base64url_decode, base64url_encode, DeviceKeypair, TunnelCipher};
 use crate::security::devices::rpc::{
     ACTIVE_CIPHERS, PEER_STATUS, PENDING_KEYPAIRS, PENDING_SESSIONS,
 };
@@ -27,7 +23,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tinybus::EventHandler;
 use tinybus::SubscriptionHandle;
-use x25519_dalek::{PublicKey, StaticSecret};
+use tinysecurity_crypto::device::{KeyPair, PublicKey, Role, Tunnel};
+
+const HANDSHAKE_VERSION: u8 = 0x03;
 
 static DEVICE_TUNNEL_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
 
@@ -235,91 +233,18 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
         return;
     };
 
-    let handshake_payload = {
-        // Sealed handshake: eph_pub(32) || nonce(24) || ciphertext+tag
-        if frame_bytes.len() < 1 + 32 + 24 + 16 {
-            log::warn!(
-                "[devices/bus] sealed-handshake frame too short ({} bytes) channel_id={}",
-                frame_bytes.len(),
-                channel_id
-            );
+    let (_, plaintext) = match keypair.open_handshake(&frame_bytes) {
+        Ok(opened) => opened,
+        Err(error) => {
+            log::warn!("[devices/bus] sealed-handshake rejected channel_id={channel_id}: {error}");
             return;
         }
-        let eph_pub_bytes: [u8; 32] = match frame_bytes[1..33].try_into() {
-            Ok(b) => b,
-            Err(_) => {
-                log::warn!(
-                    "[devices/bus] eph_pub slice error channel_id={}",
-                    channel_id
-                );
-                return;
-            }
-        };
-        // DH: core_static_priv ⟷ eph_pub → session decryption key.
-        let dh_key = match keypair.derive_shared_secret(
-            &crate::security::devices::crypto::base64url_encode(&eph_pub_bytes),
-        ) {
-            Ok(k) => k,
-            Err(e) => {
-                log::warn!(
-                    "[devices/bus] DH with eph_pub failed channel_id={}: {e}",
-                    channel_id
-                );
-                return;
-            }
-        };
-        // Bind both public keys and the wire marker to the bootstrap key.
-        let mut salt = [0u8; 64];
-        salt[..32].copy_from_slice(&eph_pub_bytes);
-        let core_pub = match base64url_decode(&keypair.pubkey_b64) {
-            Ok(pubkey) if pubkey.len() == 32 => pubkey,
-            _ => return,
-        };
-        salt[32..].copy_from_slice(&core_pub);
-        let handshake_key = derive_bootstrap_key(&dh_key, &salt, HKDF_INFO_HANDSHAKE);
-        // Decrypt: nonce(24) || ciphertext+tag at offset 33.
-        let inner_frame = &frame_bytes[33..];
-        let res = {
-            // TunnelCipher::open expects version(1)||nonce(24)||ct+tag, but we already
-            // stripped the eph_pub prefix. Reconstruct a plain open call by using
-            // XChaCha20 directly on nonce||ct (inner_frame).
-            use chacha20poly1305::{
-                aead::{Aead, KeyInit, Payload},
-                XChaCha20Poly1305, XNonce,
-            };
-            if inner_frame.len() < 24 {
-                Err("[devices/bus] inner_frame too short for nonce".to_string())
-            } else {
-                let nonce = XNonce::from_slice(&inner_frame[..24]);
-                let aead = XChaCha20Poly1305::new((&handshake_key).into());
-                aead.decrypt(
-                    nonce,
-                    Payload {
-                        msg: &inner_frame[24..],
-                        aad: &frame_bytes[..33],
-                    },
-                )
-                .map_err(|_| "[devices/bus] AEAD decrypt failed on handshake frame".to_string())
-            }
-        };
-        match res {
-            Ok(plaintext_bytes) => match String::from_utf8(plaintext_bytes) {
-                Ok(s) => parse_handshake_payload(&s),
-                Err(_) => {
-                    log::warn!(
-                        "[devices/bus] decrypted handshake payload is not UTF-8 channel_id={}",
-                        channel_id
-                    );
-                    return;
-                }
-            },
-            Err(e) => {
-                log::warn!(
-                    "[devices/bus] sealed-handshake decrypt failed channel_id={}: {e}",
-                    channel_id
-                );
-                return;
-            }
+    };
+    let handshake_payload = match serde_json::from_slice::<JsonHandshakePayload>(&plaintext) {
+        Ok(payload) => payload,
+        Err(error) => {
+            log::warn!("[devices/bus] malformed handshake payload channel_id={channel_id}: {error}");
+            return;
         }
     };
     let device_pubkey_b64 = handshake_payload.device_pubkey;
@@ -330,30 +255,22 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
         device_pubkey_b64.len()
     );
 
-    // Derive shared secret — if this fails the device sent a bad pubkey.
-    let static_dh = match keypair.derive_shared_secret(&device_pubkey_b64) {
-        Ok(secret) => secret,
-        Err(e) => {
-            log::error!(
-                "[devices/bus] X25519 key agreement failed channel_id={}: {e}",
-                channel_id
-            );
-            return;
-        }
-    };
-
-    let Some(client_eph_pubkey) = handshake_payload.client_ephemeral_pubkey else {
+    let Some(client_eph_pubkey) = handshake_payload.client_ephemeral_pubkey.as_deref() else {
         log::warn!(
             "[devices/bus] handshake missing client ephemeral key channel_id={}",
             channel_id
         );
         return;
     };
-    if let Err(e) = install_v2_cipher_and_ack(channel_id, &static_dh, &client_eph_pubkey).await {
-        log::error!(
-            "[devices/bus] v2 handshake ack failed channel_id={}: {e}",
-            channel_id
-        );
+    if let Err(error) = install_v2_cipher_and_ack(
+        channel_id,
+        &keypair,
+        &device_pubkey_b64,
+        client_eph_pubkey,
+    )
+    .await
+    {
+        log::error!("[devices/bus] v2 handshake ack failed channel_id={channel_id}: {error}");
         return;
     }
 
@@ -422,20 +339,6 @@ pub(super) fn abandon_unpersisted_pairing(channel_id: &str) {
     log::warn!("[devices/bus] pairing abandoned channel_id={channel_id}: device not persisted");
 }
 
-fn parse_handshake_payload(raw: &str) -> HandshakePayload {
-    let trimmed = raw.trim();
-    match serde_json::from_str::<JsonHandshakePayload>(trimmed) {
-        Ok(payload) => HandshakePayload {
-            device_pubkey: payload.device_pubkey,
-            client_ephemeral_pubkey: payload.client_ephemeral_pubkey,
-        },
-        Err(_) => HandshakePayload {
-            device_pubkey: trimmed.to_string(),
-            client_ephemeral_pubkey: None,
-        },
-    }
-}
-
 fn take_pending_pairing_for_handshake(
     channel_id: &str,
     now: chrono::DateTime<chrono::Utc>,
@@ -479,75 +382,38 @@ fn restore_paired_keypair(
 
 async fn install_v2_cipher_and_ack(
     channel_id: &str,
-    static_dh: &[u8; 32],
-    client_eph_pubkey_b64: &str,
+    core_keypair: &DeviceKeypair,
+    device_public_key: &str,
+    client_ephemeral_key: &str,
 ) -> Result<(), String> {
-    let client_eph_bytes = base64url_decode(client_eph_pubkey_b64)
-        .map_err(|e| format!("[devices/bus] bad client ephemeral pubkey: {e}"))?;
-    if client_eph_bytes.len() != 32 {
-        return Err(format!(
-            "[devices/bus] client ephemeral pubkey must be 32 bytes, got {}",
-            client_eph_bytes.len()
-        ));
-    }
-    let client_eph_arr: [u8; 32] = client_eph_bytes
-        .try_into()
-        .map_err(|_| "[devices/bus] client ephemeral pubkey slice error".to_string())?;
-    let client_eph_pub = PublicKey::from(client_eph_arr);
-
-    let server_eph_secret = StaticSecret::from(rand::random::<[u8; 32]>());
-    let server_eph_pub = PublicKey::from(&server_eph_secret);
-    let eph_dh = server_eph_secret.diffie_hellman(&client_eph_pub);
-    let server_eph_pub_bytes = *server_eph_pub.as_bytes();
-    let keys = derive_session_keys(
-        static_dh,
-        eph_dh.as_bytes(),
-        &client_eph_arr,
-        &server_eph_pub_bytes,
-    );
+    let device_public = PublicKey::decode(device_public_key)
+        .map_err(|error| format!("[devices/bus] invalid device public key: {error}"))?;
+    let client_ephemeral = PublicKey::decode(client_ephemeral_key)
+        .map_err(|error| format!("[devices/bus] invalid client ephemeral key: {error}"))?;
+    let server_ephemeral = KeyPair::generate()
+        .map_err(|error| format!("[devices/bus] generate server ephemeral key: {error}"))?;
+    let server_public = server_ephemeral.public_key();
+    let keys = core_keypair
+        .session_keys(device_public, &server_ephemeral, client_ephemeral, server_public)
+        .map_err(|error| format!("[devices/bus] derive tunnel keys: {error}"))?;
+    let tunnel = Tunnel::new(Role::Server, keys);
+    let ack = serde_json::to_vec(&json!({
+        "kind": "handshake_ack",
+        "server_ephemeral_pubkey": server_public.encode(),
+    }))
+    .map_err(|error| format!("[devices/bus] handshake ack serialize failed: {error}"))?;
+    let ack_frame = core_keypair
+        .seal_ack(client_ephemeral, &ack)
+        .map_err(|error| format!("[devices/bus] handshake ack seal failed: {error}"))?;
 
     super::lock_unpoisoned(&ACTIVE_CIPHERS).insert(
         channel_id.to_string(),
-        Arc::new(std::sync::Mutex::new(TunnelCipher::for_role(
-            TunnelRole::Server,
-            &keys,
-        ))),
+        Arc::new(std::sync::Mutex::new(TunnelCipher::from_native(tunnel))),
     );
-
-    let ack = json!({
-        "kind": "handshake_ack",
-        "server_ephemeral_pubkey": base64url_encode(&server_eph_pub_bytes),
-    });
-    let ack_bytes = serde_json::to_vec(&ack)
-        .map_err(|e| format!("[devices/bus] handshake ack serialize failed: {e}"))?;
-    use chacha20poly1305::{
-        aead::{Aead, AeadCore, KeyInit, OsRng, Payload},
-        XChaCha20Poly1305,
-    };
-    let ack_key = derive_bootstrap_key(static_dh, &client_eph_arr, HKDF_INFO_HANDSHAKE_ACK);
-    let ack_nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
-    let mut ack_aad = [0u8; 33];
-    ack_aad[0] = HANDSHAKE_ACK_VERSION;
-    ack_aad[1..].copy_from_slice(&client_eph_arr);
-    let ack_ciphertext = XChaCha20Poly1305::new((&ack_key).into())
-        .encrypt(
-            &ack_nonce,
-            Payload {
-                msg: &ack_bytes,
-                aad: &ack_aad,
-            },
-        )
-        .map_err(|e| format!("[devices/bus] handshake ack seal failed: {e}"))?;
-    let mut ack_frame = Vec::with_capacity(1 + 24 + ack_ciphertext.len());
-    ack_frame.push(HANDSHAKE_ACK_VERSION);
-    ack_frame.extend_from_slice(&ack_nonce);
-    ack_frame.extend_from_slice(&ack_ciphertext);
-    let ack_b64 = base64url_encode(&ack_frame);
-    emit_frame(channel_id, &ack_b64).await?;
+    emit_frame(channel_id, &base64url_encode(&ack_frame)).await?;
     log::info!(
-        "[devices/bus] v2 tunnel cipher installed channel_id={} server_eph_len={}",
-        channel_id,
-        server_eph_pub_bytes.len()
+        "[devices/bus] v2 tunnel cipher installed channel_id={} server_eph_len=32",
+        channel_id
     );
     Ok(())
 }
