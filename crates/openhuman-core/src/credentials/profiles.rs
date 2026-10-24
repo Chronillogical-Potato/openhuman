@@ -18,7 +18,9 @@ mod keychain;
 mod lock;
 mod migration;
 mod persistence;
-use lock::{annotate_lock_create_failure, is_lock_create_unwritable_fs};
+use lock::is_lock_create_unwritable_fs;
+#[cfg(test)]
+use lock::annotate_lock_create_failure;
 #[cfg(test)]
 use lock::{in_process_lock_for, is_pid_alive};
 #[cfg(test)]
