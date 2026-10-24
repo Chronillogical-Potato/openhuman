@@ -76,6 +76,10 @@ fn to_device(stored: &Versioned<Value>) -> PairedDevice {
             .map(ms_rfc3339),
         peer_online: None,
         revoked: doc.get("revoked").and_then(Value::as_bool).unwrap_or(false),
+        core_private_key_encrypted: doc
+            .get("core_private_key_encrypted")
+            .and_then(Value::as_str)
+            .map(str::to_string),
     }
 }
 
@@ -96,11 +100,23 @@ impl Docs {
         device_pubkey: &str,
         core_session_token_hash: &str,
     ) -> Result<PairedDevice> {
+        self.insert_device_with_key(channel_id, label, device_pubkey, core_session_token_hash, None)
+    }
+
+    pub(super) fn insert_device_with_key(
+        &self,
+        channel_id: &str,
+        label: &str,
+        device_pubkey: &str,
+        core_session_token_hash: &str,
+        core_private_key_encrypted: Option<&str>,
+    ) -> Result<PairedDevice> {
         let id = key_of(channel_id)?;
         let doc = json!({
             "label": label,
             "device_pubkey": device_pubkey,
             "core_session_token_hash": core_session_token_hash,
+            "core_private_key_encrypted": core_private_key_encrypted,
             "created_ms": Utc::now().timestamp_millis(),
             "revoked": false,
         });
