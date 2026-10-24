@@ -11,6 +11,7 @@
 //! keypair for reconnect handshakes without re-generating.
 
 use std::collections::HashMap;
+use std::future::Future;
 use std::sync::{Arc, Mutex};
 
 use crate::config::Config;
@@ -130,7 +131,7 @@ pub async fn devices_create_pairing(
     // starts `tunnel:frame` handling, and `bus.rs` now derives the persisted
     // pairing credential from this map, so a fast inbound frame must never race
     // ahead of the entry (CodeRabbit #4355).
-    PENDING_SESSIONS.lock().unwrap().insert(
+    super::lock_unpoisoned(&PENDING_SESSIONS).insert(
         reg.channel_id.clone(),
         PairingSession {
             channel_id: reg.channel_id.clone(),
@@ -143,12 +144,15 @@ pub async fn devices_create_pairing(
     );
 
     // Connect as "core" role to start listening on this channel.
-    tunnel_client::emit_connect(&reg.channel_id)
-        .await
-        .map_err(|e| {
-            log::error!("[devices/rpc] tunnel:connect failed: {e}");
-            e
-        })?;
+    connect_after_reserving_pairing(
+        &reg.channel_id,
+        tunnel_client::emit_connect(&reg.channel_id),
+    )
+    .await
+    .map_err(|e| {
+        log::error!("[devices/rpc] tunnel:connect failed: {e}");
+        e
+    })?;
 
     log::debug!(
         "[devices/rpc] tunnel:connect emitted channel_id={}",
@@ -184,7 +188,7 @@ pub async fn devices_list(config: &Config) -> Result<Outcome<ListDevicesResponse
 
     // Overlay live peer-online status from in-memory map.
     {
-        let peer_map = PEER_STATUS.lock().unwrap();
+        let peer_map = super::lock_unpoisoned(&PEER_STATUS);
         for dev in &mut devices {
             let online = peer_map.get(&dev.channel_id).copied().unwrap_or(false);
             dev.peer_online = Some(online);
@@ -213,11 +217,11 @@ pub async fn devices_revoke(
         .map_err(|e| format!("[devices/rpc] revoke_device failed: {e}"))?;
 
     // Clear in-memory state for this channel, including persisted encrypted key.
-    PENDING_KEYPAIRS.lock().unwrap().remove(&channel_id);
-    PENDING_SESSIONS.lock().unwrap().remove(&channel_id);
-    PEER_STATUS.lock().unwrap().remove(&channel_id);
-    PERSISTED_KEYPAIRS.lock().unwrap().remove(&channel_id);
-    ACTIVE_CIPHERS.lock().unwrap().remove(&channel_id);
+    super::lock_unpoisoned(&PENDING_KEYPAIRS).remove(&channel_id);
+    super::lock_unpoisoned(&PENDING_SESSIONS).remove(&channel_id);
+    super::lock_unpoisoned(&PEER_STATUS).remove(&channel_id);
+    super::lock_unpoisoned(&PERSISTED_KEYPAIRS).remove(&channel_id);
+    super::lock_unpoisoned(&ACTIVE_CIPHERS).remove(&channel_id);
 
     // Publish DeviceRevoked so UI and other subscribers are notified.
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::DeviceRevoked {
@@ -236,6 +240,24 @@ pub async fn devices_revoke(
         RevokeDeviceResponse { success: revoked },
         format!("device {channel_id} revoked"),
     ))
+}
+
+async fn connect_after_reserving_pairing<F>(
+    channel_id: &str,
+    connect: F,
+) -> Result<(), String>
+where
+    F: Future<Output = Result<(), String>>,
+{
+    match connect.await {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            super::lock_unpoisoned(&PENDING_KEYPAIRS).remove(channel_id);
+            super::lock_unpoisoned(&PERSISTED_KEYPAIRS).remove(channel_id);
+            super::lock_unpoisoned(&PENDING_SESSIONS).remove(channel_id);
+            Err(error)
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
