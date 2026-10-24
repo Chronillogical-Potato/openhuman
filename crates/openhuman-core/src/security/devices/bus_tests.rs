@@ -4,9 +4,9 @@ use crate::security::devices::crypto::DeviceKeypair;
 use std::sync::{Mutex, PoisonError};
 use super::super::types::PairingSession;
 
-fn pending_session(expires_at: &str) -> PairingSession {
+fn pending_session(channel_id: &str, expires_at: &str) -> PairingSession {
     PairingSession {
-        channel_id: "device-bus-test".to_string(),
+        channel_id: channel_id.to_string(),
         pairing_token: "token".to_string(),
         core_pubkey: "public".to_string(),
         rpc_url: None,
@@ -33,9 +33,12 @@ fn expired_pending_session_is_discarded_before_handshake() {
     lock_unpoisoned(&PENDING_KEYPAIRS)
         .insert(channel_id.to_string(), std::sync::Arc::new(DeviceKeypair::generate()));
     lock_unpoisoned(&PENDING_SESSIONS)
-        .insert(channel_id.to_string(), pending_session("2020-01-01T00:00:00Z"));
+        .insert(
+            channel_id.to_string(),
+            pending_session(channel_id, "2020-01-01T00:00:00Z"),
+        );
 
-    assert!(pending_session_for_handshake(
+    assert!(take_pending_pairing_for_handshake(
         channel_id,
         chrono::DateTime::parse_from_rfc3339("2021-01-01T00:00:00Z")
             .unwrap()
@@ -47,17 +50,17 @@ fn expired_pending_session_is_discarded_before_handshake() {
 }
 
 #[test]
-fn successful_handshake_consumes_its_pending_session_and_keypair() {
+fn handshake_claim_consumes_its_pending_session_and_keypair_once() {
     let channel_id = "single-use-session-test";
     lock_unpoisoned(&PENDING_KEYPAIRS)
         .insert(channel_id.to_string(), std::sync::Arc::new(DeviceKeypair::generate()));
     lock_unpoisoned(&PENDING_SESSIONS).insert(
         channel_id.to_string(),
-        pending_session("2030-01-01T00:00:00Z"),
+        pending_session(channel_id, "2030-01-01T00:00:00Z"),
     );
 
-    assert!(consume_pending_pairing(channel_id).is_some());
-    assert!(consume_pending_pairing(channel_id).is_none());
+    assert!(take_pending_pairing_for_handshake(channel_id, chrono::Utc::now()).is_some());
+    assert!(take_pending_pairing_for_handshake(channel_id, chrono::Utc::now()).is_none());
     assert!(!lock_unpoisoned(&PENDING_KEYPAIRS).contains_key(channel_id));
     assert!(!lock_unpoisoned(&PENDING_SESSIONS).contains_key(channel_id));
 }
@@ -68,7 +71,7 @@ fn missing_pending_session_stops_handshake_before_cipher_installation() {
     lock_unpoisoned(&PENDING_KEYPAIRS)
         .insert(channel_id.to_string(), std::sync::Arc::new(DeviceKeypair::generate()));
 
-    assert!(pending_session_for_handshake(channel_id, chrono::Utc::now()).is_none());
+    assert!(take_pending_pairing_for_handshake(channel_id, chrono::Utc::now()).is_none());
     assert!(!lock_unpoisoned(&ACTIVE_CIPHERS).contains_key(channel_id));
     lock_unpoisoned(&PENDING_KEYPAIRS).remove(channel_id);
 }

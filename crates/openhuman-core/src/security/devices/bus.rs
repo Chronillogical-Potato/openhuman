@@ -201,20 +201,6 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
         return;
     }
 
-    // Look up the pending keypair for this channel.
-    let keypair = {
-        let map = super::lock_unpoisoned(&PENDING_KEYPAIRS);
-        map.get(channel_id).cloned()
-    };
-
-    let Some(keypair) = keypair else {
-        log::debug!(
-            "[devices/bus] no pending keypair for channel_id={} — frame ignored",
-            channel_id
-        );
-        return;
-    };
-
     // Wire format for the handshake frame:
     //
     //   0x03 || eph_pub(32) || nonce(24) || ciphertext+tag
@@ -236,6 +222,19 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
         );
         return;
     }
+    // Claim the session and its keypair before any crypto, cipher installation
+    // or ACK. The claim is single-use, and an expired or malformed expiry fails
+    // closed. This also binds every handshake to the channel that created it.
+    let Some((keypair, session)) =
+        take_pending_pairing_for_handshake(channel_id, chrono::Utc::now())
+    else {
+        log::warn!(
+            "[devices/bus] no live pending session for channel_id={} — handshake ignored",
+            channel_id
+        );
+        return;
+    };
+
     let handshake_payload = {
         // Sealed handshake: eph_pub(32) || nonce(24) || ciphertext+tag
         if frame_bytes.len() < 1 + 32 + 24 + 16 {
@@ -256,19 +255,8 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
                 return;
             }
         };
-        let core_priv = {
-            let map = super::lock_unpoisoned(&PENDING_KEYPAIRS);
-            map.get(channel_id).cloned()
-        };
-        let Some(core_keypair) = core_priv else {
-            log::warn!(
-                "[devices/bus] no keypair to open sealed frame channel_id={}",
-                channel_id
-            );
-            return;
-        };
         // DH: core_static_priv ⟷ eph_pub → session decryption key.
-        let dh_key = match core_keypair.derive_shared_secret(
+        let dh_key = match keypair.derive_shared_secret(
             &crate::security::devices::crypto::base64url_encode(&eph_pub_bytes),
         ) {
             Ok(k) => k,
@@ -283,7 +271,7 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
         // Bind both public keys and the wire marker to the bootstrap key.
         let mut salt = [0u8; 64];
         salt[..32].copy_from_slice(&eph_pub_bytes);
-        let core_pub = match base64url_decode(&core_keypair.pubkey_b64) {
+        let core_pub = match base64url_decode(&keypair.pubkey_b64) {
             Ok(pubkey) if pubkey.len() == 32 => pubkey,
             _ => return,
         };
@@ -373,19 +361,8 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
     // source and the pairing credential. Fail closed when it is absent rather
     // than persisting a hash of an empty token into the legacy column: a frame
     // with no pending session has no valid pairing context (CodeRabbit #4355).
-    let (label, pairing_token) = {
-        let sessions = super::lock_unpoisoned(&PENDING_SESSIONS);
-        match sessions.get(channel_id) {
-            Some(session) => (session.channel_id.clone(), session.pairing_token.clone()),
-            None => {
-                log::warn!(
-                    "[devices/bus] no pending session for channel_id={} — skipping persist (fail closed)",
-                    channel_id
-                );
-                return;
-            }
-        }
-    };
+    let label = session.channel_id.clone();
+    let pairing_token = session.pairing_token.clone();
 
     // Legacy DB column name is `core_session_token_hash`; the backend no
     // longer mints a core session token, so persist a hash of the pairing
@@ -457,6 +434,25 @@ fn parse_handshake_payload(raw: &str) -> HandshakePayload {
             client_ephemeral_pubkey: None,
         },
     }
+}
+
+fn take_pending_pairing_for_handshake(
+    channel_id: &str,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Option<(
+    std::sync::Arc<crate::security::devices::crypto::DeviceKeypair>,
+    super::types::PairingSession,
+)> {
+    let session = super::lock_unpoisoned(&PENDING_SESSIONS).remove(channel_id);
+    let keypair = super::lock_unpoisoned(&PENDING_KEYPAIRS).remove(channel_id);
+    let (Some(session), Some(keypair)) = (session, keypair) else {
+        return None;
+    };
+    if session.channel_id != channel_id {
+        return None;
+    }
+    let expires_at = chrono::DateTime::parse_from_rfc3339(&session.expires_at).ok()?;
+    (expires_at.with_timezone(&chrono::Utc) > now).then_some((keypair, session))
 }
 
 async fn install_v2_cipher_and_ack(
