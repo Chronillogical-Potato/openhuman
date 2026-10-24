@@ -149,55 +149,33 @@ pub fn lookup_openai_oauth_credentials(
         return Ok(None);
     };
 
-    let skew = Duration::minutes(2);
-    if token_set.is_expiring_within(std::time::Duration::from_secs(
-        skew.num_seconds().unsigned_abs(),
-    )) {
+    if token_set.is_expiring_within(std::time::Duration::from_secs(120)) {
         if let Some(refresh) = token_set.refresh_token.clone() {
             let source = crate::credentials::provider_credential_source().ok_or_else(|| {
                 "provider OAuth refresh is unavailable: no host credential source installed"
                     .to_string()
             })?;
-            match source.refresh_openai_oauth(&refresh) {
-                Ok(fresh) => {
-                    let mut refreshed = token_set_from_oauth(&fresh);
-                    // Providers do not always repeat stable fields in a
-                    // refresh response. Preserve them from the profile, while
-                    // accepting a newly rotated refresh token when supplied.
-                    if refreshed.refresh_token.is_none() {
-                        refreshed.refresh_token = token_set.refresh_token.clone();
-                    }
-                    if refreshed.id_token.is_none() {
-                        refreshed.id_token = token_set.id_token.clone();
-                    }
-                    refreshed.scope = token_set.scope.clone();
-                    token_set = refreshed;
-                    profile.token_set = Some(token_set.clone());
-                    if let Err(e) =
-                        auth_profiles_store(config).upsert_profile(profile.clone(), true)
-                    {
-                        log::warn!(
-                            "{LOG_PREFIX} failed to persist refreshed token: {e}; \
-                             fresh access token will be lost on restart"
-                        );
-                    }
+            if let Some(fresh) =
+                source.resolve_openai_oauth(OPENAI_PROVIDER_KEY, &refresh, token_set.expires_at)?
+            {
+                let mut refreshed = token_set_from_oauth(&fresh);
+                // Providers do not always repeat stable fields in a refresh
+                // response. Preserve them from the stored profile, while
+                // accepting a newly rotated refresh token when supplied.
+                if refreshed.refresh_token.is_none() {
+                    refreshed.refresh_token = token_set.refresh_token.clone();
                 }
-                Err(e) => {
-                    log::warn!("{LOG_PREFIX} oauth refresh failed: {e}");
-                    // If the token has already passed its expiry there is no
-                    // point proceeding — the next inference call will hit 401
-                    // and the user sees a generic error with no remedy.
-                    // Return a string that `is_openai_oauth_session_expired_message`
-                    // recognises ("authentication token is expired") so
-                    // `classify_inference_error` routes to the Codex reconnect
-                    // message (Settings → Integrations), not the OpenHuman
-                    // app-session sign-in flow. (#5869)
-                    if token_set.is_expiring_within(std::time::Duration::ZERO) {
-                        return Err(format!(
-                            "Codex authentication token is expired — refresh failed: {e}. \
-                             Please reconnect Codex in Settings → Integrations."
-                        ));
-                    }
+                if refreshed.id_token.is_none() {
+                    refreshed.id_token = token_set.id_token.clone();
+                }
+                refreshed.scope = token_set.scope.clone();
+                token_set = refreshed;
+                profile.token_set = Some(token_set.clone());
+                if let Err(e) = auth_profiles_store(config).upsert_profile(profile.clone(), true) {
+                    log::warn!(
+                        "{LOG_PREFIX} failed to persist refreshed token: {e}; \
+                         fresh access token will be lost on restart"
+                    );
                 }
             }
         }

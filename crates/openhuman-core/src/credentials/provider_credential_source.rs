@@ -7,6 +7,7 @@
 use std::sync::{Arc, LazyLock, RwLock};
 
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use tinyinference_providers::oauth::OAuthTokenSet;
 
 use crate::config::Config;
@@ -51,9 +52,16 @@ pub trait ProviderCredentialSource: Send + Sync + 'static {
         config: &Config,
     ) -> Result<ProviderOAuthTokens, String>;
 
-    /// Refresh a provider token set. Core serializes this call with profile
-    /// persistence so rotating refresh tokens cannot be consumed twice.
-    fn refresh_openai_oauth(&self, refresh_token: &str) -> Result<OAuthTokenSet, String>;
+    /// Resolve an OpenAI OAuth credential that may need refreshing. The host
+    /// owns the provider refresh policy and request; the core supplies the
+    /// stored refresh token and expiry, then persists a returned token set.
+    /// `Ok(None)` means the current token remains usable.
+    fn resolve_openai_oauth(
+        &self,
+        provider: &str,
+        refresh_token: &str,
+        expires_at: Option<DateTime<Utc>>,
+    ) -> Result<Option<OAuthTokenSet>, String>;
 
     /// Clear pending OAuth state after the core disconnects the profile.
     async fn clear_openai_oauth_pending(&self, config: &Config) -> Result<(), String>;
