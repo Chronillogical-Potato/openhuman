@@ -17,8 +17,7 @@ pub struct DeviceKeypair {
 impl DeviceKeypair {
     /// Generate a core identity using operating-system entropy.
     pub fn generate() -> Self {
-        let mut bytes = Zeroizing::new([0u8; 32]);
-        getrandom::fill(bytes.as_mut()).expect("operating-system entropy is available");
+        let bytes = Zeroizing::new(rand::random::<[u8; 32]>());
         Self::from_private_bytes(bytes).expect("generated X25519 key is valid")
     }
 

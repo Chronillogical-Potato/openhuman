@@ -12,7 +12,7 @@ use std::sync::{Arc, OnceLock};
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use crate::security::devices::crypto::{base64url_decode, base64url_encode, DeviceKeypair, TunnelCipher};
+use crate::security::devices::crypto::{base64url_encode, DeviceKeypair, TunnelCipher};
 use crate::security::devices::rpc::{
     ACTIVE_CIPHERS, PEER_STATUS, PENDING_KEYPAIRS, PENDING_SESSIONS,
 };
@@ -194,7 +194,7 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
         }
     };
 
-    if frame_bytes.first() == Some(&crate::security::devices::crypto::FRAME_VERSION) {
+    if frame_bytes.first() == Some(&0x02) {
         handle_encrypted_rpc_frame(channel_id, &frame_bytes).await;
         return;
     }
