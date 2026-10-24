@@ -25,7 +25,10 @@ fn file_url_literals_still_apply_the_protected_path_floor() {
 
     let result = policy.check_protected_path_literals("cat file:///home/operator/.ssh/id_rsa");
 
-    assert!(result.is_err(), "file URL to credential path must be denied");
+    assert!(
+        result.is_err(),
+        "file URL to credential path must be denied"
+    );
 }
 
 #[cfg(unix)]

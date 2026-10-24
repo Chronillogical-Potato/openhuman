@@ -225,7 +225,10 @@ fn concurrent_policy_reload_keeps_autonomy_action_dir_and_privacy_updates() {
 
     let policy = current().expect("policy remains installed");
     assert_eq!(policy.autonomy, AutonomyLevel::Full);
-    assert_eq!(policy.action_dir, std::env::temp_dir().join("openhuman_live_policy_concurrent_ws/new-action"));
+    assert_eq!(
+        policy.action_dir,
+        std::env::temp_dir().join("openhuman_live_policy_concurrent_ws/new-action")
+    );
     assert_eq!(policy.privacy_mode, PrivacyMode::LocalOnly);
 }
 
