@@ -17,9 +17,9 @@ pub(crate) fn resolve_email_password(
     if !email_cfg.password.is_empty() {
         return email_cfg;
     }
-    let auth = crate::security::credentials::AuthService::from_config(config);
+    let auth = crate::credentials::AuthService::from_config(config);
     match auth.get_profile(
-        &crate::security::credentials::channel_credential_provider(
+        &crate::credentials::channel_credential_provider(
             "email",
             tinychannels_bus::controllers::ChannelAuthMode::ApiKey,
         ),
@@ -58,12 +58,12 @@ pub(crate) fn resolve_email_password_read_only(
     if !email_cfg.password.is_empty() {
         return email_cfg;
     }
-    let provider = crate::security::credentials::channel_credential_provider(
+    let provider = crate::credentials::channel_credential_provider(
         "email",
         tinychannels_bus::controllers::ChannelAuthMode::ApiKey,
     );
     if let Ok(Some(profile)) =
-        crate::security::credentials::AuthService::get_profile_read_only(config, &provider, None)
+        crate::credentials::AuthService::get_profile_read_only(config, &provider, None)
     {
         if profile.metadata.get("username").map(String::as_str) == Some(email_cfg.username.as_str())
         {
@@ -84,7 +84,7 @@ pub(crate) fn resolve_yuanbao_app_secret_read_only(
     if !yb_cfg.app_secret.is_empty() {
         return yb_cfg;
     }
-    if let Ok(Some(profile)) = crate::security::credentials::AuthService::get_profile_read_only(
+    if let Ok(Some(profile)) = crate::credentials::AuthService::get_profile_read_only(
         config,
         "channel:yuanbao:api_key",
         None,

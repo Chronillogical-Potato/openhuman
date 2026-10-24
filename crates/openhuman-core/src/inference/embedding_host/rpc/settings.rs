@@ -4,7 +4,7 @@
 use crate::config::Config;
 use crate::core::runtime::DispatchCtx;
 use crate::core::Outcome;
-use crate::security::credentials::AuthService;
+use crate::credentials::AuthService;
 use tinyinference_providers::route::{custom_provider_string, split_custom_provider};
 
 use super::{resolve_api_key, LOG_PREFIX};

@@ -203,7 +203,7 @@ fn is_hosted_slug(slug: &str) -> bool {
 }
 
 fn provider_credential_present_read_only(config: &Config, slug: &str) -> bool {
-    use crate::security::credentials::{profiles::AuthProfileKind, AuthService};
+    use crate::credentials::{profiles::AuthProfileKind, AuthService};
 
     let key = crate::inference::provider::factory::auth_key_for_slug(slug);
     for provider in [key.as_str(), slug] {
@@ -227,8 +227,8 @@ fn provider_credential_present_read_only(config: &Config, slug: &str) -> bool {
     if slug == "openai" {
         if let Ok(Some(profile)) = AuthService::get_profile_read_only(
             config,
-            crate::security::credentials::openai_oauth::OPENAI_PROVIDER_KEY,
-            Some(crate::security::credentials::openai_oauth::OPENAI_OAUTH_PROFILE_NAME),
+            crate::credentials::openai_oauth::OPENAI_PROVIDER_KEY,
+            Some(crate::credentials::openai_oauth::OPENAI_OAUTH_PROFILE_NAME),
         ) {
             if let Some(tokens) = profile.token_set {
                 return !tokens.access_token.trim().is_empty()

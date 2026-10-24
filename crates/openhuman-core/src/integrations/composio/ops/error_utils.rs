@@ -101,13 +101,13 @@ pub(crate) fn backend_mode_without_session(config: &Config) -> bool {
     if !(mode.is_empty() || mode == crate::config::schema::COMPOSIO_MODE_BACKEND) {
         return false;
     }
-    if crate::security::credentials::api_key::has_api_key(config) {
+    if crate::credentials::api_key::has_api_key(config) {
         return false;
     }
-    match crate::security::credentials::jwt::get_session_token(config) {
+    match crate::credentials::jwt::get_session_token(config) {
         Ok(token) => token.as_deref().map(str::trim).is_none_or(|token| {
             token.is_empty()
-                || crate::security::credentials::session_support::is_local_session_token(token)
+                || crate::credentials::session_support::is_local_session_token(token)
         }),
         Err(error) => {
             tracing::warn!(

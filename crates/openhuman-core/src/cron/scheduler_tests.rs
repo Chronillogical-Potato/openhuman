@@ -25,7 +25,7 @@ async fn test_config(tmp: &TempDir) -> Config {
         .await
         .unwrap();
     crate::storage::local::use_persistent_default_for_test(&config.workspace_dir);
-    crate::security::credentials::api_key::store_api_key(&config, "cron-scheduler-test-key")
+    crate::credentials::api_key::store_api_key(&config, "cron-scheduler-test-key")
         .expect("store the managed inference fixture credential");
     config
 }

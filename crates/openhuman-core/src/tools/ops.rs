@@ -251,7 +251,7 @@ pub fn all_tools_with_runtime_and_pack_handle(
         // controllers remain registered for the UI. `credentials` exposes only
         // non-secret reads.
     ]);
-    tools.extend(crate::security::credentials::tools::registered_tools(
+    tools.extend(crate::credentials::tools::registered_tools(
         config.clone(),
     ));
     tools.append(&mut vec![

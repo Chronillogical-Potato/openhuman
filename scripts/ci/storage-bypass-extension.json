@@ -361,7 +361,7 @@
   },
   {
     "rule": "file-mutation",
-    "path": "crates/openhuman-core/src/security/credentials/profiles.rs",
+    "path": "crates/openhuman-core/src/credentials/profiles.rs",
     "line": 577,
     "text": "fs::rename(path, &candidate).with_context(|| {",
     "occurrence": 1,
@@ -371,7 +371,7 @@
   },
   {
     "rule": "file-mutation",
-    "path": "crates/openhuman-core/src/security/credentials/profiles/persistence.rs",
+    "path": "crates/openhuman-core/src/credentials/profiles/persistence.rs",
     "line": 277,
     "text": "fs::rename(&tmp_path, &self.path).context(\"rename auth profile tmp -> store\")",
     "occurrence": 1,

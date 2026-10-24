@@ -3,7 +3,7 @@
 /// app-session profile and return the user's email (preferred) or backend
 /// user id. `None` when signed out or the profile is unreadable.
 fn session_profile_user_attribution(config: &crate::config::Config) -> Option<String> {
-    let state = crate::security::credentials::session_support::build_session_state(config).ok()?;
+    let state = crate::credentials::session_support::build_session_state(config).ok()?;
     state
         .user
         .as_ref()

@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::memory::CallbackBearerSource;
 use openhuman_embed::__host::memory_engines::BearerSource;
-use openhuman_embed::__host::security::credentials::session_support::{
+use openhuman_embed::__host::credentials::session_support::{
     resolve_backend_credential, BackendCredential,
 };
 use reqwest::Method;

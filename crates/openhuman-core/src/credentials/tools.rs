@@ -16,7 +16,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use crate::config::Config;
-use crate::security::credentials;
+use crate::credentials;
 use tinytools::{Tool, ToolResult};
 
 /// Dispatch a hosted `auth.oauth_*` controller through the registry.

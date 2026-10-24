@@ -15,7 +15,7 @@ use serde_json::Value;
 
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::core::Outcome;
-use openhuman_embed::__host::security::credentials::session_support::resolve_backend_credential;
+use openhuman_embed::__host::credentials::session_support::resolve_backend_credential;
 
 use crate::client::{flatten_authed_error, BackendClient};
 

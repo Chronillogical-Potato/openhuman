@@ -52,10 +52,10 @@ fn execute_tool_resolves_to_backend_kind_when_mode_is_backend() {
     let tmp = tempfile::tempdir().unwrap();
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
-    crate::security::credentials::AuthService::from_config(&config)
+    crate::credentials::AuthService::from_config(&config)
         .store_provider_token(
-            crate::security::credentials::APP_SESSION_PROVIDER,
-            crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::credentials::APP_SESSION_PROVIDER,
+            crate::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "test-token",
             std::collections::HashMap::new(),
             true,

@@ -63,9 +63,9 @@ async fn turn_factory_checks_privacy_then_explicit_host_session_before_building_
         assert!(error.to_string().contains("SESSION_EXPIRED"));
         assert!(builds.lock().expect("build counter").is_empty());
 
-        crate::security::credentials::AuthService::from_config(&config)
+        crate::credentials::AuthService::from_config(&config)
             .store_provider_token(
-                crate::security::credentials::APP_SESSION_PROVIDER,
+                crate::credentials::APP_SESSION_PROVIDER,
                 "default",
                 "fixture-session-token",
                 Default::default(),

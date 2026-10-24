@@ -1,6 +1,6 @@
 use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::config::Config;
-use crate::security::credentials::AuthService;
+use crate::credentials::AuthService;
 use axum::{
     extract::State,
     http::{HeaderMap, StatusCode},

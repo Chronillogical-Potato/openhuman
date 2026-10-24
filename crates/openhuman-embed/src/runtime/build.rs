@@ -557,7 +557,7 @@ fn store_api_key(config: &Config, key: &ApiKey) -> Result<(), RuntimeError> {
         .parent()
         .map(Path::to_path_buf)
         .unwrap_or_else(|| config.config_path.clone());
-    openhuman_core::security::credentials::api_key::store_api_key_in(
+    openhuman_core::credentials::api_key::store_api_key_in(
         &state_dir,
         config.secrets.encrypt,
         key.expose(),

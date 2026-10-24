@@ -225,21 +225,21 @@
   },
   {
     "rule": "json-write",
-    "path": "crates/openhuman-core/src/security/credentials/profiles.rs",
+    "path": "crates/openhuman-core/src/credentials/profiles.rs",
     "line": 304,
     "text": "let mut file = OpenOptions::new()",
     "occurrence": 1
   },
   {
     "rule": "json-write",
-    "path": "crates/openhuman-core/src/security/credentials/profiles.rs",
+    "path": "crates/openhuman-core/src/credentials/profiles.rs",
     "line": 317,
     "text": "fs::write(path, bytes)",
     "occurrence": 1
   },
   {
     "rule": "json-write",
-    "path": "crates/openhuman-core/src/security/credentials/profiles/lock.rs",
+    "path": "crates/openhuman-core/src/credentials/profiles/lock.rs",
     "line": 84,
     "text": "OpenOptions::new()",
     "occurrence": 1

@@ -12,7 +12,7 @@ async fn session_401_event_carries_the_client_request_credential_fingerprint() {
         .expect("event bus initialized")
         .receiver();
     let fingerprint =
-        openhuman_embed::__host::security::credentials::session_support::credential_fingerprint(
+        openhuman_embed::__host::credentials::session_support::credential_fingerprint(
             "request-session-token",
         );
 

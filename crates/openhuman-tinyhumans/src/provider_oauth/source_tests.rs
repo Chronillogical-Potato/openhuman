@@ -1,5 +1,5 @@
 use super::source::OpenAiProviderCredentialSource;
-use openhuman_embed::__host::security::credentials::ProviderCredentialSource;
+use openhuman_embed::__host::credentials::ProviderCredentialSource;
 use tinyinference_providers::oauth::OAuthTokenSet;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};

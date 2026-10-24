@@ -3,7 +3,7 @@
 
 use super::{BYOK_INCOMPLETE_SENTINEL, CLAUDE_AGENT_SDK_PROVIDER, PROVIDER_OPENHUMAN};
 use crate::config::Config;
-use crate::security::credentials::AuthService;
+use crate::credentials::AuthService;
 use crate::security::egress::EgressLedger;
 use tinyinference_providers::route::{ProviderRoute, RouteKind};
 
@@ -370,7 +370,7 @@ pub(crate) fn verify_backend_session_active(config: &Config) -> anyhow::Result<(
         });
     // An API key is a standing credential: no session to be active, nothing
     // for the scheduler gate to have expired.
-    if crate::security::credentials::api_key::has_api_key_in(&state_dir, config.secrets.encrypt) {
+    if crate::credentials::api_key::has_api_key_in(&state_dir, config.secrets.encrypt) {
         log::debug!(
             "[providers][access-gate] api-key credential satisfies the backend session gate"
         );
@@ -385,7 +385,7 @@ pub(crate) fn verify_backend_session_active(config: &Config) -> anyhow::Result<(
     // Verify the app-session JWT actually exists in auth-profiles.
     let auth = AuthService::new(&state_dir, config.secrets.encrypt);
     let has_session = auth
-        .get_provider_bearer_token(crate::security::credentials::APP_SESSION_PROVIDER, None)?
+        .get_provider_bearer_token(crate::credentials::APP_SESSION_PROVIDER, None)?
         .filter(|s| !s.trim().is_empty())
         .is_some();
     if !has_session {

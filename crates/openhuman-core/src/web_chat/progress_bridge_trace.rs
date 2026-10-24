@@ -31,7 +31,7 @@ pub(super) fn trace_context(
     // id (socket client / "system") is NOT a user; it rides along as
     // the separate `client.id` metadata attribute. The backend stamps
     // the authenticated JWT user on every accepted trace.
-    let identity = crate::security::credentials::identity::peek_credential_user_identity();
+    let identity = crate::credentials::identity::peek_credential_user_identity();
     let user_id = identity
         .and_then(|i| i.id.or(i.email))
         .or_else(|| super::session_profile_user_attribution(config));

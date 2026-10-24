@@ -229,7 +229,7 @@ fn selected_managed_route_constructs_with_the_picker_model() {
     let _serial = crate::inference::provider::factory::test_provider_override::exclusive();
     crate::agent::session_host::test_support::install_model_fixture();
     let config = Config::default();
-    crate::security::credentials::api_key::store_api_key(&config, "test-session-fixture-key")
+    crate::credentials::api_key::store_api_key(&config, "test-session-fixture-key")
         .expect("store managed routing test credential");
     let selection = "openrouter/author/picked-model:free";
     let effective = effective_session_config(&config, Some(selection), None);
@@ -388,7 +388,7 @@ fn explicit_picker_model_keeps_its_fingerprint_when_saved_default_changes() {
 
 fn configured_huggingface_route() -> Config {
     let mut config = Config::default();
-    crate::security::credentials::api_key::store_api_key(&config, "test-session-fixture-key")
+    crate::credentials::api_key::store_api_key(&config, "test-session-fixture-key")
         .expect("store routing test credential");
     config.chat_provider = Some("openai:gpt-4o".to_string());
     config

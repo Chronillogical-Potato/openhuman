@@ -134,7 +134,7 @@ fn profile_kind_label(kind: AuthProfileKind) -> String {
 }
 
 pub fn summarize_auth_profile(
-    profile: &crate::security::credentials::profiles::AuthProfile,
+    profile: &crate::credentials::profiles::AuthProfile,
 ) -> AuthProfileSummary {
     let mut metadata_keys = profile
         .metadata
@@ -162,7 +162,7 @@ pub fn summarize_auth_profile(
 }
 
 fn session_user_value(
-    profile: &crate::security::credentials::profiles::AuthProfile,
+    profile: &crate::credentials::profiles::AuthProfile,
 ) -> Option<serde_json::Value> {
     profile
         .metadata
@@ -216,7 +216,7 @@ impl CredentialKind {
 /// The subject of a JWT, read from its payload claims without verification.
 /// Checked in order: `sub`, `userId`, `user_id`, `_id`, `id`.
 pub fn user_id_from_jwt_claims(token: &str) -> Option<String> {
-    let claims = crate::security::credentials::jwt::decode_jwt_payload(token)?;
+    let claims = crate::credentials::jwt::decode_jwt_payload(token)?;
     let obj = claims.as_object()?;
     ["sub", "userId", "user_id", "_id", "id"]
         .iter()

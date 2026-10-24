@@ -580,10 +580,10 @@ async fn enrich_leaves_unmatched_connection_unchanged() {
 /// Store an app-session JWT in the auth store `config` points at, the same
 /// way `client_tests::config_with_session_token` does.
 fn store_test_session_token(config: &crate::config::Config) {
-    crate::security::credentials::AuthService::from_config(config)
+    crate::credentials::AuthService::from_config(config)
         .store_provider_token(
-            crate::security::credentials::APP_SESSION_PROVIDER,
-            crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::credentials::APP_SESSION_PROVIDER,
+            crate::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "test-session-token",
             std::collections::HashMap::new(),
             true,
@@ -630,10 +630,10 @@ fn backend_mode_without_session_is_false_once_signed_in() {
 fn backend_mode_treats_local_offline_credential_as_no_backend_session() {
     let tmp = tempfile::tempdir().unwrap();
     let config = test_config(&tmp);
-    crate::security::credentials::AuthService::from_config(&config)
+    crate::credentials::AuthService::from_config(&config)
         .store_provider_token(
-            crate::security::credentials::APP_SESSION_PROVIDER,
-            crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::credentials::APP_SESSION_PROVIDER,
+            crate::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "header.payload.local",
             std::collections::HashMap::new(),
             true,

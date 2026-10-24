@@ -17,11 +17,11 @@ AES-256-GCM at-rest crypto for AI memory storage and the encrypt/decrypt RPC sur
 - `argon2` crate for `Argon2id` password-derived keys.
 - `aes-gcm` crate for `Aes256Gcm` AEAD.
 - `crates/openhuman-core/src/config/`: `Config` for workspace-relative data directory.
-- `crates/openhuman-core/src/security/credentials/`: `credentials::rpc::{encrypt_secret, decrypt_secret}` carry the actual key-management responsibility.
+- `crates/openhuman-core/src/credentials/`: `credentials::rpc::{encrypt_secret, decrypt_secret}` carry the actual key-management responsibility.
 
 ## Called by
 
-- `crates/openhuman-core/src/security/credentials/`: uses the same `EncryptedPayload` / `EncryptionKey` primitives directly when storing per-channel secrets.
+- `crates/openhuman-core/src/credentials/`: uses the same `EncryptedPayload` / `EncryptionKey` primitives directly when storing per-channel secrets.
 - `crates/openhuman-core/src/core/all.rs`: registers `all_encryption_*` controllers so the shell and CLI can encrypt configuration secrets.
 - Indirect: `crates/openhuman-core/src/memory/`, `crates/openhuman-core/src/channels/`, and `crates/openhuman-core/src/inference/local/` rely on the credentials domain (which in turn uses this layer) for secrets at rest.
 

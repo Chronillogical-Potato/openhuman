@@ -201,7 +201,7 @@ async fn native_turn_preserves_deepseek_route_metadata_after_cloud_resolution() 
         }],
         ..Default::default()
     };
-    crate::security::credentials::AuthService::from_config(&config)
+    crate::credentials::AuthService::from_config(&config)
         .store_provider_token(
             "provider:deepseek",
             "default",

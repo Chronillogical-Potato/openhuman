@@ -19,7 +19,7 @@ use serde_json::{json, Map, Value};
 
 use crate::config::{Config, DecisionModel};
 use crate::inference::provider::factory::lookup_key_for_slug;
-use crate::security::credentials::session_support::{
+use crate::credentials::session_support::{
     is_local_session_token, resolve_backend_credential, BackendCredential,
 };
 

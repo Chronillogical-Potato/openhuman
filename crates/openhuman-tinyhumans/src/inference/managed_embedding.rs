@@ -86,7 +86,7 @@ fn build_cloud_model(
         }
         // A stored TinyHumans API key is the bearer outright, with the
         // plaintext guard: never put the key on a non-HTTPS, non-loopback wire.
-        if let Some(key) = openhuman_embed::__host::security::credentials::api_key::get_api_key_in(
+        if let Some(key) = openhuman_embed::__host::credentials::api_key::get_api_key_in(
             &state_dir,
             secrets_encrypt,
         )

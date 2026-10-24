@@ -9,7 +9,7 @@ use tinyinference_llm::model::discover::ModelLimitsCache;
 
 use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::config::schema::ModelRegistryEntry;
-use crate::security::credentials::AuthService;
+use crate::credentials::AuthService;
 
 const OPENROUTER: &str = "https://openrouter.ai/api/v1";
 const V41_FLASH: &str = "deepseek/deepseek-v4.1-flash";

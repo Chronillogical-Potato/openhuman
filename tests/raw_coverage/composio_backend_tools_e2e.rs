@@ -19,7 +19,7 @@ use openhuman_core::integrations::composio::ops::{composio_authorize, composio_l
 use openhuman_core::integrations::composio::tools::{
     ComposioListConnectionsTool, ComposioListToolkitsTool, ComposioListToolsTool,
 };
-use openhuman_core::security::credentials::{
+use openhuman_core::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use tinytools::{Tool, ToolCallOptions};

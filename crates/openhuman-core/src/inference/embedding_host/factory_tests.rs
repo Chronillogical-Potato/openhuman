@@ -1,5 +1,5 @@
 use super::*;
-use crate::security::credentials::{AuthService, APP_SESSION_PROVIDER};
+use crate::credentials::{AuthService, APP_SESSION_PROVIDER};
 use std::collections::HashMap;
 use tempfile::TempDir;
 use tinyinference_embeddings::factory::validate_custom_endpoint;
@@ -28,7 +28,7 @@ fn managed_credential_scope_mirrors_config_not_default_state_dir() {
     let mut config = test_config(&tmp);
     config.secrets.encrypt = false;
 
-    let dir = Some(crate::security::credentials::state_dir_from_config(&config));
+    let dir = Some(crate::credentials::state_dir_from_config(&config));
     let encrypt = config.secrets.encrypt;
     assert_eq!(
         dir.as_deref(),
@@ -62,7 +62,7 @@ fn managed_scope_resolves_signin_stored_app_session_token() {
         .unwrap();
 
     // The exact scope the managed branch uses must recover it.
-    let dir = Some(crate::security::credentials::state_dir_from_config(&config));
+    let dir = Some(crate::credentials::state_dir_from_config(&config));
     let encrypt = config.secrets.encrypt;
     let resolved = AuthService::new(dir.as_deref().unwrap(), encrypt)
         .get_provider_bearer_token(APP_SESSION_PROVIDER, None)

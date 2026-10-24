@@ -17,7 +17,7 @@ pub use settings::{get_settings, update_settings};
 use settings::remember_active_custom_profile;
 
 use crate::config::Config;
-use crate::security::credentials::AuthService;
+use crate::credentials::AuthService;
 use tinyinference_providers::route::split_custom_provider;
 
 use super::factory::create_embedding_provider_with_config;
@@ -80,7 +80,7 @@ pub(crate) fn resolve_api_key(config: &Config, provider_name: &str) -> String {
 pub(crate) fn resolve_api_key_read_only(
     config: &Config,
     provider_name: &str,
-) -> Result<String, crate::security::credentials::profiles::ReadOnlyAuthProfileError> {
+) -> Result<String, crate::credentials::profiles::ReadOnlyAuthProfileError> {
     let slug = if provider_name.starts_with("custom:") {
         "custom"
     } else {

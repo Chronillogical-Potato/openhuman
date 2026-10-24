@@ -249,26 +249,26 @@ pub mod security {
         };
     }
     pub mod credentials {
-        pub use openhuman_core::security::credentials::{
+        pub use openhuman_core::credentials::{
             channel_credential_provider, clear_provider_credential_source,
             install_provider_credential_source, provider_credential_source, state_dir_from_config,
             AuthService, ProviderCredentialSource, ProviderOAuthStart, ProviderOAuthTokens,
             APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
         };
         pub mod openai_oauth {
-            pub use openhuman_core::security::credentials::openai_oauth::{
+            pub use openhuman_core::credentials::openai_oauth::{
                 complete_openai_oauth, disconnect_openai_oauth, import_openai_oauth_from_codex_cli,
                 openai_oauth_status, persist_openai_oauth_token, persist_openai_oauth_tokens,
                 start_openai_oauth,
             };
         }
         pub mod ops {
-            pub use openhuman_core::security::credentials::ops::{
+            pub use openhuman_core::credentials::ops::{
                 list_provider_credentials, store_provider_credentials,
             };
         }
         pub mod session_support {
-            pub use openhuman_core::security::credentials::session_support::{
+            pub use openhuman_core::credentials::session_support::{
                 build_session_state, check_session_backend, classify_session_token,
                 credential_fingerprint, credential_fingerprint_matches, current_session_is_local,
                 get_session_token, is_local_session_token, load_app_session_profile,
@@ -280,7 +280,7 @@ pub mod security {
             };
         }
         pub mod api_key {
-            pub use openhuman_core::security::credentials::api_key::{
+            pub use openhuman_core::credentials::api_key::{
                 get_api_key, get_api_key_in, get_api_key_read_only, store_api_key, store_api_key_in,
             };
         }

@@ -15,7 +15,7 @@ fn domain_filter_is_auth() {
 
 #[test]
 fn stale_session_expiry_does_not_match_a_replacement_token() {
-    let expired_request = crate::security::credentials::session_support::credential_fingerprint(
+    let expired_request = crate::credentials::session_support::credential_fingerprint(
         "request-token-before-rotation",
     );
     assert!(!super::session_expiry_matches_token(
@@ -31,7 +31,7 @@ fn stale_session_expiry_does_not_match_a_replacement_token() {
 #[tokio::test]
 async fn stale_session_expiry_leaves_replacement_session_and_gate_intact() {
     use crate::core::runtime::{CoreContext, DispatchCtx, DomainSet};
-    use crate::security::credentials::session_support::{
+    use crate::credentials::session_support::{
         credential_fingerprint, get_session_token,
     };
 
@@ -42,10 +42,10 @@ async fn stale_session_expiry_leaves_replacement_session_and_gate_intact() {
         config_path: temp.path().join("config.toml"),
         ..crate::config::Config::default()
     };
-    let auth = crate::security::credentials::AuthService::from_config(&config);
+    let auth = crate::credentials::AuthService::from_config(&config);
     auth.store_provider_token(
-        crate::security::credentials::APP_SESSION_PROVIDER,
-        crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+        crate::credentials::APP_SESSION_PROVIDER,
+        crate::credentials::DEFAULT_AUTH_PROFILE_NAME,
         "replacement-session-token",
         Default::default(),
         true,

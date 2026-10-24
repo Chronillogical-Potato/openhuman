@@ -1,5 +1,5 @@
 use super::*;
-use crate::security::credentials::profiles::{AuthProfile, AuthProfileKind, TokenSet};
+use crate::credentials::profiles::{AuthProfile, AuthProfileKind, TokenSet};
 use chrono::Utc;
 use serde_json::json;
 use std::collections::BTreeMap;
@@ -56,7 +56,7 @@ fn bound_session_token_release_requires_issuing_backend() {
         .unwrap_err()
         .starts_with("SESSION_BACKEND_MISMATCH"));
     assert!(direct_backend_credential(&config, "test").is_none());
-    crate::security::credentials::api_key::store_api_key(&config, "synthetic-key").unwrap();
+    crate::credentials::api_key::store_api_key(&config, "synthetic-key").unwrap();
     assert!(matches!(
         resolve_backend_credential(&config).unwrap(),
         BackendCredential::ApiKey(_)
@@ -334,7 +334,7 @@ fn backend_bearer_secret_prefers_api_key_and_returns_none_when_empty() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
     assert_eq!(backend_bearer_secret(&config).unwrap(), None);
-    crate::security::credentials::api_key::store_api_key(&config, "th_test_key")
+    crate::credentials::api_key::store_api_key(&config, "th_test_key")
         .expect("store API key");
     assert_eq!(
         backend_bearer_secret(&config).unwrap().as_deref(),
@@ -408,14 +408,14 @@ fn build_session_state_prefers_the_api_key_over_a_present_session() {
             true,
         )
         .expect("store session token");
-    crate::security::credentials::api_key::store_api_key(&config, "th_test_key")
+    crate::credentials::api_key::store_api_key(&config, "th_test_key")
         .expect("store api key");
 
     let state = build_session_state(&config).unwrap();
     assert!(state.is_authenticated);
     assert_eq!(
         state.credential.as_deref(),
-        Some(crate::security::credentials::responses::CREDENTIAL_API_KEY),
+        Some(crate::credentials::responses::CREDENTIAL_API_KEY),
         "the api key must win when both credentials are present: {state:?}"
     );
     assert!(

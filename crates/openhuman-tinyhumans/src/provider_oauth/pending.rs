@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, Mutex, PoisonError};
 
 use openhuman_embed::__host::config::Config;
-use openhuman_embed::__host::security::credentials::state_dir_from_config;
+use openhuman_embed::__host::credentials::state_dir_from_config;
 use openhuman_embed::__host::storage::secrets::{current, MemorySecrets, SecretStore};
 
 const PENDING_SECRET: &str = "openai-oauth-pending";

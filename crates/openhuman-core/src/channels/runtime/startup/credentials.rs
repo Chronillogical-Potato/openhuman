@@ -23,7 +23,7 @@ pub(super) fn resolve_yuanbao_app_secret(
     if !yb_cfg.app_secret.is_empty() {
         return yb_cfg;
     }
-    let auth = crate::security::credentials::AuthService::from_config(config);
+    let auth = crate::credentials::AuthService::from_config(config);
     match auth.get_profile("channel:yuanbao:api_key", None) {
         Ok(Some(profile)) => {
             let stored_app_key = profile.metadata.get("app_key").map(String::as_str);

@@ -5,7 +5,7 @@ use rand::RngExt as _;
 
 use crate::core_host::config;
 use crate::core_host::core::runtime::DispatchCtx;
-use crate::core_host::security::credentials::session_support;
+use crate::core_host::credentials::session_support;
 use crate::http_host::types::HostedDirAuth;
 use crate::http_host::LOG_PREFIX;
 

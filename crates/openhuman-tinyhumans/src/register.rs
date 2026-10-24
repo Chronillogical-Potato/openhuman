@@ -25,7 +25,7 @@ use crate::{channels, client, inference, integrations, memory};
 /// Registers every area's hooks with the core.
 pub(crate) fn register_all(options: &InstallOptions, doctor_registration: DoctorRegistration<'_>) {
     log::debug!("[tinyhumans] register_all: registering core hooks");
-    openhuman_embed::__host::security::credentials::install_provider_credential_source(
+    openhuman_embed::__host::credentials::install_provider_credential_source(
         std::sync::Arc::new(crate::provider_oauth::OpenAiProviderCredentialSource::default()),
     );
     crate::hosted_config::register();

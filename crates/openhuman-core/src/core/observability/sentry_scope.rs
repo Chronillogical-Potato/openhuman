@@ -3,7 +3,7 @@
 //! Issue #3135 — direct-mode core events (`tauri-rust` / `core-rust`) were
 //! landing in Sentry with `userCount=0` because the `before_send` filter in
 //! `src/main.rs` / `crates/openhuman-app/src/lib.rs` reads
-//! [`peek_credential_user_identity`](crate::security::credentials::identity::peek_credential_user_identity),
+//! [`peek_credential_user_identity`](crate::credentials::identity::peek_credential_user_identity),
 //! and that cache is only ever populated by the frontend-driven
 //! `app_state_snapshot` RPC. Background loops (Composio sync tick, etc.) fire
 //! before — or independent of — any snapshot, so events miss user attribution.
@@ -20,7 +20,7 @@
 /// Bind the Sentry scope to a session's user id.
 ///
 /// `id` should be a stable account identifier (the Mongo ObjectId for
-/// backend-mode sessions, [`crate::security::credentials::core::LOCAL_SESSION_USER_ID`]
+/// backend-mode sessions, [`crate::credentials::core::LOCAL_SESSION_USER_ID`]
 /// for local sessions). Empty / whitespace-only values are treated as
 /// [`clear`] to avoid attaching `user{id: ""}` to events.
 pub fn bind(id: &str) {

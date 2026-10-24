@@ -17,10 +17,10 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
-use crate::security::credentials::session_support::{
+use crate::credentials::session_support::{
     has_backend_credential, SESSION_EXPIRES_AT_META,
 };
-use crate::security::credentials::{
+use crate::credentials::{
     api_key, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 
@@ -123,7 +123,7 @@ fn replacing() -> std::sync::MutexGuard<'static, ()> {
 fn remove_provider(config: &Config, provider: &str) -> Result<bool, String> {
     let auth = AuthService::from_config(config);
     let provider_id =
-        crate::security::credentials::normalize_provider(provider).map_err(|e| e.to_string())?;
+        crate::credentials::normalize_provider(provider).map_err(|e| e.to_string())?;
     let names: Vec<String> = auth
         .load_profiles()
         .map_err(|e| e.to_string())?

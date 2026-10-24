@@ -3,7 +3,7 @@ use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 
 fn test_config() -> Config {
     let config = Config::default();
-    crate::security::credentials::api_key::store_api_key(&config, "test-session-fixture-key")
+    crate::credentials::api_key::store_api_key(&config, "test-session-fixture-key")
         .expect("store triage test credential");
     config
 }

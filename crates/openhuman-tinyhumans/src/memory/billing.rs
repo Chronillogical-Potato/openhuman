@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::memory_engines::BoundEngine;
-use openhuman_embed::__host::security::credentials::session_support::{
+use openhuman_embed::__host::credentials::session_support::{
     resolve_backend_credential, BackendCredential,
 };
 use sha2::Digest;

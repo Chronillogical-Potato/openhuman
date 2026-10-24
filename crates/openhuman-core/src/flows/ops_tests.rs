@@ -341,7 +341,7 @@ fn seed_suggestion(config: &Config, id: &str) {
 // configured for slug" branch), before any HTTP client is built.
 
 fn seed_app_session_for_gate_test(tmp: &TempDir) {
-    use crate::security::credentials::{
+    use crate::credentials::{
         AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
     };
     // `verify_session_active` reads from `config.config_path.parent()`, which

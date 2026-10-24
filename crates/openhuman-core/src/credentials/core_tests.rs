@@ -1,5 +1,5 @@
 use super::*;
-use crate::security::credentials::profiles::{AuthProfile, AuthProfileKind};
+use crate::credentials::profiles::{AuthProfile, AuthProfileKind};
 
 #[test]
 fn normalize_provider_basic() {

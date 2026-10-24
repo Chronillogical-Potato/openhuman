@@ -13,8 +13,8 @@
 
 use crate::config::Config;
 use crate::core::runtime::DispatchCtx;
-use crate::security::credentials::api_key;
-use crate::security::credentials::session_support::{get_session_token, CredentialKind};
+use crate::credentials::api_key;
+use crate::credentials::session_support::{get_session_token, CredentialKind};
 
 use super::credential::{set_credential, SetCredentialRequest};
 

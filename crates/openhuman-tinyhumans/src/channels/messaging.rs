@@ -5,7 +5,7 @@
 //! the RPC response shapes are unchanged.
 
 use openhuman_embed::__host::config::Config;
-use openhuman_embed::__host::security::credentials::session_support::{
+use openhuman_embed::__host::credentials::session_support::{
     resolve_backend_credential, BackendCredential,
 };
 use serde_json::Value;

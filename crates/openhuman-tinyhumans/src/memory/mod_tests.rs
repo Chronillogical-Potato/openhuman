@@ -1,10 +1,10 @@
 use super::*;
 use crate::hosted::test_support;
 use openhuman_embed::__host::memory_engines::Binding;
-use openhuman_embed::__host::security::credentials::session_support::{
+use openhuman_embed::__host::credentials::session_support::{
     BackendCredential, SESSION_EXPIRES_AT_META, SESSION_ISSUING_BACKEND_META,
 };
-use openhuman_embed::__host::security::credentials::{
+use openhuman_embed::__host::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use serde_json::json;

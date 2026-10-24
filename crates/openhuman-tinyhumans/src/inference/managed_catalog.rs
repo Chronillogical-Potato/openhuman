@@ -14,7 +14,7 @@ use openhuman_embed::__host::inference_registry::{
     InspectionCatalogError, InspectionCatalogListing, InspectionCatalogRequest,
     PreparedInspectionCatalog, ProviderContext,
 };
-use openhuman_embed::__host::security::credentials::session_support::{
+use openhuman_embed::__host::credentials::session_support::{
     classify_session_token, load_app_session_profile, publish_local_session_expiry,
     resolve_backend_credential, session_token_from_profile, BackendCredential, SessionTokenCheck,
 };
@@ -72,7 +72,7 @@ pub(super) fn entry() -> CatalogEntry<ProviderContext> {
 pub(super) fn inspection_entry() -> InspectionCatalogListing {
     Arc::new(|config: Config, request: InspectionCatalogRequest| {
         Box::pin(async move {
-            use openhuman_embed::__host::security::credentials::session_support::{
+            use openhuman_embed::__host::credentials::session_support::{
                 check_session_backend, classify_session_token, load_app_session_profile_read_only,
                 SessionTokenCheck,
             };
@@ -87,7 +87,7 @@ pub(super) fn inspection_entry() -> InspectionCatalogListing {
             };
             let provider_key = request.provider_key.trim();
             let api_key = if provider_key.is_empty() {
-                openhuman_embed::__host::security::credentials::api_key::get_api_key_read_only(
+                openhuman_embed::__host::credentials::api_key::get_api_key_read_only(
                     &config,
                 )
                 .map_err(|_| InspectionCatalogError::Unavailable)?

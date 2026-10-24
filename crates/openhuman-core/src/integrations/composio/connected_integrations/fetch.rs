@@ -82,12 +82,12 @@ pub async fn fetch_connected_integrations_status(
     // A stored API key outranks the local session (`resolve_backend_credential`),
     // so it still reaches the backend.
     if config.composio.mode.trim() != crate::config::schema::COMPOSIO_MODE_DIRECT
-        && !crate::security::credentials::api_key::has_api_key(config)
-        && crate::security::credentials::session_support::get_session_token(config)
+        && !crate::credentials::api_key::has_api_key(config)
+        && crate::credentials::session_support::get_session_token(config)
             .ok()
             .flatten()
             .is_some_and(|token| {
-                crate::security::credentials::session_support::is_local_session_token(&token)
+                crate::credentials::session_support::is_local_session_token(&token)
             })
     {
         return FetchConnectedIntegrationsStatus::Authoritative(Vec::new());

@@ -3,7 +3,7 @@
 //! resolved host belongs to, and whether that environment may push at all.
 
 use crate::config::Config;
-use crate::security::credentials::session_support::direct_backend_credential;
+use crate::credentials::session_support::direct_backend_credential;
 
 const LOG_TARGET: &str = "agent-tracing::langfuse";
 
@@ -125,7 +125,7 @@ pub(crate) fn journal_push_ready(config: &Config) -> bool {
         && url.starts_with("http")
         && matches!(
             direct_backend_credential(config, "langfuse journal push"),
-            Some(crate::security::credentials::session_support::BackendCredential::Session(_))
+            Some(crate::credentials::session_support::BackendCredential::Session(_))
         )
 }
 

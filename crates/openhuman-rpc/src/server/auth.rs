@@ -32,7 +32,7 @@ use serde_json::json;
 
 use crate::core_host::config::Config;
 use crate::core_host::inference::http::EXTERNAL_OPENAI_COMPAT_PROVIDER;
-use crate::core_host::security::credentials::AuthService;
+use crate::core_host::credentials::AuthService;
 
 /// Paths that bypass bearer-token authentication.
 ///

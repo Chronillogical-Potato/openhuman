@@ -16,13 +16,13 @@ use serde_json::{json, Value};
 use crate::config::Config;
 use crate::core::observability::sentry_scope;
 use crate::core::Outcome;
-use crate::security::credentials::jwt::decode_jwt_exp;
-use crate::security::credentials::responses::AuthStateResponse;
-use crate::security::credentials::session_support::{
+use crate::credentials::jwt::decode_jwt_exp;
+use crate::credentials::responses::AuthStateResponse;
+use crate::credentials::session_support::{
     build_session_state, load_app_session_profile, local_session_user_id,
     session_token_from_profile, user_id_from_jwt_claims, CredentialKind, SESSION_EXPIRES_AT_META,
 };
-use crate::security::credentials::{
+use crate::credentials::{
     api_key, identity, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 
@@ -98,7 +98,7 @@ fn sanitize_user(user: Option<Value>) -> Option<Value> {
 }
 
 fn user_id_from_payload(user: Option<&Value>) -> Option<String> {
-    user.and_then(crate::security::credentials::jwt::user_id_from_profile_payload)
+    user.and_then(crate::credentials::jwt::user_id_from_profile_payload)
 }
 
 fn normalize_local_user(user: Value, local_user_id: &str) -> Value {
@@ -209,7 +209,7 @@ pub async fn set_credential(
     let issuing_backend = if resolved.kind == CredentialKind::Session {
         issuing_backend
             .as_deref()
-            .map(crate::security::credentials::session_support::normalize_session_backend)
+            .map(crate::credentials::session_support::normalize_session_backend)
             .transpose()?
     } else {
         None
@@ -218,7 +218,7 @@ pub async fn set_credential(
 
     if resolved.kind == CredentialKind::ApiKey {
         let was_authenticated =
-            crate::security::credentials::session_support::has_backend_credential(config);
+            crate::credentials::session_support::has_backend_credential(config);
         api_key::store_api_key(config, &resolved.token).map_err(|e| e.to_string())?;
         crate::integrations::composio::invalidate_connected_integrations_cache();
         // API-key-backed runs must not retain a previous session identity in
@@ -266,7 +266,7 @@ pub async fn set_credential(
             .filter(|_| same_token)
             .and_then(|profile| {
                 profile.metadata.get(
-                    crate::security::credentials::session_support::SESSION_ISSUING_BACKEND_META,
+                    crate::credentials::session_support::SESSION_ISSUING_BACKEND_META,
                 )
             });
         if let (Some(previous), Some(issuing)) = (previous_backend, issuing_backend.as_ref()) {
@@ -276,7 +276,7 @@ pub async fn set_credential(
         }
         if let Some(backend) = previous_backend.cloned().or(issuing_backend) {
             metadata.insert(
-                crate::security::credentials::session_support::SESSION_ISSUING_BACKEND_META
+                crate::credentials::session_support::SESSION_ISSUING_BACKEND_META
                     .to_string(),
                 backend,
             );
@@ -485,7 +485,7 @@ pub async fn clear_credential(
             crate::integrations::composio::invalidate_connected_integrations_cache();
             logs.push("api key cleared".to_string());
         }
-        if !crate::security::credentials::session_support::has_backend_credential(config) {
+        if !crate::credentials::session_support::has_backend_credential(config) {
             crate::platform::llm_gate::set_signed_out(true);
         } else if removed_api_key {
             // Clearing the preferred API key exposes the surviving session.

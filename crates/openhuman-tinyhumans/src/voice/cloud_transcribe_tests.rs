@@ -2,7 +2,7 @@ use super::*;
 use openhuman_embed::__host::core::observability::{
     is_session_expired_message, BACKEND_UNAVAILABLE_PREFIX,
 };
-use openhuman_embed::__host::security::credentials::{
+use openhuman_embed::__host::credentials::{
     api_key::store_api_key, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use wiremock::matchers::{method, path};

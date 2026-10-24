@@ -1,6 +1,6 @@
 use super::*;
-use crate::security::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
-use crate::security::credentials::provider_credential_source::{
+use crate::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
+use crate::credentials::provider_credential_source::{
     ProviderCredentialSource, ProviderOAuthTokens,
 };
 use async_trait::async_trait;
@@ -21,7 +21,7 @@ impl ProviderCredentialSource for RotatingTokenSource {
     async fn start_openai_oauth(
         &self,
         _config: &crate::config::Config,
-    ) -> Result<crate::security::credentials::ProviderOAuthStart, String> {
+    ) -> Result<crate::credentials::ProviderOAuthStart, String> {
         Err("unused in this test".into())
     }
 
@@ -95,7 +95,7 @@ async fn concurrent_refresh_persists_rotated_token_and_stable_metadata_once() {
         refresh_count: AtomicUsize::new(0),
         fail_pending_clear: false,
     });
-    let previous = crate::security::credentials::install_provider_credential_source(source.clone());
+    let previous = crate::credentials::install_provider_credential_source(source.clone());
     let first_config = config.clone();
     let second_config = config.clone();
     let (first, second) = tokio::join!(
@@ -125,9 +125,9 @@ async fn concurrent_refresh_persists_rotated_token_and_stable_metadata_once() {
     assert_eq!(token.id_token.as_deref(), Some("stable-id"));
     assert_eq!(token.scope.as_deref(), Some("openid profile"));
 
-    crate::security::credentials::clear_provider_credential_source();
+    crate::credentials::clear_provider_credential_source();
     if let Some(previous) = previous {
-        crate::security::credentials::install_provider_credential_source(previous);
+        crate::credentials::install_provider_credential_source(previous);
     }
 }
 
@@ -161,7 +161,7 @@ async fn disconnect_keeps_profile_when_host_cannot_clear_pending_state() {
         refresh_count: AtomicUsize::new(0),
         fail_pending_clear: true,
     });
-    let previous = crate::security::credentials::install_provider_credential_source(source);
+    let previous = crate::credentials::install_provider_credential_source(source);
 
     let error = disconnect_openai_oauth(&config).await.unwrap_err();
     assert!(error.contains("pending storage unavailable"));
@@ -169,8 +169,8 @@ async fn disconnect_keeps_profile_when_host_cannot_clear_pending_state() {
         "{OPENAI_PROVIDER_KEY}:{OPENAI_OAUTH_PROFILE_NAME}"
     )));
 
-    crate::security::credentials::clear_provider_credential_source();
+    crate::credentials::clear_provider_credential_source();
     if let Some(previous) = previous {
-        crate::security::credentials::install_provider_credential_source(previous);
+        crate::credentials::install_provider_credential_source(previous);
     }
 }

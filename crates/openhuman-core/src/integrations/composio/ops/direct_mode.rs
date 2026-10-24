@@ -3,7 +3,7 @@
 use crate::config::Config;
 use crate::core::runtime::DispatchCtx;
 use crate::core::Outcome;
-use crate::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
+use crate::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
 
 use super::super::{
     client::{create_direct_client_for_api_key, direct_list_connections},

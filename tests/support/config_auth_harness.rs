@@ -32,11 +32,11 @@ pub use openhuman_core::config::{
 };
 pub use openhuman_core::core::events::DomainEvent;
 pub use openhuman_core::desktop::app_state::app_state_schemas;
-pub use openhuman_core::security::credentials::bus::SessionExpiredSubscriber;
-pub use openhuman_core::security::credentials::profiles::{
+pub use openhuman_core::credentials::bus::SessionExpiredSubscriber;
+pub use openhuman_core::credentials::profiles::{
     AuthProfile, AuthProfilesStore, TokenSet,
 };
-pub use openhuman_core::security::credentials::{
+pub use openhuman_core::credentials::{
     clear_composio_api_key, decrypt_secret, encrypt_secret, get_composio_api_key,
     list_provider_credentials_by_prefix, normalize_provider, rpc_store_composio_api_key,
     store_composio_api_key, AuthService, APP_SESSION_PROVIDER, COMPOSIO_DIRECT_PROVIDER,

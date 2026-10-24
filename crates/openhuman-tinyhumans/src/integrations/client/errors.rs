@@ -297,7 +297,7 @@ impl IntegrationClient {
                         path,
                         url,
                         &detail,
-                        openhuman_embed::__host::security::credentials::session_support::credential_fingerprint(
+                        openhuman_embed::__host::credentials::session_support::credential_fingerprint(
                             self.credential.secret(),
                         ),
                     ));

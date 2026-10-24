@@ -23,7 +23,7 @@ pub struct OpenAiOAuthStatusResult {
 }
 
 pub async fn start_openai_oauth(config: &Config) -> Result<OpenAiOAuthStartResult, String> {
-    let source = crate::security::credentials::provider_credential_source().ok_or_else(|| {
+    let source = crate::credentials::provider_credential_source().ok_or_else(|| {
         "provider OAuth is unavailable: no host credential source installed".to_string()
     })?;
     let start = source.start_openai_oauth(config).await?;
@@ -38,7 +38,7 @@ pub async fn complete_openai_oauth(
     config: &Config,
     callback_input: &str,
 ) -> Result<serde_json::Value, String> {
-    let source = crate::security::credentials::provider_credential_source().ok_or_else(|| {
+    let source = crate::credentials::provider_credential_source().ok_or_else(|| {
         "provider OAuth is unavailable: no host credential source installed".to_string()
     })?;
     let tokens = source.complete_openai_oauth(config, callback_input).await?;
@@ -53,7 +53,7 @@ pub async fn complete_openai_oauth(
 }
 
 pub fn import_openai_oauth_from_codex_cli(config: &Config) -> Result<serde_json::Value, String> {
-    let source = crate::security::credentials::provider_credential_source().ok_or_else(|| {
+    let source = crate::credentials::provider_credential_source().ok_or_else(|| {
         "provider OAuth is unavailable: no host credential source installed".to_string()
     })?;
     let tokens = source.import_openai_oauth_from_codex_cli(config)?;
@@ -68,8 +68,8 @@ pub fn import_openai_oauth_from_codex_cli(config: &Config) -> Result<serde_json:
 }
 
 pub fn openai_oauth_status(config: &Config) -> Result<OpenAiOAuthStatusResult, String> {
-    use crate::security::credentials::profiles::AuthProfileKind;
-    use crate::security::credentials::AuthService;
+    use crate::credentials::profiles::AuthProfileKind;
+    use crate::credentials::AuthService;
 
     let profile = AuthService::from_config(config)
         .get_profile(OPENAI_PROVIDER_KEY, Some(OPENAI_OAUTH_PROFILE_NAME))
@@ -102,11 +102,11 @@ pub fn openai_oauth_status(config: &Config) -> Result<OpenAiOAuthStatusResult, S
 }
 
 pub async fn disconnect_openai_oauth(config: &Config) -> Result<serde_json::Value, String> {
-    use crate::security::credentials::AuthService;
+    use crate::credentials::AuthService;
 
     // Clear host-owned pending state before removing the durable profile. If
     // the secret backend is unavailable, the connected profile remains intact.
-    let source = crate::security::credentials::provider_credential_source().ok_or_else(|| {
+    let source = crate::credentials::provider_credential_source().ok_or_else(|| {
         "provider OAuth is unavailable: no host credential source installed".to_string()
     })?;
     source.clear_openai_oauth_pending(config).await?;

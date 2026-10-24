@@ -24,7 +24,7 @@ fn host_for(agent_id: &str) -> (crate::agent::OpenHumanSessionHost, tempfile::Te
     // Building the orchestrator's model passes the backend-session gate; a
     // standing API key in this session's own state dir satisfies it, and the
     // model fixture above answers instead of a real provider.
-    crate::security::credentials::api_key::store_api_key(&config, "test-goal-key")
+    crate::credentials::api_key::store_api_key(&config, "test-goal-key")
         .expect("test api key");
     let definition = crate::agent_registry::agents::load_builtins()
         .unwrap()

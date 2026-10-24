@@ -103,7 +103,7 @@ impl SessionExpiredSubscriber {
         // Serialize the comparison and teardown with credential installation.
         // A request that was sent with an older token cannot clear a token
         // installed while that request was in flight.
-        let _mutation = crate::security::credentials::ops::CREDENTIAL_MUTATION_LOCK
+        let _mutation = crate::credentials::ops::CREDENTIAL_MUTATION_LOCK
             .lock()
             .await;
 
@@ -111,7 +111,7 @@ impl SessionExpiredSubscriber {
             Ok(config) => {
                 // An API-key runtime has no session to clear: a backend 401 on
                 // the key is a per-call error for the caller, not a sign-out.
-                if crate::security::credentials::api_key::has_api_key(&config) {
+                if crate::credentials::api_key::has_api_key(&config) {
                     tracing::warn!(
                         source = %source,
                         reason = %reason,
@@ -120,7 +120,7 @@ impl SessionExpiredSubscriber {
                     llm_gate::set_signed_out(false);
                     return;
                 }
-                let current_token = crate::security::credentials::jwt::get_session_token(&config)
+                let current_token = crate::credentials::jwt::get_session_token(&config)
                     .ok()
                     .flatten();
                 let matches = current_token.as_deref().is_some_and(|token| {
@@ -134,7 +134,7 @@ impl SessionExpiredSubscriber {
                     return;
                 }
                 let is_local_session = current_token.as_deref().is_some_and(|token| {
-                    crate::security::credentials::session_support::is_local_session_token(token)
+                    crate::credentials::session_support::is_local_session_token(token)
                 });
                 if is_local_session {
                     tracing::warn!(
@@ -162,7 +162,7 @@ impl SessionExpiredSubscriber {
                 //     we've at least pinned the scheduler gate so background work
                 //     can't make things worse.
                 if let Err(err) =
-                    crate::security::credentials::ops::clear_session_credential(ctx, &config).await
+                    crate::credentials::ops::clear_session_credential(ctx, &config).await
                 {
                     tracing::warn!(
                         source = %source,
@@ -188,7 +188,7 @@ impl SessionExpiredSubscriber {
 }
 
 fn session_expiry_matches_token(fingerprint: &str, token: &str) -> bool {
-    crate::security::credentials::session_support::credential_fingerprint_matches(
+    crate::credentials::session_support::credential_fingerprint_matches(
         fingerprint,
         token,
     )

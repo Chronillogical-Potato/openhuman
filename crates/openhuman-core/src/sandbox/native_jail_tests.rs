@@ -278,7 +278,7 @@ fn openhumans_own_credential_files_are_denied_when_present() {
     let root = tempfile::tempdir().unwrap();
 
     let denied = credential_denials(
-        crate::security::credentials::credential_files(&config),
+        crate::credentials::credential_files(&config),
         root.path(),
         std::slice::from_ref(&scratch),
     )
@@ -301,7 +301,7 @@ fn openhumans_own_credential_files_are_denied_when_present() {
     // A credential file that does not exist is not sent.
     std::fs::remove_file(account.path().join("http-credentials.json")).unwrap();
     let denied = credential_denials(
-        crate::security::credentials::credential_files(&config),
+        crate::credentials::credential_files(&config),
         root.path(),
         &[],
     )

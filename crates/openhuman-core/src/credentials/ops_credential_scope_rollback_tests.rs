@@ -1,6 +1,6 @@
 use super::*;
 use crate::config::test_env::EnvVarGuard;
-use crate::security::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
+use crate::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
 use tempfile::TempDir;
 
 #[tokio::test]

@@ -11,7 +11,7 @@ use super::{
     PersistedAuthProfile, PersistedAuthProfiles, TokenSet, CURRENT_SCHEMA_VERSION,
     PROFILES_FILENAME,
 };
-use crate::security::credentials::default_profile_id;
+use crate::credentials::default_profile_id;
 
 /// Safe failure categories for a read-only auth-profile snapshot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::config::ops::legacy_inference_slug;
-use crate::security::credentials::AuthService;
+use crate::credentials::AuthService;
 
 type ReadOnlyProfileCredential = (
     String,
@@ -94,8 +94,8 @@ pub(super) fn lookup_key_for_slug_read_only(
     if slug == "openai" {
         match read_only_profile_credential(
             config,
-            crate::security::credentials::openai_oauth::OPENAI_PROVIDER_KEY,
-            Some(crate::security::credentials::openai_oauth::OPENAI_OAUTH_PROFILE_NAME),
+            crate::credentials::openai_oauth::OPENAI_PROVIDER_KEY,
+            Some(crate::credentials::openai_oauth::OPENAI_OAUTH_PROFILE_NAME),
         )? {
             Some((key, true, expires_at, account_id)) if !key.trim().is_empty() => {
                 if expires_at.is_some_and(|expires_at| {
@@ -142,7 +142,7 @@ fn read_only_profile_credential(
     provider: &str,
     profile_override: Option<&str>,
 ) -> anyhow::Result<Option<ReadOnlyProfileCredential>> {
-    let Some(profile) = crate::security::credentials::AuthService::get_profile_read_only(
+    let Some(profile) = crate::credentials::AuthService::get_profile_read_only(
         config,
         provider,
         profile_override,
@@ -153,10 +153,10 @@ fn read_only_profile_credential(
     };
 
     let (token, is_oauth, expires_at, account_id) = match profile.kind {
-        crate::security::credentials::profiles::AuthProfileKind::Token => {
+        crate::credentials::profiles::AuthProfileKind::Token => {
             (profile.token.unwrap_or_default(), false, None, None)
         }
-        crate::security::credentials::profiles::AuthProfileKind::OAuth => {
+        crate::credentials::profiles::AuthProfileKind::OAuth => {
             let access_token = profile
                 .token_set
                 .as_ref()
@@ -186,13 +186,13 @@ fn read_only_profile_credential(
 }
 
 fn read_only_profile_error(
-    error: crate::security::credentials::profiles::ReadOnlyAuthProfileError,
+    error: crate::credentials::profiles::ReadOnlyAuthProfileError,
 ) -> anyhow::Error {
     match error {
-        crate::security::credentials::profiles::ReadOnlyAuthProfileError::Unavailable => {
+        crate::credentials::profiles::ReadOnlyAuthProfileError::Unavailable => {
             anyhow::anyhow!("read-only credential profile is unavailable")
         }
-        crate::security::credentials::profiles::ReadOnlyAuthProfileError::InvalidStore => {
+        crate::credentials::profiles::ReadOnlyAuthProfileError::InvalidStore => {
             anyhow::anyhow!("read-only credential profile store is invalid")
         }
     }
@@ -230,7 +230,7 @@ pub(crate) fn redact_endpoint_origin(endpoint: &str) -> String {
 /// credential, the only bearer source is the OAuth fallback, so a present OAuth
 /// credential means the bearer is OAuth.
 pub(crate) fn openai_bearer_is_oauth(config: &Config) -> bool {
-    use crate::security::credentials::profiles::AuthProfileKind;
+    use crate::credentials::profiles::AuthProfileKind;
 
     let auth = AuthService::from_config(config);
     for provider in [auth_key_for_slug("openai"), "openai".to_string()] {
@@ -254,7 +254,7 @@ pub(crate) fn openai_bearer_is_oauth(config: &Config) -> bool {
     }
     // No stored openai profile with a credential → the bearer, if any, comes from
     // the OAuth fallback (`lookup_openai_bearer_token`).
-    crate::security::credentials::openai_oauth::lookup_openai_oauth_credentials(config)
+    crate::credentials::openai_oauth::lookup_openai_oauth_credentials(config)
         .ok()
         .flatten()
         .is_some()
@@ -271,7 +271,7 @@ pub(crate) fn resolve_codex_routing(
     bearer_is_oauth: bool,
 ) -> std::result::Result<tinyinference_llm::providers::openai::codex::OpenAiCodexRouting, String> {
     let credentials = if slug == "openai" {
-        match crate::security::credentials::openai_oauth::lookup_openai_oauth_credentials(config) {
+        match crate::credentials::openai_oauth::lookup_openai_oauth_credentials(config) {
             Ok(credentials) => credentials,
             Err(error) if !bearer_key.trim().is_empty() => {
                 log::warn!(
@@ -365,7 +365,7 @@ pub fn lookup_key_for_slug(slug: &str, config: &Config) -> anyhow::Result<String
     // returns empty, so env/audit/metrics in the standard path always execute
     // and the OAuth path never silently bypasses provider-agnostic logic.
     if slug == "openai" {
-        match crate::security::credentials::openai_oauth::lookup_openai_bearer_token(config) {
+        match crate::credentials::openai_oauth::lookup_openai_bearer_token(config) {
             Ok(Some(token)) if !token.is_empty() => {
                 log::debug!(
                     "[providers][chat-factory] auth lookup slug={} key_present=true (oauth)",

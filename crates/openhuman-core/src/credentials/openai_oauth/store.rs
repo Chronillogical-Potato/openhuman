@@ -6,8 +6,8 @@ use chrono::{Duration, Utc};
 use tinyinference_providers::oauth::{openai_account_id_from_access_token, OAuthTokenSet};
 
 use crate::config::Config;
-use crate::security::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
-use crate::security::credentials::{state_dir_from_config, AuthService, ProviderOAuthTokens};
+use crate::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
+use crate::credentials::{state_dir_from_config, AuthService, ProviderOAuthTokens};
 
 const LOG_PREFIX: &str = "[inference][openai-oauth][store]";
 
@@ -155,7 +155,7 @@ pub fn lookup_openai_oauth_credentials(
     )) {
         if let Some(refresh) = token_set.refresh_token.clone() {
             let source =
-                crate::security::credentials::provider_credential_source().ok_or_else(|| {
+                crate::credentials::provider_credential_source().ok_or_else(|| {
                     "provider OAuth refresh is unavailable: no host credential source installed"
                         .to_string()
                 })?;

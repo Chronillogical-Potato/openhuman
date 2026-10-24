@@ -1,6 +1,6 @@
 use super::*;
 use openhuman_embed::__host::config::Config;
-use openhuman_embed::__host::security::credentials::AuthService;
+use openhuman_embed::__host::credentials::AuthService;
 use std::collections::HashMap;
 use tinyinference_embeddings::{
     CloudEmbeddingModel, EmbeddingModel, DEFAULT_CLOUD_DIMENSIONS, DEFAULT_CLOUD_MODEL,
@@ -74,7 +74,7 @@ async fn api_key_alone_authenticates_cloud_embeddings() {
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
 
     let state = tempfile::tempdir().unwrap();
-    openhuman_embed::__host::security::credentials::api_key::store_api_key_in(
+    openhuman_embed::__host::credentials::api_key::store_api_key_in(
         state.path(),
         false,
         "tiny_test_emb",
@@ -105,7 +105,7 @@ async fn api_key_alone_authenticates_cloud_embeddings() {
 #[tokio::test]
 async fn api_key_is_refused_over_plaintext_non_loopback() {
     let state = tempfile::tempdir().unwrap();
-    openhuman_embed::__host::security::credentials::api_key::store_api_key_in(
+    openhuman_embed::__host::credentials::api_key::store_api_key_in(
         state.path(),
         false,
         "tiny_test_emb",
@@ -334,7 +334,7 @@ async fn factory_managed_provider_authenticates_with_config_scoped_token() {
     let config = test_config(&tmp);
     AuthService::new(&state_dir_of(&config), config.secrets.encrypt)
         .store_provider_token(
-            openhuman_embed::__host::security::credentials::APP_SESSION_PROVIDER,
+            openhuman_embed::__host::credentials::APP_SESSION_PROVIDER,
             "default",
             "sess-scoped-5356",
             HashMap::new(),
@@ -417,7 +417,7 @@ async fn default_provider_with_config_authenticates_with_config_scoped_token() {
     let config = test_config(&tmp);
     AuthService::new(&state_dir_of(&config), config.secrets.encrypt)
         .store_provider_token(
-            openhuman_embed::__host::security::credentials::APP_SESSION_PROVIDER,
+            openhuman_embed::__host::credentials::APP_SESSION_PROVIDER,
             "default",
             "sess-default-5501",
             HashMap::new(),
@@ -492,7 +492,7 @@ async fn offline_local_session_is_refused_before_embedding_request() {
     let tmp = tempfile::tempdir().unwrap();
     AuthService::new(tmp.path(), false)
         .store_provider_token(
-            openhuman_embed::__host::security::credentials::APP_SESSION_PROVIDER,
+            openhuman_embed::__host::credentials::APP_SESSION_PROVIDER,
             "default",
             "header.payload.local",
             HashMap::new(),
@@ -523,7 +523,7 @@ async fn offline_local_session_is_refused_before_embedding_request() {
 async fn expired_session_publishes_session_expired_before_embedding_request() {
     use axum::{routing::post, Json, Router};
     use openhuman_embed::__host::core::events::DomainEvent;
-    use openhuman_embed::__host::security::credentials::session_support::SESSION_EXPIRES_AT_META;
+    use openhuman_embed::__host::credentials::session_support::SESSION_EXPIRES_AT_META;
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
@@ -563,7 +563,7 @@ async fn expired_session_publishes_session_expired_before_embedding_request() {
     );
     AuthService::new(tmp.path(), false)
         .store_provider_token(
-            openhuman_embed::__host::security::credentials::APP_SESSION_PROVIDER,
+            openhuman_embed::__host::credentials::APP_SESSION_PROVIDER,
             "default",
             "expired.session.jwt",
             metadata,

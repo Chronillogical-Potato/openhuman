@@ -595,7 +595,7 @@ async fn run_typed_mode(
         tool_call_format: prompt_tool_call_format,
         connected_integrations: &connected_integrations_for_prompt,
         connected_identities_md,
-        user_identity: crate::security::credentials::identity::peek_credential_user_identity(),
+        user_identity: crate::credentials::identity::peek_credential_user_identity(),
         personality_roster: vec![],
         agents_md_global: agents_md.global.clone(),
         agents_md_local: agents_md.local.clone(),

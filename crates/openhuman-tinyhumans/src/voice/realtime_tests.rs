@@ -105,7 +105,7 @@ async fn mint_signed_url_authenticates_with_the_api_key() {
         api_url: Some(format!("http://{addr}")),
         ..Config::default()
     };
-    openhuman_embed::__host::security::credentials::api_key::store_api_key(
+    openhuman_embed::__host::credentials::api_key::store_api_key(
         &config,
         "tiny_test_voice",
     )

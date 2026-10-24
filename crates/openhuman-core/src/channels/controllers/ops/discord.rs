@@ -6,7 +6,7 @@
 use crate::config::Config;
 use crate::core::Outcome;
 use crate::modules::channel_controller::{self, DiscordReply};
-use crate::security::credentials;
+use crate::credentials;
 use tinychannels_bus::{
     controllers::{BotPermissionCheck, DiscordGuild, DiscordTextChannel},
     ChannelControllerRequest,

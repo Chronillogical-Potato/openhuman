@@ -239,26 +239,26 @@ fn selected_credential(config: &Config) -> Option<(String, String)> {
     match config.composio.mode.trim() {
         "" | crate::config::schema::COMPOSIO_MODE_BACKEND => {
             let api_key =
-                crate::security::credentials::api_key::get_api_key_read_only(config).ok()?;
+                crate::credentials::api_key::get_api_key_read_only(config).ok()?;
             if let Some(api_key) = api_key.filter(|key| !key.trim().is_empty()) {
                 return Some(("backend-api-key".to_owned(), api_key.trim().to_owned()));
             }
             let profile =
-                crate::security::credentials::session_support::load_app_session_profile_read_only(
+                crate::credentials::session_support::load_app_session_profile_read_only(
                     config,
                 )
                 .ok()?;
-            crate::security::credentials::session_support::check_session_backend(
+            crate::credentials::session_support::check_session_backend(
                 config,
                 profile.as_ref(),
             )
             .ok()?;
-            let token = match crate::security::credentials::session_support::classify_session_token(
+            let token = match crate::credentials::session_support::classify_session_token(
                 profile.as_ref(),
                 chrono::Utc::now(),
             ) {
-                crate::security::credentials::session_support::SessionTokenCheck::Live(token)
-                    if !crate::security::credentials::session_support::is_local_session_token(
+                crate::credentials::session_support::SessionTokenCheck::Live(token)
+                    if !crate::credentials::session_support::is_local_session_token(
                         token.trim(),
                     ) =>
                 {
@@ -269,15 +269,15 @@ fn selected_credential(config: &Config) -> Option<(String, String)> {
             Some(("backend-session".to_owned(), token))
         }
         crate::config::schema::COMPOSIO_MODE_DIRECT => {
-            let profile = crate::security::credentials::AuthService::get_profile_read_only(
+            let profile = crate::credentials::AuthService::get_profile_read_only(
                 config,
                 crate::integrations::composio::COMPOSIO_DIRECT_PROVIDER,
                 None,
             )
             .ok()?;
             let stored = profile.and_then(|profile| match profile.kind {
-                crate::security::credentials::profiles::AuthProfileKind::Token => profile.token,
-                crate::security::credentials::profiles::AuthProfileKind::OAuth => {
+                crate::credentials::profiles::AuthProfileKind::Token => profile.token,
+                crate::credentials::profiles::AuthProfileKind::OAuth => {
                     profile.token_set.map(|tokens| tokens.access_token)
                 }
             });

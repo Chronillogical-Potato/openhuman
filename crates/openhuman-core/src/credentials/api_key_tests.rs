@@ -1,5 +1,5 @@
 use super::*;
-use crate::security::credentials::session_support::{
+use crate::credentials::session_support::{
     resolve_backend_credential, BackendCredential,
 };
 
@@ -55,7 +55,7 @@ fn clear_removes_the_profile() {
 /// [`store_api_key`]) counts.
 #[test]
 fn a_provider_profile_named_api_key_without_the_marker_is_not_accepted() {
-    use crate::security::credentials::AuthService;
+    use crate::credentials::AuthService;
 
     let dir = tempfile::tempdir().expect("tempdir");
     let config = config_in(dir.path());
@@ -63,7 +63,7 @@ fn a_provider_profile_named_api_key_without_the_marker_is_not_accepted() {
     AuthService::from_config(&config)
         .store_provider_token(
             API_KEY_PROVIDER,
-            crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "not-actually-a-tinyhumans-key",
             std::collections::HashMap::new(),
             true,
@@ -80,8 +80,8 @@ fn a_provider_profile_named_api_key_without_the_marker_is_not_accepted() {
 
 #[test]
 fn api_key_wins_over_an_expired_session() {
-    use crate::security::credentials::session_support::SESSION_EXPIRES_AT_META;
-    use crate::security::credentials::{
+    use crate::credentials::session_support::SESSION_EXPIRES_AT_META;
+    use crate::credentials::{
         AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
     };
 

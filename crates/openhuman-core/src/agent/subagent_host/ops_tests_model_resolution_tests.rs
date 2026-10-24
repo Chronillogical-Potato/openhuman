@@ -549,7 +549,7 @@ fn resolve_subagent_source_hint_with_config_routes_via_factory() {
     // global default — drives the resolved tier.
     config.agentic_provider = Some("openhuman".to_string());
     config.default_model = Some("fixture-reasoning".to_string());
-    crate::security::credentials::api_key::store_api_key(&config, "test-session-fixture-key")
+    crate::credentials::api_key::store_api_key(&config, "test-session-fixture-key")
         .expect("store the managed inference fixture credential");
 
     let parent: Arc<dyn ChatModel<()>> = ScriptedProvider::new(vec![]);

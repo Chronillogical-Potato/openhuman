@@ -1,6 +1,6 @@
 use super::*;
 use crate::channels::providers::yuanbao::YuanbaoConfig;
-use crate::security::credentials::AuthService;
+use crate::credentials::AuthService;
 use std::collections::HashMap;
 use tempfile::tempdir;
 

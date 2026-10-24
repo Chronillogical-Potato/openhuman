@@ -617,14 +617,14 @@
   },
   {
     "rule": "bare-spawn",
-    "path": "crates/openhuman-core/src/security/credentials/ops/gated_services.rs",
+    "path": "crates/openhuman-core/src/credentials/ops/gated_services.rs",
     "line": 22,
     "text": "tokio::spawn(async move {",
     "occurrence": 1
   },
   {
     "rule": "bare-spawn",
-    "path": "crates/openhuman-core/src/security/credentials/ops/gated_services.rs",
+    "path": "crates/openhuman-core/src/credentials/ops/gated_services.rs",
     "line": 98,
     "text": "tokio::spawn(async move {",
     "occurrence": 2

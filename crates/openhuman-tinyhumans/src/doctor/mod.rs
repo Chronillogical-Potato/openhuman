@@ -9,8 +9,8 @@ use openhuman_embed::__host::doctor::{
     DoctorCtx, DoctorTier, Finding, FindingSeverity,
 };
 use openhuman_embed::__host::platform::socket::{global_socket_manager, ConnectionStatus};
-use openhuman_embed::__host::security::credentials::api_key::get_api_key_read_only;
-use openhuman_embed::__host::security::credentials::session_support::{
+use openhuman_embed::__host::credentials::api_key::get_api_key_read_only;
+use openhuman_embed::__host::credentials::session_support::{
     classify_session_token, is_local_session_token, load_app_session_profile_read_only,
     session_token_for_config, BackendCredential, SessionTokenCheck,
 };

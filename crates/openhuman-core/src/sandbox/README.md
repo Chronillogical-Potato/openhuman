@@ -105,7 +105,7 @@ is allow-default for reads, so `jail_request` sends the credential stores that
 `~/.pgpass`, `~/.npmrc`, `~/.docker/config.json`, `~/.cargo/credentials.toml`)
 as `NativeJailConfig.deny_read` (TinyBox contract 1.20), built from the same
 lists by `security::policy::home_credential_stores`. OpenHuman's own credential
-files are denied too (`security::credentials::credential_files`, at the paths
+files are denied too (`credentials::credential_files`, at the paths
 their stores write): the keyring's `secrets.enc`, `auth-profiles.json`,
 `http-credentials.json` and the account `config.toml`. The rest of the
 OpenHuman state folder stays readable for now, because TinyBox keeps the jail's

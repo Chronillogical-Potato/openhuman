@@ -46,7 +46,7 @@ impl ManagedOptions {
 
     /// The bearer, and whether it is the API key (`true`) or the session JWT.
     fn resolve_bearer_kind(&self, endpoint: &str) -> anyhow::Result<(String, bool)> {
-        if let Some(key) = openhuman_embed::__host::security::credentials::api_key::get_api_key_in(
+        if let Some(key) = openhuman_embed::__host::credentials::api_key::get_api_key_in(
             &self.state_dir(),
             self.secrets_encrypt,
         )? {

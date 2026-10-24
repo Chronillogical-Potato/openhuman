@@ -10,7 +10,6 @@ pub mod audit;
 // `Guard<D>` decorator draws from, and a swapped driver must never see any of
 // it. None of them is gated — the family is kernel, permanently.
 pub mod approval;
-pub mod credentials;
 pub mod devices;
 pub mod egress;
 pub mod encryption;

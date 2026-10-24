@@ -5,7 +5,7 @@
 //! recovery and retry budgets belong to the channel module.
 
 use openhuman_embed::__host::channel_callback::ChannelCallbackCtx;
-use openhuman_embed::__host::security::credentials::session_support::{
+use openhuman_embed::__host::credentials::session_support::{
     get_session_token, is_local_session_token, BackendCredential,
 };
 use serde_json::{json, Map, Value};

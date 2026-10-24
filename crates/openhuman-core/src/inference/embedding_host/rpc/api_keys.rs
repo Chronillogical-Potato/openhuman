@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use crate::config::Config;
 use crate::core::Outcome;
-use crate::security::credentials::AuthService;
+use crate::credentials::AuthService;
 
 use super::LOG_PREFIX;
 

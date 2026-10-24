@@ -493,7 +493,7 @@ fn run_call_command(args: &[String]) -> Result<()> {
                     )
                     .map_err(|error| error.to_string())?;
                 }
-                crate::security::credentials::seed_api_key_from_env(&config);
+                crate::credentials::seed_api_key_from_env(&config);
             }
             let dispatch = DispatchCtx::process_default();
             let dispatch = if headless_agent_chat {

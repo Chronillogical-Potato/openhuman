@@ -75,7 +75,7 @@ fn managed_native_model_exposes_tool_vision_and_physical_attempt_capabilities() 
 #[test]
 fn managed_bearer_keeps_the_stored_key_transport_guard() {
     let tmp = tempfile::TempDir::new().expect("temporary credentials");
-    openhuman_embed::__host::security::credentials::api_key::store_api_key_in(
+    openhuman_embed::__host::credentials::api_key::store_api_key_in(
         tmp.path(),
         false,
         "test-managed-key",
@@ -110,7 +110,7 @@ fn managed_bearer_keeps_the_stored_key_transport_guard() {
 }
 
 fn seed_app_session(dir: &std::path::Path, expires_at: Option<&str>) {
-    use openhuman_embed::__host::security::credentials::{
+    use openhuman_embed::__host::credentials::{
         session_support::SESSION_EXPIRES_AT_META, AuthService, APP_SESSION_PROVIDER,
         DEFAULT_AUTH_PROFILE_NAME,
     };
@@ -204,7 +204,7 @@ fn managed_api_key_precedes_an_expired_app_session() {
     let tmp = tempfile::TempDir::new().expect("temporary credentials");
     let past = (chrono::Utc::now() - chrono::Duration::hours(1)).to_rfc3339();
     seed_app_session(tmp.path(), Some(&past));
-    openhuman_embed::__host::security::credentials::api_key::store_api_key_in(
+    openhuman_embed::__host::credentials::api_key::store_api_key_in(
         tmp.path(),
         false,
         "managed-api-key",
@@ -222,7 +222,7 @@ fn managed_api_key_precedes_an_expired_app_session() {
 #[test]
 fn managed_bearer_refusal_redacts_foreign_endpoint_details() {
     let tmp = tempfile::TempDir::new().expect("temporary credentials");
-    openhuman_embed::__host::security::credentials::api_key::store_api_key_in(
+    openhuman_embed::__host::credentials::api_key::store_api_key_in(
         tmp.path(),
         false,
         "SYNTHETIC_BEARER_MARKER",
@@ -356,7 +356,7 @@ async fn managed_auth_failure_expires_the_session_only_on_a_session_401() {
         let tmp = tempfile::TempDir::new().expect("temporary credentials");
         seed_app_session(tmp.path(), Some("2999-01-01T00:00:00Z"));
         if api_key {
-            openhuman_embed::__host::security::credentials::api_key::store_api_key_in(
+            openhuman_embed::__host::credentials::api_key::store_api_key_in(
                 tmp.path(),
                 false,
                 "test-managed-key",
@@ -402,7 +402,7 @@ async fn managed_auth_failure_expires_the_session_only_on_a_session_401() {
             assert_eq!(
                 fingerprint.as_deref(),
                 Some(
-                    openhuman_embed::__host::security::credentials::session_support::credential_fingerprint(
+                    openhuman_embed::__host::credentials::session_support::credential_fingerprint(
                         "test.session.jwt",
                     )
                     .as_str(),
@@ -421,7 +421,7 @@ async fn a_late_api_key_401_after_a_session_request_keeps_the_session() {
     use axum::http::{HeaderMap, StatusCode};
     use axum::response::IntoResponse;
     use openhuman_embed::__host::core::events::DomainEvent;
-    use openhuman_embed::__host::security::credentials::AuthService;
+    use openhuman_embed::__host::credentials::AuthService;
     use std::sync::Arc;
     use tokio::sync::Notify;
 
@@ -435,7 +435,7 @@ async fn a_late_api_key_401_after_a_session_request_keeps_the_session() {
     let tmp = tempfile::TempDir::new().expect("temporary credentials");
     seed_app_session(tmp.path(), Some("2999-01-01T00:00:00Z"));
     let api_key_profile =
-        openhuman_embed::__host::security::credentials::api_key::store_api_key_in(
+        openhuman_embed::__host::credentials::api_key::store_api_key_in(
             tmp.path(),
             false,
             "test-managed-key",

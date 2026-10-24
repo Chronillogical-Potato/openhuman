@@ -7,7 +7,7 @@
 //! request with a token already known to be dead.
 //!
 //! Parsing is pure and has no backend dependency, which is why it lives in the
-//! core rather than behind a host crate: `security::credentials`
+//! core rather than behind a host crate: `credentials`
 //! needs it on a core that has no TinyHumans connection at all.
 //!
 //! What stays OpenHuman-specific is *where the token lives*: the credentials
@@ -53,8 +53,8 @@ pub fn decode_jwt_exp_unix(token: &str) -> Option<i64> {
         .and_then(|value| value.as_i64().or_else(|| value.as_f64().map(|f| f as i64)))
 }
 
-pub use crate::security::credentials::session_support::get_session_token;
-pub use crate::security::credentials::{APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
+pub use crate::credentials::session_support::get_session_token;
+pub use crate::credentials::{APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
 
 /// Best-effort decode of a JWT's `exp` (expiry) claim into a UTC timestamp.
 ///

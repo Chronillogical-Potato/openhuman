@@ -32,7 +32,7 @@ use crate::client::BackendClient;
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::media::generation::MediaGenerators;
 use openhuman_embed::__host::security::approval::ApprovalChatContext;
-use openhuman_embed::__host::security::credentials::session_support::{
+use openhuman_embed::__host::credentials::session_support::{
     resolve_backend_credential, BackendCredential,
 };
 

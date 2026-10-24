@@ -279,7 +279,7 @@ async fn a_rejected_session_starts_re_authentication() {
         "test_marker_session_search",
         false,
         Some(
-            crate::security::credentials::session_support::credential_fingerprint(
+            crate::credentials::session_support::credential_fingerprint(
                 "test-session-token",
             ),
         ),

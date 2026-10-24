@@ -199,8 +199,8 @@ fn handle_auth_set_credential(ctx: DispatchCtx, params: Map<String, Value>) -> C
     Box::pin(async move {
         let config = ctx.load_config().await?;
         let payload =
-            deserialize_params::<crate::security::credentials::SetCredentialRequest>(params)?;
-        to_json(crate::security::credentials::rpc::set_credential(&ctx, &config, payload).await?)
+            deserialize_params::<crate::credentials::SetCredentialRequest>(params)?;
+        to_json(crate::credentials::rpc::set_credential(&ctx, &config, payload).await?)
     })
 }
 
@@ -215,19 +215,19 @@ fn handle_auth_clear_credential(ctx: DispatchCtx, params: Map<String, Value>) ->
             .filter(|k| !k.is_empty())
         {
             Some(raw) => Some(
-                crate::security::credentials::session_support::CredentialKind::parse(raw)
+                crate::credentials::session_support::CredentialKind::parse(raw)
                     .ok_or_else(|| format!("unknown credential kind {raw:?}"))?,
             ),
             None => None,
         };
-        to_json(crate::security::credentials::rpc::clear_credential(&ctx, &config, kind).await?)
+        to_json(crate::credentials::rpc::clear_credential(&ctx, &config, kind).await?)
     })
 }
 
 fn handle_auth_get_state(ctx: DispatchCtx, _params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = ctx.load_config().await?;
-        to_json(crate::security::credentials::rpc::auth_get_state(&config).await?)
+        to_json(crate::credentials::rpc::auth_get_state(&config).await?)
     })
 }
 
@@ -237,7 +237,7 @@ fn handle_auth_get_session_token(
 ) -> ControllerFuture {
     Box::pin(async move {
         let config = ctx.load_config().await?;
-        to_json(crate::security::credentials::rpc::auth_get_session_token_json(&config).await?)
+        to_json(crate::credentials::rpc::auth_get_session_token_json(&config).await?)
     })
 }
 
@@ -249,7 +249,7 @@ fn handle_auth_store_provider_credentials(
         let config = ctx.load_config().await?;
         let payload = deserialize_params::<AuthStoreProviderCredentialsParams>(params)?;
         to_json(
-            crate::security::credentials::rpc::store_provider_credentials(
+            crate::credentials::rpc::store_provider_credentials(
                 &config,
                 &payload.provider,
                 payload.profile.as_deref(),
@@ -270,7 +270,7 @@ fn handle_auth_remove_provider_credentials(
         let config = ctx.load_config().await?;
         let payload = deserialize_params::<AuthRemoveProviderCredentialsParams>(params)?;
         to_json(
-            crate::security::credentials::rpc::remove_provider_credentials(
+            crate::credentials::rpc::remove_provider_credentials(
                 &config,
                 &payload.provider,
                 payload.profile.as_deref(),
@@ -298,7 +298,7 @@ fn handle_auth_list_provider_credentials(
             .filter(|v| !v.is_empty())
             .map(str::to_string);
         to_json(
-            crate::security::credentials::rpc::list_provider_credentials(&config, provider_filter)
+            crate::credentials::rpc::list_provider_credentials(&config, provider_filter)
                 .await?,
         )
     })
