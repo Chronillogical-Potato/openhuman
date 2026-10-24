@@ -18,6 +18,113 @@ use super::{
     PERSIST_RETRY_BASE_MS, PROFILES_FILENAME,
 };
 
+/// Write `bytes` to `path` with the file readable only by its owner.
+///
+/// `fs::write` creates at `0o666 & ~umask` — `0644` under the usual `022` — and
+/// `fs::rename` carries the source mode onto the destination, so the credential
+/// store inherited it on every save. Any process running under a different UID
+/// could read it, and on the encrypted-JSON path — the normal state on Linux and
+/// on any headless install without a keyring — that file is OAuth token
+/// ciphertext, leaving `.secret_key` as the only remaining control.
+///
+/// Same shape as the fix #2360 landed for the secret key in
+/// `secret_storage/encrypted_store.rs`: create with the mode already set rather than
+/// widening then narrowing, so the file is never briefly world-readable.
+///
+/// `.mode()` only applies when the file is *created*, so a leftover tmp from an
+/// interrupted save would keep its old mode — hence the explicit
+/// `set_permissions` afterwards.
+fn write_owner_only(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
+
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(path)?;
+        file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+        file.write_all(bytes)
+    }
+    #[cfg(not(unix))]
+    {
+        // Windows has no mode to set here; the file inherits the ACL of the
+        // per-user profile directory it is created in.
+        fs::write(path, bytes)
+    }
+}
+
+/// Whether `bytes` parse as the persisted profiles document (what a read from
+/// the storage backend requires).
+pub(crate) fn is_persisted_document(bytes: &[u8]) -> bool {
+    serde_json::from_slice::<PersistedAuthProfiles>(bytes).is_ok()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PersistedAuthProfiles {
+    #[serde(default = "default_schema_version")]
+    schema_version: u32,
+    #[serde(default = "default_now_rfc3339")]
+    updated_at: String,
+    #[serde(default)]
+    active_profiles: BTreeMap<String, String>,
+    #[serde(default)]
+    profiles: BTreeMap<String, PersistedAuthProfile>,
+}
+
+impl Default for PersistedAuthProfiles {
+    fn default() -> Self {
+        Self {
+            schema_version: CURRENT_SCHEMA_VERSION,
+            updated_at: default_now_rfc3339(),
+            active_profiles: BTreeMap::new(),
+            profiles: BTreeMap::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct PersistedAuthProfile {
+    provider: String,
+    profile_name: String,
+    kind: String,
+    #[serde(default)]
+    account_id: Option<String>,
+    #[serde(default)]
+    workspace_id: Option<String>,
+    #[serde(default)]
+    access_token: Option<String>,
+    #[serde(default)]
+    refresh_token: Option<String>,
+    #[serde(default)]
+    id_token: Option<String>,
+    #[serde(default)]
+    token: Option<String>,
+    #[serde(default)]
+    expires_at: Option<String>,
+    #[serde(default)]
+    token_type: Option<String>,
+    #[serde(default)]
+    scope: Option<String>,
+    #[serde(default = "default_now_rfc3339")]
+    created_at: String,
+    #[serde(default = "default_now_rfc3339")]
+    updated_at: String,
+    #[serde(default)]
+    metadata: BTreeMap<String, String>,
+}
+
+fn default_schema_version() -> u32 {
+    CURRENT_SCHEMA_VERSION
+}
+
+fn default_now_rfc3339() -> String {
+    Utc::now().to_rfc3339()
+}
+
+
 /// The secret the profiles live in on a storage backend
 /// ([`crate::storage::secrets`]): the same JSON as `auth-profiles.json`,
 /// encrypted as one secret in the acting agent's scope.
