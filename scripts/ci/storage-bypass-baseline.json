@@ -225,15 +225,15 @@
   },
   {
     "rule": "json-write",
-    "path": "crates/openhuman-core/src/credentials/profiles.rs",
-    "line": 304,
+    "path": "crates/openhuman-core/src/credentials/profiles/persistence.rs",
+    "line": 44,
     "text": "let mut file = OpenOptions::new()",
     "occurrence": 1
   },
   {
     "rule": "json-write",
-    "path": "crates/openhuman-core/src/credentials/profiles.rs",
-    "line": 317,
+    "path": "crates/openhuman-core/src/credentials/profiles/persistence.rs",
+    "line": 57,
     "text": "fs::write(path, bytes)",
     "occurrence": 1
   },

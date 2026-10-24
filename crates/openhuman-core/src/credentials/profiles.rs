@@ -3,14 +3,10 @@ use crate::util::retry_with_backoff;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 #[allow(unused_imports)]
-use std::fs::{self, OpenOptions};
-#[allow(unused_imports)]
-use std::io::Write;
+use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard, OnceLock};
-use std::thread;
 use std::time::Duration;
 
 #[cfg(test)]
@@ -22,6 +18,15 @@ mod keychain;
 mod lock;
 mod migration;
 mod persistence;
+#[cfg(test)]
+use lock::annotate_lock_create_failure;
+use lock::is_lock_create_unwritable_fs;
+#[cfg(test)]
+use lock::{in_process_lock_for, is_pid_alive};
+pub(crate) use persistence::is_persisted_document;
+#[cfg(test)]
+use persistence::write_owner_only;
+use persistence::{PersistedAuthProfile, PersistedAuthProfiles};
 mod readonly;
 pub(crate) use persistence::STORAGE_SECRET_NAME as PROFILES_SECRET_NAME;
 mod store_core;
@@ -280,249 +285,6 @@ pub struct AuthProfilesStore {
     #[cfg(test)]
     force_lock_unwritable: Arc<AtomicBool>,
 }
-/// Write `bytes` to `path` with the file readable only by its owner.
-///
-/// `fs::write` creates at `0o666 & ~umask` — `0644` under the usual `022` — and
-/// `fs::rename` carries the source mode onto the destination, so the credential
-/// store inherited it on every save. Any process running under a different UID
-/// could read it, and on the encrypted-JSON path — the normal state on Linux and
-/// on any headless install without a keyring — that file is OAuth token
-/// ciphertext, leaving `.secret_key` as the only remaining control.
-///
-/// Same shape as the fix #2360 landed for the secret key in
-/// `secret_storage/encrypted_store.rs`: create with the mode already set rather than
-/// widening then narrowing, so the file is never briefly world-readable.
-///
-/// `.mode()` only applies when the file is *created*, so a leftover tmp from an
-/// interrupted save would keep its old mode — hence the explicit
-/// `set_permissions` afterwards.
-fn write_owner_only(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
-
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .mode(0o600)
-            .open(path)?;
-        file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
-        file.write_all(bytes)
-    }
-    #[cfg(not(unix))]
-    {
-        // Windows has no mode to set here; the file inherits the ACL of the
-        // per-user profile directory it is created in.
-        fs::write(path, bytes)
-    }
-}
-/// Cross-platform best-effort check that a given OS process id is currently
-/// running. Used by [`AuthProfilesStore::clear_lock_if_stale`] to decide
-/// whether a recorded lock owner is still alive; a false negative just
-/// means we keep waiting on a lock that was actually already gone, which
-/// is the safe direction. Backed by sysinfo so we don't grow a new libc /
-/// windows-sys dependency for one syscall.
-/// Wrap a non-`AlreadyExists` `create_new` failure with a context line that
-/// embeds the underlying `io::ErrorKind` and `raw_os_error()`. Pulled out
-/// of [`AuthProfilesStore::acquire_lock`] so unit tests can drive the
-/// formatting directly without depending on filesystem permissions (CI runs
-/// as root and bypasses `chmod 0500`).
-/// True when a lock-create failure was caused by the filesystem refusing to
-/// accept the lock file itself — disk full (`StorageFull`, POSIX `ENOSPC` /
-/// Windows `ERROR_DISK_FULL`) or a read-only mount (`ReadOnlyFilesystem`,
-/// `EROFS`). These are exactly the conditions where the **read** path can
-/// safely skip the exclusive lock: the store already exists, writers publish
-/// atomically, and the failing operation is the *creation of a new lock file*,
-/// not the read. Lock *contention* (`AlreadyExists` / the busy-wait timeout)
-/// and every other error deliberately do NOT match — those still propagate so
-/// genuine problems stay visible. See [`AuthProfilesStore::load`].
-fn is_lock_create_unwritable_fs(err: &anyhow::Error) -> bool {
-    err.chain()
-        .find_map(|cause| cause.downcast_ref::<std::io::Error>())
-        .map(|io| {
-            matches!(
-                io.kind(),
-                std::io::ErrorKind::StorageFull | std::io::ErrorKind::ReadOnlyFilesystem
-            )
-        })
-        .unwrap_or(false)
-}
-
-fn annotate_lock_create_failure(err: anyhow::Error) -> anyhow::Error {
-    let io = err.chain().find_map(|c| c.downcast_ref::<std::io::Error>());
-    let kind = io.map(|ioe| ioe.kind());
-    let os_code = io.and_then(|ioe| ioe.raw_os_error());
-    err.context(format!(
-        "Failed to create auth profile lock (kind={:?}, os_code={:?})",
-        kind, os_code
-    ))
-}
-
-fn is_pid_alive(pid: u32) -> bool {
-    use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
-    let target = Pid::from_u32(pid);
-    let mut sys = System::new();
-    sys.refresh_processes_specifics(
-        ProcessesToUpdate::Some(&[target]),
-        true,
-        ProcessRefreshKind::nothing(),
-    );
-    sys.process(target).is_some()
-}
-
-/// Process-wide registry of in-memory locks, one per auth-profile lock-file
-/// path. Returns a `'static` handle so the held guard can live inside
-/// [`AuthProfileLockGuard`] for the lifetime of the on-disk lock.
-///
-/// Entries are created on first use and never removed — the set of distinct
-/// auth-profile lock paths in a process is tiny (effectively one), so leaking
-/// a `Mutex<()>` per path is negligible and buys us a `'static` lifetime
-/// without `unsafe` or a self-referential guard. Serializing same-process
-/// acquirers here is what lets [`AuthProfilesStore::reclaim_self_owned_lock`]
-/// treat an on-disk lock carrying our own pid as a leak (no live same-process
-/// guard can exist while a caller holds this lock).
-///
-/// The registry key is **canonicalized** (real parent directory + lock
-/// filename), so two `AuthProfilesStore`s pointing at the same lock through
-/// aliased spellings (`state` vs `state/.`, relative vs absolute, a symlinked
-/// parent, Windows case variants) share one mutex. Without this, aliased paths
-/// would take *different* mutexes and a second same-process acquirer could see
-/// the first live guard's pid, mistake it for a leak, and reclaim it — entering
-/// the critical section concurrently. `acquire_lock` always calls this *after*
-/// `create_dir_all(parent)`, so the parent exists and `canonicalize` succeeds;
-/// if it ever fails we fall back to the raw path (no worse than before).
-fn in_process_lock_for(path: &Path) -> &'static Mutex<()> {
-    static REGISTRY: OnceLock<Mutex<HashMap<PathBuf, &'static Mutex<()>>>> = OnceLock::new();
-    let key = path
-        .parent()
-        .and_then(|parent| {
-            let canonical = fs::canonicalize(parent).ok()?;
-            path.file_name().map(|name| canonical.join(name))
-        })
-        .unwrap_or_else(|| path.to_path_buf());
-    let registry = REGISTRY.get_or_init(|| Mutex::new(HashMap::new()));
-    let mut map = registry
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    // Deref the `&mut &'static Mutex<()>` to copy the `'static` reference out,
-    // so the returned handle is not tied to the dropped `map` guard.
-    map.entry(key)
-        .or_insert_with(|| &*Box::leak(Box::new(Mutex::new(()))))
-}
-
-struct AuthProfileLockGuard {
-    lock_path: PathBuf,
-    /// Held to serialize same-process acquirers for `lock_path`; released when
-    /// this guard drops. Never read — see [`in_process_lock_for`].
-    _in_process: MutexGuard<'static, ()>,
-}
-
-impl Drop for AuthProfileLockGuard {
-    fn drop(&mut self) {
-        // Best-effort unlink with retries. On Windows, antivirus and the
-        // search indexer routinely hold a transient handle on a file just
-        // after it is written, which makes `fs::remove_file` fail with
-        // `PermissionDenied`. A failed unlink here leaks the lock file
-        // with the still-alive owner pid inside. Recovery is layered: this
-        // retry loop is the first line of defence; if it still fails, the
-        // next acquirer in THIS process reclaims the self-owned lock
-        // immediately via `reclaim_self_owned_lock` (it holds the in-process
-        // lock, so the recorded pid being ours unambiguously means a leak);
-        // and the age-based reclaim in `clear_lock_if_stale` remains the
-        // cross-process safety net.
-        for attempt in 0..5u32 {
-            match fs::remove_file(&self.lock_path) {
-                Ok(()) => return,
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => return,
-                Err(e) => {
-                    if attempt + 1 == 5 {
-                        tracing::warn!(
-                            target: "auth-profiles",
-                            "[credentials] failed to remove auth profile lock at {} after {} attempts: {e}. \
-                             The next acquirer in this process will reclaim the self-owned lock immediately; \
-                             a leak from another process is recovered by the age-based reclaim within {}ms.",
-                            self.lock_path.display(),
-                            attempt + 1,
-                            STALE_LOCK_AGE_MS,
-                        );
-                        return;
-                    }
-                    thread::sleep(Duration::from_millis(50u64.saturating_mul(1u64 << attempt)));
-                }
-            }
-        }
-    }
-}
-
-/// Whether `bytes` parse as the persisted profiles document (what a read from
-/// the storage backend requires).
-pub(crate) fn is_persisted_document(bytes: &[u8]) -> bool {
-    serde_json::from_slice::<PersistedAuthProfiles>(bytes).is_ok()
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct PersistedAuthProfiles {
-    #[serde(default = "default_schema_version")]
-    schema_version: u32,
-    #[serde(default = "default_now_rfc3339")]
-    updated_at: String,
-    #[serde(default)]
-    active_profiles: BTreeMap<String, String>,
-    #[serde(default)]
-    profiles: BTreeMap<String, PersistedAuthProfile>,
-}
-
-impl Default for PersistedAuthProfiles {
-    fn default() -> Self {
-        Self {
-            schema_version: CURRENT_SCHEMA_VERSION,
-            updated_at: default_now_rfc3339(),
-            active_profiles: BTreeMap::new(),
-            profiles: BTreeMap::new(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-struct PersistedAuthProfile {
-    provider: String,
-    profile_name: String,
-    kind: String,
-    #[serde(default)]
-    account_id: Option<String>,
-    #[serde(default)]
-    workspace_id: Option<String>,
-    #[serde(default)]
-    access_token: Option<String>,
-    #[serde(default)]
-    refresh_token: Option<String>,
-    #[serde(default)]
-    id_token: Option<String>,
-    #[serde(default)]
-    token: Option<String>,
-    #[serde(default)]
-    expires_at: Option<String>,
-    #[serde(default)]
-    token_type: Option<String>,
-    #[serde(default)]
-    scope: Option<String>,
-    #[serde(default = "default_now_rfc3339")]
-    created_at: String,
-    #[serde(default = "default_now_rfc3339")]
-    updated_at: String,
-    #[serde(default)]
-    metadata: BTreeMap<String, String>,
-}
-
-fn default_schema_version() -> u32 {
-    CURRENT_SCHEMA_VERSION
-}
-
-fn default_now_rfc3339() -> String {
-    Utc::now().to_rfc3339()
-}
-
 /// Decrement an `AtomicUsize` failure-injection counter by one if it is
 /// non-zero, returning a `__TEST_TRANSIENT__` error so `is_transient_fs_error`
 /// classifies the failure as retryable. Used by both per-stage consumers in

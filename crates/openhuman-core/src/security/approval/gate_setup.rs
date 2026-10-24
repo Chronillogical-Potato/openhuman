@@ -1,3 +1,5 @@
+use super::*;
+
 impl ApprovalGate {
     /// Install the process-global gate. Returns the existing gate if
     /// one was already installed (re-install is a no-op so repeated
@@ -37,7 +39,7 @@ impl ApprovalGate {
         Self::new(config, session, DEFAULT_APPROVAL_TTL)
     }
 
-    fn new(config: Config, session_id: String, ttl: Duration) -> Self {
+    pub(super) fn new(config: Config, session_id: String, ttl: Duration) -> Self {
         // Regression guard: the gate's session_id must be the per-launch
         // UUID minted by `bootstrap_core_runtime` (shape:
         // `session-<uuid>`). Any other shape risks re-introducing the
@@ -70,7 +72,7 @@ impl ApprovalGate {
     /// mirrors the host-aware discipline of the `OPENHUMAN_APPROVAL_GATE`
     /// kill-switch — neither override can make the gate fail open; the timeout
     /// path always denies.
-    fn effective_ttl(&self) -> Duration {
+    pub(super) fn effective_ttl(&self) -> Duration {
         #[cfg(debug_assertions)]
         if let Some(ttl) = std::env::var("OPENHUMAN_APPROVAL_TTL_SECS")
             .ok()
@@ -92,7 +94,11 @@ impl ApprovalGate {
     /// extend `effective_ttl` past what the gate itself allows (e.g. a debug
     /// env override). Split out (rather than inlined at the call site) so it is
     /// unit testable without needing to actually park a future.
-    fn resolve_park_ttl(effective_ttl: Duration, copilot_stream: bool, subagent: bool) -> Duration {
+    pub(super) fn resolve_park_ttl(
+        effective_ttl: Duration,
+        copilot_stream: bool,
+        subagent: bool,
+    ) -> Duration {
         let mut ttl = effective_ttl;
         if copilot_stream {
             ttl = ttl.min(COPILOT_APPROVAL_TTL);
@@ -106,7 +112,7 @@ impl ApprovalGate {
     /// Whether `tool_name` is on the user's "Always allow" list. Prefers the agent or
     /// process-global live policy (so a grant made this session is seen
     /// immediately) and falls back to the gate's boot-time config snapshot.
-    fn tool_is_auto_approved(
+    pub(super) fn tool_is_auto_approved(
         &self,
         ctx: &crate::core::runtime::DispatchCtx,
         tool_name: &str,
@@ -130,7 +136,10 @@ impl ApprovalGate {
     /// Callers MUST still exclude `AgentTurnOrigin::Unknown` before trusting
     /// this flag — see the `matches!` guard at the call site below. This method only reports the
     /// user's setting; it does not know about origin.
-    fn is_auto_approve_all_enabled(&self, ctx: &crate::core::runtime::DispatchCtx) -> bool {
+    pub(super) fn is_auto_approve_all_enabled(
+        &self,
+        ctx: &crate::core::runtime::DispatchCtx,
+    ) -> bool {
         if let Some(policy) = crate::security::live_policy::effective_in(ctx) {
             return policy.auto_approve_all;
         }

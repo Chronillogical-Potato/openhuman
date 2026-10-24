@@ -1,3 +1,6 @@
+use super::gate_surface::publish_flow_approval_requested;
+use super::*;
+
 impl ApprovalGate {
     /// Shared core of [`Self::intercept_audited`] and
     /// [`Self::intercept_audited_bounded`]. When `park_bound` is `Some` and
@@ -13,7 +16,7 @@ impl ApprovalGate {
     /// compiled in this crate.
     #[allow(clippy::too_many_arguments)]
     #[inline(never)]
-    fn intercept_audited_inner<'a>(
+    pub(super) fn intercept_audited_inner<'a>(
         &'a self,
         turn: &'a ApprovalTurnContext,
         tool_name: &'a str,
@@ -453,7 +456,7 @@ impl ApprovalGate {
         let now = chrono::Utc::now();
         // Routes key on the tenant (profile and agent), so two SaaS profiles'
         // default agents, which carry no agent id, never share one.
-        let route_tenant = super::gate::current_route_tenant();
+        let route_tenant = super::current_route_tenant();
         let agent_id = route_tenant.agent.clone();
         let thread_key = chat_thread_id
             .as_deref()
@@ -575,29 +578,19 @@ impl ApprovalGate {
                 flow_id, run_id, ..
             }) = &source_context
             {
-                tracing::info!(request_id = %request_id, flow_id = %flow_id,
-                    run_id = %run_id, tool = tool_name,
-                    "[approval::gate] flow-origin park — surfacing flow_approval_request + notification");
-                BUS.publish(DomainEvent::FlowApprovalRequested {
-                    request_id: request_id.clone(),
-                    flow_id: flow_id.clone(),
-                    run_id: run_id.clone(),
-                    tool_name: tool_name.to_string(),
-                    summary: action_summary.to_string(),
-                    agent_id: agent_id.clone(),
-                });
-                publish_flow_gate_notification(
+                publish_flow_approval_requested(
                     &request_id,
                     flow_id,
                     run_id,
                     tool_name,
                     action_summary,
+                    agent_id.as_deref(),
                     workspace,
                 );
             }
             Ok(())
         };
-        let registered = super::flow_surface::register_after_workspace(
+        let registered = super::super::flow_surface::register_after_workspace(
             scope.as_deref(),
             async {
                 if !matches!(&source_context, Some(ApprovalSourceContext::Flow { .. })) {
