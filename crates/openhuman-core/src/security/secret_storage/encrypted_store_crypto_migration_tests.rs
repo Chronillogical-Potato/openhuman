@@ -132,8 +132,8 @@ fn tampered_ciphertext_detected() {
     let hex_str = &encrypted[5..];
     let mut blob = hex_decode(hex_str).unwrap();
     // Modify a byte in the ciphertext portion (after the 12-byte nonce)
-    if blob.len() > NONCE_LEN {
-        blob[NONCE_LEN] ^= 0xff;
+    if blob.len() > crypto::NONCE_LEN {
+        blob[crypto::NONCE_LEN] ^= 0xff;
     }
     let tampered = format!("enc2:{}", hex_encode(&blob));
 
@@ -418,8 +418,8 @@ fn migrated_value_is_tamper_resistant() {
     // Tamper with the migrated value
     let hex_str = &new_value[5..];
     let mut blob = hex_decode(hex_str).unwrap();
-    if blob.len() > NONCE_LEN {
-        blob[NONCE_LEN] ^= 0xff;
+    if blob.len() > crypto::NONCE_LEN {
+        blob[crypto::NONCE_LEN] ^= 0xff;
     }
     let tampered = format!("enc2:{}", hex_encode(&blob));
 
