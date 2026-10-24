@@ -163,17 +163,13 @@ async fn execution_audit_uses_the_agent_scope_captured_when_parked() {
     assert!(matches!(parked.await.unwrap(), (GateOutcome::Allow, Some(_))));
     gate.record_execution(&request.request_id, ExecutionOutcome::Success, None);
 
-    let stored = docs
-        .run(|docs| async move {
-            docs.get(
-                crate::security::approval::store_documents::APPROVALS,
-                &request.request_id,
-            )
-            .await
-        })
-        .unwrap()
-        .expect("agent-scoped approval row should remain available");
-    assert_eq!(stored.doc["execution_outcome"], serde_json::json!("success"));
+    assert_eq!(
+        docs.execution_outcome_for_test(&request.request_id)
+            .unwrap()
+            .as_deref(),
+        Some("success"),
+        "execution outcome must be written to the approval's captured agent scope"
+    );
 }
 
 #[tokio::test]

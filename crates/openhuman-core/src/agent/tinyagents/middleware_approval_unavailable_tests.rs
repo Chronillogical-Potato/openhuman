@@ -1,4 +1,4 @@
-use super::approval::approval_is_explicitly_disabled;
+use super::super::approval::approval_is_explicitly_disabled;
 use crate::security::approval::gate::ApprovalGateBootState;
 
 #[test]
