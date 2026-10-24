@@ -548,7 +548,7 @@ async fn handle_encrypted_rpc_frame(channel_id: &str, frame_bytes: &[u8]) {
     };
 
     let plaintext = {
-        let mut guard = super::lock_unpoisoned(cipher);
+        let mut guard = super::lock_unpoisoned(&cipher);
         match guard.open(frame_bytes) {
             Ok(bytes) => bytes,
             Err(e) => {
@@ -695,3 +695,7 @@ fn hash_session_token(token: &str) -> String {
     hasher.update(token.as_bytes());
     format!("{:x}", hasher.finalize())
 }
+
+#[cfg(test)]
+#[path = "bus_tests.rs"]
+mod tests;
