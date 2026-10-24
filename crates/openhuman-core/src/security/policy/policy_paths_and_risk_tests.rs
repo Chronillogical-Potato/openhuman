@@ -365,7 +365,11 @@ fn relative_personalities_path_resolves_under_action_dir() {
     std::fs::create_dir_all(action.join("personalities")).unwrap();
     let policy = SecurityPolicy {
         workspace_dir: workspace.clone(),
-        action_dir: action,
+        action_dir: action.clone(),
+        trusted_roots: vec![TrustedRoot {
+            path: action.to_string_lossy().into_owned(),
+            access: TrustedAccess::ReadWrite,
+        }],
         ..SecurityPolicy::default()
     };
 
@@ -432,6 +436,7 @@ fn dotfile_in_workspace_allowed() {
     std::fs::write(workspace.path().join(".env"), "LOCAL_ONLY=1\n").expect("write .env");
     let p = SecurityPolicy {
         workspace_dir: workspace.path().to_path_buf(),
+        action_dir: workspace.path().to_path_buf(),
         workspace_only: true,
         forbidden_paths: vec![],
         ..SecurityPolicy::default()
@@ -460,6 +465,7 @@ fn symlink_inside_workspace_escaping_outside_is_blocked() {
 
     let p = SecurityPolicy {
         workspace_dir: workspace.path().to_path_buf(),
+        action_dir: workspace.path().to_path_buf(),
         workspace_only: true,
         forbidden_paths: vec![],
         ..SecurityPolicy::default()
@@ -489,6 +495,7 @@ fn symlink_to_forbidden_tree_is_blocked() {
 
     let p = SecurityPolicy {
         workspace_dir: workspace.path().to_path_buf(),
+        action_dir: workspace.path().to_path_buf(),
         // Disable workspace_only so the assertion isolates the forbidden_paths
         // path (the symlink escapes the workspace, which would also trip
         // workspace_only — but here we want to prove the forbidden_paths
@@ -516,6 +523,7 @@ fn write_to_not_yet_existing_path_in_workspace_still_allowed() {
     let workspace = tempfile::tempdir().expect("workspace tempdir");
     let p = SecurityPolicy {
         workspace_dir: workspace.path().to_path_buf(),
+        action_dir: workspace.path().to_path_buf(),
         workspace_only: true,
         forbidden_paths: vec![],
         ..SecurityPolicy::default()
