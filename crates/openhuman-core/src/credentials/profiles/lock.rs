@@ -111,7 +111,7 @@ pub(super) fn in_process_lock_for(path: &Path) -> &'static Mutex<()> {
         .or_insert_with(|| &*Box::leak(Box::new(Mutex::new(()))))
 }
 
-struct AuthProfileLockGuard {
+pub(super) struct AuthProfileLockGuard {
     lock_path: PathBuf,
     /// Held to serialize same-process acquirers for `lock_path`; released when
     /// this guard drops. Never read — see [`in_process_lock_for`].
