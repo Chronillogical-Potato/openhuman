@@ -3,7 +3,7 @@
     "rule": "bare-spawn",
     "path": "crates/openhuman-core/src/agent/orchestration/ops.rs",
     "line": 386,
-    "text": "let handle = tokio::spawn(crate::security::turn_origin::propagate(async move {",
+    "text": "let handle = tokio::spawn(crate::core::runtime::turn_origin::propagate(async move {",
     "occurrence": 1
   },
   {
@@ -638,7 +638,7 @@
   },
   {
     "rule": "bare-spawn",
-    "path": "crates/openhuman-core/src/security/turn_origin.rs",
+    "path": "crates/openhuman-core/src/core/runtime/turn_origin.rs",
     "line": 356,
     "text": "tokio::spawn(propagate(fut))",
     "occurrence": 1

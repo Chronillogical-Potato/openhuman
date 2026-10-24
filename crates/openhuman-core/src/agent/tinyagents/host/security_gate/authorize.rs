@@ -136,8 +136,8 @@ impl OpenHumanSecurityGate {
         let is_cron_turn = matches!(
             self.turn_origin(),
             Some(
-                crate::security::turn_origin::AgentTurnOrigin::TrustedAutomation {
-                    source: crate::security::turn_origin::TrustedAutomationSource::Cron,
+                crate::core::runtime::turn_origin::AgentTurnOrigin::TrustedAutomation {
+                    source: crate::core::runtime::turn_origin::TrustedAutomationSource::Cron,
                     ..
                 }
             )

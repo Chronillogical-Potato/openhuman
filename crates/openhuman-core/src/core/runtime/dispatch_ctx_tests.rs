@@ -38,8 +38,8 @@ async fn ambient_reads_the_scoped_context_and_explicit_ignores_it() {
     .await;
 }
 
-fn web_origin(thread: &str) -> crate::security::turn_origin::AgentTurnOrigin {
-    crate::security::turn_origin::AgentTurnOrigin::WebChat {
+fn web_origin(thread: &str) -> crate::core::runtime::turn_origin::AgentTurnOrigin {
+    crate::core::runtime::turn_origin::AgentTurnOrigin::WebChat {
         thread_id: thread.into(),
         client_id: "client".into(),
         request_id: format!("req-{thread}").into(),
@@ -52,7 +52,9 @@ async fn explicit_turn_origin_wins_over_the_scoped_one_and_does_not_cross() {
     let a = Arc::new(base.derive_channel_turn(None, Some(web_origin("a"))));
     let b = Arc::new(base.derive_channel_turn(None, Some(web_origin("b"))));
     let thread_of = |ctx: &DispatchCtx| match ctx.turn_origin() {
-        Some(crate::security::turn_origin::AgentTurnOrigin::WebChat { thread_id, .. }) => thread_id,
+        Some(crate::core::runtime::turn_origin::AgentTurnOrigin::WebChat { thread_id, .. }) => {
+            thread_id
+        }
         other => panic!("expected a web origin, got {other:?}"),
     };
     // Scoped to `a`, a context bound to `b` still answers `b`, across awaits

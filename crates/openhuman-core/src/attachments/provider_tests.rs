@@ -164,7 +164,7 @@ async fn too_many_typed_images_reject_before_read_or_inference() {
 
 #[tokio::test]
 async fn external_channel_cannot_rehydrate_a_local_image() {
-    use crate::security::turn_origin::AgentTurnOrigin;
+    use crate::core::runtime::turn_origin::AgentTurnOrigin;
     let probe = Arc::new(Probe::default());
     let wrapper = wrap(
         &crate::core::runtime::DispatchCtx::host_default(),

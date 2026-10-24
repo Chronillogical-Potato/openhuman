@@ -299,7 +299,7 @@ async fn run_cron_turn(
     // tools stay gated like its creator's were.
     let origin = crate::cron::origin::turn_origin_for_job_run(job, run_id);
     let turn =
-        crate::security::turn_origin::with_origin(origin, Box::pin(agent.run_single(prompt)));
+        crate::core::runtime::turn_origin::with_origin(origin, Box::pin(agent.run_single(prompt)));
     // A host agent's turn runs in its own context, so every ambient read
     // (config, domains, tool groups, session store) sees that agent rather
     // than the process default.

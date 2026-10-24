@@ -113,11 +113,13 @@ fn root_context(
     progress: tokio::sync::mpsc::Sender<crate::progress::AgentProgress>,
 ) -> crate::agent::tinyagents::host::OpenHumanRunContext {
     let mut context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
-    context.origin = Some(crate::security::turn_origin::AgentTurnOrigin::WebChat {
-        thread_id: thread_id.to_string(),
-        client_id: format!("client-{thread_id}"),
-        request_id: Some(format!("request-{thread_id}")),
-    });
+    context.origin = Some(
+        crate::core::runtime::turn_origin::AgentTurnOrigin::WebChat {
+            thread_id: thread_id.to_string(),
+            client_id: format!("client-{thread_id}"),
+            request_id: Some(format!("request-{thread_id}")),
+        },
+    );
     context.thread_id = Some(thread_id.to_string());
     context.workspace = Some(tinytools::WorkspaceDescriptor::new(workspace));
     context.progress = Some(progress);

@@ -94,7 +94,7 @@ impl PinnedAgent for AgentChatPinned {
             None,
             AgentChatEnv::default(),
         );
-        let outcome = crate::security::turn_origin::with_origin(
+        let outcome = crate::core::runtime::turn_origin::with_origin(
             external_inbound_origin(&run.source, &run.turn_id),
             turn,
         )

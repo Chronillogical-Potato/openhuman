@@ -13,7 +13,7 @@ use tinytools::{PermissionLevel, Tool};
 
 use crate::agent::HostTools;
 use crate::config::Config;
-use crate::security::turn_origin::AgentTurnOrigin;
+use crate::core::runtime::turn_origin::AgentTurnOrigin;
 
 /// The most a host agent may do on a turn from `origin`; `None` leaves the
 /// agent's own limits alone.

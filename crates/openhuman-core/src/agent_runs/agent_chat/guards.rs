@@ -127,14 +127,14 @@ pub(super) fn grant_turn_cwd(config: &mut Config, root: &std::path::Path) {
 /// unchanged — but `message` here is something a *person* typed, and `Cli`
 /// answers "who wrote this" with a trust answer. Its own documentation covers
 /// sub-agent and internal invocations, so
-/// [`is_user_authored`](crate::security::turn_origin::AgentTurnOrigin::is_user_authored)
+/// [`is_user_authored`](crate::core::runtime::turn_origin::AgentTurnOrigin::is_user_authored)
 /// reads `false` for it and the conversation autosave would silently drop a
 /// real user message.
 pub(super) fn effective_agent_chat_origin(
     ctx: &crate::core::runtime::DispatchCtx,
-) -> crate::security::turn_origin::AgentTurnOrigin {
+) -> crate::core::runtime::turn_origin::AgentTurnOrigin {
     ctx.turn_origin_or_scoped()
-        .unwrap_or(crate::security::turn_origin::AgentTurnOrigin::DirectChat)
+        .unwrap_or(crate::core::runtime::turn_origin::AgentTurnOrigin::DirectChat)
 }
 
 #[cfg(test)]

@@ -216,7 +216,7 @@ impl DispatchCtx {
     /// The origin of the turn this call belongs to. Only a bound context
     /// supplies one: the process default never carries authority, so an
     /// unbound call answers `None` and the gate reads it as `Unknown`.
-    pub fn turn_origin(&self) -> Option<crate::security::turn_origin::AgentTurnOrigin> {
+    pub fn turn_origin(&self) -> Option<crate::core::runtime::turn_origin::AgentTurnOrigin> {
         self.core
             .as_ref()
             .and_then(|core| core.turn_origin().cloned())
@@ -226,16 +226,21 @@ impl DispatchCtx {
     /// calling task's turn scope carries. For a handler whose context was
     /// built by a transport that does not carry the turn's origin, while a
     /// turn that called it into being still holds it (transitional, #7801).
-    pub fn turn_origin_or_scoped(&self) -> Option<crate::security::turn_origin::AgentTurnOrigin> {
+    pub fn turn_origin_or_scoped(
+        &self,
+    ) -> Option<crate::core::runtime::turn_origin::AgentTurnOrigin> {
         self.turn_origin()
             .or_else(|| Self::ambient_turn().turn_origin())
     }
     /// This context with `origin` bound as its turn origin, for a run that
     /// acts under a trusted entry point of its own (a saved flow). The base is
     /// this context, else the calling task's turn scope, the process default,
-    /// or a bare one, the same resolution `security::turn_origin::with_origin`
+    /// or a bare one, the same resolution `core::runtime::turn_origin::with_origin`
     /// scopes under. This context is not mutated.
-    pub fn with_turn_origin(&self, origin: crate::security::turn_origin::AgentTurnOrigin) -> Self {
+    pub fn with_turn_origin(
+        &self,
+        origin: crate::core::runtime::turn_origin::AgentTurnOrigin,
+    ) -> Self {
         let base = self
             .core
             .clone()

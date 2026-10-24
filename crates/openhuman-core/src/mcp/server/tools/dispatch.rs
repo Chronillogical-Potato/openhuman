@@ -361,7 +361,7 @@ async fn run_subagent_tool(
     // clients. Treat callers as ExternalChannel — their prompt text is
     // remote-controlled and any external_effect tool the agent tries to
     // run must route through the gate's audit + TTL-deny path.
-    let origin = crate::security::turn_origin::AgentTurnOrigin::ExternalChannel {
+    let origin = crate::core::runtime::turn_origin::AgentTurnOrigin::ExternalChannel {
         sender_name: None,
         channel: "mcp_server".to_string(),
         // MCP server callers don't carry a per-user identity at this
@@ -379,7 +379,7 @@ async fn run_subagent_tool(
     // `handle_json_value` dispatch above it) keeps a small stack frame.
     let response = Box::pin(subagent_depth::scope(
         child_depth,
-        crate::security::turn_origin::with_origin(origin, agent.run_single(prompt)),
+        crate::core::runtime::turn_origin::with_origin(origin, agent.run_single(prompt)),
     ))
     .await
     .map_err(|err| ToolCallError::Internal(format!("subagent `{agent_id}` failed: {err}")))?;

@@ -204,7 +204,7 @@ fn stricter_tier(
 /// trip regardless of the running flow's own `require_approval` toggle.
 ///
 /// **Why this is needed (Codex P1 finding):** `ApprovalGate::intercept_audited`
-/// branches on the scoped [`AgentTurnOrigin`](crate::security::turn_origin::AgentTurnOrigin) —
+/// branches on the scoped [`AgentTurnOrigin`](crate::core::runtime::turn_origin::AgentTurnOrigin) —
 /// for a `TrustedAutomation { source: Workflow { require_approval: false }, .. }`
 /// origin (the default for every saved flow unless the author opts in) it
 /// returns `Allow` unconditionally, the same pre-declared-trust-root shortcut a
@@ -228,7 +228,7 @@ pub(crate) async fn gate_call_for_tier(
     action_summary: &str,
     args_redacted: Value,
 ) -> (crate::security::approval::GateOutcome, Option<String>) {
-    use crate::security::turn_origin;
+    use crate::core::runtime::turn_origin;
 
     let Some(gate) = crate::security::approval::ApprovalGate::try_global() else {
         return (crate::security::approval::GateOutcome::Allow, None);
@@ -265,17 +265,17 @@ pub(crate) async fn gate_call_for_tier(
 /// `ApprovalGate`.
 pub(crate) fn escalated_origin_for_prompt(
     tier_decision: GateDecision,
-    origin: Option<crate::security::turn_origin::AgentTurnOrigin>,
-) -> Option<crate::security::turn_origin::AgentTurnOrigin> {
+    origin: Option<crate::core::runtime::turn_origin::AgentTurnOrigin>,
+) -> Option<crate::core::runtime::turn_origin::AgentTurnOrigin> {
     (tier_decision == GateDecision::Prompt)
         .then(|| force_workflow_approval(origin))
         .flatten()
 }
 
 fn force_workflow_approval(
-    origin: Option<crate::security::turn_origin::AgentTurnOrigin>,
-) -> Option<crate::security::turn_origin::AgentTurnOrigin> {
-    use crate::security::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
+    origin: Option<crate::core::runtime::turn_origin::AgentTurnOrigin>,
+) -> Option<crate::core::runtime::turn_origin::AgentTurnOrigin> {
+    use crate::core::runtime::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
 
     match origin {
         Some(AgentTurnOrigin::TrustedAutomation {
@@ -318,7 +318,7 @@ fn force_workflow_approval(
 /// Split out as a free function over plain values so the escalation policy is
 /// unit-testable without a live `ApprovalGate`.
 pub(crate) fn escalated_origin_for_nested_harness(
-    origin: Option<crate::security::turn_origin::AgentTurnOrigin>,
-) -> Option<crate::security::turn_origin::AgentTurnOrigin> {
+    origin: Option<crate::core::runtime::turn_origin::AgentTurnOrigin>,
+) -> Option<crate::core::runtime::turn_origin::AgentTurnOrigin> {
     force_workflow_approval(origin)
 }

@@ -260,7 +260,7 @@
   },
   {
     "rule": "json-write",
-    "path": "crates/openhuman-core/src/security/secure_open.rs",
+    "path": "crates/openhuman-core/src/attachments/secure_open.rs",
     "line": 20,
     "text": "let filesystem_root = std::fs::OpenOptions::new()",
     "occurrence": 1

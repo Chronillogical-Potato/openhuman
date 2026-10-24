@@ -345,7 +345,7 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
     // Slack channel cannot use it from their own session — distinct senders
     // produce distinct origins, and the wallet preparer / parked-approval
     // gates compare these for equality before honouring confirmations.
-    let turn_origin = crate::security::turn_origin::AgentTurnOrigin::ExternalChannel {
+    let turn_origin = crate::core::runtime::turn_origin::AgentTurnOrigin::ExternalChannel {
         sender_name: msg.sender.name.clone(),
         channel: msg.channel.id.clone(),
         sender: Some(msg.sender.id.clone()),

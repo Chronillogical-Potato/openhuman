@@ -183,9 +183,9 @@ async fn a_read_only_tool_is_allowed_in_every_tier() {
 async fn cron_decision(gate: OpenHumanSecurityGate, tool_name: &str) -> GateDecision {
     let core =
         crate::core::runtime::CoreContext::for_test(crate::core::runtime::DomainSet::full(), None);
-    let origin = crate::security::turn_origin::AgentTurnOrigin::TrustedAutomation {
+    let origin = crate::core::runtime::turn_origin::AgentTurnOrigin::TrustedAutomation {
         job_id: "cron-security-test".into(),
-        source: crate::security::turn_origin::TrustedAutomationSource::Cron,
+        source: crate::core::runtime::turn_origin::TrustedAutomationSource::Cron,
     };
     crate::core::runtime::CoreContext::scope_with_turn_origin(
         core,

@@ -251,7 +251,7 @@ impl ScheduleTool {
         &self,
         action: &str,
         args: &serde_json::Value,
-        origin: Option<&crate::security::turn_origin::AgentTurnOrigin>,
+        origin: Option<&crate::core::runtime::turn_origin::AgentTurnOrigin>,
     ) -> Result<ToolResult> {
         let command = args
             .get("command")

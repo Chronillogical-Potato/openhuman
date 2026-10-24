@@ -31,9 +31,9 @@ use tinymemory_api::{Citation, LearningKind, MemoryMeta, MetaFilter, SourceKind,
 use tinytools::{PermissionLevel, Tool, ToolResult};
 
 use crate::config::Config;
+use crate::core::runtime::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
 use crate::memory::types::{ForgetParams, ItemsListParams, LearnParams, RecallParams, MAX_LIMIT};
 use crate::security::policy::ToolOperation;
-use crate::security::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
 use crate::security::SecurityPolicy;
 use tinymemory_api::{Error, Result};
 

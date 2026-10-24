@@ -22,7 +22,7 @@
 //!
 //! A turn reads one `tokio` task-local that no parameter can carry yet:
 //!
-//! - **origin** ([`turn_origin`](openhuman_core::security::turn_origin)) — the
+//! - **origin** ([`turn_origin`](openhuman_core::core::runtime::turn_origin)) — the
 //!   caller's statement of authority. The approval gate is *fail-closed*: an
 //!   unlabelled call gets the `Cli` default, and a caller wanting anything
 //!   else — a workflow's blanket automation grant, say — must scope it around
@@ -43,9 +43,9 @@ use std::sync::Arc;
 
 use super::error::CoreError;
 use openhuman_core::agent_runs::INFERENCE_AGENT_CHAT as AGENT_CHAT;
+use openhuman_core::core::runtime::turn_origin::AgentTurnOrigin;
 use openhuman_core::core::runtime::CoreRuntime;
 use openhuman_core::progress::AgentProgress;
-use openhuman_core::security::turn_origin::AgentTurnOrigin;
 
 #[path = "turn_types.rs"]
 mod types;
