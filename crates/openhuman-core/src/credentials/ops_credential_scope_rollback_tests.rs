@@ -1,4 +1,3 @@
-use super::*;
 use crate::config::test_env::EnvVarGuard;
 use crate::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
 use tempfile::TempDir;

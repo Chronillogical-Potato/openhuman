@@ -27,8 +27,5 @@ pub use session_query::{auth_get_session_token_json, auth_get_state};
 pub(crate) use secrets::secret_store_for_config;
 
 #[cfg(test)]
-pub(crate) use credential::process_credential_refusal;
-
-#[cfg(test)]
 #[path = "ops_tests.rs"]
 mod tests;
