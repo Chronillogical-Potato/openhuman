@@ -3,14 +3,12 @@ use crate::util::retry_with_backoff;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 #[allow(unused_imports)]
 use std::fs::{self, OpenOptions};
 #[allow(unused_imports)]
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard, OnceLock};
-use std::thread;
 use std::time::Duration;
 
 #[cfg(test)]
@@ -22,6 +20,9 @@ mod keychain;
 mod lock;
 mod migration;
 mod persistence;
+pub(super) use lock::{annotate_lock_create_failure, is_lock_create_unwritable_fs};
+pub(super) use persistence::write_owner_only;
+pub(crate) use persistence::is_persisted_document;
 mod readonly;
 pub(crate) use persistence::STORAGE_SECRET_NAME as PROFILES_SECRET_NAME;
 mod store_core;

@@ -2,9 +2,11 @@
 //! stale-lock reclamation, and same-process leaked-lock self-healing.
 
 use anyhow::{Context, Result};
+use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::sync::TryLockError;
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard, OnceLock, TryLockError};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -12,7 +14,6 @@ use std::time::{Duration, Instant};
 use std::sync::atomic::Ordering;
 
 use super::{
-    annotate_lock_create_failure, in_process_lock_for, is_pid_alive, AuthProfileLockGuard,
     AuthProfilesStore, LOCK_TIMEOUT_MS, LOCK_WAIT_MS, MALFORMED_LOCK_GRACE_MS, STALE_LOCK_AGE_MS,
 };
 
