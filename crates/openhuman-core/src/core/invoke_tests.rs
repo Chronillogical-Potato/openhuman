@@ -3,7 +3,8 @@ use serde_json::json;
 
 use super::super::session_expiry::is_session_expired_error;
 use super::{
-    default_state, invoke_method, should_publish_session_expired, translate_local_session_error,
+    default_state, invoke_method, request_session_failure_is_stale, should_publish_session_expired,
+    translate_local_session_error,
 };
 
 #[tokio::test]
@@ -190,6 +191,24 @@ fn local_offline_credential_does_not_publish_backend_session_expiry() {
         assert!(!is_session_expired_error(&translated));
         assert!(translate_local_session_error(error, jwt).is_none());
     }
+}
+
+#[test]
+fn stale_rpc_expiry_response_is_not_actionable_after_credential_replacement() {
+    let request_fingerprint =
+        crate::security::credentials::session_support::credential_fingerprint("request-token");
+    assert!(request_session_failure_is_stale(
+        Some(&request_fingerprint),
+        Some("replacement-token"),
+    ));
+    assert!(!request_session_failure_is_stale(
+        Some(&request_fingerprint),
+        Some("request-token"),
+    ));
+    assert!(!request_session_failure_is_stale(
+        Some(&request_fingerprint),
+        None,
+    ));
 }
 
 /// #8081: a Memory tab on a plan without memory got `403 MEMORY_PLAN_REQUIRED`

@@ -381,13 +381,16 @@ async fn managed_auth_failure_expires_the_session_only_on_a_session_401() {
         server.abort();
 
         let mut source = None;
+        let mut fingerprint = None;
         loop {
             match events.try_recv() {
                 Ok(DomainEvent::SessionExpired {
                     source: value,
                     reason,
+                    credential_fingerprint: value_fingerprint,
                 }) if reason.contains(marker) => {
                     source = Some(value);
+                    fingerprint = value_fingerprint;
                     break;
                 }
                 Ok(_) | Err(tinybus::TryRecvError::Lagged(_)) => continue,
@@ -395,6 +398,18 @@ async fn managed_auth_failure_expires_the_session_only_on_a_session_401() {
             }
         }
         assert_eq!(source.as_deref(), expected, "{name}");
+        if expected.is_some() {
+            assert_eq!(
+                fingerprint.as_deref(),
+                Some(
+                    openhuman_embed::__host::security::credentials::session_support::credential_fingerprint(
+                        "test.session.jwt",
+                    )
+                    .as_str(),
+                ),
+                "managed expiry must carry the bearer used by its failed request"
+            );
+        }
     }
 }
 
@@ -501,7 +516,7 @@ async fn a_late_api_key_401_after_a_session_request_keeps_the_session() {
 
     loop {
         match events.try_recv() {
-            Ok(DomainEvent::SessionExpired { source, reason }) => {
+            Ok(DomainEvent::SessionExpired { source, reason, .. }) => {
                 assert!(
                     !reason.contains("HOST_AUTH_LATE_API_KEY_401")
                         && !reason.contains("HOST_AUTH_SESSION_403"),

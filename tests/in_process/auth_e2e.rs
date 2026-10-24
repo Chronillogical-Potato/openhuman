@@ -101,6 +101,11 @@ async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_
         .handle(&DomainEvent::SessionExpired {
             source: "coverage-test".to_string(),
             reason: "remote token rejected".to_string(),
+            credential_fingerprint: Some(
+                openhuman_core::security::credentials::session_support::credential_fingerprint(
+                    "session-expired-remote-jwt",
+                ),
+            ),
         })
         .await;
 
@@ -147,6 +152,7 @@ async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_
         .handle(&DomainEvent::SessionExpired {
             source: "coverage-test".to_string(),
             reason: "local token should survive".to_string(),
+            credential_fingerprint: None,
         })
         .await;
 

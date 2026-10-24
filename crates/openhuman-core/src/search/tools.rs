@@ -196,13 +196,14 @@ pub(crate) fn backend_unauthorized_message(api_key: bool) -> String {
 /// inference key never saw that prompt and search kept failing on the stale
 /// token. A rejected API key has no session to expire, so it never signs the
 /// user out (`API_KEY_REJECTED` semantics).
-fn on_backend_unauthorized(tool: &str, api_key: bool) {
+fn on_backend_unauthorized(tool: &str, api_key: bool, credential_fingerprint: Option<String>) {
     if api_key || crate::platform::llm_gate::is_signed_out() {
         return;
     }
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::SessionExpired {
         source: format!("search.{tool}"),
         reason: "managed search backend rejected the session (401)".to_string(),
+        credential_fingerprint,
     });
 }
 
@@ -288,6 +289,17 @@ impl Tool for TinySearchTool {
         if let Some(message) = local_only_search_block(&request.name) {
             return Ok(ToolResult::error(message));
         }
+        let api_key = crate::security::credentials::api_key::has_api_key(&config);
+        let request_credential_fingerprint = if api_key {
+            None
+        } else {
+            crate::security::credentials::session_support::get_session_token(&config)
+                .ok()
+                .flatten()
+                .map(|token| {
+                    crate::security::credentials::session_support::credential_fingerprint(&token)
+                })
+        };
         match crate::modules::search::execute_tool(&ctx, &config, request).await {
             Ok(response) => {
                 tracing::debug!(
@@ -309,8 +321,11 @@ impl Tool for TinySearchTool {
                     self.mark_exhausted_for(signature);
                 }
                 if errors::code_of(&error) == Some(errors::BACKEND_UNAUTHORIZED) {
-                    let api_key = crate::security::credentials::api_key::has_api_key(&config);
-                    on_backend_unauthorized(&self.spec.name, api_key);
+                    on_backend_unauthorized(
+                        &self.spec.name,
+                        api_key,
+                        request_credential_fingerprint,
+                    );
                     tracing::warn!(
                         tool = %self.spec.name,
                         api_key,

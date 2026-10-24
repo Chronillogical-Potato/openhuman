@@ -1,18 +1,20 @@
 //! Persist and resolve OpenAI OAuth tokens for the `openai` cloud provider slug.
 
-use std::path::{Path, PathBuf};
+use std::sync::{LazyLock, Mutex, PoisonError};
 
-use chrono::{Duration, TimeZone, Utc};
-use tinyinference_providers::oauth::{
-    openai_account_id_from_access_token, openai_codex_config, parse_openai_codex_auth_json,
-    refresh_access_token, OAuthTokenSet,
-};
+use chrono::{Duration, Utc};
+use tinyinference_providers::oauth::{openai_account_id_from_access_token, OAuthTokenSet};
 
 use crate::config::Config;
 use crate::security::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
-use crate::security::credentials::{state_dir_from_config, AuthService};
+use crate::security::credentials::{state_dir_from_config, AuthService, ProviderOAuthTokens};
 
 const LOG_PREFIX: &str = "[inference][openai-oauth][store]";
+
+/// Serializes lookup/refresh/persist for the single OpenAI OAuth profile.
+/// The on-disk profile lock protects individual writes, while this lock keeps
+/// a rotating refresh token from being used by two concurrent lookups.
+static OPENAI_OAUTH_PROFILE_LOCK: LazyLock<Mutex<()>> = LazyLock::new(Mutex::default);
 
 pub const OPENAI_PROVIDER_KEY: &str = "provider:openai";
 pub const OPENAI_OAUTH_PROFILE_NAME: &str = "oauth";
@@ -69,7 +71,27 @@ pub fn persist_openai_oauth_token(
     token: &OAuthTokenSet,
 ) -> Result<AuthProfile, String> {
     let account_id = openai_account_id_from_access_token(token.access_token.trim());
-    persist_openai_oauth_token_set(config, token_set_from_oauth(token), account_id)
+    persist_openai_oauth_tokens(
+        config,
+        &ProviderOAuthTokens {
+            token: token.clone(),
+            account_id,
+        },
+    )
+}
+
+pub fn persist_openai_oauth_tokens(
+    config: &Config,
+    tokens: &ProviderOAuthTokens,
+) -> Result<AuthProfile, String> {
+    let _profile_lock = OPENAI_OAUTH_PROFILE_LOCK
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    persist_openai_oauth_token_set(
+        config,
+        token_set_from_oauth(&tokens.token),
+        tokens.account_id.clone(),
+    )
 }
 
 pub(super) fn persist_openai_oauth_token_set(
@@ -96,141 +118,8 @@ pub(super) fn persist_openai_oauth_token_set(
     Ok(profile)
 }
 
-fn codex_cli_auth_path() -> Result<PathBuf, String> {
-    if let Some(codex_home) = std::env::var_os("CODEX_HOME") {
-        let path = PathBuf::from(codex_home);
-        if !path.as_os_str().is_empty() {
-            return Ok(path.join("auth.json"));
-        }
-    }
-
-    let home = home_dir_from_env()
-        .ok_or_else(|| "home directory is not set; cannot find ~/.codex/auth.json".to_string())?;
-    Ok(home.join(".codex").join("auth.json"))
-}
-
-fn home_dir_from_env() -> Option<PathBuf> {
-    for key in ["HOME", "USERPROFILE"] {
-        if let Some(value) = std::env::var_os(key) {
-            let path = PathBuf::from(value);
-            if !path.as_os_str().is_empty() {
-                return Some(path);
-            }
-        }
-    }
-
-    match (std::env::var_os("HOMEDRIVE"), std::env::var_os("HOMEPATH")) {
-        (Some(drive), Some(path))
-            if !drive.as_os_str().is_empty() && !path.as_os_str().is_empty() =>
-        {
-            Some(PathBuf::from(drive).join(path))
-        }
-        _ => None,
-    }
-}
-
-pub(super) fn import_codex_cli_auth_from_path(
-    config: &Config,
-    path: &Path,
-) -> Result<AuthProfile, String> {
-    log::info!(
-        "{LOG_PREFIX} codex_cli_import:start path={}",
-        path.display()
-    );
-    let bytes = std::fs::read(path).map_err(|e| {
-        log::warn!(
-            "{LOG_PREFIX} codex_cli_import:read_failed path={} error={e}",
-            path.display()
-        );
-        format!(
-            "Could not read Codex CLI auth at {}: {e}. Run `codex login` first, then try Codex auth again.",
-            path.display()
-        )
-    })?;
-    let imported = parse_openai_codex_auth_json(&bytes).map_err(|e| {
-        log::warn!(
-            "{LOG_PREFIX} codex_cli_import:parse_failed path={} error={e}",
-            path.display()
-        );
-        format!(
-            "Could not parse Codex CLI auth at {}: {e}. Run `codex login` again, then try Codex auth again.",
-            path.display()
-        )
-    })?;
-    let account_id = imported.account_id;
-
-    log::info!(
-        "{LOG_PREFIX} codex_cli_import:persist_start path={} account_id_present={}",
-        path.display(),
-        account_id.is_some()
-    );
-    let profile = persist_openai_oauth_token_set(
-        config,
-        TokenSet {
-            access_token: imported.token.access_token,
-            refresh_token: imported.token.refresh_token,
-            id_token: imported.token.id_token,
-            expires_at: imported
-                .expires_at_unix
-                .and_then(|timestamp| Utc.timestamp_opt(timestamp, 0).single()),
-            token_type: Some("Bearer".to_string()),
-            scope: None,
-        },
-        account_id,
-    )?;
-    log::info!(
-        "{LOG_PREFIX} codex_cli_import:ok path={} profile_id={}",
-        path.display(),
-        profile.id
-    );
-    Ok(profile)
-}
-
-pub fn import_codex_cli_auth(config: &Config) -> Result<AuthProfile, String> {
-    let path = codex_cli_auth_path()?;
-    import_codex_cli_auth_from_path(config, &path)
-}
-
 fn auth_profiles_store(config: &Config) -> AuthProfilesStore {
     AuthProfilesStore::new(&state_dir_from_config(config), config.secrets.encrypt)
-}
-
-fn try_refresh_oauth_token(refresh: &str) -> Result<OAuthTokenSet, String> {
-    let cfg = openai_codex_config("http://127.0.0.1:1455/auth/callback");
-    #[cfg(test)]
-    let cfg = if let Some(token_url) = local_refresh_url_override() {
-        let mut cfg = cfg;
-        cfg.token_url = token_url;
-        cfg
-    } else {
-        cfg
-    };
-    let refresh = refresh.to_string();
-    if let Ok(handle) = tokio::runtime::Handle::try_current() {
-        // `block_in_place` lets the multi-thread runtime move other tasks off this
-        // worker before we synchronously drive the refresh future, avoiding a
-        // deadlock when this lookup is reached from inside an async caller.
-        let refreshed =
-            tokio::task::block_in_place(|| handle.block_on(refresh_access_token(&cfg, &refresh)))
-                .map_err(|e| e.to_string())?;
-        if refreshed.access_token.trim().is_empty() {
-            return Err("OAuth refresh response contained an empty access token".to_owned());
-        }
-        return Ok(refreshed);
-    }
-    Err("tokio runtime required to refresh openai oauth token".to_string())
-}
-
-/// Local-only endpoint override for OAuth refresh tests. Production builds do
-/// not read this variable, and tests cannot redirect refresh credentials away
-/// from loopback.
-#[cfg(test)]
-fn local_refresh_url_override() -> Option<String> {
-    let endpoint = std::env::var("OPENAI_CODEX_OAUTH_TOKEN_URL").ok()?;
-    let parsed = reqwest::Url::parse(&endpoint).ok()?;
-    let host = parsed.host_str()?;
-    (parsed.scheme() == "http" && matches!(host, "localhost" | "127.0.0.1" | "::1"))
-        .then(|| endpoint.clone())
 }
 
 /// Look up the OpenAI bearer token sourced from the OAuth (ChatGPT
@@ -245,6 +134,9 @@ pub fn lookup_openai_bearer_token(config: &Config) -> Result<Option<String>, Str
 pub fn lookup_openai_oauth_credentials(
     config: &Config,
 ) -> Result<Option<OpenAiOAuthCredentials>, String> {
+    let _profile_lock = OPENAI_OAUTH_PROFILE_LOCK
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
     let auth = AuthService::from_config(config);
 
     let profile = auth
@@ -262,9 +154,25 @@ pub fn lookup_openai_oauth_credentials(
         skew.num_seconds().unsigned_abs(),
     )) {
         if let Some(refresh) = token_set.refresh_token.clone() {
-            match try_refresh_oauth_token(&refresh) {
+            let source =
+                crate::security::credentials::provider_credential_source().ok_or_else(|| {
+                    "provider OAuth refresh is unavailable: no host credential source installed"
+                        .to_string()
+                })?;
+            match source.refresh_openai_oauth(&refresh) {
                 Ok(fresh) => {
-                    token_set = token_set_from_oauth(&fresh);
+                    let mut refreshed = token_set_from_oauth(&fresh);
+                    // Providers do not always repeat stable fields in a
+                    // refresh response. Preserve them from the profile, while
+                    // accepting a newly rotated refresh token when supplied.
+                    if refreshed.refresh_token.is_none() {
+                        refreshed.refresh_token = token_set.refresh_token.clone();
+                    }
+                    if refreshed.id_token.is_none() {
+                        refreshed.id_token = token_set.id_token.clone();
+                    }
+                    refreshed.scope = token_set.scope.clone();
+                    token_set = refreshed;
                     profile.token_set = Some(token_set.clone());
                     if let Err(e) =
                         auth_profiles_store(config).upsert_profile(profile.clone(), true)

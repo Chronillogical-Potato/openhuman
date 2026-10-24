@@ -1,7 +1,8 @@
 use super::{
     channel_connection_update_payload, event_alias, origin_is_allowed_with_extra,
-    publish_companion_state_changed, socket_tenant_from_request_extensions,
-    subscribe_companion_state_changed, ThreadSubscribePayload,
+    publish_companion_state_changed, should_broadcast_session_expiry,
+    socket_tenant_from_request_extensions, subscribe_companion_state_changed,
+    ThreadSubscribePayload,
 };
 
 #[tokio::test]
@@ -32,6 +33,34 @@ fn thread_subscribe_cannot_choose_a_profile_for_review_replay() {
         payload.is_err(),
         "tenant selection is not a client payload field"
     );
+}
+
+#[test]
+fn session_expiry_bridge_only_broadcasts_for_the_current_session_credential() {
+    let old_request =
+        crate::core_host::security::credentials::session_support::credential_fingerprint(
+            "expired-request-token",
+        );
+    assert!(!should_broadcast_session_expiry(
+        Some(&old_request),
+        Some("replacement-token"),
+        false,
+    ));
+    assert!(should_broadcast_session_expiry(
+        Some(&old_request),
+        Some("expired-request-token"),
+        false,
+    ));
+    assert!(!should_broadcast_session_expiry(
+        None,
+        Some("current-token"),
+        false,
+    ));
+    assert!(!should_broadcast_session_expiry(
+        Some(&old_request),
+        Some("expired-request-token"),
+        true,
+    ));
 }
 
 #[test]

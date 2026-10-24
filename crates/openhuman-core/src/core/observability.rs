@@ -264,7 +264,7 @@ pub enum ExpectedErrorKind {
     /// Drops Sentry TAURI-RUST-83A (~430 events / 40 users on
     /// `openhuman@0.57.13`). Anchored to the `codex cli auth` /
     /// `.codex/auth.json` envelope produced by
-    /// [`crate::security::credentials::openai_oauth::store::import_codex_cli_auth_from_path`]
+    /// Codex CLI import path in `openhuman_tinyhumans::provider_oauth`.
     /// — a genuine keyring/persist failure in `upsert_profile` carries neither
     /// anchor, so a real defect in the import code still reaches Sentry.
     CodexCliAuthUnavailable,

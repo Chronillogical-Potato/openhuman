@@ -2,12 +2,35 @@
 
 use crate::config::Config;
 use crate::core::runtime::DispatchCtx;
+use sha2::{Digest, Sha256};
 
 use super::profiles::{AuthProfile, AuthProfileKind, TokenSet};
 use super::responses::{AuthProfileSummary, AuthStateResponse};
 use super::AuthService;
 
 use super::{APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
+
+const CREDENTIAL_FINGERPRINT_DOMAIN: &[u8] =
+    b"tinyinference/tinyhumans-credential-fingerprint/v1\0";
+
+/// A stable, non-secret identifier for one credential value. The domain
+/// separator matches TinyInference's request-time managed-credential
+/// fingerprint so the host can transport it with `SessionExpired`.
+pub fn credential_fingerprint(token: &str) -> String {
+    let mut digest = Sha256::new();
+    digest.update(CREDENTIAL_FINGERPRINT_DOMAIN);
+    digest.update(token.as_bytes());
+    digest
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+/// Compare a request fingerprint with a credential currently in storage.
+pub fn credential_fingerprint_matches(fingerprint: &str, token: &str) -> bool {
+    credential_fingerprint(token).as_bytes() == fingerprint.as_bytes()
+}
 
 pub const LOCAL_SESSION_USER_ID: &str = "local";
 
@@ -443,6 +466,7 @@ pub fn resolve_backend_credential(config: &Config) -> Result<BackendCredential, 
     }
     let profile = load_app_session_profile(config)?;
     check_session_backend(config, profile.as_ref())?;
+    let checked_token = session_token_from_profile(profile.as_ref());
     match classify_session_token(profile.as_ref(), chrono::Utc::now()) {
         // The offline local session has no TinyHumans account behind it, so a
         // hosted call is unavailable by construction — the typed sentinel lets
@@ -456,7 +480,7 @@ pub fn resolve_backend_credential(config: &Config) -> Result<BackendCredential, 
             Err("no backend session token; run auth_store_session first".to_string())
         }
         SessionTokenCheck::Expired => {
-            publish_local_session_expiry("require_live_session_token");
+            publish_local_session_expiry("require_live_session_token", checked_token.as_deref());
             Err(
                 "SESSION_EXPIRED: backend session token expired locally — re-authentication required"
                     .to_string(),
@@ -520,7 +544,7 @@ pub fn has_backend_credential(config: &Config) -> bool {
 /// ever prompts a re-auth (that regression was caught in review on #6206).
 ///
 /// `operation` names the calling site for the log line only.
-pub fn publish_local_session_expiry(operation: &'static str) {
+pub fn publish_local_session_expiry(operation: &'static str, token: Option<&str>) {
     // Dedupe the publish via the scheduler gate so N parallel authed
     // callers in one tick don't emit N SessionExpired events.
     if crate::platform::llm_gate::is_signed_out() {
@@ -546,6 +570,7 @@ pub fn publish_local_session_expiry(operation: &'static str) {
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::SessionExpired {
         source: "credentials.local_expiry_precheck".to_string(),
         reason: "backend session token expired locally — re-authentication required".to_string(),
+        credential_fingerprint: token.map(credential_fingerprint),
     });
 }
 

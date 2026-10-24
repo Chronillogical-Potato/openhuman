@@ -588,7 +588,7 @@ async fn expired_session_publishes_session_expired_before_embedding_request() {
     assert_eq!(requests.load(Ordering::SeqCst), 0);
     let mut published = None;
     while let Ok(event) = rx.try_recv() {
-        if let DomainEvent::SessionExpired { source, reason } = event {
+        if let DomainEvent::SessionExpired { source, reason, .. } = event {
             if source == "managed_embedding.resolve_bearer" {
                 published = Some((source, reason));
                 break;

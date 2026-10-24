@@ -11,6 +11,7 @@ pub mod jwt;
 pub mod openai_oauth;
 pub mod ops;
 pub mod profiles;
+pub mod provider_credential_source;
 pub mod responses;
 mod schemas;
 pub mod sentry_scope;
@@ -26,6 +27,10 @@ pub use jwt::user_id_from_profile_payload;
 pub use ops as rpc;
 pub use ops::*;
 pub use profiles::{AuthProfile, AuthProfileKind, TokenSet};
+pub use provider_credential_source::{
+    clear_provider_credential_source, install_provider_credential_source,
+    provider_credential_source, ProviderCredentialSource, ProviderOAuthStart, ProviderOAuthTokens,
+};
 // Direct-mode (BYO Composio API key) credential helpers.
 pub use ops::{
     clear_composio_api_key, get_composio_api_key, store_composio_api_key, COMPOSIO_DIRECT_PROVIDER,

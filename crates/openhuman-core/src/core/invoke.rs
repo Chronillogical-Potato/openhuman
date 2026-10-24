@@ -34,6 +34,19 @@ pub async fn invoke_method(
     method: &str,
     params: Value,
 ) -> Result<Value, String> {
+    // Capture the process session identity before dispatch so a backend 401
+    // that returns after a credential replacement cannot be attributed to the
+    // new session.
+    let request_credential_fingerprint = ctx
+        .load_config()
+        .await
+        .ok()
+        .and_then(|config| {
+            crate::security::credentials::session_support::get_session_token(&config)
+                .ok()
+                .flatten()
+        })
+        .map(|token| crate::security::credentials::session_support::credential_fingerprint(&token));
     let mut result = invoke_scoped(ctx.clone(), state, method, params).await;
 
     // Session auto-cleanup: if the OpenHuman auth session is explicitly
@@ -45,14 +58,44 @@ pub async fn invoke_method(
     if let Err(ref msg) = result {
         let sanitized_reason = tinyinference_core::sanitize::sanitize_api_error(msg);
         if is_session_expired_error(msg) {
-            // The subscriber ignores an offline local session, but Socket.IO
-            // also hears this event and broadcasts sign-out independently.
-            // Suppress it at the publisher for backend-only routes that the
-            // local credential cannot use. This extra config read happens only
-            // on a classified session-expiry error, never on the normal path.
-            let local =
-                crate::security::credentials::session_support::current_session_is_local(&ctx).await;
-            if should_publish_session_expired(msg, local) {
+            // The credential may have changed while the handler's backend
+            // request was in flight. Suppress both the bus event and the RPC
+            // error's auth-expired marker so the renderer cannot independently
+            // sign out a replacement credential from the response body.
+            let current = ctx.load_config().await.ok().map(|config| {
+                let token =
+                    crate::security::credentials::session_support::get_session_token(&config)
+                        .ok()
+                        .flatten();
+                let local = token.as_deref().is_some_and(
+                    crate::security::credentials::session_support::is_local_session_token,
+                );
+                let api_key = crate::security::credentials::api_key::has_api_key(&config);
+                (token, local, api_key)
+            });
+            let Some((current_token, local, api_key)) = current else {
+                log::warn!(
+                    "[jsonrpc] session expiry for method='{}' not acted on because current credentials could not be checked",
+                    method
+                );
+                return Err(
+                    "Backend request failed while current session state could not be verified"
+                        .to_string(),
+                );
+            };
+            if api_key
+                || request_session_failure_is_stale(
+                    request_credential_fingerprint.as_deref(),
+                    current_token.as_deref(),
+                )
+            {
+                log::info!(
+                    "[jsonrpc] stale session expiry for method='{}' — credential changed while the request was in flight",
+                    method
+                );
+                result =
+                    Err("Backend request failed after its session credential changed".to_string());
+            } else if should_publish_session_expired(msg, local) {
                 log::warn!(
                     "[jsonrpc] confirmed session expiry for method='{}' — publishing SessionExpired: {}",
                     method,
@@ -62,6 +105,7 @@ pub async fn invoke_method(
                 crate::core::bus::BUS.publish(crate::core::events::DomainEvent::SessionExpired {
                     source: format!("jsonrpc.invoke_method:{method}"),
                     reason: sanitized_reason,
+                    credential_fingerprint: request_credential_fingerprint.clone(),
                 });
             } else {
                 log::info!(
@@ -108,6 +152,20 @@ async fn invoke_scoped(
 
 fn should_publish_session_expired(msg: &str, credential_is_local: bool) -> bool {
     is_session_expired_error(msg) && !credential_is_local
+}
+
+fn request_session_failure_is_stale(
+    request_fingerprint: Option<&str>,
+    current_token: Option<&str>,
+) -> bool {
+    request_fingerprint
+        .zip(current_token)
+        .is_some_and(|(fingerprint, token)| {
+            !crate::security::credentials::session_support::credential_fingerprint_matches(
+                fingerprint,
+                token,
+            )
+        })
 }
 
 fn translate_local_session_error(msg: &str, credential_is_local: bool) -> Option<String> {

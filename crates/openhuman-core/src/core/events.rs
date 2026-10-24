@@ -1282,17 +1282,17 @@ pub enum DomainEvent {
     KeyringDecryptFailed { field_name: String, reason: String },
 
     // ── Auth ────────────────────────────────────────────────────────────
-    /// The local app session is no longer valid — typically detected when
-    /// the backend returns 401 to an LLM inference call or a JSON-RPC
-    /// method. Subscribers tear down the session and pause background
-    /// LLM-bound work until the user signs back in.
-    ///
-    /// `source` is a short slug (e.g. `"llm_provider.openhuman_backend"`,
-    /// `"jsonrpc.invoke_method"`) so subscribers and logs can attribute
-    /// the trigger. `reason` is the sanitized error message that caused
-    /// detection (already redacted by the call site) — surfaced to logs,
-    /// never to Sentry or the UI verbatim.
-    SessionExpired { source: String, reason: String },
+    /// A backend 401 invalidated the local app session. Subscribers pause
+    /// background LLM work and clear the session. `source` identifies the
+    /// publisher; `reason` is sanitized and used only in logs.
+    SessionExpired {
+        source: String,
+        reason: String,
+        /// Opaque request credential identity; absent provenance cannot clear
+        /// the current session.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        credential_fingerprint: Option<String>,
+    },
 
     /// The backend credential this core holds was stored, replaced or
     /// cleared (`auth.set_credential` / `auth.clear_credential`, including the

@@ -71,7 +71,12 @@ impl SessionExpiredSubscriber {
     /// [`EventHandler::handle`] with the process mode passed in, so the SaaS
     /// early return is testable without the process-wide mode lock.
     pub(crate) async fn handle_with(&self, ctx: &DispatchCtx, saas: bool, event: &DomainEvent) {
-        let DomainEvent::SessionExpired { source, reason } = event else {
+        let DomainEvent::SessionExpired {
+            source,
+            reason,
+            credential_fingerprint,
+        } = event
+        else {
             return;
         };
 
@@ -87,11 +92,20 @@ impl SessionExpiredSubscriber {
             return;
         }
 
-        // (1) Stand down background workers immediately — before any async work.
-        //     Cheap atomic flip; safe to call repeatedly from concurrent publishers.
-        //     We may override this back to `false` below if the current session
-        //     turns out to be a local offline session (never truly expired).
-        llm_gate::set_signed_out(true);
+        let Some(credential_fingerprint) = credential_fingerprint.as_deref() else {
+            tracing::warn!(
+                source = %source,
+                "[auth] SessionExpired ignored — publisher supplied no credential provenance"
+            );
+            return;
+        };
+
+        // Serialize the comparison and teardown with credential installation.
+        // A request that was sent with an older token cannot clear a token
+        // installed while that request was in flight.
+        let _mutation = crate::security::credentials::ops::CREDENTIAL_MUTATION_LOCK
+            .lock()
+            .await;
 
         match ctx.load_config().await {
             Ok(config) => {
@@ -106,15 +120,22 @@ impl SessionExpiredSubscriber {
                     llm_gate::set_signed_out(false);
                     return;
                 }
-                let is_local_session =
-                    crate::security::credentials::jwt::get_session_token(&config)
-                        .ok()
-                        .flatten()
-                        .is_some_and(|token| {
-                            crate::security::credentials::session_support::is_local_session_token(
-                                &token,
-                            )
-                        });
+                let current_token = crate::security::credentials::jwt::get_session_token(&config)
+                    .ok()
+                    .flatten();
+                let matches = current_token.as_deref().is_some_and(|token| {
+                    session_expiry_matches_token(credential_fingerprint, token)
+                });
+                if !matches {
+                    tracing::info!(
+                        source = %source,
+                        "[auth] stale SessionExpired ignored — stored credential has changed"
+                    );
+                    return;
+                }
+                let is_local_session = current_token.as_deref().is_some_and(|token| {
+                    crate::security::credentials::session_support::is_local_session_token(token)
+                });
                 if is_local_session {
                     tracing::warn!(
                         source = %source,
@@ -132,12 +153,16 @@ impl SessionExpiredSubscriber {
                     "[auth] SessionExpired received — pausing background LLM work and clearing session"
                 );
 
+                // Close the gate only after request provenance matches the
+                // credential currently stored under the mutation lock.
+                llm_gate::set_signed_out(true);
+
                 // (2) Tear down the session. We must call clear_session against a
                 //     loaded config; if the config can't load (rare — disk issue),
                 //     we've at least pinned the scheduler gate so background work
                 //     can't make things worse.
                 if let Err(err) =
-                    crate::security::credentials::rpc::clear_session(ctx, &config).await
+                    crate::security::credentials::ops::clear_session_credential(ctx, &config).await
                 {
                     tracing::warn!(
                         source = %source,
@@ -152,16 +177,21 @@ impl SessionExpiredSubscriber {
                 }
             }
             Err(err) => {
-                // set_signed_out(true) was already called above; scheduler gate
-                // is pinned even though we cannot clear the JWT this cycle.
                 tracing::warn!(
                     source = %source,
                     error = %err,
-                    "[auth] could not load config during SessionExpired handling — scheduler gate is signed-out, but session JWT was not cleared"
+                    "[auth] could not load config during SessionExpired handling — request provenance could not be verified"
                 );
             }
         }
     }
+}
+
+fn session_expiry_matches_token(fingerprint: &str, token: &str) -> bool {
+    crate::security::credentials::session_support::credential_fingerprint_matches(
+        fingerprint,
+        token,
+    )
 }
 
 #[cfg(test)]

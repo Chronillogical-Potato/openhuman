@@ -698,16 +698,46 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
             let Some(event) = rx.recv().await else {
                 break;
             };
-            if let crate::core_host::core::events::DomainEvent::SessionExpired { source, reason } =
-                event
+            if let crate::core_host::core::events::DomainEvent::SessionExpired {
+                source,
+                reason,
+                credential_fingerprint,
+            } = event
             {
+                let ctx = crate::core_host::core::runtime::DispatchCtx::process_default();
+                let Ok(config) = ctx.load_config().await else {
+                    log::warn!(
+                        "[socketio] suppress auth:session_expired because credential provenance could not be checked"
+                    );
+                    continue;
+                };
+                let current_token =
+                    crate::core_host::security::credentials::session_support::get_session_token(
+                        &config,
+                    )
+                    .ok()
+                    .flatten();
+                if !should_broadcast_session_expiry(
+                    credential_fingerprint.as_deref(),
+                    current_token.as_deref(),
+                    crate::core_host::security::credentials::api_key::get_api_key(&config)
+                        .ok()
+                        .flatten()
+                        .is_some(),
+                ) {
+                    log::info!(
+                        "[socketio] suppress stale auth:session_expired source={}",
+                        source
+                    );
+                    continue;
+                }
                 // Other publishers may emit a backend 401 while this core is
                 // using its offline local credential. The auth subscriber
                 // correctly keeps that credential, so the UI must not receive
                 // a contradictory sign-out event from this independent bus
                 // consumer. Real JWT expiry still broadcasts as before.
                 if crate::core_host::security::credentials::session_support::current_session_is_local(
-                    &crate::core_host::core::runtime::DispatchCtx::process_default(),
+                    &ctx,
                 )
                 .await
                 {
@@ -1018,6 +1048,22 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
     });
 }
 
+fn should_broadcast_session_expiry(
+    request_fingerprint: Option<&str>,
+    current_token: Option<&str>,
+    using_api_key: bool,
+) -> bool {
+    !using_api_key
+        && request_fingerprint
+            .zip(current_token)
+            .is_some_and(|(fingerprint, token)| {
+                crate::core_host::security::credentials::session_support::credential_fingerprint_matches(
+                    fingerprint,
+                    token,
+                )
+            })
+}
+
 /// Build the `channel:connection-updated` payload broadcast when a supervised
 /// channel listener changes state (issue #3712). Listener-backed channels are
 /// always the `bot_token` auth mode (the only mode that materialises a runtime
@@ -1247,8 +1293,7 @@ fn emit_with_aliases(socket: &SocketRef, name: &str, payload: &serde_json::Value
     }
 }
 
-// Every test here names a gated fn (`channel_connection_update_payload`,
-// `event_alias`, `origin_is_allowed`), so the module gates in lockstep (#5048).
+// Every test here names a gated fn, so the module gates in lockstep (#5048).
 #[cfg(test)]
 #[path = "socketio_tests.rs"]
 mod tests;

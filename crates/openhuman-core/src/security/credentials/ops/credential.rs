@@ -39,6 +39,18 @@ const LOG_PREFIX: &str = "[credentials][set-credential]";
 /// skew `classify_session_token` applies at use time.
 const EXPIRY_SKEW_SECS: i64 = 30;
 
+fn rollback_failed_credential_rebind(auth: &AuthService, cause: &str) -> String {
+    if let Err(rollback) = auth.remove_profile(APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME) {
+        return format!("credential rebind failed: {cause}; rollback failed: {rollback}");
+    }
+    if let Err(rollback) = deactivate_user_scope() {
+        return format!(
+            "credential rebind failed: {cause}; active-user rollback failed: {rollback}"
+        );
+    }
+    cause.to_string()
+}
+
 /// Marks a stored user payload as not yet confirmed against the backend. A
 /// host that accepts a JWT while the backend is unreachable stores this
 /// placeholder and replaces it with the real `/auth/me` answer later — through
@@ -49,6 +61,10 @@ pub const PENDING_BACKEND_VALIDATION_FIELD: &str = "pendingBackendValidation";
 /// their activation / teardown side effects.
 pub(crate) static CREDENTIAL_MUTATION_LOCK: tokio::sync::Mutex<()> =
     tokio::sync::Mutex::const_new(());
+
+#[cfg(test)]
+#[path = "../ops_credential_scope_rollback_tests.rs"]
+mod scope_rollback_tests;
 
 /// `auth.set_credential` parameters.
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -331,11 +347,7 @@ pub async fn set_credential(
         {
             // A retry of the same credential takes the refresh fast-path, so
             // leaving its profile behind would let it skip this required bind.
-            auth.remove_profile(APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME)
-                .map_err(|rollback| {
-                    format!("credential rebind failed: {error}; rollback failed: {rollback}")
-                })?;
-            return Err(error);
+            return Err(rollback_failed_credential_rebind(&auth, &error));
         }
         logs.push("process globals rebound after credential install".to_string());
         start_credential_gated_services(ctx, &effective_config).await;
@@ -521,7 +533,7 @@ pub async fn clear_credential(
 /// teardown, user-dir deactivation, service stop, rebind to the signed-out
 /// workspace, and Sentry / identity clear. Callers hold
 /// [`CREDENTIAL_MUTATION_LOCK`].
-async fn clear_session_credential(
+pub(crate) async fn clear_session_credential(
     ctx: &DispatchCtx,
     config: &Config,
 ) -> Result<Outcome<bool>, String> {
