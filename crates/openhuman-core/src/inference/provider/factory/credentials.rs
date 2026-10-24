@@ -142,12 +142,9 @@ fn read_only_profile_credential(
     provider: &str,
     profile_override: Option<&str>,
 ) -> anyhow::Result<Option<ReadOnlyProfileCredential>> {
-    let Some(profile) = crate::credentials::AuthService::get_profile_read_only(
-        config,
-        provider,
-        profile_override,
-    )
-    .map_err(read_only_profile_error)?
+    let Some(profile) =
+        crate::credentials::AuthService::get_profile_read_only(config, provider, profile_override)
+            .map_err(read_only_profile_error)?
     else {
         return Ok(None);
     };

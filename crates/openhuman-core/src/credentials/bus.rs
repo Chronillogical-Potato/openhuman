@@ -188,10 +188,7 @@ impl SessionExpiredSubscriber {
 }
 
 fn session_expiry_matches_token(fingerprint: &str, token: &str) -> bool {
-    crate::credentials::backend_credential::credential_fingerprint_matches(
-        fingerprint,
-        token,
-    )
+    crate::credentials::backend_credential::credential_fingerprint_matches(fingerprint, token)
 }
 
 #[cfg(test)]

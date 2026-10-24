@@ -56,13 +56,12 @@ pub async fn invoke_method(
             // error's auth-expired marker so the renderer cannot independently
             // sign out a replacement credential from the response body.
             let current = ctx.load_config().await.ok().map(|config| {
-                let token =
-                    crate::credentials::session_state::get_session_token(&config)
-                        .ok()
-                        .flatten();
-                let local = token.as_deref().is_some_and(
-                    crate::credentials::session_state::is_local_session_token,
-                );
+                let token = crate::credentials::session_state::get_session_token(&config)
+                    .ok()
+                    .flatten();
+                let local = token
+                    .as_deref()
+                    .is_some_and(crate::credentials::session_state::is_local_session_token);
                 let api_key = crate::credentials::api_key::has_api_key(&config);
                 (token, local, api_key)
             });

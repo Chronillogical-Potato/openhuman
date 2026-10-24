@@ -296,9 +296,7 @@ impl Tool for TinySearchTool {
             crate::credentials::session_state::get_session_token(&config)
                 .ok()
                 .flatten()
-                .map(|token| {
-                    crate::credentials::backend_credential::credential_fingerprint(&token)
-                })
+                .map(|token| crate::credentials::backend_credential::credential_fingerprint(&token))
         };
         match crate::modules::search::execute_tool(&ctx, &config, request).await {
             Ok(response) => {

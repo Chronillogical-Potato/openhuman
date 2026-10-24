@@ -171,12 +171,8 @@ async fn invoke_retired_v1_memory_method_is_unknown() {
 
 #[test]
 fn local_offline_credential_does_not_publish_backend_session_expiry() {
-    let local = crate::credentials::session_state::is_local_session_token(
-        "header.payload.local",
-    );
-    let jwt = crate::credentials::session_state::is_local_session_token(
-        "header.payload.signature",
-    );
+    let local = crate::credentials::session_state::is_local_session_token("header.payload.local");
+    let jwt = crate::credentials::session_state::is_local_session_token("header.payload.signature");
     for error in [
         "composio unavailable: no backend session token. Sign in first (auth_store_session).",
         "SESSION_EXPIRED: backend rejected session token on GET /teams/me/usage",

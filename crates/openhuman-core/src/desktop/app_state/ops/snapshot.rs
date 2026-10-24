@@ -19,9 +19,7 @@ use super::types::{AppStateSnapshot, StoredAppState, StoredAppStatePatch};
 use super::LOG_PREFIX;
 use crate::core::runtime::DispatchCtx;
 use crate::core::Outcome;
-use crate::credentials::session_state::{
-    load_app_session_profile, session_state_from_profile
-};
+use crate::credentials::session_state::{load_app_session_profile, session_state_from_profile};
 use log::{debug, warn};
 use serde_json::Value;
 use std::sync::atomic::{AtomicU64, Ordering};

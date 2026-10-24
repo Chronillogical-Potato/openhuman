@@ -712,11 +712,9 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                     continue;
                 };
                 let current_token =
-                    crate::core_host::credentials::session_state::get_session_token(
-                        &config,
-                    )
-                    .ok()
-                    .flatten();
+                    crate::core_host::credentials::session_state::get_session_token(&config)
+                        .ok()
+                        .flatten();
                 if !should_broadcast_session_expiry(
                     credential_fingerprint.as_deref(),
                     current_token.as_deref(),
@@ -736,10 +734,8 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                 // correctly keeps that credential, so the UI must not receive
                 // a contradictory sign-out event from this independent bus
                 // consumer. Real JWT expiry still broadcasts as before.
-                if crate::core_host::credentials::session_state::current_session_is_local(
-                    &ctx,
-                )
-                .await
+                if crate::core_host::credentials::session_state::current_session_is_local(&ctx)
+                    .await
                 {
                     log::info!(
                         "[socketio] suppress auth:session_expired for local offline credential source={}",

@@ -6,7 +6,7 @@
 
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::credentials::backend_credential::{
-    resolve_backend_credential, BackendCredential
+    resolve_backend_credential, BackendCredential,
 };
 use serde_json::Value;
 use tinychannels_bus::controllers::{

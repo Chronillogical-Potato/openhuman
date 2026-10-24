@@ -34,7 +34,9 @@ impl IntegrationClient {
     pub fn new(backend_url: String, auth_token: String) -> Self {
         Self::new_inner(
             backend_url,
-            openhuman_embed::__host::credentials::backend_credential::BackendCredential::Session(auth_token),
+            openhuman_embed::__host::credentials::backend_credential::BackendCredential::Session(
+                auth_token,
+            ),
             None,
         )
     }

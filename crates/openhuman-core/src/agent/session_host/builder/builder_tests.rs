@@ -38,8 +38,7 @@ fn test_config(tmp: &tempfile::TempDir) -> crate::config::Config {
     // Building the model passes the backend-session gate; a standing API key in
     // this session's own state dir satisfies it, and the fixture answers
     // instead of a real provider.
-    crate::credentials::api_key::store_api_key(&config, "test-builder-key")
-        .expect("test api key");
+    crate::credentials::api_key::store_api_key(&config, "test-builder-key").expect("test api key");
     config
 }
 

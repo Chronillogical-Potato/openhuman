@@ -198,8 +198,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
 fn handle_auth_set_credential(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = ctx.load_config().await?;
-        let payload =
-            deserialize_params::<crate::credentials::SetCredentialRequest>(params)?;
+        let payload = deserialize_params::<crate::credentials::SetCredentialRequest>(params)?;
         to_json(crate::credentials::ops::set_credential(&ctx, &config, payload).await?)
     })
 }
@@ -297,10 +296,7 @@ fn handle_auth_list_provider_credentials(
             .map(str::trim)
             .filter(|v| !v.is_empty())
             .map(str::to_string);
-        to_json(
-            crate::credentials::ops::list_provider_credentials(&config, provider_filter)
-                .await?,
-        )
+        to_json(crate::credentials::ops::list_provider_credentials(&config, provider_filter).await?)
     })
 }
 

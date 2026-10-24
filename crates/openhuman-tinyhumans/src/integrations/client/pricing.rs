@@ -109,7 +109,9 @@ pub fn build_client(
     let backend_url = effective_backend_api_url(&config.api_url);
 
     let credential =
-        match openhuman_embed::__host::credentials::backend_credential::resolve_backend_credential(config) {
+        match openhuman_embed::__host::credentials::backend_credential::resolve_backend_credential(
+            config,
+        ) {
             Ok(credential) => Some(credential),
             Err(e) => {
                 tracing::debug!("[integrations] no backend credential: {e}");
@@ -125,9 +127,7 @@ pub fn build_client(
 fn build_client_with_credential(
     config: &openhuman_embed::__host::config::Config,
     backend_url: String,
-    credential: Option<
-        openhuman_embed::__host::credentials::backend_credential::BackendCredential,
-    >,
+    credential: Option<openhuman_embed::__host::credentials::backend_credential::BackendCredential>,
 ) -> Option<Arc<IntegrationClient>> {
     use openhuman_embed::__host::credentials::backend_credential::BackendCredential;
 

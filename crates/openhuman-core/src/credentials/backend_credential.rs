@@ -4,9 +4,8 @@ use crate::config::Config;
 use sha2::{Digest, Sha256};
 
 use super::session_state::{
-    check_session_backend, classify_session_token, get_session_token,
-    is_local_session_token, load_app_session_profile, session_token_from_profile,
-    SessionTokenCheck,
+    check_session_backend, classify_session_token, get_session_token, is_local_session_token,
+    load_app_session_profile, session_token_from_profile, SessionTokenCheck,
 };
 
 const CREDENTIAL_FINGERPRINT_DOMAIN: &[u8] =
@@ -233,4 +232,3 @@ pub fn ambient_config_has_api_key() -> bool {
     crate::core::runtime::CoreContext::with_current_embedder_config(super::api_key::has_api_key)
         .unwrap_or(false)
 }
-

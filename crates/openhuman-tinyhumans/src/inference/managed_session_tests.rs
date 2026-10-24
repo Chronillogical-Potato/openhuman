@@ -6,12 +6,8 @@ use super::*;
 // `401 "Invalid token"` and surface that as an expired session.
 #[test]
 fn the_offline_local_session_cannot_authenticate_managed_inference() {
-    use openhuman_embed::__host::credentials::backend_credential::{
-    LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE
-};
-    use openhuman_embed::__host::credentials::session_state::{
-    SessionTokenCheck
-};
+    use openhuman_embed::__host::credentials::backend_credential::LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE;
+    use openhuman_embed::__host::credentials::session_state::SessionTokenCheck;
 
     let error = managed_bearer(
         SessionTokenCheck::Live("header.payload.local".to_string()),

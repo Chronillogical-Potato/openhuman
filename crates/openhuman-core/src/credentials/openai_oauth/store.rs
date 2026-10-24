@@ -154,11 +154,10 @@ pub fn lookup_openai_oauth_credentials(
         skew.num_seconds().unsigned_abs(),
     )) {
         if let Some(refresh) = token_set.refresh_token.clone() {
-            let source =
-                crate::credentials::provider_credential_source().ok_or_else(|| {
-                    "provider OAuth refresh is unavailable: no host credential source installed"
-                        .to_string()
-                })?;
+            let source = crate::credentials::provider_credential_source().ok_or_else(|| {
+                "provider OAuth refresh is unavailable: no host credential source installed"
+                    .to_string()
+            })?;
             match source.refresh_openai_oauth(&refresh) {
                 Ok(fresh) => {
                     let mut refreshed = token_set_from_oauth(&fresh);

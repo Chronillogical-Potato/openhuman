@@ -434,13 +434,12 @@ async fn a_late_api_key_401_after_a_session_request_keeps_the_session() {
         .receiver();
     let tmp = tempfile::TempDir::new().expect("temporary credentials");
     seed_app_session(tmp.path(), Some("2999-01-01T00:00:00Z"));
-    let api_key_profile =
-        openhuman_embed::__host::credentials::api_key::store_api_key_in(
-            tmp.path(),
-            false,
-            "test-managed-key",
-        )
-        .expect("store test API key");
+    let api_key_profile = openhuman_embed::__host::credentials::api_key::store_api_key_in(
+        tmp.path(),
+        false,
+        "test-managed-key",
+    )
+    .expect("store test API key");
 
     // The API-key request is held until the session request has resolved its
     // own bearer and failed.

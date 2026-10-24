@@ -86,9 +86,7 @@ pub async fn fetch_connected_integrations_status(
         && crate::credentials::session_state::get_session_token(config)
             .ok()
             .flatten()
-            .is_some_and(|token| {
-                crate::credentials::session_state::is_local_session_token(&token)
-            })
+            .is_some_and(|token| crate::credentials::session_state::is_local_session_token(&token))
     {
         return FetchConnectedIntegrationsStatus::Authoritative(Vec::new());
     }

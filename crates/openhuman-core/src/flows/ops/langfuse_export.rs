@@ -510,9 +510,7 @@ pub async fn export_flow_run_trace(
     // local session): a configured state — `direct_backend_credential` logs
     // the reason at debug, and the export is skipped without a request.
     let token = match direct_backend_credential(config, "flows langfuse export") {
-        Some(crate::credentials::backend_credential::BackendCredential::Session(token)) => {
-            token
-        }
+        Some(crate::credentials::backend_credential::BackendCredential::Session(token)) => token,
         _ => {
             tracing::debug!(
                 target: LOG_TARGET,

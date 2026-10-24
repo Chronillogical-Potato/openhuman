@@ -31,8 +31,8 @@ use axum::Json;
 use serde_json::json;
 
 use crate::core_host::config::Config;
-use crate::core_host::inference::http::EXTERNAL_OPENAI_COMPAT_PROVIDER;
 use crate::core_host::credentials::AuthService;
+use crate::core_host::inference::http::EXTERNAL_OPENAI_COMPAT_PROVIDER;
 
 /// Paths that bypass bearer-token authentication.
 ///

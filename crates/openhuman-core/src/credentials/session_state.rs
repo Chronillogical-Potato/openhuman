@@ -424,4 +424,3 @@ pub fn session_token_from_profile(profile: Option<&AuthProfile>) -> Option<Strin
         .filter(|token| !token.is_empty())
         .map(str::to_string)
 }
-

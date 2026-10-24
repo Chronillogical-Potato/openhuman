@@ -278,11 +278,7 @@ async fn a_rejected_session_starts_re_authentication() {
     on_backend_unauthorized(
         "test_marker_session_search",
         false,
-        Some(
-            crate::credentials::backend_credential::credential_fingerprint(
-                "test-session-token",
-            ),
-        ),
+        Some(crate::credentials::backend_credential::credential_fingerprint("test-session-token")),
     );
     assert!(session_expired_from(
         &mut rx,

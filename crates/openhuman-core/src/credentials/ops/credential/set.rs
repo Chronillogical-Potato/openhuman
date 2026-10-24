@@ -1,12 +1,16 @@
 use super::*;
+use crate::config::user_scope::{
+    activate_user_scope, rebind_after_credential_change, reload_config_or,
+};
+use crate::core::observability::sentry_scope;
+use crate::credentials::backend_credential::publish_local_session_expiry;
 use crate::credentials::session_state::{
     build_session_state, load_app_session_profile, session_token_from_profile,
     user_id_from_jwt_claims, CredentialKind, SESSION_EXPIRES_AT_META,
 };
-use crate::credentials::backend_credential::publish_local_session_expiry;
-use crate::credentials::{api_key, identity, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
-use crate::core::observability::sentry_scope;
-use crate::config::user_scope::{activate_user_scope, rebind_after_credential_change, reload_config_or};
+use crate::credentials::{
+    api_key, identity, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+};
 
 /// Install a backend credential. See the module docs for what the core does
 /// with it; see [`SetCredentialRequest`] for what the host must supply.
@@ -83,9 +87,9 @@ pub async fn set_credential(
             .as_ref()
             .filter(|_| same_token)
             .and_then(|profile| {
-                profile.metadata.get(
-                    crate::credentials::session_state::SESSION_ISSUING_BACKEND_META,
-                )
+                profile
+                    .metadata
+                    .get(crate::credentials::session_state::SESSION_ISSUING_BACKEND_META)
             });
         if let (Some(previous), Some(issuing)) = (previous_backend, issuing_backend.as_ref()) {
             if previous != issuing {
@@ -94,8 +98,7 @@ pub async fn set_credential(
         }
         if let Some(backend) = previous_backend.cloned().or(issuing_backend) {
             metadata.insert(
-                crate::credentials::session_state::SESSION_ISSUING_BACKEND_META
-                    .to_string(),
+                crate::credentials::session_state::SESSION_ISSUING_BACKEND_META.to_string(),
                 backend,
             );
         }
@@ -205,7 +208,6 @@ pub async fn set_credential(
     publish_credential_changed(ctx, resolved.kind.as_str());
     Ok(Outcome::new(state, logs))
 }
-
 
 #[cfg(test)]
 #[path = "../../ops_credential_scope_rollback_tests.rs"]

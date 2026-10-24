@@ -82,8 +82,7 @@ fn readonly_credential(
     }
     let key = crate::inference::provider::factory::auth_key_for_slug(&entry.slug);
     let profile =
-        crate::credentials::AuthService::get_profile_read_only(config, &key, None)
-            .ok()??;
+        crate::credentials::AuthService::get_profile_read_only(config, &key, None).ok()??;
     let token = match profile.kind {
         crate::credentials::AuthProfileKind::Token => profile.token,
         crate::credentials::AuthProfileKind::OAuth => profile.token_set.and_then(|set| {

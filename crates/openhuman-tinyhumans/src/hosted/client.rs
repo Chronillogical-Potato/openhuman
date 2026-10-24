@@ -38,7 +38,7 @@ use openhuman_embed::__host::core::observability::{
     BACKEND_UNAVAILABLE_PREFIX,
 };
 use openhuman_embed::__host::credentials::backend_credential::{
-    credential_fingerprint, resolve_backend_credential, BackendCredential
+    credential_fingerprint, resolve_backend_credential, BackendCredential,
 };
 use serde_json::Value;
 use tinyhumans_sdk::{Error as SdkError, TinyHumansClient};

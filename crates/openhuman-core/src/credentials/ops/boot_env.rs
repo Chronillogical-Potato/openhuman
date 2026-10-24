@@ -14,9 +14,7 @@
 use crate::config::Config;
 use crate::core::runtime::DispatchCtx;
 use crate::credentials::api_key;
-use crate::credentials::session_state::{
-    get_session_token, CredentialKind
-};
+use crate::credentials::session_state::{get_session_token, CredentialKind};
 
 use super::credential::{set_credential, SetCredentialRequest};
 

@@ -2,7 +2,9 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::credentials::jwt::decode_jwt_exp;
-use crate::credentials::session_state::{local_session_user_id, user_id_from_jwt_claims, CredentialKind};
+use crate::credentials::session_state::{
+    local_session_user_id, user_id_from_jwt_claims, CredentialKind,
+};
 
 /// `auth.set_credential` parameters.
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -126,4 +128,3 @@ pub(super) fn resolve(request: SetCredentialRequest) -> Result<Resolved, String>
         }
     }
 }
-

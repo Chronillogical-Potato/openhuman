@@ -63,8 +63,7 @@ fn deserialize_params_honours_userid_camel_and_snake_case() {
         m.insert("token".into(), Value::String("abc".into()));
         m.insert(key.into(), Value::String("u1".into()));
         m.insert("kind".into(), Value::String("session".into()));
-        let parsed: crate::credentials::SetCredentialRequest =
-            deserialize_params(m).unwrap();
+        let parsed: crate::credentials::SetCredentialRequest = deserialize_params(m).unwrap();
         assert_eq!(parsed.user_id.as_deref(), Some("u1"), "{key}");
         assert_eq!(parsed.kind.as_deref(), Some("session"));
     }
@@ -73,8 +72,8 @@ fn deserialize_params_honours_userid_camel_and_snake_case() {
 #[test]
 fn deserialize_params_reports_missing_required_fields() {
     // `token` is required — an empty object must fail.
-    let err = deserialize_params::<crate::credentials::SetCredentialRequest>(Map::new())
-        .unwrap_err();
+    let err =
+        deserialize_params::<crate::credentials::SetCredentialRequest>(Map::new()).unwrap_err();
     assert!(err.contains("invalid params"));
 }
 

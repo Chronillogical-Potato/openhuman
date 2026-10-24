@@ -1,7 +1,7 @@
 use super::*;
 use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
-use crate::inference::provider::factory::{BYOK_INCOMPLETE_SENTINEL, CLAUDE_AGENT_SDK_PROVIDER};
 use crate::credentials::AuthService;
+use crate::inference::provider::factory::{BYOK_INCOMPLETE_SENTINEL, CLAUDE_AGENT_SDK_PROVIDER};
 use tempfile::TempDir;
 
 fn entry(slug: &str, endpoint: &str, auth_style: AuthStyle) -> CloudProviderCreds {

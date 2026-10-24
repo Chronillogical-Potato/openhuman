@@ -1,6 +1,6 @@
 use super::*;
-use crate::memory::test_fixtures::config_in;
 use crate::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
+use crate::memory::test_fixtures::config_in;
 
 struct ClearInstalledHostEngine;
 

@@ -5,11 +5,9 @@
 //! recovery and retry budgets belong to the channel module.
 
 use openhuman_embed::__host::channel_callback::ChannelCallbackCtx;
-use openhuman_embed::__host::credentials::backend_credential::{
-    BackendCredential
-};
+use openhuman_embed::__host::credentials::backend_credential::BackendCredential;
 use openhuman_embed::__host::credentials::session_state::{
-    get_session_token, is_local_session_token
+    get_session_token, is_local_session_token,
 };
 use serde_json::{json, Map, Value};
 use tinychannels_bus::module_progressive::{

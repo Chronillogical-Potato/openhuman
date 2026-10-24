@@ -521,22 +521,21 @@ pub fn spawn_socket_auto_connect(
                 log::debug!("[socket] No resolved control plane — skipping auto-connect");
                 return;
             };
-            let initial_token =
-                match crate::credentials::session_state::get_session_token(&config) {
-                    Ok(Some(t)) => t,
-                    Ok(None) => {
-                        log::info!(
+            let initial_token = match crate::credentials::session_state::get_session_token(&config)
+            {
+                Ok(Some(t)) => t,
+                Ok(None) => {
+                    log::info!(
                             "[socket] No session token stored — skipping auto-connect (will connect after login)"
                         );
-                        return;
-                    }
-                    Err(e) => {
-                        log::warn!("[socket] Failed to read session token: {e}");
-                        return;
-                    }
-                };
-            if crate::credentials::session_state::is_local_session_token(&initial_token)
-            {
+                    return;
+                }
+                Err(e) => {
+                    log::warn!("[socket] Failed to read session token: {e}");
+                    return;
+                }
+            };
+            if crate::credentials::session_state::is_local_session_token(&initial_token) {
                 log::debug!("[socket] Offline local session — skipping auto-connect");
                 return;
             }

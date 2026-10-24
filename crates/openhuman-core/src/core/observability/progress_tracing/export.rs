@@ -42,9 +42,7 @@ async fn push_spans(config: &Config, spans: &[TraceSpan]) -> Result<(), String> 
         config,
         "langfuse otlp push",
     ) {
-        Some(crate::credentials::backend_credential::BackendCredential::Session(token)) => {
-            token
-        }
+        Some(crate::credentials::backend_credential::BackendCredential::Session(token)) => token,
         _ => return Ok(()),
     };
     let client = LangfuseClient::proxy_with_transport(

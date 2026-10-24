@@ -106,8 +106,7 @@ pub(crate) fn backend_mode_without_session(config: &Config) -> bool {
     }
     match crate::credentials::session_state::get_session_token(config) {
         Ok(token) => token.as_deref().map(str::trim).is_none_or(|token| {
-            token.is_empty()
-                || crate::credentials::session_state::is_local_session_token(token)
+            token.is_empty() || crate::credentials::session_state::is_local_session_token(token)
         }),
         Err(error) => {
             tracing::warn!(

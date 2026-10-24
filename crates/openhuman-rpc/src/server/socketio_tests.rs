@@ -37,10 +37,9 @@ fn thread_subscribe_cannot_choose_a_profile_for_review_replay() {
 
 #[test]
 fn session_expiry_bridge_only_broadcasts_for_the_current_session_credential() {
-    let old_request =
-        crate::core_host::credentials::backend_credential::credential_fingerprint(
-            "expired-request-token",
-        );
+    let old_request = crate::core_host::credentials::backend_credential::credential_fingerprint(
+        "expired-request-token",
+    );
     assert!(!should_broadcast_session_expiry(
         Some(&old_request),
         Some("replacement-token"),

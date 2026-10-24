@@ -304,10 +304,9 @@ pub mod credentials {
     pub mod backend_credential {
         pub use openhuman_core::credentials::backend_credential::{
             ambient_config_has_api_key, backend_bearer_secret, credential_fingerprint,
-            credential_fingerprint_matches, direct_backend_credential,
-            has_backend_credential, publish_local_session_expiry, resolve_backend_credential,
-            BackendCredential, LOCAL_SESSION_BACKEND_UNAVAILABLE,
-            LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE,
+            credential_fingerprint_matches, direct_backend_credential, has_backend_credential,
+            publish_local_session_expiry, resolve_backend_credential, BackendCredential,
+            LOCAL_SESSION_BACKEND_UNAVAILABLE, LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE,
         };
     }
 }

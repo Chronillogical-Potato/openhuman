@@ -1,8 +1,12 @@
 use super::*;
 use crate::config::user_scope::reload_config_or;
-use crate::credentials::session_state::{build_session_state, load_app_session_profile, session_state_from_profile, CredentialKind};
-use crate::credentials::{api_key, identity, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
 use crate::core::observability::sentry_scope;
+use crate::credentials::session_state::{
+    build_session_state, load_app_session_profile, session_state_from_profile, CredentialKind,
+};
+use crate::credentials::{
+    api_key, identity, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+};
 use serde_json::{json, Value};
 
 /// Remove the stored credential of `kind` — or every credential when `None`.
@@ -174,4 +178,3 @@ pub async fn store_session(
 pub async fn clear_session(ctx: &DispatchCtx, config: &Config) -> Result<Outcome<Value>, String> {
     clear_credential(ctx, config, Some(CredentialKind::Session)).await
 }
-
