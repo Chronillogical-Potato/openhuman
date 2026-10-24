@@ -3,11 +3,10 @@
 mod boot_env;
 mod composio;
 mod credential;
-mod gated_services;
+pub(crate) mod gated_services;
 mod provider_credentials;
 mod secrets;
 mod session_query;
-mod user_scope;
 
 pub use boot_env::{
     seed_api_key_from_env, seed_session_from_env, BACKEND_API_KEY_ENV, BACKEND_SESSION_TOKEN_ENV,

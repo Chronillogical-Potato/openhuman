@@ -11,7 +11,7 @@ use crate::config::Config;
 /// so its `auth_store_session` must keep activation and credential state under
 /// that config's path and never touch the operator's global
 /// `~/.openhuman/active_user.toml` / `users/` tree.
-pub(super) fn is_embedder_host() -> bool {
+pub(crate) fn is_embedder_host() -> bool {
     crate::core::runtime::context::CoreContext::with_current_embedder_config(|_| ()).is_some()
 }
 

@@ -28,7 +28,7 @@ use crate::security::credentials::{
 use super::gated_services::{
     spawn_integrations_cache_warm, start_credential_gated_services, stop_credential_gated_services,
 };
-use super::user_scope::{
+use crate::config::user_scope::{
     activate_user_scope, deactivate_user_scope, rebind_after_credential_change, reload_config_or,
 };
 
