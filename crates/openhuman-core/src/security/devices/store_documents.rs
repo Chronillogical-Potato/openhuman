@@ -100,7 +100,13 @@ impl Docs {
         device_pubkey: &str,
         core_session_token_hash: &str,
     ) -> Result<PairedDevice> {
-        self.insert_device_with_key(channel_id, label, device_pubkey, core_session_token_hash, None)
+        self.insert_device_with_key(
+            channel_id,
+            label,
+            device_pubkey,
+            core_session_token_hash,
+            None,
+        )
     }
 
     pub(super) fn insert_device_with_key(

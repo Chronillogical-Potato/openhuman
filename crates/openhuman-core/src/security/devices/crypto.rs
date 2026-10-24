@@ -30,7 +30,11 @@ impl DeviceKeypair {
         let native = tinysecurity_crypto::device::KeyPair::from_secret(bytes.clone())
             .map_err(|error| format!("[devices/crypto] invalid private key: {error}"))?;
         let pubkey_b64 = native.public_key().encode();
-        Ok(Self { private: bytes, native, pubkey_b64 })
+        Ok(Self {
+            private: bytes,
+            native,
+            pubkey_b64,
+        })
     }
 
     /// Serialize the identity for encryption by the host SecretStore.
@@ -42,7 +46,8 @@ impl DeviceKeypair {
     pub fn open_handshake(
         &self,
         frame: &[u8],
-    ) -> tinysecurity_crypto::Result<(tinysecurity_crypto::device::PublicKey, Zeroizing<Vec<u8>>)> {
+    ) -> tinysecurity_crypto::Result<(tinysecurity_crypto::device::PublicKey, Zeroizing<Vec<u8>>)>
+    {
         self.native.open_handshake(frame)
     }
 
@@ -97,13 +102,19 @@ impl TunnelCipher {
         let pair = tinysecurity_crypto::device::KeyPair::from_secret(Zeroizing::new(*key))
             .expect("test key valid");
         let public = pair.public_key();
-        let ephemeral = tinysecurity_crypto::device::KeyPair::from_secret(
-            Zeroizing::new([key[0].wrapping_add(1).max(1); 32]),
-        )
+        let ephemeral = tinysecurity_crypto::device::KeyPair::from_secret(Zeroizing::new(
+            [key[0].wrapping_add(1).max(1); 32],
+        ))
         .expect("test ephemeral key valid");
         let ephemeral_public = ephemeral.public_key();
         let keys = pair
-            .session_keys(public, &ephemeral, ephemeral_public, ephemeral_public, ephemeral_public)
+            .session_keys(
+                public,
+                &ephemeral,
+                ephemeral_public,
+                ephemeral_public,
+                ephemeral_public,
+            )
             .expect("test session keys valid");
         Self::from_native(tinysecurity_crypto::device::Tunnel::new(
             tinysecurity_crypto::device::Role::Server,

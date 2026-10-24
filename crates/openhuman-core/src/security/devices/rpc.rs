@@ -87,13 +87,12 @@ pub async fn devices_create_pairing(
     // Encrypt the private key bytes and persist in the encrypted secrets store.
     let secret_store = build_secret_store(_config);
     let private_b64 = zeroize::Zeroizing::new(base64url_encode(&keypair.private_bytes()));
-    let encrypted_private_key = secret_store.encrypt(&private_b64).map_err(|error| {
-        format!("[devices/rpc] could not encrypt pairing identity: {error}")
-    })?;
+    let encrypted_private_key = secret_store
+        .encrypt(&private_b64)
+        .map_err(|error| format!("[devices/rpc] could not encrypt pairing identity: {error}"))?;
 
     // Stash keypair in memory so bus.rs can complete the X25519 handshake.
-    super::lock_unpoisoned(&PENDING_KEYPAIRS)
-        .insert(reg.channel_id.clone(), Arc::new(keypair));
+    super::lock_unpoisoned(&PENDING_KEYPAIRS).insert(reg.channel_id.clone(), Arc::new(keypair));
 
     // Best-effort LAN URL detection (non-fatal if it fails).
     let rpc_url = detect_lan_rpc_url();
@@ -218,10 +217,7 @@ pub async fn devices_revoke(
     ))
 }
 
-async fn connect_after_reserving_pairing<F>(
-    channel_id: &str,
-    connect: F,
-) -> Result<(), String>
+async fn connect_after_reserving_pairing<F>(channel_id: &str, connect: F) -> Result<(), String>
 where
     F: Future<Output = Result<(), String>>,
 {

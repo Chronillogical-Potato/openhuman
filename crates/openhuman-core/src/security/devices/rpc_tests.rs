@@ -29,10 +29,9 @@ async fn failed_tunnel_connect_discards_pending_pairing_state() {
         },
     );
 
-    let result = connect_after_reserving_pairing(channel_id, async {
-        Err("connect failed".to_string())
-    })
-    .await;
+    let result =
+        connect_after_reserving_pairing(channel_id, async { Err("connect failed".to_string()) })
+            .await;
 
     assert_eq!(result, Err("connect failed".to_string()));
     assert!(!PENDING_KEYPAIRS.lock().unwrap().contains_key(channel_id));

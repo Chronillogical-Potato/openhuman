@@ -160,15 +160,13 @@ struct TunnelRpcPayload {
 
 async fn handle_peer_online(channel_id: &str) {
     log::info!("[devices/bus] peer online channel_id={}", channel_id);
-    super::lock_unpoisoned(&PEER_STATUS)
-        .insert(channel_id.to_string(), true);
+    super::lock_unpoisoned(&PEER_STATUS).insert(channel_id.to_string(), true);
     // No re-publish: the event was already published by socket::event_handlers.
 }
 
 fn handle_peer_offline(channel_id: &str) {
     log::info!("[devices/bus] peer offline channel_id={}", channel_id);
-    super::lock_unpoisoned(&PEER_STATUS)
-        .insert(channel_id.to_string(), false);
+    super::lock_unpoisoned(&PEER_STATUS).insert(channel_id.to_string(), false);
     // No re-publish: the event was already published by socket::event_handlers.
 }
 
@@ -223,26 +221,23 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
     // Claim the session and its keypair before any crypto, cipher installation
     // or ACK. The claim is single-use, and an expired or malformed expiry fails
     // closed. This also binds every handshake to the channel that created it.
-    let (keypair, session, existing_device) =
-        if let Some((keypair, session)) =
-            take_pending_pairing_for_handshake(channel_id, chrono::Utc::now())
-        {
-            (keypair, Some(session), None)
-        } else {
-            match recover_existing_pairing(ctx, channel_id).await {
-                Ok(Some((keypair, device))) => (Arc::new(keypair), None, Some(device)),
-                Ok(None) => {
-                    log::warn!(
-                        "[devices/bus] no live pairing identity for channel_id={channel_id}"
-                    );
-                    return;
-                }
-                Err(error) => {
-                    log::warn!("[devices/bus] cannot recover pairing {channel_id}: {error}");
-                    return;
-                }
+    let (keypair, session, existing_device) = if let Some((keypair, session)) =
+        take_pending_pairing_for_handshake(channel_id, chrono::Utc::now())
+    {
+        (keypair, Some(session), None)
+    } else {
+        match recover_existing_pairing(ctx, channel_id).await {
+            Ok(Some((keypair, device))) => (Arc::new(keypair), None, Some(device)),
+            Ok(None) => {
+                log::warn!("[devices/bus] no live pairing identity for channel_id={channel_id}");
+                return;
             }
-        };
+            Err(error) => {
+                log::warn!("[devices/bus] cannot recover pairing {channel_id}: {error}");
+                return;
+            }
+        }
+    };
 
     let (_, plaintext) = match keypair.open_handshake(&frame_bytes) {
         Ok(opened) => opened,
@@ -254,19 +249,19 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
     let handshake_payload = match serde_json::from_slice::<JsonHandshakePayload>(&plaintext) {
         Ok(payload) => payload,
         Err(error) => {
-            log::warn!("[devices/bus] malformed handshake payload channel_id={channel_id}: {error}");
+            log::warn!(
+                "[devices/bus] malformed handshake payload channel_id={channel_id}: {error}"
+            );
             return;
         }
     };
     let device_pubkey_b64 = handshake_payload.device_pubkey;
 
-    if let Some(device) = &existing_device
-        && !matches_paired_device_key(device, &device_pubkey_b64)
-    {
-        log::warn!(
-            "[devices/bus] restart handshake key mismatch for channel_id={channel_id}"
-        );
-        return;
+    if let Some(device) = &existing_device {
+        if !matches_paired_device_key(device, &device_pubkey_b64) {
+            log::warn!("[devices/bus] restart handshake key mismatch for channel_id={channel_id}");
+            return;
+        }
     }
 
     log::info!(
@@ -282,13 +277,8 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
         );
         return;
     };
-    if let Err(error) = install_v2_cipher_and_ack(
-        channel_id,
-        &keypair,
-        &device_pubkey_b64,
-        client_eph_pubkey,
-    )
-    .await
+    if let Err(error) =
+        install_v2_cipher_and_ack(channel_id, &keypair, &device_pubkey_b64, client_eph_pubkey).await
     {
         log::error!("[devices/bus] v2 handshake ack failed channel_id={channel_id}: {error}");
         return;
@@ -328,7 +318,9 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
                 }
             },
             Err(error) => {
-                log::warn!("[devices/bus] could not load config to persist device {channel_id}: {error}");
+                log::warn!(
+                    "[devices/bus] could not load config to persist device {channel_id}: {error}"
+                );
                 abandon_unpersisted_pairing(channel_id);
             }
         }
@@ -387,9 +379,9 @@ fn restore_paired_keypair(
         .as_slice()
         .try_into()
         .map_err(|_| "[devices/bus] persisted pairing key must be 32 bytes".to_string())?;
-    crate::security::devices::crypto::DeviceKeypair::from_private_bytes(
-        zeroize::Zeroizing::new(bytes),
-    )
+    crate::security::devices::crypto::DeviceKeypair::from_private_bytes(zeroize::Zeroizing::new(
+        bytes,
+    ))
 }
 
 async fn recover_existing_pairing(
@@ -441,7 +433,12 @@ async fn install_v2_cipher_and_ack(
         .map_err(|error| format!("[devices/bus] generate server ephemeral key: {error}"))?;
     let server_public = server_ephemeral.public_key();
     let keys = core_keypair
-        .session_keys(device_public, &server_ephemeral, client_ephemeral, server_public)
+        .session_keys(
+            device_public,
+            &server_ephemeral,
+            client_ephemeral,
+            server_public,
+        )
         .map_err(|error| format!("[devices/bus] derive tunnel keys: {error}"))?;
     let tunnel = Tunnel::new(Role::Server, keys);
     let ack = serde_json::to_vec(&json!({

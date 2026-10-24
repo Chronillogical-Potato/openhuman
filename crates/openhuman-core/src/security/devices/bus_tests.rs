@@ -1,8 +1,8 @@
-use super::*;
-use crate::security::devices::lock_unpoisoned;
-use crate::security::devices::crypto::DeviceKeypair;
-use std::sync::{Mutex, PoisonError};
 use super::super::types::PairingSession;
+use super::*;
+use crate::security::devices::crypto::DeviceKeypair;
+use crate::security::devices::lock_unpoisoned;
+use std::sync::{Mutex, PoisonError};
 
 fn pending_session(channel_id: &str, expires_at: &str) -> PairingSession {
     PairingSession {
@@ -31,13 +31,14 @@ fn poisoned_device_state_lock_is_recovered_for_the_next_frame() {
 #[test]
 fn expired_pending_session_is_discarded_before_handshake() {
     let channel_id = "expired-session-test";
-    lock_unpoisoned(&PENDING_KEYPAIRS)
-        .insert(channel_id.to_string(), std::sync::Arc::new(DeviceKeypair::generate()));
-    lock_unpoisoned(&PENDING_SESSIONS)
-        .insert(
-            channel_id.to_string(),
-            pending_session(channel_id, "2020-01-01T00:00:00Z"),
-        );
+    lock_unpoisoned(&PENDING_KEYPAIRS).insert(
+        channel_id.to_string(),
+        std::sync::Arc::new(DeviceKeypair::generate()),
+    );
+    lock_unpoisoned(&PENDING_SESSIONS).insert(
+        channel_id.to_string(),
+        pending_session(channel_id, "2020-01-01T00:00:00Z"),
+    );
 
     assert!(take_pending_pairing_for_handshake(
         channel_id,
@@ -53,8 +54,10 @@ fn expired_pending_session_is_discarded_before_handshake() {
 #[test]
 fn handshake_claim_consumes_its_pending_session_and_keypair_once() {
     let channel_id = "single-use-session-test";
-    lock_unpoisoned(&PENDING_KEYPAIRS)
-        .insert(channel_id.to_string(), std::sync::Arc::new(DeviceKeypair::generate()));
+    lock_unpoisoned(&PENDING_KEYPAIRS).insert(
+        channel_id.to_string(),
+        std::sync::Arc::new(DeviceKeypair::generate()),
+    );
     lock_unpoisoned(&PENDING_SESSIONS).insert(
         channel_id.to_string(),
         pending_session(channel_id, "2030-01-01T00:00:00Z"),
@@ -69,8 +72,10 @@ fn handshake_claim_consumes_its_pending_session_and_keypair_once() {
 #[test]
 fn missing_pending_session_stops_handshake_before_cipher_installation() {
     let channel_id = "missing-session-test";
-    lock_unpoisoned(&PENDING_KEYPAIRS)
-        .insert(channel_id.to_string(), std::sync::Arc::new(DeviceKeypair::generate()));
+    lock_unpoisoned(&PENDING_KEYPAIRS).insert(
+        channel_id.to_string(),
+        std::sync::Arc::new(DeviceKeypair::generate()),
+    );
 
     assert!(take_pending_pairing_for_handshake(channel_id, chrono::Utc::now()).is_none());
     assert!(!lock_unpoisoned(&ACTIVE_CIPHERS).contains_key(channel_id));
@@ -82,10 +87,8 @@ fn a_restarted_host_opens_a_fresh_handshake_from_a_paired_row() {
     let original = DeviceKeypair::generate();
     let private = original.private_bytes();
     let secret = crate::security::devices::crypto::base64url_encode(&private);
-    let secret_store = crate::security::secret_storage::SecretStore::new(
-        std::path::Path::new("."),
-        false,
-    );
+    let secret_store =
+        crate::security::secret_storage::SecretStore::new(std::path::Path::new("."), false);
     let phone = KeyPair::generate().unwrap();
     let device = super::super::types::PairedDevice {
         channel_id: "restart-channel".to_string(),
@@ -109,10 +112,7 @@ fn a_restarted_host_opens_a_fresh_handshake_from_a_paired_row() {
     }))
     .unwrap();
     let handshake = phone
-        .seal_handshake(
-            PublicKey::decode(&restored.pubkey_b64).unwrap(),
-            &payload,
-        )
+        .seal_handshake(PublicKey::decode(&restored.pubkey_b64).unwrap(), &payload)
         .unwrap();
     let (_, plaintext) = restored.open_handshake(&handshake).unwrap();
     let decoded: JsonHandshakePayload = serde_json::from_slice(&plaintext).unwrap();
@@ -123,17 +123,19 @@ fn a_restarted_host_opens_a_fresh_handshake_from_a_paired_row() {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .get(&device.channel_id)
         .is_none());
-    assert_eq!(device.device_pubkey, phone.public_key().encode(), "restart handshake does not rewrite row");
+    assert_eq!(
+        device.device_pubkey,
+        phone.public_key().encode(),
+        "restart handshake does not rewrite row"
+    );
 }
 
 #[test]
 fn restarted_pairing_rejects_mismatched_or_revoked_device_rows() {
     let original = DeviceKeypair::generate();
     let secret = crate::security::devices::crypto::base64url_encode(&original.private_bytes());
-    let secret_store = crate::security::secret_storage::SecretStore::new(
-        std::path::Path::new("."),
-        false,
-    );
+    let secret_store =
+        crate::security::secret_storage::SecretStore::new(std::path::Path::new("."), false);
     let mut device = super::super::types::PairedDevice {
         channel_id: "restart-channel-revoked".to_string(),
         label: "phone".to_string(),
