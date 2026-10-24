@@ -199,6 +199,62 @@ async fn api_key_client_sends_x_api_key_and_maps_401() {
     assert!(is_api_key_rejected_message(&err), "{err}");
 }
 
+#[tokio::test]
+async fn session_401_publishes_the_fingerprint_of_the_hosted_request_credential() {
+    use openhuman_embed::__host::core::events::DomainEvent;
+
+    openhuman_embed::__host::core::bus::init()
+        .await
+        .expect("initialize event bus");
+    let mut events = openhuman_embed::__host::core::bus::BUS
+        .get()
+        .expect("event bus initialized")
+        .receiver();
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/teams/me/usage"))
+        .and(header("authorization", "Bearer request-session-token"))
+        .respond_with(ResponseTemplate::new(401).set_body_json(json!({
+            "error": "Invalid token"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = HostedClient::with_credential(
+        &server.uri(),
+        BackendCredential::Session("request-session-token".into()),
+    )
+    .expect("loopback endpoint");
+    let err = client
+        .finish_value(
+            "GET /teams/me/usage",
+            client.sdk().teams().get_my_usage().await,
+        )
+        .expect_err("backend rejects the session credential");
+    assert!(is_session_expired_message(&err), "{err}");
+
+    let expected_fingerprint =
+        openhuman_embed::__host::security::credentials::session_support::credential_fingerprint(
+            "request-session-token",
+        );
+    let event = tokio::time::timeout(std::time::Duration::from_secs(1), async {
+        loop {
+            match events.recv().await {
+                Some(DomainEvent::SessionExpired {
+                    credential_fingerprint: Some(fingerprint),
+                    ..
+                }) => break fingerprint,
+                Some(_) => continue,
+                None => panic!("hosted session 401 must publish expiry"),
+            }
+        }
+    })
+    .await
+    .expect("hosted session 401 publishes an expiry event");
+    assert_eq!(event, expected_fingerprint);
+}
+
 #[test]
 fn with_credential_refuses_endpoints_the_credential_may_not_reach() {
     let api_key = || BackendCredential::ApiKey("th_key".into());
