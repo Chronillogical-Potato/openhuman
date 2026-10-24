@@ -36,7 +36,7 @@ fn policy_request_carries_network_workspace_and_read_only_mounts() {
 #[test]
 fn policy_request_without_overrides_leaves_the_isolated_default() {
     let request = policy_request(&test_policy());
-    assert_eq!(request.network, None);
+    assert_eq!(request.network.as_deref(), Some("none"));
     assert_eq!(request.workspace.as_deref(), Some("/tmp/test-workspace"));
     assert!(request.read_only_mounts.is_empty());
 }

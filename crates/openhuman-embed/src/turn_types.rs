@@ -136,13 +136,15 @@ pub(crate) fn is_safe_endpoint_for_bearer(endpoint: &str) -> bool {
     if url.scheme() != "http" {
         return false;
     }
-    let Some(host) = url.host_str() else {
+    if url.host().is_none() {
         return false;
-    };
-    matches!(
-        host,
-        "127.0.0.1" | "localhost" | "::1" | "[::1]" | "[0:0:0:0:0:0:0:1]" | "0:0:0:0:0:0:0:1"
-    ) || host.starts_with("127.")
+    }
+    match url.host() {
+        Some(url::Host::Domain("localhost")) => true,
+        Some(url::Host::Ipv4(address)) => address.is_loopback(),
+        Some(url::Host::Ipv6(address)) => address.is_loopback(),
+        _ => false,
+    }
 }
 
 impl Route {

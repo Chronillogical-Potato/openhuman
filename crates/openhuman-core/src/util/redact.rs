@@ -59,6 +59,8 @@ pub fn redact_url_for_log(raw: &str) -> String {
     if parsed.password().is_some() {
         let _ = parsed.set_password(Some("redacted"));
     }
+    parsed.set_query(None);
+    parsed.set_fragment(None);
     parsed.to_string().trim_end_matches('/').to_string()
 }
 
