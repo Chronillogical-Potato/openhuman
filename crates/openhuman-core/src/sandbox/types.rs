@@ -123,27 +123,6 @@ pub enum SandboxStatus {
     Error,
 }
 
-/// Operations that explicitly require host-level access and cannot run
-/// inside a sandbox. The elevated path is audited and requires the
-/// caller to declare the reason.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ElevatedOp {
-    /// The tool or operation name requesting elevation.
-    pub tool_name: String,
-    /// Human-readable reason this operation needs host access.
-    pub reason: String,
-    /// The command or action to execute on the host.
-    pub command: String,
-}
-
-/// Well-known tool names that always require host access.
-pub const ELEVATED_TOOLS: &[&str] = &[
-    "git_operations",
-    "install_tool",
-    "docker_management",
-    "process_management",
-];
-
 #[cfg(test)]
 #[path = "types_tests.rs"]
 mod tests;

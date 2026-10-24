@@ -52,7 +52,6 @@ fn from_config_maps_all_fields() {
         allowed_commands: vec!["docker".into()],
         forbidden_paths: vec!["/secret".into()],
         max_actions_per_hour: 100,
-        max_cost_per_day_cents: 1000,
         require_approval_for_medium_risk: false,
         block_high_risk_commands: false,
         auto_approve: vec!["shell".into(), "file_write".into()],
@@ -66,7 +65,6 @@ fn from_config_maps_all_fields() {
     assert_eq!(policy.allowed_commands, vec!["docker"]);
     assert_eq!(policy.forbidden_paths, vec!["/secret"]);
     assert_eq!(policy.max_actions_per_hour, 100);
-    assert_eq!(policy.max_cost_per_day_cents, 1000);
     assert!(!policy.require_approval_for_medium_risk);
     assert!(!policy.block_high_risk_commands);
     assert_eq!(policy.workspace_dir, PathBuf::from("/tmp/test-workspace"));
@@ -104,7 +102,6 @@ fn default_policy_has_sane_values() {
     assert!(!p.allowed_commands.is_empty());
     assert!(!p.forbidden_paths.is_empty());
     assert!(p.max_actions_per_hour > 0);
-    assert!(p.max_cost_per_day_cents > 0);
     assert!(p.require_approval_for_medium_risk);
     assert!(p.block_high_risk_commands);
 }

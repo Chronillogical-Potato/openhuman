@@ -179,8 +179,8 @@ execution refuses to run without the required provider.
 | Path | What it does |
 | --- | --- |
 | [`mod.rs`](./mod.rs) | Sandbox module declarations and public host API. |
-| [`types.rs`](./types.rs) | `SandboxBackendKind`, `SandboxPolicy`, `DockerOverrides`, exec request and result, handle and status, `ElevatedOp`, `ELEVATED_TOOLS`. |
-| [`ops.rs`](./ops.rs) | Policy resolution, backend creation, routed execution (None and Local paths), scratch ownership, the env allowlist, the host off switch, elevated ops. |
+| [`types.rs`](./types.rs) | `SandboxBackendKind`, `SandboxPolicy`, `DockerOverrides`, exec request and result, handle and status. |
+| [`ops.rs`](./ops.rs) | Policy resolution, backend creation, routed execution (None and Local paths), scratch ownership, the env allowlist, and the host off switch. |
 | [`native_jail.rs`](./native_jail.rs) | TinyBox native-jail and cron passthrough request mapping, process/output lifecycle, and fail-closed status checks. |
 | [`local_grants.rs`](./local_grants.rs) | Host adapter for `ResolveLocalGrants`: sends the credential floor as input and re-applies it to the module's reply. |
 | [`docker.rs`](./docker.rs) | Policy-to-`RunDocker` mapping, module status/cleanup calls, Docker policy validation. |
@@ -200,11 +200,6 @@ execution refuses to run without the required provider.
   stderr, timed_out }`.
 - `create_sandbox_backend(policy)` (`ops.rs`): probe and status.
 - `SANDBOX_ENV_PASSTHROUGH` and `SANDBOX_OFF_ENV` (`ops.rs`).
-- `ELEVATED_TOOLS`, `is_elevated_op`, `build_elevated_op` (`types.rs`,
-  `ops.rs`): `git_operations`, `install_tool`, `docker_management` and
-  `process_management` always need host access, and `build_elevated_op`
-  records the reason in an audited `ElevatedOp`. No code outside this folder
-  calls them yet.
 
 ## RPC surface
 

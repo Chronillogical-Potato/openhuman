@@ -3,8 +3,7 @@
 // Secrets are encrypted using ChaCha20-Poly1305 AEAD with a random key stored
 // in the OS keychain for normal app environments. Legacy installs may still
 // have `{data_dir}/openhuman/.secret_key`; those keys are migrated into the
-// keychain on first use. Unit tests retain the file path for deterministic
-// isolation. The config file stores only hex-encoded ciphertext, never
+// keychain on first use. The config file stores only hex-encoded ciphertext, never
 // plaintext keys.
 //
 // Each encryption generates a fresh random 12-byte nonce, prepended to the
@@ -34,13 +33,10 @@ use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use zeroize::Zeroizing;
 
-use super::crypto;
+use tinystoragedrivers::secrets::crypto;
 
 /// Length of the random encryption key in bytes (256-bit, matches `ChaCha20`).
-const KEY_LEN: usize = 32;
-
-/// ChaCha20-Poly1305 nonce length in bytes.
-const NONCE_LEN: usize = 12;
+const KEY_LEN: usize = crypto::KEY_LEN;
 
 /// Keychain slot used for the SecretStore master key.
 const KEYCHAIN_MASTER_KEY: &str = "secretstore.master_key";
@@ -49,7 +45,7 @@ const KEYCHAIN_MASTER_KEY: &str = "secretstore.master_key";
 #[derive(Debug, Clone)]
 pub struct SecretStore {
     /// Legacy path to the on-disk key file (`{data_dir}/openhuman/.secret_key`).
-    /// Still used for unit tests and one-time migration into the keychain.
+    /// Used for one-time migration into the keychain.
     key_path: PathBuf,
     /// Whether encryption is enabled
     enabled: bool,
@@ -98,22 +94,18 @@ impl SecretStore {
     /// This does not consult or initialize the process keyring and does not
     /// migrate legacy `enc:` values.
     pub(crate) fn decrypt_with_existing_key(value: &str, key: &str) -> Result<String> {
-        let Some(hex_str) = value.strip_prefix("enc2:") else {
+        let Some(_hex_str) = value.strip_prefix("enc2:") else {
             if value.starts_with("enc:") {
                 anyhow::bail!("legacy encrypted value is unavailable to read-only inspection");
             }
             return Ok(value.to_string());
         };
 
-        let key_bytes = decode_key_hex(key.trim())?;
-        let key: [u8; KEY_LEN] = key_bytes
-            .as_slice()
-            .try_into()
+        let key = crypto::key_from_hex(key.trim())
             .map_err(|_| anyhow::anyhow!("invalid secret key length"))?;
-        let key = Zeroizing::new(key);
-        let blob = crypto::hex_decode(hex_str).map_err(anyhow::Error::msg)?;
-        let plaintext = crypto::chacha20_decrypt(&key, &blob).map_err(anyhow::Error::msg)?;
-        String::from_utf8(plaintext).context("decrypted secret is not valid UTF-8")
+        let plaintext = crypto::decrypt_enc2(&key, value)
+            .map_err(|_| anyhow::anyhow!("decryption failed — wrong key or tampered data"))?;
+        String::from_utf8(plaintext.to_vec()).context("decrypted secret is not valid UTF-8")
     }
 
     /// Decrypt a secret and return a migrated `enc2:` value if the input used legacy `enc:` format.
@@ -150,14 +142,9 @@ impl SecretStore {
 
     /// Decrypt using ChaCha20-Poly1305 (current secure format).
     fn decrypt_chacha20(&self, hex_str: &str) -> Result<String> {
-        let blob =
-            hex_decode(hex_str).context("Failed to decode encrypted secret (corrupt hex)")?;
-        anyhow::ensure!(
-            blob.len() > NONCE_LEN,
-            "Encrypted value too short (missing nonce)"
-        );
         let key = self.cipher_key()?;
-        let plaintext_bytes = tinystoragedrivers::secrets::crypto::decrypt(&key, &blob)
+        let ciphertext = format!("enc2:{hex_str}");
+        let plaintext_bytes = crypto::decrypt_enc2(&key, &ciphertext)
             .map_err(|_| anyhow::anyhow!("Decryption failed — wrong key or tampered data"))?;
 
         String::from_utf8(plaintext_bytes.to_vec())
@@ -204,10 +191,6 @@ impl SecretStore {
     /// Check if a value is already encrypted (current or legacy format).
     pub fn is_encrypted(value: &str) -> bool {
         value.starts_with("enc2:") || value.starts_with("enc:")
-    }
-
-    fn use_legacy_file_key(&self) -> bool {
-        cfg!(test)
     }
 
     fn keyring_user_id(&self) -> String {
@@ -266,213 +249,19 @@ impl SecretStore {
         decode_key_hex(hex_key.trim())
     }
 
-    /// Load the encryption key from keychain-backed storage, falling back to
-    /// the legacy file path only in unit tests.
+    /// Load the encryption key from keychain-backed storage.
     ///
     /// The decoded key is cached process-wide keyed by `key_path`, so repeated
-    /// callers (e.g. every `app_state_snapshot` poll) hit memory instead of
-    /// disk/keychain lookup.
-    ///
-    /// The key bytes are wrapped in [`Zeroizing`] so every copy — the returned
-    /// value, the cache entry, and any intermediate buffers — is wiped from
-    /// memory on drop rather than lingering in the heap/swap/core-dumps.
+    /// callers hit memory instead of the keychain lookup.
     fn load_or_create_key(&self) -> Result<Zeroizing<Vec<u8>>> {
-        // Normalize the path once so all callers share the same cache slot
-        // regardless of how `key_path` was spelled (relative vs absolute,
-        // symlinks, case-variants on Windows).
         let cache_key_path = normalize_cache_path(&self.key_path);
-
         if let Some(cached) = cached_key(&cache_key_path) {
             return Ok(cached);
         }
 
-        if !self.use_legacy_file_key() {
-            let key = self.load_or_create_key_from_keyring()?;
-            cache_key(&cache_key_path, &key);
-            return Ok(key);
-        }
-
-        if self.key_path.exists() {
-            let read_result = read_key_file_with_retry(&self.key_path);
-
-            // On Windows a previous bad icacls invocation may have stripped the
-            // inherited ACEs from %APPDATA% without granting the current user
-            // explicit access, leaving the file permanently unreadable. Attempt
-            // a one-shot ACL repair via `icacls /reset` before giving up.
-            #[cfg(windows)]
-            let read_result = if let Err(ref e) = read_result {
-                if is_permission_error(e) {
-                    log::warn!(
-                        "[security] PermissionDenied reading key file '{}'; \
-                         attempting icacls /reset self-repair",
-                        self.key_path.display()
-                    );
-                    repair_windows_acl(&self.key_path);
-                    // Single retry regardless of whether repair reported success —
-                    // icacls /reset may partially restore access even on a non-zero exit.
-                    read_key_file_with_retry(&self.key_path)
-                } else {
-                    read_result
-                }
-            } else {
-                read_result
-            };
-
-            let hex_key = read_result.with_context(|| {
-                // The #[cfg(windows)] arm below shadows this binding rather than
-                // mutating it, so it does not need to be mutable on either platform.
-                let msg = format!(
-                    "Failed to read secret key file at {}",
-                    self.key_path.display()
-                );
-                #[cfg(windows)]
-                let msg = format!(
-                    "{msg}\n\nThis is often caused by incorrect file permissions on Windows. \
-                     Try repairing ACLs on the .openhuman directory:\n\
-                     icacls \"%USERPROFILE%\\.openhuman\" /reset /t /c\n\
-                     icacls \"%USERPROFILE%\\.openhuman\\.secret_key\" /reset /c"
-                );
-                msg
-            })?;
-            let key = decode_key_hex(hex_key.trim())?;
-            cache_key(&cache_key_path, &key);
-            Ok(key)
-        } else {
-            let key = generate_random_key();
-            let hex_key = hex_encode(&key);
-            if let Some(parent) = self.key_path.parent() {
-                fs::create_dir_all(parent)?;
-            }
-
-            // Write key file with restrictive permissions atomically on Unix
-            // to avoid a TOCTOU race where the file is briefly world-readable,
-            // and to avoid clobbering a key another process created first.
-            // See: crates/openhuman-core/src/core/auth.rs:write_token_file for the reference pattern.
-            #[cfg(unix)]
-            {
-                use std::io::Write as _;
-                use std::os::unix::fs::OpenOptionsExt as _;
-                let open_result = fs::OpenOptions::new()
-                    .write(true)
-                    .create_new(true)
-                    .mode(0o600)
-                    .open(&self.key_path);
-
-                match open_result {
-                    Ok(mut file) => {
-                        file.write_all(hex_key.as_bytes())
-                            .context("Failed to write secret key file")?;
-                    }
-                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-                        let existing_key = read_key_file_with_retry(&self.key_path)
-                            .with_context(|| {
-                                format!(
-                                    "Secret key file was created concurrently but could not be read at {}",
-                                    self.key_path.display()
-                                )
-                            })
-                            .and_then(|existing_hex| decode_key_hex(existing_hex.trim()))?;
-                        cache_key(&cache_key_path, &existing_key);
-                        return Ok(existing_key);
-                    }
-                    Err(error) => {
-                        return Err(error).context("Failed to create secret key file");
-                    }
-                }
-            }
-            #[cfg(not(unix))]
-            {
-                use std::io::Write as _;
-
-                let open_result = fs::OpenOptions::new()
-                    .write(true)
-                    .create_new(true)
-                    .open(&self.key_path);
-
-                match open_result {
-                    Ok(mut file) => {
-                        file.write_all(hex_key.as_bytes())
-                            .context("Failed to write secret key file")?;
-                    }
-                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-                        let existing_key = read_key_file_with_retry(&self.key_path)
-                            .with_context(|| {
-                                format!(
-                                    "Secret key file was created concurrently but could not be read at {}",
-                                    self.key_path.display()
-                                )
-                            })
-                            .and_then(|existing_hex| decode_key_hex(existing_hex.trim()))?;
-                        cache_key(&cache_key_path, &existing_key);
-                        return Ok(existing_key);
-                    }
-                    Err(error) => {
-                        return Err(error).context("Failed to create secret key file");
-                    }
-                }
-            }
-            #[cfg(windows)]
-            {
-                // On Windows, use icacls to restrict permissions to current user only.
-                // We use USERDOMAIN\USERNAME so the account is resolved correctly on
-                // domain-joined and AAD-joined machines (bare USERNAME is ambiguous and
-                // may refer to a local account that doesn't match the signed-in user).
-                let username = std::env::var("USERNAME").unwrap_or_default();
-                let userdomain = std::env::var("USERDOMAIN").unwrap_or_default();
-                let computername = std::env::var("COMPUTERNAME").unwrap_or_default();
-                let qualified_username =
-                    qualify_windows_username(&username, &userdomain, &computername);
-                let Some(grant_arg) = build_windows_icacls_grant_arg(&qualified_username) else {
-                    log::warn!(
-                        "[security] USERNAME/USERDOMAIN environment variables are empty; \
-                         cannot restrict key file permissions via icacls"
-                    );
-                    cache_key(&cache_key_path, &key);
-                    return Ok(key);
-                };
-
-                let icacls_ok = match std::process::Command::new("icacls")
-                    .arg(&self.key_path)
-                    .args(["/inheritance:r", "/grant:r"])
-                    .arg(&grant_arg)
-                    .output()
-                {
-                    Ok(o) if o.status.success() => {
-                        log::debug!("[security] key file permissions restricted via icacls");
-                        true
-                    }
-                    Ok(o) => {
-                        log::warn!(
-                            "[security] icacls exited {:?} for account '{}'; \
-                             restoring inherited ACLs so the file remains readable",
-                            o.status.code(),
-                            grant_arg,
-                        );
-                        false
-                    }
-                    Err(e) => {
-                        log::warn!(
-                            "[security] could not run icacls: {e}; \
-                                    restoring inherited ACLs"
-                        );
-                        false
-                    }
-                };
-                // If the icacls grant command failed, the `/inheritance:r` flag may have
-                // already stripped the inherited ACEs that let the current user read the
-                // file. Explicitly reset to restore inheritance so the file is always
-                // readable — a slightly weaker ACL is preferable to a locked-out user.
-                if !icacls_ok {
-                    let _ = std::process::Command::new("icacls")
-                        .arg(&self.key_path)
-                        .args(["/reset"])
-                        .output();
-                }
-            }
-
-            cache_key(&cache_key_path, &key);
-            Ok(key)
-        }
+        let key = self.load_or_create_key_from_keyring()?;
+        cache_key(&cache_key_path, &key);
+        Ok(key)
     }
 }
 
@@ -527,16 +316,6 @@ fn cache_key(path: &Path, key: &[u8]) {
     }
 }
 
-/// Clear the cached key for `path`. Test-only — production code should never
-/// need to invalidate the cache, since the key file is write-once.
-#[cfg(test)]
-pub(super) fn clear_cached_key(path: &Path) {
-    let normalized = normalize_cache_path(path);
-    if let Ok(mut cache) = key_cache().lock() {
-        cache.remove(&normalized);
-    }
-}
-
 /// Read the key file, retrying transient errors a handful of times.
 ///
 /// Windows AV scanners (Defender, etc.) routinely hold short-lived read
@@ -569,97 +348,6 @@ fn read_key_file_with_retry(path: &Path) -> std::io::Result<String> {
     Err(last_err.unwrap_or_else(|| std::io::Error::other("read_to_string failed")))
 }
 
-/// Returns `true` when an `std::io::Error` is a permanent permission/access
-/// denial rather than a transient sharing violation.
-#[cfg(windows)]
-fn is_permission_error(e: &std::io::Error) -> bool {
-    matches!(e.kind(), std::io::ErrorKind::PermissionDenied) || e.raw_os_error() == Some(5)
-    // ERROR_ACCESS_DENIED
-}
-
-/// Attempt to repair a locked key file by running `icacls /reset` on it.
-///
-/// Attempt to repair a locked key file.
-///
-/// Two-step process:
-///   1. `icacls /reset` — removes all explicit ACEs and re-enables ACL
-///      inheritance from the parent directory.
-///   2. `icacls /grant:r <DOMAIN\USER>:F` — explicit grant for the current
-///      user as a belt-and-suspenders fallback for environments (e.g. CI
-///      temp dirs) where the parent's inheritance chain may not include the
-///      runner account.
-///
-/// Returns `true` if the file is actually readable after the repair attempt,
-/// regardless of which step(s) succeeded.
-#[cfg(windows)]
-pub(super) fn repair_windows_acl(path: &Path) -> bool {
-    // Step 1: restore inheritance.
-    match std::process::Command::new("icacls")
-        .arg(path)
-        .args(["/reset"])
-        .output()
-    {
-        Ok(o) if o.status.success() => {
-            log::info!(
-                "[security] icacls /reset succeeded for '{}'; ACL inheritance restored",
-                path.display()
-            );
-        }
-        Ok(o) => {
-            log::warn!(
-                "[security] icacls /reset exited {:?} for '{}'",
-                o.status.code(),
-                path.display()
-            );
-        }
-        Err(e) => {
-            log::warn!(
-                "[security] could not run icacls /reset for '{}': {e}",
-                path.display()
-            );
-        }
-    }
-
-    // Step 2: explicit grant for current user — handles CI environments
-    // where the temp/app dir's inheritable ACEs don't include the runner.
-    let username = std::env::var("USERNAME").unwrap_or_default();
-    let userdomain = std::env::var("USERDOMAIN").unwrap_or_default();
-    let computername = std::env::var("COMPUTERNAME").unwrap_or_default();
-    let qualified = qualify_windows_username(&username, &userdomain, &computername);
-    if let Some(grant_arg) = build_windows_icacls_grant_arg(&qualified) {
-        match std::process::Command::new("icacls")
-            .arg(path)
-            .args(["/grant:r"])
-            .arg(&grant_arg)
-            .output()
-        {
-            Ok(o) if o.status.success() => {
-                log::debug!(
-                    "[security] explicit grant '{grant_arg}' succeeded during repair of '{}'",
-                    path.display()
-                );
-            }
-            Ok(o) => {
-                log::warn!(
-                    "[security] explicit grant '{grant_arg}' exited {:?} during repair of '{}'",
-                    o.status.code(),
-                    path.display()
-                );
-            }
-            Err(e) => {
-                log::warn!(
-                    "[security] could not run icacls /grant during repair of '{}': {e}",
-                    path.display()
-                );
-            }
-        }
-    }
-
-    // Return whether the file is actually readable now — callers use this
-    // for logging/metrics; the retry in load_or_create_key is unconditional.
-    std::fs::read(path).is_ok()
-}
-
 /// XOR cipher with repeating key. Same function for encrypt and decrypt.
 fn xor_cipher(data: &[u8], key: &[u8]) -> Vec<u8> {
     if key.is_empty() {
@@ -671,67 +359,13 @@ fn xor_cipher(data: &[u8], key: &[u8]) -> Vec<u8> {
         .collect()
 }
 
-fn generate_random_key() -> Zeroizing<Vec<u8>> {
-    Zeroizing::new(crypto::generate_random_bytes(KEY_LEN))
-}
-
 fn decode_key_hex(hex_key: &str) -> Result<Zeroizing<Vec<u8>>> {
-    let key = Zeroizing::new(hex_decode(hex_key).context("Secret key file is corrupt")?);
-    anyhow::ensure!(
-        key.len() == KEY_LEN,
-        "Secret key file has wrong length: expected {KEY_LEN} bytes, got {}",
-        key.len()
-    );
-    Ok(key)
-}
-
-fn hex_encode(data: &[u8]) -> String {
-    crypto::hex_encode(data)
-}
-
-/// Build the `/grant` argument for `icacls` using a normalized username.
-/// Returns `None` when the username is empty or whitespace-only.
-fn build_windows_icacls_grant_arg(username: &str) -> Option<String> {
-    let normalized = username.trim();
-    if normalized.is_empty() {
-        return None;
-    }
-    Some(format!("{normalized}:F"))
-}
-
-/// Produce a domain-qualified Windows account name suitable for `icacls`.
-///
-/// On domain-joined machines `USERDOMAIN` is the domain name and differs from
-/// `COMPUTERNAME`.  On standalone machines they are equal, so we use the bare
-/// `username` in that case to avoid a redundant `DESKTOP-XYZ\alice` prefix.
-///
-/// Returns an empty string when both inputs are empty (caller must treat this
-/// as "cannot determine account name").
-#[cfg(windows)]
-fn qualify_windows_username(username: &str, userdomain: &str, computername: &str) -> String {
-    let username = username.trim();
-    let userdomain = userdomain.trim();
-    let computername = computername.trim();
-
-    if username.is_empty() {
-        return String::new();
-    }
-
-    // If USERDOMAIN is set and differs from COMPUTERNAME the machine is
-    // domain/AAD-joined; use the fully-qualified form so icacls resolves the
-    // account unambiguously.
-    if !userdomain.is_empty()
-        && !computername.is_empty()
-        && !userdomain.eq_ignore_ascii_case(computername)
-    {
-        format!("{userdomain}\\{username}")
-    } else {
-        username.to_string()
-    }
+    let key = crypto::key_from_hex(hex_key).context("Secret key file is corrupt")?;
+    Ok(Zeroizing::new(key.to_vec()))
 }
 
 fn hex_decode(hex: &str) -> Result<Vec<u8>> {
-    crypto::hex_decode(hex).map_err(|e| anyhow::anyhow!("{e}"))
+    ::hex::decode(hex).map_err(anyhow::Error::from)
 }
 
 #[cfg(test)]

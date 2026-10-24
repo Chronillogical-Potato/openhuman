@@ -284,7 +284,6 @@ pub struct SecurityPolicy {
     pub allowed_commands: Vec<String>,
     pub forbidden_paths: Vec<String>,
     pub max_actions_per_hour: u32,
-    pub max_cost_per_day_cents: u32,
     pub require_approval_for_medium_risk: bool,
     pub block_high_risk_commands: bool,
     /// Directories outside the workspace the agent may access (read or read-write).
@@ -444,7 +443,6 @@ impl Default for SecurityPolicy {
             // The rate-limiter check is `count <= max`, so u32::MAX is functionally
             // infinite without requiring an Option sentinel on the field type.
             max_actions_per_hour: u32::MAX,
-            max_cost_per_day_cents: 500,
             require_approval_for_medium_risk: true,
             block_high_risk_commands: true,
             trusted_roots: Vec::new(),

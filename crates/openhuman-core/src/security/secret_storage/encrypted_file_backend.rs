@@ -11,10 +11,10 @@ use std::sync::OnceLock;
 
 use crate::security::secret_storage::adapter;
 use crate::security::secret_storage::backend::SecretBackend;
-use crate::security::secret_storage::crypto::{self, KEY_LEN};
 use crate::security::secret_storage::error::SecretStorageError;
 use crate::security::secret_storage::file_store;
 use crate::security::secret_storage::store::BackendKind;
+use tinystoragedrivers::secrets::crypto;
 use tinystoragedrivers::secrets::EncryptedFileSecrets;
 use zeroize::Zeroizing;
 
@@ -35,11 +35,12 @@ pub const MASTER_KEY_ENV: &str = "OPENHUMAN_KEYRING_MASTER_KEY";
 pub const MASTER_KEY_FILE_ENV: &str = "OPENHUMAN_KEYRING_MASTER_KEY_FILE";
 const SECRETS_FILENAME: &str = "secrets.enc";
 const LEGACY_DEV_KEYCHAIN: &str = "dev-keychain.json";
+const KEY_LEN: usize = crypto::KEY_LEN;
 
 /// Outcome of the one-time master-key initialization: the key (`None` when
 /// the backend needs none or the OS keychain could not provide it), or the
 /// configuration error that rejected an operator-supplied source.
-type MasterKeyInit = Result<Option<[u8; KEY_LEN]>, String>;
+type MasterKeyInit = Result<Option<[u8; crypto::KEY_LEN]>, String>;
 
 /// Process-wide master-key outcome, set once by [`init_master_key`].
 static MASTER_KEY: OnceLock<MasterKeyInit> = OnceLock::new();
@@ -262,10 +263,9 @@ fn parse_master_key_hex(hex: &str) -> Result<[u8; KEY_LEN], String> {
     if got != expected {
         return Err(format!("expected {expected} hex characters, got {got}"));
     }
-    let bytes = crypto::hex_decode(hex).map_err(|_| "value is not valid hex".to_string())?;
-    let mut key = [0u8; KEY_LEN];
-    key.copy_from_slice(&bytes);
-    Ok(key)
+    crypto::key_from_hex(hex)
+        .map(|key| *key)
+        .map_err(|_| "value is not valid hex".to_string())
 }
 
 /// Get a reference to the cached master key, if available.
@@ -466,7 +466,7 @@ impl EncryptedFileBackend {
             SecretStorageError::Backend(format!("failed to serialize secrets: {e}"))
         })?);
         {
-            let blob = crypto::chacha20_encrypt(key, &json)
+            let blob = crypto::encrypt(key, &json)
                 .map_err(|e| SecretStorageError::Backend(format!("encryption failed: {e}")))?;
             file_store::write_atomic(&self.path, &blob)?;
         }
@@ -557,7 +557,7 @@ impl EncryptedFileBackend {
                 });
             }
         };
-        let plaintext = match crypto::chacha20_decrypt(key, &blob) {
+        let plaintext = match crypto::decrypt(key, &blob) {
             Ok(plaintext) => plaintext,
             Err(_) => return Ok(false),
         };

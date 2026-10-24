@@ -35,7 +35,7 @@ fn write_secret(backend: &EncryptedFileBackend, key: &[u8; KEY_LEN], value: &str
 
 fn write_profile_key(workspace: &Path, key: &[u8; KEY_LEN]) {
     let path = workspace.join("keyring/master.key");
-    let encoded = crypto::hex_encode(key);
+    let encoded = crypto::key_to_hex(key);
     file_store::write_atomic(&path, encoded.as_bytes()).unwrap();
 }
 
@@ -488,8 +488,9 @@ fn key_file_permissions_reject_other_writes_but_allow_read_only_access() {
 
 #[test]
 fn parse_master_key_hex_round_trips_an_encoded_key() {
-    let key_bytes = crypto::generate_random_bytes(KEY_LEN);
-    let parsed = parse_master_key_hex(&crypto::hex_encode(&key_bytes)).expect("valid");
+    let key_bytes = crypto::generate_key().expect("key generation succeeds");
+    let encoded = crypto::key_to_hex(&key_bytes);
+    let parsed = parse_master_key_hex(&encoded).expect("valid");
     assert_eq!(parsed.as_slice(), key_bytes.as_slice());
 }
 
@@ -566,9 +567,11 @@ fn try_load_master_key_reads_the_file_source_and_is_stable_across_restarts() {
     assert_eq!(first, second);
     assert_eq!(source, MASTER_KEY_FILE_ENV);
 
-    let blob = crypto::chacha20_encrypt(&first, b"sk-live-secret").expect("encrypt");
+    let blob = crypto::encrypt(&first, b"sk-live-secret").expect("encrypt");
     assert_eq!(
-        crypto::chacha20_decrypt(&second, &blob).expect("decrypt with the restarted key"),
+        crypto::decrypt(&second, &blob)
+            .expect("decrypt with the restarted key")
+            .as_slice(),
         b"sk-live-secret"
     );
 }

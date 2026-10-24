@@ -246,34 +246,6 @@
   },
   {
     "rule": "json-write",
-    "path": "crates/openhuman-core/src/security/pairing.rs",
-    "line": 110,
-    "text": "let mut file = std::fs::OpenOptions::new()",
-    "occurrence": 1
-  },
-  {
-    "rule": "json-write",
-    "path": "crates/openhuman-core/src/security/pairing.rs",
-    "line": 121,
-    "text": "std::fs::write(path, token)?;",
-    "occurrence": 1
-  },
-  {
-    "rule": "json-write",
-    "path": "crates/openhuman-core/src/security/secret_storage/encrypted_store.rs",
-    "line": 355,
-    "text": "let open_result = fs::OpenOptions::new()",
-    "occurrence": 1
-  },
-  {
-    "rule": "json-write",
-    "path": "crates/openhuman-core/src/security/secret_storage/encrypted_store.rs",
-    "line": 387,
-    "text": "let open_result = fs::OpenOptions::new()",
-    "occurrence": 2
-  },
-  {
-    "rule": "json-write",
     "path": "crates/openhuman-core/src/security/secret_storage/file_store.rs",
     "line": 80,
     "text": "let mut options = OpenOptions::new();",
@@ -310,14 +282,14 @@
   {
     "rule": "json-write",
     "path": "crates/openhuman-core/src/tools/impl/document/mod.rs",
-    "line": 304,
+    "line": 311,
     "text": "if let Err(err) = tokio::fs::write(&output_path, &bytes).await {",
     "occurrence": 1
   },
   {
     "rule": "json-write",
     "path": "crates/openhuman-core/src/tools/impl/presentation/mod.rs",
-    "line": 416,
+    "line": 455,
     "text": "if let Err(err) = tokio::fs::write(&output_path, &bytes).await {",
     "occurrence": 1
   },

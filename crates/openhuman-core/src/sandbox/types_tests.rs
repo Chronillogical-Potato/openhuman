@@ -55,13 +55,6 @@ fn sandbox_policy_serializes_roundtrip() {
 }
 
 #[test]
-fn elevated_tools_contains_expected_entries() {
-    assert!(ELEVATED_TOOLS.contains(&"git_operations"));
-    assert!(ELEVATED_TOOLS.contains(&"install_tool"));
-    assert!(!ELEVATED_TOOLS.contains(&"shell"));
-}
-
-#[test]
 fn sandbox_status_variants() {
     assert_ne!(SandboxStatus::Inactive, SandboxStatus::Ready);
     assert_ne!(SandboxStatus::Ready, SandboxStatus::Busy);
