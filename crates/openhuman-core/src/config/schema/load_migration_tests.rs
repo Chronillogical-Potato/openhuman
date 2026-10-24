@@ -256,10 +256,12 @@ backend = "sqlite"
         .unwrap();
     assert!(saved.contains("engine = \"\""));
     let saved_config: toml::Value = toml::from_str(&saved).unwrap();
-    assert!(!saved_config["memory"]
-        .as_table()
-        .unwrap()
-        .contains_key("backend"));
+    assert!(
+        !saved_config["memory"]
+            .as_table()
+            .unwrap()
+            .contains_key("backend")
+    );
 
     let reloaded = load_or_init_for_workspace(tmp.path()).await;
 
@@ -316,6 +318,12 @@ fn redact_url_strips_basic_auth_and_query() {
 fn redact_url_handles_plain_url() {
     let out = redact_url_for_log("https://api.openai.com/v1/chat/completions");
     assert_eq!(out, "https://api.openai.com/v1/chat/completions");
+}
+
+#[test]
+fn redact_url_strips_query_and_fragment() {
+    let out = redact_url_for_log("https://api.example/v1?token=secret#fragment");
+    assert_eq!(out, "https://api.example/v1");
 }
 
 #[test]

@@ -118,10 +118,11 @@ async fn apply_model_settings_replaces_model_registry_when_some_and_keeps_when_n
     };
     let _ = apply_model_settings(&mut cfg, set).await.expect("set");
     assert_eq!(cfg.model_registry.len(), 1);
-    assert!(cfg
-        .model_registry
-        .iter()
-        .any(|e| e.id == "my-llava" && e.vision));
+    assert!(
+        cfg.model_registry
+            .iter()
+            .any(|e| e.id == "my-llava" && e.vision)
+    );
 
     // None — leave registry alone.
     let _ = apply_model_settings(
@@ -346,10 +347,12 @@ async fn apply_autonomy_settings_updates_action_budget() {
         outcome.value["config"]["autonomy"]["max_actions_per_hour"],
         serde_json::json!(64)
     );
-    assert!(outcome
-        .logs
-        .iter()
-        .any(|l| l.contains("autonomy settings saved to")));
+    assert!(
+        outcome
+            .logs
+            .iter()
+            .any(|l| l.contains("autonomy settings saved to"))
+    );
 }
 
 #[tokio::test]

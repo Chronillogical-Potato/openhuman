@@ -112,7 +112,15 @@ pub fn host_is_local(parsed: &::url::Url) -> bool {
         Some(::url::Host::Ipv4(addr)) => {
             addr.is_loopback() || addr.is_unspecified() || addr.is_private()
         }
-        Some(::url::Host::Ipv6(addr)) => addr.is_loopback() || addr.is_unspecified(),
+        Some(::url::Host::Ipv6(addr)) => addr
+            .to_ipv4_mapped()
+            .map(|mapped| mapped.is_loopback() || mapped.is_unspecified() || mapped.is_private())
+            .unwrap_or_else(|| {
+                addr.is_loopback()
+                    || addr.is_unspecified()
+                    || addr.is_unique_local()
+                    || addr.is_unicast_link_local()
+            }),
         Some(::url::Host::Domain(name)) => {
             let h = name.to_ascii_lowercase();
             h == "localhost" || h.ends_with(".localhost")

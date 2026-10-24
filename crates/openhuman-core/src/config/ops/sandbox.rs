@@ -1,8 +1,8 @@
 //! Sandbox / Docker runtime config operations.
 
 use crate::config::Config;
-use crate::core::runtime::DispatchCtx;
 use crate::core::Outcome;
+use crate::core::runtime::DispatchCtx;
 
 use super::loader::snapshot_config_json;
 
@@ -63,6 +63,12 @@ pub async fn apply_sandbox_settings(
     config: &mut Config,
     update: SandboxSettingsPatch,
 ) -> Result<Outcome<serde_json::Value>, String> {
+    if update.env_passthrough.is_some() {
+        return Err(
+            "env_passthrough is not configurable; sandbox environment variables use the built-in safe allowlist"
+                .into(),
+        );
+    }
     if let Some(ref backend) = update.backend {
         config.sandbox.backend = match backend.as_str() {
             "auto" => crate::config::SandboxBackend::Auto,
@@ -98,13 +104,6 @@ pub async fn apply_sandbox_settings(
         }
         config.runtime.docker.cpu_limit = Some(cpu);
     }
-    if let Some(ref passthrough) = update.env_passthrough {
-        log::debug!(
-            "[config][sandbox] env_passthrough update: {} vars",
-            passthrough.len()
-        );
-    }
-
     config.save().await.map_err(super::config_save_error)?;
 
     log::debug!(
