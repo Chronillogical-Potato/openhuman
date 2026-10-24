@@ -336,6 +336,9 @@ pub struct ApprovalGate {
     /// `gate_intercept.rs`) so `ApprovalDecided` can mirror the same
     /// thread/client/tool_call_id the original `ApprovalRequested` carried.
     request_routes: Mutex<HashMap<String, RequestRoute>>,
+    /// Store captured at park time for approved requests whose route was
+    /// consumed by `decide` before the tool's terminal audit callback runs.
+    execution_docs: Mutex<HashMap<String, super::store_documents::Docs>>,
 }
 
 /// RAII guard that tears the parked waiter down even when the surrounding turn
