@@ -67,12 +67,10 @@ static SOURCE: LazyLock<RwLock<Option<Arc<dyn ProviderCredentialSource>>>> =
 pub fn install_provider_credential_source(
     source: Arc<dyn ProviderCredentialSource>,
 ) -> Option<Arc<dyn ProviderCredentialSource>> {
-    std::mem::replace(
-        &mut *SOURCE
-            .write()
-            .unwrap_or_else(|poisoned| poisoned.into_inner()),
-        Some(source),
-    )
+    (*SOURCE
+        .write()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()))
+    .replace(source)
 }
 
 /// Clear the host port. Intended for tests that must restore process-global
