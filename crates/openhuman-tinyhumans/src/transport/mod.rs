@@ -9,8 +9,8 @@ use async_trait::async_trait;
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::memory::CallbackBearerSource;
 use openhuman_embed::__host::memory_engines::BearerSource;
-use openhuman_embed::__host::credentials::session_support::{
-    resolve_backend_credential, BackendCredential,
+use openhuman_embed::__host::credentials::backend_credential::{
+    resolve_backend_credential, BackendCredential
 };
 use reqwest::Method;
 use serde_json::Value;

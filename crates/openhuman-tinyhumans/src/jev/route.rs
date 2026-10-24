@@ -10,7 +10,7 @@
 
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::inference::provider::factory::lookup_key_for_slug;
-use openhuman_embed::__host::credentials::session_support::resolve_backend_credential;
+use openhuman_embed::__host::credentials::backend_credential::resolve_backend_credential;
 use tinyjevclient::ClientConfig;
 use tinytools::RankError;
 

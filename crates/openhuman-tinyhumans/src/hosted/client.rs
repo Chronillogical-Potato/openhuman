@@ -37,8 +37,8 @@ use openhuman_embed::__host::core::observability::{
     contains_transient_transport_phrase, is_transient_http_status_code, API_KEY_REJECTED_PREFIX,
     BACKEND_UNAVAILABLE_PREFIX,
 };
-use openhuman_embed::__host::credentials::session_support::{
-    credential_fingerprint, resolve_backend_credential, BackendCredential,
+use openhuman_embed::__host::credentials::backend_credential::{
+    credential_fingerprint, resolve_backend_credential, BackendCredential
 };
 use serde_json::Value;
 use tinyhumans_sdk::{Error as SdkError, TinyHumansClient};

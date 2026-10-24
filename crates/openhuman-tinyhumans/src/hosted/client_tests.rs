@@ -125,7 +125,7 @@ fn offline_local_session_fails_before_any_request() {
         .expect("local refuses");
     assert_eq!(
         err,
-        openhuman_embed::__host::credentials::session_support::LOCAL_SESSION_BACKEND_UNAVAILABLE
+        openhuman_embed::__host::credentials::backend_credential::LOCAL_SESSION_BACKEND_UNAVAILABLE
     );
     assert!(expected_error_kind(&err).is_some());
 }
@@ -235,7 +235,7 @@ async fn session_401_publishes_the_fingerprint_of_the_hosted_request_credential(
     assert!(is_session_expired_message(&err), "{err}");
 
     let expected_fingerprint =
-        openhuman_embed::__host::credentials::session_support::credential_fingerprint(
+        openhuman_embed::__host::credentials::backend_credential::credential_fingerprint(
             "request-session-token",
         );
     let event = tokio::time::timeout(std::time::Duration::from_secs(1), async {

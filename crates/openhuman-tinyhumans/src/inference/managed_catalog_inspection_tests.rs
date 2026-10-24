@@ -10,8 +10,8 @@ use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::inference_registry::{
     InspectionCatalogError, InspectionCatalogRequest, PreparedInspectionCatalog,
 };
-use openhuman_embed::__host::credentials::session_support::{
-    SESSION_EXPIRES_AT_META, SESSION_ISSUING_BACKEND_META,
+use openhuman_embed::__host::credentials::session_state::{
+    SESSION_EXPIRES_AT_META, SESSION_ISSUING_BACKEND_META
 };
 use openhuman_embed::__host::credentials::{
     APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,

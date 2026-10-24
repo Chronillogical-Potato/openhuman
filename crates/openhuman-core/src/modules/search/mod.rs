@@ -105,7 +105,7 @@ pub fn module_config(config: &Config) -> ModuleSearchConfig {
     let credential = if direct_profile {
         None
     } else {
-        crate::credentials::session_support::resolve_backend_credential(config).ok()
+        crate::credentials::backend_credential::resolve_backend_credential(config).ok()
     };
     let resolved = providers::resolve_with(config, credential.is_some());
     let backend = if direct_profile {

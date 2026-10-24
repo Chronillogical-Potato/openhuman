@@ -523,7 +523,7 @@ async fn offline_local_session_is_refused_before_embedding_request() {
 async fn expired_session_publishes_session_expired_before_embedding_request() {
     use axum::{routing::post, Json, Router};
     use openhuman_embed::__host::core::events::DomainEvent;
-    use openhuman_embed::__host::credentials::session_support::SESSION_EXPIRES_AT_META;
+    use openhuman_embed::__host::credentials::session_state::SESSION_EXPIRES_AT_META;
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,

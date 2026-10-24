@@ -20,7 +20,7 @@ use openhuman_embed::__host::memory_engines::{
     build_cached, rooted, BearerSource, Binding, EngineCredential, EngineRequest, EngineSettings,
     ReadOnlyEngineError, TINYHUMANS_ENGINE,
 };
-use openhuman_embed::__host::credentials::session_support::resolve_backend_credential;
+use openhuman_embed::__host::credentials::backend_credential::resolve_backend_credential;
 
 use crate::backend::headers::attribution_headers;
 use crate::backend::url::effective_backend_api_url;
@@ -70,10 +70,9 @@ pub(crate) fn build_read_only_engine(
 }
 
 fn read_only_session_token(config: &Config) -> Result<Option<String>, ReadOnlyEngineError> {
-    use openhuman_embed::__host::credentials::session_support::{
-        check_session_backend, classify_session_token, is_local_session_token,
-        load_app_session_profile_read_only, SessionTokenCheck,
-    };
+    use openhuman_embed::__host::credentials::session_state::{
+    check_session_backend, classify_session_token, is_local_session_token, load_app_session_profile_read_only, SessionTokenCheck
+};
 
     let profile = load_app_session_profile_read_only(config)
         .map_err(|_| ReadOnlyEngineError::CredentialsUnavailable)?;

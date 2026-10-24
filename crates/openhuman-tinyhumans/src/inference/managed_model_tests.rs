@@ -111,7 +111,7 @@ fn managed_bearer_keeps_the_stored_key_transport_guard() {
 
 fn seed_app_session(dir: &std::path::Path, expires_at: Option<&str>) {
     use openhuman_embed::__host::credentials::{
-        session_support::SESSION_EXPIRES_AT_META, AuthService, APP_SESSION_PROVIDER,
+        session_state::SESSION_EXPIRES_AT_META, AuthService, APP_SESSION_PROVIDER,
         DEFAULT_AUTH_PROFILE_NAME,
     };
     let mut metadata = std::collections::HashMap::new();
@@ -402,7 +402,7 @@ async fn managed_auth_failure_expires_the_session_only_on_a_session_401() {
             assert_eq!(
                 fingerprint.as_deref(),
                 Some(
-                    openhuman_embed::__host::credentials::session_support::credential_fingerprint(
+                    openhuman_embed::__host::credentials::backend_credential::credential_fingerprint(
                         "test.session.jwt",
                     )
                     .as_str(),

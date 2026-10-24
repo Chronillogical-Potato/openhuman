@@ -285,7 +285,7 @@ pub mod credentials {
         };
     }
     pub mod session_support {
-        pub use openhuman_core::credentials::session_support::{
+        pub use openhuman_core::credentials::session_state::{
             build_session_state, check_session_backend, classify_session_token,
             credential_fingerprint, credential_fingerprint_matches, current_session_is_local,
             get_session_token, is_local_session_token, load_app_session_profile, load_app_session_profile_read_only,

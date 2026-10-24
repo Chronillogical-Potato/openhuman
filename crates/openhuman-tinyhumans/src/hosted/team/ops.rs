@@ -118,7 +118,7 @@ async fn legacy_authed_value(
     body: Option<Value>,
 ) -> Result<Value, String> {
     let credential =
-        openhuman_embed::__host::credentials::session_support::resolve_backend_credential(config)?;
+        openhuman_embed::__host::credentials::backend_credential::resolve_backend_credential(config)?;
     let api_url = effective_backend_api_url(&config.api_url);
     let client = BackendClient::new(&api_url).map_err(|e| format!("{e:#}"))?;
     client

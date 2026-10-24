@@ -69,7 +69,7 @@ pub(crate) async fn resolve_default_auth_username(ctx: &DispatchCtx) -> Option<S
         }
     };
 
-    match session_support::build_session_state(&config) {
+    match session_state::build_session_state(&config) {
         Ok(state) => state
             .user
             .as_ref()

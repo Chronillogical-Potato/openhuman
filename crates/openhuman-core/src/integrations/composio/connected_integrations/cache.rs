@@ -160,7 +160,7 @@ fn cache_key_with_backend_url(config: &Config, backend_url: &str) -> String {
     digest.update(b"\0");
     digest.update(backend_url.as_bytes());
     digest.update(b"\0");
-    match crate::credentials::session_support::resolve_backend_credential(config) {
+    match crate::credentials::backend_credential::resolve_backend_credential(config) {
         Ok(credential) => {
             digest.update(if credential.is_api_key() {
                 b"api-key\0"
