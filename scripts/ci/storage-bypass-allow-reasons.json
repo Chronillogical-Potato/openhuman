@@ -103,5 +103,12 @@
     "site": "let mut file = tokio::fs::OpenOptions::new()",
     "reason": "User-visible artifact content is retained as a local deliverable; versioned records and native blob storage are separate capabilities and this file does not establish shared storage authority.",
     "issue": "https://github.com/tinyhumansai/openhuman/issues/7425"
+  },
+  {
+    "path": "crates/openhuman-core/src/security/secret_storage/encrypted_file_backend/key_source.rs",
+    "rule": "json-write",
+    "site": "let mut options = std::fs::OpenOptions::new();",
+    "reason": "Reads the operator-selected master-key file with nonblocking/no-follow admission and a strict byte limit; it is an external machine secret source, not persisted OpenHuman user data.",
+    "issue": "https://github.com/tinyhumansai/openhuman/issues/8369"
   }
 ]
