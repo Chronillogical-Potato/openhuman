@@ -237,6 +237,70 @@ async fn a_prompt_reaches_the_call_that_asked_and_registers_its_request() {
 }
 
 #[tokio::test]
+async fn store_and_prompt_preserve_tinysecurity_redaction_markers() {
+    let scope = bound("redacted-prompt").await;
+    let call_id = "redacted01";
+    let mut pending = row("redacted-prompt", "7", call_id, "gmail_send");
+    pending.args_redacted = serde_json::json!({
+        "body": "<redacted: string (22 chars)>",
+        "api_key": "<redacted: string (22 chars)>",
+    })
+    .to_string();
+    let next_record = tinysecurity_bus::ApprovalRecord2 {
+        record_id: pending.request_id.clone(),
+        version: pending.version,
+        policy_id: pending.binding.policy_ref.clone(),
+        generation: pending.binding.generation,
+        fingerprint: "9".repeat(32),
+        record_json: serde_json::to_string(&pending).unwrap(),
+    };
+    super::cas(ApprovalCasRequest2 {
+        scope: handle("redacted-prompt"),
+        record_id: pending.request_id.clone(),
+        expected_version: None,
+        next_record,
+        mutation_id: "8".repeat(32),
+    })
+    .await
+    .unwrap();
+    let stored = super::load(ApprovalLoadRequest2 {
+        scope: handle("redacted-prompt"),
+    })
+    .await
+    .unwrap();
+    let persisted: ApprovalRow2 = serde_json::from_str(&stored.records[0].record_json).unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&persisted.args_redacted).unwrap(),
+        serde_json::json!({
+            "body": "<redacted: string (22 chars)>",
+            "api_key": "<redacted: string (22 chars)>",
+        })
+    );
+    assert!(!persisted.args_redacted.contains("not-a-real-token-value"));
+
+    let surface = Arc::new(Surface::default());
+    assert!(host().begin_call(
+        call_id,
+        crate::security::approval::native::state::CallEntry {
+            prompt: surface.clone(),
+            scope,
+            request: request("gmail_send", call_id),
+        },
+    ));
+    super::prompt(delivery_for(pending)).await.unwrap();
+    let shown = surface.shown.lock().unwrap();
+    assert_eq!(
+        shown[0].args_redacted,
+        serde_json::json!({
+            "body": "<redacted: string (22 chars)>",
+            "api_key": "<redacted: string (22 chars)>",
+        })
+    );
+    assert!(!shown[0].args_redacted.to_string().contains("not-a-real-token-value"));
+    host().end_call(call_id);
+}
+
+#[tokio::test]
 async fn a_prompt_nobody_asked_for_or_that_is_not_the_calls_is_refused() {
     // No call is waiting under this correlation (another process's request).
     assert!(super::prompt(delivery_for(row(
