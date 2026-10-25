@@ -598,3 +598,7 @@ path = "../../tests/embeddings_opt_out.rs"
 name = "storage_backend_capabilities"
 path = "../../tests/storage_backend_capabilities.rs"
 required-features = ["storage-sqlite"]
+
+[[test]]
+name = "security_bus_latency_baseline"
+path = "../../tests/security_bus_latency_baseline.rs"
