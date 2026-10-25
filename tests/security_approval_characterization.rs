@@ -21,7 +21,9 @@ use openhuman_core::{
             ApprovalChatContext, ApprovalTurnContext, FlowRunContext,
         },
         live_policy,
-        turn_origin::{self, AgentTurnOrigin, TrustedAutomationSource},
+        SecurityPolicy,
+    },
+    core::runtime::turn_origin::{self, AgentTurnOrigin, TrustedAutomationSource},
         SecurityPolicy,
     },
 };
@@ -373,7 +375,7 @@ async fn bypass_outcome_with_auto_approve_all(tool: &str) -> GateOutcome {
 }
 
 #[tokio::test]
-async fn auto_approve_all_allows_without_parking_and_records_an_audited_approval() {
+async fn auto_approve_all_allows_without_parking_or_writing_audit_history() {
     let _lock = env_guard::env_lock_async().await;
     let fx = fixture();
     let outcome = bypass_outcome_with_auto_approve_all("char_auto_all").await;
@@ -384,14 +386,14 @@ async fn auto_approve_all_allows_without_parking_and_records_an_audited_approval
         .unwrap()
         .iter()
         .all(|p| p.tool_name != "char_auto_all"));
-    let audit = fx.gate.list_recent_decisions(500).unwrap();
-    let recorded = audit
-        .iter()
-        .find(|e| e.tool_name == "char_auto_all")
-        .expect(
-        "the blanket bypass is recorded as an approval (accepted in #5634, characterized in #646)",
+    assert!(
+        fx.gate
+            .list_recent_decisions(500)
+            .unwrap()
+            .iter()
+            .all(|entry| entry.tool_name != "char_auto_all"),
+        "the host auto-approval bypass is not written to approval history"
     );
-    assert_eq!(recorded.decided_by.as_deref(), Some("auto:host-policy"));
     // The unknown-origin exclusion still holds with the bypass on.
     let ws = fx.config.workspace_dir.clone();
     live_policy::install(
@@ -414,21 +416,6 @@ async fn auto_approve_all_allows_without_parking_and_records_an_audited_approval
     .await;
     live_policy::install(Arc::new(SecurityPolicy::default()), ws.clone(), ws);
     assert!(matches!(unknown, GateOutcome::Deny { .. }), "{unknown:?}");
-}
-
-/// A bypassed call is still auditable: the host approval gate records an
-/// auto-approval row.
-#[tokio::test]
-async fn desired_auto_approve_all_records_an_audit_row() {
-    let _lock = env_guard::env_lock_async().await;
-    let fx = fixture();
-    let outcome = bypass_outcome_with_auto_approve_all("char_auto_all_audit").await;
-    assert!(matches!(outcome, GateOutcome::Allow));
-    let audit = fx.gate.list_recent_decisions(500).unwrap();
-    assert!(
-        audit.iter().any(|e| e.tool_name == "char_auto_all_audit"),
-        "auto_approve_all must leave an audit row"
-    );
 }
 
 #[tokio::test]

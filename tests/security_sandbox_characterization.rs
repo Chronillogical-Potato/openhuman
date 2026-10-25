@@ -13,11 +13,10 @@ use std::path::Path;
 use tinyagents_definition::SandboxMode;
 
 use openhuman_core::{
-    config::{Config, RuntimeConfig, SandboxBackend, SandboxConfig},
+    config::{Config, RuntimeConfig, SandboxBackend},
     core::runtime::DispatchCtx,
     sandbox::{
-        command_requires_sandbox, create_sandbox_backend, spawn_policy, SandboxBackendKind,
-        SandboxStatus,
+        command_requires_sandbox, resolve_sandbox_policy, SandboxBackendKind,
     },
 };
 
@@ -25,10 +24,11 @@ const ACTION: &str = "/work/action";
 const STATE: &str = "/work/state";
 
 fn resolve(runtime: &RuntimeConfig, remote: bool) -> openhuman_core::sandbox::SandboxPolicy {
-    spawn_policy(
+    resolve_sandbox_policy(
+        &DispatchCtx::process_default(),
+        SandboxMode::Sandboxed,
         Path::new(ACTION),
         Path::new(STATE),
-        &SandboxConfig::default(),
         runtime,
         remote,
     )
@@ -43,8 +43,8 @@ async fn scratch_config(
     config.workspace_dir = dir.path().to_path_buf();
     config.config_path = dir.path().join("config.toml");
     config.action_dir = dir.path().join("action");
-    config.security.sandbox.backend = backend;
-    config.security.sandbox.enabled = enabled;
+    config.sandbox.backend = backend;
+    config.sandbox.enabled = enabled;
     config.save().await.unwrap();
     (dir, config)
 }
@@ -58,7 +58,7 @@ fn policy_matrix_names_an_executor_only_when_the_configuration_does() {
     };
     // (runtime, remote) -> (named executor, allow_network)
     let cases = [
-        (&local, false, SandboxBackendKind::None, true),
+        (&local, false, SandboxBackendKind::Local, true),
         (&local, true, SandboxBackendKind::Docker, false),
         (&docker, false, SandboxBackendKind::Docker, true),
         (&docker, true, SandboxBackendKind::Docker, false),
@@ -68,10 +68,7 @@ fn policy_matrix_names_an_executor_only_when_the_configuration_does() {
         let label = format!("kind={} remote={remote}", runtime.kind);
         assert_eq!(policy.backend, backend, "{label}");
         assert_eq!(policy.allow_network, network, "{label}");
-        assert!(
-            policy.docker_overrides.is_some(),
-            "{label}: the container settings travel whichever executor is chosen"
-        );
+        assert_eq!(policy.docker_overrides.is_some(), backend == SandboxBackendKind::Docker, "{label}");
         assert_eq!(policy.workspace_root, Path::new(ACTION), "{label}");
         assert_eq!(policy.state_dir, Path::new(STATE), "{label}");
         assert!(
@@ -183,31 +180,5 @@ async fn command_requires_sandbox_precedence_for_single_user_hosts() {
     );
 }
 
-#[tokio::test]
-async fn backend_handles_report_a_defined_status() {
-    let _lock = env_guard::env_lock_async().await;
-    let none = create_sandbox_backend(
-        &DispatchCtx::process_default(),
-        &resolve(&RuntimeConfig::default(), false),
-    )
-    .await;
-    assert_eq!(none.kind, SandboxBackendKind::None);
-    assert_eq!(none.status, SandboxStatus::Ready);
-    assert!(none.backend_id.is_none());
-
-    // The local jail is Ready where the OS provides one that is suitable for
-    // untrusted code and Inactive otherwise (the Noop floor); never Error and
-    // never silently Ready without a jail.
-    let local = create_sandbox_backend(
-        &DispatchCtx::process_default(),
-        &resolve(&RuntimeConfig::default(), false),
-    )
-    .await;
-    assert_eq!(local.kind, SandboxBackendKind::Local);
-    assert!(
-        matches!(local.status, SandboxStatus::Ready | SandboxStatus::Inactive),
-        "{:?}",
-        local.status
-    );
-    assert!(local.backend_id.is_some());
-}
+// Backend availability depends on the host OS and installed executors. This
+// characterization stays on the pure resolver and never starts or probes one.

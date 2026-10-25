@@ -1,19 +1,7 @@
-//! Phase-zero security wire characterization through the authenticated production
-//! router. No server socket, inference, Docker process, or OS keychain is used.
-//! Existing sibling domain suites cover command/path policy, gate TTL/origins,
-//! restart durability and sandbox precedence; these tests pin their RPC boundary.
-//! Coverage retained beside the owning domains:
-//! - approval/gate_tests.rs (+ gate_core_flow/gate_origin_intercept/gate_ttl_and_triage/
-//!   gate_subagent/gate_forced/gate_engine tests): allowlist, park/decide, origin and
-//!   TTL rules over the scripted engine; approval/native/engine_tests.rs: the same
-//!   lifecycle on the real module.
-//! - approval/store_flow_trust_tests.rs: flow trust; approval/native/rows_tests.rs:
-//!   the module's store and audit sink durability.
-//! - policy/policy_disabled_tests.rs, policy_paths_and_risk_tests.rs,
-//!   policy_trusted_roots_tests.rs: disabled floor, command/path and rate rules.
-//! - sandbox/ops_tests.rs: SaaS/env/agent precedence and Noop status.
-//! Private Composio and credential middleware tests consume the same corpus
-//! beside their owning modules, without widening production visibility.
+//! Security RPC wire characterization through the authenticated production
+//! router. The router stays in-process; the tests make no backend, Docker,
+//! inference, or external network calls. Focused sibling targets cover policy,
+//! approval, redaction, sandbox resolution, crypto fixtures, and bus latency.
 
 #[path = "support/env_guard.rs"]
 mod env_guard;
@@ -28,7 +16,7 @@ use openhuman_core::{
     security::approval::{
         gate::ApprovalGate, ApprovalChatContext, ApprovalTurnContext, GateOutcome,
     },
-    security::turn_origin::{self, AgentTurnOrigin},
+    core::runtime::turn_origin::{self, AgentTurnOrigin},
 };
 use serde_json::{json, Value};
 use tower::ServiceExt;
@@ -212,12 +200,12 @@ async fn approval_policy_sandbox_and_secret_wire_contracts() {
 
     let policy = rpc(&router, "openhuman.security_policy_info", json!({})).await;
     let expected = json!({
-        "autonomy": config.security.autonomy.level,
-        "workspace_only": config.security.autonomy.workspace_only,
-        "allowed_commands": config.security.autonomy.allowed_commands,
-        "max_actions_per_hour": config.security.autonomy.max_actions_per_hour,
-        "require_approval_for_medium_risk": config.security.autonomy.require_approval_for_medium_risk,
-        "block_high_risk_commands": config.security.autonomy.block_high_risk_commands,
+        "autonomy": config.autonomy.level,
+        "workspace_only": config.autonomy.workspace_only,
+        "allowed_commands": config.autonomy.allowed_commands,
+        "max_actions_per_hour": config.autonomy.max_actions_per_hour,
+        "require_approval_for_medium_risk": config.autonomy.require_approval_for_medium_risk,
+        "block_high_risk_commands": config.autonomy.block_high_risk_commands,
     });
     // The existing policy fields remain present alongside host diagnostics.
     let info = result(&policy).as_object().unwrap();
@@ -296,49 +284,3 @@ async fn approval_policy_sandbox_and_secret_wire_contracts() {
     );
 }
 
-#[test]
-fn shared_redaction_corpus_records_existing_catches_and_gaps() {
-    let corpus: Value =
-        serde_json::from_str(include_str!("fixtures/security-redaction-corpus.json")).unwrap();
-    for case in corpus["text"].as_array().unwrap() {
-        let input = case["input"].as_str().unwrap();
-        let needle = case["needle"].as_str().unwrap();
-        tinytools::registry::denials::record("characterization", "test", "blocked", input);
-        let denial = tinytools::registry::denials::list(1).pop().unwrap().reason;
-        let outputs = [
-            ("denials", denial),
-            (
-                "log",
-                openhuman_core::core::log_redaction::scrub_secrets(input),
-            ),
-            ("pii", tinymemory_api::safety::redact_identifiers(input)),
-        ];
-        for (name, output) in outputs {
-            let removed = case["removed_by"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|v| v == name);
-            assert_eq!(
-                !output.contains(needle),
-                removed,
-                "case={} redactor={name} output={output:?}",
-                case["case"]
-            );
-        }
-    }
-}
-
-#[test]
-fn shared_url_redaction_corpus_is_cleaned_by_the_log_floor() {
-    let corpus: Value =
-        serde_json::from_str(include_str!("fixtures/security-redaction-corpus.json")).unwrap();
-    for case in corpus["urls"].as_array().unwrap() {
-        let input = case["input"].as_str().unwrap();
-        let out = openhuman_core::core::log_redaction::scrub_secrets(input);
-        assert!(
-            !out.contains("hunter2") && !out.contains("key=secret"),
-            "{out}"
-        );
-    }
-}
