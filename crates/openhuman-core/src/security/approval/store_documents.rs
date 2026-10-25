@@ -20,11 +20,14 @@ use tinystoragedrivers::{Filter, Query, Sort, Versioned};
 use crate::storage::local;
 #[cfg(feature = "security-module")]
 use crate::storage::{block_on, DocumentStore, DocumentStoreExt, Storage, StorageError};
+#[cfg(feature = "security-module")]
+use crate::config::Config;
 
 #[cfg(feature = "legacy-import")]
 use super::storage_schema::legacy_collections;
 #[cfg(feature = "security-module")]
 pub(super) use super::storage_schema::{APPROVALS, FLOW_TRUST};
+#[cfg(feature = "security-module")]
 use super::types::{ApprovalAuditEntry, ApprovalDecision};
 
 #[cfg(feature = "security-module")]
