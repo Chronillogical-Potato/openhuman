@@ -70,5 +70,5 @@
 	branch = main
 [submodule "vendor/tinysecurity"]
 	path = vendor/tinysecurity
-	url = https://github.com/senamakel/tinysecurity.git
-	branch = epic/8369-security-migration
+	url = https://github.com/tinyhumansai/tinysecurity.git
+	branch = main
