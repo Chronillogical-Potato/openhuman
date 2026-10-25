@@ -64,7 +64,7 @@ async fn a_read_only_refusal_halt_is_summarised_as_a_security_block() {
             ),
             30 => (
                 "shell",
-                json!({"command": "cargo build"}),
+                json!({"command": "touch notes.md"}),
                 failing_result("shell", READ_ONLY_REFUSAL),
             ),
             i if i % 2 == 0 => (
