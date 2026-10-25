@@ -44,10 +44,12 @@ fn fixture() -> &'static Fixture {
         std::env::remove_var("OPENHUMAN_STORAGE_URL");
         std::env::remove_var("OPENHUMAN_APPROVAL_GATE");
         std::env::remove_var("OPENHUMAN_APPROVAL_TTL_SECS");
-        let mut config = Config::default();
-        config.workspace_dir = dir.path().to_path_buf();
-        config.config_path = dir.path().join("config.toml");
-        config.action_dir = dir.path().join("action");
+        let config = Config {
+            workspace_dir: dir.path().to_path_buf(),
+            config_path: dir.path().join("config.toml"),
+            action_dir: dir.path().join("action"),
+            ..Config::default()
+        };
         let gate = ApprovalGate::init_global(config.clone(), "session-approval-characterization");
         Fixture {
             _dir: dir,

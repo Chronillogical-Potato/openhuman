@@ -91,9 +91,15 @@ fn extended_corpus_pins_which_redactors_remove_each_shape() {
 
 fn url_outputs(input: &str) -> Vec<(&'static str, String)> {
     vec![
-        ("log", openhuman_core::core::log_redaction::scrub_secrets(input)),
+        (
+            "log",
+            openhuman_core::core::log_redaction::scrub_secrets(input),
+        ),
         ("util_url", openhuman_core::util::redact_url_for_log(input)),
-        ("storage_url", openhuman_core::config::schema::storage::redact_url(input)),
+        (
+            "storage_url",
+            openhuman_core::config::schema::storage::redact_url(input),
+        ),
     ]
 }
 

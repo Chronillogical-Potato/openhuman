@@ -37,12 +37,17 @@ async fn scratch_config(
     enabled: Option<bool>,
 ) -> (tempfile::TempDir, Config) {
     let dir = tempfile::tempdir().unwrap();
-    let mut config = Config::default();
-    config.workspace_dir = dir.path().to_path_buf();
-    config.config_path = dir.path().join("config.toml");
-    config.action_dir = dir.path().join("action");
-    config.sandbox.backend = backend;
-    config.sandbox.enabled = enabled;
+    let config = Config {
+        workspace_dir: dir.path().to_path_buf(),
+        config_path: dir.path().join("config.toml"),
+        action_dir: dir.path().join("action"),
+        sandbox: openhuman_core::config::SandboxConfig {
+            backend,
+            enabled,
+            ..Default::default()
+        },
+        ..Config::default()
+    };
     config.save().await.unwrap();
     (dir, config)
 }
