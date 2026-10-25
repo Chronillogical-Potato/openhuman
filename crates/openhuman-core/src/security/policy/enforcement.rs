@@ -382,6 +382,7 @@ impl SecurityPolicy {
             auto_approve: autonomy_config.auto_approve.clone(),
             auto_approve_all: autonomy_config.auto_approve_all,
             tracker: ActionTracker::new(),
+            budget_snapshot: Arc::new(std::sync::Mutex::new(None)),
             canonical_workspace: Arc::new(OnceCell::new()),
         }
     }
