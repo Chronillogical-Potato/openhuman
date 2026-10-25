@@ -18,7 +18,7 @@ pub(crate) mod engine;
 #[cfg(test)]
 pub(crate) mod engine_stub;
 pub mod gate;
-pub mod redact;
+mod summary;
 #[cfg(feature = "security-module")]
 pub(crate) mod native;
 mod registration_scope;
@@ -39,7 +39,7 @@ pub use gate::{
     is_detached_request, is_unanswered_approval_reason, parse_approval_reply, ApprovalChatContext,
     ApprovalError, ApprovalGate, ApprovalTurnContext, FlowRunContext, APPROVAL_UNANSWERED_PHRASE,
 };
-pub use redact::{redact_args, summarize_action};
+pub use summary::summarize_action;
 pub use schemas::all_controller_schemas as all_approval_controller_schemas;
 pub use schemas::all_registered_controllers as all_approval_registered_controllers;
 #[cfg(test)]
