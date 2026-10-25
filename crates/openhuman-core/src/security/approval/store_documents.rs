@@ -150,6 +150,8 @@ fn to_audit(stored: &Versioned<Value>) -> Option<ApprovalAuditEntry> {
         expires_at: pending.expires_at,
         decided_at,
         decision,
+        decided_by: None,
+        judge: None,
     })
 }
 
