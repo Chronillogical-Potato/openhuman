@@ -34,7 +34,7 @@ const WORKSPACE_DIR: &str = "mcp_stdio";
 /// `None` makes the module refuse stdio servers rather than start them
 /// unconfined.
 #[cfg(feature = "modules")]
-pub(super) fn stdio_sandbox(config: &Config) -> Option<StdioSandboxConfig> {
+pub(super) async fn stdio_sandbox(config: &Config) -> Option<StdioSandboxConfig> {
     let workspace = match prepare_workspace(&config.workspace_dir) {
         Ok(path) => path,
         Err(error) => {
@@ -51,10 +51,12 @@ pub(super) fn stdio_sandbox(config: &Config) -> Option<StdioSandboxConfig> {
     } else {
         credential_denials(config, home.as_deref(), &workspace)
     };
+    let read_only = admit_all(&jail.extra_read_only, home.as_deref()).await;
+    let read_write = admit_all(&jail.extra_read_write, home.as_deref()).await;
     Some(StdioSandboxConfig {
         workspace: path_string(&workspace),
-        read_only: admit_all(&jail.extra_read_only, home.as_deref()),
-        read_write: admit_all(&jail.extra_read_write, home.as_deref()),
+        read_only,
+        read_write,
         deny_read,
         // MCP servers commonly call remote APIs and `npx` starts children.
         allow_net: true,
@@ -65,7 +67,7 @@ pub(super) fn stdio_sandbox(config: &Config) -> Option<StdioSandboxConfig> {
 }
 
 #[cfg(not(feature = "modules"))]
-pub(super) fn stdio_sandbox(_config: &Config) -> Option<StdioSandboxConfig> {
+pub(super) async fn stdio_sandbox(_config: &Config) -> Option<StdioSandboxConfig> {
     None
 }
 
@@ -147,8 +149,16 @@ fn prepare_workspace(workspace_dir: &Path) -> std::io::Result<PathBuf> {
 
 /// Existing absolute grants from configuration, `~/` expanded, each past the
 /// host's protected-path floor and the credential-ancestor check.
-fn admit_all(raw: &[String], home: Option<&Path>) -> Vec<String> {
+async fn admit_all(raw: &[String], home: Option<&Path>) -> Vec<String> {
+    let credential_roots = match crate::modules::security::gap::credential_roots(home.map(Path::to_path_buf)).await {
+        Ok(roots) => roots,
+        Err(error) => {
+            tracing::warn!(%error, "[mcp] TinySecurity credential roots unavailable; refusing configured jail grants");
+            return Vec::new();
+        }
+    };
     let mut out = Vec::new();
+    let mut candidates = Vec::new();
     for entry in raw {
         let expanded = match (entry.strip_prefix("~/"), home) {
             (Some(rest), Some(home)) => home.join(rest),
@@ -157,31 +167,43 @@ fn admit_all(raw: &[String], home: Option<&Path>) -> Vec<String> {
         if !expanded.is_absolute() || !expanded.exists() {
             continue;
         }
-        // Check the spelled path as well as the resolved one: on macOS `/etc`
-        // resolves to `/private/etc`, which the prefix floor does not name.
         let path = expanded.canonicalize().unwrap_or_else(|_| expanded.clone());
-        if SecurityPolicy::is_always_forbidden(&expanded)
-            || SecurityPolicy::is_always_forbidden(&path)
-            || exposes_credentials(&expanded, home)
-            || exposes_credentials(&path, home)
+        candidates.push((expanded, path));
+    }
+    let paths = candidates
+        .iter()
+        .flat_map(|(spelled, resolved)| [spelled.clone(), resolved.clone()])
+        .collect::<Vec<_>>();
+    let protected = match crate::modules::security::gap::protected_paths(&paths).await {
+        Ok(answers) if answers.len() == paths.len() => answers,
+        Ok(_) => {
+            tracing::warn!("[mcp] TinySecurity protected-path response was malformed; refusing jail grants");
+            return Vec::new();
+        }
+        Err(error) => {
+            tracing::warn!(%error, "[mcp] TinySecurity protected-path check unavailable; refusing jail grants");
+            return Vec::new();
+        }
+    };
+    for (index, (spelled, resolved)) in candidates.into_iter().enumerate() {
+        if protected[index * 2]
+            || protected[index * 2 + 1]
+            || credential_roots.iter().any(|root| {
+                root.starts_with(&spelled)
+                    || root.starts_with(&resolved)
+                    || spelled.starts_with(root)
+                    || resolved.starts_with(root)
+            })
         {
-            tracing::warn!("[mcp] refused a stdio sandbox grant: host floor forbids it");
+            tracing::warn!("[mcp] refused a stdio sandbox grant: TinySecurity path floor forbids it");
             continue;
         }
-        let path = path_string(&path);
+        let path = path_string(&resolved);
         if !out.contains(&path) {
             out.push(path);
         }
     }
     out
-}
-
-/// Whether granting `path` would expose a credential store under `home`.
-fn exposes_credentials(path: &Path, home: Option<&Path>) -> bool {
-    let Some(home) = home else { return false };
-    [".ssh", ".gnupg", ".aws", ".azure", ".kube"]
-        .iter()
-        .any(|dir| home.join(dir).starts_with(path))
 }
 
 #[cfg(feature = "modules")]

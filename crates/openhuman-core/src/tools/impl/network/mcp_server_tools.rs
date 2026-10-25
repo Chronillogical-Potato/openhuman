@@ -115,7 +115,7 @@ impl Tool for ModuleConfiguredMcpServerTool {
 
         let client = crate::mcp::module_client::McpConfiguredClient::for_config(&self.config)
             .map_err(|_| anyhow::anyhow!("TinyMCP module is unavailable"))?;
-        let client_config = crate::mcp::host::client_config(&self.config);
+        let client_config = crate::mcp::host::client_config(&self.config).await;
         let live: Vec<tinymcp_bus::McpRemoteTool> = client
             .call(
                 &client_config,

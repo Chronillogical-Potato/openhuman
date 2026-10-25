@@ -269,6 +269,23 @@ pub(crate) async fn protected_floor() -> Result<tinysecurity_bus::ProtectedFloor
         .map_err(|error| error.to_string())
 }
 
+/// Credential roots for handing path denials to a host jail.
+pub(crate) async fn credential_roots(
+    home: Option<PathBuf>,
+) -> Result<Vec<PathBuf>, String> {
+    let config = crate::core::runtime::DispatchCtx::ambient()
+        .load_config()
+        .await?;
+    let response = super::client(&config)
+        .await
+        .map_err(|error| error.to_string())?
+        .credential_roots2(tinysecurity_bus::CredentialRootsRequest2 { home })
+        .await
+        .map_err(|error| error.to_string())?;
+    response.validate().map_err(|error| error.to_string())?;
+    Ok(response.roots)
+}
+
 /// `ClassifyHostAction2` uses only trusted host declarations.
 pub(crate) async fn host_action_class(
     request: tinysecurity_bus::HostActionClassRequest2,

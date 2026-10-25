@@ -64,7 +64,7 @@ impl Tool for McpListServersTool {
                 ));
             }
         };
-        let config = host::client_config(&self.config);
+        let config = host::client_config(&self.config).await;
         let summaries: Vec<tinymcp_bus::StaticServerSummary> = match client
             .call_confidential(
                 &config,
@@ -180,7 +180,7 @@ impl Tool for McpListToolsTool {
             .normalize_identifier(&server)
             .await
             .map_err(|error| anyhow::anyhow!(input_module_error_message(error)))?;
-        let client_config = host::client_config(&self.config);
+        let client_config = host::client_config(&self.config).await;
         let remote: Vec<tinymcp_bus::McpRemoteTool> = match client
             .call(
                 &client_config,
@@ -427,7 +427,7 @@ impl Tool for McpCallTool {
                 ));
             }
         };
-        let client_config = host::client_config(&self.config);
+        let client_config = host::client_config(&self.config).await;
         let arguments = match client.normalize_tool_arguments(Some(arguments)).await {
             Ok(arguments) => Value::Object(arguments),
             Err(error) => {

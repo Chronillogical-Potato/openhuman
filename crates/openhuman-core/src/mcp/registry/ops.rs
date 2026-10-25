@@ -50,7 +50,7 @@ async fn module_call<R: serde::de::DeserializeOwned>(
 ) -> Result<R, String> {
     super::super::module_client::McpConfiguredClient::for_config(config)
         .map_err(|error| error.to_string())?
-        .call(&host::client_config(config), member, args)
+        .call(&host::client_config(config).await, member, args)
         .await
         .map_err(|error| error.to_string())
 }
@@ -62,7 +62,7 @@ async fn module_call_confidential<R: serde::de::DeserializeOwned>(
 ) -> Result<R, String> {
     super::super::module_client::McpConfiguredClient::for_config(config)
         .map_err(|error| error.to_string())?
-        .call_confidential(&host::client_config(config), member, args)
+        .call_confidential(&host::client_config(config).await, member, args)
         .await
         .map_err(|error| error.to_string())
 }

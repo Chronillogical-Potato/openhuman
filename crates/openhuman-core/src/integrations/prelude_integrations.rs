@@ -229,7 +229,7 @@ impl OpenHumanTurnPrelude {
         let prepared = match crate::mcp::module_client::McpConfiguredClient::for_config(config) {
             Ok(client) => client
                 .call(
-                    &crate::mcp::host::client_config(config),
+                    &crate::mcp::host::client_config(config).await,
                     tinymcp_bus::names::methods::PREPARE_AGENT_TOOLS,
                     (tinymcp_bus::PrepareAgentToolsRequest { sources },),
                 )

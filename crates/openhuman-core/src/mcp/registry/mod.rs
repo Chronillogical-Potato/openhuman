@@ -88,7 +88,7 @@ pub mod connections {
         args: impl serde::Serialize,
     ) -> Result<R, tinybus::module::ModuleCallError> {
         crate::mcp::module_client::McpConfiguredClient::for_config(config)?
-            .call(&host::client_config(config), member, args)
+            .call(&host::client_config(config).await, member, args)
             .await
     }
 
@@ -366,7 +366,7 @@ pub mod boot {
         // read forces that open without recreating connection policy here.
         if let Err(error) = client
             .call::<serde_json::Value>(
-                &host::client_config(config),
+                &host::client_config(config).await,
                 tinymcp_bus::names::methods::STATIC_LIST,
                 (),
             )
@@ -424,7 +424,7 @@ pub mod oauth {
             crate::mcp::module_client::McpConfiguredClient::for_config(config)
                 .map_err(|error| error.to_string())?
                 .call(
-                    &host::client_config(config),
+                    &host::client_config(config).await,
                     tinymcp_bus::names::methods::OAUTH_COMPLETE,
                     (state, code),
                 )

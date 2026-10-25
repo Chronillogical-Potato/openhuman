@@ -239,7 +239,7 @@ impl McpConfiguredClient {
             return Ok(Vec::new());
         }
         let client = Self::for_config(config)?;
-        let client_config = crate::mcp::host::client_config(config);
+        let client_config = crate::mcp::host::client_config(config).await;
         let mut sources = Vec::new();
         for declared in &config.mcp_client.servers {
             let server = &declared.server;

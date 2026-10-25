@@ -71,7 +71,7 @@ impl MetaLookup {
 
 async fn configured_tool_meta(config: &Config, server: &str, tool: &str) -> Option<Value> {
     let client = McpConfiguredClient::for_config(config).ok()?;
-    let client_config = host::client_config(config);
+    let client_config = host::client_config(config).await;
     let listed: Vec<tinymcp_bus::McpRemoteTool> = client
         .call(
             &client_config,
@@ -123,7 +123,7 @@ pub(crate) async fn installed_tool_meta(
     tool: &str,
 ) -> Option<Value> {
     let client = McpConfiguredClient::for_config(config).ok()?;
-    let client_config = host::client_config(config);
+    let client_config = host::client_config(config).await;
     installed_tool(&client, &client_config, server_id, tool)
         .await
         .and_then(|listed| listed.meta)
