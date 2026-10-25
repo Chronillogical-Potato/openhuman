@@ -210,34 +210,6 @@ impl Tool for ShellTool {
         !command.is_empty()
     }
 
-    async fn prepare_authorization(
-        &self,
-        args: &serde_json::Value,
-    ) -> anyhow::Result<Option<serde_json::Value>> {
-        #[cfg(feature = "modules")]
-        {
-            let config = self
-                .analysis_config
-                .as_deref()
-                .ok_or_else(|| anyhow::anyhow!("command analysis is unavailable"))?;
-            let command = args
-                .get("command")
-                .and_then(serde_json::Value::as_str)
-                .ok_or_else(|| anyhow::anyhow!("command analysis is unavailable"))?;
-            let analysis = crate::modules::tinybox::analyze_command(config, command.to_owned())
-                .await
-                .map_err(|_| anyhow::anyhow!("command analysis is unavailable"))?;
-            let analysis = serde_json::to_value(analysis)
-                .map_err(|_| anyhow::anyhow!("command analysis is unavailable"))?;
-            return Ok(Some(json!({ "analysis": analysis })));
-        }
-        #[cfg(not(feature = "modules"))]
-        {
-            let _ = args;
-            Err(anyhow::anyhow!("command analysis is unavailable"))
-        }
-    }
-
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
         self.execute_in_context(&dispatch_ctx_for_tool(None), args, None)
             .await

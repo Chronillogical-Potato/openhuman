@@ -158,7 +158,7 @@ pub(crate) async fn enforce_current_node_tier_gate(
     node: &str,
 ) -> Result<GateDecision> {
     let policy = current_tier_policy(ctx, captured_config, baseline).await?;
-    enforce_node_tier_gate(&policy, class, node)
+    enforce_node_tier_gate(&policy, class, node).await
 }
 
 fn tier_config_error(_error: &str) -> EngineError {

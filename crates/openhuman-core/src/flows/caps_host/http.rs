@@ -146,7 +146,7 @@ impl OpenHumanHttp {
         let security =
             Arc::new(current_tier_policy(&self.ctx, &self.config, &self.security).await?);
         let tier_decision =
-            enforce_node_tier_gate(&security, CommandClass::Network, "http_request")?;
+            enforce_node_tier_gate(&security, CommandClass::Network, "http_request").await?;
 
         let portability = module::portability_proxy(&self.config)
             .await

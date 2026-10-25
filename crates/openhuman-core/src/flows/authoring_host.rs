@@ -123,7 +123,7 @@ impl ApprovalCallbacks {
             .in_context(async move {
                 use crate::flows::caps_host::classify_composio_action_for_tier;
                 use crate::security::policy::CommandClass;
-                use crate::security::{GateDecision, SecurityPolicy};
+                use crate::security::SecurityPolicy;
                 use tinyflows_bus::catalog::{ManifestCandidate, ManifestClass};
 
                 let security = SecurityPolicy::from_config(
@@ -131,18 +131,22 @@ impl ApprovalCallbacks {
                     &config.workspace_dir,
                     &config.action_dir,
                 );
-                let gated = |class: CommandClass| {
+                async fn gated(
+                    security: &SecurityPolicy,
+                    class: CommandClass,
+                ) -> Option<ManifestClass> {
+                    let gate = security.command_class_gate(class).await.ok()?;
                     Some(ManifestClass {
                         name: format!("{class:?}"),
-                        blocked: security.gate_decision(class) == GateDecision::Block,
+                        blocked: gate == crate::security::GateDecision::Block,
                         skip: false,
                     })
-                };
+                }
                 let mut classes = Vec::with_capacity(request.candidates.len());
                 for candidate in request.candidates {
                     let class = match candidate {
-                        ManifestCandidate::Http { .. } => gated(CommandClass::Network),
-                        ManifestCandidate::Code { .. } => gated(CommandClass::Write),
+                        ManifestCandidate::Http { .. } => gated(&security, CommandClass::Network).await,
+                        ManifestCandidate::Code { .. } => gated(&security, CommandClass::Write).await,
                         ManifestCandidate::NativeTool {
                             tool_name, args, ..
                         } => {
@@ -151,13 +155,16 @@ impl ApprovalCallbacks {
                             )
                             .await
                             .unwrap_or(CommandClass::Network);
-                            gated(class)
+                            gated(&security, class).await
                         }
                         ManifestCandidate::ConnectorTool { slug, .. } => {
                             let class = classify_composio_action_for_tier(&slug).await;
                             Some(ManifestClass {
                                 name: format!("{class:?}"),
-                                blocked: security.gate_decision(class) == GateDecision::Block,
+                                blocked: security
+                                    .command_class_gate(class)
+                                    .await
+                                    .is_ok_and(|gate| gate == crate::security::GateDecision::Block),
                                 skip: class == CommandClass::Read,
                             })
                         }
