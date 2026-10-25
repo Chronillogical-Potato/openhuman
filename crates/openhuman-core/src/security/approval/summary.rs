@@ -1,7 +1,7 @@
 //! Human-readable one-line summaries of approval-bound tool calls.
 //!
-//! Redaction of the arguments themselves is the TinySecurity module's
-//! (`security::redact::arguments`); this file only names the call.
+//! TinySecurity redacts structured arguments at the approval boundary; this
+//! file only names the call.
 
 use serde_json::Value;
 

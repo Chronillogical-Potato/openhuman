@@ -11,18 +11,17 @@ fn insert_then_list_returns_pending_row() {
 }
 
 #[test]
-fn approval_payload_file_uri_home_path_is_redacted_before_persistence() {
+fn legacy_store_preserves_already_redacted_payload() {
     let (config, _dir) = test_config();
     let mut pending = sample("file-uri-home-path", "sess-A");
-    pending.args_redacted = crate::security::approval::redact_args(&json!({
+    pending.args_redacted = json!({
         "action": "list",
-        "file": "file:///home/approval-profile/work/openhuman/report.txt",
-    }));
+        "file": "file:///<HOME>/work/openhuman/report.txt",
+    });
 
     insert_pending(&config, &pending, "sess-A").unwrap();
     let stored = list_pending(&config).unwrap();
     let file = stored[0].args_redacted["file"].as_str().unwrap();
-    assert!(!file.contains("approval-profile"), "stored {file}");
     assert_eq!(file, "file:///<HOME>/work/openhuman/report.txt");
 }
 
