@@ -187,10 +187,9 @@ async fn allow_and_deny_channel_verdicts_are_unchanged() {
     assert!(matches!(denied, GateDecision::Deny { .. }));
 }
 
-/// Credential-like input is rewritten with the shared hosted scrubber before
-/// it enters the model context.
+/// Input is held when the shared TinySecurity scanner is unavailable.
 #[tokio::test]
-async fn screen_input_redacts_credentials_without_changing_screening_policy() {
+async fn screen_input_fails_closed_when_tinysecurity_is_unavailable() {
     let gate = gate(AutonomyLevel::Full);
     let secret: String = [
         's', 'k', '-', 'l', 'i', 'v', 'e', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
@@ -200,14 +199,9 @@ async fn screen_input_redacts_credentials_without_changing_screening_policy() {
     .collect();
     let text = format!("credential={secret}");
     let outcome = gate.screen_input(&text, ContentOrigin::User).await.unwrap();
-    let ScreenOutcome::Redacted(redacted) = outcome else {
-        panic!("credential input should be redacted, got {outcome:?}");
-    };
-    assert!(!redacted.contains(&secret));
-    assert_eq!(
-        redacted,
-        tinyinference_core::sanitize::scrub_credentials(&text)
-    );
+    assert!(!outcome.is_admissible(), "unscanned input must be held");
+    let reason = outcome.block_reason().expect("held input has a reason");
+    assert!(!reason.contains(&secret));
 
     let untrusted = OpenHumanSecurityGate::new(policy(AutonomyLevel::Full), registry())
         .with_input_screening(false)
