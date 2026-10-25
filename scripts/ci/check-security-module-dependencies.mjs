@@ -13,6 +13,10 @@ export const HOST_MANIFESTS = [
   ),
 ];
 const DEPENDENCY_TABLES = new Set(['dependencies', 'build-dependencies', 'dev-dependencies']);
+// Temporary seam until device callers move behind the bus in #657.
+const TEMPORARY_ALLOW = new Map([
+  ['crates/openhuman-core/Cargo.toml', new Set(['tinysecurity-crypto'])],
+]);
 
 export function checkManifest(source, filename = 'Cargo.toml') {
   const manifest = parse(source);
@@ -21,7 +25,8 @@ export function checkManifest(source, filename = 'Cargo.toml') {
     for (const [alias, dependency] of Object.entries(table ?? {})) {
       const pkg = typeof dependency === 'object' ? dependency.package ?? alias : alias;
       if (typeof pkg !== 'string') throw new Error(`${filename}: invalid package in ${location}.${alias}`);
-      if ((pkg === 'tinysecurity' || pkg.startsWith('tinysecurity-')) && pkg !== 'tinysecurity-bus') {
+      const temporary = TEMPORARY_ALLOW.get(filename)?.has(pkg) ?? false;
+      if ((pkg === 'tinysecurity' || pkg.startsWith('tinysecurity-')) && pkg !== 'tinysecurity-bus' && !temporary) {
         violations.push(`${filename}: ${location}.${alias} links ${pkg}; only tinysecurity-bus is allowed`);
       }
     }

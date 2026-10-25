@@ -105,6 +105,9 @@ fn runtime_now() -> tinybus::Result<&'static ModuleRuntime> {
 async fn install_callbacks(runtime: &'static ModuleRuntime) -> tinybus::Result<()> {
     let connection = runtime.connection();
 
+    #[cfg(feature = "security-module")]
+    super::security::callbacks::install(connection).await?;
+
     // The summary callback exists for the module alone; with the component off
     // the module never loads, so nothing would call it.
     let host = crate::core::runtime::DispatchCtx::host_default();

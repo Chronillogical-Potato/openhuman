@@ -4,9 +4,13 @@
 //! Existing OpenHuman security callers remain in place until their migration
 //! issues move them explicitly.
 
-mod callbacks;
+pub(super) mod callbacks;
 mod client;
 mod policy;
+
+#[cfg(test)]
+#[path = "security_tests.rs"]
+mod tests;
 
 pub use client::{Client, SecurityError};
 pub use policy::policy_config;
