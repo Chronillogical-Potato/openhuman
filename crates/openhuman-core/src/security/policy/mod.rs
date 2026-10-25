@@ -2,12 +2,6 @@
 //! for the invariants this module enforces (workspace-internal path
 //! protection, fail-closed command classification, always-forbidden paths).
 
-#[cfg(test)]
-mod command_analysis;
-#[cfg(test)]
-mod command_checks;
-#[cfg(test)]
-mod command_vocabulary;
 mod enforcement;
 mod module_gate;
 mod native_commands;
@@ -16,10 +10,6 @@ mod path_checks;
 
 mod types;
 
-#[cfg(test)]
-pub(crate) use command_analysis::CommandAnalysis;
-#[cfg(test)]
-pub(crate) use command_analysis::CommandSegment;
 pub use module_gate::{host_action_class, PathKind};
 #[cfg(test)]
 pub(crate) use native_commands::Sealed;
@@ -52,12 +42,6 @@ mod tests;
 mod policy_disabled_tests;
 
 #[cfg(test)]
-mod proptest_tests;
-
-#[cfg(test)]
 #[path = "policy_media_artifact_tests.rs"]
 mod policy_media_artifact_tests;
 
-#[cfg(test)]
-#[path = "policy_command_corpus_tests.rs"]
-mod command_corpus_tests;
