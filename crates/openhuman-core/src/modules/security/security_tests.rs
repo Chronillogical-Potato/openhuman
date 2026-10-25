@@ -74,6 +74,48 @@ async fn native_redactor_covers_the_shared_security_fixture() {
     }
 }
 
+#[tokio::test]
+#[ignore = "downloads and loads the pinned native TinySecurity release"]
+async fn native_redact_with_covers_encoded_exact_credentials_and_browser_result() {
+    let mut config = Config::default();
+    config.modules.enabled = true;
+    let client = client(&config)
+        .await
+        .expect("the pinned TinySecurity module should load");
+    let secret = "secret+with/slash".to_owned();
+    let encoded = [
+        secret.clone(),
+        "secret%2Bwith%2Fslash".to_owned(),
+        "c2VjcmV0K3dpdGgvc2xhc2g=".to_owned(),
+        hex::encode(secret.as_bytes()),
+    ];
+    let rendered = format!("key={secret}; encoded=secret%2Bwith%2Fslash");
+    let response = client
+        .redact_with(
+            tinysecurity_bus::RedactMode::CredentialsOnly,
+            rendered,
+            encoded,
+        )
+        .await
+        .expect("TinySecurity RedactWith should answer");
+    assert!(!response.text.contains(&secret));
+    assert!(!response.text.contains("secret%2Bwith%2Fslash"));
+
+    let confirmation = "123e4567-e89b-12d3-a456-426614174000";
+    let browser = format!(
+        r#"{{"status":"NeedsConfirmation","pending":{{"token":"{confirmation}"}},"page":"api_key={secret}"}}"#
+    );
+    let response = client
+        .redact(
+            tinysecurity_bus::RedactMode::BrowserResult,
+            browser,
+        )
+        .await
+        .expect("TinySecurity BrowserResult should answer");
+    assert!(response.text.contains(confirmation));
+    assert!(!response.text.contains(&secret));
+}
+
 fn fixture_parts(case: &serde_json::Value, parts: &str, fallback: &str) -> String {
     case[parts]
         .as_array()
