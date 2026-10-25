@@ -113,6 +113,25 @@ impl SecurityPolicy {
         )
     }
 
+    /// Cached class decision from TinySecurity for synchronous tool adapters.
+    /// The async host gate refreshes it before the tool is dispatched; an
+    /// enabled policy with no answer fails closed.
+    pub fn gate_decision(&self, class: super::types::CommandClass) -> super::types::GateDecision {
+        use super::types::GateDecision;
+        if !self.enabled {
+            return GateDecision::Allow;
+        }
+        let Ok(snapshot) = self.class_gate_snapshot.lock() else {
+            return GateDecision::Block;
+        };
+        snapshot
+            .iter()
+            .rev()
+            .find(|(cached, _)| *cached == class)
+            .map(|(_, gate)| *gate)
+            .unwrap_or(GateDecision::Block)
+    }
+
     /// The **tier** half of an act check, without touching the hourly action
     /// budget.
     ///
