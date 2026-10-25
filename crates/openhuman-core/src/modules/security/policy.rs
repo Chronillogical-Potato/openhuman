@@ -28,12 +28,13 @@ pub fn module_config(config: &Config) -> tinysecurity_bus::ModuleConfig {
 #[must_use]
 pub fn module_config_for_host(
     config: &Config,
-    trusted_host: String,
-) -> tinysecurity_bus::ModuleConfig {
-    tinysecurity_bus::ModuleConfig {
+    trusted_host: Option<String>,
+) -> Result<tinysecurity_bus::ModuleConfig, &'static str> {
+    let trusted_host = trusted_host.ok_or("module host identity unavailable")?;
+    Ok(tinysecurity_bus::ModuleConfig {
         trusted_host: Some(trusted_host),
         ..module_config(config)
-    }
+    })
 }
 
 #[cfg(test)]

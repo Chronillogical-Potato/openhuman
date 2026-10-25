@@ -29,7 +29,7 @@ async fn native_fixture_loads_the_pinned_release_and_reads_policy_info() {
             let record = crate::modules::registry::find(MODULE_ID).expect("registry record");
             let raw = runtime
                 .connection()
-                .proxy(record.bus_name, record.object_path)
+                .proxy(record.bus_name, record.object_path, record.bus_name)
                 .expect("module proxy")
                 .call_confidential::<tinysecurity_bus::PolicyInfo>(
                     tinysecurity_bus::names::methods::POLICY_INFO,
