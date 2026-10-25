@@ -1,6 +1,6 @@
 //! Registry metadata against each module's bus contract constants.
 
-use super::{ALL, COMPONENT_OF, component_for, find};
+use super::{component_for, find, ALL, COMPONENT_OF};
 
 /// The interface and object path each contract crate publishes, keyed by the
 /// module id the registry uses. This is written out from the contract
