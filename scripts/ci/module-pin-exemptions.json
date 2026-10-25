@@ -13,11 +13,5 @@
     "Delete an entry the moment the pins are reconciled. An exemption that has",
     "stopped being true fails the gate too — `expect` must still match."
   ],
-  "exemptions": [
-    {
-      "id": "tinysecurity",
-      "expect": "v0.17.1-107-g6e0bac0",
-      "reason": "Fork-only feature compatibility: the exact v0.17.1 release source is an ancestor; the additional fork commits retain device-pairing needed by #657. Runtime digests remain verbatim from the v0.17.1 checksum.toml."
-    }
-  ]
+  "exemptions": []
 }
