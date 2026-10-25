@@ -7,8 +7,21 @@ on:
       - .github/workflows/security-native.yml
       - .gitmodules
       - vendor/tinysecurity
+      - crates/openhuman-core/Cargo.toml
+      - crates/openhuman-embed/Cargo.toml
+      - crates/openhuman-tinyhumans/Cargo.toml
+      - crates/openhuman-rpc/Cargo.toml
+      - crates/openhuman-cli/Cargo.toml
+      - crates/openhuman-tui/Cargo.toml
+      - crates/openhuman-app/Cargo.toml
+      - crates/openhuman-core/src/modules/mod.rs
+      - crates/openhuman-core/src/modules/ops.rs
+      - crates/openhuman-core/src/modules/runtime.rs
       - crates/openhuman-core/src/modules/security/**
       - crates/openhuman-core/src/modules/registry/records_security.rs
+      - scripts/ci/product-features.txt
+      - scripts/ci/check-security-module-dependencies.mjs
+      - scripts/lib/module-pin-inventory.mjs
       - scripts/ci/security-native-fixture.sh
       - Cargo.lock
   workflow_dispatch: {}
