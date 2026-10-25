@@ -94,7 +94,7 @@ async fn disabled_policy_never_prompts_or_blocks_on_class() {
         assert_eq!(policy.gate_decision(class), GateDecision::Allow);
     }
     assert!(policy.can_act());
-    assert!(!policy.is_rate_limited().await);
+    assert!(!policy.is_rate_limited());
 }
 
 #[test]

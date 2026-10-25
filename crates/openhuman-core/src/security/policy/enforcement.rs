@@ -55,6 +55,9 @@ impl SecurityPolicy {
                 tinytools::status::POLICY_BLOCKED_MARKER
             )
         })?;
+        if let Ok(mut snapshot) = self.budget_snapshot.lock() {
+            *snapshot = Some(decision.clone());
+        }
         match decision {
             BudgetDecision2::Allow => Ok(()),
             BudgetDecision2::ReadOnlyMode => Err(format!(
@@ -74,12 +77,16 @@ impl SecurityPolicy {
     /// Read the module-owned action budget without reserving an action.
     #[cfg(feature = "security-module")]
     pub async fn peek_action_budget(&self) -> Result<tinysecurity_bus::BudgetDecision2, String> {
-        crate::modules::security::gap::budget(
+        let decision = crate::modules::security::gap::budget(
             self.workspace_dir.clone(),
             self.native_command_policy(),
             crate::modules::security::gap::BudgetOp::Peek,
         )
-        .await
+        .await?;
+        if let Ok(mut snapshot) = self.budget_snapshot.lock() {
+            *snapshot = Some(decision.clone());
+        }
+        Ok(decision)
     }
 
     /// Without the module there is no budget authority, so the tier is unknown.
@@ -164,14 +171,18 @@ impl SecurityPolicy {
     }
 
     /// Check if the rate limit would be exceeded without recording.
-    pub async fn is_rate_limited(&self) -> bool {
-        match self.peek_action_budget().await {
-            Ok(tinysecurity_bus::BudgetDecision2::RateLimited { .. }) => true,
-            Ok(
-                tinysecurity_bus::BudgetDecision2::Allow
-                | tinysecurity_bus::BudgetDecision2::ReadOnlyMode,
-            ) => false,
-            Ok(_) | Err(_) => true,
+    pub fn is_rate_limited(&self) -> bool {
+        if !self.enabled {
+            return false;
+        }
+        let Ok(snapshot) = self.budget_snapshot.lock() else {
+            return true;
+        };
+        match snapshot.as_ref() {
+            Some(tinysecurity_bus::BudgetDecision2::RateLimited { .. }) | None => true,
+            Some(tinysecurity_bus::BudgetDecision2::Allow)
+            | Some(tinysecurity_bus::BudgetDecision2::ReadOnlyMode) => false,
+            Some(_) => true,
         }
     }
 

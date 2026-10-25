@@ -49,7 +49,11 @@ async fn checking_the_budget_uses_peek_without_spending_an_action() {
         ..SecurityPolicy::default()
     };
 
-    assert!(!policy.is_rate_limited().await);
+    assert_eq!(
+        policy.peek_action_budget().await.unwrap(),
+        BudgetDecision2::Allow
+    );
+    assert!(!policy.is_rate_limited());
     assert_eq!(port.asked(), vec![(BudgetOp::Peek, 9)]);
     assert_eq!(policy.tracker.count(), 0);
 }
