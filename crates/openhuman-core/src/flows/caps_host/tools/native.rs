@@ -64,14 +64,13 @@ impl flow_backend::FlowPolicyHooks for NativeFlowPolicyHooks<'_, '_> {
             .await
             .map_err(|EngineError::Capability(body)| body)?;
         let summary = crate::security::approval::summarize_action(tool_name, args);
-        let redacted = crate::security::approval::redact_args(args);
         let (outcome, audit_id) = super::super::gate_call_for_tier(
             self.ctx.dispatch,
             self.ctx.approval,
             tier_decision,
             tool_name,
             &summary,
-            redacted,
+            args.clone(),
         )
         .await;
         match outcome {

@@ -13,9 +13,7 @@ use tinyagents_harness::middleware::{
 use tinyinference_llm::tool::ToolCall as TaToolCall;
 use tinytools::ToolResult as TaToolResult;
 
-use crate::security::approval::{
-    redact_args, summarize_action, ApprovalGate, ExecutionOutcome, GateOutcome,
-};
+use crate::security::approval::{summarize_action, ApprovalGate, ExecutionOutcome, GateOutcome};
 use tinytools::Tool;
 
 pub(super) fn approval_resolution_without_gate(
@@ -124,13 +122,12 @@ impl ApprovalSecurityMiddleware {
     ) -> ApprovalResolution {
         let approval_name = approval_tool_name(&call.name, &call.arguments);
         let summary = summarize_action(&call.name, &call.arguments);
-        let redacted = redact_args(&call.arguments);
         let (outcome, request_id) = gate
             .intercept_audited_for_call(
                 &ctx.data.approval,
                 approval_name.as_ref(),
                 &summary,
-                redacted,
+                call.arguments.clone(),
                 (!call.id.trim().is_empty()).then_some(call.id.as_str()),
             )
             .await;
@@ -216,13 +213,12 @@ impl ApprovalResolver<crate::agent::tinyagents::host::OpenHumanRunContext>
             "[tinyagents::mw] routing external-effect tool through approval gate"
         );
         let summary = summarize_action(&call.name, &call.arguments);
-        let redacted = redact_args(&call.arguments);
         let (outcome, request_id) = gate
             .intercept_audited(
                 &ctx.data.approval,
                 approval_name.as_ref(),
                 &summary,
-                redacted,
+                call.arguments.clone(),
             )
             .await;
         match outcome {

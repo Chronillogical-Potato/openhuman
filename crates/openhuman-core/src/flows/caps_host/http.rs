@@ -172,14 +172,13 @@ impl OpenHumanHttp {
         // is injected, so a stored secret never lands in the approval UI or
         // audit trail. Injection happens strictly after this point.
         let summary = inspected.redacted_summary;
-        let redacted = crate::security::approval::redact_args(&request);
         let (outcome, audit_id) = gate_call_for_tier(
             &self.ctx,
             &self.approval,
             tier_decision,
             TOOL_NAME,
             &summary,
-            redacted,
+            serde_json::to_value(&request).unwrap_or_default(),
         )
         .await;
         if let crate::security::approval::GateOutcome::Deny { reason } = outcome {

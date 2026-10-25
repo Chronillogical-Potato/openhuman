@@ -13,8 +13,8 @@
 //!   TinySecurity's command authorization operation / [`SecurityPolicy::gate_decision`]
 //!   decisions, and [`AutonomyLevel`].
 //! - [`crate::approval`] — the process-global [`ApprovalGate`],
-//!   [`GateOutcome`], and the `summarize_action` / `redact_args` pair that keep
-//!   raw arguments out of the approval card.
+//!   [`GateOutcome`], and the summary helper; TinySecurity redacts the
+//!   structured arguments before persistence and prompt delivery.
 //! - [`crate::agent_tool_policy`] — a pre-built [`ToolPolicySession`]
 //!   (channel permission boundary).
 //! - [`crate::prompt_injection`] — [`enforce_prompt_input`] for
@@ -79,9 +79,7 @@ use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::host::security_gate::{GateDecision, ToolCallRequest};
 
 use crate::agent::tinyagents::policy_denial::PolicyDenial;
-use crate::security::approval::{
-    redact_args, summarize_action, ApprovalGate, ApprovalTurnContext, GateOutcome,
-};
+use crate::security::approval::{summarize_action, ApprovalGate, ApprovalTurnContext, GateOutcome};
 use crate::security::policy::{GateDecision as PolicyGateDecision, SecurityPolicy};
 use tinytools::{PermissionLevel, Tool};
 use tinytools::{ToolPolicyAction, ToolPolicySession};
@@ -353,7 +351,6 @@ impl OpenHumanSecurityGate {
         call: &ToolCallRequest,
     ) -> GateDecision {
         let summary = summarize_action(&call.tool_name, &call.arguments);
-        let redacted = redact_args(&call.arguments);
         tracing::debug!(
             target: "tinyagents",
             tool = %call.tool_name,
@@ -365,7 +362,12 @@ impl OpenHumanSecurityGate {
         // executor close the audit row later *without* raising a second
         // approval card. See mismatch (2).
         let (outcome, request_id) = gate
-            .intercept_audited(&self.approval, &call.tool_name, &summary, redacted)
+            .intercept_audited(
+                &self.approval,
+                &call.tool_name,
+                &summary,
+                call.arguments.clone(),
+            )
             .await;
         if matches!(outcome, GateOutcome::Allow) {
             // Only an approval that persisted a row yields an id; the
