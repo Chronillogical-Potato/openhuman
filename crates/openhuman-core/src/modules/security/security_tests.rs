@@ -38,3 +38,45 @@ async fn native_fixture_loads_the_pinned_release_and_reads_policy_info() {
         reinitialized_info.contract_version
     ));
 }
+
+#[tokio::test]
+#[ignore = "downloads and loads the pinned native TinySecurity release"]
+async fn native_redactor_covers_the_shared_security_fixture() {
+    let mut config = Config::default();
+    config.modules.enabled = true;
+    let client = client(&config)
+        .await
+        .expect("the pinned TinySecurity module should load");
+
+    for corpus in [
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures/security-redaction-corpus.json")),
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures/security-redaction-extended-corpus.json")),
+    ] {
+        let corpus: serde_json::Value = serde_json::from_str(corpus).unwrap();
+        for case in corpus["text"].as_array().unwrap() {
+            let kind = case["kind"].as_str().unwrap_or(match case["case"].as_str().unwrap() {
+                "anthropic_key" => "secret",
+                "email" => "pii",
+                _ => "path",
+            });
+            if !matches!(kind, "secret" | "pii") {
+                continue;
+            }
+            let input = fixture_parts(case, "input_parts", "input");
+            let needle = fixture_parts(case, "needle_parts", "needle");
+            let output = client
+                .redact(tinysecurity_bus::RedactMode::Text, input)
+                .await
+                .expect("TinySecurity Redact should answer")
+                .text;
+            assert!(!output.contains(&needle), "case={} output={output}", case["case"]);
+        }
+    }
+}
+
+fn fixture_parts(case: &serde_json::Value, parts: &str, fallback: &str) -> String {
+    case[parts]
+        .as_array()
+        .map(|values| values.iter().map(|value| value.as_str().unwrap()).collect())
+        .unwrap_or_else(|| case[fallback].as_str().unwrap().to_owned())
+}
