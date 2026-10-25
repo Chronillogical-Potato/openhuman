@@ -6,11 +6,20 @@ mod command_analysis;
 mod command_checks;
 mod command_vocabulary;
 mod enforcement;
+mod module_gate;
+mod native_commands;
+#[cfg(test)]
+mod native_commands_stub;
+mod native_paths;
 mod path_checks;
 
 mod types;
 
 pub(crate) use command_analysis::CommandAnalysis;
+pub use module_gate::{host_action_class, Budget, PathKind};
+pub use native_commands::{
+    CommandFlow, CommandQuery, CommandStage, CommandVerdict, Refusal,
+};
 #[cfg(test)]
 pub(crate) use command_analysis::CommandSegment;
 
