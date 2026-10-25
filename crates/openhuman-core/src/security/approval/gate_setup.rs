@@ -11,12 +11,9 @@ impl ApprovalGate {
         if let Some(existing) = GLOBAL_GATE.get() {
             return existing.clone();
         }
-        let ttl = config
-            .security
-            .approval
-            .ttl_secs
-            .filter(|secs| *secs > 0)
-            .map(Duration::from_secs);
+        // TinySecurity owns the default expiry; the host only supplies a
+        // shorter per-call bound when one of its surfaces requires it.
+        let ttl = None;
         let gate = Arc::new(ApprovalGate::new(config, session_id, ttl));
         let _ = GLOBAL_GATE.set(gate.clone());
         GLOBAL_GATE.get().cloned().unwrap_or(gate)
