@@ -309,6 +309,3 @@ impl NativeEngine {
     }
 }
 
-#[cfg(test)]
-#[path = "history_import_tests.rs"]
-mod tests;

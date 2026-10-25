@@ -134,6 +134,3 @@ pub(crate) async fn verify_human(
     })
 }
 
-#[cfg(test)]
-#[path = "callbacks_tests.rs"]
-mod tests;

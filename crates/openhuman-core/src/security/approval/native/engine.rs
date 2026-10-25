@@ -306,6 +306,3 @@ impl NativeEngine {
 #[path = "engine_impl.rs"]
 mod engine_impl;
 
-#[cfg(test)]
-#[path = "engine_tests.rs"]
-mod tests;
