@@ -2,8 +2,11 @@
 //! for the invariants this module enforces (workspace-internal path
 //! protection, fail-closed command classification, always-forbidden paths).
 
+#[cfg(test)]
 mod command_analysis;
+#[cfg(test)]
 mod command_checks;
+#[cfg(test)]
 mod command_vocabulary;
 mod enforcement;
 mod module_gate;
@@ -13,6 +16,7 @@ mod path_checks;
 
 mod types;
 
+#[cfg(test)]
 pub(crate) use command_analysis::CommandAnalysis;
 #[cfg(test)]
 pub(crate) use command_analysis::CommandSegment;
