@@ -8,33 +8,6 @@ use tinytools::status::POLICY_BLOCKED_MARKER;
 use tokio::sync::OnceCell;
 
 impl SecurityPolicy {
-    #[cfg(feature = "security-module")]
-    fn native_command_policy(&self) -> tinysecurity_bus::CommandPolicy {
-        use tinysecurity_bus::{CommandAutonomy, CommandExecutionMode, ShellDialect};
-
-        tinysecurity_bus::CommandPolicy {
-            enabled: self.enabled,
-            execution_mode: CommandExecutionMode::HarnessGated,
-            shell_dialect: if cfg!(windows) {
-                ShellDialect::Cmd
-            } else {
-                ShellDialect::Posix
-            },
-            autonomy: match self.autonomy {
-                AutonomyLevel::ReadOnly => CommandAutonomy::ReadOnly,
-                AutonomyLevel::Supervised => CommandAutonomy::Supervised,
-                AutonomyLevel::Full => CommandAutonomy::Full,
-            },
-            allowed_commands: self.allowed_commands.clone(),
-            max_actions_per_hour: self.max_actions_per_hour,
-            require_approval_for_medium_risk: self.require_approval_for_medium_risk,
-            block_high_risk_commands: self.block_high_risk_commands,
-            action_dir: std::path::absolute(&self.action_dir)
-                .unwrap_or_else(|_| self.action_dir.clone()),
-            home_dir: dirs::home_dir(),
-        }
-    }
-
     /// Reserve one action from TinySecurity's hourly ledger. The host's local
     /// `ActionTracker` remains only for compatibility while synchronous callers
     /// are migrated to the bus-backed gate.
@@ -42,9 +15,12 @@ impl SecurityPolicy {
     pub async fn spend_action(&self, operation_name: &str) -> Result<(), String> {
         use tinysecurity_bus::BudgetDecision2;
 
+        let policy = self
+            .native_command_policy(CommandFlow::Harness, CommandStage::Execute)
+            .map_err(|error| error.to_string())?;
         let decision = crate::modules::security::gap::budget(
             self.workspace_dir.clone(),
-            self.native_command_policy(),
+            policy,
             crate::modules::security::gap::BudgetOp::Spend,
         )
         .await
@@ -77,9 +53,12 @@ impl SecurityPolicy {
     /// Read the module-owned action budget without reserving an action.
     #[cfg(feature = "security-module")]
     pub async fn peek_action_budget(&self) -> Result<tinysecurity_bus::BudgetDecision2, String> {
+        let policy = self
+            .native_command_policy(CommandFlow::Harness, CommandStage::Execute)
+            .map_err(|error| error.to_string())?;
         let decision = crate::modules::security::gap::budget(
             self.workspace_dir.clone(),
-            self.native_command_policy(),
+            policy,
             crate::modules::security::gap::BudgetOp::Peek,
         )
         .await?;
