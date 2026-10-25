@@ -11,7 +11,8 @@ fn exact_credentials_include_common_encoded_forms_for_redact_with() {
     assert!(secrets.iter().any(|value| value == "secret%2Bwith%2Fslash"));
     assert!(secrets.iter().any(|value| value == "secret+with%2Fslash"));
     assert!(secrets.iter().any(|value| value == "c2VjcmV0K3dpdGgvc2xhc2g="));
-    assert!(secrets.iter().any(|value| value == hex::encode("secret+with/slash")));
+    let hex_form = hex::encode("secret+with/slash");
+    assert!(secrets.iter().any(|value| value == &hex_form));
 }
 
 #[cfg(not(feature = "security-module"))]

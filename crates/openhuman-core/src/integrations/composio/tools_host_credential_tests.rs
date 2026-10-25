@@ -235,8 +235,8 @@ async fn composio_key_never_reaches_tool_output_or_errors() {
     assert!(rendered.contains("[REDACTED]"), "{rendered}");
 }
 
-#[test]
-fn redaction_covers_every_result_channel() {
+#[tokio::test]
+async fn redaction_covers_every_result_channel() {
     use crate::integrations::composio::tools::redact_composio_outcome;
     let tmp = tempfile::tempdir().unwrap();
     let base = shared_runtime_config(&tmp);
@@ -248,11 +248,13 @@ fn redaction_covers_every_result_channel() {
     result
         .content
         .push(tinytools::ToolContent::Text { text: KEY_A.into() });
-    let redacted = redact_composio_outcome(&agent, Ok(result)).unwrap();
+    let redacted = redact_composio_outcome(&agent, Ok(result)).await.unwrap();
     let serialized = serde_json::to_string(&redacted).unwrap();
     assert!(!serialized.contains(KEY_A), "{serialized}");
 
-    let err = redact_composio_outcome(&agent, Err(anyhow::anyhow!("bad key {KEY_A}"))).unwrap_err();
+    let err = redact_composio_outcome(&agent, Err(anyhow::anyhow!("bad key {KEY_A}")))
+        .await
+        .unwrap_err();
     assert!(!format!("{err:#}").contains(KEY_A));
 
     let debug = format!("{:?}", agent.composio);
