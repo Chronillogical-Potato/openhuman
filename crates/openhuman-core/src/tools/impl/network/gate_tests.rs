@@ -53,9 +53,8 @@ fn read_only_autonomy_cannot_act() {
 #[test]
 fn the_action_budget_is_shared_with_the_policy() {
     let security = policy(AutonomyLevel::Supervised, 1);
-    *security.budget_snapshot.lock().unwrap() = Some(
-        tinysecurity_bus::BudgetDecision2::RateLimited { max_per_hour: 1 },
-    );
+    *security.budget_snapshot.lock().unwrap() =
+        Some(tinysecurity_bus::BudgetDecision2::RateLimited { max_per_hour: 1 });
     let gate: &dyn NetGate = security.as_ref();
     assert!(gate.is_rate_limited());
     assert!(!gate.record_action());
