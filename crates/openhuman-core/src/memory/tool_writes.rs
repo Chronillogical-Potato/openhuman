@@ -204,7 +204,7 @@ fn enqueue_operation(config: &Config, operation: WriteOperation, scope: &ToolSco
             WriteOperation::Learn {
                 item: tinymemory_integrations::safety::scrub_item_with(
                     item,
-                    crate::security::scrub::host_policy(),
+                    crate::memory::host_policy::host_policy(),
                 )
                 .value,
             }

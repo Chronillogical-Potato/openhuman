@@ -24,6 +24,7 @@ pub mod brain;
 pub mod bus;
 pub mod deletion;
 pub mod engine;
+pub(crate) mod host_policy;
 pub mod engine_registry;
 pub mod error;
 pub use error::{MemoryError, MemoryResult};
