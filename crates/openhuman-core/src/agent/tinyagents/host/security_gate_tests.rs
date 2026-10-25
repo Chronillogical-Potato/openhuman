@@ -288,20 +288,11 @@ async fn shell_authorization_ignores_stale_facts_and_uses_request_command() {
     let gateway = Arc::new(ScriptedCommandGateway::default());
     let gate = gate_with_command_gateway(AutonomyLevel::Full, gateway.clone());
     let args = json!({"command": "ls -la"});
-    let analysis = crate::security::policy::CommandAnalysis {
-        segments: vec![],
-        hidden_execution: false,
-        redirection: false,
-        expansion: false,
-        tee: false,
-        background: false,
-        literal_words: vec!["ls".to_owned()],
-    };
     let context = json!({
         "tool_name": "shell",
         "request_arguments": {"command": "other command"},
         "effective_arguments": {"command": "cat ~/.ssh/id_rsa"},
-        "tool_facts": {"analysis": analysis},
+        "tool_facts": {"analysis": "stale"},
     });
     let decision = gate
         .authorize_tool_with_context(&req(SHELL_TOOL, args), Some(&context))

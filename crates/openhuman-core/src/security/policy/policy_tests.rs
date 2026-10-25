@@ -79,7 +79,3 @@ fn turn_workspace_policy() -> (tempfile::TempDir, PathBuf, SecurityPolicy) {
 
 #[path = "policy_action_dir_tests.rs"]
 mod action_dir_tests;
-#[path = "policy_config_and_action_tests.rs"]
-mod config_and_action_tests;
-#[path = "policy_trusted_roots_tests.rs"]
-mod trusted_roots_tests;

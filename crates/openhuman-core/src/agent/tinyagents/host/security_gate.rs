@@ -10,7 +10,7 @@
 //! # Domains adapted
 //!
 //! - [`crate::security::policy`] — [`SecurityPolicy`], its
-//!   [`SecurityPolicy::check_gated_command_analysis`] / [`SecurityPolicy::gate_decision`]
+//!   TinySecurity's command authorization operation / [`SecurityPolicy::gate_decision`]
 //!   decisions, and [`AutonomyLevel`].
 //! - [`crate::approval`] — the process-global [`ApprovalGate`],
 //!   [`GateOutcome`], and the `summarize_action` / `redact_args` pair that keep
