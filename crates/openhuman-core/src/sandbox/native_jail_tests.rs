@@ -7,7 +7,7 @@ use std::path::PathBuf;
 #[cfg(feature = "modules")]
 fn scripted_credentials(roots: Vec<PathBuf>) -> crate::modules::security::gap::PathFloorPortGuard {
     crate::modules::security::gap::install_path_floor_port(
-        crate::modules::security::gap::ScriptedPathFloorPort::new([], roots),
+        crate::modules::security::gap::ScriptedPathFloorPort::new(roots.clone(), roots),
     )
 }
 
