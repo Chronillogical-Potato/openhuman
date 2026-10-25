@@ -60,7 +60,8 @@ impl flow_backend::FlowPolicyHooks for NativeFlowPolicyHooks<'_, '_> {
         tool_name: &str,
         args: &Value,
     ) -> std::result::Result<Option<String>, String> {
-        let tier_decision = super::super::enforce_node_tier_gate(policy, class, "tool_call").await
+        let tier_decision = super::super::enforce_node_tier_gate(policy, class, "tool_call")
+            .await
             .map_err(|EngineError::Capability(body)| body)?;
         let summary = crate::security::approval::summarize_action(tool_name, args);
         let redacted = crate::security::approval::redact_args(args);

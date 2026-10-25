@@ -29,10 +29,7 @@ pub(super) fn hosting_tools(account: Account) -> Vec<Box<dyn Tool>> {
         .collect()
 }
 
-pub async fn resolve_in_workspace(
-    workspace_dir: &Path,
-    relative: &str,
-) -> anyhow::Result<PathBuf> {
+pub async fn resolve_in_workspace(workspace_dir: &Path, relative: &str) -> anyhow::Result<PathBuf> {
     let relative = relative.trim();
     let candidate = Path::new(if relative.is_empty() { "." } else { relative });
     if candidate.is_absolute()

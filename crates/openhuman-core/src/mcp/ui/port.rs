@@ -166,7 +166,11 @@ impl UiServerPort for HostUiPort {
             tinymcp_bus::names::methods::STATIC_READ_RESOURCE
         };
         let contents: Vec<tinymcp_bus::McpResourceContents> = client
-            .call(&host::client_config(&self.config).await, member, (server_id, uri))
+            .call(
+                &host::client_config(&self.config).await,
+                member,
+                (server_id, uri),
+            )
             .await
             .map_err(|error| {
                 tracing::debug!(

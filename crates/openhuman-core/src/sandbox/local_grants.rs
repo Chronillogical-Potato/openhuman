@@ -69,9 +69,9 @@ async fn resolve(
     home: Option<&std::path::Path>,
     jail: &LocalJailConfig,
 ) -> anyhow::Result<JailGrants> {
-    let request = grant_request(home, jail)
-        .await
-        .map_err(|error| anyhow::anyhow!("TinySecurity could not provide the local jail path floor: {error}"))?;
+    let request = grant_request(home, jail).await.map_err(|error| {
+        anyhow::anyhow!("TinySecurity could not provide the local jail path floor: {error}")
+    })?;
     let reply = crate::modules::tinybox::resolve_local_grants(config, request)
         .await
         .map_err(|error| anyhow::anyhow!("TinyBox could not resolve local jail grants: {error}"))?;
@@ -88,10 +88,9 @@ pub(crate) async fn grant_request(
         LocalGrantConfig, ProtectedPaths, ResolveLocalGrantsRequest,
     };
     let floor = crate::modules::security::gap::protected_floor().await?;
-    let credential_roots = crate::modules::security::gap::credential_roots(
-        home.map(std::path::Path::to_path_buf),
-    )
-    .await?;
+    let credential_roots =
+        crate::modules::security::gap::credential_roots(home.map(std::path::Path::to_path_buf))
+            .await?;
     Ok(ResolveLocalGrantsRequest {
         home: home.map(|h| h.display().to_string()),
         config: LocalGrantConfig {
@@ -135,7 +134,9 @@ async fn admit_grants_under(
     home: Option<&std::path::Path>,
 ) -> JailGrants {
     use std::path::Component;
-    let stores = match crate::modules::security::gap::credential_roots(home.map(PathBuf::from)).await {
+    let stores = match crate::modules::security::gap::credential_roots(home.map(PathBuf::from))
+        .await
+    {
         Ok(roots) => roots,
         Err(error) => {
             tracing::warn!(%error, "[sandbox:grants] TinySecurity credential roots unavailable; refusing module grants");
@@ -168,8 +169,14 @@ async fn admit_grants_under(
         canonical_paths.push(resolved);
     }
     let protected = match crate::modules::security::gap::protected_paths(
-        &lexical_paths.iter().chain(&canonical_paths).cloned().collect::<Vec<_>>(),
-    ).await {
+        &lexical_paths
+            .iter()
+            .chain(&canonical_paths)
+            .cloned()
+            .collect::<Vec<_>>(),
+    )
+    .await
+    {
         Ok(answers) if answers.len() == lexical_paths.len() * 2 => answers,
         _ => return JailGrants::default(),
     };
@@ -181,8 +188,10 @@ async fn admit_grants_under(
             return None;
         }
         if stores.iter().any(|store| {
-            store.starts_with(&path) || store.starts_with(&resolved)
-                || path.starts_with(store) || resolved.starts_with(store)
+            store.starts_with(&path)
+                || store.starts_with(&resolved)
+                || path.starts_with(store)
+                || resolved.starts_with(store)
         }) {
             tracing::warn!(path = %path.display(), "[sandbox:grants] refused module grant overlapping a credential root");
             return None;
@@ -191,8 +200,16 @@ async fn admit_grants_under(
     };
     let split = reply.read_only.len();
     JailGrants {
-        read_only: candidates[..split].iter().cloned().filter_map(admit).collect(),
-        read_write: candidates[split..].iter().cloned().filter_map(admit).collect(),
+        read_only: candidates[..split]
+            .iter()
+            .cloned()
+            .filter_map(admit)
+            .collect(),
+        read_write: candidates[split..]
+            .iter()
+            .cloned()
+            .filter_map(admit)
+            .collect(),
     }
 }
 

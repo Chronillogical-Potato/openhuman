@@ -18,8 +18,8 @@ pub use native_commands::{
 pub use enforcement::validate_path_within_root;
 pub use enforcement::{ensure_openhuman_scratch_dir, openhuman_scratch_dir};
 pub use types::{
-    tool_result_artifacts_dir, AutonomyLevel, CommandClass, GateDecision,
-    SecurityPolicy, ToolOperation, TrustedAccess, TrustedRoot,
+    tool_result_artifacts_dir, AutonomyLevel, CommandClass, GateDecision, SecurityPolicy,
+    ToolOperation, TrustedAccess, TrustedRoot,
 };
 
 #[cfg(test)]
@@ -32,4 +32,3 @@ mod tests;
 #[cfg(test)]
 #[path = "policy_media_artifact_tests.rs"]
 mod policy_media_artifact_tests;
-

@@ -27,7 +27,8 @@ impl FlowCallPolicy for FlowPolicy {
         let policy =
             super::super::tier::tier_policy_from_config(dispatch, captured, Some(live), security)
                 .map_err(capability_payload)?;
-        super::super::enforce_node_tier_gate(&policy, class, "tool_call").await
+        super::super::enforce_node_tier_gate(&policy, class, "tool_call")
+            .await
             .map_err(capability_payload)
     }
     async fn approve(

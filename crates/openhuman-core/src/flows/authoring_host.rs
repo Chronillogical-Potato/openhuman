@@ -144,34 +144,37 @@ impl ApprovalCallbacks {
                 }
                 let mut classes = Vec::with_capacity(request.candidates.len());
                 for candidate in request.candidates {
-                    let class = match candidate {
-                        ManifestCandidate::Http { .. } => gated(&security, CommandClass::Network).await,
-                        ManifestCandidate::Code { .. } => gated(&security, CommandClass::Write).await,
-                        ManifestCandidate::NativeTool {
-                            tool_name, args, ..
-                        } => {
-                            let class = crate::tools::native_ops::classify_tool_call(
-                                &config, &tool_name, &args,
-                            )
-                            .await
-                            .unwrap_or(CommandClass::Network);
-                            gated(&security, class).await
-                        }
-                        ManifestCandidate::ConnectorTool { slug, .. } => {
-                            let class = classify_composio_action_for_tier(&slug).await;
-                            Some(ManifestClass {
-                                name: format!("{class:?}"),
-                                blocked: security
-                                    .command_class_gate(class)
-                                    .await
-                                    .is_ok_and(|gate| gate == crate::security::GateDecision::Block),
-                                skip: class == CommandClass::Read,
-                            })
-                        }
-                        ManifestCandidate::DynamicTool { .. } | ManifestCandidate::Agent { .. } => {
-                            None
-                        }
-                    };
+                    let class =
+                        match candidate {
+                            ManifestCandidate::Http { .. } => {
+                                gated(&security, CommandClass::Network).await
+                            }
+                            ManifestCandidate::Code { .. } => {
+                                gated(&security, CommandClass::Write).await
+                            }
+                            ManifestCandidate::NativeTool {
+                                tool_name, args, ..
+                            } => {
+                                let class = crate::tools::native_ops::classify_tool_call(
+                                    &config, &tool_name, &args,
+                                )
+                                .await
+                                .unwrap_or(CommandClass::Network);
+                                gated(&security, class).await
+                            }
+                            ManifestCandidate::ConnectorTool { slug, .. } => {
+                                let class = classify_composio_action_for_tier(&slug).await;
+                                Some(ManifestClass {
+                                    name: format!("{class:?}"),
+                                    blocked: security.command_class_gate(class).await.is_ok_and(
+                                        |gate| gate == crate::security::GateDecision::Block,
+                                    ),
+                                    skip: class == CommandClass::Read,
+                                })
+                            }
+                            ManifestCandidate::DynamicTool { .. }
+                            | ManifestCandidate::Agent { .. } => None,
+                        };
                     classes.push(class);
                 }
                 Ok(classes)

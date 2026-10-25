@@ -265,9 +265,11 @@ async fn composio_unknown_slug_prompts_under_supervised_tier() {
             .expect("Network-class is prompted, not blocked, under Supervised"),
         GateDecision::Prompt
     );
-    assert!(enforce_node_tier_gate(&policy(AutonomyLevel::ReadOnly), class, "tool_call")
-        .await
-        .is_err());
+    assert!(
+        enforce_node_tier_gate(&policy(AutonomyLevel::ReadOnly), class, "tool_call")
+            .await
+            .is_err()
+    );
 }
 
 /// A `Prompt` tier decision on a default (`require_approval: false`)

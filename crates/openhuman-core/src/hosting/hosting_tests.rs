@@ -556,11 +556,21 @@ async fn workspace_resolution_refuses_absolute_traversal_and_symlink_escape() {
     #[cfg(unix)]
     std::os::unix::fs::symlink(outside.path(), workspace.path().join("escape")).unwrap();
     assert!(resolve_in_workspace(workspace.path(), "app").await.is_ok());
-    assert!(resolve_in_workspace(workspace.path(), "../outside").await.is_err());
-    assert!(resolve_in_workspace(workspace.path(), ".ssh").await.is_err());
-    assert!(resolve_in_workspace(workspace.path(), outside.path().to_str().unwrap()).await.is_err());
+    assert!(resolve_in_workspace(workspace.path(), "../outside")
+        .await
+        .is_err());
+    assert!(resolve_in_workspace(workspace.path(), ".ssh")
+        .await
+        .is_err());
+    assert!(
+        resolve_in_workspace(workspace.path(), outside.path().to_str().unwrap())
+            .await
+            .is_err()
+    );
     #[cfg(unix)]
-    assert!(resolve_in_workspace(workspace.path(), "escape").await.is_err());
+    assert!(resolve_in_workspace(workspace.path(), "escape")
+        .await
+        .is_err());
 }
 
 #[test]

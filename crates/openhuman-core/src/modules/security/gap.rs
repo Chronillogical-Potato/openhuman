@@ -4,12 +4,12 @@
 //! immutable configuration derived from its policy object and fails closed when
 //! the module cannot answer.
 
+#[cfg(test)]
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 #[cfg(test)]
 use std::sync::{Arc, Mutex};
-#[cfg(test)]
-use std::collections::HashSet;
 
 use async_trait::async_trait;
 use tinysecurity_bus::{
@@ -110,9 +110,7 @@ impl Drop for PathValidationPortGuard {
 pub(crate) fn install_path_validation_port(
     port: Arc<dyn PathValidationPort>,
 ) -> PathValidationPortGuard {
-    PathValidationPortGuard(
-        TEST_PATH_VALIDATION_PORT.with(|slot| slot.borrow_mut().replace(port)),
-    )
+    PathValidationPortGuard(TEST_PATH_VALIDATION_PORT.with(|slot| slot.borrow_mut().replace(port)))
 }
 
 #[cfg(test)]
@@ -146,7 +144,10 @@ impl ScriptedPathFloorPort {
 #[async_trait]
 impl PathFloorPort for ScriptedPathFloorPort {
     async fn protected_paths(&self, paths: &[PathBuf]) -> Result<Vec<bool>, String> {
-        Ok(paths.iter().map(|path| self.protected.contains(path)).collect())
+        Ok(paths
+            .iter()
+            .map(|path| self.protected.contains(path))
+            .collect())
     }
 
     async fn protected_floor(&self) -> Result<tinysecurity_bus::ProtectedFloor2, String> {
@@ -409,9 +410,7 @@ pub(crate) async fn protected_floor() -> Result<tinysecurity_bus::ProtectedFloor
 }
 
 /// Credential roots for handing path denials to a host jail.
-pub(crate) async fn credential_roots(
-    home: Option<PathBuf>,
-) -> Result<Vec<PathBuf>, String> {
+pub(crate) async fn credential_roots(home: Option<PathBuf>) -> Result<Vec<PathBuf>, String> {
     #[cfg(test)]
     if let Some(port) = TEST_PATH_FLOOR_PORT.with(|slot| slot.borrow().clone()) {
         let roots = port.credential_roots(home).await?;

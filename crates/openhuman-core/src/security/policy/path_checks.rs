@@ -101,12 +101,8 @@ impl SecurityPolicy {
                 crate::artifacts::ArtifactKind::Image | crate::artifacts::ArtifactKind::Video
             ) && matches!(&meta.status, crate::artifacts::ArtifactStatus::Ready)
         }) {
-            let Ok(ready_path) = crate::artifacts::resolve_ready_file_meta(
-                &self.workspace_dir,
-                &roots,
-                meta,
-            )
-            .await
+            let Ok(ready_path) =
+                crate::artifacts::resolve_ready_file_meta(&self.workspace_dir, &roots, meta).await
             else {
                 continue;
             };

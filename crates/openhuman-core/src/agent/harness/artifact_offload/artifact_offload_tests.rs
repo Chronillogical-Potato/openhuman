@@ -93,7 +93,10 @@ fn workspace_guard_leaves_internal_state_authorization_to_async_preflight() {
         "/tmp/unrelated",
     ] {
         let path = std::path::Path::new(candidate);
-        assert!(!guard.is_internal_state(path), "sync adapter must not decide policy for {candidate}");
+        assert!(
+            !guard.is_internal_state(path),
+            "sync adapter must not decide policy for {candidate}"
+        );
     }
 }
 

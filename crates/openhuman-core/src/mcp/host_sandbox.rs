@@ -155,7 +155,11 @@ fn prepare_workspace(workspace_dir: &Path) -> std::io::Result<PathBuf> {
 /// Existing absolute grants from configuration, `~/` expanded, each past the
 /// host's protected-path floor and the credential-ancestor check.
 async fn admit_all(raw: &[String], home: Option<&Path>) -> Vec<String> {
-    let credential_roots = match crate::modules::security::gap::credential_roots(home.map(Path::to_path_buf)).await {
+    let credential_roots = match crate::modules::security::gap::credential_roots(
+        home.map(Path::to_path_buf),
+    )
+    .await
+    {
         Ok(roots) => roots,
         Err(error) => {
             tracing::warn!(%error, "[mcp] TinySecurity credential roots unavailable; refusing configured jail grants");
@@ -182,7 +186,9 @@ async fn admit_all(raw: &[String], home: Option<&Path>) -> Vec<String> {
     let protected = match crate::modules::security::gap::protected_paths(&paths).await {
         Ok(answers) if answers.len() == paths.len() => answers,
         Ok(_) => {
-            tracing::warn!("[mcp] TinySecurity protected-path response was malformed; refusing jail grants");
+            tracing::warn!(
+                "[mcp] TinySecurity protected-path response was malformed; refusing jail grants"
+            );
             return Vec::new();
         }
         Err(error) => {
@@ -200,7 +206,9 @@ async fn admit_all(raw: &[String], home: Option<&Path>) -> Vec<String> {
                     || resolved.starts_with(root)
             })
         {
-            tracing::warn!("[mcp] refused a stdio sandbox grant: TinySecurity path floor forbids it");
+            tracing::warn!(
+                "[mcp] refused a stdio sandbox grant: TinySecurity path floor forbids it"
+            );
             continue;
         }
         let path = path_string(&resolved);

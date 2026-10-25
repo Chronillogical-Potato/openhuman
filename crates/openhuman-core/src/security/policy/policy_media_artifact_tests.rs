@@ -20,9 +20,7 @@ impl crate::modules::security::gap::PathValidationPort for MediaPathPort {
             .iter()
             .any(|reservation| reservation.exceptions.contains(&path));
         if is_media_exception {
-            let resolved = tokio::fs::canonicalize(&path)
-                .await
-                .unwrap_or(path);
+            let resolved = tokio::fs::canonicalize(&path).await.unwrap_or(path);
             Ok(tinysecurity_bus::PathValidationResult::Allowed { resolved })
         } else {
             Ok(tinysecurity_bus::PathValidationResult::Denied {
@@ -37,7 +35,8 @@ async fn ready_media_artifacts_are_readable_but_other_files_are_not() {
     let _floor = crate::modules::security::gap::install_path_floor_port(
         crate::modules::security::gap::ScriptedPathFloorPort::new([], vec![]),
     );
-    let _validation = crate::modules::security::gap::install_path_validation_port(Arc::new(MediaPathPort));
+    let _validation =
+        crate::modules::security::gap::install_path_validation_port(Arc::new(MediaPathPort));
     let tmp = TempDir::new().unwrap();
     let workspace = tmp.path().join("workspace");
     let files = tmp.path().join("Files");

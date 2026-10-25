@@ -162,23 +162,21 @@ async fn folder_confinement_denies_the_credential_stores_that_exist() {
         ".cargo/credentials.toml",
     ]);
     let root = tempfile::tempdir().unwrap();
-    let _port = scripted_credentials([
-        home.path().join(".ssh"),
-        home.path().join(".aws"),
-        home.path().join("Library/Keychains"),
-        home.path().join(".netrc"),
-        home.path().join(".cargo/credentials.toml"),
-    ].into());
+    let _port = scripted_credentials(
+        [
+            home.path().join(".ssh"),
+            home.path().join(".aws"),
+            home.path().join("Library/Keychains"),
+            home.path().join(".netrc"),
+            home.path().join(".cargo/credentials.toml"),
+        ]
+        .into(),
+    );
 
     let roots = crate::modules::security::gap::credential_roots(Some(home.path().to_path_buf()))
         .await
         .unwrap();
-    let denied = credential_denials(
-        roots,
-        root.path(),
-        &[],
-    )
-    .unwrap();
+    let denied = credential_denials(roots, root.path(), &[]).unwrap();
 
     // Absent stores (`.gnupg`, `.kube`, `.npmrc`, ...) are not sent.
     assert_eq!(
@@ -203,13 +201,9 @@ async fn a_workspace_inside_a_credential_store_is_refused() {
     let roots = crate::modules::security::gap::credential_roots(Some(home.path().to_path_buf()))
         .await
         .unwrap();
-    let err = credential_denials(
-        roots,
-        &home.path().join(".aws/project"),
-        &[],
-    )
-    .unwrap_err()
-    .to_string();
+    let err = credential_denials(roots, &home.path().join(".aws/project"), &[])
+        .unwrap_err()
+        .to_string();
 
     assert!(err.contains("`.aws`"), "{err}");
     // The error names the store, never the user's path to it.
@@ -225,13 +219,9 @@ async fn a_workspace_not_yet_created_inside_a_credential_store_is_refused() {
     let roots = crate::modules::security::gap::credential_roots(Some(home.path().to_path_buf()))
         .await
         .unwrap();
-    let err = credential_denials(
-        roots,
-        &home.path().join(".aws/new-project"),
-        &[],
-    )
-    .unwrap_err()
-    .to_string();
+    let err = credential_denials(roots, &home.path().join(".aws/new-project"), &[])
+        .unwrap_err()
+        .to_string();
 
     assert!(err.contains("`.aws`"), "{err}");
 }
@@ -245,13 +235,9 @@ async fn a_writable_grant_inside_a_credential_store_is_refused() {
     let roots = crate::modules::security::gap::credential_roots(Some(home.path().to_path_buf()))
         .await
         .unwrap();
-    let err = credential_denials(
-        roots,
-        root.path(),
-        &[home.path().join(".kube")],
-    )
-    .unwrap_err()
-    .to_string();
+    let err = credential_denials(roots, root.path(), &[home.path().join(".kube")])
+        .unwrap_err()
+        .to_string();
 
     assert!(err.contains("`.kube`"), "{err}");
 }
@@ -270,12 +256,7 @@ async fn a_store_inside_a_writable_grant_is_still_denied() {
     let roots = crate::modules::security::gap::credential_roots(Some(home.path().to_path_buf()))
         .await
         .unwrap();
-    let denied = credential_denials(
-        roots,
-        root.path(),
-        &[home.path().join(".cargo")],
-    )
-    .unwrap();
+    let denied = credential_denials(roots, root.path(), &[home.path().join(".cargo")]).unwrap();
 
     assert_eq!(
         denied,

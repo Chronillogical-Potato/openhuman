@@ -256,7 +256,9 @@ async fn jail_request(
                 super::local_grants::grant_home(crate::core::runtime::is_saas(), dirs::home_dir);
             let stores = crate::modules::security::gap::credential_roots(home)
                 .await
-                .map_err(|error| anyhow::anyhow!("TinySecurity credential roots unavailable: {error}"))?
+                .map_err(|error| {
+                    anyhow::anyhow!("TinySecurity credential roots unavailable: {error}")
+                })?
                 .into_iter()
                 .chain(crate::credentials::credential_files(config))
                 .collect();
