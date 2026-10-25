@@ -91,7 +91,7 @@ async fn native_jail_request_preserves_grants_and_requires_enforcement() -> anyh
     // Folder confinement keeps the grants and the network decision, and asks
     // TinyBox for what Seatbelt can give: declared constraints, no process
     // isolation.
-    let confined = jail_request(&config, &policy, SandboxIsolation::FolderConfined)?;
+    let confined = jail_request(&config, &policy, SandboxIsolation::FolderConfined).await?;
     assert_eq!(confined.read_only, request.read_only);
     assert_eq!(confined.read_write, request.read_write);
     assert!(!confined.allow_net);
