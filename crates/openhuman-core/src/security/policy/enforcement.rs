@@ -8,18 +8,11 @@ use tinytools::status::POLICY_BLOCKED_MARKER;
 use tokio::sync::OnceCell;
 
 impl SecurityPolicy {
-    /// Reserve one action from TinySecurity's hourly ledger. The host's local
-    /// `ActionTracker` remains only for compatibility while synchronous callers
-    /// are migrated to the bus-backed gate.
     #[cfg(feature = "security-module")]
-    pub async fn spend_action(&self, operation_name: &str) -> Result<(), String> {
-        use tinysecurity_bus::{
-            BudgetDecision2, CommandAutonomy, CommandExecutionMode, ShellDialect,
-        };
+    fn native_command_policy(&self) -> tinysecurity_bus::CommandPolicy {
+        use tinysecurity_bus::{CommandAutonomy, CommandExecutionMode, ShellDialect};
 
-        let action_dir =
-            std::path::absolute(&self.action_dir).unwrap_or_else(|_| self.action_dir.clone());
-        let command_policy = tinysecurity_bus::CommandPolicy {
+        tinysecurity_bus::CommandPolicy {
             enabled: self.enabled,
             execution_mode: CommandExecutionMode::HarnessGated,
             shell_dialect: if cfg!(windows) {
@@ -36,12 +29,22 @@ impl SecurityPolicy {
             max_actions_per_hour: self.max_actions_per_hour,
             require_approval_for_medium_risk: self.require_approval_for_medium_risk,
             block_high_risk_commands: self.block_high_risk_commands,
-            action_dir,
+            action_dir: std::path::absolute(&self.action_dir)
+                .unwrap_or_else(|_| self.action_dir.clone()),
             home_dir: dirs::home_dir(),
-        };
+        }
+    }
+
+    /// Reserve one action from TinySecurity's hourly ledger. The host's local
+    /// `ActionTracker` remains only for compatibility while synchronous callers
+    /// are migrated to the bus-backed gate.
+    #[cfg(feature = "security-module")]
+    pub async fn spend_action(&self, operation_name: &str) -> Result<(), String> {
+        use tinysecurity_bus::BudgetDecision2;
+
         let decision = crate::modules::security::gap::budget(
             self.workspace_dir.clone(),
-            command_policy,
+            self.native_command_policy(),
             crate::modules::security::gap::BudgetOp::Spend,
         )
         .await
@@ -66,6 +69,23 @@ impl SecurityPolicy {
                 tinytools::status::POLICY_BLOCKED_MARKER
             )),
         }
+    }
+
+    /// Read the module-owned action budget without reserving an action.
+    #[cfg(feature = "security-module")]
+    pub async fn peek_action_budget(&self) -> Result<tinysecurity_bus::BudgetDecision2, String> {
+        crate::modules::security::gap::budget(
+            self.workspace_dir.clone(),
+            self.native_command_policy(),
+            crate::modules::security::gap::BudgetOp::Peek,
+        )
+        .await
+    }
+
+    /// Without the module there is no budget authority, so the tier is unknown.
+    #[cfg(not(feature = "security-module"))]
+    pub async fn peek_action_budget(&self) -> Result<tinysecurity_bus::BudgetDecision2, String> {
+        Err("TinySecurity action budget unavailable".into())
     }
 
     /// Without the module there is no budget authority, so acting is refused.
@@ -138,11 +158,12 @@ impl SecurityPolicy {
     }
 
     /// Check if the rate limit would be exceeded without recording.
-    pub fn is_rate_limited(&self) -> bool {
-        if !self.enabled {
-            return false;
+    pub async fn is_rate_limited(&self) -> bool {
+        match self.peek_action_budget().await {
+            Ok(tinysecurity_bus::BudgetDecision2::RateLimited { .. }) => true,
+            Ok(tinysecurity_bus::BudgetDecision2::Allow | tinysecurity_bus::BudgetDecision2::ReadOnlyMode) => false,
+            Ok(_) | Err(_) => true,
         }
-        self.tracker.count() >= self.max_actions_per_hour as usize
     }
 
     /// Build from config sections

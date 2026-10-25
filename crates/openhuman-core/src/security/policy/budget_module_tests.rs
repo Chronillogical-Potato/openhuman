@@ -38,3 +38,18 @@ async fn a_spent_module_budget_is_reported_with_the_module_limit() {
     assert!(error.contains("4 actions/hour"), "{error}");
     assert!(error.contains("Rate limit exceeded"), "{error}");
 }
+
+#[tokio::test]
+async fn checking_the_budget_uses_peek_without_spending_an_action() {
+    let port = ScriptedBudgetPort::replying(BudgetDecision2::Allow);
+    let _installed = install_budget_port(port.clone());
+    let policy = SecurityPolicy {
+        enabled: true,
+        max_actions_per_hour: 9,
+        ..SecurityPolicy::default()
+    };
+
+    assert!(!policy.is_rate_limited().await);
+    assert_eq!(port.asked(), vec![(BudgetOp::Peek, 9)]);
+    assert_eq!(policy.tracker.count(), 0);
+}
