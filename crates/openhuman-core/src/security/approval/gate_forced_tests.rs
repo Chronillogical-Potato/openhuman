@@ -3,7 +3,7 @@ use super::*;
 #[tokio::test]
 async fn forced_approval_parks_with_autonomy_disabled_and_releases_exact_request() {
     let (gate, _dir) = test_gate();
-    assert!(!gate.config.security.autonomy.enabled);
+    assert!(!gate.config.autonomy.enabled);
     let gate = Arc::new(gate);
     let worker = gate.clone();
     let handle = tokio::spawn(async move {
@@ -61,8 +61,8 @@ async fn forced_approval_denies_without_routable_web_chat_origin() {
 #[tokio::test]
 async fn forced_approval_ignores_auto_approval_and_rejects_persistent_grants() {
     let (mut gate, _dir) = test_gate();
-    gate.config.security.autonomy.auto_approve_all = true;
-    gate.config.security.autonomy.auto_approve = vec!["browser_forced_test".into()];
+    gate.config.autonomy.auto_approve_all = true;
+    gate.config.autonomy.auto_approve = vec!["browser_forced_test".into()];
     let gate = Arc::new(gate);
     let worker = gate.clone();
     let handle = tokio::spawn(async move {

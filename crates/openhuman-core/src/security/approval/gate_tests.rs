@@ -1,7 +1,7 @@
 use super::*;
 use crate::config::test_env::EnvVarGuard;
 use crate::security::approval::engine_stub::StubEngine;
-use crate::security::turn_origin;
+use crate::core::runtime::turn_origin;
 use tempfile::TempDir;
 
 /// TTL for the tests that assert the *timeout* path — the only ones that
