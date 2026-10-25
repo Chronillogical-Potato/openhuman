@@ -63,14 +63,22 @@ impl ExecGate for InstallGate {
             unreachable!("operation checked above")
         };
         let command = format!("{manager} install {package}");
-        match self.security.check_command(crate::security::policy::CommandQuery {
-            command: &command,
-            declared: Some(crate::security::policy::CommandClass::Install),
-            flow: crate::security::policy::CommandFlow::Harness,
-            stage: crate::security::policy::CommandStage::Execute,
-        }).await {
+        match self
+            .security
+            .check_command(crate::security::policy::CommandQuery {
+                command: &command,
+                declared: Some(crate::security::policy::CommandClass::Install),
+                flow: crate::security::policy::CommandFlow::Harness,
+                stage: crate::security::policy::CommandStage::Execute,
+            })
+            .await
+        {
             Ok(verdict) if verdict.gate != crate::security::policy::GateDecision::Block => {}
-            Ok(_) => return Err(ExecDenied("[policy-blocked] Install action denied by TinySecurity.".into())),
+            Ok(_) => {
+                return Err(ExecDenied(
+                    "[policy-blocked] Install action denied by TinySecurity.".into(),
+                ))
+            }
             Err(reason) => return Err(ExecDenied(reason.to_string())),
         }
         Ok(ExecPermit {

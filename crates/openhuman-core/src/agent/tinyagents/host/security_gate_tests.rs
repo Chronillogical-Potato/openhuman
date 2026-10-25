@@ -79,7 +79,10 @@ impl crate::security::policy::CommandGateway for ScriptedCommandGateway {
         _policy: &SecurityPolicy,
         query: &crate::security::policy::CommandQuery<'_>,
     ) -> Result<crate::security::policy::CommandVerdict, crate::security::policy::Refusal> {
-        self.0.lock().unwrap().push((query.command.to_owned(), query.stage));
+        self.0
+            .lock()
+            .unwrap()
+            .push((query.command.to_owned(), query.stage));
         Ok(crate::security::policy::CommandVerdict {
             class: crate::security::policy::CommandClass::Read,
             gate: PolicyGateDecision::Allow,
@@ -346,7 +349,7 @@ async fn a_read_class_shell_command_runs_without_a_prompt() {
 
 #[tokio::test]
 #[cfg(feature = "modules")]
-async fn shell_authorization_denies_when_module_facts_are_missing() {
+async fn shell_authorization_uses_command_without_tinybox_facts() {
     let gateway = Arc::new(ScriptedCommandGateway::default());
     let gate = gate_with_command_gateway(AutonomyLevel::Full, gateway.clone());
     let decision = gate
@@ -354,12 +357,18 @@ async fn shell_authorization_denies_when_module_facts_are_missing() {
         .await
         .expect("authorization result");
     assert!(decision.is_allowed());
-    assert_eq!(gateway.0.lock().unwrap().as_slice(), &[("ls -la".into(), crate::security::policy::CommandStage::Authorize)]);
+    assert_eq!(
+        gateway.0.lock().unwrap().as_slice(),
+        &[(
+            "ls -la".into(),
+            crate::security::policy::CommandStage::Authorize
+        )]
+    );
 }
 
 #[tokio::test]
 #[cfg(feature = "modules")]
-async fn shell_authorization_rejects_facts_bound_to_different_arguments() {
+async fn shell_authorization_ignores_stale_facts_and_uses_request_command() {
     let gateway = Arc::new(ScriptedCommandGateway::default());
     let gate = gate_with_command_gateway(AutonomyLevel::Full, gateway.clone());
     let args = json!({"command": "ls -la"});

@@ -17,11 +17,11 @@ pub(crate) use command_analysis::CommandAnalysis;
 #[cfg(test)]
 pub(crate) use command_analysis::CommandSegment;
 pub use module_gate::{host_action_class, PathKind};
+#[cfg(test)]
+pub(crate) use native_commands::Sealed;
 pub use native_commands::{
     CommandFlow, CommandGateway, CommandQuery, CommandStage, CommandVerdict, Refusal,
 };
-#[cfg(test)]
-pub(crate) use native_commands::Sealed;
 
 pub use enforcement::validate_path_within_root;
 pub use enforcement::{ensure_openhuman_scratch_dir, openhuman_scratch_dir};

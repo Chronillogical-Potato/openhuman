@@ -126,7 +126,10 @@ impl SecurityPolicy {
             return true;
         }
         matches!(
-            self.budget_snapshot.lock().ok().and_then(|snapshot| snapshot.clone()),
+            self.budget_snapshot
+                .lock()
+                .ok()
+                .and_then(|snapshot| snapshot.clone()),
             Some(
                 tinysecurity_bus::BudgetDecision2::Allow
                     | tinysecurity_bus::BudgetDecision2::RateLimited { .. }
@@ -189,7 +192,6 @@ mod native {
             let paths = paths.to_vec();
             gap::blocking(async move { gap::check_paths(scope, bus_kind(kind), &paths).await })
         }
-
     }
 }
 
@@ -222,6 +224,5 @@ mod native {
         ) -> Result<Vec<bool>, String> {
             Err(NO_MODULE.into())
         }
-
     }
 }

@@ -165,25 +165,32 @@ impl OpenHumanSecurityGate {
         //    and returns.
         if call.tool_name == SHELL_TOOL {
             let _ = authorization_context;
-            let Some(command) = call.arguments.get("command").and_then(serde_json::Value::as_str)
+            let Some(command) = call
+                .arguments
+                .get("command")
+                .and_then(serde_json::Value::as_str)
             else {
                 return Ok(GateDecision::deny(format!(
                     "{} Shell command is missing or invalid.",
                     tinytools::status::POLICY_BLOCKED_MARKER
                 )));
             };
-            let verdict = match policy.check_command(crate::security::policy::CommandQuery {
-                command,
-                declared: None,
-                flow: crate::security::policy::CommandFlow::Harness,
-                stage: crate::security::policy::CommandStage::Authorize,
-            }).await {
+            let verdict = match policy
+                .check_command(crate::security::policy::CommandQuery {
+                    command,
+                    declared: None,
+                    flow: crate::security::policy::CommandFlow::Harness,
+                    stage: crate::security::policy::CommandStage::Authorize,
+                })
+                .await
+            {
                 Ok(verdict) => verdict,
                 Err(reason) => return Ok(GateDecision::deny(reason.to_string())),
             };
             return Ok(match verdict.gate {
                 PolicyGateDecision::Block => GateDecision::deny(
-                    "[policy-blocked] Command category is not permitted by TinySecurity."),
+                    "[policy-blocked] Command category is not permitted by TinySecurity.",
+                ),
                 PolicyGateDecision::Prompt => self.park_once(call, channel_approved).await,
                 PolicyGateDecision::Allow => self.settled(channel_approved),
             });
@@ -191,22 +198,38 @@ impl OpenHumanSecurityGate {
 
         let required = tool.permission_level_with_args(&call.arguments);
         let external_effect = tool.external_effect_with_args(&call.arguments);
-        let class = match crate::security::policy::host_action_class(required, external_effect).await {
+        let class = match crate::security::policy::host_action_class(required, external_effect)
+            .await
+        {
             Ok(class) => match class {
                 tinysecurity_bus::CommandClass::Read => crate::security::policy::CommandClass::Read,
-                tinysecurity_bus::CommandClass::Write => crate::security::policy::CommandClass::Write,
-                tinysecurity_bus::CommandClass::Network => crate::security::policy::CommandClass::Network,
-                tinysecurity_bus::CommandClass::Install => crate::security::policy::CommandClass::Install,
-                tinysecurity_bus::CommandClass::Destructive => crate::security::policy::CommandClass::Destructive,
+                tinysecurity_bus::CommandClass::Write => {
+                    crate::security::policy::CommandClass::Write
+                }
+                tinysecurity_bus::CommandClass::Network => {
+                    crate::security::policy::CommandClass::Network
+                }
+                tinysecurity_bus::CommandClass::Install => {
+                    crate::security::policy::CommandClass::Install
+                }
+                tinysecurity_bus::CommandClass::Destructive => {
+                    crate::security::policy::CommandClass::Destructive
+                }
             },
             Err(error) => {
                 tracing::warn!(target: "tinyagents", tool = %call.tool_name, "TinySecurity action classification unavailable: {error}");
-                return Ok(GateDecision::deny("[policy-blocked] TinySecurity action classification unavailable."));
+                return Ok(GateDecision::deny(
+                    "[policy-blocked] TinySecurity action classification unavailable.",
+                ));
             }
         };
         match policy.command_class_gate(class).await {
-            Ok(PolicyGateDecision::Block) => return Ok(GateDecision::deny(format!(
-                "{} Security policy blocks this action.", tinytools::status::POLICY_BLOCKED_MARKER))),
+            Ok(PolicyGateDecision::Block) => {
+                return Ok(GateDecision::deny(format!(
+                    "{} Security policy blocks this action.",
+                    tinytools::status::POLICY_BLOCKED_MARKER
+                )))
+            }
             Ok(PolicyGateDecision::Prompt) if !desktop_approval_disabled => {
                 return Ok(self.park_once(call, channel_approved).await);
             }

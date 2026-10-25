@@ -103,7 +103,10 @@ impl Client {
         request: PathValidationRequest,
     ) -> Result<PathValidationResult, SecurityError> {
         self.object
-            .call_confidential(tinysecurity_bus::names::methods::VALIDATE_PARENT, (request,))
+            .call_confidential(
+                tinysecurity_bus::names::methods::VALIDATE_PARENT,
+                (request,),
+            )
             .await
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
     }

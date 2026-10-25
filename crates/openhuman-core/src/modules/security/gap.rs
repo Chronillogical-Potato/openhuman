@@ -11,7 +11,7 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use tinysecurity_bus::{
-    BudgetDecision2, CommandPolicy, CommandPolicyId, PathPolicy, PathPolicyId, PathCheckKind,
+    BudgetDecision2, CommandPolicy, CommandPolicyId, PathCheckKind, PathPolicy, PathPolicyId,
 };
 
 /// Whether to reserve an action or inspect the budget without reserving it.
@@ -215,7 +215,9 @@ pub(crate) async fn validate_host_path(
     {
         Some(id) => id,
         None => {
-            let id = client.register_path_policy(policy.clone()).await
+            let id = client
+                .register_path_policy(policy.clone())
+                .await
                 .map_err(|error| error.to_string())?;
             scopes.push((policy, id.clone()));
             id

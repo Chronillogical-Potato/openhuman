@@ -14,12 +14,15 @@ pub(crate) async fn authorize_shell_command(
     security: &SecurityPolicy,
     command: &str,
 ) -> Result<(), String> {
-    let verdict = security.check_command(crate::security::policy::CommandQuery {
-        command,
-        declared: None,
-        flow: crate::security::policy::CommandFlow::Scheduled,
-        stage: crate::security::policy::CommandStage::Execute,
-    }).await.map_err(|reason| reason.to_string())?;
+    let verdict = security
+        .check_command(crate::security::policy::CommandQuery {
+            command,
+            declared: None,
+            flow: crate::security::policy::CommandFlow::Scheduled,
+            stage: crate::security::policy::CommandStage::Execute,
+        })
+        .await
+        .map_err(|reason| reason.to_string())?;
     if verdict.gate == crate::security::policy::GateDecision::Block {
         return Err("blocked by security policy: command rejected".to_owned());
     }
