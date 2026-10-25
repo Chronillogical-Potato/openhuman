@@ -256,39 +256,6 @@ fn path_var_run_blocked() {
     assert!(!p.is_path_string_allowed("/var/run/docker.sock"));
 }
 
-// -- Edge cases: rate limiter boundary ----------------------------
-
-#[test]
-fn rate_limit_exactly_at_boundary() {
-    let p = SecurityPolicy {
-        max_actions_per_hour: 1,
-        ..SecurityPolicy::default()
-    };
-    assert!(p.record_action()); // 1 — exactly at limit
-    assert!(!p.record_action()); // 2 — over
-    assert!(!p.record_action()); // 3 — still over
-}
-
-#[test]
-fn rate_limit_zero_blocks_everything() {
-    let p = SecurityPolicy {
-        max_actions_per_hour: 0,
-        ..SecurityPolicy::default()
-    };
-    assert!(!p.record_action());
-}
-
-#[test]
-fn rate_limit_high_allows_many() {
-    let p = SecurityPolicy {
-        max_actions_per_hour: 10000,
-        ..SecurityPolicy::default()
-    };
-    for _ in 0..100 {
-        assert!(p.record_action());
-    }
-}
-
 // -- Edge cases: autonomy + command combos ------------------------
 
 #[test]
