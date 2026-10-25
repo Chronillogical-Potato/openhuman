@@ -402,7 +402,7 @@ async fn doctor_status_skips_mismatched_retiring_and_absent_clients_without_open
     let client = McpConfiguredClient::install_test_port(&selected, Box::new(port.clone()))
         .expect("install the selected workspace client");
     let mut state = ConfiguredLifecycle::new();
-    state.open_step(&crate::mcp::host::client_config(&stale).await).await;
+    state.open_step(&crate::mcp::host::client_config(&stale).await);
     state.open_replied(Ok(OpenConfiguredResponse {
         object_path: "/workspace/ambient-a".to_owned(),
         transition_id: "fixture-open".to_owned(),
