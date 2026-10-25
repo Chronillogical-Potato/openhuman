@@ -32,3 +32,7 @@ mod tests;
 #[cfg(test)]
 #[path = "policy_media_artifact_tests.rs"]
 mod policy_media_artifact_tests;
+
+#[cfg(all(test, not(feature = "security-module")))]
+#[path = "path_checks_no_module_tests.rs"]
+mod no_module_tests;
