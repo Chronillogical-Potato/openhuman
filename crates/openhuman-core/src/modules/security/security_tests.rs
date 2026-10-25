@@ -20,6 +20,9 @@ async fn native_fixture_loads_the_pinned_release_and_reads_policy_info() {
     let client = client(&config)
         .await
         .expect("pinned TinySecurity module should load on supported native runners");
+    reinitialize(&config)
+        .await
+        .expect("the module should accept the same trusted host on reinitialization");
     let info = client
         .policy_info()
         .await
