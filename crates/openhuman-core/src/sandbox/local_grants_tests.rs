@@ -19,8 +19,31 @@ mod with_module {
     use super::*;
     use crate::modules::tinybox::contract::LocalGrants;
 
+    fn floor_port(
+        protected: impl IntoIterator<Item = PathBuf>,
+        credentials: Vec<PathBuf>,
+    ) -> crate::modules::security::gap::PathFloorPortGuard {
+        crate::modules::security::gap::install_path_floor_port(
+            crate::modules::security::gap::ScriptedPathFloorPort::new(protected, credentials),
+        )
+    }
+
     #[tokio::test]
     async fn a_forbidden_path_returned_by_the_module_is_refused() {
+        let _port = floor_port(
+            [
+                "/home/op/.ssh",
+                "/home/op/.cargo/credentials.toml",
+                "/etc",
+                "/home/op/.aws/sso",
+            ]
+            .map(PathBuf::from),
+            vec![
+                "/home/op/.ssh".into(),
+                "/home/op/.cargo/credentials.toml".into(),
+                "/home/op/.aws".into(),
+            ],
+        );
         let reply = LocalGrants {
             read_only: vec![
                 "/home/op/.ssh".into(),
@@ -49,6 +72,7 @@ mod with_module {
         let home = tmp.path().join("home");
         let project = home.join("project");
         std::fs::create_dir_all(&project).expect("project dir");
+        let _port = floor_port([], vec![home.join(".ssh")]);
         let mut read_only = vec![
             home.display().to_string(),
             "/".into(),
@@ -85,6 +109,7 @@ mod with_module {
         for dir in [&home, &target, &unrelated] {
             std::fs::create_dir_all(dir).expect("dir");
         }
+        let _port = floor_port([], vec![target.clone()]);
         std::os::unix::fs::symlink(&target, home.join(".ssh")).expect("symlink");
         std::fs::write(target.join("id_ed25519"), "key").expect("key file");
         let reply = LocalGrants {
@@ -103,6 +128,7 @@ mod with_module {
 
     #[tokio::test]
     async fn proc_is_admitted_only_through_allow_proc() {
+        let _port = floor_port([PathBuf::from("/proc"), PathBuf::from("/proc/1/environ")], vec![]);
         let reply = || LocalGrants {
             read_only: vec!["/proc".into(), "/proc/1/environ".into()],
             read_write: Vec::new(),
@@ -116,6 +142,7 @@ mod with_module {
 
     #[tokio::test]
     async fn request_carries_config_and_the_module_floor() {
+        let _port = floor_port([], vec![PathBuf::from("/home/op/.ssh")]);
         let jail = LocalJailConfig {
             toolchain_homes: false,
             extra_read_only: vec!["~/a".into()],
@@ -144,6 +171,7 @@ mod with_module {
 
     #[tokio::test]
     async fn no_home_means_no_credential_roots() {
+        let _port = floor_port([], Vec::new());
         let request = grant_request(None, &LocalJailConfig::default()).await.unwrap();
         assert!(request.home.is_none() && request.protected.credential_roots.is_empty());
     }

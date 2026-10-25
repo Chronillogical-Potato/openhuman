@@ -8,6 +8,8 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 #[cfg(test)]
 use std::sync::{Arc, Mutex};
+#[cfg(test)]
+use std::collections::HashSet;
 
 use async_trait::async_trait;
 use tinysecurity_bus::{
@@ -43,6 +45,78 @@ pub(crate) trait BudgetPort: std::fmt::Debug + Send + Sync {
         policy: CommandPolicy,
         op: BudgetOp,
     ) -> Result<BudgetDecision2, String>;
+}
+
+/// Scriptable TinySecurity path-floor operations for jail and path adapters.
+#[cfg(test)]
+#[async_trait]
+pub(crate) trait PathFloorPort: std::fmt::Debug + Send + Sync {
+    async fn protected_paths(&self, paths: &[PathBuf]) -> Result<Vec<bool>, String>;
+    async fn protected_floor(&self) -> Result<tinysecurity_bus::ProtectedFloor2, String>;
+    async fn credential_roots(&self, home: Option<PathBuf>) -> Result<Vec<PathBuf>, String>;
+}
+
+#[cfg(test)]
+thread_local! {
+    static TEST_PATH_FLOOR_PORT: std::cell::RefCell<Option<Arc<dyn PathFloorPort>>> = const { std::cell::RefCell::new(None) };
+}
+
+#[cfg(test)]
+pub(crate) struct PathFloorPortGuard(Option<Arc<dyn PathFloorPort>>);
+
+#[cfg(test)]
+impl Drop for PathFloorPortGuard {
+    fn drop(&mut self) {
+        TEST_PATH_FLOOR_PORT.with(|slot| *slot.borrow_mut() = self.0.take());
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn install_path_floor_port(port: Arc<dyn PathFloorPort>) -> PathFloorPortGuard {
+    PathFloorPortGuard(TEST_PATH_FLOOR_PORT.with(|slot| slot.borrow_mut().replace(port)))
+}
+
+#[cfg(test)]
+#[derive(Debug)]
+pub(crate) struct ScriptedPathFloorPort {
+    protected: HashSet<PathBuf>,
+    floor: tinysecurity_bus::ProtectedFloor2,
+    credentials: Vec<PathBuf>,
+}
+
+#[cfg(test)]
+impl ScriptedPathFloorPort {
+    pub(crate) fn new(
+        protected: impl IntoIterator<Item = PathBuf>,
+        credentials: Vec<PathBuf>,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            protected: protected.into_iter().collect(),
+            floor: tinysecurity_bus::ProtectedFloor2 {
+                components: vec![".ssh".into(), ".gnupg".into(), ".aws".into()],
+                files: vec![".netrc".into()],
+                pairs: vec![[".cargo".into(), "credentials.toml".into()]],
+                prefixes: vec!["/etc".into(), "/root".into(), "/proc".into()],
+            },
+            credentials,
+        })
+    }
+}
+
+#[cfg(test)]
+#[async_trait]
+impl PathFloorPort for ScriptedPathFloorPort {
+    async fn protected_paths(&self, paths: &[PathBuf]) -> Result<Vec<bool>, String> {
+        Ok(paths.iter().map(|path| self.protected.contains(path)).collect())
+    }
+
+    async fn protected_floor(&self) -> Result<tinysecurity_bus::ProtectedFloor2, String> {
+        Ok(self.floor.clone())
+    }
+
+    async fn credential_roots(&self, _home: Option<PathBuf>) -> Result<Vec<PathBuf>, String> {
+        Ok(self.credentials.clone())
+    }
 }
 
 #[derive(Debug)]
@@ -239,6 +313,14 @@ static PATH_SCOPES: OnceLock<tokio::sync::Mutex<Vec<(PathPolicy, PathPolicyId)>>
 
 /// `ProtectedPath2`: one answer per path, in request order.
 pub(crate) async fn protected_paths(paths: &[PathBuf]) -> Result<Vec<bool>, String> {
+    #[cfg(test)]
+    if let Some(port) = TEST_PATH_FLOOR_PORT.with(|slot| slot.borrow().clone()) {
+        let answers = port.protected_paths(paths).await?;
+        if answers.len() != paths.len() {
+            return Err("scripted TinySecurity ProtectedPath2 answer length mismatch".into());
+        }
+        return Ok(answers);
+    }
     let config = crate::core::runtime::DispatchCtx::ambient()
         .load_config()
         .await?;
@@ -258,6 +340,10 @@ pub(crate) async fn protected_paths(paths: &[PathBuf]) -> Result<Vec<bool>, Stri
 
 /// `ProtectedFloor2` vocabulary for consumers that hand the floor to a jail.
 pub(crate) async fn protected_floor() -> Result<tinysecurity_bus::ProtectedFloor2, String> {
+    #[cfg(test)]
+    if let Some(port) = TEST_PATH_FLOOR_PORT.with(|slot| slot.borrow().clone()) {
+        return port.protected_floor().await;
+    }
     let config = crate::core::runtime::DispatchCtx::ambient()
         .load_config()
         .await?;
@@ -273,6 +359,13 @@ pub(crate) async fn protected_floor() -> Result<tinysecurity_bus::ProtectedFloor
 pub(crate) async fn credential_roots(
     home: Option<PathBuf>,
 ) -> Result<Vec<PathBuf>, String> {
+    #[cfg(test)]
+    if let Some(port) = TEST_PATH_FLOOR_PORT.with(|slot| slot.borrow().clone()) {
+        let roots = port.credential_roots(home).await?;
+        let response = tinysecurity_bus::CredentialRootsResponse2 { roots };
+        response.validate().map_err(|error| error.to_string())?;
+        return Ok(response.roots);
+    }
     let config = crate::core::runtime::DispatchCtx::ambient()
         .load_config()
         .await?;
