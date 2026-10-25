@@ -1,11 +1,9 @@
 use crate::config::PrivacyMode;
-use parking_lot::Mutex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Instant;
 use tokio::sync::OnceCell;
 
 /// How much autonomy the agent has
@@ -93,67 +91,6 @@ pub enum GateDecision {
 pub enum ToolOperation {
     Read,
     Act,
-}
-
-/// Sliding-window action tracker for rate limiting.
-#[derive(Debug)]
-pub struct ActionTracker {
-    /// Timestamps of recent actions (kept within the last hour).
-    actions: Arc<Mutex<Vec<Instant>>>,
-}
-
-impl Default for ActionTracker {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl ActionTracker {
-    pub fn new() -> Self {
-        Self {
-            actions: Arc::new(Mutex::new(Vec::new())),
-        }
-    }
-
-    /// Record an action and return the current count within the window.
-    pub fn record(&self) -> usize {
-        let mut actions = self.actions.lock();
-        let cutoff = Instant::now()
-            .checked_sub(std::time::Duration::from_secs(3600))
-            .unwrap_or_else(Instant::now);
-        actions.retain(|t| *t > cutoff);
-        actions.push(Instant::now());
-        actions.len()
-    }
-
-    /// Count of actions in the current window without recording.
-    pub fn count(&self) -> usize {
-        let mut actions = self.actions.lock();
-        let cutoff = Instant::now()
-            .checked_sub(std::time::Duration::from_secs(3600))
-            .unwrap_or_else(Instant::now);
-        actions.retain(|t| *t > cutoff);
-        actions.len()
-    }
-
-    /// Shares the action history with a short-lived policy derived from this
-    /// tracker. Ordinary `Clone` intentionally snapshots history for separate
-    /// policies; live flow gates use this handle so rebuilding the tier view
-    /// does not reset one run's action budget.
-    pub(crate) fn shared_clone(&self) -> Self {
-        Self {
-            actions: Arc::clone(&self.actions),
-        }
-    }
-}
-
-impl Clone for ActionTracker {
-    fn clone(&self) -> Self {
-        let actions = self.actions.lock();
-        Self {
-            actions: Arc::new(Mutex::new(actions.clone())),
-        }
-    }
 }
 
 /// Subdirectories under `workspace_dir` that hold internal application state
@@ -319,7 +256,6 @@ pub struct SecurityPolicy {
     /// `is_always_forbidden`, `is_workspace_internal_path`, or
     /// `ToolPolicyMiddleware`, which are independent code paths.
     pub auto_approve_all: bool,
-    pub tracker: ActionTracker,
     /// Test-only command-policy override; production always asks TinySecurity.
     pub command_gateway: Option<super::native_commands::SharedCommandGateway>,
     /// Last module-owned budget decision, shared by cloned policy views so
@@ -460,7 +396,6 @@ impl Default for SecurityPolicy {
             allow_tool_install: false,
             auto_approve: Vec::new(),
             auto_approve_all: false,
-            tracker: ActionTracker::new(),
             command_gateway: None,
             budget_snapshot: Arc::new(std::sync::Mutex::new(None)),
             canonical_workspace: Arc::new(OnceCell::new()),

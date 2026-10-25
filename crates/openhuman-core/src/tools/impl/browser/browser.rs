@@ -580,10 +580,6 @@ impl BrowserTool {
         args: Value,
         origin: Option<crate::core::runtime::turn_origin::AgentTurnOrigin>,
     ) -> anyhow::Result<ToolResult> {
-        // A task counts once here; its own steps are bounded by max_actions.
-        if let Err(reason) = self.security.spend_action("browser task").await {
-            return Ok(ToolResult::error(reason));
-        }
         match self.run(&args, origin.as_ref()).await {
             Ok(v) => Ok(ToolResult::success(serde_json::to_string_pretty(&v)?)),
             Err(e) => Ok(ToolResult::error(e.to_string())),

@@ -2,16 +2,14 @@ use std::path::Path;
 
 use super::native_commands::{CommandFlow, CommandStage};
 use super::types::{
-    ActionTracker, AutonomyLevel, SecurityPolicy, ToolOperation, TrustedAccess, TrustedRoot,
+    AutonomyLevel, SecurityPolicy, ToolOperation, TrustedAccess, TrustedRoot,
 };
 use std::sync::Arc;
 use tinytools::status::POLICY_BLOCKED_MARKER;
 use tokio::sync::OnceCell;
 
 impl SecurityPolicy {
-    /// Reserve one action from TinySecurity's hourly ledger. The host's local
-    /// `ActionTracker` remains only for compatibility while synchronous callers
-    /// are migrated to the bus-backed gate.
+    /// Reserve one action from TinySecurity's hourly ledger.
     #[cfg(feature = "security-module")]
     pub async fn spend_action(&self, operation_name: &str) -> Result<(), String> {
         use tinysecurity_bus::BudgetDecision2;
@@ -157,8 +155,10 @@ impl SecurityPolicy {
         }
     }
 
-    /// Record an action and check if the rate limit has been exceeded.
-    /// Returns `true` if the action is allowed, `false` if rate-limited.
+    /// Compatibility read for TinyTools' synchronous gate trait.
+    /// The async host authorization stage has already reserved the action in
+    /// TinySecurity and refreshed `budget_snapshot`; this method keeps no
+    /// local counter and never re-enters a Tokio runtime.
     pub fn record_action(&self) -> bool {
         if !self.enabled {
             return true;
@@ -378,7 +378,6 @@ impl SecurityPolicy {
             auto_approve: autonomy_config.auto_approve.clone(),
             auto_approve_all: autonomy_config.auto_approve_all,
             command_gateway: None,
-            tracker: ActionTracker::new(),
             budget_snapshot: Arc::new(std::sync::Mutex::new(None)),
             canonical_workspace: Arc::new(OnceCell::new()),
         }

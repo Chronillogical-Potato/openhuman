@@ -383,11 +383,6 @@ impl Tool for McpCallTool {
         args: Value,
         options: ToolCallOptions,
     ) -> anyhow::Result<ToolResult> {
-        self.security
-            .enforce_tool_operation(ToolOperation::Act, self.name())
-            .await
-            .map_err(|error| anyhow::anyhow!(error))?;
-
         let server = required_string_arg(&args, "server")?;
         let tool = required_string_arg(&args, "tool")?;
         let arguments = args

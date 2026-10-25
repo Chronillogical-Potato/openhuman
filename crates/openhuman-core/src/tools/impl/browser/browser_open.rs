@@ -44,9 +44,6 @@ impl Tool for BrowserOpenTool {
         json!({"type":"object","properties":{"url":{"type":"string","description":"HTTPS URL to open"}},"required":["url"]})
     }
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        if let Err(reason) = self.security.spend_action("browser open").await {
-            return Ok(ToolResult::error(reason));
-        }
         let url = args["url"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("Missing 'url' parameter"))?;
