@@ -321,6 +321,10 @@ impl SecurityPolicy {
     }
 }
 
+#[cfg(test)]
+#[path = "budget_module_tests.rs"]
+mod budget_module_tests;
+
 /// The dedicated, namespaced scratch directory granted to the agent so its
 /// natural `/tmp/...` temp-file habit lands in a sandboxed, trusted location
 /// rather than the world-shared `/tmp`. Only this subdir is ever trusted —
