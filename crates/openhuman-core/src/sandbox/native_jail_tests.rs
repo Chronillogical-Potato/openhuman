@@ -4,6 +4,13 @@ use super::*;
 #[cfg(all(feature = "modules", target_os = "linux"))]
 use std::path::PathBuf;
 
+#[cfg(feature = "modules")]
+fn scripted_credentials(roots: Vec<PathBuf>) -> crate::modules::security::gap::PathFloorPortGuard {
+    crate::modules::security::gap::install_path_floor_port(
+        crate::modules::security::gap::ScriptedPathFloorPort::new([], roots),
+    )
+}
+
 #[test]
 fn jail_status_is_ready_only_for_an_accepted_jail() {
     use super::super::ops::local_status_for_jail;
@@ -58,6 +65,7 @@ fn an_unavailable_or_unconfining_jail_is_refused() {
 #[cfg(feature = "modules")]
 #[tokio::test]
 async fn native_jail_request_preserves_grants_and_requires_enforcement() -> anyhow::Result<()> {
+    let _port = scripted_credentials(Vec::new());
     let root = tempfile::tempdir()?;
     let readonly = tempfile::tempdir()?;
     let readwrite = tempfile::tempdir()?;
@@ -154,6 +162,13 @@ async fn folder_confinement_denies_the_credential_stores_that_exist() {
         ".cargo/credentials.toml",
     ]);
     let root = tempfile::tempdir().unwrap();
+    let _port = scripted_credentials([
+        home.path().join(".ssh"),
+        home.path().join(".aws"),
+        home.path().join("Library/Keychains"),
+        home.path().join(".netrc"),
+        home.path().join(".cargo/credentials.toml"),
+    ].into());
 
     let roots = crate::modules::security::gap::credential_roots(Some(home.path().to_path_buf()))
         .await
@@ -181,6 +196,7 @@ async fn folder_confinement_denies_the_credential_stores_that_exist() {
 #[tokio::test]
 async fn a_workspace_inside_a_credential_store_is_refused() {
     let home = home_with(&[".ssh/", ".aws/project/"]);
+    let _port = scripted_credentials(vec![home.path().join(".ssh"), home.path().join(".aws")]);
 
     // Denying `~/.aws` would take the workspace away, and skipping it would
     // leave `~/.aws/credentials` readable, so the jail is refused.
@@ -203,6 +219,7 @@ async fn a_workspace_inside_a_credential_store_is_refused() {
 #[tokio::test]
 async fn a_workspace_not_yet_created_inside_a_credential_store_is_refused() {
     let home = home_with(&[".aws/"]);
+    let _port = scripted_credentials(vec![home.path().join(".aws")]);
 
     // The workspace folder doesn't exist yet; it still lands inside `~/.aws`.
     let roots = crate::modules::security::gap::credential_roots(Some(home.path().to_path_buf()))
@@ -222,6 +239,7 @@ async fn a_workspace_not_yet_created_inside_a_credential_store_is_refused() {
 #[tokio::test]
 async fn a_writable_grant_inside_a_credential_store_is_refused() {
     let home = home_with(&[".kube/"]);
+    let _port = scripted_credentials(vec![home.path().join(".kube")]);
     let root = tempfile::tempdir().unwrap();
 
     let roots = crate::modules::security::gap::credential_roots(Some(home.path().to_path_buf()))
@@ -242,6 +260,10 @@ async fn a_writable_grant_inside_a_credential_store_is_refused() {
 async fn a_store_inside_a_writable_grant_is_still_denied() {
     let home = home_with(&[".ssh/", ".cargo/credentials.toml"]);
     let root = tempfile::tempdir().unwrap();
+    let _port = scripted_credentials(vec![
+        home.path().join(".ssh"),
+        home.path().join(".cargo/credentials.toml"),
+    ]);
 
     // Seatbelt carves the store out of the grant; a store that holds nothing
     // of the jail's is denied as usual.
