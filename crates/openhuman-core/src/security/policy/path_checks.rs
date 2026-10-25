@@ -1,9 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use super::types::{
-    SecurityPolicy, ACCOUNT_CONFIG_FILE, ARTIFACTS_DIR, ARTIFACT_TOOL_RESULTS_DIR,
-    WORKSPACE_INTERNAL_DIRS, WORKSPACE_INTERNAL_FILES,
-};
+use super::types::SecurityPolicy;
 use tinytools::status::POLICY_BLOCKED_MARKER;
 
 impl SecurityPolicy {

@@ -1,6 +1,4 @@
-//! `SecurityPolicy` and the autonomy/risk gate. See [`README.md`](README.md)
-//! for the invariants this module enforces (workspace-internal path
-//! protection, fail-closed command classification, always-forbidden paths).
+//! Host context and adapters for TinySecurity policy operations.
 
 mod enforcement;
 mod module_gate;
@@ -19,12 +17,6 @@ pub use native_commands::{
 
 pub use enforcement::validate_path_within_root;
 pub use enforcement::{ensure_openhuman_scratch_dir, openhuman_scratch_dir};
-#[cfg(any(feature = "modules", test))]
-pub(crate) use path_checks::home_credential_stores;
-#[cfg(feature = "modules")]
-pub(crate) use path_checks::{
-    ALWAYS_FORBIDDEN_PREFIXES, SENSITIVE_COMPONENTS, SENSITIVE_FILES, SENSITIVE_PAIRS,
-};
 pub use types::{
     tool_result_artifacts_dir, AutonomyLevel, CommandClass, CommandRiskLevel, GateDecision,
     SecurityPolicy, ToolOperation, TrustedAccess, TrustedRoot,
