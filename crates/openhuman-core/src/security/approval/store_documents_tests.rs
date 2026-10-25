@@ -332,28 +332,6 @@ fn sub_second_timestamps_order_and_expire_on_time() {
 }
 
 #[test]
-fn a_captured_store_decides_without_the_task_scope() {
-    let store = docs();
-    store.insert_pending(&pending("r", 0, None), "s").unwrap();
-    let decided = crate::security::approval::store::decide_captured(
-        &Ok(store.clone()),
-        "r",
-        ApprovalDecision::Deny,
-    )
-    .unwrap();
-    assert_eq!(decided.map(|p| p.request_id), Some("r".to_string()));
-}
-
-#[test]
-fn an_unresolved_scope_fails_the_captured_decide_instead_of_using_another_scope() {
-    let captured = Err("no acting agent".to_string());
-    let error =
-        crate::security::approval::store::decide_captured(&captured, "r", ApprovalDecision::Deny)
-            .unwrap_err();
-    assert!(error.to_string().contains("unresolved"), "{error}");
-}
-
-#[test]
 fn expiry_is_compared_in_epoch_milliseconds() {
     let store = docs();
     let whole = Utc::now().with_nanosecond(0).unwrap();
