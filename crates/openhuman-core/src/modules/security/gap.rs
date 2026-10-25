@@ -52,13 +52,33 @@ pub(crate) trait BudgetPort: std::fmt::Debug + Send + Sync {
 #[async_trait]
 pub(crate) trait PathFloorPort: std::fmt::Debug + Send + Sync {
     async fn protected_paths(&self, paths: &[PathBuf]) -> Result<Vec<bool>, String>;
+    async fn check_paths(
+        &self,
+        _kind: tinysecurity_bus::PathCheckKind,
+        paths: &[PathBuf],
+    ) -> Result<Vec<bool>, String> {
+        Ok(vec![false; paths.len()])
+    }
     async fn protected_floor(&self) -> Result<tinysecurity_bus::ProtectedFloor2, String>;
     async fn credential_roots(&self, home: Option<PathBuf>) -> Result<Vec<PathBuf>, String>;
+}
+
+/// Scripted path authorization result for host request/outcome tests.
+#[cfg(test)]
+#[async_trait]
+pub(crate) trait PathValidationPort: std::fmt::Debug + Send + Sync {
+    async fn validate_host_path(
+        &self,
+        policy: PathPolicy,
+        path: String,
+        parent: bool,
+    ) -> Result<tinysecurity_bus::PathValidationResult, String>;
 }
 
 #[cfg(test)]
 thread_local! {
     static TEST_PATH_FLOOR_PORT: std::cell::RefCell<Option<Arc<dyn PathFloorPort>>> = const { std::cell::RefCell::new(None) };
+    static TEST_PATH_VALIDATION_PORT: std::cell::RefCell<Option<Arc<dyn PathValidationPort>>> = const { std::cell::RefCell::new(None) };
 }
 
 #[cfg(test)]
@@ -74,6 +94,25 @@ impl Drop for PathFloorPortGuard {
 #[cfg(test)]
 pub(crate) fn install_path_floor_port(port: Arc<dyn PathFloorPort>) -> PathFloorPortGuard {
     PathFloorPortGuard(TEST_PATH_FLOOR_PORT.with(|slot| slot.borrow_mut().replace(port)))
+}
+
+#[cfg(test)]
+pub(crate) struct PathValidationPortGuard(Option<Arc<dyn PathValidationPort>>);
+
+#[cfg(test)]
+impl Drop for PathValidationPortGuard {
+    fn drop(&mut self) {
+        TEST_PATH_VALIDATION_PORT.with(|slot| *slot.borrow_mut() = self.0.take());
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn install_path_validation_port(
+    port: Arc<dyn PathValidationPort>,
+) -> PathValidationPortGuard {
+    PathValidationPortGuard(
+        TEST_PATH_VALIDATION_PORT.with(|slot| slot.borrow_mut().replace(port)),
+    )
 }
 
 #[cfg(test)]
@@ -229,6 +268,14 @@ pub(crate) async fn check_paths(
     kind: PathCheckKind,
     paths: &[PathBuf],
 ) -> Result<Vec<bool>, String> {
+    #[cfg(test)]
+    if let Some(port) = TEST_PATH_FLOOR_PORT.with(|slot| slot.borrow().clone()) {
+        let answers = port.check_paths(kind, paths).await?;
+        if answers.len() != paths.len() {
+            return Err("scripted TinySecurity CheckPaths2 answer length mismatch".into());
+        }
+        return Ok(answers);
+    }
     let config = crate::core::runtime::DispatchCtx::ambient()
         .load_config()
         .await?;
@@ -274,6 +321,12 @@ pub(crate) async fn validate_host_path(
     path: &str,
     parent: bool,
 ) -> Result<tinysecurity_bus::PathValidationResult, String> {
+    #[cfg(test)]
+    if let Some(port) = TEST_PATH_VALIDATION_PORT.with(|slot| slot.borrow().clone()) {
+        return port
+            .validate_host_path(policy, path.to_owned(), parent)
+            .await;
+    }
     let config = crate::core::runtime::DispatchCtx::ambient()
         .load_config()
         .await?;
