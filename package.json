@@ -85,6 +85,7 @@
   "devDependencies": {
     "gpt-tokenizer": "^3.4.0",
     "husky": "^9.1.7",
+    "smol-toml": "1.6.1",
     "tsx": "^4.20.3",
     "ws": "^8.20.0"
   },
