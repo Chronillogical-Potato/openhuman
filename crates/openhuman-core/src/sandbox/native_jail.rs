@@ -252,16 +252,27 @@ async fn jail_request(
         deny_read: if isolated {
             Vec::new()
         } else {
-            let home =
-                super::local_grants::grant_home(crate::core::runtime::is_saas(), dirs::home_dir);
-            let stores = crate::modules::security::gap::credential_roots(home)
-                .await
-                .map_err(|error| {
-                    anyhow::anyhow!("TinySecurity credential roots unavailable: {error}")
-                })?
-                .into_iter()
-                .chain(crate::credentials::credential_files(config))
-                .collect();
+            #[cfg(feature = "security-module")]
+            let stores = {
+                let home = super::local_grants::grant_home(
+                    crate::core::runtime::is_saas(),
+                    dirs::home_dir,
+                );
+                crate::modules::security::gap::credential_roots(home)
+                    .await
+                    .map_err(|error| {
+                        anyhow::anyhow!("TinySecurity credential roots unavailable: {error}")
+                    })?
+                    .into_iter()
+                    .chain(crate::credentials::credential_files(config))
+                    .collect::<Vec<_>>()
+            };
+            #[cfg(not(feature = "security-module"))]
+            let stores: Vec<std::path::PathBuf> = {
+                return Err(anyhow::anyhow!(
+                    "TinySecurity is not built into this host; refusing the non-isolated jail"
+                ));
+            };
             credential_denials(stores, &policy.workspace_root, &policy.read_write_mounts)?
         },
         // No hard resource limits are requested by the host.
