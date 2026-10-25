@@ -59,20 +59,19 @@ impl ExecGate for InstallGate {
                 "[policy-denied] OS package installation is disabled. Enable it in the agent access settings (Full access mode / allow_tool_install) before installing tools.".into(),
             ));
         }
-        if !self.security.can_act() {
-            return Err(ExecDenied(
-                "[policy-blocked] Action blocked: autonomy is read-only.".into(),
-            ));
-        }
-        if self.security.is_rate_limited() {
-            return Err(ExecDenied(
-                "Rate limit exceeded: too many actions in the last hour".into(),
-            ));
-        }
-        if !self.security.record_action() {
-            return Err(ExecDenied(
-                "Rate limit exceeded: action budget exhausted".into(),
-            ));
+        let ExecOperation::Install { package, manager } = &request.operation else {
+            unreachable!("operation checked above")
+        };
+        let command = format!("{manager} install {package}");
+        match self.security.check_command(crate::security::policy::CommandQuery {
+            command: &command,
+            declared: Some(crate::security::policy::CommandClass::Install),
+            flow: crate::security::policy::CommandFlow::Harness,
+            stage: crate::security::policy::CommandStage::Execute,
+        }).await {
+            Ok(verdict) if verdict.gate != crate::security::policy::GateDecision::Block => {}
+            Ok(_) => return Err(ExecDenied("[policy-blocked] Install action denied by TinySecurity.".into())),
+            Err(reason) => return Err(ExecDenied(reason.to_string())),
         }
         Ok(ExecPermit {
             action_dir: PathBuf::from(&self.security.workspace_dir),
