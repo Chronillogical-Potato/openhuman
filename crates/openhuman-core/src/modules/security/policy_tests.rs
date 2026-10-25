@@ -9,8 +9,14 @@ fn policy_translation_copies_effective_host_settings() {
 
     let translated = policy_config(&config);
     assert!(translated.enabled);
-    assert_eq!(translated.action_dir, config.action_dir.display().to_string());
-    assert_eq!(translated.workspace_dir, config.workspace_dir.display().to_string());
+    assert_eq!(
+        translated.action_dir,
+        config.action_dir.display().to_string()
+    );
+    assert_eq!(
+        translated.workspace_dir,
+        config.workspace_dir.display().to_string()
+    );
     assert_eq!(translated.allowed_commands, ["pwd"]);
     assert_eq!(translated.forbidden_paths, ["/private"]);
 }
