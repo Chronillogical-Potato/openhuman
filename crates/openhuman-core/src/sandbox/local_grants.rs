@@ -89,7 +89,10 @@ pub(crate) async fn grant_request(
         LocalGrantConfig, ProtectedPaths, ResolveLocalGrantsRequest,
     };
     let floor = crate::modules::security::gap::protected_floor().await?;
-    let credential_roots = crate::modules::security::gap::credential_roots(home.map(Path::to_path_buf)).await?;
+    let credential_roots = crate::modules::security::gap::credential_roots(
+        home.map(std::path::Path::to_path_buf),
+    )
+    .await?;
     Ok(ResolveLocalGrantsRequest {
         home: home.map(|h| h.display().to_string()),
         config: LocalGrantConfig {

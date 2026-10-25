@@ -73,16 +73,6 @@ async fn built_sandbox_enforcement_follows_the_isolation_requirement() {
     );
 }
 
-/// Runs `body` with a thread-local subscriber that enables every level, so the
-/// warnings the refusal paths log are evaluated rather than skipped.
-fn with_logging<T>(body: impl FnOnce() -> T) -> T {
-    let subscriber = tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::TRACE)
-        .with_test_writer()
-        .finish();
-    tracing::subscriber::with_default(subscriber, body)
-}
-
 #[cfg(feature = "modules")]
 #[tokio::test]
 async fn an_unusable_workspace_refuses_stdio_servers_instead_of_running_them_unconfined() {
