@@ -484,6 +484,7 @@ impl Tool for FlowMemoryRememberTool {
         if let Err(error) = self
             .security
             .enforce_tool_operation(ToolOperation::Act, "flow_memory_remember")
+            .await
         {
             return Ok(ToolResult::error(error));
         }

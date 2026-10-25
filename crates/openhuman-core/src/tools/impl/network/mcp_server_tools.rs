@@ -98,6 +98,7 @@ impl Tool for ModuleConfiguredMcpServerTool {
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
         self.security
             .enforce_tool_operation(ToolOperation::Act, self.name())
+            .await
             .map_err(|error| anyhow::anyhow!(error))?;
         let current = crate::config::ops::reload_config_from_paths(
             &self.config.config_path,

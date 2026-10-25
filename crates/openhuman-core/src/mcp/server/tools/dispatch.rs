@@ -79,7 +79,7 @@ pub async fn call_tool(
         }
         "memory.learn" | "memory.forget" => {
             let config = write_dispatch::load_write_config(ctx, spec.name).await?;
-            if let Err(err) = write_dispatch::enforce_write_policy_for_config(spec.name, &config) {
+            if let Err(err) = write_dispatch::enforce_write_policy_for_config(spec.name, &config).await {
                 write_dispatch::audit_write_rejection(
                     &config,
                     spec.name,
@@ -187,6 +187,7 @@ async fn enforce_read_policy(ctx: &DispatchCtx, tool_name: &str) -> Result<(), T
     // reason text instead of a generic internal-error banner.
     policy
         .enforce_tool_operation(ToolOperation::Read, tool_name)
+        .await
         .map_err(ToolCallError::InvalidParams)
 }
 
@@ -206,6 +207,7 @@ async fn enforce_act_policy(ctx: &DispatchCtx, tool_name: &str) -> Result<(), To
         SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir, &config.action_dir);
     policy
         .enforce_tool_operation(ToolOperation::Act, tool_name)
+        .await
         .map_err(ToolCallError::InvalidParams)
 }
 

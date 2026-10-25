@@ -114,35 +114,14 @@ impl SecurityPolicy {
     ///
     /// Read operations are always allowed by autonomy/rate gates.
     /// Act operations require non-readonly autonomy and available action budget.
-    pub fn enforce_tool_operation(
+    pub async fn enforce_tool_operation(
         &self,
         operation: ToolOperation,
         operation_name: &str,
     ) -> Result<(), String> {
         match operation {
             ToolOperation::Read => Ok(()),
-            ToolOperation::Act => {
-                self.enforce_write_tier(operation_name)?;
-
-                if !self.record_action() {
-                    log::warn!(
-                        "[openhuman:policy] Operation '{}' blocked: rate limit exceeded",
-                        operation_name
-                    );
-                    return Err(format!(
-                        "Rate limit exceeded: action budget exhausted ({} actions/hour). Increase the limit in Settings -> Advanced -> Agent autonomy or wait for the rolling one-hour window to refill.",
-                        self.max_actions_per_hour
-                    ));
-                }
-
-                log::debug!(
-                    "[openhuman:policy] Operation '{}' allowed (actions: {}/{})",
-                    operation_name,
-                    self.tracker.count(),
-                    self.max_actions_per_hour
-                );
-                Ok(())
-            }
+            ToolOperation::Act => self.spend_action(operation_name).await,
         }
     }
 

@@ -385,6 +385,7 @@ impl Tool for McpCallTool {
     ) -> anyhow::Result<ToolResult> {
         self.security
             .enforce_tool_operation(ToolOperation::Act, self.name())
+            .await
             .map_err(|error| anyhow::anyhow!(error))?;
 
         let server = required_string_arg(&args, "server")?;
