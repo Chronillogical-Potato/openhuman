@@ -146,7 +146,7 @@
       "case": "access_token_query",
       "input": "https://api.example.com/v1?access_token=s3cr3t",
       "needle": "s3cr3t",
-      "log_removed": false
+      "log_removed": true
     },
     {
       "case": "userinfo_only",

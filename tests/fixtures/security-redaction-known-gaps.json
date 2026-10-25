@@ -12,6 +12,10 @@
     "security_scrub"
   ],
   [
+    "github_pat",
+    "log"
+  ],
+  [
     "jwt",
     "denials"
   ],
@@ -22,6 +26,10 @@
   [
     "password_in_connection_string",
     "denials"
+  ],
+  [
+    "password_in_connection_string",
+    "log"
   ],
   [
     "private_key_block",
