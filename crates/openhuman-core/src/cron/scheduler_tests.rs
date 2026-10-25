@@ -334,7 +334,7 @@ async fn a_shell_job_runs_on_this_platform() {
 
 #[cfg(feature = "modules")]
 #[tokio::test]
-async fn scheduled_shell_authorization_fails_closed_when_tinybox_is_disabled() {
+async fn scheduled_shell_authorization_uses_tinysecurity_without_tinybox() {
     let tmp = TempDir::new().unwrap();
     let mut config = test_config(&tmp).await;
     config.modules.enabled = false;
@@ -343,7 +343,7 @@ async fn scheduled_shell_authorization_fails_closed_when_tinybox_is_disabled() {
 
     let result = authorize_shell_command(&config, &security, "echo must-not-run").await;
 
-    assert_eq!(result, Err("Command analysis is unavailable.".to_owned()));
+    assert_eq!(result, Ok(()));
 }
 
 /// A pipeline keeps the shell's own exit status, not `pipefail`'s.
