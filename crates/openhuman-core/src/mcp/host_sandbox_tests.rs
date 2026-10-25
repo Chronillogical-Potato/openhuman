@@ -7,9 +7,20 @@ fn config_in(dir: &Path) -> Config {
 }
 
 #[cfg(feature = "modules")]
+fn path_floor_port(
+    protected: impl IntoIterator<Item = PathBuf>,
+    credentials: Vec<PathBuf>,
+) -> crate::modules::security::gap::PathFloorPortGuard {
+    crate::modules::security::gap::install_path_floor_port(
+        crate::modules::security::gap::ScriptedPathFloorPort::new(protected, credentials),
+    )
+}
+
+#[cfg(feature = "modules")]
 #[tokio::test]
 async fn sandbox_workspace_is_a_dedicated_directory_inside_the_core_workspace() {
     let tmp = tempfile::tempdir().unwrap();
+    let _port = path_floor_port([], vec![]);
     let sandbox = stdio_sandbox(&config_in(tmp.path())).await.expect("a sandbox");
     let expected = tmp.path().join(WORKSPACE_DIR).canonicalize().unwrap();
     assert_eq!(sandbox.workspace, expected.to_string_lossy());
@@ -21,6 +32,7 @@ async fn sandbox_workspace_is_a_dedicated_directory_inside_the_core_workspace() 
 #[tokio::test]
 async fn configured_grants_pass_the_host_floor() {
     let tmp = tempfile::tempdir().unwrap();
+    let _port = path_floor_port([PathBuf::from("/etc")], vec![]);
     let granted = tmp.path().join("tools");
     std::fs::create_dir_all(&granted).unwrap();
     let mut config = config_in(tmp.path());
@@ -66,6 +78,7 @@ fn enforcement_is_declared_only_where_the_host_accepts_a_best_effort_backend() {
 #[tokio::test]
 async fn built_sandbox_enforcement_follows_the_isolation_requirement() {
     let tmp = tempfile::tempdir().unwrap();
+    let _port = path_floor_port([], vec![]);
     let sandbox = stdio_sandbox(&config_in(tmp.path())).await.expect("a sandbox");
     assert_eq!(
         sandbox.enforcement,
@@ -77,6 +90,7 @@ async fn built_sandbox_enforcement_follows_the_isolation_requirement() {
 #[tokio::test]
 async fn an_unusable_workspace_refuses_stdio_servers_instead_of_running_them_unconfined() {
     let tmp = tempfile::tempdir().unwrap();
+    let _port = path_floor_port([], vec![]);
     let file = tmp.path().join("not-a-dir");
     std::fs::write(&file, b"").unwrap();
     assert!(stdio_sandbox(&config_in(&file)).await.is_none());
@@ -85,6 +99,10 @@ async fn an_unusable_workspace_refuses_stdio_servers_instead_of_running_them_unc
 #[tokio::test]
 async fn home_relative_grants_expand_and_forbidden_ones_are_refused() {
     let home = tempfile::tempdir().unwrap();
+    let _port = path_floor_port(
+        [PathBuf::from("/etc"), home.path().to_path_buf()],
+        vec![home.path().join(".ssh")],
+    );
     std::fs::create_dir_all(home.path().join("tools")).unwrap();
     let raw = vec![
         "~/tools".to_string(),
@@ -121,6 +139,7 @@ async fn existing_credential_stores_are_denied_by_their_real_path() {
     std::fs::create_dir_all(&ssh).unwrap();
     let workspace = tmp.path().join("workspace");
     std::fs::create_dir_all(&workspace).unwrap();
+    let _port = path_floor_port([], vec![ssh.clone()]);
     let config = config_in(&workspace);
     let denied = credential_denials(&config, Some(&home), &workspace).await.unwrap();
     let ssh = ssh.canonicalize().unwrap().to_string_lossy().into_owned();
@@ -135,6 +154,7 @@ async fn a_workspace_inside_a_credential_store_is_not_denied_to_itself() {
     let home = tmp.path().join("home");
     let workspace = home.join(".ssh").join("mcp_stdio");
     std::fs::create_dir_all(&workspace).unwrap();
+    let _port = path_floor_port([], vec![home.join(".ssh")]);
     let workspace = workspace.canonicalize().unwrap();
     let config = config_in(&workspace);
     let denied = credential_denials(&config, Some(&home), &workspace).await.unwrap();
@@ -149,6 +169,7 @@ async fn a_workspace_inside_a_credential_store_is_not_denied_to_itself() {
 #[tokio::test]
 async fn toolchain_grants_only_ever_add_to_the_configured_grants() {
     let tmp = tempfile::tempdir().unwrap();
+    let _port = path_floor_port([], vec![]);
     let config = config_in(tmp.path());
     let mut sandbox = stdio_sandbox(&config).await.expect("a sandbox");
     let before = sandbox.read_only.clone();
