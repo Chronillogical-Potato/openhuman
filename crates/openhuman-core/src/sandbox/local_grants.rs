@@ -11,10 +11,6 @@ use std::path::PathBuf;
 
 use super::types::SandboxPolicy;
 use crate::config::{Config, LocalJailConfig};
-use crate::security::SecurityPolicy;
-
-/// Credential directories under `$HOME` that no grant may reach or contain.
-const HOME_CREDENTIAL_DIRS: &[&str] = &[".ssh", ".gnupg", ".aws", ".azure", ".kube"];
 
 /// Paths the jail is granted beyond the workspace root.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -74,29 +70,27 @@ async fn resolve(
     home: Option<&std::path::Path>,
     jail: &LocalJailConfig,
 ) -> anyhow::Result<JailGrants> {
-    let request = grant_request(home, jail);
+    let request = grant_request(home, jail)
+        .await
+        .map_err(|error| anyhow::anyhow!("TinySecurity could not provide the local jail path floor: {error}"))?;
     let reply = crate::modules::tinybox::resolve_local_grants(config, request)
         .await
         .map_err(|error| anyhow::anyhow!("TinyBox could not resolve local jail grants: {error}"))?;
-    Ok(admit_module_grants(reply, jail.allow_proc))
+    Ok(admit_module_grants(reply, jail.allow_proc).await)
 }
 
-/// Build the `ResolveLocalGrants` request: the operator's grant configuration
-/// plus the host's protected-path floor.
+/// Build the `ResolveLocalGrants` request from TinySecurity's floor vocabulary.
 #[cfg(feature = "modules")]
-pub(crate) fn grant_request(
+pub(crate) async fn grant_request(
     home: Option<&std::path::Path>,
     jail: &LocalJailConfig,
-) -> crate::modules::tinybox::contract::ResolveLocalGrantsRequest {
+) -> Result<crate::modules::tinybox::contract::ResolveLocalGrantsRequest, String> {
     use crate::modules::tinybox::contract::{
         LocalGrantConfig, ProtectedPaths, ResolveLocalGrantsRequest,
     };
-    use crate::security::policy::{
-        ALWAYS_FORBIDDEN_PREFIXES, SENSITIVE_COMPONENTS, SENSITIVE_FILES, SENSITIVE_PAIRS,
-    };
-
-    let owned = |items: &[&str]| items.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
-    ResolveLocalGrantsRequest {
+    let floor = crate::modules::security::gap::protected_floor().await?;
+    let credential_roots = crate::modules::security::gap::credential_roots(home.map(Path::to_path_buf)).await?;
+    Ok(ResolveLocalGrantsRequest {
         home: home.map(|h| h.display().to_string()),
         config: LocalGrantConfig {
             toolchain_homes: jail.toolchain_homes,
@@ -105,25 +99,15 @@ pub(crate) fn grant_request(
             allow_proc: jail.allow_proc,
         },
         protected: ProtectedPaths {
-            components: owned(SENSITIVE_COMPONENTS)
+            components: floor.components.into_iter().chain(floor.files).collect(),
+            component_pairs: floor.pairs,
+            prefixes: floor.prefixes,
+            credential_roots: credential_roots
                 .into_iter()
-                .chain(owned(SENSITIVE_FILES))
+                .map(|path| path.display().to_string())
                 .collect(),
-            component_pairs: SENSITIVE_PAIRS
-                .iter()
-                .map(|[a, b]| [(*a).to_owned(), (*b).to_owned()])
-                .collect(),
-            prefixes: owned(ALWAYS_FORBIDDEN_PREFIXES),
-            credential_roots: home
-                .map(|h| {
-                    HOME_CREDENTIAL_DIRS
-                        .iter()
-                        .map(|dir| h.join(dir).display().to_string())
-                        .collect()
-                })
-                .unwrap_or_default(),
         },
-    }
+    })
 }
 
 /// Second gate: drop every returned path the host floor forbids, and every
@@ -134,36 +118,32 @@ pub(crate) fn grant_request(
 /// `/proc` is the one sanctioned exception to the floor, and only when
 /// `allow_proc` is set.
 #[cfg(feature = "modules")]
-pub(crate) fn admit_module_grants(
+pub(crate) async fn admit_module_grants(
     reply: crate::modules::tinybox::contract::LocalGrants,
     allow_proc: bool,
 ) -> JailGrants {
     let home = grant_home(crate::core::runtime::is_saas(), dirs::home_dir);
-    admit_grants_under(reply, allow_proc, home.as_deref())
+    admit_grants_under(reply, allow_proc, home.as_deref()).await
 }
 
 #[cfg(feature = "modules")]
-fn admit_grants_under(
+async fn admit_grants_under(
     reply: crate::modules::tinybox::contract::LocalGrants,
     allow_proc: bool,
     home: Option<&std::path::Path>,
 ) -> JailGrants {
     use std::path::Component;
-    let mut stores = Vec::new();
-    if let Some(home) = home {
-        stores.extend(crate::security::policy::home_credential_stores(home));
-        if let Ok(resolved) = home.canonicalize() {
-            stores.extend(crate::security::policy::home_credential_stores(&resolved));
+    let stores = match crate::modules::security::gap::credential_roots(home.map(PathBuf::from)).await {
+        Ok(roots) => roots,
+        Err(error) => {
+            tracing::warn!(%error, "[sandbox:grants] TinySecurity credential roots unavailable; refusing module grants");
+            return JailGrants::default();
         }
-    }
-    // A store that is itself a symlink (`~/.ssh` -> `~/dotfiles/ssh`) is also
-    // judged at its target: a grant of that target exposes the same files.
-    let targets: Vec<PathBuf> = stores
-        .iter()
-        .filter_map(|s| s.canonicalize().ok())
-        .collect();
-    stores.extend(targets);
-    let admit = |raw: String| -> Option<PathBuf> {
+    };
+    let mut candidates = Vec::new();
+    let mut lexical_paths = Vec::new();
+    let mut canonical_paths = Vec::new();
+    for raw in reply.read_only.iter().chain(reply.read_write.iter()) {
         let path = PathBuf::from(raw);
         let lexical = path.has_root()
             && path.components().all(|c| {
@@ -177,40 +157,40 @@ fn admit_grants_under(
                 path = %path.display(),
                 "[sandbox:grants] refused module grant: not a plain absolute path"
             );
-            return None;
+            candidates.push(None);
+            continue;
         }
         let resolved = path.canonicalize().unwrap_or_else(|_| path.clone());
+        candidates.push(Some((lexical_paths.len(), path.clone(), resolved.clone())));
+        lexical_paths.push(path);
+        canonical_paths.push(resolved);
+    }
+    let protected = match crate::modules::security::gap::protected_paths(
+        &lexical_paths.iter().chain(&canonical_paths).cloned().collect::<Vec<_>>(),
+    ).await {
+        Ok(answers) if answers.len() == lexical_paths.len() * 2 => answers,
+        _ => return JailGrants::default(),
+    };
+    let admit = |candidate: Option<(usize, PathBuf, PathBuf)>| -> Option<PathBuf> {
+        let (index, path, resolved) = candidate?;
         let sanctioned_proc = allow_proc && path == std::path::Path::new("/proc");
-        if !sanctioned_proc
-            && (SecurityPolicy::is_always_forbidden(&path)
-                || SecurityPolicy::is_always_forbidden(&resolved))
-        {
-            tracing::warn!(
-                path = %path.display(),
-                "[sandbox:grants] refused module grant: host floor forbids it"
-            );
+        if !sanctioned_proc && (protected[index] || protected[index + lexical_paths.len()]) {
+            tracing::warn!(path = %path.display(), "[sandbox:grants] TinySecurity protected-path floor refused module grant");
             return None;
         }
-        // Containing a store exposes it; lying inside a store's target is
-        // reading it, whatever the path's own components are called.
-        let overlaps = |store: &PathBuf| {
-            store.starts_with(&path)
-                || store.starts_with(&resolved)
-                || path.starts_with(store)
-                || resolved.starts_with(store)
-        };
-        if stores.iter().any(overlaps) {
-            tracing::warn!(
-                path = %path.display(),
-                "[sandbox:grants] refused module grant: it overlaps a credential store"
-            );
+        if stores.iter().any(|store| {
+            store.starts_with(&path) || store.starts_with(&resolved)
+                || path.starts_with(store) || resolved.starts_with(store)
+        }) {
+            tracing::warn!(path = %path.display(), "[sandbox:grants] refused module grant overlapping a credential root");
             return None;
         }
         Some(path)
     };
+    let split = reply.read_only.len();
     JailGrants {
-        read_only: reply.read_only.into_iter().filter_map(admit).collect(),
-        read_write: reply.read_write.into_iter().filter_map(admit).collect(),
+        read_only: candidates[..split].iter().cloned().filter_map(admit).collect(),
+        read_write: candidates[split..].iter().cloned().filter_map(admit).collect(),
     }
 }
 
