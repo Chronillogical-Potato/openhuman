@@ -71,7 +71,7 @@ impl Tool for ComposioAuthorizeTool {
     ) -> anyhow::Result<ToolResult> {
         let ctx = dispatch_ctx_for_tool(context);
         let outcome = Box::pin(self.execute_unredacted(&ctx, args)).await;
-        redact_composio_outcome(&self.config, outcome)
+        redact_composio_outcome(&self.config, outcome).await
     }
 }
 
