@@ -1,8 +1,6 @@
-//! Fail-closed TinySecurity `Callbacks2` server skeleton.
-//!
-//! The object is served before module load, but callback authority stays
-//! unavailable until its owning caller migration lands. The wrapper admits
-//! requests only from the loaded TinySecurity bus owner.
+//! TinySecurity `Callbacks2` server. Approval state and prompts are served by
+//! the approval host adapter; the wrapper admits requests only from the loaded
+//! TinySecurity bus owner.
 
 use async_trait::async_trait;
 use serde_json::Value;
@@ -15,15 +13,19 @@ struct ApprovalStore;
 impl ApprovalStore {
     async fn load(
         &self,
-        _request: tinysecurity_bus::ApprovalLoadRequest2,
+        request: tinysecurity_bus::ApprovalLoadRequest2,
     ) -> tinybus::Result<tinysecurity_bus::ApprovalLoadResponse2> {
-        Err(unavailable())
+        crate::security::approval::native::callbacks::load(request)
+            .await
+            .map_err(tinybus::Error::failed)
     }
     async fn cas(
         &self,
-        _request: tinysecurity_bus::ApprovalCasRequest2,
+        request: tinysecurity_bus::ApprovalCasRequest2,
     ) -> tinybus::Result<tinysecurity_bus::ApprovalCasResponse2> {
-        Err(unavailable())
+        crate::security::approval::native::callbacks::cas(request)
+            .await
+            .map_err(tinybus::Error::failed)
     }
 }
 
@@ -33,9 +35,11 @@ struct AuditSink;
 impl AuditSink {
     async fn append(
         &self,
-        _request: tinysecurity_bus::AuditSinkRequest2,
+        request: tinysecurity_bus::AuditSinkRequest2,
     ) -> tinybus::Result<tinysecurity_bus::AuditSinkResponse2> {
-        Err(unavailable())
+        crate::security::approval::native::callbacks::append(request)
+            .await
+            .map_err(tinybus::Error::failed)
     }
 }
 
@@ -45,15 +49,19 @@ struct ApprovalPrompt;
 impl ApprovalPrompt {
     async fn prompt(
         &self,
-        _request: tinysecurity_bus::ApprovalDeliveryRequest2,
+        request: tinysecurity_bus::ApprovalDeliveryRequest2,
     ) -> tinybus::Result<tinysecurity_bus::ApprovalDeliveryResponse2> {
-        Err(unavailable())
+        crate::security::approval::native::callbacks::prompt(request)
+            .await
+            .map_err(tinybus::Error::failed)
     }
     async fn verify_human(
         &self,
-        _request: tinysecurity_bus::VerifyHumanRequest2,
+        request: tinysecurity_bus::VerifyHumanRequest2,
     ) -> tinybus::Result<tinysecurity_bus::HumanDecisionReceipt2> {
-        Err(unavailable())
+        crate::security::approval::native::callbacks::verify_human(request)
+            .await
+            .map_err(tinybus::Error::failed)
     }
 }
 
@@ -103,7 +111,8 @@ impl<T: Interface> Interface for ModuleOnly<T> {
     }
 }
 
-/// Serve callbacks before loading TinySecurity; all not-yet-migrated operations deny.
+/// Serve callbacks before loading TinySecurity; authority is restricted to its
+/// authenticated bus owner.
 pub(in crate::modules) async fn install(connection: &Connection) -> tinybus::Result<()> {
     let path = ObjectPath::new(callback_names2::OBJECT_PATH)?;
     connection
