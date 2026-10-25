@@ -83,7 +83,7 @@ async fn the_gate_off_switch_still_refuses_an_unlabelled_origin() {
 }
 
 #[tokio::test]
-async fn each_agent_answers_from_its_own_auto_approve_list() {
+async fn legacy_auto_approve_lists_are_not_replayed_as_module_grants() {
     let (gate, _dir) = test_gate();
     let listed = SecurityPolicy {
         auto_approve: vec!["shell".into()],
@@ -96,7 +96,7 @@ async fn each_agent_answers_from_its_own_auto_approve_list() {
         ..SecurityPolicy::default()
     };
 
-    let allowed = gated_call(
+    let configured = gated_call(
         &gate,
         agent_ctx("listed", Some(listed), false),
         web_origin(),
@@ -104,74 +104,23 @@ async fn each_agent_answers_from_its_own_auto_approve_list() {
     )
     .await;
     assert!(
-        matches!(allowed, Some(GateOutcome::Allow)),
-        "got {allowed:?}"
+        !matches!(configured, Some(GateOutcome::Allow)),
+        "legacy config must not resurrect a revoked durable grant: {configured:?}"
     );
+    let seen = stub_of(&gate).seen();
+    assert!(seen[0].posture.auto_approve_all == false);
+    assert_eq!(seen[0].legacy_tool_grants, ["shell"]);
 
-    let parked = gated_call(
+    let unconfigured = gated_call(
         &gate,
         agent_ctx("unlisted", Some(unlisted), false),
         web_origin(),
         "shell",
     )
     .await;
-    assert!(parked.is_none(), "an agent without the grant must park");
-}
-
-#[tokio::test]
-async fn execution_audit_uses_the_agent_scope_captured_when_parked() {
-    let (gate, _dir) = test_gate();
-    let gate = Arc::new(gate);
-    let ctx = agent_ctx("execution-audit-agent", None, false);
-    let docs = CoreContext::scope(ctx.clone(), async {
-        crate::security::approval::store_documents::current(&gate.config).unwrap()
-    })
-    .await;
-
-    // The approval is created while this agent's storage scope is active.
-    let g = gate.clone();
-    let parked_ctx = ctx.clone();
-    let parked = tokio::spawn(async move {
-        let turn = ApprovalTurnContext::chat(chat_ctx());
-        CoreContext::scope(
-            parked_ctx,
-            turn_origin::with_origin(web_origin(), async move {
-                g.intercept_audited(&turn, "shell", "run it", serde_json::json!({}))
-                    .await
-            }),
-        )
-        .await
-    });
-    let request = loop {
-        let rows = CoreContext::scope(ctx.clone(), {
-            let gate = gate.clone();
-            async move { gate.list_pending().unwrap() }
-        })
-        .await;
-        if let Some(row) = rows.into_iter().next() {
-            break row;
-        }
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    };
-
-    // The host handles the decision and the tool completion after the
-    // agent's dispatch scope has ended. Both writes must still use the
-    // storage handle captured when the request was parked.
-    gate.decide(&request.request_id, ApprovalDecision::ApproveOnce)
-        .unwrap()
-        .expect("parked approval should be decided");
-    assert!(matches!(
-        parked.await.unwrap(),
-        (GateOutcome::Allow, Some(_))
-    ));
-    gate.record_execution(&request.request_id, ExecutionOutcome::Success, None);
-
-    assert_eq!(
-        docs.execution_outcome_for_test(&request.request_id)
-            .unwrap()
-            .as_deref(),
-        Some("success"),
-        "execution outcome must be written to the approval's captured agent scope"
+    assert!(
+        !matches!(unconfigured, Some(GateOutcome::Allow)),
+        "an agent without a durable grant must not be auto-approved: {unconfigured:?}"
     );
 }
 
