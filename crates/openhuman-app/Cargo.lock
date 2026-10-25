@@ -7884,7 +7884,7 @@ dependencies = [
 
 [[package]]
 name = "tinychannels-bus"
-version = "0.1.40"
+version = "0.1.42"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7917,7 +7917,7 @@ dependencies = [
 
 [[package]]
 name = "tinydocs-bus"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "serde",
  "thiserror 2.0.20",
@@ -8056,7 +8056,6 @@ dependencies = [
  "reqwest 0.12.28",
  "serde",
  "serde_json",
- "sha2 0.11.0",
  "thiserror 2.0.20",
  "tinyinference-core",
  "tinyinference-embeddings",
@@ -8281,7 +8280,7 @@ dependencies = [
 
 [[package]]
 name = "tinysecurity-approval"
-version = "0.17.1"
+version = "0.18.0"
 dependencies = [
  "async-trait",
  "getrandom 0.3.4",
@@ -8296,7 +8295,7 @@ dependencies = [
 
 [[package]]
 name = "tinysecurity-auto"
-version = "0.17.1"
+version = "0.18.0"
 dependencies = [
  "async-trait",
  "serde_json",
@@ -8310,7 +8309,7 @@ dependencies = [
 
 [[package]]
 name = "tinysecurity-bus"
-version = "0.17.1"
+version = "0.18.0"
 dependencies = [
  "serde",
  "thiserror 2.0.20",
@@ -8318,7 +8317,7 @@ dependencies = [
 
 [[package]]
 name = "tinysecurity-crypto"
-version = "0.17.1"
+version = "0.18.0"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -8343,8 +8342,10 @@ dependencies = [
 
 [[package]]
 name = "tinysecurity-redact"
-version = "0.17.1"
+version = "0.18.0"
 dependencies = [
+ "base64 0.22.1",
+ "percent-encoding",
  "regex",
  "serde_json",
  "sha2 0.10.9",

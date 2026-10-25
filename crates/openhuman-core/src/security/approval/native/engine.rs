@@ -3,7 +3,9 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use tinybus::{module::ModuleObjectClient, Proxy};
+use tinybus::module::ModuleObjectClient;
+#[cfg(test)]
+use tinybus::Proxy;
 use tinysecurity_bus::{
     is_host_tool_name2, names, AccessTier, ApprovalActionRequest2, ApprovalChoice2,
     ApprovalLifecycle2, ApprovalRecordRequest2, ApprovalRow2, AuditCorrelation2, CallerContext,
