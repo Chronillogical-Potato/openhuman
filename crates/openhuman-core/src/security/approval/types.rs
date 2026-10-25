@@ -1,21 +1,19 @@
-//! Types shared between the `ApprovalGate`, the SQLite store, and the
-//! RPC layer. Kept narrow so the gate, the store, and the RPC ops can
-//! evolve independently without circular imports through `mod.rs`.
+//! Approval values shared by the gate, TinySecurity adapter, and RPC layer.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// A tool call that has been intercepted and is awaiting a user
-/// decision. Persisted in `pending_approvals` and surfaced to the UI
+/// decision. Persisted by TinySecurity and surfaced to the UI
 /// via `approval_list_pending`.
 ///
 /// Note: this type intentionally does not expose a `session_id`. Session
 /// provenance is an internal correlation token owned by `ApprovalGate`
-/// and the persistence layer; surfacing it on the public type made it
+/// and the persistence callback; surfacing it on the public type made it
 /// too easy for callers to log or serialize a value that historically
 /// derived from credential material (the JSON-RPC bearer token). The
-/// underlying column is retained in SQLite for downgrade safety but no
-/// longer carries any credential-shaped value.
+/// legacy migration data may retain its historical column, but new records
+/// never carry a credential-shaped value.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct PendingApproval {

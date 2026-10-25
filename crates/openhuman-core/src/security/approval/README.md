@@ -69,22 +69,14 @@ No `bus.rs` in this module. It only publishes; the subscriber (`ApprovalSurfaceS
 
 ## Persistence
 
-SQLite DB at `{workspace_dir}/approval/approval.db`, table `pending_approvals` (opened per-call via `with_connection`, schema + column migration applied idempotently). Columns: `request_id` (PK), `tool_name`, `action_summary`, `args_redacted` (JSON), `session_id`, `created_at`, `expires_at`, `decided_at`, `decision`, plus the after-action audit columns `executed_at`, `execution_outcome`, `execution_error` (added by `migrate_columns` for v1 DBs). Pending rows survive restart; expired rows are lazily transitioned to a terminal `deny` decision; `record_execution` is write-once (`executed_at IS NULL` guard) and sanitizes/caps error text to 512 chars to keep secrets/PII out of the durable log.
-
-### On a storage backend
-
-When the host configured a storage backend (`OPENHUMAN_STORAGE_URL` /
-`[storage] url`, see `crate::storage`), every `store` function uses
-`store_documents.rs` instead of `approval.db`: the same operations on the
-`tinystoragedrivers` document port, under the current call's storage scope
-(the acting agent; `local` on a single-user host; refused in SaaS mode with
-no acting agent). Collections `approvals` (one document per `request_id`)
-and `approval_flow_trust` (one per `(flow_id, tool_name)`). The SQL guards
-become preconditions: insert-only for new requests, compare-and-swap for
-decide, expiry and `record_execution`, so two processes on one database
-decide a request at most once. `args_redacted` and `source_context` are
-stored as JSON strings. With no backend configured (the desktop default)
-`approval.db` is used exactly as above.
+TinySecurity owns live approval state, decisions, trust, expiry, and the audit
+stream through its `ApprovalEngine` bus interface. The host exposes the
+document-backed `ApprovalStore2` load/CAS and audit callbacks, and delivers
+prompts only for rows TinySecurity has registered. If the legacy
+`approval/approval.db` exists, the storage migration imports it into the
+document store; `NativeEngine` then sends its decided history and flow grants
+to TinySecurity once. That legacy data is an import source, not a second live
+approval state machine.
 
 ## Dependencies
 
@@ -92,9 +84,9 @@ stored as JSON strings. With no backend configured (the desktop default)
 - `crate::core::all`: `ControllerFuture` / `RegisteredController` for the controller registry.
 - `crate::core` (`ControllerSchema`, `FieldSchema`, `TypeSchema`): schema definitions.
 - `crate::core::Outcome`: RPC return contract.
-- `crate::config::Config`: workspace dir (DB path) plus the boot-time `autonomy.auto_approve` snapshot; `config::ops::add_auto_approve_tool` persists "Always allow".
+- `crate::config::Config`: module configuration and the boot-time `autonomy.auto_approve` snapshot; `config::ops::add_auto_approve_tool` persists "Always allow".
 - `crate::security`: `live_policy::current()` for the live "Always allow" list and `POLICY_DENIED_MARKER` for deny reasons.
-- `tinymemory_core::store::safety::sanitize_text`: scrub secrets out of stored execution-error strings.
+- `crate::storage`: document-backed host callback storage and the one-time legacy migration source.
 
 ## Used by
 

@@ -705,7 +705,7 @@ async fn approval_schema_handlers_validate_params_and_surface_empty_gate_state()
             .contains("expected string")
     );
     // Success-path behavior (gate-absent tolerance, idempotent grants, audit
-    // rows) is pinned by the unit tests in `approval::rpc`/`approval::store`;
+    // rows) is pinned by the unit tests in `approval::rpc` and `approval::gate`;
     // asserting it here would be order-dependent on whether a sibling test
     // already installed the process-global gate.
 }

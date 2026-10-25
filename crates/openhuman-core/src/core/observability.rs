@@ -309,8 +309,8 @@ pub enum ExpectedErrorKind {
     UpstreamEdgeBlock,
     /// `approval_decide` (`crates/openhuman-core/src/security/approval/rpc.rs`) resolved a request_id
     /// whose pending row was **already decided, lazily expired, or superseded**
-    /// — `store::decide` updated 0 rows because `decided_at` was already set,
-    /// and `store::get_decision` confirms a persisted decision exists. The
+    /// — TinySecurity reports that the request is already terminal, and the
+    /// engine confirms the decision is present. The
     /// inline-approvals design spec
     /// classifies "no pending approval found" as a **benign** outcome: the
     /// frontend `ApprovalRequestCard.decide` and the Telegram callback both call
