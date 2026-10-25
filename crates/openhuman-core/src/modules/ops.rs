@@ -440,6 +440,11 @@ pub fn state_of(id: &str) -> ModuleState {
 /// receives only its compute configuration; TinyMCP and TinyEventQueues get a
 /// unique storage callback destination from the verified loader.
 pub(super) fn module_config(config: &Config, id: &str) -> serde_json::Value {
+    #[cfg(feature = "security-module")]
+    if id == super::security::MODULE_ID {
+        return serde_json::to_value(super::security::module_config(config))
+            .expect("TinySecurity module config is serializable");
+    }
     if id == super::search::MODULE_ID {
         return super::search::load_configuration(config);
     }
