@@ -14,9 +14,6 @@
 
 use std::path::{Path, PathBuf};
 
-use tinytools::status::POLICY_BLOCKED_MARKER;
-
-use super::native_commands::{refusal_message, Refusal};
 use super::types::SecurityPolicy;
 
 /// Which filesystem question is asked of the module, mirroring its `PathCheckKind`.
@@ -142,7 +139,6 @@ impl SecurityPolicy {
 mod native {
     use super::*;
     use crate::modules::security::gap;
-    use crate::security::policy::native_commands::{CommandFlow, CommandStage};
     use tinysecurity_bus::PathCheckKind;
 
     fn bus_kind(kind: PathKind) -> PathCheckKind {

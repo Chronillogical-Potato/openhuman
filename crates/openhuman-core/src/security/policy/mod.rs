@@ -23,7 +23,7 @@ pub use types::{
 };
 
 #[cfg(test)]
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[cfg(test)]
 #[path = "policy_tests.rs"]

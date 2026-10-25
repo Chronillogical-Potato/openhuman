@@ -26,7 +26,6 @@ fn full_policy() -> SecurityPolicy {
 // -- trusted_roots allow-list (Phase 1) ---------------------------
 
 use std::fs;
-use std::path::Path as StdPath;
 use std::path::PathBuf as StdPathBuf;
 
 fn trusted_policy(workspace: StdPathBuf, roots: Vec<TrustedRoot>) -> SecurityPolicy {
