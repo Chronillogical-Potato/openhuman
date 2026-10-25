@@ -59,6 +59,7 @@ enum Source {
     /// The attested, digest-pinned module the registry loads.
     Production,
     /// A proxy a test supplies for a module it loaded itself.
+    #[cfg(test)]
     Fixed(Proxy),
 }
 
@@ -151,6 +152,12 @@ impl NativeEngine {
             )
             .await
             .map_err(EngineError::Unavailable)?,
+            #[cfg(test)]
+            Source::Fixed(proxy) => crate::modules::ops::fixture_client(proxy.clone())
+                .with_timeout(CALL_DEADLINE)
+                .object_client(crate::modules::security::MODULE_ID, names::OBJECT_PATH)
+                .await
+                .map_err(|error| EngineError::Unavailable(error.to_string()))?,
         };
         if matches!(self.source, Source::Production) {
             #[cfg(feature = "legacy-import")]
