@@ -23,7 +23,7 @@ use serde_json::Value;
 use tinytools::{PermissionLevel, Tool, ToolCategory, ToolExposure, ToolResult};
 
 use crate::config::Config;
-use crate::security::{SecurityPolicy, ToolOperation};
+use crate::security::SecurityPolicy;
 
 /// Builds host adapters from TinyMCP-prepared declarations. Catalog retrieval,
 /// naming, schema normalization, and execution remain module-owned.

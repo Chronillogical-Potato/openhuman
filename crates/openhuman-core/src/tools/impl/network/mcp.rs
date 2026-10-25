@@ -13,7 +13,7 @@ use tinytools::{IndirectCall, PermissionLevel, Tool, ToolCallOptions, ToolResult
 use crate::{
     config::Config,
     mcp::{host, module_client::McpConfiguredClient},
-    security::{SecurityPolicy, ToolOperation},
+    security::SecurityPolicy,
 };
 
 /// Lists configured MCP servers through TinyMCP's safe summary operation.

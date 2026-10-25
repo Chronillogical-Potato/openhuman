@@ -6,7 +6,7 @@
 use crate::agent::tinyagents::host::run_context::dispatch_ctx_for_tool;
 use crate::core::runtime::DispatchCtx;
 use crate::platform::update;
-use crate::security::{SecurityPolicy, ToolOperation};
+use crate::security::SecurityPolicy;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::sync::Arc;

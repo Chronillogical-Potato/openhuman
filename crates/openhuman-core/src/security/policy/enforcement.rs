@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use super::native_commands::{CommandFlow, CommandStage};
-use super::types::{AutonomyLevel, SecurityPolicy, ToolOperation, TrustedAccess, TrustedRoot};
+use super::types::{SecurityPolicy, ToolOperation, TrustedAccess, TrustedRoot};
 use std::sync::Arc;
 use tinytools::status::POLICY_BLOCKED_MARKER;
 use tokio::sync::OnceCell;
