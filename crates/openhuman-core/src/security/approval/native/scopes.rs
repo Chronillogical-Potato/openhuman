@@ -130,7 +130,7 @@ impl ScopeEntry {
     /// Make the module hold `posture` for this subject.
     async fn register(
         self: &Arc<Self>,
-        proxy: &tinybus::Proxy,
+        proxy: &tinybus::module::ModuleObjectClient,
         posture: &Posture,
         generation: u64,
     ) -> Result<(), String> {
@@ -210,7 +210,7 @@ fn grants() -> ApprovalGrants2 {
 /// posture first.
 pub(super) async fn ensure(
     config: &Config,
-    proxy: &tinybus::Proxy,
+    proxy: &tinybus::module::ModuleObjectClient,
     subject: SubjectScope,
     posture: &Posture,
     generation: u64,
