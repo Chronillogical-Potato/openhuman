@@ -18,7 +18,6 @@ use std::{collections::HashSet, path::PathBuf};
 
 use sha2::{Digest, Sha256};
 use tinybus::module::ModuleObjectClient;
-use tinybus::Proxy;
 use tinysecurity_bus::{
     names, AccessTier, ApprovalHistoryImport2, ApprovalRecord, ApprovalRow2, ApprovalState,
     CallerContext, ImportTrustItem2, ImportTrustReceipt2, ImportTrustSourceRequest2, Origin,

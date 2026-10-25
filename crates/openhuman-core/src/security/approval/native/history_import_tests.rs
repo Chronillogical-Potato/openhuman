@@ -1,5 +1,6 @@
 use super::*;
 use chrono::{Duration, Utc};
+use tinybus::Proxy;
 
 fn legacy(id: &str, decision: Option<&str>, executed: bool, age_minutes: i64) -> LegacyApproval {
     let created = Utc::now() - Duration::minutes(age_minutes);
@@ -98,5 +99,77 @@ fn only_the_most_recent_decided_rows_are_carried_over_oldest_first() {
         format!("r{}", total - 1)
     );
     assert!(carried.iter().all(|row| row.request_id != "undecided"));
+}
+
+fn workspace() -> (tempfile::TempDir, Config) {
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config {
+        workspace_dir: dir.path().to_path_buf(),
+        ..Config::default()
+    };
+    (dir, config)
+}
+
+async fn absent_module() -> (
+    tinybus::Connection,
+    Proxy,
+    tinybus::module::ModuleObjectClient,
+) {
+    use tinybus::transport::memory::MemoryBus;
+    let transport = MemoryBus::new();
+    tinybus::broker::Broker::new().spawn(transport.clone());
+    let host = tinybus::Connection::connect(transport.connect().await.unwrap())
+        .await
+        .unwrap();
+    let proxy = host
+        .proxy(names::INTERFACE, names::OBJECT_PATH, names::INTERFACE)
+        .unwrap()
+        .with_timeout(std::time::Duration::from_millis(200));
+    let object = crate::modules::ops::fixture_client(proxy.clone())
+        .with_timeout(std::time::Duration::from_millis(200))
+        .object_client(crate::modules::security::MODULE_ID, names::OBJECT_PATH)
+        .await
+        .unwrap();
+    (host, proxy, object)
+}
+
+fn seed_legacy(config: &Config) {
+    let docs = super::super::super::store_documents::current(config).unwrap();
+    let pending = crate::security::approval::PendingApproval::new(
+        "r1",
+        "composio",
+        "s",
+        serde_json::json!({}),
+        Some(Utc::now()),
+    );
+    docs.insert_pending(&pending, "sess").unwrap();
+    docs.decide(
+        "r1",
+        crate::security::approval::ApprovalDecision::ApproveOnce,
+    )
+    .unwrap();
+}
+
+#[tokio::test]
+async fn a_workspace_with_no_legacy_history_has_nothing_to_import() {
+    let (_dir, config) = workspace();
+    let (_host, proxy, object) = absent_module().await;
+    let engine = NativeEngine::on(config.clone(), proxy);
+    assert_eq!(run(&engine, &object).await, Ok(None));
+    assert!(
+        super::super::super::store_documents::current(&config).is_ok(),
+        "the one-time source is the existing document store"
+    );
+}
+
+#[tokio::test]
+async fn a_legacy_import_that_cannot_reach_the_module_remains_retryable() {
+    let (_dir, config) = workspace();
+    seed_legacy(&config);
+    let (_host, proxy, object) = absent_module().await;
+    let engine = NativeEngine::on(config.clone(), proxy);
+    let result = run(&engine, &object).await;
+    assert!(matches!(result, Err(EngineError::Unavailable(_))), "{result:?}");
+    assert_eq!(read(config.clone()).await.unwrap().unwrap().approvals.len(), 1);
 }
 
