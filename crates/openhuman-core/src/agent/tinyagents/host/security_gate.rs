@@ -86,9 +86,7 @@ use crate::security::policy::{GateDecision as PolicyGateDecision, SecurityPolicy
 use tinytools::{PermissionLevel, Tool};
 use tinytools::{ToolPolicyAction, ToolPolicySession};
 
-#[path = "security_gate_shell_analysis.rs"]
-mod shell_analysis;
-use shell_analysis::SHELL_TOOL;
+const SHELL_TOOL: &str = "shell";
 
 /// The channel tool-policy's verdict for one tool, as three explicit outcomes.
 ///
