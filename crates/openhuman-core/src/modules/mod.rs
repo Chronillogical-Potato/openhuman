@@ -88,6 +88,8 @@ pub mod runtime;
 pub mod schemas;
 #[cfg(feature = "modules")]
 pub mod search;
+#[cfg(feature = "security-module")]
+pub mod security;
 #[cfg(feature = "modules")]
 mod search_path;
 #[cfg(feature = "modules")]
