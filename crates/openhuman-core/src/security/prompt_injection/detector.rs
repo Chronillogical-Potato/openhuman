@@ -126,6 +126,7 @@ pub async fn enforce_prompt_input(
     let Some(config) = crate::core::runtime::CoreContext::current_embedder_config() else {
         return held_decision(input, context, "screen.unavailable");
     };
+    #[cfg(feature = "security-module")]
     let scanned = tokio::time::timeout(std::time::Duration::from_secs(2), async {
         let client = crate::modules::security::client(&config)
             .await
@@ -136,6 +137,8 @@ pub async fn enforce_prompt_input(
             .map_err(|error| error.to_string())
     })
     .await;
+    #[cfg(not(feature = "security-module"))]
+    let scanned: Result<Result<tinysecurity_bus::ScanPromptScoredResponse2, String>, ()> = Err(());
     let response = match scanned {
         Ok(Ok(response)) => response,
         Ok(Err(error)) => {
@@ -188,10 +191,13 @@ pub struct ToolDefinitionScanHit {
 pub async fn scan_tool_definition(field: &str, text: &str) -> Option<ToolDefinitionScanHit> {
     let config = crate::core::runtime::CoreContext::current_embedder_config()?;
     let definition = serde_json::json!({field: text});
+    #[cfg(feature = "security-module")]
     let scanned = tokio::time::timeout(std::time::Duration::from_secs(2), async {
         let client = crate::modules::security::client(&config).await.map_err(|error| error.to_string())?;
         client.scan_tool_definition(field.to_owned(), &definition).await.map_err(|error| error.to_string())
     }).await;
+    #[cfg(not(feature = "security-module"))]
+    let scanned: Result<Result<tinysecurity_bus::ScanResponse, String>, ()> = Err(());
     let (code, verdict) = match scanned {
         Ok(Ok(result)) if result.verdict == tinysecurity_bus::ScanVerdict::Clean => return None,
         Ok(Ok(result)) => {

@@ -42,7 +42,7 @@ pub(crate) fn normalize_model_override(opt: Option<String>) -> Option<String> {
     })
 }
 
-pub(crate) fn enforce_user_prompt_or_reject(
+pub(crate) async fn enforce_user_prompt_or_reject(
     prompt: &str,
     source: &'static str,
 ) -> Result<(), String> {
@@ -54,7 +54,8 @@ pub(crate) fn enforce_user_prompt_or_reject(
             user_id: None,
             session_id: Some("local_ai"),
         },
-    );
+    )
+    .await;
     match decision.action {
         PromptEnforcementAction::Allow => Ok(()),
         PromptEnforcementAction::Blocked | PromptEnforcementAction::ReviewBlocked => {
