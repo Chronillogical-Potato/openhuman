@@ -144,8 +144,8 @@ fn real(home: &tempfile::TempDir, store: &str) -> String {
         .to_owned()
 }
 
-#[test]
-fn folder_confinement_denies_the_credential_stores_that_exist() {
+#[tokio::test]
+async fn folder_confinement_denies_the_credential_stores_that_exist() {
     let home = home_with(&[
         ".ssh/",
         ".aws/",
@@ -155,8 +155,11 @@ fn folder_confinement_denies_the_credential_stores_that_exist() {
     ]);
     let root = tempfile::tempdir().unwrap();
 
+    let roots = crate::modules::security::gap::credential_roots(Some(home.path().to_path_buf()))
+        .await
+        .unwrap();
     let denied = credential_denials(
-        crate::security::policy::home_credential_stores(home.path()),
+        roots,
         root.path(),
         &[],
     )
@@ -175,14 +178,17 @@ fn folder_confinement_denies_the_credential_stores_that_exist() {
     );
 }
 
-#[test]
-fn a_workspace_inside_a_credential_store_is_refused() {
+#[tokio::test]
+async fn a_workspace_inside_a_credential_store_is_refused() {
     let home = home_with(&[".ssh/", ".aws/project/"]);
 
     // Denying `~/.aws` would take the workspace away, and skipping it would
     // leave `~/.aws/credentials` readable, so the jail is refused.
+    let roots = crate::modules::security::gap::credential_roots(Some(home.path().to_path_buf()))
+        .await
+        .unwrap();
     let err = credential_denials(
-        crate::security::policy::home_credential_stores(home.path()),
+        roots,
         &home.path().join(".aws/project"),
         &[],
     )
@@ -194,13 +200,16 @@ fn a_workspace_inside_a_credential_store_is_refused() {
     assert!(!err.contains(home.path().to_str().unwrap()), "{err}");
 }
 
-#[test]
-fn a_workspace_not_yet_created_inside_a_credential_store_is_refused() {
+#[tokio::test]
+async fn a_workspace_not_yet_created_inside_a_credential_store_is_refused() {
     let home = home_with(&[".aws/"]);
 
     // The workspace folder doesn't exist yet; it still lands inside `~/.aws`.
+    let roots = crate::modules::security::gap::credential_roots(Some(home.path().to_path_buf()))
+        .await
+        .unwrap();
     let err = credential_denials(
-        crate::security::policy::home_credential_stores(home.path()),
+        roots,
         &home.path().join(".aws/new-project"),
         &[],
     )
@@ -210,13 +219,16 @@ fn a_workspace_not_yet_created_inside_a_credential_store_is_refused() {
     assert!(err.contains("`.aws`"), "{err}");
 }
 
-#[test]
-fn a_writable_grant_inside_a_credential_store_is_refused() {
+#[tokio::test]
+async fn a_writable_grant_inside_a_credential_store_is_refused() {
     let home = home_with(&[".kube/"]);
     let root = tempfile::tempdir().unwrap();
 
+    let roots = crate::modules::security::gap::credential_roots(Some(home.path().to_path_buf()))
+        .await
+        .unwrap();
     let err = credential_denials(
-        crate::security::policy::home_credential_stores(home.path()),
+        roots,
         root.path(),
         &[home.path().join(".kube")],
     )
@@ -226,15 +238,18 @@ fn a_writable_grant_inside_a_credential_store_is_refused() {
     assert!(err.contains("`.kube`"), "{err}");
 }
 
-#[test]
-fn a_store_inside_a_writable_grant_is_still_denied() {
+#[tokio::test]
+async fn a_store_inside_a_writable_grant_is_still_denied() {
     let home = home_with(&[".ssh/", ".cargo/credentials.toml"]);
     let root = tempfile::tempdir().unwrap();
 
     // Seatbelt carves the store out of the grant; a store that holds nothing
     // of the jail's is denied as usual.
+    let roots = crate::modules::security::gap::credential_roots(Some(home.path().to_path_buf()))
+        .await
+        .unwrap();
     let denied = credential_denials(
-        crate::security::policy::home_credential_stores(home.path()),
+        roots,
         root.path(),
         &[home.path().join(".cargo")],
     )
