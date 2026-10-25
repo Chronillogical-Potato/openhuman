@@ -62,13 +62,15 @@ pub async fn reinitialize(config: &Config) -> Result<(), SecurityError> {
         .map_err(|error| SecurityError::Unavailable(error.into()))?;
     let payload = serde_json::to_value(config)
         .map_err(|_| SecurityError::Unavailable("invalid module configuration".into()))?;
+    let module_name = super::registry::find(MODULE_ID)
+        .map(|record| record.source.package)
+        .ok_or_else(|| {
+            SecurityError::Unavailable("security module registry record missing".into())
+        })?;
     runtime
         .connection()
-        .reinitialize_module(MODULE_ID, payload)
+        .reinitialize_module(module_name, payload)
         .await
         .map(|_| ())
-        .map_err(|error| {
-            tracing::warn!(error = %error, "security module reinitialization failed");
-            SecurityError::Unavailable("security module reinitialization failed".into())
-        })
+        .map_err(|_| SecurityError::Unavailable("security module reinitialization failed".into()))
 }
