@@ -223,8 +223,10 @@ fn desktop_boot_reads_a_preserved_existing_v1_profile_database() {
                         dispatch,
                         owner_workspace,
                     );
-                    let approvals = openhuman_core::security::approval::rpc::
-                        approval_list_recent_decisions(Some(10))
+                    let approvals =
+                        openhuman_core::security::approval::rpc::approval_list_recent_decisions(
+                            Some(10),
+                        )
                         .await
                         .expect("the approval history is imported through TinySecurity");
                     assert_eq!(

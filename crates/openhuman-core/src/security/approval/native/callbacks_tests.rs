@@ -296,7 +296,10 @@ async fn store_and_prompt_preserve_tinysecurity_redaction_markers() {
             "api_key": "<redacted: string (22 chars)>",
         })
     );
-    assert!(!shown[0].args_redacted.to_string().contains("not-a-real-token-value"));
+    assert!(!shown[0]
+        .args_redacted
+        .to_string()
+        .contains("not-a-real-token-value"));
     host().end_call(call_id);
 }
 

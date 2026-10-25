@@ -542,4 +542,3 @@ fn decode_row(stored: &Versioned<Value>) -> Result<StoredRow, String> {
 #[cfg(test)]
 #[path = "rows_tests.rs"]
 mod tests;
-

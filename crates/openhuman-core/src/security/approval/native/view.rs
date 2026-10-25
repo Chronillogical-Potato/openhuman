@@ -149,4 +149,3 @@ pub(crate) async fn row_decided(config: &Config, request_id: &str) -> anyhow::Re
 #[cfg(test)]
 #[path = "view_tests.rs"]
 mod tests;
-

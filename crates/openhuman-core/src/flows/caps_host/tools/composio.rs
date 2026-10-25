@@ -41,7 +41,12 @@ impl FlowCallPolicy for FlowPolicy {
     ) -> std::result::Result<Option<String>, String> {
         let summary = crate::security::approval::summarize_action(slug, args);
         let (outcome, audit_id) = super::super::gate_call_for_tier(
-            dispatch, approval, decision, slug, &summary, args.clone(),
+            dispatch,
+            approval,
+            decision,
+            slug,
+            &summary,
+            args.clone(),
         )
         .await;
         match outcome {

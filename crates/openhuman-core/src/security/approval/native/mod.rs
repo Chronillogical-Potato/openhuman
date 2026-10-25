@@ -35,7 +35,6 @@ mod view;
 
 pub(crate) use engine::NativeEngine;
 
-
 /// The SHA-256 correlation of a ticket the module stores instead of the ticket.
 pub(super) fn ticket_sha256(ticket: &str) -> String {
     format!("{:x}", Sha256::digest(ticket.as_bytes()))

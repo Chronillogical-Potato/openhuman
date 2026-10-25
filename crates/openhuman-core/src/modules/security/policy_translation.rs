@@ -12,7 +12,11 @@ pub(crate) fn subject_scope(
     workspace_dir: &Path,
     saas: bool,
 ) -> Result<SubjectScope, String> {
-    let user = match tenant.profile.as_deref().filter(|profile| !profile.trim().is_empty()) {
+    let user = match tenant
+        .profile
+        .as_deref()
+        .filter(|profile| !profile.trim().is_empty())
+    {
         Some(profile) => profile.to_owned(),
         None if saas => {
             return Err("TinySecurity approval scope requires an authenticated profile".into());

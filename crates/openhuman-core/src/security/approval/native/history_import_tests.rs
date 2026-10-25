@@ -169,7 +169,12 @@ async fn a_legacy_import_that_cannot_reach_the_module_remains_retryable() {
     let (_host, proxy, object) = absent_module().await;
     let engine = NativeEngine::on(config.clone(), proxy);
     let result = run(&engine, &object).await;
-    assert!(matches!(result, Err(EngineError::Unavailable(_))), "{result:?}");
-    assert_eq!(read(config.clone()).await.unwrap().unwrap().approvals.len(), 1);
+    assert!(
+        matches!(result, Err(EngineError::Unavailable(_))),
+        "{result:?}"
+    );
+    assert_eq!(
+        read(config.clone()).await.unwrap().unwrap().approvals.len(),
+        1
+    );
 }
-

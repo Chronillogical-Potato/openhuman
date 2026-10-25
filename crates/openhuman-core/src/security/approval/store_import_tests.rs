@@ -1,6 +1,6 @@
 use super::*;
-use crate::security::approval::types::ApprovalSourceContext;
 use crate::security::approval::storage_schema::{trust_id, APPROVALS, FLOW_TRUST};
+use crate::security::approval::types::ApprovalSourceContext;
 use crate::storage::import::{run_with, Outcome};
 use crate::storage::rusqlite;
 use chrono::{Duration, Utc};
@@ -78,7 +78,8 @@ fn import(config: &Config) -> Outcome {
 }
 
 fn stored(config: &Config, collection: &str, id: &str) -> Option<serde_json::Value> {
-    let opened = crate::storage::local::open("approval import test", &config.workspace_dir).unwrap();
+    let opened =
+        crate::storage::local::open("approval import test", &config.workspace_dir).unwrap();
     let docs = std::sync::Arc::clone(opened.scoped().unwrap().documents());
     let collection = collection.to_string();
     let id = id.to_string();
@@ -110,24 +111,46 @@ fn legacy_rows_are_imported_once_and_the_file_is_left_alone() {
     let first = stored(&config, APPROVALS, "pending-1").unwrap();
     assert_eq!(first["tool_name"], "composio");
     assert_eq!(first["action_summary"], "summary pending-1");
-    assert_eq!(serde_json::from_str::<serde_json::Value>(first["args_redacted"].as_str().unwrap()).unwrap()["id"], "pending-1");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(first["args_redacted"].as_str().unwrap())
+            .unwrap()["id"],
+        "pending-1"
+    );
     assert_eq!(first["tool_call_id"], "call-pending-1");
     assert_eq!(first["agent_id"], "agent-7");
     assert!(matches!(
         serde_json::from_str::<ApprovalSourceContext>(first["source_context"].as_str().unwrap()),
         Ok(ApprovalSourceContext::Flow { ref flow_id, .. }) if flow_id == "flow-1"
     ));
-    assert_eq!(stored(&config, APPROVALS, "approved-1").unwrap()["decision"], "approve_once");
-    assert_eq!(stored(&config, APPROVALS, "denied-1").unwrap()["decision"], "deny");
-    assert_eq!(stored(&config, FLOW_TRUST, &trust_id("flow-1", "shell")).unwrap()["tool_name"], "shell");
-    assert_eq!(stored(&config, FLOW_TRUST, &trust_id("flow-1", "http")).unwrap()["flow_id"], "flow-1");
+    assert_eq!(
+        stored(&config, APPROVALS, "approved-1").unwrap()["decision"],
+        "approve_once"
+    );
+    assert_eq!(
+        stored(&config, APPROVALS, "denied-1").unwrap()["decision"],
+        "deny"
+    );
+    assert_eq!(
+        stored(&config, FLOW_TRUST, &trust_id("flow-1", "shell")).unwrap()["tool_name"],
+        "shell"
+    );
+    assert_eq!(
+        stored(&config, FLOW_TRUST, &trust_id("flow-1", "http")).unwrap()["flow_id"],
+        "flow-1"
+    );
     assert!(stored(&config, FLOW_TRUST, &trust_id("flow-2", "http")).is_none());
-    assert_eq!(stored(&config, APPROVALS, "stale-1").unwrap()["decision"], serde_json::Value::Null);
+    assert_eq!(
+        stored(&config, APPROVALS, "stale-1").unwrap()["decision"],
+        serde_json::Value::Null
+    );
     assert_eq!(std::fs::read(&db).unwrap(), before, "approval.db untouched");
 
     // A second run does not overwrite rows already migrated from the legacy source.
     assert!(matches!(import(&config), Outcome::AlreadyDone));
-    assert_eq!(stored(&config, APPROVALS, "pending-1").unwrap()["decision"], serde_json::Value::Null);
+    assert_eq!(
+        stored(&config, APPROVALS, "pending-1").unwrap()["decision"],
+        serde_json::Value::Null
+    );
 }
 
 #[test]
