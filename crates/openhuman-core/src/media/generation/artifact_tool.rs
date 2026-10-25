@@ -274,17 +274,27 @@ async fn check_media_reference_floor(args: &Value) -> Result<(), String> {
     if paths.is_empty() {
         return Ok(());
     }
-    let protected = crate::modules::security::gap::protected_paths(&paths)
+    #[cfg(not(feature = "security-module"))]
+    {
+        return Err(
+            "[policy-blocked] TinySecurity path authorization unavailable; media reference refused"
+                .into(),
+        );
+    }
+    #[cfg(feature = "security-module")]
+    {
+        let protected = crate::modules::security::gap::protected_paths(&paths)
         .await
         .map_err(|error| {
             format!(
                 "[policy-blocked] TinySecurity path authorization unavailable; media reference refused: {error}"
             )
         })?;
-    if protected.len() != paths.len() || protected.iter().any(|denied| *denied) {
-        return Err("[policy-blocked] media reference is in a protected location".into());
+        if protected.len() != paths.len() || protected.iter().any(|denied| *denied) {
+            return Err("[policy-blocked] media reference is in a protected location".into());
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 /// OpenHuman's implementation of the TinyAgents artifact-filing port.
