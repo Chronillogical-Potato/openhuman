@@ -13,8 +13,8 @@ mod policy;
 mod tests;
 
 pub use client::{Client, SecurityError};
-pub(super) use policy::module_config;
 pub use policy::policy_config;
+pub(super) use policy::{module_config, module_config_for_host};
 
 use crate::config::Config;
 
