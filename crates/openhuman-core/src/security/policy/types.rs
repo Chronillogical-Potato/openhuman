@@ -261,6 +261,8 @@ pub struct SecurityPolicy {
     /// Last module-owned budget decision, shared by cloned policy views so
     /// synchronous tool gates can read the async admission result safely.
     pub budget_snapshot: Arc<std::sync::Mutex<Option<tinysecurity_bus::BudgetDecision2>>>,
+    /// Recent module class-gate answers consumed by synchronous TinyTools APIs.
+    pub class_gate_snapshot: Arc<std::sync::Mutex<Vec<(CommandClass, GateDecision)>>>,
     /// Lazily-cached canonical form of [`workspace_dir`].
     ///
     /// `validate_path` / `validate_parent_path` use the canonical workspace
@@ -398,6 +400,7 @@ impl Default for SecurityPolicy {
             auto_approve_all: false,
             command_gateway: None,
             budget_snapshot: Arc::new(std::sync::Mutex::new(None)),
+            class_gate_snapshot: Arc::new(std::sync::Mutex::new(Vec::new())),
             canonical_workspace: Arc::new(OnceCell::new()),
         }
     }

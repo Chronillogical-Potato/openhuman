@@ -377,6 +377,7 @@ impl SecurityPolicy {
             auto_approve_all: autonomy_config.auto_approve_all,
             command_gateway: None,
             budget_snapshot: Arc::new(std::sync::Mutex::new(None)),
+            class_gate_snapshot: Arc::new(std::sync::Mutex::new(Vec::new())),
             canonical_workspace: Arc::new(OnceCell::new()),
         }
     }
