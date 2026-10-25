@@ -18,12 +18,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tinysecurity_bus::CommandClass;
 use tinytools::status::POLICY_BLOCKED_MARKER;
 
 #[cfg(feature = "security-module")]
 use super::types::AutonomyLevel;
-use super::types::{GateDecision, SecurityPolicy};
+use super::types::{CommandClass, GateDecision, SecurityPolicy};
 
 /// Which host integration runs the command. The module applies a different
 /// admission rule to each, fixed by the trusted host and not by the request.
@@ -276,7 +275,7 @@ impl SecurityPolicy {
             &self.workspace_dir,
             policy,
             query.command,
-            query.declared,
+            query.declared.map(to_bus_class),
             CommandOp::Check,
         )
         .await;
@@ -294,7 +293,7 @@ impl SecurityPolicy {
             &self.workspace_dir,
             policy,
             "",
-            Some(class),
+            Some(to_bus_class(class)),
             CommandOp::Classify,
         )
         .await;
@@ -311,7 +310,7 @@ impl SecurityPolicy {
             &self.workspace_dir,
             policy,
             "",
-            Some(class),
+            Some(to_bus_class(class)),
             CommandOp::Classify,
         );
         project(&query, true, decision).map(|verdict| verdict.gate)
@@ -403,7 +402,29 @@ pub(crate) fn project(
     }
     let gate = host_gate(decision.gate);
     Ok(CommandVerdict {
-        class: decision.class,
+        class: from_bus_class(decision.class),
         gate,
     })
+}
+
+#[cfg(feature = "security-module")]
+fn to_bus_class(class: CommandClass) -> tinysecurity_bus::CommandClass {
+    match class {
+        CommandClass::Read => tinysecurity_bus::CommandClass::Read,
+        CommandClass::Write => tinysecurity_bus::CommandClass::Write,
+        CommandClass::Network => tinysecurity_bus::CommandClass::Network,
+        CommandClass::Install => tinysecurity_bus::CommandClass::Install,
+        CommandClass::Destructive => tinysecurity_bus::CommandClass::Destructive,
+    }
+}
+
+#[cfg(feature = "security-module")]
+fn from_bus_class(class: tinysecurity_bus::CommandClass) -> CommandClass {
+    match class {
+        tinysecurity_bus::CommandClass::Read => CommandClass::Read,
+        tinysecurity_bus::CommandClass::Write => CommandClass::Write,
+        tinysecurity_bus::CommandClass::Network => CommandClass::Network,
+        tinysecurity_bus::CommandClass::Install => CommandClass::Install,
+        tinysecurity_bus::CommandClass::Destructive => CommandClass::Destructive,
+    }
 }
