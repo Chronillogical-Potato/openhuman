@@ -1,12 +1,6 @@
-//! Phase-0 policy characterization through the public `SecurityPolicy` surface
-//! (issue #646). The command grammar, allowlist and the
-//! always-forbidden table are pinned beside the code in
-//! `security/policy/policy_characterization_tests.rs`, because classification
-//! and the allowlist are crate-private outside tests. This file pins what an
-//! embedder or tool can observe: the shipped defaults and the trusted-root
-//! grants. The path floor, the autonomy gate and the hourly budget are the
-//! TinySecurity module's (`CheckPaths2`, `SpendAction2`) and are pinned in its
-//! repository and by the module-backed host tests.
+//! Policy characterization for issue #646 through the public host surface.
+//! This target pins shipped defaults, parsing, and trusted-root grants; the
+//! core unit corpus pins the command allowlist and classification.
 
 #[path = "support/env_guard.rs"]
 mod env_guard;

@@ -1,9 +1,7 @@
 //! Current host crypto boundary characterization.
 //!
-//! OpenHuman owns key persistence and encoding at this boundary; the
-//! TinySecurity crate owns the underlying X25519, HKDF and tunnel primitives.
-//! These tests pin the host adapter's round-trip behavior and the committed
-//! encrypted-file fixture bytes without duplicating primitive tests here.
+//! These tests pin the host adapter's persisted-device round trip and committed
+//! encrypted-file fixture bytes without making backend or network calls.
 
 use openhuman_core::security::devices::crypto::{
     base64url_decode, base64url_encode, DeviceKeypair,
