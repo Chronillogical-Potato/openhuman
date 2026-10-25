@@ -221,7 +221,7 @@ impl OpenHumanTurnPrelude {
                 label: server.qualified_name.clone(),
                 family: server.qualified_name,
                 display_name: server.display_name,
-                tools: crate::mcp::registry::tools_safe_for_agent(&server.server_id, server.tools),
+                tools: crate::mcp::registry::tools_safe_for_agent(&server.server_id, server.tools).await,
                 default_exposure: tinymcp_bus::McpToolExposure::Deferred,
                 direct_tools: Vec::new(),
             })
