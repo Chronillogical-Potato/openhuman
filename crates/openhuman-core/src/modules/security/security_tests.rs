@@ -20,12 +20,16 @@ async fn native_fixture_loads_the_pinned_release_and_reads_policy_info() {
     let client = client(&config)
         .await
         .expect("pinned TinySecurity module should load on supported native runners");
+    let runtime = crate::modules::runtime::runtime()
+        .await
+        .expect("module runtime remains available");
+    eprintln!(
+        "security module state after load: {:#?}",
+        runtime.host().list()
+    );
     let info = match client.policy_info().await {
         Ok(info) => info,
         Err(error) => {
-            let runtime = crate::modules::runtime::runtime()
-                .await
-                .expect("module runtime remains available");
             let record = crate::modules::registry::find(MODULE_ID).expect("registry record");
             let raw = runtime
                 .connection()
@@ -36,7 +40,10 @@ async fn native_fixture_loads_the_pinned_release_and_reads_policy_info() {
                     (),
                 )
                 .await;
-            panic!("typed call failed ({error}); raw call: {raw:?}");
+            panic!(
+                "typed call failed ({error}); raw call: {raw:?}; state: {:#?}",
+                runtime.host().list()
+            );
         }
     };
 
