@@ -235,6 +235,7 @@ tinybus = { path = "../../vendor/tinybus/crates/tinybus", default-features = fal
 # contract and crypto crate use this same v0.17.1 checkout so tunnel handles
 # cannot be created from a second version of the pairing types.
 tinysecurity-bus = { path = "../../vendor/tinysecurity/crates/tinysecurity-bus" }
+# TODO(#657): move existing device-pairing callers behind tinysecurity-bus, then drop this exception.
 tinysecurity-crypto = { path = "../../vendor/tinysecurity/crates/tinysecurity-crypto", default-features = false, features = ["device-pairing"] }
 tinysearch-bus = { path = "../../vendor/tinysearch/crates/tinysearch-bus", features = ["schemars"] }
 # Registry vocabulary is available even when the loader is disabled, so the
@@ -695,6 +696,7 @@ modules = [
     "dep:tinystoragedrivers-busproxy",
     "dep:tinybus-module",
 ]
+security-module = ["modules"]
 # Voice domain: STT/TTS providers, reply speech, and live voice.
 # The desktop product enables voice explicitly; contributor defaults leave it
 # off. WAV framing moved to the `tinyvoice` module, removing the former `hound`

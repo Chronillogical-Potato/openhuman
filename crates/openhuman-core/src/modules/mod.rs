@@ -90,6 +90,8 @@ pub mod schemas;
 pub mod search;
 #[cfg(feature = "modules")]
 mod search_path;
+#[cfg(feature = "security-module")]
+pub mod security;
 #[cfg(feature = "modules")]
 pub(crate) mod site_memory_host;
 mod source;

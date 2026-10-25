@@ -25,6 +25,7 @@ documents = ["openhuman-embed/documents"]
 hosting = ["openhuman-embed/hosting"]
 inbound-queues = ["openhuman-embed/inbound-queues"]
 modules = ["openhuman-embed/modules"]
+security-module = ["openhuman-embed/security-module"]
 voice = ["openhuman-embed/voice", "dep:tinyagents-live"]
 web3 = ["openhuman-embed/web3"]
 # Storage drivers for `[storage] url` (see the core `storage` domain).
