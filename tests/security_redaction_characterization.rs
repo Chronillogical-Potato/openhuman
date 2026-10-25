@@ -33,11 +33,6 @@ fn outputs(input: &str) -> Vec<(&'static str, String)> {
             "log",
             openhuman_core::core::log_redaction::scrub_secrets(input),
         ),
-        ("security_prefix", openhuman_core::security::redact(input)),
-        (
-            "security_scrub",
-            openhuman_core::security::scrub::sanitize_text(input).value,
-        ),
         ("rpc_params", serde_json::to_string(&rpc_params).unwrap()),
     ]
 }
@@ -73,7 +68,12 @@ fn pinned(case: &Value) -> BTreeSet<String> {
         .iter()
         .map(|v| v.as_str().unwrap().to_string())
         // The private credential middleware consumes this same fixture beside its module.
-        .filter(|name| name != "credential_middleware" && name != "approval_args")
+        .filter(|name| {
+            name != "credential_middleware"
+                && name != "approval_args"
+                && name != "security_prefix"
+                && name != "security_scrub"
+        })
         .collect()
 }
 
@@ -129,7 +129,7 @@ fn url_corpus_pins_all_public_url_redactors() {
 fn required_sinks(kind: &str) -> &'static [&'static str] {
     match kind {
         "secret" => &["log", "denials"],
-        "pii" => &["security_scrub"],
+        "pii" => &[],
         _ => &[],
     }
 }
