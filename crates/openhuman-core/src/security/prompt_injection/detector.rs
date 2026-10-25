@@ -189,7 +189,14 @@ pub struct ToolDefinitionScanHit {
 
 /// Scan tool metadata through TinySecurity. Failure is represented as a hit.
 pub async fn scan_tool_definition(field: &str, text: &str) -> Option<ToolDefinitionScanHit> {
-    let config = crate::core::runtime::CoreContext::current_embedder_config()?;
+    let Some(config) = crate::core::runtime::CoreContext::current_embedder_config() else {
+        return Some(ToolDefinitionScanHit {
+            code: "scan.unavailable".into(),
+            message: describe("scan.unavailable").into(),
+            score: 0.55,
+            verdict: PromptInjectionVerdict::Review,
+        });
+    };
     let definition = serde_json::json!({field: text});
     #[cfg(feature = "security-module")]
     let scanned = tokio::time::timeout(std::time::Duration::from_secs(2), async {
