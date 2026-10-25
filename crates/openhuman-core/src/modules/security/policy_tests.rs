@@ -33,6 +33,7 @@ fn module_bootstrap_binds_the_trusted_host_identity() {
     let translated = module_config_for_host(&config, Some(":1.42".into())).unwrap();
 
     assert_eq!(translated.trusted_host.as_deref(), Some(":1.42"));
+    assert_eq!(translated.contract_version, MODULE_CONTRACT_VERSION);
     assert_eq!(translated.policy, policy_config(&config));
 }
 
@@ -42,4 +43,12 @@ fn module_bootstrap_rejects_an_absent_trusted_host_identity() {
         module_config_for_host(&Config::default(), None),
         Err("module host identity unavailable")
     );
+}
+
+#[test]
+fn module_contract_requires_the_exact_published_wire_version() {
+    assert!(supports_contract((1, 28)));
+    assert!(!supports_contract((1, 29)));
+    assert!(!supports_contract((2, 0)));
+    assert!(!supports_contract((1, 27)));
 }

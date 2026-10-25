@@ -14,41 +14,16 @@ async fn client_fails_closed_when_module_loading_is_disabled() {
 #[tokio::test]
 #[ignore = "downloads and loads the pinned native TinySecurity release"]
 async fn native_fixture_loads_the_pinned_release_and_reads_policy_info() {
-    let _ = tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::TRACE)
-        .try_init();
     let mut config = Config::default();
     config.modules.enabled = true;
 
     let client = client(&config)
         .await
         .expect("pinned TinySecurity module should load on supported native runners");
-    let runtime = crate::modules::runtime::runtime()
+    let info = client
+        .policy_info()
         .await
-        .expect("module runtime remains available");
-    eprintln!(
-        "security module state after load: {:#?}",
-        runtime.host().list()
-    );
-    let info = match client.policy_info().await {
-        Ok(info) => info,
-        Err(error) => {
-            let record = crate::modules::registry::find(MODULE_ID).expect("registry record");
-            let raw = runtime
-                .connection()
-                .proxy(record.bus_name, record.object_path, record.bus_name)
-                .expect("module proxy")
-                .call_confidential::<tinysecurity_bus::PolicyInfo>(
-                    tinysecurity_bus::names::methods::POLICY_INFO,
-                    (),
-                )
-                .await;
-            panic!(
-                "typed call failed ({error}); raw call: {raw:?}; state: {:#?}",
-                runtime.host().list()
-            );
-        }
-    };
+        .expect("the loaded module should answer its typed policy-info contract");
 
-    assert!(tinysecurity_bus::is_compatible(info.contract_version));
+    assert!(super::policy::supports_contract(info.contract_version));
 }

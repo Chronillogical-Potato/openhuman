@@ -2,6 +2,16 @@
 
 use crate::config::Config;
 
+/// Wire contract served by the checksum-pinned v0.17.1 module. The fork bus
+/// contains newer host APIs, but this adapter invokes only this exact subset.
+pub const MODULE_CONTRACT_VERSION: (u32, u32) = (1, 28);
+
+/// Check the exact published artifact contract this adapter was built for.
+#[must_use]
+pub const fn supports_contract(version: (u32, u32)) -> bool {
+    version == MODULE_CONTRACT_VERSION
+}
+
 /// Translate OpenHuman autonomy settings to the published bus contract.
 #[must_use]
 pub fn policy_config(config: &Config) -> tinysecurity_bus::PolicyConfig {
@@ -32,6 +42,7 @@ pub fn module_config_for_host(
 ) -> Result<tinysecurity_bus::ModuleConfig, &'static str> {
     let trusted_host = trusted_host.ok_or("module host identity unavailable")?;
     Ok(tinysecurity_bus::ModuleConfig {
+        contract_version: MODULE_CONTRACT_VERSION,
         trusted_host: Some(trusted_host),
         ..module_config(config)
     })
