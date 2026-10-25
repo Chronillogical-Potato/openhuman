@@ -20,10 +20,25 @@ async fn native_fixture_loads_the_pinned_release_and_reads_policy_info() {
     let client = client(&config)
         .await
         .expect("pinned TinySecurity module should load on supported native runners");
-    let info = client
-        .policy_info()
-        .await
-        .expect("the loaded module should answer its typed policy-info contract");
+    let info = match client.policy_info().await {
+        Ok(info) => info,
+        Err(error) => {
+            let runtime = crate::modules::runtime::runtime()
+                .await
+                .expect("module runtime remains available");
+            let record = crate::modules::registry::find(MODULE_ID).expect("registry record");
+            let raw = runtime
+                .connection()
+                .proxy(record.bus_name, record.object_path)
+                .expect("module proxy")
+                .call_confidential::<tinysecurity_bus::PolicyInfo>(
+                    tinysecurity_bus::names::methods::POLICY_INFO,
+                    (),
+                )
+                .await;
+            panic!("typed call failed ({error}); raw call: {raw:?}");
+        }
+    };
 
     assert!(tinysecurity_bus::is_compatible(info.contract_version));
 }
