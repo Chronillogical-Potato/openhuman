@@ -82,14 +82,13 @@ use crate::agent::tinyagents::policy_denial::PolicyDenial;
 use crate::security::approval::{
     redact_args, summarize_action, ApprovalGate, ApprovalTurnContext, GateOutcome,
 };
-use crate::security::policy::CommandClass;
 use crate::security::policy::{GateDecision as PolicyGateDecision, SecurityPolicy};
 use tinytools::{PermissionLevel, Tool};
 use tinytools::{ToolPolicyAction, ToolPolicySession};
 
 #[path = "security_gate_shell_analysis.rs"]
 mod shell_analysis;
-use shell_analysis::{shell_analysis_for_call, SHELL_TOOL};
+use shell_analysis::SHELL_TOOL;
 
 /// The channel tool-policy's verdict for one tool, as three explicit outcomes.
 ///
@@ -285,31 +284,6 @@ impl OpenHumanSecurityGate {
                 .render(),
             ),
         }
-    }
-
-    /// Classifies a `shell` call and maps OpenHuman's three-way policy verdict
-    /// onto this trait's.
-    ///
-    /// Applies host policy to TinyBox's generic command facts, then raises (never
-    /// lowers) the result with the model's self-declared `category`.
-    #[cfg(feature = "modules")]
-    fn shell_decision(
-        policy: &SecurityPolicy,
-        args: &serde_json::Value,
-        analysis: &serde_json::Value,
-    ) -> std::result::Result<PolicyGateDecision, String> {
-        let analysis: crate::security::policy::CommandAnalysis =
-            serde_json::from_value(analysis.clone())
-                .map_err(|_| "TinyBox command analysis is invalid".to_owned())?;
-        let mut class: CommandClass = policy.check_gated_command_analysis(&analysis)?;
-        if let Some(declared) = args
-            .get("category")
-            .and_then(|v| v.as_str())
-            .and_then(SecurityPolicy::parse_declared_class)
-        {
-            class = class.max(declared);
-        }
-        Ok(policy.gate_decision(class))
     }
 
     /// The allow-shaped answer for a call that reached the end of the stages.
