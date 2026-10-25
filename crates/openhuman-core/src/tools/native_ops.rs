@@ -50,7 +50,7 @@ async fn command_class_for_tool(
                 _ => None,
             });
         return security
-            .classify_command(crate::security::policy::CommandQuery {
+            .classify_native_command(crate::security::policy::CommandQuery {
                 command: args
                     .get("command")
                     .and_then(serde_json::Value::as_str)
