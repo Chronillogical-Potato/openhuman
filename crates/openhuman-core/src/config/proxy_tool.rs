@@ -40,18 +40,12 @@ impl ProxyConfigTool {
         Ok(parsed)
     }
 
-    fn require_write_access(&self) -> Option<ToolResult> {
-        if !self.security.can_act() {
-            return Some(ToolResult::error(
-                "[policy-blocked] Action blocked: autonomy is read-only",
-            ));
-        }
-
-        if !self.security.record_action() {
-            return Some(ToolResult::error("Action blocked: rate limit exceeded"));
-        }
-
-        None
+    async fn require_write_access(&self) -> Option<ToolResult> {
+        self.security
+            .spend_action("proxy configuration update")
+            .await
+            .err()
+            .map(ToolResult::error)
     }
 
     fn parse_scope(raw: &str) -> Option<ProxyScope> {
@@ -344,7 +338,7 @@ impl Tool for ProxyConfigTool {
             "get" => self.handle_get(),
             "list_services" => self.handle_list_services(),
             "set" | "disable" | "apply_env" | "clear_env" => {
-                if let Some(blocked) = self.require_write_access() {
+                if let Some(blocked) = self.require_write_access().await {
                     return Ok(blocked);
                 }
 

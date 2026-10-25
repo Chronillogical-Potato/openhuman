@@ -580,14 +580,9 @@ impl BrowserTool {
         args: Value,
         origin: Option<crate::core::runtime::turn_origin::AgentTurnOrigin>,
     ) -> anyhow::Result<ToolResult> {
-        if !self.security.can_act() {
-            return Ok(ToolResult::error(
-                "[policy-blocked] Action blocked: autonomy is read-only",
-            ));
-        }
         // A task counts once here; its own steps are bounded by max_actions.
-        if !self.security.record_action() {
-            return Ok(ToolResult::error("Action blocked: rate limit exceeded"));
+        if let Err(reason) = self.security.spend_action("browser task").await {
+            return Ok(ToolResult::error(reason));
         }
         match self.run(&args, origin.as_ref()).await {
             Ok(v) => Ok(ToolResult::success(serde_json::to_string_pretty(&v)?)),

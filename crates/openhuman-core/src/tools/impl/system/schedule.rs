@@ -106,7 +106,7 @@ impl Tool for ScheduleTool {
                 self.handle_get(id)
             }
             "create" | "add" | "once" => {
-                if let Some(blocked) = self.enforce_mutation_allowed(action) {
+                if let Some(blocked) = self.enforce_mutation_allowed(action).await {
                     return Ok(blocked);
                 }
                 let origin =
@@ -115,7 +115,7 @@ impl Tool for ScheduleTool {
                     .await
             }
             "cancel" | "remove" => {
-                if let Some(blocked) = self.enforce_mutation_allowed(action) {
+                if let Some(blocked) = self.enforce_mutation_allowed(action).await {
                     return Ok(blocked);
                 }
                 let id = args
@@ -125,7 +125,7 @@ impl Tool for ScheduleTool {
                 Ok(self.handle_cancel(id))
             }
             "pause" => {
-                if let Some(blocked) = self.enforce_mutation_allowed(action) {
+                if let Some(blocked) = self.enforce_mutation_allowed(action).await {
                     return Ok(blocked);
                 }
                 let id = args
@@ -135,7 +135,7 @@ impl Tool for ScheduleTool {
                 Ok(self.handle_pause_resume(id, true))
             }
             "resume" => {
-                if let Some(blocked) = self.enforce_mutation_allowed(action) {
+                if let Some(blocked) = self.enforce_mutation_allowed(action).await {
                     return Ok(blocked);
                 }
                 let id = args
@@ -173,20 +173,12 @@ fn schedule_args_as_cron_add(args: &serde_json::Value) -> serde_json::Value {
 }
 
 impl ScheduleTool {
-    fn enforce_mutation_allowed(&self, action: &str) -> Option<ToolResult> {
-        if !self.security.can_act() {
-            return Some(ToolResult::error(format!(
-                "[policy-blocked] Security policy: read-only mode, cannot perform '{action}'"
-            )));
-        }
-
-        if !self.security.record_action() {
-            return Some(ToolResult::error(
-                "Rate limit exceeded: action budget exhausted".to_string(),
-            ));
-        }
-
-        None
+    async fn enforce_mutation_allowed(&self, action: &str) -> Option<ToolResult> {
+        self.security
+            .spend_action(action)
+            .await
+            .err()
+            .map(ToolResult::error)
     }
 
     fn handle_list(&self) -> Result<ToolResult> {

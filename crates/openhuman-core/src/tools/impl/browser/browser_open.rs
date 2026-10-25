@@ -44,13 +44,8 @@ impl Tool for BrowserOpenTool {
         json!({"type":"object","properties":{"url":{"type":"string","description":"HTTPS URL to open"}},"required":["url"]})
     }
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        if !self.security.can_act() {
-            return Ok(ToolResult::error(
-                "[policy-blocked] Action blocked: autonomy is read-only",
-            ));
-        }
-        if !self.security.record_action() {
-            return Ok(ToolResult::error("Action blocked: rate limit exceeded"));
+        if let Err(reason) = self.security.spend_action("browser open").await {
+            return Ok(ToolResult::error(reason));
         }
         let url = args["url"]
             .as_str()
