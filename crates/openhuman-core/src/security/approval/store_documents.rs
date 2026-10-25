@@ -438,6 +438,24 @@ impl Docs {
         })
     }
 
+    /// Read all legacy flow grants once while migrating their authority to TinySecurity.
+    #[cfg(feature = "security-module")]
+    pub(super) fn list_all_flow_trust(&self) -> Result<Vec<(String, String)>> {
+        self.run(|docs| async move {
+            Ok(docs
+                .query_all(FLOW_TRUST, &Query::default())
+                .await?
+                .iter()
+                .filter_map(|grant| {
+                    Some((
+                        text(&grant.doc, "flow_id")?.to_owned(),
+                        text(&grant.doc, "tool_name")?.to_owned(),
+                    ))
+                })
+                .collect())
+        })
+    }
+
     pub(super) fn delete_flow_trust(
         &self,
         flow_id: &str,
