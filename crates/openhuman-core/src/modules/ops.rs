@@ -487,6 +487,7 @@ fn runtime_module_config(config: &Config, id: &str) -> serde_json::Value {
             .map(|name| name.to_string());
         let config = super::security::module_config_for_host(config, trusted_host)
             .expect("module runtime must expose its host identity before loading modules");
+        tracing::debug!(contract_version = ?config.contract_version, "preparing security module configuration");
         return serde_json::to_value(config).expect("TinySecurity module config is serializable");
     }
     module_config(config, id)
