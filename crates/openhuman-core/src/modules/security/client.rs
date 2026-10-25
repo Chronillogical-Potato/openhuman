@@ -1,6 +1,12 @@
 //! Typed, attested calls to the TinySecurity policy interface.
 
-use tinysecurity_bus::{CheckRequest, CheckResponse, PolicyInfo};
+use tinysecurity_bus::{
+    BudgetDecision2, BudgetRequest2, CheckRequest, CheckResponse, CommandDecision, CommandPolicy,
+    CommandPolicyId, CommandRequest, CredentialRootsRequest2, CredentialRootsResponse2,
+    HostActionClassRequest2, HostActionClassResponse2, PathBatchRequest2, PathBatchResponse2,
+    PathPolicy, PathPolicyId, PolicyInfo, ProtectedFloor2, ProtectedPathRequest2,
+    ProtectedPathResponse2,
+};
 
 use super::MODULE_ID;
 use crate::config::Config;
@@ -51,6 +57,124 @@ impl Client {
     pub async fn check(&self, request: &CheckRequest) -> Result<CheckResponse, SecurityError> {
         self.object
             .call_confidential(tinysecurity_bus::names::methods::CHECK, (request,))
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Register an immutable host-derived path scope.
+    pub async fn register_path_policy(
+        &self,
+        policy: PathPolicy,
+    ) -> Result<PathPolicyId, SecurityError> {
+        self.object
+            .call_confidential(tinysecurity_bus::names::methods::REGISTER_PATH_POLICY, (policy,))
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Check a batch of paths against a registered path scope.
+    pub async fn check_paths2(
+        &self,
+        request: PathBatchRequest2,
+    ) -> Result<PathBatchResponse2, SecurityError> {
+        self.object
+            .call_confidential(tinysecurity_bus::names::methods::CHECK_PATHS2, (request,))
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Query the unconditional path floor without a registered scope.
+    pub async fn protected_path2(
+        &self,
+        request: ProtectedPathRequest2,
+    ) -> Result<ProtectedPathResponse2, SecurityError> {
+        self.object
+            .call_confidential(tinysecurity_bus::names::methods::PROTECTED_PATH2, (request,))
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Read TinySecurity's protected-path vocabulary.
+    pub async fn protected_floor2(&self) -> Result<ProtectedFloor2, SecurityError> {
+        self.object
+            .call_confidential(tinysecurity_bus::names::methods::PROTECTED_FLOOR2, ())
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Resolve TinySecurity's credential-store roots for a trusted home path.
+    pub async fn credential_roots2(
+        &self,
+        request: CredentialRootsRequest2,
+    ) -> Result<CredentialRootsResponse2, SecurityError> {
+        self.object
+            .call_confidential(tinysecurity_bus::names::methods::CREDENTIAL_ROOTS2, (request,))
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Classify a host tool from its trusted permission and effect declarations.
+    pub async fn classify_host_action2(
+        &self,
+        request: HostActionClassRequest2,
+    ) -> Result<HostActionClassResponse2, SecurityError> {
+        self.object
+            .call_confidential(tinysecurity_bus::names::methods::CLASSIFY_HOST_ACTION2, (request,))
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Register an immutable host-derived command scope.
+    pub async fn register_command_policy(
+        &self,
+        policy: CommandPolicy,
+    ) -> Result<CommandPolicyId, SecurityError> {
+        self.object
+            .call_confidential(tinysecurity_bus::names::methods::REGISTER_COMMAND_POLICY, (policy,))
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Classify an actual command without spending its action budget.
+    pub async fn classify_command(
+        &self,
+        request: CommandRequest,
+    ) -> Result<CommandDecision, SecurityError> {
+        self.object
+            .call_confidential(tinysecurity_bus::names::methods::CLASSIFY_COMMAND, (request,))
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Check an actual command and reserve budget when TinySecurity allows it.
+    pub async fn check_command(
+        &self,
+        request: CommandRequest,
+    ) -> Result<CommandDecision, SecurityError> {
+        self.object
+            .call_confidential(tinysecurity_bus::names::methods::CHECK_COMMAND, (request,))
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Spend one action from a registered command scope.
+    pub async fn spend_action2(
+        &self,
+        request: BudgetRequest2,
+    ) -> Result<BudgetDecision2, SecurityError> {
+        self.object
+            .call_confidential(tinysecurity_bus::names::methods::SPEND_ACTION2, (request,))
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Read a command scope's budget without spending an action.
+    pub async fn peek_budget2(
+        &self,
+        request: BudgetRequest2,
+    ) -> Result<BudgetDecision2, SecurityError> {
+        self.object
+            .call_confidential(tinysecurity_bus::names::methods::PEEK_BUDGET2, (request,))
             .await
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
     }
