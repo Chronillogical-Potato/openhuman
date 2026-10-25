@@ -67,5 +67,8 @@ pub async fn reinitialize(config: &Config) -> Result<(), SecurityError> {
         .reinitialize_module(MODULE_ID, payload)
         .await
         .map(|_| ())
-        .map_err(|_| SecurityError::Unavailable("security module reinitialization failed".into()))
+        .map_err(|error| {
+            tracing::warn!(error = %error, "security module reinitialization failed");
+            SecurityError::Unavailable("security module reinitialization failed".into())
+        })
 }
