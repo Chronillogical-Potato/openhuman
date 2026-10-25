@@ -16,7 +16,15 @@ where
     T: Send + 'static,
     F: Future<Output = Result<T, String>> + Send + 'static,
 {
-    let target = TARGET.get().ok_or_else(|| "TinySecurity runtime unavailable".to_owned())?;
+    run_on(TARGET.get(), timeout, future)
+}
+
+fn run_on<T, F>(target: Option<&Handle>, timeout: Duration, future: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: Future<Output = Result<T, String>> + Send + 'static,
+{
+    let target = target.ok_or_else(|| "TinySecurity runtime unavailable".to_owned())?;
     let current = Handle::try_current().ok();
     if current.as_ref().is_some_and(|handle| {
         handle.id() == target.id() && handle.runtime_flavor() == RuntimeFlavor::CurrentThread
@@ -44,3 +52,7 @@ where
         }
     }
 }
+
+#[cfg(test)]
+#[path = "sync_seam_tests.rs"]
+mod tests;

@@ -13,6 +13,9 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use std::sync::OnceLock;
 
+/// Fixed boot floor used before the TinySecurity redactor is ready.
+pub(crate) const SUPPRESSED: &str = "[REDACTED]";
+
 /// The TinySecurity pass is installed after its released module is serving.
 static MODULE_SCRUBBER: OnceLock<fn(&str) -> Option<String>> = OnceLock::new();
 
