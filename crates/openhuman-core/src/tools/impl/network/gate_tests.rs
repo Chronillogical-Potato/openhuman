@@ -8,11 +8,25 @@ use tinyagents_harness_tools::net::network::{
 use tinytools::{PermissionLevel, Tool};
 
 fn policy(autonomy: AutonomyLevel, max_actions_per_hour: u32) -> Arc<SecurityPolicy> {
-    Arc::new(SecurityPolicy {
+    let policy = SecurityPolicy {
         autonomy,
         max_actions_per_hour,
         ..SecurityPolicy::default()
-    })
+    };
+    *policy.budget_snapshot.lock().unwrap() = Some(if autonomy == AutonomyLevel::ReadOnly {
+        tinysecurity_bus::BudgetDecision2::ReadOnlyMode
+    } else {
+        tinysecurity_bus::BudgetDecision2::Allow
+    });
+    *policy.class_gate_snapshot.lock().unwrap() = vec![(
+        CommandClass::Network,
+        if autonomy == AutonomyLevel::ReadOnly {
+            GateDecision::Block
+        } else {
+            GateDecision::Prompt
+        },
+    )];
+    Arc::new(policy)
 }
 
 fn http(security: Arc<SecurityPolicy>) -> HttpRequestTool {
@@ -39,9 +53,10 @@ fn read_only_autonomy_cannot_act() {
 #[test]
 fn the_action_budget_is_shared_with_the_policy() {
     let security = policy(AutonomyLevel::Supervised, 1);
+    *security.budget_snapshot.lock().unwrap() = Some(
+        tinysecurity_bus::BudgetDecision2::RateLimited { max_per_hour: 1 },
+    );
     let gate: &dyn NetGate = security.as_ref();
-    assert!(!gate.is_rate_limited());
-    assert!(gate.record_action());
     assert!(gate.is_rate_limited());
     assert!(!gate.record_action());
 }

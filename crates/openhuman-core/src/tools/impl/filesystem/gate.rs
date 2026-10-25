@@ -10,7 +10,6 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tinyagents_harness_tools::fs::filesystem::FsGate;
 
-use crate::security::policy::CommandClass;
 use crate::security::policy::{TrustedAccess, TrustedRoot};
 use crate::security::{AutonomyLevel, GateDecision, SecurityPolicy};
 
@@ -56,7 +55,8 @@ impl FsGate for SecurityPolicy {
     fn is_read_only(&self) -> bool {
         // Deliberately the raw tier, not `can_act()`: `git_operations` asks
         // this in addition to `can_act()` and always has.
-        self.autonomy == AutonomyLevel::ReadOnly
+        self.gate_decision(crate::security::policy::CommandClass::Write)
+            == crate::security::GateDecision::Block
     }
 
     fn is_rate_limited(&self) -> bool {
@@ -68,7 +68,7 @@ impl FsGate for SecurityPolicy {
     }
 
     fn write_needs_approval(&self) -> bool {
-        self.gate_decision(CommandClass::Write) == GateDecision::Prompt
+        self.gate_decision(crate::security::policy::CommandClass::Write) == GateDecision::Prompt
     }
 
     fn action_dir(&self) -> &Path {
