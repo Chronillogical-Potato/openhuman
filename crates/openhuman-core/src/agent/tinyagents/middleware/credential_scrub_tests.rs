@@ -2,7 +2,7 @@
 
 use super::*;
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 #[ignore = "downloads and loads the pinned native TinySecurity release"]
 async fn native_credentials_only_and_browser_result_adapter() {
     let mut config = crate::config::Config::default();
