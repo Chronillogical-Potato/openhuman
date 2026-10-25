@@ -42,8 +42,6 @@ pub struct TrustedRoot {
 }
 
 /// TinySecurity's command class projected into OpenHuman's gate vocabulary.
-/// This is host policy vocabulary. Module contracts report structural facts;
-/// they do not classify commands or decide which autonomy tier may run them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CommandClass {

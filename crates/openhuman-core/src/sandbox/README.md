@@ -100,11 +100,11 @@ remote one), which the jail's `allow_net` enforces.
 
 **`folder_confined`: credential stores are read-denied.** Seatbelt's profile
 is allow-default for reads, so `jail_request` sends the credential stores that
-`SecurityPolicy::is_always_forbidden` protects (`~/.ssh`, `~/.gnupg`, `~/.aws`,
+`TinySecurity protected-path policy` protects (`~/.ssh`, `~/.gnupg`, `~/.aws`,
 `~/.azure`, `~/.kube`, `~/Library/Keychains`, `~/.netrc`, `~/.git-credentials`,
 `~/.pgpass`, `~/.npmrc`, `~/.docker/config.json`, `~/.cargo/credentials.toml`)
 as `NativeJailConfig.deny_read` (TinyBox contract 1.20), built from the same
-lists by `security::policy::home_credential_stores`. OpenHuman's own credential
+lists by `TinySecurity CredentialRoots2 operation`. OpenHuman's own credential
 files are denied too (`credentials::credential_files`, at the paths
 their stores write): the keyring's `secrets.enc`, `auth-profiles.json`,
 `http-credentials.json` and the account `config.toml`. The rest of the
@@ -142,7 +142,7 @@ controlled by `[runtime.local_jail]` (`LocalJailConfig`):
 | `/proc` | read-only | only with `allow_proc = true` (default off) |
 
 The credential floor applies to every grant: any path that
-`SecurityPolicy::is_always_forbidden` rejects, or that is a parent of a
+`TinySecurity protected-path policy` rejects, or that is a parent of a
 credential directory (`~/.ssh`, `~/.gnupg`, `~/.aws`, `~/.azure`, `~/.kube`),
 is dropped, because Landlock grants are recursive. `/proc` is reachable only
 through `allow_proc`, since `/proc/<pid>/environ` exposes every process's
@@ -225,7 +225,7 @@ The settings surface (`get_sandbox_settings`, `[security.sandbox]` and
   policy, approved grants, environment allowlist, and fail-closed module calls.
 - Permission to run a command at all, the approval gate and the path checks
   are `security/`. The autonomy policy is off by default there, so for a
-  default install the sandbox and the `is_always_forbidden` floor are what
+  default install the sandbox and the `TinySecurity protected-path policy` floor are what
   bound an agent.
 - Shell selection and the child environment for each platform are TinyBox's
   (`SelectShell` / `StartNativeShellExec`); `modules::tinybox::host_runtime::host_shell_flavor`
