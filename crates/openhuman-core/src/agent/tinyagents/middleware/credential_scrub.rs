@@ -15,13 +15,14 @@ use tinyagents_harness::middleware::{
 /// never seen by (or counted against) the scrubber.
 fn scrub_with_notice_for_tool(tool_name: &str, content: &str) -> Option<(String, usize)> {
     let mode = if tool_name == "browser"
-        && serde_json::from_str::<serde_json::Value>(content).ok().is_some_and(|value| {
-            value["status"] == "NeedsConfirmation"
-                && value["pending"]["token"]
-                    .as_str()
-                    .is_some_and(|token| token.len() == 36 && uuid::Uuid::parse_str(token).is_ok())
-        })
-    {
+        && serde_json::from_str::<serde_json::Value>(content)
+            .ok()
+            .is_some_and(|value| {
+                value["status"] == "NeedsConfirmation"
+                    && value["pending"]["token"].as_str().is_some_and(|token| {
+                        token.len() == 36 && uuid::Uuid::parse_str(token).is_ok()
+                    })
+            }) {
         tinysecurity_bus::RedactMode::BrowserResult
     } else {
         tinysecurity_bus::RedactMode::CredentialsOnly

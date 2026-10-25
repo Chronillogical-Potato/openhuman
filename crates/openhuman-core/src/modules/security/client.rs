@@ -7,7 +7,7 @@ use tinysecurity_bus::{
     PathPolicy, PathPolicyId, PathValidationRequest, PathValidationResult, PolicyInfo,
     ProtectedFloor2, ProtectedPathRequest2, ProtectedPathResponse2, RedactMode, RedactRequest,
     RedactResponse, RedactWithRequest, ScanPromptScoredRequest2, ScanPromptScoredResponse2,
-    ScanToolDefinitionRequest, ScanResponse, Secret,
+    ScanResponse, ScanToolDefinitionRequest, Secret,
 };
 
 use super::MODULE_ID;
@@ -63,7 +63,10 @@ impl Client {
         self.object
             .call_confidential(
                 tinysecurity_bus::names::methods::REDACT,
-                (RedactRequest { text: text.into(), mode },),
+                (RedactRequest {
+                    text: text.into(),
+                    mode,
+                },),
             )
             .await
             .map_err(|error| SecurityError::Unavailable(error.to_string()))

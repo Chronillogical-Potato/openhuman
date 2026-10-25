@@ -49,16 +49,24 @@ async fn native_redactor_covers_the_shared_security_fixture() {
         .expect("the pinned TinySecurity module should load");
 
     for corpus in [
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures/security-redaction-corpus.json")),
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures/security-redaction-extended-corpus.json")),
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tests/fixtures/security-redaction-corpus.json"
+        )),
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tests/fixtures/security-redaction-extended-corpus.json"
+        )),
     ] {
         let corpus: serde_json::Value = serde_json::from_str(corpus).unwrap();
         for case in corpus["text"].as_array().unwrap() {
-            let kind = case["kind"].as_str().unwrap_or(match case["case"].as_str().unwrap() {
-                "anthropic_key" => "secret",
-                "email" => "pii",
-                _ => "path",
-            });
+            let kind = case["kind"]
+                .as_str()
+                .unwrap_or(match case["case"].as_str().unwrap() {
+                    "anthropic_key" => "secret",
+                    "email" => "pii",
+                    _ => "path",
+                });
             if !matches!(kind, "secret" | "pii") {
                 continue;
             }
@@ -69,7 +77,11 @@ async fn native_redactor_covers_the_shared_security_fixture() {
                 .await
                 .expect("TinySecurity Redact should answer")
                 .text;
-            assert!(!output.contains(&needle), "case={} output={output}", case["case"]);
+            assert!(
+                !output.contains(&needle),
+                "case={} output={output}",
+                case["case"]
+            );
         }
     }
 }
@@ -106,10 +118,7 @@ async fn native_redact_with_covers_encoded_exact_credentials_and_browser_result(
         r#"{{"status":"NeedsConfirmation","pending":{{"token":"{confirmation}"}},"page":"api_key={secret}"}}"#
     );
     let response = client
-        .redact(
-            tinysecurity_bus::RedactMode::BrowserResult,
-            browser,
-        )
+        .redact(tinysecurity_bus::RedactMode::BrowserResult, browser)
         .await
         .expect("TinySecurity BrowserResult should answer");
     assert!(response.text.contains(confirmation));

@@ -216,7 +216,8 @@ impl OpenHumanTurnPrelude {
         let servers = crate::mcp::registry::connections::cached_overview_for_config(config).await;
         let mut sources = Vec::with_capacity(servers.len());
         for server in servers {
-            let tools = crate::mcp::registry::tools_safe_for_agent(&server.server_id, server.tools).await;
+            let tools =
+                crate::mcp::registry::tools_safe_for_agent(&server.server_id, server.tools).await;
             sources.push(tinymcp_bus::McpToolSourceSpec {
                 server_id: server.server_id.clone(),
                 label: server.qualified_name.clone(),

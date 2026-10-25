@@ -3,7 +3,9 @@ use std::time::Duration;
 
 #[test]
 fn missing_runtime_suppresses_without_returning_the_original() {
-    let result = run_on(None, Duration::from_millis(20), async { Ok("secret".to_owned()) });
+    let result = run_on(None, Duration::from_millis(20), async {
+        Ok("secret".to_owned())
+    });
     assert!(result.is_err());
 }
 

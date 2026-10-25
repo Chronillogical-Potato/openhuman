@@ -68,12 +68,18 @@ pub const MAX_PROMPT_BYTES: usize = 64 * 1024;
 /// Map module-owned rule identifiers to user-safe explanations.
 fn describe(code: &str) -> &'static str {
     match code {
-        "override.ignore_previous" => "Attempts to override existing safety or system instructions.",
+        "override.ignore_previous" => {
+            "Attempts to override existing safety or system instructions."
+        }
         "override.role_hijack" => "Attempts to redefine assistant role or policy scope.",
         "override.obfuscated_instruction" => "Detected obfuscated instruction-override phrase.",
-        "exfiltrate.system_prompt" => "Attempts to reveal hidden prompts or developer instructions.",
+        "exfiltrate.system_prompt" => {
+            "Attempts to reveal hidden prompts or developer instructions."
+        }
         "exfiltrate.secrets" => "Mentions secret-bearing nouns (potentially benign on its own).",
-        "exfiltrate.credentials_with_intent" => "Attempts to extract credentials, secrets, or tokens.",
+        "exfiltrate.credentials_with_intent" => {
+            "Attempts to extract credentials, secrets, or tokens."
+        }
         "exfiltration.intent" => "Detected exfiltration-focused prompt intent.",
         "tool.abuse" => "Attempts to force unsafe tool usage or policy bypass.",
         "input.oversized" => "The security screen could not check this content, so it was held.",
@@ -85,7 +91,11 @@ fn prompt_hash(input: &str) -> String {
     hex::encode(Sha256::digest(input.as_bytes()))
 }
 
-fn held_decision(input: &str, context: PromptEnforcementContext<'_>, code: &str) -> PromptEnforcementDecision {
+fn held_decision(
+    input: &str,
+    context: PromptEnforcementContext<'_>,
+    code: &str,
+) -> PromptEnforcementDecision {
     let reasons = vec![PromptInjectionReason {
         code: code.to_owned(),
         message: describe(code).to_owned(),
@@ -151,16 +161,34 @@ pub async fn enforce_prompt_input(
         }
     };
     let (verdict, action) = match response.tier {
-        tinysecurity_bus::PromptTier2::Allow => (PromptInjectionVerdict::Allow, PromptEnforcementAction::Allow),
-        tinysecurity_bus::PromptTier2::Review => (PromptInjectionVerdict::Review, PromptEnforcementAction::ReviewBlocked),
-        _ => (PromptInjectionVerdict::Block, PromptEnforcementAction::Blocked),
+        tinysecurity_bus::PromptTier2::Allow => (
+            PromptInjectionVerdict::Allow,
+            PromptEnforcementAction::Allow,
+        ),
+        tinysecurity_bus::PromptTier2::Review => (
+            PromptInjectionVerdict::Review,
+            PromptEnforcementAction::ReviewBlocked,
+        ),
+        _ => (
+            PromptInjectionVerdict::Block,
+            PromptEnforcementAction::Blocked,
+        ),
     };
-    let reasons: Vec<_> = response.rule_ids.iter().map(|code| PromptInjectionReason {
-        code: code.clone(), message: describe(code).to_owned(),
-    }).collect();
+    let reasons: Vec<_> = response
+        .rule_ids
+        .iter()
+        .map(|code| PromptInjectionReason {
+            code: code.clone(),
+            message: describe(code).to_owned(),
+        })
+        .collect();
     let decision = PromptEnforcementDecision {
-        verdict, score: f32::from(response.score_milli) / 1000.0, reasons, action,
-        prompt_hash: prompt_hash(input), prompt_chars: input.chars().count(),
+        verdict,
+        score: f32::from(response.score_milli) / 1000.0,
+        reasons,
+        action,
+        prompt_hash: prompt_hash(input),
+        prompt_chars: input.chars().count(),
     };
     tracing::info!(
         source = context.source,
@@ -200,19 +228,41 @@ pub async fn scan_tool_definition(field: &str, text: &str) -> Option<ToolDefinit
     let definition = serde_json::json!({field: text});
     #[cfg(feature = "security-module")]
     let scanned = tokio::time::timeout(std::time::Duration::from_secs(2), async {
-        let client = crate::modules::security::client(&config).await.map_err(|error| error.to_string())?;
-        client.scan_tool_definition(field.to_owned(), &definition).await.map_err(|error| error.to_string())
-    }).await;
+        let client = crate::modules::security::client(&config)
+            .await
+            .map_err(|error| error.to_string())?;
+        client
+            .scan_tool_definition(field.to_owned(), &definition)
+            .await
+            .map_err(|error| error.to_string())
+    })
+    .await;
     #[cfg(not(feature = "security-module"))]
     let scanned: Result<Result<tinysecurity_bus::ScanResponse, String>, ()> = Err(());
     let (code, verdict) = match scanned {
         Ok(Ok(result)) if result.verdict == tinysecurity_bus::ScanVerdict::Clean => return None,
         Ok(Ok(result)) => {
-            let verdict = if result.verdict == tinysecurity_bus::ScanVerdict::Blocked { PromptInjectionVerdict::Block } else { PromptInjectionVerdict::Review };
-            (result.rule_ids.into_iter().next().unwrap_or_else(|| "tool_definition.flagged".into()), verdict)
+            let verdict = if result.verdict == tinysecurity_bus::ScanVerdict::Blocked {
+                PromptInjectionVerdict::Block
+            } else {
+                PromptInjectionVerdict::Review
+            };
+            (
+                result
+                    .rule_ids
+                    .into_iter()
+                    .next()
+                    .unwrap_or_else(|| "tool_definition.flagged".into()),
+                verdict,
+            )
         }
         _ => ("scan.unavailable".into(), PromptInjectionVerdict::Review),
     };
     tracing::warn!(target: "[prompt_injection]", origin = "remote_tool_definition", field, verdict = verdict.as_str(), code = %code, chars = text.chars().count(), "remote tool definition flagged");
-    Some(ToolDefinitionScanHit { code, message: describe("tool.abuse").into(), score: 0.55, verdict })
+    Some(ToolDefinitionScanHit {
+        code,
+        message: describe("tool.abuse").into(),
+        score: 0.55,
+        verdict,
+    })
 }

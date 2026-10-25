@@ -639,7 +639,11 @@ async fn a_pinned_prompt_is_held_when_the_security_module_is_unavailable() {
         },
     )
     .await;
-    assert_eq!(decision.action, PromptEnforcementAction::ReviewBlocked, "{prompt}");
+    assert_eq!(
+        decision.action,
+        PromptEnforcementAction::ReviewBlocked,
+        "{prompt}"
+    );
 }
 
 #[tokio::test]

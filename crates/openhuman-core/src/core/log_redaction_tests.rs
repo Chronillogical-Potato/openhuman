@@ -1,5 +1,5 @@
-use super::scrub_secrets;
 use super::apply_module_scrubber;
+use super::scrub_secrets;
 
 fn module_redaction(_input: &str) -> Option<String> {
     Some("module-redacted".to_owned())

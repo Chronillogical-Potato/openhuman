@@ -66,4 +66,3 @@ pub(crate) fn redact_blocking(
 fn scrub_log(text: &str) -> Option<String> {
     redact_blocking(RedactMode::CredentialsOnly, text, SYNC_TIMEOUT).ok()
 }
-

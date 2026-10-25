@@ -36,7 +36,9 @@ pub fn sanitize_text(value: &str) -> Sanitized<String> {
     };
     let cleaned = result.unwrap_or_else(|| REDACTED.to_owned());
     Sanitized {
-        report: SanitizationReport { changed: cleaned != value },
+        report: SanitizationReport {
+            changed: cleaned != value,
+        },
         value: cleaned,
     }
 }

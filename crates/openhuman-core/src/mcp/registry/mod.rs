@@ -461,14 +461,18 @@ pub(crate) async fn tools_safe_for_agent(
             "meta": &tool.meta,
         });
         #[cfg(feature = "security-module")]
-        let result = if let Some(config) = crate::core::runtime::CoreContext::current_embedder_config() {
-            match crate::modules::security::client(&config).await {
-                Ok(client) => client.scan_tool_definition(tool.name.clone(), &definition).await.ok(),
-                Err(_) => None,
-            }
-        } else {
-            None
-        };
+        let result =
+            if let Some(config) = crate::core::runtime::CoreContext::current_embedder_config() {
+                match crate::modules::security::client(&config).await {
+                    Ok(client) => client
+                        .scan_tool_definition(tool.name.clone(), &definition)
+                        .await
+                        .ok(),
+                    Err(_) => None,
+                }
+            } else {
+                None
+            };
         #[cfg(not(feature = "security-module"))]
         let result: Option<tinysecurity_bus::ScanResponse> = None;
         let reason = match result {
@@ -476,20 +480,24 @@ pub(crate) async fn tools_safe_for_agent(
                 safe.push(tool);
                 continue;
             }
-            Some(hit) => hit.rule_ids.into_iter().next().unwrap_or_else(|| "tool_definition.flagged".into()),
+            Some(hit) => hit
+                .rule_ids
+                .into_iter()
+                .next()
+                .unwrap_or_else(|| "tool_definition.flagged".into()),
             None => "scan.unavailable".to_owned(),
         };
-                    tracing::warn!(
-                        server,
-                        tool = %tool.name,
-                        reason = %reason,
-                        "[mcp] dropped a remote tool that tripped the input-validation scan"
-                    );
-                    BUS.publish(DomainEvent::McpToolRejected {
-                        server: server.to_string(),
-                        tool: tool.name.clone(),
-                        reason,
-                    });
+        tracing::warn!(
+            server,
+            tool = %tool.name,
+            reason = %reason,
+            "[mcp] dropped a remote tool that tripped the input-validation scan"
+        );
+        BUS.publish(DomainEvent::McpToolRejected {
+            server: server.to_string(),
+            tool: tool.name.clone(),
+            reason,
+        });
     }
     safe
 }

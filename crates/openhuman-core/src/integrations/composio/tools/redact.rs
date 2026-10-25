@@ -29,7 +29,10 @@ pub(crate) fn composio_secrets(config: &Config) -> Vec<String> {
     let originals = secrets.clone();
     for secret in originals {
         secrets.push(url::form_urlencoded::byte_serialize(secret.as_bytes()).collect());
-        secrets.push(base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &secret));
+        secrets.push(base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            &secret,
+        ));
         secrets.push(hex::encode(secret.as_bytes()));
     }
     secrets.retain(|s| s.len() >= MIN_SECRET_LEN);
@@ -61,11 +64,7 @@ async fn redact_exact(config: &Config, text: &str, secrets: &[String]) -> Result
 
 /// Redact every Composio key from a diagnostic before reporting it. The
 /// original diagnostic is never returned if the module cannot answer.
-pub(crate) async fn redact_and_report(
-    config: &Config,
-    operation: &str,
-    rendered: &str,
-) -> String {
+pub(crate) async fn redact_and_report(config: &Config, operation: &str, rendered: &str) -> String {
     let secrets = composio_secrets(config);
     let redacted = if secrets.is_empty() {
         rendered.to_owned()
@@ -105,7 +104,9 @@ pub(crate) async fn redact_composio_outcome(
                     tracing::debug!("[composio] redacted credentials from a tool error");
                     Err(anyhow::anyhow!(redacted))
                 }
-                Err(_) => Err(anyhow::anyhow!("Composio operation failed; details withheld")),
+                Err(_) => Err(anyhow::anyhow!(
+                    "Composio operation failed; details withheld"
+                )),
             }
         }
     }

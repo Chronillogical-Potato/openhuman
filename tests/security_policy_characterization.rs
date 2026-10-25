@@ -97,4 +97,3 @@ fn action_dir_is_not_granted_when_it_covers_the_workspace() {
         "an ancestor of the workspace must not become a trusted root"
     );
 }
-

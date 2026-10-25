@@ -236,7 +236,10 @@ async fn credential_redaction_survives_resume() {
     let first_turn = host.turn(&original).await;
     if let Err(error) = first_turn {
         assert!(!error.to_string().contains(&secret));
-        assert!(model.requests().is_empty(), "held input must not reach the model");
+        assert!(
+            model.requests().is_empty(),
+            "held input must not reach the model"
+        );
         return;
     }
     drop(host);

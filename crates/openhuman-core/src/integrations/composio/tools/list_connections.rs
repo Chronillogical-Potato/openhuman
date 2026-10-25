@@ -116,12 +116,8 @@ impl ComposioListConnectionsTool {
                         let rendered = format!(
                             "[composio-direct] composio_list_connections (direct) failed: {e:#}"
                         );
-                        let rendered = redact_and_report(
-                            &live_config,
-                            "list_connections",
-                            &rendered,
-                        )
-                        .await;
+                        let rendered =
+                            redact_and_report(&live_config, "list_connections", &rendered).await;
                         return (live_config, Err(anyhow::anyhow!("{rendered}")));
                     }
                 }
