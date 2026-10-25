@@ -1,18 +1,10 @@
 //! Phase-0 redaction characterization (issue #7328, plan Task 1).
 //!
-//! Two corpora feed every host redactor reachable from a root test:
-//! `security-redaction-corpus.json` (also consumed beside the private Composio and
-//! credential-scrub middleware, and the four URL helpers in `config`, `inference`
-//! and `web3`) and `security-redaction-extended-corpus.json`, which adds more
-//! secret and PII shapes. Redactors covered here:
-//! `tinymemory_api::safety` (pii), `core/log_redaction.rs`
-//! (the floor every URL log field now uses) and `tools/registry/denials.rs`. The
-//! prefix, identity-hash, approval-argument, `security/scrub.rs` and URL helpers were deleted in
-//! favour of the module's `security::redact`, which `modules::security` tests
-//! pin against the released archive. Each case pins which redactors remove its needle *today*
-//! (`removed_by`). A secret that a sink still leaks is NOT blessed: the leak is
-//! recorded as a known gap, and `desired_*` tests state the wanted behaviour and
-//! stay red (`should_panic(DESIRED-RED)`) until the module-owned redactor lands.
+//! The shared corpora are consumed by the public log, host scrub, prefix,
+//! approval-argument and RPC-parameter redactors here, and by the private
+//! Composio and credential middleware tests beside their owning modules. Each
+//! case pins which sinks remove its needle today; recorded gaps remain visible
+//! until an owner deliberately changes the behavior.
 
 use std::collections::BTreeSet;
 
@@ -28,13 +20,28 @@ fn outputs(input: &str) -> Vec<(&'static str, String)> {
     let _serial = DENIAL_LOG.lock().unwrap_or_else(|e| e.into_inner());
     tinytools::registry::denials::record("characterization", "test", "blocked", input);
     let denial = tinytools::registry::denials::list(1).pop().unwrap().reason;
+    let args = openhuman_core::security::approval::redact_args(&json!({"text": input}));
+    let rpc_params = openhuman_core::core::rpc_log::redact_params_for_log(&json!({
+        "access_token": input,
+    }));
     vec![
         ("denials", denial),
+        (
+            "credential_middleware",
+            tinyinference_core::sanitize::scrub_credentials(input),
+        ),
         (
             "log",
             openhuman_core::core::log_redaction::scrub_secrets(input),
         ),
         ("pii", tinymemory_api::safety::redact_identifiers(input)),
+        ("security_prefix", openhuman_core::security::redact(input)),
+        (
+            "security_scrub",
+            openhuman_core::security::scrub::sanitize_text(input).value,
+        ),
+        ("approval_args", serde_json::to_string(&args).unwrap()),
+        ("rpc_params", serde_json::to_string(&rpc_params).unwrap()),
     ]
 }
 
@@ -44,6 +51,13 @@ fn input_of(case: &Value) -> String {
     match case["input_parts"].as_array() {
         Some(parts) => parts.iter().map(|p| p.as_str().unwrap()).collect(),
         None => case["input"].as_str().unwrap().to_string(),
+    }
+}
+
+fn needle_of(case: &Value) -> String {
+    match case["needle_parts"].as_array() {
+        Some(parts) => parts.iter().map(|p| p.as_str().unwrap()).collect(),
+        None => case["needle"].as_str().unwrap().to_string(),
     }
 }
 
@@ -70,7 +84,7 @@ fn pinned(case: &Value) -> BTreeSet<String> {
 fn extended_corpus_pins_which_redactors_remove_each_shape() {
     let corpus: Value = serde_json::from_str(EXTENDED).unwrap();
     for case in corpus["text"].as_array().unwrap() {
-        let actual = removed_by(&input_of(case), case["needle"].as_str().unwrap());
+        let actual = removed_by(&input_of(case), &needle_of(case));
         assert_eq!(
             actual,
             pinned(case),
@@ -84,7 +98,7 @@ fn extended_corpus_pins_which_redactors_remove_each_shape() {
 fn extended_url_corpus_is_cleaned_by_the_log_floor() {
     let corpus: Value = serde_json::from_str(EXTENDED).unwrap();
     for case in corpus["urls"].as_array().unwrap() {
-        let input = case["input"].as_str().unwrap();
+        let input = input_of(case);
         let out = openhuman_core::core::log_redaction::scrub_secrets(input);
         assert!(
             !out.contains(case["needle"].as_str().unwrap()),
