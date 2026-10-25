@@ -22,7 +22,10 @@ async fn native_credentials_only_and_browser_result_adapter() {
     let content = pending.to_string();
     let (scrubbed, _) = scrub_with_notice_for_tool("browser", &content)
         .expect("page credentials should be redacted");
-    assert!(scrubbed.contains("00000000-0000-4000-8000-000000000123"));
+    assert!(
+        scrubbed.contains("00000000-0000-4000-8000-000000000123"),
+        "{scrubbed}"
+    );
     assert!(!scrubbed.contains("abcdefghijklmnopqrstuvwxyz123456"));
     assert!(!scrubbed.contains("page-secret-value"));
 
