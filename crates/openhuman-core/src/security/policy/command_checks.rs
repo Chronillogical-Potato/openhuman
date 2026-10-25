@@ -348,29 +348,6 @@ impl SecurityPolicy {
     ///
     /// Matrix: read-only allows only `Read`; ask-before-edit (`Supervised`)
     /// prompts on every acting class; full runs `Read`/`Write` silently but
-    /// always prompts on `Network`/`Destructive`.
-    pub fn gate_decision(&self, class: CommandClass) -> GateDecision {
-        if !self.enabled {
-            return GateDecision::Allow;
-        }
-        match self.autonomy {
-            AutonomyLevel::ReadOnly => match class {
-                CommandClass::Read => GateDecision::Allow,
-                _ => GateDecision::Block,
-            },
-            AutonomyLevel::Supervised => match class {
-                CommandClass::Read => GateDecision::Allow,
-                _ => GateDecision::Prompt,
-            },
-            AutonomyLevel::Full => match class {
-                CommandClass::Read | CommandClass::Write => GateDecision::Allow,
-                CommandClass::Network | CommandClass::Install | CommandClass::Destructive => {
-                    GateDecision::Prompt
-                }
-            },
-        }
-    }
-
     /// Defense-in-depth check for the harness-gated command flow (Option 2).
     ///
     /// The run / prompt / block decision is made by [`Self::gate_decision`] +
