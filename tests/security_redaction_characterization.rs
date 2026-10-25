@@ -84,12 +84,8 @@ fn extended_corpus_pins_which_redactors_remove_each_shape() {
     let corpus: Value = serde_json::from_str(EXTENDED).unwrap();
     for case in corpus["text"].as_array().unwrap() {
         let actual = removed_by(&input_of(case), &needle_of(case));
-        assert_eq!(
-            actual,
-            pinned(case),
-            "case={} drifted; removed_by is now {actual:?}",
-            case["case"]
-        );
+        println!("{}: {:?}", case["case"], actual);
+        assert_eq!(actual, pinned(case), "case={}", case["case"]);
     }
 }
 
