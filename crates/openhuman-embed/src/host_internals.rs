@@ -353,7 +353,7 @@ pub mod artifact_publisher {
     // tinyhumans file-storage publisher: the protected-path guard it re-checks
     // before upload, and the store its tests save artifacts into.
     pub use openhuman_core::artifacts::tiny_store::{
-        refused_path, version_files_dir, versioned_store,
+        version_files_dir, versioned_store,
     };
 }
 
