@@ -2,9 +2,9 @@
 
 use crate::config::Config;
 
-/// Wire contract served by the checksum-pinned v0.17.1 module. The fork bus
+/// Wire contract served by the checksum-pinned v0.18.0 module. The fork bus
 /// contains newer host APIs, but this adapter invokes only this exact subset.
-pub const MODULE_CONTRACT_VERSION: (u32, u32) = (1, 28);
+pub const MODULE_CONTRACT_VERSION: (u32, u32) = (1, 33);
 
 /// Check the exact published artifact contract this adapter was built for.
 #[must_use]

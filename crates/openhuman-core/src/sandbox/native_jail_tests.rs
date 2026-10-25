@@ -1,7 +1,7 @@
 //! Host-side request mapping for TinyBox native-jail execution.
 
 use super::*;
-#[cfg(all(feature = "modules", target_os = "linux"))]
+#[cfg(feature = "modules")]
 use std::path::PathBuf;
 
 #[cfg(feature = "modules")]
