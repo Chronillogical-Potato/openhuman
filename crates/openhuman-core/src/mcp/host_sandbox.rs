@@ -48,7 +48,13 @@ pub(super) async fn stdio_sandbox(config: &Config) -> Option<StdioSandboxConfig>
     let deny_read = if isolated {
         Vec::new()
     } else {
-        credential_denials(config, home.as_deref(), &workspace)
+        match credential_denials(config, home.as_deref(), &workspace).await {
+            Ok(denied) => denied,
+            Err(error) => {
+                tracing::warn!(%error, "[mcp] TinySecurity credential roots unavailable; stdio servers will be refused");
+                return None;
+            }
+        }
     };
     let read_only = admit_all(&jail.extra_read_only, home.as_deref()).await;
     let read_write = admit_all(&jail.extra_read_write, home.as_deref()).await;
@@ -206,10 +212,13 @@ async fn admit_all(raw: &[String], home: Option<&Path>) -> Vec<String> {
 }
 
 #[cfg(feature = "modules")]
-fn credential_denials(config: &Config, home: Option<&Path>, workspace: &Path) -> Vec<String> {
-    let stores = home
-        .map(crate::security::policy::home_credential_stores)
-        .unwrap_or_default()
+async fn credential_denials(
+    config: &Config,
+    home: Option<&Path>,
+    workspace: &Path,
+) -> Result<Vec<String>, String> {
+    let stores = crate::modules::security::gap::credential_roots(home.map(Path::to_path_buf))
+        .await?
         .into_iter()
         .chain(crate::credentials::credential_files(config));
     let mut denied = Vec::new();
@@ -226,7 +235,7 @@ fn credential_denials(config: &Config, home: Option<&Path>, workspace: &Path) ->
             denied.push(real);
         }
     }
-    denied
+    Ok(denied)
 }
 
 #[cfg(test)]
