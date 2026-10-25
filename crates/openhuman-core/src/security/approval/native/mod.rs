@@ -35,6 +35,22 @@ mod view;
 
 pub(crate) use engine::NativeEngine;
 
+#[cfg(test)]
+#[path = "audit_stream_tests.rs"]
+mod audit_stream_tests;
+#[cfg(test)]
+#[path = "callbacks_tests.rs"]
+mod callbacks_tests;
+#[cfg(test)]
+#[path = "rows_tests.rs"]
+mod rows_tests;
+#[cfg(test)]
+#[path = "scopes_tests.rs"]
+mod scopes_tests;
+#[cfg(test)]
+#[path = "view_tests.rs"]
+mod view_tests;
+
 /// The SHA-256 correlation of a ticket the module stores instead of the ticket.
 pub(super) fn ticket_sha256(ticket: &str) -> String {
     format!("{:x}", Sha256::digest(ticket.as_bytes()))

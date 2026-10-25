@@ -91,6 +91,8 @@ fn row(name: &str, id: &str, call_id: &str, tool: &str) -> ApprovalRow2 {
         host_instance: "e".repeat(32),
         nonce: "f".repeat(32),
         tool_name: tool.into(),
+        session_id: None,
+        audit_error: None,
         external_effect: true,
         args_redacted: r#"{"to":"x"}"#.into(),
         summary: "send".into(),

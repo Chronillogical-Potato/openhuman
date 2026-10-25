@@ -35,6 +35,8 @@ fn row(id: &str, version: u64, state: ApprovalLifecycle2, scope: &SubjectScope) 
         host_instance: "e".repeat(32),
         nonce: "f".repeat(32),
         tool_name: "gmail_send".into(),
+        session_id: None,
+        audit_error: None,
         external_effect: true,
         args_redacted: "{}".into(),
         summary: "send".into(),
