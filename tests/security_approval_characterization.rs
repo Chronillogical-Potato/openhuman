@@ -1,15 +1,6 @@
-//! Approval characterization (issue #646 characterization) through the public
-//! approval gate, now on the TinySecurity module that owns the approval engine:
-//! park and decide, the 600s default and 180s copilot and sub-agent park windows
-//! (read from the request's expiry), fail-closed expiry, the history surviving
-//! through the storage backend, cron-origin denial of external effects, the
-//! `auto_approve_all` bypass (which now records an audited automatic approval)
-//! and per-flow trust.
-//!
-//! The suite needs the module: the lane that runs it stages the released archive
-//! (`OPENHUMAN_MODULE_PATH`), exactly like the shell and path suites.
-//! `desired_auto_approve_all_records_an_audit_row` was the red test for the
-//! module-owned gate; it is green now and stays as the pin.
+//! Approval characterization for issue #646 through the current host gate:
+//! park and decide, approval windows, expiry and fail-closed behavior, durable
+//! history, origin denial, automatic approvals, and per-flow trust.
 
 #[path = "support/env_guard.rs"]
 mod env_guard;
@@ -398,7 +389,7 @@ async fn auto_approve_all_allows_without_parking_and_records_an_audited_approval
         .iter()
         .find(|e| e.tool_name == "char_auto_all")
         .expect(
-        "the blanket bypass is recorded as an approval (accepted in #5634, audited since #7328)",
+        "the blanket bypass is recorded as an approval (accepted in #5634, characterized in #646)",
     );
     assert_eq!(recorded.decided_by.as_deref(), Some("auto:host-policy"));
     // The unknown-origin exclusion still holds with the bypass on.

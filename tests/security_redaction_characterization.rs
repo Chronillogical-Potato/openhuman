@@ -1,10 +1,9 @@
 //! Redaction characterization for issue #646.
 //!
-//! The shared corpora are consumed by the public log, host scrub, prefix,
-//! approval-argument and RPC-parameter redactors here, and by the private
-//! Composio and credential middleware tests beside their owning modules. Each
-//! case pins which sinks remove its needle today; recorded gaps remain visible
-//! until an owner deliberately changes the behavior.
+//! The shared corpora are consumed by the public log, security, approval and RPC
+//! redactors here, and by private Composio and credential middleware tests beside
+//! their owning code. Each case pins which sinks remove its needle today; known
+//! gaps remain visible until an owner changes the behavior.
 
 use std::collections::BTreeSet;
 
@@ -150,12 +149,12 @@ fn known_missed_secret_gaps_are_recorded_exactly() {
         known_gaps(),
         expected,
         "the set of redactor gaps changed: a fix must shrink the committed list (and \
-         eventually delete the desired_* should_panic), a regression must not grow it silently"
+         the expected gap list must shrink when a sink changes, and a regression must not grow it silently"
     );
 }
 
 /// DESIRED: no secret or PII shape in either corpus survives a required sink.
-/// Red until the single module-owned redactor replaces the nine host copies.
+/// The expected panic records the current gap set without turning this suite red.
 #[test]
 #[should_panic(expected = "DESIRED-RED")]
 fn desired_every_required_sink_removes_every_secret_and_pii_shape() {
