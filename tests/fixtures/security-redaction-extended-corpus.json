@@ -6,8 +6,13 @@
       "input": "Authorization: Bearer abcdef0123456789abcdef0123456789",
       "needle": "abcdef0123456789abcdef0123456789",
       "removed_by": [
+        "approval_args",
+        "credential_middleware",
         "denials",
-        "log"
+        "log",
+        "rpc_params",
+        "security_prefix",
+        "security_scrub"
       ]
     },
     {
@@ -15,8 +20,11 @@
       "kind": "secret",
       "needle": "0123456789abcdefghijklmnopqrstuvwxyzAB",
       "removed_by": [
+        "approval_args",
         "denials",
-        "log"
+        "rpc_params",
+        "security_prefix",
+        "security_scrub"
       ],
       "input_parts": [
         "token ghp",
@@ -27,7 +35,13 @@
       "case": "aws_access_key_id",
       "kind": "secret",
       "needle": "IOSFODNN7EXAMPLE",
-      "removed_by": [],
+      "removed_by": [
+        "approval_args",
+        "credential_middleware",
+        "rpc_params",
+        "security_prefix",
+        "security_scrub"
+      ],
       "input_parts": [
         "AKI",
         "AIOSFODNN7EXAMPLE"
@@ -37,7 +51,12 @@
       "case": "jwt",
       "kind": "secret",
       "needle": "eyJzdWIiOiIxMjM0NTY3ODkwIn0",
-      "removed_by": [],
+      "removed_by": [
+        "approval_args",
+        "rpc_params",
+        "security_prefix",
+        "security_scrub"
+      ],
       "input_parts": [
         "eyJhb",
         "GciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dBjftJeZ4CVPmB92K27uhbUJU1p1rwW1gFWFOEjXk"
@@ -47,7 +66,12 @@
       "case": "slack_bot_token",
       "kind": "secret",
       "needle": "abcdefghijklmnopqrstuvwx",
-      "removed_by": [],
+      "removed_by": [
+        "approval_args",
+        "rpc_params",
+        "security_prefix",
+        "security_scrub"
+      ],
       "input_parts": [
         "xox",
         "b-123456789012-1234567890123-abcdefghijklmnopqrstuvwx"
@@ -59,8 +83,9 @@
       "input": "postgres://user:hunter2@db.internal/prod",
       "needle": "hunter2",
       "removed_by": [
-        "log",
-        "pii"
+        "approval_args",
+        "rpc_params",
+        "security_prefix"
       ]
     },
     {
@@ -68,7 +93,11 @@
       "kind": "secret",
       "needle": "MIIEvQIBADANBgkqhkiG9w0BAQEFAASC",
       "removed_by": [
-        "denials"
+        "approval_args",
+        "denials",
+        "rpc_params",
+        "security_prefix",
+        "security_scrub"
       ],
       "input_parts": [
         "-----",
@@ -81,7 +110,10 @@
       "input": "call +1 415 555 0132 today",
       "needle": "415 555 0132",
       "removed_by": [
-        "pii"
+        "approval_args",
+        "rpc_params",
+        "security_prefix",
+        "security_scrub"
       ]
     },
     {
@@ -90,7 +122,10 @@
       "input": "ssn 123-45-6789",
       "needle": "123-45-6789",
       "removed_by": [
-        "pii"
+        "approval_args",
+        "rpc_params",
+        "security_prefix",
+        "security_scrub"
       ]
     },
     {
@@ -99,7 +134,10 @@
       "input": "card 4111 1111 1111 1111",
       "needle": "4111 1111 1111 1111",
       "removed_by": [
-        "pii"
+        "approval_args",
+        "rpc_params",
+        "security_prefix",
+        "security_scrub"
       ]
     }
   ],
