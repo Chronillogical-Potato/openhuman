@@ -194,7 +194,7 @@ pub enum ApprovalDecision {
     /// workflow: subsequent runs of *that* flow (including scheduled/
     /// triggered ones) auto-allow *that* tool without prompting, but a new
     /// tool the flow starts calling still parks. Persisted via
-    /// `approval::store::insert_flow_trust`, not `autonomy.auto_approve`.
+    /// TinySecurity's durable flow trust, not `autonomy.auto_approve`.
     /// Only meaningful when `source_context` is `Some(Flow { .. })` — the
     /// `approval_decide` RPC handler logs and no-ops the persistence step
     /// otherwise (the decision itself still resolves the parked call).

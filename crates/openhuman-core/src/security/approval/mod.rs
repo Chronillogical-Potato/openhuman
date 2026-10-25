@@ -26,7 +26,6 @@ pub use registration_scope::ApprovalScope;
 pub mod rpc;
 pub mod schemas;
 mod storage_schema;
-pub mod store;
 mod store_documents;
 #[cfg(feature = "legacy-import")]
 mod store_import;
