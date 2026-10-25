@@ -37,7 +37,10 @@ async fn a_spent_module_budget_is_reported_with_the_module_limit() {
 
     assert!(error.contains("4 actions/hour"), "{error}");
     assert!(error.contains("Rate limit exceeded"), "{error}");
-    assert!(policy.is_rate_limited(), "sync consumers read the cached peek/spend answer");
+    assert!(
+        policy.is_rate_limited(),
+        "sync consumers read the cached peek/spend answer"
+    );
 }
 
 #[tokio::test]

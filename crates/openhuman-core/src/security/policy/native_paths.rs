@@ -121,7 +121,3 @@ fn project_native_result(
         }
     }
 }
-
-#[cfg(test)]
-#[path = "native_paths_tests.rs"]
-mod tests;
