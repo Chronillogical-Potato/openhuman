@@ -34,7 +34,6 @@ fn outputs(input: &str) -> Vec<(&'static str, String)> {
             "log",
             openhuman_core::core::log_redaction::scrub_secrets(input),
         ),
-        ("pii", tinymemory_api::safety::redact_identifiers(input)),
         ("security_prefix", openhuman_core::security::redact(input)),
         (
             "security_scrub",
@@ -99,9 +98,9 @@ fn extended_url_corpus_is_cleaned_by_the_log_floor() {
     let corpus: Value = serde_json::from_str(EXTENDED).unwrap();
     for case in corpus["urls"].as_array().unwrap() {
         let input = input_of(case);
-        let out = openhuman_core::core::log_redaction::scrub_secrets(input);
+        let out = openhuman_core::core::log_redaction::scrub_secrets(&input);
         assert!(
-            !out.contains(case["needle"].as_str().unwrap()),
+            !out.contains(&needle_of(case)),
             "floor kept the secret in {} -> {out}",
             case["case"]
         );
@@ -112,7 +111,7 @@ fn extended_url_corpus_is_cleaned_by_the_log_floor() {
 fn required_sinks(kind: &str) -> &'static [&'static str] {
     match kind {
         "secret" => &["log", "denials"],
-        "pii" => &["pii"],
+        "pii" => &["security_scrub"],
         _ => &[],
     }
 }
