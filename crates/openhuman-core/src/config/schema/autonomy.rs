@@ -20,7 +20,7 @@ pub struct AutonomyConfig {
     /// allowlist, the approval gate, the hourly action budget, `workspace_only`,
     /// `forbidden_paths` and the workspace-internal boundary are all skipped.
     ///
-    /// `SecurityPolicy::is_always_forbidden` still applies either way —
+    /// TinySecurity's protected-path floor still applies either way —
     /// credential stores (`~/.ssh`, `~/.gnupg`, `~/.aws`) and system roots stay
     /// unreachable. Deliberate floor, documented on
     /// [`crate::security::SecurityPolicy::enabled`].
@@ -54,7 +54,7 @@ pub struct AutonomyConfig {
     /// prompting the user — a blanket bypass of the interactive approval
     /// flow, not just the per-tool `auto_approve` allowlist above. An
     /// unlabelled call site is still hard-denied regardless of this flag (see `ApprovalGate::intercept_audited_inner`).
-    /// Hard security blocks (`is_always_forbidden`, `is_workspace_internal_path`,
+    /// Hard security blocks (TinySecurity's protected-path and internal-state reservations,
     /// `ToolPolicyMiddleware`) live on independent code paths inside the tool
     /// implementations themselves and are unaffected by this setting.
     ///

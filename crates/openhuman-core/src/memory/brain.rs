@@ -149,7 +149,7 @@ pub struct BrainIngestView {
 /// Resolves an ingest `path` through the security policy, the same check
 /// the file tools make ([`SecurityPolicy::validate_path`]): no null bytes or
 /// `..` traversal, the credential-store and system-root floor
-/// (`is_always_forbidden`: `~/.ssh`, `~/.aws`, `/etc`, ...) on the resolved
+/// (TinySecurity's protected-path floor: `~/.ssh`, `~/.aws`, `/etc`, ...) on the resolved
 /// path (so a symlink cannot reach one either), and, with `[autonomy]`
 /// enabled, workspace and trusted-root containment. A relative path lands in
 /// `action_dir`.

@@ -19,15 +19,15 @@ use crate::security::{GateDecision, SecurityPolicy};
 /// **and** a `ReadWrite` trusted root. The grant is the load-bearing half:
 /// `action_dir` only decides where a relative path lands, while the allow/deny
 /// decision reads `workspace_dir` + `trusted_roots`
-/// (`SecurityPolicy::is_resolved_path_allowed_for`). Without the grant a
+/// (TinySecurity's scoped path authorization). Without the grant a
 /// descriptor rooted outside `workspace_dir` moved the cwd but refused every
 /// read and write in it.
 ///
 /// The grant is *additive and per-call*: it is pushed onto a clone, so nothing
 /// process-global is mutated and concurrent turns cannot race each other. It
-/// also cannot widen the hard invariants: `is_always_forbidden` (credential
-/// stores, core OS dirs) and `is_workspace_internal_path` (core-managed state
-/// under `workspace_dir`) are both evaluated *before* any trusted-root
+/// also cannot widen the hard invariants: TinySecurity's protected-path floor
+/// (credential stores, core OS dirs) and internal-state reservations (core-managed
+/// state under `workspace_dir`) are both evaluated *before* any trusted-root
 /// shortcut, so a granted root can never expose them.
 ///
 /// The root always originates from trusted in-process code (the session

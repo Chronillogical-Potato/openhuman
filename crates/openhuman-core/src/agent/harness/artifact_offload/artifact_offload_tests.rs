@@ -26,7 +26,7 @@ use tinyagents_harness::artifacts::{
 ///
 /// `action_dir` is granted as a read-write trusted root, because that is what
 /// production does: `SecurityPolicy::from_config` grants the projects dir
-/// exactly this way. Without the grant, `is_resolved_path_allowed_for` refuses
+/// exactly this way. Without the grant, TinySecurity's path authorization refuses
 /// everything outside `workspace_dir` — that check is unconditional and is NOT
 /// relaxed by `workspace_only`.
 fn policy_with(action_dir: PathBuf, workspace_dir: PathBuf) -> Arc<SecurityPolicy> {

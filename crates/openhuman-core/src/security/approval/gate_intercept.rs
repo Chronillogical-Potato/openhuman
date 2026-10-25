@@ -186,7 +186,7 @@ impl ApprovalGate {
         // silently allowed (fail-closed default). It is excluded here so it
         // still falls through to the origin match and hits its Deny arm
         // unchanged. This check is independent of — and does not
-        // weaken — `is_always_forbidden`, `is_workspace_internal_path`, or
+        // weaken — TinySecurity's protected-path or internal-state reservations, or
         // `ToolPolicyMiddleware`, which all run inside the tool
         // implementation itself, not the approval gate.
         //

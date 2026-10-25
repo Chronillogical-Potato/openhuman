@@ -18,7 +18,7 @@ pub struct AutonomySettingsPatch {
     /// (`AutonomyConfig::enabled`): with it off, classification, the approval
     /// gate, the allowlist, the action budget and containment are all inert,
     /// and every other field in this patch has no effect until it is `true`.
-    /// `is_always_forbidden` applies either way.
+    /// TinySecurity's protected-path floor applies either way.
     pub enabled: Option<bool>,
     /// `"readonly" | "supervised" | "full"` (case-insensitive).
     pub level: Option<String>,

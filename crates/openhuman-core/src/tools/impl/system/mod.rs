@@ -41,14 +41,14 @@ pub use update_check::UpdateCheckTool;
 /// root (`action_dir`) **and** a `ReadWrite` trusted root. The grant is the
 /// load-bearing half — `action_dir` only decides where a relative path lands,
 /// while the allow/deny decision reads `workspace_dir` + `trusted_roots`
-/// (`SecurityPolicy::is_resolved_path_allowed_for`). Granting it in the
+/// (TinySecurity's scoped path authorization). Granting it in the
 /// filesystem copy alone would let an agent read and edit a checkout it could
 /// not then build, test, or commit, because the shell tool resolves its path through here.
 ///
 /// The grant is *additive and per-call*: it is pushed onto a clone, so nothing
 /// process-global is mutated and concurrent turns cannot race each other. It
-/// cannot widen the hard invariants either — `is_always_forbidden` and
-/// `is_workspace_internal_path` are both evaluated *before* any trusted-root
+/// cannot widen the hard invariants either — TinySecurity's protected-path and
+/// internal-state reservations are both evaluated *before* any trusted-root
 /// shortcut.
 ///
 /// The root always originates from trusted in-process code (the session

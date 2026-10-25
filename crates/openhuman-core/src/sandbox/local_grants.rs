@@ -2,10 +2,9 @@
 //!
 //! TinyBox owns grant discovery (`ResolveLocalGrants`): toolchain homes, git
 //! config includes, path normalisation and the credential-ancestor check. The
-//! host owns the policy: it sends its protected-path floor
-//! (`SecurityPolicy::is_always_forbidden`) with the request and re-applies that
-//! same floor to whatever comes back, so a module that returned a forbidden
-//! path would still not widen the jail.
+//! host owns the policy context: TinySecurity supplies its protected-path floor
+//! and credential roots, which OpenHuman re-applies to returned grants before
+//! passing them to TinyBox.
 
 use std::path::PathBuf;
 
