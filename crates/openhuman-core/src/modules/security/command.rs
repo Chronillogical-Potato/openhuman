@@ -4,7 +4,7 @@ use std::path::Path;
 
 use tinysecurity_bus::{CommandClass, CommandDecision, CommandPolicy};
 
-use super::gap::CommandOp;
+pub(crate) use super::gap::CommandOp;
 
 /// Classify or admit a command using the module-owned command policy.
 pub(crate) async fn command_decision(

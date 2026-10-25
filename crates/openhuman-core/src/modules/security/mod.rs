@@ -48,6 +48,25 @@ pub async fn client(config: &Config) -> Result<Client, SecurityError> {
         .map_err(SecurityError::Unavailable)
 }
 
+/// Validate a host path using an immutable TinySecurity path scope.
+#[cfg(feature = "security-module")]
+pub(crate) async fn validate_host_path(
+    policy: tinysecurity_bus::PathPolicy,
+    path: &str,
+    parent: bool,
+) -> Result<tinysecurity_bus::PathValidationResult, String> {
+    gap::validate_host_path(policy, path, parent).await
+}
+
+#[cfg(not(feature = "security-module"))]
+pub(crate) async fn validate_host_path(
+    _policy: tinysecurity_bus::PathPolicy,
+    _path: &str,
+    _parent: bool,
+) -> Result<tinysecurity_bus::PathValidationResult, String> {
+    Err("TinySecurity is not built into this host".into())
+}
+
 /// Replace the running module configuration through the loader control plane.
 /// Any reinitialization failure is returned to the caller; policy consumers must
 /// keep denying while the configuration is uncertain.

@@ -4,7 +4,7 @@
 //! immutable configuration derived from its policy object and fails closed when
 //! the module cannot answer.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 #[cfg(test)]
 use std::sync::{Arc, Mutex};
@@ -193,6 +193,47 @@ pub(crate) async fn check_paths(
     }
     Ok(response.allowed)
 }
+
+/// Resolve and authorize an existing path or its destination parent.
+pub(crate) async fn validate_host_path(
+    policy: PathPolicy,
+    path: &str,
+    parent: bool,
+) -> Result<tinysecurity_bus::PathValidationResult, String> {
+    let config = crate::core::runtime::DispatchCtx::ambient()
+        .load_config()
+        .await?;
+    let client = super::client(&config)
+        .await
+        .map_err(|error| error.to_string())?;
+    let scopes = PATH_SCOPES.get_or_init(|| tokio::sync::Mutex::new(Vec::new()));
+    let mut scopes = scopes.lock().await;
+    let policy_id = match scopes
+        .iter()
+        .find(|(registered, _)| registered == &policy)
+        .map(|(_, id)| id.clone())
+    {
+        Some(id) => id,
+        None => {
+            let id = client.register_path_policy(policy.clone()).await
+                .map_err(|error| error.to_string())?;
+            scopes.push((policy, id.clone()));
+            id
+        }
+    };
+    let request = tinysecurity_bus::PathValidationRequest {
+        policy_id,
+        path: path.to_owned(),
+    };
+    if parent {
+        client.validate_parent(request).await
+    } else {
+        client.validate_path(request).await
+    }
+    .map_err(|error| error.to_string())
+}
+
+static PATH_SCOPES: OnceLock<tokio::sync::Mutex<Vec<(PathPolicy, PathPolicyId)>>> = OnceLock::new();
 
 /// `ProtectedPath2`: one answer per path, in request order.
 pub(crate) async fn protected_paths(paths: &[PathBuf]) -> Result<Vec<bool>, String> {
