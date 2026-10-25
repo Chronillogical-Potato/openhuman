@@ -14,9 +14,6 @@ async fn client_fails_closed_when_module_loading_is_disabled() {
 #[tokio::test]
 #[ignore = "downloads and loads the pinned native TinySecurity release"]
 async fn native_fixture_loads_the_pinned_release_and_reads_policy_info() {
-    let _ = tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::TRACE)
-        .try_init();
     let mut config = Config::default();
     config.modules.enabled = true;
 

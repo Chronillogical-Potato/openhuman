@@ -26,6 +26,7 @@ pub const MODULE_ID: &str = "tinysecurity";
 /// # Errors
 /// Returns an error if the component is disabled or its pinned module cannot load.
 pub async fn ensure_loaded(config: &Config) -> Result<(), SecurityError> {
+    policy::validate(config).map_err(|error| SecurityError::Unavailable(error.into()))?;
     if !config.modules.enabled {
         return Err(SecurityError::Unavailable("modules are disabled".into()));
     }

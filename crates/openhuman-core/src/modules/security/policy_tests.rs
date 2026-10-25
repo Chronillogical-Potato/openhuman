@@ -46,6 +46,31 @@ fn module_bootstrap_rejects_an_absent_trusted_host_identity() {
 }
 
 #[test]
+fn disabled_policy_clears_inert_host_defaults() {
+    let mut config = Config::default();
+    config.autonomy.allowed_commands = vec!["git status".into()];
+    config.autonomy.forbidden_paths = vec!["relative/path".into()];
+
+    let translated = policy_config(&config);
+    assert!(!translated.enabled);
+    assert!(translated.allowed_commands.is_empty());
+    assert!(translated.forbidden_paths.is_empty());
+    assert!(validate(&config).is_ok());
+}
+
+#[test]
+fn enabled_policy_rejects_commands_the_module_cannot_represent() {
+    let mut config = Config::default();
+    config.autonomy.enabled = true;
+    config.autonomy.allowed_commands = vec!["git status".into()];
+
+    assert_eq!(
+        validate(&config),
+        Err("enabled policy allows only argument-free command names")
+    );
+}
+
+#[test]
 fn module_contract_requires_the_exact_published_wire_version() {
     assert!(supports_contract((1, 28)));
     assert!(!supports_contract((1, 29)));

@@ -19,9 +19,47 @@ pub fn policy_config(config: &Config) -> tinysecurity_bus::PolicyConfig {
         enabled: config.autonomy.enabled,
         action_dir: config.action_dir.display().to_string(),
         workspace_dir: config.workspace_dir.display().to_string(),
-        allowed_commands: config.autonomy.allowed_commands.clone(),
-        forbidden_paths: config.autonomy.forbidden_paths.clone(),
+        // These settings are inert while autonomy is disabled. Do not send
+        // host defaults that the module must reject despite having no effect.
+        allowed_commands: config
+            .autonomy
+            .enabled
+            .then(|| config.autonomy.allowed_commands.clone())
+            .unwrap_or_default(),
+        forbidden_paths: config
+            .autonomy
+            .enabled
+            .then(|| config.autonomy.forbidden_paths.clone())
+            .unwrap_or_default(),
     }
+}
+
+/// Reject enabled host policy that the published module contract cannot
+/// represent. Disabled policy settings are inert and serialize empty above.
+pub fn validate(config: &Config) -> Result<(), &'static str> {
+    if !config.autonomy.enabled {
+        return Ok(());
+    }
+    if !config.action_dir.is_absolute() || !config.workspace_dir.is_absolute() {
+        return Err("enabled policy roots must be absolute paths");
+    }
+    if config
+        .autonomy
+        .allowed_commands
+        .iter()
+        .any(|command| command.is_empty() || command.chars().any(char::is_whitespace))
+    {
+        return Err("enabled policy allows only argument-free command names");
+    }
+    if config
+        .autonomy
+        .forbidden_paths
+        .iter()
+        .any(|path| !std::path::Path::new(path).is_absolute())
+    {
+        return Err("enabled policy forbidden paths must be absolute");
+    }
+    Ok(())
 }
 
 /// Complete SDK bootstrap payload used both by first load and reinitialization.
