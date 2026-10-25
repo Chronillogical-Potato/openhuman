@@ -129,13 +129,20 @@ impl SecurityPolicy {
     /// The tier's gate for an acting call of `class`: the module's answer to a
     /// command of that class. `Err` is a refusal.
     pub async fn command_class_gate(&self, class: CommandClass) -> Result<GateDecision, Refusal> {
-        match &self.command_gateway {
+        let result = match &self.command_gateway {
             Some(gateway) => gateway
                 .decide(self, &class_query(class))
                 .await
                 .map(|verdict| verdict.gate),
             None => self.native_class_gate(class).await,
+        };
+        if let Ok(gate) = result {
+            if let Ok(mut snapshot) = self.class_gate_snapshot.lock() {
+                snapshot.retain(|(cached, _)| *cached != class);
+                snapshot.push((class, gate));
+            }
         }
+        result
     }
 
     /// [`Self::command_class_gate`] for the synchronous tool traits
