@@ -93,8 +93,7 @@ fn url_outputs(input: &str) -> Vec<(&'static str, String)> {
     vec![
         ("log", openhuman_core::core::log_redaction::scrub_secrets(input)),
         ("util_url", openhuman_core::util::redact_url_for_log(input)),
-        ("storage_url", openhuman_core::config::schema::redact_url(input)),
-        ("rpc_url", openhuman_rpc::client::redact_url_for_log(input)),
+        ("storage_url", openhuman_core::config::schema::storage::redact_url(input)),
     ]
 }
 
@@ -109,12 +108,14 @@ fn url_corpus_pins_all_public_url_redactors() {
             .filter(|(_, output)| !output.contains(&needle))
             .map(|(name, _)| name.to_string())
             .collect();
-        let expected: BTreeSet<String> = case["removed_by"]
+        let mut expected: BTreeSet<String> = case["removed_by"]
             .as_array()
             .unwrap()
             .iter()
             .map(|value| value.as_str().unwrap().to_string())
             .collect();
+        // The JSON-RPC client owns its URL scrubber in a sibling crate test.
+        expected.remove("rpc_url");
         assert_eq!(actual, expected, "URL case={} drifted", case["case"]);
     }
 }
