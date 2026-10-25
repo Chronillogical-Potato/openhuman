@@ -231,7 +231,7 @@ impl SecurityPolicy {
         );
         if !autonomy_config.enabled {
             log::info!(
-                "[openhuman:policy] autonomy policy DISABLED ([autonomy] enabled = false) —                  command classification, the approval gate, the command allowlist, the action                  budget and workspace containment are all inert. Credential stores and system                  roots (`is_always_forbidden`) remain blocked."
+                "[openhuman:policy] autonomy policy DISABLED ([autonomy] enabled = false) — command classification, approvals, allowlist, action budget and workspace containment are inert. TinySecurity's protected-path floor remains active."
             );
         }
 
@@ -251,8 +251,8 @@ impl SecurityPolicy {
         // carry an in-memory edit anyway. A user-granted entry is left as-is.
         // SaaS: the projects home and `/tmp/openhuman` are shared by every user
         // of the process, so neither is granted there.
-        // A relative or empty root grants nothing (`is_within_trusted_root`), so
-        // drop it here too: the turn prompt lists these roots as grants.
+        // A relative or empty root cannot be a usable grant, so drop it here too:
+        // the turn prompt lists these roots as grants.
         let mut trusted_roots: Vec<TrustedRoot> = autonomy_config
             .trusted_roots
             .iter()
@@ -292,11 +292,10 @@ impl SecurityPolicy {
         //
         // Guarded: an action dir at or above `workspace_dir` would hand a
         // trusted root to the whole workspace, and
-        // `check_resolved_against_forbidden` lets a trusted root override
-        // `forbidden_paths`. `is_workspace_internal_path` and
-        // `is_always_forbidden` are checked *before* that shortcut and still
-        // hold, but the `forbidden_paths` bypass is not something a working
-        // directory should buy, so skip the grant in that shape.
+        // TinySecurity lets a trusted root override `forbidden_paths`, but still
+        // applies protected-path and internal-state reservations. The
+        // `forbidden_paths` bypass is not something a working directory should
+        // buy, so skip the grant when it covers the workspace.
         // Path checks resolve tool paths against `action_dir` (absolute after
         // canonicalising), so a relative action dir is granted as its absolute
         // form; only an absolute trusted root matches anything.
@@ -323,8 +322,7 @@ impl SecurityPolicy {
         // `workspace_only` an absolute path is refused unless a trusted root
         // covers it, so without this grant every pointer would be unreadable.
         // Read-only: the agent reads its own outputs back; it has no reason to
-        // write there. `is_workspace_internal_path` already exempts this one
-        // directory from the internal-state boundary.
+        // write there. TinySecurity reserves the rest of artifact storage.
         let tool_results = super::types::tool_result_artifacts_dir(workspace_dir)
             .to_string_lossy()
             .to_string();
