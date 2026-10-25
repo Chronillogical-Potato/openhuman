@@ -47,6 +47,8 @@ mod records_flows;
 mod records_mcp_connectors;
 mod records_memory_juice;
 mod records_search;
+#[cfg(feature = "security-module")]
+mod records_security;
 mod records_voice;
 
 use crate::modules::types::ModuleRecord;
@@ -66,6 +68,8 @@ use records_flows::TINYFLOWS;
 use records_mcp_connectors::{TINYCONNECTORS, TINYMCP};
 use records_memory_juice::TINYJUICE;
 use records_search::TINYSEARCH;
+#[cfg(feature = "security-module")]
+use records_security::TINYSECURITY;
 #[cfg(feature = "voice")]
 use records_voice::TINYVOICE;
 
@@ -75,6 +79,8 @@ use records_voice::TINYVOICE;
 pub const ALL: &[ModuleRecord] = &[
     TINYCOMPUTER,
     TINYSEARCH,
+    #[cfg(feature = "security-module")]
+    TINYSECURITY,
     #[cfg(feature = "documents")]
     TINYDOCS,
     #[cfg(feature = "web3")]
