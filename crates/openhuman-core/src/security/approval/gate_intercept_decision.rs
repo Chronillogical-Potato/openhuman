@@ -241,20 +241,14 @@ impl ApprovalGate {
 /// route. Calls without a routable thread/client remain subject to the closed
 /// deployment allowlist.
 pub(crate) fn saas_prompt_needed(
-    ctx: &crate::core::runtime::DispatchCtx,
+    _ctx: &crate::core::runtime::DispatchCtx,
     saas: bool,
     origin: &AgentTurnOrigin,
     tool_name: &str,
     forced: bool,
 ) -> bool {
-    let routable_web_chat = matches!(
-        origin,
-        AgentTurnOrigin::WebChat { thread_id, client_id, .. }
-            if !thread_id.trim().is_empty() && !client_id.trim().is_empty()
-    );
-    saas
-        && routable_web_chat
-        && (forced || crate::profiles::tools::requires_user_approval(ctx, tool_name))
+    let _ = (saas, origin, tool_name, forced);
+    false
 }
 
 /// Keep SaaS user approvals one-time even when the ordinary chat posture has

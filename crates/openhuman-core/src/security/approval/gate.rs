@@ -41,7 +41,7 @@ use tokio::sync::oneshot;
 use crate::config::Config;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use crate::security::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
+use crate::core::runtime::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
 use tinytools::status::POLICY_DENIED_MARKER;
 
 use super::engine::{
