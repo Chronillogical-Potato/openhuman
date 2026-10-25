@@ -124,9 +124,10 @@ pub async fn offload_oversized_result(
     if let Some(policy) = policy {
         if let Ok(key) = offload.resolve(ArtifactKind::Output, &offload.default_result_name()) {
             let target = materialize_root.join(key);
-            if !policy
-                .path_allowed(crate::security::policy::PathKind::ResolvedWrite, &target)
-                .await
+            if policy.is_internal(&target).await
+                || !policy
+                    .path_allowed(crate::security::policy::PathKind::ResolvedWrite, &target)
+                    .await
             {
                 tracing::warn!(path = %target.display(), "[artifact] materialized target reaches workspace state; keeping the inline result");
                 return (output, None);
