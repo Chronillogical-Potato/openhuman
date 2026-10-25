@@ -161,7 +161,6 @@ fn schedule_args_as_cron_add(args: &serde_json::Value) -> serde_json::Value {
 }
 
 impl ScheduleTool {
-
     fn handle_list(&self) -> Result<ToolResult> {
         let jobs = cron::list_jobs(&self.config)?;
         if jobs.is_empty() {
