@@ -29,6 +29,10 @@ use std::path::PathBuf;
 #[path = "policy_tests.rs"]
 mod tests;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "security-module"))]
 #[path = "policy_media_artifact_tests.rs"]
 mod policy_media_artifact_tests;
+
+#[cfg(all(test, not(feature = "security-module")))]
+#[path = "path_checks_no_module_tests.rs"]
+mod no_module_tests;

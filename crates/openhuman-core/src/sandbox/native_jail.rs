@@ -225,6 +225,26 @@ async fn jail_request(
     isolation: SandboxIsolation,
 ) -> anyhow::Result<contract::NativeJailConfig> {
     let isolated = isolation == SandboxIsolation::Isolated;
+    #[cfg(feature = "security-module")]
+    let deny_read = if isolated {
+        Vec::new()
+    } else {
+        let home = super::local_grants::grant_home(crate::core::runtime::is_saas(), dirs::home_dir);
+        let stores = crate::modules::security::gap::credential_roots(home)
+            .await
+            .map_err(|error| anyhow::anyhow!("TinySecurity credential roots unavailable: {error}"))?
+            .into_iter()
+            .chain(crate::credentials::credential_files(config))
+            .collect();
+        credential_denials(stores, &policy.workspace_root, &policy.read_write_mounts)?
+    };
+    #[cfg(not(feature = "security-module"))]
+    let deny_read = if isolated {
+        Vec::new()
+    } else {
+        let _ = config;
+        anyhow::bail!("TinySecurity is not built into this host; refusing the non-isolated jail");
+    };
     Ok(contract::NativeJailConfig {
         read_only: policy
             .read_only_mounts
@@ -249,21 +269,7 @@ async fn jail_request(
         // Landlock denies every path it is not granted; Seatbelt reads
         // allow-default, so folder confinement names the credential stores:
         // the user's, and OpenHuman's own credential files.
-        deny_read: if isolated {
-            Vec::new()
-        } else {
-            let home =
-                super::local_grants::grant_home(crate::core::runtime::is_saas(), dirs::home_dir);
-            let stores = crate::modules::security::gap::credential_roots(home)
-                .await
-                .map_err(|error| {
-                    anyhow::anyhow!("TinySecurity credential roots unavailable: {error}")
-                })?
-                .into_iter()
-                .chain(crate::credentials::credential_files(config))
-                .collect();
-            credential_denials(stores, &policy.workspace_root, &policy.read_write_mounts)?
-        },
+        deny_read,
         // No hard resource limits are requested by the host.
         resources: None,
     })
@@ -319,6 +325,6 @@ fn credential_denials(
 #[cfg(feature = "modules")]
 use super::shell_exec::path_string;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "security-module"))]
 #[path = "native_jail_tests.rs"]
 mod tests;

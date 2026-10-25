@@ -1,8 +1,9 @@
 //! Redaction characterization for issue #646.
 //!
-//! The shared corpora are consumed by the public log, security, approval and RPC
-//! redactors here, and by private Composio and credential middleware tests beside
-//! their owning code. Each case pins which sinks remove its needle today; known
+//! The shared corpora are consumed by public log, security and RPC redactors
+//! here, and by private Composio and credential middleware tests beside their
+//! owning code. Approval argument redaction is covered at the TinySecurity bus
+//! callback boundary. Each case pins which sinks remove its needle today; known
 //! gaps remain visible until an owner changes the behavior.
 
 use std::collections::BTreeSet;
@@ -19,7 +20,6 @@ fn outputs(input: &str) -> Vec<(&'static str, String)> {
     let _serial = DENIAL_LOG.lock().unwrap_or_else(|e| e.into_inner());
     tinytools::registry::denials::record("characterization", "test", "blocked", input);
     let denial = tinytools::registry::denials::list(1).pop().unwrap().reason;
-    let args = openhuman_core::security::approval::redact_args(&json!({"text": input}));
     let rpc_params = openhuman_core::core::rpc_log::redact_params_for_log(&json!({
         "access_token": input,
     }));
@@ -38,7 +38,6 @@ fn outputs(input: &str) -> Vec<(&'static str, String)> {
             "security_scrub",
             openhuman_core::security::scrub::sanitize_text(input).value,
         ),
-        ("approval_args", serde_json::to_string(&args).unwrap()),
         ("rpc_params", serde_json::to_string(&rpc_params).unwrap()),
     ]
 }
@@ -74,7 +73,7 @@ fn pinned(case: &Value) -> BTreeSet<String> {
         .iter()
         .map(|v| v.as_str().unwrap().to_string())
         // The private credential middleware consumes this same fixture beside its module.
-        .filter(|name| name != "credential_middleware")
+        .filter(|name| name != "credential_middleware" && name != "approval_args")
         .collect()
 }
 

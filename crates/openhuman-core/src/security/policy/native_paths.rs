@@ -97,7 +97,13 @@ impl SecurityPolicy {
         parent: bool,
     ) -> Result<PathBuf, String> {
         let scope = self.native_path_policy();
+        #[cfg(feature = "security-module")]
         let result = crate::modules::security::validate_host_path(scope, path, parent).await;
+        #[cfg(not(feature = "security-module"))]
+        let result = {
+            let _ = (scope, parent);
+            Err("TinySecurity is not built into this host".to_owned())
+        };
         project_native_result(path, result)
     }
 }

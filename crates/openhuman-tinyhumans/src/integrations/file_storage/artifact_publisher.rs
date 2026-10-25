@@ -126,8 +126,8 @@ async fn upload_body(
         let resolved = tokio::fs::canonicalize(path)
             .await
             .map_err(|e| anyhow::anyhow!("cannot read the artifact's file: {e}"))?;
-        if let Some(reason) = openhuman_embed::__host::artifact_publisher::refused_path(&resolved) {
-            anyhow::bail!("[policy-blocked] cannot share this artifact: {reason}");
+        if SecurityPolicy::is_always_forbidden_async(&resolved).await {
+            anyhow::bail!("[policy-blocked] cannot share this artifact: path is protected");
         }
         let bytes = tokio::fs::read(&resolved)
             .await

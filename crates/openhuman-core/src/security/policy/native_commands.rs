@@ -190,7 +190,7 @@ fn block_on_gateway<T: Send + 'static>(
     }
     #[cfg(not(test))]
     {
-        let _ = future;
+        std::mem::drop(future);
         Err(Refusal::Unavailable)
     }
 }

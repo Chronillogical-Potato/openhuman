@@ -124,14 +124,7 @@ name = "cost_report_e2e"
 path = "../../tests/cost_report_e2e.rs"
 
 [[test]]
-# Installs a backend into the process-wide storage slot, so it needs its own
-# process: in a shared one it would reroute other suites' approvals.
-name = "storage_approvals_e2e"
-path = "../../tests/storage_approvals_e2e.rs"
-
-[[test]]
-# Its own binary for the same reason as storage_approvals_e2e: it installs a
-# storage backend into the process-wide slot.
+# Its own binary because it installs a storage backend into the process-wide slot.
 name = "storage_domains_e2e"
 path = "../../tests/storage_domains_e2e.rs"
 

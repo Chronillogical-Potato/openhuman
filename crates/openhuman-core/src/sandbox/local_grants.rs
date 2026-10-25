@@ -9,7 +9,9 @@
 use std::path::PathBuf;
 
 use super::types::SandboxPolicy;
-use crate::config::{Config, LocalJailConfig};
+use crate::config::Config;
+#[cfg(all(feature = "modules", feature = "security-module"))]
+use crate::config::LocalJailConfig;
 
 /// Paths the jail is granted beyond the workspace root.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -36,8 +38,11 @@ pub(crate) async fn with_resolved_grants(
     config: &Config,
     policy: &SandboxPolicy,
 ) -> anyhow::Result<SandboxPolicy> {
+    #[cfg(all(feature = "modules", feature = "security-module"))]
     let mut policy = policy.clone();
-    #[cfg(feature = "modules")]
+    #[cfg(not(all(feature = "modules", feature = "security-module")))]
+    let policy = policy.clone();
+    #[cfg(all(feature = "modules", feature = "security-module"))]
     {
         let home = grant_home(crate::core::runtime::is_saas(), dirs::home_dir);
         let grants = resolve(config, home.as_deref(), &config.runtime.local_jail).await?;
@@ -49,7 +54,7 @@ pub(crate) async fn with_resolved_grants(
         merge(&mut policy.read_only_mounts, grants.read_only);
         merge(&mut policy.read_write_mounts, grants.read_write);
     }
-    #[cfg(not(feature = "modules"))]
+    #[cfg(not(all(feature = "modules", feature = "security-module")))]
     let _ = config;
     Ok(policy)
 }
@@ -63,7 +68,7 @@ fn merge(into: &mut Vec<PathBuf>, extra: Vec<PathBuf>) {
     }
 }
 
-#[cfg(feature = "modules")]
+#[cfg(all(feature = "modules", feature = "security-module"))]
 async fn resolve(
     config: &Config,
     home: Option<&std::path::Path>,
@@ -79,7 +84,7 @@ async fn resolve(
 }
 
 /// Build the `ResolveLocalGrants` request from TinySecurity's floor vocabulary.
-#[cfg(feature = "modules")]
+#[cfg(all(feature = "modules", feature = "security-module"))]
 pub(crate) async fn grant_request(
     home: Option<&std::path::Path>,
     jail: &LocalJailConfig,
@@ -118,7 +123,7 @@ pub(crate) async fn grant_request(
 /// rootless one is refused outright, and a symlink is checked at its target.
 /// `/proc` is the one sanctioned exception to the floor, and only when
 /// `allow_proc` is set.
-#[cfg(feature = "modules")]
+#[cfg(all(feature = "modules", feature = "security-module"))]
 pub(crate) async fn admit_module_grants(
     reply: crate::modules::tinybox::contract::LocalGrants,
     allow_proc: bool,
@@ -127,7 +132,7 @@ pub(crate) async fn admit_module_grants(
     admit_grants_under(reply, allow_proc, home.as_deref()).await
 }
 
-#[cfg(feature = "modules")]
+#[cfg(all(feature = "modules", feature = "security-module"))]
 async fn admit_grants_under(
     reply: crate::modules::tinybox::contract::LocalGrants,
     allow_proc: bool,
@@ -213,6 +218,6 @@ async fn admit_grants_under(
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "modules", feature = "security-module"))]
 #[path = "local_grants_tests.rs"]
 mod tests;

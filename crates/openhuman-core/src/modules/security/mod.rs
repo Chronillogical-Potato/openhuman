@@ -9,6 +9,7 @@ mod client;
 pub(crate) mod command;
 pub(crate) mod gap;
 mod policy;
+pub(crate) mod policy_translation;
 
 #[cfg(test)]
 #[path = "security_tests.rs"]
@@ -46,6 +47,21 @@ pub async fn client(config: &Config) -> Result<Client, SecurityError> {
     Client::connect(config)
         .await
         .map_err(SecurityError::Unavailable)
+}
+
+/// Construct the admitted TinySecurity object used by approval lifecycle calls.
+pub(crate) async fn approval_object(
+    config: &Config,
+    timeout: std::time::Duration,
+) -> Result<tinybus::module::ModuleObjectClient, String> {
+    ensure_loaded(config)
+        .await
+        .map_err(|error| error.to_string())?;
+    super::ops::client(config.clone())
+        .with_timeout(timeout)
+        .object_client(MODULE_ID, tinysecurity_bus::names::OBJECT_PATH)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 /// Validate a host path using an immutable TinySecurity path scope.

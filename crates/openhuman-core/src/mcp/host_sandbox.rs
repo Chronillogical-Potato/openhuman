@@ -154,6 +154,7 @@ fn prepare_workspace(workspace_dir: &Path) -> std::io::Result<PathBuf> {
 
 /// Existing absolute grants from configuration, `~/` expanded, each past the
 /// host's protected-path floor and the credential-ancestor check.
+#[cfg(feature = "security-module")]
 async fn admit_all(raw: &[String], home: Option<&Path>) -> Vec<String> {
     let credential_roots = match crate::modules::security::gap::credential_roots(
         home.map(Path::to_path_buf),
@@ -219,7 +220,13 @@ async fn admit_all(raw: &[String], home: Option<&Path>) -> Vec<String> {
     out
 }
 
-#[cfg(feature = "modules")]
+#[cfg(not(feature = "security-module"))]
+async fn admit_all(_raw: &[String], _home: Option<&Path>) -> Vec<String> {
+    // Without TinySecurity there is no authority to admit extra path grants.
+    Vec::new()
+}
+
+#[cfg(all(feature = "modules", feature = "security-module"))]
 async fn credential_denials(
     config: &Config,
     home: Option<&Path>,
@@ -246,6 +253,15 @@ async fn credential_denials(
     Ok(denied)
 }
 
-#[cfg(test)]
+#[cfg(all(feature = "modules", not(feature = "security-module")))]
+async fn credential_denials(
+    _config: &Config,
+    _home: Option<&Path>,
+    _workspace: &Path,
+) -> Result<Vec<String>, String> {
+    Err("TinySecurity is not built into this host".into())
+}
+
+#[cfg(all(test, feature = "security-module"))]
 #[path = "host_sandbox_tests.rs"]
 mod tests;

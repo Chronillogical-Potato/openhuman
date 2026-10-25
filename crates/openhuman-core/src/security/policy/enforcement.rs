@@ -1,5 +1,6 @@
 use std::path::Path;
 
+#[cfg(feature = "security-module")]
 use super::native_commands::{CommandFlow, CommandStage};
 use super::types::{SecurityPolicy, ToolOperation, TrustedAccess, TrustedRoot};
 use std::sync::Arc;

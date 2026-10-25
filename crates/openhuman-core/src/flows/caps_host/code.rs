@@ -80,14 +80,13 @@ impl OpenHumanCode {
         // acting adapters.
         let action = json!({ "language": format!("{language:?}"), "source": source });
         let summary = crate::security::approval::summarize_action("flows_code", &action);
-        let redacted = crate::security::approval::redact_args(&action);
         let (gate_outcome, audit_id) = gate_call_for_tier(
             &self.ctx,
             &self.approval,
             tier_decision,
             "flows_code",
             &summary,
-            redacted,
+            action,
         )
         .await;
         if let crate::security::approval::GateOutcome::Deny { reason } = gate_outcome {

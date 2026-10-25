@@ -44,7 +44,7 @@ use crate::flows::{
     FLOWS_TAG,
 };
 use crate::memory::types::{FetchParams, RecallParams};
-use crate::security::approval::{redact_args, summarize_action, GateOutcome};
+use crate::security::approval::{summarize_action, GateOutcome};
 use crate::security::policy::CommandClass;
 use crate::security::SecurityPolicy;
 use tinymemory_api::wrap_untrusted_for_agent;
@@ -156,14 +156,13 @@ impl OpenHumanMemory {
         )
         .await?;
         let summary = summarize_action(&tool_name, action);
-        let redacted = redact_args(action);
         let (outcome, audit_id) = gate_call_for_tier(
             &self.ctx,
             &self.approval,
             tier_decision,
             &tool_name,
             &summary,
-            redacted,
+            action.clone(),
         )
         .await;
         if let GateOutcome::Deny { reason } = outcome {

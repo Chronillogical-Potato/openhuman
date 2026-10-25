@@ -24,12 +24,22 @@ impl SecurityPolicy {
     /// Ask TinySecurity whether a path intersects its unconditional protected
     /// floor. An unavailable module refuses access.
     pub async fn is_always_forbidden_async(path: &Path) -> bool {
-        match crate::modules::security::gap::protected_paths(&[path.to_path_buf()]).await {
-            Ok(answers) => answers.first().copied().unwrap_or(true),
-            Err(error) => {
-                log::debug!("[security][path] protected-floor query unavailable; refused: {error}");
-                true
+        #[cfg(feature = "security-module")]
+        {
+            match crate::modules::security::gap::protected_paths(&[path.to_path_buf()]).await {
+                Ok(answers) => answers.first().copied().unwrap_or(true),
+                Err(error) => {
+                    log::debug!(
+                        "[security][path] protected-floor query unavailable; refused: {error}"
+                    );
+                    true
+                }
             }
+        }
+        #[cfg(not(feature = "security-module"))]
+        {
+            let _ = path;
+            true
         }
     }
 
