@@ -244,18 +244,18 @@ impl OpenHumanSecurityGate {
 
         // Sync-only TinyTools filesystem and network gates read this cached
         // module answer. Their `record_action` call does not keep a host ledger.
-        let budget = if class == crate::security::policy::CommandClass::Read {
-            policy.peek_action_budget().await.map(|decision| {
-                if matches!(decision, tinysecurity_bus::BudgetDecision2::RateLimited { .. }) {
+        let budget: Result<(), String> = if class == crate::security::policy::CommandClass::Read {
+            match policy.peek_action_budget().await {
+                Ok(tinysecurity_bus::BudgetDecision2::RateLimited { .. }) => {
                     Err("Rate limit exceeded: action budget exhausted".to_owned())
-                } else {
-                    Ok(())
                 }
-            })
+                Ok(_) => Ok(()),
+                Err(error) => Err(error),
+            }
         } else {
             policy.spend_action(&call.tool_name).await
         };
-        if let Err(reason) = budget.and_then(|decision| decision) {
+        if let Err(reason) = budget {
             return Ok(GateDecision::deny(reason));
         }
         channel_approved = approved;
