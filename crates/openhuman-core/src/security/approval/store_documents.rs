@@ -4,30 +4,40 @@
 //! rows migrated from the retired host store so NativeEngine can import old
 //! decisions and flow grants once.
 
+#[cfg(feature = "security-module")]
 use std::sync::Arc;
 
+#[cfg(feature = "security-module")]
 use anyhow::{anyhow, Result};
+#[cfg(feature = "security-module")]
 use chrono::{DateTime, Utc};
+#[cfg(feature = "security-module")]
 use serde_json::Value;
+#[cfg(feature = "security-module")]
 use tinystoragedrivers::{Filter, Query, Sort, Versioned};
 
-use crate::config::Config;
+#[cfg(feature = "security-module")]
 use crate::storage::local;
+#[cfg(feature = "security-module")]
 use crate::storage::{block_on, DocumentStore, DocumentStoreExt, Storage, StorageError};
 
 #[cfg(feature = "legacy-import")]
 use super::storage_schema::legacy_collections;
+#[cfg(feature = "security-module")]
 pub(super) use super::storage_schema::{APPROVALS, FLOW_TRUST};
 use super::types::{ApprovalAuditEntry, ApprovalDecision};
 
+#[cfg(feature = "security-module")]
 const DOMAIN: &str = "approval history import";
 
+#[cfg(feature = "security-module")]
 #[derive(Clone, Debug)]
 pub(super) struct Docs {
     docs: Arc<dyn DocumentStore>,
 }
 
 /// Opens the operator's document scope for the one-time history import.
+#[cfg(feature = "security-module")]
 pub(super) fn current(config: &Config) -> Result<Docs> {
     let opened = local::open(DOMAIN, &config.workspace_dir)?;
     Ok(Docs::new(&opened.scoped()?))
@@ -46,18 +56,22 @@ pub(crate) fn import_source() -> crate::storage::import::Source {
     }
 }
 
+#[cfg(feature = "security-module")]
 fn from_ms(ms: Option<i64>) -> Option<DateTime<Utc>> {
     ms.and_then(DateTime::from_timestamp_millis)
 }
 
+#[cfg(feature = "security-module")]
 fn millis(doc: &Value, field: &str) -> Option<i64> {
     doc.get(field).and_then(Value::as_i64)
 }
 
+#[cfg(feature = "security-module")]
 fn text<'a>(doc: &'a Value, field: &str) -> Option<&'a str> {
     doc.get(field).and_then(Value::as_str)
 }
 
+#[cfg(feature = "security-module")]
 fn to_audit(stored: &Versioned<Value>) -> Option<ApprovalAuditEntry> {
     let doc = &stored.doc;
     let decided_at = from_ms(millis(doc, "decided_ms"))?;
@@ -79,6 +93,7 @@ fn to_audit(stored: &Versioned<Value>) -> Option<ApprovalAuditEntry> {
     })
 }
 
+#[cfg(feature = "security-module")]
 impl Docs {
     pub(super) fn new(scoped: &Storage) -> Self {
         Self {

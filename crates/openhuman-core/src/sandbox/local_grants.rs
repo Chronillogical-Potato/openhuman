@@ -9,7 +9,9 @@
 use std::path::PathBuf;
 
 use super::types::SandboxPolicy;
-use crate::config::{Config, LocalJailConfig};
+use crate::config::Config;
+#[cfg(all(feature = "modules", feature = "security-module"))]
+use crate::config::LocalJailConfig;
 
 /// Paths the jail is granted beyond the workspace root.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -36,7 +38,10 @@ pub(crate) async fn with_resolved_grants(
     config: &Config,
     policy: &SandboxPolicy,
 ) -> anyhow::Result<SandboxPolicy> {
+    #[cfg(all(feature = "modules", feature = "security-module"))]
     let mut policy = policy.clone();
+    #[cfg(not(all(feature = "modules", feature = "security-module")))]
+    let policy = policy.clone();
     #[cfg(all(feature = "modules", feature = "security-module"))]
     {
         let home = grant_home(crate::core::runtime::is_saas(), dirs::home_dir);
