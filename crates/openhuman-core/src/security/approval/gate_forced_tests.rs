@@ -163,7 +163,7 @@ fn saas_outcome_never_parks_and_denies_without_an_allowlisted_group() {
     ) {
         Some(GateOutcome::Deny { reason }) => {
             assert!(reason.starts_with(POLICY_DENIED_MARKER), "{reason}");
-            assert!(reason.contains("allowlisted tool groups"), "{reason}");
+            assert!(reason.contains("no approval surface for users"), "{reason}");
         }
         other => panic!("expected an immediate deny, got {other:?}"),
     }
