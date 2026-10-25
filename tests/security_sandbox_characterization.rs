@@ -1,12 +1,7 @@
-//! Phase-0 sandbox characterization (issue #7328, plan Task 1): the request side
-//! (`spawn_policy` and `command_requires_sandbox`), which the tinybox-backed module path
-//! keeps. Which executor runs a spawn, and whether the operator's off switch skips the
-//! jail, is the security module's decision and is pinned in
-//! `sandbox/spawn_plan/integration_tests.rs`. The SaaS rule (every command sandboxed
-//! even with `OPENHUMAN_SANDBOX=off`) needs a process locked to SaaS mode, which
-//! only a SaaS boot can do, so it is pinned beside the code in
-//! `sandbox/ops_tests.rs` (`saas_requires_the_sandbox_even_when_the_host_turns_it_off`).
-//! The `Noop => Inactive` status mapping is pinned in `sandbox/native_jail_tests.rs`.
+//! Sandbox policy and backend-status characterization for issue #646.
+//! These tests pin the current host policy resolution, command precedence,
+//! environment pass-through allowlist, and status mapping without starting a
+//! real sandbox backend.
 
 #[path = "support/env_guard.rs"]
 mod env_guard;

@@ -123,8 +123,7 @@ async fn approval_policy_sandbox_and_secret_wire_contracts() {
         .contains("gate is not installed"));
 
     let gate = ApprovalGate::init_global(config.clone(), "session-security-characterization");
-    // A real request: the approval engine is the security module, so a pending
-    // request exists only while a call is parked on it.
+    // A pending host approval exists only while a call is parked on the gate.
     let parked = {
         let gate = gate.clone();
         tokio::spawn(async move {
@@ -220,8 +219,7 @@ async fn approval_policy_sandbox_and_secret_wire_contracts() {
         "require_approval_for_medium_risk": config.security.autonomy.require_approval_for_medium_risk,
         "block_high_risk_commands": config.security.autonomy.block_high_risk_commands,
     });
-    // The legacy six-field payload is a stable prefix of the response; the
-    // security module adds diagnostic fields beside it (`module`, `enabled`, ...).
+    // The existing policy fields remain present alongside host diagnostics.
     let info = result(&policy).as_object().unwrap();
     for (key, value) in expected.as_object().unwrap() {
         assert_eq!(info.get(key), Some(value), "policy_info field {key}");

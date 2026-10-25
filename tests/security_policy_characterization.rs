@@ -1,5 +1,5 @@
 //! Phase-0 policy characterization through the public `SecurityPolicy` surface
-//! (issue #7328, plan Task 1). The command grammar, allowlist and the
+//! (issue #646). The command grammar, allowlist and the
 //! always-forbidden table are pinned beside the code in
 //! `security/policy/policy_characterization_tests.rs`, because classification
 //! and the allowlist are crate-private outside tests. This file pins what an

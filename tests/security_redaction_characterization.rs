@@ -1,4 +1,4 @@
-//! Phase-0 redaction characterization (issue #7328, plan Task 1).
+//! Redaction characterization for issue #646.
 //!
 //! The shared corpora are consumed by the public log, host scrub, prefix,
 //! approval-argument and RPC-parameter redactors here, and by the private

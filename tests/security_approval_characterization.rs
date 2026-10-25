@@ -1,4 +1,4 @@
-//! Approval characterization (issue #7328, plan Task 1) through the public
+//! Approval characterization (issue #646 characterization) through the public
 //! approval gate, now on the TinySecurity module that owns the approval engine:
 //! park and decide, the 600s default and 180s copilot and sub-agent park windows
 //! (read from the request's expiry), fail-closed expiry, the history surviving
@@ -425,9 +425,8 @@ async fn auto_approve_all_allows_without_parking_and_records_an_audited_approval
     assert!(matches!(unknown, GateOutcome::Deny { .. }), "{unknown:?}");
 }
 
-/// A bypassed call is still auditable: the module-owned gate records an
-/// auto-approval row. This was the red `desired_*` pin until the module owned
-/// the gate.
+/// A bypassed call is still auditable: the host approval gate records an
+/// auto-approval row.
 #[tokio::test]
 async fn desired_auto_approve_all_records_an_audit_row() {
     let _lock = env_guard::env_lock_async().await;
