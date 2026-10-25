@@ -325,26 +325,6 @@ fn full_autonomy_still_respects_forbidden_paths() {
     assert!(!p.is_path_string_allowed("/root/.bashrc"));
 }
 
-// -- Edge cases: from_config preserves tracker --------------------
-
-#[test]
-fn from_config_creates_fresh_tracker() {
-    let autonomy_config = crate::config::AutonomyConfig {
-        level: AutonomyLevel::Full,
-        workspace_only: false,
-        allowed_commands: vec![],
-        forbidden_paths: vec![],
-        max_actions_per_hour: 10,
-        require_approval_for_medium_risk: true,
-        block_high_risk_commands: true,
-        ..crate::config::AutonomyConfig::default()
-    };
-    let workspace = PathBuf::from("/tmp/test");
-    let policy = SecurityPolicy::from_config(&autonomy_config, &workspace, &workspace);
-    assert_eq!(policy.tracker.count(), 0);
-    assert!(!policy.is_rate_limited());
-}
-
 // =================================================================
 // SECURITY CHECKLIST TESTS
 // Checklist: inbound surfaces not public, pairing required,

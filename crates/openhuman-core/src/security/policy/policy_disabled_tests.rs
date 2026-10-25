@@ -81,8 +81,8 @@ fn disabled_policy_allows_unrelated_literal_paths_in_commands() {
     }
 }
 
-#[test]
-fn disabled_policy_never_prompts_or_blocks_on_class() {
+#[tokio::test]
+async fn disabled_policy_never_prompts_or_blocks_on_class() {
     let policy = disabled_policy();
     for class in [
         CommandClass::Read,
@@ -94,7 +94,7 @@ fn disabled_policy_never_prompts_or_blocks_on_class() {
         assert_eq!(policy.gate_decision(class), GateDecision::Allow);
     }
     assert!(policy.can_act());
-    assert!(!policy.is_rate_limited());
+    assert!(!policy.is_rate_limited().await);
 }
 
 #[test]
