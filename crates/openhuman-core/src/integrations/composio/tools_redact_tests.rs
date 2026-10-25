@@ -3,7 +3,7 @@
 use serde_json::json;
 
 use crate::config::{ComposioHostCredential, Config};
-use crate::integrations::composio::tools::redact::redact_and_report;
+use crate::integrations::composio::tools::redact::{redact_and_report, redact_text};
 use crate::integrations::composio::tools::redact_composio_outcome;
 
 const SHORT_KEY: &str = "abcdefgh";
@@ -120,7 +120,7 @@ fn shared_characterization_corpus_tracks_composio_redaction() {
             .as_array()
             .map(|parts| parts.iter().map(|part| part.as_str().unwrap()).collect::<String>())
             .unwrap_or_else(|| case["composio_secret"].as_str().unwrap().to_string());
-        let output = super::redact::redact_text(&input, &[secret.clone()]);
+        let output = redact_text(&input, &[secret.clone()]);
         if input.contains(&secret) {
             assert!(!output.contains(&secret), "case={}: {output}", case["case"]);
         } else {

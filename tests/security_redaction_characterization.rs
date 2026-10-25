@@ -74,7 +74,7 @@ fn pinned(case: &Value) -> BTreeSet<String> {
         .unwrap()
         .iter()
         .map(|v| v.as_str().unwrap().to_string())
-        // `composio_*` / `credential_middleware` are asserted beside their private modules.
+        // The private credential middleware consumes this same fixture beside its module.
         .filter(|name| name != "credential_middleware")
         .collect()
 }
@@ -124,7 +124,7 @@ fn known_gaps() -> BTreeSet<(String, String)> {
                 "email" => "pii",
                 _ => "path",
             });
-            let removed = removed_by(&input_of(case), case["needle"].as_str().unwrap());
+            let removed = removed_by(&input_of(case), &needle_of(case));
             for sink in required_sinks(kind) {
                 if !removed.contains(*sink) {
                     gaps.insert((name.to_string(), sink.to_string()));
