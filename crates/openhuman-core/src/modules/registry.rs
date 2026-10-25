@@ -121,8 +121,9 @@ pub fn release_records() -> Vec<&'static tinybus::module::ReleaseRecord> {
 
 /// Which `[components]` switch owns each module id.
 ///
-/// Every record in [`ALL`] has an entry (`registry_tests` enforces it), so a
-/// module is never exempt from a disabled component by omission.
+/// Every component-owned record in [`ALL`] has an entry (`registry_tests`
+/// enforces it). TinySecurity is controlled by the global module switch until
+/// a product component owns its caller migration.
 pub const COMPONENT_OF: &[(&str, &str)] = &[
     ("tinycomputer", "computer"),
     ("tinysearch", "search"),

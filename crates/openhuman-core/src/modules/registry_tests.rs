@@ -1,4 +1,4 @@
-use super::{find, ALL};
+use super::{ALL, find};
 use tinybus::module::platform::candidates_for;
 
 #[path = "registry_computer_release_tests.rs"]
