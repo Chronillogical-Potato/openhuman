@@ -85,12 +85,18 @@ impl SecurityPolicy {
     /// Without the module there is no budget authority, so the tier is unknown.
     #[cfg(not(feature = "security-module"))]
     pub async fn peek_action_budget(&self) -> Result<tinysecurity_bus::BudgetDecision2, String> {
+        if !self.enabled {
+            return Ok(tinysecurity_bus::BudgetDecision2::Allow);
+        }
         Err("TinySecurity action budget unavailable".into())
     }
 
     /// Without the module there is no budget authority, so acting is refused.
     #[cfg(not(feature = "security-module"))]
     pub async fn spend_action(&self, _operation_name: &str) -> Result<(), String> {
+        if !self.enabled {
+            return Ok(());
+        }
         Err(format!(
             "{} TinySecurity action budget unavailable; action denied",
             tinytools::status::POLICY_BLOCKED_MARKER
