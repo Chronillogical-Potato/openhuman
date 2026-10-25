@@ -4,7 +4,7 @@ use crate::modules::security::gap::{install_budget_port, BudgetOp, ScriptedBudge
 use tinysecurity_bus::BudgetDecision2;
 
 #[tokio::test]
-async fn action_spending_uses_tinysecurity_and_does_not_keep_a_host_counter() {
+async fn action_spending_refreshes_the_module_snapshot_for_sync_gates() {
     let port = ScriptedBudgetPort::replying(BudgetDecision2::Allow);
     let _installed = install_budget_port(port.clone());
     let policy = SecurityPolicy {
@@ -15,7 +15,8 @@ async fn action_spending_uses_tinysecurity_and_does_not_keep_a_host_counter() {
 
     policy.spend_action("file_write").await.unwrap();
 
-    assert_eq!(policy.tracker.count(), 0);
+    assert!(policy.record_action());
+    assert!(policy.record_action());
     assert_eq!(
         port.asked(),
         vec![(BudgetOp::Spend, 9)],
@@ -59,5 +60,4 @@ async fn checking_the_budget_uses_peek_without_spending_an_action() {
     );
     assert!(!policy.is_rate_limited());
     assert_eq!(port.asked(), vec![(BudgetOp::Peek, 9)]);
-    assert_eq!(policy.tracker.count(), 0);
 }
