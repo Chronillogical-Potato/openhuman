@@ -11,6 +11,15 @@
 
 use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::OnceLock;
+
+/// The TinySecurity pass is installed after its released module is serving.
+static MODULE_SCRUBBER: OnceLock<fn(&str) -> Option<String>> = OnceLock::new();
+
+/// Install the module-backed second pass once TinySecurity has loaded.
+pub(crate) fn install_module_scrubber(scrubber: fn(&str) -> Option<String>) {
+    let _ = MODULE_SCRUBBER.set(scrubber);
+}
 
 static SECRET_PATTERNS: Lazy<Vec<(Regex, &'static str)>> = Lazy::new(|| {
     vec![
@@ -104,6 +113,11 @@ pub fn scrub_secrets(input: &str) -> String {
     }
     for (re, replacement) in SECRET_PATTERNS.iter() {
         result = re.replace_all(&result, *replacement).into_owned();
+    }
+    if let Some(scrubber) = MODULE_SCRUBBER.get() {
+        if let Some(redacted) = scrubber(&result) {
+            return redacted;
+        }
     }
     result
 }
