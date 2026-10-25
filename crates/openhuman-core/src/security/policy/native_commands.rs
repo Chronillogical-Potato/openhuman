@@ -96,10 +96,7 @@ pub type SharedCommandGateway = Arc<dyn CommandGateway>;
 impl SecurityPolicy {
     /// Ask TinySecurity to classify a command without applying admission or
     /// spending budget.
-    pub async fn classify_command(
-        &self,
-        query: CommandQuery<'_>,
-    ) -> Result<CommandClass, Refusal> {
+    pub async fn classify_command(&self, query: CommandQuery<'_>) -> Result<CommandClass, Refusal> {
         #[cfg(feature = "security-module")]
         {
             use crate::modules::security::command::{command_decision, CommandOp};

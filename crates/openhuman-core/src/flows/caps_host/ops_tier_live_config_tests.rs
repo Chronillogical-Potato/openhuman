@@ -84,7 +84,10 @@ async fn one_live_capability_observes_full_readonly_full_updates() {
     assert_eq!(fresh.trusted_roots, baseline.trusted_roots);
     assert_eq!(fresh.max_actions_per_hour, baseline.max_actions_per_hour);
     let next_refresh = current_tier_policy(&ctx, &config, &baseline).await.unwrap();
-    assert_eq!(next_refresh.max_actions_per_hour, baseline.max_actions_per_hour);
+    assert_eq!(
+        next_refresh.max_actions_per_hour,
+        baseline.max_actions_per_hour
+    );
 
     assert_eq!(
         enforce_current_node_tier_gate(&ctx, &config, &baseline, CommandClass::Write, "code")

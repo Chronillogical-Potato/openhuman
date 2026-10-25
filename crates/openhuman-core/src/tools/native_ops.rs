@@ -9,7 +9,7 @@ use crate::security::policy::CommandClass;
 use crate::security::SecurityPolicy;
 use crate::tools;
 use crate::tools::native_ops_types::{ExecuteToolOutcome, RuntimeToolSummary};
-use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolScope};
+use tinytools::{Tool, ToolCallOptions, ToolScope};
 use tracing::{debug, trace};
 
 fn tool_scope_label(scope: ToolScope) -> &'static str {
@@ -38,28 +38,36 @@ async fn command_class_for_tool(
     args: &serde_json::Value,
 ) -> Result<CommandClass, String> {
     if tool.name() == "shell" {
-        let declared = args.get("category").and_then(|value| value.as_str()).and_then(|raw| {
-            match raw.trim().to_ascii_lowercase().as_str() {
+        let declared = args
+            .get("category")
+            .and_then(|value| value.as_str())
+            .and_then(|raw| match raw.trim().to_ascii_lowercase().as_str() {
                 "read" => Some(CommandClass::Read),
                 "write" => Some(CommandClass::Write),
                 "network" => Some(CommandClass::Network),
                 "install" => Some(CommandClass::Install),
                 "destructive" => Some(CommandClass::Destructive),
                 _ => None,
-            }
-        });
-        return security.classify_command(crate::security::policy::CommandQuery {
-            command: args.get("command").and_then(serde_json::Value::as_str).unwrap_or_default(),
-            declared,
-            flow: crate::security::policy::CommandFlow::Harness,
-            stage: crate::security::policy::CommandStage::Authorize,
-        }).await.map_err(|reason| reason.to_string());
+            });
+        return security
+            .classify_command(crate::security::policy::CommandQuery {
+                command: args
+                    .get("command")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default(),
+                declared,
+                flow: crate::security::policy::CommandFlow::Harness,
+                stage: crate::security::policy::CommandStage::Authorize,
+            })
+            .await
+            .map_err(|reason| reason.to_string());
     }
 
     let answer = crate::security::policy::host_action_class(
         tool.permission_level_with_args(args),
         tool.external_effect_with_args(args),
-    ).await?;
+    )
+    .await?;
     Ok(match answer {
         tinysecurity_bus::CommandClass::Read => CommandClass::Read,
         tinysecurity_bus::CommandClass::Write => CommandClass::Write,
@@ -145,7 +153,7 @@ pub async fn classify_tool_call_with_security(
     args: &serde_json::Value,
 ) -> Result<CommandClass, String> {
     debug!(tool_name, "[native_ops] classify_tool_call: start");
-    let tools = build_runtime_tools_with_security(config, security)?;
+    let tools = build_runtime_tools_with_security(config, Arc::clone(&security))?;
     let tool = tools
         .into_iter()
         .find(|tool| tool.name() == tool_name)
