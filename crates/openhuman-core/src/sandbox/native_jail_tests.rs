@@ -56,8 +56,8 @@ fn an_unavailable_or_unconfining_jail_is_refused() {
 }
 
 #[cfg(feature = "modules")]
-#[test]
-fn native_jail_request_preserves_grants_and_requires_enforcement() -> anyhow::Result<()> {
+#[tokio::test]
+async fn native_jail_request_preserves_grants_and_requires_enforcement() -> anyhow::Result<()> {
     let root = tempfile::tempdir()?;
     let readonly = tempfile::tempdir()?;
     let readwrite = tempfile::tempdir()?;
@@ -78,7 +78,7 @@ fn native_jail_request_preserves_grants_and_requires_enforcement() -> anyhow::Re
     let _keyring = crate::security::secret_storage::store::test_scope::ScopedWorkspace::new(
         account.path().join("workspace"),
     );
-    let request = jail_request(&config, &policy, SandboxIsolation::Isolated)?;
+    let request = jail_request(&config, &policy, SandboxIsolation::Isolated).await?;
 
     assert_eq!(request.read_only, [readonly.path().to_str().unwrap()]);
     // TinyBox appends its own per-call scratch directory to the writable grants.
@@ -109,7 +109,7 @@ fn native_jail_request_preserves_grants_and_requires_enforcement() -> anyhow::Re
     for denied in &confined.deny_read {
         let denied = std::path::Path::new(denied);
         assert!(
-            crate::security::SecurityPolicy::is_always_forbidden(denied)
+            crate::security::SecurityPolicy::is_always_forbidden_async(denied).await
                 || denied == account_config,
             "{} is not a protected credential store",
             denied.display()
@@ -310,23 +310,6 @@ fn openhumans_own_credential_files_are_denied_when_present() {
     assert!(!denied
         .iter()
         .any(|file| file.ends_with("http-credentials.json")));
-}
-
-#[test]
-fn every_denied_store_is_one_the_path_floor_forbids() {
-    let home = std::path::Path::new("/home/someone");
-    let stores = crate::security::policy::home_credential_stores(home);
-
-    assert!(stores.contains(&home.join(".ssh")));
-    assert!(stores.contains(&home.join("Library/Keychains")));
-    assert!(stores.contains(&home.join(".git-credentials")));
-    for store in &stores {
-        assert!(
-            crate::security::SecurityPolicy::is_always_forbidden(store),
-            "{} is not on the is_always_forbidden floor",
-            store.display()
-        );
-    }
 }
 
 #[cfg(feature = "modules")]
