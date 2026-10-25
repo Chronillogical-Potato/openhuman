@@ -26,6 +26,24 @@ impl ApprovalGate {
         GLOBAL_GATE.get().cloned()
     }
 
+    /// An isolated gate for tests outside this module. Tests use the same
+    /// scripted engine as the gate's unit suite, so no native module or host
+    /// approval database is required.
+    #[cfg(test)]
+    pub(crate) fn for_test(workspace: &std::path::Path) -> Self {
+        let config = Config {
+            workspace_dir: workspace.to_path_buf(),
+            ..Config::default()
+        };
+        let session = format!("session-{}", uuid::Uuid::new_v4());
+        Self::with_engine(
+            config,
+            session,
+            None,
+            super::engine_stub::StubEngine::new(),
+        )
+    }
+
     /// The engine this build asks: the TinySecurity module, or, in a build
     /// without it, one that refuses every gated call.
     fn engine_for(config: &Config) -> SharedEngine {
