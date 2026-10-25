@@ -53,7 +53,12 @@ pub async fn reinitialize(config: &Config) -> Result<(), SecurityError> {
     let runtime = super::runtime::runtime()
         .await
         .map_err(|_| SecurityError::Unavailable("module runtime unavailable".into()))?;
-    let payload = serde_json::to_value(policy::module_config(config))
+    let trusted_host = runtime
+        .connection()
+        .unique_name()
+        .map(|name| name.to_string())
+        .ok_or_else(|| SecurityError::Unavailable("module host identity unavailable".into()))?;
+    let payload = serde_json::to_value(policy::module_config_for_host(config, trusted_host))
         .map_err(|_| SecurityError::Unavailable("invalid module configuration".into()))?;
     runtime
         .connection()

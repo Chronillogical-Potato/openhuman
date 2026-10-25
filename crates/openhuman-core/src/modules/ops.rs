@@ -185,7 +185,7 @@ pub fn resolver(config: &Config) -> Resolver {
         terminal_marker: tinytools::status::MODULE_FAULT_MARKER.to_string(),
         runtime: Arc::new(|| Box::pin(runtime::runtime())),
         module_config: Arc::new(move |id| {
-            let value = module_config(&module_config_source, id);
+            let value = runtime_module_config(&module_config_source, id);
             if id == super::connectors::MODULE_ID {
                 super::connectors::note_module_config_for_load(&module_config_source, &value);
             }
@@ -473,6 +473,26 @@ pub(super) fn module_config(config: &Config, id: &str) -> serde_json::Value {
         });
     }
     serde_json::json!({})
+}
+
+/// Configuration passed to the loader after it has started the module bus.
+/// TinySecurity binds its privileged API to this process-wide host connection;
+/// a missing identity must fail at initialization rather than leave a loaded
+/// module whose every call is rejected.
+fn runtime_module_config(config: &Config, id: &str) -> serde_json::Value {
+    #[cfg(feature = "security-module")]
+    if id == super::security::MODULE_ID {
+        let trusted_host = super::runtime::existing_runtime()
+            .and_then(|runtime| runtime.connection().unique_name())
+            .map(|name| name.to_string())
+            .expect("module runtime must expose its host identity before loading modules");
+        return serde_json::to_value(super::security::policy::module_config_for_host(
+            config,
+            trusted_host,
+        ))
+        .expect("TinySecurity module config is serializable");
+    }
+    module_config(config, id)
 }
 
 /// [`module_config`] for a test in a sibling module.

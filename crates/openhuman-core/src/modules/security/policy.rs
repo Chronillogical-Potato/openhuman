@@ -23,6 +23,19 @@ pub fn module_config(config: &Config) -> tinysecurity_bus::ModuleConfig {
     }
 }
 
+/// Complete SDK bootstrap payload with the host identity required by the
+/// module's authenticated bus boundary.
+#[must_use]
+pub fn module_config_for_host(
+    config: &Config,
+    trusted_host: String,
+) -> tinysecurity_bus::ModuleConfig {
+    tinysecurity_bus::ModuleConfig {
+        trusted_host: Some(trusted_host),
+        ..module_config(config)
+    }
+}
+
 #[cfg(test)]
 #[path = "policy_tests.rs"]
 mod tests;
