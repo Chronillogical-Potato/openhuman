@@ -10,7 +10,7 @@
   },
   "runner": {
     "architecture": "x86_64",
-    "rustc": "rustc 1.99.0 (f2d3ce0bd 2026-03-21)"
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)"
   },
   "note": "Informational characterization from one run; no timing threshold is enforced. Rerun tests/security_bus_latency_baseline.rs to refresh for a different host."
 }
