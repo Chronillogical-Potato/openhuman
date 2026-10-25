@@ -14,8 +14,13 @@
 //! became the sole control.
 
 mod flow_surface;
+pub(crate) mod engine;
+#[cfg(test)]
+pub(crate) mod engine_stub;
 pub mod gate;
 pub mod redact;
+#[cfg(feature = "security-module")]
+pub(crate) mod native;
 mod registration_scope;
 pub use registration_scope::ApprovalScope;
 pub mod rpc;

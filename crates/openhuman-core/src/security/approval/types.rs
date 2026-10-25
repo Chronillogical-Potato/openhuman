@@ -130,6 +130,34 @@ pub struct ApprovalAuditEntry {
     pub expires_at: Option<DateTime<Utc>>,
     pub decided_at: DateTime<Utc>,
     pub decision: ApprovalDecision,
+    /// Who decided: `auto:jev`, `auto:host-policy`, or absent for a human.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decided_by: Option<String>,
+    /// The judge's nonsensitive verdict when `decided_by` is `auto:jev`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub judge: Option<JudgeVerdict>,
+}
+
+/// A live durable whole-tool grant in one approval scope.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct ToolTrustEntry {
+    /// Redacted display label returned by TinySecurity.
+    pub tool: String,
+    /// Opaque identity to pass back when revoking this grant.
+    pub request_id: String,
+    /// When the grant was recorded, in epoch milliseconds.
+    pub granted_at_ms: u64,
+}
+
+/// Nonsensitive judge evidence shown in approval history.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JudgeVerdict {
+    pub outcome: String,
+    pub intent_millis: Option<u16>,
+    pub reversible_millis: Option<u16>,
+    pub exfiltrate_millis: Option<u16>,
+    pub cached: bool,
 }
 
 /// Result of `approval_preauthorize_flow`: which trust grants were newly
