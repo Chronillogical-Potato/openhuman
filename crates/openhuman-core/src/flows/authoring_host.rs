@@ -149,6 +149,7 @@ impl ApprovalCallbacks {
                             let class = crate::tools::native_ops::classify_tool_call(
                                 &config, &tool_name, &args,
                             )
+                            .await
                             .unwrap_or(CommandClass::Network);
                             gated(class)
                         }
