@@ -21,16 +21,16 @@ pub fn policy_config(config: &Config) -> tinysecurity_bus::PolicyConfig {
         workspace_dir: config.workspace_dir.display().to_string(),
         // These settings are inert while autonomy is disabled. Do not send
         // host defaults that the module must reject despite having no effect.
-        allowed_commands: config
-            .autonomy
-            .enabled
-            .then(|| config.autonomy.allowed_commands.clone())
-            .unwrap_or_default(),
-        forbidden_paths: config
-            .autonomy
-            .enabled
-            .then(|| config.autonomy.forbidden_paths.clone())
-            .unwrap_or_default(),
+        allowed_commands: if config.autonomy.enabled {
+            config.autonomy.allowed_commands.clone()
+        } else {
+            Vec::new()
+        },
+        forbidden_paths: if config.autonomy.enabled {
+            config.autonomy.forbidden_paths.clone()
+        } else {
+            Vec::new()
+        },
     }
 }
 
@@ -73,7 +73,6 @@ pub fn module_config(config: &Config) -> tinysecurity_bus::ModuleConfig {
 
 /// Complete SDK bootstrap payload with the host identity required by the
 /// module's authenticated bus boundary.
-#[must_use]
 pub fn module_config_for_host(
     config: &Config,
     trusted_host: Option<String>,
