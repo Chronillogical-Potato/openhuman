@@ -285,3 +285,7 @@ pub(super) async fn by_handle(handle: &SubjectScope) -> Option<Arc<ScopeEntry>> 
         .cloned()
 }
 
+#[cfg(test)]
+#[path = "scopes_tests.rs"]
+mod tests;
+

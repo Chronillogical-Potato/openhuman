@@ -55,3 +55,7 @@ impl AuditStream {
     }
 }
 
+#[cfg(test)]
+#[path = "audit_stream_tests.rs"]
+mod tests;
+

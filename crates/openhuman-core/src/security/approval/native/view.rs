@@ -146,3 +146,7 @@ pub(crate) async fn row_decided(config: &Config, request_id: &str) -> anyhow::Re
     Ok(stored.map(|stored| stored.row.state != ApprovalLifecycle2::Pending))
 }
 
+#[cfg(test)]
+#[path = "view_tests.rs"]
+mod tests;
+
