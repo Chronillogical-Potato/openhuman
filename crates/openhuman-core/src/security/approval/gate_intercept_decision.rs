@@ -254,7 +254,7 @@ pub(crate) fn saas_prompt_needed(
     );
     saas
         && routable_web_chat
-        && (forced || crate::profiles::tools::requires_user_approval(ctx, tool_name))
+        && (forced || crate::profiles::tools::gate_verdict(ctx, tool_name).is_err())
 }
 
 /// Keep SaaS user approvals one-time even when the ordinary chat posture has
