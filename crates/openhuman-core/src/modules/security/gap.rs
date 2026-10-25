@@ -21,6 +21,15 @@ pub(crate) enum BudgetOp {
     Peek,
 }
 
+/// Whether a command answer is informational or reserves an allowed action.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CommandOp {
+    /// Classify without applying admission or spending budget.
+    Classify,
+    /// Apply the configured command gate and spend on allow.
+    Check,
+}
+
 /// Port for the action budget, so host policy tests exercise the same boundary
 /// as production without booting a module runtime.
 #[async_trait]
@@ -109,6 +118,49 @@ pub(crate) async fn budget(
         return port.budget(workspace_dir, policy, op).await;
     }
     ModuleBudgetPort.budget(workspace_dir, policy, op).await
+}
+
+/// Classify or check a command under an immutable registered command scope.
+pub(crate) async fn command_decision(
+    workspace_dir: PathBuf,
+    policy: CommandPolicy,
+    command: String,
+    declared_class: Option<tinysecurity_bus::CommandClass>,
+    op: CommandOp,
+) -> Result<tinysecurity_bus::CommandDecision, String> {
+    let config = crate::core::runtime::DispatchCtx::ambient()
+        .load_config()
+        .await?;
+    let client = super::client(&config)
+        .await
+        .map_err(|error| error.to_string())?;
+    let scopes = COMMAND_SCOPES.get_or_init(|| tokio::sync::Mutex::new(Vec::new()));
+    let mut scopes = scopes.lock().await;
+    let policy_id = match scopes
+        .iter()
+        .find(|(workspace, registered, _)| workspace == &workspace_dir && registered == &policy)
+        .map(|(_, _, id)| id.clone())
+    {
+        Some(id) => id,
+        None => {
+            let id = client
+                .register_command_policy(policy.clone())
+                .await
+                .map_err(|error| error.to_string())?;
+            scopes.push((workspace_dir, policy, id.clone()));
+            id
+        }
+    };
+    let request = tinysecurity_bus::CommandRequest {
+        policy_id,
+        command,
+        declared_class,
+    };
+    match op {
+        CommandOp::Classify => client.classify_command(request).await,
+        CommandOp::Check => client.check_command(request).await,
+    }
+    .map_err(|error| error.to_string())
 }
 
 static COMMAND_SCOPES: OnceLock<

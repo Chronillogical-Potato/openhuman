@@ -5,6 +5,7 @@
 //! issues move them explicitly.
 
 pub(super) mod callbacks;
+pub(crate) mod command;
 mod client;
 pub(crate) mod gap;
 mod policy;
