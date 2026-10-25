@@ -217,7 +217,7 @@ async fn validate_files_dir(raw: &str, config: &Config) -> Result<PathBuf, Strin
             "files_dir must be a folder, not a file: {expanded}"
         ));
     }
-    if crate::security::SecurityPolicy::is_always_forbidden(&candidate) {
+    if crate::security::SecurityPolicy::is_always_forbidden_async(&candidate).await {
         return Err(format!(
             "files_dir cannot be a protected system or credential folder: {expanded}"
         ));

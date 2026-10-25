@@ -228,7 +228,7 @@ async fn validated_tts_output_path(
         );
     };
     let canonical_root = canonicalize_path_with_missing_suffix(allowed_root).await?;
-    if crate::security::SecurityPolicy::is_always_forbidden(&canonical_root) {
+    if crate::security::SecurityPolicy::is_always_forbidden_async(&canonical_root).await {
         return Err("invalid output_path: allowed root resolves to a protected path".into());
     }
     tokio::fs::create_dir_all(allowed_root)
