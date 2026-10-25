@@ -69,7 +69,7 @@ fn gate(autonomy: AutonomyLevel) -> OpenHumanSecurityGate {
 struct ScriptedCommandGateway(Mutex<Vec<(String, crate::security::policy::CommandStage)>>);
 
 #[cfg(feature = "modules")]
-impl crate::security::policy::native_commands::Sealed for ScriptedCommandGateway {}
+impl crate::security::policy::Sealed for ScriptedCommandGateway {}
 
 #[cfg(feature = "modules")]
 #[async_trait]
