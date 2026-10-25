@@ -16,6 +16,13 @@ impl SecurityPolicy {
     pub async fn spend_action(&self, operation_name: &str) -> Result<(), String> {
         use tinysecurity_bus::BudgetDecision2;
 
+        if !self.enabled {
+            if let Ok(mut snapshot) = self.budget_snapshot.lock() {
+                *snapshot = Some(BudgetDecision2::Allow);
+            }
+            return Ok(());
+        }
+
         let policy = self
             .native_command_policy(CommandFlow::Harness, CommandStage::Execute)
             .map_err(|error| error.to_string())?;
@@ -54,6 +61,9 @@ impl SecurityPolicy {
     /// Read the module-owned action budget without reserving an action.
     #[cfg(feature = "security-module")]
     pub async fn peek_action_budget(&self) -> Result<tinysecurity_bus::BudgetDecision2, String> {
+        if !self.enabled {
+            return Ok(tinysecurity_bus::BudgetDecision2::Allow);
+        }
         let policy = self
             .native_command_policy(CommandFlow::Harness, CommandStage::Execute)
             .map_err(|error| error.to_string())?;
@@ -97,7 +107,14 @@ impl SecurityPolicy {
         if !self.enabled {
             return true;
         }
-        self.autonomy != AutonomyLevel::ReadOnly
+        let Ok(snapshot) = self.budget_snapshot.lock() else {
+            return false;
+        };
+        matches!(
+            snapshot.as_ref(),
+            Some(tinysecurity_bus::BudgetDecision2::Allow)
+                | Some(tinysecurity_bus::BudgetDecision2::RateLimited { .. })
+        )
     }
 
     /// The **tier** half of an act check, without touching the hourly action
@@ -143,11 +160,10 @@ impl SecurityPolicy {
     /// Record an action and check if the rate limit has been exceeded.
     /// Returns `true` if the action is allowed, `false` if rate-limited.
     pub fn record_action(&self) -> bool {
-        let count = self.tracker.record();
         if !self.enabled {
             return true;
         }
-        count <= self.max_actions_per_hour as usize
+        !self.is_rate_limited()
     }
 
     /// Check if the rate limit would be exceeded without recording.
