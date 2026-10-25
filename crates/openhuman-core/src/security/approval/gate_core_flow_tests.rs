@@ -236,9 +236,9 @@ async fn auto_approve_all_resolves_allow() {
         dir.path().to_path_buf(),
     );
 
-    let outcome = turn_origin::with_origin(
+    let (outcome, audit_request_id) = turn_origin::with_origin(
         web_origin(),
-        gate.intercept(
+        gate.intercept_audited(
             &ApprovalTurnContext::default(),
             "openhuman_test_aaa_webchat",
             "noop",
@@ -248,6 +248,10 @@ async fn auto_approve_all_resolves_allow() {
     .await;
 
     assert!(matches!(outcome, GateOutcome::Allow));
+    assert!(
+        audit_request_id.is_some(),
+        "automatic approvals must return their durable audit row id"
+    );
     assert!(
         gate.list_pending().unwrap().is_empty(),
         "auto_approve_all must short-circuit before any pending row is persisted"

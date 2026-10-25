@@ -138,14 +138,6 @@ impl NativeEngine {
     /// approval history into the module (`history_import`).
     async fn proxy(&self) -> Result<ModuleObjectClient, EngineError> {
         let proxy = match &self.source {
-            Source::Fixed(proxy) => crate::modules::ops::fixture_client(proxy.clone())
-                .with_timeout(CALL_DEADLINE)
-                .object_client(
-                    crate::modules::security::MODULE_ID,
-                    names::OBJECT_PATH,
-                )
-                .await
-                .map_err(|error| EngineError::Unavailable(error.to_string()))?,
             Source::Production => crate::modules::security::approval_object(
                 &self.config,
                 CALL_DEADLINE,
