@@ -346,60 +346,31 @@ impl ShellTool {
         audit: &AuditOnce,
     ) -> (bool, ToolResult) {
         let command_environment = command_environment_for_tool(context);
-        // Revalidate facts immediately before execution. The authorization
-        // hook supplies the same module-owned parser to the harness gate; this
-        // second call keeps direct/workflow execution on the same contract and
-        // fails closed if the module disappeared after approval.
-        #[cfg(feature = "modules")]
-        if let Some(config) = self.analysis_config.as_deref() {
-            let analysis =
-                match crate::modules::tinybox::analyze_command(config, command.to_owned()).await {
-                    Ok(analysis) => analysis,
-                    Err(_) => {
-                        return (false, ToolResult::error("Command analysis is unavailable."));
-                    }
-                };
-            if let Err(reason) = self.security.check_gated_command_analysis(&analysis) {
-                return (false, ToolResult::error(reason));
-            }
-        } else {
-            #[cfg(test)]
-            if let Err(reason) = self.security.check_gated_command(command) {
-                // Unit tests exercise the standalone policy helper without
-                // booting TinyBus. Production constructors always carry the
-                // module config and never use this compatibility path.
-                return (false, ToolResult::error(reason));
-            }
-            #[cfg(not(test))]
-            return (false, ToolResult::error("Command analysis is unavailable."));
-        }
-        #[cfg(not(feature = "modules"))]
+        // TinySecurity owns command classification and admission. Re-check at
+        // execution time so a command approved earlier cannot bypass a policy
+        // reload or a newly exhausted budget.
+        let verdict = match self
+            .security
+            .check_command(crate::security::policy::CommandQuery {
+                command,
+                declared: None,
+                flow: crate::security::policy::CommandFlow::Harness,
+                stage: crate::security::policy::CommandStage::Execute,
+            })
+            .await
         {
-            let _ = &self.analysis_config;
-            let _ = command;
-            #[cfg(test)]
-            if let Err(reason) = self.security.check_gated_command(command) {
-                return (false, ToolResult::error(reason));
+            Ok(verdict) if verdict.gate != crate::security::policy::GateDecision::Block => verdict,
+            Ok(_) => {
+                return (
+                    false,
+                    ToolResult::error("[policy-blocked] Security policy blocked this command."),
+                );
             }
-            #[cfg(not(test))]
-            return (false, ToolResult::error("Command analysis is unavailable."));
-        }
+            Err(reason) => return (false, ToolResult::error(reason.to_string())),
+        };
+        let _ = verdict;
 
         let _cwd = self.effective_action_dir_for_context(context);
-
-        if self.security.is_rate_limited() {
-            return (
-                false,
-                ToolResult::error("Rate limit exceeded: too many actions in the last hour"),
-            );
-        }
-
-        if !self.security.record_action() {
-            return (
-                false,
-                ToolResult::error("Rate limit exceeded: action budget exhausted"),
-            );
-        }
 
         // SaaS: every command runs in the user's container, whatever the
         // agent's sandbox mode says, and never on the host.
