@@ -76,7 +76,10 @@ impl AttachmentModel {
             &self.config.workspace_dir,
             &root,
         );
-        if !policy.is_resolved_path_allowed_for(&cache, true) {
+        if !policy
+            .path_allowed(crate::security::policy::PathKind::ResolvedWrite, &cache)
+            .await
+        {
             return None;
         }
         Some(cache)
