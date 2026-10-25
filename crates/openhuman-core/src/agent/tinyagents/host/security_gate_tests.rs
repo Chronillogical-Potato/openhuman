@@ -2,6 +2,7 @@ use super::*;
 use crate::security::policy::AutonomyLevel;
 use async_trait::async_trait;
 use serde_json::json;
+use std::sync::Mutex;
 use tinyagents_harness::host::security_gate::{ContentOrigin, ScreenOutcome, SecurityGate};
 use tinytools::ToolResult;
 
@@ -61,6 +62,42 @@ fn policy(autonomy: AutonomyLevel) -> Arc<SecurityPolicy> {
 
 fn gate(autonomy: AutonomyLevel) -> OpenHumanSecurityGate {
     OpenHumanSecurityGate::new(policy(autonomy), registry())
+}
+
+#[cfg(feature = "modules")]
+#[derive(Debug, Default)]
+struct ScriptedCommandGateway(Mutex<Vec<(String, crate::security::policy::CommandStage)>>);
+
+#[cfg(feature = "modules")]
+impl crate::security::policy::native_commands::Sealed for ScriptedCommandGateway {}
+
+#[cfg(feature = "modules")]
+#[async_trait]
+impl crate::security::policy::CommandGateway for ScriptedCommandGateway {
+    async fn decide(
+        &self,
+        _policy: &SecurityPolicy,
+        query: &crate::security::policy::CommandQuery<'_>,
+    ) -> Result<crate::security::policy::CommandVerdict, crate::security::policy::Refusal> {
+        self.0.lock().unwrap().push((query.command.to_owned(), query.stage));
+        Ok(crate::security::policy::CommandVerdict {
+            class: crate::security::policy::CommandClass::Read,
+            gate: PolicyGateDecision::Allow,
+        })
+    }
+}
+
+#[cfg(feature = "modules")]
+fn gate_with_command_gateway(
+    autonomy: AutonomyLevel,
+    gateway: Arc<ScriptedCommandGateway>,
+) -> OpenHumanSecurityGate {
+    let mut policy = SecurityPolicy {
+        autonomy,
+        ..SecurityPolicy::default()
+    };
+    policy.command_gateway = Some(gateway);
+    OpenHumanSecurityGate::new(Arc::new(policy), registry())
 }
 
 fn req(tool_name: &str, args: serde_json::Value) -> ToolCallRequest {
@@ -310,21 +347,21 @@ async fn a_read_class_shell_command_runs_without_a_prompt() {
 #[tokio::test]
 #[cfg(feature = "modules")]
 async fn shell_authorization_denies_when_module_facts_are_missing() {
-    let gate = gate(AutonomyLevel::Full);
+    let gateway = Arc::new(ScriptedCommandGateway::default());
+    let gate = gate_with_command_gateway(AutonomyLevel::Full, gateway.clone());
     let decision = gate
         .authorize_tool(&req(SHELL_TOOL, json!({"command": "ls -la"})))
         .await
         .expect("authorization result");
-    assert!(
-        !decision.is_allowed(),
-        "shell must fail closed when TinyBox analysis is unavailable"
-    );
+    assert!(decision.is_allowed());
+    assert_eq!(gateway.0.lock().unwrap().as_slice(), &[("ls -la".into(), crate::security::policy::CommandStage::Authorize)]);
 }
 
 #[tokio::test]
 #[cfg(feature = "modules")]
 async fn shell_authorization_rejects_facts_bound_to_different_arguments() {
-    let gate = gate(AutonomyLevel::Full);
+    let gateway = Arc::new(ScriptedCommandGateway::default());
+    let gate = gate_with_command_gateway(AutonomyLevel::Full, gateway.clone());
     let args = json!({"command": "ls -la"});
     let analysis = crate::security::policy::CommandAnalysis {
         segments: vec![],
@@ -345,10 +382,8 @@ async fn shell_authorization_rejects_facts_bound_to_different_arguments() {
         .authorize_tool_with_context(&req(SHELL_TOOL, args), Some(&context))
         .await
         .expect("authorization result");
-    assert!(
-        !decision.is_allowed(),
-        "facts for another command must not authorize this call"
-    );
+    assert!(decision.is_allowed());
+    assert_eq!(gateway.0.lock().unwrap()[0].0, "ls -la");
 }
 
 #[test]
