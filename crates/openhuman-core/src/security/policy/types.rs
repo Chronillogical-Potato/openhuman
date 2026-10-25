@@ -316,6 +316,9 @@ pub struct SecurityPolicy {
     /// `ToolPolicyMiddleware`, which are independent code paths.
     pub auto_approve_all: bool,
     pub tracker: ActionTracker,
+    /// Last module-owned budget decision, shared by cloned policy views so
+    /// synchronous tool gates can read the async admission result safely.
+    pub budget_snapshot: Arc<std::sync::Mutex<Option<tinysecurity_bus::BudgetDecision2>>>,
     /// Lazily-cached canonical form of [`workspace_dir`].
     ///
     /// `validate_path` / `validate_parent_path` use the canonical workspace
@@ -452,6 +455,7 @@ impl Default for SecurityPolicy {
             auto_approve: Vec::new(),
             auto_approve_all: false,
             tracker: ActionTracker::new(),
+            budget_snapshot: Arc::new(std::sync::Mutex::new(None)),
             canonical_workspace: Arc::new(OnceCell::new()),
         }
     }
