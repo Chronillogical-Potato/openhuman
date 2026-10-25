@@ -67,7 +67,10 @@ impl Client {
         policy: PathPolicy,
     ) -> Result<PathPolicyId, SecurityError> {
         self.object
-            .call_confidential(tinysecurity_bus::names::methods::REGISTER_PATH_POLICY, (policy,))
+            .call_confidential(
+                tinysecurity_bus::names::methods::REGISTER_PATH_POLICY,
+                (policy,),
+            )
             .await
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
     }
@@ -89,7 +92,10 @@ impl Client {
         request: ProtectedPathRequest2,
     ) -> Result<ProtectedPathResponse2, SecurityError> {
         self.object
-            .call_confidential(tinysecurity_bus::names::methods::PROTECTED_PATH2, (request,))
+            .call_confidential(
+                tinysecurity_bus::names::methods::PROTECTED_PATH2,
+                (request,),
+            )
             .await
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
     }
@@ -108,7 +114,10 @@ impl Client {
         request: CredentialRootsRequest2,
     ) -> Result<CredentialRootsResponse2, SecurityError> {
         self.object
-            .call_confidential(tinysecurity_bus::names::methods::CREDENTIAL_ROOTS2, (request,))
+            .call_confidential(
+                tinysecurity_bus::names::methods::CREDENTIAL_ROOTS2,
+                (request,),
+            )
             .await
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
     }
@@ -119,7 +128,10 @@ impl Client {
         request: HostActionClassRequest2,
     ) -> Result<HostActionClassResponse2, SecurityError> {
         self.object
-            .call_confidential(tinysecurity_bus::names::methods::CLASSIFY_HOST_ACTION2, (request,))
+            .call_confidential(
+                tinysecurity_bus::names::methods::CLASSIFY_HOST_ACTION2,
+                (request,),
+            )
             .await
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
     }
@@ -130,7 +142,10 @@ impl Client {
         policy: CommandPolicy,
     ) -> Result<CommandPolicyId, SecurityError> {
         self.object
-            .call_confidential(tinysecurity_bus::names::methods::REGISTER_COMMAND_POLICY, (policy,))
+            .call_confidential(
+                tinysecurity_bus::names::methods::REGISTER_COMMAND_POLICY,
+                (policy,),
+            )
             .await
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
     }
@@ -141,7 +156,10 @@ impl Client {
         request: CommandRequest,
     ) -> Result<CommandDecision, SecurityError> {
         self.object
-            .call_confidential(tinysecurity_bus::names::methods::CLASSIFY_COMMAND, (request,))
+            .call_confidential(
+                tinysecurity_bus::names::methods::CLASSIFY_COMMAND,
+                (request,),
+            )
             .await
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
     }

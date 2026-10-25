@@ -13,10 +13,12 @@ impl SecurityPolicy {
     /// are migrated to the bus-backed gate.
     #[cfg(feature = "security-module")]
     pub async fn spend_action(&self, operation_name: &str) -> Result<(), String> {
-        use tinysecurity_bus::{BudgetDecision2, CommandAutonomy, CommandExecutionMode, ShellDialect};
+        use tinysecurity_bus::{
+            BudgetDecision2, CommandAutonomy, CommandExecutionMode, ShellDialect,
+        };
 
-        let action_dir = std::path::absolute(&self.action_dir)
-            .unwrap_or_else(|_| self.action_dir.clone());
+        let action_dir =
+            std::path::absolute(&self.action_dir).unwrap_or_else(|_| self.action_dir.clone());
         let command_policy = tinysecurity_bus::CommandPolicy {
             enabled: self.enabled,
             execution_mode: CommandExecutionMode::HarnessGated,

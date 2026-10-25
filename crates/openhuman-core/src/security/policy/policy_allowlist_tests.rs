@@ -33,37 +33,62 @@ fn can_act_full_true() {
     assert!(full_policy().can_act());
 }
 
-#[test]
-fn enforce_tool_operation_read_allowed_in_readonly_mode() {
+#[tokio::test]
+async fn enforce_tool_operation_read_allowed_in_readonly_mode() {
     let p = readonly_policy();
     assert!(p
         .enforce_tool_operation(ToolOperation::Read, "memory_recall")
+        .await
         .is_ok());
 }
 
-#[test]
-fn enforce_tool_operation_act_blocked_in_readonly_mode() {
+#[cfg(feature = "security-module")]
+#[tokio::test]
+async fn enforce_tool_operation_act_blocked_in_readonly_mode() {
+    use crate::modules::security::gap::{install_budget_port, ScriptedBudgetPort};
+    use tinysecurity_bus::BudgetDecision2;
+
+    let _installed =
+        install_budget_port(ScriptedBudgetPort::replying(BudgetDecision2::ReadOnlyMode));
     let p = readonly_policy();
     let err = p
         .enforce_tool_operation(ToolOperation::Act, "memory_store")
+        .await
         .unwrap_err();
     assert!(err.contains("read-only mode"));
 }
 
-#[test]
-fn enforce_tool_operation_act_uses_rate_budget() {
+#[cfg(feature = "security-module")]
+#[tokio::test]
+async fn enforce_tool_operation_act_uses_rate_budget() {
+    use crate::modules::security::gap::{install_budget_port, ScriptedBudgetPort};
+    use tinysecurity_bus::BudgetDecision2;
+
+    let _installed =
+        install_budget_port(ScriptedBudgetPort::replying(BudgetDecision2::RateLimited {
+            max_per_hour: 0,
+        }));
     let p = SecurityPolicy {
         max_actions_per_hour: 0,
         ..default_policy()
     };
     let err = p
         .enforce_tool_operation(ToolOperation::Act, "memory_store")
+        .await
         .unwrap_err();
     assert!(err.contains("Rate limit exceeded"));
 }
 
-#[test]
-fn action_budget_error_mentions_limit_and_settings() {
+#[cfg(feature = "security-module")]
+#[tokio::test]
+async fn action_budget_error_mentions_limit_and_settings() {
+    use crate::modules::security::gap::{install_budget_port, ScriptedBudgetPort};
+    use tinysecurity_bus::BudgetDecision2;
+
+    let _installed =
+        install_budget_port(ScriptedBudgetPort::replying(BudgetDecision2::RateLimited {
+            max_per_hour: 0,
+        }));
     let p = SecurityPolicy {
         max_actions_per_hour: 0,
         ..default_policy()
@@ -71,6 +96,7 @@ fn action_budget_error_mentions_limit_and_settings() {
 
     let err = p
         .enforce_tool_operation(ToolOperation::Act, "write_file")
+        .await
         .unwrap_err();
 
     assert!(err.contains("Rate limit exceeded: action budget exhausted"));

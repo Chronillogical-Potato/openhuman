@@ -5,7 +5,9 @@
 //! the module cannot answer.
 
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::OnceLock;
+#[cfg(test)]
+use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use tinysecurity_bus::{BudgetDecision2, CommandPolicy, CommandPolicyId};
@@ -109,8 +111,9 @@ pub(crate) async fn budget(
     ModuleBudgetPort.budget(workspace_dir, policy, op).await
 }
 
-static COMMAND_SCOPES: OnceLock<tokio::sync::Mutex<Vec<(PathBuf, CommandPolicy, CommandPolicyId)>>> =
-    OnceLock::new();
+static COMMAND_SCOPES: OnceLock<
+    tokio::sync::Mutex<Vec<(PathBuf, CommandPolicy, CommandPolicyId)>>,
+> = OnceLock::new();
 
 #[async_trait]
 impl BudgetPort for ModuleBudgetPort {
