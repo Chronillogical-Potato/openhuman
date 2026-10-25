@@ -10,7 +10,7 @@ pub(crate) const TINYSECURITY: ModuleRecord = ModuleRecord {
     bus_name: tinysecurity_bus::names::INTERFACE,
     object_path: tinysecurity_bus::names::OBJECT_PATH,
     version: "0.18.0",
-    release_url: "https://github.com/tinyhumansai/tinysecurity/releases/tag/v0.18.0",
+    release_url: "https://github.com/senamakel/tinysecurity/releases/tag/v0.18.0",
     assets: &[
         PlatformAsset {
             host_key: "ubuntu-24.04-x86_64",
