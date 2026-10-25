@@ -18,6 +18,7 @@ use std::{collections::HashSet, path::PathBuf};
 
 use sha2::{Digest, Sha256};
 use tinybus::module::ModuleObjectClient;
+use tinybus::Proxy;
 use tinysecurity_bus::{
     names, AccessTier, ApprovalHistoryImport2, ApprovalRecord, ApprovalRow2, ApprovalState,
     CallerContext, ImportTrustItem2, ImportTrustReceipt2, ImportTrustSourceRequest2, Origin,
@@ -256,6 +257,10 @@ pub(super) async fn import_tool_grants(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "history_import_tests.rs"]
+mod tests;
 
 async fn import_row(
     proxy: &ModuleObjectClient,
