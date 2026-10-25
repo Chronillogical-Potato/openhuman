@@ -44,3 +44,7 @@ mod proptest_tests;
 #[cfg(test)]
 #[path = "policy_media_artifact_tests.rs"]
 mod policy_media_artifact_tests;
+
+#[cfg(test)]
+#[path = "policy_command_corpus_tests.rs"]
+mod command_corpus_tests;
