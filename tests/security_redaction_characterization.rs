@@ -89,18 +89,33 @@ fn extended_corpus_pins_which_redactors_remove_each_shape() {
     }
 }
 
+fn url_outputs(input: &str) -> Vec<(&'static str, String)> {
+    vec![
+        ("log", openhuman_core::core::log_redaction::scrub_secrets(input)),
+        ("util_url", openhuman_core::util::redact_url_for_log(input)),
+        ("storage_url", openhuman_core::config::schema::redact_url(input)),
+        ("rpc_url", openhuman_rpc::client::redact_url_for_log(input)),
+    ]
+}
+
 #[test]
-fn extended_url_corpus_is_cleaned_by_the_log_floor() {
+fn url_corpus_pins_all_public_url_redactors() {
     let corpus: Value = serde_json::from_str(EXTENDED).unwrap();
     for case in corpus["urls"].as_array().unwrap() {
         let input = input_of(case);
-        let out = openhuman_core::core::log_redaction::scrub_secrets(&input);
-        assert_eq!(
-            !out.contains(&needle_of(case)),
-            case["log_removed"].as_bool().unwrap(),
-            "URL log redaction changed for {} -> {out}",
-            case["case"]
-        );
+        let needle = needle_of(case);
+        let actual: BTreeSet<String> = url_outputs(&input)
+            .into_iter()
+            .filter(|(_, output)| !output.contains(&needle))
+            .map(|(name, _)| name.to_string())
+            .collect();
+        let expected: BTreeSet<String> = case["removed_by"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|value| value.as_str().unwrap().to_string())
+            .collect();
+        assert_eq!(actual, expected, "URL case={} drifted", case["case"]);
     }
 }
 
