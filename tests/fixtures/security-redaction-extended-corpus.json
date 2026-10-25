@@ -145,12 +145,14 @@
     {
       "case": "access_token_query",
       "input": "https://api.example.com/v1?access_token=s3cr3t",
-      "needle": "s3cr3t"
+      "needle": "s3cr3t",
+      "log_removed": false
     },
     {
       "case": "userinfo_only",
       "input": "https://alice:hunter2@api.example.com/",
-      "needle": "hunter2"
+      "needle": "hunter2",
+      "log_removed": false
     }
   ]
 }
