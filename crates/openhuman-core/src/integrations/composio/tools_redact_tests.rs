@@ -103,3 +103,28 @@ fn redact_and_report_returns_no_raw_secret() {
     assert!(!redacted.contains(SHORT_KEY), "{redacted}");
     assert!(redacted.contains("[REDACTED]"), "{redacted}");
 }
+
+#[test]
+fn shared_characterization_corpus_tracks_composio_redaction() {
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/fixtures/security-redaction-corpus.json"
+    )))
+    .unwrap();
+    for case in corpus["text"].as_array().unwrap() {
+        let input = case["input_parts"]
+            .as_array()
+            .map(|parts| parts.iter().map(|part| part.as_str().unwrap()).collect::<String>())
+            .unwrap_or_else(|| case["input"].as_str().unwrap().to_string());
+        let secret = case["composio_secret_parts"]
+            .as_array()
+            .map(|parts| parts.iter().map(|part| part.as_str().unwrap()).collect::<String>())
+            .unwrap_or_else(|| case["composio_secret"].as_str().unwrap().to_string());
+        let output = super::redact::redact_text(&input, &[secret.clone()]);
+        if input.contains(&secret) {
+            assert!(!output.contains(&secret), "case={}: {output}", case["case"]);
+        } else {
+            assert_eq!(output, input, "case={}", case["case"]);
+        }
+    }
+}

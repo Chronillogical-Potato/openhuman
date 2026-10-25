@@ -62,3 +62,39 @@ fn source_code_about_tokens_passes_through_the_host_scrubber() {
     assert_eq!(count, 1);
     assert!(!scrubbed.contains("hunter2secret"));
 }
+
+#[test]
+fn shared_characterization_corpus_tracks_credential_scrubbing() {
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/fixtures/security-redaction-corpus.json"
+    )))
+    .unwrap();
+    for case in corpus["text"].as_array().unwrap() {
+        let input = case["input_parts"]
+            .as_array()
+            .map(|parts| parts.iter().map(|part| part.as_str().unwrap()).collect::<String>())
+            .unwrap_or_else(|| case["input"].as_str().unwrap().to_string());
+        let needle = case["needle_parts"]
+            .as_array()
+            .map(|parts| parts.iter().map(|part| part.as_str().unwrap()).collect::<String>())
+            .unwrap_or_else(|| case["needle"].as_str().unwrap().to_string());
+        let expected = case["removed_by"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|sink| sink.as_str() == Some("credential_middleware"));
+        match (scrub_with_notice_for_tool("read_file", &input), expected) {
+            (Some((scrubbed, _)), true) => assert!(
+                !scrubbed.contains(&needle),
+                "case={} retained its needle: {scrubbed}",
+                case["case"]
+            ),
+            (None, false) => {}
+            (actual, expected) => panic!(
+                "case={} middleware result presence is {actual:?}, expected {expected}",
+                case["case"]
+            ),
+        }
+    }
+}
