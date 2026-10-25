@@ -71,7 +71,7 @@ impl<T: Interface> Interface for ModuleOnly<T> {
 }
 
 /// Serve callbacks before loading TinySecurity; all not-yet-migrated operations deny.
-pub(super) async fn install(connection: &Connection) -> tinybus::Result<()> {
+pub(in crate::modules) async fn install(connection: &Connection) -> tinybus::Result<()> {
     let path = ObjectPath::new(callback_names2::OBJECT_PATH)?;
     connection.serve_at(path.clone(), ModuleOnly { inner: ApprovalStore, connection: connection.clone() }).await?;
     connection.serve_at(path.clone(), ModuleOnly { inner: AuditSink, connection: connection.clone() }).await?;
