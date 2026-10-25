@@ -194,7 +194,7 @@ async fn execute_owned(
     run.meter = meter;
     // TinyBox adds its own per-call scratch directory to the writable grants and
     // points TMPDIR, TMP and TEMP at it unless the caller overrides them.
-    run.jail = Some(jail_request(config, policy, isolation)?);
+    run.jail = Some(jail_request(config, policy, isolation).await?);
     run.yield_after = yield_after;
     super::shell_exec::run_yielding(ctx, config, run).await
 }
@@ -219,7 +219,7 @@ fn approved_environment(
 }
 
 #[cfg(feature = "modules")]
-fn jail_request(
+async fn jail_request(
     config: &Config,
     policy: &SandboxPolicy,
     isolation: SandboxIsolation,
@@ -254,10 +254,9 @@ fn jail_request(
         } else {
             let home =
                 super::local_grants::grant_home(crate::core::runtime::is_saas(), dirs::home_dir);
-            let stores = home
-                .as_deref()
-                .map(crate::security::policy::home_credential_stores)
-                .unwrap_or_default()
+            let stores = crate::modules::security::gap::credential_roots(home)
+                .await
+                .map_err(|error| anyhow::anyhow!("TinySecurity credential roots unavailable: {error}"))?
                 .into_iter()
                 .chain(crate::credentials::credential_files(config))
                 .collect();
