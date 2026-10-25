@@ -4,7 +4,6 @@ use super::native_commands::{CommandFlow, CommandStage};
 use super::types::{SecurityPolicy, ToolOperation, TrustedAccess, TrustedRoot};
 use std::sync::Arc;
 use tinytools::status::POLICY_BLOCKED_MARKER;
-use tokio::sync::OnceCell;
 
 impl SecurityPolicy {
     /// Reserve one action from TinySecurity's hourly ledger.
@@ -397,7 +396,6 @@ impl SecurityPolicy {
             command_gateway: None,
             budget_snapshot: Arc::new(std::sync::Mutex::new(None)),
             class_gate_snapshot: Arc::new(std::sync::Mutex::new(Vec::new())),
-            canonical_workspace: Arc::new(OnceCell::new()),
         }
     }
 
