@@ -33,6 +33,13 @@ impl SecurityPolicy {
                 },
             })
             .collect();
+        let media_exceptions = self
+            .media_artifact_paths
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>();
         let mut reserved_paths: Vec<_> = WORKSPACE_INTERNAL_DIRS
             .iter()
             .chain(WORKSPACE_INTERNAL_FILES.iter())
@@ -55,7 +62,9 @@ impl SecurityPolicy {
             .join(ARTIFACT_TOOL_RESULTS_DIR);
         reserved_paths.push(PathReservation {
             path: self.workspace_dir.join(ARTIFACTS_DIR),
-            exceptions: vec![tool_results.clone()],
+            exceptions: std::iter::once(tool_results.clone())
+                .chain(media_exceptions)
+                .collect(),
             children_only: true,
         });
         PathPolicy {

@@ -67,177 +67,18 @@ impl SecurityPolicy {
     /// String-only path check. Does NOT resolve symlinks.
     /// Use `validate_path()` for any path that will be used for file I/O.
     pub fn is_path_string_allowed(&self, path: &str) -> bool {
-        // Block null bytes (can truncate paths in C-backed syscalls)
-        if path.contains('\0') {
-            return false;
-        }
-
-        // Block path traversal: check for ".." as a path component
-        if Path::new(path)
-            .components()
-            .any(|c| matches!(c, std::path::Component::ParentDir))
-        {
-            return false;
-        }
-
-        // Block URL-encoded traversal attempts (e.g. ..%2f)
-        let lower = path.to_lowercase();
-        if lower.contains("..%2f") || lower.contains("%2f..") {
-            return false;
-        }
-
-        // Expand tilde for comparison
-        let expanded = self.expand_tilde(path);
-        let expanded_path = Path::new(&expanded);
-
-        // Core-sensitive single-file names remain reserved even when a
-        // relative request resolves under the separate action root. Directory
-        // names are root-sensitive (a project may legitimately have
-        // `personalities/`), but `.env`/SOUL.md/etc. retain the existing
-        // top-level deny contract.
-        if !expanded_path.is_absolute()
-            && expanded_path.components().count() == 1
-            && WORKSPACE_INTERNAL_FILES.iter().any(|name| {
-                expanded_path
-                    .file_name()
-                    .is_some_and(|requested| requested == std::ffi::OsStr::new(name))
-            })
-        {
-            return false;
-        }
-
-        // Credential stores are never reachable, even via a trusted-root grant,
-        // and never via a disabled policy either — that floor is the one path
-        // rule `enabled = false` keeps.
-        if Self::is_always_forbidden(expanded_path) {
-            return false;
-        }
-
-        // Media outputs live in the configured Files folder, which can be
-        // outside the action/workspace roots. Let those candidates reach the
-        // asynchronous Ready-artifact check in `validate_path`; a Files-root
-        // match alone never grants the read.
-        if self.is_media_artifact_path_cached(expanded_path)
-            || self
-                .media_files_roots
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .as_ref()
-                .is_some_and(|roots| roots.contains_path(expanded_path))
-        {
-            return true;
-        }
-
-        // With the policy disabled, containment (`workspace_only`,
-        // `forbidden_paths`, trusted roots, the workspace-internal boundary) is
-        // inert; the host's container/jail is what bounds the agent. The
-        // traversal and null-byte checks above are correctness, not policy, so
-        // they stay.
-        if !self.enabled {
-            return true;
-        }
-
-        // A trusted root grants access to its subtree, taking precedence over
-        // workspace_only and forbidden_paths. Read-vs-write is enforced by the
-        // operation-specific validators (validate_path / validate_parent_path).
-        let in_trusted_root = self.is_within_trusted_root(expanded_path, false);
-
-        // Workspace-internal application state is never agent-accessible. A
-        // trusted-root grant cannot weaken this invariant, even when it points
-        // at workspace_dir or one of its parents.
-        let check = if expanded_path.is_absolute() {
-            expanded_path.to_path_buf()
-        } else {
-            // File tools resolve relative paths from action_dir, not the
-            // core-state workspace. Joining workspace_dir here accidentally
-            // reserves internal directory names (for example
-            // `personalities/alice.md`) in an otherwise legitimate project.
-            self.action_dir.join(expanded_path)
-        };
-        if self.is_workspace_internal_path(&check) {
-            log::trace!(
-                "[security:policy] path blocked: agent access to workspace-internal state (requested={}, resolved={})",
-                path,
-                check.display()
-            );
-            return false;
-        }
-
-        // Block absolute paths when workspace_only is set (unless trusted-rooted).
-        if self.workspace_only && expanded_path.is_absolute() && !in_trusted_root {
-            return false;
-        }
-
-        // Block forbidden paths using path-component-aware matching (unless trusted-rooted).
-        if !in_trusted_root {
-            for forbidden in &self.forbidden_paths {
-                let forbidden_expanded = self.expand_tilde(forbidden);
-                let forbidden_path = Path::new(&forbidden_expanded);
-                if expanded_path.starts_with(forbidden_path) {
-                    return false;
-                }
-            }
-        }
-
-        // Symlink-safe check (#1927). The string-level checks above can be
-        // bypassed by creating a symlink inside the workspace that points to
-        // a forbidden tree (e.g. `evil -> /etc/shadow`). Canonicalize the
-        // path and re-validate `workspace_only` containment + forbidden_paths
-        // against the resolved location.
-        if let Some(canonical) = self.try_canonicalize_under_workspace(path) {
-            if Self::is_always_forbidden(&canonical) {
-                return false;
-            }
-            let workspace_root = self.workspace_root_sync();
-            let canonical_in_trusted = self.is_within_trusted_root(&canonical, false);
-            if self.workspace_only
-                && !canonical.starts_with(&workspace_root)
-                && !canonical_in_trusted
-            {
-                log::trace!(
-                    "[security:policy] path blocked: symlink escapes workspace (requested={}, resolved={}, workspace={})",
-                    path,
-                    canonical.display(),
-                    workspace_root.display()
-                );
-                return false;
-            }
-            // If the resolved path stays inside the workspace, trust the
-            // workspace boundary over forbidden_paths — otherwise a workspace
-            // that lives under e.g. `/tmp` (common in tests and sandboxes)
-            // would block every legitimate access. forbidden_paths is meant
-            // to catch escapes *outside* the workspace, which the workspace
-            // containment check above already validates.
-            let inside_workspace = canonical.starts_with(&workspace_root);
-            if !inside_workspace && !canonical_in_trusted {
-                for forbidden in &self.forbidden_paths {
-                    let forbidden_expanded = PathBuf::from(self.expand_tilde(forbidden));
-                    let forbidden_canonical = forbidden_expanded
-                        .canonicalize()
-                        .unwrap_or(forbidden_expanded);
-                    if canonical.starts_with(&forbidden_canonical) {
-                        log::trace!(
-                            "[security:policy] path blocked: symlink resolves to forbidden tree (requested={}, resolved={}, forbidden={})",
-                            path,
-                            canonical.display(),
-                            forbidden_canonical.display()
-                        );
-                        return false;
-                    }
-                }
-            }
-        }
-
-        true
+        // Synchronous TinyTools preflight: only reject malformed path syntax.
+        // Authorization (policy roots, protected floor, reserved state and
+        // symlink resolution) is answered asynchronously by TinySecurity.
+        !path.is_empty()
+            && !path.contains('\0')
+            && !Path::new(path)
+                .components()
+                .any(|component| matches!(component, std::path::Component::ParentDir))
+            && !path.to_ascii_lowercase().contains("..%2f")
+            && !path.to_ascii_lowercase().contains("%2f..")
     }
 
-    /// Resolve a user-supplied path under the action directory, canonicalizing it
-    /// (or its parent) when present on disk. Used by [`Self::is_path_string_allowed`]
-    /// to defend against symlink-based escapes that pass the string-level
-    /// checks. Returns `None` only when neither the path nor its parent can
-    /// be resolved on disk — in that case the caller falls back to the
-    /// string-level checks alone (which is the safe default for fresh paths
-    /// whose entire chain does not yet exist).
     fn try_canonicalize_under_workspace(&self, path: &str) -> Option<PathBuf> {
         let expanded = PathBuf::from(self.expand_tilde(path));
         let absolute = if expanded.is_absolute() {
@@ -332,106 +173,34 @@ impl SecurityPolicy {
     /// Returns the canonical `PathBuf` on success.
     pub async fn validate_path(&self, path: &str) -> Result<PathBuf, String> {
         if !self.is_path_string_allowed(path) {
-            return Err(format!(
-                "{POLICY_BLOCKED_MARKER} Path not allowed by security policy: {path}. Do not \
-                 retry this path; use an allowed location (the workspace or a granted folder)."
-            ));
+            return Err(format!("{POLICY_BLOCKED_MARKER} Invalid path"));
         }
+
+        // Ready media artifacts outside the ordinary roots are approved by the
+        // artifact store before their exact path is added as a TinySecurity
+        // reservation exception. TinySecurity still validates the final path.
         let expanded = self.expand_tilde(path);
-        let full_path = if Path::new(&expanded).is_absolute() {
+        let candidate = if Path::new(&expanded).is_absolute() {
             PathBuf::from(&expanded)
         } else {
             self.action_dir.join(&expanded)
         };
-        let resolved = tokio::fs::canonicalize(&full_path)
-            .await
-            .map_err(|e| format!("Failed to resolve path '{path}': {e}"))?;
-        let is_allowed_root = self.is_resolved_path_allowed_for(&resolved, false);
-        let is_ready_media_artifact =
-            !is_allowed_root && self.authorize_ready_media_artifact_path(&resolved).await;
-        if !is_allowed_root && !is_ready_media_artifact {
-            return Err(format!(
-                "{POLICY_BLOCKED_MARKER} Resolved path escapes workspace: {}",
-                resolved.display()
-            ));
+        if let Ok(resolved) = tokio::fs::canonicalize(&candidate).await {
+            if self.authorize_ready_media_artifact_path(&resolved).await {
+                return self.validate_native_path(path, false).await;
+            }
         }
-        let workspace_root = self.workspace_root().await;
-        self.check_resolved_against_forbidden(&resolved, &workspace_root, is_ready_media_artifact)?;
-        log::debug!(
-            "[security] validate_path: '{}' resolved to '{}'",
-            path,
-            resolved.display()
-        );
-        Ok(resolved)
+        self.validate_native_path(path, false).await
     }
 
-    /// Like `validate_path` but canonicalizes the parent directory.
-    /// Use for write operations where the target file may not yet exist.
-    /// Does NOT require the parent directory to exist — walks up to the deepest
-    /// existing ancestor and checks that for symlink escapes.
-    /// Returns the canonical full path (parent resolved + filename appended).
+    /// Resolve an existing destination parent through TinySecurity's
+    /// `ValidateParent`; the module owns policy, protected-floor and symlink
+    /// decisions for the full prospective path.
     pub async fn validate_parent_path(&self, path: &str) -> Result<PathBuf, String> {
         if !self.is_path_string_allowed(path) {
-            return Err(format!(
-                "{POLICY_BLOCKED_MARKER} Path not allowed by security policy: {path}. Do not \
-                 retry this path; use an allowed location (the workspace or a granted folder)."
-            ));
+            return Err(format!("{POLICY_BLOCKED_MARKER} Invalid path"));
         }
-        let expanded = self.expand_tilde(path);
-        let full_path = if Path::new(&expanded).is_absolute() {
-            PathBuf::from(&expanded)
-        } else {
-            self.action_dir.join(&expanded)
-        };
-        let parent = full_path
-            .parent()
-            .ok_or_else(|| format!("Invalid path (no parent): {path}"))?;
-        let file_name = full_path
-            .file_name()
-            .ok_or_else(|| format!("Invalid path (no filename): {path}"))?;
-
-        // Walk up to the deepest existing ancestor so we can canonicalize without
-        // requiring the full parent path to exist yet. This catches symlink escapes
-        // in existing path components even when deeper dirs are not created yet.
-        let mut existing_ancestor = parent.to_path_buf();
-        loop {
-            if existing_ancestor.exists() {
-                break;
-            }
-            match existing_ancestor.parent() {
-                Some(p) => existing_ancestor = p.to_path_buf(),
-                None => break,
-            }
-        }
-        let canonical_ancestor = tokio::fs::canonicalize(&existing_ancestor)
-            .await
-            .map_err(|e| format!("Failed to resolve parent of '{path}': {e}"))?;
-        if !self.is_resolved_path_allowed_for(&canonical_ancestor, true) {
-            return Err(format!(
-                "{POLICY_BLOCKED_MARKER} Resolved parent path escapes workspace: {}",
-                canonical_ancestor.display()
-            ));
-        }
-
-        // Build resolved result: canonical_ancestor + suffix from existing_ancestor to parent + filename.
-        // Since is_path_string_allowed blocked "..", all components between the ancestor
-        // and the intended parent are newly created dirs — no symlinks possible there.
-        let relative_suffix = parent
-            .strip_prefix(&existing_ancestor)
-            .unwrap_or(std::path::Path::new(""));
-        let resolved_parent = canonical_ancestor.join(relative_suffix);
-        let result = resolved_parent.join(file_name);
-
-        let workspace_root = self.workspace_root().await;
-        self.check_resolved_against_forbidden(&canonical_ancestor, &workspace_root, false)?;
-        self.check_resolved_against_forbidden(&result, &workspace_root, false)?;
-
-        log::debug!(
-            "[security] validate_parent_path: '{}' resolved parent to '{}'",
-            path,
-            resolved_parent.display()
-        );
-        Ok(result)
+        self.validate_native_path(path, true).await
     }
 
     /// Returns `true` if `path` falls under one of the internal-state
