@@ -167,7 +167,10 @@ impl SecurityPolicy {
     pub async fn is_rate_limited(&self) -> bool {
         match self.peek_action_budget().await {
             Ok(tinysecurity_bus::BudgetDecision2::RateLimited { .. }) => true,
-            Ok(tinysecurity_bus::BudgetDecision2::Allow | tinysecurity_bus::BudgetDecision2::ReadOnlyMode) => false,
+            Ok(
+                tinysecurity_bus::BudgetDecision2::Allow
+                | tinysecurity_bus::BudgetDecision2::ReadOnlyMode,
+            ) => false,
             Ok(_) | Err(_) => true,
         }
     }
