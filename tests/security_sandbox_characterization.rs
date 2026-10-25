@@ -50,7 +50,7 @@ async fn scratch_config(
 }
 
 #[test]
-fn policy_matrix_names_an_executor_only_when_the_configuration_does() {
+fn resolver_selects_executor_and_network_policy_for_the_turn_mode() {
     let local = RuntimeConfig::default();
     let docker = RuntimeConfig {
         kind: "docker".into(),
