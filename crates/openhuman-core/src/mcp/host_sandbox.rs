@@ -24,7 +24,6 @@ use std::path::{Path, PathBuf};
 use tinymcp_bus::{StdioSandboxConfig, StdioSandboxEnforcement};
 
 use crate::config::Config;
-use crate::security::SecurityPolicy;
 
 /// Directory under `workspace_dir` that is the stdio servers' writable root.
 const WORKSPACE_DIR: &str = "mcp_stdio";
