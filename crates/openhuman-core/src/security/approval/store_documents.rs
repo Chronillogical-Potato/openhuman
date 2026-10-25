@@ -17,11 +17,11 @@ use serde_json::Value;
 use tinystoragedrivers::{Filter, Query, Sort, Versioned};
 
 #[cfg(feature = "security-module")]
+use crate::config::Config;
+#[cfg(feature = "security-module")]
 use crate::storage::local;
 #[cfg(feature = "security-module")]
 use crate::storage::{block_on, DocumentStore, DocumentStoreExt, Storage, StorageError};
-#[cfg(feature = "security-module")]
-use crate::config::Config;
 
 #[cfg(feature = "legacy-import")]
 use super::storage_schema::legacy_collections;
