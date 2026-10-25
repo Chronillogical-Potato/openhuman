@@ -26,3 +26,12 @@ fn first_load_and_reinit_share_one_policy_translator() {
     let config = Config::default();
     assert_eq!(module_config(&config).policy, policy_config(&config));
 }
+
+#[test]
+fn module_bootstrap_binds_the_trusted_host_identity() {
+    let config = Config::default();
+    let translated = module_config_for_host(&config, ":1.42".into());
+
+    assert_eq!(translated.trusted_host.as_deref(), Some(":1.42"));
+    assert_eq!(translated.policy, policy_config(&config));
+}
