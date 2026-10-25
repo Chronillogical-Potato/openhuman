@@ -94,6 +94,33 @@ pub trait CommandGateway: sealed::Sealed + std::fmt::Debug + Send + Sync {
 pub type SharedCommandGateway = Arc<dyn CommandGateway>;
 
 impl SecurityPolicy {
+    /// Ask TinySecurity to classify a command without applying admission or
+    /// spending budget.
+    pub async fn classify_command(
+        &self,
+        query: CommandQuery<'_>,
+    ) -> Result<CommandClass, Refusal> {
+        #[cfg(feature = "security-module")]
+        {
+            use crate::modules::security::command::{command_decision, CommandOp};
+            let policy = self.native_command_policy(query.flow, query.stage)?;
+            let decision = command_decision(
+                &self.workspace_dir,
+                policy,
+                query.command,
+                query.declared.map(to_bus_class),
+                CommandOp::Classify,
+            )
+            .await;
+            project(&query, true, decision).map(|verdict| verdict.class)
+        }
+        #[cfg(not(feature = "security-module"))]
+        {
+            let _ = query;
+            Err(Refusal::Unavailable)
+        }
+    }
+
     /// Ask whether `query.command` may run, and whether a human must approve it.
     pub async fn check_command(&self, query: CommandQuery<'_>) -> Result<CommandVerdict, Refusal> {
         match &self.command_gateway {
