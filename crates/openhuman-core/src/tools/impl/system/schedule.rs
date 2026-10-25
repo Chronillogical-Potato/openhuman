@@ -106,18 +106,12 @@ impl Tool for ScheduleTool {
                 self.handle_get(id)
             }
             "create" | "add" | "once" => {
-                if let Some(blocked) = self.enforce_mutation_allowed(action).await {
-                    return Ok(blocked);
-                }
                 let origin =
                     crate::agent::tinyagents::host::run_context::turn_origin_for_tool(tool_context);
                 self.handle_create_like(action, &args, origin.as_ref())
                     .await
             }
             "cancel" | "remove" => {
-                if let Some(blocked) = self.enforce_mutation_allowed(action).await {
-                    return Ok(blocked);
-                }
                 let id = args
                     .get("id")
                     .and_then(|value| value.as_str())
@@ -125,9 +119,6 @@ impl Tool for ScheduleTool {
                 Ok(self.handle_cancel(id))
             }
             "pause" => {
-                if let Some(blocked) = self.enforce_mutation_allowed(action).await {
-                    return Ok(blocked);
-                }
                 let id = args
                     .get("id")
                     .and_then(|value| value.as_str())
@@ -135,9 +126,6 @@ impl Tool for ScheduleTool {
                 Ok(self.handle_pause_resume(id, true))
             }
             "resume" => {
-                if let Some(blocked) = self.enforce_mutation_allowed(action).await {
-                    return Ok(blocked);
-                }
                 let id = args
                     .get("id")
                     .and_then(|value| value.as_str())
@@ -173,9 +161,6 @@ fn schedule_args_as_cron_add(args: &serde_json::Value) -> serde_json::Value {
 }
 
 impl ScheduleTool {
-    async fn enforce_mutation_allowed(&self, _action: &str) -> Option<ToolResult> {
-        None
-    }
 
     fn handle_list(&self) -> Result<ToolResult> {
         let jobs = cron::list_jobs(&self.config)?;

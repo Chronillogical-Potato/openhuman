@@ -40,9 +40,6 @@ impl ProxyConfigTool {
         Ok(parsed)
     }
 
-    async fn require_write_access(&self) -> Option<ToolResult> {
-        None
-    }
 
     fn parse_scope(raw: &str) -> Option<ProxyScope> {
         match raw.trim().to_ascii_lowercase().as_str() {
@@ -334,9 +331,6 @@ impl Tool for ProxyConfigTool {
             "get" => self.handle_get(),
             "list_services" => self.handle_list_services(),
             "set" | "disable" | "apply_env" | "clear_env" => {
-                if let Some(blocked) = self.require_write_access().await {
-                    return Ok(blocked);
-                }
 
                 match action.as_str() {
                     "set" => self.handle_set(&args).await,
