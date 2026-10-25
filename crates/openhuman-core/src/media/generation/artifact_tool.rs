@@ -276,10 +276,10 @@ async fn check_media_reference_floor(args: &Value) -> Result<(), String> {
     }
     #[cfg(not(feature = "security-module"))]
     {
-        return Err(
+        Err(
             "[policy-blocked] TinySecurity path authorization unavailable; media reference refused"
                 .into(),
-        );
+        )
     }
     #[cfg(feature = "security-module")]
     {
