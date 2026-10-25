@@ -1,5 +1,5 @@
 use super::*;
-use crate::security::approval::types::{ApprovalDecision, ApprovalSourceContext};
+use crate::security::approval::types::ApprovalSourceContext;
 use crate::security::approval::storage_schema::{trust_id, APPROVALS, FLOW_TRUST};
 use crate::storage::import::{run_with, Outcome};
 use crate::storage::rusqlite;
@@ -80,7 +80,9 @@ fn import(config: &Config) -> Outcome {
 fn stored(config: &Config, collection: &str, id: &str) -> Option<serde_json::Value> {
     let opened = crate::storage::local::open("approval import test", &config.workspace_dir).unwrap();
     let docs = std::sync::Arc::clone(opened.scoped().unwrap().documents());
-    crate::storage::block_on(async move { docs.get(collection, id).await })
+    let collection = collection.to_string();
+    let id = id.to_string();
+    crate::storage::block_on(async move { docs.get(&collection, &id).await })
         .unwrap()
         .map(|stored| stored.doc)
 }
