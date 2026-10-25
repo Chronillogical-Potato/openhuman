@@ -38,12 +38,16 @@ use tinytools::status::POLICY_BLOCKED_MARKER;
 /// reuses this exact function — `CommandClass::Read` for
 /// recall/search/flavour/people, `CommandClass::Write` for remember/forget —
 /// rather than growing a second permission path for the new node kind.
-pub(crate) fn enforce_node_tier_gate(
+pub(crate) async fn enforce_node_tier_gate(
     security: &SecurityPolicy,
     class: CommandClass,
     node: &str,
 ) -> Result<GateDecision> {
-    let decision = security.gate_decision(class);
+    let decision = security.command_class_gate(class).await.map_err(|error| {
+        EngineError::Capability(format!(
+            "{POLICY_BLOCKED_MARKER} TinySecurity could not authorize the {node} node: {error}"
+        ))
+    })?;
     tracing::debug!(
         target: "flows",
         node,
