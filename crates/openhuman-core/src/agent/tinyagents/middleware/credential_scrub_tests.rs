@@ -73,11 +73,21 @@ fn shared_characterization_corpus_tracks_credential_scrubbing() {
     for case in corpus["text"].as_array().unwrap() {
         let input = case["input_parts"]
             .as_array()
-            .map(|parts| parts.iter().map(|part| part.as_str().unwrap()).collect::<String>())
+            .map(|parts| {
+                parts
+                    .iter()
+                    .map(|part| part.as_str().unwrap())
+                    .collect::<String>()
+            })
             .unwrap_or_else(|| case["input"].as_str().unwrap().to_string());
         let needle = case["needle_parts"]
             .as_array()
-            .map(|parts| parts.iter().map(|part| part.as_str().unwrap()).collect::<String>())
+            .map(|parts| {
+                parts
+                    .iter()
+                    .map(|part| part.as_str().unwrap())
+                    .collect::<String>()
+            })
             .unwrap_or_else(|| case["needle"].as_str().unwrap().to_string());
         let expected = case["removed_by"]
             .as_array()

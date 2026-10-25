@@ -13,10 +13,10 @@ use axum::{
 };
 use openhuman_core::{
     config::Config,
+    core::runtime::turn_origin::{self, AgentTurnOrigin},
     security::approval::{
         gate::ApprovalGate, ApprovalChatContext, ApprovalTurnContext, GateOutcome,
     },
-    core::runtime::turn_origin::{self, AgentTurnOrigin},
 };
 use serde_json::{json, Value};
 use tower::ServiceExt;
@@ -283,4 +283,3 @@ async fn approval_policy_sandbox_and_secret_wire_contracts() {
             .is_some()
     );
 }
-

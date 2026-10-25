@@ -28,7 +28,10 @@ fn persisted_device_identity_round_trips_through_the_host_adapter() {
 
     let decoded = base64url_decode(&public).expect("public key uses base64url");
     assert_eq!(decoded.len(), 32);
-    assert!(!public.contains('='), "public key is encoded without padding");
+    assert!(
+        !public.contains('='),
+        "public key is encoded without padding"
+    );
     assert_eq!(base64url_encode(&decoded), public);
 
     let restored = DeviceKeypair::from_private_bytes(Zeroizing::new(private))

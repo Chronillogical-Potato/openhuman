@@ -15,9 +15,7 @@ use tinyagents_definition::SandboxMode;
 use openhuman_core::{
     config::{Config, RuntimeConfig, SandboxBackend},
     core::runtime::DispatchCtx,
-    sandbox::{
-        command_requires_sandbox, resolve_sandbox_policy, SandboxBackendKind,
-    },
+    sandbox::{command_requires_sandbox, resolve_sandbox_policy, SandboxBackendKind},
 };
 
 const ACTION: &str = "/work/action";
@@ -68,7 +66,11 @@ fn resolver_selects_executor_and_network_policy_for_the_turn_mode() {
         let label = format!("kind={} remote={remote}", runtime.kind);
         assert_eq!(policy.backend, backend, "{label}");
         assert_eq!(policy.allow_network, network, "{label}");
-        assert_eq!(policy.docker_overrides.is_some(), backend == SandboxBackendKind::Docker, "{label}");
+        assert_eq!(
+            policy.docker_overrides.is_some(),
+            backend == SandboxBackendKind::Docker,
+            "{label}"
+        );
         assert_eq!(policy.workspace_root, Path::new(ACTION), "{label}");
         assert_eq!(policy.state_dir, Path::new(STATE), "{label}");
         assert!(

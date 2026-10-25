@@ -13,6 +13,7 @@ use std::time::Duration;
 use chrono::Utc;
 use openhuman_core::{
     config::Config,
+    core::runtime::turn_origin::{self, AgentTurnOrigin, TrustedAutomationSource},
     security::{
         approval::{
             gate::ApprovalGate,
@@ -20,10 +21,8 @@ use openhuman_core::{
             types::{ApprovalDecision, GateOutcome, PendingApproval},
             ApprovalChatContext, ApprovalTurnContext, FlowRunContext,
         },
-        live_policy,
-        SecurityPolicy,
+        live_policy, SecurityPolicy,
     },
-    core::runtime::turn_origin::{self, AgentTurnOrigin, TrustedAutomationSource},
 };
 use serde_json::json;
 

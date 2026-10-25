@@ -6,8 +6,8 @@
 use std::{sync::Arc, time::Instant};
 
 use openhuman_core::core::{bus_testing::isolated_bus, events::DomainEvent};
-use tokio::sync::mpsc;
 use tinybus::EventHandler;
+use tokio::sync::mpsc;
 
 struct Capture(mpsc::UnboundedSender<()>);
 
