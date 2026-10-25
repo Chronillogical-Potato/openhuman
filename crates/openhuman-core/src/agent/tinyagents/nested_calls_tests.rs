@@ -222,7 +222,7 @@ async fn the_security_gate_refuses_a_nested_call_on_the_hosted_path() {
                 })
                 .collect(),
         )],
-    ));
+    ).with_input_screening(false));
     let host = HostCapabilities::new(
         Arc::new(StaticContextComposer::empty()),
         Arc::new(InMemoryDefinitionRegistry::new(vec![AgentDefinition::new(
