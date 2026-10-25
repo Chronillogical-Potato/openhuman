@@ -223,19 +223,42 @@ impl OpenHumanSecurityGate {
                 ));
             }
         };
-        match policy.command_class_gate(class).await {
-            Ok(PolicyGateDecision::Block) => {
-                return Ok(GateDecision::deny(format!(
-                    "{} Security policy blocks this action.",
-                    tinytools::status::POLICY_BLOCKED_MARKER
-                )))
-            }
-            Ok(PolicyGateDecision::Prompt) if !desktop_approval_disabled => {
-                return Ok(self.park_once(call, channel_approved).await);
-            }
-            Ok(PolicyGateDecision::Allow | PolicyGateDecision::Prompt) => {}
+        let tier_gate = match policy.command_class_gate(class).await {
+            Ok(gate) => gate,
             Err(reason) => return Ok(GateDecision::deny(reason.to_string())),
+        };
+        if tier_gate == PolicyGateDecision::Block {
+            return Ok(GateDecision::deny(format!(
+                "{} Security policy blocks this action.",
+                tinytools::status::POLICY_BLOCKED_MARKER
+            )));
         }
+        let mut approved = channel_approved;
+        if tier_gate == PolicyGateDecision::Prompt && !desktop_approval_disabled {
+            let decision = self.park_once(call, channel_approved).await;
+            if !decision.is_allowed() {
+                return Ok(decision);
+            }
+            approved = true;
+        }
+
+        // Sync-only TinyTools filesystem and network gates read this cached
+        // module answer. Their `record_action` call does not keep a host ledger.
+        let budget = if class == crate::security::policy::CommandClass::Read {
+            policy.peek_action_budget().await.map(|decision| {
+                if matches!(decision, tinysecurity_bus::BudgetDecision2::RateLimited { .. }) {
+                    Err("Rate limit exceeded: action budget exhausted".to_owned())
+                } else {
+                    Ok(())
+                }
+            })
+        } else {
+            policy.spend_action(&call.tool_name).await
+        };
+        if let Err(reason) = budget.and_then(|decision| decision) {
+            return Ok(GateDecision::deny(reason));
+        }
+        channel_approved = approved;
 
         tracing::debug!(
             target: "tinyagents",
