@@ -8,6 +8,73 @@ use tinytools::status::POLICY_BLOCKED_MARKER;
 use tokio::sync::OnceCell;
 
 impl SecurityPolicy {
+    /// Reserve one action from TinySecurity's hourly ledger. The host's local
+    /// `ActionTracker` remains only for compatibility while synchronous callers
+    /// are migrated to the bus-backed gate.
+    #[cfg(feature = "security-module")]
+    pub async fn spend_action(&self, operation_name: &str) -> Result<(), String> {
+        use tinysecurity_bus::{BudgetDecision2, CommandAutonomy, CommandExecutionMode, ShellDialect};
+
+        let action_dir = std::path::absolute(&self.action_dir)
+            .unwrap_or_else(|_| self.action_dir.clone());
+        let command_policy = tinysecurity_bus::CommandPolicy {
+            enabled: self.enabled,
+            execution_mode: CommandExecutionMode::HarnessGated,
+            shell_dialect: if cfg!(windows) {
+                ShellDialect::Cmd
+            } else {
+                ShellDialect::Posix
+            },
+            autonomy: match self.autonomy {
+                AutonomyLevel::ReadOnly => CommandAutonomy::ReadOnly,
+                AutonomyLevel::Supervised => CommandAutonomy::Supervised,
+                AutonomyLevel::Full => CommandAutonomy::Full,
+            },
+            allowed_commands: self.allowed_commands.clone(),
+            max_actions_per_hour: self.max_actions_per_hour,
+            require_approval_for_medium_risk: self.require_approval_for_medium_risk,
+            block_high_risk_commands: self.block_high_risk_commands,
+            action_dir,
+            home_dir: dirs::home_dir(),
+        };
+        let decision = crate::modules::security::gap::budget(
+            self.workspace_dir.clone(),
+            command_policy,
+            crate::modules::security::gap::BudgetOp::Spend,
+        )
+        .await
+        .map_err(|error| {
+            log::warn!("[security][policy] TinySecurity budget unavailable: {error}");
+            format!(
+                "{} TinySecurity action budget unavailable; action denied",
+                tinytools::status::POLICY_BLOCKED_MARKER
+            )
+        })?;
+        match decision {
+            BudgetDecision2::Allow => Ok(()),
+            BudgetDecision2::ReadOnlyMode => Err(format!(
+                "{} Security policy: read-only mode, cannot perform '{operation_name}'. Do not retry; this tier blocks all write actions.",
+                tinytools::status::POLICY_BLOCKED_MARKER
+            )),
+            BudgetDecision2::RateLimited { max_per_hour } => Err(format!(
+                "Rate limit exceeded: action budget exhausted ({max_per_hour} actions/hour). Increase the limit in Settings -> Advanced -> Agent autonomy or wait for the rolling one-hour window to refill."
+            )),
+            _ => Err(format!(
+                "{} TinySecurity returned an unknown action-budget decision",
+                tinytools::status::POLICY_BLOCKED_MARKER
+            )),
+        }
+    }
+
+    /// Without the module there is no budget authority, so acting is refused.
+    #[cfg(not(feature = "security-module"))]
+    pub async fn spend_action(&self, _operation_name: &str) -> Result<(), String> {
+        Err(format!(
+            "{} TinySecurity action budget unavailable; action denied",
+            tinytools::status::POLICY_BLOCKED_MARKER
+        ))
+    }
+
     /// Check if autonomy level permits any action at all.
     ///
     /// Always `true` when the policy is disabled ([`SecurityPolicy::enabled`]).
@@ -321,7 +388,7 @@ impl SecurityPolicy {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "security-module"))]
 #[path = "budget_module_tests.rs"]
 mod budget_module_tests;
 

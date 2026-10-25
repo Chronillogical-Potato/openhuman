@@ -6,6 +6,7 @@
 
 pub(super) mod callbacks;
 mod client;
+pub(crate) mod gap;
 mod policy;
 
 #[cfg(test)]
