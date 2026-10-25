@@ -4,8 +4,8 @@ use tinysecurity_bus::{
     BudgetDecision2, BudgetRequest2, CheckRequest, CheckResponse, CommandDecision, CommandPolicy,
     CommandPolicyId, CommandRequest, CredentialRootsRequest2, CredentialRootsResponse2,
     HostActionClassRequest2, HostActionClassResponse2, PathBatchRequest2, PathBatchResponse2,
-    PathPolicy, PathPolicyId, PolicyInfo, ProtectedFloor2, ProtectedPathRequest2,
-    ProtectedPathResponse2,
+    PathPolicy, PathPolicyId, PathValidationRequest, PathValidationResult, PolicyInfo,
+    ProtectedFloor2, ProtectedPathRequest2, ProtectedPathResponse2,
 };
 
 use super::MODULE_ID;
@@ -82,6 +82,28 @@ impl Client {
     ) -> Result<PathBatchResponse2, SecurityError> {
         self.object
             .call_confidential(tinysecurity_bus::names::methods::CHECK_PATHS2, (request,))
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Resolve and authorize an existing path under a registered path scope.
+    pub async fn validate_path(
+        &self,
+        request: PathValidationRequest,
+    ) -> Result<PathValidationResult, SecurityError> {
+        self.object
+            .call_confidential(tinysecurity_bus::names::methods::VALIDATE_PATH, (request,))
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Resolve and authorize the existing parent of a destination path.
+    pub async fn validate_parent(
+        &self,
+        request: PathValidationRequest,
+    ) -> Result<PathValidationResult, SecurityError> {
+        self.object
+            .call_confidential(tinysecurity_bus::names::methods::VALIDATE_PARENT, (request,))
             .await
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
     }

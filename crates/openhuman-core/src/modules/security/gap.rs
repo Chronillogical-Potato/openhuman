@@ -10,7 +10,9 @@ use std::sync::OnceLock;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use tinysecurity_bus::{BudgetDecision2, CommandPolicy, CommandPolicyId};
+use tinysecurity_bus::{
+    BudgetDecision2, CommandPolicy, CommandPolicyId, PathPolicy, PathPolicyId, PathCheckKind,
+};
 
 /// Whether to reserve an action or inspect the budget without reserving it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -118,6 +120,136 @@ pub(crate) async fn budget(
         return port.budget(workspace_dir, policy, op).await;
     }
     ModuleBudgetPort.budget(workspace_dir, policy, op).await
+}
+
+/// `SpendAction2` for a registered command scope.
+pub(crate) async fn spend_action(
+    workspace_dir: &Path,
+    policy: CommandPolicy,
+) -> Result<BudgetDecision2, String> {
+    budget(workspace_dir.to_path_buf(), policy, BudgetOp::Spend).await
+}
+
+/// `PeekBudget2` for a registered command scope.
+pub(crate) async fn peek_budget(
+    workspace_dir: &Path,
+    policy: CommandPolicy,
+) -> Result<BudgetDecision2, String> {
+    budget(workspace_dir.to_path_buf(), policy, BudgetOp::Peek).await
+}
+
+/// Bounded sync boundary: synchronous adapters refuse unless an async admission
+/// has already populated their policy snapshot. It never re-enters the caller's
+/// Tokio runtime.
+pub(crate) fn budget_blocking(
+    _workspace_dir: &Path,
+    _policy: CommandPolicy,
+    _op: BudgetOp,
+) -> Result<BudgetDecision2, String> {
+    Err("TinySecurity budget query requires async admission".into())
+}
+
+/// Batch path checks through the registered TinySecurity scope.
+pub(crate) async fn check_paths(
+    policy: PathPolicy,
+    kind: PathCheckKind,
+    paths: &[PathBuf],
+) -> Result<Vec<bool>, String> {
+    let config = crate::core::runtime::DispatchCtx::ambient()
+        .load_config()
+        .await?;
+    let client = super::client(&config)
+        .await
+        .map_err(|error| error.to_string())?;
+    static PATH_SCOPES: OnceLock<tokio::sync::Mutex<Vec<(PathPolicy, PathPolicyId)>>> =
+        OnceLock::new();
+    let scopes = PATH_SCOPES.get_or_init(|| tokio::sync::Mutex::new(Vec::new()));
+    let mut scopes = scopes.lock().await;
+    let policy_id = match scopes
+        .iter()
+        .find(|(registered, _)| registered == &policy)
+        .map(|(_, id)| id.clone())
+    {
+        Some(id) => id,
+        None => {
+            let id = client
+                .register_path_policy(policy.clone())
+                .await
+                .map_err(|error| error.to_string())?;
+            scopes.push((policy, id.clone()));
+            id
+        }
+    };
+    let response = client
+        .check_paths2(tinysecurity_bus::PathBatchRequest2 {
+            policy_id,
+            kind,
+            paths: paths.to_vec(),
+        })
+        .await
+        .map_err(|error| error.to_string())?;
+    if response.allowed.len() != paths.len() {
+        return Err("TinySecurity CheckPaths2 answer length mismatch".into());
+    }
+    Ok(response.allowed)
+}
+
+/// `ProtectedPath2`: one answer per path, in request order.
+pub(crate) async fn protected_paths(paths: &[PathBuf]) -> Result<Vec<bool>, String> {
+    let config = crate::core::runtime::DispatchCtx::ambient()
+        .load_config()
+        .await?;
+    let response = super::client(&config)
+        .await
+        .map_err(|error| error.to_string())?
+        .protected_path2(tinysecurity_bus::ProtectedPathRequest2 {
+            paths: paths.to_vec(),
+        })
+        .await
+        .map_err(|error| error.to_string())?;
+    if response.protected.len() != paths.len() {
+        return Err("TinySecurity ProtectedPath2 answer length mismatch".into());
+    }
+    Ok(response.protected)
+}
+
+/// `ProtectedFloor2` vocabulary for consumers that hand the floor to a jail.
+pub(crate) async fn protected_floor() -> Result<tinysecurity_bus::ProtectedFloor2, String> {
+    let config = crate::core::runtime::DispatchCtx::ambient()
+        .load_config()
+        .await?;
+    super::client(&config)
+        .await
+        .map_err(|error| error.to_string())?
+        .protected_floor2()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+/// `ClassifyHostAction2` uses only trusted host declarations.
+pub(crate) async fn host_action_class(
+    request: tinysecurity_bus::HostActionClassRequest2,
+) -> Result<tinysecurity_bus::CommandClass, String> {
+    let config = crate::core::runtime::DispatchCtx::ambient()
+        .load_config()
+        .await?;
+    Ok(super::client(&config)
+        .await
+        .map_err(|error| error.to_string())?
+        .classify_host_action2(request)
+        .await
+        .map_err(|error| error.to_string())?
+        .class)
+}
+
+/// Path operations from sync-only host traits fail closed instead of nesting
+/// an async runtime on the caller's thread.
+pub(crate) fn blocking<T, F>(_future: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: std::future::Future<Output = Result<T, String>> + Send + 'static,
+{
+    Err("TinySecurity path query requires async admission".into())
 }
 
 /// Classify or check a command under an immutable registered command scope.

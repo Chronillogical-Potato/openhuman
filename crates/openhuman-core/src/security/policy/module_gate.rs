@@ -32,43 +32,6 @@ pub enum PathKind {
     Internal,
 }
 
-/// The module's answer to a budget question, in host terms.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Budget {
-    /// The tier may act and the hourly ledger has room.
-    Allow,
-    /// The autonomy tier is read-only.
-    ReadOnly,
-    /// The hourly ledger is spent.
-    RateLimited { max_per_hour: u32 },
-}
-
-impl Budget {
-    /// The agent-facing refusal, or `Ok` when the action may proceed.
-    pub(crate) fn into_result(self, operation: &str) -> Result<(), String> {
-        match self {
-            Self::Allow => Ok(()),
-            Self::ReadOnly => {
-                log::warn!("[openhuman:policy] Operation '{operation}' blocked: read-only mode");
-                Err(format!(
-                    "{POLICY_BLOCKED_MARKER} Security policy: read-only mode, cannot perform \
-                     '{operation}'. Do not retry; this tier blocks all write actions."
-                ))
-            }
-            Self::RateLimited { max_per_hour } => {
-                log::warn!(
-                    "[openhuman:policy] Operation '{operation}' blocked: rate limit exceeded"
-                );
-                Err(format!(
-                    "Rate limit exceeded: action budget exhausted ({max_per_hour} actions/hour). \
-                     Increase the limit in Settings -> Advanced -> Agent autonomy or wait for the \
-                     rolling one-hour window to refill."
-                ))
-            }
-        }
-    }
-}
-
 /// The command class of a host action, from its permission level and whether it
 /// has an external effect. Informational (the gate decides what may run), and the
 /// module's: the host keeps no mapping of its own. `Err` when the module cannot
@@ -78,11 +41,6 @@ pub async fn host_action_class(
     external_effect: bool,
 ) -> Result<tinysecurity_bus::CommandClass, String> {
     native::host_action_class(permission, external_effect).await
-}
-
-fn unavailable(error: &str) -> String {
-    log::warn!("[security][policy] module unavailable; refused: {error}");
-    refusal_message(Refusal::Unavailable)
 }
 
 impl SecurityPolicy {
@@ -161,26 +119,19 @@ impl SecurityPolicy {
         }
     }
 
-    /// Reserve one action of the hourly budget for `operation`: the tier and the
-    /// ledger, both the module's. `Err` is the agent-facing refusal.
-    pub async fn spend_action(&self, operation: &str) -> Result<(), String> {
-        self.native_budget(true)
-            .await
-            .map_err(|error| unavailable(&error))?
-            .into_result(operation)
-    }
-
     /// Whether the autonomy tier lets the agent change anything right now. A module
     /// that cannot answer says no.
     pub fn tier_allows_acting_blocking(&self) -> bool {
-        match self.native_budget_blocking(false) {
-            Ok(Budget::ReadOnly) => false,
-            Ok(Budget::Allow | Budget::RateLimited { .. }) => true,
-            Err(error) => {
-                log::warn!("[security][policy] tier unavailable; acting refused: {error}");
-                false
-            }
+        if !self.enabled {
+            return true;
         }
+        matches!(
+            self.budget_snapshot.lock().ok().and_then(|snapshot| snapshot.clone()),
+            Some(
+                tinysecurity_bus::BudgetDecision2::Allow
+                    | tinysecurity_bus::BudgetDecision2::RateLimited { .. }
+            )
+        )
     }
 }
 
@@ -189,7 +140,7 @@ mod native {
     use super::*;
     use crate::modules::security::gap;
     use crate::security::policy::native_commands::{CommandFlow, CommandStage};
-    use tinysecurity_bus::{BudgetDecision2, PathCheckKind};
+    use tinysecurity_bus::PathCheckKind;
 
     fn bus_kind(kind: PathKind) -> PathCheckKind {
         match kind {
@@ -197,18 +148,6 @@ mod native {
             PathKind::ResolvedRead => PathCheckKind::ResolvedRead,
             PathKind::ResolvedWrite => PathCheckKind::ResolvedWrite,
             PathKind::Internal => PathCheckKind::Internal,
-        }
-    }
-
-    fn host_budget(decision: BudgetDecision2) -> Result<Budget, String> {
-        match decision {
-            BudgetDecision2::Allow => Ok(Budget::Allow),
-            BudgetDecision2::ReadOnlyMode => Ok(Budget::ReadOnly),
-            BudgetDecision2::RateLimited { max_per_hour } => {
-                Ok(Budget::RateLimited { max_per_hour })
-            }
-            // A decision this host does not know is never an allow.
-            _ => Err("TinySecurity returned an unknown budget decision".into()),
         }
     }
 
@@ -251,31 +190,6 @@ mod native {
             gap::blocking(async move { gap::check_paths(scope, bus_kind(kind), &paths).await })
         }
 
-        /// The settings of the scope whose ledger shell runs and acting tools share.
-        pub(super) fn budget_policy(&self) -> Result<tinysecurity_bus::CommandPolicy, String> {
-            self.native_command_policy(CommandFlow::Harness, CommandStage::Execute)
-                .map_err(|refusal| refusal.to_string())
-        }
-
-        pub(super) async fn native_budget(&self, spend: bool) -> Result<Budget, String> {
-            let policy = self.budget_policy()?;
-            let decision = if spend {
-                gap::spend_action(&self.workspace_dir, policy).await?
-            } else {
-                gap::peek_budget(&self.workspace_dir, policy).await?
-            };
-            host_budget(decision)
-        }
-
-        pub(super) fn native_budget_blocking(&self, spend: bool) -> Result<Budget, String> {
-            let policy = self.budget_policy()?;
-            let op = if spend {
-                gap::BudgetOp::Spend
-            } else {
-                gap::BudgetOp::Peek
-            };
-            host_budget(gap::budget_blocking(&self.workspace_dir, policy, op)?)
-        }
     }
 }
 
@@ -309,12 +223,5 @@ mod native {
             Err(NO_MODULE.into())
         }
 
-        pub(super) async fn native_budget(&self, _spend: bool) -> Result<Budget, String> {
-            Err(NO_MODULE.into())
-        }
-
-        pub(super) fn native_budget_blocking(&self, _spend: bool) -> Result<Budget, String> {
-            Err(NO_MODULE.into())
-        }
     }
 }
