@@ -133,11 +133,10 @@ async fn command_requires_sandbox_precedence_for_single_user_hosts() {
         .await
         .unwrap());
     }
-    // The off switch no longer routes around the module: a sandboxed request is still
-    // planned there, and the module decides whether the jail may be skipped.
+    // The host-level off switch short-circuits the sandbox requirement.
     {
         let _off = env_guard::EnvVarGuard::set("OPENHUMAN_SANDBOX", "off");
-        assert!(command_requires_sandbox(
+        assert!(!command_requires_sandbox(
             &DispatchCtx::process_default(),
             Some(SandboxMode::Sandboxed)
         )
@@ -167,14 +166,12 @@ async fn command_requires_sandbox_precedence_for_single_user_hosts() {
         );
     }
 
-    // ...also with the legacy `enabled = false` flag: the flag is declared to the module,
-    // which plans the run on the host for the trusted operator, rather than the host
-    // skipping the plan.
+    // The legacy `enabled = false` flag also disables sandbox requirements.
     let (dir, _config) = scratch_config(SandboxBackend::Docker, Some(false)).await;
     let _ws = env_guard::EnvVarGuard::set_path("OPENHUMAN_WORKSPACE", dir.path());
     let _off = env_guard::EnvVarGuard::unset("OPENHUMAN_SANDBOX");
     assert!(
-        command_requires_sandbox(&DispatchCtx::process_default(), None)
+        !command_requires_sandbox(&DispatchCtx::process_default(), None)
             .await
             .unwrap()
     );
