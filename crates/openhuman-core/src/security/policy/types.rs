@@ -197,6 +197,10 @@ pub(super) const WORKSPACE_INTERNAL_DIRS: &[&str] = &[
     "tinyplace",
 ];
 
+/// Workspace-relative prefixes reserved for core-managed state.
+pub(super) const WORKSPACE_INTERNAL_PREFIXES: &[&str] =
+    &["memory-", "memory_tree-", "session_raw-"];
+
 /// The artifact store under `workspace_dir`. Its per-artifact directories are
 /// internal state (see `is_workspace_internal_path`); only
 /// [`ARTIFACT_TOOL_RESULTS_DIR`] inside it stays agent-readable.
@@ -316,6 +320,8 @@ pub struct SecurityPolicy {
     /// `ToolPolicyMiddleware`, which are independent code paths.
     pub auto_approve_all: bool,
     pub tracker: ActionTracker,
+    /// Test-only command-policy override; production always asks TinySecurity.
+    pub command_gateway: Option<super::native_commands::SharedCommandGateway>,
     /// Last module-owned budget decision, shared by cloned policy views so
     /// synchronous tool gates can read the async admission result safely.
     pub budget_snapshot: Arc<std::sync::Mutex<Option<tinysecurity_bus::BudgetDecision2>>>,
@@ -455,6 +461,7 @@ impl Default for SecurityPolicy {
             auto_approve: Vec::new(),
             auto_approve_all: false,
             tracker: ActionTracker::new(),
+            command_gateway: None,
             budget_snapshot: Arc::new(std::sync::Mutex::new(None)),
             canonical_workspace: Arc::new(OnceCell::new()),
         }
