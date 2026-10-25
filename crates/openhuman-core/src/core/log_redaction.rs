@@ -1,13 +1,6 @@
-//! Shared secret-scrubbing for anything written to stderr / file logs.
-//!
-//! Diagnostic log lines (e.g. `core::observability::report_error_message`) can
-//! carry error strings that embed bearer tokens, API keys, or other secrets. In
-//! slim builds compiled without `crash-reporting` there is no Sentry
-//! `before_send` hook to sanitise them, and even in full builds the
-//! `before_send` hook only scrubs the *Sentry event* — not the parallel
-//! `tracing` log line. This module owns the one redaction pass used by both the
-//! Sentry path (`src/main.rs`) and the always-on log path, so the patterns
-//! cannot drift between them. Always compiled (no feature gate).
+//! ADR 0007's fixed boot-floor redactor for diagnostics emitted before
+//! TinySecurity is ready. Once the module loads, both Sentry and log callers
+//! also use its shared redactor through the installed callback.
 
 use once_cell::sync::Lazy;
 use regex::Regex;

@@ -1,10 +1,7 @@
-//! Redaction characterization for issue #646.
-//!
-//! The shared corpora are consumed by public log, security and RPC redactors
-//! here, and by private Composio and credential middleware tests beside their
-//! owning code. Approval argument redaction is covered at the TinySecurity bus
-//! callback boundary. Each case pins which sinks remove its needle today; known
-//! gaps remain visible until an owner changes the behavior.
+//! Log, denial and RPC redaction characterization using the shared security corpus.
+//! TinySecurity's `Redact`/`RedactWith` modes consume the same corpus in the
+//! module client tests; Composio and credential middleware tests live beside
+//! their owning adapters.
 
 use std::collections::BTreeSet;
 
