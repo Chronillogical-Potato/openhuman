@@ -29,7 +29,7 @@ use std::path::PathBuf;
 #[path = "policy_tests.rs"]
 mod tests;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "security-module"))]
 #[path = "policy_media_artifact_tests.rs"]
 mod policy_media_artifact_tests;
 

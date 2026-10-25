@@ -325,6 +325,6 @@ fn credential_denials(
 #[cfg(feature = "modules")]
 use super::shell_exec::path_string;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "security-module"))]
 #[path = "native_jail_tests.rs"]
 mod tests;

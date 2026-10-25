@@ -262,6 +262,6 @@ async fn credential_denials(
     Err("TinySecurity is not built into this host".into())
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "security-module"))]
 #[path = "host_sandbox_tests.rs"]
 mod tests;
