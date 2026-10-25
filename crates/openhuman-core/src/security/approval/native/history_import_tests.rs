@@ -134,19 +134,34 @@ async fn absent_module() -> (
 }
 
 fn seed_legacy(config: &Config) {
-    let docs = super::super::super::store_documents::current(config).unwrap();
-    let pending = crate::security::approval::PendingApproval::new(
-        "r1",
-        "composio",
-        "s",
-        serde_json::json!({}),
-        Some(Utc::now()),
-    );
-    docs.insert_pending(&pending, "sess").unwrap();
-    docs.decide(
-        "r1",
-        crate::security::approval::ApprovalDecision::ApproveOnce,
-    )
+    use crate::storage::{DocumentStoreExt, Precondition};
+    let opened = crate::storage::local::open("history import test", &config.workspace_dir).unwrap();
+    let storage = opened.scoped().unwrap();
+    let docs = std::sync::Arc::clone(storage.documents());
+    let now = Utc::now();
+    let history = serde_json::json!({
+        "tool_name": "composio",
+        "action_summary": "s",
+        "args_redacted": "{}",
+        "session_id": "legacy-session",
+        "created_ms": now.timestamp_millis(),
+        "deadline_ms": (now + Duration::minutes(10)).timestamp_millis(),
+        "decided_ms": (now + Duration::seconds(1)).timestamp_millis(),
+        "decision": "approve_once",
+        "pending": false,
+    });
+    crate::storage::block_on(async move {
+        for spec in crate::security::approval::collection_specs() {
+            docs.ensure_collection(&spec).await?;
+        }
+        docs.put(
+            crate::security::approval::storage_schema::APPROVALS,
+            "r1",
+            history,
+            Precondition::Absent,
+        )
+        .await
+    })
     .unwrap();
 }
 
@@ -156,10 +171,7 @@ async fn a_workspace_with_no_legacy_history_has_nothing_to_import() {
     let (_host, proxy, object) = absent_module().await;
     let engine = NativeEngine::on(config.clone(), proxy);
     assert_eq!(run(&engine, &object).await, Ok(None));
-    assert!(
-        super::super::super::store_documents::current(&config).is_ok(),
-        "the one-time source is the existing document store"
-    );
+    assert!(read(config).await.unwrap().is_none());
 }
 
 #[tokio::test]
