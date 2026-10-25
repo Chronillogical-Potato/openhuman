@@ -25,3 +25,7 @@ pub fn redact_url_for_log(raw: &str) -> String {
         crate::core::log_redaction::SUPPRESSED.to_owned()
     }
 }
+
+#[cfg(test)]
+#[path = "redact_tests.rs"]
+mod tests;

@@ -24,6 +24,15 @@ pub(crate) fn install_module_scrubber(scrubber: fn(&str) -> Option<String>) {
     let _ = MODULE_SCRUBBER.set(scrubber);
 }
 
+fn apply_module_scrubber(
+    floor_result: &str,
+    scrubber: Option<fn(&str) -> Option<String>>,
+) -> String {
+    scrubber
+        .and_then(|scrub| scrub(floor_result))
+        .unwrap_or_else(|| floor_result.to_owned())
+}
+
 static SECRET_PATTERNS: Lazy<Vec<(Regex, &'static str)>> = Lazy::new(|| {
     vec![
         // Matches "Bearer <token>" and redacts the token.
@@ -117,12 +126,7 @@ pub fn scrub_secrets(input: &str) -> String {
     for (re, replacement) in SECRET_PATTERNS.iter() {
         result = re.replace_all(&result, *replacement).into_owned();
     }
-    if let Some(scrubber) = MODULE_SCRUBBER.get() {
-        if let Some(redacted) = scrubber(&result) {
-            return redacted;
-        }
-    }
-    result
+    apply_module_scrubber(&result, MODULE_SCRUBBER.get().copied())
 }
 
 #[cfg(test)]
