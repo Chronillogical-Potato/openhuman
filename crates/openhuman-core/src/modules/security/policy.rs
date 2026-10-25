@@ -9,7 +9,7 @@ pub const MODULE_CONTRACT_VERSION: (u32, u32) = (1, 28);
 /// Check the exact published artifact contract this adapter was built for.
 #[must_use]
 pub const fn supports_contract(version: (u32, u32)) -> bool {
-    version == MODULE_CONTRACT_VERSION
+    version.0 == MODULE_CONTRACT_VERSION.0 && version.1 == MODULE_CONTRACT_VERSION.1
 }
 
 /// Translate OpenHuman autonomy settings to the published bus contract.
