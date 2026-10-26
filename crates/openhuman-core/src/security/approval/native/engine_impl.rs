@@ -48,7 +48,9 @@ impl NativeEngine {
         let _ordered = scope.stream.lock().await;
         let audit = Self::correlation(&scope, generation).await?;
         if !host().begin_secret_prompt(Arc::clone(&scope), input.prompt) {
-            return Err(unavailable("another secret master request is already pending"));
+            return Err(unavailable(
+                "another secret master request is already pending",
+            ));
         }
         let _prompt = SecretPromptGuard(scope.scope_id.clone());
         let mut evaluate = EvaluateSecretRequest2 {
@@ -63,13 +65,11 @@ impl NativeEngine {
             || row.tool_name != NATIVE_SECRET_GRANT_TOOL
             || scope.handle() != Some(&row.binding.scope)
         {
-            return Err(unavailable("TinySecurity refused the native secret approval"));
+            return Err(unavailable(
+                "TinySecurity refused the native secret approval",
+            ));
         }
-        if !host().remember_secret_grant(
-            request,
-            row.request_id.clone(),
-            row.expires_at_ms,
-        ) {
+        if !host().remember_secret_grant(request, row.request_id.clone(), row.expires_at_ms) {
             return Err(unavailable("native secret approval is already pending"));
         }
         Ok(Checked::Pending {

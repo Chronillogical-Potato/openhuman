@@ -75,7 +75,10 @@ async fn native_secret_grant_prompt_uses_the_exact_in_flight_scope_route() {
     assert_eq!(surface.shown.lock().unwrap().len(), 1);
     let remembered = host().request(&request_id).expect("pending row remembered");
     assert_eq!(remembered.scope.scope_id, scope.scope_id);
-    assert_eq!(remembered.delivered.unwrap().tool_name, "native_secret_grant");
+    assert_eq!(
+        remembered.delivered.unwrap().tool_name,
+        "native_secret_grant"
+    );
 }
 
 fn request(tool: &str, call_id: &str) -> EvaluateRequest {

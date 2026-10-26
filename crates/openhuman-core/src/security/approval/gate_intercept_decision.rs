@@ -31,16 +31,7 @@ impl ApprovalGate {
                     "[approval::gate] decision received"
                 );
                 if decision.is_approve() {
-                    if tool_name == "native_secret_grant" {
-                        // TinySecurity's ExecuteSecret2 consumes the native
-                        // HumanOnce grant itself; a generic approval reservation
-                        // would consume the row before the module can verify it.
-                        self.engine.release(request_id);
-                        (GateOutcome::Allow, None)
-                    } else {
-                        self.reserved(request_id.to_string(), tool_name, scope, track)
-                            .await
-                    }
+                    self.reserved(request_id.to_string(), tool_name, scope, track).await
                 } else {
                     // Nothing will reserve or record a denied request.
                     self.engine.release(request_id);

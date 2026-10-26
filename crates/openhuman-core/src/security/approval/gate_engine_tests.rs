@@ -61,6 +61,42 @@ async fn an_engine_that_cannot_answer_denies_and_leaves_nothing_parked() {
 }
 
 #[tokio::test]
+async fn native_secret_grant_approval_is_left_for_execute_secret2_to_consume() {
+    let (gate, _dir) = test_gate();
+    let gate = Arc::new(gate);
+    let worker = Arc::clone(&gate);
+    let turn = ApprovalTurnContext::chat(chat_ctx());
+    let handle = tokio::spawn(async move {
+        turn_origin::with_origin(
+            web_origin(),
+            worker.intercept_audited_for_call(
+                &turn,
+                "native_secret_grant",
+                "Unlock configuration secrets",
+                serde_json::json!({"registration_id": "opaque-registration"}),
+                None,
+            ),
+        )
+        .await
+    });
+    let mut tries = 0;
+    let request_id = loop {
+        if let Some(id) = parked_request_id(&gate) {
+            break id;
+        }
+        tries += 1;
+        assert!(tries < 500, "the master grant never parked");
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    };
+    decide_parked(&gate, &request_id, ApprovalDecision::ApproveOnce);
+
+    let (outcome, reported) = handle.await.unwrap();
+    assert_eq!(outcome, GateOutcome::Allow);
+    assert_eq!(reported, None, "the native module owns grant consumption");
+    assert_eq!(stub_of(&gate).state(&request_id), Some(State::Approved));
+}
+
+#[tokio::test]
 async fn the_users_configuration_reaches_the_engine_as_the_calls_posture() {
     let _env = crate::config::TEST_ENV_LOCK.lock().await;
     let (gate, dir) = test_gate();
