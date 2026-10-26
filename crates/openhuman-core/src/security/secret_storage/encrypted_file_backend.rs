@@ -413,12 +413,15 @@ impl EncryptedFileBackend {
         let bytes = match source.as_ref() {
             Some(source) => {
                 let bytes = source.bytes();
-                let _: std::collections::BTreeMap<String, String> =
+                let _: std::collections::BTreeMap<String, String> = if bytes.is_empty() {
+                    Default::default()
+                } else {
                     serde_json::from_slice(bytes).map_err(|error| {
                         SecretStorageError::Backend(format!(
                             "legacy dev keychain is invalid JSON; preserving it for recovery: {error}"
                         ))
-                    })?;
+                    })?
+                };
                 let verified = crate::storage::block_on(store.prepare_file_import(
                     LEGACY_IMPORT_OPERATION,
                     LEGACY_IMPORT_PAYLOAD,
@@ -456,12 +459,15 @@ impl EncryptedFileBackend {
             }
         }
 
-        let map: std::collections::BTreeMap<String, String> =
+        let map: std::collections::BTreeMap<String, String> = if bytes.is_empty() {
+            Default::default()
+        } else {
             serde_json::from_slice(&bytes).map_err(|error| {
                 SecretStorageError::Backend(format!(
                     "verified legacy dev keychain is invalid JSON: {error}"
                 ))
-            })?;
+            })?
+        };
         for (name, value) in &map {
             let existing = crate::storage::block_on(store.get(name))
                 .map_err(adapter::backend_error)?;
