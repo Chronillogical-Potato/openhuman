@@ -335,7 +335,7 @@ pub(super) async fn security_cipher_consumer(
 }
 
 #[cfg(feature = "security-module")]
-pub(super) async fn security_secret_scope() -> Option<crate::security::approval::native::SecretScope>
+pub(crate) async fn security_secret_scope() -> Option<crate::security::approval::native::SecretScope>
 {
     SECURITY_CALLBACK_LOADS
         .lock()
