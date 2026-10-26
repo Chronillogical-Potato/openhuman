@@ -57,3 +57,7 @@ impl SecretStorageError {
         format!("{self:?}")
     }
 }
+
+#[cfg(test)]
+#[path = "error_tests.rs"]
+mod tests;

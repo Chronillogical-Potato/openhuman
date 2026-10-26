@@ -465,3 +465,7 @@ pub(crate) fn force_backend_for_test(
 #[cfg(test)]
 #[path = "ops_adoption_tests.rs"]
 mod adoption_tests;
+
+#[cfg(test)]
+#[path = "ops_tests.rs"]
+mod tests;
