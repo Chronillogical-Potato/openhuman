@@ -580,14 +580,14 @@ fn standard_mode_permits_external() {
     );
 }
 
-#[test]
-fn claude_agent_sdk_inspection_reads_the_model_as_the_runtime_does() {
-    let _guard = crate::inference::inference_test_guard();
+#[tokio::test]
+async fn claude_agent_sdk_inspection_reads_the_model_as_the_runtime_does() {
+    let _guard = crate::inference::inference_test_guard_async().await;
     let _env = crate::config::test_env::EnvVarGuard::locked()
         .with("ANTHROPIC_API_KEY", "dummy-inspection-key")
         .without("ANTHROPIC_AUTH_TOKEN")
         .without("ANTHROPIC_BASE_URL");
-    let inspect = |provider: &str| {
+    let inspect = |provider: &str| async move {
         let mut config = Config::default();
         config.chat_provider = Some(provider.to_string());
         crate::inference::provider::factory::create_chat_model_with_model_id_in_for_inspection(
@@ -596,14 +596,17 @@ fn claude_agent_sdk_inspection_reads_the_model_as_the_runtime_does() {
             &config,
             0.0,
         )
+        .await
     };
 
-    let (_, model) = inspect("claude_agent_sdk:sonnet@0.7").expect("an SDK route builds");
+    let (_, model) = inspect("claude_agent_sdk:sonnet@0.7")
+        .await
+        .expect("an SDK route builds");
     assert_eq!(
         model, "sonnet",
         "the temperature suffix is not part of the model"
     );
-    let error = match inspect("claude_agent_sdk:") {
+    let error = match inspect("claude_agent_sdk:").await {
         Ok(_) => panic!("an empty SDK model must not be probed"),
         Err(error) => error.to_string(),
     };

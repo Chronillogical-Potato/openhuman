@@ -289,8 +289,8 @@ async fn a_registered_catalog_receives_the_entrys_provider_key() {
     assert_eq!(seen.lock().unwrap().as_str(), "entry-key");
 }
 
-#[test]
-fn inspection_model_factory_uses_the_callers_context_before_process_fallback() {
+#[tokio::test]
+async fn inspection_model_factory_uses_the_callers_context_before_process_fallback() {
     use crate::core::slots::Extensions;
     use crate::inference::registry::{
         register_inspection_chat_model, register_inspection_chat_model_in,
@@ -298,7 +298,7 @@ fn inspection_model_factory_uses_the_callers_context_before_process_fallback() {
         PreparedInspectionChatModelFactory,
     };
 
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
     let factory = |endpoint: &'static str| -> PreparedInspectionChatModelFactory {
         Arc::new(move |request| {
             Ok(InspectionChatModelBuild {
@@ -345,9 +345,11 @@ fn inspection_model_factory_uses_the_callers_context_before_process_fallback() {
     config_process.default_model = Some("process".into());
     let build_a =
         create_chat_model_with_identity_in_for_inspection(&context_a, "chat", &config_a, 0.0)
+            .await
             .expect("context A inspection provider");
     let build_b =
         create_chat_model_with_identity_in_for_inspection(&context_b, "chat", &config_b, 0.0)
+            .await
             .expect("context B inspection provider");
     let build_process = create_chat_model_with_identity_in_for_inspection(
         &crate::core::runtime::DispatchCtx::ambient(),
@@ -355,6 +357,7 @@ fn inspection_model_factory_uses_the_callers_context_before_process_fallback() {
         &config_process,
         0.0,
     )
+    .await
     .expect("process inspection provider");
     unregister_inspection_chat_model(PROVIDER_OPENHUMAN);
     unregister_chat_model(PROVIDER_OPENHUMAN);

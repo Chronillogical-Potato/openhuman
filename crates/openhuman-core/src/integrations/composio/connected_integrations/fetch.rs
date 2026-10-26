@@ -88,9 +88,7 @@ pub async fn fetch_connected_integrations_status(
             .await
             .ok()
             .flatten()
-            .is_some_and(|token| {
-                crate::credentials::session_state::is_local_session_token(&token)
-            });
+            .is_some_and(|token| crate::credentials::session_state::is_local_session_token(&token));
     if local_session_without_api_key {
         return FetchConnectedIntegrationsStatus::Authoritative(Vec::new());
     }

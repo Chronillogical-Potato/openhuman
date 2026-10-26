@@ -557,6 +557,7 @@ async fn inspection_codex_metadata_matches_the_selected_oauth_profile() {
     let before = std::fs::read(&profiles_path).expect("snapshot profile bytes");
 
     let selected = super::credentials::lookup_key_for_slug_read_only("openai", &config)
+        .await
         .expect("read selected OAuth profile");
     assert_eq!(selected.key, "active-oauth-bearer");
     assert!(selected.is_oauth);

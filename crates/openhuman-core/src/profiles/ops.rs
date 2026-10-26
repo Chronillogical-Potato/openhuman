@@ -139,9 +139,9 @@ pub(crate) async fn set_credential_on(
     // under its own scope, so a storage-backed secret store files the
     // credential under that profile.
     host.with_records(&profile_id, |config| {
-        Box::pin(async move {
-            credentials::store(config, kind, &token, expires_at.as_deref()).await
-        })
+        Box::pin(
+            async move { credentials::store(config, kind, &token, expires_at.as_deref()).await },
+        )
     })
     .await?;
     log::info!("[profiles] credential installed kind={kind:?}");
