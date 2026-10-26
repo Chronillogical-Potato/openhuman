@@ -55,6 +55,29 @@ async fn bound(name: &str) -> Arc<ScopeEntry> {
     entry
 }
 
+#[tokio::test]
+async fn native_secret_grant_prompt_uses_the_exact_in_flight_scope_route() {
+    let scope = bound("native-secret-grant").await;
+    let surface = Arc::new(Surface::default());
+    assert!(host().begin_secret_prompt(Arc::clone(&scope), surface.clone()));
+
+    let pending = row(
+        "native-secret-grant",
+        "a",
+        "native-keyed-call-correlation",
+        "native_secret_grant",
+    );
+    let request_id = pending.request_id.clone();
+    let response = prompt(delivery_for(pending)).await.unwrap();
+
+    assert!(response.delivered);
+    assert_eq!(response.request_id, request_id);
+    assert_eq!(surface.shown.lock().unwrap().len(), 1);
+    let remembered = host().request(&request_id).expect("pending row remembered");
+    assert_eq!(remembered.scope.scope_id, scope.scope_id);
+    assert_eq!(remembered.delivered.unwrap().tool_name, "native_secret_grant");
+}
+
 fn request(tool: &str, call_id: &str) -> EvaluateRequest {
     EvaluateRequest {
         caller: CallerContext {

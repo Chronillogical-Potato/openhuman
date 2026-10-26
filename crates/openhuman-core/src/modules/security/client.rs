@@ -94,7 +94,7 @@ impl SecurityProxy {
 }
 
 impl Client {
-    pub(super) async fn connect(config: &Config) -> Result<Self, String> {
+    pub(crate) async fn connect(config: &Config) -> Result<Self, String> {
         super::super::ops::ensure_loaded(config, MODULE_ID).await?;
         let binding = super::super::ops::security_callback_binding()
             .await
