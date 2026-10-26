@@ -84,7 +84,7 @@ fn write_profile_document(state_dir: &std::path::Path, persisted: &PersistedAuth
     let store = EncryptedFileSecrets::with_key_file(directory).unwrap();
     crate::storage::block_on(async move {
         store
-            .set(PROFILE_DOCUMENT_SECRET_NAME, &document)
+            .set(super::super::PROFILE_DOCUMENT_SECRET_NAME, &document)
             .await
             .unwrap();
     });
