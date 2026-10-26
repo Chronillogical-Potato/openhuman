@@ -82,16 +82,26 @@ impl SecretBackend {
         let identity = request.identity;
         let status = match self.binding(&identity) {
             None => SecretBackendLoadStatus2::Denied,
-            Some(binding) if binding.legacy_file => match read_legacy_file(&self.legacy_path) {
+            Some(binding)
+                if binding.legacy_file && identity.phase == SecretPhase2::LegacyRead =>
+            {
+                match read_legacy_file(&self.legacy_path) {
                 Ok(Some(encoded)) => SecretBackendLoadStatus2::Present { encoded },
                 Ok(None) => SecretBackendLoadStatus2::Absent,
                 Err(()) => SecretBackendLoadStatus2::Unavailable,
-            },
-            Some(binding) => match load_backend(binding.backend, &self.user_id) {
+                }
+            }
+            Some(binding)
+                if !binding.legacy_file
+                    && matches!(identity.phase, SecretPhase2::TargetRead | SecretPhase2::TargetReadback) =>
+            {
+                match load_backend(binding.backend, &self.user_id) {
                 Ok(Some(encoded)) => SecretBackendLoadStatus2::Present { encoded },
                 Ok(None) => SecretBackendLoadStatus2::Absent,
                 Err(()) => SecretBackendLoadStatus2::Unavailable,
-            },
+                }
+            }
+            Some(_) => SecretBackendLoadStatus2::Denied,
         };
         SecretBackendLoadResponse2 { identity, status }
     }
@@ -118,11 +128,17 @@ impl SecretBackend {
     }
 }
 
+#[cfg(test)]
+#[path = "secret_backend_tests.rs"]
+mod tests;
+
 fn load_backend(
     backend: crate::security::secret_storage::store::BackendKind,
     user_id: &str,
 ) -> Result<Option<Vec<u8>>, ()> {
-    let _selected_backend = backend;
+    if crate::security::secret_storage::store::effective_backend_kind() != backend {
+        return Err(());
+    }
     crate::security::secret_storage::ops::process_get(user_id, "secretstore.master_key")
         .map(|value| value.map(String::into_bytes))
         .map_err(|_| ())
@@ -133,7 +149,9 @@ fn save_backend(
     user_id: &str,
     encoded: &str,
 ) -> Result<(), ()> {
-    let _selected_backend = backend;
+    if crate::security::secret_storage::store::effective_backend_kind() != backend {
+        return Err(());
+    }
     crate::security::secret_storage::ops::process_set(
         user_id,
         "secretstore.master_key",

@@ -13,6 +13,7 @@ pub(crate) mod gap;
 mod policy;
 pub(crate) mod policy_translation;
 pub(crate) mod sandbox;
+mod secret_backend;
 pub(crate) mod sync_seam;
 pub(crate) mod text;
 
@@ -23,6 +24,17 @@ mod tests;
 pub use client::{Client, SecurityError};
 pub use policy::policy_config;
 pub(super) use policy::{module_config, module_config_for_host};
+
+/// Serve the cipher output and master storage callbacks on the exact admitted
+/// TinySecurity host binding.
+pub(super) async fn serve_secret_callbacks(
+    binding: &tinybus::module::HostCallbackBinding,
+    consumer: std::sync::Arc<cipher_consumer::Consumer>,
+    backend: std::sync::Arc<secret_backend::SecretBackend>,
+) -> tinybus::Result<()> {
+    consumer.serve(binding).await?;
+    backend.serve(binding).await
+}
 
 use crate::config::Config;
 
