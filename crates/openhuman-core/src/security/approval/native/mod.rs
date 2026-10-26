@@ -109,7 +109,7 @@ impl SecretScope {
             config,
             proxy,
             self.entry.subject.clone(),
-            &engine::Posture {
+            &super::engine::Posture {
                 require_approval: true,
                 ..Default::default()
             },
@@ -129,7 +129,7 @@ impl SecretScope {
         self.entry
             .register_with_callback(
                 proxy,
-                &engine::Posture {
+                &super::engine::Posture {
                     require_approval: true,
                     ..Default::default()
                 },
