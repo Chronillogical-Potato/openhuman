@@ -70,15 +70,18 @@ pub async fn clear_credential(
                     logs.push("api key carried forward to the signed-out workspace".to_string());
                     carried_api_key = true;
                 }
-                // With a storage backend the auth profiles are one secret in
-                // the acting scope (`profiles::persistence::STORAGE_SECRET_NAME`),
-                // not a file per state directory, so the source and the
-                // destination above are the same record: clearing the
-                // "source" would delete the key just carried forward.
-                let shares_store =
-                    carried_api_key && matches!(crate::storage::secrets::current(), Ok(Some(_)));
+                // Profile documents are local to their config state directory,
+                // even when the process uses a generic storage backend for
+                // other domains. Skip source cleanup only when the destination
+                // store is literally the same file.
+                let shares_store = carried_api_key
+                    && crate::credentials::profiles::profiles_file(
+                        &crate::credentials::state_dir_from_config(&config),
+                    ) == crate::credentials::profiles::profiles_file(
+                        &crate::credentials::state_dir_from_config(&effective_config),
+                    );
                 if shares_store {
-                    log::debug!("[credentials] api key kept: the storage profile store is shared");
+                    log::debug!("[credentials] api key kept: the profile file is shared");
                 } else {
                     // Either the key was just moved to the post-teardown config
                     // above, or `kind` is `None` and it must be removed outright.

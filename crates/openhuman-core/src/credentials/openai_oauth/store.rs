@@ -119,7 +119,11 @@ pub(super) fn persist_openai_oauth_token_set(
 }
 
 fn auth_profiles_store(config: &Config) -> AuthProfilesStore {
-    AuthProfilesStore::new(&state_dir_from_config(config), config.secrets.encrypt)
+    AuthProfilesStore::new_with_config(
+        &state_dir_from_config(config),
+        config.secrets.encrypt,
+        config,
+    )
 }
 
 /// Look up the OpenAI bearer token sourced from the OAuth (ChatGPT

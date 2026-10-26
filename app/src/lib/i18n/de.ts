@@ -5257,6 +5257,25 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'Erneut versuchen',
   'keyring.settings.toolTrustRevoke': 'Widerrufen',
   'keyring.settings.toolTrustRevoking': 'Wird widerrufen…',
+
+  // Per-operation TinySecurity keyring approval.
+  'keyring.operation.title': 'Anfrage für Schlüsselbundzugriff',
+  'keyring.operation.description':
+    'TinySecurity möchte auf einen Schlüsselbund-Eintrag zugreifen. Prüfe den Vorgang, bevor du entscheidest.',
+  'keyring.operation.access': 'Zugriff',
+  'keyring.operation.requester': 'Angefordert von',
+  'keyring.operation.origin': 'Ursprung',
+  'keyring.operation.purpose': 'Zweck',
+  'keyring.operation.name': 'Schlüsselbund-Eintrag',
+  'keyring.operation.access.read': 'Lesen',
+  'keyring.operation.access.write': 'Schreiben',
+  'keyring.operation.access.delete': 'Löschen',
+  'keyring.operation.allow': 'Einmal erlauben',
+  'keyring.operation.deny': 'Ablehnen',
+  'keyring.operation.submitting': 'Wird gesendet…',
+  'keyring.operation.expires': 'Die Anfrage läuft in {seconds}s ab.',
+  'keyring.operation.error':
+    'Deine Entscheidung konnte nicht gesendet werden. Die Anfrage ist möglicherweise abgelaufen.',
 };
 
 export default messages;

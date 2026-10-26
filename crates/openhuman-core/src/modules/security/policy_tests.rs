@@ -30,6 +30,13 @@ fn first_load_and_reinit_share_one_policy_translator() {
         module.sandbox,
         Some(tinysecurity_bus::SandboxConfig2 { scopes: vec![] })
     );
+    let crypto = module.crypto.expect("TinySecurity keyring is configured");
+    let keyring = crypto
+        .keyring
+        .expect("profile keyring backend is configured");
+    assert_eq!(keyring.service, "openhuman");
+    assert_eq!(keyring.backend, tinysecurity_bus::KeyringBackend2::Os);
+    assert_eq!(keyring.consent_timeout_ms, 120_000);
 }
 
 #[test]

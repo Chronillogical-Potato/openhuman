@@ -4,61 +4,45 @@ use anyhow::Result;
 use chrono::Utc;
 use std::path::Path;
 
-#[cfg(test)]
-use std::sync::atomic::{AtomicBool, AtomicUsize};
-#[cfg(test)]
-use std::sync::Arc;
-
-use super::{is_lock_create_unwritable_fs, AuthProfile, AuthProfilesData, AuthProfilesStore};
+use super::{AuthProfile, AuthProfilesData, AuthProfilesStore};
 use crate::security::secret_storage::SecretStore;
 
 use super::LOCK_FILENAME;
 
 impl AuthProfilesStore {
     pub fn new(state_dir: &Path, encrypt_secrets: bool) -> Self {
+        Self::construct(state_dir, encrypt_secrets, None)
+    }
+
+    pub fn new_with_config(
+        state_dir: &Path,
+        encrypt_secrets: bool,
+        config: &crate::config::Config,
+    ) -> Self {
+        #[cfg(feature = "security-module")]
+        crate::modules::security::sync_seam::arm_current();
+        Self::construct(state_dir, encrypt_secrets, Some(config.clone()))
+    }
+
+    fn construct(
+        state_dir: &Path,
+        encrypt_secrets: bool,
+        security_config: Option<crate::config::Config>,
+    ) -> Self {
         let user_id = super::user_id_from_state_dir(state_dir);
-        let policy = crate::security::keyring_consent::policy::check_secret_access();
-        let use_keychain = policy == crate::security::keyring_consent::PolicyDecision::Proceed
-            && crate::security::secret_storage::is_available();
+        let use_keychain = security_config.is_some() && cfg!(feature = "security-module");
         log::debug!(
-            "[auth] AuthProfilesStore::new state_dir={} user_id={user_id} use_keychain={use_keychain} policy={policy:?}",
+            "[auth] AuthProfilesStore::new state_dir={} user_id={user_id} use_keychain={use_keychain}",
             state_dir.display()
         );
-        match policy {
-            crate::security::keyring_consent::PolicyDecision::Proceed => {
-                if !use_keychain {
-                    // OS keychain unavailable despite Proceed policy (probe failed).
-                    log::info!(
-                        "[auth] OS keychain unavailable — using encrypted JSON for auth profiles user_id={user_id}"
-                    );
-                }
-            }
-            crate::security::keyring_consent::PolicyDecision::ConsentRequired => {
-                log::warn!(
-                    "[auth] keyring consent has not been given — secrets will NOT be persisted \
-                     to the OS keychain until the user grants consent. \
-                     Falling back to encrypted JSON for auth profiles user_id={user_id}"
-                );
-            }
-            crate::security::keyring_consent::PolicyDecision::Declined => {
-                log::warn!(
-                    "[auth] user explicitly declined OS keychain storage — \
-                     using encrypted JSON for auth profiles user_id={user_id}"
-                );
-            }
-        }
         Self {
             path: super::profiles_file(state_dir),
+            legacy_path: super::legacy_profiles_file(state_dir),
             lock_path: state_dir.join(LOCK_FILENAME),
             secret_store: SecretStore::new(state_dir, encrypt_secrets),
             user_id,
             use_keychain,
-            #[cfg(test)]
-            force_transient_failures_write: Arc::new(AtomicUsize::new(0)),
-            #[cfg(test)]
-            force_transient_failures_rename: Arc::new(AtomicUsize::new(0)),
-            #[cfg(test)]
-            force_lock_unwritable: Arc::new(AtomicBool::new(false)),
+            security_config,
         }
     }
 
@@ -67,27 +51,15 @@ impl AuthProfilesStore {
     }
 
     pub fn load(&self) -> Result<AuthProfilesData> {
-        match self.acquire_lock() {
-            Ok(_lock) => self.load_locked(),
-            Err(e) if is_lock_create_unwritable_fs(&e) => {
-                // RCA Sentry TAURI-RUST-4SZ: a full / read-only filesystem
-                // can't create the exclusive lock file, but the store already
-                // exists and writers publish via atomic tmp+rename, so a
-                // lock-free read is still consistent. The read path is the
-                // hot caller here (`app_state_snapshot` polls it every tick),
-                // so failing it strands the UI AND floods Sentry once per
-                // poll. Degrade to a lock-free read-only load instead — the
-                // user keeps their session view, and because no error is
-                // produced the noise stops at the source rather than being
-                // suppressed downstream. Opportunistic migrations are skipped
-                // (they couldn't persist on a full disk anyway).
+        match self.acquire_read_lock()? {
+            Some(_lock) => self.load_locked(),
+            None => {
                 log::warn!(
-                    "[auth] auth-profile lock could not be created ({e}); \
-                     serving lock-free read-only load (likely disk full / read-only FS)"
+                    "[auth] profile lease unavailable on a full or read-only filesystem; \
+                     serving a lock-free read-only snapshot"
                 );
                 self.load_unlocked_readonly()
             }
-            Err(e) => Err(e),
         }
     }
 
@@ -113,6 +85,7 @@ impl AuthProfilesStore {
 
     pub fn remove_profile(&self, profile_id: &str) -> Result<bool> {
         let _lock = self.acquire_lock()?;
+        let persisted_before = self.read_persisted_locked()?;
         let mut data = self.load_locked()?;
 
         let removed = data.profiles.remove(profile_id).is_some();
@@ -125,13 +98,29 @@ impl AuthProfilesStore {
         data.updated_at = Utc::now();
         self.save_locked(&data)?;
 
-        // Clean up keychain entry for this profile (idempotent if keychain
-        // is unavailable or no entry exists).
+        // Remove the TinySecurity secret after persisting metadata removal.
+        // If the user denies or the module is unavailable, restore the exact
+        // prior document so an orphaned/stranded keyring entry stays reachable.
         if self.use_keychain {
-            self.keychain_delete_secrets(profile_id);
+            if let Err(delete_error) = self.keychain_delete_secrets(profile_id) {
+                return self.rollback_profile_removal(&persisted_before, delete_error);
+            }
         }
 
         Ok(true)
+    }
+
+    pub(super) fn rollback_profile_removal(
+        &self,
+        persisted_before: &super::PersistedAuthProfiles,
+        delete_error: anyhow::Error,
+    ) -> Result<bool> {
+        if let Err(rollback_error) = self.write_persisted_locked(persisted_before) {
+            anyhow::bail!(
+                "keyring delete failed and profile metadata rollback failed: {delete_error}; {rollback_error}"
+            );
+        }
+        Err(delete_error.context("profile removal was not completed"))
     }
 
     pub fn set_active_profile(&self, provider: &str, profile_id: &str) -> Result<()> {

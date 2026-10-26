@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use tinyagents_harness::tool::ToolRulePolicy;
-use tinytools::{RuleContext, RuleEffect, ToolRule, ToolRuleSet, ToolRules, glob_matches};
+use tinytools::{glob_matches, RuleContext, RuleEffect, ToolRule, ToolRuleSet, ToolRules};
 
 use crate::agent_registry::host_definition::AgentDefinition;
 use crate::config::Config;

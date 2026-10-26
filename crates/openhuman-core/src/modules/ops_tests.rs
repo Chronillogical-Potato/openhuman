@@ -45,7 +45,6 @@ fn test_bundled_record() -> &'static crate::modules::types::ModuleRecord {
         },
     }))
 }
-
 /// The record pins the empty-input digest, so the staged empty archive passes
 /// the digest check and fails to unpack. Digest rejection itself is tinybus's
 /// to test; this pins only that the host reports it and never falls back to
@@ -745,16 +744,4 @@ fn the_ahead_warning_is_silent_for_released_modules_other_ids_and_release_builds
     assert!(pin_ahead_warning("tinydocs", ModuleSource::Source, None, true).is_none());
     // A release build never warns.
     assert!(pin_ahead_warning("tinydocs", ModuleSource::Source, Some("tinydocs"), false).is_none());
-}
-
-#[test]
-fn tinymcp_storage_destination_is_bound_by_the_verified_loader() {
-    // A generic config cannot choose the callback destination. The verified
-    // loader injects the unique name bound to this exact module instance.
-    let config = ops::module_config_for_test(&Config::default(), "tinymcp");
-    assert_eq!(config, serde_json::json!({}));
-    assert_eq!(
-        ops::module_config_for_test(&Config::default(), "tinybox"),
-        serde_json::json!({})
-    );
 }

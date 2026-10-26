@@ -5876,6 +5876,7 @@ dependencies = [
  "tinystoragedrivers-bus",
  "tinystoragedrivers-busproxy",
  "tinystoragedrivers-connect",
+ "tinystoragedrivers-fence",
  "tinystoragedrivers-secrets",
  "tinystoragedrivers-testkit",
  "tinystoragedrivers-types",
@@ -10628,7 +10629,7 @@ dependencies = [
 
 [[package]]
 name = "tinysecurity-approval"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "async-trait",
  "getrandom 0.3.4",
@@ -10643,7 +10644,7 @@ dependencies = [
 
 [[package]]
 name = "tinysecurity-auto"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "async-trait",
  "serde_json",
@@ -10657,7 +10658,7 @@ dependencies = [
 
 [[package]]
 name = "tinysecurity-bus"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "serde",
  "thiserror 2.0.21",
@@ -10665,7 +10666,7 @@ dependencies = [
 
 [[package]]
 name = "tinysecurity-crypto"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "aes 0.8.4",
  "aes-gcm",
@@ -10690,7 +10691,7 @@ dependencies = [
 
 [[package]]
 name = "tinysecurity-redact"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "base64 0.22.1",
  "percent-encoding",
@@ -10871,6 +10872,13 @@ dependencies = [
  "tinystoragedrivers-types",
  "tokio",
  "zstd 0.14.3",
+]
+
+[[package]]
+name = "tinystoragedrivers-fence"
+version = "2.1.2"
+dependencies = [
+ "sysinfo",
 ]
 
 [[package]]

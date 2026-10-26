@@ -5210,6 +5210,25 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'Reintentar',
   'keyring.settings.toolTrustRevoke': 'Revocar',
   'keyring.settings.toolTrustRevoking': 'Revocando…',
+
+  // Per-operation TinySecurity keyring approval.
+  'keyring.operation.title': 'Solicitud de acceso al llavero',
+  'keyring.operation.description':
+    'TinySecurity solicita acceso a un elemento del llavero. Revisa la operación antes de decidir.',
+  'keyring.operation.access': 'Acceso',
+  'keyring.operation.requester': 'Solicitado por',
+  'keyring.operation.origin': 'Origen',
+  'keyring.operation.purpose': 'Propósito',
+  'keyring.operation.name': 'Elemento del llavero',
+  'keyring.operation.access.read': 'Leer',
+  'keyring.operation.access.write': 'Escribir',
+  'keyring.operation.access.delete': 'Eliminar',
+  'keyring.operation.allow': 'Permitir una vez',
+  'keyring.operation.deny': 'Denegar',
+  'keyring.operation.submitting': 'Enviando…',
+  'keyring.operation.expires': 'La solicitud vence en {seconds}s.',
+  'keyring.operation.error':
+    'No se pudo enviar tu decisión. Es posible que la solicitud haya vencido.',
 };
 
 export default messages;

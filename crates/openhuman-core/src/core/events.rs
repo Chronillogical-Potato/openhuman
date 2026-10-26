@@ -22,6 +22,10 @@
 //! path the event is published at, so the broker can filter by domain and never
 //! wake a process for events it did not ask for.
 
+mod domain;
+mod keyring_access;
+pub use keyring_access::KeyringAccessApprovalRequest;
+
 /// A tool call made while answering a committed turn: name and id only.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ConversationToolCall {
@@ -1276,6 +1280,8 @@ pub enum DomainEvent {
     /// operation hits the consent gate. The frontend surfaces a consent
     /// dialog in response.
     KeyringConsentRequired,
+    /// One exact TinySecurity keyring operation needs the human's decision.
+    KeyringAccessApprovalRequested(KeyringAccessApprovalRequest),
     /// A secret field failed to decrypt (rotated master key, corrupted
     /// ciphertext, keychain reset). Published so the frontend can surface
     /// a recovery prompt instead of silently clearing the field.
@@ -1382,145 +1388,6 @@ pub fn clip_to_chars(text: &str, max: usize) -> String {
 }
 
 impl DomainEvent {
-    /// Returns the domain name for routing and filtering.
-    pub fn domain(&self) -> &'static str {
-        match self {
-            Self::AgentTurnStarted { .. }
-            | Self::AgentTurnCompleted { .. }
-            | Self::ConversationTurnCommitted { .. }
-            | Self::AgentError { .. }
-            | Self::SubagentSpawned { .. }
-            | Self::SubagentCompleted { .. }
-            | Self::SubagentFailed { .. }
-            | Self::SubagentAwaitingUser { .. }
-            | Self::AgentOrchestrationSpawned { .. }
-            | Self::AgentOrchestrationCompleted { .. }
-            | Self::AgentOrchestrationFailed { .. }
-            | Self::AgentOrchestrationClosed { .. }
-            | Self::RunQueueMessageQueued { .. }
-            | Self::RunQueueFollowupDispatched { .. }
-            | Self::RunQueueInterrupted { .. }
-            | Self::RunQueueMessageDelivered { .. }
-            | Self::RunQueueSteerRequeued { .. } => "agent",
-
-            Self::MonitorStatusChanged { .. } | Self::MonitorLine { .. } => "monitor",
-
-            Self::EmbeddingModelUnhealthy { .. }
-            | Self::MemoryStored { .. }
-            | Self::MemoryRecalled { .. } => "memory",
-
-            Self::ChannelInboundMessage { .. }
-            | Self::ChannelMessageReceived { .. }
-            | Self::ChannelMessageProcessed { .. }
-            | Self::ChannelReactionReceived { .. }
-            | Self::ChannelReactionSent { .. }
-            | Self::ChannelConnected { .. }
-            | Self::ChannelDisconnected { .. } => "channel",
-
-            Self::CronJobTriggered { .. }
-            | Self::CronJobCompleted { .. }
-            | Self::ProactiveMessageRequested { .. }
-            | Self::CronSystemJobDue { .. }
-            | Self::FlowRunProgress { .. }
-            | Self::FlowRunStarted { .. }
-            | Self::FlowRunFinished { .. }
-            | Self::FlowChanged { .. } => "cron",
-
-            Self::WorkflowLoaded { .. }
-            | Self::WorkflowStopped { .. }
-            | Self::WorkflowStartFailed { .. }
-            | Self::WorkflowExecuted { .. }
-            | Self::WorkflowsChanged { .. } => "workflow",
-
-            Self::ToolExecutionStarted { .. } | Self::ToolExecutionCompleted { .. } => "tool",
-
-            Self::WorkspacePrepared { .. }
-            | Self::WorkspaceViolation { .. }
-            | Self::WorkspaceCleanup { .. } => "workspace",
-
-            Self::WebhookIncomingRequest { .. }
-            | Self::WebhookReceived { .. }
-            | Self::WebhookRegistered { .. }
-            | Self::WebhookUnregistered { .. }
-            | Self::WebhookProcessed { .. } => "webhook",
-
-            Self::ComposioTriggerReceived { .. }
-            | Self::ComposioConnectionCreated { .. }
-            | Self::ComposioConnectionDeleted { .. }
-            | Self::ComposioIntegrationsChanged { .. }
-            | Self::ComposioActionExecuted { .. }
-            | Self::ComposioConfigChanged { .. } => "composio",
-
-            Self::TriggerEvaluated { .. }
-            | Self::TriggerEscalated { .. }
-            | Self::TriggerEscalationFailed { .. } => "triage",
-
-            Self::NotificationIngested { .. } | Self::NotificationTriaged { .. } => "notification",
-
-            Self::InboundEventDropped { .. }
-            | Self::InboundDeferred { .. }
-            | Self::InboundDeadLettered { .. }
-            | Self::InboundTurnCompleted { .. }
-            | Self::InboundTurnFailed { .. } => "inbound",
-
-            Self::DevicePaired { .. }
-            | Self::DeviceRevoked { .. }
-            | Self::DevicePeerOnline { .. }
-            | Self::DevicePeerOffline { .. }
-            | Self::DeviceTunnelFrame { .. } => "device",
-
-            Self::SystemStartup { .. }
-            | Self::SystemShutdown { .. }
-            | Self::SystemRestartRequested { .. }
-            | Self::SystemShutdownRequested { .. }
-            | Self::AutonomyConfigChanged
-            | Self::AgentPathsChanged
-            | Self::ActiveWorkspaceChanged { .. }
-            | Self::HealthChanged { .. }
-            | Self::HealthRestarted { .. } => "system",
-
-            Self::KeyringConsentRequired | Self::KeyringDecryptFailed { .. } => "keyring",
-
-            Self::SessionExpired { .. }
-            | Self::CredentialChanged { .. }
-            | Self::ProviderApiKeyRejected { .. } => "auth",
-
-            Self::TaskSourceFetched { .. }
-            | Self::TaskSourceTaskIngested { .. }
-            | Self::TaskSourceFetchFailed { .. } => "task_sources",
-
-            Self::ThreadGoalUpdated { .. }
-            | Self::ThreadGoalCleared { .. }
-            | Self::ThreadTodosChanged { .. }
-            | Self::ThreadRunModeChanged { .. } => "agent",
-
-            Self::ApprovalRequested { .. }
-            | Self::ApprovalDecided { .. }
-            | Self::ApprovalGateOverrideIgnored { .. }
-            | Self::ApprovalGateDisabled { .. }
-            | Self::FlowApprovalRequested { .. } => "approval",
-
-            Self::PlanReviewRequested { .. } | Self::PlanReviewDecided { .. } => "plan_review",
-
-            Self::ExternalTransferPending { .. } => "egress",
-
-            Self::ArtifactReady { .. }
-            | Self::ArtifactFailed { .. }
-            | Self::ArtifactPending { .. } => "artifact",
-
-            Self::McpServerInstalled { .. }
-            | Self::McpServerConnected { .. }
-            | Self::McpServerDisconnected { .. }
-            | Self::McpClientToolExecuted { .. }
-            | Self::McpToolRejected { .. }
-            | Self::McpServerProbeTimedOut { .. }
-            | Self::McpServerTransportDropped { .. }
-            | Self::McpServerReconnected { .. }
-            | Self::McpServerReconnectFailed { .. }
-            | Self::McpServerParked { .. } => "mcp_client",
-        }
-    }
-
     /// Best-effort agent/session hint for display (not all events carry one).
     pub fn agent_hint(&self) -> Option<&str> {
         match self {

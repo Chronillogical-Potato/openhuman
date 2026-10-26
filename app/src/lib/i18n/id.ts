@@ -5151,6 +5151,24 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'Coba lagi',
   'keyring.settings.toolTrustRevoke': 'Cabut',
   'keyring.settings.toolTrustRevoking': 'Mencabut…',
+
+  // Per-operation TinySecurity keyring approval.
+  'keyring.operation.title': 'Permintaan akses keyring',
+  'keyring.operation.description':
+    'TinySecurity meminta akses ke satu item keyring. Tinjau operasi sebelum memutuskan.',
+  'keyring.operation.access': 'Akses',
+  'keyring.operation.requester': 'Diminta oleh',
+  'keyring.operation.origin': 'Asal',
+  'keyring.operation.purpose': 'Tujuan',
+  'keyring.operation.name': 'Item keyring',
+  'keyring.operation.access.read': 'Baca',
+  'keyring.operation.access.write': 'Tulis',
+  'keyring.operation.access.delete': 'Hapus',
+  'keyring.operation.allow': 'Izinkan sekali',
+  'keyring.operation.deny': 'Tolak',
+  'keyring.operation.submitting': 'Mengirim…',
+  'keyring.operation.expires': 'Permintaan berakhir dalam {seconds} dtk.',
+  'keyring.operation.error': 'Keputusan tidak dapat dikirim. Permintaan mungkin sudah kedaluwarsa.',
 };
 
 export default messages;

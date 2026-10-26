@@ -120,11 +120,11 @@ pub async fn get_settings(config: &Config) -> Result<Outcome<serde_json::Value>,
     // value are unaffected; callers asking "does this bill the managed budget?"
     // must read this one (#5402).
     let local_model = config.workload_local_model("embeddings");
-    let session_exists = config
-        .config_path
-        .parent()
-        .map(|dir| dir.join("auth-profiles.json").exists())
-        .unwrap_or(false);
+    let session_exists = auth
+        .get_provider_bearer_token(crate::credentials::APP_SESSION_PROVIDER, None)
+        .ok()
+        .flatten()
+        .is_some_and(|token| !token.trim().is_empty());
     let effective_provider = effective_embedder_slug(
         config
             .embeddings_provider

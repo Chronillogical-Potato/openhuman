@@ -1,4 +1,5 @@
 use super::*;
+use tempfile::TempDir;
 
 #[test]
 fn profile_id_format() {
@@ -68,7 +69,7 @@ async fn store_roundtrip_with_encryption() {
 }
 
 #[tokio::test]
-async fn atomic_write_replaces_file() {
+async fn profile_write_publishes_an_encrypted_document() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
 
@@ -78,8 +79,9 @@ async fn atomic_write_replaces_file() {
     let path = store.path().to_path_buf();
     assert!(path.exists());
 
-    let contents = tokio::fs::read_to_string(path).await.unwrap();
-    assert!(contents.contains("\"schema_version\": 1"));
+    let bytes = tokio::fs::read(path).await.unwrap();
+    assert!(!is_persisted_document(&bytes));
+    assert!(!String::from_utf8_lossy(&bytes).contains("token-abc"));
 }
 
 #[test]
@@ -133,7 +135,7 @@ fn auth_profiles_data_default() {
 fn corrupt_store_is_quarantined_and_reset() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
-    let path = store.path().to_path_buf();
+    let path = store.legacy_path.clone();
 
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(&path, b"{ not valid json").unwrap();
@@ -165,6 +167,7 @@ fn corrupt_store_is_quarantined_and_reset() {
 /// "Decryption failed — wrong key or tampered data" and the user can
 /// never log in cleanly because every read pre-empts before reaching
 /// the "no profile" code path.
+
 #[test]
 fn load_drops_profiles_whose_decryption_fails_under_rotated_key() {
     // The SecretStore caches keys by canonicalised path in a process-wide
@@ -173,37 +176,31 @@ fn load_drops_profiles_whose_decryption_fails_under_rotated_key() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), true);
 
-    // Seed two profiles. One ("doomed") will be made unrecoverable by
-    // rewriting the encrypted token under a new key; the other
-    // ("plain-fine") uses kind=Token with a plaintext token that the
-    // legacy `enc:` / plaintext branch decrypts trivially, so even
-    // after key rotation it survives.
+    // Seed one profile, then replace its token with malformed enc2 data and
+    // add a valid plaintext legacy profile to verify selective cleanup.
     let doomed = AuthProfile::new_token("app-session", "default", "real-jwt-payload".into());
     store.upsert_profile(doomed.clone(), true).unwrap();
 
-    // Under the keychain-backed model the secret was just stored in the
-    // keychain (FileBackend in debug builds) and not in the JSON file.  To
-    // exercise the legacy enc2: decrypt-failure → drop path that this test
-    // covers, delete the keychain entry so the load falls back to the JSON
-    // decrypt path, then plant a syntactically valid enc2: blob in the JSON
-    // that the current key cannot decrypt.
-    let user_id = user_id_from_state_dir(tmp.path());
-    let keychain_key = format!("{KEYCHAIN_AUTH_PREFIX}{}", doomed.id);
-    crate::security::secret_storage::delete(&user_id, &keychain_key)
-        .expect("delete keychain entry for test setup");
-
-    let path = store.path().to_path_buf();
-    let mut data: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    // Profile tokens are inside the TSD-encrypted profile document. Plant a
+    // malformed field-level enc2 value to verify drop-on-decrypt-failure.
     let profile_id = doomed.id.clone();
-    data["profiles"][&profile_id]["token"] = serde_json::Value::String(
-        // 12-byte nonce + 32 bytes of "ciphertext" that won't authenticate
-        // under any random key — hex-encoded, prefixed with enc2:.
-        "enc2:000102030405060708090a0b\
-              deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
-            .to_string(),
+    let mut data = store.read_persisted_locked().unwrap();
+    data.profiles.get_mut(&profile_id).unwrap().token = Some(
+        "enc2:000102030405060708090a0bdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef".into(),
     );
-    std::fs::write(&path, serde_json::to_string_pretty(&data).unwrap()).unwrap();
+    data.profiles.insert(
+        "legacy:plain-fine".into(),
+        serde_json::from_value(serde_json::json!({
+            "provider": "legacy",
+            "profile_name": "plain-fine",
+            "kind": "token",
+            "token": "legacy-plain-token",
+            "created_at": "2025-01-01T00:00:00Z",
+            "updated_at": "2025-01-01T00:00:00Z"
+        }))
+        .unwrap(),
+    );
+    store.write_persisted_locked(&data).unwrap();
 
     // First load: should silently drop the doomed profile rather than
     // bubbling the decrypt error and breaking every poll.
@@ -231,6 +228,7 @@ fn load_drops_profiles_whose_decryption_fails_under_rotated_key() {
 /// the whole load — otherwise *every* profile becomes unreadable and the
 /// user is locked out of all sessions. Drop just the bad entry, matching
 /// the decrypt-failure recovery pattern.
+
 #[test]
 fn load_drops_profiles_with_unrecognized_kind_instead_of_failing_load() {
     let tmp = TempDir::new().unwrap();
@@ -245,29 +243,34 @@ fn load_drops_profiles_with_unrecognized_kind_instead_of_failing_load() {
     //   - "api_key": observed in Sentry issue #123 (370 events over 14d)
     //   - "OAuth"  : observed in Sentry issue #2605 (258 events) — the
     //                pre-kebab-case serialized form
-    let path = store.path().to_path_buf();
-    let mut data: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-    data["profiles"]["legacy:apikey"] = serde_json::json!({
-        "provider": "legacy",
-        "profile_name": "apikey",
-        "kind": "api_key",
-        "token": "raw-token",
-        "metadata": {},
-        "created_at": "2025-01-01T00:00:00Z",
-        "updated_at": "2025-01-01T00:00:00Z",
-    });
-    data["profiles"]["legacy:oauth"] = serde_json::json!({
-        "provider": "legacy",
-        "profile_name": "oauth",
-        "kind": "OAuth",
-        "access_token": "raw-access",
-        "metadata": {},
-        "created_at": "2025-01-01T00:00:00Z",
-        "updated_at": "2025-01-01T00:00:00Z",
-    });
-    data["active_profiles"]["legacy"] = serde_json::Value::String("legacy:apikey".to_string());
-    std::fs::write(&path, serde_json::to_string_pretty(&data).unwrap()).unwrap();
+    let mut data = store.read_persisted_locked().unwrap();
+    data.profiles.insert(
+        "legacy:apikey".into(),
+        serde_json::from_value(serde_json::json!({
+            "provider": "legacy",
+            "profile_name": "apikey",
+            "kind": "api_key",
+            "token": "raw-token",
+            "created_at": "2025-01-01T00:00:00Z",
+            "updated_at": "2025-01-01T00:00:00Z",
+        }))
+        .unwrap(),
+    );
+    data.profiles.insert(
+        "legacy:oauth".into(),
+        serde_json::from_value(serde_json::json!({
+            "provider": "legacy",
+            "profile_name": "oauth",
+            "kind": "OAuth",
+            "access_token": "raw-access",
+            "created_at": "2025-01-01T00:00:00Z",
+            "updated_at": "2025-01-01T00:00:00Z",
+        }))
+        .unwrap(),
+    );
+    data.active_profiles
+        .insert("legacy".into(), "legacy:apikey".into());
+    store.write_persisted_locked(&data).unwrap();
 
     // The load must succeed — the only failure mode prior to the fix was
     // bailing the entire load on the first unrecognized kind.
@@ -295,12 +298,11 @@ fn load_drops_profiles_with_unrecognized_kind_instead_of_failing_load() {
         "active_profiles pointer to a dropped profile must be cleared"
     );
 
-    // Subsequent load: file was rewritten without the bad profiles.
-    let reread: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-    assert!(reread["profiles"].get("legacy:apikey").is_none());
-    assert!(reread["profiles"].get("legacy:oauth").is_none());
-    assert!(reread["profiles"].get(&good_id).is_some());
+    // Subsequent load reads the cleaned encrypted document.
+    let reread = store.read_persisted_locked().unwrap();
+    assert!(!reread.profiles.contains_key("legacy:apikey"));
+    assert!(!reread.profiles.contains_key("legacy:oauth"));
+    assert!(reread.profiles.contains_key(&good_id));
 }
 
 #[test]
@@ -371,7 +373,7 @@ fn auth_profile_lock_errors_do_not_include_local_paths() {
     let store = AuthProfilesStore::new(&invalid_state_dir, false);
     let err = store.load().unwrap_err().to_string();
 
-    assert!(err.contains("Failed to create auth profile lock directory"));
+    assert!(err.contains("Failed to acquire auth profile lease"));
     assert!(!err.contains(&tmp.path().display().to_string()));
     assert!(!err.contains(&invalid_state_dir.display().to_string()));
 }
@@ -420,205 +422,4 @@ fn upsert_preserves_created_at_on_update() {
     let data = store.load().unwrap();
     let loaded = data.profiles.get(&id).unwrap();
     assert_eq!(loaded.created_at, created);
-}
-
-#[test]
-fn is_pid_alive_detects_current_process() {
-    assert!(is_pid_alive(std::process::id()));
-}
-
-#[test]
-fn is_pid_alive_returns_false_for_synthetic_dead_pid() {
-    assert!(!is_pid_alive(SYNTHETIC_DEAD_PID));
-}
-
-#[test]
-fn acquire_lock_clears_stale_lock_with_dead_pid() {
-    let tmp = TempDir::new().unwrap();
-    let store = AuthProfilesStore::new(tmp.path(), false);
-
-    let lock_path = tmp.path().join(LOCK_FILENAME);
-    std::fs::write(&lock_path, format!("pid={SYNTHETIC_DEAD_PID}\n")).unwrap();
-    assert!(lock_path.exists());
-
-    // A no-op call that goes through acquire_lock should succeed quickly
-    // by recognising the previous lock as stale and removing it.
-    let data = store.load().unwrap();
-    assert!(data.profiles.is_empty());
-    assert!(
-        !lock_path.exists(),
-        "guard should have removed the lock on drop"
-    );
-}
-
-#[test]
-fn acquire_lock_recovers_after_upsert_when_dead_pid_lock_left_behind() {
-    let tmp = TempDir::new().unwrap();
-    let store = AuthProfilesStore::new(tmp.path(), false);
-
-    // Pre-existing lock from a crashed previous run.
-    let lock_path = tmp.path().join(LOCK_FILENAME);
-    std::fs::write(&lock_path, format!("pid={SYNTHETIC_DEAD_PID}\n")).unwrap();
-
-    let profile = AuthProfile::new_token("openai", "default", "tok".into());
-    let id = profile.id.clone();
-    store.upsert_profile(profile, true).unwrap();
-
-    let data = store.load().unwrap();
-    assert!(data.profiles.contains_key(&id));
-    assert!(!lock_path.exists());
-}
-
-#[test]
-fn clear_lock_if_stale_leaves_live_pid_alone() {
-    let tmp = TempDir::new().unwrap();
-    let store = AuthProfilesStore::new(tmp.path(), false);
-
-    let lock_path = tmp.path().join(LOCK_FILENAME);
-    std::fs::write(&lock_path, format!("pid={}\n", std::process::id())).unwrap();
-
-    assert!(!store.clear_lock_if_stale());
-    assert!(lock_path.exists(), "lock for live pid must not be removed");
-}
-
-// --- #2318 (TAURI-RUST-B1): immediate self-owned leaked-lock recovery ------
-
-#[test]
-fn reclaim_self_owned_lock_removes_leaked_self_pid_lock() {
-    let tmp = TempDir::new().unwrap();
-    let store = AuthProfilesStore::new(tmp.path(), false);
-
-    // Simulate a lock our own process leaked because a prior guard's Drop
-    // unlink was blocked (Windows AV/indexer): the file carries our live pid.
-    let lock_path = tmp.path().join(LOCK_FILENAME);
-    std::fs::write(&lock_path, format!("pid={}\n", std::process::id())).unwrap();
-
-    assert!(
-        store.reclaim_self_owned_lock(),
-        "a lock recording our own pid is a leaked Drop unlink and must be reclaimed"
-    );
-    assert!(!lock_path.exists());
-}
-
-#[test]
-fn reclaim_self_owned_lock_leaves_foreign_pid_alone() {
-    let tmp = TempDir::new().unwrap();
-    let store = AuthProfilesStore::new(tmp.path(), false);
-
-    let lock_path = tmp.path().join(LOCK_FILENAME);
-    std::fs::write(&lock_path, format!("pid={SYNTHETIC_DEAD_PID}\n")).unwrap();
-
-    assert!(
-        !store.reclaim_self_owned_lock(),
-        "a lock owned by another pid must not be removed by the self-owned fast path"
-    );
-    assert!(lock_path.exists());
-}
-
-#[test]
-fn reclaim_self_owned_lock_is_noop_when_lock_missing() {
-    let tmp = TempDir::new().unwrap();
-    let store = AuthProfilesStore::new(tmp.path(), false);
-    assert!(!store.reclaim_self_owned_lock());
-}
-
-#[test]
-fn acquire_lock_recovers_immediately_from_leaked_self_pid_lock() {
-    let tmp = TempDir::new().unwrap();
-    let store = AuthProfilesStore::new(tmp.path(), false);
-
-    // A lock leaked by this very process (live pid inside). The only previous
-    // recovery was the 30s age floor — far longer than the 10s RPC timeout —
-    // which produced the retry storm. The self-owned fast path must clear it
-    // well inside that window.
-    let lock_path = tmp.path().join(LOCK_FILENAME);
-    std::fs::write(&lock_path, format!("pid={}\n", std::process::id())).unwrap();
-
-    let started = std::time::Instant::now();
-    let data = store.load().unwrap();
-    let elapsed = started.elapsed();
-
-    assert!(data.profiles.is_empty());
-    assert!(
-        elapsed < std::time::Duration::from_secs(5),
-        "self-owned leaked lock should be reclaimed immediately, not after the \
-         {STALE_LOCK_AGE_MS}ms age floor (took {elapsed:?})"
-    );
-    assert!(
-        !lock_path.exists(),
-        "guard should have removed the lock on drop"
-    );
-}
-
-#[test]
-fn acquire_lock_serializes_same_process_acquirers() {
-    let tmp = TempDir::new().unwrap();
-    let store = AuthProfilesStore::new(tmp.path(), false);
-    let lock_path = tmp.path().join(LOCK_FILENAME);
-
-    // Hold the in-process lock for this path directly, forcing a concurrent
-    // acquirer to spin the `try_lock` WouldBlock retry loop until we release —
-    // it must NOT race the on-disk file or bail early. Use the same registry
-    // entry `acquire_lock` resolves (canonicalized parent + filename).
-    let held = in_process_lock_for(&lock_path)
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-
-    let other = store.clone();
-    let waiter = std::thread::spawn(move || other.load());
-
-    // Let the waiter enter the WouldBlock loop, then release; it should proceed.
-    std::thread::sleep(std::time::Duration::from_millis(150));
-    drop(held);
-
-    let result = waiter.join().expect("waiter thread panicked");
-    assert!(
-        result.is_ok(),
-        "same-process acquirer should succeed once the in-process lock frees: {result:?}"
-    );
-    assert!(
-        !lock_path.exists(),
-        "the waiter's guard should have removed the on-disk lock on drop"
-    );
-}
-
-#[test]
-fn clear_lock_if_stale_leaves_malformed_lock_alone() {
-    let tmp = TempDir::new().unwrap();
-    let store = AuthProfilesStore::new(tmp.path(), false);
-
-    let lock_path = tmp.path().join(LOCK_FILENAME);
-    std::fs::write(&lock_path, "garbage without a pid line\n").unwrap();
-
-    assert!(!store.clear_lock_if_stale());
-    assert!(
-        lock_path.exists(),
-        "malformed lock should not be auto-removed; fall back to busy-wait + timeout"
-    );
-}
-
-#[test]
-fn clear_lock_if_stale_is_noop_when_lock_missing() {
-    let tmp = TempDir::new().unwrap();
-    let store = AuthProfilesStore::new(tmp.path(), false);
-    assert!(!store.clear_lock_if_stale());
-}
-
-#[test]
-fn acquire_lock_writes_pid_so_future_callers_can_recover() {
-    let tmp = TempDir::new().unwrap();
-    let store = AuthProfilesStore::new(tmp.path(), false);
-
-    // Drive a real acquire/release cycle and snapshot the on-disk lock
-    // while the guard is held.
-    let lock_path = tmp.path().join(LOCK_FILENAME);
-    let observed = {
-        let _guard = store.acquire_lock().unwrap();
-        std::fs::read_to_string(&lock_path).unwrap()
-    };
-    assert!(
-        observed.contains(&format!("pid={}", std::process::id())),
-        "lock file should embed the owning pid, got {observed:?}"
-    );
-    assert!(!lock_path.exists(), "guard must remove lock on drop");
 }

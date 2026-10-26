@@ -105,7 +105,7 @@ impl StorageBackendForTest {
         );
         assert!(
             matches!(crate::storage::secrets::current(), Ok(Some(_))),
-            "the auth profiles must be served from storage secrets in this test"
+            "the storage backend should remain installed for the backend credential test"
         );
         Self(fixture)
     }
@@ -153,10 +153,9 @@ async fn signed_in_with_api_key(
 }
 
 // #6318 on the desktop's storage: the host boot installs a SQLite backend
-// (`session_store::install_for_host`), and with one installed the auth
-// profiles are a single secret in the acting scope rather than a file per
-// state directory. A session-only sign-out must still leave the API key
-// usable from the signed-out config.
+// (`session_store::install_for_host`). A session-only sign-out must still
+// leave the API key usable from the signed-out config, while profile metadata
+// remains in its independent profile-local encrypted file.
 #[cfg(feature = "storage-sqlite")]
 #[tokio::test(flavor = "multi_thread")]
 #[allow(clippy::await_holding_lock)] // Serializes the process-wide storage slot.

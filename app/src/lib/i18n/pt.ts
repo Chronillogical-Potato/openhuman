@@ -5179,6 +5179,25 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'Tentar novamente',
   'keyring.settings.toolTrustRevoke': 'Revogar',
   'keyring.settings.toolTrustRevoking': 'Revogando…',
+
+  // Per-operation TinySecurity keyring approval.
+  'keyring.operation.title': 'Solicitação de acesso ao chaveiro',
+  'keyring.operation.description':
+    'O TinySecurity está solicitando acesso a um item do chaveiro. Revise a operação antes de decidir.',
+  'keyring.operation.access': 'Acesso',
+  'keyring.operation.requester': 'Solicitado por',
+  'keyring.operation.origin': 'Origem',
+  'keyring.operation.purpose': 'Finalidade',
+  'keyring.operation.name': 'Item do chaveiro',
+  'keyring.operation.access.read': 'Ler',
+  'keyring.operation.access.write': 'Gravar',
+  'keyring.operation.access.delete': 'Excluir',
+  'keyring.operation.allow': 'Permitir uma vez',
+  'keyring.operation.deny': 'Negar',
+  'keyring.operation.submitting': 'Enviando…',
+  'keyring.operation.expires': 'A solicitação expira em {seconds}s.',
+  'keyring.operation.error':
+    'Não foi possível enviar sua decisão. A solicitação pode ter expirado.',
 };
 
 export default messages;

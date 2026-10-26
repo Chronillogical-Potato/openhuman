@@ -4,11 +4,12 @@ use zeroize::Zeroizing;
 
 use crate::config::Config;
 use crate::security::secret_storage::{EncryptedFileBackend, SecretStore};
+use tinystoragedrivers_secrets::{EncryptedFileSecrets, SecretStore as _};
 
 use super::{
     normalize_profile_id_provider, parse_datetime_with_fallback, parse_optional_datetime,
-    parse_profile_kind, profile_id, AuthProfile, AuthProfileKind, KeychainSecrets,
-    PersistedAuthProfile, PersistedAuthProfiles, TokenSet, CURRENT_SCHEMA_VERSION,
+    parse_profile_kind, profile_id, AuthProfile, AuthProfileKind, AuthProfilesStore,
+    KeychainSecrets, PersistedAuthProfile, PersistedAuthProfiles, TokenSet, CURRENT_SCHEMA_VERSION,
     PROFILES_FILENAME,
 };
 use crate::credentials::default_profile_id;
@@ -22,23 +23,50 @@ pub enum ReadOnlyAuthProfileError {
     InvalidStore,
 }
 
-/// Reads one selected profile from its config directory and profile-scoped
-/// encrypted-file backend, without locks, migrations, writes, or global
-/// storage/backend lookups.
+/// Reads one selected profile without mutating its document, acquiring locks,
+/// or migrating data. Keyring-backed secrets use TinySecurity's consent-gated
+/// read path; existing encrypted-document secrets remain readable as fallback.
 pub(super) fn load_profile(
     config: &Config,
     provider: &str,
     profile_override: Option<&str>,
 ) -> Result<Option<AuthProfile>, ReadOnlyAuthProfileError> {
+    load_profile_with_keyring(config, provider, profile_override, |store, id| {
+        store.keychain_load_secrets(id)
+    })
+}
+
+fn load_profile_with_keyring(
+    config: &Config,
+    provider: &str,
+    profile_override: Option<&str>,
+    read_keyring: impl Fn(&AuthProfilesStore, &str) -> anyhow::Result<Option<KeychainSecrets>>,
+) -> Result<Option<AuthProfile>, ReadOnlyAuthProfileError> {
     let state_dir = config
         .config_path
         .parent()
         .ok_or(ReadOnlyAuthProfileError::Unavailable)?;
-    let path = state_dir.join(PROFILES_FILENAME);
-    let bytes = match std::fs::read(&path) {
-        Ok(bytes) => bytes,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(_) => return Err(ReadOnlyAuthProfileError::Unavailable),
+    let bytes = {
+        let path = super::profiles_file(state_dir);
+        if path.exists() {
+            let directory = path.parent().ok_or(ReadOnlyAuthProfileError::Unavailable)?;
+            let store = EncryptedFileSecrets::with_key_file_read_only(directory)
+                .map_err(|_| ReadOnlyAuthProfileError::Unavailable)?;
+            let value = crate::storage::block_on(async move {
+                store.get(super::PROFILE_DOCUMENT_SECRET_NAME).await
+            })
+            .map_err(|_| ReadOnlyAuthProfileError::Unavailable)?;
+            value
+                .map(|value| value.to_vec())
+                .ok_or(ReadOnlyAuthProfileError::InvalidStore)?
+        } else {
+            let legacy = state_dir.join(PROFILES_FILENAME);
+            match std::fs::read(legacy) {
+                Ok(bytes) => bytes,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+                Err(_) => return Err(ReadOnlyAuthProfileError::Unavailable),
+            }
+        }
     };
     let persisted: PersistedAuthProfiles =
         serde_json::from_slice(&bytes).map_err(|_| ReadOnlyAuthProfileError::InvalidStore)?;
@@ -56,16 +84,42 @@ pub(super) fn load_profile(
         .ok_or(ReadOnlyAuthProfileError::InvalidStore)?;
 
     let user_id = super::user_id_from_state_dir(state_dir);
-    let profile_secret =
-        read_profile_secret(config, &user_id, &super::auth_profile_secret_key(&id));
-    let secrets = match profile_secret {
-        Ok(Some(payload)) => Some(
-            serde_json::from_str::<KeychainSecrets>(&payload)
-                .map_err(|_| ReadOnlyAuthProfileError::InvalidStore)?,
-        ),
-        Ok(None) => None,
-        Err(_) if has_json_secret_fields(profile) => None,
-        Err(error) => return Err(error),
+    let profile_store =
+        AuthProfilesStore::new_with_config(state_dir, config.secrets.encrypt, config);
+    let mut keyring_unavailable = false;
+    let keychain_secrets = if profile_store.use_keychain {
+        match read_keyring(&profile_store, &id) {
+            Ok(Some(secrets)) => Some(secrets),
+            Ok(None) => None,
+            Err(error) if super::keychain::is_consent_error(&error) => {
+                // Consent refusal and timeout are authoritative: do not bypass
+                // them by consulting the legacy encrypted secret backend.
+                return Err(ReadOnlyAuthProfileError::Unavailable);
+            }
+            Err(_) => {
+                keyring_unavailable = true;
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    let secrets = match keychain_secrets {
+        Some(secrets) => Some(secrets),
+        None => match read_profile_secret(config, &user_id, &super::auth_profile_secret_key(&id)) {
+            Ok(Some(payload)) => Some(
+                serde_json::from_str::<KeychainSecrets>(&payload)
+                    .map_err(|_| ReadOnlyAuthProfileError::InvalidStore)?,
+            ),
+            Ok(None) if keyring_unavailable && !has_json_secret_fields(profile) => {
+                return Err(ReadOnlyAuthProfileError::Unavailable);
+            }
+            Ok(None) => None,
+            Err(_) if has_json_secret_fields(profile) => None,
+            Err(_) if keyring_unavailable => return Err(ReadOnlyAuthProfileError::Unavailable),
+            Err(error) => return Err(error),
+        },
     };
 
     let encrypted_json = has_encrypted_json_fields(profile);
@@ -219,3 +273,7 @@ fn has_encrypted_json_fields(profile: &PersistedAuthProfile) -> bool {
     .flatten()
     .any(|value| value.starts_with("enc:") || value.starts_with("enc2:"))
 }
+
+#[cfg(test)]
+#[path = "readonly_tests.rs"]
+mod tests;

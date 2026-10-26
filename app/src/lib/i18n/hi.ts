@@ -5105,6 +5105,24 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'फिर कोशिश करें',
   'keyring.settings.toolTrustRevoke': 'वापस लें',
   'keyring.settings.toolTrustRevoking': 'वापस लिया जा रहा है…',
+
+  // Per-operation TinySecurity keyring approval.
+  'keyring.operation.title': 'कीरिंग पहुँच अनुरोध',
+  'keyring.operation.description':
+    'TinySecurity एक कीरिंग आइटम तक पहुँच चाहता है। निर्णय लेने से पहले कार्रवाई देखें।',
+  'keyring.operation.access': 'पहुँच',
+  'keyring.operation.requester': 'अनुरोधकर्ता',
+  'keyring.operation.origin': 'स्रोत',
+  'keyring.operation.purpose': 'उद्देश्य',
+  'keyring.operation.name': 'कीरिंग आइटम',
+  'keyring.operation.access.read': 'पढ़ना',
+  'keyring.operation.access.write': 'लिखना',
+  'keyring.operation.access.delete': 'मिटाना',
+  'keyring.operation.allow': 'एक बार अनुमति दें',
+  'keyring.operation.deny': 'अस्वीकार करें',
+  'keyring.operation.submitting': 'भेजा जा रहा है…',
+  'keyring.operation.expires': 'अनुरोध {seconds} सेकंड में समाप्त होगा।',
+  'keyring.operation.error': 'निर्णय भेजा नहीं जा सका। अनुरोध समाप्त हो चुका हो सकता है।',
 };
 
 export default messages;

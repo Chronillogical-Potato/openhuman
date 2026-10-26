@@ -5007,6 +5007,24 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'إعادة المحاولة',
   'keyring.settings.toolTrustRevoke': 'إلغاء',
   'keyring.settings.toolTrustRevoking': 'جارٍ الإلغاء…',
+
+  // Per-operation TinySecurity keyring approval.
+  'keyring.operation.title': 'طلب الوصول إلى سلسلة المفاتيح',
+  'keyring.operation.description':
+    'يطلب TinySecurity الوصول إلى عنصر واحد في سلسلة المفاتيح. راجع العملية قبل اتخاذ القرار.',
+  'keyring.operation.access': 'الوصول',
+  'keyring.operation.requester': 'مقدم الطلب',
+  'keyring.operation.origin': 'المصدر',
+  'keyring.operation.purpose': 'الغرض',
+  'keyring.operation.name': 'عنصر سلسلة المفاتيح',
+  'keyring.operation.access.read': 'قراءة',
+  'keyring.operation.access.write': 'كتابة',
+  'keyring.operation.access.delete': 'حذف',
+  'keyring.operation.allow': 'السماح مرة واحدة',
+  'keyring.operation.deny': 'رفض',
+  'keyring.operation.submitting': 'جارٍ الإرسال…',
+  'keyring.operation.expires': 'ينتهي الطلب خلال {seconds} ثانية.',
+  'keyring.operation.error': 'تعذر إرسال قرارك. ربما انتهت صلاحية الطلب.',
 };
 
 export default messages;
