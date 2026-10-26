@@ -203,7 +203,7 @@ pub fn user_id_from_jwt_claims(token: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-pub fn build_session_state(config: &Config) -> Result<AuthStateResponse, String> {
+pub async fn build_session_state(config: &Config) -> Result<AuthStateResponse, String> {
     // The API key wins whenever both are present — same precedence as
     // `resolve_backend_credential`, which every backend request actually
     // authenticates with. Checked before the session profile loads: a host
@@ -213,7 +213,7 @@ pub fn build_session_state(config: &Config) -> Result<AuthStateResponse, String>
     // would misidentify what's actually authenticating its requests. An API
     // key carries no user identity, so `user_id`/`user` stay `None` rather
     // than leaking the session's.
-    if super::api_key::has_api_key(config) {
+    if super::api_key::has_api_key(config).await {
         return Ok(AuthStateResponse {
             is_authenticated: true,
             user_id: None,
@@ -224,12 +224,12 @@ pub fn build_session_state(config: &Config) -> Result<AuthStateResponse, String>
             issuing_backend: None,
         });
     }
-    let profile = load_app_session_profile(config)?;
+    let profile = load_app_session_profile(config).await?;
     Ok(session_state_from_profile(profile.as_ref()))
 }
 
-pub fn get_session_token(config: &Config) -> Result<Option<String>, String> {
-    let profile = load_app_session_profile(config)?;
+pub async fn get_session_token(config: &Config) -> Result<Option<String>, String> {
+    let profile = load_app_session_profile(config).await?;
     session_token_for_config(config, profile.as_ref())
 }
 
@@ -365,10 +365,11 @@ pub fn require_live_session_token(config: &Config) -> Result<String, String> {
 /// lock, and on Windows the `app_state_snapshot` hot path used to take
 /// it twice per call which materially increased lock contention
 /// (Sentry: "Timed out waiting for auth profile lock").
-pub fn load_app_session_profile(config: &Config) -> Result<Option<AuthProfile>, String> {
+pub async fn load_app_session_profile(config: &Config) -> Result<Option<AuthProfile>, String> {
     let auth_service = AuthService::from_config(config);
     auth_service
         .get_profile(APP_SESSION_PROVIDER, None)
+        .await
         .map_err(|e| e.to_string())
 }
 
