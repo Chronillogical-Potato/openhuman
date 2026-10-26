@@ -76,6 +76,7 @@ async fn native_jail_request_preserves_grants_and_requires_enforcement() -> anyh
         read_only_mounts: vec![readonly.path().to_path_buf()],
         read_write_mounts: vec![readwrite.path().to_path_buf()],
         allow_network: false,
+        mount_workspace: true,
         env_passthrough: Vec::new(),
         docker_overrides: None,
     };
@@ -369,6 +370,7 @@ async fn disabled_tinybox_module_never_falls_back_to_host_execution() -> anyhow:
         read_only_mounts: Vec::new(),
         read_write_mounts: Vec::new(),
         allow_network: true,
+        mount_workspace: true,
         env_passthrough: Vec::new(),
         docker_overrides: None,
     };
@@ -486,6 +488,7 @@ async fn released_tinybox_runs_a_native_jail_through_the_pinned_loader() -> anyh
         read_only_mounts: Vec::new(),
         read_write_mounts: Vec::new(),
         allow_network: true,
+        mount_workspace: true,
         env_passthrough: Vec::new(),
         docker_overrides: None,
     };

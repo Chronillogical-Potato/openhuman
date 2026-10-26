@@ -19,6 +19,7 @@ fn policy(workspace: &Path) -> SandboxPolicy {
         read_only_mounts: vec![],
         read_write_mounts: vec![],
         allow_network: false,
+        mount_workspace: true,
         env_passthrough: vec![],
         docker_overrides: None,
     }
