@@ -133,9 +133,14 @@ pub async fn enforce_prompt_input(
     if input.len() > MAX_PROMPT_BYTES {
         return held_decision(input, context, "input.oversized");
     }
+    #[cfg(feature = "security-module")]
     let Some(config) = crate::core::runtime::CoreContext::current_embedder_config() else {
         return held_decision(input, context, "screen.unavailable");
     };
+    #[cfg(not(feature = "security-module"))]
+    if crate::core::runtime::CoreContext::current_embedder_config().is_none() {
+        return held_decision(input, context, "screen.unavailable");
+    }
     #[cfg(feature = "security-module")]
     let scanned = tokio::time::timeout(std::time::Duration::from_secs(2), async {
         let client = crate::modules::security::client(&config)
@@ -217,6 +222,7 @@ pub struct ToolDefinitionScanHit {
 
 /// Scan tool metadata through TinySecurity. Failure is represented as a hit.
 pub async fn scan_tool_definition(field: &str, text: &str) -> Option<ToolDefinitionScanHit> {
+    #[cfg(feature = "security-module")]
     let Some(config) = crate::core::runtime::CoreContext::current_embedder_config() else {
         return Some(ToolDefinitionScanHit {
             code: "scan.unavailable".into(),
@@ -225,6 +231,7 @@ pub async fn scan_tool_definition(field: &str, text: &str) -> Option<ToolDefinit
             verdict: PromptInjectionVerdict::Review,
         });
     };
+    #[cfg(feature = "security-module")]
     let definition = serde_json::json!({field: text});
     #[cfg(feature = "security-module")]
     let scanned = tokio::time::timeout(std::time::Duration::from_secs(2), async {

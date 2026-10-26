@@ -454,6 +454,7 @@ pub(crate) async fn tools_safe_for_agent(
     use crate::core::events::DomainEvent;
     let mut safe = Vec::with_capacity(tools.len());
     for tool in tools {
+        #[cfg(feature = "security-module")]
         let definition = serde_json::json!({
             "name": &tool.name,
             "description": &tool.description,

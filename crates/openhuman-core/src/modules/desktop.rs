@@ -50,7 +50,9 @@ pub(crate) async fn proxy(config: &Config) -> Result<Proxy, String> {
 
     // Reinitialization is private and retains no plaintext secret in this host.
     // The lock makes credential rotation atomic across concurrent tool calls.
-    let mut configuration = module_config(config);
+    let configuration = module_config(config);
+    #[cfg(feature = "security-module")]
+    let mut configuration = configuration;
     #[cfg(feature = "security-module")]
     {
         let callback_destination = crate::modules::ops::consequence_callback_destination(MODULE_ID)
