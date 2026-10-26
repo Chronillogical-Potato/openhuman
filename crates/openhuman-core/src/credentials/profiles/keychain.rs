@@ -1,6 +1,7 @@
 //! OS-keychain backed secret storage for individual auth profiles.
 
 use anyhow::Context;
+#[cfg(feature = "security-module")]
 use std::time::Duration;
 
 #[derive(Debug)]
