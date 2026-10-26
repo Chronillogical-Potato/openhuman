@@ -390,6 +390,7 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
     .expect("write raw profile fixture without mutable auth APIs");
 
     let selected = AuthService::get_profile_read_only(&config, OPENAI_PROVIDER_KEY, None)
+        .await
         .expect("selected profile is readable without mutable auth")
         .expect("selected API-key profile exists");
     assert_eq!(selected.profile_name, "default");
@@ -399,6 +400,7 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
         OPENAI_PROVIDER_KEY,
         Some(OPENAI_OAUTH_PROFILE_NAME),
     )
+    .await
     .expect("named OAuth profile is readable without refreshing")
     .expect("expired OAuth profile exists");
     assert!(oauth
@@ -408,6 +410,7 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
         .is_some_and(|expires_at| expires_at < Utc::now()));
     let selected_codex_credential =
         super::credentials::lookup_key_for_slug_read_only("openai", &config)
+            .await
             .expect("read selected OpenAI API-key credential");
     assert_eq!(selected_codex_credential.key, "dummy-selected-api-key");
     assert!(!selected_codex_credential.is_oauth);
@@ -434,7 +437,8 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
         "chat",
         &config,
         0.0,
-    );
+    )
+    .await;
     assert!(
         inspected.is_ok(),
         "the selected API-key profile is sufficient for model construction"
@@ -455,6 +459,7 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
         "inspection must leave all credential bytes unchanged"
     );
     let selected_after = AuthService::get_profile_read_only(&config, OPENAI_PROVIDER_KEY, None)
+        .await
         .expect("selected profile remains readable")
         .expect("selected profile remains present");
     assert_eq!(selected_after.profile_name, "default");
@@ -467,6 +472,7 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
         OPENAI_PROVIDER_KEY,
         Some(OPENAI_OAUTH_PROFILE_NAME),
     )
+    .await
     .expect("OAuth snapshot remains readable")
     .expect("OAuth snapshot remains present");
     assert_eq!(

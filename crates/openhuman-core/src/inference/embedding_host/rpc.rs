@@ -88,7 +88,8 @@ pub(crate) async fn resolve_api_key_read_only(
     };
     let cred_provider = format!("embeddings:{slug}");
     Ok(
-        AuthService::get_provider_bearer_token_read_only(config, &cred_provider, None).await?
+        AuthService::get_provider_bearer_token_read_only(config, &cred_provider, None)
+            .await?
             .unwrap_or_default(),
     )
 }
