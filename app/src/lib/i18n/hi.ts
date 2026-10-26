@@ -5096,7 +5096,8 @@ const messages: TranslationMap = {
   'settings.approvalHistory.judgeExpires': '{time} पर समाप्त',
   // Whole-tool approval grants
   'keyring.settings.toolTrustTitle': 'हमेशा अनुमत टूल',
-  'keyring.settings.toolTrustDescription': 'इस सुरक्षा दायरे में ये टूल बिना स्वीकृति माँगे चल सकते हैं।',
+  'keyring.settings.toolTrustDescription':
+    'इस सुरक्षा दायरे में ये टूल बिना स्वीकृति माँगे चल सकते हैं।',
   'keyring.settings.toolTrustLoading': 'अनुमत टूल लोड हो रहे हैं…',
   'keyring.settings.toolTrustLoadFailed': 'अनुमत टूल लोड नहीं हो सके।',
   'keyring.settings.toolTrustRevokeFailed': 'इस टूल की अनुमति वापस नहीं ली जा सकी।',
@@ -5104,7 +5105,6 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'फिर कोशिश करें',
   'keyring.settings.toolTrustRevoke': 'वापस लें',
   'keyring.settings.toolTrustRevoking': 'वापस लिया जा रहा है…',
-
 };
 
 export default messages;

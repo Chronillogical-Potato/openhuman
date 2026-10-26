@@ -5248,7 +5248,8 @@ const messages: TranslationMap = {
   'settings.approvalHistory.judgeExpires': 'Läuft ab: {time}',
   // Whole-tool approval grants
   'keyring.settings.toolTrustTitle': 'Immer erlaubte Tools',
-  'keyring.settings.toolTrustDescription': 'Diese Tools können in diesem Sicherheitsbereich ohne Genehmigungsabfrage ausgeführt werden.',
+  'keyring.settings.toolTrustDescription':
+    'Diese Tools können in diesem Sicherheitsbereich ohne Genehmigungsabfrage ausgeführt werden.',
   'keyring.settings.toolTrustLoading': 'Erlaubte Tools werden geladen…',
   'keyring.settings.toolTrustLoadFailed': 'Erlaubte Tools konnten nicht geladen werden.',
   'keyring.settings.toolTrustRevokeFailed': 'Die Tool-Freigabe konnte nicht widerrufen werden.',
@@ -5256,7 +5257,6 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'Erneut versuchen',
   'keyring.settings.toolTrustRevoke': 'Widerrufen',
   'keyring.settings.toolTrustRevoking': 'Wird widerrufen…',
-
 };
 
 export default messages;

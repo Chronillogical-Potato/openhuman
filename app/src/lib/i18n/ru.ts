@@ -5152,7 +5152,8 @@ const messages: TranslationMap = {
   'settings.approvalHistory.judgeExpires': 'Истекает {time}',
   // Whole-tool approval grants
   'keyring.settings.toolTrustTitle': 'Всегда разрешённые инструменты',
-  'keyring.settings.toolTrustDescription': 'Эти инструменты могут запускаться без запроса подтверждения в этой области безопасности.',
+  'keyring.settings.toolTrustDescription':
+    'Эти инструменты могут запускаться без запроса подтверждения в этой области безопасности.',
   'keyring.settings.toolTrustLoading': 'Загрузка разрешённых инструментов…',
   'keyring.settings.toolTrustLoadFailed': 'Не удалось загрузить разрешённые инструменты.',
   'keyring.settings.toolTrustRevokeFailed': 'Не удалось отозвать разрешение для этого инструмента.',
@@ -5160,7 +5161,6 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'Повторить',
   'keyring.settings.toolTrustRevoke': 'Отозвать',
   'keyring.settings.toolTrustRevoking': 'Отзыв…',
-
 };
 
 export default messages;

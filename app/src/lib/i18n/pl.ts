@@ -5169,7 +5169,8 @@ const messages: TranslationMap = {
   'settings.approvalHistory.judgeExpires': 'Wygasa {time}',
   // Whole-tool approval grants
   'keyring.settings.toolTrustTitle': 'Zawsze dozwolone narzędzia',
-  'keyring.settings.toolTrustDescription': 'Te narzędzia mogą działać bez pytania o zgodę w tym zakresie bezpieczeństwa.',
+  'keyring.settings.toolTrustDescription':
+    'Te narzędzia mogą działać bez pytania o zgodę w tym zakresie bezpieczeństwa.',
   'keyring.settings.toolTrustLoading': 'Wczytywanie dozwolonych narzędzi…',
   'keyring.settings.toolTrustLoadFailed': 'Nie udało się wczytać dozwolonych narzędzi.',
   'keyring.settings.toolTrustRevokeFailed': 'Nie udało się cofnąć tego uprawnienia narzędzia.',
@@ -5177,7 +5178,6 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'Ponów',
   'keyring.settings.toolTrustRevoke': 'Cofnij',
   'keyring.settings.toolTrustRevoking': 'Cofanie…',
-
 };
 
 export default messages;

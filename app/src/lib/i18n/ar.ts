@@ -4998,7 +4998,8 @@ const messages: TranslationMap = {
   'settings.approvalHistory.judgeExpires': 'تنتهي الصلاحية {time}',
   // Whole-tool approval grants
   'keyring.settings.toolTrustTitle': 'الأدوات المسموح بها دائمًا',
-  'keyring.settings.toolTrustDescription': 'يمكن تشغيل هذه الأدوات دون طلب موافقة ضمن نطاق الأمان هذا.',
+  'keyring.settings.toolTrustDescription':
+    'يمكن تشغيل هذه الأدوات دون طلب موافقة ضمن نطاق الأمان هذا.',
   'keyring.settings.toolTrustLoading': 'جارٍ تحميل الأدوات المسموح بها…',
   'keyring.settings.toolTrustLoadFailed': 'تعذّر تحميل الأدوات المسموح بها.',
   'keyring.settings.toolTrustRevokeFailed': 'تعذّر إلغاء الإذن لهذه الأداة.',
@@ -5006,7 +5007,6 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'إعادة المحاولة',
   'keyring.settings.toolTrustRevoke': 'إلغاء',
   'keyring.settings.toolTrustRevoking': 'جارٍ الإلغاء…',
-
 };
 
 export default messages;

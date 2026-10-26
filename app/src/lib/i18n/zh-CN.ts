@@ -4822,7 +4822,6 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': '重试',
   'keyring.settings.toolTrustRevoke': '撤销',
   'keyring.settings.toolTrustRevoking': '正在撤销…',
-
 };
 
 export default messages;

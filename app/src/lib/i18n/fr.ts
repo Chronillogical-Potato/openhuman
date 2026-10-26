@@ -5223,7 +5223,8 @@ const messages: TranslationMap = {
   'settings.approvalHistory.judgeExpires': 'Expire le {time}',
   // Whole-tool approval grants
   'keyring.settings.toolTrustTitle': 'Outils toujours autorisés',
-  'keyring.settings.toolTrustDescription': 'Ces outils peuvent s’exécuter sans demander d’approbation dans ce périmètre de sécurité.',
+  'keyring.settings.toolTrustDescription':
+    'Ces outils peuvent s’exécuter sans demander d’approbation dans ce périmètre de sécurité.',
   'keyring.settings.toolTrustLoading': 'Chargement des outils autorisés…',
   'keyring.settings.toolTrustLoadFailed': 'Impossible de charger les outils autorisés.',
   'keyring.settings.toolTrustRevokeFailed': 'Impossible de révoquer cette autorisation d’outil.',
@@ -5231,7 +5232,6 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'Réessayer',
   'keyring.settings.toolTrustRevoke': 'Révoquer',
   'keyring.settings.toolTrustRevoking': 'Révocation…',
-
 };
 
 export default messages;

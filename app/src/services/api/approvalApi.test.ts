@@ -3,9 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   type ApprovalAuditEntry,
   decideApproval,
-  fetchToolTrust,
   fetchPendingApprovals,
   fetchRecentApprovalDecisions,
+  fetchToolTrust,
   preauthorizeFlow,
   revokeToolTrust,
   unwrapRows,

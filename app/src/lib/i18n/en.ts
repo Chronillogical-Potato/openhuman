@@ -5371,7 +5371,8 @@ const en: TranslationMap = {
   'settings.approvalHistory.judgeExpires': 'Expires {time}',
   // Whole-tool approval grants
   'keyring.settings.toolTrustTitle': 'Always-allowed tools',
-  'keyring.settings.toolTrustDescription': 'These tools can run without an approval prompt in this security scope.',
+  'keyring.settings.toolTrustDescription':
+    'These tools can run without an approval prompt in this security scope.',
   'keyring.settings.toolTrustLoading': 'Loading allowed tools…',
   'keyring.settings.toolTrustLoadFailed': 'Could not load allowed tools.',
   'keyring.settings.toolTrustRevokeFailed': 'Could not revoke this tool grant.',
@@ -5379,7 +5380,6 @@ const en: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'Retry',
   'keyring.settings.toolTrustRevoke': 'Revoke',
   'keyring.settings.toolTrustRevoking': 'Revoking…',
-
 };
 
 export default en;

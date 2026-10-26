@@ -5097,7 +5097,8 @@ const messages: TranslationMap = {
   'settings.approvalHistory.judgeExpires': 'Son kullanma {time}',
   // Whole-tool approval grants
   'keyring.settings.toolTrustTitle': 'Her zaman izin verilen araçlar',
-  'keyring.settings.toolTrustDescription': 'Bu araçlar, bu güvenlik kapsamında onay istemeden çalışabilir.',
+  'keyring.settings.toolTrustDescription':
+    'Bu araçlar, bu güvenlik kapsamında onay istemeden çalışabilir.',
   'keyring.settings.toolTrustLoading': 'İzin verilen araçlar yükleniyor…',
   'keyring.settings.toolTrustLoadFailed': 'İzin verilen araçlar yüklenemedi.',
   'keyring.settings.toolTrustRevokeFailed': 'Bu araç izni geri alınamadı.',
@@ -5105,7 +5106,6 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'Yeniden dene',
   'keyring.settings.toolTrustRevoke': 'Geri al',
   'keyring.settings.toolTrustRevoking': 'Geri alınıyor…',
-
 };
 
 export default messages;
