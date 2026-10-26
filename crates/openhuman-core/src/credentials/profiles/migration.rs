@@ -22,6 +22,7 @@ impl AuthProfilesStore {
         let mut persisted = self.read_persisted_locked()?;
         let mut dropped_ids: Vec<String> = Vec::new();
         let mut pending_keychain_deletes = Vec::new();
+        let mut unavailable_keyring_ids = Vec::new();
         let mut profiles = BTreeMap::new();
         for (id, p) in &persisted.profiles {
             // Current secrets may live in the keyring or in the encrypted
@@ -43,7 +44,11 @@ impl AuthProfilesStore {
                         secrets.id_token,
                         secrets.token,
                     ),
-                    keychain_result => match decrypt_document_secrets() {
+                    keychain_result => {
+                        if keychain_result.is_err() && keychain_held_oauth(p) {
+                            unavailable_keyring_ids.push(id.clone());
+                        }
+                        match decrypt_document_secrets() {
                         Ok(secrets) => secrets,
                         Err(decrypt_error) => {
                             if let Err(keychain_error) = keychain_result {
@@ -61,6 +66,7 @@ impl AuthProfilesStore {
                             dropped_ids.push(id.clone());
                             continue;
                         }
+                    }
                     },
                 }
             } else {
@@ -92,7 +98,7 @@ impl AuthProfilesStore {
             let token_set = match kind {
                 AuthProfileKind::OAuth => {
                     let Some(access_token) = access_token else {
-                        if !self.use_keychain && keychain_held_oauth(p) {
+                        if unavailable_keyring_ids.contains(id) {
                             continue;
                         }
                         log::warn!(
