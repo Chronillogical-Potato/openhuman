@@ -354,10 +354,11 @@ pub(super) fn try_create_cloud_slug_chat_model_with_native_tools_for(
         extensions,
         CredentialAccess::Runtime,
         None,
+        None,
     )
 }
 
-pub(super) fn try_create_cloud_slug_chat_model_for_inspection_with_identity(
+pub(super) async fn try_create_cloud_slug_chat_model_for_inspection_with_identity(
     role: &str,
     config: &Config,
     extensions: Option<&crate::core::slots::Extensions>,
@@ -367,6 +368,19 @@ pub(super) fn try_create_cloud_slug_chat_model_for_inspection_with_identity(
     if resolved.trim().is_empty() || resolved.trim() == "cloud" {
         resolved = resolve_primary_cloud_provider_string(config);
     }
+    let inspection_credential = if let Some((slug, _)) = resolved.split_once(':') {
+        let entry = config.cloud_providers.iter().find(|entry| entry.slug == slug.trim());
+        if entry.is_some_and(|entry| entry.auth_style != AuthStyle::OpenhumanJwt) {
+            match super::credentials::lookup_key_for_slug_read_only(slug.trim(), config).await {
+                Ok(credential) => Some(credential),
+                Err(error) => return Some(Err(error)),
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
     let result = try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
         role,
         &resolved,
@@ -375,6 +389,7 @@ pub(super) fn try_create_cloud_slug_chat_model_for_inspection_with_identity(
         &EgressLedger::none(),
         extensions,
         CredentialAccess::Inspection,
+        inspection_credential.as_ref(),
         Some(&mut identity),
     )?;
     Some(result.and_then(|(model, model_id)| {
@@ -395,6 +410,7 @@ fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
     egress: &EgressLedger,
     extensions: Option<&crate::core::slots::Extensions>,
     credential_access: CredentialAccess,
+    inspection_credential: Option<&super::credentials::ReadOnlyCloudCredential>,
     inspection_identity: Option<
         &mut Option<(String, String, String, InspectionOutputBudgetCapability)>,
     >,
@@ -413,6 +429,7 @@ fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
         egress,
         extensions,
         credential_access,
+        inspection_credential,
         inspection_identity,
     )
 }
@@ -445,6 +462,7 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
         extensions.as_ref(),
         CredentialAccess::Runtime,
         None,
+        None,
     )
 }
 
@@ -465,6 +483,7 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools_for
         extensions,
         CredentialAccess::Runtime,
         None,
+        None,
     )
 }
 
@@ -476,6 +495,7 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
     egress: &EgressLedger,
     extensions: Option<&crate::core::slots::Extensions>,
     credential_access: CredentialAccess,
+    inspection_credential: Option<&super::credentials::ReadOnlyCloudCredential>,
     mut inspection_identity: Option<
         &mut Option<(String, String, String, InspectionOutputBudgetCapability)>,
     >,
