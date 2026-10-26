@@ -5147,6 +5147,38 @@ const messages: TranslationMap = {
   'flows.nodeKind.loop': 'Loop',
 
   'settings.layout.corners.round': 'Arredondado',
+  // Security policy diagnostics
+  'devOptions.toolPolicyDiagnostics.notBuilt':
+    'O diagnóstico de políticas não está incluído neste núcleo.',
+  'devOptions.toolPolicyDiagnostics.policy.title': 'Política de segurança ativa',
+  'devOptions.toolPolicyDiagnostics.policy.autonomy': 'Autonomia',
+  'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'Somente no espaço de trabalho',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'Máximo de ações por hora',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': 'Exigir aprovação para risco médio',
+  'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'Bloquear comandos de alto risco',
+  'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'Comandos permitidos',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands':
+    'Nenhum comando foi permitido explicitamente.',
+
+  // Automatic approval attribution
+  'settings.approvalHistory.autoJev': 'Jev',
+  'settings.approvalHistory.autoPolicy': 'Política',
+  'settings.approvalHistory.judgeScores':
+    'Intenção {intent} · Reversível {reversible} · Exfiltração {exfiltrate}',
+  'settings.approvalHistory.judgeCached': 'em cache',
+  'settings.approvalHistory.judgeExpires': 'Expira em {time}',
+  // Whole-tool approval grants
+  'keyring.settings.toolTrustTitle': 'Ferramentas sempre permitidas',
+  'keyring.settings.toolTrustDescription':
+    'Estas ferramentas podem ser executadas sem pedir aprovação neste escopo de segurança.',
+  'keyring.settings.toolTrustLoading': 'Carregando ferramentas permitidas…',
+  'keyring.settings.toolTrustLoadFailed': 'Não foi possível carregar as ferramentas permitidas.',
+  'keyring.settings.toolTrustRevokeFailed':
+    'Não foi possível revogar esta permissão da ferramenta.',
+  'keyring.settings.toolTrustEmpty': 'Nenhuma ferramenta está sempre permitida.',
+  'keyring.settings.toolTrustRetry': 'Tentar novamente',
+  'keyring.settings.toolTrustRevoke': 'Revogar',
+  'keyring.settings.toolTrustRevoking': 'Revogando…',
 };
 
 export default messages;

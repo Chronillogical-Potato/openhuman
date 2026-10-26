@@ -4794,6 +4794,34 @@ const messages: TranslationMap = {
 
   'settings.layout.corners.round': '圆角',
   'settings.layout.contrast.subtle': '微妙',
+  // Security policy diagnostics
+  'devOptions.toolPolicyDiagnostics.notBuilt': '此核心未构建策略诊断功能。',
+  'devOptions.toolPolicyDiagnostics.policy.title': '当前安全策略',
+  'devOptions.toolPolicyDiagnostics.policy.autonomy': '自主级别',
+  'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': '仅限工作区',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': '每小时最多操作数',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': '中风险操作需要审批',
+  'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': '阻止高风险命令',
+  'devOptions.toolPolicyDiagnostics.policy.allowedCommands': '允许的命令',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': '没有明确允许的命令。',
+
+  // Automatic approval attribution
+  'settings.approvalHistory.autoJev': 'Jev',
+  'settings.approvalHistory.autoPolicy': '策略',
+  'settings.approvalHistory.judgeScores':
+    '意图 {intent} · 可逆性 {reversible} · 数据外泄 {exfiltrate}',
+  'settings.approvalHistory.judgeCached': '已缓存',
+  'settings.approvalHistory.judgeExpires': '到期时间：{time}',
+  // Whole-tool approval grants
+  'keyring.settings.toolTrustTitle': '始终允许的工具',
+  'keyring.settings.toolTrustDescription': '在此安全范围内，这些工具可以无需审批提示直接运行。',
+  'keyring.settings.toolTrustLoading': '正在加载允许的工具…',
+  'keyring.settings.toolTrustLoadFailed': '无法加载允许的工具。',
+  'keyring.settings.toolTrustRevokeFailed': '无法撤销此工具授权。',
+  'keyring.settings.toolTrustEmpty': '没有始终允许的工具。',
+  'keyring.settings.toolTrustRetry': '重试',
+  'keyring.settings.toolTrustRevoke': '撤销',
+  'keyring.settings.toolTrustRevoking': '正在撤销…',
 };
 
 export default messages;
