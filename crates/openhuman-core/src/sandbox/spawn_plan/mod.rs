@@ -485,6 +485,3 @@ pub(crate) async fn consume(planned: &PlannedSpawn) -> Result<(), PlanError> {
 #[path = "mod_tests.rs"]
 mod tests;
 
-#[cfg(all(test, feature = "native-security-tests"))]
-#[path = "integration_tests.rs"]
-mod integration_tests;

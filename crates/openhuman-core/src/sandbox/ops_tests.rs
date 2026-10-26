@@ -1,5 +1,5 @@
 use super::*;
-use crate::config::RuntimeConfig;
+use crate::config::{RuntimeConfig, SandboxConfig};
 use crate::core::runtime::DispatchCtx;
 use crate::sandbox::{
     shell_exec::ShellRunOutcome,
@@ -13,11 +13,11 @@ use tinyagents_definition::SandboxMode;
 
 #[test]
 fn resolve_sandbox_policy_none_mode() {
-    let policy = resolve_sandbox_policy(
-        &DispatchCtx::unbound(),
+    let policy = crate::sandbox::policy::route_for_mode(
         SandboxMode::None,
         Path::new("/tmp/action"),
         Path::new("/tmp/state"),
+        &SandboxConfig::default(),
         &RuntimeConfig::default(),
         false,
     );
@@ -26,11 +26,11 @@ fn resolve_sandbox_policy_none_mode() {
 
 #[test]
 fn resolve_sandbox_policy_read_only_mode() {
-    let policy = resolve_sandbox_policy(
-        &DispatchCtx::unbound(),
+    let policy = crate::sandbox::policy::route_for_mode(
         SandboxMode::ReadOnly,
         Path::new("/tmp/action"),
         Path::new("/tmp/state"),
+        &SandboxConfig::default(),
         &RuntimeConfig::default(),
         false,
     );
@@ -39,11 +39,11 @@ fn resolve_sandbox_policy_read_only_mode() {
 
 #[test]
 fn resolve_sandbox_policy_sandboxed_local() {
-    let policy = resolve_sandbox_policy(
-        &DispatchCtx::unbound(),
+    let policy = crate::sandbox::policy::route_for_mode(
         SandboxMode::Sandboxed,
         Path::new("/tmp/action"),
         Path::new("/tmp/state"),
+        &SandboxConfig::default(),
         &RuntimeConfig::default(),
         false,
     );
@@ -53,11 +53,11 @@ fn resolve_sandbox_policy_sandboxed_local() {
 
 #[test]
 fn resolve_sandbox_policy_sandboxed_remote_uses_docker() {
-    let policy = resolve_sandbox_policy(
-        &DispatchCtx::unbound(),
+    let policy = crate::sandbox::policy::route_for_mode(
         SandboxMode::Sandboxed,
         Path::new("/tmp/action"),
         Path::new("/tmp/state"),
+        &SandboxConfig::default(),
         &RuntimeConfig::default(),
         true,
     );
@@ -72,11 +72,11 @@ fn resolve_sandbox_policy_docker_runtime_forces_docker() {
         kind: "docker".into(),
         ..RuntimeConfig::default()
     };
-    let policy = resolve_sandbox_policy(
-        &DispatchCtx::unbound(),
+    let policy = crate::sandbox::policy::route_for_mode(
         SandboxMode::Sandboxed,
         Path::new("/tmp/action"),
         Path::new("/tmp/state"),
+        &SandboxConfig::default(),
         &config,
         false,
     );
@@ -86,8 +86,7 @@ fn resolve_sandbox_policy_docker_runtime_forces_docker() {
 
 #[tokio::test]
 async fn create_sandbox_backend_none() {
-    let policy = resolve_sandbox_policy(
-        &DispatchCtx::unbound(),
+    let policy = crate::sandbox::policy::route_for_mode(
         SandboxMode::None,
         Path::new("/tmp"),
         Path::new("/tmp/state"),
@@ -106,6 +105,7 @@ fn unsandboxed_policy(workspace: &Path, state: &Path) -> SandboxPolicy {
         SandboxMode::None,
         workspace,
         state,
+        &SandboxConfig::default(),
         &RuntimeConfig::default(),
         false,
     )

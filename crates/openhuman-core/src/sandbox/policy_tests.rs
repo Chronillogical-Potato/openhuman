@@ -96,10 +96,9 @@ fn a_workspace_less_container_is_asked_for_only_by_the_docker_runtime() {
 }
 
 #[test]
-fn the_loaded_configuration_fills_in_a_backend_the_caller_did_not_name() {
+fn an_explicit_backend_is_routed_as_a_module_preference() {
     let mut config = Config::default();
     config.sandbox.backend = SandboxBackend::Docker;
-    let unnamed = policy(SandboxMode::None, &SandboxConfig::default(), &RuntimeConfig::default(), false);
     assert_eq!(
         route_for_mode(SandboxMode::None, &config.action_dir, &config.workspace_dir, &config.sandbox, &config.runtime, false).backend,
         SandboxBackendKind::Docker
@@ -107,14 +106,10 @@ fn the_loaded_configuration_fills_in_a_backend_the_caller_did_not_name() {
 }
 
 #[test]
-fn a_backend_the_caller_named_is_never_replaced_by_the_configuration() {
-    let mut config = Config::default();
-    config.sandbox.backend = SandboxBackend::Landlock;
-    let named = policy(SandboxMode::None, &SandboxConfig::default(), &RuntimeConfig::default(), false);
-    named.backend = SandboxBackendKind::Docker;
+fn sandboxed_mode_prefers_the_native_jail_on_a_native_host() {
     assert_eq!(
-        route_for_mode(SandboxMode::None, &config.action_dir, &config.workspace_dir, &config.sandbox, &config.runtime, false).backend,
-        SandboxBackendKind::Docker
+        policy(SandboxMode::Sandboxed, &SandboxConfig::default(), &RuntimeConfig::default(), false).backend,
+        SandboxBackendKind::Local
     );
 }
 
