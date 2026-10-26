@@ -19,18 +19,12 @@ use crate::config::Config;
 pub enum SecurityError {
     /// The module is absent, disabled, faulted, or failed to answer.
     Unavailable(String),
-    /// The human denied this exact keyring operation.
-    ConsentDenied,
-    /// The operation did not receive a decision before its approval deadline.
-    ConsentPending,
 }
 
 impl std::fmt::Display for SecurityError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Unavailable(reason) => write!(f, "security module unavailable: {reason}"),
-            Self::ConsentDenied => f.write_str("keyring operation denied by the human"),
-            Self::ConsentPending => f.write_str("keyring operation approval timed out"),
         }
     }
 }
@@ -314,12 +308,12 @@ impl Client {
         request: KeyringRequest2,
     ) -> Result<KeyringResponse2, SecurityError> {
         self.object
-            .call_confidential_detailed(
+            .call_confidential(
                 tinysecurity_bus::names::methods::KEYRING_ACCESS2,
                 (request,),
             )
             .await
-            .map_err(keyring_access_error)
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
     }
 
     /// Validate a live browser tunnel lease.
@@ -398,14 +392,3 @@ impl Client {
     }
 }
 
-fn keyring_access_error(error: tinybus::module::ModuleCallFailure) -> SecurityError {
-    match error.wire_name.as_str() {
-        "ai.tinyhumans.tinysecurity.Error.ConsentDenied" => SecurityError::ConsentDenied,
-        "ai.tinyhumans.tinysecurity.Error.ConsentPending" => SecurityError::ConsentPending,
-        _ => SecurityError::Unavailable(error.to_string()),
-    }
-}
-
-#[cfg(test)]
-#[path = "client_tests.rs"]
-mod tests;

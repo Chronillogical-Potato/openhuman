@@ -6,6 +6,12 @@ use tokio::sync::oneshot;
 
 pub(crate) const MAX_PENDING_APPROVALS: usize = 64;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum OperationOutcome {
+    Denied,
+    Pending,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct ApprovalPrompt {
     pub request_id: String,
@@ -20,9 +26,14 @@ pub(crate) struct PendingConsentRegistry {
 }
 
 static PENDING: OnceLock<Mutex<PendingConsentRegistry>> = OnceLock::new();
+static CALL_OUTCOMES: OnceLock<Mutex<HashMap<String, OperationOutcome>>> = OnceLock::new();
 
 fn pending() -> &'static Mutex<PendingConsentRegistry> {
     PENDING.get_or_init(|| Mutex::new(PendingConsentRegistry::default()))
+}
+
+fn call_outcomes() -> &'static Mutex<HashMap<String, OperationOutcome>> {
+    CALL_OUTCOMES.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 impl PendingConsentRegistry {
@@ -93,7 +104,34 @@ pub(crate) async fn request_approval(
         },
     );
 
-    await_decision(pending(), &prompt.request_id, waiter, timeout).await
+    let call_id = request.caller.call_id;
+    let decision = await_decision(pending(), &prompt.request_id, waiter, timeout).await;
+    let outcome = match decision {
+        Some(false) => Some(OperationOutcome::Denied),
+        None => Some(OperationOutcome::Pending),
+        Some(true) => None,
+    };
+    if let Some(outcome) = outcome
+        && let Ok(mut outcomes) = call_outcomes().lock()
+    {
+        // Call ids are host-generated UUIDs. Keep the handoff bounded if a
+        // caller task disappears before consuming its correlated outcome.
+        if outcomes.len() >= MAX_PENDING_APPROVALS {
+            if let Some(oldest) = outcomes.keys().next().cloned() {
+                outcomes.remove(&oldest);
+            }
+        }
+        outcomes.insert(call_id, outcome);
+    }
+    decision
+}
+
+/// Consume the decision for one host-generated keyring operation id.
+pub(crate) fn take_operation_outcome(call_id: &str) -> Option<OperationOutcome> {
+    call_outcomes()
+        .lock()
+        .ok()
+        .and_then(|mut outcomes| outcomes.remove(call_id))
 }
 
 async fn await_decision(
