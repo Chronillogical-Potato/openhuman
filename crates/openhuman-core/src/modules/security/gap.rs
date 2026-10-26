@@ -71,6 +71,21 @@ pub(crate) async fn privacy_check_with_config(
         .map_err(|error| error.to_string())
 }
 
+/// TinySecurity's U5 provider-host locality classification. Failure is returned
+/// as an error so callers can treat an unavailable authority as external.
+pub(crate) async fn classify_provider_host(host: String) -> Result<bool, String> {
+    let config = crate::core::runtime::DispatchCtx::ambient()
+        .load_config()
+        .await?;
+    let response = super::client(&config)
+        .await
+        .map_err(|error| error.to_string())?
+        .classify_provider_endpoint2(host)
+        .await
+        .map_err(|error| error.to_string())?;
+    Ok(response.locality == tinysecurity_bus::ProviderEndpointLocality2::OnDevice)
+}
+
 /// Whether to reserve an action or inspect the budget without reserving it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum BudgetOp {
