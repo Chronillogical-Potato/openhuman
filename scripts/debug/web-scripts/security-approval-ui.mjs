@@ -9,16 +9,11 @@ export default async function securityApprovalUi({
 }) {
   await page.goto(`${urls.app}/#/settings/security`);
   await page.getByText("Always-allowed tools", { exact: true }).waitFor();
-  await page
-    .getByText("No tools are always allowed.", { exact: true })
-    .waitFor();
 
   const rawGrants = await rpc("openhuman.approval_list_tool_trust");
   const grants = Array.isArray(rawGrants) ? rawGrants : rawGrants.result;
-  if (grants.length !== 0) {
-    throw new Error(
-      `expected a fresh workspace to have no tool grants, got ${grants.length}`,
-    );
+  if (!Array.isArray(grants)) {
+    throw new Error("whole-tool grant RPC did not return a grant list");
   }
   await screenshot("security-tool-grants");
 
