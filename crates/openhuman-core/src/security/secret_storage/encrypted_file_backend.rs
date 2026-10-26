@@ -12,7 +12,6 @@ use std::sync::OnceLock;
 use crate::security::secret_storage::adapter;
 use crate::security::secret_storage::backend::SecretBackend;
 use crate::security::secret_storage::error::SecretStorageError;
-use crate::security::secret_storage::file_store;
 use crate::security::secret_storage::store::BackendKind;
 use tinystoragedrivers::secrets::crypto;
 use tinystoragedrivers::secrets::{CorruptFilePolicy, EncryptedFileSecrets};
@@ -369,6 +368,10 @@ impl EncryptedFileBackend {
             .with_corrupt_file_policy(CorruptFilePolicy::QuarantineAndContinue)
     }
 
+    fn read_only_store(&self, key: &[u8; KEY_LEN]) -> EncryptedFileSecrets {
+        EncryptedFileSecrets::at_path(self.path.clone(), Zeroizing::new(*key))
+    }
+
     /// Run one call through the driver's host-selected corruption policy.
     fn run<T, F, Fut>(&self, key: &[u8; KEY_LEN], op: F) -> Result<T, SecretStorageError>
     where
@@ -396,7 +399,7 @@ impl EncryptedFileBackend {
             CleanupAcknowledgment, FileImportSource, SecretStore as _,
         };
 
-        let store = self.store(key);
+        let store = self.read_only_store(key);
         let completed = crate::storage::block_on(store.get(LEGACY_IMPORT_COMPLETE))
             .map_err(adapter::backend_error)?;
         if completed.is_some() {
