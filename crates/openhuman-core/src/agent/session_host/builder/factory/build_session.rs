@@ -25,9 +25,8 @@ impl OpenHumanSessionHost {
             &config.workspace_dir,
             &config.action_dir,
         ));
-        // Phase 1 of #1401: see comment in channels/runtime/startup.rs.
         let audit = crate::security::get_or_create_workspace_audit_logger(
-            crate::config::AuditConfig::default(),
+            config.audit.clone(),
             config.workspace_dir.clone(),
         )?;
 
