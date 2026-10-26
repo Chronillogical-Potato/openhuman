@@ -12,7 +12,9 @@ use tinytools::ToolRunContext;
 
 use crate::{
     agent::tinyagents::host::run_context::approval_for_tool,
-    security::{AuditLogger, CommandExecutionLog, SecurityPolicy},
+    config::Config,
+    core::runtime::DispatchCtx,
+    security::{audit_record::HostAuditEvent, AuditLogger, SecurityPolicy},
 };
 
 /// Host-owned gate for package installation. The generic TinyAgents tool owns
@@ -21,6 +23,8 @@ use crate::{
 pub(super) struct InstallGate {
     pub security: Arc<SecurityPolicy>,
     pub audit: Arc<AuditLogger>,
+    pub config: Arc<Config>,
+    pub audit_context: std::sync::Mutex<Option<DispatchCtx>>,
     pub environment: std::collections::BTreeMap<std::ffi::OsString, std::ffi::OsString>,
 }
 
@@ -39,6 +43,12 @@ impl ExecGate for InstallGate {
         request: &ExecAuthorizationRequest,
         context: Option<&dyn ToolRunContext>,
     ) -> Result<ExecPermit, ExecDenied> {
+        *self
+            .audit_context
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(
+            crate::agent::tinyagents::host::run_context::dispatch_ctx_for_tool(context),
+        );
         let ExecOperation::Install { .. } = &request.operation else {
             return Err(ExecDenied(
                 "install gate received a non-install operation".into(),
@@ -90,28 +100,38 @@ impl ExecGate for InstallGate {
     }
 
     fn record(&self, event: ExecAuditEvent) {
-        let (command, risk_level) = match &event.operation {
-            ExecOperation::Install { package, manager } => {
-                (format!("{manager} install {package}"), "install")
-            }
-            ExecOperation::Shell { command, category } => {
-                (command.clone(), category.as_deref().unwrap_or("unknown"))
-            }
+        let command = match &event.operation {
+            ExecOperation::Install { package, manager } => format!("{manager} install {package}"),
+            ExecOperation::Shell { command, .. } => command.clone(),
         };
         let success = matches!(
             event.outcome,
             ExecAuditOutcome::Completed { success: true, .. }
         );
-        if let Err(error) = self.audit.log_command_event(CommandExecutionLog {
-            channel: "tool:install_tool",
-            command: &command,
-            risk_level,
-            approved: event.approval_required,
-            allowed: event.allowed,
-            success,
-            duration_ms: u64::try_from(event.duration.as_millis()).unwrap_or(u64::MAX),
-        }) {
-            tracing::warn!(error = %error, "[install_tool] failed to persist execution audit event");
+        if self.audit.is_enabled() {
+            let ctx = self
+                .audit_context
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .take();
+            if let Some(ctx) = ctx {
+                let config = Arc::clone(&self.config);
+                let event = HostAuditEvent::command_execution(
+                    "tool:install_tool",
+                    &command,
+                    event.approval_required,
+                    event.allowed,
+                    success,
+                    u64::try_from(event.duration.as_millis()).unwrap_or(u64::MAX),
+                );
+                tokio::spawn(async move {
+                    if let Err(error) = crate::security::audit_record::record(&ctx, Some(&config), event).await {
+                        tracing::warn!(error = %error, "[install_tool] execution audit row was not recorded");
+                    }
+                });
+            } else {
+                tracing::warn!("[install_tool] execution audit row had no dispatch context");
+            }
         }
         if let ExecAuditOutcome::BackendRefused {
             kind: ExecRefusalKind::BackendUnavailable,

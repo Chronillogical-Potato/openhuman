@@ -6,6 +6,7 @@ use tinyagents_harness_tools::exec::{ExecBackend, InstallTool};
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext, ToolTimeout};
 
 use crate::security::{AuditLogger, SecurityPolicy};
+use crate::config::Config;
 
 use super::exec_adapters::InstallGate;
 
@@ -20,9 +21,18 @@ impl InstallToolTool {
     }
 
     pub fn with_audit(security: Arc<SecurityPolicy>, audit: Arc<AuditLogger>) -> Self {
+        Self::with_audit_and_config(security, audit, Arc::new(Config::default()))
+    }
+
+    pub fn with_audit_and_config(
+        security: Arc<SecurityPolicy>,
+        audit: Arc<AuditLogger>,
+        config: Arc<Config>,
+    ) -> Self {
         Self::with_backend_and_environment(
             security,
             audit,
+            config,
             Arc::new(tinyagents_harness_tools::exec::NativeExecBackend::new(
                 tinyagents_harness_tools::exec::ShellFlavor::Posix,
             )),
@@ -33,12 +43,15 @@ impl InstallToolTool {
     fn with_backend_and_environment(
         security: Arc<SecurityPolicy>,
         audit: Arc<AuditLogger>,
+        config: Arc<Config>,
         backend: Arc<dyn ExecBackend>,
         environment: std::collections::BTreeMap<std::ffi::OsString, std::ffi::OsString>,
     ) -> Self {
         let gate = Arc::new(InstallGate {
             security,
             audit,
+            config,
+            audit_context: std::sync::Mutex::new(None),
             environment,
         });
         Self {
