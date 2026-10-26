@@ -3,6 +3,27 @@
 use anyhow::Context;
 use std::time::Duration;
 
+#[derive(Debug)]
+pub(super) enum KeyringConsentError {
+    Denied,
+    Pending,
+}
+
+impl std::fmt::Display for KeyringConsentError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Denied => f.write_str("human denied this keyring operation"),
+            Self::Pending => f.write_str("keyring operation approval timed out"),
+        }
+    }
+}
+
+impl std::error::Error for KeyringConsentError {}
+
+pub(super) fn is_consent_error(error: &anyhow::Error) -> bool {
+    error.downcast_ref::<KeyringConsentError>().is_some()
+}
+
 use super::{AuthProfile, AuthProfilesStore, KeychainSecrets};
 
 impl AuthProfilesStore {
@@ -118,16 +139,44 @@ impl AuthProfilesStore {
             purpose: "OpenHuman auth profile credential access".into(),
             operation,
         };
-        crate::modules::security::sync_seam::run(Duration::from_secs(125), async move {
-            let client = crate::modules::security::client(&config)
-                .await
-                .map_err(|error| error.to_string())?;
-            client
-                .keyring_access2(request)
-                .await
-                .map_err(|error| error.to_string())
-        })
-        .map_err(anyhow::Error::msg)
+        #[cfg(feature = "security-module")]
+        {
+            let outcome = crate::modules::security::sync_seam::run(
+                Duration::from_secs(125),
+                async move {
+                    let client = crate::modules::security::client(&config)
+                        .await
+                        .map_err(|error| match error {
+                            crate::modules::security::SecurityError::ConsentDenied => {
+                                "openhuman:consent-denied".to_owned()
+                            }
+                            crate::modules::security::SecurityError::ConsentPending => {
+                                "openhuman:consent-pending".to_owned()
+                            }
+                            error => error.to_string(),
+                        })?;
+                    client.keyring_access2(request).await.map_err(|error| match error {
+                        crate::modules::security::SecurityError::ConsentDenied => {
+                            "openhuman:consent-denied".to_owned()
+                        }
+                        crate::modules::security::SecurityError::ConsentPending => {
+                            "openhuman:consent-pending".to_owned()
+                        }
+                        error => error.to_string(),
+                    })
+                },
+            );
+            outcome.map_err(|error| match error.as_str() {
+                "openhuman:consent-denied" => anyhow::Error::new(KeyringConsentError::Denied),
+                "openhuman:consent-pending" => anyhow::Error::new(KeyringConsentError::Pending),
+                _ => anyhow::Error::msg(error),
+            })
+        }
+        #[cfg(not(feature = "security-module"))]
+        {
+            let _ = (config, request);
+            Err(anyhow::anyhow!("TinySecurity is not built into this host"))
+        }
     }
 }
 

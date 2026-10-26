@@ -19,6 +19,7 @@ impl AuthProfilesStore {
         encrypt_secrets: bool,
         config: &crate::config::Config,
     ) -> Self {
+        #[cfg(feature = "security-module")]
         crate::modules::security::sync_seam::arm_current();
         Self::construct(state_dir, encrypt_secrets, Some(config.clone()))
     }

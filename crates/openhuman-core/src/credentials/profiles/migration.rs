@@ -44,24 +44,9 @@ impl AuthProfilesStore {
                         secrets.id_token,
                         secrets.token,
                     ),
-                    keychain_result => {
-                        if preserve_keyring_only_oauth_after_access_failure(
-                            p,
-                            keychain_result.is_err(),
-                        ) {
-                            unavailable_keyring_ids.push(id.clone());
-                        }
-                        match decrypt_document_secrets() {
+                    Ok(None) => match decrypt_document_secrets() {
                         Ok(secrets) => secrets,
                         Err(decrypt_error) => {
-                            if let Err(keychain_error) = keychain_result {
-                                // The keyring may still contain the only copy.
-                                // Keep the store intact until it can be read.
-                                log::warn!(
-                                    "[auth] keyring and encrypted document unavailable for profile_id={id}: {decrypt_error}"
-                                );
-                                return Err(keychain_error);
-                            }
                             log::warn!(
                                 "[auth] dropping unrecoverable profile provider={}: {decrypt_error}",
                                 p.provider
@@ -69,8 +54,28 @@ impl AuthProfilesStore {
                             dropped_ids.push(id.clone());
                             continue;
                         }
-                    }
                     },
+                    Err(keyring_error) => {
+                        if super::keychain::is_consent_error(&keyring_error) {
+                            // An explicit refusal or timeout is authoritative:
+                            // do not read a second copy from the profile document.
+                            return Err(keyring_error);
+                        }
+                        if preserve_keyring_only_oauth_after_access_failure(p, true) {
+                            unavailable_keyring_ids.push(id.clone());
+                        }
+                        match decrypt_document_secrets() {
+                            Ok(secrets) => secrets,
+                            Err(decrypt_error) => {
+                                // The keyring may still contain the only copy.
+                                // Keep the store intact until it can be read.
+                                log::warn!(
+                                    "[auth] keyring and encrypted document unavailable for profile_id={id}: {decrypt_error}"
+                                );
+                                return Err(keyring_error);
+                            }
+                        }
+                    }
                 }
             } else {
                 match decrypt_document_secrets() {
