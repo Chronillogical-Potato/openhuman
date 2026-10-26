@@ -77,13 +77,16 @@ export default async function securityApprovalUi({ page, rpc, urls, log, screens
 
   await page.goto(`${urls.app}/#/settings/approval-history`);
   await page.getByTestId('approval-history-panel').waitFor();
-  await page.getByText('Automatic via Jev', { exact: true }).waitFor();
-  await page.getByTestId('approval-history-judge-scores').getByText(/95%/).waitFor();
-  const policy = page.getByText('Automatic via policy', { exact: true });
+  const autoRows = page.getByTestId('approval-history-auto');
+  const jev = autoRows.nth(0);
+  await jev.getByText('Jev', { exact: true }).waitFor();
+  await jev.waitFor();
+  await jev.getByTestId('approval-history-judge-scores').getByText(/95%/).waitFor();
+  const policy = autoRows.nth(1);
+  await policy.getByText('Policy', { exact: true }).waitFor();
   await policy.waitFor();
   if (
     await policy
-      .locator('xpath=ancestor::*[@data-testid="approval-history-auto"]')
       .getByTestId('approval-history-judge-scores')
       .count()
   ) {
