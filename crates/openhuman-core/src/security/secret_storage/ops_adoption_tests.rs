@@ -7,9 +7,9 @@ use std::sync::Arc;
 use tinystoragedrivers::secrets::{DerivedKeys, SecretStore as _};
 use zeroize::Zeroizing;
 
-use crate::security::secret_storage::SecretBackend;
 use crate::security::secret_storage::backend::MockBackend;
-use crate::storage::{Scope, StorageBackend, test_support::memory_backend};
+use crate::security::secret_storage::SecretBackend;
+use crate::storage::{test_support::memory_backend, Scope, StorageBackend};
 
 #[test]
 fn encrypted_file_is_unavailable_without_an_initialized_master_key() {
