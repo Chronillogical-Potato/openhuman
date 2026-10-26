@@ -11,9 +11,15 @@ struct RacingBackend {
 
 impl SecretBackend for RacingBackend {
     fn get(&self, name: &str) -> Result<Option<String>, SecretStorageError> {
+        let sidecar = crate::security::secret_storage::file_store::lock_path_for(&self.lock_path);
+        let lock_file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(sidecar)
+            .expect("the cross-process lock must exist before reading the key");
         assert!(
-            crate::security::secret_storage::file_store::lock_path_for(&self.lock_path).exists(),
-            "the cross-process lock must be held before reading the key"
+            fs2::FileExt::try_lock_exclusive(&lock_file).is_err(),
+            "the cross-process lock must remain held while reading the key"
         );
         // Widen the old get/set race window without introducing a timing
         // assertion into the test itself.
