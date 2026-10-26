@@ -45,7 +45,6 @@ fn test_bundled_record() -> &'static crate::modules::types::ModuleRecord {
         },
     }))
 }
-
 /// The record pins the empty-input digest, so the staged empty archive passes
 /// the digest check and fails to unpack. Digest rejection itself is tinybus's
 /// to test; this pins only that the host reports it and never falls back to
