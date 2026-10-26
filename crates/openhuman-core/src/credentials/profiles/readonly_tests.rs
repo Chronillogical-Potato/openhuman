@@ -43,7 +43,6 @@ async fn read_only_profile_loads_secrets_stored_in_tinysecurity_keyring() {
 #[cfg(feature = "security-module")]
 #[tokio::test]
 async fn read_only_profile_does_not_bypass_denied_keyring_consent() {
-fn read_only_profile_does_not_bypass_denied_keyring_consent() {
     let tmp = TempDir::new().unwrap();
     let state_dir = tmp.path();
     let config = config_for(state_dir);
