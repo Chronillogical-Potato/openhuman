@@ -148,8 +148,11 @@ fn keychain_read_error_with_undecryptable_json_keeps_the_profile() {
     let f = locked_keychain_store();
     let mut persisted = f.store.read_persisted_locked().unwrap();
     persisted.profiles.retain(|id, _| id == &f.oauth_id);
-    persisted.profiles.get_mut(&f.oauth_id).unwrap().access_token =
-        Some("enc2:not-decryptable".into());
+    persisted
+        .profiles
+        .get_mut(&f.oauth_id)
+        .unwrap()
+        .access_token = Some("enc2:not-decryptable".into());
     persisted.active_profiles.clear();
     f.store.write_persisted_locked(&persisted).unwrap();
     let json_before = serde_json::to_value(f.store.read_persisted_locked().unwrap()).unwrap();

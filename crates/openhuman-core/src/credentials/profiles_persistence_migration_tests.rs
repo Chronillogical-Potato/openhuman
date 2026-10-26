@@ -12,7 +12,6 @@ fn auth_profile_kind_serde_roundtrip() {
     assert_eq!(json, "\"token\"");
 }
 
-
 #[test]
 fn migration_normalizes_provider_but_preserves_profile_name_casing() {
     let tmp = TempDir::new().unwrap();
@@ -34,7 +33,11 @@ fn migration_normalizes_provider_but_preserves_profile_name_casing() {
             }
         }
     });
-    std::fs::write(store.legacy_path.as_path(), serde_json::to_vec_pretty(&raw_json).unwrap()).unwrap();
+    std::fs::write(
+        store.legacy_path.as_path(),
+        serde_json::to_vec_pretty(&raw_json).unwrap(),
+    )
+    .unwrap();
 
     let data = store.load().unwrap();
     let profile = data.profiles.get("provider:deepseek:Work").unwrap();
@@ -78,7 +81,11 @@ fn migration_collision_prefers_existing_lowercase_key() {
         }
     });
 
-    std::fs::write(store.legacy_path.as_path(), serde_json::to_vec_pretty(&raw_json).unwrap()).unwrap();
+    std::fs::write(
+        store.legacy_path.as_path(),
+        serde_json::to_vec_pretty(&raw_json).unwrap(),
+    )
+    .unwrap();
 
     let data = store.load().unwrap();
 
@@ -121,7 +128,11 @@ fn migration_profile_id_collision_prefers_canonical_lowercase() {
         }
     });
 
-    std::fs::write(store.legacy_path.as_path(), serde_json::to_vec_pretty(&raw_json).unwrap()).unwrap();
+    std::fs::write(
+        store.legacy_path.as_path(),
+        serde_json::to_vec_pretty(&raw_json).unwrap(),
+    )
+    .unwrap();
 
     let data = store.load().unwrap();
 

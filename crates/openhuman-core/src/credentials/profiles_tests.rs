@@ -8,10 +8,10 @@ use tempfile::TempDir;
 /// that has since exited.
 const SYNTHETIC_DEAD_PID: u32 = i32::MAX as u32;
 
-#[path = "profiles_keychain_error_tests.rs"]
-mod keychain_error_tests;
 #[path = "profiles_behavior_tests.rs"]
 mod behavior_tests;
+#[path = "profiles_keychain_error_tests.rs"]
+mod keychain_error_tests;
 #[path = "profiles_persistence_migration_tests.rs"]
 mod persistence_migration_tests;
 #[path = "profiles_storage_tests.rs"]

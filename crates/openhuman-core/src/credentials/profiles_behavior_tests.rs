@@ -69,18 +69,19 @@ async fn store_roundtrip_with_encryption() {
 }
 
 #[tokio::test]
-async fn atomic_write_replaces_file() {
+async fn profile_write_publishes_an_encrypted_document() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
 
     let profile = AuthProfile::new_token("anthropic", "default", "token-abc".into());
     store.upsert_profile(profile, true).unwrap();
 
-    let path = store.legacy_path.clone();
+    let path = store.path().to_path_buf();
     assert!(path.exists());
 
-    let contents = tokio::fs::read_to_string(path).await.unwrap();
-    assert!(contents.contains("\"schema_version\": 1"));
+    let bytes = tokio::fs::read(path).await.unwrap();
+    assert!(!is_persisted_document(&bytes));
+    assert!(!String::from_utf8_lossy(&bytes).contains("token-abc"));
 }
 
 #[test]
@@ -134,7 +135,7 @@ fn auth_profiles_data_default() {
 fn corrupt_store_is_quarantined_and_reset() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
-    let path = store.path().to_path_buf();
+    let path = store.legacy_path.clone();
 
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(&path, b"{ not valid json").unwrap();
@@ -252,23 +253,32 @@ fn load_drops_profiles_with_unrecognized_kind_instead_of_failing_load() {
     //   - "OAuth"  : observed in Sentry issue #2605 (258 events) — the
     //                pre-kebab-case serialized form
     let mut data = store.read_persisted_locked().unwrap();
-    data.profiles.insert("legacy:apikey".into(), serde_json::from_value(serde_json::json!({
-        "provider": "legacy",
-        "profile_name": "apikey",
-        "kind": "api_key",
-        "token": "raw-token",
-        "created_at": "2025-01-01T00:00:00Z",
-        "updated_at": "2025-01-01T00:00:00Z",
-    })).unwrap());
-    data.profiles.insert("legacy:oauth".into(), serde_json::from_value(serde_json::json!({
-        "provider": "legacy",
-        "profile_name": "oauth",
-        "kind": "OAuth",
-        "access_token": "raw-access",
-        "created_at": "2025-01-01T00:00:00Z",
-        "updated_at": "2025-01-01T00:00:00Z",
-    })).unwrap());
-    data.active_profiles.insert("legacy".into(), "legacy:apikey".into());
+    data.profiles.insert(
+        "legacy:apikey".into(),
+        serde_json::from_value(serde_json::json!({
+            "provider": "legacy",
+            "profile_name": "apikey",
+            "kind": "api_key",
+            "token": "raw-token",
+            "created_at": "2025-01-01T00:00:00Z",
+            "updated_at": "2025-01-01T00:00:00Z",
+        }))
+        .unwrap(),
+    );
+    data.profiles.insert(
+        "legacy:oauth".into(),
+        serde_json::from_value(serde_json::json!({
+            "provider": "legacy",
+            "profile_name": "oauth",
+            "kind": "OAuth",
+            "access_token": "raw-access",
+            "created_at": "2025-01-01T00:00:00Z",
+            "updated_at": "2025-01-01T00:00:00Z",
+        }))
+        .unwrap(),
+    );
+    data.active_profiles
+        .insert("legacy".into(), "legacy:apikey".into());
     store.write_persisted_locked(&data).unwrap();
 
     // The load must succeed — the only failure mode prior to the fix was
