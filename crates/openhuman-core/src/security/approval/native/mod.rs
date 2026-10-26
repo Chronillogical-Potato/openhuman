@@ -65,6 +65,13 @@ impl SecretScope {
         self.entry.stream.lock().await
     }
 
+    pub(crate) fn begin_prompt(
+        &self,
+        prompt: std::sync::Arc<dyn super::engine::PromptSurface>,
+    ) -> bool {
+        host().begin_secret_prompt(std::sync::Arc::clone(&self.entry), prompt)
+    }
+
     /// Allocate a correlation for the next audit event while holding `lock`.
     pub(crate) async fn correlation(
         &self,
