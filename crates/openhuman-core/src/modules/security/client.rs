@@ -5,7 +5,7 @@ use tinysecurity_bus::{
     CommandPolicyId, CommandRequest, CredentialRootsRequest2, CredentialRootsResponse2,
     HostActionClassRequest2, HostActionClassResponse2, PathBatchRequest2, PathBatchResponse2,
     PathPolicy, PathPolicyId, PathValidationRequest, PathValidationResult, PolicyInfo,
-    ProtectedFloor2, ProtectedPathRequest2, ProtectedPathResponse2, RedactMode, RedactRequest,
+    PrivacyCheckRequest2, PrivacyCheckResponse2, Decision, ProtectedFloor2, ProtectedPathRequest2, ProtectedPathResponse2, RedactMode, RedactRequest,
     RedactResponse, RedactWithRequest, ScanPromptScoredRequest2, ScanPromptScoredResponse2,
     ScanResponse, ScanToolDefinitionRequest, Secret,
 };
@@ -231,6 +231,19 @@ impl Client {
             )
             .await
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Ask TinySecurity whether one descriptor-level egress transfer is allowed.
+    pub async fn privacy_check2(
+        &self,
+        request: PrivacyCheckRequest2,
+    ) -> Result<Decision, SecurityError> {
+        let response: PrivacyCheckResponse2 = self
+            .object
+            .call_confidential(tinysecurity_bus::names::methods::PRIVACY_CHECK2, (request,))
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))?;
+        Ok(response.decision)
     }
 
     /// Register an immutable host-derived command scope.

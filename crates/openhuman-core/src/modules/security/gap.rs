@@ -13,8 +13,55 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use tinysecurity_bus::{
-    BudgetDecision2, CommandPolicy, CommandPolicyId, PathCheckKind, PathPolicy, PathPolicyId,
+    BudgetDecision2, CommandPolicy, CommandPolicyId, Decision, PathCheckKind, PathPolicy,
+    PathPolicyId, PrivacyCheckRequest2,
 };
+
+/// Test seam for descriptor-level egress decisions.
+#[cfg(test)]
+#[async_trait]
+pub(crate) trait PrivacyPort: std::fmt::Debug + Send + Sync {
+    async fn privacy(&self, request: PrivacyCheckRequest2) -> Result<Decision, String>;
+}
+
+#[cfg(test)]
+thread_local! {
+    static TEST_PRIVACY_PORT: std::cell::RefCell<Option<Arc<dyn PrivacyPort>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+#[cfg(test)]
+pub(crate) struct PrivacyPortGuard(Option<Arc<dyn PrivacyPort>>);
+
+#[cfg(test)]
+impl Drop for PrivacyPortGuard {
+    fn drop(&mut self) {
+        TEST_PRIVACY_PORT.with(|slot| *slot.borrow_mut() = self.0.take());
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn install_privacy_port(port: Arc<dyn PrivacyPort>) -> PrivacyPortGuard {
+    PrivacyPortGuard(TEST_PRIVACY_PORT.with(|slot| slot.borrow_mut().replace(port)))
+}
+
+/// `PrivacyCheck2` for a single host-derived egress descriptor. Module errors
+/// remain errors so callers can refuse the transfer.
+pub(crate) async fn privacy_check(request: PrivacyCheckRequest2) -> Result<Decision, String> {
+    #[cfg(test)]
+    if let Some(port) = TEST_PRIVACY_PORT.with(|slot| slot.borrow().clone()) {
+        return port.privacy(request).await;
+    }
+    let config = crate::core::runtime::DispatchCtx::ambient()
+        .load_config()
+        .await?;
+    super::client(&config)
+        .await
+        .map_err(|error| error.to_string())?
+        .privacy_check2(request)
+        .await
+        .map_err(|error| error.to_string())
+}
 
 /// Whether to reserve an action or inspect the budget without reserving it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
