@@ -200,7 +200,7 @@ async fn media_tools_deliver_images_and_videos_through_the_backend_proxy() {
     let registered = openhuman_core::tools::ops::all_tools(
         Arc::new(config.clone()),
         &security,
-        openhuman_core::security::AuditLogger::disabled(),
+        openhuman_core::security::AuditSink::disabled(),
         &config.browser,
         &config.http_request,
         &action_dir,
