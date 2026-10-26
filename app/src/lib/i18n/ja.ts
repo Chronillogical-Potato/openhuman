@@ -5448,6 +5448,17 @@ const messages: TranslationMap = {
     '意図 {intent} · 可逆性 {reversible} · 情報流出 {exfiltrate}',
   'settings.approvalHistory.judgeCached': 'キャッシュ済み',
   'settings.approvalHistory.judgeExpires': '{time} に期限切れ',
+  // Whole-tool approval grants
+  'keyring.settings.toolTrustTitle': '常に許可するツール',
+  'keyring.settings.toolTrustDescription': 'このセキュリティ範囲では、これらのツールは承認を求めずに実行できます。',
+  'keyring.settings.toolTrustLoading': '許可されたツールを読み込み中…',
+  'keyring.settings.toolTrustLoadFailed': '許可されたツールを読み込めませんでした。',
+  'keyring.settings.toolTrustRevokeFailed': 'このツールの許可を取り消せませんでした。',
+  'keyring.settings.toolTrustEmpty': '常に許可されたツールはありません。',
+  'keyring.settings.toolTrustRetry': '再試行',
+  'keyring.settings.toolTrustRevoke': '取り消す',
+  'keyring.settings.toolTrustRevoking': '取り消し中…',
+
 };
 
 export default messages;

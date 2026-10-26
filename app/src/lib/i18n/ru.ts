@@ -5150,6 +5150,17 @@ const messages: TranslationMap = {
     'Намерение {intent} · Обратимость {reversible} · Утечка данных {exfiltrate}',
   'settings.approvalHistory.judgeCached': 'из кэша',
   'settings.approvalHistory.judgeExpires': 'Истекает {time}',
+  // Whole-tool approval grants
+  'keyring.settings.toolTrustTitle': 'Всегда разрешённые инструменты',
+  'keyring.settings.toolTrustDescription': 'Эти инструменты могут запускаться без запроса подтверждения в этой области безопасности.',
+  'keyring.settings.toolTrustLoading': 'Загрузка разрешённых инструментов…',
+  'keyring.settings.toolTrustLoadFailed': 'Не удалось загрузить разрешённые инструменты.',
+  'keyring.settings.toolTrustRevokeFailed': 'Не удалось отозвать разрешение для этого инструмента.',
+  'keyring.settings.toolTrustEmpty': 'Нет инструментов с постоянным разрешением.',
+  'keyring.settings.toolTrustRetry': 'Повторить',
+  'keyring.settings.toolTrustRevoke': 'Отозвать',
+  'keyring.settings.toolTrustRevoking': 'Отзыв…',
+
 };
 
 export default messages;

@@ -5094,6 +5094,17 @@ const messages: TranslationMap = {
     'উদ্দেশ্য {intent} · প্রত্যাবর্তনযোগ্য {reversible} · তথ্য ফাঁস {exfiltrate}',
   'settings.approvalHistory.judgeCached': 'ক্যাশ করা',
   'settings.approvalHistory.judgeExpires': '{time}-এ মেয়াদ শেষ',
+  // Whole-tool approval grants
+  'keyring.settings.toolTrustTitle': 'সবসময় অনুমোদিত টুল',
+  'keyring.settings.toolTrustDescription': 'এই নিরাপত্তা পরিসরে অনুমোদন না চেয়েই এই টুলগুলো চালানো যায়।',
+  'keyring.settings.toolTrustLoading': 'অনুমোদিত টুল লোড হচ্ছে…',
+  'keyring.settings.toolTrustLoadFailed': 'অনুমোদিত টুল লোড করা যায়নি।',
+  'keyring.settings.toolTrustRevokeFailed': 'এই টুলের অনুমতি প্রত্যাহার করা যায়নি।',
+  'keyring.settings.toolTrustEmpty': 'সবসময় অনুমোদিত কোনো টুল নেই।',
+  'keyring.settings.toolTrustRetry': 'আবার চেষ্টা করুন',
+  'keyring.settings.toolTrustRevoke': 'প্রত্যাহার',
+  'keyring.settings.toolTrustRevoking': 'প্রত্যাহার হচ্ছে…',
+
 };
 
 export default messages;

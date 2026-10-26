@@ -5095,6 +5095,17 @@ const messages: TranslationMap = {
     'Amaç {intent} · Geri alınabilirlik {reversible} · Veri sızdırma {exfiltrate}',
   'settings.approvalHistory.judgeCached': 'önbellekte',
   'settings.approvalHistory.judgeExpires': 'Son kullanma {time}',
+  // Whole-tool approval grants
+  'keyring.settings.toolTrustTitle': 'Her zaman izin verilen araçlar',
+  'keyring.settings.toolTrustDescription': 'Bu araçlar, bu güvenlik kapsamında onay istemeden çalışabilir.',
+  'keyring.settings.toolTrustLoading': 'İzin verilen araçlar yükleniyor…',
+  'keyring.settings.toolTrustLoadFailed': 'İzin verilen araçlar yüklenemedi.',
+  'keyring.settings.toolTrustRevokeFailed': 'Bu araç izni geri alınamadı.',
+  'keyring.settings.toolTrustEmpty': 'Her zaman izin verilen araç yok.',
+  'keyring.settings.toolTrustRetry': 'Yeniden dene',
+  'keyring.settings.toolTrustRevoke': 'Geri al',
+  'keyring.settings.toolTrustRevoking': 'Geri alınıyor…',
+
 };
 
 export default messages;

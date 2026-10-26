@@ -5167,6 +5167,17 @@ const messages: TranslationMap = {
     'Intencja {intent} · Odwracalność {reversible} · Eksfiltracja {exfiltrate}',
   'settings.approvalHistory.judgeCached': 'z pamięci podręcznej',
   'settings.approvalHistory.judgeExpires': 'Wygasa {time}',
+  // Whole-tool approval grants
+  'keyring.settings.toolTrustTitle': 'Zawsze dozwolone narzędzia',
+  'keyring.settings.toolTrustDescription': 'Te narzędzia mogą działać bez pytania o zgodę w tym zakresie bezpieczeństwa.',
+  'keyring.settings.toolTrustLoading': 'Wczytywanie dozwolonych narzędzi…',
+  'keyring.settings.toolTrustLoadFailed': 'Nie udało się wczytać dozwolonych narzędzi.',
+  'keyring.settings.toolTrustRevokeFailed': 'Nie udało się cofnąć tego uprawnienia narzędzia.',
+  'keyring.settings.toolTrustEmpty': 'Brak narzędzi zawsze dozwolonych.',
+  'keyring.settings.toolTrustRetry': 'Ponów',
+  'keyring.settings.toolTrustRevoke': 'Cofnij',
+  'keyring.settings.toolTrustRevoking': 'Cofanie…',
+
 };
 
 export default messages;

@@ -5167,6 +5167,17 @@ const messages: TranslationMap = {
     'Intenção {intent} · Reversível {reversible} · Exfiltração {exfiltrate}',
   'settings.approvalHistory.judgeCached': 'em cache',
   'settings.approvalHistory.judgeExpires': 'Expira em {time}',
+  // Whole-tool approval grants
+  'keyring.settings.toolTrustTitle': 'Ferramentas sempre permitidas',
+  'keyring.settings.toolTrustDescription': 'Estas ferramentas podem ser executadas sem pedir aprovação neste escopo de segurança.',
+  'keyring.settings.toolTrustLoading': 'Carregando ferramentas permitidas…',
+  'keyring.settings.toolTrustLoadFailed': 'Não foi possível carregar as ferramentas permitidas.',
+  'keyring.settings.toolTrustRevokeFailed': 'Não foi possível revogar esta permissão da ferramenta.',
+  'keyring.settings.toolTrustEmpty': 'Nenhuma ferramenta está sempre permitida.',
+  'keyring.settings.toolTrustRetry': 'Tentar novamente',
+  'keyring.settings.toolTrustRevoke': 'Revogar',
+  'keyring.settings.toolTrustRevoking': 'Revogando…',
+
 };
 
 export default messages;

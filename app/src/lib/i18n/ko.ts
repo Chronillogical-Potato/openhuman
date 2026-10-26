@@ -5043,6 +5043,17 @@ const messages: TranslationMap = {
     '의도 {intent} · 되돌릴 수 있음 {reversible} · 정보 유출 {exfiltrate}',
   'settings.approvalHistory.judgeCached': '캐시됨',
   'settings.approvalHistory.judgeExpires': '{time} 만료',
+  // Whole-tool approval grants
+  'keyring.settings.toolTrustTitle': '항상 허용된 도구',
+  'keyring.settings.toolTrustDescription': '이 보안 범위에서 이 도구들은 승인 요청 없이 실행할 수 있습니다.',
+  'keyring.settings.toolTrustLoading': '허용된 도구를 불러오는 중…',
+  'keyring.settings.toolTrustLoadFailed': '허용된 도구를 불러오지 못했습니다.',
+  'keyring.settings.toolTrustRevokeFailed': '이 도구 권한을 취소하지 못했습니다.',
+  'keyring.settings.toolTrustEmpty': '항상 허용된 도구가 없습니다.',
+  'keyring.settings.toolTrustRetry': '다시 시도',
+  'keyring.settings.toolTrustRevoke': '취소',
+  'keyring.settings.toolTrustRevoking': '취소 중…',
+
 };
 
 export default messages;

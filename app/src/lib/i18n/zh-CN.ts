@@ -4812,6 +4812,17 @@ const messages: TranslationMap = {
     '意图 {intent} · 可逆性 {reversible} · 数据外泄 {exfiltrate}',
   'settings.approvalHistory.judgeCached': '已缓存',
   'settings.approvalHistory.judgeExpires': '到期时间：{time}',
+  // Whole-tool approval grants
+  'keyring.settings.toolTrustTitle': '始终允许的工具',
+  'keyring.settings.toolTrustDescription': '在此安全范围内，这些工具可以无需审批提示直接运行。',
+  'keyring.settings.toolTrustLoading': '正在加载允许的工具…',
+  'keyring.settings.toolTrustLoadFailed': '无法加载允许的工具。',
+  'keyring.settings.toolTrustRevokeFailed': '无法撤销此工具授权。',
+  'keyring.settings.toolTrustEmpty': '没有始终允许的工具。',
+  'keyring.settings.toolTrustRetry': '重试',
+  'keyring.settings.toolTrustRevoke': '撤销',
+  'keyring.settings.toolTrustRevoking': '正在撤销…',
+
 };
 
 export default messages;

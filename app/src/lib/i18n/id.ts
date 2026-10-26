@@ -5140,6 +5140,17 @@ const messages: TranslationMap = {
     'Tujuan {intent} · Dapat dibatalkan {reversible} · Eksfiltrasi {exfiltrate}',
   'settings.approvalHistory.judgeCached': 'tersimpan di cache',
   'settings.approvalHistory.judgeExpires': 'Berakhir {time}',
+  // Whole-tool approval grants
+  'keyring.settings.toolTrustTitle': 'Alat yang selalu diizinkan',
+  'keyring.settings.toolTrustDescription': 'Alat ini dapat dijalankan tanpa meminta persetujuan dalam cakupan keamanan ini.',
+  'keyring.settings.toolTrustLoading': 'Memuat alat yang diizinkan…',
+  'keyring.settings.toolTrustLoadFailed': 'Alat yang diizinkan gagal dimuat.',
+  'keyring.settings.toolTrustRevokeFailed': 'Izin alat ini gagal dicabut.',
+  'keyring.settings.toolTrustEmpty': 'Tidak ada alat yang selalu diizinkan.',
+  'keyring.settings.toolTrustRetry': 'Coba lagi',
+  'keyring.settings.toolTrustRevoke': 'Cabut',
+  'keyring.settings.toolTrustRevoking': 'Mencabut…',
+
 };
 
 export default messages;
