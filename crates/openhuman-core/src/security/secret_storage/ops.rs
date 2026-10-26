@@ -469,3 +469,43 @@ mod adoption_tests;
 #[cfg(test)]
 #[path = "ops_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+fn get_or_create_random_with_backend(
+    backend: &dyn crate::security::secret_storage::backend::SecretBackend,
+    user_id: &str,
+    key: &str,
+    len_bytes: usize,
+    _lock_path: &Path,
+) -> Result<String, SecretStorageError> {
+    if let Some(existing) = backend.get(&namespaced_key(user_id, key))? {
+        return Ok(existing);
+    }
+    let mut bytes = vec![0; len_bytes];
+    OsRng.fill_bytes(&mut bytes);
+    let value = hex_encode(&bytes);
+    backend.set(&namespaced_key(user_id, key), &value)?;
+    Ok(value)
+}
+
+#[cfg(test)]
+fn migrate_from_file_with_backend(
+    user_id: &str,
+    key: &str,
+    path: &Path,
+    backend: &dyn crate::security::secret_storage::backend::SecretBackend,
+) -> Result<MigrationOutcome, SecretStorageError> {
+    let name = namespaced_key(user_id, key);
+    if backend.get(&name)?.is_some() {
+        return Ok(MigrationOutcome::AlreadyMigrated);
+    }
+    let value = std::fs::read_to_string(path)
+        .map_err(|source| SecretStorageError::MigrationReadFailed { path: path.display().to_string(), source })?
+        .trim().to_owned();
+    backend.set(&name, &value)?;
+    if backend.get(&name)?.as_deref() != Some(&value) {
+        return Err(SecretStorageError::VerifyFailed { key: key.to_owned() });
+    }
+    std::fs::remove_file(path).map_err(|source| SecretStorageError::MigrationDeleteFailed { path: path.display().to_string(), source })?;
+    Ok(MigrationOutcome::MigratedAndDeleted)
+}
