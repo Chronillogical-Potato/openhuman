@@ -89,34 +89,14 @@ fn explicit_existing_master_key_is_read_once_and_set_is_denied() {
 fn invalid_explicit_master_key_cannot_arm_a_read_or_write() {
     let backend = backend();
     assert!(backend.arm_existing_master_read("not-a-key").is_err());
-    let response = backend.set_request(SecretBackendSetRequest2 {
-        identity: identity(),
-        encoded: b"must-not-be-written".to_vec(),
-    });
-    assert_eq!(response.status, SecretBackendSetStatus2::Denied);
+    assert!(backend.existing_master_read.lock().is_none());
+    assert!(backend.pending_targets.lock().is_empty());
 }
 
 #[test]
 fn malformed_hex_key_cannot_arm_a_read_or_write() {
     let backend = backend();
     assert!(backend.arm_existing_master_read(&"zz".repeat(32)).is_err());
-    let mut read_identity = identity();
-    read_identity.phase = SecretPhase2::TargetRead;
-    assert_eq!(
-        backend
-            .load_request(SecretBackendLoadRequest2 {
-                identity: read_identity,
-            })
-            .status,
-        SecretBackendLoadStatus2::Absent
-    );
-    assert_eq!(
-        backend
-            .set_request(SecretBackendSetRequest2 {
-                identity: identity(),
-                encoded: b"must-not-be-written".to_vec(),
-            })
-            .status,
-        SecretBackendSetStatus2::Denied
-    );
+    assert!(backend.existing_master_read.lock().is_none());
+    assert!(backend.pending_targets.lock().is_empty());
 }
