@@ -56,7 +56,7 @@ async fn world(executor: SandboxExecutor2) -> World {
 
 async fn world_with(executors: Vec<SandboxExecutor2>) -> World {
     let fixture = native_fixture_configured(true, |config| {
-        config.sandbox = Some(crate::modules::security::sandbox_init_config());
+        config.sandbox = Some(tinysecurity_bus::SandboxConfig2 { scopes: vec![] });
     })
     .await;
     let dir = tempfile::tempdir_in(
