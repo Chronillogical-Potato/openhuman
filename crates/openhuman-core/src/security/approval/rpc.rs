@@ -119,12 +119,10 @@ pub async fn approval_list_tool_trust(
         return Ok(Outcome::new(Vec::new(), vec![]));
     };
     let grants = gate.list_tool_trust(ctx)?;
+    let count = grants.len();
     Ok(Outcome::single_log(
-        grants.clone(),
-        format!(
-            "[approval] list_tool_trust returned {} grant(s)",
-            grants.len()
-        ),
+        grants,
+        format!("[approval] list_tool_trust returned {count} grant(s)"),
     ))
 }
 
