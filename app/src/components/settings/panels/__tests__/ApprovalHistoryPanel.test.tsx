@@ -72,6 +72,26 @@ describe('ApprovalHistoryPanel', () => {
     expect(screen.getByTestId('approval-history-decision-deny')).toBeInTheDocument();
   });
 
+  it('labels Jev automatic decisions and shows judge scores only for Jev', async () => {
+    mockFetch.mockResolvedValueOnce([
+      auditRow({
+        request_id: 'jev',
+        decided_by: 'auto:jev',
+        judge: { intent_millis: 950, reversible_millis: 800, exfiltrate_millis: 20, cached: true },
+      }),
+      auditRow({ request_id: 'policy', decided_by: 'auto:host-policy' }),
+    ]);
+
+    renderWithProviders(<ApprovalHistoryPanel />, {
+      initialEntries: ['/settings/approval-history'],
+    });
+
+    expect(await screen.findByTestId('approval-history-auto-badge')).toHaveTextContent('Jev');
+    expect(screen.getByTestId('approval-history-judge-scores')).toHaveTextContent('95%');
+    expect(screen.getAllByTestId('approval-history-auto-badge')[1]).toHaveTextContent('Policy');
+    expect(screen.getAllByTestId('approval-history-judge-scores')).toHaveLength(1);
+  });
+
   it('renders the empty state when there are no decisions', async () => {
     mockFetch.mockResolvedValueOnce([]);
 

@@ -14,38 +14,22 @@ vi.mock('../../hooks/useSettingsNavigation', () => ({
 }));
 
 describe('ToolPolicyDiagnosticsPanel', () => {
-  test('renders diagnostics from core RPC', async () => {
+  test('renders active security policy from core RPC', async () => {
     hoisted.callCoreRpc.mockResolvedValue({
-      total_tools: 10,
-      enabled_tools: 10,
-      mcp_stdio_tools: 3,
-      json_rpc_tools: 7,
-      possible_write_surfaces: ['tools.composio_execute'],
-      policy_surfaces: ['security.policy_info'],
-      posture: {
-        autonomy_level: 'supervised',
-        workspace_only: true,
-        max_actions_per_hour: 123,
-        require_approval_for_medium_risk: true,
-        block_high_risk_commands: true,
-      },
-      mcp_allowlists: { enabled: true, server_count: 0, enabled_server_count: 0, servers: [] },
-      mcp_write_audit: { enabled: true, recent_rows: 5, last_error: null },
-      recent_denials: [],
+      autonomy: 'supervised',
+      workspace_only: true,
+      allowed_commands: ['ls'],
+      max_actions_per_hour: 123,
+      require_approval_for_medium_risk: true,
+      block_high_risk_commands: true,
     });
 
     const Panel = (await import('../ToolPolicyDiagnosticsPanel')).default;
     renderWithProviders(<Panel />);
 
-    await waitFor(() => {
-      expect(screen.getByText(/Policy posture/i)).toBeInTheDocument();
-    });
-    expect(screen.getByText('supervised')).toBeInTheDocument();
-    expect(screen.getByText(/Total tools/i)).toBeInTheDocument();
-    expect(screen.getAllByText('10').length).toBeGreaterThan(0);
-    expect(screen.getByText(/Recent rows: 5/i)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('supervised')).toBeInTheDocument());
     expect(hoisted.callCoreRpc).toHaveBeenCalledWith(
-      expect.objectContaining({ method: 'openhuman.tool_registry_diagnostics' })
+      expect.objectContaining({ method: 'openhuman.security_policy_info' })
     );
   });
 
@@ -60,6 +44,16 @@ describe('ToolPolicyDiagnosticsPanel', () => {
       expect(screen.getByText(/Diagnostics unavailable/i)).toBeInTheDocument();
     });
     expect(screen.getByText(/rpc transport unavailable/i)).toBeInTheDocument();
+  });
+
+  test('shows a not-built state when the security method is missing', async () => {
+    hoisted.callCoreRpc.mockReset();
+    hoisted.callCoreRpc.mockRejectedValue(new Error('method not found: security_policy_info'));
+
+    const Panel = (await import('../ToolPolicyDiagnosticsPanel')).default;
+    renderWithProviders(<Panel />);
+
+    await waitFor(() => expect(screen.getByText(/not built/i)).toBeInTheDocument());
   });
 
   test('renders mcp_allowlists per-server rows when populated', async () => {

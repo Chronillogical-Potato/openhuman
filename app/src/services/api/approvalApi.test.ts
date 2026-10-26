@@ -6,6 +6,8 @@ import {
   fetchPendingApprovals,
   fetchRecentApprovalDecisions,
   preauthorizeFlow,
+  fetchToolTrust,
+  revokeToolTrust,
   unwrapRows,
 } from './approvalApi';
 
@@ -105,6 +107,46 @@ describe('fetchPendingApprovals', () => {
     const rows = await fetchPendingApprovals();
 
     expect(rows[0].source_context).toEqual({ kind: 'flow', flow_id: 'flow-1', run_id: 'run-1' });
+  });
+
+  it('preserves automatic-decision attribution and judge evidence in history rows', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce([
+      {
+        ...auditRow(),
+        decided_by: 'auto:jev',
+        judge: { intent_millis: 900, reversible_millis: 800, exfiltrate_millis: 20, cached: true },
+      },
+    ]);
+
+    const rows = await fetchRecentApprovalDecisions();
+
+    expect(rows[0].decided_by).toBe('auto:jev');
+    expect(rows[0].judge).toEqual({
+      intent_millis: 900,
+      reversible_millis: 800,
+      exfiltrate_millis: 20,
+      cached: true,
+    });
+  });
+});
+
+describe('whole-tool grants', () => {
+  beforeEach(() => mockCallCoreRpc.mockReset());
+
+  it('lists grants and revokes by opaque request ID', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({
+      result: [{ request_id: 'grant-1', tool: 'shell', granted_at_ms: 1234 }],
+    });
+
+    const grants = await fetchToolTrust();
+    expect(grants).toEqual([{ request_id: 'grant-1', tool: 'shell', granted_at_ms: 1234 }]);
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({ method: 'openhuman.approval_list_tool_trust' });
+
+    await revokeToolTrust('grant-1');
+    expect(mockCallCoreRpc).toHaveBeenLastCalledWith({
+      method: 'openhuman.approval_revoke_tool_trust',
+      params: { request_id: 'grant-1' },
+    });
   });
 });
 
