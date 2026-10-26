@@ -6,8 +6,6 @@ import {
   fetchPendingApprovals,
   fetchRecentApprovalDecisions,
   preauthorizeFlow,
-  fetchToolTrust,
-  revokeToolTrust,
   unwrapRows,
 } from './approvalApi';
 
@@ -126,26 +124,6 @@ describe('fetchPendingApprovals', () => {
       reversible_millis: 800,
       exfiltrate_millis: 20,
       cached: true,
-    });
-  });
-});
-
-describe('whole-tool grants', () => {
-  beforeEach(() => mockCallCoreRpc.mockReset());
-
-  it('lists grants and revokes by opaque request ID', async () => {
-    mockCallCoreRpc.mockResolvedValueOnce({
-      result: [{ request_id: 'grant-1', tool: 'shell', granted_at_ms: 1234 }],
-    });
-
-    const grants = await fetchToolTrust();
-    expect(grants).toEqual([{ request_id: 'grant-1', tool: 'shell', granted_at_ms: 1234 }]);
-    expect(mockCallCoreRpc).toHaveBeenCalledWith({ method: 'openhuman.approval_list_tool_trust' });
-
-    await revokeToolTrust('grant-1');
-    expect(mockCallCoreRpc).toHaveBeenLastCalledWith({
-      method: 'openhuman.approval_revoke_tool_trust',
-      params: { request_id: 'grant-1' },
     });
   });
 });
