@@ -201,7 +201,7 @@ pub(super) fn profile_master_key_read_only(
     let source = ProtectedHexKeyFile::new(path).map_err(|error| {
         SecretStorageError::Backend(format!("invalid profile master key source: {error}"))
     })?;
-    let encoded = crate::storage::block_on(source.read_encoded())
+    let encoded = crate::storage::block_on(async move { source.read_encoded().await })
         .map_err(crate::security::secret_storage::adapter::backend_error)?;
     encoded
         .map(|bytes| {
