@@ -123,6 +123,7 @@ impl SecretScope {
     /// module instance.
     pub(crate) async fn ensure_registered_with_callback(
         &self,
+        config: &crate::config::Config,
         proxy: &tinybus::module::HostCallbackProxy,
         generation: u64,
     ) -> Result<(), String> {

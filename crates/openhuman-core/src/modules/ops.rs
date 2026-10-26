@@ -577,7 +577,7 @@ async fn register_security_scope(state: &SecurityCallbackState) -> Result<(), St
         .map_err(|_| "security module policy unavailable".to_owned())?;
     state
         .scope
-        .ensure_registered_with_callback(&proxy, info.generation)
+        .ensure_registered_with_callback(config, &proxy, info.generation)
         .await
 }
 
