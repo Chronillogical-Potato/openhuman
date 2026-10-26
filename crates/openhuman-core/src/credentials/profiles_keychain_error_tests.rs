@@ -76,7 +76,8 @@ fn locked_keychain_store() -> Fixture {
             true,
         )
         .unwrap();
-    let json = std::fs::read_to_string(store.path()).unwrap();
+    let persisted = store.read_persisted_locked().unwrap();
+    let json = serde_json::to_string(&persisted).unwrap();
     assert!(
         json.contains(&oauth_id) && !json.contains("kc-access") && !json.contains("kc-token"),
         "precondition: secrets live only in the keychain"
@@ -93,7 +94,7 @@ fn locked_keychain_store() -> Fixture {
 #[test]
 fn keychain_read_error_fails_the_load_and_keeps_the_profile() {
     let f = locked_keychain_store();
-    let json_before = std::fs::read_to_string(f.store.path()).unwrap();
+    let json_before = serde_json::to_value(f.store.read_persisted_locked().unwrap()).unwrap();
 
     assert!(
         f.store.load().is_err(),
@@ -101,7 +102,7 @@ fn keychain_read_error_fails_the_load_and_keeps_the_profile() {
     );
 
     assert_eq!(
-        std::fs::read_to_string(f.store.path()).unwrap(),
+        serde_json::to_value(f.store.read_persisted_locked().unwrap()).unwrap(),
         json_before
     );
     f.keychain.fail_reads.store(false, Ordering::SeqCst);
@@ -115,7 +116,7 @@ fn keychain_read_error_fails_the_load_and_keeps_the_profile() {
 #[test]
 fn keychain_read_error_refuses_writes_and_keeps_every_secret() {
     let f = locked_keychain_store();
-    let json_before = std::fs::read_to_string(f.store.path()).unwrap();
+    let json_before = serde_json::to_value(f.store.read_persisted_locked().unwrap()).unwrap();
     let keychain_before = f.keychain.map.lock().unwrap().clone();
 
     let upsert = f.store.upsert_profile(
@@ -128,7 +129,7 @@ fn keychain_read_error_refuses_writes_and_keeps_every_secret() {
         "a write from a partial view must be refused"
     );
     assert_eq!(
-        std::fs::read_to_string(f.store.path()).unwrap(),
+        serde_json::to_value(f.store.read_persisted_locked().unwrap()).unwrap(),
         json_before
     );
     assert_eq!(
@@ -145,29 +146,26 @@ fn keychain_read_error_with_undecryptable_json_keeps_the_profile() {
     // secret the keychain may still hold. Only that profile is kept, so the
     // keychain-only Token profile cannot fail the load on its own.
     let f = locked_keychain_store();
-    let mut json: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(f.store.path()).unwrap()).unwrap();
-    let profiles = json["profiles"].as_object_mut().unwrap();
-    profiles.retain(|id, _| id == &f.oauth_id);
-    profiles[&f.oauth_id]["access_token"] = "enc2:not-decryptable".into();
-    json["active_profiles"] = serde_json::json!({});
-    std::fs::write(f.store.path(), json.to_string()).unwrap();
-    let json_before = std::fs::read_to_string(f.store.path()).unwrap();
+    let mut persisted = f.store.read_persisted_locked().unwrap();
+    persisted.profiles.retain(|id, _| id == &f.oauth_id);
+    persisted.profiles.get_mut(&f.oauth_id).unwrap().access_token =
+        Some("enc2:not-decryptable".into());
+    persisted.active_profiles.clear();
+    f.store.write_persisted_locked(&persisted).unwrap();
+    let json_before = serde_json::to_value(f.store.read_persisted_locked().unwrap()).unwrap();
 
     assert!(
         f.store.load().is_err(),
         "an undecryptable fallback must fail the load"
     );
     assert_eq!(
-        std::fs::read_to_string(f.store.path()).unwrap(),
+        serde_json::to_value(f.store.read_persisted_locked().unwrap()).unwrap(),
         json_before
     );
 }
 
 fn persisted_entry(store: &AuthProfilesStore, id: &str) -> serde_json::Value {
-    let json: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(store.path()).unwrap()).unwrap();
-    json["profiles"][id].clone()
+    serde_json::to_value(&store.read_persisted_locked().unwrap().profiles[id]).unwrap()
 }
 
 #[test]
