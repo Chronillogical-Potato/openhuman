@@ -81,6 +81,15 @@ pub(crate) struct PlannedSpawn {
     proxy: tinybus::module::ModuleObjectClient,
 }
 
+impl std::fmt::Debug for PlannedSpawn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PlannedSpawn")
+            .field("plan", &self.plan)
+            .field("plan_id", &self.artifact.plan_id)
+            .finish_non_exhaustive()
+    }
+}
+
 /// Where the module's bus proxy comes from.
 #[derive(Clone, Copy)]
 pub(crate) enum ModuleSource<'a> {
@@ -471,6 +480,6 @@ pub(crate) async fn consume(planned: &PlannedSpawn) -> Result<(), PlanError> {
 #[path = "mod_tests.rs"]
 mod tests;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native-security-tests"))]
 #[path = "integration_tests.rs"]
 mod integration_tests;
