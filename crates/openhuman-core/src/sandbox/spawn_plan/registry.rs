@@ -27,7 +27,7 @@ fn live() -> &'static tokio::sync::Mutex<VecDeque<String>> {
 
 /// Make the module hold `scope` on `audit_stream_id`, registering it on first use.
 pub(super) async fn ensure(
-    proxy: &tinybus::module::ModuleObjectClient,
+    proxy: &crate::modules::security::SecurityProxy,
     scope: &SandboxScope2,
     audit_stream_id: &str,
 ) -> Result<(), PlanError> {
