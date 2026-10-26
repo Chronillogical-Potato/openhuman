@@ -5361,6 +5361,13 @@ const en: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'Allowed commands',
   'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'No commands are explicitly allowed.',
 
+  // Automatic approval attribution
+  'settings.approvalHistory.autoJev': 'Jev',
+  'settings.approvalHistory.autoPolicy': 'Policy',
+  'settings.approvalHistory.judgeScores': 'Intent {intent} · Reversible {reversible} · Exfiltration {exfiltrate}',
+  'settings.approvalHistory.judgeCached': 'cached',
+  'settings.approvalHistory.judgeExpires': 'Expires {time}',
+
 };
 
 export default en;

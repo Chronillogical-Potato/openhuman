@@ -5085,6 +5085,13 @@ const messages: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'अनुमत कमांड',
   'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'कोई कमांड स्पष्ट रूप से अनुमत नहीं है।',
 
+  // Automatic approval attribution
+  'settings.approvalHistory.autoJev': 'Jev',
+  'settings.approvalHistory.autoPolicy': 'नीति',
+  'settings.approvalHistory.judgeScores': 'इरादा {intent} · वापस करने योग्य {reversible} · डेटा निकासी {exfiltrate}',
+  'settings.approvalHistory.judgeCached': 'कैश किया गया',
+  'settings.approvalHistory.judgeExpires': '{time} पर समाप्त',
+
 };
 
 export default messages;

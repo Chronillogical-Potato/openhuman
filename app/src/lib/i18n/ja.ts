@@ -5440,6 +5440,13 @@ const messages: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.policy.allowedCommands': '許可されたコマンド',
   'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': '明示的に許可されたコマンドはありません。',
 
+  // Automatic approval attribution
+  'settings.approvalHistory.autoJev': 'Jev',
+  'settings.approvalHistory.autoPolicy': 'ポリシー',
+  'settings.approvalHistory.judgeScores': '意図 {intent} · 可逆性 {reversible} · 情報流出 {exfiltrate}',
+  'settings.approvalHistory.judgeCached': 'キャッシュ済み',
+  'settings.approvalHistory.judgeExpires': '{time} に期限切れ',
+
 };
 
 export default messages;

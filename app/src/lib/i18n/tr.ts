@@ -5088,6 +5088,13 @@ const messages: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'İzin verilen komutlar',
   'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'Açıkça izin verilen komut yok.',
 
+  // Automatic approval attribution
+  'settings.approvalHistory.autoJev': 'Jev',
+  'settings.approvalHistory.autoPolicy': 'İlke',
+  'settings.approvalHistory.judgeScores': 'Amaç {intent} · Geri alınabilirlik {reversible} · Veri sızdırma {exfiltrate}',
+  'settings.approvalHistory.judgeCached': 'önbellekte',
+  'settings.approvalHistory.judgeExpires': 'Son kullanma {time}',
+
 };
 
 export default messages;

@@ -4989,6 +4989,13 @@ const messages: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'الأوامر المسموح بها',
   'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'لا توجد أوامر مسموح بها صراحةً.',
 
+  // Automatic approval attribution
+  'settings.approvalHistory.autoJev': 'Jev',
+  'settings.approvalHistory.autoPolicy': 'السياسة',
+  'settings.approvalHistory.judgeScores': 'النية {intent} · قابلية التراجع {reversible} · تسريب البيانات {exfiltrate}',
+  'settings.approvalHistory.judgeCached': 'من الذاكرة المؤقتة',
+  'settings.approvalHistory.judgeExpires': 'تنتهي الصلاحية {time}',
+
 };
 
 export default messages;

@@ -5161,6 +5161,13 @@ const messages: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'Comandi consentiti',
   'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'Nessun comando è consentito esplicitamente.',
 
+  // Automatic approval attribution
+  'settings.approvalHistory.autoJev': 'Jev',
+  'settings.approvalHistory.autoPolicy': 'Criterio',
+  'settings.approvalHistory.judgeScores': 'Intento {intent} · Reversibile {reversible} · Esfiltrazione {exfiltrate}',
+  'settings.approvalHistory.judgeCached': 'memorizzato',
+  'settings.approvalHistory.judgeExpires': 'Scade il {time}',
+
 };
 
 export default messages;

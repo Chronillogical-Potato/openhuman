@@ -5130,6 +5130,13 @@ const messages: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'Perintah yang diizinkan',
   'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'Tidak ada perintah yang diizinkan secara eksplisit.',
 
+  // Automatic approval attribution
+  'settings.approvalHistory.autoJev': 'Jev',
+  'settings.approvalHistory.autoPolicy': 'Kebijakan',
+  'settings.approvalHistory.judgeScores': 'Tujuan {intent} · Dapat dibatalkan {reversible} · Eksfiltrasi {exfiltrate}',
+  'settings.approvalHistory.judgeCached': 'tersimpan di cache',
+  'settings.approvalHistory.judgeExpires': 'Berakhir {time}',
+
 };
 
 export default messages;

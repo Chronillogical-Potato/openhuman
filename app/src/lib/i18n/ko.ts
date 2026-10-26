@@ -5036,6 +5036,13 @@ const messages: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.policy.allowedCommands': '허용된 명령',
   'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': '명시적으로 허용된 명령이 없습니다.',
 
+  // Automatic approval attribution
+  'settings.approvalHistory.autoJev': 'Jev',
+  'settings.approvalHistory.autoPolicy': '정책',
+  'settings.approvalHistory.judgeScores': '의도 {intent} · 되돌릴 수 있음 {reversible} · 정보 유출 {exfiltrate}',
+  'settings.approvalHistory.judgeCached': '캐시됨',
+  'settings.approvalHistory.judgeExpires': '{time} 만료',
+
 };
 
 export default messages;
