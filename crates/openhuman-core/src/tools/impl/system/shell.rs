@@ -10,7 +10,7 @@ use crate::config::Config;
 use crate::core::runtime::DispatchCtx;
 use crate::modules::tinybox::host_runtime::RuntimeAdapter;
 use crate::security::audit_record::HostAuditEvent;
-use crate::security::{AuditLogger, SecurityPolicy};
+use crate::security::{AuditSink, SecurityPolicy};
 use async_trait::async_trait;
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -66,7 +66,7 @@ fn docker_module_result(
 pub struct ShellTool {
     security: Arc<SecurityPolicy>,
     runtime: Arc<dyn RuntimeAdapter>,
-    audit: Arc<AuditLogger>,
+    audit: Arc<AuditSink>,
     analysis_config: Option<Arc<Config>>,
 }
 
@@ -74,7 +74,7 @@ impl ShellTool {
     pub fn new(
         security: Arc<SecurityPolicy>,
         runtime: Arc<dyn RuntimeAdapter>,
-        audit: Arc<AuditLogger>,
+        audit: Arc<AuditSink>,
     ) -> Self {
         Self {
             security,
@@ -89,7 +89,7 @@ impl ShellTool {
     pub fn with_config(
         security: Arc<SecurityPolicy>,
         runtime: Arc<dyn RuntimeAdapter>,
-        audit: Arc<AuditLogger>,
+        audit: Arc<AuditSink>,
         config: Arc<Config>,
     ) -> Self {
         Self {
@@ -621,7 +621,7 @@ impl ShellTool {
 /// a structured warning but not propagated — audit must never block or fail a
 /// tool call, yet a silently broken audit trail must not go unnoticed.
 pub(super) fn record_audit(
-    audit: &AuditLogger,
+    audit: &AuditSink,
     ctx: DispatchCtx,
     config: Option<Arc<Config>>,
     command: &str,

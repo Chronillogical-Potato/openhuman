@@ -9,29 +9,29 @@ use std::sync::{Arc, OnceLock};
 
 /// Host handle retaining the audit's enabled setting for tool assembly.
 /// Event storage and ordering belong to TinySecurity and its `AuditSink2`.
-pub struct AuditLogger {
+pub struct AuditSink {
     enabled: bool,
 }
 
-static WORKSPACE_AUDIT_LOGGERS: OnceLock<Mutex<HashMap<PathBuf, Arc<AuditLogger>>>> =
+static WORKSPACE_AUDIT_SINKS: OnceLock<Mutex<HashMap<PathBuf, Arc<AuditSink>>>> =
     OnceLock::new();
 
-pub fn get_or_create_workspace_audit_logger(
+pub fn get_or_create_workspace_audit_sink(
     config: AuditConfig,
     openhuman_dir: PathBuf,
-) -> Result<Arc<AuditLogger>> {
+) -> Result<Arc<AuditSink>> {
     let workspace = std::fs::canonicalize(&openhuman_dir).unwrap_or(openhuman_dir);
-    let registry = WORKSPACE_AUDIT_LOGGERS.get_or_init(|| Mutex::new(HashMap::new()));
+    let registry = WORKSPACE_AUDIT_SINKS.get_or_init(|| Mutex::new(HashMap::new()));
     let mut map = registry.lock();
     if let Some(existing) = map.get(&workspace) {
         return Ok(Arc::clone(existing));
     }
-    let logger = Arc::new(AuditLogger::new(config, workspace.clone())?);
+    let logger = Arc::new(AuditSink::new(config, workspace.clone())?);
     map.insert(workspace, Arc::clone(&logger));
     Ok(logger)
 }
 
-impl AuditLogger {
+impl AuditSink {
     pub fn disabled() -> Arc<Self> {
         Arc::new(Self { enabled: false })
     }

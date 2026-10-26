@@ -25,7 +25,7 @@ impl OpenHumanSessionHost {
             &config.workspace_dir,
             &config.action_dir,
         ));
-        let audit = crate::security::get_or_create_workspace_audit_logger(
+        let audit = crate::security::get_or_create_workspace_audit_sink(
             config.audit.clone(),
             config.workspace_dir.clone(),
         )?;

@@ -14,7 +14,7 @@ use crate::{
     agent::tinyagents::host::run_context::approval_for_tool,
     config::Config,
     core::runtime::DispatchCtx,
-    security::{audit_record::HostAuditEvent, AuditLogger, SecurityPolicy},
+    security::{audit_record::HostAuditEvent, AuditSink, SecurityPolicy},
 };
 
 /// Host-owned gate for package installation. The generic TinyAgents tool owns
@@ -22,7 +22,7 @@ use crate::{
 /// a host install is permitted.
 pub(super) struct InstallGate {
     pub security: Arc<SecurityPolicy>,
-    pub audit: Arc<AuditLogger>,
+    pub audit: Arc<AuditSink>,
     pub config: Arc<Config>,
     pub audit_context: std::sync::Mutex<Option<DispatchCtx>>,
     pub environment: std::collections::BTreeMap<std::ffi::OsString, std::ffi::OsString>,

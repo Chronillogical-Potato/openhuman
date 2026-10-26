@@ -253,7 +253,7 @@ pub(super) async fn run_in_policy(
 
 /// The call's audit entry, to be written once by whoever learns the outcome.
 pub(super) fn audit_once(
-    audit: Arc<crate::security::AuditLogger>,
+    audit: Arc<crate::security::AuditSink>,
     ctx: crate::core::runtime::DispatchCtx,
     config: Option<Arc<crate::config::Config>>,
     command: String,

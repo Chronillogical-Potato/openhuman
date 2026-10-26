@@ -126,7 +126,7 @@ pub(crate) fn build_channel_turn_parts(
     )?);
     // The audit handle is workspace-scoped and shared; event persistence is
     // delegated to TinySecurity's ordered `AuditSink2` stream.
-    let audit = crate::security::get_or_create_workspace_audit_logger(
+    let audit = crate::security::get_or_create_workspace_audit_sink(
         config.audit.clone(),
         config.workspace_dir.clone(),
     )?;

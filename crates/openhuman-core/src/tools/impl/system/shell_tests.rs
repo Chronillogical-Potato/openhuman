@@ -15,8 +15,8 @@ fn test_runtime() -> Arc<dyn RuntimeAdapter> {
     Arc::new(NativeRuntime::new())
 }
 
-fn test_audit() -> Arc<AuditLogger> {
-    AuditLogger::disabled()
+fn test_audit() -> Arc<AuditSink> {
+    AuditSink::disabled()
 }
 
 /// Build a `ToolExecutionContext` carrying a `WorkspaceDescriptor` rooted

@@ -5,7 +5,7 @@ use serde_json::Value;
 use tinyagents_harness_tools::exec::{ExecBackend, InstallTool};
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext, ToolTimeout};
 
-use crate::security::{AuditLogger, SecurityPolicy};
+use crate::security::{AuditSink, SecurityPolicy};
 use crate::config::Config;
 
 use super::exec_adapters::InstallGate;
@@ -17,16 +17,16 @@ pub struct InstallToolTool {
 
 impl InstallToolTool {
     pub fn new(security: Arc<SecurityPolicy>) -> Self {
-        Self::with_audit(security, AuditLogger::disabled())
+        Self::with_audit(security, AuditSink::disabled())
     }
 
-    pub fn with_audit(security: Arc<SecurityPolicy>, audit: Arc<AuditLogger>) -> Self {
+    pub fn with_audit(security: Arc<SecurityPolicy>, audit: Arc<AuditSink>) -> Self {
         Self::with_audit_and_config(security, audit, Arc::new(Config::default()))
     }
 
     pub fn with_audit_and_config(
         security: Arc<SecurityPolicy>,
-        audit: Arc<AuditLogger>,
+        audit: Arc<AuditSink>,
         config: Arc<Config>,
     ) -> Self {
         Self::with_backend_and_environment(
@@ -42,7 +42,7 @@ impl InstallToolTool {
 
     fn with_backend_and_environment(
         security: Arc<SecurityPolicy>,
-        audit: Arc<AuditLogger>,
+        audit: Arc<AuditSink>,
         config: Arc<Config>,
         backend: Arc<dyn ExecBackend>,
         environment: std::collections::BTreeMap<std::ffi::OsString, std::ffi::OsString>,
