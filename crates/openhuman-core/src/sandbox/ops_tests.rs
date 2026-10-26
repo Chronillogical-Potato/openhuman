@@ -90,6 +90,7 @@ async fn create_sandbox_backend_none() {
         SandboxMode::None,
         Path::new("/tmp"),
         Path::new("/tmp/state"),
+        &SandboxConfig::default(),
         &RuntimeConfig::default(),
         false,
     );
