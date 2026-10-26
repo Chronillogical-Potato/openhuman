@@ -1,4 +1,4 @@
-//! Published TinySecurity admission pins copied verbatim from v0.17.1/checksum.toml.
+//! Published TinySecurity admission pins copied verbatim from v0.18.0/checksum.toml.
 //!
 //! `LoadPolicy::Eager` is the "load at boot" policy (the issue calls it Boot): a missing
 //! security module changes behaviour, so it must be serving before the first request.
