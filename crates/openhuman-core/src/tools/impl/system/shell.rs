@@ -9,7 +9,8 @@ use crate::agent::tinyagents::host::run_context::{
 use crate::config::Config;
 use crate::core::runtime::DispatchCtx;
 use crate::modules::tinybox::host_runtime::RuntimeAdapter;
-use crate::security::{AuditLogger, CommandExecutionLog, SecurityPolicy};
+use crate::security::audit_record::HostAuditEvent;
+use crate::security::{AuditLogger, SecurityPolicy};
 use async_trait::async_trait;
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -250,7 +251,13 @@ impl ShellTool {
         // (`approved=false`). A command left running is audited when it ends,
         // with its real outcome.
         let approved = false;
-        let audit = audit_once(self.audit.clone(), command.to_owned(), approved);
+        let audit = audit_once(
+            self.audit.clone(),
+            ctx.clone(),
+            self.analysis_config.clone(),
+            command.to_owned(),
+            approved,
+        );
         let start = Instant::now();
         let (allowed, result) = crate::sandbox::shell_progress::with_shell_progress(
             context,
@@ -615,27 +622,25 @@ impl ShellTool {
 /// tool call, yet a silently broken audit trail must not go unnoticed.
 pub(super) fn record_audit(
     audit: &AuditLogger,
+    ctx: DispatchCtx,
+    config: Option<Arc<Config>>,
     command: &str,
     approved: bool,
     allowed: bool,
     success: bool,
     duration_ms: u64,
 ) {
-    if let Err(error) = audit.log_command_event(CommandExecutionLog {
-        channel: "tool:shell",
-        command,
-        risk_level: "unknown",
-        approved,
-        allowed,
-        success,
-        duration_ms,
-    }) {
-        tracing::warn!(
-            error = %error,
-            channel = "tool:shell",
-            "[shell] failed to persist command execution audit event"
-        );
+    if !audit.is_enabled() {
+        return;
     }
+    let event = HostAuditEvent::command_execution(
+        "tool:shell", command, approved, allowed, success, duration_ms,
+    );
+    tokio::spawn(async move {
+        if let Err(error) = crate::security::audit_record::record(&ctx, config.as_deref(), event).await {
+            tracing::warn!(error = %error, channel = "tool:shell", "[shell] the command execution audit row was not recorded");
+        }
+    });
 }
 
 #[cfg(test)]

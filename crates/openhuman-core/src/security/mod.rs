@@ -25,8 +25,7 @@ pub(crate) mod transport;
 pub use self::secret_storage::SecretStore;
 #[allow(unused_imports)]
 pub use audit::{
-    get_or_create_workspace_audit_logger, AuditEvent, AuditEventType, AuditLogger,
-    CommandExecutionLog,
+    get_or_create_workspace_audit_logger, AuditLogger,
 };
 #[allow(unused_imports)]
 pub use egress::{
