@@ -745,4 +745,3 @@ fn the_ahead_warning_is_silent_for_released_modules_other_ids_and_release_builds
     // A release build never warns.
     assert!(pin_ahead_warning("tinydocs", ModuleSource::Source, Some("tinydocs"), false).is_none());
 }
-
