@@ -156,7 +156,7 @@ fn configured(config: &Config) -> bool {
 /// refuses the protected floor and the core's internal state under every root.
 fn paths(config: &Config, policy: &SandboxPolicy) -> PathPolicy {
     let mut paths = crate::security::SecurityPolicy::from_config(
-        config,
+        &config.autonomy,
         &config.workspace_dir,
         &config.action_dir,
     )

@@ -78,7 +78,6 @@ pub fn spawn_policy(
             read_only_rootfs: Some(docker.read_only_rootfs),
             extra_caps_drop: vec![],
         }),
-        mount_workspace: docker.mount_workspace || runtime.kind != "docker",
     }
 }
 
