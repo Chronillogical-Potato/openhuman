@@ -371,26 +371,30 @@ pub fn migrate_from_file(
     path: &Path,
 ) -> Result<MigrationOutcome, SecretStorageError> {
     log::debug!(
-        "[keyring] migrate_from_file user_id={user_id} key={key} path={}",
+        "[keyring] migrate_from_file path={}",
         path.display()
     );
+    migrate_from_file_with_backend(user_id, key, path, backend().as_ref())
+}
 
+fn migrate_from_file_with_backend(
+    user_id: &str,
+    key: &str,
+    path: &Path,
+    secret_backend: &dyn crate::security::secret_storage::backend::SecretBackend,
+) -> Result<MigrationOutcome, SecretStorageError> {
     // Step 1: check if already migrated.
-    if process_get(user_id, key)?.is_some() {
-        log::debug!("[keyring] migrate_from_file already migrated user_id={user_id} key={key}");
+    let namespaced = namespaced_key(user_id, key);
+    if secret_backend.get(&namespaced)?.is_some() {
         return Ok(MigrationOutcome::AlreadyMigrated);
     }
 
     // Step 2: check if source file exists.
     if !path.exists() {
-        log::debug!(
-            "[keyring] migrate_from_file no source file user_id={user_id} key={key} path={}",
-            path.display()
-        );
         return Ok(MigrationOutcome::NoSourceFile);
     }
 
-    if !backend().is_persistent() {
+    if !secret_backend.is_persistent() {
         return Err(SecretStorageError::Backend(
             "file migration requires persistent secret storage; source retained".into(),
         ));
@@ -415,10 +419,10 @@ pub fn migrate_from_file(
 
     // Step 4: write to backend.
     log::debug!("[keyring] migrate_from_file writing to backend user_id={user_id} key={key}");
-    process_set(user_id, key, &value)?;
+    secret_backend.set(&namespaced, &value)?;
 
     // Step 5: verify read-back matches.
-    let readback = process_get(user_id, key)?;
+    let readback = secret_backend.get(&namespaced)?;
     if readback.as_deref() != Some(value.as_str()) {
         log::warn!(
             "[keyring] migrate_from_file verification failed user_id={user_id} key={key}; NOT deleting source file"
@@ -430,8 +434,7 @@ pub fn migrate_from_file(
 
     // Step 6: delete the source file (only after verified write).
     log::debug!(
-        "[keyring] migrate_from_file deleting source file path={}",
-        path.display()
+        "[keyring] migrate_from_file deleting source file"
     );
     std::fs::remove_file(path).map_err(|e| SecretStorageError::MigrationDeleteFailed {
         path: path.display().to_string(),
@@ -439,8 +442,7 @@ pub fn migrate_from_file(
     })?;
 
     log::info!(
-        "[keyring] migrate_from_file completed user_id={user_id} key={key} path={}",
-        path.display()
+        "[keyring] migrate_from_file completed"
     );
     Ok(MigrationOutcome::MigratedAndDeleted)
 }
@@ -485,42 +487,3 @@ mod adoption_tests;
 #[path = "ops_tests.rs"]
 mod tests;
 
-#[cfg(test)]
-fn get_or_create_random_with_backend(
-    backend: &dyn crate::security::secret_storage::backend::SecretBackend,
-    user_id: &str,
-    key: &str,
-    len_bytes: usize,
-    _lock_path: &Path,
-) -> Result<String, SecretStorageError> {
-    if let Some(existing) = backend.get(&namespaced_key(user_id, key))? {
-        return Ok(existing);
-    }
-    let mut bytes = vec![0; len_bytes];
-    OsRng.fill_bytes(&mut bytes);
-    let value = hex_encode(&bytes);
-    backend.set(&namespaced_key(user_id, key), &value)?;
-    Ok(value)
-}
-
-#[cfg(test)]
-fn migrate_from_file_with_backend(
-    user_id: &str,
-    key: &str,
-    path: &Path,
-    backend: &dyn crate::security::secret_storage::backend::SecretBackend,
-) -> Result<MigrationOutcome, SecretStorageError> {
-    let name = namespaced_key(user_id, key);
-    if backend.get(&name)?.is_some() {
-        return Ok(MigrationOutcome::AlreadyMigrated);
-    }
-    let value = std::fs::read_to_string(path)
-        .map_err(|source| SecretStorageError::MigrationReadFailed { path: path.display().to_string(), source })?
-        .trim().to_owned();
-    backend.set(&name, &value)?;
-    if backend.get(&name)?.as_deref() != Some(&value) {
-        return Err(SecretStorageError::VerifyFailed { key: key.to_owned() });
-    }
-    std::fs::remove_file(path).map_err(|source| SecretStorageError::MigrationDeleteFailed { path: path.display().to_string(), source })?;
-    Ok(MigrationOutcome::MigratedAndDeleted)
-}
