@@ -22,8 +22,8 @@ pub(crate) mod text;
 #[path = "security_tests.rs"]
 mod tests;
 
-pub use client::{Client, SecurityError};
 pub(crate) use client::SecurityProxy;
+pub use client::{Client, SecurityError};
 pub use policy::policy_config;
 pub(super) use policy::{module_config, module_config_for_host, module_config_for_secret_scope};
 
@@ -76,7 +76,9 @@ pub(crate) async fn approval_object(
     config: &Config,
     timeout: std::time::Duration,
 ) -> Result<SecurityProxy, String> {
-    ensure_loaded(config).await.map_err(|error| error.to_string())?;
+    ensure_loaded(config)
+        .await
+        .map_err(|error| error.to_string())?;
     let binding = super::ops::security_callback_binding()
         .await
         .ok_or_else(|| "security callback binding unavailable".to_owned())?;

@@ -455,8 +455,8 @@ async fn ensure_loaded_with_security_callback(
         .unwrap_or_else(|| Path::new("."))
         .to_path_buf();
     let key_path = key_dir.join(".secret_key");
-    let user_id = crate::security::secret_storage::encrypted_store::
-        keyring_user_id_from_dir(&key_dir);
+    let user_id =
+        crate::security::secret_storage::encrypted_store::keyring_user_id_from_dir(&key_dir);
     let subject = tinysecurity_bus::SubjectScope {
         user: user_id.clone(),
         workspace: config.workspace_dir.to_string_lossy().into_owned(),
