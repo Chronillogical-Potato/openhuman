@@ -21,281 +21,67 @@ impl AuthProfilesStore {
     /// correct, fully-resolved view without touching disk.
     pub(super) fn load_resolved(&self, persist: bool) -> Result<AuthProfilesData> {
         let mut persisted = self.read_persisted_locked()?;
-        // `migrated` tracks enc: → enc2: XOR-cipher upgrades (original behavior).
-        let mut migrated = false;
-        // `keychain_migrated` tracks enc2: → keychain promotions: when true the
-        // persisted JSON must be rewritten with secret fields cleared.
-        let mut keychain_migrated = false;
-        let mut pending_keychain_deletes = Vec::new();
         let mut dropped_ids: Vec<String> = Vec::new();
-
         let mut profiles = BTreeMap::new();
-        for (id, p) in &mut persisted.profiles {
-            // ── Step 1: Resolve secrets ───────────────────────────────────────
-            //
-            // Priority order:
-            //   (a) OS keychain — preferred when available.
-            //   (b) enc2:/enc: JSON fields — legacy; decrypt and optionally
-            //       migrate to keychain on this read.
-            //   (c) Plaintext JSON fields — oldest legacy path; pass through.
-            //
-            // A decrypt failure (wrong key / tampered data) drops the profile
-            // rather than poisoning every reader — the user falls back to a
-            // clean logged-out state and re-authenticates cleanly.
-
+        for (id, p) in &persisted.profiles {
+            // Current secrets may live in the keyring or in the encrypted
+            // profile document. Legacy document values are read in place; they
+            // are never promoted into the keyring during a profile read.
+            let decrypt_document_secrets = || -> Result<_> {
+                Ok((
+                    self.decrypt_optional(p.access_token.as_deref())?.0,
+                    self.decrypt_optional(p.refresh_token.as_deref())?.0,
+                    self.decrypt_optional(p.id_token.as_deref())?.0,
+                    self.decrypt_optional(p.token.as_deref())?.0,
+                ))
+            };
             let (access_token, refresh_token, id_token, token) = if self.use_keychain {
-                // ── (a) Keychain path ──────────────────────────────────────
                 match self.keychain_load_secrets(id) {
-                    Ok(Some(secrets)) => {
-                        // Keychain has the entry — use it directly.  Clear the
-                        // JSON secret fields so they're wiped on next save.
-                        let had_enc_fields = p.access_token.is_some()
-                            || p.refresh_token.is_some()
-                            || p.id_token.is_some()
-                            || p.token.is_some();
-                        if had_enc_fields {
-                            log::info!(
-                                "[auth] load: clearing legacy enc fields for profile_id={id} (already in keychain)"
-                            );
-                            p.access_token = None;
-                            p.refresh_token = None;
-                            p.id_token = None;
-                            p.token = None;
-                            keychain_migrated = true;
-                        }
-                        (
-                            secrets.access_token,
-                            secrets.refresh_token,
-                            secrets.id_token,
-                            secrets.token,
-                        )
-                    }
-                    Ok(None) => {
-                        // ── (b) No keychain entry yet — decrypt JSON fields and migrate ──
-                        let decrypted = (|| -> Result<_> {
-                            let (access_token, access_mig) =
-                                self.decrypt_optional(p.access_token.as_deref())?;
-                            let (refresh_token, refresh_mig) =
-                                self.decrypt_optional(p.refresh_token.as_deref())?;
-                            let (id_token, id_mig) =
-                                self.decrypt_optional(p.id_token.as_deref())?;
-                            let (token, token_mig) = self.decrypt_optional(p.token.as_deref())?;
-                            Ok((
-                                access_token,
-                                access_mig,
-                                refresh_token,
-                                refresh_mig,
-                                id_token,
-                                id_mig,
-                                token,
-                                token_mig,
-                            ))
-                        })();
-                        let (at, at_mig, rt, rt_mig, it, it_mig, tok, tok_mig) = match decrypted {
-                            Ok(v) => v,
-                            Err(e) => {
+                    Ok(Some(secrets)) => (
+                        secrets.access_token,
+                        secrets.refresh_token,
+                        secrets.id_token,
+                        secrets.token,
+                    ),
+                    keychain_result => match decrypt_document_secrets() {
+                        Ok(secrets) => secrets,
+                        Err(decrypt_error) => {
+                            if let Err(keychain_error) = keychain_result {
+                                // The keyring may still contain the only copy.
+                                // Keep the store intact until it can be read.
                                 log::warn!(
-                                    "[auth] dropping unrecoverable profile provider={}: {e}. \
-                                         Most likely cause: .secret_key was regenerated. \
-                                         Re-authenticate to restore the session.",
-                                    p.provider
+                                    "[auth] keyring and encrypted document unavailable for profile_id={id}: {decrypt_error}"
                                 );
-                                dropped_ids.push(id.clone());
-                                continue;
+                                return Err(keychain_error);
                             }
-                        };
-                        // Track XOR→enc2 cipher upgrades (existing behavior).
-                        if at_mig.is_some() {
-                            p.access_token = at_mig;
-                            migrated = true;
-                        }
-                        if rt_mig.is_some() {
-                            p.refresh_token = rt_mig;
-                            migrated = true;
-                        }
-                        if it_mig.is_some() {
-                            p.id_token = it_mig;
-                            migrated = true;
-                        }
-                        if tok_mig.is_some() {
-                            p.token = tok_mig;
-                            migrated = true;
-                        }
-
-                        // If any secrets were found in JSON, promote them to keychain
-                        // and clear the JSON fields so the next write is clean.
-                        let has_secrets =
-                            at.is_some() || rt.is_some() || it.is_some() || tok.is_some();
-                        if has_secrets {
-                            log::info!(
-                                "[auth] load: migrating enc fields to keychain profile_id={id} user_id={}",
-                                self.user_id
-                            );
-                            let dummy_profile = AuthProfile {
-                                id: id.clone(),
-                                provider: p.provider.clone(),
-                                profile_name: p.profile_name.clone(),
-                                kind: parse_profile_kind(&p.kind).unwrap_or(AuthProfileKind::Token),
-                                account_id: p.account_id.clone(),
-                                workspace_id: p.workspace_id.clone(),
-                                token_set: at.clone().map(|access| TokenSet {
-                                    access_token: access,
-                                    refresh_token: rt.clone(),
-                                    id_token: it.clone(),
-                                    expires_at: None,
-                                    token_type: None,
-                                    scope: None,
-                                }),
-                                token: tok.clone(),
-                                metadata: Default::default(),
-                                created_at: Utc::now(),
-                                updated_at: Utc::now(),
-                            };
-                            if let Err(e) = self.keychain_store_secrets(&dummy_profile) {
-                                // Non-fatal: keep the enc2: fields in JSON so the
-                                // next load can try again.
-                                log::warn!(
-                                    "[auth] load: keychain migration failed profile_id={id}: {e}; \
-                                     keeping enc fields in JSON"
-                                );
-                            } else {
-                                // Wipe JSON secret fields now that keychain has them.
-                                p.access_token = None;
-                                p.refresh_token = None;
-                                p.id_token = None;
-                                p.token = None;
-                                keychain_migrated = true;
-                            }
-                        }
-                        (at, rt, it, tok)
-                    }
-                    Err(e) => {
-                        // Keychain read error. JSON still holding this profile's
-                        // secrets can serve it; a keychain-only profile cannot,
-                        // and resolving it without secrets would drop it and
-                        // let the next write erase it (and its keychain entry).
-                        // The secret the profile kind needs must be in JSON:
-                        // an OAuth profile without its access token there
-                        // would still be dropped below.
-                        let has_json_secrets = match parse_profile_kind(&p.kind) {
-                            Ok(AuthProfileKind::OAuth) => p.access_token.is_some(),
-                            Ok(AuthProfileKind::Token) => p.token.is_some(),
-                            Err(_) => {
-                                p.access_token.is_some()
-                                    || p.refresh_token.is_some()
-                                    || p.id_token.is_some()
-                                    || p.token.is_some()
-                            }
-                        };
-                        if !has_json_secrets {
                             log::warn!(
-                                "[auth] keychain read failed for keychain-only profile_id={id}; \
-                                 refusing to load a partial view"
+                                "[auth] dropping unrecoverable profile provider={}: {decrypt_error}",
+                                p.provider
                             );
-                            return Err(e);
+                            dropped_ids.push(id.clone());
+                            continue;
                         }
-                        log::warn!(
-                            "[auth] keychain error for profile_id={id}; falling back to JSON"
-                        );
-                        let decrypted = (|| -> Result<_> {
-                            let (at, _) = self.decrypt_optional(p.access_token.as_deref())?;
-                            let (rt, _) = self.decrypt_optional(p.refresh_token.as_deref())?;
-                            let (it, _) = self.decrypt_optional(p.id_token.as_deref())?;
-                            let (tok, _) = self.decrypt_optional(p.token.as_deref())?;
-                            Ok((at, rt, it, tok))
-                        })();
-                        match decrypted {
-                            Ok(v) => v,
-                            Err(decrypt_error) => {
-                                // The keychain may still hold this profile's
-                                // secrets: fail the load rather than drop it.
-                                log::warn!(
-                                    "[auth] JSON fallback undecryptable for profile_id={id}: \
-                                     {decrypt_error}; refusing to load a partial view"
-                                );
-                                return Err(e);
-                            }
-                        }
-                    }
+                    },
                 }
             } else {
-                // ── (b/c) No keychain — use existing JSON decrypt path ────────
-                let decrypted = (|| -> Result<_> {
-                    let (access_token, access_migrated) =
-                        self.decrypt_optional(p.access_token.as_deref())?;
-                    let (refresh_token, refresh_migrated) =
-                        self.decrypt_optional(p.refresh_token.as_deref())?;
-                    let (id_token, id_migrated) = self.decrypt_optional(p.id_token.as_deref())?;
-                    let (token, token_migrated) = self.decrypt_optional(p.token.as_deref())?;
-                    Ok((
-                        access_token,
-                        access_migrated,
-                        refresh_token,
-                        refresh_migrated,
-                        id_token,
-                        id_migrated,
-                        token,
-                        token_migrated,
-                    ))
-                })();
-
-                let (
-                    access_token,
-                    access_migrated,
-                    refresh_token,
-                    refresh_migrated,
-                    id_token,
-                    id_migrated,
-                    token,
-                    token_migrated,
-                ) = match decrypted {
-                    Ok(v) => v,
-                    Err(e) => {
+                match decrypt_document_secrets() {
+                    Ok(secrets) => secrets,
+                    Err(error) => {
                         log::warn!(
-                            "[auth] dropping unrecoverable profile provider={}: {e}. \
-                             Most likely cause: .secret_key was regenerated after this profile \
-                             was stored. The store will be rewritten without this entry; \
-                             re-authenticate to restore the session.",
+                            "[auth] dropping unrecoverable profile provider={}: {error}",
                             p.provider
                         );
                         dropped_ids.push(id.clone());
                         continue;
                     }
-                };
-
-                if let Some(value) = access_migrated {
-                    p.access_token = Some(value);
-                    migrated = true;
                 }
-                if let Some(value) = refresh_migrated {
-                    p.refresh_token = Some(value);
-                    migrated = true;
-                }
-                if let Some(value) = id_migrated {
-                    p.id_token = Some(value);
-                    migrated = true;
-                }
-                if let Some(value) = token_migrated {
-                    p.token = Some(value);
-                    migrated = true;
-                }
-                (access_token, refresh_token, id_token, token)
             };
 
             let kind = match parse_profile_kind(&p.kind) {
-                Ok(k) => k,
-                Err(e) => {
-                    // A single profile with an unrecognized `kind` (e.g. a legacy value
-                    // like "OAuth" written before the kebab-case rename, or "api_key"
-                    // written by an older code path) must not poison the whole store —
-                    // otherwise every reader fails the entire load and the user is
-                    // locked out of *all* their auth profiles. Drop just this entry,
-                    // matching the decrypt-failure recovery pattern above; the next
-                    // login re-encodes the kind correctly.
+                Ok(kind) => kind,
+                Err(error) => {
                     log::warn!(
-                        "[auth] dropping profile with unrecognized kind={:?} provider={}: {e}. \
-                         This usually means the profile was written by an older version of \
-                         OpenHuman. Re-authenticate to restore the session.",
+                        "[auth] dropping profile with unrecognized kind={:?} provider={}: {error}",
                         p.kind,
                         p.provider
                     );
@@ -305,29 +91,19 @@ impl AuthProfilesStore {
             };
             let token_set = match kind {
                 AuthProfileKind::OAuth => {
-                    let access = match access_token {
-                        Some(a) => a,
-                        None if !self.use_keychain && keychain_held_oauth(p) => {
-                            log::warn!(
-                                "[auth] keeping OAuth profile whose secrets are only in the \
-                                 unavailable OS keychain: provider={}. It resolves once the \
-                                 keychain reads again.",
-                                p.provider
-                            );
+                    let Some(access_token) = access_token else {
+                        if !self.use_keychain && keychain_held_oauth(p) {
                             continue;
                         }
-                        None => {
-                            log::warn!(
-                                "[auth] dropping OAuth profile with missing access_token: \
-                                 provider={}. Re-authenticate to restore.",
-                                p.provider
-                            );
-                            dropped_ids.push(id.clone());
-                            continue;
-                        }
+                        log::warn!(
+                            "[auth] dropping OAuth profile with missing access_token: provider={}",
+                            p.provider
+                        );
+                        dropped_ids.push(id.clone());
+                        continue;
                     };
                     Some(TokenSet {
-                        access_token: access,
+                        access_token,
                         refresh_token,
                         id_token,
                         expires_at: parse_optional_datetime(p.expires_at.as_deref())?,
@@ -337,7 +113,6 @@ impl AuthProfilesStore {
                 }
                 AuthProfileKind::Token => None,
             };
-
             profiles.insert(
                 id.clone(),
                 AuthProfile {
@@ -348,7 +123,7 @@ impl AuthProfilesStore {
                     account_id: p.account_id.clone(),
                     workspace_id: p.workspace_id.clone(),
                     token_set,
-                    token,
+                    token: if kind == AuthProfileKind::Token { token } else { None },
                     metadata: p.metadata.clone(),
                     created_at: parse_datetime_with_fallback(&p.created_at),
                     updated_at: parse_datetime_with_fallback(&p.updated_at),
