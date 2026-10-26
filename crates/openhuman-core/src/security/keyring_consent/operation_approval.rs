@@ -111,17 +111,8 @@ pub(crate) async fn request_approval(
         None => Some(OperationOutcome::Pending),
         Some(true) => None,
     };
-    if let Some(outcome) = outcome
-        && let Ok(mut outcomes) = call_outcomes().lock()
-    {
-        // Call ids are host-generated UUIDs. Keep the handoff bounded if a
-        // caller task disappears before consuming its correlated outcome.
-        if outcomes.len() >= MAX_PENDING_APPROVALS {
-            if let Some(oldest) = outcomes.keys().next().cloned() {
-                outcomes.remove(&oldest);
-            }
-        }
-        outcomes.insert(call_id, outcome);
+    if let Some(outcome) = outcome {
+        record_operation_outcome(call_id, outcome);
     }
     decision
 }
@@ -132,6 +123,19 @@ pub(crate) fn take_operation_outcome(call_id: &str) -> Option<OperationOutcome> 
         .lock()
         .ok()
         .and_then(|mut outcomes| outcomes.remove(call_id))
+}
+
+fn record_operation_outcome(call_id: String, outcome: OperationOutcome) {
+    if let Ok(mut outcomes) = call_outcomes().lock() {
+        // Call ids are host-generated UUIDs. Keep the handoff bounded if a
+        // caller task disappears before consuming its correlated outcome.
+        if outcomes.len() >= MAX_PENDING_APPROVALS
+            && let Some(oldest) = outcomes.keys().next().cloned()
+        {
+            outcomes.remove(&oldest);
+        }
+        outcomes.insert(call_id, outcome);
+    }
 }
 
 async fn await_decision(

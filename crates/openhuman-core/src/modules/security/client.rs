@@ -391,4 +391,3 @@ impl Client {
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
     }
 }
-

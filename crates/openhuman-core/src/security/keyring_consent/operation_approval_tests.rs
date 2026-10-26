@@ -70,3 +70,18 @@ async fn timed_out_approval_is_removed_from_capacity() {
     );
     assert!(registry.lock().unwrap().pending.is_empty());
 }
+
+#[test]
+fn operation_outcome_is_correlated_and_consumed_once() {
+    let call_id = uuid::Uuid::new_v4().to_string();
+    call_outcomes()
+        .lock()
+        .unwrap()
+        .insert(call_id.clone(), OperationOutcome::Denied);
+
+    assert_eq!(
+        take_operation_outcome(&call_id),
+        Some(OperationOutcome::Denied)
+    );
+    assert_eq!(take_operation_outcome(&call_id), None);
+}
