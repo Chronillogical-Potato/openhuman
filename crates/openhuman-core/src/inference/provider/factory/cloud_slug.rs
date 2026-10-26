@@ -74,6 +74,7 @@ pub(crate) fn resolve_cloud_slug_for<'a>(
         config,
         extensions,
         CredentialAccess::Runtime,
+        None,
     )
 }
 
@@ -108,6 +109,7 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
     config: &'a Config,
     extensions: Option<&crate::core::slots::Extensions>,
     credential_access: CredentialAccess,
+    inspection_credential: Option<&super::credentials::ReadOnlyCloudCredential>,
 ) -> anyhow::Result<CloudSlugResolution<'a>> {
     let entry = config.cloud_providers.iter().find(|e| e.slug == slug);
 
@@ -250,7 +252,11 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
     } else if credential_access == CredentialAccess::Inspection {
         let credential = inspection_credential
             .ok_or_else(|| anyhow::anyhow!("inspection credential was not pre-resolved"))?;
-        (credential.key, credential.is_oauth, credential.account_id)
+        (
+            credential.key.clone(),
+            credential.is_oauth,
+            credential.account_id.clone(),
+        )
     } else {
         let key = credential_access
             .lookup_key_for_slug(slug, config)
@@ -433,6 +439,7 @@ fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
         extensions,
         credential_access,
         inspection_credential,
+        inspection_credential,
         inspection_identity,
     )
 }
@@ -551,6 +558,7 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
         config,
         extensions,
         credential_access,
+        inspection_credential,
     ) {
         Ok(r) => r,
         Err(e) => return Some(Err(e)),
