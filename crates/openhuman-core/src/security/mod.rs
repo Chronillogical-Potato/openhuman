@@ -30,7 +30,7 @@ pub use audit::{
 };
 #[allow(unused_imports)]
 pub use egress::{
-    emit_external_transfer, enforce_egress, local_only_blocks, local_only_tool_block, DataKind,
+    emit_external_transfer, enforce_egress, local_only_tool_block, DataKind,
     EgressDescriptor, EgressReason, IdentificationRisk,
 };
 pub use ops as rpc;
