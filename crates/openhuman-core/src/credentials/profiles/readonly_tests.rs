@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use tempfile::TempDir;
 
 #[test]
+#[cfg(feature = "security-module")]
 fn read_only_profile_loads_secrets_stored_in_tinysecurity_keyring() {
     let tmp = TempDir::new().unwrap();
     let state_dir = tmp.path();
@@ -33,17 +34,12 @@ fn read_only_profile_loads_secrets_stored_in_tinysecurity_keyring() {
             .unwrap();
     });
 
-    let loaded = load_profile_with_keyring(
-        &config,
-        "openai-codex",
-        None,
-        |_, _| {
-            Ok(Some(KeychainSecrets {
-                access_token: Some("keyring-access-token".into()),
-                ..KeychainSecrets::default()
-            }))
-        },
-    )
+    let loaded = load_profile_with_keyring(&config, "openai-codex", None, |_, _| {
+        Ok(Some(KeychainSecrets {
+            access_token: Some("keyring-access-token".into()),
+            ..KeychainSecrets::default()
+        }))
+    })
     .expect("keyring-backed profile should be readable")
     .expect("profile should be selected");
 

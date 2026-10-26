@@ -7,11 +7,10 @@ use crate::security::secret_storage::{EncryptedFileBackend, SecretStore};
 use tinystoragedrivers_secrets::{EncryptedFileSecrets, SecretStore as _};
 
 use super::{
+    AuthProfile, AuthProfileKind, AuthProfilesStore, CURRENT_SCHEMA_VERSION, KeychainSecrets,
+    PROFILES_FILENAME, PersistedAuthProfile, PersistedAuthProfiles, TokenSet,
     normalize_profile_id_provider, parse_datetime_with_fallback, parse_optional_datetime,
-    parse_profile_kind, profile_id, AuthProfile, AuthProfileKind, KeychainSecrets,
-    AuthProfilesStore, PersistedAuthProfile, PersistedAuthProfiles, TokenSet,
-    CURRENT_SCHEMA_VERSION,
-    PROFILES_FILENAME,
+    parse_profile_kind, profile_id,
 };
 use crate::credentials::default_profile_id;
 
@@ -85,11 +84,8 @@ fn load_profile_with_keyring(
         .ok_or(ReadOnlyAuthProfileError::InvalidStore)?;
 
     let user_id = super::user_id_from_state_dir(state_dir);
-    let profile_store = AuthProfilesStore::new_with_config(
-        state_dir,
-        config.secrets.encrypt,
-        config,
-    );
+    let profile_store =
+        AuthProfilesStore::new_with_config(state_dir, config.secrets.encrypt, config);
     let keyring_error = if profile_store.use_keychain {
         match read_keyring(&profile_store, &id) {
             Ok(Some(secrets)) => return profile_from_persisted(profile, id, secrets),
@@ -105,11 +101,8 @@ fn load_profile_with_keyring(
         None
     };
 
-    let profile_secret = read_profile_secret(
-        config,
-        &user_id,
-        &super::auth_profile_secret_key(&id),
-    );
+    let profile_secret =
+        read_profile_secret(config, &user_id, &super::auth_profile_secret_key(&id));
     let secrets = match profile_secret {
         Ok(Some(payload)) => Some(
             serde_json::from_str::<KeychainSecrets>(&payload)
