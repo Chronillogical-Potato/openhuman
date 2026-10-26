@@ -75,6 +75,8 @@ pub(crate) async fn execute_in_sandbox_yielding(
     let operator_off = !crate::core::runtime::is_saas()
         && (sandbox_disabled_by_host(ctx) || config_disables_sandbox(&config));
     #[cfg(feature = "security-module")]
+    {
+    #[cfg(feature = "security-module")]
     let planned = {
         use crate::sandbox::spawn_plan::{ModuleSource, SpawnRequest, SpawnSource};
         let env = extra_env
@@ -111,12 +113,7 @@ pub(crate) async fn execute_in_sandbox_yielding(
         .map_err(|error| anyhow::anyhow!("Sandbox plan refused: {error}"))?;
         planned
     };
-    #[cfg(not(feature = "security-module"))]
-    anyhow::bail!("TinySecurity is not built into this host; sandboxed execution is refused");
-
-    #[cfg(feature = "security-module")]
     let effective_policy = planned.apply(&requested_policy);
-    #[cfg(feature = "security-module")]
     let policy = &effective_policy;
     // Validate the working directory up front so a missing/bad action_dir
     // surfaces an actionable, path-naming error here rather than an opaque OS
@@ -185,6 +182,12 @@ pub(crate) async fn execute_in_sandbox_yielding(
                 .await
                 .map(ShellRunOutcome::Finished)
         }
+    }
+    }
+    #[cfg(not(feature = "security-module"))]
+    {
+        let _ = (requested_policy, operator_off, config, come_back, meter);
+        anyhow::bail!("TinySecurity is not built into this host; sandboxed execution is refused")
     }
 }
 
