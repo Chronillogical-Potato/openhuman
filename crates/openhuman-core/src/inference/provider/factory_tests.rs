@@ -177,9 +177,9 @@ fn config_with_providers_in_tempdir(tmp: &TempDir, providers: Vec<CloudProviderC
     c
 }
 
-#[test]
-fn inspection_requires_credentials_for_explicit_authenticated_cloud_routes() {
-    with_library_test_context(|| {
+#[tokio::test]
+async fn inspection_requires_credentials_for_explicit_authenticated_cloud_routes() {
+    with_library_test_context_async(|| async {
         let tmp = TempDir::new().expect("temporary provider workspace");
         let mut provider = openai_entry("p_missing_key", "factory-missing-key-test");
         let mut config = config_with_providers_in_tempdir(&tmp, vec![provider.clone()]);
@@ -190,7 +190,8 @@ fn inspection_requires_credentials_for_explicit_authenticated_cloud_routes() {
             "chat",
             &config,
             0.0,
-        );
+        )
+        .await;
         assert!(
             inspection.is_err(),
             "inspection must reject explicit Bearer routes without credentials"
@@ -217,6 +218,7 @@ fn inspection_requires_credentials_for_explicit_authenticated_cloud_routes() {
                 &config,
                 0.0,
             )
+            .await
             .is_err(),
             "inspection must reject explicit Anthropic routes without credentials"
         );
@@ -230,10 +232,12 @@ fn inspection_requires_credentials_for_explicit_authenticated_cloud_routes() {
                 &config,
                 0.0,
             )
+            .await
             .is_ok(),
             "unauthenticated proxy routes do not require a stored credential"
         );
-    });
+    })
+    .await;
 }
 
 fn oh_entry(id: &str) -> CloudProviderCreds {
