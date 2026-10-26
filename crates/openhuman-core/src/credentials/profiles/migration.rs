@@ -18,7 +18,7 @@ impl AuthProfilesStore {
     /// The returned `AuthProfilesData` reflects the in-memory cleanup either
     /// way, so the lock-free read path (`persist = false`) still returns a
     /// correct, fully-resolved view without touching disk.
-    pub(super) fn load_resolved(&self, persist: bool) -> Result<AuthProfilesData> {
+    pub(super) async fn load_resolved(&self, persist: bool) -> Result<AuthProfilesData> {
         let mut persisted = self.read_persisted_locked()?;
         let mut dropped_ids: Vec<String> = Vec::new();
         let mut pending_keychain_deletes = Vec::new();
@@ -28,12 +28,12 @@ impl AuthProfilesStore {
             // Current secrets may live in the keyring or in the encrypted
             // profile document. Legacy document values are read in place; they
             // are never promoted into the keyring during a profile read.
-            let decrypt_document_secrets = || -> Result<_> {
-                Ok((
-                    self.decrypt_optional(p.access_token.as_deref())?.0,
-                    self.decrypt_optional(p.refresh_token.as_deref())?.0,
-                    self.decrypt_optional(p.id_token.as_deref())?.0,
-                    self.decrypt_optional(p.token.as_deref())?.0,
+            let decrypt_document_secrets = || async {
+                Ok::<_, anyhow::Error>((
+                    self.decrypt_optional(p.access_token.as_deref()).await?.0,
+                    self.decrypt_optional(p.refresh_token.as_deref()).await?.0,
+                    self.decrypt_optional(p.id_token.as_deref()).await?.0,
+                    self.decrypt_optional(p.token.as_deref()).await?.0,
                 ))
             };
             let (access_token, refresh_token, id_token, token) = if self.use_keychain {
@@ -44,7 +44,7 @@ impl AuthProfilesStore {
                         secrets.id_token,
                         secrets.token,
                     ),
-                    Ok(None) => match decrypt_document_secrets() {
+                    Ok(None) => match decrypt_document_secrets().await {
                         Ok(secrets) => secrets,
                         Err(decrypt_error) => {
                             log::warn!(
@@ -64,7 +64,7 @@ impl AuthProfilesStore {
                         if preserve_keyring_only_oauth_after_access_failure(p, true) {
                             unavailable_keyring_ids.push(id.clone());
                         }
-                        match decrypt_document_secrets() {
+                        match decrypt_document_secrets().await {
                             Ok(secrets) => secrets,
                             Err(decrypt_error) => {
                                 // The keyring may still contain the only copy.
@@ -78,7 +78,7 @@ impl AuthProfilesStore {
                     }
                 }
             } else {
-                match decrypt_document_secrets() {
+                match decrypt_document_secrets().await {
                     Ok(secrets) => secrets,
                     Err(error) => {
                         log::warn!(
