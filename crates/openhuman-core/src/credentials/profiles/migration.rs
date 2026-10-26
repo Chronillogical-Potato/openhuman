@@ -123,7 +123,11 @@ impl AuthProfilesStore {
                     account_id: p.account_id.clone(),
                     workspace_id: p.workspace_id.clone(),
                     token_set,
-                    token: if kind == AuthProfileKind::Token { token } else { None },
+                    token: if kind == AuthProfileKind::Token {
+                        token
+                    } else {
+                        None
+                    },
                     metadata: p.metadata.clone(),
                     created_at: parse_datetime_with_fallback(&p.created_at),
                     updated_at: parse_datetime_with_fallback(&p.updated_at),
