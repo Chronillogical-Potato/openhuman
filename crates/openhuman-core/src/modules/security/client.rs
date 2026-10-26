@@ -1,5 +1,6 @@
 //! Typed, attested calls to the TinySecurity policy interface.
 
+use serde::{de::DeserializeOwned, Serialize};
 use tinysecurity_bus::{
     BudgetDecision2, BudgetRequest2, CheckRequest, CheckResponse, CommandDecision, CommandPolicy,
     CommandPolicyId, CommandRequest, CredentialRootsRequest2, CredentialRootsResponse2, Decision,
@@ -34,16 +35,40 @@ impl std::error::Error for SecurityError {}
 /// A client whose object path comes from the compiled registry record.
 #[derive(Clone)]
 pub struct Client {
-    object: tinybus::module::ModuleObjectClient,
+    object: SecurityObject,
+}
+
+#[derive(Clone)]
+struct SecurityObject {
+    proxy: tinybus::module::HostCallbackProxy,
+}
+
+impl SecurityObject {
+    async fn call_confidential<R: DeserializeOwned>(
+        &self,
+        member: &str,
+        args: impl Serialize,
+    ) -> tinybus::Result<R> {
+        self.proxy.call_confidential(member, args).await
+    }
 }
 
 impl Client {
     pub(super) async fn connect(config: &Config) -> Result<Self, String> {
-        let client = super::super::ops::client(config.clone());
-        let object = client
-            .object_client(MODULE_ID, tinysecurity_bus::names::OBJECT_PATH)
+        super::super::ops::ensure_loaded(config, MODULE_ID).await?;
+        let binding = super::super::ops::security_callback_binding()
             .await
+            .ok_or_else(|| "security callback binding unavailable".to_owned())?;
+        let record = super::super::registry::find(MODULE_ID)
+            .ok_or_else(|| "security module registry record missing".to_owned())?;
+        let proxy = binding
+            .proxy(
+                record.bus_name,
+                record.object_path,
+                tinysecurity_bus::names::INTERFACE,
+            )
             .map_err(|_| "pinned security module proxy unavailable".to_owned())?;
+        let object = SecurityObject { proxy };
         Ok(Self { object })
     }
 

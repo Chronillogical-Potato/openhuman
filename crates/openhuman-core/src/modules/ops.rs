@@ -279,20 +279,18 @@ static COMPUTER_CALLBACK_LOADS: std::sync::LazyLock<ComputerCallbackLoads> =
 struct SecurityCallbackState {
     binding: std::sync::Arc<tinybus::module::HostCallbackBinding>,
     consumer: std::sync::Arc<super::security::cipher_consumer::Consumer>,
-    backend: std::sync::Arc<super::security::secret_backend::SecretBackend>,
+    _backend: std::sync::Arc<super::security::secret_backend::SecretBackend>,
     scope: crate::security::approval::native::SecretScope,
     registration_id: String,
     consumer_id: String,
     target_backend_id: String,
     legacy_backend_id: String,
-    target_backend: crate::security::secret_storage::store::BackendKind,
     key_path: PathBuf,
 }
 
 #[cfg(feature = "security-module")]
-type SecurityCallbackLoads = tokio::sync::Mutex<
-    std::collections::HashMap<String, std::sync::Arc<SecurityCallbackState>>,
->;
+type SecurityCallbackLoads =
+    tokio::sync::Mutex<std::collections::HashMap<String, std::sync::Arc<SecurityCallbackState>>>;
 
 #[cfg(feature = "security-module")]
 static SECURITY_CALLBACK_LOADS: std::sync::LazyLock<SecurityCallbackLoads> =
@@ -337,8 +335,8 @@ pub(super) async fn security_cipher_consumer(
 }
 
 #[cfg(feature = "security-module")]
-pub(super) async fn security_secret_scope(
-) -> Option<crate::security::approval::native::SecretScope> {
+pub(super) async fn security_secret_scope() -> Option<crate::security::approval::native::SecretScope>
+{
     SECURITY_CALLBACK_LOADS
         .lock()
         .await
@@ -416,7 +414,7 @@ async fn ensure_loaded_with_security_callback(
                 module_config,
             )
             .await?;
-        register_security_scope(config, state).await?;
+        register_security_scope(state).await?;
         return Ok(());
     }
 
@@ -439,9 +437,11 @@ async fn ensure_loaded_with_security_callback(
     };
     let scope = crate::security::approval::native::prepare_secret_scope(config, subject).await?;
     let target_backend = crate::security::secret_storage::store::effective_backend_kind();
-    let target_backend_id = security_opaque_id("secret-backend", &key_path, &format!("{target_backend:?}"));
+    let target_backend_id =
+        security_opaque_id("secret-backend", &key_path, &format!("{target_backend:?}"));
     let legacy_backend_id = security_opaque_id("secret-legacy", &key_path, "file");
-    let registration_id = security_opaque_id("secret-registration", &key_path, "config-user-master");
+    let registration_id =
+        security_opaque_id("secret-registration", &key_path, "config-user-master");
     let consumer_id = security_opaque_id("secret-cipher-consumer", &key_path, "config-user-master");
 
     let runtime = resolver
@@ -449,9 +449,10 @@ async fn ensure_loaded_with_security_callback(
         .await
         .map_err(|error| error.to_string())?;
     let host = runtime.host().clone();
-    let candidates = std::sync::Arc::new(tokio::sync::Mutex::new(
-        std::collections::HashMap::<String, std::sync::Arc<SecurityCallbackState>>::new(),
-    ));
+    let candidates = std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::<
+        String,
+        std::sync::Arc<SecurityCallbackState>,
+    >::new()));
     let factory_config = config.clone();
     let factory_scope = scope.clone();
     let factory_candidates = std::sync::Arc::clone(&candidates);
@@ -479,22 +480,20 @@ async fn ensure_loaded_with_security_callback(
                         .await
                         .map_err(|_| "security callback binding unavailable".to_owned())?,
                 );
-                let consumer = std::sync::Arc::new(
-                    super::security::cipher_consumer::Consumer::new(
+                let consumer =
+                    std::sync::Arc::new(super::security::cipher_consumer::Consumer::new(
                         registration_id.clone(),
                         consumer_id.clone(),
-                    ),
-                );
-                let backend = std::sync::Arc::new(
-                    super::security::secret_backend::SecretBackend::new(
+                    ));
+                let backend =
+                    std::sync::Arc::new(super::security::secret_backend::SecretBackend::new(
                         registration_id.clone(),
                         user_id,
                         target_backend_id.clone(),
                         legacy_backend_id.clone(),
                         key_path.clone(),
                         target_backend,
-                    ),
-                );
+                    ));
                 super::security::serve_secret_callbacks(
                     &binding,
                     std::sync::Arc::clone(&consumer),
@@ -505,13 +504,12 @@ async fn ensure_loaded_with_security_callback(
                 let state = std::sync::Arc::new(SecurityCallbackState {
                     binding: std::sync::Arc::clone(&binding),
                     consumer,
-                    backend,
+                    _backend: backend,
                     scope,
                     registration_id,
                     consumer_id,
                     target_backend_id,
                     legacy_backend_id,
-                    target_backend,
                     key_path,
                 });
                 let module_config = state.module_config(&config)?;
@@ -530,20 +528,21 @@ async fn ensure_loaded_with_security_callback(
         .ok_or_else(|| "admitted security callback state unavailable".to_owned())?;
     candidates.clear();
     loads.insert(id.to_owned(), std::sync::Arc::clone(&state));
-    register_security_scope(config, &state).await?;
+    register_security_scope(&state).await?;
     Ok(())
 }
 
 #[cfg(feature = "security-module")]
-async fn register_security_scope(
-    _config: &Config,
-    state: &SecurityCallbackState,
-) -> Result<(), String> {
+async fn register_security_scope(state: &SecurityCallbackState) -> Result<(), String> {
     let record = registry::find(super::security::MODULE_ID)
         .ok_or_else(|| "security module registry record missing".to_owned())?;
     let proxy = state
         .binding
-        .proxy(record.bus_name, record.object_path, tinysecurity_bus::names::INTERFACE)
+        .proxy(
+            record.bus_name,
+            record.object_path,
+            tinysecurity_bus::names::INTERFACE,
+        )
         .map_err(|_| "security module proxy unavailable".to_owned())?;
     let info: tinysecurity_bus::PolicyInfo = proxy
         .call_confidential(tinysecurity_bus::names::methods::POLICY_INFO, ())

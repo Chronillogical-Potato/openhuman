@@ -147,7 +147,7 @@ pub fn module_config_for_host(
 
 /// Add the exact persisted approval/audit scope and fixed config-master
 /// registration to this candidate's initialization config.
-pub(super) fn module_config_for_secret_scope(
+pub(crate) fn module_config_for_secret_scope(
     config: &Config,
     trusted_host: Option<String>,
     scope: &crate::security::approval::native::SecretScope,
