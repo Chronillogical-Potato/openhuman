@@ -23,6 +23,7 @@ pub(crate) mod text;
 mod tests;
 
 pub use client::{Client, SecurityError};
+pub(crate) use client::SecurityProxy;
 pub use policy::policy_config;
 pub(super) use policy::{module_config, module_config_for_host, module_config_for_secret_scope};
 
@@ -74,15 +75,22 @@ pub async fn client(config: &Config) -> Result<Client, SecurityError> {
 pub(crate) async fn approval_object(
     config: &Config,
     timeout: std::time::Duration,
-) -> Result<tinybus::module::ModuleObjectClient, String> {
-    ensure_loaded(config)
+) -> Result<SecurityProxy, String> {
+    ensure_loaded(config).await.map_err(|error| error.to_string())?;
+    let binding = super::ops::security_callback_binding()
         .await
-        .map_err(|error| error.to_string())?;
-    super::ops::client(config.clone())
-        .with_timeout(timeout)
-        .object_client(MODULE_ID, tinysecurity_bus::names::OBJECT_PATH)
-        .await
-        .map_err(|error| error.to_string())
+        .ok_or_else(|| "security callback binding unavailable".to_owned())?;
+    let record = super::registry::find(MODULE_ID)
+        .ok_or_else(|| "security module registry record missing".to_owned())?;
+    let proxy = binding
+        .proxy(
+            record.bus_name,
+            record.object_path,
+            tinysecurity_bus::names::INTERFACE,
+        )
+        .map_err(|_| "security module proxy unavailable".to_owned())?
+        .with_timeout(timeout);
+    Ok(SecurityProxy::callback(proxy))
 }
 
 /// Validate a host path using an immutable TinySecurity path scope.

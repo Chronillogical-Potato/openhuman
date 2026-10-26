@@ -35,7 +35,7 @@ impl std::error::Error for SecurityError {}
 /// A client whose object path comes from the compiled registry record.
 #[derive(Clone)]
 pub struct Client {
-    object: SecurityObject,
+    object: SecurityProxy,
 }
 
 /// One admitted security API connection. Production calls travel through the
