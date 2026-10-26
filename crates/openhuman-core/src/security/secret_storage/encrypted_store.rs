@@ -85,6 +85,7 @@ impl SecretStore {
             .run_security_cipher(
                 tinysecurity_bus::SecretCipherKind2::Encrypt,
                 plaintext.as_bytes(),
+                None,
             )
             .await?
         {
@@ -104,6 +105,7 @@ impl SecretStore {
             .run_security_cipher(
                 tinysecurity_bus::SecretCipherKind2::Decrypt,
                 value.as_bytes(),
+                None,
             )
             .await?
         {
@@ -128,6 +130,7 @@ impl SecretStore {
             .run_security_cipher(
                 tinysecurity_bus::SecretCipherKind2::DecryptAndMigrate,
                 value.as_bytes(),
+                None,
             )
             .await?
         {
@@ -145,10 +148,42 @@ impl SecretStore {
         }
     }
 
+    /// Decrypt one value with an explicitly supplied key through TinySecurity.
+    /// The key is exposed to the existing configured User backend for one
+    /// serialized resolver read; the override denies writes and is never cached.
+    pub async fn decrypt_with_existing_key_via_security(
+        &self,
+        value: &str,
+        key: &str,
+    ) -> Result<String> {
+        if let Some(_legacy) = value.strip_prefix("enc:") {
+            anyhow::bail!("legacy encrypted value is unavailable to read-only inspection");
+        }
+        if !Self::is_encrypted(value) {
+            return Ok(value.to_owned());
+        }
+        match self
+            .run_security_cipher(
+                tinysecurity_bus::SecretCipherKind2::Decrypt,
+                value.as_bytes(),
+                Some(key),
+            )
+            .await?
+        {
+            crate::modules::security::SecretCipherOutput::Plaintext { value, .. } => {
+                Ok(value.to_string())
+            }
+            crate::modules::security::SecretCipherOutput::Ciphertext(_) => {
+                anyhow::bail!("secret decryption was not completed")
+            }
+        }
+    }
+
     async fn run_security_cipher(
         &self,
         operation: tinysecurity_bus::SecretCipherKind2,
         input: &[u8],
+        existing_key: Option<&str>,
     ) -> Result<crate::modules::security::SecretCipherOutput> {
         let config = self
             .config
@@ -179,7 +214,16 @@ impl SecretStore {
                 .map_err(anyhow::Error::new)?
                 .generation;
             let cache_key = normalize_cache_path(&self.key_path);
-            let master_handle = if let Some(handle) = cached_master_handle(
+            let master_handle = if let Some(existing_key) = existing_key {
+                crate::modules::security::resolve_user_master_with_existing_key(
+                    &client,
+                    &scope,
+                    &registration_id,
+                    existing_key,
+                )
+                .await
+                .map_err(anyhow::Error::new)?
+            } else if let Some(handle) = cached_master_handle(
                 &cache_key,
                 &registration_id,
                 &binding_identity,
@@ -217,7 +261,7 @@ impl SecretStore {
         }
         #[cfg(not(feature = "security-module"))]
         {
-            let _ = (config, operation, input);
+            let _ = (config, operation, input, existing_key);
             anyhow::bail!("TinySecurity is not built into this host")
         }
     }
