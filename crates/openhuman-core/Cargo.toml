@@ -112,6 +112,7 @@ tinyagents-harness-tools = { path = "../../vendor/tinyagents/crates/tinyagents-h
     "plan-review",
 ] }
 tinybox-bus = { path = "../../vendor/tinybox/crates/tinybox-bus", features = ["storage"] }
+tinybox-jail = { path = "../../vendor/tinybox/crates/tinybox-jail" }
 tiny-artifacts = { path = "../../vendor/tiny-artifacts/crates/tiny-artifacts" }
 tinyagents-definition = { path = "../../vendor/tinyagents/crates/tinyagents-definition" }
 # Live (realtime voice) agent sessions: `tinyagents-live` runs a
@@ -498,7 +499,6 @@ tinychannels-runtime = { path = "../../vendor/tinychannels/crates/tinychannels-r
 # the WhatsApp Web stack (whatsapp-rust, wacore, waproto) is never compiled here;
 # WhatsApp provider behaviour is tested in the tinychannels repository.
 tinychannels-module = { path = "../../vendor/tinychannels/crates/tinychannels-module", default-features = false, features = ["static-link"] }
-tinybox-core = { path = "../../vendor/tinybox/crates/tinybox-core" }
 # The TinyMemory reference engine (an in-memory `MemoryEngine`) and the
 # behavioural suite every engine must pass. Memory unit tests bind it as the
 # engine instead of talking to CortexDB.
