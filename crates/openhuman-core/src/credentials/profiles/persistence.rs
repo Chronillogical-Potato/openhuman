@@ -10,8 +10,9 @@ use std::fs;
 use tinystoragedrivers_secrets::{EncryptedFileSecrets, SecretStore as _};
 
 use super::{
-    AuthProfile, AuthProfileKind, AuthProfilesData, AuthProfilesStore, CURRENT_SCHEMA_VERSION,
-    EncryptedProfileFields, PROFILES_FILENAME, profile_kind_to_string, quarantine_corrupt_store,
+    profile_kind_to_string, quarantine_corrupt_store, AuthProfile, AuthProfileKind,
+    AuthProfilesData, AuthProfilesStore, EncryptedProfileFields, CURRENT_SCHEMA_VERSION,
+    PROFILES_FILENAME,
 };
 
 /// Whether `bytes` parse as the legacy persisted profiles document.
@@ -272,10 +273,9 @@ impl AuthProfilesStore {
         let directory = self.path.parent().expect("profile store has parent");
         let store = EncryptedFileSecrets::with_key_file_read_only(directory)
             .context("Failed to open encrypted auth profile store")?;
-        let value = crate::storage::block_on(async move {
-            store.get(PROFILE_DOCUMENT_SECRET_NAME).await
-        })
-            .context("Failed to read encrypted auth profile store")?;
+        let value =
+            crate::storage::block_on(async move { store.get(PROFILE_DOCUMENT_SECRET_NAME).await })
+                .context("Failed to read encrypted auth profile store")?;
         let Some(value) = value else {
             return Ok(None);
         };
@@ -289,10 +289,10 @@ impl AuthProfilesStore {
         let directory = self.path.parent().expect("profile store has parent");
         let store = EncryptedFileSecrets::with_key_file(directory)
             .context("Failed to open encrypted auth profile store")?;
-        crate::storage::block_on(async move {
-            store.set(PROFILE_DOCUMENT_SECRET_NAME, &json).await
-        })
-            .context("Failed to write encrypted auth profile store")
+        crate::storage::block_on(
+            async move { store.set(PROFILE_DOCUMENT_SECRET_NAME, &json).await },
+        )
+        .context("Failed to write encrypted auth profile store")
     }
 
     pub(super) fn decrypt_optional(

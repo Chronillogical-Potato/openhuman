@@ -39,9 +39,7 @@ pub const PROFILE_PREFIX: &str = "@profile/";
 /// Auth profiles now have a profile-local `EncryptedFileSecrets` store and
 /// are imported by `AuthProfilesStore` itself.
 #[cfg(feature = "flows")]
-pub const FILES: &[(&str, &str)] = &[
-    (STORE_FILENAME, STORAGE_SECRET_NAME),
-];
+pub const FILES: &[(&str, &str)] = &[(STORE_FILENAME, STORAGE_SECRET_NAME)];
 #[cfg(not(feature = "flows"))]
 pub const FILES: &[(&str, &str)] = &[];
 

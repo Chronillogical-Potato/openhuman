@@ -7,9 +7,10 @@ use crate::security::secret_storage::{EncryptedFileBackend, SecretStore};
 use tinystoragedrivers_secrets::{EncryptedFileSecrets, SecretStore as _};
 
 use super::{
-    AuthProfile, AuthProfileKind, CURRENT_SCHEMA_VERSION, KeychainSecrets, PROFILES_FILENAME,
-    PersistedAuthProfile, PersistedAuthProfiles, TokenSet, normalize_profile_id_provider,
-    parse_datetime_with_fallback, parse_optional_datetime, parse_profile_kind, profile_id,
+    normalize_profile_id_provider, parse_datetime_with_fallback, parse_optional_datetime,
+    parse_profile_kind, profile_id, AuthProfile, AuthProfileKind, KeychainSecrets,
+    PersistedAuthProfile, PersistedAuthProfiles, TokenSet, CURRENT_SCHEMA_VERSION,
+    PROFILES_FILENAME,
 };
 use crate::credentials::default_profile_id;
 
@@ -40,11 +41,10 @@ pub(super) fn load_profile(
             let directory = path.parent().ok_or(ReadOnlyAuthProfileError::Unavailable)?;
             let store = EncryptedFileSecrets::with_key_file_read_only(directory)
                 .map_err(|_| ReadOnlyAuthProfileError::Unavailable)?;
-            let value =
-                crate::storage::block_on(
-                    async move { store.get(super::PROFILE_DOCUMENT_SECRET_NAME).await },
-                )
-                .map_err(|_| ReadOnlyAuthProfileError::Unavailable)?;
+            let value = crate::storage::block_on(async move {
+                store.get(super::PROFILE_DOCUMENT_SECRET_NAME).await
+            })
+            .map_err(|_| ReadOnlyAuthProfileError::Unavailable)?;
             value
                 .map(|value| value.to_vec())
                 .ok_or(ReadOnlyAuthProfileError::InvalidStore)?
