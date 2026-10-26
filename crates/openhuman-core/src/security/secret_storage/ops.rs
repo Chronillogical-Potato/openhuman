@@ -344,7 +344,6 @@ fn get_or_create_random_with_backend(
     // Hold the advisory lock over the entire read → create → verify sequence.
     // This works for OS keychains as well as file providers and coordinates
     // independent core processes sharing the same user keyring.
-    let _lock = super::file_store::lock_for_write(lock_path)?;
     let namespaced = namespaced_key(user_id, key);
     if let Some(existing) = backend.get(&namespaced)? {
         return Ok(existing);
@@ -416,11 +415,6 @@ fn migrate_from_file_with_backend(
             source: e,
         })?;
     let value = file_content.trim().to_string();
-    if value.is_empty() {
-        return Err(SecretStorageError::Backend(
-            "migration source contains no secret material; source retained".to_string(),
-        ));
-    }
 
     // Step 4: write to backend.
     log::debug!("[keyring] migrate_from_file writing to backend user_id={user_id} key={key}");
