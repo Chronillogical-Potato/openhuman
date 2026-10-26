@@ -24,7 +24,8 @@ pub(crate) struct SecretBackend {
     legacy_path: PathBuf,
     target: Binding,
     legacy: Binding,
-    pending_targets: parking_lot::Mutex<std::collections::HashMap<String, zeroize::Zeroizing<Vec<u8>>>>,
+    pending_targets:
+        parking_lot::Mutex<std::collections::HashMap<String, zeroize::Zeroizing<Vec<u8>>>>,
 }
 
 impl SecretBackend {
@@ -79,7 +80,7 @@ impl SecretBackend {
         }
     }
 
-    fn load(&self, request: SecretBackendLoadRequest2) -> SecretBackendLoadResponse2 {
+    fn load_request(&self, request: SecretBackendLoadRequest2) -> SecretBackendLoadResponse2 {
         let identity = request.identity;
         let status = match self.binding(&identity) {
             None => SecretBackendLoadStatus2::Denied,
@@ -113,7 +114,7 @@ impl SecretBackend {
         SecretBackendLoadResponse2 { identity, status }
     }
 
-    fn set(&self, request: SecretBackendSetRequest2) -> SecretBackendSetResponse2 {
+    fn set_request(&self, request: SecretBackendSetRequest2) -> SecretBackendSetResponse2 {
         let identity = request.identity;
         let encoded = zeroize::Zeroizing::new(request.encoded);
         let status = match self.binding(&identity) {
@@ -122,19 +123,15 @@ impl SecretBackend {
                     && identity.phase == SecretPhase2::TargetSet
                     && encoded.len() <= 4096 =>
             {
-                match std::str::from_utf8(&encoded)
-                    .ok()
-                    .and_then(|value| {
-                        save_backend(binding.backend, &self.user_id, value)
-                            .ok()
-                            .map(|()| value.to_owned())
-                    })
-                {
+                match std::str::from_utf8(&encoded).ok().and_then(|value| {
+                    save_backend(binding.backend, &self.user_id, value)
+                        .ok()
+                        .map(|()| value.to_owned())
+                }) {
                     Some(_) => {
-                        self.pending_targets.lock().insert(
-                            identity.operation_id.clone(),
-                            encoded.clone(),
-                        );
+                        self.pending_targets
+                            .lock()
+                            .insert(identity.operation_id.clone(), encoded.clone());
                         SecretBackendSetStatus2::Stored
                     }
                     None => SecretBackendSetStatus2::Unavailable,
@@ -212,7 +209,7 @@ impl SecretBackend {
         &self,
         request: SecretBackendLoadRequest2,
     ) -> tinybus::Result<SecretBackendLoadResponse2> {
-        Ok(SecretBackend::load(self, request))
+        Ok(self.load_request(request))
     }
 
     #[tinybus(confidential)]
@@ -220,6 +217,6 @@ impl SecretBackend {
         &self,
         request: SecretBackendSetRequest2,
     ) -> tinybus::Result<SecretBackendSetResponse2> {
-        Ok(SecretBackend::set(self, request))
+        Ok(self.set_request(request))
     }
 }

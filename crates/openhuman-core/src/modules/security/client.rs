@@ -203,7 +203,7 @@ impl Client {
         self.object
             .call_confidential(
                 tinysecurity_bus::names::methods::VALIDATE_PARENT,
-                (&*request,),
+                (request,),
             )
             .await
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
@@ -217,7 +217,7 @@ impl Client {
         self.object
             .call_confidential(
                 tinysecurity_bus::names::methods::PROTECTED_PATH2,
-                (&*request,),
+                (request,),
             )
             .await
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
@@ -350,7 +350,7 @@ impl Client {
             .object
             .call_confidential(
                 tinysecurity_bus::names::methods::EVALUATE_SECRET_CIPHER2,
-                (request,),
+                (&*request,),
             )
             .await
             .map_err(|_| SecurityError::Unavailable("secret cipher evaluation failed".into()));
@@ -368,7 +368,7 @@ impl Client {
             .object
             .call_confidential(
                 tinysecurity_bus::names::methods::EXECUTE_SECRET_CIPHER2,
-                (request,),
+                (&*request,),
             )
             .await
             .map_err(|_| SecurityError::Unavailable("secret cipher execution failed".into()));

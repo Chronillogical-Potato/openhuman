@@ -32,7 +32,7 @@ fn target_mutations_reject_a_different_registration_backend_or_slot() {
     let mut wrong_slot = identity();
     wrong_slot.slot = MasterSlotKind2::File;
     for identity in [wrong_registration, wrong_backend, wrong_slot] {
-        let response = backend.set(SecretBackendSetRequest2 {
+        let response = backend.set_request(SecretBackendSetRequest2 {
             identity,
             encoded: b"deadbeef".to_vec(),
         });
@@ -45,7 +45,7 @@ fn legacy_source_is_never_a_mutation_target() {
     let mut identity = identity();
     identity.backend_id = "legacy-backend".into();
     identity.slot = MasterSlotKind2::File;
-    let response = backend().set(SecretBackendSetRequest2 {
+    let response = backend().set_request(SecretBackendSetRequest2 {
         identity,
         encoded: b"deadbeef".to_vec(),
     });
