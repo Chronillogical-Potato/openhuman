@@ -239,6 +239,7 @@ pub async fn resolve_read_only_for_inspection(
 
     let key =
         AuthService::get_provider_bearer_token_read_only(config, MEMORY_CORTEXDB_KEY_NAME, None)
+            .await
             .map_err(|_| ReadOnlyEngineError::CredentialsUnavailable)?
             .ok_or(ReadOnlyEngineError::CredentialsUnavailable)?;
     let endpoint = cortexdb_endpoint(config);
