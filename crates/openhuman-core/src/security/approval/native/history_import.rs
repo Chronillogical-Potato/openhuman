@@ -17,7 +17,7 @@
 use std::{collections::HashSet, path::PathBuf};
 
 use sha2::{Digest, Sha256};
-use tinybus::module::ModuleObjectClient;
+use crate::modules::security::SecurityProxy;
 use tinysecurity_bus::{
     names, AccessTier, ApprovalHistoryImport2, ApprovalRecord, ApprovalRow2, ApprovalState,
     CallerContext, ImportTrustItem2, ImportTrustReceipt2, ImportTrustSourceRequest2, Origin,
@@ -65,7 +65,7 @@ pub(super) struct Report {
 
 /// Run the importer if this process has not tried it for the workspace yet.
 /// Never fails the caller: the module and the gate work without the history.
-pub(super) async fn ensure(engine: &NativeEngine, proxy: &ModuleObjectClient) {
+pub(super) async fn ensure(engine: &NativeEngine, proxy: &SecurityProxy) {
     if crate::core::runtime::is_saas() {
         return;
     }
@@ -166,7 +166,7 @@ async fn read(config: Config) -> Result<Option<LegacyHistory>, EngineError> {
 
 pub(super) async fn run(
     engine: &NativeEngine,
-    proxy: &ModuleObjectClient,
+    proxy: &SecurityProxy,
 ) -> Result<Option<Report>, EngineError> {
     let Some(history) = read(engine.config().clone()).await? else {
         return Ok(None);
@@ -205,7 +205,7 @@ pub(super) async fn run(
 /// Scope registration deliberately carries no transient tool grants; an import
 /// receipt makes this safe to retry after restart without reviving a revoked row.
 pub(super) async fn import_tool_grants(
-    proxy: &ModuleObjectClient,
+    proxy: &SecurityProxy,
     scope: &std::sync::Arc<ScopeEntry>,
     tools: &[String],
 ) {
@@ -262,7 +262,7 @@ pub(super) async fn import_tool_grants(
 mod tests;
 
 async fn import_row(
-    proxy: &ModuleObjectClient,
+    proxy: &SecurityProxy,
     scope: &std::sync::Arc<ScopeEntry>,
     row: &LegacyApproval,
 ) -> Result<(), EngineError> {
@@ -293,7 +293,7 @@ impl NativeEngine {
     /// which the imported history lives under.
     pub(super) async fn history_scope(
         &self,
-        proxy: &ModuleObjectClient,
+        proxy: &SecurityProxy,
         tenant: &Tenant,
     ) -> Result<std::sync::Arc<ScopeEntry>, EngineError> {
         let subject = self.subject(tenant, Variant::Standard)?;
