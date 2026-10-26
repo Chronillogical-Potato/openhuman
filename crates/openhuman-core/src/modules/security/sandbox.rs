@@ -1,8 +1,9 @@
 //! Typed host calls for TinySecurity sandbox plans.
 
 use tinysecurity_bus::{
-    names, ConsumeSandboxPlanRequest2, ConsumeSandboxPlanResponse2, PolicyInfo,
-    RegisterSandboxScopeRequest2, RetireSandboxScopeRequest2, SandboxPlanRequest2,
+    names, ConsumeSandboxPlanRequest2, ConsumeSandboxPlanResponse2,
+    EvaluateSandboxApprovalRequest2, PolicyInfo, RegisterSandboxScopeRequest2,
+    RetireSandboxScopeRequest2, SandboxPlanRequest2,
     SandboxPlanResponse2, SandboxScopeReceipt2,
 };
 
@@ -81,6 +82,26 @@ pub(crate) async fn plan(
         .call_confidential(names::methods::PLAN2, (request,))
         .await
         .map_err(|_| "TinySecurity Plan2 failed".to_owned())
+}
+
+/// Create a durable pending approval when host-network access is refused.
+pub(crate) async fn evaluate_sandbox_approval(
+    object: &tinybus::module::ModuleObjectClient,
+    request: SandboxPlanRequest2,
+    summary: String,
+    audit: tinysecurity_bus::AuditCorrelation2,
+) -> Result<tinysecurity_bus::ApprovalRow2, String> {
+    object
+        .call_confidential(
+            names::methods::EVALUATE_SANDBOX_APPROVAL2,
+            (EvaluateSandboxApprovalRequest2 {
+                request,
+                summary,
+                audit,
+            },),
+        )
+        .await
+        .map_err(|_| "TinySecurity EvaluateSandboxApproval2 failed".to_owned())
 }
 
 /// Atomically reserve a plan immediately before execution.
