@@ -79,15 +79,17 @@ pub(crate) async fn request_approval(
         .ok()?
         .register(access, &request.name)
         .ok()?;
-    crate::core::bus::BUS.publish(crate::core::events::DomainEvent::KeyringAccessApprovalRequested {
-        request_id: prompt.request_id.clone(),
-        caller_agent: request.caller.agent.clone(),
-        origin: format!("{:?}", request.caller.origin),
-        purpose: request.purpose,
-        access: prompt.access,
-        name: prompt.name,
-        expires_at_ms: prompt.expires_at_ms,
-    });
+    crate::core::bus::BUS.publish(
+        crate::core::events::DomainEvent::KeyringAccessApprovalRequested {
+            request_id: prompt.request_id.clone(),
+            caller_agent: request.caller.agent.clone(),
+            origin: format!("{:?}", request.caller.origin),
+            purpose: request.purpose,
+            access: prompt.access,
+            name: prompt.name,
+            expires_at_ms: prompt.expires_at_ms,
+        },
+    );
 
     let decision = tokio::time::timeout(timeout, waiter).await.ok()?.ok();
     if decision.is_none()
@@ -113,3 +115,7 @@ fn now_ms() -> u64 {
         .try_into()
         .unwrap_or(u64::MAX)
 }
+
+#[cfg(test)]
+#[path = "operation_approval_tests.rs"]
+mod tests;

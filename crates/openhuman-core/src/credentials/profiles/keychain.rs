@@ -1,6 +1,7 @@
 //! OS-keychain backed secret storage for individual auth profiles.
 
 use anyhow::Context;
+use std::time::Duration;
 
 use super::{AuthProfile, AuthProfilesStore, KeychainSecrets};
 
@@ -24,13 +25,12 @@ impl AuthProfilesStore {
         });
         let payload = serde_json::to_string(&secrets)
             .context("Failed to serialize auth secrets for keychain")?;
-        crate::security::secret_storage::set(&self.user_id, &key, &payload).map_err(|e| {
-            anyhow::anyhow!(
-                "Keychain set failed for profile {}: {e} | detail={}",
-                profile.id,
-                e.diagnostic()
-            )
-        })?;
+        let name = self.keyring_name(&key);
+        self.keyring_operation(tinysecurity_bus::KeyringOperation2::Set {
+            name,
+            value: payload.into_bytes(),
+        })
+        .with_context(|| format!("TinySecurity keyring set failed for profile {}", profile.id))?;
         log::debug!(
             "[auth] keychain_store_secrets stored profile_id={} user_id={}",
             profile.id,
@@ -48,24 +48,21 @@ impl AuthProfilesStore {
         profile_id: &str,
     ) -> anyhow::Result<Option<KeychainSecrets>> {
         let key = self.keychain_key_for_profile(profile_id);
-        let payload = match crate::security::secret_storage::get(&self.user_id, &key) {
-            Ok(Some(p)) => p,
-            Ok(None) => {
+        let name = self.keyring_name(&key);
+        let response = self
+            .keyring_operation(tinysecurity_bus::KeyringOperation2::Get { name: name.clone() })
+            .with_context(|| {
+                format!("TinySecurity keyring read failed for profile {profile_id}")
+            })?;
+        let payload = match response.found {
+            true => String::from_utf8(response.bytes)
+                .context("TinySecurity keyring returned a non-UTF-8 profile payload")?,
+            false => {
                 log::debug!(
                     "[auth] keychain_load_secrets miss profile_id={profile_id} user_id={}",
                     self.user_id
                 );
                 return Ok(None);
-            }
-            Err(e) => {
-                log::warn!(
-                    "[auth] keychain_load_secrets error profile_id={profile_id} user_id={}: {e} | detail={}",
-                    self.user_id,
-                    e.diagnostic()
-                );
-                // A read error is not a missing entry: the caller must not
-                // treat the profile as having no secrets.
-                anyhow::bail!("keychain read failed: {}", e.diagnostic());
             }
         };
         let secrets: KeychainSecrets = serde_json::from_str(&payload).map_err(|e| {
@@ -81,11 +78,12 @@ impl AuthProfilesStore {
     /// Delete keychain secrets for a profile (called on profile removal).
     pub(super) fn keychain_delete_secrets(&self, profile_id: &str) {
         let key = self.keychain_key_for_profile(profile_id);
-        if let Err(e) = crate::security::secret_storage::delete(&self.user_id, &key) {
+        let name = self.keyring_name(&key);
+        if let Err(e) = self.keyring_operation(tinysecurity_bus::KeyringOperation2::Delete { name })
+        {
             log::warn!(
-                "[auth] keychain_delete_secrets error profile_id={profile_id} user_id={}: {e} | detail={}",
+                "[auth] keychain_delete_secrets failed profile_id={profile_id} user_id={}: {e}",
                 self.user_id,
-                e.diagnostic()
             );
         } else {
             log::debug!(
@@ -93,5 +91,42 @@ impl AuthProfilesStore {
                 self.user_id
             );
         }
+    }
+
+    fn keyring_name(&self, logical_key: &str) -> String {
+        format!("{}:{logical_key}", self.user_id)
+    }
+
+    fn keyring_operation(
+        &self,
+        operation: tinysecurity_bus::KeyringOperation2,
+    ) -> anyhow::Result<tinysecurity_bus::KeyringResponse2> {
+        let config = self
+            .security_config
+            .clone()
+            .context("TinySecurity config is unavailable for keyring access")?;
+        let caller = tinysecurity_bus::CallerContext {
+            agent: "openhuman.credentials".into(),
+            thread: None,
+            flow: None,
+            call_id: uuid::Uuid::new_v4().to_string(),
+            origin: tinysecurity_bus::Origin::LocalOperator,
+            tier: tinysecurity_bus::AccessTier::Full,
+        };
+        let request = tinysecurity_bus::KeyringRequest2 {
+            caller,
+            purpose: "OpenHuman auth profile credential access".into(),
+            operation,
+        };
+        crate::modules::security::sync_seam::run(Duration::from_secs(125), async move {
+            let client = crate::modules::security::client(&config)
+                .await
+                .map_err(|error| error.to_string())?;
+            client
+                .keyring_access2(request)
+                .await
+                .map_err(|error| error.to_string())
+        })
+        .map_err(anyhow::Error::msg)
     }
 }
