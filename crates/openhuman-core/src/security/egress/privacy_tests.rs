@@ -68,11 +68,11 @@ mod with_module {
     use super::*;
     use crate::modules::security::gap::{install_privacy_port, PrivacyPort};
     use crate::security::live_policy::test_privacy_scope;
+    use std::sync::{Arc, Mutex};
     use tinysecurity_bus::{
         Decision, PrivacyCheckRequest2, PrivacyDataClass2, PrivacyMode as BusMode,
         PrivacyRiskLevel2, Verdict,
     };
-    use std::sync::{Arc, Mutex};
 
     #[derive(Debug)]
     struct StubPort {
