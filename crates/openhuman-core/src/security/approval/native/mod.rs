@@ -21,8 +21,8 @@
 //! | `state.rs` | calls, requests and human tickets in flight |
 //! | `view.rs` | history read from the stored rows |
 
-use sha2::{Digest, Sha256};
 use self::state::host;
+use sha2::{Digest, Sha256};
 
 pub(crate) mod audit_stream;
 pub(crate) mod callbacks;
