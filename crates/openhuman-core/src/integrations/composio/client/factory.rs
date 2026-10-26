@@ -132,7 +132,9 @@ fn direct_client(
 ///
 /// Any other mode string is rejected with an explicit error so a typo
 /// in `config.toml` fails loud instead of silently downgrading.
-pub fn resolve_composio_route(config: &crate::config::Config) -> anyhow::Result<ComposioRoute> {
+pub async fn resolve_composio_route(
+    config: &crate::config::Config,
+) -> anyhow::Result<ComposioRoute> {
     if let Some(pinned) = config.composio.host_credential.as_ref() {
         let client = direct_client(pinned.api_key(), pinned.direct_base_urls())?;
         tracing::debug!("[composio-factory] resolved host-pinned direct variant (key redacted)");
@@ -170,6 +172,7 @@ pub fn resolve_composio_route(config: &crate::config::Config) -> anyhow::Result<
         MODE_DIRECT_PAT => {
             // Prefer keychain-stored key; fall back to `config.toml`.
             let stored = crate::integrations::composio::get_composio_api_key(config)
+                .await
                 .map_err(|e| anyhow::anyhow!("failed to read stored composio api key: {e}"))?;
             let api_key = stored
                 .or_else(|| {
