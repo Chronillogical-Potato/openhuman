@@ -86,41 +86,41 @@ fn load_profile_with_keyring(
     let user_id = super::user_id_from_state_dir(state_dir);
     let profile_store =
         AuthProfilesStore::new_with_config(state_dir, config.secrets.encrypt, config);
-    let keyring_error = if profile_store.use_keychain {
+    let mut keyring_unavailable = false;
+    let keychain_secrets = if profile_store.use_keychain {
         match read_keyring(&profile_store, &id) {
-            Ok(Some(secrets)) => return profile_from_persisted(profile, id, secrets),
+            Ok(Some(secrets)) => Some(secrets),
             Ok(None) => None,
             Err(error) if super::keychain::is_consent_error(&error) => {
                 // Consent refusal and timeout are authoritative: do not bypass
                 // them by consulting the legacy encrypted secret backend.
                 return Err(ReadOnlyAuthProfileError::Unavailable);
             }
-            Err(error) => Some(error),
+            Err(_) => {
+                keyring_unavailable = true;
+                None
+            }
         }
     } else {
         None
     };
 
-    let profile_secret =
-        read_profile_secret(config, &user_id, &super::auth_profile_secret_key(&id));
-    let secrets = match profile_secret {
-        Ok(Some(payload)) => Some(
-            serde_json::from_str::<KeychainSecrets>(&payload)
-                .map_err(|_| ReadOnlyAuthProfileError::InvalidStore)?,
-        ),
-        Ok(None) => None,
-        Err(_) if has_json_secret_fields(profile) => None,
-        Err(_) if keyring_error.is_some() => {
-            return Err(ReadOnlyAuthProfileError::Unavailable);
-        }
-        Err(error) => return Err(error),
+    let secrets = match keychain_secrets {
+        Some(secrets) => Some(secrets),
+        None => match read_profile_secret(config, &user_id, &super::auth_profile_secret_key(&id)) {
+            Ok(Some(payload)) => Some(
+                serde_json::from_str::<KeychainSecrets>(&payload)
+                    .map_err(|_| ReadOnlyAuthProfileError::InvalidStore)?,
+            ),
+            Ok(None) if keyring_unavailable && !has_json_secret_fields(profile) => {
+                return Err(ReadOnlyAuthProfileError::Unavailable);
+            }
+            Ok(None) => None,
+            Err(_) if has_json_secret_fields(profile) => None,
+            Err(_) if keyring_unavailable => return Err(ReadOnlyAuthProfileError::Unavailable),
+            Err(error) => return Err(error),
+        },
     };
-
-    if keyring_error.is_some() && !has_json_secret_fields(profile) && secrets.is_none() {
-        // The keyring may still contain the only copy. Do not report a missing
-        // profile record when the module could not determine whether it does.
-        return Err(ReadOnlyAuthProfileError::Unavailable);
-    }
 
     let encrypted_json = has_encrypted_json_fields(profile);
     let key = if encrypted_json {
@@ -189,47 +189,6 @@ fn load_profile_with_keyring(
         workspace_id: profile.workspace_id.clone(),
         token_set,
         token,
-        metadata: profile.metadata.clone(),
-        created_at: parse_datetime_with_fallback(&profile.created_at),
-        updated_at: parse_datetime_with_fallback(&profile.updated_at),
-    }))
-}
-
-fn profile_from_persisted(
-    profile: &PersistedAuthProfile,
-    id: String,
-    secrets: KeychainSecrets,
-) -> Result<Option<AuthProfile>, ReadOnlyAuthProfileError> {
-    let kind =
-        parse_profile_kind(&profile.kind).map_err(|_| ReadOnlyAuthProfileError::InvalidStore)?;
-    let token_set = match kind {
-        AuthProfileKind::OAuth => Some(TokenSet {
-            access_token: secrets
-                .access_token
-                .ok_or(ReadOnlyAuthProfileError::InvalidStore)?,
-            refresh_token: secrets.refresh_token,
-            id_token: secrets.id_token,
-            expires_at: parse_optional_datetime(profile.expires_at.as_deref())
-                .map_err(|_| ReadOnlyAuthProfileError::InvalidStore)?,
-            token_type: profile.token_type.clone(),
-            scope: profile.scope.clone(),
-        }),
-        AuthProfileKind::Token => None,
-    };
-
-    Ok(Some(AuthProfile {
-        id,
-        provider: profile.provider.clone(),
-        profile_name: profile.profile_name.clone(),
-        kind,
-        account_id: profile.account_id.clone(),
-        workspace_id: profile.workspace_id.clone(),
-        token_set,
-        token: if kind == AuthProfileKind::Token {
-            secrets.token
-        } else {
-            None
-        },
         metadata: profile.metadata.clone(),
         created_at: parse_datetime_with_fallback(&profile.created_at),
         updated_at: parse_datetime_with_fallback(&profile.updated_at),
