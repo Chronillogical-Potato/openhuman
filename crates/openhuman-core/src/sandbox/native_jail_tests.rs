@@ -1,6 +1,19 @@
 //! Host-side request mapping for TinyBox native-jail execution.
 
 use super::*;
+
+fn planned_test_jail() -> crate::modules::tinybox::contract::NativeJailConfig {
+    crate::modules::tinybox::contract::NativeJailConfig {
+        read_only: vec![],
+        read_write: vec![],
+        allow_net: true,
+        allow_subprocess: true,
+        enforcement: crate::modules::tinybox::contract::JailEnforcement::Enforced,
+        require_process_isolation: true,
+        deny_read: vec![],
+        resources: None,
+    }
+}
 #[cfg(feature = "modules")]
 use std::path::PathBuf;
 
@@ -381,6 +394,7 @@ async fn disabled_tinybox_module_never_falls_back_to_host_execution() -> anyhow:
         &crate::core::runtime::DispatchCtx::host_default(),
         &config,
         &policy,
+        &planned_test_jail(),
         &format!("touch '{}'", marker.display()),
         workspace.path(),
         &HashMap::new(),
@@ -496,6 +510,7 @@ async fn released_tinybox_runs_a_native_jail_through_the_pinned_loader() -> anyh
         &crate::core::runtime::DispatchCtx::host_default(),
         &config,
         &policy,
+        &planned_test_jail(),
         "printf tinybox-jailed-ok; printf safe-error >&2",
         workspace.path(),
         &HashMap::new(),
@@ -514,6 +529,7 @@ async fn released_tinybox_runs_a_native_jail_through_the_pinned_loader() -> anyh
         &crate::core::runtime::DispatchCtx::host_default(),
         &config,
         &policy,
+        &planned_test_jail(),
         "i=0; while [ $i -lt 1500 ]; do printf 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'; i=$((i + 1)); done",
         workspace.path(),
         &HashMap::new(),
