@@ -261,6 +261,19 @@ impl Client {
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
     }
 
+    pub(crate) async fn register_egress_policy(
+        &self,
+        policy: tinysecurity_bus::EgressPolicy,
+    ) -> Result<tinysecurity_bus::EgressPolicyId, SecurityError> {
+        self.object
+            .call_confidential(
+                tinysecurity_bus::names::methods::REGISTER_EGRESS_POLICY,
+                (policy,),
+            )
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
     /// Consume the exact one-use browser grant before the selected socket opens.
     pub(crate) async fn consume_browser_dial(
         &self,

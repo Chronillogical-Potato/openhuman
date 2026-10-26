@@ -8,12 +8,79 @@ use tinycomputer_bus::browser_egress::{
     BrowserEgressTarget, BrowserEgressValidateRequest,
 };
 
+fn registered_scopes() -> &'static parking_lot::Mutex<Vec<(String, u64)>> {
+    static SCOPES: std::sync::OnceLock<parking_lot::Mutex<Vec<(String, u64)>>> =
+        std::sync::OnceLock::new();
+    SCOPES.get_or_init(|| parking_lot::Mutex::new(Vec::new()))
+}
+
+/// Register the browser's destination-only policy from the authenticated host
+/// context and return the immutable id and generation for TinyComputer config.
+pub(crate) async fn browser_dial_config(config: &crate::config::Config) -> Result<Value, String> {
+    let client = super::security::client(config)
+        .await
+        .map_err(|error| error.to_string())?;
+    let tenant =
+        crate::core::runtime::tenant::current_tenant().map_err(|error| error.to_string())?;
+    let owner = super::security::policy_translation::subject_scope(
+        &tenant,
+        &config.workspace_dir,
+        crate::core::runtime::is_saas(),
+    )?;
+    let privacy = match crate::security::live_policy::current_privacy_mode() {
+        crate::config::PrivacyMode::Standard => tinysecurity_bus::PrivacyMode::Standard,
+        crate::config::PrivacyMode::Sensitive => tinysecurity_bus::PrivacyMode::Sensitive,
+        crate::config::PrivacyMode::LocalOnly => tinysecurity_bus::PrivacyMode::LocalOnly,
+    };
+    let policy_id = client
+        .register_egress_policy(tinysecurity_bus::EgressPolicy {
+            owner,
+            ceiling: tinysecurity_bus::AccessTier::Full,
+            privacy,
+            destinations: Vec::new(),
+            data_categories: vec![tinysecurity_bus::DataCategory::OpaqueBrowserTraffic],
+            local_capabilities: Vec::new(),
+            validity_ms: 30_000,
+            open_public: true,
+            preflight_transports: vec![tinysecurity_bus::EgressTransport::Browser],
+        })
+        .await
+        .map_err(|error| error.to_string())?;
+    let info = client
+        .policy_info()
+        .await
+        .map_err(|error| error.to_string())?;
+    if info.generation == 0 || policy_id.0.is_empty() {
+        return Err("TinySecurity browser policy scope is unavailable".into());
+    }
+    let mut scopes = registered_scopes().lock();
+    scopes.retain(|(id, generation)| id != &policy_id.0 || *generation != info.generation);
+    scopes.push((policy_id.0.clone(), info.generation));
+    if scopes.len() > 64 {
+        scopes.remove(0);
+    }
+    Ok(serde_json::json!({
+        "policy_id": policy_id.0,
+        "expected_generation": info.generation,
+    }))
+}
+
+fn is_registered(policy_id: &str, generation: u64) -> bool {
+    registered_scopes()
+        .lock()
+        .iter()
+        .any(|(id, current)| id == policy_id && *current == generation)
+}
+
 #[derive(Clone)]
 struct BrowserEgressHost;
 
 #[tinybus::interface(name = "ai.tinyhumans.tinycomputer.BrowserEgressHost")]
 impl BrowserEgressHost {
     async fn authorize(&self, target: BrowserEgressTarget) -> tinybus::Result<BrowserEgressGrant> {
+        if !is_registered(&target.policy_id, target.expected_generation) {
+            return Err(refused());
+        }
         let config = crate::core::runtime::DispatchCtx::ambient()
             .load_config()
             .await

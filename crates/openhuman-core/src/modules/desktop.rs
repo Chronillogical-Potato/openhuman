@@ -50,7 +50,17 @@ pub(crate) async fn proxy(config: &Config) -> Result<Proxy, String> {
 
     // Reinitialization is private and retains no plaintext secret in this host.
     // The lock makes credential rotation atomic across concurrent tool calls.
-    let configuration = module_config(config);
+    let mut configuration = module_config(config);
+    #[cfg(feature = "security-module")]
+    if config.browser.chrome_path.is_some() {
+        match super::browser_egress_host::browser_dial_config(config).await {
+            Ok(egress) => configuration["browser"]["egress"] = egress,
+            Err(error) => {
+                tracing::warn!(%error, "[computer] browser egress policy unavailable");
+                return Err("TinySecurity browser egress policy unavailable".into());
+            }
+        }
+    }
     let current = fingerprint(&configuration);
     let mut previous = last_config().lock().await;
     if *previous != Some(current) {
