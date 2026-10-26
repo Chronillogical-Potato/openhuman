@@ -113,4 +113,3 @@ pub(crate) async fn consume(
         .await
         .map_err(|_| "TinySecurity ConsumeSandboxPlan2 failed".to_owned())
 }
-

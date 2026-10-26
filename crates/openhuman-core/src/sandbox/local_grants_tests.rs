@@ -12,4 +12,3 @@ fn single_user_keeps_the_operator_home() {
     let home = grant_home(false, || Some(PathBuf::from("/home/op")));
     assert_eq!(home, Some(PathBuf::from("/home/op")));
 }
-
