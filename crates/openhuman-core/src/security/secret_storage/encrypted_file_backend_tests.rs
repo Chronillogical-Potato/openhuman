@@ -183,6 +183,26 @@ fn profile_read_only_secret_lookup_preserves_corrupt_store_bytes() {
 }
 
 #[test]
+fn desktop_secret_store_quarantines_corruption_through_the_driver_policy() {
+    let workspace = secrets_tempdir();
+    let backend = EncryptedFileBackend::new(workspace.path());
+    let path = workspace.path().join("secrets.enc");
+    let corrupt = b"not an encrypted secret file";
+    std::fs::write(&path, corrupt).unwrap();
+
+    assert_eq!(backend.get_with_key(&[0x42; KEY_LEN], "user:token").unwrap(), None);
+
+    assert!(!path.exists());
+    let archives: Vec<_> = std::fs::read_dir(workspace.path())
+        .unwrap()
+        .flatten()
+        .filter(|entry| entry.file_name().to_string_lossy().starts_with("secrets.enc.corrupt."))
+        .collect();
+    assert_eq!(archives.len(), 1);
+    assert_eq!(std::fs::read(archives[0].path()).unwrap(), corrupt);
+}
+
+#[test]
 fn legacy_plaintext_is_removed_only_after_verified_encrypted_migration() {
     let dir = secrets_tempdir();
     let legacy_path = dir.path().join(LEGACY_DEV_KEYCHAIN);
