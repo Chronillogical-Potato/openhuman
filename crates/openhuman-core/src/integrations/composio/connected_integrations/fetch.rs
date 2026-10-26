@@ -148,7 +148,7 @@ fn fetch_connected_integrations_uncached(
             ComposioListConnectedIntegrationsRequest,
         };
 
-        let mode = match crate::integrations::composio::client::resolve_composio_route(config) {
+        let mode = match crate::integrations::composio::client::resolve_composio_route(config).await {
             Ok(crate::integrations::composio::client::ComposioRoute::Backend) => Mode::Backend,
             Ok(crate::integrations::composio::client::ComposioRoute::Direct(_)) => Mode::Direct,
             Err(error) => {

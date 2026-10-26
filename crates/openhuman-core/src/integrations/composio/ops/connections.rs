@@ -158,6 +158,7 @@ pub async fn composio_list_connections(
     // by desktop development and its v3 response mapper lives here.
     let resp = if config.composio.mode.trim() == crate::config::schema::COMPOSIO_MODE_DIRECT {
         let ComposioRoute::Direct(direct) = resolve_composio_route(config)
+            .await
             .map_err(|error| format!("[composio-direct] list_connections: {error:#}"))?
         else {
             unreachable!("direct Composio mode must construct a direct client")
