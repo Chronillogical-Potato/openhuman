@@ -112,7 +112,13 @@ describe('fetchPendingApprovals', () => {
       {
         ...auditRow(),
         decided_by: 'auto:jev',
-        judge: { intent_millis: 900, reversible_millis: 800, exfiltrate_millis: 20, cached: true },
+        judge: {
+          outcome: 'approve',
+          intent_millis: 900,
+          reversible_millis: 800,
+          exfiltrate_millis: 20,
+          cached: true,
+        },
       },
     ]);
 
@@ -120,6 +126,7 @@ describe('fetchPendingApprovals', () => {
 
     expect(rows[0].decided_by).toBe('auto:jev');
     expect(rows[0].judge).toEqual({
+      outcome: 'approve',
       intent_millis: 900,
       reversible_millis: 800,
       exfiltrate_millis: 20,

@@ -77,7 +77,13 @@ describe('ApprovalHistoryPanel', () => {
       auditRow({
         request_id: 'jev',
         decided_by: 'auto:jev',
-        judge: { intent_millis: 950, reversible_millis: 800, exfiltrate_millis: 20, cached: true },
+        judge: {
+          outcome: 'approve',
+          intent_millis: 950,
+          reversible_millis: 800,
+          exfiltrate_millis: 20,
+          cached: true,
+        },
       }),
       auditRow({ request_id: 'policy', decided_by: 'auto:host-policy' }),
     ]);
