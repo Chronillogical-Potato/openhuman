@@ -165,7 +165,7 @@ pub(crate) fn process_get(user_id: &str, key: &str) -> Result<Option<String>, Se
     match &result {
         Ok(Some(_)) => log::debug!("[keyring] get hit"),
         Ok(None) => log::debug!("[keyring] get miss"),
-        Err(e) => log::warn!("[keyring] get error: {e} | detail={}", e.diagnostic()),
+        Err(e) => log::warn!("[keyring] get error: {}", e.diagnostic()),
     }
     result
 }
@@ -179,7 +179,7 @@ pub(crate) fn process_set(user_id: &str, key: &str, value: &str) -> Result<(), S
     let result = backend().set(&namespaced, value);
     match &result {
         Ok(()) => log::debug!("[keyring] set ok"),
-        Err(e) => log::warn!("[keyring] set error: {e} | detail={}", e.diagnostic()),
+        Err(e) => log::warn!("[keyring] set error: {}", e.diagnostic()),
     }
     result
 }
@@ -193,7 +193,7 @@ pub(crate) fn process_delete(user_id: &str, key: &str) -> Result<(), SecretStora
     let result = backend().delete(&namespaced);
     match &result {
         Ok(()) => log::debug!("[keyring] delete ok"),
-        Err(e) => log::warn!("[keyring] delete error: {e} | detail={}", e.diagnostic()),
+        Err(e) => log::warn!("[keyring] delete error: {}", e.diagnostic()),
     }
     result
 }
@@ -280,7 +280,7 @@ fn probe_availability() -> bool {
             // The detail captures the real cause (locked keychain / denied
             // prompt / no Secret Service) instead of just the lossy Display.
             log::warn!(
-                "[keyring] is_available=false (probe failed): {e} | detail={}",
+                "[keyring] is_available=false (probe failed): {}",
                 e.diagnostic()
             );
             false
