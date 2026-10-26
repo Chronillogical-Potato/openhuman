@@ -35,11 +35,15 @@ impl AuthProfilesStore {
             "[auth] AuthProfilesStore::new state_dir={} user_id={user_id} use_keychain={use_keychain}",
             state_dir.display()
         );
+        let secret_store = security_config.as_ref().map_or_else(
+            || SecretStore::new(state_dir, encrypt_secrets),
+            |config| SecretStore::new_with_config(state_dir, encrypt_secrets, config),
+        );
         Self {
             path: super::profiles_file(state_dir),
             legacy_path: super::legacy_profiles_file(state_dir),
             lock_path: state_dir.join(LOCK_FILENAME),
-            secret_store: SecretStore::new(state_dir, encrypt_secrets),
+            secret_store,
             user_id,
             use_keychain,
             security_config,
@@ -50,22 +54,22 @@ impl AuthProfilesStore {
         &self.path
     }
 
-    pub fn load(&self) -> Result<AuthProfilesData> {
+    pub async fn load(&self) -> Result<AuthProfilesData> {
         match self.acquire_read_lock()? {
-            Some(_lock) => self.load_locked(),
+            Some(_lock) => self.load_locked().await,
             None => {
                 log::warn!(
                     "[auth] profile lease unavailable on a full or read-only filesystem; \
                      serving a lock-free read-only snapshot"
                 );
-                self.load_unlocked_readonly()
+                self.load_unlocked_readonly().await
             }
         }
     }
 
-    pub fn upsert_profile(&self, mut profile: AuthProfile, set_active: bool) -> Result<()> {
+    pub async fn upsert_profile(&self, mut profile: AuthProfile, set_active: bool) -> Result<()> {
         let _lock = self.acquire_lock()?;
-        let mut data = self.load_locked()?;
+        let mut data = self.load_locked().await?;
 
         profile.updated_at = Utc::now();
         if let Some(existing) = data.profiles.get(&profile.id) {
@@ -80,13 +84,13 @@ impl AuthProfilesStore {
         data.profiles.insert(profile.id.clone(), profile);
         data.updated_at = Utc::now();
 
-        self.save_locked(&data)
+        self.save_locked(&data).await
     }
 
-    pub fn remove_profile(&self, profile_id: &str) -> Result<bool> {
+    pub async fn remove_profile(&self, profile_id: &str) -> Result<bool> {
         let _lock = self.acquire_lock()?;
         let persisted_before = self.read_persisted_locked()?;
-        let mut data = self.load_locked()?;
+        let mut data = self.load_locked().await?;
 
         let removed = data.profiles.remove(profile_id).is_some();
         if !removed {
@@ -96,7 +100,7 @@ impl AuthProfilesStore {
         data.active_profiles
             .retain(|_, active| active != profile_id);
         data.updated_at = Utc::now();
-        self.save_locked(&data)?;
+        self.save_locked(&data).await?;
 
         // Remove the TinySecurity secret after persisting metadata removal.
         // If the user denies or the module is unavailable, restore the exact
@@ -123,9 +127,9 @@ impl AuthProfilesStore {
         Err(delete_error.context("profile removal was not completed"))
     }
 
-    pub fn set_active_profile(&self, provider: &str, profile_id: &str) -> Result<()> {
+    pub async fn set_active_profile(&self, provider: &str, profile_id: &str) -> Result<()> {
         let _lock = self.acquire_lock()?;
-        let mut data = self.load_locked()?;
+        let mut data = self.load_locked().await?;
 
         if !data.profiles.contains_key(profile_id) {
             anyhow::bail!("Auth profile not found: {profile_id}");
@@ -134,23 +138,23 @@ impl AuthProfilesStore {
         data.active_profiles
             .insert(provider.to_ascii_lowercase(), profile_id.to_string());
         data.updated_at = Utc::now();
-        self.save_locked(&data)
+        self.save_locked(&data).await
     }
 
-    pub fn clear_active_profile(&self, provider: &str) -> Result<()> {
+    pub async fn clear_active_profile(&self, provider: &str) -> Result<()> {
         let _lock = self.acquire_lock()?;
-        let mut data = self.load_locked()?;
+        let mut data = self.load_locked().await?;
         data.active_profiles.remove(&provider.to_ascii_lowercase());
         data.updated_at = Utc::now();
-        self.save_locked(&data)
+        self.save_locked(&data).await
     }
 
-    pub fn update_profile<F>(&self, profile_id: &str, mut updater: F) -> Result<AuthProfile>
+    pub async fn update_profile<F>(&self, profile_id: &str, mut updater: F) -> Result<AuthProfile>
     where
         F: FnMut(&mut AuthProfile) -> Result<()>,
     {
         let _lock = self.acquire_lock()?;
-        let mut data = self.load_locked()?;
+        let mut data = self.load_locked().await?;
 
         let profile = data
             .profiles
@@ -161,12 +165,12 @@ impl AuthProfilesStore {
         profile.updated_at = Utc::now();
         let updated_profile = profile.clone();
         data.updated_at = Utc::now();
-        self.save_locked(&data)?;
+        self.save_locked(&data).await?;
         Ok(updated_profile)
     }
 
-    pub(super) fn load_locked(&self) -> Result<AuthProfilesData> {
-        self.load_resolved(true)
+    pub(super) async fn load_locked(&self) -> Result<AuthProfilesData> {
+        self.load_resolved(true).await
     }
 
     /// Lock-free read-only load used as the [`AuthProfilesStore::load`]
@@ -177,7 +181,7 @@ impl AuthProfilesStore {
     /// a complete file. Skips the opportunistic migration / dropped-profile
     /// rewrite that `load_locked` performs — that write needs both the lock
     /// and a writable disk, and this path runs precisely when neither holds.
-    pub(super) fn load_unlocked_readonly(&self) -> Result<AuthProfilesData> {
-        self.load_resolved(false)
+    pub(super) async fn load_unlocked_readonly(&self) -> Result<AuthProfilesData> {
+        self.load_resolved(false).await
     }
 }
