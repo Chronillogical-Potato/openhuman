@@ -1000,7 +1000,8 @@ fn keyring_operation_approval_event_contains_only_operation_metadata() {
     };
     assert_eq!(event.variant_name(), "KeyringAccessApprovalRequested");
     assert_eq!(DomainEvent::domain(&event), "keyring");
-    let payload = serde_json::to_value(&event).unwrap();
+    let value = serde_json::to_value(&event).unwrap();
+    let payload = &value["KeyringAccessApprovalRequested"];
     assert_eq!(payload["name"], "user-1:auth:openai:default");
     assert!(payload.get("value").is_none());
 }
