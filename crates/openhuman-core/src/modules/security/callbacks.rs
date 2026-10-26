@@ -73,7 +73,25 @@ impl KeyringConsent {
         &self,
         _request: tinysecurity_bus::KeyringConsentRequest2,
     ) -> tinybus::Result<tinysecurity_bus::KeyringConsentResponse2> {
-        Err(unavailable())
+        use tinysecurity_bus::KeyringConsentResponse2;
+
+        let decision = crate::security::keyring_consent::policy::check_secret_access();
+        Ok(KeyringConsentResponse2 {
+            outcome: keyring_consent_outcome(decision),
+        })
+    }
+}
+
+fn keyring_consent_outcome(
+    decision: crate::security::keyring_consent::PolicyDecision,
+) -> tinysecurity_bus::KeyringConsentOutcome2 {
+    use crate::security::keyring_consent::PolicyDecision;
+    use tinysecurity_bus::KeyringConsentOutcome2 as Outcome;
+
+    match decision {
+        PolicyDecision::Proceed => Outcome::Allowed,
+        PolicyDecision::ConsentRequired => Outcome::ConsentPending,
+        PolicyDecision::Declined => Outcome::ConsentDenied,
     }
 }
 
