@@ -22,6 +22,9 @@
 //! path the event is published at, so the broker can filter by domain and never
 //! wake a process for events it did not ask for.
 
+mod keyring_access;
+pub use keyring_access::KeyringAccessApprovalRequest;
+
 /// A tool call made while answering a committed turn: name and id only.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ConversationToolCall {
@@ -1277,16 +1280,7 @@ pub enum DomainEvent {
     /// dialog in response.
     KeyringConsentRequired,
     /// One exact TinySecurity keyring operation needs the human's decision.
-    /// The payload contains only host-verified, display-safe metadata.
-    KeyringAccessApprovalRequested {
-        request_id: String,
-        caller_agent: String,
-        origin: String,
-        purpose: String,
-        access: String,
-        name: String,
-        expires_at_ms: u64,
-    },
+    KeyringAccessApprovalRequested(KeyringAccessApprovalRequest),
     /// A secret field failed to decrypt (rotated master key, corrupted
     /// ciphertext, keychain reset). Published so the frontend can surface
     /// a recovery prompt instead of silently clearing the field.
