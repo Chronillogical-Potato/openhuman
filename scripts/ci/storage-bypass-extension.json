@@ -342,7 +342,7 @@
   {
     "rule": "file-mutation",
     "path": "crates/openhuman-core/src/credentials/profiles.rs",
-    "line": 577,
+    "line": 281,
     "text": "fs::rename(path, &candidate).with_context(|| {",
     "occurrence": 1,
     "classification": "classic",
