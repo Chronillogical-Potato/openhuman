@@ -1,20 +1,19 @@
 use super::*;
 use crate::security::secret_storage::backend::SecretBackend;
 use std::collections::HashMap;
-use std::sync::{Arc, Barrier, Mutex};
+use std::sync::{Arc, Mutex};
 use tempfile::TempDir;
 
 struct RacingBackend {
     values: Mutex<HashMap<String, String>>,
-    misses: Barrier,
 }
 
 impl SecretBackend for RacingBackend {
     fn get(&self, name: &str) -> Result<Option<String>, SecretStorageError> {
+        // Widen the old get/set race window without introducing a timing
+        // assertion into the test itself.
+        std::thread::yield_now();
         let result = self.values.lock().unwrap().get(name).cloned();
-        if result.is_none() {
-            self.misses.wait();
-        }
         Ok(result)
     }
 
@@ -34,9 +33,9 @@ impl SecretBackend for RacingBackend {
 #[test]
 fn concurrent_random_key_creation_returns_the_persisted_value_to_every_caller() {
     let dir = TempDir::new().unwrap();
-    let backend = Arc::new(RacingBackend { values: Mutex::new(HashMap::new()), misses: Barrier::new(2) });
+    let backend = Arc::new(RacingBackend { values: Mutex::new(HashMap::new()) });
     let lock_path = dir.path().join("key-lock");
-    let workers: Vec<_> = (0..2).map(|_| {
+    let workers: Vec<_> = (0..24).map(|_| {
         let backend = backend.clone();
         let lock_path = lock_path.clone();
         std::thread::spawn(move || get_or_create_random_with_backend(backend.as_ref(), "u", "k", 32, &lock_path).unwrap())
