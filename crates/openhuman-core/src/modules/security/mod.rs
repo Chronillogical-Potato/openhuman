@@ -6,6 +6,7 @@
 
 pub(crate) mod audit;
 pub(super) mod callbacks;
+mod cipher_consumer;
 mod client;
 pub(crate) mod command;
 pub(crate) mod gap;
