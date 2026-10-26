@@ -34,7 +34,7 @@ fn config_backed_profile_store_uses_tinysecurity_and_existing_namespaced_key() {
     assert_eq!(store.use_keychain, cfg!(feature = "security-module"));
     assert!(store.security_config.is_some());
     assert_eq!(
-        super::profiles::namespaced_keyring_name("user-123", "auth:openai:default"),
+        super::super::namespaced_keyring_name("user-123", "auth:openai:default"),
         "user-123:auth:openai:default"
     );
 }

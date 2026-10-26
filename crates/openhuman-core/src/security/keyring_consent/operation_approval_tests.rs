@@ -11,8 +11,9 @@ async fn approval_response_resolves_only_its_matching_request() {
     assert!(registry.resolve(&second.request_id, false));
     assert!(!registry.resolve(&second.request_id, true));
 
-    assert_eq!(first_waiter.await.unwrap(), None);
-    assert_eq!(second_waiter.await.unwrap(), Some(false));
+    drop(registry);
+    assert!(first_waiter.await.is_err());
+    assert!(!second_waiter.await.unwrap());
 }
 
 #[test]
