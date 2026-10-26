@@ -221,6 +221,7 @@ impl ProfileHost {
         let cleared = CoreContext::scope(self.records_context(id), async {
             super::credentials::clear(&config)
         })
+        .await
         .await;
         if let Err(e) = cleared {
             log::warn!("[profiles] clearing credentials before archiving failed: {e}");
