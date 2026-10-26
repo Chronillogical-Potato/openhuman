@@ -399,147 +399,143 @@ impl EncryptedFileBackend {
             CleanupAcknowledgment, FileImportSource, SecretStore as _,
         };
 
-        let store = self.store(key);
-        let completed = crate::storage::block_on(store.get(LEGACY_IMPORT_COMPLETE))
-            .map_err(adapter::backend_error)?;
-        if completed.is_some() {
-            crate::storage::block_on(store.delete(LEGACY_IMPORT_PAYLOAD))
-                .map_err(adapter::backend_error)?;
-            return Ok(());
-        }
-
-        let source_path = if legacy_path.exists() {
-            Some(legacy_path)
-        } else if migrated_path.exists() {
-            Some(migrated_path)
-        } else {
-            None
-        };
-
-        let staged = crate::storage::block_on(store.get(LEGACY_IMPORT_PAYLOAD))
-            .map_err(adapter::backend_error)?;
-        let source = if staged.is_some() {
-            None
-        } else {
-            source_path
-                .map(FileImportSource::open)
-                .transpose()
-                .map_err(adapter::backend_error)?
-        };
-        let (bytes, receipt) = match (staged, source.as_ref()) {
-            (Some(staged), _) => {
-                let recovered = crate::storage::block_on(
-                    store
-                        .recover_file_import_source(LEGACY_IMPORT_OPERATION, LEGACY_IMPORT_PAYLOAD),
-                )
-                .map_err(adapter::backend_error)?;
-                if staged.as_slice() != recovered.as_slice() {
-                    return Err(SecretStorageError::Backend(
-                        "staged legacy import differs from its authenticated source backup".into(),
-                    ));
-                }
-                (recovered, None)
+        let store = std::sync::Arc::new(self.store(key));
+        crate::storage::block_on(async move {
+            let completed = store.get(LEGACY_IMPORT_COMPLETE).await?;
+            if completed.is_some() {
+                store.delete(LEGACY_IMPORT_PAYLOAD).await?;
+                return Ok(());
             }
-            (None, Some(source)) => {
-                let bytes = source.bytes();
-                let legacy_map: std::collections::BTreeMap<String, String> = if bytes.is_empty() {
-                    Default::default()
-                } else {
-                    serde_json::from_slice(bytes).map_err(|error| {
-                            SecretStorageError::Backend(format!(
-                                "legacy dev keychain is invalid JSON; preserving it for recovery: {error}"
-                            ))
-                        })?
-                };
-                let verified = crate::storage::block_on(store.prepare_file_import(
-                    LEGACY_IMPORT_OPERATION,
-                    LEGACY_IMPORT_PAYLOAD,
-                    bytes,
-                    source,
-                ))
-                .map_err(adapter::backend_error)?;
-                (Zeroizing::new(bytes.to_vec()), Some(verified))
-            }
-            (None, None) => match crate::storage::block_on(
-                store.recover_file_import_source(LEGACY_IMPORT_OPERATION, LEGACY_IMPORT_PAYLOAD),
-            ) {
-                Ok(bytes) => (bytes, None),
-                Err(error) if error.kind() == tinystoragedrivers::ErrorKind::NotFound => {
-                    return Ok(());
-                }
-                Err(error) => return Err(adapter::backend_error(error)),
-            },
-        };
 
-        let map: std::collections::BTreeMap<String, String> = if bytes.is_empty() {
-            Default::default()
-        } else {
-            serde_json::from_slice(&bytes).map_err(|error| {
-                SecretStorageError::Backend(format!(
-                    "verified legacy dev keychain is invalid JSON: {error}"
-                ))
-            })?
-        };
+            let source_path = if legacy_path.exists() {
+                Some(legacy_path)
+            } else if migrated_path.exists() {
+                Some(migrated_path)
+            } else {
+                None
+            };
 
-        // Replay every entry before the driver's cleanup receipt can remove
-        // the plaintext source. A conflict or failed write leaves it intact.
-        for (name, value) in &map {
-            if let Some(existing) =
-                crate::storage::block_on(store.get(name)).map_err(adapter::backend_error)?
-            {
-                if existing.as_slice() != value.as_bytes() {
-                    return Err(SecretStorageError::Backend(
-                        "legacy secret conflicts with an existing encrypted value; source retained for recovery".into(),
-                    ));
+            let staged = store.get(LEGACY_IMPORT_PAYLOAD).await?;
+            let source = if staged.is_some() {
+                None
+            } else {
+                source_path
+                    .map(FileImportSource::open)
+                    .transpose()?
+            };
+            let (bytes, receipt) = match (staged, source.as_ref()) {
+                (Some(staged), _) => {
+                    let recovered = store
+                        .recover_file_import_source(
+                            LEGACY_IMPORT_OPERATION,
+                            LEGACY_IMPORT_PAYLOAD,
+                        )
+                        .await?;
+                    if staged.as_slice() != recovered.as_slice() {
+                        return Err(tinystoragedrivers::StorageError::backend(
+                            "staged legacy import differs from its authenticated source backup",
+                        ));
+                    }
+                    (recovered, None)
                 }
-            }
-        }
+                (None, Some(source)) => {
+                    let bytes = source.bytes();
+                    if !bytes.is_empty() {
+                        let _: std::collections::BTreeMap<String, String> =
+                            serde_json::from_slice(bytes).map_err(|error| {
+                                tinystoragedrivers::StorageError::backend(format!(
+                                    "legacy dev keychain is invalid JSON; preserving it for recovery: {error}"
+                                ))
+                            })?;
+                    }
+                    let verified = store
+                        .prepare_file_import(
+                            LEGACY_IMPORT_OPERATION,
+                            LEGACY_IMPORT_PAYLOAD,
+                            bytes,
+                            source,
+                        )
+                        .await?;
+                    (Zeroizing::new(bytes.to_vec()), Some(verified))
+                }
+                (None, None) => match store
+                    .recover_file_import_source(
+                        LEGACY_IMPORT_OPERATION,
+                        LEGACY_IMPORT_PAYLOAD,
+                    )
+                    .await
+                {
+                    Ok(bytes) => (bytes, None),
+                    Err(error) if error.kind() == tinystoragedrivers::ErrorKind::NotFound => {
+                        return Ok(());
+                    }
+                    Err(error) => return Err(error),
+                },
+            };
 
-        for (name, value) in &map {
-            let existing =
-                crate::storage::block_on(store.get(name)).map_err(adapter::backend_error)?;
-            match existing {
-                Some(existing) if existing.as_slice() == value.as_bytes() => {}
-                Some(_) => {
-                    return Err(SecretStorageError::Backend(
-                        "legacy secret conflicts with an existing encrypted value; source retained for recovery".into(),
-                    ));
-                }
-                None => crate::storage::block_on(store.set(name, value.as_bytes()))
-                    .map_err(adapter::backend_error)?,
-            }
-        }
+            let map: std::collections::BTreeMap<String, String> = if bytes.is_empty() {
+                Default::default()
+            } else {
+                serde_json::from_slice(&bytes).map_err(|error| {
+                    tinystoragedrivers::StorageError::backend(format!(
+                        "verified legacy dev keychain is invalid JSON: {error}"
+                    ))
+                })?
+            };
 
-        // All imported values are durable and verified before the driver is
-        // allowed to remove the plaintext source.
-        if let Some(receipt) = receipt {
-            match crate::storage::block_on(store.cleanup_file_import(&receipt))
-                .map_err(adapter::backend_error)?
-            {
-                CleanupAcknowledgment::RemovedAndDirectorySynced
-                | CleanupAcknowledgment::AlreadyCompleted => {}
-                CleanupAcknowledgment::UnsupportedBoundary => {
-                    log::warn!(
-                        "[keyring:encrypted_file] legacy plaintext retained by the platform"
-                    );
-                }
-                CleanupAcknowledgment::RemovedUnacknowledged => {
-                    log::warn!(
-                        "[keyring:encrypted_file] legacy plaintext removal was not fully acknowledged"
-                    );
+            // Replay every entry before the driver's cleanup receipt can remove
+            // the plaintext source. A conflict or failed write leaves it intact.
+            for (name, value) in &map {
+                if let Some(existing) = store.get(name).await? {
+                    if existing.as_slice() != value.as_bytes() {
+                        return Err(tinystoragedrivers::StorageError::conflict(
+                            "legacy secret conflicts with an existing encrypted value; source retained for recovery",
+                        ));
+                    }
                 }
             }
-        }
 
-        crate::storage::block_on(store.set(LEGACY_IMPORT_COMPLETE, b"1"))
-            .map_err(adapter::backend_error)?;
-        crate::storage::block_on(store.delete(LEGACY_IMPORT_PAYLOAD))
-            .map_err(adapter::backend_error)?;
-        log::info!(
-            "[keyring:encrypted_file] imported {} legacy dev-keychain entries",
-            map.len()
-        );
-        Ok(())
+            for (name, value) in &map {
+                let existing = store.get(name).await?;
+                match existing {
+                    Some(existing) if existing.as_slice() == value.as_bytes() => {}
+                    Some(_) => {
+                        return Err(tinystoragedrivers::StorageError::conflict(
+                            "legacy secret conflicts with an existing encrypted value; source retained for recovery",
+                        ));
+                    }
+                    None => store.set(name, value.as_bytes()).await?,
+                }
+            }
+
+            // All imported values are durable and verified before the driver is
+            // allowed to remove the plaintext source.
+            if let Some(receipt) = receipt {
+                match store.cleanup_file_import(&receipt).await? {
+                    CleanupAcknowledgment::RemovedAndDirectorySynced
+                    | CleanupAcknowledgment::AlreadyCompleted => {}
+                    CleanupAcknowledgment::UnsupportedBoundary => {
+                        log::warn!(
+                            "[keyring:encrypted_file] legacy plaintext retained by the platform"
+                        );
+                    }
+                    CleanupAcknowledgment::RemovedUnacknowledged => {
+                        log::warn!(
+                            "[keyring:encrypted_file] legacy plaintext removal was not fully acknowledged"
+                        );
+                    }
+                }
+            }
+
+            store.set(LEGACY_IMPORT_COMPLETE, b"1").await?;
+            store.delete(LEGACY_IMPORT_PAYLOAD).await?;
+            log::info!(
+                "[keyring:encrypted_file] imported {} legacy dev-keychain entries",
+                map.len()
+            );
+            Ok(())
+        })
+        .map_err(adapter::backend_error)
     }
 
     /// [`SecretBackend::get`] under an explicit master key.

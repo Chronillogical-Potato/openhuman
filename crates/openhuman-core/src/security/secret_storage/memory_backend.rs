@@ -39,7 +39,10 @@ impl SecretBackend for MemoryBackend {
 
     fn set(&self, key: &str, value: &str) -> Result<(), SecretStorageError> {
         let values = Arc::clone(&self.values);
-        let (key, value) = (key.to_string(), zeroize::Zeroizing::new(value.as_bytes().to_vec()));
+        let (key, value) = (
+            key.to_string(),
+            zeroize::Zeroizing::new(value.as_bytes().to_vec()),
+        );
         crate::storage::block_on(async move { values.set(&key, &value).await })
             .map_err(adapter::backend_error)
     }
