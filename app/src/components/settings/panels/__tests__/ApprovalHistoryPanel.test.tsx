@@ -86,7 +86,9 @@ describe('ApprovalHistoryPanel', () => {
       initialEntries: ['/settings/approval-history'],
     });
 
-    expect(await screen.findByTestId('approval-history-auto-badge')).toHaveTextContent('Jev');
+    expect((await screen.findAllByTestId('approval-history-auto-badge'))[0]).toHaveTextContent(
+      'Jev'
+    );
     expect(screen.getByTestId('approval-history-judge-scores')).toHaveTextContent('95%');
     expect(screen.getAllByTestId('approval-history-auto-badge')[1]).toHaveTextContent('Policy');
     expect(screen.getAllByTestId('approval-history-judge-scores')).toHaveLength(1);

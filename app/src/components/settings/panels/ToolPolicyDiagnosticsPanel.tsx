@@ -31,20 +31,23 @@ const ToolPolicyDiagnosticsPanel = () => {
 
   useEffect(() => {
     let cancelled = false;
-    void callCoreRpc<SecurityPolicyInfo>({
-      method: 'openhuman.security_policy_info',
-      params: {},
-      timeoutMs: 10_000,
-    }).then(
-      policy => {
+    const loadPolicy = async () => {
+      try {
+        const policy = await callCoreRpc<SecurityPolicyInfo>({
+          method: 'openhuman.security_policy_info',
+          params: {},
+          timeoutMs: 10_000,
+        });
         if (!cancelled) setStatus({ kind: 'ready', policy });
-      },
-      error => {
+      } catch (error) {
         if (cancelled) return;
         const message = error instanceof Error ? error.message : String(error);
-        setStatus(isMethodNotBuilt(message) ? { kind: 'not-built' } : { kind: 'unavailable', message });
+        setStatus(
+          isMethodNotBuilt(message) ? { kind: 'not-built' } : { kind: 'unavailable', message }
+        );
       }
-    );
+    };
+    void loadPolicy();
     return () => {
       cancelled = true;
     };
