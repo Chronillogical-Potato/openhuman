@@ -1,5 +1,7 @@
 use super::*;
 
+static OUTCOME_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[test]
 fn approval_event_contains_only_operation_metadata() {
     let event = crate::core::events::DomainEvent::KeyringAccessApprovalRequested(
@@ -95,6 +97,8 @@ async fn timed_out_approval_is_removed_from_capacity() {
 
 #[test]
 fn operation_outcome_is_correlated_and_consumed_once() {
+    let _guard = OUTCOME_TEST_LOCK.lock().unwrap();
+    call_outcomes().lock().unwrap().clear();
     let call_id = uuid::Uuid::new_v4().to_string();
     call_outcomes()
         .lock()
@@ -106,4 +110,27 @@ fn operation_outcome_is_correlated_and_consumed_once() {
         Some(OperationOutcome::Denied)
     );
     assert_eq!(take_operation_outcome(&call_id), None);
+}
+
+#[test]
+fn unconsumed_denials_reserve_capacity_before_new_requests_register() {
+    let _guard = OUTCOME_TEST_LOCK.lock().unwrap();
+    let mut outcomes = call_outcomes().lock().unwrap();
+    outcomes.clear();
+    for index in 0..MAX_PENDING_APPROVALS {
+        outcomes.insert(format!("denied-{index}"), OperationOutcome::Denied);
+    }
+    drop(outcomes);
+
+    let mut pending = PendingConsentRegistry::default();
+    assert!(
+        pending
+            .register(
+                "write",
+                "auth:overflow",
+                std::time::Duration::from_secs(120)
+            )
+            .is_err(),
+        "do not admit another keyring operation while denial outcomes await consumption"
+    );
 }
