@@ -341,6 +341,24 @@ async fn only_the_core_bearer_completes_the_socketio_handshake() {
         .expect("socket.io handshake test timed out");
 }
 
+#[test]
+fn keyring_approval_socket_payload_contains_only_operation_metadata() {
+    let request = crate::core_host::core::events::KeyringAccessApprovalRequest {
+        request_id: "request-1".into(),
+        caller_agent: "openhuman.credentials".into(),
+        origin: "LocalOperator".into(),
+        purpose: "OpenHuman auth profile credential access".into(),
+        access: "write".into(),
+        name: "user-1:auth:openai:default".into(),
+        expires_at_ms: 1_800_000_000_000,
+    };
+    let payload = super::keyring_access_approval_payload(&request);
+    assert_eq!(payload["request_id"], "request-1");
+    assert_eq!(payload["access"], "write");
+    assert_eq!(payload["name"], "user-1:auth:openai:default");
+    assert!(payload.get("value").is_none());
+}
+
 async fn handshake_bearer_gate() {
     let token = ensure_rpc_token();
     let (layer, _io) = super::attach_socketio();

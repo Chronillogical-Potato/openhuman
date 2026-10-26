@@ -966,24 +966,10 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                     );
                     let _ = io_memory_sync.emit("flow_approval_request", &payload);
                 }
-                crate::core_host::core::events::DomainEvent::KeyringAccessApprovalRequested {
-                    request_id,
-                    caller_agent,
-                    origin,
-                    purpose,
-                    access,
-                    name,
-                    expires_at_ms,
-                } => {
-                    let payload = serde_json::json!({
-                        "request_id": request_id,
-                        "caller_agent": caller_agent,
-                        "origin": origin,
-                        "purpose": purpose,
-                        "access": access,
-                        "name": name,
-                        "expires_at_ms": expires_at_ms,
-                    });
+                crate::core_host::core::events::DomainEvent::KeyringAccessApprovalRequested(
+                    request,
+                ) => {
+                    let payload = keyring_access_approval_payload(request);
                     let _ = io_memory_sync.emit("keyring:access_approval_requested", &payload);
                     let _ = io_memory_sync.emit("keyring_access_approval_requested", &payload);
                 }
@@ -1063,6 +1049,20 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
         }
         log::debug!("[socketio] channel_status bridge stopped");
     });
+}
+
+fn keyring_access_approval_payload(
+    request: &crate::core_host::core::events::KeyringAccessApprovalRequest,
+) -> Value {
+    serde_json::json!({
+        "request_id": request.request_id,
+        "caller_agent": request.caller_agent,
+        "origin": request.origin,
+        "purpose": request.purpose,
+        "access": request.access,
+        "name": request.name,
+        "expires_at_ms": request.expires_at_ms,
+    })
 }
 
 fn should_broadcast_session_expiry(
