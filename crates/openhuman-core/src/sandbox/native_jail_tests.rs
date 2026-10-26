@@ -1,6 +1,19 @@
 use super::*;
 use std::path::PathBuf;
 
+fn planned_test_jail() -> crate::modules::tinybox::contract::NativeJailConfig {
+    crate::modules::tinybox::contract::NativeJailConfig {
+        read_only: Vec::new(),
+        read_write: Vec::new(),
+        allow_net: true,
+        allow_subprocess: true,
+        enforcement: crate::modules::tinybox::contract::JailEnforcement::Enforced,
+        require_process_isolation: true,
+        deny_read: Vec::new(),
+        resources: None,
+    }
+}
+
 #[cfg(feature = "modules")]
 #[test]
 fn approved_environment_carries_only_the_callers_overrides() -> anyhow::Result<()> {

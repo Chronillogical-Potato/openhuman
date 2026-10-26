@@ -32,6 +32,11 @@ maps into the sandbox policy without a second host-owned protected-path floor.
 The Plan2 jail artifact, including `deny_read`, is passed directly to TinyBox
 at launch.
 
+The `ResolveLocalGrants` adapter remains for stdio MCP servers, which build a
+TinyMCP jail from `[runtime.local_jail]` grants. It supplies the same
+TinySecurity floor to TinyBox and maps the admitted paths; it does not
+re-evaluate the returned grants in OpenHuman.
+
 ## Layout
 
 - `ops/exec.rs` composes Plan2 planning, policy mapping, consumption, and the
