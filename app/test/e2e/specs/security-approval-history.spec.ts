@@ -26,7 +26,7 @@ describe('security approval history', () => {
         (await browser.execute(() =>
           Boolean(
             document.querySelector('[data-testid="approval-history-empty"]') ||
-              document.querySelector('[data-testid="approval-history-list"]')
+            document.querySelector('[data-testid="approval-history-list"]')
           )
         )) as boolean,
       { timeout: 15_000 }

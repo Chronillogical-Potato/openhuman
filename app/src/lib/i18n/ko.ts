@@ -5039,10 +5039,10 @@ const messages: TranslationMap = {
   // Automatic approval attribution
   'settings.approvalHistory.autoJev': 'Jev',
   'settings.approvalHistory.autoPolicy': '정책',
-  'settings.approvalHistory.judgeScores': '의도 {intent} · 되돌릴 수 있음 {reversible} · 정보 유출 {exfiltrate}',
+  'settings.approvalHistory.judgeScores':
+    '의도 {intent} · 되돌릴 수 있음 {reversible} · 정보 유출 {exfiltrate}',
   'settings.approvalHistory.judgeCached': '캐시됨',
   'settings.approvalHistory.judgeExpires': '{time} 만료',
-
 };
 
 export default messages;

@@ -5137,7 +5137,8 @@ const messages: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.policy.autonomy': 'Автономность',
   'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'Только в рабочей области',
   'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'Максимум действий в час',
-  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': 'Требовать подтверждение для среднего риска',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk':
+    'Требовать подтверждение для среднего риска',
   'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'Блокировать команды высокого риска',
   'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'Разрешённые команды',
   'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'Нет явно разрешённых команд.',
@@ -5145,10 +5146,10 @@ const messages: TranslationMap = {
   // Automatic approval attribution
   'settings.approvalHistory.autoJev': 'Jev',
   'settings.approvalHistory.autoPolicy': 'Политика',
-  'settings.approvalHistory.judgeScores': 'Намерение {intent} · Обратимость {reversible} · Утечка данных {exfiltrate}',
+  'settings.approvalHistory.judgeScores':
+    'Намерение {intent} · Обратимость {reversible} · Утечка данных {exfiltrate}',
   'settings.approvalHistory.judgeCached': 'из кэша',
   'settings.approvalHistory.judgeExpires': 'Истекает {time}',
-
 };
 
 export default messages;

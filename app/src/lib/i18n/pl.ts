@@ -5151,19 +5151,22 @@ const messages: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.policy.title': 'Aktywne zasady bezpieczeństwa',
   'devOptions.toolPolicyDiagnostics.policy.autonomy': 'Autonomia',
   'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'Tylko w obszarze roboczym',
-  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'Maksymalna liczba działań na godzinę',
-  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': 'Wymagaj zatwierdzenia przy średnim ryzyku',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour':
+    'Maksymalna liczba działań na godzinę',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk':
+    'Wymagaj zatwierdzenia przy średnim ryzyku',
   'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'Blokuj polecenia wysokiego ryzyka',
   'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'Dozwolone polecenia',
-  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'Żadne polecenia nie są jawnie dozwolone.',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands':
+    'Żadne polecenia nie są jawnie dozwolone.',
 
   // Automatic approval attribution
   'settings.approvalHistory.autoJev': 'Jev',
   'settings.approvalHistory.autoPolicy': 'Zasady',
-  'settings.approvalHistory.judgeScores': 'Intencja {intent} · Odwracalność {reversible} · Eksfiltracja {exfiltrate}',
+  'settings.approvalHistory.judgeScores':
+    'Intencja {intent} · Odwracalność {reversible} · Eksfiltracja {exfiltrate}',
   'settings.approvalHistory.judgeCached': 'z pamięci podręcznej',
   'settings.approvalHistory.judgeExpires': 'Wygasa {time}',
-
 };
 
 export default messages;

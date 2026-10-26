@@ -4808,10 +4808,10 @@ const messages: TranslationMap = {
   // Automatic approval attribution
   'settings.approvalHistory.autoJev': 'Jev',
   'settings.approvalHistory.autoPolicy': '策略',
-  'settings.approvalHistory.judgeScores': '意图 {intent} · 可逆性 {reversible} · 数据外泄 {exfiltrate}',
+  'settings.approvalHistory.judgeScores':
+    '意图 {intent} · 可逆性 {reversible} · 数据外泄 {exfiltrate}',
   'settings.approvalHistory.judgeCached': '已缓存',
   'settings.approvalHistory.judgeExpires': '到期时间：{time}',
-
 };
 
 export default messages;

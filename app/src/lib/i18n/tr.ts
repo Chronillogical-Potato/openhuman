@@ -5091,10 +5091,10 @@ const messages: TranslationMap = {
   // Automatic approval attribution
   'settings.approvalHistory.autoJev': 'Jev',
   'settings.approvalHistory.autoPolicy': 'İlke',
-  'settings.approvalHistory.judgeScores': 'Amaç {intent} · Geri alınabilirlik {reversible} · Veri sızdırma {exfiltrate}',
+  'settings.approvalHistory.judgeScores':
+    'Amaç {intent} · Geri alınabilirlik {reversible} · Veri sızdırma {exfiltrate}',
   'settings.approvalHistory.judgeCached': 'önbellekte',
   'settings.approvalHistory.judgeExpires': 'Son kullanma {time}',
-
 };
 
 export default messages;

@@ -5084,15 +5084,16 @@ const messages: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': 'মাঝারি ঝুঁকিতে অনুমোদন আবশ্যক',
   'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'উচ্চ ঝুঁকির কমান্ড বন্ধ করুন',
   'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'অনুমোদিত কমান্ড',
-  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'কোনো কমান্ড স্পষ্টভাবে অনুমোদিত নয়।',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands':
+    'কোনো কমান্ড স্পষ্টভাবে অনুমোদিত নয়।',
 
   // Automatic approval attribution
   'settings.approvalHistory.autoJev': 'Jev',
   'settings.approvalHistory.autoPolicy': 'নীতি',
-  'settings.approvalHistory.judgeScores': 'উদ্দেশ্য {intent} · প্রত্যাবর্তনযোগ্য {reversible} · তথ্য ফাঁস {exfiltrate}',
+  'settings.approvalHistory.judgeScores':
+    'উদ্দেশ্য {intent} · প্রত্যাবর্তনযোগ্য {reversible} · তথ্য ফাঁস {exfiltrate}',
   'settings.approvalHistory.judgeCached': 'ক্যাশ করা',
   'settings.approvalHistory.judgeExpires': '{time}-এ মেয়াদ শেষ',
-
 };
 
 export default messages;

@@ -5201,23 +5201,26 @@ const messages: TranslationMap = {
 
   'settings.layout.contrast.subtle': 'Discret',
   // Security policy diagnostics
-  'devOptions.toolPolicyDiagnostics.notBuilt': 'Les diagnostics de stratégie ne sont pas inclus dans ce noyau.',
+  'devOptions.toolPolicyDiagnostics.notBuilt':
+    'Les diagnostics de stratégie ne sont pas inclus dans ce noyau.',
   'devOptions.toolPolicyDiagnostics.policy.title': 'Stratégie de sécurité active',
   'devOptions.toolPolicyDiagnostics.policy.autonomy': 'Autonomie',
   'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'Espace de travail uniquement',
   'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'Nombre maximal d’actions par heure',
-  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': 'Approbation requise pour les risques moyens',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk':
+    'Approbation requise pour les risques moyens',
   'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'Bloquer les commandes à haut risque',
   'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'Commandes autorisées',
-  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'Aucune commande n’est explicitement autorisée.',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands':
+    'Aucune commande n’est explicitement autorisée.',
 
   // Automatic approval attribution
   'settings.approvalHistory.autoJev': 'Jev',
   'settings.approvalHistory.autoPolicy': 'Politique',
-  'settings.approvalHistory.judgeScores': 'Intention {intent} · Réversible {reversible} · Exfiltration {exfiltrate}',
+  'settings.approvalHistory.judgeScores':
+    'Intention {intent} · Réversible {reversible} · Exfiltration {exfiltrate}',
   'settings.approvalHistory.judgeCached': 'en cache',
   'settings.approvalHistory.judgeExpires': 'Expire le {time}',
-
 };
 
 export default messages;

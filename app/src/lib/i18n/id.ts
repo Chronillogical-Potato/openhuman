@@ -5120,23 +5120,26 @@ const messages: TranslationMap = {
 
   'settings.layout.corners.round': 'Membulat',
   // Security policy diagnostics
-  'devOptions.toolPolicyDiagnostics.notBuilt': 'Diagnostik kebijakan tidak disertakan dalam core ini.',
+  'devOptions.toolPolicyDiagnostics.notBuilt':
+    'Diagnostik kebijakan tidak disertakan dalam core ini.',
   'devOptions.toolPolicyDiagnostics.policy.title': 'Kebijakan keamanan aktif',
   'devOptions.toolPolicyDiagnostics.policy.autonomy': 'Otonomi',
   'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'Hanya ruang kerja',
   'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'Maksimum tindakan per jam',
-  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': 'Perlu persetujuan untuk risiko sedang',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk':
+    'Perlu persetujuan untuk risiko sedang',
   'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'Blokir perintah berisiko tinggi',
   'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'Perintah yang diizinkan',
-  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'Tidak ada perintah yang diizinkan secara eksplisit.',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands':
+    'Tidak ada perintah yang diizinkan secara eksplisit.',
 
   // Automatic approval attribution
   'settings.approvalHistory.autoJev': 'Jev',
   'settings.approvalHistory.autoPolicy': 'Kebijakan',
-  'settings.approvalHistory.judgeScores': 'Tujuan {intent} · Dapat dibatalkan {reversible} · Eksfiltrasi {exfiltrate}',
+  'settings.approvalHistory.judgeScores':
+    'Tujuan {intent} · Dapat dibatalkan {reversible} · Eksfiltrasi {exfiltrate}',
   'settings.approvalHistory.judgeCached': 'tersimpan di cache',
   'settings.approvalHistory.judgeExpires': 'Berakhir {time}',
-
 };
 
 export default messages;

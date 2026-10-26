@@ -5080,18 +5080,20 @@ const messages: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.policy.autonomy': 'स्वायत्तता',
   'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'केवल कार्यक्षेत्र',
   'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'प्रति घंटे अधिकतम कार्रवाइयाँ',
-  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': 'मध्यम जोखिम के लिए स्वीकृति आवश्यक',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk':
+    'मध्यम जोखिम के लिए स्वीकृति आवश्यक',
   'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'उच्च जोखिम वाले कमांड रोकें',
   'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'अनुमत कमांड',
-  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'कोई कमांड स्पष्ट रूप से अनुमत नहीं है।',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands':
+    'कोई कमांड स्पष्ट रूप से अनुमत नहीं है।',
 
   // Automatic approval attribution
   'settings.approvalHistory.autoJev': 'Jev',
   'settings.approvalHistory.autoPolicy': 'नीति',
-  'settings.approvalHistory.judgeScores': 'इरादा {intent} · वापस करने योग्य {reversible} · डेटा निकासी {exfiltrate}',
+  'settings.approvalHistory.judgeScores':
+    'इरादा {intent} · वापस करने योग्य {reversible} · डेटा निकासी {exfiltrate}',
   'settings.approvalHistory.judgeCached': 'कैश किया गया',
   'settings.approvalHistory.judgeExpires': '{time} पर समाप्त',
-
 };
 
 export default messages;

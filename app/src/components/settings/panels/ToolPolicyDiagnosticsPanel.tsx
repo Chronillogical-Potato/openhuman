@@ -124,7 +124,9 @@ const ToolPolicyDiagnosticsPanel = () => {
     );
   }
 
-  return <SettingsPanel description={t('devOptions.toolPolicyDiagnosticsDesc')}>{body}</SettingsPanel>;
+  return (
+    <SettingsPanel description={t('devOptions.toolPolicyDiagnosticsDesc')}>{body}</SettingsPanel>
+  );
 };
 
 export default ToolPolicyDiagnosticsPanel;
