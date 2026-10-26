@@ -61,7 +61,7 @@ pub struct OpenHumanHttp {
 /// Resolve the exact name returned by the module's credential parser. Trim
 /// only at the host's encrypted-store lookup boundary to preserve the prior
 /// credential identifier policy.
-pub(crate) fn resolve_http_credential(
+pub(crate) async fn resolve_http_credential(
     store: &HttpCredentialsStore,
     credential_name: Option<&str>,
 ) -> Result<Option<HttpCredential>> {
@@ -74,7 +74,7 @@ pub(crate) fn resolve_http_credential(
             "http_request connection_ref has an empty http_cred name".to_owned(),
         ));
     }
-    match store.get(name) {
+    match store.get(name).await {
         Ok(Some(cred)) => {
             tracing::debug!(
                 target: "flows",
@@ -189,7 +189,7 @@ impl OpenHumanHttp {
         // header server-side. An unknown name fails the request closed (see
         // `resolve_http_credential`) — we never send it unauthenticated.
         if let Some(cred) =
-            resolve_http_credential(&self.http_creds, inspected.credential_name.as_deref())?
+            resolve_http_credential(&self.http_creds, inspected.credential_name.as_deref()).await?
         {
             let (header, value) = cred
                 .to_header()
