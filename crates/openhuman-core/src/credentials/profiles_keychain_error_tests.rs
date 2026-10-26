@@ -18,7 +18,7 @@ fn config_backed_profile_store_uses_tinysecurity_and_existing_namespaced_key() {
     let config = crate::config::Config::default();
     let store = AuthProfilesStore::new_with_config(tmp.path(), true, &config);
 
-    assert!(store.use_keychain);
+    assert_eq!(store.use_keychain, cfg!(feature = "security-module"));
     assert!(store.security_config.is_some());
     assert_eq!(
         super::profiles::namespaced_keyring_name("user-123", "auth:openai:default"),
@@ -56,5 +56,11 @@ fn unavailable_keyring_keeps_keyring_only_oauth_metadata_in_place() {
 
     let loaded = store.load().expect("unavailable keyring is handled safely");
     assert!(!loaded.profiles.contains_key(&id));
-    assert!(store.read_persisted_locked().unwrap().profiles.contains_key(&id));
+    assert!(
+        store
+            .read_persisted_locked()
+            .unwrap()
+            .profiles
+            .contains_key(&id)
+    );
 }

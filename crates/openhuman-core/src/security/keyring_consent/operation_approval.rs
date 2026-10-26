@@ -44,9 +44,8 @@ impl PendingConsentRegistry {
                 request_id,
                 access: access.to_owned(),
                 name: name.to_owned(),
-                expires_at_ms: now_ms().saturating_add(
-                    timeout.as_millis().try_into().unwrap_or(u64::MAX),
-                ),
+                expires_at_ms: now_ms()
+                    .saturating_add(timeout.as_millis().try_into().unwrap_or(u64::MAX)),
             },
             receiver,
         ))

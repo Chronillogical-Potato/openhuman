@@ -27,20 +27,22 @@ fn pending_approval_capacity_is_bounded() {
             )
             .unwrap();
     }
-    assert!(registry
-        .register(
-            "read",
-            "auth:overflow",
-            std::time::Duration::from_secs(120)
-        )
-        .is_err());
+    assert!(
+        registry
+            .register("read", "auth:overflow", std::time::Duration::from_secs(120))
+            .is_err()
+    );
 }
 
 #[tokio::test]
 async fn dropping_waiter_discards_later_resolution() {
     let mut registry = PendingConsentRegistry::default();
     let (pending, waiter) = registry
-        .register("delete", "auth:profile", std::time::Duration::from_secs(120))
+        .register(
+            "delete",
+            "auth:profile",
+            std::time::Duration::from_secs(120),
+        )
         .unwrap();
     drop(waiter);
 

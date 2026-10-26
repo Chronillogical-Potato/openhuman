@@ -30,7 +30,7 @@ impl AuthProfilesStore {
         security_config: Option<crate::config::Config>,
     ) -> Self {
         let user_id = super::user_id_from_state_dir(state_dir);
-        let use_keychain = security_config.is_some();
+        let use_keychain = security_config.is_some() && cfg!(feature = "security-module");
         log::debug!(
             "[auth] AuthProfilesStore::new state_dir={} user_id={user_id} use_keychain={use_keychain}",
             state_dir.display()

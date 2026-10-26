@@ -413,3 +413,7 @@ fn keyring_access_error(error: tinybus::Error) -> SecurityError {
         error => SecurityError::Unavailable(error.to_string()),
     }
 }
+
+#[cfg(test)]
+#[path = "client_tests.rs"]
+mod tests;

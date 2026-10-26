@@ -143,10 +143,21 @@ impl AuthProfilesStore {
         };
         #[cfg(feature = "security-module")]
         {
-            let outcome = crate::modules::security::sync_seam::run(
-                Duration::from_secs(125),
-                async move {
-                    let client = crate::modules::security::client(&config)
+            let outcome =
+                crate::modules::security::sync_seam::run(Duration::from_secs(125), async move {
+                    let client = crate::modules::security::client(&config).await.map_err(
+                        |error| match error {
+                            crate::modules::security::SecurityError::ConsentDenied => {
+                                "openhuman:consent-denied".to_owned()
+                            }
+                            crate::modules::security::SecurityError::ConsentPending => {
+                                "openhuman:consent-pending".to_owned()
+                            }
+                            error => error.to_string(),
+                        },
+                    )?;
+                    client
+                        .keyring_access2(request)
                         .await
                         .map_err(|error| match error {
                             crate::modules::security::SecurityError::ConsentDenied => {
@@ -156,18 +167,8 @@ impl AuthProfilesStore {
                                 "openhuman:consent-pending".to_owned()
                             }
                             error => error.to_string(),
-                        })?;
-                    client.keyring_access2(request).await.map_err(|error| match error {
-                        crate::modules::security::SecurityError::ConsentDenied => {
-                            "openhuman:consent-denied".to_owned()
-                        }
-                        crate::modules::security::SecurityError::ConsentPending => {
-                            "openhuman:consent-pending".to_owned()
-                        }
-                        error => error.to_string(),
-                    })
-                },
-            );
+                        })
+                });
             outcome.map_err(|error| match error.as_str() {
                 "openhuman:consent-denied" => anyhow::Error::new(KeyringConsentError::Denied),
                 "openhuman:consent-pending" => anyhow::Error::new(KeyringConsentError::Pending),

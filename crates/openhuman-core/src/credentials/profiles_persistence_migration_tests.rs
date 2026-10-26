@@ -9,17 +9,17 @@ fn denied_keyring_read_preserves_keyring_only_oauth_profile() {
         kind: "oauth".into(),
         ..PersistedAuthProfile::default()
     };
-    assert!(super::super::migration::preserve_keyring_only_oauth_after_access_failure(
-        &profile, true
-    ));
+    assert!(
+        super::super::migration::preserve_keyring_only_oauth_after_access_failure(&profile, true)
+    );
 
     profile.access_token = Some("enc:not-readable".into());
-    assert!(!super::super::migration::preserve_keyring_only_oauth_after_access_failure(
-        &profile, true
-    ));
-    assert!(!super::super::migration::preserve_keyring_only_oauth_after_access_failure(
-        &profile, false
-    ));
+    assert!(
+        !super::super::migration::preserve_keyring_only_oauth_after_access_failure(&profile, true)
+    );
+    assert!(
+        !super::super::migration::preserve_keyring_only_oauth_after_access_failure(&profile, false)
+    );
 }
 
 #[test]
