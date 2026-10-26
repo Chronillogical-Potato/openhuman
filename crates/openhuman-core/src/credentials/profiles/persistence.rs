@@ -14,8 +14,7 @@ use super::{
     EncryptedProfileFields, PROFILES_FILENAME, profile_kind_to_string, quarantine_corrupt_store,
 };
 
-/// Whether `bytes` parse as the persisted profiles document (what a read from
-/// the storage backend requires).
+/// Whether `bytes` parse as the legacy persisted profiles document.
 pub(crate) fn is_persisted_document(bytes: &[u8]) -> bool {
     serde_json::from_slice::<PersistedAuthProfiles>(bytes).is_ok()
 }
