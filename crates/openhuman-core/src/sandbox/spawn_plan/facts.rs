@@ -34,6 +34,18 @@ pub(crate) enum SpawnSource {
 }
 
 impl SpawnSource {
+    /// Classify the turn's trusted host origin; remote and missing origins are untrusted.
+    pub(crate) fn from_origin(
+        origin: Option<&crate::core::runtime::turn_origin::AgentTurnOrigin>,
+    ) -> Self {
+        match origin {
+            Some(crate::core::runtime::turn_origin::AgentTurnOrigin::ExternalChannel { .. })
+            | Some(crate::core::runtime::turn_origin::AgentTurnOrigin::Unknown)
+            | None => Self::Untrusted,
+            Some(_) => Self::Agent,
+        }
+    }
+
     pub(crate) const fn source_id(self) -> &'static str {
         match self {
             Self::Agent => "shell",

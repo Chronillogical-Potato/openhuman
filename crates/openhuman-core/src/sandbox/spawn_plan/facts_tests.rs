@@ -317,3 +317,29 @@ fn the_workspace_grant_is_not_blocked_by_the_path_tools_reserved_names() {
     assert!(!scope.paths.reserved_paths.is_empty());
     assert!(!scope.paths.reserved_prefixes.is_empty());
 }
+
+#[test]
+fn missing_and_remote_turn_origins_are_untrusted_spawn_sources() {
+    use crate::core::runtime::turn_origin::AgentTurnOrigin;
+
+    assert_eq!(SpawnSource::from_origin(None), SpawnSource::Untrusted);
+    assert_eq!(
+        SpawnSource::from_origin(Some(&AgentTurnOrigin::Unknown)),
+        SpawnSource::Untrusted
+    );
+    assert_eq!(
+        SpawnSource::from_origin(Some(&AgentTurnOrigin::ExternalChannel {
+            channel: "test".into(),
+            sender: None,
+            sender_name: None,
+            reply_target: "test".into(),
+            message_id: "test".into(),
+            history_key: None,
+        })),
+        SpawnSource::Untrusted
+    );
+    assert_eq!(
+        SpawnSource::from_origin(Some(&AgentTurnOrigin::DirectChat)),
+        SpawnSource::Agent
+    );
+}
