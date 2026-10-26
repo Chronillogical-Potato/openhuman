@@ -19,8 +19,8 @@ pub struct AuthService {
 }
 
 impl AuthService {
-    /// Reads one profile for doctor inspection without constructing the
-    /// mutable auth store or consulting process-global credential storage.
+    /// Reads one profile without mutating profile state. Keyring-backed
+    /// credentials use TinySecurity's operation-scoped consent path.
     pub fn get_profile_read_only(
         config: &Config,
         provider: &str,
@@ -29,8 +29,8 @@ impl AuthService {
         super::profiles::load_profile_read_only(config, provider, profile_override)
     }
 
-    /// Reads the selected profile's bearer without opening the mutable
-    /// auth-profile store. Doctor inspection uses this for BYOK providers.
+    /// Reads the selected profile's bearer without mutating profile state.
+    /// Keyring-backed credentials use TinySecurity's operation-scoped consent path.
     pub fn get_provider_bearer_token_read_only(
         config: &Config,
         provider: &str,

@@ -23,9 +23,9 @@ pub enum ReadOnlyAuthProfileError {
     InvalidStore,
 }
 
-/// Reads one selected profile from its config directory and profile-scoped
-/// encrypted-file backend, without locks, migrations, writes, or global
-/// storage/backend lookups.
+/// Reads one selected profile without mutating its document, acquiring locks,
+/// or migrating data. Keyring-backed secrets use TinySecurity's consent-gated
+/// read path; existing encrypted-document secrets remain readable as fallback.
 pub(super) fn load_profile(
     config: &Config,
     provider: &str,

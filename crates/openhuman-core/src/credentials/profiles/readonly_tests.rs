@@ -79,13 +79,13 @@ fn config_for(state_dir: &std::path::Path) -> Config {
 
 fn write_profile_document(state_dir: &std::path::Path, persisted: &PersistedAuthProfiles) {
     let document = serde_json::to_vec(persisted).unwrap();
-    let directory = profiles_file(state_dir).parent().unwrap();
+    let directory = super::super::profiles_file(state_dir).parent().unwrap();
     std::fs::create_dir_all(directory).unwrap();
     let store = EncryptedFileSecrets::with_key_file(directory).unwrap();
     crate::storage::block_on(async move {
         store
             .set(super::super::PROFILE_DOCUMENT_SECRET_NAME, &document)
             .await
-            .unwrap();
-    });
+    })
+    .unwrap();
 }
