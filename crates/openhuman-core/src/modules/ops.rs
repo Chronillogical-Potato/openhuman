@@ -265,13 +265,16 @@ async fn ensure_loaded_with_storage_callback(
     Ok(())
 }
 
+#[cfg(feature = "security-module")]
 type ComputerCallbackLoads = tokio::sync::Mutex<
     std::collections::HashMap<String, std::sync::Arc<tinybus::module::HostCallbackBinding>>,
 >;
 
+#[cfg(feature = "security-module")]
 static COMPUTER_CALLBACK_LOADS: std::sync::LazyLock<ComputerCallbackLoads> =
     std::sync::LazyLock::new(|| tokio::sync::Mutex::new(std::collections::HashMap::new()));
 
+#[cfg(feature = "security-module")]
 async fn ensure_loaded_with_computer_callback(
     resolver: &Resolver,
     config: &Config,
@@ -300,6 +303,7 @@ async fn ensure_loaded_with_computer_callback(
     Ok(())
 }
 
+#[cfg(feature = "security-module")]
 fn module_config_with_consequence_callback(
     config: &Config,
     id: &str,
@@ -468,21 +472,30 @@ pub async fn ensure_loaded_within(
                 None => load.await.map_err(LoadError::Failed),
             }
         }
-    } else if cfg!(feature = "security-module") && id == super::desktop::MODULE_ID {
-        if let Some(component) = disabled_component(config, id) {
-            Err(LoadError::Disabled(component))
-        } else {
-            let load = ensure_loaded_with_computer_callback(&resolver, config, id);
-            match within {
-                Some(within) => tokio::time::timeout(within, load)
-                    .await
-                    .map_err(|_| LoadError::StillLoading)?
-                    .map_err(LoadError::Failed),
-                None => load.await.map_err(LoadError::Failed),
+    } else {
+        #[cfg(feature = "security-module")]
+        {
+            if id == super::desktop::MODULE_ID {
+                if let Some(component) = disabled_component(config, id) {
+                    Err(LoadError::Disabled(component))
+                } else {
+                    let load = ensure_loaded_with_computer_callback(&resolver, config, id);
+                    match within {
+                        Some(within) => tokio::time::timeout(within, load)
+                            .await
+                            .map_err(|_| LoadError::StillLoading)?
+                            .map_err(LoadError::Failed),
+                        None => load.await.map_err(LoadError::Failed),
+                    }
+                }
+            } else {
+                resolver.ensure_loaded_within(id, within).await
             }
         }
-    } else {
-        resolver.ensure_loaded_within(id, within).await
+        #[cfg(not(feature = "security-module"))]
+        {
+            resolver.ensure_loaded_within(id, within).await
+        }
     };
     if id == super::connectors::MODULE_ID && result.is_ok() {
         super::connectors::note_load_resolution_ready();
