@@ -69,10 +69,19 @@ pub async fn record(
     if !config.audit.enabled {
         return Ok(());
     }
-    let tenant = ctx
-        .tenant()
-        .map_err(|_| "no tenant scope for the audit row".to_owned())?;
-    crate::modules::security::audit::record_for_tenant(config, &tenant, event).await
+    #[cfg(feature = "security-module")]
+    {
+        let tenant = ctx
+            .tenant()
+            .map_err(|_| "no tenant scope for the audit row".to_owned())?;
+        crate::modules::security::audit::record_for_tenant(config, &tenant, event).await
+    }
+
+    #[cfg(not(feature = "security-module"))]
+    {
+        let _ = (ctx, event);
+        Err("TinySecurity audit module is not built into this host".to_owned())
+    }
 }
 
 #[cfg(test)]
