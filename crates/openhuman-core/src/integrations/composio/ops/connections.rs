@@ -114,7 +114,7 @@ pub async fn composio_list_connections(
     config: &Config,
 ) -> OpResult<Outcome<ComposioConnectionsResponse>> {
     tracing::debug!("[composio] rpc list_connections");
-    if direct_mode_without_key(config)? {
+    if direct_mode_without_key(config).await? {
         tracing::debug!(
             "[composio] list_connections: direct mode selected, no api key configured yet \
              — returning empty connection list (valid setup state, not an error)"

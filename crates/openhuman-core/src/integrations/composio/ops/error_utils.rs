@@ -52,11 +52,12 @@ pub(crate) const COMPOSIO_NO_SESSION: &str =
 /// (`config.composio.api_key`). Checking only the keychain would wrongly
 /// short-circuit to an empty list for a user who configured their key via
 /// `config.toml`, hiding their real connections.
-pub(crate) fn direct_mode_without_key(config: &Config) -> OpResult<bool> {
+pub(crate) async fn direct_mode_without_key(config: &Config) -> OpResult<bool> {
     if config.composio.mode.trim() != crate::config::schema::COMPOSIO_MODE_DIRECT {
         return Ok(false);
     }
     let has_key = crate::integrations::composio::get_composio_api_key(config)
+        .await
         .map_err(|e| format!("[composio] get_composio_api_key failed: {e}"))?
         .or_else(|| {
             config
