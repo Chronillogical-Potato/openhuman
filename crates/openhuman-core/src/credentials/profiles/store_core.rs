@@ -11,37 +11,29 @@ use super::LOCK_FILENAME;
 
 impl AuthProfilesStore {
     pub fn new(state_dir: &Path, encrypt_secrets: bool) -> Self {
+        Self::construct(state_dir, encrypt_secrets, None)
+    }
+
+    pub fn new_with_config(
+        state_dir: &Path,
+        encrypt_secrets: bool,
+        config: &crate::config::Config,
+    ) -> Self {
+        crate::modules::security::sync_seam::arm_current();
+        Self::construct(state_dir, encrypt_secrets, Some(config.clone()))
+    }
+
+    fn construct(
+        state_dir: &Path,
+        encrypt_secrets: bool,
+        security_config: Option<crate::config::Config>,
+    ) -> Self {
         let user_id = super::user_id_from_state_dir(state_dir);
-        let policy = crate::security::keyring_consent::policy::check_secret_access();
-        let use_keychain = policy == crate::security::keyring_consent::PolicyDecision::Proceed
-            && crate::security::secret_storage::is_available();
+        let use_keychain = security_config.is_some();
         log::debug!(
-            "[auth] AuthProfilesStore::new state_dir={} user_id={user_id} use_keychain={use_keychain} policy={policy:?}",
+            "[auth] AuthProfilesStore::new state_dir={} user_id={user_id} use_keychain={use_keychain}",
             state_dir.display()
         );
-        match policy {
-            crate::security::keyring_consent::PolicyDecision::Proceed => {
-                if !use_keychain {
-                    // OS keychain unavailable despite Proceed policy (probe failed).
-                    log::info!(
-                        "[auth] OS keychain unavailable — using encrypted JSON for auth profiles user_id={user_id}"
-                    );
-                }
-            }
-            crate::security::keyring_consent::PolicyDecision::ConsentRequired => {
-                log::warn!(
-                    "[auth] keyring consent has not been given — secrets will NOT be persisted \
-                     to the OS keychain until the user grants consent. \
-                     Falling back to encrypted JSON for auth profiles user_id={user_id}"
-                );
-            }
-            crate::security::keyring_consent::PolicyDecision::Declined => {
-                log::warn!(
-                    "[auth] user explicitly declined OS keychain storage — \
-                     using encrypted JSON for auth profiles user_id={user_id}"
-                );
-            }
-        }
         Self {
             path: super::profiles_file(state_dir),
             legacy_path: super::legacy_profiles_file(state_dir),
@@ -49,6 +41,7 @@ impl AuthProfilesStore {
             secret_store: SecretStore::new(state_dir, encrypt_secrets),
             user_id,
             use_keychain,
+            security_config,
         }
     }
 

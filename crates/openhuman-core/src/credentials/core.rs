@@ -50,7 +50,13 @@ impl AuthService {
 
     pub fn from_config(config: &Config) -> Self {
         let state_dir = state_dir_from_config(config);
-        Self::new(&state_dir, config.secrets.encrypt)
+        Self {
+            store: AuthProfilesStore::new_with_config(
+                &state_dir,
+                config.secrets.encrypt,
+                config,
+            ),
+        }
     }
 
     pub fn new(state_dir: &Path, encrypt_secrets: bool) -> Self {

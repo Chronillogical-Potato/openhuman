@@ -204,7 +204,7 @@ fn user_id_from_state_dir(state_dir: &Path) -> String {
     format!("path-{hash:016x}")
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct AuthProfilesStore {
     path: PathBuf,
     legacy_path: PathBuf,
@@ -215,6 +215,9 @@ pub struct AuthProfilesStore {
     /// Whether the OS keychain is available on this machine.
     /// Cached at construction time to avoid repeated probes.
     use_keychain: bool,
+    /// Present only for Config-backed profile stores. No-Config helper APIs
+    /// stay on the profile-local encrypted file and never bypass consent.
+    security_config: Option<crate::config::Config>,
 }
 fn parse_profile_kind(value: &str) -> Result<AuthProfileKind> {
     match value {
