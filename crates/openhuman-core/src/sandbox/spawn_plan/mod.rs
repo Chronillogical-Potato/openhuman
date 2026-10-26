@@ -288,11 +288,8 @@ enum DenialAction {
 }
 
 fn denial_action(denial: SandboxDenial2, network: &NetworkPolicy) -> DenialAction {
-    if denial == SandboxDenial2::Approval && *network == NetworkPolicy::Host {
-        DenialAction::EvaluateAndRetryWithoutNetwork
-    } else {
-        DenialAction::Return
-    }
+    let _ = (denial, network);
+    DenialAction::Return
 }
 
 async fn plan_with(
