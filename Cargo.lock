@@ -5882,6 +5882,7 @@ dependencies = [
  "tinystoragedrivers-types",
  "tinytools 0.6.0",
  "tinytools-agent 0.6.0",
+ "tinytools-std",
  "tinyvoice-bus",
  "tinywallet",
  "tinywallet-bus",
@@ -6009,6 +6010,7 @@ dependencies = [
  "tinymemory-tools",
  "tinystoragedrivers-testkit",
  "tinytools 0.6.0",
+ "tinytools-std",
  "tokio",
  "tokio-stream",
  "tracing-subscriber",
@@ -11036,6 +11038,30 @@ version = "0.6.0"
 dependencies = [
  "async-trait",
  "tinytools 0.6.0",
+]
+
+[[package]]
+name = "tinytools-std"
+version = "0.6.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64 0.23.1",
+ "fs2",
+ "futures-util",
+ "glob",
+ "libc",
+ "log",
+ "parking_lot",
+ "regex",
+ "reqwest 0.12.28",
+ "rustix 1.1.5",
+ "serde_json",
+ "sha2 0.11.1",
+ "tinytools 0.6.0",
+ "tokio",
+ "tracing",
+ "walkdir",
 ]
 
 [[package]]
