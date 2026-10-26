@@ -10,9 +10,9 @@ use super::types::{SandboxIsolation, SandboxPolicy, SandboxStatus};
 use crate::config::Config;
 
 #[cfg(feature = "modules")]
-use crate::modules::tinybox::{self, contract};
-#[cfg(feature = "modules")]
 use crate::modules::tinybox::contract::NativeJailConfig;
+#[cfg(feature = "modules")]
+use crate::modules::tinybox::{self, contract};
 #[cfg(not(feature = "modules"))]
 type NativeJailConfig = ();
 

@@ -164,6 +164,8 @@ fn plan_request_carries_openhuman_owned_credential_paths_to_tinysecurity() {
     let denied = host_credential_denials(&config);
 
     assert!(denied.contains(&config.config_path));
-    assert!(denied.iter().any(|path| path.ends_with("auth-profiles.json")));
+    assert!(denied
+        .iter()
+        .any(|path| path.ends_with("auth-profiles.json")));
     assert!(denied.iter().any(|path| path.ends_with("secrets.enc")));
 }

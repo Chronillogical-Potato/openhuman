@@ -366,11 +366,12 @@ async fn sandbox_off_component_forces_the_unsandboxed_fallback_and_no_module_loa
     crate::core::runtime::context::CoreContext::scope(ctx, async {
         assert!(sandbox_component_off(&dispatch));
         assert!(sandbox_disabled_by_host(&dispatch));
-        assert!(
-            crate::sandbox::policy::should_plan_command(&dispatch, Some(SandboxMode::Sandboxed))
-                .await
-                .unwrap()
-        );
+        assert!(crate::sandbox::policy::should_plan_command(
+            &dispatch,
+            Some(SandboxMode::Sandboxed)
+        )
+        .await
+        .unwrap());
     })
     .await;
 }

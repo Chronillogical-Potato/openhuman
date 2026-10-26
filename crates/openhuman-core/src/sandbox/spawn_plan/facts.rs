@@ -39,7 +39,9 @@ impl SpawnSource {
         origin: Option<&crate::core::runtime::turn_origin::AgentTurnOrigin>,
     ) -> Self {
         match origin {
-            Some(crate::core::runtime::turn_origin::AgentTurnOrigin::ExternalChannel { .. })
+            Some(crate::core::runtime::turn_origin::AgentTurnOrigin::ExternalChannel {
+                ..
+            })
             | Some(crate::core::runtime::turn_origin::AgentTurnOrigin::Unknown)
             | None => Self::Untrusted,
             Some(_) => Self::Agent,

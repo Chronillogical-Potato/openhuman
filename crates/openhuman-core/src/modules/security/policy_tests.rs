@@ -26,7 +26,10 @@ fn first_load_and_reinit_share_one_policy_translator() {
     let config = Config::default();
     let module = module_config(&config);
     assert_eq!(module.policy, policy_config(&config));
-    assert_eq!(module.sandbox, Some(tinysecurity_bus::SandboxConfig2 { scopes: vec![] }));
+    assert_eq!(
+        module.sandbox,
+        Some(tinysecurity_bus::SandboxConfig2 { scopes: vec![] })
+    );
 }
 
 #[test]

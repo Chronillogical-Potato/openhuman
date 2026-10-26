@@ -3,8 +3,7 @@
 use tinysecurity_bus::{
     names, ConsumeSandboxPlanRequest2, ConsumeSandboxPlanResponse2,
     EvaluateSandboxApprovalRequest2, PolicyInfo, RegisterSandboxScopeRequest2,
-    RetireSandboxScopeRequest2, SandboxPlanRequest2,
-    SandboxPlanResponse2, SandboxScopeReceipt2,
+    RetireSandboxScopeRequest2, SandboxPlanRequest2, SandboxPlanResponse2, SandboxScopeReceipt2,
 };
 
 const MODULE_ID: &str = super::MODULE_ID;

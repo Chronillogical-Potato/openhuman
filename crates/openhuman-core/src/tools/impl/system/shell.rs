@@ -602,7 +602,12 @@ impl ShellTool {
     ) -> (bool, ToolResult) {
         let config = match ctx.load_config().await {
             Ok(config) => config,
-            Err(error) => return (false, ToolResult::error(format!("Cannot read sandbox configuration: {error}"))),
+            Err(error) => {
+                return (
+                    false,
+                    ToolResult::error(format!("Cannot read sandbox configuration: {error}")),
+                )
+            }
         };
         let policy = crate::sandbox::policy::route_for_mode(
             tinyagents_definition::SandboxMode::Sandboxed,

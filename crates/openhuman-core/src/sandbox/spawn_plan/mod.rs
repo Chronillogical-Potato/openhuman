@@ -110,7 +110,10 @@ pub(crate) struct FixedModule {
 }
 
 impl ModuleSource<'_> {
-    async fn proxy(self, config: &Config) -> Result<tinybus::module::ModuleObjectClient, PlanError> {
+    async fn proxy(
+        self,
+        config: &Config,
+    ) -> Result<tinybus::module::ModuleObjectClient, PlanError> {
         match self {
             Self::Production => client::object(config).await.map_err(unavailable),
             #[cfg(test)]
@@ -396,10 +399,7 @@ async fn plan_with(
             // exact pending request through TinySecurity, then let the caller
             // retry only with networking removed. The summary is deliberately
             // generic and carries no command, path, or environment data.
-            let approval_audit = stream
-                .correlation(generation)
-                .await
-                .map_err(unavailable)?;
+            let approval_audit = stream.correlation(generation).await.map_err(unavailable)?;
             if client::evaluate_sandbox_approval(
                 &proxy,
                 planned.clone(),
@@ -409,7 +409,9 @@ async fn plan_with(
             .await
             .is_err()
             {
-                tracing::warn!("[sandbox:plan] TinySecurity could not record host-network approval");
+                tracing::warn!(
+                    "[sandbox:plan] TinySecurity could not record host-network approval"
+                );
             }
         }
         if denial == SandboxDenial2::InvalidContext {

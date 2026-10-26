@@ -1,6 +1,11 @@
 use super::*;
 
-fn policy(mode: SandboxMode, sandbox: &SandboxConfig, runtime: &RuntimeConfig, remote: bool) -> SandboxPolicy {
+fn policy(
+    mode: SandboxMode,
+    sandbox: &SandboxConfig,
+    runtime: &RuntimeConfig,
+    remote: bool,
+) -> SandboxPolicy {
     route_for_mode(
         mode,
         Path::new("/tmp/action"),
@@ -20,7 +25,12 @@ fn docker_runtime() -> RuntimeConfig {
 
 #[test]
 fn a_default_configuration_names_no_executor() {
-    let policy = policy(SandboxMode::None, &SandboxConfig::default(), &RuntimeConfig::default(), false);
+    let policy = policy(
+        SandboxMode::None,
+        &SandboxConfig::default(),
+        &RuntimeConfig::default(),
+        false,
+    );
     assert_eq!(policy.backend, SandboxBackendKind::None);
     assert!(policy.allow_network);
     assert!(policy.mount_workspace);
@@ -35,11 +45,23 @@ fn a_configured_backend_becomes_the_requested_executor() {
     };
     let runtime = RuntimeConfig::default();
     assert_eq!(
-        policy(SandboxMode::None, &sandbox(SandboxBackend::Landlock), &runtime, false).backend,
+        policy(
+            SandboxMode::None,
+            &sandbox(SandboxBackend::Landlock),
+            &runtime,
+            false
+        )
+        .backend,
         SandboxBackendKind::Local
     );
     assert_eq!(
-        policy(SandboxMode::None, &sandbox(SandboxBackend::Docker), &runtime, false).backend,
+        policy(
+            SandboxMode::None,
+            &sandbox(SandboxBackend::Docker),
+            &runtime,
+            false
+        )
+        .backend,
         SandboxBackendKind::Docker
     );
     for backend in [SandboxBackend::Auto, SandboxBackend::None] {
@@ -52,10 +74,20 @@ fn a_configured_backend_becomes_the_requested_executor() {
 
 #[test]
 fn a_remote_session_and_the_docker_runtime_ask_for_a_container() {
-    let remote = policy(SandboxMode::Sandboxed, &SandboxConfig::default(), &RuntimeConfig::default(), true);
+    let remote = policy(
+        SandboxMode::Sandboxed,
+        &SandboxConfig::default(),
+        &RuntimeConfig::default(),
+        true,
+    );
     assert_eq!(remote.backend, SandboxBackendKind::Docker);
     assert!(!remote.allow_network);
-    let runtime = policy(SandboxMode::Sandboxed, &SandboxConfig::default(), &docker_runtime(), false);
+    let runtime = policy(
+        SandboxMode::Sandboxed,
+        &SandboxConfig::default(),
+        &docker_runtime(),
+        false,
+    );
     assert_eq!(runtime.backend, SandboxBackendKind::Docker);
     assert!(runtime.allow_network);
 }
@@ -74,7 +106,12 @@ fn an_explicit_jail_overrides_the_container_defaults() {
 
 #[test]
 fn the_container_settings_travel_whichever_executor_is_chosen() {
-    let policy = policy(SandboxMode::None, &SandboxConfig::default(), &RuntimeConfig::default(), false);
+    let policy = policy(
+        SandboxMode::None,
+        &SandboxConfig::default(),
+        &RuntimeConfig::default(),
+        false,
+    );
     let overrides = policy.docker_overrides.expect("container settings");
     let docker = RuntimeConfig::default().docker;
     assert_eq!(overrides.image, Some(docker.image));
@@ -86,7 +123,9 @@ fn the_container_settings_travel_whichever_executor_is_chosen() {
 fn a_workspace_less_container_is_asked_for_only_by_the_docker_runtime() {
     let mut runtime = docker_runtime();
     runtime.docker.mount_workspace = false;
-    let policy_for = |runtime: &RuntimeConfig| policy(SandboxMode::None, &SandboxConfig::default(), runtime, false);
+    let policy_for = |runtime: &RuntimeConfig| {
+        policy(SandboxMode::None, &SandboxConfig::default(), runtime, false)
+    };
     assert!(!policy_for(&runtime).mount_workspace);
     runtime.kind = "native".into();
     assert!(
@@ -100,7 +139,15 @@ fn an_explicit_backend_is_routed_as_a_module_preference() {
     let mut config = Config::default();
     config.sandbox.backend = SandboxBackend::Docker;
     assert_eq!(
-        route_for_mode(SandboxMode::None, &config.action_dir, &config.workspace_dir, &config.sandbox, &config.runtime, false).backend,
+        route_for_mode(
+            SandboxMode::None,
+            &config.action_dir,
+            &config.workspace_dir,
+            &config.sandbox,
+            &config.runtime,
+            false
+        )
+        .backend,
         SandboxBackendKind::Docker
     );
 }
@@ -108,7 +155,13 @@ fn an_explicit_backend_is_routed_as_a_module_preference() {
 #[test]
 fn sandboxed_mode_prefers_the_native_jail_on_a_native_host() {
     assert_eq!(
-        policy(SandboxMode::Sandboxed, &SandboxConfig::default(), &RuntimeConfig::default(), false).backend,
+        policy(
+            SandboxMode::Sandboxed,
+            &SandboxConfig::default(),
+            &RuntimeConfig::default(),
+            false
+        )
+        .backend,
         SandboxBackendKind::Local
     );
 }
@@ -118,7 +171,14 @@ fn the_configured_docker_runtime_carries_its_workspace_setting() {
     let mut config = Config::default();
     config.runtime = docker_runtime();
     config.runtime.docker.mount_workspace = false;
-    let filled = route_for_mode(SandboxMode::None, &config.action_dir, &config.workspace_dir, &config.sandbox, &config.runtime, false);
+    let filled = route_for_mode(
+        SandboxMode::None,
+        &config.action_dir,
+        &config.workspace_dir,
+        &config.sandbox,
+        &config.runtime,
+        false,
+    );
     assert_eq!(filled.backend, SandboxBackendKind::Docker);
     assert!(!filled.mount_workspace);
 }

@@ -118,7 +118,8 @@ pub(crate) async fn should_plan_command(
         None | Some(crate::core::runtime::turn_origin::AgentTurnOrigin::ExternalChannel { .. })
             | Some(crate::core::runtime::turn_origin::AgentTurnOrigin::Unknown)
     );
-    if crate::core::runtime::is_saas() || untrusted || matches!(mode, Some(SandboxMode::Sandboxed)) {
+    if crate::core::runtime::is_saas() || untrusted || matches!(mode, Some(SandboxMode::Sandboxed))
+    {
         return Ok(true);
     }
     let config = ctx.load_config().await?;
