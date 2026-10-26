@@ -136,7 +136,7 @@ tinystoragedrivers-types = { git = "https://github.com/tinyhumansai/tinystoraged
 # The host config and secret adapters use the driver's established `enc2`
 # codec and per-scope key provider while storing through the v2 SecretStore
 # port. The backend itself still supplies the port implementation.
-tinystoragedrivers-secrets = { git = "https://github.com/tinyhumansai/tinystoragedrivers", rev = "f05fbd230c2c403c8dcdef57316fa55265379039", default-features = false, features = ["document"] }
+tinystoragedrivers-secrets = { git = "https://github.com/tinyhumansai/tinystoragedrivers", rev = "f05fbd230c2c403c8dcdef57316fa55265379039", default-features = false, features = ["document", "file"] }
 tinystoragedrivers-fence = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-fence" }
 # The storage bus: the wire contract and the reference host server that the
 # `modules::storage_host` interface answers loaded modules with. Modules only.
