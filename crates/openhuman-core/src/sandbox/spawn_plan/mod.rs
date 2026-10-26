@@ -89,6 +89,8 @@ pub(crate) enum ModuleSource<'a> {
     /// A module a test loaded itself, with the executor facts it declares.
     #[cfg(test)]
     Fixed(&'a FixedModule),
+    #[cfg(not(test))]
+    Lifetime(std::marker::PhantomData<&'a ()>),
 }
 
 /// A security module and executor facts supplied by a test.
@@ -111,6 +113,8 @@ impl ModuleSource<'_> {
                 )
                 .await
                 .map_err(|error| unavailable(error.to_string())),
+            #[cfg(not(test))]
+            Self::Lifetime(_) => Err(unavailable("invalid sandbox module source")),
         }
     }
 }
@@ -295,6 +299,8 @@ async fn plan_with(
         ModuleSource::Production => probe(config, policy).await?,
         #[cfg(test)]
         ModuleSource::Fixed(fixed) => fixed.executors.clone(),
+        #[cfg(not(test))]
+        ModuleSource::Lifetime(_) => return Err(unavailable("invalid sandbox module source")),
     };
     let scope = facts::scope(&facts::FactsInput {
         config,
