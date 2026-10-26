@@ -140,6 +140,15 @@ fn enforce_egress_blocks_under_local_only_and_allows_otherwise() {
 }
 
 #[test]
+fn sensitive_mode_refuses_unassessed_external_content() {
+    let _mode = test_privacy_scope(PrivacyMode::Sensitive);
+    assert!(
+        enforce_egress(&external_composio()).is_err(),
+        "Sensitive must delegate to TinySecurity, which refuses unassessed external content"
+    );
+}
+
+#[test]
 fn local_only_tool_block_marks_message_and_clears_when_allowed() {
     let mut desc = EgressDescriptor::network_fetch("api.example.com");
     desc = desc.with_data_kind(DataKind::ToolArguments);
