@@ -78,7 +78,7 @@ pub(crate) struct PlannedSpawn {
     request: SandboxPlanRequest2,
     subject: SubjectScope,
     stream: AuditStream,
-    proxy: tinybus::Proxy,
+    proxy: tinybus::module::ModuleObjectClient,
 }
 
 /// Where the module's bus proxy comes from.
@@ -97,10 +97,17 @@ pub(crate) struct FixedModule {
 }
 
 impl ModuleSource<'_> {
-    async fn proxy(self, config: &Config) -> Result<tinybus::Proxy, PlanError> {
+    async fn proxy(self, config: &Config) -> Result<tinybus::module::ModuleObjectClient, PlanError> {
         match self {
-            Self::Production => client::production_proxy(config).await.map_err(unavailable),
-            Self::Fixed(fixed) => Ok(fixed.proxy.clone()),
+            Self::Production => client::object(config).await.map_err(unavailable),
+            Self::Fixed(fixed) => crate::modules::ops::fixture_client(fixed.proxy.clone())
+                .with_timeout(std::time::Duration::from_secs(25))
+                .object_client(
+                    crate::modules::security::MODULE_ID,
+                    tinysecurity_bus::names::OBJECT_PATH,
+                )
+                .await
+                .map_err(|error| unavailable(error.to_string())),
         }
     }
 }

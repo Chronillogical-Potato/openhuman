@@ -6,11 +6,20 @@ use tinysecurity_bus::{
     SandboxPlanResponse2, SandboxScopeReceipt2,
 };
 
+const MODULE_ID: &str = super::MODULE_ID;
+
 use crate::config::Config;
 
 /// Load TinySecurity and return the admitted sandbox object.
 pub(crate) async fn object(config: &Config) -> Result<tinybus::module::ModuleObjectClient, String> {
-    super::approval_object(config, std::time::Duration::from_secs(25)).await
+    super::ensure_loaded(config)
+        .await
+        .map_err(|error| error.to_string())?;
+    super::super::ops::client(config.clone())
+        .with_timeout(std::time::Duration::from_secs(25))
+        .object_client(MODULE_ID, names::OBJECT_PATH)
+        .await
+        .map_err(|_| "TinySecurity sandbox proxy unavailable".to_owned())
 }
 
 /// Return the current policy generation, which plans and audit rows must bind.
