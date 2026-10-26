@@ -269,13 +269,29 @@ pub(crate) async fn plan(request: SpawnRequest<'_>) -> Result<PlannedSpawn, Plan
     }
     let asked = facts::network_ceiling(request.policy);
     match plan_with(&request, asked.clone()).await {
-        Err(PlanError::Refused(SandboxDenial2::Approval)) if asked == NetworkPolicy::Host => {
+        Err(PlanError::Refused(denial))
+            if denial_action(denial, &asked) == DenialAction::EvaluateAndRetryWithoutNetwork =>
+        {
             tracing::warn!(
                 "[sandbox:plan] host network needs a human approval; planning without network"
             );
             plan_with(&request, NetworkPolicy::None).await
         }
         other => other,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DenialAction {
+    Return,
+    EvaluateAndRetryWithoutNetwork,
+}
+
+fn denial_action(denial: SandboxDenial2, network: &NetworkPolicy) -> DenialAction {
+    if denial == SandboxDenial2::Approval && *network == NetworkPolicy::Host {
+        DenialAction::EvaluateAndRetryWithoutNetwork
+    } else {
+        DenialAction::Return
     }
 }
 
@@ -369,7 +385,7 @@ async fn plan_with(
         }
     };
     if let Some(denial) = response.denial {
-        if denial == SandboxDenial2::Approval && network == NetworkPolicy::Host {
+        if denial_action(denial, &network) == DenialAction::EvaluateAndRetryWithoutNetwork {
             // There is no host approval claim at this call boundary. Record the
             // exact pending request through TinySecurity, then let the caller
             // retry only with networking removed. The summary is deliberately
