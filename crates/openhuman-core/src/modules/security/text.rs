@@ -63,6 +63,35 @@ pub(crate) fn redact_blocking(
     super::sync_seam::run(timeout, async move { redact(&config, mode, &text).await })
 }
 
+/// Ask TinySecurity's descriptor-level privacy gate from a synchronous host
+/// callback. An unarmed adapter or unavailable module is an error and callers
+/// refuse the transfer.
+pub(crate) fn privacy_check_blocking(
+    request: tinysecurity_bus::PrivacyCheckRequest2,
+    timeout: Duration,
+) -> Result<tinysecurity_bus::Decision, String> {
+    let config = CONFIG
+        .get()
+        .cloned()
+        .ok_or_else(|| "TinySecurity text adapter is not armed".to_owned())?;
+    super::sync_seam::run(timeout, async move {
+        super::gap::privacy_check_with_config(&config, request).await
+    })
+}
+
+pub(crate) fn classify_provider_host_blocking(
+    host: String,
+    timeout: Duration,
+) -> Result<bool, String> {
+    let config = CONFIG
+        .get()
+        .cloned()
+        .ok_or_else(|| "TinySecurity text adapter is not armed".to_owned())?;
+    super::sync_seam::run(timeout, async move {
+        super::gap::classify_provider_host_with_config(&config, host).await
+    })
+}
+
 fn scrub_log(text: &str) -> Option<String> {
     redact_blocking(RedactMode::CredentialsOnly, text, SYNC_TIMEOUT).ok()
 }

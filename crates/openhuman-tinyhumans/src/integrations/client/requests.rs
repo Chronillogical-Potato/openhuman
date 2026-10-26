@@ -78,8 +78,8 @@ pub(super) fn emit_backend_egress(approval: &ApprovalTurnContext, path: &str) {
 /// would break sign-in and the Connections UI for no privacy benefit. See
 /// [`is_control_plane_path`]. Call before
 /// [`emit_backend_egress`] so a blocked call is neither disclosed nor sent.
-pub(super) fn enforce_backend_egress(path: &str) -> anyhow::Result<()> {
-    openhuman_embed::__host::egress::enforce_egress(&backend_egress_descriptor(path))
+pub(super) async fn enforce_backend_egress(path: &str) -> anyhow::Result<()> {
+    openhuman_embed::__host::egress::enforce_egress(&backend_egress_descriptor(path)).await
 }
 
 impl IntegrationClient {
@@ -143,7 +143,7 @@ impl IntegrationClient {
     ) -> anyhow::Result<T> {
         self.validate_credential_endpoint()?;
         reject_privileged_backend_path(method.as_str(), path)?;
-        enforce_backend_egress(path)?;
+        enforce_backend_egress(path).await?;
         emit_backend_egress(approval, path);
         self.ensure_budget_available(path).await?;
         let url = openhuman_embed::__host::util::url::join_url(&self.backend_url, path);
@@ -192,7 +192,7 @@ impl IntegrationClient {
     ) -> anyhow::Result<T> {
         self.validate_credential_endpoint()?;
         reject_privileged_backend_path("POST", path)?;
-        enforce_backend_egress(path)?;
+        enforce_backend_egress(path).await?;
         emit_backend_egress(approval, path);
         self.ensure_budget_available(path).await?;
         let url = openhuman_embed::__host::util::url::join_url(&self.backend_url, path);

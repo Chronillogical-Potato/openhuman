@@ -2,12 +2,13 @@
 
 use tinysecurity_bus::{
     BudgetDecision2, BudgetRequest2, CheckRequest, CheckResponse, CommandDecision, CommandPolicy,
-    CommandPolicyId, CommandRequest, CredentialRootsRequest2, CredentialRootsResponse2,
+    CommandPolicyId, CommandRequest, CredentialRootsRequest2, CredentialRootsResponse2, Decision,
     HostActionClassRequest2, HostActionClassResponse2, PathBatchRequest2, PathBatchResponse2,
     PathPolicy, PathPolicyId, PathValidationRequest, PathValidationResult, PolicyInfo,
-    ProtectedFloor2, ProtectedPathRequest2, ProtectedPathResponse2, RedactMode, RedactRequest,
-    RedactResponse, RedactWithRequest, ScanPromptScoredRequest2, ScanPromptScoredResponse2,
-    ScanResponse, ScanToolDefinitionRequest, Secret,
+    PrivacyCheckRequest2, PrivacyCheckResponse2, ProtectedFloor2, ProtectedPathRequest2,
+    ProtectedPathResponse2, RedactMode, RedactRequest, RedactResponse, RedactWithRequest,
+    ScanPromptScoredRequest2, ScanPromptScoredResponse2, ScanResponse, ScanToolDefinitionRequest,
+    Secret,
 };
 
 use super::MODULE_ID;
@@ -227,6 +228,87 @@ impl Client {
         self.object
             .call_confidential(
                 tinysecurity_bus::names::methods::CLASSIFY_HOST_ACTION2,
+                (request,),
+            )
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Ask TinySecurity whether one descriptor-level egress transfer is allowed.
+    pub async fn privacy_check2(
+        &self,
+        request: PrivacyCheckRequest2,
+    ) -> Result<Decision, SecurityError> {
+        let response: PrivacyCheckResponse2 = self
+            .object
+            .call_confidential(tinysecurity_bus::names::methods::PRIVACY_CHECK2, (request,))
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))?;
+        Ok(response.decision)
+    }
+
+    pub(crate) async fn classify_provider_endpoint2(
+        &self,
+        host: String,
+    ) -> Result<tinysecurity_bus::ProviderEndpointResponse2, SecurityError> {
+        self.object
+            .call_confidential(
+                tinysecurity_bus::names::methods::CLASSIFY_PROVIDER_ENDPOINT2,
+                (tinysecurity_bus::ProviderEndpointRequest2 { host },),
+            )
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Authorize one browser socket dial through TinySecurity.
+    pub(crate) async fn authorize_browser_dial(
+        &self,
+        request: tinysecurity_bus::BrowserDialRequest,
+    ) -> Result<tinysecurity_bus::BrowserDialResponse, SecurityError> {
+        self.object
+            .call_confidential(
+                tinysecurity_bus::names::methods::AUTHORIZE_BROWSER_DIAL,
+                (request,),
+            )
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    pub(crate) async fn register_egress_policy(
+        &self,
+        policy: tinysecurity_bus::EgressPolicy,
+    ) -> Result<tinysecurity_bus::EgressPolicyId, SecurityError> {
+        self.object
+            .call_confidential(
+                tinysecurity_bus::names::methods::REGISTER_EGRESS_POLICY,
+                (policy,),
+            )
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Consume the exact one-use browser grant before the selected socket opens.
+    pub(crate) async fn consume_browser_dial(
+        &self,
+        request: tinysecurity_bus::ConsumeBrowserDialRequest,
+    ) -> Result<bool, SecurityError> {
+        self.object
+            .call_confidential(
+                tinysecurity_bus::names::methods::CONSUME_BROWSER_DIAL,
+                (request,),
+            )
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Validate a live browser tunnel lease.
+    pub(crate) async fn validate_browser_dial(
+        &self,
+        request: tinysecurity_bus::ValidateBrowserDialRequest,
+    ) -> Result<bool, SecurityError> {
+        self.object
+            .call_confidential(
+                tinysecurity_bus::names::methods::VALIDATE_BROWSER_DIAL,
                 (request,),
             )
             .await

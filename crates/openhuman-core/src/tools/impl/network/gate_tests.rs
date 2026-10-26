@@ -75,20 +75,19 @@ fn supervised_network_asks_for_approval_and_read_only_does_not() {
 // --- privacy mode ------------------------------------------------------------
 
 #[test]
-fn local_only_privacy_mode_refuses_with_the_policy_blocked_marker() {
+fn network_gate_refuses_when_the_privacy_module_cannot_answer() {
     let _mode = super::super::local_only_scope();
     let msg = NetGate::local_only_block(&SecurityPolicy::default(), "example.com")
-        .expect("LocalOnly blocks a network fetch");
+        .expect("an unavailable privacy module fails closed");
     assert!(msg.contains("[policy-blocked]"), "got: {msg}");
-    assert!(msg.contains("Local-only"), "got: {msg}");
     assert!(msg.contains("example.com"), "names the host: {msg}");
 }
 
 #[test]
-fn standard_privacy_mode_lets_the_request_through() {
+fn standard_privacy_mode_refuses_when_the_privacy_module_cannot_answer() {
     let _mode =
         crate::security::live_policy::test_privacy_scope(crate::config::PrivacyMode::Standard);
-    assert!(NetGate::local_only_block(&SecurityPolicy::default(), "example.com").is_none());
+    assert!(NetGate::local_only_block(&SecurityPolicy::default(), "example.com").is_some());
 }
 
 // --- the tools, through the real policy ---------------------------------------

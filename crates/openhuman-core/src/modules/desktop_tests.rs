@@ -9,7 +9,10 @@ use tinybus::transport::memory::MemoryBus;
 use tinybus::{Connection, InterfaceName, MemberName, ObjectPath};
 use tinycomputer_bus::{names, DesktopError, DesktopResponse};
 
-use super::{call, call_with_proxy, fingerprint, jev_ready, module_config, state, MODULE_ID};
+use super::{
+    call, call_with_proxy, fingerprint, inject_security_browser_config, jev_ready, module_config,
+    state, MODULE_ID,
+};
 use crate::config::Config;
 use crate::credentials::{api_key, AuthService};
 
@@ -19,6 +22,20 @@ fn config_in(dir: &std::path::Path) -> Config {
     config.workspace_dir = dir.join("workspace");
     config.secrets.encrypt = false;
     config
+}
+
+#[test]
+fn default_browser_config_receives_egress_and_consequence_host_destination() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let config = config_in(dir.path());
+    assert!(config.browser.chrome_path.is_none());
+
+    let mut module = module_config(&config);
+    let egress = json!({"policy_id": "policy-1", "generation": 7});
+    inject_security_browser_config(&mut module, egress.clone(), ":1.42");
+
+    assert_eq!(module["browser"]["egress"], egress);
+    assert_eq!(module["consequence_host"]["destination"], ":1.42");
 }
 
 #[test]

@@ -115,7 +115,7 @@ impl Guard {
         let descriptor = crate::integrations::client::requests::backend_egress_descriptor(
             &format!("{OPENROUTER_PROXY_PATH}/{route}"),
         );
-        openhuman_embed::__host::egress::enforce_egress(&descriptor).map_err(|error| {
+        openhuman_embed::__host::egress::enforce_egress_blocking(&descriptor).map_err(|error| {
             tracing::info!(route, %error, "[media_generation] blocked by privacy policy");
             ti_image::Error::Validation(format!("blocked by the privacy policy: {error}"))
         })?;

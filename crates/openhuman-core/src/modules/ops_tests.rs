@@ -126,6 +126,23 @@ fn tinymcp_storage_destination_is_not_a_generic_module_config_value() {
     assert!(module_config.get("storage_callback").is_none());
 }
 
+#[cfg(feature = "security-module")]
+#[tokio::test]
+async fn tinycomputer_config_uses_the_prepared_callback_unique_destination() {
+    let runtime = crate::modules::runtime::runtime().await.unwrap();
+    let binding = crate::modules::browser_egress_host::prepare_consequence_callback(runtime)
+        .await
+        .expect("prepare the confidential TinyComputer callback");
+    let destination = binding.unique_name().to_string();
+    let config =
+        ops::module_config_with_consequence_callback(&Config::default(), "tinycomputer", &binding);
+
+    assert_eq!(
+        config["consequence_host"]["destination"], destination,
+        "the module config targets the actual prepared confidential callback"
+    );
+}
+
 #[test]
 fn list_reports_every_registry_entry() {
     let statuses = list(&offline_config());
