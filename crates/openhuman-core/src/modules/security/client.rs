@@ -417,6 +417,40 @@ impl Client {
         result
     }
 
+    /// Request the existing native HumanOnce approval flow for a registered
+    /// master slot. TinySecurity owns the pending row and verifies the decision.
+    pub(crate) async fn evaluate_secret2(
+        &self,
+        request: &mut tinysecurity_bus::EvaluateSecretRequest2,
+    ) -> Result<tinysecurity_bus::ApprovalRow2, SecurityError> {
+        let result = self
+            .object
+            .call_confidential(
+                tinysecurity_bus::names::methods::EVALUATE_SECRET2,
+                (&*request,),
+            )
+            .await
+            .map_err(|_| SecurityError::Unavailable("secret approval unavailable".into()));
+        result
+    }
+
+    /// Complete the native master grant after the host's existing approval
+    /// engine reports HumanOnce. The returned handle is process-private.
+    pub(crate) async fn execute_secret2(
+        &self,
+        request: &mut tinysecurity_bus::ExecuteSecretRequest2,
+    ) -> Result<tinysecurity_bus::SecretResponse2, SecurityError> {
+        let result = self
+            .object
+            .call_confidential(
+                tinysecurity_bus::names::methods::EXECUTE_SECRET2,
+                (&*request,),
+            )
+            .await
+            .map_err(|_| SecurityError::Unavailable("secret master unavailable".into()));
+        result
+    }
+
     /// Validate a live browser tunnel lease.
     pub(crate) async fn validate_browser_dial(
         &self,
