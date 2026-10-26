@@ -27,7 +27,7 @@ pub(crate) mod spawn_plan;
 pub mod types;
 
 pub use ops::{
-    command_requires_sandbox, create_sandbox_backend, execute_in_sandbox, resolve_sandbox_policy,
+    create_sandbox_backend, execute_in_sandbox,
 };
 pub use schemas::{
     all_controller_schemas as all_sandbox_controller_schemas,
