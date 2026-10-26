@@ -195,38 +195,24 @@ pub(super) fn profile_master_key_read_only(
         return Ok(Some(Zeroizing::new(key)));
     }
 
+    use tinystoragedrivers::secrets::{HexKeyFileSource as _, ProtectedHexKeyFile};
+
     let path = workspace.join("keyring/master.key");
-    let metadata = match std::fs::symlink_metadata(&path) {
-        Ok(metadata) => metadata,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(_) => {
-            return Err(SecretStorageError::Backend(
-                "cannot inspect profile master key".into(),
-            ));
-        }
-    };
-    if !metadata.file_type().is_file() {
-        return Err(SecretStorageError::Backend(
-            "profile master key must be a regular file".into(),
-        ));
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        if metadata.permissions().mode() & 0o077 != 0 {
-            return Err(SecretStorageError::Backend(
-                "profile master key requires permissions 0600".into(),
-            ));
-        }
-    }
-    let text = Zeroizing::new(
-        std::fs::read_to_string(&path)
-            .map_err(|_| SecretStorageError::Backend("cannot read profile master key".into()))?,
-    );
-    parse_master_key_hex(text.trim())
-        .map(Zeroizing::new)
-        .map(Some)
-        .map_err(SecretStorageError::Backend)
+    let source = ProtectedHexKeyFile::new(path).map_err(|error| {
+        SecretStorageError::Backend(format!("invalid profile master key source: {error}"))
+    })?;
+    let encoded = crate::storage::block_on(async move { source.read_encoded().await })
+        .map_err(crate::security::secret_storage::adapter::backend_error)?;
+    encoded
+        .map(|bytes| {
+            let text = std::str::from_utf8(&bytes).map_err(|_| {
+                SecretStorageError::Backend("profile master key is not valid UTF-8".into())
+            })?;
+            parse_master_key_hex(text.trim())
+                .map(Zeroizing::new)
+                .map_err(SecretStorageError::Backend)
+        })
+        .transpose()
 }
 
 #[cfg(all(test, feature = "secret-file"))]

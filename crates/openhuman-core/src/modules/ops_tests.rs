@@ -119,6 +119,17 @@ fn the_default_config_enables_modules_and_downloads() {
 }
 
 #[test]
+fn storage_backed_modules_receive_host_storage_callbacks() {
+    for module in ["tinymcp", "tinyeventqueues", "tinychannels"] {
+        assert!(
+            ops::needs_storage_callback(module),
+            "{module} connects through a host-scoped storage callback"
+        );
+    }
+    assert!(!ops::needs_storage_callback("tinybox"));
+}
+
+#[test]
 fn tinymcp_storage_destination_is_not_a_generic_module_config_value() {
     let config = Config::default();
     let module_config = ops::module_config_for_test(&config, "tinymcp");

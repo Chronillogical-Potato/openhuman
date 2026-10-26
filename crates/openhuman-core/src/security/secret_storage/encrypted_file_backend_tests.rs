@@ -21,6 +21,15 @@ fn secrets_tempdir() -> tempfile::TempDir {
     dir
 }
 
+fn write_private_file(path: &Path, bytes: &[u8]) {
+    std::fs::write(path, bytes).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    }
+}
+
 fn legacy_secret_map() -> HashMap<String, String> {
     HashMap::from([("user:token".to_string(), "secret-value".to_string())])
 }
@@ -173,28 +182,81 @@ fn profile_read_only_secret_lookup_preserves_corrupt_store_bytes() {
         std::fs::read(&backend.path).unwrap(),
         b"corrupt encrypted store"
     );
-    assert!(!std::fs::read_dir(workspace.path())
+    assert!(
+        !std::fs::read_dir(workspace.path())
+            .unwrap()
+            .flatten()
+            .any(|entry| entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("secrets.enc.corrupt."))
+    );
+}
+
+#[test]
+fn desktop_secret_store_quarantines_corruption_through_the_driver_policy() {
+    let workspace = secrets_tempdir();
+    let backend = EncryptedFileBackend::new(workspace.path());
+    let path = workspace.path().join("secrets.enc");
+    let corrupt = b"not an encrypted secret file";
+    write_private_file(&path, corrupt);
+
+    assert_eq!(
+        backend
+            .get_with_key(&[0x42; KEY_LEN], "user:token")
+            .unwrap(),
+        None
+    );
+
+    assert!(!path.exists());
+    let archives: Vec<_> = std::fs::read_dir(workspace.path())
         .unwrap()
         .flatten()
-        .any(|entry| entry
-            .file_name()
-            .to_string_lossy()
-            .starts_with("secrets.enc.corrupt.")));
+        .filter(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("secrets.enc.corrupt.")
+        })
+        .collect();
+    assert_eq!(archives.len(), 1);
+    assert_eq!(std::fs::read(archives[0].path()).unwrap(), corrupt);
 }
 
 #[test]
 fn legacy_plaintext_is_removed_only_after_verified_encrypted_migration() {
     let dir = secrets_tempdir();
     let legacy_path = dir.path().join(LEGACY_DEV_KEYCHAIN);
-    let expected = legacy_secret_map();
-    std::fs::write(&legacy_path, serde_json::to_vec(&expected).unwrap()).unwrap();
+    let expected = HashMap::from([
+        ("user:token".to_string(), "secret-value".to_string()),
+        ("user:second".to_string(), "second-value".to_string()),
+    ]);
+    write_private_file(&legacy_path, &serde_json::to_vec(&expected).unwrap());
 
     let backend = EncryptedFileBackend::new(dir.path());
     let key = [0x42; KEY_LEN];
     assert_eq!(read_secret(&backend, &key).as_deref(), Some("secret-value"));
+    assert_eq!(
+        backend
+            .get_with_key(&key, "user:second")
+            .unwrap()
+            .as_deref(),
+        Some("second-value")
+    );
     assert!(!legacy_path.exists());
     assert!(backend.path.exists());
-    assert!(legacy_path.with_extension("json.migrated").exists());
+    assert!(!legacy_path.with_extension("json.migrated").exists());
+    assert_eq!(
+        backend.get_with_key(&key, LEGACY_IMPORT_PAYLOAD).unwrap(),
+        None
+    );
+    assert_eq!(
+        backend
+            .get_with_key(&key, LEGACY_IMPORT_COMPLETE)
+            .unwrap()
+            .as_deref(),
+        Some("1")
+    );
     assert_eq!(read_secret(&backend, &key).as_deref(), Some("secret-value"));
     assert_eq!(expected["user:token"], "secret-value");
 }
@@ -203,34 +265,53 @@ fn legacy_plaintext_is_removed_only_after_verified_encrypted_migration() {
 fn invalid_legacy_plaintext_is_preserved_for_recovery() {
     let dir = secrets_tempdir();
     let legacy_path = dir.path().join(LEGACY_DEV_KEYCHAIN);
-    std::fs::write(&legacy_path, b"invalid JSON").unwrap();
+    write_private_file(&legacy_path, b"invalid JSON");
 
     let backend = EncryptedFileBackend::new(dir.path());
-    assert!(backend
-        .get_with_key(&[0x42; KEY_LEN], "user:token")
-        .is_err());
+    assert!(
+        backend
+            .get_with_key(&[0x42; KEY_LEN], "user:token")
+            .is_err()
+    );
     assert_eq!(std::fs::read(&legacy_path).unwrap(), b"invalid JSON");
     assert!(!backend.path.exists());
 }
 
 #[test]
-fn encrypted_store_removes_only_matching_legacy_plaintext() {
+fn a_partial_legacy_replay_failure_keeps_the_source_and_retries_idempotently() {
     let dir = secrets_tempdir();
     let backend = EncryptedFileBackend::new(dir.path());
     let key = [0x42; KEY_LEN];
-    let encrypted = legacy_secret_map();
-    write_secret(&backend, &key, "secret-value");
-
     let legacy_path = dir.path().join(LEGACY_DEV_KEYCHAIN);
-    let mut different = encrypted.clone();
-    different.insert("user:token".to_string(), "different".to_string());
-    std::fs::write(&legacy_path, serde_json::to_vec(&different).unwrap()).unwrap();
-    assert_eq!(read_secret(&backend, &key).as_deref(), Some("secret-value"));
-    assert!(legacy_path.exists());
+    let expected = HashMap::from([
+        ("a:import".to_string(), "imported".to_string()),
+        ("z:conflict".to_string(), "legacy".to_string()),
+    ]);
+    let source_bytes = serde_json::to_vec(&expected).unwrap();
+    write_private_file(&legacy_path, &source_bytes);
+    backend
+        .set_with_key(&key, "z:conflict", "different")
+        .unwrap();
 
-    std::fs::write(&legacy_path, serde_json::to_vec(&encrypted).unwrap()).unwrap();
-    assert_eq!(read_secret(&backend, &key).as_deref(), Some("secret-value"));
-    assert!(!legacy_path.exists());
+    assert!(backend.import_legacy_dev_keychain(&key).is_err());
+    assert_eq!(std::fs::read(&legacy_path).unwrap(), source_bytes);
+    assert_eq!(
+        backend.get_with_key(&key, "a:import").unwrap().as_deref(),
+        Some("imported"),
+        "earlier entries may replay before a later conflict"
+    );
+    assert_eq!(
+        backend.get_with_key(&key, "z:conflict").unwrap().as_deref(),
+        Some("different")
+    );
+
+    assert!(backend.import_legacy_dev_keychain(&key).is_err());
+    assert_eq!(std::fs::read(&legacy_path).unwrap(), source_bytes);
+    assert_eq!(
+        backend.get_with_key(&key, "a:import").unwrap().as_deref(),
+        Some("imported"),
+        "a retry must accept an already-replayed identical value"
+    );
 }
 
 #[test]
@@ -240,7 +321,7 @@ fn encrypted_store_remains_readable_when_verified_plaintext_cannot_be_deleted() 
     let key = [0x42; KEY_LEN];
     let legacy_path = dir.path().join(LEGACY_DEV_KEYCHAIN);
     write_secret(&backend, &key, "secret-value");
-    std::fs::write(&legacy_path, b"stale invalid plaintext").unwrap();
+    write_private_file(&legacy_path, b"stale invalid plaintext");
 
     assert_eq!(read_secret(&backend, &key).as_deref(), Some("secret-value"));
     assert_eq!(
@@ -250,34 +331,6 @@ fn encrypted_store_remains_readable_when_verified_plaintext_cannot_be_deleted() 
 }
 
 #[test]
-fn existing_encrypted_file_does_not_remove_plaintext_until_directory_sync_succeeds() {
-    let dir = secrets_tempdir();
-    let backend = EncryptedFileBackend::new(dir.path());
-    let key = [0x42; KEY_LEN];
-    let expected = legacy_secret_map();
-    write_secret(&backend, &key, "secret-value");
-    let legacy_path = dir.path().join(LEGACY_DEV_KEYCHAIN);
-    std::fs::write(&legacy_path, serde_json::to_vec(&expected).unwrap()).unwrap();
-
-    let destination_lock = file_store::lock_for_write(&backend.path).unwrap();
-    let result = backend.remove_legacy_if_encrypted_copy_matches_with_sync(
-        &key,
-        &legacy_path,
-        &destination_lock,
-        |_, _| Err(SecretStorageError::Backend("directory sync failed".into())),
-    );
-    assert!(result.is_err());
-    assert!(
-        legacy_path.exists(),
-        "plaintext must remain until encrypted publication is durable"
-    );
-
-    drop(destination_lock);
-    assert_eq!(read_secret(&backend, &key).as_deref(), Some("secret-value"));
-    assert!(!legacy_path.exists());
-    assert!(legacy_path.with_extension("json.migrated").exists());
-}
-
 #[test]
 fn older_plaintext_copy_is_removed_only_when_it_matches() {
     let dir = secrets_tempdir();
@@ -290,11 +343,11 @@ fn older_plaintext_copy_is_removed_only_when_it_matches() {
         .path()
         .join(LEGACY_DEV_KEYCHAIN)
         .with_extension("json.migrated");
-    std::fs::write(&old_copy, serde_json::to_vec(&encrypted).unwrap()).unwrap();
+    write_private_file(&old_copy, &serde_json::to_vec(&encrypted).unwrap());
     assert_eq!(read_secret(&backend, &key).as_deref(), Some("secret-value"));
     assert!(!old_copy.exists());
 
-    std::fs::write(&old_copy, b"invalid JSON").unwrap();
+    write_private_file(&old_copy, b"invalid JSON");
     assert_eq!(read_secret(&backend, &key).as_deref(), Some("secret-value"));
     assert_eq!(std::fs::read(&old_copy).unwrap(), b"invalid JSON");
 }
@@ -413,9 +466,11 @@ fn malformed_env_key_is_rejected_without_leaking_the_value() {
 
 #[test]
 fn empty_env_values_fall_through_to_the_keychain() {
-    assert!(master_key_from_env(None, None, file_must_not_be_read)
-        .expect("nothing set is fine")
-        .is_none());
+    assert!(
+        master_key_from_env(None, None, file_must_not_be_read)
+            .expect("nothing set is fine")
+            .is_none()
+    );
     assert!(
         master_key_from_env(Some(""), Some("   "), file_must_not_be_read)
             .expect("empty values count as unset")
