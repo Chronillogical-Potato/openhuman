@@ -186,7 +186,8 @@ impl SecretBackend {
     fn set_request(&self, request: SecretBackendSetRequest2) -> SecretBackendSetResponse2 {
         let identity = request.identity;
         let encoded = zeroize::Zeroizing::new(request.encoded);
-        let status = if self.existing_master_read.lock().is_some() {
+        let existing_master_read = self.existing_master_read.lock();
+        let status = if existing_master_read.is_some() {
             SecretBackendSetStatus2::Denied
         } else {
             match self.binding(&identity) {
@@ -212,6 +213,7 @@ impl SecretBackend {
                 _ => SecretBackendSetStatus2::Denied,
             }
         };
+        drop(existing_master_read);
         SecretBackendSetResponse2 { identity, status }
     }
 

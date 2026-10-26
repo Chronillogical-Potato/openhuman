@@ -19,6 +19,34 @@ pub(crate) async fn resolve_user_master(
     scope: &SecretScope,
     registration_id: &str,
 ) -> Result<String, SecurityError> {
+    resolve_user_master_inner(client, scope, registration_id, None).await
+}
+
+/// Resolve the module's User master using one explicitly supplied existing key.
+/// The callback can answer one target read and denies every Set during this
+/// invocation, preserving read-only inspection semantics.
+pub(crate) async fn resolve_user_master_with_existing_key(
+    client: &Client,
+    scope: &SecretScope,
+    registration_id: &str,
+    backend: &super::secret_backend::SecretBackend,
+    encoded_key: &str,
+) -> Result<String, SecurityError> {
+    resolve_user_master_inner(
+        client,
+        scope,
+        registration_id,
+        Some((backend, encoded_key)),
+    )
+    .await
+}
+
+async fn resolve_user_master_inner(
+    client: &Client,
+    scope: &SecretScope,
+    registration_id: &str,
+    existing_key: Option<(&super::secret_backend::SecretBackend, &str)>,
+) -> Result<String, SecurityError> {
     let gate = crate::security::approval::ApprovalGate::try_global()
         .ok_or_else(|| SecurityError::Unavailable("secret approval unavailable".into()))?;
     let outcome = gate
@@ -39,6 +67,13 @@ pub(crate) async fn resolve_user_master(
             SecurityError::Unavailable("secret master approval unavailable".into())
         })?;
     let _ordered = scope.lock().await;
+    let _existing_read = existing_key
+        .map(|(backend, encoded)| {
+            backend
+                .arm_existing_master_read(encoded)
+                .map_err(|_| SecurityError::Unavailable("existing secret key unavailable".into()))
+        })
+        .transpose()?;
     let generation = client.policy_info().await?.generation;
     let audit = scope
         .correlation(generation)

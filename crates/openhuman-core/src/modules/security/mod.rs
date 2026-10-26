@@ -36,6 +36,25 @@ pub(crate) async fn resolve_user_master(
     secret_cipher::resolve_user_master(client, scope, registration_id).await
 }
 
+pub(crate) async fn resolve_user_master_with_existing_key(
+    client: &Client,
+    scope: &crate::security::approval::native::SecretScope,
+    registration_id: &str,
+    encoded_key: &str,
+) -> Result<String, SecurityError> {
+    let backend = super::ops::security_secret_backend()
+        .await
+        .ok_or_else(|| SecurityError::Unavailable("TinySecurity secret backend unavailable".into()))?;
+    secret_cipher::resolve_user_master_with_existing_key(
+        client,
+        scope,
+        registration_id,
+        &backend,
+        encoded_key,
+    )
+    .await
+}
+
 pub(crate) async fn run_secret_cipher(
     client: &Client,
     scope: &crate::security::approval::native::SecretScope,

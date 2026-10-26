@@ -335,6 +335,16 @@ pub(crate) async fn security_cipher_consumer(
 }
 
 #[cfg(feature = "security-module")]
+pub(crate) async fn security_secret_backend(
+) -> Option<std::sync::Arc<super::security::secret_backend::SecretBackend>> {
+    SECURITY_CALLBACK_LOADS
+        .lock()
+        .await
+        .get(super::security::MODULE_ID)
+        .map(|state| std::sync::Arc::clone(&state._backend))
+}
+
+#[cfg(feature = "security-module")]
 pub(crate) async fn security_secret_scope() -> Option<crate::security::approval::native::SecretScope>
 {
     SECURITY_CALLBACK_LOADS
