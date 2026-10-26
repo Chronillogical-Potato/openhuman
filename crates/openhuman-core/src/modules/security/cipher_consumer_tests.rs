@@ -28,12 +28,21 @@ async fn only_the_matching_success_identity_can_release_staged_plaintext() {
 
     let mut mismatch = expected.clone();
     mismatch.output_id.push('x');
-    assert_eq!(consumer.take(&mismatch).unwrap_err(), "cipher output unavailable");
+    assert_eq!(
+        consumer.take(&mismatch).unwrap_err(),
+        "cipher output unavailable"
+    );
 
     let (plaintext, replacement) = consumer.take(&expected).unwrap();
     assert_eq!(&*plaintext, "secret value");
-    assert_eq!(replacement.as_deref().map(String::as_str), Some("replacement"));
-    assert_eq!(consumer.take(&expected).unwrap_err(), "cipher output unavailable");
+    assert_eq!(
+        replacement.as_deref().map(String::as_str),
+        Some("replacement")
+    );
+    assert_eq!(
+        consumer.take(&expected).unwrap_err(),
+        "cipher output unavailable"
+    );
 }
 
 #[tokio::test]

@@ -321,7 +321,8 @@ impl Client {
         &self,
         request: &mut tinysecurity_bus::EvaluateSecretCipherRequest2,
     ) -> Result<tinysecurity_bus::SecretCipherPending2, SecurityError> {
-        let result = self.object
+        let result = self
+            .object
             .call_confidential(
                 tinysecurity_bus::names::methods::EVALUATE_SECRET_CIPHER2,
                 (request,),
@@ -338,7 +339,8 @@ impl Client {
         &self,
         request: &mut tinysecurity_bus::ExecuteSecretCipherRequest2,
     ) -> Result<tinysecurity_bus::SecretCipherResponse2, SecurityError> {
-        let result = self.object
+        let result = self
+            .object
             .call_confidential(
                 tinysecurity_bus::names::methods::EXECUTE_SECRET_CIPHER2,
                 (request,),

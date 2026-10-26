@@ -91,9 +91,7 @@ impl SecretScope {
                 let offset = u64::try_from(offset).map_err(|_| "audit sequence overflow")?;
                 Ok(tinysecurity_bus::AuditCorrelation2 {
                     event_id: uuid::Uuid::new_v4().simple().to_string(),
-                    expected_tail: tail
-                        .checked_add(offset)
-                        .ok_or("audit sequence overflow")?,
+                    expected_tail: tail.checked_add(offset).ok_or("audit sequence overflow")?,
                     generation,
                 })
             })

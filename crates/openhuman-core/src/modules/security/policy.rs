@@ -157,9 +157,8 @@ pub(super) fn module_config_for_secret_scope(
     legacy_backend_id: String,
 ) -> Result<tinysecurity_bus::ModuleConfig, &'static str> {
     use tinysecurity_bus::{
-        AccessTier, ApprovalScope2, MasterPurpose2, MasterSlotKind2, Origin,
-        SecretBinding2, SecretCipherConfig2, SecretConfig2, SecretLimits2,
-        SecretRegistration2,
+        AccessTier, ApprovalScope2, MasterPurpose2, MasterSlotKind2, Origin, SecretBinding2,
+        SecretCipherConfig2, SecretConfig2, SecretLimits2, SecretRegistration2,
     };
 
     let mut result = module_config_for_host(config, trusted_host)?;

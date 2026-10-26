@@ -60,10 +60,7 @@ impl Consumer {
         binding: &tinybus::module::HostCallbackBinding,
     ) -> tinybus::Result<()> {
         binding
-            .serve_at(
-                callback_names2::OBJECT_PATH.parse()?,
-                self,
-            )
+            .serve_at(callback_names2::OBJECT_PATH.parse()?, self)
             .await
     }
 
@@ -80,7 +77,9 @@ impl Consumer {
         if &staged.identity != identity {
             return Err("cipher output unavailable");
         }
-        let mut staged = slots.remove(&identity.slot).ok_or("cipher output unavailable")?;
+        let mut staged = slots
+            .remove(&identity.slot)
+            .ok_or("cipher output unavailable")?;
         let plaintext = String::from_utf8(staged.plaintext.to_vec())
             .map_err(|_| "cipher output is not valid UTF-8")?;
         let replacement = staged

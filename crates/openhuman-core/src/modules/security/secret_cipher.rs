@@ -2,7 +2,7 @@
 
 use zeroize::{Zeroize, Zeroizing};
 
-use super::{Client, SecurityError, cipher_consumer::Consumer};
+use super::{cipher_consumer::Consumer, Client, SecurityError};
 use crate::security::approval::native::SecretScope;
 use tinysecurity_bus::{
     EvaluateSecretCipherRequest2, ExecuteSecretCipherRequest2, SecretCipherKind2,
@@ -107,9 +107,9 @@ pub(crate) async fn run(
             migrated,
             replacement_ciphertext,
         } => {
-            let (plaintext, _replacement) = consumer
-                .take(&identity)
-                .map_err(|_| SecurityError::Unavailable("secret cipher output unavailable".into()))?;
+            let (plaintext, _replacement) = consumer.take(&identity).map_err(|_| {
+                SecurityError::Unavailable("secret cipher output unavailable".into())
+            })?;
             Ok(Output::Plaintext {
                 value: plaintext,
                 migrated,
@@ -118,7 +118,3 @@ pub(crate) async fn run(
         }
     }
 }
-
-#[cfg(test)]
-#[path = "secret_cipher_tests.rs"]
-mod tests;

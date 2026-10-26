@@ -66,8 +66,7 @@ impl SecretBackend {
         if identity.registration_id != self.registration_id {
             return None;
         }
-        if identity.backend_id == self.target_backend_id && identity.slot == MasterSlotKind2::User
-        {
+        if identity.backend_id == self.target_backend_id && identity.slot == MasterSlotKind2::User {
             Some(self.target)
         } else if identity.backend_id == self.legacy_backend_id
             && identity.slot == MasterSlotKind2::File
@@ -82,23 +81,24 @@ impl SecretBackend {
         let identity = request.identity;
         let status = match self.binding(&identity) {
             None => SecretBackendLoadStatus2::Denied,
-            Some(binding)
-                if binding.legacy_file && identity.phase == SecretPhase2::LegacyRead =>
-            {
+            Some(binding) if binding.legacy_file && identity.phase == SecretPhase2::LegacyRead => {
                 match read_legacy_file(&self.legacy_path) {
-                Ok(Some(encoded)) => SecretBackendLoadStatus2::Present { encoded },
-                Ok(None) => SecretBackendLoadStatus2::Absent,
-                Err(()) => SecretBackendLoadStatus2::Unavailable,
+                    Ok(Some(encoded)) => SecretBackendLoadStatus2::Present { encoded },
+                    Ok(None) => SecretBackendLoadStatus2::Absent,
+                    Err(()) => SecretBackendLoadStatus2::Unavailable,
                 }
             }
             Some(binding)
                 if !binding.legacy_file
-                    && matches!(identity.phase, SecretPhase2::TargetRead | SecretPhase2::TargetReadback) =>
+                    && matches!(
+                        identity.phase,
+                        SecretPhase2::TargetRead | SecretPhase2::TargetReadback
+                    ) =>
             {
                 match load_backend(binding.backend, &self.user_id) {
-                Ok(Some(encoded)) => SecretBackendLoadStatus2::Present { encoded },
-                Ok(None) => SecretBackendLoadStatus2::Absent,
-                Err(()) => SecretBackendLoadStatus2::Unavailable,
+                    Ok(Some(encoded)) => SecretBackendLoadStatus2::Present { encoded },
+                    Ok(None) => SecretBackendLoadStatus2::Absent,
+                    Err(()) => SecretBackendLoadStatus2::Unavailable,
                 }
             }
             Some(_) => SecretBackendLoadStatus2::Denied,
@@ -152,12 +152,8 @@ fn save_backend(
     if crate::security::secret_storage::store::effective_backend_kind() != backend {
         return Err(());
     }
-    crate::security::secret_storage::ops::process_set(
-        user_id,
-        "secretstore.master_key",
-        encoded,
-    )
-    .map_err(|_| ())
+    crate::security::secret_storage::ops::process_set(user_id, "secretstore.master_key", encoded)
+        .map_err(|_| ())
 }
 
 fn read_legacy_file(path: &std::path::Path) -> Result<Option<Vec<u8>>, ()> {
