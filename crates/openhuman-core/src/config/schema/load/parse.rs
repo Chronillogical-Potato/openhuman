@@ -88,9 +88,14 @@ pub(crate) fn config_from_toml_str(contents: &str) -> anyhow::Result<Config> {
     crate::config::migrations::retire_cloud_provider_type::rewrite_document(&mut document)?;
     crate::config::migrations::retire_configured_agents::rewrite_document(&mut document);
     if let Some(backend @ ("firejail" | "bubblewrap")) = document
-        .get("security")
-        .and_then(|security| security.get("sandbox"))
+        .get("sandbox")
         .and_then(|sandbox| sandbox.get("backend"))
+        .or_else(|| {
+            document
+                .get("security")
+                .and_then(|security| security.get("sandbox"))
+                .and_then(|sandbox| sandbox.get("backend"))
+        })
         .and_then(toml::Value::as_str)
     {
         anyhow::bail!(
