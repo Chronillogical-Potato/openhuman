@@ -97,11 +97,12 @@ pub(crate) async fn execute(
     ctx: &crate::core::runtime::DispatchCtx,
     config: &Config,
     policy: &SandboxPolicy,
+    planned_jail: &contract::NativeJailConfig,
     command: &str,
     working_dir: &Path,
     extra_env: &HashMap<OsString, OsString>,
     timeout: Duration,
-    explicitly_requested: bool,
+    _explicitly_requested: bool,
     yield_after: Option<Duration>,
     meter: Option<super::shell_progress::ShellOutputMeter>,
 ) -> anyhow::Result<ShellRunOutcome> {
@@ -110,6 +111,7 @@ pub(crate) async fn execute(
         let ctx = ctx.clone();
         let config = config.clone();
         let policy = policy.clone();
+        let planned_jail = planned_jail.clone();
         let command = command.to_owned();
         let working_dir = working_dir.to_path_buf();
         let extra_env = extra_env.clone();
@@ -119,6 +121,7 @@ pub(crate) async fn execute(
                 &ctx,
                 &config,
                 &policy,
+                &planned_jail,
                 &command,
                 &working_dir,
                 &extra_env,
@@ -138,6 +141,7 @@ pub(crate) async fn execute(
             ctx,
             config,
             policy,
+            planned_jail,
             command,
             working_dir,
             extra_env,
@@ -155,29 +159,28 @@ async fn execute_owned(
     ctx: &crate::core::runtime::DispatchCtx,
     config: &Config,
     policy: &SandboxPolicy,
+    planned_jail: &contract::NativeJailConfig,
     command: &str,
     working_dir: &Path,
     extra_env: &HashMap<OsString, OsString>,
     timeout: Duration,
-    explicitly_requested: bool,
+    _explicitly_requested: bool,
     yield_after: Option<Duration>,
     meter: Option<super::shell_progress::ShellOutputMeter>,
 ) -> anyhow::Result<ShellRunOutcome> {
     let status = tinybox::jail_status(config)
         .await
         .map_err(|_| anyhow::anyhow!("TinyBox native jail status is unavailable"))?;
-    let untrusted = explicitly_requested || crate::core::runtime::is_saas();
-    let Some(isolation) = jail_isolation(
-        &status.backend,
-        status.available,
-        status.suitable_for_untrusted_code,
-        untrusted,
-    ) else {
+    if !status.available
+        || (planned_jail.require_process_isolation && !status.suitable_for_untrusted_code)
+    {
         anyhow::bail!("TinyBox native jail cannot meet the required isolation floor");
-    };
-    if explicitly_requested && status.backend != "landlock" {
-        anyhow::bail!("requested Landlock sandbox is unavailable");
     }
+    let isolation = if planned_jail.require_process_isolation {
+        SandboxIsolation::Isolated
+    } else {
+        SandboxIsolation::FolderConfined
+    };
     tracing::debug!(
         backend = %status.backend,
         ?isolation,
@@ -194,7 +197,7 @@ async fn execute_owned(
     run.meter = meter;
     // TinyBox adds its own per-call scratch directory to the writable grants and
     // points TMPDIR, TMP and TEMP at it unless the caller overrides them.
-    run.jail = Some(jail_request(config, policy, isolation).await?);
+    run.jail = Some(planned_jail.clone());
     run.yield_after = yield_after;
     super::shell_exec::run_yielding(ctx, config, run).await
 }
