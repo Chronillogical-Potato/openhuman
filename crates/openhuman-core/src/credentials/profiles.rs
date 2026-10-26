@@ -1,5 +1,4 @@
 use crate::security::secret_storage::SecretStore;
-use crate::util::retry_with_backoff;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -8,11 +7,6 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-
-#[cfg(test)]
-use std::sync::atomic::{AtomicUsize, Ordering};
-#[cfg(test)]
-use std::sync::Arc;
 
 mod keychain;
 mod lock;
@@ -57,44 +51,6 @@ pub(crate) fn legacy_profiles_file(state_dir: &Path) -> PathBuf {
     state_dir.join(PROFILES_FILENAME)
 }
 const LOCK_FILENAME: &str = "auth-profiles.lock";
-const LOCK_WAIT_MS: u64 = 50;
-/// A lock file that has existed for longer than this is treated as leaked
-/// (its owner crashed without unlinking it, or `fs::remove_file` in the
-/// guard's `Drop` was rejected by Windows AV/indexer and the file got
-/// orphaned with the still-alive owner's pid in it). No legitimate
-/// auth-profile operation holds the lock for anywhere near this long —
-/// load+save is a tiny JSON read followed by an atomic rename. The
-/// threshold is intentionally well above any realistic operation time
-/// so we never reclaim under a slow-but-legitimate holder.
-const STALE_LOCK_AGE_MS: u64 = 30_000;
-/// Staleness threshold for a **malformed** lock — one with no parseable
-/// `pid=` line. A healthy holder writes its pid microseconds after the
-/// `create_new` succeeds, so a pidless lock older than this can only be a
-/// crash/kill that landed between `create_new` and the `pid=` write (or an
-/// abandoned in-flight writer). It is never a live, well-behaved holder, so
-/// we reclaim it after a short grace instead of making every reader wait the
-/// full [`STALE_LOCK_AGE_MS`]. This is what was leaving users stuck on
-/// "Initializing OpenHuman" for ~30s after a kill+reopen: `app_state_snapshot`
-/// → `load_app_session_profile` → `acquire_lock` blocked on a fresh pidless
-/// lock. The grace is generous enough to never reclaim under a live writer
-/// mid-`create_new`/`pid=` window (microseconds in practice).
-const MALFORMED_LOCK_GRACE_MS: u64 = 2_000;
-/// Wait long enough for a fresh leaked lock to cross the stale threshold
-/// and be reclaimed before surfacing a lock timeout to the caller.
-const LOCK_TIMEOUT_MS: u64 = STALE_LOCK_AGE_MS + 5_000;
-
-/// Retry budget for the JSON write + rename in `write_persisted_locked`.
-/// Same shape as the lock-create call at the bottom of `acquire_lock` (which
-/// is what closed Sentry OPENHUMAN-TAURI-H1 / H8 in #1641 / #2085). With
-/// `attempts = 6`, `retry_with_backoff` issues at most 6 calls and sleeps
-/// 5 times between them (last failure breaks without sleeping):
-/// `100+200+400+800+1600 ≈ 3.1s per stage`, so the write and rename stages
-/// together sit at `≈6.2s` worst case. Sized to stay well inside
-/// `LOCK_TIMEOUT_MS = 35_000` so concurrent acquire_lock callers never time
-/// out behind a single retry-loop owner.
-const PERSIST_RETRY_ATTEMPTS: u32 = 6;
-const PERSIST_RETRY_BASE_MS: u64 = 100;
-
 type EncryptedProfileFields = (
     Option<String>,
     Option<String>,
@@ -259,38 +215,8 @@ pub struct AuthProfilesStore {
     /// Whether the OS keychain is available on this machine.
     /// Cached at construction time to avoid repeated probes.
     use_keychain: bool,
-    /// `#[cfg(test)]` failure injection for the **write** stage of
-    /// `write_persisted_locked`. When non-zero, the next call inside the
-    /// `fs::write(tmp)` retry loop consumes one count and returns a
-    /// `__TEST_TRANSIENT__` error so `is_transient_fs_error` treats it as
-    /// retryable (`crates/openhuman-core/src/util.rs:618`). Production binaries never
-    /// see this field.
-    #[cfg(test)]
-    force_transient_failures_write: Arc<AtomicUsize>,
-    /// `#[cfg(test)]` failure injection for the **rename** stage of
-    /// `write_persisted_locked`. Separate counter from the write stage so a
-    /// test can exercise the rename retry loop without first having to drain
-    /// failures through the write stage (see PR #3364 review feedback —
-    /// the headline retry path was line-covered but not behaviour-covered
-    /// before this split).
-    #[cfg(test)]
-    force_transient_failures_rename: Arc<AtomicUsize>,
-}
-/// Decrement an `AtomicUsize` failure-injection counter by one if it is
-/// non-zero, returning a `__TEST_TRANSIENT__` error so `is_transient_fs_error`
-/// classifies the failure as retryable. Used by both per-stage consumers in
-/// `write_persisted_locked` (test-only).
-#[cfg(test)]
-fn consume_one(counter: &AtomicUsize) -> Result<()> {
-    if counter.load(Ordering::SeqCst) == 0 {
-        return Ok(());
-    }
-    counter.fetch_sub(1, Ordering::SeqCst);
-    Err(anyhow::anyhow!(
-        "__TEST_TRANSIENT__ injected transient FS failure"
-    ))
-}
 
+}
 fn parse_profile_kind(value: &str) -> Result<AuthProfileKind> {
     match value {
         "oauth" => Ok(AuthProfileKind::OAuth),
