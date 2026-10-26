@@ -24,7 +24,7 @@ pub(super) struct InstallGate {
     pub security: Arc<SecurityPolicy>,
     pub audit: Arc<AuditSink>,
     pub config: Arc<Config>,
-    audit_context: DispatchCtx,
+    pub(super) audit_context: DispatchCtx,
     pub environment: std::collections::BTreeMap<std::ffi::OsString, std::ffi::OsString>,
 }
 
