@@ -986,3 +986,21 @@ fn the_workspace_switch_announcement_is_not_itself_workspace_bound() {
     assert_eq!(event.variant_name(), "ActiveWorkspaceChanged");
     assert_eq!(DomainEvent::domain(&event), "system");
 }
+
+#[test]
+fn keyring_operation_approval_event_contains_only_operation_metadata() {
+    let event = DomainEvent::KeyringAccessApprovalRequested {
+        request_id: "request-1".into(),
+        caller_agent: "openhuman.credentials".into(),
+        origin: "LocalOperator".into(),
+        purpose: "OpenHuman auth profile credential access".into(),
+        access: "read".into(),
+        name: "user-1:auth:openai:default".into(),
+        expires_at_ms: 1_800_000_000_000,
+    };
+    assert_eq!(event.variant_name(), "KeyringAccessApprovalRequested");
+    assert_eq!(DomainEvent::domain(&event), "keyring");
+    let payload = serde_json::to_value(&event).unwrap();
+    assert_eq!(payload["name"], "user-1:auth:openai:default");
+    assert!(payload.get("value").is_none());
+}
