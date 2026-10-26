@@ -18,8 +18,10 @@ impl AuthProfilesStore {
     /// The returned `AuthProfilesData` reflects the in-memory cleanup either
     /// way, so the lock-free read path (`persist = false`) still returns a
     /// correct, fully-resolved view without touching disk.
-    pub(super) async fn load_resolved(&self, persist: bool) -> Result<AuthProfilesData> {
-        let mut persisted = self.read_persisted_locked()?;
+    pub(super) async fn load_resolved(
+        &self,
+        mut persisted: super::PersistedAuthProfiles,
+    ) -> Result<AuthProfilesData> {
         let mut dropped_ids: Vec<String> = Vec::new();
         let mut pending_keychain_deletes = Vec::new();
         let mut unavailable_keyring_ids = Vec::new();
@@ -306,15 +308,8 @@ impl AuthProfilesStore {
         }
         persisted.profiles = new_persisted_profiles;
         profiles = new_profiles;
-        if persist && (!dropped_ids.is_empty() || key_migrated) {
-            self.write_persisted_locked(&persisted)?;
-            for id in pending_keychain_deletes {
-                if let Err(error) = self.keychain_delete_secrets(&id) {
-                    log::warn!(
-                        "[auth] profile id migration left an old keyring entry in place: {error}"
-                    );
-                }
-            }
+        if !pending_keychain_deletes.is_empty() {
+            log::debug!("[auth] deferred {} old keyring entries for profile migration", pending_keychain_deletes.len());
         }
         Ok(AuthProfilesData {
             schema_version: persisted.schema_version,

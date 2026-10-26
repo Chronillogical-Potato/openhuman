@@ -86,7 +86,11 @@ fn default_now_rfc3339() -> String {
 pub(crate) const PROFILE_DOCUMENT_SECRET_NAME: &str = "auth-profiles";
 
 impl AuthProfilesStore {
-    pub(super) async fn save_locked(&self, data: &AuthProfilesData) -> Result<()> {
+    pub(super) async fn prepare_persisted(
+        &self,
+        data: &AuthProfilesData,
+        previous: &PersistedAuthProfiles,
+    ) -> Result<PersistedAuthProfiles> {
         let mut persisted = PersistedAuthProfiles {
             schema_version: CURRENT_SCHEMA_VERSION,
             updated_at: data.updated_at.to_rfc3339(),
@@ -156,7 +160,7 @@ impl AuthProfilesStore {
         if !self.use_keychain {
             // Entries whose secrets are only in the unavailable keychain never
             // reach `data`; keep them so they resolve once it reads again.
-            for (id, held) in self.read_persisted_locked()?.profiles {
+            for (id, held) in previous.profiles.clone() {
                 if !persisted.profiles.contains_key(&id)
                     && super::migration::keychain_held_oauth(&held)
                 {
@@ -165,7 +169,7 @@ impl AuthProfilesStore {
             }
         }
 
-        self.write_persisted_locked(&persisted)
+        Ok(persisted)
     }
 
     /// Prepare a profile's fields for storage inside the encrypted document.
@@ -173,17 +177,20 @@ impl AuthProfilesStore {
         &self,
         profile: &AuthProfile,
     ) -> Result<EncryptedProfileFields> {
-        let (access_token, refresh_token, id_token, expires_at, token_type, scope) =
+        let (access_token, refresh_token, id_token, token, expires_at, token_type, scope) =
             match (&profile.kind, &profile.token_set) {
                 (AuthProfileKind::OAuth, Some(token_set)) => (
                     Some(token_set.access_token.clone()),
                     token_set.refresh_token.clone(),
                     token_set.id_token.clone(),
+                    None,
                     token_set.expires_at.as_ref().map(DateTime::to_rfc3339),
                     token_set.token_type.clone(),
                     token_set.scope.clone(),
                 ),
-                _ => (None, None, None, None, None, None),
+                _ => (
+                    None, None, None, profile.token.clone(), None, None, None,
+                ),
             };
         let access_token = encrypt_profile_field(&self.secret_store, access_token).await?;
         let refresh_token = encrypt_profile_field(&self.secret_store, refresh_token).await?;
