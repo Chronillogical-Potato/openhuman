@@ -47,6 +47,7 @@ fn module_request_preserves_policy_and_only_forwards_allowed_environment() {
     std::fs::create_dir_all(&readonly).unwrap();
 
     let mut sandbox_policy = policy(&workspace);
+    sandbox_policy.allow_network = true;
     sandbox_policy.read_only_mounts.push(readonly.clone());
     sandbox_policy.env_passthrough = vec!["OH_TINYBOX_ALLOWED_ENV".to_owned()];
     sandbox_policy.docker_overrides = Some(DockerOverrides {
