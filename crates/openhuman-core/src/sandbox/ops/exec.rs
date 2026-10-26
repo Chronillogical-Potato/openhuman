@@ -71,7 +71,7 @@ pub(crate) async fn execute_in_sandbox_yielding(
         .load_config()
         .await
         .map_err(|error| anyhow::anyhow!("Cannot read sandbox configuration: {error}"))?;
-    let requested_policy = super::super::policy::with_configured_backend(policy, &config);
+    let requested_policy = policy.clone();
     let operator_off = !crate::core::runtime::is_saas()
         && (sandbox_disabled_by_host(ctx) || config_disables_sandbox(&config));
     #[cfg(feature = "security-module")]

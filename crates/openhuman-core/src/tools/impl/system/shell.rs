@@ -600,13 +600,16 @@ impl ShellTool {
         meter: Option<crate::sandbox::shell_progress::ShellOutputMeter>,
         audit: &AuditOnce,
     ) -> (bool, ToolResult) {
-        let config = crate::config::RuntimeConfig::default();
-        let policy = crate::sandbox::resolve_sandbox_policy(
-            ctx,
+        let config = match ctx.load_config().await {
+            Ok(config) => config,
+            Err(error) => return (false, ToolResult::error(format!("Cannot read sandbox configuration: {error}"))),
+        };
+        let policy = crate::sandbox::policy::route_for_mode(
             tinyagents_definition::SandboxMode::Sandboxed,
             action_dir,
             &self.security.workspace_dir,
-            &config,
+            &config.sandbox,
+            &config.runtime,
             false,
         );
         let timeout = requested_timeout;

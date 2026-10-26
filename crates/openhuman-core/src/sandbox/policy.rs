@@ -89,20 +89,6 @@ pub fn route_for_mode(
     }
 }
 
-/// `policy` with the loaded configuration's backend filled in when the caller named none
-/// (a policy built from a default or an older configuration).
-pub(crate) fn with_configured_backend(policy: &SandboxPolicy, config: &Config) -> SandboxPolicy {
-    let mut policy = policy.clone();
-    if policy.backend == SandboxBackendKind::None {
-        policy.backend = named_backend(&config.sandbox, &config.runtime, false);
-        if policy.backend == SandboxBackendKind::Docker {
-            policy.mount_workspace =
-                config.runtime.docker.mount_workspace || config.runtime.kind != "docker";
-        }
-    }
-    policy
-}
-
 /// The policy for a command tool or scheduled job. SaaS always uses the user's container.
 pub(crate) fn command_policy(
     config: &Config,
@@ -112,7 +98,8 @@ pub(crate) fn command_policy(
     if crate::core::runtime::is_saas() {
         return crate::profiles::tools::sandbox_policy(action_dir, state_dir);
     }
-    Ok(spawn_policy(
+    Ok(route_for_mode(
+        SandboxMode::Sandboxed,
         action_dir,
         state_dir,
         &config.sandbox,
