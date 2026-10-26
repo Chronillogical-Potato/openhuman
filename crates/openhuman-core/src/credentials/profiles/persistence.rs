@@ -188,9 +188,7 @@ impl AuthProfilesStore {
                     token_set.token_type.clone(),
                     token_set.scope.clone(),
                 ),
-                _ => (
-                    None, None, None, profile.token.clone(), None, None, None,
-                ),
+                _ => (None, None, None, profile.token.clone(), None, None, None),
             };
         let access_token = encrypt_profile_field(&self.secret_store, access_token).await?;
         let refresh_token = encrypt_profile_field(&self.secret_store, refresh_token).await?;

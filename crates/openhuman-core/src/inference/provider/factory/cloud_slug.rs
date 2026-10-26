@@ -369,7 +369,10 @@ pub(super) async fn try_create_cloud_slug_chat_model_for_inspection_with_identit
         resolved = resolve_primary_cloud_provider_string(config);
     }
     let inspection_credential = if let Some((slug, _)) = resolved.split_once(':') {
-        let entry = config.cloud_providers.iter().find(|entry| entry.slug == slug.trim());
+        let entry = config
+            .cloud_providers
+            .iter()
+            .find(|entry| entry.slug == slug.trim());
         if entry.is_some_and(|entry| entry.auth_style != AuthStyle::OpenhumanJwt) {
             match super::credentials::lookup_key_for_slug_read_only(slug.trim(), config).await {
                 Ok(credential) => Some(credential),

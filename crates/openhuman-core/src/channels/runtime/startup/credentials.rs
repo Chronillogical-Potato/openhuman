@@ -56,7 +56,9 @@ use crate::channels::credentials::resolve_email_password;
 /// Secrets may sit in the keyring, an environment variable or the config, and
 /// only this host knows which. Hydration operates on a clone so the persisted
 /// config is never mutated before the module receives it confidentially.
-pub(crate) async fn hydrate_channel_credentials(config: &Config) -> tinychannels_bus::ChannelsConfig {
+pub(crate) async fn hydrate_channel_credentials(
+    config: &Config,
+) -> tinychannels_bus::ChannelsConfig {
     let mut hydrated = config.channels_config.clone();
     if let Some(email_cfg) = hydrated.email.take() {
         hydrated.email = Some(resolve_email_password(email_cfg, config).await);

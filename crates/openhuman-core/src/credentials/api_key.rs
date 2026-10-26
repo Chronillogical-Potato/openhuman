@@ -63,14 +63,15 @@ pub async fn store_api_key_in(state_dir: &Path, encrypt: bool, key: &str) -> Res
         "[credentials][api-key] storing api-key profile state_dir={}",
         state_dir.display()
     );
-    AuthService::new(state_dir, encrypt).store_provider_token(
-        API_KEY_PROVIDER,
-        DEFAULT_AUTH_PROFILE_NAME,
-        key,
-        metadata,
-        true,
-    )
-    .await
+    AuthService::new(state_dir, encrypt)
+        .store_provider_token(
+            API_KEY_PROVIDER,
+            DEFAULT_AUTH_PROFILE_NAME,
+            key,
+            metadata,
+            true,
+        )
+        .await
 }
 
 /// The stored API key, if any.

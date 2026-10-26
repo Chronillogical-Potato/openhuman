@@ -309,7 +309,10 @@ impl AuthProfilesStore {
         persisted.profiles = new_persisted_profiles;
         profiles = new_profiles;
         if !pending_keychain_deletes.is_empty() {
-            log::debug!("[auth] deferred {} old keyring entries for profile migration", pending_keychain_deletes.len());
+            log::debug!(
+                "[auth] deferred {} old keyring entries for profile migration",
+                pending_keychain_deletes.len()
+            );
         }
         Ok(AuthProfilesData {
             schema_version: persisted.schema_version,

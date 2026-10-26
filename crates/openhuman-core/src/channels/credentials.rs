@@ -18,14 +18,15 @@ pub(crate) async fn resolve_email_password(
         return email_cfg;
     }
     let auth = crate::credentials::AuthService::from_config(config);
-    match auth.get_profile(
-        &crate::credentials::channel_credential_provider(
-            "email",
-            tinychannels_bus::controllers::ChannelAuthMode::ApiKey,
-        ),
-        None,
-    )
-    .await
+    match auth
+        .get_profile(
+            &crate::credentials::channel_credential_provider(
+                "email",
+                tinychannels_bus::controllers::ChannelAuthMode::ApiKey,
+            ),
+            None,
+        )
+        .await
     {
         Ok(Some(profile)) => {
             let stored_username = profile.metadata.get("username").map(String::as_str);

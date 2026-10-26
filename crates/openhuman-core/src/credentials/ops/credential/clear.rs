@@ -33,7 +33,9 @@ pub async fn clear_credential(
         kind,
         None | Some(CredentialKind::Session) | Some(CredentialKind::Local)
     ) {
-        api_key::get_api_key(config).await.map_err(|e| e.to_string())?
+        api_key::get_api_key(config)
+            .await
+            .map_err(|e| e.to_string())?
     } else {
         None
     };
@@ -92,8 +94,9 @@ pub async fn clear_credential(
                     // leave that copy behind, or a later login to the same
                     // account (or an api-key clear against the wrong location)
                     // would silently resurrect it (#6318).
-                    cleared_source_api_key =
-                        api_key::clear_api_key(config).await.map_err(|e| e.to_string())?;
+                    cleared_source_api_key = api_key::clear_api_key(config)
+                        .await
+                        .map_err(|e| e.to_string())?;
                 }
             }
         }
@@ -101,9 +104,10 @@ pub async fn clear_credential(
     let config = &effective_config;
 
     if matches!(kind, None | Some(CredentialKind::ApiKey)) {
-        removed_api_key =
-            api_key::clear_api_key(config).await.map_err(|e| e.to_string())?
-                || cleared_source_api_key;
+        removed_api_key = api_key::clear_api_key(config)
+            .await
+            .map_err(|e| e.to_string())?
+            || cleared_source_api_key;
         if removed_api_key {
             crate::integrations::composio::invalidate_connected_integrations_cache();
             logs.push("api key cleared".to_string());

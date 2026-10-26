@@ -91,8 +91,8 @@ impl AuthProfilesStore {
         let persisted = self.prepare_persisted(data, previous).await?;
         let _lock = self.acquire_lock()?;
         let current = self.read_persisted_locked()?;
-        let current_version = serde_json::to_vec(&current)
-            .context("serialize current auth profile snapshot")?;
+        let current_version =
+            serde_json::to_vec(&current).context("serialize current auth profile snapshot")?;
         if current_version != expected_version {
             return Ok(false);
         }
@@ -109,10 +109,7 @@ impl AuthProfilesStore {
             let mut data = self.load_resolved(persisted.clone()).await?;
             let result = update(&mut data)?;
             data.updated_at = Utc::now();
-            if self
-                .publish_if_current(&version, &data, &persisted)
-                .await?
-            {
+            if self.publish_if_current(&version, &data, &persisted).await? {
                 return Ok(result);
             }
         }
@@ -142,7 +139,8 @@ impl AuthProfilesStore {
             if data.profiles.remove(profile_id).is_none() {
                 return Ok(false);
             }
-            data.active_profiles.retain(|_, active| active != profile_id);
+            data.active_profiles
+                .retain(|_, active| active != profile_id);
             data.updated_at = Utc::now();
             if !self
                 .publish_if_current(&version, &data, &persisted_before)

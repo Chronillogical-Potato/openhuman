@@ -266,9 +266,7 @@ impl ProfileHost {
     pub(crate) async fn with_records<T>(
         &self,
         id: &ProfileId,
-        change: impl for<'a> FnOnce(
-                &'a Config,
-            ) -> futures::future::BoxFuture<'a, Result<T, String>>
+        change: impl for<'a> FnOnce(&'a Config) -> futures::future::BoxFuture<'a, Result<T, String>>
             + Send,
     ) -> Result<T, String> {
         let _profile = self.lifecycle.lock(id).await;
