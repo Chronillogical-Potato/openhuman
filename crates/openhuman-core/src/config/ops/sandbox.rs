@@ -130,4 +130,3 @@ pub async fn load_and_apply_sandbox_settings(
     let mut config = ctx.load_config().await?;
     apply_sandbox_settings(&mut config, update).await
 }
-

@@ -225,11 +225,20 @@ async fn run_owned(
             }
         },
     )
-    .await
-    .map_err(|error| {
-        tracing::warn!(error = ?error, "[sandbox:shell] TinyBox native shell lifecycle failed");
-        anyhow::anyhow!("TinyBox native shell execution failed")
-    })?;
+    .await;
+    let outcome = match outcome {
+        Ok(outcome) => outcome,
+        Err(contract::NativeShellError::Execution(code)) => {
+            if failure_timed_out(code)? {
+                anyhow::bail!("TinyBox timed out without returning command output");
+            }
+            unreachable!("non-timeout execution failures return an error")
+        }
+        Err(error) => {
+            tracing::warn!(error = ?error, "[sandbox:shell] TinyBox native shell lifecycle failed");
+            anyhow::bail!("TinyBox native shell execution failed")
+        }
+    };
     match outcome {
         contract::NativeShellRunOutcome::Finished(output) => {
             Ok(ShellRunOutcome::Finished(SandboxExecResult {
@@ -273,10 +282,7 @@ impl contract::NativeShellClient for TinyBoxNativeShellClient<'_> {
         tinybox::reserve(self.config, request).await
     }
 
-    async fn create(
-        &self,
-        request: contract::CreateRequest,
-    ) -> Result<(), Self::Error> {
+    async fn create(&self, request: contract::CreateRequest) -> Result<(), Self::Error> {
         tinybox::create(self.config, request).await.map(|_| ())
     }
 
