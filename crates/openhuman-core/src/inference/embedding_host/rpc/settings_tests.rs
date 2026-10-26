@@ -1,7 +1,7 @@
 use super::*;
 
 async fn endpoint() -> (String, tokio::task::JoinHandle<()>) {
-    use axum::{routing::post, Json, Router};
+    use axum::{Json, Router, routing::post};
 
     let app = Router::new().route(
         "/v1/embeddings",
@@ -114,9 +114,9 @@ async fn auto_detected_dimensions_are_used_in_persisted_provider_signature() {
 #[tokio::test]
 async fn custom_verification_keeps_model_guidance_and_rejects_the_save() {
     use axum::{
+        Json, Router,
         http::StatusCode,
         routing::{get, post},
-        Json, Router,
     };
 
     let app = Router::new()

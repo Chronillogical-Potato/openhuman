@@ -2,15 +2,15 @@
 //! update, including the save-time verification of a custom endpoint.
 
 use crate::config::Config;
-use crate::core::runtime::DispatchCtx;
 use crate::core::Outcome;
+use crate::core::runtime::DispatchCtx;
 use crate::credentials::AuthService;
 use tinyinference_providers::route::{custom_provider_string, split_custom_provider};
 
-use super::{resolve_api_key, LOG_PREFIX};
+use super::{LOG_PREFIX, resolve_api_key};
 use tinyinference_embeddings::catalog;
 use tinyinference_embeddings::verify::{
-    effective_embedder_slug, verify_custom_endpoint, VerifyRejection,
+    VerifyRejection, effective_embedder_slug, verify_custom_endpoint,
 };
 
 fn probe_rejection_outcome(
