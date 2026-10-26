@@ -219,7 +219,13 @@ fn audit_event_is_appended_when_rotation_fails_and_error_is_reported() -> Result
     let logger = AuditLogger::new(config, tmp.path().to_path_buf())?;
     let log_path = tmp.path().join("audit.log");
     std::fs::write(&log_path, "existing\n")?;
-    std::fs::create_dir(format!("{}.1.log", log_path.display()))?;
+    // Keep each rotation destination blocked so the final rename of the
+    // current log also fails instead of moving the blockers out of the way.
+    for index in 1..=10 {
+        let blocker = std::path::PathBuf::from(format!("{}.{}.log", log_path.display(), index));
+        std::fs::create_dir(&blocker)?;
+        std::fs::write(blocker.join("blocker"), "keep directory non-empty")?;
+    }
 
     let result = logger.log_command_event(CommandExecutionLog {
         channel: "cli",
