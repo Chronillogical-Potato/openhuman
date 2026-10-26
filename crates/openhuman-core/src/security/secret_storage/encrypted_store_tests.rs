@@ -11,3 +11,18 @@ fn hex_decode(hex: &str) -> anyhow::Result<Vec<u8>> {
 
 #[path = "encrypted_store_crypto_migration_tests.rs"]
 mod crypto_migration_tests;
+
+#[tokio::test]
+async fn encrypted_secret_operations_fail_closed_without_the_security_module() {
+    let tmp = TempDir::new().unwrap();
+    let mut config = crate::config::Config::default();
+    config.modules.enabled = false;
+    let store = SecretStore::new_with_config(tmp.path(), true, &config);
+
+    let error = store
+        .encrypt_via_security("do-not-fall-back-to-host-crypto")
+        .await
+        .expect_err("enabled secret encryption must require TinySecurity");
+
+    assert!(error.to_string().contains("unavailable"));
+}
