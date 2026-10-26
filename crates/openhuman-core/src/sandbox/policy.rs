@@ -11,6 +11,7 @@ use std::path::Path;
 use super::ops::SANDBOX_ENV_PASSTHROUGH;
 use super::types::{DockerOverrides, SandboxBackendKind, SandboxPolicy};
 use crate::config::{Config, RuntimeConfig, SandboxBackend, SandboxConfig};
+use tinyagents_definition::SandboxMode;
 
 /// The executor `sandbox` and `runtime` name, if any. `remote` marks a channel, cron or
 /// remote session, which has always asked for a container.
@@ -36,20 +37,27 @@ fn named_backend(
     }
 }
 
-/// The policy for one spawn from the operator's configuration.
+/// Route a spawn to a preferred executor; TinySecurity still plans and decides it.
 ///
 /// `state_dir` is the core's internal `workspace_dir`; host-side scratch such as output
 /// capture goes there instead of into `action_dir`. The jail's toolchain and git grants
 /// are resolved by TinyBox when the spawn is planned (`sandbox::local_grants`), so the
 /// policy starts without mounts.
-pub fn spawn_policy(
+pub fn route_for_mode(
+    mode: SandboxMode,
     action_dir: &Path,
     state_dir: &Path,
     sandbox: &SandboxConfig,
     runtime: &RuntimeConfig,
     remote: bool,
 ) -> SandboxPolicy {
-    let backend = named_backend(sandbox, runtime, remote);
+    let requested = named_backend(sandbox, runtime, remote);
+    let backend = match mode {
+        SandboxMode::None | SandboxMode::ReadOnly => requested,
+        SandboxMode::Sandboxed if requested != SandboxBackendKind::None => requested,
+        SandboxMode::Sandboxed if remote || runtime.kind == "docker" => SandboxBackendKind::Docker,
+        SandboxMode::Sandboxed => SandboxBackendKind::Local,
+    };
     let docker = &runtime.docker;
     tracing::debug!(
         backend = ?backend,
@@ -63,7 +71,7 @@ pub fn spawn_policy(
         state_dir: state_dir.to_path_buf(),
         read_only_mounts: Vec::new(),
         read_write_mounts: Vec::new(),
-        allow_network: !remote,
+        allow_network: !matches!(mode, SandboxMode::Sandboxed) || !remote,
         mount_workspace: docker.mount_workspace || runtime.kind != "docker",
         env_passthrough: SANDBOX_ENV_PASSTHROUGH
             .iter()
