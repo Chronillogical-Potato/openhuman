@@ -226,7 +226,10 @@ fn audit_log_existing_permissive_file_is_tightened() -> Result<()> {
     logger.log(&AuditEvent::new(AuditEventType::SecurityEvent))?;
 
     let mode = std::fs::metadata(log_path)?.permissions().mode() & 0o777;
-    assert_eq!(mode, 0o600, "existing audit log permissions must be tightened");
+    assert_eq!(
+        mode, 0o600,
+        "existing audit log permissions must be tightened"
+    );
     Ok(())
 }
 
