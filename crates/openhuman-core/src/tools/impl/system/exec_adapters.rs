@@ -60,11 +60,6 @@ impl ExecGate for InstallGate {
         request: &ExecAuthorizationRequest,
         context: Option<&dyn ToolRunContext>,
     ) -> Result<ExecPermit, ExecDenied> {
-        *self
-            .audit_context
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) =
-            Some(crate::agent::tinyagents::host::run_context::dispatch_ctx_for_tool(context));
         let ExecOperation::Install { .. } = &request.operation else {
             return Err(ExecDenied(
                 "install gate received a non-install operation".into(),

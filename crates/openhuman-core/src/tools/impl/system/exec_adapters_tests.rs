@@ -6,19 +6,20 @@ use std::collections::BTreeMap;
 
 fn tool_context_for_profile(
     profile: &str,
-) -> (Arc<CoreContext>, tinyagents_harness::tool::ToolExecutionContext) {
+) -> (
+    Arc<CoreContext>,
+    tinyagents_harness::tool::ToolExecutionContext,
+) {
     let root = CoreContext::for_test(DomainSet::full(), None);
     let core = root.derive_with(
-        ContextOverlay::new(
-            Config::default(),
-            DomainSet::full(),
-            ToolGroups::none(),
-        )
-        .profile(profile),
+        ContextOverlay::new(Config::default(), DomainSet::full(), ToolGroups::none())
+            .profile(profile),
     );
     let run = OpenHumanRunContext::new()
         .with_core(Some(Arc::clone(&core)))
-        .into_tinyagents(tinyagents_harness::context::RunConfig::new("install-audit-test"));
+        .into_tinyagents(tinyagents_harness::context::RunConfig::new(
+            "install-audit-test",
+        ));
     let context = tinyagents_harness::tool::ToolExecutionContext::from_run_context(
         &run,
         tinyagents_harness::ids::CallId::new(profile),
