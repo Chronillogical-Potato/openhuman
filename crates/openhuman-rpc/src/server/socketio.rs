@@ -966,6 +966,27 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                     );
                     let _ = io_memory_sync.emit("flow_approval_request", &payload);
                 }
+                crate::core_host::core::events::DomainEvent::KeyringAccessApprovalRequested {
+                    request_id,
+                    caller_agent,
+                    origin,
+                    purpose,
+                    access,
+                    name,
+                    expires_at_ms,
+                } => {
+                    let payload = serde_json::json!({
+                        "request_id": request_id,
+                        "caller_agent": caller_agent,
+                        "origin": origin,
+                        "purpose": purpose,
+                        "access": access,
+                        "name": name,
+                        "expires_at_ms": expires_at_ms,
+                    });
+                    let _ = io_memory_sync.emit("keyring:access_approval_requested", &payload);
+                    let _ = io_memory_sync.emit("keyring_access_approval_requested", &payload);
+                }
                 _ => {}
             }
         }

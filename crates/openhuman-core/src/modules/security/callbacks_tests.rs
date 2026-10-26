@@ -1,17 +1,11 @@
 use super::*;
 
 #[test]
-fn keyring_callback_fails_closed_without_operation_scoped_approval() {
+fn keyring_callback_grants_only_explicit_operation_scoped_approval() {
     use tinysecurity_bus::KeyringConsentOutcome2 as Outcome;
-
-    let request = tinysecurity_bus::KeyringConsentRequest2 {
-        caller: Default::default(),
-        purpose: "credential profile access".into(),
-        access: tinysecurity_bus::KeyringAccess2::Read,
-        name: "auth:provider:default".into(),
-        timeout_ms: 30_000,
-    };
-    assert_eq!(keyring_consent_outcome(&request), Outcome::Unavailable);
+    assert_eq!(keyring_consent_outcome(Some(true)), Outcome::Allowed);
+    assert_eq!(keyring_consent_outcome(Some(false)), Outcome::ConsentDenied);
+    assert_eq!(keyring_consent_outcome(None), Outcome::Unavailable);
 }
 
 #[test]

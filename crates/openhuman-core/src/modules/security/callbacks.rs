@@ -75,19 +75,22 @@ impl KeyringConsent {
     ) -> tinybus::Result<tinysecurity_bus::KeyringConsentResponse2> {
         use tinysecurity_bus::KeyringConsentResponse2;
 
+        let approved = crate::security::keyring_consent::operation_approval::request_approval(request)
+            .await;
         Ok(KeyringConsentResponse2 {
-            outcome: keyring_consent_outcome(&request),
+            outcome: keyring_consent_outcome(approved),
         })
     }
 }
 
 fn keyring_consent_outcome(
-    _request: &tinysecurity_bus::KeyringConsentRequest2,
+    approved: Option<bool>,
 ) -> tinysecurity_bus::KeyringConsentOutcome2 {
-    // The current host consent state is a persistent backend preference, not
-    // approval for this exact operation. Until the host exposes an operation-
-    // scoped prompt and response path, deny every TinySecurity keyring request.
-    tinysecurity_bus::KeyringConsentOutcome2::Unavailable
+    match approved {
+        Some(true) => tinysecurity_bus::KeyringConsentOutcome2::Allowed,
+        Some(false) => tinysecurity_bus::KeyringConsentOutcome2::ConsentDenied,
+        None => tinysecurity_bus::KeyringConsentOutcome2::Unavailable,
+    }
 }
 
 /// Wrap one callback interface with module-owner authentication.
