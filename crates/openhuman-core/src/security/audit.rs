@@ -14,8 +14,7 @@ pub struct AuditSink {
     enabled: AtomicBool,
 }
 
-static WORKSPACE_AUDIT_SINKS: OnceLock<Mutex<HashMap<PathBuf, Arc<AuditSink>>>> =
-    OnceLock::new();
+static WORKSPACE_AUDIT_SINKS: OnceLock<Mutex<HashMap<PathBuf, Arc<AuditSink>>>> = OnceLock::new();
 
 pub fn get_or_create_workspace_audit_sink(
     config: AuditConfig,

@@ -46,9 +46,8 @@ impl ExecGate for InstallGate {
         *self
             .audit_context
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(
-            crate::agent::tinyagents::host::run_context::dispatch_ctx_for_tool(context),
-        );
+            .unwrap_or_else(std::sync::PoisonError::into_inner) =
+            Some(crate::agent::tinyagents::host::run_context::dispatch_ctx_for_tool(context));
         let ExecOperation::Install { .. } = &request.operation else {
             return Err(ExecDenied(
                 "install gate received a non-install operation".into(),
@@ -125,7 +124,9 @@ impl ExecGate for InstallGate {
                     u64::try_from(event.duration.as_millis()).unwrap_or(u64::MAX),
                 );
                 tokio::spawn(async move {
-                    if let Err(error) = crate::security::audit_record::record(&ctx, Some(&config), event).await {
+                    if let Err(error) =
+                        crate::security::audit_record::record(&ctx, Some(&config), event).await
+                    {
                         tracing::warn!(error = %error, "[install_tool] execution audit row was not recorded");
                     }
                 });

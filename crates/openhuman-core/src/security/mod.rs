@@ -25,9 +25,7 @@ pub(crate) mod transport;
 #[allow(unused_imports)]
 pub use self::secret_storage::SecretStore;
 #[allow(unused_imports)]
-pub use audit::{
-    get_or_create_workspace_audit_sink, AuditSink,
-};
+pub use audit::{get_or_create_workspace_audit_sink, AuditSink};
 #[allow(unused_imports)]
 pub use egress::{
     emit_external_transfer, enforce_egress, local_only_tool_block, DataKind, EgressDescriptor,

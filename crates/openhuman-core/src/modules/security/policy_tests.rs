@@ -36,7 +36,10 @@ fn module_bootstrap_configures_the_host_served_audit_stream_from_config() {
     let audit = module_config(&config).audit.expect("audit sink is enabled");
 
     assert!(audit.native_path.is_none(), "OpenHuman serves AuditSink2");
-    assert!(!audit.required, "optional policy checks have no audit correlation");
+    assert!(
+        !audit.required,
+        "optional policy checks have no audit correlation"
+    );
     assert_eq!(audit.max_bytes, 7 * 1024 * 1024);
     assert_eq!(audit.journal_max_bytes, 7 * 1024 * 1024);
     assert_eq!(audit.journal_max_events, 10_000);

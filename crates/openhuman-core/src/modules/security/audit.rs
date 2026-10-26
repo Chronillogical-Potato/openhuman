@@ -8,9 +8,9 @@ use tinysecurity_bus::{
 };
 
 use crate::config::Config;
+use crate::core::runtime::Tenant;
 use crate::security::approval::native::audit_stream::AuditStream;
 use crate::security::audit_record::{HostAuditEvent, HostAuditKind};
-use crate::core::runtime::Tenant;
 
 const CALL_TIMEOUT: Duration = Duration::from_secs(25);
 
@@ -77,7 +77,12 @@ fn committed(response: &AuditResponse2, audit: &AuditCorrelation2) -> Result<(),
         .receipt
         .as_ref()
         .filter(|_| response.committed)
-        .ok_or_else(|| format!("TinySecurity did not commit the audit row ({:?})", response.health))?;
+        .ok_or_else(|| {
+            format!(
+                "TinySecurity did not commit the audit row ({:?})",
+                response.health
+            )
+        })?;
     if receipt.new_tail == audit.expected_tail.saturating_add(1)
         && receipt.events.len() == 1
         && receipt.events[0].event_id == audit.event_id

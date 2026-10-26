@@ -261,7 +261,14 @@ pub(super) fn audit_once(
 ) -> AuditOnce {
     Mutex::new(Some(Box::new(move |allowed, success, duration_ms| {
         super::shell::record_audit(
-            &audit, ctx, config, &command, approved, allowed, success, duration_ms,
+            &audit,
+            ctx,
+            config,
+            &command,
+            approved,
+            allowed,
+            success,
+            duration_ms,
         );
     })))
 }

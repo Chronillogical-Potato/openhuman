@@ -634,10 +634,17 @@ pub(super) fn record_audit(
         return;
     }
     let event = HostAuditEvent::command_execution(
-        "tool:shell", command, approved, allowed, success, duration_ms,
+        "tool:shell",
+        command,
+        approved,
+        allowed,
+        success,
+        duration_ms,
     );
     tokio::spawn(async move {
-        if let Err(error) = crate::security::audit_record::record(&ctx, config.as_deref(), event).await {
+        if let Err(error) =
+            crate::security::audit_record::record(&ctx, config.as_deref(), event).await
+        {
             tracing::warn!(error = %error, channel = "tool:shell", "[shell] the command execution audit row was not recorded");
         }
     });

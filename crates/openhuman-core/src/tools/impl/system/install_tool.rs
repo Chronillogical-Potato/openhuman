@@ -5,8 +5,8 @@ use serde_json::Value;
 use tinyagents_harness_tools::exec::{ExecBackend, InstallTool};
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext, ToolTimeout};
 
-use crate::security::{AuditSink, SecurityPolicy};
 use crate::config::Config;
+use crate::security::{AuditSink, SecurityPolicy};
 
 use super::exec_adapters::InstallGate;
 
