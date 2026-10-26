@@ -133,7 +133,8 @@ pub async fn resolve_backend_credential(config: &Config) -> Result<BackendCreden
             Err("no backend session token; run auth_store_session first".to_string())
         }
         SessionTokenCheck::Expired => {
-            publish_local_session_expiry("require_live_session_token", checked_token.as_deref());
+            publish_local_session_expiry("require_live_session_token", checked_token.as_deref())
+                .await;
             Err(
                 "SESSION_EXPIRED: backend session token expired locally — re-authentication required"
                     .to_string(),
