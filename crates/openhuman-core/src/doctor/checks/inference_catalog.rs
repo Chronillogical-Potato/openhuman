@@ -122,7 +122,7 @@ async fn prepare(
     if !matches!(url.scheme(), "http" | "https") {
         return Err(InspectionCatalogError::NoCatalog);
     }
-    let token = readonly_credential(config, entry);
+    let token = readonly_credential(config, entry).await;
     let client = match config
         .cloud_provider_ca_certs
         .get(entry.slug.trim())
