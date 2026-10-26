@@ -111,6 +111,10 @@ pub(crate) async fn prepare_secret_scope(
     Ok(SecretScope { entry })
 }
 
+#[cfg(test)]
+#[path = "secret_scope_tests.rs"]
+mod secret_scope_tests;
+
 /// The SHA-256 correlation of a ticket the module stores instead of the ticket.
 pub(super) fn ticket_sha256(ticket: &str) -> String {
     format!("{:x}", Sha256::digest(ticket.as_bytes()))
