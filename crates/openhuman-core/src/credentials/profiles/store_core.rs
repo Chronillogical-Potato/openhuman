@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize};
 #[cfg(test)]
 use std::sync::Arc;
 
-use super::{is_lock_create_unwritable_fs, AuthProfile, AuthProfilesData, AuthProfilesStore};
+use super::{AuthProfile, AuthProfilesData, AuthProfilesStore};
 use crate::security::secret_storage::SecretStore;
 
 use super::LOCK_FILENAME;
@@ -67,27 +67,15 @@ impl AuthProfilesStore {
     }
 
     pub fn load(&self) -> Result<AuthProfilesData> {
-        match self.acquire_lock() {
-            Ok(_lock) => self.load_locked(),
-            Err(e) if is_lock_create_unwritable_fs(&e) => {
-                // RCA Sentry TAURI-RUST-4SZ: a full / read-only filesystem
-                // can't create the exclusive lock file, but the store already
-                // exists and writers publish via atomic tmp+rename, so a
-                // lock-free read is still consistent. The read path is the
-                // hot caller here (`app_state_snapshot` polls it every tick),
-                // so failing it strands the UI AND floods Sentry once per
-                // poll. Degrade to a lock-free read-only load instead — the
-                // user keeps their session view, and because no error is
-                // produced the noise stops at the source rather than being
-                // suppressed downstream. Opportunistic migrations are skipped
-                // (they couldn't persist on a full disk anyway).
+        match self.acquire_read_lock()? {
+            Some(_lock) => self.load_locked(),
+            None => {
                 log::warn!(
-                    "[auth] auth-profile lock could not be created ({e}); \
-                     serving lock-free read-only load (likely disk full / read-only FS)"
+                    "[auth] profile lease unavailable on a full or read-only filesystem; \
+                     serving a lock-free read-only snapshot"
                 );
                 self.load_unlocked_readonly()
             }
-            Err(e) => Err(e),
         }
     }
 
