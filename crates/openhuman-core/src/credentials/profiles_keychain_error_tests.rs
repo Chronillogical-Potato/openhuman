@@ -25,3 +25,36 @@ fn config_backed_profile_store_uses_tinysecurity_and_existing_namespaced_key() {
         "user-123:auth:openai:default"
     );
 }
+
+#[test]
+fn unavailable_keyring_keeps_keyring_only_oauth_metadata_in_place() {
+    let tmp = TempDir::new().unwrap();
+    let config = crate::config::Config::default();
+    let store = AuthProfilesStore::new_with_config(tmp.path(), true, &config);
+    let profile = AuthProfile::new_oauth(
+        "openai-codex",
+        "default",
+        TokenSet {
+            access_token: "not-persisted-here".into(),
+            refresh_token: None,
+            id_token: None,
+            expires_at: None,
+            token_type: None,
+            scope: None,
+        },
+    );
+    let id = profile.id.clone();
+    let persisted = PersistedAuthProfile {
+        provider: profile.provider,
+        profile_name: profile.profile_name,
+        kind: "oauth".into(),
+        ..PersistedAuthProfile::default()
+    };
+    let mut document = PersistedAuthProfiles::default();
+    document.profiles.insert(id.clone(), persisted);
+    store.write_persisted_locked(&document).unwrap();
+
+    let loaded = store.load().expect("unavailable keyring is handled safely");
+    assert!(!loaded.profiles.contains_key(&id));
+    assert!(store.read_persisted_locked().unwrap().profiles.contains_key(&id));
+}

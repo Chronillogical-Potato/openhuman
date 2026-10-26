@@ -45,7 +45,10 @@ impl AuthProfilesStore {
                         secrets.token,
                     ),
                     keychain_result => {
-                        if keychain_result.is_err() && keychain_held_oauth(p) {
+                        if preserve_keyring_only_oauth_after_access_failure(
+                            p,
+                            keychain_result.is_err(),
+                        ) {
                             unavailable_keyring_ids.push(id.clone());
                         }
                         match decrypt_document_secrets() {
@@ -320,4 +323,11 @@ pub(super) fn keychain_held_oauth(p: &PersistedAuthProfile) -> bool {
         && p.id_token.is_none()
         && p.token.is_none()
         && matches!(parse_profile_kind(&p.kind), Ok(AuthProfileKind::OAuth))
+}
+
+pub(super) fn preserve_keyring_only_oauth_after_access_failure(
+    profile: &PersistedAuthProfile,
+    access_failed: bool,
+) -> bool {
+    access_failed && keychain_held_oauth(profile)
 }
