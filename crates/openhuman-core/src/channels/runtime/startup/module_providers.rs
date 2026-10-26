@@ -64,7 +64,7 @@ impl ModuleChannelRuntime {
             .await
             .map_err(anyhow::Error::new)
             .context("channel module runtime unavailable")?;
-        let hydrated = hydrate_channel_credentials(&config);
+        let hydrated = hydrate_channel_credentials(&config).await;
         let proxy = channel_proxy(&config);
         let infos = match lease
             .object()

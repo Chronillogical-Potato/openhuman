@@ -10,7 +10,7 @@ use crate::config::Config;
 /// win so manually-installed deployments keep working. The stored secret is only
 /// copied when the stored profile's `username` matches, so editing `username` in
 /// `config.toml` can't silently pair a fresh account with a stale password.
-pub(crate) fn resolve_email_password(
+pub(crate) async fn resolve_email_password(
     mut email_cfg: tinychannels_bus::config::EmailConfig,
     config: &Config,
 ) -> tinychannels_bus::config::EmailConfig {
@@ -24,7 +24,9 @@ pub(crate) fn resolve_email_password(
             tinychannels_bus::controllers::ChannelAuthMode::ApiKey,
         ),
         None,
-    ) {
+    )
+    .await
+    {
         Ok(Some(profile)) => {
             let stored_username = profile.metadata.get("username").map(String::as_str);
             if stored_username != Some(email_cfg.username.as_str()) {
