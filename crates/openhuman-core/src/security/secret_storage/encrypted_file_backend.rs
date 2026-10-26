@@ -488,21 +488,6 @@ impl EncryptedFileBackend {
             }
         }
 
-        if let Some(receipt) = receipt {
-            match crate::storage::block_on(store.cleanup_file_import(&receipt))
-                .map_err(adapter::backend_error)?
-            {
-                CleanupAcknowledgment::RemovedAndDirectorySynced
-                | CleanupAcknowledgment::AlreadyCompleted => {}
-                CleanupAcknowledgment::UnsupportedBoundary => {
-                    log::warn!("[keyring:encrypted_file] legacy plaintext retained by the platform");
-                }
-                CleanupAcknowledgment::RemovedUnacknowledged => {
-                    log::warn!("[keyring:encrypted_file] legacy plaintext removal was not fully acknowledged");
-                }
-            }
-        }
-
         for (name, value) in &map {
             let existing = crate::storage::block_on(store.get(name))
                 .map_err(adapter::backend_error)?;
@@ -515,6 +500,23 @@ impl EncryptedFileBackend {
                 }
                 None => crate::storage::block_on(store.set(name, value.as_bytes()))
                     .map_err(adapter::backend_error)?,
+            }
+        }
+
+        // All imported values are durable and verified before the driver is
+        // allowed to remove the plaintext source.
+        if let Some(receipt) = receipt {
+            match crate::storage::block_on(store.cleanup_file_import(&receipt))
+                .map_err(adapter::backend_error)?
+            {
+                CleanupAcknowledgment::RemovedAndDirectorySynced
+                | CleanupAcknowledgment::AlreadyCompleted => {}
+                CleanupAcknowledgment::UnsupportedBoundary => {
+                    log::warn!("[keyring:encrypted_file] legacy plaintext retained by the platform");
+                }
+                CleanupAcknowledgment::RemovedUnacknowledged => {
+                    log::warn!("[keyring:encrypted_file] legacy plaintext removal was not fully acknowledged");
+                }
             }
         }
 
