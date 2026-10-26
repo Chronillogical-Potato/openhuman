@@ -126,7 +126,7 @@ pub async fn composio_list_connections(
             vec!["composio: direct mode — no api key configured yet, 0 connection(s)".to_string()],
         ));
     }
-    if backend_mode_without_session(config) {
+    if backend_mode_without_session(config).await {
         // No session means no proxy route, so the connector module cannot
         // answer — but the connections may well exist server-side. That makes
         // this "unavailable", not "none": callers that tell the two apart
