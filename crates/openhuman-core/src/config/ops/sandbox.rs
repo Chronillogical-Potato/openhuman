@@ -40,7 +40,7 @@ pub async fn get_sandbox_settings(ctx: &DispatchCtx) -> Result<Outcome<serde_jso
         crate::config::SandboxBackend::None => "none",
     };
 
-    let detected_backend = detect_os_sandbox_backend();
+    let detected_backend = tinybox_jail::detect::backend_name();
 
     let value = serde_json::json!({
         "enabled": sandbox.enabled.unwrap_or(true)
@@ -129,44 +129,4 @@ pub async fn load_and_apply_sandbox_settings(
 ) -> Result<Outcome<serde_json::Value>, String> {
     let mut config = ctx.load_config().await?;
     apply_sandbox_settings(&mut config, update).await
-}
-
-fn detect_os_sandbox_backend() -> &'static str {
-    #[cfg(target_os = "linux")]
-    {
-        if std::path::Path::new("/sys/kernel/security/landlock").exists() {
-            return "landlock";
-        }
-        if std::process::Command::new("firejail")
-            .arg("--version")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok()
-        {
-            return "firejail";
-        }
-        if std::process::Command::new("bwrap")
-            .arg("--version")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok()
-        {
-            return "bubblewrap";
-        }
-        "none"
-    }
-    #[cfg(target_os = "macos")]
-    {
-        "seatbelt"
-    }
-    #[cfg(target_os = "windows")]
-    {
-        "appcontainer"
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
-    {
-        "none"
-    }
 }
