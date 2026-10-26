@@ -366,6 +366,28 @@ fn security_callback_endpoints() -> Result<Vec<HostCallbackEndpoint>, String> {
     };
     Ok(vec![
         endpoint(
+            tinysecurity_bus::callback_names2::APPROVAL_STORE,
+            &[
+                tinysecurity_bus::callback_names2::LOAD,
+                tinysecurity_bus::callback_names2::CAS,
+            ],
+        )?,
+        endpoint(
+            tinysecurity_bus::callback_names2::AUDIT_SINK,
+            &[tinysecurity_bus::callback_names2::APPEND],
+        )?,
+        endpoint(
+            tinysecurity_bus::callback_names2::APPROVAL_PROMPT,
+            &[
+                tinysecurity_bus::callback_names2::PROMPT,
+                tinysecurity_bus::callback_names2::VERIFY_HUMAN,
+            ],
+        )?,
+        endpoint(
+            tinysecurity_bus::callback_names2::KEYRING_CONSENT,
+            &[tinysecurity_bus::callback_names2::CONSENT],
+        )?,
+        endpoint(
             tinysecurity_bus::callback_names2::SECRET_CIPHER_CONSUMER,
             &[tinysecurity_bus::callback_names2::DELIVER],
         )?,

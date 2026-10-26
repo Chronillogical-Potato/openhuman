@@ -33,6 +33,7 @@ pub(super) async fn serve_secret_callbacks(
     consumer: std::sync::Arc<cipher_consumer::Consumer>,
     backend: std::sync::Arc<secret_backend::SecretBackend>,
 ) -> tinybus::Result<()> {
+    callbacks::serve_on_binding(binding).await?;
     consumer.serve(binding).await?;
     backend.serve(binding).await
 }
