@@ -361,7 +361,6 @@ async fn plan_with(
         audit,
     };
     let response = client::plan(&proxy, planned.clone()).await;
-    drop(ordered);
     let response = match response {
         Ok(response) => response,
         Err(error) => {
@@ -370,6 +369,27 @@ async fn plan_with(
         }
     };
     if let Some(denial) = response.denial {
+        if denial == SandboxDenial2::Approval && network == NetworkPolicy::Host {
+            // There is no host approval claim at this call boundary. Record the
+            // exact pending request through TinySecurity, then let the caller
+            // retry only with networking removed. The summary is deliberately
+            // generic and carries no command, path, or environment data.
+            let approval_audit = stream
+                .correlation(generation)
+                .await
+                .map_err(unavailable)?;
+            if client::evaluate_sandbox_approval(
+                &proxy,
+                planned.clone(),
+                "Allow this sandboxed command to access the host network".to_owned(),
+                approval_audit,
+            )
+            .await
+            .is_err()
+            {
+                tracing::warn!("[sandbox:plan] TinySecurity could not record host-network approval");
+            }
+        }
         if denial == SandboxDenial2::InvalidContext {
             // The module no longer holds the scope (a reload): register it again next time.
             registry::forget(&scope.scope_id).await;
