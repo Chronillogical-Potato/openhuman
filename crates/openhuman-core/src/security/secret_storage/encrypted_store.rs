@@ -429,9 +429,9 @@ fn master_handle_cache() -> &'static Mutex<HashMap<PathBuf, CachedMasterHandle>>
 fn cached_master_handle(path: &Path, generation: u64) -> Option<String> {
     let mut cache = master_handle_cache().lock().ok()?;
     cache.retain(|_, value| value.expires > Instant::now());
-    cache.get(path).and_then(|value| {
-        (value.generation == generation).then(|| value.handle.clone())
-    })
+    cache
+        .get(path)
+        .and_then(|value| (value.generation == generation).then(|| value.handle.clone()))
 }
 
 fn cache_master_handle(path: &Path, generation: u64, handle: &str) {
