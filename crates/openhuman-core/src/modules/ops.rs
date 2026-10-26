@@ -345,6 +345,17 @@ pub(super) async fn security_secret_scope() -> Option<crate::security::approval:
 }
 
 #[cfg(feature = "security-module")]
+pub(super) async fn security_module_config(
+    config: &Config,
+) -> Result<serde_json::Value, String> {
+    let loads = SECURITY_CALLBACK_LOADS.lock().await;
+    loads
+        .get(super::security::MODULE_ID)
+        .ok_or_else(|| "security callback binding unavailable".to_owned())?
+        .module_config(config)
+}
+
+#[cfg(feature = "security-module")]
 fn security_callback_endpoints() -> Result<Vec<HostCallbackEndpoint>, String> {
     let path = tinybus::ObjectPath::new(tinysecurity_bus::callback_names2::OBJECT_PATH)
         .map_err(|_| "invalid security callback path".to_owned())?;
