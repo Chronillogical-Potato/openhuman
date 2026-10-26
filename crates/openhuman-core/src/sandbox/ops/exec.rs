@@ -1,4 +1,4 @@
-use super::policy::{apply_requested_backend, config_disables_sandbox, sandbox_disabled_by_host};
+use super::policy::{config_disables_sandbox, sandbox_disabled_by_host};
 use crate::core::runtime::DispatchCtx;
 use crate::sandbox::{
     docker,

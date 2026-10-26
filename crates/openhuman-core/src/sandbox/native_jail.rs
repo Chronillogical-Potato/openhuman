@@ -126,7 +126,7 @@ pub(crate) async fn execute(
                 &working_dir,
                 &extra_env,
                 timeout,
-                explicitly_requested,
+                _explicitly_requested,
                 yield_after,
                 meter,
             )
