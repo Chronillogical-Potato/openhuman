@@ -107,6 +107,8 @@ async fn install_callbacks(runtime: &'static ModuleRuntime) -> tinybus::Result<(
 
     #[cfg(feature = "security-module")]
     super::security::callbacks::install(connection).await?;
+    #[cfg(all(feature = "security-module", feature = "modules"))]
+    super::browser_egress_host::install(connection).await?;
 
     // The summary callback exists for the module alone; with the component off
     // the module never loads, so nothing would call it.
