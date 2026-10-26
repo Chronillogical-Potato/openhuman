@@ -399,7 +399,7 @@ impl EncryptedFileBackend {
             CleanupAcknowledgment, FileImportSource, SecretStore as _,
         };
 
-        let store = self.read_only_store(key);
+        let store = self.store(key);
         let completed = crate::storage::block_on(store.get(LEGACY_IMPORT_COMPLETE))
             .map_err(adapter::backend_error)?;
         if completed.is_some() {
@@ -545,7 +545,7 @@ impl EncryptedFileBackend {
     ) -> Result<Option<String>, SecretStorageError> {
         use tinystoragedrivers::secrets::SecretStore as _;
         let name = namespaced_key.to_string();
-        let store = self.store(key);
+        let store = self.read_only_store(key);
         let value = crate::storage::block_on(async move { store.get(&name).await })
             .map_err(adapter::backend_error)?;
         adapter::utf8(namespaced_key, value)
