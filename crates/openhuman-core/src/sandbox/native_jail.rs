@@ -20,15 +20,12 @@ type NativeJailConfig = ();
 #[cfg(any(feature = "modules", test))]
 const SEATBELT: &str = "seatbelt";
 
-/// The confinement a native jail gives a command, or `None` when the host must
-/// refuse to run it.
+/// Display posture for the `sandbox.*` status response.
 ///
-/// Untrusted code (an explicitly requested Landlock jail, a SaaS tenant) needs
-/// kernel process isolation. The local desktop sandbox only has to keep the
-/// agent inside the selected folder, which Seatbelt does by denying writes
-/// everywhere else, so it is accepted there as folder confinement.
+/// This does not admit or reject a command. TinySecurity Plan2 owns execution
+/// suitability; this adapter only preserves the existing status/isolation fields.
 #[cfg(any(feature = "modules", test))]
-pub(crate) fn jail_isolation(
+pub(crate) fn status_isolation(
     backend: &str,
     available: bool,
     suitable_for_untrusted_code: bool,
@@ -51,7 +48,7 @@ pub(crate) async fn status(
     config: &Config,
 ) -> Result<(String, SandboxStatus, Option<SandboxIsolation>), String> {
     let status = tinybox::jail_status(config).await?;
-    let isolation = jail_isolation(
+    let isolation = status_isolation(
         &status.backend,
         status.available,
         status.suitable_for_untrusted_code,
@@ -69,29 +66,6 @@ pub(crate) async fn status(
     _config: &Config,
 ) -> Result<(String, SandboxStatus, Option<SandboxIsolation>), String> {
     Err("TinyBox module support is disabled; native jail status is unavailable".to_owned())
-}
-
-/// Verify that TinyBox reports a usable provider before an explicitly selected jail is accepted.
-#[cfg(feature = "modules")]
-pub(crate) async fn require_backend(config: &Config, expected: &str) -> anyhow::Result<()> {
-    let status = tinybox::jail_status(config)
-        .await
-        .map_err(|_| anyhow::anyhow!("TinyBox native jail status is unavailable"))?;
-    let isolation = jail_isolation(
-        &status.backend,
-        status.available,
-        status.suitable_for_untrusted_code,
-        true,
-    );
-    if isolation != Some(SandboxIsolation::Isolated) || status.backend != expected {
-        anyhow::bail!("requested native jail backend is unavailable");
-    }
-    Ok(())
-}
-
-#[cfg(not(feature = "modules"))]
-pub(crate) async fn require_backend(_config: &Config, _expected: &str) -> anyhow::Result<()> {
-    anyhow::bail!("TinyBox module support is disabled; native jail execution is unavailable")
 }
 
 /// Run a command inside TinyBox's native jail and keep its resource lifecycle

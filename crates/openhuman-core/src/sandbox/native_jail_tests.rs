@@ -1,6 +1,19 @@
 use super::*;
 use std::path::PathBuf;
 
+#[test]
+fn status_posture_preserves_the_existing_rpc_isolation_field() {
+    assert_eq!(
+        status_isolation("landlock", true, true, true),
+        Some(SandboxIsolation::Isolated)
+    );
+    assert_eq!(
+        status_isolation("seatbelt", true, false, false),
+        Some(SandboxIsolation::FolderConfined)
+    );
+    assert_eq!(status_isolation("noop", true, false, false), None);
+}
+
 fn planned_test_jail() -> crate::modules::tinybox::contract::NativeJailConfig {
     crate::modules::tinybox::contract::NativeJailConfig {
         read_only: Vec::new(),
