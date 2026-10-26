@@ -5462,7 +5462,8 @@ const messages: TranslationMap = {
 
   // Per-operation TinySecurity keyring approval.
   'keyring.operation.title': 'キーチェーンアクセスのリクエスト',
-  'keyring.operation.description': 'TinySecurity がキーチェーン項目へのアクセスを要求しています。判断する前に操作を確認してください。',
+  'keyring.operation.description':
+    'TinySecurity がキーチェーン項目へのアクセスを要求しています。判断する前に操作を確認してください。',
   'keyring.operation.access': 'アクセス',
   'keyring.operation.requester': '要求元',
   'keyring.operation.origin': '発生元',
@@ -5475,7 +5476,8 @@ const messages: TranslationMap = {
   'keyring.operation.deny': '拒否',
   'keyring.operation.submitting': '送信中…',
   'keyring.operation.expires': 'リクエストは {seconds} 秒後に期限切れになります。',
-  'keyring.operation.error': '判断を送信できませんでした。リクエストの期限が切れた可能性があります。',
+  'keyring.operation.error':
+    '判断を送信できませんでした。リクエストの期限が切れた可能性があります。',
 };
 
 export default messages;

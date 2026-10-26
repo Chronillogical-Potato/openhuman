@@ -79,7 +79,11 @@ const KeyringOperationApprovalOverlay = () => {
         )}
 
         <div className="flex justify-end gap-2">
-          <Button variant="secondary" tone="danger" disabled={busy} onClick={() => void decide(false)}>
+          <Button
+            variant="secondary"
+            tone="danger"
+            disabled={busy}
+            onClick={() => void decide(false)}>
             {busy ? t('keyring.operation.submitting') : t('keyring.operation.deny')}
           </Button>
           <Button disabled={busy || secondsRemaining === 0} onClick={() => void decide(true)}>

@@ -5010,7 +5010,8 @@ const messages: TranslationMap = {
 
   // Per-operation TinySecurity keyring approval.
   'keyring.operation.title': 'طلب الوصول إلى سلسلة المفاتيح',
-  'keyring.operation.description': 'يطلب TinySecurity الوصول إلى عنصر واحد في سلسلة المفاتيح. راجع العملية قبل اتخاذ القرار.',
+  'keyring.operation.description':
+    'يطلب TinySecurity الوصول إلى عنصر واحد في سلسلة المفاتيح. راجع العملية قبل اتخاذ القرار.',
   'keyring.operation.access': 'الوصول',
   'keyring.operation.requester': 'مقدم الطلب',
   'keyring.operation.origin': 'المصدر',

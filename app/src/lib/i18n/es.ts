@@ -5213,7 +5213,8 @@ const messages: TranslationMap = {
 
   // Per-operation TinySecurity keyring approval.
   'keyring.operation.title': 'Solicitud de acceso al llavero',
-  'keyring.operation.description': 'TinySecurity solicita acceso a un elemento del llavero. Revisa la operación antes de decidir.',
+  'keyring.operation.description':
+    'TinySecurity solicita acceso a un elemento del llavero. Revisa la operación antes de decidir.',
   'keyring.operation.access': 'Acceso',
   'keyring.operation.requester': 'Solicitado por',
   'keyring.operation.origin': 'Origen',
@@ -5226,7 +5227,8 @@ const messages: TranslationMap = {
   'keyring.operation.deny': 'Denegar',
   'keyring.operation.submitting': 'Enviando…',
   'keyring.operation.expires': 'La solicitud vence en {seconds}s.',
-  'keyring.operation.error': 'No se pudo enviar tu decisión. Es posible que la solicitud haya vencido.',
+  'keyring.operation.error':
+    'No se pudo enviar tu decisión. Es posible que la solicitud haya vencido.',
 };
 
 export default messages;

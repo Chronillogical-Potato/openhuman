@@ -5383,7 +5383,8 @@ const en: TranslationMap = {
 
   // Per-operation TinySecurity keyring approval.
   'keyring.operation.title': 'Keyring access request',
-  'keyring.operation.description': 'TinySecurity is requesting access to one keyring item. Review the operation before deciding.',
+  'keyring.operation.description':
+    'TinySecurity is requesting access to one keyring item. Review the operation before deciding.',
   'keyring.operation.access': 'Access',
   'keyring.operation.requester': 'Requested by',
   'keyring.operation.origin': 'Origin',

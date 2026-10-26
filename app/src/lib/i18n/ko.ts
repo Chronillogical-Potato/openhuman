@@ -5057,7 +5057,8 @@ const messages: TranslationMap = {
 
   // Per-operation TinySecurity keyring approval.
   'keyring.operation.title': '키링 액세스 요청',
-  'keyring.operation.description': 'TinySecurity가 키링 항목 하나에 대한 액세스를 요청합니다. 결정하기 전에 작업을 확인하세요.',
+  'keyring.operation.description':
+    'TinySecurity가 키링 항목 하나에 대한 액세스를 요청합니다. 결정하기 전에 작업을 확인하세요.',
   'keyring.operation.access': '액세스',
   'keyring.operation.requester': '요청자',
   'keyring.operation.origin': '출처',

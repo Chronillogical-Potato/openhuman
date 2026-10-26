@@ -5181,7 +5181,8 @@ const messages: TranslationMap = {
 
   // Per-operation TinySecurity keyring approval.
   'keyring.operation.title': 'Prośba o dostęp do pęku kluczy',
-  'keyring.operation.description': 'TinySecurity prosi o dostęp do jednego elementu pęku kluczy. Sprawdź operację przed podjęciem decyzji.',
+  'keyring.operation.description':
+    'TinySecurity prosi o dostęp do jednego elementu pęku kluczy. Sprawdź operację przed podjęciem decyzji.',
   'keyring.operation.access': 'Dostęp',
   'keyring.operation.requester': 'Prosi',
   'keyring.operation.origin': 'Źródło',

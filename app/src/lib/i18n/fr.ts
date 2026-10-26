@@ -5235,7 +5235,8 @@ const messages: TranslationMap = {
 
   // Per-operation TinySecurity keyring approval.
   'keyring.operation.title': 'Demande d’accès au trousseau',
-  'keyring.operation.description': 'TinySecurity demande l’accès à un élément du trousseau. Vérifiez l’opération avant de décider.',
+  'keyring.operation.description':
+    'TinySecurity demande l’accès à un élément du trousseau. Vérifiez l’opération avant de décider.',
   'keyring.operation.access': 'Accès',
   'keyring.operation.requester': 'Demandé par',
   'keyring.operation.origin': 'Origine',

@@ -5260,7 +5260,8 @@ const messages: TranslationMap = {
 
   // Per-operation TinySecurity keyring approval.
   'keyring.operation.title': 'Anfrage für Schlüsselbundzugriff',
-  'keyring.operation.description': 'TinySecurity möchte auf einen Schlüsselbund-Eintrag zugreifen. Prüfe den Vorgang, bevor du entscheidest.',
+  'keyring.operation.description':
+    'TinySecurity möchte auf einen Schlüsselbund-Eintrag zugreifen. Prüfe den Vorgang, bevor du entscheidest.',
   'keyring.operation.access': 'Zugriff',
   'keyring.operation.requester': 'Angefordert von',
   'keyring.operation.origin': 'Ursprung',
@@ -5273,7 +5274,8 @@ const messages: TranslationMap = {
   'keyring.operation.deny': 'Ablehnen',
   'keyring.operation.submitting': 'Wird gesendet…',
   'keyring.operation.expires': 'Die Anfrage läuft in {seconds}s ab.',
-  'keyring.operation.error': 'Deine Entscheidung konnte nicht gesendet werden. Die Anfrage ist möglicherweise abgelaufen.',
+  'keyring.operation.error':
+    'Deine Entscheidung konnte nicht gesendet werden. Die Anfrage ist möglicherweise abgelaufen.',
 };
 
 export default messages;

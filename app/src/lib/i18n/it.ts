@@ -5186,7 +5186,8 @@ const messages: TranslationMap = {
 
   // Per-operation TinySecurity keyring approval.
   'keyring.operation.title': 'Richiesta di accesso al portachiavi',
-  'keyring.operation.description': 'TinySecurity richiede l’accesso a un elemento del portachiavi. Controlla l’operazione prima di decidere.',
+  'keyring.operation.description':
+    'TinySecurity richiede l’accesso a un elemento del portachiavi. Controlla l’operazione prima di decidere.',
   'keyring.operation.access': 'Accesso',
   'keyring.operation.requester': 'Richiesto da',
   'keyring.operation.origin': 'Origine',
@@ -5199,7 +5200,8 @@ const messages: TranslationMap = {
   'keyring.operation.deny': 'Nega',
   'keyring.operation.submitting': 'Invio…',
   'keyring.operation.expires': 'La richiesta scade tra {seconds}s.',
-  'keyring.operation.error': 'Impossibile inviare la decisione. La richiesta potrebbe essere scaduta.',
+  'keyring.operation.error':
+    'Impossibile inviare la decisione. La richiesta potrebbe essere scaduta.',
 };
 
 export default messages;
