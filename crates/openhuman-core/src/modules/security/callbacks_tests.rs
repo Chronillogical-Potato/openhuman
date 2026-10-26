@@ -1,22 +1,17 @@
 use super::*;
 
 #[test]
-fn keyring_callback_uses_the_existing_consent_decision() {
-    use crate::security::keyring_consent::PolicyDecision;
+fn keyring_callback_fails_closed_without_operation_scoped_approval() {
     use tinysecurity_bus::KeyringConsentOutcome2 as Outcome;
 
-    assert_eq!(
-        keyring_consent_outcome(PolicyDecision::Proceed),
-        Outcome::Allowed
-    );
-    assert_eq!(
-        keyring_consent_outcome(PolicyDecision::ConsentRequired),
-        Outcome::ConsentPending
-    );
-    assert_eq!(
-        keyring_consent_outcome(PolicyDecision::Declined),
-        Outcome::ConsentDenied
-    );
+    let request = tinysecurity_bus::KeyringConsentRequest2 {
+        caller: Default::default(),
+        purpose: "credential profile access".into(),
+        access: tinysecurity_bus::KeyringAccess2::Read,
+        name: "auth:provider:default".into(),
+        timeout_ms: 30_000,
+    };
+    assert_eq!(keyring_consent_outcome(&request), Outcome::Unavailable);
 }
 
 #[test]

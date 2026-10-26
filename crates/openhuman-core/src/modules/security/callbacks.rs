@@ -71,28 +71,23 @@ struct KeyringConsent;
 impl KeyringConsent {
     async fn consent(
         &self,
-        _request: tinysecurity_bus::KeyringConsentRequest2,
+        request: tinysecurity_bus::KeyringConsentRequest2,
     ) -> tinybus::Result<tinysecurity_bus::KeyringConsentResponse2> {
         use tinysecurity_bus::KeyringConsentResponse2;
 
-        let decision = crate::security::keyring_consent::policy::check_secret_access();
         Ok(KeyringConsentResponse2 {
-            outcome: keyring_consent_outcome(decision),
+            outcome: keyring_consent_outcome(&request),
         })
     }
 }
 
 fn keyring_consent_outcome(
-    decision: crate::security::keyring_consent::PolicyDecision,
+    _request: &tinysecurity_bus::KeyringConsentRequest2,
 ) -> tinysecurity_bus::KeyringConsentOutcome2 {
-    use crate::security::keyring_consent::PolicyDecision;
-    use tinysecurity_bus::KeyringConsentOutcome2 as Outcome;
-
-    match decision {
-        PolicyDecision::Proceed => Outcome::Allowed,
-        PolicyDecision::ConsentRequired => Outcome::ConsentPending,
-        PolicyDecision::Declined => Outcome::ConsentDenied,
-    }
+    // The current host consent state is a persistent backend preference, not
+    // approval for this exact operation. Until the host exposes an operation-
+    // scoped prompt and response path, deny every TinySecurity keyring request.
+    tinysecurity_bus::KeyringConsentOutcome2::Unavailable
 }
 
 /// Wrap one callback interface with module-owner authentication.
