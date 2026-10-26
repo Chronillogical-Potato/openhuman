@@ -10,14 +10,10 @@ fn denied_keyring_write_never_falls_back_to_document_secrets() {
         super::super::keychain::KeyringConsentError::Pending,
     ] {
         let error = anyhow::Error::new(denial);
-        assert!(!super::super::keychain::should_fallback_to_encrypted_document(
-            &error
-        ));
+        assert!(!super::super::keychain::should_fallback_to_encrypted_document(&error));
     }
     let unavailable = anyhow::anyhow!("module unavailable");
-    assert!(super::super::keychain::should_fallback_to_encrypted_document(
-        &unavailable
-    ));
+    assert!(super::super::keychain::should_fallback_to_encrypted_document(&unavailable));
 }
 
 #[test]

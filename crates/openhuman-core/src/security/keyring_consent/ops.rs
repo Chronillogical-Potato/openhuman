@@ -1,7 +1,7 @@
 //! RPC handler implementations for keyring consent.
 
-use crate::core::runtime::DispatchCtx;
 use crate::core::Outcome;
+use crate::core::runtime::DispatchCtx;
 
 use super::policy;
 use super::types::{ConsentPreference, KeyringStatus};

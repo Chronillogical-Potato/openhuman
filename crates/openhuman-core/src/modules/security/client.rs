@@ -398,19 +398,11 @@ impl Client {
     }
 }
 
-fn keyring_access_error(error: tinybus::Error) -> SecurityError {
-    match error {
-        tinybus::Error::MethodFailed { name, .. }
-            if name == "ai.tinyhumans.tinysecurity.Error.ConsentDenied" =>
-        {
-            SecurityError::ConsentDenied
-        }
-        tinybus::Error::MethodFailed { name, .. }
-            if name == "ai.tinyhumans.tinysecurity.Error.ConsentPending" =>
-        {
-            SecurityError::ConsentPending
-        }
-        error => SecurityError::Unavailable(error.to_string()),
+fn keyring_access_error(error: tinybus::module::ModuleCallFailure) -> SecurityError {
+    match error.wire_name.as_str() {
+        "ai.tinyhumans.tinysecurity.Error.ConsentDenied" => SecurityError::ConsentDenied,
+        "ai.tinyhumans.tinysecurity.Error.ConsentPending" => SecurityError::ConsentPending,
+        _ => SecurityError::Unavailable(error.to_string()),
     }
 }
 
