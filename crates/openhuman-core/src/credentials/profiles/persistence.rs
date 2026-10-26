@@ -169,7 +169,10 @@ impl AuthProfilesStore {
     }
 
     /// Prepare a profile's fields for storage inside the encrypted document.
-    pub(super) async fn encrypt_for_json(&self, profile: &AuthProfile) -> Result<EncryptedProfileFields> {
+    pub(super) async fn encrypt_for_json(
+        &self,
+        profile: &AuthProfile,
+    ) -> Result<EncryptedProfileFields> {
         let (access_token, refresh_token, id_token, expires_at, token_type, scope) =
             match (&profile.kind, &profile.token_set) {
                 (AuthProfileKind::OAuth, Some(token_set)) => (
@@ -307,7 +310,10 @@ impl AuthProfilesStore {
                 if value.starts_with("enc:") {
                     anyhow::bail!("legacy XOR-encrypted auth profile secrets are unsupported");
                 }
-                Ok((Some(self.secret_store.decrypt_via_security(value).await?), None))
+                Ok((
+                    Some(self.secret_store.decrypt_via_security(value).await?),
+                    None,
+                ))
             }
             Some(_) | None => Ok((None, None)),
         }

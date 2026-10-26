@@ -77,11 +77,17 @@ impl AuthService {
         let provider = normalize_provider(provider)?;
         let mut profile = AuthProfile::new_token(&provider, profile_name, token.to_string());
         profile.metadata.extend(metadata);
-        self.store.upsert_profile(profile.clone(), set_active).await?;
+        self.store
+            .upsert_profile(profile.clone(), set_active)
+            .await?;
         Ok(profile)
     }
 
-    pub async fn set_active_profile(&self, provider: &str, requested_profile: &str) -> Result<String> {
+    pub async fn set_active_profile(
+        &self,
+        provider: &str,
+        requested_profile: &str,
+    ) -> Result<String> {
         let provider = normalize_provider(provider)?;
         let data = self.store.load().await?;
         let profile_id = resolve_requested_profile_id(&provider, requested_profile);
@@ -99,7 +105,9 @@ impl AuthService {
             );
         }
 
-        self.store.set_active_profile(&provider, &profile_id).await?;
+        self.store
+            .set_active_profile(&provider, &profile_id)
+            .await?;
         Ok(profile_id)
     }
 
