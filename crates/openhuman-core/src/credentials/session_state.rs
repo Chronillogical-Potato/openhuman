@@ -374,10 +374,10 @@ pub fn load_app_session_profile(config: &Config) -> Result<Option<AuthProfile>, 
 
 /// Reads the selected app-session profile for doctor checks without opening
 /// the ordinary mutable auth-profile store.
-pub fn load_app_session_profile_read_only(
+pub async fn load_app_session_profile_read_only(
     config: &Config,
 ) -> Result<Option<AuthProfile>, super::profiles::ReadOnlyAuthProfileError> {
-    AuthService::get_profile_read_only(config, APP_SESSION_PROVIDER, None)
+    AuthService::get_profile_read_only(config, APP_SESSION_PROVIDER, None).await
 }
 
 pub fn session_state_from_profile(profile: Option<&AuthProfile>) -> AuthStateResponse {

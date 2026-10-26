@@ -73,7 +73,7 @@ fn configured_entries(config: &crate::config::Config) -> Vec<CloudProviderCreds>
     entries
 }
 
-fn readonly_credential(
+async fn readonly_credential(
     config: &crate::config::Config,
     entry: &CloudProviderCreds,
 ) -> Option<String> {
@@ -81,8 +81,9 @@ fn readonly_credential(
         return None;
     }
     let key = crate::inference::provider::factory::auth_key_for_slug(&entry.slug);
-    let profile =
-        crate::credentials::AuthService::get_profile_read_only(config, &key, None).ok()??;
+    let profile = crate::credentials::AuthService::get_profile_read_only(config, &key, None)
+        .await
+        .ok()??;
     let token = match profile.kind {
         crate::credentials::AuthProfileKind::Token => profile.token,
         crate::credentials::AuthProfileKind::OAuth => profile.token_set.and_then(|set| {

@@ -81,10 +81,10 @@ pub fn get_api_key(config: &Config) -> Result<Option<String>> {
 
 /// Reads the selected profile's API key for doctor checks without using the
 /// ordinary mutable auth-profile store.
-pub fn get_api_key_read_only(
+pub async fn get_api_key_read_only(
     config: &Config,
 ) -> Result<Option<String>, super::profiles::ReadOnlyAuthProfileError> {
-    let Some(profile) = AuthService::get_profile_read_only(config, API_KEY_PROVIDER, None)? else {
+    let Some(profile) = AuthService::get_profile_read_only(config, API_KEY_PROVIDER, None).await? else {
         return Ok(None);
     };
     Ok(api_key_from_profile(profile))
