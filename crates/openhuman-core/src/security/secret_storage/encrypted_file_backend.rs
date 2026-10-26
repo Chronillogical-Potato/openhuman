@@ -416,13 +416,31 @@ impl EncryptedFileBackend {
             None
         };
 
-        let source = source_path
-            .map(FileImportSource::open)
-            .transpose()
+        let staged = crate::storage::block_on(store.get(LEGACY_IMPORT_PAYLOAD))
             .map_err(adapter::backend_error)?;
-        let mut receipt = None;
-        let bytes = match source.as_ref() {
-            Some(source) => {
+        let source = if staged.is_some() {
+            None
+        } else {
+            source_path
+                .map(FileImportSource::open)
+                .transpose()
+                .map_err(adapter::backend_error)?
+        };
+        let (bytes, receipt) = match (staged, source.as_ref()) {
+            (Some(staged), _) => {
+                let recovered = crate::storage::block_on(store.recover_file_import_source(
+                    LEGACY_IMPORT_OPERATION,
+                    LEGACY_IMPORT_PAYLOAD,
+                ))
+                .map_err(adapter::backend_error)?;
+                if staged.as_slice() != recovered.as_slice() {
+                    return Err(SecretStorageError::Backend(
+                        "staged legacy import differs from its authenticated source backup".into(),
+                    ));
+                }
+                (recovered, None)
+            }
+            (None, Some(source)) => {
                 let bytes = source.bytes();
                 let legacy_map: std::collections::BTreeMap<String, String> =
                     if bytes.is_empty() {
@@ -441,14 +459,13 @@ impl EncryptedFileBackend {
                     source,
                 ))
                 .map_err(adapter::backend_error)?;
-                receipt = Some(verified);
-                Zeroizing::new(bytes.to_vec())
+                (Zeroizing::new(bytes.to_vec()), Some(verified))
             }
-            None => match crate::storage::block_on(store.recover_file_import_source(
+            (None, None) => match crate::storage::block_on(store.recover_file_import_source(
                 LEGACY_IMPORT_OPERATION,
                 LEGACY_IMPORT_PAYLOAD,
             )) {
-                Ok(bytes) => bytes,
+                Ok(bytes) => (bytes, None),
                 Err(error) if error.kind() == tinystoragedrivers::ErrorKind::NotFound => {
                     return Ok(());
                 }
