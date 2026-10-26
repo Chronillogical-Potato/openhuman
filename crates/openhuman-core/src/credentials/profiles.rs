@@ -17,7 +17,7 @@ mod persistence;
 pub(crate) use persistence::is_persisted_document;
 use persistence::{PersistedAuthProfile, PersistedAuthProfiles};
 mod readonly;
-pub(crate) use persistence::STORAGE_SECRET_NAME as PROFILES_SECRET_NAME;
+pub(crate) use persistence::PROFILE_DOCUMENT_SECRET_NAME;
 mod store_core;
 pub use readonly::ReadOnlyAuthProfileError;
 

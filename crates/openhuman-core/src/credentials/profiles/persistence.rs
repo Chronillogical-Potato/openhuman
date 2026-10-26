@@ -82,10 +82,8 @@ fn default_now_rfc3339() -> String {
     Utc::now().to_rfc3339()
 }
 
-/// Secret name for the persisted profile schema document when OpenHuman's
-/// configured storage backend is active. The local profile file uses the same
-/// schema under `auth-profiles/secrets.enc`.
-pub(crate) const STORAGE_SECRET_NAME: &str = "file:auth-profiles.json";
+/// Name of the document inside the profile-local `EncryptedFileSecrets` store.
+pub(crate) const PROFILE_DOCUMENT_SECRET_NAME: &str = "auth-profiles";
 
 impl AuthProfilesStore {
     pub(super) fn save_locked(&self, data: &AuthProfilesData) -> Result<()> {
@@ -275,7 +273,9 @@ impl AuthProfilesStore {
         let directory = self.path.parent().expect("profile store has parent");
         let store = EncryptedFileSecrets::with_key_file_read_only(directory)
             .context("Failed to open encrypted auth profile store")?;
-        let value = crate::storage::block_on(async move { store.get(STORAGE_SECRET_NAME).await })
+        let value = crate::storage::block_on(async move {
+            store.get(PROFILE_DOCUMENT_SECRET_NAME).await
+        })
             .context("Failed to read encrypted auth profile store")?;
         let Some(value) = value else {
             return Ok(None);
@@ -290,7 +290,9 @@ impl AuthProfilesStore {
         let directory = self.path.parent().expect("profile store has parent");
         let store = EncryptedFileSecrets::with_key_file(directory)
             .context("Failed to open encrypted auth profile store")?;
-        crate::storage::block_on(async move { store.set(STORAGE_SECRET_NAME, &json).await })
+        crate::storage::block_on(async move {
+            store.set(PROFILE_DOCUMENT_SECRET_NAME, &json).await
+        })
             .context("Failed to write encrypted auth profile store")
     }
 

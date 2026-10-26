@@ -42,7 +42,7 @@ pub(super) fn load_profile(
                 .map_err(|_| ReadOnlyAuthProfileError::Unavailable)?;
             let value =
                 crate::storage::block_on(
-                    async move { store.get(super::PROFILES_SECRET_NAME).await },
+                    async move { store.get(super::PROFILE_DOCUMENT_SECRET_NAME).await },
                 )
                 .map_err(|_| ReadOnlyAuthProfileError::Unavailable)?;
             value
