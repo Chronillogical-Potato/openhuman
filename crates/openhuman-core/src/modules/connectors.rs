@@ -349,7 +349,7 @@ async fn ensure_routed(config: &Config, proxy: &Proxy) -> Result<(), String> {
         return Ok(());
     }
 
-    let inspection_binding = inspection::configured_binding_for_route(config, &route);
+    let inspection_binding = inspection::configured_binding_for_route(config, &route).await;
     proxy
         .call_confidential::<serde_json::Value>(methods::CONFIGURE, (route,))
         .await

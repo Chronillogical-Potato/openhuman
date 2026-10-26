@@ -190,7 +190,7 @@ where
     Request: Serialize + Send,
     Reply: DeserializeOwned,
 {
-    if !binding_matches_config(config) {
+    if !binding_matches_config(config).await {
         return Ok(None);
     }
     call_proxy_readonly(proxy, member, request).await.map(Some)
