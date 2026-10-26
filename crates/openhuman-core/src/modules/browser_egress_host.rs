@@ -61,7 +61,7 @@ pub(crate) async fn browser_dial_config(config: &crate::config::Config) -> Resul
     }
     Ok(serde_json::json!({
         "policy_id": policy_id.0,
-        "expected_generation": info.generation,
+        "generation": info.generation,
     }))
 }
 
@@ -99,6 +99,9 @@ impl BrowserEgressHost {
             })
             .await
             .map_err(|_| refused())?;
+        if response.generation != target.expected_generation {
+            return Err(refused());
+        }
         let authorization = response.authorization.ok_or_else(refused)?;
         if response.generation != authorization.generation {
             return Err(refused());
@@ -227,3 +230,7 @@ pub(super) async fn install(connection: &Connection) -> tinybus::Result<()> {
         .await?;
     connection.request_name(contract::INTERFACE).await
 }
+
+#[cfg(test)]
+#[path = "browser_egress_host_tests.rs"]
+mod tests;
