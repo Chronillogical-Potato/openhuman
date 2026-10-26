@@ -129,10 +129,10 @@ fn record_operation_outcome(call_id: String, outcome: OperationOutcome) {
     if let Ok(mut outcomes) = call_outcomes().lock() {
         // Call ids are host-generated UUIDs. Keep the handoff bounded if a
         // caller task disappears before consuming its correlated outcome.
-        if outcomes.len() >= MAX_PENDING_APPROVALS
-            && let Some(oldest) = outcomes.keys().next().cloned()
-        {
-            outcomes.remove(&oldest);
+        if outcomes.len() >= MAX_PENDING_APPROVALS {
+            if let Some(oldest) = outcomes.keys().next().cloned() {
+                outcomes.remove(&oldest);
+            }
         }
         outcomes.insert(call_id, outcome);
     }

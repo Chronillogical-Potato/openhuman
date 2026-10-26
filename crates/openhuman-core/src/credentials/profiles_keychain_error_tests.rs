@@ -69,11 +69,9 @@ fn unavailable_keyring_keeps_keyring_only_oauth_metadata_in_place() {
 
     let loaded = store.load().expect("unavailable keyring is handled safely");
     assert!(!loaded.profiles.contains_key(&id));
-    assert!(
-        store
-            .read_persisted_locked()
-            .unwrap()
-            .profiles
-            .contains_key(&id)
-    );
+    assert!(store
+        .read_persisted_locked()
+        .unwrap()
+        .profiles
+        .contains_key(&id));
 }
