@@ -2,7 +2,7 @@ name: Security browser egress fixture
 
 on:
   pull_request:
-    branches: [epic/7328-security-bus]
+    branches: [epic/8369-security-migration, main]
     paths:
       - .github/workflows/security-browser-egress.yml
       - .gitmodules
