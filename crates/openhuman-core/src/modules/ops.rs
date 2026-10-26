@@ -33,8 +33,9 @@ use super::types::{ModuleRecord, ModuleSource, ModuleState, ModuleStatus};
 use super::{linked, registry, report, runtime, source};
 use crate::config::Config;
 use tinybus::module::{
-    AccessFuture, Availability, FailureReporter, LoadError, ModuleAccess, ModuleClient,
-    ModuleSource as ResolverSource, ProxyFailure, ReleaseRecord, Resolver, ResolverInputs,
+    AccessFuture, Availability, FailureReporter, HostCallbackEndpoint, LoadError, ModuleAccess,
+    ModuleClient, ModuleSource as ResolverSource, ProxyFailure, ReleaseRecord, Resolver,
+    ResolverInputs,
 };
 use tinybus::Proxy;
 
@@ -275,6 +276,286 @@ static COMPUTER_CALLBACK_LOADS: std::sync::LazyLock<ComputerCallbackLoads> =
     std::sync::LazyLock::new(|| tokio::sync::Mutex::new(std::collections::HashMap::new()));
 
 #[cfg(feature = "security-module")]
+struct SecurityCallbackState {
+    binding: std::sync::Arc<tinybus::module::HostCallbackBinding>,
+    consumer: std::sync::Arc<super::security::cipher_consumer::Consumer>,
+    backend: std::sync::Arc<super::security::secret_backend::SecretBackend>,
+    scope: crate::security::approval::native::SecretScope,
+    registration_id: String,
+    consumer_id: String,
+    target_backend_id: String,
+    legacy_backend_id: String,
+    target_backend: crate::security::secret_storage::store::BackendKind,
+    key_path: PathBuf,
+}
+
+#[cfg(feature = "security-module")]
+type SecurityCallbackLoads = tokio::sync::Mutex<
+    std::collections::HashMap<String, std::sync::Arc<SecurityCallbackState>>,
+>;
+
+#[cfg(feature = "security-module")]
+static SECURITY_CALLBACK_LOADS: std::sync::LazyLock<SecurityCallbackLoads> =
+    std::sync::LazyLock::new(|| tokio::sync::Mutex::new(std::collections::HashMap::new()));
+
+#[cfg(feature = "security-module")]
+impl SecurityCallbackState {
+    fn module_config(&self, config: &Config) -> Result<serde_json::Value, String> {
+        let trusted_host = self.binding.unique_name().to_string();
+        let config = super::security::module_config_for_secret_scope(
+            config,
+            Some(trusted_host),
+            &self.scope,
+            self.registration_id.clone(),
+            self.consumer_id.clone(),
+            self.target_backend_id.clone(),
+            self.legacy_backend_id.clone(),
+        )
+        .map_err(str::to_owned)?;
+        serde_json::to_value(config).map_err(|_| "invalid security module configuration".into())
+    }
+}
+
+#[cfg(feature = "security-module")]
+pub(super) async fn security_callback_binding(
+) -> Option<std::sync::Arc<tinybus::module::HostCallbackBinding>> {
+    SECURITY_CALLBACK_LOADS
+        .lock()
+        .await
+        .get(super::security::MODULE_ID)
+        .map(|state| std::sync::Arc::clone(&state.binding))
+}
+
+#[cfg(feature = "security-module")]
+pub(super) async fn security_cipher_consumer(
+) -> Option<std::sync::Arc<super::security::cipher_consumer::Consumer>> {
+    SECURITY_CALLBACK_LOADS
+        .lock()
+        .await
+        .get(super::security::MODULE_ID)
+        .map(|state| std::sync::Arc::clone(&state.consumer))
+}
+
+#[cfg(feature = "security-module")]
+pub(super) async fn security_secret_scope(
+) -> Option<crate::security::approval::native::SecretScope> {
+    SECURITY_CALLBACK_LOADS
+        .lock()
+        .await
+        .get(super::security::MODULE_ID)
+        .map(|state| state.scope.clone())
+}
+
+#[cfg(feature = "security-module")]
+fn security_callback_endpoints() -> Result<Vec<HostCallbackEndpoint>, String> {
+    let path = tinybus::ObjectPath::new(tinysecurity_bus::callback_names2::OBJECT_PATH)
+        .map_err(|_| "invalid security callback path".to_owned())?;
+    let endpoint = |interface: &str, members: &[&str]| -> Result<HostCallbackEndpoint, String> {
+        Ok(HostCallbackEndpoint {
+            path: path.clone(),
+            interface: interface
+                .parse()
+                .map_err(|_| "invalid security callback interface".to_owned())?,
+            members: members
+                .iter()
+                .map(|member| {
+                    (*member)
+                        .parse()
+                        .map_err(|_| "invalid security callback member".to_owned())
+                })
+                .collect::<Result<_, _>>()?,
+        })
+    };
+    Ok(vec![
+        endpoint(
+            tinysecurity_bus::callback_names2::SECRET_CIPHER_CONSUMER,
+            &[tinysecurity_bus::callback_names2::DELIVER],
+        )?,
+        endpoint(
+            tinysecurity_bus::callback_names2::SECRET_BACKEND,
+            &[
+                tinysecurity_bus::callback_names2::LOAD,
+                tinysecurity_bus::callback_names2::SET,
+            ],
+        )?,
+    ])
+}
+
+#[cfg(feature = "security-module")]
+fn security_opaque_id(label: &str, path: &Path, suffix: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(label.as_bytes());
+    hasher.update((path.as_os_str().len() as u64).to_be_bytes());
+    hasher.update(path.to_string_lossy().as_bytes());
+    hasher.update(suffix.as_bytes());
+    format!("{:x}", hasher.finalize())[..32].to_owned()
+}
+
+#[cfg(feature = "security-module")]
+async fn ensure_loaded_with_security_callback(
+    resolver: &Resolver,
+    config: &Config,
+    id: &str,
+) -> Result<(), String> {
+    let mut loads = SECURITY_CALLBACK_LOADS.lock().await;
+    if let Some(state) = loads.get(id) {
+        let key_path = config
+            .config_path
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join(".secret_key");
+        if state.key_path != key_path {
+            return Err("security secret scope changed after module admission".into());
+        }
+        let module_config = state.module_config(config)?;
+        resolver
+            .ensure_loaded_with_host_callbacks(
+                id,
+                std::sync::Arc::clone(&state.binding),
+                module_config,
+            )
+            .await?;
+        register_security_scope(config, state).await?;
+        return Ok(());
+    }
+
+    let key_dir = config
+        .config_path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .to_path_buf();
+    let key_path = key_dir.join(".secret_key");
+    let user_id = key_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
+        .unwrap_or("openhuman")
+        .to_owned();
+    let subject = tinysecurity_bus::SubjectScope {
+        user: user_id.clone(),
+        workspace: config.workspace_dir.to_string_lossy().into_owned(),
+        agent: "config-secrets".into(),
+    };
+    let scope = crate::security::approval::native::prepare_secret_scope(config, subject).await?;
+    let target_backend = crate::security::secret_storage::store::effective_backend_kind();
+    let target_backend_id = security_opaque_id("secret-backend", &key_path, &format!("{target_backend:?}"));
+    let legacy_backend_id = security_opaque_id("secret-legacy", &key_path, "file");
+    let registration_id = security_opaque_id("secret-registration", &key_path, "config-user-master");
+    let consumer_id = security_opaque_id("secret-cipher-consumer", &key_path, "config-user-master");
+
+    let runtime = resolver
+        .runtime()
+        .await
+        .map_err(|error| error.to_string())?;
+    let host = runtime.host().clone();
+    let candidates = std::sync::Arc::new(tokio::sync::Mutex::new(
+        std::collections::HashMap::<String, std::sync::Arc<SecurityCallbackState>>::new(),
+    ));
+    let factory_config = config.clone();
+    let factory_scope = scope.clone();
+    let factory_candidates = std::sync::Arc::clone(&candidates);
+    let factory_key_path = key_path.clone();
+    let factory_user = user_id.clone();
+    let factory_registration = registration_id.clone();
+    let factory_consumer_id = consumer_id.clone();
+    let factory_target_backend_id = target_backend_id.clone();
+    let factory_legacy_backend_id = legacy_backend_id.clone();
+    let binding = resolver
+        .ensure_loaded_with_host_callback_factory(id, move |_attempt| {
+            let host = host.clone();
+            let config = factory_config.clone();
+            let scope = factory_scope.clone();
+            let candidates = std::sync::Arc::clone(&factory_candidates);
+            let key_path = factory_key_path.clone();
+            let user_id = factory_user.clone();
+            let registration_id = factory_registration.clone();
+            let consumer_id = factory_consumer_id.clone();
+            let target_backend_id = factory_target_backend_id.clone();
+            let legacy_backend_id = factory_legacy_backend_id.clone();
+            async move {
+                let binding = std::sync::Arc::new(
+                    host.prepare_host_callbacks(security_callback_endpoints()?)
+                        .await
+                        .map_err(|_| "security callback binding unavailable".to_owned())?,
+                );
+                let consumer = std::sync::Arc::new(
+                    super::security::cipher_consumer::Consumer::new(
+                        registration_id.clone(),
+                        consumer_id.clone(),
+                    ),
+                );
+                let backend = std::sync::Arc::new(
+                    super::security::secret_backend::SecretBackend::new(
+                        registration_id.clone(),
+                        user_id,
+                        target_backend_id.clone(),
+                        legacy_backend_id.clone(),
+                        key_path.clone(),
+                        target_backend,
+                    ),
+                );
+                super::security::serve_secret_callbacks(
+                    &binding,
+                    std::sync::Arc::clone(&consumer),
+                    std::sync::Arc::clone(&backend),
+                )
+                .await
+                .map_err(|_| "security callback registration failed".to_owned())?;
+                let state = std::sync::Arc::new(SecurityCallbackState {
+                    binding: std::sync::Arc::clone(&binding),
+                    consumer,
+                    backend,
+                    scope,
+                    registration_id,
+                    consumer_id,
+                    target_backend_id,
+                    legacy_backend_id,
+                    target_backend,
+                    key_path,
+                });
+                let module_config = state.module_config(&config)?;
+                candidates
+                    .lock()
+                    .await
+                    .insert(binding.unique_name().to_string(), state);
+                Ok((binding, module_config))
+            }
+        })
+        .await?;
+    let selected_key = binding.unique_name().to_string();
+    let mut candidates = candidates.lock().await;
+    let state = candidates
+        .remove(&selected_key)
+        .ok_or_else(|| "admitted security callback state unavailable".to_owned())?;
+    candidates.clear();
+    loads.insert(id.to_owned(), std::sync::Arc::clone(&state));
+    register_security_scope(config, &state).await?;
+    Ok(())
+}
+
+#[cfg(feature = "security-module")]
+async fn register_security_scope(
+    _config: &Config,
+    state: &SecurityCallbackState,
+) -> Result<(), String> {
+    let record = registry::find(super::security::MODULE_ID)
+        .ok_or_else(|| "security module registry record missing".to_owned())?;
+    let proxy = state
+        .binding
+        .proxy(record.bus_name, record.object_path, tinysecurity_bus::names::INTERFACE)
+        .map_err(|_| "security module proxy unavailable".to_owned())?;
+    let info: tinysecurity_bus::PolicyInfo = proxy
+        .call_confidential(tinysecurity_bus::names::methods::POLICY_INFO, ())
+        .await
+        .map_err(|_| "security module policy unavailable".to_owned())?;
+    state
+        .scope
+        .ensure_registered_with_callback(&proxy, info.generation)
+        .await
+}
+
+#[cfg(feature = "security-module")]
 async fn ensure_loaded_with_computer_callback(
     resolver: &Resolver,
     config: &Config,
@@ -475,7 +756,20 @@ pub async fn ensure_loaded_within(
     } else {
         #[cfg(feature = "security-module")]
         {
-            if id == super::desktop::MODULE_ID {
+            if id == super::security::MODULE_ID {
+                if let Some(component) = disabled_component(config, id) {
+                    Err(LoadError::Disabled(component))
+                } else {
+                    let load = ensure_loaded_with_security_callback(&resolver, config, id);
+                    match within {
+                        Some(within) => tokio::time::timeout(within, load)
+                            .await
+                            .map_err(|_| LoadError::StillLoading)?
+                            .map_err(LoadError::Failed),
+                        None => load.await.map_err(LoadError::Failed),
+                    }
+                }
+            } else if id == super::desktop::MODULE_ID {
                 if let Some(component) = disabled_component(config, id) {
                     Err(LoadError::Disabled(component))
                 } else {

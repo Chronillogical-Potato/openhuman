@@ -24,7 +24,9 @@ mod tests;
 
 pub use client::{Client, SecurityError};
 pub use policy::policy_config;
-pub(super) use policy::{module_config, module_config_for_host};
+pub(super) use policy::{
+    module_config, module_config_for_host, module_config_for_secret_scope,
+};
 
 /// Serve the cipher output and master storage callbacks on the exact admitted
 /// TinySecurity host binding.
