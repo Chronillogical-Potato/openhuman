@@ -53,7 +53,7 @@ use tinyinference_llm::message::{ContentBlock, ImageRef, Message, UserMessage};
 use tinyinference_llm::model::{ModelRequest, ModelResponse};
 
 use crate::error::CoreError;
-use crate::turn::{is_safe_endpoint_for_bearer, sanitize_url_for_display, Route};
+use crate::turn::{Route, sanitize_url_for_display};
 
 pub use tinyagents_harness::observability::{
     PhysicalDispatchMetadata, PhysicalDispatchObserver, PhysicalDispatchOutcome,
@@ -583,7 +583,7 @@ impl Completer {
         mut request: CompletionRequest,
     ) -> Result<CompletionResponse, CoreError> {
         use crate::structured::{
-            accumulate, StructuredFailureReason, StructuredOutputFailure, Validator,
+            StructuredFailureReason, StructuredOutputFailure, Validator, accumulate,
         };
         let initial_failure = |reason| CoreError::StructuredOutput {
             method: COMPLETE,
@@ -731,7 +731,7 @@ impl Completer {
         if request.model.trim().is_empty() || base_url.is_empty() || api_key.is_empty() {
             return Err(CoreError::InvalidRoute { method: COMPLETE });
         }
-        if !is_safe_endpoint_for_bearer(base_url) {
+        if !tinytools_std::url_guard::is_safe_endpoint_for_bearer(base_url) {
             return Err(CoreError::InsecureRoute {
                 method: COMPLETE,
                 endpoint: sanitize_url_for_display(base_url),

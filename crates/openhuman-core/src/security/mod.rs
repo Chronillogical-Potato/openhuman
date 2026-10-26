@@ -20,7 +20,6 @@ pub mod policy;
 pub mod prompt_injection;
 pub mod scrub;
 pub mod secret_storage;
-pub(crate) mod transport;
 
 #[allow(unused_imports)]
 pub use self::secret_storage::SecretStore;
