@@ -1,4 +1,4 @@
-import { act, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { renderWithProviders } from '../../../../test/test-utils';
@@ -38,28 +38,24 @@ describe('ToolPolicyDiagnosticsPanel', () => {
   });
 
   test('renders unavailable state when the RPC fails', async () => {
-    let rejectRpc: (error: Error) => void = () => {};
-    hoisted.callCoreRpc.mockImplementation(
-      () => new Promise((_resolve, reject) => { rejectRpc = reject; })
-    );
+    hoisted.callCoreRpc.mockImplementation(() => {
+      throw new Error('rpc transport unavailable');
+    });
 
     const Panel = (await import('../ToolPolicyDiagnosticsPanel')).default;
     renderWithProviders(<Panel />);
-    await act(async () => rejectRpc(new Error('rpc transport unavailable')));
 
     expect(screen.getByTestId('policy-info-unavailable')).toBeInTheDocument();
     expect(screen.getByText('rpc transport unavailable')).toBeInTheDocument();
   });
 
   test('renders not-built state when the core does not register the method', async () => {
-    let rejectRpc: (error: Error) => void = () => {};
-    hoisted.callCoreRpc.mockImplementation(
-      () => new Promise((_resolve, reject) => { rejectRpc = reject; })
-    );
+    hoisted.callCoreRpc.mockImplementation(() => {
+      throw new Error('method not found: security_policy_info');
+    });
 
     const Panel = (await import('../ToolPolicyDiagnosticsPanel')).default;
     renderWithProviders(<Panel />);
-    await act(async () => rejectRpc(new Error('method not found: security_policy_info')));
 
     expect(screen.getByTestId('policy-info-not-built')).toBeInTheDocument();
   });
