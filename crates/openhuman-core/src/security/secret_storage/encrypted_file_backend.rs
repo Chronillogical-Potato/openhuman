@@ -431,17 +431,6 @@ impl EncryptedFileBackend {
                             ))
                         })?
                     };
-                for (name, value) in &legacy_map {
-                    if let Some(existing) = crate::storage::block_on(store.get(name))
-                        .map_err(adapter::backend_error)?
-                    {
-                        if existing.as_slice() != value.as_bytes() {
-                            return Err(SecretStorageError::Backend(
-                                "legacy secret conflicts with an existing encrypted value; source retained for recovery".into(),
-                            ));
-                        }
-                    }
-                }
                 let verified = crate::storage::block_on(store.prepare_file_import(
                     LEGACY_IMPORT_OPERATION,
                     LEGACY_IMPORT_PAYLOAD,
@@ -474,8 +463,8 @@ impl EncryptedFileBackend {
             })?
         };
 
-        // Refuse a conflicting pre-existing value before the driver's cleanup
-        // receipt can remove the plaintext source.
+        // Replay every entry before the driver's cleanup receipt can remove
+        // the plaintext source. A conflict or failed write leaves it intact.
         for (name, value) in &map {
             if let Some(existing) = crate::storage::block_on(store.get(name))
                 .map_err(adapter::backend_error)?
