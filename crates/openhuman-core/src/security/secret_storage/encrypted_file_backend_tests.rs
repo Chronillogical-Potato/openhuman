@@ -182,13 +182,15 @@ fn profile_read_only_secret_lookup_preserves_corrupt_store_bytes() {
         std::fs::read(&backend.path).unwrap(),
         b"corrupt encrypted store"
     );
-    assert!(!std::fs::read_dir(workspace.path())
-        .unwrap()
-        .flatten()
-        .any(|entry| entry
-            .file_name()
-            .to_string_lossy()
-            .starts_with("secrets.enc.corrupt.")));
+    assert!(
+        !std::fs::read_dir(workspace.path())
+            .unwrap()
+            .flatten()
+            .any(|entry| entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("secrets.enc.corrupt."))
+    );
 }
 
 #[test]
@@ -199,13 +201,23 @@ fn desktop_secret_store_quarantines_corruption_through_the_driver_policy() {
     let corrupt = b"not an encrypted secret file";
     write_private_file(&path, corrupt);
 
-    assert_eq!(backend.get_with_key(&[0x42; KEY_LEN], "user:token").unwrap(), None);
+    assert_eq!(
+        backend
+            .get_with_key(&[0x42; KEY_LEN], "user:token")
+            .unwrap(),
+        None
+    );
 
     assert!(!path.exists());
     let archives: Vec<_> = std::fs::read_dir(workspace.path())
         .unwrap()
         .flatten()
-        .filter(|entry| entry.file_name().to_string_lossy().starts_with("secrets.enc.corrupt."))
+        .filter(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("secrets.enc.corrupt.")
+        })
         .collect();
     assert_eq!(archives.len(), 1);
     assert_eq!(std::fs::read(archives[0].path()).unwrap(), corrupt);
@@ -225,13 +237,19 @@ fn legacy_plaintext_is_removed_only_after_verified_encrypted_migration() {
     let key = [0x42; KEY_LEN];
     assert_eq!(read_secret(&backend, &key).as_deref(), Some("secret-value"));
     assert_eq!(
-        backend.get_with_key(&key, "user:second").unwrap().as_deref(),
+        backend
+            .get_with_key(&key, "user:second")
+            .unwrap()
+            .as_deref(),
         Some("second-value")
     );
     assert!(!legacy_path.exists());
     assert!(backend.path.exists());
     assert!(!legacy_path.with_extension("json.migrated").exists());
-    assert_eq!(backend.get_with_key(&key, LEGACY_IMPORT_PAYLOAD).unwrap(), None);
+    assert_eq!(
+        backend.get_with_key(&key, LEGACY_IMPORT_PAYLOAD).unwrap(),
+        None
+    );
     assert_eq!(
         backend
             .get_with_key(&key, LEGACY_IMPORT_COMPLETE)
@@ -250,9 +268,11 @@ fn invalid_legacy_plaintext_is_preserved_for_recovery() {
     write_private_file(&legacy_path, b"invalid JSON");
 
     let backend = EncryptedFileBackend::new(dir.path());
-    assert!(backend
-        .get_with_key(&[0x42; KEY_LEN], "user:token")
-        .is_err());
+    assert!(
+        backend
+            .get_with_key(&[0x42; KEY_LEN], "user:token")
+            .is_err()
+    );
     assert_eq!(std::fs::read(&legacy_path).unwrap(), b"invalid JSON");
     assert!(!backend.path.exists());
 }
@@ -446,9 +466,11 @@ fn malformed_env_key_is_rejected_without_leaking_the_value() {
 
 #[test]
 fn empty_env_values_fall_through_to_the_keychain() {
-    assert!(master_key_from_env(None, None, file_must_not_be_read)
-        .expect("nothing set is fine")
-        .is_none());
+    assert!(
+        master_key_from_env(None, None, file_must_not_be_read)
+            .expect("nothing set is fine")
+            .is_none()
+    );
     assert!(
         master_key_from_env(Some(""), Some("   "), file_must_not_be_read)
             .expect("empty values count as unset")

@@ -28,7 +28,8 @@ impl MemoryBackend {
 
 impl SecretBackend for MemoryBackend {
     fn get(&self, key: &str) -> Result<Option<String>, SecretStorageError> {
-        let value = crate::storage::block_on(self.values.get(key)).map_err(adapter::backend_error)?;
+        let value =
+            crate::storage::block_on(self.values.get(key)).map_err(adapter::backend_error)?;
         adapter::utf8(key, value)
     }
 

@@ -428,10 +428,10 @@ impl EncryptedFileBackend {
         };
         let (bytes, receipt) = match (staged, source.as_ref()) {
             (Some(staged), _) => {
-                let recovered = crate::storage::block_on(store.recover_file_import_source(
-                    LEGACY_IMPORT_OPERATION,
-                    LEGACY_IMPORT_PAYLOAD,
-                ))
+                let recovered = crate::storage::block_on(
+                    store
+                        .recover_file_import_source(LEGACY_IMPORT_OPERATION, LEGACY_IMPORT_PAYLOAD),
+                )
                 .map_err(adapter::backend_error)?;
                 if staged.as_slice() != recovered.as_slice() {
                     return Err(SecretStorageError::Backend(
@@ -442,16 +442,15 @@ impl EncryptedFileBackend {
             }
             (None, Some(source)) => {
                 let bytes = source.bytes();
-                let legacy_map: std::collections::BTreeMap<String, String> =
-                    if bytes.is_empty() {
-                        Default::default()
-                    } else {
-                        serde_json::from_slice(bytes).map_err(|error| {
+                let legacy_map: std::collections::BTreeMap<String, String> = if bytes.is_empty() {
+                    Default::default()
+                } else {
+                    serde_json::from_slice(bytes).map_err(|error| {
                             SecretStorageError::Backend(format!(
                                 "legacy dev keychain is invalid JSON; preserving it for recovery: {error}"
                             ))
                         })?
-                    };
+                };
                 let verified = crate::storage::block_on(store.prepare_file_import(
                     LEGACY_IMPORT_OPERATION,
                     LEGACY_IMPORT_PAYLOAD,
@@ -461,10 +460,9 @@ impl EncryptedFileBackend {
                 .map_err(adapter::backend_error)?;
                 (Zeroizing::new(bytes.to_vec()), Some(verified))
             }
-            (None, None) => match crate::storage::block_on(store.recover_file_import_source(
-                LEGACY_IMPORT_OPERATION,
-                LEGACY_IMPORT_PAYLOAD,
-            )) {
+            (None, None) => match crate::storage::block_on(
+                store.recover_file_import_source(LEGACY_IMPORT_OPERATION, LEGACY_IMPORT_PAYLOAD),
+            ) {
                 Ok(bytes) => (bytes, None),
                 Err(error) if error.kind() == tinystoragedrivers::ErrorKind::NotFound => {
                     return Ok(());
@@ -486,8 +484,8 @@ impl EncryptedFileBackend {
         // Replay every entry before the driver's cleanup receipt can remove
         // the plaintext source. A conflict or failed write leaves it intact.
         for (name, value) in &map {
-            if let Some(existing) = crate::storage::block_on(store.get(name))
-                .map_err(adapter::backend_error)?
+            if let Some(existing) =
+                crate::storage::block_on(store.get(name)).map_err(adapter::backend_error)?
             {
                 if existing.as_slice() != value.as_bytes() {
                     return Err(SecretStorageError::Backend(
@@ -498,8 +496,8 @@ impl EncryptedFileBackend {
         }
 
         for (name, value) in &map {
-            let existing = crate::storage::block_on(store.get(name))
-                .map_err(adapter::backend_error)?;
+            let existing =
+                crate::storage::block_on(store.get(name)).map_err(adapter::backend_error)?;
             match existing {
                 Some(existing) if existing.as_slice() == value.as_bytes() => {}
                 Some(_) => {
@@ -521,10 +519,14 @@ impl EncryptedFileBackend {
                 CleanupAcknowledgment::RemovedAndDirectorySynced
                 | CleanupAcknowledgment::AlreadyCompleted => {}
                 CleanupAcknowledgment::UnsupportedBoundary => {
-                    log::warn!("[keyring:encrypted_file] legacy plaintext retained by the platform");
+                    log::warn!(
+                        "[keyring:encrypted_file] legacy plaintext retained by the platform"
+                    );
                 }
                 CleanupAcknowledgment::RemovedUnacknowledged => {
-                    log::warn!("[keyring:encrypted_file] legacy plaintext removal was not fully acknowledged");
+                    log::warn!(
+                        "[keyring:encrypted_file] legacy plaintext removal was not fully acknowledged"
+                    );
                 }
             }
         }
