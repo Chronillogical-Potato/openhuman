@@ -45,7 +45,7 @@ pub fn default_tools_with_runtime(
 
 /// Create full tool registry including memory tools.
 #[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
-pub fn all_tools(
+pub async fn all_tools(
     config: Arc<Config>,
     security: &Arc<SecurityPolicy>,
     audit: Arc<AuditSink>,
@@ -65,12 +65,13 @@ pub fn all_tools(
         root_config,
         None,
     )
+    .await
 }
 
 /// Create full tool registry including memory tools.
 ///
 #[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
-pub fn all_tools_with_runtime(
+pub async fn all_tools_with_runtime(
     config: Arc<Config>,
     security: &Arc<SecurityPolicy>,
     runtime: Arc<dyn RuntimeAdapter>,
@@ -92,6 +93,7 @@ pub fn all_tools_with_runtime(
         root_config,
         approval_workspace_root,
     )
+    .await
     .0
 }
 
@@ -101,7 +103,7 @@ pub fn all_tools_with_runtime(
 /// so later registry refreshes can rebind `use_skill` without inspecting the
 /// tool's generic dispatch extension.
 #[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
-pub fn all_tools_with_runtime_and_pack_handle(
+pub async fn all_tools_with_runtime_and_pack_handle(
     config: Arc<Config>,
     security: &Arc<SecurityPolicy>,
     runtime: Arc<dyn RuntimeAdapter>,
@@ -514,7 +516,7 @@ pub fn all_tools_with_runtime_and_pack_handle(
         Some(crate::tools::sources::ANCHOR_AFTER_DELEGATE),
     ));
 
-    let composio_tools = crate::integrations::composio::all_composio_agent_tools(root_config);
+    let composio_tools = crate::integrations::composio::all_composio_agent_tools(root_config).await;
     if composio_tools.is_empty() {
         tracing::debug!("[integrations] composio unavailable — skipping");
     } else {
