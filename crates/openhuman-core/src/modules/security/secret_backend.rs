@@ -24,6 +24,7 @@ pub(crate) struct SecretBackend {
     legacy_path: PathBuf,
     target: Binding,
     legacy: Binding,
+    pending_targets: parking_lot::Mutex<std::collections::HashMap<String, zeroize::Zeroizing<Vec<u8>>>>,
 }
 
 impl SecretBackend {
@@ -49,6 +50,7 @@ impl SecretBackend {
                 backend: target_backend,
                 legacy_file: true,
             },
+            pending_targets: parking_lot::Mutex::new(std::collections::HashMap::new()),
         }
     }
 
@@ -96,7 +98,12 @@ impl SecretBackend {
                     ) =>
             {
                 match load_backend(binding.backend, &self.user_id) {
-                    Ok(Some(encoded)) => SecretBackendLoadStatus2::Present { encoded },
+                    Ok(Some(encoded)) => {
+                        if identity.phase == SecretPhase2::TargetReadback {
+                            self.finish_legacy_migration(&identity, &encoded);
+                        }
+                        SecretBackendLoadStatus2::Present { encoded }
+                    }
                     Ok(None) => SecretBackendLoadStatus2::Absent,
                     Err(()) => SecretBackendLoadStatus2::Unavailable,
                 }
@@ -117,15 +124,47 @@ impl SecretBackend {
             {
                 match std::str::from_utf8(&encoded)
                     .ok()
-                    .and_then(|encoded| save_backend(binding.backend, &self.user_id, encoded).ok())
+                    .and_then(|value| {
+                        save_backend(binding.backend, &self.user_id, value)
+                            .ok()
+                            .map(|()| value.to_owned())
+                    })
                 {
-                    Some(()) => SecretBackendSetStatus2::Stored,
+                    Some(_) => {
+                        self.pending_targets.lock().insert(
+                            identity.operation_id.clone(),
+                            encoded.clone(),
+                        );
+                        SecretBackendSetStatus2::Stored
+                    }
                     None => SecretBackendSetStatus2::Unavailable,
                 }
             }
             _ => SecretBackendSetStatus2::Denied,
         };
         SecretBackendSetResponse2 { identity, status }
+    }
+
+    fn finish_legacy_migration(
+        &self,
+        identity: &tinysecurity_bus::SecretBackendIdentity2,
+        target_value: &[u8],
+    ) {
+        if !crate::security::secret_storage::store::backend_is_persistent() {
+            return;
+        }
+        let mut pending = self.pending_targets.lock();
+        if pending
+            .get(&identity.operation_id)
+            .is_some_and(|expected| expected.as_slice() == target_value)
+        {
+            if std::fs::remove_file(&self.legacy_path).is_ok() {
+                log::info!(
+                    "[security] migrated legacy secret-store key into the configured backend"
+                );
+            }
+            pending.remove(&identity.operation_id);
+        }
     }
 }
 

@@ -174,6 +174,11 @@ pub(crate) fn effective_backend_kind() -> BackendKind {
     )
 }
 
+/// Whether the selected host master-key provider survives process exit.
+pub(crate) fn backend_is_persistent() -> bool {
+    backend().is_persistent()
+}
+
 fn effective_backend_kind_for(
     _app_env: Option<&str>,
     backend_override: Option<&str>,

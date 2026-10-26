@@ -111,10 +111,9 @@ pub async fn reinitialize(config: &Config) -> Result<(), SecurityError> {
     let runtime = super::runtime::runtime()
         .await
         .map_err(|_| SecurityError::Unavailable("module runtime unavailable".into()))?;
-    let trusted_host = runtime
-        .connection()
-        .unique_name()
-        .map(|name| name.to_string());
+    let trusted_host = super::ops::security_callback_binding()
+        .await
+        .map(|binding| binding.unique_name().to_string());
     let config = policy::module_config_for_host(config, trusted_host)
         .map_err(|error| SecurityError::Unavailable(error.into()))?;
     let payload = serde_json::to_value(config)
