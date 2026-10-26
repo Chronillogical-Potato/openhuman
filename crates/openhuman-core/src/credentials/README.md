@@ -85,26 +85,15 @@ inferred. API-key precedence and local-session behavior are unchanged.
 
 `AuthProfilesStore` (`profiles.rs`) writes the schema document to `auth-profiles/secrets.enc` in the config state directory (parent of `config.config_path`, user-scoped after activation). The document contains `schema_version` (current = 1), `updated_at`, `active_profiles` (provider → profile-id), and [`profiles`](./profiles) (id → profile). The old root-level `auth-profiles.json` is read only for one-time import. The `app-session` profile's metadata carries `user_id`, `user_json` (the host-supplied payload) and `session_expires_at` (the JWT `exp`, for the local expiry precheck). Secret handling:
 
-- Profile secrets use the configured keyring secret backend when available; otherwise they remain inside the TSD-encrypted profile document.
+- Config-backed profile secrets use TinySecurity `KeyringAccess2` over TSD `KeyringSecrets`, with fresh approval for each read, write, and delete. No-Config bootstrap APIs keep secrets only in the encrypted profile document.
 - The whole local document is encrypted by `EncryptedFileSecrets`. Legacy `enc:` fields are unsupported and unrecoverable profiles are dropped; malformed legacy JSON is quarantined during import.
 - Reads and mutations coordinate through `tinystoragedrivers-fence::LocalLeases`; doctor reads open the encrypted document read-only.
-
-### On a storage backend
-
-With a storage backend configured (`crate::storage`), the profile document
-and the flow store's [`http-credentials.json`](../../flows/http_credentials.rs)
-are not written to the profile-local file: the same JSON is kept as
-one encrypted secret each (`file:auth-profiles.json`,
-`file:http-credentials.json`) in the acting agent's scope
-(`storage::secrets`), and per-profile keychain secrets go there through the
-keyring. An unparseable record is an error rather than quarantined, so a
-write never replaces profiles it could not read. Writes are last-writer-wins
-across processes; the local file lock still serializes one host.
 
 ## Dependencies
 
 - `crate::config`: `Config`, config load (`load_config_with_timeout`), user-dir activation (`default_root_openhuman_dir`, `user_openhuman_dir`, `read/write/clear_active_user`, `pre_login_user_dir`), onboarding state.
-- `crate::security::secret_storage`: current host keyring adapter and availability probe. Per-operation TinySecurity keyring consent is not yet wired to this profile-store path.
+- `crate::modules::security`: TinySecurity `KeyringAccess2` client and exact-operation consent callback.
+- `tinystoragedrivers_secrets::EncryptedFileSecrets`: profile-local encrypted document and read-only doctor access.
 - `crate::platform::llm_gate`: signed-out override flipped on install/removal/expiry.
 - `crate::memory::conversations`: purge pre-login threads, bind conversation persistence after activation.
 - `crate::memory`: bind memory client to the active workspace after activation.
