@@ -143,5 +143,4 @@ impl DomainEvent {
             | Self::McpServerParked { .. } => "mcp_client",
         }
     }
-
 }
