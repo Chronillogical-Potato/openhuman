@@ -81,13 +81,17 @@ pub async fn fetch_connected_integrations_status(
     // real connection. An authoritative empty set keeps this session local.
     // A stored API key outranks the local session (`resolve_backend_credential`),
     // so it still reaches the backend.
-    if config.composio.mode.trim() != crate::config::schema::COMPOSIO_MODE_DIRECT
-        && !crate::credentials::api_key::has_api_key(config)
+    let local_session_without_api_key = config.composio.mode.trim()
+        != crate::config::schema::COMPOSIO_MODE_DIRECT
+        && !crate::credentials::api_key::has_api_key(config).await
         && crate::credentials::session_state::get_session_token(config)
+            .await
             .ok()
             .flatten()
-            .is_some_and(|token| crate::credentials::session_state::is_local_session_token(&token))
-    {
+            .is_some_and(|token| {
+                crate::credentials::session_state::is_local_session_token(&token)
+            });
+    if local_session_without_api_key {
         return FetchConnectedIntegrationsStatus::Authoritative(Vec::new());
     }
 

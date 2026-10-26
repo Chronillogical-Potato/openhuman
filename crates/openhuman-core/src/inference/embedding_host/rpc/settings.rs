@@ -79,29 +79,28 @@ pub async fn get_settings(config: &Config) -> Result<Outcome<serde_json::Value>,
         });
 
     let auth = AuthService::from_config(config);
-    let providers: Vec<serde_json::Value> = catalog::all_providers()
-        .iter()
-        .map(|entry| {
-            let has_key = if entry.requires_api_key {
-                let cred_provider = format!("embeddings:{}", entry.slug);
-                auth.get_provider_bearer_token(&cred_provider, None)
-                    .ok()
-                    .flatten()
-                    .is_some()
-            } else {
-                false
-            };
-            serde_json::json!({
-                "slug": entry.slug,
-                "label": entry.label,
-                "description": entry.description,
-                "requires_api_key": entry.requires_api_key,
-                "requires_endpoint": entry.requires_endpoint,
-                "has_api_key": has_key,
-                "models": entry.models,
-            })
-        })
-        .collect();
+    let mut providers = Vec::new();
+    for entry in catalog::all_providers() {
+        let has_key = if entry.requires_api_key {
+            let cred_provider = format!("embeddings:{}", entry.slug);
+            auth.get_provider_bearer_token(&cred_provider, None)
+                .await
+                .ok()
+                .flatten()
+                .is_some()
+        } else {
+            false
+        };
+        providers.push(serde_json::json!({
+            "slug": entry.slug,
+            "label": entry.label,
+            "description": entry.description,
+            "requires_api_key": entry.requires_api_key,
+            "requires_endpoint": entry.requires_endpoint,
+            "has_api_key": has_key,
+            "models": entry.models,
+        }));
+    }
 
     let vector_search_enabled = {
         let (_, endpoint) = split_custom_provider(provider);
@@ -122,6 +121,7 @@ pub async fn get_settings(config: &Config) -> Result<Outcome<serde_json::Value>,
     let local_model = config.workload_local_model("embeddings");
     let session_exists = auth
         .get_provider_bearer_token(crate::credentials::APP_SESSION_PROVIDER, None)
+        .await
         .ok()
         .flatten()
         .is_some_and(|token| !token.trim().is_empty());
