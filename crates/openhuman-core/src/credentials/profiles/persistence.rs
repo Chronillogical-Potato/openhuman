@@ -6,7 +6,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::Path;
 
 use tinystoragedrivers_secrets::{EncryptedFileSecrets, SecretStore as _};
 
