@@ -6,7 +6,7 @@ use crate::core::Outcome;
 
 use super::loader::snapshot_config_json;
 
-/// Partial update for the `[security.sandbox]` + `[runtime.docker]` blocks.
+/// Partial update for the `[sandbox]` + `[runtime.docker]` blocks.
 #[derive(Debug, Clone, Default)]
 pub struct SandboxSettingsPatch {
     pub backend: Option<String>,
