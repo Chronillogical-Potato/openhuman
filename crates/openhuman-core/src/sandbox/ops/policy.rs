@@ -1,12 +1,10 @@
-use crate::config::{RuntimeConfig, SandboxBackend, SandboxConfig};
+use crate::config::SandboxBackend;
 use crate::core::runtime::DispatchCtx;
-use std::path::Path;
 
 use crate::sandbox::{
     docker,
     types::{SandboxBackendHandle, SandboxBackendKind, SandboxPolicy, SandboxStatus},
 };
-use tinyagents_definition::SandboxMode;
 
 /// Safe environment variables forwarded into sandboxed execution.
 ///
@@ -37,68 +35,6 @@ pub fn sandbox_off_value(value: Option<&str>) -> bool {
     )
 }
 
-/// Whether a command tool must use the sandbox execution path. An explicit
-/// backend in the active config is an operator requirement even when the
-/// agent definition uses the usual `SandboxMode::None` default.
-pub async fn command_requires_sandbox(
-    ctx: &DispatchCtx,
-    sandbox_mode: Option<SandboxMode>,
-) -> Result<bool, String> {
-    if crate::core::runtime::is_saas() {
-        // Every SaaS command must enter the per-user container path, including
-        // language tools whose agent definition does not request a sandbox.
-        return Ok(true);
-    }
-    if sandbox_disabled_by_host(ctx) {
-        return Ok(false);
-    }
-    if matches!(sandbox_mode, Some(SandboxMode::Sandboxed)) {
-        return Ok(true);
-    }
-    let config = ctx.load_config().await?;
-    if config_disables_sandbox(&config) {
-        return Ok(false);
-    }
-    Ok(matches!(
-        config.sandbox.backend,
-        SandboxBackend::Landlock
-            | SandboxBackend::Firejail
-            | SandboxBackend::Bubblewrap
-            | SandboxBackend::Docker
-    ))
-}
-
-/// Resolve the policy for a command tool before building its command line.
-/// SaaS always uses the user's container; other hosts apply the operator's
-/// backend selection while retaining an agent-level sandbox requirement.
-pub(crate) async fn resolve_command_policy(
-    ctx: &DispatchCtx,
-    action_dir: &Path,
-    state_dir: &Path,
-) -> Result<SandboxPolicy, String> {
-    if crate::core::runtime::is_saas() {
-        return crate::profiles::tools::sandbox_policy(action_dir, state_dir);
-    }
-    let config = ctx
-        .load_config()
-        .await
-        .map_err(|error| format!("Cannot read sandbox configuration: {error}"))?;
-    let mut policy = resolve_sandbox_policy(
-        ctx,
-        SandboxMode::Sandboxed,
-        action_dir,
-        state_dir,
-        &config.runtime,
-        false,
-    );
-    if !config_disables_sandbox(&config) && !sandbox_disabled_by_host(ctx) {
-        apply_requested_backend(&mut policy, &config.sandbox, &config.runtime, &config)
-            .await
-            .map_err(|error| error.to_string())?;
-    }
-    Ok(policy)
-}
-
 pub(crate) fn sandbox_disabled_by_host(ctx: &DispatchCtx) -> bool {
     sandbox_off_value(std::env::var(SANDBOX_OFF_ENV).ok().as_deref()) || sandbox_component_off(ctx)
 }
@@ -118,88 +54,6 @@ pub(crate) fn sandbox_component_off(ctx: &DispatchCtx) -> bool {
 pub(crate) fn config_disables_sandbox(config: &crate::config::Config) -> bool {
     config.sandbox.enabled == Some(false)
         || !crate::core::runtime::ComponentSet::from_config(&config.components).sandbox
-}
-
-/// Resolve a `SandboxPolicy` from the agent's `SandboxMode`, the
-/// session origin, and the global runtime config.
-///
-/// Non-main sessions (channel, cron, remote) default to `Docker` when
-/// the mode is `Sandboxed` and Docker is configured. Local interactive
-/// sessions default to `Local` (the TinyBox module's native process jail).
-///
-/// `state_dir` is the core's internal `workspace_dir`; host-side scratch such
-/// as output capture goes there instead of into `action_dir`.
-pub fn resolve_sandbox_policy(
-    ctx: &DispatchCtx,
-    mode: SandboxMode,
-    action_dir: &Path,
-    state_dir: &Path,
-    runtime_config: &RuntimeConfig,
-    is_remote_session: bool,
-) -> SandboxPolicy {
-    let backend = match mode {
-        SandboxMode::None => SandboxBackendKind::None,
-        SandboxMode::ReadOnly => SandboxBackendKind::None,
-        SandboxMode::Sandboxed if sandbox_disabled_by_host(ctx) => {
-            tracing::debug!(
-                env = SANDBOX_OFF_ENV,
-                "[sandbox] host disabled the sandbox; running sandboxed mode unconfined"
-            );
-            SandboxBackendKind::None
-        }
-        SandboxMode::Sandboxed => {
-            if runtime_config.kind == "docker" || is_remote_session {
-                SandboxBackendKind::Docker
-            } else {
-                SandboxBackendKind::Local
-            }
-        }
-    };
-
-    let docker_overrides = if backend == SandboxBackendKind::Docker {
-        let dc = &runtime_config.docker;
-        Some(crate::sandbox::types::DockerOverrides {
-            image: Some(dc.image.clone()),
-            network: Some(dc.network.clone()),
-            memory_limit_mb: dc.memory_limit_mb,
-            cpu_limit: dc.cpu_limit,
-            read_only_rootfs: Some(dc.read_only_rootfs),
-            extra_caps_drop: vec![],
-        })
-    } else {
-        None
-    };
-
-    let allow_network = match mode {
-        SandboxMode::Sandboxed => !is_remote_session,
-        _ => true,
-    };
-
-    // The jail denies whatever it is not told about; the toolchain/git grants
-    // everyday commands need are resolved by TinyBox at spawn time
-    // (`sandbox::local_grants`), so the policy starts without mounts.
-    tracing::debug!(
-        mode = ?mode,
-        backend = ?backend,
-        is_remote = is_remote_session,
-        action_dir = %action_dir.display(),
-        "[sandbox] resolved policy"
-    );
-
-    SandboxPolicy {
-        backend,
-        workspace_root: action_dir.to_path_buf(),
-        state_dir: state_dir.to_path_buf(),
-        read_only_mounts: Vec::new(),
-        read_write_mounts: Vec::new(),
-        allow_network,
-        mount_workspace: runtime_config.docker.mount_workspace || runtime_config.kind != "docker",
-        env_passthrough: SANDBOX_ENV_PASSTHROUGH
-            .iter()
-            .map(|s| s.to_string())
-            .collect(),
-        docker_overrides,
-    }
 }
 
 /// Create a backend handle for the resolved policy. For Docker this
@@ -290,49 +144,3 @@ fn docker_error_handle() -> SandboxBackendHandle {
     }
 }
 
-/// Apply an operator-selected backend. Auto retains the caller's existing
-/// policy. None opts out only when no agent-level sandbox is required.
-pub(crate) async fn apply_requested_backend(
-    policy: &mut SandboxPolicy,
-    sandbox: &SandboxConfig,
-    runtime: &RuntimeConfig,
-    config: &crate::config::Config,
-) -> anyhow::Result<bool> {
-    match &sandbox.backend {
-        SandboxBackend::Auto => Ok(false),
-        SandboxBackend::None => Ok(false),
-        SandboxBackend::Docker => {
-            if policy.backend == SandboxBackendKind::Local {
-                policy.read_only_mounts.clear();
-                policy.read_write_mounts.clear();
-            }
-            policy.backend = SandboxBackendKind::Docker;
-            let dc = &runtime.docker;
-            policy.docker_overrides = Some(crate::sandbox::types::DockerOverrides {
-                image: Some(dc.image.clone()),
-                network: Some(dc.network.clone()),
-                memory_limit_mb: dc.memory_limit_mb,
-                cpu_limit: dc.cpu_limit,
-                read_only_rootfs: Some(dc.read_only_rootfs),
-                extra_caps_drop: vec![],
-            });
-            Ok(true)
-        }
-        SandboxBackend::Landlock => {
-            crate::sandbox::native_jail::require_backend(config, "landlock").await?;
-            policy.backend = SandboxBackendKind::Local;
-            policy.docker_overrides = None;
-            Ok(true)
-        }
-        SandboxBackend::Firejail => {
-            anyhow::bail!(
-                "Firejail sandbox was explicitly requested but this build has no Firejail execution backend"
-            )
-        }
-        SandboxBackend::Bubblewrap => {
-            anyhow::bail!(
-                "Bubblewrap sandbox was explicitly requested but this build has no Bubblewrap execution backend"
-            )
-        }
-    }
-}
