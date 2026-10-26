@@ -173,6 +173,12 @@ fn limits(policy: &SandboxPolicy) -> ResourceLimits2 {
     }
 }
 
+/// Additional credential files owned by OpenHuman rather than resolved by
+/// TinySecurity's native credential-root policy.
+fn host_credential_denials(config: &Config) -> Vec<std::path::PathBuf> {
+    crate::credentials::credential_files(config)
+}
+
 /// The grants one spawn asks for: its workspace read-write plus the mounts the policy
 /// names. A workspace-less spawn asks for no writable root at all.
 fn grants(policy: &SandboxPolicy) -> Option<Vec<PathGrant>> {
@@ -373,7 +379,7 @@ async fn plan_with(
         options: options(policy, host_run),
         generation,
         ttl_ms: facts::PLAN_TTL_MS,
-        credential_denials: Vec::new(),
+        credential_denials: host_credential_denials(config),
         audit,
     };
     let response = client::plan(&proxy, planned.clone()).await;

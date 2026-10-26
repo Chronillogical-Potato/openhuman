@@ -154,3 +154,16 @@ fn host_network_approval_denial_selects_approval_evaluation_and_a_no_network_ret
         "other denials are never converted into approval requests"
     );
 }
+
+#[test]
+fn plan_request_carries_openhuman_owned_credential_paths_to_tinysecurity() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut config = crate::config::Config::default();
+    config.config_path = dir.path().join("config.toml");
+
+    let denied = host_credential_denials(&config);
+
+    assert!(denied.contains(&config.config_path));
+    assert!(denied.iter().any(|path| path.ends_with("auth-profiles.json")));
+    assert!(denied.iter().any(|path| path.ends_with("secrets.enc")));
+}
