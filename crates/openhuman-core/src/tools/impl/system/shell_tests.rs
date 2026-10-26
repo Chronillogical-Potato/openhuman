@@ -19,21 +19,6 @@ fn test_audit() -> Arc<AuditLogger> {
     AuditLogger::disabled()
 }
 
-fn audit_with_tempdir() -> (Arc<AuditLogger>, tempfile::TempDir) {
-    use crate::config::AuditConfig;
-    let tmp = tempfile::tempdir().expect("create tempdir");
-    let logger = AuditLogger::new(
-        AuditConfig {
-            enabled: true,
-            log_path: "audit.log".into(),
-            max_size_mb: 10,
-        },
-        tmp.path().to_path_buf(),
-    )
-    .expect("create audit logger");
-    (Arc::new(logger), tmp)
-}
-
 /// Build a `ToolExecutionContext` carrying a `WorkspaceDescriptor` rooted
 /// at `root`, mirroring what the tinyagents harness threads into every tool
 /// call with an explicit workspace (`RunContext::with_workspace` →
