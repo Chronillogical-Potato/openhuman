@@ -1,5 +1,28 @@
 use super::*;
 
+#[test]
+fn persisted_profile_document_is_encrypted_at_rest() {
+    let tmp = TempDir::new().unwrap();
+    let store = AuthProfilesStore::new(tmp.path(), true);
+    let profile = AuthProfile::new_token("openai", "default", "profile-secret-token".into());
+
+    store.upsert_profile(profile, true).unwrap();
+
+    let bytes = std::fs::read(store.path()).expect("persisted profile document");
+    assert!(
+        !String::from_utf8_lossy(&bytes).contains("profile-secret-token"),
+        "the profile document must not expose bearer credentials"
+    );
+    assert!(
+        serde_json::from_slice::<PersistedAuthProfiles>(&bytes).is_err(),
+        "the on-disk profile document must be encrypted, not plaintext JSON"
+    );
+    assert_eq!(
+        store.load().unwrap().profiles["openai:default"].token.as_deref(),
+        Some("profile-secret-token")
+    );
+}
+
 /// Sentry "Timed out waiting for auth profile lock" recovery: a lock
 /// file that has been around for longer than `STALE_LOCK_AGE_MS` is
 /// treated as leaked even if its recorded pid is still alive. This
