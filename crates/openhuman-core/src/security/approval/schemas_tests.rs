@@ -99,8 +99,7 @@ fn revoke_tool_trust_parser_requires_a_string_id() {
         "missing required param 'request_id'"
     );
     assert_eq!(
-        parse_revoke_tool_trust(Map::from_iter([("request_id".into(), json!(false))]))
-            .unwrap_err(),
+        parse_revoke_tool_trust(Map::from_iter([("request_id".into(), json!(false))])).unwrap_err(),
         "invalid 'request_id': expected string, got bool"
     );
 }

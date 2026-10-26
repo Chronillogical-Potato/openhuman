@@ -121,7 +121,10 @@ pub async fn approval_list_tool_trust(
     let grants = gate.list_tool_trust(ctx)?;
     Ok(Outcome::single_log(
         grants.clone(),
-        format!("[approval] list_tool_trust returned {} grant(s)", grants.len()),
+        format!(
+            "[approval] list_tool_trust returned {} grant(s)",
+            grants.len()
+        ),
     ))
 }
 

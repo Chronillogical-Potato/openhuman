@@ -56,8 +56,14 @@ fn raw_approval_security_registry_matches_its_independent_contract() {
                 true,
             )],
         ),
-        (vec![], vec![("grants", Array(Box::new(Ref("ToolTrustEntry"))), true)]),
-        (vec![("request_id", String, true)], vec![("revoked", Bool, true)]),
+        (
+            vec![],
+            vec![("grants", Array(Box::new(Ref("ToolTrustEntry"))), true)],
+        ),
+        (
+            vec![("request_id", String, true)],
+            vec![("revoked", Bool, true)],
+        ),
         (
             vec![
                 ("request_id", String, true),
