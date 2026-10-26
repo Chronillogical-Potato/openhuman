@@ -62,11 +62,11 @@ impl AuthService {
         }
     }
 
-    pub fn load_profiles(&self) -> Result<AuthProfilesData> {
-        self.store.load()
+    pub async fn load_profiles(&self) -> Result<AuthProfilesData> {
+        self.store.load().await
     }
 
-    pub fn store_provider_token(
+    pub async fn store_provider_token(
         &self,
         provider: &str,
         profile_name: &str,
@@ -77,13 +77,13 @@ impl AuthService {
         let provider = normalize_provider(provider)?;
         let mut profile = AuthProfile::new_token(&provider, profile_name, token.to_string());
         profile.metadata.extend(metadata);
-        self.store.upsert_profile(profile.clone(), set_active)?;
+        self.store.upsert_profile(profile.clone(), set_active).await?;
         Ok(profile)
     }
 
-    pub fn set_active_profile(&self, provider: &str, requested_profile: &str) -> Result<String> {
+    pub async fn set_active_profile(&self, provider: &str, requested_profile: &str) -> Result<String> {
         let provider = normalize_provider(provider)?;
-        let data = self.store.load()?;
+        let data = self.store.load().await?;
         let profile_id = resolve_requested_profile_id(&provider, requested_profile);
 
         let profile = data
@@ -99,7 +99,7 @@ impl AuthService {
             );
         }
 
-        self.store.set_active_profile(&provider, &profile_id)?;
+        self.store.set_active_profile(&provider, &profile_id).await?;
         Ok(profile_id)
     }
 
@@ -108,40 +108,40 @@ impl AuthService {
     ///
     /// The bare key wins when both forms exist; the namespaced key is only a
     /// fallback for profiles written by older callers.
-    pub fn remove_profile(&self, provider: &str, requested_profile: &str) -> Result<bool> {
+    pub async fn remove_profile(&self, provider: &str, requested_profile: &str) -> Result<bool> {
         let provider = normalize_provider(provider)?;
         let profile_id = resolve_requested_profile_id(&provider, requested_profile);
-        if self.store.remove_profile(&profile_id)? {
+        if self.store.remove_profile(&profile_id).await? {
             return Ok(true);
         }
         if !profile_id.starts_with("provider:") {
             let namespaced = format!("provider:{profile_id}");
-            if self.store.remove_profile(&namespaced)? {
+            if self.store.remove_profile(&namespaced).await? {
                 return Ok(true);
             }
         }
         Ok(false)
     }
 
-    pub fn get_profile(
+    pub async fn get_profile(
         &self,
         provider: &str,
         profile_override: Option<&str>,
     ) -> Result<Option<AuthProfile>> {
         let provider = normalize_provider(provider)?;
-        let data = self.store.load()?;
+        let data = self.store.load().await?;
         let Some(profile_id) = select_profile_id(&data, &provider, profile_override) else {
             return Ok(None);
         };
         Ok(data.profiles.get(&profile_id).cloned())
     }
 
-    pub fn get_provider_bearer_token(
+    pub async fn get_provider_bearer_token(
         &self,
         provider: &str,
         profile_override: Option<&str>,
     ) -> Result<Option<String>> {
-        let profile = self.get_profile(provider, profile_override)?;
+        let profile = self.get_profile(provider, profile_override).await?;
         let Some(profile) = profile else {
             return Ok(None);
         };
