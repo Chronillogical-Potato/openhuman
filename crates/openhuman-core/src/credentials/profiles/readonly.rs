@@ -9,7 +9,8 @@ use tinystoragedrivers_secrets::{EncryptedFileSecrets, SecretStore as _};
 use super::{
     normalize_profile_id_provider, parse_datetime_with_fallback, parse_optional_datetime,
     parse_profile_kind, profile_id, AuthProfile, AuthProfileKind, KeychainSecrets,
-    PersistedAuthProfile, PersistedAuthProfiles, TokenSet, CURRENT_SCHEMA_VERSION,
+    AuthProfilesStore, PersistedAuthProfile, PersistedAuthProfiles, TokenSet,
+    CURRENT_SCHEMA_VERSION,
     PROFILES_FILENAME,
 };
 use crate::credentials::default_profile_id;
@@ -30,6 +31,17 @@ pub(super) fn load_profile(
     config: &Config,
     provider: &str,
     profile_override: Option<&str>,
+) -> Result<Option<AuthProfile>, ReadOnlyAuthProfileError> {
+    load_profile_with_keyring(config, provider, profile_override, |store, id| {
+        store.keychain_load_secrets(id)
+    })
+}
+
+fn load_profile_with_keyring(
+    config: &Config,
+    provider: &str,
+    profile_override: Option<&str>,
+    read_keyring: impl Fn(&AuthProfilesStore, &str) -> anyhow::Result<Option<KeychainSecrets>>,
 ) -> Result<Option<AuthProfile>, ReadOnlyAuthProfileError> {
     let state_dir = config
         .config_path
@@ -73,8 +85,31 @@ pub(super) fn load_profile(
         .ok_or(ReadOnlyAuthProfileError::InvalidStore)?;
 
     let user_id = super::user_id_from_state_dir(state_dir);
-    let profile_secret =
-        read_profile_secret(config, &user_id, &super::auth_profile_secret_key(&id));
+    let profile_store = AuthProfilesStore::new_with_config(
+        state_dir,
+        config.secrets.encrypt,
+        config,
+    );
+    let keyring_error = if profile_store.use_keychain {
+        match read_keyring(&profile_store, &id) {
+            Ok(Some(secrets)) => return profile_from_persisted(profile, id, secrets),
+            Ok(None) => None,
+            Err(error) if super::keychain::is_consent_error(&error) => {
+                // Consent refusal and timeout are authoritative: do not bypass
+                // them by consulting the legacy encrypted secret backend.
+                return Err(ReadOnlyAuthProfileError::Unavailable);
+            }
+            Err(error) => Some(error),
+        }
+    } else {
+        None
+    };
+
+    let profile_secret = read_profile_secret(
+        config,
+        &user_id,
+        &super::auth_profile_secret_key(&id),
+    );
     let secrets = match profile_secret {
         Ok(Some(payload)) => Some(
             serde_json::from_str::<KeychainSecrets>(&payload)
@@ -82,8 +117,17 @@ pub(super) fn load_profile(
         ),
         Ok(None) => None,
         Err(_) if has_json_secret_fields(profile) => None,
+        Err(_) if keyring_error.is_some() => {
+            return Err(ReadOnlyAuthProfileError::Unavailable);
+        }
         Err(error) => return Err(error),
     };
+
+    if keyring_error.is_some() && !has_json_secret_fields(profile) && secrets.is_none() {
+        // The keyring may still contain the only copy. Do not report a missing
+        // profile record when the module could not determine whether it does.
+        return Err(ReadOnlyAuthProfileError::Unavailable);
+    }
 
     let encrypted_json = has_encrypted_json_fields(profile);
     let key = if encrypted_json {
@@ -152,6 +196,47 @@ pub(super) fn load_profile(
         workspace_id: profile.workspace_id.clone(),
         token_set,
         token,
+        metadata: profile.metadata.clone(),
+        created_at: parse_datetime_with_fallback(&profile.created_at),
+        updated_at: parse_datetime_with_fallback(&profile.updated_at),
+    }))
+}
+
+fn profile_from_persisted(
+    profile: &PersistedAuthProfile,
+    id: String,
+    secrets: KeychainSecrets,
+) -> Result<Option<AuthProfile>, ReadOnlyAuthProfileError> {
+    let kind =
+        parse_profile_kind(&profile.kind).map_err(|_| ReadOnlyAuthProfileError::InvalidStore)?;
+    let token_set = match kind {
+        AuthProfileKind::OAuth => Some(TokenSet {
+            access_token: secrets
+                .access_token
+                .ok_or(ReadOnlyAuthProfileError::InvalidStore)?,
+            refresh_token: secrets.refresh_token,
+            id_token: secrets.id_token,
+            expires_at: parse_optional_datetime(profile.expires_at.as_deref())
+                .map_err(|_| ReadOnlyAuthProfileError::InvalidStore)?,
+            token_type: profile.token_type.clone(),
+            scope: profile.scope.clone(),
+        }),
+        AuthProfileKind::Token => None,
+    };
+
+    Ok(Some(AuthProfile {
+        id,
+        provider: profile.provider.clone(),
+        profile_name: profile.profile_name.clone(),
+        kind,
+        account_id: profile.account_id.clone(),
+        workspace_id: profile.workspace_id.clone(),
+        token_set,
+        token: if kind == AuthProfileKind::Token {
+            secrets.token
+        } else {
+            None
+        },
         metadata: profile.metadata.clone(),
         created_at: parse_datetime_with_fallback(&profile.created_at),
         updated_at: parse_datetime_with_fallback(&profile.updated_at),
@@ -236,3 +321,7 @@ fn has_encrypted_json_fields(profile: &PersistedAuthProfile) -> bool {
     .flatten()
     .any(|value| value.starts_with("enc:") || value.starts_with("enc2:"))
 }
+
+#[cfg(test)]
+#[path = "readonly_tests.rs"]
+mod tests;
