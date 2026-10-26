@@ -1,5 +1,5 @@
-//! Reading and atomically writing the persisted auth-profile JSON store,
-//! plus secret encryption for the keychain-unavailable fallback path.
+//! Reading and writing the persisted auth-profile document through TSD's
+//! encrypted local secret store.
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
@@ -82,9 +82,9 @@ fn default_now_rfc3339() -> String {
     Utc::now().to_rfc3339()
 }
 
-/// The secret the profiles live in on a storage backend
-/// ([`crate::storage::secrets`]): the same JSON as `auth-profiles.json`,
-/// encrypted as one secret in the acting agent's scope.
+/// Secret name for the persisted profile schema document when OpenHuman's
+/// configured storage backend is active. The local profile file uses the same
+/// schema under `auth-profiles/secrets.enc`.
 pub(crate) const STORAGE_SECRET_NAME: &str = "file:auth-profiles.json";
 
 impl AuthProfilesStore {
@@ -252,7 +252,7 @@ impl AuthProfilesStore {
         Ok(legacy)
     }
 
-    /// Reads the on-disk `auth-profiles.json` store (empty when absent).
+    /// Reads the legacy root-level `auth-profiles.json` document for one-time import.
     fn read_file_locked(&self) -> Result<PersistedAuthProfiles> {
         if !self.legacy_path.exists() {
             return Ok(PersistedAuthProfiles::default());
