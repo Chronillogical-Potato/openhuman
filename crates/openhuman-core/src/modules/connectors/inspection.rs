@@ -245,9 +245,10 @@ async fn selected_credential(config: &Config) -> Option<(String, String)> {
             if let Some(api_key) = api_key.filter(|key| !key.trim().is_empty()) {
                 return Some(("backend-api-key".to_owned(), api_key.trim().to_owned()));
             }
-            let profile = crate::credentials::session_state::load_app_session_profile_read_only(config)
-                .await
-                .ok()?;
+            let profile =
+                crate::credentials::session_state::load_app_session_profile_read_only(config)
+                    .await
+                    .ok()?;
             crate::credentials::session_state::check_session_backend(config, profile.as_ref())
                 .ok()?;
             let token = match crate::credentials::session_state::classify_session_token(

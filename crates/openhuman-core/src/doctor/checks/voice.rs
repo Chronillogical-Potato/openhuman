@@ -150,7 +150,8 @@ async fn stt_readiness(config: &Config) -> Result<(), VoiceIssue> {
         if !entry.capability.supports_stt() {
             return Err(VoiceIssue::ProviderUnsupported);
         }
-        provider_credential_present_read_only(config, slug).await
+        provider_credential_present_read_only(config, slug)
+            .await
             .then_some(())
             .ok_or(VoiceIssue::CredentialMissing)
     }
@@ -192,7 +193,8 @@ async fn tts_readiness(config: &Config) -> Result<(), VoiceIssue> {
         if !entry.capability.supports_tts() {
             return Err(VoiceIssue::ProviderUnsupported);
         }
-        provider_credential_present_read_only(config, slug).await
+        provider_credential_present_read_only(config, slug)
+            .await
             .then_some(())
             .ok_or(VoiceIssue::CredentialMissing)
     }
@@ -207,7 +209,8 @@ async fn provider_credential_present_read_only(config: &Config, slug: &str) -> b
 
     let key = crate::inference::provider::factory::auth_key_for_slug(slug);
     for provider in [key.as_str(), slug] {
-        if let Ok(Some(profile)) = AuthService::get_profile_read_only(config, provider, None).await {
+        if let Ok(Some(profile)) = AuthService::get_profile_read_only(config, provider, None).await
+        {
             let nonempty = match profile.kind {
                 AuthProfileKind::Token => profile
                     .token

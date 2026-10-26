@@ -224,7 +224,8 @@ async fn health_config(config: &Config, provider: &str) -> ChannelsConfig {
         if provider == "email" {
             if let Some(email) = channels.email.take() {
                 channels.email = Some(
-                    crate::channels::credentials::resolve_email_password_read_only(email, config).await,
+                    crate::channels::credentials::resolve_email_password_read_only(email, config)
+                        .await,
                 );
             }
         }
@@ -233,7 +234,8 @@ async fn health_config(config: &Config, provider: &str) -> ChannelsConfig {
                 channels.yuanbao = Some(
                     crate::channels::credentials::resolve_yuanbao_app_secret_read_only(
                         yuanbao, config,
-                    ).await,
+                    )
+                    .await,
                 );
             }
         }

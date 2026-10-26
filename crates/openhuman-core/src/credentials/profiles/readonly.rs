@@ -145,10 +145,30 @@ async fn load_profile_with_keyring(
         )
     } else {
         (
-            decrypt_profile_field(&store, key.as_ref().map(|key| key.as_str()), profile.access_token.as_deref()).await?,
-            decrypt_profile_field(&store, key.as_ref().map(|key| key.as_str()), profile.refresh_token.as_deref()).await?,
-            decrypt_profile_field(&store, key.as_ref().map(|key| key.as_str()), profile.id_token.as_deref()).await?,
-            decrypt_profile_field(&store, key.as_ref().map(|key| key.as_str()), profile.token.as_deref()).await?,
+            decrypt_profile_field(
+                &store,
+                key.as_ref().map(|key| key.as_str()),
+                profile.access_token.as_deref(),
+            )
+            .await?,
+            decrypt_profile_field(
+                &store,
+                key.as_ref().map(|key| key.as_str()),
+                profile.refresh_token.as_deref(),
+            )
+            .await?,
+            decrypt_profile_field(
+                &store,
+                key.as_ref().map(|key| key.as_str()),
+                profile.id_token.as_deref(),
+            )
+            .await?,
+            decrypt_profile_field(
+                &store,
+                key.as_ref().map(|key| key.as_str()),
+                profile.token.as_deref(),
+            )
+            .await?,
         )
     };
 
