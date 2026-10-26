@@ -32,6 +32,12 @@ maps into the sandbox policy without a second host-owned protected-path floor.
 The Plan2 jail artifact, including `deny_read`, is passed directly to TinyBox
 at launch.
 
+When Plan2 refuses host-network access for approval, the host submits the exact
+request to `EvaluateSandboxApproval2` with a separate audit correlation and a
+generic summary. No approval claim is available at this launch boundary, so the
+host then asks TinySecurity for a new plan with networking disabled; it never
+treats the pending approval as permission for the current command.
+
 The `ResolveLocalGrants` adapter remains for stdio MCP servers, which build a
 TinyMCP jail from `[runtime.local_jail]` grants. It supplies the same
 TinySecurity floor to TinyBox and maps the admitted paths; it does not
