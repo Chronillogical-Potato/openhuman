@@ -55,6 +55,10 @@ impl SecretScope {
         &self.entry.subject
     }
 
+    pub(crate) fn matches_handle(&self, handle: &tinysecurity_bus::SubjectScope) -> bool {
+        self.entry.handle() == Some(handle)
+    }
+
     /// The persisted audit stream configured in TinySecurity at initialization.
     pub(crate) fn stream_id(&self) -> &str {
         &self.entry.stream_id
@@ -148,6 +152,17 @@ pub(crate) async fn prepare_secret_scope(
 ) -> Result<SecretScope, String> {
     let entry = scopes::audit_entry(config, subject).await?;
     Ok(SecretScope { entry })
+}
+
+/// Take the exact native master operation after the shared approval gate returns.
+pub(crate) fn take_secret_grant(
+    registration_id: &str,
+) -> Option<(tinysecurity_bus::SecretRequest2, String)> {
+    host().take_secret_grant(registration_id)
+}
+
+pub(crate) fn forget_secret_grant(registration_id: &str) {
+    host().forget_secret_grant(registration_id);
 }
 
 #[cfg(test)]

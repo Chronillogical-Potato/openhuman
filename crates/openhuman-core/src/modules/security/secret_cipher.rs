@@ -10,6 +10,54 @@ use tinysecurity_bus::{
 };
 
 const OPERATION_TTL_MS: u32 = 30_000;
+const MASTER_GRANT_TOOL: &str = "native_secret_grant";
+
+/// Ask through the installed approval gate, then consume TinySecurity's exact
+/// HumanOnce grant to obtain a short-lived process-private User master handle.
+pub(crate) async fn resolve_user_master(
+    client: &Client,
+    scope: &SecretScope,
+    registration_id: &str,
+) -> Result<String, SecurityError> {
+    let gate = crate::security::approval::ApprovalGate::try_global()
+        .ok_or_else(|| SecurityError::Unavailable("secret approval unavailable".into()))?;
+    let outcome = gate
+        .intercept_forced(
+            MASTER_GRANT_TOOL,
+            "Unlock configuration secrets",
+            serde_json::json!({"registration_id": registration_id}),
+        )
+        .await;
+    if !matches!(outcome, crate::security::approval::GateOutcome::Allow) {
+        crate::security::approval::native::forget_secret_grant(registration_id);
+        return Err(SecurityError::Unavailable(
+            "secret master approval denied".into(),
+        ));
+    }
+    let (request, request_id) = crate::security::approval::native::take_secret_grant(registration_id)
+        .ok_or_else(|| SecurityError::Unavailable("secret master approval unavailable".into()))?;
+    let _ordered = scope.lock().await;
+    let generation = client.policy_info().await?.generation;
+    let audit = scope
+        .correlation(generation)
+        .await
+        .map_err(SecurityError::Unavailable)?;
+    let mut execute = tinysecurity_bus::ExecuteSecretRequest2 {
+        request,
+        request_id,
+        audit,
+    };
+    match client.execute_secret2(&mut execute).await? {
+        tinysecurity_bus::SecretResponse2::MasterHandle {
+            handle,
+            purpose: tinysecurity_bus::MasterPurpose2::ConfigUserMaster,
+            generation: returned_generation,
+        } if returned_generation == generation => Ok(handle),
+        _ => Err(SecurityError::Unavailable(
+            "secret master resolution refused".into(),
+        )),
+    }
+}
 
 /// Successful result of the native routine config cipher.
 pub(crate) enum Output {

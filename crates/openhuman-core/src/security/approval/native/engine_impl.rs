@@ -25,34 +25,27 @@ impl NativeEngine {
         let client = crate::modules::security::Client::connect(&self.config)
             .await
             .map_err(unavailable)?;
-        let subject = self.subject(&input.tenant, input.variant)?;
         let generation = Self::generation(&proxy).await?;
-        let scope = scopes::ensure(
-            &self.config,
-            &proxy,
-            subject,
-            &Posture {
-                require_approval: true,
-                auto_approve_all: false,
-            },
-            generation,
-        )
-        .await
-        .map_err(EngineError::Unavailable)?;
+        let scope = crate::modules::ops::security_secret_scope()
+            .await
+            .ok_or_else(|| unavailable("native secret scope unavailable"))?;
         let request = SecretRequest2 {
             registration_id: registration_id.clone(),
             call_id: input.call_id,
             ttl_ms: 30_000,
             operation: SecretOperation2::ResolveConfigMaster,
         };
-        let _ordered = scope.stream.lock().await;
-        let audit = Self::correlation(&scope, generation).await?;
-        if !host().begin_secret_prompt(Arc::clone(&scope), input.prompt) {
+        let _ordered = scope.lock().await;
+        let audit = scope
+            .correlation(generation)
+            .await
+            .map_err(EngineError::Unavailable)?;
+        if !scope.begin_prompt(input.prompt) {
             return Err(unavailable(
                 "another secret master request is already pending",
             ));
         }
-        let _prompt = SecretPromptGuard(scope.scope_id.clone());
+        let _prompt = SecretPromptGuard(scope.scope_id().to_owned());
         let mut evaluate = EvaluateSecretRequest2 {
             request: request.clone(),
             audit,
@@ -63,7 +56,7 @@ impl NativeEngine {
             .map_err(|error| unavailable(error.to_string()))?;
         if row.state != ApprovalLifecycle2::Pending
             || row.tool_name != NATIVE_SECRET_GRANT_TOOL
-            || scope.handle() != Some(&row.binding.scope)
+            || !scope.matches_handle(&row.binding.scope)
         {
             return Err(unavailable(
                 "TinySecurity refused the native secret approval",
