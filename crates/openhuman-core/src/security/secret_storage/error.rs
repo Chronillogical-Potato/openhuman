@@ -54,7 +54,22 @@ impl SecretStorageError {
     /// Log-safe diagnostic detail. Backend implementations must never include
     /// secret values in errors.
     pub fn diagnostic(&self) -> String {
-        format!("{self:?}")
+        match self {
+            // These variants carry the secret name for API error reporting.
+            // Keep diagnostics useful without copying that name into logs.
+            Self::InvalidUtf8 { .. } => "stored secret is not valid UTF-8".to_string(),
+            Self::VerifyFailed { .. } => "secret write verification failed".to_string(),
+            Self::MigrationReadFailed { source, .. } => {
+                format!("migration source could not be read: {source}")
+            }
+            Self::MigrationDeleteFailed { source, .. } => {
+                format!("migration source could not be deleted: {source}")
+            }
+            Self::RandomGeneration(message) | Self::Crypto(message) | Self::Backend(message) => {
+                message.clone()
+            }
+            Self::MasterKeyUnavailable => "secret storage master key is unavailable".to_string(),
+        }
     }
 }
 
