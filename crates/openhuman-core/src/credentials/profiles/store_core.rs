@@ -136,31 +136,34 @@ impl AuthProfilesStore {
     }
 
     pub async fn remove_profile(&self, profile_id: &str) -> Result<bool> {
-        let (persisted_before, version) = self.snapshot().await?;
-        let mut data = self.load_resolved(persisted_before.clone()).await?;
-        if data.profiles.remove(profile_id).is_none() {
-            return Ok(false);
-        }
-        data.active_profiles.retain(|_, active| active != profile_id);
-        data.updated_at = Utc::now();
-        if !self
-            .publish_if_current(&version, &data, &persisted_before)
-            .await?
-        {
-            return self.remove_profile(profile_id).await;
-        }
+        for _ in 0..8 {
+            let (persisted_before, version) = self.snapshot().await?;
+            let mut data = self.load_resolved(persisted_before.clone()).await?;
+            if data.profiles.remove(profile_id).is_none() {
+                return Ok(false);
+            }
+            data.active_profiles.retain(|_, active| active != profile_id);
+            data.updated_at = Utc::now();
+            if !self
+                .publish_if_current(&version, &data, &persisted_before)
+                .await?
+            {
+                continue;
+            }
 
-        if self.use_keychain {
-            if let Err(delete_error) = self.keychain_delete_secrets(profile_id) {
-                let _lock = self.acquire_lock()?;
-                let current = self.read_persisted_locked()?;
-                self.write_persisted_locked(&persisted_before)?;
-                if current.profiles.get(profile_id).is_none() {
+            if self.use_keychain {
+                if let Err(delete_error) = self.keychain_delete_secrets(profile_id) {
+                    let _lock = self.acquire_lock()?;
+                    let current = self.read_persisted_locked()?;
+                    if current.profiles.get(profile_id).is_none() {
+                        self.write_persisted_locked(&persisted_before)?;
+                    }
                     return Err(delete_error.context("profile removal was not completed"));
                 }
             }
+            return Ok(true);
         }
-        Ok(true)
+        anyhow::bail!("auth profile store changed repeatedly during removal")
     }
 
     pub async fn set_active_profile(&self, provider: &str, profile_id: &str) -> Result<()> {
