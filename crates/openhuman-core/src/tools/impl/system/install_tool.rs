@@ -13,6 +13,8 @@ use super::exec_adapters::InstallGate;
 /// OpenHuman host adapter for TinyAgents' generic package installer.
 pub struct InstallToolTool {
     inner: InstallTool,
+    gate: Arc<InstallGate>,
+    backend: Arc<dyn ExecBackend>,
 }
 
 impl InstallToolTool {
@@ -51,12 +53,22 @@ impl InstallToolTool {
             security,
             audit,
             config,
-            audit_context: std::sync::Mutex::new(None),
+            audit_context: crate::core::runtime::DispatchCtx::unbound(),
             environment,
         });
+        let inner = InstallTool::new(Arc::clone(&gate), Arc::clone(&backend));
         Self {
-            inner: InstallTool::new(gate, backend),
+            inner,
+            gate,
+            backend,
         }
+    }
+
+    fn invocation(&self, context: Option<&dyn ToolRunContext>) -> InstallTool {
+        InstallTool::new(
+            Arc::new(self.gate.for_tool_context(context)),
+            Arc::clone(&self.backend),
+        )
     }
 }
 
@@ -139,7 +151,7 @@ impl Tool for InstallToolTool {
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
-        self.inner.execute(args).await
+        self.invocation(None).execute(args).await
     }
 
     async fn execute_with_context(
@@ -148,7 +160,7 @@ impl Tool for InstallToolTool {
         options: ToolCallOptions,
         context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        self.inner
+        self.invocation(context)
             .execute_with_context(args, options, context)
             .await
     }

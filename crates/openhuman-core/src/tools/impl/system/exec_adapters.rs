@@ -24,8 +24,25 @@ pub(super) struct InstallGate {
     pub security: Arc<SecurityPolicy>,
     pub audit: Arc<AuditSink>,
     pub config: Arc<Config>,
-    pub audit_context: std::sync::Mutex<Option<DispatchCtx>>,
+    audit_context: DispatchCtx,
     pub environment: std::collections::BTreeMap<std::ffi::OsString, std::ffi::OsString>,
+}
+
+impl InstallGate {
+    /// Make an invocation-owned gate so each `ExecGate::record` retains the
+    /// exact dispatch that authorized that execution, even when tool calls
+    /// from one turn run concurrently.
+    pub(super) fn for_tool_context(&self, context: Option<&dyn ToolRunContext>) -> Self {
+        Self {
+            security: Arc::clone(&self.security),
+            audit: Arc::clone(&self.audit),
+            config: Arc::clone(&self.config),
+            audit_context: crate::agent::tinyagents::host::run_context::dispatch_ctx_for_tool(
+                context,
+            ),
+            environment: self.environment.clone(),
+        }
+    }
 }
 
 #[async_trait]
@@ -108,31 +125,23 @@ impl ExecGate for InstallGate {
             ExecAuditOutcome::Completed { success: true, .. }
         );
         if self.audit.is_enabled() {
-            let ctx = self
-                .audit_context
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .take();
-            if let Some(ctx) = ctx {
-                let config = Arc::clone(&self.config);
-                let event = HostAuditEvent::command_execution(
-                    "tool:install_tool",
-                    &command,
-                    event.approval_required,
-                    event.allowed,
-                    success,
-                    u64::try_from(event.duration.as_millis()).unwrap_or(u64::MAX),
-                );
-                tokio::spawn(async move {
-                    if let Err(error) =
-                        crate::security::audit_record::record(&ctx, Some(&config), event).await
-                    {
-                        tracing::warn!(error = %error, "[install_tool] execution audit row was not recorded");
-                    }
-                });
-            } else {
-                tracing::warn!("[install_tool] execution audit row had no dispatch context");
-            }
+            let ctx = self.audit_context.clone();
+            let config = Arc::clone(&self.config);
+            let event = HostAuditEvent::command_execution(
+                "tool:install_tool",
+                &command,
+                event.approval_required,
+                event.allowed,
+                success,
+                u64::try_from(event.duration.as_millis()).unwrap_or(u64::MAX),
+            );
+            tokio::spawn(async move {
+                if let Err(error) =
+                    crate::security::audit_record::record(&ctx, Some(&config), event).await
+                {
+                    tracing::warn!(error = %error, "[install_tool] execution audit row was not recorded");
+                }
+            });
         }
         if let ExecAuditOutcome::BackendRefused {
             kind: ExecRefusalKind::BackendUnavailable,
@@ -142,3 +151,7 @@ impl ExecGate for InstallGate {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "exec_adapters_tests.rs"]
+mod tests;
