@@ -56,7 +56,7 @@ impl InstallToolTool {
             audit_context: crate::core::runtime::DispatchCtx::unbound(),
             environment,
         });
-        let inner = InstallTool::new(Arc::clone(&gate), Arc::clone(&backend));
+        let inner = InstallTool::new(gate.clone(), Arc::clone(&backend));
         Self {
             inner,
             gate,
