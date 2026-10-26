@@ -71,6 +71,16 @@ export interface ApprovalAuditEntry {
   /** RFC3339 timestamp the decision was recorded. */
   decided_at: string;
   decision: ApprovalDecision;
+  /** Automatic decision attribution. Humans have no attribution. */
+  decided_by?: string | null;
+  /** Nonsensitive Jev evidence, present only for `auto:jev` decisions. */
+  judge?: {
+    outcome: string;
+    intent_millis: number | null;
+    reversible_millis: number | null;
+    exfiltrate_millis: number | null;
+    cached: boolean;
+  } | null;
 }
 
 /**
