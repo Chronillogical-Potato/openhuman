@@ -92,8 +92,16 @@ pub(super) struct Scopes {
 pub(super) struct Host {
     pub(super) scopes: tokio::sync::Mutex<Scopes>,
     calls: Mutex<HashMap<String, Arc<CallEntry>>>,
+    secret_prompts: Mutex<HashMap<String, SecretPromptEntry>>,
     requests: Mutex<HashMap<String, RequestEntry>>,
     tickets: Mutex<HashMap<String, Ticket>>,
+}
+
+/// One in-flight native master grant whose module-side keyed call correlation is
+/// intentionally unavailable to the host before the module asks for its prompt.
+struct SecretPromptEntry {
+    scope: Arc<ScopeEntry>,
+    prompt: Arc<dyn PromptSurface>,
 }
 
 /// The process-wide host state.
@@ -102,6 +110,7 @@ pub(super) fn host() -> &'static Host {
     HOST.get_or_init(|| Host {
         scopes: tokio::sync::Mutex::new(Scopes::default()),
         calls: Mutex::new(HashMap::new()),
+        secret_prompts: Mutex::new(HashMap::new()),
         requests: Mutex::new(HashMap::new()),
         tickets: Mutex::new(HashMap::new()),
     })
@@ -141,6 +150,43 @@ impl Host {
 
     pub(super) fn end_call(&self, call_id: &str) {
         lock(&self.calls).remove(call_id);
+    }
+
+    /// Keep one prompt for a subject while TinySecurity evaluates its native
+    /// grant. A second concurrent grant for the same subject fails closed.
+    pub(super) fn begin_secret_prompt(
+        &self,
+        scope: Arc<ScopeEntry>,
+        prompt: Arc<dyn PromptSurface>,
+    ) -> bool {
+        let scope_id = scope.scope_id.clone();
+        let mut prompts = lock(&self.secret_prompts);
+        if prompts.contains_key(&scope_id) || prompts.len() >= CAPACITY {
+            return false;
+        }
+        prompts.insert(scope_id, SecretPromptEntry { scope, prompt });
+        true
+    }
+
+    /// Retrieve and consume the exact in-flight subject prompt for a native
+    /// grant callback. The callback's authenticated module handle must match.
+    pub(super) async fn take_secret_prompt(
+        &self,
+        handle: &SubjectScope,
+    ) -> Option<(Arc<ScopeEntry>, Arc<dyn PromptSurface>)> {
+        let scope = self
+            .scopes
+            .lock()
+            .await
+            .by_handle
+            .get(&handle_key(handle))
+            .cloned()?;
+        let entry = lock(&self.secret_prompts).remove(&scope.scope_id)?;
+        (entry.scope.handle() == Some(handle)).then_some((entry.scope, entry.prompt))
+    }
+
+    pub(super) fn end_secret_prompt(&self, scope_id: &str) {
+        lock(&self.secret_prompts).remove(scope_id);
     }
 
     pub(super) fn insert_request(&self, request_id: &str, entry: RequestEntry) {
