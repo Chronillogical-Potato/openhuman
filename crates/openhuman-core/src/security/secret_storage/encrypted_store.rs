@@ -30,7 +30,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use zeroize::Zeroizing;
 
 use tinystoragedrivers::secrets::crypto;
@@ -170,13 +170,25 @@ impl SecretStore {
             let client = crate::modules::security::client(config)
                 .await
                 .map_err(anyhow::Error::new)?;
-            let master_handle = crate::modules::security::secret_cipher::resolve_user_master(
-                &client,
-                &scope,
-                &registration_id,
-            )
-            .await
-            .map_err(anyhow::Error::new)?;
+            let generation = client
+                .policy_info()
+                .await
+                .map_err(anyhow::Error::new)?
+                .generation;
+            let cache_key = normalize_cache_path(&self.key_path);
+            let master_handle = if let Some(handle) = cached_master_handle(&cache_key, generation) {
+                handle
+            } else {
+                let handle = crate::modules::security::secret_cipher::resolve_user_master(
+                    &client,
+                    &scope,
+                    &registration_id,
+                )
+                .await
+                .map_err(anyhow::Error::new)?;
+                cache_master_handle(&cache_key, generation, &handle);
+                handle
+            };
             crate::modules::security::secret_cipher::run(
                 &client,
                 &scope,
@@ -398,6 +410,40 @@ impl SecretStore {
         let key = self.load_or_create_key_from_keyring()?;
         cache_key(&cache_key_path, &key);
         Ok(key)
+    }
+}
+
+struct CachedMasterHandle {
+    generation: u64,
+    expires: Instant,
+    handle: String,
+}
+
+const MASTER_HANDLE_CACHE_TTL: Duration = Duration::from_secs(20);
+
+fn master_handle_cache() -> &'static Mutex<HashMap<PathBuf, CachedMasterHandle>> {
+    static CACHE: OnceLock<Mutex<HashMap<PathBuf, CachedMasterHandle>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn cached_master_handle(path: &Path, generation: u64) -> Option<String> {
+    let mut cache = master_handle_cache().lock().ok()?;
+    cache.retain(|_, value| value.expires > Instant::now());
+    cache.get(path).and_then(|value| {
+        (value.generation == generation).then(|| value.handle.clone())
+    })
+}
+
+fn cache_master_handle(path: &Path, generation: u64, handle: &str) {
+    if let Ok(mut cache) = master_handle_cache().lock() {
+        cache.insert(
+            path.to_path_buf(),
+            CachedMasterHandle {
+                generation,
+                expires: Instant::now() + MASTER_HANDLE_CACHE_TTL,
+                handle: handle.to_owned(),
+            },
+        );
     }
 }
 
