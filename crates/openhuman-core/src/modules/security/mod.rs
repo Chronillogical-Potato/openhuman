@@ -42,9 +42,9 @@ pub(crate) async fn resolve_user_master_with_existing_key(
     registration_id: &str,
     encoded_key: &str,
 ) -> Result<String, SecurityError> {
-    let backend = super::ops::security_secret_backend()
-        .await
-        .ok_or_else(|| SecurityError::Unavailable("TinySecurity secret backend unavailable".into()))?;
+    let backend = super::ops::security_secret_backend().await.ok_or_else(|| {
+        SecurityError::Unavailable("TinySecurity secret backend unavailable".into())
+    })?;
     secret_cipher::resolve_user_master_with_existing_key(
         client,
         scope,

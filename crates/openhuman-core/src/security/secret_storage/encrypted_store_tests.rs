@@ -35,7 +35,10 @@ async fn explicit_key_decryption_does_not_fall_back_when_tinysecurity_is_unavail
     let store = SecretStore::new_with_config(tmp.path(), true, &config);
 
     let error = store
-        .decrypt_with_existing_key_via_security(&format!("enc2:{}", "00".repeat(32)), &"ab".repeat(32))
+        .decrypt_with_existing_key_via_security(
+            &format!("enc2:{}", "00".repeat(32)),
+            &"ab".repeat(32),
+        )
         .await
         .expect_err("explicit-key decryption must require TinySecurity");
 

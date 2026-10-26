@@ -46,7 +46,10 @@ pub(crate) struct ExistingMasterReadGuard<'a> {
 impl Drop for ExistingMasterReadGuard<'_> {
     fn drop(&mut self) {
         let mut active = self.backend.existing_master_read.lock();
-        if active.as_ref().is_some_and(|entry| entry.token == self.token) {
+        if active
+            .as_ref()
+            .is_some_and(|entry| entry.token == self.token)
+        {
             active.take();
         }
     }
@@ -191,25 +194,25 @@ impl SecretBackend {
             SecretBackendSetStatus2::Denied
         } else {
             match self.binding(&identity) {
-            Some(binding)
-                if !binding.legacy_file
-                    && identity.phase == SecretPhase2::TargetSet
-                    && encoded.len() <= 4096 =>
-            {
-                match std::str::from_utf8(&encoded).ok().and_then(|value| {
-                    save_backend(binding.backend, &self.user_id, value)
-                        .ok()
-                        .map(|()| value.to_owned())
-                }) {
-                    Some(_) => {
-                        self.pending_targets
-                            .lock()
-                            .insert(identity.operation_id.clone(), encoded.clone());
-                        SecretBackendSetStatus2::Stored
+                Some(binding)
+                    if !binding.legacy_file
+                        && identity.phase == SecretPhase2::TargetSet
+                        && encoded.len() <= 4096 =>
+                {
+                    match std::str::from_utf8(&encoded).ok().and_then(|value| {
+                        save_backend(binding.backend, &self.user_id, value)
+                            .ok()
+                            .map(|()| value.to_owned())
+                    }) {
+                        Some(_) => {
+                            self.pending_targets
+                                .lock()
+                                .insert(identity.operation_id.clone(), encoded.clone());
+                            SecretBackendSetStatus2::Stored
+                        }
+                        None => SecretBackendSetStatus2::Unavailable,
                     }
-                    None => SecretBackendSetStatus2::Unavailable,
                 }
-            }
                 _ => SecretBackendSetStatus2::Denied,
             }
         };

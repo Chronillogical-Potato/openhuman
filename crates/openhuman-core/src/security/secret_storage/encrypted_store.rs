@@ -156,18 +156,16 @@ impl SecretStore {
         value: &str,
         key: &str,
     ) -> Result<String> {
-        if let Some(_legacy) = value.strip_prefix("enc:") {
-            anyhow::bail!("legacy encrypted value is unavailable to read-only inspection");
-        }
         if !Self::is_encrypted(value) {
             return Ok(value.to_owned());
         }
+        let operation = if value.starts_with("enc:") {
+            tinysecurity_bus::SecretCipherKind2::DecryptAndMigrate
+        } else {
+            tinysecurity_bus::SecretCipherKind2::Decrypt
+        };
         match self
-            .run_security_cipher(
-                tinysecurity_bus::SecretCipherKind2::Decrypt,
-                value.as_bytes(),
-                Some(key),
-            )
+            .run_security_cipher(operation, value.as_bytes(), Some(key))
             .await?
         {
             crate::modules::security::SecretCipherOutput::Plaintext { value, .. } => {
@@ -223,12 +221,9 @@ impl SecretStore {
                 )
                 .await
                 .map_err(anyhow::Error::new)?
-            } else if let Some(handle) = cached_master_handle(
-                &cache_key,
-                &registration_id,
-                &binding_identity,
-                generation,
-            ) {
+            } else if let Some(handle) =
+                cached_master_handle(&cache_key, &registration_id, &binding_identity, generation)
+            {
                 handle
             } else {
                 let handle = crate::modules::security::resolve_user_master(
@@ -494,14 +489,12 @@ fn cached_master_handle(
 ) -> Option<String> {
     let mut cache = master_handle_cache().lock().ok()?;
     cache.retain(|_, value| value.expires > Instant::now());
-    cache
-        .get(path)
-        .and_then(|value| {
-            (value.generation == generation
-                && value.registration_id == registration_id
-                && value.binding_identity == binding_identity)
-                .then(|| value.handle.clone())
-        })
+    cache.get(path).and_then(|value| {
+        (value.generation == generation
+            && value.registration_id == registration_id
+            && value.binding_identity == binding_identity)
+            .then(|| value.handle.clone())
+    })
 }
 
 fn cache_master_handle(

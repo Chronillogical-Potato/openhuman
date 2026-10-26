@@ -32,13 +32,7 @@ pub(crate) async fn resolve_user_master_with_existing_key(
     backend: &super::secret_backend::SecretBackend,
     encoded_key: &str,
 ) -> Result<String, SecurityError> {
-    resolve_user_master_inner(
-        client,
-        scope,
-        registration_id,
-        Some((backend, encoded_key)),
-    )
-    .await
+    resolve_user_master_inner(client, scope, registration_id, Some((backend, encoded_key))).await
 }
 
 async fn resolve_user_master_inner(
