@@ -97,15 +97,15 @@ pub(crate) async fn direct_mode_without_key(config: &Config) -> OpResult<bool> {
 /// A *failed* token lookup (store unreadable) deliberately returns `false`:
 /// that is a real fault, and it must keep surfacing through the normal error
 /// path rather than being read as "not signed in".
-pub(crate) fn backend_mode_without_session(config: &Config) -> bool {
+pub(crate) async fn backend_mode_without_session(config: &Config) -> bool {
     let mode = config.composio.mode.trim();
     if !(mode.is_empty() || mode == crate::config::schema::COMPOSIO_MODE_BACKEND) {
         return false;
     }
-    if crate::credentials::api_key::has_api_key(config) {
+    if crate::credentials::api_key::has_api_key(config).await {
         return false;
     }
-    match crate::credentials::session_state::get_session_token(config) {
+    match crate::credentials::session_state::get_session_token(config).await {
         Ok(token) => token.as_deref().map(str::trim).is_none_or(|token| {
             token.is_empty() || crate::credentials::session_state::is_local_session_token(token)
         }),

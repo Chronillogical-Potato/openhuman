@@ -439,7 +439,6 @@ fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
         extensions,
         credential_access,
         inspection_credential,
-        inspection_credential,
         inspection_identity,
     )
 }
