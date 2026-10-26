@@ -34,8 +34,10 @@ pub(crate) async fn resolve_user_master(
             "secret master approval denied".into(),
         ));
     }
-    let (request, request_id) = crate::security::approval::native::take_secret_grant(registration_id)
-        .ok_or_else(|| SecurityError::Unavailable("secret master approval unavailable".into()))?;
+    let (request, request_id) =
+        crate::security::approval::native::take_secret_grant(registration_id).ok_or_else(|| {
+            SecurityError::Unavailable("secret master approval unavailable".into())
+        })?;
     let _ordered = scope.lock().await;
     let generation = client.policy_info().await?.generation;
     let audit = scope
