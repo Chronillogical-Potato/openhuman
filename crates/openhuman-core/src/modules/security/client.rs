@@ -247,6 +247,19 @@ impl Client {
         Ok(response.decision)
     }
 
+    pub(crate) async fn classify_provider_endpoint2(
+        &self,
+        host: String,
+    ) -> Result<tinysecurity_bus::ProviderEndpointResponse2, SecurityError> {
+        self.object
+            .call_confidential(
+                tinysecurity_bus::names::methods::CLASSIFY_PROVIDER_ENDPOINT2,
+                (tinysecurity_bus::ProviderEndpointRequest2 { host },),
+            )
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
     /// Authorize one browser socket dial through TinySecurity.
     pub(crate) async fn authorize_browser_dial(
         &self,
