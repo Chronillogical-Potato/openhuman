@@ -167,6 +167,40 @@ fn keychain_read_error_with_undecryptable_json_keeps_the_profile() {
     );
 }
 
+#[test]
+fn resolving_encrypted_document_secrets_does_not_promote_them_to_the_keyring() {
+    let keychain = Arc::new(FlakyKeychain::default());
+    crate::security::secret_storage::install_secret_backend(keychain.clone());
+    let tmp = TempDir::new().unwrap();
+    let store = AuthProfilesStore::new(tmp.path(), true);
+    store.use_keychain = true;
+
+    let profile = AuthProfile::new_token("legacy", "default", "document-token".into());
+    let mut persisted = PersistedAuthProfiles::default();
+    persisted.profiles.insert(
+        profile.id.clone(),
+        PersistedAuthProfile {
+            provider: profile.provider.clone(),
+            profile_name: profile.profile_name.clone(),
+            kind: "token".into(),
+            token: profile.token.clone(),
+            ..PersistedAuthProfile::default()
+        },
+    );
+    store.write_persisted_locked(&persisted).unwrap();
+
+    let loaded = store.load().unwrap();
+    assert_eq!(
+        loaded.profiles.get(&profile.id).unwrap().token.as_deref(),
+        Some("document-token")
+    );
+    assert!(
+        keychain.map.lock().unwrap().is_empty(),
+        "reading the encrypted profile document must not promote its secrets to the keyring"
+    );
+    crate::security::secret_storage::clear_secret_backend();
+}
+
 fn persisted_entry(store: &AuthProfilesStore, id: &str) -> serde_json::Value {
     serde_json::to_value(&store.read_persisted_locked().unwrap().profiles[id]).unwrap()
 }
