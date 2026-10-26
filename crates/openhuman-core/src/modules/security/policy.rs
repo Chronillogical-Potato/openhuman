@@ -72,6 +72,16 @@ pub fn module_config(config: &Config) -> tinysecurity_bus::ModuleConfig {
         // Sandbox plans require a durable audit correlation even when the
         // operator disables the optional general audit feature.
         audit: Some(audit_init_config(config)),
+        crypto: Some(tinysecurity_bus::CryptoConfig2 {
+            max_payload_bytes: tinysecurity_bus::MAX_CRYPTO_PAYLOAD_BYTES,
+            operations_per_minute: 120,
+            keyring: Some(tinysecurity_bus::KeyringConfig2 {
+                service: "openhuman".into(),
+                backend: tinysecurity_bus::KeyringBackend2::Os,
+                consent_timeout_ms: 120_000,
+            }),
+            pairing: None,
+        }),
         ..tinysecurity_bus::ModuleConfig::default()
     }
 }
