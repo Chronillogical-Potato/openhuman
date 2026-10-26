@@ -238,11 +238,12 @@ mod with_module {
             let message = local_only_tool_block(&desc).await.expect("blocked");
             assert!(message.starts_with(POLICY_BLOCKED_MARKER), "{message}");
             assert!(message.contains("api.example.com"), "{message}");
+            // The synchronous network-tool trait has no async admission path;
+            // its bounded bridge must refuse when no module runtime is armed.
             assert!(local_only_tool_block_blocking(&desc).is_some());
         }
         let _port = install_privacy_port(StubPort::allowing());
         let _mode = test_privacy_scope(PrivacyMode::LocalOnly);
         assert!(local_only_tool_block(&desc).await.is_none());
-        assert!(local_only_tool_block_blocking(&desc).is_none());
     }
 }
