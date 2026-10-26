@@ -197,7 +197,7 @@ fn desktop_secret_store_quarantines_corruption_through_the_driver_policy() {
     let backend = EncryptedFileBackend::new(workspace.path());
     let path = workspace.path().join("secrets.enc");
     let corrupt = b"not an encrypted secret file";
-    std::fs::write(&path, corrupt).unwrap();
+    write_private_file(&path, corrupt);
 
     assert_eq!(backend.get_with_key(&[0x42; KEY_LEN], "user:token").unwrap(), None);
 
