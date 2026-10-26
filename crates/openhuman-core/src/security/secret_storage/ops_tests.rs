@@ -18,7 +18,10 @@ impl SecretBackend for RacingBackend {
     }
 
     fn set(&self, name: &str, value: &str) -> Result<(), SecretStorageError> {
-        self.values.lock().unwrap().insert(name.to_owned(), value.to_owned());
+        self.values
+            .lock()
+            .unwrap()
+            .insert(name.to_owned(), value.to_owned());
         Ok(())
     }
 
@@ -27,20 +30,32 @@ impl SecretBackend for RacingBackend {
         Ok(())
     }
 
-    fn name(&self) -> &'static str { "racing-test" }
+    fn name(&self) -> &'static str {
+        "racing-test"
+    }
 }
 
 #[test]
 fn concurrent_random_key_creation_returns_the_persisted_value_to_every_caller() {
     let dir = TempDir::new().unwrap();
-    let backend = Arc::new(RacingBackend { values: Mutex::new(HashMap::new()) });
+    let backend = Arc::new(RacingBackend {
+        values: Mutex::new(HashMap::new()),
+    });
     let lock_path = dir.path().join("key-lock");
-    let workers: Vec<_> = (0..24).map(|_| {
-        let backend = backend.clone();
-        let lock_path = lock_path.clone();
-        std::thread::spawn(move || get_or_create_random_with_backend(backend.as_ref(), "u", "k", 32, &lock_path).unwrap())
-    }).collect();
-    let first = workers.into_iter().map(|worker| worker.join().unwrap()).collect::<Vec<_>>();
+    let workers: Vec<_> = (0..24)
+        .map(|_| {
+            let backend = backend.clone();
+            let lock_path = lock_path.clone();
+            std::thread::spawn(move || {
+                get_or_create_random_with_backend(backend.as_ref(), "u", "k", 32, &lock_path)
+                    .unwrap()
+            })
+        })
+        .collect();
+    let first = workers
+        .into_iter()
+        .map(|worker| worker.join().unwrap())
+        .collect::<Vec<_>>();
     assert_eq!(first[0], first[1]);
     assert_eq!(backend.values.lock().unwrap().get("u:k"), Some(&first[0]));
 }

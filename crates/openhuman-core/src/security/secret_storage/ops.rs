@@ -4,7 +4,7 @@
 
 use std::path::Path;
 
-use chacha20poly1305::aead::{rand_core::RngCore, OsRng};
+use chacha20poly1305::aead::{OsRng, rand_core::RngCore};
 use parking_lot::Mutex;
 use sha2::{Digest, Sha256};
 
@@ -48,8 +48,8 @@ pub enum MigrationOutcome {
 // belong to this process, not to an agent.
 
 /// The storage-backed secret store for this call, when one is configured.
-fn storage_secrets(
-) -> Result<Option<tinystoragedrivers::secrets::DocumentSecrets>, SecretStorageError> {
+fn storage_secrets()
+-> Result<Option<tinystoragedrivers::secrets::DocumentSecrets>, SecretStorageError> {
     crate::storage::secrets::current()
         .map_err(|error| SecretStorageError::Backend(format!("storage secrets: {error}")))
 }
@@ -321,9 +321,15 @@ pub fn get_or_create_random(
 
 /// A stable cross-process lock path for one namespaced key. The key itself is
 /// hashed so neither the filename nor any lock error reveals the key name.
-fn random_key_lock_path(user_id: &str, key: &str) -> Result<std::path::PathBuf, SecretStorageError> {
-    let root = crate::config::default_root_openhuman_dir()
-        .map_err(|error| SecretStorageError::Backend(format!("could not resolve secret-store lock directory: {error}")))?;
+fn random_key_lock_path(
+    user_id: &str,
+    key: &str,
+) -> Result<std::path::PathBuf, SecretStorageError> {
+    let root = crate::config::default_root_openhuman_dir().map_err(|error| {
+        SecretStorageError::Backend(format!(
+            "could not resolve secret-store lock directory: {error}"
+        ))
+    })?;
     let digest = Sha256::digest(namespaced_key(user_id, key).as_bytes());
     Ok(root.join("secret-storage-locks").join(hex_encode(&digest)))
 }
@@ -349,7 +355,9 @@ fn get_or_create_random_with_backend(
     let hex_value = hex_encode(&bytes);
     backend.set(&namespaced, &hex_value)?;
     if backend.get(&namespaced)?.as_deref() != Some(&hex_value) {
-        return Err(SecretStorageError::VerifyFailed { key: key.to_string() });
+        return Err(SecretStorageError::VerifyFailed {
+            key: key.to_string(),
+        });
     }
     Ok(hex_value)
 }
@@ -370,10 +378,7 @@ pub fn migrate_from_file(
     key: &str,
     path: &Path,
 ) -> Result<MigrationOutcome, SecretStorageError> {
-    log::debug!(
-        "[keyring] migrate_from_file path={}",
-        path.display()
-    );
+    log::debug!("[keyring] migrate_from_file path={}", path.display());
     migrate_from_file_with_backend(user_id, key, path, backend().as_ref())
 }
 
@@ -433,17 +438,13 @@ fn migrate_from_file_with_backend(
     }
 
     // Step 6: delete the source file (only after verified write).
-    log::debug!(
-        "[keyring] migrate_from_file deleting source file"
-    );
+    log::debug!("[keyring] migrate_from_file deleting source file");
     std::fs::remove_file(path).map_err(|e| SecretStorageError::MigrationDeleteFailed {
         path: path.display().to_string(),
         source: e,
     })?;
 
-    log::info!(
-        "[keyring] migrate_from_file completed"
-    );
+    log::info!("[keyring] migrate_from_file completed");
     Ok(MigrationOutcome::MigratedAndDeleted)
 }
 
@@ -486,4 +487,3 @@ mod adoption_tests;
 #[cfg(test)]
 #[path = "ops_tests.rs"]
 mod tests;
-
