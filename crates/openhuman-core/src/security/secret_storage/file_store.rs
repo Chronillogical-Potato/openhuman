@@ -30,7 +30,6 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use fs2::FileExt;
 use sha2::{Digest, Sha256};
 
 use crate::security::secret_storage::error::SecretStorageError;
@@ -49,8 +48,14 @@ static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 /// [`write_atomic`] replaces the secrets file by rename — a lock taken on the
 /// old inode would guard nothing once the rename lands.
 pub struct WriteLock {
-    /// Kept alive purely for its lock; `fs2` releases on close.
-    _file: File,
+    _lock: LockGuard,
+}
+
+enum LockGuard {
+    #[cfg(feature = "secret-file")]
+    Driver(tinystoragedrivers::secrets::Locked),
+    #[cfg(not(feature = "secret-file"))]
+    Native(File),
 }
 
 /// Take the exclusive write lock covering `path`'s read → modify → write cycle.
@@ -69,6 +74,14 @@ pub struct WriteLock {
 /// the operation is deliberate: proceeding unlocked is what loses secrets.
 pub fn lock_for_write(path: &Path) -> Result<WriteLock, SecretStorageError> {
     let lock_path = lock_path_for(path);
+    #[cfg(feature = "secret-file")]
+    {
+        return tinystoragedrivers::secrets::lock_file(&lock_path)
+            .map(|lock| WriteLock { _lock: LockGuard::Driver(lock) })
+            .map_err(|error| SecretStorageError::Backend(format!("could not lock keyring: {error}")));
+    }
+    #[cfg(not(feature = "secret-file"))]
+    {
     if let Some(parent) = lock_path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| {
             SecretStorageError::Backend(format!(
@@ -118,13 +131,14 @@ pub fn lock_for_write(path: &Path) -> Result<WriteLock, SecretStorageError> {
                 })?;
         }
     }
-    file.lock_exclusive().map_err(|e| {
+    fs2::FileExt::lock_exclusive(&file).map_err(|e| {
         SecretStorageError::Backend(format!(
             "could not lock the keyring at {}: {e}",
             lock_path.display()
         ))
     })?;
-    Ok(WriteLock { _file: file })
+    Ok(WriteLock { _lock: LockGuard::Native(file) })
+    }
 }
 
 /// The sidecar lock path for a secrets file.
@@ -199,6 +213,17 @@ fn parent_dir(path: &Path) -> &Path {
 /// Returns [`SecretStorageError::Backend`] when the parent directory cannot be
 /// created, or the temp file cannot be written or renamed.
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), SecretStorageError> {
+    #[cfg(feature = "secret-file")]
+    {
+        return tinystoragedrivers::secrets::write_atomic_private(path, bytes)
+            .map_err(|error| SecretStorageError::Backend(format!("atomic keyring write: {error}")));
+    }
+    #[cfg(not(feature = "secret-file"))]
+    write_atomic_fallback(path, bytes)
+}
+
+#[cfg(not(feature = "secret-file"))]
+fn write_atomic_fallback(path: &Path, bytes: &[u8]) -> Result<(), SecretStorageError> {
     let parent = parent_dir(path);
     std::fs::create_dir_all(parent).map_err(|e| {
         SecretStorageError::Backend(format!(
