@@ -21,12 +21,13 @@ const KeyringOperationApprovalOverlay = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const requestId = request?.request_id;
 
   useEffect(() => {
-    if (!request) return;
+    if (!requestId) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
-  }, [request?.request_id]);
+  }, [requestId]);
 
   if (!request) return null;
 
