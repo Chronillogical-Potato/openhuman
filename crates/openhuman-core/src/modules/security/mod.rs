@@ -11,6 +11,7 @@ mod client;
 pub(crate) mod command;
 pub(crate) mod gap;
 mod policy;
+mod secret_cipher;
 pub(crate) mod policy_translation;
 pub(crate) mod sandbox;
 mod secret_backend;

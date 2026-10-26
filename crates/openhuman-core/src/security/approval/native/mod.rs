@@ -78,6 +78,28 @@ impl SecretScope {
         })
     }
 
+    /// Reserve ordered audit positions for one native operation while holding
+    /// the scope stream lock. The caller must submit events in returned order.
+    pub(crate) async fn correlations(
+        &self,
+        generation: u64,
+        count: usize,
+    ) -> Result<Vec<tinysecurity_bus::AuditCorrelation2>, String> {
+        let tail = self.entry.rows.tail(&self.entry.stream_id).await?;
+        (0..count)
+            .map(|offset| {
+                let offset = u64::try_from(offset).map_err(|_| "audit sequence overflow")?;
+                Ok(tinysecurity_bus::AuditCorrelation2 {
+                    event_id: uuid::Uuid::new_v4().simple().to_string(),
+                    expected_tail: tail
+                        .checked_add(offset)
+                        .ok_or("audit sequence overflow")?,
+                    generation,
+                })
+            })
+            .collect()
+    }
+
     /// Register or refresh this subject with the admitted TinySecurity module.
     pub(crate) async fn ensure_registered(
         &self,

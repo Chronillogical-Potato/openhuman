@@ -316,6 +316,40 @@ impl Client {
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
     }
 
+    /// Persist intent for one routine config cipher operation.
+    pub(crate) async fn evaluate_secret_cipher2(
+        &self,
+        request: &mut tinysecurity_bus::EvaluateSecretCipherRequest2,
+    ) -> Result<tinysecurity_bus::SecretCipherPending2, SecurityError> {
+        let result = self.object
+            .call_confidential(
+                tinysecurity_bus::names::methods::EVALUATE_SECRET_CIPHER2,
+                (request,),
+            )
+            .await
+            .map_err(|_| SecurityError::Unavailable("secret cipher evaluation failed".into()));
+        use zeroize::Zeroize;
+        request.request.input.zeroize();
+        result
+    }
+
+    /// Execute a previously evaluated routine config cipher operation.
+    pub(crate) async fn execute_secret_cipher2(
+        &self,
+        request: &mut tinysecurity_bus::ExecuteSecretCipherRequest2,
+    ) -> Result<tinysecurity_bus::SecretCipherResponse2, SecurityError> {
+        let result = self.object
+            .call_confidential(
+                tinysecurity_bus::names::methods::EXECUTE_SECRET_CIPHER2,
+                (request,),
+            )
+            .await
+            .map_err(|_| SecurityError::Unavailable("secret cipher execution failed".into()));
+        use zeroize::Zeroize;
+        request.request.input.zeroize();
+        result
+    }
+
     /// Validate a live browser tunnel lease.
     pub(crate) async fn validate_browser_dial(
         &self,
