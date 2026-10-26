@@ -342,21 +342,16 @@ impl AuthProfilesStore {
             .context("Failed to write encrypted auth profile store")
     }
 
-    pub(super) fn encrypt_optional(&self, value: Option<&str>) -> Result<Option<String>> {
-        match value {
-            Some(value) if !value.is_empty() => self.secret_store.encrypt(value).map(Some),
-            Some(_) | None => Ok(None),
-        }
-    }
-
     pub(super) fn decrypt_optional(
         &self,
         value: Option<&str>,
     ) -> Result<(Option<String>, Option<String>)> {
         match value {
             Some(value) if !value.is_empty() => {
-                let (plaintext, migrated) = self.secret_store.decrypt_and_migrate(value)?;
-                Ok((Some(plaintext), migrated))
+                if value.starts_with("enc:") {
+                    anyhow::bail!("legacy XOR-encrypted auth profile secrets are unsupported");
+                }
+                Ok((Some(self.secret_store.decrypt(value)?), None))
             }
             Some(_) | None => Ok((None, None)),
         }

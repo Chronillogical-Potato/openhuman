@@ -76,7 +76,7 @@ async fn atomic_write_replaces_file() {
     let profile = AuthProfile::new_token("anthropic", "default", "token-abc".into());
     store.upsert_profile(profile, true).unwrap();
 
-    let path = store.path().to_path_buf();
+    let path = store.legacy_path.clone();
     assert!(path.exists());
 
     let contents = tokio::fs::read_to_string(path).await.unwrap();
@@ -175,11 +175,8 @@ fn load_drops_profiles_whose_decryption_fails_under_rotated_key() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), true);
 
-    // Seed two profiles. One ("doomed") will be made unrecoverable by
-    // rewriting the encrypted token under a new key; the other
-    // ("plain-fine") uses kind=Token with a plaintext token that the
-    // legacy `enc:` / plaintext branch decrypts trivially, so even
-    // after key rotation it survives.
+    // Seed one profile, then replace its token with malformed enc2 data and
+    // add a valid plaintext legacy profile to verify selective cleanup.
     let doomed = AuthProfile::new_token("app-session", "default", "real-jwt-payload".into());
     store.upsert_profile(doomed.clone(), true).unwrap();
 
@@ -194,18 +191,24 @@ fn load_drops_profiles_whose_decryption_fails_under_rotated_key() {
     crate::security::secret_storage::delete(&user_id, &keychain_key)
         .expect("delete keychain entry for test setup");
 
-    let path = store.path().to_path_buf();
-    let mut data: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
     let profile_id = doomed.id.clone();
-    data["profiles"][&profile_id]["token"] = serde_json::Value::String(
-        // 12-byte nonce + 32 bytes of "ciphertext" that won't authenticate
-        // under any random key — hex-encoded, prefixed with enc2:.
-        "enc2:000102030405060708090a0b\
-              deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
-            .to_string(),
+    let mut data = store.read_persisted_locked().unwrap();
+    data.profiles.get_mut(&profile_id).unwrap().token = Some(
+        "enc2:000102030405060708090a0bdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef".into(),
     );
-    std::fs::write(&path, serde_json::to_string_pretty(&data).unwrap()).unwrap();
+    data.profiles.insert(
+        "legacy:plain-fine".into(),
+        serde_json::from_value(serde_json::json!({
+            "provider": "legacy",
+            "profile_name": "plain-fine",
+            "kind": "token",
+            "token": "legacy-plain-token",
+            "created_at": "2025-01-01T00:00:00Z",
+            "updated_at": "2025-01-01T00:00:00Z"
+        }))
+        .unwrap(),
+    );
+    store.write_persisted_locked(&data).unwrap();
 
     // First load: should silently drop the doomed profile rather than
     // bubbling the decrypt error and breaking every poll.
@@ -248,29 +251,25 @@ fn load_drops_profiles_with_unrecognized_kind_instead_of_failing_load() {
     //   - "api_key": observed in Sentry issue #123 (370 events over 14d)
     //   - "OAuth"  : observed in Sentry issue #2605 (258 events) — the
     //                pre-kebab-case serialized form
-    let path = store.path().to_path_buf();
-    let mut data: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-    data["profiles"]["legacy:apikey"] = serde_json::json!({
+    let mut data = store.read_persisted_locked().unwrap();
+    data.profiles.insert("legacy:apikey".into(), serde_json::from_value(serde_json::json!({
         "provider": "legacy",
         "profile_name": "apikey",
         "kind": "api_key",
         "token": "raw-token",
-        "metadata": {},
         "created_at": "2025-01-01T00:00:00Z",
         "updated_at": "2025-01-01T00:00:00Z",
-    });
-    data["profiles"]["legacy:oauth"] = serde_json::json!({
+    })).unwrap());
+    data.profiles.insert("legacy:oauth".into(), serde_json::from_value(serde_json::json!({
         "provider": "legacy",
         "profile_name": "oauth",
         "kind": "OAuth",
         "access_token": "raw-access",
-        "metadata": {},
         "created_at": "2025-01-01T00:00:00Z",
         "updated_at": "2025-01-01T00:00:00Z",
-    });
-    data["active_profiles"]["legacy"] = serde_json::Value::String("legacy:apikey".to_string());
-    std::fs::write(&path, serde_json::to_string_pretty(&data).unwrap()).unwrap();
+    })).unwrap());
+    data.active_profiles.insert("legacy".into(), "legacy:apikey".into());
+    store.write_persisted_locked(&data).unwrap();
 
     // The load must succeed — the only failure mode prior to the fix was
     // bailing the entire load on the first unrecognized kind.
@@ -298,12 +297,11 @@ fn load_drops_profiles_with_unrecognized_kind_instead_of_failing_load() {
         "active_profiles pointer to a dropped profile must be cleared"
     );
 
-    // Subsequent load: file was rewritten without the bad profiles.
-    let reread: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-    assert!(reread["profiles"].get("legacy:apikey").is_none());
-    assert!(reread["profiles"].get("legacy:oauth").is_none());
-    assert!(reread["profiles"].get(&good_id).is_some());
+    // Subsequent load reads the cleaned encrypted document.
+    let reread = store.read_persisted_locked().unwrap();
+    assert!(!reread.profiles.contains_key("legacy:apikey"));
+    assert!(!reread.profiles.contains_key("legacy:oauth"));
+    assert!(reread.profiles.contains_key(&good_id));
 }
 
 #[test]
