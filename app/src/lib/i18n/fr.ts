@@ -5232,6 +5232,23 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'Réessayer',
   'keyring.settings.toolTrustRevoke': 'Révoquer',
   'keyring.settings.toolTrustRevoking': 'Révocation…',
+
+  // Per-operation TinySecurity keyring approval.
+  'keyring.operation.title': 'Demande d’accès au trousseau',
+  'keyring.operation.description': 'TinySecurity demande l’accès à un élément du trousseau. Vérifiez l’opération avant de décider.',
+  'keyring.operation.access': 'Accès',
+  'keyring.operation.requester': 'Demandé par',
+  'keyring.operation.origin': 'Origine',
+  'keyring.operation.purpose': 'Motif',
+  'keyring.operation.name': 'Élément du trousseau',
+  'keyring.operation.access.read': 'Lire',
+  'keyring.operation.access.write': 'Écrire',
+  'keyring.operation.access.delete': 'Supprimer',
+  'keyring.operation.allow': 'Autoriser une fois',
+  'keyring.operation.deny': 'Refuser',
+  'keyring.operation.submitting': 'Envoi…',
+  'keyring.operation.expires': 'La demande expire dans {seconds}s.',
+  'keyring.operation.error': 'Impossible d’envoyer votre décision. La demande a peut-être expiré.',
 };
 
 export default messages;

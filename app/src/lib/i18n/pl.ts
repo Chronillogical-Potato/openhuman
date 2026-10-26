@@ -5178,6 +5178,23 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'Ponów',
   'keyring.settings.toolTrustRevoke': 'Cofnij',
   'keyring.settings.toolTrustRevoking': 'Cofanie…',
+
+  // Per-operation TinySecurity keyring approval.
+  'keyring.operation.title': 'Prośba o dostęp do pęku kluczy',
+  'keyring.operation.description': 'TinySecurity prosi o dostęp do jednego elementu pęku kluczy. Sprawdź operację przed podjęciem decyzji.',
+  'keyring.operation.access': 'Dostęp',
+  'keyring.operation.requester': 'Prosi',
+  'keyring.operation.origin': 'Źródło',
+  'keyring.operation.purpose': 'Cel',
+  'keyring.operation.name': 'Element pęku kluczy',
+  'keyring.operation.access.read': 'Odczyt',
+  'keyring.operation.access.write': 'Zapis',
+  'keyring.operation.access.delete': 'Usunięcie',
+  'keyring.operation.allow': 'Zezwól raz',
+  'keyring.operation.deny': 'Odmów',
+  'keyring.operation.submitting': 'Wysyłanie…',
+  'keyring.operation.expires': 'Prośba wygaśnie za {seconds}s.',
+  'keyring.operation.error': 'Nie udało się wysłać decyzji. Prośba mogła wygasnąć.',
 };
 
 export default messages;

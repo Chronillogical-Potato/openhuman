@@ -4822,6 +4822,23 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': '重试',
   'keyring.settings.toolTrustRevoke': '撤销',
   'keyring.settings.toolTrustRevoking': '正在撤销…',
+
+  // Per-operation TinySecurity keyring approval.
+  'keyring.operation.title': '密钥环访问请求',
+  'keyring.operation.description': 'TinySecurity 请求访问一项密钥环内容。请先查看操作详情，再作出决定。',
+  'keyring.operation.access': '访问权限',
+  'keyring.operation.requester': '请求方',
+  'keyring.operation.origin': '来源',
+  'keyring.operation.purpose': '用途',
+  'keyring.operation.name': '密钥环项目',
+  'keyring.operation.access.read': '读取',
+  'keyring.operation.access.write': '写入',
+  'keyring.operation.access.delete': '删除',
+  'keyring.operation.allow': '仅允许这一次',
+  'keyring.operation.deny': '拒绝',
+  'keyring.operation.submitting': '正在发送…',
+  'keyring.operation.expires': '请求将在 {seconds} 秒后过期。',
+  'keyring.operation.error': '无法发送你的决定。请求可能已过期。',
 };
 
 export default messages;

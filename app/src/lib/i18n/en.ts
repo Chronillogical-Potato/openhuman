@@ -5380,6 +5380,23 @@ const en: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'Retry',
   'keyring.settings.toolTrustRevoke': 'Revoke',
   'keyring.settings.toolTrustRevoking': 'Revoking…',
+
+  // Per-operation TinySecurity keyring approval.
+  'keyring.operation.title': 'Keyring access request',
+  'keyring.operation.description': 'TinySecurity is requesting access to one keyring item. Review the operation before deciding.',
+  'keyring.operation.access': 'Access',
+  'keyring.operation.requester': 'Requested by',
+  'keyring.operation.origin': 'Origin',
+  'keyring.operation.purpose': 'Purpose',
+  'keyring.operation.name': 'Keyring item',
+  'keyring.operation.access.read': 'Read',
+  'keyring.operation.access.write': 'Write',
+  'keyring.operation.access.delete': 'Delete',
+  'keyring.operation.allow': 'Allow once',
+  'keyring.operation.deny': 'Deny',
+  'keyring.operation.submitting': 'Sending…',
+  'keyring.operation.expires': 'Request expires in {seconds}s.',
+  'keyring.operation.error': 'Could not send your decision. The request may have expired.',
 };
 
 export default en;

@@ -5161,6 +5161,23 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'Повторить',
   'keyring.settings.toolTrustRevoke': 'Отозвать',
   'keyring.settings.toolTrustRevoking': 'Отзыв…',
+
+  // Per-operation TinySecurity keyring approval.
+  'keyring.operation.title': 'Запрос доступа к связке ключей',
+  'keyring.operation.description': 'TinySecurity запрашивает доступ к одному элементу связки ключей. Проверьте операцию перед решением.',
+  'keyring.operation.access': 'Доступ',
+  'keyring.operation.requester': 'Запросил',
+  'keyring.operation.origin': 'Источник',
+  'keyring.operation.purpose': 'Назначение',
+  'keyring.operation.name': 'Элемент связки ключей',
+  'keyring.operation.access.read': 'Чтение',
+  'keyring.operation.access.write': 'Запись',
+  'keyring.operation.access.delete': 'Удаление',
+  'keyring.operation.allow': 'Разрешить один раз',
+  'keyring.operation.deny': 'Отклонить',
+  'keyring.operation.submitting': 'Отправка…',
+  'keyring.operation.expires': 'Срок действия запроса истечёт через {seconds} с.',
+  'keyring.operation.error': 'Не удалось отправить решение. Возможно, срок запроса истёк.',
 };
 
 export default messages;

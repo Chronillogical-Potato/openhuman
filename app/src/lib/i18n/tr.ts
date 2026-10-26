@@ -5106,6 +5106,23 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'Yeniden dene',
   'keyring.settings.toolTrustRevoke': 'Geri al',
   'keyring.settings.toolTrustRevoking': 'Geri alınıyor…',
+
+  // Per-operation TinySecurity keyring approval.
+  'keyring.operation.title': 'Anahtarlık erişim isteği',
+  'keyring.operation.description': 'TinySecurity bir anahtarlık öğesine erişim istiyor. Karar vermeden önce işlemi inceleyin.',
+  'keyring.operation.access': 'Erişim',
+  'keyring.operation.requester': 'İsteyen',
+  'keyring.operation.origin': 'Kaynak',
+  'keyring.operation.purpose': 'Amaç',
+  'keyring.operation.name': 'Anahtarlık öğesi',
+  'keyring.operation.access.read': 'Oku',
+  'keyring.operation.access.write': 'Yaz',
+  'keyring.operation.access.delete': 'Sil',
+  'keyring.operation.allow': 'Bir kez izin ver',
+  'keyring.operation.deny': 'Reddet',
+  'keyring.operation.submitting': 'Gönderiliyor…',
+  'keyring.operation.expires': 'İstek {seconds} sn içinde sona erecek.',
+  'keyring.operation.error': 'Kararınız gönderilemedi. İsteğin süresi dolmuş olabilir.',
 };
 
 export default messages;

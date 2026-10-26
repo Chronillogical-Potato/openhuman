@@ -5183,6 +5183,23 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'Riprova',
   'keyring.settings.toolTrustRevoke': 'Revoca',
   'keyring.settings.toolTrustRevoking': 'Revoca in corso…',
+
+  // Per-operation TinySecurity keyring approval.
+  'keyring.operation.title': 'Richiesta di accesso al portachiavi',
+  'keyring.operation.description': 'TinySecurity richiede l’accesso a un elemento del portachiavi. Controlla l’operazione prima di decidere.',
+  'keyring.operation.access': 'Accesso',
+  'keyring.operation.requester': 'Richiesto da',
+  'keyring.operation.origin': 'Origine',
+  'keyring.operation.purpose': 'Scopo',
+  'keyring.operation.name': 'Elemento del portachiavi',
+  'keyring.operation.access.read': 'Leggere',
+  'keyring.operation.access.write': 'Scrivere',
+  'keyring.operation.access.delete': 'Eliminare',
+  'keyring.operation.allow': 'Consenti una volta',
+  'keyring.operation.deny': 'Nega',
+  'keyring.operation.submitting': 'Invio…',
+  'keyring.operation.expires': 'La richiesta scade tra {seconds}s.',
+  'keyring.operation.error': 'Impossibile inviare la decisione. La richiesta potrebbe essere scaduta.',
 };
 
 export default messages;

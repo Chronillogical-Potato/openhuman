@@ -5105,6 +5105,23 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': 'আবার চেষ্টা করুন',
   'keyring.settings.toolTrustRevoke': 'প্রত্যাহার',
   'keyring.settings.toolTrustRevoking': 'প্রত্যাহার হচ্ছে…',
+
+  // Per-operation TinySecurity keyring approval.
+  'keyring.operation.title': 'কীরিং অ্যাক্সেসের অনুরোধ',
+  'keyring.operation.description': 'TinySecurity একটি কীরিং আইটেমে অ্যাক্সেস চাইছে। সিদ্ধান্তের আগে অপারেশনটি পর্যালোচনা করুন।',
+  'keyring.operation.access': 'অ্যাক্সেস',
+  'keyring.operation.requester': 'অনুরোধকারী',
+  'keyring.operation.origin': 'উৎস',
+  'keyring.operation.purpose': 'উদ্দেশ্য',
+  'keyring.operation.name': 'কীরিং আইটেম',
+  'keyring.operation.access.read': 'পড়া',
+  'keyring.operation.access.write': 'লেখা',
+  'keyring.operation.access.delete': 'মুছে ফেলা',
+  'keyring.operation.allow': 'একবার অনুমতি দিন',
+  'keyring.operation.deny': 'প্রত্যাখ্যান',
+  'keyring.operation.submitting': 'পাঠানো হচ্ছে…',
+  'keyring.operation.expires': 'অনুরোধটি {seconds} সেকেন্ডে মেয়াদোত্তীর্ণ হবে।',
+  'keyring.operation.error': 'সিদ্ধান্ত পাঠানো যায়নি। অনুরোধটির মেয়াদ শেষ হয়ে থাকতে পারে।',
 };
 
 export default messages;

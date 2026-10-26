@@ -5459,6 +5459,23 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': '再試行',
   'keyring.settings.toolTrustRevoke': '取り消す',
   'keyring.settings.toolTrustRevoking': '取り消し中…',
+
+  // Per-operation TinySecurity keyring approval.
+  'keyring.operation.title': 'キーチェーンアクセスのリクエスト',
+  'keyring.operation.description': 'TinySecurity がキーチェーン項目へのアクセスを要求しています。判断する前に操作を確認してください。',
+  'keyring.operation.access': 'アクセス',
+  'keyring.operation.requester': '要求元',
+  'keyring.operation.origin': '発生元',
+  'keyring.operation.purpose': '目的',
+  'keyring.operation.name': 'キーチェーン項目',
+  'keyring.operation.access.read': '読み取り',
+  'keyring.operation.access.write': '書き込み',
+  'keyring.operation.access.delete': '削除',
+  'keyring.operation.allow': '今回のみ許可',
+  'keyring.operation.deny': '拒否',
+  'keyring.operation.submitting': '送信中…',
+  'keyring.operation.expires': 'リクエストは {seconds} 秒後に期限切れになります。',
+  'keyring.operation.error': '判断を送信できませんでした。リクエストの期限が切れた可能性があります。',
 };
 
 export default messages;

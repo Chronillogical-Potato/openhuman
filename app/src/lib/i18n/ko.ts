@@ -5054,6 +5054,23 @@ const messages: TranslationMap = {
   'keyring.settings.toolTrustRetry': '다시 시도',
   'keyring.settings.toolTrustRevoke': '취소',
   'keyring.settings.toolTrustRevoking': '취소 중…',
+
+  // Per-operation TinySecurity keyring approval.
+  'keyring.operation.title': '키링 액세스 요청',
+  'keyring.operation.description': 'TinySecurity가 키링 항목 하나에 대한 액세스를 요청합니다. 결정하기 전에 작업을 확인하세요.',
+  'keyring.operation.access': '액세스',
+  'keyring.operation.requester': '요청자',
+  'keyring.operation.origin': '출처',
+  'keyring.operation.purpose': '목적',
+  'keyring.operation.name': '키링 항목',
+  'keyring.operation.access.read': '읽기',
+  'keyring.operation.access.write': '쓰기',
+  'keyring.operation.access.delete': '삭제',
+  'keyring.operation.allow': '한 번 허용',
+  'keyring.operation.deny': '거부',
+  'keyring.operation.submitting': '전송 중…',
+  'keyring.operation.expires': '요청이 {seconds}초 후 만료됩니다.',
+  'keyring.operation.error': '결정을 보내지 못했습니다. 요청이 만료되었을 수 있습니다.',
 };
 
 export default messages;
