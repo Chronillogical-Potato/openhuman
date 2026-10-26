@@ -1,6 +1,6 @@
 //! Auth-profile locking through the shared local lease implementation.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use tinystoragedrivers_fence::{LocalLeaseGuard, LocalLeases};
 
 use super::AuthProfilesStore;
@@ -16,12 +16,7 @@ impl AuthProfilesStore {
         LocalLeases::new(self.lock_path.clone())
             .acquire()
             .map(|lease| AuthProfileLockGuard { _lease: lease })
-            .with_context(|| {
-                format!(
-                    "Failed to acquire auth profile lease at {}",
-                    self.lock_path.display()
-                )
-            })
+            .map_err(|error| anyhow::anyhow!("Failed to acquire auth profile lease: {error}"))
     }
 
     /// Acquire the read lease, returning `None` only for the TSD-approved
@@ -31,11 +26,8 @@ impl AuthProfilesStore {
         LocalLeases::new(self.lock_path.clone())
             .acquire_for_read()
             .map(|lease| lease.map(|lease| AuthProfileLockGuard { _lease: lease }))
-            .with_context(|| {
-                format!(
-                    "Failed to acquire auth profile read lease at {}",
-                    self.lock_path.display()
-                )
+            .map_err(|error| {
+                anyhow::anyhow!("Failed to acquire auth profile read lease: {error}")
             })
     }
 }
