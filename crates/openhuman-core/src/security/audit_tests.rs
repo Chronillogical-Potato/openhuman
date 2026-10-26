@@ -209,6 +209,29 @@ fn audit_log_file_is_created_owner_only() -> Result<()> {
 
 #[cfg(unix)]
 #[test]
+fn audit_log_existing_permissive_file_is_tightened() -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let tmp = TempDir::new()?;
+    let log_path = tmp.path().join("audit.log");
+    std::fs::write(&log_path, "existing\n")?;
+    std::fs::set_permissions(&log_path, std::fs::Permissions::from_mode(0o644))?;
+    let config = AuditConfig {
+        enabled: true,
+        max_size_mb: 10,
+        ..Default::default()
+    };
+    let logger = AuditLogger::new(config, tmp.path().to_path_buf())?;
+
+    logger.log(&AuditEvent::new(AuditEventType::SecurityEvent))?;
+
+    let mode = std::fs::metadata(log_path)?.permissions().mode() & 0o777;
+    assert_eq!(mode, 0o600, "existing audit log permissions must be tightened");
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
 fn audit_event_is_appended_when_rotation_fails_and_error_is_reported() -> Result<()> {
     let tmp = TempDir::new()?;
     let config = AuditConfig {
