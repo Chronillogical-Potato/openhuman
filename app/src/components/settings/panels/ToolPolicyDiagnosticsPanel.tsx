@@ -15,6 +15,13 @@ type SecurityPolicyInfo = {
   block_high_risk_commands: boolean;
 };
 
+const unwrapPolicy = (raw: unknown): SecurityPolicyInfo => {
+  if (raw && typeof raw === 'object' && 'result' in raw) {
+    return (raw as { result: SecurityPolicyInfo }).result;
+  }
+  return raw as SecurityPolicyInfo;
+};
+
 const isMethodNotBuilt = (message: string) =>
   /method (not found|not registered)|unknown method|security module.*(off|not built)/i.test(
     message
@@ -33,11 +40,12 @@ const ToolPolicyDiagnosticsPanel = () => {
     let cancelled = false;
     const loadPolicy = async () => {
       try {
-        const policy = await callCoreRpc<SecurityPolicyInfo>({
+        const raw = await callCoreRpc<unknown>({
           method: 'openhuman.security_policy_info',
           params: {},
           timeoutMs: 10_000,
         });
+        const policy = unwrapPolicy(raw);
         if (!cancelled) setStatus({ kind: 'ready', policy });
       } catch (error) {
         if (cancelled) return;

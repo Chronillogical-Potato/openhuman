@@ -18,12 +18,15 @@ describe('ToolPolicyDiagnosticsPanel', () => {
 
   test('renders active policy from security_policy_info', async () => {
     hoisted.callCoreRpc.mockResolvedValue({
-      autonomy: 'supervised',
-      workspace_only: true,
-      allowed_commands: ['ls'],
-      max_actions_per_hour: 123,
-      require_approval_for_medium_risk: true,
-      block_high_risk_commands: true,
+      result: {
+        autonomy: 'supervised',
+        workspace_only: true,
+        allowed_commands: ['ls'],
+        max_actions_per_hour: 123,
+        require_approval_for_medium_risk: true,
+        block_high_risk_commands: true,
+      },
+      logs: ['policy loaded'],
     });
 
     const Panel = (await import('../ToolPolicyDiagnosticsPanel')).default;
