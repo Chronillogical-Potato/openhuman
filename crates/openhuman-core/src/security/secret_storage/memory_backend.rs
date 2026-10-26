@@ -31,10 +31,11 @@ impl MemoryBackend {
 impl SecretBackend for MemoryBackend {
     fn get(&self, key: &str) -> Result<Option<String>, SecretStorageError> {
         let values = Arc::clone(&self.values);
-        let key = key.to_string();
-        let value = crate::storage::block_on(async move { values.get(&key).await })
+        let label = key.to_string();
+        let name = label.clone();
+        let value = crate::storage::block_on(async move { values.get(&name).await })
             .map_err(adapter::backend_error)?;
-        adapter::utf8(&key, value)
+        adapter::utf8(&label, value)
     }
 
     fn set(&self, key: &str, value: &str) -> Result<(), SecretStorageError> {
