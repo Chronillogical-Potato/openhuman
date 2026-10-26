@@ -38,18 +38,58 @@ pub struct Client {
     object: SecurityObject,
 }
 
+/// One admitted security API connection. Production calls travel through the
+/// callback binding so TinySecurity sees the same authenticated host peer for
+/// its API calls and confidential host callbacks; test fixtures retain the
+/// regular module client.
 #[derive(Clone)]
-struct SecurityObject {
-    proxy: tinybus::module::HostCallbackProxy,
+pub(crate) enum SecurityProxy {
+    Callback(tinybus::module::HostCallbackProxy),
+    Module(tinybus::module::ModuleObjectClient),
 }
 
-impl SecurityObject {
-    async fn call_confidential<R: DeserializeOwned>(
+impl SecurityProxy {
+    pub(crate) fn callback(proxy: tinybus::module::HostCallbackProxy) -> Self {
+        Self::Callback(proxy)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn module(proxy: tinybus::module::ModuleObjectClient) -> Self {
+        Self::Module(proxy)
+    }
+
+    pub(crate) async fn call_confidential<R: DeserializeOwned>(
         &self,
         member: &str,
         args: impl Serialize,
-    ) -> tinybus::Result<R> {
-        self.proxy.call_confidential(member, args).await
+    ) -> Result<R, String> {
+        match self {
+            Self::Callback(proxy) => proxy
+                .call_confidential(member, args)
+                .await
+                .map_err(|_| "security module call failed".to_owned()),
+            Self::Module(proxy) => proxy
+                .call_confidential(member, args)
+                .await
+                .map_err(|_| "security module call failed".to_owned()),
+        }
+    }
+
+    pub(crate) async fn call<R: DeserializeOwned>(
+        &self,
+        member: &str,
+        args: impl Serialize,
+    ) -> Result<R, String> {
+        match self {
+            Self::Callback(proxy) => proxy
+                .call(member, args)
+                .await
+                .map_err(|_| "security module call failed".to_owned()),
+            Self::Module(proxy) => proxy
+                .call(member, args)
+                .await
+                .map_err(|_| "security module call failed".to_owned()),
+        }
     }
 }
 
@@ -68,7 +108,7 @@ impl Client {
                 tinysecurity_bus::names::INTERFACE,
             )
             .map_err(|_| "pinned security module proxy unavailable".to_owned())?;
-        let object = SecurityObject { proxy };
+        let object = SecurityProxy::callback(proxy);
         Ok(Self { object })
     }
 
