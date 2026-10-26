@@ -1,6 +1,7 @@
 //! One-shot approval requests for TinySecurity keyring operations.
 
 use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
 use tokio::sync::oneshot;
 
 pub(crate) const MAX_PENDING_APPROVALS: usize = 64;
@@ -16,6 +17,12 @@ pub(crate) struct ApprovalPrompt {
 #[derive(Default)]
 pub(crate) struct PendingConsentRegistry {
     pending: HashMap<String, oneshot::Sender<bool>>,
+}
+
+static PENDING: OnceLock<Mutex<PendingConsentRegistry>> = OnceLock::new();
+
+fn pending() -> &'static Mutex<PendingConsentRegistry> {
+    PENDING.get_or_init(|| Mutex::new(PendingConsentRegistry::default()))
 }
 
 impl PendingConsentRegistry {
@@ -47,6 +54,55 @@ impl PendingConsentRegistry {
             .remove(request_id)
             .is_some_and(|sender| sender.send(approved).is_ok())
     }
+
+    pub(crate) fn cancel(&mut self, request_id: &str) {
+        self.pending.remove(request_id);
+    }
+}
+
+/// Request approval for this exact operation and wait for its correlated
+/// response. Missing event infrastructure, a full queue, timeout, or a lost
+/// waiter all fail closed.
+pub(crate) async fn request_approval(
+    request: tinysecurity_bus::KeyringConsentRequest2,
+) -> Option<bool> {
+    use tinysecurity_bus::KeyringAccess2;
+
+    let access = match request.access {
+        KeyringAccess2::Read => "read",
+        KeyringAccess2::Write => "write",
+        KeyringAccess2::Delete => "delete",
+    };
+    let timeout = std::time::Duration::from_millis(u64::from(request.timeout_ms.min(120_000)));
+    let (prompt, waiter) = pending()
+        .lock()
+        .ok()?
+        .register(access, &request.name)
+        .ok()?;
+    crate::core::bus::BUS.publish(crate::core::events::DomainEvent::KeyringAccessApprovalRequested {
+        request_id: prompt.request_id.clone(),
+        caller_agent: request.caller.agent.clone(),
+        origin: format!("{:?}", request.caller.origin),
+        purpose: request.purpose,
+        access: prompt.access,
+        name: prompt.name,
+        expires_at_ms: prompt.expires_at_ms,
+    });
+
+    let decision = tokio::time::timeout(timeout, waiter).await.ok()?.ok();
+    if decision.is_none()
+        && let Ok(mut pending) = pending().lock()
+    {
+        pending.cancel(&prompt.request_id);
+    }
+    decision
+}
+
+/// Resolve one currently pending request. Each id can be consumed once.
+pub(crate) fn resolve_approval(request_id: &str, approved: bool) -> bool {
+    pending()
+        .lock()
+        .is_ok_and(|mut pending| pending.resolve(request_id, approved))
 }
 
 fn now_ms() -> u64 {

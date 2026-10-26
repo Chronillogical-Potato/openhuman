@@ -1276,6 +1276,17 @@ pub enum DomainEvent {
     /// operation hits the consent gate. The frontend surfaces a consent
     /// dialog in response.
     KeyringConsentRequired,
+    /// One exact TinySecurity keyring operation needs the human's decision.
+    /// The payload contains only host-verified, display-safe metadata.
+    KeyringAccessApprovalRequested {
+        request_id: String,
+        caller_agent: String,
+        origin: String,
+        purpose: String,
+        access: String,
+        name: String,
+        expires_at_ms: u64,
+    },
     /// A secret field failed to decrypt (rotated master key, corrupted
     /// ciphertext, keychain reset). Published so the frontend can surface
     /// a recovery prompt instead of silently clearing the field.
@@ -1479,7 +1490,9 @@ impl DomainEvent {
             | Self::HealthChanged { .. }
             | Self::HealthRestarted { .. } => "system",
 
-            Self::KeyringConsentRequired | Self::KeyringDecryptFailed { .. } => "keyring",
+            Self::KeyringConsentRequired
+            | Self::KeyringAccessApprovalRequested { .. }
+            | Self::KeyringDecryptFailed { .. } => "keyring",
 
             Self::SessionExpired { .. }
             | Self::CredentialChanged { .. }
