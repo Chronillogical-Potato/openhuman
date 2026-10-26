@@ -5876,6 +5876,7 @@ dependencies = [
  "tinystoragedrivers-bus",
  "tinystoragedrivers-busproxy",
  "tinystoragedrivers-connect",
+ "tinystoragedrivers-fence",
  "tinystoragedrivers-secrets",
  "tinystoragedrivers-testkit",
  "tinystoragedrivers-types",
@@ -10869,6 +10870,13 @@ dependencies = [
  "tinystoragedrivers-types",
  "tokio",
  "zstd 0.14.3",
+]
+
+[[package]]
+name = "tinystoragedrivers-fence"
+version = "2.1.2"
+dependencies = [
+ "sysinfo",
 ]
 
 [[package]]
