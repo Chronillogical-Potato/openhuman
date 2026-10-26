@@ -6,15 +6,15 @@
 
 pub(crate) mod audit;
 pub(super) mod callbacks;
-mod cipher_consumer;
+pub(super) mod cipher_consumer;
 mod client;
 pub(crate) mod command;
 pub(crate) mod gap;
 mod policy;
 pub(crate) mod policy_translation;
 pub(crate) mod sandbox;
-mod secret_backend;
-mod secret_cipher;
+pub(super) mod secret_backend;
+pub(super) mod secret_cipher;
 pub(crate) mod sync_seam;
 pub(crate) mod text;
 
