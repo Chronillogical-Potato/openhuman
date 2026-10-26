@@ -88,8 +88,8 @@ impl SecretStore {
             )
             .await?
         {
-            crate::modules::security::secret_cipher::Output::Ciphertext(value) => Ok(value),
-            crate::modules::security::secret_cipher::Output::Plaintext { .. } => {
+            crate::modules::security::SecretCipherOutput::Ciphertext(value) => Ok(value),
+            crate::modules::security::SecretCipherOutput::Plaintext { .. } => {
                 anyhow::bail!("secret encryption was not completed")
             }
         }
@@ -107,10 +107,10 @@ impl SecretStore {
             )
             .await?
         {
-            crate::modules::security::secret_cipher::Output::Plaintext { value, .. } => {
+            crate::modules::security::SecretCipherOutput::Plaintext { value, .. } => {
                 Ok(value.to_string())
             }
-            crate::modules::security::secret_cipher::Output::Ciphertext(_) => {
+            crate::modules::security::SecretCipherOutput::Ciphertext(_) => {
                 anyhow::bail!("secret decryption was not completed")
             }
         }
@@ -131,7 +131,7 @@ impl SecretStore {
             )
             .await?
         {
-            crate::modules::security::secret_cipher::Output::Plaintext {
+            crate::modules::security::SecretCipherOutput::Plaintext {
                 value,
                 migrated,
                 replacement_ciphertext,
@@ -139,7 +139,7 @@ impl SecretStore {
                 value.to_string(),
                 migrated.then_some(replacement_ciphertext).flatten(),
             )),
-            crate::modules::security::secret_cipher::Output::Ciphertext(_) => {
+            crate::modules::security::SecretCipherOutput::Ciphertext(_) => {
                 anyhow::bail!("secret migration was not completed")
             }
         }
@@ -149,7 +149,7 @@ impl SecretStore {
         &self,
         operation: tinysecurity_bus::SecretCipherKind2,
         input: &[u8],
-    ) -> Result<crate::modules::security::secret_cipher::Output> {
+    ) -> Result<crate::modules::security::SecretCipherOutput> {
         let config = self
             .config
             .as_ref()
@@ -179,7 +179,7 @@ impl SecretStore {
             let master_handle = if let Some(handle) = cached_master_handle(&cache_key, generation) {
                 handle
             } else {
-                let handle = crate::modules::security::secret_cipher::resolve_user_master(
+                let handle = crate::modules::security::resolve_user_master(
                     &client,
                     &scope,
                     &registration_id,
@@ -189,7 +189,7 @@ impl SecretStore {
                 cache_master_handle(&cache_key, generation, &handle);
                 handle
             };
-            crate::modules::security::secret_cipher::run(
+            crate::modules::security::run_secret_cipher(
                 &client,
                 &scope,
                 &consumer,

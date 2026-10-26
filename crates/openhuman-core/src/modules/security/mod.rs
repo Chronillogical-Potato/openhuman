@@ -26,6 +26,36 @@ pub(crate) use client::SecurityProxy;
 pub use client::{Client, SecurityError};
 pub use policy::policy_config;
 pub(super) use policy::{module_config, module_config_for_host, module_config_for_secret_scope};
+pub(crate) use secret_cipher::Output as SecretCipherOutput;
+
+pub(crate) async fn resolve_user_master(
+    client: &Client,
+    scope: &crate::security::approval::native::SecretScope,
+    registration_id: &str,
+) -> Result<String, SecurityError> {
+    secret_cipher::resolve_user_master(client, scope, registration_id).await
+}
+
+pub(crate) async fn run_secret_cipher(
+    client: &Client,
+    scope: &crate::security::approval::native::SecretScope,
+    consumer: &cipher_consumer::Consumer,
+    registration_id: &str,
+    master_handle: &str,
+    operation: tinysecurity_bus::SecretCipherKind2,
+    input: &[u8],
+) -> Result<SecretCipherOutput, SecurityError> {
+    secret_cipher::run(
+        client,
+        scope,
+        consumer,
+        registration_id,
+        master_handle,
+        operation,
+        input,
+    )
+    .await
+}
 
 /// Serve the cipher output and master storage callbacks on the exact admitted
 /// TinySecurity host binding.

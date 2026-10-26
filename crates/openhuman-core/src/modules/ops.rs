@@ -325,7 +325,7 @@ pub(super) async fn security_callback_binding(
 }
 
 #[cfg(feature = "security-module")]
-pub(super) async fn security_cipher_consumer(
+pub(crate) async fn security_cipher_consumer(
 ) -> Option<std::sync::Arc<super::security::cipher_consumer::Consumer>> {
     SECURITY_CALLBACK_LOADS
         .lock()
