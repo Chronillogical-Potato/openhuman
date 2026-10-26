@@ -26,9 +26,7 @@ impl AuthProfilesStore {
         LocalLeases::new(self.lock_path.clone())
             .acquire_for_read()
             .map(|lease| lease.map(|lease| AuthProfileLockGuard { _lease: lease }))
-            .map_err(|error| {
-                anyhow::anyhow!("Failed to acquire auth profile read lease: {error}")
-            })
+            .map_err(|error| anyhow::anyhow!("Failed to acquire auth profile read lease: {error}"))
     }
 }
 
