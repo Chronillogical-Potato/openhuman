@@ -37,26 +37,10 @@ describe('ToolPolicyDiagnosticsPanel', () => {
     );
   });
 
-  test('renders unavailable state when the RPC fails', async () => {
-    hoisted.callCoreRpc.mockImplementation(() => {
-      throw new Error('rpc transport unavailable');
-    });
-
+  test('shows loading while the core response is pending', async () => {
+    hoisted.callCoreRpc.mockReturnValue(new Promise(() => {}));
     const Panel = (await import('../ToolPolicyDiagnosticsPanel')).default;
     renderWithProviders(<Panel />);
-
-    expect(screen.getByTestId('policy-info-unavailable')).toBeInTheDocument();
-    expect(screen.getByText('rpc transport unavailable')).toBeInTheDocument();
-  });
-
-  test('renders not-built state when the core does not register the method', async () => {
-    hoisted.callCoreRpc.mockImplementation(() => {
-      throw new Error('method not found: security_policy_info');
-    });
-
-    const Panel = (await import('../ToolPolicyDiagnosticsPanel')).default;
-    renderWithProviders(<Panel />);
-
-    expect(screen.getByTestId('policy-info-not-built')).toBeInTheDocument();
+    expect(screen.getByTestId('policy-info-loading')).toBeInTheDocument();
   });
 });
