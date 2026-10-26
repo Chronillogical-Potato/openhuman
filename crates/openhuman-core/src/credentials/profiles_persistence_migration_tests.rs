@@ -2,6 +2,27 @@ use super::*;
 use tempfile::TempDir;
 
 #[test]
+fn denied_keyring_read_preserves_keyring_only_oauth_profile() {
+    let mut profile = PersistedAuthProfile {
+        provider: "openai-codex".into(),
+        profile_name: "default".into(),
+        kind: "oauth".into(),
+        ..PersistedAuthProfile::default()
+    };
+    assert!(super::super::migration::preserve_keyring_only_oauth_after_access_failure(
+        &profile, true
+    ));
+
+    profile.access_token = Some("enc:not-readable".into());
+    assert!(!super::super::migration::preserve_keyring_only_oauth_after_access_failure(
+        &profile, true
+    ));
+    assert!(!super::super::migration::preserve_keyring_only_oauth_after_access_failure(
+        &profile, false
+    ));
+}
+
+#[test]
 fn auth_profile_kind_serde_roundtrip() {
     let json = serde_json::to_string(&AuthProfileKind::OAuth).unwrap();
     assert_eq!(json, "\"o-auth\""); // kebab-case
