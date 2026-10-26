@@ -48,6 +48,14 @@ fn module_bootstrap_configures_the_host_served_audit_stream_from_config() {
 }
 
 #[test]
+fn sandbox_planning_keeps_its_audit_sink_when_optional_audit_is_disabled() {
+    let mut config = Config::default();
+    config.audit.enabled = false;
+
+    assert!(module_config(&config).audit.is_some());
+}
+
+#[test]
 fn module_bootstrap_binds_the_trusted_host_identity() {
     let config = Config::default();
     let translated = module_config_for_host(&config, Some(":1.42".into())).unwrap();
