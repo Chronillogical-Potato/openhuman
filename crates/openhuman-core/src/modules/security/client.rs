@@ -247,6 +247,48 @@ impl Client {
         Ok(response.decision)
     }
 
+    /// Authorize one browser socket dial through TinySecurity.
+    pub(crate) async fn authorize_browser_dial(
+        &self,
+        request: tinysecurity_bus::BrowserDialRequest,
+    ) -> Result<tinysecurity_bus::BrowserDialResponse, SecurityError> {
+        self.object
+            .call_confidential(
+                tinysecurity_bus::names::methods::AUTHORIZE_BROWSER_DIAL,
+                (request,),
+            )
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Consume the exact one-use browser grant before the selected socket opens.
+    pub(crate) async fn consume_browser_dial(
+        &self,
+        request: tinysecurity_bus::ConsumeBrowserDialRequest,
+    ) -> Result<bool, SecurityError> {
+        self.object
+            .call_confidential(
+                tinysecurity_bus::names::methods::CONSUME_BROWSER_DIAL,
+                (request,),
+            )
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Validate a live browser tunnel lease.
+    pub(crate) async fn validate_browser_dial(
+        &self,
+        request: tinysecurity_bus::ValidateBrowserDialRequest,
+    ) -> Result<bool, SecurityError> {
+        self.object
+            .call_confidential(
+                tinysecurity_bus::names::methods::VALIDATE_BROWSER_DIAL,
+                (request,),
+            )
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
     /// Register an immutable host-derived command scope.
     pub async fn register_command_policy(
         &self,
