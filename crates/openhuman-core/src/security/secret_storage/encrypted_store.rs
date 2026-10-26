@@ -265,7 +265,7 @@ impl SecretStore {
     }
 }
 
-fn keyring_user_id_from_dir(openhuman_dir: &Path) -> String {
+pub(crate) fn keyring_user_id_from_dir(openhuman_dir: &Path) -> String {
     if let Some(id) = openhuman_dir.file_name().and_then(|s| s.to_str()) {
         if !id.is_empty() {
             return id.to_string();

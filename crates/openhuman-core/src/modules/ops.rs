@@ -345,9 +345,7 @@ pub(super) async fn security_secret_scope() -> Option<crate::security::approval:
 }
 
 #[cfg(feature = "security-module")]
-pub(super) async fn security_module_config(
-    config: &Config,
-) -> Result<serde_json::Value, String> {
+pub(super) async fn security_module_config(config: &Config) -> Result<serde_json::Value, String> {
     let loads = SECURITY_CALLBACK_LOADS.lock().await;
     loads
         .get(super::security::MODULE_ID)
@@ -457,12 +455,8 @@ async fn ensure_loaded_with_security_callback(
         .unwrap_or_else(|| Path::new("."))
         .to_path_buf();
     let key_path = key_dir.join(".secret_key");
-    let user_id = key_dir
-        .file_name()
-        .and_then(|name| name.to_str())
-        .filter(|name| !name.is_empty())
-        .unwrap_or("openhuman")
-        .to_owned();
+    let user_id = crate::security::secret_storage::encrypted_store::
+        keyring_user_id_from_dir(&key_dir);
     let subject = tinysecurity_bus::SubjectScope {
         user: user_id.clone(),
         workspace: config.workspace_dir.to_string_lossy().into_owned(),
