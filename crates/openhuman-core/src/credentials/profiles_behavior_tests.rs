@@ -181,17 +181,8 @@ fn load_drops_profiles_whose_decryption_fails_under_rotated_key() {
     let doomed = AuthProfile::new_token("app-session", "default", "real-jwt-payload".into());
     store.upsert_profile(doomed.clone(), true).unwrap();
 
-    // Under the keychain-backed model the secret was just stored in the
-    // keychain (FileBackend in debug builds) and not in the JSON file.  To
-    // exercise the legacy enc2: decrypt-failure → drop path that this test
-    // covers, delete the keychain entry so the load falls back to the JSON
-    // decrypt path, then plant a syntactically valid enc2: blob in the JSON
-    // that the current key cannot decrypt.
-    let user_id = user_id_from_state_dir(tmp.path());
-    let keychain_key = format!("{KEYCHAIN_AUTH_PREFIX}{}", doomed.id);
-    crate::security::secret_storage::delete(&user_id, &keychain_key)
-        .expect("delete keychain entry for test setup");
-
+    // Profile tokens are inside the TSD-encrypted profile document. Plant a
+    // malformed field-level enc2 value to verify drop-on-decrypt-failure.
     let profile_id = doomed.id.clone();
     let mut data = store.read_persisted_locked().unwrap();
     data.profiles.get_mut(&profile_id).unwrap().token = Some(
