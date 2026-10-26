@@ -481,6 +481,7 @@ pub(super) async fn agent_chat_reply_for_inner(
             );
         }
         _ => enforce_user_prompt_or_reject(message, "local_ai.ops.agent_chat")
+            .await
             .map_err(anyhow::Error::msg)?,
     }
 

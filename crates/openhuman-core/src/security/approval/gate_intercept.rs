@@ -48,6 +48,20 @@ impl ApprovalGate {
         tool_call_id: Option<&str>,
         mode: Mode,
     ) -> (GateOutcome, Option<String>) {
+        #[cfg(not(test))]
+        let args_redacted = match self.redact_approval_arguments(args_redacted).await {
+            Ok(args) => args,
+            Err(_) => {
+                return (
+                    GateOutcome::Deny {
+                        reason: format!(
+                            "{POLICY_DENIED_MARKER} Approval details could not be sanitized; refusing '{tool_name}'."
+                        ),
+                    },
+                    None,
+                );
+            }
+        };
         if self.audit_failure_latched() {
             return (
                 GateOutcome::Deny {
@@ -450,6 +464,34 @@ impl ApprovalGate {
                 self.parked.clear_thread(&thread_key, &request_id);
                 outcome
             }
+        }
+    }
+
+    #[cfg(not(test))]
+    async fn redact_approval_arguments(
+        &self,
+        args: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        let encoded = serde_json::to_string(&args)
+            .map_err(|_| "approval arguments are not serializable".to_owned())?;
+        if encoded.len() > 64 * 1024 {
+            return Err("approval arguments exceed the redaction limit".into());
+        }
+        #[cfg(feature = "security-module")]
+        {
+            let client = crate::modules::security::client(&self.config)
+                .await
+                .map_err(|error| error.to_string())?;
+            let response = client
+                .redact(tinysecurity_bus::RedactMode::StructuredArguments, encoded)
+                .await
+                .map_err(|error| error.to_string())?;
+            return serde_json::from_str(&response.text)
+                .map_err(|_| "TinySecurity returned invalid approval arguments".to_owned());
+        }
+        #[cfg(not(feature = "security-module"))]
+        {
+            Err("TinySecurity is not built into this host".into())
         }
     }
 

@@ -72,9 +72,9 @@ helpers run `f` once.
 
 ### Redaction
 
-`redact_url_for_log(raw)` parses the URL (assuming `http://` when the scheme
-is missing), replaces any username and password with `redacted`, and strips a
-trailing slash. An unparseable input comes back trimmed and unchanged.
+`redact_url_for_log(raw)` uses TinySecurity's `Endpoint` mode, which removes
+credentials, query parameters and fragments. If the module is unavailable, it
+returns the fixed suppression marker.
 
 ### URLs
 

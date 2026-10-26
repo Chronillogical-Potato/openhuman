@@ -77,7 +77,7 @@ impl Tool for ComposioListToolsTool {
     ) -> anyhow::Result<ToolResult> {
         let ctx = dispatch_ctx_for_tool(None);
         let (config, outcome) = Box::pin(self.execute_unredacted(&ctx, args, options)).await;
-        redact_composio_outcome(&config, outcome)
+        redact_composio_outcome(&config, outcome).await
     }
 
     async fn execute_with_context(
@@ -88,7 +88,7 @@ impl Tool for ComposioListToolsTool {
     ) -> anyhow::Result<ToolResult> {
         let ctx = dispatch_ctx_for_tool(context);
         let (config, outcome) = Box::pin(self.execute_unredacted(&ctx, args, options)).await;
-        redact_composio_outcome(&config, outcome)
+        redact_composio_outcome(&config, outcome).await
     }
 
     fn supports_markdown(&self) -> bool {

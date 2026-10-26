@@ -10,6 +10,8 @@ pub(crate) mod command;
 pub(crate) mod gap;
 mod policy;
 pub(crate) mod policy_translation;
+pub(crate) mod sync_seam;
+pub(crate) mod text;
 
 #[cfg(test)]
 #[path = "security_tests.rs"]
@@ -35,7 +37,9 @@ pub async fn ensure_loaded(config: &Config) -> Result<(), SecurityError> {
     }
     super::ops::ensure_loaded(config, MODULE_ID)
         .await
-        .map_err(SecurityError::Unavailable)
+        .map_err(SecurityError::Unavailable)?;
+    text::arm(config);
+    Ok(())
 }
 
 /// Construct a client over the attested module object.

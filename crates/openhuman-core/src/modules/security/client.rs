@@ -5,7 +5,9 @@ use tinysecurity_bus::{
     CommandPolicyId, CommandRequest, CredentialRootsRequest2, CredentialRootsResponse2,
     HostActionClassRequest2, HostActionClassResponse2, PathBatchRequest2, PathBatchResponse2,
     PathPolicy, PathPolicyId, PathValidationRequest, PathValidationResult, PolicyInfo,
-    ProtectedFloor2, ProtectedPathRequest2, ProtectedPathResponse2,
+    ProtectedFloor2, ProtectedPathRequest2, ProtectedPathResponse2, RedactMode, RedactRequest,
+    RedactResponse, RedactWithRequest, ScanPromptScoredRequest2, ScanPromptScoredResponse2,
+    ScanResponse, ScanToolDefinitionRequest, Secret,
 };
 
 use super::MODULE_ID;
@@ -48,6 +50,76 @@ impl Client {
     pub async fn policy_info(&self) -> Result<PolicyInfo, SecurityError> {
         self.object
             .call_confidential(tinysecurity_bus::names::methods::POLICY_INFO, ())
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Redact text through TinySecurity's shared policy engine.
+    pub async fn redact(
+        &self,
+        mode: RedactMode,
+        text: impl Into<String>,
+    ) -> Result<RedactResponse, SecurityError> {
+        self.object
+            .call_confidential(
+                tinysecurity_bus::names::methods::REDACT,
+                (RedactRequest {
+                    text: text.into(),
+                    mode,
+                },),
+            )
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Redact text using exact credentials that apply to this call only.
+    pub async fn redact_with(
+        &self,
+        mode: RedactMode,
+        text: impl Into<String>,
+        secrets: impl IntoIterator<Item = String>,
+    ) -> Result<RedactResponse, SecurityError> {
+        self.object
+            .call_confidential(
+                tinysecurity_bus::names::methods::REDACT_WITH,
+                (RedactWithRequest {
+                    text: text.into(),
+                    mode,
+                    secrets: secrets.into_iter().map(Secret).collect(),
+                },),
+            )
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Score prompt text through TinySecurity. The result is context, never authorization.
+    pub async fn scan_prompt2(
+        &self,
+        text: impl Into<String>,
+    ) -> Result<ScanPromptScoredResponse2, SecurityError> {
+        self.object
+            .call_confidential(
+                tinysecurity_bus::names::methods::SCAN_PROMPT2,
+                (ScanPromptScoredRequest2 { text: text.into() },),
+            )
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Scan a complete tool definition encoded as a JSON object.
+    pub async fn scan_tool_definition(
+        &self,
+        name: impl Into<String>,
+        definition: &serde_json::Value,
+    ) -> Result<ScanResponse, SecurityError> {
+        self.object
+            .call_confidential(
+                tinysecurity_bus::names::methods::SCAN_TOOL_DEFINITION,
+                (ScanToolDefinitionRequest {
+                    name: name.into(),
+                    definition_json: definition.to_string(),
+                },),
+            )
             .await
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
     }

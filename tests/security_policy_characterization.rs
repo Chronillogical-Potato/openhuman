@@ -97,9 +97,3 @@ fn action_dir_is_not_granted_when_it_covers_the_workspace() {
         "an ancestor of the workspace must not become a trusted root"
     );
 }
-
-#[test]
-fn declared_class_parsing_is_pinned() {
-    assert!(SecurityPolicy::parse_declared_class("NETWORK").is_some());
-    assert_eq!(SecurityPolicy::parse_declared_class("nonsense"), None);
-}

@@ -237,7 +237,7 @@ impl Tool for McpListToolsTool {
                 meta: None,
             })
             .collect();
-        let safe = crate::mcp::registry::tools_safe_for_agent(&server, policy_tools);
+        let safe = crate::mcp::registry::tools_safe_for_agent(&server, policy_tools).await;
         let safe_names: std::collections::HashSet<_> =
             safe.into_iter().map(|tool| tool.name).collect();
         let payload = display

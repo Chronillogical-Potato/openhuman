@@ -419,6 +419,10 @@ pub async fn ensure_loaded_within(
     if id == super::connectors::MODULE_ID && result.is_ok() {
         super::connectors::note_load_resolution_ready();
     }
+    #[cfg(feature = "security-module")]
+    if id == super::security::MODULE_ID && result.is_ok() {
+        super::security::text::arm(config);
+    }
     result
 }
 
