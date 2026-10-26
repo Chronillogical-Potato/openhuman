@@ -21,6 +21,7 @@ use super::super::engine::Posture;
 use super::rows::{digest_id, Rows};
 use super::state::{handle_key, host};
 use crate::config::Config;
+use crate::modules::security::SecurityProxy;
 
 /// The immutable partial-policy reference every approval row binds to. It
 /// never changes with the posture, so a refreshed allowlist does not strand
@@ -130,7 +131,7 @@ impl ScopeEntry {
     /// Make the module hold `posture` for this subject.
     async fn register(
         self: &Arc<Self>,
-        proxy: &tinybus::module::ModuleObjectClient,
+        proxy: &SecurityProxy,
         posture: &Posture,
         generation: u64,
     ) -> Result<(), String> {
@@ -264,7 +265,7 @@ fn grants() -> ApprovalGrants2 {
 /// posture first.
 pub(super) async fn ensure(
     config: &Config,
-    proxy: &tinybus::module::ModuleObjectClient,
+    proxy: &SecurityProxy,
     subject: SubjectScope,
     posture: &Posture,
     generation: u64,

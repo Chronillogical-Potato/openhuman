@@ -102,7 +102,7 @@ impl SecretScope {
     pub(crate) async fn ensure_registered(
         &self,
         config: &crate::config::Config,
-        proxy: &tinybus::module::ModuleObjectClient,
+        proxy: &crate::modules::security::SecurityProxy,
         generation: u64,
     ) -> Result<(), String> {
         scopes::ensure(
@@ -126,16 +126,8 @@ impl SecretScope {
         proxy: &tinybus::module::HostCallbackProxy,
         generation: u64,
     ) -> Result<(), String> {
-        self.entry
-            .register_with_callback(
-                proxy,
-                &super::engine::Posture {
-                    require_approval: true,
-                    ..Default::default()
-                },
-                generation,
-            )
-            .await
+        let proxy = crate::modules::security::SecurityProxy::callback(proxy.clone());
+        self.ensure_registered(config, &proxy, generation).await
     }
 }
 
