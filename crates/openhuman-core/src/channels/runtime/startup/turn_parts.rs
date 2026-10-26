@@ -85,7 +85,7 @@ fn default_tool_descs(config: &Config) -> Vec<(&'static str, &'static str)> {
 /// Build the model, tools and prompt of a channel turn from `config`, under
 /// `security`. Side-effect free apart from the workspace's audit logger: it
 /// installs no process-global policy and registers no subscriber.
-pub(crate) fn build_channel_turn_parts(
+pub(crate) async fn build_channel_turn_parts(
     dispatch: &DispatchCtx,
     config: &Config,
     security: &Arc<SecurityPolicy>,
@@ -150,6 +150,7 @@ pub(crate) fn build_channel_turn_parts(
             config,
             None,
         )
+        .await
     });
 
     let skills = if capabilities.is_some() {

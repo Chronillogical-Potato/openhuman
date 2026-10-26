@@ -244,7 +244,7 @@ pub(super) fn scope_def(
     Some(definition)
 }
 
-pub(super) fn merge_for_turn(
+pub(super) async fn merge_for_turn(
     dispatch: &crate::core::runtime::DispatchCtx,
     host: Option<&HostTools>,
     agent_id: &str,
@@ -252,10 +252,11 @@ pub(super) fn merge_for_turn(
     tools: &mut Vec<Box<dyn Tool>>,
     visible: &mut HashSet<String>,
 ) -> Result<MergedHostTurnTools> {
-    match host
-        .map(|build| build(TurnContext::new(agent_id, session_id).with_dispatch(dispatch)))
-        .map(|host_tools| host_tools.merge_into(agent_id, tools, visible))
-    {
+    let host_tools = match host {
+        Some(build) => Some(build(TurnContext::new(agent_id, session_id).with_dispatch(dispatch)).await),
+        None => None,
+    };
+    match host_tools.map(|host_tools| host_tools.merge_into(agent_id, tools, visible)) {
         Some(merged) => merged,
         None => Ok(MergedHostTurnTools {
             policy: None,
@@ -369,7 +370,11 @@ impl<'a> TurnContext<'a> {
 /// belt it was built with.
 ///
 /// See [`TurnContext`] for what the factory is told about the occasion.
-pub type HostTools = Arc<dyn for<'a> Fn(TurnContext<'a>) -> HostTurnTools + Send + Sync>;
+pub type HostTools = Arc<
+    dyn for<'a> Fn(TurnContext<'a>) -> futures::future::BoxFuture<'a, HostTurnTools>
+        + Send
+        + Sync,
+>;
 
 /// The constructor the host-tools seam exists for, kept beside the types it
 /// takes rather than with the config-derived constructors it sits among.

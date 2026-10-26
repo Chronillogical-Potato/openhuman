@@ -126,7 +126,8 @@ async fn start_channels_inner(mut config: Config, session: CancellationToken) ->
     // shared with the hosted-channel relay.
     #[cfg(all(feature = "flows", feature = "skills"))]
     crate::skills::schedule_flow_authoring_prewarm(&dispatch, &config, None);
-    let parts = build_channel_turn_parts(&dispatch, &config, &security, PromptToolDescs::Fixed)?;
+    let parts =
+        build_channel_turn_parts(&dispatch, &config, &security, PromptToolDescs::Fixed).await?;
     let model = parts.model.clone();
     let skills = parts.skills.clone();
 

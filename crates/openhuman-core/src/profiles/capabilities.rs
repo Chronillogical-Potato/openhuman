@@ -141,7 +141,7 @@ impl ProfileCapabilities {
     }
 
     /// Build the exact selected belt for this profile and session.
-    pub fn turn_tools(&self, config: &Config, turn: TurnContext<'_>) -> HostTurnTools {
+    pub async fn turn_tools(&self, config: &Config, turn: TurnContext<'_>) -> HostTurnTools {
         let mut supplied = self
             .host
             .as_ref()
@@ -174,7 +174,7 @@ impl ProfileCapabilities {
                     &config.workspace_dir,
                     &config.action_dir,
                 ));
-                let native = CoreContext::sync_scope(assembly, || {
+                let native = CoreContext::scope(assembly, async {
                     crate::tools::ops::all_tools(
                         Arc::new(config.clone()),
                         &security,
@@ -184,7 +184,9 @@ impl ProfileCapabilities {
                         &config.action_dir,
                         config,
                     )
+                    .await
                 });
+                let native = native.await;
                 let supplied_names: HashSet<_> = supplied
                     .tools
                     .iter()
@@ -227,7 +229,9 @@ impl ProfileCapabilities {
     pub fn factory(self: &Arc<Self>, config: &Config) -> HostTools {
         let capabilities = Arc::clone(self);
         let config = config.clone();
-        Arc::new(move |turn| capabilities.turn_tools(&config, turn))
+        Arc::new(move |turn| {
+            Box::pin(async move { capabilities.turn_tools(&config, turn).await })
+        })
     }
 
     /// Bind the permission callback to the owning profile's lease.
