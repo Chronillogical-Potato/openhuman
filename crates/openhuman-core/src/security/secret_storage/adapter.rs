@@ -1,6 +1,6 @@
 //! Host adapters around the TinyStorageDrivers secret-store port.
 
-use tinystoragedrivers::{StorageError, secrets::SecretStore as _};
+use tinystoragedrivers::StorageError;
 use zeroize::Zeroizing;
 
 use crate::security::secret_storage::error::SecretStorageError;

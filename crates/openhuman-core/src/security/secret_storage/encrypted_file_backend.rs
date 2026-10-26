@@ -15,7 +15,7 @@ use crate::security::secret_storage::error::SecretStorageError;
 use crate::security::secret_storage::file_store;
 use crate::security::secret_storage::store::BackendKind;
 use tinystoragedrivers::secrets::crypto;
-use tinystoragedrivers::secrets::EncryptedFileSecrets;
+use tinystoragedrivers::secrets::{CorruptFilePolicy, EncryptedFileSecrets};
 use zeroize::Zeroizing;
 
 #[path = "encrypted_file_backend/key_source.rs"]
@@ -306,13 +306,8 @@ pub(super) fn master_key_available() -> bool {
 ///
 /// - the master key (env, host source, else workspace file; see [`init_master_key`]);
 /// - the one-time import of a legacy plaintext `dev-keychain.json`;
-/// - **corruption recovery**. The driver fails closed on a file that does not
-///   decrypt or parse and leaves it untouched, which is right for a server
-///   that has an operator. A desktop has none: failing closed would wedge
-///   every `set` (so sign-in) forever. This adapter keeps today's behaviour
-///   instead: log, move the bytes aside as `secrets.enc.corrupt.<ts>` (never
-///   deleted, so the secrets stay recoverable with the right key) and carry
-///   on with an empty store. See [`adapter::recover_corrupt_file`].
+/// - desktop corruption policy, selected through the driver's
+///   `CorruptFilePolicy::QuarantineAndContinue`;
 pub struct EncryptedFileBackend {
     path: PathBuf,
     workspace_dir: PathBuf,
@@ -368,9 +363,10 @@ impl EncryptedFileBackend {
 
     fn store(&self, key: &[u8; KEY_LEN]) -> EncryptedFileSecrets {
         EncryptedFileSecrets::at_path(self.path.clone(), Zeroizing::new(*key))
+            .with_corrupt_file_policy(CorruptFilePolicy::QuarantineAndContinue)
     }
 
-    /// Run one driver call, recovering once from a corrupt file.
+    /// Run one call through the driver's host-selected corruption policy.
     fn run<T, F, Fut>(&self, key: &[u8; KEY_LEN], op: F) -> Result<T, SecretStorageError>
     where
         T: Send + 'static,
@@ -378,13 +374,7 @@ impl EncryptedFileBackend {
         Fut: std::future::Future<Output = tinystoragedrivers::Result<T>> + Send + 'static,
     {
         self.import_legacy_dev_keychain(key)?;
-        match crate::storage::block_on(op(self.store(key))) {
-            Err(error) if adapter::is_corruption(&error) => {
-                adapter::recover_corrupt_file(&self.path, key, &error)?;
-                crate::storage::block_on(op(self.store(key))).map_err(adapter::backend_error)
-            }
-            result => result.map_err(adapter::backend_error),
-        }
+        crate::storage::block_on(op(self.store(key))).map_err(adapter::backend_error)
     }
 
     /// Import `dev-keychain.json` into a missing `secrets.enc`, once.
