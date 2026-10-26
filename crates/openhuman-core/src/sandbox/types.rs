@@ -37,10 +37,17 @@ pub struct SandboxPolicy {
     pub read_write_mounts: Vec<PathBuf>,
     /// Whether outbound network is allowed inside the sandbox.
     pub allow_network: bool,
+    /// Whether the configured executor mounts the workspace into its namespace.
+    #[serde(default = "default_mount_workspace")]
+    pub mount_workspace: bool,
     /// Environment variables to passthrough into the sandbox.
     pub env_passthrough: Vec<String>,
     /// Docker-specific overrides (image, resource limits).
     pub docker_overrides: Option<DockerOverrides>,
+}
+
+fn default_mount_workspace() -> bool {
+    true
 }
 
 /// Docker-specific sandbox overrides layered on top of the global

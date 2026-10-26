@@ -1,10 +1,9 @@
-use super::policy::{apply_requested_backend, config_disables_sandbox, sandbox_disabled_by_host};
+use super::policy::{config_disables_sandbox, sandbox_disabled_by_host};
 use crate::core::runtime::DispatchCtx;
-use crate::sandbox::{
-    docker,
-    shell_exec::{ComeBack, ShellRunOutcome},
-    types::{SandboxBackendKind, SandboxExecRequest, SandboxExecResult, SandboxPolicy},
-};
+use crate::sandbox::shell_exec::{ComeBack, ShellRunOutcome};
+use crate::sandbox::types::{SandboxExecResult, SandboxPolicy};
+#[cfg(feature = "security-module")]
+use crate::sandbox::{docker, types::SandboxBackendKind, types::SandboxExecRequest};
 use std::{collections::HashMap, ffi::OsString, path::Path, time::Duration};
 
 /// Execute a command through the appropriate sandbox backend.
@@ -67,112 +66,142 @@ pub(crate) async fn execute_in_sandbox_yielding(
     come_back: ComeBack,
     meter: Option<crate::sandbox::shell_progress::ShellOutputMeter>,
 ) -> anyhow::Result<ShellRunOutcome> {
-    // The saved backend is an operator's explicit isolation requirement. It
-    // must be checked at the spawn boundary, including callers that resolved
-    // their policy from an older or default RuntimeConfig.
-    let mut effective_policy = policy.clone();
-    if !crate::core::runtime::is_saas() && sandbox_disabled_by_host(ctx) {
-        effective_policy.backend = SandboxBackendKind::None;
-    }
-    let mut module_config = None;
-    let explicitly_requested = if crate::core::runtime::is_saas() || sandbox_disabled_by_host(ctx) {
-        false
-    } else {
-        let config = ctx
-            .load_config()
-            .await
-            .map_err(|e| anyhow::anyhow!("Cannot read sandbox configuration: {e}"))?;
-        module_config = Some(config.clone());
-        if config_disables_sandbox(&config) {
-            false
-        } else {
-            apply_requested_backend(
-                &mut effective_policy,
-                &config.sandbox,
-                &config.runtime,
-                &config,
-            )
-            .await?
-        }
-    };
-    let policy = &effective_policy;
-    // Validate the working directory up front so a missing/bad action_dir
-    // surfaces an actionable, path-naming error here rather than an opaque OS
-    // error 267 (ERROR_DIRECTORY) at spawn time — parity with the unsandboxed
-    // `NativeRuntime::build_shell_command` guard. (#3353, Fix 2)
-    //
-    // The validation is host-side, so it is applied per-backend: for None/Local
-    // `working_dir` *is* a host path; for Docker `working_dir` is the
-    // container-side mount target (e.g. `/workspace`) which must NOT be
-    // stat'd/created on the host — there we validate the host-side mount source
-    // (`policy.workspace_root`) instead.
-    match policy.backend {
-        SandboxBackendKind::None => {
-            crate::config::ensure_usable_cwd(working_dir)?;
-            let config = match module_config {
-                Some(config) => config,
-                None => ctx.load_config().await.map_err(|error| {
-                    anyhow::anyhow!("Cannot read module configuration: {error}")
-                })?,
-            };
-            execute_unsandboxed(
-                ctx,
-                &config,
-                policy,
+    let config = ctx
+        .load_config()
+        .await
+        .map_err(|error| anyhow::anyhow!("Cannot read sandbox configuration: {error}"))?;
+    let requested_policy = policy.clone();
+    let operator_off = !crate::core::runtime::is_saas()
+        && (sandbox_disabled_by_host(ctx) || config_disables_sandbox(&config));
+    #[cfg(feature = "security-module")]
+    {
+        let planned = {
+            use crate::sandbox::spawn_plan::{ModuleSource, SpawnRequest, SpawnSource};
+            let env = extra_env
+                .iter()
+                .map(|(name, value)| {
+                    let name = name
+                        .to_str()
+                        .ok_or_else(|| anyhow::anyhow!("sandbox environment name is not UTF-8"))?;
+                    let value = value
+                        .to_str()
+                        .ok_or_else(|| anyhow::anyhow!("sandbox environment value is not UTF-8"))?;
+                    Ok((name.to_owned(), value.to_owned()))
+                })
+                .collect::<anyhow::Result<Vec<_>>>()?;
+            let operation = crate::sandbox::spawn_plan::SpawnOperation {
                 command,
-                working_dir,
-                &extra_env,
-                timeout,
-                come_back.yield_after,
-                meter,
-            )
+                cwd: working_dir,
+                env,
+                stdin: None,
+                preserve_pipeline_status: false,
+            };
+            let source = SpawnSource::from_origin(ctx.turn_origin_or_scoped().as_ref());
+            let host_run = operator_off && !crate::core::runtime::is_saas();
+            let planned = crate::sandbox::spawn_plan::plan(SpawnRequest {
+                config: &config,
+                policy: &requested_policy,
+                source,
+                operation: &operation,
+                operator_off,
+                host_run,
+                module: ModuleSource::Production,
+            })
             .await
-        }
-        SandboxBackendKind::Local => {
-            crate::config::ensure_usable_cwd(working_dir)?;
-            let config = match module_config {
-                Some(config) => config,
-                None => ctx.load_config().await.map_err(|error| {
-                    anyhow::anyhow!("Cannot read module configuration: {error}")
-                })?,
-            };
-            let policy =
-                crate::sandbox::local_grants::with_resolved_grants(&config, policy).await?;
-            crate::sandbox::native_jail::execute(
-                ctx,
-                &config,
-                &policy,
-                command,
-                working_dir,
-                &extra_env,
-                timeout,
-                explicitly_requested,
-                come_back.yield_after,
-                meter,
-            )
-            .await
-        }
-        SandboxBackendKind::Docker => {
-            let timeout = come_back
-                .deadline_instead
-                .map_or(timeout, |deadline| timeout.min(deadline));
-            crate::config::ensure_usable_cwd(&policy.workspace_root)?;
-            let request = SandboxExecRequest {
-                command: command.to_string(),
-                working_dir: working_dir.to_path_buf(),
-                env: extra_env,
-                timeout,
-            };
-            let config = match module_config {
-                Some(config) => config,
-                None => ctx.load_config().await.map_err(|error| {
-                    anyhow::anyhow!("Cannot read module configuration: {error}")
-                })?,
-            };
-            docker::docker_exec(&config, policy, &request)
+            .map_err(|error| anyhow::anyhow!("Sandbox plan refused: {error}"))?;
+            planned
+        };
+        let effective_policy = planned.apply(&requested_policy);
+        let policy = &effective_policy;
+        // Validate the working directory up front so a missing/bad action_dir
+        // surfaces an actionable, path-naming error here rather than an opaque OS
+        // error 267 (ERROR_DIRECTORY) at spawn time — parity with the unsandboxed
+        // `NativeRuntime::build_shell_command` guard. (#3353, Fix 2)
+        //
+        // The validation is host-side, so it is applied per-backend: for None/Local
+        // `working_dir` *is* a host path; for Docker `working_dir` is the
+        // container-side mount target (e.g. `/workspace`) which must NOT be
+        // stat'd/created on the host — there we validate the host-side mount source
+        // (`policy.workspace_root`) instead.
+        match policy.backend {
+            SandboxBackendKind::None => {
+                crate::config::ensure_usable_cwd(working_dir)?;
+                crate::sandbox::spawn_plan::consume(&planned)
+                    .await
+                    .map_err(|error| {
+                        anyhow::anyhow!("Sandbox plan could not be consumed: {error}")
+                    })?;
+                execute_unsandboxed(
+                    ctx,
+                    &config,
+                    policy,
+                    command,
+                    working_dir,
+                    &extra_env,
+                    timeout,
+                    come_back.yield_after,
+                    meter,
+                )
                 .await
-                .map(ShellRunOutcome::Finished)
+            }
+            SandboxBackendKind::Local => {
+                crate::config::ensure_usable_cwd(working_dir)?;
+                crate::sandbox::spawn_plan::consume(&planned)
+                    .await
+                    .map_err(|error| {
+                        anyhow::anyhow!("Sandbox plan could not be consumed: {error}")
+                    })?;
+                crate::sandbox::native_jail::execute(
+                    ctx,
+                    &config,
+                    &policy,
+                    &planned.plan.jail,
+                    command,
+                    working_dir,
+                    &extra_env,
+                    timeout,
+                    false,
+                    come_back.yield_after,
+                    meter,
+                )
+                .await
+            }
+            SandboxBackendKind::Docker => {
+                let timeout = come_back
+                    .deadline_instead
+                    .map_or(timeout, |deadline| timeout.min(deadline));
+                crate::config::ensure_usable_cwd(&policy.workspace_root)?;
+                let request = SandboxExecRequest {
+                    command: command.to_string(),
+                    working_dir: working_dir.to_path_buf(),
+                    env: extra_env,
+                    timeout,
+                };
+                crate::sandbox::spawn_plan::consume(&planned)
+                    .await
+                    .map_err(|error| {
+                        anyhow::anyhow!("Sandbox plan could not be consumed: {error}")
+                    })?;
+                docker::docker_exec(&config, policy, &request)
+                    .await
+                    .map(ShellRunOutcome::Finished)
+            }
         }
+    }
+    #[cfg(not(feature = "security-module"))]
+    {
+        let _ = (
+            requested_policy,
+            operator_off,
+            config,
+            come_back,
+            meter,
+            command,
+            working_dir,
+            extra_env,
+            timeout,
+        );
+        anyhow::bail!("TinySecurity is not built into this host; sandboxed execution is refused")
     }
 }
 

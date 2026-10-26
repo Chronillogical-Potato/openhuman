@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 
 use super::*;
 use crate::config::Config;
-use crate::sandbox::{execute_in_sandbox, resolve_sandbox_policy};
+use crate::sandbox::{execute_in_sandbox, policy::route_for_mode};
 use crate::security::policy::CommandClass;
 use crate::security::SecurityPolicy;
 use tinyagents_definition::SandboxMode;
@@ -95,11 +95,11 @@ impl OpenHumanCode {
 
         let dispatch = self.ctx.clone();
         let outcome: Result<Value> = async {
-        let policy = resolve_sandbox_policy(
-            &dispatch,
+        let policy = route_for_mode(
             SandboxMode::Sandboxed,
             &self.config.action_dir,
             &self.config.workspace_dir,
+            &self.config.sandbox,
             &self.config.runtime,
             false,
         );

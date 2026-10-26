@@ -10,6 +10,7 @@ fn test_policy() -> SandboxPolicy {
         read_only_mounts: vec![],
         read_write_mounts: vec![],
         allow_network: false,
+        mount_workspace: true,
         env_passthrough: vec!["PATH".into(), "HOME".into()],
         docker_overrides: None,
     }

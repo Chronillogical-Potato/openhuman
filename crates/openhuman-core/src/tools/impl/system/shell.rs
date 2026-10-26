@@ -381,7 +381,7 @@ impl ShellTool {
 
         // A sandboxed agent or an explicit operator backend uses the sandbox
         // execution path. Security checks above still apply.
-        let sandbox_required = match crate::sandbox::command_requires_sandbox(
+        let sandbox_required = match crate::sandbox::policy::should_plan_command(
             ctx,
             crate::agent::tinyagents::host::run_context::sandbox_mode_for_tool(context),
         )
@@ -600,13 +600,21 @@ impl ShellTool {
         meter: Option<crate::sandbox::shell_progress::ShellOutputMeter>,
         audit: &AuditOnce,
     ) -> (bool, ToolResult) {
-        let config = crate::config::RuntimeConfig::default();
-        let policy = crate::sandbox::resolve_sandbox_policy(
-            ctx,
+        let config = match ctx.load_config().await {
+            Ok(config) => config,
+            Err(error) => {
+                return (
+                    false,
+                    ToolResult::error(format!("Cannot read sandbox configuration: {error}")),
+                )
+            }
+        };
+        let policy = crate::sandbox::policy::route_for_mode(
             tinyagents_definition::SandboxMode::Sandboxed,
             action_dir,
             &self.security.workspace_dir,
-            &config,
+            &config.sandbox,
+            &config.runtime,
             false,
         );
         let timeout = requested_timeout;

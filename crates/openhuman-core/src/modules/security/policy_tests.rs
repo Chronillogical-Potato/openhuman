@@ -24,7 +24,12 @@ fn policy_translation_copies_effective_host_settings() {
 #[test]
 fn first_load_and_reinit_share_one_policy_translator() {
     let config = Config::default();
-    assert_eq!(module_config(&config).policy, policy_config(&config));
+    let module = module_config(&config);
+    assert_eq!(module.policy, policy_config(&config));
+    assert_eq!(
+        module.sandbox,
+        Some(tinysecurity_bus::SandboxConfig2 { scopes: vec![] })
+    );
 }
 
 #[test]
@@ -43,6 +48,14 @@ fn module_bootstrap_configures_the_host_served_audit_stream_from_config() {
     assert_eq!(audit.max_bytes, 7 * 1024 * 1024);
     assert_eq!(audit.journal_max_bytes, 7 * 1024 * 1024);
     assert_eq!(audit.journal_max_events, 10_000);
+}
+
+#[test]
+fn sandbox_planning_keeps_its_audit_sink_when_optional_audit_is_disabled() {
+    let mut config = Config::default();
+    config.audit.enabled = false;
+
+    assert!(module_config(&config).audit.is_some());
 }
 
 #[test]

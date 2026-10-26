@@ -40,7 +40,10 @@ pub async fn get_sandbox_settings(ctx: &DispatchCtx) -> Result<Outcome<serde_jso
         crate::config::SandboxBackend::None => "none",
     };
 
-    let detected_backend = tinybox_jail::detect::backend_name();
+    let detected_backend = crate::sandbox::native_jail::status(&config)
+        .await
+        .map(|(backend, _, _)| backend)
+        .unwrap_or_else(|_| "unavailable".to_owned());
 
     let value = serde_json::json!({
         "enabled": sandbox.enabled.unwrap_or(true)

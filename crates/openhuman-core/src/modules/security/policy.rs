@@ -68,7 +68,10 @@ pub fn module_config(config: &Config) -> tinysecurity_bus::ModuleConfig {
     tinysecurity_bus::ModuleConfig {
         policy: policy_config(config),
         approvals: Some(approval_init_config()),
-        audit: config.audit.enabled.then(|| audit_init_config(config)),
+        sandbox: Some(tinysecurity_bus::SandboxConfig2 { scopes: Vec::new() }),
+        // Sandbox plans require a durable audit correlation even when the
+        // operator disables the optional general audit feature.
+        audit: Some(audit_init_config(config)),
         ..tinysecurity_bus::ModuleConfig::default()
     }
 }

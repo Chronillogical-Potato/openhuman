@@ -52,11 +52,11 @@ fn where_a_command_cannot_be_left_running_the_models_time_is_its_deadline() {
 }
 
 fn unsandboxed_policy() -> crate::sandbox::SandboxPolicy {
-    crate::sandbox::resolve_sandbox_policy(
-        &crate::core::runtime::DispatchCtx::unbound(),
+    crate::sandbox::policy::route_for_mode(
         tinyagents_definition::SandboxMode::None,
         &std::env::temp_dir(),
         &std::env::temp_dir().join("oh-shell-run-state"),
+        &crate::config::SandboxConfig::default(),
         &crate::config::RuntimeConfig::default(),
         false,
     )
