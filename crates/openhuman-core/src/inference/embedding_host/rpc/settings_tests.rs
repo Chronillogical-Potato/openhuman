@@ -197,16 +197,21 @@ async fn settings_reports_native_effective_embedder_resolution() {
     );
 
     config.memory.embedding_provider = "managed".to_string();
-    tokio::fs::write(tmp.path().join("auth-profiles.json"), "{}")
-        .await
-        .unwrap();
+    let auth = crate::credentials::AuthService::from_config(&config);
+    auth.store_provider_token(
+        crate::credentials::APP_SESSION_PROVIDER,
+        "default",
+        "test-session",
+        Default::default(),
+        true,
+    )
+    .unwrap();
     assert_eq!(
         get_settings(&config).await.unwrap().value["effective_provider"],
         "cloud"
     );
 
-    tokio::fs::remove_file(tmp.path().join("auth-profiles.json"))
-        .await
+    auth.remove_profile(crate::credentials::APP_SESSION_PROVIDER, "default")
         .unwrap();
     assert_eq!(
         get_settings(&config).await.unwrap().value["effective_provider"],
