@@ -445,7 +445,7 @@ async fn ensure_loaded_with_security_callback(
                 module_config,
             )
             .await?;
-        register_security_scope(state).await?;
+        register_security_scope(config, state).await?;
         return Ok(());
     }
 
@@ -555,12 +555,15 @@ async fn ensure_loaded_with_security_callback(
         .ok_or_else(|| "admitted security callback state unavailable".to_owned())?;
     candidates.clear();
     loads.insert(id.to_owned(), std::sync::Arc::clone(&state));
-    register_security_scope(&state).await?;
+    register_security_scope(config, &state).await?;
     Ok(())
 }
 
 #[cfg(feature = "security-module")]
-async fn register_security_scope(state: &SecurityCallbackState) -> Result<(), String> {
+async fn register_security_scope(
+    config: &Config,
+    state: &SecurityCallbackState,
+) -> Result<(), String> {
     let record = registry::find(super::security::MODULE_ID)
         .ok_or_else(|| "security module registry record missing".to_owned())?;
     let proxy = state
