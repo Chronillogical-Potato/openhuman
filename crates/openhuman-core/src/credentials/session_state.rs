@@ -354,8 +354,9 @@ pub fn classify_session_token(
 /// - token with no recorded expiry (local offline session / `exp`-less JWT) →
 ///   presence-only check; the `flatten_authed_error` 401 net still covers a
 ///   server-side revocation that precedes the recorded `exp`.
-pub fn require_live_session_token(config: &Config) -> Result<String, String> {
+pub async fn require_live_session_token(config: &Config) -> Result<String, String> {
     super::backend_credential::resolve_backend_credential(config)
+        .await
         .map(super::backend_credential::BackendCredential::into_secret)
 }
 
