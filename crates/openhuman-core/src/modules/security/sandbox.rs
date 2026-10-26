@@ -22,7 +22,6 @@ pub(crate) async fn object(config: &Config) -> Result<tinybus::module::ModuleObj
         .await
         .map_err(|_| "TinySecurity sandbox proxy unavailable".to_owned())
 }
-
 /// Return the current policy generation, which plans and audit rows must bind.
 pub(crate) async fn generation(
     object: &tinybus::module::ModuleObjectClient,

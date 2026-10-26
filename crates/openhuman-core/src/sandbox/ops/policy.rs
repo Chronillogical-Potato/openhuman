@@ -33,7 +33,6 @@ pub fn sandbox_off_value(value: Option<&str>) -> bool {
         Some("off" | "none" | "0" | "false" | "disabled")
     )
 }
-
 pub(crate) fn sandbox_disabled_by_host(ctx: &DispatchCtx) -> bool {
     sandbox_off_value(std::env::var(SANDBOX_OFF_ENV).ok().as_deref()) || sandbox_component_off(ctx)
 }

@@ -7,7 +7,6 @@ fn saas_never_consults_the_operator_home() {
     });
     assert!(home.is_none());
 }
-
 #[test]
 fn single_user_keeps_the_operator_home() {
     let home = grant_home(false, || Some(PathBuf::from("/home/op")));
