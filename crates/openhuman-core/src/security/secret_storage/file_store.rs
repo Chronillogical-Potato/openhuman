@@ -26,7 +26,9 @@
 //! the other.
 
 use std::fs::{File, OpenOptions};
-use std::io::{Read, Write};
+use std::io::Read;
+#[cfg(not(feature = "secret-file"))]
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
