@@ -24,6 +24,10 @@ pub(super) fn is_consent_error(error: &anyhow::Error) -> bool {
     error.downcast_ref::<KeyringConsentError>().is_some()
 }
 
+pub(super) fn should_fallback_to_encrypted_document(error: &anyhow::Error) -> bool {
+    !is_consent_error(error)
+}
+
 use super::{AuthProfile, AuthProfilesStore, KeychainSecrets};
 
 impl AuthProfilesStore {

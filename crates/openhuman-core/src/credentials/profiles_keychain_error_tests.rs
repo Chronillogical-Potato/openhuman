@@ -4,6 +4,23 @@ use super::*;
 use tempfile::TempDir;
 
 #[test]
+fn denied_keyring_write_never_falls_back_to_document_secrets() {
+    for denial in [
+        super::super::keychain::KeyringConsentError::Denied,
+        super::super::keychain::KeyringConsentError::Pending,
+    ] {
+        let error = anyhow::Error::new(denial);
+        assert!(!super::super::keychain::should_fallback_to_encrypted_document(
+            &error
+        ));
+    }
+    let unavailable = anyhow::anyhow!("module unavailable");
+    assert!(super::super::keychain::should_fallback_to_encrypted_document(
+        &unavailable
+    ));
+}
+
+#[test]
 fn no_config_profile_store_uses_its_encrypted_document_without_keyring_bypass() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), true);

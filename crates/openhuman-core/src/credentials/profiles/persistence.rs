@@ -104,7 +104,7 @@ impl AuthProfilesStore {
                 if self.use_keychain {
                     // Store secrets in the OS keychain — JSON gets no secret fields.
                     if let Err(e) = self.keychain_store_secrets(profile) {
-                        if super::keychain::is_consent_error(&e) {
+                        if !super::keychain::should_fallback_to_encrypted_document(&e) {
                             // A per-operation refusal must not be bypassed by
                             // copying the same secret into another store.
                             return Err(e);
