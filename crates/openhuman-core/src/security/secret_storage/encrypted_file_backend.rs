@@ -376,7 +376,15 @@ impl EncryptedFileBackend {
         F: Fn(EncryptedFileSecrets) -> Fut,
         Fut: std::future::Future<Output = tinystoragedrivers::Result<T>> + Send + 'static,
     {
-        self.import_legacy_dev_keychain(key)?;
+        if let Err(error) = self.import_legacy_dev_keychain(key) {
+            if self.path.exists() {
+                log::warn!(
+                    "[keyring:encrypted_file] legacy plaintext import was not completed: {error}"
+                );
+            } else {
+                return Err(error);
+            }
+        }
         crate::storage::block_on(op(self.store(key))).map_err(adapter::backend_error)
     }
 
@@ -413,15 +421,27 @@ impl EncryptedFileBackend {
         let bytes = match source.as_ref() {
             Some(source) => {
                 let bytes = source.bytes();
-                let _: std::collections::BTreeMap<String, String> = if bytes.is_empty() {
-                    Default::default()
-                } else {
-                    serde_json::from_slice(bytes).map_err(|error| {
-                        SecretStorageError::Backend(format!(
-                            "legacy dev keychain is invalid JSON; preserving it for recovery: {error}"
-                        ))
-                    })?
-                };
+                let legacy_map: std::collections::BTreeMap<String, String> =
+                    if bytes.is_empty() {
+                        Default::default()
+                    } else {
+                        serde_json::from_slice(bytes).map_err(|error| {
+                            SecretStorageError::Backend(format!(
+                                "legacy dev keychain is invalid JSON; preserving it for recovery: {error}"
+                            ))
+                        })?
+                    };
+                for (name, value) in &legacy_map {
+                    if let Some(existing) = crate::storage::block_on(store.get(name))
+                        .map_err(adapter::backend_error)?
+                    {
+                        if existing.as_slice() != value.as_bytes() {
+                            return Err(SecretStorageError::Backend(
+                                "legacy secret conflicts with an existing encrypted value; source retained for recovery".into(),
+                            ));
+                        }
+                    }
+                }
                 let verified = crate::storage::block_on(store.prepare_file_import(
                     LEGACY_IMPORT_OPERATION,
                     LEGACY_IMPORT_PAYLOAD,
@@ -444,6 +464,30 @@ impl EncryptedFileBackend {
             },
         };
 
+        let map: std::collections::BTreeMap<String, String> = if bytes.is_empty() {
+            Default::default()
+        } else {
+            serde_json::from_slice(&bytes).map_err(|error| {
+                SecretStorageError::Backend(format!(
+                    "verified legacy dev keychain is invalid JSON: {error}"
+                ))
+            })?
+        };
+
+        // Refuse a conflicting pre-existing value before the driver's cleanup
+        // receipt can remove the plaintext source.
+        for (name, value) in &map {
+            if let Some(existing) = crate::storage::block_on(store.get(name))
+                .map_err(adapter::backend_error)?
+            {
+                if existing.as_slice() != value.as_bytes() {
+                    return Err(SecretStorageError::Backend(
+                        "legacy secret conflicts with an existing encrypted value; source retained for recovery".into(),
+                    ));
+                }
+            }
+        }
+
         if let Some(receipt) = receipt {
             match crate::storage::block_on(store.cleanup_file_import(&receipt))
                 .map_err(adapter::backend_error)?
@@ -459,15 +503,6 @@ impl EncryptedFileBackend {
             }
         }
 
-        let map: std::collections::BTreeMap<String, String> = if bytes.is_empty() {
-            Default::default()
-        } else {
-            serde_json::from_slice(&bytes).map_err(|error| {
-                SecretStorageError::Backend(format!(
-                    "verified legacy dev keychain is invalid JSON: {error}"
-                ))
-            })?
-        };
         for (name, value) in &map {
             let existing = crate::storage::block_on(store.get(name))
                 .map_err(adapter::backend_error)?;
