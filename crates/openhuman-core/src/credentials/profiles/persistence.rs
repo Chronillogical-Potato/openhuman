@@ -5,61 +5,16 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs;
 use std::path::Path;
 
-#[cfg(feature = "secret-file")]
 use tinystoragedrivers_secrets::{EncryptedFileSecrets, SecretStore as _};
 
-#[cfg(test)]
-use std::sync::atomic::Ordering;
-
-#[cfg(test)]
-use super::consume_one;
 use super::{
-    profile_kind_to_string, quarantine_corrupt_store, retry_with_backoff, AuthProfile,
-    AuthProfileKind, AuthProfilesData, AuthProfilesStore, EncryptedProfileFields,
-    CURRENT_SCHEMA_VERSION, PERSIST_RETRY_ATTEMPTS, PERSIST_RETRY_BASE_MS, PROFILES_FILENAME,
+    profile_kind_to_string, quarantine_corrupt_store, AuthProfile, AuthProfileKind,
+    AuthProfilesData, AuthProfilesStore, EncryptedProfileFields, CURRENT_SCHEMA_VERSION,
+    PROFILES_FILENAME,
 };
-
-/// Write `bytes` to `path` with the file readable only by its owner.
-///
-/// `fs::write` creates at `0o666 & ~umask` — `0644` under the usual `022` — and
-/// `fs::rename` carries the source mode onto the destination, so the credential
-/// store inherited it on every save. Any process running under a different UID
-/// could read it, and on the encrypted-JSON path — the normal state on Linux and
-/// on any headless install without a keyring — that file is OAuth token
-/// ciphertext, leaving `.secret_key` as the only remaining control.
-///
-/// Same shape as the fix #2360 landed for the secret key in
-/// `secret_storage/encrypted_store.rs`: create with the mode already set rather than
-/// widening then narrowing, so the file is never briefly world-readable.
-///
-/// `.mode()` only applies when the file is *created*, so a leftover tmp from an
-/// interrupted save would keep its old mode — hence the explicit
-/// `set_permissions` afterwards.
-pub(super) fn write_owner_only(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
-
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .mode(0o600)
-            .open(path)?;
-        file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
-        file.write_all(bytes)
-    }
-    #[cfg(not(unix))]
-    {
-        // Windows has no mode to set here; the file inherits the ACL of the
-        // per-user profile directory it is created in.
-        fs::write(path, bytes)
-    }
-}
 
 /// Whether `bytes` parse as the persisted profiles document (what a read from
 /// the storage backend requires).
@@ -287,7 +242,6 @@ impl AuthProfilesStore {
             }
             return Ok(persisted);
         }
-        #[cfg(feature = "secret-file")]
         if let Some(persisted) = self.read_encrypted_file_locked()? {
             return Ok(persisted);
         }
@@ -361,18 +315,11 @@ impl AuthProfilesStore {
             return Ok(());
         }
 
-        #[cfg(feature = "secret-file")]
-        {
-            self.write_persisted_locally(persisted)?;
-            let _ = fs::remove_file(&self.legacy_path);
-            return Ok(());
-        }
-
-        #[cfg(not(feature = "secret-file"))]
-        self.write_legacy_json(persisted)
+        self.write_persisted_locally(persisted)?;
+        let _ = fs::remove_file(&self.legacy_path);
+        Ok(())
     }
 
-    #[cfg(feature = "secret-file")]
     fn read_encrypted_file_locked(&self) -> Result<Option<PersistedAuthProfiles>> {
         if !self.path.exists() {
             return Ok(None);
@@ -390,159 +337,13 @@ impl AuthProfilesStore {
         Ok(Some(persisted))
     }
 
-    #[cfg(feature = "secret-file")]
     fn write_persisted_locally(&self, persisted: &PersistedAuthProfiles) -> Result<()> {
         let json = serde_json::to_vec(persisted).context("Failed to serialize auth profiles")?;
         let directory = self.path.parent().expect("profile store has parent");
         let store = EncryptedFileSecrets::with_key_file(directory)
             .context("Failed to open encrypted auth profile store")?;
-        crate::storage::block_on(async move {
-            store.set(STORAGE_SECRET_NAME, &json).await
-        })
-        .context("Failed to write encrypted auth profile store")
-    }
-
-    #[cfg(not(feature = "secret-file"))]
-    fn write_legacy_json(&self, persisted: &PersistedAuthProfiles) -> Result<()> {
-        if let Some(parent) = self.path.parent() {
-            fs::create_dir_all(parent).with_context(|| {
-                format!(
-                    "Failed to create auth profile directory at {}",
-                    parent.display()
-                )
-            })?;
-        }
-
-        let json =
-            serde_json::to_vec_pretty(persisted).context("Failed to serialize auth profiles")?;
-        let tmp_name = format!(
-            "{}.tmp.{}.{}",
-            PROFILES_FILENAME,
-            std::process::id(),
-            Utc::now().timestamp_nanos_opt().unwrap_or_default()
-        );
-        let tmp_path = self.legacy_path.with_file_name(tmp_name);
-
-        // Windows AV / Search-Indexer / Defender may briefly hold a handle on
-        // the destination, returning transient `ERROR_SHARING_VIOLATION (32)`,
-        // `ERROR_ACCESS_DENIED (5)`, or `ERROR_DELETE_PENDING (303)` —
-        // recognised as retryable by `is_transient_fs_error`. Mirror the
-        // lock-create retry budget at the bottom of `acquire_lock` so the
-        // JSON write+rename path absorbs the same transient family that
-        // closed Sentry OPENHUMAN-TAURI-H1 / H8 for the lock path. Outer
-        // `with_context` preserved so the Sentry fingerprint shape is stable
-        // across releases. (Sentry TAURI-RUST-92J / #3355.)
-        retry_with_backoff(
-            "write auth profile tmp",
-            PERSIST_RETRY_ATTEMPTS,
-            PERSIST_RETRY_BASE_MS,
-            || {
-                self.consume_test_transient_failure_write()?;
-                write_owner_only(&tmp_path, &json).context("write auth profile tmp")
-            },
-        )
-        .with_context(|| {
-            format!(
-                "Failed to write temporary auth profile file at {}",
-                tmp_path.display()
-            )
-        })?;
-
-        let rename_result = retry_with_backoff(
-            "replace auth profile store",
-            PERSIST_RETRY_ATTEMPTS,
-            PERSIST_RETRY_BASE_MS,
-            || {
-                self.consume_test_transient_failure_rename()?;
-                fs::rename(&tmp_path, &self.legacy_path).context("rename auth profile tmp -> store")
-            },
-        )
-        .with_context(|| {
-            format!(
-                "Failed to replace auth profile store at {}",
-                self.legacy_path.display()
-            )
-        });
-
-        if rename_result.is_err() {
-            // Best-effort orphan cleanup: `tmp_path` is `…tmp.{pid}.{nanos}`
-            // — unique per call — so a permanently-failing rename otherwise
-            // leaks one tmp file per `app_state_snapshot` poll (~2s cadence)
-            // under sustained Windows AV / Search-Indexer holds. Cleaning
-            // here keeps the directory tidy; the cleanup itself can fail
-            // (the same AV that blocked the rename may block the unlink),
-            // which is why we deliberately drop the result.
-            let _ = fs::remove_file(&tmp_path);
-        }
-
-        rename_result
-    }
-
-    /// Consume one test-injected transient FS failure for the **write**
-    /// stage if any are queued. No-op in production builds.
-    #[cfg(test)]
-    fn consume_test_transient_failure_write(&self) -> Result<()> {
-        consume_one(&self.force_transient_failures_write)
-    }
-
-    /// Consume one test-injected transient FS failure for the **rename**
-    /// stage if any are queued. No-op in production builds.
-    #[cfg(test)]
-    fn consume_test_transient_failure_rename(&self) -> Result<()> {
-        consume_one(&self.force_transient_failures_rename)
-    }
-
-    #[cfg(not(test))]
-    #[inline(always)]
-    fn consume_test_transient_failure_write(&self) -> Result<()> {
-        Ok(())
-    }
-
-    #[cfg(not(test))]
-    #[inline(always)]
-    fn consume_test_transient_failure_rename(&self) -> Result<()> {
-        Ok(())
-    }
-
-    /// Queue `n` test-only forced transient FS failures for the write
-    /// stage. The next `n` calls inside the `fs::write(tmp)` retry loop
-    /// return a `__TEST_TRANSIENT__` error before the underlying FS op
-    /// runs; the retry helper treats them as retryable.
-    #[cfg(test)]
-    pub(super) fn force_next_write_failures(&self, n: usize) {
-        self.force_transient_failures_write
-            .store(n, Ordering::SeqCst);
-    }
-
-    /// Queue `n` test-only forced transient FS failures for the rename
-    /// stage. Separate from the write counter so tests can exercise the
-    /// rename retry loop in isolation (PR #3364 review feedback).
-    #[cfg(test)]
-    pub(super) fn force_next_rename_failures(&self, n: usize) {
-        self.force_transient_failures_rename
-            .store(n, Ordering::SeqCst);
-    }
-
-    /// Test introspection: how many forced write-stage failures are still
-    /// queued.
-    #[cfg(test)]
-    pub(super) fn remaining_forced_write_failures(&self) -> usize {
-        self.force_transient_failures_write.load(Ordering::SeqCst)
-    }
-
-    /// Test introspection: how many forced rename-stage failures are still
-    /// queued.
-    #[cfg(test)]
-    pub(super) fn remaining_forced_rename_failures(&self) -> usize {
-        self.force_transient_failures_rename.load(Ordering::SeqCst)
-    }
-
-    /// Queue a single test-only forced `StorageFull` lock-create failure. The
-    /// next `acquire_lock` returns the synthetic disk-full error so tests can
-    /// drive the lock-free read-only fallback in [`AuthProfilesStore::load`].
-    #[cfg(test)]
-    pub(super) fn force_next_lock_unwritable(&self) {
-        self.force_lock_unwritable.store(true, Ordering::SeqCst);
+        crate::storage::block_on(async move { store.set(STORAGE_SECRET_NAME, &json).await })
+            .context("Failed to write encrypted auth profile store")
     }
 
     pub(super) fn encrypt_optional(&self, value: Option<&str>) -> Result<Option<String>> {
