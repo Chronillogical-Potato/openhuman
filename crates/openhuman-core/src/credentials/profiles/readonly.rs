@@ -189,7 +189,9 @@ async fn decrypt_profile_field(
         return Ok(None);
     };
     let result = if let Some(key) = key {
-        store.decrypt_with_existing_key_via_security(value, key).await
+        store
+            .decrypt_with_existing_key_via_security(value, key)
+            .await
     } else if value.starts_with("enc:") || value.starts_with("enc2:") {
         Err(anyhow::anyhow!("existing secret key unavailable"))
     } else {

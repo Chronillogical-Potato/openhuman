@@ -36,7 +36,8 @@ impl AuthService {
         provider: &str,
         profile_override: Option<&str>,
     ) -> Result<Option<String>, super::profiles::ReadOnlyAuthProfileError> {
-        let Some(profile) = Self::get_profile_read_only(config, provider, profile_override).await? else {
+        let Some(profile) = Self::get_profile_read_only(config, provider, profile_override).await?
+        else {
             return Ok(None);
         };
         let credential = match profile.kind {
