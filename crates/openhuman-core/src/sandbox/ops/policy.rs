@@ -193,6 +193,7 @@ pub fn resolve_sandbox_policy(
         read_only_mounts: Vec::new(),
         read_write_mounts: Vec::new(),
         allow_network,
+        mount_workspace: config.runtime.docker.mount_workspace || config.runtime.kind != "docker",
         env_passthrough: SANDBOX_ENV_PASSTHROUGH
             .iter()
             .map(|s| s.to_string())

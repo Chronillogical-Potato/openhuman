@@ -89,6 +89,7 @@ pub(super) async fn with_toolchain_grants(config: &Config, sandbox: &mut StdioSa
         read_only_mounts: Vec::new(),
         read_write_mounts: Vec::new(),
         allow_network: sandbox.allow_net,
+        mount_workspace: true,
         env_passthrough: Vec::new(),
         docker_overrides: None,
     };

@@ -70,7 +70,7 @@ fn unavailable(reason: impl Into<String>) -> PlanError {
 }
 
 /// A spawn the module planned and the host has not launched yet.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub(crate) struct PlannedSpawn {
     /// What TinyBox is asked to enforce: executor, grants, network and bounds.
     pub(crate) plan: BoxPlan,
@@ -87,10 +87,12 @@ pub(crate) enum ModuleSource<'a> {
     /// The attested, pinned production module, loaded on demand.
     Production,
     /// A module a test loaded itself, with the executor facts it declares.
+    #[cfg(test)]
     Fixed(&'a FixedModule),
 }
 
 /// A security module and executor facts supplied by a test.
+#[cfg(test)]
 pub(crate) struct FixedModule {
     pub(crate) proxy: tinybus::Proxy,
     pub(crate) executors: Vec<SandboxExecutor2>,
@@ -100,6 +102,7 @@ impl ModuleSource<'_> {
     async fn proxy(self, config: &Config) -> Result<tinybus::module::ModuleObjectClient, PlanError> {
         match self {
             Self::Production => client::object(config).await.map_err(unavailable),
+            #[cfg(test)]
             Self::Fixed(fixed) => crate::modules::ops::fixture_client(fixed.proxy.clone())
                 .with_timeout(std::time::Duration::from_secs(25))
                 .object_client(
@@ -290,6 +293,7 @@ async fn plan_with(
     let executors = match module {
         _ if host_run => Vec::new(),
         ModuleSource::Production => probe(config, policy).await?,
+        #[cfg(test)]
         ModuleSource::Fixed(fixed) => fixed.executors.clone(),
     };
     let scope = facts::scope(&facts::FactsInput {
@@ -338,6 +342,7 @@ async fn plan_with(
         options: options(policy, host_run),
         generation,
         ttl_ms: facts::PLAN_TTL_MS,
+        credential_denials: Vec::new(),
         audit,
     };
     let response = client::plan(&proxy, planned.clone()).await;

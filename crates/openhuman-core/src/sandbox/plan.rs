@@ -9,9 +9,8 @@
 //! own `host_run` plan, an egress proxy the host does not run, and a CPU-time bound
 //! (TinyBox has only CPU throughput) are errors. Live availability and capability checks stay at the launch boundary.
 //!
-//! The credential-store floor (`deny_read`) is not part of the plan; the host
-//! adds it for jails whose reads are allow-by-default
-//! ([`super::local_grants::credential_store_paths`]).
+//! The module returns credential denials in the plan artifact; the host forwards
+//! them to TinyBox without rebuilding the protected-path list.
 
 use std::path::Path;
 
@@ -116,7 +115,7 @@ impl BoxPlan {
     /// the jail denies reading (`None` for a tenant).
     pub fn from_artifact(
         artifact: &SandboxArtifact2,
-        home: Option<&Path>,
+        _home: Option<&Path>,
     ) -> Result<Self, PlanMappingError> {
         if artifact.host_run {
             return Self::host_run(artifact);
@@ -156,7 +155,6 @@ impl BoxPlan {
             read_only,
             read_write,
             allow_net: !matches!(network, NetworkPolicy::Denied),
-            network_allowlist: None,
             allow_subprocess: !artifact
                 .constraints
                 .contains(&SandboxConstraint2::Subprocesses),
@@ -171,11 +169,14 @@ impl BoxPlan {
                 JailEnforcement::Declared
             },
             require_process_isolation: isolated,
-            deny_read: if isolated {
-                Vec::new()
-            } else {
-                super::local_grants::credential_store_paths(home)
-            },
+            deny_read: artifact
+                .deny_read
+                .iter()
+                .map(|path| path.to_str().ok_or(PlanMappingError::InvalidGrant))
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
             // Resource-aware members carry explicit limits separately. The
             // legacy field has concrete defaults and would invent bounds the
             // policy module did not request.
@@ -209,7 +210,6 @@ impl BoxPlan {
                 read_only: Vec::new(),
                 read_write: Vec::new(),
                 allow_net: true,
-                network_allowlist: None,
                 allow_subprocess: true,
                 enforcement: JailEnforcement::Declared,
                 require_process_isolation: false,
