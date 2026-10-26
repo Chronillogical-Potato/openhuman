@@ -228,7 +228,7 @@ impl SecretStore {
             | Ok(crate::security::secret_storage::MigrationOutcome::NoSourceFile) => {}
             Err(error) => {
                 log::warn!(
-                    "[security] failed to migrate legacy secret-store key from {}: {error} | detail={}",
+                    "[security] failed to migrate legacy secret-store key from {}: {}",
                     self.key_path.display(),
                     error.diagnostic()
                 );
@@ -242,7 +242,7 @@ impl SecretStore {
         )
         .map_err(|e| {
             anyhow::anyhow!(
-                "Failed to load secret-store master key from keychain: {e} | detail={}",
+                "Failed to load secret-store master key from keychain: {}",
                 e.diagnostic()
             )
         })?;
