@@ -719,6 +719,7 @@ pub(super) fn unresolved_chat_model_error_for_access(
                 config,
                 extensions,
                 CredentialAccess::Inspection,
+                None,
             ),
         };
         return match result {
