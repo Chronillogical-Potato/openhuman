@@ -71,6 +71,7 @@ pub async fn current_session_is_local(ctx: &DispatchCtx) -> bool {
         return false;
     };
     get_session_token(&config)
+        .await
         .ok()
         .flatten()
         .is_some_and(|token| is_local_session_token(&token))

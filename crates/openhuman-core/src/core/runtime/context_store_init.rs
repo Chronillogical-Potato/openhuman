@@ -91,7 +91,7 @@ pub async fn init_stores(cfg: &crate::config::Config, domains: crate::core::runt
     // (Composio sync tick, cron, etc.) fires its first event.
     // Reading from the store here means subsequent events carry
     // `user.id` even when no `app_state_snapshot` RPC has run yet.
-    match crate::credentials::session_state::build_session_state(cfg) {
+    match crate::credentials::session_state::build_session_state(cfg).await {
         Ok(state) => {
             if let Some(uid) = state.user_id.as_deref() {
                 crate::core::observability::sentry_scope::bind(uid);
