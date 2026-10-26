@@ -114,7 +114,7 @@ impl AuthProfilesStore {
         &self,
         persisted_before: &super::PersistedAuthProfiles,
         delete_error: anyhow::Error,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         if let Err(rollback_error) = self.write_persisted_locked(persisted_before) {
             anyhow::bail!(
                 "keyring delete failed and profile metadata rollback failed: {delete_error}; {rollback_error}"
