@@ -11,6 +11,8 @@ use crate::config::Config;
 
 #[cfg(feature = "modules")]
 use crate::modules::tinybox::{self, contract};
+#[cfg(feature = "modules")]
+use crate::modules::tinybox::contract::NativeJailConfig;
 #[cfg(not(feature = "modules"))]
 type NativeJailConfig = ();
 
