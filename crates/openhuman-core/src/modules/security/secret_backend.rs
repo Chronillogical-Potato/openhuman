@@ -7,6 +7,7 @@ use tinysecurity_bus::{
     SecretBackendLoadStatus2, SecretBackendSetRequest2, SecretBackendSetResponse2,
     SecretBackendSetStatus2, SecretPhase2,
 };
+use zeroize::Zeroizing;
 
 /// One configured backend identifier and whether it names the legacy file source.
 #[derive(Clone, Copy)]
@@ -26,6 +27,29 @@ pub(crate) struct SecretBackend {
     legacy: Binding,
     pending_targets:
         parking_lot::Mutex<std::collections::HashMap<String, zeroize::Zeroizing<Vec<u8>>>>,
+    existing_master_read: parking_lot::Mutex<Option<ExistingMasterRead>>,
+}
+
+struct ExistingMasterRead {
+    token: String,
+    encoded: Zeroizing<String>,
+    read: bool,
+}
+
+/// One-shot capability to expose an already supplied User master only to the
+/// next resolver target read. Dropping it clears the supplied encoding.
+pub(crate) struct ExistingMasterReadGuard<'a> {
+    backend: &'a SecretBackend,
+    token: String,
+}
+
+impl Drop for ExistingMasterReadGuard<'_> {
+    fn drop(&mut self) {
+        let mut active = self.backend.existing_master_read.lock();
+        if active.as_ref().is_some_and(|entry| entry.token == self.token) {
+            active.take();
+        }
+    }
 }
 
 impl SecretBackend {
@@ -52,7 +76,34 @@ impl SecretBackend {
                 legacy_file: true,
             },
             pending_targets: parking_lot::Mutex::new(std::collections::HashMap::new()),
+            existing_master_read: parking_lot::Mutex::new(None),
         }
+    }
+
+    /// Arm a serialized read-only resolution for a previously obtained key.
+    /// The resolver must read the supplied value as Present; every mutation
+    /// during this window is denied.
+    pub(crate) fn arm_existing_master_read(
+        &self,
+        encoded: &str,
+    ) -> Result<ExistingMasterReadGuard<'_>, &'static str> {
+        if encoded.len() != 64 || !encoded.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err("invalid existing master key encoding");
+        }
+        let token = uuid::Uuid::new_v4().simple().to_string();
+        let mut active = self.existing_master_read.lock();
+        if active.is_some() {
+            return Err("an existing master key read is already active");
+        }
+        *active = Some(ExistingMasterRead {
+            token: token.clone(),
+            encoded: Zeroizing::new(encoded.to_owned()),
+            read: false,
+        });
+        Ok(ExistingMasterReadGuard {
+            backend: self,
+            token,
+        })
     }
 
     /// Serve this backend only to the admitted TinySecurity module instance.
@@ -82,6 +133,24 @@ impl SecretBackend {
 
     fn load_request(&self, request: SecretBackendLoadRequest2) -> SecretBackendLoadResponse2 {
         let identity = request.identity;
+        let mut existing_master_read = self.existing_master_read.lock();
+        if let Some(override_key) = existing_master_read.as_mut() {
+            let status = match self.binding(&identity) {
+                Some(binding)
+                    if !binding.legacy_file
+                        && identity.phase == SecretPhase2::TargetRead
+                        && !override_key.read =>
+                {
+                    override_key.read = true;
+                    SecretBackendLoadStatus2::Present {
+                        encoded: override_key.encoded.as_bytes().to_vec(),
+                    }
+                }
+                _ => SecretBackendLoadStatus2::Denied,
+            };
+            return SecretBackendLoadResponse2 { identity, status };
+        }
+        drop(existing_master_read);
         let status = match self.binding(&identity) {
             None => SecretBackendLoadStatus2::Denied,
             Some(binding) if binding.legacy_file && identity.phase == SecretPhase2::LegacyRead => {
@@ -117,7 +186,10 @@ impl SecretBackend {
     fn set_request(&self, request: SecretBackendSetRequest2) -> SecretBackendSetResponse2 {
         let identity = request.identity;
         let encoded = zeroize::Zeroizing::new(request.encoded);
-        let status = match self.binding(&identity) {
+        let status = if self.existing_master_read.lock().is_some() {
+            SecretBackendSetStatus2::Denied
+        } else {
+            match self.binding(&identity) {
             Some(binding)
                 if !binding.legacy_file
                     && identity.phase == SecretPhase2::TargetSet
@@ -137,7 +209,8 @@ impl SecretBackend {
                     None => SecretBackendSetStatus2::Unavailable,
                 }
             }
-            _ => SecretBackendSetStatus2::Denied,
+                _ => SecretBackendSetStatus2::Denied,
+            }
         };
         SecretBackendSetResponse2 { identity, status }
     }
