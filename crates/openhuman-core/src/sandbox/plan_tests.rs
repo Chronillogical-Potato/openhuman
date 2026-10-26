@@ -150,11 +150,11 @@ fn host_networking_opens_the_box_only_when_planned() {
 }
 
 #[test]
-fn a_process_level_plan_carries_the_credential_store_floor() {
-    let home = std::path::Path::new("/home/someone");
+fn the_tinysecurity_artifact_owns_credential_denials() {
     let mut planned = artifact(SandboxBackend::Jail);
     planned.minimum_isolation = IsolationLevel2::Process;
-    let plan = BoxPlan::from_artifact(&planned, Some(home)).unwrap();
+    planned.deny_read = vec!["/home/someone/.ssh".into()];
+    let plan = BoxPlan::from_artifact(&planned, None).unwrap();
     assert!(!plan.jail.require_process_isolation);
     assert_eq!(
         plan.jail.enforcement,
@@ -166,9 +166,10 @@ fn a_process_level_plan_carries_the_credential_store_floor() {
         .deny_read
         .contains(&"/home/someone/.ssh".to_owned()));
 
-    // A kernel-isolated jail is allow-list based and names nothing.
+    // TinySecurity omits credential denials for an isolated plan.
     planned.minimum_isolation = IsolationLevel2::Kernel;
-    let plan = BoxPlan::from_artifact(&planned, Some(home)).unwrap();
+    planned.deny_read.clear();
+    let plan = BoxPlan::from_artifact(&planned, None).unwrap();
     assert!(plan.jail.deny_read.is_empty());
 }
 
