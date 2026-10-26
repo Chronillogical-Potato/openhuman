@@ -1,5 +1,26 @@
 use super::*;
 
+#[test]
+fn approval_event_contains_only_operation_metadata() {
+    let event = crate::core::events::DomainEvent::KeyringAccessApprovalRequested(
+        crate::core::events::KeyringAccessApprovalRequest {
+            request_id: "request-1".into(),
+            caller_agent: "openhuman.credentials".into(),
+            origin: "LocalOperator".into(),
+            purpose: "OpenHuman auth profile credential access".into(),
+            access: "read".into(),
+            name: "user-1:auth:openai:default".into(),
+            expires_at_ms: 1_800_000_000_000,
+        },
+    );
+    assert_eq!(event.variant_name(), "KeyringAccessApprovalRequested");
+    assert_eq!(crate::core::events::DomainEvent::domain(&event), "keyring");
+    let value = serde_json::to_value(&event).unwrap();
+    let payload = &value["KeyringAccessApprovalRequested"];
+    assert_eq!(payload["name"], "user-1:auth:openai:default");
+    assert!(payload.get("value").is_none());
+}
+
 #[tokio::test]
 async fn approval_response_resolves_only_its_matching_request() {
     let mut registry = PendingConsentRegistry::default();
