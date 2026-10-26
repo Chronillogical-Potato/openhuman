@@ -24,7 +24,9 @@ fn policy_translation_copies_effective_host_settings() {
 #[test]
 fn first_load_and_reinit_share_one_policy_translator() {
     let config = Config::default();
-    assert_eq!(module_config(&config).policy, policy_config(&config));
+    let module = module_config(&config);
+    assert_eq!(module.policy, policy_config(&config));
+    assert_eq!(module.sandbox, Some(tinysecurity_bus::SandboxConfig2 { scopes: vec![] }));
 }
 
 #[test]
