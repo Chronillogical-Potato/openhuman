@@ -97,7 +97,7 @@ impl AuthProfilesStore {
     }
 
     /// Delete keychain secrets for a profile (called on profile removal).
-    pub(super) fn keychain_delete_secrets(&self, profile_id: &str) {
+    pub(super) fn keychain_delete_secrets(&self, profile_id: &str) -> anyhow::Result<()> {
         let key = self.keychain_key_for_profile(profile_id);
         let name = self.keyring_name(&key);
         if let Err(e) = self.keyring_operation(tinysecurity_bus::KeyringOperation2::Delete { name })
@@ -106,12 +106,14 @@ impl AuthProfilesStore {
                 "[auth] keychain_delete_secrets failed profile_id={profile_id} user_id={}: {e}",
                 self.user_id,
             );
+            return Err(e);
         } else {
             log::debug!(
                 "[auth] keychain_delete_secrets ok profile_id={profile_id} user_id={}",
                 self.user_id
             );
         }
+        Ok(())
     }
 
     fn keyring_name(&self, logical_key: &str) -> String {

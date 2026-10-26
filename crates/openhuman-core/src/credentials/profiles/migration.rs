@@ -307,7 +307,11 @@ impl AuthProfilesStore {
         if persist && (!dropped_ids.is_empty() || key_migrated) {
             self.write_persisted_locked(&persisted)?;
             for id in pending_keychain_deletes {
-                self.keychain_delete_secrets(&id);
+                if let Err(error) = self.keychain_delete_secrets(&id) {
+                    log::warn!(
+                        "[auth] profile id migration left an old keyring entry in place: {error}"
+                    );
+                }
             }
         }
         Ok(AuthProfilesData {

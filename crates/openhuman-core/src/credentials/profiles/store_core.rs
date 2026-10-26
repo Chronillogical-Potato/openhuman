@@ -1,6 +1,6 @@
 //! Construction and the public CRUD surface of [`AuthProfilesStore`].
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::Utc;
 use std::path::Path;
 
@@ -85,6 +85,7 @@ impl AuthProfilesStore {
 
     pub fn remove_profile(&self, profile_id: &str) -> Result<bool> {
         let _lock = self.acquire_lock()?;
+        let persisted_before = self.read_persisted_locked()?;
         let mut data = self.load_locked()?;
 
         let removed = data.profiles.remove(profile_id).is_some();
@@ -97,10 +98,18 @@ impl AuthProfilesStore {
         data.updated_at = Utc::now();
         self.save_locked(&data)?;
 
-        // Clean up keychain entry for this profile (idempotent if keychain
-        // is unavailable or no entry exists).
+        // Remove the TinySecurity secret after persisting metadata removal.
+        // If the user denies or the module is unavailable, restore the exact
+        // prior document so an orphaned/stranded keyring entry stays reachable.
         if self.use_keychain {
-            self.keychain_delete_secrets(profile_id);
+            if let Err(delete_error) = self.keychain_delete_secrets(profile_id) {
+                if let Err(rollback_error) = self.write_persisted_locked(&persisted_before) {
+                    anyhow::bail!(
+                        "keyring delete failed and profile metadata rollback failed: {delete_error}; {rollback_error}"
+                    );
+                }
+                return Err(delete_error.context("profile removal was not completed"));
+            }
         }
 
         Ok(true)
