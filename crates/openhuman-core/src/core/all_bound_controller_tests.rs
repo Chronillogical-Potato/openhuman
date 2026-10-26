@@ -24,6 +24,8 @@ fn staged_bound_methods() -> Vec<&'static str> {
     methods.extend([
         "approval.list_pending",
         "approval.list_recent_decisions",
+        "approval.list_tool_trust",
+        "approval.revoke_tool_trust",
         "approval.decide",
         "approval.get_gate_state",
         "approval.preauthorize_flow",

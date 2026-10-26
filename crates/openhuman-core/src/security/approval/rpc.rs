@@ -11,7 +11,7 @@ use crate::core::Outcome;
 use super::gate::{try_boot_state, ApprovalGate, ApprovalGateBootState, DecideMiss};
 use super::types::{
     ApprovalAuditEntry, ApprovalDecision, ApprovalSourceContext, FlowPreauthorizationResult,
-    PendingApproval,
+    PendingApproval, ToolTrustEntry,
 };
 
 /// Upper bound on `tool_names` per pre-authorization call — far above any
@@ -106,6 +106,47 @@ pub async fn approval_list_recent_decisions(
         "[rpc:approval_list_recent_decisions] exit"
     );
     Ok(Outcome::single_log(rows, log))
+}
+
+/// List live durable whole-tool grants in the authenticated dispatch tenant.
+/// When the approval gate is disabled, there are no grants to display.
+pub async fn approval_list_tool_trust(
+    ctx: &DispatchCtx,
+) -> anyhow::Result<Outcome<Vec<ToolTrustEntry>>> {
+    ctx.tenant()
+        .map_err(|error| anyhow!("tool grant listing has no tenant: {error}"))?;
+    let Some(gate) = ApprovalGate::try_global() else {
+        return Ok(Outcome::new(Vec::new(), vec![]));
+    };
+    let grants = gate.list_tool_trust(ctx)?;
+    let count = grants.len();
+    Ok(Outcome::single_log(
+        grants,
+        format!("[approval] list_tool_trust returned {count} grant(s)"),
+    ))
+}
+
+/// Revoke a live whole-tool grant by its opaque ID in the dispatch tenant's
+/// standard approval scope. Unknown IDs are an idempotent false result.
+pub async fn approval_revoke_tool_trust(
+    ctx: &DispatchCtx,
+    request_id: &str,
+) -> anyhow::Result<Outcome<bool>> {
+    let request_id = request_id.trim();
+    if request_id.is_empty() {
+        return Err(anyhow!("request_id must not be empty"));
+    }
+    ctx.tenant()
+        .map_err(|error| anyhow!("tool grant revocation has no tenant: {error}"))?;
+    let gate = ApprovalGate::try_global()
+        .ok_or_else(|| anyhow!("approval gate is not installed; supervised mode disabled"))?;
+    let revoked = gate.revoke_tool_trust_by_id(ctx, request_id)?;
+    let log = if revoked {
+        "[approval] whole-tool grant revoked"
+    } else {
+        "[approval] whole-tool grant was already absent"
+    };
+    Ok(Outcome::single_log(revoked, log.to_string()))
 }
 
 /// Batch-grant "approve always for this flow" trust at save+enable time

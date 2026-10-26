@@ -5074,6 +5074,37 @@ const messages: TranslationMap = {
   'onboarding.custom.localDefaultDisabledReason':
     'प्रबंधित सेटअप के लिए OpenHuman खाता आवश्यक है। लोकल सेशन में आपको हर सेवा खुद कॉन्फ़िगर करनी होती है।',
   'settings.layout.contrast.strong': 'मज़बूत',
+  // Security policy diagnostics
+  'devOptions.toolPolicyDiagnostics.notBuilt': 'इस कोर में नीति निदान शामिल नहीं है।',
+  'devOptions.toolPolicyDiagnostics.policy.title': 'सक्रिय सुरक्षा नीति',
+  'devOptions.toolPolicyDiagnostics.policy.autonomy': 'स्वायत्तता',
+  'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'केवल कार्यक्षेत्र',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'प्रति घंटे अधिकतम कार्रवाइयाँ',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk':
+    'मध्यम जोखिम के लिए स्वीकृति आवश्यक',
+  'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'उच्च जोखिम वाले कमांड रोकें',
+  'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'अनुमत कमांड',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands':
+    'कोई कमांड स्पष्ट रूप से अनुमत नहीं है।',
+
+  // Automatic approval attribution
+  'settings.approvalHistory.autoJev': 'Jev',
+  'settings.approvalHistory.autoPolicy': 'नीति',
+  'settings.approvalHistory.judgeScores':
+    'इरादा {intent} · वापस करने योग्य {reversible} · डेटा निकासी {exfiltrate}',
+  'settings.approvalHistory.judgeCached': 'कैश किया गया',
+  'settings.approvalHistory.judgeExpires': '{time} पर समाप्त',
+  // Whole-tool approval grants
+  'keyring.settings.toolTrustTitle': 'हमेशा अनुमत टूल',
+  'keyring.settings.toolTrustDescription':
+    'इस सुरक्षा दायरे में ये टूल बिना स्वीकृति माँगे चल सकते हैं।',
+  'keyring.settings.toolTrustLoading': 'अनुमत टूल लोड हो रहे हैं…',
+  'keyring.settings.toolTrustLoadFailed': 'अनुमत टूल लोड नहीं हो सके।',
+  'keyring.settings.toolTrustRevokeFailed': 'इस टूल की अनुमति वापस नहीं ली जा सकी।',
+  'keyring.settings.toolTrustEmpty': 'कोई टूल हमेशा अनुमत नहीं है।',
+  'keyring.settings.toolTrustRetry': 'फिर कोशिश करें',
+  'keyring.settings.toolTrustRevoke': 'वापस लें',
+  'keyring.settings.toolTrustRevoking': 'वापस लिया जा रहा है…',
 };
 
 export default messages;

@@ -5075,6 +5075,36 @@ const messages: TranslationMap = {
   'settings.layout.corners.none': 'কোনোটিই নয়',
 
   'settings.layout.corners.round': 'গোলাকার',
+  // Security policy diagnostics
+  'devOptions.toolPolicyDiagnostics.notBuilt': 'এই কোরে নীতি নির্ণয় অন্তর্ভুক্ত নেই।',
+  'devOptions.toolPolicyDiagnostics.policy.title': 'সক্রিয় নিরাপত্তা নীতি',
+  'devOptions.toolPolicyDiagnostics.policy.autonomy': 'স্বায়ত্তশাসন',
+  'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'শুধু কর্মক্ষেত্র',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'প্রতি ঘণ্টায় সর্বোচ্চ কাজ',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': 'মাঝারি ঝুঁকিতে অনুমোদন আবশ্যক',
+  'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'উচ্চ ঝুঁকির কমান্ড বন্ধ করুন',
+  'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'অনুমোদিত কমান্ড',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands':
+    'কোনো কমান্ড স্পষ্টভাবে অনুমোদিত নয়।',
+
+  // Automatic approval attribution
+  'settings.approvalHistory.autoJev': 'Jev',
+  'settings.approvalHistory.autoPolicy': 'নীতি',
+  'settings.approvalHistory.judgeScores':
+    'উদ্দেশ্য {intent} · প্রত্যাবর্তনযোগ্য {reversible} · তথ্য ফাঁস {exfiltrate}',
+  'settings.approvalHistory.judgeCached': 'ক্যাশ করা',
+  'settings.approvalHistory.judgeExpires': '{time}-এ মেয়াদ শেষ',
+  // Whole-tool approval grants
+  'keyring.settings.toolTrustTitle': 'সবসময় অনুমোদিত টুল',
+  'keyring.settings.toolTrustDescription':
+    'এই নিরাপত্তা পরিসরে অনুমোদন না চেয়েই এই টুলগুলো চালানো যায়।',
+  'keyring.settings.toolTrustLoading': 'অনুমোদিত টুল লোড হচ্ছে…',
+  'keyring.settings.toolTrustLoadFailed': 'অনুমোদিত টুল লোড করা যায়নি।',
+  'keyring.settings.toolTrustRevokeFailed': 'এই টুলের অনুমতি প্রত্যাহার করা যায়নি।',
+  'keyring.settings.toolTrustEmpty': 'সবসময় অনুমোদিত কোনো টুল নেই।',
+  'keyring.settings.toolTrustRetry': 'আবার চেষ্টা করুন',
+  'keyring.settings.toolTrustRevoke': 'প্রত্যাহার',
+  'keyring.settings.toolTrustRevoking': 'প্রত্যাহার হচ্ছে…',
 };
 
 export default messages;

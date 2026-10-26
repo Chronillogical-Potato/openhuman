@@ -5119,6 +5119,38 @@ const messages: TranslationMap = {
   'flows.nodeKind.loop': 'Loop',
 
   'settings.layout.corners.round': 'Membulat',
+  // Security policy diagnostics
+  'devOptions.toolPolicyDiagnostics.notBuilt':
+    'Diagnostik kebijakan tidak disertakan dalam core ini.',
+  'devOptions.toolPolicyDiagnostics.policy.title': 'Kebijakan keamanan aktif',
+  'devOptions.toolPolicyDiagnostics.policy.autonomy': 'Otonomi',
+  'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'Hanya ruang kerja',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'Maksimum tindakan per jam',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk':
+    'Perlu persetujuan untuk risiko sedang',
+  'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'Blokir perintah berisiko tinggi',
+  'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'Perintah yang diizinkan',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands':
+    'Tidak ada perintah yang diizinkan secara eksplisit.',
+
+  // Automatic approval attribution
+  'settings.approvalHistory.autoJev': 'Jev',
+  'settings.approvalHistory.autoPolicy': 'Kebijakan',
+  'settings.approvalHistory.judgeScores':
+    'Tujuan {intent} · Dapat dibatalkan {reversible} · Eksfiltrasi {exfiltrate}',
+  'settings.approvalHistory.judgeCached': 'tersimpan di cache',
+  'settings.approvalHistory.judgeExpires': 'Berakhir {time}',
+  // Whole-tool approval grants
+  'keyring.settings.toolTrustTitle': 'Alat yang selalu diizinkan',
+  'keyring.settings.toolTrustDescription':
+    'Alat ini dapat dijalankan tanpa meminta persetujuan dalam cakupan keamanan ini.',
+  'keyring.settings.toolTrustLoading': 'Memuat alat yang diizinkan…',
+  'keyring.settings.toolTrustLoadFailed': 'Alat yang diizinkan gagal dimuat.',
+  'keyring.settings.toolTrustRevokeFailed': 'Izin alat ini gagal dicabut.',
+  'keyring.settings.toolTrustEmpty': 'Tidak ada alat yang selalu diizinkan.',
+  'keyring.settings.toolTrustRetry': 'Coba lagi',
+  'keyring.settings.toolTrustRevoke': 'Cabut',
+  'keyring.settings.toolTrustRevoking': 'Mencabut…',
 };
 
 export default messages;
