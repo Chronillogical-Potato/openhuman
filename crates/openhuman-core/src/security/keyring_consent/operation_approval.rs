@@ -74,12 +74,7 @@ impl PendingConsentRegistry {
         self.pending.remove(request_id);
     }
 
-    fn finish(
-        &mut self,
-        request_id: &str,
-        call_id: &str,
-        outcome: Option<OperationOutcome>,
-    ) {
+    fn finish(&mut self, request_id: &str, call_id: &str, outcome: Option<OperationOutcome>) {
         self.pending.remove(request_id);
         if self.reserved_call_ids.remove(call_id) {
             if let Some(outcome) = outcome {

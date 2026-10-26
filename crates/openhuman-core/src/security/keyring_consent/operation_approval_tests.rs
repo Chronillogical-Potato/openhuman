@@ -1,7 +1,5 @@
 use super::*;
 
-static OUTCOME_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
 #[test]
 fn approval_event_contains_only_operation_metadata() {
     let event = crate::core::events::DomainEvent::KeyringAccessApprovalRequested(
@@ -27,8 +25,12 @@ fn approval_event_contains_only_operation_metadata() {
 async fn approval_response_resolves_only_its_matching_request() {
     let mut registry = PendingConsentRegistry::default();
     let timeout = std::time::Duration::from_secs(30);
-    let (first, first_waiter) = registry.register("read", "auth:first", timeout).unwrap();
-    let (second, second_waiter) = registry.register("write", "auth:second", timeout).unwrap();
+    let (first, first_waiter) = registry
+        .register("read", "auth:first", "call-first", timeout)
+        .unwrap();
+    let (second, second_waiter) = registry
+        .register("write", "auth:second", "call-second", timeout)
+        .unwrap();
 
     assert_ne!(first.request_id, second.request_id);
     assert!(registry.resolve(&second.request_id, false));
@@ -47,13 +49,19 @@ fn pending_approval_capacity_is_bounded() {
             .register(
                 "read",
                 &format!("auth:{index}"),
+                &format!("call:{index}"),
                 std::time::Duration::from_secs(120),
             )
             .unwrap();
     }
     assert!(
         registry
-            .register("read", "auth:overflow", std::time::Duration::from_secs(120))
+            .register(
+                "read",
+                "auth:overflow",
+                "call:overflow",
+                std::time::Duration::from_secs(120)
+            )
             .is_err()
     );
 }
@@ -65,6 +73,7 @@ async fn dropping_waiter_discards_later_resolution() {
         .register(
             "delete",
             "auth:profile",
+            "call:profile",
             std::time::Duration::from_secs(120),
         )
         .unwrap();
@@ -79,7 +88,12 @@ async fn timed_out_approval_is_removed_from_capacity() {
     let (pending, waiter) = registry
         .lock()
         .unwrap()
-        .register("read", "auth:profile", std::time::Duration::from_millis(1))
+        .register(
+            "read",
+            "auth:profile",
+            "call:profile",
+            std::time::Duration::from_millis(1),
+        )
         .unwrap();
 
     assert_eq!(
@@ -93,44 +107,80 @@ async fn timed_out_approval_is_removed_from_capacity() {
         None
     );
     assert!(registry.lock().unwrap().pending.is_empty());
+    registry.lock().unwrap().finish(
+        &pending.request_id,
+        "call:profile",
+        Some(OperationOutcome::Pending),
+    );
+    assert_eq!(
+        registry
+            .lock()
+            .unwrap()
+            .take_operation_outcome("call:profile"),
+        Some(OperationOutcome::Pending)
+    );
 }
 
 #[test]
 fn operation_outcome_is_correlated_and_consumed_once() {
-    let _guard = OUTCOME_TEST_LOCK.lock().unwrap();
-    call_outcomes().lock().unwrap().clear();
     let call_id = uuid::Uuid::new_v4().to_string();
-    call_outcomes()
-        .lock()
-        .unwrap()
-        .insert(call_id.clone(), OperationOutcome::Denied);
+    let mut registry = PendingConsentRegistry::default();
+    let (prompt, _waiter) = registry
+        .register(
+            "write",
+            "auth:profile",
+            &call_id,
+            std::time::Duration::from_secs(120),
+        )
+        .unwrap();
+    registry.finish(&prompt.request_id, &call_id, Some(OperationOutcome::Denied));
 
     assert_eq!(
-        take_operation_outcome(&call_id),
+        registry.take_operation_outcome(&call_id),
         Some(OperationOutcome::Denied)
     );
-    assert_eq!(take_operation_outcome(&call_id), None);
+    assert_eq!(registry.take_operation_outcome(&call_id), None);
 }
 
 #[test]
 fn unconsumed_denials_reserve_capacity_before_new_requests_register() {
-    let _guard = OUTCOME_TEST_LOCK.lock().unwrap();
-    let mut outcomes = call_outcomes().lock().unwrap();
-    outcomes.clear();
+    let mut registry = PendingConsentRegistry::default();
     for index in 0..MAX_PENDING_APPROVALS {
-        outcomes.insert(format!("denied-{index}"), OperationOutcome::Denied);
+        let call_id = format!("denied-{index}");
+        let (prompt, _waiter) = registry
+            .register(
+                "write",
+                "auth:profile",
+                &call_id,
+                std::time::Duration::from_secs(120),
+            )
+            .unwrap();
+        registry.finish(&prompt.request_id, &call_id, Some(OperationOutcome::Denied));
     }
-    drop(outcomes);
 
-    let mut pending = PendingConsentRegistry::default();
     assert!(
-        pending
+        registry
             .register(
                 "write",
                 "auth:overflow",
+                "call:overflow",
                 std::time::Duration::from_secs(120)
             )
             .is_err(),
         "do not admit another keyring operation while denial outcomes await consumption"
+    );
+    assert_eq!(
+        registry.take_operation_outcome("denied-0"),
+        Some(OperationOutcome::Denied)
+    );
+    assert!(
+        registry
+            .register(
+                "write",
+                "auth:next",
+                "call:next",
+                std::time::Duration::from_secs(120)
+            )
+            .is_ok()
     );
 }
