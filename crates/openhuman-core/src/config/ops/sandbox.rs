@@ -40,9 +40,9 @@ pub async fn get_sandbox_settings(ctx: &DispatchCtx) -> Result<Outcome<serde_jso
         crate::config::SandboxBackend::None => "none",
     };
 
-    let detected_backend = crate::modules::tinybox::jail_status(&config)
+    let detected_backend = crate::sandbox::native_jail::status(&config)
         .await
-        .map(|status| status.backend)
+        .map(|(backend, _, _)| backend)
         .unwrap_or_else(|_| "unavailable".to_owned());
 
     let value = serde_json::json!({
