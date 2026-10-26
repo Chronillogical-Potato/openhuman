@@ -1,38 +1,46 @@
-//! The basic process-local secret backend used by library hosts.
+//! Synchronous host adapter over TinyStorageDrivers' process-local secret store.
 
-use super::{SecretBackend, SecretStorageError};
-use parking_lot::RwLock;
-use std::collections::HashMap;
+use super::{SecretBackend, SecretStorageError, adapter};
+use tinystoragedrivers::secrets::{MemorySecrets, SecretStore as _};
 
 /// Unencrypted secrets held in memory only, discarded when this backend drops.
 ///
 /// No filesystem or OS keychain access occurs. Share one instance with `Arc`
 /// to share secrets across threads; separate instances have separate stores.
-#[derive(Default)]
 pub struct MemoryBackend {
-    values: RwLock<HashMap<String, String>>,
+    values: MemorySecrets,
+}
+
+impl Default for MemoryBackend {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MemoryBackend {
     /// Create an empty secret store.
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            values: MemorySecrets::new(),
+        }
     }
 }
 
 impl SecretBackend for MemoryBackend {
     fn get(&self, key: &str) -> Result<Option<String>, SecretStorageError> {
-        Ok(self.values.read().get(key).cloned())
+        let value = crate::storage::block_on(self.values.get(key)).map_err(adapter::backend_error)?;
+        adapter::utf8(key, value)
     }
 
     fn set(&self, key: &str, value: &str) -> Result<(), SecretStorageError> {
-        self.values.write().insert(key.to_owned(), value.to_owned());
-        Ok(())
+        crate::storage::block_on(self.values.set(key, value.as_bytes()))
+            .map_err(adapter::backend_error)
     }
 
     fn delete(&self, key: &str) -> Result<(), SecretStorageError> {
-        self.values.write().remove(key);
-        Ok(())
+        crate::storage::block_on(self.values.delete(key))
+            .map(|_| ())
+            .map_err(adapter::backend_error)
     }
 
     fn is_persistent(&self) -> bool {
