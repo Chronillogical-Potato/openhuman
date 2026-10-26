@@ -94,12 +94,14 @@ fn typed_dispatch_refusal_precedes_structured_error_mapping_and_keeps_usage() {
 
     match mapped {
         CoreError::DispatchAdmission { source, usage, .. } => {
-            assert!(CoreError::DispatchAdmission {
-                method: AGENT_CHAT,
-                source,
-                usage: None,
-            }
-            .is_expected_user_state());
+            assert!(
+                CoreError::DispatchAdmission {
+                    method: AGENT_CHAT,
+                    source,
+                    usage: None,
+                }
+                .is_expected_user_state()
+            );
             assert_eq!(source, refusal);
             let usage = usage.expect("the completed invalid response remains accounted");
             assert_eq!(usage.input_tokens, 13);
@@ -167,27 +169,6 @@ fn route_debug_redacts_bearer_and_url_embedded_credentials() {
         "credentials leaked into Route Debug: {debug}"
     );
     assert!(debug.contains("redacted"));
-}
-
-#[test]
-fn is_safe_endpoint_for_bearer_accepts_tls_and_loopback() {
-    // TLS is always safe for a bearer.
-    assert!(is_safe_endpoint_for_bearer("https://api.example.com/v1"));
-    assert!(is_safe_endpoint_for_bearer("https://127.0.0.1:8443"));
-    // Cleartext is refused for remote hosts...
-    assert!(!is_safe_endpoint_for_bearer("http://api.example.com/v1"));
-    assert!(!is_safe_endpoint_for_bearer("http://192.168.1.10/v1"));
-    // ...but accepted for loopback, where the credential never leaves the host.
-    assert!(is_safe_endpoint_for_bearer("http://127.0.0.1:8080/v1"));
-    assert!(is_safe_endpoint_for_bearer("http://localhost:8080/v1"));
-    assert!(is_safe_endpoint_for_bearer("http://[::1]:8080/v1"));
-    assert!(is_safe_endpoint_for_bearer("http://127.0.0.2:8080/v1"));
-    assert!(!is_safe_endpoint_for_bearer("http://127.evil.example/v1"));
-    // Unparseable or non-URL values are refused, not silently allowed, so a
-    // bearer can never ride a cleartext or ambiguous channel.
-    assert!(!is_safe_endpoint_for_bearer("api.example.com"));
-    assert!(!is_safe_endpoint_for_bearer("ftp://api.example.com"));
-    assert!(!is_safe_endpoint_for_bearer("http://api.example.com:8080"));
 }
 
 #[test]

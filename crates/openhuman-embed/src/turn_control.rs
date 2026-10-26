@@ -327,7 +327,7 @@ impl Turn {
             .is_some_and(|k| !k.is_empty())
         {
             if let Some(endpoint) = self.request.inference_url.as_deref() {
-                if !is_safe_endpoint_for_bearer(endpoint) {
+                if !tinytools_std::url_guard::is_safe_endpoint_for_bearer(endpoint) {
                     return Err(crate::error::CoreError::InsecureRoute {
                         method: AGENT_CHAT,
                         endpoint: sanitize_url_for_display(endpoint),
