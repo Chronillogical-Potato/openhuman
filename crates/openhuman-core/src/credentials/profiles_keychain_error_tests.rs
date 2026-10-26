@@ -69,11 +69,13 @@ fn unavailable_keyring_keeps_keyring_only_oauth_metadata_in_place() {
 
     let loaded = store.load().expect("unavailable keyring is handled safely");
     assert!(!loaded.profiles.contains_key(&id));
-    assert!(store
-        .read_persisted_locked()
-        .unwrap()
-        .profiles
-        .contains_key(&id));
+    assert!(
+        store
+            .read_persisted_locked()
+            .unwrap()
+            .profiles
+            .contains_key(&id)
+    );
 }
 
 #[test]
@@ -81,14 +83,15 @@ fn denied_keyring_delete_restores_profile_document() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), true);
     let mut before = PersistedAuthProfiles::default();
-    before
-        .profiles
-        .insert("openai:default".into(), PersistedAuthProfile {
+    before.profiles.insert(
+        "openai:default".into(),
+        PersistedAuthProfile {
             provider: "openai".into(),
             profile_name: "default".into(),
             kind: "oauth".into(),
             ..PersistedAuthProfile::default()
-        });
+        },
+    );
 
     let error = store
         .rollback_profile_removal(
@@ -97,11 +100,17 @@ fn denied_keyring_delete_restores_profile_document() {
         )
         .expect_err("a denied keyring delete must keep removal from succeeding");
 
-    assert!(error.to_string().contains("profile removal was not completed"));
+    assert!(
+        error
+            .to_string()
+            .contains("profile removal was not completed")
+    );
     assert_eq!(store.read_persisted_locked().unwrap().profiles.len(), 1);
-    assert!(store
-        .read_persisted_locked()
-        .unwrap()
-        .profiles
-        .contains_key("openai:default"));
+    assert!(
+        store
+            .read_persisted_locked()
+            .unwrap()
+            .profiles
+            .contains_key("openai:default")
+    );
 }
