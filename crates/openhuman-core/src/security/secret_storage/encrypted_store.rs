@@ -82,7 +82,10 @@ impl SecretStore {
             return Ok(plaintext.to_owned());
         }
         match self
-            .run_security_cipher(tinysecurity_bus::SecretCipherKind2::Encrypt, plaintext.as_bytes())
+            .run_security_cipher(
+                tinysecurity_bus::SecretCipherKind2::Encrypt,
+                plaintext.as_bytes(),
+            )
             .await?
         {
             crate::modules::security::secret_cipher::Output::Ciphertext(value) => Ok(value),
@@ -98,7 +101,10 @@ impl SecretStore {
             return Ok(value.to_owned());
         }
         match self
-            .run_security_cipher(tinysecurity_bus::SecretCipherKind2::Decrypt, value.as_bytes())
+            .run_security_cipher(
+                tinysecurity_bus::SecretCipherKind2::Decrypt,
+                value.as_bytes(),
+            )
             .await?
         {
             crate::modules::security::secret_cipher::Output::Plaintext { value, .. } => {
@@ -129,7 +135,10 @@ impl SecretStore {
                 value,
                 migrated,
                 replacement_ciphertext,
-            } => Ok((value.to_string(), migrated.then_some(replacement_ciphertext).flatten())),
+            } => Ok((
+                value.to_string(),
+                migrated.then_some(replacement_ciphertext).flatten(),
+            )),
             crate::modules::security::secret_cipher::Output::Ciphertext(_) => {
                 anyhow::bail!("secret migration was not completed")
             }
@@ -155,7 +164,9 @@ impl SecretStore {
                 .ok_or_else(|| anyhow::anyhow!("TinySecurity cipher consumer is unavailable"))?;
             let registration_id = crate::modules::ops::security_secret_registration_id()
                 .await
-                .ok_or_else(|| anyhow::anyhow!("TinySecurity secret registration is unavailable"))?;
+                .ok_or_else(|| {
+                    anyhow::anyhow!("TinySecurity secret registration is unavailable")
+                })?;
             let client = crate::modules::security::client(config)
                 .await
                 .map_err(anyhow::Error::new)?;

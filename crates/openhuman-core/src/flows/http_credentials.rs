@@ -227,11 +227,7 @@ impl HttpCredentialsStore {
         let state_dir = state_dir_from_config(config);
         Self {
             path: store_file(&state_dir),
-            secret_store: SecretStore::new_with_config(
-                &state_dir,
-                config.secrets.encrypt,
-                config,
-            ),
+            secret_store: SecretStore::new_with_config(&state_dir, config.secrets.encrypt, config),
         }
     }
 

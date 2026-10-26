@@ -48,7 +48,10 @@ async fn encrypted_upsert_fails_closed_without_module_config() {
     let result = store
         .upsert(&HttpCredential::bearer("stripe", secret))
         .await;
-    assert!(result.is_err(), "encrypted storage must not use host crypto");
+    assert!(
+        result.is_err(),
+        "encrypted storage must not use host crypto"
+    );
     assert!(!dir.path().join(STORE_FILENAME).exists());
 }
 

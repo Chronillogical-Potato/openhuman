@@ -8,7 +8,10 @@ fn store(tmp: &tempfile::TempDir) -> HttpCredentialsStore {
 async fn credential_resolution_ignores_an_absent_parsed_name() {
     let tmp = tempfile::TempDir::new().unwrap();
     let store = store(&tmp);
-    assert!(resolve_http_credential(&store, None).await.unwrap().is_none());
+    assert!(resolve_http_credential(&store, None)
+        .await
+        .unwrap()
+        .is_none());
 }
 
 #[tokio::test]
@@ -16,7 +19,9 @@ async fn credential_resolution_fails_closed_for_empty_or_unknown_names() {
     let tmp = tempfile::TempDir::new().unwrap();
     let store = store(&tmp);
     assert!(resolve_http_credential(&store, Some(" ")).await.is_err());
-    assert!(resolve_http_credential(&store, Some("missing")).await.is_err());
+    assert!(resolve_http_credential(&store, Some("missing"))
+        .await
+        .is_err());
 }
 
 #[test]
