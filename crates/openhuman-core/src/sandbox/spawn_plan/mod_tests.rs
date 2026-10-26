@@ -137,11 +137,11 @@ fn refusals_name_the_denial_and_never_the_operation() {
 }
 
 #[test]
-fn host_network_approval_denial_is_recorded_then_retried_without_network() {
+fn host_network_approval_denial_selects_approval_evaluation_and_a_no_network_retry() {
     assert_eq!(
         denial_action(SandboxDenial2::Approval, &NetworkPolicy::Host),
         DenialAction::EvaluateAndRetryWithoutNetwork,
-        "the denial path invokes EvaluateSandboxApproval2 before retrying"
+        "the denial path selects the EvaluateSandboxApproval2 branch before retrying"
     );
     assert_eq!(
         denial_action(SandboxDenial2::Approval, &NetworkPolicy::None),

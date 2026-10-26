@@ -288,8 +288,11 @@ enum DenialAction {
 }
 
 fn denial_action(denial: SandboxDenial2, network: &NetworkPolicy) -> DenialAction {
-    let _ = (denial, network);
-    DenialAction::Return
+    if denial == SandboxDenial2::Approval && *network == NetworkPolicy::Host {
+        DenialAction::EvaluateAndRetryWithoutNetwork
+    } else {
+        DenialAction::Return
+    }
 }
 
 async fn plan_with(
@@ -363,7 +366,7 @@ async fn plan_with(
         call_id,
         operation_json,
         grants,
-        network,
+        network: network.clone(),
         limits,
         deny_subprocesses: false,
         accept_process_isolation: source.accepts_process_isolation(),
@@ -407,6 +410,7 @@ async fn plan_with(
             // The module no longer holds the scope (a reload): register it again next time.
             registry::forget(&scope.scope_id).await;
         }
+        drop(ordered);
         tracing::warn!(?denial, "[sandbox:plan] the module refused the spawn");
         return Err(PlanError::Refused(denial));
     }
@@ -420,6 +424,7 @@ async fn plan_with(
     if artifact.scope_id != scope.scope_id || artifact.subject != subject {
         return Err(unavailable("the plan names another scope"));
     }
+    drop(ordered);
     let home = super::local_grants::grant_home(saas, dirs::home_dir);
     let box_plan = BoxPlan::from_artifact(&artifact, home.as_deref())
         .map_err(|error: PlanMappingError| unavailable(error.to_string()))?;
