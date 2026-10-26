@@ -6,7 +6,7 @@ use crate::core::Outcome;
 
 use super::loader::snapshot_config_json;
 
-/// Partial update for the `[security.sandbox]` + `[runtime.docker]` blocks.
+/// Partial update for the `[sandbox]` + `[runtime.docker]` blocks.
 #[derive(Debug, Clone, Default)]
 pub struct SandboxSettingsPatch {
     pub backend: Option<String>,
@@ -73,14 +73,17 @@ pub async fn apply_sandbox_settings(
         config.sandbox.backend = match backend.as_str() {
             "auto" => crate::config::SandboxBackend::Auto,
             "landlock" => crate::config::SandboxBackend::Landlock,
-            "firejail" => crate::config::SandboxBackend::Firejail,
-            "bubblewrap" => crate::config::SandboxBackend::Bubblewrap,
+            "firejail" | "bubblewrap" => {
+                return Err(format!(
+                    "unsupported sandbox backend '{backend}': this build uses TinyBox for native sandboxing; valid: auto, landlock, docker, none"
+                ));
+            }
             "docker" => crate::config::SandboxBackend::Docker,
             "none" => crate::config::SandboxBackend::None,
             other => {
                 log::warn!("[config][sandbox] rejected unknown backend: {other}");
                 return Err(format!(
-                    "unknown sandbox backend '{other}'; valid: auto, landlock, firejail, bubblewrap, docker, none"
+                    "unknown sandbox backend '{other}'; valid: auto, landlock, docker, none"
                 ));
             }
         };
