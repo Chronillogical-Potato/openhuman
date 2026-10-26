@@ -5131,6 +5131,17 @@ const messages: TranslationMap = {
   'settings.layout.contrast.subtle': 'Незаметный',
 
   'settings.layout.contrast.strong': 'Высокий',
+  // Security policy diagnostics
+  'devOptions.toolPolicyDiagnostics.notBuilt': 'Диагностика политик не включена в эту сборку ядра.',
+  'devOptions.toolPolicyDiagnostics.policy.title': 'Активная политика безопасности',
+  'devOptions.toolPolicyDiagnostics.policy.autonomy': 'Автономность',
+  'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'Только в рабочей области',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'Максимум действий в час',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': 'Требовать подтверждение для среднего риска',
+  'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'Блокировать команды высокого риска',
+  'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'Разрешённые команды',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'Нет явно разрешённых команд.',
+
 };
 
 export default messages;

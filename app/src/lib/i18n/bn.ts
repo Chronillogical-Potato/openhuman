@@ -5075,6 +5075,17 @@ const messages: TranslationMap = {
   'settings.layout.corners.none': 'কোনোটিই নয়',
 
   'settings.layout.corners.round': 'গোলাকার',
+  // Security policy diagnostics
+  'devOptions.toolPolicyDiagnostics.notBuilt': 'এই কোরে নীতি নির্ণয় অন্তর্ভুক্ত নেই।',
+  'devOptions.toolPolicyDiagnostics.policy.title': 'সক্রিয় নিরাপত্তা নীতি',
+  'devOptions.toolPolicyDiagnostics.policy.autonomy': 'স্বায়ত্তশাসন',
+  'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'শুধু কর্মক্ষেত্র',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'প্রতি ঘণ্টায় সর্বোচ্চ কাজ',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': 'মাঝারি ঝুঁকিতে অনুমোদন আবশ্যক',
+  'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'উচ্চ ঝুঁকির কমান্ড বন্ধ করুন',
+  'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'অনুমোদিত কমান্ড',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'কোনো কমান্ড স্পষ্টভাবে অনুমোদিত নয়।',
+
 };
 
 export default messages;

@@ -5077,6 +5077,17 @@ const messages: TranslationMap = {
   'settings.appearance.showChatMascot': "Tiny'yi mesaj kutusunda göster",
   'onboarding.custom.localDefaultDisabledReason':
     'Yönetilen kurulum için bir OpenHuman hesabı gerekir. Yerel oturumda her hizmeti kendiniz yapılandırırsınız.',
+  // Security policy diagnostics
+  'devOptions.toolPolicyDiagnostics.notBuilt': 'İlke tanılaması bu çekirdekte yer almıyor.',
+  'devOptions.toolPolicyDiagnostics.policy.title': 'Etkin güvenlik ilkesi',
+  'devOptions.toolPolicyDiagnostics.policy.autonomy': 'Özerklik',
+  'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'Yalnızca çalışma alanında',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'Saat başına en fazla eylem',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': 'Orta risk için onay iste',
+  'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'Yüksek riskli komutları engelle',
+  'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'İzin verilen komutlar',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'Açıkça izin verilen komut yok.',
+
 };
 
 export default messages;

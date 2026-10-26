@@ -5146,6 +5146,17 @@ const messages: TranslationMap = {
   'settings.layout.corners.round': 'Zaokrąglone',
   'settings.layout.contrast.subtle': 'Subtelny',
   'settings.layout.contrast.default': 'Domyślne',
+  // Security policy diagnostics
+  'devOptions.toolPolicyDiagnostics.notBuilt': 'Diagnostyka zasad nie jest dostępna w tym rdzeniu.',
+  'devOptions.toolPolicyDiagnostics.policy.title': 'Aktywne zasady bezpieczeństwa',
+  'devOptions.toolPolicyDiagnostics.policy.autonomy': 'Autonomia',
+  'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'Tylko w obszarze roboczym',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'Maksymalna liczba działań na godzinę',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': 'Wymagaj zatwierdzenia przy średnim ryzyku',
+  'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'Blokuj polecenia wysokiego ryzyka',
+  'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'Dozwolone polecenia',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'Żadne polecenia nie są jawnie dozwolone.',
+
 };
 
 export default messages;

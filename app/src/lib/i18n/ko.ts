@@ -5025,6 +5025,17 @@ const messages: TranslationMap = {
 
   'settings.layout.contrast.subtle': '은은하게',
   'settings.layout.contrast.default': '기본값',
+  // Security policy diagnostics
+  'devOptions.toolPolicyDiagnostics.notBuilt': '이 코어에는 정책 진단이 포함되어 있지 않습니다.',
+  'devOptions.toolPolicyDiagnostics.policy.title': '활성 보안 정책',
+  'devOptions.toolPolicyDiagnostics.policy.autonomy': '자율성',
+  'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': '작업 공간만',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': '시간당 최대 작업 수',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': '중간 위험 작업에 승인 필요',
+  'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': '고위험 명령 차단',
+  'devOptions.toolPolicyDiagnostics.policy.allowedCommands': '허용된 명령',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': '명시적으로 허용된 명령이 없습니다.',
+
 };
 
 export default messages;

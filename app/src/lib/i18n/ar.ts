@@ -4978,6 +4978,17 @@ const messages: TranslationMap = {
   'settings.layout.corners.subtle': 'خفيف',
 
   'settings.layout.corners.round': 'مستدير',
+  // Security policy diagnostics
+  'devOptions.toolPolicyDiagnostics.notBuilt': 'تشخيص السياسات غير مضمّن في هذا النظام الأساسي.',
+  'devOptions.toolPolicyDiagnostics.policy.title': 'سياسة الأمان النشطة',
+  'devOptions.toolPolicyDiagnostics.policy.autonomy': 'الاستقلالية',
+  'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'مساحة العمل فقط',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'الحد الأقصى للإجراءات في الساعة',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': 'طلب الموافقة للمخاطر المتوسطة',
+  'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'حظر الأوامر عالية المخاطر',
+  'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'الأوامر المسموح بها',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'لا توجد أوامر مسموح بها صراحةً.',
+
 };
 
 export default messages;

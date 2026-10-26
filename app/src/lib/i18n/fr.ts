@@ -5200,6 +5200,17 @@ const messages: TranslationMap = {
   'settings.layout.corners.subtle': 'Discret',
 
   'settings.layout.contrast.subtle': 'Discret',
+  // Security policy diagnostics
+  'devOptions.toolPolicyDiagnostics.notBuilt': 'Les diagnostics de stratégie ne sont pas inclus dans ce noyau.',
+  'devOptions.toolPolicyDiagnostics.policy.title': 'Stratégie de sécurité active',
+  'devOptions.toolPolicyDiagnostics.policy.autonomy': 'Autonomie',
+  'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'Espace de travail uniquement',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'Nombre maximal d’actions par heure',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': 'Approbation requise pour les risques moyens',
+  'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'Bloquer les commandes à haut risque',
+  'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'Commandes autorisées',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'Aucune commande n’est explicitement autorisée.',
+
 };
 
 export default messages;

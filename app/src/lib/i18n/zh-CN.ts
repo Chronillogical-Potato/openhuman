@@ -4794,6 +4794,17 @@ const messages: TranslationMap = {
 
   'settings.layout.corners.round': '圆角',
   'settings.layout.contrast.subtle': '微妙',
+  // Security policy diagnostics
+  'devOptions.toolPolicyDiagnostics.notBuilt': '此核心未构建策略诊断功能。',
+  'devOptions.toolPolicyDiagnostics.policy.title': '当前安全策略',
+  'devOptions.toolPolicyDiagnostics.policy.autonomy': '自主级别',
+  'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': '仅限工作区',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': '每小时最多操作数',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': '中风险操作需要审批',
+  'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': '阻止高风险命令',
+  'devOptions.toolPolicyDiagnostics.policy.allowedCommands': '允许的命令',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': '没有明确允许的命令。',
+
 };
 
 export default messages;

@@ -5150,6 +5150,17 @@ const messages: TranslationMap = {
     'La configurazione gestita richiede il login a OpenHuman e non è disponibile in modalità locale.',
   'onboarding.custom.localDefaultDisabledReason':
     'La configurazione gestita richiede un account OpenHuman. In una sessione locale configuri ogni servizio da solo.',
+  // Security policy diagnostics
+  'devOptions.toolPolicyDiagnostics.notBuilt': 'La diagnostica dei criteri non è inclusa in questo core.',
+  'devOptions.toolPolicyDiagnostics.policy.title': 'Criterio di sicurezza attivo',
+  'devOptions.toolPolicyDiagnostics.policy.autonomy': 'Autonomia',
+  'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'Solo nell’area di lavoro',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'Numero massimo di azioni all’ora',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': 'Richiedi approvazione per rischio medio',
+  'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'Blocca i comandi ad alto rischio',
+  'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'Comandi consentiti',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'Nessun comando è consentito esplicitamente.',
+
 };
 
 export default messages;

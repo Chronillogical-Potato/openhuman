@@ -5225,6 +5225,17 @@ const messages: TranslationMap = {
 
   'settings.layout.corners.round': 'Abgerundet',
   'settings.layout.contrast.subtle': 'Dezent',
+  // Security policy diagnostics
+  'devOptions.toolPolicyDiagnostics.notBuilt': 'Richtliniendiagnosen sind in diesem Core nicht enthalten.',
+  'devOptions.toolPolicyDiagnostics.policy.title': 'Aktive Sicherheitsrichtlinie',
+  'devOptions.toolPolicyDiagnostics.policy.autonomy': 'Autonomie',
+  'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'Nur im Arbeitsbereich',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'Maximale Aktionen pro Stunde',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': 'Genehmigung bei mittlerem Risiko erforderlich',
+  'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'Befehle mit hohem Risiko blockieren',
+  'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'Erlaubte Befehle',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'Es sind keine Befehle ausdrücklich erlaubt.',
+
 };
 
 export default messages;

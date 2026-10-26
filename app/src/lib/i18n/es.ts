@@ -5178,6 +5178,17 @@ const messages: TranslationMap = {
   'flows.nodeKind.dedup': 'Omitir duplicados',
 
   'settings.layout.corners.round': 'Redondeado',
+  // Security policy diagnostics
+  'devOptions.toolPolicyDiagnostics.notBuilt': 'Los diagnósticos de políticas no están incluidos en este núcleo.',
+  'devOptions.toolPolicyDiagnostics.policy.title': 'Política de seguridad activa',
+  'devOptions.toolPolicyDiagnostics.policy.autonomy': 'Autonomía',
+  'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'Solo en el espacio de trabajo',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'Máximo de acciones por hora',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': 'Requerir aprobación para riesgo medio',
+  'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'Bloquear comandos de alto riesgo',
+  'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'Comandos permitidos',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'No hay comandos permitidos explícitamente.',
+
 };
 
 export default messages;

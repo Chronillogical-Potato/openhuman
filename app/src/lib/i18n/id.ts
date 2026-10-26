@@ -5119,6 +5119,17 @@ const messages: TranslationMap = {
   'flows.nodeKind.loop': 'Loop',
 
   'settings.layout.corners.round': 'Membulat',
+  // Security policy diagnostics
+  'devOptions.toolPolicyDiagnostics.notBuilt': 'Diagnostik kebijakan tidak disertakan dalam core ini.',
+  'devOptions.toolPolicyDiagnostics.policy.title': 'Kebijakan keamanan aktif',
+  'devOptions.toolPolicyDiagnostics.policy.autonomy': 'Otonomi',
+  'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'Hanya ruang kerja',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'Maksimum tindakan per jam',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': 'Perlu persetujuan untuk risiko sedang',
+  'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'Blokir perintah berisiko tinggi',
+  'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'Perintah yang diizinkan',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'Tidak ada perintah yang diizinkan secara eksplisit.',
+
 };
 
 export default messages;

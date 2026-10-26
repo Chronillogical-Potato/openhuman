@@ -5350,6 +5350,17 @@ const en: TranslationMap = {
   'settings.appearance.showChatMascot': 'Show Tiny on the message box',
 
   'settings.layout.corners.round': 'Rounded',
+  // Security policy diagnostics
+  'devOptions.toolPolicyDiagnostics.notBuilt': 'Policy diagnostics are not built into this core.',
+  'devOptions.toolPolicyDiagnostics.policy.title': 'Active security policy',
+  'devOptions.toolPolicyDiagnostics.policy.autonomy': 'Autonomy',
+  'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'Workspace only',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': 'Maximum actions per hour',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': 'Require approval for medium risk',
+  'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': 'Block high-risk commands',
+  'devOptions.toolPolicyDiagnostics.policy.allowedCommands': 'Allowed commands',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': 'No commands are explicitly allowed.',
+
 };
 
 export default en;

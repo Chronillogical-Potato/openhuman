@@ -5429,6 +5429,17 @@ const messages: TranslationMap = {
   'settings.layout.corners.round': '丸み',
 
   'settings.layout.contrast.strong': '強',
+  // Security policy diagnostics
+  'devOptions.toolPolicyDiagnostics.notBuilt': 'このコアにはポリシー診断が含まれていません。',
+  'devOptions.toolPolicyDiagnostics.policy.title': '有効なセキュリティポリシー',
+  'devOptions.toolPolicyDiagnostics.policy.autonomy': '自律性',
+  'devOptions.toolPolicyDiagnostics.policy.workspaceOnly': 'ワークスペースのみ',
+  'devOptions.toolPolicyDiagnostics.policy.maxActionsPerHour': '1 時間あたりの最大アクション数',
+  'devOptions.toolPolicyDiagnostics.policy.approvalMediumRisk': '中リスクで承認を要求',
+  'devOptions.toolPolicyDiagnostics.policy.blockHighRisk': '高リスクのコマンドをブロック',
+  'devOptions.toolPolicyDiagnostics.policy.allowedCommands': '許可されたコマンド',
+  'devOptions.toolPolicyDiagnostics.policy.noAllowedCommands': '明示的に許可されたコマンドはありません。',
+
 };
 
 export default messages;
