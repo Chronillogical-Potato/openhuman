@@ -176,8 +176,7 @@ fn limits(policy: &SandboxPolicy) -> ResourceLimits2 {
 /// Additional credential files owned by OpenHuman rather than resolved by
 /// TinySecurity's native credential-root policy.
 fn host_credential_denials(config: &Config) -> Vec<std::path::PathBuf> {
-    let _ = config;
-    Vec::new()
+    crate::credentials::credential_files(config)
 }
 
 /// The grants one spawn asks for: its workspace read-write plus the mounts the policy
