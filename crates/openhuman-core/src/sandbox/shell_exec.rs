@@ -229,6 +229,8 @@ async fn run_owned(
     let outcome = match outcome {
         Ok(outcome) => outcome,
         Err(contract::NativeShellError::Execution(code)) => {
+            // v0.2.4 returns timeout output as `Finished`; this is a defensive
+            // fallback for an incompatible module that reports it as a failure.
             if failure_timed_out(code)? {
                 anyhow::bail!("TinyBox timed out without returning command output");
             }
