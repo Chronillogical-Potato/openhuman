@@ -32,11 +32,11 @@ use std::time::Duration;
 use super::types::{ModuleRecord, ModuleSource, ModuleState, ModuleStatus};
 use super::{linked, registry, report, runtime, source};
 use crate::config::Config;
+use tinybus::Proxy;
 use tinybus::module::{
     AccessFuture, Availability, FailureReporter, LoadError, ModuleAccess, ModuleClient,
     ModuleSource as ResolverSource, ProxyFailure, ReleaseRecord, Resolver, ResolverInputs,
 };
-use tinybus::Proxy;
 
 /// Environment variable naming a directory of bundled release archives, for
 /// headless hosts (the Docker image, the CLI tarball, bench bundles).
@@ -215,10 +215,10 @@ pub fn client(config: Config) -> ModuleClient {
     })
 }
 
-/// The two modules that connect to storage through a capability scoped to
+/// The modules that connect to storage through a capability scoped to
 /// their exact verified module instance.
 fn needs_storage_callback(id: &str) -> bool {
-    id == "tinymcp" || id == "tinyeventqueues"
+    matches!(id, "tinymcp" | "tinyeventqueues" | "tinychannels")
 }
 
 /// Serializes creation and retention of module-scoped storage callback bindings.
