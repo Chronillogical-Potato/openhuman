@@ -20,7 +20,9 @@ fn named_backend(
     remote: bool,
 ) -> SandboxBackendKind {
     match sandbox.backend {
-        SandboxBackend::Landlock => SandboxBackendKind::Local,
+        SandboxBackend::Landlock | SandboxBackend::Firejail | SandboxBackend::Bubblewrap => {
+            SandboxBackendKind::Local
+        }
         SandboxBackend::Docker => SandboxBackendKind::Docker,
         SandboxBackend::Auto | SandboxBackend::None => {
             // `[runtime] kind = "docker"` is the legacy spelling of an operator-required
@@ -62,6 +64,7 @@ pub fn spawn_policy(
         read_only_mounts: Vec::new(),
         read_write_mounts: Vec::new(),
         allow_network: !remote,
+        mount_workspace: docker.mount_workspace || runtime.kind != "docker",
         env_passthrough: SANDBOX_ENV_PASSTHROUGH
             .iter()
             .map(|s| s.to_string())
@@ -84,7 +87,7 @@ pub fn spawn_policy(
 pub(crate) fn with_configured_backend(policy: &SandboxPolicy, config: &Config) -> SandboxPolicy {
     let mut policy = policy.clone();
     if policy.backend == SandboxBackendKind::None {
-        policy.backend = named_backend(&config.security.sandbox, &config.runtime, false);
+        policy.backend = named_backend(&config.sandbox, &config.runtime, false);
         if policy.backend == SandboxBackendKind::Docker {
             policy.mount_workspace =
                 config.runtime.docker.mount_workspace || config.runtime.kind != "docker";
@@ -105,7 +108,7 @@ pub(crate) fn command_policy(
     Ok(spawn_policy(
         action_dir,
         state_dir,
-        &config.security.sandbox,
+        &config.sandbox,
         &config.runtime,
         false,
     ))

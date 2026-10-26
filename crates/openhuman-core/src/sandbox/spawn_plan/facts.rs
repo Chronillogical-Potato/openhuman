@@ -146,7 +146,7 @@ pub(crate) fn operator_host_network(policy: &SandboxPolicy) -> bool {
 /// Whether the operator's configuration asks for a specific isolation backend.
 fn configured(config: &Config) -> bool {
     matches!(
-        config.security.sandbox.backend,
+        config.sandbox.backend,
         SandboxBackend::Landlock | SandboxBackend::Docker
     )
 }
@@ -155,7 +155,12 @@ fn configured(config: &Config) -> bool {
 /// chose for this spawn (its workspace and the mounts it resolved). The module still
 /// refuses the protected floor and the core's internal state under every root.
 fn paths(config: &Config, policy: &SandboxPolicy) -> PathPolicy {
-    let mut paths = crate::modules::security::policy_translation::path_policy(config);
+    let mut paths = crate::security::SecurityPolicy::from_config(
+        config,
+        &config.workspace_dir,
+        &config.action_dir,
+    )
+    .native_path_policy();
     // Reserved names protect internal files from the path tools (`.env`, `SOUL.md`...)
     // wherever they sit under the action dir. A jail's workspace grant is the whole
     // action dir by design, so under that rule no workspace could ever be granted.
