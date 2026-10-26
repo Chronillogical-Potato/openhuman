@@ -9,6 +9,9 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 
+#[cfg(feature = "secret-file")]
+use tinystoragedrivers_secrets::{EncryptedFileSecrets, SecretStore as _};
+
 #[cfg(test)]
 use std::sync::atomic::Ordering;
 
@@ -247,7 +250,7 @@ impl AuthProfilesStore {
                 // save cannot replace them with an empty set. The file is left
                 // in place (never deleted by this path).
                 let legacy = self.read_file_locked()?;
-                if self.path.exists() && !legacy.profiles.is_empty() {
+                if self.legacy_path.exists() && !legacy.profiles.is_empty() {
                     let json = serde_json::to_vec(&legacy)
                         .context("Failed to serialize migrated auth profiles")?;
                     // A failed adoption keeps the legacy profiles readable;
@@ -284,19 +287,32 @@ impl AuthProfilesStore {
             }
             return Ok(persisted);
         }
-        self.read_file_locked()
+        #[cfg(feature = "secret-file")]
+        if let Some(persisted) = self.read_encrypted_file_locked()? {
+            return Ok(persisted);
+        }
+
+        let legacy = self.read_file_locked()?;
+        if self.legacy_path.exists() {
+            // Import before returning so a legacy document is never used as
+            // the target of a subsequent plaintext write. Keep the source if
+            // publication fails; the next read can retry the migration.
+            self.write_persisted_locally(&legacy)?;
+            let _ = fs::remove_file(&self.legacy_path);
+        }
+        Ok(legacy)
     }
 
     /// Reads the on-disk `auth-profiles.json` store (empty when absent).
     fn read_file_locked(&self) -> Result<PersistedAuthProfiles> {
-        if !self.path.exists() {
+        if !self.legacy_path.exists() {
             return Ok(PersistedAuthProfiles::default());
         }
 
-        let bytes = fs::read(&self.path).with_context(|| {
+        let bytes = fs::read(&self.legacy_path).with_context(|| {
             format!(
                 "Failed to read auth profile store at {}",
-                self.path.display()
+                self.legacy_path.display()
             )
         })?;
 
@@ -307,7 +323,7 @@ impl AuthProfilesStore {
         let mut persisted: PersistedAuthProfiles = match serde_json::from_slice(&bytes) {
             Ok(p) => p,
             Err(err) => {
-                let quarantined = quarantine_corrupt_store(&self.path)?;
+                let quarantined = quarantine_corrupt_store(&self.legacy_path)?;
                 let quarantined_file = quarantined
                     .file_name()
                     .and_then(|s| s.to_str())
@@ -344,6 +360,50 @@ impl AuthProfilesStore {
             crate::storage::secrets::set_blocking(&secrets, STORAGE_SECRET_NAME, &json)?;
             return Ok(());
         }
+
+        #[cfg(feature = "secret-file")]
+        {
+            self.write_persisted_locally(persisted)?;
+            let _ = fs::remove_file(&self.legacy_path);
+            return Ok(());
+        }
+
+        #[cfg(not(feature = "secret-file"))]
+        self.write_legacy_json(persisted)
+    }
+
+    #[cfg(feature = "secret-file")]
+    fn read_encrypted_file_locked(&self) -> Result<Option<PersistedAuthProfiles>> {
+        if !self.path.exists() {
+            return Ok(None);
+        }
+        let directory = self.path.parent().expect("profile store has parent");
+        let store = EncryptedFileSecrets::with_key_file_read_only(directory)
+            .context("Failed to open encrypted auth profile store")?;
+        let value = crate::storage::block_on(async move { store.get(STORAGE_SECRET_NAME).await })
+            .context("Failed to read encrypted auth profile store")?;
+        let Some(value) = value else {
+            return Ok(None);
+        };
+        let persisted = serde_json::from_slice(&value)
+            .context("Encrypted auth profile document is not valid JSON")?;
+        Ok(Some(persisted))
+    }
+
+    #[cfg(feature = "secret-file")]
+    fn write_persisted_locally(&self, persisted: &PersistedAuthProfiles) -> Result<()> {
+        let json = serde_json::to_vec(persisted).context("Failed to serialize auth profiles")?;
+        let directory = self.path.parent().expect("profile store has parent");
+        let store = EncryptedFileSecrets::with_key_file(directory)
+            .context("Failed to open encrypted auth profile store")?;
+        crate::storage::block_on(async move {
+            store.set(STORAGE_SECRET_NAME, &json).await
+        })
+        .context("Failed to write encrypted auth profile store")
+    }
+
+    #[cfg(not(feature = "secret-file"))]
+    fn write_legacy_json(&self, persisted: &PersistedAuthProfiles) -> Result<()> {
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent).with_context(|| {
                 format!(
@@ -361,7 +421,7 @@ impl AuthProfilesStore {
             std::process::id(),
             Utc::now().timestamp_nanos_opt().unwrap_or_default()
         );
-        let tmp_path = self.path.with_file_name(tmp_name);
+        let tmp_path = self.legacy_path.with_file_name(tmp_name);
 
         // Windows AV / Search-Indexer / Defender may briefly hold a handle on
         // the destination, returning transient `ERROR_SHARING_VIOLATION (32)`,
@@ -394,13 +454,13 @@ impl AuthProfilesStore {
             PERSIST_RETRY_BASE_MS,
             || {
                 self.consume_test_transient_failure_rename()?;
-                fs::rename(&tmp_path, &self.path).context("rename auth profile tmp -> store")
+                fs::rename(&tmp_path, &self.legacy_path).context("rename auth profile tmp -> store")
             },
         )
         .with_context(|| {
             format!(
                 "Failed to replace auth profile store at {}",
-                self.path.display()
+                self.legacy_path.display()
             )
         });
 

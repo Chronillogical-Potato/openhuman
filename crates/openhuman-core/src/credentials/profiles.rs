@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 #[cfg(test)]
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 #[cfg(test)]
 use std::sync::Arc;
 
@@ -48,8 +48,12 @@ struct KeychainSecrets {
     pub id_token: Option<String>,
 }
 pub(crate) const PROFILES_FILENAME: &str = "auth-profiles.json";
-/// The auth-profiles file a store over `state_dir` keeps.
+/// Legacy plaintext profile document retained only for one-time import.
 pub(crate) fn profiles_file(state_dir: &Path) -> PathBuf {
+    state_dir.join("auth-profiles").join("secrets.enc")
+}
+
+pub(crate) fn legacy_profiles_file(state_dir: &Path) -> PathBuf {
     state_dir.join(PROFILES_FILENAME)
 }
 const LOCK_FILENAME: &str = "auth-profiles.lock";
@@ -247,6 +251,7 @@ fn user_id_from_state_dir(state_dir: &Path) -> String {
 #[derive(Debug, Clone)]
 pub struct AuthProfilesStore {
     path: PathBuf,
+    legacy_path: PathBuf,
     lock_path: PathBuf,
     secret_store: SecretStore,
     /// Opaque user identifier used to namespace keychain entries.
@@ -270,13 +275,6 @@ pub struct AuthProfilesStore {
     /// before this split).
     #[cfg(test)]
     force_transient_failures_rename: Arc<AtomicUsize>,
-    /// `#[cfg(test)]` failure injection — when set, the next `acquire_lock`
-    /// call consumes the flag and returns a synthetic `StorageFull`
-    /// lock-create failure, exercising the lock-free read-only fallback in
-    /// [`AuthProfilesStore::load`] (Sentry TAURI-RUST-4SZ). Production
-    /// binaries never see this field.
-    #[cfg(test)]
-    force_lock_unwritable: Arc<AtomicBool>,
 }
 /// Decrement an `AtomicUsize` failure-injection counter by one if it is
 /// non-zero, returning a `__TEST_TRANSIENT__` error so `is_transient_fs_error`

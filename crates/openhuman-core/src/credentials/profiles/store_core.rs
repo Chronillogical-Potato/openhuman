@@ -5,7 +5,7 @@ use chrono::Utc;
 use std::path::Path;
 
 #[cfg(test)]
-use std::sync::atomic::{AtomicBool, AtomicUsize};
+use std::sync::atomic::AtomicUsize;
 #[cfg(test)]
 use std::sync::Arc;
 
@@ -49,6 +49,7 @@ impl AuthProfilesStore {
         }
         Self {
             path: super::profiles_file(state_dir),
+            legacy_path: super::legacy_profiles_file(state_dir),
             lock_path: state_dir.join(LOCK_FILENAME),
             secret_store: SecretStore::new(state_dir, encrypt_secrets),
             user_id,
@@ -57,8 +58,6 @@ impl AuthProfilesStore {
             force_transient_failures_write: Arc::new(AtomicUsize::new(0)),
             #[cfg(test)]
             force_transient_failures_rename: Arc::new(AtomicUsize::new(0)),
-            #[cfg(test)]
-            force_lock_unwritable: Arc::new(AtomicBool::new(false)),
         }
     }
 
