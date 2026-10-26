@@ -1,6 +1,6 @@
 use super::*;
 use crate::core::all::ControllerParamContract;
-use serde_json::{Map, json};
+use serde_json::{json, Map};
 
 pub(crate) fn parameter_contracts() -> Vec<ControllerParamContract> {
     vec![

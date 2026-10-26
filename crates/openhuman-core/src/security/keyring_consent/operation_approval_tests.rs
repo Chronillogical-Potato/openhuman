@@ -54,16 +54,14 @@ fn pending_approval_capacity_is_bounded() {
             )
             .unwrap();
     }
-    assert!(
-        registry
-            .register(
-                "read",
-                "auth:overflow",
-                "call:overflow",
-                std::time::Duration::from_secs(120)
-            )
-            .is_err()
-    );
+    assert!(registry
+        .register(
+            "read",
+            "auth:overflow",
+            "call:overflow",
+            std::time::Duration::from_secs(120)
+        )
+        .is_err());
 }
 
 #[tokio::test]
@@ -173,14 +171,12 @@ fn unconsumed_denials_reserve_capacity_before_new_requests_register() {
         registry.take_operation_outcome("denied-0"),
         Some(OperationOutcome::Denied)
     );
-    assert!(
-        registry
-            .register(
-                "write",
-                "auth:next",
-                "call:next",
-                std::time::Duration::from_secs(120)
-            )
-            .is_ok()
-    );
+    assert!(registry
+        .register(
+            "write",
+            "auth:next",
+            "call:next",
+            std::time::Duration::from_secs(120)
+        )
+        .is_ok());
 }

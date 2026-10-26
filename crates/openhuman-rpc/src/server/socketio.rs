@@ -27,10 +27,10 @@
 
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json::Value;
 use serde_json::json;
-use socketioxide::SocketIo;
+use serde_json::Value;
 use socketioxide::extract::{AckSender, Data, SocketRef, TryData};
+use socketioxide::SocketIo;
 
 use crate::core_host::web_chat::{GuardrailPayload, WebChannelEvent};
 

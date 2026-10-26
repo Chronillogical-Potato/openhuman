@@ -43,8 +43,8 @@ use std::sync::Arc;
 
 use super::error::CoreError;
 use openhuman_core::agent_runs::INFERENCE_AGENT_CHAT as AGENT_CHAT;
-use openhuman_core::core::runtime::CoreRuntime;
 use openhuman_core::core::runtime::turn_origin::AgentTurnOrigin;
+use openhuman_core::core::runtime::CoreRuntime;
 use openhuman_core::progress::AgentProgress;
 
 #[path = "turn_types.rs"]
@@ -175,11 +175,11 @@ impl Turn {
     pub fn tools(
         mut self,
         factory: impl for<'a> Fn(
-            openhuman_core::agent::TurnContext<'a>,
-        ) -> openhuman_core::agent::HostTurnTools
-        + Send
-        + Sync
-        + 'static,
+                openhuman_core::agent::TurnContext<'a>,
+            ) -> openhuman_core::agent::HostTurnTools
+            + Send
+            + Sync
+            + 'static,
     ) -> Self {
         self.tools = Some(Arc::new(factory));
         self
@@ -621,7 +621,7 @@ async fn dispatch(
             let turn: futures_box::BoxFuture<'_, Result<AgentReply, CoreError>> =
                 Box::pin(async move {
                     use openhuman_core::inference::host_runtime::ops::{
-                        AgentChatTarget, agent_chat_reply_for_controlled,
+                        agent_chat_reply_for_controlled, AgentChatTarget,
                     };
                     let mut config = dispatch
                         .load_config()
@@ -674,7 +674,7 @@ async fn dispatch(
             let turn: futures_box::BoxFuture<'_, Result<AgentReply, CoreError>> =
                 Box::pin(async move {
                     use openhuman_core::inference::host_runtime::ops::{
-                        AgentChatTarget, agent_chat_reply_for_controlled,
+                        agent_chat_reply_for_controlled, AgentChatTarget,
                     };
                     let mut config = inner.config.clone();
                     let route = openhuman_core::config::schema::EphemeralRoute::from_params(

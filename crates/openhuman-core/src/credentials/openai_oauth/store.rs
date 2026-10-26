@@ -3,11 +3,11 @@
 use std::sync::{LazyLock, Mutex, PoisonError};
 
 use chrono::{Duration, Utc};
-use tinyinference_providers::oauth::{OAuthTokenSet, openai_account_id_from_access_token};
+use tinyinference_providers::oauth::{openai_account_id_from_access_token, OAuthTokenSet};
 
 use crate::config::Config;
 use crate::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
-use crate::credentials::{AuthService, ProviderOAuthTokens, state_dir_from_config};
+use crate::credentials::{state_dir_from_config, AuthService, ProviderOAuthTokens};
 
 const LOG_PREFIX: &str = "[inference][openai-oauth][store]";
 

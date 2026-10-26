@@ -356,7 +356,7 @@ fn replace_durably_with_sync(
 fn replace_durably(source: &Path, destination: &Path) -> std::io::Result<()> {
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::Storage::FileSystem::{
-        MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW,
+        MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH,
     };
 
     let source: Vec<u16> = source.as_os_str().encode_wide().chain(Some(0)).collect();

@@ -10,9 +10,7 @@ fn keyring_callback_grants_only_explicit_operation_scoped_approval() {
 
 #[test]
 fn unmigrated_callbacks_return_an_error_instead_of_authority() {
-    assert!(
-        unavailable()
-            .to_string()
-            .contains("security host callback unavailable")
-    );
+    assert!(unavailable()
+        .to_string()
+        .contains("security host callback unavailable"));
 }

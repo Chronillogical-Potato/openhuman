@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use super::{SecretBackend, SecretStorageError, adapter};
+use super::{adapter, SecretBackend, SecretStorageError};
 use tinystoragedrivers::secrets::{MemorySecrets, SecretStore as _};
 
 /// Unencrypted secrets held in memory only, discarded when this backend drops.

@@ -291,7 +291,7 @@ async fn physical_observer_reports_content_free_provider_outcome() {
 #[tokio::test]
 async fn physical_observer_sees_the_buyer_charge_settled_by_the_budget() {
     use tinyagents_harness::observability::turn_observer::{
-        ObserverScope, TraceContent, TurnObservation, with_observer,
+        with_observer, ObserverScope, TraceContent, TurnObservation,
     };
 
     let mut reply = body("hi", "stop");

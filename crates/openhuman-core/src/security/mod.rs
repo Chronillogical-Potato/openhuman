@@ -24,26 +24,26 @@ pub mod secret_storage;
 #[allow(unused_imports)]
 pub use self::secret_storage::SecretStore;
 #[allow(unused_imports)]
-pub use audit::{AuditSink, get_or_create_workspace_audit_sink};
+pub use audit::{get_or_create_workspace_audit_sink, AuditSink};
 #[allow(unused_imports)]
 pub use egress::{
-    DataKind, EgressDescriptor, EgressReason, IdentificationRisk, emit_external_transfer,
-    enforce_egress, local_only_tool_block,
+    emit_external_transfer, enforce_egress, local_only_tool_block, DataKind, EgressDescriptor,
+    EgressReason, IdentificationRisk,
 };
 pub use ops as rpc;
 pub use ops::*;
 #[allow(unused_imports)]
 pub use pairing::is_public_bind;
+pub use policy::validate_path_within_root;
 #[allow(unused_imports)]
 pub use policy::AutonomyLevel;
 #[allow(unused_imports)]
 pub use policy::GateDecision;
 pub use policy::SecurityPolicy;
 pub use policy::ToolOperation;
-pub use policy::validate_path_within_root;
+pub use policy::{ensure_openhuman_scratch_dir, openhuman_scratch_dir};
 #[allow(unused_imports)]
 pub use policy::{TrustedAccess, TrustedRoot};
-pub use policy::{ensure_openhuman_scratch_dir, openhuman_scratch_dir};
 
 pub use schemas::{
     all_controller_schemas as all_security_controller_schemas,

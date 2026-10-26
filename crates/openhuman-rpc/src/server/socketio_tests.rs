@@ -1,7 +1,8 @@
 use super::{
-    ThreadSubscribePayload, channel_connection_update_payload, event_alias,
-    origin_is_allowed_with_extra, publish_companion_state_changed, should_broadcast_session_expiry,
+    channel_connection_update_payload, event_alias, origin_is_allowed_with_extra,
+    publish_companion_state_changed, should_broadcast_session_expiry,
     socket_tenant_from_request_extensions, subscribe_companion_state_changed,
+    ThreadSubscribePayload,
 };
 
 #[tokio::test]

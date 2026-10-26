@@ -1,7 +1,7 @@
 //! [`DomainEvent::log_detail`]: the one-line summary the developer Event Log
 //! shows for the variants that need one.
 
-use super::{DomainEvent, clip_to_chars};
+use super::{clip_to_chars, DomainEvent};
 
 impl DomainEvent {
     /// A one-line summary for the developer Event Log, for the variants whose
