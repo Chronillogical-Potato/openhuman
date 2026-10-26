@@ -27,7 +27,7 @@ Two hosts drive it:
 <root>/users/<profile-id>/          the desktop's users/<id> shape (config::schema::ProfileLayout)
   profile.toml                      ProfileMeta (only without a storage backend)
   config.toml                       the profile's config_path (never read in SaaS)
-  auth-profiles.json                its credential (unless secrets live in the backend)
+  auth-profiles/secrets.enc         its encrypted profile-local credential store
   workspace/                        threads, sessions, memory, cron, cost and run ledgers
   sandbox/                          action_dir: the only place its tools may act
 <root>/users/<sha256(id)>/.lease    the file-lock lease and its record (only without a storage backend)
