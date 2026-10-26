@@ -167,6 +167,7 @@ pub(crate) async fn probe_dimensions_for_inspection(
     let model = config.memory.embedding_model.trim();
     let configured = config.memory.embedding_dimensions;
     let api_key = super::resolve_api_key_read_only(config, provider_name)
+        .await
         .map_err(|_| InspectionEmbeddingError::CredentialStoreUnavailable)?;
     let custom_endpoint = provider_name.strip_prefix("custom:").map(str::to_owned);
     let provider_slug = if custom_endpoint.is_some() {

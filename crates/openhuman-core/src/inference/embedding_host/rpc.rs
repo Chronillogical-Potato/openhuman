@@ -77,7 +77,7 @@ pub(crate) fn resolve_api_key(config: &Config, provider_name: &str) -> String {
         .unwrap_or_default()
 }
 
-pub(crate) fn resolve_api_key_read_only(
+pub(crate) async fn resolve_api_key_read_only(
     config: &Config,
     provider_name: &str,
 ) -> Result<String, crate::credentials::profiles::ReadOnlyAuthProfileError> {
@@ -88,7 +88,7 @@ pub(crate) fn resolve_api_key_read_only(
     };
     let cred_provider = format!("embeddings:{slug}");
     Ok(
-        AuthService::get_provider_bearer_token_read_only(config, &cred_provider, None)?
+        AuthService::get_provider_bearer_token_read_only(config, &cred_provider, None).await?
             .unwrap_or_default(),
     )
 }

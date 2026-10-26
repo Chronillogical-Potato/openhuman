@@ -142,7 +142,8 @@ async fn inspecting_selected_profile_credentials_does_not_quarantine_corrupt_aut
         .await
         .unwrap();
     let result =
-        crate::credentials::session_state::load_app_session_profile_read_only(&selected.config);
+        crate::credentials::session_state::load_app_session_profile_read_only(&selected.config)
+            .await;
     let after = tokio::fs::read(&profiles_path).await;
     if result.is_ok() {
         return Err("a corrupt credential store must be reported as unavailable".into());
@@ -214,6 +215,7 @@ async fn selected_profile_auth_snapshot_reads_its_backend_without_mutating_profi
     let before = snapshot_tree(&account_b.dir);
     let profile =
         crate::credentials::session_state::load_app_session_profile_read_only(&selected.config)
+            .await
             .unwrap()
             .unwrap();
     let token = crate::credentials::session_state::session_token_from_profile(Some(&profile));
