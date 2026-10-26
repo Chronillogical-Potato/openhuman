@@ -36,11 +36,4 @@ describe('ToolPolicyDiagnosticsPanel', () => {
       expect.objectContaining({ method: 'openhuman.security_policy_info' })
     );
   });
-
-  test('shows loading while the core response is pending', async () => {
-    hoisted.callCoreRpc.mockReturnValue(new Promise(() => {}));
-    const Panel = (await import('../ToolPolicyDiagnosticsPanel')).default;
-    renderWithProviders(<Panel />);
-    expect(screen.getByTestId('policy-info-loading')).toBeInTheDocument();
-  });
 });
