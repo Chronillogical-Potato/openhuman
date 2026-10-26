@@ -4,6 +4,8 @@ use zeroize::Zeroizing;
 
 use crate::config::Config;
 use crate::security::secret_storage::{EncryptedFileBackend, SecretStore};
+#[cfg(feature = "secret-file")]
+use tinystoragedrivers_secrets::{EncryptedFileSecrets, SecretStore as _};
 
 use super::{
     normalize_profile_id_provider, parse_datetime_with_fallback, parse_optional_datetime,
@@ -34,8 +36,33 @@ pub(super) fn load_profile(
         .config_path
         .parent()
         .ok_or(ReadOnlyAuthProfileError::Unavailable)?;
-    let path = state_dir.join(PROFILES_FILENAME);
-    let bytes = match std::fs::read(&path) {
+    #[cfg(feature = "secret-file")]
+    let bytes = {
+        let path = super::profiles_file(state_dir);
+        if path.exists() {
+            let directory = path
+                .parent()
+                .ok_or(ReadOnlyAuthProfileError::Unavailable)?;
+            let store = EncryptedFileSecrets::with_key_file_read_only(directory)
+                .map_err(|_| ReadOnlyAuthProfileError::Unavailable)?;
+            let value = crate::storage::block_on(async move {
+                store.get(super::STORAGE_SECRET_NAME).await
+            })
+            .map_err(|_| ReadOnlyAuthProfileError::Unavailable)?;
+            value
+                .map(|value| value.to_vec())
+                .ok_or(ReadOnlyAuthProfileError::InvalidStore)?
+        } else {
+            let legacy = state_dir.join(PROFILES_FILENAME);
+            match std::fs::read(legacy) {
+                Ok(bytes) => bytes,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+                Err(_) => return Err(ReadOnlyAuthProfileError::Unavailable),
+            }
+        }
+    };
+    #[cfg(not(feature = "secret-file"))]
+    let bytes = match std::fs::read(state_dir.join(PROFILES_FILENAME)) {
         Ok(bytes) => bytes,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(_) => return Err(ReadOnlyAuthProfileError::Unavailable),
