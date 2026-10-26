@@ -314,7 +314,7 @@ impl Client {
         request: KeyringRequest2,
     ) -> Result<KeyringResponse2, SecurityError> {
         self.object
-            .call_confidential(
+            .call_confidential_detailed(
                 tinysecurity_bus::names::methods::KEYRING_ACCESS2,
                 (request,),
             )
