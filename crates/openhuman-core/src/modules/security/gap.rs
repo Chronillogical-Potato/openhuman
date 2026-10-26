@@ -48,14 +48,22 @@ pub(crate) fn install_privacy_port(port: Arc<dyn PrivacyPort>) -> PrivacyPortGua
 /// `PrivacyCheck2` for a single host-derived egress descriptor. Module errors
 /// remain errors so callers can refuse the transfer.
 pub(crate) async fn privacy_check(request: PrivacyCheckRequest2) -> Result<Decision, String> {
+    let config = crate::core::runtime::DispatchCtx::ambient()
+        .load_config()
+        .await?;
+    privacy_check_with_config(&config, request).await
+}
+
+/// `PrivacyCheck2` for a host-owned configuration, used by bounded sync seams.
+pub(crate) async fn privacy_check_with_config(
+    config: &crate::config::Config,
+    request: PrivacyCheckRequest2,
+) -> Result<Decision, String> {
     #[cfg(test)]
     if let Some(port) = TEST_PRIVACY_PORT.with(|slot| slot.borrow().clone()) {
         return port.privacy(request).await;
     }
-    let config = crate::core::runtime::DispatchCtx::ambient()
-        .load_config()
-        .await?;
-    super::client(&config)
+    super::client(config)
         .await
         .map_err(|error| error.to_string())?
         .privacy_check2(request)
