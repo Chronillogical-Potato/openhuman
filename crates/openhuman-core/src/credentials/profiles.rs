@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 mod keychain;
+#[cfg(test)]
 pub(crate) use keychain::namespaced_keyring_name;
 mod lock;
 mod migration;

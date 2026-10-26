@@ -1,6 +1,6 @@
 //! Construction and the public CRUD surface of [`AuthProfilesStore`].
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use chrono::Utc;
 use std::path::Path;
 
