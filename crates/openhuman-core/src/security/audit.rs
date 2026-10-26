@@ -280,16 +280,35 @@ impl AuditLogger {
         // callers sharing this logger cannot interleave partial lines or
         // race on rotation renames.
         let _guard = self.write_lock.lock();
-        self.rotate_if_needed()?;
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&self.log_path)?;
+        let rotation_error = self.rotate_if_needed().err();
+        if let Some(error) = &rotation_error {
+            log::error!(
+                "[openhuman:audit] failed to rotate audit log {}: {error}",
+                self.log_path.display()
+            );
+        }
+
+        let mut options = OpenOptions::new();
+        options.create(true).append(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut file = options.open(&self.log_path)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+        }
 
         writeln!(file, "{}", line)?;
         file.sync_all()?;
 
-        Ok(())
+        match rotation_error {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
     }
 
     /// Log a command execution event.
@@ -297,7 +316,7 @@ impl AuditLogger {
         let event = AuditEvent::new(AuditEventType::CommandExecution)
             .with_actor(entry.channel.to_string(), None, None)
             .with_action(
-                entry.command.to_string(),
+                crate::security::scrub::sanitize_text(entry.command).value,
                 entry.risk_level.to_string(),
                 entry.approved,
                 entry.allowed,

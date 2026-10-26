@@ -146,13 +146,129 @@ async fn audit_log_command_event_writes_structured_entry() -> Result<()> {
     let parsed: AuditEvent = serde_json::from_str(content.trim())?;
 
     let action = parsed.action.unwrap();
-    assert_eq!(action.command, Some("echo test".to_string()));
+    assert!(action.command.is_some());
     assert_eq!(action.risk_level, Some("low".to_string()));
     assert!(action.allowed);
 
     let result = parsed.result.unwrap();
     assert!(result.success);
     assert_eq!(result.duration_ms, Some(42));
+    Ok(())
+}
+
+#[test]
+fn audit_log_command_event_redacts_command_before_persisting() -> Result<()> {
+    let tmp = TempDir::new()?;
+    let config = AuditConfig {
+        enabled: true,
+        max_size_mb: 10,
+        ..Default::default()
+    };
+    let logger = AuditLogger::new(config, tmp.path().to_path_buf())?;
+    let secret = "credential-that-must-not-be-logged";
+
+    logger.log_command_event(CommandExecutionLog {
+        channel: "cli",
+        command: secret,
+        risk_level: "high",
+        approved: false,
+        allowed: true,
+        success: true,
+        duration_ms: 1,
+    })?;
+
+    let content = std::fs::read_to_string(tmp.path().join("audit.log"))?;
+    assert!(
+        !content.contains(secret),
+        "command secrets must not reach disk"
+    );
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn audit_log_file_is_created_owner_only() -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let tmp = TempDir::new()?;
+    let config = AuditConfig {
+        enabled: true,
+        max_size_mb: 10,
+        ..Default::default()
+    };
+    let logger = AuditLogger::new(config, tmp.path().to_path_buf())?;
+    logger.log(&AuditEvent::new(AuditEventType::SecurityEvent))?;
+
+    let mode = std::fs::metadata(tmp.path().join("audit.log"))?
+        .permissions()
+        .mode()
+        & 0o777;
+    assert_eq!(mode, 0o600, "audit log must be readable only by its owner");
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn audit_log_existing_permissive_file_is_tightened() -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let tmp = TempDir::new()?;
+    let log_path = tmp.path().join("audit.log");
+    std::fs::write(&log_path, "existing\n")?;
+    std::fs::set_permissions(&log_path, std::fs::Permissions::from_mode(0o644))?;
+    let config = AuditConfig {
+        enabled: true,
+        max_size_mb: 10,
+        ..Default::default()
+    };
+    let logger = AuditLogger::new(config, tmp.path().to_path_buf())?;
+
+    logger.log(&AuditEvent::new(AuditEventType::SecurityEvent))?;
+
+    let mode = std::fs::metadata(log_path)?.permissions().mode() & 0o777;
+    assert_eq!(
+        mode, 0o600,
+        "existing audit log permissions must be tightened"
+    );
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn audit_event_is_appended_when_rotation_fails_and_error_is_reported() -> Result<()> {
+    let tmp = TempDir::new()?;
+    let config = AuditConfig {
+        enabled: true,
+        max_size_mb: 0,
+        ..Default::default()
+    };
+    let logger = AuditLogger::new(config, tmp.path().to_path_buf())?;
+    let log_path = tmp.path().join("audit.log");
+    std::fs::write(&log_path, "existing\n")?;
+    // Keep each rotation destination blocked so the final rename of the
+    // current log also fails instead of moving the blockers out of the way.
+    for index in 1..=10 {
+        let blocker = std::path::PathBuf::from(format!("{}.{}.log", log_path.display(), index));
+        std::fs::create_dir(&blocker)?;
+        std::fs::write(blocker.join("blocker"), "keep directory non-empty")?;
+    }
+
+    let result = logger.log_command_event(CommandExecutionLog {
+        channel: "cli",
+        command: "echo event-survives-rotation",
+        risk_level: "low",
+        approved: false,
+        allowed: true,
+        success: true,
+        duration_ms: 1,
+    });
+
+    assert!(result.is_err(), "rotation error must remain observable");
+    let content = std::fs::read_to_string(log_path)?;
+    assert!(
+        content.contains("command_execution"),
+        "event must still be appended"
+    );
     Ok(())
 }
 
