@@ -80,11 +80,12 @@ impl Consumer {
         if &staged.identity != identity {
             return Err("cipher output unavailable");
         }
-        let staged = slots.remove(&identity.slot).ok_or("cipher output unavailable")?;
+        let mut staged = slots.remove(&identity.slot).ok_or("cipher output unavailable")?;
         let plaintext = String::from_utf8(staged.plaintext.to_vec())
             .map_err(|_| "cipher output is not valid UTF-8")?;
         let replacement = staged
             .replacement
+            .take()
             .map(|bytes| String::from_utf8(bytes.to_vec()).map(Zeroizing::new))
             .transpose()
             .map_err(|_| "cipher replacement is not valid UTF-8")?;
