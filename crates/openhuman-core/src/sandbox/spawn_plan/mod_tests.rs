@@ -135,3 +135,22 @@ fn refusals_name_the_denial_and_never_the_operation() {
     assert!(unavailable.to_string().contains("no module"));
     assert_ne!(refused, unavailable);
 }
+
+#[test]
+fn host_network_approval_denial_is_recorded_then_retried_without_network() {
+    assert_eq!(
+        denial_action(SandboxDenial2::Approval, &NetworkPolicy::Host),
+        DenialAction::EvaluateAndRetryWithoutNetwork,
+        "the denial path invokes EvaluateSandboxApproval2 before retrying"
+    );
+    assert_eq!(
+        denial_action(SandboxDenial2::Approval, &NetworkPolicy::None),
+        DenialAction::Return,
+        "the retry cannot recursively request host-network approval"
+    );
+    assert_eq!(
+        denial_action(SandboxDenial2::InvalidContext, &NetworkPolicy::Host),
+        DenialAction::Return,
+        "other denials are never converted into approval requests"
+    );
+}
