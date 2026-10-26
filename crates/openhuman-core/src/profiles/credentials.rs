@@ -36,7 +36,7 @@ pub enum UserCredentialKind {
 ///
 /// `expires_at` (RFC 3339) lets the core reject an expired session locally
 /// instead of sending a doomed request.
-pub fn store(
+pub async fn store(
     config: &Config,
     kind: UserCredentialKind,
     token: &str,
@@ -49,7 +49,9 @@ pub fn store(
     let _serial = replacing();
     match kind {
         UserCredentialKind::ApiKey => {
-            api_key::store_api_key(config, token).map_err(|e| e.to_string())?;
+            api_key::store_api_key(config, token)
+                .await
+                .map_err(|e| e.to_string())?;
         }
         UserCredentialKind::Session => {
             let mut metadata = HashMap::new();
@@ -66,6 +68,7 @@ pub fn store(
                     metadata,
                     true,
                 )
+                .await
                 .map_err(|e| e.to_string())?;
         }
     }
@@ -144,7 +147,7 @@ fn remove_provider(config: &Config, provider: &str) -> Result<bool, String> {
 
 /// Whether profile `config` holds a credential.
 pub fn has(config: &Config) -> bool {
-    has_backend_credential(config)
+    has_backend_credential(config).await
 }
 
 #[cfg(test)]

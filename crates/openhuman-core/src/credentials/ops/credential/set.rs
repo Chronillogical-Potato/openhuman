@@ -51,8 +51,10 @@ pub async fn set_credential(
 
     if resolved.kind == CredentialKind::ApiKey {
         let was_authenticated =
-            crate::credentials::backend_credential::has_backend_credential(config);
-        api_key::store_api_key(config, &resolved.token).map_err(|e| e.to_string())?;
+            crate::credentials::backend_credential::has_backend_credential(config).await;
+        api_key::store_api_key(config, &resolved.token)
+            .await
+            .map_err(|e| e.to_string())?;
         crate::integrations::composio::invalidate_connected_integrations_cache();
         // API-key-backed runs must not retain a previous session identity in
         // prompt composition or observability scope.
@@ -71,7 +73,7 @@ pub async fn set_credential(
             operation = "set_credential",
             "{LOG_PREFIX} api key stored"
         );
-        let state = build_session_state(config)?;
+        let state = build_session_state(config).await?;
         publish_credential_changed(ctx, CredentialKind::ApiKey.as_str());
         return Ok(Outcome::single_log(state, "api key stored"));
     }
@@ -83,7 +85,7 @@ pub async fn set_credential(
     let mut logs = Vec::new();
 
     // Refresh vs. install vs. account switch, decided on the stored profile.
-    let existing = load_app_session_profile(config)?;
+    let existing = load_app_session_profile(config).await?;
     let existing_token = session_token_from_profile(existing.as_ref());
     let existing_user_id = existing
         .as_ref()
@@ -194,7 +196,7 @@ pub async fn set_credential(
     crate::channels::session::resume_channel_service();
     // An API key wins over a session for every backend request. Keep the
     // process identity aligned with that effective credential.
-    if api_key::has_api_key(&effective_config) {
+    if api_key::has_api_key(&effective_config).await {
         sentry_scope::clear();
         identity::clear_current_user();
     } else {
@@ -215,7 +217,7 @@ pub async fn set_credential(
         "{LOG_PREFIX} credential installed"
     );
 
-    let state = build_session_state(&effective_config)?;
+    let state = build_session_state(&effective_config).await?;
     publish_credential_changed(ctx, resolved.kind.as_str());
     Ok(Outcome::new(state, logs))
 }
