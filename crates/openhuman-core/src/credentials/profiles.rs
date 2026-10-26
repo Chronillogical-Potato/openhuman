@@ -215,7 +215,6 @@ pub struct AuthProfilesStore {
     /// Whether the OS keychain is available on this machine.
     /// Cached at construction time to avoid repeated probes.
     use_keychain: bool,
-
 }
 fn parse_profile_kind(value: &str) -> Result<AuthProfileKind> {
     match value {

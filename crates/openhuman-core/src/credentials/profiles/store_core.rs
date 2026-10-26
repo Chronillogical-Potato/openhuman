@@ -4,11 +4,6 @@ use anyhow::Result;
 use chrono::Utc;
 use std::path::Path;
 
-#[cfg(test)]
-use std::sync::atomic::AtomicUsize;
-#[cfg(test)]
-use std::sync::Arc;
-
 use super::{AuthProfile, AuthProfilesData, AuthProfilesStore};
 use crate::security::secret_storage::SecretStore;
 
@@ -54,10 +49,6 @@ impl AuthProfilesStore {
             secret_store: SecretStore::new(state_dir, encrypt_secrets),
             user_id,
             use_keychain,
-            #[cfg(test)]
-            force_transient_failures_write: Arc::new(AtomicUsize::new(0)),
-            #[cfg(test)]
-            force_transient_failures_rename: Arc::new(AtomicUsize::new(0)),
         }
     }
 

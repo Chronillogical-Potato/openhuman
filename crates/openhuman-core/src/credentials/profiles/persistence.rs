@@ -11,9 +11,8 @@ use std::path::Path;
 use tinystoragedrivers_secrets::{EncryptedFileSecrets, SecretStore as _};
 
 use super::{
-    profile_kind_to_string, quarantine_corrupt_store, AuthProfile, AuthProfileKind,
-    AuthProfilesData, AuthProfilesStore, EncryptedProfileFields, CURRENT_SCHEMA_VERSION,
-    PROFILES_FILENAME,
+    AuthProfile, AuthProfileKind, AuthProfilesData, AuthProfilesStore, CURRENT_SCHEMA_VERSION,
+    EncryptedProfileFields, PROFILES_FILENAME, profile_kind_to_string, quarantine_corrupt_store,
 };
 
 /// Whether `bytes` parse as the persisted profiles document (what a read from
@@ -99,17 +98,14 @@ impl AuthProfilesStore {
         };
 
         for (id, profile) in &data.profiles {
-            // When the OS keychain is available, store all secret fields there and
-            // leave them absent from the JSON file.  This is the preferred path on
-            // macOS / Windows / Linux-with-Secret-Service.
-            //
-            // When the keychain is unavailable (Linux headless / CI), fall back to
-            // the existing ChaCha20-Poly1305 encrypted JSON fields.
+            // The profile document itself is encrypted by TSD. Keep tokens in
+            // the keyring when one is available; otherwise the outer encrypted
+            // document protects the fields directly.
             let (access_token, refresh_token, id_token, token, expires_at, token_type, scope) =
                 if self.use_keychain {
                     // Store secrets in the OS keychain — JSON gets no secret fields.
                     if let Err(e) = self.keychain_store_secrets(profile) {
-                        // Non-fatal: fall back to encrypted JSON so data is not lost.
+                        // Non-fatal: fall back to fields in the encrypted profile document.
                         log::warn!(
                             "[auth] save: keychain store failed for profile_id={id}: {e}; \
                              falling back to encrypted JSON"
@@ -129,7 +125,7 @@ impl AuthProfilesStore {
                         (None, None, None, None, expires_at, token_type, scope)
                     }
                 } else {
-                    // Headless / no keychain — encrypt and store in JSON.
+                    // Headless / no keychain — store in the encrypted document.
                     self.encrypt_for_json(profile)?
                 };
 
@@ -170,21 +166,21 @@ impl AuthProfilesStore {
         self.write_persisted_locked(&persisted)
     }
 
-    /// Encrypt a profile's secret fields for JSON storage (keychain-unavailable path).
+    /// Prepare a profile's fields for storage inside the encrypted document.
     pub(super) fn encrypt_for_json(&self, profile: &AuthProfile) -> Result<EncryptedProfileFields> {
         let (access_token, refresh_token, id_token, expires_at, token_type, scope) =
             match (&profile.kind, &profile.token_set) {
                 (AuthProfileKind::OAuth, Some(token_set)) => (
-                    self.encrypt_optional(Some(&token_set.access_token))?,
-                    self.encrypt_optional(token_set.refresh_token.as_deref())?,
-                    self.encrypt_optional(token_set.id_token.as_deref())?,
+                    Some(token_set.access_token.clone()),
+                    token_set.refresh_token.clone(),
+                    token_set.id_token.clone(),
                     token_set.expires_at.as_ref().map(DateTime::to_rfc3339),
                     token_set.token_type.clone(),
                     token_set.scope.clone(),
                 ),
                 _ => (None, None, None, None, None, None),
             };
-        let token = self.encrypt_optional(profile.token.as_deref())?;
+        let token = profile.token.clone();
         Ok((
             access_token,
             refresh_token,

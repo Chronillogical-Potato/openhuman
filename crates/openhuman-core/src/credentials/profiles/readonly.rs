@@ -4,14 +4,12 @@ use zeroize::Zeroizing;
 
 use crate::config::Config;
 use crate::security::secret_storage::{EncryptedFileBackend, SecretStore};
-#[cfg(feature = "secret-file")]
 use tinystoragedrivers_secrets::{EncryptedFileSecrets, SecretStore as _};
 
 use super::{
-    normalize_profile_id_provider, parse_datetime_with_fallback, parse_optional_datetime,
-    parse_profile_kind, profile_id, AuthProfile, AuthProfileKind, KeychainSecrets,
-    PersistedAuthProfile, PersistedAuthProfiles, TokenSet, CURRENT_SCHEMA_VERSION,
-    PROFILES_FILENAME,
+    AuthProfile, AuthProfileKind, CURRENT_SCHEMA_VERSION, KeychainSecrets, PROFILES_FILENAME,
+    PersistedAuthProfile, PersistedAuthProfiles, TokenSet, normalize_profile_id_provider,
+    parse_datetime_with_fallback, parse_optional_datetime, parse_profile_kind, profile_id,
 };
 use crate::credentials::default_profile_id;
 
@@ -36,19 +34,17 @@ pub(super) fn load_profile(
         .config_path
         .parent()
         .ok_or(ReadOnlyAuthProfileError::Unavailable)?;
-    #[cfg(feature = "secret-file")]
     let bytes = {
         let path = super::profiles_file(state_dir);
         if path.exists() {
-            let directory = path
-                .parent()
-                .ok_or(ReadOnlyAuthProfileError::Unavailable)?;
+            let directory = path.parent().ok_or(ReadOnlyAuthProfileError::Unavailable)?;
             let store = EncryptedFileSecrets::with_key_file_read_only(directory)
                 .map_err(|_| ReadOnlyAuthProfileError::Unavailable)?;
-            let value = crate::storage::block_on(async move {
-                store.get(super::STORAGE_SECRET_NAME).await
-            })
-            .map_err(|_| ReadOnlyAuthProfileError::Unavailable)?;
+            let value =
+                crate::storage::block_on(
+                    async move { store.get(super::PROFILES_SECRET_NAME).await },
+                )
+                .map_err(|_| ReadOnlyAuthProfileError::Unavailable)?;
             value
                 .map(|value| value.to_vec())
                 .ok_or(ReadOnlyAuthProfileError::InvalidStore)?
@@ -60,12 +56,6 @@ pub(super) fn load_profile(
                 Err(_) => return Err(ReadOnlyAuthProfileError::Unavailable),
             }
         }
-    };
-    #[cfg(not(feature = "secret-file"))]
-    let bytes = match std::fs::read(state_dir.join(PROFILES_FILENAME)) {
-        Ok(bytes) => bytes,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(_) => return Err(ReadOnlyAuthProfileError::Unavailable),
     };
     let persisted: PersistedAuthProfiles =
         serde_json::from_slice(&bytes).map_err(|_| ReadOnlyAuthProfileError::InvalidStore)?;

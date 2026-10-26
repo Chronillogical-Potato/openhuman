@@ -15,7 +15,9 @@ fn persisted_profile_document_is_encrypted_at_rest() {
     assert!(!String::from_utf8_lossy(&bytes).contains("profile-secret-token"));
     assert!(serde_json::from_slice::<PersistedAuthProfiles>(&bytes).is_err());
     assert_eq!(
-        store.load().unwrap().profiles["openai:default"].token.as_deref(),
+        store.load().unwrap().profiles["openai:default"]
+            .token
+            .as_deref(),
         Some("profile-secret-token")
     );
 }
