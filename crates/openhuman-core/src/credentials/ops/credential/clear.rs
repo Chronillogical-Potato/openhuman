@@ -33,7 +33,7 @@ pub async fn clear_credential(
         kind,
         None | Some(CredentialKind::Session) | Some(CredentialKind::Local)
     ) {
-        api_key::get_api_key(config).map_err(|e| e.to_string())?
+        api_key::get_api_key(config).await.map_err(|e| e.to_string())?
     } else {
         None
     };
@@ -66,7 +66,9 @@ pub async fn clear_credential(
                     // an unrelated, stale key sitting at the pre-login
                     // workspace must never silently outrank the key that was
                     // the effective credential a moment ago (#6318).
-                    api_key::store_api_key(&effective_config, key).map_err(|e| e.to_string())?;
+                    api_key::store_api_key(&effective_config, key)
+                        .await
+                        .map_err(|e| e.to_string())?;
                     logs.push("api key carried forward to the signed-out workspace".to_string());
                     carried_api_key = true;
                 }
@@ -91,7 +93,7 @@ pub async fn clear_credential(
                     // account (or an api-key clear against the wrong location)
                     // would silently resurrect it (#6318).
                     cleared_source_api_key =
-                        api_key::clear_api_key(config).map_err(|e| e.to_string())?;
+                        api_key::clear_api_key(config).await.map_err(|e| e.to_string())?;
                 }
             }
         }
@@ -100,17 +102,18 @@ pub async fn clear_credential(
 
     if matches!(kind, None | Some(CredentialKind::ApiKey)) {
         removed_api_key =
-            api_key::clear_api_key(config).map_err(|e| e.to_string())? || cleared_source_api_key;
+            api_key::clear_api_key(config).await.map_err(|e| e.to_string())?
+                || cleared_source_api_key;
         if removed_api_key {
             crate::integrations::composio::invalidate_connected_integrations_cache();
             logs.push("api key cleared".to_string());
         }
-        if !crate::credentials::backend_credential::has_backend_credential(config) {
+        if !crate::credentials::backend_credential::has_backend_credential(config).await {
             crate::platform::llm_gate::set_signed_out(true);
         } else if removed_api_key {
             // Clearing the preferred API key exposes the surviving session.
             // Restore the session's process identity immediately.
-            if let Some(profile) = load_app_session_profile(config)? {
+            if let Some(profile) = load_app_session_profile(config).await? {
                 if let Some(user_id) = profile.metadata.get("user_id") {
                     sentry_scope::bind(user_id);
                 }
@@ -128,7 +131,7 @@ pub async fn clear_credential(
     // A session-only clear may leave an API key behind. The session teardown
     // deliberately stops the gated services and closes the scheduler gate, so
     // restore the surviving key's runtime after that teardown has completed.
-    if removed_session && api_key::has_api_key(config) {
+    if removed_session && api_key::has_api_key(config).await {
         start_credential_gated_services(ctx, config).await;
         crate::platform::llm_gate::set_signed_out(false);
         sentry_scope::clear();

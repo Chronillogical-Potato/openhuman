@@ -172,6 +172,7 @@ pub async fn set_credential(
         metadata,
         true,
     )
+    .await
     .map_err(|e| e.to_string())?;
     logs.push(format!("{} credential stored", resolved.kind.as_str()));
 
