@@ -6,10 +6,15 @@ use tempfile::TempDir;
 
 struct RacingBackend {
     values: Mutex<HashMap<String, String>>,
+    lock_path: std::path::PathBuf,
 }
 
 impl SecretBackend for RacingBackend {
     fn get(&self, name: &str) -> Result<Option<String>, SecretStorageError> {
+        assert!(
+            crate::security::secret_storage::file_store::lock_path_for(&self.lock_path).exists(),
+            "the cross-process lock must be held before reading the key"
+        );
         // Widen the old get/set race window without introducing a timing
         // assertion into the test itself.
         std::thread::yield_now();
@@ -38,10 +43,11 @@ impl SecretBackend for RacingBackend {
 #[test]
 fn concurrent_random_key_creation_returns_the_persisted_value_to_every_caller() {
     let dir = TempDir::new().unwrap();
+    let lock_path = dir.path().join("key-lock");
     let backend = Arc::new(RacingBackend {
         values: Mutex::new(HashMap::new()),
+        lock_path: lock_path.clone(),
     });
-    let lock_path = dir.path().join("key-lock");
     let workers: Vec<_> = (0..24)
         .map(|_| {
             let backend = backend.clone();
