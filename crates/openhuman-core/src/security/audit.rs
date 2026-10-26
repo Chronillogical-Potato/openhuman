@@ -292,7 +292,7 @@ impl AuditLogger {
         options.create(true).append(true);
         #[cfg(unix)]
         {
-            use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+            use std::os::unix::fs::OpenOptionsExt;
             options.mode(0o600);
         }
         let mut file = options.open(&self.log_path)?;
