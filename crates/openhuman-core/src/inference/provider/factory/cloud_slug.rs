@@ -248,8 +248,8 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
         // invoke. Its hosted construction callback is config-only and offline.
         (String::new(), false, None)
     } else if credential_access == CredentialAccess::Inspection {
-        let credential = super::credentials::lookup_key_for_slug_read_only(slug, config)
-            .map_err(|error| lookup_failure(&error, missing_credentials()))?;
+        let credential = inspection_credential
+            .ok_or_else(|| anyhow::anyhow!("inspection credential was not pre-resolved"))?;
         (credential.key, credential.is_oauth, credential.account_id)
     } else {
         let key = credential_access
