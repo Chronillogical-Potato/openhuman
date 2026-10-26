@@ -3,8 +3,7 @@
 
 use super::*;
 use crate::agent::tinyagents::host::run_context::test_turn_run;
-use crate::security::{AuditLogger, AutonomyLevel, SecurityPolicy};
-use crate::tools::implementations::system::{ShellProcessTool, ShellTool};
+use crate::tools::implementations::system::ShellProcessTool;
 use serde_json::json;
 use tinyagents_harness::ids::CallId;
 use tinyagents_harness::tool::ToolExecutionContext;
