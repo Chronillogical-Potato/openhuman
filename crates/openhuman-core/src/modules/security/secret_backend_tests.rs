@@ -51,3 +51,41 @@ fn legacy_source_is_never_a_mutation_target() {
     });
     assert_eq!(response.status, SecretBackendSetStatus2::Denied);
 }
+
+#[test]
+fn explicit_existing_master_key_is_read_once_and_set_is_denied() {
+    let backend = backend();
+    let encoded = "ab".repeat(32);
+    let _read = backend
+        .arm_existing_master_read(&encoded)
+        .expect("valid supplied key can arm one read");
+
+    let mut load_identity = identity();
+    load_identity.phase = SecretPhase2::TargetRead;
+    let response = backend.load_request(SecretBackendLoadRequest2 {
+        identity: load_identity,
+    });
+    assert_eq!(
+        response.status,
+        SecretBackendLoadStatus2::Present {
+            encoded: encoded.as_bytes().to_vec(),
+        }
+    );
+
+    let response = backend.set_request(SecretBackendSetRequest2 {
+        identity: identity(),
+        encoded: b"must-not-be-written".to_vec(),
+    });
+    assert_eq!(response.status, SecretBackendSetStatus2::Denied);
+}
+
+#[test]
+fn invalid_explicit_master_key_cannot_arm_a_read_or_write() {
+    let backend = backend();
+    assert!(backend.arm_existing_master_read("not-a-key").is_err());
+    let response = backend.set_request(SecretBackendSetRequest2 {
+        identity: identity(),
+        encoded: b"must-not-be-written".to_vec(),
+    });
+    assert_eq!(response.status, SecretBackendSetStatus2::Denied);
+}

@@ -354,6 +354,15 @@ pub(crate) async fn security_secret_registration_id() -> Option<String> {
 }
 
 #[cfg(feature = "security-module")]
+pub(crate) async fn security_callback_identity() -> Option<String> {
+    SECURITY_CALLBACK_LOADS
+        .lock()
+        .await
+        .get(super::security::MODULE_ID)
+        .map(|state| state.binding.unique_name().to_string())
+}
+
+#[cfg(feature = "security-module")]
 pub(super) async fn security_module_config(config: &Config) -> Result<serde_json::Value, String> {
     let loads = SECURITY_CALLBACK_LOADS.lock().await;
     loads

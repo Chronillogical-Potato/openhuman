@@ -167,6 +167,9 @@ impl SecretStore {
                 .ok_or_else(|| {
                     anyhow::anyhow!("TinySecurity secret registration is unavailable")
                 })?;
+            let binding_identity = crate::modules::ops::security_callback_identity()
+                .await
+                .ok_or_else(|| anyhow::anyhow!("TinySecurity callback identity is unavailable"))?;
             let client = crate::modules::security::client(config)
                 .await
                 .map_err(anyhow::Error::new)?;
@@ -176,7 +179,12 @@ impl SecretStore {
                 .map_err(anyhow::Error::new)?
                 .generation;
             let cache_key = normalize_cache_path(&self.key_path);
-            let master_handle = if let Some(handle) = cached_master_handle(&cache_key, generation) {
+            let master_handle = if let Some(handle) = cached_master_handle(
+                &cache_key,
+                &registration_id,
+                &binding_identity,
+                generation,
+            ) {
                 handle
             } else {
                 let handle = crate::modules::security::resolve_user_master(
@@ -186,7 +194,13 @@ impl SecretStore {
                 )
                 .await
                 .map_err(anyhow::Error::new)?;
-                cache_master_handle(&cache_key, generation, &handle);
+                cache_master_handle(
+                    &cache_key,
+                    &registration_id,
+                    &binding_identity,
+                    generation,
+                    &handle,
+                );
                 handle
             };
             crate::modules::security::run_secret_cipher(
@@ -414,6 +428,8 @@ impl SecretStore {
 }
 
 struct CachedMasterHandle {
+    registration_id: String,
+    binding_identity: String,
     generation: u64,
     expires: Instant,
     handle: String,
@@ -426,19 +442,37 @@ fn master_handle_cache() -> &'static Mutex<HashMap<PathBuf, CachedMasterHandle>>
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn cached_master_handle(path: &Path, generation: u64) -> Option<String> {
+fn cached_master_handle(
+    path: &Path,
+    registration_id: &str,
+    binding_identity: &str,
+    generation: u64,
+) -> Option<String> {
     let mut cache = master_handle_cache().lock().ok()?;
     cache.retain(|_, value| value.expires > Instant::now());
     cache
         .get(path)
-        .and_then(|value| (value.generation == generation).then(|| value.handle.clone()))
+        .and_then(|value| {
+            (value.generation == generation
+                && value.registration_id == registration_id
+                && value.binding_identity == binding_identity)
+                .then(|| value.handle.clone())
+        })
 }
 
-fn cache_master_handle(path: &Path, generation: u64, handle: &str) {
+fn cache_master_handle(
+    path: &Path,
+    registration_id: &str,
+    binding_identity: &str,
+    generation: u64,
+    handle: &str,
+) {
     if let Ok(mut cache) = master_handle_cache().lock() {
         cache.insert(
             path.to_path_buf(),
             CachedMasterHandle {
+                registration_id: registration_id.to_owned(),
+                binding_identity: binding_identity.to_owned(),
                 generation,
                 expires: Instant::now() + MASTER_HANDLE_CACHE_TTL,
                 handle: handle.to_owned(),
