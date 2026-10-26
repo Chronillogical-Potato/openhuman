@@ -1,10 +1,9 @@
 use super::policy::{config_disables_sandbox, sandbox_disabled_by_host};
 use crate::core::runtime::DispatchCtx;
-use crate::sandbox::{
-    docker,
-    shell_exec::{ComeBack, ShellRunOutcome},
-    types::{SandboxBackendKind, SandboxExecRequest, SandboxExecResult, SandboxPolicy},
-};
+use crate::sandbox::shell_exec::{ComeBack, ShellRunOutcome};
+use crate::sandbox::types::{SandboxExecResult, SandboxPolicy};
+#[cfg(feature = "security-module")]
+use crate::sandbox::{docker, types::SandboxBackendKind, types::SandboxExecRequest};
 use std::{collections::HashMap, ffi::OsString, path::Path, time::Duration};
 
 /// Execute a command through the appropriate sandbox backend.
@@ -76,7 +75,6 @@ pub(crate) async fn execute_in_sandbox_yielding(
         && (sandbox_disabled_by_host(ctx) || config_disables_sandbox(&config));
     #[cfg(feature = "security-module")]
     {
-        #[cfg(feature = "security-module")]
         let planned = {
             use crate::sandbox::spawn_plan::{ModuleSource, SpawnRequest, SpawnSource};
             let env = extra_env
@@ -192,7 +190,17 @@ pub(crate) async fn execute_in_sandbox_yielding(
     }
     #[cfg(not(feature = "security-module"))]
     {
-        let _ = (requested_policy, operator_off, config, come_back, meter);
+        let _ = (
+            requested_policy,
+            operator_off,
+            config,
+            come_back,
+            meter,
+            command,
+            working_dir,
+            extra_env,
+            timeout,
+        );
         anyhow::bail!("TinySecurity is not built into this host; sandboxed execution is refused")
     }
 }
