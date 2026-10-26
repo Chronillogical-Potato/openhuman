@@ -118,6 +118,25 @@ impl SecretScope {
         .await
         .map(|_| ())
     }
+
+    /// Register through the callback-bound TinySecurity client used for this
+    /// module instance.
+    pub(crate) async fn ensure_registered_with_callback(
+        &self,
+        proxy: &tinybus::module::HostCallbackProxy,
+        generation: u64,
+    ) -> Result<(), String> {
+        self.entry
+            .register_with_callback(
+                proxy,
+                &engine::Posture {
+                    require_approval: true,
+                    ..Default::default()
+                },
+                generation,
+            )
+            .await
+    }
 }
 
 /// Prepare the real persisted scope and audit stream before module admission.

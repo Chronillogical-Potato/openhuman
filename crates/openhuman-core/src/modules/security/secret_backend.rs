@@ -108,13 +108,14 @@ impl SecretBackend {
 
     fn set(&self, request: SecretBackendSetRequest2) -> SecretBackendSetResponse2 {
         let identity = request.identity;
+        let encoded = zeroize::Zeroizing::new(request.encoded);
         let status = match self.binding(&identity) {
             Some(binding)
                 if !binding.legacy_file
                     && identity.phase == SecretPhase2::TargetSet
-                    && request.encoded.len() <= 4096 =>
+                    && encoded.len() <= 4096 =>
             {
-                match std::str::from_utf8(&request.encoded)
+                match std::str::from_utf8(&encoded)
                     .ok()
                     .and_then(|encoded| save_backend(binding.backend, &self.user_id, encoded).ok())
                 {

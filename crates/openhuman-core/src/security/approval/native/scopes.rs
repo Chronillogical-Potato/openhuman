@@ -193,6 +193,60 @@ impl ScopeEntry {
         *registered = Some(fingerprint);
         Ok(())
     }
+
+    /// Register through the exact callback binding used to initialize the
+    /// module, keeping API calls and host callbacks on one authenticated peer.
+    pub(super) async fn register_with_callback(
+        self: &Arc<Self>,
+        proxy: &tinybus::module::HostCallbackProxy,
+        posture: &Posture,
+        generation: u64,
+    ) -> Result<(), String> {
+        let grants = grants();
+        let fingerprint = serde_json::to_string(&(
+            posture.require_approval,
+            posture.auto_approve_all,
+            &grants.tools,
+        ))
+        .map_err(|error| error.to_string())?;
+        let mut registered = self.registered.lock().await;
+        if registered.as_deref() == Some(fingerprint.as_str()) {
+            return Ok(());
+        }
+        let first = registered.is_none();
+        let request = RegisterApprovalScopeRequest2 {
+            scope: ApprovalScope2 {
+                scope_id: self.scope_id.clone(),
+                subject: self.subject.clone(),
+                policy_ref: POLICY_REF.into(),
+                generation,
+                ceiling: AccessTier::Full,
+                require_approval: posture.require_approval,
+                auto_approve_all: posture.auto_approve_all,
+            },
+            grants,
+            audit_stream_id: self.stream_id.clone(),
+            report_handle: true,
+        };
+        let member = if first {
+            names::methods::REGISTER_APPROVAL_SCOPE2
+        } else {
+            names::methods::REPLACE_APPROVAL_SCOPE2
+        };
+        let receipt: ApprovalScopeReceipt2 = proxy
+            .call_confidential(member, (request,))
+            .await
+            .map_err(|error| format!("TinySecurity {member} failed: {error}"))?;
+        if receipt.scope_id != self.scope_id {
+            return Err("TinySecurity returned a receipt for another approval scope".into());
+        }
+        let handle = receipt
+            .scope_handle
+            .ok_or("TinySecurity did not report the approval scope handle")?;
+        self.bind(handle).await;
+        *registered = Some(fingerprint);
+        Ok(())
+    }
 }
 
 /// The user's configured tool grants, narrowed to what the module accepts: a name
