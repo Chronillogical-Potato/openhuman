@@ -163,6 +163,11 @@ pub async fn import(target: &Target) -> Result<Vec<String>, LayoutError> {
     Ok(imported)
 }
 
-#[cfg(all(test, feature = "legacy-import", feature = "storage-sqlite"))]
+#[cfg(all(
+    test,
+    feature = "flows",
+    feature = "legacy-import",
+    feature = "storage-sqlite"
+))]
 #[path = "credentials_tests.rs"]
 mod tests;
