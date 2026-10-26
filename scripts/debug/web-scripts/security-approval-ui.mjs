@@ -16,12 +16,79 @@ export default async function securityApprovalUi({ page, rpc, urls, log, screens
   await page.getByText('Active security policy', { exact: true }).waitFor();
   await screenshot('active-security-policy');
 
+  await page.route('**/rpc', async route => {
+    const request = route.request().postDataJSON();
+    if (request?.method !== 'openhuman.approval_list_recent_decisions') {
+      await route.continue();
+      return;
+    }
+
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: request.id,
+        result: {
+          result: [
+            {
+              request_id: 'jev-history-fixture',
+              tool_name: 'filesystem.write_file',
+              action_summary: 'Write a fixture file',
+              args_redacted: {},
+              session_id: 'fixture-session',
+              created_at: '2026-01-01T00:00:00Z',
+              expires_at: null,
+              decided_at: '2026-01-01T00:00:01Z',
+              decision: 'approve_once',
+              decided_by: 'auto:jev',
+              judge: {
+                outcome: 'allow',
+                intent_millis: 950,
+                reversible_millis: 820,
+                exfiltrate_millis: 20,
+                cached: true,
+              },
+            },
+            {
+              request_id: 'policy-history-fixture',
+              tool_name: 'filesystem.write_file',
+              action_summary: 'Write a policy fixture',
+              args_redacted: {},
+              session_id: 'fixture-session',
+              created_at: '2026-01-01T00:00:02Z',
+              expires_at: null,
+              decided_at: '2026-01-01T00:00:03Z',
+              decision: 'approve_once',
+              decided_by: 'auto:policy',
+              judge: {
+                outcome: 'allow',
+                intent_millis: 950,
+                reversible_millis: 820,
+                exfiltrate_millis: 20,
+                cached: true,
+              },
+            },
+          ],
+          logs: [],
+        },
+      }),
+    });
+  });
+
   await page.goto(`${urls.app}/#/settings/approval-history`);
   await page.getByTestId('approval-history-panel').waitFor();
-  await page
-    .locator('[data-testid="approval-history-empty"], [data-testid="approval-history-list"]')
-    .first()
-    .waitFor();
+  await page.getByText('Automatic via Jev', { exact: true }).waitFor();
+  await page.getByTestId('approval-history-judge-scores').getByText(/95%/).waitFor();
+  const policy = page.getByText('Automatic via policy', { exact: true });
+  await policy.waitFor();
+  if (
+    await policy
+      .locator('xpath=ancestor::*[@data-testid="approval-history-auto"]')
+      .getByTestId('approval-history-judge-scores')
+      .count()
+  ) {
+    throw new Error('policy auto-decisions must not show Jev judge scores');
+  }
   await screenshot('approval-history');
-  log('security grants, policy diagnostics, and approval history rendered');
+  log('security grants, policy diagnostics, and Jev-vs-policy approval history rendered');
 }
