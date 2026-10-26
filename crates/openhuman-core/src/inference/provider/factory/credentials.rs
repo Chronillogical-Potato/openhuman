@@ -25,18 +25,14 @@ impl CredentialAccess {
     pub(super) fn lookup_key_for_slug(self, slug: &str, config: &Config) -> anyhow::Result<String> {
         match self {
             Self::Runtime => lookup_key_for_slug(slug, config),
-            Self::Inspection => {
-                lookup_key_for_slug_read_only(slug, config).map(|credential| credential.key)
-            }
+            Self::Inspection => anyhow::bail!("inspection credential was not pre-resolved"),
         }
     }
 
     pub(super) fn openai_bearer_is_oauth(self, config: &Config) -> bool {
         match self {
             Self::Runtime => openai_bearer_is_oauth(config),
-            Self::Inspection => lookup_key_for_slug_read_only("openai", config)
-                .map(|credential| credential.is_oauth)
-                .unwrap_or(false),
+            Self::Inspection => false,
         }
     }
 }
@@ -51,7 +47,7 @@ pub(super) struct ReadOnlyCloudCredential {
     pub(super) account_id: Option<String>,
 }
 
-pub(super) fn lookup_key_for_slug_read_only(
+pub(super) async fn lookup_key_for_slug_read_only(
     slug: &str,
     config: &Config,
 ) -> anyhow::Result<ReadOnlyCloudCredential> {
@@ -68,7 +64,7 @@ pub(super) fn lookup_key_for_slug_read_only(
     let auth_profile_key = auth_key_for_slug(slug);
     for provider in [auth_profile_key.as_str(), slug] {
         if let Some((key, is_oauth, expires_at, account_id)) =
-            read_only_profile_credential(config, provider, None)?
+            read_only_profile_credential(config, provider, None).await?
         {
             if slug == "openai"
                 && is_oauth
@@ -96,7 +92,9 @@ pub(super) fn lookup_key_for_slug_read_only(
             config,
             crate::credentials::openai_oauth::OPENAI_PROVIDER_KEY,
             Some(crate::credentials::openai_oauth::OPENAI_OAUTH_PROFILE_NAME),
-        )? {
+        )
+        .await?
+        {
             Some((key, true, expires_at, account_id)) if !key.trim().is_empty() => {
                 if expires_at.is_some_and(|expires_at| {
                     expires_at <= chrono::Utc::now() + chrono::Duration::minutes(2)
@@ -137,13 +135,14 @@ pub(super) fn lookup_key_for_slug_read_only(
     })
 }
 
-fn read_only_profile_credential(
+async fn read_only_profile_credential(
     config: &Config,
     provider: &str,
     profile_override: Option<&str>,
 ) -> anyhow::Result<Option<ReadOnlyProfileCredential>> {
     let Some(profile) =
         crate::credentials::AuthService::get_profile_read_only(config, provider, profile_override)
+            .await
             .map_err(read_only_profile_error)?
     else {
         return Ok(None);

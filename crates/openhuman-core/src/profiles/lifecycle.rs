@@ -266,11 +266,14 @@ impl ProfileHost {
     pub(crate) async fn with_records<T>(
         &self,
         id: &ProfileId,
-        change: impl FnOnce(&Config) -> Result<T, String> + Send,
+        change: impl for<'a> FnOnce(
+                &'a Config,
+            ) -> futures::future::BoxFuture<'a, Result<T, String>>
+            + Send,
     ) -> Result<T, String> {
         let _profile = self.lifecycle.lock(id).await;
         let config = self.provisioned_config(id).await?;
-        CoreContext::scope(self.records_context(id), async move { change(&config) }).await
+        CoreContext::scope(self.records_context(id), change(&config)).await
     }
 
     /// Take `id`'s lease for a lifecycle change, refusing when another node

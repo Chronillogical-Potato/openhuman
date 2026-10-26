@@ -137,7 +137,7 @@ pub(crate) async fn set_credential_on(
     // under its own scope, so a storage-backed secret store files the
     // credential under that profile.
     host.with_records(&profile_id, |config| {
-        credentials::store(config, kind, token, expires_at)
+        Box::pin(credentials::store(config, kind, token, expires_at))
     })
     .await?;
     log::info!("[profiles] credential installed kind={kind:?}");
@@ -160,7 +160,9 @@ pub(crate) async fn clear_credential_on(
     profile_id: &str,
 ) -> Result<Outcome<CredentialResult>, String> {
     let profile_id = ProfileId::parse(profile_id)?;
-    let removed = host.with_records(&profile_id, credentials::clear).await?;
+    let removed = host
+        .with_records(&profile_id, |config| Box::pin(credentials::clear(config)))
+        .await?;
     log::info!("[profiles] credential cleared removed={removed}");
     let log = if removed {
         "credential cleared"
