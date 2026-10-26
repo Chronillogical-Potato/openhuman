@@ -81,22 +81,24 @@ fn recorded_tools_keep_their_declaration() {
     assert_eq!(tool.exposure(), ToolExposure::Direct);
 }
 
-#[test]
-fn local_only_blocks_external_search_tool_dispatch() {
+#[tokio::test]
+async fn unavailable_privacy_module_refuses_external_search_tool_dispatch() {
     let _privacy =
         crate::security::live_policy::test_privacy_scope(crate::config::PrivacyMode::LocalOnly);
 
     let message = local_only_search_block("web_search_tool")
+        .await
         .expect("search requests must be blocked in LocalOnly mode");
     assert!(message.contains(tinytools::status::POLICY_BLOCKED_MARKER));
+    assert!(message.contains("tinysearch"));
 }
 
-#[test]
-fn standard_privacy_mode_allows_search_tool_dispatch() {
+#[tokio::test]
+async fn standard_privacy_mode_refuses_when_the_module_cannot_answer() {
     let _privacy =
         crate::security::live_policy::test_privacy_scope(crate::config::PrivacyMode::Standard);
 
-    assert!(local_only_search_block("web_search_tool").is_none());
+    assert!(local_only_search_block("web_search_tool").await.is_some());
 }
 
 // ---------------------------------------------------------------------------

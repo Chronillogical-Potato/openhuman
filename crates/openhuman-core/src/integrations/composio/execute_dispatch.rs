@@ -35,7 +35,7 @@ pub async fn execute_composio_action(
     // Privacy epic S2/S7 (#4436, #4441): refuse under LocalOnly, otherwise
     // disclose the transfer, before the arguments leave the device.
     let egress = EgressDescriptor::composio(tool);
-    if let Err(e) = enforce_egress(&egress) {
+    if let Err(e) = enforce_egress(&egress).await {
         tracing::debug!(tool = %tool, "[composio][dispatch] local-only egress block");
         return Err(e.to_string());
     }

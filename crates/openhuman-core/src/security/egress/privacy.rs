@@ -238,10 +238,17 @@ mod native {
 
     pub(super) fn decide_blocking(mode: PrivacyMode, desc: &EgressDescriptor) -> Outcome {
         let request = request(mode, desc);
-        outcome(crate::modules::security::text::privacy_check_blocking(
-            request,
-            std::time::Duration::from_secs(2),
-        ))
+        #[cfg(test)]
+        {
+            return outcome(futures::executor::block_on(gap::privacy_check(request)));
+        }
+        #[cfg(not(test))]
+        {
+            outcome(crate::modules::security::text::privacy_check_blocking(
+                request,
+                std::time::Duration::from_secs(2),
+            ))
+        }
     }
 }
 
