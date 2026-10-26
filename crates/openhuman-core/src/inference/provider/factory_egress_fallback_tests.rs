@@ -214,8 +214,8 @@ fn a_readable_profile_with_no_stored_key_is_treated_as_missing_credentials() {
     );
 }
 
-#[test]
-fn a_failed_credential_lookup_does_not_echo_its_underlying_error() {
+#[tokio::test]
+async fn a_failed_credential_lookup_does_not_echo_its_underlying_error() {
     // The lookup error can carry stored-credential content, so the user-facing
     // error is the guidance alone; the routing shape goes to the log. The
     // read-only (doctor) lookup fails on an unreadable profile store.
@@ -234,7 +234,9 @@ fn a_failed_credential_lookup_does_not_echo_its_underlying_error() {
         "chat",
         &config,
         0.0,
-    ) {
+    )
+    .await
+    {
         Ok(_) => panic!("an unreadable credential store must not build a client"),
         Err(err) => err,
     };

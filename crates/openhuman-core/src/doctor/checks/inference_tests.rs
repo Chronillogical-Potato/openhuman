@@ -371,7 +371,9 @@ async fn inspection_reports_refresh_required_without_refreshing_or_publishing_se
         "vision",
         &config,
         config.default_temperature,
-    ) {
+    )
+    .await
+    {
         Err(error) => error,
         Ok(_) => panic!("an expired OAuth credential must not pass static inspection"),
     };
