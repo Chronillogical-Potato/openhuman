@@ -35,6 +35,82 @@ mod view;
 
 pub(crate) use engine::NativeEngine;
 
+/// A host-owned secret approval scope with its ordered audit stream.
+///
+/// The scope entry remains private to the approval subsystem; callers receive
+/// only the identifiers needed to initialize TinySecurity and an audit lease.
+#[derive(Clone)]
+pub(crate) struct SecretScope {
+    entry: std::sync::Arc<scopes::ScopeEntry>,
+}
+
+impl SecretScope {
+    /// The subject's immutable approval scope identifier.
+    pub(crate) fn scope_id(&self) -> &str {
+        &self.entry.scope_id
+    }
+
+    /// The subject identity used by the approval and audit ledgers.
+    pub(crate) fn subject(&self) -> &tinysecurity_bus::SubjectScope {
+        &self.entry.subject
+    }
+
+    /// The persisted audit stream configured in TinySecurity at initialization.
+    pub(crate) fn stream_id(&self) -> &str {
+        &self.entry.stream_id
+    }
+
+    /// Lease the subject stream while preparing and submitting one native call.
+    pub(crate) async fn lock(&self) -> tokio::sync::MutexGuard<'_, ()> {
+        self.entry.stream.lock().await
+    }
+
+    /// Allocate a correlation for the next audit event while holding `lock`.
+    pub(crate) async fn correlation(
+        &self,
+        generation: u64,
+    ) -> Result<tinysecurity_bus::AuditCorrelation2, String> {
+        let expected_tail = self.entry.rows.tail(&self.entry.stream_id).await?;
+        Ok(tinysecurity_bus::AuditCorrelation2 {
+            event_id: uuid::Uuid::new_v4().simple().to_string(),
+            expected_tail,
+            generation,
+        })
+    }
+
+    /// Register or refresh this subject with the admitted TinySecurity module.
+    pub(crate) async fn ensure_registered(
+        &self,
+        config: &crate::config::Config,
+        proxy: &tinybus::module::ModuleObjectClient,
+        generation: u64,
+    ) -> Result<(), String> {
+        scopes::ensure(
+            config,
+            proxy,
+            self.entry.subject.clone(),
+            &engine::Posture {
+                require_approval: true,
+                ..Default::default()
+            },
+            generation,
+        )
+        .await
+        .map(|_| ())
+    }
+}
+
+/// Prepare the real persisted scope and audit stream before module admission.
+/// The returned identifiers may be embedded in init configuration; the scope
+/// is registered with TinySecurity after the module is loaded.
+pub(crate) async fn prepare_secret_scope(
+    config: &crate::config::Config,
+    subject: tinysecurity_bus::SubjectScope,
+) -> Result<SecretScope, String> {
+    let entry = scopes::audit_entry(config, subject).await?;
+    Ok(SecretScope { entry })
+}
+
 /// The SHA-256 correlation of a ticket the module stores instead of the ticket.
 pub(super) fn ticket_sha256(ticket: &str) -> String {
     format!("{:x}", Sha256::digest(ticket.as_bytes()))
