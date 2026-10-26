@@ -11,6 +11,8 @@ use crate::config::Config;
 
 #[cfg(feature = "modules")]
 use crate::modules::tinybox::{self, contract};
+#[cfg(not(feature = "modules"))]
+type NativeJailConfig = ();
 
 /// TinyBox's macOS backend: `sandbox-exec` with a write-deny profile.
 #[cfg(any(feature = "modules", test))]
@@ -97,7 +99,7 @@ pub(crate) async fn execute(
     ctx: &crate::core::runtime::DispatchCtx,
     config: &Config,
     policy: &SandboxPolicy,
-    planned_jail: &contract::NativeJailConfig,
+    planned_jail: &NativeJailConfig,
     command: &str,
     working_dir: &Path,
     extra_env: &HashMap<OsString, OsString>,
