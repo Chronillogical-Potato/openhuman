@@ -1,6 +1,5 @@
 //! Shared read + in-memory migration worker for the persisted auth-profile
-//! store: keychain promotion, legacy cipher upgrades, and profile-id
-//! case normalization.
+//! store: dropping unreadable profiles and normalizing profile IDs.
 
 use anyhow::Result;
 use chrono::Utc;
@@ -22,6 +21,7 @@ impl AuthProfilesStore {
     pub(super) fn load_resolved(&self, persist: bool) -> Result<AuthProfilesData> {
         let mut persisted = self.read_persisted_locked()?;
         let mut dropped_ids: Vec<String> = Vec::new();
+        let mut pending_keychain_deletes = Vec::new();
         let mut profiles = BTreeMap::new();
         for (id, p) in &persisted.profiles {
             // Current secrets may live in the keyring or in the encrypted
@@ -227,7 +227,6 @@ impl AuthProfilesStore {
                     {
                         match self.keychain_store_secrets(&ap) {
                             Ok(()) => {
-                                keychain_migrated = true;
                                 pending_keychain_deletes.push(id.clone());
                                 true
                             }
@@ -287,7 +286,7 @@ impl AuthProfilesStore {
         }
         persisted.profiles = new_persisted_profiles;
         profiles = new_profiles;
-        if persist && (!dropped_ids.is_empty() || migrated || keychain_migrated || key_migrated) {
+        if persist && (!dropped_ids.is_empty() || key_migrated) {
             self.write_persisted_locked(&persisted)?;
             for id in pending_keychain_deletes {
                 self.keychain_delete_secrets(&id);
