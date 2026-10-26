@@ -106,7 +106,9 @@ impl AuthProfilesStore {
             let token_set = match kind {
                 AuthProfileKind::OAuth => {
                     let Some(access_token) = access_token else {
-                        if unavailable_keyring_ids.contains(id) {
+                        if unavailable_keyring_ids.contains(id)
+                            || (!self.use_keychain && keychain_held_oauth(p))
+                        {
                             continue;
                         }
                         log::warn!(
