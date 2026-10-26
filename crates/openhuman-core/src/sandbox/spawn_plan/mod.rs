@@ -411,6 +411,11 @@ impl PlannedSpawn {
     /// from the policy that was asked.
     pub(crate) fn apply(&self, policy: &SandboxPolicy) -> SandboxPolicy {
         let mut applied = policy.clone();
+        applied.backend = match self.plan.executor {
+            super::plan::PlannedExecutor::NativeJail => SandboxBackendKind::Local,
+            super::plan::PlannedExecutor::Docker => SandboxBackendKind::Docker,
+            super::plan::PlannedExecutor::Host => SandboxBackendKind::None,
+        };
         let workspace = policy.workspace_root.to_str();
         let paths = |list: &[String]| -> Vec<std::path::PathBuf> {
             list.iter()
