@@ -345,6 +345,15 @@ pub(crate) async fn security_secret_scope() -> Option<crate::security::approval:
 }
 
 #[cfg(feature = "security-module")]
+pub(crate) async fn security_secret_registration_id() -> Option<String> {
+    SECURITY_CALLBACK_LOADS
+        .lock()
+        .await
+        .get(super::security::MODULE_ID)
+        .map(|state| state.registration_id.clone())
+}
+
+#[cfg(feature = "security-module")]
 pub(super) async fn security_module_config(config: &Config) -> Result<serde_json::Value, String> {
     let loads = SECURITY_CALLBACK_LOADS.lock().await;
     loads

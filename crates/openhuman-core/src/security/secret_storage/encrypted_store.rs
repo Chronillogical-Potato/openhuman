@@ -49,6 +49,8 @@ pub struct SecretStore {
     key_path: PathBuf,
     /// Whether encryption is enabled
     enabled: bool,
+    /// The exact host configuration used to admit the callback-bound module.
+    config: Option<crate::config::Config>,
 }
 
 impl SecretStore {
@@ -57,6 +59,129 @@ impl SecretStore {
         Self {
             key_path: openhuman_dir.join(".secret_key"),
             enabled,
+            config: None,
+        }
+    }
+
+    /// Create a store bound to the configuration whose callback authority it uses.
+    pub fn new_with_config(
+        openhuman_dir: &Path,
+        enabled: bool,
+        config: &crate::config::Config,
+    ) -> Self {
+        Self {
+            key_path: openhuman_dir.join(".secret_key"),
+            enabled,
+            config: Some(config.clone()),
+        }
+    }
+
+    /// Encrypt through the admitted TinySecurity cipher bus.
+    pub async fn encrypt_via_security(&self, plaintext: &str) -> Result<String> {
+        if !self.enabled || plaintext.is_empty() {
+            return Ok(plaintext.to_owned());
+        }
+        match self
+            .run_security_cipher(tinysecurity_bus::SecretCipherKind2::Encrypt, plaintext.as_bytes())
+            .await?
+        {
+            crate::modules::security::secret_cipher::Output::Ciphertext(value) => Ok(value),
+            crate::modules::security::secret_cipher::Output::Plaintext { .. } => {
+                anyhow::bail!("secret encryption was not completed")
+            }
+        }
+    }
+
+    /// Decrypt through TinySecurity; unprefixed values retain plaintext compatibility.
+    pub async fn decrypt_via_security(&self, value: &str) -> Result<String> {
+        if !self.enabled || !Self::is_encrypted(value) {
+            return Ok(value.to_owned());
+        }
+        match self
+            .run_security_cipher(tinysecurity_bus::SecretCipherKind2::Decrypt, value.as_bytes())
+            .await?
+        {
+            crate::modules::security::secret_cipher::Output::Plaintext { value, .. } => {
+                Ok(value.to_string())
+            }
+            crate::modules::security::secret_cipher::Output::Ciphertext(_) => {
+                anyhow::bail!("secret decryption was not completed")
+            }
+        }
+    }
+
+    /// Decrypt and migrate legacy ciphertext through TinySecurity.
+    pub async fn decrypt_and_migrate_via_security(
+        &self,
+        value: &str,
+    ) -> Result<(String, Option<String>)> {
+        if !self.enabled || !Self::is_encrypted(value) {
+            return Ok((value.to_owned(), None));
+        }
+        match self
+            .run_security_cipher(
+                tinysecurity_bus::SecretCipherKind2::DecryptAndMigrate,
+                value.as_bytes(),
+            )
+            .await?
+        {
+            crate::modules::security::secret_cipher::Output::Plaintext {
+                value,
+                migrated,
+                replacement_ciphertext,
+            } => Ok((value.to_string(), migrated.then_some(replacement_ciphertext).flatten())),
+            crate::modules::security::secret_cipher::Output::Ciphertext(_) => {
+                anyhow::bail!("secret migration was not completed")
+            }
+        }
+    }
+
+    async fn run_security_cipher(
+        &self,
+        operation: tinysecurity_bus::SecretCipherKind2,
+        input: &[u8],
+    ) -> Result<crate::modules::security::secret_cipher::Output> {
+        let config = self
+            .config
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("TinySecurity configuration is unavailable"))?;
+        #[cfg(feature = "security-module")]
+        {
+            let scope = crate::modules::ops::security_secret_scope()
+                .await
+                .ok_or_else(|| anyhow::anyhow!("TinySecurity secret scope is unavailable"))?;
+            let consumer = crate::modules::ops::security_cipher_consumer()
+                .await
+                .ok_or_else(|| anyhow::anyhow!("TinySecurity cipher consumer is unavailable"))?;
+            let registration_id = crate::modules::ops::security_secret_registration_id()
+                .await
+                .ok_or_else(|| anyhow::anyhow!("TinySecurity secret registration is unavailable"))?;
+            let client = crate::modules::security::client(config)
+                .await
+                .map_err(anyhow::Error::new)?;
+            let master_handle = crate::modules::security::secret_cipher::resolve_user_master(
+                &client,
+                &scope,
+                &registration_id,
+            )
+            .await
+            .map_err(anyhow::Error::new)?;
+            crate::modules::security::secret_cipher::run(
+                &client,
+                &scope,
+                &consumer,
+                &registration_id,
+                &master_handle,
+                operation,
+                input,
+            )
+            .await
+            .map_err(anyhow::Error::new)
+        }
+        #[cfg(not(feature = "security-module"))]
+        {
+            let _ = (config, operation, input);
+            anyhow::bail!("TinySecurity is not built into this host")
         }
     }
 
