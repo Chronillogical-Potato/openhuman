@@ -18,7 +18,7 @@ fn all_tools_includes_browser_when_enabled() {
     let tools = all_tools(
         Arc::new(Config::default()),
         &security,
-        AuditLogger::disabled(),
+        AuditSink::disabled(),
         &browser,
         &http,
         tmp.path(),
@@ -54,7 +54,7 @@ fn computer_component_off_unregisters_desktop_and_browser_tools() {
     let tools = all_tools(
         Arc::new(root),
         &security,
-        AuditLogger::disabled(),
+        AuditSink::disabled(),
         &browser,
         &http,
         tmp.path(),
@@ -118,7 +118,7 @@ fn all_tools_registers_no_hosted_integration_families_without_a_tool_source() {
     let tools = all_tools(
         Arc::new(cfg.clone()),
         &security,
-        AuditLogger::disabled(),
+        AuditSink::disabled(),
         &browser,
         &http,
         tmp.path(),
@@ -178,7 +178,7 @@ fn all_tools_registers_brave_engine_when_enabled() {
     let tools = all_tools(
         Arc::new(cfg.clone()),
         &security,
-        AuditLogger::disabled(),
+        AuditSink::disabled(),
         &browser,
         &http,
         tmp.path(),
@@ -210,7 +210,7 @@ fn all_tools_registers_querit_as_the_search_role_when_enabled() {
     let tools = all_tools(
         Arc::new(cfg.clone()),
         &security,
-        AuditLogger::disabled(),
+        AuditSink::disabled(),
         &browser,
         &http,
         tmp.path(),
@@ -243,7 +243,7 @@ fn all_tools_omits_search_surface_when_search_is_disabled() {
     let tools = all_tools(
         Arc::new(cfg.clone()),
         &security,
-        AuditLogger::disabled(),
+        AuditSink::disabled(),
         &browser,
         &http,
         tmp.path(),

@@ -15,23 +15,8 @@ fn test_runtime() -> Arc<dyn RuntimeAdapter> {
     Arc::new(NativeRuntime::new())
 }
 
-fn test_audit() -> Arc<AuditLogger> {
-    AuditLogger::disabled()
-}
-
-fn audit_with_tempdir() -> (Arc<AuditLogger>, tempfile::TempDir) {
-    use crate::config::AuditConfig;
-    let tmp = tempfile::tempdir().expect("create tempdir");
-    let logger = AuditLogger::new(
-        AuditConfig {
-            enabled: true,
-            log_path: "audit.log".into(),
-            max_size_mb: 10,
-        },
-        tmp.path().to_path_buf(),
-    )
-    .expect("create audit logger");
-    (Arc::new(logger), tmp)
+fn test_audit() -> Arc<AuditSink> {
+    AuditSink::disabled()
 }
 
 /// Build a `ToolExecutionContext` carrying a `WorkspaceDescriptor` rooted

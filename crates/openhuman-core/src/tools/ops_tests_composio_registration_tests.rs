@@ -5,7 +5,7 @@ fn registry_names_for(cfg: &Config, tmp: &TempDir) -> Vec<String> {
     let tools = all_tools(
         Arc::new(cfg.clone()),
         &security,
-        AuditLogger::disabled(),
+        AuditSink::disabled(),
         &BrowserConfig::default(),
         &crate::config::HttpRequestConfig::default(),
         tmp.path(),

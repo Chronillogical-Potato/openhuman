@@ -153,7 +153,7 @@ fn full_tool_catalog_names() -> Vec<String> {
         all_tools(
             Arc::new(cfg.clone()),
             &security,
-            AuditLogger::disabled(),
+            AuditSink::disabled(),
             &browser,
             &http,
             tmp.path(),

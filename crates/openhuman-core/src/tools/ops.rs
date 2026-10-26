@@ -3,7 +3,7 @@ use super::implementations::network::{McpListServersTool, McpListToolsTool};
 use super::*;
 use crate::config::Config;
 use crate::modules::tinybox::host_runtime::{NativeRuntime, RuntimeAdapter};
-use crate::security::{AuditLogger, SecurityPolicy};
+use crate::security::{AuditSink, SecurityPolicy};
 use std::sync::Arc;
 use tinyagents_harness_tools::exec::detect_tools::DetectToolsTool;
 use tinyagents_harness_tools::fs::filesystem::{
@@ -23,13 +23,13 @@ pub fn default_tools(security: Arc<SecurityPolicy>) -> Vec<Box<dyn Tool>> {
 ///
 /// Convenience entry point used by tests and the lightweight CLI surface.
 /// Production assembly sites use [`all_tools_with_runtime`] and pass a real
-/// [`AuditLogger`]; this wrapper substitutes [`AuditLogger::disabled`] so
+/// [`AuditSink`]; this wrapper substitutes [`AuditSink::disabled`] so
 /// existing test callers do not need to plumb one through.
 pub fn default_tools_with_runtime(
     security: Arc<SecurityPolicy>,
     runtime: Arc<dyn RuntimeAdapter>,
 ) -> Vec<Box<dyn Tool>> {
-    let audit = AuditLogger::disabled();
+    let audit = AuditSink::disabled();
     let config = Arc::new(Config::default());
     vec![
         Box::new(ShellTool::with_config(
@@ -48,7 +48,7 @@ pub fn default_tools_with_runtime(
 pub fn all_tools(
     config: Arc<Config>,
     security: &Arc<SecurityPolicy>,
-    audit: Arc<AuditLogger>,
+    audit: Arc<AuditSink>,
     browser_config: &crate::config::BrowserConfig,
     http_config: &crate::config::HttpRequestConfig,
     action_dir: &std::path::Path,
@@ -74,7 +74,7 @@ pub fn all_tools_with_runtime(
     config: Arc<Config>,
     security: &Arc<SecurityPolicy>,
     runtime: Arc<dyn RuntimeAdapter>,
-    audit: Arc<AuditLogger>,
+    audit: Arc<AuditSink>,
     browser_config: &crate::config::BrowserConfig,
     http_config: &crate::config::HttpRequestConfig,
     action_dir: &std::path::Path,
@@ -105,7 +105,7 @@ pub fn all_tools_with_runtime_and_pack_handle(
     config: Arc<Config>,
     security: &Arc<SecurityPolicy>,
     runtime: Arc<dyn RuntimeAdapter>,
-    audit: Arc<AuditLogger>,
+    audit: Arc<AuditSink>,
     browser_config: &crate::config::BrowserConfig,
     http_config: &crate::config::HttpRequestConfig,
     action_dir: &std::path::Path,
@@ -160,9 +160,10 @@ pub fn all_tools_with_runtime_and_pack_handle(
         // value ready to paste into a tool argument.
         Box::new(ResolveTimeTool::new()),
         Box::new(DetectToolsTool::new()),
-        Box::new(InstallToolTool::with_audit(
+        Box::new(InstallToolTool::with_audit_and_config(
             security.clone(),
             Arc::clone(&audit),
+            Arc::clone(&config),
         )),
     ]);
     tools.extend(crate::cron::tools::tools(config.clone(), security));

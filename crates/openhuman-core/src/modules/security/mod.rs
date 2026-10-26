@@ -4,6 +4,7 @@
 //! Existing OpenHuman security callers remain in place until their migration
 //! issues move them explicitly.
 
+pub(crate) mod audit;
 pub(super) mod callbacks;
 mod client;
 pub(crate) mod command;

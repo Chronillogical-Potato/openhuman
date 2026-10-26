@@ -28,6 +28,24 @@ fn first_load_and_reinit_share_one_policy_translator() {
 }
 
 #[test]
+fn module_bootstrap_configures_the_host_served_audit_stream_from_config() {
+    let mut config = Config::default();
+    config.audit.enabled = true;
+    config.audit.max_size_mb = 7;
+
+    let audit = module_config(&config).audit.expect("audit sink is enabled");
+
+    assert!(audit.native_path.is_none(), "OpenHuman serves AuditSink2");
+    assert!(
+        !audit.required,
+        "optional policy checks have no audit correlation"
+    );
+    assert_eq!(audit.max_bytes, 7 * 1024 * 1024);
+    assert_eq!(audit.journal_max_bytes, 7 * 1024 * 1024);
+    assert_eq!(audit.journal_max_events, 10_000);
+}
+
+#[test]
 fn module_bootstrap_binds_the_trusted_host_identity() {
     let config = Config::default();
     let translated = module_config_for_host(&config, Some(":1.42".into())).unwrap();

@@ -124,11 +124,10 @@ pub(crate) fn build_channel_turn_parts(
         &config.runtime,
         config.shell.hide_window,
     )?);
-    // Phase 1 of #1401: audit logger is wired with defaults so emission paths
-    // are exercised at runtime. The logger is workspace-scoped and shared, so
-    // concurrent sessions append to one `audit.log` without racing on rotation.
-    let audit = crate::security::get_or_create_workspace_audit_logger(
-        crate::config::AuditConfig::default(),
+    // The audit handle is workspace-scoped and shared; event persistence is
+    // delegated to TinySecurity's ordered `AuditSink2` stream.
+    let audit = crate::security::get_or_create_workspace_audit_sink(
+        config.audit.clone(),
         config.workspace_dir.clone(),
     )?;
     let workspace = config.workspace_dir.clone();

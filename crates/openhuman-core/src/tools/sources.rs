@@ -22,7 +22,7 @@ use tinytools::Tool;
 use crate::config::{BrowserConfig, Config, HttpRequestConfig};
 use crate::core::slots::HookSlot;
 use crate::modules::tinybox::host_runtime::RuntimeAdapter;
-use crate::security::{AuditLogger, SecurityPolicy};
+use crate::security::{AuditSink, SecurityPolicy};
 
 /// What a tool source can see while the catalogue is assembled: the same
 /// handles `all_tools_with_runtime` was given.
@@ -33,7 +33,7 @@ pub struct ToolSourceCtx<'a> {
     pub root_config: &'a Config,
     pub security: &'a Arc<SecurityPolicy>,
     pub runtime: &'a Arc<dyn RuntimeAdapter>,
-    pub audit: &'a Arc<AuditLogger>,
+    pub audit: &'a Arc<AuditSink>,
     pub browser_config: &'a BrowserConfig,
     pub http_config: &'a HttpRequestConfig,
     /// The agent's permitted read/write root.

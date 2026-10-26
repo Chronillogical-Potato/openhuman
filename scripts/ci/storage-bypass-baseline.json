@@ -211,13 +211,6 @@
   },
   {
     "rule": "json-write",
-    "path": "crates/openhuman-core/src/security/audit.rs",
-    "line": 284,
-    "text": "let mut file = OpenOptions::new()",
-    "occurrence": 1
-  },
-  {
-    "rule": "json-write",
     "path": "crates/openhuman-core/src/flows/http_credentials.rs",
     "line": 429,
     "text": "fs::write(&tmp_path, &json)",

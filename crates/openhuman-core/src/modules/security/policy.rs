@@ -67,7 +67,54 @@ pub fn validate(config: &Config) -> Result<(), &'static str> {
 pub fn module_config(config: &Config) -> tinysecurity_bus::ModuleConfig {
     tinysecurity_bus::ModuleConfig {
         policy: policy_config(config),
+        approvals: Some(approval_init_config()),
+        audit: config.audit.enabled.then(|| audit_init_config(config)),
         ..tinysecurity_bus::ModuleConfig::default()
+    }
+}
+
+const AUDIT_CALLBACK_TIMEOUT_MS: u32 = 20_000;
+
+/// Init-time subject is deliberately separate from every registered user
+/// subject. Real audit rows are sent through `RecordAudit2` to the per-subject
+/// stream registered by `security::approval::native`.
+fn bootstrap_subject() -> tinysecurity_bus::SubjectScope {
+    tinysecurity_bus::SubjectScope {
+        user: "openhuman".into(),
+        workspace: "bootstrap".into(),
+        agent: "bootstrap".into(),
+    }
+}
+
+fn approval_init_config() -> tinysecurity_bus::ApprovalConfig2 {
+    tinysecurity_bus::ApprovalConfig2 {
+        timeout_ms: AUDIT_CALLBACK_TIMEOUT_MS,
+        scopes: vec![tinysecurity_bus::ApprovalScope2 {
+            scope_id: "0".repeat(32),
+            subject: bootstrap_subject(),
+            policy_ref: "openhuman/approval/bootstrap".into(),
+            generation: 1,
+            ceiling: tinysecurity_bus::AccessTier::Read,
+            require_approval: true,
+            auto_approve_all: false,
+        }],
+    }
+}
+
+fn audit_init_config(config: &Config) -> tinysecurity_bus::AuditConfig2 {
+    let max_bytes = u64::from(config.audit.max_size_mb)
+        .saturating_mul(1024 * 1024)
+        .max(1);
+    tinysecurity_bus::AuditConfig2 {
+        scope: bootstrap_subject(),
+        stream_id: "b".repeat(32),
+        timeout_ms: AUDIT_CALLBACK_TIMEOUT_MS,
+        required: false,
+        native_path: None,
+        max_bytes,
+        max_archives: 3,
+        journal_max_bytes: max_bytes,
+        journal_max_events: 10_000,
     }
 }
 

@@ -1,7 +1,7 @@
 use super::*;
 use crate::config::{BrowserConfig, Config};
 use crate::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
-use crate::security::AuditLogger;
+use crate::security::AuditSink;
 use crate::tools::ops::{all_tools, tool_group};
 use tempfile::TempDir;
 use tinytools::ToolContent;
@@ -65,7 +65,7 @@ fn integration_tools_for_config(tmp: &TempDir, cfg: &Config) -> Vec<Box<dyn Tool
     all_tools(
         Arc::new(cfg.clone()),
         &security,
-        AuditLogger::disabled(),
+        AuditSink::disabled(),
         &browser,
         &http,
         tmp.path(),
@@ -104,7 +104,7 @@ fn expansion_tools_for(tmp: &TempDir) -> Vec<Box<dyn Tool>> {
     all_tools(
         Arc::new(cfg.clone()),
         &security,
-        AuditLogger::disabled(),
+        AuditSink::disabled(),
         &browser,
         &http,
         tmp.path(),

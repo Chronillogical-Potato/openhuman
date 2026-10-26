@@ -63,7 +63,7 @@ pub fn sanitize_json(value: &Value) -> Sanitized<Value> {
         report: SanitizationReport {
             changed: serialized
                 .as_deref()
-                .is_none_or(|before| cleaned.to_string() != before),
+                .is_none_or(|before| cleaned.to_string().as_str() != before),
         },
         value: cleaned,
     }

@@ -96,8 +96,8 @@ pub fn build_runtime_tools_with_security(
         "[native_ops] build_runtime_tools: start"
     );
     // Phase 1 of #1401: see comment in channels/runtime/startup.rs.
-    let audit = crate::security::get_or_create_workspace_audit_logger(
-        crate::config::AuditConfig::default(),
+    let audit = crate::security::get_or_create_workspace_audit_sink(
+        config.audit.clone(),
         config.workspace_dir.clone(),
     )
     .map_err(|e| e.to_string())?;

@@ -13,8 +13,9 @@ use tinyagents_harness::middleware::{
 ///
 /// The token is removed before scrubbing and put back afterwards, so it is
 /// never seen by (or counted against) the scrubber.
-fn scrub_with_notice_for_tool(tool_name: &str, content: &str) -> Option<(String, usize)> {
-    let mode = if tool_name == "browser"
+fn scrub_with_notice_for_tool(_tool_name: &str, content: &str) -> Option<(String, usize)> {
+    #[cfg(feature = "security-module")]
+    let mode = if _tool_name == "browser"
         && serde_json::from_str::<serde_json::Value>(content)
             .ok()
             .is_some_and(|value| {
