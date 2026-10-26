@@ -5,8 +5,8 @@ use crate::security::SecurityPolicy;
 
 fn http_cred_store() -> (tempfile::TempDir, HttpCredentialsStore) {
     let dir = tempfile::tempdir().expect("tempdir");
-    // encrypt=true exercises the ChaCha20-Poly1305 at-rest path.
-    let store = HttpCredentialsStore::new(dir.path(), true);
+    // The focused flow tests exercise credential routing, not TinySecurity crypto.
+    let store = HttpCredentialsStore::new(dir.path(), false);
     (dir, store)
 }
 
