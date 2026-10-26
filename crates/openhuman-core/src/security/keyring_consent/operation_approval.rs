@@ -95,13 +95,13 @@ pub(crate) async fn request_approval(
     crate::core::bus::BUS.publish(
         crate::core::events::DomainEvent::KeyringAccessApprovalRequested(
             crate::core::events::KeyringAccessApprovalRequest {
-            request_id: prompt.request_id.clone(),
-            caller_agent: request.caller.agent.clone(),
-            origin: format!("{:?}", request.caller.origin),
-            purpose: request.purpose,
-            access: prompt.access,
-            name: prompt.name,
-            expires_at_ms: prompt.expires_at_ms,
+                request_id: prompt.request_id.clone(),
+                caller_agent: request.caller.agent.clone(),
+                origin: format!("{:?}", request.caller.origin),
+                purpose: request.purpose,
+                access: prompt.access,
+                name: prompt.name,
+                expires_at_ms: prompt.expires_at_ms,
             },
         ),
     );

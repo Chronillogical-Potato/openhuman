@@ -49,9 +49,11 @@ fn pending_approval_capacity_is_bounded() {
             )
             .unwrap();
     }
-    assert!(registry
-        .register("read", "auth:overflow", std::time::Duration::from_secs(120))
-        .is_err());
+    assert!(
+        registry
+            .register("read", "auth:overflow", std::time::Duration::from_secs(120))
+            .is_err()
+    );
 }
 
 #[tokio::test]

@@ -986,4 +986,3 @@ fn the_workspace_switch_announcement_is_not_itself_workspace_bound() {
     assert_eq!(event.variant_name(), "ActiveWorkspaceChanged");
     assert_eq!(DomainEvent::domain(&event), "system");
 }
-
