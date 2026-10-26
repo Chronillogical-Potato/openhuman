@@ -103,16 +103,24 @@ impl AuthProfilesStore {
         // prior document so an orphaned/stranded keyring entry stays reachable.
         if self.use_keychain {
             if let Err(delete_error) = self.keychain_delete_secrets(profile_id) {
-                if let Err(rollback_error) = self.write_persisted_locked(&persisted_before) {
-                    anyhow::bail!(
-                        "keyring delete failed and profile metadata rollback failed: {delete_error}; {rollback_error}"
-                    );
-                }
-                return Err(delete_error.context("profile removal was not completed"));
+                return self.rollback_profile_removal(&persisted_before, delete_error);
             }
         }
 
         Ok(true)
+    }
+
+    pub(super) fn rollback_profile_removal(
+        &self,
+        persisted_before: &super::PersistedAuthProfiles,
+        delete_error: anyhow::Error,
+    ) -> Result<()> {
+        if let Err(rollback_error) = self.write_persisted_locked(persisted_before) {
+            anyhow::bail!(
+                "keyring delete failed and profile metadata rollback failed: {delete_error}; {rollback_error}"
+            );
+        }
+        Err(delete_error.context("profile removal was not completed"))
     }
 
     pub fn set_active_profile(&self, provider: &str, profile_id: &str) -> Result<()> {
