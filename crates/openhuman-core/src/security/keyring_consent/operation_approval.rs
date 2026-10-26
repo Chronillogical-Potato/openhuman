@@ -30,6 +30,7 @@ impl PendingConsentRegistry {
         &mut self,
         access: &str,
         name: &str,
+        timeout: std::time::Duration,
     ) -> Result<(ApprovalPrompt, oneshot::Receiver<bool>), &'static str> {
         if self.pending.len() >= MAX_PENDING_APPROVALS {
             return Err("too many pending keyring consent requests");
@@ -43,7 +44,9 @@ impl PendingConsentRegistry {
                 request_id,
                 access: access.to_owned(),
                 name: name.to_owned(),
-                expires_at_ms: now_ms().saturating_add(120_000),
+                expires_at_ms: now_ms().saturating_add(
+                    timeout.as_millis().try_into().unwrap_or(u64::MAX),
+                ),
             },
             receiver,
         ))
@@ -77,7 +80,7 @@ pub(crate) async fn request_approval(
     let (prompt, waiter) = pending()
         .lock()
         .ok()?
-        .register(access, &request.name)
+        .register(access, &request.name, timeout)
         .ok()?;
     crate::core::bus::BUS.publish(
         crate::core::events::DomainEvent::KeyringAccessApprovalRequested {
@@ -91,13 +94,24 @@ pub(crate) async fn request_approval(
         },
     );
 
-    let decision = tokio::time::timeout(timeout, waiter).await.ok()?.ok();
-    if decision.is_none()
-        && let Ok(mut pending) = pending().lock()
-    {
-        pending.cancel(&prompt.request_id);
+    await_decision(pending(), &prompt.request_id, waiter, timeout).await
+}
+
+async fn await_decision(
+    registry: &Mutex<PendingConsentRegistry>,
+    request_id: &str,
+    waiter: oneshot::Receiver<bool>,
+    timeout: std::time::Duration,
+) -> Option<bool> {
+    match tokio::time::timeout(timeout, waiter).await {
+        Ok(Ok(decision)) => Some(decision),
+        Ok(Err(_)) | Err(_) => {
+            if let Ok(mut pending) = registry.lock() {
+                pending.cancel(request_id);
+            }
+            None
+        }
     }
-    decision
 }
 
 /// Resolve one currently pending request. Each id can be consumed once.
