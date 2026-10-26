@@ -35,6 +35,9 @@ pub const MASTER_KEY_ENV: &str = "OPENHUMAN_KEYRING_MASTER_KEY";
 pub const MASTER_KEY_FILE_ENV: &str = "OPENHUMAN_KEYRING_MASTER_KEY_FILE";
 const SECRETS_FILENAME: &str = "secrets.enc";
 const LEGACY_DEV_KEYCHAIN: &str = "dev-keychain.json";
+const LEGACY_IMPORT_OPERATION: &str = "openhuman.legacy-dev-keychain.v1";
+const LEGACY_IMPORT_PAYLOAD: &str = "openhuman:internal:legacy-dev-keychain:payload";
+const LEGACY_IMPORT_COMPLETE: &str = "openhuman:internal:legacy-dev-keychain:complete";
 const KEY_LEN: usize = crypto::KEY_LEN;
 
 /// Outcome of the one-time master-key initialization: the key (`None` when
@@ -377,214 +380,112 @@ impl EncryptedFileBackend {
         crate::storage::block_on(op(self.store(key))).map_err(adapter::backend_error)
     }
 
-    /// Import `dev-keychain.json` into a missing `secrets.enc`, once.
+    /// Import the legacy plaintext map through the driver's verified file-import API.
     fn import_legacy_dev_keychain(&self, key: &[u8; KEY_LEN]) -> Result<(), SecretStorageError> {
         let legacy_path = self.workspace_dir.join(LEGACY_DEV_KEYCHAIN);
         let migrated_path = legacy_path.with_extension("json.migrated");
-        if !legacy_path.exists() && !migrated_path.exists() {
-            return Ok(());
-        }
-        // Use one lock order everywhere: encrypted destination, current legacy
-        // source, then an older migrated source. The plaintext backend takes
-        // the source lock, so its writers cannot race this read-and-remove.
-        let _guard = file_store::lock_for_write(&self.path)?;
-        let _legacy_guard = file_store::lock_for_write(&legacy_path)?;
-        let _migrated_guard = file_store::lock_for_write(&migrated_path)?;
-        if !legacy_path.exists() && !migrated_path.exists() {
-            return Ok(());
-        }
+        use tinystoragedrivers::secrets::{
+            CleanupAcknowledgment, FileImportSource, SecretStore as _,
+        };
 
-        // A legacy file can remain after a previous publication/cleanup error.
-        // It must not make an otherwise valid encrypted store unavailable.
-        if self.path.exists() {
-            let existing_sources = [legacy_path.exists(), migrated_path.exists()];
-            for (source, existed_before_cleanup) in [&legacy_path, &migrated_path]
-                .into_iter()
-                .zip(existing_sources)
-            {
-                if !existed_before_cleanup {
-                    continue;
-                }
-                if let Err(error) =
-                    self.remove_legacy_if_encrypted_copy_matches(key, source, &_guard)
-                {
-                    log::warn!("[keyring:encrypted_file] could not clean up legacy copy: {error}");
-                }
-            }
+        let store = self.store(key);
+        let completed = crate::storage::block_on(store.get(LEGACY_IMPORT_COMPLETE))
+            .map_err(adapter::backend_error)?;
+        if completed.is_some() {
+            crate::storage::block_on(store.delete(LEGACY_IMPORT_PAYLOAD))
+                .map_err(adapter::backend_error)?;
             return Ok(());
         }
 
         let source_path = if legacy_path.exists() {
-            &legacy_path
+            Some(legacy_path)
+        } else if migrated_path.exists() {
+            Some(migrated_path)
         } else {
-            &migrated_path
+            None
         };
-        let metadata = std::fs::symlink_metadata(source_path).map_err(|source| {
-            SecretStorageError::MigrationReadFailed {
-                path: source_path.display().to_string(),
-                source,
-            }
-        })?;
-        if !metadata.file_type().is_file() {
-            return Err(SecretStorageError::Backend(format!(
-                "legacy {} is not a regular file; preserving it for recovery",
-                source_path.display()
-            )));
-        }
-        log::info!(
-            "[keyring:encrypted_file] found legacy {} — migrating to encrypted file",
-            source_path.display()
-        );
-        let bytes = std::fs::read(source_path).map_err(|source| {
-            SecretStorageError::MigrationReadFailed {
-                path: source_path.display().to_string(),
-                source,
-            }
-        })?;
-        let map: std::collections::BTreeMap<String, String> = if bytes.is_empty() {
-            Default::default()
-        } else {
-            serde_json::from_slice(&bytes).map_err(|e| {
-                SecretStorageError::Backend(format!(
-                    "legacy {} is invalid JSON; preserving it for recovery: {e}",
-                    source_path.display()
+
+        let source = source_path
+            .map(FileImportSource::open)
+            .transpose()
+            .map_err(adapter::backend_error)?;
+        let mut receipt = None;
+        let bytes = match source.as_ref() {
+            Some(source) => {
+                let bytes = source.bytes();
+                let _: std::collections::BTreeMap<String, String> =
+                    serde_json::from_slice(bytes).map_err(|error| {
+                        SecretStorageError::Backend(format!(
+                            "legacy dev keychain is invalid JSON; preserving it for recovery: {error}"
+                        ))
+                    })?;
+                let verified = crate::storage::block_on(store.prepare_file_import(
+                    LEGACY_IMPORT_OPERATION,
+                    LEGACY_IMPORT_PAYLOAD,
+                    bytes,
+                    source,
                 ))
-            })?
-        };
-
-        let json = Zeroizing::new(serde_json::to_vec(&map).map_err(|e| {
-            SecretStorageError::Backend(format!("failed to serialize secrets: {e}"))
-        })?);
-        {
-            let blob = crypto::encrypt(key, &json)
-                .map_err(|e| SecretStorageError::Backend(format!("encryption failed: {e}")))?;
-            file_store::write_atomic(&self.path, &blob)?;
-        }
-
-        let verified = match self.remove_legacy_if_encrypted_copy_matches(key, source_path, &_guard)
-        {
-            Ok(verified) => verified,
-            Err(error @ SecretStorageError::MigrationDeleteFailed { .. }) => {
-                log::warn!("[keyring:encrypted_file] could not remove migrated plaintext: {error}");
-                true
+                .map_err(adapter::backend_error)?;
+                receipt = Some(verified);
+                Zeroizing::new(bytes.to_vec())
             }
-            Err(error) => return Err(error),
+            None => match crate::storage::block_on(store.recover_file_import_source(
+                LEGACY_IMPORT_OPERATION,
+                LEGACY_IMPORT_PAYLOAD,
+            )) {
+                Ok(bytes) => bytes,
+                Err(error) if error.kind() == tinystoragedrivers::ErrorKind::NotFound => {
+                    return Ok(());
+                }
+                Err(error) => return Err(adapter::backend_error(error)),
+            },
         };
-        if !verified {
-            return Err(SecretStorageError::Backend(
-                "encrypted migration result did not verify against its plaintext source".into(),
-            ));
+
+        if let Some(receipt) = receipt {
+            match crate::storage::block_on(store.cleanup_file_import(&receipt))
+                .map_err(adapter::backend_error)?
+            {
+                CleanupAcknowledgment::RemovedAndDirectorySynced
+                | CleanupAcknowledgment::AlreadyCompleted => {}
+                CleanupAcknowledgment::UnsupportedBoundary => {
+                    log::warn!("[keyring:encrypted_file] legacy plaintext retained by the platform");
+                }
+                CleanupAcknowledgment::RemovedUnacknowledged => {
+                    log::warn!("[keyring:encrypted_file] legacy plaintext removal was not fully acknowledged");
+                }
+            }
         }
+
+        let map: std::collections::BTreeMap<String, String> =
+            serde_json::from_slice(&bytes).map_err(|error| {
+                SecretStorageError::Backend(format!(
+                    "verified legacy dev keychain is invalid JSON: {error}"
+                ))
+            })?;
+        for (name, value) in &map {
+            let existing = crate::storage::block_on(store.get(name))
+                .map_err(adapter::backend_error)?;
+            match existing {
+                Some(existing) if existing.as_slice() == value.as_bytes() => {}
+                Some(_) => {
+                    return Err(SecretStorageError::Backend(
+                        "legacy secret conflicts with an existing encrypted value; source retained for recovery".into(),
+                    ));
+                }
+                None => crate::storage::block_on(store.set(name, value.as_bytes()))
+                    .map_err(adapter::backend_error)?,
+            }
+        }
+
+        crate::storage::block_on(store.set(LEGACY_IMPORT_COMPLETE, b"1"))
+            .map_err(adapter::backend_error)?;
+        crate::storage::block_on(store.delete(LEGACY_IMPORT_PAYLOAD))
+            .map_err(adapter::backend_error)?;
         log::info!(
-            "[keyring:encrypted_file] legacy {} migrated \
-             ({} entries), verified, and durably published",
-            source_path.display(),
+            "[keyring:encrypted_file] imported {} legacy dev-keychain entries",
             map.len()
         );
         Ok(())
-    }
-
-    /// Remove the plaintext source only after the published encrypted copy is
-    /// durable and decrypts to a map containing every source entry unchanged.
-    /// The caller holds the destination and source locks through verification
-    /// and deletion, preventing a concurrent encrypted write from invalidating
-    /// the snapshot between comparison and cleanup.
-    fn remove_legacy_if_encrypted_copy_matches(
-        &self,
-        key: &[u8; KEY_LEN],
-        legacy_path: &Path,
-        destination_lock: &file_store::WriteLock,
-    ) -> Result<bool, SecretStorageError> {
-        self.remove_legacy_if_encrypted_copy_matches_with_sync(
-            key,
-            legacy_path,
-            destination_lock,
-            file_store::sync_parent_dir,
-        )
-    }
-
-    fn remove_legacy_if_encrypted_copy_matches_with_sync(
-        &self,
-        key: &[u8; KEY_LEN],
-        legacy_path: &Path,
-        destination_lock: &file_store::WriteLock,
-        sync_parent: impl FnOnce(&Path, &file_store::WriteLock) -> Result<(), SecretStorageError>,
-    ) -> Result<bool, SecretStorageError> {
-        let metadata = match std::fs::symlink_metadata(legacy_path) {
-            Ok(metadata) => metadata,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-            Err(source) => {
-                return Err(SecretStorageError::MigrationReadFailed {
-                    path: legacy_path.display().to_string(),
-                    source,
-                });
-            }
-        };
-        if !metadata.file_type().is_file() {
-            return Ok(false);
-        }
-        let bytes = std::fs::read(legacy_path).map_err(|source| {
-            SecretStorageError::MigrationReadFailed {
-                path: legacy_path.display().to_string(),
-                source,
-            }
-        })?;
-        let legacy: std::collections::BTreeMap<String, String> = if bytes.is_empty() {
-            Default::default()
-        } else {
-            match serde_json::from_slice(&bytes) {
-                Ok(legacy) => legacy,
-                Err(_) => return Ok(false),
-            }
-        };
-        let blob = match std::fs::read(&self.path) {
-            Ok(blob) => blob,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-            Err(source) => {
-                return Err(SecretStorageError::MigrationReadFailed {
-                    path: self.path.display().to_string(),
-                    source,
-                });
-            }
-        };
-        let plaintext = match crypto::decrypt(key, &blob) {
-            Ok(plaintext) => plaintext,
-            Err(_) => return Ok(false),
-        };
-        let encrypted: std::collections::HashMap<String, String> =
-            match serde_json::from_slice(&plaintext) {
-                Ok(encrypted) => encrypted,
-                Err(_) => return Ok(false),
-            };
-        if !legacy
-            .iter()
-            .all(|(name, value)| encrypted.get(name) == Some(value))
-        {
-            return Ok(false);
-        }
-
-        sync_parent(&self.path, destination_lock)?;
-        let current_legacy = self.workspace_dir.join(LEGACY_DEV_KEYCHAIN);
-        let archive_path = current_legacy.with_extension("json.migrated");
-        let cleanup = if legacy_path == current_legacy && !archive_path.exists() {
-            std::fs::rename(legacy_path, &archive_path)
-        } else {
-            std::fs::remove_file(legacy_path)
-        };
-        match cleanup {
-            Ok(()) => {
-                // Persist the source rename/removal too. If this sync fails,
-                // the encrypted copy is already durable and the archive (or
-                // original source) remains available for another cleanup pass.
-                file_store::sync_parent_dir(&self.path, destination_lock)?;
-                Ok(true)
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
-            Err(source) => Err(SecretStorageError::MigrationDeleteFailed {
-                path: legacy_path.display().to_string(),
-                source,
-            }),
-        }
     }
 
     /// [`SecretBackend::get`] under an explicit master key.
