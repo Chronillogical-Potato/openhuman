@@ -21,22 +21,22 @@ pub struct AuthService {
 impl AuthService {
     /// Reads one profile without mutating profile state. Keyring-backed
     /// credentials use TinySecurity's operation-scoped consent path.
-    pub fn get_profile_read_only(
+    pub async fn get_profile_read_only(
         config: &Config,
         provider: &str,
         profile_override: Option<&str>,
     ) -> Result<Option<AuthProfile>, super::profiles::ReadOnlyAuthProfileError> {
-        super::profiles::load_profile_read_only(config, provider, profile_override)
+        super::profiles::load_profile_read_only(config, provider, profile_override).await
     }
 
     /// Reads the selected profile's bearer without mutating profile state.
     /// Keyring-backed credentials use TinySecurity's operation-scoped consent path.
-    pub fn get_provider_bearer_token_read_only(
+    pub async fn get_provider_bearer_token_read_only(
         config: &Config,
         provider: &str,
         profile_override: Option<&str>,
     ) -> Result<Option<String>, super::profiles::ReadOnlyAuthProfileError> {
-        let Some(profile) = Self::get_profile_read_only(config, provider, profile_override)? else {
+        let Some(profile) = Self::get_profile_read_only(config, provider, profile_override).await? else {
             return Ok(None);
         };
         let credential = match profile.kind {
