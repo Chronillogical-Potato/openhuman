@@ -2,6 +2,7 @@
 //! encrypted storage when the OS keyring is unavailable.
 
 pub mod ops;
+mod operation_approval;
 pub mod policy;
 mod schemas;
 pub mod types;
