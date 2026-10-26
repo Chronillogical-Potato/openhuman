@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 mod keychain;
+pub(crate) use keychain::namespaced_keyring_name;
 mod lock;
 mod migration;
 mod persistence;

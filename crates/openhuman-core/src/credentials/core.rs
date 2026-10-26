@@ -1,5 +1,5 @@
 use super::profiles::{
-    profile_id, AuthProfile, AuthProfileKind, AuthProfilesData, AuthProfilesStore,
+    AuthProfile, AuthProfileKind, AuthProfilesData, AuthProfilesStore, profile_id,
 };
 use crate::config::Config;
 use anyhow::Result;
@@ -51,11 +51,7 @@ impl AuthService {
     pub fn from_config(config: &Config) -> Self {
         let state_dir = state_dir_from_config(config);
         Self {
-            store: AuthProfilesStore::new_with_config(
-                &state_dir,
-                config.secrets.encrypt,
-                config,
-            ),
+            store: AuthProfilesStore::new_with_config(&state_dir, config.secrets.encrypt, config),
         }
     }
 

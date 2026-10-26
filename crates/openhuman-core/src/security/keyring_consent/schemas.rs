@@ -101,10 +101,25 @@ fn keyring_consent_schema(function: &str) -> ControllerSchema {
             function: "respond_operation",
             description: "Approve or deny one exact pending TinySecurity keyring operation.",
             inputs: vec![
-                FieldSchema { name: "request_id", ty: TypeSchema::String, comment: "Opaque request id from the keyring access approval event.", required: true },
-                FieldSchema { name: "approved", ty: TypeSchema::Bool, comment: "Whether to approve this exact operation once.", required: true },
+                FieldSchema {
+                    name: "request_id",
+                    ty: TypeSchema::String,
+                    comment: "Opaque request id from the keyring access approval event.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "approved",
+                    ty: TypeSchema::Bool,
+                    comment: "Whether to approve this exact operation once.",
+                    required: true,
+                },
             ],
-            outputs: vec![FieldSchema { name: "result", ty: TypeSchema::Bool, comment: "True when this pending request was resolved; false for an expired or already resolved id.", required: true }],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Bool,
+                comment: "True when this pending request was resolved; false for an expired or already resolved id.",
+                required: true,
+            }],
         },
         _ => ControllerSchema {
             namespace: "keyring_consent",
@@ -213,12 +228,14 @@ fn run_retry_probe(_ctx: DispatchCtx, (): ()) -> ControllerFuture {
     })
 }
 
-fn run_respond_operation(_ctx: DispatchCtx, (request_id, approved): (String, bool)) -> ControllerFuture {
+fn run_respond_operation(
+    _ctx: DispatchCtx,
+    (request_id, approved): (String, bool),
+) -> ControllerFuture {
     Box::pin(async move {
-        Ok(serde_json::json!(super::operation_approval::resolve_approval(
-            &request_id,
-            approved,
-        )))
+        Ok(serde_json::json!(
+            super::operation_approval::resolve_approval(&request_id, approved,)
+        ))
     })
 }
 

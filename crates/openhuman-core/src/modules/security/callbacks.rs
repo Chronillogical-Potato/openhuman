@@ -75,17 +75,15 @@ impl KeyringConsent {
     ) -> tinybus::Result<tinysecurity_bus::KeyringConsentResponse2> {
         use tinysecurity_bus::KeyringConsentResponse2;
 
-        let approved = crate::security::keyring_consent::operation_approval::request_approval(request)
-            .await;
+        let approved =
+            crate::security::keyring_consent::operation_approval::request_approval(request).await;
         Ok(KeyringConsentResponse2 {
             outcome: keyring_consent_outcome(approved),
         })
     }
 }
 
-fn keyring_consent_outcome(
-    approved: Option<bool>,
-) -> tinysecurity_bus::KeyringConsentOutcome2 {
+fn keyring_consent_outcome(approved: Option<bool>) -> tinysecurity_bus::KeyringConsentOutcome2 {
     match approved {
         Some(true) => tinysecurity_bus::KeyringConsentOutcome2::Allowed,
         Some(false) => tinysecurity_bus::KeyringConsentOutcome2::ConsentDenied,

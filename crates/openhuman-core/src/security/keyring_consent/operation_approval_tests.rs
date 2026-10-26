@@ -18,9 +18,7 @@ async fn approval_response_resolves_only_its_matching_request() {
 fn pending_approval_capacity_is_bounded() {
     let mut registry = PendingConsentRegistry::default();
     for index in 0..MAX_PENDING_APPROVALS {
-        registry
-            .register("read", &format!("auth:{index}"))
-            .unwrap();
+        registry.register("read", &format!("auth:{index}")).unwrap();
     }
     assert!(registry.register("read", "auth:overflow").is_err());
 }

@@ -94,7 +94,7 @@ impl AuthProfilesStore {
     }
 
     fn keyring_name(&self, logical_key: &str) -> String {
-        format!("{}:{logical_key}", self.user_id)
+        namespaced_keyring_name(&self.user_id, logical_key)
     }
 
     fn keyring_operation(
@@ -129,4 +129,8 @@ impl AuthProfilesStore {
         })
         .map_err(anyhow::Error::msg)
     }
+}
+
+pub(crate) fn namespaced_keyring_name(user_id: &str, logical_key: &str) -> String {
+    format!("{user_id}:{logical_key}")
 }

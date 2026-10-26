@@ -1,6 +1,6 @@
 use super::*;
 use crate::core::all::ControllerParamContract;
-use serde_json::{json, Map};
+use serde_json::{Map, json};
 
 pub(crate) fn parameter_contracts() -> Vec<ControllerParamContract> {
     vec![
@@ -119,7 +119,8 @@ fn operation_response_parser_requires_an_id_and_boolean_decision() {
         parse_respond_operation(Map::from_iter([
             ("request_id".into(), json!("request-1")),
             ("approved".into(), json!(false)),
-        ])).unwrap(),
+        ]))
+        .unwrap(),
         ("request-1".into(), false),
     );
     assert_eq!(
@@ -130,7 +131,8 @@ fn operation_response_parser_requires_an_id_and_boolean_decision() {
         parse_respond_operation(Map::from_iter([
             ("request_id".into(), json!("request-1")),
             ("approved".into(), json!("yes")),
-        ])).unwrap_err(),
+        ]))
+        .unwrap_err(),
         "missing required param 'approved'"
     );
 }
