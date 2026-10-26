@@ -12,5 +12,8 @@ pub mod privacy;
 pub mod types;
 
 pub use emit::{emit_external_transfer, emit_external_transfer_in, EgressLedger};
-pub use privacy::{enforce_egress, local_only_tool_block, local_only_tool_block_blocking};
+pub use privacy::{
+    data_class, enforce_egress, enforce_egress_blocking, local_only_tool_block,
+    local_only_tool_block_blocking, PrivacyClass,
+};
 pub use types::{DataKind, EgressDescriptor, EgressReason, IdentificationRisk};

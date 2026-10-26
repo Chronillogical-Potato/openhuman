@@ -33,10 +33,8 @@ pub(crate) fn otlp_url(config: &Config) -> String {
 /// sloppy match is load-bearing in both directions. A substring test on
 /// `staging` let `https://staging-attacker.invalid` through, and missed an
 /// IPv6 loopback backend (`http://[::1]:7788`). Local classification is
-/// delegated to [`crate::util::url::host_is_local`], which parses the URL and
-/// handles IPv4 loopback/unspecified/private, IPv6 loopback/unspecified and
-/// `localhost` / `*.localhost`; one local-host predicate keeps the gates in
-/// agreement. The hosted bucket is classified by the host that owns the
+/// delegated to TinySecurity's U5 provider endpoint classifier. The hosted
+/// bucket is classified by the host that owns the
 /// domain, anchored to its own deployment domain so the classifier fails
 /// *closed*.
 ///
@@ -48,7 +46,10 @@ pub(crate) fn environment_for_base(config: &Config, base: &str) -> &'static str 
     let Ok(parsed) = url::Url::parse(base) else {
         return "external";
     };
-    if crate::util::url::host_is_local(&parsed) {
+    if parsed
+        .host_str()
+        .is_some_and(crate::util::url::provider_host_is_local)
+    {
         return "development";
     }
     if parsed.scheme() != "https" {

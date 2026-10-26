@@ -52,14 +52,18 @@ pub(crate) async fn proxy(config: &Config) -> Result<Proxy, String> {
     // The lock makes credential rotation atomic across concurrent tool calls.
     let mut configuration = module_config(config);
     #[cfg(feature = "security-module")]
-    if config.browser.chrome_path.is_some() {
-        match super::browser_egress_host::browser_dial_config(config).await {
-            Ok(egress) => configuration["browser"]["egress"] = egress,
+    {
+        let callback_destination = crate::modules::ops::consequence_callback_destination(MODULE_ID)
+            .await
+            .ok_or_else(|| "TinyComputer host callback name unavailable".to_owned())?;
+        let egress = match super::browser_egress_host::browser_dial_config(config).await {
+            Ok(egress) => egress,
             Err(error) => {
                 tracing::warn!(%error, "[computer] browser egress policy unavailable");
                 return Err("TinySecurity browser egress policy unavailable".into());
             }
-        }
+        };
+        inject_security_browser_config(&mut configuration, egress, &callback_destination);
     }
     let current = fingerprint(&configuration);
     let mut previous = last_config().lock().await;
@@ -84,6 +88,15 @@ pub(crate) async fn proxy(config: &Config) -> Result<Proxy, String> {
     runtime
         .proxy(names::INTERFACE, names::OBJECT_PATH)
         .map_err(|error| format!("TinyComputer module proxy unavailable: {error}"))
+}
+
+fn inject_security_browser_config(
+    configuration: &mut serde_json::Value,
+    egress: serde_json::Value,
+    callback_destination: &str,
+) {
+    configuration["browser"]["egress"] = egress;
+    configuration["consequence_host"] = serde_json::json!({ "destination": callback_destination });
 }
 
 /// Call one contract member, preserving the structured error envelope.

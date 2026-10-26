@@ -265,6 +265,61 @@ async fn ensure_loaded_with_storage_callback(
     Ok(())
 }
 
+type ComputerCallbackLoads = tokio::sync::Mutex<
+    std::collections::HashMap<String, std::sync::Arc<tinybus::module::HostCallbackBinding>>,
+>;
+
+static COMPUTER_CALLBACK_LOADS: std::sync::LazyLock<ComputerCallbackLoads> =
+    std::sync::LazyLock::new(|| tokio::sync::Mutex::new(std::collections::HashMap::new()));
+
+async fn ensure_loaded_with_computer_callback(
+    resolver: &Resolver,
+    config: &Config,
+    id: &str,
+) -> Result<(), String> {
+    let mut loads = COMPUTER_CALLBACK_LOADS.lock().await;
+    if let Some(binding) = loads.get(id) {
+        let module_config = module_config_with_consequence_callback(config, id, binding);
+        return resolver
+            .ensure_loaded_with_host_callbacks(id, std::sync::Arc::clone(binding), module_config)
+            .await;
+    }
+
+    let runtime = resolver
+        .runtime()
+        .await
+        .map_err(|error| error.to_string())?;
+    let binding = super::browser_egress_host::prepare_consequence_callback(runtime)
+        .await
+        .map_err(|error| error.to_string())?;
+    let module_config = module_config_with_consequence_callback(config, id, &binding);
+    resolver
+        .ensure_loaded_with_host_callbacks(id, std::sync::Arc::clone(&binding), module_config)
+        .await?;
+    loads.insert(id.to_owned(), binding);
+    Ok(())
+}
+
+fn module_config_with_consequence_callback(
+    config: &Config,
+    id: &str,
+    binding: &tinybus::module::HostCallbackBinding,
+) -> serde_json::Value {
+    let mut module_config = module_config(config, id);
+    module_config["consequence_host"] =
+        serde_json::json!({ "destination": binding.unique_name().as_str() });
+    module_config
+}
+
+#[cfg(feature = "security-module")]
+pub(super) async fn consequence_callback_destination(id: &str) -> Option<String> {
+    COMPUTER_CALLBACK_LOADS
+        .lock()
+        .await
+        .get(id)
+        .map(|binding| binding.unique_name().to_string())
+}
+
 /// Module access that grants storage callbacks only while loading the two
 /// modules whose contracts require them.
 struct CallbackAccess {
@@ -405,6 +460,19 @@ pub async fn ensure_loaded_within(
             Err(LoadError::Disabled(component))
         } else {
             let load = ensure_loaded_with_storage_callback(&resolver, config, id);
+            match within {
+                Some(within) => tokio::time::timeout(within, load)
+                    .await
+                    .map_err(|_| LoadError::StillLoading)?
+                    .map_err(LoadError::Failed),
+                None => load.await.map_err(LoadError::Failed),
+            }
+        }
+    } else if cfg!(feature = "security-module") && id == super::desktop::MODULE_ID {
+        if let Some(component) = disabled_component(config, id) {
+            Err(LoadError::Disabled(component))
+        } else {
+            let load = ensure_loaded_with_computer_callback(&resolver, config, id);
             match within {
                 Some(within) => tokio::time::timeout(within, load)
                     .await

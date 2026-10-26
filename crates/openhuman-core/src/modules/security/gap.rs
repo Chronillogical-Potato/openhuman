@@ -77,7 +77,14 @@ pub(crate) async fn classify_provider_host(host: String) -> Result<bool, String>
     let config = crate::core::runtime::DispatchCtx::ambient()
         .load_config()
         .await?;
-    let response = super::client(&config)
+    classify_provider_host_with_config(&config, host).await
+}
+
+pub(crate) async fn classify_provider_host_with_config(
+    config: &crate::config::Config,
+    host: String,
+) -> Result<bool, String> {
+    let response = super::client(config)
         .await
         .map_err(|error| error.to_string())?
         .classify_provider_endpoint2(host)

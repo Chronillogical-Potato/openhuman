@@ -79,6 +79,19 @@ pub(crate) fn privacy_check_blocking(
     })
 }
 
+pub(crate) fn classify_provider_host_blocking(
+    host: String,
+    timeout: Duration,
+) -> Result<bool, String> {
+    let config = CONFIG
+        .get()
+        .cloned()
+        .ok_or_else(|| "TinySecurity text adapter is not armed".to_owned())?;
+    super::sync_seam::run(timeout, async move {
+        super::gap::classify_provider_host_with_config(&config, host).await
+    })
+}
+
 fn scrub_log(text: &str) -> Option<String> {
     redact_blocking(RedactMode::CredentialsOnly, text, SYNC_TIMEOUT).ok()
 }

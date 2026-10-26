@@ -7,9 +7,24 @@ use tinycomputer_bus::browser_egress::{
     self as contract, BrowserEgressConsumeRequest, BrowserEgressDecision, BrowserEgressGrant,
     BrowserEgressTarget, BrowserEgressValidateRequest,
 };
+use tinycomputer_bus::consequence_host::{
+    self, ConsequenceKind, ReviewActionRequest, ReviewActionResponse,
+};
 
-fn registered_scopes() -> &'static parking_lot::Mutex<Vec<(String, u64)>> {
-    static SCOPES: std::sync::OnceLock<parking_lot::Mutex<Vec<(String, u64)>>> =
+type BrowserScope = (
+    String,
+    u64,
+    String,
+    String,
+    String,
+    String,
+    std::time::Instant,
+);
+
+const BROWSER_POLICY_REFRESH_AFTER: std::time::Duration = std::time::Duration::from_secs(25);
+
+fn registered_scopes() -> &'static parking_lot::Mutex<Vec<BrowserScope>> {
+    static SCOPES: std::sync::OnceLock<parking_lot::Mutex<Vec<BrowserScope>>> =
         std::sync::OnceLock::new();
     SCOPES.get_or_init(|| parking_lot::Mutex::new(Vec::new()))
 }
@@ -32,9 +47,32 @@ pub(crate) async fn browser_dial_config(config: &crate::config::Config) -> Resul
         crate::config::PrivacyMode::Sensitive => tinysecurity_bus::PrivacyMode::Sensitive,
         crate::config::PrivacyMode::LocalOnly => tinysecurity_bus::PrivacyMode::LocalOnly,
     };
+    let info = client
+        .policy_info()
+        .await
+        .map_err(|error| error.to_string())?;
+    let privacy_key = format!("{privacy:?}");
+    {
+        let scopes = registered_scopes().lock();
+        if let Some((id, generation)) = find_reusable_policy(
+            &scopes,
+            info.generation,
+            &owner.user,
+            &owner.workspace,
+            &owner.agent,
+            &privacy_key,
+            std::time::Instant::now(),
+        ) {
+            return Ok(serde_json::json!({
+                "policy_id": id,
+                "generation": generation,
+            }));
+        }
+    }
+    let registered_at = std::time::Instant::now();
     let policy_id = client
         .register_egress_policy(tinysecurity_bus::EgressPolicy {
-            owner,
+            owner: owner.clone(),
             ceiling: tinysecurity_bus::AccessTier::Full,
             privacy,
             destinations: Vec::new(),
@@ -54,8 +92,16 @@ pub(crate) async fn browser_dial_config(config: &crate::config::Config) -> Resul
         return Err("TinySecurity browser policy scope is unavailable".into());
     }
     let mut scopes = registered_scopes().lock();
-    scopes.retain(|(id, generation)| id != &policy_id.0 || *generation != info.generation);
-    scopes.push((policy_id.0.clone(), info.generation));
+    scopes.retain(|(id, generation, ..)| id != &policy_id.0 || *generation != info.generation);
+    scopes.push((
+        policy_id.0.clone(),
+        info.generation,
+        owner.user,
+        owner.workspace,
+        owner.agent,
+        privacy_key,
+        registered_at,
+    ));
     if scopes.len() > 64 {
         scopes.remove(0);
     }
@@ -65,15 +111,84 @@ pub(crate) async fn browser_dial_config(config: &crate::config::Config) -> Resul
     }))
 }
 
+fn find_reusable_policy<'a>(
+    scopes: &'a [BrowserScope],
+    generation: u64,
+    user: &str,
+    workspace: &str,
+    agent: &str,
+    privacy: &str,
+    now: std::time::Instant,
+) -> Option<(&'a str, u64)> {
+    scopes
+        .iter()
+        .find(
+            |(
+                _,
+                cached_generation,
+                cached_user,
+                cached_workspace,
+                cached_agent,
+                cached_mode,
+                created_at,
+            )| {
+                *cached_generation == generation
+                    && cached_user == user
+                    && cached_workspace == workspace
+                    && cached_agent == agent
+                    && cached_mode == privacy
+                    && now.saturating_duration_since(*created_at) < BROWSER_POLICY_REFRESH_AFTER
+            },
+        )
+        .map(|(id, generation, ..)| (id.as_str(), *generation))
+}
+
 fn is_registered(policy_id: &str, generation: u64) -> bool {
     registered_scopes()
         .lock()
         .iter()
-        .any(|(id, current)| id == policy_id && *current == generation)
+        .any(|(id, current, ..)| id == policy_id && *current == generation)
 }
 
 #[derive(Clone)]
 struct BrowserEgressHost;
+
+#[derive(Clone)]
+struct ConsequenceReviewHost;
+
+#[tinybus::interface(name = "ai.tinyhumans.tinycomputer.ConsequenceHost")]
+impl ConsequenceReviewHost {
+    #[tinybus(confidential)]
+    async fn review(&self, request: ReviewActionRequest) -> tinybus::Result<ReviewActionResponse> {
+        let Some(gate) = crate::security::approval::ApprovalGate::try_global() else {
+            return Ok(ReviewActionResponse {
+                allow: false,
+                reason: Some("Approval gate is unavailable".into()),
+            });
+        };
+        let kind = match request.kind {
+            ConsequenceKind::Irreversible => "irreversible",
+            ConsequenceKind::Payment => "payment",
+        };
+        let summary = format!("{} ({kind})", request.action);
+        let args = serde_json::json!({
+            "task": request.task,
+            "action": request.action,
+            "target": request.target,
+            "kind": kind,
+        });
+        match gate.intercept_forced("browser", &summary, args).await {
+            crate::security::approval::GateOutcome::Allow => Ok(ReviewActionResponse {
+                allow: true,
+                reason: None,
+            }),
+            crate::security::approval::GateOutcome::Deny { reason } => Ok(ReviewActionResponse {
+                allow: false,
+                reason: Some(reason),
+            }),
+        }
+    }
+}
 
 #[tinybus::interface(name = "ai.tinyhumans.tinycomputer.BrowserEgressHost")]
 impl BrowserEgressHost {
@@ -229,6 +344,32 @@ pub(super) async fn install(connection: &Connection) -> tinybus::Result<()> {
         )
         .await?;
     connection.request_name(contract::INTERFACE).await
+}
+
+/// Prepare TinyComputer's authenticated, confidential consequence callback.
+/// TinyBus permits confidential delivery only to this exact callback recipient
+/// bound to the verified module instance; the ordinary host connection is not
+/// an eligible recipient.
+pub(crate) async fn prepare_consequence_callback(
+    runtime: &tinybus::module::ModuleRuntime,
+) -> tinybus::Result<std::sync::Arc<tinybus::module::HostCallbackBinding>> {
+    let binding = std::sync::Arc::new(
+        runtime
+            .host()
+            .prepare_host_callbacks(vec![tinybus::module::HostCallbackEndpoint {
+                path: consequence_host::OBJECT_PATH.parse()?,
+                interface: consequence_host::INTERFACE.parse()?,
+                members: vec![consequence_host::methods::REVIEW.parse()?],
+            }])
+            .await?,
+    );
+    binding
+        .serve_at(
+            consequence_host::OBJECT_PATH.parse()?,
+            ConsequenceReviewHost,
+        )
+        .await?;
+    Ok(binding)
 }
 
 #[cfg(test)]
