@@ -381,7 +381,7 @@ impl ShellTool {
 
         // A sandboxed agent or an explicit operator backend uses the sandbox
         // execution path. Security checks above still apply.
-        let sandbox_required = match crate::sandbox::command_requires_sandbox(
+        let sandbox_required = match crate::sandbox::policy::should_plan_command(
             ctx,
             crate::agent::tinyagents::host::run_context::sandbox_mode_for_tool(context),
         )

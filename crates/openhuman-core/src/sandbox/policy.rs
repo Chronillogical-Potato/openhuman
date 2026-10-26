@@ -108,6 +108,29 @@ pub(crate) fn command_policy(
     ))
 }
 
+/// Whether a command must enter the Plan2 spawn path.
+pub(crate) async fn should_plan_command(
+    ctx: &crate::core::runtime::DispatchCtx,
+    mode: Option<SandboxMode>,
+) -> Result<bool, String> {
+    let untrusted = matches!(
+        ctx.turn_origin_or_scoped(),
+        None | Some(crate::core::runtime::turn_origin::AgentTurnOrigin::ExternalChannel { .. })
+            | Some(crate::core::runtime::turn_origin::AgentTurnOrigin::Unknown)
+    );
+    if crate::core::runtime::is_saas() || untrusted || matches!(mode, Some(SandboxMode::Sandboxed)) {
+        return Ok(true);
+    }
+    let config = ctx.load_config().await?;
+    Ok(matches!(
+        config.sandbox.backend,
+        SandboxBackend::Landlock
+            | SandboxBackend::Firejail
+            | SandboxBackend::Bubblewrap
+            | SandboxBackend::Docker
+    ))
+}
+
 #[cfg(test)]
 #[path = "policy_tests.rs"]
 mod tests;
