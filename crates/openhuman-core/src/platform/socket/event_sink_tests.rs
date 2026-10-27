@@ -28,5 +28,8 @@ fn unhandled_payload_is_logged_without_slicing_multibyte_data() {
     let serialized = json!({"data":payload}).to_string();
     assert!(serialized.len() > 500);
     assert!(!serialized.is_char_boundary(500));
-    dispatch_socket_event("unrelated:event", serde_json::from_str(&serialized).unwrap());
+    dispatch_socket_event(
+        "unrelated:event",
+        serde_json::from_str(&serialized).unwrap(),
+    );
 }

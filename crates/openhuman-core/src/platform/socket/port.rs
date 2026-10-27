@@ -15,11 +15,8 @@ pub type TokenProvider =
 #[async_trait]
 pub trait SocketPort: Send + Sync + 'static {
     async fn connect(&self, url: &str, token: &str) -> Result<(), String>;
-    async fn connect_with_provider(
-        &self,
-        url: &str,
-        provider: TokenProvider,
-    ) -> Result<(), String>;
+    async fn connect_with_provider(&self, url: &str, provider: TokenProvider)
+        -> Result<(), String>;
     async fn disconnect(&self) -> Result<(), String>;
     async fn emit(&self, event: &str, data: serde_json::Value) -> Result<(), String>;
     async fn emit_with_ack(

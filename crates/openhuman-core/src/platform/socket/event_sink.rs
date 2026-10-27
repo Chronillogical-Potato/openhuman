@@ -10,7 +10,6 @@ use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 use crate::skills::webhooks::WebhookRequest;
 
-
 /// Dispatch an event received by the host-owned SDK socket into core domain
 /// events. Connection lifecycle itself remains owned by the host transport.
 pub fn dispatch_socket_event(event_name: &str, data: serde_json::Value) {

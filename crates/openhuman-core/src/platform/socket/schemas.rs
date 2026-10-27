@@ -296,7 +296,8 @@ fn run_connect(
     params: ConnectParams,
 ) -> ControllerFuture {
     Box::pin(async move {
-        let state = super::ops::connect_static(manager.as_ref(), &params.url, &params.token).await?;
+        let state =
+            super::ops::connect_static(manager.as_ref(), &params.url, &params.token).await?;
         Ok(status_payload(&state))
     })
 }

@@ -12,10 +12,14 @@ fn socket_url_uses_the_control_plane_socketio_handshake_path() {
 
 #[test]
 fn socket_endpoint_guard_allows_tls_and_loopback_only() {
-    assert!(is_safe_socket_endpoint("wss://api.tinyhumans.ai/socket.io/"));
+    assert!(is_safe_socket_endpoint(
+        "wss://api.tinyhumans.ai/socket.io/"
+    ));
     assert!(is_safe_socket_endpoint("ws://127.0.0.1:9000/socket.io/"));
     assert!(!is_safe_socket_endpoint("ws://example.com/socket.io/"));
-    assert!(!is_safe_socket_endpoint("wss://user@example.com/socket.io/"));
+    assert!(!is_safe_socket_endpoint(
+        "wss://user@example.com/socket.io/"
+    ));
 }
 
 // ── Test infrastructure ───────────────────────────────────────────────────

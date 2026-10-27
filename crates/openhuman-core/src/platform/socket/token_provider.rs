@@ -8,8 +8,8 @@
 //! The connection transport receives the latest session token before each
 //! attempt rather than retaining an expired credential across reconnects.
 
-use std::sync::Arc;
 pub(super) use super::TokenProvider;
+use std::sync::Arc;
 
 /// The provider is asynchronous because session lookup may use the configured
 /// credential store. TinyHumans bridges it to the SDK callback via the shared

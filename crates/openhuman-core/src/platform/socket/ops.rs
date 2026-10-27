@@ -72,4 +72,3 @@ pub async fn connect_with_session(
         super::token_provider::token_provider_from_config(std::sync::Arc::clone(&config));
     connect_with_session_using(manager, &api_url, &token, provider).await
 }
-

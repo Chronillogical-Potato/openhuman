@@ -100,7 +100,6 @@ pub fn is_safe_socket_endpoint(endpoint: &str) -> bool {
     crate::client::endpoint::is_safe_endpoint_for_managed_bearer(url.as_str())
 }
 
-
 // ─── Known local-AI ports ────────────────────────────────────────────────────
 
 /// Well-known ports used by local model runners.
