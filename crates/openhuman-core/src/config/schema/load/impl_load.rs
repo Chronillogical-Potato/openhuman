@@ -272,7 +272,7 @@ impl Config {
         config.apply_env_overrides();
         // Debug-dump path is read-only; ignore the migration signal (the
         // authoritative `load_or_init` path persists upgraded secrets).
-        let _ = decrypt_config_secrets(&mut config, &openhuman_dir)?;
+        let _ = decrypt_config_secrets(&mut config, &openhuman_dir).await?;
         Ok(config)
     }
 
@@ -361,7 +361,7 @@ impl Config {
         // opened must stay sealed rather than be cleared and saved as `None`.
         if let Some(openhuman_dir) = config.config_path.parent().map(Path::to_path_buf) {
             let mut opened = config.clone();
-            match decrypt_config_secrets_strict(&mut opened, &openhuman_dir) {
+            match decrypt_config_secrets_strict(&mut opened, &openhuman_dir).await {
                 Ok(()) => config = opened,
                 Err(error) => tracing::warn!(
                     path = %config.config_path.display(),
@@ -453,9 +453,9 @@ impl Config {
                 .parent()
                 .context("Config path must have a parent directory")?
                 .to_path_buf();
-            decrypt_config_secrets_strict(&mut config_to_save, &openhuman_dir)?;
+            decrypt_config_secrets_strict(&mut config_to_save, &openhuman_dir).await?;
         } else {
-            encrypt_config_secrets(&mut config_to_save)?;
+            encrypt_config_secrets(&mut config_to_save).await?;
         }
 
         let toml_str =
