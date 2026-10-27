@@ -150,7 +150,7 @@ pub(super) async fn run_agent_job_for_run(
                 target = ?job.session_target,
                 "[cron] building isolated agent for scheduled job"
             );
-            match build_agent_for_cron_job(ctx, &effective, job) {
+            match build_agent_for_cron_job(ctx, &effective, job).await {
                 Ok(BuiltCronAgent { mut agent, context }) => {
                     // Tag events so downstream subscribers can correlate
                     // cron-triggered turns. `cron` is the channel so the
@@ -348,7 +348,7 @@ pub(super) struct BuiltCronAgent {
 
 /// Build the session a cron agent job runs: the host-registered agent named
 /// by `job.agent_id` when there is one, else the registry definition.
-pub(super) fn build_agent_for_cron_job(
+pub(super) async fn build_agent_for_cron_job(
     ctx: &crate::core::runtime::DispatchCtx,
     config: &Config,
     job: &CronJob,
@@ -357,7 +357,7 @@ pub(super) fn build_agent_for_cron_job(
         .agent_id
         .as_deref()
         .and_then(crate::agent::host_agents::resolve);
-    build_cron_agent(ctx, config, job, host_agent)
+    build_cron_agent(ctx, config, job, host_agent).await
 }
 
 #[cfg(test)]
@@ -367,7 +367,7 @@ pub(super) mod tests;
 #[cfg(test)]
 pub(super) use tests::run_agent_job;
 
-fn build_cron_agent(
+async fn build_cron_agent(
     ctx: &crate::core::runtime::DispatchCtx,
     config: &Config,
     job: &CronJob,
@@ -381,7 +381,7 @@ fn build_cron_agent(
         if let Some(model) = job.model.clone() {
             effective.default_model = Some(model);
         }
-        let agent = host.session_host(&effective, None)?;
+        let agent = host.session_host(&effective, None).await?;
         tracing::debug!(
             job_id = %job.id,
             agent_id = %host.definition.id,
