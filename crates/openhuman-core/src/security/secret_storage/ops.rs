@@ -4,8 +4,8 @@
 
 use std::path::Path;
 
-use chacha20poly1305::aead::{rand_core::RngCore, OsRng};
 use parking_lot::Mutex;
+use rand::RngExt as _;
 use sha2::{Digest, Sha256};
 
 use crate::security::secret_storage::error::SecretStorageError;
@@ -351,7 +351,7 @@ fn get_or_create_random_with_backend(
     }
 
     let mut bytes = vec![0u8; len_bytes];
-    OsRng.fill_bytes(&mut bytes);
+    rand::rng().fill(&mut bytes);
     let hex_value = hex_encode(&bytes);
     backend.set(&namespaced, &hex_value)?;
     if backend.get(&namespaced)?.as_deref() != Some(&hex_value) {

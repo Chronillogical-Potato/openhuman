@@ -1,6 +1,6 @@
 # Secret storage
 
-Host-installable secret storage with an in-memory default, plus a ChaCha20-Poly1305 encrypted secret store for config-field encryption. Native keychains live in `openhuman-rpc::keyring`; this module has no OS credential-store dependency. This is an infrastructure domain: it has no RPC controllers, no agent tools, and no event-bus subscribers. It provides a namespaced, user-scoped `get`/`set`/`delete` interface over a backend selected from a host install slot or cached per process, and a separate `SecretStore` type that other domains use to encrypt and decrypt secret values stored in config. All keys are scoped under a `user_id` so multiple users coexist without collision; the backend entry key format is `"{user_id}:{logical_key}"`.
+Host-installable secret storage with an in-memory default. Cipher operations for config-field secrets are delegated through TinySecurity; this module owns the host storage adapter and callback policy, not cryptography. Native keychains live in `openhuman-rpc::keyring`; this module has no OS credential-store dependency. It provides a namespaced, user-scoped `get`/`set`/`delete` interface over a backend selected from a host install slot or cached per process, and a `SecretStore` adapter used by other domains. All keys are scoped under a `user_id` so multiple users coexist without collision; the backend entry key format is `"{user_id}:{logical_key}"`.
 
 ## Responsibilities
 
@@ -8,7 +8,7 @@ Host-installable secret storage with an in-memory default, plus a ChaCha20-Poly1
 - Resolve the host-installed backend first, then an explicit environment override, then the in-memory default. Cache the fallback in a `OnceLock`.
 - Probe and cache backend availability (`is_available`) so callers (wallet guards, snapshot loops) can fall back to file storage without re-triggering OS keychain prompts.
 - Migrate a secret from a plaintext file into a persistent backend (`migrate_from_file`), verifying the write before deleting the source. Volatile providers reject migration and retain the source.
-- Encrypt and decrypt config-field secrets via `SecretStore` (ChaCha20-Poly1305, `enc2:` prefix), including migration of the legacy XOR `enc:` format.
+- Route config-field secret encryption, decryption, and legacy migration via `SecretStore` to TinySecurity (`enc2:` and legacy `enc:` formats).
 - Load and cache a single app-scoped master encryption key at startup (`init_master_key`) for the `encrypted_file` backend: from `OPENHUMAN_KEYRING_MASTER_KEY` / `OPENHUMAN_KEYRING_MASTER_KEY_FILE` when an operator supplies one (headless deployments with no keychain, #6926), otherwise from a host-installed `MasterKeySource`, then a private workspace key file.
 - Migrate the legacy plaintext `dev-keychain.json` into the encrypted `secrets.enc` file on first use.
 
@@ -84,13 +84,12 @@ probing. The app-level keys stay on the process backend: the availability
 probe, `get_or_create_random` and `migrate_from_file` (the config
 encryption key, `secretstore.master_key`) use `process_get` / `process_set` /
 `process_delete`. `backend_name` keeps naming the process backend, which is
-what the consent UI describes. The `enc2:` cipher itself is
-`tinystoragedrivers::secrets::crypto` (byte-compatible; its fixtures were
-written by this module), used directly by the encrypted stores.
+what the consent UI describes. TinySecurity owns cipher operations; OpenHuman
+supplies the callback-bound backend and scoped consent/audit context.
 
 ## Dependencies
 
-Internal modules: configuration and workspace resolution, storage-driver execution, and the core-owned secret-access consent policy. Native keychain providers are installed by RPC and accessed only through `SecretBackend` and `MasterKeySource`. File persistence uses `tinystoragedrivers::secrets`; encryption uses `chacha20poly1305`. This module has no `keyring` dependency.
+Internal modules: configuration and workspace resolution, storage-driver execution, and the core-owned secret-access consent policy. Native keychain providers are installed by RPC and accessed only through `SecretBackend` and `MasterKeySource`. File persistence uses `tinystoragedrivers::secrets`. This module has no `keyring` or cipher dependency.
 
 ## Used by
 
