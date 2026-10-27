@@ -114,11 +114,13 @@ async fn a_cron_job_for_a_host_agent_builds_with_its_host_tools_and_context() {
         belt_builds.load(Ordering::SeqCst) > 0,
         "the host belt was built"
     );
-    assert!(built
-        .agent
-        .visible_tool_specs_arc()
-        .iter()
-        .any(|spec| spec.name == "cron_host_marker"));
+    assert!(
+        built
+            .agent
+            .visible_tool_specs_arc()
+            .iter()
+            .any(|spec| spec.name == "cron_host_marker")
+    );
 }
 
 #[tokio::test]
@@ -141,9 +143,11 @@ async fn an_id_the_host_does_not_know_falls_back_to_the_registries() {
     host_agents::clear_if(&installed);
     let built = built.expect("the orchestrator builds from the registries");
     assert!(built.context.is_none());
-    assert!(!built
-        .agent
-        .visible_tool_specs_arc()
-        .iter()
-        .any(|spec| spec.name == "cron_host_marker"));
+    assert!(
+        !built
+            .agent
+            .visible_tool_specs_arc()
+            .iter()
+            .any(|spec| spec.name == "cron_host_marker")
+    );
 }

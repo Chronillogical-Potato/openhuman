@@ -352,9 +352,11 @@ fn persisted_managed_model_changes_invalidate_the_session_fingerprint() {
         first, second,
         "the old cached agent must not survive a saved model change"
     );
-    assert!(super::fingerprint_diff(&first, &second)
-        .iter()
-        .any(|field| field.starts_with("effective_model:")));
+    assert!(
+        super::fingerprint_diff(&first, &second)
+            .iter()
+            .any(|field| field.starts_with("effective_model:"))
+    );
     config.default_model = None;
     assert_ne!(
         second,
@@ -473,15 +475,15 @@ async fn a_non_ascii_thread_id_builds_a_session_agent_without_panicking() {
     // 11 ASCII bytes, then a 3-byte char: byte 12 falls inside '日'.
     let thread_id = "abcdefghijk日本";
     let built = super::build_session_agent(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            &config,
-            "client-1",
-            thread_id,
-            "orchestrator",
-            None,
-            None,
-        )
-        .await;
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        "client-1",
+        thread_id,
+        "orchestrator",
+        None,
+        None,
+    )
+    .await;
     // The label truncation only runs once the agent builds.
     if let Err(error) = built {
         panic!("session agent must build: {error:#}");

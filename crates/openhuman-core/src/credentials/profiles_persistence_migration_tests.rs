@@ -60,7 +60,7 @@ async fn migration_normalizes_provider_but_preserves_profile_name_casing() {
     )
     .unwrap();
 
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
     let profile = data.profiles.get("provider:deepseek:Work").unwrap();
     assert_eq!(profile.id, "provider:deepseek:Work");
     assert_eq!(profile.provider, "provider:deepseek");
@@ -108,7 +108,7 @@ async fn migration_collision_prefers_existing_lowercase_key() {
     )
     .unwrap();
 
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
 
     assert_eq!(
         data.active_profiles.get("provider:deepseek").unwrap(),
@@ -155,7 +155,7 @@ async fn migration_profile_id_collision_prefers_canonical_lowercase() {
     )
     .unwrap();
 
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
 
     assert_eq!(data.profiles.len(), 1);
     let profile = data.profiles.get("provider:deepseek:default").unwrap();

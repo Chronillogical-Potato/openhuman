@@ -11,8 +11,8 @@ use std::path::Path;
 use tinyagents_session::transcript::TranscriptMeta;
 
 use super::{
-    checkin_session_agent, checkin_session_agent_if_vacant, checkout_session_agent,
-    fingerprint_diff, CheckedOutSession, CheckoutPolicy,
+    CheckedOutSession, CheckoutPolicy, checkin_session_agent, checkin_session_agent_if_vacant,
+    checkout_session_agent, fingerprint_diff,
 };
 use crate::agent::OpenHumanSessionHost;
 use crate::config::Config;

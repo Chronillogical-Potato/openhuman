@@ -161,11 +161,12 @@ async fn concurrent_stores_of_different_kinds_leave_exactly_one_kind() {
         let auth = AuthService::from_config(&user);
         let profiles = auth.load_profiles().await.unwrap().profiles;
         let has_key = profiles.values().any(|profile| {
-            profile.provider == crate::credentials::normalize_provider(api_key::API_KEY_PROVIDER)
-                .unwrap()
+            profile.provider
+                == crate::credentials::normalize_provider(api_key::API_KEY_PROVIDER).unwrap()
         });
         let has_session = profiles.values().any(|profile| {
-            profile.provider == crate::credentials::normalize_provider(APP_SESSION_PROVIDER).unwrap()
+            profile.provider
+                == crate::credentials::normalize_provider(APP_SESSION_PROVIDER).unwrap()
         });
         assert!(
             has_key != has_session,

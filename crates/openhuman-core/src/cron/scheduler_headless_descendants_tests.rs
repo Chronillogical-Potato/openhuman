@@ -238,12 +238,16 @@ async fn scheduled_agent_history_includes_its_spawned_child_result() {
             eprintln!(
                 "scheduled child start timeout diagnostics: spawn calls {}, followups {}, run result {result:?}",
                 model.spawn_calls.load(std::sync::atomic::Ordering::SeqCst),
-                model.accepted_followups.load(std::sync::atomic::Ordering::SeqCst),
+                model
+                    .accepted_followups
+                    .load(std::sync::atomic::Ordering::SeqCst),
             );
             panic!(
-            "scheduled child never reached its model (spawn calls: {}, followups: {}); run result: {result:?}",
-            model.spawn_calls.load(std::sync::atomic::Ordering::SeqCst),
-            model.accepted_followups.load(std::sync::atomic::Ordering::SeqCst),
+                "scheduled child never reached its model (spawn calls: {}, followups: {}); run result: {result:?}",
+                model.spawn_calls.load(std::sync::atomic::Ordering::SeqCst),
+                model
+                    .accepted_followups
+                    .load(std::sync::atomic::Ordering::SeqCst),
             );
         }
     }
@@ -315,7 +319,9 @@ async fn scheduled_agent_timeout_cancels_its_blocked_child_before_history_settle
             panic!(
                 "scheduled child never reached its blocking model (spawns: {}, accepted followups: {})",
                 model.spawn_calls.load(std::sync::atomic::Ordering::SeqCst),
-                model.accepted_followups.load(std::sync::atomic::Ordering::SeqCst),
+                model
+                    .accepted_followups
+                    .load(std::sync::atomic::Ordering::SeqCst),
             );
         }
     }
@@ -385,11 +391,13 @@ async fn scheduled_agent_timeout_cancels_its_blocked_child_before_history_settle
     let runs = crate::cron::list_runs(&config, &job.id, 10).expect("read persisted run history");
     assert_eq!(runs.len(), 1, "scheduler persisted one completed attempt");
     assert_ne!(runs[0].status, "ok", "the configured deadline expired");
-    assert!(!runs[0]
-        .output
-        .as_deref()
-        .unwrap_or_default()
-        .contains("headless-cron-child-result"));
+    assert!(
+        !runs[0]
+            .output
+            .as_deref()
+            .unwrap_or_default()
+            .contains("headless-cron-child-result")
+    );
     assert_eq!(
         child.status,
         tinyagents_orchestration::subagent::SubAgentJobStatus::Cancelled,

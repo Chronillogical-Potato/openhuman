@@ -1,4 +1,4 @@
-use super::agent_run::{build_agent_for_cron_job, run_agent_job, EMPTY_AGENT_OUTPUT};
+use super::agent_run::{EMPTY_AGENT_OUTPUT, build_agent_for_cron_job, run_agent_job};
 use super::*;
 use crate::config::Config;
 use crate::security::SecurityPolicy;
@@ -97,7 +97,7 @@ fn next_user_error(
     loop {
         match rx.try_recv() {
             Ok(ev) if ev.event == "user_error" && ev.error_type.as_deref() == Some(kind) => {
-                break ev
+                break ev;
             }
             Ok(_) => continue,
             // Receiver fell behind a concurrent flood — the dropped slots can't

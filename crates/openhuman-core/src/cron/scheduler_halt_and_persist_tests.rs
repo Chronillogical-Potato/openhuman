@@ -253,8 +253,7 @@ fn is_local_provider_unreachable_failure_matches_raw_no_models_loaded_body() {
 
 #[test]
 fn is_local_provider_unreachable_failure_checks_output_when_raw_is_generic() {
-    let output =
-        "Your local inference server (e.g. LM Studio) is running but has no model loaded. \
+    let output = "Your local inference server (e.g. LM Studio) is running but has no model loaded. \
                   Load a model, then try again.";
     assert!(
         is_local_provider_unreachable_failure(
@@ -445,11 +444,13 @@ async fn scheduler_flow_runs_active_hours_job_and_reschedules_inside_window() {
 
     let stored = cron::get_job(&config, &job.id).unwrap();
     assert_eq!(stored.last_status.as_deref(), Some("ok"));
-    assert!(stored
-        .last_output
-        .as_deref()
-        .unwrap_or_default()
-        .contains("active-hours-fired"));
+    assert!(
+        stored
+            .last_output
+            .as_deref()
+            .unwrap_or_default()
+            .contains("active-hours-fired")
+    );
     assert_eq!(
         stored.schedule,
         Schedule::Cron {
@@ -563,13 +564,15 @@ async fn deliver_if_configured_skips_non_announce_mode() {
     let job = test_job("echo ok");
 
     // Default delivery mode is not "announce", so nothing is published.
-    assert!(deliver_if_configured(
-        &crate::core::runtime::DispatchCtx::ambient(),
-        &config,
-        &job,
-        "x",
-        true
-    )
-    .await
-    .is_ok());
+    assert!(
+        deliver_if_configured(
+            &crate::core::runtime::DispatchCtx::ambient(),
+            &config,
+            &job,
+            "x",
+            true
+        )
+        .await
+        .is_ok()
+    );
 }

@@ -330,10 +330,12 @@ async fn an_unlabelled_call_is_approved_only_by_the_users_grant_of_that_exact_to
     let asked = stub.seen();
     assert_eq!(asked.len(), 2, "the engine decides, not the gate");
     assert_eq!(asked[1].origin, CallOrigin::Unlabelled);
-    assert!(!asked[1]
-        .legacy_tool_grants
-        .iter()
-        .any(|t| t == "some_other_tool"));
+    assert!(
+        !asked[1]
+            .legacy_tool_grants
+            .iter()
+            .any(|t| t == "some_other_tool")
+    );
 }
 
 #[tokio::test]
@@ -551,9 +553,10 @@ fn arguments_are_always_a_bounded_object() {
 fn a_call_correlation_is_eight_hex_characters_and_not_repeated() {
     let ids: std::collections::HashSet<String> = (0..64).map(|_| fresh_call_id()).collect();
     assert!(ids.len() > 60, "random correlations should not collide");
-    assert!(ids
-        .iter()
-        .all(|id| id.len() == 8 && id.bytes().all(|b| b.is_ascii_hexdigit())));
+    assert!(
+        ids.iter()
+            .all(|id| id.len() == 8 && id.bytes().all(|b| b.is_ascii_hexdigit()))
+    );
 }
 
 #[tokio::test]
@@ -582,10 +585,11 @@ async fn pending_requests_are_listed_from_this_process_only_and_by_tenant() {
         Some(request_id.clone())
     );
     // Deciding the orphan finds nothing to resolve: it was never parked here.
-    assert!(gate
-        .decide("orphan", ApprovalDecision::ApproveOnce)
-        .unwrap()
-        .is_none());
+    assert!(
+        gate.decide("orphan", ApprovalDecision::ApproveOnce)
+            .unwrap()
+            .is_none()
+    );
     decide_parked(&gate, &request_id, ApprovalDecision::Deny);
     handle.await.unwrap();
     assert!(gate.list_pending().unwrap().is_empty());
