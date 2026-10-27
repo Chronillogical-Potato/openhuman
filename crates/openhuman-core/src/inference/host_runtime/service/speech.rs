@@ -5,7 +5,7 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use log::debug;
 
 use crate::config::Config;
-use crate::voice::{create_stt_provider, effective_stt_provider, SttProvider};
+use crate::voice::{create_stt_provider, effective_stt_provider};
 use tinyinference_local::models as model_ids;
 use tinyinference_local::status::{LocalAiSpeechResult, LocalAiTtsResult};
 
