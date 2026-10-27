@@ -9,6 +9,7 @@ async fn persisted_profile_document_is_encrypted_at_rest() {
             AuthProfile::new_token("openai", "default", "profile-secret-token".into()),
             true,
         )
+        .await
         .unwrap();
 
     let bytes = std::fs::read(store.path()).expect("encrypted profile document");
@@ -34,6 +35,7 @@ async fn configured_generic_storage_does_not_replace_the_profile_local_document(
             AuthProfile::new_token("openai", "default", "local-secret".into()),
             true,
         )
+        .await
         .unwrap();
 
     let bytes = std::fs::read(store.path()).expect("profile-local encrypted document");

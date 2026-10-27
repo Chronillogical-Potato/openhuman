@@ -276,6 +276,7 @@ async fn load_drops_profiles_with_unrecognized_kind_instead_of_failing_load() {
     // bailing the entire load on the first unrecognized kind.
     let loaded = store
         .load()
+        .await
         .expect("load must succeed by dropping profiles with unrecognized kinds");
 
     assert!(
@@ -335,6 +336,7 @@ async fn set_active_profile_errors_for_missing_profile() {
     let store = AuthProfilesStore::new(tmp.path(), false);
     let err = store
         .set_active_profile("openai", "missing:id")
+        .await
         .unwrap_err();
     assert!(err.to_string().contains("not found"));
 }
@@ -391,6 +393,7 @@ async fn update_profile_modifies_in_place() {
             p.metadata.insert("env".into(), "staging".into());
             Ok(())
         })
+        .await
         .unwrap();
     assert_eq!(
         updated.metadata.get("env").map(|s| s.as_str()),
