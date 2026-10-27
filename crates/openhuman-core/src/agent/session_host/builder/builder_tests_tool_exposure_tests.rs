@@ -13,12 +13,13 @@ fn visible_names_for(
     definition: &crate::agent_registry::host_definition::AgentDefinition,
 ) -> std::collections::HashSet<String> {
     let tmp = tempfile::TempDir::new().unwrap();
-    let config = test_config(&tmp);
+    let config = test_config(&tmp).await;
     let agent = crate::agent::OpenHumanSessionHost::from_config_with_definition(
         &crate::core::runtime::DispatchCtx::ambient(),
         &config,
         definition,
     )
+    .await
     .unwrap_or_else(|e| panic!("{} session build: {e}", definition.id));
     agent
         .visible_tool_specs_arc()
@@ -27,16 +28,17 @@ fn visible_names_for(
         .collect()
 }
 
-#[test]
-fn resetting_wildcard_visibility_keeps_collapsed_exposure() {
+#[tokio::test]
+async fn resetting_wildcard_visibility_keeps_collapsed_exposure() {
     let tmp = tempfile::TempDir::new().unwrap();
-    let config = test_config(&tmp);
+    let config = test_config(&tmp).await;
     let definition = super::wildcard_probe_def();
     let mut agent = crate::agent::OpenHumanSessionHost::from_config_with_definition(
         &crate::core::runtime::DispatchCtx::ambient(),
         &config,
         &definition,
     )
+    .await
     .expect("build wildcard agent");
 
     agent.set_visible_tool_names(std::collections::HashSet::new());
@@ -46,16 +48,17 @@ fn resetting_wildcard_visibility_keeps_collapsed_exposure() {
     assert!(!visible.iter().any(|spec| spec.name.starts_with("todo_")));
 }
 
-#[test]
-fn hiding_and_reseeding_wildcard_visibility_keeps_collapsed_exposure() {
+#[tokio::test]
+async fn hiding_and_reseeding_wildcard_visibility_keeps_collapsed_exposure() {
     let tmp = tempfile::TempDir::new().unwrap();
-    let config = test_config(&tmp);
+    let config = test_config(&tmp).await;
     let definition = super::wildcard_probe_def();
     let mut agent = crate::agent::OpenHumanSessionHost::from_config_with_definition(
         &crate::core::runtime::DispatchCtx::ambient(),
         &config,
         &definition,
     )
+    .await
     .expect("build wildcard agent");
 
     agent.set_visible_tool_names(std::collections::HashSet::new());
@@ -75,8 +78,8 @@ fn hiding_and_reseeding_wildcard_visibility_keeps_collapsed_exposure() {
 /// `todo` beside the eight `todo_*` tools it replaces. The v1 `memory_*` tool
 /// family is gone for good (memory v2 has one `memory` tool, registered only
 /// while an engine is usable); none of it may come back.
-#[test]
-fn wildcard_belt_advertises_collapsed_tools_not_their_hidden_members() {
+#[tokio::test]
+async fn wildcard_belt_advertises_collapsed_tools_not_their_hidden_members() {
     let visible = visible_names_for(&super::wildcard_probe_def());
 
     assert!(
@@ -142,8 +145,8 @@ fn direct_and_deferred() -> Vec<Box<dyn tinytools::Tool>> {
 /// harness registers for its `tool_search` bridge, and classified `Allow` by
 /// the policy — a found tool the gate refuses as prompt-hidden is the
 /// unusable find this replaced.
-#[test]
-fn wildcard_belt_defers_but_keeps_reachable() {
+#[tokio::test]
+async fn wildcard_belt_defers_but_keeps_reachable() {
     let agent = build_with(direct_and_deferred(), std::collections::HashSet::new());
 
     assert_eq!(
@@ -169,8 +172,8 @@ fn wildcard_belt_defers_but_keeps_reachable() {
 /// is the harness's intrinsic bridge and leaves the allowlist, every
 /// `Deferred` registration becomes reachable whether or not the belt named
 /// it, and the belt's own `Direct` entries stay exactly as written.
-#[test]
-fn named_belt_opts_into_discovery_by_naming_tool_search() {
+#[tokio::test]
+async fn named_belt_opts_into_discovery_by_naming_tool_search() {
     let visible: std::collections::HashSet<String> = ["plain", tinytools::TOOL_SEARCH_NAME]
         .into_iter()
         .map(String::from)
@@ -190,8 +193,8 @@ fn named_belt_opts_into_discovery_by_naming_tool_search() {
 
 /// A named belt that does not opt in reaches nothing beyond what it wrote
 /// down: no deferred set, and a deferred tool it did not name stays hidden.
-#[test]
-fn named_belt_without_tool_search_reaches_no_deferred_tool() {
+#[tokio::test]
+async fn named_belt_without_tool_search_reaches_no_deferred_tool() {
     let visible: std::collections::HashSet<String> = std::iter::once("plain".to_string()).collect();
     let agent = build_with(direct_and_deferred(), visible);
 
@@ -202,8 +205,8 @@ fn named_belt_without_tool_search_reaches_no_deferred_tool() {
 /// A hand-written `[tools] named` belt is left exactly as written: exposure is
 /// only for the wildcard belt. This test-owned definition names `file_read`;
 /// it must keep that tool and gain nothing a wildcard would add.
-#[test]
-fn named_belt_keeps_its_listed_members() {
+#[tokio::test]
+async fn named_belt_keeps_its_listed_members() {
     let mut definition = super::wildcard_probe_def();
     definition.tools = tinyagents_definition::ToolScope::Named(vec!["file_read".to_owned()]);
     let visible = visible_names_for(&definition);
@@ -226,10 +229,10 @@ fn named_belt_keeps_its_listed_members() {
 /// them), and callable once found. This is the whole bargain that let
 /// `settings_agent`, `scheduler_agent`, `help`, `code_executor` and `critic`
 /// go — a regression here silently takes those capabilities from chat.
-#[test]
-fn orchestrator_reaches_the_replaced_specialists_tools_through_discovery() {
+#[tokio::test]
+async fn orchestrator_reaches_the_replaced_specialists_tools_through_discovery() {
     let tmp = tempfile::TempDir::new().unwrap();
-    let config = test_config(&tmp);
+    let config = test_config(&tmp).await;
     let definitions = std::sync::Arc::new(
         crate::agent_registry::host_definition::AgentDefinitionRegistry::builtins_only(),
     );
@@ -256,6 +259,7 @@ fn orchestrator_reaches_the_replaced_specialists_tools_through_discovery() {
             &config,
             &definition,
         )
+        .await
         .expect("orchestrator session build");
         let deferred = agent.deferred_tool_names;
         let visible = agent.visible_tool_names;

@@ -53,7 +53,7 @@ async fn composio_tools_register_in_backend_mode_once_a_host_registers_the_route
     crate::integrations::composio::test_backend_route::register();
     let tmp = TempDir::new().unwrap();
     let cfg = test_config(&tmp);
-    store_test_session_token(&cfg);
+    store_test_session_token(&cfg).await;
 
     let names = registry_names_for(&cfg, &tmp).await;
     assert_contains_all(
