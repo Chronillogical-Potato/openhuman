@@ -181,7 +181,11 @@ async fn a_revoked_device_with_a_live_cipher_is_dropped() {
     );
     super::super::rpc::ACTIVE_SESSIONS.lock().unwrap().insert(
         "owner-test-cipher".to_string(),
-        super::super::rpc::ActiveDeviceSession { scope_id: "scope".into(), session_id: "session".into(), pairing_token: "token".into() },
+        super::super::rpc::ActiveDeviceSession {
+            scope_id: "scope".into(),
+            session_id: "session".into(),
+            pairing_token: "token".into(),
+        },
     );
     let owner = crate::core::runtime::CoreContext::scope(
         context.clone(),
@@ -224,7 +228,11 @@ async fn a_leftover_pairing_session_does_not_outlive_a_revocation() {
     );
     super::super::rpc::ACTIVE_SESSIONS.lock().unwrap().insert(
         "owner-test-leftover".to_string(),
-        super::super::rpc::ActiveDeviceSession { scope_id: "scope".into(), session_id: "session".into(), pairing_token: "token".into() },
+        super::super::rpc::ActiveDeviceSession {
+            scope_id: "scope".into(),
+            session_id: "session".into(),
+            pairing_token: "token".into(),
+        },
     );
     // Cipher live, row not persisted yet: still the session's agent.
     let racing = crate::core::runtime::CoreContext::scope(
@@ -268,7 +276,11 @@ fn an_unpersisted_pairing_is_abandoned() {
         .insert(id.to_string(), session(None));
     super::super::rpc::ACTIVE_SESSIONS.lock().unwrap().insert(
         id.to_string(),
-        super::super::rpc::ActiveDeviceSession { scope_id: "scope".into(), session_id: "session".into(), pairing_token: "token".into() },
+        super::super::rpc::ActiveDeviceSession {
+            scope_id: "scope".into(),
+            session_id: "session".into(),
+            pairing_token: "token".into(),
+        },
     );
     super::super::bus::abandon_unpersisted_pairing(id);
     assert!(!super::super::rpc::PENDING_SESSIONS

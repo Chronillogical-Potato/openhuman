@@ -179,7 +179,8 @@ pub async fn devices_import_legacy(
     config: &Config,
 ) -> Result<Outcome<ImportLegacyResponse>, String> {
     require_user_controller(ctx)?;
-    let host_event_id = crate::modules::security::device_pairing_legacy_import_event(config).await?;
+    let host_event_id =
+        crate::modules::security::device_pairing_legacy_import_event(config).await?;
     let client = crate::modules::security::client(config)
         .await
         .map_err(|error| error.to_string())?;
@@ -400,9 +401,7 @@ fn pairing_begin_result(
     Ok((public_key, receipt))
 }
 
-fn pairing_begin_request(
-    host_event_id: String,
-) -> tinysecurity_bus::DevicePairingRequest2 {
+fn pairing_begin_request(host_event_id: String) -> tinysecurity_bus::DevicePairingRequest2 {
     tinysecurity_bus::DevicePairingRequest2 {
         call_id: uuid::Uuid::new_v4().simple().to_string(),
         operation: tinysecurity_bus::DevicePairingOperation2::Begin { host_event_id },

@@ -36,6 +36,6 @@ pub use schemas::{
     all_registered_controllers as all_devices_registered_controllers,
 };
 pub use types::{
-    CreatePairingResponse, ImportLegacyResponse, ListDevicesResponse, PairedDevice,
-    PairingSession, RevokeDeviceResponse,
+    CreatePairingResponse, ImportLegacyResponse, ListDevicesResponse, PairedDevice, PairingSession,
+    RevokeDeviceResponse,
 };

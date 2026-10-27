@@ -25,10 +25,12 @@ fn device_pairing_host_event_is_bound_to_purpose_channel_and_used_once() {
     use tinysecurity_bus::{DevicePairingPurpose2, DevicePairingSource2};
 
     let events = PairingEventRegistry::default();
-    let event_id = events.issue(pairing_context(
-        "channel-1",
-        DevicePairingSource2::RegisteredSocket,
-    ), 1_000).unwrap();
+    let event_id = events
+        .issue(
+            pairing_context("channel-1", DevicePairingSource2::RegisteredSocket),
+            1_000,
+        )
+        .unwrap();
     let request = tinysecurity_bus::DevicePairingContextRequest2 {
         host_event_id: event_id.clone(),
         purpose: DevicePairingPurpose2::SocketEvent,
@@ -44,10 +46,12 @@ fn device_pairing_host_event_is_bound_to_purpose_channel_and_used_once() {
         "event IDs are single use"
     );
 
-    let wrong_purpose = events.issue(pairing_context(
-        "channel-2",
-        DevicePairingSource2::RegisteredSocket,
-    ), 1_000).unwrap();
+    let wrong_purpose = events
+        .issue(
+            pairing_context("channel-2", DevicePairingSource2::RegisteredSocket),
+            1_000,
+        )
+        .unwrap();
     assert!(events
         .resolve(
             &tinysecurity_bus::DevicePairingContextRequest2 {
@@ -59,10 +63,12 @@ fn device_pairing_host_event_is_bound_to_purpose_channel_and_used_once() {
         )
         .is_err());
 
-    let wrong_channel = events.issue(pairing_context(
-        "channel-3",
-        DevicePairingSource2::RegisteredSocket,
-    ), 1_000).unwrap();
+    let wrong_channel = events
+        .issue(
+            pairing_context("channel-3", DevicePairingSource2::RegisteredSocket),
+            1_000,
+        )
+        .unwrap();
     assert!(events
         .resolve(
             &tinysecurity_bus::DevicePairingContextRequest2 {
@@ -109,7 +115,10 @@ fn legacy_import_handle_is_bound_to_source_and_consumed_once() {
     assert_eq!(grant.scope_id, "0123456789abcdef0123456789abcdef");
     assert_eq!(grant.generation, 7);
     assert_eq!(grant.backend_id, "abcdef0123456789abcdef0123456789");
-    assert!(take_legacy_import_grant(&handle, 1).is_none(), "grant replay denied");
+    assert!(
+        take_legacy_import_grant(&handle, 1).is_none(),
+        "grant replay denied"
+    );
 
     assert!(register_legacy_import_grant(
         uuid::Uuid::new_v4().simple().to_string(),

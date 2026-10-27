@@ -140,14 +140,13 @@ async fn handle_peer_offline(channel_id: &str, ctx: &DispatchCtx) {
         .remove(channel_id);
     if let (Some((nonce, expires_at_ms)), Some(active)) = (attestation, active) {
         if let Ok(config) = ctx.load_config().await {
-            if let Ok((event_id, _)) =
-                crate::modules::security::device_pairing_socket_closed_event(
-                    &config,
-                    channel_id,
-                    &nonce,
-                    expires_at_ms,
-                )
-                .await
+            if let Ok((event_id, _)) = crate::modules::security::device_pairing_socket_closed_event(
+                &config,
+                channel_id,
+                &nonce,
+                expires_at_ms,
+            )
+            .await
             {
                 if let Ok(client) = crate::modules::security::client(&config).await {
                     let _ = client
@@ -342,8 +341,7 @@ async fn handle_encrypted_rpc_frame(
             },
         })
         .await;
-    if !refreshed.is_ok_and(|response| response.session_id.as_deref() == Some(&active.session_id))
-    {
+    if !refreshed.is_ok_and(|response| response.session_id.as_deref() == Some(&active.session_id)) {
         log::warn!("[devices/bus] TinySecurity could not refresh session channel_id={channel_id}");
         ACTIVE_SESSIONS
             .lock()

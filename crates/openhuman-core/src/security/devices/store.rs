@@ -92,11 +92,7 @@ pub(crate) fn list_devices_for_legacy_import(config: &Config) -> Result<Vec<Pair
 }
 
 /// Attach the module-issued owner id after legacy import recovery.
-pub(crate) fn set_pairing_id(
-    config: &Config,
-    channel_id: &str,
-    pairing_id: &str,
-) -> Result<bool> {
+pub(crate) fn set_pairing_id(config: &Config, channel_id: &str, pairing_id: &str) -> Result<bool> {
     super::store_documents::current(config)?.set_pairing_id(channel_id, pairing_id)
 }
 

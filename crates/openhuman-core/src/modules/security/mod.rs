@@ -42,10 +42,16 @@ pub(crate) async fn resolve_user_master(
 /// master handle for a direct paired-device controller action.
 pub(crate) async fn device_pairing_master(
     config: &Config,
-) -> Result<(Client, crate::security::approval::native::SecretScope, String, u64), String> {
-    let client = client(config)
-        .await
-        .map_err(|error| error.to_string())?;
+) -> Result<
+    (
+        Client,
+        crate::security::approval::native::SecretScope,
+        String,
+        u64,
+    ),
+    String,
+> {
+    let client = client(config).await.map_err(|error| error.to_string())?;
     let scope = host_callbacks::secret_scope()
         .await
         .ok_or_else(|| "security secret scope unavailable".to_owned())?;
@@ -121,12 +127,8 @@ pub(crate) fn device_pairing_user_event(
 
 /// Mint a direct-user event for a channel lookup/revoke that does not need a
 /// secret master alias, such as recovering an imported pairing id.
-pub(crate) async fn device_pairing_recover_event(
-    config: &Config,
-) -> Result<String, String> {
-    let client = client(config)
-        .await
-        .map_err(|error| error.to_string())?;
+pub(crate) async fn device_pairing_recover_event(config: &Config) -> Result<String, String> {
+    let client = client(config).await.map_err(|error| error.to_string())?;
     let scope = host_callbacks::secret_scope()
         .await
         .ok_or_else(|| "security secret scope unavailable".to_owned())?;
@@ -140,12 +142,8 @@ pub(crate) async fn device_pairing_recover_event(
 
 /// Mint a one-shot direct-user import event and bind its callback to the
 /// current scoped legacy device store and fixed TinySecurity source ids.
-pub(crate) async fn device_pairing_legacy_import_event(
-    config: &Config,
-) -> Result<String, String> {
-    let client = client(config)
-        .await
-        .map_err(|error| error.to_string())?;
+pub(crate) async fn device_pairing_legacy_import_event(config: &Config) -> Result<String, String> {
+    let client = client(config).await.map_err(|error| error.to_string())?;
     let scope = host_callbacks::secret_scope()
         .await
         .ok_or_else(|| "security secret scope unavailable".to_owned())?;
@@ -220,9 +218,7 @@ pub(crate) async fn device_pairing_socket_event(
     if expires_at_ms <= now_ms || expires_at_ms.saturating_sub(now_ms) > 30_000 {
         return Err("expired host tunnel event".to_owned());
     }
-    let client = client(config)
-        .await
-        .map_err(|error| error.to_string())?;
+    let client = client(config).await.map_err(|error| error.to_string())?;
     let scope = host_callbacks::secret_scope()
         .await
         .ok_or_else(|| "security secret scope unavailable".to_owned())?;
@@ -232,18 +228,19 @@ pub(crate) async fn device_pairing_socket_event(
         .map_err(|error| error.to_string())?
         .generation;
     let scope_id = scope.scope_id().to_owned();
-    let event_id = callbacks::issue_pairing_event(tinysecurity_bus::DevicePairingContextResponse2 {
-        scope_id: scope_id.clone(),
-        user_binding: scope_id.clone(),
-        secret_master_handle: None,
-        legacy_import_handle: None,
-        channel_id: channel_id.to_owned(),
-        pairing_token: Some(pairing_token.to_owned()),
-        connection_nonce: connection_nonce.to_owned(),
-        generation,
-        source: tinysecurity_bus::DevicePairingSource2::RegisteredSocket,
-        expires_at_ms,
-    })?;
+    let event_id =
+        callbacks::issue_pairing_event(tinysecurity_bus::DevicePairingContextResponse2 {
+            scope_id: scope_id.clone(),
+            user_binding: scope_id.clone(),
+            secret_master_handle: None,
+            legacy_import_handle: None,
+            channel_id: channel_id.to_owned(),
+            pairing_token: Some(pairing_token.to_owned()),
+            connection_nonce: connection_nonce.to_owned(),
+            generation,
+            source: tinysecurity_bus::DevicePairingSource2::RegisteredSocket,
+            expires_at_ms,
+        })?;
     Ok((event_id, scope_id))
 }
 
@@ -265,9 +262,7 @@ pub(crate) async fn device_pairing_socket_closed_event(
     if expires_at_ms <= now_ms || expires_at_ms.saturating_sub(now_ms) > 30_000 {
         return Err("expired host socket close event".to_owned());
     }
-    let client = client(config)
-        .await
-        .map_err(|error| error.to_string())?;
+    let client = client(config).await.map_err(|error| error.to_string())?;
     let scope = host_callbacks::secret_scope()
         .await
         .ok_or_else(|| "security secret scope unavailable".to_owned())?;
@@ -277,18 +272,19 @@ pub(crate) async fn device_pairing_socket_closed_event(
         .map_err(|error| error.to_string())?
         .generation;
     let scope_id = scope.scope_id().to_owned();
-    let event_id = callbacks::issue_pairing_event(tinysecurity_bus::DevicePairingContextResponse2 {
-        scope_id: scope_id.clone(),
-        user_binding: scope_id.clone(),
-        secret_master_handle: None,
-        legacy_import_handle: None,
-        channel_id: channel_id.to_owned(),
-        pairing_token: None,
-        connection_nonce: connection_nonce.to_owned(),
-        generation,
-        source: tinysecurity_bus::DevicePairingSource2::SocketClosed,
-        expires_at_ms,
-    })?;
+    let event_id =
+        callbacks::issue_pairing_event(tinysecurity_bus::DevicePairingContextResponse2 {
+            scope_id: scope_id.clone(),
+            user_binding: scope_id.clone(),
+            secret_master_handle: None,
+            legacy_import_handle: None,
+            channel_id: channel_id.to_owned(),
+            pairing_token: None,
+            connection_nonce: connection_nonce.to_owned(),
+            generation,
+            source: tinysecurity_bus::DevicePairingSource2::SocketClosed,
+            expires_at_ms,
+        })?;
     Ok((event_id, scope_id))
 }
 

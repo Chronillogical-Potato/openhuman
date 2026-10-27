@@ -36,15 +36,13 @@ fn abandoning_pairing_clears_only_host_session_capabilities() {
         .lock()
         .unwrap()
         .insert(channel_id.into(), session("2099-01-01T00:00:00Z"));
-    PENDING_HANDSHAKES
-        .lock()
-        .unwrap()
-        .insert(channel_id.into());
+    PENDING_HANDSHAKES.lock().unwrap().insert(channel_id.into());
     ACTIVE_SESSIONS.lock().unwrap().insert(
         channel_id.into(),
         super::super::rpc::ActiveDeviceSession {
             scope_id: "scope".into(),
-            session_id: "module-session".into(), pairing_token: "token".into(),
+            session_id: "module-session".into(),
+            pairing_token: "token".into(),
         },
     );
 

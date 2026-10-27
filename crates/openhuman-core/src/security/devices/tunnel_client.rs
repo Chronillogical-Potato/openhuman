@@ -4,8 +4,8 @@
 //! details. Core device operations use this typed interface and consume
 //! semantic peer/frame events only.
 
-use std::sync::{Arc, OnceLock};
 use std::collections::HashMap;
+use std::sync::{Arc, OnceLock};
 
 #[derive(Clone)]
 struct SocketAttestation {

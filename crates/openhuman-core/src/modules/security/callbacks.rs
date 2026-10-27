@@ -148,12 +148,11 @@ impl DevicePairingHost {
         &self,
         request: tinysecurity_bus::DevicePairingLegacyLoadRequest2,
     ) -> tinybus::Result<tinysecurity_bus::DevicePairingLegacyLoadResponse2> {
-        let grant = take_legacy_import_grant(&request.handle, unix_time_ms())
-            .ok_or_else(unavailable)?;
-        let devices = crate::security::devices::store::list_devices_for_legacy_import(
-            &grant.config,
-        )
-        .map_err(|_| unavailable())?;
+        let grant =
+            take_legacy_import_grant(&request.handle, unix_time_ms()).ok_or_else(unavailable)?;
+        let devices =
+            crate::security::devices::store::list_devices_for_legacy_import(&grant.config)
+                .map_err(|_| unavailable())?;
         if devices.len() > 256 {
             return Err(unavailable());
         }
