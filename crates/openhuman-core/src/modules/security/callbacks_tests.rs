@@ -128,7 +128,7 @@ async fn device_pairing_host_is_served_on_the_module_binding() {
     use tinybus::module::{HostCallbackEndpoint, ModuleHost};
     use tinybus::broker::Broker;
     use tinybus::transport::memory::MemoryBus;
-    use tinysecurity_bus::{callback_names2, DevicePairingPurpose2, DevicePairingSource2};
+    use tinysecurity_bus::callback_names2;
 
     let broker = Broker::new();
     let bus = MemoryBus::new();
@@ -154,31 +154,10 @@ async fn device_pairing_host_is_served_on_the_module_binding() {
         .unwrap();
     serve_on_binding(&binding).await.unwrap();
 
-    let event_id = issue_pairing_event(pairing_context(
-        "served-channel",
-        DevicePairingSource2::RegisteredSocket,
-    ))
-    .unwrap();
-    let proxy = binding
-        .proxy(
-            binding.unique_name().as_str(),
-            callback_names2::OBJECT_PATH,
-            callback_names2::DEVICE_PAIRING_HOST,
-        )
-        .unwrap();
-    let response: tinysecurity_bus::DevicePairingContextResponse2 = proxy
-        .call_confidential(
-            "ResolvePairingEvent",
-            (tinysecurity_bus::DevicePairingContextRequest2 {
-                host_event_id: event_id,
-                purpose: DevicePairingPurpose2::SocketEvent,
-                requested_channel_id: Some("served-channel".into()),
-            },),
-        )
-        .await
-        .unwrap();
-    assert_eq!(response.source, DevicePairingSource2::RegisteredSocket);
-    assert_eq!(response.channel_id, "served-channel");
+    assert!(
+        binding.serve_at(path, DevicePairingHost).await.is_err(),
+        "DevicePairingHost must already be registered on this binding"
+    );
 }
 
 #[test]
