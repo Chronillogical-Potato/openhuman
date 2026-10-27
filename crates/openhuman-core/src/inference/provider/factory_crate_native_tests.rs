@@ -621,6 +621,7 @@ async fn native_claude_turn_routes_disclose_pinned_models() {
         Arc::new(sdk_config),
     )
     .build(pinned_sdk, 0.0, None, None)
+    .await
     .expect("Claude Agent SDK turn set should build");
 
     let configured_code = "egress-code-configured-marker";
@@ -635,7 +636,8 @@ async fn native_claude_turn_routes_disclose_pinned_models() {
         "chat",
         Arc::new(code_config),
     )
-    .build(pinned_code, 0.0, None, None);
+    .build(pinned_code, 0.0, None, None)
+    .await;
 
     let sentinel = "egress-native-claude-sentinel-end";
     BUS.publish(DomainEvent::ExternalTransferPending {

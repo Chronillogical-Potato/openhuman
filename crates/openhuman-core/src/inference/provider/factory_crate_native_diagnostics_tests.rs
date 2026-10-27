@@ -5,7 +5,7 @@ use tinyinference_llm::providers::registry::openrouter_default_provider_options;
 #[tokio::test]
 async fn crate_native_chat_model_factory_preserves_invalid_route_diagnostics() {
     let _guard = crate::inference::inference_test_guard();
-    super::with_library_test_context(|| {
+    super::with_library_test_context_async(|| async {
         let config = Config::default();
 
         let unconfigured =
@@ -45,7 +45,8 @@ async fn crate_native_chat_model_factory_preserves_invalid_route_diagnostics() {
             byok.contains("BYOK_INCOMPLETE"),
             "unexpected diagnostic: {byok}"
         );
-    });
+    })
+    .await;
 }
 
 /// Real-path smoke (privacy epic S2, #4436): driving the actual inference
