@@ -79,7 +79,7 @@ async fn fetch_connected_integrations_via_mock_aggregates_tools() {
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
     // Use a fresh cache key by isolating config_path.
-    let config = config_with_backend(&tmp, base);
+    let config = config_with_backend(&tmp, base).await;
     invalidate_connected_integrations_cache();
     let integrations = fetch_connected_integrations(&config).await;
     assert_eq!(integrations.len(), 2);
@@ -141,7 +141,7 @@ async fn fetch_connected_integrations_treats_slack_and_telegram_status_like_ui()
         );
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = config_with_backend(&tmp, base);
+    let config = config_with_backend(&tmp, base).await;
     invalidate_connected_integrations_cache();
 
     let integrations = fetch_connected_integrations(&config).await;
@@ -176,7 +176,7 @@ async fn fetch_connected_integrations_via_mock_returns_empty_with_no_active() {
     );
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = config_with_backend(&tmp, base);
+    let config = config_with_backend(&tmp, base).await;
     invalidate_connected_integrations_cache();
     let integrations = fetch_connected_integrations(&config).await;
     assert!(integrations.is_empty());
@@ -393,7 +393,7 @@ async fn composio_list_available_triggers_via_mock() {
     );
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = config_with_backend(&tmp, base);
+    let config = config_with_backend(&tmp, base).await;
 
     let outcome = composio_list_available_triggers(&config, "gmail", Some("c1".into()))
         .await
@@ -419,7 +419,7 @@ async fn composio_list_available_triggers_omits_connection_when_none() {
     );
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = config_with_backend(&tmp, base);
+    let config = config_with_backend(&tmp, base).await;
 
     let outcome = composio_list_available_triggers(&config, "gmail", None)
         .await
@@ -449,7 +449,7 @@ async fn composio_list_triggers_via_mock_with_filter() {
     );
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = config_with_backend(&tmp, base);
+    let config = config_with_backend(&tmp, base).await;
 
     let outcome = composio_list_triggers(&config, Some("gmail".into()))
         .await
@@ -468,7 +468,7 @@ async fn composio_list_triggers_without_filter() {
     );
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = config_with_backend(&tmp, base);
+    let config = config_with_backend(&tmp, base).await;
 
     let outcome = composio_list_triggers(&config, None).await.unwrap();
     assert!(outcome.value.triggers.is_empty());
@@ -495,7 +495,7 @@ async fn composio_enable_trigger_via_mock() {
     );
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = config_with_backend(&tmp, base);
+    let config = config_with_backend(&tmp, base).await;
 
     let outcome = composio_enable_trigger(
         &config,
@@ -543,7 +543,7 @@ async fn enabling_trigger_makes_it_visible_in_list_triggers() {
         );
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = config_with_backend(&tmp, base);
+    let config = config_with_backend(&tmp, base).await;
 
     assert!(composio_list_triggers(&config, None)
         .await
@@ -572,7 +572,7 @@ async fn composio_disable_trigger_via_mock() {
     );
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = config_with_backend(&tmp, base);
+    let config = config_with_backend(&tmp, base).await;
 
     let outcome = composio_disable_trigger(&config, "ti_1").await.unwrap();
     assert!(outcome.value.deleted);
@@ -593,7 +593,7 @@ async fn composio_disable_trigger_propagates_backend_error() {
     );
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = config_with_backend(&tmp, base);
+    let config = config_with_backend(&tmp, base).await;
 
     let err = composio_disable_trigger(&config, "missing")
         .await
@@ -605,7 +605,7 @@ async fn composio_disable_trigger_propagates_backend_error() {
 async fn composio_list_toolkits_returns_empty_in_direct_mode() {
     let _serialised = module_guard().await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = direct_mode_config(&tmp);
+    let config = direct_mode_config(&tmp).await;
     let outcome = composio_list_toolkits(&config)
         .await
         .expect("direct-mode list_toolkits must succeed without HTTP");
@@ -625,7 +625,7 @@ async fn composio_list_connections_routes_through_direct_mode() {
     let _serialised = module_guard().await;
     let _guard = cache_guard_async().await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = direct_mode_config(&tmp);
+    let config = direct_mode_config(&tmp).await;
     // [composio-direct] After commit 2 of #1710, direct mode actually
     // calls `backend.composio.dev/api/v3/connected_accounts` rather
     // than returning an empty stub. Without a real Composio key the
@@ -689,7 +689,7 @@ async fn direct_mode_without_key_is_false_when_key_in_keychain() {
     let tmp = tempfile::tempdir().unwrap();
     // `direct_mode_config` stores a key via the auth store — the guard
     // must see it and report "has key".
-    let config = direct_mode_config(&tmp);
+    let config = direct_mode_config(&tmp).await;
     assert!(!direct_mode_without_key(&config).unwrap());
 }
 

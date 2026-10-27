@@ -238,7 +238,7 @@ async fn composio_list_toolkits_via_mock() {
     );
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = config_with_backend(&tmp, base);
+    let config = config_with_backend(&tmp, base).await;
     let outcome = composio_list_toolkits(&config).await.unwrap();
     assert_eq!(outcome.value.toolkits, vec!["gmail".to_string()]);
     assert!(outcome.logs.iter().any(|l| l.contains("toolkit")));
@@ -262,7 +262,7 @@ async fn composio_list_connections_via_mock_counts_active() {
     );
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = config_with_backend(&tmp, base);
+    let config = config_with_backend(&tmp, base).await;
     let outcome = composio_list_connections(&crate::core::runtime::DispatchCtx::ambient(), &config)
         .await
         .unwrap();
@@ -290,7 +290,7 @@ async fn composio_list_connections_drops_the_module_route_once_signed_out() {
     );
     let base = start_mock_backend(app).await;
     let signed_in_tmp = tempfile::tempdir().unwrap();
-    let signed_in = config_with_backend(&signed_in_tmp, base);
+    let signed_in = config_with_backend(&signed_in_tmp, base).await;
     // Signed in: the module is loaded and routed to the mock backend.
     let outcome =
         composio_list_connections(&crate::core::runtime::DispatchCtx::ambient(), &signed_in)
@@ -382,7 +382,7 @@ async fn composio_authorize_clears_pending_meta_connection_before_handoff() {
         );
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = config_with_backend(&tmp, base);
+    let config = config_with_backend(&tmp, base).await;
     let outcome = composio_authorize(
         &crate::core::runtime::DispatchCtx::host_default(),
         &config,
@@ -409,7 +409,7 @@ async fn composio_authorize_via_mock_publishes_event_and_returns_url() {
     );
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = config_with_backend(&tmp, base);
+    let config = config_with_backend(&tmp, base).await;
     let outcome = composio_authorize(
         &crate::core::runtime::DispatchCtx::host_default(),
         &config,
@@ -433,7 +433,7 @@ async fn composio_delete_connection_via_mock() {
     );
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = config_with_backend(&tmp, base);
+    let config = config_with_backend(&tmp, base).await;
     let outcome =
         composio_delete_connection(&crate::core::runtime::DispatchCtx::ambient(), &config, "c1")
             .await

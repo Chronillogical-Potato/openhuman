@@ -133,7 +133,7 @@ async fn composio_set_api_key_validates_candidate_key_even_when_stored_key_exist
 async fn composio_list_tools_in_direct_mode_does_not_fall_back_to_backend() {
     let _serialised = module_guard().await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = direct_mode_config(&tmp);
+    let config = direct_mode_config(&tmp).await;
     let result = composio_list_tools(
         &crate::core::runtime::DispatchCtx::ambient(),
         &config,
@@ -182,7 +182,7 @@ async fn composio_authorize_routes_through_direct_mode() {
     // important thing is that backend mode would have produced
     // "composio unavailable / no backend session" instead.
     let tmp = tempfile::tempdir().unwrap();
-    let config = direct_mode_config(&tmp);
+    let config = direct_mode_config(&tmp).await;
     let err = composio_authorize(
         &crate::core::runtime::DispatchCtx::host_default(),
         &config,
@@ -211,7 +211,7 @@ async fn composio_execute_routes_through_direct_mode() {
     // surfaces because the live HTTP call cannot succeed against a
     // test key.
     let tmp = tempfile::tempdir().unwrap();
-    let config = direct_mode_config(&tmp);
+    let config = direct_mode_config(&tmp).await;
     let err = composio_execute(&config, "GMAIL_SEND_EMAIL", None, None)
         .await
         .unwrap_err();
