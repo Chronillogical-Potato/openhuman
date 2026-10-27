@@ -157,8 +157,8 @@ fn signed_out() -> Error {
     Error::Off("sign in to move memory into its own layout".to_string())
 }
 
-fn bind_engine(config: &Config, root: Option<&str>) -> Result<engine::BoundEngine> {
-    engine::bind_with_root(config, root).map_err(memory_error_to_engine)
+async fn bind_engine(config: &Config, root: Option<&str>) -> Result<engine::BoundEngine> {
+    engine::bind_with_root(config, root).await.map_err(memory_error_to_engine)
 }
 
 fn memory_error_to_engine(error: MemoryError) -> Error {

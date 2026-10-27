@@ -575,7 +575,7 @@ impl WriteExecutor for Executor<'_> {
         let work = async {
             match operation {
                 WriteOperation::Learn { item } => {
-                    let bound = super::engine::resolve(config).engine()?;
+                    let bound = super::engine::resolve(config).await.engine()?;
                     let receipt = bound
                         .engine
                         .store_with(item.clone(), WriteOptions::accepted())

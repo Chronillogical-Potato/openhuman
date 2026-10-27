@@ -48,7 +48,7 @@ pub async fn init_stores(cfg: &crate::config::Config, domains: crate::core::runt
         domains,
     );
     if plan.memory {
-        let binding = crate::memory::engine::resolve(cfg);
+        let binding = crate::memory::engine::resolve(cfg).await;
         match &binding {
             crate::memory::engine::Binding::On(bound) => {
                 log::info!("[boot] memory engine bound: id={}", bound.id)
