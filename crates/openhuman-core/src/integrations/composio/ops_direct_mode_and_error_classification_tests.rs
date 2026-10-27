@@ -579,7 +579,7 @@ async fn enrich_leaves_unmatched_connection_unchanged() {
 
 /// Store an app-session JWT in the auth store `config` points at, the same
 /// way `client_tests::config_with_session_token` does.
-fn store_test_session_token(config: &crate::config::Config) {
+async fn store_test_session_token(config: &crate::config::Config) {
     crate::credentials::AuthService::from_config(config)
         .store_provider_token(
             crate::credentials::APP_SESSION_PROVIDER,
@@ -587,7 +587,8 @@ fn store_test_session_token(config: &crate::config::Config) {
             "test-session-token",
             std::collections::HashMap::new(),
             true,
-        ).await
+        )
+        .await
         .expect("store test session token");
 }
 
@@ -620,7 +621,7 @@ async fn backend_mode_without_session_is_false_in_direct_mode() {
 async fn backend_mode_without_session_is_false_once_signed_in() {
     let tmp = tempfile::tempdir().unwrap();
     let config = test_config(&tmp);
-    store_test_session_token(&config);
+    store_test_session_token(&config).await;
     // A stored session means the module gets a proxy route — the guard must
     // step aside, or a signed-in user would see a silent empty list.
     assert!(!backend_mode_without_session(&config).await);

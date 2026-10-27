@@ -148,8 +148,11 @@ async fn ws_loop_calls_provider_before_each_attempt() {
         ws_loop(
             http_base_for(addr),
             Arc::new(move || {
-                call_count_clone.fetch_add(1, Ordering::Relaxed);
-                Ok("counter-token".to_string())
+                let call_count = Arc::clone(&call_count_clone);
+                Box::pin(async move {
+                    call_count.fetch_add(1, Ordering::Relaxed);
+                    Ok("counter-token".to_string())
+                })
             }),
             loop_shared,
             emit_rx,
@@ -204,8 +207,11 @@ async fn ws_loop_escalates_immediately_on_invalid_token_no_refresh() {
             http_base_for(addr),
             // Provider always returns the same (stale) token.
             Arc::new(move || {
-                call_count_clone.fetch_add(1, Ordering::Relaxed);
-                Ok("stale-token-xyz".to_string())
+                let call_count = Arc::clone(&call_count_clone);
+                Box::pin(async move {
+                    call_count.fetch_add(1, Ordering::Relaxed);
+                    Ok("stale-token-xyz".to_string())
+                })
             }),
             loop_shared,
             emit_rx,
@@ -270,12 +276,15 @@ async fn ws_loop_retries_with_fresh_token_on_invalid_token() {
             http_base_for(addr),
             // First call returns "token-a", second and beyond return "token-b".
             Arc::new(move || {
-                let c = call_count_clone.fetch_add(1, Ordering::Relaxed);
-                if c == 0 {
-                    Ok("token-a".to_string())
-                } else {
-                    Ok("token-b".to_string())
-                }
+                let call_count = Arc::clone(&call_count_clone);
+                Box::pin(async move {
+                    let c = call_count.fetch_add(1, Ordering::Relaxed);
+                    if c == 0 {
+                        Ok("token-a".to_string())
+                    } else {
+                        Ok("token-b".to_string())
+                    }
+                })
             }),
             loop_shared,
             emit_rx,
@@ -363,8 +372,11 @@ async fn ws_loop_bounds_fresh_token_retries_with_rotating_provider() {
             // out: rapid server-side rotation, non-deterministic source, or
             // buggy implementation that never converges.
             Arc::new(move || {
-                let n = call_count_clone.fetch_add(1, Ordering::Relaxed);
-                Ok(format!("rotating-token-{n}"))
+                let call_count = Arc::clone(&call_count_clone);
+                Box::pin(async move {
+                    let n = call_count.fetch_add(1, Ordering::Relaxed);
+                    Ok(format!("rotating-token-{n}"))
+                })
             }),
             loop_shared,
             emit_rx,
