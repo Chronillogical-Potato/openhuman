@@ -320,7 +320,7 @@ fn now_plus_pairing_event_ttl() -> Result<u64, String> {
 /// Mint a one-shot direct-user import event and bind its callback to the
 /// current scoped legacy device store and fixed TinySecurity source ids.
 pub(crate) async fn device_pairing_legacy_import_event(config: &Config) -> Result<String, String> {
-    let (client, scope, master_handle, generation) = device_pairing_master(config).await?;
+    let (_client, scope, master_handle, generation) = device_pairing_master(config).await?;
     let registration_id = host_callbacks::secret_registration_id()
         .await
         .ok_or_else(|| "security master registration unavailable".to_owned())?;
