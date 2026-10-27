@@ -78,6 +78,20 @@ async fn device_pairing_and_frame_calls_use_the_confidential_security_bus() {
             host_event_id: "event".into(),
         },
     };
+    let raw_proxy = caller
+        .proxy(
+            "test.TinySecurity",
+            tinysecurity_bus::names::OBJECT_PATH,
+            tinysecurity_bus::names::INTERFACE,
+        )
+        .unwrap();
+    let raw: Result<tinysecurity_bus::DevicePairingResponse2, tinybus::Error> = raw_proxy
+        .call_confidential(
+            tinysecurity_bus::names::methods::DEVICE_PAIRING2,
+            (pairing.clone(),),
+        )
+        .await;
+    raw.unwrap_or_else(|error| panic!("raw fixture call failed: {error:?}"));
     if let SecurityProxy::Module(object) = &client.object {
         object
             .call_detailed::<tinysecurity_bus::DevicePairingResponse2>(

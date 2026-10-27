@@ -112,6 +112,14 @@ fn only_global_credential_clear_is_a_pairing_logout_event() {
 }
 
 #[test]
+fn tunnel_subscriber_receives_authentication_lifecycle_events() {
+    assert_eq!(
+        DeviceTunnelSubscriber::new().domains(),
+        Some(&["device", "auth"][..])
+    );
+}
+
+#[test]
 fn logout_clears_volatile_tunnel_sessions_and_pairing_handles() {
     let channel = "logout-test-channel".to_owned();
     let scope = "logout-test-scope-012345678901234";
