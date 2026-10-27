@@ -111,6 +111,23 @@ fn malformed_known_tunnel_events_are_handled_without_becoming_unknown_events() {
     assert!(parse_inbound_event("unrelated:event", json!({})).is_none());
 }
 
+#[test]
+fn inbound_dispatch_recognizes_all_tunnel_event_names() {
+    assert!(dispatch_backend_event(
+        "tunnel:peer-status",
+        json!({ "channelId": "ch_123", "online": true })
+    ));
+    assert!(dispatch_backend_event(
+        "tunnel:frame",
+        json!({ "channelId": "ch_123", "payload": "YWJj" })
+    ));
+    assert!(dispatch_backend_event(
+        "tunnel:evicted",
+        json!({ "channelId": "ch_123" })
+    ));
+    assert!(!dispatch_backend_event("other:event", json!({})));
+}
+
 #[tokio::test]
 async fn frame_size_cap_is_checked_before_a_socket_is_required() {
     let error = emit_frame("ch_123", &"a".repeat(64 * 1024 + 1))

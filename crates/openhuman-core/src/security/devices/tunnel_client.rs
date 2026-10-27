@@ -43,7 +43,7 @@ pub fn global_tunnel_client_port() -> Option<Arc<dyn TunnelClientPort>> {
 
 fn require_port() -> Result<Arc<dyn TunnelClientPort>, String> {
     global_tunnel_client_port()
-        .ok_or_else(|| "[devices/tunnel] TunnelClientPort not initialized".to_string())
+        .ok_or_else(|| "[devices/tunnel] SocketManager not initialized".to_string())
 }
 
 /// Register a pairing channel through the host-owned backend tunnel.
