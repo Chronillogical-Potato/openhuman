@@ -157,6 +157,14 @@ fn callback_endpoints() -> Result<Vec<HostCallbackEndpoint>, String> {
                 tinysecurity_bus::callback_names2::SET,
             ],
         )?,
+        endpoint(
+            tinysecurity_bus::callback_names2::DEVICE_PAIRING_HOST,
+            &[
+                tinysecurity_bus::callback_names2::RESOLVE_PAIRING_EVENT,
+                tinysecurity_bus::callback_names2::PERSIST_DEVICE_PAIRING,
+                tinysecurity_bus::callback_names2::LOAD_LEGACY_DEVICE_IDENTITIES,
+            ],
+        )?,
     ])
 }
 
