@@ -252,7 +252,7 @@ async fn every_domain_group_is_accounted_for_in_tool_group() {
 #[tokio::test]
 async fn memory_tool_is_absent_while_memory_is_off() {
     let tmp = TempDir::new().unwrap();
-    let names = tool_names(&expansion_tools_for(&tmp));
+    let names = tool_names(&expansion_tools_for(&tmp).await);
     assert!(
         !names.iter().any(|n| n == crate::memory::MEMORY_TOOL_NAME),
         "the memory tool must not be registered with memory off; got: {names:?}"
@@ -359,7 +359,10 @@ async fn full_domain_set_keeps_platform_tools() {
 
     let tmp = TempDir::new().unwrap();
     let ctx = CoreContext::for_test(DomainSet::full(), None);
-    let names = CoreContext::scope(ctx, async { tool_names(&expansion_tools_for(&tmp)) }).await;
+    let names = CoreContext::scope(ctx, async {
+        tool_names(&expansion_tools_for(&tmp).await)
+    })
+    .await;
     for name in ["shell", "file_read", "file_write", "todo"] {
         assert!(names.iter().any(|n| n == name), "missing `{name}`");
     }
