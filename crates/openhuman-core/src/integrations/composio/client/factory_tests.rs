@@ -44,11 +44,9 @@ async fn without_a_route_builder_the_built_in_resolution_applies() {
     assert!(
         resolve_composio_route(&config_with_mode("disabled"))
             .await
-            .await
             .is_err()
     );
     let unknown = resolve_composio_route(&config_with_mode("bogus"))
-        .await
         .await
         .err()
         .unwrap()

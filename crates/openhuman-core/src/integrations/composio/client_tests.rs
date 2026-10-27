@@ -287,6 +287,7 @@ async fn store_get_clear_composio_api_key_roundtrip() {
             COMPOSIO_DIRECT_PROVIDER,
             crate::credentials::DEFAULT_AUTH_PROFILE_NAME,
         )
+        .await
         .expect("remove");
     assert_eq!(
         get_composio_api_key(&config)
@@ -463,6 +464,7 @@ async fn direct_connected_integrations_fetches_schemas_without_backend_composio_
         .await
         .expect("store offline local session token");
     crate::credentials::api_key::store_api_key(&config, "th_test_backend_key")
+        .await
         .expect("store backend API key");
     config.composio.mode = "direct".into();
     config.composio.pin_host_credential(

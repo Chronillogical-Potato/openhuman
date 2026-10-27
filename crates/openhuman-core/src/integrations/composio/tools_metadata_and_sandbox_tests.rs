@@ -307,7 +307,7 @@ async fn agent_tools_skip_registration_when_no_credentials_at_all() {
     let tmp = tempfile::tempdir().unwrap();
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
-    let tools = all_composio_agent_tools(&config);
+    let tools = all_composio_agent_tools(&config).await;
     assert!(
         tools.is_empty(),
         "with no backend session and no direct api key the registration gate must skip all 5 tools"
@@ -331,6 +331,7 @@ async fn agent_tools_are_all_removed_when_composio_is_disabled_even_if_signed_in
         .expect("store test session token");
     config.composio.mode = "disabled".into();
     let names: Vec<String> = all_composio_agent_tools(&config)
+        .await
         .iter()
         .map(|t| t.name().to_string())
         .collect();
@@ -356,7 +357,7 @@ async fn agent_tools_register_when_backend_signed_in() {
         )
         .await
         .expect("store test session token");
-    let tools = all_composio_agent_tools(&config);
+    let tools = all_composio_agent_tools(&config).await;
     assert_eq!(
         tools.len(),
         6,
@@ -383,7 +384,7 @@ async fn agent_tools_register_when_direct_mode_with_stored_key_and_no_backend_se
     config.composio.api_key = Some("test-direct-key".to_string());
     // No app-session token stored. Pre-fix the gate would fall through
     // here.
-    let tools = all_composio_agent_tools(&config);
+    let tools = all_composio_agent_tools(&config).await;
     assert_eq!(
         tools.len(),
         6,
