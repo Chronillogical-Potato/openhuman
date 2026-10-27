@@ -246,7 +246,8 @@ impl Docs {
 
     pub(super) fn set_pairing_id(&self, channel_id: &str, pairing_id: &str) -> Result<bool> {
         let id = key_of(channel_id)?;
-        self.0.run(|docs| async move {
+        let pairing_id = pairing_id.to_owned();
+        self.0.run(move |docs| async move {
             let updated = compare_and_swap(&docs, DEVICES, &id, |doc| {
                 let mut next = doc.clone();
                 next["pairing_id"] = json!(pairing_id);
