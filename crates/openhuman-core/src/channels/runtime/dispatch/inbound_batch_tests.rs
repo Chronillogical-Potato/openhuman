@@ -1,7 +1,7 @@
 use super::*;
-use tinychannels_bus::{ChannelInboundEnvelope, ChannelRef, ConversationRef, SenderRef};
+use tinychannels_bus::channel::{ChannelInboundEnvelope, ChannelRef, ConversationRef, SenderRef};
 
-fn queued(seq: u64, id: &str, timestamp: u64, content: &str) -> QueuedInbound {
+fn queued(seq: u64, id: &str, _timestamp: u64, content: &str) -> QueuedInbound {
     QueuedInbound {
         seq,
         inbound: AdmittedInbound {
@@ -21,7 +21,6 @@ fn queued(seq: u64, id: &str, timestamp: u64, content: &str) -> QueuedInbound {
                     id: "telegram".to_string(),
                     ..Default::default()
                 },
-                timestamp_unix_ms: Some(timestamp),
                 ..Default::default()
             },
             history_key: "telegram_alice_reply".to_string(),
@@ -44,7 +43,7 @@ fn single_message_passes_through_unchanged() {
 }
 
 #[test]
-fn merge_orders_by_timestamp_then_receive_order_and_uses_newest_as_base() {
+fn merge_orders_by_receive_order_and_uses_newest_as_base() {
     let batch = vec![
         queued(3, "m3", 20, "third"),
         queued(2, "m2", 10, "second"),
@@ -58,7 +57,6 @@ fn merge_orders_by_timestamp_then_receive_order_and_uses_newest_as_base() {
         merged.msg.conversation.thread_id.as_deref(),
         Some("thread-m3")
     );
-    assert_eq!(merged.msg.timestamp_unix_ms, Some(20));
 }
 
 #[test]

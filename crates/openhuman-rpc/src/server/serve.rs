@@ -1,6 +1,6 @@
 //! Bind the core's HTTP listener and serve until shutdown.
 
-use std::sync::Arc;
+use std::{future::IntoFuture, sync::Arc};
 
 use tokio_util::sync::CancellationToken;
 
@@ -202,7 +202,9 @@ pub async fn serve(
                 crate::core_host::core::shutdown::signal().await;
             }
         };
-        let server = axum::serve(listener, app).with_graceful_shutdown(shutdown);
+        let server = axum::serve(listener, app)
+            .with_graceful_shutdown(shutdown)
+            .into_future();
         tokio::pin!(server);
         let preflight = runtime.complete_secret_preflight();
         tokio::pin!(preflight);
@@ -226,10 +228,12 @@ pub async fn serve(
                 shutdown_token.cancelled().await;
             })
             .await
+            .map_err(anyhow::Error::from)
     } else {
         axum::serve(listener, app)
             .with_graceful_shutdown(crate::core_host::core::shutdown::signal())
             .await
+            .map_err(anyhow::Error::from)
     };
     if let Err(error) = &served {
         log::warn!(

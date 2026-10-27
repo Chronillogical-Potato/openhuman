@@ -89,7 +89,7 @@ impl OpenHumanModelFactory<'_> {
         None
     }
 
-    fn build_request(
+    async fn build_request(
         &self,
         request: &ModelBuildRequest,
     ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, ResolvedModelRoute)> {
@@ -277,7 +277,8 @@ impl OpenHumanModelFactory<'_> {
                         CredentialAccess::Runtime(&self.credentials),
                         None,
                         None,
-                    );
+                )
+                .await;
                 let (model, resolved) = match cloud {
                     Some(result) => result?,
                     None => {
@@ -385,6 +386,7 @@ impl ModelFactory<()> for OpenHumanModelFactory<'_> {
     ) -> tinyagents_harness::Result<(Arc<dyn ChatModel<()>>, ResolvedModelRoute)> {
         let (model, route) = self
             .build_request(request)
+            .await
             .map_err(|error| tinyagents_harness::TinyAgentsError::Model(error.to_string()))?;
         let opts = ModelRequestDefaults {
             model: (!route.model.is_empty()).then(|| route.model.clone()),

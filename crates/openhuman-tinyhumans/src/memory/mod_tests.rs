@@ -52,11 +52,11 @@ fn off_reason(binding: Binding) -> String {
 
 // ── engine ──────────────────────────────────────────────────────────────────
 
-#[test]
-fn without_a_credential_the_engine_is_off_and_reports_its_endpoint() {
+#[tokio::test]
+async fn without_a_credential_the_engine_is_off_and_reports_its_endpoint() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_with_endpoint(&tmp, "https://memory.example.test");
-    match engine::bind(&request(&config, None)) {
+    match engine::bind(&request(&config, None)).await {
         Binding::Off {
             engine, endpoint, ..
         } => {
@@ -67,17 +67,17 @@ fn without_a_credential_the_engine_is_off_and_reports_its_endpoint() {
     }
 }
 
-#[test]
-fn a_local_session_token_is_off() {
+#[tokio::test]
+async fn a_local_session_token_is_off() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_with_endpoint(&tmp, "https://memory.example.test");
     store_key(&config, "desktop.test.local");
-    let reason = off_reason(engine::bind(&request(&config, None)));
+    let reason = off_reason(engine::bind(&request(&config, None)).await);
     assert!(reason.contains("sign in"), "{reason}");
 }
 
-#[test]
-fn the_host_credential_binds_below_the_endpoint_and_is_cached() {
+#[tokio::test]
+async fn the_host_credential_binds_below_the_endpoint_and_is_cached() {
     // The engine cache is keyed by a fingerprint that includes the attribution
     // headers, which derive from the process-global product identity and the
     // shell-version variable. Hold both locks so neither changes between the
@@ -87,13 +87,13 @@ fn the_host_credential_binds_below_the_endpoint_and_is_cached() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_with_endpoint(&tmp, "https://memory.example.test");
     store_key(&config, "jwt.memory.test");
-    let first = match engine::bind(&request(&config, None)) {
+    let first = match engine::bind(&request(&config, None)).await {
         Binding::On(bound) => bound,
         Binding::Off { reason, .. } => panic!("expected bound: {reason}"),
     };
     assert_eq!(first.id, TINYHUMANS_ENGINE);
     assert_eq!(first.endpoint, "https://memory.example.test");
-    let second = match engine::bind(&request(&config, None)) {
+    let second = match engine::bind(&request(&config, None)).await {
         Binding::On(bound) => bound,
         Binding::Off { reason, .. } => panic!("expected bound: {reason}"),
     };
@@ -103,13 +103,13 @@ fn the_host_credential_binds_below_the_endpoint_and_is_cached() {
     );
 }
 
-#[test]
-fn the_layout_root_gets_its_own_cached_engine() {
+#[tokio::test]
+async fn the_layout_root_gets_its_own_cached_engine() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_with_endpoint(&tmp, "https://memory.example.test");
     store_key(&config, "jwt.memory.layout");
-    let legacy = engine::bind(&request(&config, None));
-    let rooted = engine::bind(&request(&config, Some("org:42")));
+    let legacy = engine::bind(&request(&config, None)).await;
+    let rooted = engine::bind(&request(&config, Some("org:42"))).await;
     match (legacy, rooted) {
         (Binding::On(legacy), Binding::On(rooted)) => {
             assert!(!std::sync::Arc::ptr_eq(&legacy.engine, &rooted.engine));
@@ -578,17 +578,17 @@ async fn a_backend_without_the_route_is_an_error_read_as_not_free() {
 }
 
 /// The hosted engine bound for `config` (which must hold a credential).
-fn bound_for(
+async fn bound_for(
     config: &openhuman_embed::__host::config::Config,
 ) -> openhuman_embed::__host::memory_engines::BoundEngine {
-    match engine::bind(&request(config, None)) {
+    match engine::bind(&request(config, None)).await {
         Binding::On(bound) => bound,
         Binding::Off { reason, .. } => panic!("expected bound: {reason}"),
     }
 }
 
 async fn registered_free_period(config: openhuman_embed::__host::config::Config) -> bool {
-    let bound = bound_for(&config);
+    let bound = bound_for(&config).await;
     billing::free_period_active(config, bound).await
 }
 
@@ -631,7 +631,7 @@ async fn a_signed_out_account_is_not_free() {
     let tmp = tempfile::tempdir().unwrap();
     let signed_in = config_with_endpoint(&tmp, "http://127.0.0.1:9");
     store_key(&signed_in, "jwt.signed.out");
-    let bound = bound_for(&signed_in);
+    let bound = bound_for(&signed_in).await;
     let other = tempfile::tempdir().unwrap();
     let signed_out = config_with_endpoint(&other, "http://127.0.0.1:9");
     assert!(!billing::free_period_active(signed_out, bound).await);

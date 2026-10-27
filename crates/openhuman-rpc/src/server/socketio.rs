@@ -746,12 +746,14 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                 };
                 let current_token =
                     crate::core_host::credentials::session_state::get_session_token(&config)
+                        .await
                         .ok()
                         .flatten();
                 if !should_broadcast_session_expiry(
                     credential_fingerprint.as_deref(),
                     current_token.as_deref(),
                     crate::core_host::credentials::api_key::get_api_key(&config)
+                        .await
                         .ok()
                         .flatten()
                         .is_some(),
@@ -1002,7 +1004,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                 crate::core_host::core::events::DomainEvent::KeyringAccessApprovalRequested(
                     request,
                 ) => {
-                    let payload = keyring_access_approval_payload(request);
+                    let payload = keyring_access_approval_payload(&request);
                     let _ = io_memory_sync.emit("keyring:access_approval_requested", &payload);
                     let _ = io_memory_sync.emit("keyring_access_approval_requested", &payload);
                 }

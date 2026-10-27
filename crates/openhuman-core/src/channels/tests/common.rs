@@ -15,23 +15,22 @@ pub(super) fn channel_envelope(
     reply_target: &str,
     content: &str,
     id: &str,
-    timestamp: u64,
+    _timestamp: u64,
     thread_id: Option<&str>,
     sender_name: Option<&str>,
 ) -> traits::ChannelInboundEnvelope {
     traits::ChannelInboundEnvelope {
-        channel: traits::ChannelRef {
+        channel: traits::channel::ChannelRef {
             id: channel.to_string(),
             ..Default::default()
         },
         message_id: id.to_string(),
-        timestamp_unix_ms: Some(timestamp),
-        conversation: traits::ConversationRef {
+        conversation: traits::channel::ConversationRef {
             id: reply_target.to_string(),
             thread_id: thread_id.map(str::to_string),
             ..Default::default()
         },
-        sender: traits::SenderRef {
+        sender: traits::channel::SenderRef {
             id: sender.to_string(),
             name: sender_name.map(str::to_string),
             ..Default::default()
@@ -152,15 +151,6 @@ impl Channel for TelegramRecordingChannel {
         Ok(())
     }
 
-    async fn send_typed(&self, message: &traits::ChannelOutboundMessage) -> anyhow::Result<()> {
-        self.sent_messages.lock().await.push(format!(
-            "{}:{}",
-            message.conversation_id,
-            message.legacy_text()?
-        ));
-        Ok(())
-    }
-
     #[allow(
         deprecated,
         reason = "Channel still requires its v21 listener for one release"
@@ -196,15 +186,6 @@ impl Channel for RecordingChannel {
             .lock()
             .await
             .push(format!("{}:{}", message.recipient, message.content));
-        Ok(())
-    }
-
-    async fn send_typed(&self, message: &traits::ChannelOutboundMessage) -> anyhow::Result<()> {
-        self.sent_messages.lock().await.push(format!(
-            "{}:{}",
-            message.conversation_id,
-            message.legacy_text()?
-        ));
         Ok(())
     }
 

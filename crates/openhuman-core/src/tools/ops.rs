@@ -213,7 +213,7 @@ pub async fn all_tools_with_runtime_and_pack_handle(
         &config.workspace_dir,
         crate::artifacts::FileRoots::from_config(&config),
         action_dir,
-        crate::artifacts::artifact_publisher(&config),
+        crate::artifacts::artifact_publisher(&config).await,
     ));
     tools.extend(crate::integrations::task_sources::tools::registered_tools(
         config.clone(),
@@ -472,10 +472,13 @@ pub async fn all_tools_with_runtime_and_pack_handle(
 
     // Sources placed after the search tools (a host's media and file-storage
     // tools), where the catalogue has always listed them.
-    tools.extend(crate::tools::sources::build_registered_tool_sources(
-        &source_ctx,
-        Some(crate::tools::sources::ANCHOR_AFTER_SEARCH),
-    ));
+    tools.extend(
+        crate::tools::sources::build_registered_tool_sources(
+            &source_ctx,
+            Some(crate::tools::sources::ANCHOR_AFTER_SEARCH),
+        )
+        .await,
+    );
 
     // Hosting tools — deploy a workspace directory through the compiled
     // TinyHosts module. Registered only once a credential
@@ -511,10 +514,13 @@ pub async fn all_tools_with_runtime_and_pack_handle(
 
     // Hosted source tools retain their stable catalogue position ahead of the
     // Composio tools.
-    tools.extend(crate::tools::sources::build_registered_tool_sources(
-        &source_ctx,
-        Some(crate::tools::sources::ANCHOR_AFTER_DELEGATE),
-    ));
+    tools.extend(
+        crate::tools::sources::build_registered_tool_sources(
+            &source_ctx,
+            Some(crate::tools::sources::ANCHOR_AFTER_DELEGATE),
+        )
+        .await,
+    );
 
     let composio_tools = crate::integrations::composio::all_composio_agent_tools(root_config).await;
     if composio_tools.is_empty() {
@@ -531,10 +537,7 @@ pub async fn all_tools_with_runtime_and_pack_handle(
     // (`tools::sources`), after every built-in and before the filters below,
     // so they are gated exactly like built-ins. Nothing registered => nothing
     // appended.
-    tools.extend(crate::tools::sources::build_registered_tool_sources(
-        &source_ctx,
-        None,
-    ));
+    tools.extend(crate::tools::sources::build_registered_tool_sources(&source_ctx, None).await);
 
     // Post-filters over the assembled list:
     //

@@ -11,10 +11,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
 use tinychannels_bus::context::ChatMessage;
-use tinychannels_bus::{
-    Channel, ChannelOutboundIntent, ChannelRef, ConversationRef, DeliveryDurability,
-    OutboundPayload,
-};
+use tinychannels_bus::{Channel, SendMessage};
 
 /// Same shape as `channels::context::ConversationHistoryMap`, spelled out so
 /// cron does not depend on the feature-gated `channels` module.
@@ -123,27 +120,10 @@ pub async fn send_to_channel(
     // Run-specific key: a retry after an ambiguous send must not duplicate the
     // reminder, while identical reminders from different runs must not collide
     // (the content-derived default key would reuse one key for both).
-    let message = tinychannels_bus::ChannelOutboundMessage::from_intent(&ChannelOutboundIntent {
-        idempotency_key: idempotency_key.to_owned(),
-        channel_id: key.clone(),
-        conversation_id: reply_target.to_owned(),
-        channel_ref: Some(ChannelRef {
-            id: key,
-            account_id: None,
-        }),
-        conversation_ref: Some(ConversationRef {
-            id: reply_target.to_owned(),
-            thread_id: thread_id.map(str::to_owned),
-            ..Default::default()
-        }),
-        thread_id: thread_id.map(str::to_owned),
-        durability: DeliveryDurability::Required,
-        payload: OutboundPayload::Text {
-            text: text.to_owned(),
-        },
-        ..Default::default()
-    });
-    ch.send_typed(&message)
+    let message = SendMessage::new(text, reply_target)
+        .in_thread(thread_id.map(str::to_owned))
+        .with_idempotency_key(idempotency_key);
+    ch.send_idempotent(&message)
         .await
         .map_err(|e| format!("channel send failed: {e}"))
 }

@@ -65,10 +65,12 @@ impl HostedClient {
     ///
     /// Errors without network I/O when there is no usable credential or
     /// installed backend transport, with the appropriate core sentinel.
-    pub fn from_config(config: &Config) -> Result<Self, String> {
-        let credential = resolve_backend_credential(config).inspect_err(|err| {
-            log::debug!("{LOG_PREFIX} no usable backend credential; skipping request: {err}");
-        })?;
+    pub async fn from_config(config: &Config) -> Result<Self, String> {
+        let credential = resolve_backend_credential(config)
+            .await
+            .inspect_err(|err| {
+                log::debug!("{LOG_PREFIX} no usable backend credential; skipping request: {err}");
+            })?;
         require_transport()?;
         let base_url = backend_origin(&effective_backend_api_url(&config.api_url))?;
         Self::with_credential(&base_url, credential)

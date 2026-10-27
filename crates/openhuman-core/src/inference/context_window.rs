@@ -234,12 +234,23 @@ pub(crate) async fn model_limits_request_for(
             config,
             &crate::security::egress::EgressLedger::none(),
         );
-        return crate::inference::registry::catalog_for(
+        let limits = crate::inference::registry::catalog_for(
             extensions,
             crate::inference::provider::factory::PROVIDER_OPENHUMAN,
         )
-        .and_then(|entry| entry.limits)
-        .and_then(|limits| limits(model, &context));
+        .and_then(|entry| entry.limits);
+        return match limits {
+            Some(limits) => {
+                limits(
+                    tinyinference_llm::providers::overrides::CatalogLimitsRequest {
+                        model: model.to_owned(),
+                        context,
+                    },
+                )
+                .await
+            }
+            None => None,
+        };
     }
 
     let route = route?;
@@ -263,12 +274,23 @@ pub(crate) async fn model_limits_request_for(
             config,
             &crate::security::egress::EgressLedger::none(),
         );
-        return crate::inference::registry::catalog_for(
+        let limits = crate::inference::registry::catalog_for(
             extensions,
             crate::inference::provider::factory::PROVIDER_OPENHUMAN,
         )
-        .and_then(|entry| entry.limits)
-        .and_then(|limits| limits(model, &context));
+        .and_then(|entry| entry.limits);
+        return match limits {
+            Some(limits) => {
+                limits(
+                    tinyinference_llm::providers::overrides::CatalogLimitsRequest {
+                        model: model.to_owned(),
+                        context,
+                    },
+                )
+                .await
+            }
+            None => None,
+        };
     }
     let resolution = crate::inference::provider::factory::resolve_cloud_slug_for(
         role,

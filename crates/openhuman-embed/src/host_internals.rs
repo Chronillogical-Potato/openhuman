@@ -69,7 +69,7 @@ pub mod core {
     }
     pub mod events {
         // `DomainEvent` is matched variant by variant by the Socket.IO bridge.
-        pub use openhuman_core::core::events::DomainEvent;
+        pub use openhuman_core::core::events::{DomainEvent, KeyringAccessApprovalRequest};
     }
     pub mod invoke {
         pub use openhuman_core::core::invoke::{default_state, invoke_method};

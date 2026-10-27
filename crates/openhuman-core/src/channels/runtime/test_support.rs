@@ -18,10 +18,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use tinychannels_bus::channel::{ChannelInboundEnvelope, ChannelRef, ConversationRef, SenderRef};
 use tinychannels_bus::context::ChatMessage;
-use tinychannels_bus::{
-    ChannelInboundEnvelope, ChannelOutboundMessage, ChannelRef, ConversationRef, SenderRef,
-};
 use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
 use tinytools::{Tool, ToolResult};
 
@@ -157,26 +155,12 @@ impl Channel for HarnessChannel {
         &self.name
     }
 
-    #[allow(
-        deprecated,
-        reason = "TinyChannels v0.1.39 requires the v21 Channel::send test-double method"
-    )]
     async fn send(&self, message: &tinychannels_bus::SendMessage) -> Result<()> {
         self.state.sends.lock().await.push(ObservedSend {
             kind: "send",
             recipient: message.recipient.clone(),
             content: message.content.clone(),
             thread_ts: message.thread_ts.clone(),
-        });
-        Ok(())
-    }
-
-    async fn send_typed(&self, message: &ChannelOutboundMessage) -> Result<()> {
-        self.state.sends.lock().await.push(ObservedSend {
-            kind: "send",
-            recipient: message.conversation_id.clone(),
-            content: outbound_text(message)?,
-            thread_ts: message.thread_id.clone(),
         });
         Ok(())
     }
@@ -249,19 +233,6 @@ impl Channel for HarnessChannel {
         });
         Ok(())
     }
-}
-
-fn outbound_text(message: &ChannelOutboundMessage) -> Result<String> {
-    let mut text = String::new();
-    for part in &message.parts {
-        match part {
-            tinychannels_bus::channel::OutboundContentPart::Content {
-                part: tinychannels_bus::channel::ContentPart::Text { text: segment, .. },
-            } => text.push_str(segment),
-            _ => anyhow::bail!("test channel supports text outbound content only"),
-        }
-    }
-    Ok(text)
 }
 
 struct HarnessModel;
@@ -490,19 +461,13 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
                 id: "alice".to_string(),
                 ..Default::default()
             },
-            timestamp_unix_ms: Some(1),
             text: options.content.clone(),
-            parts: vec![tinychannels_bus::channel::ContentPart::Text {
-                text: options.content,
-                markdown_dialect: None,
-            }],
             ..Default::default()
         });
     let prepared = tinychannels_bus::module_inbound::PreparedChannelInbound {
         message: crate::channels::routes::route_compat_message(&message),
         envelope: message.clone(),
         history_key: history_key.clone(),
-        history_key_ignores_thread: expected_event_channel == "telegram",
         thread_id: history_key.clone(),
         client_id: expected_event_channel.clone(),
         session_key: history_key.clone(),

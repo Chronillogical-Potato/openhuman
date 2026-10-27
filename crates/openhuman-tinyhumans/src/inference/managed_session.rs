@@ -11,7 +11,7 @@ use tinyinference_llm::providers::tinyhumans::{
 /// Both chat and embeddings use this path so signed-out state, expiry checks,
 /// offline-local credential refusal, and the plaintext-endpoint refusal stay
 /// consistent.
-pub(super) fn resolve_session_bearer(
+pub(super) async fn resolve_session_bearer(
     endpoint: &str,
     state_dir: &std::path::Path,
     secrets_encrypt: bool,
@@ -28,7 +28,9 @@ pub(super) fn resolve_session_bearer(
         anyhow::bail!("SESSION_EXPIRED: backend session not active — sign in to resume LLM work");
     }
     let auth = AuthService::new(state_dir, secrets_encrypt);
-    let profile = auth.get_profile(APP_SESSION_PROVIDER, profile_override)?;
+    let profile = auth
+        .get_profile(APP_SESSION_PROVIDER, profile_override)
+        .await?;
     let selected_token = session_token_from_profile(profile.as_ref());
     // Precheck recorded JWT expiry before constructing any inference request.
     let check = classify_session_token(profile.as_ref(), chrono::Utc::now());
@@ -37,7 +39,7 @@ pub(super) fn resolve_session_bearer(
 
 /// Resolve the managed backend bearer from a read-only selected-profile
 /// snapshot. Inspection never refreshes credentials or publishes expiry.
-pub(super) fn managed_bearer_for_inspection(
+pub(super) async fn managed_bearer_for_inspection(
     config: &openhuman_embed::__host::config::Config,
 ) -> anyhow::Result<String> {
     use openhuman_embed::__host::credentials::session_state::{
@@ -50,6 +52,7 @@ pub(super) fn managed_bearer_for_inspection(
         crate::backend::url::effective_api_url(&config.api_url).trim_end_matches('/')
     );
     if let Some(key) = openhuman_embed::__host::credentials::api_key::get_api_key_read_only(config)
+        .await
         .map_err(|_| anyhow::anyhow!("managed API key profile is unavailable or invalid"))?
     {
         anyhow::ensure!(
@@ -61,6 +64,7 @@ pub(super) fn managed_bearer_for_inspection(
 
     ensure_session_endpoint(&endpoint)?;
     let profile = load_app_session_profile_read_only(config)
+        .await
         .map_err(|_| anyhow::anyhow!("managed session profile is unavailable or invalid"))?;
     check_session_backend(config, profile.as_ref())
         .map_err(|_| anyhow::anyhow!("managed session belongs to a different backend"))?;

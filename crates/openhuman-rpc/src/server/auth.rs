@@ -82,8 +82,8 @@ pub(crate) fn preflight_http_path_allowed(method: &Method, path: &str) -> bool {
 /// health and JSON-RPC behind a closed gate. JSON-RPC has its own method
 /// allowlist in `preflight_rpc_handler`.
 pub(crate) async fn preflight_surface_middleware(
-    req: axum::extract::Request,
     gate: axum::extract::State<PreflightGate>,
+    req: axum::extract::Request,
     next: Next,
 ) -> Response {
     if !gate.is_active() || preflight_http_path_allowed(req.method(), req.uri().path()) {
@@ -103,8 +103,8 @@ pub(crate) async fn preflight_surface_middleware(
 /// Stop Engine.IO polling before its own layer can allocate a session. CORS is
 /// kept outside this middleware by the router builder.
 pub(crate) async fn preflight_socketio_middleware(
-    req: axum::extract::Request,
     gate: axum::extract::State<PreflightGate>,
+    req: axum::extract::Request,
     next: Next,
 ) -> Response {
     let path = req.uri().path();
@@ -261,22 +261,32 @@ fn is_external_inference_path(path: &str) -> bool {
     path == "/v1" || path.starts_with("/v1/")
 }
 
-fn verify_external_inference_bearer_for_config(config: &Config, supplied: &str) -> bool {
+async fn verify_external_inference_bearer_for_config(config: &Config, supplied: &str) -> bool {
     if supplied.trim().is_empty() {
         return false;
     }
 
     let auth = AuthService::from_config(config);
-    match auth.get_provider_bearer_token(EXTERNAL_OPENAI_COMPAT_PROVIDER, None) {
-        Ok(Some(expected)) => {
-            crate::core_host::core::auth::bearer_matches(supplied, expected.trim())
-        }
-        Ok(None) => false,
+    match auth
+        .get_provider_bearer_token(EXTERNAL_OPENAI_COMPAT_PROVIDER, None)
+        .await
+    {
+        Ok(expected) => external_inference_bearer_matches(supplied, expected.as_deref()),
         Err(err) => {
             log::warn!("[auth] failed to read external inference bearer: {err}");
             false
         }
     }
+}
+
+fn external_inference_bearer_matches(supplied: &str, expected: Option<&str>) -> bool {
+    let Some(expected) = expected
+        .map(str::trim)
+        .filter(|expected| !expected.is_empty())
+    else {
+        return false;
+    };
+    crate::core_host::core::auth::bearer_matches(supplied, expected)
 }
 
 async fn verify_external_inference_bearer(supplied: &str) -> bool {
@@ -292,7 +302,7 @@ async fn verify_external_inference_bearer(supplied: &str) -> bool {
         }
     };
 
-    verify_external_inference_bearer_for_config(&config, supplied)
+    verify_external_inference_bearer_for_config(&config, supplied).await
 }
 
 /// Pull the first `token` query parameter out of a URL query string.

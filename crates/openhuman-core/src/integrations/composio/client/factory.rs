@@ -18,6 +18,7 @@ use std::sync::Arc;
 use super::DirectCredential;
 use crate::config::schema::{COMPOSIO_MODE_BACKEND, COMPOSIO_MODE_DIRECT};
 use crate::core::slots::HookSlot;
+use futures_util::future::BoxFuture;
 
 // Re-declare the mode strings as local consts so they can be used as
 // pattern arms in the `match` below. `use` imports of `pub const &str`
@@ -53,8 +54,11 @@ impl ComposioRoute {
 
 /// A registered route builder: resolves the [`ComposioRoute`] for one
 /// `composio.mode` value (the empty mode counts as `"backend"`).
-pub type ComposioRouteBuilder =
-    Arc<dyn Fn(&crate::config::Config) -> anyhow::Result<ComposioRoute> + Send + Sync>;
+pub type ComposioRouteBuilder = Arc<
+    dyn for<'a> Fn(&'a crate::config::Config) -> BoxFuture<'a, anyhow::Result<ComposioRoute>>
+        + Send
+        + Sync,
+>;
 
 static ROUTE_BUILDERS: HookSlot<ComposioRouteBuilder> =
     HookSlot::new("integrations::composio::route_builders");
@@ -63,7 +67,10 @@ static ROUTE_BUILDERS: HookSlot<ComposioRouteBuilder> =
 /// resolution for that mode. Nothing registered => the built-in routes apply.
 pub fn register_composio_route_builder<F>(mode: impl Into<String>, builder: F)
 where
-    F: Fn(&crate::config::Config) -> anyhow::Result<ComposioRoute> + Send + Sync + 'static,
+    F: for<'a> Fn(&'a crate::config::Config) -> BoxFuture<'a, anyhow::Result<ComposioRoute>>
+        + Send
+        + Sync
+        + 'static,
 {
     ROUTE_BUILDERS.register(mode, Arc::new(builder));
 }
@@ -151,7 +158,7 @@ pub async fn resolve_composio_route(
     };
     if let Some(builder) = ROUTE_BUILDERS.get(builder_key) {
         tracing::debug!(mode = %builder_key, "[composio-factory] using the registered route builder");
-        return builder(config);
+        return builder(config).await;
     }
 
     match mode {

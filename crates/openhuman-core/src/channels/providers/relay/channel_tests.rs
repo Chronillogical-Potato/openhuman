@@ -11,7 +11,7 @@ fn sink() -> RelayChannel {
     )
 }
 
-fn text_message(text: &str, recipient: &str) -> tinychannels_bus::ChannelOutboundMessage {
+fn text_message(text: &str, recipient: &str) -> tinychannels_bus::SendMessage {
     crate::channels::outbound::text_message("telegram", recipient, text, None)
 }
 
@@ -69,7 +69,7 @@ async fn send_publishes_under_the_callers_stamp_and_records_the_text() {
     let sender = Arc::clone(&channel);
     crate::core::runtime::CoreContext::scope(context, async move {
         sender
-            .send_typed(&text_message("reply one", "2"))
+            .send(&text_message("reply one", "2"))
             .await
             .expect("send");
     })

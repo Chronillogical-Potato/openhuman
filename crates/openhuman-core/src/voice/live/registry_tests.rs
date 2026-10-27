@@ -9,7 +9,7 @@ fn entry(label: &str) -> LiveProviderEntry {
         voices: vec!["v1".into()],
         languages: vec!["en-US".into()],
         key_slug: None,
-        configured: Arc::new(|_| true),
+        configured: Arc::new(|_| Box::pin(async { true })),
         configure: Some(Arc::new(|_, instruction, live| {
             live.system_instruction = Some(format!("registered:{instruction}"));
         })),

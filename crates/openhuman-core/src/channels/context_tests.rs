@@ -56,22 +56,21 @@ fn runtime_context() -> ChannelRuntimeContext {
 
 fn channel_message(channel: &str) -> traits::ChannelInboundEnvelope {
     traits::ChannelInboundEnvelope {
-        channel: traits::ChannelRef {
+        channel: traits::channel::ChannelRef {
             id: channel.into(),
             account_id: None,
         },
-        sender: traits::SenderRef {
+        sender: traits::channel::SenderRef {
             id: "alice".into(),
             ..Default::default()
         },
         text: "hello".into(),
         message_id: "m1".into(),
-        conversation: traits::ConversationRef {
+        conversation: traits::channel::ConversationRef {
             id: "reply".into(),
             thread_id: Some("thread-1".into()),
             ..Default::default()
         },
-        timestamp_unix_ms: Some(0),
         ..Default::default()
     }
 }

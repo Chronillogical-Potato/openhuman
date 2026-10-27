@@ -65,6 +65,7 @@ async fn build_embedder(
         &api_key,
         custom_endpoint.as_deref(),
     )
+    .await
 }
 
 pub(crate) async fn resolve_api_key(config: &Config, provider_name: &str) -> String {

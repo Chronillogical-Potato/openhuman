@@ -35,7 +35,7 @@ impl Agent {
     /// with no session at registration to validate names, then rebuilt per turn.
     /// Keep tool names stable. Their callbacks should authorize their operations.
     /// Only these names use the attachment policy; other tools keep their gate.
-    pub fn attach_tools(
+    pub async fn attach_tools(
         &self,
         key: impl Into<String>,
         factory: HostTools,
@@ -65,6 +65,7 @@ impl Agent {
         if let Some(host) = &self.inner.host_tools {
             occupied.extend(
                 host(context)
+                    .await
                     .tools
                     .iter()
                     .map(|tool| tool.name().to_string()),
@@ -91,10 +92,11 @@ impl Agent {
                 &config.action_dir,
                 config,
             )
+            .await
             .iter()
             .map(|tool| tool.name().to_string()),
         );
-        let tools = factory(context);
+        let tools = factory(context).await;
         let mut names = HashSet::new();
         for tool in tools.tools {
             let name = tool.name().to_string();
@@ -132,23 +134,30 @@ impl super::AgentInner {
         }
         let host = self.host_tools.clone();
         Some(Arc::new(move |context| {
-            let mut merged = host.as_ref().map(|host| host(context)).unwrap_or_default();
-            let original = merged.policy.take();
-            let mut policies = Vec::new();
-            for source in &sources {
-                let attached = source(context);
-                let names: HashSet<String> = attached
-                    .tools
-                    .iter()
-                    .map(|tool| tool.name().to_string())
-                    .collect();
-                merged.visible.extend(names.iter().cloned());
-                merged.permanent.extend(names.iter().cloned());
-                merged.tools.extend(attached.tools);
-                policies.push((names, attached.policy));
-            }
-            merged.policy = Some(Arc::new(AttachmentPolicy { original, policies }));
-            merged
+            let host = host.clone();
+            let sources = sources.clone();
+            Box::pin(async move {
+                let mut merged = match host.as_ref() {
+                    Some(host) => host(context).await,
+                    None => Default::default(),
+                };
+                let original = merged.policy.take();
+                let mut policies = Vec::new();
+                for source in &sources {
+                    let attached = source(context).await;
+                    let names: HashSet<String> = attached
+                        .tools
+                        .iter()
+                        .map(|tool| tool.name().to_string())
+                        .collect();
+                    merged.visible.extend(names.iter().cloned());
+                    merged.permanent.extend(names.iter().cloned());
+                    merged.tools.extend(attached.tools);
+                    policies.push((names, attached.policy));
+                }
+                merged.policy = Some(Arc::new(AttachmentPolicy { original, policies }));
+                merged
+            })
         }))
     }
 }

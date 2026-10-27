@@ -138,7 +138,8 @@ fn import(ctx: DispatchCtx, _params: Map<String, Value>) -> ControllerFuture {
         let payload =
             openhuman_embed::__host::credentials::openai_oauth::import_openai_oauth_from_codex_cli(
                 &config,
-            )?;
+            )
+            .await?;
         encode(Outcome::single_log(
             payload,
             "openai oauth imported from codex cli",
@@ -150,7 +151,8 @@ fn status(ctx: DispatchCtx, _params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = ctx.load_config().await?;
         let status =
-            openhuman_embed::__host::credentials::openai_oauth::openai_oauth_status(&config)?;
+            openhuman_embed::__host::credentials::openai_oauth::openai_oauth_status(&config)
+                .await?;
         encode(Outcome::single_log(
             serde_json::json!({
                 "connected": status.connected,

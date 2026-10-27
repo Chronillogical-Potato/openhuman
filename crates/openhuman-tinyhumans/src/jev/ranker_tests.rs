@@ -95,8 +95,10 @@ fn recording_embedder(
 ) -> EmbedderFactory {
     Arc::new(move |config, chat| {
         seen.lock().unwrap().push(chat.clone());
-        openhuman_embed::__host::inference::embedding_host::default_embedding_provider_for_chat(
-            config, chat,
+        Box::pin(
+            openhuman_embed::__host::inference::embedding_host::default_embedding_provider_for_chat(
+                config, chat,
+            ),
         )
     })
 }

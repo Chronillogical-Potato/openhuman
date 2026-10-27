@@ -84,7 +84,7 @@ pub async fn mint_voice_agent_signed_url(
     config: &Config,
 ) -> Result<Outcome<VoiceAgentSignedUrl>, String> {
     // API key (sent as `x-api-key`) or live session JWT (sent as Bearer).
-    let credential = resolve_backend_credential(config)?;
+    let credential = resolve_backend_credential(config).await?;
 
     let client = BackendClient::from_config(config).map_err(|e| e.to_string())?;
     ensure_secure_backend_url(client.base_url())?;

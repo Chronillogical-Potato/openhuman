@@ -96,7 +96,7 @@ async fn hosted_providers_report_not_configured_without_a_backend_credential() {
         config_path: dir.path().join("config.toml"),
         ..Config::default()
     };
-    assert!(!backend_ready(&config));
+    assert!(!backend_ready(&config).await);
     let err = prepare_gemini(config, LiveConfig::new())
         .await
         .err()

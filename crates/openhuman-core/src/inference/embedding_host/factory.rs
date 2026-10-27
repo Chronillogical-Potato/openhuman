@@ -35,61 +35,74 @@ pub(super) fn managed_factory(
     chat: Option<ApprovalChatContext>,
 ) -> ManagedModelFactory {
     Arc::new(move |model, dimensions| {
-        if let Some(registered) = crate::inference::registry::ambient_provider_overrides()
-            .embedding_factory(PROVIDER_OPENHUMAN)
-        {
-            log::debug!("[embeddings::factory] managed model served by a registered factory");
-            let (state_dir, secrets_encrypt) = credential_scope(config.as_ref());
-            let context = ProviderContext::for_embedding(
-                config.as_ref(),
-                chat.clone(),
-                state_dir,
-                secrets_encrypt,
+        let model = model.to_owned();
+        let config = config.clone();
+        let chat = chat.clone();
+        Box::pin(async move {
+            if let Some(registered) = crate::inference::registry::ambient_provider_overrides()
+                .embedding_factory(PROVIDER_OPENHUMAN)
+            {
+                log::debug!("[embeddings::factory] managed model served by a registered factory");
+                let (state_dir, secrets_encrypt) = credential_scope(config.as_ref());
+                let context = ProviderContext::for_embedding(
+                    config.as_ref(),
+                    chat.clone(),
+                    state_dir,
+                    secrets_encrypt,
+                );
+                return registered(EmbeddingRequest {
+                    model: model.clone(),
+                    dimensions,
+                    context,
+                })
+                .await;
+            }
+            log::debug!("[embeddings::factory] no managed embedding provider registered");
+            let message = format!(
+                "{} managed embeddings need a hosted provider; none is registered",
+                crate::core::observability::BACKEND_UNAVAILABLE_PREFIX
             );
-            return registered(&EmbeddingRequest {
-                model,
-                dimensions,
-                context: &context,
-            });
-        }
-        log::debug!("[embeddings::factory] no managed embedding provider registered");
-        let message = format!(
-            "{} managed embeddings need a hosted provider; none is registered",
-            crate::core::observability::BACKEND_UNAVAILABLE_PREFIX
-        );
-        Ok(Box::new(UnavailableEmbeddingModel::new(
-            model, dimensions, message,
-        )))
+            Ok(
+                Box::new(UnavailableEmbeddingModel::new(model, dimensions, message))
+                    as Box<dyn EmbeddingModel>,
+            )
+        })
     })
 }
 
 fn inspection_managed_factory(config: &Config) -> ManagedModelFactory {
     let config = config.clone();
     Arc::new(move |model, dimensions| {
-        let Some(registered) = crate::inference::registry::inspection_embedding(PROVIDER_OPENHUMAN)
-        else {
-            log::debug!("[embeddings::factory] no inspection-safe managed embedder registered");
-            return Ok(Box::new(UnavailableEmbeddingModel::new(
-                model,
+        let model = model.to_owned();
+        let config = config.clone();
+        Box::pin(async move {
+            let Some(registered) =
+                crate::inference::registry::inspection_embedding(PROVIDER_OPENHUMAN)
+            else {
+                log::debug!("[embeddings::factory] no inspection-safe managed embedder registered");
+                return Ok(Box::new(UnavailableEmbeddingModel::new(
+                    model,
+                    dimensions,
+                    format!(
+                        "{} managed embeddings need an inspection-safe hosted provider; none is registered",
+                        crate::core::observability::BACKEND_UNAVAILABLE_PREFIX
+                    ),
+                )) as Box<dyn EmbeddingModel>);
+            };
+            let (state_dir, secrets_encrypt) = credential_scope(Some(&config));
+            let context =
+                ProviderContext::for_embedding(Some(&config), None, state_dir, secrets_encrypt);
+            registered(EmbeddingRequest {
+                model: model.clone(),
                 dimensions,
-                format!(
-                    "{} managed embeddings need an inspection-safe hosted provider; none is registered",
-                    crate::core::observability::BACKEND_UNAVAILABLE_PREFIX
-                ),
-            )));
-        };
-        let (state_dir, secrets_encrypt) = credential_scope(Some(&config));
-        let context =
-            ProviderContext::for_embedding(Some(&config), None, state_dir, secrets_encrypt);
-        registered(&EmbeddingRequest {
-            model,
-            dimensions,
-            context: &context,
-        })
-        .map_err(|_| {
-            tinyinference_embeddings::Error::Validation(
-                "managed embedding inspection is unavailable".to_owned(),
-            )
+                context,
+            })
+            .await
+            .map_err(|_| {
+                tinyinference_embeddings::Error::Validation(
+                    "managed embedding inspection is unavailable".to_owned(),
+                )
+            })
         })
     })
 }
@@ -99,7 +112,7 @@ pub(super) fn credential_resolver(api_key: String) -> CredentialResolver {
 }
 
 /// Creates a provider from explicit settings and host credentials.
-pub fn create_embedding_provider_with_credentials(
+pub async fn create_embedding_provider_with_credentials(
     provider: &str,
     model: &str,
     dimensions: usize,
@@ -121,13 +134,14 @@ pub fn create_embedding_provider_with_credentials(
         ),
         &credentials,
         &managed_factory(None, None),
-    )?;
+    )
+    .await?;
     Ok(model)
 }
 
 /// Creates a provider using OpenHuman's credential and endpoint configuration.
 /// Its cloud disclosures are unrouted; see [`create_embedding_provider_for_chat`].
-pub fn create_embedding_provider_with_config(
+pub async fn create_embedding_provider_with_config(
     config: &Config,
     provider: &str,
     model: &str,
@@ -144,13 +158,14 @@ pub fn create_embedding_provider_with_config(
         custom_endpoint,
         None,
     )
+    .await
 }
 
 /// Builds the selected provider through the shared TinyInference factory,
 /// using only the supplied read-only credential snapshot for BYOK providers.
 /// Managed embeddings use a separate inspection-safe factory and never fall
 /// back to the ordinary mutable managed factory.
-pub fn create_embedding_provider_for_inspection(
+pub async fn create_embedding_provider_for_inspection(
     config: &Config,
     provider: &str,
     model: &str,
@@ -176,14 +191,15 @@ pub fn create_embedding_provider_for_inspection(
         &selected,
         &credentials,
         &inspection_managed_factory(config),
-    )?;
+    )
+    .await?;
     Ok(model)
 }
 
 /// [`create_embedding_provider_with_config`] for a call made in a chat turn:
 /// the managed (cloud) model discloses its egress to `chat`, the turn's thread
 /// and client, so the disclosure card reaches the chat that triggered it.
-pub fn create_embedding_provider_for_chat(
+pub async fn create_embedding_provider_for_chat(
     config: &Config,
     provider: &str,
     model: &str,
@@ -210,7 +226,8 @@ pub fn create_embedding_provider_for_chat(
         &selected,
         &credentials,
         &managed_factory(Some(config.clone()), chat),
-    )?;
+    )
+    .await?;
     Ok(model)
 }
 
@@ -240,6 +257,7 @@ pub async fn default_embedding_provider_for_chat(
         &credential_resolver(api_key),
         &managed_factory(Some(config.clone()), chat),
     )
+    .await
     .unwrap_or_else(|error| {
         log::warn!("[embeddings::factory] managed fallback failed to build: {error}");
         Box::new(tinyinference_embeddings::NoopEmbeddingModel)

@@ -379,7 +379,7 @@ async fn resolve_configured(config: &Config, root: Option<&str>) -> Binding {
     // is resolved per config, so SaaS admits it for every tenant.
     if let Some(entry) = super::engine_registry::lookup(&engine_id) {
         tracing::debug!(engine = %engine_id, "[memory:engine] binding a registered engine");
-        return (entry.build)(&super::engine_registry::EngineRequest { config, root });
+        return (entry.build)(&super::engine_registry::EngineRequest { config, root }).await;
     }
     match engine_id.as_str() {
         // The hosted engine is registered by the host layer that owns it

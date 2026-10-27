@@ -54,7 +54,7 @@ pub(crate) async fn create_chat_model_with_identity_in_for_inspection(
         resolved = resolve_primary_cloud_provider_string(config);
     }
     if resolves_to_managed_backend(role, config) {
-        let build = managed_chat_model_build_for_inspection(extensions, role, config, None)?;
+        let build = managed_chat_model_build_for_inspection(extensions, role, config, None).await?;
         return Ok(prepared_inspection_model(
             build.model,
             build.model_id.clone(),

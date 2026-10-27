@@ -17,12 +17,16 @@ fn config_for(tmp: &tempfile::TempDir) -> Config {
 fn entry(roots: Arc<Mutex<Vec<Option<String>>>>, free: Option<FreeBackground>) -> EngineEntry {
     EngineEntry {
         build: Arc::new(move |request| {
-            roots.lock().unwrap().push(request.root.map(str::to_string));
-            Binding::On(bound_engine(
-                ID,
-                "registered://engine",
-                Arc::new(ReferenceEngine::new()),
-            ))
+            let roots = Arc::clone(&roots);
+            let root = request.root.map(str::to_string);
+            Box::pin(async move {
+                roots.lock().unwrap().push(root);
+                Binding::On(bound_engine(
+                    ID,
+                    "registered://engine",
+                    Arc::new(ReferenceEngine::new()),
+                ))
+            })
         }),
         free_background: free,
     }

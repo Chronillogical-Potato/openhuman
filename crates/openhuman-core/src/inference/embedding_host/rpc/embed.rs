@@ -39,6 +39,7 @@ pub async fn embed(
         &api_key,
         custom_endpoint.as_deref(),
     )
+    .await
     .map_err(|e| e.to_string())?;
 
     let vectors = embedder.embed(inputs).await.map_err(|e| e.to_string())?;
@@ -209,6 +210,7 @@ pub(crate) async fn probe_dimensions_for_inspection(
             &api_key,
             custom_endpoint.as_deref(),
         )
+        .await
         .map_err(|_| InspectionEmbeddingError::ProviderUnavailable)?;
         let vectors = embedder
             .embed(&["OpenHuman doctor embedding probe".to_owned()])

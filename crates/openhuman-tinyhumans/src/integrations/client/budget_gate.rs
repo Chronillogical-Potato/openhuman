@@ -130,7 +130,8 @@ async fn probe_usage(config: &Config) -> Result<Value, String> {
     let credential =
         openhuman_embed::__host::credentials::backend_credential::resolve_backend_credential(
             config,
-        )?;
+        )
+        .await?;
     let backend_key = effective_backend_api_url(&config.api_url);
     usage_with_failure_backoff(&backend_key, || fetch_usage(config, credential))
         .await

@@ -71,7 +71,7 @@ fn strings(items: &[&str]) -> Vec<String> {
 /// The provider catalogue with each provider's readiness.
 pub(crate) async fn provider_infos(config: &Config) -> Vec<LiveProviderInfo> {
     let mut infos = built_in_provider_infos(config).await;
-    super::registry::merge_provider_infos(&mut infos, config);
+    super::registry::merge_provider_infos(&mut infos, config).await;
     infos
 }
 

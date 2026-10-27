@@ -30,6 +30,7 @@
 
 use std::sync::{Arc, Mutex};
 
+use futures_util::future::BoxFuture;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tinybus::Proxy;
@@ -63,7 +64,8 @@ pub struct ProxyTarget {
 
 /// Resolves the [`ProxyTarget`] for one `composio.mode`, or the user-facing
 /// reason there is none (not signed in, no credential).
-pub type ProxyTargetResolver = Arc<dyn Fn(&Config) -> Result<ProxyTarget, String> + Send + Sync>;
+pub type ProxyTargetResolver =
+    Arc<dyn for<'a> Fn(&'a Config) -> BoxFuture<'a, Result<ProxyTarget, String>> + Send + Sync>;
 
 static MODULE_PROXY_TARGETS: HookSlot<ProxyTargetResolver> =
     HookSlot::new("modules::connectors::proxy_targets");
@@ -85,7 +87,7 @@ pub(crate) fn note_load_resolution_ready() {
 /// mode the proxy route serves). Nothing registered => the mode has no route.
 pub fn register_proxy_target<F>(mode: impl Into<String>, resolve: F)
 where
-    F: Fn(&Config) -> Result<ProxyTarget, String> + Send + Sync + 'static,
+    F: for<'a> Fn(&'a Config) -> BoxFuture<'a, Result<ProxyTarget, String>> + Send + Sync + 'static,
 {
     MODULE_PROXY_TARGETS.register(mode, Arc::new(resolve));
 }
@@ -167,15 +169,15 @@ async fn route_config(
     match config.composio.mode.trim() {
         // Empty is the default, for hand-edited configs that omit the field.
         "" | COMPOSIO_MODE_BACKEND => {
-            let target = MODULE_PROXY_TARGETS
+            let resolve = MODULE_PROXY_TARGETS
                 .get(COMPOSIO_MODE_BACKEND)
                 .ok_or_else(|| {
                     format!(
                         "{}composio backend mode is not available in this build",
                         crate::core::observability::BACKEND_UNAVAILABLE_PREFIX
                     )
-                })
-                .and_then(|resolve| resolve(config))?;
+                })?;
+            let target = resolve(config).await?;
             // The backend renders Composio results (Gmail timestamps) for the
             // model; with the user's zone it prints local time beside UTC. A
             // module before contract 1.9 ignores the field. It is part of the

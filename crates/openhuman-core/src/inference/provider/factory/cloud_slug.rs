@@ -89,7 +89,7 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
     model: &str,
     config: &'a Config,
     extensions: Option<&crate::core::slots::Extensions>,
-    credential_access: CredentialAccess,
+    credential_access: CredentialAccess<'_>,
     inspection_credential: Option<&super::credentials::ReadOnlyCloudCredential>,
 ) -> anyhow::Result<CloudSlugResolution<'a>> {
     let entry = config.cloud_providers.iter().find(|e| e.slug == slug);
@@ -307,7 +307,7 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
 /// `ModelRequest` (managed/local parity; the `@<temp>` suffix still bakes a fixed
 /// override).
 #[cfg(test)]
-pub(super) fn try_create_cloud_slug_chat_model(
+pub(super) async fn try_create_cloud_slug_chat_model(
     role: &str,
     config: &Config,
     egress: &EgressLedger,
@@ -323,9 +323,10 @@ pub(super) fn try_create_cloud_slug_chat_model(
         None,
         None,
     )
+    .await
 }
 
-pub(super) fn try_create_cloud_slug_chat_model_with_native_tools_for(
+pub(super) async fn try_create_cloud_slug_chat_model_with_native_tools_for(
     role: &str,
     config: &Config,
     native_tool_calling: bool,
@@ -342,6 +343,7 @@ pub(super) fn try_create_cloud_slug_chat_model_with_native_tools_for(
         None,
         None,
     )
+    .await
 }
 
 pub(super) async fn try_create_cloud_slug_chat_model_for_inspection_with_identity(
@@ -380,7 +382,8 @@ pub(super) async fn try_create_cloud_slug_chat_model_for_inspection_with_identit
         CredentialAccess::Inspection,
         inspection_credential.as_ref(),
         Some(&mut identity),
-    )?;
+    )
+    .await?;
     Some(result.and_then(|(model, model_id)| {
         let (endpoint, credential, wire_model, output_budget) = identity.ok_or_else(|| {
             anyhow::anyhow!("inspection route did not expose its frozen wire identity")
@@ -392,13 +395,13 @@ pub(super) async fn try_create_cloud_slug_chat_model_for_inspection_with_identit
     }))
 }
 
-pub(super) fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
+pub(super) async fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
     role: &str,
     config: &Config,
     native_tool_calling: bool,
     egress: &EgressLedger,
     extensions: Option<&crate::core::slots::Extensions>,
-    credential_access: CredentialAccess,
+    credential_access: CredentialAccess<'_>,
     inspection_credential: Option<&super::credentials::ReadOnlyCloudCredential>,
     inspection_identity: Option<
         &mut Option<(String, String, String, InspectionOutputBudgetCapability)>,
@@ -421,9 +424,10 @@ pub(super) fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
         inspection_credential,
         inspection_identity,
     )
+    .await
 }
 
-pub(super) fn try_create_cloud_slug_chat_model_from_string(
+pub(super) async fn try_create_cloud_slug_chat_model_from_string(
     role: &str,
     provider: &str,
     config: &Config,
@@ -432,9 +436,10 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string(
     try_create_cloud_slug_chat_model_from_string_with_native_tools(
         role, provider, config, true, egress,
     )
+    .await
 }
 
-pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
+pub(super) async fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
     role: &str,
     provider: &str,
     config: &Config,
@@ -453,9 +458,10 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
         None,
         None,
     )
+    .await
 }
 
-pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools_for(
+pub(super) async fn try_create_cloud_slug_chat_model_from_string_with_native_tools_for(
     role: &str,
     provider: &str,
     config: &Config,
@@ -474,16 +480,17 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools_for
         None,
         None,
     )
+    .await
 }
 
-pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
+pub(super) async fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
     role: &str,
     provider: &str,
     config: &Config,
     native_tool_calling: bool,
     egress: &EgressLedger,
     extensions: Option<&crate::core::slots::Extensions>,
-    credential_access: CredentialAccess,
+    credential_access: CredentialAccess<'_>,
     inspection_credential: Option<&super::credentials::ReadOnlyCloudCredential>,
     mut inspection_identity: Option<
         &mut Option<(String, String, String, InspectionOutputBudgetCapability)>,
@@ -617,7 +624,9 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and
                         role,
                         config,
                         model_override,
-                    ) {
+                    )
+                    .await
+                    {
                         Ok(build) => {
                             if let Some(identity) = inspection_identity.as_deref_mut() {
                                 *identity = Some((

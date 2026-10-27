@@ -1,6 +1,5 @@
 use super::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use tinychannels_bus::ChannelOutboundMessage;
 use tinychannels_bus::SendMessage;
 use tokio::sync::mpsc;
 
@@ -58,7 +57,7 @@ impl Channel for MockChannel {
     fn proactive_target(&self) -> Option<String> {
         self.target.clone()
     }
-    async fn send_typed(&self, _message: &ChannelOutboundMessage) -> anyhow::Result<()> {
+    async fn send(&self, _message: &SendMessage) -> anyhow::Result<()> {
         self.send_count.fetch_add(1, Ordering::SeqCst);
         self.outbound_intent_count.fetch_add(1, Ordering::SeqCst);
         Ok(())
@@ -71,13 +70,6 @@ impl Channel for MockChannel {
         &self,
         _tx: mpsc::Sender<tinychannels_bus::ChannelMessage>,
     ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    #[allow(
-        deprecated,
-        reason = "TinyChannels v22 still requires the legacy send method on focused fixtures"
-    )]
-    async fn send(&self, _message: &SendMessage) -> anyhow::Result<()> {
         Ok(())
     }
 }

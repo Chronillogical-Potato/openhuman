@@ -46,18 +46,18 @@ fn find_tool<'a>(tools: &'a [Box<dyn Tool>], name: &str) -> &'a dyn Tool {
         .unwrap_or_else(|| panic!("tool `{name}` not registered"))
 }
 
-fn integration_tools_for_config(cfg: &Config) -> Vec<Box<dyn Tool>> {
-    build_integration_tools(cfg)
+async fn integration_tools_for_config(cfg: &Config) -> Vec<Box<dyn Tool>> {
+    build_integration_tools(cfg).await
 }
 
-#[test]
-fn integration_families_register_when_enabled_and_signed_in() {
+#[tokio::test]
+async fn integration_families_register_when_enabled_and_signed_in() {
     let tmp = TempDir::new().unwrap();
     let mut cfg = integration_test_config(&tmp, "https://backend.example.test");
     store_test_session_token(&cfg);
     cfg.api_url = Some("https://backend.example.test".to_string());
 
-    let tools = integration_tools_for_config(&cfg);
+    let tools = integration_tools_for_config(&cfg).await;
     let names: Vec<&str> = tools.iter().map(|tool| tool.name()).collect();
     assert_eq!(
         names,
@@ -73,20 +73,21 @@ fn integration_families_register_when_enabled_and_signed_in() {
     );
 }
 
-#[test]
-fn integration_families_are_absent_when_signed_out() {
+#[tokio::test]
+async fn integration_families_are_absent_when_signed_out() {
     let tmp = TempDir::new().unwrap();
     let cfg = integration_test_config(&tmp, "https://backend.example.test");
-    assert!(integration_tools_for_config(&cfg).is_empty());
+    assert!(integration_tools_for_config(&cfg).await.is_empty());
 }
 
-#[test]
-fn disabled_families_are_skipped() {
+#[tokio::test]
+async fn disabled_families_are_skipped() {
     let tmp = TempDir::new().unwrap();
     let mut cfg = integration_test_config(&tmp, "https://backend.example.test");
     cfg.integrations.stock_prices.enabled = false;
     store_test_session_token(&cfg);
     let names: Vec<String> = integration_tools_for_config(&cfg)
+        .await
         .iter()
         .map(|tool| tool.name().to_string())
         .collect();
@@ -99,7 +100,7 @@ async fn all_tools_executes_stock_family_against_fake_backend() {
     let tmp = TempDir::new().unwrap();
     let cfg = integration_test_config(&tmp, &backend.base_url);
     store_test_session_token(&cfg);
-    let tools = integration_tools_for_config(&cfg);
+    let tools = integration_tools_for_config(&cfg).await;
 
     let quote = find_tool(&tools, "stock_quote")
         .execute(serde_json::json!({ "symbol": "AAPL" }))
@@ -170,7 +171,7 @@ async fn all_tools_executes_google_places_family_against_fake_backend() {
     let tmp = TempDir::new().unwrap();
     let cfg = integration_test_config(&tmp, &backend.base_url);
     store_test_session_token(&cfg);
-    let tools = integration_tools_for_config(&cfg);
+    let tools = integration_tools_for_config(&cfg).await;
 
     let search = find_tool(&tools, "google_places_search")
         .execute(serde_json::json!({

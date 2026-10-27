@@ -48,11 +48,11 @@ fn config_with_backend(tmp: &TempDir, base: String) -> Config {
 
 // ── credential resolution ────────────────────────────────
 
-#[test]
-fn hosted_client_errors_without_stored_session() {
+#[tokio::test]
+async fn hosted_client_errors_without_stored_session() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let err = HostedClient::from_config(&config).err().unwrap();
+    let err = HostedClient::from_config(&config).await.err().unwrap();
     assert!(err.contains("no backend session token"));
 }
 

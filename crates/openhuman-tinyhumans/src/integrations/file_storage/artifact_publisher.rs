@@ -78,10 +78,10 @@ impl StorageArtifactPublisher {
 /// The publisher for `config`, or `None` when there is no integration client
 /// (no backend URL configured, or not signed in) — the same condition under
 /// which the `storage_*` tools are absent.
-pub fn artifact_publisher(
+pub async fn artifact_publisher(
     config: &Config,
 ) -> Option<openhuman_embed::__host::artifact_publisher::ArtifactPublisherBinder> {
-    let client = crate::integrations::build_client(config)?;
+    let client = crate::integrations::build_client(config).await?;
     let security = Arc::new(SecurityPolicy::from_config(
         &config.autonomy,
         &config.workspace_dir,
