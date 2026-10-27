@@ -8,7 +8,9 @@ use std::sync::{Arc, OnceLock};
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use crate::security::devices::rpc::{ACTIVE_SESSIONS, PEER_STATUS, PENDING_SESSIONS};
+use crate::security::devices::rpc::{
+    ACTIVE_SESSIONS, PEER_STATUS, PENDING_RENEWALS, PENDING_SESSIONS, RECONNECTING,
+};
 use crate::security::devices::store;
 use crate::security::devices::tunnel_client::emit_frame;
 use async_trait::async_trait;
@@ -215,14 +217,28 @@ async fn handle_handshake(
     connection_nonce: &str,
     expires_at_ms: u64,
 ) {
-    let Some(session) = PENDING_SESSIONS
+    let pending = PENDING_SESSIONS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .get(channel_id)
-        .cloned()
-    else {
-        log::warn!("[devices/bus] no pending pairing for handshake channel_id={channel_id}");
-        return;
+        .cloned();
+    let session = match pending {
+        Some(session) => session,
+        None => {
+            let Some(session) = begin_device_renewal(
+                channel_id,
+                config,
+                connection_token,
+                connection_nonce,
+                expires_at_ms,
+            )
+            .await
+            else {
+                log::warn!("[devices/bus] no pending pairing or renew authority for channel_id={channel_id}");
+                return;
+            };
+            session
+        }
     };
     if session.channel_id != channel_id || !pairing_session_is_live(&session) {
         return;
@@ -271,6 +287,120 @@ async fn handle_handshake(
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .insert(channel_id.to_owned());
+}
+
+async fn begin_device_renewal(
+    channel_id: &str,
+    config: &crate::config::Config,
+    connection_token: &str,
+    connection_nonce: &str,
+    expires_at_ms: u64,
+) -> Option<super::types::PairingSession> {
+    if !PEER_STATUS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(channel_id)
+        .copied()
+        .unwrap_or(false)
+    {
+        return None;
+    }
+    if !RECONNECTING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(channel_id.to_owned())
+    {
+        return None;
+    }
+
+    let renewed = begin_device_renewal_once(
+        channel_id,
+        config,
+        connection_token,
+        connection_nonce,
+        expires_at_ms,
+    )
+    .await;
+    RECONNECTING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .remove(channel_id);
+    renewed
+}
+
+async fn begin_device_renewal_once(
+    channel_id: &str,
+    config: &crate::config::Config,
+    connection_token: &str,
+    connection_nonce: &str,
+    expires_at_ms: u64,
+) -> Option<super::types::PairingSession> {
+    let device = match store::get_device(config, channel_id) {
+        Ok(Some(device)) if !device.revoked => device,
+        _ => return None,
+    };
+    let pairing_id = device.pairing_id.as_deref()?;
+    let event_id = crate::modules::security::device_pairing_reconnect_event(
+        config,
+        channel_id,
+        connection_token,
+        connection_nonce,
+        expires_at_ms,
+    )
+    .await
+    .ok()?;
+    let client = crate::modules::security::client(config).await.ok()?;
+    let response = client
+        .device_pairing2(tinysecurity_bus::DevicePairingRequest2 {
+            call_id: uuid::Uuid::new_v4().simple().to_string(),
+            operation: tinysecurity_bus::DevicePairingOperation2::Renew {
+                pairing_id: pairing_id.to_owned(),
+                host_event_id: event_id,
+            },
+        })
+        .await
+        .ok()?;
+    let receipt = response.receipt.filter(|value| !value.is_empty())?;
+    let core_pubkey = response.core_public_key.filter(|value| !value.is_empty())?;
+    if response.pairing_id.is_some()
+        || response.session_id.is_some()
+        || response.device_public_key.is_some()
+        || !response.frame.is_empty()
+        || response.expires_at_ms <= unix_time_ms()
+        || response.expires_at_ms > expires_at_ms
+    {
+        return None;
+    }
+    let expires_at = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(
+        i64::try_from(response.expires_at_ms).ok()?,
+    )?
+    .to_rfc3339();
+    let session = super::types::PairingSession {
+        channel_id: channel_id.to_owned(),
+        pairing_token: connection_token.to_owned(),
+        core_pubkey,
+        pairing_receipt: receipt,
+        label: device.label,
+        rpc_url: None,
+        expires_at,
+        agent: None,
+    };
+    PENDING_RENEWALS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(channel_id.to_owned(), pairing_id.to_owned());
+    PENDING_SESSIONS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(channel_id.to_owned(), session.clone());
+    Some(session)
+}
+
+fn unix_time_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
+        .unwrap_or_default()
 }
 
 static PENDING_HANDSHAKES: once_cell::sync::Lazy<

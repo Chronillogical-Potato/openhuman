@@ -49,6 +49,15 @@ pub(crate) static ACTIVE_SESSIONS: once_cell::sync::Lazy<
     Mutex<HashMap<String, ActiveDeviceSession>>,
 > = once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
 
+/// Pairing ids being renewed through a fresh TinySecurity handshake.
+pub(crate) static PENDING_RENEWALS: once_cell::sync::Lazy<Mutex<HashMap<String, String>>> =
+    once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
+
+/// Channels currently issuing Renew, preventing concurrent socket frames from
+/// minting multiple single-use receipts for one connection.
+pub(crate) static RECONNECTING: once_cell::sync::Lazy<Mutex<std::collections::HashSet<String>>> =
+    once_cell::sync::Lazy::new(|| Mutex::new(std::collections::HashSet::new()));
+
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct ActiveDeviceSession {
     pub scope_id: String,
