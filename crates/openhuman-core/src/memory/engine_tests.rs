@@ -79,8 +79,8 @@ async fn read_only_inspection_engines_use_the_native_host_scrub_policy() {
     assert_host_scrubbing(bound, &reference).await;
 }
 
-#[test]
-fn read_only_inspection_uses_the_current_v3_user_root_only_for_v3_layout() {
+#[tokio::test]
+async fn read_only_inspection_uses_the_current_v3_user_root_only_for_v3_layout() {
     let mut config = crate::config::Config::default();
     config.config_path =
         "/home/operator/.openhuman/users/6512ab0f6512ab0f6512ab0f/config.toml".into();
@@ -196,8 +196,8 @@ async fn profile_engine_binding_uses_the_host_scrub_policy() {
     .await;
 }
 
-#[test]
-fn a_local_session_token_is_not_a_tinyhumans_credential() {
+#[tokio::test]
+async fn a_local_session_token_is_not_a_tinyhumans_credential() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
     AuthService::from_config(&config)
@@ -212,8 +212,8 @@ fn a_local_session_token_is_not_a_tinyhumans_credential() {
     assert!(!has_key(&config, TINYHUMANS_ENGINE));
 }
 
-#[test]
-fn tinyhumans_with_nothing_registered_is_unavailable() {
+#[tokio::test]
+async fn tinyhumans_with_nothing_registered_is_unavailable() {
     let tmp = tempfile::tempdir().unwrap();
     let mut config = config_in(&tmp);
     config.memory.engine = TINYHUMANS_ENGINE.to_string();
@@ -233,8 +233,8 @@ fn tinyhumans_with_nothing_registered_is_unavailable() {
     assert_eq!(error.code(), "MEMORY_OFF");
 }
 
-#[test]
-fn unknown_and_blank_engine_ids_are_off() {
+#[tokio::test]
+async fn unknown_and_blank_engine_ids_are_off() {
     let tmp = tempfile::tempdir().unwrap();
     let mut config = config_in(&tmp);
     config.memory.engine = "nope".to_string();
@@ -244,8 +244,8 @@ fn unknown_and_blank_engine_ids_are_off() {
     assert!(!has_key(&config, "nope"));
 }
 
-#[test]
-fn cortexdb_is_off_until_a_key_is_stored_and_rebuilds_on_a_new_key() {
+#[tokio::test]
+async fn cortexdb_is_off_until_a_key_is_stored_and_rebuilds_on_a_new_key() {
     let tmp = tempfile::tempdir().unwrap();
     let mut config = config_in(&tmp);
     config.memory.engine = CORTEXDB_ENGINE.to_string();
@@ -277,8 +277,8 @@ fn cortexdb_is_off_until_a_key_is_stored_and_rebuilds_on_a_new_key() {
     assert!(!is_on(&config));
 }
 
-#[test]
-fn cortexdb_key_does_not_report_a_tinyhumans_credential() {
+#[tokio::test]
+async fn cortexdb_key_does_not_report_a_tinyhumans_credential() {
     let tmp = tempfile::tempdir().unwrap();
     let mut config = config_in(&tmp);
     config.memory.engine = CORTEXDB_ENGINE.to_string();
@@ -288,8 +288,8 @@ fn cortexdb_key_does_not_report_a_tinyhumans_credential() {
     assert!(!has_key(&config, TINYHUMANS_ENGINE));
 }
 
-#[test]
-fn switching_observed_actor_rebuilds_the_cortexdb_engine() {
+#[tokio::test]
+async fn switching_observed_actor_rebuilds_the_cortexdb_engine() {
     let _stable = CACHE_STABLE
         .write()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -314,16 +314,16 @@ fn switching_observed_actor_rebuilds_the_cortexdb_engine() {
     );
 }
 
-#[test]
-fn a_blank_cortexdb_key_is_refused() {
+#[tokio::test]
+async fn a_blank_cortexdb_key_is_refused() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
     let error = store_cortexdb_key(&config, "   ").unwrap_err();
     assert_eq!(error.code(), "INVALID_REQUEST");
 }
 
-#[test]
-fn the_cache_fingerprint_never_contains_the_key() {
+#[tokio::test]
+async fn the_cache_fingerprint_never_contains_the_key() {
     let digest = key_digest("super-secret-key");
     assert_eq!(digest.len(), 16);
     assert!(!digest.contains("secret"));
@@ -331,8 +331,8 @@ fn the_cache_fingerprint_never_contains_the_key() {
     assert_ne!(digest, key_digest("another-key"));
 }
 
-#[test]
-fn an_installed_test_engine_wins_and_is_reported_on() {
+#[tokio::test]
+async fn an_installed_test_engine_wins_and_is_reported_on() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
     assert!(!is_on(&config));
@@ -378,8 +378,8 @@ async fn layout_v3_binds_its_own_engine_beside_legacy() {
     assert!(Arc::ptr_eq(&explicit_v3.engine, &v3.engine));
 }
 
-#[test]
-fn layout_v3_before_anyone_signs_in_is_off() {
+#[tokio::test]
+async fn layout_v3_before_anyone_signs_in_is_off() {
     let tmp = tempfile::tempdir().unwrap();
     let mut config = user_config(&tmp, crate::config::PRE_LOGIN_USER_ID);
     config.memory.engine = CORTEXDB_ENGINE.to_string();
@@ -418,8 +418,8 @@ async fn an_installed_engine_has_one_layout_unless_one_is_installed_per_root() {
     assert!(!Arc::ptr_eq(&v3.engine, &legacy.engine));
 }
 
-#[test]
-fn a_root_sets_the_scope_root_its_owner_and_the_cache_key() {
+#[tokio::test]
+async fn a_root_sets_the_scope_root_its_owner_and_the_cache_key() {
     // CortexDB's own API: `org:<id>` is the root, owned by the actor.
     let (settings, key) =
         EngineBinder::rooted(EngineSettings::default(), Some("org:42"), false, false);
@@ -434,8 +434,8 @@ fn a_root_sets_the_scope_root_its_owner_and_the_cache_key() {
     assert_eq!(key, "|root=legacy");
 }
 
-#[test]
-fn the_hosted_wire_sends_no_root_and_legacy_read_names_the_user_segment() {
+#[tokio::test]
+async fn the_hosted_wire_sends_no_root_and_legacy_read_names_the_user_segment() {
     // TinyHumans: the backend pins `org:<id>`; no root, no `user:` segment.
     let (settings, key) =
         EngineBinder::rooted(EngineSettings::default(), Some("org:42"), true, false);
@@ -453,8 +453,8 @@ fn the_hosted_wire_sends_no_root_and_legacy_read_names_the_user_segment() {
     assert_eq!(settings.retired_scope_root.as_deref(), Some("user:42"));
 }
 
-#[test]
-fn legacy_user_segment_read_is_on_by_default_and_written_only_when_off() {
+#[tokio::test]
+async fn legacy_user_segment_read_is_on_by_default_and_written_only_when_off() {
     let config = crate::config::MemoryConfig::default();
     assert!(config.legacy_user_segment_read);
     let on = toml::to_string(&config).unwrap();
@@ -501,14 +501,14 @@ async fn switching_to_v3_persists_and_rebinds_the_persons_own_config() {
     );
 }
 
-#[test]
-fn saas_never_admits_the_host_engine() {
+#[tokio::test]
+async fn saas_never_admits_the_host_engine() {
     assert!(!admits_host_engine_with(true));
     assert!(admits_host_engine_with(false));
 }
 
-#[test]
-fn host_binding_is_ignored_in_saas() {
+#[tokio::test]
+async fn host_binding_is_ignored_in_saas() {
     assert_eq!(host_binding_with(true, Some(1), None).unwrap(), None);
     // The scope-root refusal never fires in SaaS: the host engine is not
     // in play at all.
@@ -518,14 +518,14 @@ fn host_binding_is_ignored_in_saas() {
     );
 }
 
-#[test]
-fn host_binding_is_used_without_a_scope_root_outside_saas() {
+#[tokio::test]
+async fn host_binding_is_used_without_a_scope_root_outside_saas() {
     assert_eq!(host_binding_with(false, Some(1), None).unwrap(), Some(1));
     assert_eq!(host_binding_with::<u8>(false, None, None).unwrap(), None);
 }
 
-#[test]
-fn host_binding_refuses_a_scope_root_outside_saas() {
+#[tokio::test]
+async fn host_binding_refuses_a_scope_root_outside_saas() {
     assert!(host_binding_with(false, Some(1), Some("user:a")).is_err());
     assert_eq!(
         host_binding_with::<u8>(false, None, Some("user:a")).unwrap(),
@@ -533,8 +533,8 @@ fn host_binding_refuses_a_scope_root_outside_saas() {
     );
 }
 
-#[test]
-fn a_disabled_memory_component_binds_no_engine() {
+#[tokio::test]
+async fn a_disabled_memory_component_binds_no_engine() {
     let tmp = tempfile::tempdir().unwrap();
     let mut config = config_in(&tmp);
     config.components.memory = false;
@@ -547,8 +547,8 @@ fn a_disabled_memory_component_binds_no_engine() {
     ));
 }
 
-#[test]
-fn a_disabled_component_overrides_an_installed_test_engine() {
+#[tokio::test]
+async fn a_disabled_component_overrides_an_installed_test_engine() {
     let tmp = tempfile::tempdir().unwrap();
     let mut config = config_in(&tmp);
     assert!(!switched_off(&config));
