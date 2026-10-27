@@ -1,5 +1,5 @@
 use crate::core::runtime::DispatchCtx;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use tinyinference_llm::tool::ToolSchema;
 
 use crate::agent::OpenHumanSessionHost;
@@ -18,7 +18,7 @@ use tinymcp_bus::ToolCallError;
 /// config will not load. `method` names the MCP method for the log line.
 async fn available_tool_specs(ctx: &DispatchCtx, method: &str) -> Vec<McpToolSpec> {
     match ctx.load_config().await {
-        Ok(config) => tool_specs_for_loaded_config(&config),
+        Ok(config) => tool_specs_for_loaded_config(&config).await,
         Err(err) => {
             log::warn!(
                 "[mcp_server] {method} config load failed; omitting config-gated tools: {err}"

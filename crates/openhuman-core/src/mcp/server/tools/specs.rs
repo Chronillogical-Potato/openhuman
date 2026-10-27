@@ -1,9 +1,9 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tinyagents_harness_tools::static_schema;
 use tinymcp_bus::ServerToolSpec;
 
 use super::types::{
-    McpToolSpec, FETCH_MODES, ITEM_KINDS, LEARNING_KINDS, MEMORY_FORGET_MAX_IDS, MEMORY_MAX_LIMIT,
+    FETCH_MODES, ITEM_KINDS, LEARNING_KINDS, MEMORY_FORGET_MAX_IDS, MEMORY_MAX_LIMIT, McpToolSpec,
     SEARCH_MAX_RESULTS, SOURCE_KINDS,
 };
 
@@ -215,10 +215,10 @@ pub fn searxng_tool_spec() -> McpToolSpec {
 
 /// Every tool this config can serve: the base set plus the search tools with
 /// a usable provider.
-pub fn tool_specs_for_loaded_config(config: &crate::config::Config) -> Vec<McpToolSpec> {
+pub async fn tool_specs_for_loaded_config(config: &crate::config::Config) -> Vec<McpToolSpec> {
     tool_specs_for_config(
         config,
-        crate::search::providers::backend_credential_available(config),
+        crate::search::providers::backend_credential_available(config).await,
     )
 }
 

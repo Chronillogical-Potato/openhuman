@@ -9,14 +9,14 @@ use crate::core::runtime::DispatchCtx;
 use std::collections::BTreeMap;
 
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::config::{
-    Config, PresentationMode, ProviderRoute, MANAGED_SEARCH_PROVIDERS, SEARCH_PROVIDERS,
+    Config, MANAGED_SEARCH_PROVIDERS, PresentationMode, ProviderRoute, SEARCH_PROVIDERS,
 };
 use crate::core::Outcome;
 use crate::search::providers;
-use tinysearch_bus::{parse_role, role_key, ROLES};
+use tinysearch_bus::{ROLES, parse_role, role_key};
 
 /// Partial update of one provider.
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -301,7 +301,7 @@ pub async fn apply_search_settings(
         "[config][search] settings saved"
     );
     Ok(Outcome::new(
-        search_settings_json(config),
+        search_settings_json(config).await,
         vec![format!(
             "search settings saved to {}",
             config.config_path.display()
@@ -319,8 +319,11 @@ pub async fn load_and_apply_search_settings(
 
 /// The settings view: every listed provider's resolved state, the role
 /// orders, and what actually serves each role right now.
-pub fn search_settings_json(config: &Config) -> Value {
-    search_settings_json_with(config, providers::backend_credential_available(config))
+pub async fn search_settings_json(config: &Config) -> Value {
+    search_settings_json_with(
+        config,
+        providers::backend_credential_available(config).await,
+    )
 }
 
 pub(crate) fn search_settings_json_with(config: &Config, managed_available: bool) -> Value {
@@ -394,7 +397,7 @@ pub(crate) fn search_settings_json_with(config: &Config, managed_available: bool
 pub async fn get_search_settings(ctx: &DispatchCtx) -> Result<Outcome<Value>, String> {
     let config = ctx.load_config().await?;
     Ok(Outcome::new(
-        search_settings_json(&config),
+        search_settings_json(&config).await,
         vec!["search settings read".to_string()],
     ))
 }
