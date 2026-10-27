@@ -115,7 +115,7 @@ async fn all_tools_registers_no_hosted_integration_families_without_a_tool_sourc
     cfg.integrations.parallel.enabled = true;
     cfg.integrations.tinyfish.enabled = true;
     cfg.integrations.stock_prices.enabled = true;
-    store_test_session_token(&cfg);
+    store_test_session_token(&cfg).await;
 
     let tools = all_tools(
         Arc::new(cfg.clone()),
@@ -243,7 +243,7 @@ async fn all_tools_omits_search_surface_when_search_is_disabled() {
     cfg.search.brave.api_key = Some("test-brave-key".into());
     cfg.search.querit.api_key = Some("test-querit-key".into());
     cfg.integrations.tinyfish.enabled = true;
-    store_test_session_token(&cfg);
+    store_test_session_token(&cfg).await;
 
     let tools = all_tools(
         Arc::new(cfg.clone()),

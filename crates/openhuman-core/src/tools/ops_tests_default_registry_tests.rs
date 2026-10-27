@@ -170,7 +170,7 @@ async fn every_packed_tool_name_resolves_to_a_registered_tool() {
 async fn media_tools_come_only_from_a_registered_tool_source() {
     let tmp = TempDir::new().unwrap();
     let cfg = integration_test_config(&tmp, "http://127.0.0.1:1");
-    store_test_session_token(&cfg);
+    store_test_session_token(&cfg).await;
     let tools = integration_tools_for_config(&tmp, &cfg).await;
     let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
     assert!(
@@ -285,13 +285,13 @@ fn docs_server() -> crate::config::McpServerConfig {
     })
 }
 
-#[test]
+#[tokio::test]
 // Wholly about the static MCP bridge surface, which the `mcp` feature compiles
 // out — no meaningful residue to assert in the disabled build (the
 // "no MCP tools registered" direction is covered by
 // `all_tools_omits_mcp_tools_when_gate_off` below).
 #[cfg(feature = "mcp")]
-fn all_tools_registers_generic_mcp_bridge_tools_when_servers_exist() {
+async fn all_tools_registers_generic_mcp_bridge_tools_when_servers_exist() {
     let tmp = TempDir::new().unwrap();
     let mut cfg = test_config(&tmp);
     cfg.gitbooks.enabled = false;
