@@ -5,6 +5,7 @@ fn session(expires_at: &str) -> PairingSession {
     PairingSession {
         channel_id: "bus-test-channel".into(),
         pairing_token: "pairing-token".into(),
+        connection_nonce: "bus-test-nonce".into(),
         core_pubkey: "module-public-key".into(),
         pairing_receipt: "owner-receipt".into(),
         label: "phone".into(),
@@ -61,6 +62,7 @@ fn process_restart_unlock_then_peer_online_renews_only_the_same_device() {
     let renewed = renewal_pairing_session(
         &device.channel_id,
         "fresh-socket-token",
+        "fresh-socket-nonce",
         &device.label,
         tinysecurity_bus::DevicePairingResponse2 {
             receipt: Some("renewed-receipt".into()),
@@ -76,6 +78,7 @@ fn process_restart_unlock_then_peer_online_renews_only_the_same_device() {
     .expect("TinySecurity Renew should create a bounded pending receipt");
     assert_eq!(renewed.channel_id, device.channel_id);
     assert_eq!(renewed.pairing_token, "fresh-socket-token");
+    assert_eq!(renewed.connection_nonce, "fresh-socket-nonce");
     assert_eq!(renewed.pairing_receipt, "renewed-receipt");
     assert!(pairing_session_is_live(&renewed));
 

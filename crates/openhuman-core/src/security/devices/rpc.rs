@@ -105,18 +105,25 @@ pub async fn devices_create_pairing(
         reg.pairing_token.len()
     );
 
+    let connection_nonce = uuid::Uuid::new_v4().simple().to_string();
     let host_event_id = crate::modules::security::device_pairing_controller_event(
         &scope,
         master_handle,
         generation,
         reg.channel_id.clone(),
         reg.pairing_token.clone(),
+        connection_nonce.clone(),
     )?;
     let begin = client
         .device_pairing2(pairing_begin_request(host_event_id))
         .await
         .map_err(|error| error.to_string())?;
     let (core_pubkey, pairing_receipt) = pairing_begin_result(begin)?;
+    tunnel_client::seed_pairing_socket_attestation(
+        &reg.channel_id,
+        &reg.pairing_token,
+        &connection_nonce,
+    )?;
 
     // Best-effort LAN URL detection (non-fatal if it fails).
     let rpc_url = detect_lan_rpc_url();
@@ -135,6 +142,7 @@ pub async fn devices_create_pairing(
         PairingSession {
             channel_id: reg.channel_id.clone(),
             pairing_token: reg.pairing_token.clone(),
+            connection_nonce,
             core_pubkey: core_pubkey.clone(),
             pairing_receipt,
             label: label

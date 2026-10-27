@@ -173,6 +173,7 @@ pub(crate) fn device_pairing_controller_event(
     generation: u64,
     channel_id: String,
     pairing_token: String,
+    connection_nonce: String,
 ) -> Result<String, String> {
     let expires_at_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -187,7 +188,7 @@ pub(crate) fn device_pairing_controller_event(
         legacy_import_handle: None,
         channel_id,
         pairing_token: Some(pairing_token),
-        connection_nonce: uuid::Uuid::new_v4().simple().to_string(),
+        connection_nonce,
         generation,
         source: tinysecurity_bus::DevicePairingSource2::AuthenticatedUserController,
         expires_at_ms,

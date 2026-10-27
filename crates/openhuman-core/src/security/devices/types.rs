@@ -42,6 +42,9 @@ pub struct PairingSession {
     pub channel_id: String,
     /// Base64url pairing token (single-use, TTL'd, hashed at rest on backend).
     pub pairing_token: String,
+    /// Host-minted socket nonce bound by TinySecurity Begin and the first frame.
+    #[serde(skip)]
+    pub(crate) connection_nonce: String,
     /// Base64url-encoded X25519 public key returned by TinySecurity.
     pub core_pubkey: String,
     /// TinySecurity owner receipt consumed by the next authenticated handshake.

@@ -355,6 +355,7 @@ async fn begin_device_renewal_once(
     let session = renewal_pairing_session(
         channel_id,
         connection_token,
+        connection_nonce,
         &device.label,
         response,
         expires_at_ms,
@@ -391,6 +392,7 @@ fn renewal_pairing_id<'a>(
 fn renewal_pairing_session(
     channel_id: &str,
     connection_token: &str,
+    connection_nonce: &str,
     label: &str,
     response: tinysecurity_bus::DevicePairingResponse2,
     attestation_expiry_ms: u64,
@@ -413,6 +415,7 @@ fn renewal_pairing_session(
     Some(super::types::PairingSession {
         channel_id: channel_id.to_owned(),
         pairing_token: connection_token.to_owned(),
+        connection_nonce: connection_nonce.to_owned(),
         core_pubkey,
         pairing_receipt: receipt,
         label: label.to_owned(),
