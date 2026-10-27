@@ -123,7 +123,10 @@ async fn scenario() {
     });
     let chat_started = tokio::select! {
         at = arrivals.wait_for("alice slow chat") => at,
-        result = &mut chat => panic!("alice chat exited before inference: {result:?}"),
+        result = &mut chat => {
+            println!("alice chat exited before inference: {result:?}");
+            panic!("alice chat exited before inference")
+        },
     };
 
     // Another profile is not held up by Alice's turn.
