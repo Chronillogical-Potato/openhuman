@@ -30,6 +30,25 @@ pub use policy::policy_config;
 pub(super) use policy::{module_config, module_config_for_host, module_config_for_secret_scope};
 pub(crate) use secret_cipher::Output as SecretCipherOutput;
 
+static UNLOCKED_PAIRING_SCOPES: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::HashMap<String, u64>>,
+> = std::sync::LazyLock::new(Default::default);
+
+fn pairing_scope_is_unlocked(scope_id: &str, generation: u64) -> bool {
+    UNLOCKED_PAIRING_SCOPES
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(scope_id)
+        == Some(&generation)
+}
+
+fn remember_unlocked_pairing_scope(scope_id: &str, generation: u64) {
+    UNLOCKED_PAIRING_SCOPES
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(scope_id.to_owned(), generation);
+}
+
 pub(crate) async fn resolve_user_master(
     client: &Client,
     scope: &crate::security::approval::native::SecretScope,
@@ -66,22 +85,57 @@ pub(crate) async fn device_pairing_master(
         .await
         .map_err(|error| error.to_string())?
         .generation;
+    if !pairing_scope_is_unlocked(scope.scope_id(), generation) {
+        unlock_pairing_scope(&client, &scope, &master, generation).await?;
+    }
+    Ok((client, scope, master, generation))
+}
+
+pub(crate) async fn ensure_device_pairing_unlocked(config: &Config) -> Result<(), String> {
+    let client = client(config).await.map_err(|error| error.to_string())?;
+    let scope = host_callbacks::secret_scope()
+        .await
+        .ok_or_else(|| "security secret scope unavailable".to_owned())?;
+    let generation = client
+        .policy_info()
+        .await
+        .map_err(|error| error.to_string())?
+        .generation;
+    if pairing_scope_is_unlocked(scope.scope_id(), generation) {
+        return Ok(());
+    }
+    let registration_id = host_callbacks::secret_registration_id()
+        .await
+        .ok_or_else(|| "security master registration unavailable".to_owned())?;
+    let master = resolve_user_master(&client, &scope, &registration_id)
+        .await
+        .map_err(|error| error.to_string())?;
+    unlock_pairing_scope(&client, &scope, &master, generation).await
+}
+
+async fn unlock_pairing_scope(
+    client: &Client,
+    scope: &crate::security::approval::native::SecretScope,
+    master_handle: &str,
+    generation: u64,
+) -> Result<(), String> {
     let host_event_id = device_pairing_user_event(
-        &scope,
-        Some(master.clone()),
+        scope,
+        Some(master_handle.to_owned()),
         generation,
     )?;
-    let unlocked = client
+    let response = client
         .device_pairing2(tinysecurity_bus::DevicePairingRequest2 {
             call_id: uuid::Uuid::new_v4().simple().to_string(),
             operation: tinysecurity_bus::DevicePairingOperation2::Unlock { host_event_id },
         })
         .await
         .map_err(|error| error.to_string())?;
-    if !pairing_unlock_response_is_valid(&unlocked) {
+    if !pairing_unlock_response_is_valid(&response) {
         return Err("TinySecurity returned an unexpected pairing unlock result".to_owned());
     }
-    Ok((client, scope, master, generation))
+    remember_unlocked_pairing_scope(scope.scope_id(), generation);
+    Ok(())
 }
 
 fn pairing_unlock_response_is_valid(
@@ -172,6 +226,9 @@ pub(crate) async fn device_pairing_recover_event(
         .await
         .map_err(|error| error.to_string())?
         .generation;
+    if !pairing_scope_is_unlocked(scope.scope_id(), generation) {
+        return Err("device pairing scope has not been unlocked by a direct user action".into());
+    }
     let scope_id = scope.scope_id().to_owned();
     callbacks::issue_pairing_event(tinysecurity_bus::DevicePairingContextResponse2 {
         scope_id: scope_id.clone(),
