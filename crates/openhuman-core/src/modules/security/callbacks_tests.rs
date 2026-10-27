@@ -130,7 +130,8 @@ fn direct_recovery_event_is_bound_to_its_exact_channel() {
 #[tokio::test]
 async fn device_pairing_host_is_served_on_the_module_binding() {
     use tinybus::module::{HostCallbackEndpoint, ModuleHost};
-    use tinybus::{Broker, MemoryBus};
+    use tinybus::broker::Broker;
+    use tinybus::transport::memory::MemoryBus;
     use tinysecurity_bus::{callback_names2, DevicePairingPurpose2, DevicePairingSource2};
 
     let broker = Broker::new();
@@ -141,13 +142,17 @@ async fn device_pairing_host_is_served_on_the_module_binding() {
     let binding = host
         .prepare_host_callbacks(vec![HostCallbackEndpoint {
             path: path.clone(),
-            interface: callback_names2::DEVICE_PAIRING_HOST_INTERFACE
+            interface: callback_names2::DEVICE_PAIRING_HOST
                 .parse()
                 .unwrap(),
-            members: callback_names2::DEVICE_PAIRING_HOST_MEMBERS
-                .iter()
-                .map(|member| (*member).parse().unwrap())
-                .collect(),
+            members: [
+                callback_names2::RESOLVE_PAIRING_EVENT,
+                callback_names2::PERSIST_DEVICE_PAIRING,
+                callback_names2::LOAD_LEGACY_DEVICE_IDENTITIES,
+            ]
+            .into_iter()
+            .map(|member| member.parse().unwrap())
+            .collect(),
         }])
         .await
         .unwrap();
@@ -162,7 +167,7 @@ async fn device_pairing_host_is_served_on_the_module_binding() {
         .proxy(
             binding.unique_name().as_str(),
             callback_names2::OBJECT_PATH,
-            callback_names2::DEVICE_PAIRING_HOST_INTERFACE,
+            callback_names2::DEVICE_PAIRING_HOST,
         )
         .unwrap();
     let response: tinysecurity_bus::DevicePairingContextResponse2 = proxy
