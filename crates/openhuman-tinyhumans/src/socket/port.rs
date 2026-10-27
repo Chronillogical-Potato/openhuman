@@ -54,6 +54,7 @@ struct SocketActorHandle {
 pub(crate) struct SdkSocketPort {
     pub(super) state: Arc<RwLock<SocketState>>,
     pub(super) identity: Arc<RwLock<Option<(String, String)>>>,
+    transport_connected: Arc<AtomicBool>,
     loop_active: Arc<AtomicBool>,
     stopped_on_failure: Arc<AtomicBool>,
     actor: Mutex<Option<SocketActorHandle>>,
@@ -65,6 +66,7 @@ impl Default for SdkSocketPort {
         Self {
             state: Arc::new(RwLock::new(SocketState::default())),
             identity: Arc::new(RwLock::new(None)),
+            transport_connected: Arc::new(AtomicBool::new(false)),
             loop_active: Arc::new(AtomicBool::new(false)),
             stopped_on_failure: Arc::new(AtomicBool::new(false)),
             actor: Mutex::new(None),
@@ -136,6 +138,7 @@ impl SocketPort for SdkSocketPort {
             error: None,
         };
         self.loop_active.store(true, Ordering::Release);
+        self.transport_connected.store(false, Ordering::Release);
         self.stopped_on_failure.store(false, Ordering::Release);
         tokio::spawn(run_socket_actor(
             connection,
@@ -143,6 +146,7 @@ impl SocketPort for SdkSocketPort {
             shutdown_rx,
             done,
             Arc::clone(&self.state),
+            Arc::clone(&self.transport_connected),
             Arc::clone(&self.loop_active),
             Arc::clone(&self.stopped_on_failure),
         ));
@@ -155,6 +159,7 @@ impl SocketPort for SdkSocketPort {
             let _ = actor.done.await;
         }
         self.loop_active.store(false, Ordering::Release);
+        self.transport_connected.store(false, Ordering::Release);
         self.stopped_on_failure.store(false, Ordering::Release);
         *self.identity.write() = None;
         *self.state.write() = SocketState::default();
@@ -217,12 +222,12 @@ impl SocketPort for SdkSocketPort {
     }
 
     fn is_connected(&self) -> bool {
-        self.state.read().status == ConnectionStatus::Connected
+        self.transport_connected.load(Ordering::Acquire)
     }
 
     fn is_live_for(&self, url: &str, token: &str) -> bool {
         let state = self.state.read();
-        (matches!(state.status, ConnectionStatus::Connected)
+        (self.transport_connected.load(Ordering::Acquire)
             || (state.status == ConnectionStatus::Connecting
                 && self.loop_active.load(Ordering::Acquire)))
             && self
@@ -270,6 +275,7 @@ async fn run_socket_actor(
     mut shutdown: watch::Receiver<bool>,
     done: oneshot::Sender<()>,
     state: Arc<RwLock<SocketState>>,
+    transport_connected: Arc<AtomicBool>,
     loop_active: Arc<AtomicBool>,
     stopped_on_failure: Arc<AtomicBool>,
 ) {
@@ -288,6 +294,7 @@ async fn run_socket_actor(
             }
             event = connection.next_event() => {
                 let Some(event) = event else {
+                    transport_connected.store(false, Ordering::Release);
                     loop_active.store(false, Ordering::Release);
                     stopped_on_failure.store(connection.stopped_on_failure(), Ordering::Release);
                     if connection.stopped_on_failure() {
@@ -295,31 +302,21 @@ async fn run_socket_actor(
                     }
                     break 'actor;
                 };
-                match event.name.as_str() {
-                    "open" => {
-                        let mut snapshot = state.write();
-                        snapshot.status = ConnectionStatus::Connecting;
-                    }
-                    "connect" => {
-                        apply_connect_event(&mut state.write(), &event);
-                    }
-                    "close" => {
-                        let mut snapshot = state.write();
-                        snapshot.status = ConnectionStatus::Reconnecting;
-                        snapshot.socket_id = None;
-                        loop_active.store(true, Ordering::Release);
-                    }
-                    "error" => {
-                        let mut snapshot = state.write();
-                        snapshot.status = ConnectionStatus::Reconnecting;
-                        snapshot.error = event.payload.decode::<Value>("error").ok().and_then(|value| value.as_str().map(str::to_owned));
-                        stopped_on_failure.store(connection.stopped_on_failure(), Ordering::Release);
-                    }
-                    _ => {
-                        let data = event.payload.decode::<Value>(&event.name).unwrap_or(Value::Null);
-                        openhuman_embed::__host::platform::socket::dispatch_socket_event(&event.name, data);
-                    }
+                if apply_supervisor_event(
+                    &event,
+                    &mut state.write(),
+                    &transport_connected,
+                    &loop_active,
+                    &stopped_on_failure,
+                    connection.stopped_on_failure(),
+                ) {
+                    continue;
                 }
+                if event.source == tinyhumans_sdk::socket::SocketEventSource::Backend {
+                    apply_backend_status_event(&event, &mut state.write());
+                }
+                let data = event.payload.decode::<Value>(&event.name).unwrap_or(Value::Null);
+                openhuman_embed::__host::platform::socket::dispatch_socket_event(&event.name, data);
             }
             command = commands.recv() => {
                 let Some(command) = command else { break; };
@@ -382,7 +379,76 @@ async fn run_socket_actor(
         }
     }
     loop_active.store(false, Ordering::Release);
+    transport_connected.store(false, Ordering::Release);
     let _ = done.send(());
+}
+
+fn apply_supervisor_event(
+    event: &SocketEvent,
+    state: &mut SocketState,
+    transport_connected: &AtomicBool,
+    loop_active: &AtomicBool,
+    stopped_on_failure: &AtomicBool,
+    stopped_on_failure_now: bool,
+) -> bool {
+    if event.source != tinyhumans_sdk::socket::SocketEventSource::Supervisor {
+        return false;
+    }
+    match event.name.as_str() {
+        "open" => {
+            state.status = ConnectionStatus::Connecting;
+            transport_connected.store(false, Ordering::Release);
+        }
+        "connect" => {
+            apply_connect_event(state, event);
+            transport_connected.store(true, Ordering::Release);
+        }
+        "close" => {
+            state.status = ConnectionStatus::Reconnecting;
+            state.socket_id = None;
+            transport_connected.store(false, Ordering::Release);
+            loop_active.store(true, Ordering::Release);
+        }
+        "error" => {
+            state.status = ConnectionStatus::Reconnecting;
+            state.error = decode_error_message(event);
+            transport_connected.store(false, Ordering::Release);
+            stopped_on_failure.store(stopped_on_failure_now, Ordering::Release);
+        }
+        _ => return false,
+    }
+    true
+}
+
+fn apply_backend_status_event(event: &SocketEvent, state: &mut SocketState) -> bool {
+    if event.source != tinyhumans_sdk::socket::SocketEventSource::Backend {
+        return false;
+    }
+    match event.name.as_str() {
+        "ready" => {
+            state.status = ConnectionStatus::Connected;
+            state.error = None;
+        }
+        "error" => {
+            state.status = ConnectionStatus::Error;
+            state.error = decode_error_message(event);
+        }
+        _ => return false,
+    }
+    true
+}
+
+fn decode_error_message(event: &SocketEvent) -> Option<String> {
+    event
+        .payload
+        .decode::<Value>(&event.name)
+        .ok()
+        .map(|value| {
+            value
+                .as_str()
+                .map(str::to_owned)
+                .unwrap_or_else(|| value.to_string())
+        })
 }
 
 fn apply_connect_event(state: &mut SocketState, event: &SocketEvent) {

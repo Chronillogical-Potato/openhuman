@@ -66,6 +66,53 @@ fn socket_state_uses_the_socket_io_connect_sid() {
     assert_eq!(state.socket_id.as_deref(), Some("socket-io-sid"));
 }
 
+#[test]
+fn backend_and_supervisor_errors_have_distinct_connection_effects() {
+    use tinyhumans_sdk::socket::SocketPayload;
+
+    let mut state = SocketState {
+        status: ConnectionStatus::Connected,
+        socket_id: Some("socket-io-sid".to_owned()),
+        error: None,
+    };
+    let transport_connected = AtomicBool::new(true);
+    let loop_active = AtomicBool::new(true);
+    let stopped_on_failure = AtomicBool::new(false);
+    let backend_error = SocketEvent::new(
+        "error",
+        SocketPayload::Json(vec![serde_json::json!({"msg": "backend failure"})]),
+    );
+
+    assert!(!apply_supervisor_event(
+        &backend_error,
+        &mut state,
+        &transport_connected,
+        &loop_active,
+        &stopped_on_failure,
+        false,
+    ));
+    assert!(apply_backend_status_event(&backend_error, &mut state));
+    assert_eq!(state.status, ConnectionStatus::Error);
+    assert_eq!(state.error.as_deref(), Some(r#"{"msg":"backend failure"}"#));
+    assert!(transport_connected.load(Ordering::Acquire));
+
+    let supervisor_error = SocketEvent::supervisor(
+        "error",
+        SocketPayload::Json(vec![serde_json::json!("socket retry failed")]),
+    );
+    assert!(apply_supervisor_event(
+        &supervisor_error,
+        &mut state,
+        &transport_connected,
+        &loop_active,
+        &stopped_on_failure,
+        false,
+    ));
+    assert_eq!(state.status, ConnectionStatus::Reconnecting);
+    assert_eq!(state.error.as_deref(), Some("socket retry failed"));
+    assert!(!transport_connected.load(Ordering::Acquire));
+}
+
 #[tokio::test]
 async fn disconnected_port_rejects_emits_and_disconnect_is_idempotent() {
     let port = SdkSocketPort::default();
@@ -87,6 +134,45 @@ async fn disconnected_port_rejects_emits_and_disconnect_is_idempotent() {
 }
 
 #[tokio::test]
+async fn backend_error_state_still_allows_emit_over_live_transport() {
+    use tinyhumans_sdk::socket::SocketPayload;
+    use tokio::sync::{mpsc, oneshot, watch};
+
+    let port = SdkSocketPort::default();
+    port.transport_connected.store(true, Ordering::Release);
+    let backend_error = SocketEvent::new(
+        "error",
+        SocketPayload::Json(vec![serde_json::json!({"msg": "backend failure"})]),
+    );
+    assert!(apply_backend_status_event(
+        &backend_error,
+        &mut port.state.write()
+    ));
+    assert_eq!(port.get_state().status, ConnectionStatus::Error);
+
+    let (commands, mut receiver) = mpsc::channel(1);
+    let (shutdown, _shutdown_receiver) = watch::channel(false);
+    let (_done, done_receiver) = oneshot::channel();
+    *port.actor.lock().await = Some(SocketActorHandle {
+        commands,
+        shutdown,
+        done: done_receiver,
+    });
+    let responder = tokio::spawn(async move {
+        let SocketCommand::Emit { event, result, .. } = receiver.recv().await.unwrap() else {
+            panic!("expected ordinary emit after backend error");
+        };
+        assert_eq!(event, "test:event");
+        result.send(Ok(())).unwrap();
+    });
+
+    port.emit("test:event", serde_json::json!({"ok": true}))
+        .await
+        .unwrap();
+    responder.await.unwrap();
+}
+
+#[tokio::test]
 async fn actor_shutdown_fails_an_emit_queued_during_reconnect_promptly() {
     use tinyhumans_sdk::TinyHumansClient;
     use tokio::sync::{mpsc, oneshot, watch};
@@ -104,6 +190,7 @@ async fn actor_shutdown_fails_an_emit_queued_during_reconnect_promptly() {
     let (done, done_receiver) = oneshot::channel();
     let state = Arc::new(RwLock::new(SocketState::default()));
     let loop_active = Arc::new(AtomicBool::new(true));
+    let transport_connected = Arc::new(AtomicBool::new(false));
     let stopped_on_failure = Arc::new(AtomicBool::new(false));
     tokio::spawn(run_socket_actor(
         connection,
@@ -111,6 +198,7 @@ async fn actor_shutdown_fails_an_emit_queued_during_reconnect_promptly() {
         shutdown_receiver,
         done,
         state,
+        transport_connected,
         Arc::clone(&loop_active),
         stopped_on_failure,
     ));
@@ -159,6 +247,7 @@ async fn actor_shutdown_fails_an_ack_queued_during_reconnect_promptly() {
     let (done, done_receiver) = oneshot::channel();
     let state = Arc::new(RwLock::new(SocketState::default()));
     let loop_active = Arc::new(AtomicBool::new(true));
+    let transport_connected = Arc::new(AtomicBool::new(false));
     let stopped_on_failure = Arc::new(AtomicBool::new(false));
     tokio::spawn(run_socket_actor(
         connection,
@@ -166,6 +255,7 @@ async fn actor_shutdown_fails_an_ack_queued_during_reconnect_promptly() {
         shutdown_receiver,
         done,
         state,
+        transport_connected,
         Arc::clone(&loop_active),
         stopped_on_failure,
     ));
