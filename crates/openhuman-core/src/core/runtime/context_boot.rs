@@ -85,7 +85,7 @@ impl CoreContext {
         // 2. Load the master encryption key before any config/credential op that
         //    needs to decrypt secrets. No-op if already called (e.g. from
         //    run_core_from_args for the CLI).
-        if boot_mode == crate::core::runtime::CoreBootMode::Normal {
+        if boot_mode != crate::core::runtime::CoreBootMode::Inspection {
             if let Some(config) = &preloaded_config {
                 crate::security::secret_storage::init_workspace(&config.workspace_dir);
             }
@@ -152,6 +152,14 @@ impl CoreContext {
                 log::debug!("[core-context] init: using caller-supplied config (scoped workspace)");
                 Ok(cfg)
             }
+            None if boot_mode == crate::core::runtime::CoreBootMode::SecretPreflight => {
+                crate::config::Config::load_or_init_unsealed_with_env_lookup(
+                    &crate::config::default_root_openhuman_dir()?,
+                    &crate::config::default_workspace_dir()?,
+                    &crate::config::schema::load::ProcessEnv,
+                )
+                .await
+            }
             None => crate::config::Config::load_or_init().await,
         };
         // `[components]` can only narrow what the host chose.
@@ -164,7 +172,7 @@ impl CoreContext {
         log::debug!("[core-context] init: components={components:?} effective domains={domains:?}");
         let config = match loaded {
             Ok(cfg) => {
-                if boot_mode == crate::core::runtime::CoreBootMode::Normal {
+                if boot_mode != crate::core::runtime::CoreBootMode::Inspection {
                     init_stores(&cfg, domains).await;
                 }
                 Some(cfg)
@@ -233,12 +241,13 @@ impl CoreContext {
         //    background jobs start later, from CoreRuntime::start_services(), after a transport binds
         //    succeeds.
         let runtime_config = config.clone();
-        if boot_mode == crate::core::runtime::CoreBootMode::Normal {
+        if boot_mode != crate::core::runtime::CoreBootMode::Inspection {
             crate::core::runtime::bootstrap::bootstrap_core_runtime(
                 host_kind,
                 config,
                 domains,
                 &crate::core::runtime::DispatchCtx::new(ctx.clone()),
+                boot_mode == crate::core::runtime::CoreBootMode::SecretPreflight,
             )
             .await;
         }
