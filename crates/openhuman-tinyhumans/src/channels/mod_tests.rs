@@ -395,7 +395,7 @@ async fn a_context_bearing_delete_or_typing_keeps_the_empty_id_guards() {
         },
     ] {
         let answer = serve(
-            ctx(test_support::signed_in(&tmp, &server.uri()), None),
+            ctx(test_support::signed_in(&tmp, &server.uri()).await, None),
             ChannelBackendRequest::ProgressiveTransport(Box::new(request)),
         )
         .await
