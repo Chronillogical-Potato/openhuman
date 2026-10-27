@@ -410,7 +410,7 @@ pub(crate) async fn start_core_runtime_services(
         }
         None => {
             log::warn!(
-                "[socket] SocketManager unavailable during runtime service startup; auto-connect skipped"
+                "[socket] SocketPort unavailable during runtime service startup; auto-connect skipped"
             );
         }
     }

@@ -226,10 +226,21 @@ async fn run_socket_actor(
                     break;
                 };
                 match event.name.as_str() {
-                    "open" => state.write().status = ConnectionStatus::Connecting,
+                    "open" => {
+                        let sid = event
+                            .payload
+                            .decode::<Value>("open")
+                            .ok()
+                            .and_then(|value| value.get("sid").and_then(Value::as_str).map(str::to_owned));
+                        let mut snapshot = state.write();
+                        snapshot.status = ConnectionStatus::Connecting;
+                        snapshot.socket_id = sid;
+                    }
                     "connect" => state.write().status = ConnectionStatus::Connected,
                     "close" => {
-                        state.write().status = ConnectionStatus::Reconnecting;
+                        let mut snapshot = state.write();
+                        snapshot.status = ConnectionStatus::Reconnecting;
+                        snapshot.socket_id = None;
                         loop_active.store(true, Ordering::Release);
                     }
                     "error" => {
