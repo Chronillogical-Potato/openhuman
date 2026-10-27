@@ -166,7 +166,7 @@ async fn media_tools_come_only_from_a_registered_tool_source() {
     let tmp = TempDir::new().unwrap();
     let cfg = integration_test_config(&tmp, "http://127.0.0.1:1");
     store_test_session_token(&cfg);
-    let tools = integration_tools_for_config(&tmp, &cfg);
+    let tools = integration_tools_for_config(&tmp, &cfg).await;
     let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
     assert!(
         !names.iter().any(|n| n.starts_with("media_")),
@@ -289,7 +289,7 @@ fn all_tools_registers_generic_mcp_bridge_tools_when_servers_exist() {
     cfg.gitbooks.enabled = false;
     cfg.mcp_client.servers.push(docs_server());
 
-    let tools = integration_tools_for_config(&tmp, &cfg);
+    let tools = integration_tools_for_config(&tmp, &cfg).await;
     let names = tool_names(&tools);
     assert_contains_all(
         &names,
@@ -313,7 +313,7 @@ fn all_tools_omits_mcp_tools_when_gate_off() {
     cfg.gitbooks.enabled = false;
     cfg.mcp_client.servers.push(docs_server());
 
-    let names = tool_names(&integration_tools_for_config(&tmp, &cfg));
+    let names = tool_names(&integration_tools_for_config(&tmp, &cfg).await);
     let leaked: Vec<&String> = names
         .iter()
         .filter(|n| n.starts_with("mcp_") || n.starts_with("mcp_registry_"))
