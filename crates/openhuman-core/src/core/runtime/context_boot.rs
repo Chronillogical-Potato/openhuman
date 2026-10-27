@@ -140,11 +140,6 @@ impl CoreContext {
         // Kept for the context: `preloaded_config` is consumed below, and the
         // whole point is that handlers can reach it after boot.
         let embedder_config = preloaded_config.clone();
-        let latest_embedder_config = embedder_config.clone().map(|config| {
-            let snapshot = Arc::new(std::sync::Mutex::new(config));
-            crate::config::Config::bind_context_snapshot(&snapshot);
-            snapshot
-        });
         let loaded = match preloaded_config {
             // A supplied config is authoritative: no disk read, no env overlay,
             // and no `Err` arm to reach, because there was nothing to fail.
@@ -184,6 +179,22 @@ impl CoreContext {
                 None
             }
         };
+        // The desktop's restricted preflight loads config internally before
+        // it can decrypt config secrets. Keep that resolved config available
+        // as the context snapshot so successful decryption can replace it
+        // before the normal router is opened.
+        let latest_embedder_config = embedder_config
+            .clone()
+            .or_else(|| {
+                (boot_mode == crate::core::runtime::CoreBootMode::SecretPreflight)
+                    .then(|| config.clone())
+                    .flatten()
+            })
+            .map(|config| {
+                let snapshot = Arc::new(std::sync::Mutex::new(config));
+                crate::config::Config::bind_context_snapshot(&snapshot);
+                snapshot
+            });
         let workspace_dir = config.as_ref().map(|cfg| cfg.workspace_dir.clone());
 
         // Construct the runtime context before bootstrap. Inspection contexts
