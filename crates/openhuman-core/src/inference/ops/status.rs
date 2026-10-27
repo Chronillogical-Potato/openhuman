@@ -114,6 +114,7 @@ pub async fn inference_test_provider_model(
             "{LOG_PREFIX} test_provider_model:build_local_model"
         );
         crate::inference::provider::factory::create_local_chat_model_from_string(provider, config)
+            .await
     } else {
         debug!(provider, "{LOG_PREFIX} test_provider_model:build_model");
         crate::inference::provider::create_chat_model_from_string_with_model_id(
@@ -122,6 +123,7 @@ pub async fn inference_test_provider_model(
             config,
             config.default_temperature,
         )
+        .await
     }
     .map_err(|e| e.to_string())?;
     debug!(%model, local, "{LOG_PREFIX} test_provider_model:invoke");

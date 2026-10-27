@@ -372,7 +372,10 @@ async fn startup_preflight_socket_gate() {
         denied.status()
     );
     let denial = denied.text().await.unwrap();
-    assert!(denial.contains("startup_preflight"), "preflight body: {denial}");
+    assert!(
+        denial.contains("startup_preflight"),
+        "preflight body: {denial}"
+    );
 
     gate.open();
     let open = client

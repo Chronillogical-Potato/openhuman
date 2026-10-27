@@ -90,7 +90,9 @@ pub(super) async fn run_agent_job_for_run(
                             workload,
                             &effective,
                             effective.default_temperature,
-                        ) {
+                        )
+                        .await
+                        {
                             Ok((_, m)) => {
                                 tracing::debug!(
                                     job_id = %job.id,

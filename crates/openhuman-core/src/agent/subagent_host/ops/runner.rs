@@ -433,11 +433,10 @@ async fn run_typed_mode(
     // returns the fresh list almost for free on the warm path. Fall back
     // to the parent's frozen list when the live fetch returns empty.
     let live_integrations: Vec<crate::integrations::ConnectedIntegration> = {
-        let signed_in = config
-            .as_ref()
-            .ok()
-            .map(|cfg| crate::integrations::composio::user_is_signed_in_to_composio(cfg))
-            .unwrap_or(false);
+        let signed_in = match config.as_ref() {
+            Ok(cfg) => crate::integrations::composio::user_is_signed_in_to_composio(cfg).await,
+            Err(_) => false,
+        };
         if !signed_in {
             parent.connected_integrations.clone()
         } else {
