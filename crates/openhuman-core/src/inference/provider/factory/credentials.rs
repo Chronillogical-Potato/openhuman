@@ -4,6 +4,7 @@
 use super::*;
 use crate::config::ops::legacy_inference_slug;
 use crate::credentials::AuthService;
+use std::collections::HashMap;
 
 type ReadOnlyProfileCredential = (
     String,
@@ -15,27 +16,152 @@ type ReadOnlyProfileCredential = (
 /// Credential behavior used by shared model construction. Runtime callers keep
 /// the established mutable auth-profile store path; doctor inspection uses the
 /// selected profile's read-only snapshot and never refreshes credentials.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum CredentialAccess {
-    Runtime,
+#[derive(Clone, Copy)]
+pub(super) enum CredentialAccess<'a> {
+    Runtime(&'a RuntimeCredentialSnapshot),
     Inspection,
 }
 
+/// A per-session snapshot prepared before the synchronous TinyAgents
+/// `ModelFactory::build` callback. It is owned by one short-lived model
+/// factory, never cached process-wide.
+pub(super) struct RuntimeCredentialSnapshot {
+    keys: HashMap<String, Result<String, String>>,
+    openai_oauth: Result<Option<crate::credentials::openai_oauth::OpenAiOAuthCredentials>, String>,
+    openai_bearer_is_oauth: bool,
+    backend_session_active: bool,
+}
+
+impl Default for RuntimeCredentialSnapshot {
+    fn default() -> Self {
+        Self {
+            keys: HashMap::new(),
+            openai_oauth: Ok(None),
+            openai_bearer_is_oauth: false,
+            backend_session_active: false,
+        }
+    }
+}
+
+impl RuntimeCredentialSnapshot {
+    pub(super) async fn resolve(config: &Config) -> Self {
+        let mut keys = HashMap::new();
+        for slug in config.cloud_providers.iter().map(|entry| entry.slug.as_str()) {
+            if keys.contains_key(slug) {
+                continue;
+            }
+            let result = lookup_key_for_slug(slug, config)
+                .await
+                .map_err(|error| error.to_string());
+            keys.insert(slug.to_owned(), result);
+        }
+        if let Some(route) = config.ephemeral_route.as_ref() {
+            keys.insert(
+                crate::config::schema::EPHEMERAL_ROUTE_SLUG.to_owned(),
+                Ok(route.api_key.trim().to_owned()),
+            );
+        }
+        let openai_oauth = crate::credentials::openai_oauth::lookup_openai_oauth_credentials(config)
+            .await;
+        let openai_bearer_is_oauth = openai_bearer_is_oauth(config).await;
+        let backend_session_active = backend_session_active_snapshot(config).await;
+        Self {
+            keys,
+            openai_oauth,
+            openai_bearer_is_oauth,
+            backend_session_active,
+        }
+    }
+
+    pub(super) fn key(&self, slug: &str) -> anyhow::Result<String> {
+        self.keys
+            .get(slug)
+            .cloned()
+            .unwrap_or_else(|| Ok(String::new()))
+            .map_err(anyhow::Error::msg)
+    }
+
+    pub(super) fn openai_bearer_is_oauth(&self) -> bool {
+        self.openai_bearer_is_oauth
+    }
+
+    pub(super) fn backend_session_active(&self) -> bool {
+        self.backend_session_active
+    }
+
+    pub(super) fn codex_routing(
+        &self,
+        slug: &str,
+        endpoint: &str,
+        bearer_key: &str,
+    ) -> Result<tinyinference_llm::providers::openai::codex::OpenAiCodexRouting, String> {
+        let credentials = if slug == "openai" {
+            match &self.openai_oauth {
+                Ok(credentials) => credentials.clone(),
+                Err(error) if !bearer_key.trim().is_empty() => {
+                    log::warn!("[providers][openai-codex] oauth metadata unavailable; continuing with standard bearer key: {error}");
+                    None
+                }
+                Err(error) => return Err(format!("[chat-factory] openai oauth lookup failed: {error}")),
+            }
+        } else {
+            None
+        };
+        let use_oauth = self.openai_bearer_is_oauth && credentials.is_some();
+        let account_id = credentials
+            .filter(|_| use_oauth)
+            .and_then(|credentials| credentials.account_id);
+        let mut route = tinyinference_llm::providers::openai::codex::resolve_codex_routing(
+            slug,
+            endpoint,
+            use_oauth,
+            account_id.as_deref(),
+        );
+        if !route.using_oauth {
+            route.endpoint = endpoint.to_string();
+        }
+        Ok(route)
+    }
+}
+
+async fn backend_session_active_snapshot(config: &Config) -> bool {
+    let state_dir = config
+        .config_path
+        .parent()
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            directories::UserDirs::new()
+                .map(|dirs| dirs.home_dir().join(".openhuman"))
+                .unwrap_or_else(|| std::path::PathBuf::from(".openhuman"))
+        });
+    if crate::credentials::api_key::has_api_key_in(&state_dir, config.secrets.encrypt).await {
+        return true;
+    }
+    if crate::platform::llm_gate::is_signed_out() {
+        return false;
+    }
+    AuthService::new(&state_dir, config.secrets.encrypt)
+        .get_provider_bearer_token(crate::credentials::APP_SESSION_PROVIDER, None)
+        .await
+        .ok()
+        .flatten()
+        .is_some_and(|token| !token.trim().is_empty())
+}
+
 impl CredentialAccess {
-    pub(super) async fn lookup_key_for_slug(
+    pub(super) fn lookup_key_for_slug(
         self,
         slug: &str,
-        config: &Config,
     ) -> anyhow::Result<String> {
         match self {
-            Self::Runtime => lookup_key_for_slug(slug, config).await,
+            Self::Runtime(snapshot) => snapshot.key(slug),
             Self::Inspection => anyhow::bail!("inspection credential was not pre-resolved"),
         }
     }
 
-    pub(super) async fn openai_bearer_is_oauth(self, config: &Config) -> bool {
+    pub(super) fn openai_bearer_is_oauth(self) -> bool {
         match self {
-            Self::Runtime => openai_bearer_is_oauth(config).await,
+            Self::Runtime(snapshot) => snapshot.openai_bearer_is_oauth(),
             Self::Inspection => false,
         }
     }
