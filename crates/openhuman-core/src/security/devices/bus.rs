@@ -95,13 +95,19 @@ impl EventHandler<DomainEvent> for DeviceTunnelSubscriber {
                     .cloned();
                 // Tunnel frames arrive over the host's socket: its own tenant,
                 // and in SaaS none (the frame is then dropped below).
-                let ctx = DispatchCtx::host_default();
-                match super::owner::owner_of(&ctx, channel_id, pending.as_ref()).await {
+                let host_ctx = DispatchCtx::host_default();
+                match super::owner::owner_of(&host_ctx, channel_id, pending.as_ref()).await {
                     Ok(owner) => {
                         let handled = crate::storage::agents::within_agent(
-                            &ctx,
+                            &host_ctx,
                             owner.as_deref(),
-                            handle_tunnel_frame(&ctx, channel_id, payload_b64),
+                            async {
+                                // Capture the context created by `within_agent`.
+                                // Passing `host_ctx` through here would lose the
+                                // paired device's owner before controller dispatch.
+                                let owner_ctx = DispatchCtx::ambient();
+                                handle_tunnel_frame(&owner_ctx, channel_id, payload_b64).await
+                            },
                         )
                         .await;
                         // Fail closed: no context can act for the owner.
@@ -193,7 +199,7 @@ async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &
     };
 
     if frame_bytes.first() == Some(&0x02) {
-        handle_encrypted_rpc_frame(channel_id, &frame_bytes).await;
+        handle_encrypted_rpc_frame(ctx, channel_id, &frame_bytes).await;
         return;
     }
 
@@ -458,7 +464,11 @@ async fn install_v2_cipher_and_ack(
     Ok(())
 }
 
-async fn handle_encrypted_rpc_frame(channel_id: &str, frame_bytes: &[u8]) {
+async fn handle_encrypted_rpc_frame(
+    ctx: &DispatchCtx,
+    channel_id: &str,
+    frame_bytes: &[u8],
+) {
     let cipher = {
         let map = super::lock_unpoisoned(&ACTIVE_CIPHERS);
         map.get(channel_id).cloned()
@@ -527,7 +537,7 @@ async fn handle_encrypted_rpc_frame(channel_id: &str, frame_bytes: &[u8]) {
     );
 
     let result = crate::core::invoke::invoke_method(
-        crate::core::runtime::DispatchCtx::process_default(),
+        ctx.clone(),
         crate::core::invoke::default_state(),
         &request.method,
         request.params,
