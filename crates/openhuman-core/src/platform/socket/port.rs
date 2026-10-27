@@ -63,6 +63,16 @@ pub fn global_socket_port() -> Option<Arc<dyn SocketPort>> {
     slot().read().clone()
 }
 
+/// Compatibility name for core consumers while the concrete transport is host-owned.
+pub fn global_socket_manager() -> Option<Arc<dyn SocketPort>> {
+    global_socket_port()
+}
+
+/// Compatibility registration name used by host installation code.
+pub fn set_global_socket_manager(port: Arc<dyn SocketPort>) {
+    set_global_socket_port(port);
+}
+
 #[cfg(test)]
 #[path = "port_tests.rs"]
 mod tests;
