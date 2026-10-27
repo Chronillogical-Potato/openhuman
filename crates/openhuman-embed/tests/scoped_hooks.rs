@@ -108,7 +108,7 @@ fn spec(id: &str, provider: &MockServer) -> AgentSpec {
                 .bare_prompt("Use probe once, then answer.")
                 .tools(ToolScopeSpec::HostOnly),
         )
-        .tools(|_| HostTurnTools::advertised(vec![Box::new(Probe)]))
+        .tools(|_| Box::pin(async { HostTurnTools::advertised(vec![Box::new(Probe)]) }))
 }
 
 async fn worker_provider(owner: &str) -> MockServer {

@@ -3,15 +3,15 @@
 
 mod common;
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use common::{offline_config, runtime, stub_backend};
 use openhuman_embed::{
     Access, AgentDefinitionSpec, AgentSpec, HostTurnTools, Provider, Runtime, Tool, ToolScopeSpec,
     Workspace,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate};
 
@@ -107,7 +107,12 @@ fn analyst(id: &str, provider: &MockServer, reads: Arc<AtomicUsize>) -> AgentSpe
                 .bare_prompt("You must call read_file on documents/sample.txt before analyzing the document. Answer with the analysis JSON.")
                 .tools(ToolScopeSpec::HostOnly),
         )
-        .tools(move |_| HostTurnTools::advertised(vec![Box::new(ReadFile(reads.clone()))]))
+        .tools(move |_| {
+            let reads = reads.clone();
+            Box::pin(async move {
+                HostTurnTools::advertised(vec![Box::new(ReadFile(reads))])
+            })
+        })
 }
 
 #[derive(Default)]
@@ -140,7 +145,7 @@ async fn dispatch_on_worker(
 }
 #[test]
 fn model_and_tool_observations_capture_payloads_only_with_consent() {
-    use openhuman_embed::observe::{observe_turn, TraceContent, TurnObservation};
+    use openhuman_embed::observe::{TraceContent, TurnObservation, observe_turn};
     let _guard = RUNTIME_LOCK
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);

@@ -37,12 +37,14 @@ impl tinytools::Tool for Marker {
 }
 
 fn host_belt() -> crate::agent::HostTools {
-    Arc::new(|_| Box::pin(async {
-        crate::agent::HostTurnTools::advertised(vec![
-            Box::new(Marker("read_file")),
-            Box::new(Marker("find_callers")),
-        ])
-    }))
+    Arc::new(|_| {
+        Box::pin(async {
+            crate::agent::HostTurnTools::advertised(vec![
+                Box::new(Marker("read_file")),
+                Box::new(Marker("find_callers")),
+            ])
+        })
+    })
 }
 
 fn sorted(names: impl IntoIterator<Item = String>) -> Vec<String> {

@@ -692,7 +692,7 @@ async fn scenario() {
     alice_profile.lease_fence().fence();
     assert!(
         !handles[0]
-            .scope(async { openhuman_core::memory::engine::is_on(&forced_config) })
+            .scope(async { openhuman_core::memory::engine::is_on(&forced_config).await })
             .await,
         "a latched profile must not resolve the shared engine"
     );
