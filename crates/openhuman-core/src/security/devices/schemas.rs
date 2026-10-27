@@ -242,8 +242,11 @@ fn run_list(ctx: DispatchCtx, config: Config, (): ()) -> ControllerFuture {
         if ctx.invocation_source()
             == crate::core::runtime::InvocationSource::AuthenticatedUserController
         {
-            crate::modules::security::ensure_device_pairing_unlocked(&config).await?;
-            crate::security::devices::rpc::resume_device_tunnels(&config).await;
+            #[cfg(feature = "security-module")]
+            {
+                crate::modules::security::ensure_device_pairing_unlocked(&config).await?;
+                crate::security::devices::rpc::resume_device_tunnels(&config).await;
+            }
         }
         to_json(crate::security::devices::rpc::devices_list(&config).await?)
     })

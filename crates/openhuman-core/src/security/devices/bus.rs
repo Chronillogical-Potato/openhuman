@@ -149,14 +149,14 @@ async fn lock_device_pairings_after_logout() {
     clear_device_pairing_runtime_state();
     #[cfg(feature = "security-module")]
     {
-    let host_context = DispatchCtx::host_default();
-    let Ok(config) = host_context.load_config().await else {
-        log::warn!("[devices/bus] unable to load config to lock TinySecurity after logout");
-        return;
-    };
-    if let Err(error) = crate::modules::security::lock_device_pairing_scope(&config).await {
-        log::warn!("[devices/bus] TinySecurity pairing lock after logout failed: {error}");
-    }
+        let host_context = DispatchCtx::host_default();
+        let Ok(config) = host_context.load_config().await else {
+            log::warn!("[devices/bus] unable to load config to lock TinySecurity after logout");
+            return;
+        };
+        if let Err(error) = crate::modules::security::lock_device_pairing_scope(&config).await {
+            log::warn!("[devices/bus] TinySecurity pairing lock after logout failed: {error}");
+        }
     }
 }
 
@@ -170,9 +170,9 @@ pub(crate) async fn lock_device_pairing_scope_for_logout(
     clear_device_pairing_runtime_state();
     #[cfg(feature = "security-module")]
     {
-    if let Err(error) = crate::modules::security::lock_device_pairing_scope(config).await {
-        log::warn!("[devices/bus] TinySecurity pairing lock before logout failed: {error}");
-    }
+        if let Err(error) = crate::modules::security::lock_device_pairing_scope(config).await {
+            log::warn!("[devices/bus] TinySecurity pairing lock before logout failed: {error}");
+        }
     }
     #[cfg(not(feature = "security-module"))]
     let _ = (config, _ctx);

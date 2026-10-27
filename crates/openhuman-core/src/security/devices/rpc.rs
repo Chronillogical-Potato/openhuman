@@ -313,17 +313,17 @@ pub async fn devices_list(config: &Config) -> Result<Outcome<ListDevicesResponse
 pub(crate) async fn resume_device_tunnels(config: &Config) {
     #[cfg(feature = "security-module")]
     {
-    let Ok(devices) = store::list_devices(config) else {
-        return;
-    };
-    for device in devices.into_iter().filter(|device| !device.revoked) {
-        if let Err(error) = tunnel_client::emit_connect(&device.channel_id).await {
-            log::warn!(
-                "[devices/rpc] could not resume device tunnel channel_id={}: {error}",
-                device.channel_id
-            );
+        let Ok(devices) = store::list_devices(config) else {
+            return;
+        };
+        for device in devices.into_iter().filter(|device| !device.revoked) {
+            if let Err(error) = tunnel_client::emit_connect(&device.channel_id).await {
+                log::warn!(
+                    "[devices/rpc] could not resume device tunnel channel_id={}: {error}",
+                    device.channel_id
+                );
+            }
         }
-    }
     }
     #[cfg(not(feature = "security-module"))]
     let _ = config;
