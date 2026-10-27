@@ -425,7 +425,3 @@ impl Client {
 #[cfg(test)]
 #[path = "client_tests.rs"]
 mod tests;
-
-#[cfg(test)]
-#[path = "client_tests.rs"]
-mod tests;

@@ -8,7 +8,7 @@ struct DeviceFixture {
     frame: Arc<Mutex<Option<tinysecurity_bus::DeviceFrameRequest2>>>,
 }
 
-#[tinybus::interface(name = "ai.tinyhumans.tinysecurity.Security")]
+#[tinybus::interface(name = "ai.tinyhumans.tinysecurity.Policy")]
 impl DeviceFixture {
     #[tinybus(confidential)]
     async fn device_pairing2(
@@ -83,7 +83,9 @@ async fn device_pairing_and_frame_calls_use_the_confidential_security_bus() {
     assert_eq!(*fixture.pairing.lock().unwrap(), Some(pairing));
 
     let frame = tinysecurity_bus::DeviceFrameRequest2 {
+        scope_id: "scope".into(),
         handle: "opaque-session".into(),
+        call_id: "frame-call".into(),
         operation: tinysecurity_bus::DeviceFrameOperation2::Open { frame: vec![7] },
     };
     let frame_result = client.device_frame2(frame.clone()).await.unwrap();
