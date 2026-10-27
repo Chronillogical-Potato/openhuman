@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::prompt::build_completion_messages;
 use super::*;

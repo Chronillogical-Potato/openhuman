@@ -128,10 +128,12 @@ async fn voice_status_reports_external_engine_without_credentials_as_unavailable
 
     let status = voice_status(&config).await.unwrap().value;
     assert!(!status.stt_available);
-    assert!(status
-        .stt_error
-        .as_deref()
-        .is_some_and(|error| error.contains("no API credential")));
+    assert!(
+        status
+            .stt_error
+            .as_deref()
+            .is_some_and(|error| error.contains("no API credential"))
+    );
 }
 
 #[test]
