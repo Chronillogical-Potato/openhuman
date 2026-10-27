@@ -108,17 +108,17 @@ pub fn unregister_proxy_target(mode: &str) -> bool {
 /// with no key, or a mode string that is neither. A typo in `config.toml` fails
 /// loudly rather than silently downgrading to the other route, which would send
 /// a user's requests somewhere they did not choose.
-pub fn module_config(config: &Config) -> Result<serde_json::Value, String> {
-    module_config_with_proxy(config, &crate::config::runtime_proxy_config())
+pub async fn module_config(config: &Config) -> Result<serde_json::Value, String> {
+    module_config_with_proxy(config, &crate::config::runtime_proxy_config()).await
 }
 
 /// [`module_config`] against an explicit proxy policy rather than the
 /// process-global runtime one.
-pub(crate) fn module_config_with_proxy(
+pub(crate) async fn module_config_with_proxy(
     config: &Config,
     proxy: &crate::config::schema::ProxyConfig,
 ) -> Result<serde_json::Value, String> {
-    let mut payload = route_config(config, proxy)?;
+    let mut payload = route_config(config, proxy).await?;
     payload["offered_toolkits"] = offered_toolkits(config);
     Ok(payload)
 }
@@ -135,7 +135,7 @@ pub fn offered_toolkits(config: &Config) -> serde_json::Value {
     })
 }
 
-fn route_config(
+async fn route_config(
     config: &Config,
     proxy: &crate::config::schema::ProxyConfig,
 ) -> Result<serde_json::Value, String> {
@@ -196,7 +196,7 @@ fn route_config(
         COMPOSIO_MODE_DIRECT => {
             // The keychain wins over `config.toml`: the encrypted store is the
             // source of truth, and the file is a fallback for power users.
-            let stored = crate::integrations::composio::get_composio_api_key(config)
+            let stored = crate::integrations::composio::get_composio_api_key(config).await
                 .map_err(|error| format!("failed to read the stored composio api key: {error}"))?;
             let api_key = stored
                 .or_else(|| {
@@ -322,7 +322,9 @@ static ROUTE_TURN: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 async fn ensure_routed(config: &Config, proxy: &Proxy) -> Result<(), String> {
     let _inspection_guard = inspection::route_lock().lock().await;
     let mut route =
-        module_config(config).unwrap_or_else(|_| serde_json::json!({ "route": "none" }));
+        module_config(config)
+            .await
+            .unwrap_or_else(|_| serde_json::json!({ "route": "none" }));
     // `state_dir` is load-time only: the trigger archive opens once, and moving
     // it later would strand the history already written there.
     if let Some(object) = route.as_object_mut() {
