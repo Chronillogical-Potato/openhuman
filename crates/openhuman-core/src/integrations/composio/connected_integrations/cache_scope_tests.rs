@@ -75,8 +75,8 @@ fn profile(config: &Config, id: &str) -> Arc<CoreContext> {
     )
 }
 /// Install a known snapshot under the supplied context's production cache key.
-fn seed(config: &Config, ctx: Arc<CoreContext>, toolkit: &str) -> String {
-    CoreContext::sync_scope(ctx, || {
+async fn seed(config: &Config, ctx: Arc<CoreContext>, toolkit: &str) -> String {
+    CoreContext::scope(ctx, async {
         let key = cache_key(config).await;
         INTEGRATIONS_CACHE.write().unwrap().insert(
             key.clone(),
@@ -95,6 +95,7 @@ fn seed(config: &Config, ctx: Arc<CoreContext>, toolkit: &str) -> String {
         );
         key
     })
+    .await
 }
 
 /// Matching credentials must not let one profile read another's snapshot.
@@ -105,24 +106,26 @@ async fn profiles_with_identical_credentials_cannot_read_each_others_integration
     let config = config(dir.path());
     let alice = profile(&config, "isolation-alice");
     let bob = profile(&config, "isolation-bob");
-    let key = seed(&config, alice.clone(), "gmail");
-    CoreContext::sync_scope(bob.clone(), || {
+    let key = seed(&config, alice.clone(), "gmail").await;
+    CoreContext::scope(bob.clone(), async {
         assert!(
             cached_active_integrations(&config).await.is_none(),
             "identical service credentials must not grant another profile's cached connections"
         );
-    });
-    let bob_key = seed(&config, bob, "slack");
+    })
+    .await;
+    let bob_key = seed(&config, bob, "slack").await;
     assert_ne!(
         key, bob_key,
         "profile identity must participate in the cache key"
     );
-    CoreContext::sync_scope(alice, || {
+    CoreContext::scope(alice, async {
         assert_eq!(
             cached_active_integrations(&config).await.unwrap()[0].toolkit,
             "gmail"
         );
-    });
+    })
+    .await;
     let mut guard = INTEGRATIONS_CACHE.write().unwrap();
     guard.remove(&key);
     guard.remove(&bob_key);
@@ -136,20 +139,21 @@ async fn reconciliation_for_one_profile_preserves_another_profiles_connections()
     let config = config(dir.path());
     let alice = profile(&config, "reconciliation-alice");
     let bob = profile(&config, "reconciliation-bob");
-    let alice_key = seed(&config, alice.clone(), "gmail");
-    let bob_key = seed(&config, bob.clone(), "slack");
+    let alice_key = seed(&config, alice.clone(), "gmail").await;
+    let bob_key = seed(&config, bob.clone(), "slack").await;
     assert!(CoreContext::sync_scope(
         bob,
         || sync_cache_with_connections(&[])
     ));
-    CoreContext::sync_scope(alice, || {
+    CoreContext::scope(alice, async {
         assert_eq!(
             cached_active_integrations(&config).await
                 .expect("another profile's connection list must preserve this snapshot")[0]
                 .toolkit,
             "gmail"
         );
-    });
+    })
+    .await;
     let mut guard = INTEGRATIONS_CACHE.write().unwrap();
     assert!(!guard.contains_key(&bob_key));
     guard.remove(&alice_key);
@@ -162,15 +166,15 @@ async fn profile_invalidation_preserves_another_profiles_snapshot() {
     let config = config(dir.path());
     let alice = profile(&config, "invalidation-alice");
     let bob = profile(&config, "invalidation-bob");
-    let alice_key = seed(&config, alice.clone(), "gmail");
-    let bob_key = seed(&config, bob.clone(), "slack");
+    let alice_key = seed(&config, alice.clone(), "gmail").await;
+    let bob_key = seed(&config, bob.clone(), "slack").await;
     CoreContext::sync_scope(bob, invalidate_connected_integrations_cache);
     assert!(
         INTEGRATIONS_CACHE.read().unwrap().contains_key(&alice_key),
         "Bob's invalidation must preserve Alice's snapshot"
     );
     assert!(!INTEGRATIONS_CACHE.read().unwrap().contains_key(&bob_key));
-    CoreContext::sync_scope(alice, || {
+    CoreContext::scope(alice, async {
         assert_eq!(
             cached_active_integrations(&config).await.unwrap()[0].toolkit,
             "gmail"
@@ -187,8 +191,8 @@ async fn profile_invalidation_does_not_cancel_another_profiles_in_flight_warm() 
     let config = config(dir.path());
     let alice = profile(&config, "warm-alice");
     let bob = profile(&config, "warm-bob");
-    let alice_key = CoreContext::sync_scope(alice, || cache_key(&config).await);
-    let bob_key = CoreContext::sync_scope(bob.clone(), || cache_key(&config).await);
+    let alice_key = CoreContext::scope(alice, cache_key(&config)).await;
+    let bob_key = CoreContext::scope(bob.clone(), cache_key(&config)).await;
     let alice_epoch = cache_generation(&alice_key);
     let bob_epoch = cache_generation(&bob_key);
     let alice_generation = alice_epoch.load(Ordering::SeqCst);
@@ -250,7 +254,7 @@ async fn no_saas_profile_cannot_invalidate_or_reconcile_any_snapshot() {
             .base_urls("http://127.0.0.1:1/v2", "http://127.0.0.1:1/v3"),
     );
     let alice = profile(&config, "unscoped-mutation-alice");
-    let key = seed(&config, alice, "gmail");
+    let key = seed(&config, alice, "gmail").await;
     let epoch = cache_generation(&key);
     let generation = epoch.load(Ordering::SeqCst);
     invalidate_connected_integrations_cache();
@@ -291,12 +295,13 @@ async fn no_saas_profile_cannot_invalidate_or_reconcile_any_snapshot() {
         super::super::fetch::FetchConnectedIntegrationsStatus::Unavailable
     ));
     let unprofiled = CoreContext::for_test_with_config(DomainSet::kernel(), config.clone());
-    CoreContext::sync_scope(unprofiled, || {
+    CoreContext::scope(unprofiled, async {
         assert!(checked_cache_key(&config).await.is_none());
         assert!(cached_active_integrations(&config).await.is_none());
         invalidate_connected_integrations_cache();
         assert!(!sync_cache_with_connections(&[]));
-    });
+    })
+    .await;
     assert!(INTEGRATIONS_CACHE.read().unwrap().contains_key(&key));
     assert_eq!(epoch.load(Ordering::SeqCst), generation);
     let logs = String::from_utf8(captured.0.lock().unwrap().clone()).unwrap();
@@ -323,12 +328,12 @@ async fn desktop_agents_share_catalog_and_default_context_invalidates_their_warm
     };
     let first = agent("desktop-first");
     let second = agent("desktop-second");
-    let key = seed(&config, first, "gmail");
+    let key = seed(&config, first, "gmail").await;
     let other_profile = profile(&config, "desktop-other-profile");
-    let other_key = seed(&config, other_profile, "slack");
+    let other_key = seed(&config, other_profile, "slack").await;
     let epoch = cache_generation(&key);
     let generation = epoch.load(Ordering::SeqCst);
-    CoreContext::sync_scope(second, || {
+    CoreContext::scope(second, async {
         assert_eq!(
             cache_key(&config).await,
             key,
@@ -338,7 +343,8 @@ async fn desktop_agents_share_catalog_and_default_context_invalidates_their_warm
             cached_active_integrations(&config).await.unwrap()[0].toolkit,
             "gmail"
         );
-    });
+    })
+    .await;
     CoreContext::sync_scope(root, invalidate_connected_integrations_cache);
     assert!(
         !INTEGRATIONS_CACHE.read().unwrap().contains_key(&key),
