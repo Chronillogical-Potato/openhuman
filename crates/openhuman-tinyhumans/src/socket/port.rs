@@ -165,14 +165,12 @@ impl SocketPort for SdkSocketPort {
 
     fn is_live_for(&self, url: &str, token: &str) -> bool {
         let state = self.state.read();
-        matches!(state.status, ConnectionStatus::Connected)
+        (matches!(state.status, ConnectionStatus::Connected)
             || (state.status == ConnectionStatus::Connecting
-                && self.loop_active.load(Ordering::Acquire))
-            && self
-                .identity
-                .read()
-                .as_ref()
-                .is_some_and(|(active_url, active_token)| active_url == url && active_token == token)
+                && self.loop_active.load(Ordering::Acquire)))
+            && self.identity.read().as_ref().is_some_and(|(active_url, active_token)| {
+                active_url == url && active_token == token
+            })
     }
 
     fn status_for(&self, url: &str, token: &str) -> Option<ConnectionStatus> {
