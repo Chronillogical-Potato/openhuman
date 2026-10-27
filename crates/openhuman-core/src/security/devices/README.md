@@ -53,10 +53,12 @@ None. This domain has no `tools.rs` and owns no agent tools.
 
 ## Events
 
-Subscriber registered at startup from `crates/openhuman-core/src/core/runtime/subscribers.rs` via `register_device_tunnel_subscriber`. `DeviceTunnelSubscriber` (`name() = "device::tunnel"`, `domains() = ["device"]`) **handles**:
+Subscriber registered at startup from `crates/openhuman-core/src/core/runtime/subscribers.rs` via `register_device_tunnel_subscriber`. `DeviceTunnelSubscriber` (`name() = "device::tunnel"`, `domains() = ["device", "auth"]`) **handles**:
 
 - `DevicePeerOnline` / `DevicePeerOffline` → update `PEER_STATUS`.
 - `DeviceTunnelFrame` → complete handshake + persist `PairedDevice`.
+- global `CredentialChanged { kind: "cleared" }` → clear host session capabilities; credential teardown Locks TinySecurity before the user scope is deactivated.
+- graceful core shutdown → clear host session capabilities and Lock TinySecurity while the admitted scope remains available.
 
 **Publishes**:
 
