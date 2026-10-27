@@ -8,9 +8,9 @@ mod common;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use common::{PointedInference, chat_completion, last_user_message, runtime_without_master_key};
+use common::{chat_completion, last_user_message, runtime_without_master_key};
 use openhuman_core::cron::{self, AgentJobSpec, Schedule};
-use openhuman_embed::{ProfileRuntime, SaasConfig};
+use openhuman_embed::{DirectProfileProvider, ProfileRuntime, SaasConfig};
 use wiremock::{Mock, Request, Respond, ResponseTemplate};
 
 /// How long the slow chat turn's model request takes to answer.
@@ -81,11 +81,19 @@ async fn scenario() {
         .with_priority(10)
         .mount(&inference)
         .await;
-    PointedInference::install(&inference.uri());
     openhuman_core::storage::install(Arc::new(tinystoragedrivers_testkit::MemoryBackend::new()));
 
     let root = tempfile::tempdir().unwrap();
-    let runtime = ProfileRuntime::builder(SaasConfig::new(root.path()))
+    let mut saas = SaasConfig::new(root.path());
+    saas.chat_provider = Some(
+        DirectProfileProvider::openai_compatible(
+            format!("{}/v1", inference.uri()),
+            "fixture-key",
+            "embed-test-model",
+        )
+        .unwrap(),
+    );
+    let runtime = ProfileRuntime::builder(saas)
         .configure(|config| config.lease_ttl_secs = 3600)
         .build()
         .await
