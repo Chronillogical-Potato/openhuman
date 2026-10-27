@@ -32,10 +32,12 @@ async fn unknown_modules_are_not_loaded_or_reported_using_untrusted_ids() {
         .call::<serde_json::Value>("private-user-path-and-token", "Anything", ())
         .await;
     assert_eq!(result, Err(ModuleCallError::Unavailable));
-    assert!(!result
-        .unwrap_err()
-        .to_string()
-        .contains("private-user-path-and-token"));
+    assert!(
+        !result
+            .unwrap_err()
+            .to_string()
+            .contains("private-user-path-and-token")
+    );
 }
 
 #[test]
@@ -55,7 +57,7 @@ fn subsequent_product_reports_are_demoted() {
 #[cfg(feature = "crash-reporting")]
 mod reported {
     use super::*;
-    use tinybus::{broker::Broker, transport::memory::MemoryBus, Connection, ObjectPath};
+    use tinybus::{Connection, ObjectPath, broker::Broker, transport::memory::MemoryBus};
 
     #[derive(Clone)]
     struct BusFixture;

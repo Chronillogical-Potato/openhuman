@@ -131,7 +131,7 @@ fn storage_backed_modules_receive_host_storage_callbacks() {
 #[tokio::test]
 async fn tinymcp_storage_destination_is_not_a_generic_module_config_value() {
     let config = Config::default();
-    let module_config = ops::module_config_for_test(&config, "tinymcp").await;
+    let module_config = ops::module_config(&config, "tinymcp").await;
 
     assert!(module_config.get("storage_callback").is_none());
 }
