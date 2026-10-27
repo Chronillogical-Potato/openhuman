@@ -32,6 +32,16 @@ impl OpenHumanSessionHost {
             )
             .await;
         }
-        Self::from_config_for_agent(ctx, config, agent_id).await
+        let definition = super::factory::resolve_target_definition(config, agent_id)?;
+        Self::build_session_agent_inner(
+            ctx,
+            config,
+            agent_id,
+            definition.as_ref(),
+            false,
+            None,
+            session_id,
+        )
+        .await
     }
 }

@@ -11,8 +11,11 @@ use crate::credentials::{
     api_key, identity, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 
-fn rollback_failed_credential_rebind(auth: &AuthService, cause: &str) -> String {
-    if let Err(rollback) = auth.remove_profile(APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME) {
+async fn rollback_failed_credential_rebind(auth: &AuthService, cause: &str) -> String {
+    if let Err(rollback) = auth
+        .remove_profile(APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME)
+        .await
+    {
         return format!("credential rebind failed: {cause}; rollback failed: {rollback}");
     }
     if let Err(rollback) = crate::config::user_scope::deactivate_user_scope() {
@@ -183,7 +186,7 @@ pub async fn set_credential(
         {
             // A retry of the same credential takes the refresh fast-path, so
             // leaving its profile behind would let it skip this required bind.
-            return Err(rollback_failed_credential_rebind(&auth, &error));
+            return Err(rollback_failed_credential_rebind(&auth, &error).await);
         }
         logs.push("process globals rebound after credential install".to_string());
         start_credential_gated_services(ctx, &effective_config).await;

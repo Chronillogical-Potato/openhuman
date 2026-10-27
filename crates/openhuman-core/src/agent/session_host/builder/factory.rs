@@ -86,10 +86,6 @@ impl OpenHumanSessionHost {
         config: &Config,
         agent_id: &str,
     ) -> Result<Self> {
-        // A hosted profile never receives the ordinary config-derived belt.
-        if crate::profiles::capabilities::ProfileCapabilities::in_ctx(ctx).is_some() {
-            return Self::from_config_for_agent_session(ctx, config, agent_id, None).await;
-        }
         let target_def = resolve_target_definition(config, agent_id)?;
 
         log::info!(

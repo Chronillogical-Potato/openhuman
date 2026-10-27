@@ -52,7 +52,9 @@ pub async fn complete_openai_oauth(
     }))
 }
 
-pub async fn import_openai_oauth_from_codex_cli(config: &Config) -> Result<serde_json::Value, String> {
+pub async fn import_openai_oauth_from_codex_cli(
+    config: &Config,
+) -> Result<serde_json::Value, String> {
     let source = crate::credentials::provider_credential_source().ok_or_else(|| {
         "provider OAuth is unavailable: no host credential source installed".to_string()
     })?;

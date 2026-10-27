@@ -78,7 +78,8 @@ pub async fn persist_openai_oauth_token(
             token: token.clone(),
             account_id,
         },
-    ).await
+    )
+    .await
 }
 
 pub async fn persist_openai_oauth_tokens(
@@ -90,7 +91,8 @@ pub async fn persist_openai_oauth_tokens(
         config,
         token_set_from_oauth(&tokens.token),
         tokens.account_id.clone(),
-    ).await
+    )
+    .await
 }
 
 pub(super) async fn persist_openai_oauth_token_set(
@@ -174,7 +176,10 @@ pub async fn lookup_openai_oauth_credentials(
                 refreshed.scope = token_set.scope.clone();
                 token_set = refreshed;
                 profile.token_set = Some(token_set.clone());
-                if let Err(e) = auth_profiles_store(config).upsert_profile(profile.clone(), true).await {
+                if let Err(e) = auth_profiles_store(config)
+                    .upsert_profile(profile.clone(), true)
+                    .await
+                {
                     log::warn!(
                         "{LOG_PREFIX} failed to persist refreshed token: {e}; \
                          fresh access token will be lost on restart"

@@ -228,7 +228,11 @@ impl ProfileCapabilities {
     pub fn factory(self: &Arc<Self>, config: &Config) -> HostTools {
         let capabilities = Arc::clone(self);
         let config = config.clone();
-        Arc::new(move |turn| Box::pin(async move { capabilities.turn_tools(&config, turn).await }))
+        Arc::new(move |turn| {
+            let capabilities = Arc::clone(&capabilities);
+            let config = config.clone();
+            Box::pin(async move { capabilities.turn_tools(&config, turn).await })
+        })
     }
 
     /// Bind the permission callback to the owning profile's lease.
