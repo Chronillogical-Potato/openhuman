@@ -21,6 +21,7 @@ use tinybus::SubscriptionHandle;
 const HANDSHAKE_VERSION: u8 = 0x03;
 
 static DEVICE_TUNNEL_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
+static DEVICE_TUNNEL_SHUTDOWN: OnceLock<()> = OnceLock::new();
 
 /// Register the device tunnel subscriber on the global event bus.
 /// Idempotent — subsequent calls are no-ops.
@@ -31,6 +32,11 @@ pub fn register_device_tunnel_subscriber() {
     match crate::core::bus::BUS.subscribe(Arc::new(DeviceTunnelSubscriber::new())) {
         Some(handle) => {
             let _ = DEVICE_TUNNEL_HANDLE.set(handle);
+            if DEVICE_TUNNEL_SHUTDOWN.set(()).is_ok() {
+                crate::core::shutdown::register(|| async {
+                    lock_device_pairings_after_logout().await;
+                });
+            }
             log::info!("[devices/bus] DeviceTunnelSubscriber registered");
         }
         None => {
@@ -63,7 +69,7 @@ impl EventHandler<DomainEvent> for DeviceTunnelSubscriber {
     }
 
     fn domains(&self) -> Option<&[&str]> {
-        Some(&["device"])
+        Some(&["device", "auth"])
     }
 
     async fn handle(&self, event: &DomainEvent) {
@@ -119,9 +125,62 @@ impl EventHandler<DomainEvent> for DeviceTunnelSubscriber {
                     ),
                 }
             }
+            event if should_lock_pairings_after_credential_event(event) => {
+                lock_device_pairings_after_logout().await;
+            }
             _ => {}
         }
     }
+}
+
+fn should_lock_pairings_after_credential_event(event: &DomainEvent) -> bool {
+    matches!(
+        event,
+        DomainEvent::CredentialChanged {
+            kind,
+            tenant: None,
+        } if kind == "cleared"
+    )
+}
+
+async fn lock_device_pairings_after_logout() {
+    clear_device_pairing_runtime_state();
+    crate::modules::security::clear_device_pairing_unlock_cache();
+    let host_context = DispatchCtx::host_default();
+    let Ok(config) = host_context.load_config().await else {
+        log::warn!("[devices/bus] unable to load config to lock TinySecurity after logout");
+        return;
+    };
+    if let Err(error) = crate::modules::security::lock_device_pairing_scope(&config).await {
+        log::warn!("[devices/bus] TinySecurity pairing lock after logout failed: {error}");
+    }
+}
+
+fn clear_device_pairing_runtime_state() {
+    PENDING_SESSIONS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clear();
+    ACTIVE_SESSIONS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clear();
+    PENDING_RENEWALS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clear();
+    PEER_STATUS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clear();
+    RECONNECTING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clear();
+    PENDING_HANDSHAKES
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clear();
 }
 
 // ---------------------------------------------------------------------------

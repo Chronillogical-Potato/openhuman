@@ -26,6 +26,21 @@ fn pairing_unlock_cache_is_process_local_and_generation_bound() {
 }
 
 #[test]
+fn logout_clears_pairing_unlock_cache_until_direct_user_unlock() {
+    let scope = "fedcba9876543210fedcba9876543210";
+    remember_unlocked_pairing_scope(scope, 11);
+    assert!(pairing_scope_is_unlocked(scope, 11));
+
+    clear_device_pairing_unlock_cache();
+
+    assert!(!pairing_scope_is_unlocked(scope, 11));
+    // Only the direct-user Unlock path can repopulate this process-local gate.
+    remember_unlocked_pairing_scope(scope, 11);
+    assert!(pairing_scope_is_unlocked(scope, 11));
+    UNLOCKED_PAIRING_SCOPES.lock().unwrap().remove(scope);
+}
+
+#[test]
 fn pairing_unlock_accepts_only_the_module_public_identity_result() {
     let mut response = tinysecurity_bus::DevicePairingResponse2 {
         receipt: None,

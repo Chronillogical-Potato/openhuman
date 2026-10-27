@@ -49,6 +49,13 @@ fn remember_unlocked_pairing_scope(scope_id: &str, generation: u64) {
         .insert(scope_id.to_owned(), generation);
 }
 
+pub(crate) fn clear_device_pairing_unlock_cache() {
+    UNLOCKED_PAIRING_SCOPES
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clear();
+}
+
 pub(crate) async fn resolve_user_master(
     client: &Client,
     scope: &crate::security::approval::native::SecretScope,
@@ -251,6 +258,53 @@ pub(crate) async fn device_pairing_recover_event(
         source: tinysecurity_bus::DevicePairingSource2::AuthenticatedUserController,
         expires_at_ms: now_plus_pairing_event_ttl()?,
     })
+}
+
+/// Lock TinySecurity's pairing scope after a trusted global credential-clear
+/// event or graceful host shutdown. This event shape has no socket fields and
+/// must only be minted by those server-side lifecycle paths.
+pub(crate) async fn lock_device_pairing_scope(config: &Config) -> Result<(), String> {
+    clear_device_pairing_unlock_cache();
+    let client = client(config).await.map_err(|error| error.to_string())?;
+    let scope = host_callbacks::secret_scope()
+        .await
+        .ok_or_else(|| "security secret scope unavailable".to_owned())?;
+    let generation = client
+        .policy_info()
+        .await
+        .map_err(|error| error.to_string())?
+        .generation;
+    let host_event_id = callbacks::issue_pairing_event(
+        tinysecurity_bus::DevicePairingContextResponse2 {
+            scope_id: scope.scope_id().to_owned(),
+            user_binding: scope.scope_id().to_owned(),
+            secret_master_handle: None,
+            legacy_import_handle: None,
+            channel_id: String::new(),
+            pairing_token: None,
+            connection_nonce: String::new(),
+            generation,
+            source: tinysecurity_bus::DevicePairingSource2::AuthenticatedUserLogout,
+            expires_at_ms: now_plus_pairing_event_ttl()?,
+        },
+    )?;
+    let response = client
+        .device_pairing2(tinysecurity_bus::DevicePairingRequest2 {
+            call_id: uuid::Uuid::new_v4().simple().to_string(),
+            operation: tinysecurity_bus::DevicePairingOperation2::Lock { host_event_id },
+        })
+        .await
+        .map_err(|error| error.to_string())?;
+    if response.receipt.is_some()
+        || response.pairing_id.is_some()
+        || response.session_id.is_some()
+        || response.core_public_key.is_some()
+        || response.device_public_key.is_some()
+        || !response.frame.is_empty()
+    {
+        return Err("TinySecurity returned an unexpected pairing lock result".to_owned());
+    }
+    Ok(())
 }
 
 fn now_plus_pairing_event_ttl() -> Result<u64, String> {
