@@ -221,7 +221,7 @@ pub(crate) async fn export_subagent_journal_trace(
     if !config.observability.share_usage_data {
         return;
     }
-    if !crate::core::observability::telemetry::langfuse::journal_push_ready(config) {
+    if !crate::core::observability::telemetry::langfuse::journal_push_ready(config).await {
         log::debug!(
             "[agent-tracing] child trace export skipped: push not possible run_id={journal_run_id}"
         );

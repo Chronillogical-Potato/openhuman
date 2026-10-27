@@ -521,7 +521,7 @@ pub fn spawn_socket_auto_connect(
                 log::debug!("[socket] No resolved control plane — skipping auto-connect");
                 return;
             };
-            let initial_token = match crate::credentials::session_state::get_session_token(&config)
+            let initial_token = match crate::credentials::session_state::get_session_token(&config).await
             {
                 Ok(Some(t)) => t,
                 Ok(None) => {

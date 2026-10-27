@@ -55,12 +55,15 @@ fn permission_token(level: PermissionLevel) -> &'static str {
 /// `host` with every tool it builds refusing calls above `ceiling`.
 pub(crate) fn guard_host_tools(host: HostTools, ceiling: PermissionLevel) -> HostTools {
     std::sync::Arc::new(move |turn| {
-        let mut belt = host(turn);
-        belt.tools = std::mem::take(&mut belt.tools)
-            .into_iter()
-            .map(|tool| Box::new(CeilingGuard::new(tool, ceiling)) as Box<dyn Tool>)
-            .collect();
-        belt
+        let host = host.clone();
+        Box::pin(async move {
+            let mut belt = host(turn).await;
+            belt.tools = std::mem::take(&mut belt.tools)
+                .into_iter()
+                .map(|tool| Box::new(CeilingGuard::new(tool, ceiling)) as Box<dyn Tool>)
+                .collect();
+            belt
+        })
     })
 }
 
