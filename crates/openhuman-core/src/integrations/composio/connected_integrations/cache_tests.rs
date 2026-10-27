@@ -11,11 +11,11 @@ async fn cache_key_changes_when_backend_credential_rotates() {
     };
 
     crate::credentials::api_key::store_api_key(&config, "tiny_first_key").unwrap();
-    let first = cache_key(&config);
+    let first = cache_key(&config).await;
     assert!(!first.contains("tiny_first_key"));
 
     crate::credentials::api_key::store_api_key(&config, "tiny_second_key").unwrap();
-    let second = cache_key(&config);
+    let second = cache_key(&config).await;
     assert_ne!(first, second);
     assert!(!second.contains("tiny_second_key"));
 }
@@ -30,10 +30,10 @@ async fn cache_key_changes_when_backend_url_changes() {
         ..Config::default()
     };
     crate::credentials::api_key::store_api_key(&config, "tiny_test_key").unwrap();
-    let first = cache_key(&config);
+    let first = cache_key(&config).await;
     // The control-plane origin a host's config enricher resolved.
     config.resolved_endpoints.control_plane_url = Some("https://other.example".to_string());
-    assert_ne!(first, cache_key(&config));
+    assert_ne!(first, cache_key(&config).await);
 }
 
 #[tokio::test]

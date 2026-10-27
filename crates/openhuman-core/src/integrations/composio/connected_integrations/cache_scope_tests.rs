@@ -77,7 +77,7 @@ fn profile(config: &Config, id: &str) -> Arc<CoreContext> {
 /// Install a known snapshot under the supplied context's production cache key.
 fn seed(config: &Config, ctx: Arc<CoreContext>, toolkit: &str) -> String {
     CoreContext::sync_scope(ctx, || {
-        let key = cache_key(config);
+        let key = cache_key(config).await;
         INTEGRATIONS_CACHE.write().unwrap().insert(
             key.clone(),
             CachedIntegrations {
@@ -108,7 +108,7 @@ async fn profiles_with_identical_credentials_cannot_read_each_others_integration
     let key = seed(&config, alice.clone(), "gmail");
     CoreContext::sync_scope(bob.clone(), || {
         assert!(
-            cached_active_integrations(&config).is_none(),
+            cached_active_integrations(&config).await.is_none(),
             "identical service credentials must not grant another profile's cached connections"
         );
     });
@@ -119,7 +119,7 @@ async fn profiles_with_identical_credentials_cannot_read_each_others_integration
     );
     CoreContext::sync_scope(alice, || {
         assert_eq!(
-            cached_active_integrations(&config).unwrap()[0].toolkit,
+            cached_active_integrations(&config).await.unwrap()[0].toolkit,
             "gmail"
         );
     });
@@ -144,7 +144,7 @@ async fn reconciliation_for_one_profile_preserves_another_profiles_connections()
     ));
     CoreContext::sync_scope(alice, || {
         assert_eq!(
-            cached_active_integrations(&config)
+            cached_active_integrations(&config).await
                 .expect("another profile's connection list must preserve this snapshot")[0]
                 .toolkit,
             "gmail"
@@ -172,7 +172,7 @@ async fn profile_invalidation_preserves_another_profiles_snapshot() {
     assert!(!INTEGRATIONS_CACHE.read().unwrap().contains_key(&bob_key));
     CoreContext::sync_scope(alice, || {
         assert_eq!(
-            cached_active_integrations(&config).unwrap()[0].toolkit,
+            cached_active_integrations(&config).await.unwrap()[0].toolkit,
             "gmail"
         )
     });
@@ -187,8 +187,8 @@ async fn profile_invalidation_does_not_cancel_another_profiles_in_flight_warm() 
     let config = config(dir.path());
     let alice = profile(&config, "warm-alice");
     let bob = profile(&config, "warm-bob");
-    let alice_key = CoreContext::sync_scope(alice, || cache_key(&config));
-    let bob_key = CoreContext::sync_scope(bob.clone(), || cache_key(&config));
+    let alice_key = CoreContext::sync_scope(alice, || cache_key(&config).await);
+    let bob_key = CoreContext::sync_scope(bob.clone(), || cache_key(&config).await);
     let alice_epoch = cache_generation(&alice_key);
     let bob_epoch = cache_generation(&bob_key);
     let alice_generation = alice_epoch.load(Ordering::SeqCst);
@@ -269,7 +269,7 @@ async fn no_saas_profile_cannot_invalidate_or_reconcile_any_snapshot() {
         "absent profile must not fence another tenant's warm"
     );
 
-    assert!(cached_active_integrations(&config).is_none());
+    assert!(cached_active_integrations(&config).await.is_none());
     let mut disabled = config.clone();
     disabled.composio.mode = crate::config::schema::COMPOSIO_MODE_DISABLED.into();
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -292,8 +292,8 @@ async fn no_saas_profile_cannot_invalidate_or_reconcile_any_snapshot() {
     ));
     let unprofiled = CoreContext::for_test_with_config(DomainSet::kernel(), config.clone());
     CoreContext::sync_scope(unprofiled, || {
-        assert!(checked_cache_key(&config).is_none());
-        assert!(cached_active_integrations(&config).is_none());
+        assert!(checked_cache_key(&config).await.is_none());
+        assert!(cached_active_integrations(&config).await.is_none());
         invalidate_connected_integrations_cache();
         assert!(!sync_cache_with_connections(&[]));
     });
@@ -330,12 +330,12 @@ async fn desktop_agents_share_catalog_and_default_context_invalidates_their_warm
     let generation = epoch.load(Ordering::SeqCst);
     CoreContext::sync_scope(second, || {
         assert_eq!(
-            cache_key(&config),
+            cache_key(&config).await,
             key,
             "the connected-account catalog belongs to the operator, shared by their agents"
         );
         assert_eq!(
-            cached_active_integrations(&config).unwrap()[0].toolkit,
+            cached_active_integrations(&config).await.unwrap()[0].toolkit,
             "gmail"
         );
     });

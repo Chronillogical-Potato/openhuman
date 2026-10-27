@@ -55,7 +55,7 @@ async fn backend_dispatch_forwards_the_workflow_connection_id() {
             "test-token",
             std::collections::HashMap::new(),
             true,
-        )
+        ).await
         .expect("store test session token");
 
     let response = execute_for_connection(

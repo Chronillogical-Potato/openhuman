@@ -114,7 +114,7 @@ fn config_with_backend(tmp: &tempfile::TempDir, base: String) -> Config {
             "test-token",
             std::collections::HashMap::new(),
             true,
-        )
+        ).await
         .expect("store test session token");
     c
 }
@@ -219,7 +219,7 @@ fn direct_mode_config(tmp: &tempfile::TempDir) -> Config {
             "ck_test_direct_key",
             std::collections::HashMap::new(),
             true,
-        )
+        ).await
         .expect("store test direct-mode api key");
     c
 }

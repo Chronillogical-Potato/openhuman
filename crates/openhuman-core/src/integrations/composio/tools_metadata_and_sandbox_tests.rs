@@ -323,7 +323,7 @@ async fn agent_tools_are_all_removed_when_composio_is_disabled_even_if_signed_in
             "test-token",
             std::collections::HashMap::new(),
             true,
-        )
+        ).await
         .expect("store test session token");
     config.composio.mode = "disabled".into();
     let names: Vec<String> = all_composio_agent_tools(&config)
@@ -349,7 +349,7 @@ async fn agent_tools_register_when_backend_signed_in() {
             "test-token",
             std::collections::HashMap::new(),
             true,
-        )
+        ).await
         .expect("store test session token");
     let tools = all_composio_agent_tools(&config);
     assert_eq!(

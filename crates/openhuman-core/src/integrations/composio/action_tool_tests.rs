@@ -288,7 +288,7 @@ async fn contract_gate_surfaces_full_contract_then_proceeds_on_retry() {
 // honoured on the very next per-action execute.
 
 // These two tests assert the *factory routing decision* by mode. They
-// call `resolve_composio_route(&Config)` directly — the pure routing
+// call `resolve_composio_route(&Config).await` directly — the pure routing
 // function — instead of going through `tool.execute()`, which reloads
 // config via `load_config_with_timeout()` (reads `OPENHUMAN_WORKSPACE`)
 // and was therefore subject to a parallel-test env-var race: another

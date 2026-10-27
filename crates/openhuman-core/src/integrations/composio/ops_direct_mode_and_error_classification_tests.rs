@@ -37,7 +37,7 @@ async fn composio_set_api_key_rejects_invalid_direct_key_before_persisting() {
         "unexpected error: {err}"
     );
     assert_eq!(
-        get_composio_api_key(&config).expect("read composio key after failed save"),
+        get_composio_api_key(&config).await.expect("read composio key after failed save"),
         None,
         "invalid key must not be stored"
     );
@@ -98,7 +98,7 @@ async fn composio_set_api_key_validates_candidate_key_even_when_stored_key_exist
         "unexpected error: {err}"
     );
     assert_eq!(
-        get_composio_api_key(&config).expect("read composio key after failed replacement"),
+        get_composio_api_key(&config).await.expect("read composio key after failed replacement"),
         Some("ck_old_valid".to_string()),
         "failed replacement must leave the old stored key intact"
     );
@@ -587,7 +587,7 @@ fn store_test_session_token(config: &crate::config::Config) {
             "test-session-token",
             std::collections::HashMap::new(),
             true,
-        )
+        ).await
         .expect("store test session token");
 }
 
@@ -596,7 +596,7 @@ async fn backend_mode_without_session_is_true_for_default_mode_and_no_session() 
     let tmp = tempfile::tempdir().unwrap();
     // `Config::default()` leaves `composio.mode` empty, which is backend mode.
     let config = test_config(&tmp);
-    assert!(backend_mode_without_session(&config));
+    assert!(backend_mode_without_session(&config).await);
 }
 
 #[tokio::test]
@@ -604,7 +604,7 @@ async fn backend_mode_without_session_is_true_for_explicit_backend_mode() {
     let tmp = tempfile::tempdir().unwrap();
     let mut config = test_config(&tmp);
     config.composio.mode = crate::config::schema::COMPOSIO_MODE_BACKEND.into();
-    assert!(backend_mode_without_session(&config));
+    assert!(backend_mode_without_session(&config).await);
 }
 
 #[tokio::test]
@@ -613,7 +613,7 @@ async fn backend_mode_without_session_is_false_in_direct_mode() {
     // Direct mode never needs a session; its no-key state belongs to
     // `direct_mode_without_key`, and the two guards must not overlap.
     let config = direct_mode_no_key_config(&tmp);
-    assert!(!backend_mode_without_session(&config));
+    assert!(!backend_mode_without_session(&config).await);
 }
 
 #[tokio::test]
@@ -623,7 +623,7 @@ async fn backend_mode_without_session_is_false_once_signed_in() {
     store_test_session_token(&config);
     // A stored session means the module gets a proxy route — the guard must
     // step aside, or a signed-in user would see a silent empty list.
-    assert!(!backend_mode_without_session(&config));
+    assert!(!backend_mode_without_session(&config).await);
 }
 
 #[tokio::test]
@@ -637,9 +637,9 @@ async fn backend_mode_treats_local_offline_credential_as_no_backend_session() {
             "header.payload.local",
             std::collections::HashMap::new(),
             true,
-        )
+        ).await
         .expect("store offline credential");
-    assert!(backend_mode_without_session(&config));
+    assert!(backend_mode_without_session(&config).await);
 }
 
 #[tokio::test]
@@ -655,5 +655,5 @@ async fn backend_mode_without_session_is_false_when_the_session_store_is_unreada
     std::fs::write(&occupied, "not a directory").unwrap();
     let mut config = test_config(&tmp);
     config.config_path = occupied.join("config.toml");
-    assert!(!backend_mode_without_session(&config));
+    assert!(!backend_mode_without_session(&config).await);
 }

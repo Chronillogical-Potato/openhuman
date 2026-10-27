@@ -15,7 +15,7 @@ async fn offline_local_session_never_fetches_hosted_integrations() {
             "desktop.test.local",
             std::collections::HashMap::new(),
             true,
-        )
+        ).await
         .unwrap();
     match fetch_connected_integrations_status(&config).await {
         FetchConnectedIntegrationsStatus::Authoritative(items) => assert!(items.is_empty()),
@@ -191,7 +191,7 @@ async fn sync_cache_invalidates_when_connection_becomes_active() {
     // after the event-bus 60 s readiness poll times out.
     let tmp = tempfile::tempdir().unwrap();
     let config = test_config(&tmp);
-    let key_string = cache_key(&config);
+    let key_string = cache_key(&config).await;
     let key = key_string.as_str();
     clear_cache_key(key);
     seed_cache(
@@ -224,7 +224,7 @@ async fn sync_cache_invalidates_when_connection_is_removed() {
     // empty list. Chat must forget gmail within one poll.
     let tmp = tempfile::tempdir().unwrap();
     let config = test_config(&tmp);
-    let key_string = cache_key(&config);
+    let key_string = cache_key(&config).await;
     let key = key_string.as_str();
     clear_cache_key(key);
     seed_cache(key, vec![integration("gmail", true)]);
@@ -246,7 +246,7 @@ async fn sync_cache_noop_when_backend_matches_cached_state() {
     // registry on every 5 s UI poll.
     let tmp = tempfile::tempdir().unwrap();
     let config = test_config(&tmp);
-    let key_string = cache_key(&config);
+    let key_string = cache_key(&config).await;
     let key = key_string.as_str();
     clear_cache_key(key);
     seed_cache(
@@ -276,7 +276,7 @@ async fn sync_cache_ignores_non_active_connection_rows() {
     // integrations already on disk.
     let tmp = tempfile::tempdir().unwrap();
     let config = test_config(&tmp);
-    let key_string = cache_key(&config);
+    let key_string = cache_key(&config).await;
     let key = key_string.as_str();
     clear_cache_key(key);
     seed_cache(key, vec![integration("gmail", true)]);
@@ -304,7 +304,7 @@ async fn sync_cache_treats_connected_status_equivalent_to_active() {
     // produce a false-positive invalidation.
     let tmp = tempfile::tempdir().unwrap();
     let config = test_config(&tmp);
-    let key_string = cache_key(&config);
+    let key_string = cache_key(&config).await;
     let key = key_string.as_str();
     clear_cache_key(key);
     seed_cache(key, vec![integration("gmail", true)]);
@@ -331,13 +331,13 @@ async fn cache_entries_survive_idle_time_until_connection_change() {
         let mut guard = INTEGRATIONS_CACHE.write().unwrap();
         guard.get_mut(&key).unwrap().cached_at = Instant::now() - Duration::from_secs(3600);
     }
-    assert_eq!(cached_active_integrations(&config).unwrap().len(), 1);
+    assert_eq!(cached_active_integrations(&config).await.unwrap().len(), 1);
     assert!(matches!(
         fetch_connected_integrations_status(&config).await,
         FetchConnectedIntegrationsStatus::Authoritative(entries) if entries.len() == 1
     ));
     sync_cache_with_connections(&[]);
-    assert!(cached_active_integrations(&config).is_none());
+    assert!(cached_active_integrations(&config).await.is_none());
     assert!(matches!(
         fetch_connected_integrations_status(&config).await,
         FetchConnectedIntegrationsStatus::Unavailable
@@ -358,7 +358,7 @@ async fn cached_integrations_remain_available_after_a_long_idle_period() {
         let mut guard = INTEGRATIONS_CACHE.write().unwrap();
         guard.get_mut(&key).unwrap().cached_at = Instant::now() - Duration::from_secs(3600);
     }
-    let stale = cached_active_integrations(&config)
+    let stale = cached_active_integrations(&config).await
         .expect("a long idle period must not expire the last-known snapshot");
     assert_eq!(stale.len(), 1);
     assert_eq!(stale[0].toolkit, "gmail");

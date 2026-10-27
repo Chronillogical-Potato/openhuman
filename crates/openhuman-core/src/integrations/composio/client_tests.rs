@@ -33,7 +33,7 @@ fn config_with_session_token(tmp: &tempfile::TempDir) -> Config {
             "test-token",
             std::collections::HashMap::new(),
             true,
-        )
+        ).await
         .expect("store test session token");
     config
 }
@@ -90,7 +90,7 @@ fn register_fake_backend_route() {
 async fn resolve_composio_route_backend_is_unavailable_without_a_registered_route() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let config = config_with_session_token(&tmp);
-    let err = resolve_composio_route(&config)
+    let err = resolve_composio_route(&config).await
         .err()
         .expect("a core with no backend route builder has no backend route");
     assert!(
@@ -105,7 +105,7 @@ async fn resolve_composio_route_backend_variant_when_mode_default() {
     register_fake_backend_route();
     let tmp = tempfile::tempdir().expect("tempdir");
     let config = config_with_session_token(&tmp);
-    let route = resolve_composio_route(&config).expect("backend mode should build");
+    let route = resolve_composio_route(&config).await.expect("backend mode should build");
     assert_eq!(route.mode(), "backend");
     assert!(matches!(route, ComposioRoute::Backend));
 }
@@ -118,7 +118,7 @@ async fn resolve_composio_route_backend_empty_mode_falls_back_to_backend() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = config_with_session_token(&tmp);
     config.composio.mode = String::new();
-    let route = resolve_composio_route(&config).expect("empty mode should fall back to backend");
+    let route = resolve_composio_route(&config).await.expect("empty mode should fall back to backend");
     assert_eq!(route.mode(), "backend");
 }
 
@@ -128,7 +128,7 @@ async fn resolve_composio_route_disabled_errors_even_with_a_session() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = config_with_session_token(&tmp);
     config.composio.mode = "disabled".into();
-    let err = resolve_composio_route(&config)
+    let err = resolve_composio_route(&config).await
         .err()
         .expect("disabled must not resolve a route");
     assert!(err.to_string().contains("disabled"), "got: {err}");
@@ -156,7 +156,7 @@ async fn resolve_composio_route_backend_errors_without_session() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
-    let err = resolve_composio_route(&config)
+    let err = resolve_composio_route(&config).await
         .err()
         .expect("must error without auth token");
     assert!(
@@ -179,9 +179,9 @@ async fn resolve_composio_route_direct_variant_with_stored_key() {
             "ck_test_key_redacted",
             std::collections::HashMap::new(),
             true,
-        )
+        ).await
         .expect("store direct api key");
-    let route = resolve_composio_route(&config).expect("direct mode with stored key should build");
+    let route = resolve_composio_route(&config).await.expect("direct mode with stored key should build");
     assert_eq!(route.mode(), "direct");
     assert!(matches!(route, ComposioRoute::Direct(_)));
 }
@@ -194,7 +194,7 @@ async fn resolve_composio_route_direct_falls_back_to_config_api_key() {
     config.composio.mode = "direct".into();
     // No keychain entry — fall back to the inline config field.
     config.composio.api_key = Some("ck_inline_redacted".into());
-    let route = resolve_composio_route(&config)
+    let route = resolve_composio_route(&config).await
         .expect("direct mode should accept inline config.api_key when keychain is empty");
     assert_eq!(route.mode(), "direct");
 }
@@ -205,7 +205,7 @@ async fn resolve_composio_route_direct_errors_without_key() {
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
     config.composio.mode = "direct".into();
-    let err = resolve_composio_route(&config)
+    let err = resolve_composio_route(&config).await
         .err()
         .expect("direct without key must error");
     let msg = err.to_string();
@@ -221,7 +221,7 @@ async fn resolve_composio_route_unknown_mode_errors() {
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
     config.composio.mode = "voyage".into();
-    let err = resolve_composio_route(&config)
+    let err = resolve_composio_route(&config).await
         .err()
         .expect("unknown mode must error");
     let msg = err.to_string();
@@ -244,7 +244,7 @@ async fn store_get_clear_composio_api_key_roundtrip() {
 
     // Initially: nothing stored.
     assert_eq!(
-        get_composio_api_key(&config).expect("read empty store"),
+        get_composio_api_key(&config).await.expect("read empty store"),
         None
     );
 
@@ -256,11 +256,11 @@ async fn store_get_clear_composio_api_key_roundtrip() {
             "ck_secret_value_redacted",
             std::collections::HashMap::new(),
             true,
-        )
+        ).await
         .expect("store");
 
     assert_eq!(
-        get_composio_api_key(&config).expect("read stored"),
+        get_composio_api_key(&config).await.expect("read stored"),
         Some("ck_secret_value_redacted".into())
     );
 
@@ -272,7 +272,7 @@ async fn store_get_clear_composio_api_key_roundtrip() {
         )
         .expect("remove");
     assert_eq!(
-        get_composio_api_key(&config).expect("read post-clear"),
+        get_composio_api_key(&config).await.expect("read post-clear"),
         None
     );
 }
@@ -440,7 +440,7 @@ async fn direct_connected_integrations_fetches_schemas_without_backend_composio_
             "desktop.test.local",
             std::collections::HashMap::new(),
             true,
-        )
+        ).await
         .expect("store offline local session token");
     crate::credentials::api_key::store_api_key(&config, "th_test_backend_key")
         .expect("store backend API key");

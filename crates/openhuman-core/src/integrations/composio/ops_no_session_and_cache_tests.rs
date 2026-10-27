@@ -208,8 +208,8 @@ async fn cache_key_is_based_on_config_path_string() {
     a.config_path = tmp.path().join("a.toml");
     let mut b = Config::default();
     b.config_path = tmp.path().join("b.toml");
-    assert_ne!(cache_key(&a), cache_key(&b));
-    assert_eq!(cache_key(&a), cache_key(&a));
+    assert_ne!(cache_key(&a).await, cache_key(&b).await);
+    assert_eq!(cache_key(&a).await, cache_key(&a).await);
 }
 
 #[tokio::test]

@@ -80,7 +80,7 @@ fn shared_runtime_config(tmp: &tempfile::TempDir) -> Config {
             SHARED_STORE_KEY,
             std::collections::HashMap::new(),
             true,
-        )
+        ).await
         .unwrap();
     config
 }
@@ -96,7 +96,7 @@ fn pinned(base: &Config, key: &str, entity: &str, mock: Option<&str>) -> Config 
 }
 
 fn direct_key_fingerprint(config: &Config) -> u64 {
-    match resolve_composio_route(config).expect("pinned credential resolves") {
+    match resolve_composio_route(config).await.expect("pinned credential resolves") {
         ComposioRoute::Direct(tool) => tool.auth_key_fingerprint(),
         ComposioRoute::Backend => panic!("a pinned credential must resolve direct"),
     }
@@ -182,18 +182,18 @@ async fn connected_integrations_cache_is_keyed_per_credential() {
     let agent_b = pinned(&base, KEY_B, "tenant-b", None);
     let same_key_other_entity = pinned(&base, KEY_A, "tenant-c", None);
 
-    assert_ne!(cache_key(&agent_a), cache_key(&agent_b));
-    assert_ne!(cache_key(&agent_a), cache_key(&base));
-    assert_ne!(cache_key(&agent_a), cache_key(&same_key_other_entity));
-    assert_eq!(cache_key(&agent_a), cache_key(&agent_a.clone()));
-    assert!(!cache_key(&agent_a).contains(KEY_A));
+    assert_ne!(cache_key(&agent_a).await, cache_key(&agent_b).await);
+    assert_ne!(cache_key(&agent_a).await, cache_key(&base).await);
+    assert_ne!(cache_key(&agent_a).await, cache_key(&same_key_other_entity).await);
+    assert_eq!(cache_key(&agent_a).await, cache_key(&agent_a.clone()).await);
+    assert!(!cache_key(&agent_a).await.contains(KEY_A));
 
     // A private map, not the process-wide `INTEGRATIONS_CACHE`: any test that
     // stores a credential invalidates the global map without taking the cache
     // test lock, which would empty it between the insert and the reads below.
     let cache = RwLock::new(HashMap::new());
     cache.write().unwrap().insert(
-        cache_key(&agent_a),
+        cache_key(&agent_a).await,
         CachedIntegrations {
             entries: vec![crate::integrations::ConnectedIntegration {
                 toolkit: "gmail".into(),
@@ -252,7 +252,7 @@ async fn redaction_covers_every_result_channel() {
     let serialized = serde_json::to_string(&redacted).unwrap();
     assert!(!serialized.contains(KEY_A), "{serialized}");
 
-    let err = redact_composio_outcome(&agent, Err(anyhow::anyhow!("bad key {KEY_A}")))
+    let err = redact_composio_outcome(&agent, Err(anyhow::anyhow!("bad key {KEY_A}"))).await
         .await
         .unwrap_err();
     assert!(!format!("{err:#}").contains(KEY_A));
@@ -277,7 +277,7 @@ async fn cache_key_changes_when_the_shared_stored_key_rotates_in_unpinned_direct
     let mut base = shared_runtime_config(&tmp);
     base.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.into();
 
-    let key_before = cache_key(&base);
+    let key_before = cache_key(&base).await;
 
     crate::credentials::AuthService::from_config(&base)
         .store_provider_token(
@@ -286,10 +286,10 @@ async fn cache_key_changes_when_the_shared_stored_key_rotates_in_unpinned_direct
             "ck_tenant_rotated_0004",
             std::collections::HashMap::new(),
             true,
-        )
+        ).await
         .unwrap();
 
-    let key_after = cache_key(&base);
+    let key_after = cache_key(&base).await;
     assert_ne!(
         key_before, key_after,
         "cache identity must change when the effective stored Composio credential rotates"
@@ -305,5 +305,5 @@ async fn cache_key_is_stable_for_unpinned_direct_mode_when_nothing_rotates() {
     let mut base = shared_runtime_config(&tmp);
     base.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.into();
 
-    assert_eq!(cache_key(&base), cache_key(&base));
+    assert_eq!(cache_key(&base).await, cache_key(&base).await);
 }
