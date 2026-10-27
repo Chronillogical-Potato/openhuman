@@ -86,6 +86,9 @@ pub fn is_safe_socket_endpoint(endpoint: &str) -> bool {
     let Ok(mut url) = url::Url::parse(endpoint) else {
         return false;
     };
+    if !url.username().is_empty() || url.password().is_some() {
+        return false;
+    }
     let scheme = match url.scheme() {
         "wss" => "https",
         "ws" => "http",
