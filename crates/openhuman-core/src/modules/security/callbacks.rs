@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use serde_json::Value;
 use tinybus::{BusName, CallContext, Connection, Interface, InterfaceName, MemberName, ObjectPath};
 use tinysecurity_bus::{callback_names2, names};
+use std::{collections::HashMap, sync::LazyLock};
 
 #[derive(Clone)]
 struct ApprovalStore;
@@ -83,9 +84,8 @@ impl KeyringConsent {
     }
 }
 
-/// Device pairing callback surface. The host-side identity and persistence
-/// authority are intentionally not installed until they can be bound to a
-/// registered subject; all methods therefore deny for now.
+/// Device pairing callback surface. Controller and socket handlers mint
+/// short-lived event ids; TinySecurity can resolve each id only once.
 #[derive(Clone)]
 struct DevicePairingHost;
 #[tinybus::interface(name = "ai.tinyhumans.tinysecurity.DevicePairingHost2")]
@@ -93,9 +93,11 @@ impl DevicePairingHost {
     #[tinybus(confidential)]
     async fn resolve_pairing_event(
         &self,
-        _request: tinysecurity_bus::DevicePairingContextRequest2,
+        request: tinysecurity_bus::DevicePairingContextRequest2,
     ) -> tinybus::Result<tinysecurity_bus::DevicePairingContextResponse2> {
-        Err(unavailable())
+        PAIRING_EVENTS
+            .resolve(&request, unix_time_ms())
+            .map_err(|_| unavailable())
     }
 
     #[tinybus(confidential)]
@@ -113,6 +115,99 @@ impl DevicePairingHost {
     ) -> tinybus::Result<tinysecurity_bus::DevicePairingLegacyLoadResponse2> {
         Err(unavailable())
     }
+}
+
+/// A capability registry for host-observed pairing events. Keep it separate
+/// from caller-controlled RPC parameters so a tunnel payload cannot mint
+/// controller or socket authority.
+#[derive(Default)]
+pub(crate) struct PairingEventRegistry {
+    events: parking_lot::Mutex<HashMap<String, tinysecurity_bus::DevicePairingContextResponse2>>,
+}
+
+impl PairingEventRegistry {
+    pub(crate) fn issue(
+        &self,
+        context: tinysecurity_bus::DevicePairingContextResponse2,
+    ) -> String {
+        let event_id = uuid::Uuid::new_v4().simple().to_string();
+        self.events.lock().insert(event_id.clone(), context);
+        event_id
+    }
+
+    pub(crate) fn resolve(
+        &self,
+        request: &tinysecurity_bus::DevicePairingContextRequest2,
+        now_ms: u64,
+    ) -> Result<tinysecurity_bus::DevicePairingContextResponse2, ()> {
+        use tinysecurity_bus::{DevicePairingPurpose2 as Purpose, DevicePairingSource2 as Source};
+
+        if request.host_event_id.is_empty() || request.host_event_id.len() > 128 {
+            return Err(());
+        }
+        let context = self.events.lock().remove(&request.host_event_id).ok_or(())?;
+        let expected_source = match request.purpose {
+            Purpose::UserController | Purpose::LegacyImport => Source::AuthenticatedUserController,
+            Purpose::UserLogout => Source::AuthenticatedUserLogout,
+            Purpose::SocketEvent => Source::RegisteredSocket,
+            Purpose::Reconnect => Source::BackendReconnect,
+            Purpose::SocketClosed => Source::SocketClosed,
+        };
+        let valid_scope = context.scope_id.len() == 32
+            && context.scope_id.bytes().all(|byte| byte.is_ascii_hexdigit());
+        let channel_bound = request
+            .requested_channel_id
+            .as_deref()
+            .is_none_or(|channel| channel == context.channel_id);
+        let source_fields_valid = match request.purpose {
+            Purpose::UserController | Purpose::LegacyImport | Purpose::UserLogout => {
+                context.channel_id.is_empty()
+                    && context.pairing_token.is_none()
+                    && context.connection_nonce.is_empty()
+            }
+            Purpose::SocketEvent | Purpose::Reconnect => {
+                !context.channel_id.is_empty()
+                    && context.pairing_token.as_ref().is_some_and(|value| !value.is_empty())
+                    && !context.connection_nonce.is_empty()
+            }
+            Purpose::SocketClosed => !context.channel_id.is_empty(),
+        };
+        let legacy_fields_valid = match request.purpose {
+            Purpose::LegacyImport => context
+                .legacy_import_handle
+                .as_ref()
+                .is_some_and(|handle| !handle.is_empty()),
+            _ => context.legacy_import_handle.is_none(),
+        };
+
+        if context.source != expected_source
+            || !valid_scope
+            || context.user_binding.is_empty()
+            || context.generation == 0
+            || context.expires_at_ms <= now_ms
+            || !channel_bound
+            || !source_fields_valid
+            || !legacy_fields_valid
+        {
+            return Err(());
+        }
+        Ok(context)
+    }
+}
+
+static PAIRING_EVENTS: LazyLock<PairingEventRegistry> = LazyLock::new(PairingEventRegistry::default);
+
+pub(crate) fn issue_pairing_event(
+    context: tinysecurity_bus::DevicePairingContextResponse2,
+) -> String {
+    PAIRING_EVENTS.issue(context)
+}
+
+fn unix_time_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
+        .unwrap_or_default()
 }
 
 fn keyring_consent_outcome(approved: Option<bool>) -> tinysecurity_bus::KeyringConsentOutcome2 {
