@@ -37,7 +37,7 @@
 ///   peer (or an intercepting firewall / antivirus / corporate TLS proxy)
 ///   closes the TCP connection mid-TLS-handshake, surfacing as
 ///   `"TLS error: native-tls error: unexpected EOF during handshake"`
-///   wrapped by `socket::ws_loop::run_connection` into
+///   wrapped by the SDK socket supervisor into
 ///   `"WebSocket connect: …"` (`TAURI-RUST-4ZD`, first seen on
 ///   `openhuman@0.56.0`, Windows). The existing `"tls handshake"` anchor
 ///   misses it because the words aren't contiguous (`"tls error"` …
@@ -133,7 +133,7 @@ fn is_channel_supervisor_restart_message(lower: &str) -> bool {
 ///
 /// Also matches the second canonical wire shape: tungstenite's
 /// `WsError::Http(response)` Display, which renders as `"HTTP error: <status>"`
-/// (and which `socket::ws_loop::run_connection` wraps as
+/// (and which the SDK socket supervisor wraps as
 /// `"WebSocket connect: HTTP error: 502 Bad Gateway"`). Per
 /// OPENHUMAN-TAURI-5P (~110 events) and -EZ (~51 events), backend
 /// staging/production load balancers emit HTTP 502/504 during the WebSocket
