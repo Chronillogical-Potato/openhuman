@@ -14,6 +14,7 @@ pub(crate) use keychain::namespaced_keyring_name;
 mod lock;
 mod migration;
 mod persistence;
+#[cfg(test)]
 pub(crate) use persistence::is_persisted_document;
 use persistence::{PersistedAuthProfile, PersistedAuthProfiles};
 mod readonly;

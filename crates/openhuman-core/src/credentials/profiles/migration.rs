@@ -212,7 +212,6 @@ impl AuthProfilesStore {
             if let Some(mut ap) = profiles.remove(&id) {
                 if new_profiles.contains_key(&normalized_id) {
                     profile_migration_conflicts += 1;
-                    key_migrated = true;
                     if id == normalized_id {
                         let old_id = new_profiles
                             .insert(normalized_id.clone(), ap)
@@ -265,7 +264,6 @@ impl AuthProfilesStore {
 
                     let final_id = if migration_succeeded {
                         if provider_or_id_changed {
-                            key_migrated = true;
                             profile_casing_changed_count += 1;
                         }
                         normalized_id.clone()
@@ -291,7 +289,6 @@ impl AuthProfilesStore {
             if let Some(target) = profile_id_migration_targets.get(&normalized) {
                 if profile_id != target {
                     *profile_id = target.clone();
-                    key_migrated = true;
                 }
             }
         }

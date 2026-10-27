@@ -251,6 +251,7 @@ struct ThreadSubscribeAck {
 /// - `rpc:request`: Invoking JSON-RPC methods over WebSocket.
 /// - `chat:start`: Initiating a new chat turn.
 /// - `chat:cancel`: Aborting an active chat turn.
+#[cfg(test)]
 pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
     attach_socketio_with_preflight(None)
 }

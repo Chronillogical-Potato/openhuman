@@ -219,9 +219,8 @@ impl ProfileHost {
         // would let a re-provisioned profile pick the old credential back up.
         let config = layout::profile_config(layout, id);
         let cleared = CoreContext::scope(self.records_context(id), async {
-            super::credentials::clear(&config)
+            super::credentials::clear(&config).await
         })
-        .await
         .await;
         if let Err(e) = cleared {
             log::warn!("[profiles] clearing credentials before archiving failed: {e}");

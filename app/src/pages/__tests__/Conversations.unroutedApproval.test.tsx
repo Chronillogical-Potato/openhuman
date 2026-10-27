@@ -163,10 +163,7 @@ describe('a background approval on /chat', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Approve' }));
 
     await waitFor(() =>
-      expect(vi.mocked(decideApproval)).toHaveBeenCalledWith(
-        'req-secret-grant-1',
-        'approve_once'
-      )
+      expect(vi.mocked(decideApproval)).toHaveBeenCalledWith('req-secret-grant-1', 'approve_once')
     );
   });
 

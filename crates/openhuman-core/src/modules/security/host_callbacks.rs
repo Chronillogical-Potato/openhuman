@@ -218,7 +218,7 @@ pub(in crate::modules) async fn ensure_loaded(
         .runtime()
         .await
         .map_err(|error| error.to_string())?;
-    let host = runtime.host().clone();
+    let host = runtime.host();
     let candidates = std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::<
         String,
         std::sync::Arc<SecurityCallbackState>,
@@ -234,7 +234,7 @@ pub(in crate::modules) async fn ensure_loaded(
     let factory_legacy_backend_id = legacy_backend_id.clone();
     let binding = resolver
         .ensure_loaded_with_host_callback_factory(id, move |_attempt| {
-            let host = host.clone();
+            let host = host;
             let config = factory_config.clone();
             let scope = factory_scope.clone();
             let candidates = std::sync::Arc::clone(&factory_candidates);

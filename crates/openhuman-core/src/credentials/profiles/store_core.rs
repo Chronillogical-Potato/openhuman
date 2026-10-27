@@ -153,7 +153,7 @@ impl AuthProfilesStore {
                 if let Err(delete_error) = self.keychain_delete_secrets(profile_id) {
                     let _lock = self.acquire_lock()?;
                     let current = self.read_persisted_locked()?;
-                    if current.profiles.get(profile_id).is_none() {
+                    if !current.profiles.contains_key(profile_id) {
                         self.write_persisted_locked(&persisted_before)?;
                     }
                     return Err(delete_error.context("profile removal was not completed"));

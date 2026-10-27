@@ -77,7 +77,7 @@ fn try_create_local_runtime_chat_model_from_string_with_identity(
     provider: &str,
     config: &Config,
     egress: &EgressLedger,
-    inspection: bool,
+    _inspection: bool,
     inspection_identity: Option<&mut Option<(String, String, String)>>,
 ) -> OptionalChatModelResult {
     use tinyinference_local::local_runtime::{

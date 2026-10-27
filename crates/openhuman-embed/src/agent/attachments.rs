@@ -44,24 +44,26 @@ impl Agent {
         if key.trim().is_empty() {
             return Err(ToolAttachmentError::EmptyKey);
         }
-        let mut sources = self
-            .inner
-            .attachments
-            .0
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if let Some(existing) = sources.get(&key) {
-            return if Arc::ptr_eq(&existing.factory, &factory) {
-                Ok(())
-            } else {
-                Err(ToolAttachmentError::SourceConflict(key))
-            };
-        }
+        let mut occupied: HashSet<String> = {
+            let sources = self
+                .inner
+                .attachments
+                .0
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if let Some(existing) = sources.get(&key) {
+                return if Arc::ptr_eq(&existing.factory, &factory) {
+                    Ok(())
+                } else {
+                    Err(ToolAttachmentError::SourceConflict(key))
+                };
+            }
+            sources
+                .values()
+                .flat_map(|source| source.names.iter().cloned())
+                .collect()
+        };
         let context = TurnContext::new(self.id(), None);
-        let mut occupied: HashSet<String> = sources
-            .values()
-            .flat_map(|source| source.names.iter().cloned())
-            .collect();
         if let Some(host) = &self.inner.host_tools {
             occupied.extend(
                 host(context)
@@ -102,6 +104,24 @@ impl Agent {
             let name = tool.name().to_string();
             if occupied.contains(&name) || !names.insert(name.clone()) {
                 return Err(ToolAttachmentError::NameCollision(name));
+            }
+        }
+        let mut sources = self
+            .inner
+            .attachments
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(existing) = sources.get(&key) {
+            return if Arc::ptr_eq(&existing.factory, &factory) {
+                Ok(())
+            } else {
+                Err(ToolAttachmentError::SourceConflict(key))
+            };
+        }
+        for source in sources.values() {
+            if let Some(name) = names.intersection(&source.names).next() {
+                return Err(ToolAttachmentError::NameCollision(name.clone()));
             }
         }
         sources.insert(key, Attachment { factory, names });

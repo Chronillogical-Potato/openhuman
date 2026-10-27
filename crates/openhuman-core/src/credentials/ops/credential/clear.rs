@@ -80,7 +80,7 @@ pub async fn clear_credential(
                 // store is literally the same file.
                 let shares_store = carried_api_key
                     && crate::credentials::profiles::profiles_file(
-                        &crate::credentials::state_dir_from_config(&config),
+                        &crate::credentials::state_dir_from_config(config),
                     ) == crate::credentials::profiles::profiles_file(
                         &crate::credentials::state_dir_from_config(&effective_config),
                     );

@@ -171,8 +171,8 @@ pub(crate) async fn resolve_context_window_with(
 /// Host-owned route facts shared by async resolution and synchronous
 /// projections. The native resolver owns the fallback order and URL handling.
 fn route_input(
-    role: &str,
-    provider: &str,
+    _role: &str,
+    _provider: &str,
     model: &str,
     config: &Config,
     extensions: Option<Option<&crate::core::slots::Extensions>>,

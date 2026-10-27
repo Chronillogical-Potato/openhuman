@@ -486,8 +486,8 @@ impl ApprovalGate {
                 .redact(tinysecurity_bus::RedactMode::StructuredArguments, encoded)
                 .await
                 .map_err(|error| error.to_string())?;
-            return serde_json::from_str(&response.text)
-                .map_err(|_| "TinySecurity returned invalid approval arguments".to_owned());
+            serde_json::from_str(&response.text)
+                .map_err(|_| "TinySecurity returned invalid approval arguments".to_owned())
         }
         #[cfg(not(feature = "security-module"))]
         {

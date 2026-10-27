@@ -387,7 +387,7 @@ impl Channel for ModuleChannel {
     }
 
     fn capabilities(&self) -> tinychannels_bus::ChannelCapabilities {
-        self.interaction.capabilities.clone()
+        self.interaction.capabilities
     }
 
     fn supports_reactions(&self) -> bool {
