@@ -95,14 +95,15 @@ async fn scenario() {
     let mut handles = Vec::new();
     for user in ["alice", "bob"] {
         let provisioned = runtime.provision(user).await.unwrap();
-        runtime
+        let credential = runtime
             .set_credential(
                 &provisioned.profile_id,
                 ProfileCredentialKind::ApiKey,
                 "fixture-key",
             )
-            .await
-            .expect("profile credential is stored");
+            .await;
+        println!("profile credential result: {credential:?}");
+        credential.expect("profile credential is stored");
         handles.push(runtime.open(user).await.unwrap());
     }
     let (alice, bob) = (handles.remove(0), handles.remove(0));
