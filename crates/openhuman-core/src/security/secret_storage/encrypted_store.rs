@@ -2,15 +2,12 @@
 // migration remain host responsibilities; all cipher operations cross the
 // callback-bound TinySecurity bus.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
-
-/// Length of the random encryption key in bytes.
-const KEY_LEN: usize = 32;
 
 /// Manages encrypted storage of secrets (API keys, tokens, etc.)
 #[derive(Debug, Clone)]
@@ -314,37 +311,12 @@ pub(crate) fn keyring_user_id_from_dir(openhuman_dir: &Path) -> String {
 
 /// Normalize a path into a stable cache key. Tries `canonicalize` first (so
 /// symlinks, relative paths, and Windows case-variants all collapse to the
-/// same key), falls back to `std::path::absolute` when the file does not yet
-/// exist (e.g. the create branch in `load_or_create_key`), and finally to the
-/// raw path so a normalization failure never breaks the cache.
+/// same key), then `std::path::absolute`, and finally the raw path so
+/// normalization failure never breaks the handle cache.
 fn normalize_cache_path(path: &Path) -> PathBuf {
     fs::canonicalize(path)
         .or_else(|_| std::path::absolute(path))
         .unwrap_or_else(|_| path.to_path_buf())
-}
-
-/// Process-wide cache of decoded key bytes keyed by absolute path.
-///
-/// Loading the key once per process is both faster and more reliable than
-/// re-reading `.secret_key` on every decrypt. On Windows the file can be
-/// transiently inaccessible (AV scanners holding a handle), and re-reading
-/// turned that transient failure into a perma-failure for every subsequent
-/// RPC call.
-fn key_cache() -> &'static Mutex<HashMap<PathBuf, Zeroizing<Vec<u8>>>> {
-    static CACHE: OnceLock<Mutex<HashMap<PathBuf, Zeroizing<Vec<u8>>>>> = OnceLock::new();
-    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
-fn cached_key(path: &Path) -> Option<Zeroizing<Vec<u8>>> {
-    key_cache().lock().ok()?.get(path).cloned()
-}
-
-fn cache_key(path: &Path, key: &[u8]) {
-    if let Ok(mut cache) = key_cache().lock() {
-        // Stored as `Zeroizing` so the cached copy is wiped from memory when the
-        // entry is removed (e.g. via `clear_cached_key`) or the process exits.
-        cache.insert(path.to_path_buf(), Zeroizing::new(key.to_vec()));
-    }
 }
 
 #[cfg(test)]
