@@ -15,7 +15,8 @@ async fn all_tools_registers_the_memory_tool_while_memory_is_on() {
         &http,
         tmp.path(),
         &cfg,
-    ).await;
+    )
+    .await;
 
     let memory = tools
         .iter()
@@ -27,9 +28,11 @@ async fn all_tools_registers_the_memory_tool_while_memory_is_on() {
     );
     // The search half of deferral is the harness's intrinsic bridge, never a
     // registered tool: a host `tool_search` would shadow it.
-    assert!(!tools
-        .iter()
-        .any(|tool| { tool.name() == tinytools::TOOL_SEARCH_NAME }));
+    assert!(
+        !tools
+            .iter()
+            .any(|tool| { tool.name() == tinytools::TOOL_SEARCH_NAME })
+    );
 }
 /// The three `whatsapp_data_*` agent tools are gone, in every build.
 ///
@@ -58,7 +61,8 @@ async fn whatsapp_data_tools_are_gone_in_every_build() {
         &http,
         tmp.path(),
         &cfg,
-    ).await;
+    )
+    .await;
     let names = tool_names(&tools);
     for absent in [
         "whatsapp_data_list_chats",
@@ -104,7 +108,8 @@ async fn every_packed_tool_name_resolves_to_a_registered_tool() {
         &http,
         tmp.path(),
         &cfg,
-    ).await;
+    )
+    .await;
     let registered: std::collections::HashSet<&str> = tools.iter().map(|t| t.name()).collect();
 
     // `PACKS` is unconditional, but most packs' tools are behind Cargo features
@@ -197,7 +202,8 @@ async fn document_tools_registered_when_feature_on() {
         &http,
         tmp.path(),
         &cfg,
-    ).await;
+    )
+    .await;
     let names = tool_names(&tools);
     assert!(
         names.iter().any(|n| n == "generate_presentation"),
@@ -228,7 +234,8 @@ async fn document_tools_absent_when_feature_off() {
         &http,
         tmp.path(),
         &cfg,
-    ).await;
+    )
+    .await;
     let names = tool_names(&tools);
     assert!(
         !names
@@ -255,7 +262,8 @@ async fn all_tools_registers_gitbooks_when_enabled() {
         &http,
         tmp.path(),
         &cfg,
-    ).await;
+    )
+    .await;
     let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
     assert!(
         names.contains(&"gitbooks_search"),
@@ -343,7 +351,8 @@ async fn all_tools_skips_gitbooks_when_disabled() {
         &http,
         tmp.path(),
         &cfg,
-    ).await;
+    )
+    .await;
     let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
     assert!(
         !names.contains(&"gitbooks_search"),
@@ -374,7 +383,8 @@ async fn all_tools_default_registry_contains_expected_baseline_surface() {
         &http,
         tmp.path(),
         &cfg,
-    ).await;
+    )
+    .await;
     let names = tool_names(&tools);
 
     let expected = vec![
@@ -416,9 +426,11 @@ async fn all_tools_default_registry_contains_expected_baseline_surface() {
         "image_info",
     ];
     assert_contains_all(&names, &expected);
-    assert!(!names
-        .iter()
-        .any(|name| matches!(name.as_str(), "wait" | "wait_loop")));
+    assert!(
+        !names
+            .iter()
+            .any(|name| matches!(name.as_str(), "wait" | "wait_loop"))
+    );
 }
 #[tokio::test]
 async fn all_tools_default_registry_has_no_duplicate_tool_names() {
@@ -439,7 +451,8 @@ async fn all_tools_default_registry_has_no_duplicate_tool_names() {
         &http,
         tmp.path(),
         &cfg,
-    ).await;
+    )
+    .await;
     let names = tool_names(&tools);
     let unique: std::collections::HashSet<_> = names.iter().cloned().collect();
     assert_eq!(
@@ -470,7 +483,8 @@ async fn all_tools_excludes_browser_when_disabled() {
         &http,
         tmp.path(),
         &cfg,
-    ).await;
+    )
+    .await;
     let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
     assert!(!names.contains(&"browser_open"));
     assert!(names.contains(&"schedule"));
@@ -503,7 +517,8 @@ async fn document_tool_writes_into_the_configured_files_folder() {
         &http,
         tmp.path(),
         &cfg,
-    ).await;
+    )
+    .await;
     let tool = tools
         .iter()
         .find(|t| t.name() == "generate_document")

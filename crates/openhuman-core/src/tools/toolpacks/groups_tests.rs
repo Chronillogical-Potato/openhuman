@@ -109,7 +109,7 @@ async fn process_default_affects_registered_tools_without_a_core_context() {
         let security = std::sync::Arc::new(crate::security::SecurityPolicy::default());
         let browser = crate::config::BrowserConfig::default();
         let http = crate::config::HttpRequestConfig::default();
-        let tools = || {
+        let tools = || async {
             crate::tools::ops::all_tools(
                 std::sync::Arc::new(config.clone()),
                 &security,
@@ -118,12 +118,23 @@ async fn process_default_affects_registered_tools_without_a_core_context() {
                 &http,
                 std::path::Path::new("/tmp/openhuman-tool-groups"),
                 &config,
-            ).await
+            )
+            .await
         };
 
-        assert!(tools().iter().any(|tool| tool.name() == "doctor_health"));
+        assert!(
+            tools()
+                .await
+                .iter()
+                .any(|tool| tool.name() == "doctor_health")
+        );
         set_process_default(ToolGroups::none());
-        assert!(!tools().iter().any(|tool| tool.name() == "doctor_health"));
+        assert!(
+            !tools()
+                .await
+                .iter()
+                .any(|tool| tool.name() == "doctor_health")
+        );
         return;
     }
 

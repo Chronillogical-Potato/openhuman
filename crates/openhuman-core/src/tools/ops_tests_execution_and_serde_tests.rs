@@ -23,7 +23,8 @@ async fn all_tools_includes_browser_when_enabled() {
         &http,
         tmp.path(),
         &cfg,
-    ).await;
+    )
+    .await;
     let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
     // The browser tools are the `modules` gate's (tools/ops.rs): present when
     // it is compiled in, absent in a gates-off build.
@@ -59,7 +60,8 @@ async fn computer_component_off_unregisters_desktop_and_browser_tools() {
         &http,
         tmp.path(),
         &cfg,
-    ).await;
+    )
+    .await;
     let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
     assert!(!names.contains(&"browser_open"), "{names:?}");
     assert!(!names.contains(&"browser"), "{names:?}");
@@ -123,7 +125,8 @@ async fn all_tools_registers_no_hosted_integration_families_without_a_tool_sourc
         &http,
         tmp.path(),
         &cfg,
-    ).await;
+    )
+    .await;
     let names = tool_names(&tools);
 
     // The hosted families (Google Places, stock data, file storage, managed
@@ -183,7 +186,8 @@ async fn all_tools_registers_brave_engine_when_enabled() {
         &http,
         tmp.path(),
         &cfg,
-    ).await;
+    )
+    .await;
     let names = tool_names(&tools);
     assert_contains_all(
         &names,
@@ -215,7 +219,8 @@ async fn all_tools_registers_querit_as_the_search_role_when_enabled() {
         &http,
         tmp.path(),
         &cfg,
-    ).await;
+    )
+    .await;
     let names = tool_names(&tools);
     #[cfg(feature = "modules")]
     assert_contains_all(&names, &["web_search_tool"]);
@@ -248,7 +253,8 @@ async fn all_tools_omits_search_surface_when_search_is_disabled() {
         &http,
         tmp.path(),
         &cfg,
-    ).await;
+    )
+    .await;
     let names = tool_names(&tools);
 
     for search_tool in [

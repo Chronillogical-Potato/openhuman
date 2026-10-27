@@ -1,6 +1,6 @@
 use super::*;
 use crate::config::{BrowserConfig, Config};
-use crate::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
+use crate::credentials::{APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME};
 use crate::security::AuditSink;
 use crate::tools::ops::{all_tools, tool_group};
 use tempfile::TempDir;
@@ -70,7 +70,8 @@ async fn integration_tools_for_config(tmp: &TempDir, cfg: &Config) -> Vec<Box<dy
         &http,
         tmp.path(),
         cfg,
-    ).await
+    )
+    .await
 }
 
 fn find_tool<'a>(tools: &'a [Box<dyn Tool>], name: &str) -> &'a dyn Tool {
@@ -109,7 +110,8 @@ async fn expansion_tools_for(tmp: &TempDir) -> Vec<Box<dyn Tool>> {
         &http,
         tmp.path(),
         &cfg,
-    ).await
+    )
+    .await
 }
 
 // ── Theme: Task & workflow productivity ─────────────────────────────────────

@@ -294,7 +294,8 @@ async fn memory_tool_is_registered_once_memory_is_on() {
         &http,
         tmp.path(),
         &cfg,
-    ).await;
+    )
+    .await;
     let names = tool_names(&tools);
     assert_eq!(
         names
@@ -330,7 +331,8 @@ async fn memory_tool_is_absent_when_the_memory_component_is_off() {
         &http,
         tmp.path(),
         &cfg,
-    ).await;
+    )
+    .await;
     let names = tool_names(&tools);
     assert!(
         !names.iter().any(|n| n == crate::memory::MEMORY_TOOL_NAME),
@@ -354,15 +356,13 @@ async fn memory_tool_classifies_as_memory_family() {
 /// A narrowed DomainSet axis still keeps the ordinary platform tools.
 #[tokio::test]
 async fn full_domain_set_keeps_platform_tools() {
-    use crate::core::runtime::context::CoreContext;
     use crate::core::runtime::DomainSet;
+    use crate::core::runtime::context::CoreContext;
 
     let tmp = TempDir::new().unwrap();
     let ctx = CoreContext::for_test(DomainSet::full(), None);
-    let names = CoreContext::scope(ctx, async {
-        tool_names(&expansion_tools_for(&tmp).await)
-    })
-    .await;
+    let names =
+        CoreContext::scope(ctx, async { tool_names(&expansion_tools_for(&tmp).await) }).await;
     for name in ["shell", "file_read", "file_write", "todo"] {
         assert!(names.iter().any(|n| n == name), "missing `{name}`");
     }
