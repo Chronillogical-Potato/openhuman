@@ -116,6 +116,15 @@ impl ServiceSet {
         }
     }
 
+    /// HTTP-only surface used while the desktop resolves encrypted startup
+    /// config under the operator's approval gate.
+    pub(crate) fn secret_preflight() -> Self {
+        Self {
+            rpc_http: true,
+            ..Self::none()
+        }
+    }
+
     /// A long-lived embedded host: no transport, but the background work such
     /// a session expects.
     ///
@@ -170,6 +179,10 @@ pub enum CoreBootMode {
     /// Initialize workspace stores and runtime infrastructure as usual.
     #[default]
     Normal,
+    /// Load config without opening encrypted values, register approval
+    /// infrastructure, and defer background services until the host has
+    /// exposed the restricted approval RPC surface.
+    SecretPreflight,
     /// Build a dispatchable context without startup persistence or services.
     Inspection,
 }
@@ -423,9 +436,14 @@ impl CoreBuilder {
             config,
             services: if self.boot_mode == CoreBootMode::Inspection {
                 ServiceSet::none()
+            } else if self.boot_mode == CoreBootMode::SecretPreflight {
+                ServiceSet::secret_preflight()
             } else {
                 components.narrow_services(self.services)
             },
+            deferred_services: (self.boot_mode == CoreBootMode::SecretPreflight)
+                .then(|| components.narrow_services(self.services)),
+            boot_mode: self.boot_mode,
             has_operator_token,
             host: self.host,
             port: self.port,
@@ -441,6 +459,8 @@ pub struct CoreRuntime {
     ctx: Arc<CoreContext>,
     config: Option<Config>,
     services: ServiceSet,
+    deferred_services: Option<ServiceSet>,
+    boot_mode: CoreBootMode,
     has_operator_token: bool,
     host: Option<String>,
     port: Option<u16>,
@@ -454,6 +474,38 @@ impl CoreRuntime {
     /// The services/transports this runtime is configured to run.
     pub fn services(&self) -> ServiceSet {
         self.services
+    }
+
+    /// Whether this runtime still needs the restricted config-secret startup
+    /// phase completed by its transport host.
+    pub fn requires_secret_preflight(&self) -> bool {
+        self.boot_mode == CoreBootMode::SecretPreflight
+    }
+
+    /// Decrypt the sealed startup config and refresh the dispatch snapshot.
+    /// The host must keep the restricted approval router serving until this
+    /// returns successfully.
+    pub async fn complete_secret_preflight(&mut self) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.requires_secret_preflight(),
+            "core runtime has no pending secret preflight"
+        );
+        let config = self
+            .config
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("secret preflight has no loaded config"))?;
+        let migrated = config.decrypt_secrets_after_preflight().await?;
+        if migrated {
+            if let Err(error) = config.save().await {
+                log::warn!("[security][config] failed to persist enc: -> enc2: secret migration: {error}");
+            }
+        }
+        self.ctx.replace_latest_embedder_config(config.clone());
+        crate::core::runtime::services::run_legacy_migrations(config).await;
+        crate::agent::tinyagents::reaper::reap_orphaned_runs(&config.workspace_dir).await;
+        self.boot_mode = CoreBootMode::Normal;
+        self.services = self.deferred_services.take().unwrap_or_else(ServiceSet::none);
+        Ok(())
     }
 
     /// The initialized core context (host identity + resolved workspace).
