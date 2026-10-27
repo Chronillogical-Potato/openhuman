@@ -324,7 +324,7 @@ async fn cache_entries_survive_idle_time_until_connection_change() {
     let _guard = cache_guard_async().await;
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let key = crate::integrations::composio::connected_integrations::cache_key(&config);
+    let key = crate::integrations::composio::connected_integrations::cache_key(&config).await;
     clear_cache_key(&key);
     seed_cache(&key, vec![integration("gmail", true)]);
     {
@@ -349,7 +349,7 @@ async fn cached_integrations_remain_available_after_a_long_idle_period() {
     let _guard = cache_guard();
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let key = crate::integrations::composio::connected_integrations::cache_key(&config);
+    let key = crate::integrations::composio::connected_integrations::cache_key(&config).await;
     clear_cache_key(&key);
     seed_cache(&key, vec![integration("gmail", true)]);
 
@@ -663,14 +663,14 @@ async fn direct_mode_without_key_is_false_in_backend_mode() {
     // Default mode is backend — the guard must never fire there, or
     // backend users would get a silent empty list.
     let config = test_config(&tmp);
-    assert!(!direct_mode_without_key(&config).unwrap());
+    assert!(!direct_mode_without_key(&config).await.unwrap());
 }
 
 #[tokio::test]
 async fn direct_mode_without_key_is_true_when_direct_and_no_key() {
     let tmp = tempfile::tempdir().unwrap();
     let config = direct_mode_no_key_config(&tmp);
-    assert!(direct_mode_without_key(&config).unwrap());
+    assert!(direct_mode_without_key(&config).await.unwrap());
 }
 
 #[tokio::test]
@@ -681,7 +681,7 @@ async fn direct_mode_without_key_is_false_when_key_in_config_toml() {
     // hide the user's real connections.
     let mut config = direct_mode_no_key_config(&tmp);
     config.composio.api_key = Some("  ck_cfg_key  ".into());
-    assert!(!direct_mode_without_key(&config).unwrap());
+    assert!(!direct_mode_without_key(&config).await.unwrap());
 }
 
 #[tokio::test]
@@ -690,7 +690,7 @@ async fn direct_mode_without_key_is_false_when_key_in_keychain() {
     // `direct_mode_config` stores a key via the auth store — the guard
     // must see it and report "has key".
     let config = direct_mode_config(&tmp).await;
-    assert!(!direct_mode_without_key(&config).unwrap());
+    assert!(!direct_mode_without_key(&config).await.unwrap());
 }
 
 #[tokio::test]

@@ -308,7 +308,7 @@ async fn factory_routes_through_backend_when_mode_is_backend() {
 
     // `ComposioRoute` isn't `Debug`, so match rather than
     // `expect_err` (which would need to format the unexpected `Ok`).
-    let msg = match crate::integrations::composio::client::resolve_composio_route(&config) {
+    let msg = match crate::integrations::composio::client::resolve_composio_route(&config).await {
         Ok(_) => panic!("backend mode with no session must error, but a client resolved"),
         Err(e) => e.to_string(),
     };
@@ -335,6 +335,7 @@ async fn factory_routes_through_direct_when_mode_is_direct() {
     // never the backend branch. (Deterministic: pure factory call, no
     // env / reload / await; see the note on the backend test.)
     let kind = crate::integrations::composio::client::resolve_composio_route(&config)
+        .await
         .expect("direct mode with an api key must resolve");
     assert!(
         matches!(

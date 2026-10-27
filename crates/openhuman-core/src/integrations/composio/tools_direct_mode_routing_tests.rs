@@ -247,6 +247,7 @@ async fn list_connections_in_direct_mode_resolves_to_direct_client_kind() {
     // which caused the agent to incorrectly see no connections (#1710).
     let config = direct_mode_config();
     let kind = crate::integrations::composio::client::resolve_composio_route(&config)
+        .await
         .expect("direct mode with inline api_key must resolve");
     assert_eq!(
         kind.mode(),
