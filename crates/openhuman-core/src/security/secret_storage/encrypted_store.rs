@@ -1,29 +1,6 @@
-// Encrypted secret store — defense-in-depth for API keys and tokens.
-//
-// Secrets are encrypted using ChaCha20-Poly1305 AEAD with a random key stored
-// in the OS keychain for normal app environments. Legacy installs may still
-// have `{data_dir}/openhuman/.secret_key`; those keys are migrated into the
-// keychain on first use. The config file stores only hex-encoded ciphertext, never
-// plaintext keys.
-//
-// Each encryption generates a fresh random 12-byte nonce, prepended to the
-// ciphertext. The Poly1305 authentication tag prevents tampering.
-//
-// This prevents:
-//   - Plaintext exposure in config files
-//   - Casual `grep` or `git log` leaks
-//   - Accidental commit of raw API keys
-//   - Known-plaintext attacks (unlike the previous XOR cipher)
-//   - Ciphertext tampering (authenticated encryption)
-//
-// For sovereign users who prefer plaintext, `secrets.encrypt = false` disables this.
-//
-// Migration: values with the legacy `enc:` prefix (XOR cipher) are decrypted
-// using the old algorithm for backward compatibility, but the config loader
-// force-migrates them to `enc2:` on read (`decrypt_and_migrate`) and persists
-// the upgrade so the insecure ciphertext never lingers on disk (audit C8). The
-// legacy decode path logs a loud security warning every time it runs. New
-// encryptions always produce `enc2:` (ChaCha20-Poly1305).
+// TinySecurity-backed secret cipher adapter. Key storage and legacy key-file
+// migration remain host responsibilities; all cipher operations cross the
+// callback-bound TinySecurity bus.
 
 use anyhow::{Context, Result};
 use std::collections::HashMap;
@@ -33,10 +10,8 @@ use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use zeroize::Zeroizing;
 
-use tinystoragedrivers::secrets::crypto;
-
-/// Length of the random encryption key in bytes (256-bit, matches `ChaCha20`).
-const KEY_LEN: usize = crypto::KEY_LEN;
+/// Length of the random encryption key in bytes.
+const KEY_LEN: usize = 32;
 
 /// Keychain slot used for the SecretStore master key.
 const KEYCHAIN_MASTER_KEY: &str = "secretstore.master_key";
@@ -261,132 +236,9 @@ impl SecretStore {
         }
     }
 
-    /// Encrypt a plaintext secret. Returns hex-encoded ciphertext prefixed with `enc2:`.
-    /// Format: `enc2:<hex(nonce ‖ ciphertext ‖ tag)>` (12 + N + 16 bytes).
-    /// If encryption is disabled, returns the plaintext as-is.
-    pub fn encrypt(&self, plaintext: &str) -> Result<String> {
-        if !self.enabled || plaintext.is_empty() {
-            return Ok(plaintext.to_string());
-        }
-
-        let key = self.cipher_key()?;
-        tinystoragedrivers::secrets::crypto::encrypt_enc2(&key, plaintext.as_bytes())
-            .map_err(|e| anyhow::anyhow!("Encryption failed: {e}"))
-    }
-
-    /// Decrypt a secret.
-    /// - `enc2:` prefix → ChaCha20-Poly1305 (current format)
-    /// - `enc:` prefix → legacy XOR cipher (backward compatibility for migration)
-    /// - No prefix → returned as-is (plaintext config)
-    ///
-    /// **Warning**: Legacy `enc:` values are insecure. Use `decrypt_and_migrate` to
-    /// automatically upgrade them to the secure `enc2:` format.
-    pub fn decrypt(&self, value: &str) -> Result<String> {
-        if let Some(hex_str) = value.strip_prefix("enc2:") {
-            self.decrypt_chacha20(hex_str)
-        } else if let Some(hex_str) = value.strip_prefix("enc:") {
-            self.decrypt_legacy_xor(hex_str)
-        } else {
-            Ok(value.to_string())
-        }
-    }
-
-    /// Decrypt one existing `enc2:` value using an explicitly supplied key.
-    /// This does not consult or initialize the process keyring and does not
-    /// migrate legacy `enc:` values.
-    pub(crate) fn decrypt_with_existing_key(value: &str, key: &str) -> Result<String> {
-        let Some(_hex_str) = value.strip_prefix("enc2:") else {
-            if value.starts_with("enc:") {
-                anyhow::bail!("legacy encrypted value is unavailable to read-only inspection");
-            }
-            return Ok(value.to_string());
-        };
-
-        let key = crypto::key_from_hex(key.trim())
-            .map_err(|_| anyhow::anyhow!("invalid secret key length"))?;
-        let plaintext = crypto::decrypt_enc2(&key, value)
-            .map_err(|_| anyhow::anyhow!("decryption failed — wrong key or tampered data"))?;
-        String::from_utf8(plaintext.to_vec()).context("decrypted secret is not valid UTF-8")
-    }
-
-    /// Decrypt a secret and return a migrated `enc2:` value if the input used legacy `enc:` format.
-    ///
-    /// Returns `(plaintext, Some(new_enc2_value))` if migration occurred, or
-    /// `(plaintext, None)` if no migration was needed.
-    ///
-    /// This allows callers to persist the upgraded value back to config.
-    pub fn decrypt_and_migrate(&self, value: &str) -> Result<(String, Option<String>)> {
-        if let Some(hex_str) = value.strip_prefix("enc2:") {
-            // Already using secure format — no migration needed
-            let plaintext = self.decrypt_chacha20(hex_str)?;
-            Ok((plaintext, None))
-        } else if let Some(hex_str) = value.strip_prefix("enc:") {
-            // Legacy XOR cipher — decrypt and re-encrypt with ChaCha20-Poly1305
-            log::warn!(
-                "Decrypting legacy XOR-encrypted secret (enc: prefix). \
-                 This format is insecure and will be removed in a future release. \
-                 The secret will be automatically migrated to enc2: (ChaCha20-Poly1305)."
-            );
-            let plaintext = self.decrypt_legacy_xor(hex_str)?;
-            let migrated = self.encrypt(&plaintext)?;
-            Ok((plaintext, Some(migrated)))
-        } else {
-            // Plaintext — no migration needed
-            Ok((value.to_string(), None))
-        }
-    }
-
     /// Check if a value uses the legacy `enc:` format that should be migrated.
     pub fn needs_migration(value: &str) -> bool {
         value.starts_with("enc:")
-    }
-
-    /// Decrypt using ChaCha20-Poly1305 (current secure format).
-    fn decrypt_chacha20(&self, hex_str: &str) -> Result<String> {
-        let key = self.cipher_key()?;
-        let ciphertext = format!("enc2:{hex_str}");
-        let plaintext_bytes = crypto::decrypt_enc2(&key, &ciphertext)
-            .map_err(|_| anyhow::anyhow!("Decryption failed — wrong key or tampered data"))?;
-
-        String::from_utf8(plaintext_bytes.to_vec())
-            .context("Decrypted secret is not valid UTF-8 — corrupt data")
-    }
-
-    /// The config encryption key as the fixed-size array the cipher takes.
-    fn cipher_key(&self) -> Result<Zeroizing<[u8; KEY_LEN]>> {
-        let bytes = self.load_or_create_key()?;
-        let key: [u8; KEY_LEN] = bytes.as_slice().try_into().map_err(|_| {
-            anyhow::anyhow!(
-                "config encryption key is {} bytes, expected {KEY_LEN}",
-                bytes.len()
-            )
-        })?;
-        Ok(Zeroizing::new(key))
-    }
-
-    /// Decrypt using legacy XOR cipher (insecure, for backward compatibility only).
-    ///
-    /// This is the single choke-point for the insecure `enc:` format, so it logs
-    /// a loud security warning every time it runs. The repeating-key XOR is
-    /// unauthenticated and leaks the master key to anyone who knows (or can guess
-    /// the structure of) the plaintext — e.g. `xoxb-`/`sk-` token prefixes give
-    /// `key[i] = ct[i] XOR pt[i]`. Callers on the read path should prefer
-    /// [`decrypt_and_migrate`](Self::decrypt_and_migrate) so the value is rewritten
-    /// to `enc2:` and the legacy ciphertext stops persisting on disk.
-    fn decrypt_legacy_xor(&self, hex_str: &str) -> Result<String> {
-        log::warn!(
-            "[security] decrypting legacy XOR-encrypted secret (enc: prefix). \
-             This format is INSECURE (unauthenticated repeating-key XOR; known-plaintext \
-             recovers the master key) and must be migrated to enc2: (ChaCha20-Poly1305). \
-             It will be removed in a future release — re-save your config or settings to \
-             force migration."
-        );
-        let ciphertext = hex_decode(hex_str)
-            .context("Failed to decode legacy encrypted secret (corrupt hex)")?;
-        let key = self.load_or_create_key()?;
-        let plaintext_bytes = xor_cipher(&ciphertext, &key);
-        String::from_utf8(plaintext_bytes)
-            .context("Decrypted legacy secret is not valid UTF-8 — wrong key or corrupt data")
     }
 
     /// Check if a value is already encrypted (current or legacy format).
@@ -601,24 +453,12 @@ fn read_key_file_with_retry(path: &Path) -> std::io::Result<String> {
     Err(last_err.unwrap_or_else(|| std::io::Error::other("read_to_string failed")))
 }
 
-/// XOR cipher with repeating key. Same function for encrypt and decrypt.
-fn xor_cipher(data: &[u8], key: &[u8]) -> Vec<u8> {
-    if key.is_empty() {
-        return data.to_vec();
-    }
-    data.iter()
-        .enumerate()
-        .map(|(i, &b)| b ^ key[i % key.len()])
-        .collect()
-}
-
 fn decode_key_hex(hex_key: &str) -> Result<Zeroizing<Vec<u8>>> {
-    let key = crypto::key_from_hex(hex_key).context("Secret key file is corrupt")?;
-    Ok(Zeroizing::new(key.to_vec()))
-}
-
-fn hex_decode(hex: &str) -> Result<Vec<u8>> {
-    ::hex::decode(hex).map_err(anyhow::Error::from)
+    let key = ::hex::decode(hex_key).context("Secret key file is corrupt")?;
+    if key.len() != KEY_LEN {
+        anyhow::bail!("Secret key file is corrupt");
+    }
+    Ok(Zeroizing::new(key))
 }
 
 #[cfg(test)]
