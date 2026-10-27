@@ -7,8 +7,12 @@ use std::time::Duration;
 use async_trait::async_trait;
 use parking_lot::RwLock;
 use serde_json::Value;
-use tinyhumans_sdk::{socket::SocketConnection, TinyHumansClient};
+use tinyhumans_sdk::{
+    socket::{SocketConnection, SocketEmitter},
+    TinyHumansClient,
+};
 use tokio::sync::{mpsc, oneshot, watch, Mutex};
+use tokio::task::JoinSet;
 
 use openhuman_embed::__host::platform::socket::{
     ConnectionStatus, SocketPort, SocketState, TokenProvider,
@@ -28,6 +32,16 @@ enum SocketCommand {
         timeout: Duration,
         result: oneshot::Sender<Result<Value, String>>,
     },
+}
+
+enum SocketWaiter {
+    Emit(oneshot::Sender<Result<(), String>>),
+    EmitWithAck(oneshot::Sender<Result<Value, String>>),
+}
+
+enum SocketResult {
+    Emit(Result<(), String>),
+    EmitWithAck(Result<Value, String>),
 }
 
 struct SocketActorHandle {
@@ -259,6 +273,11 @@ async fn run_socket_actor(
     loop_active: Arc<AtomicBool>,
     stopped_on_failure: Arc<AtomicBool>,
 ) {
+    let emitter = connection.emitter();
+    let mut tasks = JoinSet::<(u64, SocketResult)>::new();
+    let mut waiters = std::collections::HashMap::<u64, SocketWaiter>::new();
+    let mut next_task_id = 0u64;
+
     'actor: loop {
         tokio::select! {
             changed = shutdown.changed() => {
@@ -278,16 +297,19 @@ async fn run_socket_actor(
                 };
                 match event.name.as_str() {
                     "open" => {
-                        let sid = event
+                        let mut snapshot = state.write();
+                        snapshot.status = ConnectionStatus::Connecting;
+                    }
+                    "connect" => {
+                        let socket_id = event
                             .payload
-                            .decode::<Value>("open")
+                            .decode::<Value>("connect")
                             .ok()
                             .and_then(|value| value.get("sid").and_then(Value::as_str).map(str::to_owned));
                         let mut snapshot = state.write();
-                        snapshot.status = ConnectionStatus::Connecting;
-                        snapshot.socket_id = sid;
+                        snapshot.status = ConnectionStatus::Connected;
+                        snapshot.socket_id = socket_id;
                     }
-                    "connect" => state.write().status = ConnectionStatus::Connected,
                     "close" => {
                         let mut snapshot = state.write();
                         snapshot.status = ConnectionStatus::Reconnecting;
@@ -310,21 +332,33 @@ async fn run_socket_actor(
                 let Some(command) = command else { break; };
                 match command {
                     SocketCommand::Emit { event, data, result } => {
-                        let _ = result.send(connection.emit(&event, &data).await.map_err(|error| error.to_string()));
+                        next_task_id = next_task_id.wrapping_add(1);
+                        let id = next_task_id;
+                        waiters.insert(id, SocketWaiter::Emit(result));
+                        let emitter = emitter.clone();
+                        tasks.spawn(async move {
+                            (id, SocketResult::Emit(emitter.emit(&event, &data).await.map_err(|error| error.to_string())))
+                        });
                     }
                     SocketCommand::EmitWithAck { event, data, timeout, result } => {
-                        let ack = connection.emit_with_ack::<Value, Value>(&event, &data, timeout);
-                        tokio::select! {
-                            value = ack => {
-                                let _ = result.send(value.map_err(|error| error.to_string()));
-                            }
-                            changed = shutdown.changed() => {
-                                let _ = connection.disconnect().await;
-                                let _ = result.send(Err("Socket disconnected".to_owned()));
-                                if changed.is_err() || *shutdown.borrow() {
-                                    break 'actor;
-                                }
-                            }
+                        next_task_id = next_task_id.wrapping_add(1);
+                        let id = next_task_id;
+                        waiters.insert(id, SocketWaiter::EmitWithAck(result));
+                        let emitter = emitter.clone();
+                        tasks.spawn(async move {
+                            (id, SocketResult::EmitWithAck(emitter.emit_with_ack::<Value, Value>(&event, &data, timeout).await.map_err(|error| error.to_string())))
+                        });
+                    }
+                }
+            }
+            completed = tasks.join_next(), if !tasks.is_empty() => {
+                if let Some(Ok((id, result))) = completed {
+                    if let Some(waiter) = waiters.remove(&id) {
+                        match (waiter, result) {
+                            (SocketWaiter::Emit(sender), SocketResult::Emit(result)) => { let _ = sender.send(result); }
+                            (SocketWaiter::EmitWithAck(sender), SocketResult::EmitWithAck(result)) => { let _ = sender.send(result); }
+                            (SocketWaiter::Emit(sender), SocketResult::EmitWithAck(_)) => { let _ = sender.send(Err("Socket operation result mismatch".to_owned())); }
+                            (SocketWaiter::EmitWithAck(sender), SocketResult::Emit(_)) => { let _ = sender.send(Err("Socket operation result mismatch".to_owned())); }
                         }
                     }
                 }
@@ -332,6 +366,20 @@ async fn run_socket_actor(
         }
     }
     let _ = connection.disconnect().await;
+    tasks.abort_all();
+    while tasks.join_next().await.is_some() {}
+    for (_, waiter) in waiters {
+        match waiter {
+            SocketWaiter::Emit(sender) => { let _ = sender.send(Err("Socket disconnected".to_owned())); }
+            SocketWaiter::EmitWithAck(sender) => { let _ = sender.send(Err("Socket disconnected".to_owned())); }
+        }
+    }
+    while let Ok(command) = commands.try_recv() {
+        match command {
+            SocketCommand::Emit { result, .. } => { let _ = result.send(Err("Socket disconnected".to_owned())); }
+            SocketCommand::EmitWithAck { result, .. } => { let _ = result.send(Err("Socket disconnected".to_owned())); }
+        }
+    }
     loop_active.store(false, Ordering::Release);
     let _ = done.send(());
 }
