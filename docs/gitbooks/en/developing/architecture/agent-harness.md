@@ -97,10 +97,9 @@ Every agent turn runs through the published [`tinyagents`](https://crates.io/cra
 
 Multi-agent orchestration runs on the tinyagents graph layer, through `tinyagents-orchestration`'s `parallel` module, the host `spawn_parallel` adapter and the shared `graph::orchestration` `TaskStore` lifecycle primitives re-exported from [`orchestration/mod.rs`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-core/src/agent/orchestration/mod.rs):
 
-- [`orchestration/delegation.rs`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-core/src/agent/orchestration/delegation.rs) is a `plan → execute ⇄ review → finalize` `CompiledGraph`. It has conditional routing, `RecursionPolicy`, a durable `FileCheckpointer`, a `CancellationToken` and a `GraphTracingSink`.
+- OpenHuman's sub-agent adapters, cancellation, progress and UI-facing projections are documented in the [orchestration ownership map](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-core/src/agent/orchestration/README.md); TinyAgents owns generic graph and task execution.
 - The workflow phase engine fans each phase's agents out on the graph (`with_max_concurrency`). The durable `WorkflowRun` ledger stays the source of truth for resume.
 - `spawn_parallel_agents` runs its fan-out through the host `spawn_parallel` adapter over `tinyagents_orchestration::parallel`.
-- The agent-teams member runtime is a conditional-routing graph (`execute → complete | fail → done`, [`agent_teams/runtime.rs`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-core/src/agent/orchestration/agent_teams/runtime.rs)).
 - The detached-sub-agent registry is backed by a typed `TaskStore` lifecycle ledger (Pending, Running, then Completed, Failed or Cancelled).
 
 ## TinyAgents crate: features and compatibility
