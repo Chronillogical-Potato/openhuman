@@ -153,12 +153,7 @@ impl CoreContext {
                 Ok(cfg)
             }
             None if boot_mode == crate::core::runtime::CoreBootMode::SecretPreflight => {
-                crate::config::Config::load_or_init_unsealed_with_env_lookup(
-                    &crate::config::default_root_openhuman_dir()?,
-                    &crate::config::default_workspace_dir()?,
-                    &crate::config::schema::load::ProcessEnv,
-                )
-                .await
+                crate::config::Config::load_or_init_unsealed().await
             }
             None => crate::config::Config::load_or_init().await,
         };

@@ -136,6 +136,12 @@ pub(super) async fn read_config_with_recovery_or_default(
 }
 
 impl Config {
+    pub(crate) async fn load_or_init_unsealed() -> Result<Self> {
+        let (openhuman_dir, workspace_dir) = default_config_and_workspace_dirs()?;
+        Self::load_or_init_unsealed_with_env_lookup(&openhuman_dir, &workspace_dir, &ProcessEnv)
+            .await
+    }
+
     /// Open sealed values after the desktop's approval preflight is serving.
     /// Returns whether the legacy ciphertext format was upgraded.
     pub(crate) async fn decrypt_secrets_after_preflight(&mut self) -> Result<bool> {
