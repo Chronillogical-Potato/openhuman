@@ -55,7 +55,10 @@ impl PreflightGate {
 }
 
 const PREFLIGHT_RPC_METHODS: &[&str] = &[
+    "core.ping",
     "core.version",
+    "openhuman.service_status",
+    "openhuman.update_version",
     "openhuman.approval_list_pending",
     "openhuman.approval_decide",
 ];
