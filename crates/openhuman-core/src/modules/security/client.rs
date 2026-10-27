@@ -61,7 +61,10 @@ impl Client {
         request: tinysecurity_bus::DevicePairingRequest2,
     ) -> Result<tinysecurity_bus::DevicePairingResponse2, SecurityError> {
         self.object
-            .call_confidential(tinysecurity_bus::names::methods::DEVICE_PAIRING2, (request,))
+            .call_confidential(
+                tinysecurity_bus::names::methods::DEVICE_PAIRING2,
+                (request,),
+            )
             .await
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
     }
