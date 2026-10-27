@@ -1044,6 +1044,8 @@ pub enum DomainEvent {
     DeviceTunnelFrame {
         channel_id: String,
         payload_b64: String,
+        /// Fresh host-minted token binding operations to this backend connection.
+        connection_token: String,
         /// Fresh host-minted nonce for this authenticated socket callback.
         connection_nonce: String,
         /// Expiry of the host-attested callback context, in epoch milliseconds.

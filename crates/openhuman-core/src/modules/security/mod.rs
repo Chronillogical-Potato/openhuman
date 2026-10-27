@@ -288,6 +288,56 @@ pub(crate) async fn device_pairing_socket_event(
     Ok((event_id, scope_id))
 }
 
+/// Mint a renewal capability from a fresh host socket event. The opaque token
+/// is unique to this connection and is never the old QR pairing token.
+pub(crate) async fn device_pairing_reconnect_event(
+    config: &Config,
+    channel_id: &str,
+    connection_token: &str,
+    connection_nonce: &str,
+    expires_at_ms: u64,
+) -> Result<String, String> {
+    if channel_id.is_empty()
+        || channel_id.len() > 128
+        || connection_token.is_empty()
+        || connection_token.len() > 128
+        || connection_nonce.is_empty()
+        || connection_nonce.len() > 128
+    {
+        return Err("invalid host reconnect event".to_owned());
+    }
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|_| "system clock unavailable".to_owned())?
+        .as_millis()
+        .min(u128::from(u64::MAX)) as u64;
+    if expires_at_ms <= now_ms || expires_at_ms.saturating_sub(now_ms) > 30_000 {
+        return Err("expired host reconnect event".to_owned());
+    }
+    let client = client(config).await.map_err(|error| error.to_string())?;
+    let scope = host_callbacks::secret_scope()
+        .await
+        .ok_or_else(|| "security secret scope unavailable".to_owned())?;
+    let generation = client
+        .policy_info()
+        .await
+        .map_err(|error| error.to_string())?
+        .generation;
+    let scope_id = scope.scope_id().to_owned();
+    callbacks::issue_pairing_event(tinysecurity_bus::DevicePairingContextResponse2 {
+        scope_id: scope_id.clone(),
+        user_binding: scope_id,
+        secret_master_handle: None,
+        legacy_import_handle: None,
+        channel_id: channel_id.to_owned(),
+        pairing_token: Some(connection_token.to_owned()),
+        connection_nonce: connection_nonce.to_owned(),
+        generation,
+        source: tinysecurity_bus::DevicePairingSource2::BackendReconnect,
+        expires_at_ms,
+    })
+}
+
 /// Mint the server-observed close capability for one socket nonce.
 pub(crate) async fn device_pairing_socket_closed_event(
     config: &Config,

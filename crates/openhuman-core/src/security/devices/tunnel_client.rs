@@ -9,6 +9,7 @@ use std::sync::{Arc, OnceLock};
 
 #[derive(Clone)]
 struct SocketAttestation {
+    token: String,
     nonce: String,
     expires_at_ms: u64,
 }
@@ -82,6 +83,7 @@ pub fn publish_peer_status(channel_id: String, online: bool) {
             .insert(
                 channel_id.clone(),
                 SocketAttestation {
+                    token: uuid::Uuid::new_v4().simple().to_string(),
                     nonce: uuid::Uuid::new_v4().simple().to_string(),
                     expires_at_ms,
                 },
@@ -104,6 +106,7 @@ pub fn publish_tunnel_frame(channel_id: String, payload_b64: String) {
         let entry = attestations
             .entry(channel_id.clone())
             .or_insert_with(|| SocketAttestation {
+                token: uuid::Uuid::new_v4().simple().to_string(),
                 nonce: uuid::Uuid::new_v4().simple().to_string(),
                 expires_at_ms: event_expiry_ms(),
             });
@@ -113,6 +116,7 @@ pub fn publish_tunnel_frame(channel_id: String, payload_b64: String) {
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::DeviceTunnelFrame {
         channel_id,
         payload_b64,
+        connection_token: attestation.token,
         connection_nonce: attestation.nonce,
         expires_at_ms: attestation.expires_at_ms,
     });

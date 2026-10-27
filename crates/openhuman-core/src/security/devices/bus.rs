@@ -75,6 +75,7 @@ impl EventHandler<DomainEvent> for DeviceTunnelSubscriber {
             DomainEvent::DeviceTunnelFrame {
                 channel_id,
                 payload_b64,
+                connection_token,
                 connection_nonce,
                 expires_at_ms,
             } => {
@@ -95,6 +96,7 @@ impl EventHandler<DomainEvent> for DeviceTunnelSubscriber {
                                     &owner_ctx,
                                     channel_id,
                                     payload_b64,
+                                    connection_token,
                                     connection_nonce,
                                     *expires_at_ms,
                                 )
@@ -169,6 +171,7 @@ async fn handle_tunnel_frame(
     ctx: &DispatchCtx,
     channel_id: &str,
     payload_b64: &str,
+    connection_token: &str,
     connection_nonce: &str,
     expires_at_ms: u64,
 ) {
@@ -184,6 +187,7 @@ async fn handle_tunnel_frame(
             channel_id,
             &config,
             &frame_bytes,
+            connection_token,
             connection_nonce,
             expires_at_ms,
         )
@@ -207,6 +211,7 @@ async fn handle_handshake(
     channel_id: &str,
     config: &crate::config::Config,
     frame: &[u8],
+    connection_token: &str,
     connection_nonce: &str,
     expires_at_ms: u64,
 ) {
