@@ -26,6 +26,9 @@ fn pairing_authority_requires_a_trusted_direct_controller_source() {
         },
     );
     assert!(require_user_controller(&chat_turn).is_err());
+
+    let socket_event = untrusted.with_socket_event();
+    assert!(require_user_controller(&socket_event).is_err());
 }
 
 #[tokio::test]
