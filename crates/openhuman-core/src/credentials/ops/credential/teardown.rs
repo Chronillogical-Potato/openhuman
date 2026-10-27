@@ -1,4 +1,5 @@
 use super::*;
+use std::future::Future;
 use crate::config::user_scope::{deactivate_user_scope, rebind_after_credential_change};
 use crate::core::observability::sentry_scope;
 use crate::core::Outcome;
