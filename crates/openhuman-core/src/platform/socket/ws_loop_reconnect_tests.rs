@@ -470,10 +470,10 @@ fn sio_connect_error_invalid_token_classifies_correctly() {
 /// Provider returns a genuinely fresh token → loop should retry immediately,
 /// carrying the validated fresh token forward so the next attempt sends
 /// exactly that value instead of re-reading the provider.
-#[test]
-fn decide_after_invalid_token_fresh_token_returns_retry() {
-    let provider: TokenProvider = Arc::new(|| Ok("fresh-token".to_string()));
-    match decide_after_invalid_token("stale-token", &provider) {
+#[tokio::test]
+async fn decide_after_invalid_token_fresh_token_returns_retry() {
+    let provider: TokenProvider = Arc::new(|| Box::pin(async { Ok("fresh-token".to_string()) }));
+    match decide_after_invalid_token("stale-token", &provider).await {
         InvalidTokenAction::RetryImmediately { token } => {
             assert_eq!(token, "fresh-token");
         }
@@ -484,10 +484,10 @@ fn decide_after_invalid_token_fresh_token_returns_retry() {
 }
 
 /// Provider returns the same token → session is definitively expired; escalate.
-#[test]
-fn decide_after_invalid_token_same_token_escalates() {
-    let provider: TokenProvider = Arc::new(|| Ok("same-token".to_string()));
-    match decide_after_invalid_token("same-token", &provider) {
+#[tokio::test]
+async fn decide_after_invalid_token_same_token_escalates() {
+    let provider: TokenProvider = Arc::new(|| Box::pin(async { Ok("same-token".to_string()) }));
+    match decide_after_invalid_token("same-token", &provider).await {
         InvalidTokenAction::Escalate { .. } => {}
         InvalidTokenAction::RetryImmediately { .. } => {
             panic!("expected Escalate when provider returns the same token");
@@ -496,11 +496,12 @@ fn decide_after_invalid_token_same_token_escalates() {
 }
 
 /// Provider returns an error → escalate with the provider error as reason.
-#[test]
-fn decide_after_invalid_token_provider_error_escalates() {
-    let provider: TokenProvider =
-        Arc::new(|| Err("no session token stored — user must log in first".to_string()));
-    match decide_after_invalid_token("any-token", &provider) {
+#[tokio::test]
+async fn decide_after_invalid_token_provider_error_escalates() {
+    let provider: TokenProvider = Arc::new(|| {
+        Box::pin(async { Err("no session token stored — user must log in first".to_string()) })
+    });
+    match decide_after_invalid_token("any-token", &provider).await {
         InvalidTokenAction::Escalate { reason } => {
             assert!(
                 reason.contains("provider error"),
@@ -514,10 +515,10 @@ fn decide_after_invalid_token_provider_error_escalates() {
 }
 
 /// Provider returns an empty string → treat as no session; escalate.
-#[test]
-fn decide_after_invalid_token_empty_token_escalates() {
-    let provider: TokenProvider = Arc::new(|| Ok(String::new()));
-    match decide_after_invalid_token("prev-token", &provider) {
+#[tokio::test]
+async fn decide_after_invalid_token_empty_token_escalates() {
+    let provider: TokenProvider = Arc::new(|| Box::pin(async { Ok(String::new()) }));
+    match decide_after_invalid_token("prev-token", &provider).await {
         InvalidTokenAction::Escalate { .. } => {}
         InvalidTokenAction::RetryImmediately { .. } => {
             panic!("expected Escalate when provider returns empty token");
