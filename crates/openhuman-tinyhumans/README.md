@@ -242,7 +242,8 @@ chain core, embed, tinyhumans, cli.
   (`backend::headers`) and a bearer source, but its `/memory/*` requests never
   pass through `SdkBackendTransport` and the SDK route registry does not apply
   to them.
-- Realtime Socket.IO stays on the core's own `platform::socket` transport; the
+- Realtime Socket.IO uses this crate's SDK-backed `socket` port; the core
+  retains the RPC contract and inbound domain-event sink. The
   SDK is built with `default-features = false`, which drops its socket client.
 - The generic Jev types (`JevRanker`, `JevEvaluator`, `JevStrategy`) live in
   [`vendor/tinyagents/vendor/tinytools/crates/tinytools-jev`](../../vendor/tinyagents/vendor/tinytools/crates/tinytools-jev/)

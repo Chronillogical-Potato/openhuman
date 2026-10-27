@@ -112,8 +112,8 @@ and answers backend-touching calls with `HostedApiError::BackendUnavailable` /
 - The hosted RPC proxies in [`../hosted/`](../hosted/README.md) do not call
   this trait. They build their own typed `TinyHumansClient` through
   `hosted::client::HostedClient`, reusing this transport's `http_client`.
-- The SDK's Socket.IO client is compiled out (`default-features = false`);
-  realtime stays on the core's `platform::socket`.
+- Socket.IO lifecycle is implemented in [`../socket/`](../socket/) using the
+  SDK's supervised `SocketConnection`; the core owns only its port contract.
 
 ## Tests
 
