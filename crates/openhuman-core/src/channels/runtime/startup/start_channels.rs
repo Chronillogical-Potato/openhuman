@@ -197,7 +197,7 @@ async fn start_channels_inner(mut config: Config, session: CancellationToken) ->
     println!("  🤖 Model:    {model}");
     println!(
         "  🧠 Memory:   {}",
-        if crate::memory::memory_is_on(&config) {
+        if crate::memory::memory_is_on(&config).await {
             config.memory.engine.as_str()
         } else {
             "off"
