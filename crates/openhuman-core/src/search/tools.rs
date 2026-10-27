@@ -95,14 +95,14 @@ impl TinySearchTool {
     /// draws from, and every provider's resolved reachability. Two calls agree
     /// only while nothing a user could change — a key, a route, a provider
     /// selection, a login — has moved.
-    pub(crate) fn provider_signature(&self, config: &Config) -> u64 {
+    pub(crate) async fn provider_signature(&self, config: &Config) -> u64 {
         let mut hasher = DefaultHasher::new();
         if let Some(role) = tinysearch_bus::role_for_tool(&self.spec.name) {
             for provider in super::providers::role_order(config, role) {
                 provider.hash(&mut hasher);
             }
         }
-        for provider in super::providers::resolve(config) {
+        for provider in super::providers::resolve(config).await {
             provider.id.hash(&mut hasher);
             provider.enabled.hash(&mut hasher);
             provider.usable.hash(&mut hasher);
@@ -260,7 +260,7 @@ impl Tool for TinySearchTool {
         let config = self.live_config(&ctx).await?;
         // Re-read per call, so a key added or a provider switched mid-session
         // clears an earlier refusal instead of outliving it.
-        let signature = self.provider_signature(&config);
+        let signature = self.provider_signature(&config).await;
         if self.is_exhausted_for(signature) {
             tracing::debug!(
                 tool = %self.spec.name,
