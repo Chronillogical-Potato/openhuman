@@ -136,6 +136,16 @@ pub(super) async fn read_config_with_recovery_or_default(
 }
 
 impl Config {
+    /// Open sealed values after the desktop's approval preflight is serving.
+    /// Returns whether the legacy ciphertext format was upgraded.
+    pub(crate) async fn decrypt_secrets_after_preflight(&mut self) -> Result<bool> {
+        let openhuman_dir = self
+            .config_path
+            .parent()
+            .context("config path has no parent directory")?;
+        decrypt_config_secrets(self, openhuman_dir).await
+    }
+
     pub async fn load_or_init() -> Result<Self> {
         Self::load_or_init_unenriched()
             .await
