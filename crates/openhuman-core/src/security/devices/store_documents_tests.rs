@@ -28,7 +28,13 @@ fn a_paired_device_round_trips() {
 fn module_pairing_id_is_retained_for_revoke_but_hidden_from_rpc_json() {
     let store = docs();
     store
-        .insert_device_with_key("module-id", "iPhone", "pk", "hash", "enc2:legacy-ciphertext")
+        .insert_device_with_key(
+            "module-id",
+            "iPhone",
+            "pk",
+            "hash",
+            Some("enc2:legacy-ciphertext"),
+        )
         .unwrap();
     assert!(store
         .set_pairing_id("module-id", "owner-pairing-id")
