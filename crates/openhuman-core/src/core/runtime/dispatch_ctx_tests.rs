@@ -1,4 +1,24 @@
 use super::*;
+
+#[test]
+fn controller_authority_is_explicit_and_not_inferred_from_chat_origin() {
+    let context = CoreContext::for_test(crate::core::runtime::DomainSet::full(), None);
+    let dispatch = DispatchCtx::new(context.clone());
+
+    assert_eq!(dispatch.invocation_source(), InvocationSource::Untrusted);
+
+    let web_chat = dispatch.with_turn_origin(crate::core::runtime::turn_origin::AgentTurnOrigin::WebChat {
+        thread_id: "thread".into(),
+        client_id: "client".into(),
+        request_id: None,
+    });
+    assert_eq!(web_chat.invocation_source(), InvocationSource::Untrusted);
+
+    let direct = DispatchCtx::new(context)
+        .with_invocation_source(InvocationSource::AuthenticatedUserController);
+    assert_eq!(direct.invocation_source(), InvocationSource::AuthenticatedUserController);
+    assert_eq!(direct.clone().invocation_source(), InvocationSource::AuthenticatedUserController);
+}
 use crate::core::runtime::DomainSet;
 
 #[test]
