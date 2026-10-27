@@ -83,6 +83,38 @@ impl KeyringConsent {
     }
 }
 
+/// Device pairing callback surface. The host-side identity and persistence
+/// authority are intentionally not installed until they can be bound to a
+/// registered subject; all methods therefore deny for now.
+#[derive(Clone)]
+struct DevicePairingHost;
+#[tinybus::interface(name = "ai.tinyhumans.tinysecurity.DevicePairingHost2")]
+impl DevicePairingHost {
+    #[tinybus(confidential)]
+    async fn resolve_pairing_event(
+        &self,
+        _request: tinysecurity_bus::DevicePairingContextRequest2,
+    ) -> tinybus::Result<tinysecurity_bus::DevicePairingContextResponse2> {
+        Err(unavailable())
+    }
+
+    #[tinybus(confidential)]
+    async fn persist_device_pairing(
+        &self,
+        _request: tinysecurity_bus::DevicePairingPersistenceRequest2,
+    ) -> tinybus::Result<tinysecurity_bus::DevicePairingPersistenceResponse2> {
+        Err(unavailable())
+    }
+
+    #[tinybus(confidential)]
+    async fn load_legacy_device_identities(
+        &self,
+        _request: tinysecurity_bus::DevicePairingLegacyLoadRequest2,
+    ) -> tinybus::Result<tinysecurity_bus::DevicePairingLegacyLoadResponse2> {
+        Err(unavailable())
+    }
+}
+
 fn keyring_consent_outcome(approved: Option<bool>) -> tinysecurity_bus::KeyringConsentOutcome2 {
     match approved {
         Some(true) => tinysecurity_bus::KeyringConsentOutcome2::Allowed,
@@ -161,6 +193,15 @@ pub(in crate::modules) async fn install(connection: &Connection) -> tinybus::Res
             ObjectPath::new(callback_names2::OBJECT_PATH)?,
             ModuleOnly {
                 inner: KeyringConsent,
+                connection: connection.clone(),
+            },
+        )
+        .await?;
+    connection
+        .serve_at(
+            ObjectPath::new(callback_names2::OBJECT_PATH)?,
+            ModuleOnly {
+                inner: DevicePairingHost,
                 connection: connection.clone(),
             },
         )

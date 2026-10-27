@@ -10,9 +10,11 @@ fn keyring_callback_grants_only_explicit_operation_scoped_approval() {
 
 #[test]
 fn unmigrated_callbacks_return_an_error_instead_of_authority() {
-    assert!(unavailable()
-        .to_string()
-        .contains("security host callback unavailable"));
+    assert!(
+        unavailable()
+            .to_string()
+            .contains("security host callback unavailable")
+    );
 }
 
 #[tokio::test]
@@ -25,10 +27,12 @@ async fn pairing_callbacks_fail_closed_without_an_admitted_host_event() {
             requested_channel_id: None,
         })
         .await;
-    assert!(result
-        .unwrap_err()
-        .to_string()
-        .contains("security host callback unavailable"));
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("security host callback unavailable")
+    );
 }
 
 #[tokio::test]
@@ -42,10 +46,12 @@ async fn pairing_persistence_callbacks_fail_closed_without_a_bound_scope() {
             operation: tinysecurity_bus::DevicePairingPersistenceOperation2::Load,
         })
         .await;
-    assert!(result
-        .unwrap_err()
-        .to_string()
-        .contains("security host callback unavailable"));
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("security host callback unavailable")
+    );
 }
 
 #[tokio::test]
@@ -56,8 +62,10 @@ async fn legacy_pairing_import_fails_closed_without_a_one_shot_authority() {
             handle: "unissued-import".into(),
         })
         .await;
-    assert!(result
-        .unwrap_err()
-        .to_string()
-        .contains("security host callback unavailable"));
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("security host callback unavailable")
+    );
 }
