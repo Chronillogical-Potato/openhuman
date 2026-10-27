@@ -31,7 +31,7 @@ fn workflow_origin(job_id: &str, require_approval: bool) -> AgentTurnOrigin {
     }
 }
 
-fn agent_test_config(tmp: &tempfile::TempDir) -> Config {
+async fn agent_test_config(tmp: &tempfile::TempDir) -> Config {
     let mut config = Config {
         workspace_dir: tmp.path().join("workspace"),
         action_dir: tmp.path().join("workspace"),
@@ -40,7 +40,7 @@ fn agent_test_config(tmp: &tempfile::TempDir) -> Config {
     };
     config.default_model = Some("test/session-fixture".to_string());
     std::fs::create_dir_all(&config.workspace_dir).unwrap();
-    crate::agent::session_host::test_support::install_managed_model_fixture(&config);
+    crate::agent::session_host::test_support::install_managed_model_fixture(&config).await;
     config
 }
 

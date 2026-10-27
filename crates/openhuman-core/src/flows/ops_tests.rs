@@ -3,7 +3,7 @@ use crate::config::Config;
 use serde_json::json;
 use tempfile::TempDir;
 
-fn test_config(tmp: &TempDir) -> Config {
+async fn test_config(tmp: &TempDir) -> Config {
     let mut config = Config {
         workspace_dir: tmp.path().join("workspace"),
         action_dir: tmp.path().join("workspace"),
@@ -17,7 +17,7 @@ fn test_config(tmp: &TempDir) -> Config {
     // every class, so nothing is ever `blocked`.
     config.autonomy.enabled = true;
     std::fs::create_dir_all(&config.workspace_dir).unwrap();
-    crate::agent::session_host::test_support::install_managed_model_fixture(&config);
+    crate::agent::session_host::test_support::install_managed_model_fixture(&config).await;
     config
 }
 

@@ -2,7 +2,7 @@ use super::*;
 use crate::agent_registry::host_definition::AgentDefinitionRegistry;
 use crate::core::events::DomainEvent;
 use serde_json::json;
-use tokio::time::{sleep, timeout, Duration};
+use tokio::time::{Duration, sleep, timeout};
 
 /// The triage parent is the shared root context with one override: nested
 /// spawns scoped to the dispatched target. Guards the #4369 collapse against

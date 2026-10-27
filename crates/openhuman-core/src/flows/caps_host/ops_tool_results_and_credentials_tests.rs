@@ -26,10 +26,12 @@ async fn parsed_credential_lookup_distinguishes_absent_empty_and_padded_names() 
         .await
         .unwrap();
 
-    assert!(resolve_http_credential(&store, None)
-        .await
-        .unwrap()
-        .is_none());
+    assert!(
+        resolve_http_credential(&store, None)
+            .await
+            .unwrap()
+            .is_none()
+    );
     assert!(resolve_http_credential(&store, Some("   ")).await.is_err());
     let credential = resolve_http_credential(&store, Some(" payments "))
         .await
@@ -41,17 +43,21 @@ async fn parsed_credential_lookup_distinguishes_absent_empty_and_padded_names() 
 #[tokio::test]
 async fn unknown_parsed_credential_name_fails_closed() {
     let (_dir, store) = http_cred_store();
-    assert!(resolve_http_credential(&store, Some("ghost"))
-        .await
-        .is_err());
+    assert!(
+        resolve_http_credential(&store, Some("ghost"))
+            .await
+            .is_err()
+    );
 }
 
 #[tokio::test]
 async fn absent_and_empty_parsed_names_do_not_select_a_credential() {
     let (_dir, store) = http_cred_store();
-    assert!(resolve_http_credential(&store, None)
-        .await
-        .unwrap()
-        .is_none());
+    assert!(
+        resolve_http_credential(&store, None)
+            .await
+            .unwrap()
+            .is_none()
+    );
     assert!(resolve_http_credential(&store, Some("   ")).await.is_err());
 }
