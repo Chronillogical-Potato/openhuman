@@ -82,6 +82,35 @@ fn device_pairing_host_event_is_bound_to_purpose_channel_and_used_once() {
 }
 
 #[test]
+fn direct_controller_pairing_event_requires_the_registered_channel_token_and_nonce() {
+    use tinysecurity_bus::{DevicePairingPurpose2, DevicePairingSource2};
+
+    let events = PairingEventRegistry::default();
+    let context = pairing_context(
+        "channel-begin",
+        DevicePairingSource2::AuthenticatedUserController,
+    );
+    let event = events.issue(context, 1_000).unwrap();
+    assert!(events
+        .resolve(
+            &tinysecurity_bus::DevicePairingContextRequest2 {
+                host_event_id: event,
+                purpose: DevicePairingPurpose2::UserController,
+                requested_channel_id: None,
+            },
+            1_000,
+        )
+        .is_ok());
+
+    let mut incomplete = pairing_context(
+        "channel-incomplete",
+        DevicePairingSource2::AuthenticatedUserController,
+    );
+    incomplete.connection_nonce.clear();
+    assert!(events.issue(incomplete, 1_000).is_err());
+}
+
+#[test]
 fn keyring_callback_grants_only_explicit_operation_scoped_approval() {
     use tinysecurity_bus::KeyringConsentOutcome2 as Outcome;
     assert_eq!(keyring_consent_outcome(Some(true)), Outcome::Allowed);

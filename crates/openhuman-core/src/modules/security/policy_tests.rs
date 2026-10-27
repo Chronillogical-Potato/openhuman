@@ -57,6 +57,44 @@ fn module_bootstrap_configures_the_host_served_audit_stream_from_config() {
     assert_eq!(audit.journal_max_events, 10_000);
 }
 
+#[tokio::test]
+async fn secret_scope_bootstrap_enables_bounded_pairing_and_legacy_source_bindings() {
+    let temp = tempfile::tempdir().unwrap();
+    let mut config = Config::default();
+    config.workspace_dir = temp.path().to_path_buf();
+    let subject = tinysecurity_bus::SubjectScope {
+        user: "user-1".into(),
+        workspace: temp.path().display().to_string(),
+        agent: "config-secrets".into(),
+    };
+    let scope = crate::security::approval::native::prepare_secret_scope(&config, subject)
+        .await
+        .unwrap();
+
+    let module = module_config_for_secret_scope(
+        &config,
+        Some(":1.42".into()),
+        &scope,
+        "1".repeat(32),
+        "2".repeat(32),
+        "3".repeat(32),
+        "4".repeat(32),
+        "5".repeat(32),
+    )
+    .unwrap();
+
+    let device = module.device.expect("DeviceConfig2 is enabled");
+    assert_eq!(device.max_handles, 512);
+    assert_eq!(device.max_bootstrap_nonces, 4096);
+    let pairing = module
+        .device_pairing
+        .expect("DevicePairingConfig2 is enabled");
+    assert_eq!(pairing.max_pairings, 256);
+    let runtime = pairing.runtime_scope.unwrap();
+    assert_eq!(runtime.persistence_backend_id, "5".repeat(32));
+    assert!(runtime.legacy_device_backend_id.is_some());
+}
+
 #[test]
 fn sandbox_planning_keeps_its_audit_sink_when_optional_audit_is_disabled() {
     let mut config = Config::default();
