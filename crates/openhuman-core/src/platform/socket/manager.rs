@@ -665,6 +665,62 @@ impl Default for SocketManager {
     }
 }
 
+#[async_trait::async_trait]
+impl super::SocketPort for SocketManager {
+    async fn connect(&self, url: &str, token: &str) -> Result<(), String> {
+        SocketManager::connect(self, url, token).await
+    }
+
+    async fn connect_with_provider(
+        &self,
+        url: &str,
+        provider: super::TokenProvider,
+    ) -> Result<(), String> {
+        SocketManager::connect_with_provider(self, url, provider).await
+    }
+
+    async fn disconnect(&self) -> Result<(), String> {
+        SocketManager::disconnect(self).await
+    }
+
+    async fn emit(&self, event: &str, data: serde_json::Value) -> Result<(), String> {
+        SocketManager::emit(self, event, data).await
+    }
+
+    async fn emit_with_ack(
+        &self,
+        event: &str,
+        data: serde_json::Value,
+        timeout: std::time::Duration,
+    ) -> Result<serde_json::Value, String> {
+        SocketManager::emit_with_ack(self, event, data, timeout).await
+    }
+
+    fn get_state(&self) -> SocketState {
+        SocketManager::get_state(self)
+    }
+
+    fn is_connected(&self) -> bool {
+        SocketManager::is_connected(self)
+    }
+
+    fn is_live_for(&self, url: &str, token: &str) -> bool {
+        SocketManager::is_live_for(self, url, token)
+    }
+
+    fn status_for(&self, url: &str, token: &str) -> Option<ConnectionStatus> {
+        SocketManager::status_for(self, url, token)
+    }
+
+    fn is_loop_active(&self) -> bool {
+        SocketManager::is_loop_active(self)
+    }
+
+    fn loop_stopped_on_failure(&self) -> bool {
+        SocketManager::loop_stopped_on_failure(self)
+    }
+}
+
 // ---------------------------------------------------------------------------
 // State-change helpers (used by sibling modules)
 // ---------------------------------------------------------------------------

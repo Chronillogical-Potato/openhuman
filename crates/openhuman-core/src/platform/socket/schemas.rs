@@ -9,7 +9,7 @@ use crate::core::all::{
 };
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
-use super::manager::global_socket_manager;
+use super::global_socket_manager;
 use crate::platform::socket::models::{ConnectionStatus, SocketState};
 
 // ---------------------------------------------------------------------------
@@ -170,12 +170,12 @@ pub fn schemas(function: &str) -> ControllerSchema {
 // Handlers
 // ---------------------------------------------------------------------------
 
-fn require_manager() -> Result<&'static std::sync::Arc<super::SocketManager>, String> {
+fn require_manager() -> Result<std::sync::Arc<dyn super::SocketPort>, String> {
     global_socket_manager()
         .ok_or_else(|| "SocketManager not initialized — runtime not bootstrapped".to_string())
 }
 
-type SocketManagerRef = &'static std::sync::Arc<super::SocketManager>;
+type SocketManagerRef = std::sync::Arc<dyn super::SocketPort>;
 
 struct ConnectParams {
     url: String,
@@ -296,14 +296,14 @@ fn run_connect(
     params: ConnectParams,
 ) -> ControllerFuture {
     Box::pin(async move {
-        let state = super::ops::connect_static(manager, &params.url, &params.token).await?;
+        let state = super::ops::connect_static(manager.as_ref(), &params.url, &params.token).await?;
         Ok(status_payload(&state))
     })
 }
 
 fn run_disconnect(_ctx: DispatchCtx, manager: SocketManagerRef, _params: ()) -> ControllerFuture {
     Box::pin(async move {
-        let state = super::ops::disconnect(manager).await?;
+        let state = super::ops::disconnect(manager.as_ref()).await?;
         Ok(status_payload(&state))
     })
 }
@@ -330,7 +330,7 @@ fn run_connect_with_session(
     _params: (),
 ) -> ControllerFuture {
     Box::pin(async move {
-        let state = super::ops::connect_with_session(&ctx, manager).await?;
+        let state = super::ops::connect_with_session(&ctx, manager.as_ref()).await?;
         Ok(status_payload(&state))
     })
 }

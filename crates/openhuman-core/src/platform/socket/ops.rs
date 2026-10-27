@@ -1,10 +1,10 @@
 use crate::core::runtime::DispatchCtx;
 use crate::platform::socket::models::SocketState;
 
-use super::SocketManager;
+use super::SocketPort;
 
 async fn connect_static_using(
-    manager: &SocketManager,
+    manager: &dyn SocketPort,
     url: &str,
     token: &str,
 ) -> Result<SocketState, String> {
@@ -15,7 +15,7 @@ async fn connect_static_using(
 }
 
 pub async fn connect_static(
-    manager: &SocketManager,
+    manager: &dyn SocketPort,
     url: &str,
     token: &str,
 ) -> Result<SocketState, String> {
@@ -23,7 +23,7 @@ pub async fn connect_static(
     connect_static_using(manager, url, token).await
 }
 
-pub async fn disconnect(manager: &SocketManager) -> Result<SocketState, String> {
+pub async fn disconnect(manager: &dyn SocketPort) -> Result<SocketState, String> {
     log::info!("[socket:rpc] disconnect");
     let _rebind = manager.lock_identity_rebind().await;
     manager.disconnect().await?;
@@ -33,7 +33,7 @@ pub async fn disconnect(manager: &SocketManager) -> Result<SocketState, String> 
 /// Connect with a session token, reusing a live socket for the same identity.
 /// The identity lock serializes concurrent bootstrap and RPC connections.
 async fn connect_with_session_using(
-    manager: &SocketManager,
+    manager: &dyn SocketPort,
     url: &str,
     token: &str,
     provider: super::token_provider::TokenProvider,
@@ -52,7 +52,7 @@ async fn connect_with_session_using(
 
 pub async fn connect_with_session(
     ctx: &DispatchCtx,
-    manager: &SocketManager,
+    manager: &dyn SocketPort,
 ) -> Result<SocketState, String> {
     log::info!("[socket:rpc] connect_with_session — resolving credentials");
     let config = std::sync::Arc::new(ctx.load_config().await?);
