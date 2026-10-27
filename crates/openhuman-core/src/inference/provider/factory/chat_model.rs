@@ -43,7 +43,7 @@ pub(crate) struct OpenHumanModelFactory<'a> {
     /// Attach OpenHuman's per-turn multimodal providers using the route this
     /// factory actually selected. One-shot probes do not need host attachments.
     pub(crate) attach_host_attachments: bool,
-    pub(crate) credentials: &'a super::credentials::RuntimeCredentialSnapshot,
+    pub(crate) credentials: super::credentials::RuntimeCredentialSnapshot,
 }
 
 impl OpenHumanModelFactory<'_> {
@@ -275,7 +275,7 @@ impl OpenHumanModelFactory<'_> {
                         request.opts.native_tools,
                         self.egress,
                         context_extensions,
-                        CredentialAccess::Runtime(self.credentials),
+                        CredentialAccess::Runtime(&self.credentials),
                         None,
                         None,
                     );
@@ -338,7 +338,7 @@ async fn build_one_shot(
         egress: &egress,
         thread_id: None,
         attach_host_attachments: false,
-        credentials: &credentials,
+        credentials,
     };
     let request = ModelBuildRequest {
         role: role.to_owned(),
@@ -569,13 +569,13 @@ pub async fn probe_inference_readiness(
 /// Build an `Arc<dyn ChatModel>` from an explicit provider string and config.
 ///
 /// The explicit-string counterpart of [`create_chat_model`].
-pub fn create_chat_model_from_string(
+pub async fn create_chat_model_from_string(
     role: &str,
     provider: &str,
     config: &Config,
     temperature: f64,
 ) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
-    create_chat_model_from_string_with_model_id(role, provider, config, temperature)
+    create_chat_model_from_string_with_model_id(role, provider, config, temperature).await
         .map(|(model, _)| model)
 }
 
@@ -584,14 +584,14 @@ pub fn create_chat_model_from_string(
 ///
 /// Managed, local-runtime, configured cloud-slug, Claude SDK/Code, and Codex
 /// strings all construct native `ChatModel` implementations directly.
-pub fn create_chat_model_from_string_with_model_id(
+pub async fn create_chat_model_from_string_with_model_id(
     role: &str,
     provider: &str,
     config: &Config,
     temperature: f64,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
     let (model, model_id) =
-        create_chat_model_from_string_with_model_id_inner(role, provider, config)?;
+        create_chat_model_from_string_with_model_id_inner(role, provider, config).await?;
     Ok((with_default_temperature(model, temperature), model_id))
 }
 

@@ -44,7 +44,7 @@ impl Default for RuntimeCredentialSnapshot {
 }
 
 impl RuntimeCredentialSnapshot {
-    pub(super) async fn resolve(config: &Config) -> Self {
+    pub(crate) async fn resolve(config: &Config) -> Self {
         let mut keys = HashMap::new();
         for slug in config.cloud_providers.iter().map(|entry| entry.slug.as_str()) {
             if keys.contains_key(slug) {

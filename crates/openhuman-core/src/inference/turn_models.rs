@@ -109,7 +109,7 @@ impl TurnModels {
 /// here (Sentry suppression is unaffected — both `skips_sentry` cases are raised in
 /// the host turn loop).
 #[allow(clippy::too_many_arguments)]
-fn build_turn_models_crate(
+async fn build_turn_models_crate(
     ctx: &DispatchCtx,
     role: &str,
     config: &crate::config::Config,
@@ -124,6 +124,7 @@ fn build_turn_models_crate(
     thread_id: Option<&str>,
 ) -> anyhow::Result<TurnModels> {
     let egress = crate::security::egress::EgressLedger::per_turn();
+    let credentials = crate::inference::provider::factory::RuntimeCredentialSnapshot::resolve(config).await;
     let factory = crate::inference::provider::factory::OpenHumanModelFactory {
         ctx,
         config,
@@ -131,6 +132,7 @@ fn build_turn_models_crate(
         egress: &egress,
         thread_id,
         attach_host_attachments: true,
+        credentials,
     };
     let opts = tinyagents_harness::host::BuildOpts {
         native_tools: true,
@@ -406,7 +408,7 @@ impl TurnModelSource {
 
     /// Build this turn's [`TurnModels`] (primary + tier routes + summarizer),
     /// capturing provider telemetry id + capabilities onto the bundle.
-    pub(crate) fn build(
+    pub(crate) async fn build(
         &self,
         model: &str,
         temperature: f64,
@@ -567,7 +569,7 @@ impl TurnModelSource {
                 supports_vision,
                 self_hosted,
                 thread_id,
-            );
+            ).await;
         }
         Err(anyhow::anyhow!("turn model source is missing a model"))
     }
@@ -577,7 +579,7 @@ impl TurnModelSource {
     /// summary calls outside the main turn (e.g. the sub-agent cap-hit checkpoint),
     /// so the caller can `invoke` without naming the `Provider` trait. The output
     /// cap rides the per-call `ModelRequest`, not the model.
-    pub(crate) fn build_summarizer(
+    pub(crate) async fn build_summarizer(
         &self,
         model: &str,
         temperature: f64,
@@ -619,6 +621,7 @@ impl TurnModelSource {
                 egress: &egress,
                 thread_id,
                 attach_host_attachments: true,
+                credentials: crate::inference::provider::factory::RuntimeCredentialSnapshot::resolve(&cn.config).await,
             };
             let opts = tinyagents_harness::host::BuildOpts {
                 native_tools: true,
