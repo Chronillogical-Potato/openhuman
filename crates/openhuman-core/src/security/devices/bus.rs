@@ -13,6 +13,7 @@ use crate::security::devices::rpc::{
 };
 use crate::security::devices::store;
 use crate::security::devices::tunnel_client::emit_frame;
+use tunnel_rpc::{decode_frame, encode_frame};
 use async_trait::async_trait;
 use serde_json::Value;
 use tinybus::EventHandler;
