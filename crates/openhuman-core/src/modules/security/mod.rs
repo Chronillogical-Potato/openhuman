@@ -69,6 +69,8 @@ pub(crate) fn device_pairing_controller_event(
     scope: &crate::security::approval::native::SecretScope,
     master_handle: String,
     generation: u64,
+    channel_id: String,
+    pairing_token: String,
 ) -> Result<String, String> {
     let expires_at_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -81,9 +83,9 @@ pub(crate) fn device_pairing_controller_event(
         user_binding: scope.scope_id().to_owned(),
         secret_master_handle: Some(master_handle),
         legacy_import_handle: None,
-        channel_id: String::new(),
-        pairing_token: None,
-        connection_nonce: String::new(),
+        channel_id,
+        pairing_token: Some(pairing_token),
+        connection_nonce: uuid::Uuid::new_v4().simple().to_string(),
         generation,
         source: tinysecurity_bus::DevicePairingSource2::AuthenticatedUserController,
         expires_at_ms,
