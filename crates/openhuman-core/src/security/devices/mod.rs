@@ -4,7 +4,6 @@
 //! and iOS clients, brokered by the tinyhumans backend tunnel.
 
 pub mod bus;
-pub mod crypto;
 mod owner;
 pub mod rpc;
 pub mod schemas;
