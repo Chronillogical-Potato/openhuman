@@ -5,15 +5,11 @@
 //! inbound message handling.
 
 mod event_handlers;
-mod manager;
 pub mod models;
 mod ops;
 mod port;
 mod schemas;
 pub(crate) mod token_provider;
-pub mod types;
-pub mod url;
-pub(crate) mod ws_loop;
 
 pub use port::{
     global_socket_manager, global_socket_port, set_global_socket_manager, set_global_socket_port,
