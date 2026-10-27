@@ -40,24 +40,24 @@ fn is_invalid_token_error_returns_false_for_unrelated_errors() {
     assert!(!is_invalid_token_error(""));
 }
 
-#[test]
-fn static_provider_returns_token() {
+#[tokio::test]
+async fn static_provider_returns_token() {
     let provider = static_token_provider("my-token".to_string());
-    assert_eq!(provider().unwrap(), "my-token");
+    assert_eq!(provider().await.unwrap(), "my-token");
 }
 
-#[test]
-fn static_provider_rejects_empty_token() {
+#[tokio::test]
+async fn static_provider_rejects_empty_token() {
     let provider = static_token_provider("".to_string());
-    assert!(provider().is_err());
+    assert!(provider().await.is_err());
     let provider2 = static_token_provider("   ".to_string());
-    assert!(provider2().is_err());
+    assert!(provider2().await.is_err());
 }
 
-#[test]
-fn static_provider_returns_same_token_on_repeated_calls() {
+#[tokio::test]
+async fn static_provider_returns_same_token_on_repeated_calls() {
     let provider = static_token_provider("tok-abc".to_string());
     // Simulates multiple reconnect attempts — must always return the same
     // cloned token (static provider semantics).
-    assert_eq!(provider().unwrap(), provider().unwrap());
+    assert_eq!(provider().await.unwrap(), provider().await.unwrap());
 }

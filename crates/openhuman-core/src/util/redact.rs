@@ -12,12 +12,12 @@
 pub fn redact_url_for_log(raw: &str) -> String {
     #[cfg(feature = "security-module")]
     {
-        return crate::modules::security::text::redact_blocking(
+        crate::modules::security::text::redact_blocking(
             tinysecurity_bus::RedactMode::Endpoint,
             raw.trim(),
             std::time::Duration::from_millis(250),
         )
-        .unwrap_or_else(|_| crate::core::log_redaction::SUPPRESSED.to_owned());
+        .unwrap_or_else(|_| crate::core::log_redaction::SUPPRESSED.to_owned())
     }
     #[cfg(not(feature = "security-module"))]
     {

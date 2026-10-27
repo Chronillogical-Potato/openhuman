@@ -130,6 +130,7 @@ impl BackendTransport for SdkBackendTransport {
             let config = Arc::clone(&config);
             async move {
                 resolve_backend_credential(&config)
+                    .await
                     .map(BackendCredential::into_secret)
                     .map_err(|error| {
                         log::debug!("[tinyhumans-transport] memory bearer unavailable: {error}");

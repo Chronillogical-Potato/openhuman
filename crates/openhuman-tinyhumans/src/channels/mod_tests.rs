@@ -91,7 +91,7 @@ async fn typing_posts_to_the_channel_route_with_the_session_credential() {
         )
         .mount(&server)
         .await;
-    let config = test_support::signed_in(&tmp, &server.uri());
+    let config = test_support::signed_in(&tmp, &server.uri()).await;
     let answer = serve(ctx(config, Some("telegram")), typing("telegram"))
         .await
         .unwrap();
@@ -126,7 +126,7 @@ async fn typed_send_preserves_v22_content_and_turn_metadata() {
         )
         .mount(&server)
         .await;
-    let config = test_support::signed_in(&tmp, &server.uri());
+    let config = test_support::signed_in(&tmp, &server.uri()).await;
     let request = ProgressiveTransportRequest::SendTyped {
         channel: "telegram".into(),
         turn_id: Some("turn-1".into()),
@@ -182,7 +182,7 @@ async fn progressive_send_forwards_turn_and_delivery_context() {
         .mount(&server)
         .await;
 
-    let config = test_support::signed_in(&tmp, &server.uri());
+    let config = test_support::signed_in(&tmp, &server.uri()).await;
     let answer = serve(
         ctx(config, Some("telegram")),
         ChannelBackendRequest::ProgressiveTransport(Box::new(ProgressiveTransportRequest::Send {
@@ -213,7 +213,7 @@ async fn progressive_send_forwards_turn_and_delivery_context() {
 #[tokio::test]
 async fn hosted_callback_declines_module_output_events_without_losing_them_as_sends() {
     let tmp = tempfile::tempdir().unwrap();
-    let config = test_support::signed_in(&tmp, "http://127.0.0.1:9");
+    let config = test_support::signed_in(&tmp, "http://127.0.0.1:9").await;
     let request = ProgressiveTransportRequest::OutputEvent {
         channel: "telegram".into(),
         turn_id: Some("turn-1".into()),
@@ -241,7 +241,7 @@ async fn hosted_callback_declines_module_output_events_without_losing_them_as_se
 #[tokio::test]
 async fn a_request_for_another_channel_is_refused() {
     let tmp = tempfile::tempdir().unwrap();
-    let config = test_support::signed_in(&tmp, "http://127.0.0.1:9");
+    let config = test_support::signed_in(&tmp, "http://127.0.0.1:9").await;
     let answer = serve(ctx(config, Some("telegram")), typing("discord"))
         .await
         .unwrap();
@@ -254,7 +254,7 @@ async fn a_request_for_another_channel_is_refused() {
 #[tokio::test]
 async fn a_local_session_has_no_hosted_channel_credential() {
     let tmp = tempfile::tempdir().unwrap();
-    let config = test_support::local_session(&tmp);
+    let config = test_support::local_session(&tmp).await;
     let answer = serve(ctx(config, Some("telegram")), typing("telegram"))
         .await
         .unwrap();
@@ -267,7 +267,7 @@ async fn a_local_session_has_no_hosted_channel_credential() {
 #[tokio::test]
 async fn a_closed_session_is_unavailable_before_any_request() {
     let tmp = tempfile::tempdir().unwrap();
-    let config = test_support::signed_in(&tmp, "http://127.0.0.1:9");
+    let config = test_support::signed_in(&tmp, "http://127.0.0.1:9").await;
     let ctx = ctx(config, Some("telegram"));
     ctx.session.cancel();
     let answer = serve(ctx, typing("telegram")).await.unwrap();
@@ -289,7 +289,7 @@ async fn a_reaction_keeps_the_backend_payload_as_raw() {
         )
         .mount(&server)
         .await;
-    let config = test_support::signed_in(&tmp, &server.uri());
+    let config = test_support::signed_in(&tmp, &server.uri()).await;
     let answer = serve(
         ctx(config, Some("telegram")),
         ChannelBackendRequest::SendReaction {
@@ -326,7 +326,7 @@ async fn thread_operations_use_the_thread_routes() {
         )
         .mount(&server)
         .await;
-    let config = test_support::signed_in(&tmp, &server.uri());
+    let config = test_support::signed_in(&tmp, &server.uri()).await;
     let created = serve(
         ctx(config.clone(), None),
         ChannelBackendRequest::CreateThread {
@@ -358,7 +358,7 @@ async fn thread_operations_use_the_thread_routes() {
 #[tokio::test]
 async fn requests_the_callback_does_not_serve_are_refused() {
     let tmp = tempfile::tempdir().unwrap();
-    let config = test_support::signed_in(&tmp, "http://127.0.0.1:9");
+    let config = test_support::signed_in(&tmp, "http://127.0.0.1:9").await;
     let refused = serve(
         ctx(config, None),
         ChannelBackendRequest::Status { channel: None },
@@ -395,7 +395,7 @@ async fn a_context_bearing_delete_or_typing_keeps_the_empty_id_guards() {
         },
     ] {
         let answer = serve(
-            ctx(test_support::signed_in(&tmp, &server.uri()), None),
+            ctx(test_support::signed_in(&tmp, &server.uri()).await, None),
             ChannelBackendRequest::ProgressiveTransport(Box::new(request)),
         )
         .await

@@ -80,15 +80,15 @@ fn ack_reaction_is_deterministic_and_total_on_edge_inputs() {
 
 fn cm(channel: &str, reply_target: &str) -> tinychannels_bus::ChannelInboundEnvelope {
     tinychannels_bus::ChannelInboundEnvelope {
-        channel: tinychannels_bus::ChannelRef {
+        channel: tinychannels_bus::channel::ChannelRef {
             id: channel.into(),
             ..Default::default()
         },
-        conversation: tinychannels_bus::ConversationRef {
+        conversation: tinychannels_bus::channel::ConversationRef {
             id: reply_target.into(),
             ..Default::default()
         },
-        sender: tinychannels_bus::SenderRef {
+        sender: tinychannels_bus::channel::SenderRef {
             id: "alice".into(),
             ..Default::default()
         },

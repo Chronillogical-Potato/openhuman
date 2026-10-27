@@ -5,8 +5,8 @@ use crate::security::SecurityPolicy;
 
 fn http_cred_store() -> (tempfile::TempDir, HttpCredentialsStore) {
     let dir = tempfile::tempdir().expect("tempdir");
-    // encrypt=true exercises the ChaCha20-Poly1305 at-rest path.
-    let store = HttpCredentialsStore::new(dir.path(), true);
+    // The focused flow tests exercise credential routing, not TinySecurity crypto.
+    let store = HttpCredentialsStore::new(dir.path(), false);
     (dir, store)
 }
 
@@ -40,7 +40,13 @@ fn agent_test_config(tmp: &tempfile::TempDir) -> Config {
     };
     config.default_model = Some("test/session-fixture".to_string());
     std::fs::create_dir_all(&config.workspace_dir).unwrap();
-    crate::agent::session_host::test_support::install_managed_model_fixture(&config);
+    let fixture_config = config.clone();
+    crate::storage::block_on_anyhow(async move {
+        crate::agent::session_host::test_support::install_managed_model_fixture(&fixture_config)
+            .await;
+        Ok(())
+    })
+    .expect("install managed model fixture");
     config
 }
 

@@ -113,10 +113,8 @@ pub(crate) fn route_compat_message(msg: &traits::ChannelInboundEnvelope) -> trai
         reply_target: msg.conversation.id.clone(),
         content: msg.text.clone(),
         channel: msg.channel.id.clone(),
-        timestamp: msg.timestamp_unix_ms.unwrap_or_default(),
+        timestamp: 0,
         thread_ts: msg.conversation.thread_id.clone(),
-        reply_to_id: msg.reply_to_id.clone(),
-        topic_id: msg.conversation.topic_id.clone(),
         sender_name: msg.sender.name.clone(),
     }
 }
@@ -214,7 +212,6 @@ pub(crate) async fn handle_runtime_command_if_needed(
                 (ChannelControlRequest::Route {
                     workspace_dir: ctx.workspace_dir.to_string_lossy().into_owned(),
                     message: Box::new(route_compat_message(msg)),
-                    capabilities: target_channel.map(|channel| Box::new(channel.capabilities())),
                     route: tinychannels_bus::module_remote::RemoteRoute {
                         provider: current.provider,
                         model: current.model,
@@ -247,7 +244,7 @@ pub(crate) async fn handle_runtime_command_if_needed(
         Err(_) => {
             if let Some(channel) = target_channel {
                 let _ = channel
-                    .send_typed(&text_message(
+                    .send(&text_message(
                         &msg.channel.id,
                         &msg.conversation.id,
                         "Channel module unavailable.",
@@ -276,7 +273,7 @@ pub(crate) async fn handle_runtime_command_if_needed(
     };
     if let Some(channel) = target_channel {
         if channel
-            .send_typed(&text_message(
+            .send(&text_message(
                 &msg.channel.id,
                 &msg.conversation.id,
                 reply,

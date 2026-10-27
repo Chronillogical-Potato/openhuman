@@ -94,9 +94,16 @@ pub fn managed_generators(config: &Config) -> Option<MediaGenerators> {
 /// Resolves the backend credential on every request, so a session refreshed
 /// mid-run is used and an API-key host needs no session at all.
 pub(crate) fn bearer_resolver(config: Arc<Config>) -> BearerResolver {
-    Arc::new(move || match resolve_backend_credential(&config) {
-        Ok(BackendCredential::Session(token) | BackendCredential::ApiKey(token)) => Ok(token),
-        Err(error) => Err(ti_image::Error::Auth(error)),
+    Arc::new(move || {
+        let config = Arc::clone(&config);
+        Box::pin(async move {
+            match resolve_backend_credential(&config).await {
+                Ok(BackendCredential::Session(token) | BackendCredential::ApiKey(token)) => {
+                    Ok(token)
+                }
+                Err(error) => Err(ti_image::Error::Auth(error)),
+            }
+        })
     })
 }
 

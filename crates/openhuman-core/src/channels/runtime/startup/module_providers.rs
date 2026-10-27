@@ -34,7 +34,7 @@ pub(super) struct ModuleChannelRuntime {
 struct ModuleChannel {
     name: String,
     object: ModuleObjectClient,
-    interaction: tinychannels_bus::ChannelInteractionInfoV2,
+    interaction: tinychannels_bus::ChannelInteractionInfo,
     relay: Option<tinychannels_bus::module_relay::RelayReservation>,
     relay_fronted: bool,
 }
@@ -64,7 +64,7 @@ impl ModuleChannelRuntime {
             .await
             .map_err(anyhow::Error::new)
             .context("channel module runtime unavailable")?;
-        let hydrated = hydrate_channel_credentials(&config);
+        let hydrated = hydrate_channel_credentials(&config).await;
         let proxy = channel_proxy(&config);
         let infos = match lease
             .object()
@@ -302,27 +302,17 @@ impl Channel for ModuleChannel {
     }
 
     fn proactive_target(&self) -> Option<String> {
-        self.interaction
-            .capabilities
-            .account
-            .proactive_target
-            .clone()
+        self.interaction.proactive_target.clone()
     }
 
-    #[allow(
-        deprecated,
-        reason = "TinyChannels v0.1.39 requires this v21 trait method; production sends use send_typed"
-    )]
     async fn send(&self, message: &tinychannels_bus::SendMessage) -> anyhow::Result<()> {
-        let typed = self.legacy_outbound(message);
-        self.send_typed(&typed).await
+        self.send_prepared(message, tinychannels_bus::DeliveryDurability::BestEffort)
+            .await
     }
 
-    async fn send_typed(
-        &self,
-        message: &tinychannels_bus::ChannelOutboundMessage,
-    ) -> anyhow::Result<()> {
-        self.send_prepared(message).await
+    async fn send_idempotent(&self, message: &tinychannels_bus::SendMessage) -> anyhow::Result<()> {
+        self.send_prepared(message, tinychannels_bus::DeliveryDurability::Required)
+            .await
     }
 
     #[allow(
@@ -397,15 +387,15 @@ impl Channel for ModuleChannel {
     }
 
     fn capabilities(&self) -> tinychannels_bus::ChannelCapabilities {
-        self.interaction.capabilities.clone()
+        self.interaction.capabilities
     }
 
     fn supports_reactions(&self) -> bool {
-        self.interaction.capabilities.reactions
+        self.interaction.supports_reactions
     }
 
     fn supports_draft_updates(&self) -> bool {
-        self.interaction.capabilities.streaming_reply_pipeline
+        self.interaction.supports_draft_updates
     }
 
     #[allow(
@@ -467,43 +457,12 @@ impl Channel for ModuleChannel {
 }
 
 impl ModuleChannel {
-    #[allow(
-        deprecated,
-        reason = "only the required TinyChannels v21 Channel::send bridge accepts SendMessage"
-    )]
-    fn legacy_outbound(
-        &self,
-        message: &tinychannels_bus::SendMessage,
-    ) -> tinychannels_bus::ChannelOutboundMessage {
-        use tinychannels_bus::channel::{ContentPart, OutboundContentPart};
-        tinychannels_bus::ChannelOutboundMessage {
-            channel_id: self.name.clone(),
-            conversation_id: message.recipient.clone(),
-            channel_ref: None,
-            conversation_ref: Some(tinychannels_bus::ConversationRef {
-                id: message.recipient.clone(),
-                thread_id: message.thread_ts.clone(),
-                topic_id: message.topic_id.clone(),
-                ..Default::default()
-            }),
-            reply_to_id: message.reply_to_id.clone(),
-            thread_id: message.thread_ts.clone(),
-            turn_id: None,
-            idempotency_key: message.idempotency_key.clone().unwrap_or_default(),
-            parts: vec![OutboundContentPart::Content {
-                part: ContentPart::Text {
-                    text: message.content.clone(),
-                    markdown_dialect: None,
-                },
-            }],
-        }
-    }
-
     async fn send_prepared(
         &self,
-        message: &tinychannels_bus::ChannelOutboundMessage,
+        message: &tinychannels_bus::SendMessage,
+        durability: tinychannels_bus::DeliveryDurability,
     ) -> anyhow::Result<()> {
-        let intent = outbound_intent(message);
+        let intent = outbound_intent(&self.name, message, durability);
         let prepared: tinychannels_bus::module_runtime::PreparedChannelIntent = self
             .object
             .call_confidential(
@@ -552,21 +511,20 @@ impl ModuleChannel {
 }
 
 fn outbound_intent(
-    message: &tinychannels_bus::ChannelOutboundMessage,
+    channel: &str,
+    message: &tinychannels_bus::SendMessage,
+    durability: tinychannels_bus::DeliveryDurability,
 ) -> tinychannels_bus::ChannelOutboundIntent {
     tinychannels_bus::ChannelOutboundIntent {
-        channel_id: message.channel_id.clone(),
-        conversation_id: message.conversation_id.clone(),
-        channel_ref: message.channel_ref.clone(),
-        conversation_ref: message.conversation_ref.clone(),
-        reply_to_id: message.reply_to_id.clone(),
-        thread_id: message.thread_id.clone(),
-        turn_id: message.turn_id.clone(),
-        idempotency_key: message.idempotency_key.clone(),
-        payload: tinychannels_bus::OutboundPayload::Parts {
-            parts: message.parts.clone(),
+        channel_id: channel.to_owned(),
+        conversation_id: message.recipient.clone(),
+        reply_to_id: None,
+        thread_id: message.thread_ts.clone(),
+        idempotency_key: message.idempotency_key.clone().unwrap_or_default(),
+        payload: tinychannels_bus::OutboundPayload::Text {
+            text: message.content.clone(),
         },
-        ..Default::default()
+        durability,
     }
 }
 

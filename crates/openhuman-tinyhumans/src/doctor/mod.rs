@@ -143,7 +143,7 @@ impl DoctorCheck for BackendCredentialCheck {
     }
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
-        vec![match doctor_credential(ctx.config()) {
+        vec![match doctor_credential(ctx.config()).await {
             CredentialState::Usable(_) => {
                 Finding::pass(self.id(), "A usable hosted credential is configured.")
             }
@@ -197,7 +197,7 @@ impl DoctorCheck for BackendIdentity {
     }
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
-        let credential = match doctor_credential(ctx.config()) {
+        let credential = match doctor_credential(ctx.config()).await {
             CredentialState::Usable(credential) => credential,
             _ => return vec![credential_skipped(self.id())],
         };
@@ -244,7 +244,7 @@ impl DoctorCheck for BackendSocket {
             )];
         };
         let CredentialState::Usable(BackendCredential::Session(token)) =
-            doctor_credential(ctx.config())
+            doctor_credential(ctx.config()).await
         else {
             return vec![Finding::skipped(
                 self.id(),
@@ -381,7 +381,7 @@ impl DoctorCheck for ManagedCatalog {
     }
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
-        let credential = match doctor_credential(ctx.config()) {
+        let credential = match doctor_credential(ctx.config()).await {
             CredentialState::Usable(credential) => credential,
             _ => return vec![credential_skipped(self.id())],
         };
@@ -409,14 +409,14 @@ enum CredentialState {
     Unreadable,
 }
 
-fn doctor_credential(config: &Config) -> CredentialState {
-    match get_api_key_read_only(config) {
+async fn doctor_credential(config: &Config) -> CredentialState {
+    match get_api_key_read_only(config).await {
         Ok(Some(key)) => return CredentialState::Usable(BackendCredential::ApiKey(key)),
         Ok(None) => {}
         Err(_) => return CredentialState::Unreadable,
     }
 
-    let profile = match load_app_session_profile_read_only(config) {
+    let profile = match load_app_session_profile_read_only(config).await {
         Ok(profile) => profile,
         Err(_) => return CredentialState::Unreadable,
     };

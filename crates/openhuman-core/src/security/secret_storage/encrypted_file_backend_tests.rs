@@ -1,4 +1,5 @@
 use super::*;
+use crate::security::secret_storage::file_store;
 use std::collections::HashMap;
 
 fn secrets_tempdir() -> tempfile::TempDir {
@@ -326,7 +327,6 @@ fn encrypted_store_remains_readable_when_verified_plaintext_cannot_be_deleted() 
     );
 }
 
-#[test]
 #[test]
 fn older_plaintext_copy_is_removed_only_when_it_matches() {
     let dir = secrets_tempdir();

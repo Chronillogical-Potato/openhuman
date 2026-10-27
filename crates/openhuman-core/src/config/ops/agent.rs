@@ -133,7 +133,7 @@ pub async fn apply_autonomy_settings(
     crate::security::live_policy::reload_from(&config.autonomy);
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::AutonomyConfigChanged);
 
-    let snapshot = snapshot_config_json(config)?;
+    let snapshot = snapshot_config_json(config).await?;
     Ok(Outcome::new(
         snapshot,
         vec![format!(
@@ -252,7 +252,7 @@ pub async fn apply_agent_settings(
         effective
     );
 
-    let snapshot = snapshot_config_json(config)?;
+    let snapshot = snapshot_config_json(config).await?;
     Ok(Outcome::new(
         snapshot,
         vec![format!(

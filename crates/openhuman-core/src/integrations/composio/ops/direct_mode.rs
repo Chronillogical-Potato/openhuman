@@ -35,6 +35,7 @@ pub async fn store_composio_api_key(
             std::collections::HashMap::new(),
             true,
         )
+        .await
         .map_err(|error| error.to_string())?;
     Ok(Outcome::single_log(
         serde_json::json!({ "stored": true, "provider": COMPOSIO_DIRECT_PROVIDER }),
@@ -43,9 +44,10 @@ pub async fn store_composio_api_key(
 }
 
 /// Read the stored direct-mode Composio API key, if present.
-pub fn get_composio_api_key(config: &Config) -> Result<Option<String>, String> {
+pub async fn get_composio_api_key(config: &Config) -> Result<Option<String>, String> {
     let key = AuthService::from_config(config)
         .get_provider_bearer_token(COMPOSIO_DIRECT_PROVIDER, None)
+        .await
         .map_err(|error| error.to_string())?;
     Ok(key
         .map(|key| key.trim().to_string())
@@ -57,6 +59,7 @@ pub async fn clear_composio_api_key(config: &Config) -> Result<Outcome<serde_jso
     tracing::debug!("[composio-direct] clearing stored api key");
     let removed = AuthService::from_config(config)
         .remove_profile(COMPOSIO_DIRECT_PROVIDER, DEFAULT_AUTH_PROFILE_NAME)
+        .await
         .map_err(|error| error.to_string())?;
     Ok(Outcome::single_log(
         serde_json::json!({ "removed": removed }),
@@ -110,6 +113,7 @@ async fn validate_direct_api_key_before_store(config: &Config, api_key: &str) ->
 pub async fn composio_get_mode(config: &Config) -> OpResult<Outcome<serde_json::Value>> {
     let mode = config.composio.mode.trim().to_string();
     let key_present = get_composio_api_key(config)
+        .await
         .map_err(|e| format!("[composio-direct] get_composio_api_key failed: {e}"))?
         .is_some();
     tracing::debug!(

@@ -30,6 +30,22 @@ fn scope_registration_never_replays_legacy_tool_grants() {
 }
 
 #[test]
+fn preconfigured_scope_registration_replaces_the_initialized_scope() {
+    assert_eq!(
+        registration_method(true, false),
+        names::methods::REGISTER_APPROVAL_SCOPE2
+    );
+    assert_eq!(
+        registration_method(true, true),
+        names::methods::REPLACE_APPROVAL_SCOPE2
+    );
+    assert_eq!(
+        registration_method(false, false),
+        names::methods::REPLACE_APPROVAL_SCOPE2
+    );
+}
+
+#[test]
 fn a_subject_key_distinguishes_user_workspace_and_agent() {
     let a = subject_key(&subject("agent"));
     assert_ne!(a, subject_key(&subject("agent#forced")));

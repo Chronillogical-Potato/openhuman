@@ -71,6 +71,7 @@ pub async fn current_session_is_local(ctx: &DispatchCtx) -> bool {
         return false;
     };
     get_session_token(&config)
+        .await
         .ok()
         .flatten()
         .is_some_and(|token| is_local_session_token(&token))
@@ -203,7 +204,7 @@ pub fn user_id_from_jwt_claims(token: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-pub fn build_session_state(config: &Config) -> Result<AuthStateResponse, String> {
+pub async fn build_session_state(config: &Config) -> Result<AuthStateResponse, String> {
     // The API key wins whenever both are present — same precedence as
     // `resolve_backend_credential`, which every backend request actually
     // authenticates with. Checked before the session profile loads: a host
@@ -213,7 +214,7 @@ pub fn build_session_state(config: &Config) -> Result<AuthStateResponse, String>
     // would misidentify what's actually authenticating its requests. An API
     // key carries no user identity, so `user_id`/`user` stay `None` rather
     // than leaking the session's.
-    if super::api_key::has_api_key(config) {
+    if super::api_key::has_api_key(config).await {
         return Ok(AuthStateResponse {
             is_authenticated: true,
             user_id: None,
@@ -224,12 +225,12 @@ pub fn build_session_state(config: &Config) -> Result<AuthStateResponse, String>
             issuing_backend: None,
         });
     }
-    let profile = load_app_session_profile(config)?;
+    let profile = load_app_session_profile(config).await?;
     Ok(session_state_from_profile(profile.as_ref()))
 }
 
-pub fn get_session_token(config: &Config) -> Result<Option<String>, String> {
-    let profile = load_app_session_profile(config)?;
+pub async fn get_session_token(config: &Config) -> Result<Option<String>, String> {
+    let profile = load_app_session_profile(config).await?;
     session_token_for_config(config, profile.as_ref())
 }
 
@@ -353,8 +354,9 @@ pub fn classify_session_token(
 /// - token with no recorded expiry (local offline session / `exp`-less JWT) →
 ///   presence-only check; the `flatten_authed_error` 401 net still covers a
 ///   server-side revocation that precedes the recorded `exp`.
-pub fn require_live_session_token(config: &Config) -> Result<String, String> {
+pub async fn require_live_session_token(config: &Config) -> Result<String, String> {
     super::backend_credential::resolve_backend_credential(config)
+        .await
         .map(super::backend_credential::BackendCredential::into_secret)
 }
 
@@ -365,19 +367,20 @@ pub fn require_live_session_token(config: &Config) -> Result<String, String> {
 /// lock, and on Windows the `app_state_snapshot` hot path used to take
 /// it twice per call which materially increased lock contention
 /// (Sentry: "Timed out waiting for auth profile lock").
-pub fn load_app_session_profile(config: &Config) -> Result<Option<AuthProfile>, String> {
+pub async fn load_app_session_profile(config: &Config) -> Result<Option<AuthProfile>, String> {
     let auth_service = AuthService::from_config(config);
     auth_service
         .get_profile(APP_SESSION_PROVIDER, None)
+        .await
         .map_err(|e| e.to_string())
 }
 
 /// Reads the selected app-session profile for doctor checks without opening
 /// the ordinary mutable auth-profile store.
-pub fn load_app_session_profile_read_only(
+pub async fn load_app_session_profile_read_only(
     config: &Config,
 ) -> Result<Option<AuthProfile>, super::profiles::ReadOnlyAuthProfileError> {
-    AuthService::get_profile_read_only(config, APP_SESSION_PROVIDER, None)
+    AuthService::get_profile_read_only(config, APP_SESSION_PROVIDER, None).await
 }
 
 pub fn session_state_from_profile(profile: Option<&AuthProfile>) -> AuthStateResponse {

@@ -33,8 +33,9 @@ use super::types::{ModuleRecord, ModuleSource, ModuleState, ModuleStatus};
 use super::{linked, registry, report, runtime, source};
 use crate::config::Config;
 use tinybus::module::{
-    AccessFuture, Availability, FailureReporter, LoadError, ModuleAccess, ModuleClient,
-    ModuleSource as ResolverSource, ProxyFailure, ReleaseRecord, Resolver, ResolverInputs,
+    AccessFuture, Availability, FailureReporter, LinkedRegistry, LoadError, ModuleAccess,
+    ModuleClient, ModuleSource as ResolverSource, ProxyFailure, ReleaseRecord, Resolver,
+    ResolverInputs, SearchPathConfig,
 };
 use tinybus::Proxy;
 
@@ -129,7 +130,7 @@ pub fn disabled_component(config: &Config, id: &str) -> Option<&'static str> {
 pub fn resolver(config: &Config) -> Resolver {
     let shared = Arc::new(config.clone());
     let mut sources = std::collections::HashMap::new();
-    let mut linked_factories = std::collections::HashMap::new();
+    let linked_factories = Arc::new(LinkedRegistry::new());
     for record in registry::ALL {
         let plan = source::plan(config, record.id);
         log_plan_once(record, &plan);
@@ -147,10 +148,10 @@ pub fn resolver(config: &Config) -> Resolver {
             ModuleSource::Linked => {
                 sources.insert(record.id.to_string(), ResolverSource::Linked);
                 if let Some(factory) = linked::factory_for(record.id) {
-                    linked_factories.insert(record.id.to_string(), factory);
+                    linked_factories.register(record.id, factory);
                 }
             }
-            ModuleSource::Release if record.id == "tinymcp" || record.id == "tinyeventqueues" => {
+            ModuleSource::Release if requires_verified_local_callbacks(record.id) => {
                 // These modules require a per-module storage callback, which
                 // TinyBus can bind only on its verified local-file path.
                 // Route a staged release through that rung; the callback-aware
@@ -178,21 +179,33 @@ pub fn resolver(config: &Config) -> Resolver {
         bundled_dir: bundled_releases_dir(),
         sources,
         linked: linked_factories,
+        search_paths: Some(SearchPathConfig::new(
+            "OPENHUMAN_MODULE_PATH",
+            "openhuman/modules",
+        )),
         search_skip,
         gate: Some(Arc::new(move |id| disabled_component(&gate_config, id))),
         on_resolved: Some(Arc::new(on_resolved)),
         records: registry::release_records(),
         terminal_marker: tinytools::status::MODULE_FAULT_MARKER.to_string(),
         runtime: Arc::new(|| Box::pin(runtime::runtime())),
-        module_config: Arc::new(move |id| {
-            let value = runtime_module_config(&module_config_source, id);
-            if id == super::connectors::MODULE_ID {
-                super::connectors::note_module_config_for_load(&module_config_source, &value);
-            }
-            value
-        }),
+        module_config: Arc::new(|_| serde_json::Value::Null),
+        async_module_config: Some(Arc::new(move |id| {
+            let config = Arc::clone(&module_config_source);
+            Box::pin(async move {
+                let value = runtime_module_config(&config, id).await;
+                if id == super::connectors::MODULE_ID {
+                    super::connectors::note_module_config_for_load(&config, &value);
+                }
+                value
+            })
+        })),
         reporter: report::reporter(),
     })
+}
+
+fn requires_verified_local_callbacks(id: &str) -> bool {
+    matches!(id, "tinysecurity" | "tinymcp" | "tinyeventqueues")
 }
 
 /// The staged artifact the callback-bound module fixture loads in isolation.
@@ -242,7 +255,7 @@ async fn ensure_loaded_with_storage_callback(
 ) -> Result<(), String> {
     let mut loads = STORAGE_CALLBACK_LOADS.lock().await;
     if let Some((binding, _served)) = loads.get(id) {
-        let mut module_config = module_config(config, id);
+        let mut module_config = module_config(config, id).await;
         module_config["storage_callback"] = serde_json::json!(binding.unique_name().as_str());
         return resolver
             .ensure_loaded_with_host_callbacks(id, std::sync::Arc::clone(binding), module_config)
@@ -256,7 +269,7 @@ async fn ensure_loaded_with_storage_callback(
     let (binding, served) = super::storage_host::prepare_module_callbacks(runtime)
         .await
         .map_err(|error| error.to_string())?;
-    let mut module_config = module_config(config, id);
+    let mut module_config = module_config(config, id).await;
     module_config["storage_callback"] = serde_json::json!(binding.unique_name().as_str());
     resolver
         .ensure_loaded_with_host_callbacks(id, std::sync::Arc::clone(&binding), module_config)
@@ -275,6 +288,54 @@ static COMPUTER_CALLBACK_LOADS: std::sync::LazyLock<ComputerCallbackLoads> =
     std::sync::LazyLock::new(|| tokio::sync::Mutex::new(std::collections::HashMap::new()));
 
 #[cfg(feature = "security-module")]
+pub(super) async fn security_callback_binding(
+) -> Option<std::sync::Arc<tinybus::module::HostCallbackBinding>> {
+    super::security::host_callbacks::binding().await
+}
+
+#[cfg(feature = "security-module")]
+pub(crate) async fn security_cipher_consumer(
+) -> Option<std::sync::Arc<super::security::cipher_consumer::Consumer>> {
+    super::security::host_callbacks::cipher_consumer().await
+}
+
+#[cfg(feature = "security-module")]
+pub(crate) async fn security_secret_backend(
+) -> Option<std::sync::Arc<super::security::secret_backend::SecretBackend>> {
+    super::security::host_callbacks::secret_backend().await
+}
+
+#[cfg(feature = "security-module")]
+pub(crate) async fn security_secret_scope() -> Option<crate::security::approval::native::SecretScope>
+{
+    super::security::host_callbacks::secret_scope().await
+}
+
+#[cfg(feature = "security-module")]
+pub(crate) async fn security_secret_registration_id() -> Option<String> {
+    super::security::host_callbacks::secret_registration_id().await
+}
+
+#[cfg(feature = "security-module")]
+pub(crate) async fn security_callback_identity() -> Option<String> {
+    super::security::host_callbacks::identity().await
+}
+
+#[cfg(feature = "security-module")]
+pub(super) async fn security_module_config(config: &Config) -> Result<serde_json::Value, String> {
+    super::security::host_callbacks::module_config(config).await
+}
+
+#[cfg(feature = "security-module")]
+async fn ensure_loaded_with_security_callback(
+    resolver: &Resolver,
+    config: &Config,
+    id: &str,
+) -> Result<(), String> {
+    super::security::host_callbacks::ensure_loaded(resolver, config, id).await
+}
+
+#[cfg(feature = "security-module")]
 async fn ensure_loaded_with_computer_callback(
     resolver: &Resolver,
     config: &Config,
@@ -282,7 +343,7 @@ async fn ensure_loaded_with_computer_callback(
 ) -> Result<(), String> {
     let mut loads = COMPUTER_CALLBACK_LOADS.lock().await;
     if let Some(binding) = loads.get(id) {
-        let module_config = module_config_with_consequence_callback(config, id, binding);
+        let module_config = module_config_with_consequence_callback(config, id, binding).await;
         return resolver
             .ensure_loaded_with_host_callbacks(id, std::sync::Arc::clone(binding), module_config)
             .await;
@@ -295,7 +356,7 @@ async fn ensure_loaded_with_computer_callback(
     let binding = super::browser_egress_host::prepare_consequence_callback(runtime)
         .await
         .map_err(|error| error.to_string())?;
-    let module_config = module_config_with_consequence_callback(config, id, &binding);
+    let module_config = module_config_with_consequence_callback(config, id, &binding).await;
     resolver
         .ensure_loaded_with_host_callbacks(id, std::sync::Arc::clone(&binding), module_config)
         .await?;
@@ -304,12 +365,12 @@ async fn ensure_loaded_with_computer_callback(
 }
 
 #[cfg(feature = "security-module")]
-fn module_config_with_consequence_callback(
+async fn module_config_with_consequence_callback(
     config: &Config,
     id: &str,
     binding: &tinybus::module::HostCallbackBinding,
 ) -> serde_json::Value {
-    let mut module_config = module_config(config, id);
+    let mut module_config = module_config(config, id).await;
     module_config["consequence_host"] =
         serde_json::json!({ "destination": binding.unique_name().as_str() });
     module_config
@@ -436,10 +497,15 @@ pub fn load_error_message(error: LoadError) -> String {
 /// Returns a message suitable for surfacing to a user or a model when the module
 /// cannot be loaded: no artifact for this host, downloads disabled, a refused
 /// artifact, or a previous failure in this process.
-pub async fn ensure_loaded(config: &Config, id: &str) -> Result<(), String> {
-    ensure_loaded_within(config, id, None)
-        .await
-        .map_err(load_error_message)
+pub fn ensure_loaded<'a>(
+    config: &'a Config,
+    id: &'a str,
+) -> futures::future::BoxFuture<'a, Result<(), String>> {
+    Box::pin(async move {
+        ensure_loaded_within(config, id, None)
+            .await
+            .map_err(load_error_message)
+    })
 }
 
 /// [`ensure_loaded`] with a bound on how long this caller waits.
@@ -453,58 +519,73 @@ pub async fn ensure_loaded(config: &Config, id: &str) -> Result<(), String> {
 /// [`LoadError::Failed`] when the module cannot be loaded in this process;
 /// [`LoadError::StillLoading`] when `within` passed first;
 /// [`LoadError::Disabled`] when its `[components]` switch is off.
-pub async fn ensure_loaded_within(
-    config: &Config,
-    id: &str,
+pub fn ensure_loaded_within<'a>(
+    config: &'a Config,
+    id: &'a str,
     within: Option<Duration>,
-) -> Result<(), LoadError> {
-    let resolver = resolver(config);
-    let result = if needs_storage_callback(id) {
-        if let Some(component) = disabled_component(config, id) {
-            Err(LoadError::Disabled(component))
-        } else {
-            let load = ensure_loaded_with_storage_callback(&resolver, config, id);
-            match within {
-                Some(within) => tokio::time::timeout(within, load)
-                    .await
-                    .map_err(|_| LoadError::StillLoading)?
-                    .map_err(LoadError::Failed),
-                None => load.await.map_err(LoadError::Failed),
-            }
-        }
-    } else {
-        #[cfg(feature = "security-module")]
-        {
-            if id == super::desktop::MODULE_ID {
-                if let Some(component) = disabled_component(config, id) {
-                    Err(LoadError::Disabled(component))
-                } else {
-                    let load = ensure_loaded_with_computer_callback(&resolver, config, id);
-                    match within {
-                        Some(within) => tokio::time::timeout(within, load)
-                            .await
-                            .map_err(|_| LoadError::StillLoading)?
-                            .map_err(LoadError::Failed),
-                        None => load.await.map_err(LoadError::Failed),
-                    }
-                }
+) -> futures::future::BoxFuture<'a, Result<(), LoadError>> {
+    Box::pin(async move {
+        let resolver = resolver(config);
+        let result = if needs_storage_callback(id) {
+            if let Some(component) = disabled_component(config, id) {
+                Err(LoadError::Disabled(component))
             } else {
+                let load = ensure_loaded_with_storage_callback(&resolver, config, id);
+                match within {
+                    Some(within) => tokio::time::timeout(within, load)
+                        .await
+                        .map_err(|_| LoadError::StillLoading)?
+                        .map_err(LoadError::Failed),
+                    None => load.await.map_err(LoadError::Failed),
+                }
+            }
+        } else {
+            #[cfg(feature = "security-module")]
+            {
+                if id == super::security::MODULE_ID {
+                    if let Some(component) = disabled_component(config, id) {
+                        Err(LoadError::Disabled(component))
+                    } else {
+                        let load = ensure_loaded_with_security_callback(&resolver, config, id);
+                        match within {
+                            Some(within) => tokio::time::timeout(within, load)
+                                .await
+                                .map_err(|_| LoadError::StillLoading)?
+                                .map_err(LoadError::Failed),
+                            None => load.await.map_err(LoadError::Failed),
+                        }
+                    }
+                } else if id == super::desktop::MODULE_ID {
+                    if let Some(component) = disabled_component(config, id) {
+                        Err(LoadError::Disabled(component))
+                    } else {
+                        let load = ensure_loaded_with_computer_callback(&resolver, config, id);
+                        match within {
+                            Some(within) => tokio::time::timeout(within, load)
+                                .await
+                                .map_err(|_| LoadError::StillLoading)?
+                                .map_err(LoadError::Failed),
+                            None => load.await.map_err(LoadError::Failed),
+                        }
+                    }
+                } else {
+                    resolver.ensure_loaded_within(id, within).await
+                }
+            }
+            #[cfg(not(feature = "security-module"))]
+            {
                 resolver.ensure_loaded_within(id, within).await
             }
+        };
+        if id == super::connectors::MODULE_ID && result.is_ok() {
+            super::connectors::note_load_resolution_ready();
         }
-        #[cfg(not(feature = "security-module"))]
-        {
-            resolver.ensure_loaded_within(id, within).await
+        #[cfg(feature = "security-module")]
+        if id == super::security::MODULE_ID && result.is_ok() {
+            super::security::text::arm(config);
         }
-    };
-    if id == super::connectors::MODULE_ID && result.is_ok() {
-        super::connectors::note_load_resolution_ready();
-    }
-    #[cfg(feature = "security-module")]
-    if id == super::security::MODULE_ID && result.is_ok() {
-        super::security::text::arm(config);
-    }
-    result
+        result
+    })
 }
 
 /// The state of `id` as the resolution table reports it, without touching it.
@@ -524,47 +605,52 @@ pub fn state_of(id: &str) -> ModuleState {
 /// Credentials and callback destinations are intentionally absent. TinyMemory
 /// receives only its compute configuration; TinyMCP and TinyEventQueues get a
 /// unique storage callback destination from the verified loader.
-pub(super) fn module_config(config: &Config, id: &str) -> serde_json::Value {
-    #[cfg(feature = "security-module")]
-    if id == super::security::MODULE_ID {
-        return serde_json::to_value(super::security::module_config(config))
-            .expect("TinySecurity module config is serializable");
-    }
-    if id == super::search::MODULE_ID {
-        return super::search::load_configuration(config);
-    }
-    if id == super::desktop::MODULE_ID {
-        return super::desktop::module_config(config);
-    }
-    // The queue manifest and pipeline the inbound event queues run; the
-    // storage host declares the same manifest on the module's scope.
-    #[cfg(feature = "inbound-queues")]
-    if id == super::event_queues::MODULE_ID {
-        return crate::inbound::module_config(config);
-    }
-    if id == super::connectors::MODULE_ID {
-        // The connector module takes its route and credential from here and
-        // reads one from nowhere else. A configuration that cannot be built —
-        // direct mode with no key, an unknown mode — loads the module with an
-        // empty blob rather than failing the load: the capability members need
-        // no route and must still answer, and every member that does need one
-        // reports the missing route when it is called.
-        return super::connectors::module_config(config).unwrap_or_else(|error| {
+pub(super) fn module_config<'a>(
+    config: &'a Config,
+    id: &'a str,
+) -> futures::future::BoxFuture<'a, serde_json::Value> {
+    Box::pin(async move {
+        #[cfg(feature = "security-module")]
+        if id == super::security::MODULE_ID {
+            return serde_json::to_value(super::security::module_config(config))
+                .expect("TinySecurity module config is serializable");
+        }
+        if id == super::search::MODULE_ID {
+            return super::search::load_configuration(config).await;
+        }
+        if id == super::desktop::MODULE_ID {
+            return super::desktop::module_config(config).await;
+        }
+        // The queue manifest and pipeline the inbound event queues run; the
+        // storage host declares the same manifest on the module's scope.
+        #[cfg(feature = "inbound-queues")]
+        if id == super::event_queues::MODULE_ID {
+            return crate::inbound::module_config(config);
+        }
+        if id == super::connectors::MODULE_ID {
+            // The connector module takes its route and credential from here and
+            // reads one from nowhere else. A configuration that cannot be built —
+            // direct mode with no key, an unknown mode — loads the module with an
+            // empty blob rather than failing the load: the capability members need
+            // no route and must still answer, and every member that does need one
+            // reports the missing route when it is called.
+            return super::connectors::module_config(config).await.unwrap_or_else(|error| {
             tracing::info!(
                 error = %error,
                 "[connectors] no route configured; loading with the capability surface only"
             );
             serde_json::json!({ "offered_toolkits": super::connectors::offered_toolkits(config) })
         });
-    }
-    serde_json::json!({})
+        }
+        serde_json::json!({})
+    })
 }
 
 /// Configuration passed to the loader after it has started the module bus.
 /// TinySecurity binds its privileged API to this process-wide host connection;
 /// a missing identity must fail at initialization rather than leave a loaded
 /// module whose every call is rejected.
-fn runtime_module_config(config: &Config, id: &str) -> serde_json::Value {
+async fn runtime_module_config(config: &Config, id: &str) -> serde_json::Value {
     #[cfg(feature = "security-module")]
     if id == super::security::MODULE_ID {
         let trusted_host = super::runtime::existing_runtime()
@@ -574,13 +660,7 @@ fn runtime_module_config(config: &Config, id: &str) -> serde_json::Value {
             .expect("module runtime must expose its host identity before loading modules");
         return serde_json::to_value(config).expect("TinySecurity module config is serializable");
     }
-    module_config(config, id)
-}
-
-/// [`module_config`] for a test in a sibling module.
-#[cfg(test)]
-pub(super) fn module_config_for_test(config: &Config, id: &str) -> serde_json::Value {
-    module_config(config, id)
+    module_config(config, id).await
 }
 
 /// Where downloaded artifacts are kept.

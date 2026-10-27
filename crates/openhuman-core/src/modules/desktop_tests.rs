@@ -24,13 +24,13 @@ fn config_in(dir: &std::path::Path) -> Config {
     config
 }
 
-#[test]
-fn default_browser_config_receives_egress_and_consequence_host_destination() {
+#[tokio::test]
+async fn default_browser_config_receives_egress_and_consequence_host_destination() {
     let dir = tempfile::tempdir().expect("tempdir");
     let config = config_in(dir.path());
     assert!(config.browser.chrome_path.is_none());
 
-    let mut module = module_config(&config);
+    let mut module = module_config(&config).await;
     let egress = json!({"policy_id": "policy-1", "generation": 7});
     inject_security_browser_config(&mut module, egress.clone(), ":1.42");
 
@@ -38,8 +38,8 @@ fn default_browser_config_receives_egress_and_consequence_host_destination() {
     assert_eq!(module["consequence_host"]["destination"], ":1.42");
 }
 
-#[test]
-fn backend_key_is_selected_ahead_of_direct_openrouter_and_rotates_privately() {
+#[tokio::test]
+async fn backend_key_is_selected_ahead_of_direct_openrouter_and_rotates_privately() {
     let dir = tempfile::tempdir().expect("tempdir");
     let mut config = config_in(dir.path());
     config.resolved_endpoints.product_identity = Some("openhuman-test".into());
@@ -51,25 +51,30 @@ fn backend_key_is_selected_ahead_of_direct_openrouter_and_rotates_privately() {
             Default::default(),
             true,
         )
+        .await
         .expect("store direct key");
 
-    let direct = module_config(&config);
+    let direct = module_config(&config).await;
     assert_eq!(direct["jev"]["provider"], "open_router");
     assert_eq!(direct["jev"]["api_key"], "or_test_direct");
-    assert!(jev_ready(&config));
+    assert!(jev_ready(&config).await);
 
-    api_key::store_api_key(&config, "th_test_backend").expect("store backend key");
-    let hosted = module_config(&config);
+    api_key::store_api_key(&config, "th_test_backend")
+        .await
+        .expect("store backend key");
+    let hosted = module_config(&config).await;
     assert_eq!(hosted["jev"]["provider"], "tiny_humans_open_router");
     assert_eq!(hosted["jev"]["api_key"], "th_test_backend");
     assert!(hosted["jev"]["sdk_name"].is_string());
     assert_ne!(fingerprint(&hosted), fingerprint(&direct));
 
-    api_key::store_api_key(&config, "th_test_rotated").expect("rotate key");
-    let rotated = module_config(&config);
+    api_key::store_api_key(&config, "th_test_rotated")
+        .await
+        .expect("rotate key");
+    let rotated = module_config(&config).await;
     assert_eq!(rotated["jev"]["api_key"], "th_test_rotated");
     assert_ne!(fingerprint(&rotated), fingerprint(&hosted));
-    assert_eq!(module_config(&config), rotated);
+    assert_eq!(module_config(&config).await, rotated);
 }
 
 #[tokio::test]

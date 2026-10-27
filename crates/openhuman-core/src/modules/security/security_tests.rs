@@ -13,30 +13,37 @@ async fn client_fails_closed_when_module_loading_is_disabled() {
 
 #[tokio::test]
 #[ignore = "downloads and loads the pinned native TinySecurity release"]
-async fn native_fixture_loads_the_pinned_release_and_reads_policy_info() {
+async fn native_cipher_bus_rejects_a_handle_not_minted_by_master_resolution() {
     let mut config = Config::default();
     config.modules.enabled = true;
-
     let client = client(&config)
         .await
-        .expect("pinned TinySecurity module should load on supported native runners");
-    let info = client
-        .policy_info()
+        .expect("pinned TinySecurity module should load with secret callbacks");
+    let scope = super::super::ops::security_secret_scope()
         .await
-        .expect("the loaded module should answer its typed policy-info contract");
+        .expect("the module should retain its persisted audit scope");
+    let consumer = super::super::ops::security_cipher_consumer()
+        .await
+        .expect("the exact module binding should retain its cipher consumer");
+    let module_config = super::super::ops::security_module_config(&config)
+        .await
+        .expect("the module should retain its admitted config");
+    let registration_id = module_config["secret_cipher"]["registration_id"]
+        .as_str()
+        .expect("cipher registration should be present");
 
-    assert!(super::policy::supports_contract(info.contract_version));
+    let result = super::secret_cipher::run(
+        &client,
+        &scope,
+        &consumer,
+        registration_id,
+        "unresolved-master-handle",
+        tinysecurity_bus::SecretCipherKind2::Encrypt,
+        b"must-not-be-encrypted-with-an-unresolved-master",
+    )
+    .await;
 
-    reinitialize(&config)
-        .await
-        .expect("the ready module should accept the same trusted host on reinitialization");
-    let reinitialized_info = client
-        .policy_info()
-        .await
-        .expect("the reinitialized module should continue answering policy info");
-    assert!(super::policy::supports_contract(
-        reinitialized_info.contract_version
-    ));
+    assert!(matches!(result, Err(SecurityError::Unavailable(_))));
 }
 
 #[tokio::test]

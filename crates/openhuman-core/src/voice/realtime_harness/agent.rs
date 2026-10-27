@@ -101,6 +101,7 @@ async fn build_voice_agent(
 ) -> Result<OpenHumanSessionHost, String> {
     let config = ctx.load_config().await?;
     let mut agent = OpenHumanSessionHost::from_config_for_agent(ctx, &config, "orchestrator")
+        .await
         .map_err(|e| format!("orchestrator build failed: {e}"))?;
     agent.set_event_context(format!("voice_{correlation_id}"), "voice_agent");
     // Isolate the voice transcript namespace from the chat orchestrator so a

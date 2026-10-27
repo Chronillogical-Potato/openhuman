@@ -410,7 +410,7 @@ impl SocketManager {
         // Validate that a token is available right now before spawning. This
         // mirrors the empty-token guard in `connect()` and ensures callers
         // see an immediate error if the session store is empty.
-        let token = match token_provider() {
+        let token = match token_provider().await {
             Ok(t) if !t.trim().is_empty() => t,
             Ok(_) => {
                 log::error!(

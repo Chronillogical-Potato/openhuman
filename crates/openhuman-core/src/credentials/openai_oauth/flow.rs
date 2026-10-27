@@ -42,7 +42,7 @@ pub async fn complete_openai_oauth(
         "provider OAuth is unavailable: no host credential source installed".to_string()
     })?;
     let tokens = source.complete_openai_oauth(config, callback_input).await?;
-    let profile = persist_openai_oauth_tokens(config, &tokens)?;
+    let profile = persist_openai_oauth_tokens(config, &tokens).await?;
     log::info!("{LOG_PREFIX} oauth complete profile_id={}", profile.id);
     Ok(serde_json::json!({
         "connected": true,
@@ -52,12 +52,14 @@ pub async fn complete_openai_oauth(
     }))
 }
 
-pub fn import_openai_oauth_from_codex_cli(config: &Config) -> Result<serde_json::Value, String> {
+pub async fn import_openai_oauth_from_codex_cli(
+    config: &Config,
+) -> Result<serde_json::Value, String> {
     let source = crate::credentials::provider_credential_source().ok_or_else(|| {
         "provider OAuth is unavailable: no host credential source installed".to_string()
     })?;
     let tokens = source.import_openai_oauth_from_codex_cli(config)?;
-    let profile = persist_openai_oauth_tokens(config, &tokens)?;
+    let profile = persist_openai_oauth_tokens(config, &tokens).await?;
     Ok(serde_json::json!({
         "connected": true,
         "profileId": profile.id,
@@ -67,12 +69,13 @@ pub fn import_openai_oauth_from_codex_cli(config: &Config) -> Result<serde_json:
     }))
 }
 
-pub fn openai_oauth_status(config: &Config) -> Result<OpenAiOAuthStatusResult, String> {
+pub async fn openai_oauth_status(config: &Config) -> Result<OpenAiOAuthStatusResult, String> {
     use crate::credentials::profiles::AuthProfileKind;
     use crate::credentials::AuthService;
 
     let profile = AuthService::from_config(config)
         .get_profile(OPENAI_PROVIDER_KEY, Some(OPENAI_OAUTH_PROFILE_NAME))
+        .await
         .map_err(|error| error.to_string())?;
     let Some(profile) = profile else {
         return Ok(OpenAiOAuthStatusResult {
@@ -112,6 +115,7 @@ pub async fn disconnect_openai_oauth(config: &Config) -> Result<serde_json::Valu
     source.clear_openai_oauth_pending(config).await?;
     let removed = AuthService::from_config(config)
         .remove_profile(OPENAI_PROVIDER_KEY, OPENAI_OAUTH_PROFILE_NAME)
+        .await
         .map_err(|error| error.to_string())?;
     Ok(serde_json::json!({ "disconnected": removed }))
 }

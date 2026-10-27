@@ -2,8 +2,9 @@ use super::*;
 
 fn temp_store() -> (tempfile::TempDir, HttpCredentialsStore) {
     let dir = tempfile::tempdir().expect("tempdir");
-    // encrypt=true exercises the ChaCha20-Poly1305 at-rest path.
-    let store = HttpCredentialsStore::new(dir.path(), true);
+    // Focused tests exercise the HTTP credential adapter; TinySecurity crypto
+    // is covered at the module boundary.
+    let store = HttpCredentialsStore::new(dir.path(), false);
     (dir, store)
 }
 
@@ -40,43 +41,37 @@ fn header_scheme_without_header_name_errors() {
     assert!(cred.to_header().is_err());
 }
 
-#[test]
-fn roundtrip_encrypts_secret_at_rest() {
+#[tokio::test]
+async fn encrypted_upsert_fails_closed_without_module_config() {
     let (dir, store) = temp_store();
     let secret = "sk_live_super_secret_value";
-    store
+    let result = store
         .upsert(&HttpCredential::bearer("stripe", secret))
-        .unwrap();
-
-    // The on-disk file must NOT contain the plaintext secret.
-    let raw = std::fs::read_to_string(dir.path().join(STORE_FILENAME)).unwrap();
+        .await;
     assert!(
-        !raw.contains(secret),
-        "plaintext secret leaked into on-disk store: {raw}"
+        result.is_err(),
+        "encrypted storage must not use host crypto"
     );
-    assert!(raw.contains("enc2:"), "secret was not encrypted: {raw}");
-
-    // But get() decrypts it back.
-    let got = store.get("stripe").unwrap().expect("credential present");
-    assert_eq!(got.secret, secret);
-    assert_eq!(got.scheme, HttpCredentialScheme::Bearer);
+    assert!(!dir.path().join(STORE_FILENAME).exists());
 }
 
-#[test]
-fn name_resolution_is_case_insensitive_and_trimmed() {
+#[tokio::test]
+async fn name_resolution_is_case_insensitive_and_trimmed() {
     let (_dir, store) = temp_store();
     store
         .upsert(&HttpCredential::bearer("Stripe", "tok"))
+        .await
         .unwrap();
-    assert!(store.get("  STRIPE ").unwrap().is_some());
-    assert!(store.get("stripe").unwrap().is_some());
+    assert!(store.get("  STRIPE ").await.unwrap().is_some());
+    assert!(store.get("stripe").await.unwrap().is_some());
 }
 
-#[test]
-fn list_never_exposes_secrets() {
+#[tokio::test]
+async fn list_never_exposes_secrets() {
     let (_dir, store) = temp_store();
     store
         .upsert(&HttpCredential::header("apikey", "X-API-Key", "topsecret"))
+        .await
         .unwrap();
     let summaries = store.list().unwrap();
     assert_eq!(summaries.len(), 1);
@@ -93,19 +88,20 @@ fn list_never_exposes_secrets() {
     );
 }
 
-#[test]
-fn get_unknown_name_returns_none() {
+#[tokio::test]
+async fn get_unknown_name_returns_none() {
     let (_dir, store) = temp_store();
-    assert!(store.get("does-not-exist").unwrap().is_none());
+    assert!(store.get("does-not-exist").await.unwrap().is_none());
 }
 
-#[test]
-fn remove_deletes_record() {
+#[tokio::test]
+async fn remove_deletes_record() {
     let (_dir, store) = temp_store();
     store
         .upsert(&HttpCredential::bearer("stripe", "tok"))
+        .await
         .unwrap();
     assert!(store.remove("stripe").unwrap());
-    assert!(store.get("stripe").unwrap().is_none());
+    assert!(store.get("stripe").await.unwrap().is_none());
     assert!(!store.remove("stripe").unwrap());
 }

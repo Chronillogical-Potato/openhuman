@@ -40,18 +40,19 @@ pub const API_KEY_KIND: &str = "tinyhumans-api-key";
 
 /// Persist `key` as the active API-key profile beside `config`'s other
 /// credentials. Blank keys are rejected rather than stored.
-pub fn store_api_key(config: &Config, key: &str) -> Result<AuthProfile> {
+pub async fn store_api_key(config: &Config, key: &str) -> Result<AuthProfile> {
     store_api_key_in(
         &super::core::state_dir_from_config(config),
         config.secrets.encrypt,
         key,
     )
+    .await
 }
 
 /// [`store_api_key`] against an explicit credential state directory. Used by
 /// a library runtime that must install the key *before* the core boots (the
 /// scheduler gate reads the credential store once, at boot).
-pub fn store_api_key_in(state_dir: &Path, encrypt: bool, key: &str) -> Result<AuthProfile> {
+pub async fn store_api_key_in(state_dir: &Path, encrypt: bool, key: &str) -> Result<AuthProfile> {
     let key = key.trim();
     if key.is_empty() {
         anyhow::bail!("API key is blank");
@@ -62,29 +63,33 @@ pub fn store_api_key_in(state_dir: &Path, encrypt: bool, key: &str) -> Result<Au
         "[credentials][api-key] storing api-key profile state_dir={}",
         state_dir.display()
     );
-    AuthService::new(state_dir, encrypt).store_provider_token(
-        API_KEY_PROVIDER,
-        DEFAULT_AUTH_PROFILE_NAME,
-        key,
-        metadata,
-        true,
-    )
+    AuthService::new(state_dir, encrypt)
+        .store_provider_token(
+            API_KEY_PROVIDER,
+            DEFAULT_AUTH_PROFILE_NAME,
+            key,
+            metadata,
+            true,
+        )
+        .await
 }
 
 /// The stored API key, if any.
-pub fn get_api_key(config: &Config) -> Result<Option<String>> {
+pub async fn get_api_key(config: &Config) -> Result<Option<String>> {
     get_api_key_in(
         &super::core::state_dir_from_config(config),
         config.secrets.encrypt,
     )
+    .await
 }
 
 /// Reads the selected profile's API key for doctor checks without using the
 /// ordinary mutable auth-profile store.
-pub fn get_api_key_read_only(
+pub async fn get_api_key_read_only(
     config: &Config,
 ) -> Result<Option<String>, super::profiles::ReadOnlyAuthProfileError> {
-    let Some(profile) = AuthService::get_profile_read_only(config, API_KEY_PROVIDER, None)? else {
+    let Some(profile) = AuthService::get_profile_read_only(config, API_KEY_PROVIDER, None).await?
+    else {
         return Ok(None);
     };
     Ok(api_key_from_profile(profile))
@@ -99,9 +104,9 @@ pub fn get_api_key_read_only(
 /// name, `"api-key"` included; without the marker check, such a profile
 /// would be accepted here as a TinyHumans runtime key and its bearer sent to
 /// the managed backend as one.
-pub fn get_api_key_in(state_dir: &Path, encrypt: bool) -> Result<Option<String>> {
+pub async fn get_api_key_in(state_dir: &Path, encrypt: bool) -> Result<Option<String>> {
     let service = AuthService::new(state_dir, encrypt);
-    let Some(profile) = service.get_profile(API_KEY_PROVIDER, None)? else {
+    let Some(profile) = service.get_profile(API_KEY_PROVIDER, None).await? else {
         return Ok(None);
     };
     Ok(api_key_from_profile(profile))
@@ -126,8 +131,8 @@ fn api_key_from_profile(profile: AuthProfile) -> Option<String> {
 /// Whether an API key is stored. Errors reading the store count as "no key"
 /// so a corrupt profile file degrades to the session path instead of
 /// panicking a hot path; the error is logged.
-pub fn has_api_key_in(state_dir: &Path, encrypt: bool) -> bool {
-    match get_api_key_in(state_dir, encrypt) {
+pub async fn has_api_key_in(state_dir: &Path, encrypt: bool) -> bool {
+    match get_api_key_in(state_dir, encrypt).await {
         Ok(key) => key.is_some(),
         Err(e) => {
             log::debug!("[credentials][api-key] store read failed, treating as absent: {e:#}");
@@ -137,17 +142,20 @@ pub fn has_api_key_in(state_dir: &Path, encrypt: bool) -> bool {
 }
 
 /// Whether an API key is stored for `config`.
-pub fn has_api_key(config: &Config) -> bool {
+pub async fn has_api_key(config: &Config) -> bool {
     has_api_key_in(
         &super::core::state_dir_from_config(config),
         config.secrets.encrypt,
     )
+    .await
 }
 
 /// Remove the API-key profile. Returns whether one existed.
-pub fn clear_api_key(config: &Config) -> Result<bool> {
+pub async fn clear_api_key(config: &Config) -> Result<bool> {
     log::debug!("[credentials][api-key] clearing api-key profile");
-    AuthService::from_config(config).remove_profile(API_KEY_PROVIDER, DEFAULT_AUTH_PROFILE_NAME)
+    AuthService::from_config(config)
+        .remove_profile(API_KEY_PROVIDER, DEFAULT_AUTH_PROFILE_NAME)
+        .await
 }
 
 #[cfg(test)]

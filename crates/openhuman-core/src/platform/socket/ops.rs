@@ -61,6 +61,7 @@ pub async fn connect_with_session(
         .require_control_plane()?
         .to_string();
     let token = crate::credentials::session_state::get_session_token(&config)
+        .await
         .map_err(|e| format!("failed to read session token: {e}"))?
         .ok_or("no session token stored — user must log in first")?;
     if crate::credentials::session_state::is_local_session_token(&token) {

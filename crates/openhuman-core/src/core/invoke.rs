@@ -55,16 +55,19 @@ pub async fn invoke_method(
             // request was in flight. Suppress both the bus event and the RPC
             // error's auth-expired marker so the renderer cannot independently
             // sign out a replacement credential from the response body.
-            let current = ctx.load_config().await.ok().map(|config| {
+            let current = if let Ok(config) = ctx.load_config().await {
                 let token = crate::credentials::session_state::get_session_token(&config)
+                    .await
                     .ok()
                     .flatten();
                 let local = token
                     .as_deref()
                     .is_some_and(crate::credentials::session_state::is_local_session_token);
-                let api_key = crate::credentials::api_key::has_api_key(&config);
-                (token, local, api_key)
-            });
+                let api_key = crate::credentials::api_key::has_api_key(&config).await;
+                Some((token, local, api_key))
+            } else {
+                None
+            };
             let Some((current_token, local, api_key)) = current else {
                 log::warn!(
                     "[jsonrpc] session expiry for method='{}' not acted on because current credentials could not be checked",

@@ -85,7 +85,7 @@ impl ComposioListConnectionsTool {
                 );
             }
         };
-        let mut resp = match resolve_composio_route(&live_config) {
+        let mut resp = match resolve_composio_route(&live_config).await {
             Ok(ComposioRoute::Backend) => {
                 tracing::debug!("[composio] list_connections.execute: backend variant");
                 match connectors::call_bare::<ComposioConnectionsResponse>(

@@ -88,7 +88,8 @@ pub async fn devices_create_pairing(
     let secret_store = build_secret_store(_config);
     let private_b64 = zeroize::Zeroizing::new(base64url_encode(&keypair.private_bytes()));
     let encrypted_private_key = secret_store
-        .encrypt(&private_b64)
+        .encrypt_via_security(&private_b64)
+        .await
         .map_err(|error| format!("[devices/rpc] could not encrypt pairing identity: {error}"))?;
 
     // Stash keypair in memory so bus.rs can complete the X25519 handshake.
@@ -266,7 +267,7 @@ pub(super) fn build_secret_store(config: &Config) -> SecretStore {
         .config_path
         .parent()
         .map_or_else(|| std::path::PathBuf::from("."), std::path::PathBuf::from);
-    SecretStore::new(&data_dir, true)
+    SecretStore::new_with_config(&data_dir, true, config)
 }
 
 // ---------------------------------------------------------------------------

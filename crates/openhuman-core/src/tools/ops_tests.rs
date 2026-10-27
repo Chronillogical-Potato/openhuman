@@ -36,7 +36,7 @@ fn only_json_content(result: &ToolResult) -> &serde_json::Value {
     }
 }
 
-fn store_test_session_token(config: &Config) {
+async fn store_test_session_token(config: &Config) {
     AuthService::from_config(config)
         .store_provider_token(
             APP_SESSION_PROVIDER,
@@ -45,6 +45,7 @@ fn store_test_session_token(config: &Config) {
             std::collections::HashMap::new(),
             true,
         )
+        .await
         .expect("store test session token");
 }
 
@@ -58,7 +59,7 @@ fn integration_test_config(tmp: &TempDir, backend_url: &str) -> Config {
     cfg
 }
 
-fn integration_tools_for_config(tmp: &TempDir, cfg: &Config) -> Vec<Box<dyn Tool>> {
+async fn integration_tools_for_config(tmp: &TempDir, cfg: &Config) -> Vec<Box<dyn Tool>> {
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig::default();
     let http = crate::config::HttpRequestConfig::default();
@@ -71,6 +72,7 @@ fn integration_tools_for_config(tmp: &TempDir, cfg: &Config) -> Vec<Box<dyn Tool
         tmp.path(),
         cfg,
     )
+    .await
 }
 
 fn find_tool<'a>(tools: &'a [Box<dyn Tool>], name: &str) -> &'a dyn Tool {
@@ -91,7 +93,7 @@ fn find_tool<'a>(tools: &'a [Box<dyn Tool>], name: &str) -> &'a dyn Tool {
 
 /// Build the full tool registry with a disabled browser and a tmp-scoped
 /// workspace — enough to exercise the expansion tools end-to-end.
-fn expansion_tools_for(tmp: &TempDir) -> Vec<Box<dyn Tool>> {
+async fn expansion_tools_for(tmp: &TempDir) -> Vec<Box<dyn Tool>> {
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig {
         enabled: false,
@@ -110,6 +112,7 @@ fn expansion_tools_for(tmp: &TempDir) -> Vec<Box<dyn Tool>> {
         tmp.path(),
         &cfg,
     )
+    .await
 }
 
 // ── Theme: Task & workflow productivity ─────────────────────────────────────

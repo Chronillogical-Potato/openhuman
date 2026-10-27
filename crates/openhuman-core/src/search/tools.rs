@@ -95,14 +95,14 @@ impl TinySearchTool {
     /// draws from, and every provider's resolved reachability. Two calls agree
     /// only while nothing a user could change — a key, a route, a provider
     /// selection, a login — has moved.
-    pub(crate) fn provider_signature(&self, config: &Config) -> u64 {
+    pub(crate) async fn provider_signature(&self, config: &Config) -> u64 {
         let mut hasher = DefaultHasher::new();
         if let Some(role) = tinysearch_bus::role_for_tool(&self.spec.name) {
             for provider in super::providers::role_order(config, role) {
                 provider.hash(&mut hasher);
             }
         }
-        for provider in super::providers::resolve(config) {
+        for provider in super::providers::resolve(config).await {
             provider.id.hash(&mut hasher);
             provider.enabled.hash(&mut hasher);
             provider.usable.hash(&mut hasher);
@@ -260,7 +260,7 @@ impl Tool for TinySearchTool {
         let config = self.live_config(&ctx).await?;
         // Re-read per call, so a key added or a provider switched mid-session
         // clears an earlier refusal instead of outliving it.
-        let signature = self.provider_signature(&config);
+        let signature = self.provider_signature(&config).await;
         if self.is_exhausted_for(signature) {
             tracing::debug!(
                 tool = %self.spec.name,
@@ -289,11 +289,12 @@ impl Tool for TinySearchTool {
         if let Some(message) = local_only_search_block(&request.name).await {
             return Ok(ToolResult::error(message));
         }
-        let api_key = crate::credentials::api_key::has_api_key(&config);
+        let api_key = crate::credentials::api_key::has_api_key(&config).await;
         let request_credential_fingerprint = if api_key {
             None
         } else {
             crate::credentials::session_state::get_session_token(&config)
+                .await
                 .ok()
                 .flatten()
                 .map(|token| crate::credentials::backend_credential::credential_fingerprint(&token))
@@ -368,8 +369,8 @@ pub(crate) fn local_only_search_block_blocking(tool_name: &str) -> Option<String
 
 /// Build the agent's search tools from config. Empty when search is off or no
 /// provider is usable.
-pub fn build_search_tools(config: &Config) -> Vec<Box<dyn Tool>> {
-    let specs = crate::modules::search::configured_tool_specs(config);
+pub async fn build_search_tools(config: &Config) -> Vec<Box<dyn Tool>> {
+    let specs = crate::modules::search::configured_tool_specs(config).await;
     tracing::debug!(
         tools = ?specs.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(),
         "[search][tool] registered search tools"

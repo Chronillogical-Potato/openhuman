@@ -6,12 +6,16 @@
 
 pub(crate) mod audit;
 pub(super) mod callbacks;
+pub(super) mod cipher_consumer;
 mod client;
 pub(crate) mod command;
 pub(crate) mod gap;
+pub(super) mod host_callbacks;
 mod policy;
 pub(crate) mod policy_translation;
 pub(crate) mod sandbox;
+pub(super) mod secret_backend;
+pub(super) mod secret_cipher;
 pub(crate) mod sync_seam;
 pub(crate) mod text;
 
@@ -19,9 +23,71 @@ pub(crate) mod text;
 #[path = "security_tests.rs"]
 mod tests;
 
+pub(crate) use client::SecurityProxy;
 pub use client::{Client, SecurityError};
 pub use policy::policy_config;
-pub(super) use policy::{module_config, module_config_for_host};
+pub(super) use policy::{module_config, module_config_for_host, module_config_for_secret_scope};
+pub(crate) use secret_cipher::Output as SecretCipherOutput;
+
+pub(crate) async fn resolve_user_master(
+    client: &Client,
+    scope: &crate::security::approval::native::SecretScope,
+    registration_id: &str,
+) -> Result<String, SecurityError> {
+    secret_cipher::resolve_user_master(client, scope, registration_id).await
+}
+
+pub(crate) async fn resolve_user_master_with_existing_key(
+    client: &Client,
+    scope: &crate::security::approval::native::SecretScope,
+    registration_id: &str,
+    encoded_key: &str,
+) -> Result<String, SecurityError> {
+    let backend = super::ops::security_secret_backend().await.ok_or_else(|| {
+        SecurityError::Unavailable("TinySecurity secret backend unavailable".into())
+    })?;
+    secret_cipher::resolve_user_master_with_existing_key(
+        client,
+        scope,
+        registration_id,
+        &backend,
+        encoded_key,
+    )
+    .await
+}
+
+pub(crate) async fn run_secret_cipher(
+    client: &Client,
+    scope: &crate::security::approval::native::SecretScope,
+    consumer: &cipher_consumer::Consumer,
+    registration_id: &str,
+    master_handle: &str,
+    operation: tinysecurity_bus::SecretCipherKind2,
+    input: &[u8],
+) -> Result<SecretCipherOutput, SecurityError> {
+    secret_cipher::run(
+        client,
+        scope,
+        consumer,
+        registration_id,
+        master_handle,
+        operation,
+        input,
+    )
+    .await
+}
+
+/// Serve the cipher output and master storage callbacks on the exact admitted
+/// TinySecurity host binding.
+pub(super) async fn serve_secret_callbacks(
+    binding: &tinybus::module::HostCallbackBinding,
+    consumer: std::sync::Arc<cipher_consumer::Consumer>,
+    backend: std::sync::Arc<secret_backend::SecretBackend>,
+) -> tinybus::Result<()> {
+    callbacks::serve_on_binding(binding).await?;
+    consumer.serve(binding).await?;
+    backend.serve(binding).await
+}
 
 use crate::config::Config;
 
@@ -59,15 +125,24 @@ pub async fn client(config: &Config) -> Result<Client, SecurityError> {
 pub(crate) async fn approval_object(
     config: &Config,
     timeout: std::time::Duration,
-) -> Result<tinybus::module::ModuleObjectClient, String> {
+) -> Result<SecurityProxy, String> {
     ensure_loaded(config)
         .await
         .map_err(|error| error.to_string())?;
-    super::ops::client(config.clone())
-        .with_timeout(timeout)
-        .object_client(MODULE_ID, tinysecurity_bus::names::OBJECT_PATH)
+    let binding = super::ops::security_callback_binding()
         .await
-        .map_err(|error| error.to_string())
+        .ok_or_else(|| "security callback binding unavailable".to_owned())?;
+    let record = super::registry::find(MODULE_ID)
+        .ok_or_else(|| "security module registry record missing".to_owned())?;
+    let proxy = binding
+        .proxy(
+            record.bus_name,
+            record.object_path,
+            tinysecurity_bus::names::INTERFACE,
+        )
+        .map_err(|_| "security module proxy unavailable".to_owned())?
+        .with_timeout(timeout);
+    Ok(SecurityProxy::callback(proxy))
 }
 
 /// Validate a host path using an immutable TinySecurity path scope.
@@ -97,14 +172,9 @@ pub async fn reinitialize(config: &Config) -> Result<(), SecurityError> {
     let runtime = super::runtime::runtime()
         .await
         .map_err(|_| SecurityError::Unavailable("module runtime unavailable".into()))?;
-    let trusted_host = runtime
-        .connection()
-        .unique_name()
-        .map(|name| name.to_string());
-    let config = policy::module_config_for_host(config, trusted_host)
-        .map_err(|error| SecurityError::Unavailable(error.into()))?;
-    let payload = serde_json::to_value(config)
-        .map_err(|_| SecurityError::Unavailable("invalid module configuration".into()))?;
+    let payload = super::ops::security_module_config(config)
+        .await
+        .map_err(SecurityError::Unavailable)?;
     let module_name = super::registry::find(MODULE_ID)
         .map(|record| record.source.package)
         .ok_or_else(|| {

@@ -133,7 +133,7 @@ pub async fn synthesize_reply(
     }
 
     // API key (sent as `x-api-key`) or live session JWT (sent as Bearer).
-    let credential = resolve_backend_credential(config)?;
+    let credential = resolve_backend_credential(config).await?;
     let client = BackendClient::from_config(config).map_err(|e| e.to_string())?;
 
     let mut body = serde_json::Map::new();

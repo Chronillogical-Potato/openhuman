@@ -522,6 +522,7 @@ pub fn spawn_socket_auto_connect(
                 return;
             };
             let initial_token = match crate::credentials::session_state::get_session_token(&config)
+                .await
             {
                 Ok(Some(t)) => t,
                 Ok(None) => {

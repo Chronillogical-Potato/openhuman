@@ -148,8 +148,11 @@ async fn ws_loop_calls_provider_before_each_attempt() {
         ws_loop(
             http_base_for(addr),
             Arc::new(move || {
-                call_count_clone.fetch_add(1, Ordering::Relaxed);
-                Ok("counter-token".to_string())
+                let call_count = Arc::clone(&call_count_clone);
+                Box::pin(async move {
+                    call_count.fetch_add(1, Ordering::Relaxed);
+                    Ok("counter-token".to_string())
+                })
             }),
             loop_shared,
             emit_rx,
@@ -204,8 +207,11 @@ async fn ws_loop_escalates_immediately_on_invalid_token_no_refresh() {
             http_base_for(addr),
             // Provider always returns the same (stale) token.
             Arc::new(move || {
-                call_count_clone.fetch_add(1, Ordering::Relaxed);
-                Ok("stale-token-xyz".to_string())
+                let call_count = Arc::clone(&call_count_clone);
+                Box::pin(async move {
+                    call_count.fetch_add(1, Ordering::Relaxed);
+                    Ok("stale-token-xyz".to_string())
+                })
             }),
             loop_shared,
             emit_rx,
@@ -270,12 +276,15 @@ async fn ws_loop_retries_with_fresh_token_on_invalid_token() {
             http_base_for(addr),
             // First call returns "token-a", second and beyond return "token-b".
             Arc::new(move || {
-                let c = call_count_clone.fetch_add(1, Ordering::Relaxed);
-                if c == 0 {
-                    Ok("token-a".to_string())
-                } else {
-                    Ok("token-b".to_string())
-                }
+                let call_count = Arc::clone(&call_count_clone);
+                Box::pin(async move {
+                    let c = call_count.fetch_add(1, Ordering::Relaxed);
+                    if c == 0 {
+                        Ok("token-a".to_string())
+                    } else {
+                        Ok("token-b".to_string())
+                    }
+                })
             }),
             loop_shared,
             emit_rx,
@@ -363,8 +372,11 @@ async fn ws_loop_bounds_fresh_token_retries_with_rotating_provider() {
             // out: rapid server-side rotation, non-deterministic source, or
             // buggy implementation that never converges.
             Arc::new(move || {
-                let n = call_count_clone.fetch_add(1, Ordering::Relaxed);
-                Ok(format!("rotating-token-{n}"))
+                let call_count = Arc::clone(&call_count_clone);
+                Box::pin(async move {
+                    let n = call_count.fetch_add(1, Ordering::Relaxed);
+                    Ok(format!("rotating-token-{n}"))
+                })
             }),
             loop_shared,
             emit_rx,
@@ -451,66 +463,6 @@ fn sio_connect_error_invalid_token_classifies_correctly() {
     assert!(!is_invalid_token_error(
         "WebSocket connect: connection refused"
     ));
-}
-
-// ── decide_after_invalid_token ─────────────────────────────────────────────
-
-/// Provider returns a genuinely fresh token → loop should retry immediately,
-/// carrying the validated fresh token forward so the next attempt sends
-/// exactly that value instead of re-reading the provider.
-#[test]
-fn decide_after_invalid_token_fresh_token_returns_retry() {
-    let provider: TokenProvider = Arc::new(|| Ok("fresh-token".to_string()));
-    match decide_after_invalid_token("stale-token", &provider) {
-        InvalidTokenAction::RetryImmediately { token } => {
-            assert_eq!(token, "fresh-token");
-        }
-        InvalidTokenAction::Escalate { reason } => {
-            panic!("expected RetryImmediately, got Escalate({reason})");
-        }
-    }
-}
-
-/// Provider returns the same token → session is definitively expired; escalate.
-#[test]
-fn decide_after_invalid_token_same_token_escalates() {
-    let provider: TokenProvider = Arc::new(|| Ok("same-token".to_string()));
-    match decide_after_invalid_token("same-token", &provider) {
-        InvalidTokenAction::Escalate { .. } => {}
-        InvalidTokenAction::RetryImmediately { .. } => {
-            panic!("expected Escalate when provider returns the same token");
-        }
-    }
-}
-
-/// Provider returns an error → escalate with the provider error as reason.
-#[test]
-fn decide_after_invalid_token_provider_error_escalates() {
-    let provider: TokenProvider =
-        Arc::new(|| Err("no session token stored — user must log in first".to_string()));
-    match decide_after_invalid_token("any-token", &provider) {
-        InvalidTokenAction::Escalate { reason } => {
-            assert!(
-                reason.contains("provider error"),
-                "expected 'provider error' in escalation reason, got: {reason}"
-            );
-        }
-        InvalidTokenAction::RetryImmediately { .. } => {
-            panic!("expected Escalate when provider errors");
-        }
-    }
-}
-
-/// Provider returns an empty string → treat as no session; escalate.
-#[test]
-fn decide_after_invalid_token_empty_token_escalates() {
-    let provider: TokenProvider = Arc::new(|| Ok(String::new()));
-    match decide_after_invalid_token("prev-token", &provider) {
-        InvalidTokenAction::Escalate { .. } => {}
-        InvalidTokenAction::RetryImmediately { .. } => {
-            panic!("expected Escalate when provider returns empty token");
-        }
-    }
 }
 
 // ── drain_pending_emits ─────────────────────────────────────────────────────
@@ -736,3 +688,6 @@ fn reproduces_the_6417_outage_without_either_reported_symptom() {
          got {escalations} escalation(s)"
     );
 }
+
+#[path = "ws_loop_invalid_token_decision_tests.rs"]
+mod invalid_token_decision_tests;

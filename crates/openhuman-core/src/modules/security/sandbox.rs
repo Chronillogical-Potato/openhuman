@@ -11,20 +11,11 @@ const MODULE_ID: &str = super::MODULE_ID;
 use crate::config::Config;
 
 /// Load TinySecurity and return the admitted sandbox object.
-pub(crate) async fn object(config: &Config) -> Result<tinybus::module::ModuleObjectClient, String> {
-    super::ensure_loaded(config)
-        .await
-        .map_err(|error| error.to_string())?;
-    super::super::ops::client(config.clone())
-        .with_timeout(std::time::Duration::from_secs(25))
-        .object_client(MODULE_ID, names::OBJECT_PATH)
-        .await
-        .map_err(|_| "TinySecurity sandbox proxy unavailable".to_owned())
+pub(crate) async fn object(config: &Config) -> Result<super::SecurityProxy, String> {
+    super::approval_object(config, std::time::Duration::from_secs(25)).await
 }
 /// Return the current policy generation, which plans and audit rows must bind.
-pub(crate) async fn generation(
-    object: &tinybus::module::ModuleObjectClient,
-) -> Result<u64, String> {
+pub(crate) async fn generation(object: &super::SecurityProxy) -> Result<u64, String> {
     let info: PolicyInfo = object
         .call_confidential(names::methods::POLICY_INFO, ())
         .await
@@ -37,7 +28,7 @@ pub(crate) async fn generation(
 
 /// Register one immutable subject sandbox scope.
 pub(crate) async fn register_scope(
-    object: &tinybus::module::ModuleObjectClient,
+    object: &super::SecurityProxy,
     request: RegisterSandboxScopeRequest2,
 ) -> Result<SandboxScopeReceipt2, String> {
     let expected = request.scope.scope_id.clone();
@@ -53,7 +44,7 @@ pub(crate) async fn register_scope(
 
 /// Retire a runtime scope and all plans issued under it.
 pub(crate) async fn retire_scope(
-    object: &tinybus::module::ModuleObjectClient,
+    object: &super::SecurityProxy,
     scope_id: &str,
 ) -> Result<(), String> {
     let receipt: SandboxScopeReceipt2 = object
@@ -73,7 +64,7 @@ pub(crate) async fn retire_scope(
 
 /// Ask TinySecurity to plan one concrete sandbox operation.
 pub(crate) async fn plan(
-    object: &tinybus::module::ModuleObjectClient,
+    object: &super::SecurityProxy,
     request: SandboxPlanRequest2,
 ) -> Result<SandboxPlanResponse2, String> {
     object
@@ -84,7 +75,7 @@ pub(crate) async fn plan(
 
 /// Create a durable pending approval when host-network access is refused.
 pub(crate) async fn evaluate_sandbox_approval(
-    object: &tinybus::module::ModuleObjectClient,
+    object: &super::SecurityProxy,
     request: SandboxPlanRequest2,
     summary: String,
     audit: tinysecurity_bus::AuditCorrelation2,
@@ -104,7 +95,7 @@ pub(crate) async fn evaluate_sandbox_approval(
 
 /// Atomically reserve a plan immediately before execution.
 pub(crate) async fn consume(
-    object: &tinybus::module::ModuleObjectClient,
+    object: &super::SecurityProxy,
     request: ConsumeSandboxPlanRequest2,
 ) -> Result<ConsumeSandboxPlanResponse2, String> {
     object

@@ -3,7 +3,7 @@ use tinyinference_llm::providers::openai::codex::{
     OpenAiCodexRouting, OPENAI_CODEX_BACKEND_BASE_URL,
 };
 
-pub(crate) fn resolve_openai_codex_routing(
+pub(crate) async fn resolve_openai_codex_routing(
     config: &Config,
     slug: &str,
     endpoint: &str,
@@ -16,7 +16,9 @@ pub(crate) fn resolve_openai_codex_routing(
 
     let credentials = match crate::credentials::openai_oauth::lookup_openai_oauth_credentials(
         config,
-    ) {
+    )
+    .await
+    {
         Ok(credentials) => credentials,
         Err(err) if !bearer_key.trim().is_empty() => {
             log::warn!(

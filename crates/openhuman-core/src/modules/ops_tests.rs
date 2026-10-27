@@ -13,6 +13,14 @@ use crate::modules::types::ModuleState;
 use tinybus::module::Reason;
 use tinybus::module::{LoadError, Resolver};
 
+#[test]
+fn modules_with_host_callbacks_use_the_verified_local_release_path() {
+    assert!(ops::requires_verified_local_callbacks("tinysecurity"));
+    assert!(ops::requires_verified_local_callbacks("tinymcp"));
+    assert!(ops::requires_verified_local_callbacks("tinyeventqueues"));
+    assert!(!ops::requires_verified_local_callbacks("tinybox"));
+}
+
 fn test_bundled_record() -> &'static crate::modules::types::ModuleRecord {
     use crate::modules::types::{LoadPolicy, ModuleRecord, PlatformAsset};
 
@@ -26,6 +34,7 @@ fn test_bundled_record() -> &'static crate::modules::types::ModuleRecord {
         archive: "test-bundled-module.zip",
         // SHA-256 of the empty archive staged by the test.
         sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        library_sha256: None,
     }]));
     Box::leak(Box::new(ModuleRecord {
         id: "test-bundled-module",
@@ -128,10 +137,10 @@ fn storage_backed_modules_receive_host_storage_callbacks() {
     assert!(!ops::needs_storage_callback("tinybox"));
 }
 
-#[test]
-fn tinymcp_storage_destination_is_not_a_generic_module_config_value() {
+#[tokio::test]
+async fn tinymcp_storage_destination_is_not_a_generic_module_config_value() {
     let config = Config::default();
-    let module_config = ops::module_config_for_test(&config, "tinymcp");
+    let module_config = ops::module_config(&config, "tinymcp").await;
 
     assert!(module_config.get("storage_callback").is_none());
 }
@@ -145,7 +154,8 @@ async fn tinycomputer_config_uses_the_prepared_callback_unique_destination() {
         .expect("prepare the confidential TinyComputer callback");
     let destination = binding.unique_name().to_string();
     let config =
-        ops::module_config_with_consequence_callback(&Config::default(), "tinycomputer", &binding);
+        ops::module_config_with_consequence_callback(&Config::default(), "tinycomputer", &binding)
+            .await;
 
     assert_eq!(
         config["consequence_host"]["destination"], destination,

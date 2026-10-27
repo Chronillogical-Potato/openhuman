@@ -26,7 +26,7 @@ pub enum ReadOnlyAuthProfileError {
 /// Reads one selected profile without mutating its document, acquiring locks,
 /// or migrating data. Keyring-backed secrets use TinySecurity's consent-gated
 /// read path; existing encrypted-document secrets remain readable as fallback.
-pub(super) fn load_profile(
+pub(super) async fn load_profile(
     config: &Config,
     provider: &str,
     profile_override: Option<&str>,
@@ -34,9 +34,10 @@ pub(super) fn load_profile(
     load_profile_with_keyring(config, provider, profile_override, |store, id| {
         store.keychain_load_secrets(id)
     })
+    .await
 }
 
-fn load_profile_with_keyring(
+async fn load_profile_with_keyring(
     config: &Config,
     provider: &str,
     profile_override: Option<&str>,
@@ -131,23 +132,7 @@ fn load_profile_with_keyring(
     } else {
         None
     };
-    let store = SecretStore::new(state_dir, config.secrets.encrypt);
-    let decrypt = |value: Option<&str>| -> Result<Option<String>, ReadOnlyAuthProfileError> {
-        value
-            .map(|value| {
-                if let Some(key) = key.as_deref() {
-                    SecretStore::decrypt_with_existing_key(value, key)
-                        .map_err(|_| ReadOnlyAuthProfileError::Unavailable)
-                } else if value.starts_with("enc:") || value.starts_with("enc2:") {
-                    Err(ReadOnlyAuthProfileError::Unavailable)
-                } else {
-                    store
-                        .decrypt(value)
-                        .map_err(|_| ReadOnlyAuthProfileError::Unavailable)
-                }
-            })
-            .transpose()
-    };
+    let store = SecretStore::new_with_config(state_dir, config.secrets.encrypt, config);
 
     let kind =
         parse_profile_kind(&profile.kind).map_err(|_| ReadOnlyAuthProfileError::InvalidStore)?;
@@ -160,10 +145,30 @@ fn load_profile_with_keyring(
         )
     } else {
         (
-            decrypt(profile.access_token.as_deref())?,
-            decrypt(profile.refresh_token.as_deref())?,
-            decrypt(profile.id_token.as_deref())?,
-            decrypt(profile.token.as_deref())?,
+            decrypt_profile_field(
+                &store,
+                key.as_ref().map(|key| key.as_str()),
+                profile.access_token.as_deref(),
+            )
+            .await?,
+            decrypt_profile_field(
+                &store,
+                key.as_ref().map(|key| key.as_str()),
+                profile.refresh_token.as_deref(),
+            )
+            .await?,
+            decrypt_profile_field(
+                &store,
+                key.as_ref().map(|key| key.as_str()),
+                profile.id_token.as_deref(),
+            )
+            .await?,
+            decrypt_profile_field(
+                &store,
+                key.as_ref().map(|key| key.as_str()),
+                profile.token.as_deref(),
+            )
+            .await?,
         )
     };
 
@@ -193,6 +198,28 @@ fn load_profile_with_keyring(
         created_at: parse_datetime_with_fallback(&profile.created_at),
         updated_at: parse_datetime_with_fallback(&profile.updated_at),
     }))
+}
+
+async fn decrypt_profile_field(
+    store: &SecretStore,
+    key: Option<&str>,
+    value: Option<&str>,
+) -> Result<Option<String>, ReadOnlyAuthProfileError> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let result = if let Some(key) = key {
+        store
+            .decrypt_with_existing_key_via_security(value, key)
+            .await
+    } else if value.starts_with("enc:") || value.starts_with("enc2:") {
+        Err(anyhow::anyhow!("existing secret key unavailable"))
+    } else {
+        store.decrypt_via_security(value).await
+    };
+    result
+        .map(Some)
+        .map_err(|_| ReadOnlyAuthProfileError::Unavailable)
 }
 
 fn selected_profile_id(

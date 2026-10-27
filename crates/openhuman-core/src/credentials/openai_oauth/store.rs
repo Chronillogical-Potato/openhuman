@@ -1,6 +1,7 @@
 //! Persist and resolve OpenAI OAuth tokens for the `openai` cloud provider slug.
 
-use std::sync::{LazyLock, Mutex, PoisonError};
+use std::sync::LazyLock;
+use tokio::sync::Mutex;
 
 use chrono::{Duration, Utc};
 use tinyinference_providers::oauth::{openai_account_id_from_access_token, OAuthTokenSet};
@@ -66,7 +67,7 @@ fn normalize_persisted_token_set(mut token_set: TokenSet) -> Result<TokenSet, St
     Ok(token_set)
 }
 
-pub fn persist_openai_oauth_token(
+pub async fn persist_openai_oauth_token(
     config: &Config,
     token: &OAuthTokenSet,
 ) -> Result<AuthProfile, String> {
@@ -78,23 +79,23 @@ pub fn persist_openai_oauth_token(
             account_id,
         },
     )
+    .await
 }
 
-pub fn persist_openai_oauth_tokens(
+pub async fn persist_openai_oauth_tokens(
     config: &Config,
     tokens: &ProviderOAuthTokens,
 ) -> Result<AuthProfile, String> {
-    let _profile_lock = OPENAI_OAUTH_PROFILE_LOCK
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner);
+    let _profile_lock = OPENAI_OAUTH_PROFILE_LOCK.lock().await;
     persist_openai_oauth_token_set(
         config,
         token_set_from_oauth(&tokens.token),
         tokens.account_id.clone(),
     )
+    .await
 }
 
-pub(super) fn persist_openai_oauth_token_set(
+pub(super) async fn persist_openai_oauth_token_set(
     config: &Config,
     token_set: TokenSet,
     account_id: Option<String>,
@@ -114,6 +115,7 @@ pub(super) fn persist_openai_oauth_token_set(
     let store = auth_profiles_store(config);
     store
         .upsert_profile(profile.clone(), true)
+        .await
         .map_err(|e| e.to_string())?;
     Ok(profile)
 }
@@ -131,20 +133,21 @@ fn auth_profiles_store(config: &Config) -> AuthProfilesStore {
 /// when the access token is empty. API-key fallback for the `openai` slug is
 /// handled by the standard `lookup_key_for_slug` path — this function is
 /// OAuth-only so the standard path's env/audit/metrics logic still runs.
-pub fn lookup_openai_bearer_token(config: &Config) -> Result<Option<String>, String> {
-    Ok(lookup_openai_oauth_credentials(config)?.map(|credentials| credentials.access_token))
+pub async fn lookup_openai_bearer_token(config: &Config) -> Result<Option<String>, String> {
+    Ok(lookup_openai_oauth_credentials(config)
+        .await?
+        .map(|credentials| credentials.access_token))
 }
 
-pub fn lookup_openai_oauth_credentials(
+pub async fn lookup_openai_oauth_credentials(
     config: &Config,
 ) -> Result<Option<OpenAiOAuthCredentials>, String> {
-    let _profile_lock = OPENAI_OAUTH_PROFILE_LOCK
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner);
+    let _profile_lock = OPENAI_OAUTH_PROFILE_LOCK.lock().await;
     let auth = AuthService::from_config(config);
 
     let profile = auth
         .get_profile(OPENAI_PROVIDER_KEY, Some(OPENAI_OAUTH_PROFILE_NAME))
+        .await
         .map_err(|e| e.to_string())?;
     let Some(mut profile) = profile else {
         return Ok(None);
@@ -175,7 +178,10 @@ pub fn lookup_openai_oauth_credentials(
                 refreshed.scope = token_set.scope.clone();
                 token_set = refreshed;
                 profile.token_set = Some(token_set.clone());
-                if let Err(e) = auth_profiles_store(config).upsert_profile(profile.clone(), true) {
+                if let Err(e) = auth_profiles_store(config)
+                    .upsert_profile(profile.clone(), true)
+                    .await
+                {
                     log::warn!(
                         "{LOG_PREFIX} failed to persist refreshed token: {e}; \
                          fresh access token will be lost on restart"

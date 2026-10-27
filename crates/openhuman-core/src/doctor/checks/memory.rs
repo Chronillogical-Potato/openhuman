@@ -222,7 +222,9 @@ async fn cortexdb_health(config: &crate::config::Config) -> EngineHealth {
         config,
         crate::config::schema::MEMORY_CORTEXDB_KEY_NAME,
         None,
-    ) {
+    )
+    .await
+    {
         Ok(Some(profile)) => profile,
         Ok(None) => return EngineHealth::Down("CortexDB API key is not configured.".to_owned()),
         Err(_) => return EngineHealth::Down("CortexDB credentials could not be read.".to_owned()),

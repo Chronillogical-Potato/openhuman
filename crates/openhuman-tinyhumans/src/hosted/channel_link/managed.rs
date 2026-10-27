@@ -111,7 +111,7 @@ async fn store_managed_marker(
 pub async fn telegram_login_start(
     config: &Config,
 ) -> Result<Outcome<TelegramLoginStartResult>, String> {
-    let client = HostedClient::from_config(config)?;
+    let client = HostedClient::from_config(config).await?;
     log::debug!("[telegram-login] creating channel link token");
     let payload = link_token_payload(&client, "telegram")
         .await
@@ -140,7 +140,7 @@ pub async fn telegram_login_check(
     config: &Config,
     _link_token: &str,
 ) -> Result<Outcome<TelegramLoginCheckResult>, String> {
-    let client = HostedClient::from_config(config)?;
+    let client = HostedClient::from_config(config).await?;
     log::debug!("[telegram-login] checking if user profile has telegramId via GET /auth/me");
     let profile = fetch_profile(&client)
         .await
@@ -168,7 +168,7 @@ pub async fn telegram_login_check(
 pub async fn discord_link_start(
     config: &Config,
 ) -> Result<Outcome<DiscordLinkStartResult>, String> {
-    let client = HostedClient::from_config(config)?;
+    let client = HostedClient::from_config(config).await?;
     log::debug!("[discord-link] creating channel link token");
     let payload = link_token_payload(&client, "discord")
         .await
@@ -195,7 +195,7 @@ pub async fn discord_link_check(
     config: &Config,
     _link_token: &str,
 ) -> Result<Outcome<DiscordLinkCheckResult>, String> {
-    let client = HostedClient::from_config(config)?;
+    let client = HostedClient::from_config(config).await?;
     log::debug!("[discord-link] checking if user profile has discordId via GET /auth/me");
     let profile = fetch_profile(&client)
         .await

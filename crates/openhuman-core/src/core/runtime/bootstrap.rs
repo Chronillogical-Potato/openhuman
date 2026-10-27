@@ -20,6 +20,7 @@ pub(crate) async fn bootstrap_core_runtime(
     config: Option<crate::config::Config>,
     domains: crate::core::runtime::DomainSet,
     ctx: &DispatchCtx,
+    defer_credentials: bool,
 ) {
     use crate::platform::socket::{set_global_socket_manager, SocketManager};
     use std::sync::Arc;
@@ -82,6 +83,7 @@ pub(crate) async fn bootstrap_core_runtime(
         embedded_core,
         domains,
         ctx,
+        defer_credentials,
     );
 
     // Latch the config-corruption recovery signal (#5167) so `app_state_snapshot`

@@ -11,11 +11,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
 use tinybus::EventHandler;
+use tinychannels_bus::channel::{ChannelInboundEnvelope, ChannelRef, ConversationRef, SenderRef};
 use tinychannels_bus::context::ChatMessage;
-use tinychannels_bus::{
-    ChannelInboundEnvelope, ChannelOutboundMessage, ChannelRef, ConversationRef,
-    OutboundContentPart, SenderRef,
-};
+use tinychannels_bus::SendMessage;
 use tinytools::{Tool, ToolResult};
 
 fn inbound(
@@ -60,9 +58,6 @@ fn route_compat_message_preserves_legacy_addressing_and_sender_metadata() {
         "telegram".to_string(),
         Some("thread-1".into()),
     );
-    message.timestamp_unix_ms = Some(123);
-    message.reply_to_id = Some("reply-1".into());
-    message.conversation.topic_id = Some("topic-1".into());
     message.sender.name = Some("Alice".into());
 
     let legacy = super::route_compat_message(&message);
@@ -71,10 +66,8 @@ fn route_compat_message_preserves_legacy_addressing_and_sender_metadata() {
     assert_eq!(legacy.reply_target, "conversation-1");
     assert_eq!(legacy.content, "/status");
     assert_eq!(legacy.channel, "telegram");
-    assert_eq!(legacy.timestamp, 123);
+    assert_eq!(legacy.timestamp, 0);
     assert_eq!(legacy.thread_ts.as_deref(), Some("thread-1"));
-    assert_eq!(legacy.reply_to_id.as_deref(), Some("reply-1"));
-    assert_eq!(legacy.topic_id.as_deref(), Some("topic-1"));
     assert_eq!(legacy.sender_name.as_deref(), Some("Alice"));
 }
 
@@ -101,7 +94,7 @@ impl Tool for DummyTool {
 
 #[derive(Default)]
 pub(super) struct RecordingChannel {
-    pub(super) sent: Mutex<Vec<ChannelOutboundMessage>>,
+    pub(super) sent: Mutex<Vec<SendMessage>>,
 }
 
 #[async_trait]
@@ -110,19 +103,18 @@ impl Channel for RecordingChannel {
         "recording"
     }
 
-    fn supports_remote_control(&self) -> bool {
-        true
+    fn capabilities(&self) -> tinychannels_bus::ChannelCapabilities {
+        tinychannels_bus::ChannelCapabilities {
+            remote_control: true,
+            ..Default::default()
+        }
     }
 
     #[allow(
         deprecated,
         reason = "TinyChannels v22 still requires the legacy send trait method"
     )]
-    async fn send(&self, _message: &tinychannels_bus::SendMessage) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn send_typed(&self, message: &ChannelOutboundMessage) -> anyhow::Result<()> {
+    async fn send(&self, message: &SendMessage) -> anyhow::Result<()> {
         self.sent.lock().unwrap().push(message.clone());
         Ok(())
     }
@@ -139,18 +131,8 @@ impl Channel for RecordingChannel {
     }
 }
 
-fn sent_text(message: &ChannelOutboundMessage) -> String {
-    message
-        .parts
-        .iter()
-        .filter_map(|part| match part {
-            OutboundContentPart::Content {
-                part: tinychannels_bus::channel::ContentPart::Text { text, .. },
-            } => Some(text.as_str()),
-            _ => None,
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
+fn sent_text(message: &SendMessage) -> String {
+    message.content.clone()
 }
 
 pub(super) fn runtime_context(workspace_dir: PathBuf) -> ChannelRuntimeContext {
@@ -207,7 +189,6 @@ async fn module_route_help_response(
             model: "gpt-5".into(),
         },
         history_len: 0,
-        capabilities: None,
         providers,
     };
     let response: ChannelControlResult = crate::channels::module_fixture::client()
@@ -453,7 +434,7 @@ async fn handle_runtime_command_unknown_provider_sends_helpful_error() {
     let sent = channel_impl.sent.lock().unwrap();
     assert_eq!(sent.len(), 1);
     assert!(sent_text(&sent[0]).contains("Unknown provider `definitely-not-a-provider`"));
-    assert_eq!(sent[0].thread_id.as_deref(), Some("thread-1"));
+    assert_eq!(sent[0].thread_ts.as_deref(), Some("thread-1"));
 }
 
 #[path = "routes_command_tests.rs"]

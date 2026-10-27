@@ -6,9 +6,7 @@ use serde_json::Value;
 
 #[cfg(test)]
 use crate::channels::bus::derive_inbound_thread_id;
-use tinychannels_bus::{
-    channel::ContentPart, ChannelInboundEnvelope, ChannelRef, ConversationRef, SenderRef,
-};
+use tinychannels_bus::channel::{ChannelInboundEnvelope, ChannelRef, ConversationRef, SenderRef};
 
 /// Longest channel name: `telegram`, `imessage`, `discord`, ...
 pub const MAX_CHANNEL_LEN: usize = 32;
@@ -157,17 +155,7 @@ impl RelayInboundParams {
                     .filter(|name| !name.trim().is_empty()),
                 ..Default::default()
             },
-            timestamp_unix_ms: Some(
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|duration| duration.as_millis().min(u64::MAX as u128) as u64)
-                    .unwrap_or_default(),
-            ),
             text: self.text.clone(),
-            parts: vec![ContentPart::Text {
-                text: self.text.clone(),
-                markdown_dialect: None,
-            }],
             ..Default::default()
         }
     }

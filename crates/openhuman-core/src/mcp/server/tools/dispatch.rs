@@ -18,7 +18,7 @@ use tinymcp_bus::ToolCallError;
 /// config will not load. `method` names the MCP method for the log line.
 async fn available_tool_specs(ctx: &DispatchCtx, method: &str) -> Vec<McpToolSpec> {
     match ctx.load_config().await {
-        Ok(config) => tool_specs_for_loaded_config(&config),
+        Ok(config) => tool_specs_for_loaded_config(&config).await,
         Err(err) => {
             log::warn!(
                 "[mcp_server] {method} config load failed; omitting config-gated tools: {err}"
@@ -233,6 +233,7 @@ async fn build_orchestrator_agent(
 ) -> Result<OpenHumanSessionHost, ToolCallError> {
     let config = load_config_and_init_registry(ctx).await?;
     let mut agent = OpenHumanSessionHost::from_config_for_agent(ctx, &config, "orchestrator")
+        .await
         .map_err(|err| {
             ToolCallError::Internal(format!("failed to build orchestrator agent: {err}"))
         })?;
@@ -351,8 +352,9 @@ async fn run_subagent_tool(
     )))?;
 
     let config = load_config_and_init_registry(ctx).await?;
-    let mut agent =
-        OpenHumanSessionHost::from_config_for_agent(ctx, &config, agent_id).map_err(|err| {
+    let mut agent = OpenHumanSessionHost::from_config_for_agent(ctx, &config, agent_id)
+        .await
+        .map_err(|err| {
             ToolCallError::InvalidParams(format!("failed to build agent `{agent_id}`: {err}"))
         })?;
     agent.set_event_context(

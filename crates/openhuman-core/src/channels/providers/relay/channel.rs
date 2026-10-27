@@ -11,8 +11,7 @@ use async_trait::async_trait;
 use serde_json::json;
 
 use crate::web_chat::{publish_web_channel_event, WebChannelEvent};
-use tinychannels_bus::channel::{ContentPart, OutboundContentPart};
-use tinychannels_bus::{Channel, ChannelOutboundMessage};
+use tinychannels_bus::{Channel, SendMessage};
 
 /// The event name a relayed reply is published under.
 pub const CHANNEL_OUTBOUND_EVENT: &str = "channel_outbound";
@@ -60,11 +59,8 @@ impl RelayChannel {
     /// (`agent`, `profile`) are left for `publish_web_channel_event`, which
     /// takes them from the publishing context's tenant, so `/events` hands the
     /// reply only to the caller's own stream.
-    pub fn outbound_event(
-        &self,
-        message: &ChannelOutboundMessage,
-    ) -> anyhow::Result<WebChannelEvent> {
-        let text = outbound_text(message)?;
+    pub fn outbound_event(&self, message: &SendMessage) -> anyhow::Result<WebChannelEvent> {
+        let text = outbound_text(message);
         Ok(WebChannelEvent {
             event: CHANNEL_OUTBOUND_EVENT.to_string(),
             client_id: self.client_id.clone(),
@@ -74,8 +70,8 @@ impl RelayChannel {
             structured: Some(json!({
                 "kind": CHANNEL_OUTBOUND_EVENT,
                 "channel": self.channel,
-                "chat_id": message.conversation_id,
-                "thread_ts": message.thread_id,
+                "chat_id": message.recipient,
+                "thread_ts": message.thread_ts,
                 "reply_to_message_id": self.reply_to,
                 "idempotency_key": message.idempotency_key,
             })),
@@ -90,38 +86,9 @@ impl Channel for RelayChannel {
         &self.channel
     }
 
-    #[allow(
-        deprecated,
-        reason = "TinyChannels v0.1.39 requires the v21 Channel::send bridge; host sends use send_typed"
-    )]
-    async fn send(&self, message: &tinychannels_bus::SendMessage) -> anyhow::Result<()> {
-        let typed = ChannelOutboundMessage {
-            channel_id: self.channel.clone(),
-            conversation_id: message.recipient.clone(),
-            channel_ref: None,
-            conversation_ref: Some(tinychannels_bus::ConversationRef {
-                id: message.recipient.clone(),
-                thread_id: message.thread_ts.clone(),
-                topic_id: message.topic_id.clone(),
-                ..Default::default()
-            }),
-            reply_to_id: message.reply_to_id.clone(),
-            thread_id: message.thread_ts.clone(),
-            turn_id: None,
-            idempotency_key: message.idempotency_key.clone().unwrap_or_default(),
-            parts: vec![OutboundContentPart::Content {
-                part: ContentPart::Text {
-                    text: message.content.clone(),
-                    markdown_dialect: None,
-                },
-            }],
-        };
-        self.send_typed(&typed).await
-    }
-
-    async fn send_typed(&self, message: &ChannelOutboundMessage) -> anyhow::Result<()> {
+    async fn send(&self, message: &SendMessage) -> anyhow::Result<()> {
         let event = self.outbound_event(message)?;
-        let content = outbound_text(message)?;
+        let content = outbound_text(message);
         tracing::debug!(
             channel = %self.channel,
             thread_id = %self.thread_id,
@@ -151,17 +118,8 @@ impl Channel for RelayChannel {
     }
 }
 
-fn outbound_text(message: &ChannelOutboundMessage) -> anyhow::Result<String> {
-    let mut text = String::new();
-    for part in &message.parts {
-        match part {
-            OutboundContentPart::Content {
-                part: ContentPart::Text { text: segment, .. },
-            } => text.push_str(segment),
-            _ => anyhow::bail!("channel relay supports text outbound content only"),
-        }
-    }
-    Ok(text)
+fn outbound_text(message: &SendMessage) -> String {
+    message.content.clone()
 }
 
 #[cfg(test)]

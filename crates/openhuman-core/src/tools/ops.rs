@@ -45,7 +45,7 @@ pub fn default_tools_with_runtime(
 
 /// Create full tool registry including memory tools.
 #[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
-pub fn all_tools(
+pub async fn all_tools(
     config: Arc<Config>,
     security: &Arc<SecurityPolicy>,
     audit: Arc<AuditSink>,
@@ -65,12 +65,13 @@ pub fn all_tools(
         root_config,
         None,
     )
+    .await
 }
 
 /// Create full tool registry including memory tools.
 ///
 #[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
-pub fn all_tools_with_runtime(
+pub async fn all_tools_with_runtime(
     config: Arc<Config>,
     security: &Arc<SecurityPolicy>,
     runtime: Arc<dyn RuntimeAdapter>,
@@ -92,6 +93,7 @@ pub fn all_tools_with_runtime(
         root_config,
         approval_workspace_root,
     )
+    .await
     .0
 }
 
@@ -101,7 +103,7 @@ pub fn all_tools_with_runtime(
 /// so later registry refreshes can rebind `use_skill` without inspecting the
 /// tool's generic dispatch extension.
 #[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
-pub fn all_tools_with_runtime_and_pack_handle(
+pub async fn all_tools_with_runtime_and_pack_handle(
     config: Arc<Config>,
     security: &Arc<SecurityPolicy>,
     runtime: Arc<dyn RuntimeAdapter>,
@@ -211,7 +213,7 @@ pub fn all_tools_with_runtime_and_pack_handle(
         &config.workspace_dir,
         crate::artifacts::FileRoots::from_config(&config),
         action_dir,
-        crate::artifacts::artifact_publisher(&config),
+        crate::artifacts::artifact_publisher(&config).await,
     ));
     tools.extend(crate::integrations::task_sources::tools::registered_tools(
         config.clone(),
@@ -274,7 +276,7 @@ pub fn all_tools_with_runtime_and_pack_handle(
     // The single `memory` tool (recall | fetch | learn | forget), registered
     // only while memory is on: with no usable engine (signed out, no CortexDB
     // key) the model is not offered a tool that can only fail.
-    if crate::memory::engine::is_on(root_config) {
+    if crate::memory::engine::is_on(root_config).await {
         tools.push(Box::new(crate::memory::MemoryTool::new(config.clone())));
         tracing::debug!("[tools::ops] registered memory tool");
     } else {
@@ -438,7 +440,7 @@ pub fn all_tools_with_runtime_and_pack_handle(
         tools.push(crate::mcp::ui::ui_aware_call(call, &mcp_config));
     }
 
-    tools.extend(crate::search::build_search_tools(root_config));
+    tools.extend(crate::search::build_search_tools(root_config).await);
 
     // Media generation roots. The `media_generate_*` tools themselves come from
     // a host's registered tool source (the core ships no media generators);
@@ -470,10 +472,13 @@ pub fn all_tools_with_runtime_and_pack_handle(
 
     // Sources placed after the search tools (a host's media and file-storage
     // tools), where the catalogue has always listed them.
-    tools.extend(crate::tools::sources::build_registered_tool_sources(
-        &source_ctx,
-        Some(crate::tools::sources::ANCHOR_AFTER_SEARCH),
-    ));
+    tools.extend(
+        crate::tools::sources::build_registered_tool_sources(
+            &source_ctx,
+            Some(crate::tools::sources::ANCHOR_AFTER_SEARCH),
+        )
+        .await,
+    );
 
     // Hosting tools — deploy a workspace directory through the compiled
     // TinyHosts module. Registered only once a credential
@@ -509,12 +514,15 @@ pub fn all_tools_with_runtime_and_pack_handle(
 
     // Hosted source tools retain their stable catalogue position ahead of the
     // Composio tools.
-    tools.extend(crate::tools::sources::build_registered_tool_sources(
-        &source_ctx,
-        Some(crate::tools::sources::ANCHOR_AFTER_DELEGATE),
-    ));
+    tools.extend(
+        crate::tools::sources::build_registered_tool_sources(
+            &source_ctx,
+            Some(crate::tools::sources::ANCHOR_AFTER_DELEGATE),
+        )
+        .await,
+    );
 
-    let composio_tools = crate::integrations::composio::all_composio_agent_tools(root_config);
+    let composio_tools = crate::integrations::composio::all_composio_agent_tools(root_config).await;
     if composio_tools.is_empty() {
         tracing::debug!("[integrations] composio unavailable — skipping");
     } else {
@@ -529,10 +537,7 @@ pub fn all_tools_with_runtime_and_pack_handle(
     // (`tools::sources`), after every built-in and before the filters below,
     // so they are gated exactly like built-ins. Nothing registered => nothing
     // appended.
-    tools.extend(crate::tools::sources::build_registered_tool_sources(
-        &source_ctx,
-        None,
-    ));
+    tools.extend(crate::tools::sources::build_registered_tool_sources(&source_ctx, None).await);
 
     // Post-filters over the assembled list:
     //

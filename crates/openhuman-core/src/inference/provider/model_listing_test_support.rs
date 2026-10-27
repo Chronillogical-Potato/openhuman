@@ -133,6 +133,7 @@ pub(crate) async fn configure_openrouter_workspace(
         HashMap::new(),
         true,
     )
+    .await
     .expect("store provider key");
     config
 }

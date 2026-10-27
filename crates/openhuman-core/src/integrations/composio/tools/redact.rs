@@ -10,7 +10,7 @@ const MIN_SECRET_LEN: usize = 8;
 /// `composio.api_key`, and in unpinned direct mode the stored key. Common
 /// encoded forms are included because the provider may echo a key in a URL or
 /// encoded identifier.
-pub(crate) fn composio_secrets(config: &Config) -> Vec<String> {
+pub(crate) async fn composio_secrets(config: &Config) -> Vec<String> {
     let composio = &config.composio;
     let mut secrets: Vec<String> = Vec::new();
     if let Some(pinned) = composio.host_credential.as_ref() {
@@ -22,7 +22,8 @@ pub(crate) fn composio_secrets(config: &Config) -> Vec<String> {
     if composio.host_credential.is_none()
         && composio.mode.trim() == crate::config::schema::COMPOSIO_MODE_DIRECT
     {
-        if let Ok(Some(stored)) = crate::integrations::composio::get_composio_api_key(config) {
+        if let Ok(Some(stored)) = crate::integrations::composio::get_composio_api_key(config).await
+        {
             secrets.push(stored);
         }
     }
@@ -65,7 +66,7 @@ async fn redact_exact(config: &Config, text: &str, secrets: &[String]) -> Result
 /// Redact every Composio key from a diagnostic before reporting it. The
 /// original diagnostic is never returned if the module cannot answer.
 pub(crate) async fn redact_and_report(config: &Config, operation: &str, rendered: &str) -> String {
-    let secrets = composio_secrets(config);
+    let secrets = composio_secrets(config).await;
     let redacted = if secrets.is_empty() {
         rendered.to_owned()
     } else {
@@ -83,7 +84,7 @@ pub(crate) async fn redact_composio_outcome(
     config: &Config,
     outcome: anyhow::Result<ToolResult>,
 ) -> anyhow::Result<ToolResult> {
-    let secrets = composio_secrets(config);
+    let secrets = composio_secrets(config).await;
     if secrets.is_empty() {
         return outcome;
     }

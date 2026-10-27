@@ -116,7 +116,7 @@ pub async fn apply_sandbox_settings(
         "[config][sandbox] sandbox settings saved to {}",
         config.config_path.display()
     );
-    let snapshot = snapshot_config_json(config)?;
+    let snapshot = snapshot_config_json(config).await?;
     Ok(Outcome::new(
         snapshot,
         vec![format!(

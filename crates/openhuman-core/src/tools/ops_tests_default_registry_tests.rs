@@ -1,6 +1,6 @@
 use super::*;
-#[test]
-fn all_tools_registers_the_memory_tool_while_memory_is_on() {
+#[tokio::test]
+async fn all_tools_registers_the_memory_tool_while_memory_is_on() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let cfg = test_config(&tmp);
@@ -15,7 +15,8 @@ fn all_tools_registers_the_memory_tool_while_memory_is_on() {
         &http,
         tmp.path(),
         &cfg,
-    );
+    )
+    .await;
 
     let memory = tools
         .iter()
@@ -38,8 +39,8 @@ fn all_tools_registers_the_memory_tool_while_memory_is_on() {
 /// from that release the tools read a store nothing could write. This asserts
 /// the removal in both directions of the `channels` gate at once, replacing the
 /// present/absent pair that used to pin them.
-#[test]
-fn whatsapp_data_tools_are_gone_in_every_build() {
+#[tokio::test]
+async fn whatsapp_data_tools_are_gone_in_every_build() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig {
@@ -58,7 +59,8 @@ fn whatsapp_data_tools_are_gone_in_every_build() {
         &http,
         tmp.path(),
         &cfg,
-    );
+    )
+    .await;
     let names = tool_names(&tools);
     for absent in [
         "whatsapp_data_list_chats",
@@ -71,8 +73,8 @@ fn whatsapp_data_tools_are_gone_in_every_build() {
         );
     }
 }
-#[test]
-fn every_packed_tool_name_resolves_to_a_registered_tool() {
+#[tokio::test]
+async fn every_packed_tool_name_resolves_to_a_registered_tool() {
     // A pack advertises a menu. `render_pack_filtered` skips a name it cannot
     // resolve (tools.rs "a pack may name a tool this build compiled out"), so a
     // stale entry does not error — the listing is just quietly short, and any
@@ -104,7 +106,8 @@ fn every_packed_tool_name_resolves_to_a_registered_tool() {
         &http,
         tmp.path(),
         &cfg,
-    );
+    )
+    .await;
     let registered: std::collections::HashSet<&str> = tools.iter().map(|t| t.name()).collect();
 
     // `PACKS` is unconditional, but most packs' tools are behind Cargo features
@@ -161,12 +164,12 @@ fn every_packed_tool_name_resolves_to_a_registered_tool() {
 // Compile-time `media` feature gate (#4804). The `media_generate_*` agent tools
 // are built by a host's registered tool source, never by the core itself, so a
 // bare core registers none of them whether or not the `media` feature is on.
-#[test]
-fn media_tools_come_only_from_a_registered_tool_source() {
+#[tokio::test]
+async fn media_tools_come_only_from_a_registered_tool_source() {
     let tmp = TempDir::new().unwrap();
     let cfg = integration_test_config(&tmp, "http://127.0.0.1:1");
-    store_test_session_token(&cfg);
-    let tools = integration_tools_for_config(&tmp, &cfg);
+    store_test_session_token(&cfg).await;
+    let tools = integration_tools_for_config(&tmp, &cfg).await;
     let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
     assert!(
         !names.iter().any(|n| n.starts_with("media_")),
@@ -179,8 +182,8 @@ fn media_tools_come_only_from_a_registered_tool_source() {
 // the `documents` feature is compiled in — leaf gate, no stub facade, so the
 // disabled build must drop both from the tool list entirely.
 #[cfg(feature = "documents")]
-#[test]
-fn document_tools_registered_when_feature_on() {
+#[tokio::test]
+async fn document_tools_registered_when_feature_on() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig {
@@ -197,7 +200,8 @@ fn document_tools_registered_when_feature_on() {
         &http,
         tmp.path(),
         &cfg,
-    );
+    )
+    .await;
     let names = tool_names(&tools);
     assert!(
         names.iter().any(|n| n == "generate_presentation"),
@@ -210,8 +214,8 @@ fn document_tools_registered_when_feature_on() {
 }
 
 #[cfg(not(feature = "documents"))]
-#[test]
-fn document_tools_absent_when_feature_off() {
+#[tokio::test]
+async fn document_tools_absent_when_feature_off() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig {
@@ -228,7 +232,8 @@ fn document_tools_absent_when_feature_off() {
         &http,
         tmp.path(),
         &cfg,
-    );
+    )
+    .await;
     let names = tool_names(&tools);
     assert!(
         !names
@@ -238,8 +243,8 @@ fn document_tools_absent_when_feature_off() {
     );
 }
 
-#[test]
-fn all_tools_registers_gitbooks_when_enabled() {
+#[tokio::test]
+async fn all_tools_registers_gitbooks_when_enabled() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig::default();
@@ -255,7 +260,8 @@ fn all_tools_registers_gitbooks_when_enabled() {
         &http,
         tmp.path(),
         &cfg,
-    );
+    )
+    .await;
     let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
     assert!(
         names.contains(&"gitbooks_search"),
@@ -277,19 +283,19 @@ fn docs_server() -> crate::config::McpServerConfig {
     })
 }
 
-#[test]
+#[tokio::test]
 // Wholly about the static MCP bridge surface, which the `mcp` feature compiles
 // out — no meaningful residue to assert in the disabled build (the
 // "no MCP tools registered" direction is covered by
 // `all_tools_omits_mcp_tools_when_gate_off` below).
 #[cfg(feature = "mcp")]
-fn all_tools_registers_generic_mcp_bridge_tools_when_servers_exist() {
+async fn all_tools_registers_generic_mcp_bridge_tools_when_servers_exist() {
     let tmp = TempDir::new().unwrap();
     let mut cfg = test_config(&tmp);
     cfg.gitbooks.enabled = false;
     cfg.mcp_client.servers.push(docs_server());
 
-    let tools = integration_tools_for_config(&tmp, &cfg);
+    let tools = integration_tools_for_config(&tmp, &cfg).await;
     let names = tool_names(&tools);
     assert_contains_all(
         &names,
@@ -305,15 +311,15 @@ fn all_tools_registers_generic_mcp_bridge_tools_when_servers_exist() {
 /// Deliberately asserts by prefix rather than naming the ~19 tools: a new MCP
 /// tool added later must not be able to leak into slim builds just because
 /// nobody remembered to extend a hardcoded list here.
-#[test]
+#[tokio::test]
 #[cfg(not(feature = "mcp"))]
-fn all_tools_omits_mcp_tools_when_gate_off() {
+async fn all_tools_omits_mcp_tools_when_gate_off() {
     let tmp = TempDir::new().unwrap();
     let mut cfg = test_config(&tmp);
     cfg.gitbooks.enabled = false;
     cfg.mcp_client.servers.push(docs_server());
 
-    let names = tool_names(&integration_tools_for_config(&tmp, &cfg));
+    let names = tool_names(&integration_tools_for_config(&tmp, &cfg).await);
     let leaked: Vec<&String> = names
         .iter()
         .filter(|n| n.starts_with("mcp_") || n.starts_with("mcp_registry_"))
@@ -326,8 +332,8 @@ fn all_tools_omits_mcp_tools_when_gate_off() {
     );
 }
 
-#[test]
-fn all_tools_skips_gitbooks_when_disabled() {
+#[tokio::test]
+async fn all_tools_skips_gitbooks_when_disabled() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig::default();
@@ -343,7 +349,8 @@ fn all_tools_skips_gitbooks_when_disabled() {
         &http,
         tmp.path(),
         &cfg,
-    );
+    )
+    .await;
     let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
     assert!(
         !names.contains(&"gitbooks_search"),
@@ -355,8 +362,8 @@ fn all_tools_skips_gitbooks_when_disabled() {
     );
 }
 
-#[test]
-fn all_tools_default_registry_contains_expected_baseline_surface() {
+#[tokio::test]
+async fn all_tools_default_registry_contains_expected_baseline_surface() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig {
@@ -374,7 +381,8 @@ fn all_tools_default_registry_contains_expected_baseline_surface() {
         &http,
         tmp.path(),
         &cfg,
-    );
+    )
+    .await;
     let names = tool_names(&tools);
 
     let expected = vec![
@@ -420,8 +428,8 @@ fn all_tools_default_registry_contains_expected_baseline_surface() {
         .iter()
         .any(|name| matches!(name.as_str(), "wait" | "wait_loop")));
 }
-#[test]
-fn all_tools_default_registry_has_no_duplicate_tool_names() {
+#[tokio::test]
+async fn all_tools_default_registry_has_no_duplicate_tool_names() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig {
@@ -439,7 +447,8 @@ fn all_tools_default_registry_has_no_duplicate_tool_names() {
         &http,
         tmp.path(),
         &cfg,
-    );
+    )
+    .await;
     let names = tool_names(&tools);
     let unique: std::collections::HashSet<_> = names.iter().cloned().collect();
     assert_eq!(
@@ -448,8 +457,8 @@ fn all_tools_default_registry_has_no_duplicate_tool_names() {
         "tool registry must not contain duplicate names: {names:?}"
     );
 }
-#[test]
-fn all_tools_excludes_browser_when_disabled() {
+#[tokio::test]
+async fn all_tools_excludes_browser_when_disabled() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
 
@@ -470,7 +479,8 @@ fn all_tools_excludes_browser_when_disabled() {
         &http,
         tmp.path(),
         &cfg,
-    );
+    )
+    .await;
     let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
     assert!(!names.contains(&"browser_open"));
     assert!(names.contains(&"schedule"));
@@ -503,7 +513,8 @@ async fn document_tool_writes_into_the_configured_files_folder() {
         &http,
         tmp.path(),
         &cfg,
-    );
+    )
+    .await;
     let tool = tools
         .iter()
         .find(|t| t.name() == "generate_document")
