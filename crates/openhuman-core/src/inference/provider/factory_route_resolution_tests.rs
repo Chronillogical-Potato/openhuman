@@ -566,10 +566,7 @@ async fn local_only_defers_reresolving_sentinels() {
     // Empty / "cloud" re-resolve to a concrete string and are re-checked on the
     // recursive call — not blocked here.
     assert_eq!(local_only_violation(PrivacyMode::LocalOnly, ""), None);
-    assert_eq!(
-        local_only_violation(PrivacyMode::LocalOnly, "cloud"),
-        None
-    );
+    assert_eq!(local_only_violation(PrivacyMode::LocalOnly, "cloud"), None);
 }
 
 #[tokio::test]
@@ -577,9 +574,7 @@ async fn local_only_does_not_treat_unresolved_route_sentinels_as_local() {
     use crate::config::PrivacyMode;
     for route in ["cloud:gpt-4o", ":gpt-4o"] {
         assert!(
-            local_only_violation(PrivacyMode::LocalOnly, route)
-                
-                .is_some(),
+            local_only_violation(PrivacyMode::LocalOnly, route).is_some(),
             "an unresolved route must remain blocked under LocalOnly: {route}"
         );
     }
