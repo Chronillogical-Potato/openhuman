@@ -329,6 +329,35 @@ async fn handle_encrypted_rpc_frame(
     let Ok(client) = crate::modules::security::client(config).await else {
         return;
     };
+    let Ok((event_id, _scope_id)) = crate::modules::security::device_pairing_socket_event(
+        config,
+        channel_id,
+        &active.pairing_token,
+        connection_nonce,
+        expires_at_ms,
+    )
+    .await
+    else {
+        return;
+    };
+    let refreshed = client
+        .device_pairing2(tinysecurity_bus::DevicePairingRequest2 {
+            call_id: uuid::Uuid::new_v4().simple().to_string(),
+            operation: tinysecurity_bus::DevicePairingOperation2::RefreshSession {
+                session_id: active.session_id.clone(),
+                host_event_id: event_id,
+            },
+        })
+        .await;
+    if !refreshed.is_ok_and(|response| response.session_id.as_deref() == Some(&active.session_id))
+    {
+        log::warn!("[devices/bus] TinySecurity could not refresh session channel_id={channel_id}");
+        ACTIVE_SESSIONS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(channel_id);
+        return;
+    }
     let opened = client
         .device_frame2(tinysecurity_bus::DeviceFrameRequest2 {
             scope_id: active.scope_id.clone(),
@@ -462,7 +491,6 @@ async fn confirm_pairing(
         &token_hash,
     ) {
         Ok(device) => {
-            super::owner::remember(channel_id, None);
             BUS.publish(DomainEvent::DevicePaired {
                 channel_id: channel_id.to_owned(),
                 device_pubkey: device_public_key,
@@ -476,6 +504,7 @@ async fn confirm_pairing(
                     super::rpc::ActiveDeviceSession {
                         scope_id,
                         session_id,
+                        pairing_token: session.pairing_token.clone(),
                     },
                 );
             PENDING_SESSIONS
