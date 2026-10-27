@@ -708,8 +708,8 @@ async fn forget_with_a_reach_forgets_within_it() {
 #[path = "ops_compat_tests.rs"]
 mod compat_tests;
 
-#[test]
-fn disabled_engine_rejects_an_api_key_without_mutating_memory_settings() {
+#[tokio::test]
+async fn disabled_engine_rejects_an_api_key_without_mutating_memory_settings() {
     let tmp = tempfile::tempdir().unwrap();
     let mut config = config_in(&tmp);
     let before = config.memory.clone();
