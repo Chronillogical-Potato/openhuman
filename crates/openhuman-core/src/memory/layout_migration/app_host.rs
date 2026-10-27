@@ -112,8 +112,9 @@ impl lm::LayoutHost for AppHost {
         crate::memory::billing::free_period_active(&self.config).await
     }
 
-    fn legacy_claim(&self) -> lm::Result<Option<Box<dyn LegacyClaim>>> {
+    async fn legacy_claim(&self) -> lm::Result<Option<Box<dyn LegacyClaim>>> {
         claim(&self.config)
+            .await
             .map(|claim| claim.map(|claim| Box::new(claim) as Box<dyn LegacyClaim>))
             .map_err(to_module)
     }
@@ -129,7 +130,7 @@ impl lm::LayoutHost for AppHost {
 
 /// The claim on the legacy tree `config`'s account would move, if it is
 /// shared by every account on the machine.
-pub(super) fn claim(config: &Config) -> Result<Option<FsLegacyClaim>> {
+pub(super) async fn claim(config: &Config) -> Result<Option<FsLegacyClaim>> {
     // A self-hosted key is the operator's: every local account using it
     // shares one legacy tree. The hosted engine is one tenant per person.
     if config.memory.engine.trim() != CORTEXDB_ENGINE {

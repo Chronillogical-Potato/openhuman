@@ -134,6 +134,7 @@ struct HostEngineResolver {
     identity: ResolvedIdentity,
 }
 
+#[async_trait]
 impl EngineResolver for HostEngineResolver {
     async fn resolve(&self) -> tinymemory_api::Result<AgentMemory> {
         let bound = engine::resolve(&self.config).await.engine()?;
