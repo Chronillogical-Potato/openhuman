@@ -124,18 +124,6 @@ impl EventHandler<DomainEvent> for DeviceTunnelSubscriber {
 // Handlers
 // ---------------------------------------------------------------------------
 
-#[derive(Debug)]
-struct HandshakePayload {
-    device_pubkey: String,
-    client_ephemeral_pubkey: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct JsonHandshakePayload {
-    device_pubkey: String,
-    client_ephemeral_pubkey: Option<String>,
-}
-
 async fn handle_peer_online(channel_id: &str) {
     log::info!("[devices/bus] peer online channel_id={}", channel_id);
     super::lock_unpoisoned(&PEER_STATUS).insert(channel_id.to_string(), true);
@@ -150,26 +138,30 @@ async fn handle_peer_offline(channel_id: &str, ctx: &DispatchCtx) {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .remove(channel_id);
-    if let (Some((nonce, expires_at_ms)), Some(active)) = (attestation, active)
-        && let Ok(config) = ctx.load_config().await
-        && let Ok((event_id, _)) = crate::modules::security::device_pairing_socket_closed_event(
-            &config,
-            channel_id,
-            &nonce,
-            expires_at_ms,
-        )
-        .await
-        && let Ok(client) = crate::modules::security::client(&config).await
-    {
-        let _ = client
-            .device_pairing2(tinysecurity_bus::DevicePairingRequest2 {
-                call_id: uuid::Uuid::new_v4().simple().to_string(),
-                operation: tinysecurity_bus::DevicePairingOperation2::EndSession {
-                    session_id: active.session_id,
-                    host_event_id: event_id,
-                },
-            })
-            .await;
+    if let (Some((nonce, expires_at_ms)), Some(active)) = (attestation, active) {
+        if let Ok(config) = ctx.load_config().await {
+            if let Ok((event_id, _)) =
+                crate::modules::security::device_pairing_socket_closed_event(
+                    &config,
+                    channel_id,
+                    &nonce,
+                    expires_at_ms,
+                )
+                .await
+            {
+                if let Ok(client) = crate::modules::security::client(&config).await {
+                    let _ = client
+                        .device_pairing2(tinysecurity_bus::DevicePairingRequest2 {
+                            call_id: uuid::Uuid::new_v4().simple().to_string(),
+                            operation: tinysecurity_bus::DevicePairingOperation2::EndSession {
+                                session_id: active.session_id,
+                                host_event_id: event_id,
+                            },
+                        })
+                        .await;
+                }
+            }
+        }
     }
 }
 
@@ -274,7 +266,7 @@ async fn handle_handshake(
     PENDING_HANDSHAKES
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .insert(channel_id.to_owned(), ());
+        .insert(channel_id.to_owned());
 }
 
 static PENDING_HANDSHAKES: once_cell::sync::Lazy<
@@ -308,6 +300,7 @@ async fn handle_encrypted_rpc_frame(
         let Some(session) = pending else { return };
         confirm_pairing(
             channel_id,
+            ctx.tenant().ok().and_then(|tenant| tenant.agent),
             config,
             &session,
             frame,
@@ -435,6 +428,7 @@ async fn handle_encrypted_rpc_frame(
 
 async fn confirm_pairing(
     channel_id: &str,
+    agent: Option<String>,
     config: &crate::config::Config,
     session: &super::types::PairingSession,
     frame: &[u8],
@@ -491,6 +485,7 @@ async fn confirm_pairing(
         &token_hash,
     ) {
         Ok(device) => {
+            super::owner::remember(channel_id, agent);
             BUS.publish(DomainEvent::DevicePaired {
                 channel_id: channel_id.to_owned(),
                 device_pubkey: device_public_key,

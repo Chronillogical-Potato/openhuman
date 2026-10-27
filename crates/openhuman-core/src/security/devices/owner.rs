@@ -109,7 +109,7 @@ pub(super) async fn owner_of(
     // the frame; no row yet (the first frame can race the row being persisted
     // right after the handshake ACK) keeps the session's agent.
     if let Some(session) = pending {
-        if !has_active_cipher(channel_id) {
+        if !has_active_session(channel_id) {
             return Ok(session.agent.clone());
         }
         let revoked = crate::storage::agents::within_agent(
@@ -171,7 +171,7 @@ pub(super) async fn owner_of(
         // session cipher: it was revoked or removed elsewhere (another process
         // sharing the backend). Dropping the frame, rather than handling it as
         // `local`, keeps the revoked device from gaining the operator's scope.
-        None if has_active_cipher(channel_id) => Err(OwnerLookupFailed {
+        None if has_active_session(channel_id) => Err(OwnerLookupFailed {
             agent: None,
             error: "device is revoked or no longer paired".to_string(),
         }),
