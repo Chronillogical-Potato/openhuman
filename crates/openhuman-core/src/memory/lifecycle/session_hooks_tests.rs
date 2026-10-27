@@ -145,7 +145,7 @@ async fn session_pre_and_post_turn_use_the_external_channel_origin_not_event_lab
     };
     config.memory.conversations.enabled = true;
     std::fs::create_dir_all(&config.workspace_dir).expect("workspace");
-    crate::agent::session_host::test_support::install_managed_model_fixture(&config);
+    crate::agent::session_host::test_support::install_managed_model_fixture(&config).await;
     let engine = Arc::new(tinymemory_api::conformance::ReferenceEngine::new());
     crate::memory::engine::install_test_engine(&config.workspace_dir, engine.clone());
 
@@ -154,6 +154,7 @@ async fn session_pre_and_post_turn_use_the_external_channel_origin_not_event_lab
         &config,
         "orchestrator",
     )
+    .await
     .expect("host");
     host.ensure_runtime_session().expect("runtime session");
     let mut prelude = host
