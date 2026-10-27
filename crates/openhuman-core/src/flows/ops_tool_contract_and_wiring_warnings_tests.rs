@@ -1,5 +1,5 @@
 use super::*;
-use crate::integrations::composio::catalog::{seed_live_catalog_cache, ToolContract};
+use crate::integrations::composio::catalog::{ToolContract, seed_live_catalog_cache};
 
 fn seeded_alias_contract() -> ToolContract {
     ToolContract {

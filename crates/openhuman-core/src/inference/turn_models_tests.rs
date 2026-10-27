@@ -6,7 +6,7 @@ use tinyagents_harness::host::{ModelResolveRequest, ModelResolver};
 use tinyinference_llm::message::ContentBlock;
 use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
 
-fn managed_fixture_config(tmp: &tempfile::TempDir) -> crate::config::Config {
+async fn managed_fixture_config(tmp: &tempfile::TempDir) -> crate::config::Config {
     let config = crate::config::Config {
         config_path: tmp.path().join("config.toml"),
         workspace_dir: tmp.path().join("workspace"),
@@ -20,6 +20,7 @@ fn managed_fixture_config(tmp: &tempfile::TempDir) -> crate::config::Config {
             Default::default(),
             true,
         )
+        .await
         .expect("store isolated fixture session");
     config
 }
@@ -105,7 +106,7 @@ async fn explicit_turn_context_uses_its_model_and_capabilities_over_ambient_cont
 
     let dispatch = DispatchCtx::new(Arc::clone(&context_a));
     let tmp = tempfile::tempdir().expect("isolated workspace");
-    let config = Arc::new(managed_fixture_config(&tmp));
+    let config = Arc::new(managed_fixture_config(&tmp).await);
     CoreContext::scope(context_b, async {
         let source = TurnModelSource::new_crate_native(&dispatch, "chat", config);
         let models = source
@@ -176,7 +177,7 @@ async fn explicit_turn_context_without_provider_does_not_borrow_ambient_provider
 
     let dispatch = DispatchCtx::new(context_a);
     let tmp = tempfile::tempdir().expect("isolated workspace");
-    let config = Arc::new(managed_fixture_config(&tmp));
+    let config = Arc::new(managed_fixture_config(&tmp).await);
     CoreContext::scope(context_b, async {
         let source = TurnModelSource::new_crate_native(&dispatch, "chat", config);
         let error = source
@@ -194,7 +195,7 @@ async fn role_pins_apply_when_the_primary_uses_config_routing() {
     use crate::agent::host_overrides::HostOverrides;
     use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
     let tmp = tempfile::tempdir().expect("isolated workspace");
-    let config = managed_fixture_config(&tmp);
+    let config = managed_fixture_config(&tmp).await;
     let extensions = crate::core::slots::Extensions::new();
     crate::inference::registry::register_chat_model_in(
         &extensions,
