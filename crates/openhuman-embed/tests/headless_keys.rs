@@ -22,6 +22,7 @@ fn embedded_secrets_default_to_memory_without_key_files() {
                 let key_bytes = "01".repeat(32);
                 std::fs::write(&legacy_key, &key_bytes).unwrap();
                 config.config_path = legacy_dir.join("config.toml");
+                let store_config = config.clone();
                 let runtime = RuntimeBuilder::lean()
                     .workspace(Workspace::Dir(workspace.clone()))
                     .config(config)
@@ -58,7 +59,7 @@ fn embedded_secrets_default_to_memory_without_key_files() {
                 let store = secret_storage::SecretStore::new_with_config(
                     &legacy_dir,
                     true,
-                    runtime.config(),
+                    &store_config,
                 );
                 let ciphertext = store
                     .encrypt_via_security("legacy-compatible")
