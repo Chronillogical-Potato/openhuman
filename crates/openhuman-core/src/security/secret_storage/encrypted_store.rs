@@ -8,6 +8,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
+use zeroize::Zeroizing;
 
 /// Manages encrypted storage of secrets (API keys, tokens, etc.)
 #[derive(Debug, Clone)]
@@ -19,6 +20,15 @@ pub struct SecretStore {
     enabled: bool,
     /// The exact host configuration used to admit the callback-bound module.
     config: Option<crate::config::Config>,
+}
+
+enum SecretCipherOutput {
+    Ciphertext(String),
+    Plaintext {
+        value: Zeroizing<String>,
+        migrated: bool,
+        replacement_ciphertext: Option<String>,
+    },
 }
 
 impl SecretStore {
@@ -57,8 +67,8 @@ impl SecretStore {
             )
             .await?
         {
-            crate::modules::security::SecretCipherOutput::Ciphertext(value) => Ok(value),
-            crate::modules::security::SecretCipherOutput::Plaintext { .. } => {
+            SecretCipherOutput::Ciphertext(value) => Ok(value),
+            SecretCipherOutput::Plaintext { .. } => {
                 anyhow::bail!("secret encryption was not completed")
             }
         }
@@ -77,10 +87,8 @@ impl SecretStore {
             )
             .await?
         {
-            crate::modules::security::SecretCipherOutput::Plaintext { value, .. } => {
-                Ok(value.to_string())
-            }
-            crate::modules::security::SecretCipherOutput::Ciphertext(_) => {
+            SecretCipherOutput::Plaintext { value, .. } => Ok(value.to_string()),
+            SecretCipherOutput::Ciphertext(_) => {
                 anyhow::bail!("secret decryption was not completed")
             }
         }
@@ -102,7 +110,7 @@ impl SecretStore {
             )
             .await?
         {
-            crate::modules::security::SecretCipherOutput::Plaintext {
+            SecretCipherOutput::Plaintext {
                 value,
                 migrated,
                 replacement_ciphertext,
@@ -110,7 +118,7 @@ impl SecretStore {
                 value.to_string(),
                 migrated.then_some(replacement_ciphertext).flatten(),
             )),
-            crate::modules::security::SecretCipherOutput::Ciphertext(_) => {
+            SecretCipherOutput::Ciphertext(_) => {
                 anyhow::bail!("secret migration was not completed")
             }
         }
@@ -136,10 +144,8 @@ impl SecretStore {
             .run_security_cipher(operation, value.as_bytes(), Some(key))
             .await?
         {
-            crate::modules::security::SecretCipherOutput::Plaintext { value, .. } => {
-                Ok(value.to_string())
-            }
-            crate::modules::security::SecretCipherOutput::Ciphertext(_) => {
+            SecretCipherOutput::Plaintext { value, .. } => Ok(value.to_string()),
+            SecretCipherOutput::Ciphertext(_) => {
                 anyhow::bail!("secret decryption was not completed")
             }
         }
@@ -150,7 +156,7 @@ impl SecretStore {
         operation: tinysecurity_bus::SecretCipherKind2,
         input: &[u8],
         existing_key: Option<&str>,
-    ) -> Result<crate::modules::security::SecretCipherOutput> {
+    ) -> Result<SecretCipherOutput> {
         let config = self
             .config
             .as_ref()
@@ -210,7 +216,7 @@ impl SecretStore {
                 );
                 handle
             };
-            crate::modules::security::run_secret_cipher(
+            let output = crate::modules::security::run_secret_cipher(
                 &client,
                 &scope,
                 &consumer,
@@ -220,7 +226,21 @@ impl SecretStore {
                 input,
             )
             .await
-            .map_err(anyhow::Error::new)
+            .map_err(anyhow::Error::new)?;
+            Ok(match output {
+                crate::modules::security::SecretCipherOutput::Ciphertext(value) => {
+                    SecretCipherOutput::Ciphertext(value)
+                }
+                crate::modules::security::SecretCipherOutput::Plaintext {
+                    value,
+                    migrated,
+                    replacement_ciphertext,
+                } => SecretCipherOutput::Plaintext {
+                    value,
+                    migrated,
+                    replacement_ciphertext,
+                },
+            })
         }
         #[cfg(not(feature = "security-module"))]
         {
