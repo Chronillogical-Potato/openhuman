@@ -15,3 +15,18 @@ fn tunnel_rpc_payload_rejects_missing_or_non_string_method() {
         assert!(parse_tunnel_rpc_payload(payload).is_err());
     }
 }
+
+#[test]
+fn tunnel_rpc_response_preserves_the_existing_envelope_shape() {
+    let response = response_envelope("request-1", "response", serde_json::json!({"ok": true}));
+
+    assert_eq!(
+        serde_json::to_value(response).unwrap(),
+        serde_json::json!({
+            "requestId": "request-1",
+            "kind": "response",
+            "seq": 0,
+            "payload": {"ok": true}
+        })
+    );
+}
