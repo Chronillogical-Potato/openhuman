@@ -12,6 +12,7 @@ struct SocketAttestation {
     token: String,
     nonce: String,
     expires_at_ms: u64,
+    preserve_first_online: bool,
 }
 
 static SOCKET_ATTESTATIONS: once_cell::sync::Lazy<
@@ -79,15 +80,31 @@ pub fn publish_peer_status(channel_id: String, online: bool) {
         let mut attestations = SOCKET_ATTESTATIONS
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let attestation =
-            attestations
-                .entry(channel_id.clone())
-                .or_insert_with(|| SocketAttestation {
+        match attestations.get_mut(&channel_id) {
+            Some(attestation) if attestation.preserve_first_online => {
+                attestation.preserve_first_online = false;
+                attestation.expires_at_ms = event_expiry_ms();
+            }
+            Some(attestation) => {
+                *attestation = SocketAttestation {
                     token: uuid::Uuid::new_v4().simple().to_string(),
                     nonce: uuid::Uuid::new_v4().simple().to_string(),
                     expires_at_ms: event_expiry_ms(),
-                });
-        attestation.expires_at_ms = event_expiry_ms();
+                    preserve_first_online: false,
+                };
+            }
+            None => {
+                attestations.insert(
+                    channel_id.clone(),
+                    SocketAttestation {
+                        token: uuid::Uuid::new_v4().simple().to_string(),
+                        nonce: uuid::Uuid::new_v4().simple().to_string(),
+                        expires_at_ms: event_expiry_ms(),
+                        preserve_first_online: false,
+                    },
+                );
+            }
+        }
     } else {
         // The backend status has no peer-connection id. Retire the host token
         // so a later frame cannot inherit an ambiguous old connection binding.
@@ -129,6 +146,7 @@ pub(super) fn seed_pairing_socket_attestation(
                 token: pairing_token.to_owned(),
                 nonce: connection_nonce.to_owned(),
                 expires_at_ms: event_expiry_ms(),
+                preserve_first_online: true,
             },
         );
     Ok(())
@@ -146,6 +164,7 @@ pub fn publish_tunnel_frame(channel_id: String, payload_b64: String) {
                 token: uuid::Uuid::new_v4().simple().to_string(),
                 nonce: uuid::Uuid::new_v4().simple().to_string(),
                 expires_at_ms: event_expiry_ms(),
+                preserve_first_online: false,
             });
         entry.expires_at_ms = event_expiry_ms();
         entry.clone()

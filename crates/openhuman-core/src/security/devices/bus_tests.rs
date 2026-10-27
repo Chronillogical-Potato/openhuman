@@ -45,6 +45,29 @@ fn pairing_session_expiry_is_checked_before_handshake_dispatch() {
 }
 
 #[test]
+fn first_socket_frame_must_match_begin_channel_token_and_nonce() {
+    let session = session("2099-01-01T00:00:00Z");
+    assert!(pending_session_matches_socket(
+        &session,
+        "bus-test-channel",
+        "pairing-token",
+        "bus-test-nonce"
+    ));
+    assert!(!pending_session_matches_socket(
+        &session,
+        "bus-test-channel",
+        "pairing-token",
+        "attacker-nonce"
+    ));
+    assert!(!pending_session_matches_socket(
+        &session,
+        "bus-test-channel",
+        "other-token",
+        "bus-test-nonce"
+    ));
+}
+
+#[test]
 fn process_restart_unlock_then_peer_online_renews_only_the_same_device() {
     let device = paired_device();
     // Process restart cleared both volatile capabilities. A live persisted

@@ -215,10 +215,12 @@ async fn handle_handshake(
             session
         }
     };
-    if session.channel_id != channel_id
-        || session.pairing_token != connection_token
-        || session.connection_nonce != connection_nonce
-        || !pairing_session_is_live(&session)
+    if !pending_session_matches_socket(
+        &session,
+        channel_id,
+        connection_token,
+        connection_nonce,
+    ) || !pairing_session_is_live(&session)
     {
         return;
     }
@@ -483,6 +485,17 @@ fn pairing_session_is_live(session: &super::types::PairingSession) -> bool {
         .is_some_and(|expiry| expiry.timestamp_millis() > chrono::Utc::now().timestamp_millis())
 }
 
+fn pending_session_matches_socket(
+    session: &super::types::PairingSession,
+    channel_id: &str,
+    connection_token: &str,
+    connection_nonce: &str,
+) -> bool {
+    session.channel_id == channel_id
+        && session.pairing_token == connection_token
+        && session.connection_nonce == connection_nonce
+}
+
 async fn handle_encrypted_rpc_frame(
     ctx: &DispatchCtx,
     channel_id: &str,
@@ -657,10 +670,12 @@ async fn confirm_pairing(
     connection_nonce: &str,
     expires_at_ms: u64,
 ) {
-    if session.channel_id != channel_id
-        || session.pairing_token != connection_token
-        || session.connection_nonce != connection_nonce
-        || !pairing_session_is_live(session)
+    if !pending_session_matches_socket(
+        session,
+        channel_id,
+        connection_token,
+        connection_nonce,
+    ) || !pairing_session_is_live(session)
     {
         return;
     }
