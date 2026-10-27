@@ -436,7 +436,7 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
     let generations = Arc::new(AtomicUsize::new(0));
     let build_constructions = Arc::clone(&constructions);
     let model_generations = Arc::clone(&generations);
-    let inspection_factory: InspectionChatModelFactory = Arc::new(move |_| {
+    let inspection_factory: InspectionChatModelFactory = Arc::new(move |_| Box::pin(async move {
         build_constructions.fetch_add(1, Ordering::SeqCst);
         Ok(crate::inference::registry::InspectionChatModelBuild {
             model: Arc::new(ManagedModel {
@@ -446,7 +446,7 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
             endpoint: "https://api.openhuman.invalid/openai/v1".to_owned(),
             credential: "doctor-test-session-token".to_owned(),
         })
-    });
+    }));
     crate::inference::registry::register_inspection_chat_model_in(
         &extensions,
         PROVIDER_OPENHUMAN,
@@ -590,10 +590,10 @@ async fn embedding_only_configuration_does_not_construct_a_chat_model_for_embedd
 
     let roles = Arc::new(std::sync::Mutex::new(Vec::new()));
     let seen_roles = Arc::clone(&roles);
-    let factory: InspectionChatModelFactory = Arc::new(move |request| {
+    let factory: InspectionChatModelFactory = Arc::new(move |request| Box::pin(async move {
         seen_roles.lock().unwrap().push(request.role.to_owned());
         anyhow::bail!("test construction marker")
-    });
+    }));
     register_inspection_chat_model(
         crate::inference::provider::factory::PROVIDER_OPENHUMAN,
         factory,
