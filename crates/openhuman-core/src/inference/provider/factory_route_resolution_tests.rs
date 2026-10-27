@@ -11,7 +11,7 @@ async fn nvidia_nim_with_explicit_model_builds_correctly() {
         "reasoning",
         "nvidia-nim:meta/llama-3.1-8b-instruct",
         &config,
-    )
+    ).await
     .expect("nvidia-nim with explicit model must build");
     assert_eq!(
         model, "meta/llama-3.1-8b-instruct",
@@ -53,7 +53,7 @@ async fn nvidia_nim_falls_back_to_default_model_when_no_model_in_string() {
         "p_nim",
         Some("meta/llama-3.1-70b-instruct"),
     )]);
-    let (_, model) = create_test_chat_model_from_string("reasoning", "nvidia-nim:", &config)
+    let (_, model) = create_test_chat_model_from_string("reasoning", "nvidia-nim:", &config).await
         .expect("nvidia-nim: with default_model configured must build");
     assert_eq!(
         model, "meta/llama-3.1-70b-instruct",
@@ -68,7 +68,7 @@ async fn config_api_key_fallback_applies_to_legacy_inference_slug() {
     let tmp = TempDir::new().expect("tempdir");
     let config = config_for_api_key_fallback(&tmp);
     assert_eq!(
-        lookup_key_for_slug("custom", &config).expect("lookup must succeed"),
+        lookup_key_for_slug("custom", &config).await.expect("lookup must succeed"),
         "global-key",
         "legacy direct-inference slug must inherit config.api_key fallback",
     );
@@ -83,7 +83,7 @@ async fn config_api_key_fallback_does_not_leak_to_other_slugs() {
     let tmp = TempDir::new().expect("tempdir");
     let config = config_for_api_key_fallback(&tmp);
     assert_eq!(
-        lookup_key_for_slug("anthropic", &config).expect("lookup must succeed"),
+        lookup_key_for_slug("anthropic", &config).await.expect("lookup must succeed"),
         "",
         "non-matching slug must NOT inherit config.api_key — would leak credentials",
     );
@@ -97,7 +97,7 @@ async fn config_api_key_fallback_inert_without_inference_url() {
     let mut config = config_for_api_key_fallback(&tmp);
     config.inference_url = None;
     assert_eq!(
-        lookup_key_for_slug("custom", &config).expect("lookup must succeed"),
+        lookup_key_for_slug("custom", &config).await.expect("lookup must succeed"),
         "",
         "without inference_url there is no legacy slug — fallback must stay inert",
     );
@@ -109,7 +109,7 @@ async fn config_api_key_fallback_inert_without_inference_url() {
 async fn mlx_provider_string_resolves() {
     let _guard = crate::inference::inference_test_guard();
     let config = Config::default();
-    let result = create_test_chat_model_from_string("chat", "mlx:llama-3.1-8b", &config);
+    let result = create_test_chat_model_from_string("chat", "mlx:llama-3.1-8b", &config).await;
     assert!(result.is_ok(), "mlx provider must resolve");
     let (_, model) = result.unwrap();
     assert_eq!(model, "llama-3.1-8b");
@@ -119,7 +119,7 @@ async fn mlx_provider_string_resolves() {
 async fn local_openai_provider_string_resolves() {
     let _guard = crate::inference::inference_test_guard();
     let config = Config::default();
-    let result = create_test_chat_model_from_string("chat", "local-openai:phi3", &config);
+    let result = create_test_chat_model_from_string("chat", "local-openai:phi3", &config).await;
     assert!(result.is_ok(), "local-openai provider must resolve");
     let (_, model) = result.unwrap();
     assert_eq!(model, "phi3");
@@ -129,7 +129,7 @@ async fn local_openai_provider_string_resolves() {
 async fn mlx_provider_empty_model_errors() {
     let _guard = crate::inference::inference_test_guard();
     let config = Config::default();
-    let result = create_test_chat_model_from_string("chat", "mlx:", &config);
+    let result = create_test_chat_model_from_string("chat", "mlx:", &config).await;
     let err = result.err().expect("mlx: with empty model must error");
     assert!(err.to_string().contains("empty model"));
 }
@@ -138,7 +138,7 @@ async fn mlx_provider_empty_model_errors() {
 async fn local_openai_provider_empty_model_errors() {
     let _guard = crate::inference::inference_test_guard();
     let config = Config::default();
-    let result = create_test_chat_model_from_string("chat", "local-openai:", &config);
+    let result = create_test_chat_model_from_string("chat", "local-openai:", &config).await;
     let err = result
         .err()
         .expect("local-openai: with empty model must error");
@@ -150,7 +150,7 @@ async fn ollama_provider_passes_num_ctx() {
     let _guard = crate::inference::inference_test_guard();
     let mut config = Config::default();
     config.local_ai.num_ctx = Some(32768);
-    let result = create_test_chat_model_from_string("chat", "ollama:qwen3:14b", &config);
+    let result = create_test_chat_model_from_string("chat", "ollama:qwen3:14b", &config).await;
     assert!(result.is_ok());
     // The provider is constructed — num_ctx is set on the provider instance.
     // Full integration test verifying the serialized body is in the JSON-RPC
@@ -323,7 +323,7 @@ async fn omlx_provider_builds_with_bearer_key() {
     config.local_ai.api_key = Some("sk-omlx-test".to_string());
     config.local_ai.base_url = Some("http://127.0.0.1:8000/v1".to_string());
     let (_provider, model) =
-        create_test_omlx_model("my-model", None, &config).expect("omlx provider builds");
+        create_test_omlx_model("my-model", None, &config).await.expect("omlx provider builds");
     assert_eq!(model, "my-model");
 }
 
@@ -334,7 +334,7 @@ async fn omlx_dispatch_empty_model_errors() {
     // and create_test_local_chat_model_from_string for the "omlx:" prefix.
     let config = crate::config::Config::default();
 
-    let err = create_test_chat_model_from_string("chat", "omlx:", &config)
+    let err = create_test_chat_model_from_string("chat", "omlx:", &config).await
         .err()
         .expect("omlx: with empty model must fail");
     let msg = err.to_string();
@@ -343,7 +343,7 @@ async fn omlx_dispatch_empty_model_errors() {
         "expected empty-model diagnostic, got: {msg}"
     );
 
-    let err_local = create_test_local_chat_model_from_string("omlx:", &config)
+    let err_local = create_test_local_chat_model_from_string("omlx:", &config).await
         .err()
         .expect("omlx: with empty model must fail via local dispatch");
     let msg_local = err_local.to_string();
@@ -362,7 +362,7 @@ async fn omlx_provider_builds_without_key_uses_no_auth() {
     config.local_ai.api_key = None;
     config.local_ai.base_url = Some("http://127.0.0.1:8000/v1".to_string());
     let (_provider, model) =
-        create_test_omlx_model("m", None, &config).expect("omlx provider builds without key");
+        create_test_omlx_model("m", None, &config).await.expect("omlx provider builds without key");
     assert_eq!(model, "m");
 }
 
@@ -375,12 +375,12 @@ async fn omlx_dispatch_success_builds_provider() {
     config.local_ai.api_key = Some("sk-omlx-test".to_string());
     config.local_ai.base_url = Some("http://127.0.0.1:8000/v1".to_string());
 
-    let (_p, model) = create_test_chat_model_from_string("chat", "omlx:my-model", &config)
+    let (_p, model) = create_test_chat_model_from_string("chat", "omlx:my-model", &config).await
         .expect("omlx:<model> builds via public factory");
     assert_eq!(model, "my-model");
 
     let (_p_local, model_local) =
-        create_test_local_chat_model_from_string("omlx:my-model", &config)
+        create_test_local_chat_model_from_string("omlx:my-model", &config).await
             .expect("omlx:<model> builds via local dispatch");
     assert_eq!(model_local, "my-model");
 }
@@ -393,7 +393,7 @@ async fn byo_chat_tier_with_key_bypasses() {
     config.chat_provider = Some("openai:gpt-4o".to_string());
     store_byo_key(&config, "openai", "sk-byo-test");
 
-    assert!(role_bypasses_managed_credits("chat", &config));
+    assert!(role_bypasses_managed_credits("chat", &config).await);
 }
 
 #[tokio::test]
@@ -404,7 +404,7 @@ async fn byo_reasoning_tier_with_key_bypasses() {
     config.reasoning_provider = Some("openai:gpt-4o".to_string());
     store_byo_key(&config, "openai", "sk-byo-test");
 
-    assert!(role_bypasses_managed_credits("reasoning", &config));
+    assert!(role_bypasses_managed_credits("reasoning", &config).await);
 }
 
 #[tokio::test]
@@ -417,8 +417,8 @@ async fn per_tier_diverges_chat_byo_reasoning_managed() {
     config.reasoning_provider = Some("openhuman".to_string());
     store_byo_key(&config, "openai", "sk-byo-test");
 
-    assert!(role_bypasses_managed_credits("chat", &config));
-    assert!(!role_bypasses_managed_credits("reasoning", &config));
+    assert!(role_bypasses_managed_credits("chat", &config).await);
+    assert!(!role_bypasses_managed_credits("reasoning", &config).await);
 }
 
 #[tokio::test]
@@ -426,7 +426,7 @@ async fn local_tier_bypasses_without_any_key() {
     // A tier on a local on-device runtime → bypass, no cloud key needed.
     let mut config = Config::default();
     config.chat_provider = Some("ollama:qwen3:8b".to_string());
-    assert!(role_bypasses_managed_credits("chat", &config));
+    assert!(role_bypasses_managed_credits("chat", &config).await);
 }
 
 #[tokio::test]
@@ -441,8 +441,8 @@ async fn managed_chat_with_byo_agentic_stays_gated() {
     config.agentic_provider = Some("openai:gpt-4o".to_string());
     store_byo_key(&config, "openai", "sk-byo-test");
 
-    assert!(!role_bypasses_managed_credits("chat", &config));
-    assert!(!role_bypasses_managed_credits("reasoning", &config));
+    assert!(!role_bypasses_managed_credits("chat", &config).await);
+    assert!(!role_bypasses_managed_credits("reasoning", &config).await);
 }
 
 #[tokio::test]
@@ -455,8 +455,8 @@ async fn managed_chat_with_byo_vision_stays_gated() {
     config.vision_provider = Some("openai:gpt-4o".to_string());
     store_byo_key(&config, "openai", "sk-byo-test");
 
-    assert!(!role_bypasses_managed_credits("chat", &config));
-    assert!(!role_bypasses_managed_credits("reasoning", &config));
+    assert!(!role_bypasses_managed_credits("chat", &config).await);
+    assert!(!role_bypasses_managed_credits("reasoning", &config).await);
 }
 
 #[tokio::test]
@@ -467,16 +467,16 @@ async fn no_byo_provider_stays_gated() {
     let config = config_with_providers_in_tempdir(&tmp, vec![openai_entry("p_oai", "openai")]);
 
     assert_eq!(provider_for_role("chat", &config), "openhuman");
-    assert!(!role_bypasses_managed_credits("chat", &config));
-    assert!(!role_bypasses_managed_credits("reasoning", &config));
+    assert!(!role_bypasses_managed_credits("chat", &config).await);
+    assert!(!role_bypasses_managed_credits("reasoning", &config).await);
 }
 
 #[tokio::test]
 async fn default_config_with_no_key_stays_gated() {
     // No BYO provider at all → both chat-mode tiers gated.
     let config = Config::default();
-    assert!(!role_bypasses_managed_credits("chat", &config));
-    assert!(!role_bypasses_managed_credits("reasoning", &config));
+    assert!(!role_bypasses_managed_credits("chat", &config).await);
+    assert!(!role_bypasses_managed_credits("reasoning", &config).await);
 }
 
 #[tokio::test]
@@ -492,11 +492,11 @@ async fn byo_route_without_usable_key_stays_gated() {
     // The explicit route is still honored verbatim by provider_for_role…
     assert_eq!(provider_for_role("chat", &config), "openai:gpt-4o");
     // …but with no usable key the gate stays on.
-    assert!(!role_bypasses_managed_credits("chat", &config));
+    assert!(!role_bypasses_managed_credits("chat", &config).await);
 
     // Once a key is stored, the route becomes a genuine bypass.
     store_byo_key(&config, "openai", "sk-byo-test");
-    assert!(role_bypasses_managed_credits("chat", &config));
+    assert!(role_bypasses_managed_credits("chat", &config).await);
 }
 
 // ── Privacy Mode: local-only inference enforcement (#4435) ───────────────────
@@ -504,28 +504,28 @@ async fn byo_route_without_usable_key_stays_gated() {
 #[tokio::test]
 async fn local_only_blocks_external_cloud_slug() {
     use crate::config::PrivacyMode;
-    let v = local_only_violation(PrivacyMode::LocalOnly, "openai:gpt-4o");
+    let v = local_only_violation(PrivacyMode::LocalOnly, "openai:gpt-4o").await;
     assert_eq!(v.as_deref(), Some("openai"));
 }
 
 #[tokio::test]
 async fn local_only_blocks_managed_backend() {
     use crate::config::PrivacyMode;
-    let v = local_only_violation(PrivacyMode::LocalOnly, PROVIDER_OPENHUMAN);
+    let v = local_only_violation(PrivacyMode::LocalOnly, PROVIDER_OPENHUMAN).await;
     assert_eq!(v.as_deref(), Some("OpenHuman (managed cloud)"));
 }
 
 #[tokio::test]
 async fn local_only_blocks_claude_code_cli() {
     use crate::config::PrivacyMode;
-    let v = local_only_violation(PrivacyMode::LocalOnly, "claude-code:sonnet");
+    let v = local_only_violation(PrivacyMode::LocalOnly, "claude-code:sonnet").await;
     assert_eq!(v.as_deref(), Some("Claude Code CLI"));
 }
 
 #[tokio::test]
 async fn local_only_blocks_claude_agent_sdk() {
     use crate::config::PrivacyMode;
-    let violation = local_only_violation(PrivacyMode::LocalOnly, "claude_agent_sdk:sonnet");
+    let violation = local_only_violation(PrivacyMode::LocalOnly, "claude_agent_sdk:sonnet").await;
     assert_eq!(violation.as_deref(), Some("Claude Agent SDK"));
 }
 
@@ -539,7 +539,7 @@ async fn local_only_permits_local_runtimes() {
         "local-openai:foo",
     ] {
         assert_eq!(
-            local_only_violation(PrivacyMode::LocalOnly, local),
+            local_only_violation(PrivacyMode::LocalOnly, local).await,
             None,
             "local provider '{local}' must be permitted in LocalOnly mode"
         );
@@ -551,8 +551,8 @@ async fn local_only_defers_reresolving_sentinels() {
     use crate::config::PrivacyMode;
     // Empty / "cloud" re-resolve to a concrete string and are re-checked on the
     // recursive call — not blocked here.
-    assert_eq!(local_only_violation(PrivacyMode::LocalOnly, ""), None);
-    assert_eq!(local_only_violation(PrivacyMode::LocalOnly, "cloud"), None);
+    assert_eq!(local_only_violation(PrivacyMode::LocalOnly, "").await, None);
+    assert_eq!(local_only_violation(PrivacyMode::LocalOnly, "cloud").await, None);
 }
 
 #[tokio::test]
@@ -560,7 +560,7 @@ async fn local_only_does_not_treat_unresolved_route_sentinels_as_local() {
     use crate::config::PrivacyMode;
     for route in ["cloud:gpt-4o", ":gpt-4o"] {
         assert!(
-            local_only_violation(PrivacyMode::LocalOnly, route).is_some(),
+            local_only_violation(PrivacyMode::LocalOnly, route).await.is_some(),
             "an unresolved route must remain blocked under LocalOnly: {route}"
         );
     }
@@ -570,11 +570,11 @@ async fn local_only_does_not_treat_unresolved_route_sentinels_as_local() {
 async fn standard_mode_permits_external() {
     use crate::config::PrivacyMode;
     assert_eq!(
-        local_only_violation(PrivacyMode::Standard, "openai:gpt-4o"),
+        local_only_violation(PrivacyMode::Standard, "openai:gpt-4o").await,
         None
     );
     assert_eq!(
-        local_only_violation(PrivacyMode::Sensitive, "openai:gpt-4o"),
+        local_only_violation(PrivacyMode::Sensitive, "openai:gpt-4o").await,
         None,
         "Sensitive mode has no egress enforcement in S1"
     );

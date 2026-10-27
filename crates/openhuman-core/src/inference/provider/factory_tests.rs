@@ -203,7 +203,7 @@ async fn inspection_requires_credentials_for_explicit_authenticated_cloud_routes
             "chat",
             &config,
             0.0,
-        );
+        ).await;
         assert!(
             runtime.is_ok(),
             "runtime construction preserves explicit routes before a key is saved: {:?}",
@@ -326,7 +326,7 @@ fn store_byo_key(config: &Config, slug: &str, token: &str) {
         token,
         Default::default(),
         true,
-    )
+    ).await
     .expect("store provider token");
 }
 

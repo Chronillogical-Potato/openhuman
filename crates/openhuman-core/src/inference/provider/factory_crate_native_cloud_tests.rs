@@ -68,7 +68,7 @@ async fn create_chat_model_routes_plain_bearer_cloud_slug_to_crate_native() {
         "chat",
         &config,
         0.7,
-    )
+    ).await
     .expect("bearer cloud create_chat_model must build");
     assert_eq!(model_id, "deepseek-reasoner");
     let profile = model
@@ -107,8 +107,8 @@ async fn explicit_cloud_provider_string_routes_to_crate_native_model() {
             "deepseek:deepseek-reasoner",
             &config,
             0.7,
-        )
-    })
+        ).await
+    }).await
     .expect("explicit cloud model must build");
     assert_eq!(model_id, "deepseek-reasoner");
     assert_eq!(
@@ -134,7 +134,7 @@ async fn create_chat_model_routes_anthropic_auth_cloud_slug_to_crate_native() {
         "chat",
         &config,
         0.7,
-    )
+    ).await
     .expect("anthropic cloud create_chat_model must build");
     assert_eq!(model_id, "claude-sonnet-4-6");
     assert_eq!(
@@ -172,7 +172,7 @@ async fn anthropic_auth_cloud_slug_in_text_mode_keeps_the_compat_client() {
         &config,
         false,
         &EgressLedger::none(),
-    )
+    ).await
     .expect("anthropic slug resolves")
     .expect("build");
     assert_eq!(model_id, "claude-sonnet-4-6");
@@ -195,7 +195,7 @@ async fn configured_openhuman_jwt_slug_routes_to_managed_chat_model() {
     config.chat_provider = Some("openhuman:reasoning-v1".to_string());
 
     let (model, model_id) =
-        try_create_cloud_slug_chat_model("chat", &config, &EgressLedger::none())
+        try_create_cloud_slug_chat_model("chat", &config, &EgressLedger::none()).await
             .expect("configured OpenhumanJwt slug should be recognized")
             .expect("managed model should build");
 
@@ -203,7 +203,7 @@ async fn configured_openhuman_jwt_slug_routes_to_managed_chat_model() {
 
     // A concrete catalog id is forwarded verbatim.
     config.chat_provider = Some("openhuman:openrouter/deepseek/deepseek-v4-pro".to_string());
-    let (_, pinned_id) = try_create_cloud_slug_chat_model("chat", &config, &EgressLedger::none())
+    let (_, pinned_id) = try_create_cloud_slug_chat_model("chat", &config, &EgressLedger::none()).await
         .expect("configured OpenhumanJwt slug should be recognized")
         .expect("managed model should build");
     assert_eq!(pinned_id, "openrouter/deepseek/deepseek-v4-pro");
@@ -236,7 +236,7 @@ async fn openhuman_jwt_slug_discloses_pinned_model() {
         &provider,
         &config,
         &EgressLedger::none(),
-    )
+    ).await
     .expect("configured OpenhumanJwt slug should be recognized")
     .expect("managed model should build");
 
@@ -366,7 +366,7 @@ async fn openhuman_jwt_slug_preserves_forced_text_mode() {
         &config,
         false,
         &EgressLedger::none(),
-    )
+    ).await
     .expect("configured OpenhumanJwt slug should be recognized")
     .expect("managed model should build");
 
@@ -390,7 +390,7 @@ async fn openhuman_jwt_slug_without_model_preserves_managed_role_tier() {
         "openhuman:",
         &config,
         &EgressLedger::none(),
-    )
+    ).await
     .expect("configured OpenhumanJwt slug should be recognized")
     .expect("managed model should build");
 
@@ -405,9 +405,9 @@ async fn try_create_cloud_slug_flips_openai_but_declines_non_cloud() {
     let (_tmp, mut openai) = isolated_config();
     openai.cloud_providers.push(openai_entry("p_oai", "openai"));
     openai.chat_provider = Some("openai:gpt-4o-mini".to_string());
-    store_fixture_cloud_key(&openai, "openai");
+    store_fixture_cloud_key(&openai, "openai").await;
     let (model, model_id) =
-        try_create_cloud_slug_chat_model("chat", &openai, &EgressLedger::none())
+        try_create_cloud_slug_chat_model("chat", &openai, &EgressLedger::none()).await
             .expect("openai should flip crate-native")
             .expect("build");
     assert_eq!(model_id, "gpt-4o-mini");
@@ -419,15 +419,15 @@ async fn try_create_cloud_slug_flips_openai_but_declines_non_cloud() {
     // Managed (default), local runtimes, and unconfigured slugs are not cloud
     // slugs — they decline and fall through to their own paths.
     assert!(
-        try_create_cloud_slug_chat_model("chat", &Config::default(), &EgressLedger::none())
+        try_create_cloud_slug_chat_model("chat", &Config::default(), &EgressLedger::none()).await
             .is_none()
     );
     let mut local = Config::default();
     local.chat_provider = Some("ollama:qwen2.5".to_string());
-    assert!(try_create_cloud_slug_chat_model("chat", &local, &EgressLedger::none()).is_none());
+    assert!(try_create_cloud_slug_chat_model("chat", &local, &EgressLedger::none()).await.is_none());
     let mut unconfigured = Config::default();
     unconfigured.chat_provider = Some("deepseek:deepseek-chat".to_string());
     assert!(
-        try_create_cloud_slug_chat_model("chat", &unconfigured, &EgressLedger::none()).is_none()
+        try_create_cloud_slug_chat_model("chat", &unconfigured, &EgressLedger::none()).await.is_none()
     );
 }

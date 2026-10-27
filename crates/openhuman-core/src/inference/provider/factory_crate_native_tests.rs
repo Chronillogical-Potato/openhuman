@@ -64,7 +64,7 @@ async fn custom_ca_bundle_builds_a_provider_scoped_chat_client() {
     let _guard = crate::inference::inference_test_guard();
     let (_tmp, mut config) = isolated_config();
     config.cloud_providers.push(openai_entry("p_team", "team"));
-    store_fixture_cloud_key(&config, "team");
+    store_fixture_cloud_key(&config, "team").await;
     config.cloud_provider_ca_certs.insert(
         "team".into(),
         include_str!("../../util/tls/test-ca.pem").into(),
@@ -75,7 +75,7 @@ async fn custom_ca_bundle_builds_a_provider_scoped_chat_client() {
         &config,
         true,
         &EgressLedger::none(),
-    )
+    ).await
     .expect("configured provider")
     .expect("custom CA client should build");
     assert_eq!(model_id, "private-model");
@@ -105,7 +105,7 @@ async fn enforce_local_only_inference_errors_on_external_when_local_only() {
     );
     crate::security::live_policy::install(policy, ws.clone(), ws.clone());
 
-    let err = enforce_local_only_inference("chat", "openai:gpt-4o")
+    let err = enforce_local_only_inference("chat", "openai:gpt-4o").await
         .expect_err("external provider must be refused in LocalOnly mode");
     let msg = err.to_string();
     assert!(
@@ -145,7 +145,7 @@ async fn enforce_local_only_inference_errors_on_external_when_local_only() {
     // hit the managed resolver's privacy gate before any backend client exists.
     for route in ["openhuman", "openrouter/author/picked-model:free"] {
         let result = if route == "openhuman" {
-            create_chat_model_from_string("chat", route, &Config::default(), 0.0)
+            create_chat_model_from_string("chat", route, &Config::default(), 0.0).await
         } else {
             managed_backend::make_openhuman_backend_model_for_thread(
                 "chat",
@@ -165,7 +165,7 @@ async fn enforce_local_only_inference_errors_on_external_when_local_only() {
     }
 
     // Local provider passes.
-    enforce_local_only_inference("chat", "ollama:llama3")
+    enforce_local_only_inference("chat", "ollama:llama3").await
         .expect("local provider must be permitted in LocalOnly mode");
 
     // Restore Standard so we don't leak LocalOnly into other serial tests.
@@ -250,7 +250,7 @@ async fn one_shot_chat_models_preserve_factory_temperature_as_request_default() 
         .await
         .expect("default-temperature invoke");
 
-    let explicit_model = create_chat_model_from_string("chat", "openhuman", &config, 0.7)
+    let explicit_model = create_chat_model_from_string("chat", "openhuman", &config, 0.7).await
         .expect("explicit provider model");
     explicit_model
         .invoke(
@@ -285,7 +285,7 @@ async fn one_shot_cloud_sentinel_resolves_the_configured_byok_provider() {
     crate::core::runtime::CoreContext::scope(library, async {
         for provider in ["cloud", ""] {
             let (_, model) =
-                create_chat_model_from_string_with_model_id("chat", provider, &config, 0.2)
+                create_chat_model_from_string_with_model_id("chat", provider, &config, 0.2).await
                     .expect("sentinel resolves to the configured BYOK route");
             assert_eq!(model, "gpt-4o-mini");
         }
@@ -319,9 +319,9 @@ async fn create_chat_model_routes_managed_backend_to_crate_native() {
     let (tmp, mut config) = isolated_config();
     config.workspace_dir = tmp.path().join("workspace");
     config.config_path = tmp.path().join("config.toml");
-    store_fixture_session(&config);
+    store_fixture_session(&config).await;
     let (_model, model_id) =
-        create_chat_model_with_model_id_in(&fixture_library_dispatch(), "chat", &config, 0.7)
+        create_chat_model_with_model_id_in(&fixture_library_dispatch(), "chat", &config, 0.7).await
             .expect("managed create_chat_model must build");
     assert_eq!(model_id, "fixture/managed-default");
     crate::inference::registry::unregister_chat_model(
@@ -339,7 +339,7 @@ async fn create_chat_model_routes_local_runtime_to_crate_native() {
         "chat",
         &config,
         0.7,
-    )
+    ).await
     .expect("local create_chat_model must build");
     assert_eq!(model_id, "qwen2.5");
     // Motion B (#4727): a local runtime now builds a crate-native `OpenAiModel`
@@ -360,7 +360,7 @@ async fn explicit_local_provider_string_routes_to_crate_native_model() {
     let _guard = crate::inference::inference_test_guard();
     let config = Config::default();
     let (model, model_id) =
-        create_chat_model_from_string_with_model_id("chat", "ollama:qwen2.5", &config, 0.7)
+        create_chat_model_from_string_with_model_id("chat", "ollama:qwen2.5", &config, 0.7).await
             .expect("explicit local model must build");
     assert_eq!(model_id, "qwen2.5");
     assert_eq!(
@@ -403,9 +403,9 @@ async fn create_chat_model_routes_plain_bearer_cloud_slug_to_crate_native() {
     let (_tmp, mut config) = isolated_config();
     config.cloud_providers.push(deepseek_entry("p_ds"));
     config.chat_provider = Some("deepseek:deepseek-reasoner".to_string());
-    store_fixture_cloud_key(&config, "deepseek");
+    store_fixture_cloud_key(&config, "deepseek").await;
     let (model, model_id) =
-        create_chat_model_with_model_id_in(&fixture_library_dispatch(), "chat", &config, 0.7)
+        create_chat_model_with_model_id_in(&fixture_library_dispatch(), "chat", &config, 0.7).await
             .expect("bearer cloud create_chat_model must build");
     assert_eq!(model_id, "deepseek-reasoner");
     let profile = model
@@ -422,7 +422,7 @@ async fn explicit_cloud_provider_string_routes_to_crate_native_model() {
     let _guard = crate::inference::inference_test_guard();
     let (_tmp, mut config) = isolated_config();
     config.cloud_providers.push(deepseek_entry("p_ds"));
-    store_fixture_cloud_key(&config, "deepseek");
+    store_fixture_cloud_key(&config, "deepseek").await;
     let model_and_id = crate::core::runtime::CoreContext::sync_scope(
         fixture_library_dispatch()
             .resolved()
@@ -433,7 +433,7 @@ async fn explicit_cloud_provider_string_routes_to_crate_native_model() {
                 "deepseek:deepseek-reasoner",
                 &config,
                 0.7,
-            )
+            ).await
         },
     );
     let (model, model_id) = model_and_id.expect("explicit cloud model must build");
@@ -456,9 +456,9 @@ async fn create_chat_model_routes_anthropic_auth_cloud_slug_to_crate_native() {
         .cloud_providers
         .push(anthropic_entry("p_anth", "anthropic"));
     config.chat_provider = Some("anthropic:claude-sonnet-4-6".to_string());
-    store_fixture_cloud_key(&config, "anthropic");
+    store_fixture_cloud_key(&config, "anthropic").await;
     let (model, model_id) =
-        create_chat_model_with_model_id_in(&fixture_library_dispatch(), "chat", &config, 0.7)
+        create_chat_model_with_model_id_in(&fixture_library_dispatch(), "chat", &config, 0.7).await
             .expect("anthropic cloud create_chat_model must build");
     assert_eq!(model_id, "claude-sonnet-4-6");
     assert_eq!(
@@ -490,14 +490,14 @@ async fn anthropic_auth_cloud_slug_in_text_mode_keeps_the_compat_client() {
     config
         .cloud_providers
         .push(anthropic_entry("p_anth", "anthropic"));
-    store_fixture_cloud_key(&config, "anthropic");
+    store_fixture_cloud_key(&config, "anthropic").await;
     let (model, model_id) = try_create_cloud_slug_chat_model_from_string_with_native_tools(
         "chat",
         "anthropic:claude-sonnet-4-6",
         &config,
         false,
         &EgressLedger::none(),
-    )
+    ).await
     .expect("anthropic slug resolves")
     .expect("build");
     assert_eq!(model_id, "claude-sonnet-4-6");
@@ -520,7 +520,7 @@ async fn configured_openhuman_jwt_slug_routes_to_managed_chat_model() {
     config.chat_provider = Some("fixture-managed:hint:reasoning".to_string());
 
     let (_model, model_id) =
-        try_create_cloud_slug_chat_model("chat", &config, &EgressLedger::none())
+        try_create_cloud_slug_chat_model("chat", &config, &EgressLedger::none()).await
             .expect("registered host policy should recognize this route")
             .expect("registered model should build");
 
@@ -528,7 +528,7 @@ async fn configured_openhuman_jwt_slug_routes_to_managed_chat_model() {
 
     // A concrete catalog id is forwarded verbatim.
     config.chat_provider = Some("fixture-managed:vendor/pinned".to_string());
-    let (_, pinned_id) = try_create_cloud_slug_chat_model("chat", &config, &EgressLedger::none())
+    let (_, pinned_id) = try_create_cloud_slug_chat_model("chat", &config, &EgressLedger::none()).await
         .expect("registered host policy should recognize this route")
         .expect("registered model should build");
     assert_eq!(pinned_id, "vendor/pinned");
@@ -559,7 +559,7 @@ async fn openhuman_jwt_slug_discloses_pinned_model() {
         &provider,
         &config,
         &EgressLedger::none(),
-    )
+    ).await
     .expect("registered host policy should recognize this route")
     .expect("registered model should build");
 
@@ -702,7 +702,7 @@ async fn openhuman_jwt_slug_preserves_forced_text_mode() {
         &config,
         false,
         &EgressLedger::none(),
-    )
+    ).await
     .expect("registered host policy should recognize this route")
     .expect("registered model should build");
 
@@ -726,7 +726,7 @@ async fn openhuman_jwt_slug_without_model_preserves_managed_role_tier() {
         "fixture-managed:",
         &config,
         &EgressLedger::none(),
-    )
+    ).await
     .expect("registered host policy should recognize this route")
     .expect("registered model should build");
 

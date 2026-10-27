@@ -9,7 +9,7 @@ async fn crate_native_chat_model_factory_preserves_invalid_route_diagnostics() {
         let config = Config::default();
 
         let unconfigured =
-            create_chat_model_from_string_with_model_id("reasoning", "groq:llama3", &config, 0.7)
+            create_chat_model_from_string_with_model_id("reasoning", "groq:llama3", &config, 0.7).await
                 .err()
                 .expect("unconfigured slug must fail")
                 .to_string();
@@ -23,7 +23,7 @@ async fn crate_native_chat_model_factory_preserves_invalid_route_diagnostics() {
             "unknown-provider",
             &config,
             0.7,
-        )
+        ).await
         .err()
         .expect("bare unknown provider must fail")
         .to_string();
@@ -37,7 +37,7 @@ async fn crate_native_chat_model_factory_preserves_invalid_route_diagnostics() {
             BYOK_INCOMPLETE_SENTINEL,
             &config,
             0.7,
-        )
+        ).await
         .err()
         .expect("incomplete BYOK must fail")
         .to_string();
@@ -64,7 +64,7 @@ async fn from_string_external_provider_emits_egress_realpath() {
     let config = Config::default();
     // External provider → real chokepoint must emit BEFORE constructing.
     super::with_library_test_context_async(|| async {
-        let _ = create_test_chat_model_from_string("agentic", "openai:gpt-4o-mini", &config);
+        let _ = create_test_chat_model_from_string("agentic", "openai:gpt-4o-mini", &config).await;
     })
     .await;
 
@@ -160,7 +160,7 @@ async fn local_aliases_build_without_a_session_and_preserve_model_ids() {
     ] {
         let provider = format!(" {prefix}:Publisher/Model:Tag@0.4 ");
         let (chat, model) =
-            create_chat_model_from_string_with_model_id("chat", &provider, &config, 0.0)
+            create_chat_model_from_string_with_model_id("chat", &provider, &config, 0.0).await
                 .unwrap_or_else(|e| panic!("{provider}: {e}"));
         assert_eq!(model, "Publisher/Model:Tag");
         assert_eq!(
@@ -170,7 +170,7 @@ async fn local_aliases_build_without_a_session_and_preserve_model_ids() {
     }
     // A bare provider names a runtime but not a model. Report that actual
     // configuration problem instead of incorrectly asking for a session.
-    let error = create_chat_model_from_string("chat", "ollama", &config, 0.0)
+    let error = create_chat_model_from_string("chat", "ollama", &config, 0.0).await
         .err()
         .expect("bare Ollama must require a model ID");
     assert!(error.to_string().contains("empty model"), "{error}");
