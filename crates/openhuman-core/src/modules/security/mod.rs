@@ -7,6 +7,7 @@
 pub(crate) mod audit;
 pub(super) mod callbacks;
 pub(super) mod cipher_consumer;
+mod device_pairing_store;
 mod client;
 pub(crate) mod command;
 pub(crate) mod gap;
