@@ -21,5 +21,5 @@ bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml -p openhum
 computer_dir="$repo_root/vendor/tinycomputer"
 (
   cd -- "$computer_dir"
-  bash "$repo_root/scripts/ci-cancel-aware.sh" cargo build -p tinycomputer --features test-connector
+  bash "$repo_root/scripts/ci-cancel-aware.sh" cargo build -p tinycomputer-browser --features test-connector
 )
