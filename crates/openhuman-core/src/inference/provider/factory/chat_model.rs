@@ -377,7 +377,7 @@ impl ModelBuildGate for OpenHumanModelFactory<'_> {
     }
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl ModelFactory<()> for OpenHumanModelFactory<'_> {
     async fn build(
         &self,

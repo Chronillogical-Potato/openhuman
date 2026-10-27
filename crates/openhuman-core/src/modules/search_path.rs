@@ -65,11 +65,15 @@ where
     skip.extend(configured.iter().cloned());
     skip.sort();
     skip.dedup();
+    let search_paths = tinybus::module::SearchPathConfig::new(
+        "OPENHUMAN_MODULE_PATH",
+        "openhuman/modules",
+    );
     if skip.is_empty() {
-        return host.load_search_paths();
+        return host.load_search_paths(&search_paths);
     }
     let mut outcomes = Vec::new();
-    for dir in ModuleHost::search_paths()
+    for dir in ModuleHost::search_paths(&search_paths)
         .into_iter()
         .filter(|p| p.is_dir())
     {

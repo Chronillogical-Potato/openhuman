@@ -33,8 +33,9 @@ use super::types::{ModuleRecord, ModuleSource, ModuleState, ModuleStatus};
 use super::{linked, registry, report, runtime, source};
 use crate::config::Config;
 use tinybus::module::{
-    AccessFuture, Availability, FailureReporter, LoadError, ModuleAccess, ModuleClient,
-    ModuleSource as ResolverSource, ProxyFailure, ReleaseRecord, Resolver, ResolverInputs,
+    AccessFuture, Availability, FailureReporter, LinkedRegistry, LoadError, ModuleAccess,
+    ModuleClient, ModuleSource as ResolverSource, ProxyFailure, ReleaseRecord, Resolver,
+    ResolverInputs, SearchPathConfig,
 };
 use tinybus::Proxy;
 
@@ -129,7 +130,7 @@ pub fn disabled_component(config: &Config, id: &str) -> Option<&'static str> {
 pub fn resolver(config: &Config) -> Resolver {
     let shared = Arc::new(config.clone());
     let mut sources = std::collections::HashMap::new();
-    let mut linked_factories = std::collections::HashMap::new();
+    let linked_factories = Arc::new(LinkedRegistry::new());
     for record in registry::ALL {
         let plan = source::plan(config, record.id);
         log_plan_once(record, &plan);
@@ -147,7 +148,7 @@ pub fn resolver(config: &Config) -> Resolver {
             ModuleSource::Linked => {
                 sources.insert(record.id.to_string(), ResolverSource::Linked);
                 if let Some(factory) = linked::factory_for(record.id) {
-                    linked_factories.insert(record.id.to_string(), factory);
+                    linked_factories.register(record.id, factory);
                 }
             }
             ModuleSource::Release if record.id == "tinymcp" || record.id == "tinyeventqueues" => {
@@ -178,6 +179,10 @@ pub fn resolver(config: &Config) -> Resolver {
         bundled_dir: bundled_releases_dir(),
         sources,
         linked: linked_factories,
+        search_paths: Some(SearchPathConfig::new(
+            "OPENHUMAN_MODULE_PATH",
+            "openhuman/modules",
+        )),
         search_skip,
         gate: Some(Arc::new(move |id| disabled_component(&gate_config, id))),
         on_resolved: Some(Arc::new(on_resolved)),
