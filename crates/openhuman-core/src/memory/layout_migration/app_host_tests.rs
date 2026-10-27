@@ -97,8 +97,8 @@ fn places_into_the_v3_layout_before_the_switch() {
     );
 }
 
-#[test]
-fn every_account_on_a_self_hosted_engine_shares_one_claim() {
+#[tokio::test]
+async fn every_account_on_a_self_hosted_engine_shares_one_claim() {
     let tmp = tempfile::tempdir().unwrap();
     let mut a = signed_in(&tmp);
     a.memory.engine = CORTEXDB_ENGINE.to_string();
@@ -115,8 +115,8 @@ fn every_account_on_a_self_hosted_engine_shares_one_claim() {
             Arc::new(ReferenceEngine::new()),
         );
     }
-    let key_a = claim(&a).unwrap().unwrap();
-    let key_b = claim(&b).unwrap().unwrap();
+    let key_a = claim(&a).await.unwrap().unwrap();
+    let key_b = claim(&b).await.unwrap().unwrap();
     assert_eq!(key_a.marker_path(), key_b.marker_path());
     assert_eq!(
         key_a
@@ -132,7 +132,7 @@ fn every_account_on_a_self_hosted_engine_shares_one_claim() {
     assert_eq!(key_a.owner(), format!("user:{ACCOUNT}"));
 
     let hosted = signed_in(&tmp);
-    assert!(claim(&hosted).unwrap().is_none());
+    assert!(claim(&hosted).await.unwrap().is_none());
 }
 
 #[tokio::test]
@@ -182,10 +182,10 @@ async fn a_shared_tree_reaches_the_module_as_a_claim() {
     .await
     .unwrap();
     assert_eq!(outcome, Outcome::NeedsTakeover);
-    assert_eq!(count(&*host.engines().unwrap().tree).await, 0);
+    assert_eq!(count(&*host.engines().await.unwrap().tree).await, 0);
 
     // Another account on the machine took the tree first.
-    let key = claim(&config).unwrap().unwrap();
+    let key = claim(&config).await.unwrap().unwrap();
     let app_dir = key
         .marker_path()
         .parent()
