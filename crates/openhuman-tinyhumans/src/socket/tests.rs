@@ -21,6 +21,14 @@ fn sdk_token_callback_refreshes_each_attempt_and_stops_when_provider_fails() {
 }
 
 #[test]
+fn sdk_token_callback_rejects_empty_credentials() {
+    let provider: openhuman_embed::__host::platform::socket::TokenProvider = Arc::new(|| {
+        Box::pin(async { Ok("  ".to_owned()) })
+    });
+    assert_eq!(sdk_token_provider(provider)(), None);
+}
+
+#[test]
 fn socket_identity_match_requires_both_url_and_session_token() {
     use openhuman_embed::__host::platform::socket::{ConnectionStatus, SocketState};
 
