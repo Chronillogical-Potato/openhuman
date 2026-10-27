@@ -34,7 +34,7 @@ pub async fn voice_status(config: &Config) -> Result<Outcome<VoiceStatus>, Strin
     // the same check the transcribe path performs, and it makes no network call
     // — so this reports the real failure a user would hit, not a guess.
     let stt_engine = effective_stt_provider(config);
-    let stt_error = match create_stt_provider(&stt_engine, "", config) {
+    let stt_error = match create_stt_provider(&stt_engine, "", config).await {
         Err(error) => Some(error.to_string()),
         Ok(_) => {
             let slug = stt_engine

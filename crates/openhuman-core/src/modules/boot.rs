@@ -45,7 +45,8 @@ pub async fn load_declared_modules(config: &Config) {
             let config = config.clone();
             move |id| {
                 let config = config.clone();
-                async move { ops::module_config(&config, id).await }
+                let id = id.to_owned();
+                async move { ops::module_config(&config, &id).await }
             }
         })
         .await

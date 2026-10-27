@@ -65,8 +65,6 @@ where
     skip.extend(configured.iter().cloned());
     skip.sort();
     skip.dedup();
-    let search_paths =
-        tinybus::module::SearchPathConfig::new("OPENHUMAN_MODULE_PATH", "openhuman/modules");
     if skip.is_empty() {
         return host.load_search_paths();
     }

@@ -188,7 +188,8 @@ async fn build_turn_models_crate(
         .workload_requests(workload_requests)
         .summarization(role, Some(model.to_owned()))
         .summarization_opts(opts)
-        .build()?;
+        .build()
+        .await?;
     let mut registrations = built.registrations("primary").into_iter();
     let primary = registrations.next().expect("turn set contains a primary").1;
     let routes = registrations.collect();
@@ -642,7 +643,8 @@ impl TurnModelSource {
                 opts,
             };
             tinyagents_harness::host::ModelBuildGate::check(&factory, &request)?;
-            let (model, _) = tinyagents_harness::host::ModelFactory::build(&factory, &request)?;
+            let (model, _) =
+                tinyagents_harness::host::ModelFactory::build(&factory, &request).await?;
             return Ok(model);
         }
         Err(anyhow::anyhow!("turn model source is missing a model"))
