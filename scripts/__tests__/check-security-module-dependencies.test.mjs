@@ -2,12 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { checkManifest } from "../ci/check-security-module-dependencies.mjs";
 
-test("allows the security bus and the documented core crypto bridge", () => {
+test("allows only the security bus", () => {
   assert.deepEqual(
-    checkManifest(
-      '[dependencies]\ntinysecurity-bus = "0.17"\ntinysecurity-crypto = "0.17"',
-      "crates/openhuman-core/Cargo.toml",
-    ),
+    checkManifest('[dependencies]\ntinysecurity-bus = "0.17"', "crates/openhuman-core/Cargo.toml"),
     [],
   );
 });
@@ -15,6 +12,7 @@ test("allows the security bus and the documented core crypto bridge", () => {
 test("rejects every other TinySecurity crate from core and host manifests", () => {
   for (const [filename, packageName] of [
     ["crates/openhuman-core/Cargo.toml", "tinysecurity-approval"],
+    ["crates/openhuman-core/Cargo.toml", "tinysecurity-crypto"],
     ["crates/openhuman-rpc/Cargo.toml", "tinysecurity-crypto"],
   ]) {
     assert.equal(
