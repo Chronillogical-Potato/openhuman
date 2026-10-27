@@ -52,7 +52,10 @@ fn socket_identity_match_requires_both_url_and_session_token() {
 #[tokio::test]
 async fn disconnected_port_rejects_emits_and_disconnect_is_idempotent() {
     let port = SdkSocketPort::default();
-    assert!(port.emit("test:event", serde_json::json!({})).await.is_err());
+    assert!(port
+        .emit("test:event", serde_json::json!({}))
+        .await
+        .is_err());
     assert!(port
         .emit_with_ack(
             "test:event",

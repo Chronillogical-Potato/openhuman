@@ -152,7 +152,10 @@ impl SocketPort for SdkSocketPort {
             return Err("Not connected".to_owned());
         }
         let actor = self.actor.lock().await;
-        let commands = actor.as_ref().map(|actor| actor.commands.clone()).ok_or("Not connected")?;
+        let commands = actor
+            .as_ref()
+            .map(|actor| actor.commands.clone())
+            .ok_or("Not connected")?;
         drop(actor);
         let (result, response) = oneshot::channel();
         commands
@@ -175,7 +178,10 @@ impl SocketPort for SdkSocketPort {
         timeout: Duration,
     ) -> Result<Value, String> {
         let actor = self.actor.lock().await;
-        let commands = actor.as_ref().map(|actor| actor.commands.clone()).ok_or("Not connected")?;
+        let commands = actor
+            .as_ref()
+            .map(|actor| actor.commands.clone())
+            .ok_or("Not connected")?;
         drop(actor);
         let (result, response) = oneshot::channel();
         commands
