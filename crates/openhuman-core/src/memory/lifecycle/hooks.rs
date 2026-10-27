@@ -135,8 +135,8 @@ struct HostEngineResolver {
 }
 
 impl EngineResolver for HostEngineResolver {
-    fn resolve(&self) -> tinymemory_api::Result<AgentMemory> {
-        let bound = engine::resolve(&self.config).engine()?;
+    async fn resolve(&self) -> tinymemory_api::Result<AgentMemory> {
+        let bound = engine::resolve(&self.config).await.engine()?;
         super::agent_memory_on(bound.engine, &self.config, &self.identity)
     }
 }

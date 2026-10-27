@@ -338,7 +338,7 @@ pub(super) fn sources_sync(ctx: DispatchCtx, params: Map<String, Value>) -> Cont
         ctx,
         params,
         |ctx, config, params: SourcesSyncParams| async move {
-            let started = sources::start_sync(&ctx, &config, params.id.as_deref())?;
+            let started = sources::start_sync(&ctx, &config, params.id.as_deref()).await?;
             Ok(SourcesSyncView { started })
         },
     )
