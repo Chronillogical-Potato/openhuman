@@ -192,11 +192,20 @@ async fn handle_handshake(
     connection_nonce: &str,
     expires_at_ms: u64,
 ) {
-    let pending = PENDING_SESSIONS
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .get(channel_id)
-        .cloned();
+    let (pending, stale_pending) = take_pending_session_for_socket(
+        &mut PENDING_SESSIONS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner),
+        channel_id,
+        connection_token,
+        connection_nonce,
+    );
+    if stale_pending {
+        PENDING_RENEWALS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(channel_id);
+    }
     let session = match pending {
         Some(session) => session,
         None => {
@@ -490,6 +499,25 @@ fn pending_session_matches_socket(
     session.channel_id == channel_id
         && session.pairing_token == connection_token
         && session.connection_nonce == connection_nonce
+}
+
+fn take_pending_session_for_socket(
+    pending: &mut std::collections::HashMap<String, super::types::PairingSession>,
+    channel_id: &str,
+    connection_token: &str,
+    connection_nonce: &str,
+) -> (Option<super::types::PairingSession>, bool) {
+    let Some(session) = pending.get(channel_id).cloned() else {
+        return (None, false);
+    };
+    if pending_session_matches_socket(&session, channel_id, connection_token, connection_nonce)
+        && pairing_session_is_live(&session)
+    {
+        (Some(session), false)
+    } else {
+        pending.remove(channel_id);
+        (None, true)
+    }
 }
 
 async fn handle_encrypted_rpc_frame(
