@@ -15,7 +15,7 @@ use openhuman_embed::seams::{
 use openhuman_embed::{
     AgentDefinitionSpec, AgentSpec, HostTurnTools, Runtime, Tool, ToolScopeSpec, Workspace,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::sync::Barrier;
 use wiremock::MockServer;
 
@@ -200,6 +200,7 @@ async fn scenario() {
         .expect("resumed a");
     let mut session = scheduled
         .session_host(&scheduled.config, Some("scheduled-a"))
+        .await
         .unwrap();
     scheduled
         .scope(async { session.turn_with_origin("a-scheduled", None).await })

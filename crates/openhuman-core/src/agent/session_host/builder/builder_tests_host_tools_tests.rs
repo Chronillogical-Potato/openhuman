@@ -84,9 +84,9 @@ async fn host_scope_additions_leave_wildcard_definitions_unchanged() {
 async fn a_host_tool_is_on_the_belt_and_advertised() {
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp).await;
-    let host: crate::agent::HostTools = Arc::new(|_| {
+    let host: crate::agent::HostTools = Arc::new(|_| Box::pin(async {
         crate::agent::HostTurnTools::advertised(vec![Box::new(Marker("oc_marker_tool"))])
-    });
+    }));
 
     let agent = crate::agent::OpenHumanSessionHost::from_config_with_host_tools(
         &crate::core::runtime::DispatchCtx::ambient(),
@@ -127,13 +127,15 @@ async fn a_host_can_withhold_a_config_tool_for_one_turn() {
 
     let host: crate::agent::HostTools = {
         let normally_visible = normally_visible.clone();
-        Arc::new(move |turn| crate::agent::HostTurnTools {
-            withheld: match turn.session_id() {
-                Some("hidden-turn") => std::collections::HashSet::from([normally_visible.clone()]),
-                _ => std::collections::HashSet::new(),
-            },
-            ..Default::default()
-        })
+        Arc::new(move |turn| Box::pin(async move {
+            crate::agent::HostTurnTools {
+                withheld: match turn.session_id() {
+                    Some("hidden-turn") => std::collections::HashSet::from([normally_visible.clone()]),
+                    _ => std::collections::HashSet::new(),
+                },
+                ..Default::default()
+            }
+        }))
     };
     let hidden_turn = crate::agent::OpenHumanSessionHost::from_config_with_host_tools(
         &crate::core::runtime::DispatchCtx::ambient(),
@@ -175,10 +177,12 @@ async fn a_host_can_withhold_a_config_tool_for_one_turn() {
 async fn withholding_tool_search_disables_wildcard_discovery() {
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp).await;
-    let host: crate::agent::HostTools = Arc::new(|_| crate::agent::HostTurnTools {
-        withheld: std::collections::HashSet::from([tinytools::TOOL_SEARCH_NAME.to_string()]),
-        ..Default::default()
-    });
+    let host: crate::agent::HostTools = Arc::new(|_| Box::pin(async {
+        crate::agent::HostTurnTools {
+            withheld: std::collections::HashSet::from([tinytools::TOOL_SEARCH_NAME.to_string()]),
+            ..Default::default()
+        }
+    }));
 
     let agent = crate::agent::OpenHumanSessionHost::from_config_with_host_tools(
         &crate::core::runtime::DispatchCtx::ambient(),
@@ -208,10 +212,10 @@ async fn the_factory_runs_once_per_session_build() {
     let calls = Arc::new(AtomicUsize::new(0));
     let host: crate::agent::HostTools = {
         let calls = Arc::clone(&calls);
-        Arc::new(move |_| {
+        Arc::new(move |_| Box::pin(async move {
             calls.fetch_add(1, Ordering::SeqCst);
             crate::agent::HostTurnTools::advertised(vec![Box::new(Marker("oc_marker_tool"))])
-        })
+        }))
     };
 
     for _ in 0..2 {
@@ -243,10 +247,10 @@ async fn invalid_dynamic_prompt_fails_before_the_host_tool_factory_runs() {
     let calls = Arc::new(AtomicUsize::new(0));
     let host: crate::agent::HostTools = {
         let calls = Arc::clone(&calls);
-        Arc::new(move |_| {
+        Arc::new(move |_| Box::pin(async move {
             calls.fetch_add(1, Ordering::SeqCst);
             crate::agent::HostTurnTools::default()
-        })
+        }))
     };
 
     let result = crate::agent::OpenHumanSessionHost::from_config_with_host_tools(
@@ -308,7 +312,7 @@ async fn the_factory_is_told_the_session_it_is_building_for() {
 
     let host: crate::agent::HostTools = {
         let seen = Arc::clone(&seen);
-        Arc::new(move |turn: crate::agent::TurnContext<'_>| {
+        Arc::new(move |turn: crate::agent::TurnContext<'_>| Box::pin(async move {
             seen.lock().unwrap().push((
                 turn.agent_id().to_owned(),
                 turn.session_id().map(str::to_owned),
@@ -319,7 +323,7 @@ async fn the_factory_is_told_the_session_it_is_building_for() {
                 _ => "oc_plain_tool",
             };
             crate::agent::HostTurnTools::advertised(vec![Box::new(Marker(name))])
-        })
+        }))
     };
 
     let desked = crate::agent::OpenHumanSessionHost::from_config_with_host_tools(
@@ -398,11 +402,11 @@ async fn a_host_tool_overrides_a_config_tool_of_the_same_name() {
 
     let host: crate::agent::HostTools = {
         let contested = contested.clone();
-        Arc::new(move |_| {
+        Arc::new(move |_| Box::pin(async move {
             crate::agent::HostTurnTools::advertised(vec![Box::new(Marker(Box::leak(
                 contested.clone().into_boxed_str(),
             )))])
-        })
+        }))
     };
 
     let agent = crate::agent::OpenHumanSessionHost::from_config_with_host_tools(
@@ -467,12 +471,12 @@ async fn permanent_attachment_preserves_a_fresh_wildcard_belt() {
         .map(|spec| spec.name.clone())
         .collect();
     assert!(!original.is_empty());
-    let host: crate::agent::HostTools = Arc::new(|_| {
+    let host: crate::agent::HostTools = Arc::new(|_| Box::pin(async {
         let mut tools =
             crate::agent::HostTurnTools::advertised(vec![Box::new(Marker("attached_marker"))]);
         tools.permanent.insert("attached_marker".into());
         tools
-    });
+    }));
     let attached = crate::agent::OpenHumanSessionHost::from_config_with_host_tools(
         &crate::core::runtime::DispatchCtx::ambient(),
         &config,
@@ -499,10 +503,12 @@ async fn permanent_attachment_preserves_a_fresh_wildcard_belt() {
 async fn permanent_metadata_without_a_source_is_rejected_before_build() {
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp).await;
-    let host: crate::agent::HostTools = Arc::new(|_| crate::agent::HostTurnTools {
-        permanent: std::collections::HashSet::from(["missing_source".into()]),
-        ..Default::default()
-    });
+    let host: crate::agent::HostTools = Arc::new(|_| Box::pin(async {
+        crate::agent::HostTurnTools {
+            permanent: std::collections::HashSet::from(["missing_source".into()]),
+            ..Default::default()
+        }
+    }));
     let error = crate::agent::OpenHumanSessionHost::from_config_with_host_tools(
         &crate::core::runtime::DispatchCtx::ambient(),
         &config,
@@ -510,6 +516,7 @@ async fn permanent_metadata_without_a_source_is_rejected_before_build() {
         &host,
         None,
     )
+    .await
     .err()
     .expect("inconsistent permanent metadata must be rejected");
     assert!(
@@ -533,10 +540,10 @@ async fn the_factory_is_told_the_context_the_session_is_built_under() {
 
     let host: crate::agent::HostTools = {
         let seen = Arc::clone(&seen);
-        Arc::new(move |turn: crate::agent::TurnContext<'_>| {
+        Arc::new(move |turn: crate::agent::TurnContext<'_>| Box::pin(async move {
             seen.lock().unwrap().push(turn.dispatch_ctx());
             crate::agent::HostTurnTools::advertised(vec![Box::new(Marker("oc_ctx_tool"))])
-        })
+        }))
     };
 
     crate::agent::OpenHumanSessionHost::from_config_with_host_tools(

@@ -1,7 +1,7 @@
 //! The module configuration follows `[computer]` and the stored credentials.
 
 use super::*;
-use crate::credentials::{api_key, AuthService};
+use crate::credentials::{AuthService, api_key};
 
 fn config_in(dir: &std::path::Path) -> Config {
     let mut config = Config::default();

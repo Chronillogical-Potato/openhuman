@@ -50,7 +50,7 @@ fn a_tenant_root_confines_every_call() {
 
             let acme = rt.memory("team:acme").expect("acme");
             let globex = rt.memory("team:globex").expect("globex");
-            assert!(acme.status().on, "the installed engine binds");
+            assert!(acme.status().await.on, "the installed engine binds");
             assert!(rt.memory("").is_err(), "the store root is no tenant");
 
             // Learnings land at the tenant root, whatever the caller's meta says.
@@ -63,11 +63,13 @@ fn a_tenant_root_confines_every_call() {
             let got = acme.get(vec![learned.id.clone()]).await.expect("get");
             assert_eq!(got.len(), 1);
             assert_eq!(got[0].meta.namespace.to_string(), "team:acme");
-            assert!(globex
-                .get(vec![learned.id.clone()])
-                .await
-                .unwrap()
-                .is_empty());
+            assert!(
+                globex
+                    .get(vec![learned.id.clone()])
+                    .await
+                    .unwrap()
+                    .is_empty()
+            );
 
             // One agent's node, listed on its own.
             let ceo = store_at(&engine, "team:acme/agent:ceo", "the CEO prefers email").await;
@@ -97,12 +99,14 @@ fn a_tenant_root_confines_every_call() {
                 .await
                 .unwrap();
             assert_eq!(learnings.items.len(), 3);
-            assert!(globex
-                .list(ItemsQuery::default())
-                .await
-                .unwrap()
-                .items
-                .is_empty());
+            assert!(
+                globex
+                    .list(ItemsQuery::default())
+                    .await
+                    .unwrap()
+                    .items
+                    .is_empty()
+            );
 
             // Another tenant cannot forget acme's items by id.
             let forgotten = globex
@@ -141,11 +145,13 @@ fn a_tenant_root_confines_every_call() {
             let got = acme.get(vec![stored.id.0.clone()]).await.unwrap();
             assert_eq!(got[0].meta.namespace.to_string(), "team:acme");
             assert_eq!(got[0].meta.source.id.as_deref(), Some("x:1"));
-            assert!(globex
-                .get(vec![stored.id.0.clone()])
-                .await
-                .unwrap()
-                .is_empty());
+            assert!(
+                globex
+                    .get(vec![stored.id.0.clone()])
+                    .await
+                    .unwrap()
+                    .is_empty()
+            );
 
             let note = StoreItem::document(
                 "fridays are for the launch notes",
@@ -196,15 +202,17 @@ fn a_tenant_root_confines_every_call() {
                     .all(|hit| hit.meta.namespace.to_string() != "team:acme/agent:cfo"),
                 "an agent's search never reads a sibling's node"
             );
-            assert!(globex
-                .search(SearchQuery {
-                    query: "fridays".into(),
-                    ..SearchQuery::default()
-                })
-                .await
-                .unwrap()
-                .hits
-                .is_empty());
+            assert!(
+                globex
+                    .search(SearchQuery {
+                        query: "fridays".into(),
+                        ..SearchQuery::default()
+                    })
+                    .await
+                    .unwrap()
+                    .hits
+                    .is_empty()
+            );
 
             assert!(openhuman_embed::memory::clear_host_engine());
         })

@@ -144,12 +144,9 @@ async fn tinycomputer_config_uses_the_prepared_callback_unique_destination() {
         .await
         .expect("prepare the confidential TinyComputer callback");
     let destination = binding.unique_name().to_string();
-    let config = ops::module_config_with_consequence_callback(
-        &Config::default(),
-        "tinycomputer",
-        &binding,
-    )
-    .await;
+    let config =
+        ops::module_config_with_consequence_callback(&Config::default(), "tinycomputer", &binding)
+            .await;
 
     assert_eq!(
         config["consequence_host"]["destination"], destination,

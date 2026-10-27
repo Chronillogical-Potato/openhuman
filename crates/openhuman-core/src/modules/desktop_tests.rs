@@ -2,19 +2,19 @@
 
 use std::sync::{Arc, Mutex};
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tinybus::broker::Broker;
 use tinybus::service::Interface;
 use tinybus::transport::memory::MemoryBus;
 use tinybus::{Connection, InterfaceName, MemberName, ObjectPath};
-use tinycomputer_bus::{names, DesktopError, DesktopResponse};
+use tinycomputer_bus::{DesktopError, DesktopResponse, names};
 
 use super::{
-    call, call_with_proxy, fingerprint, inject_security_browser_config, jev_ready, module_config,
-    state, MODULE_ID,
+    MODULE_ID, call, call_with_proxy, fingerprint, inject_security_browser_config, jev_ready,
+    module_config, state,
 };
 use crate::config::Config;
-use crate::credentials::{api_key, AuthService};
+use crate::credentials::{AuthService, api_key};
 
 fn config_in(dir: &std::path::Path) -> Config {
     let mut config = Config::default();

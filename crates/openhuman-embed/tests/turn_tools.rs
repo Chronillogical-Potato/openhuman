@@ -9,10 +9,10 @@ use common::{
 use openhuman_embed::{
     AgentDefinitionSpec, AgentSpec, HostTurnTools, Runtime, Tool, ToolScopeSpec, Workspace,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc,
+    atomic::{AtomicUsize, Ordering},
 };
 
 struct Probe(Arc<AtomicUsize>);
@@ -64,7 +64,10 @@ async fn scenario() {
                     .bare_prompt("Use probe then answer")
                     .tools(ToolScopeSpec::HostOnly),
             )
-            .tools(move |_| HostTurnTools::advertised(vec![Box::new(Probe(calls.clone()))]))
+            .tools(move |_| {
+                let calls = calls.clone();
+                Box::pin(async move { HostTurnTools::advertised(vec![Box::new(Probe(calls))]) })
+            })
     };
     let agent = runtime
         .agent(spec("replace", &provider, calls.clone()))
@@ -77,7 +80,12 @@ async fn scenario() {
         agent
             .turn("replacement")
             .session("same-thread")
-            .tools(move |_| HostTurnTools::advertised(vec![Box::new(Probe(replacement.clone()))]))
+            .tools(move |_| {
+                let replacement = replacement.clone();
+                Box::pin(
+                    async move { HostTurnTools::advertised(vec![Box::new(Probe(replacement))]) },
+                )
+            })
             .send(),
         other.run("independent")
     );
@@ -89,7 +97,7 @@ async fn scenario() {
     agent
         .turn("revoked")
         .session("same-thread")
-        .tools(|_| HostTurnTools::advertised(vec![]))
+        .tools(|_| Box::pin(async { HostTurnTools::advertised(vec![]) }))
         .send()
         .await
         .unwrap();
@@ -121,9 +129,11 @@ async fn scenario() {
                 })
         })
         .unwrap();
-    assert!(!revoked.body_json::<Value>().unwrap()["tools"]
-        .as_array()
-        .is_some_and(|tools| tools.iter().any(|t| t["function"]["name"] == "probe")));
+    assert!(
+        !revoked.body_json::<Value>().unwrap()["tools"]
+            .as_array()
+            .is_some_and(|tools| tools.iter().any(|t| t["function"]["name"] == "probe"))
+    );
     // A mixed builtin/host definition must also discard historical declarations
     // on an explicit replacement. HostOnly's inherent strict snapshot is not
     // enough to exercise the replacement's dispatch scope.
@@ -157,15 +167,17 @@ async fn scenario() {
     mixed
         .turn("replace with empty belt")
         .session("mixed-thread")
-        .tools(|_| HostTurnTools::advertised(vec![]))
+        .tools(|_| Box::pin(async { HostTurnTools::advertised(vec![]) }))
         .send()
         .await
         .unwrap();
     assert_eq!(mixed_calls.load(Ordering::SeqCst), 1);
     let requests = common::chat_requests(&mixed_provider).await;
-    assert!(!requests[2].body_json::<Value>().unwrap()["tools"]
-        .as_array()
-        .is_some_and(|tools| tools.iter().any(|t| t["function"]["name"] == "probe")));
+    assert!(
+        !requests[2].body_json::<Value>().unwrap()["tools"]
+            .as_array()
+            .is_some_and(|tools| tools.iter().any(|t| t["function"]["name"] == "probe"))
+    );
     mixed
         .turn("restore belt")
         .session("mixed-thread")
