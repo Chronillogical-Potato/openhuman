@@ -92,6 +92,107 @@ pub(crate) fn device_pairing_controller_event(
     })
 }
 
+/// Mint a direct authenticated user event for module-side revoke/unlock work.
+pub(crate) fn device_pairing_user_event(
+    scope: &crate::security::approval::native::SecretScope,
+    master_handle: Option<String>,
+    generation: u64,
+) -> Result<String, String> {
+    let expires_at_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|_| "system clock unavailable".to_owned())?
+        .as_millis()
+        .saturating_add(30_000)
+        .min(u128::from(u64::MAX)) as u64;
+    let scope_id = scope.scope_id().to_owned();
+    callbacks::issue_pairing_event(tinysecurity_bus::DevicePairingContextResponse2 {
+        scope_id: scope_id.clone(),
+        user_binding: scope_id,
+        secret_master_handle: master_handle,
+        legacy_import_handle: None,
+        channel_id: String::new(),
+        pairing_token: None,
+        connection_nonce: String::new(),
+        generation,
+        source: tinysecurity_bus::DevicePairingSource2::AuthenticatedUserController,
+        expires_at_ms,
+    })
+}
+
+/// Mint a direct-user event for a channel lookup/revoke that does not need a
+/// secret master alias, such as recovering an imported pairing id.
+pub(crate) async fn device_pairing_recover_event(
+    config: &Config,
+) -> Result<String, String> {
+    let client = client(config)
+        .await
+        .map_err(|error| error.to_string())?;
+    let scope = host_callbacks::secret_scope()
+        .await
+        .ok_or_else(|| "security secret scope unavailable".to_owned())?;
+    let generation = client
+        .policy_info()
+        .await
+        .map_err(|error| error.to_string())?
+        .generation;
+    device_pairing_user_event(&scope, None, generation)
+}
+
+/// Mint a one-shot direct-user import event and bind its callback to the
+/// current scoped legacy device store and fixed TinySecurity source ids.
+pub(crate) async fn device_pairing_legacy_import_event(
+    config: &Config,
+) -> Result<String, String> {
+    let client = client(config)
+        .await
+        .map_err(|error| error.to_string())?;
+    let scope = host_callbacks::secret_scope()
+        .await
+        .ok_or_else(|| "security secret scope unavailable".to_owned())?;
+    let registration_id = host_callbacks::secret_registration_id()
+        .await
+        .ok_or_else(|| "security master registration unavailable".to_owned())?;
+    let master_handle = resolve_user_master(&client, &scope, &registration_id)
+        .await
+        .map_err(|error| error.to_string())?;
+    let generation = client
+        .policy_info()
+        .await
+        .map_err(|error| error.to_string())?
+        .generation;
+    let expires_at_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|_| "system clock unavailable".to_owned())?
+        .as_millis()
+        .saturating_add(30_000)
+        .min(u128::from(u64::MAX)) as u64;
+    let scope_id = scope.scope_id().to_owned();
+    let handle = uuid::Uuid::new_v4().simple().to_string();
+    let backend_id = policy::pairing_legacy_backend_id(&registration_id);
+    callbacks::register_legacy_import_grant(
+        handle.clone(),
+        config.clone(),
+        scope_id.clone(),
+        scope_id.clone(),
+        generation,
+        backend_id,
+        registration_id,
+        expires_at_ms,
+    )?;
+    callbacks::issue_pairing_event(tinysecurity_bus::DevicePairingContextResponse2 {
+        scope_id: scope_id.clone(),
+        user_binding: scope_id,
+        secret_master_handle: Some(master_handle),
+        legacy_import_handle: Some(handle),
+        channel_id: String::new(),
+        pairing_token: None,
+        connection_nonce: String::new(),
+        generation,
+        source: tinysecurity_bus::DevicePairingSource2::AuthenticatedUserController,
+        expires_at_ms,
+    })
+}
+
 /// Mint an event capability only for a frame delivered by the authenticated
 /// hosted socket adapter. The socket nonce and short expiry are supplied by
 /// that adapter path, never from tunnel RPC parameters.

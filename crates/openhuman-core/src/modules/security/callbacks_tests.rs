@@ -90,6 +90,40 @@ fn unmigrated_callbacks_return_an_error_instead_of_authority() {
         .contains("security host callback unavailable"));
 }
 
+#[test]
+fn legacy_import_handle_is_bound_to_source_and_consumed_once() {
+    let handle = uuid::Uuid::new_v4().simple().to_string();
+    register_legacy_import_grant(
+        handle.clone(),
+        crate::config::Config::default(),
+        "0123456789abcdef0123456789abcdef".into(),
+        "opaque-user-binding".into(),
+        7,
+        "abcdef0123456789abcdef0123456789".into(),
+        "fedcba9876543210fedcba9876543210".into(),
+        u64::MAX,
+    )
+    .unwrap();
+
+    let grant = take_legacy_import_grant(&handle, 1).expect("live one-shot grant");
+    assert_eq!(grant.scope_id, "0123456789abcdef0123456789abcdef");
+    assert_eq!(grant.generation, 7);
+    assert_eq!(grant.backend_id, "abcdef0123456789abcdef0123456789");
+    assert!(take_legacy_import_grant(&handle, 1).is_none(), "grant replay denied");
+
+    assert!(register_legacy_import_grant(
+        uuid::Uuid::new_v4().simple().to_string(),
+        crate::config::Config::default(),
+        "0123456789abcdef0123456789abcdef".into(),
+        "opaque-user-binding".into(),
+        7,
+        "not-a-backend".into(),
+        "fedcba9876543210fedcba9876543210".into(),
+        u64::MAX,
+    )
+    .is_err());
+}
+
 #[tokio::test]
 async fn pairing_callbacks_fail_closed_without_an_admitted_host_event() {
     let host = DevicePairingHost;

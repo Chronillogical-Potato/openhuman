@@ -209,14 +209,7 @@ pub(crate) fn module_config_for_secret_scope(
         slots: 8,
         timeout_ms: AUDIT_CALLBACK_TIMEOUT_MS,
     });
-    let pairing_legacy_backend_id = {
-        use sha2::{Digest, Sha256};
-        format!(
-            "{:x}",
-            Sha256::digest(format!("device-pairing-legacy:{registration_id}").as_bytes())
-        )[..32]
-            .to_owned()
-    };
+    let pairing_legacy_backend_id = pairing_legacy_backend_id(&registration_id);
     result.device = Some(tinysecurity_bus::DeviceConfig2 {
         scopes: Vec::new(),
         max_handles: 512,
@@ -242,6 +235,15 @@ pub(crate) fn module_config_for_secret_scope(
         callback_timeout_ms: AUDIT_CALLBACK_TIMEOUT_MS,
     });
     Ok(result)
+}
+
+pub(super) fn pairing_legacy_backend_id(registration_id: &str) -> String {
+    use sha2::{Digest, Sha256};
+    format!(
+        "{:x}",
+        Sha256::digest(format!("device-pairing-legacy:{registration_id}").as_bytes())
+    )[..32]
+        .to_owned()
 }
 
 #[cfg(test)]

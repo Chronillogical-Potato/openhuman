@@ -146,9 +146,50 @@ impl DevicePairingHost {
     #[tinybus(confidential)]
     async fn load_legacy_device_identities(
         &self,
-        _request: tinysecurity_bus::DevicePairingLegacyLoadRequest2,
+        request: tinysecurity_bus::DevicePairingLegacyLoadRequest2,
     ) -> tinybus::Result<tinysecurity_bus::DevicePairingLegacyLoadResponse2> {
-        Err(unavailable())
+        let grant = take_legacy_import_grant(&request.handle, unix_time_ms())
+            .ok_or_else(unavailable)?;
+        let devices = crate::security::devices::store::list_devices_for_legacy_import(
+            &grant.config,
+        )
+        .map_err(|_| unavailable())?;
+        if devices.len() > 256 {
+            return Err(unavailable());
+        }
+        let mut records = Vec::with_capacity(devices.len());
+        for device in devices {
+            let Some(ciphertext) = device.core_private_key_encrypted else {
+                // A row revoked before migration has no recoverable key. It
+                // remains locally revoked and is not offered for import.
+                continue;
+            };
+            if ciphertext.len() > 16_384 {
+                return Err(unavailable());
+            }
+            let format = if ciphertext.starts_with("enc2:") {
+                tinysecurity_bus::DevicePairingLegacyFormat2::Enc2
+            } else if ciphertext.starts_with("enc:") {
+                tinysecurity_bus::DevicePairingLegacyFormat2::Enc
+            } else {
+                return Err(unavailable());
+            };
+            records.push(tinysecurity_bus::DevicePairingLegacyRecord2 {
+                channel_id: device.channel_id,
+                device_public_key: device.device_pubkey,
+                format,
+                ciphertext: ciphertext.into_bytes(),
+                revoked: device.revoked,
+            });
+        }
+        Ok(tinysecurity_bus::DevicePairingLegacyLoadResponse2 {
+            scope_id: grant.scope_id,
+            user_binding: grant.user_binding,
+            generation: grant.generation,
+            backend_id: grant.backend_id,
+            source_registration_id: grant.source_registration_id,
+            records,
+        })
     }
 }
 
@@ -159,8 +200,69 @@ struct PairingPersistenceBinding {
     secret_registration_id: String,
 }
 
+struct LegacyImportGrant {
+    config: crate::config::Config,
+    scope_id: String,
+    user_binding: String,
+    generation: u64,
+    backend_id: String,
+    source_registration_id: String,
+    expires_at_ms: u64,
+}
+
 static PAIRING_STORES: LazyLock<parking_lot::Mutex<HashMap<String, PairingPersistenceBinding>>> =
     LazyLock::new(Default::default);
+static LEGACY_IMPORTS: LazyLock<parking_lot::Mutex<HashMap<String, LegacyImportGrant>>> =
+    LazyLock::new(Default::default);
+
+pub(crate) fn register_legacy_import_grant(
+    handle: String,
+    config: crate::config::Config,
+    scope_id: String,
+    user_binding: String,
+    generation: u64,
+    backend_id: String,
+    source_registration_id: String,
+    expires_at_ms: u64,
+) -> Result<(), String> {
+    if handle.is_empty()
+        || handle.len() > 128
+        || scope_id.len() != 32
+        || user_binding.is_empty()
+        || generation == 0
+        || backend_id.len() != 32
+        || source_registration_id.len() != 32
+        || expires_at_ms <= unix_time_ms()
+    {
+        return Err("invalid legacy import binding".to_owned());
+    }
+    let mut grants = LEGACY_IMPORTS.lock();
+    grants.retain(|_, grant| grant.expires_at_ms > unix_time_ms());
+    if grants.len() >= 4096 || grants.contains_key(&handle) {
+        return Err("legacy import registry unavailable".to_owned());
+    }
+    grants.insert(
+        handle,
+        LegacyImportGrant {
+            config,
+            scope_id,
+            user_binding,
+            generation,
+            backend_id,
+            source_registration_id,
+            expires_at_ms,
+        },
+    );
+    Ok(())
+}
+
+fn take_legacy_import_grant(handle: &str, now_ms: u64) -> Option<LegacyImportGrant> {
+    if handle.is_empty() || handle.len() > 128 {
+        return None;
+    }
+    let grant = LEGACY_IMPORTS.lock().remove(handle)?;
+    (grant.expires_at_ms > now_ms).then_some(grant)
+}
 
 pub(crate) fn register_pairing_store(
     scope_id: String,

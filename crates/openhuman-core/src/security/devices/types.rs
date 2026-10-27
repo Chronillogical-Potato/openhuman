@@ -82,3 +82,9 @@ pub struct ListDevicesResponse {
 pub struct RevokeDeviceResponse {
     pub success: bool,
 }
+
+/// Summary of an explicit one-time legacy device import.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportLegacyResponse {
+    pub imported: usize,
+}

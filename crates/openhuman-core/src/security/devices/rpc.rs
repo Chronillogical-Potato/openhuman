@@ -18,7 +18,8 @@ use crate::core::Outcome;
 use crate::security::devices::store;
 use crate::security::devices::tunnel_client;
 use crate::security::devices::types::{
-    CreatePairingResponse, ListDevicesResponse, PairingSession, RevokeDeviceResponse,
+    CreatePairingResponse, ImportLegacyResponse, ListDevicesResponse, PairingSession,
+    RevokeDeviceResponse,
 };
 
 fn require_user_controller(ctx: &crate::core::runtime::DispatchCtx) -> Result<(), String> {
@@ -165,6 +166,90 @@ pub async fn devices_create_pairing(
             expires_at,
         },
         "pairing channel created",
+    ))
+}
+
+// ---------------------------------------------------------------------------
+// legacy import
+// ---------------------------------------------------------------------------
+
+/// Import available pre-TinySecurity identities after a direct user approval.
+pub async fn devices_import_legacy(
+    ctx: &crate::core::runtime::DispatchCtx,
+    config: &Config,
+) -> Result<Outcome<ImportLegacyResponse>, String> {
+    require_user_controller(ctx)?;
+    let host_event_id = crate::modules::security::device_pairing_legacy_import_event(config).await?;
+    let client = crate::modules::security::client(config)
+        .await
+        .map_err(|error| error.to_string())?;
+    let imported = client
+        .device_pairing2(tinysecurity_bus::DevicePairingRequest2 {
+            call_id: uuid::Uuid::new_v4().simple().to_string(),
+            operation: tinysecurity_bus::DevicePairingOperation2::ImportLegacy { host_event_id },
+        })
+        .await
+        .map_err(|error| error.to_string())?;
+    if !imported.frame.is_empty()
+        || imported.pairing_id.is_some()
+        || imported.session_id.is_some()
+        || imported.core_public_key.is_some()
+        || imported.device_public_key.is_some()
+    {
+        return Err("TinySecurity returned an unexpected legacy import result".to_owned());
+    }
+
+    let rows = store::list_devices_for_legacy_import(config)
+        .map_err(|error| format!("[devices/rpc] legacy device list failed: {error}"))?;
+    let mut reconciled = 0;
+    for row in rows.into_iter().filter(|row| !row.revoked) {
+        if row.pairing_id.is_some() || row.core_private_key_encrypted.is_none() {
+            continue;
+        }
+        let scope = crate::modules::security::host_callbacks::secret_scope()
+            .await
+            .ok_or_else(|| "security secret scope unavailable".to_owned())?;
+        let generation = client
+            .policy_info()
+            .await
+            .map_err(|error| error.to_string())?
+            .generation;
+        let event_id = crate::modules::security::device_pairing_user_event(
+            &scope,
+            String::new(),
+            generation,
+        )?;
+        let recovered = client
+            .device_pairing2(tinysecurity_bus::DevicePairingRequest2 {
+                call_id: uuid::Uuid::new_v4().simple().to_string(),
+                operation: tinysecurity_bus::DevicePairingOperation2::Recover {
+                    channel_id: row.channel_id.clone(),
+                    host_event_id: event_id,
+                },
+            })
+            .await
+            .map_err(|error| error.to_string())?;
+        let Some(pairing_id) = recovered.pairing_id.filter(|id| !id.is_empty()) else {
+            return Err("TinySecurity did not recover the imported device id".to_owned());
+        };
+        if recovered.device_public_key.as_deref() != Some(row.device_pubkey.as_str())
+            || recovered.frame.len() > 0
+            || recovered.session_id.is_some()
+        {
+            return Err("TinySecurity returned mismatched imported device metadata".to_owned());
+        }
+        if !store::set_pairing_id(config, &row.channel_id, &pairing_id)
+            .map_err(|error| format!("[devices/rpc] pairing id persistence failed: {error}"))?
+        {
+            return Err("legacy device disappeared during pairing id persistence".to_owned());
+        }
+        reconciled += 1;
+    }
+    Ok(Outcome::single_log(
+        ImportLegacyResponse {
+            imported: reconciled,
+        },
+        "legacy device identities imported",
     ))
 }
 
