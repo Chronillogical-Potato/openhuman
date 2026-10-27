@@ -134,7 +134,9 @@ fn auth_profiles_store(config: &Config) -> AuthProfilesStore {
 /// handled by the standard `lookup_key_for_slug` path — this function is
 /// OAuth-only so the standard path's env/audit/metrics logic still runs.
 pub async fn lookup_openai_bearer_token(config: &Config) -> Result<Option<String>, String> {
-    Ok(lookup_openai_oauth_credentials(config)?.map(|credentials| credentials.access_token))
+    Ok(lookup_openai_oauth_credentials(config)
+        .await?
+        .map(|credentials| credentials.access_token))
 }
 
 pub async fn lookup_openai_oauth_credentials(
