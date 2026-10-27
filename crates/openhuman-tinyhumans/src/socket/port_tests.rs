@@ -114,6 +114,20 @@ fn backend_and_supervisor_errors_have_distinct_connection_effects() {
     assert!(!transport_connected.load(Ordering::Acquire));
 }
 
+#[test]
+fn supervisor_events_are_not_dispatched_as_backend_domain_events() {
+    use tinyhumans_sdk::socket::SocketPayload;
+
+    let backend = SocketEvent::new("error", SocketPayload::Json(vec![serde_json::json!({})]));
+    let supervisor = SocketEvent::supervisor(
+        "reconnect:escalated",
+        SocketPayload::Json(vec![serde_json::json!({"attempts": 5})]),
+    );
+
+    assert!(should_dispatch_to_core(&backend));
+    assert!(!should_dispatch_to_core(&supervisor));
+}
+
 #[tokio::test]
 async fn disconnected_port_rejects_emits_and_disconnect_is_idempotent() {
     let port = SdkSocketPort::default();

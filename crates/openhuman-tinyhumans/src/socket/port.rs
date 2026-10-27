@@ -312,7 +312,7 @@ async fn run_socket_actor(
                 ) {
                     continue;
                 }
-                if event.source == tinyhumans_sdk::socket::SocketEventSource::Supervisor {
+                if !should_dispatch_to_core(&event) {
                     log::debug!("[socket] unhandled SDK supervisor event: {}", event.name);
                     continue;
                 }
@@ -383,6 +383,10 @@ async fn run_socket_actor(
     loop_active.store(false, Ordering::Release);
     transport_connected.store(false, Ordering::Release);
     let _ = done.send(());
+}
+
+fn should_dispatch_to_core(event: &SocketEvent) -> bool {
+    event.source == tinyhumans_sdk::socket::SocketEventSource::Backend
 }
 
 fn apply_supervisor_event(
