@@ -33,11 +33,7 @@ fn tunnel_rpc_response_preserves_the_existing_envelope_shape() {
 
 #[test]
 fn tunnel_rpc_allows_only_user_surface_methods_and_ping() {
-    for method in [
-        "openhuman.threads_list",
-        "openhuman.channel_web_chat",
-        "openhuman.ping",
-    ] {
+    for method in USER_METHODS.iter().copied().chain(["openhuman.ping"]) {
         assert!(
             is_tunnel_rpc_method_allowed(method),
             "{method} should be allowed"
