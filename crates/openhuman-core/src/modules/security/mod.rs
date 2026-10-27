@@ -245,7 +245,7 @@ pub(crate) async fn device_pairing_recover_event(
         secret_master_handle: None,
         legacy_import_handle: None,
         channel_id: channel_id.to_owned(),
-        pairing_token: Some(uuid::Uuid::new_v4().simple().to_string()),
+        pairing_token: None,
         connection_nonce: String::new(),
         generation,
         source: tinysecurity_bus::DevicePairingSource2::AuthenticatedUserController,
