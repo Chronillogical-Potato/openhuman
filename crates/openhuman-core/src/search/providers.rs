@@ -8,7 +8,7 @@
 //! into the TinySearch module configuration. Provider execution is not here.
 
 use serde::Serialize;
-use tinysearch_bus::{default_role_providers, provider_roles, role_key, ProviderRoute, Role};
+use tinysearch_bus::{ProviderRoute, Role, default_role_providers, provider_roles, role_key};
 
 use crate::config::{Config, MANAGED_SEARCH_PROVIDERS, SEARCH_PROVIDERS};
 

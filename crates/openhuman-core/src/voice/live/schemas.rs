@@ -40,8 +40,7 @@ pub fn live_schemas(function: &str) -> ControllerSchema {
         "voice_live_providers" => ControllerSchema {
             namespace: "voice",
             function: "live_providers",
-            description:
-                "List live voice agent providers, whether each is usable, and the default.",
+            description: "List live voice agent providers, whether each is usable, and the default.",
             inputs: vec![],
             outputs: vec![
                 json_output("default_provider", "The provider Tiny uses by default."),
@@ -92,8 +91,7 @@ pub fn live_schemas(function: &str) -> ControllerSchema {
         "voice_live_test_provider" => ControllerSchema {
             namespace: "voice",
             function: "live_test_provider",
-            description:
-                "Open a live session on a provider, wait until it is ready, then close it.",
+            description: "Open a live session on a provider, wait until it is ready, then close it.",
             inputs: vec![FieldSchema {
                 name: "provider",
                 ty: TypeSchema::String,

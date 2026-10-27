@@ -1,6 +1,6 @@
 use super::*;
 use crate::config::schema::voice_live::{
-    LIVE_PROVIDERS, LIVE_PROVIDER_ELEVENLABS_HOSTED, LIVE_PROVIDER_GEMINI_HOSTED,
+    LIVE_PROVIDER_ELEVENLABS_HOSTED, LIVE_PROVIDER_GEMINI_HOSTED, LIVE_PROVIDERS,
 };
 
 #[test]
@@ -41,10 +41,12 @@ fn live_config_follows_the_settings_per_provider() {
     assert_eq!(gemini.system_instruction.as_deref(), Some("prompt"));
     assert_eq!(gemini.voice.as_deref(), Some("Kore"));
     assert_eq!(gemini.model.as_deref(), Some("gemini-x"));
-    assert!(gemini
-        .provider_options
-        .get("context_window_compression")
-        .is_some());
+    assert!(
+        gemini
+            .provider_options
+            .get("context_window_compression")
+            .is_some()
+    );
 
     let sarvam = live_config(&config, LIVE_PROVIDER_SARVAM, "prompt", 8_000);
     assert_eq!(sarvam.voice.as_deref(), Some("priya"));
