@@ -165,3 +165,7 @@ fn event_expiry_ms() -> u64 {
         .unwrap_or_default()
         .saturating_add(30_000)
 }
+
+#[cfg(test)]
+#[path = "tunnel_client_tests.rs"]
+mod tests;
