@@ -112,6 +112,7 @@ pub async fn disconnect_openai_oauth(config: &Config) -> Result<serde_json::Valu
     source.clear_openai_oauth_pending(config).await?;
     let removed = AuthService::from_config(config)
         .remove_profile(OPENAI_PROVIDER_KEY, OPENAI_OAUTH_PROFILE_NAME)
+        .await
         .map_err(|error| error.to_string())?;
     Ok(serde_json::json!({ "disconnected": removed }))
 }

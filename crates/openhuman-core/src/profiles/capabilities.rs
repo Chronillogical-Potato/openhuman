@@ -142,11 +142,10 @@ impl ProfileCapabilities {
 
     /// Build the exact selected belt for this profile and session.
     pub async fn turn_tools(&self, config: &Config, turn: TurnContext<'_>) -> HostTurnTools {
-        let mut supplied = self
-            .host
-            .as_ref()
-            .map(|host| host(turn))
-            .unwrap_or_default();
+        let mut supplied = match self.host.as_ref() {
+            Some(host) => host(turn).await,
+            None => HostTurnTools::default(),
+        };
         let dispatch = turn.dispatch_ctx();
         supplied
             .tools
