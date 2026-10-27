@@ -88,6 +88,7 @@ async fn explicit_profile_reads_its_own_session_without_switching_active_user() 
             HashMap::new(),
             true,
         )
+        .await
         .unwrap();
 
     let account_b = ProfileLayout::new(root, "account-b");
@@ -110,9 +111,10 @@ async fn explicit_profile_reads_its_own_session_without_switching_active_user() 
         selected.config.default_model.as_deref(),
         Some("account-b-model")
     );
-    assert_eq!(get_session_token(&selected.config).unwrap(), None);
+    assert_eq!(get_session_token(&selected.config).await.unwrap(), None);
     assert_eq!(
         get_session_token(&config_for(&account_a))
+            .await
             .unwrap()
             .as_deref(),
         Some("account-a-session")

@@ -402,7 +402,10 @@ async fn update_profile_modifies_in_place() {
 async fn update_profile_errors_for_missing_id() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
-    let err = store.update_profile("missing:id", |_| Ok(())).await.unwrap_err();
+    let err = store
+        .update_profile("missing:id", |_| Ok(()))
+        .await
+        .unwrap_err();
     assert!(err.to_string().contains("not found"));
 }
 

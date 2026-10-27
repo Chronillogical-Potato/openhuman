@@ -124,7 +124,7 @@ fn catalog_body(ids: &[&str]) -> serde_json::Value {
     })
 }
 
-fn store_provider_key(config: &Config, slug: &str, token: &str) {
+async fn store_provider_key(config: &Config, slug: &str, token: &str) {
     AuthService::from_config(config)
         .store_provider_token(
             &crate::inference::provider::factory::auth_key_for_slug(slug),
@@ -133,6 +133,7 @@ fn store_provider_key(config: &Config, slug: &str, token: &str) {
             std::collections::HashMap::new(),
             true,
         )
+        .await
         .expect("seed scoped provider credential");
 }
 
