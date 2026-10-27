@@ -43,6 +43,7 @@ pub(crate) struct OpenHumanModelFactory<'a> {
     /// Attach OpenHuman's per-turn multimodal providers using the route this
     /// factory actually selected. One-shot probes do not need host attachments.
     pub(crate) attach_host_attachments: bool,
+    pub(crate) credentials: &'a super::credentials::RuntimeCredentialSnapshot,
 }
 
 impl OpenHumanModelFactory<'_> {
@@ -267,13 +268,16 @@ impl OpenHumanModelFactory<'_> {
                     (model, provider, resolved)
                 }
                 Some(RouteKind::Cloud { .. }) => {
-                    let cloud = try_create_cloud_slug_chat_model_from_string_with_native_tools_for(
+                    let cloud = super::cloud_slug::try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
                         role,
                         &provider,
                         self.config,
                         request.opts.native_tools,
                         self.egress,
                         context_extensions,
+                        CredentialAccess::Runtime(self.credentials),
+                        None,
+                        None,
                     );
                     let (model, resolved) = match cloud {
                         Some(result) => result?,
@@ -319,13 +323,14 @@ impl OpenHumanModelFactory<'_> {
     }
 }
 
-fn build_one_shot(
+async fn build_one_shot(
     ctx: &DispatchCtx,
     role: &str,
     provider: Option<&str>,
     config: &Config,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
     let egress = EgressLedger::none();
+    let credentials = super::credentials::RuntimeCredentialSnapshot::resolve(config).await;
     let factory = OpenHumanModelFactory {
         ctx,
         config,
@@ -333,6 +338,7 @@ fn build_one_shot(
         egress: &egress,
         thread_id: None,
         attach_host_attachments: false,
+        credentials: &credentials,
     };
     let request = ModelBuildRequest {
         role: role.to_owned(),
