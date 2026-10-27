@@ -351,8 +351,8 @@ fn user_config(tmp: &tempfile::TempDir, user: &str) -> Config {
     config
 }
 
-#[test]
-fn layout_v3_binds_its_own_engine_beside_legacy() {
+#[tokio::test]
+async fn layout_v3_binds_its_own_engine_beside_legacy() {
     let _stable = CACHE_STABLE
         .write()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -361,19 +361,19 @@ fn layout_v3_binds_its_own_engine_beside_legacy() {
     // test storing a key for the same id would change the fingerprint.
     let mut config = user_config(&tmp, "6512ab0f6512ab0f6512ab0f");
     config.memory.engine = CORTEXDB_ENGINE.to_string();
-    store_cortexdb_key(&config, "cdb-key-layout").unwrap();
+    store_cortexdb_key(&config, "cdb-key-layout").await.unwrap();
 
-    let legacy = resolve(&config).engine().expect("legacy bound");
+    let legacy = resolve(&config).await.engine().expect("legacy bound");
     config.memory.layout = crate::config::MemoryLayoutMode::V3;
-    let v3 = resolve(&config).engine().expect("v3 bound");
+    let v3 = resolve(&config).await.engine().expect("v3 bound");
     assert!(
         !Arc::ptr_eq(&legacy.engine, &v3.engine),
         "each layout has its own engine"
     );
 
     // The migration holds both at once, whatever the setting says.
-    let explicit_legacy = bind_with_root(&config, None).unwrap();
-    let explicit_v3 = bind_with_root(&config, Some("org:6512ab0f6512ab0f6512ab0f")).unwrap();
+    let explicit_legacy = bind_with_root(&config, None).await.unwrap();
+    let explicit_v3 = bind_with_root(&config, Some("org:6512ab0f6512ab0f6512ab0f")).await.unwrap();
     assert!(Arc::ptr_eq(&explicit_legacy.engine, &legacy.engine));
     assert!(Arc::ptr_eq(&explicit_v3.engine, &v3.engine));
 }
@@ -388,17 +388,17 @@ fn layout_v3_before_anyone_signs_in_is_off() {
     assert!(reason.contains("sign in"), "{reason}");
 }
 
-#[test]
-fn an_installed_engine_has_one_layout_unless_one_is_installed_per_root() {
+#[tokio::test]
+async fn an_installed_engine_has_one_layout_unless_one_is_installed_per_root() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
     install_test_engine(
         &config.workspace_dir,
         Arc::new(tinymemory_api::conformance::ReferenceEngine::new()),
     );
-    assert!(bind_with_root(&config, Some("user:42")).is_err());
+    assert!(bind_with_root(&config, Some("user:42")).await.is_err());
     assert_eq!(
-        bind_with_root(&config, None).unwrap().endpoint,
+        bind_with_root(&config, None).await.unwrap().endpoint,
         "test://engine",
         "the legacy layout binds the installed test engine"
     );
@@ -413,8 +413,8 @@ fn an_installed_engine_has_one_layout_unless_one_is_installed_per_root() {
         None,
         Arc::new(tinymemory_api::conformance::ReferenceEngine::new()),
     );
-    let v3 = bind_with_root(&config, Some("user:42")).unwrap();
-    let legacy = bind_with_root(&config, None).unwrap();
+    let v3 = bind_with_root(&config, Some("user:42")).await.unwrap();
+    let legacy = bind_with_root(&config, None).await.unwrap();
     assert!(!Arc::ptr_eq(&v3.engine, &legacy.engine));
 }
 
