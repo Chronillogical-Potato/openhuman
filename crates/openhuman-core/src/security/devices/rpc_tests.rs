@@ -11,8 +11,8 @@ fn test_config() -> Config {
 
 #[test]
 fn pairing_authority_requires_a_trusted_direct_controller_source() {
-    let direct = crate::core::runtime::DispatchCtx::process_default()
-        .with_authenticated_user_controller();
+    let direct =
+        crate::core::runtime::DispatchCtx::process_default().with_authenticated_user_controller();
     assert!(require_user_controller(&direct).is_ok());
 
     let untrusted = crate::core::runtime::DispatchCtx::process_default();
@@ -67,8 +67,8 @@ async fn devices_list_returns_empty_initially() {
 #[tokio::test]
 async fn devices_revoke_nonexistent_returns_false() {
     let config = test_config();
-    let ctx = crate::core::runtime::DispatchCtx::process_default()
-        .with_authenticated_user_controller();
+    let ctx =
+        crate::core::runtime::DispatchCtx::process_default().with_authenticated_user_controller();
     let result = devices_revoke(&ctx, &config, "NONEXISTENT".to_string())
         .await
         .unwrap();

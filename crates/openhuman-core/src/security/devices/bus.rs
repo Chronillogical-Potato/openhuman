@@ -464,11 +464,7 @@ async fn install_v2_cipher_and_ack(
     Ok(())
 }
 
-async fn handle_encrypted_rpc_frame(
-    ctx: &DispatchCtx,
-    channel_id: &str,
-    frame_bytes: &[u8],
-) {
+async fn handle_encrypted_rpc_frame(ctx: &DispatchCtx, channel_id: &str, frame_bytes: &[u8]) {
     let cipher = {
         let map = super::lock_unpoisoned(&ACTIVE_CIPHERS);
         map.get(channel_id).cloned()
