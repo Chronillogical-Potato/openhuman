@@ -209,9 +209,9 @@ fn run_list(_ctx: DispatchCtx, config: Config, (): ()) -> ControllerFuture {
     Box::pin(async move { to_json(crate::security::devices::rpc::devices_list(&config).await?) })
 }
 
-fn run_revoke(_ctx: DispatchCtx, config: Config, channel_id: String) -> ControllerFuture {
+fn run_revoke(ctx: DispatchCtx, config: Config, channel_id: String) -> ControllerFuture {
     Box::pin(async move {
-        to_json(crate::security::devices::rpc::devices_revoke(&config, channel_id).await?)
+        to_json(crate::security::devices::rpc::devices_revoke(&ctx, &config, channel_id).await?)
     })
 }
 

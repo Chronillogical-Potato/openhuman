@@ -9,6 +9,25 @@ fn test_config() -> Config {
     config
 }
 
+#[test]
+fn pairing_authority_requires_a_trusted_direct_controller_source() {
+    let direct = crate::core::runtime::DispatchCtx::process_default()
+        .with_authenticated_user_controller();
+    assert!(require_user_controller(&direct).is_ok());
+
+    let untrusted = crate::core::runtime::DispatchCtx::process_default();
+    assert!(require_user_controller(&untrusted).is_err());
+
+    let chat_turn = untrusted.with_turn_origin(
+        crate::core::runtime::turn_origin::AgentTurnOrigin::WebChat {
+            thread_id: "thread".into(),
+            client_id: "client".into(),
+            request_id: None,
+        },
+    );
+    assert!(require_user_controller(&chat_turn).is_err());
+}
+
 #[tokio::test]
 async fn failed_tunnel_connect_discards_pending_pairing_state() {
     let channel_id = "failed-connect-cleanup";
@@ -48,7 +67,9 @@ async fn devices_list_returns_empty_initially() {
 #[tokio::test]
 async fn devices_revoke_nonexistent_returns_false() {
     let config = test_config();
-    let result = devices_revoke(&config, "NONEXISTENT".to_string())
+    let ctx = crate::core::runtime::DispatchCtx::process_default()
+        .with_authenticated_user_controller();
+    let result = devices_revoke(&ctx, &config, "NONEXISTENT".to_string())
         .await
         .unwrap();
     assert!(!result.value.success);

@@ -23,6 +23,16 @@ use crate::security::devices::types::{
 };
 use crate::security::secret_storage::SecretStore;
 
+fn require_user_controller(ctx: &crate::core::runtime::DispatchCtx) -> Result<(), String> {
+    if ctx.invocation_source()
+        == crate::core::runtime::InvocationSource::AuthenticatedUserController
+    {
+        Ok(())
+    } else {
+        Err("device pairing requires a direct authenticated user controller".into())
+    }
+}
+
 // ---------------------------------------------------------------------------
 // In-memory state (module-level singletons)
 // ---------------------------------------------------------------------------
@@ -63,6 +73,7 @@ pub async fn devices_create_pairing(
     _config: &Config,
     label: Option<String>,
 ) -> Result<Outcome<CreatePairingResponse>, String> {
+    require_user_controller(ctx)?;
     log::info!(
         "[devices/rpc] devices_create_pairing entry label={:?}",
         label
@@ -184,9 +195,11 @@ pub async fn devices_list(config: &Config) -> Result<Outcome<ListDevicesResponse
 
 /// `openhuman.devices_revoke`
 pub async fn devices_revoke(
+    ctx: &crate::core::runtime::DispatchCtx,
     config: &Config,
     channel_id: String,
 ) -> Result<Outcome<RevokeDeviceResponse>, String> {
+    require_user_controller(ctx)?;
     log::info!("[devices/rpc] devices_revoke channel_id={}", channel_id);
 
     let revoked = store::revoke_device(config, &channel_id)
