@@ -91,7 +91,7 @@ async fn resolve_context_window_inner(
     let mut route = route_input(role, provider, model, config, extensions, local_kind);
     route.discovery = match extensions {
         Some(Some(extensions)) => {
-            model_limits_request_for(role, provider, model, config, extensions).await
+            model_limits_request_for(role, provider, model, config, Some(extensions)).await
         }
         _ => model_limits_request(role, provider, model, config).await,
     };

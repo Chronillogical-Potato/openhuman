@@ -5,10 +5,7 @@
 use super::test_provider_override;
 use super::{
     access_gates::{emit_inference_egress, enforce_local_only_inference},
-    cloud_slug::{
-        resolve_cloud_slug_with_access,
-        try_create_cloud_slug_chat_model_from_string_with_native_tools_for,
-    },
+    cloud_slug::resolve_cloud_slug_with_access,
     credentials::CredentialAccess,
     local_runtime::try_create_local_runtime_chat_model_from_string,
     provider_for_role,
@@ -639,16 +636,6 @@ pub(super) fn with_default_temperature(
 /// Successful production routes never reach this function. Keeping error
 /// resolution separate means `create_chat_model*` no longer constructs a
 /// legacy `Provider` merely to discover that a route is invalid.
-pub(super) fn unresolved_chat_model_error(
-    role: &str,
-    provider: &str,
-    config: &Config,
-    egress: &EgressLedger,
-) -> anyhow::Error {
-    let extensions = crate::core::runtime::CoreContext::current_extensions();
-    unresolved_chat_model_error_for(role, provider, config, egress, extensions.as_ref())
-}
-
 pub(super) fn unresolved_chat_model_error_for_access(
     role: &str,
     provider: &str,
