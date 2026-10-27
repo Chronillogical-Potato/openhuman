@@ -8,7 +8,6 @@ use serde_json::json;
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use crate::platform::socket::models::ConnectionStatus;
 use crate::skills::webhooks::WebhookRequest;
 
 
@@ -317,22 +316,6 @@ pub fn dispatch_socket_event(event_name: &str, data: serde_json::Value) {
 fn base64_encode(input: &str) -> String {
     use base64::Engine;
     base64::engine::general_purpose::STANDARD.encode(input.as_bytes())
-}
-
-// ---------------------------------------------------------------------------
-// SIO event parsing
-// ---------------------------------------------------------------------------
-
-/// Parse a Socket.IO EVENT payload into an event name and JSON data.
-///
-/// Format: `["eventName", data]` or `<ackId>["eventName", data]`.
-pub(super) fn parse_sio_event(text: &str) -> Option<(String, serde_json::Value)> {
-    let json_start = text.find('[')?;
-    let json_str = &text[json_start..];
-    let arr: Vec<serde_json::Value> = serde_json::from_str(json_str).ok()?;
-    let event_name = arr.first()?.as_str()?.to_string();
-    let data = arr.get(1).cloned().unwrap_or(serde_json::Value::Null);
-    Some((event_name, data))
 }
 
 #[cfg(test)]
