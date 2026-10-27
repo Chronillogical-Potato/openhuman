@@ -149,6 +149,10 @@ async fn backend_session_active_snapshot(config: &Config) -> bool {
 }
 
 impl CredentialAccess {
+    pub(super) fn is_inspection(self) -> bool {
+        matches!(self, Self::Inspection)
+    }
+
     pub(super) fn lookup_key_for_slug(
         self,
         slug: &str,

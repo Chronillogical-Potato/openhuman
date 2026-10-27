@@ -250,7 +250,7 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
         // The managed model constructor receives its credential later, on
         // invoke. Its hosted construction callback is config-only and offline.
         (String::new(), false, None)
-    } else if credential_access == CredentialAccess::Inspection {
+    } else if credential_access.is_inspection() {
         let credential = inspection_credential
             .ok_or_else(|| anyhow::anyhow!("inspection credential was not pre-resolved"))?;
         (
@@ -279,7 +279,7 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
     // Styles that carry no stored key (`OpenhumanJwt` injects a session JWT
     // downstream, `None` sends no auth header at all) are legitimately blank and
     // never trip this.
-    if (implicit_fallback || credential_access == CredentialAccess::Inspection)
+    if (implicit_fallback || credential_access.is_inspection())
         && key.trim().is_empty()
         && matches!(entry.auth_style, AuthStyle::Bearer | AuthStyle::Anthropic)
     {
