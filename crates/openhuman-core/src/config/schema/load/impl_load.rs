@@ -148,8 +148,9 @@ impl Config {
         let openhuman_dir = self
             .config_path
             .parent()
-            .context("config path has no parent directory")?;
-        decrypt_config_secrets(self, openhuman_dir).await
+            .context("config path has no parent directory")?
+            .to_path_buf();
+        decrypt_config_secrets(self, &openhuman_dir).await
     }
 
     pub async fn load_or_init() -> Result<Self> {
