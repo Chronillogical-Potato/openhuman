@@ -26,8 +26,5 @@ fn begin_socket_token_and_nonce_survive_first_peer_online_event() {
     assert_eq!(frame.nonce, online.nonce);
 
     publish_peer_status(channel_id.to_owned(), false);
-    assert!(!SOCKET_ATTESTATIONS
-        .lock()
-        .unwrap()
-        .contains_key(channel_id));
+    assert!(!SOCKET_ATTESTATIONS.lock().unwrap().contains_key(channel_id));
 }

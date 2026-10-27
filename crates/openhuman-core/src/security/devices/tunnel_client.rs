@@ -79,13 +79,14 @@ pub fn publish_peer_status(channel_id: String, online: bool) {
         let mut attestations = SOCKET_ATTESTATIONS
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let attestation = attestations.entry(channel_id.clone()).or_insert_with(|| {
-            SocketAttestation {
-                token: uuid::Uuid::new_v4().simple().to_string(),
-                nonce: uuid::Uuid::new_v4().simple().to_string(),
-                expires_at_ms: event_expiry_ms(),
-            }
-        });
+        let attestation =
+            attestations
+                .entry(channel_id.clone())
+                .or_insert_with(|| SocketAttestation {
+                    token: uuid::Uuid::new_v4().simple().to_string(),
+                    nonce: uuid::Uuid::new_v4().simple().to_string(),
+                    expires_at_ms: event_expiry_ms(),
+                });
         attestation.expires_at_ms = event_expiry_ms();
     } else {
         // The backend status has no peer-connection id. Retire the host token

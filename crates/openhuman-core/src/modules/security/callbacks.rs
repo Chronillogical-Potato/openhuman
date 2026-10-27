@@ -158,6 +158,9 @@ impl DevicePairingHost {
         }
         let mut records = Vec::with_capacity(devices.len());
         for device in devices {
+            if device.revoked {
+                continue;
+            }
             let Some(ciphertext) = device.core_private_key_encrypted else {
                 // A row revoked before migration has no recoverable key. It
                 // remains locally revoked and is not offered for import.

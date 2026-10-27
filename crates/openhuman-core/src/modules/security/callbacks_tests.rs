@@ -125,8 +125,8 @@ fn direct_recovery_event_is_bound_to_its_exact_channel() {
 
 #[tokio::test]
 async fn device_pairing_host_is_served_on_the_module_binding() {
-    use tinybus::module::{HostCallbackEndpoint, ModuleHost};
     use tinybus::broker::Broker;
+    use tinybus::module::{HostCallbackEndpoint, ModuleHost};
     use tinybus::transport::memory::MemoryBus;
     use tinysecurity_bus::callback_names2;
 
@@ -138,9 +138,7 @@ async fn device_pairing_host_is_served_on_the_module_binding() {
     let binding = host
         .prepare_host_callbacks(vec![HostCallbackEndpoint {
             path: path.clone(),
-            interface: callback_names2::DEVICE_PAIRING_HOST
-                .parse()
-                .unwrap(),
+            interface: callback_names2::DEVICE_PAIRING_HOST.parse().unwrap(),
             members: [
                 callback_names2::RESOLVE_PAIRING_EVENT,
                 callback_names2::PERSIST_DEVICE_PAIRING,

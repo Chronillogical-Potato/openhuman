@@ -14,20 +14,14 @@ async fn client_fails_closed_when_module_loading_is_disabled() {
 #[test]
 fn pairing_unlock_cache_is_process_local_and_generation_bound() {
     let scope = "0123456789abcdef0123456789abcdef";
-    UNLOCKED_PAIRING_SCOPES
-        .lock()
-        .unwrap()
-        .remove(scope);
+    UNLOCKED_PAIRING_SCOPES.lock().unwrap().remove(scope);
     assert!(!pairing_scope_is_unlocked(scope, 7));
 
     remember_unlocked_pairing_scope(scope, 7);
     assert!(pairing_scope_is_unlocked(scope, 7));
     assert!(!pairing_scope_is_unlocked(scope, 8));
 
-    UNLOCKED_PAIRING_SCOPES
-        .lock()
-        .unwrap()
-        .remove(scope);
+    UNLOCKED_PAIRING_SCOPES.lock().unwrap().remove(scope);
     assert!(!pairing_scope_is_unlocked(scope, 7));
 }
 

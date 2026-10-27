@@ -139,7 +139,10 @@ async fn uncorrelated_offline_status_does_not_end_the_current_module_session() {
 
     handle_peer_offline(channel_id).await;
 
-    assert_eq!(ACTIVE_SESSIONS.lock().unwrap().get(channel_id), Some(&active));
+    assert_eq!(
+        ACTIVE_SESSIONS.lock().unwrap().get(channel_id),
+        Some(&active)
+    );
     assert_eq!(PEER_STATUS.lock().unwrap().get(channel_id), Some(&false));
     ACTIVE_SESSIONS.lock().unwrap().remove(channel_id);
     PEER_STATUS.lock().unwrap().remove(channel_id);

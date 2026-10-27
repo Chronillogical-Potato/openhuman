@@ -132,11 +132,8 @@ async fn unlock_pairing_scope(
     master_handle: &str,
     generation: u64,
 ) -> Result<(), String> {
-    let host_event_id = device_pairing_user_event(
-        scope,
-        Some(master_handle.to_owned()),
-        generation,
-    )?;
+    let host_event_id =
+        device_pairing_user_event(scope, Some(master_handle.to_owned()), generation)?;
     let response = client
         .device_pairing2(tinysecurity_bus::DevicePairingRequest2 {
             call_id: uuid::Uuid::new_v4().simple().to_string(),
@@ -151,9 +148,7 @@ async fn unlock_pairing_scope(
     Ok(())
 }
 
-fn pairing_unlock_response_is_valid(
-    response: &tinysecurity_bus::DevicePairingResponse2,
-) -> bool {
+fn pairing_unlock_response_is_valid(response: &tinysecurity_bus::DevicePairingResponse2) -> bool {
     response
         .core_public_key
         .as_ref()

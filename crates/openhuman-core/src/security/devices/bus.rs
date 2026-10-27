@@ -391,7 +391,10 @@ fn renewal_pairing_id<'a>(
     {
         return None;
     }
-    device.pairing_id.as_deref().filter(|value| !value.is_empty())
+    device
+        .pairing_id
+        .as_deref()
+        .filter(|value| !value.is_empty())
 }
 
 fn renewal_pairing_session(
@@ -449,9 +452,7 @@ fn active_session_matches_connection(
     active.connection_nonce == connection_nonce
 }
 
-fn valid_handshake_reply(
-    response: tinysecurity_bus::DevicePairingResponse2,
-) -> Option<Vec<u8>> {
+fn valid_handshake_reply(response: tinysecurity_bus::DevicePairingResponse2) -> Option<Vec<u8>> {
     if response.frame.is_empty()
         || response.receipt.is_some()
         || response.pairing_id.is_some()
@@ -502,8 +503,7 @@ async fn handle_encrypted_rpc_frame(
         .contains(channel_id)
     {
         let Some(session) = pending else { return };
-        if session.pairing_token != connection_token
-            || session.connection_nonce != connection_nonce
+        if session.pairing_token != connection_token || session.connection_nonce != connection_nonce
         {
             return;
         }
@@ -536,7 +536,9 @@ async fn handle_encrypted_rpc_frame(
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .remove(channel_id);
-        log::warn!("[devices/bus] active session belongs to an older socket channel_id={channel_id}");
+        log::warn!(
+            "[devices/bus] active session belongs to an older socket channel_id={channel_id}"
+        );
         return;
     }
     let Ok(client) = crate::modules::security::client(config).await else {
@@ -721,7 +723,9 @@ async fn confirm_pairing(
             {
                 store::touch_device(config, channel_id).and_then(|()| {
                     store::get_device(config, channel_id)
-                        .map(|device| device.ok_or_else(|| anyhow::anyhow!("renewed device disappeared")))
+                        .map(|device| {
+                            device.ok_or_else(|| anyhow::anyhow!("renewed device disappeared"))
+                        })
                         .and_then(|device| device)
                 })
             }
