@@ -60,7 +60,8 @@ async fn execute_tool_resolves_to_backend_kind_when_mode_is_backend() {
             "test-token",
             std::collections::HashMap::new(),
             true,
-        ).await
+        )
+        .await
         .expect("store test session token");
     let kind = crate::integrations::composio::client::resolve_composio_route(&config)
         .await

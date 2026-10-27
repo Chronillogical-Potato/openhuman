@@ -74,9 +74,11 @@ fn execute_parser_preserves_tool_first_errors_and_connection_type_error() {
         ("tool".into(), json!(42)),
         ("connection_id".into(), json!(7)),
     ]);
-    assert!(parse_execute(invalid_tool)
-        .unwrap_err()
-        .starts_with("invalid 'tool':"));
+    assert!(
+        parse_execute(invalid_tool)
+            .unwrap_err()
+            .starts_with("invalid 'tool':")
+    );
 
     let empty_tool = Map::from_iter([
         ("tool".into(), json!("  ")),
@@ -91,7 +93,9 @@ fn execute_parser_preserves_tool_first_errors_and_connection_type_error() {
         ("tool".into(), json!("GMAIL_SEND_EMAIL")),
         ("connection_id".into(), json!(7)),
     ]);
-    assert!(parse_execute(invalid_connection)
-        .unwrap_err()
-        .starts_with("invalid 'connection_id':"));
+    assert!(
+        parse_execute(invalid_connection)
+            .unwrap_err()
+            .starts_with("invalid 'connection_id':")
+    );
 }

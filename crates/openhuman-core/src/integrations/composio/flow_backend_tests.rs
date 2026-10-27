@@ -1,6 +1,6 @@
 use super::*;
-use axum::{routing::post, Json, Router};
-use serde_json::{json, Value};
+use axum::{Json, Router, routing::post};
+use serde_json::{Value, json};
 
 use crate::integrations::composio::module_client::module_guard;
 
@@ -55,7 +55,8 @@ async fn backend_dispatch_forwards_the_workflow_connection_id() {
             "test-token",
             std::collections::HashMap::new(),
             true,
-        ).await
+        )
+        .await
         .expect("store test session token");
 
     let response = execute_for_connection(

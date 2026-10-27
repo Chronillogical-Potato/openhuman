@@ -219,7 +219,7 @@ async fn contract_gate_surfaces_full_contract_then_proceeds_on_retry() {
         // A unique toolkit is seeded so this is deterministic and never touches
         // the network.
         use crate::config::TEST_ENV_LOCK;
-        use crate::integrations::composio::catalog::{seed_live_catalog_cache, ToolContract};
+        use crate::integrations::composio::catalog::{ToolContract, seed_live_catalog_cache};
         let _env_guard = TEST_ENV_LOCK.lock().await;
 
         let toolkit = "cgateexec";
@@ -451,7 +451,7 @@ async fn mode_toggle_between_calls_is_observed() {
 async fn deferred_instance_returns_live_config_for_redaction() {
     run_with_big_stack(|| async {
         use crate::config::TEST_ENV_LOCK;
-        use crate::integrations::composio::catalog::{seed_live_catalog_cache, ToolContract};
+        use crate::integrations::composio::catalog::{ToolContract, seed_live_catalog_cache};
         // Lock order module -> env, matching the ops tests (no inversion).
         let _serialised = super::super::module_client::module_guard().await;
         let _env_guard = TEST_ENV_LOCK.lock().await;

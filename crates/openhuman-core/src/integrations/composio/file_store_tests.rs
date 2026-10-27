@@ -112,9 +112,11 @@ async fn a_legacy_state_file_is_imported_once_and_left_byte_identical() {
         std::fs::read(legacy_dir.join(USER_SCOPES_FILE)).unwrap(),
         br#"{"gmail":7}"#
     );
-    assert!(!legacy_dir
-        .join(format!("{USER_SCOPES_FILE}.migrated"))
-        .exists());
+    assert!(
+        !legacy_dir
+            .join(format!("{USER_SCOPES_FILE}.migrated"))
+            .exists()
+    );
 
     // A later edit is not clobbered by a re-import.
     update(

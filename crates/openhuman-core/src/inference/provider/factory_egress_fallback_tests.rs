@@ -29,7 +29,8 @@ async fn create_chat_model_managed_emits_exactly_one_egress_realpath() {
             "scratch",
             &config,
             0.7,
-        ).await;
+        )
+        .await;
     })
     .await;
 
@@ -90,7 +91,8 @@ async fn create_chat_model_local_runtime_does_not_emit_egress_realpath() {
         "chat",
         &config,
         0.7,
-    ).await;
+    )
+    .await;
 
     // Sentinel bounds the drain; if the local marker ever appears as an external
     // transfer before it, the local-suppression contract is broken.
@@ -187,7 +189,8 @@ async fn a_readable_profile_with_no_stored_key_is_treated_as_missing_credentials
     let mut config = config_with_providers_in_tempdir(&tmp, vec![openai_entry("p_oai", "openai")]);
     config.chat_provider = Some("ollama:gemma3:1b".to_string());
 
-    let err = create_test_chat_model_from_string("vision", "openai:gpt-4o", &config).await
+    let err = create_test_chat_model_from_string("vision", "openai:gpt-4o", &config)
+        .await
         .err()
         .expect("a slug with no stored key must not build a client");
     let message = err.to_string();
@@ -209,7 +212,9 @@ async fn a_readable_profile_with_no_stored_key_is_treated_as_missing_credentials
     // one this diagnostic exists for) turns a blank key into an error.
     config.vision_provider = Some("openai:gpt-4o".to_string());
     assert!(
-        create_test_chat_model_from_string("vision", "openai:gpt-4o", &config).await.is_ok(),
+        create_test_chat_model_from_string("vision", "openai:gpt-4o", &config)
+            .await
+            .is_ok(),
         "an explicitly routed provider must still build without a stored key"
     );
 }
@@ -331,7 +336,9 @@ async fn a_routed_turn_authenticates_with_the_callers_bearer() {
     // that exists only in this in-memory copy, so the stored-profile lookup
     // would come back empty and the turn would 401 several layers later.
     assert_eq!(
-        lookup_key_for_slug(EPHEMERAL_ROUTE_SLUG, &config).await.expect("resolves"),
+        lookup_key_for_slug(EPHEMERAL_ROUTE_SLUG, &config)
+            .await
+            .expect("resolves"),
         "mdl-token"
     );
 }
@@ -358,7 +365,8 @@ async fn the_route_resolves_to_a_provider_the_factory_can_build() {
         "coding",
         &provider_for_role("coding", &config),
         &config,
-    ).await
+    )
+    .await
     .expect("the per-call route builds a chat model");
     assert_eq!(model_id, "x/y");
 }

@@ -12,9 +12,11 @@ async fn disabled_processing_never_executes_linked_calendar_or_validation_helper
         None,
     )
     .await;
-    assert!(result
-        .unwrap_err()
-        .contains("MODULE_CALL_REPORTED: module unavailable"));
+    assert!(
+        result
+            .unwrap_err()
+            .contains("MODULE_CALL_REPORTED: module unavailable")
+    );
 }
 
 #[cfg(feature = "modules")]
@@ -44,7 +46,7 @@ impl Fixture {
 #[cfg(feature = "modules")]
 #[tokio::test]
 async fn preparation_forwards_host_context_and_preserves_module_validation_errors() {
-    use tinybus::{broker::Broker, transport::memory::MemoryBus, Connection, ObjectPath};
+    use tinybus::{Connection, ObjectPath, broker::Broker, transport::memory::MemoryBus};
     let bus = MemoryBus::new();
     Broker::new().spawn(bus.clone());
     let service = Connection::connect(bus.connect().await.unwrap())

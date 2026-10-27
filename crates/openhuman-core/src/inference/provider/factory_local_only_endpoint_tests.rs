@@ -1,6 +1,6 @@
 use super::*;
-use crate::config::test_env::EnvVarGuard;
 use crate::config::PrivacyMode;
+use crate::config::test_env::EnvVarGuard;
 use crate::inference::provider::factory::access_gates::local_only_violation;
 
 // Local-only privacy mode means the prompt stays on this machine. Two routes
@@ -35,7 +35,9 @@ fn local_only_refuses_ollama_cloud_proxied_models() {
         "ollama:deepseek-v3.1:671B-Cloud",
     ] {
         assert!(
-            local_only_violation(PrivacyMode::LocalOnly, provider).await.is_some(),
+            local_only_violation(PrivacyMode::LocalOnly, provider)
+                .await
+                .is_some(),
             "LocalOnly permitted the cloud-proxied model {provider}"
         );
     }
@@ -59,7 +61,8 @@ fn local_only_refuses_a_local_runtime_pointed_at_another_host() {
         ("lmstudio:m", "http://192.168.1.20:1234/v1"),
         ("ollama:m", "http://gpu.example.invalid:11434"),
     ] {
-        let result = create_test_chat_model_from_string("chat", provider, &local_ai_at(base_url)).await;
+        let result =
+            create_test_chat_model_from_string("chat", provider, &local_ai_at(base_url)).await;
         let error = match result {
             Ok(_) => panic!("LocalOnly built {provider} against {base_url}"),
             Err(error) => error.to_string(),
@@ -75,7 +78,8 @@ fn local_only_refuses_a_local_runtime_pointed_at_another_host() {
         "http://[::1]:8080/v1",
     ] {
         assert!(
-            create_test_chat_model_from_string("chat", "local-openai:m", &local_ai_at(base_url)).await
+            create_test_chat_model_from_string("chat", "local-openai:m", &local_ai_at(base_url))
+                .await
                 .is_ok(),
             "LocalOnly refused the loopback endpoint {base_url}"
         );
@@ -103,7 +107,8 @@ async fn a_local_runtime_pointed_at_another_host_is_recorded_as_external_egress(
         "chat",
         &config,
         0.7,
-    ).await;
+    )
+    .await;
 
     let sentinel = "egress-remote-local-runtime-sentinel";
     BUS.publish(DomainEvent::ExternalTransferPending {
@@ -143,7 +148,8 @@ async fn local_only_refuses_a_cloud_tag_named_per_request() {
         "chat",
         "ollama:llama3",
         &local_ai_at("http://127.0.0.1:9/v1"),
-    ).await
+    )
+    .await
     .expect("a local Ollama tag builds under local-only");
 
     let error = model
@@ -169,7 +175,8 @@ async fn local_only_set_after_construction_refuses_a_remote_local_runtime_at_dis
         "chat",
         "local-openai:m",
         &local_ai_at("https://gpu.example.invalid/v1"),
-    ).await
+    )
+    .await
     .expect("Standard builds a remote local runtime");
 
     let _local_only = crate::security::live_policy::test_privacy_scope(PrivacyMode::LocalOnly);
@@ -208,7 +215,8 @@ async fn a_cloud_tag_named_per_request_is_recorded_as_external_egress() {
         "chat",
         "ollama:llama3",
         &local_ai_at("http://127.0.0.1:9/v1"),
-    ).await
+    )
+    .await
     .expect("a local Ollama tag builds");
     let marker = "egress-per-request-marker-cloud";
     // Nothing listens on port 9: the request fails after the guard ran.

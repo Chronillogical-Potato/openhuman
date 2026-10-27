@@ -49,10 +49,11 @@ async fn list_toolkits_tool_metadata_is_stable() {
     let s = t.parameters_schema();
     assert_eq!(s["type"], "object");
     // No required inputs.
-    assert!(s
-        .get("required")
-        .and_then(|r| r.as_array())
-        .is_none_or(|a| a.is_empty()));
+    assert!(
+        s.get("required")
+            .and_then(|r| r.as_array())
+            .is_none_or(|a| a.is_empty())
+    );
 }
 
 #[tokio::test]
@@ -221,9 +222,11 @@ async fn connection_is_active_errs_without_a_client() {
     // NOT `Ok(false)` — so the caller fails closed without fabricating an
     // "OAuth incomplete" reason that blames the user (#4062, coderabbit).
     let cfg = crate::config::Config::default();
-    assert!(super::super::connection_is_active(&cfg, "gmail")
-        .await
-        .is_err());
+    assert!(
+        super::super::connection_is_active(&cfg, "gmail")
+            .await
+            .is_err()
+    );
 }
 
 #[tokio::test]
@@ -323,7 +326,8 @@ async fn agent_tools_are_all_removed_when_composio_is_disabled_even_if_signed_in
             "test-token",
             std::collections::HashMap::new(),
             true,
-        ).await
+        )
+        .await
         .expect("store test session token");
     config.composio.mode = "disabled".into();
     let names: Vec<String> = all_composio_agent_tools(&config)
@@ -349,7 +353,8 @@ async fn agent_tools_register_when_backend_signed_in() {
             "test-token",
             std::collections::HashMap::new(),
             true,
-        ).await
+        )
+        .await
         .expect("store test session token");
     let tools = all_composio_agent_tools(&config);
     assert_eq!(

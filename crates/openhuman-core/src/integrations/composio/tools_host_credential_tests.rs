@@ -5,15 +5,15 @@ use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::routing::get;
 use axum::{Json, Router};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tinytools::Tool;
 
 use crate::config::{ComposioHostCredential, Config};
-use crate::integrations::composio::client::{resolve_composio_route, ComposioRoute};
+use crate::integrations::composio::client::{ComposioRoute, resolve_composio_route};
 use crate::integrations::composio::connected_integrations::{
-    cache_key, read_cached_integrations_from, CachedIntegrations,
+    CachedIntegrations, cache_key, read_cached_integrations_from,
 };
-use crate::integrations::composio::tools::{live_composio_config, ComposioListConnectionsTool};
+use crate::integrations::composio::tools::{ComposioListConnectionsTool, live_composio_config};
 
 const KEY_A: &str = "ck_tenant_alpha_0001";
 const KEY_B: &str = "ck_tenant_bravo_0002";
@@ -80,7 +80,8 @@ fn shared_runtime_config(tmp: &tempfile::TempDir) -> Config {
             SHARED_STORE_KEY,
             std::collections::HashMap::new(),
             true,
-        ).await
+        )
+        .await
         .unwrap();
     config
 }
@@ -96,7 +97,10 @@ fn pinned(base: &Config, key: &str, entity: &str, mock: Option<&str>) -> Config 
 }
 
 fn direct_key_fingerprint(config: &Config) -> u64 {
-    match resolve_composio_route(config).await.expect("pinned credential resolves") {
+    match resolve_composio_route(config)
+        .await
+        .expect("pinned credential resolves")
+    {
         ComposioRoute::Direct(tool) => tool.auth_key_fingerprint(),
         ComposioRoute::Backend => panic!("a pinned credential must resolve direct"),
     }
@@ -184,7 +188,10 @@ async fn connected_integrations_cache_is_keyed_per_credential() {
 
     assert_ne!(cache_key(&agent_a).await, cache_key(&agent_b).await);
     assert_ne!(cache_key(&agent_a).await, cache_key(&base).await);
-    assert_ne!(cache_key(&agent_a).await, cache_key(&same_key_other_entity).await);
+    assert_ne!(
+        cache_key(&agent_a).await,
+        cache_key(&same_key_other_entity).await
+    );
     assert_eq!(cache_key(&agent_a).await, cache_key(&agent_a.clone()).await);
     assert!(!cache_key(&agent_a).await.contains(KEY_A));
 
@@ -252,7 +259,8 @@ async fn redaction_covers_every_result_channel() {
     let serialized = serde_json::to_string(&redacted).unwrap();
     assert!(!serialized.contains(KEY_A), "{serialized}");
 
-    let err = redact_composio_outcome(&agent, Err(anyhow::anyhow!("bad key {KEY_A}"))).await
+    let err = redact_composio_outcome(&agent, Err(anyhow::anyhow!("bad key {KEY_A}")))
+        .await
         .await
         .unwrap_err();
     assert!(!format!("{err:#}").contains(KEY_A));
@@ -286,7 +294,8 @@ async fn cache_key_changes_when_the_shared_stored_key_rotates_in_unpinned_direct
             "ck_tenant_rotated_0004",
             std::collections::HashMap::new(),
             true,
-        ).await
+        )
+        .await
         .unwrap();
 
     let key_after = cache_key(&base).await;

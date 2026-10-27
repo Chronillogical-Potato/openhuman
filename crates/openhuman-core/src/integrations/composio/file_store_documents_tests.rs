@@ -1,8 +1,8 @@
 use super::*;
 use crate::config::Config;
+use crate::storage::Scope;
 use crate::storage::state_kv::StateKv;
 use crate::storage::test_support::memory_backend;
-use crate::storage::Scope;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -165,9 +165,10 @@ fn the_import_marker_is_a_migrations_entry_and_stops_a_second_import() {
     let storage = crate::storage::test_support::sqlite_backend().unwrap();
     let docs = Docs::on_backend(&storage.backend, &Scope::local()).unwrap();
     assert!(!docs.legacy_imported(path()).unwrap());
-    assert!(docs
-        .import_if_absent(path(), serde_json::json!({ "gmail": 5 }))
-        .unwrap());
+    assert!(
+        docs.import_if_absent(path(), serde_json::json!({ "gmail": 5 }))
+            .unwrap()
+    );
     assert!(docs.legacy_imported(path()).unwrap());
     let loaded: BTreeMap<String, u32> = docs.load(path()).unwrap();
     assert_eq!(loaded["gmail"], 5);

@@ -11,7 +11,8 @@ async fn nvidia_nim_with_explicit_model_builds_correctly() {
         "reasoning",
         "nvidia-nim:meta/llama-3.1-8b-instruct",
         &config,
-    ).await
+    )
+    .await
     .expect("nvidia-nim with explicit model must build");
     assert_eq!(
         model, "meta/llama-3.1-8b-instruct",
@@ -53,7 +54,8 @@ async fn nvidia_nim_falls_back_to_default_model_when_no_model_in_string() {
         "p_nim",
         Some("meta/llama-3.1-70b-instruct"),
     )]);
-    let (_, model) = create_test_chat_model_from_string("reasoning", "nvidia-nim:", &config).await
+    let (_, model) = create_test_chat_model_from_string("reasoning", "nvidia-nim:", &config)
+        .await
         .expect("nvidia-nim: with default_model configured must build");
     assert_eq!(
         model, "meta/llama-3.1-70b-instruct",
@@ -68,7 +70,9 @@ async fn config_api_key_fallback_applies_to_legacy_inference_slug() {
     let tmp = TempDir::new().expect("tempdir");
     let config = config_for_api_key_fallback(&tmp);
     assert_eq!(
-        lookup_key_for_slug("custom", &config).await.expect("lookup must succeed"),
+        lookup_key_for_slug("custom", &config)
+            .await
+            .expect("lookup must succeed"),
         "global-key",
         "legacy direct-inference slug must inherit config.api_key fallback",
     );
@@ -83,7 +87,9 @@ async fn config_api_key_fallback_does_not_leak_to_other_slugs() {
     let tmp = TempDir::new().expect("tempdir");
     let config = config_for_api_key_fallback(&tmp);
     assert_eq!(
-        lookup_key_for_slug("anthropic", &config).await.expect("lookup must succeed"),
+        lookup_key_for_slug("anthropic", &config)
+            .await
+            .expect("lookup must succeed"),
         "",
         "non-matching slug must NOT inherit config.api_key — would leak credentials",
     );
@@ -97,7 +103,9 @@ async fn config_api_key_fallback_inert_without_inference_url() {
     let mut config = config_for_api_key_fallback(&tmp);
     config.inference_url = None;
     assert_eq!(
-        lookup_key_for_slug("custom", &config).await.expect("lookup must succeed"),
+        lookup_key_for_slug("custom", &config)
+            .await
+            .expect("lookup must succeed"),
         "",
         "without inference_url there is no legacy slug — fallback must stay inert",
     );
@@ -322,8 +330,9 @@ async fn omlx_provider_builds_with_bearer_key() {
     let mut config = crate::config::Config::default();
     config.local_ai.api_key = Some("sk-omlx-test".to_string());
     config.local_ai.base_url = Some("http://127.0.0.1:8000/v1".to_string());
-    let (_provider, model) =
-        create_test_omlx_model("my-model", None, &config).await.expect("omlx provider builds");
+    let (_provider, model) = create_test_omlx_model("my-model", None, &config)
+        .await
+        .expect("omlx provider builds");
     assert_eq!(model, "my-model");
 }
 
@@ -334,7 +343,8 @@ async fn omlx_dispatch_empty_model_errors() {
     // and create_test_local_chat_model_from_string for the "omlx:" prefix.
     let config = crate::config::Config::default();
 
-    let err = create_test_chat_model_from_string("chat", "omlx:", &config).await
+    let err = create_test_chat_model_from_string("chat", "omlx:", &config)
+        .await
         .err()
         .expect("omlx: with empty model must fail");
     let msg = err.to_string();
@@ -343,7 +353,8 @@ async fn omlx_dispatch_empty_model_errors() {
         "expected empty-model diagnostic, got: {msg}"
     );
 
-    let err_local = create_test_local_chat_model_from_string("omlx:", &config).await
+    let err_local = create_test_local_chat_model_from_string("omlx:", &config)
+        .await
         .err()
         .expect("omlx: with empty model must fail via local dispatch");
     let msg_local = err_local.to_string();
@@ -361,8 +372,9 @@ async fn omlx_provider_builds_without_key_uses_no_auth() {
     let mut config = crate::config::Config::default();
     config.local_ai.api_key = None;
     config.local_ai.base_url = Some("http://127.0.0.1:8000/v1".to_string());
-    let (_provider, model) =
-        create_test_omlx_model("m", None, &config).await.expect("omlx provider builds without key");
+    let (_provider, model) = create_test_omlx_model("m", None, &config)
+        .await
+        .expect("omlx provider builds without key");
     assert_eq!(model, "m");
 }
 
@@ -375,12 +387,14 @@ async fn omlx_dispatch_success_builds_provider() {
     config.local_ai.api_key = Some("sk-omlx-test".to_string());
     config.local_ai.base_url = Some("http://127.0.0.1:8000/v1".to_string());
 
-    let (_p, model) = create_test_chat_model_from_string("chat", "omlx:my-model", &config).await
+    let (_p, model) = create_test_chat_model_from_string("chat", "omlx:my-model", &config)
+        .await
         .expect("omlx:<model> builds via public factory");
     assert_eq!(model, "my-model");
 
     let (_p_local, model_local) =
-        create_test_local_chat_model_from_string("omlx:my-model", &config).await
+        create_test_local_chat_model_from_string("omlx:my-model", &config)
+            .await
             .expect("omlx:<model> builds via local dispatch");
     assert_eq!(model_local, "my-model");
 }
@@ -552,7 +566,10 @@ async fn local_only_defers_reresolving_sentinels() {
     // Empty / "cloud" re-resolve to a concrete string and are re-checked on the
     // recursive call — not blocked here.
     assert_eq!(local_only_violation(PrivacyMode::LocalOnly, "").await, None);
-    assert_eq!(local_only_violation(PrivacyMode::LocalOnly, "cloud").await, None);
+    assert_eq!(
+        local_only_violation(PrivacyMode::LocalOnly, "cloud").await,
+        None
+    );
 }
 
 #[tokio::test]
@@ -560,7 +577,9 @@ async fn local_only_does_not_treat_unresolved_route_sentinels_as_local() {
     use crate::config::PrivacyMode;
     for route in ["cloud:gpt-4o", ":gpt-4o"] {
         assert!(
-            local_only_violation(PrivacyMode::LocalOnly, route).await.is_some(),
+            local_only_violation(PrivacyMode::LocalOnly, route)
+                .await
+                .is_some(),
             "an unresolved route must remain blocked under LocalOnly: {route}"
         );
     }

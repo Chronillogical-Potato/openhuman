@@ -1,8 +1,8 @@
 use super::*;
 
 use super::local_runtime::synthesize_local_runtime_entry;
-use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::config::Config;
+use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::inference::provider::model_listing_test_support::{
     configure_generic_workspace, spawn_static_models_server,
 };

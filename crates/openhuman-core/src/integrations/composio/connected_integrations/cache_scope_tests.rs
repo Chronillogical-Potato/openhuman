@@ -147,7 +147,8 @@ async fn reconciliation_for_one_profile_preserves_another_profiles_connections()
     ));
     CoreContext::scope(alice, async {
         assert_eq!(
-            cached_active_integrations(&config).await
+            cached_active_integrations(&config)
+                .await
                 .expect("another profile's connection list must preserve this snapshot")[0]
                 .toolkit,
             "gmail"

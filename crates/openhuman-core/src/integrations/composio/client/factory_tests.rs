@@ -41,10 +41,14 @@ async fn a_route_builder_error_is_returned_unchanged() {
 
 #[tokio::test]
 async fn without_a_route_builder_the_built_in_resolution_applies() {
-    assert!(resolve_composio_route(&config_with_mode("disabled")).await
+    assert!(
+        resolve_composio_route(&config_with_mode("disabled"))
+            .await
+            .await
+            .is_err()
+    );
+    let unknown = resolve_composio_route(&config_with_mode("bogus"))
         .await
-        .is_err());
-    let unknown = resolve_composio_route(&config_with_mode("bogus")).await
         .await
         .err()
         .unwrap()
@@ -68,7 +72,7 @@ async fn a_host_pinned_credential_wins_over_a_registered_builder() {
 // a remote host past that check.
 #[test]
 fn loopback_http_guard_rejects_smuggled_and_remote_hosts() {
-    use super::super::credential::{is_loopback_http_url, DirectCredential};
+    use super::super::credential::{DirectCredential, is_loopback_http_url};
     for url in [
         "http://127.0.0.1:8080@evil.com/api/v3",
         "http://localhost@evil.com/",

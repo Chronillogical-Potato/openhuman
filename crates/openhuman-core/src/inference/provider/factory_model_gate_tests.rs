@@ -73,7 +73,8 @@ async fn turn_factory_checks_privacy_then_explicit_host_session_before_building_
                 "fixture-session-token",
                 Default::default(),
                 true,
-            ).await
+            )
+            .await
             .expect("store isolated test session");
         let built =
             tinyagents_harness::host::TurnModelSet::<()>::builder(&factory, &factory, "chat")

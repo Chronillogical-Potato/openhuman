@@ -1,7 +1,7 @@
 use super::*;
 use crate::agent::prompts::types::IntegrationConnection;
 use crate::integrations::composio::catalog::{
-    seed_live_catalog_cache, seed_live_catalog_cache_expired, ToolContract,
+    ToolContract, seed_live_catalog_cache, seed_live_catalog_cache_expired,
 };
 use crate::integrations::composio::{ComposioExecuteResponse, ConnectedIntegration};
 use crate::security::policy::CommandClass;

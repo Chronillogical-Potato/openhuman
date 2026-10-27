@@ -8,8 +8,8 @@ async fn managed_factory_and_probe_use_the_explicit_provider_entry() {
     use crate::core::runtime::{CoreContext, DispatchCtx, DomainSet};
     use crate::core::slots::Extensions;
     use crate::inference::registry::ProviderContext;
-    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use tinyinference_llm::message::Message;
     use tinyinference_llm::model::ModelRequest;
 
@@ -139,11 +139,11 @@ async fn managed_factory_and_probe_use_the_explicit_provider_entry() {
 #[tokio::test]
 async fn hosted_cloud_slug_uses_explicit_auth_policy_and_model_entry() {
     use crate::config::schema::cloud_providers::{
-        register_hosted_cloud_provider_policy_in, AuthStyle, CloudProviderCreds,
+        AuthStyle, CloudProviderCreds, register_hosted_cloud_provider_policy_in,
     };
     use crate::core::runtime::{CoreContext, DispatchCtx, DomainSet};
     use crate::core::slots::Extensions;
-    use crate::inference::registry::{register_catalog_in, ProviderContext};
+    use crate::inference::registry::{ProviderContext, register_catalog_in};
     use std::sync::Arc;
     use tinyinference_llm::message::Message;
     use tinyinference_llm::model::ModelRequest;

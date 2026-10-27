@@ -5,9 +5,9 @@
 //! no network call is made. Each test uses a unique toolkit slug so the shared
 //! `LIVE_CATALOG_CACHE` can't cross-contaminate between tests.
 
-use super::{consult, ContractGate, GateDecision};
+use super::{ContractGate, GateDecision, consult};
 use crate::config::Config;
-use crate::integrations::composio::catalog::{seed_live_catalog_cache, ToolContract};
+use crate::integrations::composio::catalog::{ToolContract, seed_live_catalog_cache};
 
 /// Build a full contract for `slug` in `toolkit` with a REQUIRED `query` input
 /// field and a description that spells out the quoting rule — the exact detail

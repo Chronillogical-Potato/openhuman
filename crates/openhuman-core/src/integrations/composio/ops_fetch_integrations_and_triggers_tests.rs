@@ -15,7 +15,8 @@ async fn offline_local_session_never_fetches_hosted_integrations() {
             "desktop.test.local",
             std::collections::HashMap::new(),
             true,
-        ).await
+        )
+        .await
         .unwrap();
     match fetch_connected_integrations_status(&config).await {
         FetchConnectedIntegrationsStatus::Authoritative(items) => assert!(items.is_empty()),
@@ -358,7 +359,8 @@ async fn cached_integrations_remain_available_after_a_long_idle_period() {
         let mut guard = INTEGRATIONS_CACHE.write().unwrap();
         guard.get_mut(&key).unwrap().cached_at = Instant::now() - Duration::from_secs(3600);
     }
-    let stale = cached_active_integrations(&config).await
+    let stale = cached_active_integrations(&config)
+        .await
         .expect("a long idle period must not expire the last-known snapshot");
     assert_eq!(stale.len(), 1);
     assert_eq!(stale[0].toolkit, "gmail");
@@ -545,12 +547,14 @@ async fn enabling_trigger_makes_it_visible_in_list_triggers() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_with_backend(&tmp, base).await;
 
-    assert!(composio_list_triggers(&config, None)
-        .await
-        .unwrap()
-        .value
-        .triggers
-        .is_empty());
+    assert!(
+        composio_list_triggers(&config, None)
+            .await
+            .unwrap()
+            .value
+            .triggers
+            .is_empty()
+    );
     composio_enable_trigger(&config, "c1", "GMAIL_NEW_GMAIL_MESSAGE", None)
         .await
         .unwrap();

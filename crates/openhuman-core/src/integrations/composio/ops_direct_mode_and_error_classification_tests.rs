@@ -37,7 +37,9 @@ async fn composio_set_api_key_rejects_invalid_direct_key_before_persisting() {
         "unexpected error: {err}"
     );
     assert_eq!(
-        get_composio_api_key(&config).await.expect("read composio key after failed save"),
+        get_composio_api_key(&config)
+            .await
+            .expect("read composio key after failed save"),
         None,
         "invalid key must not be stored"
     );
@@ -98,7 +100,9 @@ async fn composio_set_api_key_validates_candidate_key_even_when_stored_key_exist
         "unexpected error: {err}"
     );
     assert_eq!(
-        get_composio_api_key(&config).await.expect("read composio key after failed replacement"),
+        get_composio_api_key(&config)
+            .await
+            .expect("read composio key after failed replacement"),
         Some("ck_old_valid".to_string()),
         "failed replacement must leave the old stored key intact"
     );
@@ -638,7 +642,8 @@ async fn backend_mode_treats_local_offline_credential_as_no_backend_session() {
             "header.payload.local",
             std::collections::HashMap::new(),
             true,
-        ).await
+        )
+        .await
         .expect("store offline credential");
     assert!(backend_mode_without_session(&config).await);
 }
