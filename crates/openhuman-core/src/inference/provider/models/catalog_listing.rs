@@ -183,7 +183,7 @@ pub async fn list_configured_models_from_config(
             .cloud_providers
             .iter()
             .find(|e| e.id == provider_id || e.slug == provider_id);
-        let request = catalog_request(config, entry)?;
+        let request = catalog_request(config, entry).await?;
         return run_registered_catalog(&provider_id, config, request, catalog).await;
     }
     if provider_id == crate::inference::provider::factory::PROVIDER_OPENHUMAN {
@@ -209,7 +209,7 @@ pub async fn list_configured_models_from_config(
             crate::inference::provider::factory::PROVIDER_OPENHUMAN,
         ) {
             Some(catalog) => {
-                let request = catalog_request(config, Some(&entry))?;
+                let request = catalog_request(config, Some(&entry)).await?;
                 run_registered_catalog(
                     crate::inference::provider::factory::PROVIDER_OPENHUMAN,
                     config,
