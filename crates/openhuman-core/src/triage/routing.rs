@@ -141,7 +141,7 @@ async fn build_remote_provider(
     config: &Config,
 ) -> anyhow::Result<ResolvedProvider> {
     use crate::inference::provider::factory::{
-        PROVIDER_OPENHUMAN, create_chat_model_from_string_with_model_id,
+        create_chat_model_from_string_with_model_id, PROVIDER_OPENHUMAN,
     };
     use tinyinference_local::profile::is_local_provider_string;
 

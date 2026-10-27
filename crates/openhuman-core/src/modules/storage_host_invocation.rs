@@ -6,11 +6,11 @@
 //! import-claim conditions. The endpoint has no Secrets capability and does
 //! not expose data operations on the other ports.
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Arc;
 
 use async_trait::async_trait;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tinybus::module::ModuleRuntime;
 use tinybus::{BusName, ObjectPath};
 use tinystoragedrivers_api::BlobReader;

@@ -16,7 +16,7 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use serde_json::Value;
 use tinysearch_bus::errors::Category;
-use tinysearch_bus::{ExecuteToolRequest, ToolSpec, errors};
+use tinysearch_bus::{errors, ExecuteToolRequest, ToolSpec};
 use tinytools::{Tool, ToolCallOptions, ToolCategory, ToolExposure, ToolResult};
 
 use crate::config::Config;
@@ -26,7 +26,8 @@ use crate::config::Config;
 /// What a call reports once every provider has already answered
 /// "unavailable" in this session. It tells the model to stop rather than to
 /// wait, because nothing about the session will change the answer (#6991).
-pub const SEARCH_EXHAUSTED_MESSAGE: &str = "Web search is not available with this setup: no provider could answer. Do not call \
+pub const SEARCH_EXHAUSTED_MESSAGE: &str =
+    "Web search is not available with this setup: no provider could answer. Do not call \
      it again \u{2014} answer from the material you already have.";
 
 pub struct TinySearchTool {

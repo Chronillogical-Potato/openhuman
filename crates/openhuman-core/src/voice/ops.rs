@@ -15,7 +15,7 @@ use tinyinference_local::models as model_ids;
 use super::factory::{create_stt_provider, effective_stt_provider};
 use super::postprocess;
 use super::types::{VoiceSpeechResult, VoiceStatus, VoiceTtsResult};
-use crate::modules::voice::{HallucinationMode, is_hallucinated};
+use crate::modules::voice::{is_hallucinated, HallucinationMode};
 
 const LOG_PREFIX: &str = "[voice]";
 

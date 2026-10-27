@@ -145,13 +145,11 @@ async fn callback_documents_route_does_not_advertise_or_open_unrelayed_watches()
     )
     .await
     .unwrap();
-    assert!(
-        !capabilities["capabilities"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|capability| capability == "watch")
-    );
+    assert!(!capabilities["capabilities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|capability| capability == "watch"));
     assert_eq!(
         call(
             &endpoint,

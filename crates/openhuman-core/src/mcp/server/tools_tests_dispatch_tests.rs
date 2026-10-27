@@ -43,13 +43,11 @@ async fn call_tool_records_write_argument_rejection() {
     assert!(!rows[0].success);
     assert_eq!(rows[0].tool_name, "memory.learn");
     assert_eq!(rows[0].client_info, "mcp:test");
-    assert!(
-        rows[0]
-            .error_message
-            .as_deref()
-            .unwrap_or_default()
-            .contains("missing required argument `text`")
-    );
+    assert!(rows[0]
+        .error_message
+        .as_deref()
+        .unwrap_or_default()
+        .contains("missing required argument `text`"));
     assert!(rows[0].args_summary.get("text").is_none());
 
     unsafe {

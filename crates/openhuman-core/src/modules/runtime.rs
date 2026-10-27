@@ -36,8 +36,8 @@
 use std::sync::OnceLock;
 use std::time::Duration;
 
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 use tinybus::module::{ModuleRuntime, RuntimeNames, RuntimeOptions, SearchPathConfig};
 
 /// The module bus, built once on first use.

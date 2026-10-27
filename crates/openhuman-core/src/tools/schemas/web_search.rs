@@ -4,7 +4,7 @@
 //! RPC caller gets the same provider choice and fallback as the agent.
 
 use crate::core::runtime::DispatchCtx;
-use serde_json::{Map, Value, json};
+use serde_json::{json, Map, Value};
 
 use crate::core::all::ControllerFuture;
 

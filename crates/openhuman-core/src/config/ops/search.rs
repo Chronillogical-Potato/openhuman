@@ -9,14 +9,14 @@ use crate::core::runtime::DispatchCtx;
 use std::collections::BTreeMap;
 
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::config::{
-    Config, MANAGED_SEARCH_PROVIDERS, PresentationMode, ProviderRoute, SEARCH_PROVIDERS,
+    Config, PresentationMode, ProviderRoute, MANAGED_SEARCH_PROVIDERS, SEARCH_PROVIDERS,
 };
 use crate::core::Outcome;
 use crate::search::providers;
-use tinysearch_bus::{ROLES, parse_role, role_key};
+use tinysearch_bus::{parse_role, role_key, ROLES};
 
 /// Partial update of one provider.
 #[derive(Debug, Clone, Default, Deserialize)]

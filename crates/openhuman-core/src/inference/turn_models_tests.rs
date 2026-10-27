@@ -120,12 +120,10 @@ async fn explicit_turn_context_uses_its_model_and_capabilities_over_ambient_cont
             .await
             .expect("standalone summarizer uses explicit context A");
         assert_eq!(name_of(&standalone).await, "context-a-model");
-        assert!(
-            models
-                .primary
-                .profile()
-                .is_some_and(|profile| profile.modalities.image_in)
-        );
+        assert!(models
+            .primary
+            .profile()
+            .is_some_and(|profile| profile.modalities.image_in));
         let extensions = context_a.extensions();
         assert_eq!(
             crate::inference::registry::provider_model_role_for(

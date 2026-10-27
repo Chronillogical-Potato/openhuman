@@ -4,7 +4,8 @@ use crate::modules::types::{LoadPolicy, ModuleRecord, PlatformAsset, SourceSpec}
 
 pub(crate) const TINYSEARCH: ModuleRecord = ModuleRecord {
     id: "tinysearch",
-    description: "Web search, grounded answers and page contents across providers through TinySearch",
+    description:
+        "Web search, grounded answers and page contents across providers through TinySearch",
     bus_name: tinysearch_bus::names::INTERFACE,
     object_path: tinysearch_bus::names::OBJECT_PATH,
     version: "0.5.3",

@@ -64,27 +64,23 @@ fn routes_a_provider_cannot_take_are_rejected() {
     )
     .unwrap_err();
     assert!(err.contains("does not support the managed route"), "{err}");
-    assert!(
-        apply_search_patch(
-            &mut config,
-            patch(json!({"providers": {"bing": {"enabled": true}}}))
-        )
-        .unwrap_err()
-        .contains("unknown search provider")
-    );
+    assert!(apply_search_patch(
+        &mut config,
+        patch(json!({"providers": {"bing": {"enabled": true}}}))
+    )
+    .unwrap_err()
+    .contains("unknown search provider"));
     let err = apply_search_patch(
         &mut config,
         patch(json!({"providers": {"parallel": {"route": "managed"}}})),
     )
     .unwrap_err();
     assert!(err.contains("does not support the managed route"), "{err}");
-    assert!(
-        apply_search_patch(
-            &mut config,
-            patch(json!({"providers": {"searxng": {"api_key": "x"}}}))
-        )
-        .is_err()
-    );
+    assert!(apply_search_patch(
+        &mut config,
+        patch(json!({"providers": {"searxng": {"api_key": "x"}}}))
+    )
+    .is_err());
 }
 
 #[test]
@@ -154,13 +150,11 @@ fn seltz_and_searxng_patches_update_their_sections() {
     assert_eq!(config.seltz.api_key.as_deref(), Some("s"));
     assert!(config.searxng.enabled);
     assert_eq!(config.searxng.base_url, "https://sx.example");
-    assert!(
-        apply_search_patch(
-            &mut config,
-            patch(json!({"providers": {"searxng": {"base_url": "ftp://x"}}}))
-        )
-        .is_err()
-    );
+    assert!(apply_search_patch(
+        &mut config,
+        patch(json!({"providers": {"searxng": {"base_url": "ftp://x"}}}))
+    )
+    .is_err());
 }
 
 #[test]
@@ -185,13 +179,11 @@ fn settings_view_reports_status_roles_and_never_keys() {
     assert_eq!(view["effective_roles"]["answer"], json!(["gemini", "exa"]));
     assert_eq!(view["effective_roles"]["search"], json!(["exa", "gemini"]));
     assert!(!view.to_string().contains("secret-gemini"));
-    assert!(
-        view["providers"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|p| p["id"] != "gemini_deep_research")
-    );
+    assert!(view["providers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|p| p["id"] != "gemini_deep_research"));
 
     let signed_out = search_settings_json_with(&config, false);
     assert_eq!(provider(&signed_out, "exa")["status"], "sign_in_required");
@@ -223,16 +215,12 @@ fn settings_report_the_search_component_as_disabled() {
     let off = search_settings_json_with(&config, true);
     assert_eq!(off["enabled"], false);
     assert_eq!(off["component_disabled"], true);
-    assert!(
-        off["component_disabled_reason"]
-            .as_str()
-            .unwrap()
-            .starts_with("COMPONENT_DISABLED:search")
-    );
-    assert!(
-        off["effective_roles"]["search"]
-            .as_array()
-            .unwrap()
-            .is_empty()
-    );
+    assert!(off["component_disabled_reason"]
+        .as_str()
+        .unwrap()
+        .starts_with("COMPONENT_DISABLED:search"));
+    assert!(off["effective_roles"]["search"]
+        .as_array()
+        .unwrap()
+        .is_empty());
 }

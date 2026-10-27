@@ -310,9 +310,7 @@ async fn components_search_off_registers_no_search_tools() {
     assert!(!build_search_tools(&config).await.is_empty());
     config.components.search = false;
     assert!(build_search_tools(&config).await.is_empty());
-    assert!(
-        crate::modules::search::configured_tool_specs(&config)
-            .await
-            .is_empty()
-    );
+    assert!(crate::modules::search::configured_tool_specs(&config)
+        .await
+        .is_empty());
 }

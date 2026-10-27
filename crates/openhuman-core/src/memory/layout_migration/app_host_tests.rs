@@ -50,7 +50,7 @@ async fn signed_out_there_is_nothing_to_move() {
     let tmp = tempfile::tempdir().unwrap();
     let config = crate::memory::test_fixtures::config_in(&tmp);
     assert!(matches!(
-        AppHost::new(config.clone()).engines(),
+        AppHost::new(config.clone()).engines().await,
         Err(lm::Error::Off(_))
     ));
     assert!(!scan(&AppHost::new(config.clone())).await.unwrap().needed);
@@ -68,7 +68,7 @@ async fn binds_the_legacy_tree_and_the_users_own() {
     install_test_engine_for_root(&config.workspace_dir, Some(&root), tree.clone());
     legacy.store(fact("legacy fact")).await.unwrap();
 
-    let engines = AppHost::new(config.clone()).engines().unwrap();
+    let engines = AppHost::new(config.clone()).engines().await.unwrap();
     assert_eq!(count(&*engines.legacy).await, 1);
     assert_eq!(count(&*engines.tree).await, 0);
     assert!(scan(&AppHost::new(config.clone())).await.unwrap().needed);

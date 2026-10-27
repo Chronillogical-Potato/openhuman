@@ -255,7 +255,9 @@ async fn cortexdb_is_off_until_a_key_is_stored_and_rebuilds_on_a_new_key() {
     assert!(reason.contains("CortexDB API key"), "{reason}");
     assert!(!has_key(&config, CORTEXDB_ENGINE).await);
 
-    store_cortexdb_key(&config, "  cdb-key-one  ").await.unwrap();
+    store_cortexdb_key(&config, "  cdb-key-one  ")
+        .await
+        .unwrap();
     assert_eq!(
         read_cortexdb_key(&config).unwrap().as_deref(),
         Some("cdb-key-one")
@@ -375,7 +377,9 @@ async fn layout_v3_binds_its_own_engine_beside_legacy() {
 
     // The migration holds both at once, whatever the setting says.
     let explicit_legacy = bind_with_root(&config, None).await.unwrap();
-    let explicit_v3 = bind_with_root(&config, Some("org:6512ab0f6512ab0f6512ab0f")).await.unwrap();
+    let explicit_v3 = bind_with_root(&config, Some("org:6512ab0f6512ab0f6512ab0f"))
+        .await
+        .unwrap();
     assert!(Arc::ptr_eq(&explicit_legacy.engine, &legacy.engine));
     assert!(Arc::ptr_eq(&explicit_v3.engine, &v3.engine));
 }

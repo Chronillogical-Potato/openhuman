@@ -69,16 +69,16 @@ impl lm::LayoutHost for AppHost {
         &self.store
     }
 
-    fn engines(&self) -> lm::Result<Engines> {
+    async fn engines(&self) -> lm::Result<Engines> {
         let config = &self.config;
-        let bind = || -> Result<Engines> {
-            let root = signed_in_root(config)?;
-            Ok(Engines {
-                legacy: bind_engine(config, None)?.engine,
-                tree: bind_engine(config, Some(&root))?.engine,
-            })
-        };
-        bind().map_err(to_module)
+        let root = signed_in_root(config).map_err(to_module)?;
+        Ok(Engines {
+            legacy: bind_engine(config, None).await.map_err(to_module)?.engine,
+            tree: bind_engine(config, Some(&root))
+                .await
+                .map_err(to_module)?
+                .engine,
+        })
     }
 
     fn placement(&self) -> lm::Result<Placement> {
@@ -158,7 +158,9 @@ fn signed_out() -> Error {
 }
 
 async fn bind_engine(config: &Config, root: Option<&str>) -> Result<engine::BoundEngine> {
-    engine::bind_with_root(config, root).await.map_err(memory_error_to_engine)
+    engine::bind_with_root(config, root)
+        .await
+        .map_err(memory_error_to_engine)
 }
 
 fn memory_error_to_engine(error: MemoryError) -> Error {

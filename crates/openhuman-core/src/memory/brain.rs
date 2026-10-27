@@ -111,7 +111,8 @@ pub async fn search(
     }
     let source = params.source.as_deref().map(parse_source).transpose()?;
     let limit = super::types::clamp_limit(params.limit);
-    let hits = brain(config, identity).await?
+    let hits = brain(config, identity)
+        .await?
         .search(query, source.as_ref(), limit)
         .await?;
     tracing::debug!(hits = hits.len(), "[memory:brain] search");
@@ -223,7 +224,8 @@ pub async fn ingest(
         document = document.titled(title);
     }
     let filed = document.source.to_string();
-    let ingested = brain(config, identity).await?
+    let ingested = brain(config, identity)
+        .await?
         .ingest_with(document, WriteOptions::accepted())
         .await?;
     jobs::enqueue(

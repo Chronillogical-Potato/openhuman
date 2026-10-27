@@ -311,7 +311,10 @@ async fn deferred_memory_commit_survives_the_turn_scope_without_pinning_the_prof
                 .as_deref(),
             Some(id.as_str())
         );
-        let binding = crate::memory::engine::resolve(&config).await.engine().unwrap();
+        let binding = crate::memory::engine::resolve(&config)
+            .await
+            .engine()
+            .unwrap();
         binding
             .engine
             .store(StoreItem::learning(

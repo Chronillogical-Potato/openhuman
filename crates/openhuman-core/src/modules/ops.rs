@@ -32,12 +32,12 @@ use std::time::Duration;
 use super::types::{ModuleRecord, ModuleSource, ModuleState, ModuleStatus};
 use super::{linked, registry, report, runtime, source};
 use crate::config::Config;
-use tinybus::Proxy;
 use tinybus::module::{
     AccessFuture, Availability, FailureReporter, LinkedRegistry, LoadError, ModuleAccess,
     ModuleClient, ModuleSource as ResolverSource, ProxyFailure, ReleaseRecord, Resolver,
     ResolverInputs, SearchPathConfig,
 };
+use tinybus::Proxy;
 
 /// Environment variable naming a directory of bundled release archives, for
 /// headless hosts (the Docker image, the CLI tarball, bench bundles).
@@ -284,20 +284,20 @@ static COMPUTER_CALLBACK_LOADS: std::sync::LazyLock<ComputerCallbackLoads> =
     std::sync::LazyLock::new(|| tokio::sync::Mutex::new(std::collections::HashMap::new()));
 
 #[cfg(feature = "security-module")]
-pub(super) async fn security_callback_binding()
--> Option<std::sync::Arc<tinybus::module::HostCallbackBinding>> {
+pub(super) async fn security_callback_binding(
+) -> Option<std::sync::Arc<tinybus::module::HostCallbackBinding>> {
     super::security::host_callbacks::binding().await
 }
 
 #[cfg(feature = "security-module")]
-pub(crate) async fn security_cipher_consumer()
--> Option<std::sync::Arc<super::security::cipher_consumer::Consumer>> {
+pub(crate) async fn security_cipher_consumer(
+) -> Option<std::sync::Arc<super::security::cipher_consumer::Consumer>> {
     super::security::host_callbacks::cipher_consumer().await
 }
 
 #[cfg(feature = "security-module")]
-pub(crate) async fn security_secret_backend()
--> Option<std::sync::Arc<super::security::secret_backend::SecretBackend>> {
+pub(crate) async fn security_secret_backend(
+) -> Option<std::sync::Arc<super::security::secret_backend::SecretBackend>> {
     super::security::host_callbacks::secret_backend().await
 }
 

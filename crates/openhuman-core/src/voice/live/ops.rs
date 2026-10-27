@@ -11,8 +11,8 @@ use super::types::{
     GeminiLiveSettingsPatch, LiveProvidersResponse, LiveSettingsPatch, LiveTestResult,
     LiveVoiceConfig, SarvamLiveSettingsPatch,
 };
-use crate::config::Config;
 use crate::config::schema::voice_live::is_live_provider;
+use crate::config::Config;
 use crate::core::Outcome;
 
 /// How long a provider test waits for the session to become ready.

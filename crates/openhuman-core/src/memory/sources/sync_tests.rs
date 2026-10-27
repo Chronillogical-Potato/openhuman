@@ -218,7 +218,7 @@ async fn a_source_already_syncing_is_not_started_twice() {
             &config,
             Some("src-once")
         )
-    .await
+        .await
         .unwrap()
         .len(),
         1

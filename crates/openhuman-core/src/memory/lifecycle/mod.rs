@@ -81,12 +81,14 @@ pub async fn named_agent_memory(
     if let Some(agent_id) = agent_id.map(str::trim).filter(|id| !id.is_empty()) {
         identity.agent_id = agent_id.to_string();
     }
-    let memory = agent_memory(config, &identity).await.map_err(|error| match error {
-        Error::InvalidRequest(message) => {
-            Error::InvalidRequest(format!("agent `{}`: {message}", identity.agent_id))
-        }
-        other => other,
-    })?;
+    let memory = agent_memory(config, &identity)
+        .await
+        .map_err(|error| match error {
+            Error::InvalidRequest(message) => {
+                Error::InvalidRequest(format!("agent `{}`: {message}", identity.agent_id))
+            }
+            other => other,
+        })?;
     Ok((memory, identity))
 }
 

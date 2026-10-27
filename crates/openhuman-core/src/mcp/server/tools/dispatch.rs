@@ -1,5 +1,5 @@
 use crate::core::runtime::DispatchCtx;
-use serde_json::{Map, Value, json};
+use serde_json::{json, Map, Value};
 use tinyinference_llm::tool::ToolSchema;
 
 use crate::agent::OpenHumanSessionHost;

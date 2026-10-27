@@ -18,11 +18,10 @@ fn registers_four_live_controllers_in_the_voice_namespace() {
     assert_eq!(live_controller_schemas().len(), 4);
     assert_eq!(live_schemas("missing").function, "unknown");
     let test = live_schemas("voice_live_test_provider");
-    assert!(
-        test.inputs
-            .iter()
-            .any(|f| f.name == "provider" && f.required)
-    );
+    assert!(test
+        .inputs
+        .iter()
+        .any(|f| f.name == "provider" && f.required));
 }
 
 #[test]
@@ -64,12 +63,10 @@ async fn handlers_reject_bad_params() {
             .await
             .is_err()
     );
-    assert!(
-        handle_live_settings_set(
-            DispatchCtx::process_default(),
-            bad(serde_json::json!({"gemini": 5}))
-        )
-        .await
-        .is_err()
-    );
+    assert!(handle_live_settings_set(
+        DispatchCtx::process_default(),
+        bad(serde_json::json!({"gemini": 5}))
+    )
+    .await
+    .is_err());
 }

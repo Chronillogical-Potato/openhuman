@@ -20,10 +20,10 @@ use tinyagents_live::tinyliveagents::{AudioFormat, LiveConfig, LiveProvider};
 
 use super::error::LiveVoiceError;
 use super::types::{LiveProviderInfo, LiveProviderKind};
-use crate::config::Config;
 use crate::config::schema::voice_live::{
-    LIVE_PROVIDER_GEMINI, LIVE_PROVIDER_SARVAM, LIVE_PROVIDERS,
+    LIVE_PROVIDERS, LIVE_PROVIDER_GEMINI, LIVE_PROVIDER_SARVAM,
 };
+use crate::config::Config;
 
 const LOG_PREFIX: &str = "[voice-live]";
 

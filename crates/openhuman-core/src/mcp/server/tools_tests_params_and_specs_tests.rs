@@ -310,12 +310,10 @@ fn memory_tool_schemas_are_closed_and_describe_the_filter() {
     );
     let fetch = spec_named("memory.fetch");
     assert!(fetch.description.contains("only `hybrid`"));
-    assert!(
-        fetch.input_schema["properties"]["mode"]["description"]
-            .as_str()
-            .unwrap()
-            .contains("only `hybrid`")
-    );
+    assert!(fetch.input_schema["properties"]["mode"]["description"]
+        .as_str()
+        .unwrap()
+        .contains("only `hybrid`"));
 }
 
 #[test]

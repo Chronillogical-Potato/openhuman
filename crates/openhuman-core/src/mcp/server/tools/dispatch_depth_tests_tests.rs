@@ -1,4 +1,4 @@
-use super::super::super::subagent_depth::{MAX_SUBAGENT_DEPTH, current_depth, scope};
+use super::super::super::subagent_depth::{current_depth, scope, MAX_SUBAGENT_DEPTH};
 
 #[tokio::test]
 async fn child_depth_is_bounded_per_chain() {
