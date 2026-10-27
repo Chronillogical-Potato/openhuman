@@ -19,7 +19,7 @@ Mobile-device pairing domain. Brokers a secure, end-to-end-encrypted tunnel betw
 | --- | --- |
 | `crates/openhuman-core/src/security/devices/mod.rs` | Export-only: module docstring, `pub mod` decls, re-exports of schema registry fns and public types. |
 | `crates/openhuman-core/src/security/devices/types.rs` | Serde domain types: `PairedDevice`, `PairingSession`, and the three RPC response payloads. |
-| `crates/openhuman-core/src/security/devices/rpc.rs` | RPC handler logic for the three methods + module-level in-memory state singletons (`PENDING_KEYPAIRS`, `PENDING_SESSIONS`, `PEER_STATUS`), LAN-URL detection, and encrypted key persistence. |
+| `crates/openhuman-core/src/security/devices/rpc.rs` | RPC handler logic and in-memory module receipt/session handles, peer status, and LAN-URL detection. |
 | `crates/openhuman-core/src/security/devices/schemas.rs` | Controller schemas, `all_controller_schemas`/`all_registered_controllers`, and `handle_*` bridges delegating to [`rpc.rs`](./rpc.rs). Mirrors `cron/schemas.rs`. |
 | `crates/openhuman-core/src/security/devices/store.rs` | SQLite persistence (`paired_devices` table) via the per-call `with_connection` pattern. |
 | `crates/openhuman-core/src/security/devices/crypto.rs` | Host adapter for encrypting/restoring the long-term private key; delegates key and tunnel operations to TinySecurity. |
@@ -34,7 +34,7 @@ Re-exported from [`mod.rs`](./mod.rs):
 - `all_devices_controller_schemas` / `all_devices_registered_controllers` (alias for `schemas::all_controller_schemas` / `all_registered_controllers`).
 - Types: `CreatePairingResponse`, `ListDevicesResponse`, `PairedDevice`, `PairingSession`, `RevokeDeviceResponse`.
 
-Other notable public items (used across the crate but not re-exported at the domain root): `bus::register_device_tunnel_subscriber`, `crypto::{DeviceKeypair, base64url_encode, base64url_decode}`, and the semantic `tunnel_client::{TunnelClientPort, TunnelRegistration}` seam.
+Other notable public items (used across the crate but not re-exported at the domain root): `bus::register_device_tunnel_subscriber` and the semantic `tunnel_client::{TunnelClientPort, TunnelRegistration}` seam. Device key generation, handshake processing, and frame crypto run inside TinySecurity.
 
 ## RPC / controllers
 

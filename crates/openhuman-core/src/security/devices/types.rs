@@ -20,8 +20,9 @@ pub struct PairedDevice {
     pub peer_online: Option<bool>,
     /// True once `devices_revoke` has been called.
     pub revoked: bool,
-    /// Encrypted core identity used only by the device tunnel after a restart.
-    /// Never included in controller/RPC serialization.
+    /// Legacy encrypted core identity retained only as an import source for
+    /// pre-TinySecurity device rows. New pairings keep identity ciphertext in
+    /// TinySecurity's own persistence record.
     #[serde(skip)]
     pub(crate) core_private_key_encrypted: Option<String>,
 }
@@ -37,7 +38,7 @@ pub struct PairingSession {
     pub channel_id: String,
     /// Base64url pairing token (single-use, TTL'd, hashed at rest on backend).
     pub pairing_token: String,
-    /// Base64url-encoded X25519 public key generated for this pairing.
+    /// Base64url-encoded X25519 public key returned by TinySecurity.
     pub core_pubkey: String,
     /// TinySecurity owner receipt consumed by the next authenticated handshake.
     #[serde(skip)]
