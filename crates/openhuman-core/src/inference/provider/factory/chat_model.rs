@@ -370,10 +370,11 @@ impl ModelBuildGate for OpenHumanModelFactory<'_> {
         let provider = self.provider_for(request);
         enforce_local_only_inference(&request.role, &provider)
             .map_err(|error| tinyagents_harness::TinyAgentsError::Model(error.to_string()))?;
-        crate::inference::provider::factory::access_gates::verify_provider_session_in(
+        crate::inference::provider::factory::access_gates::verify_provider_session_in_with_snapshot(
             self.ctx,
             self.config,
             &provider,
+            &self.credentials,
         )
         .map_err(|error| tinyagents_harness::TinyAgentsError::Model(error.to_string()))
     }

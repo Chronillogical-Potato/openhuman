@@ -122,9 +122,9 @@ pub async fn evaluate(
     let session_result = if !needs_session {
         Ok(())
     } else if needs_backend_session {
-        crate::inference::provider::factory::access_gates::verify_backend_session_active(config)
+        crate::inference::provider::factory::access_gates::verify_backend_session_active(config).await
     } else {
-        crate::inference::provider::factory::access_gates::verify_session_active(config)
+        crate::inference::provider::factory::access_gates::verify_session_active(config).await
     };
     #[cfg(not(test))]
     if let Err(error) = session_result {
