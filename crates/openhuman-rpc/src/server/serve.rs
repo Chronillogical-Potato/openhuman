@@ -177,7 +177,7 @@ pub async fn serve(
         crate::core_host::core::invoke::default_state().core_version
     );
     log::info!("[rpc:http] JSON-RPC — POST http://{bind_addr}/rpc (JSON-RPC 2.0)");
-    if runtime.services().socketio {
+    if runtime.normal_services().socketio {
         log::info!("[rpc:socketio] Socket.IO — ws://{bind_addr}/socket.io/ (same HTTP server)");
     } else {
         log::info!("[rpc:socketio] disabled (--jsonrpc-only)");
