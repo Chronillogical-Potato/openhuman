@@ -343,10 +343,11 @@ async fn begin_device_renewal_once(
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .contains_key(channel_id);
-    let is_active = ACTIVE_SESSIONS
+    let active_is_current = ACTIVE_SESSIONS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .contains_key(channel_id);
+        .get(channel_id)
+        .is_some_and(|active| active.connection_nonce == connection_nonce);
     let peer_online = PEER_STATUS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -358,7 +359,7 @@ async fn begin_device_renewal_once(
         peer_online,
         scope_unlocked,
         is_pending,
-        is_active,
+        active_is_current,
         &device,
     )?;
     let event_id = crate::modules::security::device_pairing_reconnect_event(
@@ -421,13 +422,13 @@ fn renewal_pairing_id<'a>(
     peer_online: bool,
     scope_unlocked: bool,
     has_pending_session: bool,
-    has_active_session: bool,
+    has_current_session: bool,
     device: &'a super::types::PairedDevice,
 ) -> Option<&'a str> {
     if !peer_online
         || !scope_unlocked
         || has_pending_session
-        || has_active_session
+        || has_current_session
         || device.revoked
     {
         return None;
@@ -504,6 +505,14 @@ async fn handle_encrypted_rpc_frame(
         log::warn!("[devices/bus] encrypted frame without active session channel_id={channel_id}");
         return;
     };
+    if active.connection_nonce != connection_nonce {
+        ACTIVE_SESSIONS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(channel_id);
+        log::warn!("[devices/bus] active session belongs to an older socket channel_id={channel_id}");
+        return;
+    }
     let Ok(client) = crate::modules::security::client(config).await else {
         return;
     };
@@ -711,6 +720,7 @@ async fn confirm_pairing(
                         scope_id,
                         session_id,
                         pairing_token: session.pairing_token.clone(),
+                        connection_nonce: connection_nonce.to_owned(),
                     },
                 );
             PENDING_SESSIONS
