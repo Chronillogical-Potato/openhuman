@@ -61,6 +61,7 @@ async fn a_resumed_thread_keeps_recorded_juice_specs_and_executors_when_repl_is_
         &current_config,
         "summarizer",
     )
+    .await
     .expect("summarizer session");
     host.ensure_runtime_session().expect("runtime session");
     let prelude = host
@@ -187,6 +188,7 @@ async fn resumed_juice_snapshot_does_not_add_live_repl_declarations() {
         &config,
         "summarizer",
     )
+    .await
     .expect("summarizer session");
     host.ensure_runtime_session().expect("runtime session");
     let prelude = host
@@ -276,6 +278,7 @@ async fn juice_off_turn_loads_no_module_and_passes_tool_output_through() {
         &config,
         "summarizer",
     )
+    .await
     .expect("summarizer session");
     host.ensure_runtime_session().expect("runtime session");
     let context_mw = host

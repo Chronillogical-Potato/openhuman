@@ -17,7 +17,8 @@ git -C vendor/tinysecurity merge-base --is-ancestor "$release_source" "$security
 bash scripts/ci-cancel-aware.sh cargo check --manifest-path Cargo.toml -p openhuman \
   --no-default-features --features "$core_features"
 
-bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml -p openhuman --lib \
-  --no-default-features --features "$core_features,security-module" \
-  modules::security::tests::native_fixture_loads_the_pinned_release_and_reads_policy_info \
+bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml -p openhuman-cli \
+  --test security_native_fixture --no-default-features \
+  --features "$core_features,security-module" \
+  native_fixture_loads_the_pinned_release_and_reads_policy_info \
   -- --ignored --exact --nocapture

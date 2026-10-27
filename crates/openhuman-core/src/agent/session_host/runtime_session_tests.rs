@@ -213,8 +213,8 @@ fn spec(name: &str) -> ToolSpec {
 }
 
 #[cfg(feature = "mcp")]
-#[test]
-fn connected_mcp_actions_enter_search_and_leave_on_disconnect() {
+#[tokio::test]
+async fn connected_mcp_actions_enter_search_and_leave_on_disconnect() {
     crate::agent_registry::host_definition::AgentDefinitionRegistry::init_global_builtins()
         .expect("builtin definitions");
     let tmp = tempfile::tempdir().expect("tempdir");
