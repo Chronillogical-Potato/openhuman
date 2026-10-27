@@ -7,7 +7,7 @@ use crate::config::Config;
 use crate::core::Outcome;
 
 /// Serializes the current configuration into a JSON snapshot for the UI.
-pub fn snapshot_config_json(config: &Config) -> Result<serde_json::Value, String> {
+pub async fn snapshot_config_json(config: &Config) -> Result<serde_json::Value, String> {
     let mut value = serde_json::to_value(config).map_err(|e| e.to_string())?;
     // The full snapshot is sent over RPC. Keep search settings visible while
     // removing credentials, including the legacy Seltz key.
@@ -26,7 +26,7 @@ pub fn snapshot_config_json(config: &Config) -> Result<serde_json::Value, String
             serde_json::Value::String(crate::config::schema::storage::redact_url(url));
     }
     #[cfg(feature = "modules")]
-    let browser_billing_route = crate::modules::desktop::billing_route(config);
+    let browser_billing_route = crate::modules::desktop::billing_route(config).await;
     #[cfg(not(feature = "modules"))]
     let browser_billing_route = "unavailable";
     Ok(json!({
@@ -153,7 +153,7 @@ pub async fn load_and_get_client_config_snapshot(
 
 /// Returns a full configuration snapshot for the UI.
 pub async fn get_config_snapshot(config: &Config) -> Result<Outcome<serde_json::Value>, String> {
-    let snapshot = snapshot_config_json(config)?;
+    let snapshot = snapshot_config_json(config).await?;
     Ok(Outcome::new(
         snapshot,
         vec![format!(

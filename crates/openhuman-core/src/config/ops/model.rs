@@ -276,7 +276,7 @@ pub async fn apply_model_settings(
     complete_byok_route(config, &explicit_role_pins);
 
     config.save().await.map_err(super::config_save_error)?;
-    let snapshot = snapshot_config_json(config)?;
+    let snapshot = snapshot_config_json(config).await?;
     Ok(Outcome::new(
         snapshot,
         vec![format!(
@@ -322,7 +322,7 @@ pub async fn apply_memory_settings(
         config.memory.embedding_dimensions = dimensions;
     }
     config.save().await.map_err(super::config_save_error)?;
-    let snapshot = snapshot_config_json(config)?;
+    let snapshot = snapshot_config_json(config).await?;
     Ok(Outcome::new(
         snapshot,
         vec![format!(
@@ -381,7 +381,7 @@ pub async fn apply_runtime_settings(
         }
     }
     config.save().await.map_err(super::config_save_error)?;
-    let snapshot = snapshot_config_json(config)?;
+    let snapshot = snapshot_config_json(config).await?;
     Ok(Outcome::new(
         snapshot,
         vec![format!(
@@ -459,7 +459,7 @@ pub async fn apply_local_ai_settings(
         );
     }
     config.save().await.map_err(super::config_save_error)?;
-    let snapshot = snapshot_config_json(config)?;
+    let snapshot = snapshot_config_json(config).await?;
     Ok(Outcome::new(
         snapshot,
         vec![format!(

@@ -103,7 +103,7 @@ pub async fn apply_browser_settings(
     if let Some(learn) = update.learn_from_tasks {
         crate::modules::site_memory_host::note_switch(&config.workspace_dir, learn);
     }
-    let snapshot = snapshot_config_json(config)?;
+    let snapshot = snapshot_config_json(config).await?;
     Ok(Outcome::new(
         snapshot,
         vec![format!(
@@ -154,7 +154,7 @@ pub async fn apply_analytics_settings(
         config.observability.analytics_enabled = enabled;
     }
     config.save().await.map_err(super::config_save_error)?;
-    let snapshot = snapshot_config_json(config)?;
+    let snapshot = snapshot_config_json(config).await?;
     Ok(Outcome::new(
         snapshot,
         vec![format!(
@@ -182,7 +182,7 @@ pub async fn apply_user_timezone(
     // and report a stored change as failed; a failed save restores the
     // caller's config to what is on disk.
     let previous = std::mem::replace(&mut config.user_timezone, next);
-    let snapshot = match snapshot_config_json(config) {
+    let snapshot = match snapshot_config_json(config).await {
         Ok(snapshot) => snapshot,
         Err(error) => {
             config.user_timezone = previous;
