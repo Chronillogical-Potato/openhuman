@@ -87,10 +87,7 @@ async fn scenario() {
 
     let root = tempfile::tempdir().unwrap();
     let runtime = ProfileRuntime::builder(SaasConfig::new(root.path()))
-        .configure(|config| {
-            config.lease_ttl_secs = 3600;
-            config.secrets.encrypt = false;
-        })
+        .configure(|config| config.lease_ttl_secs = 3600)
         .build()
         .await
         .unwrap();
