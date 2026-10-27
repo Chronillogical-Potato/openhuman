@@ -39,9 +39,9 @@ pub struct PairingSession {
     pub pairing_token: String,
     /// Base64url-encoded X25519 public key generated for this pairing.
     pub core_pubkey: String,
-    /// Encrypted long-term identity to persist with the paired row on success.
+    /// TinySecurity owner receipt consumed by the next authenticated handshake.
     #[serde(skip)]
-    pub(crate) core_private_key_encrypted: String,
+    pub(crate) pairing_receipt: String,
     /// Optional LAN URL for the direct HTTP fast path.
     pub rpc_url: Option<String>,
     /// ISO 8601 timestamp when the pairing token expires.
