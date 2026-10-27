@@ -517,7 +517,7 @@ pub mod platform {
     /// tinyhumans: read-only view of the live Socket.IO connection state.
     pub mod socket {
         pub use openhuman_core::platform::socket::{
-            global_socket_manager, global_socket_port, set_global_socket_manager,
+            dispatch_socket_event, global_socket_manager, global_socket_port, set_global_socket_manager,
             set_global_socket_port, SocketIdentityRebindGuard, SocketPort, TokenProvider,
         };
         pub use openhuman_core::platform::socket::models::ConnectionStatus;

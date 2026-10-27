@@ -19,6 +19,7 @@ pub use port::{
     global_socket_manager, global_socket_port, set_global_socket_manager, set_global_socket_port,
     SocketIdentityRebindGuard, SocketPort, TokenProvider,
 };
+pub use event_handlers::dispatch_socket_event;
 pub use schemas::{
     all_controller_schemas as all_socket_controller_schemas,
     all_registered_controllers as all_socket_registered_controllers,
