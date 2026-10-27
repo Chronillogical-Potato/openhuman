@@ -45,14 +45,18 @@ async fn id_bearing_tunnel_ops_reject_empty_or_whitespace_id() {
 async fn calls_without_a_session_fail_before_any_request() {
     let tmp = TempDir::new().unwrap();
     let config = test_support::config(&tmp, "http://127.0.0.1:9");
-    assert!(list_tunnels(&config)
-        .await
-        .unwrap_err()
-        .contains("no backend session token"));
-    assert!(get_bandwidth(&config)
-        .await
-        .unwrap_err()
-        .contains("no backend session token"));
+    assert!(
+        list_tunnels(&config)
+            .await
+            .unwrap_err()
+            .contains("no backend session token")
+    );
+    assert!(
+        get_bandwidth(&config)
+            .await
+            .unwrap_err()
+            .contains("no backend session token")
+    );
 }
 
 #[tokio::test]
@@ -121,10 +125,11 @@ async fn tunnel_crud_round_trips_through_the_sdk() {
 
     let out = list_tunnels(&config).await.unwrap();
     assert_eq!(out.value["tunnels"][0]["id"], json!("t-1"));
-    assert!(out
-        .logs
-        .iter()
-        .any(|l| l.contains("webhook tunnels fetched")));
+    assert!(
+        out.logs
+            .iter()
+            .any(|l| l.contains("webhook tunnels fetched"))
+    );
 
     let out = create_tunnel(&config, "  my-hook  ", Some("  desc  ".into()))
         .await
