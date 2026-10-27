@@ -91,6 +91,7 @@ mod provider_oauth;
 mod register;
 mod runtime;
 pub mod session;
+pub(crate) mod socket;
 pub mod transport;
 #[cfg(feature = "voice")]
 pub mod voice;

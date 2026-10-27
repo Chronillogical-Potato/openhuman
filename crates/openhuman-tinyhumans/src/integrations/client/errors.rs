@@ -62,7 +62,7 @@ pub(crate) fn extract_error_detail(body: &str, max_bytes: usize) -> String {
 /// that JWT is expired / revoked / rotated server-side — see the identical
 /// envelope pinned in `inference/provider/config_rejection.rs` and the socket
 /// reconnect loop's `"Invalid token"` handling in
-/// `openhuman::platform::socket::ws_loop`. A *third-party* integration's auth failure
+/// the TinyHumans SDK socket supervisor. A *third-party* integration's auth failure
 /// never reaches this arm:
 ///
 /// - **Composio backend mode** (the default that routes through this client):
