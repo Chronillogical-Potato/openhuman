@@ -27,7 +27,7 @@ const LOG_PREFIX: &str = "[embeddings::rpc]";
 /// Build an embedding provider from the live config — the same construction
 /// [`embed`] uses, exposed so other domains (e.g. `codegraph`) can obtain a
 /// provider for `signature()` + direct embedding without a JSON-RPC round-trip.
-pub fn provider_from_config(
+pub async fn provider_from_config(
     config: &Config,
 ) -> anyhow::Result<Box<dyn tinyinference_embeddings::EmbeddingModel>> {
     build_embedder(
@@ -36,6 +36,7 @@ pub fn provider_from_config(
         &config.memory.embedding_model,
         config.memory.embedding_dimensions,
     )
+    .await
 }
 
 /// Construct an embedding provider for an explicit `(provider_name, model,
@@ -43,13 +44,13 @@ pub fn provider_from_config(
 /// the same way [`embed`] / [`test_connection`] do. Single construction seam so
 /// the save-time probe in [`update_settings`] and the live embed path can't
 /// drift on slug-normalization / credential-lookup rules.
-fn build_embedder(
+async fn build_embedder(
     config: &Config,
     provider_name: &str,
     model: &str,
     dims: usize,
 ) -> anyhow::Result<Box<dyn tinyinference_embeddings::EmbeddingModel>> {
-    let api_key = resolve_api_key(config, provider_name);
+    let api_key = resolve_api_key(config, provider_name).await;
     let (provider_slug, custom_endpoint) = split_custom_provider(provider_name);
     let provider_slug = if custom_endpoint.is_some() {
         "custom"
@@ -66,12 +67,13 @@ fn build_embedder(
     )
 }
 
-pub(crate) fn resolve_api_key(config: &Config, provider_name: &str) -> String {
+pub(crate) async fn resolve_api_key(config: &Config, provider_name: &str) -> String {
     let (slug, endpoint) = split_custom_provider(provider_name);
     let slug = if endpoint.is_some() { "custom" } else { &slug };
     let cred_provider = format!("embeddings:{slug}");
     let auth = AuthService::from_config(config);
     auth.get_provider_bearer_token(&cred_provider, None)
+        .await
         .ok()
         .flatten()
         .unwrap_or_default()

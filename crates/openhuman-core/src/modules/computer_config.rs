@@ -32,8 +32,9 @@ fn provider_key(config: &Config, slug: &str, env: &str) -> Option<String> {
 
 /// The signed-in TinyHumans bearer, if any. The offline local token is not
 /// a backend credential.
-fn tinyhumans_bearer(config: &Config) -> Option<String> {
+async fn tinyhumans_bearer(config: &Config) -> Option<String> {
     resolve_backend_credential(config)
+        .await
         .ok()
         .map(BackendCredential::into_secret)
         .filter(|token| !is_local_session_token(token))
@@ -135,8 +136,8 @@ fn create_trace_dir(dir: &Path) -> std::io::Result<()> {
 
 /// Build the module configuration for `config`.
 #[must_use]
-pub fn module_config(config: &Config) -> Value {
-    let hosted = tinyhumans_bearer(config);
+pub async fn module_config(config: &Config) -> Value {
+    let hosted = tinyhumans_bearer(config).await;
     let mut out = Map::new();
     if let Some(jev) = jev(config, hosted.as_deref()) {
         out.insert("jev".into(), jev);
@@ -173,8 +174,8 @@ pub fn module_config(config: &Config) -> Value {
 /// `hosted` (TinyHumans credits), `direct_openrouter` (the user's key),
 /// `open_jev` or `sage` (their own keys), or `unavailable` (no credential).
 #[must_use]
-pub fn billing_route(config: &Config) -> &'static str {
-    match module_config(config)["jev"]["provider"].as_str() {
+pub async fn billing_route(config: &Config) -> &'static str {
+    match module_config(config).await["jev"]["provider"].as_str() {
         Some("tiny_humans_open_router") => "hosted",
         Some("open_router") => "direct_openrouter",
         Some("open_jev") => "open_jev",
