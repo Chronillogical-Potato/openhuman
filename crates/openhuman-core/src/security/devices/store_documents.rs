@@ -110,7 +110,6 @@ impl Docs {
             device_pubkey,
             core_session_token_hash,
             None,
-            None,
         )
     }
 
