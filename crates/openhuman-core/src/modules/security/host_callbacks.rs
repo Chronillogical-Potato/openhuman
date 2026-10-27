@@ -17,9 +17,8 @@ struct SecurityCallbackState {
     key_path: PathBuf,
 }
 
-type SecurityCallbackLoads = tokio::sync::Mutex<
-    std::collections::HashMap<String, std::sync::Arc<SecurityCallbackState>>,
->;
+type SecurityCallbackLoads =
+    tokio::sync::Mutex<std::collections::HashMap<String, std::sync::Arc<SecurityCallbackState>>>;
 
 static SECURITY_CALLBACK_LOADS: std::sync::LazyLock<SecurityCallbackLoads> =
     std::sync::LazyLock::new(|| tokio::sync::Mutex::new(std::collections::HashMap::new()));
@@ -49,8 +48,7 @@ pub(super) async fn binding() -> Option<std::sync::Arc<HostCallbackBinding>> {
         .map(|state| std::sync::Arc::clone(&state.binding))
 }
 
-pub(super) async fn cipher_consumer(
-) -> Option<std::sync::Arc<super::cipher_consumer::Consumer>> {
+pub(super) async fn cipher_consumer() -> Option<std::sync::Arc<super::cipher_consumer::Consumer>> {
     SECURITY_CALLBACK_LOADS
         .lock()
         .await
@@ -58,8 +56,8 @@ pub(super) async fn cipher_consumer(
         .map(|state| std::sync::Arc::clone(&state.consumer))
 }
 
-pub(super) async fn secret_backend(
-) -> Option<std::sync::Arc<super::secret_backend::SecretBackend>> {
+pub(super) async fn secret_backend() -> Option<std::sync::Arc<super::secret_backend::SecretBackend>>
+{
     SECURITY_CALLBACK_LOADS
         .lock()
         .await
@@ -198,7 +196,8 @@ pub(super) async fn ensure_loaded(
         .unwrap_or_else(|| Path::new("."))
         .to_path_buf();
     let key_path = key_dir.join(".secret_key");
-    let user_id = crate::security::secret_storage::encrypted_store::keyring_user_id_from_dir(&key_dir);
+    let user_id =
+        crate::security::secret_storage::encrypted_store::keyring_user_id_from_dir(&key_dir);
     let subject = tinysecurity_bus::SubjectScope {
         user: user_id.clone(),
         workspace: config.workspace_dir.to_string_lossy().into_owned(),
@@ -297,10 +296,7 @@ pub(super) async fn ensure_loaded(
     Ok(())
 }
 
-async fn register_scope(
-    config: &Config,
-    state: &SecurityCallbackState,
-) -> Result<(), String> {
+async fn register_scope(config: &Config, state: &SecurityCallbackState) -> Result<(), String> {
     let record = super::super::registry::find(super::MODULE_ID)
         .ok_or_else(|| "security module registry record missing".to_owned())?;
     let proxy = state
