@@ -66,7 +66,36 @@ pub(crate) async fn device_pairing_master(
         .await
         .map_err(|error| error.to_string())?
         .generation;
+    let host_event_id = device_pairing_user_event(
+        &scope,
+        Some(master.clone()),
+        generation,
+    )?;
+    let unlocked = client
+        .device_pairing2(tinysecurity_bus::DevicePairingRequest2 {
+            call_id: uuid::Uuid::new_v4().simple().to_string(),
+            operation: tinysecurity_bus::DevicePairingOperation2::Unlock { host_event_id },
+        })
+        .await
+        .map_err(|error| error.to_string())?;
+    if !pairing_unlock_response_is_valid(&unlocked) {
+        return Err("TinySecurity returned an unexpected pairing unlock result".to_owned());
+    }
     Ok((client, scope, master, generation))
+}
+
+fn pairing_unlock_response_is_valid(
+    response: &tinysecurity_bus::DevicePairingResponse2,
+) -> bool {
+    response
+        .core_public_key
+        .as_ref()
+        .is_some_and(|key| !key.is_empty())
+        && response.receipt.is_none()
+        && response.pairing_id.is_none()
+        && response.session_id.is_none()
+        && response.device_public_key.is_none()
+        && response.frame.is_empty()
 }
 
 /// Mint the event id that binds a direct user controller call to one trusted
@@ -172,21 +201,7 @@ fn now_plus_pairing_event_ttl() -> Result<u64, String> {
 /// Mint a one-shot direct-user import event and bind its callback to the
 /// current scoped legacy device store and fixed TinySecurity source ids.
 pub(crate) async fn device_pairing_legacy_import_event(config: &Config) -> Result<String, String> {
-    let client = client(config).await.map_err(|error| error.to_string())?;
-    let scope = host_callbacks::secret_scope()
-        .await
-        .ok_or_else(|| "security secret scope unavailable".to_owned())?;
-    let registration_id = host_callbacks::secret_registration_id()
-        .await
-        .ok_or_else(|| "security master registration unavailable".to_owned())?;
-    let master_handle = resolve_user_master(&client, &scope, &registration_id)
-        .await
-        .map_err(|error| error.to_string())?;
-    let generation = client
-        .policy_info()
-        .await
-        .map_err(|error| error.to_string())?
-        .generation;
+    let (client, scope, master_handle, generation) = device_pairing_master(config).await?;
     let expires_at_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|_| "system clock unavailable".to_owned())?
