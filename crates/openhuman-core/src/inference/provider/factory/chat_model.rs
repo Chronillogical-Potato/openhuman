@@ -237,38 +237,39 @@ impl OpenHumanModelFactory<'_> {
             return Ok((model, route));
         }
 
-        let (model, route_provider, resolved_model) =
-            match parsed_route.as_ref().map(ProviderRoute::kind) {
-                Some(RouteKind::Local(_)) | None
-                    if tinyinference_local::profile::kind_from_provider_string(&provider)
-                        .is_some() =>
-                {
-                    let local = try_create_local_runtime_chat_model_from_string(
-                        role,
-                        &provider,
-                        self.config,
-                        self.egress,
-                    );
-                    let (model, resolved) = match local {
-                        Some(result) => result?,
-                        None => {
-                            return Err(unresolved_chat_model_error_for(
-                                role,
-                                &provider,
-                                self.config,
-                                self.egress,
-                                context_extensions,
-                            ));
-                        }
-                    };
-                    let provider = model
-                        .profile()
-                        .and_then(|p| p.provider.clone())
-                        .unwrap_or_else(|| "local".into());
-                    (model, provider, resolved)
-                }
-                Some(RouteKind::Cloud { .. }) => {
-                    let cloud = super::cloud_slug::try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
+        let (model, route_provider, resolved_model) = match parsed_route
+            .as_ref()
+            .map(ProviderRoute::kind)
+        {
+            Some(RouteKind::Local(_)) | None
+                if tinyinference_local::profile::kind_from_provider_string(&provider).is_some() =>
+            {
+                let local = try_create_local_runtime_chat_model_from_string(
+                    role,
+                    &provider,
+                    self.config,
+                    self.egress,
+                );
+                let (model, resolved) = match local {
+                    Some(result) => result?,
+                    None => {
+                        return Err(unresolved_chat_model_error_for(
+                            role,
+                            &provider,
+                            self.config,
+                            self.egress,
+                            context_extensions,
+                        ));
+                    }
+                };
+                let provider = model
+                    .profile()
+                    .and_then(|p| p.provider.clone())
+                    .unwrap_or_else(|| "local".into());
+                (model, provider, resolved)
+            }
+            Some(RouteKind::Cloud { .. }) => {
+                let cloud = super::cloud_slug::try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
                         role,
                         &provider,
                         self.config,
@@ -279,40 +280,40 @@ impl OpenHumanModelFactory<'_> {
                         None,
                         None,
                     );
-                    let (model, resolved) = match cloud {
-                        Some(result) => result?,
-                        None => {
-                            return Err(unresolved_chat_model_error_for(
-                                role,
-                                &provider,
-                                self.config,
-                                self.egress,
-                                context_extensions,
-                            ));
-                        }
-                    };
-                    let route_provider = model
-                        .profile()
-                        .and_then(|p| p.provider.clone())
-                        .unwrap_or_else(|| {
-                            parsed_route
-                                .as_ref()
-                                .expect("parsed cloud route")
-                                .provider
-                                .clone()
-                        });
-                    (model, route_provider, resolved)
-                }
-                _ => {
-                    return Err(unresolved_chat_model_error_for(
-                        role,
-                        &provider,
-                        self.config,
-                        self.egress,
-                        context_extensions,
-                    ));
-                }
-            };
+                let (model, resolved) = match cloud {
+                    Some(result) => result?,
+                    None => {
+                        return Err(unresolved_chat_model_error_for(
+                            role,
+                            &provider,
+                            self.config,
+                            self.egress,
+                            context_extensions,
+                        ));
+                    }
+                };
+                let route_provider = model
+                    .profile()
+                    .and_then(|p| p.provider.clone())
+                    .unwrap_or_else(|| {
+                        parsed_route
+                            .as_ref()
+                            .expect("parsed cloud route")
+                            .provider
+                            .clone()
+                    });
+                (model, route_provider, resolved)
+            }
+            _ => {
+                return Err(unresolved_chat_model_error_for(
+                    role,
+                    &provider,
+                    self.config,
+                    self.egress,
+                    context_extensions,
+                ));
+            }
+        };
 
         let route = ResolvedModelRoute::new(
             route_provider,
@@ -428,7 +429,11 @@ pub async fn create_chat_model_in(
     config: &Config,
     temperature: f64,
 ) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
-    Ok(create_chat_model_with_model_id_in(ctx, role, config, temperature).await?.0)
+    Ok(
+        create_chat_model_with_model_id_in(ctx, role, config, temperature)
+            .await?
+            .0,
+    )
 }
 
 /// Like [`create_chat_model_in`], but also returns the resolved model id.
@@ -575,7 +580,8 @@ pub async fn create_chat_model_from_string(
     config: &Config,
     temperature: f64,
 ) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
-    create_chat_model_from_string_with_model_id(role, provider, config, temperature).await
+    create_chat_model_from_string_with_model_id(role, provider, config, temperature)
+        .await
         .map(|(model, _)| model)
 }
 

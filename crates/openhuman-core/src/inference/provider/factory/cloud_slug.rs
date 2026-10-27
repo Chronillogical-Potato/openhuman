@@ -2,12 +2,14 @@
 //! abstract-tier remapping, credentials, codex routing) and the crate-native builders.
 
 use super::{
-    access_gates::enforce_local_only_inference, cloud_spec,
+    access_gates::enforce_local_only_inference,
+    cloud_spec,
     credentials::{CredentialAccess, RuntimeCredentialSnapshot},
-    local_runtime::OptionalChatModelResult, managed_backend::managed_chat_model_for,
-    provider_for_role, redact_endpoint_origin,
-    InspectionOutputBudgetCapability, BYOK_INCOMPLETE_SENTINEL, CLAUDE_AGENT_SDK_PREFIX,
-    CLAUDE_AGENT_SDK_PROVIDER, PROVIDER_OPENHUMAN,
+    local_runtime::OptionalChatModelResult,
+    managed_backend::managed_chat_model_for,
+    provider_for_role, redact_endpoint_origin, InspectionOutputBudgetCapability,
+    BYOK_INCOMPLETE_SENTINEL, CLAUDE_AGENT_SDK_PREFIX, CLAUDE_AGENT_SDK_PROVIDER,
+    PROVIDER_OPENHUMAN,
 };
 use crate::config::ops::resolve_primary_cloud_provider_string;
 use crate::config::schema::cloud_providers::AuthStyle;
@@ -286,11 +288,9 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
         anyhow::bail!("{}", missing_credentials());
     }
     let codex = match credential_access {
-        CredentialAccess::Runtime(snapshot) => {
-            snapshot
-                .codex_routing(slug, &entry.endpoint, &key)
-                .map_err(anyhow::Error::msg)?
-        }
+        CredentialAccess::Runtime(snapshot) => snapshot
+            .codex_routing(slug, &entry.endpoint, &key)
+            .map_err(anyhow::Error::msg)?,
         CredentialAccess::Inspection => resolve_openai_codex_routing_for_inspection(
             slug,
             &entry.endpoint,
@@ -562,8 +562,7 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
         extensions,
         credential_access,
         inspection_credential,
-    )
-    {
+    ) {
         Ok(r) => r,
         Err(e) => return Some(Err(e)),
     };

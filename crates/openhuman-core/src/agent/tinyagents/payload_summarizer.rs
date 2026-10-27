@@ -135,11 +135,9 @@ impl HarnessPayloadSummarizer<OpenHumanRunContext> for SubagentPayloadSummarizer
                 let system_prompt = format!("{}\n\n{framing}", request.system.trim_end());
 
                 let provider_model = tinyinference_llm::model::MaxTokensModel::new(
-                    source.build_summarizer(
-                        &model,
-                        definition.temperature,
-                        thread_id.as_deref(),
-                    )?,
+                    source
+                        .build_summarizer(&model, definition.temperature, thread_id.as_deref())
+                        .await?,
                     max_output_tokens,
                 );
                 let provider_model: Arc<dyn tinyinference_llm::model::ChatModel<()>> =

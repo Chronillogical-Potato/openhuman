@@ -124,7 +124,8 @@ async fn build_turn_models_crate(
     thread_id: Option<&str>,
 ) -> anyhow::Result<TurnModels> {
     let egress = crate::security::egress::EgressLedger::per_turn();
-    let credentials = crate::inference::provider::factory::RuntimeCredentialSnapshot::resolve(config).await;
+    let credentials =
+        crate::inference::provider::factory::RuntimeCredentialSnapshot::resolve(config).await;
     let factory = crate::inference::provider::factory::OpenHumanModelFactory {
         ctx,
         config,
@@ -569,7 +570,8 @@ impl TurnModelSource {
                 supports_vision,
                 self_hosted,
                 thread_id,
-            ).await;
+            )
+            .await;
         }
         Err(anyhow::anyhow!("turn model source is missing a model"))
     }
@@ -621,7 +623,11 @@ impl TurnModelSource {
                 egress: &egress,
                 thread_id,
                 attach_host_attachments: true,
-                credentials: crate::inference::provider::factory::RuntimeCredentialSnapshot::resolve(&cn.config).await,
+                credentials:
+                    crate::inference::provider::factory::RuntimeCredentialSnapshot::resolve(
+                        &cn.config,
+                    )
+                    .await,
             };
             let opts = tinyagents_harness::host::BuildOpts {
                 native_tools: true,

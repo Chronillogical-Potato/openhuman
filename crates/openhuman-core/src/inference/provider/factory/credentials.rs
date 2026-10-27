@@ -46,7 +46,11 @@ impl Default for RuntimeCredentialSnapshot {
 impl RuntimeCredentialSnapshot {
     pub(crate) async fn resolve(config: &Config) -> Self {
         let mut keys = HashMap::new();
-        for slug in config.cloud_providers.iter().map(|entry| entry.slug.as_str()) {
+        for slug in config
+            .cloud_providers
+            .iter()
+            .map(|entry| entry.slug.as_str())
+        {
             if keys.contains_key(slug) {
                 continue;
             }
@@ -61,8 +65,8 @@ impl RuntimeCredentialSnapshot {
                 Ok(route.api_key.trim().to_owned()),
             );
         }
-        let openai_oauth = crate::credentials::openai_oauth::lookup_openai_oauth_credentials(config)
-            .await;
+        let openai_oauth =
+            crate::credentials::openai_oauth::lookup_openai_oauth_credentials(config).await;
         let openai_bearer_is_oauth = openai_bearer_is_oauth(config).await;
         let backend_session_active = backend_session_active_snapshot(config).await;
         Self {
@@ -102,7 +106,11 @@ impl RuntimeCredentialSnapshot {
                     log::warn!("[providers][openai-codex] oauth metadata unavailable; continuing with standard bearer key: {error}");
                     None
                 }
-                Err(error) => return Err(format!("[chat-factory] openai oauth lookup failed: {error}")),
+                Err(error) => {
+                    return Err(format!(
+                        "[chat-factory] openai oauth lookup failed: {error}"
+                    ))
+                }
             }
         } else {
             None
@@ -153,10 +161,7 @@ impl CredentialAccess {
         matches!(self, Self::Inspection)
     }
 
-    pub(super) fn lookup_key_for_slug(
-        self,
-        slug: &str,
-    ) -> anyhow::Result<String> {
+    pub(super) fn lookup_key_for_slug(self, slug: &str) -> anyhow::Result<String> {
         match self {
             Self::Runtime(snapshot) => snapshot.key(slug),
             Self::Inspection => anyhow::bail!("inspection credential was not pre-resolved"),
