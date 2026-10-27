@@ -68,6 +68,27 @@ fn first_socket_frame_must_match_begin_channel_token_and_nonce() {
 }
 
 #[test]
+fn stale_pending_session_is_retired_before_same_device_renewal() {
+    let mut pending = std::collections::HashMap::from([(
+        "bus-test-channel".to_owned(),
+        session("2099-01-01T00:00:00Z"),
+    )]);
+
+    // A fresh socket attestation cannot reuse the old pending receipt. Retire
+    // that host capability so the handshake path can request TinySecurity
+    // Renew for the persisted device identity.
+    assert!(take_pending_session_for_socket(
+        &mut pending,
+        "bus-test-channel",
+        "fresh-connection-token",
+        "fresh-connection-nonce",
+    )
+    .is_none());
+    assert!(!pending.contains_key("bus-test-channel"));
+    assert!(renewal_pairing_id(true, true, false, false, &paired_device()).is_some());
+}
+
+#[test]
 fn process_restart_unlock_then_peer_online_renews_only_the_same_device() {
     let device = paired_device();
     // Process restart cleared both volatile capabilities. A live persisted
