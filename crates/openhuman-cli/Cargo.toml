@@ -79,6 +79,11 @@ name = "storage_schema_dump"
 path = "../../examples/storage_schema_dump.rs"
 
 [[test]]
+name = "security_native_fixture"
+path = "../../tests/security_native_fixture.rs"
+required-features = ["security-module"]
+
+[[test]]
 # Loads tinydocs from the linked executable and calls GenerateDocx end to end.
 # `scripts/test-rust-e2e.sh --suite tinydocs_linked_e2e` enables its local-only
 # `linked-modules,documents` feature requirements explicitly.
@@ -454,7 +459,6 @@ openhuman-core = { path = "../openhuman-core", package = "openhuman", default-fe
 openhuman-embed = { workspace = true }
 openhuman-tinyhumans = { workspace = true }
 tinymemory-tools = { path = "../../vendor/tinymemory/crates/tinymemory-tools" }
-aes-gcm = "0.10"
 async-trait = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
 futures = "0.3"

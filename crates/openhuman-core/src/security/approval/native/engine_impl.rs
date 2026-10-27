@@ -1,8 +1,83 @@
 use super::*;
 
+const NATIVE_SECRET_GRANT_TOOL: &str = "native_secret_grant";
+
+struct SecretPromptGuard(String);
+
+impl Drop for SecretPromptGuard {
+    fn drop(&mut self) {
+        host().end_secret_prompt(&self.0);
+    }
+}
+
+impl NativeEngine {
+    async fn check_secret_master(&self, input: CheckInput) -> Result<Checked, EngineError> {
+        use tinysecurity_bus::{EvaluateSecretRequest2, SecretOperation2, SecretRequest2};
+
+        let registration_id = input
+            .args
+            .get("registration_id")
+            .and_then(serde_json::Value::as_str)
+            .filter(|id| !id.is_empty() && id.len() <= 128)
+            .ok_or_else(|| unavailable("native secret registration is unavailable"))?
+            .to_owned();
+        let proxy = self.proxy().await?;
+        let client = crate::modules::security::Client::connect(&self.config)
+            .await
+            .map_err(unavailable)?;
+        let generation = Self::generation(&proxy).await?;
+        let scope = crate::modules::ops::security_secret_scope()
+            .await
+            .ok_or_else(|| unavailable("native secret scope unavailable"))?;
+        let request = SecretRequest2 {
+            registration_id: registration_id.clone(),
+            call_id: input.call_id,
+            ttl_ms: 30_000,
+            operation: SecretOperation2::ResolveConfigMaster,
+        };
+        let _ordered = scope.lock().await;
+        let audit = scope
+            .correlation(generation)
+            .await
+            .map_err(EngineError::Unavailable)?;
+        if !scope.begin_prompt(input.prompt) {
+            return Err(unavailable(
+                "another secret master request is already pending",
+            ));
+        }
+        let _prompt = SecretPromptGuard(scope.scope_id().to_owned());
+        let mut evaluate = EvaluateSecretRequest2 {
+            request: request.clone(),
+            audit,
+        };
+        let row = client
+            .evaluate_secret2(&mut evaluate)
+            .await
+            .map_err(|error| unavailable(error.to_string()))?;
+        if row.state != ApprovalLifecycle2::Pending
+            || row.tool_name != NATIVE_SECRET_GRANT_TOOL
+            || !scope.matches_handle(&row.binding.scope)
+        {
+            return Err(unavailable(
+                "TinySecurity refused the native secret approval",
+            ));
+        }
+        if !host().remember_secret_grant(request, row.request_id.clone(), row.expires_at_ms) {
+            return Err(unavailable("native secret approval is already pending"));
+        }
+        Ok(Checked::Pending {
+            request_id: row.request_id,
+            expires_at_ms: row.expires_at_ms,
+        })
+    }
+}
+
 #[async_trait]
 impl ApprovalEngine for NativeEngine {
     async fn check(&self, input: CheckInput) -> Result<Checked, EngineError> {
+        if input.tool == NATIVE_SECRET_GRANT_TOOL {
+            return self.check_secret_master(input).await;
+        }
         if !is_host_tool_name2(&input.tool) {
             tracing::warn!(tool = %input.tool, "{LOG} the module cannot gate this tool name");
             return Err(unavailable(format!(

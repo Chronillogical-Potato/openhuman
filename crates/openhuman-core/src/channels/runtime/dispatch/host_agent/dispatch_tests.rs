@@ -78,16 +78,16 @@ fn context(channel: Arc<Telegram>, config: Config) -> Arc<ChannelRuntimeContext>
 fn message(text: &str) -> traits::ChannelInboundEnvelope {
     traits::ChannelInboundEnvelope {
         message_id: "m1".into(),
-        sender: traits::SenderRef {
+        sender: traits::channel::SenderRef {
             id: "alice".into(),
             ..Default::default()
         },
-        conversation: traits::ConversationRef {
+        conversation: traits::channel::ConversationRef {
             id: "42".into(),
             ..Default::default()
         },
         text: text.into(),
-        channel: traits::ChannelRef {
+        channel: traits::channel::ChannelRef {
             id: "telegram".into(),
             ..Default::default()
         },
@@ -96,7 +96,7 @@ fn message(text: &str) -> traits::ChannelInboundEnvelope {
 }
 
 /// An offline config in `tmp`, with `telegram` bound to `agent_id` when given.
-fn config(tmp: &tempfile::TempDir, agent_id: Option<&str>) -> Config {
+async fn config(tmp: &tempfile::TempDir, agent_id: Option<&str>) -> Config {
     let workspace = tmp.path().join("workspace");
     std::fs::create_dir_all(&workspace).unwrap();
     let mut config = Config {
@@ -110,6 +110,7 @@ fn config(tmp: &tempfile::TempDir, agent_id: Option<&str>) -> Config {
     config.agent.session_dual_write = false;
     config.agent.session_shadow_reads = false;
     crate::credentials::api_key::store_api_key(&config, "test-session-fixture-key")
+        .await
         .expect("store channel test credential");
     if let Some(agent_id) = agent_id {
         config
@@ -133,7 +134,7 @@ async fn a_binding_no_agent_answers_is_refused_not_sent_to_the_orchestrator() {
     let channel = Arc::new(Telegram::default());
     let ctx = context(
         Arc::clone(&channel),
-        config(&tmp, Some("nobody-registered")),
+        config(&tmp, Some("nobody-registered")).await,
     );
 
     process_channel_message(ctx, message("hello")).await;
@@ -159,7 +160,7 @@ async fn an_unbound_channel_still_runs_the_orchestrator() {
     })
     .await;
     let tmp = tempfile::tempdir().unwrap();
-    let mut config = config(&tmp, None);
+    let mut config = config(&tmp, None).await;
     config
         .agent
         .channel_agents
@@ -238,20 +239,27 @@ impl HostAgentResolver for OneHostAgent {
             definition,
             config: self.config.clone(),
             host_tools: Some(Arc::new(move |_turn| {
-                crate::agent::HostTurnTools::advertised(vec![
-                    Box::new(Probe {
-                        name: "teeny_read",
-                        level: PermissionLevel::ReadOnly,
-                        runs: Arc::clone(&reads),
-                        origins: Arc::clone(&origins),
-                    }),
-                    Box::new(Probe {
-                        name: "teeny_write",
-                        level: PermissionLevel::Write,
-                        runs: Arc::clone(&writes),
-                        origins: Arc::clone(&origins),
-                    }),
-                ])
+                let (reads, writes, origins) = (
+                    Arc::clone(&reads),
+                    Arc::clone(&writes),
+                    Arc::clone(&origins),
+                );
+                Box::pin(async move {
+                    crate::agent::HostTurnTools::advertised(vec![
+                        Box::new(Probe {
+                            name: "teeny_read",
+                            level: PermissionLevel::ReadOnly,
+                            runs: reads,
+                            origins: Arc::clone(&origins),
+                        }),
+                        Box::new(Probe {
+                            name: "teeny_write",
+                            level: PermissionLevel::Write,
+                            runs: writes,
+                            origins: Arc::clone(&origins),
+                        }),
+                    ])
+                })
             })),
             hooks: Default::default(),
             context: CoreContext::for_test_with_config(DomainSet::full(), self.config.clone()),
@@ -338,7 +346,7 @@ async fn bound_channel_runs_its_host_agent() {
     // is built from it.
     crate::agent_registry::host_definition::AgentDefinitionRegistry::init_global_builtins()
         .unwrap();
-    let mut agent_config = config(&tmp, None);
+    let mut agent_config = config(&tmp, None).await;
     agent_config.default_model = Some("fixture".into());
     let route = crate::config::schema::EphemeralRoute::from_params(
         Some(format!("{}/v1", server.uri())),
@@ -355,7 +363,7 @@ async fn bound_channel_runs_its_host_agent() {
         origins: Arc::clone(&origins),
     });
     let channel = Arc::new(Telegram::default());
-    let ctx = context(Arc::clone(&channel), config(&tmp, Some("teeny-chat")));
+    let ctx = context(Arc::clone(&channel), config(&tmp, Some("teeny-chat")).await);
 
     let outcome = {
         host_agents::install(Arc::clone(&resolver));

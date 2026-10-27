@@ -154,7 +154,7 @@ pub async fn remember_keyed(
     kind: LearningKind,
 ) -> Result<String> {
     // Fail with MEMORY_OFF before touching anything.
-    crate::memory::engine::resolve(config).engine()?;
+    crate::memory::engine::resolve(config).await.engine()?;
     let key_tag = flow_key_tag(flow_id, key);
     // Take a scoped snapshot before writing. If learning fails, this leaves
     // the prior value intact; deleting by these ids after learning also keeps

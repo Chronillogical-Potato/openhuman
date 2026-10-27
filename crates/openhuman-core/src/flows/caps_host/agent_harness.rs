@@ -80,9 +80,10 @@ impl OpenHumanAgentRunner {
         };
 
         let built = match &host {
-            Some(host) => host.session_host(effective.as_ref(), None),
+            Some(host) => host.session_host(effective.as_ref(), None).await,
             None => {
                 OpenHumanSessionHost::from_config_for_agent(dispatch, effective.as_ref(), agent_ref)
+                    .await
             }
         };
         let mut agent = built.map_err(|e| {

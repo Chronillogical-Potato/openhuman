@@ -137,16 +137,16 @@ fn modules_list_output_keeps_its_wire_shape() {
     assert!(wire.get("source").is_none());
 }
 
-#[test]
-fn tinymcp_storage_destination_is_bound_by_the_verified_loader() {
+#[tokio::test]
+async fn tinymcp_storage_destination_is_bound_by_the_verified_loader() {
     // A generic config cannot choose the callback destination. The verified
     // loader injects the unique name bound to this exact module instance.
     assert_eq!(
-        ops::module_config_for_test(&Config::default(), "tinymcp"),
+        ops::module_config(&Config::default(), "tinymcp").await,
         serde_json::json!({})
     );
     assert_eq!(
-        ops::module_config_for_test(&Config::default(), "tinybox"),
+        ops::module_config(&Config::default(), "tinybox").await,
         serde_json::json!({})
     );
 }

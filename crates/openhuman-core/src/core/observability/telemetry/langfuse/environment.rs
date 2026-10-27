@@ -120,12 +120,12 @@ pub(crate) fn skip_push(environment: &str) -> bool {
 /// and build observations first, so without a live session (unit tests, a
 /// signed-out or embedder host) or on a skipped environment that work is
 /// discarded anyway, and reading a whole child journal is not free.
-pub(crate) fn journal_push_ready(config: &Config) -> bool {
+pub(crate) async fn journal_push_ready(config: &Config) -> bool {
     let url = otlp_url(config);
     !skip_push(environment_for_base(config, &url))
         && url.starts_with("http")
         && matches!(
-            direct_backend_credential(config, "langfuse journal push"),
+            direct_backend_credential(config, "langfuse journal push").await,
             Some(crate::credentials::backend_credential::BackendCredential::Session(_))
         )
 }

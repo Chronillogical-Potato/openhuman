@@ -38,6 +38,7 @@ pub(crate) async fn clear_session_credential(
 
     let removed = AuthService::from_config(config)
         .remove_profile(APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME)
+        .await
         .map_err(|e| e.to_string())?;
     if removed {
         crate::integrations::composio::invalidate_connected_integrations_cache();

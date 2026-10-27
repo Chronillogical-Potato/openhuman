@@ -75,7 +75,10 @@ async fn parking_agent(
                         .tools(ToolScopeSpec::Named(vec!["write_marker".into()])),
                 )
                 .tools(move |_| {
-                    HostTurnTools::advertised(vec![Box::new(WriteMarker(file.clone()))])
+                    let file = file.clone();
+                    Box::pin(
+                        async move { HostTurnTools::advertised(vec![Box::new(WriteMarker(file))]) },
+                    )
                 }),
         )
         .expect("agent instantiates");

@@ -32,6 +32,7 @@ async fn turn_factory_checks_privacy_then_explicit_host_session_before_building_
         egress: &egress,
         thread_id: None,
         attach_host_attachments: false,
+        credentials: super::credentials::RuntimeCredentialSnapshot::default(),
     };
 
     crate::core::runtime::CoreContext::scope(ambient_library, async {
@@ -43,7 +44,8 @@ async fn turn_factory_checks_privacy_then_explicit_host_session_before_building_
                 tinyagents_harness::host::TurnModelSet::<()>::builder(&factory, &factory, "chat")
                     .primary_model_pin("hint:chat")
                     .without_workload_tiers()
-                    .build();
+                    .build()
+                    .await;
             let error = match result {
                 Err(error) => error,
                 Ok(_) => panic!("LocalOnly must reject managed inference before session lookup"),
@@ -55,7 +57,8 @@ async fn turn_factory_checks_privacy_then_explicit_host_session_before_building_
             tinyagents_harness::host::TurnModelSet::<()>::builder(&factory, &factory, "chat")
                 .primary_model_pin("hint:chat")
                 .without_workload_tiers()
-                .build();
+                .build()
+                .await;
         let error = match result {
             Err(error) => error,
             Ok(_) => panic!("explicit CLI dispatch must require a session despite ambient Library"),
@@ -71,12 +74,14 @@ async fn turn_factory_checks_privacy_then_explicit_host_session_before_building_
                 Default::default(),
                 true,
             )
+            .await
             .expect("store isolated test session");
         let built =
             tinyagents_harness::host::TurnModelSet::<()>::builder(&factory, &factory, "chat")
                 .primary_model_pin("factory-gate-order-sentinel-model")
                 .without_workload_tiers()
                 .build()
+                .await
                 .expect("authorized managed turn builds");
         let _summarizer = built.summarizer();
         assert_eq!(builds.lock().expect("build counter").len(), 2);

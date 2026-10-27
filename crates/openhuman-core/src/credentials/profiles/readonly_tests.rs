@@ -2,9 +2,9 @@ use super::*;
 use std::collections::BTreeMap;
 use tempfile::TempDir;
 
-#[test]
+#[tokio::test]
 #[cfg(feature = "security-module")]
-fn read_only_profile_loads_secrets_stored_in_tinysecurity_keyring() {
+async fn read_only_profile_loads_secrets_stored_in_tinysecurity_keyring() {
     let tmp = TempDir::new().unwrap();
     let state_dir = tmp.path();
     let config = config_for(state_dir);
@@ -29,6 +29,7 @@ fn read_only_profile_loads_secrets_stored_in_tinysecurity_keyring() {
             ..KeychainSecrets::default()
         }))
     })
+    .await
     .expect("keyring-backed profile should be readable")
     .expect("profile should be selected");
 
@@ -40,8 +41,8 @@ fn read_only_profile_loads_secrets_stored_in_tinysecurity_keyring() {
 }
 
 #[cfg(feature = "security-module")]
-#[test]
-fn read_only_profile_does_not_bypass_denied_keyring_consent() {
+#[tokio::test]
+async fn read_only_profile_does_not_bypass_denied_keyring_consent() {
     let tmp = TempDir::new().unwrap();
     let state_dir = tmp.path();
     let config = config_for(state_dir);
@@ -65,7 +66,8 @@ fn read_only_profile_does_not_bypass_denied_keyring_consent() {
         Err(anyhow::Error::new(
             super::super::keychain::KeyringConsentError::Denied,
         ))
-    });
+    })
+    .await;
 
     assert!(matches!(result, Err(ReadOnlyAuthProfileError::Unavailable)));
 }

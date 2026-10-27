@@ -95,7 +95,7 @@ pub async fn pricing_for_config(
 /// stock_prices) gate tool registration at their own level.
 ///
 /// [`resolve_backend_credential`]: openhuman_embed::__host::credentials::backend_credential::resolve_backend_credential
-pub fn build_client(
+pub async fn build_client(
     config: &openhuman_embed::__host::config::Config,
 ) -> Option<Arc<IntegrationClient>> {
     // Use the integrations-specific resolver: when `config.api_url` is set
@@ -111,7 +111,9 @@ pub fn build_client(
     let credential =
         match openhuman_embed::__host::credentials::backend_credential::resolve_backend_credential(
             config,
-        ) {
+        )
+        .await
+        {
             Ok(credential) => Some(credential),
             Err(e) => {
                 tracing::debug!("[integrations] no backend credential: {e}");

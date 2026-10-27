@@ -12,9 +12,7 @@ use tinychannels_bus::{methods, ChannelBackendRequest, ChannelBackendResult};
 
 fn request_channel(request: &ProgressiveTransportRequest) -> &str {
     match request {
-        ProgressiveTransportRequest::OutputEvent { channel, .. }
-        | ProgressiveTransportRequest::Send { channel, .. }
-        | ProgressiveTransportRequest::SendTyped { channel, .. }
+        ProgressiveTransportRequest::Send { channel, .. }
         | ProgressiveTransportRequest::Edit { channel, .. }
         | ProgressiveTransportRequest::Delete { channel, .. }
         | ProgressiveTransportRequest::Typing { channel, .. } => channel,

@@ -18,8 +18,10 @@ impl AuthProfilesStore {
     /// The returned `AuthProfilesData` reflects the in-memory cleanup either
     /// way, so the lock-free read path (`persist = false`) still returns a
     /// correct, fully-resolved view without touching disk.
-    pub(super) fn load_resolved(&self, persist: bool) -> Result<AuthProfilesData> {
-        let mut persisted = self.read_persisted_locked()?;
+    pub(super) async fn load_resolved(
+        &self,
+        mut persisted: super::PersistedAuthProfiles,
+    ) -> Result<AuthProfilesData> {
         let mut dropped_ids: Vec<String> = Vec::new();
         let mut pending_keychain_deletes = Vec::new();
         let mut unavailable_keyring_ids = Vec::new();
@@ -28,12 +30,12 @@ impl AuthProfilesStore {
             // Current secrets may live in the keyring or in the encrypted
             // profile document. Legacy document values are read in place; they
             // are never promoted into the keyring during a profile read.
-            let decrypt_document_secrets = || -> Result<_> {
-                Ok((
-                    self.decrypt_optional(p.access_token.as_deref())?.0,
-                    self.decrypt_optional(p.refresh_token.as_deref())?.0,
-                    self.decrypt_optional(p.id_token.as_deref())?.0,
-                    self.decrypt_optional(p.token.as_deref())?.0,
+            let decrypt_document_secrets = || async {
+                Ok::<_, anyhow::Error>((
+                    self.decrypt_optional(p.access_token.as_deref()).await?.0,
+                    self.decrypt_optional(p.refresh_token.as_deref()).await?.0,
+                    self.decrypt_optional(p.id_token.as_deref()).await?.0,
+                    self.decrypt_optional(p.token.as_deref()).await?.0,
                 ))
             };
             let (access_token, refresh_token, id_token, token) = if self.use_keychain {
@@ -44,7 +46,7 @@ impl AuthProfilesStore {
                         secrets.id_token,
                         secrets.token,
                     ),
-                    Ok(None) => match decrypt_document_secrets() {
+                    Ok(None) => match decrypt_document_secrets().await {
                         Ok(secrets) => secrets,
                         Err(decrypt_error) => {
                             log::warn!(
@@ -64,7 +66,7 @@ impl AuthProfilesStore {
                         if preserve_keyring_only_oauth_after_access_failure(p, true) {
                             unavailable_keyring_ids.push(id.clone());
                         }
-                        match decrypt_document_secrets() {
+                        match decrypt_document_secrets().await {
                             Ok(secrets) => secrets,
                             Err(decrypt_error) => {
                                 // The keyring may still contain the only copy.
@@ -78,7 +80,7 @@ impl AuthProfilesStore {
                     }
                 }
             } else {
-                match decrypt_document_secrets() {
+                match decrypt_document_secrets().await {
                     Ok(secrets) => secrets,
                     Err(error) => {
                         log::warn!(
@@ -210,7 +212,6 @@ impl AuthProfilesStore {
             if let Some(mut ap) = profiles.remove(&id) {
                 if new_profiles.contains_key(&normalized_id) {
                     profile_migration_conflicts += 1;
-                    key_migrated = true;
                     if id == normalized_id {
                         let old_id = new_profiles
                             .insert(normalized_id.clone(), ap)
@@ -263,7 +264,6 @@ impl AuthProfilesStore {
 
                     let final_id = if migration_succeeded {
                         if provider_or_id_changed {
-                            key_migrated = true;
                             profile_casing_changed_count += 1;
                         }
                         normalized_id.clone()
@@ -289,7 +289,6 @@ impl AuthProfilesStore {
             if let Some(target) = profile_id_migration_targets.get(&normalized) {
                 if profile_id != target {
                     *profile_id = target.clone();
-                    key_migrated = true;
                 }
             }
         }
@@ -306,15 +305,11 @@ impl AuthProfilesStore {
         }
         persisted.profiles = new_persisted_profiles;
         profiles = new_profiles;
-        if persist && (!dropped_ids.is_empty() || key_migrated) {
-            self.write_persisted_locked(&persisted)?;
-            for id in pending_keychain_deletes {
-                if let Err(error) = self.keychain_delete_secrets(&id) {
-                    log::warn!(
-                        "[auth] profile id migration left an old keyring entry in place: {error}"
-                    );
-                }
-            }
+        if !pending_keychain_deletes.is_empty() {
+            log::debug!(
+                "[auth] deferred {} old keyring entries for profile migration",
+                pending_keychain_deletes.len()
+            );
         }
         Ok(AuthProfilesData {
             schema_version: persisted.schema_version,

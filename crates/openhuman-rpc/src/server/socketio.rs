@@ -251,7 +251,17 @@ struct ThreadSubscribeAck {
 /// - `rpc:request`: Invoking JSON-RPC methods over WebSocket.
 /// - `chat:start`: Initiating a new chat turn.
 /// - `chat:cancel`: Aborting an active chat turn.
+#[cfg(test)]
 pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
+    attach_socketio_with_preflight(None)
+}
+
+/// Attach Socket.IO with the same startup gate as HTTP. Preflight disables
+/// new handshakes and independently guards RPC events for sockets connected
+/// before a gate was installed.
+pub(crate) fn attach_socketio_with_preflight(
+    preflight_gate: Option<super::auth::PreflightGate>,
+) -> (socketioxide::layer::SocketIoLayer, SocketIo) {
     let (layer, io) = SocketIo::new_layer();
 
     log::info!(
@@ -259,10 +269,17 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
         io.config().engine_config.req_path
     );
 
+    let handshake_gate = preflight_gate.clone();
     io.ns(
         "/",
-        |socket: SocketRef, TryData(handshake): TryData<HandshakeAuth>| {
+        move |socket: SocketRef, TryData(handshake): TryData<HandshakeAuth>| {
             let client_id = socket.id.to_string();
+
+            if handshake_gate.as_ref().is_some_and(|gate| gate.is_active()) {
+                log::info!("[socketio] rejecting connect during startup preflight client={client_id}");
+                let _ = socket.clone().disconnect();
+                return;
+            }
 
             // Reject cross-origin browser pages before the handshake completes.
             // Native clients (Tauri shell, CLI) do not set an `Origin` header and
@@ -363,9 +380,25 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
             }
 
             // Handler for JSON-RPC over WebSocket.
+            let rpc_gate = preflight_gate.clone();
             socket.on(
                 "rpc:request",
-                |socket: SocketRef, Data(payload): Data<SocketRpcRequest>| async move {
+                move |socket: SocketRef, Data(payload): Data<SocketRpcRequest>| {
+                    let rpc_gate = rpc_gate.clone();
+                    async move {
+                    if rpc_gate.as_ref().is_some_and(|gate| gate.is_active()) {
+                        let _ = socket.emit(
+                            "rpc:error",
+                            &json!({
+                                "id": payload.id,
+                                "error": {
+                                    "code": -32003,
+                                    "message": "RPC is unavailable during startup approval preflight"
+                                }
+                            }),
+                        );
+                        return;
+                    }
                     if !socket_is_authed(&socket) {
                         drop_unauthed(&socket, "rpc:request from unauthenticated socket");
                         return;
@@ -403,6 +436,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                     };
 
                     let _ = socket.emit(response.0, &response.1);
+                    }
                 },
             );
 
@@ -713,12 +747,14 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                 };
                 let current_token =
                     crate::core_host::credentials::session_state::get_session_token(&config)
+                        .await
                         .ok()
                         .flatten();
                 if !should_broadcast_session_expiry(
                     credential_fingerprint.as_deref(),
                     current_token.as_deref(),
                     crate::core_host::credentials::api_key::get_api_key(&config)
+                        .await
                         .ok()
                         .flatten()
                         .is_some(),
@@ -969,7 +1005,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                 crate::core_host::core::events::DomainEvent::KeyringAccessApprovalRequested(
                     request,
                 ) => {
-                    let payload = keyring_access_approval_payload(request);
+                    let payload = keyring_access_approval_payload(&request);
                     let _ = io_memory_sync.emit("keyring:access_approval_requested", &payload);
                     let _ = io_memory_sync.emit("keyring_access_approval_requested", &payload);
                 }

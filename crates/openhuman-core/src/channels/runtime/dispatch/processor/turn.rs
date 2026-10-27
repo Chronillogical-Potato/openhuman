@@ -132,7 +132,7 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
                     msg.conversation.thread_id.clone(),
                 );
                 _acknowledgment_task = Some(AbortOnDropHandle::new(tokio::spawn(async move {
-                    if let Err(e) = channel_for_react.send_typed(&react_msg).await {
+                    if let Err(e) = channel_for_react.send(&react_msg).await {
                         tracing::debug!("[dispatch] Acknowledgment reaction failed: {e}");
                     }
                 })));
@@ -161,7 +161,7 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
                 );
                 if let Some(channel) = target_channel.as_ref() {
                     let _ = channel
-                        .send_typed(&text_message(
+                        .send(&text_message(
                             &msg.channel.id,
                             &msg.conversation.id,
                             message,
@@ -462,7 +462,7 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
                     {
                         tracing::warn!("Failed to finalize draft: {e}; sending as new message");
                         let _ = channel
-                            .send_typed(&text_message(
+                            .send(&text_message(
                                 &msg.channel.id,
                                 &msg.conversation.id,
                                 &response_text,
@@ -471,7 +471,7 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
                             .await;
                     }
                 } else if let Err(e) = channel
-                    .send_typed(&text_message(
+                    .send(&text_message(
                         &msg.channel.id,
                         &msg.conversation.id,
                         &response_text,
@@ -512,7 +512,7 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
                             .await;
                     } else {
                         let _ = channel
-                            .send_typed(&text_message(
+                            .send(&text_message(
                                 &msg.channel.id,
                                 &msg.conversation.id,
                                 error_text,
@@ -603,7 +603,7 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
                         .await;
                 } else {
                     let _ = channel
-                        .send_typed(&text_message(
+                        .send(&text_message(
                             &msg.channel.id,
                             &msg.conversation.id,
                             &error_response,
@@ -649,7 +649,7 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
                         .await;
                 } else {
                     let _ = channel
-                        .send_typed(&text_message(
+                        .send(&text_message(
                             &msg.channel.id,
                             &msg.conversation.id,
                             &error_text,

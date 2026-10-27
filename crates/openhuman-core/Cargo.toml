@@ -289,8 +289,6 @@ tinyeventqueues-bus = { path = "../../vendor/tinyeventqueues/crates/tinyeventque
 libc = "0.2"
 nu-ansi-term = "0.50"
 base64 = "0.22"
-aes-gcm = "0.10"
-argon2 = "0.5"
 rand = "0.10"
 dirs = "6"
 sha2 = "0.10"
@@ -310,7 +308,6 @@ flate2 = "1"
 uuid = { version = "1", features = ["v4"] }
 anyhow = "1.0"
 async-trait = "0.1"
-chacha20poly1305 = "0.10"
 # Wipe master keys / decrypted secret buffers from memory on drop (audit C9).
 # Already present transitively (resolved to 1.8.x via the *-dalek / cipher
 # crates); declared directly so the keyring module can `use zeroize::Zeroizing`.
@@ -609,7 +606,7 @@ secret-file = ["tinystoragedrivers-secrets/file"]
 # costs no new native builds. It matches `scripts/ci/product-features.txt`. This
 # does NOT move the kernel floor: that profile is
 # `--no-default-features --features flows` and never reads this list.
-default = ["media", "skills", "flows", "mcp", "channels", "http-server", "scheduler-gate", "file-logging", "modules", "inbound-queues", "secret-file", "legacy-import"]
+default = ["media", "skills", "flows", "mcp", "channels", "http-server", "scheduler-gate", "file-logging", "modules", "security-module", "inbound-queues", "secret-file", "legacy-import"]
 # The core's domain-owned HTTP surfaces (#5048): the `/v1` OpenAI-compatible
 # router (`inference::http`), the `openhuman text-input run` dev server, and the MCP
 # Streamable-HTTP transport (`mcp::server::http`, additionally gated by `mcp`).

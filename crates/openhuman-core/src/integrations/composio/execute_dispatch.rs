@@ -45,7 +45,7 @@ pub async fn execute_composio_action(
     // without a route answers with an opaque "no connector route" error, so a
     // missing direct-mode key or backend session must fail here with the
     // actionable message (#1710).
-    if let Err(e) = super::client::resolve_composio_route(config) {
+    if let Err(e) = super::client::resolve_composio_route(config).await {
         tracing::debug!(tool = %tool, "[composio][dispatch] route unavailable");
         return Err(format!("{e:#}"));
     }

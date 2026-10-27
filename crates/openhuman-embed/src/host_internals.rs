@@ -69,7 +69,7 @@ pub mod core {
     }
     pub mod events {
         // `DomainEvent` is matched variant by variant by the Socket.IO bridge.
-        pub use openhuman_core::core::events::DomainEvent;
+        pub use openhuman_core::core::events::{DomainEvent, KeyringAccessApprovalRequest};
     }
     pub mod invoke {
         pub use openhuman_core::core::invoke::{default_state, invoke_method};
@@ -261,6 +261,14 @@ pub mod security {
     }
     pub mod pairing {
         pub use openhuman_core::security::pairing::is_public_bind;
+    }
+    /// TinyHumans' hosted device-tunnel adapter and the semantic device events
+    /// it forwards into the core.
+    pub mod devices {
+        pub use openhuman_core::security::devices::tunnel_client::{
+            global_tunnel_client_port, publish_peer_status, publish_tunnel_frame,
+            set_global_tunnel_client_port, TunnelClientPort, TunnelRegistration,
+        };
     }
 }
 
@@ -516,8 +524,19 @@ pub mod platform {
 
     /// tinyhumans: read-only view of the live Socket.IO connection state.
     pub mod socket {
-        pub use openhuman_core::platform::socket::global_socket_manager;
         pub use openhuman_core::platform::socket::models::ConnectionStatus;
+        pub use openhuman_core::platform::socket::models::SocketState;
+        pub use openhuman_core::platform::socket::{
+            dispatch_socket_event, global_socket_manager, global_socket_port,
+            set_global_socket_manager, set_global_socket_port, SocketIdentityRebindGuard,
+            SocketPort, TokenProvider,
+        };
+    }
+}
+
+pub mod skills {
+    pub mod webhooks {
+        pub use openhuman_core::skills::webhooks::WebhookRouter;
     }
 }
 

@@ -95,25 +95,21 @@ impl EventHandler<DomainEvent> for ChannelApprovalSurfaceSubscriber {
                         source: tinychannels_bus::module_inbound::ChannelInboundSource::Envelope {
                             envelope: inbound_envelope.clone().unwrap_or_else(|| {
                                 tinychannels_bus::ChannelInboundEnvelope {
-                                    channel: tinychannels_bus::ChannelRef {
+                                    channel: tinychannels_bus::channel::ChannelRef {
                                         id: channel.clone(),
                                         account_id: None,
                                     },
                                     message_id: message_id.clone(),
-                                    conversation: tinychannels_bus::ConversationRef {
+                                    conversation: tinychannels_bus::channel::ConversationRef {
                                         id: reply_target.clone(),
                                         thread_id: thread_ts.clone(),
                                         ..Default::default()
                                     },
-                                    sender: tinychannels_bus::SenderRef {
+                                    sender: tinychannels_bus::channel::SenderRef {
                                         id: sender.clone(),
                                         ..Default::default()
                                     },
                                     text: content.clone(),
-                                    parts: vec![tinychannels_bus::channel::ContentPart::Text {
-                                        text: content.clone(),
-                                        markdown_dialect: None,
-                                    }],
                                     ..Default::default()
                                 }
                             }),
@@ -179,7 +175,7 @@ impl EventHandler<DomainEvent> for ChannelApprovalSurfaceSubscriber {
                             return;
                         }
                         let _ = channel
-                            .send_typed(&text_message(
+                            .send(&text_message(
                                 channel.name(),
                                 &reply.reply_target,
                                 body,

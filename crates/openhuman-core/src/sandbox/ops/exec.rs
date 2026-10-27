@@ -154,7 +154,7 @@ pub(crate) async fn execute_in_sandbox_yielding(
                 crate::sandbox::native_jail::execute(
                     ctx,
                     &config,
-                    &policy,
+                    policy,
                     &planned.plan.jail,
                     command,
                     working_dir,

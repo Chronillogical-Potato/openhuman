@@ -83,12 +83,12 @@ fn unavailable_shape(value: &Value) -> String {
 fn redact(text: &str, mode: tinysecurity_bus::RedactMode) -> Option<String> {
     #[cfg(feature = "security-module")]
     {
-        return crate::modules::security::text::redact_blocking(
+        crate::modules::security::text::redact_blocking(
             mode,
             text,
             std::time::Duration::from_secs(2),
         )
-        .ok();
+        .ok()
     }
     #[cfg(not(feature = "security-module"))]
     {

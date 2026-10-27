@@ -56,6 +56,7 @@ pub async fn agent_chat_simple(
             &effective,
             effective.default_temperature,
         )
+        .await
         .map_err(|e| e.to_string())?
     };
     tracing::debug!(

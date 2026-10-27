@@ -283,7 +283,7 @@ pub(crate) async fn run_chat_task(
             // provider is registered by the hosted-backend layer, so a core
             // with none registered logs the error and skips the spoken reply.
             #[cfg(feature = "voice")]
-            let speech = match crate::voice::create_tts_provider("cloud", "", &config) {
+            let speech = match crate::voice::create_tts_provider("cloud", "", &config).await {
                 Ok(provider) => provider
                     .synthesize(&config, &task_result.full_response, None)
                     .await

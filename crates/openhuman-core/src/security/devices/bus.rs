@@ -1,7 +1,7 @@
 //! Event bus handlers for the devices domain.
 //!
-//! Subscribes to `tunnel:peer-status` and `tunnel:frame` events published by
-//! `socket::event_handlers` and drives:
+//! Subscribes to semantic peer-status and frame events published by the hosted
+//! TinyHumans tunnel adapter and drives:
 //! - Updating `PEER_STATUS` in `rpc.rs`.
 //! - Completing the X25519 handshake when the device sends its pubkey.
 //! - Persisting the `PairedDevice` record after a successful handshake.
@@ -348,13 +348,14 @@ fn take_pending_pairing_for_handshake(
     (expires_at.with_timezone(&chrono::Utc) > now).then_some((keypair, session))
 }
 
-fn restore_paired_keypair(
+async fn restore_paired_keypair(
     encrypted_private_key: &str,
     secret_store: &super::super::secret_storage::SecretStore,
 ) -> Result<crate::security::devices::crypto::DeviceKeypair, String> {
     let plaintext = zeroize::Zeroizing::new(
         secret_store
-            .decrypt(encrypted_private_key)
+            .decrypt_via_security(encrypted_private_key)
+            .await
             .map_err(|error| format!("[devices/bus] decrypt persisted pairing key: {error}"))?,
     );
     let encoded = zeroize::Zeroizing::new(
@@ -380,13 +381,13 @@ async fn recover_existing_pairing(
         return Ok(None);
     };
     let secret_store = super::rpc::build_secret_store(&config);
-    let Some(keypair) = restore_live_pairing_key(&device, &secret_store)? else {
+    let Some(keypair) = restore_live_pairing_key(&device, &secret_store).await? else {
         return Ok(None);
     };
     Ok(Some((keypair, device)))
 }
 
-fn restore_live_pairing_key(
+async fn restore_live_pairing_key(
     device: &super::types::PairedDevice,
     secret_store: &super::super::secret_storage::SecretStore,
 ) -> Result<Option<DeviceKeypair>, String> {
@@ -398,7 +399,9 @@ fn restore_live_pairing_key(
         // safely reconstruct the core key and require a new pairing.
         return Ok(None);
     };
-    restore_paired_keypair(encrypted_key, secret_store).map(Some)
+    restore_paired_keypair(encrypted_key, secret_store)
+        .await
+        .map(Some)
 }
 
 fn matches_paired_device_key(device: &super::types::PairedDevice, handshake_key: &str) -> bool {

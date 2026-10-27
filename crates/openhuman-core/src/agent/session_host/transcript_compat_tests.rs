@@ -584,7 +584,8 @@ fn assert_retired_tool_replay(identity_bound: bool) {
             &config.http_request,
             root.path(),
             &config,
-        );
+        )
+        .await;
         assert!(
             !live.iter().any(|tool| tool.name() == RETIRED),
             "retired tool must not be restored to the live registry"

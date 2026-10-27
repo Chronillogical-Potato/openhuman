@@ -44,7 +44,7 @@ static ANSWER: Answer = Answer::new();
 
 /// Whether memory work is free for the user right now on the hosted engine.
 pub(crate) async fn free_period_active(config: Config, bound: BoundEngine) -> bool {
-    let Ok(credential) = resolve_backend_credential(&config) else {
+    let Ok(credential) = resolve_backend_credential(&config).await else {
         tracing::debug!("[tinyhumans][memory] free period: no credential; not free");
         return false;
     };

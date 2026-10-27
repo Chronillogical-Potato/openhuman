@@ -78,7 +78,7 @@ pub(crate) struct PlannedSpawn {
     request: SandboxPlanRequest2,
     subject: SubjectScope,
     stream: AuditStream,
-    proxy: tinybus::module::ModuleObjectClient,
+    proxy: crate::modules::security::SecurityProxy,
 }
 
 impl std::fmt::Debug for PlannedSpawn {
@@ -113,18 +113,20 @@ impl ModuleSource<'_> {
     async fn proxy(
         self,
         config: &Config,
-    ) -> Result<tinybus::module::ModuleObjectClient, PlanError> {
+    ) -> Result<crate::modules::security::SecurityProxy, PlanError> {
         match self {
             Self::Production => client::object(config).await.map_err(unavailable),
             #[cfg(test)]
-            Self::Fixed(fixed) => crate::modules::ops::fixture_client(fixed.proxy.clone())
-                .with_timeout(std::time::Duration::from_secs(25))
-                .object_client(
-                    crate::modules::security::MODULE_ID,
-                    tinysecurity_bus::names::OBJECT_PATH,
-                )
-                .await
-                .map_err(|error| unavailable(error.to_string())),
+            Self::Fixed(fixed) => Ok(crate::modules::security::SecurityProxy::module(
+                crate::modules::ops::fixture_client(fixed.proxy.clone())
+                    .with_timeout(std::time::Duration::from_secs(25))
+                    .object_client(
+                        crate::modules::security::MODULE_ID,
+                        tinysecurity_bus::names::OBJECT_PATH,
+                    )
+                    .await
+                    .map_err(|error| unavailable(error.to_string()))?,
+            )),
             #[cfg(not(test))]
             Self::Lifetime(_) => Err(unavailable("invalid sandbox module source")),
         }

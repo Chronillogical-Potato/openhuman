@@ -505,7 +505,7 @@ pub(crate) async fn run_legacy_migrations(config: &Config) {
 /// Auto-connect Socket.IO to the backend when enabled by the service selection.
 pub fn spawn_socket_auto_connect(
     services: ServiceSet,
-    socket_mgr: std::sync::Arc<crate::platform::socket::SocketManager>,
+    socket_mgr: std::sync::Arc<dyn crate::platform::socket::SocketPort>,
 ) {
     if services.socketio {
         tokio::spawn(async move {
@@ -522,6 +522,7 @@ pub fn spawn_socket_auto_connect(
                 return;
             };
             let initial_token = match crate::credentials::session_state::get_session_token(&config)
+                .await
             {
                 Ok(Some(t)) => t,
                 Ok(None) => {

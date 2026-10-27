@@ -31,7 +31,7 @@ pub(crate) async fn record_for_tenant(
 
 /// Record a host-observed row on the supplied TinySecurity object.
 pub(crate) async fn record_with(
-    object: &tinybus::module::ModuleObjectClient,
+    object: &super::SecurityProxy,
     config: &Config,
     subject: SubjectScope,
     event: HostAuditEvent,

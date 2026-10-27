@@ -108,7 +108,7 @@ impl ComposioAuthorizeTool {
                 )));
             }
         };
-        match resolve_composio_route(&live_config) {
+        match resolve_composio_route(&live_config).await {
             Ok(ComposioRoute::Backend) => {
                 tracing::debug!("[composio] authorize.execute: backend variant");
             }

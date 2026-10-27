@@ -243,8 +243,9 @@ backend = "sqlite"
     let config = load_or_init_for_workspace(tmp.path()).await;
 
     assert_eq!(config.memory.engine, "");
-    assert!(!crate::memory::engine::is_on(&config));
+    assert!(!crate::memory::engine::is_on(&config).await);
     let off = crate::memory::engine::resolve(&config)
+        .await
         .engine()
         .unwrap_err();
     assert_eq!(off.code(), "MEMORY_OFF");
@@ -264,8 +265,9 @@ backend = "sqlite"
     let reloaded = load_or_init_for_workspace(tmp.path()).await;
 
     assert_eq!(reloaded.memory.engine, "");
-    assert!(!crate::memory::engine::is_on(&reloaded));
+    assert!(!crate::memory::engine::is_on(&reloaded).await);
     let off = crate::memory::engine::resolve(&reloaded)
+        .await
         .engine()
         .unwrap_err();
     assert_eq!(off.code(), "MEMORY_OFF");
@@ -296,6 +298,7 @@ backend = "sqlite"
 
     assert_eq!(config.memory.engine, "");
     let reason = crate::memory::engine::resolve(&config)
+        .await
         .engine()
         .unwrap_err()
         .to_string();

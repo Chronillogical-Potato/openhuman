@@ -14,6 +14,7 @@ pub(crate) use keychain::namespaced_keyring_name;
 mod lock;
 mod migration;
 mod persistence;
+#[cfg(test)]
 pub(crate) use persistence::is_persisted_document;
 use persistence::{PersistedAuthProfile, PersistedAuthProfiles};
 mod readonly;
@@ -21,12 +22,12 @@ pub(crate) use persistence::PROFILE_DOCUMENT_SECRET_NAME;
 mod store_core;
 pub use readonly::ReadOnlyAuthProfileError;
 
-pub(crate) fn load_profile_read_only(
+pub(crate) async fn load_profile_read_only(
     config: &crate::config::Config,
     provider: &str,
     profile_override: Option<&str>,
 ) -> Result<Option<AuthProfile>, ReadOnlyAuthProfileError> {
-    readonly::load_profile(config, provider, profile_override)
+    readonly::load_profile(config, provider, profile_override).await
 }
 
 const CURRENT_SCHEMA_VERSION: u32 = 1;

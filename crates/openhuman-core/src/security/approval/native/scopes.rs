@@ -21,6 +21,7 @@ use super::super::engine::Posture;
 use super::rows::{digest_id, Rows};
 use super::state::{handle_key, host};
 use crate::config::Config;
+use crate::modules::security::SecurityProxy;
 
 /// The immutable partial-policy reference every approval row binds to. It
 /// never changes with the posture, so a refreshed allowlist does not strand
@@ -130,9 +131,10 @@ impl ScopeEntry {
     /// Make the module hold `posture` for this subject.
     async fn register(
         self: &Arc<Self>,
-        proxy: &tinybus::module::ModuleObjectClient,
+        proxy: &SecurityProxy,
         posture: &Posture,
         generation: u64,
+        preconfigured: bool,
     ) -> Result<(), String> {
         let grants = grants();
         let fingerprint = serde_json::to_string(&(
@@ -161,11 +163,7 @@ impl ScopeEntry {
             // The handle keys every callback the module makes for this subject.
             report_handle: true,
         };
-        let member = if first {
-            names::methods::REGISTER_APPROVAL_SCOPE2
-        } else {
-            names::methods::REPLACE_APPROVAL_SCOPE2
-        };
+        let member = registration_method(first, preconfigured);
         let receipt: ApprovalScopeReceipt2 = proxy
             .call_confidential(member, (request,))
             .await
@@ -193,6 +191,64 @@ impl ScopeEntry {
         *registered = Some(fingerprint);
         Ok(())
     }
+
+    /// Register through the exact callback binding used to initialize the
+    /// module, keeping API calls and host callbacks on one authenticated peer.
+    pub(super) async fn register_with_callback(
+        self: &Arc<Self>,
+        proxy: &tinybus::module::HostCallbackProxy,
+        posture: &Posture,
+        generation: u64,
+    ) -> Result<(), String> {
+        let grants = grants();
+        let fingerprint = serde_json::to_string(&(
+            posture.require_approval,
+            posture.auto_approve_all,
+            &grants.tools,
+        ))
+        .map_err(|error| error.to_string())?;
+        let mut registered = self.registered.lock().await;
+        if registered.as_deref() == Some(fingerprint.as_str()) {
+            return Ok(());
+        }
+        let first = registered.is_none();
+        let request = RegisterApprovalScopeRequest2 {
+            scope: ApprovalScope2 {
+                scope_id: self.scope_id.clone(),
+                subject: self.subject.clone(),
+                policy_ref: POLICY_REF.into(),
+                generation,
+                ceiling: AccessTier::Full,
+                require_approval: posture.require_approval,
+                auto_approve_all: posture.auto_approve_all,
+            },
+            grants,
+            audit_stream_id: self.stream_id.clone(),
+            report_handle: true,
+        };
+        let member = registration_method(first, false);
+        let receipt: ApprovalScopeReceipt2 = proxy
+            .call_confidential(member, (request,))
+            .await
+            .map_err(|error| format!("TinySecurity {member} failed: {error}"))?;
+        if receipt.scope_id != self.scope_id {
+            return Err("TinySecurity returned a receipt for another approval scope".into());
+        }
+        let handle = receipt
+            .scope_handle
+            .ok_or("TinySecurity did not report the approval scope handle")?;
+        self.bind(handle).await;
+        *registered = Some(fingerprint);
+        Ok(())
+    }
+}
+
+fn registration_method(first: bool, preconfigured: bool) -> &'static str {
+    if first && !preconfigured {
+        names::methods::REGISTER_APPROVAL_SCOPE2
+    } else {
+        names::methods::REPLACE_APPROVAL_SCOPE2
+    }
 }
 
 /// The user's configured tool grants, narrowed to what the module accepts: a name
@@ -210,10 +266,34 @@ fn grants() -> ApprovalGrants2 {
 /// posture first.
 pub(super) async fn ensure(
     config: &Config,
-    proxy: &tinybus::module::ModuleObjectClient,
+    proxy: &SecurityProxy,
     subject: SubjectScope,
     posture: &Posture,
     generation: u64,
+) -> Result<Arc<ScopeEntry>, String> {
+    ensure_with_registration(config, proxy, subject, posture, generation, false).await
+}
+
+/// Register a scope that TinySecurity already created from module init config.
+/// Its init-time scope has no audit stream, so attach the persisted stream with
+/// `ReplaceApprovalScope2` on first use.
+pub(super) async fn ensure_preconfigured(
+    config: &Config,
+    proxy: &SecurityProxy,
+    subject: SubjectScope,
+    posture: &Posture,
+    generation: u64,
+) -> Result<Arc<ScopeEntry>, String> {
+    ensure_with_registration(config, proxy, subject, posture, generation, true).await
+}
+
+async fn ensure_with_registration(
+    config: &Config,
+    proxy: &SecurityProxy,
+    subject: SubjectScope,
+    posture: &Posture,
+    generation: u64,
+    preconfigured: bool,
 ) -> Result<Arc<ScopeEntry>, String> {
     let key = subject_key(&subject);
     let entry = {
@@ -229,7 +309,9 @@ pub(super) async fn ensure(
             }
         }
     };
-    entry.register(proxy, posture, generation).await?;
+    entry
+        .register(proxy, posture, generation, preconfigured)
+        .await?;
     Ok(entry)
 }
 

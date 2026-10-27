@@ -170,6 +170,7 @@ async fn a_workspace_with_no_legacy_history_has_nothing_to_import() {
     let (_dir, config) = workspace();
     let (_host, proxy, object) = absent_module().await;
     let engine = NativeEngine::on(config.clone(), proxy);
+    let object = crate::modules::security::SecurityProxy::module(object);
     assert_eq!(run(&engine, &object).await, Ok(None));
     assert!(read(config).await.unwrap().is_none());
 }
@@ -180,6 +181,7 @@ async fn a_legacy_import_that_cannot_reach_the_module_remains_retryable() {
     seed_legacy(&config);
     let (_host, proxy, object) = absent_module().await;
     let engine = NativeEngine::on(config.clone(), proxy);
+    let object = crate::modules::security::SecurityProxy::module(object);
     let result = run(&engine, &object).await;
     assert!(
         matches!(result, Err(EngineError::Unavailable(_))),

@@ -209,6 +209,19 @@ pub(in crate::modules) async fn install(connection: &Connection) -> tinybus::Res
     Ok(())
 }
 
+/// Serve approval, audit, prompt, and keyring-consent callbacks on the exact
+/// TinySecurity module binding used for initialization.
+pub(super) async fn serve_on_binding(
+    binding: &tinybus::module::HostCallbackBinding,
+) -> tinybus::Result<()> {
+    let path = ObjectPath::new(callback_names2::OBJECT_PATH)?;
+    binding.serve_at(path.clone(), ApprovalStore).await?;
+    binding.serve_at(path.clone(), AuditSink).await?;
+    binding.serve_at(path.clone(), ApprovalPrompt).await?;
+    binding.serve_at(path, KeyringConsent).await?;
+    Ok(())
+}
+
 /// Fail closed for callback operations not migrated to the bus yet.
 fn unavailable() -> tinybus::Error {
     tinybus::Error::failed("security host callback unavailable")

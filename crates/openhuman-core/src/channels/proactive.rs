@@ -337,7 +337,7 @@ impl EventHandler<DomainEvent> for ProactiveMessageSubscriber {
                 }
 
                 let send_result = ch
-                    .send_typed(&text_message(&key, &recipient, message, None))
+                    .send(&text_message(&key, &recipient, message, None))
                     .await;
                 // Record the terminal status on the approval audit
                 // row before we log the outcome — best-effort, see

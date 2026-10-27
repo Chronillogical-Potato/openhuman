@@ -23,7 +23,8 @@ Mobile-device pairing domain. Brokers a secure, end-to-end-encrypted tunnel betw
 | `crates/openhuman-core/src/security/devices/schemas.rs` | Controller schemas, `all_controller_schemas`/`all_registered_controllers`, and `handle_*` bridges delegating to [`rpc.rs`](./rpc.rs). Mirrors `cron/schemas.rs`. |
 | `crates/openhuman-core/src/security/devices/store.rs` | SQLite persistence (`paired_devices` table) via the per-call `with_connection` pattern. |
 | `crates/openhuman-core/src/security/devices/crypto.rs` | Host adapter for encrypting/restoring the long-term private key; delegates key and tunnel operations to TinySecurity. |
-| `crates/openhuman-core/src/security/devices/tunnel_client.rs` | Emits/parses `tunnel:*` events over the shared `SocketManager`; wire types; `tunnel:register` uses Socket.IO ACK via `SocketManager::emit_with_ack`. Frame cap 64 KB. |
+| `crates/openhuman-core/src/security/devices/tunnel_client.rs` | Core-owned typed `TunnelClientPort`, semantic registration DTO, and publishing functions for parsed peer/frame events. |
+| `crates/openhuman-tinyhumans/src/devices/tunnel_client.rs` | TinyHumans Socket.IO tunnel wire DTOs, ACK and payload parsing, frame cap, and implementation of the core tunnel port. |
 | `crates/openhuman-core/src/security/devices/bus.rs` | `DeviceTunnelSubscriber` event handler: validates pairing context, calls TinySecurity for handshake and tunnel crypto, persists new pairing rows, and updates peer status. |
 
 ## Public surface
@@ -33,7 +34,7 @@ Re-exported from [`mod.rs`](./mod.rs):
 - `all_devices_controller_schemas` / `all_devices_registered_controllers` (alias for `schemas::all_controller_schemas` / `all_registered_controllers`).
 - Types: `CreatePairingResponse`, `ListDevicesResponse`, `PairedDevice`, `PairingSession`, `RevokeDeviceResponse`.
 
-Other notable public items (used across the crate but not re-exported at the domain root): `bus::register_device_tunnel_subscriber`, `crypto::{DeviceKeypair, base64url_encode, base64url_decode}`, `tunnel_client::{emit_register, emit_connect, emit_frame, TunnelPeerStatus, TunnelFrame, TunnelRegisterResponse}`.
+Other notable public items (used across the crate but not re-exported at the domain root): `bus::register_device_tunnel_subscriber`, `crypto::{DeviceKeypair, base64url_encode, base64url_decode}`, and the semantic `tunnel_client::{TunnelClientPort, TunnelRegistration}` seam.
 
 ## RPC / controllers
 
@@ -63,7 +64,7 @@ Subscriber registered at startup from `crates/openhuman-core/src/core/runtime/su
 - `DevicePaired` (after successful handshake + persistence).
 - `DeviceRevoked` (from `devices_revoke`).
 
-Note: the `DevicePeerOnline/Offline` and `DeviceTunnelFrame` events are *originated* by `crates/openhuman-core/src/platform/socket/event_handlers.rs` (which parses the raw `tunnel:peer-status` / `tunnel:frame` / `tunnel:evicted` Socket.IO events and re-publishes them as `DomainEvent`s). This domain consumes them; it does not re-publish peer-status itself.
+Note: TinyHumans' `devices::tunnel_client` adapter parses the raw `tunnel:peer-status`, `tunnel:frame`, and `tunnel:evicted` Socket.IO payloads, then calls the core's semantic publishing functions. The device domain consumes those `DomainEvent`s; the core socket event sink does not know the hosted wire DTOs.
 
 ## Persistence
 
@@ -99,7 +100,7 @@ revives a device another process revoked. With no backend configured (the deskto
 
 - `crate::config` (`Config`, `config::rpc::load_config_with_timeout`): workspace paths and config loading for handlers.
 - `crate::security::secret_storage::SecretStore`: encrypt/decrypt the X25519 private key at rest.
-- `crate::platform::socket::global_socket_manager`: reuse the shared backend Socket.IO connection to emit `tunnel:*` events (no second WebSocket).
+- `crate::security::devices::tunnel_client::TunnelClientPort`: typed seam for the host-owned tunnel transport; no TinyHumans SDK dependency in core.
 - `crate::core::bus::BUS` (`.publish`, `.subscribe`) plus `crate::core::events::DomainEvent` and `tinybus::EventHandler`: pub/sub for device tunnel events.
 - `crate::core::all` (`ControllerFuture`, `RegisteredController`) and `crate::core::{ControllerSchema, FieldSchema, TypeSchema}`: controller registry contract.
 - `crate::core::Outcome`: RPC handler return type.
@@ -109,7 +110,7 @@ revives a device another process revoked. With no backend configured (the deskto
 
 - `crates/openhuman-core/src/core/all.rs`: registers the `devices` controllers/schemas and namespace branch.
 - `crates/openhuman-core/src/core/runtime/subscribers.rs`: calls `register_device_tunnel_subscriber()` at startup.
-- `crates/openhuman-core/src/platform/socket/event_handlers.rs`: parses raw `tunnel:*` Socket.IO events into `DomainEvent`s that this domain consumes, using this domain's `tunnel_client` wire types (`TunnelPeerStatus`, `TunnelFrame`).
+- `crates/openhuman-tinyhumans/src/devices/tunnel_client.rs`: parses backend `tunnel:*` wire events and implements the hosted tunnel client port.
 
 ## Notes / gotchas
 
@@ -118,7 +119,7 @@ revives a device another process revoked. With no backend configured (the deskto
 - The `label` persisted on pairing currently falls back to the `channel_id` (the pending session stores no real label field; `PairingSession.channel_id` is used as the label source).
 - `devices_revoke` only tears down local + in-memory state. There is **no backend revoke endpoint yet** (TODO referencing PR #709 follow-up); the backend channel is left to expire via the pairing-token TTL.
 - `rpc_url` LAN detection uses the UDP "connect to 8.8.8.8" trick to read the local IPv4; port comes from `OPENHUMAN_CORE_RPC_PORT` env (default `7788`). Non-fatal if it fails.
-- `tunnel:register` uses `SocketManager::emit_with_ack` and expects backend ACK shape `{channelId, pairingToken, pairingExpiresAt}` with a 10-second timeout.
+- TinyHumans `tunnel:register` uses Socket.IO ACK with a 10-second timeout and converts the backend `{channelId, pairingToken, pairingExpiresAt}` response to the core's semantic `TunnelRegistration` shape.
 - `PairingSession`, pending keypairs, peer status, and active tunnels are in-memory only; the static core identity is encrypted in the durable paired-device row. Backend-attested `DevicePairingOwner::renew` is not used: current socket events carry no reconnect attestation, connection nonce, or expiry context.
 - Outbound `tunnel:frame` payloads are capped at 64 KB; callers are expected to stay ≤ 100 frames/s.
 

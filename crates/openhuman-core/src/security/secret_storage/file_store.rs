@@ -78,13 +78,13 @@ pub fn lock_for_write(path: &Path) -> Result<WriteLock, SecretStorageError> {
     let lock_path = lock_path_for(path);
     #[cfg(feature = "secret-file")]
     {
-        return tinystoragedrivers::secrets::lock_file(&lock_path)
+        tinystoragedrivers::secrets::lock_file(&lock_path)
             .map(|lock| WriteLock {
                 _lock: LockGuard::Driver(lock),
             })
             .map_err(|error| {
                 SecretStorageError::Backend(format!("could not lock keyring: {error}"))
-            });
+            })
     }
     #[cfg(not(feature = "secret-file"))]
     {
@@ -223,9 +223,8 @@ fn parent_dir(path: &Path) -> &Path {
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), SecretStorageError> {
     #[cfg(feature = "secret-file")]
     {
-        return tinystoragedrivers::secrets::write_atomic_private(path, bytes).map_err(|error| {
-            SecretStorageError::Backend(format!("atomic keyring write: {error}"))
-        });
+        tinystoragedrivers::secrets::write_atomic_private(path, bytes)
+            .map_err(|error| SecretStorageError::Backend(format!("atomic keyring write: {error}")))
     }
     #[cfg(not(feature = "secret-file"))]
     write_atomic_fallback(path, bytes)

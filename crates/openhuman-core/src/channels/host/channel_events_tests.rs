@@ -5,11 +5,11 @@ use std::path::Path;
 use std::sync::Mutex as StdMutex;
 #[cfg(feature = "e2e-test-support")]
 use tempfile::tempdir;
-use tinychannels_bus::ChannelOutboundMessage;
+use tinychannels_bus::SendMessage;
 
 struct RecordingChannel {
     name: String,
-    sent: StdMutex<Vec<ChannelOutboundMessage>>,
+    sent: StdMutex<Vec<SendMessage>>,
 }
 
 #[async_trait]
@@ -17,14 +17,7 @@ impl Channel for RecordingChannel {
     fn name(&self) -> &str {
         &self.name
     }
-    #[allow(
-        deprecated,
-        reason = "TinyChannels v0.1.39 requires the v21 Channel::send method on test doubles"
-    )]
-    async fn send(&self, _message: &tinychannels_bus::SendMessage) -> anyhow::Result<()> {
-        anyhow::bail!("tests exercise the typed v22 send method")
-    }
-    async fn send_typed(&self, message: &ChannelOutboundMessage) -> anyhow::Result<()> {
+    async fn send(&self, message: &SendMessage) -> anyhow::Result<()> {
         self.sent.lock().unwrap().push(message.clone());
         Ok(())
     }
@@ -38,11 +31,12 @@ impl Channel for RecordingChannel {
     ) -> anyhow::Result<()> {
         Ok(())
     }
-    fn supports_chat_approvals(&self) -> bool {
-        matches!(self.name.as_str(), "telegram" | "discord" | "slack")
-    }
-    fn supports_remote_control(&self) -> bool {
-        matches!(self.name.as_str(), "telegram" | "discord")
+    fn capabilities(&self) -> tinychannels_bus::ChannelCapabilities {
+        tinychannels_bus::ChannelCapabilities {
+            chat_approvals: matches!(self.name.as_str(), "telegram" | "discord" | "slack"),
+            remote_control: matches!(self.name.as_str(), "telegram" | "discord"),
+            ..Default::default()
+        }
     }
 }
 
@@ -118,16 +112,16 @@ async fn remote_status(ws: &Path, channel: &str, reply_target: &str) -> Option<S
                     workspace_dir: ws.to_string_lossy().into_owned(),
                     message: crate::channels::routes::route_compat_message(
                         &tinychannels_bus::ChannelInboundEnvelope {
-                            channel: tinychannels_bus::ChannelRef {
+                            channel: tinychannels_bus::channel::ChannelRef {
                                 id: channel.into(),
                                 account_id: None,
                             },
                             message_id: "status-1".into(),
-                            conversation: tinychannels_bus::ConversationRef {
+                            conversation: tinychannels_bus::channel::ConversationRef {
                                 id: reply_target.into(),
                                 ..Default::default()
                             },
-                            sender: tinychannels_bus::SenderRef {
+                            sender: tinychannels_bus::channel::SenderRef {
                                 id: "alice".into(),
                                 ..Default::default()
                             },
@@ -179,14 +173,9 @@ async fn approval_prompts_reach_every_chat_channel() {
         sub.handle(&approval(Some(key), Some(channel))).await;
         let sent = ch.sent.lock().unwrap().clone();
         assert_eq!(sent.len(), 1, "{channel}");
-        assert_eq!(sent[0].conversation_id, "chat-1");
-        assert_eq!(sent[0].thread_id.as_deref(), thread_ts);
-        assert!(matches!(
-            &sent[0].parts[0],
-            tinychannels_bus::channel::OutboundContentPart::Content {
-                part: tinychannels_bus::channel::ContentPart::Text { text, .. }
-            } if text.contains("file_write")
-        ));
+        assert_eq!(sent[0].recipient, "chat-1");
+        assert_eq!(sent[0].thread_ts.as_deref(), thread_ts);
+        assert!(sent[0].content.contains("file_write"));
     }
 }
 

@@ -47,6 +47,7 @@ async fn persist_prepared_yuanbao_without_plaintext_secret() {
     let auth = crate::credentials::AuthService::from_config(&config);
     let profile = auth
         .get_profile("channel:yuanbao:api_key", None)
+        .await
         .expect("credentials lookup succeeds")
         .expect("yuanbao credentials stored");
     assert_eq!(

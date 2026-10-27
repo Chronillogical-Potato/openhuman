@@ -7,10 +7,12 @@
 //! is refused, so the module can never reach another subject's rows.
 
 use serde_json::Value;
+use std::sync::Arc;
 use tinysecurity_bus::{
     ApprovalCasRequest2, ApprovalCasResponse2, ApprovalChoice2, ApprovalDeliveryRequest2,
     ApprovalDeliveryResponse2, ApprovalLoadRequest2, ApprovalLoadResponse2, AuditSinkRequest2,
-    AuditSinkResponse2, HumanDecisionReceipt2, VerifyHumanRequest2,
+    AuditSinkResponse2, Check, EvaluateRequest, HumanDecisionReceipt2, ToolCall,
+    VerifyHumanRequest2,
 };
 
 use super::super::engine::Delivery;
@@ -72,9 +74,47 @@ pub(crate) async fn prompt(
     request: ApprovalDeliveryRequest2,
 ) -> Result<ApprovalDeliveryResponse2, String> {
     let row = request.row;
-    let call = host()
-        .call(&row.binding.caller.call_id)
-        .ok_or("approval prompt: no call is waiting for this request")?;
+    let Some(call) = host().call(&row.binding.caller.call_id) else {
+        if row.tool_name != "native_secret_grant" {
+            return Err("approval prompt: no call is waiting for this request".into());
+        }
+        let (scope, prompt) = host()
+            .take_secret_prompt(&row.binding.scope)
+            .await
+            .ok_or("approval prompt: no native secret grant is waiting")?;
+        host().insert_request(
+            &row.request_id,
+            RequestEntry::new(
+                Arc::clone(&scope),
+                EvaluateRequest {
+                    caller: row.binding.caller.clone(),
+                    call: ToolCall {
+                        tool: row.tool_name.clone(),
+                        arguments_json: row.args_redacted.clone(),
+                        checks: vec![Check::Unknown {
+                            description: "native-master-authority".into(),
+                        }],
+                    },
+                },
+                Some(row.clone()),
+            ),
+        );
+        let delivery = Delivery {
+            call_id: row.binding.caller.call_id.clone(),
+            request_id: row.request_id.clone(),
+            tool_name: row.tool_name.clone(),
+            summary: row.summary.clone(),
+            args_redacted: serde_json::from_str(&row.args_redacted).unwrap_or(Value::Null),
+            created_at_ms: row.created_at_ms,
+            expires_at_ms: row.expires_at_ms,
+        };
+        prompt.deliver(delivery).await?;
+        return Ok(ApprovalDeliveryResponse2 {
+            request_id: row.request_id,
+            nonce: row.nonce,
+            delivered: true,
+        });
+    };
     if call.scope.handle() != Some(&row.binding.scope) || call.request.call.tool != row.tool_name {
         tracing::warn!("{LOG} prompt for a request that is not this call's");
         return Err("approval prompt: the request is not the waiting call's".into());

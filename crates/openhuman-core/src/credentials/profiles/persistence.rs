@@ -86,7 +86,11 @@ fn default_now_rfc3339() -> String {
 pub(crate) const PROFILE_DOCUMENT_SECRET_NAME: &str = "auth-profiles";
 
 impl AuthProfilesStore {
-    pub(super) fn save_locked(&self, data: &AuthProfilesData) -> Result<()> {
+    pub(super) async fn prepare_persisted(
+        &self,
+        data: &AuthProfilesData,
+        previous: &PersistedAuthProfiles,
+    ) -> Result<PersistedAuthProfiles> {
         let mut persisted = PersistedAuthProfiles {
             schema_version: CURRENT_SCHEMA_VERSION,
             updated_at: data.updated_at.to_rfc3339(),
@@ -112,7 +116,7 @@ impl AuthProfilesStore {
                             "[auth] save: keychain store failed for profile_id={id}: {e}; \
                              falling back to encrypted JSON"
                         );
-                        self.encrypt_for_json(profile)?
+                        self.encrypt_for_json(profile).await?
                     } else {
                         log::debug!("[auth] save: secrets stored in keychain profile_id={id}");
                         let (expires_at, token_type, scope) = match &profile.token_set {
@@ -128,7 +132,7 @@ impl AuthProfilesStore {
                     }
                 } else {
                     // Headless / no keychain — store in the encrypted document.
-                    self.encrypt_for_json(profile)?
+                    self.encrypt_for_json(profile).await?
                 };
 
             persisted.profiles.insert(
@@ -156,7 +160,7 @@ impl AuthProfilesStore {
         if !self.use_keychain {
             // Entries whose secrets are only in the unavailable keychain never
             // reach `data`; keep them so they resolve once it reads again.
-            for (id, held) in self.read_persisted_locked()?.profiles {
+            for (id, held) in previous.profiles.clone() {
                 if !persisted.profiles.contains_key(&id)
                     && super::migration::keychain_held_oauth(&held)
                 {
@@ -165,24 +169,31 @@ impl AuthProfilesStore {
             }
         }
 
-        self.write_persisted_locked(&persisted)
+        Ok(persisted)
     }
 
     /// Prepare a profile's fields for storage inside the encrypted document.
-    pub(super) fn encrypt_for_json(&self, profile: &AuthProfile) -> Result<EncryptedProfileFields> {
-        let (access_token, refresh_token, id_token, expires_at, token_type, scope) =
+    pub(super) async fn encrypt_for_json(
+        &self,
+        profile: &AuthProfile,
+    ) -> Result<EncryptedProfileFields> {
+        let (access_token, refresh_token, id_token, token, expires_at, token_type, scope) =
             match (&profile.kind, &profile.token_set) {
                 (AuthProfileKind::OAuth, Some(token_set)) => (
                     Some(token_set.access_token.clone()),
                     token_set.refresh_token.clone(),
                     token_set.id_token.clone(),
+                    None,
                     token_set.expires_at.as_ref().map(DateTime::to_rfc3339),
                     token_set.token_type.clone(),
                     token_set.scope.clone(),
                 ),
-                _ => (None, None, None, None, None, None),
+                _ => (None, None, None, profile.token.clone(), None, None, None),
             };
-        let token = profile.token.clone();
+        let access_token = encrypt_profile_field(&self.secret_store, access_token).await?;
+        let refresh_token = encrypt_profile_field(&self.secret_store, refresh_token).await?;
+        let id_token = encrypt_profile_field(&self.secret_store, id_token).await?;
+        let token = encrypt_profile_field(&self.secret_store, token).await?;
         Ok((
             access_token,
             refresh_token,
@@ -295,7 +306,7 @@ impl AuthProfilesStore {
         .context("Failed to write encrypted auth profile store")
     }
 
-    pub(super) fn decrypt_optional(
+    pub(super) async fn decrypt_optional(
         &self,
         value: Option<&str>,
     ) -> Result<(Option<String>, Option<String>)> {
@@ -304,9 +315,22 @@ impl AuthProfilesStore {
                 if value.starts_with("enc:") {
                     anyhow::bail!("legacy XOR-encrypted auth profile secrets are unsupported");
                 }
-                Ok((Some(self.secret_store.decrypt(value)?), None))
+                Ok((
+                    Some(self.secret_store.decrypt_via_security(value).await?),
+                    None,
+                ))
             }
             Some(_) | None => Ok((None, None)),
         }
+    }
+}
+
+async fn encrypt_profile_field(
+    store: &super::SecretStore,
+    value: Option<String>,
+) -> Result<Option<String>> {
+    match value {
+        Some(value) => store.encrypt_via_security(&value).await.map(Some),
+        None => Ok(None),
     }
 }

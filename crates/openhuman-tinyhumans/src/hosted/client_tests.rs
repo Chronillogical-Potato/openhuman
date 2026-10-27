@@ -114,13 +114,14 @@ fn envelope_and_route_errors_keep_context() {
     assert!(err.contains("not exposed"), "{err}");
 }
 
-#[test]
-fn offline_local_session_fails_before_any_request() {
+#[tokio::test]
+async fn offline_local_session_fails_before_any_request() {
     let tmp = TempDir::new().unwrap();
     // Unroutable: a request here would fail loudly, not return the sentinel.
     let config = test_config(&tmp, "http://127.0.0.1:9");
-    store_session(&config, "desktop.test.local");
+    store_session(&config, "desktop.test.local").await;
     let err = HostedClient::from_config(&config)
+        .await
         .err()
         .expect("local refuses");
     assert_eq!(
@@ -130,11 +131,11 @@ fn offline_local_session_fails_before_any_request() {
     assert!(expected_error_kind(&err).is_some());
 }
 
-#[test]
-fn missing_credential_fails_before_any_request() {
+#[tokio::test]
+async fn missing_credential_fails_before_any_request() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp, "http://127.0.0.1:9");
-    assert!(HostedClient::from_config(&config).is_err());
+    assert!(HostedClient::from_config(&config).await.is_err());
 }
 
 #[test]

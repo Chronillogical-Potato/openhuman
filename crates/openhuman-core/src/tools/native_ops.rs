@@ -77,17 +77,17 @@ async fn command_class_for_tool(
     })
 }
 
-pub fn build_runtime_tools(config: &Config) -> Result<Vec<Box<dyn Tool>>, String> {
+pub async fn build_runtime_tools(config: &Config) -> Result<Vec<Box<dyn Tool>>, String> {
     let security = Arc::new(SecurityPolicy::from_config(
         &config.autonomy,
         &config.workspace_dir,
         &config.action_dir,
     ));
-    build_runtime_tools_with_security(config, security)
+    build_runtime_tools_with_security(config, security).await
 }
 
 /// Builds native tools with a caller-resolved policy snapshot.
-pub fn build_runtime_tools_with_security(
+pub async fn build_runtime_tools_with_security(
     config: &Config,
     security: Arc<SecurityPolicy>,
 ) -> Result<Vec<Box<dyn Tool>>, String> {
@@ -113,7 +113,8 @@ pub fn build_runtime_tools_with_security(
         &config.action_dir,
         config,
         None,
-    );
+    )
+    .await;
     debug!(
         tool_count = built.len(),
         "[native_ops] build_runtime_tools: done"
@@ -121,9 +122,10 @@ pub fn build_runtime_tools_with_security(
     Ok(built)
 }
 
-pub fn list_tools(config: &Config) -> Result<Vec<RuntimeToolSummary>, String> {
+pub async fn list_tools(config: &Config) -> Result<Vec<RuntimeToolSummary>, String> {
     debug!("[native_ops] list_tools: start");
-    let mut summaries: Vec<RuntimeToolSummary> = build_runtime_tools(config)?
+    let mut summaries: Vec<RuntimeToolSummary> = build_runtime_tools(config)
+        .await?
         .into_iter()
         .map(|tool| summarize_tool(tool.as_ref()))
         .collect();
@@ -153,7 +155,7 @@ pub async fn classify_tool_call_with_security(
     args: &serde_json::Value,
 ) -> Result<CommandClass, String> {
     debug!(tool_name, "[native_ops] classify_tool_call: start");
-    let tools = build_runtime_tools_with_security(config, Arc::clone(&security))?;
+    let tools = build_runtime_tools_with_security(config, Arc::clone(&security)).await?;
     let tool = tools
         .into_iter()
         .find(|tool| tool.name() == tool_name)
@@ -198,7 +200,7 @@ pub async fn execute_tool_with_security(
         tool_name,
         prefer_markdown, "[native_ops] execute_tool: start"
     );
-    let tools = build_runtime_tools_with_security(config, security)?;
+    let tools = build_runtime_tools_with_security(config, security).await?;
     trace!(
         tool_count = tools.len(),
         tool_name,

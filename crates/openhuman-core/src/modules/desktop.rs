@@ -17,8 +17,8 @@ pub const MODULE_ID: &str = "tinycomputer";
 
 pub use super::computer_config::{billing_route, module_config};
 
-pub fn jev_ready(config: &Config) -> bool {
-    module_config(config)["jev"].is_object()
+pub async fn jev_ready(config: &Config) -> bool {
+    module_config(config).await["jev"].is_object()
 }
 
 fn last_config() -> &'static tokio::sync::Mutex<Option<u64>> {
@@ -50,7 +50,7 @@ pub(crate) async fn proxy(config: &Config) -> Result<Proxy, String> {
 
     // Reinitialization is private and retains no plaintext secret in this host.
     // The lock makes credential rotation atomic across concurrent tool calls.
-    let configuration = module_config(config);
+    let configuration = module_config(config).await;
     #[cfg(feature = "security-module")]
     let mut configuration = configuration;
     #[cfg(feature = "security-module")]

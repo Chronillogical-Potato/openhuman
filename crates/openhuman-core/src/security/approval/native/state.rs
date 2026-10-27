@@ -92,8 +92,24 @@ pub(super) struct Scopes {
 pub(super) struct Host {
     pub(super) scopes: tokio::sync::Mutex<Scopes>,
     calls: Mutex<HashMap<String, Arc<CallEntry>>>,
+    secret_prompts: Mutex<HashMap<String, SecretPromptEntry>>,
+    secret_grants: Mutex<HashMap<String, SecretGrantEntry>>,
     requests: Mutex<HashMap<String, RequestEntry>>,
     tickets: Mutex<HashMap<String, Ticket>>,
+}
+
+/// One in-flight native master grant whose module-side keyed call correlation is
+/// intentionally unavailable to the host before the module asks for its prompt.
+struct SecretPromptEntry {
+    scope: Arc<ScopeEntry>,
+    prompt: Arc<dyn PromptSurface>,
+}
+
+/// The exact module-owned master request the gate just had a person approve.
+struct SecretGrantEntry {
+    request: tinysecurity_bus::SecretRequest2,
+    request_id: String,
+    expires: Instant,
 }
 
 /// The process-wide host state.
@@ -102,6 +118,8 @@ pub(super) fn host() -> &'static Host {
     HOST.get_or_init(|| Host {
         scopes: tokio::sync::Mutex::new(Scopes::default()),
         calls: Mutex::new(HashMap::new()),
+        secret_prompts: Mutex::new(HashMap::new()),
+        secret_grants: Mutex::new(HashMap::new()),
         requests: Mutex::new(HashMap::new()),
         tickets: Mutex::new(HashMap::new()),
     })
@@ -141,6 +159,78 @@ impl Host {
 
     pub(super) fn end_call(&self, call_id: &str) {
         lock(&self.calls).remove(call_id);
+    }
+
+    /// Keep one prompt for a subject while TinySecurity evaluates its native
+    /// grant. A second concurrent grant for the same subject fails closed.
+    pub(super) fn begin_secret_prompt(
+        &self,
+        scope: Arc<ScopeEntry>,
+        prompt: Arc<dyn PromptSurface>,
+    ) -> bool {
+        let scope_id = scope.scope_id.clone();
+        let mut prompts = lock(&self.secret_prompts);
+        if prompts.contains_key(&scope_id) || prompts.len() >= CAPACITY {
+            return false;
+        }
+        prompts.insert(scope_id, SecretPromptEntry { scope, prompt });
+        true
+    }
+
+    /// Retrieve and consume the exact in-flight subject prompt for a native
+    /// grant callback. The callback's authenticated module handle must match.
+    pub(super) async fn take_secret_prompt(
+        &self,
+        handle: &SubjectScope,
+    ) -> Option<(Arc<ScopeEntry>, Arc<dyn PromptSurface>)> {
+        let scope = self
+            .scopes
+            .lock()
+            .await
+            .by_handle
+            .get(&handle_key(handle))
+            .cloned()?;
+        let entry = lock(&self.secret_prompts).remove(&scope.scope_id)?;
+        (entry.scope.handle() == Some(handle)).then_some((entry.scope, entry.prompt))
+    }
+
+    pub(super) fn end_secret_prompt(&self, scope_id: &str) {
+        lock(&self.secret_prompts).remove(scope_id);
+    }
+
+    pub(super) fn remember_secret_grant(
+        &self,
+        request: tinysecurity_bus::SecretRequest2,
+        request_id: String,
+        expires_at_ms: u64,
+    ) -> bool {
+        let mut grants = lock(&self.secret_grants);
+        grants.retain(|_, entry| entry.expires > Instant::now());
+        if grants.contains_key(&request.registration_id) || grants.len() >= CAPACITY {
+            return false;
+        }
+        let ttl = expires_at_ms.saturating_sub(now_ms());
+        grants.insert(
+            request.registration_id.clone(),
+            SecretGrantEntry {
+                request,
+                request_id,
+                expires: Instant::now() + std::time::Duration::from_millis(ttl),
+            },
+        );
+        true
+    }
+
+    pub(super) fn take_secret_grant(
+        &self,
+        registration_id: &str,
+    ) -> Option<(tinysecurity_bus::SecretRequest2, String)> {
+        let entry = lock(&self.secret_grants).remove(registration_id)?;
+        (entry.expires > Instant::now()).then_some((entry.request, entry.request_id))
+    }
+
+    pub(super) fn forget_secret_grant(&self, registration_id: &str) {
+        lock(&self.secret_grants).remove(registration_id);
     }
 
     pub(super) fn insert_request(&self, request_id: &str, entry: RequestEntry) {
@@ -184,4 +274,11 @@ impl Host {
     pub(super) fn revoke(&self, ticket: &str) {
         lock(&self.tickets).remove(ticket);
     }
+}
+
+fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| u64::try_from(duration.as_millis()).unwrap_or(u64::MAX))
+        .unwrap_or(0)
 }

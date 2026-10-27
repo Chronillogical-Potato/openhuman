@@ -122,7 +122,7 @@ pub(crate) async fn refuse_missing_agent(
             AGENT_UNAVAILABLE_REPLY,
             msg.conversation.thread_id.clone(),
         );
-        if let Err(error) = channel.send_typed(&reply).await {
+        if let Err(error) = channel.send(&reply).await {
             tracing::warn!(
                 channel = %msg.channel.id,
                 %error,

@@ -509,7 +509,7 @@ pub async fn export_flow_run_trace(
     // No TinyHumans connection, or no usable credential (signed out, offline
     // local session): a configured state — `direct_backend_credential` logs
     // the reason at debug, and the export is skipped without a request.
-    let token = match direct_backend_credential(config, "flows langfuse export") {
+    let token = match direct_backend_credential(config, "flows langfuse export").await {
         Some(crate::credentials::backend_credential::BackendCredential::Session(token)) => token,
         _ => {
             tracing::debug!(

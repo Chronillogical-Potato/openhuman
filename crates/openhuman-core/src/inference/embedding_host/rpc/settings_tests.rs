@@ -205,6 +205,7 @@ async fn settings_reports_native_effective_embedder_resolution() {
         Default::default(),
         true,
     )
+    .await
     .unwrap();
     assert_eq!(
         get_settings(&config).await.unwrap().value["effective_provider"],
@@ -212,6 +213,7 @@ async fn settings_reports_native_effective_embedder_resolution() {
     );
 
     auth.remove_profile(crate::credentials::APP_SESSION_PROVIDER, "default")
+        .await
         .unwrap();
     assert_eq!(
         get_settings(&config).await.unwrap().value["effective_provider"],

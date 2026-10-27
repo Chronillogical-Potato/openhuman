@@ -145,6 +145,72 @@ pub fn module_config_for_host(
     })
 }
 
+/// Add the exact persisted approval/audit scope and fixed config-master
+/// registration to this candidate's initialization config.
+pub(crate) fn module_config_for_secret_scope(
+    config: &Config,
+    trusted_host: Option<String>,
+    scope: &crate::security::approval::native::SecretScope,
+    registration_id: String,
+    consumer_id: String,
+    target_backend_id: String,
+    legacy_backend_id: String,
+) -> Result<tinysecurity_bus::ModuleConfig, &'static str> {
+    use tinysecurity_bus::{
+        AccessTier, ApprovalScope2, MasterPurpose2, MasterSlotKind2, Origin, SecretBinding2,
+        SecretCipherConfig2, SecretConfig2, SecretLimits2, SecretRegistration2,
+    };
+
+    let mut result = module_config_for_host(config, trusted_host)?;
+    let approval = result.approvals.get_or_insert_with(approval_init_config);
+    approval.scopes.push(ApprovalScope2 {
+        scope_id: scope.scope_id().to_owned(),
+        subject: scope.subject().clone(),
+        policy_ref: "openhuman/approval/v1".into(),
+        generation: 1,
+        ceiling: AccessTier::Full,
+        require_approval: true,
+        auto_approve_all: false,
+    });
+    result.audit = Some(tinysecurity_bus::AuditConfig2 {
+        scope: scope.subject().clone(),
+        stream_id: scope.stream_id().to_owned(),
+        timeout_ms: AUDIT_CALLBACK_TIMEOUT_MS,
+        required: true,
+        native_path: None,
+        max_bytes: 10 * 1024 * 1024,
+        max_archives: 3,
+        journal_max_bytes: 10 * 1024 * 1024,
+        journal_max_events: 10_000,
+    });
+    result.secret = Some(SecretConfig2 {
+        registrations: vec![SecretRegistration2 {
+            registration_id: registration_id.clone(),
+            approval_scope_id: scope.scope_id().to_owned(),
+            origin: Origin::Operator,
+            purpose: MasterPurpose2::ConfigUserMaster,
+            target: SecretBinding2 {
+                backend_id: target_backend_id,
+                slot: MasterSlotKind2::User,
+            },
+            legacy: vec![SecretBinding2 {
+                backend_id: legacy_backend_id,
+                slot: MasterSlotKind2::File,
+            }],
+        }],
+        limits: SecretLimits2::default(),
+        callback_timeout_ms: AUDIT_CALLBACK_TIMEOUT_MS,
+    });
+    result.secret_cipher = Some(SecretCipherConfig2 {
+        registration_id,
+        consumer_id,
+        enabled: true,
+        slots: 8,
+        timeout_ms: AUDIT_CALLBACK_TIMEOUT_MS,
+    });
+    Ok(result)
+}
+
 #[cfg(test)]
 #[path = "policy_tests.rs"]
 mod tests;

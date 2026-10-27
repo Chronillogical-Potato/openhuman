@@ -1,16 +1,16 @@
 use super::*;
 use tempfile::TempDir;
 
-#[test]
-fn profile_id_format() {
+#[tokio::test]
+async fn profile_id_format() {
     assert_eq!(
         profile_id("openai-codex", "default"),
         "openai-codex:default"
     );
 }
 
-#[test]
-fn token_expiry_math() {
+#[tokio::test]
+async fn token_expiry_math() {
     let token_set = TokenSet {
         access_token: "token".into(),
         refresh_token: Some("refresh".into()),
@@ -43,9 +43,9 @@ async fn store_roundtrip_with_encryption() {
     );
     profile.account_id = Some("acct_123".into());
 
-    store.upsert_profile(profile.clone(), true).unwrap();
+    store.upsert_profile(profile.clone(), true).await.unwrap();
 
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
     let loaded = data.profiles.get(&profile.id).unwrap();
 
     assert_eq!(loaded.provider, "openai-codex");
@@ -74,7 +74,7 @@ async fn profile_write_publishes_an_encrypted_document() {
     let store = AuthProfilesStore::new(tmp.path(), false);
 
     let profile = AuthProfile::new_token("anthropic", "default", "token-abc".into());
-    store.upsert_profile(profile, true).unwrap();
+    store.upsert_profile(profile, true).await.unwrap();
 
     let path = store.path().to_path_buf();
     assert!(path.exists());
@@ -84,8 +84,8 @@ async fn profile_write_publishes_an_encrypted_document() {
     assert!(!String::from_utf8_lossy(&bytes).contains("token-abc"));
 }
 
-#[test]
-fn token_set_not_expiring_when_no_expiry() {
+#[tokio::test]
+async fn token_set_not_expiring_when_no_expiry() {
     let token_set = TokenSet {
         access_token: "token".into(),
         refresh_token: None,
@@ -97,8 +97,8 @@ fn token_set_not_expiring_when_no_expiry() {
     assert!(!token_set.is_expiring_within(Duration::from_secs(3600)));
 }
 
-#[test]
-fn auth_profile_new_token() {
+#[tokio::test]
+async fn auth_profile_new_token() {
     let profile = AuthProfile::new_token("anthropic", "default", "sk-abc".into());
     assert_eq!(profile.provider, "anthropic");
     assert_eq!(profile.profile_name, "default");
@@ -107,8 +107,8 @@ fn auth_profile_new_token() {
     assert!(profile.token_set.is_none());
 }
 
-#[test]
-fn auth_profile_new_oauth() {
+#[tokio::test]
+async fn auth_profile_new_oauth() {
     let ts = TokenSet {
         access_token: "access".into(),
         refresh_token: Some("refresh".into()),
@@ -123,16 +123,16 @@ fn auth_profile_new_oauth() {
     assert!(profile.token.is_none());
 }
 
-#[test]
-fn auth_profiles_data_default() {
+#[tokio::test]
+async fn auth_profiles_data_default() {
     let data = AuthProfilesData::default();
     assert_eq!(data.schema_version, CURRENT_SCHEMA_VERSION);
     assert!(data.profiles.is_empty());
     assert!(data.active_profiles.is_empty());
 }
 
-#[test]
-fn corrupt_store_is_quarantined_and_reset() {
+#[tokio::test]
+async fn corrupt_store_is_quarantined_and_reset() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
     let path = store.legacy_path.clone();
@@ -140,7 +140,7 @@ fn corrupt_store_is_quarantined_and_reset() {
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(&path, b"{ not valid json").unwrap();
 
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
     assert!(data.profiles.is_empty());
     assert_eq!(data.schema_version, CURRENT_SCHEMA_VERSION);
 
@@ -153,8 +153,8 @@ fn corrupt_store_is_quarantined_and_reset() {
     assert_eq!(quarantined.len(), 1, "expected one quarantined file");
 
     let profile = AuthProfile::new_token("openai", "default", "tok".into());
-    store.upsert_profile(profile, true).unwrap();
-    let reloaded = store.load().unwrap();
+    store.upsert_profile(profile, true).await.unwrap();
+    let reloaded = store.load().await.unwrap();
     assert_eq!(reloaded.profiles.len(), 1);
 }
 
@@ -168,8 +168,8 @@ fn corrupt_store_is_quarantined_and_reset() {
 /// never log in cleanly because every read pre-empts before reaching
 /// the "no profile" code path.
 
-#[test]
-fn load_drops_profiles_whose_decryption_fails_under_rotated_key() {
+#[tokio::test]
+async fn load_drops_profiles_whose_decryption_fails_under_rotated_key() {
     // The SecretStore caches keys by canonicalised path in a process-wide
     // OnceCell. Use a fresh temp dir per test so we don't pick up a
     // sibling test's cached key.
@@ -179,7 +179,7 @@ fn load_drops_profiles_whose_decryption_fails_under_rotated_key() {
     // Seed one profile, then replace its token with malformed enc2 data and
     // add a valid plaintext legacy profile to verify selective cleanup.
     let doomed = AuthProfile::new_token("app-session", "default", "real-jwt-payload".into());
-    store.upsert_profile(doomed.clone(), true).unwrap();
+    store.upsert_profile(doomed.clone(), true).await.unwrap();
 
     // Profile tokens are inside the TSD-encrypted profile document. Plant a
     // malformed field-level enc2 value to verify drop-on-decrypt-failure.
@@ -204,7 +204,7 @@ fn load_drops_profiles_whose_decryption_fails_under_rotated_key() {
 
     // First load: should silently drop the doomed profile rather than
     // bubbling the decrypt error and breaking every poll.
-    let loaded = store.load().expect(
+    let loaded = store.load().await.expect(
         "load must succeed by dropping unrecoverable profiles, not by propagating decrypt errors",
     );
     assert!(
@@ -218,7 +218,7 @@ fn load_drops_profiles_whose_decryption_fails_under_rotated_key() {
 
     // Subsequent load: file was rewritten without the bad profile, so
     // there's nothing to drop on the second pass — same clean state.
-    let loaded2 = store.load().unwrap();
+    let loaded2 = store.load().await.unwrap();
     assert!(!loaded2.profiles.contains_key(&profile_id));
 }
 
@@ -229,15 +229,15 @@ fn load_drops_profiles_whose_decryption_fails_under_rotated_key() {
 /// user is locked out of all sessions. Drop just the bad entry, matching
 /// the decrypt-failure recovery pattern.
 
-#[test]
-fn load_drops_profiles_with_unrecognized_kind_instead_of_failing_load() {
+#[tokio::test]
+async fn load_drops_profiles_with_unrecognized_kind_instead_of_failing_load() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
 
     // Seed one valid profile so we can verify the rest of the store survives.
     let good = AuthProfile::new_token("openai", "good", "tok-good".into());
     let good_id = good.id.clone();
-    store.upsert_profile(good, true).unwrap();
+    store.upsert_profile(good, true).await.unwrap();
 
     // Inject two profiles with kinds the current parser rejects:
     //   - "api_key": observed in Sentry issue #123 (370 events over 14d)
@@ -276,6 +276,7 @@ fn load_drops_profiles_with_unrecognized_kind_instead_of_failing_load() {
     // bailing the entire load on the first unrecognized kind.
     let loaded = store
         .load()
+        .await
         .expect("load must succeed by dropping profiles with unrecognized kinds");
 
     assert!(
@@ -305,92 +306,94 @@ fn load_drops_profiles_with_unrecognized_kind_instead_of_failing_load() {
     assert!(reread.profiles.contains_key(&good_id));
 }
 
-#[test]
-fn remove_nonexistent_profile_returns_false() {
+#[tokio::test]
+async fn remove_nonexistent_profile_returns_false() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
-    let result = store.remove_profile("nonexistent:id").unwrap();
+    let result = store.remove_profile("nonexistent:id").await.unwrap();
     assert!(!result);
 }
 
-#[test]
-fn remove_existing_profile_returns_true() {
+#[tokio::test]
+async fn remove_existing_profile_returns_true() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
     let profile = AuthProfile::new_token("test", "default", "tok".into());
     let id = profile.id.clone();
-    store.upsert_profile(profile, true).unwrap();
+    store.upsert_profile(profile, true).await.unwrap();
 
-    let removed = store.remove_profile(&id).unwrap();
+    let removed = store.remove_profile(&id).await.unwrap();
     assert!(removed);
 
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
     assert!(!data.profiles.contains_key(&id));
     assert!(!data.active_profiles.values().any(|v| v == &id));
 }
 
-#[test]
-fn set_active_profile_errors_for_missing_profile() {
+#[tokio::test]
+async fn set_active_profile_errors_for_missing_profile() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
     let err = store
         .set_active_profile("openai", "missing:id")
+        .await
         .unwrap_err();
     assert!(err.to_string().contains("not found"));
 }
 
-#[test]
-fn set_active_profile_succeeds_for_existing_profile() {
+#[tokio::test]
+async fn set_active_profile_succeeds_for_existing_profile() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
     let profile = AuthProfile::new_token("openai", "prod", "tok".into());
     let id = profile.id.clone();
-    store.upsert_profile(profile, false).unwrap();
+    store.upsert_profile(profile, false).await.unwrap();
 
-    store.set_active_profile("openai", &id).unwrap();
-    let data = store.load().unwrap();
+    store.set_active_profile("openai", &id).await.unwrap();
+    let data = store.load().await.unwrap();
     assert_eq!(data.active_profiles.get("openai"), Some(&id));
 }
 
-#[test]
-fn clear_active_profile() {
+#[tokio::test]
+async fn clear_active_profile() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
     let profile = AuthProfile::new_token("openai", "prod", "tok".into());
-    store.upsert_profile(profile, true).unwrap();
+    store.upsert_profile(profile, true).await.unwrap();
 
-    store.clear_active_profile("openai").unwrap();
-    let data = store.load().unwrap();
+    store.clear_active_profile("openai").await.unwrap();
+    let data = store.load().await.unwrap();
     assert!(!data.active_profiles.contains_key("openai"));
 }
 
-#[test]
-fn auth_profile_lock_errors_do_not_include_local_paths() {
+#[tokio::test]
+async fn auth_profile_lock_errors_do_not_include_local_paths() {
     let tmp = TempDir::new().unwrap();
     let invalid_state_dir = tmp.path().join("not-a-directory");
     std::fs::write(&invalid_state_dir, "occupied").unwrap();
 
     let store = AuthProfilesStore::new(&invalid_state_dir, false);
-    let err = store.load().unwrap_err().to_string();
+    let err = store.load().await.unwrap_err().to_string();
 
     assert!(err.contains("Failed to acquire auth profile lease"));
     assert!(!err.contains(&tmp.path().display().to_string()));
     assert!(!err.contains(&invalid_state_dir.display().to_string()));
 }
 
-#[test]
-fn update_profile_modifies_in_place() {
+#[tokio::test]
+async fn update_profile_modifies_in_place() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
     let profile = AuthProfile::new_token("openai", "prod", "tok".into());
     let id = profile.id.clone();
-    store.upsert_profile(profile, false).unwrap();
+    store.upsert_profile(profile, false).await.unwrap();
 
     let updated = store
         .update_profile(&id, |p| {
             p.metadata.insert("env".into(), "staging".into());
             Ok(())
         })
+        .await
         .unwrap();
     assert_eq!(
         updated.metadata.get("env").map(|s| s.as_str()),
@@ -398,28 +401,31 @@ fn update_profile_modifies_in_place() {
     );
 }
 
-#[test]
-fn update_profile_errors_for_missing_id() {
+#[tokio::test]
+async fn update_profile_errors_for_missing_id() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
-    let err = store.update_profile("missing:id", |_| Ok(())).unwrap_err();
+    let err = store
+        .update_profile("missing:id", |_| Ok(()))
+        .await
+        .unwrap_err();
     assert!(err.to_string().contains("not found"));
 }
 
-#[test]
-fn upsert_preserves_created_at_on_update() {
+#[tokio::test]
+async fn upsert_preserves_created_at_on_update() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
     let profile = AuthProfile::new_token("openai", "prod", "tok1".into());
     let id = profile.id.clone();
     let created = profile.created_at;
-    store.upsert_profile(profile, false).unwrap();
+    store.upsert_profile(profile, false).await.unwrap();
 
     std::thread::sleep(Duration::from_millis(10));
     let updated = AuthProfile::new_token("openai", "prod", "tok2".into());
-    store.upsert_profile(updated, false).unwrap();
+    store.upsert_profile(updated, false).await.unwrap();
 
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
     let loaded = data.profiles.get(&id).unwrap();
     assert_eq!(loaded.created_at, created);
 }

@@ -23,7 +23,7 @@ use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
 /// A channel that records every canonical outbound message, including its thread reference.
 #[derive(Default)]
 struct FullRecordingChannel {
-    sent: tokio::sync::Mutex<Vec<traits::ChannelOutboundMessage>>,
+    sent: tokio::sync::Mutex<Vec<traits::SendMessage>>,
     start_typing_calls: AtomicUsize,
     stop_typing_calls: AtomicUsize,
 }
@@ -34,19 +34,7 @@ impl Channel for FullRecordingChannel {
         "test-channel"
     }
 
-    #[allow(
-        deprecated,
-        reason = "Channel still requires its v21 adapter for one release"
-    )]
     async fn send(&self, message: &traits::SendMessage) -> anyhow::Result<()> {
-        self.send_typed(&traits::ChannelOutboundMessage::from_legacy_message(
-            self.name(),
-            message,
-        ))
-        .await
-    }
-
-    async fn send_typed(&self, message: &traits::ChannelOutboundMessage) -> anyhow::Result<()> {
         self.sent.lock().await.push(message.clone());
         Ok(())
     }
@@ -151,12 +139,12 @@ async fn inbound_thread_ts_is_forwarded_to_channel_send() {
     let sent = recorder.sent.lock().await;
     assert_eq!(sent.len(), 1, "expected exactly one send");
     assert_eq!(
-        sent[0].thread_id.as_deref(),
+        sent[0].thread_ts.as_deref(),
         Some("99"),
         "thread_ts must be forwarded unchanged to channel.send for reply targeting"
     );
     assert_eq!(
-        sent[0].conversation_id, "100",
+        sent[0].recipient, "100",
         "recipient must match reply_target"
     );
 }
@@ -189,7 +177,7 @@ async fn no_thread_ts_on_inbound_message_results_in_none_on_send() {
     let sent = recorder.sent.lock().await;
     assert_eq!(sent.len(), 1, "expected exactly one send");
     assert!(
-        sent[0].thread_id.is_none(),
+        sent[0].thread_ts.is_none(),
         "absent thread_ts must not be fabricated on send"
     );
 }
@@ -231,12 +219,11 @@ async fn reaction_marker_in_llm_response_is_passed_to_channel_send() {
         "expected exactly one send for a reaction marker"
     );
     assert_eq!(
-        sent[0].legacy_text().unwrap(),
-        "[REACTION:👍]",
+        sent[0].content, "[REACTION:👍]",
         "reaction marker must be delivered verbatim to channel.send"
     );
     assert_eq!(
-        sent[0].thread_id.as_deref(),
+        sent[0].thread_ts.as_deref(),
         Some("42"),
         "thread_ts carrying the target message_id must be forwarded with the reaction"
     );
@@ -330,7 +317,7 @@ fn telegram_channel_history_key_ignores_thread_ts() {
 /// `supports_reactions() == false`.
 #[derive(Default)]
 struct TelegramReactingChannel {
-    sent: tokio::sync::Mutex<Vec<traits::ChannelOutboundMessage>>,
+    sent: tokio::sync::Mutex<Vec<traits::SendMessage>>,
 }
 
 #[async_trait::async_trait]
@@ -339,19 +326,7 @@ impl Channel for TelegramReactingChannel {
         "telegram"
     }
 
-    #[allow(
-        deprecated,
-        reason = "Channel still requires its v21 adapter for one release"
-    )]
     async fn send(&self, message: &traits::SendMessage) -> anyhow::Result<()> {
-        self.send_typed(&traits::ChannelOutboundMessage::from_legacy_message(
-            self.name(),
-            message,
-        ))
-        .await
-    }
-
-    async fn send_typed(&self, message: &traits::ChannelOutboundMessage) -> anyhow::Result<()> {
         self.sent.lock().await.push(message.clone());
         Ok(())
     }
@@ -418,21 +393,16 @@ async fn telegram_threaded_inbound_emits_ack_reaction_then_reply() {
     // inbound message_id so Telegram attaches the reaction correctly.
     let reaction_sends: Vec<_> = sent
         .iter()
-        .filter(|m| {
-            m.legacy_text()
-                .is_ok_and(|text| text.starts_with("[REACTION:"))
-        })
+        .filter(|m| m.content.starts_with("[REACTION:"))
         .collect();
     assert_eq!(
         reaction_sends.len(),
         1,
         "expected exactly one automatic [REACTION:...] ack send, got {:?}",
-        sent.iter()
-            .map(|m| m.legacy_text().unwrap())
-            .collect::<Vec<_>>()
+        sent.iter().map(|m| m.content.clone()).collect::<Vec<_>>()
     );
     assert_eq!(
-        reaction_sends[0].thread_id.as_deref(),
+        reaction_sends[0].thread_ts.as_deref(),
         Some("77"),
         "ack reaction must carry thread_ts = inbound message_id for targeting"
     );
@@ -441,10 +411,7 @@ async fn telegram_threaded_inbound_emits_ack_reaction_then_reply() {
     // thread_ts so Telegram threads the reply to the original message.
     let reply_sends: Vec<_> = sent
         .iter()
-        .filter(|m| {
-            !m.legacy_text()
-                .is_ok_and(|text| text.starts_with("[REACTION:"))
-        })
+        .filter(|m| !m.content.starts_with("[REACTION:"))
         .collect();
     assert_eq!(
         reply_sends.len(),
@@ -452,12 +419,12 @@ async fn telegram_threaded_inbound_emits_ack_reaction_then_reply() {
         "expected exactly one real reply send alongside the ack"
     );
     assert!(
-        reply_sends[0].legacy_text().unwrap().contains("pong"),
+        reply_sends[0].content.contains("pong"),
         "reply send must contain the provider response, got {:?}",
-        reply_sends[0].legacy_text().unwrap()
+        reply_sends[0].content
     );
     assert_eq!(
-        reply_sends[0].thread_id.as_deref(),
+        reply_sends[0].thread_ts.as_deref(),
         Some("77"),
         "reply send must carry the same thread_ts as the inbound"
     );

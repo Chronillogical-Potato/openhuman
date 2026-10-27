@@ -3,7 +3,6 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use tinybus::module::ModuleObjectClient;
 #[cfg(test)]
 use tinybus::Proxy;
 use tinysecurity_bus::{
@@ -25,6 +24,7 @@ use super::scopes::{self, ScopeEntry};
 use super::state::{host, CallEntry, RequestEntry, Ticket};
 use crate::config::Config;
 use crate::modules::security::policy_translation;
+use crate::modules::security::SecurityProxy;
 
 const LOG: &str = "[approval::native]";
 
@@ -138,7 +138,7 @@ impl NativeEngine {
 
     /// The module's proxy. The first use in a process also carries the legacy
     /// approval history into the module (`history_import`).
-    async fn proxy(&self) -> Result<ModuleObjectClient, EngineError> {
+    async fn proxy(&self) -> Result<SecurityProxy, EngineError> {
         let proxy = match &self.source {
             Source::Production => {
                 crate::modules::security::approval_object(&self.config, CALL_DEADLINE)
@@ -146,11 +146,13 @@ impl NativeEngine {
                     .map_err(EngineError::Unavailable)?
             }
             #[cfg(test)]
-            Source::Fixed(proxy) => crate::modules::ops::fixture_client(proxy.clone())
-                .with_timeout(CALL_DEADLINE)
-                .object_client(crate::modules::security::MODULE_ID, names::OBJECT_PATH)
-                .await
-                .map_err(|error| EngineError::Unavailable(error.to_string()))?,
+            Source::Fixed(proxy) => SecurityProxy::module(
+                crate::modules::ops::fixture_client(proxy.clone())
+                    .with_timeout(CALL_DEADLINE)
+                    .object_client(crate::modules::security::MODULE_ID, names::OBJECT_PATH)
+                    .await
+                    .map_err(|error| EngineError::Unavailable(error.to_string()))?,
+            ),
         };
         if matches!(self.source, Source::Production) {
             #[cfg(feature = "legacy-import")]
@@ -181,7 +183,7 @@ impl NativeEngine {
     /// (the next gated call refreshes it to the user's configuration).
     async fn flow_scope(
         &self,
-        proxy: &ModuleObjectClient,
+        proxy: &SecurityProxy,
         tenant: &crate::core::runtime::Tenant,
     ) -> Result<std::sync::Arc<ScopeEntry>, EngineError> {
         let subject = self.subject(tenant, Variant::FlowStrict)?;
@@ -201,7 +203,7 @@ impl NativeEngine {
     }
 
     /// The module's current generation, which every correlation carries.
-    pub(super) async fn generation(proxy: &ModuleObjectClient) -> Result<u64, EngineError> {
+    pub(super) async fn generation(proxy: &SecurityProxy) -> Result<u64, EngineError> {
         let info: PolicyInfo = proxy
             .call(names::methods::POLICY_INFO, ())
             .await
@@ -253,7 +255,7 @@ impl NativeEngine {
     /// answer. A failure is logged: the sweep only keeps the module's view small.
     async fn sweep(
         &self,
-        proxy: &ModuleObjectClient,
+        proxy: &SecurityProxy,
         scope: &std::sync::Arc<ScopeEntry>,
         generation: u64,
     ) {

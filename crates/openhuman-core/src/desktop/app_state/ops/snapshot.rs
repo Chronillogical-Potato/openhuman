@@ -57,14 +57,7 @@ pub async fn snapshot(ctx: &DispatchCtx) -> Result<Outcome<AppStateSnapshot>, St
     // lock per snapshot (the "Timed out waiting for auth profile lock" Sentry
     // failure on Windows came from taking it twice).
     //
-    // `load_app_session_profile` busy-waits with `thread::sleep` for up to
-    // ~35s when the lock is contended, so it runs on the blocking pool rather
-    // than a tokio worker thread.
-    let config_for_profile = config.clone();
-    let session_profile =
-        tokio::task::spawn_blocking(move || load_app_session_profile(&config_for_profile))
-            .await
-            .unwrap_or_else(|e| Err(format!("[app_state] auth profile load task panicked: {e}")))?;
+    let session_profile = load_app_session_profile(&config).await?;
     let mut auth = session_state_from_profile(session_profile.as_ref());
     let session_token = crate::credentials::session_state::session_token_for_config(
         &config,

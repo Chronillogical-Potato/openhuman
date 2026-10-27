@@ -37,10 +37,10 @@ fn build_through_registry(config: &Config, model: &str, dimensions: usize) -> Cl
         ),
         catalog: None,
     };
-    from_request(&EmbeddingRequest {
-        model,
+    from_request(EmbeddingRequest {
+        model: model.to_owned(),
         dimensions,
-        context: &context,
+        context,
     })
 }
 
@@ -79,6 +79,7 @@ async fn api_key_alone_authenticates_cloud_embeddings() {
         false,
         "tiny_test_emb",
     )
+    .await
     .unwrap();
     let provider = build_cloud_model(
         Some(format!("http://{addr}")),
@@ -110,6 +111,7 @@ async fn api_key_is_refused_over_plaintext_non_loopback() {
         false,
         "tiny_test_emb",
     )
+    .await
     .unwrap();
     let provider = build_cloud_model(
         Some(
@@ -340,6 +342,7 @@ async fn factory_managed_provider_authenticates_with_config_scoped_token() {
             HashMap::new(),
             true,
         )
+        .await
         .unwrap();
 
     // The managed base URL comes from the backend transport, which (the
@@ -423,6 +426,7 @@ async fn default_provider_with_config_authenticates_with_config_scoped_token() {
             HashMap::new(),
             true,
         )
+        .await
         .unwrap();
 
     let config = Config {
@@ -498,6 +502,7 @@ async fn offline_local_session_is_refused_before_embedding_request() {
             HashMap::new(),
             true,
         )
+        .await
         .unwrap();
     let provider = build_cloud_model(
         Some(format!("http://{addr}")),
@@ -569,6 +574,7 @@ async fn expired_session_publishes_session_expired_before_embedding_request() {
             metadata,
             true,
         )
+        .await
         .unwrap();
     let provider = build_cloud_model(
         Some(format!("http://{addr}")),

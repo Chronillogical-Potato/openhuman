@@ -1,5 +1,6 @@
 //! Typed, attested calls to the TinySecurity policy interface.
 
+use serde::{de::DeserializeOwned, Serialize};
 use tinysecurity_bus::{
     BudgetDecision2, BudgetRequest2, CheckRequest, CheckResponse, CommandDecision, CommandPolicy,
     CommandPolicyId, CommandRequest, CredentialRootsRequest2, CredentialRootsResponse2, Decision,
@@ -34,16 +35,80 @@ impl std::error::Error for SecurityError {}
 /// A client whose object path comes from the compiled registry record.
 #[derive(Clone)]
 pub struct Client {
-    object: tinybus::module::ModuleObjectClient,
+    object: SecurityProxy,
+}
+
+/// One admitted security API connection. Production calls travel through the
+/// callback binding so TinySecurity sees the same authenticated host peer for
+/// its API calls and confidential host callbacks; test fixtures retain the
+/// regular module client.
+#[derive(Clone)]
+pub(crate) enum SecurityProxy {
+    Callback(tinybus::module::HostCallbackProxy),
+    Module(tinybus::module::ModuleObjectClient),
+}
+
+impl SecurityProxy {
+    pub(crate) fn callback(proxy: tinybus::module::HostCallbackProxy) -> Self {
+        Self::Callback(proxy)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn module(proxy: tinybus::module::ModuleObjectClient) -> Self {
+        Self::Module(proxy)
+    }
+
+    pub(crate) async fn call_confidential<R: DeserializeOwned>(
+        &self,
+        member: &str,
+        args: impl Serialize,
+    ) -> Result<R, String> {
+        match self {
+            Self::Callback(proxy) => proxy
+                .call_confidential(member, args)
+                .await
+                .map_err(|_| "security module call failed".to_owned()),
+            Self::Module(proxy) => proxy
+                .call_confidential(member, args)
+                .await
+                .map_err(|_| "security module call failed".to_owned()),
+        }
+    }
+
+    pub(crate) async fn call<R: DeserializeOwned>(
+        &self,
+        member: &str,
+        args: impl Serialize,
+    ) -> Result<R, String> {
+        match self {
+            Self::Callback(proxy) => proxy
+                .call(member, args)
+                .await
+                .map_err(|_| "security module call failed".to_owned()),
+            Self::Module(proxy) => proxy
+                .call(member, args)
+                .await
+                .map_err(|_| "security module call failed".to_owned()),
+        }
+    }
 }
 
 impl Client {
-    pub(super) async fn connect(config: &Config) -> Result<Self, String> {
-        let client = super::super::ops::client(config.clone());
-        let object = client
-            .object_client(MODULE_ID, tinysecurity_bus::names::OBJECT_PATH)
+    pub(crate) async fn connect(config: &Config) -> Result<Self, String> {
+        super::super::ops::ensure_loaded(config, MODULE_ID).await?;
+        let binding = super::super::ops::security_callback_binding()
             .await
+            .ok_or_else(|| "security callback binding unavailable".to_owned())?;
+        let record = super::super::registry::find(MODULE_ID)
+            .ok_or_else(|| "security module registry record missing".to_owned())?;
+        let proxy = binding
+            .proxy(
+                record.bus_name,
+                record.object_path,
+                tinysecurity_bus::names::INTERFACE,
+            )
             .map_err(|_| "pinned security module proxy unavailable".to_owned())?;
+        let object = SecurityProxy::callback(proxy);
         Ok(Self { object })
     }
 
@@ -375,6 +440,76 @@ impl Client {
             )
             .await
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Persist intent for one routine config cipher operation.
+    pub(crate) async fn evaluate_secret_cipher2(
+        &self,
+        request: &mut tinysecurity_bus::EvaluateSecretCipherRequest2,
+    ) -> Result<tinysecurity_bus::SecretCipherPending2, SecurityError> {
+        let result = self
+            .object
+            .call_confidential(
+                tinysecurity_bus::names::methods::EVALUATE_SECRET_CIPHER2,
+                (&*request,),
+            )
+            .await
+            .map_err(|_| SecurityError::Unavailable("secret cipher evaluation failed".into()));
+        use zeroize::Zeroize;
+        request.request.input.zeroize();
+        result
+    }
+
+    /// Execute a previously evaluated routine config cipher operation.
+    pub(crate) async fn execute_secret_cipher2(
+        &self,
+        request: &mut tinysecurity_bus::ExecuteSecretCipherRequest2,
+    ) -> Result<tinysecurity_bus::SecretCipherResponse2, SecurityError> {
+        let result = self
+            .object
+            .call_confidential(
+                tinysecurity_bus::names::methods::EXECUTE_SECRET_CIPHER2,
+                (&*request,),
+            )
+            .await
+            .map_err(|_| SecurityError::Unavailable("secret cipher execution failed".into()));
+        use zeroize::Zeroize;
+        request.request.input.zeroize();
+        result
+    }
+
+    /// Request the existing native HumanOnce approval flow for a registered
+    /// master slot. TinySecurity owns the pending row and verifies the decision.
+    pub(crate) async fn evaluate_secret2(
+        &self,
+        request: &mut tinysecurity_bus::EvaluateSecretRequest2,
+    ) -> Result<tinysecurity_bus::ApprovalRow2, SecurityError> {
+        let result = self
+            .object
+            .call_confidential(
+                tinysecurity_bus::names::methods::EVALUATE_SECRET2,
+                (&*request,),
+            )
+            .await
+            .map_err(|_| SecurityError::Unavailable("secret approval unavailable".into()));
+        result
+    }
+
+    /// Complete the native master grant after the host's existing approval
+    /// engine reports HumanOnce. The returned handle is process-private.
+    pub(crate) async fn execute_secret2(
+        &self,
+        request: &mut tinysecurity_bus::ExecuteSecretRequest2,
+    ) -> Result<tinysecurity_bus::SecretResponse2, SecurityError> {
+        let result = self
+            .object
+            .call_confidential(
+                tinysecurity_bus::names::methods::EXECUTE_SECRET2,
+                (&*request,),
+            )
+            .await
+            .map_err(|_| SecurityError::Unavailable("secret master unavailable".into()));
+        result
     }
 
     /// Validate a live browser tunnel lease.

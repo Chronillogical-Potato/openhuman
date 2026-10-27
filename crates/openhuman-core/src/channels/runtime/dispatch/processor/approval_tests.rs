@@ -20,7 +20,7 @@ impl Channel for Fake {
         "fake"
     }
     fn capabilities(&self) -> traits::ChannelCapabilities {
-        let mut capabilities = traits::ChannelCapabilities::unknown();
+        let mut capabilities = traits::ChannelCapabilities::default();
         capabilities.chat_approvals = self.chat_approvals;
         capabilities
     }

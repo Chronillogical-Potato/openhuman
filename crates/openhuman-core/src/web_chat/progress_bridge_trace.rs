@@ -11,7 +11,7 @@ use super::super::types::ChatRequestMetadata;
 
 /// The span collector for the turn, and the trace context the journal export
 /// reuses after the turn ends. `None` when tracing is disabled.
-pub(super) fn trace_context(
+pub(super) async fn trace_context(
     config: &crate::config::Config,
     metadata: &ChatRequestMetadata,
     client_id: &str,
@@ -32,9 +32,10 @@ pub(super) fn trace_context(
     // the separate `client.id` metadata attribute. The backend stamps
     // the authenticated JWT user on every accepted trace.
     let identity = crate::credentials::identity::peek_credential_user_identity();
-    let user_id = identity
-        .and_then(|i| i.id.or(i.email))
-        .or_else(|| super::session_profile_user_attribution(config));
+    let user_id = match identity.and_then(|i| i.id.or(i.email)) {
+        Some(user_id) => Some(user_id),
+        None => super::session_profile_user_attribution(config).await,
+    };
     let user_attributed = user_id.is_some();
     // Run origin for trace metadata: the request's source tag
     // ("ptt"/"dictation"/"type"/"autonomous"/…), else a

@@ -111,7 +111,7 @@ impl SessionExpiredSubscriber {
             Ok(config) => {
                 // An API-key runtime has no session to clear: a backend 401 on
                 // the key is a per-call error for the caller, not a sign-out.
-                if crate::credentials::api_key::has_api_key(&config) {
+                if crate::credentials::api_key::has_api_key(&config).await {
                     tracing::warn!(
                         source = %source,
                         reason = %reason,
@@ -121,6 +121,7 @@ impl SessionExpiredSubscriber {
                     return;
                 }
                 let current_token = crate::credentials::session_state::get_session_token(&config)
+                    .await
                     .ok()
                     .flatten();
                 let matches = current_token.as_deref().is_some_and(|token| {
