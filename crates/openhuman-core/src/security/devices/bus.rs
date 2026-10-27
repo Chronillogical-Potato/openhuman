@@ -409,7 +409,9 @@ async fn restore_live_pairing_key(
         // safely reconstruct the core key and require a new pairing.
         return Ok(None);
     };
-    restore_paired_keypair(encrypted_key, secret_store).await.map(Some)
+    restore_paired_keypair(encrypted_key, secret_store)
+        .await
+        .map(Some)
 }
 
 fn matches_paired_device_key(device: &super::types::PairedDevice, handshake_key: &str) -> bool {
