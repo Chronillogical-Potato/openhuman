@@ -691,7 +691,9 @@ pub(super) fn unresolved_chat_model_error_for_access(
 
     #[cfg(not(test))]
     if let CredentialAccess::Runtime(snapshot) = credential_access {
-        if let Err(error) = super::access_gates::verify_session_active_with_snapshot(config, snapshot) {
+        if let Err(error) =
+            super::access_gates::verify_session_active_with_snapshot(config, snapshot)
+        {
             return error;
         }
     }

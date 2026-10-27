@@ -278,6 +278,7 @@ pub(crate) fn model_limits_request_for(
         config,
         extensions,
     )
+    .await
     .ok()?;
     if resolution.codex.using_oauth || resolution.entry.auth_style == AuthStyle::OpenhumanJwt {
         return None;

@@ -13,6 +13,6 @@ pub use flow::{
 };
 pub use store::{
     lookup_openai_bearer_token, lookup_openai_oauth_credentials, persist_openai_oauth_token,
-    persist_openai_oauth_tokens, OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY,
-    OpenAiOAuthCredentials,
+    persist_openai_oauth_tokens, OpenAiOAuthCredentials, OPENAI_OAUTH_PROFILE_NAME,
+    OPENAI_PROVIDER_KEY,
 };

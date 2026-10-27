@@ -113,7 +113,8 @@ async fn caller_owned_models_build_without_openhuman_session() {
         "local-openai:test-model",
         "claude_agent_sdk:test-model",
     ] {
-        create_chat_model_from_string("chat", provider, &config, 0.0).await
+        create_chat_model_from_string("chat", provider, &config, 0.0)
+            .await
             .unwrap_or_else(|e| panic!("{provider} must build while signed out: {e}"));
     }
     // CLI discovery is machine-specific; verify its authentication gate without

@@ -16,7 +16,9 @@ pub(crate) async fn resolve_openai_codex_routing(
 
     let credentials = match crate::credentials::openai_oauth::lookup_openai_oauth_credentials(
         config,
-    ).await {
+    )
+    .await
+    {
         Ok(credentials) => credentials,
         Err(err) if !bearer_key.trim().is_empty() => {
             log::warn!(

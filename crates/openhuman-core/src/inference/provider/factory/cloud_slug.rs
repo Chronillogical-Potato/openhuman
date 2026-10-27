@@ -59,20 +59,21 @@ pub(super) fn inspection_output_budget_capability(
     }
 }
 
-pub(crate) fn resolve_cloud_slug_for<'a>(
+pub(crate) async fn resolve_cloud_slug_for<'a>(
     role: &str,
     slug: &str,
     model: &str,
     config: &'a Config,
     extensions: Option<&crate::core::slots::Extensions>,
 ) -> anyhow::Result<CloudSlugResolution<'a>> {
+    let snapshot = RuntimeCredentialSnapshot::resolve(config).await;
     resolve_cloud_slug_with_access(
         role,
         slug,
         model,
         config,
         extensions,
-        CredentialAccess::Runtime(&RuntimeCredentialSnapshot::default()),
+        CredentialAccess::Runtime(&snapshot),
         None,
     )
 }
@@ -241,28 +242,26 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
         )
     };
 
-    let (key, bearer_is_oauth, oauth_account_id) = if credential_access
-        .is_inspection()
-        && entry.auth_style == AuthStyle::OpenhumanJwt
-    {
-        // The managed model constructor receives its credential later, on
-        // invoke. Its hosted construction callback is config-only and offline.
-        (String::new(), false, None)
-    } else if credential_access.is_inspection() {
-        let credential = inspection_credential
-            .ok_or_else(|| anyhow::anyhow!("inspection credential was not pre-resolved"))?;
-        (
-            credential.key.clone(),
-            credential.is_oauth,
-            credential.account_id.clone(),
-        )
-    } else {
-        let key = credential_access
-            .lookup_key_for_slug(slug)
-            .map_err(|error| lookup_failure(&error, missing_credentials()))?;
-        let is_oauth = slug == "openai" && credential_access.openai_bearer_is_oauth();
-        (key, is_oauth, None)
-    };
+    let (key, bearer_is_oauth, oauth_account_id) =
+        if credential_access.is_inspection() && entry.auth_style == AuthStyle::OpenhumanJwt {
+            // The managed model constructor receives its credential later, on
+            // invoke. Its hosted construction callback is config-only and offline.
+            (String::new(), false, None)
+        } else if credential_access.is_inspection() {
+            let credential = inspection_credential
+                .ok_or_else(|| anyhow::anyhow!("inspection credential was not pre-resolved"))?;
+            (
+                credential.key.clone(),
+                credential.is_oauth,
+                credential.account_id.clone(),
+            )
+        } else {
+            let key = credential_access
+                .lookup_key_for_slug(slug)
+                .map_err(|error| lookup_failure(&error, missing_credentials()))?;
+            let is_oauth = slug == "openai" && credential_access.openai_bearer_is_oauth();
+            (key, is_oauth, None)
+        };
 
     // A readable auth profile with no key for this slug returns `Ok("")`, which
     // would otherwise build a client with an empty bearer and surface as a raw

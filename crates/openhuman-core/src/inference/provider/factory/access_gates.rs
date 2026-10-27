@@ -338,7 +338,10 @@ pub(crate) async fn verify_session_active(config: &Config) -> anyhow::Result<()>
     verify_session_active_for_host(config, current_host_requires_session()).await
 }
 
-async fn verify_session_active_for_host(config: &Config, requires_session: bool) -> anyhow::Result<()> {
+async fn verify_session_active_for_host(
+    config: &Config,
+    requires_session: bool,
+) -> anyhow::Result<()> {
     if !requires_session {
         return Ok(());
     }
@@ -429,7 +432,8 @@ pub(crate) async fn verify_backend_session_active(config: &Config) -> anyhow::Re
     // Verify the app-session JWT actually exists in auth-profiles.
     let auth = AuthService::new(&state_dir, config.secrets.encrypt);
     let has_session = auth
-        .get_provider_bearer_token(crate::credentials::APP_SESSION_PROVIDER, None).await?
+        .get_provider_bearer_token(crate::credentials::APP_SESSION_PROVIDER, None)
+        .await?
         .filter(|s| !s.trim().is_empty())
         .is_some();
     if !has_session {

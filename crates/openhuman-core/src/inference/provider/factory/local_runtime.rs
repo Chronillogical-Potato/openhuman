@@ -3,8 +3,7 @@
 
 use super::*;
 use crate::inference::provider::factory::access_gates::{
-    enforce_local_only_endpoint, is_loopback_endpoint, is_ollama_cloud_model,
-    LocalOnlyRequestGuard,
+    enforce_local_only_endpoint, is_loopback_endpoint, is_ollama_cloud_model, LocalOnlyRequestGuard,
 };
 use tinyinference_llm::providers::openai::build_local_runtime_chat_model;
 use tinyinference_llm::providers::openai::AuthStyle as CompatAuthStyle;
