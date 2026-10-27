@@ -112,7 +112,7 @@ fn build_core_http_router_mode(
             crate::server::auth::rpc_auth_middleware,
         ));
     let socket_preflight_gate = preflight_gate.clone();
-    let router = if let Some(gate) = preflight_gate {
+    let router = if let Some(gate) = preflight_gate.clone() {
         router
             .layer(axum::Extension(gate.clone()))
             .route_layer(middleware::from_fn_with_state(
@@ -125,21 +125,25 @@ fn build_core_http_router_mode(
     // Socket.IO is off (`--jsonrpc-only`): answer its path before the bearer
     // middleware can mistake the handshake for an unauthenticated request.
     // Sits inside CORS so browser clients can read the body.
-    let router = if socketio_enabled {
-        router
-    } else {
-        router.layer(middleware::from_fn(socketio_disabled_middleware))
-    };
-    let router = router.layer(middleware::from_fn(cors::cors_middleware));
-
     if socketio_enabled {
         let (socket_layer, io) =
             crate::server::socketio::attach_socketio_with_preflight(socket_preflight_gate);
         crate::server::socketio::spawn_web_channel_bridge(io);
-        return router.layer(socket_layer);
+        let router = router.layer(socket_layer);
+        let router = if let Some(gate) = preflight_gate {
+            router.layer(middleware::from_fn_with_state(
+                gate,
+                crate::server::auth::preflight_socketio_middleware,
+            ))
+        } else {
+            router
+        };
+        return router.layer(middleware::from_fn(cors::cors_middleware));
     }
 
     router
+        .layer(middleware::from_fn(socketio_disabled_middleware))
+        .layer(middleware::from_fn(cors::cors_middleware))
 }
 
 /// Stable machine-readable `error` code of the "Socket.IO is off" response.
