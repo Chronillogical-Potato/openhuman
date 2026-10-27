@@ -477,12 +477,13 @@ async fn confirm_pairing(
         return;
     }
     let token_hash = hash_session_token(&session.pairing_token);
-    match store::insert_device(
+    match store::insert_device_with_pairing_id(
         config,
         channel_id,
         &session.label,
         &device_public_key,
         &token_hash,
+        &pairing_id,
     ) {
         Ok(device) => {
             super::owner::remember(channel_id, agent);
