@@ -14,7 +14,7 @@ use tokio::time::{sleep, Duration};
 use tracing::{debug, warn};
 
 use crate::core::Outcome;
-use crate::platform::socket::manager::global_socket_manager;
+use crate::platform::socket::global_socket_manager;
 
 use super::ops::is_port_in_use;
 
