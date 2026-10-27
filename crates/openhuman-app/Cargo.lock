@@ -8364,7 +8364,7 @@ dependencies = [
 
 [[package]]
 name = "tinysecurity-approval"
-version = "0.18.1"
+version = "0.18.2"
 dependencies = [
  "async-trait",
  "getrandom 0.3.4",
@@ -8379,7 +8379,7 @@ dependencies = [
 
 [[package]]
 name = "tinysecurity-auto"
-version = "0.18.1"
+version = "0.18.2"
 dependencies = [
  "async-trait",
  "serde_json",
@@ -8393,7 +8393,7 @@ dependencies = [
 
 [[package]]
 name = "tinysecurity-bus"
-version = "0.18.1"
+version = "0.18.2"
 dependencies = [
  "serde",
  "thiserror 2.0.20",
@@ -8401,7 +8401,7 @@ dependencies = [
 
 [[package]]
 name = "tinysecurity-crypto"
-version = "0.18.1"
+version = "0.18.2"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -8426,7 +8426,7 @@ dependencies = [
 
 [[package]]
 name = "tinysecurity-redact"
-version = "0.18.1"
+version = "0.18.2"
 dependencies = [
  "base64 0.22.1",
  "percent-encoding",
