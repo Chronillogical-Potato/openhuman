@@ -40,7 +40,8 @@ async fn local_native_resolution_changes_only_ephemeral_request() {
         Arc::new(config),
         "gpt-4o",
         "openai",
-    ).await;
+    )
+    .await;
     let request = ModelRequest::new(vec![Message::User(
         tinyinference_llm::message::UserMessage {
             content: vec![ContentBlock::Image(ImageRef {
@@ -79,7 +80,8 @@ async fn blocked_attachment_fails_before_model_call() {
         Arc::new(config),
         "gpt-4o",
         "openai",
-    ).await;
+    )
+    .await;
     let request = ModelRequest::new(vec![Message::User(
         tinyinference_llm::message::UserMessage {
             content: vec![ContentBlock::Image(ImageRef {
@@ -91,15 +93,16 @@ async fn blocked_attachment_fails_before_model_call() {
     assert!(wrapper.invoke(&(), request).await.is_err());
     assert!(probe.requests.lock().unwrap().is_empty());
 }
-#[test]
-fn unknown_model_does_not_inherit_transport_vision() {
+#[tokio::test]
+async fn unknown_model_does_not_inherit_transport_vision() {
     let model = wrap(
         &crate::core::runtime::DispatchCtx::host_default(),
         Arc::new(Probe::default()),
         Arc::new(Config::default()),
         "unknown-model",
         "cloud",
-    ).await;
+    )
+    .await;
     assert!(!model.profile().unwrap().modalities.image_in);
 }
 
@@ -118,7 +121,8 @@ async fn persisted_image_without_mime_uses_magic_over_extension() {
         Arc::new(config),
         "gpt-4o",
         "openai",
-    ).await;
+    )
+    .await;
     let request = ModelRequest::new(vec![Message::User(
         tinyinference_llm::message::UserMessage {
             content: vec![ContentBlock::Image(ImageRef {
@@ -144,7 +148,8 @@ async fn too_many_typed_images_reject_before_read_or_inference() {
         Arc::new(Config::default()),
         "gpt-4o",
         "openai",
-    ).await;
+    )
+    .await;
     let request = ModelRequest::new(vec![Message::User(
         tinyinference_llm::message::UserMessage {
             content: (0..5)
@@ -172,7 +177,8 @@ async fn external_channel_cannot_rehydrate_a_local_image() {
         Arc::new(Config::default()),
         "gpt-4o",
         "openai",
-    ).await;
+    )
+    .await;
     let mut request = ModelRequest::new(vec![Message::User(
         tinyinference_llm::message::UserMessage {
             content: vec![ContentBlock::Image(ImageRef {
@@ -212,7 +218,8 @@ async fn unknown_video_retains_path_as_metadata_without_specialist() {
         Arc::new(config),
         "unknown",
         "custom",
-    ).await;
+    )
+    .await;
     let request = ModelRequest::new(vec![Message::User(
         tinyinference_llm::message::UserMessage {
             content: vec![ContentBlock::Video(MediaRef::Path {
@@ -309,8 +316,8 @@ async fn cache_is_not_written_beside_unmanaged_local_files() {
     assert!(!temp.path().join(".openhuman-intake.txt").exists());
 }
 
-#[test]
-fn endpoint_discovery_denial_overrides_offline_vision_facts() {
+#[tokio::test]
+async fn endpoint_discovery_denial_overrides_offline_vision_facts() {
     use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
     use tinyinference_llm::model::discover::{model_limits_cache, LimitSource, ModelLimits};
     let temp = tempfile::tempdir().unwrap();
@@ -331,6 +338,7 @@ fn endpoint_discovery_denial_overrides_offline_vision_facts() {
         "gpt-4o",
         &config,
     )
+    .await
     .unwrap();
     model_limits_cache().insert_discovered_variant(
         &request.endpoint,
@@ -349,7 +357,8 @@ fn endpoint_discovery_denial_overrides_offline_vision_facts() {
         Arc::new(config),
         "gpt-4o",
         "attachment-probe",
-    ).await;
+    )
+    .await;
     assert!(!model.profile().unwrap().modalities.image_in);
 }
 
@@ -364,7 +373,8 @@ async fn legacy_inline_source_is_bounded_and_malformed_base64_rejects_before_pri
         Arc::new(config),
         "gpt-4o",
         "openai",
-    ).await;
+    )
+    .await;
     for source in [
         "data:image/png;base64,%%%".to_owned(),
         format!("data:image/png;base64,{}", "A".repeat(2 * 1024 * 1024)),
@@ -391,7 +401,8 @@ async fn disabled_remote_replay_is_rejected_before_inference() {
         Arc::new(Config::default()),
         "unknown",
         "custom",
-    ).await;
+    )
+    .await;
     for block in [
         ContentBlock::Image(ImageRef {
             url: "https://example.invalid/image.png".into(),
@@ -427,7 +438,8 @@ async fn inline_native_replay_materializes_original_and_keeps_durable_message_un
         Arc::new(config),
         "gpt-4o",
         "openai",
-    ).await;
+    )
+    .await;
     let bytes = b"\x89PNG\r\n\x1a\noriginal";
     let request = ModelRequest::new(vec![Message::User(
         tinyinference_llm::message::UserMessage {
@@ -481,7 +493,8 @@ async fn derivative_cache_cannot_overwrite_original_named_like_cache() {
         Arc::new(config.clone()),
         "unknown",
         "custom",
-    ).await;
+    )
+    .await;
     let request = ModelRequest::new(vec![Message::User(
         tinyinference_llm::message::UserMessage {
             content: vec![ContentBlock::Document(MediaRef::Path {
@@ -559,7 +572,8 @@ async fn unknown_model_legacy_inline_replay_uses_specialist_once_across_model_re
             config.clone(),
             "unknown-model",
             "custom",
-        ).await;
+        )
+        .await;
         assert!(wrapper.invoke(&(), request.clone()).await.is_err());
         let captured = main.requests.lock().unwrap().clone();
         assert_eq!(captured.len(), 1);
@@ -588,7 +602,8 @@ async fn legacy_audio_base64_unsupported_transport_becomes_workspace_reference()
         Arc::new(config),
         "unknown",
         "custom",
-    ).await;
+    )
+    .await;
     let request = ModelRequest::new(vec![Message::User(
         tinyinference_llm::message::UserMessage {
             content: vec![ContentBlock::Audio(MediaRef::Base64 {
