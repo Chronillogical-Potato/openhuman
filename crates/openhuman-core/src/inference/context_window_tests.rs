@@ -1,14 +1,14 @@
 use super::*;
 use std::sync::{Arc, Mutex as StdMutex};
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tempfile::TempDir;
 use tinyinference_llm::model::context_window::{ContextWindowRouteInput, WindowSource};
 use tinyinference_llm::model::discover::DiscoveryRequest;
 use tinyinference_llm::model::discover::ModelLimitsCache;
 
-use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::config::schema::ModelRegistryEntry;
+use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::credentials::AuthService;
 
 const OPENROUTER: &str = "https://openrouter.ai/api/v1";

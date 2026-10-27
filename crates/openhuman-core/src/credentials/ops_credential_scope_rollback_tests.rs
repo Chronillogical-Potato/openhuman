@@ -1,5 +1,5 @@
 use crate::config::test_env::EnvVarGuard;
-use crate::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
+use crate::credentials::{APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME};
 use tempfile::TempDir;
 
 #[tokio::test]
@@ -32,9 +32,10 @@ async fn failed_credential_rebind_removes_profile_and_active_user_scope() {
 
     assert!(error.contains("workspace rebind failed"));
     assert!(crate::config::read_active_user_id(&root).is_none());
-    assert!(auth
-        .get_profile(APP_SESSION_PROVIDER, Some(DEFAULT_AUTH_PROFILE_NAME))
-        .await
-        .unwrap()
-        .is_none());
+    assert!(
+        auth.get_profile(APP_SESSION_PROVIDER, Some(DEFAULT_AUTH_PROFILE_NAME))
+            .await
+            .unwrap()
+            .is_none()
+    );
 }

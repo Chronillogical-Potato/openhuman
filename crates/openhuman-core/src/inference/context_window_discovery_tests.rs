@@ -129,7 +129,9 @@ async fn local_and_subprocess_routes_are_not_discovered() {
         CLAUDE_AGENT_SDK_PROVIDER,
     ] {
         assert!(
-            model_limits_request("chat", provider, "m", &config).await.is_none(),
+            model_limits_request("chat", provider, "m", &config)
+                .await
+                .is_none(),
             "{provider}"
         );
     }
@@ -139,7 +141,9 @@ async fn local_and_subprocess_routes_are_not_discovered() {
 async fn unknown_slug_is_not_discovered() {
     let tmp = TempDir::new().unwrap();
     let config = config(&tmp, Vec::new());
-    assert!(model_limits_request("chat", "nope:model", "model", &config)
-        .await
-        .is_none());
+    assert!(
+        model_limits_request("chat", "nope:model", "model", &config)
+            .await
+            .is_none()
+    );
 }

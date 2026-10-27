@@ -112,14 +112,8 @@ async fn concurrent_refresh_persists_rotated_token_and_stable_metadata_once() {
         lookup_openai_oauth_credentials(&first_config),
         lookup_openai_oauth_credentials(&second_config),
     );
-    assert_eq!(
-        first.unwrap().unwrap().access_token,
-        "fresh-access"
-    );
-    assert_eq!(
-        second.unwrap().unwrap().access_token,
-        "fresh-access"
-    );
+    assert_eq!(first.unwrap().unwrap().access_token, "fresh-access");
+    assert_eq!(second.unwrap().unwrap().access_token, "fresh-access");
     assert_eq!(source.refresh_count.load(Ordering::SeqCst), 1);
 
     let profile = profiles
@@ -177,9 +171,16 @@ async fn disconnect_keeps_profile_when_host_cannot_clear_pending_state() {
 
     let error = disconnect_openai_oauth(&config).await.unwrap_err();
     assert!(error.contains("pending storage unavailable"));
-    assert!(profiles.load().await.unwrap().profiles.contains_key(&format!(
-        "{OPENAI_PROVIDER_KEY}:{OPENAI_OAUTH_PROFILE_NAME}"
-    )));
+    assert!(
+        profiles
+            .load()
+            .await
+            .unwrap()
+            .profiles
+            .contains_key(&format!(
+                "{OPENAI_PROVIDER_KEY}:{OPENAI_OAUTH_PROFILE_NAME}"
+            ))
+    );
 
     crate::credentials::clear_provider_credential_source();
     if let Some(previous) = previous {
