@@ -52,9 +52,9 @@ impl HostAgentResolver for Host {
             host_tools: Some(Arc::new(move |turn| {
                 assert_eq!(turn.agent_id(), "cron-host-agent");
                 builds.fetch_add(1, Ordering::SeqCst);
-                Box::pin(async move {
-                    crate::agent::HostTurnTools::advertised(vec![Box::new(Marker)])
-                })
+                Box::pin(
+                    async move { crate::agent::HostTurnTools::advertised(vec![Box::new(Marker)]) },
+                )
             })),
             hooks: Default::default(),
             context,
