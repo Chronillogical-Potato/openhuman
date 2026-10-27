@@ -243,8 +243,8 @@ chain core, embed, tinyhumans, cli.
   pass through `SdkBackendTransport` and the SDK route registry does not apply
   to them.
 - Realtime Socket.IO uses this crate's SDK-backed `socket` port; the core
-  retains the RPC contract and inbound domain-event sink. The
-  SDK is built with `default-features = false`, which drops its socket client.
+  retains the RPC contract and inbound domain-event sink. The SDK is built
+  with `default-features = false` and its `socket` feature enabled explicitly.
 - The generic Jev types (`JevRanker`, `JevEvaluator`, `JevStrategy`) live in
   [`vendor/tinyagents/vendor/tinytools/crates/tinytools-jev`](../../vendor/tinyagents/vendor/tinytools/crates/tinytools-jev/)
   (`tinyhumansai/tinytools`). This crate owns only the wire and credential.
