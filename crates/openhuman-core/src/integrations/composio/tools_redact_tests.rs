@@ -1,8 +1,8 @@
 use crate::config::Config;
 use crate::integrations::composio::tools::redact::composio_secrets;
 
-#[test]
-fn exact_credentials_include_common_encoded_forms_for_redact_with() {
+#[tokio::test]
+async fn exact_credentials_include_common_encoded_forms_for_redact_with() {
     let mut config = Config::default();
     config.composio.api_key = Some("secret+with/slash".into());
 

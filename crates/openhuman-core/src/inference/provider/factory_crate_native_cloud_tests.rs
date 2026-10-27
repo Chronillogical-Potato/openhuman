@@ -54,8 +54,8 @@ async fn build_native_factory_model(
         .map_err(|error| anyhow::anyhow!(error.to_string()))
 }
 
-#[test]
-fn create_chat_model_routes_plain_bearer_cloud_slug_to_crate_native() {
+#[tokio::test]
+async fn create_chat_model_routes_plain_bearer_cloud_slug_to_crate_native() {
     let _guard = crate::inference::inference_test_guard();
     // DeepSeek is a built-in chat-completions-only Bearer provider: no
     // `/v1/responses` fallback and no codex-oauth, so it is wire-equivalent and
@@ -96,8 +96,8 @@ async fn turn_model_route_metadata_uses_post_remap_cloud_model() {
     assert_eq!(route.model, "deepseek-chat");
 }
 
-#[test]
-fn explicit_cloud_provider_string_routes_to_crate_native_model() {
+#[tokio::test]
+async fn explicit_cloud_provider_string_routes_to_crate_native_model() {
     let _guard = crate::inference::inference_test_guard();
     let mut config = Config::default();
     config.cloud_providers.push(deepseek_entry("p_ds"));
@@ -119,8 +119,8 @@ fn explicit_cloud_provider_string_routes_to_crate_native_model() {
     );
 }
 
-#[test]
-fn create_chat_model_routes_anthropic_auth_cloud_slug_to_crate_native() {
+#[tokio::test]
+async fn create_chat_model_routes_anthropic_auth_cloud_slug_to_crate_native() {
     let _guard = crate::inference::inference_test_guard();
     // Anthropic-auth cloud slugs are always wire-equivalent (their endpoints have
     // no `/v1/responses`, so the host's dormant fallback is behavior-neutral).
@@ -159,8 +159,8 @@ fn create_chat_model_routes_anthropic_auth_cloud_slug_to_crate_native() {
 /// Text mode (prompt-guided tools) is only implemented on the Chat Completions
 /// adapter, so an Anthropic slug asked for `native_tools = false` keeps the
 /// compat client rather than a native adapter that would ignore the request.
-#[test]
-fn anthropic_auth_cloud_slug_in_text_mode_keeps_the_compat_client() {
+#[tokio::test]
+async fn anthropic_auth_cloud_slug_in_text_mode_keeps_the_compat_client() {
     let _guard = crate::inference::inference_test_guard();
     let mut config = Config::default();
     config
@@ -184,8 +184,8 @@ fn anthropic_auth_cloud_slug_in_text_mode_keeps_the_compat_client() {
     assert!(model.profile().is_some_and(|p| !p.tool_calling));
 }
 
-#[test]
-fn configured_openhuman_jwt_slug_routes_to_managed_chat_model() {
+#[tokio::test]
+async fn configured_openhuman_jwt_slug_routes_to_managed_chat_model() {
     let _guard = crate::inference::inference_test_guard();
     install_test_managed_provider();
     let mut config = Config::default();
@@ -353,8 +353,8 @@ async fn native_claude_turn_routes_disclose_pinned_models() {
     );
 }
 
-#[test]
-fn openhuman_jwt_slug_preserves_forced_text_mode() {
+#[tokio::test]
+async fn openhuman_jwt_slug_preserves_forced_text_mode() {
     let _guard = crate::inference::inference_test_guard();
     install_test_managed_provider();
     let mut config = Config::default();
@@ -378,8 +378,8 @@ fn openhuman_jwt_slug_preserves_forced_text_mode() {
     assert!(!profile.streaming_tool_chunks);
 }
 
-#[test]
-fn openhuman_jwt_slug_without_model_preserves_managed_role_tier() {
+#[tokio::test]
+async fn openhuman_jwt_slug_without_model_preserves_managed_role_tier() {
     let _guard = crate::inference::inference_test_guard();
     install_test_managed_provider();
     let mut config = Config::default();
@@ -397,8 +397,8 @@ fn openhuman_jwt_slug_without_model_preserves_managed_role_tier() {
     assert_eq!(model_id, "fixture/managed-default");
 }
 
-#[test]
-fn try_create_cloud_slug_flips_openai_but_declines_non_cloud() {
+#[tokio::test]
+async fn try_create_cloud_slug_flips_openai_but_declines_non_cloud() {
     let _guard = crate::inference::inference_test_guard();
     // `openai` (API-key Bearer, no codex OAuth) now flips crate-native on Chat
     // Completions — the legacy `/v1/responses` fallback is not replicated.

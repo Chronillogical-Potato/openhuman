@@ -18,8 +18,8 @@ impl std::io::Write for CapturedScopeLogs {
     }
 }
 
-#[test]
-fn dormant_scope_epochs_do_not_accumulate_with_profile_churn() {
+#[tokio::test]
+async fn dormant_scope_epochs_do_not_accumulate_with_profile_churn() {
     let _guard = composio_cache_test_lock();
     for index in 0..128 {
         drop(cache_generation(&format!(
@@ -38,8 +38,8 @@ fn dormant_scope_epochs_do_not_accumulate_with_profile_churn() {
     );
 }
 
-#[test]
-fn epoch_reclamation_preserves_the_lease_fencing_an_in_flight_fetch() {
+#[tokio::test]
+async fn epoch_reclamation_preserves_the_lease_fencing_an_in_flight_fetch() {
     let _guard = composio_cache_test_lock();
     let original = cache_generation("review-live/snapshot");
     original.fetch_add(1, Ordering::SeqCst);
@@ -98,8 +98,8 @@ fn seed(config: &Config, ctx: Arc<CoreContext>, toolkit: &str) -> String {
 }
 
 /// Matching credentials must not let one profile read another's snapshot.
-#[test]
-fn profiles_with_identical_credentials_cannot_read_each_others_integrations() {
+#[tokio::test]
+async fn profiles_with_identical_credentials_cannot_read_each_others_integrations() {
     let _guard = composio_cache_test_lock();
     let dir = tempfile::tempdir().unwrap();
     let config = config(dir.path());
@@ -129,8 +129,8 @@ fn profiles_with_identical_credentials_cannot_read_each_others_integrations() {
 }
 
 /// Reconcile only the caller's entries against its connection response.
-#[test]
-fn reconciliation_for_one_profile_preserves_another_profiles_connections() {
+#[tokio::test]
+async fn reconciliation_for_one_profile_preserves_another_profiles_connections() {
     let _guard = composio_cache_test_lock();
     let dir = tempfile::tempdir().unwrap();
     let config = config(dir.path());
@@ -155,8 +155,8 @@ fn reconciliation_for_one_profile_preserves_another_profiles_connections() {
     guard.remove(&alice_key);
 }
 /// Invalidation must leave another profile's cached snapshot readable.
-#[test]
-fn profile_invalidation_preserves_another_profiles_snapshot() {
+#[tokio::test]
+async fn profile_invalidation_preserves_another_profiles_snapshot() {
     let _guard = composio_cache_test_lock();
     let dir = tempfile::tempdir().unwrap();
     let config = config(dir.path());
@@ -180,8 +180,8 @@ fn profile_invalidation_preserves_another_profiles_snapshot() {
 }
 
 /// Fence the caller's pending warm while admitting another profile's result.
-#[test]
-fn profile_invalidation_does_not_cancel_another_profiles_in_flight_warm() {
+#[tokio::test]
+async fn profile_invalidation_does_not_cancel_another_profiles_in_flight_warm() {
     let _guard = composio_cache_test_lock();
     let dir = tempfile::tempdir().unwrap();
     let config = config(dir.path());
@@ -218,8 +218,8 @@ fn profile_invalidation_does_not_cancel_another_profiles_in_flight_warm() {
 }
 
 /// Missing SaaS authority must refuse cache reads, fetches and mutations.
-#[test]
-fn no_saas_profile_cannot_invalidate_or_reconcile_any_snapshot() {
+#[tokio::test]
+async fn no_saas_profile_cannot_invalidate_or_reconcile_any_snapshot() {
     const CHILD: &str = "OPENHUMAN_TEST_UNSCOPED_CACHE_MUTATION_CHILD";
     if std::env::var_os(CHILD).is_none() {
         let status = std::process::Command::new(std::env::current_exe().unwrap())
@@ -309,8 +309,8 @@ fn no_saas_profile_cannot_invalidate_or_reconcile_any_snapshot() {
 }
 
 /// Desktop agents share their operator catalog and its invalidation epoch.
-#[test]
-fn desktop_agents_share_catalog_and_default_context_invalidates_their_warms() {
+#[tokio::test]
+async fn desktop_agents_share_catalog_and_default_context_invalidates_their_warms() {
     let _guard = composio_cache_test_lock();
     let dir = tempfile::tempdir().unwrap();
     let config = config(dir.path());

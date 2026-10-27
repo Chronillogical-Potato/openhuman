@@ -117,8 +117,8 @@ fn fixture_managed_entry(id: &str) -> CloudProviderCreds {
 
 use crate::inference::provider::factory::access_gates::host_requires_session;
 
-#[test]
-fn inspection_codex_oauth_metadata_marks_output_budget_unsupported() {
+#[tokio::test]
+async fn inspection_codex_oauth_metadata_marks_output_budget_unsupported() {
     use crate::inference::provider::factory::InspectionOutputBudgetCapability;
     use tinyinference_llm::providers::openai::codex::OpenAiCodexRouting;
 
@@ -619,8 +619,8 @@ fn routed_config(endpoint: &str, api_key: &str, model: &str) -> Config {
     config
 }
 
-#[test]
-fn only_library_hosts_are_exempt_from_app_login() {
+#[tokio::test]
+async fn only_library_hosts_are_exempt_from_app_login() {
     use crate::core::types::HostKind;
 
     assert!(!host_requires_session(HostKind::Library));

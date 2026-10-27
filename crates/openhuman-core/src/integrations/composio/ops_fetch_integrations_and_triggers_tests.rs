@@ -182,8 +182,8 @@ async fn fetch_connected_integrations_via_mock_returns_empty_with_no_active() {
     assert!(integrations.is_empty());
 }
 
-#[test]
-fn sync_cache_invalidates_when_connection_becomes_active() {
+#[tokio::test]
+async fn sync_cache_invalidates_when_connection_becomes_active() {
     let _guard = cache_guard();
     // Cache reflects the pre-connect world: gmail is listed but
     // not connected. This is exactly the state the chat runtime
@@ -216,8 +216,8 @@ fn sync_cache_invalidates_when_connection_becomes_active() {
     );
 }
 
-#[test]
-fn sync_cache_invalidates_when_connection_is_removed() {
+#[tokio::test]
+async fn sync_cache_invalidates_when_connection_is_removed() {
     let _guard = cache_guard();
     // Cache remembers gmail as connected. The user just
     // disconnected it from Settings; the next UI poll returns an
@@ -238,8 +238,8 @@ fn sync_cache_invalidates_when_connection_is_removed() {
     );
 }
 
-#[test]
-fn sync_cache_noop_when_backend_matches_cached_state() {
+#[tokio::test]
+async fn sync_cache_noop_when_backend_matches_cached_state() {
     let _guard = cache_guard();
     // Steady state: UI polls confirm cache is accurate. No
     // invalidation — we must not thrash the chat runtime's tool
@@ -265,8 +265,8 @@ fn sync_cache_noop_when_backend_matches_cached_state() {
     assert_eq!(guard.get(key).unwrap().entries.len(), 2);
 }
 
-#[test]
-fn sync_cache_ignores_non_active_connection_rows() {
+#[tokio::test]
+async fn sync_cache_ignores_non_active_connection_rows() {
     let _guard = cache_guard();
     // Backend reports a PENDING row (user started OAuth but
     // hasn't completed). The cache should NOT be invalidated —
@@ -294,8 +294,8 @@ fn sync_cache_ignores_non_active_connection_rows() {
     );
 }
 
-#[test]
-fn sync_cache_treats_connected_status_equivalent_to_active() {
+#[tokio::test]
+async fn sync_cache_treats_connected_status_equivalent_to_active() {
     let _guard = cache_guard();
     // Backend may emit either "ACTIVE" or "CONNECTED" — we treat
     // them identically in every status check (see
@@ -344,8 +344,8 @@ async fn cache_entries_survive_idle_time_until_connection_change() {
     ));
 }
 
-#[test]
-fn cached_integrations_remain_available_after_a_long_idle_period() {
+#[tokio::test]
+async fn cached_integrations_remain_available_after_a_long_idle_period() {
     let _guard = cache_guard();
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -657,8 +657,8 @@ async fn composio_list_connections_routes_through_direct_mode() {
     }
 }
 
-#[test]
-fn direct_mode_without_key_is_false_in_backend_mode() {
+#[tokio::test]
+async fn direct_mode_without_key_is_false_in_backend_mode() {
     let tmp = tempfile::tempdir().unwrap();
     // Default mode is backend — the guard must never fire there, or
     // backend users would get a silent empty list.
@@ -666,15 +666,15 @@ fn direct_mode_without_key_is_false_in_backend_mode() {
     assert!(!direct_mode_without_key(&config).unwrap());
 }
 
-#[test]
-fn direct_mode_without_key_is_true_when_direct_and_no_key() {
+#[tokio::test]
+async fn direct_mode_without_key_is_true_when_direct_and_no_key() {
     let tmp = tempfile::tempdir().unwrap();
     let config = direct_mode_no_key_config(&tmp);
     assert!(direct_mode_without_key(&config).unwrap());
 }
 
-#[test]
-fn direct_mode_without_key_is_false_when_key_in_config_toml() {
+#[tokio::test]
+async fn direct_mode_without_key_is_false_when_key_in_config_toml() {
     let tmp = tempfile::tempdir().unwrap();
     // Key supplied via config.toml (not the keychain) still counts —
     // the factory accepts it, so the guard must NOT short-circuit and
@@ -684,8 +684,8 @@ fn direct_mode_without_key_is_false_when_key_in_config_toml() {
     assert!(!direct_mode_without_key(&config).unwrap());
 }
 
-#[test]
-fn direct_mode_without_key_is_false_when_key_in_keychain() {
+#[tokio::test]
+async fn direct_mode_without_key_is_false_when_key_in_keychain() {
     let tmp = tempfile::tempdir().unwrap();
     // `direct_mode_config` stores a key via the auth store — the guard
     // must see it and report "has key".

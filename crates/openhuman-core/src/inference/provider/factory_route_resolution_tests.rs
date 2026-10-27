@@ -3,8 +3,8 @@ use super::*;
 use crate::inference::provider::factory::access_gates::local_only_violation;
 /// When the provider string includes a model id the factory should build
 /// successfully and return that model id unchanged.
-#[test]
-fn nvidia_nim_with_explicit_model_builds_correctly() {
+#[tokio::test]
+async fn nvidia_nim_with_explicit_model_builds_correctly() {
     let _guard = crate::inference::inference_test_guard();
     let config = config_with_providers(vec![nvidia_nim_entry("p_nim", None)]);
     let (_, model) = create_test_chat_model_from_string(
@@ -25,8 +25,8 @@ fn nvidia_nim_with_explicit_model_builds_correctly() {
 /// triggers a 400 "model field is required" from nvidia-nim).
 ///
 /// Regression test for https://github.com/tinyhumansai/openhuman/issues/2784.
-#[test]
-fn nvidia_nim_empty_model_in_provider_string_errors_clearly() {
+#[tokio::test]
+async fn nvidia_nim_empty_model_in_provider_string_errors_clearly() {
     let _guard = crate::inference::inference_test_guard();
     let config = config_with_providers(vec![nvidia_nim_entry("p_nim", None)]);
     let err = match create_test_chat_model_from_string("reasoning", "nvidia-nim:", &config) {
@@ -46,8 +46,8 @@ fn nvidia_nim_empty_model_in_provider_string_errors_clearly() {
 
 /// When the provider string has no model id but the entry has a concrete
 /// default_model, that default should be used — no error.
-#[test]
-fn nvidia_nim_falls_back_to_default_model_when_no_model_in_string() {
+#[tokio::test]
+async fn nvidia_nim_falls_back_to_default_model_when_no_model_in_string() {
     let _guard = crate::inference::inference_test_guard();
     let config = config_with_providers(vec![nvidia_nim_entry(
         "p_nim",
@@ -63,8 +63,8 @@ fn nvidia_nim_falls_back_to_default_model_when_no_model_in_string() {
 
 /// The legacy direct-inference slug — the provider whose endpoint matches
 /// `config.inference_url` — inherits the global `config.api_key`.
-#[test]
-fn config_api_key_fallback_applies_to_legacy_inference_slug() {
+#[tokio::test]
+async fn config_api_key_fallback_applies_to_legacy_inference_slug() {
     let tmp = TempDir::new().expect("tempdir");
     let config = config_for_api_key_fallback(&tmp);
     assert_eq!(
@@ -78,8 +78,8 @@ fn config_api_key_fallback_applies_to_legacy_inference_slug() {
 /// `config.inference_url` must NOT inherit the global `config.api_key`.
 /// Without this guard the fallback would leak one provider's credential to
 /// every other provider (cross-provider credential leak, PR #2724).
-#[test]
-fn config_api_key_fallback_does_not_leak_to_other_slugs() {
+#[tokio::test]
+async fn config_api_key_fallback_does_not_leak_to_other_slugs() {
     let tmp = TempDir::new().expect("tempdir");
     let config = config_for_api_key_fallback(&tmp);
     assert_eq!(
@@ -91,8 +91,8 @@ fn config_api_key_fallback_does_not_leak_to_other_slugs() {
 
 /// When `inference_url` itself is unset, the `config.api_key` fallback never
 /// fires (no legacy direct-inference slug to scope to), so no slug inherits it.
-#[test]
-fn config_api_key_fallback_inert_without_inference_url() {
+#[tokio::test]
+async fn config_api_key_fallback_inert_without_inference_url() {
     let tmp = TempDir::new().expect("tempdir");
     let mut config = config_for_api_key_fallback(&tmp);
     config.inference_url = None;
@@ -105,8 +105,8 @@ fn config_api_key_fallback_inert_without_inference_url() {
 
 // ── Local provider profile tests ─────────────────────────────────────────────
 
-#[test]
-fn mlx_provider_string_resolves() {
+#[tokio::test]
+async fn mlx_provider_string_resolves() {
     let _guard = crate::inference::inference_test_guard();
     let config = Config::default();
     let result = create_test_chat_model_from_string("chat", "mlx:llama-3.1-8b", &config);
@@ -115,8 +115,8 @@ fn mlx_provider_string_resolves() {
     assert_eq!(model, "llama-3.1-8b");
 }
 
-#[test]
-fn local_openai_provider_string_resolves() {
+#[tokio::test]
+async fn local_openai_provider_string_resolves() {
     let _guard = crate::inference::inference_test_guard();
     let config = Config::default();
     let result = create_test_chat_model_from_string("chat", "local-openai:phi3", &config);
@@ -125,8 +125,8 @@ fn local_openai_provider_string_resolves() {
     assert_eq!(model, "phi3");
 }
 
-#[test]
-fn mlx_provider_empty_model_errors() {
+#[tokio::test]
+async fn mlx_provider_empty_model_errors() {
     let _guard = crate::inference::inference_test_guard();
     let config = Config::default();
     let result = create_test_chat_model_from_string("chat", "mlx:", &config);
@@ -134,8 +134,8 @@ fn mlx_provider_empty_model_errors() {
     assert!(err.to_string().contains("empty model"));
 }
 
-#[test]
-fn local_openai_provider_empty_model_errors() {
+#[tokio::test]
+async fn local_openai_provider_empty_model_errors() {
     let _guard = crate::inference::inference_test_guard();
     let config = Config::default();
     let result = create_test_chat_model_from_string("chat", "local-openai:", &config);
@@ -145,8 +145,8 @@ fn local_openai_provider_empty_model_errors() {
     assert!(err.to_string().contains("empty model"));
 }
 
-#[test]
-fn ollama_provider_passes_num_ctx() {
+#[tokio::test]
+async fn ollama_provider_passes_num_ctx() {
     let _guard = crate::inference::inference_test_guard();
     let mut config = Config::default();
     config.local_ai.num_ctx = Some(32768);
@@ -162,8 +162,8 @@ fn ollama_provider_passes_num_ctx() {
 // were not eligible to be inherited; they now assert the stronger property that
 // replaced it — an unset route inherits nothing at all — through the public seam.
 
-#[test]
-fn unset_route_does_not_inherit_a_local_sibling() {
+#[tokio::test]
+async fn unset_route_does_not_inherit_a_local_sibling() {
     let mut config = Config::default();
     config.chat_provider = Some("mlx:llama3".to_string());
     config.reasoning_provider = Some("local-openai:phi3".to_string());
@@ -174,8 +174,8 @@ fn unset_route_does_not_inherit_a_local_sibling() {
     );
 }
 
-#[test]
-fn unset_route_does_not_inherit_omlx() {
+#[tokio::test]
+async fn unset_route_does_not_inherit_omlx() {
     let mut config = Config::default();
     config.chat_provider = Some("omlx:llama3".to_string());
     assert_eq!(
@@ -190,8 +190,8 @@ fn unset_route_does_not_inherit_omlx() {
 /// `coding_provider` alone re-routed both `chat` and `reasoning` to
 /// `openrouter:zai/glm-4.7` — their ordinary conversations billed to their own
 /// key, with no settings field saying so.
-#[test]
-fn setting_one_chat_tier_route_leaves_its_siblings_on_the_managed_backend() {
+#[tokio::test]
+async fn setting_one_chat_tier_route_leaves_its_siblings_on_the_managed_backend() {
     let mut config = Config::default();
     config.coding_provider = Some("openrouter:zai/glm-4.7".to_string());
 
@@ -212,8 +212,8 @@ fn setting_one_chat_tier_route_leaves_its_siblings_on_the_managed_backend() {
 
 /// The relation was not even symmetric before the fix: `agentic_provider` was
 /// read as a donor but never received a route. Both directions are now inert.
-#[test]
-fn agentic_route_is_neither_donor_nor_beneficiary() {
+#[tokio::test]
+async fn agentic_route_is_neither_donor_nor_beneficiary() {
     let mut config = Config::default();
     config.agentic_provider = Some("openrouter:some/model".to_string());
     assert_eq!(
@@ -231,8 +231,8 @@ fn agentic_route_is_neither_donor_nor_beneficiary() {
     );
 }
 
-#[test]
-fn local_provider_string_detection() {
+#[tokio::test]
+async fn local_provider_string_detection() {
     use tinyinference_local::profile::is_local_provider_string;
     assert!(is_local_provider_string("ollama:phi3"));
     assert!(is_local_provider_string("lmstudio:model"));
@@ -247,8 +247,8 @@ fn local_provider_string_detection() {
 // Generic model aliases can resolve BYOK workload routes without the core
 // knowing any provider's model vocabulary.
 
-#[test]
-fn resolve_model_for_hint_extracts_model_from_byok_provider() {
+#[tokio::test]
+async fn resolve_model_for_hint_extracts_model_from_byok_provider() {
     let mut config = Config::default();
     config.reasoning_provider = Some("openai:gpt-4o".to_string());
     assert_eq!(
@@ -271,8 +271,8 @@ fn resolve_model_for_hint_extracts_model_from_byok_provider() {
     );
 }
 
-#[test]
-fn unresolved_managed_route_keeps_the_abstract_hint() {
+#[tokio::test]
+async fn unresolved_managed_route_keeps_the_abstract_hint() {
     let mut config = Config::default();
     config.reasoning_provider = Some("openhuman".to_string());
     assert_eq!(
@@ -305,8 +305,8 @@ fn unresolved_managed_route_keeps_the_abstract_hint() {
     );
 }
 
-#[test]
-fn resolve_model_for_hint_handles_unknown_hint_passthrough() {
+#[tokio::test]
+async fn resolve_model_for_hint_handles_unknown_hint_passthrough() {
     let config = Config::default();
     let result = crate::inference::provider_model::resolve_provider_model_hint(
         crate::inference::provider::factory::PROVIDER_OPENHUMAN,
@@ -316,8 +316,8 @@ fn resolve_model_for_hint_handles_unknown_hint_passthrough() {
     assert_eq!(result, "hint:unknown_tier");
 }
 
-#[test]
-fn omlx_provider_builds_with_bearer_key() {
+#[tokio::test]
+async fn omlx_provider_builds_with_bearer_key() {
     let _guard = crate::inference::inference_test_guard();
     let mut config = crate::config::Config::default();
     config.local_ai.api_key = Some("sk-omlx-test".to_string());
@@ -327,8 +327,8 @@ fn omlx_provider_builds_with_bearer_key() {
     assert_eq!(model, "my-model");
 }
 
-#[test]
-fn omlx_dispatch_empty_model_errors() {
+#[tokio::test]
+async fn omlx_dispatch_empty_model_errors() {
     let _guard = crate::inference::inference_test_guard();
     // Covers the empty-model bail! arms in create_test_chat_model_from_string
     // and create_test_local_chat_model_from_string for the "omlx:" prefix.
@@ -353,8 +353,8 @@ fn omlx_dispatch_empty_model_errors() {
     );
 }
 
-#[test]
-fn omlx_provider_builds_without_key_uses_no_auth() {
+#[tokio::test]
+async fn omlx_provider_builds_without_key_uses_no_auth() {
     let _guard = crate::inference::inference_test_guard();
     // Covers the no-api_key OMLX builder branch — must not panic and must
     // return Ok with the correct model name.
@@ -366,8 +366,8 @@ fn omlx_provider_builds_without_key_uses_no_auth() {
     assert_eq!(model, "m");
 }
 
-#[test]
-fn omlx_dispatch_success_builds_provider() {
+#[tokio::test]
+async fn omlx_dispatch_success_builds_provider() {
     let _guard = crate::inference::inference_test_guard();
     // Covers the non-empty OMLX model success arms in both
     // create_test_chat_model_from_string and create_test_local_chat_model_from_string.
@@ -385,8 +385,8 @@ fn omlx_dispatch_success_builds_provider() {
     assert_eq!(model_local, "my-model");
 }
 
-#[test]
-fn byo_chat_tier_with_key_bypasses() {
+#[tokio::test]
+async fn byo_chat_tier_with_key_bypasses() {
     let tmp = TempDir::new().expect("tempdir");
     // Quick mode runs on `chat`; routed to the user's own OpenAI provider + key.
     let mut config = config_with_providers_in_tempdir(&tmp, vec![openai_entry("p_oai", "openai")]);
@@ -396,8 +396,8 @@ fn byo_chat_tier_with_key_bypasses() {
     assert!(role_bypasses_managed_credits("chat", &config));
 }
 
-#[test]
-fn byo_reasoning_tier_with_key_bypasses() {
+#[tokio::test]
+async fn byo_reasoning_tier_with_key_bypasses() {
     let tmp = TempDir::new().expect("tempdir");
     // Reasoning mode runs on `reasoning`; routed to the user's own provider + key.
     let mut config = config_with_providers_in_tempdir(&tmp, vec![openai_entry("p_oai", "openai")]);
@@ -407,8 +407,8 @@ fn byo_reasoning_tier_with_key_bypasses() {
     assert!(role_bypasses_managed_credits("reasoning", &config));
 }
 
-#[test]
-fn per_tier_diverges_chat_byo_reasoning_managed() {
+#[tokio::test]
+async fn per_tier_diverges_chat_byo_reasoning_managed() {
     let tmp = TempDir::new().expect("tempdir");
     // The crux of the per-tier check: chat on BYOK, reasoning explicitly managed.
     // Quick mode (chat) bypasses; Reasoning mode (reasoning) stays gated.
@@ -421,16 +421,16 @@ fn per_tier_diverges_chat_byo_reasoning_managed() {
     assert!(!role_bypasses_managed_credits("reasoning", &config));
 }
 
-#[test]
-fn local_tier_bypasses_without_any_key() {
+#[tokio::test]
+async fn local_tier_bypasses_without_any_key() {
     // A tier on a local on-device runtime → bypass, no cloud key needed.
     let mut config = Config::default();
     config.chat_provider = Some("ollama:qwen3:8b".to_string());
     assert!(role_bypasses_managed_credits("chat", &config));
 }
 
-#[test]
-fn managed_chat_with_byo_agentic_stays_gated() {
+#[tokio::test]
+async fn managed_chat_with_byo_agentic_stays_gated() {
     let tmp = TempDir::new().expect("tempdir");
     // chat explicitly managed; only tool-use (agentic) is BYOK. The chat tier
     // still bills managed credits → chat role stays gated. (agentic itself is a
@@ -445,8 +445,8 @@ fn managed_chat_with_byo_agentic_stays_gated() {
     assert!(!role_bypasses_managed_credits("reasoning", &config));
 }
 
-#[test]
-fn managed_chat_with_byo_vision_stays_gated() {
+#[tokio::test]
+async fn managed_chat_with_byo_vision_stays_gated() {
     let tmp = TempDir::new().expect("tempdir");
     // Vision on BYOK but the chat-mode tiers stay managed → chat/reasoning gated.
     let mut config = config_with_providers_in_tempdir(&tmp, vec![openai_entry("p_oai", "openai")]);
@@ -459,8 +459,8 @@ fn managed_chat_with_byo_vision_stays_gated() {
     assert!(!role_bypasses_managed_credits("reasoning", &config));
 }
 
-#[test]
-fn no_byo_provider_stays_gated() {
+#[tokio::test]
+async fn no_byo_provider_stays_gated() {
     let tmp = TempDir::new().expect("tempdir");
     // OpenAI entry exists but every tier is left on the managed default and no
     // key is stored → chat-mode tiers managed → must NOT bypass.
@@ -471,16 +471,16 @@ fn no_byo_provider_stays_gated() {
     assert!(!role_bypasses_managed_credits("reasoning", &config));
 }
 
-#[test]
-fn default_config_with_no_key_stays_gated() {
+#[tokio::test]
+async fn default_config_with_no_key_stays_gated() {
     // No BYO provider at all → both chat-mode tiers gated.
     let config = Config::default();
     assert!(!role_bypasses_managed_credits("chat", &config));
     assert!(!role_bypasses_managed_credits("reasoning", &config));
 }
 
-#[test]
-fn byo_route_without_usable_key_stays_gated() {
+#[tokio::test]
+async fn byo_route_without_usable_key_stays_gated() {
     let tmp = TempDir::new().expect("tempdir");
     // chat tier points at a BYO slug with NO stored key — the route would fail
     // with an auth error, not bill managed credits, but we must not bypass for a
@@ -501,36 +501,36 @@ fn byo_route_without_usable_key_stays_gated() {
 
 // ── Privacy Mode: local-only inference enforcement (#4435) ───────────────────
 
-#[test]
-fn local_only_blocks_external_cloud_slug() {
+#[tokio::test]
+async fn local_only_blocks_external_cloud_slug() {
     use crate::config::PrivacyMode;
     let v = local_only_violation(PrivacyMode::LocalOnly, "openai:gpt-4o");
     assert_eq!(v.as_deref(), Some("openai"));
 }
 
-#[test]
-fn local_only_blocks_managed_backend() {
+#[tokio::test]
+async fn local_only_blocks_managed_backend() {
     use crate::config::PrivacyMode;
     let v = local_only_violation(PrivacyMode::LocalOnly, PROVIDER_OPENHUMAN);
     assert_eq!(v.as_deref(), Some("OpenHuman (managed cloud)"));
 }
 
-#[test]
-fn local_only_blocks_claude_code_cli() {
+#[tokio::test]
+async fn local_only_blocks_claude_code_cli() {
     use crate::config::PrivacyMode;
     let v = local_only_violation(PrivacyMode::LocalOnly, "claude-code:sonnet");
     assert_eq!(v.as_deref(), Some("Claude Code CLI"));
 }
 
-#[test]
-fn local_only_blocks_claude_agent_sdk() {
+#[tokio::test]
+async fn local_only_blocks_claude_agent_sdk() {
     use crate::config::PrivacyMode;
     let violation = local_only_violation(PrivacyMode::LocalOnly, "claude_agent_sdk:sonnet");
     assert_eq!(violation.as_deref(), Some("Claude Agent SDK"));
 }
 
-#[test]
-fn local_only_permits_local_runtimes() {
+#[tokio::test]
+async fn local_only_permits_local_runtimes() {
     use crate::config::PrivacyMode;
     for local in [
         "ollama:llama3",
@@ -546,8 +546,8 @@ fn local_only_permits_local_runtimes() {
     }
 }
 
-#[test]
-fn local_only_defers_reresolving_sentinels() {
+#[tokio::test]
+async fn local_only_defers_reresolving_sentinels() {
     use crate::config::PrivacyMode;
     // Empty / "cloud" re-resolve to a concrete string and are re-checked on the
     // recursive call — not blocked here.
@@ -555,8 +555,8 @@ fn local_only_defers_reresolving_sentinels() {
     assert_eq!(local_only_violation(PrivacyMode::LocalOnly, "cloud"), None);
 }
 
-#[test]
-fn local_only_does_not_treat_unresolved_route_sentinels_as_local() {
+#[tokio::test]
+async fn local_only_does_not_treat_unresolved_route_sentinels_as_local() {
     use crate::config::PrivacyMode;
     for route in ["cloud:gpt-4o", ":gpt-4o"] {
         assert!(
@@ -566,8 +566,8 @@ fn local_only_does_not_treat_unresolved_route_sentinels_as_local() {
     }
 }
 
-#[test]
-fn standard_mode_permits_external() {
+#[tokio::test]
+async fn standard_mode_permits_external() {
     use crate::config::PrivacyMode;
     assert_eq!(
         local_only_violation(PrivacyMode::Standard, "openai:gpt-4o"),

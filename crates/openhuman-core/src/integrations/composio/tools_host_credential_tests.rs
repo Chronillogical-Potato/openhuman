@@ -102,8 +102,8 @@ fn direct_key_fingerprint(config: &Config) -> u64 {
     }
 }
 
-#[test]
-fn pinned_credential_beats_the_shared_credential_store() {
+#[tokio::test]
+async fn pinned_credential_beats_the_shared_credential_store() {
     let tmp = tempfile::tempdir().unwrap();
     let base = shared_runtime_config(&tmp);
     let agent = pinned(&base, KEY_A, "tenant-a", None);
@@ -174,8 +174,8 @@ async fn two_agents_on_one_runtime_each_call_composio_with_their_own_key() {
     );
 }
 
-#[test]
-fn connected_integrations_cache_is_keyed_per_credential() {
+#[tokio::test]
+async fn connected_integrations_cache_is_keyed_per_credential() {
     let tmp = tempfile::tempdir().unwrap();
     let base = shared_runtime_config(&tmp);
     let agent_a = pinned(&base, KEY_A, "tenant-a", None);
@@ -271,8 +271,8 @@ async fn redaction_covers_every_result_channel() {
 /// cache right after a rotation would transparently receive the previous
 /// credential's cached connection list. Two DIFFERENT credentials must
 /// never collide on one cache identity.
-#[test]
-fn cache_key_changes_when_the_shared_stored_key_rotates_in_unpinned_direct_mode() {
+#[tokio::test]
+async fn cache_key_changes_when_the_shared_stored_key_rotates_in_unpinned_direct_mode() {
     let tmp = tempfile::tempdir().unwrap();
     let mut base = shared_runtime_config(&tmp);
     base.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.into();
@@ -299,8 +299,8 @@ fn cache_key_changes_when_the_shared_stored_key_rotates_in_unpinned_direct_mode(
 
 /// Sanity counterpart: an unchanged stored key must keep producing the same
 /// cache identity (no key material, no unrelated flapping).
-#[test]
-fn cache_key_is_stable_for_unpinned_direct_mode_when_nothing_rotates() {
+#[tokio::test]
+async fn cache_key_is_stable_for_unpinned_direct_mode_when_nothing_rotates() {
     let tmp = tempfile::tempdir().unwrap();
     let mut base = shared_runtime_config(&tmp);
     base.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.into();

@@ -201,8 +201,8 @@ async fn composio_list_trigger_history_errors_when_store_not_init() {
     assert!(err.contains("list_trigger_history failed"), "{err}");
 }
 
-#[test]
-fn cache_key_is_based_on_config_path_string() {
+#[tokio::test]
+async fn cache_key_is_based_on_config_path_string() {
     let tmp = tempfile::tempdir().unwrap();
     let mut a = Config::default();
     a.config_path = tmp.path().join("a.toml");
@@ -221,8 +221,8 @@ async fn fetch_connected_integrations_returns_empty_without_auth() {
     assert!(integrations.is_empty());
 }
 
-#[test]
-fn invalidate_connected_integrations_cache_is_safe_without_prior_insert() {
+#[tokio::test]
+async fn invalidate_connected_integrations_cache_is_safe_without_prior_insert() {
     let _guard = cache_guard();
     // Must not panic on an empty cache.
     invalidate_connected_integrations_cache();

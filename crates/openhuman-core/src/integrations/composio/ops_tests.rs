@@ -12,8 +12,8 @@ fn test_config(tmp: &tempfile::TempDir) -> Config {
     c
 }
 
-#[test]
-fn list_tools_tag_filter_policy_matches_supported_toolkits() {
+#[tokio::test]
+async fn list_tools_tag_filter_policy_matches_supported_toolkits() {
     let cases: Vec<(Option<Vec<String>>, bool)> = vec![
         (None, true),
         (Some(vec![]), true),

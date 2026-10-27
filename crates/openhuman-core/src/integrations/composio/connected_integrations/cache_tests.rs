@@ -1,7 +1,7 @@
 use super::*;
 
-#[test]
-fn cache_key_changes_when_backend_credential_rotates() {
+#[tokio::test]
+async fn cache_key_changes_when_backend_credential_rotates() {
     let tmp = tempfile::TempDir::new().unwrap();
     let config = Config {
         workspace_dir: tmp.path().join("workspace"),
@@ -20,8 +20,8 @@ fn cache_key_changes_when_backend_credential_rotates() {
     assert!(!second.contains("tiny_second_key"));
 }
 
-#[test]
-fn cache_key_changes_when_backend_url_changes() {
+#[tokio::test]
+async fn cache_key_changes_when_backend_url_changes() {
     let tmp = tempfile::TempDir::new().unwrap();
     let mut config = Config {
         workspace_dir: tmp.path().join("workspace"),
@@ -36,8 +36,8 @@ fn cache_key_changes_when_backend_url_changes() {
     assert_ne!(first, cache_key(&config));
 }
 
-#[test]
-fn cache_key_changes_when_resolved_fallback_url_changes() {
+#[tokio::test]
+async fn cache_key_changes_when_resolved_fallback_url_changes() {
     let tmp = tempfile::TempDir::new().unwrap();
     let config = Config {
         workspace_dir: tmp.path().join("workspace"),

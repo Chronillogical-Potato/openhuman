@@ -57,8 +57,8 @@ fn with_fixture_library_context<R>(f: impl FnOnce() -> R) -> R {
     crate::core::runtime::CoreContext::sync_scope(context, f)
 }
 
-#[test]
-fn custom_ca_bundle_builds_a_provider_scoped_chat_client() {
+#[tokio::test]
+async fn custom_ca_bundle_builds_a_provider_scoped_chat_client() {
     let _guard = crate::inference::inference_test_guard();
     let (_tmp, mut config) = isolated_config();
     config.cloud_providers.push(openai_entry("p_team", "team"));
@@ -82,8 +82,8 @@ fn custom_ca_bundle_builds_a_provider_scoped_chat_client() {
         Some("team".into())
     );
 }
-#[test]
-fn enforce_local_only_inference_errors_on_external_when_local_only() {
+#[tokio::test]
+async fn enforce_local_only_inference_errors_on_external_when_local_only() {
     // Drive the live-policy-backed wrapper: install a LocalOnly policy, then
     // assert an external provider is refused with the privacy message and a
     // local provider passes. Factory tests use `inference_test_guard`; take the
@@ -296,8 +296,8 @@ async fn one_shot_cloud_sentinel_resolves_the_configured_byok_provider() {
 // crate-native `TinyHumansModel`, whose profile advertises the capabilities
 // that routing previously inferred through the provider adapter.
 
-#[test]
-fn resolves_to_managed_backend_for_default_config_but_not_for_local() {
+#[tokio::test]
+async fn resolves_to_managed_backend_for_default_config_but_not_for_local() {
     // A default config has no BYOK/cloud providers, so every chat-tier role
     // resolves to the managed OpenHuman backend.
     let managed = Config::default();
@@ -310,8 +310,8 @@ fn resolves_to_managed_backend_for_default_config_but_not_for_local() {
     assert!(!resolves_to_managed_backend("chat", &local));
 }
 
-#[test]
-fn create_chat_model_routes_managed_backend_to_crate_native() {
+#[tokio::test]
+async fn create_chat_model_routes_managed_backend_to_crate_native() {
     let _guard = crate::inference::inference_test_guard();
     install_test_managed_provider();
     let (tmp, mut config) = isolated_config();
@@ -327,8 +327,8 @@ fn create_chat_model_routes_managed_backend_to_crate_native() {
     );
 }
 
-#[test]
-fn create_chat_model_routes_local_runtime_to_crate_native() {
+#[tokio::test]
+async fn create_chat_model_routes_local_runtime_to_crate_native() {
     let _guard = crate::inference::inference_test_guard();
     let mut config = Config::default();
     config.chat_provider = Some("ollama:qwen2.5".to_string());
@@ -353,8 +353,8 @@ fn create_chat_model_routes_local_runtime_to_crate_native() {
     assert!(!profile.modalities.image_in, "Ollama is text-only here");
 }
 
-#[test]
-fn explicit_local_provider_string_routes_to_crate_native_model() {
+#[tokio::test]
+async fn explicit_local_provider_string_routes_to_crate_native_model() {
     let _guard = crate::inference::inference_test_guard();
     let config = Config::default();
     let (model, model_id) =
@@ -369,8 +369,8 @@ fn explicit_local_provider_string_routes_to_crate_native_model() {
     );
 }
 
-#[test]
-fn try_create_local_runtime_returns_none_for_managed_and_cloud() {
+#[tokio::test]
+async fn try_create_local_runtime_returns_none_for_managed_and_cloud() {
     let _guard = crate::inference::inference_test_guard();
     // Default config resolves to the managed backend, not a local runtime.
     assert!(super::local_runtime::try_create_local_runtime_chat_model(
@@ -392,8 +392,8 @@ fn try_create_local_runtime_returns_none_for_managed_and_cloud() {
     .is_none());
 }
 
-#[test]
-fn create_chat_model_routes_plain_bearer_cloud_slug_to_crate_native() {
+#[tokio::test]
+async fn create_chat_model_routes_plain_bearer_cloud_slug_to_crate_native() {
     let _guard = crate::inference::inference_test_guard();
     // DeepSeek is a built-in chat-completions-only Bearer provider: no
     // `/v1/responses` fallback and no codex-oauth, so it is wire-equivalent and
@@ -415,8 +415,8 @@ fn create_chat_model_routes_plain_bearer_cloud_slug_to_crate_native() {
     assert!(profile.tool_calling);
 }
 
-#[test]
-fn explicit_cloud_provider_string_routes_to_crate_native_model() {
+#[tokio::test]
+async fn explicit_cloud_provider_string_routes_to_crate_native_model() {
     let _guard = crate::inference::inference_test_guard();
     let (_tmp, mut config) = isolated_config();
     config.cloud_providers.push(deepseek_entry("p_ds"));
@@ -444,8 +444,8 @@ fn explicit_cloud_provider_string_routes_to_crate_native_model() {
     );
 }
 
-#[test]
-fn create_chat_model_routes_anthropic_auth_cloud_slug_to_crate_native() {
+#[tokio::test]
+async fn create_chat_model_routes_anthropic_auth_cloud_slug_to_crate_native() {
     let _guard = crate::inference::inference_test_guard();
     // Anthropic-auth cloud slugs are always wire-equivalent (their endpoints have
     // no `/v1/responses`, so the host's dormant fallback is behavior-neutral).
@@ -481,8 +481,8 @@ fn create_chat_model_routes_anthropic_auth_cloud_slug_to_crate_native() {
 /// Text mode (prompt-guided tools) is only implemented on the Chat Completions
 /// adapter, so an Anthropic slug asked for `native_tools = false` keeps the
 /// compat client rather than a native adapter that would ignore the request.
-#[test]
-fn anthropic_auth_cloud_slug_in_text_mode_keeps_the_compat_client() {
+#[tokio::test]
+async fn anthropic_auth_cloud_slug_in_text_mode_keeps_the_compat_client() {
     let _guard = crate::inference::inference_test_guard();
     let (_tmp, mut config) = isolated_config();
     config
@@ -507,8 +507,8 @@ fn anthropic_auth_cloud_slug_in_text_mode_keeps_the_compat_client() {
     assert!(model.profile().is_some_and(|p| !p.tool_calling));
 }
 
-#[test]
-fn configured_openhuman_jwt_slug_routes_to_managed_chat_model() {
+#[tokio::test]
+async fn configured_openhuman_jwt_slug_routes_to_managed_chat_model() {
     let _guard = crate::inference::inference_test_guard();
     install_test_managed_provider();
     let (_tmp, mut config) = isolated_config();
@@ -685,8 +685,8 @@ async fn native_claude_turn_routes_disclose_pinned_models() {
     );
 }
 
-#[test]
-fn openhuman_jwt_slug_preserves_forced_text_mode() {
+#[tokio::test]
+async fn openhuman_jwt_slug_preserves_forced_text_mode() {
     let _guard = crate::inference::inference_test_guard();
     let native_modes = install_test_managed_provider();
     let (_tmp, mut config) = isolated_config();
@@ -710,8 +710,8 @@ fn openhuman_jwt_slug_preserves_forced_text_mode() {
     );
 }
 
-#[test]
-fn openhuman_jwt_slug_without_model_preserves_managed_role_tier() {
+#[tokio::test]
+async fn openhuman_jwt_slug_without_model_preserves_managed_role_tier() {
     let _guard = crate::inference::inference_test_guard();
     install_test_managed_provider();
     let (_tmp, mut config) = isolated_config();

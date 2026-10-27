@@ -2,8 +2,8 @@ use super::*;
 
 use tinyinference_llm::providers::registry::openrouter_default_provider_options;
 
-#[test]
-fn crate_native_chat_model_factory_preserves_invalid_route_diagnostics() {
+#[tokio::test]
+async fn crate_native_chat_model_factory_preserves_invalid_route_diagnostics() {
     let _guard = crate::inference::inference_test_guard();
     super::with_library_test_context(|| {
         let config = Config::default();
@@ -177,8 +177,8 @@ async fn local_aliases_build_without_a_session_and_preserve_model_ids() {
     assert!(!error.to_string().contains("SESSION_EXPIRED"), "{error}");
 }
 
-#[test]
-fn direct_openrouter_endpoints_get_price_sorted_routing_and_nothing_else() {
+#[tokio::test]
+async fn direct_openrouter_endpoints_get_price_sorted_routing_and_nothing_else() {
     // Direct BYOK OpenRouter: cheapest-first sort so consecutive turns stay on
     // one endpoint and its prefix cache hits. Only the sort — never `order` or
     // `allow_fallbacks: false`, which would strand a request on an outage, and
@@ -203,8 +203,8 @@ fn direct_openrouter_endpoints_get_price_sorted_routing_and_nothing_else() {
     assert!(openrouter_default_provider_options("https://OpenRouter.ai/api/v1").is_some());
 }
 
-#[test]
-fn non_openrouter_openai_compatible_endpoints_get_no_baked_provider_options() {
+#[tokio::test]
+async fn non_openrouter_openai_compatible_endpoints_get_no_baked_provider_options() {
     // `provider` is an OpenRouter-only body field; hosted OpenAI rejects
     // unknown top-level fields and local runners ignore them, so no other
     // OpenAI-compatible host may receive it.

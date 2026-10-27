@@ -86,8 +86,8 @@ fn register_fake_backend_route() {
     crate::integrations::composio::test_backend_route::register();
 }
 
-#[test]
-fn resolve_composio_route_backend_is_unavailable_without_a_registered_route() {
+#[tokio::test]
+async fn resolve_composio_route_backend_is_unavailable_without_a_registered_route() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let config = config_with_session_token(&tmp);
     let err = resolve_composio_route(&config)
@@ -100,8 +100,8 @@ fn resolve_composio_route_backend_is_unavailable_without_a_registered_route() {
     );
 }
 
-#[test]
-fn resolve_composio_route_backend_variant_when_mode_default() {
+#[tokio::test]
+async fn resolve_composio_route_backend_variant_when_mode_default() {
     register_fake_backend_route();
     let tmp = tempfile::tempdir().expect("tempdir");
     let config = config_with_session_token(&tmp);
@@ -110,8 +110,8 @@ fn resolve_composio_route_backend_variant_when_mode_default() {
     assert!(matches!(route, ComposioRoute::Backend));
 }
 
-#[test]
-fn resolve_composio_route_backend_empty_mode_falls_back_to_backend() {
+#[tokio::test]
+async fn resolve_composio_route_backend_empty_mode_falls_back_to_backend() {
     // A literal empty string in TOML should be treated as the default
     // (`"backend"`) rather than an unknown mode error.
     register_fake_backend_route();
@@ -122,8 +122,8 @@ fn resolve_composio_route_backend_empty_mode_falls_back_to_backend() {
     assert_eq!(route.mode(), "backend");
 }
 
-#[test]
-fn resolve_composio_route_disabled_errors_even_with_a_session() {
+#[tokio::test]
+async fn resolve_composio_route_disabled_errors_even_with_a_session() {
     // `disabled` wins over a signed-in session: no route, so no tools register.
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = config_with_session_token(&tmp);
@@ -148,8 +148,8 @@ async fn disabled_mode_reports_no_integrations_without_a_backend_call() {
     }
 }
 
-#[test]
-fn resolve_composio_route_backend_errors_without_session() {
+#[tokio::test]
+async fn resolve_composio_route_backend_errors_without_session() {
     // Backend mode requires the app-session JWT — without it the
     // factory must return an explicit error (not silently downgrade).
     register_fake_backend_route();
@@ -165,8 +165,8 @@ fn resolve_composio_route_backend_errors_without_session() {
     );
 }
 
-#[test]
-fn resolve_composio_route_direct_variant_with_stored_key() {
+#[tokio::test]
+async fn resolve_composio_route_direct_variant_with_stored_key() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
@@ -186,8 +186,8 @@ fn resolve_composio_route_direct_variant_with_stored_key() {
     assert!(matches!(route, ComposioRoute::Direct(_)));
 }
 
-#[test]
-fn resolve_composio_route_direct_falls_back_to_config_api_key() {
+#[tokio::test]
+async fn resolve_composio_route_direct_falls_back_to_config_api_key() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
@@ -199,8 +199,8 @@ fn resolve_composio_route_direct_falls_back_to_config_api_key() {
     assert_eq!(route.mode(), "direct");
 }
 
-#[test]
-fn resolve_composio_route_direct_errors_without_key() {
+#[tokio::test]
+async fn resolve_composio_route_direct_errors_without_key() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
@@ -215,8 +215,8 @@ fn resolve_composio_route_direct_errors_without_key() {
     );
 }
 
-#[test]
-fn resolve_composio_route_unknown_mode_errors() {
+#[tokio::test]
+async fn resolve_composio_route_unknown_mode_errors() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
@@ -234,8 +234,8 @@ fn resolve_composio_route_unknown_mode_errors() {
 
 // ── Direct-mode credentials helpers ─────────────────────────────────
 
-#[test]
-fn store_get_clear_composio_api_key_roundtrip() {
+#[tokio::test]
+async fn store_get_clear_composio_api_key_roundtrip() {
     use crate::integrations::composio::{get_composio_api_key, COMPOSIO_DIRECT_PROVIDER};
 
     let tmp = tempfile::tempdir().expect("tempdir");
