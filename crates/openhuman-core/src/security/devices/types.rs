@@ -20,6 +20,10 @@ pub struct PairedDevice {
     pub peer_online: Option<bool>,
     /// True once `devices_revoke` has been called.
     pub revoked: bool,
+    /// TinySecurity owner id used for module-side revoke and recovery.
+    /// Missing on legacy rows until import reconciliation succeeds.
+    #[serde(skip)]
+    pub(crate) pairing_id: Option<String>,
     /// Legacy encrypted core identity retained only as an import source for
     /// pre-TinySecurity device rows. New pairings keep identity ciphertext in
     /// TinySecurity's own persistence record.
