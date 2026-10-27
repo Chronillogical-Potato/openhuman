@@ -194,7 +194,7 @@ async fn build_remote_provider(
             Ok(ResolvedProvider {
                 turn_model_source:
                     crate::agent::tinyagents::TurnModelSource::new_crate_native_from_string(
-                        ctx,
+                        &ctx,
                         TRIAGE_ROLE,
                         &provider_string,
                         Arc::new(config.clone()),
