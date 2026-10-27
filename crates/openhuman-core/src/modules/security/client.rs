@@ -114,7 +114,9 @@ impl Client {
 
     #[cfg(test)]
     fn from_object(object: tinybus::module::ModuleObjectClient) -> Self {
-        Self { object }
+        Self {
+            object: SecurityProxy::Module(object),
+        }
     }
 
     /// Run a paired-device lifecycle operation inside TinySecurity.
