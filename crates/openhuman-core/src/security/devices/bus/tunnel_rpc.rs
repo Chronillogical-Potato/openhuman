@@ -104,7 +104,9 @@ pub(super) async fn handle_encrypted_rpc_frame(
         log::warn!("[devices/bus] TinySecurity rejected frame channel_id={channel_id}");
         return;
     };
-    let envelope = match serde_json::from_slice::<super::tunnel_rpc::TunnelEnvelope>(&opened.bytes)
+    let envelope = match serde_json::from_slice::<
+        crate::security::devices::tunnel_rpc::TunnelEnvelope,
+    >(&opened.bytes)
     {
         Ok(envelope) => envelope,
         Err(error) => {
@@ -117,24 +119,25 @@ pub(super) async fn handle_encrypted_rpc_frame(
     if envelope.kind != "request" {
         return;
     }
-    let request = match super::tunnel_rpc::parse_tunnel_rpc_payload(envelope.payload) {
-        Ok(request) => request,
-        Err(error) => {
-            send_tunnel_response(
-                channel_id,
-                config,
-                &active,
-                connection_nonce,
-                expires_at_ms,
-                &envelope.request_id,
-                "error",
-                Value::String(format!("invalid tunnel RPC payload: {error}")),
-            )
-            .await;
-            return;
-        }
-    };
-    let result = super::tunnel_rpc::dispatch_tunnel_rpc(ctx, request).await;
+    let request =
+        match crate::security::devices::tunnel_rpc::parse_tunnel_rpc_payload(envelope.payload) {
+            Ok(request) => request,
+            Err(error) => {
+                send_tunnel_response(
+                    channel_id,
+                    config,
+                    &active,
+                    connection_nonce,
+                    expires_at_ms,
+                    &envelope.request_id,
+                    "error",
+                    Value::String(format!("invalid tunnel RPC payload: {error}")),
+                )
+                .await;
+                return;
+            }
+        };
+    let result = crate::security::devices::tunnel_rpc::dispatch_tunnel_rpc(ctx, request).await;
     match result {
         Ok(value) => {
             send_tunnel_response(
@@ -169,7 +172,7 @@ async fn confirm_pairing(
     channel_id: &str,
     agent: Option<String>,
     config: &crate::config::Config,
-    session: &super::types::PairingSession,
+    session: &crate::security::devices::types::PairingSession,
     frame: &[u8],
     connection_token: &str,
     connection_nonce: &str,
@@ -259,7 +262,7 @@ async fn confirm_pairing(
     };
     match persisted {
         Ok(device) => {
-            super::owner::remember(channel_id, agent);
+            crate::security::devices::owner::remember(channel_id, agent);
             BUS.publish(DomainEvent::DevicePaired {
                 channel_id: channel_id.to_owned(),
                 device_pubkey: device_public_key,
@@ -270,7 +273,7 @@ async fn confirm_pairing(
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .insert(
                     channel_id.to_owned(),
-                    super::rpc::ActiveDeviceSession {
+                    crate::security::devices::rpc::ActiveDeviceSession {
                         scope_id,
                         session_id,
                         pairing_token: session.pairing_token.clone(),
@@ -303,14 +306,15 @@ async fn confirm_pairing(
 async fn send_tunnel_response(
     channel_id: &str,
     config: &crate::config::Config,
-    session: &super::rpc::ActiveDeviceSession,
+    session: &crate::security::devices::rpc::ActiveDeviceSession,
     _connection_nonce: &str,
     _expires_at_ms: u64,
     request_id: &str,
     kind: &str,
     payload: Value,
 ) {
-    let response = super::tunnel_rpc::response_envelope(request_id, kind, payload);
+    let response =
+        crate::security::devices::tunnel_rpc::response_envelope(request_id, kind, payload);
     let Ok(plaintext) = serde_json::to_vec(&response) else {
         return;
     };
@@ -341,7 +345,7 @@ pub(super) fn decode_frame(value: &str) -> Option<Vec<u8>> {
         .ok()
 }
 
-fn encode_frame(bytes: &[u8]) -> String {
+pub(super) fn encode_frame(bytes: &[u8]) -> String {
     use base64::Engine as _;
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
