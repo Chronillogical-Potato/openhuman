@@ -10,7 +10,6 @@ use std::time::{Duration, Instant};
 
 use common::{PointedInference, chat_completion, last_user_message, runtime_without_master_key};
 use openhuman_core::cron::{self, AgentJobSpec, Schedule};
-use openhuman_embed::profiles::ProfileCredentialKind;
 use openhuman_embed::{ProfileRuntime, SaasConfig};
 use wiremock::{Mock, Request, Respond, ResponseTemplate};
 
@@ -94,15 +93,7 @@ async fn scenario() {
 
     let mut handles = Vec::new();
     for user in ["alice", "bob"] {
-        let provisioned = runtime.provision(user).await.unwrap();
-        runtime
-            .set_credential(
-                &provisioned.profile_id,
-                ProfileCredentialKind::ApiKey,
-                "fixture-key",
-            )
-            .await
-            .expect("profile credential is stored");
+        runtime.provision(user).await.unwrap();
         handles.push(runtime.open(user).await.unwrap());
     }
     let (alice, bob) = (handles.remove(0), handles.remove(0));
