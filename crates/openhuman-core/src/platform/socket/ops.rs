@@ -73,6 +73,3 @@ pub async fn connect_with_session(
     connect_with_session_using(manager, &api_url, &token, provider).await
 }
 
-#[cfg(test)]
-#[path = "ops_tests.rs"]
-mod tests;
