@@ -86,15 +86,16 @@ fn direct_recovery_event_is_bound_to_its_exact_channel() {
     use tinysecurity_bus::{DevicePairingPurpose2, DevicePairingSource2};
 
     let events = PairingEventRegistry::default();
-    let event = events
-        .issue(
-            pairing_context(
-                "recover-channel",
-                DevicePairingSource2::AuthenticatedUserController,
-            ),
-            1_000,
-        )
-        .unwrap();
+    let recovery_context = || {
+        let mut context = pairing_context(
+            "recover-channel",
+            DevicePairingSource2::AuthenticatedUserController,
+        );
+        context.pairing_token = None;
+        context.connection_nonce.clear();
+        context
+    };
+    let event = events.issue(recovery_context(), 1_000).unwrap();
     let request = |channel: &str| tinysecurity_bus::DevicePairingContextRequest2 {
         host_event_id: event.clone(),
         purpose: DevicePairingPurpose2::UserController,
@@ -102,19 +103,14 @@ fn direct_recovery_event_is_bound_to_its_exact_channel() {
     };
 
     assert_eq!(
-        events.resolve(&request("recover-channel"), 1_000).unwrap().channel_id,
+        events
+            .resolve(&request("recover-channel"), 1_000)
+            .unwrap()
+            .channel_id,
         "recover-channel"
     );
 
-    let wrong_channel = events
-        .issue(
-            pairing_context(
-                "recover-channel",
-                DevicePairingSource2::AuthenticatedUserController,
-            ),
-            1_000,
-        )
-        .unwrap();
+    let wrong_channel = events.issue(recovery_context(), 1_000).unwrap();
     assert!(events
         .resolve(
             &tinysecurity_bus::DevicePairingContextRequest2 {
