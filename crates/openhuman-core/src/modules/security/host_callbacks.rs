@@ -22,6 +22,8 @@ type SecurityCallbackLoads =
 
 static SECURITY_CALLBACK_LOADS: std::sync::LazyLock<SecurityCallbackLoads> =
     std::sync::LazyLock::new(|| tokio::sync::Mutex::new(std::collections::HashMap::new()));
+static SECURITY_CALLBACK_LOAD_SERIALIZER: std::sync::LazyLock<tokio::sync::Mutex<()>> =
+    std::sync::LazyLock::new(|| tokio::sync::Mutex::new(()));
 
 impl SecurityCallbackState {
     fn module_config(&self, config: &Config) -> Result<serde_json::Value, String> {
@@ -48,8 +50,8 @@ pub(in crate::modules) async fn binding() -> Option<std::sync::Arc<HostCallbackB
         .map(|state| std::sync::Arc::clone(&state.binding))
 }
 
-pub(in crate::modules) async fn cipher_consumer(
-) -> Option<std::sync::Arc<super::cipher_consumer::Consumer>> {
+pub(in crate::modules) async fn cipher_consumer()
+-> Option<std::sync::Arc<super::cipher_consumer::Consumer>> {
     SECURITY_CALLBACK_LOADS
         .lock()
         .await
@@ -57,8 +59,8 @@ pub(in crate::modules) async fn cipher_consumer(
         .map(|state| std::sync::Arc::clone(&state.consumer))
 }
 
-pub(in crate::modules) async fn secret_backend(
-) -> Option<std::sync::Arc<super::secret_backend::SecretBackend>> {
+pub(in crate::modules) async fn secret_backend()
+-> Option<std::sync::Arc<super::secret_backend::SecretBackend>> {
     SECURITY_CALLBACK_LOADS
         .lock()
         .await
@@ -66,8 +68,8 @@ pub(in crate::modules) async fn secret_backend(
         .map(|state| std::sync::Arc::clone(&state._backend))
 }
 
-pub(in crate::modules) async fn secret_scope(
-) -> Option<crate::security::approval::native::SecretScope> {
+pub(in crate::modules) async fn secret_scope()
+-> Option<crate::security::approval::native::SecretScope> {
     SECURITY_CALLBACK_LOADS
         .lock()
         .await
@@ -172,8 +174,12 @@ pub(in crate::modules) async fn ensure_loaded(
     config: &Config,
     id: &str,
 ) -> Result<(), String> {
-    let mut loads = SECURITY_CALLBACK_LOADS.lock().await;
-    if let Some(state) = loads.get(id) {
+    // Keep loads serialized without carrying a guard to the callback map over
+    // module and cipher awaits. The values own TinyBus callback bindings whose
+    // host connection points back into the module host's loaded-module list.
+    let _load_guard = SECURITY_CALLBACK_LOAD_SERIALIZER.lock().await;
+    let existing = SECURITY_CALLBACK_LOADS.lock().await.get(id).cloned();
+    if let Some(state) = existing {
         let key_path = config
             .config_path
             .parent()
@@ -190,7 +196,7 @@ pub(in crate::modules) async fn ensure_loaded(
                 module_config,
             )
             .await?;
-        register_scope(config, state).await?;
+        register_scope(config, &state).await?;
         return Ok(());
     }
 
@@ -295,7 +301,11 @@ pub(in crate::modules) async fn ensure_loaded(
         .remove(&selected_key)
         .ok_or_else(|| "admitted security callback state unavailable".to_owned())?;
     candidates.clear();
-    loads.insert(id.to_owned(), std::sync::Arc::clone(&state));
+    drop(candidates);
+    SECURITY_CALLBACK_LOADS
+        .lock()
+        .await
+        .insert(id.to_owned(), std::sync::Arc::clone(&state));
     register_scope(config, &state).await?;
     Ok(())
 }
