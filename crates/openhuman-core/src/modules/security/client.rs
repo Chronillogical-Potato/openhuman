@@ -73,7 +73,7 @@ impl Client {
     pub async fn evaluate_device2(
         &self,
         request: tinysecurity_bus::EvaluateDeviceRequest2,
-    ) -> Result<tinysecurity_bus::EvaluateResponse, SecurityError> {
+    ) -> Result<tinysecurity_bus::ApprovalRow2, SecurityError> {
         self.object
             .call_confidential(
                 tinysecurity_bus::names::methods::EVALUATE_DEVICE2,
