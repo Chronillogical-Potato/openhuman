@@ -64,7 +64,6 @@ dependencies = [
  "cfg-if",
  "cipher 0.4.4",
  "cpufeatures 0.2.17",
- "zeroize",
 ]
 
 [[package]]
@@ -90,7 +89,6 @@ dependencies = [
  "ctr 0.9.2",
  "ghash 0.5.1",
  "subtle",
- "zeroize",
 ]
 
 [[package]]
@@ -381,19 +379,6 @@ dependencies = [
  "percent-encoding",
  "windows-sys 0.61.2",
  "x11rb",
-]
-
-[[package]]
-name = "argon2"
-version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c3610892ee6e0cbce8ae2700349fcf8f98adb0dbfbee85aec3c9179d29cc072"
-dependencies = [
- "base64ct",
- "blake2",
- "cpufeatures 0.2.17",
- "password-hash",
- "zeroize",
 ]
 
 [[package]]
@@ -939,15 +924,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "blake2"
-version = "0.10.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46502ad458c9a52b69d4d4d32775c788b7a1b85e8bc9d482d92250fc0e3f8efe"
-dependencies = [
- "digest 0.10.7",
-]
-
-[[package]]
 name = "block"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1360,17 +1336,6 @@ checksum = "f079e83a288787bcd14a6aea84cee5c87a67c5a3e660c30f557a3d24761b3527"
 
 [[package]]
 name = "chacha20"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3613f74bd2eac03dad61bd53dbe620703d4371614fe0bc3b9f04dd36fe4e818"
-dependencies = [
- "cfg-if",
- "cipher 0.4.4",
- "cpufeatures 0.2.17",
-]
-
-[[package]]
-name = "chacha20"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65c35e4b699c7e15ccbe7ee35c005e4fc0a278d22238a2857e6ce2dadeda1b06"
@@ -1383,27 +1348,14 @@ dependencies = [
 
 [[package]]
 name = "chacha20poly1305"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10cd79432192d1c0f4e1a0fef9527696cc039165d729fb41b3f4f4f354c2dc35"
-dependencies = [
- "aead 0.5.2",
- "chacha20 0.9.1",
- "cipher 0.4.4",
- "poly1305 0.8.0",
- "zeroize",
-]
-
-[[package]]
-name = "chacha20poly1305"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b89e1c441e926b9c82a8d023f6e1b7ae0adcfaa7d621814e4d60789bac751cb"
 dependencies = [
  "aead 0.6.1",
- "chacha20 0.10.2",
+ "chacha20",
  "cipher 0.5.2",
- "poly1305 0.9.1",
+ "poly1305",
 ]
 
 [[package]]
@@ -1438,7 +1390,6 @@ checksum = "773f3b9af64447d2ce9850330c473515014aa235e6a783b02db81ff39e4a3dad"
 dependencies = [
  "crypto-common 0.1.7",
  "inout 0.1.4",
- "zeroize",
 ]
 
 [[package]]
@@ -3368,7 +3319,6 @@ checksum = "f0d8a4362ccb29cb0b265253fb0a2728f592895ee6854fd9bc13f2ffda266ff1"
 dependencies = [
  "opaque-debug",
  "polyval 0.6.2",
- "zeroize",
 ]
 
 [[package]]
@@ -5865,7 +5815,6 @@ dependencies = [
  "tinyredact",
  "tinysearch-bus",
  "tinysecurity-bus",
- "tinysecurity-crypto",
  "tinyskills",
  "tinyskills-drivers",
  "tinystoragedrivers",
@@ -6342,17 +6291,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "password-hash"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "346f04948ba92c43e8469c1ee6736c7563d71012b17d40745260fe106aac2166"
-dependencies = [
- "base64ct",
- "rand_core 0.6.4",
- "subtle",
-]
-
-[[package]]
 name = "pbkdf2"
 version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6733,18 +6671,6 @@ dependencies = [
 
 [[package]]
 name = "poly1305"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8159bd90725d2df49889a078b54f4f79e87f1f8a8444194cdca81d38f5393abf"
-dependencies = [
- "cpufeatures 0.2.17",
- "opaque-debug",
- "universal-hash 0.5.1",
- "zeroize",
-]
-
-[[package]]
-name = "poly1305"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e2d0073b297041425c7c3df6eb4792d598a15323fe63346852b092eca02904c"
@@ -6772,7 +6698,6 @@ dependencies = [
  "cpufeatures 0.2.17",
  "opaque-debug",
  "universal-hash 0.5.1",
- "zeroize",
 ]
 
 [[package]]
@@ -6942,7 +6867,7 @@ dependencies = [
  "bit-set 0.11.1",
  "bit-vec 0.10.1",
  "bitflags 2.13.2",
- "chacha20 0.10.2",
+ "chacha20",
  "core_detect",
  "num-traits",
  "rand 0.10.3",
@@ -7141,7 +7066,7 @@ version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65c9fb96cbc91e3478eaae79a69fcd3f1ae4ad052e471fe6732fff548984b4af"
 dependencies = [
- "chacha20 0.10.2",
+ "chacha20",
  "getrandom 0.4.3",
  "rand_core 0.10.1",
 ]
@@ -9918,7 +9843,7 @@ dependencies = [
  "tinycomputer-bus",
  "tinycomputer-core",
  "tinycomputer-desktop",
- "tinyinference-decisions 0.3.0",
+ "tinyinference-decisions",
  "tinyinference-llm 0.3.0",
  "tokio",
 ]
@@ -10242,19 +10167,6 @@ dependencies = [
 [[package]]
 name = "tinyinference-decisions"
 version = "0.3.0"
-dependencies = [
- "async-trait",
- "httpdate",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "tokio",
-]
-
-[[package]]
-name = "tinyinference-decisions"
-version = "0.3.1"
 dependencies = [
  "async-trait",
  "httpdate",
@@ -10650,79 +10562,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "tinysecurity-approval"
-version = "0.18.2"
-dependencies = [
- "async-trait",
- "getrandom 0.3.4",
- "serde_json",
- "sha2 0.10.9",
- "thiserror 2.0.21",
- "tinysecurity-auto",
- "tinysecurity-bus",
- "tinysecurity-redact",
- "tokio",
-]
-
-[[package]]
-name = "tinysecurity-auto"
-version = "0.18.2"
-dependencies = [
- "async-trait",
- "serde_json",
- "sha2 0.10.9",
- "thiserror 2.0.21",
- "tinyinference-decisions 0.3.1",
- "tinysecurity-bus",
- "tinysecurity-redact",
- "tokio",
-]
-
-[[package]]
 name = "tinysecurity-bus"
 version = "0.18.2"
 dependencies = [
  "serde",
  "thiserror 2.0.21",
-]
-
-[[package]]
-name = "tinysecurity-crypto"
-version = "0.18.2"
-dependencies = [
- "aes 0.8.4",
- "aes-gcm",
- "argon2",
- "aws-lc-rs",
- "base64 0.22.1",
- "chacha20 0.9.1",
- "chacha20poly1305 0.10.1",
- "getrandom 0.3.4",
- "ghash 0.5.1",
- "poly1305 0.8.0",
- "polyval 0.6.2",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "thiserror 2.0.21",
- "tinysecurity-approval",
- "tinysecurity-bus",
- "x25519-dalek 2.0.1",
- "zeroize",
-]
-
-[[package]]
-name = "tinysecurity-redact"
-version = "0.18.2"
-dependencies = [
- "base64 0.22.1",
- "percent-encoding",
- "regex",
- "serde_json",
- "sha2 0.10.9",
- "tinysecurity-bus",
- "unicode-normalization",
- "url",
 ]
 
 [[package]]
@@ -10911,7 +10755,7 @@ version = "2.1.2"
 dependencies = [
  "async-trait",
  "atomicwrites",
- "chacha20poly1305 0.11.0",
+ "chacha20poly1305",
  "clack-private-fs",
  "fs4",
  "getrandom 0.4.3",
@@ -12215,7 +12059,7 @@ dependencies = [
  "thiserror 2.0.21",
  "wacore-derive",
  "waproto",
- "x25519-dalek 3.0.0",
+ "x25519-dalek",
 ]
 
 [[package]]
@@ -13216,17 +13060,6 @@ name = "x11rb-protocol"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea6fc2961e4ef194dcbfe56bb845534d0dc8098940c7e5c012a258bfec6701bd"
-
-[[package]]
-name = "x25519-dalek"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7e468321c81fb07fa7f4c636c3972b9100f0346e5b6a9f2bd0603a52f7ed277"
-dependencies = [
- "curve25519-dalek 4.1.3",
- "rand_core 0.6.4",
- "zeroize",
-]
 
 [[package]]
 name = "x25519-dalek"
