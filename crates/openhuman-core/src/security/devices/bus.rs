@@ -382,31 +382,13 @@ async fn begin_device_renewal_once(
         })
         .await
         .ok()?;
-    let receipt = response.receipt.filter(|value| !value.is_empty())?;
-    let core_pubkey = response.core_public_key.filter(|value| !value.is_empty())?;
-    if response.pairing_id.is_some()
-        || response.session_id.is_some()
-        || response.device_public_key.is_some()
-        || !response.frame.is_empty()
-        || response.expires_at_ms <= unix_time_ms()
-        || response.expires_at_ms > expires_at_ms
-    {
-        return None;
-    }
-    let expires_at = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(
-        i64::try_from(response.expires_at_ms).ok()?,
-    )?
-    .to_rfc3339();
-    let session = super::types::PairingSession {
-        channel_id: channel_id.to_owned(),
-        pairing_token: connection_token.to_owned(),
-        core_pubkey,
-        pairing_receipt: receipt,
-        label: device.label,
-        rpc_url: None,
-        expires_at,
-        agent: None,
-    };
+    let session = renewal_pairing_session(
+        channel_id,
+        connection_token,
+        &device.label,
+        response,
+        expires_at_ms,
+    )?;
     PENDING_RENEWALS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -434,6 +416,40 @@ fn renewal_pairing_id<'a>(
         return None;
     }
     device.pairing_id.as_deref().filter(|value| !value.is_empty())
+}
+
+fn renewal_pairing_session(
+    channel_id: &str,
+    connection_token: &str,
+    label: &str,
+    response: tinysecurity_bus::DevicePairingResponse2,
+    attestation_expiry_ms: u64,
+) -> Option<super::types::PairingSession> {
+    let receipt = response.receipt.filter(|value| !value.is_empty())?;
+    let core_pubkey = response.core_public_key.filter(|value| !value.is_empty())?;
+    if response.pairing_id.is_some()
+        || response.session_id.is_some()
+        || response.device_public_key.is_some()
+        || !response.frame.is_empty()
+        || response.expires_at_ms <= unix_time_ms()
+        || response.expires_at_ms > attestation_expiry_ms
+    {
+        return None;
+    }
+    let expires_at = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(
+        i64::try_from(response.expires_at_ms).ok()?,
+    )?
+    .to_rfc3339();
+    Some(super::types::PairingSession {
+        channel_id: channel_id.to_owned(),
+        pairing_token: connection_token.to_owned(),
+        core_pubkey,
+        pairing_receipt: receipt,
+        label: label.to_owned(),
+        rpc_url: None,
+        expires_at,
+        agent: None,
+    })
 }
 
 fn renewal_device_matches(

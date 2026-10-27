@@ -57,6 +57,39 @@ fn process_restart_unlock_then_peer_online_renews_only_the_same_device() {
         renewal_pairing_id(true, true, false, false, &device),
         Some("module-pairing-id")
     );
+    let attestation_expiry = unix_time_ms().saturating_add(30_000);
+    let renewed = renewal_pairing_session(
+        &device.channel_id,
+        "fresh-socket-token",
+        &device.label,
+        tinysecurity_bus::DevicePairingResponse2 {
+            receipt: Some("renewed-receipt".into()),
+            pairing_id: None,
+            session_id: None,
+            core_public_key: Some("module-core-public-key".into()),
+            device_public_key: None,
+            frame: Vec::new(),
+            expires_at_ms: attestation_expiry.saturating_sub(1_000),
+        },
+        attestation_expiry,
+    )
+    .expect("TinySecurity Renew should create a bounded pending receipt");
+    assert_eq!(renewed.channel_id, device.channel_id);
+    assert_eq!(renewed.pairing_token, "fresh-socket-token");
+    assert_eq!(renewed.pairing_receipt, "renewed-receipt");
+    assert!(pairing_session_is_live(&renewed));
+
+    let handshake_reply = valid_handshake_reply(tinysecurity_bus::DevicePairingResponse2 {
+        receipt: None,
+        pairing_id: None,
+        session_id: None,
+        core_public_key: None,
+        device_public_key: None,
+        frame: vec![0x04, 1, 2, 3],
+        expires_at_ms: 0,
+    })
+    .expect("the same-key TinySecurity handshake should return its wire ACK");
+    assert_eq!(handshake_reply, [0x04, 1, 2, 3]);
     assert!(renewal_device_matches(
         &device,
         "module-pairing-id",
