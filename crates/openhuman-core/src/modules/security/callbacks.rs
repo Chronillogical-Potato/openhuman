@@ -367,10 +367,7 @@ fn valid_pairing_context(
                 && context.pairing_token.is_none()
                 && context.connection_nonce.is_empty())
                 || (!context.channel_id.is_empty()
-                    && context
-                        .pairing_token
-                        .as_ref()
-                        .is_some_and(|value| !value.is_empty())
+                    && context.pairing_token.is_none()
                     && context.connection_nonce.is_empty())
                 || (!context.channel_id.is_empty()
                     && context
