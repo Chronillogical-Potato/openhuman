@@ -21,7 +21,7 @@ pub async fn embed(
     let model = &config.memory.embedding_model;
     let dims = config.memory.embedding_dimensions;
 
-    let api_key = resolve_api_key(config, provider_name);
+    let api_key = resolve_api_key(config, provider_name).await;
 
     let (provider_slug, custom_endpoint) = split_custom_provider(provider_name);
 

@@ -215,7 +215,7 @@ pub async fn update_settings(
     // login would false-fail. TinyInference owns endpoint verification and
     // its structured rejection policy.
     if let (_, Some(endpoint)) = split_custom_provider(&effective_provider) {
-        let api_key = resolve_api_key(&config, "custom");
+        let api_key = resolve_api_key(&config, "custom").await;
         tracing::debug!(
             provider = effective_provider.as_str(),
             "{LOG_PREFIX} update_settings verifying embeddings endpoint with a test embed"

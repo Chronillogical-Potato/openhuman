@@ -94,9 +94,8 @@ fn inspection_managed_factory(config: &Config) -> ManagedModelFactory {
     })
 }
 
-pub(super) fn credential_resolver(config: &Config) -> CredentialResolver {
-    let config = config.clone();
-    Arc::new(move |provider| super::rpc::resolve_api_key(&config, provider))
+pub(super) fn credential_resolver(api_key: String) -> CredentialResolver {
+    Arc::new(move |_| api_key.clone())
 }
 
 /// Creates a provider from explicit settings and host credentials.
