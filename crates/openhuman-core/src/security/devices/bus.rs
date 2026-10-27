@@ -610,14 +610,38 @@ async fn confirm_pairing(
         return;
     }
     let token_hash = hash_session_token(&session.pairing_token);
-    match store::insert_device_with_pairing_id(
-        config,
-        channel_id,
-        &session.label,
-        &device_public_key,
-        &token_hash,
-        &pairing_id,
-    ) {
+    let renewal_pairing_id = PENDING_RENEWALS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(channel_id)
+        .cloned();
+    let persisted = if let Some(expected_pairing_id) = renewal_pairing_id.as_deref() {
+        match store::get_device(config, channel_id) {
+            Ok(Some(existing))
+                if !existing.revoked
+                    && existing.pairing_id.as_deref() == Some(expected_pairing_id)
+                    && pairing_id == expected_pairing_id
+                    && existing.device_pubkey == device_public_key =>
+            {
+                store::touch_device(config, channel_id).and_then(|()| {
+                    store::get_device(config, channel_id)
+                        .map(|device| device.ok_or_else(|| anyhow::anyhow!("renewed device disappeared")))
+                        .and_then(|device| device)
+                })
+            }
+            _ => Err(anyhow::anyhow!("renewed device metadata mismatch")),
+        }
+    } else {
+        store::insert_device_with_pairing_id(
+            config,
+            channel_id,
+            &session.label,
+            &device_public_key,
+            &token_hash,
+            &pairing_id,
+        )
+    };
+    match persisted {
         Ok(device) => {
             super::owner::remember(channel_id, agent);
             BUS.publish(DomainEvent::DevicePaired {
@@ -637,6 +661,10 @@ async fn confirm_pairing(
                     },
                 );
             PENDING_SESSIONS
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .remove(channel_id);
+            PENDING_RENEWALS
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .remove(channel_id);
@@ -706,11 +734,23 @@ pub(super) fn abandon_unpersisted_pairing(channel_id: &str) {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .remove(channel_id);
+    PENDING_RENEWALS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .remove(channel_id);
     PENDING_HANDSHAKES
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .remove(channel_id);
     ACTIVE_SESSIONS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .remove(channel_id);
+    PENDING_RENEWALS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .remove(channel_id);
+    RECONNECTING
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .remove(channel_id);

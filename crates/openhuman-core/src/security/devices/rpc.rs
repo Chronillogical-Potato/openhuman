@@ -358,6 +358,8 @@ pub async fn devices_revoke(
     super::lock_unpoisoned(&PENDING_SESSIONS).remove(&channel_id);
     super::lock_unpoisoned(&PEER_STATUS).remove(&channel_id);
     super::lock_unpoisoned(&ACTIVE_SESSIONS).remove(&channel_id);
+    super::lock_unpoisoned(&PENDING_RENEWALS).remove(&channel_id);
+    super::lock_unpoisoned(&RECONNECTING).remove(&channel_id);
 
     // Publish DeviceRevoked so UI and other subscribers are notified.
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::DeviceRevoked {
