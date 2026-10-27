@@ -69,7 +69,8 @@ where
         return host.load_search_paths();
     }
     let mut outcomes = Vec::new();
-    for dir in ModuleHost::search_paths()
+    for dir in host
+        .search_paths()
         .into_iter()
         .filter(|p| p.is_dir())
     {
