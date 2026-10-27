@@ -561,7 +561,7 @@ pub async fn read_cortexdb_key(config: &Config) -> anyhow::Result<Option<String>
 }
 
 /// Stores the CortexDB API key in the credential store (never in config).
-pub fn store_cortexdb_key(config: &Config, key: &str) -> Result<()> {
+pub async fn store_cortexdb_key(config: &Config, key: &str) -> Result<()> {
     let key = key.trim();
     if key.is_empty() {
         return Err(Error::InvalidRequest("the API key is blank".into()));
@@ -574,15 +574,17 @@ pub fn store_cortexdb_key(config: &Config, key: &str) -> Result<()> {
             HashMap::new(),
             true,
         )
+        .await
         .map_err(|error| Error::Engine(format!("storing the API key failed: {error}")))?;
     tracing::debug!("[memory:engine] cortexdb key stored");
     Ok(())
 }
 
 /// Removes the stored CortexDB API key.
-pub fn clear_cortexdb_key(config: &Config) -> Result<bool> {
+pub async fn clear_cortexdb_key(config: &Config) -> Result<bool> {
     AuthService::from_config(config)
         .remove_profile(MEMORY_CORTEXDB_KEY_NAME, DEFAULT_AUTH_PROFILE_NAME)
+        .await
         .map_err(|error| Error::Engine(format!("removing the API key failed: {error}")))
 }
 

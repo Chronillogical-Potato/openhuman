@@ -125,7 +125,7 @@ pub async fn engine_get(config: &Config) -> EngineView {
 
 /// Applies `memory_engine_set` to `config` in memory (and to the credential
 /// store for a key). The caller persists `config`.
-pub fn apply_engine_set(config: &mut Config, params: &EngineSetParams) -> Result<()> {
+pub async fn apply_engine_set(config: &mut Config, params: &EngineSetParams) -> Result<()> {
     let engine_id = params.engine.trim();
     if engine_id == DISABLED_ENGINE {
         // Turning memory off keeps every engine's endpoint and key, so
@@ -164,9 +164,9 @@ pub fn apply_engine_set(config: &mut Config, params: &EngineSetParams) -> Result
     if let Some(key) = params.api_key.as_deref() {
         match engine_id {
             CORTEXDB_ENGINE if key.trim().is_empty() => {
-                engine::clear_cortexdb_key(config)?;
+                engine::clear_cortexdb_key(config).await?;
             }
-            CORTEXDB_ENGINE => engine::store_cortexdb_key(config, key)?,
+            CORTEXDB_ENGINE => engine::store_cortexdb_key(config, key).await?,
             TINYHUMANS_ENGINE => {
                 return Err(Error::InvalidRequest(
                     ("the tinyhumans engine uses your sign-in, not an API key").into(),
