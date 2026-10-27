@@ -48,8 +48,8 @@ pub(in crate::modules) async fn binding() -> Option<std::sync::Arc<HostCallbackB
         .map(|state| std::sync::Arc::clone(&state.binding))
 }
 
-pub(in crate::modules) async fn cipher_consumer()
--> Option<std::sync::Arc<super::cipher_consumer::Consumer>> {
+pub(in crate::modules) async fn cipher_consumer(
+) -> Option<std::sync::Arc<super::cipher_consumer::Consumer>> {
     SECURITY_CALLBACK_LOADS
         .lock()
         .await
@@ -57,8 +57,8 @@ pub(in crate::modules) async fn cipher_consumer()
         .map(|state| std::sync::Arc::clone(&state.consumer))
 }
 
-pub(in crate::modules) async fn secret_backend()
--> Option<std::sync::Arc<super::secret_backend::SecretBackend>> {
+pub(in crate::modules) async fn secret_backend(
+) -> Option<std::sync::Arc<super::secret_backend::SecretBackend>> {
     SECURITY_CALLBACK_LOADS
         .lock()
         .await
@@ -66,8 +66,8 @@ pub(in crate::modules) async fn secret_backend()
         .map(|state| std::sync::Arc::clone(&state._backend))
 }
 
-pub(in crate::modules) async fn secret_scope()
--> Option<crate::security::approval::native::SecretScope> {
+pub(in crate::modules) async fn secret_scope(
+) -> Option<crate::security::approval::native::SecretScope> {
     SECURITY_CALLBACK_LOADS
         .lock()
         .await

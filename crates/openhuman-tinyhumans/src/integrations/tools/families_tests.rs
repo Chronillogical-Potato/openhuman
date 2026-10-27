@@ -6,7 +6,7 @@ use super::*;
 use crate::integrations::test_support::spawn_fake_integration_backend;
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::credentials::{
-    APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME,
+    AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use tempfile::TempDir;
 use tinytools::Tool;

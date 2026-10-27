@@ -63,14 +63,12 @@ async fn connected_mcp_actions_enter_search_and_leave_on_disconnect() {
         .clear();
     prelude.refresh_delegation_tool_surface().unwrap();
     assert!(!synthesized_tool_names(&prelude).contains(&action));
-    assert!(
-        !prelude
-            .tool_surface
-            .lock()
-            .expect("tool surface")
-            .deferred_tool_names
-            .contains(&action)
-    );
+    assert!(!prelude
+        .tool_surface
+        .lock()
+        .expect("tool surface")
+        .deferred_tool_names
+        .contains(&action));
 }
 
 #[cfg(feature = "mcp")]

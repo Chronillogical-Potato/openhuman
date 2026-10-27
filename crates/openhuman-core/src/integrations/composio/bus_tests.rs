@@ -2,7 +2,7 @@
 
 use super::connection_created_subscriber::WaitError;
 use super::trigger_subscriber::{
-    TRIAGE_DISABLED_ENV, is_direct_mode, triage_disabled, triage_skip_reason,
+    is_direct_mode, triage_disabled, triage_skip_reason, TRIAGE_DISABLED_ENV,
 };
 use super::*;
 use crate::core::events::DomainEvent;

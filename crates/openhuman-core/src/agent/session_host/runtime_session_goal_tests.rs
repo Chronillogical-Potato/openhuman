@@ -3,8 +3,8 @@
 
 use super::*;
 
-use tinyagents_harness_tools::goals::ThreadGoalStatus;
 use tinyagents_harness_tools::goals::store as goal_store;
+use tinyagents_harness_tools::goals::ThreadGoalStatus;
 
 const THREAD: &str = "goal-thread";
 

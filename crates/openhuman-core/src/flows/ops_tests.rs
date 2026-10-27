@@ -347,7 +347,7 @@ fn seed_suggestion(config: &Config, id: &str) {
 // configured for slug" branch), before any HTTP client is built.
 
 async fn seed_app_session_for_gate_test(tmp: &TempDir) {
-    use crate::credentials::{APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME};
+    use crate::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
     // `verify_session_active` reads from `config.config_path.parent()`, which
     // `test_config` sets to `tmp.path()` itself (distinct from
     // `tmp.path()/workspace`) — seed the session there.
@@ -370,7 +370,7 @@ async fn seed_app_session_for_gate_test(tmp: &TempDir) {
 // so none of this touches a live Composio backend.
 
 use crate::integrations::composio::catalog::{
-    ProbedOutputSample, ToolContract, seed_live_catalog_cache, seed_probe_cache,
+    seed_live_catalog_cache, seed_probe_cache, ProbedOutputSample, ToolContract,
 };
 
 fn seeded_slack_send_contract() -> ToolContract {

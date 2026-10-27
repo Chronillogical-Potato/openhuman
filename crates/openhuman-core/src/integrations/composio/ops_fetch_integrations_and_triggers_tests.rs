@@ -547,14 +547,12 @@ async fn enabling_trigger_makes_it_visible_in_list_triggers() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_with_backend(&tmp, base).await;
 
-    assert!(
-        composio_list_triggers(&config, None)
-            .await
-            .unwrap()
-            .value
-            .triggers
-            .is_empty()
-    );
+    assert!(composio_list_triggers(&config, None)
+        .await
+        .unwrap()
+        .value
+        .triggers
+        .is_empty());
     composio_enable_trigger(&config, "c1", "GMAIL_NEW_GMAIL_MESSAGE", None)
         .await
         .unwrap();

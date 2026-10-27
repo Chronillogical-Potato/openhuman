@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use serde_json::json;
 
 use super::*;
-use crate::inbound::fixture::{Rig, ScriptedTriage, active_config, decision, deferred};
+use crate::inbound::fixture::{active_config, decision, deferred, Rig, ScriptedTriage};
 use crate::triage::TriageAction;
 
 const LABEL: &str = "composio/gmail/GMAIL_NEW_GMAIL_MESSAGE";

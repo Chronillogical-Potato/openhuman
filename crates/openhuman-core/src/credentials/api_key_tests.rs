@@ -1,5 +1,5 @@
 use super::*;
-use crate::credentials::backend_credential::{BackendCredential, resolve_backend_credential};
+use crate::credentials::backend_credential::{resolve_backend_credential, BackendCredential};
 
 fn config_in(dir: &std::path::Path) -> Config {
     let mut config = Config::default();
@@ -82,7 +82,7 @@ async fn a_provider_profile_named_api_key_without_the_marker_is_not_accepted() {
 #[tokio::test]
 async fn api_key_wins_over_an_expired_session() {
     use crate::credentials::session_state::SESSION_EXPIRES_AT_META;
-    use crate::credentials::{APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME};
+    use crate::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
 
     let dir = tempfile::tempdir().expect("tempdir");
     let config = config_in(dir.path());

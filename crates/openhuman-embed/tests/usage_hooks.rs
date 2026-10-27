@@ -10,7 +10,7 @@ use openhuman_embed::seams::{StopDecision, StopHook, TurnCost, TurnState};
 use openhuman_embed::{
     AgentDefinitionSpec, AgentSpec, HostTurnTools, Runtime, Tool, ToolScopeSpec, Workspace,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
 
 type Seen = Arc<Mutex<Vec<(String, u32, u64, Option<f64>)>>>;

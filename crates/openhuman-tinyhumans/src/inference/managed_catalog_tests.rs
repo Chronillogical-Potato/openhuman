@@ -1,10 +1,10 @@
 use super::*;
 use axum::{
-    Router,
     http::{HeaderMap, StatusCode},
     routing::get,
+    Router,
 };
-use openhuman_embed::__host::credentials::{APP_SESSION_PROVIDER, AuthService};
+use openhuman_embed::__host::credentials::{AuthService, APP_SESSION_PROVIDER};
 use std::sync::{Arc, Mutex};
 use tempfile::TempDir;
 
@@ -98,12 +98,10 @@ async fn limits_request_lists_the_catalog_keyed_by_the_inference_base() {
         .await
         .expect("managed limits request");
     assert_eq!(request.endpoint, "https://api.tinyhumans.ai/openai/v1");
-    assert!(
-        request
-            .listing_url
-            .as_deref()
-            .is_some_and(|url| url.ends_with("/openai/v1/models?catalog=openrouter"))
-    );
+    assert!(request
+        .listing_url
+        .as_deref()
+        .is_some_and(|url| url.ends_with("/openai/v1/models?catalog=openrouter")));
 }
 
 #[tokio::test]

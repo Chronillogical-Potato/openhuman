@@ -142,11 +142,9 @@ async fn enforce_local_only_inference_errors_on_external_when_local_only() {
         Err(error) => error,
         Ok(_) => panic!("direct Claude Code model must preserve the privacy gate"),
     };
-    assert!(
-        claude_code_error
-            .to_string()
-            .contains("Local-only privacy mode")
-    );
+    assert!(claude_code_error
+        .to_string()
+        .contains("Local-only privacy mode"));
 
     // Both the default factory and a thread-attached managed picker route must
     // hit the managed resolver's privacy gate before any backend client exists.
@@ -389,27 +387,23 @@ async fn explicit_local_provider_string_routes_to_crate_native_model() {
 async fn try_create_local_runtime_returns_none_for_managed_and_cloud() {
     let _guard = crate::inference::inference_test_guard();
     // Default config resolves to the managed backend, not a local runtime.
-    assert!(
-        super::local_runtime::try_create_local_runtime_chat_model(
-            "chat",
-            &Config::default(),
-            &EgressLedger::none(),
-        )
-        .is_none()
-    );
+    assert!(super::local_runtime::try_create_local_runtime_chat_model(
+        "chat",
+        &Config::default(),
+        &EgressLedger::none(),
+    )
+    .is_none());
     // A BYOK cloud slug is not a local runtime either — it falls through to the
     // `Provider` path.
     let mut cloud = Config::default();
     cloud.cloud_providers.push(openai_entry("p_oai", "openai"));
     cloud.chat_provider = Some("openai:gpt-4o-mini".to_string());
-    assert!(
-        super::local_runtime::try_create_local_runtime_chat_model(
-            "chat",
-            &cloud,
-            &EgressLedger::none(),
-        )
-        .is_none()
-    );
+    assert!(super::local_runtime::try_create_local_runtime_chat_model(
+        "chat",
+        &cloud,
+        &EgressLedger::none(),
+    )
+    .is_none());
 }
 
 #[tokio::test]
@@ -497,11 +491,9 @@ async fn create_chat_model_routes_anthropic_auth_cloud_slug_to_crate_native() {
         identity.starts_with("anthropic:https://api.anthropic.com/v1:claude-sonnet-4-6"),
         "expected the native Messages adapter, got identity {identity}"
     );
-    assert!(
-        model
-            .profile()
-            .is_some_and(|p| p.tool_calling && p.streaming)
-    );
+    assert!(model
+        .profile()
+        .is_some_and(|p| p.tool_calling && p.streaming));
 }
 
 /// Text mode (prompt-guided tools) is only implemented on the Chat Completions

@@ -9,8 +9,8 @@
 
 mod common;
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use common::{chat_requests, offline_config, runtime, stub_backend};
 use openhuman_embed::complete::ResponseFormat;
@@ -18,7 +18,7 @@ use openhuman_embed::{
     Access, AgentDefinitionSpec, AgentSpec, HostTurnTools, Provider, Runtime, Tool, ToolScopeSpec,
     Workspace,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate};
 

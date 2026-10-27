@@ -70,12 +70,10 @@ fn codec_marks_failed_tool_rows_from_the_explicit_turn_sidecar() {
             },
         )
         .unwrap();
-    assert!(
-        rows[0]
-            .tool_failure
-            .as_ref()
-            .is_some_and(|failure| failure.failed)
-    );
+    assert!(rows[0]
+        .tool_failure
+        .as_ref()
+        .is_some_and(|failure| failure.failed));
 }
 
 /// The durable record is the parent's OWN spend.

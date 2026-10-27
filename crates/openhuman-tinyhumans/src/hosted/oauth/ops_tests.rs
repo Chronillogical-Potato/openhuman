@@ -30,12 +30,10 @@ async fn validation_runs_before_the_credential() {
         oauth_revoke_integration(&config, "  ").await.unwrap_err(),
         "integration id is required"
     );
-    assert!(
-        oauth_list_integrations(&config)
-            .await
-            .unwrap_err()
-            .contains("no backend session token")
-    );
+    assert!(oauth_list_integrations(&config)
+        .await
+        .unwrap_err()
+        .contains("no backend session token"));
 }
 
 #[tokio::test]
@@ -155,12 +153,10 @@ async fn fetch_client_key_validates_the_id_before_the_credential() {
         oauth_fetch_client_key(&config, "int-1").await.unwrap_err(),
         "integrationId must be a 24-char hex id"
     );
-    assert!(
-        oauth_fetch_client_key(&config, ID)
-            .await
-            .unwrap_err()
-            .contains("no backend session token")
-    );
+    assert!(oauth_fetch_client_key(&config, ID)
+        .await
+        .unwrap_err()
+        .contains("no backend session token"));
 }
 
 #[tokio::test]
@@ -195,10 +191,8 @@ async fn fetch_client_key_rejects_a_response_without_the_key() {
     let tmp = TempDir::new().unwrap();
     let config = test_support::signed_in(&tmp, &server.uri()).await;
 
-    assert!(
-        oauth_fetch_client_key(&config, ID)
-            .await
-            .unwrap_err()
-            .contains("missing clientKey")
-    );
+    assert!(oauth_fetch_client_key(&config, ID)
+        .await
+        .unwrap_err()
+        .contains("missing clientKey"));
 }

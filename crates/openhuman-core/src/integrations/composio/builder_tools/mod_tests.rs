@@ -3,9 +3,9 @@ use super::*;
 use super::catalog_search::search_catalog;
 use crate::config::Config;
 use crate::integrations::composio::catalog::{
-    ProbedOutputSample, ToolContract, seed_live_catalog_cache, seed_probe_cache,
+    seed_live_catalog_cache, seed_probe_cache, ProbedOutputSample, ToolContract,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::sync::Arc;
 use tempfile::TempDir;
 use tinytools::{PermissionLevel, Tool};
@@ -59,13 +59,11 @@ async fn connectable_toolkits_uses_the_injected_host_snapshot_and_fails_closed_e
         .unwrap();
     assert!(!result.is_error, "{}", result.output());
     let value: Value = serde_json::from_str(&result.output()).unwrap();
-    assert!(
-        value["toolkits"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|item| item["connected"] == false)
-    );
+    assert!(value["toolkits"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|item| item["connected"] == false));
 }
 
 fn test_config(tmp: &TempDir) -> Arc<Config> {
@@ -142,13 +140,11 @@ async fn search_live_catalog_finds_a_seeded_real_gmail_slug() {
     assert!(!results.is_empty(), "gmail catalog should have entries");
     for r in &results {
         assert_eq!(r["toolkit"], "gmail");
-        assert!(
-            r["slug"]
-                .as_str()
-                .unwrap()
-                .to_ascii_uppercase()
-                .starts_with("GMAIL")
-        );
+        assert!(r["slug"]
+            .as_str()
+            .unwrap()
+            .to_ascii_uppercase()
+            .starts_with("GMAIL"));
         assert_eq!(r["featured"], true);
     }
 }

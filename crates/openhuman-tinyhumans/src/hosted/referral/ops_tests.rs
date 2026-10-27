@@ -1,8 +1,8 @@
 use super::*;
 use crate::hosted::test_support::store_session as store_session_token;
 use axum::{
-    Json, Router,
     routing::{get, post},
+    Json, Router,
 };
 use serde_json::json;
 use tempfile::TempDir;
@@ -98,11 +98,10 @@ async fn get_stats_returns_backend_payload_with_log() {
     let config = config_with_backend(&tmp, base).await;
     let out = get_stats(&config).await.unwrap();
     assert_eq!(out.value["referrals"], json!(3));
-    assert!(
-        out.logs
-            .iter()
-            .any(|l| l.contains("referral stats fetched"))
-    );
+    assert!(out
+        .logs
+        .iter()
+        .any(|l| l.contains("referral stats fetched")));
 }
 
 // ── claim_referral ───────────────────────────────────────────
@@ -134,11 +133,10 @@ async fn claim_referral_posts_trimmed_code_and_drops_whitespace_fingerprint() {
         out.value["echoed"].get("deviceFingerprint").is_none(),
         "whitespace-only fingerprint must be dropped"
     );
-    assert!(
-        out.logs
-            .iter()
-            .any(|l| l.contains("referral claim accepted"))
-    );
+    assert!(out
+        .logs
+        .iter()
+        .any(|l| l.contains("referral claim accepted")));
 }
 
 #[tokio::test]

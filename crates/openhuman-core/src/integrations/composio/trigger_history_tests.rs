@@ -12,17 +12,15 @@ async fn disabled_archive_operations_leave_the_host_filesystem_untouched() {
         #[cfg(feature = "modules")]
         fixture: None,
     };
-    assert!(
-        owner
-            .read(
-                &crate::core::runtime::DispatchCtx::ambient(),
-                &config,
-                Some(10)
-            )
-            .await
-            .unwrap_err()
-            .contains("module unavailable")
-    );
+    assert!(owner
+        .read(
+            &crate::core::runtime::DispatchCtx::ambient(),
+            &config,
+            Some(10)
+        )
+        .await
+        .unwrap_err()
+        .contains("module unavailable"));
     assert!(!workspace.path().join("state").exists());
     assert!(owner.lease.lock().await.is_none());
     owner
@@ -96,7 +94,7 @@ impl Fixture {
 
 #[cfg(feature = "modules")]
 async fn connected_owner(fixture: Fixture) -> (Arc<TriggerHistory>, tinybus::Connection) {
-    use tinybus::{Connection, ObjectPath, broker::Broker, transport::memory::MemoryBus};
+    use tinybus::{broker::Broker, transport::memory::MemoryBus, Connection, ObjectPath};
     let bus = MemoryBus::new();
     Broker::new().spawn(bus.clone());
     let service = Connection::connect(bus.connect().await.unwrap())

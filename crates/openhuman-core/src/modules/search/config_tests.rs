@@ -121,12 +121,10 @@ async fn roles_are_passed_in_configured_order() {
         payload.presentation.roles[&tinysearch_bus::Role::Search],
         vec!["brave".to_string(), "exa".to_string()]
     );
-    assert!(
-        payload
-            .presentation
-            .roles
-            .contains_key(&tinysearch_bus::Role::Answer)
-    );
+    assert!(payload
+        .presentation
+        .roles
+        .contains_key(&tinysearch_bus::Role::Answer));
 }
 
 #[tokio::test]

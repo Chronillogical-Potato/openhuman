@@ -7,8 +7,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use common::{
-    PointedInference, chat_completion, chat_requests, runtime_without_master_key,
-    tool_call_completion, tool_names,
+    chat_completion, chat_requests, runtime_without_master_key, tool_call_completion, tool_names,
+    PointedInference,
 };
 use openhuman_embed::memory::api::conformance::ReferenceEngine;
 use openhuman_embed::memory::api::{LearningKind, MemoryEngine, MemoryMeta, StoreItem};
@@ -20,7 +20,7 @@ use openhuman_embed::{
     HostTurnTools, PermissionLevel, ProfileRuntime, RelayMessage, SaasConfig, Tool, ToolResult,
     ToolScopeSpec,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use wiremock::{Mock, Request, Respond, ResponseTemplate};
 
 struct TenantTool {
@@ -404,19 +404,15 @@ async fn scenario() {
         .into_iter()
         .find(|hook| hook.name() == "profile.can_use_tool")
         .unwrap();
-    assert!(
-        handles[0]
-            .scope(alice_hook.before_tool_decision(&alice_run, &hook_context("tenant_probe")))
-            .await
-            .permission
-            .is_none()
-    );
-    assert!(
-        handles[1]
-            .scope(alice_hook.before_tool_decision(&bob_run, &hook_context("tenant_probe")))
-            .await
-            .is_deny()
-    );
+    assert!(handles[0]
+        .scope(alice_hook.before_tool_decision(&alice_run, &hook_context("tenant_probe")))
+        .await
+        .permission
+        .is_none());
+    assert!(handles[1]
+        .scope(alice_hook.before_tool_decision(&bob_run, &hook_context("tenant_probe")))
+        .await
+        .is_deny());
     for name in [
         "hidden",
         "shell",
@@ -454,12 +450,10 @@ async fn scenario() {
         })
         .await;
     let closed_hook = no_callback.hook(handles[0].id(), alice_profile.lease_fence().clone());
-    assert!(
-        handles[0]
-            .scope(closed_hook.before_tool_decision(&alice_run, &hook_context("tenant_probe")))
-            .await
-            .is_deny()
-    );
+    assert!(handles[0]
+        .scope(closed_hook.before_tool_decision(&alice_run, &hook_context("tenant_probe")))
+        .await
+        .is_deny());
     // Closing really releases the old lease; reopening must install the same
     // immutable belt and engine on a fresh profile context, without pinning it.
     drop(alice_profile);
@@ -480,14 +474,12 @@ async fn scenario() {
     .await
     .expect("completed turns leave the profile releasable");
     let reopened = runtime.open("alice").await.unwrap();
-    assert!(
-        reopened
-            .threads()
-            .await
-            .unwrap()
-            .iter()
-            .any(|thread| thread.id == "t1")
-    );
+    assert!(reopened
+        .threads()
+        .await
+        .unwrap()
+        .iter()
+        .any(|thread| thread.id == "t1"));
     reopened
         .chat("t1", "alice: call tenant_probe after reopening")
         .await
@@ -551,19 +543,15 @@ async fn scenario() {
         .find(|hook| hook.name() == "profile.can_use_tool")
         .unwrap();
     let reopened_run = OpenHumanRunContext::new().with_core(Some(handles[0].context().clone()));
-    assert!(
-        handles[0]
-            .scope(alice_hook.before_tool_decision(&reopened_run, &hook_context("tenant_probe")))
-            .await
-            .permission
-            .is_none()
-    );
+    assert!(handles[0]
+        .scope(alice_hook.before_tool_decision(&reopened_run, &hook_context("tenant_probe")))
+        .await
+        .permission
+        .is_none());
     let requests = chat_requests(&inference).await;
-    assert!(
-        requests
-            .iter()
-            .any(|request| !tool_names(request).is_empty())
-    );
+    assert!(requests
+        .iter()
+        .any(|request| !tool_names(request).is_empty()));
     for request in requests {
         let mut names = tool_names(&request);
         names.sort();
@@ -696,11 +684,9 @@ async fn scenario() {
             .await,
         "a latched profile must not resolve the shared engine"
     );
-    assert!(
-        handles[0]
-            .scope(alice_hook.before_tool_decision(&reopened_run, &hook_context("tenant_probe")))
-            .await
-            .is_deny()
-    );
+    assert!(handles[0]
+        .scope(alice_hook.before_tool_decision(&reopened_run, &hook_context("tenant_probe")))
+        .await
+        .is_deny());
     runtime.shutdown().await;
 }

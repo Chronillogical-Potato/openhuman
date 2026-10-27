@@ -5,15 +5,15 @@ use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::routing::get;
 use axum::{Json, Router};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tinytools::Tool;
 
 use crate::config::{ComposioHostCredential, Config};
-use crate::integrations::composio::client::{ComposioRoute, resolve_composio_route};
+use crate::integrations::composio::client::{resolve_composio_route, ComposioRoute};
 use crate::integrations::composio::connected_integrations::{
-    CachedIntegrations, cache_key, read_cached_integrations_from,
+    cache_key, read_cached_integrations_from, CachedIntegrations,
 };
-use crate::integrations::composio::tools::{ComposioListConnectionsTool, live_composio_config};
+use crate::integrations::composio::tools::{live_composio_config, ComposioListConnectionsTool};
 
 const KEY_A: &str = "ck_tenant_alpha_0001";
 const KEY_B: &str = "ck_tenant_bravo_0002";

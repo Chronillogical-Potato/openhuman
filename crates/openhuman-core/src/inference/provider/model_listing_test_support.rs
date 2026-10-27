@@ -1,17 +1,17 @@
-use crate::config::Config;
 use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
+use crate::config::Config;
 use crate::credentials::AuthService;
 use axum::{
-    Json, Router,
     extract::State,
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
+    Json, Router,
 };
 use std::collections::HashMap;
 use std::sync::{
-    Arc, Mutex,
     atomic::{AtomicUsize, Ordering as AtomicOrdering},
+    Arc, Mutex,
 };
 use tempfile::TempDir;
 

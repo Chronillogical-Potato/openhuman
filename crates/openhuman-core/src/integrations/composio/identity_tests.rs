@@ -34,11 +34,9 @@ async fn unknown_toolkit_returns_none_without_provider_call() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let config = fresh_config_in_workspace(tmp.path());
     // Toolkit slug with no active connection.
-    assert!(
-        connection_identity(&config, "not-a-real-toolkit-xyz")
-            .await
-            .is_none()
-    );
+    assert!(connection_identity(&config, "not-a-real-toolkit-xyz")
+        .await
+        .is_none());
 }
 
 #[tokio::test]

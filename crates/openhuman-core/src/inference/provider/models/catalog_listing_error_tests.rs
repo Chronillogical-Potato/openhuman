@@ -6,7 +6,7 @@ use crate::inference::provider::model_listing_test_support::{
 };
 use axum::http::StatusCode;
 use std::sync::atomic::Ordering as AtomicOrdering;
-use tinyinference_core::sanitize::{MAX_API_ERROR_CHARS, sanitize_api_error};
+use tinyinference_core::sanitize::{sanitize_api_error, MAX_API_ERROR_CHARS};
 
 #[test]
 fn list_configured_models_accepts_slug() {
@@ -14,8 +14,8 @@ fn list_configured_models_accepts_slug() {
     // passes a slug instead of the opaque random id. This lets the frontend
     // call the RPC before the provider config has been persisted (where only
     // the slug is stable).
-    use crate::config::Config;
     use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
+    use crate::config::Config;
 
     let mut config = Config::default();
     config.cloud_providers.push(CloudProviderCreds {

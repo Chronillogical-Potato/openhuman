@@ -1,17 +1,17 @@
-use super::{DoctorOptions, ops::doctor_report_with_options};
-use crate::config::Config;
+use super::{ops::doctor_report_with_options, DoctorOptions};
 use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
+use crate::config::Config;
 use crate::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
 use axum::{
-    Json, Router,
     extract::State,
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
+    Json, Router,
 };
 use std::sync::{
-    Arc,
     atomic::{AtomicUsize, Ordering},
+    Arc,
 };
 use std::time::Duration;
 
@@ -201,8 +201,8 @@ pub(super) fn register_test_inspection_catalog(
     endpoint: String,
 ) -> Arc<AtomicUsize> {
     use crate::inference::registry::{
-        InspectionCatalogError, InspectionCatalogListing, PreparedInspectionCatalog,
-        register_inspection_catalog_in,
+        register_inspection_catalog_in, InspectionCatalogError, InspectionCatalogListing,
+        PreparedInspectionCatalog,
     };
 
     let requests = Arc::new(AtomicUsize::new(0));

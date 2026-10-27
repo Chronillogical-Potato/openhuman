@@ -122,19 +122,15 @@ async fn process_default_affects_registered_tools_without_a_core_context() {
             .await
         };
 
-        assert!(
-            tools()
-                .await
-                .iter()
-                .any(|tool| tool.name() == "doctor_health")
-        );
+        assert!(tools()
+            .await
+            .iter()
+            .any(|tool| tool.name() == "doctor_health"));
         set_process_default(ToolGroups::none());
-        assert!(
-            !tools()
-                .await
-                .iter()
-                .any(|tool| tool.name() == "doctor_health")
-        );
+        assert!(!tools()
+            .await
+            .iter()
+            .any(|tool| tool.name() == "doctor_health"));
         return;
     }
 

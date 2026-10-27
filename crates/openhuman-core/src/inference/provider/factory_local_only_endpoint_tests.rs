@@ -1,6 +1,6 @@
 use super::*;
-use crate::config::PrivacyMode;
 use crate::config::test_env::EnvVarGuard;
+use crate::config::PrivacyMode;
 use crate::inference::provider::factory::access_gates::local_only_violation;
 
 // Local-only privacy mode means the prompt stays on this machine. Two routes

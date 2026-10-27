@@ -9,10 +9,10 @@ use common::{
 use openhuman_embed::{
     AgentDefinitionSpec, AgentSpec, HostTurnTools, Runtime, Tool, ToolScopeSpec, Workspace,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::sync::{
-    Arc,
     atomic::{AtomicUsize, Ordering},
+    Arc,
 };
 
 struct Probe(Arc<AtomicUsize>);
@@ -129,11 +129,9 @@ async fn scenario() {
                 })
         })
         .unwrap();
-    assert!(
-        !revoked.body_json::<Value>().unwrap()["tools"]
-            .as_array()
-            .is_some_and(|tools| tools.iter().any(|t| t["function"]["name"] == "probe"))
-    );
+    assert!(!revoked.body_json::<Value>().unwrap()["tools"]
+        .as_array()
+        .is_some_and(|tools| tools.iter().any(|t| t["function"]["name"] == "probe")));
     // A mixed builtin/host definition must also discard historical declarations
     // on an explicit replacement. HostOnly's inherent strict snapshot is not
     // enough to exercise the replacement's dispatch scope.
@@ -173,11 +171,9 @@ async fn scenario() {
         .unwrap();
     assert_eq!(mixed_calls.load(Ordering::SeqCst), 1);
     let requests = common::chat_requests(&mixed_provider).await;
-    assert!(
-        !requests[2].body_json::<Value>().unwrap()["tools"]
-            .as_array()
-            .is_some_and(|tools| tools.iter().any(|t| t["function"]["name"] == "probe"))
-    );
+    assert!(!requests[2].body_json::<Value>().unwrap()["tools"]
+        .as_array()
+        .is_some_and(|tools| tools.iter().any(|t| t["function"]["name"] == "probe")));
     mixed
         .turn("restore belt")
         .session("mixed-thread")

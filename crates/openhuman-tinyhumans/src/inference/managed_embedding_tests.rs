@@ -3,7 +3,7 @@ use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::credentials::AuthService;
 use std::collections::HashMap;
 use tinyinference_embeddings::{
-    CloudEmbeddingModel, DEFAULT_CLOUD_DIMENSIONS, DEFAULT_CLOUD_MODEL, EmbeddingModel,
+    CloudEmbeddingModel, EmbeddingModel, DEFAULT_CLOUD_DIMENSIONS, DEFAULT_CLOUD_MODEL,
 };
 
 fn test_config(tmp: &tempfile::TempDir) -> Config {
@@ -48,7 +48,7 @@ fn build_through_registry(config: &Config, model: &str, dimensions: usize) -> Cl
 /// session), sent as `Authorization: Bearer <key>` like managed inference.
 #[tokio::test]
 async fn api_key_alone_authenticates_cloud_embeddings() {
-    use axum::{Json, Router, http::HeaderMap, routing::post};
+    use axum::{http::HeaderMap, routing::post, Json, Router};
     use std::sync::{Arc, Mutex};
 
     let seen: Arc<Mutex<Option<String>>> = Arc::default();
@@ -299,7 +299,7 @@ async fn routing_is_per_embedder_not_shared() {
 async fn factory_managed_provider_authenticates_with_config_scoped_token() {
     use std::sync::{Arc, Mutex};
 
-    use axum::{Json, Router, extract::State, http::HeaderMap, routing::post};
+    use axum::{extract::State, http::HeaderMap, routing::post, Json, Router};
 
     // Mock cloud embeddings backend at {BACKEND_URL}/openai/v1/embeddings.
     #[derive(Clone, Default)]
@@ -381,7 +381,7 @@ async fn factory_managed_provider_authenticates_with_config_scoped_token() {
 async fn default_provider_with_config_authenticates_with_config_scoped_token() {
     use std::sync::{Arc, Mutex};
 
-    use axum::{Json, Router, extract::State, http::HeaderMap, routing::post};
+    use axum::{extract::State, http::HeaderMap, routing::post, Json, Router};
 
     #[derive(Clone, Default)]
     struct Captured {
@@ -468,10 +468,10 @@ async fn embedding_without_a_session_reports_no_backend_session() {
 /// embeddings must reject it before the HTTP transport sends a request.
 #[tokio::test]
 async fn offline_local_session_is_refused_before_embedding_request() {
-    use axum::{Json, Router, routing::post};
+    use axum::{routing::post, Json, Router};
     use std::sync::{
-        Arc,
         atomic::{AtomicUsize, Ordering},
+        Arc,
     };
 
     let requests = Arc::new(AtomicUsize::new(0));
@@ -526,12 +526,12 @@ async fn offline_local_session_is_refused_before_embedding_request() {
 /// SessionExpired event as managed chat, so the host can begin re-auth.
 #[tokio::test]
 async fn expired_session_publishes_session_expired_before_embedding_request() {
-    use axum::{Json, Router, routing::post};
+    use axum::{routing::post, Json, Router};
     use openhuman_embed::__host::core::events::DomainEvent;
     use openhuman_embed::__host::credentials::session_state::SESSION_EXPIRES_AT_META;
     use std::sync::{
-        Arc,
         atomic::{AtomicUsize, Ordering},
+        Arc,
     };
 
     openhuman_embed::__host::core::bus::init()

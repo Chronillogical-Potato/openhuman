@@ -45,11 +45,9 @@ pub fn attached_tools_survive_clones_and_session_resume() {
         .build()
         .err()
         .expect("a permanent source cannot shadow a synthesized MCP tool");
-    assert!(
-        collision
-            .to_string()
-            .contains("collision with synthesized tool")
-    );
+    assert!(collision
+        .to_string()
+        .contains("collision with synthesized tool"));
     runtime().block_on(async {
         tokio::spawn(async {
             let backend = stub_backend().await;
@@ -89,28 +87,24 @@ pub fn attached_tools_survive_clones_and_session_resume() {
                 )
                 .unwrap();
             let original_config = agent.config().clone();
-            assert!(
-                agent
-                    .attach_tools(
-                        "",
-                        Arc::new(|_| Box::pin(async { HostTurnTools::default() }))
-                    )
-                    .await
-                    .is_err()
-            );
-            assert!(
-                agent
-                    .attach_tools(
-                        "builtin-collision",
-                        Arc::new(|_| {
-                            Box::pin(async {
-                                HostTurnTools::advertised(vec![Box::new(Marker("shell"))])
-                            })
+            assert!(agent
+                .attach_tools(
+                    "",
+                    Arc::new(|_| Box::pin(async { HostTurnTools::default() }))
+                )
+                .await
+                .is_err());
+            assert!(agent
+                .attach_tools(
+                    "builtin-collision",
+                    Arc::new(|_| {
+                        Box::pin(async {
+                            HostTurnTools::advertised(vec![Box::new(Marker("shell"))])
                         })
-                    )
-                    .await
-                    .is_err()
-            );
+                    })
+                )
+                .await
+                .is_err());
             let peer = runtime.agent(AgentSpec::new("peer")).unwrap();
             assert!(!agent.same_agent(&peer));
             assert_eq!(agent.runtime_id(), peer.runtime_id());
@@ -127,26 +121,22 @@ pub fn attached_tools_survive_clones_and_session_resume() {
                 .await
                 .unwrap();
             clone.attach_tools("tinyhivemind", factory).await.unwrap();
-            assert!(
-                clone
-                    .attach_tools(
-                        "tinyhivemind",
-                        Arc::new(|_| Box::pin(async { HostTurnTools::default() }))
-                    )
-                    .await
-                    .is_err()
-            );
-            assert!(
-                clone
-                    .attach_tools(
-                        "collision",
-                        Arc::new(|_| Box::pin(async {
-                            HostTurnTools::advertised(vec![Box::new(Marker("hivemind_message"))])
-                        }))
-                    )
-                    .await
-                    .is_err()
-            );
+            assert!(clone
+                .attach_tools(
+                    "tinyhivemind",
+                    Arc::new(|_| Box::pin(async { HostTurnTools::default() }))
+                )
+                .await
+                .is_err());
+            assert!(clone
+                .attach_tools(
+                    "collision",
+                    Arc::new(|_| Box::pin(async {
+                        HostTurnTools::advertised(vec![Box::new(Marker("hivemind_message"))])
+                    }))
+                )
+                .await
+                .is_err());
             let first = agent
                 .turn("first user")
                 .session("continuing")

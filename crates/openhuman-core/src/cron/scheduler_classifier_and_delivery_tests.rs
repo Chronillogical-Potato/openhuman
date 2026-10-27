@@ -6,17 +6,15 @@ async fn deliver_if_configured_skips_empty_mode() {
     let config = test_config(&tmp).await;
     let mut job = test_job("echo ok");
     job.delivery.mode = "".into();
-    assert!(
-        deliver_if_configured(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            &config,
-            &job,
-            "output",
-            true
-        )
-        .await
-        .is_ok()
-    );
+    assert!(deliver_if_configured(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        &job,
+        "output",
+        true
+    )
+    .await
+    .is_ok());
 }
 
 #[tokio::test]
@@ -74,17 +72,15 @@ async fn deliver_if_configured_proactive_mode_succeeds() {
         to: None,
         best_effort: true,
     };
-    assert!(
-        deliver_if_configured(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            &config,
-            &job,
-            "hello",
-            true
-        )
-        .await
-        .is_ok()
-    );
+    assert!(deliver_if_configured(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        &job,
+        "hello",
+        true
+    )
+    .await
+    .is_ok());
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -645,17 +641,15 @@ async fn deliver_if_configured_failure_skips_chat_but_alerts() {
     let config = test_config(&tmp).await;
     let job = proactive_job();
     // Failed run (non-empty canned error): no chat injection, but still alerts.
-    assert!(
-        deliver_if_configured(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            &config,
-            &job,
-            "Something went wrong.",
-            false
-        )
-        .await
-        .is_ok()
-    );
+    assert!(deliver_if_configured(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        &job,
+        "Something went wrong.",
+        false
+    )
+    .await
+    .is_ok());
     assert_eq!(cron_alerts(&config).await, 1);
 }
 
@@ -665,17 +659,15 @@ async fn deliver_if_configured_empty_failure_alerts_with_fallback_body() {
     let config = test_config(&tmp).await;
     let job = proactive_job();
     // Empty failed run: still surfaces in /notifications with a fallback body.
-    assert!(
-        deliver_if_configured(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            &config,
-            &job,
-            "",
-            false
-        )
-        .await
-        .is_ok()
-    );
+    assert!(deliver_if_configured(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        &job,
+        "",
+        false
+    )
+    .await
+    .is_ok());
     let items =
         crate::desktop::notifications::store::list(&config, 10, 0, Some("cron"), None).unwrap();
     assert_eq!(items.len(), 1);

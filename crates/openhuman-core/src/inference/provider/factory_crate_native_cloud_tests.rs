@@ -1,8 +1,8 @@
-use super::super::super::OpenHumanModelFactory;
 use super::super::super::cloud_slug::{
     try_create_cloud_slug_chat_model, try_create_cloud_slug_chat_model_from_string,
     try_create_cloud_slug_chat_model_from_string_with_native_tools,
 };
+use super::super::super::OpenHumanModelFactory;
 use super::super::{
     anthropic_entry, deepseek_entry, install_test_managed_provider, oh_entry, openai_entry,
 };
@@ -155,11 +155,9 @@ async fn create_chat_model_routes_anthropic_auth_cloud_slug_to_crate_native() {
         identity.starts_with("anthropic:https://api.anthropic.com/v1:claude-sonnet-4-6"),
         "expected the native Messages adapter, got identity {identity}"
     );
-    assert!(
-        model
-            .profile()
-            .is_some_and(|p| p.tool_calling && p.streaming)
-    );
+    assert!(model
+        .profile()
+        .is_some_and(|p| p.tool_calling && p.streaming));
 }
 
 /// Text mode (prompt-guided tools) is only implemented on the Chat Completions

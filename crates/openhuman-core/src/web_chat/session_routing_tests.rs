@@ -352,11 +352,9 @@ fn persisted_managed_model_changes_invalidate_the_session_fingerprint() {
         first, second,
         "the old cached agent must not survive a saved model change"
     );
-    assert!(
-        super::fingerprint_diff(&first, &second)
-            .iter()
-            .any(|field| field.starts_with("effective_model:"))
-    );
+    assert!(super::fingerprint_diff(&first, &second)
+        .iter()
+        .any(|field| field.starts_with("effective_model:")));
     config.default_model = None;
     assert_ne!(
         second,

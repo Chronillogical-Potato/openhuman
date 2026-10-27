@@ -18,7 +18,7 @@ use openhuman_embed::{
     AgentDefinitionSpec, AgentSpec, AgentTurnOrigin, ChannelError, HostTurnTools, Provider,
     Runtime, TelegramChannelSpec, Tool, ToolScopeSpec, Workspace,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tinytools::{PermissionLevel, ToolResult};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};

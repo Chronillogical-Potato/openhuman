@@ -6,7 +6,7 @@ use crate::voice::{SttProvider, SttResult};
 #[cfg(feature = "voice")]
 use async_trait::async_trait;
 #[cfg(feature = "voice")]
-use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 #[cfg(feature = "voice")]
 use std::sync::{Arc, Mutex};
 

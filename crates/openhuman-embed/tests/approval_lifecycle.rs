@@ -10,8 +10,8 @@ use openhuman_embed::{
 use std::collections::BTreeSet;
 use std::path::Path;
 use std::sync::{
-    Arc, Condvar, Mutex,
     atomic::{AtomicUsize, Ordering},
+    Arc, Condvar, Mutex,
 };
 use std::time::Duration;
 use tokio::sync::mpsc;

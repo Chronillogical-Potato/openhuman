@@ -1,5 +1,5 @@
 use super::*;
-use tinyagents_harness::context::{RunDepth, current_run_depth, with_run_depth};
+use tinyagents_harness::context::{current_run_depth, with_run_depth, RunDepth};
 
 struct BlockingSubagentCloseTool {
     started: tokio::sync::mpsc::Sender<()>,

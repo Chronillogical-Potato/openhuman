@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent::subagent_host::{SubagentRunStatus, spawn_async_via_driver_tool_with_jobs};
+use crate::agent::subagent_host::{spawn_async_via_driver_tool_with_jobs, SubagentRunStatus};
 
 #[tokio::test]
 async fn prepared_subagent_runs_through_driver_jobs_dispatcher() {
@@ -251,12 +251,10 @@ async fn independent_host_bundles_share_and_project_the_persisted_winner() {
         !leader.final_history.is_empty(),
         "winner history is preserved"
     );
-    assert!(
-        leader
-            .final_history
-            .iter()
-            .any(|row| { row.role == "tool" && row.tool_call_id.as_deref() == Some("call-1") })
-    );
+    assert!(leader
+        .final_history
+        .iter()
+        .any(|row| { row.role == "tool" && row.tool_call_id.as_deref() == Some("call-1") }));
     assert_eq!(leader.usage.input_tokens, follower.usage.input_tokens);
     assert!(leader.usage.input_tokens > 0, "winner usage is preserved");
     assert_eq!(leader.artifact_paths, follower.artifact_paths);
@@ -402,21 +400,19 @@ async fn closing_a_durable_driver_session_cancels_only_its_registered_child() {
     );
     let owner_scope: std::sync::Arc<dyn Fn(u64) -> String + Send + Sync> =
         std::sync::Arc::new(move |_| owner.clone());
-    assert!(
-        port.close("close-driver-session")
-            .await
-            .expect("Tiny close adapter cancels then closes the durable row")
-    );
+    assert!(port
+        .close("close-driver-session")
+        .await
+        .expect("Tiny close adapter cancels then closes the durable row"));
     assert_eq!(
         jobs.get(job_id.as_str()).unwrap().status,
         SubAgentJobStatus::Running,
         "the job remains visible while cooperative cancellation unwinds"
     );
-    assert!(
-        port.close("close-driver-session")
-            .await
-            .expect("repeated close is idempotent without re-cancelling")
-    );
+    assert!(port
+        .close("close-driver-session")
+        .await
+        .expect("repeated close is idempotent without re-cancelling"));
     assert!(!parent_cancellation.is_cancelled(), "parent stays live");
 
     let tiny_store: std::sync::Arc<dyn TinySessionStore> = std::sync::Arc::new(port.clone());

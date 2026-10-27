@@ -116,8 +116,8 @@ async fn managed_bearer_keeps_the_stored_key_transport_guard() {
 
 async fn seed_app_session(dir: &std::path::Path, expires_at: Option<&str>) {
     use openhuman_embed::__host::credentials::{
-        APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME,
-        session_state::SESSION_EXPIRES_AT_META,
+        session_state::SESSION_EXPIRES_AT_META, AuthService, APP_SESSION_PROVIDER,
+        DEFAULT_AUTH_PROFILE_NAME,
     };
     let mut metadata = std::collections::HashMap::new();
     if let Some(expires_at) = expires_at {
@@ -390,12 +390,10 @@ async fn managed_auth_failure_expires_the_session_only_on_a_session_401() {
         )
         .expect("build owner model");
 
-        assert!(
-            model
-                .invoke(&(), ModelRequest::new(vec![Message::user("ping")]))
-                .await
-                .is_err()
-        );
+        assert!(model
+            .invoke(&(), ModelRequest::new(vec![Message::user("ping")]))
+            .await
+            .is_err());
         server.abort();
 
         let mut source = None;
@@ -517,18 +515,14 @@ async fn a_late_api_key_401_after_a_session_request_keeps_the_session() {
         key_request_arrived.notified().await;
 
         // The stored credential switches to the session mid-flight.
-        assert!(
-            AuthService::new(tmp.path(), false)
-                .remove_profile(&api_key_profile.provider, &api_key_profile.profile_name)
-                .await
-                .expect("remove test API key")
-        );
-        assert!(
-            model
-                .invoke(&(), ModelRequest::new(vec![Message::user("ping")]))
-                .await
-                .is_err()
-        );
+        assert!(AuthService::new(tmp.path(), false)
+            .remove_profile(&api_key_profile.provider, &api_key_profile.profile_name)
+            .await
+            .expect("remove test API key"));
+        assert!(model
+            .invoke(&(), ModelRequest::new(vec![Message::user("ping")]))
+            .await
+            .is_err());
 
         release_key_request.notify_one();
         assert!(key_request.await.expect("API-key request task"));

@@ -29,7 +29,5 @@ fn connection_ref_gate_matches_toolkit_and_account_id() {
 
     let mut wrong_toolkit = nodes;
     wrong_toolkit[0].connection_ref = "composio:gmail:conn-good".into();
-    assert!(
-        validate_connection_refs(&wrong_toolkit, None)[0].contains("names the `gmail` toolkit")
-    );
+    assert!(validate_connection_refs(&wrong_toolkit, None)[0].contains("names the `gmail` toolkit"));
 }

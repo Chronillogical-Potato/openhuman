@@ -12,11 +12,9 @@ fn extract_link_token_accepts_both_shapes_and_rejects_blank() {
         "a"
     );
     assert_eq!(extract_link_token(&json!({"token": "b"})).unwrap(), "b");
-    assert!(
-        extract_link_token(&json!({}))
-            .unwrap_err()
-            .contains("missing linkToken")
-    );
+    assert!(extract_link_token(&json!({}))
+        .unwrap_err()
+        .contains("missing linkToken"));
     assert_eq!(
         extract_link_token(&json!({"linkToken": "  "})).unwrap_err(),
         "backend returned empty link token"

@@ -26,24 +26,20 @@ async fn composio_list_capabilities_does_not_require_session() {
     let tmp = tempfile::tempdir().unwrap();
     let config = test_config(&tmp);
     let outcome = composio_list_capabilities(&config).await.unwrap();
-    assert!(
-        outcome
-            .value
-            .capabilities
-            .iter()
-            .any(|entry| { entry.toolkit == "gmail" && entry.native_provider })
-    );
+    assert!(outcome
+        .value
+        .capabilities
+        .iter()
+        .any(|entry| { entry.toolkit == "gmail" && entry.native_provider }));
     // Capabilities now come from the connector module, rather than the old
     // host-side TinyMemory provider matrix. The module's current contract has
     // no Google Calendar row; keep this regression focused on the sessionless
     // compiled capability that consumers rely on.
-    assert!(
-        outcome
-            .value
-            .capabilities
-            .iter()
-            .any(|entry| { entry.toolkit == "gmail" && entry.tool_execution })
-    );
+    assert!(outcome
+        .value
+        .capabilities
+        .iter()
+        .any(|entry| { entry.toolkit == "gmail" && entry.tool_execution }));
 }
 
 #[tokio::test]
@@ -342,8 +338,8 @@ async fn composio_list_connections_drops_the_module_route_once_signed_out() {
 #[tokio::test]
 async fn composio_authorize_clears_pending_meta_connection_before_handoff() {
     let _serialised = module_guard().await;
-    use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
 
     let deletes = Arc::new(AtomicUsize::new(0));
     let deletes_for_delete = Arc::clone(&deletes);

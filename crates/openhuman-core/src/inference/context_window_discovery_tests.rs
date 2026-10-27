@@ -141,9 +141,7 @@ async fn local_and_subprocess_routes_are_not_discovered() {
 async fn unknown_slug_is_not_discovered() {
     let tmp = TempDir::new().unwrap();
     let config = config(&tmp, Vec::new());
-    assert!(
-        model_limits_request("chat", "nope:model", "model", &config)
-            .await
-            .is_none()
-    );
+    assert!(model_limits_request("chat", "nope:model", "model", &config)
+        .await
+        .is_none());
 }

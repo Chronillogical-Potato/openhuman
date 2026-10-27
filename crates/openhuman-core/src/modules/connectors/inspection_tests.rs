@@ -163,7 +163,7 @@ unsafe extern "C" fn linked_fixture_init(
 
 fn linked_fixture_manifest() -> tinybus::module::manifest::ModuleManifest {
     use tinybus::module::manifest::{
-        MANIFEST_SCHEMA, ModuleIdentity, ModuleManifest, PanicPolicy, ProvidedInterface,
+        ModuleIdentity, ModuleManifest, PanicPolicy, ProvidedInterface, MANIFEST_SCHEMA,
     };
     use tinybus::name::{BusName, InterfaceName, MemberName, ObjectPath};
     use tinybus::version::{InterfaceVersion, Version};

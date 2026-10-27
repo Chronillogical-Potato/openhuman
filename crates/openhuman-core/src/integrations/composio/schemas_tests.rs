@@ -49,12 +49,10 @@ fn composio_schema_contracts_and_registration_are_preserved() {
     }
     let capabilities = schemas("list_capabilities");
     assert!(capabilities.inputs.is_empty());
-    assert!(
-        capabilities
-            .outputs
-            .iter()
-            .any(|field| field.name == "capabilities" && field.required)
-    );
+    assert!(capabilities
+        .outputs
+        .iter()
+        .any(|field| field.name == "capabilities" && field.required));
     expect_schema_fields(&schemas("authorize"), &[("toolkit", Some(true))]);
     expect_schema_fields(
         &schemas("execute"),
@@ -85,25 +83,19 @@ fn read_required_and_non_empty_helpers_preserve_errors_and_trimming() {
     m.insert("toolkit".into(), Value::String("gmail".into()));
     let v: String = read_required(&m, "toolkit").unwrap();
     assert_eq!(v, "gmail");
-    assert!(
-        read_required::<String>(&Map::new(), "toolkit")
-            .unwrap_err()
-            .contains("missing required param")
-    );
+    assert!(read_required::<String>(&Map::new(), "toolkit")
+        .unwrap_err()
+        .contains("missing required param"));
     let wrong = Map::from_iter([("toolkit".into(), json!(42))]);
-    assert!(
-        read_required::<String>(&wrong, "toolkit")
-            .unwrap_err()
-            .contains("invalid 'toolkit'")
-    );
+    assert!(read_required::<String>(&wrong, "toolkit")
+        .unwrap_err()
+        .contains("invalid 'toolkit'"));
     let mut m = Map::new();
     for blank in ["", "   "] {
         m.insert("toolkit".into(), Value::String(blank.into()));
-        assert!(
-            read_required_non_empty(&m, "toolkit")
-                .unwrap_err()
-                .contains("must not be empty")
-        );
+        assert!(read_required_non_empty(&m, "toolkit")
+            .unwrap_err()
+            .contains("must not be empty"));
     }
     m.insert("toolkit".into(), Value::String("  gmail ".into()));
     assert_eq!(read_required_non_empty(&m, "toolkit").unwrap(), "gmail");

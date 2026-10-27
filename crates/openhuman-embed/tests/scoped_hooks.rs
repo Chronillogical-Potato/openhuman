@@ -15,7 +15,7 @@ use openhuman_embed::seams::{
 use openhuman_embed::{
     AgentDefinitionSpec, AgentSpec, HostTurnTools, Runtime, Tool, ToolScopeSpec, Workspace,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tokio::sync::Barrier;
 use wiremock::MockServer;
 

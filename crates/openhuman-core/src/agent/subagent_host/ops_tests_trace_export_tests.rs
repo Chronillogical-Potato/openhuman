@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent::subagent_host::{SubagentRunStatus, spawn_async_via_driver_tool_with_jobs};
+use crate::agent::subagent_host::{spawn_async_via_driver_tool_with_jobs, SubagentRunStatus};
 
 /// The native journal tree must preserve the exact run identity handed to the
 /// prepared child by Tiny's driver, including the host lifecycle link and the
@@ -9,7 +9,7 @@ use crate::agent::subagent_host::{SubagentRunStatus, spawn_async_via_driver_tool
 async fn prepared_child_run_is_exported_from_its_native_journal_lineage() {
     use tinyagents_harness::events::AgentEvent;
     use tinyagents_harness::observability::trace_export::{
-        TraceContext, collector::SpanCollector, serialize::spans_to_ndjson,
+        collector::SpanCollector, serialize::spans_to_ndjson, TraceContext,
     };
 
     let scratch = tempfile::tempdir().expect("isolated native trace fixture");
@@ -246,11 +246,9 @@ async fn prepared_child_run_is_exported_from_its_native_journal_lineage() {
         .expect("native projection preserves the provider-reported charge");
     assert_eq!(generation.attributes["gen_ai.usage.input_tokens"], 120);
     assert_eq!(generation.attributes["gen_ai.usage.output_tokens"], 8);
-    assert!(
-        generation
-            .attributes
-            .contains_key("gen_ai.pricing.input_per_mtok_usd")
-    );
+    assert!(generation
+        .attributes
+        .contains_key("gen_ai.pricing.input_per_mtok_usd"));
     let exported = spans_to_ndjson(
         tinyagents_harness::observability::trace_export::serialize::SpanEnvelope::Otel,
         spans,

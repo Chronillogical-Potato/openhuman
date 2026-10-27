@@ -33,16 +33,14 @@ fn row_key_normalises_the_toolkit() {
 async fn save_rejects_an_empty_toolkit() {
     let dir = tempfile::tempdir().unwrap();
     let config = config_in(&dir);
-    assert!(
-        save(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            &config,
-            "  ",
-            UserScopePref::default()
-        )
-        .await
-        .is_err()
-    );
+    assert!(save(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        "  ",
+        UserScopePref::default()
+    )
+    .await
+    .is_err());
 }
 
 /// A stored preference is never lost: either the module took it (the read

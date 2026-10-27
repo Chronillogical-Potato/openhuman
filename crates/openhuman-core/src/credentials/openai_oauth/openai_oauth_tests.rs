@@ -171,16 +171,14 @@ async fn disconnect_keeps_profile_when_host_cannot_clear_pending_state() {
 
     let error = disconnect_openai_oauth(&config).await.unwrap_err();
     assert!(error.contains("pending storage unavailable"));
-    assert!(
-        profiles
-            .load()
-            .await
-            .unwrap()
-            .profiles
-            .contains_key(&format!(
-                "{OPENAI_PROVIDER_KEY}:{OPENAI_OAUTH_PROFILE_NAME}"
-            ))
-    );
+    assert!(profiles
+        .load()
+        .await
+        .unwrap()
+        .profiles
+        .contains_key(&format!(
+            "{OPENAI_PROVIDER_KEY}:{OPENAI_OAUTH_PROFILE_NAME}"
+        )));
 
     crate::credentials::clear_provider_credential_source();
     if let Some(previous) = previous {

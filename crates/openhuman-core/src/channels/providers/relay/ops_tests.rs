@@ -1,6 +1,6 @@
 use super::super::channel::CHANNEL_OUTBOUND_EVENT;
 use super::*;
-use crate::agent::bus::{AgentTurnRequest, AgentTurnResponse, mock_agent_run_turn};
+use crate::agent::bus::{mock_agent_run_turn, AgentTurnRequest, AgentTurnResponse};
 use crate::core::runtime::turn_origin::AgentTurnOrigin;
 use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
 use std::sync::Mutex;

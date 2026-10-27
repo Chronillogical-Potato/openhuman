@@ -336,15 +336,13 @@ async fn flows_update_does_not_force_require_approval_on_readonly_graph() {
 async fn strict_gate_passes_a_valid_graph_and_rejects_a_structurally_invalid_one() {
     let config = Config::default();
     // A trigger-only graph is structurally valid and has no outbound gates.
-    assert!(
-        strict_gate(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            &config,
-            &trigger_only_graph()
-        )
-        .await
-        .is_ok()
-    );
+    assert!(strict_gate(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        &trigger_only_graph()
+    )
+    .await
+    .is_ok());
 
     // No trigger → structural failure surfaced by strict mode.
     let bad = json!({
@@ -480,16 +478,14 @@ async fn referenced_child_compatibility_stops_at_saved_workflow_cycles() {
     .unwrap();
 
     let candidate = structurally_valid_graph(referenced_child_graph(&flow_a.id));
-    assert!(
-        config_aware_engine_compatibility_errors(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            &config,
-            serde_json::to_value(candidate).unwrap(),
-        )
-        .await
-        .unwrap()
-        .is_empty()
-    );
+    assert!(config_aware_engine_compatibility_errors(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        serde_json::to_value(candidate).unwrap(),
+    )
+    .await
+    .unwrap()
+    .is_empty());
 }
 
 // ── core-managed drafts (F5) ─────────────────────────────────────────────────

@@ -10,10 +10,10 @@ use openhuman_embed::seams::{ToolHookContext, ToolHookDecision};
 use openhuman_embed::{
     AgentDefinitionSpec, AgentSpec, HostTurnTools, Runtime, Tool, ToolScopeSpec, Workspace,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::sync::{
-    Arc,
     atomic::{AtomicUsize, Ordering},
+    Arc,
 };
 
 struct Probe(Arc<AtomicUsize>);

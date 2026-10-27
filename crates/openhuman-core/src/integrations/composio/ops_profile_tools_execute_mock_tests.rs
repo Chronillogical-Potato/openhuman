@@ -193,12 +193,10 @@ async fn composio_execute_via_mock_succeeds_and_logs_elapsed() {
         .await
         .unwrap();
     assert!(outcome.value.successful);
-    assert!(
-        outcome
-            .logs
-            .iter()
-            .any(|l| l.contains("executed GMAIL_SEND"))
-    );
+    assert!(outcome
+        .logs
+        .iter()
+        .any(|l| l.contains("executed GMAIL_SEND")));
 }
 
 #[tokio::test]
