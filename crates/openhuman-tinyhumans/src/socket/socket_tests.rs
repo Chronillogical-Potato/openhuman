@@ -71,8 +71,8 @@ async fn disconnected_port_rejects_emits_and_disconnect_is_idempotent() {
 
 #[tokio::test]
 async fn actor_shutdown_fails_an_emit_queued_during_reconnect_promptly() {
-    use tokio::sync::{mpsc, oneshot, watch};
     use tinyhumans_sdk::TinyHumansClient;
+    use tokio::sync::{mpsc, oneshot, watch};
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -110,11 +110,13 @@ async fn actor_shutdown_fails_an_emit_queued_during_reconnect_promptly() {
     tokio::task::yield_now().await;
     shutdown.send_replace(true);
 
-    assert!(tokio::time::timeout(std::time::Duration::from_millis(250), response)
-        .await
-        .expect("the queued emit waiter must be released during shutdown")
-        .unwrap()
-        .is_err());
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(250), response)
+            .await
+            .expect("the queued emit waiter must be released during shutdown")
+            .unwrap()
+            .is_err()
+    );
     tokio::time::timeout(std::time::Duration::from_millis(250), done_receiver)
         .await
         .expect("the actor must stop during shutdown")

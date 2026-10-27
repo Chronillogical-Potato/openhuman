@@ -370,14 +370,22 @@ async fn run_socket_actor(
     while tasks.join_next().await.is_some() {}
     for (_, waiter) in waiters {
         match waiter {
-            SocketWaiter::Emit(sender) => { let _ = sender.send(Err("Socket disconnected".to_owned())); }
-            SocketWaiter::EmitWithAck(sender) => { let _ = sender.send(Err("Socket disconnected".to_owned())); }
+            SocketWaiter::Emit(sender) => {
+                let _ = sender.send(Err("Socket disconnected".to_owned()));
+            }
+            SocketWaiter::EmitWithAck(sender) => {
+                let _ = sender.send(Err("Socket disconnected".to_owned()));
+            }
         }
     }
     while let Ok(command) = commands.try_recv() {
         match command {
-            SocketCommand::Emit { result, .. } => { let _ = result.send(Err("Socket disconnected".to_owned())); }
-            SocketCommand::EmitWithAck { result, .. } => { let _ = result.send(Err("Socket disconnected".to_owned())); }
+            SocketCommand::Emit { result, .. } => {
+                let _ = result.send(Err("Socket disconnected".to_owned()));
+            }
+            SocketCommand::EmitWithAck { result, .. } => {
+                let _ = result.send(Err("Socket disconnected".to_owned()));
+            }
         }
     }
     loop_active.store(false, Ordering::Release);
