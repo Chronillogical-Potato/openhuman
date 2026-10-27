@@ -42,7 +42,27 @@ const MAX_RPC_BODY_BYTES: usize = 64 * 1024 * 1024;
 /// 2. `rpc_auth_middleware`   — validates `Authorization: Bearer <token>` on matched protected routes
 /// 3. `http_request_log_middleware` — logs non-RPC HTTP requests with timing
 pub fn build_core_http_router(socketio_enabled: bool) -> Router {
+    build_core_http_router_mode(socketio_enabled, None)
+}
+
+/// Builds the regular router with an initially restricted, per-server
+/// preflight gate. Used only while desktop startup decrypts config secrets.
+pub(crate) fn build_core_http_router_with_preflight(
+    socketio_enabled: bool,
+    gate: crate::server::auth::PreflightGate,
+) -> Router {
+    build_core_http_router_mode(socketio_enabled, Some(gate))
+}
+
+fn build_core_http_router_mode(
+    socketio_enabled: bool,
+    preflight_gate: Option<crate::server::auth::PreflightGate>,
+) -> Router {
     crate::http_host::ensure_registered();
+    let rpc_route = match &preflight_gate {
+        Some(_) => post(rpc_handler::preflight_rpc_handler),
+        None => post(rpc_handler::rpc_handler),
+    };
     let router = Router::new()
         .route("/", get(root_handler))
         .route("/health", get(health::health_handler))
@@ -62,7 +82,7 @@ pub fn build_core_http_router(socketio_enabled: bool) -> Router {
         // localhost cap is safe.
         .route(
             "/rpc",
-            post(rpc_handler::rpc_handler).route_layer(DefaultBodyLimit::max(MAX_RPC_BODY_BYTES)),
+            rpc_route.route_layer(DefaultBodyLimit::max(MAX_RPC_BODY_BYTES)),
         )
         .route("/ws/live-voice", get(live_voice::live_voice_ws_handler))
         .route(
@@ -88,6 +108,16 @@ pub fn build_core_http_router(socketio_enabled: bool) -> Router {
         .route_layer(middleware::from_fn(
             crate::server::auth::rpc_auth_middleware,
         ));
+    let router = if let Some(gate) = preflight_gate {
+        router
+            .layer(axum::Extension(gate.clone()))
+            .route_layer(middleware::from_fn_with_state(
+                gate,
+                crate::server::auth::preflight_surface_middleware,
+            ))
+    } else {
+        router
+    };
     // Socket.IO is off (`--jsonrpc-only`): answer its path before the bearer
     // middleware can mistake the handshake for an unauthenticated request.
     // Sits inside CORS so browser clients can read the body.

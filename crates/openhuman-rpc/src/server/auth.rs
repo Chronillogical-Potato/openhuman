@@ -29,6 +29,60 @@ use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde_json::json;
+use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
+
+/// Request gate shared with the two-phase desktop boot. While active, only the
+/// preflight HTTP/RPC surface is admitted; the same bound server opens its
+/// normal router after config secrets are decrypted.
+#[derive(Clone, Debug)]
+pub(crate) struct PreflightGate(Arc<AtomicBool>);
+
+impl PreflightGate {
+    pub(crate) fn new_active() -> Self {
+        Self(Arc::new(AtomicBool::new(true)))
+    }
+
+    pub(crate) fn is_active(&self) -> bool {
+        self.0.load(Ordering::Acquire)
+    }
+
+    pub(crate) fn open(&self) {
+        self.0.store(false, Ordering::Release);
+    }
+}
+
+const PREFLIGHT_RPC_METHODS: &[&str] = &[
+    "core.version",
+    "openhuman.approval_list_pending",
+    "openhuman.approval_decide",
+];
+
+pub(crate) fn preflight_rpc_method_allowed(method: &str) -> bool {
+    PREFLIGHT_RPC_METHODS.contains(&method)
+}
+
+pub(crate) fn preflight_http_path_allowed(method: &Method, path: &str) -> bool {
+    *method == Method::OPTIONS || (*method == Method::GET && path == "/health")
+        || (*method == Method::POST && path == "/rpc")
+}
+
+/// While the desktop has only loaded sealed config, keep every route except
+/// health and JSON-RPC behind a closed gate. JSON-RPC has its own method
+/// allowlist in `preflight_rpc_handler`.
+pub(crate) async fn preflight_surface_middleware(
+    req: axum::extract::Request,
+    gate: axum::extract::State<PreflightGate>,
+    next: Next,
+) -> Response {
+    if !gate.is_active() || preflight_http_path_allowed(req.method(), req.uri().path()) {
+        return next.run(req).await;
+    }
+    (StatusCode::SERVICE_UNAVAILABLE, Json(json!({
+        "ok": false,
+        "error": "startup_preflight",
+        "message": "Core startup approval preflight is active"
+    }))).into_response()
+}
 
 use crate::core_host::config::Config;
 use crate::core_host::credentials::AuthService;
