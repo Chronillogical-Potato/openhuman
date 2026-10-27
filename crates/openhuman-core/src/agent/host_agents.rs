@@ -82,23 +82,31 @@ impl HostAgent {
                     &self.definition,
                     self.host_tools.as_ref(),
                     session_id,
-                ).await;
+                )
+                .await;
             }
             match &self.host_tools {
-                Some(host) => OpenHumanSessionHost::from_config_with_host_tools(
-                    &dispatch,
-                    config,
-                    &self.definition,
-                    host,
-                    session_id,
-                ).await,
-                None => OpenHumanSessionHost::from_config_with_definition(
-                    &dispatch,
-                    config,
-                    &self.definition,
-                ).await,
+                Some(host) => {
+                    OpenHumanSessionHost::from_config_with_host_tools(
+                        &dispatch,
+                        config,
+                        &self.definition,
+                        host,
+                        session_id,
+                    )
+                    .await
+                }
+                None => {
+                    OpenHumanSessionHost::from_config_with_definition(
+                        &dispatch,
+                        config,
+                        &self.definition,
+                    )
+                    .await
+                }
             }
-        }).await?;
+        })
+        .await?;
         // The agent's own callbacks ride the session explicitly: its tool and
         // stop hooks reach every turn's run context, its post-turn hooks join
         // the learning sink.

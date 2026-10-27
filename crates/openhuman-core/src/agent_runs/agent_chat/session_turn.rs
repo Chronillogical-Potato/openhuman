@@ -231,7 +231,7 @@ async fn build_turn_agent(
     turn_model_source: Option<(crate::agent::tinyagents::TurnModelSource, String)>,
 ) -> Result<OpenHumanSessionHost, String> {
     match target {
-        AgentChatTarget::Orchestrator => OpenHumanSessionHost::from_config(ctx, config),
+        AgentChatTarget::Orchestrator => OpenHumanSessionHost::from_config(ctx, config).await,
         AgentChatTarget::AgentId(id) => {
             log::debug!("[inference] agent_chat building agent_id={id}");
             OpenHumanSessionHost::from_config_for_agent(ctx, config, id).await
@@ -243,7 +243,8 @@ async fn build_turn_agent(
             ..
         } => {
             let definition = definition_for_turn(definition, temperature);
-            OpenHumanSessionHost::from_config_host_only(ctx, config, &definition, *host, session_id).await
+            OpenHumanSessionHost::from_config_host_only(ctx, config, &definition, *host, session_id)
+                .await
         }
         AgentChatTarget::Definition {
             definition, host, ..
@@ -257,18 +258,23 @@ async fn build_turn_agent(
                         &definition,
                         source,
                         model,
-                    ).await
+                    )
+                    .await
                 }
                 (host, None) => match host {
-                    Some(host) => OpenHumanSessionHost::from_config_with_host_tools(
-                        ctx,
-                        config,
-                        &definition,
-                        host,
-                        session_id,
-                    ).await,
+                    Some(host) => {
+                        OpenHumanSessionHost::from_config_with_host_tools(
+                            ctx,
+                            config,
+                            &definition,
+                            host,
+                            session_id,
+                        )
+                        .await
+                    }
                     None => {
-                        OpenHumanSessionHost::from_config_with_definition(ctx, config, &definition).await
+                        OpenHumanSessionHost::from_config_with_definition(ctx, config, &definition)
+                            .await
                     }
                 },
                 (Some(_), Some(_)) => Err(anyhow::anyhow!(
@@ -534,7 +540,8 @@ pub(super) async fn agent_chat_reply_for_inner(
                 turn_session_id,
                 temperature,
                 turn_model_source.clone(),
-            ).await
+            )
+            .await
             .map_err(anyhow::Error::msg)?;
             // Also thread it as the turn's workspace descriptor so acting tools
             // that read `ToolExecutionContext::workspace` (shell) resolve their
@@ -549,7 +556,8 @@ pub(super) async fn agent_chat_reply_for_inner(
             turn_session_id,
             temperature,
             turn_model_source,
-        ).await
+        )
+        .await
         .map_err(anyhow::Error::msg)?,
     };
     // Thread-correct resume. `OpenHumanSessionHost::turn` would otherwise auto-load the

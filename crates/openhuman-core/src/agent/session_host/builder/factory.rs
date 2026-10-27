@@ -123,7 +123,8 @@ impl OpenHumanSessionHost {
             false,
             None,
             None,
-        ).await
+        )
+        .await
     }
 
     /// Internal constructor that consumes the optionally-resolved agent
@@ -147,7 +148,8 @@ impl OpenHumanSessionHost {
     ) -> Result<Self> {
         Self::build_session_agent_inner_with_turn_model_source(
             ctx, config, agent_id, target_def, host_only, host, session_id, None,
-        ).await
+        )
+        .await
     }
 }
 

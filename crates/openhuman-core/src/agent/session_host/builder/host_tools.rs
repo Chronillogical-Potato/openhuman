@@ -415,7 +415,8 @@ impl OpenHumanSessionHost {
             false,
             Some(host),
             session_id,
-        ).await
+        )
+        .await
     }
 
     /// Build a session agent from a definition the caller already holds,
@@ -446,7 +447,8 @@ impl OpenHumanSessionHost {
             false,
             None,
             None,
-        ).await
+        )
+        .await
     }
 
     pub(crate) async fn from_config_with_definition_and_turn_model_source(
@@ -465,6 +467,7 @@ impl OpenHumanSessionHost {
             None,
             None,
             Some((source, model)),
-        ).await
+        )
+        .await
     }
 }

@@ -29,7 +29,8 @@ impl OpenHumanSessionHost {
                 &definition,
                 Some(&factory),
                 session_id,
-            ).await;
+            )
+            .await;
         }
         Self::from_config_for_agent(ctx, config, agent_id).await
     }

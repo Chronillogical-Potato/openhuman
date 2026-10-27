@@ -111,7 +111,8 @@ impl OpenHumanSessionHost {
             true,
             host,
             session_id,
-        ).await?;
+        )
+        .await?;
         agent.host_only = true;
         Ok(agent)
     }
