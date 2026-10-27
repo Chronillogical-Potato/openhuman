@@ -144,7 +144,7 @@ async fn all_tools_presentation_maps_through() {
 async fn gemini_deep_research_uses_the_direct_key_beside_managed_gemini() {
     let dir = tempfile::tempdir().unwrap();
     let mut config = config_in(dir.path());
-    sign_in(&config);
+    sign_in(&config).await;
     config.search.gemini.api_key = Some("test-secret".into());
     let payload = module_config(&config).await;
     assert_eq!(payload.providers["gemini"].route, ProviderRoute::Backend);
@@ -158,7 +158,7 @@ async fn gemini_deep_research_uses_the_direct_key_beside_managed_gemini() {
 async fn gemini_deep_research_is_off_without_a_key() {
     let dir = tempfile::tempdir().unwrap();
     let config = config_in(dir.path());
-    sign_in(&config);
+    sign_in(&config).await;
     assert!(!module_config(&config).await.providers["gemini_deep_research"].enabled);
 }
 
@@ -192,7 +192,7 @@ async fn seltz_and_searxng_use_their_own_sections() {
 async fn search_off_disables_the_module_and_every_provider() {
     let dir = tempfile::tempdir().unwrap();
     let mut config = config_in(dir.path());
-    sign_in(&config);
+    sign_in(&config).await;
     config.search.enabled = Some(false);
     let payload = module_config(&config).await;
     assert!(!payload.enabled);

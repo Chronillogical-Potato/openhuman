@@ -471,7 +471,7 @@ async fn persisted_mixed_case_cloud_default_uses_configured_slug_after_restart()
 #[tokio::test]
 async fn a_non_ascii_thread_id_builds_a_session_agent_without_panicking() {
     let tmp = tempfile::tempdir().unwrap();
-    let config = super::session_checkout_tests::test_config(&tmp);
+    let config = super::session_checkout_tests::test_config(&tmp).await;
     // 11 ASCII bytes, then a 3-byte char: byte 12 falls inside '日'.
     let thread_id = "abcdefghijk日本";
     let built = super::build_session_agent(
