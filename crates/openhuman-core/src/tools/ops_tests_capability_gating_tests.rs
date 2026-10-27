@@ -294,7 +294,7 @@ fn memory_tool_is_registered_once_memory_is_on() {
         &http,
         tmp.path(),
         &cfg,
-    );
+    ).await;
     let names = tool_names(&tools);
     assert_eq!(
         names
@@ -330,7 +330,7 @@ fn memory_tool_is_absent_when_the_memory_component_is_off() {
         &http,
         tmp.path(),
         &cfg,
-    );
+    ).await;
     let names = tool_names(&tools);
     assert!(
         !names.iter().any(|n| n == crate::memory::MEMORY_TOOL_NAME),

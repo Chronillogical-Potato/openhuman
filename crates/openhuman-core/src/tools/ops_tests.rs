@@ -70,7 +70,7 @@ fn integration_tools_for_config(tmp: &TempDir, cfg: &Config) -> Vec<Box<dyn Tool
         &http,
         tmp.path(),
         cfg,
-    )
+    ).await
 }
 
 fn find_tool<'a>(tools: &'a [Box<dyn Tool>], name: &str) -> &'a dyn Tool {
@@ -109,7 +109,7 @@ fn expansion_tools_for(tmp: &TempDir) -> Vec<Box<dyn Tool>> {
         &http,
         tmp.path(),
         &cfg,
-    )
+    ).await
 }
 
 // ── Theme: Task & workflow productivity ─────────────────────────────────────

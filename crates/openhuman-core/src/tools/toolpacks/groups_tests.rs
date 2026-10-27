@@ -118,7 +118,7 @@ fn process_default_affects_registered_tools_without_a_core_context() {
                 &http,
                 std::path::Path::new("/tmp/openhuman-tool-groups"),
                 &config,
-            )
+            ).await
         };
 
         assert!(tools().iter().any(|tool| tool.name() == "doctor_health"));

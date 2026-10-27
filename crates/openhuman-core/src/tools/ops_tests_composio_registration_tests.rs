@@ -10,7 +10,7 @@ fn registry_names_for(cfg: &Config, tmp: &TempDir) -> Vec<String> {
         &crate::config::HttpRequestConfig::default(),
         tmp.path(),
         cfg,
-    );
+    ).await;
     tool_names(&tools)
 }
 

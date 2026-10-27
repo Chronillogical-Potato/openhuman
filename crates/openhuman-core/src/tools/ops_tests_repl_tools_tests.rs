@@ -20,7 +20,7 @@ fn registry_for(tmp: &TempDir, cfg: &Config) -> Vec<Box<dyn Tool>> {
         &crate::config::HttpRequestConfig::default(),
         tmp.path(),
         cfg,
-    )
+    ).await
 }
 
 #[test]
