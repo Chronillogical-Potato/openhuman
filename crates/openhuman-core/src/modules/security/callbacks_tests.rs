@@ -1,5 +1,72 @@
 use super::*;
 
+fn pairing_context(
+    channel_id: &str,
+    source: tinysecurity_bus::DevicePairingSource2,
+) -> tinysecurity_bus::DevicePairingContextResponse2 {
+    tinysecurity_bus::DevicePairingContextResponse2 {
+        scope_id: "0123456789abcdef0123456789abcdef".into(),
+        user_binding: "opaque-user-binding".into(),
+        secret_master_handle: Some("master-handle".into()),
+        legacy_import_handle: None,
+        channel_id: channel_id.into(),
+        pairing_token: (!channel_id.is_empty()).then(|| "pairing-token".into()),
+        connection_nonce: (!channel_id.is_empty()).then(|| "connection-nonce".into()).unwrap_or_default(),
+        generation: 7,
+        source,
+        expires_at_ms: u64::MAX,
+    }
+}
+
+#[test]
+fn device_pairing_host_event_is_bound_to_purpose_channel_and_used_once() {
+    use tinysecurity_bus::{DevicePairingPurpose2, DevicePairingSource2};
+
+    let events = PairingEventRegistry::default();
+    let event_id = events.issue(pairing_context(
+        "channel-1",
+        DevicePairingSource2::RegisteredSocket,
+    ));
+    let request = tinysecurity_bus::DevicePairingContextRequest2 {
+        host_event_id: event_id.clone(),
+        purpose: DevicePairingPurpose2::SocketEvent,
+        requested_channel_id: Some("channel-1".into()),
+    };
+
+    assert_eq!(events.resolve(&request, 1_000).unwrap().channel_id, "channel-1");
+    assert!(events.resolve(&request, 1_000).is_err(), "event IDs are single use");
+
+    let wrong_purpose = events.issue(pairing_context(
+        "channel-2",
+        DevicePairingSource2::RegisteredSocket,
+    ));
+    assert!(events
+        .resolve(
+            &tinysecurity_bus::DevicePairingContextRequest2 {
+                host_event_id: wrong_purpose,
+                purpose: DevicePairingPurpose2::Reconnect,
+                requested_channel_id: Some("channel-2".into()),
+            },
+            1_000,
+        )
+        .is_err());
+
+    let wrong_channel = events.issue(pairing_context(
+        "channel-3",
+        DevicePairingSource2::RegisteredSocket,
+    ));
+    assert!(events
+        .resolve(
+            &tinysecurity_bus::DevicePairingContextRequest2 {
+                host_event_id: wrong_channel,
+                purpose: DevicePairingPurpose2::SocketEvent,
+                requested_channel_id: Some("attacker-channel".into()),
+            },
+            1_000,
+        )
+        .is_err());
+}
+
 #[test]
 fn keyring_callback_grants_only_explicit_operation_scoped_approval() {
     use tinysecurity_bus::KeyringConsentOutcome2 as Outcome;
