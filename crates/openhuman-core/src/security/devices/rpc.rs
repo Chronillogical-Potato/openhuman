@@ -283,14 +283,34 @@ pub async fn devices_revoke(
 
     let existing = store::get_device(config, &channel_id)
         .map_err(|error| format!("[devices/rpc] get_device failed: {error}"))?;
-    let Some(existing) = existing else {
+    let Some(mut existing) = existing else {
         return Ok(Outcome::single_log(
             RevokeDeviceResponse { success: false },
             format!("device {channel_id} not found"),
         ));
     };
 
-    if let Some(pairing_id) = existing.pairing_id.as_deref() {
+    if existing.revoked {
+        return Ok(Outcome::single_log(
+            RevokeDeviceResponse { success: true },
+            format!("device {channel_id} already revoked"),
+        ));
+    }
+
+    if existing.pairing_id.is_none() && existing.core_private_key_encrypted.is_some() {
+        // A direct user revoke is also a consented migration point for a
+        // legacy identity, so every available live identity is first imported
+        // into the module and then revoked there.
+        devices_import_legacy(ctx, config).await?;
+        existing = store::get_device(config, &channel_id)
+            .map_err(|error| format!("[devices/rpc] get imported device failed: {error}"))?
+            .ok_or_else(|| "device disappeared during legacy import".to_owned())?;
+    }
+
+    let Some(pairing_id) = existing.pairing_id.as_deref() else {
+        return Err("device has no recoverable TinySecurity pairing identity".to_owned());
+    };
+    {
         let (client, scope, master_handle, generation) =
             crate::modules::security::device_pairing_master(config).await?;
         let host_event_id = crate::modules::security::device_pairing_user_event(
