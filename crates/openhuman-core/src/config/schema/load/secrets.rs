@@ -1,25 +1,6 @@
 use super::super::Config;
 use anyhow::{Context, Result};
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
-
-/// Set whenever a legacy `enc:` (XOR) secret is force-migrated to `enc2:`
-/// during a `decrypt_config_secrets` pass. The flag is scoped to a single pass:
-/// `decrypt_config_secrets` clears it on entry and reads (and clears) it on exit
-/// so the caller can persist the upgraded config (audit C8). The worst case
-/// under a (rare) concurrent load is an extra, idempotent `config.save()` — the
-/// re-encryption is a no-op once values are already `enc2:`, so an occasional
-/// spurious save is harmless and never loses data.
-fn migration_flag() -> &'static AtomicBool {
-    static MIGRATED: AtomicBool = AtomicBool::new(false);
-    &MIGRATED
-}
-
-thread_local! {
-    /// Fields a `decrypt_config_secrets` pass on this thread could not open
-    /// (and cleared). The pass is synchronous, so a thread-local is exact.
-    static DECRYPT_FAILURES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
-}
 
 /// Decrypt one optional secret in place.
 ///
@@ -30,27 +11,26 @@ thread_local! {
 /// persist the upgraded config back to disk. This stops legacy XOR ciphertext
 /// from persisting indefinitely (see audit C8). Reading existing `enc:` values
 /// still succeeds throughout the migration.
-fn decrypt_optional_secret(
+async fn decrypt_optional_secret(
     store: &crate::security::secret_storage::SecretStore,
     value: &mut Option<String>,
     field_name: &str,
-) -> Result<()> {
+    strict: bool,
+) -> Result<bool> {
     if let Some(raw) = value.clone() {
         if crate::security::secret_storage::SecretStore::is_encrypted(&raw) {
-            // Legacy `enc:` values are migrated to `enc2:` on read so they are
-            // rewritten on the next config save instead of lingering forever.
-            match store.decrypt_and_migrate(&raw) {
+            match store.decrypt_and_migrate_via_security(&raw).await {
                 Ok((plaintext, migrated)) => {
                     if migrated.is_some() {
-                        log::warn!(
-                            "[security][config] migrated legacy enc: secret '{field_name}' \
-                             to enc2: (ChaCha20-Poly1305); config will be re-saved to persist"
-                        );
-                        migration_flag().store(true, Ordering::Relaxed);
+                        log::warn!("[security][config] migrated legacy secret '{field_name}'; config will be re-saved");
                     }
                     *value = Some(plaintext);
+                    return Ok(migrated.is_some());
                 }
                 Err(e) => {
+                    if strict {
+                        anyhow::bail!("unable to decrypt config secret");
+                    }
                     // Decryption key is inaccessible (e.g. rotated, keyring reset, or
                     // migrated across machines). Clear the field so config loads
                     // successfully — the affected integration will be disabled until
@@ -63,13 +43,12 @@ fn decrypt_optional_secret(
                         field_name,
                         &e.to_string(),
                     );
-                    DECRYPT_FAILURES.with(|failures| failures.set(failures.get() + 1));
                     *value = None;
                 }
             }
         }
     }
-    Ok(())
+    Ok(false)
 }
 
 /// [`decrypt_config_secrets`] for a config about to be written somewhere
@@ -77,33 +56,26 @@ fn decrypt_optional_secret(
 /// open. The load path clears a field it cannot decrypt so the app stays
 /// usable; saving that cleared value over the shared document would turn a
 /// transient keychain failure into lost credentials, so this fails instead.
-pub(super) fn decrypt_config_secrets_strict(
+pub(super) async fn decrypt_config_secrets_strict(
     config: &mut Config,
     openhuman_dir: &Path,
 ) -> Result<()> {
-    DECRYPT_FAILURES.with(|failures| failures.set(0));
-    decrypt_config_secrets(config, openhuman_dir)?;
-    let failed = DECRYPT_FAILURES.with(|failures| failures.replace(0));
-    if failed > 0 {
-        anyhow::bail!(
-            "{failed} config secret(s) are sealed under this node's key and could not be opened; \
-             not saving them to the shared config document"
-        );
-    }
+    let _ = decrypt_config_secrets_inner(config, openhuman_dir, true).await?;
     Ok(())
 }
 
-fn encrypt_optional_secret(
+async fn encrypt_optional_secret(
     store: &crate::security::secret_storage::SecretStore,
     value: &mut Option<String>,
-    field_name: &str,
+    _field_name: &str,
 ) -> Result<()> {
     if let Some(raw) = value.clone() {
         // An empty value means "no key"; sealing it would make it look set.
         if !raw.is_empty() && !crate::security::secret_storage::SecretStore::is_encrypted(&raw) {
             *value = Some(
                 store
-                    .encrypt(&raw)
+                    .encrypt_via_security(&raw)
+                    .await
                     .with_context(|| format!("Failed to encrypt {field_name}"))?,
             );
         }
@@ -121,29 +93,46 @@ fn encrypt_optional_secret(
 /// force-migrated to `enc2:` during this pass. The caller should persist the
 /// config (e.g. `config.save()`) when this is `true` so the upgraded ciphertext
 /// is written to disk and the legacy XOR value stops persisting (audit C8).
-pub(super) fn decrypt_config_secrets(config: &mut Config, openhuman_dir: &Path) -> Result<bool> {
+pub(super) async fn decrypt_config_secrets(
+    config: &mut Config,
+    openhuman_dir: &Path,
+) -> Result<bool> {
+    decrypt_config_secrets_inner(config, openhuman_dir, false).await
+}
+
+async fn decrypt_config_secrets_inner(
+    config: &mut Config,
+    openhuman_dir: &Path,
+    strict: bool,
+) -> Result<bool> {
     if !config.secrets.encrypt {
         return Ok(false);
     }
-    // Reset the per-pass migration flag before decrypting any field.
-    migration_flag().store(false, Ordering::Relaxed);
-    let store = crate::security::secret_storage::SecretStore::new(openhuman_dir, true);
+    let store = crate::security::secret_storage::SecretStore::new_with_config(
+        openhuman_dir,
+        true,
+        config,
+    );
 
     // A MongoDB URL carries the database password.
     // Fail closed: if the sealed URL cannot be opened, keep the ciphertext so
     // the storage backend fails to open at boot instead of the field being
     // cleared into the "no URL" sentinel (the classic on-disk layout).
     let sealed_storage_url = config.storage.url.clone();
-    decrypt_optional_secret(&store, &mut config.storage.url, "storage.url")?;
+    let mut migrated = decrypt_optional_secret(
+        &store,
+        &mut config.storage.url,
+        "storage.url",
+        strict,
+    )
+    .await?;
     if config.storage.url.is_none() && sealed_storage_url.is_some() {
         config.storage.url = sealed_storage_url;
     }
 
-    for_each_secret(config, &mut |value, name| {
-        decrypt_optional_secret(&store, value, name)
-    })?;
+    migrated |= for_each_secret(config, &store, false, strict).await?;
 
-    Ok(migration_flag().swap(false, Ordering::Relaxed))
+    Ok(migrated)
 }
 
 /// Encrypt all secret fields in the configuration before writing to disk.
@@ -151,7 +140,7 @@ pub(super) fn decrypt_config_secrets(config: &mut Config, openhuman_dir: &Path) 
 /// Called during `Config::save()` when `secrets.encrypt` is true. Only
 /// encrypts values that are NOT already encrypted. This is a no-op when
 /// encryption is disabled.
-pub(super) fn encrypt_config_secrets(config: &mut Config) -> Result<()> {
+pub(super) async fn encrypt_config_secrets(config: &mut Config) -> Result<()> {
     if !config.secrets.encrypt {
         return Ok(());
     }
@@ -159,14 +148,17 @@ pub(super) fn encrypt_config_secrets(config: &mut Config) -> Result<()> {
         .config_path
         .parent()
         .context("Config path must have a parent directory")?;
-    let store = crate::security::secret_storage::SecretStore::new(parent_dir, true);
+    let store = crate::security::secret_storage::SecretStore::new_with_config(
+        parent_dir,
+        true,
+        config,
+    );
 
     // A MongoDB URL carries the database password.
-    encrypt_optional_secret(&store, &mut config.storage.url, "storage.url")?;
+    encrypt_optional_secret(&store, &mut config.storage.url, "storage.url")
+        .await?;
 
-    for_each_secret(config, &mut |value, name| {
-        encrypt_optional_secret(&store, value, name)
-    })?;
+    for_each_secret(config, &store, true, false).await?;
 
     Ok(())
 }
