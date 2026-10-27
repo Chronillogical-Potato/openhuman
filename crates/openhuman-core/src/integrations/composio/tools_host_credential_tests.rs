@@ -67,7 +67,7 @@ async fn start_mock_composio() -> (String, SeenKeys) {
 
 /// A runtime config whose disk file and credential store both point
 /// somewhere other than the pinned credential.
-fn shared_runtime_config(tmp: &tempfile::TempDir) -> Config {
+async fn shared_runtime_config(tmp: &tempfile::TempDir) -> Config {
     let config_path = tmp.path().join("config.toml");
     std::fs::write(&config_path, "[composio]\nmode = \"backend\"\n").unwrap();
     let mut config = Config::default();
@@ -98,7 +98,6 @@ fn pinned(base: &Config, key: &str, entity: &str, mock: Option<&str>) -> Config 
 
 fn direct_key_fingerprint(config: &Config) -> u64 {
     match resolve_composio_route(config)
-        .await
         .expect("pinned credential resolves")
     {
         ComposioRoute::Direct(tool) => tool.auth_key_fingerprint(),
@@ -109,7 +108,7 @@ fn direct_key_fingerprint(config: &Config) -> u64 {
 #[tokio::test]
 async fn pinned_credential_beats_the_shared_credential_store() {
     let tmp = tempfile::tempdir().unwrap();
-    let base = shared_runtime_config(&tmp);
+    let base = shared_runtime_config(&tmp).await;
     let agent = pinned(&base, KEY_A, "tenant-a", None);
 
     let mut unpinned_direct = base.clone();
@@ -127,7 +126,7 @@ async fn pinned_credential_beats_the_shared_credential_store() {
 #[tokio::test]
 async fn pinned_config_is_not_replaced_by_the_shared_config_file() {
     let tmp = tempfile::tempdir().unwrap();
-    let base = shared_runtime_config(&tmp);
+    let base = shared_runtime_config(&tmp).await;
     let agent = pinned(&base, KEY_A, "tenant-a", None);
 
     let live = live_composio_config(&agent).await.unwrap();
@@ -152,7 +151,7 @@ async fn pinned_config_is_not_replaced_by_the_shared_config_file() {
 #[tokio::test]
 async fn two_agents_on_one_runtime_each_call_composio_with_their_own_key() {
     let tmp = tempfile::tempdir().unwrap();
-    let base = shared_runtime_config(&tmp);
+    let base = shared_runtime_config(&tmp).await;
     let (mock, seen) = start_mock_composio().await;
     let agent_a = pinned(&base, KEY_A, "tenant-a", Some(&mock));
     let agent_b = pinned(&base, KEY_B, "tenant-b", Some(&mock));
@@ -181,7 +180,7 @@ async fn two_agents_on_one_runtime_each_call_composio_with_their_own_key() {
 #[tokio::test]
 async fn connected_integrations_cache_is_keyed_per_credential() {
     let tmp = tempfile::tempdir().unwrap();
-    let base = shared_runtime_config(&tmp);
+    let base = shared_runtime_config(&tmp).await;
     let agent_a = pinned(&base, KEY_A, "tenant-a", None);
     let agent_b = pinned(&base, KEY_B, "tenant-b", None);
     let same_key_other_entity = pinned(&base, KEY_A, "tenant-c", None);
@@ -215,8 +214,8 @@ async fn connected_integrations_cache_is_keyed_per_credential() {
         },
     );
 
-    let seen_by_a = read_cached_integrations_from(&cache, &agent_a);
-    let seen_by_b = read_cached_integrations_from(&cache, &agent_b);
+    let seen_by_a = read_cached_integrations_from(&cache, &agent_a).await;
+    let seen_by_b = read_cached_integrations_from(&cache, &agent_b).await;
 
     assert_eq!(seen_by_a.map(|v| v.len()), Some(1));
     assert!(seen_by_b.is_none());
@@ -225,7 +224,7 @@ async fn connected_integrations_cache_is_keyed_per_credential() {
 #[tokio::test]
 async fn composio_key_never_reaches_tool_output_or_errors() {
     let tmp = tempfile::tempdir().unwrap();
-    let base = shared_runtime_config(&tmp);
+    let base = shared_runtime_config(&tmp).await;
     let (mock, seen) = start_mock_composio().await;
     let agent = pinned(&base, LEAKY_KEY, "tenant-l", Some(&mock));
 
@@ -246,7 +245,7 @@ async fn composio_key_never_reaches_tool_output_or_errors() {
 async fn redaction_covers_every_result_channel() {
     use crate::integrations::composio::tools::redact_composio_outcome;
     let tmp = tempfile::tempdir().unwrap();
-    let base = shared_runtime_config(&tmp);
+    let base = shared_runtime_config(&tmp).await;
     let agent = pinned(&base, KEY_A, "tenant-a", None);
 
     let mut result = tinytools::ToolResult::json(json!({"nested": [format!("key={KEY_A}")]}))
@@ -260,7 +259,6 @@ async fn redaction_covers_every_result_channel() {
     assert!(!serialized.contains(KEY_A), "{serialized}");
 
     let err = redact_composio_outcome(&agent, Err(anyhow::anyhow!("bad key {KEY_A}")))
-        .await
         .await
         .unwrap_err();
     assert!(!format!("{err:#}").contains(KEY_A));
@@ -282,7 +280,7 @@ async fn redaction_covers_every_result_channel() {
 #[tokio::test]
 async fn cache_key_changes_when_the_shared_stored_key_rotates_in_unpinned_direct_mode() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut base = shared_runtime_config(&tmp);
+    let mut base = shared_runtime_config(&tmp).await;
     base.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.into();
 
     let key_before = cache_key(&base).await;
@@ -311,7 +309,7 @@ async fn cache_key_changes_when_the_shared_stored_key_rotates_in_unpinned_direct
 #[tokio::test]
 async fn cache_key_is_stable_for_unpinned_direct_mode_when_nothing_rotates() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut base = shared_runtime_config(&tmp);
+    let mut base = shared_runtime_config(&tmp).await;
     base.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.into();
 
     assert_eq!(cache_key(&base).await, cache_key(&base).await);

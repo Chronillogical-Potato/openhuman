@@ -102,7 +102,7 @@ async fn explicit_cloud_provider_string_routes_to_crate_native_model() {
     let _guard = crate::inference::inference_test_guard();
     let mut config = Config::default();
     config.cloud_providers.push(deepseek_entry("p_ds"));
-    let (model, model_id) = super::with_fixture_library_context(|| {
+    let (model, model_id) = super::with_fixture_library_context(|| async {
         create_chat_model_from_string_with_model_id(
             "chat",
             "deepseek:deepseek-reasoner",
