@@ -113,7 +113,7 @@ async fn caller_owned_models_build_without_openhuman_session() {
         "local-openai:test-model",
         "claude_agent_sdk:test-model",
     ] {
-        create_chat_model_from_string("chat", provider, &config, 0.0)
+        create_chat_model_from_string("chat", provider, &config, 0.0).await
             .unwrap_or_else(|e| panic!("{provider} must build while signed out: {e}"));
     }
     // CLI discovery is machine-specific; verify its authentication gate without
@@ -122,6 +122,7 @@ async fn caller_owned_models_build_without_openhuman_session() {
         &config,
         "claude-code:test-model",
     )
+    .await
     .expect("Claude Code uses its own authentication while OpenHuman is signed out");
     // Exercise the real gate (cloud constructors skip auth under cfg(test)).
     for provider in [
@@ -133,6 +134,7 @@ async fn caller_owned_models_build_without_openhuman_session() {
         let error = crate::inference::provider::factory::access_gates::verify_provider_session(
             &config, provider,
         )
+        .await
         .unwrap_err();
         assert!(
             error.to_string().contains("SESSION_EXPIRED"),
