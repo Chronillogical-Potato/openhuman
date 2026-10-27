@@ -126,7 +126,7 @@ impl EventHandler<DomainEvent> for DeviceTunnelSubscriber {
                 }
             }
             event if should_lock_pairings_after_credential_event(event) => {
-                lock_device_pairings_after_logout().await;
+                clear_device_pairing_runtime_state();
             }
             _ => {}
         }
@@ -152,6 +152,19 @@ async fn lock_device_pairings_after_logout() {
     };
     if let Err(error) = crate::modules::security::lock_device_pairing_scope(&config).await {
         log::warn!("[devices/bus] TinySecurity pairing lock after logout failed: {error}");
+    }
+}
+
+/// Lock the currently admitted TinySecurity scope before credential teardown
+/// deactivates or rebinds it. The direct credential lifecycle owns this call;
+/// socket callbacks cannot mint logout authority.
+pub(crate) async fn lock_device_pairing_scope_for_logout(
+    _ctx: &DispatchCtx,
+    config: &crate::config::Config,
+) {
+    clear_device_pairing_runtime_state();
+    if let Err(error) = crate::modules::security::lock_device_pairing_scope(config).await {
+        log::warn!("[devices/bus] TinySecurity pairing lock before logout failed: {error}");
     }
 }
 

@@ -83,6 +83,7 @@ fn stale_pending_session_is_retired_before_same_device_renewal() {
         "fresh-connection-token",
         "fresh-connection-nonce",
     )
+    .0
     .is_none());
     assert!(!pending.contains_key("bus-test-channel"));
     assert!(renewal_pairing_id(true, true, false, false, &paired_device()).is_some());

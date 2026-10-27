@@ -58,7 +58,7 @@ pub(crate) static PENDING_RENEWALS: once_cell::sync::Lazy<Mutex<HashMap<String, 
 pub(crate) static RECONNECTING: once_cell::sync::Lazy<Mutex<std::collections::HashSet<String>>> =
     once_cell::sync::Lazy::new(|| Mutex::new(std::collections::HashSet::new()));
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ActiveDeviceSession {
     pub scope_id: String,
     pub session_id: String,

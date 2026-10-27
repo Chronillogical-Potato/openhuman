@@ -15,6 +15,10 @@ pub(crate) async fn clear_session_credential(
 ) -> Result<Outcome<bool>, String> {
     let mut logs = Vec::new();
     crate::platform::llm_gate::set_signed_out(true);
+    // Lock TinySecurity while the old user's authenticated scope and module
+    // callback binding are still active. The later CredentialChanged event
+    // only performs idempotent host cleanup after the workspace is rebound.
+    crate::security::devices::bus::lock_device_pairing_scope_for_logout(ctx, config).await;
     #[cfg(feature = "web3")]
     if let Err(error) = crate::modules::web3_service::close_service(config).await {
         tracing::warn!(%error, "{LOG_PREFIX} failed to close Web3 service during sign-out");
