@@ -77,6 +77,7 @@ pub use openhuman_embed::__host;
 pub mod backend;
 pub(crate) mod channels;
 pub mod client;
+mod devices;
 pub(crate) mod doctor;
 pub mod hosted;
 mod hosted_config;

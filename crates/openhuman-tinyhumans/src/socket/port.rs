@@ -318,6 +318,7 @@ async fn run_socket_actor(
                 }
                 apply_backend_status_event(&event, &mut state.write());
                 let data = event.payload.decode::<Value>(&event.name).unwrap_or(Value::Null);
+                crate::devices::tunnel_client::dispatch_backend_event(&event.name, data.clone());
                 openhuman_embed::__host::platform::socket::dispatch_socket_event(&event.name, data);
             }
             command = commands.recv() => {

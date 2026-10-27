@@ -262,6 +262,14 @@ pub mod security {
     pub mod pairing {
         pub use openhuman_core::security::pairing::is_public_bind;
     }
+    /// TinyHumans' hosted device-tunnel adapter and the semantic device events
+    /// it forwards into the core.
+    pub mod devices {
+        pub use openhuman_core::security::devices::tunnel_client::{
+            global_tunnel_client_port, publish_peer_status, publish_tunnel_frame,
+            set_global_tunnel_client_port, TunnelClientPort, TunnelRegistration,
+        };
+    }
 }
 
 /// Host credential custody and read-side auth helpers used by tinyhumans and rpc.
