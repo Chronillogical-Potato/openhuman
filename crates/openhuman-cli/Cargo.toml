@@ -454,7 +454,6 @@ openhuman-core = { path = "../openhuman-core", package = "openhuman", default-fe
 openhuman-embed = { workspace = true }
 openhuman-tinyhumans = { workspace = true }
 tinymemory-tools = { path = "../../vendor/tinymemory/crates/tinymemory-tools" }
-aes-gcm = "0.10"
 async-trait = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
 futures = "0.3"
