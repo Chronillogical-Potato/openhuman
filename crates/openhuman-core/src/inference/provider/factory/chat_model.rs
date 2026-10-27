@@ -6,7 +6,7 @@ use super::test_provider_override;
 use super::{
     access_gates::{emit_inference_egress, enforce_local_only_inference},
     cloud_slug::{
-        resolve_cloud_slug_for, resolve_cloud_slug_with_access,
+        resolve_cloud_slug_with_access,
         try_create_cloud_slug_chat_model_from_string_with_native_tools_for,
     },
     credentials::CredentialAccess,

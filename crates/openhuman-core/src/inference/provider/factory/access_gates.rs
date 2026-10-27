@@ -355,6 +355,26 @@ fn verify_session_active_for_host(config: &Config, requires_session: bool) -> an
     verify_backend_session_active(config)
 }
 
+/// Synchronous model-factory gate backed by the per-session credential
+/// snapshot loaded before TinyAgents invokes its sync `ModelFactory` trait.
+pub(super) fn verify_session_active_with_snapshot(
+    config: &Config,
+    snapshot: &super::credentials::RuntimeCredentialSnapshot,
+) -> anyhow::Result<()> {
+    if !current_host_requires_session()
+        || config
+            .profile_providers
+            .as_ref()
+            .is_some_and(|providers| providers.has_direct_chat())
+    {
+        return Ok(());
+    }
+    if snapshot.backend_session_active() {
+        return Ok(());
+    }
+    anyhow::bail!("SESSION_EXPIRED: backend session not active — sign in to use custom providers")
+}
+
 /// Managed `OpenhumanJwt` inference always needs the backend bearer, including
 /// in a Library host. Library mode exempts caller-owned provider credentials;
 /// it cannot manufacture a TinyHumans account credential.
