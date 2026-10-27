@@ -28,13 +28,14 @@ fn a_paired_device_round_trips() {
 fn module_pairing_id_is_retained_for_revoke_but_hidden_from_rpc_json() {
     let store = docs();
     store
-        .insert_device("module-id", "iPhone", "pk", "hash")
+        .insert_device_with_key("module-id", "iPhone", "pk", "hash", "enc2:legacy-ciphertext")
         .unwrap();
     assert!(store
         .set_pairing_id("module-id", "owner-pairing-id")
         .unwrap());
     let device = store.get_device("module-id").unwrap().unwrap();
     assert_eq!(device.pairing_id.as_deref(), Some("owner-pairing-id"));
+    assert_eq!(device.core_private_key_encrypted, None);
     assert!(!serde_json::to_string(&device)
         .unwrap()
         .contains("owner-pairing-id"));
