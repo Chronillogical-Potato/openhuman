@@ -123,7 +123,7 @@ impl OpenHumanSessionHost {
             false,
             None,
             None,
-        )
+        ).await
     }
 
     /// Internal constructor that consumes the optionally-resolved agent
@@ -136,7 +136,7 @@ impl OpenHumanSessionHost {
     // `AgentDefinitionRegistry` singleton's init-once state. Still not part
     // of the crate's public API.
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn build_session_agent_inner(
+    pub(crate) async fn build_session_agent_inner(
         ctx: &DispatchCtx,
         config: &Config,
         agent_id: &str,
@@ -147,7 +147,7 @@ impl OpenHumanSessionHost {
     ) -> Result<Self> {
         Self::build_session_agent_inner_with_turn_model_source(
             ctx, config, agent_id, target_def, host_only, host, session_id, None,
-        )
+        ).await
     }
 }
 

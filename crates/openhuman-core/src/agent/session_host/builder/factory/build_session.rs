@@ -5,7 +5,7 @@ mod helpers;
 
 impl OpenHumanSessionHost {
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn build_session_agent_inner_with_turn_model_source(
+    pub(crate) async fn build_session_agent_inner_with_turn_model_source(
         ctx: &DispatchCtx,
         config: &Config,
         agent_id: &str,
