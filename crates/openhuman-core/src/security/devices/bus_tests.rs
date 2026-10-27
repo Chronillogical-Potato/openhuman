@@ -44,7 +44,7 @@ fn abandoning_pairing_clears_only_host_session_capabilities() {
         channel_id.into(),
         super::super::rpc::ActiveDeviceSession {
             scope_id: "scope".into(),
-            session_id: "module-session".into(),
+            session_id: "module-session".into(), pairing_token: "token".into(),
         },
     );
 

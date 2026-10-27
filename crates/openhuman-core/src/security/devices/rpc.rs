@@ -48,10 +48,11 @@ pub(crate) static ACTIVE_SESSIONS: once_cell::sync::Lazy<
     Mutex<HashMap<String, ActiveDeviceSession>>,
 > = once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub(crate) struct ActiveDeviceSession {
     pub scope_id: String,
     pub session_id: String,
+    pub pairing_token: String,
 }
 
 // ---------------------------------------------------------------------------

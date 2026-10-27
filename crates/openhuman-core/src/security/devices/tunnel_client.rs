@@ -5,6 +5,17 @@
 //! semantic peer/frame events only.
 
 use std::sync::{Arc, OnceLock};
+use std::collections::HashMap;
+
+#[derive(Clone)]
+struct SocketAttestation {
+    nonce: String,
+    expires_at_ms: u64,
+}
+
+static SOCKET_ATTESTATIONS: once_cell::sync::Lazy<
+    std::sync::Mutex<HashMap<String, SocketAttestation>>,
+> = once_cell::sync::Lazy::new(Default::default);
 
 use async_trait::async_trait;
 
@@ -63,6 +74,19 @@ pub async fn emit_frame(channel_id: &str, payload_b64: &str) -> Result<(), Strin
 
 /// Publish a parsed peer-presence update from the host adapter.
 pub fn publish_peer_status(channel_id: String, online: bool) {
+    if online {
+        let expires_at_ms = event_expiry_ms();
+        SOCKET_ATTESTATIONS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(
+                channel_id.clone(),
+                SocketAttestation {
+                    nonce: uuid::Uuid::new_v4().simple().to_string(),
+                    expires_at_ms,
+                },
+            );
+    }
     let event = if online {
         crate::core::events::DomainEvent::DevicePeerOnline { channel_id }
     } else {
@@ -73,14 +97,39 @@ pub fn publish_peer_status(channel_id: String, online: bool) {
 
 /// Publish a parsed encrypted frame from the host adapter.
 pub fn publish_tunnel_frame(channel_id: String, payload_b64: String) {
-    let now_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
-        .unwrap_or_default();
+    let attestation = {
+        let mut attestations = SOCKET_ATTESTATIONS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let entry = attestations
+            .entry(channel_id.clone())
+            .or_insert_with(|| SocketAttestation {
+                nonce: uuid::Uuid::new_v4().simple().to_string(),
+                expires_at_ms: event_expiry_ms(),
+            });
+        entry.expires_at_ms = event_expiry_ms();
+        entry.clone()
+    };
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::DeviceTunnelFrame {
         channel_id,
         payload_b64,
-        connection_nonce: uuid::Uuid::new_v4().simple().to_string(),
-        expires_at_ms: now_ms.saturating_add(30_000),
+        connection_nonce: attestation.nonce,
+        expires_at_ms: attestation.expires_at_ms,
     });
+}
+
+pub(super) fn take_socket_attestation(channel_id: &str) -> Option<(String, u64)> {
+    SOCKET_ATTESTATIONS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .remove(channel_id)
+        .map(|attestation| (attestation.nonce, attestation.expires_at_ms))
+}
+
+fn event_expiry_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
+        .unwrap_or_default()
+        .saturating_add(30_000)
 }
