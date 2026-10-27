@@ -59,25 +59,6 @@ pub(super) fn inspection_output_budget_capability(
     }
 }
 
-pub(crate) async fn resolve_cloud_slug_for<'a>(
-    role: &str,
-    slug: &str,
-    model: &str,
-    config: &'a Config,
-    extensions: Option<&crate::core::slots::Extensions>,
-) -> anyhow::Result<CloudSlugResolution<'a>> {
-    let snapshot = RuntimeCredentialSnapshot::resolve(config).await;
-    resolve_cloud_slug_with_access(
-        role,
-        slug,
-        model,
-        config,
-        extensions,
-        CredentialAccess::Runtime(&snapshot),
-        None,
-    )
-}
-
 /// The user-facing error for a failed credential lookup: the guidance, plus
 /// the expiry signal when the lookup reported one. The doctor's
 /// refresh-required check and the Codex reconnect classifier key on those

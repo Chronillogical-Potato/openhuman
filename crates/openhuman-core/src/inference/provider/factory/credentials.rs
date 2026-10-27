@@ -176,6 +176,27 @@ impl CredentialAccess<'_> {
     }
 }
 
+/// Resolve a configured cloud slug after asynchronously taking this model
+/// factory's credential snapshot.
+pub(crate) async fn resolve_cloud_slug_for<'a>(
+    role: &str,
+    slug: &str,
+    model: &str,
+    config: &'a Config,
+    extensions: Option<&crate::core::slots::Extensions>,
+) -> anyhow::Result<super::cloud_slug::CloudSlugResolution<'a>> {
+    let snapshot = RuntimeCredentialSnapshot::resolve(config).await;
+    super::cloud_slug::resolve_cloud_slug_with_access(
+        role,
+        slug,
+        model,
+        config,
+        extensions,
+        CredentialAccess::Runtime(&snapshot),
+        None,
+    )
+}
+
 /// The read-only lookup's secret-free report that an OAuth token is due for
 /// a refresh it does not perform.
 pub(super) const OAUTH_REFRESH_REQUIRED: &str = "OpenAI OAuth credential requires refresh";
