@@ -435,6 +435,18 @@ fn renewal_pairing_id<'a>(
     device.pairing_id.as_deref().filter(|value| !value.is_empty())
 }
 
+fn renewal_device_matches(
+    existing: &super::types::PairedDevice,
+    expected_pairing_id: &str,
+    returned_pairing_id: &str,
+    returned_device_key: &str,
+) -> bool {
+    !existing.revoked
+        && existing.pairing_id.as_deref() == Some(expected_pairing_id)
+        && returned_pairing_id == expected_pairing_id
+        && existing.device_pubkey == returned_device_key
+}
+
 fn unix_time_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -657,10 +669,12 @@ async fn confirm_pairing(
     let persisted = if let Some(expected_pairing_id) = renewal_pairing_id.as_deref() {
         match store::get_device(config, channel_id) {
             Ok(Some(existing))
-                if !existing.revoked
-                    && existing.pairing_id.as_deref() == Some(expected_pairing_id)
-                    && pairing_id == expected_pairing_id
-                    && existing.device_pubkey == device_public_key =>
+                if renewal_device_matches(
+                    &existing,
+                    expected_pairing_id,
+                    &pairing_id,
+                    &device_public_key,
+                ) =>
             {
                 store::touch_device(config, channel_id).and_then(|()| {
                     store::get_device(config, channel_id)

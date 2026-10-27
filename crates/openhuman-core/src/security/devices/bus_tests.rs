@@ -14,6 +14,20 @@ fn session(expires_at: &str) -> PairingSession {
     }
 }
 
+fn paired_device() -> super::super::types::PairedDevice {
+    super::super::types::PairedDevice {
+        channel_id: "bus-test-channel".into(),
+        label: "phone".into(),
+        device_pubkey: "device-static-key".into(),
+        created_at: "2026-01-01T00:00:00Z".into(),
+        last_seen_at: None,
+        peer_online: None,
+        revoked: false,
+        pairing_id: Some("module-pairing-id".into()),
+        core_private_key_encrypted: None,
+    }
+}
+
 #[test]
 fn socket_frame_encoding_round_trips_without_core_crypto() {
     let frame = [0x02, 1, 2, 3, 0xff];
@@ -27,6 +41,40 @@ fn pairing_session_expiry_is_checked_before_handshake_dispatch() {
     assert!(!pairing_session_is_live(&session("2020-01-01T00:00:00Z")));
     assert!(pairing_session_is_live(&session("2099-01-01T00:00:00Z")));
     assert!(!pairing_session_is_live(&session("not-an-expiry")));
+}
+
+#[test]
+fn process_restart_unlock_then_peer_online_renews_only_the_same_device() {
+    let device = paired_device();
+    // Process restart cleared both volatile capabilities. A live persisted
+    // row alone cannot authorize renewal until a direct user Unlock succeeds.
+    assert!(renewal_pairing_id(false, false, false, false, &device).is_none());
+    assert!(renewal_pairing_id(true, false, false, false, &device).is_none());
+
+    // After the direct user path unlocks TinySecurity and the authenticated
+    // socket reports this channel online, Renew targets its persisted owner id.
+    assert_eq!(
+        renewal_pairing_id(true, true, false, false, &device),
+        Some("module-pairing-id")
+    );
+    assert!(renewal_device_matches(
+        &device,
+        "module-pairing-id",
+        "module-pairing-id",
+        "device-static-key"
+    ));
+    assert!(!renewal_device_matches(
+        &device,
+        "module-pairing-id",
+        "other-pairing-id",
+        "device-static-key"
+    ));
+    assert!(!renewal_device_matches(
+        &device,
+        "module-pairing-id",
+        "module-pairing-id",
+        "different-device-key"
+    ));
 }
 
 #[test]

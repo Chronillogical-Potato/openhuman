@@ -11,6 +11,43 @@ async fn client_fails_closed_when_module_loading_is_disabled() {
     ));
 }
 
+#[test]
+fn pairing_unlock_cache_is_process_local_and_generation_bound() {
+    let scope = "0123456789abcdef0123456789abcdef";
+    UNLOCKED_PAIRING_SCOPES
+        .lock()
+        .unwrap()
+        .remove(scope);
+    assert!(!pairing_scope_is_unlocked(scope, 7));
+
+    remember_unlocked_pairing_scope(scope, 7);
+    assert!(pairing_scope_is_unlocked(scope, 7));
+    assert!(!pairing_scope_is_unlocked(scope, 8));
+
+    UNLOCKED_PAIRING_SCOPES
+        .lock()
+        .unwrap()
+        .remove(scope);
+    assert!(!pairing_scope_is_unlocked(scope, 7));
+}
+
+#[test]
+fn pairing_unlock_accepts_only_the_module_public_identity_result() {
+    let mut response = tinysecurity_bus::DevicePairingResponse2 {
+        receipt: None,
+        pairing_id: None,
+        session_id: None,
+        core_public_key: Some("module-core-public-key".into()),
+        device_public_key: None,
+        frame: Vec::new(),
+        expires_at_ms: 0,
+    };
+    assert!(pairing_unlock_response_is_valid(&response));
+
+    response.pairing_id = Some("unexpected-pairing".into());
+    assert!(!pairing_unlock_response_is_valid(&response));
+}
+
 #[tokio::test]
 #[ignore = "downloads and loads the pinned native TinySecurity release"]
 async fn native_cipher_bus_rejects_a_handle_not_minted_by_master_resolution() {

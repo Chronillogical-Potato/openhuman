@@ -63,6 +63,7 @@ pub(crate) struct ActiveDeviceSession {
     pub scope_id: String,
     pub session_id: String,
     pub pairing_token: String,
+    pub connection_nonce: String,
 }
 
 // ---------------------------------------------------------------------------
