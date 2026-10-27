@@ -1,6 +1,6 @@
 use super::*;
 use std::sync::{Arc, Mutex};
-use tinybus::{Connection, ObjectPath, broker::Broker, transport::memory::MemoryBus};
+use tinybus::{broker::Broker, transport::memory::MemoryBus, Connection, ObjectPath};
 
 #[derive(Clone, Default)]
 struct DeviceFixture {

@@ -11,7 +11,9 @@ fn pairing_context(
         legacy_import_handle: None,
         channel_id: channel_id.into(),
         pairing_token: (!channel_id.is_empty()).then(|| "pairing-token".into()),
-        connection_nonce: (!channel_id.is_empty()).then(|| "connection-nonce".into()).unwrap_or_default(),
+        connection_nonce: (!channel_id.is_empty())
+            .then(|| "connection-nonce".into())
+            .unwrap_or_default(),
         generation: 7,
         source,
         expires_at_ms: u64::MAX,
@@ -33,8 +35,14 @@ fn device_pairing_host_event_is_bound_to_purpose_channel_and_used_once() {
         requested_channel_id: Some("channel-1".into()),
     };
 
-    assert_eq!(events.resolve(&request, 1_000).unwrap().channel_id, "channel-1");
-    assert!(events.resolve(&request, 1_000).is_err(), "event IDs are single use");
+    assert_eq!(
+        events.resolve(&request, 1_000).unwrap().channel_id,
+        "channel-1"
+    );
+    assert!(
+        events.resolve(&request, 1_000).is_err(),
+        "event IDs are single use"
+    );
 
     let wrong_purpose = events.issue(pairing_context(
         "channel-2",
@@ -77,11 +85,9 @@ fn keyring_callback_grants_only_explicit_operation_scoped_approval() {
 
 #[test]
 fn unmigrated_callbacks_return_an_error_instead_of_authority() {
-    assert!(
-        unavailable()
-            .to_string()
-            .contains("security host callback unavailable")
-    );
+    assert!(unavailable()
+        .to_string()
+        .contains("security host callback unavailable"));
 }
 
 #[tokio::test]
@@ -94,12 +100,10 @@ async fn pairing_callbacks_fail_closed_without_an_admitted_host_event() {
             requested_channel_id: None,
         })
         .await;
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("security host callback unavailable")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("security host callback unavailable"));
 }
 
 #[tokio::test]
@@ -113,12 +117,10 @@ async fn pairing_persistence_callbacks_fail_closed_without_a_bound_scope() {
             operation: tinysecurity_bus::DevicePairingPersistenceOperation2::Load,
         })
         .await;
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("security host callback unavailable")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("security host callback unavailable"));
 }
 
 #[tokio::test]
@@ -129,10 +131,8 @@ async fn legacy_pairing_import_fails_closed_without_a_one_shot_authority() {
             handle: "unissued-import".into(),
         })
         .await;
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("security host callback unavailable")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("security host callback unavailable"));
 }

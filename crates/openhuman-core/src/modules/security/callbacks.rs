@@ -4,9 +4,9 @@
 
 use async_trait::async_trait;
 use serde_json::Value;
+use std::{collections::HashMap, sync::LazyLock};
 use tinybus::{BusName, CallContext, Connection, Interface, InterfaceName, MemberName, ObjectPath};
 use tinysecurity_bus::{callback_names2, names};
-use std::{collections::HashMap, sync::LazyLock};
 
 #[derive(Clone)]
 struct ApprovalStore;
@@ -126,10 +126,7 @@ pub(crate) struct PairingEventRegistry {
 }
 
 impl PairingEventRegistry {
-    pub(crate) fn issue(
-        &self,
-        context: tinysecurity_bus::DevicePairingContextResponse2,
-    ) -> String {
+    pub(crate) fn issue(&self, context: tinysecurity_bus::DevicePairingContextResponse2) -> String {
         let event_id = uuid::Uuid::new_v4().simple().to_string();
         self.events.lock().insert(event_id.clone(), context);
         event_id
@@ -145,7 +142,11 @@ impl PairingEventRegistry {
         if request.host_event_id.is_empty() || request.host_event_id.len() > 128 {
             return Err(());
         }
-        let context = self.events.lock().remove(&request.host_event_id).ok_or(())?;
+        let context = self
+            .events
+            .lock()
+            .remove(&request.host_event_id)
+            .ok_or(())?;
         let expected_source = match request.purpose {
             Purpose::UserController | Purpose::LegacyImport => Source::AuthenticatedUserController,
             Purpose::UserLogout => Source::AuthenticatedUserLogout,
@@ -154,7 +155,10 @@ impl PairingEventRegistry {
             Purpose::SocketClosed => Source::SocketClosed,
         };
         let valid_scope = context.scope_id.len() == 32
-            && context.scope_id.bytes().all(|byte| byte.is_ascii_hexdigit());
+            && context
+                .scope_id
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit());
         let channel_bound = request
             .requested_channel_id
             .as_deref()
@@ -167,7 +171,10 @@ impl PairingEventRegistry {
             }
             Purpose::SocketEvent | Purpose::Reconnect => {
                 !context.channel_id.is_empty()
-                    && context.pairing_token.as_ref().is_some_and(|value| !value.is_empty())
+                    && context
+                        .pairing_token
+                        .as_ref()
+                        .is_some_and(|value| !value.is_empty())
                     && !context.connection_nonce.is_empty()
             }
             Purpose::SocketClosed => !context.channel_id.is_empty(),
@@ -195,7 +202,8 @@ impl PairingEventRegistry {
     }
 }
 
-static PAIRING_EVENTS: LazyLock<PairingEventRegistry> = LazyLock::new(PairingEventRegistry::default);
+static PAIRING_EVENTS: LazyLock<PairingEventRegistry> =
+    LazyLock::new(PairingEventRegistry::default);
 
 pub(crate) fn issue_pairing_event(
     context: tinysecurity_bus::DevicePairingContextResponse2,
