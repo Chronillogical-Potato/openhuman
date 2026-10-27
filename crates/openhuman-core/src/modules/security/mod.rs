@@ -10,6 +10,7 @@ pub(super) mod cipher_consumer;
 mod client;
 pub(crate) mod command;
 pub(crate) mod gap;
+pub(super) mod host_callbacks;
 mod policy;
 pub(crate) mod policy_translation;
 pub(crate) mod sandbox;
