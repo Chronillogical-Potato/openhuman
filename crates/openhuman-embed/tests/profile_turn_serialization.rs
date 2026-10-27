@@ -87,7 +87,10 @@ async fn scenario() {
 
     let root = tempfile::tempdir().unwrap();
     let runtime = ProfileRuntime::builder(SaasConfig::new(root.path()))
-        .configure(|config| config.lease_ttl_secs = 3600)
+        .configure(|config| {
+            config.lease_ttl_secs = 3600;
+            config.secrets.encrypt = false;
+        })
         .build()
         .await
         .unwrap();
@@ -95,15 +98,14 @@ async fn scenario() {
     let mut handles = Vec::new();
     for user in ["alice", "bob"] {
         let provisioned = runtime.provision(user).await.unwrap();
-        let credential = runtime
+        runtime
             .set_credential(
                 &provisioned.profile_id,
                 ProfileCredentialKind::ApiKey,
                 "fixture-key",
             )
-            .await;
-        println!("profile credential result: {credential:?}");
-        credential.expect("profile credential is stored");
+            .await
+            .expect("profile credential is stored");
         handles.push(runtime.open(user).await.unwrap());
     }
     let (alice, bob) = (handles.remove(0), handles.remove(0));
