@@ -4,48 +4,17 @@
 //! to the event bus for domain-specific handling. Webhook routing lives in
 //! `webhooks::bus`, channel inbound processing lives in `channels::bus`.
 
-use std::sync::Arc;
-
 use serde_json::json;
-use tokio::sync::mpsc;
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 use crate::platform::socket::models::ConnectionStatus;
 use crate::skills::webhooks::WebhookRequest;
 
-use super::manager::{emit_server_event, emit_state_change, SharedState};
 
 /// Dispatch an event received by the host-owned SDK socket into core domain
 /// events. Connection lifecycle itself remains owned by the host transport.
 pub fn dispatch_socket_event(event_name: &str, data: serde_json::Value) {
-    let router = crate::platform::socket::global_socket_manager()
-        .and_then(|manager| manager.webhook_router());
-    let shared = Arc::new(SharedState {
-        webhook_router: parking_lot::RwLock::new(router),
-        ack_registry: super::manager::AckRegistry::default(),
-        status: parking_lot::RwLock::new(ConnectionStatus::Disconnected),
-        socket_id: parking_lot::RwLock::new(None),
-        error: parking_lot::RwLock::new(None),
-        connection_identity: parking_lot::RwLock::new(None),
-        loop_active: std::sync::atomic::AtomicBool::new(false),
-        loop_stopped_on_failure: std::sync::atomic::AtomicBool::new(false),
-    });
-    let (emit_tx, _emit_rx) = mpsc::unbounded_channel();
-    handle_sio_event(event_name, data, &emit_tx, &shared);
-}
-
-// ---------------------------------------------------------------------------
-// Main event dispatcher
-// ---------------------------------------------------------------------------
-
-/// Route a Socket.IO event to the appropriate handler based on its name.
-pub(super) fn handle_sio_event(
-    event_name: &str,
-    data: serde_json::Value,
-    _emit_tx: &mpsc::UnboundedSender<String>,
-    shared: &Arc<SharedState>,
-) {
     // Log every incoming event for observability.
     // Payload content is intentionally omitted from logs — webhook bodies,
     // channel messages, and Composio trigger payloads can carry PII, secrets,
@@ -79,13 +48,9 @@ pub(super) fn handle_sio_event(
     match event_name {
         "ready" => {
             log::info!("[socket] Server ready — auth successful");
-            *shared.status.write() = ConnectionStatus::Connected;
-            emit_state_change(shared);
         }
         "error" => {
             log::error!("[socket] Server error event: {}", data);
-            *shared.status.write() = ConnectionStatus::Error;
-            emit_state_change(shared);
         }
         // Webhook tunnel — publish to event bus for routing by WebhookRequestSubscriber
         "webhook:request" => {
@@ -113,7 +78,9 @@ pub(super) fn handle_sio_event(
                         .to_string();
 
                     // Record parse error in router debug log if available
-                    if let Some(router) = shared.webhook_router.read().clone() {
+                    if let Some(router) = crate::platform::socket::global_socket_manager()
+                        .and_then(|manager| manager.webhook_router())
+                    {
                         router.record_parse_error(
                             cid.clone(),
                             data.get("tunnelUuid")
@@ -338,7 +305,6 @@ pub(super) fn handle_sio_event(
         }
         _ => {
             log::debug!("[socket] Unhandled event '{}' — logging only", event_name);
-            emit_server_event(shared, event_name, data);
         }
     }
 }
