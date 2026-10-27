@@ -93,7 +93,7 @@ pub async fn fetch_connected_integrations_status(
         return FetchConnectedIntegrationsStatus::Authoritative(Vec::new());
     }
 
-    let Some(key) = checked_cache_key(config) else {
+    let Some(key) = checked_cache_key(config).await else {
         return FetchConnectedIntegrationsStatus::Unavailable;
     };
     // A connection event or a divergent list_connections response invalidates

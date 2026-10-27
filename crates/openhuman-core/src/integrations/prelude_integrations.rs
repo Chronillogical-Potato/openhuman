@@ -409,7 +409,7 @@ impl OpenHumanTurnPrelude {
         if let Some(config) = config.as_deref() {
             // The connection list and change events invalidate the process
             // snapshot, so the turn reads it without an idle-time refresh.
-            let current = match crate::integrations::composio::cached_active_integrations(config) {
+            let current = match crate::integrations::composio::cached_active_integrations(config).await {
                 Some(current) => Some((current, true)),
                 None => load_connected_integrations(config).await,
             };
@@ -500,7 +500,7 @@ async fn load_connected_integrations(
     match crate::integrations::composio::fetch_connected_integrations_status(config).await {
         FetchConnectedIntegrationsStatus::Authoritative(connected) => Some((connected, true)),
         FetchConnectedIntegrationsStatus::Unavailable => {
-            let stale = crate::integrations::composio::cached_active_integrations(config);
+            let stale = crate::integrations::composio::cached_active_integrations(config).await;
             log::warn!(
                 "[session] integrations fetch unavailable; using stale snapshot={}",
                 stale.as_ref().map_or(0, Vec::len)
