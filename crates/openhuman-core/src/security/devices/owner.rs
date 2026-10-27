@@ -40,8 +40,8 @@ fn cached(channel_id: &str) -> Option<Option<String>> {
 }
 
 /// Whether this process holds a post-handshake session cipher for the channel.
-fn has_active_cipher(channel_id: &str) -> bool {
-    super::rpc::ACTIVE_CIPHERS
+fn has_active_session(channel_id: &str) -> bool {
+    super::rpc::ACTIVE_SESSIONS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .contains_key(channel_id)
