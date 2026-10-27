@@ -8,13 +8,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
-use zeroize::Zeroizing;
 
 /// Length of the random encryption key in bytes.
 const KEY_LEN: usize = 32;
-
-/// Keychain slot used for the SecretStore master key.
-const KEYCHAIN_MASTER_KEY: &str = "secretstore.master_key";
 
 /// Manages encrypted storage of secrets (API keys, tokens, etc.)
 #[derive(Debug, Clone)]
@@ -246,76 +242,6 @@ impl SecretStore {
         value.starts_with("enc2:") || value.starts_with("enc:")
     }
 
-    fn keyring_user_id(&self) -> String {
-        keyring_user_id_from_dir(self.key_path.parent().unwrap_or_else(|| Path::new(".")))
-    }
-
-    fn load_or_create_key_from_keyring(&self) -> Result<Zeroizing<Vec<u8>>> {
-        let user_id = self.keyring_user_id();
-        if !crate::security::secret_storage::store::backend().is_persistent() {
-            // A volatile provider must not absorb and delete a legacy disk key.
-            // Read existing keys without migration; new keys stay in memory.
-            if self.key_path.exists() {
-                return decode_key_hex(fs::read_to_string(&self.key_path)?.trim());
-            }
-            let key = crate::security::secret_storage::get_or_create_random(
-                &user_id,
-                KEYCHAIN_MASTER_KEY,
-                KEY_LEN,
-            )
-            .map_err(anyhow::Error::new)?;
-            return decode_key_hex(key.trim());
-        }
-        match crate::security::secret_storage::migrate_from_file(
-            &user_id,
-            KEYCHAIN_MASTER_KEY,
-            &self.key_path,
-        ) {
-            Ok(crate::security::secret_storage::MigrationOutcome::MigratedAndDeleted) => {
-                log::info!(
-                    "[security] migrated legacy secret-store key into keychain from {}",
-                    self.key_path.display()
-                );
-            }
-            Ok(crate::security::secret_storage::MigrationOutcome::AlreadyMigrated)
-            | Ok(crate::security::secret_storage::MigrationOutcome::NoSourceFile) => {}
-            Err(error) => {
-                log::warn!(
-                    "[security] failed to migrate legacy secret-store key from {}: {}",
-                    self.key_path.display(),
-                    error.diagnostic()
-                );
-            }
-        }
-
-        let hex_key = crate::security::secret_storage::get_or_create_random(
-            &user_id,
-            KEYCHAIN_MASTER_KEY,
-            KEY_LEN,
-        )
-        .map_err(|e| {
-            anyhow::anyhow!(
-                "Failed to load secret-store master key from keychain: {}",
-                e.diagnostic()
-            )
-        })?;
-        decode_key_hex(hex_key.trim())
-    }
-
-    /// Load the encryption key from keychain-backed storage.
-    ///
-    /// The decoded key is cached process-wide keyed by `key_path`, so repeated
-    /// callers hit memory instead of the keychain lookup.
-    fn load_or_create_key(&self) -> Result<Zeroizing<Vec<u8>>> {
-        let cache_key_path = normalize_cache_path(&self.key_path);
-        if let Some(cached) = cached_key(&cache_key_path) {
-            return Ok(cached);
-        }
-
-        let key = self.load_or_create_key_from_keyring()?;
-        cache_key(&cache_key_path, &key);
-        Ok(key)
-    }
 }
 
 struct CachedMasterHandle {
@@ -419,46 +345,6 @@ fn cache_key(path: &Path, key: &[u8]) {
         // entry is removed (e.g. via `clear_cached_key`) or the process exits.
         cache.insert(path.to_path_buf(), Zeroizing::new(key.to_vec()));
     }
-}
-
-/// Read the key file, retrying transient errors a handful of times.
-///
-/// Windows AV scanners (Defender, etc.) routinely hold short-lived read
-/// handles right after a file is created, which surfaces as
-/// `ERROR_SHARING_VIOLATION` (raw OS error 32) or `PermissionDenied`. A few
-/// short backoffs are enough to ride over the lock; the typical successful
-/// path returns on the first attempt with zero added latency.
-fn read_key_file_with_retry(path: &Path) -> std::io::Result<String> {
-    use std::io::ErrorKind;
-
-    const MAX_ATTEMPTS: u32 = 5;
-    let mut last_err: Option<std::io::Error> = None;
-    for attempt in 0..MAX_ATTEMPTS {
-        match fs::read_to_string(path) {
-            Ok(contents) => return Ok(contents),
-            Err(err) => {
-                let transient = matches!(
-                    err.kind(),
-                    ErrorKind::PermissionDenied | ErrorKind::Interrupted | ErrorKind::WouldBlock
-                ) || err.raw_os_error() == Some(32); // ERROR_SHARING_VIOLATION (Windows)
-                last_err = Some(err);
-                if !transient || attempt + 1 == MAX_ATTEMPTS {
-                    break;
-                }
-                let backoff_ms = 10u64 << attempt; // 10, 20, 40, 80 ms
-                std::thread::sleep(Duration::from_millis(backoff_ms));
-            }
-        }
-    }
-    Err(last_err.unwrap_or_else(|| std::io::Error::other("read_to_string failed")))
-}
-
-fn decode_key_hex(hex_key: &str) -> Result<Zeroizing<Vec<u8>>> {
-    let key = ::hex::decode(hex_key).context("Secret key file is corrupt")?;
-    if key.len() != KEY_LEN {
-        anyhow::bail!("Secret key file is corrupt");
-    }
-    Ok(Zeroizing::new(key))
 }
 
 #[cfg(test)]
