@@ -210,6 +210,7 @@ async fn a_local_session_token_is_not_a_tinyhumans_credential() {
             std::collections::HashMap::new(),
             true,
         )
+        .await
         .unwrap();
     assert!(!has_key(&config, TINYHUMANS_ENGINE).await);
 }
