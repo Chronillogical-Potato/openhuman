@@ -71,11 +71,11 @@ pub fn websocket_url(http_or_https_base: &str) -> String {
         return http_or_https_base.to_string();
     };
     let scheme = match url.scheme() {
-        "https" => "wss",
-        "http" => "ws",
-        other => other,
+        "https" => "wss".to_owned(),
+        "http" => "ws".to_owned(),
+        other => other.to_owned(),
     };
-    let _ = url.set_scheme(scheme);
+    let _ = url.set_scheme(&scheme);
     url.set_path(&format!("{}/socket.io/", url.path().trim_end_matches('/')));
     url.set_query(Some("EIO=4&transport=websocket"));
     url.to_string()
