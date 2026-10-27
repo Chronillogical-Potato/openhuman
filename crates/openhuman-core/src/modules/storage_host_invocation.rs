@@ -51,7 +51,7 @@ impl InvocationStorageBinding {
     /// module instance.
     pub(crate) async fn serve(
         runtime: &ModuleRuntime,
-        module_descriptor_name: &str,
+        _module_descriptor_name: &str,
         module_id: &str,
         storage: Storage,
     ) -> anyhow::Result<Self> {
