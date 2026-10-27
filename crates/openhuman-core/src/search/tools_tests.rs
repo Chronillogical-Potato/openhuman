@@ -142,23 +142,23 @@ fn the_unavailable_verdict_tells_the_model_to_stop_rather_than_wait() {
     );
 }
 
-#[test]
-fn a_tool_starts_with_nothing_recorded() {
+#[tokio::test]
+async fn a_tool_starts_with_nothing_recorded() {
     let config = nothing_usable_config();
     let tool = TinySearchTool::recorded(spec("web_search_tool"));
 
-    assert!(!tool.is_exhausted_for(tool.provider_signature(&config)));
+    assert!(!tool.is_exhausted_for(tool.provider_signature(&config).await));
 }
 
-#[test]
-fn the_refusal_answers_only_for_the_configuration_that_failed() {
+#[tokio::test]
+async fn the_refusal_answers_only_for_the_configuration_that_failed() {
     // The contract this module documents is that every call re-reads the live
     // config, so a provider or login change is honoured without rebuilding the
     // session. A refusal that outlived a config change would break it: the user
     // adds a key and search stays dead until the thread is abandoned.
     let dead = nothing_usable_config();
     let tool = TinySearchTool::recorded(spec("web_search_tool"));
-    let dead_signature = tool.provider_signature(&dead);
+    let dead_signature = tool.provider_signature(&dead).await;
 
     tool.mark_exhausted_for(dead_signature);
     assert!(tool.is_exhausted_for(dead_signature));
@@ -167,18 +167,18 @@ fn the_refusal_answers_only_for_the_configuration_that_failed() {
     fixed.search.brave.api_key = Some("added-after-the-failure".into());
 
     assert_ne!(
-        tool.provider_signature(&fixed),
+        tool.provider_signature(&fixed).await,
         dead_signature,
         "adding a provider key must change what the tool sees"
     );
     assert!(
-        !tool.is_exhausted_for(tool.provider_signature(&fixed)),
+        !tool.is_exhausted_for(tool.provider_signature(&fixed).await),
         "adding a key must clear the refusal"
     );
 }
 
-#[test]
-fn one_tools_dead_providers_do_not_answer_for_another() {
+#[tokio::test]
+async fn one_tools_dead_providers_do_not_answer_for_another() {
     // `build_search_tools` can offer provider-specific tools beside the role
     // tools, and the roles draw on different provider orders, so a shared
     // verdict would let one provider's outage disable unrelated ones.
@@ -186,9 +186,9 @@ fn one_tools_dead_providers_do_not_answer_for_another() {
     let failed = TinySearchTool::recorded(spec("web_search_tool"));
     let other = TinySearchTool::recorded(spec("web_answer_tool"));
 
-    failed.mark_exhausted_for(failed.provider_signature(&config));
+    failed.mark_exhausted_for(failed.provider_signature(&config).await);
 
-    assert!(!other.is_exhausted_for(other.provider_signature(&config)));
+    assert!(!other.is_exhausted_for(other.provider_signature(&config).await));
 }
 
 #[tokio::test]
@@ -198,7 +198,7 @@ async fn a_refused_call_does_not_reach_the_module() {
     // configuration rather than one per call.
     let config = nothing_usable_config();
     let tool = TinySearchTool::new(std::sync::Arc::new(config.clone()), spec("web_search_tool"));
-    tool.mark_exhausted_for(tool.provider_signature(&config));
+    tool.mark_exhausted_for(tool.provider_signature(&config).await);
 
     let result = tool
         .execute(serde_json::json!({"query": "anything"}))
