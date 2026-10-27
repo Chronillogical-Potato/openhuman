@@ -113,7 +113,7 @@ async fn a_turn_without_the_state_block_still_carries_the_active_goal() {
 /// run-state block (which reads the goal from the store) leaves the goal out.
 #[tokio::test]
 async fn a_suppressed_goal_reaches_the_run_context() {
-    let (host, tmp) = host_for("orchestrator");
+    let (host, tmp) = host_for("orchestrator").await;
     goal_store::set(&store(&tmp), THREAD, "Migrate the auth schema", None)
         .await
         .unwrap();

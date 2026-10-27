@@ -134,9 +134,7 @@ async fn a_host_can_withhold_a_config_tool_for_one_turn() {
             Box::pin(async move {
                 crate::agent::HostTurnTools {
                     withheld: match turn.session_id() {
-                        Some("hidden-turn") => {
-                            std::collections::HashSet::from([normally_visible])
-                        }
+                        Some("hidden-turn") => std::collections::HashSet::from([normally_visible]),
                         _ => std::collections::HashSet::new(),
                     },
                     ..Default::default()
@@ -276,7 +274,8 @@ async fn invalid_dynamic_prompt_fails_before_the_host_tool_factory_runs() {
         &definition,
         &host,
         None,
-    );
+    )
+    .await;
     let error = result
         .err()
         .expect("a dynamic prompt without a builder must be rejected");

@@ -1,5 +1,5 @@
 use super::*;
-use tinyagents_harness::context::{current_run_depth, with_run_depth, RunDepth};
+use tinyagents_harness::context::{RunDepth, current_run_depth, with_run_depth};
 
 struct BlockingSubagentCloseTool {
     started: tokio::sync::mpsc::Sender<()>,
@@ -557,6 +557,7 @@ async fn resolve_subagent_source_hint_with_config_routes_via_factory() {
     config.agentic_provider = Some("openhuman".to_string());
     config.default_model = Some("fixture-reasoning".to_string());
     crate::credentials::api_key::store_api_key(&config, "test-session-fixture-key")
+        .await
         .expect("store the managed inference fixture credential");
 
     let parent: Arc<dyn ChatModel<()>> = ScriptedProvider::new(vec![]);
@@ -614,8 +615,8 @@ async fn resolve_subagent_source_hint_falls_back_on_factory_error() {
 // skipped. These tests pin the new behaviour so that regression
 // can't sneak back in.
 
-#[test]
-fn direct_mode_user_with_stored_key_passes_signed_in_check() {
+#[tokio::test]
+async fn direct_mode_user_with_stored_key_passes_signed_in_check() {
     use crate::integrations::composio::user_is_signed_in_to_composio;
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = crate::config::Config::default();
@@ -626,13 +627,13 @@ fn direct_mode_user_with_stored_key_passes_signed_in_check() {
     config.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.to_string();
     config.composio.api_key = Some("test-direct-key".into());
     assert!(
-        user_is_signed_in_to_composio(&config),
+        user_is_signed_in_to_composio(&config).await,
         "direct-mode user with stored api key must be reported as signed in"
     );
 }
 
-#[test]
-fn unsigned_in_user_fails_probe() {
+#[tokio::test]
+async fn unsigned_in_user_fails_probe() {
     use crate::integrations::composio::user_is_signed_in_to_composio;
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = crate::config::Config::default();
@@ -641,7 +642,7 @@ fn unsigned_in_user_fails_probe() {
     // "no backend session". Direct fallback is unreachable because
     // mode is not "direct".
     assert!(
-        !user_is_signed_in_to_composio(&config),
+        !user_is_signed_in_to_composio(&config).await,
         "user with neither backend session nor direct key must NOT be reported as signed in"
     );
 }
