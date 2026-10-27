@@ -2,7 +2,7 @@ use super::*;
 use crate::core::Outcome;
 use crate::voice::{SttProvider, SttResult};
 use async_trait::async_trait;
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use std::sync::{Arc, Mutex};
 
 #[test]
