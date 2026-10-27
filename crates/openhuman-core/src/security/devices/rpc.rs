@@ -81,19 +81,8 @@ pub async fn devices_create_pairing(
     // Key generation and private identity storage stay inside TinySecurity.
     let (client, scope, master_handle, generation) =
         crate::modules::security::device_pairing_master(_config).await?;
-    let host_event_id = crate::modules::security::device_pairing_controller_event(
-        &scope,
-        master_handle,
-        generation,
-    )?;
-    let begin = client
-        .device_pairing2(pairing_begin_request(host_event_id))
-        .await
-        .map_err(|error| error.to_string())?;
-    let (core_pubkey, pairing_receipt) = pairing_begin_result(begin)?;
-
-    // Register only after TinySecurity has admitted the direct controller
-    // action, so a failed security call cannot leave an orphan backend channel.
+    // The module binds Begin to the backend-issued channel and pairing token,
+    // so the authenticated user action is minted after tunnel registration.
     let reg = tunnel_client::emit_register().await.map_err(|e| {
         log::error!("[devices/rpc] tunnel:register failed: {e}");
         e
@@ -104,6 +93,19 @@ pub async fn devices_create_pairing(
         reg.channel_id,
         reg.pairing_token.len()
     );
+
+    let host_event_id = crate::modules::security::device_pairing_controller_event(
+        &scope,
+        master_handle,
+        generation,
+        reg.channel_id.clone(),
+        reg.pairing_token.clone(),
+    )?;
+    let begin = client
+        .device_pairing2(pairing_begin_request(host_event_id))
+        .await
+        .map_err(|error| error.to_string())?;
+    let (core_pubkey, pairing_receipt) = pairing_begin_result(begin)?;
 
     // Best-effort LAN URL detection (non-fatal if it fails).
     let rpc_url = detect_lan_rpc_url();
