@@ -331,23 +331,25 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
 /// `ModelRequest` (managed/local parity; the `@<temp>` suffix still bakes a fixed
 /// override).
 #[cfg(test)]
-pub(super) async fn try_create_cloud_slug_chat_model(
+pub(super) fn try_create_cloud_slug_chat_model(
     role: &str,
     config: &Config,
     egress: &EgressLedger,
 ) -> OptionalChatModelResult {
     let extensions = crate::core::runtime::CoreContext::current_extensions();
-    try_create_cloud_slug_chat_model_with_native_tools_for(
+    try_create_cloud_slug_chat_model_with_native_tools_and_access(
         role,
         config,
         true,
         egress,
         extensions.as_ref(),
+        CredentialAccess::Runtime(&RuntimeCredentialSnapshot::default()),
+        None,
+        None,
     )
-    .await
 }
 
-pub(super) async fn try_create_cloud_slug_chat_model_with_native_tools_for(
+pub(super) fn try_create_cloud_slug_chat_model_with_native_tools_for(
     role: &str,
     config: &Config,
     native_tool_calling: bool,
@@ -360,11 +362,10 @@ pub(super) async fn try_create_cloud_slug_chat_model_with_native_tools_for(
         native_tool_calling,
         egress,
         extensions,
-        CredentialAccess::Runtime,
+        CredentialAccess::Runtime(&RuntimeCredentialSnapshot::default()),
         None,
         None,
     )
-    .await
 }
 
 pub(super) async fn try_create_cloud_slug_chat_model_for_inspection_with_identity(
@@ -415,7 +416,7 @@ pub(super) async fn try_create_cloud_slug_chat_model_for_inspection_with_identit
     }))
 }
 
-async fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
+pub(super) fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
     role: &str,
     config: &Config,
     native_tool_calling: bool,
@@ -444,10 +445,9 @@ async fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
         inspection_credential,
         inspection_identity,
     )
-    .await
 }
 
-pub(super) async fn try_create_cloud_slug_chat_model_from_string(
+pub(super) fn try_create_cloud_slug_chat_model_from_string(
     role: &str,
     provider: &str,
     config: &Config,
@@ -456,10 +456,9 @@ pub(super) async fn try_create_cloud_slug_chat_model_from_string(
     try_create_cloud_slug_chat_model_from_string_with_native_tools(
         role, provider, config, true, egress,
     )
-    .await
 }
 
-pub(super) async fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
+pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
     role: &str,
     provider: &str,
     config: &Config,
@@ -474,14 +473,13 @@ pub(super) async fn try_create_cloud_slug_chat_model_from_string_with_native_too
         native_tool_calling,
         egress,
         extensions.as_ref(),
-        CredentialAccess::Runtime,
+        CredentialAccess::Runtime(&RuntimeCredentialSnapshot::default()),
         None,
         None,
     )
-    .await
 }
 
-pub(super) async fn try_create_cloud_slug_chat_model_from_string_with_native_tools_for(
+pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools_for(
     role: &str,
     provider: &str,
     config: &Config,
@@ -496,14 +494,13 @@ pub(super) async fn try_create_cloud_slug_chat_model_from_string_with_native_too
         native_tool_calling,
         egress,
         extensions,
-        CredentialAccess::Runtime,
+        CredentialAccess::Runtime(&RuntimeCredentialSnapshot::default()),
         None,
         None,
     )
-    .await
 }
 
-async fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
+fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
     role: &str,
     provider: &str,
     config: &Config,
@@ -545,7 +542,7 @@ async fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_acce
     if let Err(e) = enforce_local_only_inference(role, &p) {
         return Some(Err(e));
     }
-    if credential_access == CredentialAccess::Runtime {
+    if matches!(credential_access, CredentialAccess::Runtime(_)) {
         #[cfg(not(test))]
         if let Err(e) = verify_session_active(config) {
             return Some(Err(e));
@@ -566,7 +563,6 @@ async fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_acce
         credential_access,
         inspection_credential,
     )
-    .await
     {
         Ok(r) => r,
         Err(e) => return Some(Err(e)),
@@ -619,7 +615,7 @@ async fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_acce
                 extensions, style,
             ) =>
         {
-            if credential_access == CredentialAccess::Runtime {
+            if matches!(credential_access, CredentialAccess::Runtime(_)) {
                 #[cfg(not(test))]
                 if let Err(error) = verify_backend_session_active(config) {
                     return Some(Err(error));
@@ -628,7 +624,7 @@ async fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_acce
             let model_override =
                 (!effective_model.trim().is_empty()).then_some(effective_model.as_str());
             return Some(match credential_access {
-                CredentialAccess::Runtime => managed_chat_model_for(
+                CredentialAccess::Runtime(_) => managed_chat_model_for(
                     extensions,
                     role,
                     config,
