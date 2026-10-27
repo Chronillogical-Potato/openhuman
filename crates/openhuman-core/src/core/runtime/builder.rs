@@ -475,18 +475,29 @@ pub struct CoreRuntime {
 impl CoreRuntime {
     /// The services/transports this runtime is configured to run.
     pub fn services(&self) -> ServiceSet {
-        if self.secret_preflight_complete.load(std::sync::atomic::Ordering::Acquire) {
+        if self
+            .secret_preflight_complete
+            .load(std::sync::atomic::Ordering::Acquire)
+        {
             self.deferred_services.unwrap_or(self.services)
         } else {
             self.services
         }
     }
 
+    /// The selected post-bootstrap services. A transport host may need this
+    /// when it must construct its router before deferred startup completes.
+    pub fn normal_services(&self) -> ServiceSet {
+        self.deferred_services.unwrap_or(self.services)
+    }
+
     /// Whether this runtime still needs the restricted config-secret startup
     /// phase completed by its transport host.
     pub fn requires_secret_preflight(&self) -> bool {
         self.boot_mode == CoreBootMode::SecretPreflight
-            && !self.secret_preflight_complete.load(std::sync::atomic::Ordering::Acquire)
+            && !self
+                .secret_preflight_complete
+                .load(std::sync::atomic::Ordering::Acquire)
     }
 
     /// Decrypt the sealed startup config and refresh the dispatch snapshot.
@@ -497,13 +508,18 @@ impl CoreRuntime {
             self.requires_secret_preflight(),
             "core runtime has no pending secret preflight"
         );
-        let mut config = self.config.read().expect("core config lock poisoned")
+        let mut config = self
+            .config
+            .read()
+            .expect("core config lock poisoned")
             .clone()
             .ok_or_else(|| anyhow::anyhow!("secret preflight has no loaded config"))?;
         let migrated = config.decrypt_secrets_after_preflight().await?;
         if migrated {
             if let Err(error) = config.save().await {
-                log::warn!("[security][config] failed to persist enc: -> enc2: secret migration: {error}");
+                log::warn!(
+                    "[security][config] failed to persist enc: -> enc2: secret migration: {error}"
+                );
             }
         }
         self.ctx.replace_latest_embedder_config(config.clone());
@@ -515,7 +531,8 @@ impl CoreRuntime {
         crate::core::runtime::services::run_legacy_migrations(&config).await;
         crate::agent::tinyagents::reaper::reap_orphaned_runs(&config.workspace_dir).await;
         *self.config.write().expect("core config lock poisoned") = Some(config);
-        self.secret_preflight_complete.store(true, std::sync::atomic::Ordering::Release);
+        self.secret_preflight_complete
+            .store(true, std::sync::atomic::Ordering::Release);
         Ok(())
     }
 
@@ -619,7 +636,11 @@ impl CoreRuntime {
     /// Idempotent while they run; the long-lived loops stop with
     /// [`stop_services`](Self::stop_services) or when this runtime drops.
     pub async fn start_services(&self) {
-        let config = self.config.read().expect("core config lock poisoned").clone();
+        let config = self
+            .config
+            .read()
+            .expect("core config lock poisoned")
+            .clone();
         crate::core::runtime::services::start_selected_services(
             &self.service_tasks,
             self.services(),
