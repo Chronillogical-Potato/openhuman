@@ -648,13 +648,12 @@ direct `tinyagents-orchestration::subagent` lifecycle. There is no
 | `mod.rs` / `model.rs` / `tools.rs` / `convert.rs` | `RunPolicy` / `ChatModel` / `Tool` / message adapters (incl. unknown-tool policy and out-of-band reasoning forwarding).                                                                                                                                                        |
 | `observability.rs`                                | Harness `AgentEvent` → `AgentProgress` + cost; `GraphTracingSink` for graph events.                                                                                                                                                                                            |
 | `orchestration.rs`                                | Re-exported `graph::orchestration` task-store types; map-reduce fanout uses the TinyAgents SDK surface directly.                                                                                                                                                           |
-| `delegation.rs`                                   | The durable `plan → execute ⇄ review → finalize` delegation graph (production worker wired in `orchestration::delegation`), checkpointed to the session database.    |
+| `orchestration/README.md`                         | OpenHuman's sub-agent adapters and product-facing durable projections; generic task execution belongs to TinyAgents. |
 
 Orchestration on graphs (`crates/openhuman-core/src/agent/orchestration/`):
 
-- Workflow phase DAG (`workflow_runs/engine.rs`) runs on a `dispatch ⇄ run_phase → done` conditional-routing graph; each phase fans its agents out via `graph::parallel::map_reduce`. The durable `workflow_runs` row stays the source of truth (controllers + resume read it).
-- Team member runtime (`agent_teams/runtime.rs`, `run_member_graph`) is a conditional-routing graph (`execute → complete|fail → done`).
-- Multi-stage delegation (`orchestration::delegation` + the `delegate` tool) runs `delegation.rs`, checkpointed to the session DB.
+- Workflow execution uses TinyFlows graph execution; OpenHuman retains the workflow definitions, controller surface, and durable run records.
+- Agent-team execution and generic delegation belong to TinyAgents; OpenHuman retains product policy, adapters, and UI-facing projections.
 - Detached sub-agents (`running_subagents.rs`) use TinyAgents `DetachedTaskRegistry` for ownership-aware snapshots, wait/timeout, steering lookup, cooperative cancellation, hard abort, and terminal cleanup. OpenHuman retains durable task-store projection, product/session metadata, RPC and delivery semantics, and the `RunQueue` compatibility fallback.
 
 Deliberately kept off the crate's primitives (these are design decisions, not gaps):
