@@ -34,6 +34,7 @@ async fn execute_tool_resolves_to_direct_kind_when_mode_is_direct() {
     // tool calls per-execute.
     let config = direct_mode_config();
     let kind = crate::integrations::composio::client::resolve_composio_route(&config)
+        .await
         .expect("direct mode with inline api_key must resolve");
     assert_eq!(
         kind.mode(),

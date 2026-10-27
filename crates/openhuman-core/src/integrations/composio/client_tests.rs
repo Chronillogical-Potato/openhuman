@@ -90,7 +90,7 @@ fn register_fake_backend_route() {
 #[tokio::test]
 async fn resolve_composio_route_backend_is_unavailable_without_a_registered_route() {
     let tmp = tempfile::tempdir().expect("tempdir");
-    let config = config_with_session_token(&tmp);
+    let config = config_with_session_token(&tmp).await;
     let err = resolve_composio_route(&config).await
         .err()
         .expect("a core with no backend route builder has no backend route");
@@ -105,7 +105,7 @@ async fn resolve_composio_route_backend_is_unavailable_without_a_registered_rout
 async fn resolve_composio_route_backend_variant_when_mode_default() {
     register_fake_backend_route();
     let tmp = tempfile::tempdir().expect("tempdir");
-    let config = config_with_session_token(&tmp);
+    let config = config_with_session_token(&tmp).await;
     let route = resolve_composio_route(&config).await.expect("backend mode should build");
     assert_eq!(route.mode(), "backend");
     assert!(matches!(route, ComposioRoute::Backend));
@@ -117,7 +117,7 @@ async fn resolve_composio_route_backend_empty_mode_falls_back_to_backend() {
     // (`"backend"`) rather than an unknown mode error.
     register_fake_backend_route();
     let tmp = tempfile::tempdir().expect("tempdir");
-    let mut config = config_with_session_token(&tmp);
+    let mut config = config_with_session_token(&tmp).await;
     config.composio.mode = String::new();
     let route = resolve_composio_route(&config).await.expect("empty mode should fall back to backend");
     assert_eq!(route.mode(), "backend");
@@ -127,7 +127,7 @@ async fn resolve_composio_route_backend_empty_mode_falls_back_to_backend() {
 async fn resolve_composio_route_disabled_errors_even_with_a_session() {
     // `disabled` wins over a signed-in session: no route, so no tools register.
     let tmp = tempfile::tempdir().expect("tempdir");
-    let mut config = config_with_session_token(&tmp);
+    let mut config = config_with_session_token(&tmp).await;
     config.composio.mode = "disabled".into();
     let err = resolve_composio_route(&config).await
         .err()
@@ -431,7 +431,7 @@ async fn direct_connected_integrations_fetches_schemas_without_backend_composio_
             }),
         );
     let direct_url = start_mock_backend(direct_api).await;
-    let mut config = config_with_session_token(&tmp);
+    let mut config = config_with_session_token(&tmp).await;
     config.workspace_dir = tmp.path().join("workspace");
     config.api_url = Some(backend_url);
     crate::credentials::AuthService::from_config(&config)
