@@ -1,6 +1,6 @@
 use super::super::channel::CHANNEL_OUTBOUND_EVENT;
 use super::*;
-use crate::agent::bus::{mock_agent_run_turn, AgentTurnRequest, AgentTurnResponse};
+use crate::agent::bus::{AgentTurnRequest, AgentTurnResponse, mock_agent_run_turn};
 use crate::core::runtime::turn_origin::AgentTurnOrigin;
 use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
 use std::sync::Mutex;
@@ -8,8 +8,9 @@ use std::sync::Mutex;
 #[tokio::test]
 async fn relayed_thread_and_external_authority_survive_scoped_spawn() {
     let tmp = tempfile::tempdir().unwrap();
+    let config = config(&tmp).await;
     let context = CoreContext::for_test(DomainSet::full(), None).derive_with(
-        ContextOverlay::new(config(&tmp), DomainSet::full(), Default::default())
+        ContextOverlay::new(config, DomainSet::full(), Default::default())
             .session_agent("relay-agent"),
     );
     let origin = AgentTurnOrigin::ExternalChannel {
@@ -58,7 +59,7 @@ async fn relayed_thread_and_external_authority_survive_scoped_spawn() {
     .await;
 }
 
-fn config(tmp: &tempfile::TempDir) -> Config {
+async fn config(tmp: &tempfile::TempDir) -> Config {
     let workspace = tmp.path().join("workspace");
     std::fs::create_dir_all(&workspace).unwrap();
     let mut config = Config {
@@ -72,6 +73,7 @@ fn config(tmp: &tempfile::TempDir) -> Config {
     config.agent.session_dual_write = false;
     config.agent.session_shadow_reads = false;
     crate::credentials::api_key::store_api_key(&config, "test-session-fixture-key")
+        .await
         .expect("store relay test credential");
     config
 }
@@ -124,7 +126,7 @@ async fn a_relayed_turn_runs_as_an_external_channel_and_keeps_its_thread() {
     })
     .await;
     let tmp = tempfile::tempdir().unwrap();
-    let config = config(&tmp);
+    let config = config(&tmp).await;
     let security = Arc::new(crate::security::policy::SecurityPolicy::from_config(
         &config.autonomy,
         &config.workspace_dir,
@@ -136,6 +138,7 @@ async fn a_relayed_turn_runs_as_an_external_channel_and_keeps_its_thread() {
         &security,
         crate::channels::runtime::PromptToolDescs::Registered,
     )
+    .await
     .expect("relay test provider constructs");
     let workspace = config.workspace_dir.clone();
     let mut events = crate::web_chat::subscribe_web_channel_events();
@@ -236,7 +239,7 @@ async fn a_relayed_turn_runs_as_an_external_channel_and_keeps_its_thread() {
 #[tokio::test]
 async fn invalid_or_repeated_messages_start_no_turn() {
     let tmp = tempfile::tempdir().unwrap();
-    let config = config(&tmp);
+    let config = config(&tmp).await;
     let workspace = config.workspace_dir.clone();
     let ctx = CoreContext::for_test(DomainSet::full(), Some(workspace.clone())).derive_with(
         ContextOverlay::new(config, DomainSet::full(), Default::default()),
