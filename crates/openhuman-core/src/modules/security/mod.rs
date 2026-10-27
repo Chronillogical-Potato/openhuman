@@ -90,6 +90,58 @@ pub(crate) fn device_pairing_controller_event(
     })
 }
 
+/// Mint an event capability only for a frame delivered by the authenticated
+/// hosted socket adapter. The socket nonce and short expiry are supplied by
+/// that adapter path, never from tunnel RPC parameters.
+pub(crate) async fn device_pairing_socket_event(
+    config: &Config,
+    channel_id: &str,
+    pairing_token: &str,
+    connection_nonce: &str,
+    expires_at_ms: u64,
+) -> Result<String, String> {
+    if channel_id.is_empty()
+        || channel_id.len() > 128
+        || pairing_token.is_empty()
+        || pairing_token.len() > 4096
+        || connection_nonce.is_empty()
+        || connection_nonce.len() > 128
+    {
+        return Err("invalid host tunnel event".to_owned());
+    }
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|_| "system clock unavailable".to_owned())?
+        .as_millis()
+        .min(u128::from(u64::MAX)) as u64;
+    if expires_at_ms <= now_ms || expires_at_ms.saturating_sub(now_ms) > 30_000 {
+        return Err("expired host tunnel event".to_owned());
+    }
+    let client = client(config)
+        .await
+        .map_err(|error| error.to_string())?;
+    let scope = host_callbacks::secret_scope()
+        .await
+        .ok_or_else(|| "security secret scope unavailable".to_owned())?;
+    let generation = client
+        .policy_info()
+        .await
+        .map_err(|error| error.to_string())?
+        .generation;
+    callbacks::issue_pairing_event(tinysecurity_bus::DevicePairingContextResponse2 {
+        scope_id: scope.scope_id().to_owned(),
+        user_binding: scope.scope_id().to_owned(),
+        secret_master_handle: None,
+        legacy_import_handle: None,
+        channel_id: channel_id.to_owned(),
+        pairing_token: Some(pairing_token.to_owned()),
+        connection_nonce: connection_nonce.to_owned(),
+        generation,
+        source: tinysecurity_bus::DevicePairingSource2::RegisteredSocket,
+        expires_at_ms,
+    })
+}
+
 pub(crate) async fn resolve_user_master_with_existing_key(
     client: &Client,
     scope: &crate::security::approval::native::SecretScope,

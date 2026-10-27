@@ -84,6 +84,8 @@ impl EventHandler<DomainEvent> for DeviceTunnelSubscriber {
             DomainEvent::DeviceTunnelFrame {
                 channel_id,
                 payload_b64,
+                connection_nonce,
+                expires_at_ms,
             } => {
                 // Handle the frame as the agent the device belongs to, so its
                 // pairing record and the RPCs it sends land in that agent's
@@ -106,7 +108,14 @@ impl EventHandler<DomainEvent> for DeviceTunnelSubscriber {
                                 // Passing `host_ctx` through here would lose the
                                 // paired device's owner before controller dispatch.
                                 let owner_ctx = DispatchCtx::ambient().with_socket_event();
-                                handle_tunnel_frame(&owner_ctx, channel_id, payload_b64).await
+                                handle_tunnel_frame(
+                                    &owner_ctx,
+                                    channel_id,
+                                    payload_b64,
+                                    connection_nonce,
+                                    *expires_at_ms,
+                                )
+                                .await
                             },
                         )
                         .await;
@@ -163,7 +172,13 @@ fn handle_peer_offline(channel_id: &str) {
 /// Handle an incoming `tunnel:frame` — first frame from the device contains its
 /// X25519 public key sealed to the core's public key. After successful decryption
 /// we derive the shared secret and persist the `PairedDevice`.
-async fn handle_tunnel_frame(ctx: &DispatchCtx, channel_id: &str, payload_b64: &str) {
+async fn handle_tunnel_frame(
+    ctx: &DispatchCtx,
+    channel_id: &str,
+    payload_b64: &str,
+    connection_nonce: &str,
+    expires_at_ms: u64,
+) {
     log::debug!(
         "[devices/bus] tunnel:frame channel_id={} payload_len={}",
         channel_id,
