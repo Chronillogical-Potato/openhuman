@@ -361,7 +361,10 @@ async fn startup_preflight_socket_gate() {
     tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
 
     let denied = polling_handshake(&base, serde_json::json!({ "token": token })).await;
-    assert!(!denied.contains("\"ready\""), "preflight handshake: {denied}");
+    assert!(
+        !denied.contains("\"ready\""),
+        "preflight handshake: {denied}"
+    );
     assert!(
         denied.split('\u{1e}').any(|packet| packet == "41"),
         "authenticated handshake must be rejected during preflight: {denied}"
@@ -383,12 +386,18 @@ async fn startup_preflight_socket_gate() {
     let url = format!("{base}/socket.io/?EIO=4&transport=polling&sid={sid}");
     client
         .post(&url)
-        .body(format!("40{}", serde_json::json!({ "token": ensure_rpc_token() })))
+        .body(format!(
+            "40{}",
+            serde_json::json!({ "token": ensure_rpc_token() })
+        ))
         .send()
         .await
         .expect("authenticated socket connect after gate");
     let connected = client.get(&url).send().await.unwrap().text().await.unwrap();
-    assert!(connected.contains("\"ready\""), "post-preflight ready: {connected}");
+    assert!(
+        connected.contains("\"ready\""),
+        "post-preflight ready: {connected}"
+    );
 
     // A live authenticated socket must still check the same gate before
     // dispatching RPC events. Re-closing is test-only; production opens once.
@@ -402,7 +411,10 @@ async fn startup_preflight_socket_gate() {
         .await
         .expect("send authenticated RPC event");
     let denied_rpc = client.get(&url).send().await.unwrap().text().await.unwrap();
-    assert!(denied_rpc.contains("rpc:error"), "preflight rpc response: {denied_rpc}");
+    assert!(
+        denied_rpc.contains("rpc:error"),
+        "preflight rpc response: {denied_rpc}"
+    );
     assert!(
         denied_rpc.contains("unavailable during startup approval preflight"),
         "preflight must not dispatch the protected method: {denied_rpc}"
