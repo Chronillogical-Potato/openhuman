@@ -16,7 +16,7 @@ fn controller_authority_is_explicit_and_not_inferred_from_chat_origin() {
     );
     assert_eq!(web_chat.invocation_source(), InvocationSource::Untrusted);
 
-    let direct = DispatchCtx::new(context).with_authenticated_user_controller();
+    let direct = DispatchCtx::new(Arc::clone(&context)).with_authenticated_user_controller();
     assert_eq!(
         direct.invocation_source(),
         InvocationSource::AuthenticatedUserController
@@ -25,6 +25,9 @@ fn controller_authority_is_explicit_and_not_inferred_from_chat_origin() {
         direct.clone().invocation_source(),
         InvocationSource::AuthenticatedUserController
     );
+
+    let socket = DispatchCtx::new(context).with_socket_event();
+    assert_eq!(socket.invocation_source(), InvocationSource::SocketEvent);
 }
 use crate::core::runtime::DomainSet;
 
