@@ -40,7 +40,7 @@ impl SecurityCallbackState {
     }
 }
 
-pub(super) async fn binding() -> Option<std::sync::Arc<HostCallbackBinding>> {
+pub(in crate::modules) async fn binding() -> Option<std::sync::Arc<HostCallbackBinding>> {
     SECURITY_CALLBACK_LOADS
         .lock()
         .await
@@ -48,7 +48,7 @@ pub(super) async fn binding() -> Option<std::sync::Arc<HostCallbackBinding>> {
         .map(|state| std::sync::Arc::clone(&state.binding))
 }
 
-pub(super) async fn cipher_consumer() -> Option<std::sync::Arc<super::cipher_consumer::Consumer>> {
+pub(in crate::modules) async fn cipher_consumer() -> Option<std::sync::Arc<super::cipher_consumer::Consumer>> {
     SECURITY_CALLBACK_LOADS
         .lock()
         .await
@@ -56,7 +56,7 @@ pub(super) async fn cipher_consumer() -> Option<std::sync::Arc<super::cipher_con
         .map(|state| std::sync::Arc::clone(&state.consumer))
 }
 
-pub(super) async fn secret_backend() -> Option<std::sync::Arc<super::secret_backend::SecretBackend>>
+pub(in crate::modules) async fn secret_backend() -> Option<std::sync::Arc<super::secret_backend::SecretBackend>>
 {
     SECURITY_CALLBACK_LOADS
         .lock()
@@ -65,7 +65,7 @@ pub(super) async fn secret_backend() -> Option<std::sync::Arc<super::secret_back
         .map(|state| std::sync::Arc::clone(&state._backend))
 }
 
-pub(super) async fn secret_scope() -> Option<crate::security::approval::native::SecretScope> {
+pub(in crate::modules) async fn secret_scope() -> Option<crate::security::approval::native::SecretScope> {
     SECURITY_CALLBACK_LOADS
         .lock()
         .await
@@ -73,7 +73,7 @@ pub(super) async fn secret_scope() -> Option<crate::security::approval::native::
         .map(|state| state.scope.clone())
 }
 
-pub(super) async fn secret_registration_id() -> Option<String> {
+pub(in crate::modules) async fn secret_registration_id() -> Option<String> {
     SECURITY_CALLBACK_LOADS
         .lock()
         .await
@@ -81,7 +81,7 @@ pub(super) async fn secret_registration_id() -> Option<String> {
         .map(|state| state.registration_id.clone())
 }
 
-pub(super) async fn identity() -> Option<String> {
+pub(in crate::modules) async fn identity() -> Option<String> {
     SECURITY_CALLBACK_LOADS
         .lock()
         .await
@@ -89,7 +89,7 @@ pub(super) async fn identity() -> Option<String> {
         .map(|state| state.binding.unique_name().to_string())
 }
 
-pub(super) async fn module_config(config: &Config) -> Result<serde_json::Value, String> {
+pub(in crate::modules) async fn module_config(config: &Config) -> Result<serde_json::Value, String> {
     let loads = SECURITY_CALLBACK_LOADS.lock().await;
     loads
         .get(super::MODULE_ID)
@@ -163,7 +163,7 @@ fn opaque_id(label: &str, path: &Path, suffix: &str) -> String {
     format!("{:x}", hasher.finalize())[..32].to_owned()
 }
 
-pub(super) async fn ensure_loaded(
+pub(in crate::modules) async fn ensure_loaded(
     resolver: &Resolver,
     config: &Config,
     id: &str,
