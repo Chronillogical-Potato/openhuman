@@ -395,8 +395,8 @@ async fn stores_are_scrubbed_of_secrets() {
         .contains("abcdefghijklmnopqrstuvwxyz0123456789"));
 }
 
-#[test]
-fn engine_set_validates_and_rebinds() {
+#[tokio::test]
+async fn engine_set_validates_and_rebinds() {
     let tmp = tempfile::tempdir().unwrap();
     let mut config = config_in(&tmp);
 
@@ -406,7 +406,7 @@ fn engine_set_validates_and_rebinds() {
         api_key: None,
     };
     assert_eq!(
-        apply_engine_set(&mut config, &unknown).unwrap_err().code(),
+        apply_engine_set(&mut config, &unknown).await.unwrap_err().code(),
         "INVALID_REQUEST"
     );
 
@@ -417,7 +417,7 @@ fn engine_set_validates_and_rebinds() {
             api_key: None,
         };
         assert_eq!(
-            apply_engine_set(&mut config, &params).unwrap_err().code(),
+            apply_engine_set(&mut config, &params).await.unwrap_err().code(),
             "INVALID_REQUEST",
             "{endpoint}"
         );
@@ -429,25 +429,25 @@ fn engine_set_validates_and_rebinds() {
         api_key: Some("k".into()),
     };
     assert_eq!(
-        apply_engine_set(&mut config, &keyed_tinyhumans)
+        apply_engine_set(&mut config, &keyed_tinyhumans).await
             .unwrap_err()
             .code(),
         "INVALID_REQUEST"
     );
 
-    assert!(!engine::is_on(&config));
+    assert!(!engine::is_on(&config).await);
     let cortex = EngineSetParams {
         engine: CORTEXDB_ENGINE.into(),
         endpoint: Some("https://cortex.example.test".into()),
         api_key: Some("cdb-test-key".into()),
     };
-    apply_engine_set(&mut config, &cortex).unwrap();
+    apply_engine_set(&mut config, &cortex).await.unwrap();
     assert_eq!(config.memory.engine, CORTEXDB_ENGINE);
     assert_eq!(
         config.memory.endpoint_for(CORTEXDB_ENGINE).as_deref(),
         Some("https://cortex.example.test")
     );
-    let bound = engine::resolve(&config).engine().expect("rebuilt on");
+    let bound = engine::resolve(&config).await.engine().expect("rebuilt on");
     assert_eq!(bound.id, CORTEXDB_ENGINE);
     assert_eq!(bound.endpoint, "https://cortex.example.test");
 
@@ -456,9 +456,9 @@ fn engine_set_validates_and_rebinds() {
         endpoint: Some(String::new()),
         api_key: Some(String::new()),
     };
-    apply_engine_set(&mut config, &clear).unwrap();
+    apply_engine_set(&mut config, &clear).await.unwrap();
     assert!(config.memory.endpoint_for(CORTEXDB_ENGINE).is_none());
-    assert!(!engine::is_on(&config), "removing the key turns memory off");
+    assert!(!engine::is_on(&config).await, "removing the key turns memory off");
 }
 
 #[tokio::test]
@@ -472,9 +472,9 @@ async fn disabling_memory_turns_it_off_and_keeps_the_engine_settings() {
             endpoint: Some("https://cortex.example.test".into()),
             api_key: Some("cdb-test-key".into()),
         },
-    )
+    ).await
     .unwrap();
-    assert!(engine::is_on(&config));
+    assert!(engine::is_on(&config).await);
 
     let keyed = EngineSetParams {
         engine: DISABLED_ENGINE.into(),
@@ -482,19 +482,19 @@ async fn disabling_memory_turns_it_off_and_keeps_the_engine_settings() {
         api_key: Some("k".into()),
     };
     assert_eq!(
-        apply_engine_set(&mut config, &keyed).unwrap_err().code(),
+        apply_engine_set(&mut config, &keyed).await.unwrap_err().code(),
         "INVALID_REQUEST"
     );
-    assert!(engine::is_on(&config), "a refused disable changes nothing");
+    assert!(engine::is_on(&config).await, "a refused disable changes nothing");
 
     let disable = EngineSetParams {
         engine: DISABLED_ENGINE.into(),
         endpoint: None,
         api_key: None,
     };
-    apply_engine_set(&mut config, &disable).unwrap();
+    apply_engine_set(&mut config, &disable).await.unwrap();
     assert_eq!(config.memory.engine, DISABLED_ENGINE);
-    assert!(!engine::is_on(&config));
+    assert!(!engine::is_on(&config).await);
     assert_eq!(
         config.memory.endpoint_for(CORTEXDB_ENGINE).as_deref(),
         Some("https://cortex.example.test"),
@@ -505,7 +505,7 @@ async fn disabling_memory_turns_it_off_and_keeps_the_engine_settings() {
     assert_eq!(view.engine.as_deref(), Some(DISABLED_ENGINE));
     assert_eq!(view.status, EngineStatus::Off);
     assert_eq!(view.reason.as_deref(), Some("memory is disabled"));
-    assert!(engines_list(&config).active.is_none());
+    assert!(engines_list(&config).await.active.is_none());
 
     // Selecting cortexdb again needs no endpoint or key re-entry.
     apply_engine_set(
@@ -515,9 +515,9 @@ async fn disabling_memory_turns_it_off_and_keeps_the_engine_settings() {
             endpoint: None,
             api_key: None,
         },
-    )
+    ).await
     .unwrap();
-    assert!(engine::is_on(&config));
+    assert!(engine::is_on(&config).await);
 }
 
 #[tokio::test]
@@ -531,7 +531,7 @@ async fn fetch_refuses_a_mode_the_engine_does_not_declare() {
             endpoint: Some("https://cortex.example.test".into()),
             api_key: Some("cdb-test-key".into()),
         },
-    )
+    ).await
     .unwrap();
     let error = fetch(
         &config,
@@ -702,7 +702,7 @@ fn disabled_engine_rejects_an_api_key_without_mutating_memory_settings() {
             endpoint: None,
             api_key: Some("not-a-real-key".into()),
         },
-    )
+    ).await
     .unwrap_err();
 
     assert_eq!(error.code(), "INVALID_REQUEST");

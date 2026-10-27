@@ -288,7 +288,7 @@ async fn fetch_with_an_undeclared_mode_is_unsupported() {
             endpoint: Some("https://cortex.example.test".into()),
             api_key: Some("cdb-test-key".into()),
         },
-    )
+    ).await
     .unwrap();
     let result = run_action(
         &ambient(),

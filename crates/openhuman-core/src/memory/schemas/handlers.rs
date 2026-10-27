@@ -116,7 +116,7 @@ pub(super) fn engine_set(ctx: DispatchCtx, params: Map<String, Value>) -> Contro
     Box::pin(async move {
         let params = parse::<EngineSetParams>(params)?;
         let mut config = load(&ctx).await?;
-        if let Err(error) = ops::apply_engine_set(&mut config, &params) {
+        if let Err(error) = ops::apply_engine_set(&mut config, &params).await {
             return finish::<Value>(Err(error));
         }
         if let Err(error) = config.save().await {
