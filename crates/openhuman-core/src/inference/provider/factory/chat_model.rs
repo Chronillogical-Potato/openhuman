@@ -353,7 +353,7 @@ async fn build_one_shot(
         },
     };
     factory.check(&request)?;
-    let (model, route) = factory.build(&request)?;
+    let (model, route) = factory.build(&request).await?;
     Ok((model, route.model))
 }
 
@@ -377,8 +377,9 @@ impl ModelBuildGate for OpenHumanModelFactory<'_> {
     }
 }
 
+#[async_trait::async_trait(?Send)]
 impl ModelFactory<()> for OpenHumanModelFactory<'_> {
-    fn build(
+    async fn build(
         &self,
         request: &ModelBuildRequest,
     ) -> tinyagents_harness::Result<(Arc<dyn ChatModel<()>>, ResolvedModelRoute)> {
@@ -405,6 +406,7 @@ impl ModelFactory<()> for OpenHumanModelFactory<'_> {
                     &route.model,
                     &route.provider,
                 )
+                .await
             };
         }
         Ok((model, route))

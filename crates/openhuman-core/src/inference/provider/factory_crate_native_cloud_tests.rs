@@ -16,7 +16,7 @@ use tinyagents_harness::host::{
     BuildOpts, ModelBuildGate, ModelBuildRequest, ModelFactory, ModelPurpose,
 };
 
-fn build_native_factory_model(
+async fn build_native_factory_model(
     config: &Config,
     pin: Option<&str>,
     egress: &EgressLedger,
@@ -50,6 +50,7 @@ fn build_native_factory_model(
         .map_err(|error| anyhow::anyhow!(error.to_string()))?;
     factory
         .build(&request)
+        .await
         .map_err(|error| anyhow::anyhow!(error.to_string()))
 }
 
@@ -79,8 +80,8 @@ fn create_chat_model_routes_plain_bearer_cloud_slug_to_crate_native() {
     assert!(profile.tool_calling);
 }
 
-#[test]
-fn turn_model_route_metadata_uses_post_remap_cloud_model() {
+#[tokio::test]
+async fn turn_model_route_metadata_uses_post_remap_cloud_model() {
     let _guard = crate::inference::inference_test_guard();
     let mut config = Config::default();
     config.cloud_providers.push(deepseek_entry("p_ds"));
@@ -88,6 +89,7 @@ fn turn_model_route_metadata_uses_post_remap_cloud_model() {
 
     let (_model, route) =
         build_native_factory_model(&config, Some("hint:chat"), &EgressLedger::none())
+            .await
             .expect("abstract BYOK tier must build");
 
     assert_eq!(route.provider, "deepseek");
@@ -288,6 +290,7 @@ async fn native_claude_turn_routes_disclose_pinned_models() {
     let mut sdk_config = Config::default();
     sdk_config.chat_provider = Some(format!("claude_agent_sdk:{configured_sdk}"));
     build_native_factory_model(&sdk_config, Some(pinned_sdk), &EgressLedger::none())
+        .await
         .expect("Claude Agent SDK turn model should build");
 
     let configured_code = "egress-code-configured-marker";
@@ -297,7 +300,8 @@ async fn native_claude_turn_routes_disclose_pinned_models() {
     // Egress is disclosed once the effective model is selected, before the
     // environment probe. The test therefore remains valid on hosts without the
     // Claude Code CLI.
-    let _ = build_native_factory_model(&code_config, Some(pinned_code), &EgressLedger::none());
+    let _ =
+        build_native_factory_model(&code_config, Some(pinned_code), &EgressLedger::none()).await;
 
     let sentinel = "egress-native-claude-sentinel-end";
     BUS.publish(DomainEvent::ExternalTransferPending {
