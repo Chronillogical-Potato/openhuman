@@ -36,7 +36,7 @@ fn only_json_content(result: &ToolResult) -> &serde_json::Value {
     }
 }
 
-fn store_test_session_token(config: &Config) {
+async fn store_test_session_token(config: &Config) {
     AuthService::from_config(config)
         .store_provider_token(
             APP_SESSION_PROVIDER,
@@ -45,6 +45,7 @@ fn store_test_session_token(config: &Config) {
             std::collections::HashMap::new(),
             true,
         )
+        .await
         .expect("store test session token");
 }
 
