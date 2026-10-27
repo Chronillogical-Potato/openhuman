@@ -11,7 +11,9 @@ supervisor. The core has no dependency on `tinyhumans-sdk`.
 - `models.rs` defines the serialized connection status and state DTOs.
 - `token_provider.rs` supplies a fresh session credential to each connection
   attempt.
-- `event_sink.rs` maps SDK events to core `DomainEvent`s.
+- `event_sink.rs` routes generic backend events into core domains. TinyHumans
+  parses hosted device-tunnel wire events and publishes only core-owned
+  semantic events through the device tunnel port.
 - `ops.rs` and `schemas.rs` preserve the `socket.*` RPC methods.
 
 The TinyHumans adapter owns connection lifecycle, endpoint validation, queued

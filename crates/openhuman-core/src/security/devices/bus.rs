@@ -1,7 +1,7 @@
 //! Event bus handlers for the devices domain.
 //!
-//! Subscribes to `tunnel:peer-status` and `tunnel:frame` events published by
-//! `socket::event_handlers` and drives:
+//! Subscribes to semantic peer-status and frame events published by the hosted
+//! TinyHumans tunnel adapter and drives:
 //! - Updating `PEER_STATUS` in `rpc.rs`.
 //! - Completing the X25519 handshake when the device sends its pubkey.
 //! - Persisting the `PairedDevice` record after a successful handshake.
