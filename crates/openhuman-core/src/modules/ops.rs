@@ -151,7 +151,7 @@ pub fn resolver(config: &Config) -> Resolver {
                     linked_factories.register(record.id, factory);
                 }
             }
-            ModuleSource::Release if record.id == "tinymcp" || record.id == "tinyeventqueues" => {
+            ModuleSource::Release if requires_verified_local_callbacks(record.id) => {
                 // These modules require a per-module storage callback, which
                 // TinyBus can bind only on its verified local-file path.
                 // Route a staged release through that rung; the callback-aware
@@ -202,6 +202,10 @@ pub fn resolver(config: &Config) -> Resolver {
         })),
         reporter: report::reporter(),
     })
+}
+
+fn requires_verified_local_callbacks(id: &str) -> bool {
+    matches!(id, "tinysecurity" | "tinymcp" | "tinyeventqueues")
 }
 
 /// The staged artifact the callback-bound module fixture loads in isolation.

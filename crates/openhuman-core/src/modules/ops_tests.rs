@@ -13,6 +13,14 @@ use crate::modules::types::ModuleState;
 use tinybus::module::Reason;
 use tinybus::module::{LoadError, Resolver};
 
+#[test]
+fn modules_with_host_callbacks_use_the_verified_local_release_path() {
+    assert!(ops::requires_verified_local_callbacks("tinysecurity"));
+    assert!(ops::requires_verified_local_callbacks("tinymcp"));
+    assert!(ops::requires_verified_local_callbacks("tinyeventqueues"));
+    assert!(!ops::requires_verified_local_callbacks("tinybox"));
+}
+
 fn test_bundled_record() -> &'static crate::modules::types::ModuleRecord {
     use crate::modules::types::{LoadPolicy, ModuleRecord, PlatformAsset};
 
