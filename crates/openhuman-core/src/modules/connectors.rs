@@ -196,7 +196,8 @@ async fn route_config(
         COMPOSIO_MODE_DIRECT => {
             // The keychain wins over `config.toml`: the encrypted store is the
             // source of truth, and the file is a fallback for power users.
-            let stored = crate::integrations::composio::get_composio_api_key(config).await
+            let stored = crate::integrations::composio::get_composio_api_key(config)
+                .await
                 .map_err(|error| format!("failed to read the stored composio api key: {error}"))?;
             let api_key = stored
                 .or_else(|| {
@@ -321,10 +322,9 @@ static ROUTE_TURN: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 /// tell someone they are signed out.
 async fn ensure_routed(config: &Config, proxy: &Proxy) -> Result<(), String> {
     let _inspection_guard = inspection::route_lock().lock().await;
-    let mut route =
-        module_config(config)
-            .await
-            .unwrap_or_else(|_| serde_json::json!({ "route": "none" }));
+    let mut route = module_config(config)
+        .await
+        .unwrap_or_else(|_| serde_json::json!({ "route": "none" }));
     // `state_dir` is load-time only: the trigger archive opens once, and moving
     // it later would strand the history already written there.
     if let Some(object) = route.as_object_mut() {

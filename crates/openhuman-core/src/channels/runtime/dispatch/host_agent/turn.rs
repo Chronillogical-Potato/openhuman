@@ -78,10 +78,12 @@ pub(crate) async fn run_host_agent_turn(
     host.context = host
         .context
         .derive_channel_turn(relay_thread.clone(), Some(origin.clone()));
-    let mut session = host.session_host(
-        &config,
-        Some(relay_thread.as_deref().unwrap_or(&history_key)),
-    ).await?;
+    let mut session = host
+        .session_host(
+            &config,
+            Some(relay_thread.as_deref().unwrap_or(&history_key)),
+        )
+        .await?;
     session.set_thread_id(relay_thread.as_deref());
     // The channel names the session, which also selects the channel's
     // permission ceiling in the session's tool policy.

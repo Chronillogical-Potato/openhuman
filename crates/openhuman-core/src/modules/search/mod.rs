@@ -27,8 +27,8 @@ pub use proxy::{execute_tool, list_tools, refresh_loaded};
 /// configuration the module holds so the first call knows whether to
 /// reconfigure it.
 pub(crate) async fn load_configuration(config: &Config) -> serde_json::Value {
-    let configuration = serde_json::to_value(module_config(config).await)
-        .expect("TinySearch config serializes");
+    let configuration =
+        serde_json::to_value(module_config(config).await).expect("TinySearch config serializes");
     proxy::record_load_configuration(&configuration);
     configuration
 }

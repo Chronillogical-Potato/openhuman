@@ -32,10 +32,10 @@ fn classified_errors_become_actionable_messages() {
     assert_eq!(user_facing_error("boom"), "Web search failed: boom");
 }
 
-#[test]
-fn role_tools_are_built_for_usable_byok_providers() {
+#[tokio::test]
+async fn role_tools_are_built_for_usable_byok_providers() {
     let config = signed_out_byok_config();
-    let tools = build_search_tools(&config);
+    let tools = build_search_tools(&config).await;
     let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
     assert!(names.contains(&"web_search_tool"), "{names:?}");
     assert!(names.contains(&"web_contents_tool"), "{names:?}");
@@ -50,11 +50,11 @@ fn role_tools_are_built_for_usable_byok_providers() {
     assert!(search.parameters_schema()["properties"]["query"].is_object());
 }
 
-#[test]
-fn no_tools_when_search_is_off_or_nothing_is_usable() {
+#[tokio::test]
+async fn no_tools_when_search_is_off_or_nothing_is_usable() {
     let mut config = signed_out_byok_config();
     config.search.enabled = Some(false);
-    assert!(build_search_tools(&config).is_empty());
+    assert!(build_search_tools(&config).await.is_empty());
 
     let mut managed_only = Config::default();
     managed_only.search.providers.insert(
@@ -65,7 +65,7 @@ fn no_tools_when_search_is_off_or_nothing_is_usable() {
         },
     );
     // No backend credential in a default test config.
-    assert!(build_search_tools(&managed_only).is_empty());
+    assert!(build_search_tools(&managed_only).await.is_empty());
 }
 
 #[test]
@@ -304,11 +304,13 @@ async fn a_rejected_api_key_does_not_sign_the_user_out() {
     ));
 }
 
-#[test]
-fn components_search_off_registers_no_search_tools() {
+#[tokio::test]
+async fn components_search_off_registers_no_search_tools() {
     let mut config = signed_out_byok_config();
-    assert!(!build_search_tools(&config).is_empty());
+    assert!(!build_search_tools(&config).await.is_empty());
     config.components.search = false;
-    assert!(build_search_tools(&config).is_empty());
-    assert!(crate::modules::search::configured_tool_specs(&config).is_empty());
+    assert!(build_search_tools(&config).await.is_empty());
+    assert!(crate::modules::search::configured_tool_specs(&config)
+        .await
+        .is_empty());
 }

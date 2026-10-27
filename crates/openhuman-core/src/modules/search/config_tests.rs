@@ -77,7 +77,8 @@ async fn role_tools_follow_provider_selection() {
     let dir = tempfile::tempdir().unwrap();
     let mut config = config_in(dir.path());
     sign_in(&config);
-    let names: Vec<String> = configured_tool_specs(&config).await
+    let names: Vec<String> = configured_tool_specs(&config)
+        .await
         .into_iter()
         .map(|spec| spec.name)
         .collect();
@@ -93,7 +94,8 @@ async fn role_tools_follow_provider_selection() {
         &mut config,
         &[("gemini", SearchProviderSettings::managed())],
     );
-    let names: Vec<String> = configured_tool_specs(&config).await
+    let names: Vec<String> = configured_tool_specs(&config)
+        .await
         .into_iter()
         .map(|spec| spec.name)
         .collect();
@@ -213,7 +215,8 @@ async fn a_pinned_key_reaches_the_module_config_with_its_endpoint() {
     assert_eq!(brave.route, ProviderRoute::Direct);
     assert_eq!(brave.credential.as_deref(), Some("pinned-brave"));
     assert_eq!(brave.base_url.as_deref(), Some("http://127.0.0.1:9"));
-    let names: Vec<String> = configured_tool_specs(&config).await
+    let names: Vec<String> = configured_tool_specs(&config)
+        .await
         .into_iter()
         .map(|spec| spec.name)
         .collect();

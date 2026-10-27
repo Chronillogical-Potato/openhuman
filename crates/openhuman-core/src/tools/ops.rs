@@ -440,7 +440,7 @@ pub async fn all_tools_with_runtime_and_pack_handle(
         tools.push(crate::mcp::ui::ui_aware_call(call, &mcp_config));
     }
 
-    tools.extend(crate::search::build_search_tools(root_config));
+    tools.extend(crate::search::build_search_tools(root_config).await);
 
     // Media generation roots. The `media_generate_*` tools themselves come from
     // a host's registered tool source (the core ships no media generators);

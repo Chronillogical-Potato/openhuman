@@ -196,7 +196,7 @@ impl ProfileCapabilities {
                 // settings are the profile-owned source for them, so add the
                 // roles the binding advertises; `admits` still applies.
                 let search = if config.profile_providers.is_some() {
-                    crate::search::build_search_tools(config)
+                    crate::search::build_search_tools(config).await
                 } else {
                     Vec::new()
                 };

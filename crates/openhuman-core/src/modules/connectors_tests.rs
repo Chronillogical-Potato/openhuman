@@ -78,7 +78,9 @@ async fn direct_mode_takes_the_api_key_from_the_config_file() {
     config.composio.mode = COMPOSIO_MODE_DIRECT.to_string();
     config.composio.api_key = Some("  sk-from-file  ".to_string());
 
-    let blob = module_config(&config).await.expect("direct mode with a key resolves");
+    let blob = module_config(&config)
+        .await
+        .expect("direct mode with a key resolves");
     assert_eq!(blob["route"], "direct");
     assert_eq!(blob["api_key"], "sk-from-file", "the key is trimmed");
     assert_eq!(blob["entity_id"], config.composio.entity_id);
@@ -147,9 +149,12 @@ async fn direct_mode_hands_the_module_the_hosts_proxy_policy() {
             services: vec!["tool.composio".into()],
             ..ProxyConfig::default()
         },
-    ).await
+    )
+    .await
     .expect("resolves");
-    let plain = module_config_with_proxy(&config, &ProxyConfig::default()).await.expect("resolves");
+    let plain = module_config_with_proxy(&config, &ProxyConfig::default())
+        .await
+        .expect("resolves");
 
     assert_eq!(proxied["transport"]["proxy_url"], "http://127.0.0.1:3128");
     assert_eq!(proxied["transport"]["no_proxy"][0], "localhost");
@@ -174,7 +179,9 @@ async fn direct_mode_without_a_key_is_refused() {
     config.composio.mode = COMPOSIO_MODE_DIRECT.to_string();
     config.composio.api_key = None;
 
-    let error = module_config(&config).await.expect_err("no key must be refused");
+    let error = module_config(&config)
+        .await
+        .expect_err("no key must be refused");
     assert!(error.contains("no api key"), "{error}");
 }
 
@@ -193,7 +200,9 @@ async fn an_unknown_mode_fails_loudly_and_names_the_alternatives() {
     let mut config = bare_config();
     config.composio.mode = "backnd".to_string();
 
-    let error = module_config(&config).await.expect_err("a typo must be refused");
+    let error = module_config(&config)
+        .await
+        .expect_err("a typo must be refused");
     assert!(error.contains("backnd"), "{error}");
     assert!(error.contains(COMPOSIO_MODE_BACKEND), "{error}");
     assert!(error.contains(COMPOSIO_MODE_DIRECT), "{error}");
@@ -218,7 +227,9 @@ async fn the_backend_route_is_unavailable_without_a_registered_target() {
     let mut config = bare_config();
     config.composio.mode = COMPOSIO_MODE_BACKEND.to_string();
 
-    let error = module_config(&config).await.expect_err("no proxy target is registered");
+    let error = module_config(&config)
+        .await
+        .expect_err("no proxy target is registered");
     assert!(
         error.starts_with(crate::core::observability::BACKEND_UNAVAILABLE_PREFIX),
         "{error}"
@@ -309,7 +320,9 @@ async fn a_host_pinned_credential_outranks_the_mode_and_the_store() {
             .entity_id("tenant-7")
             .base_urls("http://127.0.0.1:1/v2", "http://127.0.0.1:1/v3"),
     );
-    let route = module_config(&config).await.expect("pinned credential names a route");
+    let route = module_config(&config)
+        .await
+        .expect("pinned credential names a route");
     assert_eq!(route["route"], "direct");
     assert_eq!(route["api_key"], "ck_pinned");
     assert_eq!(route["entity_id"], "tenant-7");
@@ -324,7 +337,9 @@ async fn the_offered_toolkit_lists_reach_the_module_in_its_load_blob() {
     config.composio.offered_toolkits_allow = vec!["gmail".into(), "slack".into()];
     config.composio.offered_toolkits_deny = vec!["slack".into()];
 
-    let blob = module_config(&config).await.expect("direct mode with a key resolves");
+    let blob = module_config(&config)
+        .await
+        .expect("direct mode with a key resolves");
     assert_eq!(
         blob["offered_toolkits"],
         serde_json::json!({ "allow": ["gmail", "slack"], "deny": ["slack"] })

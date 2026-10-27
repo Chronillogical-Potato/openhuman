@@ -102,8 +102,8 @@ async fn proxy(config: &Config) -> Result<tinybus::Proxy, String> {
     let runtime = crate::modules::runtime::runtime()
         .await
         .map_err(|error| format!("search module bus unavailable: {error}"))?;
-    let configuration = serde_json::to_value(module_config(config).await)
-        .map_err(|error| error.to_string())?;
+    let configuration =
+        serde_json::to_value(module_config(config).await).map_err(|error| error.to_string())?;
     let current = fingerprint(&configuration);
     if held_fingerprint() != Some(current) {
         tracing::debug!(
