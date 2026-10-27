@@ -52,6 +52,11 @@ impl PreflightGate {
     pub(crate) fn open(&self) {
         self.0.store(false, Ordering::Release);
     }
+
+    #[cfg(test)]
+    pub(crate) fn close_for_test(&self) {
+        self.0.store(true, Ordering::Release);
+    }
 }
 
 const PREFLIGHT_RPC_METHODS: &[&str] = &[

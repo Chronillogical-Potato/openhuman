@@ -85,7 +85,7 @@ impl OpenHumanAgentRunner {
                 OpenHumanSessionHost::from_config_for_agent(dispatch, effective.as_ref(), agent_ref)
             }
         };
-        let mut agent = built.map_err(|e| {
+        let mut agent = built.await.map_err(|e| {
             EngineError::Capability(format!(
                 "agent node: failed to build harness agent '{agent_ref}': {e:#}"
             ))
