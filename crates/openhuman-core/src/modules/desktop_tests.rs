@@ -51,6 +51,7 @@ async fn backend_key_is_selected_ahead_of_direct_openrouter_and_rotates_privatel
             Default::default(),
             true,
         )
+        .await
         .expect("store direct key");
 
     let direct = module_config(&config).await;
@@ -58,14 +59,18 @@ async fn backend_key_is_selected_ahead_of_direct_openrouter_and_rotates_privatel
     assert_eq!(direct["jev"]["api_key"], "or_test_direct");
     assert!(jev_ready(&config).await);
 
-    api_key::store_api_key(&config, "th_test_backend").expect("store backend key");
+    api_key::store_api_key(&config, "th_test_backend")
+        .await
+        .expect("store backend key");
     let hosted = module_config(&config).await;
     assert_eq!(hosted["jev"]["provider"], "tiny_humans_open_router");
     assert_eq!(hosted["jev"]["api_key"], "th_test_backend");
     assert!(hosted["jev"]["sdk_name"].is_string());
     assert_ne!(fingerprint(&hosted), fingerprint(&direct));
 
-    api_key::store_api_key(&config, "th_test_rotated").expect("rotate key");
+    api_key::store_api_key(&config, "th_test_rotated")
+        .await
+        .expect("rotate key");
     let rotated = module_config(&config).await;
     assert_eq!(rotated["jev"]["api_key"], "th_test_rotated");
     assert_ne!(fingerprint(&rotated), fingerprint(&hosted));
