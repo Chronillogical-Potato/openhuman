@@ -102,7 +102,8 @@ pub async fn test_connection(
             config.local_ai.base_url.as_deref(),
         ),
     );
-    let credentials = credential_resolver(config);
+    let api_key = resolve_api_key(config, slug).await;
+    let credentials = credential_resolver(api_key);
     let managed = managed_factory(Some(config.clone()), None);
     let result = test_embedding_connection_detailed(
         &selected,

@@ -216,16 +216,17 @@ pub fn create_embedding_provider_for_chat(
 
 /// Returns the configured provider, falling back to managed embeddings. Its
 /// cloud disclosures are unrouted; see [`default_embedding_provider_for_chat`].
-pub fn default_embedding_provider_with_config(config: &Config) -> Arc<dyn EmbeddingModel> {
-    default_embedding_provider_for_chat(config, None)
+pub async fn default_embedding_provider_with_config(config: &Config) -> Arc<dyn EmbeddingModel> {
+    default_embedding_provider_for_chat(config, None).await
 }
 
 /// [`default_embedding_provider_with_config`] for a call made in a chat turn:
 /// the managed (cloud) model discloses its egress to `chat`.
-pub fn default_embedding_provider_for_chat(
+pub async fn default_embedding_provider_for_chat(
     config: &Config,
     chat: Option<ApprovalChatContext>,
 ) -> Arc<dyn EmbeddingModel> {
+    let api_key = super::rpc::resolve_api_key(config, &config.memory.embedding_provider).await;
     let selected = settings(
         &config.memory.embedding_provider,
         &config.memory.embedding_model,
@@ -236,7 +237,7 @@ pub fn default_embedding_provider_for_chat(
     );
     let model = create_default_embedding_model(
         &selected,
-        &credential_resolver(config),
+        &credential_resolver(api_key),
         &managed_factory(Some(config.clone()), chat),
     )
     .unwrap_or_else(|error| {

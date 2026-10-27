@@ -21,7 +21,7 @@ fn resolve_api_key_returns_stored_embeddings_credential() {
     config.config_path = tmp.path().join("config.toml");
 
     // Nothing stored yet → empty (the empty-key guard's "" input).
-    assert_eq!(resolve_api_key(&config, "cohere"), "");
+    assert_eq!(resolve_api_key(&config, "cohere").await, "");
 
     // Store a Cohere embeddings key exactly as `set_api_key` does.
     AuthService::from_config(&config)
@@ -35,8 +35,8 @@ fn resolve_api_key_returns_stored_embeddings_credential() {
         .unwrap();
 
     // Resolve returns it; a provider with no stored key stays empty.
-    assert_eq!(resolve_api_key(&config, "cohere"), "sk-cohere-test");
-    assert_eq!(resolve_api_key(&config, "voyage"), "");
+    assert_eq!(resolve_api_key(&config, "cohere").await, "sk-cohere-test");
+    assert_eq!(resolve_api_key(&config, "voyage").await, "");
 }
 
 #[tokio::test]
@@ -84,7 +84,7 @@ fn resolve_api_key_normalizes_custom_prefix_to_custom_slug() {
         .unwrap();
 
     assert_eq!(
-        resolve_api_key(&config, "custom:http://localhost:1234"),
+        resolve_api_key(&config, "custom:http://localhost:1234").await,
         "sk-custom-test"
     );
 }
@@ -296,6 +296,8 @@ fn provider_from_config_managed_builds_cloud() {
     config.memory.embedding_provider = "managed".to_string();
     config.memory.embedding_model = "voyage-3-large".to_string();
     config.memory.embedding_dimensions = 1024;
-    let provider = provider_from_config(&config).expect("managed provider must build");
+    let provider = provider_from_config(&config)
+        .await
+        .expect("managed provider must build");
     assert_eq!(provider.name(), "cloud");
 }

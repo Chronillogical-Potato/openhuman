@@ -223,7 +223,7 @@ fn default_embedder_falls_back_to_cloud_when_configured_provider_fails() {
     let mut config = test_config(&tmp);
     config.memory.embedding_provider = "not-a-provider".into();
 
-    let provider = default_embedding_provider_with_config(&config);
+    let provider = default_embedding_provider_with_config(&config).await;
     assert_eq!(
         provider.name(),
         "cloud",
@@ -278,7 +278,7 @@ async fn default_embedder_honors_configured_local_provider() {
     config.memory.embedding_dimensions = 3;
     config.local_ai.base_url = Some(base);
 
-    let provider = default_embedding_provider_with_config(&config);
+    let provider = default_embedding_provider_with_config(&config).await;
     assert_eq!(provider.name(), "ollama");
     assert_eq!(provider.model_id(), "bge-m3");
     assert_eq!(provider.dimensions(), 3);
