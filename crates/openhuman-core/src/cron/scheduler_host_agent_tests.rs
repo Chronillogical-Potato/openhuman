@@ -85,8 +85,8 @@ fn agent_job(agent_id: &str) -> CronJob {
     job
 }
 
-#[test]
-fn a_cron_job_for_a_host_agent_builds_with_its_host_tools_and_context() {
+#[tokio::test]
+async fn a_cron_job_for_a_host_agent_builds_with_its_host_tools_and_context() {
     let _slot = crate::agent::host_agents::tests::lock();
     let tmp = TempDir::new().unwrap();
     let config = config(&tmp);
@@ -101,7 +101,8 @@ fn a_cron_job_for_a_host_agent_builds_with_its_host_tools_and_context() {
         &crate::core::runtime::DispatchCtx::ambient(),
         &config,
         &agent_job("cron-host-agent"),
-    );
+    )
+    .await;
     host_agents::clear_if(&installed);
     let built = built.expect("the host agent builds");
 
@@ -120,8 +121,8 @@ fn a_cron_job_for_a_host_agent_builds_with_its_host_tools_and_context() {
         .any(|spec| spec.name == "cron_host_marker"));
 }
 
-#[test]
-fn an_id_the_host_does_not_know_falls_back_to_the_registries() {
+#[tokio::test]
+async fn an_id_the_host_does_not_know_falls_back_to_the_registries() {
     let _slot = crate::agent::host_agents::tests::lock();
     let tmp = TempDir::new().unwrap();
     let config = config(&tmp);
@@ -135,7 +136,8 @@ fn an_id_the_host_does_not_know_falls_back_to_the_registries() {
         &crate::core::runtime::DispatchCtx::ambient(),
         &config,
         &agent_job("orchestrator"),
-    );
+    )
+    .await;
     host_agents::clear_if(&installed);
     let built = built.expect("the orchestrator builds from the registries");
     assert!(built.context.is_none());
