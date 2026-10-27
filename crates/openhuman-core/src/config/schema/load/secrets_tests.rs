@@ -31,7 +31,9 @@ async fn failed_storage_url_decryption_keeps_the_sealed_value() {
     let sealed = format!("enc2:{}", "00".repeat(32));
     config.storage.url = Some(sealed.clone());
 
-    assert!(!decrypt_config_secrets(&mut config, dir.path()).await.unwrap());
+    assert!(!decrypt_config_secrets(&mut config, dir.path())
+        .await
+        .unwrap());
     assert_eq!(config.storage.url.as_deref(), Some(sealed.as_str()));
 }
 

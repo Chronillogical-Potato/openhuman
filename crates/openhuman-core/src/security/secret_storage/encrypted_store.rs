@@ -238,7 +238,6 @@ impl SecretStore {
     pub fn is_encrypted(value: &str) -> bool {
         value.starts_with("enc2:") || value.starts_with("enc:")
     }
-
 }
 
 struct CachedMasterHandle {

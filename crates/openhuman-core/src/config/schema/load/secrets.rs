@@ -108,24 +108,16 @@ async fn decrypt_config_secrets_inner(
     if !config.secrets.encrypt {
         return Ok(false);
     }
-    let store = crate::security::secret_storage::SecretStore::new_with_config(
-        openhuman_dir,
-        true,
-        config,
-    );
+    let store =
+        crate::security::secret_storage::SecretStore::new_with_config(openhuman_dir, true, config);
 
     // A MongoDB URL carries the database password.
     // Fail closed: if the sealed URL cannot be opened, keep the ciphertext so
     // the storage backend fails to open at boot instead of the field being
     // cleared into the "no URL" sentinel (the classic on-disk layout).
     let sealed_storage_url = config.storage.url.clone();
-    let mut migrated = decrypt_optional_secret(
-        &store,
-        &mut config.storage.url,
-        "storage.url",
-        strict,
-    )
-    .await?;
+    let mut migrated =
+        decrypt_optional_secret(&store, &mut config.storage.url, "storage.url", strict).await?;
     if config.storage.url.is_none() && sealed_storage_url.is_some() {
         config.storage.url = sealed_storage_url;
     }
@@ -148,15 +140,11 @@ pub(super) async fn encrypt_config_secrets(config: &mut Config) -> Result<()> {
         .config_path
         .parent()
         .context("Config path must have a parent directory")?;
-    let store = crate::security::secret_storage::SecretStore::new_with_config(
-        parent_dir,
-        true,
-        config,
-    );
+    let store =
+        crate::security::secret_storage::SecretStore::new_with_config(parent_dir, true, config);
 
     // A MongoDB URL carries the database password.
-    encrypt_optional_secret(&store, &mut config.storage.url, "storage.url")
-        .await?;
+    encrypt_optional_secret(&store, &mut config.storage.url, "storage.url").await?;
 
     for_each_secret(config, &store, true, false).await?;
 
@@ -204,27 +192,63 @@ async fn for_each_secret(
         process_secret!(&mut toggle.api_key, &format!("integrations.{name}.api_key"));
     }
     // Empty means "read the environment", so it stays empty.
-    migrated |= string_secret(&mut config.hosting.api_key, "hosting.api_key", store, encrypt, strict).await?;
+    migrated |= string_secret(
+        &mut config.hosting.api_key,
+        "hosting.api_key",
+        store,
+        encrypt,
+        strict,
+    )
+    .await?;
 
     let ch = &mut config.channels_config;
     if let Some(ref mut tg) = ch.telegram {
-        migrated |= string_secret(&mut tg.bot_token, "telegram.bot_token", store, encrypt, strict).await?;
+        migrated |= string_secret(
+            &mut tg.bot_token,
+            "telegram.bot_token",
+            store,
+            encrypt,
+            strict,
+        )
+        .await?;
     }
     if let Some(ref mut d) = ch.discord {
-        migrated |= string_secret(&mut d.bot_token, "discord.bot_token", store, encrypt, strict).await?;
+        migrated |= string_secret(
+            &mut d.bot_token,
+            "discord.bot_token",
+            store,
+            encrypt,
+            strict,
+        )
+        .await?;
     }
     if let Some(ref mut s) = ch.slack {
-        migrated |= string_secret(&mut s.bot_token, "slack.bot_token", store, encrypt, strict).await?;
+        migrated |=
+            string_secret(&mut s.bot_token, "slack.bot_token", store, encrypt, strict).await?;
         process_secret!(&mut s.app_token, "slack.app_token");
     }
     if let Some(ref mut m) = ch.mattermost {
-        migrated |= string_secret(&mut m.bot_token, "mattermost.bot_token", store, encrypt, strict).await?;
+        migrated |= string_secret(
+            &mut m.bot_token,
+            "mattermost.bot_token",
+            store,
+            encrypt,
+            strict,
+        )
+        .await?;
     }
     if let Some(ref mut w) = ch.webhook {
         process_secret!(&mut w.secret, "webhook.secret");
     }
     if let Some(ref mut mx) = ch.matrix {
-        migrated |= string_secret(&mut mx.access_token, "matrix.access_token", store, encrypt, strict).await?;
+        migrated |= string_secret(
+            &mut mx.access_token,
+            "matrix.access_token",
+            store,
+            encrypt,
+            strict,
+        )
+        .await?;
     }
     if let Some(ref mut wa) = ch.whatsapp {
         process_secret!(&mut wa.access_token, "whatsapp.access_token");
@@ -232,7 +256,8 @@ async fn for_each_secret(
         process_secret!(&mut wa.app_secret, "whatsapp.app_secret");
     }
     if let Some(ref mut lq) = ch.linq {
-        migrated |= string_secret(&mut lq.api_token, "linq.api_token", store, encrypt, strict).await?;
+        migrated |=
+            string_secret(&mut lq.api_token, "linq.api_token", store, encrypt, strict).await?;
     }
     if let Some(ref mut irc) = ch.irc {
         process_secret!(&mut irc.server_password, "irc.server_password");
@@ -240,15 +265,30 @@ async fn for_each_secret(
         process_secret!(&mut irc.sasl_password, "irc.sasl_password");
     }
     if let Some(ref mut lk) = ch.lark {
-        migrated |= string_secret(&mut lk.app_secret, "lark.app_secret", store, encrypt, strict).await?;
+        migrated |= string_secret(
+            &mut lk.app_secret,
+            "lark.app_secret",
+            store,
+            encrypt,
+            strict,
+        )
+        .await?;
         process_secret!(&mut lk.encrypt_key, "lark.encrypt_key");
         process_secret!(&mut lk.verification_token, "lark.verification_token");
     }
     if let Some(ref mut dt) = ch.dingtalk {
-        migrated |= string_secret(&mut dt.client_secret, "dingtalk.client_secret", store, encrypt, strict).await?;
+        migrated |= string_secret(
+            &mut dt.client_secret,
+            "dingtalk.client_secret",
+            store,
+            encrypt,
+            strict,
+        )
+        .await?;
     }
     if let Some(ref mut qq) = ch.qq {
-        migrated |= string_secret(&mut qq.app_secret, "qq.app_secret", store, encrypt, strict).await?;
+        migrated |=
+            string_secret(&mut qq.app_secret, "qq.app_secret", store, encrypt, strict).await?;
     }
     Ok(migrated)
 }

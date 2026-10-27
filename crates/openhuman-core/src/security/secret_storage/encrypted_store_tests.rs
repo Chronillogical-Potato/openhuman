@@ -54,10 +54,7 @@ fn encrypted_prefixes_remain_compatible() {
 
 #[test]
 fn keyring_user_id_uses_directory_name_or_stable_hash() {
-    assert_eq!(
-        keyring_user_id_from_dir(Path::new("/users/alice")),
-        "alice"
-    );
+    assert_eq!(keyring_user_id_from_dir(Path::new("/users/alice")), "alice");
     let first = keyring_user_id_from_dir(Path::new("/"));
     assert_eq!(first, keyring_user_id_from_dir(Path::new("/")));
     assert!(first.starts_with("secretstore-path-"));
