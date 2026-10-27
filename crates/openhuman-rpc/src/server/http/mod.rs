@@ -20,10 +20,10 @@ mod health;
 mod live_voice;
 mod oauth_mcp;
 mod pages;
-mod rpc_handler;
 #[cfg(test)]
 #[path = "preflight_tests.rs"]
 mod preflight_tests;
+mod rpc_handler;
 
 pub use rpc_handler::rpc_handler;
 
