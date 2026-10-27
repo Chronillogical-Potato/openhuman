@@ -16,6 +16,25 @@ use crate::skills::webhooks::WebhookRequest;
 
 use super::manager::{emit_server_event, emit_state_change, SharedState};
 
+/// Dispatch an event received by the host-owned SDK socket into core domain
+/// events. Connection lifecycle itself remains owned by the host transport.
+pub fn dispatch_socket_event(event_name: &str, data: serde_json::Value) {
+    let router = crate::platform::socket::global_socket_manager()
+        .and_then(|manager| manager.webhook_router());
+    let shared = Arc::new(SharedState {
+        webhook_router: parking_lot::RwLock::new(router),
+        ack_registry: super::manager::AckRegistry::default(),
+        status: parking_lot::RwLock::new(ConnectionStatus::Disconnected),
+        socket_id: parking_lot::RwLock::new(None),
+        error: parking_lot::RwLock::new(None),
+        connection_identity: parking_lot::RwLock::new(None),
+        loop_active: std::sync::atomic::AtomicBool::new(false),
+        loop_stopped_on_failure: std::sync::atomic::AtomicBool::new(false),
+    });
+    let (emit_tx, _emit_rx) = mpsc::unbounded_channel();
+    handle_sio_event(event_name, data, &emit_tx, &shared);
+}
+
 // ---------------------------------------------------------------------------
 // Main event dispatcher
 // ---------------------------------------------------------------------------
