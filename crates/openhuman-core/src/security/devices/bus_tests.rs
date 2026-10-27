@@ -91,6 +91,7 @@ fn abandoning_pairing_clears_only_host_session_capabilities() {
             scope_id: "scope".into(),
             session_id: "module-session".into(),
             pairing_token: "token".into(),
+            connection_nonce: "nonce".into(),
         },
     );
 

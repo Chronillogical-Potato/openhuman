@@ -91,7 +91,7 @@ fn direct_recovery_event_is_bound_to_its_exact_channel() {
             "recover-channel",
             DevicePairingSource2::AuthenticatedUserController,
         );
-        context.pairing_token = None;
+        context.pairing_token = Some("opaque-recovery-token".into());
         context.connection_nonce.clear();
         context
     };

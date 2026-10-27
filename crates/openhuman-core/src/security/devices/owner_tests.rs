@@ -185,6 +185,7 @@ async fn a_revoked_device_with_a_live_cipher_is_dropped() {
             scope_id: "scope".into(),
             session_id: "session".into(),
             pairing_token: "token".into(),
+            connection_nonce: "nonce".into(),
         },
     );
     let owner = crate::core::runtime::CoreContext::scope(
@@ -232,6 +233,7 @@ async fn a_leftover_pairing_session_does_not_outlive_a_revocation() {
             scope_id: "scope".into(),
             session_id: "session".into(),
             pairing_token: "token".into(),
+            connection_nonce: "nonce".into(),
         },
     );
     // Cipher live, row not persisted yet: still the session's agent.
@@ -280,6 +282,7 @@ fn an_unpersisted_pairing_is_abandoned() {
             scope_id: "scope".into(),
             session_id: "session".into(),
             pairing_token: "token".into(),
+            connection_nonce: "nonce".into(),
         },
     );
     super::super::bus::abandon_unpersisted_pairing(id);
