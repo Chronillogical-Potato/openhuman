@@ -567,7 +567,7 @@ fn encode_frame(bytes: &[u8]) -> String {
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
-fn abandon_unpersisted_pairing(channel_id: &str) {
+pub(super) fn abandon_unpersisted_pairing(channel_id: &str) {
     PENDING_SESSIONS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)

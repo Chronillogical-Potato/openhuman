@@ -39,7 +39,7 @@ fn abandoning_pairing_clears_only_host_session_capabilities() {
     PENDING_HANDSHAKES
         .lock()
         .unwrap()
-        .insert(channel_id.into(), ());
+        .insert(channel_id.into());
     ACTIVE_SESSIONS.lock().unwrap().insert(
         channel_id.into(),
         super::super::rpc::ActiveDeviceSession {
