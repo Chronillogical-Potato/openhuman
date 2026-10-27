@@ -33,9 +33,8 @@ use super::types::{ModuleRecord, ModuleSource, ModuleState, ModuleStatus};
 use super::{linked, registry, report, runtime, source};
 use crate::config::Config;
 use tinybus::module::{
-    AccessFuture, Availability, FailureReporter, HostCallbackEndpoint, LoadError, ModuleAccess,
-    ModuleClient, ModuleSource as ResolverSource, ProxyFailure, ReleaseRecord, Resolver,
-    ResolverInputs,
+    AccessFuture, Availability, FailureReporter, LoadError, ModuleAccess, ModuleClient,
+    ModuleSource as ResolverSource, ProxyFailure, ReleaseRecord, Resolver, ResolverInputs,
 };
 use tinybus::Proxy;
 
