@@ -1,29 +1,20 @@
 //! Event bus handlers for the devices domain.
 //!
-//! Subscribes to semantic peer-status and frame events published by the hosted
-//! TinyHumans tunnel adapter and drives:
-//! - Updating `PEER_STATUS` in `rpc.rs`.
-//! - Completing the X25519 handshake when the device sends its pubkey.
-//! - Persisting the `PairedDevice` record after a successful handshake.
-//! - Publishing `DomainEvent::DevicePaired / DevicePeerOnline / DevicePeerOffline`.
+//! The host owns the socket transport. TinySecurity owns pairing identities,
+//! handshake state, session ciphers and every per-frame crypto operation.
 
 use crate::core::runtime::DispatchCtx;
 use std::sync::{Arc, OnceLock};
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use crate::security::devices::crypto::{base64url_encode, DeviceKeypair};
-use crate::security::devices::rpc::{
-    ACTIVE_CIPHERS, PEER_STATUS, PENDING_KEYPAIRS, PENDING_SESSIONS,
-};
+use crate::security::devices::rpc::{ACTIVE_SESSIONS, PEER_STATUS, PENDING_SESSIONS};
 use crate::security::devices::store;
 use crate::security::devices::tunnel_client::emit_frame;
 use async_trait::async_trait;
-use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::Value;
 use tinybus::EventHandler;
 use tinybus::SubscriptionHandle;
-use tinysecurity_crypto::device::{KeyPair, PublicKey, Role, Tunnel};
 
 const HANDSHAKE_VERSION: u8 = 0x03;
 
@@ -87,16 +78,11 @@ impl EventHandler<DomainEvent> for DeviceTunnelSubscriber {
                 connection_nonce,
                 expires_at_ms,
             } => {
-                // Handle the frame as the agent the device belongs to, so its
-                // pairing record and the RPCs it sends land in that agent's
-                // scope (`super::owner`).
                 let pending = PENDING_SESSIONS
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner)
                     .get(channel_id.as_str())
                     .cloned();
-                // Tunnel frames arrive over the host's socket: its own tenant,
-                // and in SaaS none (the frame is then dropped below).
                 let host_ctx = DispatchCtx::host_default();
                 match super::owner::owner_of(&host_ctx, channel_id, pending.as_ref()).await {
                     Ok(owner) => {
@@ -104,9 +90,6 @@ impl EventHandler<DomainEvent> for DeviceTunnelSubscriber {
                             &host_ctx,
                             owner.as_deref(),
                             async {
-                                // Capture the context created by `within_agent`.
-                                // Passing `host_ctx` through here would lose the
-                                // paired device's owner before controller dispatch.
                                 let owner_ctx = DispatchCtx::ambient().with_socket_event();
                                 handle_tunnel_frame(
                                     &owner_ctx,
@@ -119,18 +102,14 @@ impl EventHandler<DomainEvent> for DeviceTunnelSubscriber {
                             },
                         )
                         .await;
-                        // Fail closed: no context can act for the owner.
                         if handled.is_none() {
                             log::warn!(
-                                "[devices/bus] dropping tunnel frame channel_id={channel_id}: \
-                                 its owner has no context to act under"
+                                "[devices/bus] dropping tunnel frame channel_id={channel_id}: \n                                 its owner has no context to act under"
                             );
                         }
                     }
-                    // Fail closed: an unknown owner must not become `local`.
                     Err(failed) => log::warn!(
-                        "[devices/bus] dropping tunnel frame channel_id={channel_id}: owner \
-                         lookup failed in scope={} ({})",
+                        "[devices/bus] dropping tunnel frame channel_id={channel_id}: owner \n                         lookup failed in scope={} ({})",
                         failed.agent.as_deref().unwrap_or("local"),
                         failed.error
                     ),
@@ -169,9 +148,7 @@ fn handle_peer_offline(channel_id: &str) {
     // No re-publish: the event was already published by socket::event_handlers.
 }
 
-/// Handle an incoming `tunnel:frame` — first frame from the device contains its
-/// X25519 public key sealed to the core's public key. After successful decryption
-/// we derive the shared secret and persist the `PairedDevice`.
+/// Route a socket frame through TinySecurity and preserve the existing wire envelope.
 async fn handle_tunnel_frame(
     ctx: &DispatchCtx,
     channel_id: &str,
@@ -179,435 +156,381 @@ async fn handle_tunnel_frame(
     connection_nonce: &str,
     expires_at_ms: u64,
 ) {
-    log::debug!(
-        "[devices/bus] tunnel:frame channel_id={} payload_len={}",
-        channel_id,
-        payload_b64.len()
-    );
-
-    // Decode the outer base64url envelope.
-    let frame_bytes = match crate::security::devices::crypto::base64url_decode(payload_b64) {
-        Ok(b) => b,
-        Err(e) => {
-            log::warn!(
-                "[devices/bus] bad base64url in tunnel:frame channel_id={}: {e}",
-                channel_id
-            );
-            return;
-        }
+    let Some(frame_bytes) = decode_frame(payload_b64) else {
+        log::warn!("[devices/bus] invalid tunnel frame encoding channel_id={channel_id}");
+        return;
     };
-
-    if frame_bytes.first() == Some(&0x02) {
-        handle_encrypted_rpc_frame(ctx, channel_id, &frame_bytes).await;
+    let Ok(config) = ctx.load_config().await else {
         return;
-    }
-
-    // Wire format for the handshake frame:
-    //
-    //   0x03 || eph_pub(32) || nonce(24) || ciphertext+tag
-    //
-    // Version byte 0x03 is the existing sealed handshake, opened by TinySecurity.
-    //
-    // Version byte 0x02 = "encrypted-frame" (used post-handshake, handled later).
-    //
-    // Old raw-DH handshakes and plaintext pubkeys are rejected. The peer must
-    // upgrade its tunnel implementation before connecting again.
-    if frame_bytes.first() != Some(&HANDSHAKE_VERSION) {
-        log::warn!(
-            "[devices/bus] unsupported handshake version channel_id={}",
-            channel_id
-        );
-        return;
-    }
-    // Claim the session and its keypair before any crypto, cipher installation
-    // or ACK. The claim is single-use, and an expired or malformed expiry fails
-    // closed. This also binds every handshake to the channel that created it.
-    let (keypair, session, existing_device) = if let Some((keypair, session)) =
-        take_pending_pairing_for_handshake(channel_id, chrono::Utc::now())
-    {
-        (keypair, Some(session), None)
+    };
+    if frame_bytes.first() == Some(&HANDSHAKE_VERSION) {
+        handle_handshake(
+            channel_id,
+            &config,
+            &frame_bytes,
+            connection_nonce,
+            expires_at_ms,
+        )
+        .await;
+    } else if frame_bytes.first() == Some(&0x02) {
+        handle_encrypted_rpc_frame(
+            ctx,
+            channel_id,
+            &config,
+            &frame_bytes,
+            connection_nonce,
+            expires_at_ms,
+        )
+        .await;
     } else {
-        match recover_existing_pairing(ctx, channel_id).await {
-            Ok(Some((keypair, device))) => (Arc::new(keypair), None, Some(device)),
-            Ok(None) => {
-                log::warn!("[devices/bus] no live pairing identity for channel_id={channel_id}");
-                return;
-            }
-            Err(error) => {
-                log::warn!("[devices/bus] cannot recover pairing {channel_id}: {error}");
-                return;
-            }
-        }
-    };
-
-    let (_, plaintext) = match keypair.open_handshake(&frame_bytes) {
-        Ok(opened) => opened,
-        Err(error) => {
-            log::warn!("[devices/bus] sealed-handshake rejected channel_id={channel_id}: {error}");
-            return;
-        }
-    };
-    let handshake_payload = match serde_json::from_slice::<JsonHandshakePayload>(&plaintext) {
-        Ok(payload) => payload,
-        Err(error) => {
-            log::warn!(
-                "[devices/bus] malformed handshake payload channel_id={channel_id}: {error}"
-            );
-            return;
-        }
-    };
-    let device_pubkey_b64 = handshake_payload.device_pubkey;
-
-    if let Some(device) = &existing_device {
-        if !matches_paired_device_key(device, &device_pubkey_b64) {
-            log::warn!("[devices/bus] restart handshake key mismatch for channel_id={channel_id}");
-            return;
-        }
-    }
-
-    log::info!(
-        "[devices/bus] handshake frame received channel_id={} device_pubkey_len={}",
-        channel_id,
-        device_pubkey_b64.len()
-    );
-
-    let Some(client_eph_pubkey) = handshake_payload.client_ephemeral_pubkey.as_deref() else {
-        log::warn!(
-            "[devices/bus] handshake missing client ephemeral key channel_id={}",
-            channel_id
-        );
-        return;
-    };
-    if let Err(error) =
-        install_v2_cipher_and_ack(channel_id, &keypair, &device_pubkey_b64, client_eph_pubkey).await
-    {
-        log::error!("[devices/bus] v2 handshake ack failed channel_id={channel_id}: {error}");
-        return;
-    }
-
-    if let Some(session) = session {
-        let label = session.channel_id.clone();
-        let session_token_hash = hash_session_token(&session.pairing_token);
-        match ctx.load_config().await {
-            Ok(config) => match store::insert_device_with_key(
-                &config,
-                channel_id,
-                &label,
-                &device_pubkey_b64,
-                &session_token_hash,
-                &session.core_private_key_encrypted,
-            ) {
-                Ok(device) => {
-                    super::owner::remember(
-                        channel_id,
-                        ctx.tenant().ok().and_then(|tenant| tenant.agent),
-                    );
-                    log::info!(
-                        "[devices/bus] device persisted channel_id={} label={}",
-                        device.channel_id,
-                        device.label
-                    );
-                    BUS.publish(DomainEvent::DevicePaired {
-                        channel_id: channel_id.to_string(),
-                        device_pubkey: device_pubkey_b64,
-                        label: Some(label),
-                    });
-                }
-                Err(error) => {
-                    log::error!("[devices/bus] failed to persist device {channel_id}: {error}");
-                    abandon_unpersisted_pairing(channel_id);
-                }
-            },
-            Err(error) => {
-                log::warn!(
-                    "[devices/bus] could not load config to persist device {channel_id}: {error}"
-                );
-                abandon_unpersisted_pairing(channel_id);
-            }
-        }
-    } else if let Some(device) = existing_device {
-        log::info!(
-            "[devices/bus] restored tunnel for paired device channel_id={} label={}",
-            device.channel_id,
-            device.label
-        );
+        log::warn!("[devices/bus] unsupported frame version channel_id={channel_id}");
     }
 }
 
-/// Drops the pairing session and session cipher of a handshake whose device
-/// could not be persisted: with no row in the store, later frames would
-/// otherwise keep being accepted for a device nothing records
-/// (`super::owner` treats a missing row as the handshake persistence window).
-pub(super) fn abandon_unpersisted_pairing(channel_id: &str) {
-    super::lock_unpoisoned(&PENDING_SESSIONS).remove(channel_id);
-    super::lock_unpoisoned(&ACTIVE_CIPHERS).remove(channel_id);
-    log::warn!("[devices/bus] pairing abandoned channel_id={channel_id}: device not persisted");
-}
-
-fn take_pending_pairing_for_handshake(
+async fn handle_handshake(
     channel_id: &str,
-    now: chrono::DateTime<chrono::Utc>,
-) -> Option<(
-    std::sync::Arc<crate::security::devices::crypto::DeviceKeypair>,
-    super::types::PairingSession,
-)> {
-    let session = super::lock_unpoisoned(&PENDING_SESSIONS).remove(channel_id);
-    let keypair = super::lock_unpoisoned(&PENDING_KEYPAIRS).remove(channel_id);
-    let (Some(session), Some(keypair)) = (session, keypair) else {
-        return None;
+    config: &crate::config::Config,
+    frame: &[u8],
+    connection_nonce: &str,
+    expires_at_ms: u64,
+) {
+    let Some(session) = PENDING_SESSIONS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(channel_id)
+        .cloned()
+    else {
+        log::warn!("[devices/bus] no pending pairing for handshake channel_id={channel_id}");
+        return;
     };
-    if session.channel_id != channel_id {
-        return None;
+    if session.channel_id != channel_id || !pairing_session_is_live(&session) {
+        return;
     }
-    let expires_at = chrono::DateTime::parse_from_rfc3339(&session.expires_at).ok()?;
-    (expires_at.with_timezone(&chrono::Utc) > now).then_some((keypair, session))
+    let Ok((event_id, _scope_id)) = crate::modules::security::device_pairing_socket_event(
+        config,
+        channel_id,
+        &session.pairing_token,
+        connection_nonce,
+        expires_at_ms,
+    )
+    .await
+    else {
+        return;
+    };
+    let Ok(client) = crate::modules::security::client(config).await else {
+        return;
+    };
+    let result = client
+        .device_pairing2(tinysecurity_bus::DevicePairingRequest2 {
+            call_id: uuid::Uuid::new_v4().simple().to_string(),
+            operation: tinysecurity_bus::DevicePairingOperation2::Handshake {
+                receipt: session.pairing_receipt.clone(),
+                host_event_id: event_id,
+                frame: frame.to_vec(),
+            },
+        })
+        .await;
+    let Ok(result) = result else {
+        log::warn!("[devices/bus] TinySecurity rejected handshake channel_id={channel_id}");
+        return;
+    };
+    if result.frame.is_empty()
+        || result.pairing_id.is_some()
+        || result.session_id.is_some()
+        || result.device_public_key.is_some()
+    {
+        log::warn!("[devices/bus] malformed TinySecurity handshake result channel_id={channel_id}");
+        return;
+    }
+    if let Err(error) = emit_frame(channel_id, &encode_frame(&result.frame)).await {
+        log::warn!("[devices/bus] handshake ACK emit failed channel_id={channel_id}: {error}");
+        return;
+    }
+    PENDING_HANDSHAKES
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(channel_id.to_owned(), ());
 }
 
-async fn restore_paired_keypair(
-    encrypted_private_key: &str,
-    secret_store: &super::super::secret_storage::SecretStore,
-) -> Result<crate::security::devices::crypto::DeviceKeypair, String> {
-    let plaintext = zeroize::Zeroizing::new(
-        secret_store
-            .decrypt_via_security(encrypted_private_key)
-            .await
-            .map_err(|error| format!("[devices/bus] decrypt persisted pairing key: {error}"))?,
-    );
-    let encoded = zeroize::Zeroizing::new(
-        crate::security::devices::crypto::base64url_decode(&plaintext)
-            .map_err(|error| format!("[devices/bus] decode persisted pairing key: {error}"))?,
-    );
-    let bytes: [u8; 32] = encoded
-        .as_slice()
-        .try_into()
-        .map_err(|_| "[devices/bus] persisted pairing key must be 32 bytes".to_string())?;
-    crate::security::devices::crypto::DeviceKeypair::from_private_bytes(zeroize::Zeroizing::new(
-        bytes,
-    ))
+static PENDING_HANDSHAKES: once_cell::sync::Lazy<
+    std::sync::Mutex<std::collections::HashSet<String>>,
+> = once_cell::sync::Lazy::new(Default::default);
+
+fn pairing_session_is_live(session: &super::types::PairingSession) -> bool {
+    chrono::DateTime::parse_from_rfc3339(&session.expires_at)
+        .ok()
+        .is_some_and(|expiry| expiry.timestamp_millis() > chrono::Utc::now().timestamp_millis())
 }
 
-async fn recover_existing_pairing(
+async fn handle_encrypted_rpc_frame(
     ctx: &DispatchCtx,
     channel_id: &str,
-) -> Result<Option<(DeviceKeypair, super::types::PairedDevice)>, String> {
-    let config = ctx.load_config().await.map_err(|error| error.to_string())?;
-    let Some(device) = store::get_device(&config, channel_id).map_err(|error| error.to_string())?
-    else {
-        return Ok(None);
-    };
-    let secret_store = super::rpc::build_secret_store(&config);
-    let Some(keypair) = restore_live_pairing_key(&device, &secret_store).await? else {
-        return Ok(None);
-    };
-    Ok(Some((keypair, device)))
-}
-
-async fn restore_live_pairing_key(
-    device: &super::types::PairedDevice,
-    secret_store: &super::super::secret_storage::SecretStore,
-) -> Result<Option<DeviceKeypair>, String> {
-    if device.revoked {
-        return Ok(None);
-    }
-    let Some(encrypted_key) = device.core_private_key_encrypted.as_deref() else {
-        // Rows created before durable pairing identities were added cannot
-        // safely reconstruct the core key and require a new pairing.
-        return Ok(None);
-    };
-    restore_paired_keypair(encrypted_key, secret_store)
-        .await
-        .map(Some)
-}
-
-fn matches_paired_device_key(device: &super::types::PairedDevice, handshake_key: &str) -> bool {
-    !device.revoked && device.device_pubkey == handshake_key
-}
-
-async fn install_v2_cipher_and_ack(
-    channel_id: &str,
-    core_keypair: &DeviceKeypair,
-    device_public_key: &str,
-    client_ephemeral_key: &str,
-) -> Result<(), String> {
-    let device_public = PublicKey::decode(device_public_key)
-        .map_err(|error| format!("[devices/bus] invalid device public key: {error}"))?;
-    let client_ephemeral = PublicKey::decode(client_ephemeral_key)
-        .map_err(|error| format!("[devices/bus] invalid client ephemeral key: {error}"))?;
-    let server_ephemeral = KeyPair::generate()
-        .map_err(|error| format!("[devices/bus] generate server ephemeral key: {error}"))?;
-    let server_public = server_ephemeral.public_key();
-    let keys = core_keypair
-        .session_keys(
-            device_public,
-            &server_ephemeral,
-            client_ephemeral,
-            server_public,
+    config: &crate::config::Config,
+    frame: &[u8],
+    connection_nonce: &str,
+    expires_at_ms: u64,
+) {
+    let pending = PENDING_SESSIONS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(channel_id)
+        .cloned();
+    if PENDING_HANDSHAKES
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .contains(channel_id)
+    {
+        let Some(session) = pending else { return };
+        confirm_pairing(
+            channel_id,
+            config,
+            &session,
+            frame,
+            connection_nonce,
+            expires_at_ms,
         )
-        .map_err(|error| format!("[devices/bus] derive tunnel keys: {error}"))?;
-    let tunnel = Tunnel::new(Role::Server, keys);
-    let ack = serde_json::to_vec(&json!({
-        "kind": "handshake_ack",
-        "server_ephemeral_pubkey": server_public.encode(),
-    }))
-    .map_err(|error| format!("[devices/bus] handshake ack serialize failed: {error}"))?;
-    let ack_frame = core_keypair
-        .seal_ack(client_ephemeral, &ack)
-        .map_err(|error| format!("[devices/bus] handshake ack seal failed: {error}"))?;
-
-    super::lock_unpoisoned(&ACTIVE_CIPHERS).insert(
-        channel_id.to_string(),
-        Arc::new(std::sync::Mutex::new(tunnel)),
-    );
-    emit_frame(channel_id, &base64url_encode(&ack_frame)).await?;
-    log::info!(
-        "[devices/bus] v2 tunnel cipher installed channel_id={} server_eph_len=32",
-        channel_id
-    );
-    Ok(())
-}
-
-async fn handle_encrypted_rpc_frame(ctx: &DispatchCtx, channel_id: &str, frame_bytes: &[u8]) {
-    let cipher = {
-        let map = super::lock_unpoisoned(&ACTIVE_CIPHERS);
-        map.get(channel_id).cloned()
-    };
-    let Some(cipher) = cipher else {
-        log::warn!(
-            "[devices/bus] encrypted frame with no active cipher channel_id={}",
-            channel_id
-        );
+        .await;
+        return;
+    }
+    let active = ACTIVE_SESSIONS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(channel_id)
+        .cloned();
+    let Some(active) = active else {
+        log::warn!("[devices/bus] encrypted frame without active session channel_id={channel_id}");
         return;
     };
-
-    let plaintext = {
-        let mut guard = super::lock_unpoisoned(&cipher);
-        match guard.open(frame_bytes) {
-            Ok(bytes) => bytes,
-            Err(e) => {
-                log::warn!(
-                    "[devices/bus] encrypted frame open failed channel_id={}: {e}",
-                    channel_id
-                );
-                return;
-            }
-        }
+    let Ok(client) = crate::modules::security::client(config).await else {
+        return;
     };
-
-    let envelope = match serde_json::from_slice::<super::tunnel_rpc::TunnelEnvelope>(&plaintext) {
+    let opened = client
+        .device_frame2(tinysecurity_bus::DeviceFrameRequest2 {
+            scope_id: active.scope_id.clone(),
+            handle: active.session_id.clone(),
+            call_id: uuid::Uuid::new_v4().simple().to_string(),
+            operation: tinysecurity_bus::DeviceFrameOperation2::Open {
+                frame: frame.to_vec(),
+            },
+        })
+        .await;
+    let Ok(opened) = opened else {
+        log::warn!("[devices/bus] TinySecurity rejected frame channel_id={channel_id}");
+        return;
+    };
+    let envelope = match serde_json::from_slice::<super::tunnel_rpc::TunnelEnvelope>(&opened.bytes)
+    {
         Ok(envelope) => envelope,
-        Err(e) => {
+        Err(error) => {
             log::warn!(
-                "[devices/bus] tunnel envelope parse failed channel_id={}: {e}",
-                channel_id
+                "[devices/bus] tunnel envelope parse failed channel_id={channel_id}: {error}"
             );
             return;
         }
     };
-
     if envelope.kind != "request" {
-        log::debug!(
-            "[devices/bus] ignoring non-request tunnel envelope kind={} channel_id={}",
-            envelope.kind,
-            channel_id
-        );
         return;
     }
-
     let request = match super::tunnel_rpc::parse_tunnel_rpc_payload(envelope.payload) {
         Ok(request) => request,
-        Err(e) => {
-            emit_tunnel_error(
+        Err(error) => {
+            send_tunnel_response(
                 channel_id,
-                &cipher,
+                config,
+                &active,
+                connection_nonce,
+                expires_at_ms,
                 &envelope.request_id,
-                format!("invalid tunnel RPC payload: {e}"),
+                "error",
+                Value::String(format!("invalid tunnel RPC payload: {error}")),
             )
             .await;
             return;
         }
     };
-
-    log::debug!(
-        "[devices/bus] tunnel RPC request channel_id={} method={} request_id={}",
-        channel_id,
-        request.method,
-        envelope.request_id
-    );
-
     let result = super::tunnel_rpc::dispatch_tunnel_rpc(ctx, request).await;
-
     match result {
         Ok(value) => {
-            emit_tunnel_response(channel_id, &cipher, &envelope.request_id, "response", value)
-                .await;
+            send_tunnel_response(
+                channel_id,
+                config,
+                &active,
+                connection_nonce,
+                expires_at_ms,
+                &envelope.request_id,
+                "response",
+                value,
+            )
+            .await
         }
         Err(message) => {
-            emit_tunnel_response(
+            send_tunnel_response(
                 channel_id,
-                &cipher,
+                config,
+                &active,
+                connection_nonce,
+                expires_at_ms,
                 &envelope.request_id,
                 "error",
                 Value::String(message),
             )
-            .await;
+            .await
         }
     }
 }
 
-async fn emit_tunnel_error(
+async fn confirm_pairing(
     channel_id: &str,
-    cipher: &Arc<std::sync::Mutex<Tunnel>>,
-    request_id: &str,
-    message: String,
+    config: &crate::config::Config,
+    session: &super::types::PairingSession,
+    frame: &[u8],
+    connection_nonce: &str,
+    expires_at_ms: u64,
 ) {
-    emit_tunnel_response(
+    let Ok((event_id, scope_id)) = crate::modules::security::device_pairing_socket_event(
+        config,
         channel_id,
-        cipher,
-        request_id,
-        "error",
-        Value::String(message),
+        &session.pairing_token,
+        connection_nonce,
+        expires_at_ms,
     )
-    .await;
+    .await
+    else {
+        return;
+    };
+    let Ok(client) = crate::modules::security::client(config).await else {
+        return;
+    };
+    let result = client
+        .device_pairing2(tinysecurity_bus::DevicePairingRequest2 {
+            call_id: uuid::Uuid::new_v4().simple().to_string(),
+            operation: tinysecurity_bus::DevicePairingOperation2::Confirm {
+                receipt: session.pairing_receipt.clone(),
+                host_event_id: event_id,
+                frame: frame.to_vec(),
+            },
+        })
+        .await;
+    let Ok(result) = result else {
+        log::warn!(
+            "[devices/bus] TinySecurity rejected pairing confirmation channel_id={channel_id}"
+        );
+        return;
+    };
+    let (Some(pairing_id), Some(session_id), Some(device_public_key)) = (
+        result.pairing_id,
+        result.session_id,
+        result.device_public_key,
+    ) else {
+        log::warn!("[devices/bus] malformed TinySecurity confirmation channel_id={channel_id}");
+        return;
+    };
+    if !result.frame.is_empty() {
+        return;
+    }
+    let token_hash = hash_session_token(&session.pairing_token);
+    match store::insert_device(
+        config,
+        channel_id,
+        &session.label,
+        &device_public_key,
+        &token_hash,
+    ) {
+        Ok(device) => {
+            super::owner::remember(channel_id, None);
+            BUS.publish(DomainEvent::DevicePaired {
+                channel_id: channel_id.to_owned(),
+                device_pubkey: device_public_key,
+                label: Some(device.label),
+            });
+            ACTIVE_SESSIONS
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .insert(
+                    channel_id.to_owned(),
+                    super::rpc::ActiveDeviceSession {
+                        scope_id,
+                        session_id,
+                    },
+                );
+            PENDING_SESSIONS
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .remove(channel_id);
+            PENDING_HANDSHAKES
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .remove(channel_id);
+            let _ = device;
+            log::info!(
+                "[devices/bus] pairing confirmed channel_id={channel_id} pairing_id={pairing_id}"
+            );
+        }
+        Err(error) => {
+            log::error!("[devices/bus] could not persist paired device {channel_id}: {error}")
+        }
+    }
 }
 
-async fn emit_tunnel_response(
+async fn send_tunnel_response(
     channel_id: &str,
-    cipher: &Arc<std::sync::Mutex<Tunnel>>,
+    config: &crate::config::Config,
+    session: &super::rpc::ActiveDeviceSession,
+    _connection_nonce: &str,
+    _expires_at_ms: u64,
     request_id: &str,
     kind: &str,
     payload: Value,
 ) {
     let response = super::tunnel_rpc::response_envelope(request_id, kind, payload);
-    let plaintext = match serde_json::to_vec(&response) {
-        Ok(bytes) => bytes,
-        Err(e) => {
-            log::error!(
-                "[devices/bus] tunnel response serialize failed channel_id={}: {e}",
-                channel_id
-            );
-            return;
-        }
+    let Ok(plaintext) = serde_json::to_vec(&response) else {
+        return;
     };
-    let encrypted = {
-        let guard = super::lock_unpoisoned(cipher);
-        match guard.seal(&plaintext) {
-            Ok(frame) => frame,
-            Err(e) => {
-                log::error!(
-                    "[devices/bus] tunnel response seal failed channel_id={}: {e}",
-                    channel_id
-                );
-                return;
-            }
-        }
+    let Ok(client) = crate::modules::security::client(config).await else {
+        return;
     };
-    let payload_b64 = base64url_encode(&encrypted);
-    if let Err(e) = emit_frame(channel_id, &payload_b64).await {
-        log::error!(
-            "[devices/bus] tunnel response emit failed channel_id={}: {e}",
-            channel_id
-        );
+    let sealed = client
+        .device_frame2(tinysecurity_bus::DeviceFrameRequest2 {
+            scope_id: session.scope_id.clone(),
+            handle: session.session_id.clone(),
+            call_id: uuid::Uuid::new_v4().simple().to_string(),
+            operation: tinysecurity_bus::DeviceFrameOperation2::Seal { plaintext },
+        })
+        .await;
+    let Ok(sealed) = sealed else {
+        log::error!("[devices/bus] TinySecurity failed to seal response channel_id={channel_id}");
+        return;
+    };
+    if let Err(error) = emit_frame(channel_id, &encode_frame(&sealed.bytes)).await {
+        log::error!("[devices/bus] tunnel response emit failed channel_id={channel_id}: {error}");
     }
+}
+
+fn decode_frame(value: &str) -> Option<Vec<u8>> {
+    use base64::Engine as _;
+    base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(value)
+        .ok()
+}
+
+fn encode_frame(bytes: &[u8]) -> String {
+    use base64::Engine as _;
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
+}
+
+fn abandon_unpersisted_pairing(channel_id: &str) {
+    PENDING_SESSIONS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .remove(channel_id);
+    PENDING_HANDSHAKES
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .remove(channel_id);
+    ACTIVE_SESSIONS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .remove(channel_id);
 }
 
 fn hash_session_token(token: &str) -> String {

@@ -11,11 +11,10 @@
 
 use std::collections::HashMap;
 use std::future::Future;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use crate::config::Config;
 use crate::core::Outcome;
-use crate::security::devices::crypto::DeviceKeypair;
 use crate::security::devices::store;
 use crate::security::devices::tunnel_client;
 use crate::security::devices::types::{
@@ -36,12 +35,6 @@ fn require_user_controller(ctx: &crate::core::runtime::DispatchCtx) -> Result<()
 // In-memory state (module-level singletons)
 // ---------------------------------------------------------------------------
 
-/// Keypairs pending handshake completion (keyed by channel_id).
-/// Values are `Arc` so bus.rs can clone without holding the lock during DH.
-pub(crate) static PENDING_KEYPAIRS: once_cell::sync::Lazy<
-    Mutex<HashMap<String, Arc<DeviceKeypair>>>,
-> = once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
-
 /// Pairing sessions pending device connection (keyed by channel_id).
 pub(crate) static PENDING_SESSIONS: once_cell::sync::Lazy<Mutex<HashMap<String, PairingSession>>> =
     once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
@@ -50,10 +43,16 @@ pub(crate) static PENDING_SESSIONS: once_cell::sync::Lazy<Mutex<HashMap<String, 
 pub(crate) static PEER_STATUS: once_cell::sync::Lazy<Mutex<HashMap<String, bool>>> =
     once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
 
-/// Active post-handshake tunnel ciphers (keyed by channel_id).
-pub(crate) static ACTIVE_CIPHERS: once_cell::sync::Lazy<
-    Mutex<HashMap<String, Arc<Mutex<tinysecurity_crypto::device::Tunnel>>>>,
+/// Active module-owned tunnel sessions (keyed by channel_id).
+pub(crate) static ACTIVE_SESSIONS: once_cell::sync::Lazy<
+    Mutex<HashMap<String, ActiveDeviceSession>>,
 > = once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ActiveDeviceSession {
+    pub scope_id: String,
+    pub session_id: String,
+}
 
 // ---------------------------------------------------------------------------
 // create_pairing
@@ -126,6 +125,9 @@ pub async fn devices_create_pairing(
             pairing_token: reg.pairing_token.clone(),
             core_pubkey: core_pubkey.clone(),
             pairing_receipt,
+            label: label
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or_else(|| reg.channel_id.clone()),
             rpc_url: rpc_url.clone(),
             expires_at: expires_at.clone(),
             agent: ctx.tenant().ok().and_then(|tenant| tenant.agent),
@@ -207,11 +209,10 @@ pub async fn devices_revoke(
     let revoked = store::revoke_device(config, &channel_id)
         .map_err(|e| format!("[devices/rpc] revoke_device failed: {e}"))?;
 
-    // Clear in-memory state for this channel, including persisted encrypted key.
-    super::lock_unpoisoned(&PENDING_KEYPAIRS).remove(&channel_id);
+    // Clear in-memory state for this channel.
     super::lock_unpoisoned(&PENDING_SESSIONS).remove(&channel_id);
     super::lock_unpoisoned(&PEER_STATUS).remove(&channel_id);
-    super::lock_unpoisoned(&ACTIVE_CIPHERS).remove(&channel_id);
+    super::lock_unpoisoned(&ACTIVE_SESSIONS).remove(&channel_id);
 
     // Publish DeviceRevoked so UI and other subscribers are notified.
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::DeviceRevoked {
@@ -239,7 +240,6 @@ where
     match connect.await {
         Ok(()) => Ok(()),
         Err(error) => {
-            super::lock_unpoisoned(&PENDING_KEYPAIRS).remove(channel_id);
             super::lock_unpoisoned(&PENDING_SESSIONS).remove(channel_id);
             Err(error)
         }

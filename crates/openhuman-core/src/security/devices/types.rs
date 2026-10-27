@@ -42,6 +42,9 @@ pub struct PairingSession {
     /// TinySecurity owner receipt consumed by the next authenticated handshake.
     #[serde(skip)]
     pub(crate) pairing_receipt: String,
+    /// User supplied label retained until the module confirms enrollment.
+    #[serde(skip)]
+    pub(crate) label: String,
     /// Optional LAN URL for the direct HTTP fast path.
     pub rpc_url: Option<String>,
     /// ISO 8601 timestamp when the pairing token expires.

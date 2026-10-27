@@ -40,13 +40,15 @@ fn expired_pending_session_is_discarded_before_handshake() {
         pending_session(channel_id, "2020-01-01T00:00:00Z"),
     );
 
-    assert!(take_pending_pairing_for_handshake(
-        channel_id,
-        chrono::DateTime::parse_from_rfc3339("2021-01-01T00:00:00Z")
-            .unwrap()
-            .with_timezone(&chrono::Utc),
-    )
-    .is_none());
+    assert!(
+        take_pending_pairing_for_handshake(
+            channel_id,
+            chrono::DateTime::parse_from_rfc3339("2021-01-01T00:00:00Z")
+                .unwrap()
+                .with_timezone(&chrono::Utc),
+        )
+        .is_none()
+    );
     assert!(!lock_unpoisoned(&PENDING_KEYPAIRS).contains_key(channel_id));
     assert!(!lock_unpoisoned(&PENDING_SESSIONS).contains_key(channel_id));
 }
@@ -175,11 +177,13 @@ async fn a_restarted_host_opens_a_fresh_handshake_from_a_paired_row() {
         &*server_tunnel.open(&frame).unwrap(),
         b"first post-restart frame"
     );
-    assert!(PENDING_SESSIONS
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .get(&device.channel_id)
-        .is_none());
+    assert!(
+        PENDING_SESSIONS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(&device.channel_id)
+            .is_none()
+    );
     let after = store
         .get_device(&device.channel_id)
         .unwrap()
@@ -213,9 +217,11 @@ async fn restarted_pairing_rejects_mismatched_or_revoked_device_rows() {
     };
     assert!(!matches_paired_device_key(&device, "different-device-key"));
     device.revoked = true;
-    assert!(restore_live_pairing_key(&device, &secret_store)
-        .await
-        .unwrap()
-        .is_none());
+    assert!(
+        restore_live_pairing_key(&device, &secret_store)
+            .await
+            .unwrap()
+            .is_none()
+    );
     assert!(!matches_paired_device_key(&device, "paired-device-key"));
 }

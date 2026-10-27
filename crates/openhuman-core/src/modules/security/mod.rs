@@ -101,7 +101,7 @@ pub(crate) async fn device_pairing_socket_event(
     pairing_token: &str,
     connection_nonce: &str,
     expires_at_ms: u64,
-) -> Result<String, String> {
+) -> Result<(String, String), String> {
     if channel_id.is_empty()
         || channel_id.len() > 128
         || pairing_token.is_empty()
@@ -130,9 +130,10 @@ pub(crate) async fn device_pairing_socket_event(
         .await
         .map_err(|error| error.to_string())?
         .generation;
-    callbacks::issue_pairing_event(tinysecurity_bus::DevicePairingContextResponse2 {
-        scope_id: scope.scope_id().to_owned(),
-        user_binding: scope.scope_id().to_owned(),
+    let scope_id = scope.scope_id().to_owned();
+    let event_id = callbacks::issue_pairing_event(tinysecurity_bus::DevicePairingContextResponse2 {
+        scope_id: scope_id.clone(),
+        user_binding: scope_id.clone(),
         secret_master_handle: None,
         legacy_import_handle: None,
         channel_id: channel_id.to_owned(),
@@ -141,7 +142,8 @@ pub(crate) async fn device_pairing_socket_event(
         generation,
         source: tinysecurity_bus::DevicePairingSource2::RegisteredSocket,
         expires_at_ms,
-    })
+    })?;
+    Ok((event_id, scope_id))
 }
 
 pub(crate) async fn resolve_user_master_with_existing_key(
