@@ -15,13 +15,12 @@ use std::sync::{Arc, Mutex};
 
 use crate::config::Config;
 use crate::core::Outcome;
-use crate::security::devices::crypto::{base64url_encode, DeviceKeypair};
+use crate::security::devices::crypto::DeviceKeypair;
 use crate::security::devices::store;
 use crate::security::devices::tunnel_client;
 use crate::security::devices::types::{
     CreatePairingResponse, ListDevicesResponse, PairingSession, RevokeDeviceResponse,
 };
-use crate::security::secret_storage::SecretStore;
 
 fn require_user_controller(ctx: &crate::core::runtime::DispatchCtx) -> Result<(), String> {
     if ctx.invocation_source()
@@ -64,7 +63,7 @@ pub(crate) static ACTIVE_CIPHERS: once_cell::sync::Lazy<
 ///
 /// 1. Calls `tunnel:register` on the shared socket — backend returns
 ///    `{channelId, pairingToken, pairingExpiresAt}` via Socket.IO ACK.
-/// 2. Generates an X25519 keypair and persists the private half in-memory.
+/// 2. Asks TinySecurity to mint the core identity and a one-use owner receipt.
 /// 3. Emits `tunnel:connect` with `role:"core"` so the core starts listening.
 /// 4. Detects the local LAN IP for the optional direct fast-path `rpc_url`.
 /// 5. Returns QR-bound fields to the caller.
@@ -91,20 +90,22 @@ pub async fn devices_create_pairing(
         reg.pairing_token.len()
     );
 
-    // Generate X25519 keypair for this channel.
-    let keypair = DeviceKeypair::generate();
-    let core_pubkey = keypair.pubkey_b64.clone();
-
-    // Encrypt the private key bytes and persist in the encrypted secrets store.
-    let secret_store = build_secret_store(_config);
-    let private_b64 = zeroize::Zeroizing::new(base64url_encode(&keypair.private_bytes()));
-    let encrypted_private_key = secret_store
-        .encrypt_via_security(&private_b64)
+    // Key generation and private identity storage stay inside TinySecurity.
+    let (client, scope, master_handle, generation) =
+        crate::modules::security::device_pairing_master(_config).await?;
+    let host_event_id = crate::modules::security::device_pairing_controller_event(
+        &scope,
+        master_handle,
+        generation,
+    )?;
+    let begin = client
+        .device_pairing2(tinysecurity_bus::DevicePairingRequest2 {
+            call_id: uuid::Uuid::new_v4().simple().to_string(),
+            operation: tinysecurity_bus::DevicePairingOperation2::Begin { host_event_id },
+        })
         .await
-        .map_err(|error| format!("[devices/rpc] could not encrypt pairing identity: {error}"))?;
-
-    // Stash keypair in memory so bus.rs can complete the X25519 handshake.
-    super::lock_unpoisoned(&PENDING_KEYPAIRS).insert(reg.channel_id.clone(), Arc::new(keypair));
+        .map_err(|error| error.to_string())?;
+    let (core_pubkey, pairing_receipt) = pairing_begin_result(begin)?;
 
     // Best-effort LAN URL detection (non-fatal if it fails).
     let rpc_url = detect_lan_rpc_url();
@@ -124,7 +125,7 @@ pub async fn devices_create_pairing(
             channel_id: reg.channel_id.clone(),
             pairing_token: reg.pairing_token.clone(),
             core_pubkey: core_pubkey.clone(),
-            core_private_key_encrypted: encrypted_private_key,
+            pairing_receipt,
             rpc_url: rpc_url.clone(),
             expires_at: expires_at.clone(),
             agent: ctx.tenant().ok().and_then(|tenant| tenant.agent),
@@ -270,17 +271,21 @@ fn find_local_ipv4() -> Option<String> {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Secret store helper
-// ---------------------------------------------------------------------------
-
-/// Build a `SecretStore` scoped to the workspace directory.
-pub(super) fn build_secret_store(config: &Config) -> SecretStore {
-    let data_dir = config
-        .config_path
-        .parent()
-        .map_or_else(|| std::path::PathBuf::from("."), std::path::PathBuf::from);
-    SecretStore::new_with_config(&data_dir, true, config)
+fn pairing_begin_result(
+    response: tinysecurity_bus::DevicePairingResponse2,
+) -> Result<(String, String), String> {
+    let public_key = response
+        .core_public_key
+        .filter(|key| !key.is_empty())
+        .ok_or_else(|| "TinySecurity did not return a core public key".to_owned())?;
+    let receipt = response
+        .receipt
+        .filter(|receipt| !receipt.is_empty())
+        .ok_or_else(|| "TinySecurity did not return a pairing receipt".to_owned())?;
+    if !response.frame.is_empty() || response.pairing_id.is_some() || response.session_id.is_some() {
+        return Err("TinySecurity returned an unexpected result for pairing begin".to_owned());
+    }
+    Ok((public_key, receipt))
 }
 
 // ---------------------------------------------------------------------------
