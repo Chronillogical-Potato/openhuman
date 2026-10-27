@@ -391,3 +391,7 @@ impl Client {
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
     }
 }
+
+#[cfg(test)]
+#[path = "client_tests.rs"]
+mod tests;
