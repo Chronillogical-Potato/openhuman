@@ -5,6 +5,7 @@ fn session(agent: Option<&str>) -> PairingSession {
     PairingSession {
         channel_id: "owner-test".to_string(),
         pairing_token: "token".to_string(),
+        connection_nonce: "nonce".to_string(),
         core_pubkey: "pk".to_string(),
         pairing_receipt: "receipt".to_string(),
         label: "phone".to_string(),

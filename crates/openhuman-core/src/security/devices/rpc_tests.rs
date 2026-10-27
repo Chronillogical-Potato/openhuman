@@ -76,6 +76,7 @@ async fn failed_tunnel_connect_discards_pending_pairing_state() {
         PairingSession {
             channel_id: channel_id.to_string(),
             pairing_token: "token".to_string(),
+            connection_nonce: "nonce".to_string(),
             core_pubkey: "public".to_string(),
             pairing_receipt: "owner-receipt".to_string(),
             label: "phone".to_string(),
