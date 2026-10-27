@@ -271,15 +271,11 @@ async fn handle_handshake(
         log::warn!("[devices/bus] TinySecurity rejected handshake channel_id={channel_id}");
         return;
     };
-    if result.frame.is_empty()
-        || result.pairing_id.is_some()
-        || result.session_id.is_some()
-        || result.device_public_key.is_some()
-    {
+    let Some(ack) = valid_handshake_reply(result) else {
         log::warn!("[devices/bus] malformed TinySecurity handshake result channel_id={channel_id}");
         return;
-    }
-    if let Err(error) = emit_frame(channel_id, &encode_frame(&result.frame)).await {
+    };
+    if let Err(error) = emit_frame(channel_id, &encode_frame(&ack)).await {
         log::warn!("[devices/bus] handshake ACK emit failed channel_id={channel_id}: {error}");
         return;
     }
@@ -462,6 +458,22 @@ fn renewal_device_matches(
         && existing.pairing_id.as_deref() == Some(expected_pairing_id)
         && returned_pairing_id == expected_pairing_id
         && existing.device_pubkey == returned_device_key
+}
+
+fn valid_handshake_reply(
+    response: tinysecurity_bus::DevicePairingResponse2,
+) -> Option<Vec<u8>> {
+    if response.frame.is_empty()
+        || response.receipt.is_some()
+        || response.pairing_id.is_some()
+        || response.session_id.is_some()
+        || response.core_public_key.is_some()
+        || response.device_public_key.is_some()
+    {
+        None
+    } else {
+        Some(response.frame)
+    }
 }
 
 fn unix_time_ms() -> u64 {
