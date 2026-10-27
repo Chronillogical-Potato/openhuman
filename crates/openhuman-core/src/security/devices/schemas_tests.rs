@@ -6,8 +6,9 @@ use serde_json::json;
 
 #[test]
 fn legacy_handlers_keep_their_identity_and_order() {
-    let expected: [(&str, ControllerHandler); 3] = [
+    let expected: [(&str, ControllerHandler); 4] = [
         ("create_pairing", handle_create_pairing),
+        ("import_legacy", handle_import_legacy),
         ("list", handle_list),
         ("revoke", handle_revoke),
     ];
@@ -35,6 +36,12 @@ pub(super) fn parameter_contracts() -> Vec<ControllerParamContract> {
         },
         ControllerParamContract {
             method: "devices.list",
+            required: &[],
+            optional: &[],
+            examples: vec![json!({})],
+        },
+        ControllerParamContract {
+            method: "devices.import_legacy",
             required: &[],
             optional: &[],
             examples: vec![json!({})],
