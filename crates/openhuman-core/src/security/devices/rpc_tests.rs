@@ -101,6 +101,7 @@ async fn devices_list_returns_empty_initially() {
     assert!(result.value.devices.is_empty());
 }
 
+#[cfg(feature = "security-module")]
 #[tokio::test]
 async fn devices_revoke_nonexistent_returns_false() {
     let config = test_config();
