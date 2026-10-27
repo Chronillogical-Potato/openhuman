@@ -587,7 +587,7 @@ async fn claude_agent_sdk_inspection_reads_the_model_as_the_runtime_does() {
         .with("ANTHROPIC_API_KEY", "dummy-inspection-key")
         .without("ANTHROPIC_AUTH_TOKEN")
         .without("ANTHROPIC_BASE_URL");
-    let inspect = |provider: &str| async move {
+    let inspect = |provider: &'static str| async move {
         let mut config = Config::default();
         config.chat_provider = Some(provider.to_string());
         crate::inference::provider::factory::create_chat_model_with_model_id_in_for_inspection(

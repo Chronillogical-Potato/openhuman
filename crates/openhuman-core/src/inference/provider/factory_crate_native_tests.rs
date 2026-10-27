@@ -423,11 +423,11 @@ async fn explicit_cloud_provider_string_routes_to_crate_native_model() {
     let (_tmp, mut config) = isolated_config();
     config.cloud_providers.push(deepseek_entry("p_ds"));
     store_fixture_cloud_key(&config, "deepseek").await;
-    let model_and_id = crate::core::runtime::CoreContext::sync_scope(
+    let model_and_id = crate::core::runtime::CoreContext::scope(
         fixture_library_dispatch()
             .resolved()
             .expect("library context"),
-        || {
+        async {
             create_chat_model_from_string_with_model_id(
                 "chat",
                 "deepseek:deepseek-reasoner",
@@ -435,7 +435,8 @@ async fn explicit_cloud_provider_string_routes_to_crate_native_model() {
                 0.7,
             ).await
         },
-    );
+    )
+    .await;
     let (model, model_id) = model_and_id.expect("explicit cloud model must build");
     assert_eq!(model_id, "deepseek-reasoner");
     assert_eq!(
