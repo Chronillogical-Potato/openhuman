@@ -69,11 +69,7 @@ where
         return host.load_search_paths();
     }
     let mut outcomes = Vec::new();
-    for dir in host
-        .search_paths()
-        .into_iter()
-        .filter(|p| p.is_dir())
-    {
+    for dir in host.search_paths().into_iter().filter(|p| p.is_dir()) {
         let mut files: Vec<_> = match std::fs::read_dir(&dir) {
             Ok(entries) => entries.filter_map(|e| e.ok().map(|e| e.path())).collect(),
             Err(_) => Vec::new(),

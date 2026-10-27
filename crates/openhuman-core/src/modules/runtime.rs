@@ -36,8 +36,8 @@
 use std::sync::OnceLock;
 use std::time::Duration;
 
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use tinybus::module::{ModuleRuntime, RuntimeNames, SearchPathConfig};
 
 /// The module bus, built once on first use.
@@ -87,10 +87,12 @@ fn runtime_now() -> tinybus::Result<&'static ModuleRuntime> {
             worker: "openhuman-module-worker".to_string(),
         };
         let runtime = ModuleRuntime::start(&names, None).map_err(|error| error.to_string())?;
-        runtime.host().set_search_path_config(Some(SearchPathConfig::new(
-            "OPENHUMAN_MODULE_PATH",
-            "openhuman/modules",
-        )));
+        runtime
+            .host()
+            .set_search_path_config(Some(SearchPathConfig::new(
+                "OPENHUMAN_MODULE_PATH",
+                "openhuman/modules",
+            )));
         Ok(runtime)
     });
     let runtime = started
