@@ -44,6 +44,7 @@ pub async fn load_declared_modules(config: &Config) {
         super::search_path::load_enabled(runtime.host(), &ops::disabled_lib_stems(config), |id| {
             ops::module_config(config, id)
         })
+        .await
     {
         match outcome {
             Ok(info) => log::info!(

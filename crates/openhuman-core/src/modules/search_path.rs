@@ -50,11 +50,15 @@ fn is_skipped(path: &Path, skip: &[String]) -> bool {
 /// A directory with no disabled or configured modules goes through `load_dir`
 /// unchanged, which keeps tinybus's dependency ordering. A directory holding
 /// either is loaded file by file, with host config for configured modules.
-pub fn load_enabled(
+pub async fn load_enabled<F, Fut>(
     host: &ModuleHost,
     skip: &[String],
-    module_config: impl Fn(&str) -> serde_json::Value,
-) -> Vec<Result<ModuleInfo, tinybus::Error>> {
+    module_config: F,
+) -> Vec<Result<ModuleInfo, tinybus::Error>>
+where
+    F: Fn(&str) -> Fut,
+    Fut: std::future::Future<Output = serde_json::Value>,
+{
     let disabled = skip.to_vec();
     let configured = configured_module_lib_stems();
     let mut skip = disabled.clone();
@@ -89,7 +93,7 @@ pub fn load_enabled(
             }
             if is_skipped(&file, &configured) {
                 if let Some(id) = module_id_for_artifact(&file) {
-                    outcomes.push(host.load_file_with_config(&file, module_config(id)));
+                    outcomes.push(host.load_file_with_config(&file, module_config(id).await));
                     continue;
                 }
                 log::debug!("[modules] configured module artifact has no registry entry");

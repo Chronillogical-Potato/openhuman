@@ -334,7 +334,7 @@ async fn ensure_loaded_with_computer_callback(
 ) -> Result<(), String> {
     let mut loads = COMPUTER_CALLBACK_LOADS.lock().await;
     if let Some(binding) = loads.get(id) {
-        let module_config = module_config_with_consequence_callback(config, id, binding);
+        let module_config = module_config_with_consequence_callback(config, id, binding).await;
         return resolver
             .ensure_loaded_with_host_callbacks(id, std::sync::Arc::clone(binding), module_config)
             .await;
@@ -347,7 +347,7 @@ async fn ensure_loaded_with_computer_callback(
     let binding = super::browser_egress_host::prepare_consequence_callback(runtime)
         .await
         .map_err(|error| error.to_string())?;
-    let module_config = module_config_with_consequence_callback(config, id, &binding);
+    let module_config = module_config_with_consequence_callback(config, id, &binding).await;
     resolver
         .ensure_loaded_with_host_callbacks(id, std::sync::Arc::clone(&binding), module_config)
         .await?;
