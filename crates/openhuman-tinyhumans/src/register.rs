@@ -30,6 +30,7 @@ pub(crate) fn register_all(options: &InstallOptions, doctor_registration: Doctor
     ));
     crate::hosted_config::register();
     client::register(options);
+    crate::socket::register();
     integrations::register(options);
     #[cfg(feature = "voice")]
     voice::register(options);

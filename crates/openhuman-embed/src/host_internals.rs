@@ -525,6 +525,12 @@ pub mod platform {
     }
 }
 
+pub mod skills {
+    pub mod webhooks {
+        pub use openhuman_core::skills::webhooks::WebhookRouter;
+    }
+}
+
 pub mod storage {
     pub use openhuman_core::storage::{
         block_on, block_on_anyhow, clear, configured_url, driver_is_shared, install,
