@@ -38,7 +38,7 @@ impl DeviceFixture {
 }
 
 #[tokio::test]
-async fn device_pairing_and_frame_calls_use_the_confidential_security_bus() {
+async fn device_pairing_and_frame_calls_reject_unattested_recipients() {
     let bus = MemoryBus::new();
     Broker::new().spawn(bus.clone());
     let service = Connection::connect(bus.connect().await.unwrap())
@@ -91,19 +91,15 @@ async fn device_pairing_and_frame_calls_use_the_confidential_security_bus() {
             (pairing.clone(),),
         )
         .await;
-    raw.unwrap_or_else(|error| panic!("raw fixture call failed: {error:?}"));
-    if let SecurityProxy::Module(object) = &client.object {
-        object
-            .call_detailed::<tinysecurity_bus::DevicePairingResponse2>(
-                tinysecurity_bus::names::methods::DEVICE_PAIRING2,
-                (pairing.clone(),),
-            )
-            .await
-            .unwrap_or_else(|error| panic!("detailed fixture call failed: {error:?}"));
-    }
-    let pairing_result = client.device_pairing2(pairing.clone()).await.unwrap();
-    assert_eq!(pairing_result.frame, [3]);
-    assert_eq!(*fixture.pairing.lock().unwrap(), Some(pairing));
+    assert!(matches!(
+        raw,
+        Err(tinybus::Error::MethodFailed { name, .. }) if name == tinybus::Error::NOT_ATTESTED
+    ));
+    assert!(matches!(
+        client.device_pairing2(pairing).await,
+        Err(SecurityError::Unavailable(_))
+    ));
+    assert!(fixture.pairing.lock().unwrap().is_none());
 
     let frame = tinysecurity_bus::DeviceFrameRequest2 {
         scope_id: "scope".into(),
@@ -111,7 +107,9 @@ async fn device_pairing_and_frame_calls_use_the_confidential_security_bus() {
         call_id: "frame-call".into(),
         operation: tinysecurity_bus::DeviceFrameOperation2::Open { frame: vec![7] },
     };
-    let frame_result = client.device_frame2(frame.clone()).await.unwrap();
-    assert_eq!(frame_result.bytes, [2]);
-    assert_eq!(*fixture.frame.lock().unwrap(), Some(frame));
+    assert!(matches!(
+        client.device_frame2(frame).await,
+        Err(SecurityError::Unavailable(_))
+    ));
+    assert!(fixture.frame.lock().unwrap().is_none());
 }

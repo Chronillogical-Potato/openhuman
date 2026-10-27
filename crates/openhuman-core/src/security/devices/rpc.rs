@@ -5,9 +5,9 @@
 //!  - `devices_list`           — lists non-revoked paired devices.
 //!  - `devices_revoke`         — marks a device revoked and closes its tunnel channel.
 //!
-//! Keypair persistence: private key bytes are encrypted with the workspace
-//! `SecretStore` and stored in the paired-device document. Restarted hosts
-//! reconstruct the stable identity while deriving a fresh in-memory tunnel.
+//! TinySecurity owns the pairing identity and tunnel cryptography. OpenHuman
+//! keeps only the opaque module pairing id and the bounded legacy import
+//! source needed to migrate pre-module devices.
 
 use std::collections::HashMap;
 use std::future::Future;
