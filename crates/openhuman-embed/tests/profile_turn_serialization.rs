@@ -8,9 +8,10 @@ mod common;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use common::{chat_completion, last_user_message, runtime_without_master_key};
+use common::{PointedInference, chat_completion, last_user_message, runtime_without_master_key};
 use openhuman_core::cron::{self, AgentJobSpec, Schedule};
-use openhuman_embed::{DirectProfileProvider, ProfileRuntime, SaasConfig};
+use openhuman_embed::profiles::ProfileCredentialKind;
+use openhuman_embed::{ProfileRuntime, SaasConfig};
 use wiremock::{Mock, Request, Respond, ResponseTemplate};
 
 /// How long the slow chat turn's model request takes to answer.
@@ -81,19 +82,11 @@ async fn scenario() {
         .with_priority(10)
         .mount(&inference)
         .await;
+    PointedInference::install(&inference.uri());
     openhuman_core::storage::install(Arc::new(tinystoragedrivers_testkit::MemoryBackend::new()));
 
     let root = tempfile::tempdir().unwrap();
-    let mut saas = SaasConfig::new(root.path());
-    saas.chat_provider = Some(
-        DirectProfileProvider::openai_compatible(
-            format!("{}/v1", inference.uri()),
-            "fixture-key",
-            "embed-test-model",
-        )
-        .unwrap(),
-    );
-    let runtime = ProfileRuntime::builder(saas)
+    let runtime = ProfileRuntime::builder(SaasConfig::new(root.path()))
         .configure(|config| config.lease_ttl_secs = 3600)
         .build()
         .await
@@ -101,7 +94,15 @@ async fn scenario() {
 
     let mut handles = Vec::new();
     for user in ["alice", "bob"] {
-        runtime.provision(user).await.unwrap();
+        let provisioned = runtime.provision(user).await.unwrap();
+        runtime
+            .set_credential(
+                &provisioned.profile_id,
+                ProfileCredentialKind::ApiKey,
+                "fixture-key",
+            )
+            .await
+            .expect("profile credential is stored");
         handles.push(runtime.open(user).await.unwrap());
     }
     let (alice, bob) = (handles.remove(0), handles.remove(0));
@@ -117,17 +118,11 @@ async fn scenario() {
         .await;
 
     // Alice's chat turn is mid-model-call when the sweep fires.
-    let mut chat = tokio::spawn({
+    let chat = tokio::spawn({
         let alice = alice.clone();
         async move { alice.chat("t1", "alice slow chat").await }
     });
-    let chat_started = tokio::select! {
-        at = arrivals.wait_for("alice slow chat") => at,
-        result = &mut chat => {
-            println!("alice chat exited before inference: {result:?}");
-            panic!("alice chat exited before inference")
-        },
-    };
+    let chat_started = arrivals.wait_for("alice slow chat").await;
 
     // Another profile is not held up by Alice's turn.
     tokio::time::timeout(Duration::from_secs(60), bob.chat("t1", "bob chat"))
