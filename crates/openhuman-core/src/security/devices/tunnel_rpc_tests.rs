@@ -30,3 +30,30 @@ fn tunnel_rpc_response_preserves_the_existing_envelope_shape() {
         })
     );
 }
+
+#[test]
+fn tunnel_rpc_allows_only_user_surface_methods_and_ping() {
+    for method in [
+        "openhuman.threads_list",
+        "openhuman.channel_web_chat",
+        "openhuman.ping",
+    ] {
+        assert!(
+            is_tunnel_rpc_method_allowed(method),
+            "{method} should be allowed"
+        );
+    }
+
+    for method in [
+        "devices.list",
+        "openhuman.auth_set_credential",
+        "openhuman.config_set",
+        "openhuman.admin_shutdown",
+        "openhuman.unknown_method",
+    ] {
+        assert!(
+            !is_tunnel_rpc_method_allowed(method),
+            "{method} should be denied"
+        );
+    }
+}

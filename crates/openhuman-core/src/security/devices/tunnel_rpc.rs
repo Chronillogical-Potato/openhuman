@@ -4,6 +4,7 @@
 //! keeps only the host's controller invocation and response semantics.
 
 use crate::core::runtime::DispatchCtx;
+use crate::profiles::surface::USER_METHODS;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -36,10 +37,21 @@ pub(super) fn response_envelope(request_id: &str, kind: &str, payload: Value) ->
     }
 }
 
+pub(super) fn is_tunnel_rpc_method_allowed(method: &str) -> bool {
+    method == "openhuman.ping" || USER_METHODS.contains(&method)
+}
+
 pub(super) async fn dispatch_tunnel_rpc(
     ctx: &DispatchCtx,
     request: TunnelRpcPayload,
 ) -> Result<Value, String> {
+    if !is_tunnel_rpc_method_allowed(&request.method) {
+        return Err(format!(
+            "tunnel RPC method is not allowed: {}",
+            request.method
+        ));
+    }
+
     crate::core::invoke::invoke_method(
         ctx.clone(),
         crate::core::invoke::default_state(),
