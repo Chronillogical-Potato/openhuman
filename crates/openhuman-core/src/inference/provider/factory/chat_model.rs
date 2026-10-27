@@ -253,12 +253,13 @@ impl OpenHumanModelFactory<'_> {
                 let (model, resolved) = match local {
                     Some(result) => result?,
                     None => {
-                        return Err(unresolved_chat_model_error_for(
+                        return Err(unresolved_chat_model_error_for_access(
                             role,
                             &provider,
                             self.config,
                             self.egress,
                             context_extensions,
+                            CredentialAccess::Runtime(&self.credentials),
                         ));
                     }
                 };
@@ -283,12 +284,13 @@ impl OpenHumanModelFactory<'_> {
                 let (model, resolved) = match cloud {
                     Some(result) => result?,
                     None => {
-                        return Err(unresolved_chat_model_error_for(
+                        return Err(unresolved_chat_model_error_for_access(
                             role,
                             &provider,
                             self.config,
                             self.egress,
                             context_extensions,
+                            CredentialAccess::Runtime(&self.credentials),
                         ));
                     }
                 };
@@ -305,12 +307,13 @@ impl OpenHumanModelFactory<'_> {
                 (model, route_provider, resolved)
             }
             _ => {
-                return Err(unresolved_chat_model_error_for(
+                return Err(unresolved_chat_model_error_for_access(
                     role,
                     &provider,
                     self.config,
                     self.egress,
                     context_extensions,
+                    CredentialAccess::Runtime(&self.credentials),
                 ));
             }
         };
@@ -645,30 +648,13 @@ pub(super) fn unresolved_chat_model_error(
     unresolved_chat_model_error_for(role, provider, config, egress, extensions.as_ref())
 }
 
-pub(super) fn unresolved_chat_model_error_for(
-    role: &str,
-    provider: &str,
-    config: &Config,
-    egress: &EgressLedger,
-    extensions: Option<&crate::core::slots::Extensions>,
-) -> anyhow::Error {
-    unresolved_chat_model_error_for_access(
-        role,
-        provider,
-        config,
-        egress,
-        extensions,
-        CredentialAccess::Runtime,
-    )
-}
-
 pub(super) fn unresolved_chat_model_error_for_access(
     role: &str,
     provider: &str,
     config: &Config,
     egress: &EgressLedger,
     extensions: Option<&crate::core::slots::Extensions>,
-    credential_access: CredentialAccess,
+    credential_access: CredentialAccess<'_>,
 ) -> anyhow::Error {
     let p = provider.trim();
 
@@ -703,8 +689,8 @@ pub(super) fn unresolved_chat_model_error_for_access(
     }
 
     #[cfg(not(test))]
-    if credential_access == CredentialAccess::Runtime {
-        if let Err(error) = super::access_gates::verify_session_active(config) {
+    if let CredentialAccess::Runtime(snapshot) = credential_access {
+        if let Err(error) = super::access_gates::verify_session_active_with_snapshot(config, snapshot) {
             return error;
         }
     }
@@ -721,9 +707,15 @@ pub(super) fn unresolved_chat_model_error_for_access(
         }
         let (model, _) = split_model_and_temperature(model_with_temperature);
         let result = match credential_access {
-            CredentialAccess::Runtime => {
-                resolve_cloud_slug_for(role, slug.trim(), &model, config, extensions)
-            }
+            CredentialAccess::Runtime(snapshot) => resolve_cloud_slug_with_access(
+                role,
+                slug.trim(),
+                &model,
+                config,
+                extensions,
+                CredentialAccess::Runtime(snapshot),
+                None,
+            ),
             CredentialAccess::Inspection => resolve_cloud_slug_with_access(
                 role,
                 slug.trim(),
