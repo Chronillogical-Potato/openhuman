@@ -188,7 +188,7 @@ async fn build_remote_provider(
                 provider_string
                     .split(':')
                     .next()
-                    .unwrap_or(provider_string)
+                    .unwrap_or(provider_string.as_str())
                     .to_string()
             };
             Ok(ResolvedProvider {
