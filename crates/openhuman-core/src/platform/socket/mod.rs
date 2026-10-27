@@ -3,7 +3,7 @@
 //! The transport implementation is installed by `openhuman-tinyhumans`; core
 //! keeps the stable state DTOs, token seam, RPC handlers, and event sink.
 
-mod event_handlers;
+mod event_sink;
 pub mod models;
 mod ops;
 mod port;
@@ -14,7 +14,7 @@ pub use port::{
     global_socket_manager, global_socket_port, set_global_socket_manager, set_global_socket_port,
     SocketIdentityRebindGuard, SocketPort, TokenProvider,
 };
-pub use event_handlers::dispatch_socket_event;
+pub use event_sink::dispatch_socket_event;
 pub use schemas::{
     all_controller_schemas as all_socket_controller_schemas,
     all_registered_controllers as all_socket_registered_controllers,

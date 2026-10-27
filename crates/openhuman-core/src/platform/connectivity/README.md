@@ -41,7 +41,7 @@ None: the module holds no state. The diag snapshot reads only the environment, t
 
 ## Dependencies
 
-- `crate::platform::socket::manager::global_socket_manager`: read the live backend Socket.IO `ConnectionStatus` and last error for the diag snapshot.
+- `crate::platform::socket::global_socket_manager`: read the host-owned backend Socket.IO `ConnectionStatus` and last error for the diag snapshot.
 - `crate::core::all::{ControllerFuture, RegisteredController}`: controller registration types.
 - `crate::core::{ControllerSchema, FieldSchema, TypeSchema}`: controller schema shape.
 - `crate::core::Outcome`: RPC return envelope (`Outcome::single_log`).

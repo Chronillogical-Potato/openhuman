@@ -319,5 +319,5 @@ fn base64_encode(input: &str) -> String {
 }
 
 #[cfg(test)]
-#[path = "event_handlers_tests.rs"]
+#[path = "event_sink_tests.rs"]
 mod tests;
