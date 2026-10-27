@@ -63,27 +63,32 @@ impl DevicePairingStore {
                 .doc
                 .get("ciphertext_b64")
                 .and_then(Value::as_str)
-                .ok_or_else(|| crate::storage::StorageError::invalid_input("invalid pairing ciphertext"))?;
-            let ciphertext = base64::Engine::decode(
-                &base64::engine::general_purpose::STANDARD,
-                encoded,
-            )
-            .map_err(|_| crate::storage::StorageError::invalid_input("invalid pairing ciphertext"))?;
+                .ok_or_else(|| {
+                    crate::storage::StorageError::invalid_input("invalid pairing ciphertext")
+                })?;
+            let ciphertext =
+                base64::Engine::decode(&base64::engine::general_purpose::STANDARD, encoded)
+                    .map_err(|_| {
+                        crate::storage::StorageError::invalid_input("invalid pairing ciphertext")
+                    })?;
             Ok((Some(ciphertext), row.version.0.to_string()))
         })
     }
 
-    pub(crate) fn store(&self, scope_id: &str, expected_revision: &str, ciphertext: &[u8]) -> Result<String> {
+    pub(crate) fn store(
+        &self,
+        scope_id: &str,
+        expected_revision: &str,
+        ciphertext: &[u8],
+    ) -> Result<String> {
         let id = crate::storage::schema_support::key_of(scope_id)?;
         let expected_revision = expected_revision
             .parse::<u64>()
             .map_err(|_| anyhow!("invalid pairing persistence revision"))?;
         let expected_backend = self.backend_id.clone();
         let expected_registration = self.secret_registration_id.clone();
-        let encoded = base64::Engine::encode(
-            &base64::engine::general_purpose::STANDARD,
-            ciphertext,
-        );
+        let encoded =
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, ciphertext);
         self.repo.run(move |docs| async move {
             let current = docs.get(COLLECTION, &id).await?;
             let precondition = match (&current, expected_revision) {

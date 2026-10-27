@@ -28,7 +28,10 @@ fn device_pairing_snapshots_are_ciphertext_only_and_revisioned() {
         store.store(scope_id, &revision, b"stale").is_err(),
         "a stale revision must not overwrite the committed ciphertext"
     );
-    assert_eq!(store.load(scope_id).unwrap().0.as_deref(), Some(ciphertext.as_slice()));
+    assert_eq!(
+        store.load(scope_id).unwrap().0.as_deref(),
+        Some(ciphertext.as_slice())
+    );
 }
 
 #[test]

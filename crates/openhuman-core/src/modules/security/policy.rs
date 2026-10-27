@@ -211,7 +211,10 @@ pub(crate) fn module_config_for_secret_scope(
     });
     let pairing_legacy_backend_id = {
         use sha2::{Digest, Sha256};
-        format!("{:x}", Sha256::digest(format!("device-pairing-legacy:{registration_id}").as_bytes()))[..32]
+        format!(
+            "{:x}",
+            Sha256::digest(format!("device-pairing-legacy:{registration_id}").as_bytes())
+        )[..32]
             .to_owned()
     };
     result.device = Some(tinysecurity_bus::DeviceConfig2 {
