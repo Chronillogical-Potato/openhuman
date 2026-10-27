@@ -11,24 +11,13 @@
 use std::sync::Arc;
 pub(super) use super::TokenProvider;
 
-/// Callable that returns the current session token on demand.
-///
-/// `Ok(token)` — a non-empty token was available; use it for the next attempt.
-/// `Err(reason)` — no token is stored (user logged out, profile corrupt); the
-///   caller should surface `reason` and exit the reconnect loop.
-///
 /// The provider is asynchronous because session lookup may use the configured
 /// credential store. TinyHumans bridges it to the SDK callback via the shared
 /// storage blocking runtime.
 
 /// Build a static provider that always returns the same token value.
 ///
-/// Used by `SocketManager::connect(url, token)` so the public API does not
-/// change: existing callers that already have a token in hand (e.g. the CLI,
-/// integration tests) can still pass it as a `&str` without touching the
-/// provider layer. On each reconnect the loop will re-call the provider — in
-/// this case it returns the same cloned string — which is equivalent to the
-/// previous behaviour.
+/// Used by the core-facing static-token connect operation.
 ///
 /// For **live** session-token refresh, build a provider via
 /// `token_provider_from_config` (used by `handle_connect_with_session`).
@@ -48,9 +37,7 @@ pub(super) fn static_token_provider(token: String) -> TokenProvider {
 /// Build a provider that reads the latest app-session token from the profile
 /// store on every call. The channel relay requires a user session.
 ///
-/// This is the **live-refresh** path used by `handle_connect_with_session`:
-/// when the loop retries after a disconnect it will see any token that was
-/// refreshed or re-stored since the previous attempt.
+/// The TinyHumans adapter calls this again before every SDK reconnect attempt.
 pub(crate) fn token_provider_from_config(config: Arc<crate::config::Config>) -> TokenProvider {
     Arc::new(move || {
         let config = Arc::clone(&config);
