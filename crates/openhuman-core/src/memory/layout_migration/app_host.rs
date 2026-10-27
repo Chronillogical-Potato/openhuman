@@ -145,7 +145,7 @@ pub(super) fn claim(config: &Config) -> Result<Option<FsLegacyClaim>> {
         .and_then(std::path::Path::parent)
         .and_then(std::path::Path::parent)
         .ok_or_else(signed_out)?;
-    let endpoint = bind_engine(config, None)?.endpoint;
+    let endpoint = bind_engine(config, None).await?.endpoint;
     Ok(Some(FsLegacyClaim::new(app_dir, &endpoint, &owner)))
 }
 

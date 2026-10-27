@@ -168,8 +168,8 @@ async fn every_engine_operation_reports_memory_off_without_an_engine() {
         .unwrap_err();
     assert_eq!(list_error.code(), "MEMORY_OFF");
 
-    assert_eq!(engines_list(&config).active, None);
-    assert!(!engines_list(&config).engines.is_empty());
+    assert_eq!(engines_list(&config).await.active, None);
+    assert!(!engines_list(&config).await.engines.is_empty());
 
     let view = engine_get(&config).await;
     assert_eq!(view.status, EngineStatus::Off);
@@ -246,7 +246,7 @@ async fn learn_recall_fetch_list_and_forget_round_trip() {
         listed.items.iter().map(|h| &h.id).collect::<Vec<_>>()
     );
 
-    let view = engines_list(&config);
+    let view = engines_list(&config).await;
     assert_eq!(view.active.as_deref(), Some("reference"));
     let health = engine_get(&config).await;
     assert_eq!(health.status, EngineStatus::Ok);
