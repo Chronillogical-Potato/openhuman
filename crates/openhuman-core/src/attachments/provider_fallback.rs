@@ -200,7 +200,8 @@ impl AttachmentModel {
             self.config.clone(),
             &model_id,
             provider,
-        );
+        )
+        .await;
         let known = prepared.profile().is_some_and(|p| p.modalities.image_in)
             || provider == "injected" && vision.profile().is_some_and(|p| p.modalities.image_in);
         if !known || !vision.supports_input(InputModality::Image, mime, InputSource::Base64) {

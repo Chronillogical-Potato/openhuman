@@ -13,7 +13,7 @@ use async_trait::async_trait;
 #[cfg(test)]
 use tinyinference_llm::model::{ModelResponse, ModelStream};
 
-pub(crate) fn wrap(
+pub(crate) async fn wrap(
     ctx: &crate::core::runtime::DispatchCtx,
     inner: Arc<dyn ChatModel<()>>,
     config: Arc<Config>,
@@ -51,6 +51,7 @@ pub(crate) fn wrap(
     };
     if let Some(request) =
         crate::inference::context_window::model_limits_request("chat", &route, model, &config)
+            .await
     {
         if let Some(inputs) = tinyinference_llm::model::discover::model_limits_cache()
             .get_variant(&request.endpoint, &request.model, &request.cache_variant())

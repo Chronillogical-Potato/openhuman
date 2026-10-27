@@ -393,7 +393,7 @@ fn build_cron_agent(
         });
     }
     let agent_id = job.agent_id.as_deref().unwrap_or("orchestrator");
-    match OpenHumanSessionHost::from_config_for_agent(ctx, config, agent_id) {
+    match OpenHumanSessionHost::from_config_for_agent(ctx, config, agent_id).await {
         Ok(agent) => {
             tracing::debug!(
                 job_id = %job.id,
@@ -412,12 +412,12 @@ fn build_cron_agent(
                 error = %e,
                 "[cron] failed to build agent from definition; falling back to canonical orchestrator"
             );
-            OpenHumanSessionHost::from_config_for_agent(ctx, config, "orchestrator").map(|agent| {
-                BuiltCronAgent {
+            OpenHumanSessionHost::from_config_for_agent(ctx, config, "orchestrator")
+                .await
+                .map(|agent| BuiltCronAgent {
                     agent,
                     context: None,
-                }
-            })
+                })
         }
     }
 }
