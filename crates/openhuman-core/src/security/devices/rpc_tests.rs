@@ -10,6 +10,35 @@ fn test_config() -> Config {
 }
 
 #[test]
+fn pairing_begin_requires_tinysecurity_identity_and_receipt() {
+    let response = tinysecurity_bus::DevicePairingResponse2 {
+        receipt: Some("owner-receipt".into()),
+        pairing_id: None,
+        session_id: None,
+        core_public_key: Some("module-public-key".into()),
+        device_public_key: None,
+        frame: Vec::new(),
+        expires_at_ms: 12_345,
+    };
+
+    assert_eq!(
+        pairing_begin_result(response).unwrap(),
+        ("module-public-key".to_owned(), "owner-receipt".to_owned())
+    );
+
+    let incomplete = tinysecurity_bus::DevicePairingResponse2 {
+        receipt: None,
+        pairing_id: None,
+        session_id: None,
+        core_public_key: Some("module-public-key".into()),
+        device_public_key: None,
+        frame: Vec::new(),
+        expires_at_ms: 12_345,
+    };
+    assert!(pairing_begin_result(incomplete).is_err());
+}
+
+#[test]
 fn pairing_authority_requires_a_trusted_direct_controller_source() {
     let direct =
         crate::core::runtime::DispatchCtx::process_default().with_authenticated_user_controller();
