@@ -20,7 +20,6 @@ async fn visible_names_for(
         definition,
     )
     .await
-    .await
     .unwrap_or_else(|e| panic!("{} session build: {e}", definition.id));
     agent
         .visible_tool_specs_arc()
@@ -254,7 +253,7 @@ async fn orchestrator_reaches_the_replaced_specialists_tools_through_discovery()
         .definitions(definitions),
     );
 
-    crate::core::runtime::CoreContext::sync_scope(core, || {
+    crate::core::runtime::CoreContext::scope(core, async {
         let agent = crate::agent::OpenHumanSessionHost::from_config_with_definition(
             &crate::core::runtime::DispatchCtx::ambient(),
             &config,
@@ -290,5 +289,6 @@ async fn orchestrator_reaches_the_replaced_specialists_tools_through_discovery()
                 "`{tool}` must be callable once found"
             );
         }
-    });
+    })
+    .await;
 }

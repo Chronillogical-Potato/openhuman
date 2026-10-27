@@ -89,6 +89,7 @@ async fn registry_built_sessions_resolve_the_registry_definition() {
 
     let agent =
         OpenHumanSessionHost::from_config(&crate::core::runtime::DispatchCtx::ambient(), &config)
+            .await
             .expect("orchestrator session");
     let resolved = agent.resolved_definition().expect("registry definition");
     assert_eq!(resolved.id, "orchestrator");
