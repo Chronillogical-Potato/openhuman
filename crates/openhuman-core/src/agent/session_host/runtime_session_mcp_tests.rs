@@ -167,4 +167,3 @@ async fn resumed_mcp_snapshot_survives_a_cold_catalog_and_keeps_its_frozen_spec(
         serde_json::to_value(&recorded_spec).expect("serialize frozen declaration")
     );
 }
-

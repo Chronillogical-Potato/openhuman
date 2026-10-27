@@ -412,7 +412,7 @@ async fn the_no_tools_sentinel_can_never_name_a_real_tool() {
 
 #[tokio::test]
 async fn is_empty_tool_scope_distinguishes_the_three_states() {
-    use crate::agent_registry::host_definition::{is_empty_tool_scope, NO_TOOLS_SENTINEL};
+    use crate::agent_registry::host_definition::{NO_TOOLS_SENTINEL, is_empty_tool_scope};
     use std::collections::HashSet;
 
     // Unset — the historical "everything" sentinel.
@@ -485,15 +485,19 @@ async fn the_repl_tools_join_a_belt_only_while_handle_mode_is_active() {
 
     let mut inactive = belt();
     super::ensure_repl_tools_visible(&mut inactive, false);
-    assert!(tinyjuice_bus::tools::REPL_TOOLS
-        .iter()
-        .all(|n| !inactive.contains(*n)));
+    assert!(
+        tinyjuice_bus::tools::REPL_TOOLS
+            .iter()
+            .all(|n| !inactive.contains(*n))
+    );
 
     let mut active = belt();
     super::ensure_repl_tools_visible(&mut active, true);
-    assert!(tinyjuice_bus::tools::REPL_TOOLS
-        .iter()
-        .all(|n| active.contains(*n)));
+    assert!(
+        tinyjuice_bus::tools::REPL_TOOLS
+            .iter()
+            .all(|n| active.contains(*n))
+    );
 
     // "No filter" and "deliberately no tools" both stay as they were.
     let mut unfiltered = std::collections::HashSet::new();

@@ -6,8 +6,8 @@
 //! real tool: it is on the belt, and it is advertised.
 
 use super::*;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// A tool that does nothing but be present under a name nothing else uses.
 #[derive(Debug)]
@@ -512,9 +512,11 @@ async fn permanent_metadata_without_a_source_is_rejected_before_build() {
     )
     .err()
     .expect("inconsistent permanent metadata must be rejected");
-    assert!(error
-        .to_string()
-        .contains("permanent tool must have exactly one source: missing_source"));
+    assert!(
+        error
+            .to_string()
+            .contains("permanent tool must have exactly one source: missing_source")
+    );
 }
 
 /// The factory is told the context the session is built under, not the

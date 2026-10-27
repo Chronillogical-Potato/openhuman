@@ -17,7 +17,9 @@ async fn builder_requires_a_model_when_no_host_policy_is_installed() {
         .err()
         .expect("a bare core builder needs an explicit model");
 
-    assert!(error
-        .to_string()
-        .contains("model_name or configured provider default is required"));
+    assert!(
+        error
+            .to_string()
+            .contains("model_name or configured provider default is required")
+    );
 }
