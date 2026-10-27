@@ -75,7 +75,8 @@ pub(crate) async fn resolve_cloud_slug_for<'a>(
         extensions,
         CredentialAccess::Runtime,
         None,
-    ).await
+    )
+    .await
 }
 
 /// The user-facing error for a failed credential lookup: the guidance, plus
@@ -259,7 +260,8 @@ pub(super) async fn resolve_cloud_slug_with_access<'a>(
         )
     } else {
         let key = credential_access
-            .lookup_key_for_slug(slug, config).await
+            .lookup_key_for_slug(slug, config)
+            .await
             .map_err(|error| lookup_failure(&error, missing_credentials()))?;
         let is_oauth = slug == "openai" && credential_access.openai_bearer_is_oauth(config).await;
         (key, is_oauth, None)
@@ -287,7 +289,8 @@ pub(super) async fn resolve_cloud_slug_with_access<'a>(
     let codex = match credential_access {
         CredentialAccess::Runtime => {
             let bearer_is_oauth = slug == "openai" && openai_bearer_is_oauth(config).await;
-            resolve_codex_routing(config, slug, &entry.endpoint, &key, bearer_is_oauth).await
+            resolve_codex_routing(config, slug, &entry.endpoint, &key, bearer_is_oauth)
+                .await
                 .map_err(anyhow::Error::msg)?
         }
         CredentialAccess::Inspection => resolve_openai_codex_routing_for_inspection(
@@ -342,7 +345,8 @@ pub(super) async fn try_create_cloud_slug_chat_model(
         true,
         egress,
         extensions.as_ref(),
-    ).await
+    )
+    .await
 }
 
 pub(super) async fn try_create_cloud_slug_chat_model_with_native_tools_for(
@@ -361,7 +365,8 @@ pub(super) async fn try_create_cloud_slug_chat_model_with_native_tools_for(
         CredentialAccess::Runtime,
         None,
         None,
-    ).await
+    )
+    .await
 }
 
 pub(super) async fn try_create_cloud_slug_chat_model_for_inspection_with_identity(
@@ -440,7 +445,8 @@ async fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
         credential_access,
         inspection_credential,
         inspection_identity,
-    ).await
+    )
+    .await
 }
 
 pub(super) async fn try_create_cloud_slug_chat_model_from_string(
@@ -451,7 +457,8 @@ pub(super) async fn try_create_cloud_slug_chat_model_from_string(
 ) -> OptionalChatModelResult {
     try_create_cloud_slug_chat_model_from_string_with_native_tools(
         role, provider, config, true, egress,
-    ).await
+    )
+    .await
 }
 
 pub(super) async fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
@@ -472,7 +479,8 @@ pub(super) async fn try_create_cloud_slug_chat_model_from_string_with_native_too
         CredentialAccess::Runtime,
         None,
         None,
-    ).await
+    )
+    .await
 }
 
 pub(super) async fn try_create_cloud_slug_chat_model_from_string_with_native_tools_for(
@@ -493,7 +501,8 @@ pub(super) async fn try_create_cloud_slug_chat_model_from_string_with_native_too
         CredentialAccess::Runtime,
         None,
         None,
-    ).await
+    )
+    .await
 }
 
 async fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
@@ -558,7 +567,9 @@ async fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_acce
         extensions,
         credential_access,
         inspection_credential,
-    ).await {
+    )
+    .await
+    {
         Ok(r) => r,
         Err(e) => return Some(Err(e)),
     };

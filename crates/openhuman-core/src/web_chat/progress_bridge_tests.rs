@@ -24,8 +24,8 @@ fn interim_narration_surfaces_and_trims_substantial_text() {
     );
 }
 
-#[test]
-fn session_profile_attribution_none_when_signed_out() {
+#[tokio::test]
+async fn session_profile_attribution_none_when_signed_out() {
     let tmp = tempfile::TempDir::new().unwrap();
     let config = crate::config::Config {
         workspace_dir: tmp.path().join("workspace"),
@@ -33,11 +33,11 @@ fn session_profile_attribution_none_when_signed_out() {
         config_path: tmp.path().join("config.toml"),
         ..Default::default()
     };
-    assert!(session_profile_user_attribution(&config).is_none());
+    assert!(session_profile_user_attribution(&config).await.is_none());
 }
 
-#[test]
-fn session_profile_attribution_prefers_email_from_stored_session() {
+#[tokio::test]
+async fn session_profile_attribution_prefers_email_from_stored_session() {
     let tmp = tempfile::TempDir::new().unwrap();
     let config = crate::config::Config {
         workspace_dir: tmp.path().join("workspace"),
@@ -60,9 +60,10 @@ fn session_profile_attribution_prefers_email_from_stored_session() {
             metadata,
             true,
         )
+        .await
         .expect("store session profile");
     assert_eq!(
-        session_profile_user_attribution(&config).as_deref(),
+        session_profile_user_attribution(&config).await.as_deref(),
         Some("steven@example.test"),
         "cold-cache attribution must resolve the on-disk session email"
     );

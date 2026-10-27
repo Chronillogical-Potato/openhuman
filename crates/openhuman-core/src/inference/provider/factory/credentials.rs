@@ -22,7 +22,11 @@ pub(super) enum CredentialAccess {
 }
 
 impl CredentialAccess {
-    pub(super) async fn lookup_key_for_slug(self, slug: &str, config: &Config) -> anyhow::Result<String> {
+    pub(super) async fn lookup_key_for_slug(
+        self,
+        slug: &str,
+        config: &Config,
+    ) -> anyhow::Result<String> {
         match self {
             Self::Runtime => lookup_key_for_slug(slug, config).await,
             Self::Inspection => anyhow::bail!("inspection credential was not pre-resolved"),
