@@ -98,6 +98,7 @@ async fn concurrent_refresh_persists_rotated_token_and_stable_metadata_once() {
             ),
             true,
         )
+        .await
         .unwrap();
 
     let source = std::sync::Arc::new(RotatingTokenSource {
@@ -108,21 +109,22 @@ async fn concurrent_refresh_persists_rotated_token_and_stable_metadata_once() {
     let first_config = config.clone();
     let second_config = config.clone();
     let (first, second) = tokio::join!(
-        tokio::task::spawn_blocking(move || lookup_openai_oauth_credentials(&first_config)),
-        tokio::task::spawn_blocking(move || lookup_openai_oauth_credentials(&second_config)),
+        lookup_openai_oauth_credentials(&first_config),
+        lookup_openai_oauth_credentials(&second_config),
     );
     assert_eq!(
-        first.unwrap().unwrap().unwrap().access_token,
+        first.unwrap().unwrap().access_token,
         "fresh-access"
     );
     assert_eq!(
-        second.unwrap().unwrap().unwrap().access_token,
+        second.unwrap().unwrap().access_token,
         "fresh-access"
     );
     assert_eq!(source.refresh_count.load(Ordering::SeqCst), 1);
 
     let profile = profiles
         .load()
+        .await
         .unwrap()
         .profiles
         .remove(&format!(
@@ -165,6 +167,7 @@ async fn disconnect_keeps_profile_when_host_cannot_clear_pending_state() {
             ),
             true,
         )
+        .await
         .unwrap();
     let source = std::sync::Arc::new(RotatingTokenSource {
         refresh_count: AtomicUsize::new(0),
@@ -174,7 +177,7 @@ async fn disconnect_keeps_profile_when_host_cannot_clear_pending_state() {
 
     let error = disconnect_openai_oauth(&config).await.unwrap_err();
     assert!(error.contains("pending storage unavailable"));
-    assert!(profiles.load().unwrap().profiles.contains_key(&format!(
+    assert!(profiles.load().await.unwrap().profiles.contains_key(&format!(
         "{OPENAI_PROVIDER_KEY}:{OPENAI_OAUTH_PROFILE_NAME}"
     )));
 
