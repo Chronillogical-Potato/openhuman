@@ -191,6 +191,7 @@ pub fn resolver(config: &Config) -> Resolver {
             }
             value
         }),
+        async_module_config: None,
         reporter: report::reporter(),
     })
 }
