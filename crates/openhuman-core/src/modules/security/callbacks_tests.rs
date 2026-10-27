@@ -138,7 +138,7 @@ async fn device_pairing_host_is_served_on_the_module_binding() {
     let bus = MemoryBus::new();
     let _broker_task = broker.spawn(bus);
     let host = ModuleHost::new(broker);
-    let path = callback_names2::OBJECT_PATH.parse().unwrap();
+    let path: tinybus::ObjectPath = callback_names2::OBJECT_PATH.parse().unwrap();
     let binding = host
         .prepare_host_callbacks(vec![HostCallbackEndpoint {
             path: path.clone(),
