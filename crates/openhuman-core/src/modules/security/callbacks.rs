@@ -258,7 +258,18 @@ fn valid_pairing_context(
             .bytes()
             .all(|byte| byte.is_ascii_hexdigit());
     let source_fields_valid = match context.source {
-        Source::AuthenticatedUserController | Source::AuthenticatedUserLogout => {
+        Source::AuthenticatedUserController => {
+            context.channel_id.is_empty()
+                && context.pairing_token.is_none()
+                && context.connection_nonce.is_empty()
+                || !context.channel_id.is_empty()
+                    && context
+                        .pairing_token
+                        .as_ref()
+                        .is_some_and(|value| !value.is_empty())
+                    && !context.connection_nonce.is_empty()
+        }
+        Source::AuthenticatedUserLogout => {
             context.channel_id.is_empty()
                 && context.pairing_token.is_none()
                 && context.connection_nonce.is_empty()
