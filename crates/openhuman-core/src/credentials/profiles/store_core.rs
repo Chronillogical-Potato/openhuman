@@ -168,7 +168,7 @@ impl AuthProfilesStore {
         profile_id: &str,
         persisted_before: &PersistedAuthProfiles,
         delete_error: anyhow::Error,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         let _lock = self.acquire_lock()?;
         let current = self.read_persisted_locked()?;
         if !current.profiles.contains_key(profile_id) {

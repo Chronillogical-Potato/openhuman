@@ -107,7 +107,6 @@ pub(super) async fn host_seeded_with(config: &Config, marker: &str) -> OpenHuman
         ],
         "",
     )
-    .await
     .unwrap();
     host
 }

@@ -71,11 +71,12 @@ async fn native_transcription_helpers_preserve_audio_metadata_for_host_stt() {
     std::fs::write(&file_path, b"file-audio").unwrap();
     let calls = Arc::new(Mutex::new(Vec::new()));
     let provider_calls = Arc::clone(&calls);
+    crate::voice::factory::register_stt_provider("capturing-stt-host-test", move |_, _| {
+        Ok(Box::new(CapturingSttProvider(Arc::clone(&provider_calls))) as Box<dyn SttProvider>)
+    });
     let provider = ConfiguredSttProvider {
         config: &config,
-        provider_factory: Box::new(move |_| {
-            Ok(Box::new(CapturingSttProvider(Arc::clone(&provider_calls))) as Box<dyn SttProvider>)
-        }),
+        provider_name: "capturing-stt-host-test".into(),
     };
 
     let file_text = tinyinference_voice::transcription::transcribe_file(&file_path, &provider)
@@ -88,6 +89,7 @@ async fn native_transcription_helpers_preserve_audio_metadata_for_host_stt() {
     )
     .await
     .unwrap();
+    crate::voice::factory::unregister_stt_provider("capturing-stt-host-test");
 
     assert_eq!(file_text, "recognized speech");
     assert_eq!(bytes_text, "recognized speech");

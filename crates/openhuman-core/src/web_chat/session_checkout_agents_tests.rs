@@ -51,7 +51,7 @@ async fn two_agents_with_the_same_thread_id_get_their_own_cache_slots() {
         super::build_session_fingerprint(&config, None, None, "orchestrator".into(), "chat");
     for (ctx, key) in [(&asha, &key_a), (&ravi, &key_b)] {
         let entry = crate::web_chat::types::SessionEntry {
-            agent: host_seeded_with(&config, "x"),
+            agent: host_seeded_with(&config, "x").await,
             fingerprint: fingerprint.clone(),
         };
         {
