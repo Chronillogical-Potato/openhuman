@@ -25,7 +25,7 @@ pub(super) enum CredentialAccess<'a> {
 /// A per-session snapshot prepared before the synchronous TinyAgents
 /// `ModelFactory::build` callback. It is owned by one short-lived model
 /// factory, never cached process-wide.
-pub(super) struct RuntimeCredentialSnapshot {
+pub(crate) struct RuntimeCredentialSnapshot {
     keys: HashMap<String, Result<String, String>>,
     openai_oauth: Result<Option<crate::credentials::openai_oauth::OpenAiOAuthCredentials>, String>,
     openai_bearer_is_oauth: bool,
@@ -156,7 +156,7 @@ async fn backend_session_active_snapshot(config: &Config) -> bool {
         .is_some_and(|token| !token.trim().is_empty())
 }
 
-impl CredentialAccess {
+impl CredentialAccess<'_> {
     pub(super) fn is_inspection(self) -> bool {
         matches!(self, Self::Inspection)
     }
