@@ -2,9 +2,10 @@
 //! abstract-tier remapping, credentials, codex routing) and the crate-native builders.
 
 use super::{
-    access_gates::enforce_local_only_inference, cloud_spec, credentials::CredentialAccess,
+    access_gates::enforce_local_only_inference, cloud_spec,
+    credentials::{CredentialAccess, RuntimeCredentialSnapshot},
     local_runtime::OptionalChatModelResult, managed_backend::managed_chat_model_for,
-    openai_bearer_is_oauth, provider_for_role, redact_endpoint_origin, resolve_codex_routing,
+    provider_for_role, redact_endpoint_origin,
     InspectionOutputBudgetCapability, BYOK_INCOMPLETE_SENTINEL, CLAUDE_AGENT_SDK_PREFIX,
     CLAUDE_AGENT_SDK_PROVIDER, PROVIDER_OPENHUMAN,
 };
