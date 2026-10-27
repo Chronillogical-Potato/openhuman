@@ -100,6 +100,28 @@ pub(crate) async fn preflight_surface_middleware(
         .into_response()
 }
 
+/// Stop Engine.IO polling before its own layer can allocate a session. CORS is
+/// kept outside this middleware by the router builder.
+pub(crate) async fn preflight_socketio_middleware(
+    req: axum::extract::Request,
+    gate: axum::extract::State<PreflightGate>,
+    next: Next,
+) -> Response {
+    let path = req.uri().path();
+    if gate.is_active() && (path == "/socket.io" || path.starts_with("/socket.io/")) {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "ok": false,
+                "error": "startup_preflight",
+                "message": "Core startup approval preflight is active"
+            })),
+        )
+            .into_response();
+    }
+    next.run(req).await
+}
+
 use crate::core_host::config::Config;
 use crate::core_host::credentials::AuthService;
 use crate::core_host::inference::http::EXTERNAL_OPENAI_COMPAT_PROVIDER;
