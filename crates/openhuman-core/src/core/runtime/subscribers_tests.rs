@@ -1,4 +1,4 @@
-use super::{group_first_time_when_bus_ready, DomainSubscriberPlan};
+use super::{DomainSubscriberPlan, group_first_time_when_bus_ready};
 use crate::config::test_env::EnvVarGuard;
 
 // ---- domain-subscriber gating (#4796 DoD item 3) ----------------------------

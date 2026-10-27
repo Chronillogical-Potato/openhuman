@@ -23,6 +23,7 @@ async fn loads_app_secret_from_credentials_when_toml_empty() {
     metadata.insert("app_key".to_string(), "ak".to_string());
     metadata.insert("app_secret".to_string(), "from-credentials".to_string());
     auth.store_provider_token("channel:yuanbao:api_key", "default", "", metadata, true)
+        .await
         .expect("store credentials");
 
     let yb = YuanbaoConfig {
@@ -77,6 +78,7 @@ async fn skips_hydration_when_stored_profile_has_different_app_key() {
         "old-key-secret-do-not-use".to_string(),
     );
     auth.store_provider_token("channel:yuanbao:api_key", "default", "", metadata, true)
+        .await
         .expect("store credentials");
 
     let yb = YuanbaoConfig {

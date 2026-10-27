@@ -33,9 +33,11 @@ async fn injected_turn_source_uses_bound_workspace_and_explicit_model_facts() {
     assert!(models.primary.invoke(&(), request).await.is_err());
     let captured = probe.requests.lock().unwrap().clone();
     assert_eq!(captured.len(), 1);
-    assert!(serde_json::to_string(&captured[0])
-        .unwrap()
-        .contains("data:image/png;base64,"));
+    assert!(
+        serde_json::to_string(&captured[0])
+            .unwrap()
+            .contains("data:image/png;base64,")
+    );
 }
 
 #[tokio::test]
@@ -96,9 +98,11 @@ async fn configured_injected_builder_stages_and_resolves_in_explicit_acting_work
     assert!(models.primary.invoke(&(), request).await.is_err());
     let captured = probe.requests.lock().unwrap().clone();
     assert_eq!(captured.len(), 1);
-    assert!(serde_json::to_string(&captured[0])
-        .unwrap()
-        .contains("data:image/png;base64,"));
+    assert!(
+        serde_json::to_string(&captured[0])
+            .unwrap()
+            .contains("data:image/png;base64,")
+    );
 }
 
 #[test]

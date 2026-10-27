@@ -151,17 +151,30 @@ impl AuthProfilesStore {
 
             if self.use_keychain {
                 if let Err(delete_error) = self.keychain_delete_secrets(profile_id) {
-                    let _lock = self.acquire_lock()?;
-                    let current = self.read_persisted_locked()?;
-                    if !current.profiles.contains_key(profile_id) {
-                        self.write_persisted_locked(&persisted_before)?;
-                    }
-                    return Err(delete_error.context("profile removal was not completed"));
+                    return self.rollback_profile_removal(
+                        profile_id,
+                        &persisted_before,
+                        delete_error,
+                    );
                 }
             }
             return Ok(true);
         }
         anyhow::bail!("auth profile store changed repeatedly during removal")
+    }
+
+    pub(super) fn rollback_profile_removal(
+        &self,
+        profile_id: &str,
+        persisted_before: &PersistedAuthProfiles,
+        delete_error: anyhow::Error,
+    ) -> Result<()> {
+        let _lock = self.acquire_lock()?;
+        let current = self.read_persisted_locked()?;
+        if !current.profiles.contains_key(profile_id) {
+            self.write_persisted_locked(persisted_before)?;
+        }
+        Err(delete_error.context("profile removal was not completed"))
     }
 
     pub async fn set_active_profile(&self, provider: &str, profile_id: &str) -> Result<()> {

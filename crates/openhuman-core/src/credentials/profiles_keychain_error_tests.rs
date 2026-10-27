@@ -95,9 +95,13 @@ async fn denied_keyring_delete_restores_profile_document() {
             ..PersistedAuthProfile::default()
         },
     );
+    store
+        .write_persisted_locked(&PersistedAuthProfiles::default())
+        .unwrap();
 
     let error = store
         .rollback_profile_removal(
+            "openai:default",
             &before,
             anyhow::Error::new(super::super::keychain::KeyringConsentError::Denied),
         )
