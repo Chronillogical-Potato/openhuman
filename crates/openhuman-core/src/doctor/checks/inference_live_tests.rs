@@ -335,6 +335,7 @@ async fn managed_chat_probe_uses_the_inspection_only_factory_callback() {
     let model_calls = Arc::clone(&calls);
     let factory: InspectionChatModelFactory = Arc::new(
         move |request: &ChatModelRequest<'_, crate::inference::registry::ProviderContext>| {
+            let model_calls = Arc::clone(&model_calls);
             Box::pin(async move {
                 assert_eq!(request.role, "chat");
                 Ok(crate::inference::registry::InspectionChatModelBuild {

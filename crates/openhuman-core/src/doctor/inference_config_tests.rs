@@ -178,6 +178,8 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
     let build_constructions = Arc::clone(&constructions);
     let model_generations = Arc::clone(&generations);
     let inspection_factory: InspectionChatModelFactory = Arc::new(move |_| {
+        let build_constructions = Arc::clone(&build_constructions);
+        let model_generations = Arc::clone(&model_generations);
         Box::pin(async move {
             build_constructions.fetch_add(1, Ordering::SeqCst);
             Ok(crate::inference::registry::InspectionChatModelBuild {
