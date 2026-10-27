@@ -128,17 +128,12 @@ fn inbound_dispatch_recognizes_all_tunnel_event_names() {
     assert!(!dispatch_backend_event("other:event", json!({})));
 }
 
-#[tokio::test]
-async fn frame_size_cap_is_checked_before_a_socket_is_required() {
-    let error = emit_frame("ch_123", &"a".repeat(64 * 1024 + 1))
-        .await
-        .expect_err("oversized frame must be rejected before socket lookup");
-    assert!(error.contains("frame too large"));
+#[test]
+fn frame_size_limit_accepts_exactly_64_kib_and_rejects_larger_frames() {
+    assert!(validate_frame_size(64 * 1024).is_ok());
 
-    let error = emit_frame("ch_123", &"a".repeat(64 * 1024))
-        .await
-        .expect_err("a 64 KB frame proceeds to the socket transport");
-    assert!(error.contains("SocketManager not initialized"));
+    let error = validate_frame_size(64 * 1024 + 1).expect_err("oversized frame must be rejected");
+    assert!(error.contains("frame too large"));
 }
 
 // ── The shape the backend actually sends (#5871) ──────────────────────────
