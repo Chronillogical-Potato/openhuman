@@ -129,7 +129,9 @@ pub async fn thread_generate_title(
     // reports the model this call actually dispatches on, and only the factory
     // knows what the `summarization` role resolved to for this configuration.
     let (chat_model, resolved_model) =
-        match provider::create_chat_model_with_model_id_in(ctx, "summarization", &config, 0.2) {
+        match provider::create_chat_model_with_model_id_in(ctx, "summarization", &config, 0.2)
+            .await
+        {
             Ok(resolved) => resolved,
             Err(error) => {
                 tracing::warn!(
