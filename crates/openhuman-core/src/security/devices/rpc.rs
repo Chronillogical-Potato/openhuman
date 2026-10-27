@@ -206,19 +206,7 @@ pub async fn devices_import_legacy(
         if row.pairing_id.is_some() || row.core_private_key_encrypted.is_none() {
             continue;
         }
-        let scope = crate::modules::security::host_callbacks::secret_scope()
-            .await
-            .ok_or_else(|| "security secret scope unavailable".to_owned())?;
-        let generation = client
-            .policy_info()
-            .await
-            .map_err(|error| error.to_string())?
-            .generation;
-        let event_id = crate::modules::security::device_pairing_user_event(
-            &scope,
-            String::new(),
-            generation,
-        )?;
+        let event_id = crate::modules::security::device_pairing_recover_event(config).await?;
         let recovered = client
             .device_pairing2(tinysecurity_bus::DevicePairingRequest2 {
                 call_id: uuid::Uuid::new_v4().simple().to_string(),
