@@ -8,7 +8,7 @@ mod common;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use common::{chat_completion, last_user_message, runtime_without_master_key, PointedInference};
+use common::{PointedInference, chat_completion, last_user_message, runtime_without_master_key};
 use openhuman_core::cron::{self, AgentJobSpec, Schedule};
 use openhuman_embed::profiles::ProfileCredentialKind;
 use openhuman_embed::{ProfileRuntime, SaasConfig};

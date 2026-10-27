@@ -272,8 +272,8 @@ pub struct PointedInference;
 impl PointedInference {
     pub fn install(base_url: &str) {
         use openhuman_embed::__host::inference_registry::{
-            register_chat_model, ChatModelEntry, ChatModelRequest, ProviderContext,
-            ProviderModelMetadata, PROVIDER_OPENHUMAN,
+            ChatModelEntry, ChatModelRequest, PROVIDER_OPENHUMAN, ProviderContext,
+            ProviderModelMetadata, register_chat_model,
         };
         use tinyinference_llm::providers::openai::OpenAiModel;
 
