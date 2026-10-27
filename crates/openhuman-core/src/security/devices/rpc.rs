@@ -78,6 +78,7 @@ pub(crate) struct ActiveDeviceSession {
 /// 3. Emits `tunnel:connect` with `role:"core"` so the core starts listening.
 /// 4. Detects the local LAN IP for the optional direct fast-path `rpc_url`.
 /// 5. Returns QR-bound fields to the caller.
+#[cfg(feature = "security-module")]
 pub async fn devices_create_pairing(
     ctx: &crate::core::runtime::DispatchCtx,
     _config: &Config,
@@ -187,11 +188,22 @@ pub async fn devices_create_pairing(
     ))
 }
 
+#[cfg(not(feature = "security-module"))]
+pub async fn devices_create_pairing(
+    ctx: &crate::core::runtime::DispatchCtx,
+    _config: &Config,
+    _label: Option<String>,
+) -> Result<Outcome<CreatePairingResponse>, String> {
+    require_user_controller(ctx)?;
+    Err("device pairing requires the security-module feature".to_owned())
+}
+
 // ---------------------------------------------------------------------------
 // legacy import
 // ---------------------------------------------------------------------------
 
 /// Import available pre-TinySecurity identities after a direct user approval.
+#[cfg(feature = "security-module")]
 pub async fn devices_import_legacy(
     ctx: &crate::core::runtime::DispatchCtx,
     config: &Config,
@@ -261,6 +273,15 @@ pub async fn devices_import_legacy(
     ))
 }
 
+#[cfg(not(feature = "security-module"))]
+pub async fn devices_import_legacy(
+    ctx: &crate::core::runtime::DispatchCtx,
+    _config: &Config,
+) -> Result<Outcome<ImportLegacyResponse>, String> {
+    require_user_controller(ctx)?;
+    Err("legacy device import requires the security-module feature".to_owned())
+}
+
 // ---------------------------------------------------------------------------
 // list
 // ---------------------------------------------------------------------------
@@ -290,6 +311,8 @@ pub async fn devices_list(config: &Config) -> Result<Outcome<ListDevicesResponse
 /// Rejoin persisted device channels after the direct user action unlocks the
 /// module-owned identity for this process.
 pub(crate) async fn resume_device_tunnels(config: &Config) {
+    #[cfg(feature = "security-module")]
+    {
     let Ok(devices) = store::list_devices(config) else {
         return;
     };
@@ -301,6 +324,9 @@ pub(crate) async fn resume_device_tunnels(config: &Config) {
             );
         }
     }
+    }
+    #[cfg(not(feature = "security-module"))]
+    let _ = config;
 }
 
 // ---------------------------------------------------------------------------
@@ -308,6 +334,7 @@ pub(crate) async fn resume_device_tunnels(config: &Config) {
 // ---------------------------------------------------------------------------
 
 /// `openhuman.devices_revoke`
+#[cfg(feature = "security-module")]
 pub async fn devices_revoke(
     ctx: &crate::core::runtime::DispatchCtx,
     config: &Config,
@@ -400,6 +427,16 @@ pub async fn devices_revoke(
         RevokeDeviceResponse { success: revoked },
         format!("device {channel_id} revoked"),
     ))
+}
+
+#[cfg(not(feature = "security-module"))]
+pub async fn devices_revoke(
+    ctx: &crate::core::runtime::DispatchCtx,
+    _config: &Config,
+    _channel_id: String,
+) -> Result<Outcome<RevokeDeviceResponse>, String> {
+    require_user_controller(ctx)?;
+    Err("device revocation requires the security-module feature".to_owned())
 }
 
 async fn connect_after_reserving_pairing<F>(channel_id: &str, connect: F) -> Result<(), String>

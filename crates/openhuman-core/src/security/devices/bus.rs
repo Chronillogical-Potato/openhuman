@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use serde_json::Value;
 use tinybus::EventHandler;
 use tinybus::SubscriptionHandle;
+#[cfg(feature = "security-module")]
 use tunnel_rpc::{decode_frame, encode_frame};
 
 const HANDSHAKE_VERSION: u8 = 0x03;
@@ -146,6 +147,8 @@ fn should_lock_pairings_after_credential_event(event: &DomainEvent) -> bool {
 
 async fn lock_device_pairings_after_logout() {
     clear_device_pairing_runtime_state();
+    #[cfg(feature = "security-module")]
+    {
     let host_context = DispatchCtx::host_default();
     let Ok(config) = host_context.load_config().await else {
         log::warn!("[devices/bus] unable to load config to lock TinySecurity after logout");
@@ -153,6 +156,7 @@ async fn lock_device_pairings_after_logout() {
     };
     if let Err(error) = crate::modules::security::lock_device_pairing_scope(&config).await {
         log::warn!("[devices/bus] TinySecurity pairing lock after logout failed: {error}");
+    }
     }
 }
 
@@ -164,9 +168,14 @@ pub(crate) async fn lock_device_pairing_scope_for_logout(
     config: &crate::config::Config,
 ) {
     clear_device_pairing_runtime_state();
+    #[cfg(feature = "security-module")]
+    {
     if let Err(error) = crate::modules::security::lock_device_pairing_scope(config).await {
         log::warn!("[devices/bus] TinySecurity pairing lock before logout failed: {error}");
     }
+    }
+    #[cfg(not(feature = "security-module"))]
+    let _ = (config, _ctx);
 }
 
 fn clear_device_pairing_runtime_state() {
@@ -194,6 +203,7 @@ fn clear_device_pairing_runtime_state() {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clear();
+    #[cfg(feature = "security-module")]
     crate::modules::security::clear_device_pairing_unlock_cache();
 }
 
@@ -216,6 +226,7 @@ async fn handle_peer_offline(channel_id: &str) {
 }
 
 /// Route a socket frame through TinySecurity and preserve the existing wire envelope.
+#[cfg(feature = "security-module")]
 async fn handle_tunnel_frame(
     ctx: &DispatchCtx,
     channel_id: &str,
@@ -257,6 +268,19 @@ async fn handle_tunnel_frame(
     }
 }
 
+#[cfg(not(feature = "security-module"))]
+async fn handle_tunnel_frame(
+    _ctx: &DispatchCtx,
+    channel_id: &str,
+    _payload_b64: &str,
+    _connection_token: &str,
+    _connection_nonce: &str,
+    _expires_at_ms: u64,
+) {
+    log::debug!("[devices/bus] tunnel disabled without security-module channel_id={channel_id}");
+}
+
+#[cfg(feature = "security-module")]
 async fn handle_handshake(
     channel_id: &str,
     config: &crate::config::Config,
@@ -344,6 +368,7 @@ async fn handle_handshake(
         .insert(channel_id.to_owned());
 }
 
+#[cfg(feature = "security-module")]
 async fn begin_device_renewal(
     channel_id: &str,
     config: &crate::config::Config,
@@ -383,6 +408,7 @@ async fn begin_device_renewal(
     renewed
 }
 
+#[cfg(feature = "security-module")]
 async fn begin_device_renewal_once(
     channel_id: &str,
     config: &crate::config::Config,
@@ -627,9 +653,10 @@ fn hash_session_token(token: &str) -> String {
     format!("{:x}", hasher.finalize())
 }
 
+#[cfg(feature = "security-module")]
 #[path = "bus/tunnel_rpc.rs"]
 mod tunnel_rpc;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "security-module"))]
 #[path = "bus_tests.rs"]
 mod tests;
