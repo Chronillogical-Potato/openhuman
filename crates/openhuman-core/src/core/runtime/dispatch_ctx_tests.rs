@@ -16,8 +16,7 @@ fn controller_authority_is_explicit_and_not_inferred_from_chat_origin() {
     );
     assert_eq!(web_chat.invocation_source(), InvocationSource::Untrusted);
 
-    let direct = DispatchCtx::new(context)
-        .with_invocation_source(InvocationSource::AuthenticatedUserController);
+    let direct = DispatchCtx::new(context).with_authenticated_user_controller();
     assert_eq!(
         direct.invocation_source(),
         InvocationSource::AuthenticatedUserController

@@ -178,6 +178,7 @@ impl DispatchCtx {
         Self {
             core: CoreContext::scoped_for_turn(),
             headless_agent_chat: false,
+            invocation_source: InvocationSource::Untrusted,
         }
     }
 
