@@ -13,7 +13,7 @@ fn sdk_token_callback_refreshes_each_attempt_and_stops_when_provider_fails() {
             else { Err("session disappeared".into()) }
         })
     });
-    let mut sdk_provider = sdk_token_provider(provider);
+    let sdk_provider = sdk_token_provider(provider);
     assert_eq!(sdk_provider(), Some("token-0".to_string()));
     assert_eq!(sdk_provider(), Some("token-1".to_string()));
     assert_eq!(sdk_provider(), None);

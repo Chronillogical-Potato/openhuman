@@ -33,8 +33,8 @@ enum SocketCommand {
 
 /// TinyHumans' SDK-backed implementation of the core socket port.
 pub(crate) struct SdkSocketPort {
-    state: Arc<RwLock<SocketState>>,
-    identity: Arc<RwLock<Option<(String, String)>>>,
+    pub(super) state: Arc<RwLock<SocketState>>,
+    pub(super) identity: Arc<RwLock<Option<(String, String)>>>,
     loop_active: Arc<AtomicBool>,
     stopped_on_failure: Arc<AtomicBool>,
     commands: Mutex<Option<mpsc::Sender<SocketCommand>>>,
