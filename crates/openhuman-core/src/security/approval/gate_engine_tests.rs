@@ -91,7 +91,7 @@ async fn native_secret_grant_approval_is_left_for_execute_secret2_to_consume() {
     decide_parked(&gate, &request_id, ApprovalDecision::ApproveOnce);
 
     let (outcome, reported) = handle.await.unwrap();
-    assert_eq!(outcome, GateOutcome::Allow);
+    assert!(matches!(outcome, GateOutcome::Allow));
     assert_eq!(reported, None, "the native module owns grant consumption");
     assert_eq!(stub_of(&gate).state(&request_id), Some(State::Approved));
 }

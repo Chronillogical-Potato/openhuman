@@ -92,12 +92,13 @@ fn prose(history: &[TranscriptEntry]) -> Vec<String> {
         .collect()
 }
 
-pub(super) fn host_seeded_with(config: &Config, marker: &str) -> OpenHumanSessionHost {
+pub(super) async fn host_seeded_with(config: &Config, marker: &str) -> OpenHumanSessionHost {
     let mut host = OpenHumanSessionHost::from_config_for_agent(
         &crate::core::runtime::DispatchCtx::ambient(),
         config,
         "orchestrator",
     )
+    .await
     .unwrap();
     host.seed_resume_from_messages(
         vec![
@@ -106,6 +107,7 @@ pub(super) fn host_seeded_with(config: &Config, marker: &str) -> OpenHumanSessio
         ],
         "",
     )
+    .await
     .unwrap();
     host
 }
@@ -210,7 +212,7 @@ async fn checkin_if_vacant_yields_to_a_turn_that_re_cached_meanwhile() {
 
     // A user turn finished while the system turn was running and cached its
     // agent unconditionally.
-    let user_turn_agent = host_seeded_with(&config, "user-turn-history");
+    let user_turn_agent = host_seeded_with(&config, "user-turn-history").await;
     checkin_session_agent(
         &DispatchCtx::ambient(),
         &thread_id,
@@ -220,7 +222,7 @@ async fn checkin_if_vacant_yields_to_a_turn_that_re_cached_meanwhile() {
     .await;
 
     // The system turn must not clobber it.
-    let system_turn_agent = host_seeded_with(&config, "system-turn-history");
+    let system_turn_agent = host_seeded_with(&config, "system-turn-history").await;
     assert!(
         !checkin_session_agent_if_vacant(
             &DispatchCtx::ambient(),
@@ -245,7 +247,7 @@ async fn checkin_if_vacant_yields_to_a_turn_that_re_cached_meanwhile() {
     assert_eq!(prose(&agent.history()), vec!["user-turn-history", "ok"]);
 
     // Into a vacant slot it goes in.
-    let system_turn_agent = host_seeded_with(&config, "system-turn-history");
+    let system_turn_agent = host_seeded_with(&config, "system-turn-history").await;
     assert!(
         checkin_session_agent_if_vacant(
             &DispatchCtx::ambient(),
@@ -281,7 +283,7 @@ async fn a_fork_never_takes_or_returns_the_cached_agent() {
     checkin_session_agent(
         &DispatchCtx::ambient(),
         &thread_id,
-        host_seeded_with(&config, "primary-history"),
+        host_seeded_with(&config, "primary-history").await,
         fingerprint,
     )
     .await;
@@ -322,7 +324,7 @@ async fn a_system_turn_adopts_the_cached_agent_and_its_fingerprint() {
     checkin_session_agent(
         &DispatchCtx::ambient(),
         &thread_id,
-        host_seeded_with(&config, "pinned-history"),
+        host_seeded_with(&config, "pinned-history").await,
         pinned.clone(),
     )
     .await;
@@ -613,7 +615,7 @@ async fn a_system_turn_never_adopts_an_agent_from_another_workspace() {
     checkin_session_agent(
         &DispatchCtx::ambient(),
         &thread_id,
-        host_seeded_with(&config_a, "user-a-history"),
+        host_seeded_with(&config_a, "user-a-history").await,
         built_for_a,
     )
     .await;
