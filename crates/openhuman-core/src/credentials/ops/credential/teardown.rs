@@ -1,9 +1,9 @@
 use super::*;
-use std::future::Future;
 use crate::config::user_scope::{deactivate_user_scope, rebind_after_credential_change};
 use crate::core::observability::sentry_scope;
 use crate::core::Outcome;
 use crate::credentials::{identity, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
+use std::future::Future;
 
 /// The session teardown: gate closed first so no worker fires at a backend
 /// about to be invalidated, then profile removal, socket / workflow-bridge
@@ -16,9 +16,7 @@ pub(crate) async fn clear_session_credential(
 ) -> Result<Outcome<bool>, String> {
     crate::platform::llm_gate::set_signed_out(true);
     after_device_pairing_lock(
-        || {
-            crate::security::devices::bus::lock_device_pairing_scope_for_logout(ctx, config)
-        },
+        || crate::security::devices::bus::lock_device_pairing_scope_for_logout(ctx, config),
         || clear_session_credential_after_pairing_lock(ctx, config),
     )
     .await

@@ -1,5 +1,8 @@
 use super::*;
-use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 #[tokio::test]
 async fn device_pairing_lock_finishes_before_credential_scope_teardown() {
