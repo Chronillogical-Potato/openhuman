@@ -47,6 +47,36 @@ impl Client {
         Ok(Self { object })
     }
 
+    #[cfg(test)]
+    fn from_object(object: tinybus::module::ModuleObjectClient) -> Self {
+        Self { object }
+    }
+
+    /// Run a paired-device lifecycle operation inside TinySecurity.
+    ///
+    /// The operation is confidential because it may carry a handshake frame,
+    /// an opaque pairing capability, or a host event identifier.
+    pub async fn device_pairing2(
+        &self,
+        request: tinysecurity_bus::DevicePairingRequest2,
+    ) -> Result<tinysecurity_bus::DevicePairingResponse2, SecurityError> {
+        self.object
+            .call_confidential(tinysecurity_bus::names::methods::DEVICE_PAIRING2, (request,))
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
+    /// Seal or open one live tunnel frame using TinySecurity's opaque session.
+    pub async fn device_frame2(
+        &self,
+        request: tinysecurity_bus::DeviceFrameRequest2,
+    ) -> Result<tinysecurity_bus::DeviceFrameResponse2, SecurityError> {
+        self.object
+            .call_confidential(tinysecurity_bus::names::methods::DEVICE_FRAME2, (request,))
+            .await
+            .map_err(|error| SecurityError::Unavailable(error.to_string()))
+    }
+
     /// Read effective settings and advertised capabilities from the module.
     pub async fn policy_info(&self) -> Result<PolicyInfo, SecurityError> {
         self.object
@@ -391,6 +421,10 @@ impl Client {
             .map_err(|error| SecurityError::Unavailable(error.to_string()))
     }
 }
+
+#[cfg(test)]
+#[path = "client_tests.rs"]
+mod tests;
 
 #[cfg(test)]
 #[path = "client_tests.rs"]
