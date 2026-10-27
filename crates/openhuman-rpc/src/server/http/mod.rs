@@ -111,6 +111,7 @@ fn build_core_http_router_mode(
         .route_layer(middleware::from_fn(
             crate::server::auth::rpc_auth_middleware,
         ));
+    let socket_preflight_gate = preflight_gate.clone();
     let router = if let Some(gate) = preflight_gate {
         router
             .layer(axum::Extension(gate.clone()))
@@ -132,7 +133,8 @@ fn build_core_http_router_mode(
     let router = router.layer(middleware::from_fn(cors::cors_middleware));
 
     if socketio_enabled {
-        let (socket_layer, io) = crate::server::socketio::attach_socketio();
+        let (socket_layer, io) =
+            crate::server::socketio::attach_socketio_with_preflight(socket_preflight_gate);
         crate::server::socketio::spawn_web_channel_bridge(io);
         return router.layer(socket_layer);
     }
