@@ -291,6 +291,12 @@ impl DispatchCtx {
         self
     }
 
+    /// Mark a dispatch created by a server-observed socket event.
+    pub(crate) fn with_socket_event(mut self) -> Self {
+        self.invocation_source = InvocationSource::SocketEvent;
+        self
+    }
+
     /// A non-owning handle on the bound context, for state that outlives the
     /// call (a session, a built turn). The tenant lease is the strong count of
     /// the context ([`CoreContext::tenant_in_use`]), so a long-lived holder

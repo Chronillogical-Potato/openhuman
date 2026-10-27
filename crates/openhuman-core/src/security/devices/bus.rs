@@ -105,7 +105,7 @@ impl EventHandler<DomainEvent> for DeviceTunnelSubscriber {
                                 // Capture the context created by `within_agent`.
                                 // Passing `host_ctx` through here would lose the
                                 // paired device's owner before controller dispatch.
-                                let owner_ctx = DispatchCtx::ambient();
+                                let owner_ctx = DispatchCtx::ambient().with_socket_event();
                                 handle_tunnel_frame(&owner_ctx, channel_id, payload_b64).await
                             },
                         )
