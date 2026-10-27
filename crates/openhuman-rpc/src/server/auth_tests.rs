@@ -70,6 +70,47 @@ fn is_external_inference_path_matches_only_v1_routes() {
 }
 
 #[test]
+fn startup_preflight_allows_only_health_and_approval_rpc_methods() {
+    assert!(super::preflight_http_path_allowed(
+        &axum::http::Method::GET,
+        "/health"
+    ));
+    assert!(super::preflight_http_path_allowed(
+        &axum::http::Method::POST,
+        "/rpc"
+    ));
+    assert!(!super::preflight_http_path_allowed(
+        &axum::http::Method::GET,
+        "/schema"
+    ));
+    assert!(!super::preflight_http_path_allowed(
+        &axum::http::Method::GET,
+        "/events"
+    ));
+    assert!(!super::preflight_http_path_allowed(
+        &axum::http::Method::POST,
+        "/v1/chat/completions"
+    ));
+
+    assert!(super::preflight_rpc_method_allowed("core.version"));
+    assert!(super::preflight_rpc_method_allowed(
+        "openhuman.approval_list_pending"
+    ));
+    assert!(super::preflight_rpc_method_allowed("openhuman.approval_decide"));
+    assert!(!super::preflight_rpc_method_allowed("core.config"));
+    assert!(!super::preflight_rpc_method_allowed("openhuman.config_get"));
+    assert!(!super::preflight_rpc_method_allowed("openhuman.approval_get_gate_state"));
+}
+
+#[test]
+fn startup_preflight_gate_opens_the_normal_surface_after_decryption() {
+    let gate = super::PreflightGate::new_active();
+    assert!(gate.is_active());
+    gate.open();
+    assert!(!gate.is_active());
+}
+
+#[test]
 fn verify_external_inference_bearer_for_config_accepts_stored_key() {
     // Keep a session_store test from installing a storage backend mid-test.
     let _slot = crate::STORAGE_SLOT_TEST_LOCK.blocking_lock();
