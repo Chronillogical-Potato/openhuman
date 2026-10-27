@@ -23,8 +23,9 @@ use crate::credentials::session_state::is_local_session_token;
 use crate::inference::provider::factory::lookup_key_for_slug;
 
 /// A stored provider key, falling back to its environment variable.
-fn provider_key(config: &Config, slug: &str, env: &str) -> Option<String> {
+async fn provider_key(config: &Config, slug: &str, env: &str) -> Option<String> {
     lookup_key_for_slug(slug, config)
+        .await
         .ok()
         .filter(|key| !key.trim().is_empty())
         .or_else(|| std::env::var(env).ok().filter(|key| !key.trim().is_empty()))
@@ -40,7 +41,7 @@ async fn tinyhumans_bearer(config: &Config) -> Option<String> {
         .filter(|token| !is_local_session_token(token))
 }
 
-fn jev(config: &Config, hosted: Option<&str>) -> Option<Value> {
+async fn jev(config: &Config, hosted: Option<&str>) -> Option<Value> {
     match config.computer.decision_model {
         DecisionModel::Jev => match hosted {
             Some(api_key) => Some(json!({
@@ -51,13 +52,17 @@ fn jev(config: &Config, hosted: Option<&str>) -> Option<Value> {
             // A headless or BYOK host may have no TinyHumans session. Direct
             // OpenRouter Jev remains usable with its own scoped credential.
             None => provider_key(config, "openrouter", "OPENROUTER_API_KEY")
+                .await
                 .map(|api_key| json!({ "api_key": api_key, "provider": "open_router" })),
         },
         DecisionModel::OpenJev => provider_key(config, "openjev", "OPENJEV_API_KEY")
+            .await
             .map(|api_key| json!({ "api_key": api_key, "provider": "open_jev" })),
-        DecisionModel::Sage => provider_key(config, "sage", "SAGE_API_KEY").map(|api_key| {
-            json!({ "api_key": api_key, "provider": "sage", "fast": config.computer.sage_fast })
-        }),
+        DecisionModel::Sage => provider_key(config, "sage", "SAGE_API_KEY")
+            .await
+            .map(|api_key| {
+                json!({ "api_key": api_key, "provider": "sage", "fast": config.computer.sage_fast })
+            }),
     }
 }
 
@@ -73,7 +78,7 @@ pub const HOSTED_REASONING_MODEL: &str = "agentic-v1";
 /// The `planner` configuration: the hosted route with the session's bearer
 /// when signed in, else the user's OpenRouter key; the user's chosen models,
 /// with [`HOSTED_REASONING_MODEL`] for any unchosen role on the hosted route.
-fn planner(config: &Config, hosted: Option<&str>) -> Option<Value> {
+async fn planner(config: &Config, hosted: Option<&str>) -> Option<Value> {
     let mut planner = match hosted {
         Some(api_key) => json!({
             "api_key": api_key,
@@ -81,7 +86,7 @@ fn planner(config: &Config, hosted: Option<&str>) -> Option<Value> {
             "sdk_name": config.resolved_endpoints.product_identity.clone()
         }),
         None => {
-            let api_key = provider_key(config, "openrouter", "OPENROUTER_API_KEY")?;
+            let api_key = provider_key(config, "openrouter", "OPENROUTER_API_KEY").await?;
             json!({ "api_key": api_key, "provider": "open_router" })
         }
     };
@@ -139,10 +144,10 @@ fn create_trace_dir(dir: &Path) -> std::io::Result<()> {
 pub async fn module_config(config: &Config) -> Value {
     let hosted = tinyhumans_bearer(config).await;
     let mut out = Map::new();
-    if let Some(jev) = jev(config, hosted.as_deref()) {
+    if let Some(jev) = jev(config, hosted.as_deref()).await {
         out.insert("jev".into(), jev);
     }
-    if let Some(planner) = planner(config, hosted.as_deref()) {
+    if let Some(planner) = planner(config, hosted.as_deref()).await {
         out.insert("planner".into(), planner);
     }
     if let Some(executable) = config.browser.chrome_path.as_ref() {
