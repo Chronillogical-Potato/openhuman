@@ -80,7 +80,7 @@ async fn device_pairing_and_frame_calls_use_the_confidential_security_bus() {
     };
     if let SecurityProxy::Module(object) = &client.object {
         object
-            .call_detailed(
+            .call_detailed::<tinysecurity_bus::DevicePairingResponse2>(
                 tinysecurity_bus::names::methods::DEVICE_PAIRING2,
                 (pairing.clone(),),
             )
