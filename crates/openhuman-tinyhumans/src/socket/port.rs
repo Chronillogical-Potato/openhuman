@@ -312,9 +312,11 @@ async fn run_socket_actor(
                 ) {
                     continue;
                 }
-                if event.source == tinyhumans_sdk::socket::SocketEventSource::Backend {
-                    apply_backend_status_event(&event, &mut state.write());
+                if event.source == tinyhumans_sdk::socket::SocketEventSource::Supervisor {
+                    log::debug!("[socket] unhandled SDK supervisor event: {}", event.name);
+                    continue;
                 }
+                apply_backend_status_event(&event, &mut state.write());
                 let data = event.payload.decode::<Value>(&event.name).unwrap_or(Value::Null);
                 openhuman_embed::__host::platform::socket::dispatch_socket_event(&event.name, data);
             }

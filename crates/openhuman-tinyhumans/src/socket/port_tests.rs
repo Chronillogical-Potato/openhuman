@@ -40,6 +40,7 @@ fn socket_identity_match_requires_both_url_and_session_token() {
 
     let port = SdkSocketPort::default();
     *port.identity.write() = Some(("https://api.example".into(), "session-a".into()));
+    port.transport_connected.store(true, Ordering::Release);
     *port.state.write() = SocketState {
         status: ConnectionStatus::Connected,
         socket_id: None,
